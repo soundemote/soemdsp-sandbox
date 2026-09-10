@@ -9,12 +9,12 @@ NodeLiveAudioProcessor.prototype.ellipsoidSineToSquare = function ellipsoidSineT
   mode = 1, // ignored
   phaseIncCycles = 0,
 ) {
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const f = Math.max(0, Number(frequencyHz) || 0);
-  const angle = (Number(phaseCycles) || 0) * Math.PI * 2;
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const f = Math.max(0, nodeGraphFiniteNumber(frequencyHz));
+  const angle = (nodeGraphFiniteNumber(phaseCycles)) * Math.PI * 2;
   const sinPhase = Math.sin(angle);
   const cosPhase = Math.cos(angle);
-  let c = 1 - this.clampValue(Number(shape) || 0, 0, 1);
+  let c = 1 - this.clampValue(nodeGraphFiniteNumber(shape), 0, 1);
   const cMin = this.clampValue((Math.PI * 2 * f) / sr, 0, 1);
   if (c < cMin) c = cMin;
   const xx = (cosPhase * cosPhase) + (sinPhase * c) * (sinPhase * c);
@@ -36,16 +36,16 @@ NodeLiveAudioProcessor.prototype.ellipsoidSample = function ellipsoidSample(
   frequencyHz = 0,
   sampleRate = 44100,
 ) {
-  const phaseRadians = Number(phase) || 0;
+  const phaseRadians = nodeGraphFiniteNumber(phase);
   const sinPhase = Math.sin(phaseRadians);
   const cosPhase = Math.cos(phaseRadians);
-  const shapeRadians = (Number(shape) || 0) * Math.PI;
+  const shapeRadians = (nodeGraphFiniteNumber(shape)) * Math.PI;
   const shapeSin = Math.sin(shapeRadians);
   const shapeCos = Math.cos(shapeRadians);
-  const safeOffset = Number(offset) || 0;
-  let safeScale = Math.max(0, Number(scale) || 0);
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const f = Math.max(0, Number(frequencyHz) || 0);
+  const safeOffset = nodeGraphFiniteNumber(offset);
+  let safeScale = Math.max(0, nodeGraphFiniteNumber(scale));
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const f = Math.max(0, nodeGraphFiniteNumber(frequencyHz));
   const scaleFloor = this.clampValue((Math.PI * 2 * f) / sr, 0, 1);
   if (safeScale < scaleFloor) safeScale = scaleFloor;
   const ax = safeOffset + cosPhase;
@@ -66,9 +66,9 @@ NodeLiveAudioProcessor.prototype.ellipsoidVectorSample = function ellipsoidVecto
   mode = 1,
   phaseInc = 0,
 ) {
-  const level = Number(levelValue) || 0;
-  const morph = this.clampValue(Number(shape) || 0, 0, 1);
-  const phase = Number(phaseCycles) || 0;
+  const level = nodeGraphFiniteNumber(levelValue);
+  const morph = this.clampValue(nodeGraphFiniteNumber(shape), 0, 1);
+  const phase = nodeGraphFiniteNumber(phaseCycles);
   const biX = this.ellipsoidSineToSquare(phase, morph, frequencyHz, sampleRate) * level;
   const biY = this.ellipsoidSineToSquare(phase - 0.25, morph, frequencyHz, sampleRate) * level;
   // Uni 0…1 when level=1 bipolar −1…1: (bi + level) / 2 maps −A…A → 0…A
@@ -95,20 +95,20 @@ NodeLiveAudioProcessor.prototype.nativeEllipsoidVectorSample = function nativeEl
   phaseInc = 0,
 ) {
   const native = this.nativeEllipsoidReady ? this.nativeEllipsoid : null;
-  const morph = this.clampValue(Number(shape) || 0, 0, 1);
-  const phase = Number(phaseCycles) || 0;
-  const level = Number(levelValue) || 0;
-  const f = Math.max(0, Number(frequencyHz) || 0);
-  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const morph = this.clampValue(nodeGraphFiniteNumber(shape), 0, 1);
+  const phase = nodeGraphFiniteNumber(phaseCycles);
+  const level = nodeGraphFiniteNumber(levelValue);
+  const f = Math.max(0, nodeGraphFiniteNumber(frequencyHz));
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const m = 1; // Limit always
-  const inc = Number(phaseInc) || 0;
+  const inc = nodeGraphFiniteNumber(phaseInc);
 
   const sampleAt = (p) => {
     if (native?.soemdsp_ellipsoid_sine_to_square_mode) {
-      return Number(native.soemdsp_ellipsoid_sine_to_square_mode(p, morph, f, sr, m, inc)) || 0;
+      return nodeGraphFiniteNumber(native.soemdsp_ellipsoid_sine_to_square_mode(p, morph, f, sr, m, inc));
     }
     if (native?.soemdsp_ellipsoid_sine_to_square_aa) {
-      return Number(native.soemdsp_ellipsoid_sine_to_square_aa(p, morph, f, sr, 1)) || 0;
+      return nodeGraphFiniteNumber(native.soemdsp_ellipsoid_sine_to_square_aa(p, morph, f, sr, 1));
     }
     return this.ellipsoidSineToSquare(p, morph, f, sr);
   };
@@ -163,9 +163,9 @@ NodeLiveAudioProcessor.prototype.ellipsoidWorkletEvaluate = function ellipsoidWo
         ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)
         : frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
   const incrementInput = this.safeFilterNumber(mixInput(nodeId, "Increment"));
-  const motion = Math.max(0, Math.min(3, Math.round(Number(
+  const motion = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(
     this.readEffectiveParameter(node, "motion", 1, frame, frames, frameValues),
-  ) || 0)));
+  ))));
   const clockWise = motion === 0 || motion === 2;
   const useSimTime = motion >= 2;
   const dir = clockWise ? -1 : 1;
@@ -182,7 +182,7 @@ NodeLiveAudioProcessor.prototype.ellipsoidWorkletEvaluate = function ellipsoidWo
   }
   let samplePhase;
   if (useSimTime) {
-    const simSamples = Math.max(0, Number(this.absoluteFrame) || 0);
+    const simSamples = Math.max(0, nodeGraphFiniteNumber(this.absoluteFrame));
     samplePhase = dir * ((pitchedFrequency / safeRate) + incrementInput) * simSamples + phaseOffset;
   } else {
     samplePhase = phase + phaseOffset;
@@ -195,9 +195,9 @@ NodeLiveAudioProcessor.prototype.ellipsoidWorkletEvaluate = function ellipsoidWo
     const native = this.nativeEllipsoidReady ? this.nativeEllipsoid : null;
     const sampleLegacy = (p, offset, shape, scale) => {
       if (native?.soemdsp_ellipsoid_sample_aa) {
-        return Number(native.soemdsp_ellipsoid_sample_aa(
+        return nodeGraphFiniteNumber(native.soemdsp_ellipsoid_sample_aa(
           p, offset, shape, scale, pitchedFrequency, safeRate,
-        )) || 0;
+        ));
       }
       if (native?.soemdsp_ellipsoid_sample) {
         // Fallback without export: JS Limit path

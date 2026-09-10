@@ -35,7 +35,7 @@ function nodeGraphAdditiveBubbleLiveEvaluator({ node, nodeId, runtime, frame, fr
     read("unskew", 481.53),
     cutoff,
   );
-  let bubble = Math.max(0, Math.min(1, Number(read("bubble", 0)) || 0));
+  let bubble = Math.max(0, Math.min(1, nodeGraphFiniteNumber(read("bubble", 0))));
   const invert = Number(read("invertBubble", 0)) >= 0.5;
   let curveAmt = invert ? -bubble : bubble;
   if (curveAmt > 0.9999) curveAmt = 0.9999;

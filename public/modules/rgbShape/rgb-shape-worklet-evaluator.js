@@ -37,9 +37,9 @@ NodeLiveAudioProcessor.prototype.rgbShapeWorkletEvaluate = function rgbShapeWork
       ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)
       : frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
   const incrementInput = this.safeFilterNumber(mixInput(nodeId, "Increment"));
-  const motion = Math.max(0, Math.min(3, Math.round(Number(
+  const motion = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(
     this.readEffectiveParameter(node, "motion", 1, frame, frames, frameValues),
-  ) || 0)));
+  ))));
   const clockWise = motion === 0 || motion === 2;
   const useSimTime = motion >= 2;
   const dir = clockWise ? -1 : 1;
@@ -48,7 +48,7 @@ NodeLiveAudioProcessor.prototype.rgbShapeWorkletEvaluate = function rgbShapeWork
     : (dir * pitchedFrequency / safeRate) + incrementInput;
   let samplePhase;
   if (useSimTime) {
-    const simSamples = Math.max(0, Number(this.absoluteFrame) || 0);
+    const simSamples = Math.max(0, nodeGraphFiniteNumber(this.absoluteFrame));
     samplePhase = dir * ((pitchedFrequency / safeRate) + incrementInput) * simSamples + phaseOffset;
   } else {
     samplePhase = phase + phaseOffset;
@@ -63,11 +63,11 @@ NodeLiveAudioProcessor.prototype.rgbShapeWorkletEvaluate = function rgbShapeWork
     point = { x: Math.cos(a), y: Math.sin(a) };
   }
   // Size/Width/Height scale the outline into bipolar audio (−amp…amp).
-  const sx = Math.max(0, Number(size) || 0) * Math.max(0, Number(width) || 0);
-  const sy = Math.max(0, Number(size) || 0) * Math.max(0, Number(height) || 0);
-  const level = Number(amp) || 0;
-  const xOut = (Number(point.x) || 0) * sx * level;
-  const yOut = (Number(point.y) || 0) * sy * level;
+  const sx = Math.max(0, nodeGraphFiniteNumber(size)) * Math.max(0, nodeGraphFiniteNumber(width));
+  const sy = Math.max(0, nodeGraphFiniteNumber(size)) * Math.max(0, nodeGraphFiniteNumber(height));
+  const level = nodeGraphFiniteNumber(amp);
+  const xOut = (nodeGraphFiniteNumber(point.x)) * sx * level;
+  const yOut = (nodeGraphFiniteNumber(point.y)) * sy * level;
 
   let nextPhase = phase + phaseIncrement;
   nextPhase -= Math.floor(nextPhase);

@@ -74,8 +74,8 @@ NodeLiveAudioProcessor.prototype.delayParabolBipolar = function delayParabolBipo
 };
 
 NodeLiveAudioProcessor.prototype.delayRationalCurve01 = function delayRationalCurve01(x, k) {
-  const v = Math.max(0, Math.min(1, Number(x) || 0));
-  const kk = Math.max(-0.999, Math.min(0.999, Number(k) || 0));
+  const v = Math.max(0, Math.min(1, nodeGraphFiniteNumber(x)));
+  const kk = Math.max(-0.999, Math.min(0.999, nodeGraphFiniteNumber(k)));
   const denom = 2 * kk * v - kk - 1;
   if (Math.abs(denom) < 1e-12) return v;
   return (kk * v - v) / denom;
@@ -84,8 +84,8 @@ NodeLiveAudioProcessor.prototype.delayRationalCurve01 = function delayRationalCu
 /** Mod LFO (Parabol / Random Walk / FBM) → bipolar −1…+1. */
 NodeLiveAudioProcessor.prototype.delayRunModLfo = function delayRunModLfo(ch, style, rateHz, sampleRate) {
   const rate = Math.max(1, sampleRate);
-  const hz = Math.max(0, Number(rateHz) || 0);
-  const st = Math.round(Number(style) || 0);
+  const hz = Math.max(0, nodeGraphFiniteNumber(rateHz));
+  const st = Math.round(nodeGraphFiniteNumber(style));
 
   if (st === 1) {
     const noise = this.delayHashBipolar((ch.walkTick = (ch.walkTick + 1) | 0), ch.seed);
@@ -98,18 +98,18 @@ NodeLiveAudioProcessor.prototype.delayRunModLfo = function delayRunModLfo(ch, st
       : 0;
     const randomMix = 1 - whiteNoiseMix;
     const step = noise > 0 ? stepSize : -stepSize;
-    ch.walkOut = Math.max(-1, Math.min(1, (ch.walkOut || 0) + step));
+    ch.walkOut =  (ch.walkOut || 0) + step;
     const mixed = ch.walkOut * randomMix + noise * whiteNoiseMix;
     const w = Math.min((Math.PI * 2) / rate, 0.000142475857) * Math.max(0, hz);
     const a1 = Math.exp(-w);
     ch.walkLpf = (1 - a1) * mixed + a1 * (ch.walkLpf || 0);
-    return Math.max(-1, Math.min(1, ch.walkLpf));
+    return ch.walkLpf;
   }
 
   if (st === 2) {
     ch.fbmTime = (ch.fbmTime || 0) + hz / rate;
     const uni = this.delayFbmUnipolar(ch.fbmTime, ch.seed);
-    return Math.max(-1, Math.min(1, uni * 2 - 1));
+    return uni * 2 - 1;
   }
 
   ch.phase = ((ch.phase || 0) + hz / rate) % 1;
@@ -128,8 +128,8 @@ NodeLiveAudioProcessor.prototype.delayEffectInterp = function delayEffectInterp(
   }
   const length = buffer?.length || 0;
   if (!length) return 0;
-  const mode = Math.round(Number(interpolation) || 0);
-  let w = Number(where) || 0;
+  const mode = Math.round(nodeGraphFiniteNumber(interpolation));
+  let w = nodeGraphFiniteNumber(where);
   while (w < 0) w += length;
   if (mode < 1) {
     const before = Math.floor(w) % length;
@@ -167,7 +167,7 @@ NodeLiveAudioProcessor.prototype.delayEffectEnsureLfo = function delayEffectEnsu
 };
 
 NodeLiveAudioProcessor.prototype.delayEffectSampleJs = function delayEffectSampleJs(state, input, params, rateHz = sampleRate, nodeId = "") {
-  const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(rateHz, nodeGraphFiniteNumber(sampleRate, 44100)));
   const maxDelaySeconds = 4.25;
   const requiredSize = Math.max(2, Math.ceil(safeRate * maxDelaySeconds) + 2);
   if (!state.buffer || state.bufferSize !== requiredSize) {
@@ -181,22 +181,22 @@ NodeLiveAudioProcessor.prototype.delayEffectSampleJs = function delayEffectSampl
   this.delayEffectEnsureLfo(state, nodeId);
 
   const inLevel = Number(params.inLevel);
-  const dry = (Number(input) || 0) * (Number.isFinite(inLevel) ? inLevel : 1);
-  const time = this.clampValue(Number(params.time) || 0, 0.001, maxDelaySeconds);
+  const dry = (nodeGraphFiniteNumber(input)) * (Number.isFinite(inLevel) ? inLevel : 1);
+  const time = this.clampValue(nodeGraphFiniteNumber(params.time), 0.001, maxDelaySeconds);
   // Rare hard clamp: feedback 0–1 only.
-  const feedback = this.clampValue(Number(params.feedback) || 0, 0, 1);
-  const mix = this.clampValue(Number(params.mix) || 0, 0, 1);
+  const feedback = this.clampValue(nodeGraphFiniteNumber(params.feedback), 0, 1);
+  const mix = this.clampValue(nodeGraphFiniteNumber(params.mix), 0, 1);
   const outLevelRaw = params.outLevel != null ? params.outLevel : params.level;
   const outLevel = Number(outLevelRaw);
   const level = Number.isFinite(outLevel) ? outLevel : 1;
-  const modAmount = this.clampValue(Number(params.modAmount) || 0, 0, 0.5);
-  const modRate = this.clampValue(Number(params.modRate) || 0, 0, 90);
-  const modVariation = this.clampValue(Number(params.modVariation) || 0, 0, 1);
-  const modStyle = Math.round(Number(params.modStyle) || 0);
-  const interpMode = Math.round(Number(params.interpolation) || 0) >= 1 ? 1 : 0;
+  const modAmount = this.clampValue(nodeGraphFiniteNumber(params.modAmount), 0, 0.5);
+  const modRate = this.clampValue(nodeGraphFiniteNumber(params.modRate), 0, 90);
+  const modVariation = this.clampValue(nodeGraphFiniteNumber(params.modVariation), 0, 1);
+  const modStyle = Math.round(nodeGraphFiniteNumber(params.modStyle));
+  const interpMode = Math.round(nodeGraphFiniteNumber(params.interpolation)) >= 1 ? 1 : 0;
 
   const ch = state.lfo;
-  const phaseProxy = Number(ch.phase) || Number(ch.fbmTime) || 0;
+  const phaseProxy = nodeGraphFiniteNumber(ch.phase, nodeGraphFiniteNumber(ch.fbmTime));
   const variationTarget = this.delayHashBipolar(
     Math.floor(phaseProxy * 997) + state.position,
     ch.seed,
@@ -221,7 +221,7 @@ NodeLiveAudioProcessor.prototype.delayEffectSample = function delayEffectSample(
   // Prefer JS: Hermite interp, mod styles (Parabol/RW/FBM), InLevel, and
   // feedback 0–1. Native delay_effect is linear-only and still mode-era.
   const wantHermite = false;
-  const modStyle = Math.round(Number(params.modStyle) || 0);
+  const modStyle = Math.round(nodeGraphFiniteNumber(params.modStyle));
   const useNative = !wantHermite
     && modStyle === 0
     && this.nativeDelayEffectReady
@@ -241,20 +241,20 @@ NodeLiveAudioProcessor.prototype.delayEffectSample = function delayEffectSample(
         }
         const safeRateValue = Math.max(1, nodeGraphFiniteNumber(rateHz, 44100));
         const inLevel = Number(params.inLevel);
-        const scaledIn = (Number(input) || 0) * (Number.isFinite(inLevel) ? inLevel : 1);
+        const scaledIn = (nodeGraphFiniteNumber(input)) * (Number.isFinite(inLevel) ? inLevel : 1);
         const outLevelRaw = params.outLevel != null ? params.outLevel : params.level;
         const outLevel = Number(outLevelRaw);
         const level = Number.isFinite(outLevel) ? outLevel : 1;
         this.nativeDelayEffect.soemdsp_delay_effect_sample(
           state.nativeHandle,
           scaledIn,
-          this.clampValue(Number(params.time) || 0, 0.001, 4.25),
-          this.clampValue(Number(params.feedback) || 0, 0, 1),
-          this.clampValue(Number(params.mix) || 0, 0, 1),
+          this.clampValue(nodeGraphFiniteNumber(params.time), 0.001, 4.25),
+          this.clampValue(nodeGraphFiniteNumber(params.feedback), 0, 1),
+          this.clampValue(nodeGraphFiniteNumber(params.mix), 0, 1),
           level,
-          this.clampValue(Number(params.modAmount) || 0, 0, 0.5),
-          this.clampValue(Number(params.modRate) || 0, 0, 90),
-          this.clampValue(Number(params.modVariation) || 0, 0, 1),
+          this.clampValue(nodeGraphFiniteNumber(params.modAmount), 0, 0.5),
+          this.clampValue(nodeGraphFiniteNumber(params.modRate), 0, 90),
+          this.clampValue(nodeGraphFiniteNumber(params.modVariation), 0, 1),
           0, // mode removed — always classic delay
           state.nativeSeed >>> 0,
           safeRateValue,

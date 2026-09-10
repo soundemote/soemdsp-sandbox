@@ -21,8 +21,8 @@ nodeGraphLiveModuleEvaluators.bode = ({
   const fine = readNodeGraphLiveEffectiveParam(runtime, node, "fine", 0, frame, frames, frameValues);
   const feedback = readNodeGraphLiveEffectiveParam(runtime, node, "feedback", 0, frame, frames, frameValues);
   const mix = readNodeGraphLiveEffectiveParam(runtime, node, "mix", 1, frame, frames, frameValues);
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
-  const x = Number(mixInput(nodeId)) || 0;
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
+  const x = nodeGraphFiniteNumber(mixInput(nodeId));
   const y = nodeGraphBodeSample(state, x, shift, fine, feedback, mix, rate);
   return typeof nodeGraphSafeFilterNumber === "function"
     ? nodeGraphSafeFilterNumber(y, runtime, nodeId, null, "bode")

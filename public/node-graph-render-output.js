@@ -84,7 +84,7 @@ function nodeGraphCreateRaptEllipticRenderState() {
 }
 
 function nodeGraphRaptEllipticRenderSample(input, states) {
-  let y = Number(input) || 0;
+  let y = nodeGraphFiniteNumber(input);
   for (let section = 0; section < nodeGraphRaptEllipticQuarterbandSos.length; section += 1) {
     const [b0, b1, b2, , a1, a2] = nodeGraphRaptEllipticQuarterbandSos[section];
     const z1 = states[section][0];
@@ -151,14 +151,14 @@ function setNodeGraphAudioStats(peak = 0, rms = 0, details = {}) {
   if (!audioStats) {
     return;
   }
-  const frames = Number(details.frames) || 0;
-  const sampleRate = Number(details.sampleRate) || nodeGraphMvp.sampleRate;
-  const engineSampleRate = Number(details.engineSampleRate) || sampleRate;
-  const oversamplingRatio = Number(details.oversamplingRatio) || 1;
-  const stateReadCount = Number(details.stateReadCount) || 0;
-  const clipCount = Number(details.clipCount) || 0;
-  const protectionMuteCount = Number(details.protectionMuteCount) || 0;
-  const badNumberCount = Number(details.badNumberCount) || 0;
+  const frames = nodeGraphFiniteNumber(details.frames);
+  const sampleRate = nodeGraphFiniteNumber(details.sampleRate, nodeGraphMvp.sampleRate);
+  const engineSampleRate = nodeGraphFiniteNumber(details.engineSampleRate, sampleRate);
+  const oversamplingRatio = nodeGraphFiniteNumber(details.oversamplingRatio, 1);
+  const stateReadCount = nodeGraphFiniteNumber(details.stateReadCount);
+  const clipCount = nodeGraphFiniteNumber(details.clipCount);
+  const protectionMuteCount = nodeGraphFiniteNumber(details.protectionMuteCount);
+  const badNumberCount = nodeGraphFiniteNumber(details.badNumberCount);
   const durationSeconds = frames > 0 && sampleRate > 0 ? frames / sampleRate : 0;
   const clipText = clipCount ? ` / ${nodeGraphOutputClipCountText(clipCount)}` : "";
   const protectionText = protectionMuteCount ? ` / protected ${protectionMuteCount}` : "";
@@ -230,13 +230,13 @@ async function renderNodeGraphAudio() {
   // Start/End are absolute simulation times. Always run the graph from t=0
   // through End, then keep only [Start, End) so envelopes / clocks / drift
   // match live. Start=0 → no skip.
-  const renderStart = Math.max(0, Number(nodeGraphMvp.renderStartSeconds) || 0);
+  const renderStart = Math.max(0, nodeGraphFiniteNumber(nodeGraphMvp.renderStartSeconds));
   const renderEndRaw = Number(nodeGraphMvp.renderEndSeconds);
   const renderEnd = Math.max(
     renderStart + 0.05,
     Number.isFinite(renderEndRaw) && renderEndRaw > 0
       ? renderEndRaw
-      : (Number(nodeGraphMvp.seconds) || 2),
+      : (nodeGraphFiniteNumber(nodeGraphMvp.seconds, 2)),
   );
   const keepDuration = Math.max(0.05, renderEnd - renderStart);
   const audio = nodeGraphAudioDerivation(nodeGraphMvp.patch);
@@ -278,7 +278,7 @@ async function renderNodeGraphAudio() {
     const offlineCtx = new Offline(2, fullEngineFrames, engineSampleRate);
     const workletNode = await createNodeGraphLiveWorkletNode(offlineCtx, plan);
     workletNode.connect(offlineCtx.destination);
-    const planSerial = (Number(nodeGraphMvp?.live?.planSerial) || 0) + 1;
+    const planSerial = (nodeGraphFiniteNumber(nodeGraphMvp?.live?.planSerial)) + 1;
     if (nodeGraphMvp?.live) nodeGraphMvp.live.planSerial = planSerial;
     workletNode.port.postMessage({
       type: "setPlan",
@@ -288,9 +288,9 @@ async function renderNodeGraphAudio() {
       sampleRate: engineSampleRate,
       engineSampleRate,
       oversamplingRatio: audio.oversamplingRatio,
-      pitchReferenceHz: Number(nodeGraphMvp?.pitchReferenceHz) || 440,
-      pitchReferenceMidiNote: Number(nodeGraphMvp?.pitchReferenceMidiNote) || 69,
-      sessionId: Number(nodeGraphMvp?.live?.sessionId) || 1,
+      pitchReferenceHz: nodeGraphFiniteNumber(nodeGraphMvp?.pitchReferenceHz, 440),
+      pitchReferenceMidiNote: nodeGraphFiniteNumber(nodeGraphMvp?.pitchReferenceMidiNote, 69),
+      sessionId: nodeGraphFiniteNumber(nodeGraphMvp?.live?.sessionId, 1),
       timing: nodeGraphMvp?.patch?.timing || null,
     });
     // Queue play early — worklet boots at speed 0 and would bounce silence.
@@ -338,8 +338,8 @@ async function renderNodeGraphAudio() {
     const available = Math.min(ch0.length, ch1.length);
     for (let i = 0; i < engineFrames; i += 1) {
       const src = startEngineFrame + i;
-      const rawL = src < available ? (Number(ch0[src]) || 0) : 0;
-      const rawR = src < available ? (Number(ch1[src]) || 0) : 0;
+      const rawL = src < available ? (nodeGraphFiniteNumber(ch0[src])) : 0;
+      const rawR = src < available ? (nodeGraphFiniteNumber(ch1[src])) : 0;
       if (nodeGraphOutputSampleClipped(rawL)) clipCount += 1;
       if (nodeGraphOutputSampleClipped(rawR)) clipCount += 1;
       if (

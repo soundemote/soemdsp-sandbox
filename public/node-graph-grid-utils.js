@@ -63,8 +63,8 @@ function clampNodeGraphWorkspaceGridSizeToViewport(size = {}, workspace = docume
     ? nodeGraphWorkspaceViewLimits
     : { minWidthGu: 1, minHeightGu: 1 };
   return {
-    heightGu: Math.max(limits.minHeightGu, Math.min(maxSize.heightGu, Math.round(Number(size.heightGu) || 0))),
-    widthGu: Math.max(limits.minWidthGu, Math.min(maxSize.widthGu, Math.round(Number(size.widthGu) || 0))),
+    heightGu: Math.max(limits.minHeightGu, Math.min(maxSize.heightGu, Math.round(nodeGraphFiniteNumber(size.heightGu)))),
+    widthGu: Math.max(limits.minWidthGu, Math.min(maxSize.widthGu, Math.round(nodeGraphFiniteNumber(size.widthGu)))),
   };
 }
 
@@ -113,7 +113,7 @@ function nodeGraphGridSnapUnits(options = {}) {
 
 function roundNodeGraphGridCoordinate(value, options = {}) {
   const units = nodeGraphGridSnapUnits(options);
-  return Math.round((Number(value) || 0) * units) / units;
+  return Math.round((nodeGraphFiniteNumber(value)) * units) / units;
 }
 
 function nodeGraphPixelToGrid(point, options = {}) {

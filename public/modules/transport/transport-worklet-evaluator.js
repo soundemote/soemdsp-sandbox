@@ -13,7 +13,7 @@ NodeLiveAudioProcessor.prototype.transportTriggerSample = function transportTrig
   isHighNow,
   amplitude,
 ) {
-  const amp = Number(amplitude) || 0;
+  const amp = nodeGraphFiniteNumber(amplitude);
   let trigger = 0;
   if (isHighNow && !state.wasHigh) {
     trigger = amp;
@@ -24,7 +24,7 @@ NodeLiveAudioProcessor.prototype.transportTriggerSample = function transportTrig
 
 // Transport — native preferred; pure math fallback (transport-math.js).
 NodeLiveAudioProcessor.prototype.transportSample = function transportSample(state, params, rateHz = sampleRate) {
-  const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(rateHz, nodeGraphFiniteNumber(sampleRate, 44100)));
   const paramBpm = Number(params?.bpm);
   const tempoBpm = Math.max(
     1,

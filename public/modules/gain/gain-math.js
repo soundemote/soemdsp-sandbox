@@ -38,7 +38,7 @@ function nodeGraphOutputLinToVolumeDb(lin) {
 
 /** Pan −1…+1. 0 keeps Mono→both at unity; edges mute the opposite side. */
 function nodeGraphOutputPanGains(pan) {
-  const p = Math.max(-1, Math.min(1, Number(pan) || 0));
+  const p = nodeGraphFiniteNumber(pan);
   if (p <= 0) {
     return { left: 1, right: Math.cos(-p * Math.PI * 0.5) };
   }
@@ -67,9 +67,9 @@ function nodeGraphGainResolveMasterDb(params, amount, gainDb) {
 }
 
 function nodeGraphGainMonoSum(left, right, mode) {
-  const l = Number(left) || 0;
-  const r = Number(right) || 0;
-  const law = Math.round(Number(mode) || 0);
+  const l = nodeGraphFiniteNumber(left);
+  const r = nodeGraphFiniteNumber(right);
+  const law = Math.round(nodeGraphFiniteNumber(mode));
   if (law === NODE_GRAPH_GAIN_MONO_SUM.POWER) {
     const energy = (l * l + r * r) * 0.5;
     const sign = l + r;
@@ -94,7 +94,7 @@ function nodeGraphGainMonoSum(left, right, mode) {
 }
 
 function nodeGraphGainSample(input, amount, offset = 0) {
-  return (Number(input) || 0) * (Number(amount) || 0) + (Number(offset) || 0);
+  return (nodeGraphFiniteNumber(input)) * (nodeGraphFiniteNumber(amount)) + (nodeGraphFiniteNumber(offset));
 }
 
 /**
@@ -111,13 +111,13 @@ function nodeGraphGainFrame(mono, left, right, amount, offset = 0) {
 }
 
 function nodeGraphGainFrameDb(mono, left, right, opts) {
-  const m = Number(mono) || 0;
+  const m = nodeGraphFiniteNumber(mono);
   const master = nodeGraphGainDbToLin(opts?.masterDb);
   const leftLin = master * nodeGraphGainDbToLin(opts?.leftDb);
   const rightLin = master * nodeGraphGainDbToLin(opts?.rightDb);
-  const offset = Number(opts?.offset) || 0;
-  const outL = ((Number(left) || 0) + m) * leftLin + offset;
-  const outR = ((Number(right) || 0) + m) * rightLin + offset;
+  const offset = nodeGraphFiniteNumber(opts?.offset);
+  const outL = ((nodeGraphFiniteNumber(left)) + m) * leftLin + offset;
+  const outR = ((nodeGraphFiniteNumber(right)) + m) * rightLin + offset;
   return {
     Out: nodeGraphGainMonoSum(outL, outR, opts?.monoSum),
     Left: outL,

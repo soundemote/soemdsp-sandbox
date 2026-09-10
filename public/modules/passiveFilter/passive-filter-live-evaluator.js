@@ -32,8 +32,8 @@ function nodeGraphPassiveFilterResolveCutoffs(runtime, node, nodeId, frame, fram
     const n = Number(freqJack);
     centerFrequency = (Number.isFinite(n) ? n : 0) * pitchRatio;
   } else if (typeof hasInput === "function" && hasInput(nodeId, "0.1V/Oct")) {
-    const lo = Math.max(0, Number(low) || 0);
-    const hi = Math.max(0, Number(high) || 0);
+    const lo = Math.max(0, nodeGraphFiniteNumber(low));
+    const hi = Math.max(0, nodeGraphFiniteNumber(high));
     const safeMode = Math.round(Number(mode)) || 0;
     let base;
     if (safeMode === 0) base = hi > 0 ? hi : 1000;
@@ -43,8 +43,8 @@ function nodeGraphPassiveFilterResolveCutoffs(runtime, node, nodeId, frame, fram
       ? nodeGraphFrequencyHzFromKnobOrF(base, hasInput, mixInput, nodeId)
       : base * pitchRatio;
   } else if (pitchRatio !== 1) {
-    const lo = Math.max(0, Number(low) || 0);
-    const hi = Math.max(0, Number(high) || 0);
+    const lo = Math.max(0, nodeGraphFiniteNumber(low));
+    const hi = Math.max(0, nodeGraphFiniteNumber(high));
     const safeMode = Math.round(Number(mode)) || 0;
     if (safeMode === 0 && hi > 0) centerFrequency = hi * pitchRatio;
     else if (safeMode === 2 && lo > 0) centerFrequency = lo * pitchRatio;

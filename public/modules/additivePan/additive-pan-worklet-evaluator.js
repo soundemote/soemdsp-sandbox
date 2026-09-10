@@ -30,7 +30,7 @@ NodeLiveAudioProcessor.prototype.additivePanWorkletEvaluate = function additiveP
   const shimmer = eff("shimmer", 0.35);
   const orbit = eff("orbit", 1);
   const shimmerRate = eff("shimmerRate", 18);
-  const sr = Number(this.engineSampleRate) || Number(sampleRate) || 44100;
+  const sr = nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100));
   const applied = additiveGraphApplyPan(
     out,
     width,

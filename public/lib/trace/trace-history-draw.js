@@ -17,7 +17,7 @@
   function clamp01(value, fallback = 0) {
     const n = Number(value);
     if (!Number.isFinite(n)) {
-      return Math.max(0, Math.min(1, Number(fallback) || 0));
+      return Math.max(0, Math.min(1, nodeGraphFiniteNumber(fallback)));
     }
     return Math.max(0, Math.min(1, n));
   }
@@ -67,7 +67,7 @@
         valid.push(p);
       }
     }
-    const cap = Math.max(8, Math.round(Number(budget) || 2048));
+    const cap = Math.max(8, Math.round(nodeGraphFiniteNumber(budget, 2048)));
     if (valid.length <= cap) {
       return valid;
     }
@@ -80,20 +80,20 @@
   }
 
   function faceMinSide(canvas) {
-    return Math.max(1, Math.min(Number(canvas?.width) || 1, Number(canvas?.height) || 1));
+    return Math.max(1, Math.min(nodeGraphFiniteNumber(canvas?.width, 1), nodeGraphFiniteNumber(canvas?.height, 1)));
   }
 
   function strokeSolid(context, points, options = {}) {
     if (!context || !points?.length) {
       return 0;
     }
-    const face = Math.max(1, Number(options.faceMinSide) || 1);
+    const face = Math.max(1, nodeGraphFiniteNumber(options.faceMinSide, 1));
     const size01 = clamp01(options.size, 0.035);
     const blur = clamp01(options.blur, 0);
     const brightness = clamp01(options.brightness, 1);
     const color = options.color || "#ff3333";
     const blend = normalizeBlend(options.blend, "source-over");
-    const budget = Math.max(8, Math.round(Number(options.dotBudget) || 2048));
+    const budget = Math.max(8, Math.round(nodeGraphFiniteNumber(options.dotBudget, 2048)));
     const thinned = thinPoints(points, budget);
     const asDots = points.filter((p) => p && Number.isFinite(p.x)).length > budget;
     const fade = clamp01(options.fade, 0);
@@ -156,11 +156,11 @@
     if (!context || !points?.length) {
       return 0;
     }
-    const face = Math.max(1, Number(options.faceMinSide) || 1);
+    const face = Math.max(1, nodeGraphFiniteNumber(options.faceMinSide, 1));
     const size01 = clamp01(options.size, 0.06);
     const blur = clamp01(options.blur, 0);
     const blend = normalizeBlend(options.blend, "source-over");
-    const budget = Math.max(8, Math.round(Number(options.dotBudget) || 2048));
+    const budget = Math.max(8, Math.round(nodeGraphFiniteNumber(options.dotBudget, 2048)));
     const thinned = thinPoints(points, budget);
     if (thinned.length < 2) {
       return strokeSolid(context, thinned, { ...options, color: options.colorB || options.colorA || "#d8f4ff" });
@@ -217,7 +217,7 @@
       return 0;
     }
     const blend = normalizeBlend(stereo.blend, "combine");
-    const face = Math.max(1, Number(leftOptions.faceMinSide || rightOptions.faceMinSide) || 1);
+    const face = Math.max(1, nodeGraphFiniteNumber(leftOptions.faceMinSide || rightOptions.faceMinSide, 1));
     const left = {
       size: leftOptions.size,
       blur: leftOptions.blur,

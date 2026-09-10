@@ -3,7 +3,7 @@
 // Out = outLow + (in - inLow) / (inHigh - inLow) * (outHigh - outLow).
 
 function nodeGraphRangeSample(input, inLow, inHigh, outLow, outHigh) {
-  const x = Number(input) || 0;
+  const x = nodeGraphFiniteNumber(input);
   const lo = Number(inLow);
   const hi = Number(inHigh);
   const oLo = Number(outLow);

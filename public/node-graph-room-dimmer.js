@@ -174,7 +174,7 @@ void main() {
     if (!Number.isFinite(n) || n <= 0) {
       return 0;
     }
-    const short = Math.max(1, Math.min(Number(boxW) || 0, Number(boxH) || 0));
+    const short = Math.max(1, Math.min(nodeGraphFiniteNumber(boxW), nodeGraphFiniteNumber(boxH)));
     const px = raw.endsWith("%") ? (n / 100) * short : n;
     return Math.max(0, Math.min(short * 0.5, px));
   }
@@ -429,8 +429,8 @@ void main() {
       Math.max(0, Math.min(2, h)),
     ]);
     strengths.push(str);
-    softs.push(Math.max(0, Number(soft) || 0));
-    rounds.push(Math.max(0, Number(round) || 0));
+    softs.push(Math.max(0, nodeGraphFiniteNumber(soft)));
+    rounds.push(Math.max(0, nodeGraphFiniteNumber(round)));
   }
 
   function pushRectLight(el, canvasRect, canvas, seen, rects, strengths, softs, rounds, opts = {}) {
@@ -469,7 +469,7 @@ void main() {
     const cr = canvasRect;
     const cssW = Math.max(1e-6, cr.width);
     const cssH = Math.max(1e-6, cr.height);
-    const screenSoft = Number(opts.screenSoft) || 0;
+    const screenSoft = nodeGraphFiniteNumber(opts.screenSoft);
     const glowOn = screenSoft > 0 && simulationOn();
     // Client → UV, no buffer-pixel snap (that drifted under CSS zoom).
     let left = Number(r.left) - cr.left;
@@ -876,7 +876,7 @@ void main() {
   function readMouseCutoutOptions(cssW, canvasW) {
     const zoom = typeof nodeGraphZoom === "function"
       ? nodeGraphZoom()
-      : (Number(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.zoom : 1) || 1);
+      : (nodeGraphFiniteNumber(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.zoom : 1, 1));
     const sizeCss = mvpNumber("dimmerMouseSize", mouseSizeCss, 8, 240) * Math.max(0.05, zoom);
     const soft01 = mvpNumber("dimmerMouseSoftness", mouseSoftness01 * 100, 0, 100) / 100;
     const shape01 = mvpNumber("dimmerMouseShape", mouseShape01 * 100, 0, 100) / 100;
@@ -1024,7 +1024,7 @@ function bindNodeGraphToolbarFillSlider(button, options = {}) {
     ? options.format
     : (value) => String(value);
   const toUnit = (value) => Math.max(0, Math.min(1, (Number(value) - min) / span));
-  const fromUnit = (unit) => min + Math.max(0, Math.min(1, Number(unit) || 0)) * span;
+  const fromUnit = (unit) => min + Math.max(0, Math.min(1, nodeGraphFiniteNumber(unit))) * span;
 
   const sync = () => {
     const value = get();

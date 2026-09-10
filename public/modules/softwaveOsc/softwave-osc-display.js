@@ -76,7 +76,7 @@ function nodeGraphSoftwaveOscReadPhase(nodeId, node, section) {
   if (typeof nodeGraphMvp !== "undefined") {
     const stored = Number(nodeGraphMvp?.live?.runtime?.phases?.get?.(nodeId));
     if (Number.isFinite(stored)) {
-      const offset = Number(nodeGraphSoftwaveOscLiveParam(node, "phase", 0)) || 0;
+      const offset = nodeGraphFiniteNumber(nodeGraphSoftwaveOscLiveParam(node, "phase", 0));
       const phase = stored + offset;
       return phase - Math.floor(phase);
     }
@@ -99,9 +99,9 @@ function nodeGraphSoftwaveOscFaceLook(node) {
     backgroundPaint: String(face.backgroundPaint || face.background || "#020609"),
     strokePaint: String(face.strokePaint || face.strokeColor || "rgba(120, 220, 200, 0.92)"),
     dotPaint: String(face.dotPaint || face.dotColor || "#ffffff"),
-    lineThickness: Math.max(0.25, Number(face.lineThickness) || 3),
-    dotThickness: Math.max(0.25, Number(face.dotThickness) || 5),
-    lineBlur: Math.max(0, Number(face.lineBlur) || 0),
+    lineThickness: Math.max(0.25, nodeGraphFiniteNumber(face.lineThickness, 3)),
+    dotThickness: Math.max(0.25, nodeGraphFiniteNumber(face.dotThickness, 5)),
+    lineBlur: Math.max(0, nodeGraphFiniteNumber(face.lineBlur)),
     pixelDensity: Number.isFinite(Number(face.pixelDensity)) ? Number(face.pixelDensity) : 1,
     showDot: face.showDot === true || face.showDot === 1 || face.showDot === "1",
   };
@@ -135,25 +135,25 @@ function drawNodeGraphSoftwaveOscDisplayInner(section) {
   const look = nodeGraphSoftwaveOscFaceLook(node);
   const waveform = nodeGraphSoftwaveOscLiveParam(node, "waveform", 0);
   const morph = nodeGraphSoftwaveOscLiveParam(node, "morph", 0.5);
-  const phaseParam = Number(nodeGraphSoftwaveOscLiveParam(node, "phase", 0)) || 0;
+  const phaseParam = nodeGraphFiniteNumber(nodeGraphSoftwaveOscLiveParam(node, "phase", 0));
   const strokeW = look.lineThickness;
   const dotW = look.dotThickness;
   const lineBlur = look.lineBlur;
   const pixelDensity = look.pixelDensity;
   const showDot = Boolean(look.showDot);
-  let rawW = Number(section.clientWidth || section.offsetWidth) || 0;
-  let rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+  let rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
+  let rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
   if (rawW < 8 || rawH < 8) {
     const stage = section.closest?.("#nodeScreenSoloStage") || section.parentElement;
     if (stage?.id === "nodeScreenSoloStage") {
-      rawW = Number(stage.clientWidth) || rawW;
-      rawH = Number(stage.clientHeight) || rawH;
+      rawW = nodeGraphFiniteNumber(stage.clientWidth, rawW);
+      rawH = nodeGraphFiniteNumber(stage.clientHeight, rawH);
     }
   }
   // Shape signature — no frequency (static plate). Playhead is overlaid separately.
   const signature = [
     String(nodeId),
-    String(Math.round(Number(waveform) || 0)),
+    String(Math.round(nodeGraphFiniteNumber(waveform))),
     String(Number(morph).toFixed(4)),
     String((phaseParam - Math.floor(phaseParam)).toFixed(4)),
     look.strokePaint,
@@ -201,7 +201,7 @@ function drawNodeGraphSoftwaveOscDisplayInner(section) {
     pixelRatio = metrics.pixelRatio || 1;
   } else {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
-    pixelRatio = dpr * Math.max(Number(pixelDensity) || 1, 1e-6);
+    pixelRatio = dpr * Math.max(nodeGraphFiniteNumber(pixelDensity, 1), 1e-6);
     width = Math.max(1, Math.floor(rawW));
     height = Math.max(1, Math.floor(rawH));
     canvas.width = Math.max(1, Math.round(width * pixelRatio));
@@ -240,15 +240,15 @@ function drawNodeGraphSoftwaveOscDisplayInner(section) {
   const midY = padY + innerH * 0.5;
   const halfH = innerH * 0.5;
   const mapX = (phase) => padX + phase * innerW;
-  const mapY = (value) => midY - Math.max(-1, Math.min(1, value)) * halfH;
+  const mapY = (value) => midY - value * halfH;
   const samples = Math.max(48, Math.min(320, Math.ceil(innerW)));
 
   const wrap01 = (p) => {
-    const n = Number(p) || 0;
+    const n = nodeGraphFiniteNumber(p);
     return n - Math.floor(n);
   };
   const phaseOff = wrap01(phaseParam);
-  const waveIndex = Math.max(0, Math.min(9, Math.round(Number(waveform) || 0)));
+  const waveIndex = Math.max(0, Math.min(9, Math.round(nodeGraphFiniteNumber(waveform))));
   // Walter Wave reads as a two-hump motif — show two periods across the plate.
   const cycles = waveIndex === NODE_GRAPH_SOFTWAVE_WALTER_WAVE ? 2 : 1;
   // Fixed preview Hz — Frequency knob does not reshape the face; Morph does.

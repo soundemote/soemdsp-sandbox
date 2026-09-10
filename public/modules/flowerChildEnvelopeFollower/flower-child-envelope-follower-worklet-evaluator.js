@@ -14,7 +14,7 @@ NodeLiveAudioProcessor.prototype.flowerChildEnvelopeFollowerSample = function fl
           state.nativeHandle = this.nativeFlowerChildEnvelopeFollower.soemdsp_flower_child_envelope_follower_create();
         }
         if (state.nativeHandle) {
-          const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+          const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
           state.out = this.safeFilterNumber(
             this.nativeFlowerChildEnvelopeFollower.soemdsp_flower_child_envelope_follower_sample(
               state.nativeHandle,

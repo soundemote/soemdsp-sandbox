@@ -10,7 +10,7 @@
 
 /** @returns {{ c: number, x1: number, x2: number, y1: number, y2: number }} */
 function nodeGraphQuadratureMakeSection(c) {
-  return { c: Number(c) || 0, x1: 0, x2: 0, y1: 0, y2: 0 };
+  return { c: nodeGraphFiniteNumber(c), x1: 0, x2: 0, y1: 0, y2: 0 };
 }
 
 function nodeGraphQuadratureSectionProcess(sec, x) {
@@ -62,7 +62,7 @@ function nodeGraphQuadratureClearNet(net) {
  * @returns {{ i: number, q: number }}
  */
 function nodeGraphQuadratureNetProcess(net, input) {
-  const x = Number(input) || 0;
+  const x = nodeGraphFiniteNumber(input);
   let i = x;
   for (let k = 0; k < net.iChain.length; k += 1) {
     i = nodeGraphQuadratureSectionProcess(net.iChain[k], i);

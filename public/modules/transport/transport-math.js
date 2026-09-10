@@ -4,7 +4,7 @@
 // Normal / Dotted / Triplet. pulseWidth = gate high duty (0..1).
 
 function nodeGraphTransportTimingModeMultiplier(mode) {
-  const rounded = Math.round(Number(mode) || 0);
+  const rounded = Math.round(nodeGraphFiniteNumber(mode));
   if (rounded === 1) {
     return 1.5; // Dotted
   }
@@ -16,11 +16,11 @@ function nodeGraphTransportTimingModeMultiplier(mode) {
 
 /** Note fraction of a whole note: Numer/Denom (e.g. 1/4 → quarter note). */
 function nodeGraphTransportNoteFraction(numerator, denominator) {
-  const effectiveNumerator = Math.max(0, Number(numerator) || 0);
+  const effectiveNumerator = Math.max(0, nodeGraphFiniteNumber(numerator));
   if (effectiveNumerator === 0) {
     return 0;
   }
-  const effectiveDenominator = Math.max(1, Math.round(Number(denominator) || 0) || 1);
+  const effectiveDenominator = Math.max(1, Math.round(nodeGraphFiniteNumber(denominator, 1)));
   return effectiveNumerator / effectiveDenominator;
 }
 
@@ -29,7 +29,7 @@ function nodeGraphTransportNoteFraction(numerator, denominator) {
  * Defaults 1/4 Normal → one beat (same as old divisions=0).
  */
 function nodeGraphTransportPeriodSeconds(params, tempoBpm) {
-  const bpm = Math.max(1, Number(tempoBpm) || 120);
+  const bpm = Math.max(1, nodeGraphFiniteNumber(tempoBpm, 120));
   const secondsPerWholeNote = 240 / bpm;
   const fraction = nodeGraphTransportNoteFraction(
     params?.timeNumerator,
@@ -45,7 +45,7 @@ function nodeGraphTransportPeriodSeconds(params, tempoBpm) {
 
 /** @deprecated kept for older callers / patches that still pass divisions */
 function nodeGraphTransportDivisionFactor(divisions) {
-  const division = Math.round(Number(divisions) || 0);
+  const division = Math.round(nodeGraphFiniteNumber(divisions));
   if (division > 0) {
     return division + 1;
   }
@@ -56,7 +56,7 @@ function nodeGraphTransportDivisionFactor(divisions) {
 }
 
 function nodeGraphTransportWrap01(p) {
-  const x = Number(p) || 0;
+  const x = nodeGraphFiniteNumber(p);
   return x - Math.floor(x);
 }
 
@@ -81,10 +81,10 @@ function nodeGraphTransportPulseWidth(raw) {
  * @returns {{ "Gate -1+1": number, "Gate 0-1": number, Trigger: number, f: number }}
  */
 function nodeGraphTransportCore(params, absoluteFrame, sampleRate, tempoBpm) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const amplitude = Math.max(0, Math.min(1, Number(params?.amplitude) || 0));
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const amplitude = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params?.amplitude)));
   const pulseWidth = nodeGraphTransportPulseWidth(params?.pulseWidth);
-  const frame = Math.max(0, Number(absoluteFrame) || 0);
+  const frame = Math.max(0, nodeGraphFiniteNumber(absoluteFrame));
 
   let frequency = 0;
   const hasNoteParams = params?.timeNumerator != null
@@ -95,7 +95,7 @@ function nodeGraphTransportCore(params, absoluteFrame, sampleRate, tempoBpm) {
     frequency = periodSec > 0 ? 1 / periodSec : 0;
   } else {
     // Legacy Division path (patches that still only have divisions).
-    const baseHz = Math.max(0, Number(tempoBpm) || 120) / 60;
+    const baseHz = Math.max(0, nodeGraphFiniteNumber(tempoBpm, 120)) / 60;
     frequency = baseHz * nodeGraphTransportDivisionFactor(params?.divisions);
   }
 

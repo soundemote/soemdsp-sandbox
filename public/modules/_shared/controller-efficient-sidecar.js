@@ -128,7 +128,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         ? sourceFreq
         : num(prev.frequency, 440 * (2 ** ((midi - 69) / 12))),
     );
-    const safeRate = Math.max(1, Number(this.engineSampleRate) || Number(sampleRate) || 44100);
+    const safeRate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
     const increment = Math.max(0, frequency / safeRate);
     const cv = {
       midi,

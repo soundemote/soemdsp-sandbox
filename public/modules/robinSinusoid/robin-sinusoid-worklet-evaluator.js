@@ -73,10 +73,10 @@ NodeLiveAudioProcessor.prototype.robinSinusoidSample = function robinSinusoidSam
     if (!state.nativeHandle) {
       return 0;
     }
-    const safeRate = Math.max(1, Number(sampleRate) || sampleRate || 44100);
+    const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
     const freq = Number(frequencyHz);
     const amp = Number(amplitude);
-    const phase = Number(startPhaseRadians) || 0;
+    const phase = nodeGraphFiniteNumber(startPhaseRadians);
     const resetFlag = reset ? 1 : 0;
     const blockSize = NodeLiveAudioProcessor.ROBIN_SINUSOID_NATIVE_BLOCK_SIZE;
     if (

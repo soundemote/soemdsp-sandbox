@@ -74,7 +74,7 @@ function nodeGraphRobinSupersawUpdateCycleLength(voice) {
 }
 
 function nodeGraphRobinSupersawWrap01(value) {
-  let x = Number(value) || 0;
+  let x = nodeGraphFiniteNumber(value);
   x -= Math.floor(x);
   if (x < 0) x += 1;
   if (x >= 1) x = 0;
@@ -86,7 +86,7 @@ function nodeGraphRobinSupersawGetSamplePhasor(voice, randomPhaseAmount) {
   // Amount is not hard-clamped — param domain min/max are UI guides only.
   const amount = Number.isFinite(Number(randomPhaseAmount)) ? Number(randomPhaseAmount) : 0;
   const base = voice.phaseSlope * voice.sampleCount;
-  const p = nodeGraphRobinSupersawWrap01(base + (Number(voice.phaseRandom) || 0) * amount);
+  const p = nodeGraphRobinSupersawWrap01(base + (nodeGraphFiniteNumber(voice.phaseRandom)) * amount);
   voice.sampleCount += 1;
   if (voice.sampleCount >= voice.lenNow) {
     voice.sampleCount = 0;
@@ -114,7 +114,7 @@ function nodeGraphRobinSupersawResolveVoices(voicesExact) {
 function nodeGraphRobinSupersawCentsToFaceX(centsOffset) {
   // Face = ±0.5 oct (1200¢ wide), unison at 0.5. Wrap instead of clip.
   const span = 2 * NODE_GRAPH_ROBIN_SUPERSAW_FACE_HALF_OCT_CENTS;
-  let x = 0.5 + (Number(centsOffset) || 0) / span;
+  let x = 0.5 + (nodeGraphFiniteNumber(centsOffset)) / span;
   x -= Math.floor(x);
   if (x < 0) x += 1;
   if (x >= 1) x = 0;
@@ -145,8 +145,8 @@ function nodeGraphRobinSupersawApplyHzToVoiceCycle(voice, hz, sampleRate) {
 }
 
 function nodeGraphRobinSupersawPortamentoEnabled(portaMinSec, portaMaxSec) {
-  let tMin = Math.max(0, Number(portaMinSec) || 0);
-  let tMax = Math.max(0, Number(portaMaxSec) || 0);
+  let tMin = Math.max(0, nodeGraphFiniteNumber(portaMinSec));
+  let tMax = Math.max(0, nodeGraphFiniteNumber(portaMaxSec));
   if (tMax < tMin) tMax = tMin;
   return tMax > 0;
 }
@@ -159,8 +159,8 @@ function nodeGraphRobinSupersawMapNtoN(v, in0, in1, out0, out1) {
 
 /** soemdsp::curve::Rational{c}.get(p) on 0…1. */
 function nodeGraphRobinSupersawRational01(p, c) {
-  const x = Math.min(1, Math.max(0, Number(p) || 0));
-  const skew = Math.min(0.9999, Math.max(-0.9999, Number(c) || 0));
+  const x = Math.min(1, Math.max(0, nodeGraphFiniteNumber(p)));
+  const skew = Math.min(0.9999, Math.max(-0.9999, nodeGraphFiniteNumber(c)));
   const den = 1 - skew + 2 * skew * x;
   if (!(Math.abs(den) > 1e-12)) return x;
   return ((1 + skew) * x) / den;
@@ -168,7 +168,7 @@ function nodeGraphRobinSupersawRational01(p, c) {
 
 /** Supersaw Style → { mode: 0 lin / 1 exp, curve: Rational tension }. */
 function nodeGraphRobinSupersawPortamentoStyleToModeAndCurve(style) {
-  const s = Math.min(1, Math.max(0, Number(style) || 0));
+  const s = Math.min(1, Math.max(0, nodeGraphFiniteNumber(style)));
   if (s < 0.5) {
     return { mode: 0, curve: nodeGraphRobinSupersawMapNtoN(s, 0, 0.5, -1, 1) };
   }
@@ -176,8 +176,8 @@ function nodeGraphRobinSupersawPortamentoStyleToModeAndCurve(style) {
 }
 
 function nodeGraphRobinSupersawConfigureVoicePortamento(voice, portaMinSec, portaMaxSec, portaStyle, sampleRate) {
-  let tMin = Math.max(0, Number(portaMinSec) || 0);
-  let tMax = Math.max(0, Number(portaMaxSec) || 0);
+  let tMin = Math.max(0, nodeGraphFiniteNumber(portaMinSec));
+  let tMax = Math.max(0, nodeGraphFiniteNumber(portaMaxSec));
   if (tMax < tMin) {
     const tmp = tMin;
     tMin = tMax;
@@ -193,11 +193,11 @@ function nodeGraphRobinSupersawConfigureVoicePortamento(voice, portaMinSec, port
   }
   const { mode, curve } = nodeGraphRobinSupersawPortamentoStyleToModeAndCurve(portaStyle);
   voice.portaMode = mode;
-  const u = Math.min(1, Math.max(0, Number(voice.portaUnit) || 0));
+  const u = Math.min(1, Math.max(0, nodeGraphFiniteNumber(voice.portaUnit)));
   const uWarped = nodeGraphRobinSupersawRational01(u, curve);
   const timeSec = tMin + uWarped * (tMax - tMin);
   const tSamples = timeSec * (sampleRate > 1 ? sampleRate : 48000);
-  const delta = (Number(voice.targetHz) || 0) - (Number(voice.currentHz) || 0);
+  const delta = (nodeGraphFiniteNumber(voice.targetHz)) - (nodeGraphFiniteNumber(voice.currentHz));
   if (!(tSamples > 1) || !(Math.abs(delta) > 1e-12)) {
     voice.currentHz = voice.targetHz;
     voice.portaInc = 0;
@@ -336,10 +336,10 @@ function nodeGraphRobinSupersawFillRawRatios(n, supersawAlgo) {
 
 function nodeGraphRobinSupersawFillVoiceCents(voiceCount, algorithm, spreadCents) {
   if (voiceCount <= 1) return [0];
-  let algo = Math.round(Number(algorithm) || 0);
+  let algo = Math.round(nodeGraphFiniteNumber(algorithm));
   if (algo < 0) algo = 0;
   if (algo > 6) algo = 6;
-  const half = 0.5 * Math.max(0, Number(spreadCents) || 0);
+  const half = 0.5 * Math.max(0, nodeGraphFiniteNumber(spreadCents));
 
   // UI: 0 Linear, 1 Chordal, 2 Emotional, 3 Realistic, 4 Classic, 5 Uniform, 6 Exponential.
   // Uniform: original even cents around unison.
@@ -518,8 +518,8 @@ function nodeGraphRobinSupersawSample(state, options = {}) {
   const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
   const safeFrequency = Number.isFinite(Number(options.frequencyHz)) ? Number(options.frequencyHz) : 0;
   const { voiceCount, lastFrac } = nodeGraphRobinSupersawResolveVoices(options.voices);
-  const spreadCents = Math.max(0, Number(options.detuneCents) || 0);
-  const level = Number(options.level) || 0;
+  const spreadCents = Math.max(0, nodeGraphFiniteNumber(options.detuneCents));
+  const level = nodeGraphFiniteNumber(options.level);
   const randomPhaseRaw = Number(options.phaseSpread);
   const randomPhase = Number.isFinite(randomPhaseRaw) ? randomPhaseRaw : 1;
   const stereoMode = Number(options.stereoMode) >= 0.5 ? 1 : 0;
@@ -531,8 +531,8 @@ function nodeGraphRobinSupersawSample(state, options = {}) {
   const portaMaxSec = Number.isFinite(portaMaxRaw) ? Math.max(0, portaMaxRaw) : 0;
   const portaStyleRaw = Number(options.portamentoStyle);
   const portaStyle = Number.isFinite(portaStyleRaw) ? portaStyleRaw : 0.126;
-  const reset = Number(options.reset) || 0;
-  if ((Number(state.lastReset) || 0) <= 0 && reset > 0) {
+  const reset = nodeGraphFiniteNumber(options.reset);
+  if ((nodeGraphFiniteNumber(state.lastReset)) <= 0 && reset > 0) {
     for (let i = 0; i < NODE_GRAPH_ROBIN_SUPERSAW_MAX_VOICES; i++) {
       nodeGraphRobinSupersawResetVoice(state.left[i]);
       nodeGraphRobinSupersawResetVoice(state.right[i]);

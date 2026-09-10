@@ -103,8 +103,8 @@ function syncNodeGraphWorldPositionReadout() {
   }
   const pan = nodeGraphMvp.pan || { x: 0, y: 0 };
   const zoom = Math.max(0.0001, nodeGraphZoom());
-  const worldX = -((Number(pan.x) || 0) / zoom) / nodeGraphGridWidth();
-  const worldY = -((Number(pan.y) || 0) / zoom) / nodeGraphGridHeight();
+  const worldX = -((nodeGraphFiniteNumber(pan.x)) / zoom) / nodeGraphGridWidth();
+  const worldY = -((nodeGraphFiniteNumber(pan.y)) / zoom) / nodeGraphGridHeight();
   readout.replaceChildren(
     Object.assign(document.createElement("span"), { textContent: `X ${nodeGraphWorldPositionLabel(worldX)}` }),
     Object.assign(document.createElement("span"), { textContent: `Y ${nodeGraphWorldPositionLabel(worldY)}` }),
@@ -227,15 +227,15 @@ function nodeGraphVisualControlSignedValue(value, fallback = 0) {
   if (!Number.isFinite(number) || Math.abs(number) > 999999999) {
     return fallback;
   }
-  return Math.max(-1, Math.min(1, number));
+  return number;
 }
 
 // Shared by workspace wash + rgbaHsla offline eval. Keep here so workspace
 // paint never depends on a per-module evaluator script being loaded.
 function nodeGraphVisualHslToRgb(hue, saturation, lightness) {
-  const h = ((Number(hue) || 0) % 1 + 1) % 1;
-  const s = Math.max(0, Math.min(1, Number(saturation) || 0));
-  const l = Math.max(0, Math.min(1, Number(lightness) || 0));
+  const h = ((nodeGraphFiniteNumber(hue)) % 1 + 1) % 1;
+  const s = Math.max(0, Math.min(1, nodeGraphFiniteNumber(saturation)));
+  const l = Math.max(0, Math.min(1, nodeGraphFiniteNumber(lightness)));
   if (s <= 0) {
     return [l, l, l];
   }
@@ -476,8 +476,8 @@ function snapNodeGraphPanValueToGrid(value, gridSize, zoom = nodeGraphZoom(), op
   const units = options.halfGrid ? 2 : 1;
   const step = (gridSize * zoom) / units;
   return Number.isFinite(step) && step > 0
-    ? Math.round((Number(value) || 0) / step) * step
-    : Number(value) || 0;
+    ? Math.round((nodeGraphFiniteNumber(value)) / step) * step
+    : nodeGraphFiniteNumber(value);
 }
 
 function renderNodeGraphSnapGridButton() {
@@ -510,8 +510,8 @@ function alignNodeGraphViewToGridWithOptions(options = {}) {
     : null;
   const anchoredContentPoint = rect && anchor
     ? {
-      x: (anchor.x - rect.left - (Number(oldOrigin.x) || 0)) / oldZoom,
-      y: (anchor.y - rect.top - (Number(oldOrigin.y) || 0)) / oldZoom,
+      x: (anchor.x - rect.left - (nodeGraphFiniteNumber(oldOrigin.x))) / oldZoom,
+      y: (anchor.y - rect.top - (nodeGraphFiniteNumber(oldOrigin.y))) / oldZoom,
     }
     : null;
   nodeGraphMvp.zoom = nextZoom;
@@ -595,8 +595,8 @@ const nodeGraphWorkspaceResizeSteps = Object.freeze({
 });
 
 function nodeGraphWorkspaceResizeDeltaGu(pixelDelta, gridSize, stepGu = 1) {
-  const safeStep = Math.max(1, Math.round(Number(stepGu) || 1));
-  return Math.round((Number(pixelDelta) || 0) / Math.max(1, gridSize)) * safeStep;
+  const safeStep = Math.max(1, Math.round(nodeGraphFiniteNumber(stepGu, 1)));
+  return Math.round((nodeGraphFiniteNumber(pixelDelta)) / Math.max(1, gridSize)) * safeStep;
 }
 
 function setNodeGraphWorkspacePreviewSize(widthGu, heightGu) {
@@ -762,8 +762,8 @@ function nodeGraphWorkspacePinchTouchPoints() {
 
 function nodeGraphWorkspacePinchPoint(event) {
   return {
-    clientX: Number(event.clientX) || 0,
-    clientY: Number(event.clientY) || 0,
+    clientX: nodeGraphFiniteNumber(event.clientX),
+    clientY: nodeGraphFiniteNumber(event.clientY),
     pointerId: event.pointerId,
   };
 }
@@ -1055,8 +1055,8 @@ function nodeGraphScrollTargetCanConsumeWheel(scrollTarget, event) {
   if (!scrollTarget) {
     return false;
   }
-  const deltaY = Number(event.deltaY) || 0;
-  const deltaX = Number(event.deltaX) || 0;
+  const deltaY = nodeGraphFiniteNumber(event.deltaY);
+  const deltaX = nodeGraphFiniteNumber(event.deltaX);
   const canScrollUp = scrollTarget.scrollTop > 0;
   const canScrollDown =
     scrollTarget.scrollTop + scrollTarget.clientHeight < scrollTarget.scrollHeight - 0.5;
@@ -1079,8 +1079,8 @@ function nodeGraphApplyWheelToScrollTarget(scrollTarget, event) {
   if (!scrollTarget) {
     return false;
   }
-  const dy = Number(event.deltaY) || 0;
-  const dx = Number(event.deltaX) || 0;
+  const dy = nodeGraphFiniteNumber(event.deltaY);
+  const dx = nodeGraphFiniteNumber(event.deltaX);
   if (!dy && !dx) {
     return false;
   }

@@ -19,7 +19,7 @@ function nodeGraphEllipsoidLivePitchAndPhase({
   const read = (key, fallback) => readNodeGraphLiveEffectiveParam(
     runtime, node, key, fallback, frame, frames, frameValues,
   );
-  const phaseOffset = Number(read("phase", 0)) || 0;
+  const phaseOffset = nodeGraphFiniteNumber(read("phase", 0));
   const frequency = read("frequency", defaultFrequency);
   const referenceVoltage = typeof normalizeNodeGraphPatchAudio === "function"
     ? normalizeNodeGraphPatchAudio(nodeGraphMvp?.patch?.audio).pitchReferenceMidiNote / 120
@@ -53,8 +53,8 @@ function nodeGraphEllipsoidLivePitchAndPhase({
     null,
     "ellipsoid increment input",
   );
-  const safeRate = Math.max(1, Number(sampleRate) || 44100);
-  const motion = Math.max(0, Math.min(3, Math.round(Number(read("motion", 1)) || 0)));
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const motion = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(read("motion", 1)))));
   const clockWise = motion === 0 || motion === 2;
   const useSimTime = motion >= 2;
   const dir = clockWise ? -1 : 1;
@@ -87,7 +87,7 @@ nodeGraphLiveModuleEvaluators.ellipsoid = ({
   const level = ctx.read("amplitude", 1);
   let samplePhase;
   if (ctx.useSimTime) {
-    const simSamples = Math.max(0, Number(runtime.absoluteFrame) || Number(frame) || 0);
+    const simSamples = Math.max(0, nodeGraphFiniteNumber(runtime.absoluteFrame, nodeGraphFiniteNumber(frame)));
     samplePhase = ctx.dir
       * ((ctx.pitchedFrequency / ctx.sampleRate) + ctx.incrementInput)
       * simSamples
@@ -123,7 +123,7 @@ nodeGraphLiveModuleEvaluators.ellipsoidOsc = ({
   // Phase in cycles → radians for legacy getEllipsoid
   let samplePhaseCycles;
   if (ctx.useSimTime) {
-    const simSamples = Math.max(0, Number(runtime.absoluteFrame) || Number(frame) || 0);
+    const simSamples = Math.max(0, nodeGraphFiniteNumber(runtime.absoluteFrame, nodeGraphFiniteNumber(frame)));
     samplePhaseCycles = ctx.dir
       * ((ctx.pitchedFrequency / ctx.sampleRate) + ctx.incrementInput)
       * simSamples

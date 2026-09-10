@@ -222,8 +222,7 @@ function nodeGraphNodeOrderIndexes(nodes) {
 }
 
 function nodeGraphCompareSchedulingEdges(a, b) {
-  return Number(a.isBackward) - Number(b.isBackward) ||
-    a.sourceOrder - b.sourceOrder ||
+  return Number(a.isBackward) - nodeGraphFiniteNumber(b.isBackward, a.sourceOrder) - b.sourceOrder ||
     a.destinationOrder - b.destinationOrder ||
     a.kindOrder - b.kindOrder ||
     a.index - b.index;
@@ -841,8 +840,8 @@ function nodeGraphScopeCaptureWriteHz(node) {
 }
 
 function nodeGraphVisualSinkBufferSampleLimit(node) {
-  const seconds = Math.max(1, Number(nodeGraphVisualSinkHistorySeconds) || 1);
-  const fallback = Math.max(1, Math.round(Number(nodeGraphBufferedInputSampleLimit) || 262144));
+  const seconds = Math.max(1, nodeGraphFiniteNumber(nodeGraphVisualSinkHistorySeconds, 1));
+  const fallback = Math.max(1, Math.round(nodeGraphFiniteNumber(nodeGraphBufferedInputSampleLimit, 262144)));
   if (nodeGraphVisualDisplayNeedsWaveformRing(node)) {
     // 1 s at up to 96 kHz. Worklet writes engine samples; draw buckets to px.
     return Math.min(fallback, Math.max(4096, Math.ceil(96000 * seconds)));

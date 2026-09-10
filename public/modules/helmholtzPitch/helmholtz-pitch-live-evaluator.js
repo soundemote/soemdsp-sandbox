@@ -27,7 +27,7 @@ function nodeGraphHelmholtzDetune(frequencyHz, a4Hz = 440) {
   }
   const nearest = Math.round(midi);
   const cents = (midi - nearest) * 100;
-  return Math.max(-1, Math.min(1, cents / 50));
+  return cents / 50;
 }
 
 
@@ -49,7 +49,7 @@ function nodeGraphHelmholtzSample(state, input, params, inputConnected, sampleRa
   const native = runtime?.nativeHelmholtzReady ? runtime?.nativeHelmholtz : null;
   if (!native?.soemdsp_helmholtz_create || !native?.soemdsp_helmholtz_process) return silent;
   try {
-    const safeRate = Math.max(1, Math.round(Number(sampleRate) || 44100));
+    const safeRate = Math.max(1, Math.round(nodeGraphFiniteNumber(sampleRate, 44100)));
     if (!state.nativeHandle || state.nativeSampleRate !== safeRate) {
       if (state.nativeHandle && native.soemdsp_helmholtz_destroy) {
         native.soemdsp_helmholtz_destroy(state.nativeHandle);
@@ -59,7 +59,7 @@ function nodeGraphHelmholtzSample(state, input, params, inputConnected, sampleRa
       state.nativeParamKey = "";
     }
     if (!state.nativeHandle) return silent;
-    const windowSize = Math.max(128, Math.min(4096, Math.round(Number(params.windowSize) || 1024)));
+    const windowSize = Math.max(128, Math.min(4096, Math.round(nodeGraphFiniteNumber(params.windowSize, 1024))));
     const threshold = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.threshold, 0.93)));
     const nativeThreshold = Math.max(0, Math.min(0.999, threshold));
     const paramKey = `${windowSize}:${Math.round(nativeThreshold * 1000)}`;

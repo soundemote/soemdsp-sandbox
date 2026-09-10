@@ -4,7 +4,7 @@ NodeLiveAudioProcessor.prototype.speakerProtectionSample = function speakerProte
     if (unsafe) {
       this.meterProtectionMuteCount += 1;
       this.speakerProtectionPeak = Math.max(
-        Number(this.speakerProtectionPeak) || 0,
+        nodeGraphFiniteNumber(this.speakerProtectionPeak),
         Number.isFinite(number) ? Math.abs(number) : Infinity,
       );
       this.speakerProtectionNodeId = String(nodeId || "");

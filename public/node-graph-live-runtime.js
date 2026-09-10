@@ -393,7 +393,7 @@ const nodeGraphLiveNativeWasmFetchStats = {
 
 function nodeGraphLiveRecordNativeWasmFetch(wasmUrl, byteLength) {
   const url = String(wasmUrl || "");
-  const n = Number(byteLength) || 0;
+  const n = nodeGraphFiniteNumber(byteLength);
   if (!url || n <= 0) {
     return;
   }
@@ -1446,7 +1446,7 @@ function sendNodeGraphLiveSpeedLimit() {
       type: "setSpeedLimit",
       speedLimit: typeof nodeGraphLiveSpeedLimitHz === "function"
         ? nodeGraphLiveSpeedLimitHz()
-        : (Number(nodeGraphMvp.live.speedLimit) || 20000),
+        : (nodeGraphFiniteNumber(nodeGraphMvp.live.speedLimit, 20000)),
     });
   } catch (_error) {
     // Worklet may be disconnected.
@@ -1480,8 +1480,8 @@ function renderNodeGraphLiveScriptBlock(event) {
   let lastProtect = { engaged: false, gain: 1 };
   for (let frame = 0; frame < frames; frame += 1) {
     runtime.absoluteFrame = blockStartFrame + frame;
-    const inputLeft = Number(runtime.externalInput.left?.[frame]) || 0;
-    const inputRight = Number(runtime.externalInput.right?.[frame]) || inputLeft;
+    const inputLeft = nodeGraphFiniteNumber(runtime.externalInput.left?.[frame]);
+    const inputRight = nodeGraphFiniteNumber(runtime.externalInput.right?.[frame], inputLeft);
     nodeGraphMvp.live.inputMeterPeak = Math.max(
       nodeGraphMvp.live.inputMeterPeak,
       Math.abs(inputLeft),
@@ -1502,7 +1502,7 @@ function renderNodeGraphLiveScriptBlock(event) {
       nodeGraphOutputSampleTripsEarProtection(frameOutput.right)
     ) {
       runtime.speakerProtectionPeak = Math.max(
-        Number(runtime.speakerProtectionPeak) || 0,
+        nodeGraphFiniteNumber(runtime.speakerProtectionPeak),
         Number.isFinite(Number(frameOutput.left)) ? Math.abs(Number(frameOutput.left)) : Infinity,
         Number.isFinite(Number(frameOutput.right)) ? Math.abs(Number(frameOutput.right)) : Infinity,
       );
@@ -1540,24 +1540,24 @@ function renderNodeGraphLiveScriptBlock(event) {
   if (nodeGraphMvp.live.lastEvidence) {
     nodeGraphMvp.live.lastEvidence.visualControls = {
       ...(nodeGraphMvp.live.lastEvidence.visualControls || {}),
-      blue: Number(runtime.visualControls?.blue) || 0,
-      chromaAlpha: Number(runtime.visualControls?.chromaAlpha) || 0,
-      chromaDrift: Number(runtime.visualControls?.chromaDrift) || 0,
-      chromaHue: Number(runtime.visualControls?.chromaHue) || 0,
-      chromaLightness: Number(runtime.visualControls?.chromaLightness) || 0,
-      chromaSaturation: Number(runtime.visualControls?.chromaSaturation) || 0,
-      chromaSpread: Number(runtime.visualControls?.chromaSpread) || 0,
-      green: Number(runtime.visualControls?.green) || 0,
-      red: Number(runtime.visualControls?.red) || 0,
-      scopePaused: Number(runtime.visualControls?.scopePaused) || 0,
-      scopeTracesOff: Number(runtime.visualControls?.scopeTracesOff) || 0,
-      screenDim: Number(runtime.visualControls?.screenDim) || 0,
-      screenShake: Number(runtime.visualControls?.screenShake) || 0,
-      visualBloom: Number(runtime.visualControls?.visualBloom) || 0,
-      visualBrightness: Number(runtime.visualControls?.visualBrightness) || 0,
-      visualGlow: Number(runtime.visualControls?.visualGlow) || 0,
-      x: Number(runtime.visualControls?.x) || 0,
-      y: Number(runtime.visualControls?.y) || 0,
+      blue: nodeGraphFiniteNumber(runtime.visualControls?.blue),
+      chromaAlpha: nodeGraphFiniteNumber(runtime.visualControls?.chromaAlpha),
+      chromaDrift: nodeGraphFiniteNumber(runtime.visualControls?.chromaDrift),
+      chromaHue: nodeGraphFiniteNumber(runtime.visualControls?.chromaHue),
+      chromaLightness: nodeGraphFiniteNumber(runtime.visualControls?.chromaLightness),
+      chromaSaturation: nodeGraphFiniteNumber(runtime.visualControls?.chromaSaturation),
+      chromaSpread: nodeGraphFiniteNumber(runtime.visualControls?.chromaSpread),
+      green: nodeGraphFiniteNumber(runtime.visualControls?.green),
+      red: nodeGraphFiniteNumber(runtime.visualControls?.red),
+      scopePaused: nodeGraphFiniteNumber(runtime.visualControls?.scopePaused),
+      scopeTracesOff: nodeGraphFiniteNumber(runtime.visualControls?.scopeTracesOff),
+      screenDim: nodeGraphFiniteNumber(runtime.visualControls?.screenDim),
+      screenShake: nodeGraphFiniteNumber(runtime.visualControls?.screenShake),
+      visualBloom: nodeGraphFiniteNumber(runtime.visualControls?.visualBloom),
+      visualBrightness: nodeGraphFiniteNumber(runtime.visualControls?.visualBrightness),
+      visualGlow: nodeGraphFiniteNumber(runtime.visualControls?.visualGlow),
+      x: nodeGraphFiniteNumber(runtime.visualControls?.x),
+      y: nodeGraphFiniteNumber(runtime.visualControls?.y),
     };
   }
   finishNodeGraphParameterSmoothing(runtime.smoothers, runtime);
@@ -1621,7 +1621,7 @@ function nodeGraphGpuAdditiveNodeVersion(node, sampleRate) {
   ];
   return [
     node?.id || "",
-    Math.round(Number(sampleRate) || 0),
+    Math.round(nodeGraphFiniteNumber(sampleRate)),
     ...keys.map((key) => `${key}:${nodeGraphGpuAdditiveNodeParam(node, key, "")}`),
   ].join("|");
 }
@@ -1759,7 +1759,7 @@ function nodeGraphStartGpuAdditiveProducer(plan, audio) {
   if (!nodeGraphMvp.live.usesWorklet || !nodeGraphMvp.live.node?.port) {
     return;
   }
-  const sampleRate = Math.max(1, Number(audio?.clampedEngineSampleRate) || nodeGraphMvp.sampleRate || 44100);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(audio?.clampedEngineSampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100)));
   const nodes = (plan.nodes || [])
     .filter((node) => node?.type === "gpuAdditiveOsc" && nodeGraphGpuAdditiveChunkSafe(plan, node));
   if (!nodes.length || typeof nodeGraphGpuAdditiveCpuRender !== "function") {
@@ -1825,7 +1825,7 @@ function nodeGraphStartGpuAdditiveProducer(plan, audio) {
       return;
     }
     state.inFlightSlots.delete(slot);
-    state.pendingChunks = Math.max(0, (Number(state.pendingChunks) || 0) - 1);
+    state.pendingChunks = Math.max(0, (nodeGraphFiniteNumber(state.pendingChunks)) - 1);
   };
 
   const produce = () => {
@@ -1842,7 +1842,7 @@ function nodeGraphStartGpuAdditiveProducer(plan, audio) {
       if (state.version !== version) {
         state.version = version;
         state.completedChunks.clear();
-        state.generation = (Number(state.generation) || 0) + 1;
+        state.generation = (nodeGraphFiniteNumber(state.generation)) + 1;
         state.inFlightSlots.clear();
         state.nextChunkSequence = 0;
         state.pendingChunks = 0;
@@ -1851,7 +1851,7 @@ function nodeGraphStartGpuAdditiveProducer(plan, audio) {
         state.sendChunkSequence = 0;
         state.targetChunks = defaultTargetChunks;
       }
-      const targetChunks = Math.max(1, Math.min(maxTargetChunks, Number(state.targetChunks) || defaultTargetChunks));
+      const targetChunks = Math.max(1, Math.min(maxTargetChunks, nodeGraphFiniteNumber(state.targetChunks, defaultTargetChunks)));
       while (
         state.queueChunks + state.pendingChunks + state.completedChunks.size < targetChunks &&
         state.pendingChunks < nodeGraphGpuAdditiveMaxInFlightChunks
@@ -1860,7 +1860,7 @@ function nodeGraphStartGpuAdditiveProducer(plan, audio) {
         if (renderSlot < 0) {
           break;
         }
-        const renderGeneration = Number(state.generation) || 0;
+        const renderGeneration = nodeGraphFiniteNumber(state.generation);
         const renderSequence = state.nextChunkSequence;
         state.nextChunkSequence += 1;
         const renderPhase = state.phase;
@@ -1952,7 +1952,7 @@ function nodeGraphStartGpuAdditiveProducer(plan, audio) {
             nodeGraphMvp.live.node?.port &&
             nodeGraphMvp.live.sessionId > 0 &&
             producer.nodes.get(node.id) === state &&
-            state.queueChunks < Math.max(1, Math.min(maxTargetChunks, Number(state.targetChunks) || defaultTargetChunks))
+            state.queueChunks < Math.max(1, Math.min(maxTargetChunks, nodeGraphFiniteNumber(state.targetChunks, defaultTargetChunks)))
           ) {
             window.setTimeout(produce, 0);
           }
@@ -1991,26 +1991,26 @@ function handleNodeGraphLiveWorkletMessage(event) {
       return;
     }
     setNodeGraphLiveInputMeter(
-      Number(message.inputPeak) || 0,
-      Number(message.inputRms) || 0,
+      nodeGraphFiniteNumber(message.inputPeak),
+      nodeGraphFiniteNumber(message.inputRms),
     );
     setNodeGraphLiveMeter(
-      Number(message.peak) || 0,
-      Number(message.rms) || 0,
-      Number(message.clipCount) || 0,
-      Number(message.protectionMuteCount) || 0,
-      Number(message.badNumberCount) || 0,
-      Number(message.overrunCount) || 0,
-      Number(message.maxBlockProcessMs) || 0,
-      Number(message.maxBlockBudgetRatio) || 0,
+      nodeGraphFiniteNumber(message.peak),
+      nodeGraphFiniteNumber(message.rms),
+      nodeGraphFiniteNumber(message.clipCount),
+      nodeGraphFiniteNumber(message.protectionMuteCount),
+      nodeGraphFiniteNumber(message.badNumberCount),
+      nodeGraphFiniteNumber(message.overrunCount),
+      nodeGraphFiniteNumber(message.maxBlockProcessMs),
+      nodeGraphFiniteNumber(message.maxBlockBudgetRatio),
     );
     // Feed the constraint CPU chip with real audio-thread load (not UI rAF).
     if (!nodeGraphMvp.constraintResourceMetrics) {
       nodeGraphMvp.constraintResourceMetrics = {};
     }
     // Prefer window-average load for "how heavy is this circuit"; keep peak for stress.
-    const avgRatio = Math.max(0, Number(message.avgBlockBudgetRatio) || 0);
-    const peakRatio = Math.max(0, Number(message.maxBlockBudgetRatio) || 0);
+    const avgRatio = Math.max(0, nodeGraphFiniteNumber(message.avgBlockBudgetRatio));
+    const peakRatio = Math.max(0, nodeGraphFiniteNumber(message.maxBlockBudgetRatio));
     const audioRatio = avgRatio > 0 ? avgRatio : peakRatio;
     const timedOut = Boolean(message.meterTimedOut);
     nodeGraphMvp.constraintResourceMetrics.audioLoadPct = audioRatio * 100;
@@ -2018,35 +2018,35 @@ function handleNodeGraphLiveWorkletMessage(event) {
     nodeGraphMvp.constraintResourceMetrics.audioMeterTimedOut = timedOut;
     nodeGraphMvp.constraintResourceMetrics.audioModuleCount = Math.max(
       0,
-      Math.floor(Number(message.moduleCount) || 0),
+      Math.floor(nodeGraphFiniteNumber(message.moduleCount)),
     );
     nodeGraphMvp.constraintResourceMetrics.audioTimerResMs = Math.max(
       0,
-      Number(message.timerResMs) || 0,
+      nodeGraphFiniteNumber(message.timerResMs),
     );
     nodeGraphMvp.constraintResourceMetrics.audioUpperBoundPct = Math.max(
       0,
-      (Number(message.upperBoundBudgetRatio) || 0) * 100,
+      (nodeGraphFiniteNumber(message.upperBoundBudgetRatio)) * 100,
     );
     nodeGraphMvp.constraintResourceMetrics.audioEstimatedPct = Math.max(
       0,
-      (Number(message.estimatedBudgetRatio) || 0) * 100,
+      (nodeGraphFiniteNumber(message.estimatedBudgetRatio)) * 100,
     );
     nodeGraphMvp.constraintResourceMetrics.audioCostUnits = Math.max(
       0,
-      Number(message.dspCostUnits) || 0,
+      nodeGraphFiniteNumber(message.dspCostUnits),
     );
     nodeGraphMvp.constraintResourceMetrics.audioOverrunCount = Math.max(
       0,
-      (Number(message.overrunCount) || 0) + (Number(message.missedQuantumCount) || 0),
+      (nodeGraphFiniteNumber(message.overrunCount)) + (nodeGraphFiniteNumber(message.missedQuantumCount)),
     );
     nodeGraphMvp.constraintResourceMetrics.audioBlockMs = Math.max(
       0,
-      Number(message.avgBlockProcessMs) || Number(message.maxBlockProcessMs) || 0,
+      nodeGraphFiniteNumber(message.avgBlockProcessMs, nodeGraphFiniteNumber(message.maxBlockProcessMs)),
     );
     nodeGraphMvp.constraintResourceMetrics.audioBlockPeakMs = Math.max(
       0,
-      Number(message.maxBlockProcessMs) || 0,
+      nodeGraphFiniteNumber(message.maxBlockProcessMs),
     );
     if (typeof syncNodeGraphCpuConstraintMetrics === "function") {
       syncNodeGraphCpuConstraintMetrics();
@@ -2055,7 +2055,7 @@ function handleNodeGraphLiveWorkletMessage(event) {
       syncNodeGraphAudioPlayerRuntimeStatus({
         nodeId: message.audioPlayerNodeId || "",
         nodeIds: message.audioPlayerNodeIds || [],
-        phase: Number(message.audioPlayerPhase) || 0,
+        phase: nodeGraphFiniteNumber(message.audioPlayerPhase),
         speed: Number(message.audioPlayerSpeed),
         speeds: message.audioPlayerSpeeds || null,
         reason: message.audioPlayerReason || "",
@@ -2064,7 +2064,7 @@ function handleNodeGraphLiveWorkletMessage(event) {
     }
     if (Number(message.badNumberCount) > 0) {
       nodeGraphRecordBadValueEvent({
-        count: Number(message.badNumberCount) || 1,
+        count: nodeGraphFiniteNumber(message.badNumberCount, 1),
         engine: "worklet",
         force: Boolean(message.lastBadValueNodeId),
         nodeId: message.lastBadValueNodeId || "",
@@ -2082,10 +2082,10 @@ function handleNodeGraphLiveWorkletMessage(event) {
         Boolean(message.protectionEngaged) || Number(message.protectionMuteCount) > 0,
         {
           nodeId: message.protectionNodeId || "",
-          protectionPeak: Number(message.protectionPeak) || 0,
+          protectionPeak: nodeGraphFiniteNumber(message.protectionPeak),
           protectionGain: Number(message.protectionGain),
           source: "Worklet",
-          protectionMuteCount: Number(message.protectionMuteCount) || 0,
+          protectionMuteCount: nodeGraphFiniteNumber(message.protectionMuteCount),
         },
       );
     }
@@ -2160,7 +2160,7 @@ function handleNodeGraphLiveWorkletMessage(event) {
       sampleRate: message.sampleRate || nodeGraphMvp.live.context?.sampleRate || nodeGraphMvp.sampleRate,
     });
     // After pause→stop→play, force-paint Value LCD/LED until rings + RAF catch up.
-    const rearmUntil = Number(nodeGraphMvp.live.valueFaceRearmUntil) || 0;
+    const rearmUntil = nodeGraphFiniteNumber(nodeGraphMvp.live.valueFaceRearmUntil);
     const nowMs = performance.now?.() || Date.now();
     if (
       nodeGraphMvp.live.needsValueFaceRearm
@@ -2197,46 +2197,46 @@ function handleNodeGraphLiveWorkletMessage(event) {
       return;
     }
     nodeGraphSetVisualControls({
-      blue: Number(message.blue) || 0,
-      chromaAlpha: Number(message.chromaAlpha) || 0,
-      chromaDrift: Number(message.chromaDrift) || 0,
-      chromaHue: Number(message.chromaHue) || 0,
-      chromaLightness: Number(message.chromaLightness) || 0,
-      chromaSaturation: Number(message.chromaSaturation) || 0,
-      chromaSpread: Number(message.chromaSpread) || 0,
-      green: Number(message.green) || 0,
-      red: Number(message.red) || 0,
-      scopePaused: Number(message.scopePaused) || 0,
-      scopeTracesOff: Number(message.scopeTracesOff) || 0,
-      screenDim: Number(message.screenDim) || 0,
-      screenShake: Number(message.screenShake) || 0,
-      visualBloom: Number(message.visualBloom) || 0,
-      visualBrightness: Number(message.visualBrightness) || 0,
-      visualGlow: Number(message.visualGlow) || 0,
-      x: Number(message.x) || 0,
-      y: Number(message.y) || 0,
+      blue: nodeGraphFiniteNumber(message.blue),
+      chromaAlpha: nodeGraphFiniteNumber(message.chromaAlpha),
+      chromaDrift: nodeGraphFiniteNumber(message.chromaDrift),
+      chromaHue: nodeGraphFiniteNumber(message.chromaHue),
+      chromaLightness: nodeGraphFiniteNumber(message.chromaLightness),
+      chromaSaturation: nodeGraphFiniteNumber(message.chromaSaturation),
+      chromaSpread: nodeGraphFiniteNumber(message.chromaSpread),
+      green: nodeGraphFiniteNumber(message.green),
+      red: nodeGraphFiniteNumber(message.red),
+      scopePaused: nodeGraphFiniteNumber(message.scopePaused),
+      scopeTracesOff: nodeGraphFiniteNumber(message.scopeTracesOff),
+      screenDim: nodeGraphFiniteNumber(message.screenDim),
+      screenShake: nodeGraphFiniteNumber(message.screenShake),
+      visualBloom: nodeGraphFiniteNumber(message.visualBloom),
+      visualBrightness: nodeGraphFiniteNumber(message.visualBrightness),
+      visualGlow: nodeGraphFiniteNumber(message.visualGlow),
+      x: nodeGraphFiniteNumber(message.x),
+      y: nodeGraphFiniteNumber(message.y),
     });
     if (nodeGraphMvp.live.lastEvidence) {
       nodeGraphMvp.live.lastEvidence.visualControls = {
         ...(nodeGraphMvp.live.lastEvidence.visualControls || {}),
-        blue: Number(message.blue) || 0,
-        chromaAlpha: Number(message.chromaAlpha) || 0,
-        chromaDrift: Number(message.chromaDrift) || 0,
-        chromaHue: Number(message.chromaHue) || 0,
-        chromaLightness: Number(message.chromaLightness) || 0,
-        chromaSaturation: Number(message.chromaSaturation) || 0,
-        chromaSpread: Number(message.chromaSpread) || 0,
-        green: Number(message.green) || 0,
-        red: Number(message.red) || 0,
-        scopePaused: Number(message.scopePaused) || 0,
-        scopeTracesOff: Number(message.scopeTracesOff) || 0,
-        screenDim: Number(message.screenDim) || 0,
-        screenShake: Number(message.screenShake) || 0,
-        visualBloom: Number(message.visualBloom) || 0,
-        visualBrightness: Number(message.visualBrightness) || 0,
-        visualGlow: Number(message.visualGlow) || 0,
-        x: Number(message.x) || 0,
-        y: Number(message.y) || 0,
+        blue: nodeGraphFiniteNumber(message.blue),
+        chromaAlpha: nodeGraphFiniteNumber(message.chromaAlpha),
+        chromaDrift: nodeGraphFiniteNumber(message.chromaDrift),
+        chromaHue: nodeGraphFiniteNumber(message.chromaHue),
+        chromaLightness: nodeGraphFiniteNumber(message.chromaLightness),
+        chromaSaturation: nodeGraphFiniteNumber(message.chromaSaturation),
+        chromaSpread: nodeGraphFiniteNumber(message.chromaSpread),
+        green: nodeGraphFiniteNumber(message.green),
+        red: nodeGraphFiniteNumber(message.red),
+        scopePaused: nodeGraphFiniteNumber(message.scopePaused),
+        scopeTracesOff: nodeGraphFiniteNumber(message.scopeTracesOff),
+        screenDim: nodeGraphFiniteNumber(message.screenDim),
+        screenShake: nodeGraphFiniteNumber(message.screenShake),
+        visualBloom: nodeGraphFiniteNumber(message.visualBloom),
+        visualBrightness: nodeGraphFiniteNumber(message.visualBrightness),
+        visualGlow: nodeGraphFiniteNumber(message.visualGlow),
+        x: nodeGraphFiniteNumber(message.x),
+        y: nodeGraphFiniteNumber(message.y),
       };
     }
   } else if (message.type === "gpuAdditiveStatus") {
@@ -2247,13 +2247,13 @@ function handleNodeGraphLiveWorkletMessage(event) {
     const enhancedQueues = (message.queues || []).map((queue) => {
       const state = producer?.nodes?.get?.(queue.nodeId);
       if (state) {
-        state.queueChunks = Math.max(0, Number(queue.chunks) || 0);
-        const underruns = Math.max(0, Number(message.underruns) || 0);
-        const droppedChunks = Math.max(0, Number(queue.droppedChunks) || 0);
+        state.queueChunks = Math.max(0, nodeGraphFiniteNumber(queue.chunks));
+        const underruns = Math.max(0, nodeGraphFiniteNumber(message.underruns));
+        const droppedChunks = Math.max(0, nodeGraphFiniteNumber(queue.droppedChunks));
         if (underruns > 0 || droppedChunks > 0) {
           state.targetChunks = Math.min(
             nodeGraphGpuAdditiveMaxTargetChunks,
-            (Number(state.targetChunks) || nodeGraphGpuAdditiveDefaultTargetChunks) + 1,
+            (nodeGraphFiniteNumber(state.targetChunks, nodeGraphGpuAdditiveDefaultTargetChunks)) + 1,
           );
         } else if (
           state.queueChunks > nodeGraphGpuAdditiveDefaultTargetChunks + 2 &&
@@ -2261,7 +2261,7 @@ function handleNodeGraphLiveWorkletMessage(event) {
         ) {
           state.targetChunks = Math.max(
             nodeGraphGpuAdditiveDefaultTargetChunks,
-            (Number(state.targetChunks) || nodeGraphGpuAdditiveDefaultTargetChunks) - 1,
+            (nodeGraphFiniteNumber(state.targetChunks, nodeGraphGpuAdditiveDefaultTargetChunks)) - 1,
           );
         }
       }
@@ -2269,16 +2269,16 @@ function handleNodeGraphLiveWorkletMessage(event) {
         ...queue,
         diagnostics: {
           ...(state?.diagnostics || {}),
-          droppedChunks: Math.max(0, Number(queue.droppedChunks) || 0),
-          expectedSequence: Math.max(0, Number(queue.expectedSequence) || 0),
+          droppedChunks: Math.max(0, nodeGraphFiniteNumber(queue.droppedChunks)),
+          expectedSequence: Math.max(0, nodeGraphFiniteNumber(queue.expectedSequence)),
           heldGain: Number.isFinite(Number(queue.heldGain)) ? Number(queue.heldGain) : 1,
-          heldSamples: Math.max(0, Number(queue.heldSamples) || 0),
-          resetCount: Math.max(0, Number(queue.resetCount) || 0),
+          heldSamples: Math.max(0, nodeGraphFiniteNumber(queue.heldSamples)),
+          resetCount: Math.max(0, nodeGraphFiniteNumber(queue.resetCount)),
           targetChunks: Math.max(
             1,
             Math.min(
               nodeGraphGpuAdditiveMaxTargetChunks,
-              Number(state?.targetChunks) || nodeGraphGpuAdditiveDefaultTargetChunks,
+              nodeGraphFiniteNumber(state?.targetChunks, nodeGraphGpuAdditiveDefaultTargetChunks),
             ),
           ),
         },
@@ -2287,12 +2287,12 @@ function handleNodeGraphLiveWorkletMessage(event) {
     if (nodeGraphMvp.live.lastEvidence) {
       nodeGraphMvp.live.lastEvidence.gpuAdditive = {
         queues: enhancedQueues,
-        underruns: Number(message.underruns) || 0,
+        underruns: nodeGraphFiniteNumber(message.underruns),
       };
     }
     setNodeGraphGpuAdditiveStatus({
       queues: enhancedQueues,
-      underruns: Number(message.underruns) || 0,
+      underruns: nodeGraphFiniteNumber(message.underruns),
     });
     if (enhancedQueues.some((queue) => Number(queue.samples) > 0 || Number(queue.chunks) > 0)) {
       nodeGraphFinishGpuAdditivePrime("ready");
@@ -2423,7 +2423,7 @@ async function sendNodeGraphLivePlan() {
 
   try {
     const plan = nodeGraphBuildLivePlan();
-    nodeGraphMvp.live.planSendGen = (Number(nodeGraphMvp.live.planSendGen) || 0) + 1;
+    nodeGraphMvp.live.planSendGen = (nodeGraphFiniteNumber(nodeGraphMvp.live.planSendGen)) + 1;
     const planSendGen = nodeGraphMvp.live.planSendGen;
     if (typeof nodeGraphEnsureLiveSamplesForPlan === "function") {
       await nodeGraphEnsureLiveSamplesForPlan(plan, nodeGraphMvp.patch);
@@ -2699,7 +2699,7 @@ function sendNodeGraphLiveKeyboardModuleSignal(signal = nodeGraphMvp.keyboardMod
 
 function sendNodeGraphLiveMacroControls(values = nodeGraphMvp.macroControls) {
   const payload = Array.from({ length: 8 }, (_, index) => (
-    Math.max(0, Math.min(1, Number(values?.[index]) || 0))
+    Math.max(0, Math.min(1, nodeGraphFiniteNumber(values?.[index])))
   ));
   if (nodeGraphMvp.live.runtime) {
     nodeGraphMvp.live.runtime.macroControls = payload;
@@ -2735,8 +2735,8 @@ function sendNodeGraphLiveMidiKeyboardHeldKeysBitmask(
 
 function nodeGraphPitchModWheelPayload() {
   return {
-    mod: Math.max(0, Math.min(1, Number(nodeGraphMvp.modWheelSignal) || 0)),
-    pitch: Math.max(-1, Math.min(1, Number(nodeGraphMvp.pitchWheelSignal) || 0)),
+    mod: Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphMvp.modWheelSignal))),
+    pitch: nodeGraphFiniteNumber(nodeGraphMvp.pitchWheelSignal),
   };
 }
 
@@ -2744,8 +2744,8 @@ function sendNodeGraphLivePitchModWheelSignal(signal = nodeGraphPitchModWheelPay
   const source = signal && typeof signal === "object" ? signal : {};
   const pitch = Number(source.pitch);
   const payload = {
-    mod: Math.max(0, Math.min(1, Number(source.mod) || 0)),
-    pitch: Math.max(-1, Math.min(1, Number.isFinite(pitch) ? pitch : 0)),
+    mod: Math.max(0, Math.min(1, nodeGraphFiniteNumber(source.mod))),
+    pitch: Number.isFinite(pitch) ? pitch : 0,
   };
   if (nodeGraphMvp.live.runtime) {
     nodeGraphMvp.live.runtime.pitchModWheelSignal = payload;
@@ -2834,7 +2834,7 @@ function nodeGraphGlobalSmoothingDragStep(event) {
 function nodeGraphGlobalSmoothingSecondsFromDragDelta(startSeconds, pixelDelta, event) {
   const eps = nodeGraphGlobalSmoothingDragLogEps;
   const rate = nodeGraphGlobalSmoothingDragLogRate * nodeGraphGlobalSmoothingDragMultiplier(event);
-  const start = Math.max(0, Number(startSeconds) || 0);
+  const start = Math.max(0, nodeGraphFiniteNumber(startSeconds));
   const next = Math.exp(Math.log(start + eps) + pixelDelta * rate) - eps;
   // Snap tiny values to exact 0 so “off” is reachable without hunting.
   if (next < eps * 0.25) {
@@ -3689,7 +3689,7 @@ function nodeGraphApplyPageVisibilityAudioPolicy() {
 
   // Visible again.
   if (!pause.active) return;
-  const restoreSpeed = Number(pause.savedSpeed) || 0;
+  const restoreSpeed = nodeGraphFiniteNumber(pause.savedSpeed);
   const hadEngine = Boolean(pause.hadEngine);
   pause.active = false;
   pause.savedSpeed = 0;

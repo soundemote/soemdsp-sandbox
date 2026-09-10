@@ -47,7 +47,7 @@ function nodeGraphTiltFilterSafeTanHalfOmega(omega) {
  * y = b0*x + b1*x1 + a1*y1  (positive feedback-sign convention)
  */
 function nodeGraphTiltFilterLowShelfCoeffs(omega, linearGain) {
-  const g = Math.max(1e-6, Number(linearGain) || 1);
+  const g = Math.max(1e-6, nodeGraphFiniteNumber(linearGain, 1));
   let t = nodeGraphTiltFilterSafeTanHalfOmega(omega);
   t = g >= 1 ? (t - 1) / (t + 1) : (t - g) / (t + g);
   let c = 0.5 * (g - 1);
@@ -63,7 +63,7 @@ function nodeGraphTiltFilterLowShelfCoeffs(omega, linearGain) {
  * Robin Schmidt rsFirstOrderFilterBase::coeffsHighShelfBLT
  */
 function nodeGraphTiltFilterHighShelfCoeffs(omega, linearGain) {
-  const g = Math.max(1e-6, Number(linearGain) || 1);
+  const g = Math.max(1e-6, nodeGraphFiniteNumber(linearGain, 1));
   let t = nodeGraphTiltFilterSafeTanHalfOmega(omega);
   t = g >= 1 ? (t - 1) / (t + 1) : (g * t - 1) / (g * t + 1);
   let c = 0.5 * (g - 1);
@@ -76,7 +76,7 @@ function nodeGraphTiltFilterHighShelfCoeffs(omega, linearGain) {
 }
 
 function nodeGraphTiltFilterOnePole(stateXKey, stateYKey, state, input, coeffs) {
-  const x = Number(input) || 0;
+  const x = nodeGraphFiniteNumber(input);
   const y = coeffs.b0 * x + coeffs.b1 * state[stateXKey] + coeffs.a1 * state[stateYKey];
   state[stateXKey] = x;
   state[stateYKey] = y;
@@ -91,11 +91,11 @@ function nodeGraphTiltFilterOnePole(stateXKey, stateYKey, state, input, coeffs) 
  * @param {number} sampleRate
  */
 function nodeGraphTiltFilterSample(state, input, amountDb, pivotHz, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const amount = Number(amountDb) || 0;
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const amount = nodeGraphFiniteNumber(amountDb);
   if (!Number.isFinite(amount) || Math.abs(amount) < 1e-12) {
     // Bypass path still advances nothing meaningful — keep state quiet.
-    return Number(input) || 0;
+    return nodeGraphFiniteNumber(input);
   }
 
   // 0 Hz pivot allowed; only non-negative + Nyquist. Tiny floor is for tan() only.

@@ -10,7 +10,7 @@ function nodeGraphExpAdsrNormalizeShape(shape) {
     const r = Math.max(1e-4, Math.min(100, s));
     return Math.max(0, Math.min(1, (Math.log(100) - Math.log(r)) / (Math.log(100) - Math.log(1e-4))));
   }
-  return Math.max(-1, Math.min(1, s));
+  return s;
 }
 
 function nodeGraphExpAdsrShapeSkew(shape) {
@@ -21,7 +21,7 @@ function nodeGraphExpAdsrShapeSkew(shape) {
 
 /** Map progress 0…1 through bipolar curve. */
 function nodeGraphExpAdsrShapedProgress(t, shape) {
-  const u = Math.max(0, Math.min(1, Number(t) || 0));
+  const u = Math.max(0, Math.min(1, nodeGraphFiniteNumber(t)));
   const skew = nodeGraphExpAdsrShapeSkew(shape);
   if (typeof nodeGraphExponentialCurve === "function") {
     return nodeGraphExponentialCurve(u, skew);
@@ -52,15 +52,15 @@ function createNodeGraphExpAdsrState() {
 /** Snapshot of live envelope knobs (for UpdateOnTrigger). */
 function nodeGraphExpAdsrCopyParams(params = {}) {
   return {
-    delay: Math.max(0, Number(params.delay) || 0),
-    attack: Math.max(0, Number(params.attack) || 0),
-    decay: Math.max(0, Number(params.decay) || 0),
-    sustain: Math.max(0, Math.min(1, Number(params.sustain) || 0)),
-    release: Math.max(0, Number(params.release) || 0),
+    delay: Math.max(0, nodeGraphFiniteNumber(params.delay)),
+    attack: Math.max(0, nodeGraphFiniteNumber(params.attack)),
+    decay: Math.max(0, nodeGraphFiniteNumber(params.decay)),
+    sustain: Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.sustain))),
+    release: Math.max(0, nodeGraphFiniteNumber(params.release)),
     attackShape: nodeGraphExpAdsrNormalizeShape(params.attackShape),
     releaseShape: nodeGraphExpAdsrNormalizeShape(params.releaseShape),
-    level: Number(params.level) || 0,
-    loop: Number(params.loop) || 0,
+    level: nodeGraphFiniteNumber(params.level),
+    loop: nodeGraphFiniteNumber(params.loop),
   };
 }
 
@@ -75,8 +75,8 @@ function nodeGraphExpAdsrParamsForSample(state, gate, liveParams, updateOnTrigge
     if (state) state.latchedParams = null;
     return liveParams;
   }
-  const g = Number(gate) || 0;
-  const prev = Number(state?.lastGate) || 0;
+  const g = nodeGraphFiniteNumber(gate);
+  const prev = nodeGraphFiniteNumber(state?.lastGate);
   const rising = prev <= 0 && g > 0;
   if (!state.latchedParams || rising) {
     state.latchedParams = nodeGraphExpAdsrCopyParams(liveParams);
@@ -102,7 +102,7 @@ function nodeGraphExpAdsrRetargetStage(state, newEnd, newDuration, period) {
   }
   // Keep stageStart fixed so shaped progress is not re-based every sample.
   state.stageEnd = newEnd;
-  state.stageDuration = Math.max(0, Number(newDuration) || 0);
+  state.stageDuration = Math.max(0, nodeGraphFiniteNumber(newDuration));
   if (state.stageDuration <= period) {
     state.stageElapsed = t >= 1 ? period : 0;
   } else {
@@ -113,7 +113,7 @@ function nodeGraphExpAdsrRetargetStage(state, newEnd, newDuration, period) {
 function nodeGraphExpAdsrTriggerAttack(state, delay, attack, decay, sampleRate) {
   const period = 1 / Math.max(1, sampleRate);
   const from = state.out;
-  const safeDecay = Math.max(0, Number(decay) || 0);
+  const safeDecay = Math.max(0, nodeGraphFiniteNumber(decay));
   state.releasePending = false;
   if (delay < period) {
     if (attack <= period) {
@@ -141,15 +141,15 @@ function nodeGraphExpAdsrEnterSustainOrRelease(
   state, sustain, release, gate, outBeforeComplete = state.out,
 ) {
   const gateLow = !(Number(gate) > 0);
-  const sus = Math.max(0, Math.min(1, Number(sustain) || 0));
+  const sus = Math.max(0, Math.min(1, nodeGraphFiniteNumber(sustain)));
   if (state.releasePending || gateLow) {
     state.releasePending = false;
     state.state = "release";
     nodeGraphExpAdsrBeginStage(
       state,
-      Number(outBeforeComplete) || 0,
+      nodeGraphFiniteNumber(outBeforeComplete),
       0,
-      Math.max(0, Number(release) || 0),
+      Math.max(0, nodeGraphFiniteNumber(release)),
     );
   } else {
     state.out = sus;
@@ -165,21 +165,21 @@ function nodeGraphExpAdsrEnterSustainOrRelease(
  * @returns {number}
  */
 function nodeGraphExpAdsrCore(state, gate, params, sampleRate, updateOnTrigger = 0) {
-  const safeGate = Number(gate) || 0;
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const safeGate = nodeGraphFiniteNumber(gate);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const period = 1 / rate;
   const latch = Number(updateOnTrigger) >= 0.5;
   const effective = nodeGraphExpAdsrParamsForSample(state, safeGate, params, updateOnTrigger);
 
-  const delay = Math.max(0, Number(effective.delay) || 0);
-  const attack = Math.max(0, Number(effective.attack) || 0);
-  const decay = Math.max(0, Number(effective.decay) || 0);
-  const sustain = Math.max(0, Math.min(1, Number(effective.sustain) || 0));
-  const release = Math.max(0, Number(effective.release) || 0);
+  const delay = Math.max(0, nodeGraphFiniteNumber(effective.delay));
+  const attack = Math.max(0, nodeGraphFiniteNumber(effective.attack));
+  const decay = Math.max(0, nodeGraphFiniteNumber(effective.decay));
+  const sustain = Math.max(0, Math.min(1, nodeGraphFiniteNumber(effective.sustain)));
+  const release = Math.max(0, nodeGraphFiniteNumber(effective.release));
   const attackShape = nodeGraphExpAdsrNormalizeShape(effective.attackShape);
   const releaseShape = nodeGraphExpAdsrNormalizeShape(effective.releaseShape);
-  const level = Number(effective.level) || 0;
-  const looping = (Number(effective.loop) || 0) >= 0.5;
+  const level = nodeGraphFiniteNumber(effective.level);
+  const looping = (nodeGraphFiniteNumber(effective.loop)) >= 0.5;
   state._pendingSustain = sustain;
 
   if (state.lastGate <= 0 && safeGate > 0) {
@@ -215,7 +215,7 @@ function nodeGraphExpAdsrCore(state, gate, params, sampleRate, updateOnTrigger =
           state,
           state.out,
           0,
-          Math.max(0, Number(release) || 0),
+          Math.max(0, nodeGraphFiniteNumber(release)),
         );
       } else {
         nodeGraphExpAdsrRetargetStage(
@@ -321,11 +321,11 @@ function nodeGraphExpAdsrSample(state, gate, params, sampleRate, runtime = null,
  * Zero/near-zero attack: contour starts at the peak (top), then Decay — no missing A stage.
  */
 function nodeGraphExpAdsrPreviewCurve(params = {}, sampleRate = 2000, points = 160) {
-  const delay = Math.max(0, Number(params.delay) || 0);
-  const attack = Math.max(0, Number(params.attack) || 0);
-  const decay = Math.max(0, Number(params.decay) || 0);
-  const sustain = Math.max(0, Math.min(1, Number(params.sustain) || 0));
-  const release = Math.max(0, Number(params.release) || 0);
+  const delay = Math.max(0, nodeGraphFiniteNumber(params.delay));
+  const attack = Math.max(0, nodeGraphFiniteNumber(params.attack));
+  const decay = Math.max(0, nodeGraphFiniteNumber(params.decay));
+  const sustain = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.sustain)));
+  const release = Math.max(0, nodeGraphFiniteNumber(params.release));
   const attackShape = nodeGraphExpAdsrNormalizeShape(
     typeof nodeGraphFiniteNumber === "function"
       ? nodeGraphFiniteNumber(params.attackShape, 0)
@@ -337,7 +337,7 @@ function nodeGraphExpAdsrPreviewCurve(params = {}, sampleRate = 2000, points = 1
   const attackDraw = attack;
   const gateHigh = delay + Math.max(attackDraw + decay + sustainHold, 0.02);
   const total = Math.max(gateHigh + Math.max(release * 1.2, release + 0.02, 0.05), 0.08);
-  const n = Math.max(48, Math.round(Number(points) || 160));
+  const n = Math.max(48, Math.round(nodeGraphFiniteNumber(points, 160)));
 
   const pushSeg = (out, t0, t1, y0, y1, shape, segs) => {
     const span = Math.max(0, t1 - t0);

@@ -6,7 +6,7 @@ globalThis.nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluat
 var nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators;
 
 function nodeGraphBasicShapeWrap01(phase01) {
-  const p = Number(phase01) || 0;
+  const p = nodeGraphFiniteNumber(phase01);
   return p - Math.floor(p);
 }
 
@@ -53,7 +53,7 @@ function nodeGraphBasicShapeNaiveWaves(phase01, pulseWidth) {
 
 // Order: 0 Sine, 1 Tri, 2 Saw, 3 Ramp, 4 Trisaw, 5 Square, 6 CenterSquare
 function nodeGraphBasicShapeSelect(waves, waveform) {
-  const i = Math.max(0, Math.min(6, Math.round(Number(waveform) || 0)));
+  const i = Math.max(0, Math.min(6, Math.round(nodeGraphFiniteNumber(waveform))));
   if (i === 1) return waves.tri;
   if (i === 2) return waves.saw;
   if (i === 3) return waves.ramp;
@@ -64,7 +64,7 @@ function nodeGraphBasicShapeSelect(waves, waveform) {
 }
 
 function nodeGraphBasicShapePolarity(x, polarity) {
-  const uni = Math.round(Number(polarity) || 0) >= 1;
+  const uni = Math.round(nodeGraphFiniteNumber(polarity)) >= 1;
   return uni ? (Number(x) + 1) * 0.5 : Number(x);
 }
 
@@ -92,7 +92,7 @@ function nodeGraphBasicShapePitchAndPhase({
   const read = (key, fallback) => readNodeGraphLiveEffectiveParam(
     runtime, node, key, fallback, frame, frames, frameValues,
   );
-  const phaseOffset = Number(read("phase", 0)) || 0;
+  const phaseOffset = nodeGraphFiniteNumber(read("phase", 0));
   const frequency = read("frequency", 1);
   const referenceVoltage = typeof normalizeNodeGraphPatchAudio === "function"
     ? normalizeNodeGraphPatchAudio(nodeGraphMvp?.patch?.audio).pitchReferenceMidiNote / 120
@@ -125,8 +125,8 @@ function nodeGraphBasicShapePitchAndPhase({
     null,
     "basicShape increment input",
   );
-  const safeRate = Math.max(1, Number(sampleRate) || 44100);
-  const motion = Math.max(0, Math.min(3, Math.round(Number(read("motion", 1)) || 0)));
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const motion = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(read("motion", 1)))));
   const clockWise = motion === 0 || motion === 2;
   const useSimTime = motion >= 2;
   const dir = clockWise ? -1 : 1;
@@ -157,7 +157,7 @@ nodeGraphLiveModuleEvaluators.basicShape = ({
   const level = ctx.read("amplitude", 1);
   let samplePhase;
   if (ctx.useSimTime) {
-    const simSamples = Math.max(0, Number(runtime.absoluteFrame) || Number(frame) || 0);
+    const simSamples = Math.max(0, nodeGraphFiniteNumber(runtime.absoluteFrame, nodeGraphFiniteNumber(frame)));
     samplePhase = ctx.dir
       * ((ctx.pitchedFrequency / ctx.sampleRate) + ctx.incrementInput)
       * simSamples

@@ -71,7 +71,7 @@ function nodeSliderChoiceCellRects(width, height, choices) {
 }
 
 function nodeSliderChoiceCellRectsFromWalls(wallXs, height, viewportLeft, viewportTop, emptyPixelBorder = 0, visualScale = 1) {
-  const boundedEmptyPixelBorder = Math.max(0, Math.min(8, Number(emptyPixelBorder) || 0));
+  const boundedEmptyPixelBorder = Math.max(0, Math.min(8, nodeGraphFiniteNumber(emptyPixelBorder)));
   const bottomExtensionPx = 2;
   const strokeInset = 0.5;
   const trailingPixelCorrection = boundedEmptyPixelBorder > 0 ? 1 : 0;
@@ -138,7 +138,7 @@ function nodeSliderChoiceDividerInset(readout) {
 
 function nodeSliderSnapStrokeCoordinate(localPosition, viewportOrigin, strokeWidth = 1, visualScale = 1) {
   const dpr = window.devicePixelRatio || 1;
-  const scale = Math.max(0.01, Number(visualScale) || 1);
+  const scale = Math.max(0.01, nodeGraphFiniteNumber(visualScale, 1));
   const strokeCenter = viewportOrigin + localPosition * scale;
   const offset = strokeWidth % 2 === 0 ? 0 : 0.5;
   const snappedStrokeCenter = (Math.round(strokeCenter * dpr - offset) + offset) / dpr;

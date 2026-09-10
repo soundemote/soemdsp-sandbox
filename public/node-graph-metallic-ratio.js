@@ -4,7 +4,7 @@
 
 if (typeof nodeGraphMetallicRatioSample !== "function") {
   function nodeGraphMetallicRatioSample(index) {
-    const n = Number(index) || 0;
+    const n = nodeGraphFiniteNumber(index);
     return {
       Ratio: 0.5 * (n + Math.sqrt(n * n + 4)),
     };

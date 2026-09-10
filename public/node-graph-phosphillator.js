@@ -39,7 +39,7 @@ function nodeGraphPhosphillatorPointerToNormalized(canvas, clientX, clientY) {
 
 function nodeGraphPhosphillatorBeginCapture(nodeId, smoothingAmount) {
   const state = createNodeGraphPhosphillatorCaptureState();
-  state.smoothingAmount = clampNodeSliderValue(Number(smoothingAmount) || 0, 0, 1);
+  state.smoothingAmount = clampNodeSliderValue(nodeGraphFiniteNumber(smoothingAmount), 0, 1);
   // First real point primes the filter (seed on first add).
   state.primed = false;
   nodeGraphPhosphillatorCaptureStates.set(nodeId, state);
@@ -51,8 +51,8 @@ function nodeGraphPhosphillatorAddCapturePoint(nodeId, x, y) {
   if (!state) {
     return;
   }
-  const rawX = Number(x) || 0;
-  const rawY = Number(y) || 0;
+  const rawX = nodeGraphFiniteNumber(x);
+  const rawY = nodeGraphFiniteNumber(y);
   let smoothedX = rawX;
   let smoothedY = rawY;
   if (typeof nodeGraphMouseSmoothPoint === "function" && state.mouseSmooth) {
@@ -370,7 +370,7 @@ function nodeGraphPhosphillatorPathSample(decoded, pathPos) {
   if (n < 2) {
     return { x: decoded.decodedX[0] || 0, y: decoded.decodedY[0] || 0 };
   }
-  const pos = Math.min(1, Math.max(0, Number(pathPos) || 0));
+  const pos = Math.min(1, Math.max(0, nodeGraphFiniteNumber(pathPos)));
   const index = pos * (n - 1);
   const i0 = Math.min(n - 2, Math.floor(index));
   const i1 = i0 + 1;
@@ -402,7 +402,7 @@ function nodeGraphPhosphillatorPlaybackSample(state, node, nodeId, cvInput, freq
   if (!decoded) {
     return { X: 0, Y: 0 };
   }
-  const effectivePhase = nodeGraphWrap01((Number(phase) || 0) + (Number(phaseOffset) || 0));
+  const effectivePhase = nodeGraphWrap01((nodeGraphFiniteNumber(phase)) + (nodeGraphFiniteNumber(phaseOffset)));
   const sharp = Number.isFinite(Number(sharpness)) ? Number(sharpness) : 0.5;
   const point = nodeGraphPhosphillatorLoopSample(decoded, effectivePhase, sharp);
   return { X: point.x, Y: point.y };

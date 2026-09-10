@@ -23,7 +23,7 @@ nodeGraphLiveModuleEvaluators.phoneTone = ({
     : 0.4;
   const hasPitch = typeof hasInput === "function" ? hasInput(nodeId, "0.1V/Oct") : false;
   const pitchCv = hasPitch
-    ? Number(mixInput(nodeId, "0.1V/Oct")) || 0
+    ? nodeGraphFiniteNumber(mixInput(nodeId, "0.1V/Oct"))
     : referenceVoltage;
   const pitchCvRatio = typeof nodeGraphPhoneTonePitchCvRatio === "function"
     ? nodeGraphPhoneTonePitchCvRatio(hasPitch, pitchCv, referenceVoltage)

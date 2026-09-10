@@ -6,8 +6,8 @@ function nodeGraphSliderForParameter(node, key) {
 
 function nodeGraphNormalizedParameterSignalBounds(signal, metadata = {}) {
   return metadata.wraparound
-    ? wrapNodeSliderValue(Number(signal) || 0, 0, 1)
-    : clampNodeSliderValue(Number(signal) || 0, 0, 1);
+    ? wrapNodeSliderValue(nodeGraphFiniteNumber(signal), 0, 1)
+    : clampNodeSliderValue(nodeGraphFiniteNumber(signal), 0, 1);
 }
 
 /** Last posted scope sample for `nodeId:port` only — never fall back to Out. */
@@ -170,7 +170,7 @@ function nodeGraphParameterGhostSignal(node, key) {
   if (!sources.length) {
     return null;
   }
-  let effective = Number(baseDomain) || 0;
+  let effective = nodeGraphFiniteNumber(baseDomain);
   if (typeof nodeGraphParamFoldModSources === "function") {
     effective = nodeGraphParamFoldModSources(effective, sources, metadata);
   } else if (typeof nodeGraphApplyParameterModulation === "function") {

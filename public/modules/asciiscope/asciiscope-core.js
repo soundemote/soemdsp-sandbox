@@ -109,7 +109,7 @@ function matrixResolveDensityGrid(density, stageAspect = 1.2) {
   // Fill the face: pick rows so the cell grid aspect matches the stage.
   // gridAspect = (cols * cellW) / (rows * cellH) = stageAspect
   // rows = cols * MATRIX_CELL_ASPECT / stageAspect
-  const aspect = Math.max(0.25, Math.min(4, Number(stageAspect) || 1.2));
+  const aspect = Math.max(0.25, Math.min(4, nodeGraphFiniteNumber(stageAspect, 1.2)));
   let rows = Math.round((columns * MATRIX_CELL_ASPECT) / aspect);
   rows = Math.max(MATRIX_MIN_ROWS, Math.min(MATRIX_MAX_ROWS, rows));
   return {
@@ -184,7 +184,7 @@ function matrixPhosphorApplyGhostHang(energy01, _baseKeep, ghost = 0, burn = 0, 
   if (Residual?.applyResidual) {
     return Residual.applyResidual(energy01, t, ghost, burn);
   }
-  return Math.max(0, Number(energy01) || 0);
+  return Math.max(0, nodeGraphFiniteNumber(energy01));
 }
 
 /** Residual deposit peak = Bright × Burn Amount (same as phosphor drawers). */
@@ -226,7 +226,7 @@ function matrixPhosphorResidualFromParams(p = {}, num) {
  * Per-cell keep factor (compat). Prefer matrixPhosphorApplyGhostHang for accuracy.
  */
 function matrixPhosphorCellKeep(baseKeep, energy01, ghost = 0, burn = 0, trail = null) {
-  const e = Math.max(1e-6, Number(energy01) || 0);
+  const e = Math.max(1e-6, nodeGraphFiniteNumber(energy01));
   const next = matrixPhosphorApplyGhostHang(e, baseKeep, ghost, burn, trail);
   return Math.max(0, Math.min(1, next / e));
 }
@@ -240,7 +240,7 @@ function matrixPhosphorFilm(energy01) {
   if (Residual?.presentMono) {
     return Residual.presentMono(energy01);
   }
-  const raw = Math.max(0, Number(energy01) || 0);
+  const raw = Math.max(0, nodeGraphFiniteNumber(energy01));
   const lifted = raw + 0.045 * (raw > 0 ? raw ** 0.42 : 0);
   const e = 1 - Math.exp(-lifted * 2.9 * 0.68);
   return Math.max(0, Math.min(1, e)) ** 0.92;
@@ -274,7 +274,7 @@ function matrixRemapCellField(oldArr, oldCols, oldRows, newCols, newRows, isFloa
           const v = oldArr[i];
           // Prefer non-empty / higher energy samples.
           if (isFloat) {
-            const e = Number(v) || 0;
+            const e = nodeGraphFiniteNumber(v);
             if (e > bestE) {
               bestE = e;
               bestVal = e;
@@ -481,11 +481,11 @@ function matrixNormalizeRenderStyle(value) {
 function matrixSampleGradientRgb(stops, t) {
   const list = Array.isArray(stops) && stops.length >= 2 ? stops : null;
   if (!list) {
-    const e = Math.max(0, Math.min(1, Number(t) || 0));
+    const e = Math.max(0, Math.min(1, nodeGraphFiniteNumber(t)));
     const g = Math.round(e * 255);
     return { r: 0, g, b: 0 };
   }
-  const x = Math.max(0, Math.min(1, Number(t) || 0));
+  const x = Math.max(0, Math.min(1, nodeGraphFiniteNumber(t)));
   const parse = (hex, fallback) => {
     const h = String(hex || fallback || "#000000").trim();
     const m = h.match(/^#?([0-9a-f]{6})$/i);
@@ -497,14 +497,14 @@ function matrixSampleGradientRgb(stops, t) {
       b: parseInt(n.slice(4, 6), 16),
     };
   };
-  if (x <= (Number(list[0].t) || 0)) return parse(list[0].color, "#000000");
+  if (x <= (nodeGraphFiniteNumber(list[0].t))) return parse(list[0].color, "#000000");
   const last = list[list.length - 1];
-  if (x >= (Number(last.t) || 1)) return parse(last.color, "#ffffff");
+  if (x >= (nodeGraphFiniteNumber(last.t, 1))) return parse(last.color, "#ffffff");
   for (let i = 1; i < list.length; i += 1) {
     const a = list[i - 1];
     const b = list[i];
-    const at = Number(a.t) || 0;
-    const bt = Number(b.t) || 1;
+    const at = nodeGraphFiniteNumber(a.t);
+    const bt = nodeGraphFiniteNumber(b.t, 1);
     if (x <= bt) {
       const u = (x - at) / Math.max(1e-6, bt - at);
       const ca = parse(a.color, "#000000");
@@ -579,7 +579,7 @@ function matrixWaterfallParamsFromNode(node) {
   // Prefer density; legacy patches with columns approximate density from them.
   let density = p.density != null ? matrixClampDensity(p.density, 0.75) : null;
   if (density == null && p.columns != null) {
-    const cols = Math.max(1, Math.round(Number(p.columns) || 40));
+    const cols = Math.max(1, Math.round(nodeGraphFiniteNumber(p.columns, 40)));
     density = Math.max(0, Math.min(1, (cols - MATRIX_MIN_COLUMNS)
       / Math.max(1, MATRIX_BUF_COLUMNS - MATRIX_MIN_COLUMNS)));
   }
@@ -627,7 +627,7 @@ function matrixPlateParamsFromNode(node) {
   const grid = matrixResolveDensityGrid(density);
   return {
     // 0 Info, 1 Serial
-    mode: Math.max(0, Math.min(1, Math.round(Number(p.mode) || 0))),
+    mode: Math.max(0, Math.min(1, Math.round(nodeGraphFiniteNumber(p.mode)))),
     density: grid.density,
     columns: grid.columns,
     rows: grid.rows,
@@ -641,7 +641,7 @@ function matrixPlateParamsFromNode(node) {
       const b = Number(p.brightness);
       return Number.isFinite(b) ? Math.max(0, b) : 1;
     })(),
-    freeze: Math.round(Number(p.freeze) || 0) > 0 ? 1 : 0,
+    freeze: Math.round(nodeGraphFiniteNumber(p.freeze)) > 0 ? 1 : 0,
   };
 }
 

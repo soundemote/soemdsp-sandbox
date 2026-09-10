@@ -13,7 +13,7 @@ function nodeGraphScientificIirLiveEval(kind, typeKey, defaults) {
     const order = readNodeGraphLiveEffectiveParam(runtime, node, "order", defaults.order ?? 4, frame, frames, frameValues);
     const bandwidth = readNodeGraphLiveEffectiveParam(runtime, node, "bandwidth", defaults.bandwidth ?? 1, frame, frames, frameValues);
     const ripple = readNodeGraphLiveEffectiveParam(runtime, node, "ripple", defaults.ripple ?? 1, frame, frames, frameValues);
-    const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+    const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
     const mono = mixInput(nodeId);
     const run = (ch, x) => nodeGraphScientificIirSample(ch, x, kind, mode, frequency, order, bandwidth, ripple, rate);
     return {
@@ -50,7 +50,7 @@ nodeGraphLiveModuleEvaluators.bandpass = ({
   runtime.bandpassStates.set(nodeId, state);
   const baseFreq = readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 1000, frame, frames, frameValues);
   const q = readNodeGraphLiveEffectiveParam(runtime, node, "q", 1, frame, frames, frameValues);
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const hasAbsHz = typeof nodeGraphResolveAbsHzJack === "function"
     ? nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId) != null
     : (typeof hasInput === "function" && hasInput(nodeId, "f"));
@@ -59,7 +59,7 @@ nodeGraphLiveModuleEvaluators.bandpass = ({
     : 0.4;
   const hasPitch = typeof hasInput === "function" ? hasInput(nodeId, "0.1V/Oct") : false;
   const pitchCv = hasPitch
-    ? Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0))
+    ? nodeGraphFiniteNumber(mixInput(nodeId, "0.1V/Oct"))
     : referenceVoltage;
   const frequency = hasAbsHz
     ? mixInput(nodeId, "f")
@@ -102,7 +102,7 @@ nodeGraphLiveModuleEvaluators.allpass = ({
   runtime.allpassStates.set(nodeId, state);
   const baseFreq = readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 1000, frame, frames, frameValues);
   const q = readNodeGraphLiveEffectiveParam(runtime, node, "q", 0.707, frame, frames, frameValues);
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const hasAbsHz = typeof nodeGraphResolveAbsHzJack === "function"
     ? nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId) != null
     : (typeof hasInput === "function" && hasInput(nodeId, "f"));
@@ -111,7 +111,7 @@ nodeGraphLiveModuleEvaluators.allpass = ({
     : 0.4;
   const hasPitch = typeof hasInput === "function" ? hasInput(nodeId, "0.1V/Oct") : false;
   const pitchCv = hasPitch
-    ? Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0))
+    ? nodeGraphFiniteNumber(mixInput(nodeId, "0.1V/Oct"))
     : referenceVoltage;
   const frequency = hasAbsHz
     ? mixInput(nodeId, "f")

@@ -45,7 +45,7 @@ nodeGraphLiveModuleEvaluators.robinSupersaw = ({
 
   let reset = 0;
   if (hasInput?.(nodeId, "Reset") || hasInput?.("Reset")) {
-    reset = Number(mixInput?.(nodeId, "Reset") ?? mixInput?.("Reset")) || 0;
+    reset = nodeGraphFiniteNumber(mixInput?.(nodeId, "Reset") ?? mixInput?.("Reset"));
   }
 
   const result = nodeGraphRobinSupersawSample(state, {

@@ -146,8 +146,8 @@ function drawNodeGraphPhoneToneFaceItem(sectionOrRenderer, item) {
   const pair = nodeGraphPhoneToneFaceHzPair(nodeId);
   const left = nodeGraphPhoneToneFaceFormatHz(pair[0]);
   const right = nodeGraphPhoneToneFaceFormatHz(pair[1]);
-  const rawW = Number(section.clientWidth || section.offsetWidth) || 0;
-  const rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+  const rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
+  const rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
   const signature = `${left}|${right}|${Math.round(rawW)}|${Math.round(rawH)}`;
   if (
     !section._forceDraw

@@ -186,7 +186,7 @@ function nodeGraphModuleScopeSampleRange(buffer, start = 0, end = buffer?.length
   const first = Math.max(0, Math.floor(start));
   const limit = Math.min(buffer?.length || 0, Math.ceil(end));
   for (let index = first; index < limit; index += 1) {
-    const value = Number(buffer[index]) || 0;
+    const value = nodeGraphFiniteNumber(buffer[index]);
     min = Math.min(min, value);
     max = Math.max(max, value);
   }

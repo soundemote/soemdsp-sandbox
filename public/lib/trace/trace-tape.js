@@ -9,7 +9,7 @@
   function clamp01(value, fallback = 0) {
     const n = Number(value);
     if (!Number.isFinite(n)) {
-      return Math.max(0, Math.min(1, Number(fallback) || 0));
+      return Math.max(0, Math.min(1, nodeGraphFiniteNumber(fallback)));
     }
     return Math.max(0, Math.min(1, n));
   }
@@ -340,7 +340,7 @@
 
   function buildStampVertices(pathPoints, radius, blur, maxDots, options = {}) {
     const corners = [0, 1, 2, 1, 3, 2];
-    const cap = Math.max(1, Math.min(16384, Math.floor(Number(maxDots) || 2048)));
+    const cap = Math.max(1, Math.min(16384, Math.floor(nodeGraphFiniteNumber(maxDots, 2048))));
     const out = [];
     let stamps = 0;
     const push = (x, y) => {
@@ -361,7 +361,7 @@
       spacing = Math.max(0.25, Number(options.spacingPx));
     } else {
       const density = clamp01(options.stampDensity ?? options.dotDensity ?? 0.5, 0.5);
-      const r = Math.max(0.5, Number(radius) || 2);
+      const r = Math.max(0.5, nodeGraphFiniteNumber(radius, 2));
       const spacingDefault = Math.max(0.75, r * 0.65);
       // relativeDensity: 0.5→1, 1→2, 0→1/4000.
       const relativeDensity = Math.max(1 / 4000, density * 2);
@@ -536,7 +536,7 @@
     if (!tape?.alive || !tape.device) {
       return false;
     }
-    const dx = Math.round(Number(dxPx) || 0);
+    const dx = Math.round(nodeGraphFiniteNumber(dxPx));
     if (!dx) {
       return true;
     }
@@ -566,7 +566,7 @@
       return 0;
     }
     const pathPoints = options.pathPoints;
-    const radius = Math.max(0.35, Number(options.radius) || 2);
+    const radius = Math.max(0.35, nodeGraphFiniteNumber(options.radius, 2));
     const blur = clamp01(options.blur, 0);
     const brightness = Math.max(0, Number(options.brightness) ?? 1);
     if (brightness < 1e-6) {
@@ -577,7 +577,7 @@
       radius,
       blur,
       // Waterfall catch-up + tall Scale envelopes need headroom past 8k.
-      Math.max(8, Math.min(16384, Math.round(Number(options.maxDots) || 4096))),
+      Math.max(8, Math.min(16384, Math.round(nodeGraphFiniteNumber(options.maxDots, 4096)))),
       {
         ...options,
         stampCarry: tape.stampCarry,
@@ -630,8 +630,8 @@
     }
     const dev = tape.device;
     const gl = tape.gl;
-    const width = Math.max(1, Number(options.width) || tape.width);
-    const height = Math.max(1, Number(options.height) || tape.height);
+    const width = Math.max(1, nodeGraphFiniteNumber(options.width, tape.width));
+    const height = Math.max(1, nodeGraphFiniteNumber(options.height, tape.height));
     const size = ensurePresentSize(dev, width, height);
     bindPresentViewport(gl, size.cw, size.ch, size.w, size.h);
     gl.useProgram(dev.present.program);
@@ -657,8 +657,8 @@
       return false;
     }
     const gl = leftTape.gl;
-    const width = Math.max(1, Number(options.width) || leftTape.width);
-    const height = Math.max(1, Number(options.height) || leftTape.height);
+    const width = Math.max(1, nodeGraphFiniteNumber(options.width, leftTape.width));
+    const height = Math.max(1, nodeGraphFiniteNumber(options.height, leftTape.height));
     const size = ensurePresentSize(dev, width, height);
     let cL = Array.isArray(options.leftRgb) ? options.leftRgb : hexToRgb01(options.leftColor, [1, 0, 0]);
     let cR = Array.isArray(options.rightRgb) ? options.rightRgb : hexToRgb01(options.rightColor, [0, 0, 1]);
@@ -720,8 +720,8 @@
       return false;
     }
     const gl = tapeA.gl;
-    const width = Math.max(1, Number(options.width) || tapeA.width);
-    const height = Math.max(1, Number(options.height) || tapeA.height);
+    const width = Math.max(1, nodeGraphFiniteNumber(options.width, tapeA.width));
+    const height = Math.max(1, nodeGraphFiniteNumber(options.height, tapeA.height));
     const size = ensurePresentSize(dev, width, height);
     const cA = Array.isArray(options.rgbA) ? options.rgbA : hexToRgb01(options.colorA, [1, 0, 0]);
     const cB = Array.isArray(options.rgbB) ? options.rgbB : hexToRgb01(options.colorB, [0, 0, 1]);
@@ -771,7 +771,7 @@
     if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.radiusFromSize) {
       return PhosphorDrawer.radiusFromSize(faceMinSide, size01);
     }
-    return Math.max(0.35, Math.max(1, Number(faceMinSide) || 1) * clamp01(size01, 0.035) * 0.5);
+    return Math.max(0.35, Math.max(1, nodeGraphFiniteNumber(faceMinSide, 1)) * clamp01(size01, 0.035) * 0.5);
   }
 
   global.TraceTape = {

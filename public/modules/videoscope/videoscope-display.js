@@ -23,9 +23,9 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
   }
 
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  const mode = Math.round(Number(node?.params?.mode) || 0);
+  const mode = Math.round(nodeGraphFiniteNumber(node?.params?.mode));
   // Module brightness param scales deposit; Display Settings owns burn/decay/pen.
-  const paramBrightness = Math.max(0, Math.min(1, Number(node?.params?.brightness) || 1));
+  const paramBrightness = Math.max(0, Math.min(1, nodeGraphFiniteNumber(node?.params?.brightness, 1)));
   const face = typeof normalizeNodeGraphScope2dSettings === "function"
     ? normalizeNodeGraphScope2dSettings(node?.traceDisplaySettings)
     : (node?.traceDisplaySettings || {});
@@ -102,7 +102,7 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
       ? Residual.migrateBurn(face, 0)
       : (
         Number(face.residualSchema) >= 2
-          ? Math.max(0, Math.min(1, Number(face.burn) || 0))
+          ? Math.max(0, Math.min(1, nodeGraphFiniteNumber(face.burn)))
           : 0
       ),
     residualSchema: Residual?.RESIDUAL_SCHEMA || 2,

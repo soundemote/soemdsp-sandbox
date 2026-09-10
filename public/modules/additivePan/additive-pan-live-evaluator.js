@@ -32,8 +32,8 @@ function nodeGraphAdditivePanLiveEvaluator({
   const shimmer = num(p.shimmer, 0.35);
   const orbit = num(p.orbit, 1);
   const shimmerRate = num(p.shimmerRate, 18);
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const block = Math.max(1, Number(frames) || 128);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const block = Math.max(1, nodeGraphFiniteNumber(frames, 128));
   const applied = additiveGraphApplyPan(
     out,
     width,

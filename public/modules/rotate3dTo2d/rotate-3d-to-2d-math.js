@@ -12,12 +12,12 @@
  * @returns {{ X: number, Y: number }}
  */
 function nodeGraphRotate3dTo2d(x, y, z, rotateXCycles, rotateYCycles, rotateZCycles) {
-  let px = Number(x) || 0;
-  let py = Number(y) || 0;
-  let pz = Number(z) || 0;
-  const angleX = (Number(rotateXCycles) || 0) * Math.PI * 2;
-  const angleY = (Number(rotateYCycles) || 0) * Math.PI * 2;
-  const angleZ = (Number(rotateZCycles) || 0) * Math.PI * 2;
+  let px = nodeGraphFiniteNumber(x);
+  let py = nodeGraphFiniteNumber(y);
+  let pz = nodeGraphFiniteNumber(z);
+  const angleX = (nodeGraphFiniteNumber(rotateXCycles)) * Math.PI * 2;
+  const angleY = (nodeGraphFiniteNumber(rotateYCycles)) * Math.PI * 2;
+  const angleZ = (nodeGraphFiniteNumber(rotateZCycles)) * Math.PI * 2;
 
   const sinX = Math.sin(angleX);
   const cosX = Math.cos(angleX);

@@ -144,13 +144,13 @@ function nodeGraphInjectSpectrogramWorkletParams(node, params) {
   }
   const rawFft = node.traceDisplaySettings?.fftSize ?? p.fftSize ?? 1024;
   params.fftSize = Number.isFinite(Number(rawFft)) ? Number(rawFft) : 1024;
-  params.window = Number(node.traceDisplaySettings?.window ?? p.window ?? 1) || 1;
-  params.overlap = Number(node.traceDisplaySettings?.overlap ?? p.overlap ?? 2) || 2;
-  params.freqOverlap = Number(node.traceDisplaySettings?.freqOverlap ?? p.freqOverlap ?? 0) || 0;
-  params.freqScale = Number(node.traceDisplaySettings?.freqScale ?? p.freqScale ?? 1) || 1;
-  params.historySeconds = Number(p.historySeconds ?? node.traceDisplaySettings?.historySeconds ?? 2) || 2;
-  params.minFreq = Number(p.minFreq ?? 20) || 20;
-  params.maxFreq = Number(p.maxFreq ?? 20000) || 20000;
+  params.window = nodeGraphFiniteNumber(node.traceDisplaySettings?.window ?? p.window ?? 1, 1);
+  params.overlap = nodeGraphFiniteNumber(node.traceDisplaySettings?.overlap ?? p.overlap ?? 2, 2);
+  params.freqOverlap = nodeGraphFiniteNumber(node.traceDisplaySettings?.freqOverlap ?? p.freqOverlap ?? 0);
+  params.freqScale = nodeGraphFiniteNumber(node.traceDisplaySettings?.freqScale ?? p.freqScale ?? 1, 1);
+  params.historySeconds = nodeGraphFiniteNumber(p.historySeconds ?? node.traceDisplaySettings?.historySeconds ?? 2, 2);
+  params.minFreq = nodeGraphFiniteNumber(p.minFreq ?? 20, 20);
+  params.maxFreq = nodeGraphFiniteNumber(p.maxFreq ?? 20000, 20000);
 }
 
 function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = null) {
@@ -1002,8 +1002,8 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     // when their signal supply is cut, instead of just dropping to silence.
     inputWireBreakTriggers: new Map(),
     pitchModWheelSignal: {
-      mod: Math.max(0, Math.min(1, Number(nodeGraphMvp?.modWheelSignal) || 0)),
-      pitch: Math.max(-1, Math.min(1, Number(nodeGraphMvp?.pitchWheelSignal) || 0)),
+      mod: Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphMvp?.modWheelSignal))),
+      pitch: nodeGraphFiniteNumber(nodeGraphMvp?.pitchWheelSignal),
     },
     midiKeyboardSignal: null,
     nodeOutputs: new Map((plan.nodes || []).map((node) => [node.id, 0])),

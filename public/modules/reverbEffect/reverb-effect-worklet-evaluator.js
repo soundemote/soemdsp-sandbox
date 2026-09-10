@@ -157,11 +157,11 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
     }
     const dryLeft = Number.isFinite(leftInput) ? leftInput : 0;
     const dryRight = Number.isFinite(rightInput) ? rightInput : dryLeft;
-    const heldMixL = Number(state.out?.["Mix L"]) || 0;
-    const heldMixR = Number(state.out?.["Mix R"]) || 0;
-    const heldWet = Number(state.lastWet) || 0;
+    const heldMixL = nodeGraphFiniteNumber(state.out?.["Mix L"]);
+    const heldMixR = nodeGraphFiniteNumber(state.out?.["Mix R"]);
+    const heldWet = nodeGraphFiniteNumber(state.lastWet);
     try {
-      const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
+      const safeRate = Math.max(1, nodeGraphFiniteNumber(rateHz, nodeGraphFiniteNumber(sampleRate, 44100)));
       if (!state.idleIncrement || state.nativeSampleRate !== safeRate) {
         state.idleIncrement = 1 / safeRate;
       }
@@ -224,8 +224,8 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
         if (cache.cursor >= blockSize) {
           native.soemdsp_sabrina_reverb_process_block(state.nativeHandle, blockSize, 1);
           cache.cursor = 0;
-          const wetL = Number(native.soemdsp_sabrina_reverb_wet_left?.(state.nativeHandle)) || 0;
-          const wetR = Number(native.soemdsp_sabrina_reverb_wet_right?.(state.nativeHandle)) || 0;
+          const wetL = nodeGraphFiniteNumber(native.soemdsp_sabrina_reverb_wet_left?.(state.nativeHandle));
+          const wetR = nodeGraphFiniteNumber(native.soemdsp_sabrina_reverb_wet_right?.(state.nativeHandle));
           state.lastWet = wetL + wetR;
           if (native.soemdsp_sabrina_reverb_is_idle) {
             state.isIdle = native.soemdsp_sabrina_reverb_is_idle(state.nativeHandle) === 1;
@@ -237,10 +237,10 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
         return this.sabrinaWriteOut(state, dryLeft, dryRight, mixLeft, mixRight);
       }
       native.soemdsp_sabrina_reverb_process(state.nativeHandle, dryLeft, dryRight);
-      const mixLeft = Number(native.soemdsp_sabrina_reverb_left?.(state.nativeHandle)) || 0;
-      const mixRight = Number(native.soemdsp_sabrina_reverb_right?.(state.nativeHandle)) || 0;
-      const wetL = Number(native.soemdsp_sabrina_reverb_wet_left?.(state.nativeHandle)) || 0;
-      const wetR = Number(native.soemdsp_sabrina_reverb_wet_right?.(state.nativeHandle)) || 0;
+      const mixLeft = nodeGraphFiniteNumber(native.soemdsp_sabrina_reverb_left?.(state.nativeHandle));
+      const mixRight = nodeGraphFiniteNumber(native.soemdsp_sabrina_reverb_right?.(state.nativeHandle));
+      const wetL = nodeGraphFiniteNumber(native.soemdsp_sabrina_reverb_wet_left?.(state.nativeHandle));
+      const wetR = nodeGraphFiniteNumber(native.soemdsp_sabrina_reverb_wet_right?.(state.nativeHandle));
       state.lastWet = wetL + wetR;
       if (native.soemdsp_sabrina_reverb_is_idle) {
         state.isIdle = native.soemdsp_sabrina_reverb_is_idle(state.nativeHandle) === 1;

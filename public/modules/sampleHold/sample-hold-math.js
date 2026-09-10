@@ -59,14 +59,14 @@ function nodeGraphSampleHoldCore(
     nodeGraphResetSeededState(state.noise, seedKey, 0, "sampleHoldNoise");
   }
   const safeInput = hasInConnected
-    ? (Number(input) || 0)
+    ? (nodeGraphFiniteNumber(input))
     : (typeof nodeGraphNextSeededBipolar === "function"
       ? nodeGraphNextSeededBipolar(state.noise)
       : 0);
-  const safeClock = Number(clock) || 0;
-  const safeThreshold = Number(threshold) || 0;
-  const safeFreq = Math.max(0, Number(sampleFrequency) || 0);
-  const safeRate = Math.max(1, Number(sampleRate) || 44100);
+  const safeClock = nodeGraphFiniteNumber(clock);
+  const safeThreshold = nodeGraphFiniteNumber(threshold);
+  const safeFreq = Math.max(0, nodeGraphFiniteNumber(sampleFrequency));
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const interp = nodeGraphSampleHoldNormalizeInterpolate(interpolate);
 
   let internalFire = false;
@@ -80,19 +80,19 @@ function nodeGraphSampleHoldCore(
 
   const risingEdge = state.lastTrigger <= safeThreshold && safeClock > safeThreshold;
   const fire = risingEdge || internalFire;
-  state.samplesSinceFire = (Number(state.samplesSinceFire) || 0) + 1;
+  state.samplesSinceFire = (nodeGraphFiniteNumber(state.samplesSinceFire)) + 1;
 
   if (fire) {
-    const interval = Math.max(1, Number(state.samplesSinceFire) || 1);
+    const interval = Math.max(1, nodeGraphFiniteNumber(state.samplesSinceFire, 1));
     state.lastIntervalSamples = interval;
     state.samplesSinceFire = 0;
     // Segment length: internal clock period, else last measured Clock interval.
     let seg = safeFreq > 0
       ? Math.max(1, Math.round(safeRate / safeFreq))
-      : Math.max(1, Number(state.lastIntervalSamples) || 1);
+      : Math.max(1, nodeGraphFiniteNumber(state.lastIntervalSamples, 1));
     state.segmentSamples = seg;
     state.samplesInSegment = 0;
-    state.from = Number(state.out) || 0;
+    state.from = nodeGraphFiniteNumber(state.out);
     state.held = safeInput;
     if (interp === 0) {
       state.out = safeInput;
@@ -103,17 +103,17 @@ function nodeGraphSampleHoldCore(
   state.lastTrigger = safeClock;
 
   if (interp === 0) {
-    state.out = Number(state.held) || 0;
+    state.out = nodeGraphFiniteNumber(state.held);
     return state.out;
   }
 
-  state.samplesInSegment = (Number(state.samplesInSegment) || 0) + 1;
-  const seg = Math.max(1, Number(state.segmentSamples) || 1);
+  state.samplesInSegment = (nodeGraphFiniteNumber(state.samplesInSegment)) + 1;
+  const seg = Math.max(1, nodeGraphFiniteNumber(state.segmentSamples, 1));
   let t = state.samplesInSegment / seg;
   if (t > 1) t = 1;
   if (interp === 2) t = nodeGraphSampleHoldSmoothstep(t);
-  const from = Number(state.from) || 0;
-  const to = Number(state.held) || 0;
+  const from = nodeGraphFiniteNumber(state.from);
+  const to = nodeGraphFiniteNumber(state.held);
   state.out = from + (to - from) * t;
   return state.out;
 }

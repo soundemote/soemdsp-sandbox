@@ -32,7 +32,7 @@
 
     function setLayers(nextLayers) {
       layers = Array.isArray(nextLayers) ? nextLayers.slice() : [];
-      layers.sort((a, b) => (Number(a?.order) || 0) - (Number(b?.order) || 0));
+      layers.sort((a, b) => (nodeGraphFiniteNumber(a?.order)) - (nodeGraphFiniteNumber(b?.order)));
     }
 
     function setBackground(value) {
@@ -51,9 +51,9 @@
      * @returns {boolean} resized
      */
     function resize(cssWidth, cssHeight, pixelRatio = 1, resizeOptions = {}) {
-      const dpr = Math.max(1, Number(pixelRatio) || 1);
-      const cssW = Math.max(1, Math.round(Number(cssWidth) || 1));
-      const cssH = Math.max(1, Math.round(Number(cssHeight) || 1));
+      const dpr = Math.max(1, nodeGraphFiniteNumber(pixelRatio, 1));
+      const cssW = Math.max(1, Math.round(nodeGraphFiniteNumber(cssWidth, 1)));
+      const cssH = Math.max(1, Math.round(nodeGraphFiniteNumber(cssHeight, 1)));
       const w = Math.max(1, Math.round(cssW * dpr));
       const h = Math.max(1, Math.round(cssH * dpr));
       let resized = false;
@@ -85,8 +85,8 @@
 
     function sourceSize(source) {
       if (!source) return { w: 0, h: 0 };
-      const w = Number(source.videoWidth || source.naturalWidth || source.width) || 0;
-      const h = Number(source.videoHeight || source.naturalHeight || source.height) || 0;
+      const w = nodeGraphFiniteNumber(source.videoWidth || source.naturalWidth || source.width);
+      const h = nodeGraphFiniteNumber(source.videoHeight || source.naturalHeight || source.height);
       return { w, h };
     }
 

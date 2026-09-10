@@ -17,8 +17,8 @@ NodeLiveAudioProcessor.prototype.chordSequencerSample = function chordSequencerS
         if (state.nativeHandle) {
           const clockHigh = Number(options.clock) > 0 ? 1 : 0;
           const resetHigh = Number(options.reset) > 0 ? 1 : 0;
-          const progression = Math.max(0, Math.min(5, Math.round(Number(options.progression) || 0)));
-          const level = Number(options.level) || 0;
+          const progression = Math.max(0, Math.min(5, Math.round(nodeGraphFiniteNumber(options.progression))));
+          const level = nodeGraphFiniteNumber(options.level);
           this.nativeChordSequencer.soemdsp_chord_sequencer_sample(
             state.nativeHandle,
             clockHigh,

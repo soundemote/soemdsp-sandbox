@@ -42,7 +42,7 @@ NodeLiveAudioProcessor.prototype.scopeScalarValue = function scopeScalarValue(va
 };
 
 NodeLiveAudioProcessor.prototype.visualWriteStride = function visualWriteStride(writeHz, engineRate) {
-    const rate = Math.max(1, Number(engineRate) || 44100);
+    const rate = Math.max(1, nodeGraphFiniteNumber(engineRate, 44100));
     const hz = Number(writeHz);
     // 0 / missing / ≥ engine → every sample (waveform rings).
     if (!Number.isFinite(hz) || hz <= 0 || hz >= rate) {
@@ -123,7 +123,7 @@ NodeLiveAudioProcessor.prototype.compileScopeCapture = function compileScopeCapt
 };
 
 NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModuleScopeFrame(frameValues = null, frame = 0, frames = 1) {
-    const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
+    const engineRate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
     this.scopeSampleStride = 1;
     if (!Array.isArray(this.compiledScopeNodes) || !Array.isArray(this.compiledVisualSinks)) {
       this.compileScopeCapture();
@@ -279,8 +279,8 @@ NodeLiveAudioProcessor.prototype.appendScopeBufferSample = function appendScopeB
     if (!key) {
       return;
     }
-    const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
-    const fps = Math.max(1, Number(this.displayFps) || 60);
+    const engineRate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
+    const fps = Math.max(1, nodeGraphFiniteNumber(this.displayFps, 60));
     // Waveform / phosphor faces write near engine rate (full quantum). Keep at
     // least ~0.5 s so a slow paint cannot wrap away undrawn high-speed path.
     const limit = Math.max(
@@ -295,11 +295,11 @@ NodeLiveAudioProcessor.prototype.appendScopeBufferSample = function appendScopeB
       samples.nodeGraphScopeLength = 0;
       this.scopeBuffers.set(key, samples);
     }
-    const writeIndex = Math.max(0, Math.min(limit - 1, Number(samples.nodeGraphScopeWriteIndex) || 0));
+    const writeIndex = Math.max(0, Math.min(limit - 1, nodeGraphFiniteNumber(samples.nodeGraphScopeWriteIndex)));
     samples[writeIndex] = this.scopeScalarValue(value);
     samples.nodeGraphScopeWriteIndex = (writeIndex + 1) % limit;
-    samples.nodeGraphScopeLength = Math.min(limit, (Number(samples.nodeGraphScopeLength) || 0) + 1);
-    samples.nodeGraphScopeTotalWritten = (Number(samples.nodeGraphScopeTotalWritten) || 0) + 1;
+    samples.nodeGraphScopeLength = Math.min(limit, (nodeGraphFiniteNumber(samples.nodeGraphScopeLength)) + 1);
+    samples.nodeGraphScopeTotalWritten = (nodeGraphFiniteNumber(samples.nodeGraphScopeTotalWritten)) + 1;
 };
 
 NodeLiveAudioProcessor.prototype.createVisualInputBuffer = function createVisualInputBuffer(capacity = 262144) {
@@ -320,7 +320,7 @@ NodeLiveAudioProcessor.prototype.createVisualInputBuffer = function createVisual
 };
 
 NodeLiveAudioProcessor.prototype.normalizeVisualInputBufferCapacity = function normalizeVisualInputBufferCapacity(capacity = 262144) {
-    return Math.max(1, Math.round(Number(capacity) || 262144));
+    return Math.max(1, Math.round(nodeGraphFiniteNumber(capacity, 262144)));
 };
 
 NodeLiveAudioProcessor.prototype.resizeVisualInputBufferState = function resizeVisualInputBufferState(state, capacity = 262144) {
@@ -331,20 +331,20 @@ NodeLiveAudioProcessor.prototype.resizeVisualInputBufferState = function resizeV
         return next;
       }
       const oldCapacity = state.capacity || state.buffer.length;
-      const oldLength = Math.min(Number(state.length) || 0, oldCapacity);
+      const oldLength = Math.min(nodeGraphFiniteNumber(state.length), oldCapacity);
       const copyCount = Math.min(oldLength, safeCapacity);
-      const first = ((Number(state.writeIndex) || 0) - oldLength + oldCapacity) % oldCapacity;
+      const first = ((nodeGraphFiniteNumber(state.writeIndex)) - oldLength + oldCapacity) % oldCapacity;
       for (let index = 0; index < copyCount; index += 1) {
         const oldIndex = (first + oldLength - copyCount + index) % oldCapacity;
         next.buffer[index] = state.buffer[oldIndex] || 0;
       }
       next.length = copyCount;
       next.writeIndex = copyCount % safeCapacity;
-      next.absoluteFrame = Math.max(Number(state.absoluteFrame) || 0, copyCount);
-      next.postedFrame = Math.min(Math.max(Number(state.postedFrame) || 0, 0), next.absoluteFrame);
-      next.sampleStride = Math.max(1, Math.round(Number(state.sampleStride) || 1));
-      next.sourceSampleRate = Math.max(0, Number(state.sourceSampleRate) || 0);
-      next.writeSampleRate = Math.max(0, Number(state.writeSampleRate) || 0);
+      next.absoluteFrame = Math.max(nodeGraphFiniteNumber(state.absoluteFrame), copyCount);
+      next.postedFrame = Math.min(Math.max(nodeGraphFiniteNumber(state.postedFrame), 0), next.absoluteFrame);
+      next.sampleStride = Math.max(1, Math.round(nodeGraphFiniteNumber(state.sampleStride, 1)));
+      next.sourceSampleRate = Math.max(0, nodeGraphFiniteNumber(state.sourceSampleRate));
+      next.writeSampleRate = Math.max(0, nodeGraphFiniteNumber(state.writeSampleRate));
       return next;
     }
     return state;
@@ -399,9 +399,9 @@ NodeLiveAudioProcessor.prototype.writeVisualInputBufferSample = function writeVi
     // Tag hop so scope posts report the true samples/sec of this ring
     // (not engine rate). 1D Phosphor Sweep(s) and Trace history depend on it.
     if (rateMeta && typeof rateMeta === "object") {
-      const stride = Math.max(1, Math.round(Number(rateMeta.sampleStride) || 1));
-      const sourceRate = Math.max(1, Number(rateMeta.sourceSampleRate) || 0);
-      const writeRate = Math.max(1, Number(rateMeta.writeSampleRate) || 0);
+      const stride = Math.max(1, Math.round(nodeGraphFiniteNumber(rateMeta.sampleStride, 1)));
+      const sourceRate = Math.max(1, nodeGraphFiniteNumber(rateMeta.sourceSampleRate));
+      const writeRate = Math.max(1, nodeGraphFiniteNumber(rateMeta.writeSampleRate));
       buffer.sampleStride = stride;
       if (sourceRate > 0) {
         buffer.sourceSampleRate = sourceRate;

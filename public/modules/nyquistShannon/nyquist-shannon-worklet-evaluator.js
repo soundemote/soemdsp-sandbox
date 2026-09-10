@@ -33,23 +33,23 @@ NodeLiveAudioProcessor.prototype.nyquistShannonSample = function nyquistShannonS
           state.nativeHandle = this.nativeNyquistShannon.soemdsp_jbnyquist_create();
         }
         if (state.nativeHandle) {
-          const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
+          const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
           this.nativeNyquistShannon.soemdsp_jbnyquist_sample(
             state.nativeHandle,
-            Number(options.frequencyA) || 0,
-            Number(options.midiNoteRaw) || 0,
-            Number(options.rate) || 0,
-            Number(options.sampleDots) || 0,
-            Number(options.phaseOffset) || 0,
-            Number(options.frequencyB) || 0,
-            Number(options.subPhase) || 0,
-            Number(options.subPhaseRotationSpeed) || 0,
-            Number(options.tone) || 0,
-            Number(options.toneSmoothTime) || 0,
-            Number(options.artifact) || 0,
-            Number(options.enableToneModPitch) || 0,
-            Number(options.enableToneModFreq) || 0,
-            Number(options.enableToneModNote) || 0,
+            nodeGraphFiniteNumber(options.frequencyA),
+            nodeGraphFiniteNumber(options.midiNoteRaw),
+            nodeGraphFiniteNumber(options.rate),
+            nodeGraphFiniteNumber(options.sampleDots),
+            nodeGraphFiniteNumber(options.phaseOffset),
+            nodeGraphFiniteNumber(options.frequencyB),
+            nodeGraphFiniteNumber(options.subPhase),
+            nodeGraphFiniteNumber(options.subPhaseRotationSpeed),
+            nodeGraphFiniteNumber(options.tone),
+            nodeGraphFiniteNumber(options.toneSmoothTime),
+            nodeGraphFiniteNumber(options.artifact),
+            nodeGraphFiniteNumber(options.enableToneModPitch),
+            nodeGraphFiniteNumber(options.enableToneModFreq),
+            nodeGraphFiniteNumber(options.enableToneModNote),
             sampleRateValue,
           );
           return {

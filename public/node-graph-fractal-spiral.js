@@ -39,15 +39,15 @@ function fractalSpiralWrap01(value) {
 
 function fractalSpiralSample(options = {}) {
   const state = options.state || createFractalSpiralState();
-  const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
-  const frequency = Number(options.frequency) || 0;
-  const spin = Number(options.spin) || 0;
-  const size = Math.max(0, Number(options.size) || 0);
-  const growth = Number(options.growth) || 0;
+  const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const frequency = nodeGraphFiniteNumber(options.frequency);
+  const spin = nodeGraphFiniteNumber(options.spin);
+  const size = Math.max(0, nodeGraphFiniteNumber(options.size));
+  const growth = nodeGraphFiniteNumber(options.growth);
   const gain = Math.max(0.001, Math.min(0.98, Number(options.gain)));
-  const lacunarity = Math.max(1.0001, Number(options.lacunarity) || 1);
-  const octaveCount = Math.max(1, Math.min(16, Math.round(Number(options.octaves) || 1)));
-  const twist = Number(options.twist) || 0;
+  const lacunarity = Math.max(1.0001, nodeGraphFiniteNumber(options.lacunarity, 1));
+  const octaveCount = Math.max(1, Math.min(16, Math.round(nodeGraphFiniteNumber(options.octaves, 1))));
+  const twist = nodeGraphFiniteNumber(options.twist);
 
   const mainPhase = fractalSpiralWrap01(state.phase);
   state.phase = fractalSpiralWrap01(state.phase + frequency / sampleRateValue);

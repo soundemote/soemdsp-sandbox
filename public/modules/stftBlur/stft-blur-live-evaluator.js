@@ -20,7 +20,7 @@ nodeGraphLiveModuleEvaluators.stftBlur = ({
   const blurTime = readNodeGraphLiveEffectiveParam(runtime, node, "blurTime", 0.5, frame, frames, frameValues);
   const blurFreq = readNodeGraphLiveEffectiveParam(runtime, node, "blurFreq", 0, frame, frames, frameValues);
   const mix = readNodeGraphLiveEffectiveParam(runtime, node, "mix", 1, frame, frames, frameValues);
-  const x = Number(mixInput(nodeId)) || 0;
+  const x = nodeGraphFiniteNumber(mixInput(nodeId));
   const y = nodeGraphStftBlurSample(state, x, blurTime, blurFreq, fftSize, mix);
   return typeof nodeGraphSafeFilterNumber === "function"
     ? nodeGraphSafeFilterNumber(y, runtime, nodeId, null, "stft blur")

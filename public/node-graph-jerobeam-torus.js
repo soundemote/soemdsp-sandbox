@@ -67,25 +67,25 @@ function nodeGraphTorusSample(options = {}) {
   }
   state.resetWasHigh = resetHigh;
 
-  const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
-  const frequency = Number(options.frequency) || 0;
-  const density = Number(options.density) || 0;
+  const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const frequency = nodeGraphFiniteNumber(options.frequency);
+  const density = nodeGraphFiniteNumber(options.density);
   const quantizeDensity = Number(options.quantizeDensity) >= 0.5;
-  const subdensity = Number(options.subdensity) || 0;
+  const subdensity = nodeGraphFiniteNumber(options.subdensity);
   const quantizeSubDensity = Number(options.quantizeSubDensity) >= 0.5;
-  const sharp = Number(options.sharp) || 0;
-  const size = Number(options.size) || 0;
-  const length = Number(options.length) || 0;
-  const balance = Number(options.balance) || 0;
-  const wander = Number(options.wander) || 0;
-  const darkAngle = Number(options.darkAngle) || 0;
-  const darkIntensity = Number(options.darkIntensity) || 0;
-  const rotX = Number(options.rotX) || 0;
-  const rotY = Number(options.rotY) || 0;
-  const rotZ = Number(options.rotZ) || 0;
-  const zAngleX = Number(options.zAngleX) || 0;
-  const zAngleY = Number(options.zAngleY) || 0;
-  const zDepth = Number(options.zDepth) || 0;
+  const sharp = nodeGraphFiniteNumber(options.sharp);
+  const size = nodeGraphFiniteNumber(options.size);
+  const length = nodeGraphFiniteNumber(options.length);
+  const balance = nodeGraphFiniteNumber(options.balance);
+  const wander = nodeGraphFiniteNumber(options.wander);
+  const darkAngle = nodeGraphFiniteNumber(options.darkAngle);
+  const darkIntensity = nodeGraphFiniteNumber(options.darkIntensity);
+  const rotX = nodeGraphFiniteNumber(options.rotX);
+  const rotY = nodeGraphFiniteNumber(options.rotY);
+  const rotZ = nodeGraphFiniteNumber(options.rotZ);
+  const zAngleX = nodeGraphFiniteNumber(options.zAngleX);
+  const zAngleY = nodeGraphFiniteNumber(options.zAngleY);
+  const zDepth = nodeGraphFiniteNumber(options.zDepth);
 
   const dense = quantizeDensity ? Math.floor(density) : density;
   const pow2Dense = dense * dense;

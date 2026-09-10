@@ -101,7 +101,7 @@ function nodeGraphPointerDragScreenDelta(startClientX, startClientY, clientX, cl
  * (slider lane width, graph plot width, etc.).
  */
 function nodeGraphPointerDragTravelDelta(startClientX, startClientY, clientX, clientY, travelWidthPx, fineScale = 1) {
-  const width = Math.max(1, Number(travelWidthPx) || 1);
+  const width = Math.max(1, nodeGraphFiniteNumber(travelWidthPx, 1));
   const scale = Number.isFinite(Number(fineScale)) ? Number(fineScale) : 1;
   const { combined } = nodeGraphPointerDragScreenDelta(startClientX, startClientY, clientX, clientY);
   return (combined / width) * scale;
@@ -112,7 +112,7 @@ function nodeGraphPointerDragTravelDelta(startClientX, startClientY, clientX, cl
  */
 function nodeGraphPointerDragExceededMoveThreshold(startClientX, startClientY, clientX, clientY, thresholdPx = 1) {
   const { horizontal, vertical } = nodeGraphPointerDragScreenDelta(startClientX, startClientY, clientX, clientY);
-  const limit = Math.max(0, Number(thresholdPx) || 0);
+  const limit = Math.max(0, nodeGraphFiniteNumber(thresholdPx));
   return Math.abs(horizontal) > limit || Math.abs(vertical) > limit;
 }
 
@@ -157,13 +157,13 @@ function nodeGraphSmootherNeedsWork(smoother) {
 }
 
 function nodeGraphOnePoleParameterLowpassSample(state, input, frequency, rate) {
-  const safeRate = Math.max(1, Number(rate) || nodeGraphMvp?.sampleRate || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const safeInput = Number.isFinite(Number(input)) ? Number(input) : state.outputBuffer || 0;
   const frequencyValue = Math.max(0, Number.isFinite(Number(frequency)) ? Number(frequency) : 0);
   const w = Math.min((Math.PI * 2) / safeRate, 0.000142475857) * frequencyValue;
   const a1 = Math.exp(-w);
   const b0 = 1 - a1;
-  let out = b0 * safeInput + a1 * (Number(state.outputBuffer) || 0);
+  let out = b0 * safeInput + a1 * (nodeGraphFiniteNumber(state.outputBuffer));
   if (Math.abs(out - safeInput) <= nodeGraphSmootherConvergenceEpsilon) {
     out = safeInput;
   }
@@ -211,7 +211,7 @@ function nodeGraphParameterSmoothingSecondsFromMetadata(metadata = {}) {
   }
   // Values in (0, 1) are seconds (e.g. 0.0333); ≥ 1 are sample counts.
   if (value > 0 && value < 1) {
-    const rate = Math.max(1, Number(nodeGraphMvp?.sampleRate) || 44100);
+    const rate = Math.max(1, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100));
     return Math.max(1, Math.round(value * rate));
   }
   return Math.max(0, Math.round(value));
@@ -220,14 +220,14 @@ function nodeGraphParameterSmoothingSecondsFromMetadata(metadata = {}) {
 // See resolveSmoothingSecondsForMode() in node-live-audio-worklet-core.js for the
 // per-mode meaning (internal / global / blockSize / internalGlobal / off).
 function nodeGraphResolveSmoothingSecondsForMode(mode, smoothingSamples, frames, rate, globalSeconds) {
-  const safeRate = Math.max(1, Number(rate) || nodeGraphMvp?.sampleRate || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const safeGlobal = Number.isFinite(Number(globalSeconds)) ? Math.max(0, Number(globalSeconds)) : 0;
   const internalSeconds = smoothingSamples > 0 ? smoothingSamples / safeRate : 0;
   switch (mode) {
     case "off":
       return 0;
     case "blockSize":
-      return Math.max(1, Number(frames) || 1) / safeRate;
+      return Math.max(1, nodeGraphFiniteNumber(frames, 1)) / safeRate;
     case "global":
       return safeGlobal;
     case "internalGlobal":
@@ -571,7 +571,7 @@ function normalizedNodeSliderMid(slider) {
  * - edge skew / off: 1 (linear in this path; edges uses its own S-curve)
  */
 function nodeSliderSkewExponentFromSensitivity(amount) {
-  const a = clampNodeSliderValue(Number(amount) || 0, -1, 1);
+  const a = clampNodeSliderValue(nodeGraphFiniteNumber(amount), -1, 1);
   if (a <= 0) {
     return 1 + (-a) * (nodeSliderMaxSkewExponent - 1);
   }
@@ -602,8 +602,8 @@ function nodeSliderEdgeCurvePower(slider) {
  * c < 0 stays below p (compress toward 0); c > 0 stays above p.
  */
 function nodeSliderRationalCurveContinuous(position, contour) {
-  const p = clampNodeSliderValue(Number(position) || 0, 0, 1);
-  const c = clampNodeSliderValue(Number(contour) || 0, -1, 1);
+  const p = clampNodeSliderValue(nodeGraphFiniteNumber(position), 0, 1);
+  const c = clampNodeSliderValue(nodeGraphFiniteNumber(contour), -1, 1);
   if (Math.abs(c) < 0.000001) {
     return p;
   }
@@ -614,8 +614,8 @@ function nodeSliderRationalCurveContinuous(position, contour) {
 }
 
 function nodeSliderRationalCurveContinuousInverse(value, contour) {
-  const y = clampNodeSliderValue(Number(value) || 0, 0, 1);
-  const c = clampNodeSliderValue(Number(contour) || 0, -1, 1);
+  const y = clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
+  const c = clampNodeSliderValue(nodeGraphFiniteNumber(contour), -1, 1);
   if (Math.abs(c) < 0.000001) {
     return y;
   }
@@ -633,22 +633,22 @@ function nodeSliderRationalCurveContinuousInverse(value, contour) {
  * +1 = finer at center; −1 = finer at extremes.
  */
 function nodeSliderBipolarRationalValueFromTravel(travel, amount) {
-  const t = clampNodeSliderValue(Number(travel) || 0, 0, 1);
+  const t = clampNodeSliderValue(nodeGraphFiniteNumber(travel), 0, 1);
   const signed = (t - 0.5) * 2;
   if (signed === 0) {
     return 0.5;
   }
-  const mapped = nodeSliderRationalCurveContinuous(Math.abs(signed), -Number(amount) || 0);
+  const mapped = nodeSliderRationalCurveContinuous(Math.abs(signed), -nodeGraphFiniteNumber(amount));
   return 0.5 + 0.5 * Math.sign(signed) * mapped;
 }
 
 function nodeSliderBipolarRationalTravelFromValue(value, amount) {
-  const v = clampNodeSliderValue(Number(value) || 0, 0, 1);
+  const v = clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
   const signed = (v - 0.5) * 2;
   if (signed === 0) {
     return 0.5;
   }
-  const mapped = nodeSliderRationalCurveContinuousInverse(Math.abs(signed), -Number(amount) || 0);
+  const mapped = nodeSliderRationalCurveContinuousInverse(Math.abs(signed), -nodeGraphFiniteNumber(amount));
   return 0.5 + 0.5 * Math.sign(signed) * mapped;
 }
 
@@ -770,8 +770,8 @@ function nodeSliderElementLayoutWidth(element) {
     }
     return width;
   }
-  const rectWidth = Number(element?.getBoundingClientRect?.().width) || 0;
-  const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
+  const rectWidth = nodeGraphFiniteNumber(element?.getBoundingClientRect?.().width);
+  const zoom = Math.max(0.01, nodeGraphFiniteNumber(nodeGraphMvp?.zoom, 1));
   return Math.max(0, rectWidth / zoom);
 }
 
@@ -790,8 +790,8 @@ function nodeSliderElementLayoutHeight(element) {
     }
     return height;
   }
-  const rectHeight = Number(element?.getBoundingClientRect?.().height) || 0;
-  const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
+  const rectHeight = nodeGraphFiniteNumber(element?.getBoundingClientRect?.().height);
+  const zoom = Math.max(0.01, nodeGraphFiniteNumber(nodeGraphMvp?.zoom, 1));
   return Math.max(0, rectHeight / zoom);
 }
 
@@ -803,7 +803,7 @@ function nodeSliderElementVisualScale(element) {
     return 1;
   }
   const layoutWidth = nodeSliderElementLayoutWidth(element);
-  const rectWidth = Number(element?.getBoundingClientRect?.().width) || 0;
+  const rectWidth = nodeGraphFiniteNumber(element?.getBoundingClientRect?.().width);
   if (!Number.isFinite(layoutWidth) || !Number.isFinite(rectWidth) || layoutWidth <= 0 || rectWidth <= 0) {
     return 1;
   }

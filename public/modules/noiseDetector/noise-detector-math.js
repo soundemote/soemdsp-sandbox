@@ -22,15 +22,15 @@ function nodeGraphNoiseDetectorMixMono(left, mono, right, hasLeft, hasMono, hasR
   let sum = 0;
   let n = 0;
   if (hasLeft) {
-    sum += Number(left) || 0;
+    sum += nodeGraphFiniteNumber(left);
     n += 1;
   }
   if (hasMono) {
-    sum += Number(mono) || 0;
+    sum += nodeGraphFiniteNumber(mono);
     n += 1;
   }
   if (hasRight) {
-    sum += Number(right) || 0;
+    sum += nodeGraphFiniteNumber(right);
     n += 1;
   }
   return n > 0 ? sum / n : 0;
@@ -84,11 +84,11 @@ function nodeGraphNoiseDetectorSample(
   hasMono,
   hasRight,
 ) {
-  const l = Number(left) || 0;
-  const m = Number(mono) || 0;
-  const r = Number(right) || 0;
+  const l = nodeGraphFiniteNumber(left);
+  const m = nodeGraphFiniteNumber(mono);
+  const r = nodeGraphFiniteNumber(right);
   const x = nodeGraphNoiseDetectorMixMono(l, m, r, hasLeft, hasMono, hasRight);
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   if (state.sampleRate !== rate) {
     state.sampleRate = rate;
     state.interval = Math.max(1, Math.round(rate / NODE_GRAPH_NOISE_DETECTOR_ANALYSIS_HZ));

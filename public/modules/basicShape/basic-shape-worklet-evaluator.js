@@ -1,7 +1,7 @@
 // Realtime worklet: BasicShape naive waves (no AA). Same math as the live evaluator.
 
 NodeLiveAudioProcessor.prototype.basicShapeWrap01 = function basicShapeWrap01(phase01) {
-  const p = Number(phase01) || 0;
+  const p = nodeGraphFiniteNumber(phase01);
   return p - Math.floor(p);
 };
 
@@ -41,7 +41,7 @@ NodeLiveAudioProcessor.prototype.basicShapeNaiveWaves = function basicShapeNaive
 
 // Order: 0 Sine, 1 Tri, 2 Saw, 3 Ramp, 4 Trisaw, 5 Square, 6 CenterSquare
 NodeLiveAudioProcessor.prototype.basicShapeSelect = function basicShapeSelect(waves, waveform) {
-  const i = Math.max(0, Math.min(6, Math.round(Number(waveform) || 0)));
+  const i = Math.max(0, Math.min(6, Math.round(nodeGraphFiniteNumber(waveform))));
   if (i === 1) return waves.tri;
   if (i === 2) return waves.saw;
   if (i === 3) return waves.ramp;
@@ -52,7 +52,7 @@ NodeLiveAudioProcessor.prototype.basicShapeSelect = function basicShapeSelect(wa
 };
 
 NodeLiveAudioProcessor.prototype.basicShapePolarity = function basicShapePolarity(x, polarity) {
-  const uni = Math.round(Number(polarity) || 0) >= 1;
+  const uni = Math.round(nodeGraphFiniteNumber(polarity)) >= 1;
   return uni ? (Number(x) + 1) * 0.5 : Number(x);
 };
 
@@ -91,9 +91,9 @@ NodeLiveAudioProcessor.prototype.basicShapeWorkletEvaluate = function basicShape
       ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)
       : frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
   const incrementInput = this.safeFilterNumber(mixInput(nodeId, "Increment"));
-  const motion = Math.max(0, Math.min(3, Math.round(Number(
+  const motion = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(
     this.readEffectiveParameter(node, "motion", 1, frame, frames, frameValues),
-  ) || 0)));
+  ))));
   const clockWise = motion === 0 || motion === 2;
   const useSimTime = motion >= 2;
   const dir = clockWise ? -1 : 1;
@@ -102,7 +102,7 @@ NodeLiveAudioProcessor.prototype.basicShapeWorkletEvaluate = function basicShape
     : (dir * pitchedFrequency / safeRate) + incrementInput;
   let samplePhase;
   if (useSimTime) {
-    const simSamples = Math.max(0, Number(this.absoluteFrame) || 0);
+    const simSamples = Math.max(0, nodeGraphFiniteNumber(this.absoluteFrame));
     samplePhase = dir * ((pitchedFrequency / safeRate) + incrementInput) * simSamples + phaseOffset;
   } else {
     samplePhase = phase + phaseOffset;

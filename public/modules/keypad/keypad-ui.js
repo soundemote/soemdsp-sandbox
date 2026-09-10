@@ -68,8 +68,8 @@ function nodeGraphKeypadApplyLayout(face, layout) {
   face.style.setProperty("--node-keypad-button-width", String(next.buttonWidth ?? d.buttonWidth ?? 1));
   face.style.setProperty("--node-keypad-button-height", String(next.buttonHeight ?? d.buttonHeight ?? 1));
   face.style.setProperty("--node-keypad-button-size", String(next.buttonSize ?? d.buttonSize ?? 1));
-  face.style.setProperty("--node-keypad-pad", `${Math.max(0, Number(next.padPx ?? d.padPx) || 0)}px`);
-  face.dataset.keypadPad = String(Math.max(0, Number(next.padPx ?? d.padPx) || 0));
+  face.style.setProperty("--node-keypad-pad", `${Math.max(0, nodeGraphFiniteNumber(next.padPx ?? d.padPx))}px`);
+  face.dataset.keypadPad = String(Math.max(0, nodeGraphFiniteNumber(next.padPx ?? d.padPx)));
   face.dataset.keypadSquare = next.squareRatio === false ? "0" : (next.squareRatio ? "1" : "0");
   face.classList.toggle("is-square-ratio", next.squareRatio === true);
   face.style.setProperty(
@@ -123,7 +123,7 @@ function nodeGraphKeypadSyncGridGeometry(face, layout) {
     return;
   }
   const next = layout && typeof layout === "object" ? layout : {};
-  const pad = Math.max(0, Number(next.padPx ?? face.dataset.keypadPad) || 0);
+  const pad = Math.max(0, nodeGraphFiniteNumber(next.padPx ?? face.dataset.keypadPad));
   const square = next.squareRatio !== undefined
     ? next.squareRatio !== false
     : face.dataset.keypadSquare !== "0";
@@ -146,13 +146,13 @@ function nodeGraphKeypadSyncLookPixels(face, layout) {
   const key = face.querySelector(".node-keypad-key");
   const width = key?.offsetWidth || 0;
   const height = key?.offsetHeight || 0;
-  const stroke = layout?.stroke ?? (Number(face.dataset.keypadStroke) || 0);
-  const rounding = layout?.rounding ?? (Number(face.dataset.keypadRounding) || 0);
+  const stroke = layout?.stroke ?? (nodeGraphFiniteNumber(face.dataset.keypadStroke));
+  const rounding = layout?.rounding ?? (nodeGraphFiniteNumber(face.dataset.keypadRounding));
   const strokePx = typeof nodeGraphKeypadStrokePixels === "function"
     ? nodeGraphKeypadStrokePixels(stroke, width, height)
     : 0;
   const maxRadius = Math.max(0, Math.min(width, height) * 0.5);
-  const radiusPx = Math.round(Math.max(0, Math.min(100, Number(rounding) || 0)) / 100 * maxRadius);
+  const radiusPx = Math.round(Math.max(0, Math.min(100, nodeGraphFiniteNumber(rounding))) / 100 * maxRadius);
   face.style.setProperty("--node-keypad-stroke", `${strokePx}px`);
   face.style.setProperty("--node-keypad-radius", `${radiusPx}px`);
 }
@@ -177,7 +177,7 @@ function nodeGraphKeypadPaintSlot(face, slot, down, hoverSlot = null) {
   const has = slot != null && Number.isFinite(Number(slot));
   const wrap = typeof nodeGraphKeypadWrap === "function"
     ? nodeGraphKeypadWrap
-    : (value) => Math.max(0, Math.round(Number(value) || 0));
+    : (value) => Math.max(0, Math.round(nodeGraphFiniteNumber(value)));
   const active = has ? wrap(slot) : -1;
   const hoverHas = hoverSlot != null && Number.isFinite(Number(hoverSlot));
   const hover = hoverHas ? wrap(hoverSlot) : -1;
@@ -244,7 +244,7 @@ function setNodeGraphKeypadInteraction(nodeId, update = {}) {
       } else {
         state.pointerSlot = typeof nodeGraphKeypadWrap === "function"
           ? nodeGraphKeypadWrap(update.pointerSlot)
-          : Math.round(Number(update.pointerSlot) || 0);
+          : Math.round(nodeGraphFiniteNumber(update.pointerSlot));
       }
     }
     runtime.keypadStates.set(nodeId, state);
@@ -339,7 +339,7 @@ function setNodeGraphKeypadPointerSlot(nodeId, slot, event, options = {}) {
   if (!patchNode || patchNode.type !== "keypad") return false;
   const nextSlot = typeof nodeGraphKeypadWrap === "function"
     ? nodeGraphKeypadWrap(slot)
-    : Math.round(Number(slot) || 0);
+    : Math.round(nodeGraphFiniteNumber(slot));
   const face = nodeGraphKeypadFaceFor(nodeId);
   const latch = nodeGraphKeypadNodeIsLatch(patchNode);
   const runtime = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.live?.runtime : null;
@@ -591,7 +591,7 @@ function commitNodeGraphKeypadKeyImage(slot, image) {
   const images = typeof nodeGraphKeypadNormalizeKeyImages === "function"
     ? nodeGraphKeypadNormalizeKeyImages(current.keyImages)
     : [...(current.keyImages || [])];
-  const index = Math.max(0, Math.round(Number(slot) || 0));
+  const index = Math.max(0, Math.round(nodeGraphFiniteNumber(slot)));
   images[index] = image && image.dataUrl
     ? { dataUrl: String(image.dataUrl), fileName: String(image.fileName || "") }
     : { dataUrl: "", fileName: "" };

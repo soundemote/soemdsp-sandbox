@@ -4,7 +4,7 @@
 NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleScopeSnapshot() {
     const values = [];
     const transfer = [];
-    const engineSampleRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
+    const engineSampleRate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
     const rates = this.scopeCaptureRates || Object.create(null);
     const captureRateForKey = (key) => {
       const raw = String(key || "");
@@ -29,9 +29,9 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
       if (!capacity) {
         continue;
       }
-      const writeIndex = Number(samples.nodeGraphScopeWriteIndex) || 0;
-      const totalWritten = Number(samples.nodeGraphScopeTotalWritten) || 0;
-      const totalPosted = Number(samples.nodeGraphScopeTotalPosted) || 0;
+      const writeIndex = nodeGraphFiniteNumber(samples.nodeGraphScopeWriteIndex);
+      const totalWritten = nodeGraphFiniteNumber(samples.nodeGraphScopeTotalWritten);
+      const totalPosted = nodeGraphFiniteNumber(samples.nodeGraphScopeTotalPosted);
       // Only ship samples written since the last post (was: full ring + wipe Map).
       const freshCount = Math.min(capacity, Math.max(0, totalWritten - totalPosted));
       if (freshCount <= 0) {
@@ -55,24 +55,23 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
       transfer.push(ordered.buffer);
     }
     for (const [key, state] of this.visualInputBuffers || []) {
-      const length = Math.min(Number(state?.length) || 0, state?.capacity || state?.buffer?.length || 0);
+      const length = Math.min(nodeGraphFiniteNumber(state?.length), state?.capacity || state?.buffer?.length || 0);
       if (!state?.buffer?.length || length <= 0) {
         continue;
       }
-      const absoluteFrame = Math.max(0, Math.floor(Number(state.absoluteFrame) || 0));
-      const postedFrame = Math.max(0, Math.floor(Number(state.postedFrame) || 0));
+      const absoluteFrame = Math.max(0, Math.floor(nodeGraphFiniteNumber(state.absoluteFrame)));
+      const postedFrame = Math.max(0, Math.floor(nodeGraphFiniteNumber(state.postedFrame)));
       // Visual rings are hop-written (~12 kHz). absoluteFrame counts written
       // samples — sampleRate MUST be the effective write rate or Sweep(s) /
       // history windows run engineRate/writeRate too slow (e.g. 1 s → ~8 s @ 96k).
-      const sampleStride = Math.max(1, Math.round(Number(state.sampleStride) || 1));
+      const sampleStride = Math.max(1, Math.round(nodeGraphFiniteNumber(state.sampleStride, 1)));
       const sourceSampleRate = Math.max(
         1,
-        Number(state.sourceSampleRate) || engineSampleRate,
+        nodeGraphFiniteNumber(state.sourceSampleRate, engineSampleRate),
       );
       const writeSampleRate = Math.max(
         1,
-        Number(state.writeSampleRate)
-          || (sourceSampleRate / sampleStride)
+        nodeGraphFiniteNumber(state.writeSampleRate, (sourceSampleRate / sampleStride))
           || (engineSampleRate / sampleStride),
       );
       const freshCount = postedFrame > 0
@@ -83,7 +82,7 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
         continue;
       }
       const ordered = new Float32Array(count);
-      const start = ((Number(state.writeIndex) || 0) - count + state.capacity) % state.capacity;
+      const start = ((nodeGraphFiniteNumber(state.writeIndex)) - count + state.capacity) % state.capacity;
       for (let index = 0; index < count; index += 1) {
         ordered[index] = state.buffer[(start + index) % state.capacity] || 0;
       }

@@ -22,7 +22,7 @@
   function clamp01(value, fallback = 0) {
     const n = Number(value);
     if (!Number.isFinite(n)) {
-      return Math.max(0, Math.min(1, Number(fallback) || 0));
+      return Math.max(0, Math.min(1, nodeGraphFiniteNumber(fallback)));
     }
     return Math.max(0, Math.min(1, n));
   }
@@ -106,7 +106,7 @@
    * One-frame residual: Trail hot path + Ghost dim floor.
    */
   function applyResidual(energy01, trail, ghost = 0) {
-    const e = Math.max(0, Number(energy01) || 0);
+    const e = Math.max(0, nodeGraphFiniteNumber(energy01));
     const keepFast = trailKeep(trail);
     const g = clamp01(ghost, 0);
     if (g <= 0.001) {
@@ -190,7 +190,7 @@
     clampBurnAmount: (v, fb = 1) => {
       const n = Number(v);
       if (!Number.isFinite(n)) {
-        return Math.max(0, Math.min(4, Number(fb) || 1));
+        return Math.max(0, Math.min(4, nodeGraphFiniteNumber(fb, 1)));
       }
       return Math.max(0, Math.min(4, n));
     },
@@ -212,9 +212,9 @@
       if (Number.isFinite(n)) {
         return Math.max(0, Math.min(4, n));
       }
-      return Math.max(0, Math.min(4, Number(fallback) || 1));
+      return Math.max(0, Math.min(4, nodeGraphFiniteNumber(fallback, 1)));
     },
-    applyBurnFloor: (before, after) => Math.max(0, Number(after) || 0),
+    applyBurnFloor: (before, after) => Math.max(0, nodeGraphFiniteNumber(after)),
     residualSleepFrames,
   };
 

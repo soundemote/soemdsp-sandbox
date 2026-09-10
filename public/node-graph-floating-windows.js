@@ -58,8 +58,8 @@ function nodeGraphFloatingWindowAvailableBox(defaults = {}, context = {}) {
  */
 function normalizeNodeGraphFloatingWindowSize(size = {}, defaults = {}, context = {}) {
   const available = nodeGraphFloatingWindowAvailableBox(defaults, context);
-  const minWidth = Math.max(1, Number(defaults.minWidth) || 160);
-  const minHeight = Math.max(1, Number(defaults.minHeight) || 120);
+  const minWidth = Math.max(1, nodeGraphFiniteNumber(defaults.minWidth, 160));
+  const minHeight = Math.max(1, nodeGraphFiniteNumber(defaults.minHeight, 120));
   const configuredMaxWidth = Number(defaults.maxWidth);
   const configuredMaxHeight = Number(defaults.maxHeight);
   let maxWidth = Math.max(minWidth, available.maxWidth);
@@ -74,7 +74,7 @@ function normalizeNodeGraphFloatingWindowSize(size = {}, defaults = {}, context 
   const source = size && typeof size === "object" ? size : {};
   const width = Math.max(
     minWidth,
-    Math.min(maxWidth, Number(source.width) || Number(defaults.width) || minWidth),
+    Math.min(maxWidth, nodeGraphFiniteNumber(source.width, nodeGraphFiniteNumber(defaults.width, minWidth))),
   );
   // Never drop height on partial updates (width-only). Fall back to defaults
   // so applySizeVars does not remove --*-height and snap the window to auto.
@@ -109,8 +109,8 @@ function ensureNodeGraphFloatingWindowResizeHandleReachable(element, applySize, 
     left: rect.left,
     top: rect.top,
   });
-  const minWidth = Math.max(1, Number(defaults.minWidth) || 96);
-  const minHeight = Math.max(1, Number(defaults.minHeight) || 120);
+  const minWidth = Math.max(1, nodeGraphFiniteNumber(defaults.minWidth, 96));
+  const minHeight = Math.max(1, nodeGraphFiniteNumber(defaults.minHeight, 120));
   let width = Math.round(rect.width);
   let height = Math.round(rect.height);
   let changed = false;

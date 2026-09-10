@@ -3,7 +3,7 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     this.samplePlaybackStates.set(nodeId, state);
     const sampleId = String(node?.sample?.id || "");
     const sample = this.samples.get(sampleId);
-    const frames = Math.max(0, Number(sample?.frames) || sample?.samples?.length || sample?.channelData?.[0]?.length || 0);
+    const frames = Math.max(0, nodeGraphFiniteNumber(sample?.frames, sample?.samples?.length) || sample?.channelData?.[0]?.length || 0);
     this.audioPlayerMeterNodeId = nodeId;
     this.audioPlayerMeterSampleId = sampleId;
     if (!this.audioPlayerMeterSpeeds) {
@@ -41,7 +41,7 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
       }
       state.completed = false;
       state.sampleId = sampleId;
-      state.seekToken = Number(node?.samplePhaseSeek) || 0;
+      state.seekToken = nodeGraphFiniteNumber(node?.samplePhaseSeek);
     } else if (state.rangeKey !== rangeKey) {
       const currentPhase = Number(state.phase);
       if (!Number.isFinite(currentPhase) || currentPhase < startPhase || currentPhase > endPhase) {
@@ -50,7 +50,7 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
       state.completed = false;
     }
     // Absolute seek from main thread (playlist scrub / track change) without full plan rebuild.
-    const seekToken = Number(node?.samplePhaseSeek) || 0;
+    const seekToken = nodeGraphFiniteNumber(node?.samplePhaseSeek);
     if (seekToken && seekToken !== state.seekToken) {
       const seekPhase = Number(node?.samplePhase);
       if (Number.isFinite(seekPhase)) {
@@ -64,7 +64,7 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     }
     const transportFallback = Object.hasOwn(node?.params || {}, "transport")
       ? 4
-      : ((Number(node?.params?.loop) || 0) >= 0.5 ? 4 : 0);
+      : ((nodeGraphFiniteNumber(node?.params?.loop)) >= 0.5 ? 4 : 0);
     const transportMode = Math.max(0, Math.min(5, Math.round(readParam("transport", transportFallback))));
     const transportReset = transportMode <= 0;
     const transportStopped = transportMode === 1;
@@ -87,17 +87,17 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
 
     const phaseConnected = this.inputConnections?.has?.(this.inputKey(nodeId, "Phase"));
     const speed = readParam("speed", 1) + readInput("Speed");
-    const sampleRateRatio = (Number(sample.sampleRate) || rate || 44100) / Math.max(1, rate || 44100);
+    const sampleRateRatio = (nodeGraphFiniteNumber(sample.sampleRate, nodeGraphFiniteNumber(rate, 44100))) / Math.max(1, rate || 44100);
     const increment = (speed * sampleRateRatio) / frames;
     const basePhase = phaseConnected
       ? this.clampValue(readInput("Phase"), 0, 1)
       : this.clampValue(state.phase, 0, 1);
-    const phaseOffset = Number(readParam("phaseOffset", 0)) || 0;
-    const phaseSkip = Number(readParam("phase", 0)) || 0;
-    const playlistScrub = Number(readParam("playlistScrub", 0)) || 0;
+    const phaseOffset = nodeGraphFiniteNumber(readParam("phaseOffset", 0));
+    const phaseSkip = nodeGraphFiniteNumber(readParam("phase", 0));
+    const playlistScrub = nodeGraphFiniteNumber(readParam("playlistScrub", 0));
     const phaseWithOffset = basePhase + phaseOffset + phaseSkip + playlistScrub;
     const boundedPhase = startPhase + this.wrapValue((phaseWithOffset - startPhase) / span, 0, 1) * span;
-    const interpolation = Math.round(Number(readParam("antialias", 0)) || 0) >= 1 ? "hermite" : "linear";
+    const interpolation = Math.round(nodeGraphFiniteNumber(readParam("antialias", 0))) >= 1 ? "hermite" : "linear";
     const stereo = this.sampleStereoAt(sample, boundedPhase * (frames - 1), interpolation);
     const level = readParam("amplitude", readParam("level", 1));
     const outputActive = state.playing;
@@ -156,7 +156,7 @@ NodeLiveAudioProcessor.prototype.sampleLibrarySample = function sampleLibrarySam
   this.samplePlaybackStates.set(nodeId, state);
   const sampleId = String(node?.sample?.id || "");
   const sample = this.samples.get(sampleId);
-  const frames = Math.max(0, Number(sample?.frames) || sample?.samples?.length || sample?.channelData?.[0]?.length || 0);
+  const frames = Math.max(0, nodeGraphFiniteNumber(sample?.frames, sample?.samples?.length) || sample?.channelData?.[0]?.length || 0);
   if (!sample || frames <= 1) {
     return { Left: 0, Out: 0, Right: 0 };
   }
@@ -184,10 +184,10 @@ NodeLiveAudioProcessor.prototype.sampleLibrarySample = function sampleLibrarySam
   const oneShot = readParam("oneShot", 1) >= 0.5;
   const pitch = readParam("pitch", 0);
   const level = readParam("level", 1);
-  const ratio = (Number(sample.sampleRate) || rate || 44100) / Math.max(1, rate || 44100);
+  const ratio = (nodeGraphFiniteNumber(sample.sampleRate, nodeGraphFiniteNumber(rate, 44100))) / Math.max(1, rate || 44100);
   const increment = (Math.pow(2, pitch) * ratio) / frames;
   if (state.playing) {
-    state.phase = Number(state.phase) || startPhase;
+    state.phase = nodeGraphFiniteNumber(state.phase, startPhase);
     state.phase += increment;
     if (state.phase >= endPhase) {
       if (oneShot) {
@@ -199,7 +199,7 @@ NodeLiveAudioProcessor.prototype.sampleLibrarySample = function sampleLibrarySam
       }
     }
   }
-  const phase = this.clampValue(Number(state.phase) || startPhase, startPhase, endPhase);
+  const phase = this.clampValue(nodeGraphFiniteNumber(state.phase, startPhase), startPhase, endPhase);
   const stereo = this.sampleStereoAt(sample, phase * (frames - 1));
   const gain = state.playing || (!oneShot && !state.completed) ? level : 0;
   return {
@@ -214,7 +214,7 @@ NodeLiveAudioProcessor.prototype.sampleLooperSample = function sampleLooperSampl
   this.samplePlaybackStates.set(nodeId, state);
   const sampleId = String(node?.sample?.id || "");
   const sample = this.samples.get(sampleId);
-  const frames = Math.max(0, Number(sample?.frames) || sample?.samples?.length || sample?.channelData?.[0]?.length || 0);
+  const frames = Math.max(0, nodeGraphFiniteNumber(sample?.frames, sample?.samples?.length) || sample?.channelData?.[0]?.length || 0);
   if (!sample || frames <= 1) {
     return { Left: 0, Out: 0, Phase: 0, Right: 0 };
   }
@@ -259,10 +259,10 @@ NodeLiveAudioProcessor.prototype.sampleLooperSample = function sampleLooperSampl
   }
   const pitch = (readParam("pitch", 0) || 0) + (readInput("Pitch") || 0);
   const level = readParam("level", 1);
-  const ratio = (Number(sample.sampleRate) || rate || 44100) / Math.max(1, rate || 44100);
+  const ratio = (nodeGraphFiniteNumber(sample.sampleRate, nodeGraphFiniteNumber(rate, 44100))) / Math.max(1, rate || 44100);
   const increment = (Math.pow(2, pitch) * ratio) / frames;
   if (state.playing) {
-    state.phase = Number(state.phase) || startPhase;
+    state.phase = nodeGraphFiniteNumber(state.phase, startPhase);
     state.phase += increment;
     if (oneShot) {
       if (state.phase >= endPhase) {
@@ -276,10 +276,10 @@ NodeLiveAudioProcessor.prototype.sampleLooperSample = function sampleLooperSampl
       state.phase = loopA;
     }
   }
-  const phase = this.clampValue(Number(state.phase) || startPhase, startPhase, endPhase);
+  const phase = this.clampValue(nodeGraphFiniteNumber(state.phase, startPhase), startPhase, endPhase);
   let stereo = this.sampleStereoAt(sample, phase * (frames - 1));
-  const xfSeconds = Math.max(0, Number(readParam("crossfade", 0.005)) || 0);
-  const xfPhase = Math.min(loopSpan * 0.45, (xfSeconds * (Number(sample.sampleRate) || rate || 44100)) / frames);
+  const xfSeconds = Math.max(0, nodeGraphFiniteNumber(readParam("crossfade", 0.005)));
+  const xfPhase = Math.min(loopSpan * 0.45, (xfSeconds * (nodeGraphFiniteNumber(sample.sampleRate, nodeGraphFiniteNumber(rate, 44100)))) / frames);
   if (!oneShot && state.playing && xfPhase > 1e-9) {
     const intoLoop = phase - loopA;
     if (intoLoop >= 0 && intoLoop < xfPhase) {

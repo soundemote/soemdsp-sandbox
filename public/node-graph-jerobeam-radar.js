@@ -130,16 +130,16 @@ function nodeGraphRadarSample(options = {}) {
   }
   state.resetWasHigh = resetHigh;
 
-  const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
-  const frequency = Number(options.frequency) || 0;
-  const phaseOffset = Number(options.phaseOffset) || 0;
-  const density = Number(options.density) || 0;
-  const sharp = Number(options.sharp) || 0;
-  const fade = Number(options.fade) || 0;
-  const rotation = Number(options.rotation) || 0;
-  const direction = Number(options.direction) || 0;
-  const shade = Number(options.shade) || 0;
-  const lap = Number(options.lap) || 0;
+  const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const frequency = nodeGraphFiniteNumber(options.frequency);
+  const phaseOffset = nodeGraphFiniteNumber(options.phaseOffset);
+  const density = nodeGraphFiniteNumber(options.density);
+  const sharp = nodeGraphFiniteNumber(options.sharp);
+  const fade = nodeGraphFiniteNumber(options.fade);
+  const rotation = nodeGraphFiniteNumber(options.rotation);
+  const direction = nodeGraphFiniteNumber(options.direction);
+  const shade = nodeGraphFiniteNumber(options.shade);
+  const lap = nodeGraphFiniteNumber(options.lap);
   const ringcut = Number(options.ringcut) >= 0.5;
   const pow1Up = Number(options.pow1Up) >= 0.5;
   const pow1Down = Number(options.pow1Down) >= 0.5;
@@ -147,14 +147,14 @@ function nodeGraphRadarSample(options = {}) {
   const phaseInv = Number(options.phaseInv) >= 0.5;
   const tunnelInv = Number(options.tunnelInv) >= 0.5;
   const spiralReturn = Number(options.spiralReturn) >= 0.5;
-  const length = Number(options.length) || 0;
-  const ratio = Number(options.ratio) || 0;
-  const frontring = Number(options.frontring) || 0;
-  const zoom = Number(options.zoom) || 0;
-  const zDepth = Number(options.zDepth) || 0;
-  const inner = Number(options.inner) || 0;
-  const x = Number(options.x) || 0;
-  const y = Number(options.y) || 0;
+  const length = nodeGraphFiniteNumber(options.length);
+  const ratio = nodeGraphFiniteNumber(options.ratio);
+  const frontring = nodeGraphFiniteNumber(options.frontring);
+  const zoom = nodeGraphFiniteNumber(options.zoom);
+  const zDepth = nodeGraphFiniteNumber(options.zDepth);
+  const inner = nodeGraphFiniteNumber(options.inner);
+  const x = nodeGraphFiniteNumber(options.x);
+  const y = nodeGraphFiniteNumber(options.y);
 
   const tri1 = sharp * 0.5 + 0.5;
   const pow1 = fade;

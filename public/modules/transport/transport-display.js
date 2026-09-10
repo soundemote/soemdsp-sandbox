@@ -30,7 +30,7 @@ function nodeGraphTransportGateLevel01(nodeId, node) {
       || buffers.get(`${nodeId}:0..1`)
       || buffers.get(nodeId);
     if (gateBuf && gateBuf.length && typeof nodeGraphOscilloscopeLatestSample === "function") {
-      return Math.max(0, Math.min(1, Number(nodeGraphOscilloscopeLatestSample(gateBuf, 0)) || 0));
+      return Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphOscilloscopeLatestSample(gateBuf, 0))));
     }
   }
 
@@ -49,11 +49,9 @@ function nodeGraphTransportGateLevel01(nodeId, node) {
   );
   const sampleRate = Math.max(
     1,
-    Number(typeof nodeGraphModuleScopeState !== "undefined"
+    nodeGraphFiniteNumber(typeof nodeGraphModuleScopeState !== "undefined"
       ? nodeGraphModuleScopeState?.sampleRate
-      : 0)
-      || Number(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.sampleRate : 0)
-      || 44100,
+      : 0, nodeGraphFiniteNumber)(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.sampleRate : 0, 44100),
   );
   const ctx = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.context : null;
   const currentTime = Number(ctx?.currentTime);
@@ -62,7 +60,7 @@ function nodeGraphTransportGateLevel01(nodeId, node) {
     : 0;
   const out = nodeGraphTransportCore(
     {
-      amplitude: Number(params.amplitude) || 1,
+      amplitude: nodeGraphFiniteNumber(params.amplitude, 1),
       timeNumerator: params.timeNumerator != null ? Number(params.timeNumerator) : 1,
       timeDenominator: params.timeDenominator != null ? Number(params.timeDenominator) : 4,
       timingMode: params.timingMode != null ? Number(params.timingMode) : 0,
@@ -72,7 +70,7 @@ function nodeGraphTransportGateLevel01(nodeId, node) {
     sampleRate,
     bpm,
   );
-  return Math.max(0, Math.min(1, Number(out["Gate 0-1"]) || 0));
+  return Math.max(0, Math.min(1, nodeGraphFiniteNumber(out["Gate 0-1"])));
 }
 
 function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
@@ -148,7 +146,7 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
   const maxDigitWidth = Math.max(1, canvas.width - digitPadX * 2);
   let digitFontSize = Math.max(1, digitAreaHeight * 0.82);
   ctx.font = `${digitFontSize}px ${digitFontFamily}`;
-  let digitWidth = Number(ctx.measureText(digits).width) || 0;
+  let digitWidth = nodeGraphFiniteNumber(ctx.measureText(digits).width);
   if (digitWidth > maxDigitWidth && digitWidth > 0) {
     digitFontSize = Math.max(1, digitFontSize * (maxDigitWidth / digitWidth));
     ctx.font = `${digitFontSize}px ${digitFontFamily}`;

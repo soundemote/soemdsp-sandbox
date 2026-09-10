@@ -294,7 +294,7 @@ function nodeGraphNextMetamoduleId(patch = nodeGraphMvp?.patch) {
   let max = 0;
   for (const node of nodes) {
     const m = /^metamodule-(\d+)$/.exec(String(node?.id || ""));
-    if (m) max = Math.max(max, Number(m[1]) || 0);
+    if (m) max = Math.max(max, nodeGraphFiniteNumber(m[1]));
   }
   return `metamodule-${max + 1}`;
 }
@@ -376,7 +376,7 @@ function nodeGraphNextMetamoduleBoundaryId(kind, patch = nodeGraphMvp?.patch) {
   const re = new RegExp(`^${prefix}-(\\d+)$`);
   for (const node of nodes) {
     const m = re.exec(String(node?.id || ""));
-    if (m) max = Math.max(max, Number(m[1]) || 0);
+    if (m) max = Math.max(max, nodeGraphFiniteNumber(m[1]));
   }
   return `${prefix}-${max + 1}`;
 }

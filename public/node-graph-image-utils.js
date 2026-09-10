@@ -158,7 +158,7 @@ function normalizeNodeGraphImageLayout(layout = {}) {
     dataUrl: normalizeNodeGraphImageDataUrl(source.dataUrl || source.src),
     fileName: nodeGraphOneLineText(source.fileName || source.name || "trace-image").slice(0, 96),
     kind: nodeGraphImageLayoutKind,
-    refreshedAt: Math.max(0, Math.floor(Number(source.refreshedAt) || 0)),
+    refreshedAt: Math.max(0, Math.floor(nodeGraphFiniteNumber(source.refreshedAt))),
   };
 }
 
@@ -369,7 +369,7 @@ function nodeGraphCanvasOutputDataUrl(nodeId, visited = new Set()) {
   const script = nodeGraphCanvasScriptForNode(node);
   const surface = document.createElement("canvas");
   const maxDimension = 512;
-  const aspect = Math.max(0.001, Number(script.aspectRatio) || 1);
+  const aspect = Math.max(0.001, nodeGraphFiniteNumber(script.aspectRatio, 1));
   surface.width = Math.max(1, Math.round(aspect >= 1 ? maxDimension : maxDimension * aspect));
   surface.height = Math.max(1, Math.round(aspect >= 1 ? maxDimension / aspect : maxDimension));
   const context = surface.getContext("2d");
@@ -397,7 +397,7 @@ function nodeGraphCanvasOutputDataUrl(nodeId, visited = new Set()) {
     }
     context.save();
     context.translate(x, y);
-    context.rotate((Number(layer.rotation) || 0) * Math.PI / 180);
+    context.rotate((nodeGraphFiniteNumber(layer.rotation)) * Math.PI / 180);
     context.globalAlpha = Math.max(0, Math.min(1, layer.opacity));
     nodeGraphDrawCanvasLayerImage(context, surface, layer, image);
     context.restore();
@@ -463,7 +463,7 @@ function renderNodeGraphCanvasBody(body, nodeId = body?.dataset?.node) {
     return;
   }
   const script = nodeGraphCanvasScriptForNode(nodeId);
-  const aspect = Math.max(0.001, Number(script.aspectRatio) || 1);
+  const aspect = Math.max(0.001, nodeGraphFiniteNumber(script.aspectRatio, 1));
   preview.dataset.canvasFaceBackground = script.faceBackground === "checkerboard" ? "checkerboard" : "color";
   frame.dataset.canvasScreenBackground = script.faceScreen === "checkerboard" ? "checkerboard" : "color";
   frame.dataset.canvasScreenFit = script.faceFit || "contain";
@@ -483,9 +483,9 @@ function renderNodeGraphCanvasBody(body, nodeId = body?.dataset?.node) {
     element.textContent = layer.id;
     element.style.setProperty("--node-canvas-layer-x", `${Math.max(0, Math.min(1, layer.x)) * 100}%`);
     element.style.setProperty("--node-canvas-layer-y", `${Math.max(0, Math.min(1, layer.y)) * 100}%`);
-    element.style.setProperty("--node-canvas-layer-scale", String(Math.max(0, Number(layer.scale) || 0)));
-    element.style.setProperty("--node-canvas-layer-opacity", String(Math.max(0, Math.min(1, Number(layer.opacity) || 0))));
-    element.style.setProperty("--node-canvas-layer-rotation", `${Number(layer.rotation) || 0}deg`);
+    element.style.setProperty("--node-canvas-layer-scale", String(Math.max(0, nodeGraphFiniteNumber(layer.scale))));
+    element.style.setProperty("--node-canvas-layer-opacity", String(Math.max(0, Math.min(1, nodeGraphFiniteNumber(layer.opacity)))));
+    element.style.setProperty("--node-canvas-layer-rotation", `${nodeGraphFiniteNumber(layer.rotation)}deg`);
     element.style.setProperty("--node-canvas-layer-hue", String((index * 67) % 360));
     return element;
   }));

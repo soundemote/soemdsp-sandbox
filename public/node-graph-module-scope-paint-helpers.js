@@ -2,9 +2,9 @@
 // Load after node-graph-module-scopes.js, before draw-orchestrator. Extract-only.
 
 function nodeGraphOneDimensionalBurnSampleToY(sample, height, settings = null) {
-  const h = Math.max(1, Number(height) || 1);
+  const h = Math.max(1, nodeGraphFiniteNumber(height, 1));
   const amp = nodeGraphDisplaySettingsAmplitudeScale(settings);
-  return h * 0.5 - clampNodeSliderValue((Number(sample) || 0) * amp, -1, 1) * h * 0.44;
+  return h * 0.5 - clampNodeSliderValue((nodeGraphFiniteNumber(sample)) * amp, -1, 1) * h * 0.44;
 }
 
 /**
@@ -24,15 +24,15 @@ function nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings) {
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const trail = Residual && typeof Residual.migrateTrail === "function"
     ? Residual.migrateTrail(settings, Residual.DEFAULT_TRAIL ?? 0.5)
-    : clampNodeSliderValue(Number(settings?.trail) || 0, 0, 1);
+    : clampNodeSliderValue(nodeGraphFiniteNumber(settings?.trail), 0, 1);
   const ghost = Residual && typeof Residual.migrateGhost === "function"
     ? Residual.migrateGhost(settings, Residual.DEFAULT_GHOST ?? 0.45)
-    : clampNodeSliderValue(Number(settings?.ghost) || 0, 0, 1);
+    : clampNodeSliderValue(nodeGraphFiniteNumber(settings?.ghost), 0, 1);
   const burn = Residual && typeof Residual.migrateBurn === "function"
     ? Residual.migrateBurn(settings, Residual.DEFAULT_BURN ?? 0)
     : (
       Number(settings?.residualSchema) >= 2
-        ? clampNodeSliderValue(Number(settings?.burn) || 0, 0, 1)
+        ? clampNodeSliderValue(nodeGraphFiniteNumber(settings?.burn), 0, 1)
         : 0
     );
   // Burn > 0 needs per-pixel floor; uniform destination-out cannot stick floors.
@@ -89,7 +89,7 @@ function nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings) {
 
 function nodeGraphScopeRgbFloatsToCanvasRgb(color) {
   const rgb = Array.isArray(color) ? color : [1, 1, 1];
-  return rgb.map((value) => Math.max(0, Math.min(255, Math.round(clampNodeSliderValue(Number(value) || 0, 0, 1) * 255))));
+  return rgb.map((value) => Math.max(0, Math.min(255, Math.round(clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1) * 255))));
 }
 
 /** Rising-edge threshold for 1D Phosphor Reset (same family as osc Reset jacks). */
@@ -121,7 +121,7 @@ function nodeGraphOneDimensionalBurnBufferFrameInfo(buffer, count) {
   ) {
     return { startFrame, endFrame };
   }
-  const safeCount = Math.max(0, Math.floor(Number(count) || 0));
+  const safeCount = Math.max(0, Math.floor(nodeGraphFiniteNumber(count)));
   const totalSamples = Number(buffer?.nodeGraphScopeTotalSampleCount);
   if (Number.isFinite(totalSamples) && totalSamples > 0) {
     return {
@@ -159,7 +159,7 @@ function nodeGraphOneDimensionalBurnDrawStartIndex(canvas, buffer, count) {
   }
   // Bridge one sample into previous frame so the trail stays continuous.
   const frameOffset = Math.max(0, Math.floor(lastFrame - frameInfo.startFrame) - 1);
-  return Math.min(Math.max(0, Math.floor(Number(count) || 0) - 1), frameOffset);
+  return Math.min(Math.max(0, Math.floor(nodeGraphFiniteNumber(count)) - 1), frameOffset);
 }
 
 /**
@@ -176,8 +176,8 @@ function nodeGraphOneDimensionalBurnResetSample(resetBuffer, inIndex, inCount) {
   if (!resetBuffer?.length || !(inCount > 0)) {
     return 0;
   }
-  const safeInCount = Math.max(1, Math.floor(Number(inCount) || 1));
-  const safeIndex = Math.max(0, Math.min(safeInCount - 1, Math.floor(Number(inIndex) || 0)));
+  const safeInCount = Math.max(1, Math.floor(nodeGraphFiniteNumber(inCount, 1)));
+  const safeIndex = Math.max(0, Math.min(safeInCount - 1, Math.floor(nodeGraphFiniteNumber(inIndex))));
   // Trailing retained samples (not recent-only) so multi-post undrawn In
   // windows still line up with Reset history of the same length.
   const rRetained = Math.max(
@@ -204,7 +204,7 @@ function nodeGraphOneDimensionalBurnResetSample(resetBuffer, inIndex, inCount) {
   if (rIndex < 0 || rIndex >= resetBuffer.length) {
     return 0;
   }
-  return Number(resetBuffer[rIndex]) || 0;
+  return nodeGraphFiniteNumber(resetBuffer[rIndex]);
 }
 
 function nodeGraphOneDimensionalBurnBreakPath(points) {
@@ -229,13 +229,11 @@ function nodeGraphOneDimensionalBurnUndrawnWindow(canvas, buffer) {
     Math.min(
       buffer?.length || 0,
       Math.floor(
-        Number(buffer?.nodeGraphScopeRetainedSampleCount)
-        || Number(buffer?.length)
-        || 0,
+        nodeGraphFiniteNumber(buffer?.nodeGraphScopeRetainedSampleCount, nodeGraphFiniteNumber(buffer?.length)),
       ),
     ),
   );
-  const recent = Math.max(0, Math.floor(Number(buffer?.nodeGraphScopeRecentSampleCount) || 0));
+  const recent = Math.max(0, Math.floor(nodeGraphFiniteNumber(buffer?.nodeGraphScopeRecentSampleCount)));
   const absEnd = Number(buffer?.nodeGraphScopeAbsoluteFrame);
   const totalSamples = Number(buffer?.nodeGraphScopeTotalSampleCount);
   const lastDrawn = Number(
@@ -281,13 +279,13 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     return [];
   }
   const windowInfo = nodeGraphOneDimensionalBurnUndrawnWindow(canvas, buffer);
-  const count = Math.max(0, Math.floor(Number(windowInfo.count) || 0));
-  const drawStartIndex = Math.max(0, Math.floor(Number(windowInfo.drawStartIndex) || 0));
+  const count = Math.max(0, Math.floor(nodeGraphFiniteNumber(windowInfo.count)));
+  const drawStartIndex = Math.max(0, Math.floor(nodeGraphFiniteNumber(windowInfo.drawStartIndex)));
   if (count <= 0 || drawStartIndex >= count) {
     return [];
   }
   const start = Math.max(0, buffer.length - count);
-  const sampleRate = Math.max(1, Number(nodeGraphScopeSampleRate(buffer)) || 44100);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(nodeGraphScopeSampleRate(buffer), 44100));
   // Sync off: Sweep (Hz) = left→right passes per second.
   // Sync on: Sweep (c) = cycles in view (separate dial — see sweepCycles).
   // 0 Hz = collapsed sweep: solid full-width horizontal per sample at fuse density.
@@ -299,7 +297,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     const legacySec = Number(settings?.sweepSeconds);
     sweepHz = Number.isFinite(legacySec) && legacySec > 0
       ? 1 / legacySec
-      : Number(nodeGraphLineBurnSettingsDefaults.sweepHz) || 4;
+      : nodeGraphFiniteNumber(nodeGraphLineBurnSettingsDefaults.sweepHz, 4);
   }
   if (sweepHz < 0) {
     sweepHz = 0;
@@ -348,7 +346,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     }
     const raw = Number(sweepPair?.sweepCycles ?? settings?.sweepCycles);
     if (!Number.isFinite(raw) || raw <= 0) {
-      return Number(nodeGraphLineBurnSettingsDefaults.sweepCycles) || 4;
+      return nodeGraphFiniteNumber(nodeGraphLineBurnSettingsDefaults.sweepCycles, 4);
     }
     return Math.max(0.05, Math.min(100, raw));
   })();
@@ -444,8 +442,8 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
   if (horizontalBurn) {
     const dotSpace = Math.max(1, Math.min(width, height));
     const size01 = typeof clampNodeSliderValue === "function"
-      ? clampNodeSliderValue(Number(settings?.dot1Size) || 0, 0, 1)
-      : Math.max(0, Math.min(1, Number(settings?.dot1Size) || 0));
+      ? clampNodeSliderValue(nodeGraphFiniteNumber(settings?.dot1Size), 0, 1)
+      : Math.max(0, Math.min(1, nodeGraphFiniteNumber(settings?.dot1Size)));
     let radius = Math.max(0.5, dotSpace * size01 * 0.5);
     if (typeof nodeGraphScopeSize01ToRadiusPx === "function") {
       radius = Math.max(0.35, nodeGraphScopeSize01ToRadiusPx(dotSpace, size01));
@@ -586,7 +584,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
 }
 
 function nodeGraphOneDimensionalBurnPointBudget(canvas) {
-  const width = Math.max(1, Number(canvas?.width) || 1);
+  const width = Math.max(1, nodeGraphFiniteNumber(canvas?.width, 1));
   // Dense control points for continuous beam ribbons (lineBurn / PolyBLEP).
   // Even thinning keeps the true waveform; min/max buckets made envelope zigzags.
   return Math.max(512, Math.min(8192, Math.ceil(width * 12)));
@@ -607,7 +605,7 @@ function reduceNodeGraphOneDimensionalBurnSubpath(points, start, end, budget, ou
     }
     return;
   }
-  const cap = Math.max(2, Math.floor(Number(budget) || 2));
+  const cap = Math.max(2, Math.floor(nodeGraphFiniteNumber(budget, 2)));
   const last = end - 1;
   let prev = -1;
   for (let i = 0; i < cap; i += 1) {
@@ -678,7 +676,7 @@ function nodeGraphScope2dTraceInkRgb01(settings = {}) {
 
 function nodeGraphScope2dTraceInkHex(settings = {}) {
   const rgb = nodeGraphScope2dTraceInkRgb01(settings);
-  const to = (c) => Math.round(Math.max(0, Math.min(1, Number(c) || 0)) * 255)
+  const to = (c) => Math.round(Math.max(0, Math.min(1, nodeGraphFiniteNumber(c))) * 255)
     .toString(16)
     .padStart(2, "0");
   return `#${to(rgb[0])}${to(rgb[1])}${to(rgb[2])}`;
@@ -847,7 +845,7 @@ function nodeGraphScope2dPointFromSamples(square, x, y, settings = {}) {
   if (sampleX === null || sampleY === null) {
     return null;
   }
-  const scale = Math.max(0, Number(settings?.scale) || 1);
+  const scale = Math.max(0, nodeGraphFiniteNumber(settings?.scale, 1));
   return {
     x: square.left + square.width * 0.5 + sampleX * scale * square.width * 0.5,
     y: square.top + square.height * 0.5 - sampleY * scale * square.height * 0.5,
@@ -860,7 +858,7 @@ function nodeGraphScope2dTracePointFromSamples(square, x, y, settings) {
   if (sampleX === null || sampleY === null) {
     return null;
   }
-  const scale = Math.max(0, Number(settings?.scale) || 1);
+  const scale = Math.max(0, nodeGraphFiniteNumber(settings?.scale, 1));
   return {
     x: square.left + square.width * 0.5 + sampleX * scale * square.width * 0.5,
     y: square.top + square.height * 0.5 - sampleY * scale * square.height * 0.5,
@@ -918,10 +916,10 @@ function nodeGraphScopeDestFadeTowardPlate(context, canvas, plateCss, trail, gho
   if (w < 1 || h < 1) {
     return;
   }
-  const g = Math.max(0, Math.min(1, Number(ghost) || 0));
+  const g = Math.max(0, Math.min(1, nodeGraphFiniteNumber(ghost)));
   const trailErase = Residual?.destFadeAmount
     ? Residual.destFadeAmount(trail, 0)
-    : Math.max(0.002, Math.min(0.55, 1 - Math.max(0, Number(trail) || 0) * 0.97));
+    : Math.max(0.002, Math.min(0.55, 1 - Math.max(0, nodeGraphFiniteNumber(trail)) * 0.97));
 
   canvas._scopeDestGhostAmount = g;
   canvas._scopeDestGhostPlate = plateCss;
@@ -993,7 +991,7 @@ function nodeGraphScopeDestFadeGhostAfterStamps(context, canvas) {
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const w = canvas.width | 0;
   const h = canvas.height | 0;
-  const g = Math.max(0, Math.min(1, Number(canvas._scopeDestGhostAmount) || 0));
+  const g = Math.max(0, Math.min(1, nodeGraphFiniteNumber(canvas._scopeDestGhostAmount)));
   const plateCss = canvas._scopeDestGhostPlate || "#000000";
   const hot = canvas._scopeDestHot;
   if (!hot || hot.width !== w || hot.height !== h) {
@@ -1056,7 +1054,7 @@ function nodeGraphScopeDestFadeGhostAfterStamps(context, canvas) {
 // broke closed orbits into dashed scraps when history held multiple cycles
 // and the point budget skipped large angular steps.
 function nodeGraphScope2dTraceMaxSegmentPixels(square) {
-  const size = Math.max(1, Math.min(Number(square?.width) || 0, Number(square?.height) || 0));
+  const size = Math.max(1, Math.min(nodeGraphFiniteNumber(square?.width), nodeGraphFiniteNumber(square?.height)));
   return Math.max(24, size * 0.55);
 }
 
@@ -1071,7 +1069,7 @@ function nodeGraphScopeSize01ToRadiusPx(faceMinSide, size01) {
   if (typeof TraceStroke !== "undefined" && typeof TraceStroke.radiusPx === "function") {
     return TraceStroke.radiusPx(faceMinSide, size01);
   }
-  const side = Math.max(1, Number(faceMinSide) || 1);
+  const side = Math.max(1, nodeGraphFiniteNumber(faceMinSide, 1));
   const t = clampNodeSliderValue(Number(size01), 0, 1);
   return side * t * 0.5;
 }
@@ -1084,7 +1082,7 @@ function nodeGraphScopeSize01ToDiameterPx(faceMinSide, size01) {
   if (typeof TraceStroke !== "undefined" && typeof TraceStroke.diameterPx === "function") {
     return TraceStroke.diameterPx(faceMinSide, size01);
   }
-  const side = Math.max(1, Number(faceMinSide) || 1);
+  const side = Math.max(1, nodeGraphFiniteNumber(faceMinSide, 1));
   const t = clampNodeSliderValue(Number(size01), 0, 1);
   return side * t;
 }
@@ -1111,7 +1109,7 @@ function nodeGraphScope2dTraceSegmentIsContinuous(previousPoint, point, maxSegme
   const dx = point.x - previousPoint.x;
   const dy = point.y - previousPoint.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
-  return distance <= Math.max(1, Number(maxSegmentPixels) || 1);
+  return distance <= Math.max(1, nodeGraphFiniteNumber(maxSegmentPixels, 1));
 }
 
 /** Drop 2D Trace verts that sit inside minPx of the last kept point. Keep
@@ -1120,7 +1118,7 @@ function nodeGraphScope2dCollapseTracePoints(points, minPx = 0.5) {
   if (!Array.isArray(points) || points.length < 3) {
     return points || [];
   }
-  const minSq = Math.max(0.01, Number(minPx) || 0.5) ** 2;
+  const minSq = Math.max(0.01, nodeGraphFiniteNumber(minPx, 0.5)) ** 2;
   const out = [];
   let pieceStart = -1;
   const flushPiece = (from, to) => {
@@ -1216,7 +1214,7 @@ function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings, 
     prevPoint = point;
   };
   const fromCap = count > cap ? count - cap : 0;
-  const start = Math.max(fromCap, Math.max(0, Math.floor(Number(startIndex) || 0)));
+  const start = Math.max(fromCap, Math.max(0, Math.floor(nodeGraphFiniteNumber(startIndex))));
   for (let index = start; index < count; index += 1) {
     visit(index);
   }
@@ -1251,8 +1249,8 @@ function buildNodeGraphTraceDisplaySamples(buffer, slot, pointCount, progressFn,
       const to = Math.floor(samplePosition);
       if (to > from) {
         for (let i = from; i < to; i += 1) {
-          const a = Number(buffer[i]) || 0;
-          const b = Number(buffer[Math.min(buffer.length - 1, i + 1)]) || 0;
+          const a = nodeGraphFiniteNumber(buffer[i]);
+          const b = nodeGraphFiniteNumber(buffer[Math.min(buffer.length - 1, i + 1)]);
           if (Math.abs(b - a) > nodeGraphModuleScopeDiscontinuityThreshold) {
             breakBefore = true;
             break;
@@ -1274,8 +1272,8 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
   }
   const box = rect && Number.isFinite(Number(rect.width)) && Number.isFinite(Number(rect.height))
     ? {
-      x: Number(rect.x) || 0,
-      y: Number(rect.y) || 0,
+      x: nodeGraphFiniteNumber(rect.x),
+      y: nodeGraphFiniteNumber(rect.y),
       width: Math.max(1, Number(rect.width)),
       height: Math.max(1, Number(rect.height)),
     }
@@ -1302,7 +1300,7 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
   const halfHeight = box.height * nodeGraphModuleScopeTraceHalfHeightRatio(slot, buffer, { height: box.height });
   if (!view || view.end <= view.start) {
     const sample = nodeGraphModuleScopeInterpolatedSample(buffer, Math.max(0, buffer.length - 1));
-    const value = clampNodeSliderValue((sample * (Number(view?.gain) || 1)) + (Number(view?.offset) || 0), -1, 1);
+    const value = clampNodeSliderValue((sample * (nodeGraphFiniteNumber(view?.gain, 1))) + (nodeGraphFiniteNumber(view?.offset)), -1, 1);
     return [{
       x: box.x,
       y: box.y + (box.height * 0.5) - value * halfHeight,
@@ -1322,7 +1320,7 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
       // Vertex budget follows the face, not a 1–2px clip rect.
       vertexWidth: Number(options?.vertexWidth) > 0
         ? Number(options.vertexWidth)
-        : Math.max(width, Number(canvas.width) || 0),
+        : Math.max(width, nodeGraphFiniteNumber(canvas.width)),
       height: box.height,
       midY: box.height * 0.5,
       halfHeight,
@@ -1346,7 +1344,7 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
   const span = Math.max(1e-9, view.end - view.start);
   const points = [];
   for (let i = first; i <= last; i += 1) {
-    const raw = Number(buffer[i]) || 0;
+    const raw = nodeGraphFiniteNumber(buffer[i]);
     const value = clampNodeSliderValue((raw * view.gain) + view.offset, -1, 1);
     points.push({
       x: box.x + ((i - view.start) / span) * width,
@@ -1700,14 +1698,14 @@ function nodeGraphOutputInkNowMs() {
 }
 
 function nodeGraphOutputInkArmFrames(extraMs = NODE_GRAPH_OUTPUT_INK_FADE_MS + 1400) {
-  const until = nodeGraphOutputInkNowMs() + Math.max(0, Number(extraMs) || 0);
+  const until = nodeGraphOutputInkNowMs() + Math.max(0, nodeGraphFiniteNumber(extraMs));
   if (until > nodeGraphOutputInkHoldUntil) {
     nodeGraphOutputInkHoldUntil = until;
   }
 }
 
 function nodeGraphOutputInkWantsFrames() {
-  if ((Number(globalThis.nodeGraphOutputProtectMute) || 0) > 0.001) {
+  if ((nodeGraphFiniteNumber(globalThis.nodeGraphOutputProtectMute)) > 0.001) {
     return true;
   }
   return nodeGraphOutputInkNowMs() < nodeGraphOutputInkHoldUntil;
@@ -1739,7 +1737,7 @@ function nodeGraphOutputInkEnsure(canvas) {
 }
 
 function nodeGraphOutputInkScroll(canvas, dxPx) {
-  const dx = Math.round(Number(dxPx) || 0);
+  const dx = Math.round(nodeGraphFiniteNumber(dxPx));
   if (!dx || !canvas?._outputInkLayer) {
     return;
   }
@@ -1762,7 +1760,7 @@ function nodeGraphOutputInkFade(canvas, dtMs) {
   if (!ink) {
     return;
   }
-  const dt = Math.max(0, Number(dtMs) || 0);
+  const dt = Math.max(0, nodeGraphFiniteNumber(dtMs));
   if (!(dt > 0)) {
     return;
   }
@@ -1781,7 +1779,7 @@ function nodeGraphOutputInkFade(canvas, dtMs) {
 
 function nodeGraphOutputInkComposite(destCtx, canvas, alpha = 1) {
   const layer = canvas?._outputInkLayer;
-  const a = Math.max(0, Math.min(1, Number(alpha) || 0));
+  const a = Math.max(0, Math.min(1, nodeGraphFiniteNumber(alpha)));
   if (!destCtx || !layer || !(a > 0.001)) {
     return;
   }
@@ -1937,7 +1935,7 @@ function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, 
   const last = Number(canvas._outputInkLastFadeMs);
   const dt = Number.isFinite(last) ? Math.max(0, Math.min(80, now - last)) : 16;
   canvas._outputInkLastFadeMs = now;
-  const scrollPx = Math.round(Number(options.scrollPx) || 0);
+  const scrollPx = Math.round(nodeGraphFiniteNumber(options.scrollPx));
   const scrolled = options.scrolled === true || scrollPx > 0;
   const paused = nodeGraphOutputTransportIsPaused();
 
@@ -1983,8 +1981,8 @@ function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, 
     paintNodeGraphOutputPauseBars(destCtx, canvas, { density, alpha: fadeAlpha });
   }
 
-  const mute = Math.max(0, Math.min(1, Number(globalThis.nodeGraphOutputProtectMute) || 0));
-  const lastMute = Number(canvas._outputProtectLastMute) || 0;
+  const mute = Math.max(0, Math.min(1, nodeGraphFiniteNumber(globalThis.nodeGraphOutputProtectMute)));
+  const lastMute = nodeGraphFiniteNumber(canvas._outputProtectLastMute);
   const falling = mute > 0.001 && mute < lastMute - 0.012;
   canvas._outputProtectOverlayMute = (!falling && mute > 0.001) ? mute : 0;
   // Print into dest tape only while mute is falling. Engaged = HUD overlay
@@ -2002,7 +2000,7 @@ function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, 
 }
 
 function paintNodeGraphOutputProtectOverlay(destCtx, canvas, density) {
-  const mute = Math.max(0, Math.min(1, Number(canvas?._outputProtectOverlayMute) || 0));
+  const mute = Math.max(0, Math.min(1, nodeGraphFiniteNumber(canvas?._outputProtectOverlayMute)));
   if (!(mute > 0.001) || !destCtx || !canvas) {
     return false;
   }
@@ -2266,8 +2264,8 @@ function nodeGraphTraceDisplayEnsureScratchCanvas(owner, key, width, height) {
   if (!canvas) {
     canvas = owner[key] = document.createElement("canvas");
   }
-  const w = Math.max(1, Math.floor(Number(width) || 1));
-  const h = Math.max(1, Math.floor(Number(height) || 1));
+  const w = Math.max(1, Math.floor(nodeGraphFiniteNumber(width, 1)));
+  const h = Math.max(1, Math.floor(nodeGraphFiniteNumber(height, 1)));
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
     canvas.height = h;
@@ -2299,10 +2297,10 @@ function nodeGraphTraceWaterfallUndrawnWindow(canvas, buffer) {
     0,
     Math.min(
       buffer?.length || 0,
-      Math.floor(Number(buffer?.nodeGraphScopeRetainedSampleCount) || Number(buffer?.length) || 0),
+      Math.floor(nodeGraphFiniteNumber(buffer?.nodeGraphScopeRetainedSampleCount, nodeGraphFiniteNumber(buffer?.length))),
     ),
   );
-  const recent = Math.max(0, Math.floor(Number(buffer?.nodeGraphScopeRecentSampleCount) || 0));
+  const recent = Math.max(0, Math.floor(nodeGraphFiniteNumber(buffer?.nodeGraphScopeRecentSampleCount)));
   const absEnd = Number(buffer?.nodeGraphScopeAbsoluteFrame);
   const totalSamples = Number(buffer?.nodeGraphScopeTotalSampleCount);
   const lastDrawn = Number(canvas?._traceWaterfallLastDrawnFrame);
@@ -2384,7 +2382,7 @@ function nodeGraphPaintRmsDbGuideOverlay(context, canvas, slot = null) {
     const bipolar = typeof nodeGraphRmsDbToFaceBipolar === "function"
       ? nodeGraphRmsDbToFaceBipolar(db, face.minDb, face.maxDb)
       : 0;
-    const y = midY - Math.max(-1, Math.min(1, bipolar)) * halfHeight;
+    const y = midY - bipolar * halfHeight;
     if (!Number.isFinite(y)) {
       continue;
     }
@@ -2502,7 +2500,7 @@ function appendNodeGraphScope2dInterpolatedPoint(points, point, spacingPx = 0.5)
   if (!Number.isFinite(distance)) {
     return;
   }
-  const safeSpacing = Math.max(0.25, Number(spacingPx) || 0.5);
+  const safeSpacing = Math.max(0.25, nodeGraphFiniteNumber(spacingPx, 0.5));
   if (distance < safeSpacing) {
     points.push(point);
     return;
@@ -2566,8 +2564,8 @@ function nodeGraphScope2dAdjacentSampleIsDiscontinuity(buffer, indexA, indexB, t
 }
 
 function nodeGraphScope2dRangeHasDiscontinuity(buffer, fromIndex, toIndex, threshold) {
-  const from = Math.floor(Number(fromIndex) || 0);
-  const to = Math.floor(Number(toIndex) || 0);
+  const from = Math.floor(nodeGraphFiniteNumber(fromIndex));
+  const to = Math.floor(nodeGraphFiniteNumber(toIndex));
   if (!(to > from)) {
     return false;
   }
@@ -2637,11 +2635,11 @@ function nodeGraphScope2dMaxSamplesPerFrame(canvas) {
  * by ideal spacing (may be far below maxPoints).
  */
 function nodeGraphScope2dEvenSampleIndices(count, maxPoints) {
-  const safeCount = Math.max(0, Math.floor(Number(count) || 0));
+  const safeCount = Math.max(0, Math.floor(nodeGraphFiniteNumber(count)));
   if (safeCount <= 0) {
     return [];
   }
-  const cap = Math.max(2, Math.floor(Number(maxPoints) || 2));
+  const cap = Math.max(2, Math.floor(nodeGraphFiniteNumber(maxPoints, 2)));
   if (safeCount <= cap) {
     const all = new Array(safeCount);
     for (let i = 0; i < safeCount; i += 1) {
@@ -2671,7 +2669,7 @@ function buildNodeGraphScope2dEvenPathPoints(square, buffer, maxPoints, settings
   // Cap control verts so we don't iterate 44k points — stamps are budgeted later.
   const controlCap = Math.min(
     count,
-    Math.max(256, Math.min(Math.floor(Number(maxPoints) || 2048) * 2, 8192)),
+    Math.max(256, Math.min(Math.floor(nodeGraphFiniteNumber(maxPoints, 2048)) * 2, 8192)),
   );
   const indices = nodeGraphScope2dEvenSampleIndices(count, controlCap);
   const pathPoints = [];
@@ -2710,9 +2708,9 @@ function buildNodeGraphScope2dEvenPathPoints(square, buffer, maxPoints, settings
  * (Used by segment / incremental modes.)
  */
 function nodeGraphScope2dClampDrawStartIndex(startIndex, count, maxSamples) {
-  const safeCount = Math.max(0, Math.floor(Number(count) || 0));
-  const safeStart = Math.max(0, Math.min(safeCount, Math.floor(Number(startIndex) || 0)));
-  const cap = Math.max(64, Math.floor(Number(maxSamples) || 2048));
+  const safeCount = Math.max(0, Math.floor(nodeGraphFiniteNumber(count)));
+  const safeStart = Math.max(0, Math.min(safeCount, Math.floor(nodeGraphFiniteNumber(startIndex))));
+  const cap = Math.max(64, Math.floor(nodeGraphFiniteNumber(maxSamples, 2048)));
   if (safeCount - safeStart <= cap) {
     return safeStart;
   }
@@ -2736,7 +2734,7 @@ function nodeGraphScope2dCanvasSettingsSignature(settings) {
     safeSettings.fullDotEconomy ? 1 : 0,
     safeSettings.dotsOnly ? 1 : 0,
     safeSettings.skipDiscontinuities ? 1 : 0,
-    Math.round(Number(safeSettings.dotBudget) || 1024),
+    Math.round(nodeGraphFiniteNumber(safeSettings.dotBudget, 1024)),
   ].join("|");
 }
 
@@ -2744,7 +2742,7 @@ function nodeGraphScope2dDrawStartIndex(state, buffer, count) {
   const startFrame = Number(buffer?.nodeGraphScopeStartFrame);
   const endFrame = Number(buffer?.nodeGraphScopeAbsoluteFrame);
   const lastFrame = Number(state?._nodeGraphScope2dLastDrawnFrame);
-  const safeCount = Math.max(0, Math.floor(Number(count) || 0));
+  const safeCount = Math.max(0, Math.floor(nodeGraphFiniteNumber(count)));
   if (
     !Number.isFinite(startFrame) ||
     !Number.isFinite(endFrame) ||
@@ -2778,12 +2776,12 @@ function buildNodeGraphScope2dPathPoints(square, buffer, startIndex = 0, options
   const pathPoints = [];
   const interpolationSpacingPx = nodeGraphScope2dInterpolationSpacingPx(
     options.settings,
-    Math.min(Number(square?.width) || 1, Number(square?.height) || 1),
+    Math.min(nodeGraphFiniteNumber(square?.width, 1), nodeGraphFiniteNumber(square?.height, 1)),
   );
   const interpolate = options.interpolate !== false;
   const skipDisc = nodeGraphScope2dSkipDiscontinuitiesEnabled(options.settings);
   let previousPoint = null;
-  const start = Math.max(0, Math.floor(Number(startIndex) || 0));
+  const start = Math.max(0, Math.floor(nodeGraphFiniteNumber(startIndex)));
   const indexList = Array.isArray(options.indices) ? options.indices : null;
   const visitCount = indexList ? indexList.length : Math.max(0, count - start);
   for (let n = 0; n < visitCount; n += 1) {

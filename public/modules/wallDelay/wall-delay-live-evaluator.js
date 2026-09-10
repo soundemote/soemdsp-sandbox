@@ -138,7 +138,7 @@ function createNodeGraphWallDelayState() {
 }
 
 function nodeGraphWallDelaySample(state, input, params, sampleRate, runtime = null, nodeId = "") {
-  const safeRate = Math.max(1, Number(sampleRate) || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const requiredSize = Math.max(2, Math.ceil(safeRate * nodeGraphWallDelayMaxTotalSeconds) + 2);
   if (!state.bufferL || state.bufferSize !== requiredSize) {
     state.bufferL = new Float32Array(requiredSize);
@@ -162,7 +162,7 @@ function nodeGraphWallDelaySample(state, input, params, sampleRate, runtime = nu
   ].map((value) => Number(value).toFixed(4)).join(":");
   if (state.tapPlanKey !== tapKey) {
     state.tapPlanKey = tapKey;
-    const earDistanceMeters = Math.max(0, Number(params.earDistance) || 0) / 100;
+    const earDistanceMeters = Math.max(0, nodeGraphFiniteNumber(params.earDistance)) / 100;
     const earOffset = earDistanceMeters * 0.5;
     state.tapsL = nodeGraphWallDelayBuildTapPlan({ ...params, reflectivity }, [-earOffset, 0, 0]);
     state.tapsR = nodeGraphWallDelayBuildTapPlan({ ...params, reflectivity }, [earOffset, 0, 0]);

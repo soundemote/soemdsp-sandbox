@@ -28,15 +28,15 @@ NodeLiveAudioProcessor.prototype.wowAndFlutterSample = function wowAndFlutterSam
   const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
   const y = this.nativeWowAndFlutter.soemdsp_wow_and_flutter_sample(
     state.nativeHandle,
-    Number(options.wowSpeed) || 0,
+    nodeGraphFiniteNumber(options.wowSpeed),
     sampleRate,
-    Number(options.phaseOffset) || 0,
-    Number(options.wowAmp) || 0,
-    Number(options.flutterFrequency) || 0,
-    Number(options.flutterJitter) || 0,
-    Number(options.flutterAmp) || 0,
+    nodeGraphFiniteNumber(options.phaseOffset),
+    nodeGraphFiniteNumber(options.wowAmp),
+    nodeGraphFiniteNumber(options.flutterFrequency),
+    nodeGraphFiniteNumber(options.flutterJitter),
+    nodeGraphFiniteNumber(options.flutterAmp),
     Number.isFinite(Number(options.seed)) ? Number(options.seed) : 1,
-    Number(options.amplitude) || 0,
+    nodeGraphFiniteNumber(options.amplitude),
   );
   return { Out: y, Left: y, Right: y, Mono: y };
 };

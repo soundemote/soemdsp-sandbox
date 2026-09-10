@@ -21,17 +21,17 @@ NodeLiveAudioProcessor.prototype.dsfOscillatorSample = function dsfOscillatorSam
     }
     this.nativeDsfOscillator.soemdsp_dsf_oscillator_sample(
       state.nativeHandle,
-      Number(options.frequencyHz) || 0,
+      nodeGraphFiniteNumber(options.frequencyHz),
       Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000,
-      Math.round(Number(options.waveform) || 0),
-      Number(options.morph) || 0,
+      Math.round(nodeGraphFiniteNumber(options.waveform)),
+      nodeGraphFiniteNumber(options.morph),
       Number(options.pulseWidth) ?? 0.5,
       Number(options.blend) ?? 0.5,
-      Number(options.phase) || 0,
-      Number(options.level) || 0,
+      nodeGraphFiniteNumber(options.phase),
+      nodeGraphFiniteNumber(options.level),
     );
     return {
-      Out: Number(this.nativeDsfOscillator.soemdsp_dsf_oscillator_out(state.nativeHandle)) || 0,
+      Out: nodeGraphFiniteNumber(this.nativeDsfOscillator.soemdsp_dsf_oscillator_out(state.nativeHandle)),
     };
   } catch (_error) {
     this.nativeDsfOscillatorReady = false;

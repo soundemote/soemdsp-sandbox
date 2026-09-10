@@ -3,12 +3,12 @@
 
 /** Per-node native handle shell (setPlan pre-create). */
 NodeLiveAudioProcessor.prototype.createCrossoverStereoState = function createCrossoverStereoState(bandCount) {
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
   return { nativeHandle: 0, nativeBandCount: n, out: Object.create(null) };
 };
 
 NodeLiveAudioProcessor.prototype.crossoverSilentPorts = function crossoverSilentPorts(bandCount) {
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
   const out = Object.create(null);
   if (typeof nodeGraphCrossoverOutputPorts === "function") {
     for (const p of nodeGraphCrossoverOutputPorts(n)) {
@@ -47,7 +47,7 @@ NodeLiveAudioProcessor.prototype.crossoverSample = function crossoverSample(
   rate,
   bandCount,
 ) {
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
   if (
     !this.nativeCrossoverReady
     || !this.nativeCrossover?.soemdsp_crossover_create
@@ -67,16 +67,16 @@ NodeLiveAudioProcessor.prototype.crossoverSample = function crossoverSample(
     const f = Array.isArray(freqs) ? freqs : [];
     this.nativeCrossover.soemdsp_crossover_sample(
       state.nativeHandle,
-      Number(mono) || 0,
-      Number(left) || 0,
-      Number(right) || 0,
-      Number(f[0]) || 0,
-      Number(f[1]) || 0,
-      Number(f[2]) || 0,
-      Number(f[3]) || 0,
-      Number(f[4]) || 0,
-      Math.round(Number(lrOrder) || 4),
-      Math.max(1, Number(rate) || sampleRate || 44100),
+      nodeGraphFiniteNumber(mono),
+      nodeGraphFiniteNumber(left),
+      nodeGraphFiniteNumber(right),
+      nodeGraphFiniteNumber(f[0]),
+      nodeGraphFiniteNumber(f[1]),
+      nodeGraphFiniteNumber(f[2]),
+      nodeGraphFiniteNumber(f[3]),
+      nodeGraphFiniteNumber(f[4]),
+      Math.round(nodeGraphFiniteNumber(lrOrder, 4)),
+      Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100))),
     );
     if (!state.out) state.out = Object.create(null);
     const out = state.out;

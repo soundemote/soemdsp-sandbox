@@ -76,7 +76,7 @@ function nodeGraphRgbAlignedCapture(slot, ports, historySeconds) {
   }
   const sampleRate = Math.max(
     1,
-    Number(nodeGraphModuleScopeState?.sampleRate) || Number(nodeGraphMvp?.sampleRate) || 44100,
+    nodeGraphFiniteNumber(nodeGraphModuleScopeState?.sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)),
   );
   const want = Number.isFinite(historySeconds)
     ? Math.min(available, Math.max(1, Math.ceil(Math.max(0, historySeconds) * sampleRate)))
@@ -91,7 +91,7 @@ function nodeGraphRgbAlignedCapture(slot, ports, historySeconds) {
     if (ring?.length) {
       const start = ring.length - frames;
       for (let i = 0; i < frames; i += 1) {
-        channel[i] = Number(ring[start + i]) || 0;
+        channel[i] = nodeGraphFiniteNumber(ring[start + i]);
       }
     }
     out[ports[p]] = channel;
@@ -104,7 +104,7 @@ function nodeGraphVectorRgbUnitToPx(value, origin, span, scale) {
   if (!Number.isFinite(n)) {
     return null;
   }
-  return origin + (0.5 + 0.5 * Math.max(-1, Math.min(1, n * scale))) * span;
+  return origin + (0.5 + 0.5 * n * scale) * span;
 }
 
 function nodeGraphVectorRgbStampArcs(ctx, packed, count, radius) {
@@ -191,12 +191,9 @@ function drawNodeGraphVectorRgbFaceItem(_renderer, item, pixelRatio) {
     const source = nodeGraphRgbPickPortBuffer(slot, "X");
     const sampleRate = Math.max(
       1,
-      Number(source?.nodeGraphScopeSampleRate)
-        || Number(nodeGraphModuleScopeState?.sampleRate)
-        || Number(nodeGraphMvp?.sampleRate)
-        || 44100,
+      nodeGraphFiniteNumber(source?.nodeGraphScopeSampleRate, nodeGraphFiniteNumber(nodeGraphModuleScopeState?.sampleRate, nodeGraphFiniteNumber))(nodeGraphMvp?.sampleRate, 44100),
     );
-    const abs = Math.max(0, Math.floor(Number(source?.nodeGraphScopeTotalSampleCount) || 0));
+    const abs = Math.max(0, Math.floor(nodeGraphFiniteNumber(source?.nodeGraphScopeTotalSampleCount)));
     const prev = Number(canvas._vectorRgbAbs || 0);
     const deltaSec = prev > 0 && abs > prev ? (abs - prev) / sampleRate : 0;
     const catchUp = prev > 0
@@ -245,9 +242,9 @@ function drawNodeGraphVectorRgbFaceItem(_renderer, item, pixelRatio) {
       if (x == null || y == null) {
         continue;
       }
-      const r = (rgbWired ? Math.max(0, Math.min(1, Number(captured.R[i]) || 0)) : 1) * gain;
-      const g = (rgbWired ? Math.max(0, Math.min(1, Number(captured.G[i]) || 0)) : 1) * gain;
-      const b = (rgbWired ? Math.max(0, Math.min(1, Number(captured.B[i]) || 0)) : 1) * gain;
+      const r = (rgbWired ? Math.max(0, Math.min(1, nodeGraphFiniteNumber(captured.R[i]))) : 1) * gain;
+      const g = (rgbWired ? Math.max(0, Math.min(1, nodeGraphFiniteNumber(captured.G[i]))) : 1) * gain;
+      const b = (rgbWired ? Math.max(0, Math.min(1, nodeGraphFiniteNumber(captured.B[i]))) : 1) * gain;
       if (r + g + b <= 1e-6) {
         continue;
       }

@@ -151,8 +151,8 @@ function nodeGraphFbmFieldFillGrid(options = {}) {
   }
   const maxW = wasm.soemdsp_fbm_field_grid_max_width?.() || 256;
   const maxH = wasm.soemdsp_fbm_field_grid_max_height?.() || 256;
-  const width = Math.max(8, Math.min(maxW, Math.round(Number(options.width) || 192)));
-  const height = Math.max(8, Math.min(maxH, Math.round(Number(options.height) || 192)));
+  const width = Math.max(8, Math.min(maxW, Math.round(nodeGraphFiniteNumber(options.width, 192))));
+  const height = Math.max(8, Math.min(maxH, Math.round(nodeGraphFiniteNumber(options.height, 192))));
   const cells = wasm.soemdsp_fbm_field_fill_grid(
     width,
     height,

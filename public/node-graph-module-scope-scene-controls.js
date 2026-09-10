@@ -101,7 +101,7 @@ function nodeGraphScopeNumberInputStepDecimals(input) {
 function nodeGraphScopeNumberInputSnapValue(input, value) {
   const { min, max, step } = nodeGraphScopeNumberInputRange(input);
   const decimals = nodeGraphScopeNumberInputStepDecimals(input);
-  const clamped = clampNodeSliderValue(Number(value) || 0, min, max);
+  const clamped = clampNodeSliderValue(nodeGraphFiniteNumber(value), min, max);
   const quantized = Math.round(clamped / step) * step;
   const snapped = clampNodeSliderValue(quantized, min, max);
   return Number(snapped.toFixed(decimals));
@@ -109,7 +109,7 @@ function nodeGraphScopeNumberInputSnapValue(input, value) {
 
 function setNodeGraphScopeNumberInputValue(input, value) {
   input.value = input.dataset.scopeInput === "cycles"
-    ? nodeGraphFormatScopeNumber(clampNodeSliderValue(Number(value) || 0, nodeGraphModuleScopeMinCycles, 128))
+    ? nodeGraphFormatScopeNumber(clampNodeSliderValue(nodeGraphFiniteNumber(value), nodeGraphModuleScopeMinCycles, 128))
     : nodeGraphScopeNumberInputSnapValue(input, value).toString();
   if (input.dataset.globalScopeInput === "framesPerSecond") {
     setNodeGraphModuleScopeFramesPerSecond(input.value);
@@ -197,8 +197,8 @@ function moveNodeGraphSettingsTextPointer(event) {
   if (activePointerId && activePointerId !== pointerId) {
     return;
   }
-  const startX = Number(root.dataset.settingsTextPointerStartX) || 0;
-  const startY = Number(root.dataset.settingsTextPointerStartY) || 0;
+  const startX = nodeGraphFiniteNumber(root.dataset.settingsTextPointerStartX);
+  const startY = nodeGraphFiniteNumber(root.dataset.settingsTextPointerStartY);
   if (Math.abs((event.clientX ?? 0) - startX) > 2 || Math.abs((event.clientY ?? 0) - startY) > 2) {
     root.dataset.settingsTextPointerMoved = "true";
   }
@@ -326,7 +326,7 @@ function beginNodeGraphScopeNumberDrag(event) {
     input,
     pointerId: event.pointerId ?? null,
     scale: nodeGraphScopeNumberDragScale(input, event),
-    startValue: Number(input.value) || 0,
+    startValue: nodeGraphFiniteNumber(input.value),
     startX: event.clientX,
     startY: event.clientY,
   };
@@ -349,7 +349,7 @@ function dragNodeGraphScopeNumber(event) {
   // Re-anchor when Shift/Ctrl fine scale changes mid-drag (no jump).
   const currentScale = nodeGraphScopeNumberDragScale(drag.input, event);
   if (currentScale !== drag.scale) {
-    drag.startValue = Number(drag.input.value) || drag.startValue;
+    drag.startValue = nodeGraphFiniteNumber(drag.input.value, drag.startValue);
     drag.startX = event.clientX;
     drag.startY = event.clientY;
     drag.scale = currentScale;

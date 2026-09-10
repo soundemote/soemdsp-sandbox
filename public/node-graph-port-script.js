@@ -39,7 +39,7 @@ const nodeGraphPortScriptHelpers = Object.freeze({
   // rotating, and counting bits on a Scale-style mask without a script
   // having to reimplement bit math from scratch.
   popcount: (mask) => {
-    let n = Math.trunc(Number(mask) || 0) >>> 0;
+    let n = Math.trunc(nodeGraphFiniteNumber(mask)) >>> 0;
     let count = 0;
     while (n) {
       n &= n - 1;
@@ -48,8 +48,8 @@ const nodeGraphPortScriptHelpers = Object.freeze({
     return count;
   },
   rotateLeft12: (mask, amount) => {
-    const m = Math.trunc(Number(mask) || 0) & 0xFFF;
-    const n = ((Math.trunc(Number(amount) || 0) % 12) + 12) % 12;
+    const m = Math.trunc(nodeGraphFiniteNumber(mask)) & 0xFFF;
+    const n = ((Math.trunc(nodeGraphFiniteNumber(amount)) % 12) + 12) % 12;
     if (n === 0) return m;
     return ((m << n) | (m >> (12 - n))) & 0xFFF;
   },

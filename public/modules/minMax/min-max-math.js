@@ -13,7 +13,7 @@ function nodeGraphMinMaxCore(values, connectedMask) {
   const list = values || [];
   for (let i = 0; i < 4; i++) {
     if (!(connectedMask & (1 << i))) continue;
-    const v = Number(list[i]) || 0;
+    const v = nodeGraphFiniteNumber(list[i]);
     if (!have) {
       lo = v;
       hi = v;

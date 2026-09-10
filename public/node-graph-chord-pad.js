@@ -45,16 +45,16 @@ function nodeGraphChordPadRotateLeft12(mask, amount) {
 }
 
 function nodeGraphChordPadClampKey(key) {
-  const n = Math.round(Number(key) || 0);
+  const n = Math.round(nodeGraphFiniteNumber(key));
   return ((n % 12) + 12) % 12;
 }
 
 function nodeGraphChordPadClampMode(mode) {
-  return Math.round(Number(mode) || 0) === 1 ? 1 : 0;
+  return Math.round(nodeGraphFiniteNumber(mode)) === 1 ? 1 : 0;
 }
 
 function nodeGraphChordPadClampDegree(degree) {
-  const n = Math.round(Number(degree) || 0);
+  const n = Math.round(nodeGraphFiniteNumber(degree));
   return Math.max(0, Math.min(6, n));
 }
 

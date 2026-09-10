@@ -2,9 +2,9 @@
 // Load after module-scopes.js. Extract-only.
 
 function nodeGraphScope2dSourceFrameCount(sampleRate, fps, validLength) {
-  const safeSampleRate = Math.max(1, Number(sampleRate) || 44100);
-  const safeFps = Math.max(1, Number(fps) || 60);
-  const safeValidLength = Math.max(0, Math.floor(Number(validLength) || 0));
+  const safeSampleRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const safeFps = Math.max(1, nodeGraphFiniteNumber(fps, 60));
+  const safeValidLength = Math.max(0, Math.floor(nodeGraphFiniteNumber(validLength)));
   return Math.min(safeValidLength, Math.max(1, Math.ceil(safeSampleRate / safeFps)));
 }
 
@@ -12,18 +12,18 @@ function nodeGraphScopeBufferRecentSampleCount(buffer) {
   if (!buffer || !Object.prototype.hasOwnProperty.call(buffer, "nodeGraphScopeRecentSampleCount")) {
     return null;
   }
-  return Math.max(0, Math.floor(Number(buffer.nodeGraphScopeRecentSampleCount) || 0));
+  return Math.max(0, Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeRecentSampleCount)));
 }
 
 function nodeGraphScopeAvailableSampleCount(buffer) {
   if (!buffer?.length) {
     return 0;
   }
-  const retainedSamples = Math.floor(Number(buffer.nodeGraphScopeRetainedSampleCount) || 0);
+  const retainedSamples = Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeRetainedSampleCount));
   if (retainedSamples > 0) {
     return Math.min(buffer.length, retainedSamples);
   }
-  const absoluteFrame = Math.floor(Number(buffer.nodeGraphScopeAbsoluteFrame) || 0);
+  const absoluteFrame = Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeAbsoluteFrame));
   return absoluteFrame > 0
     ? Math.min(buffer.length, absoluteFrame)
     : buffer.length;
@@ -70,7 +70,7 @@ function nodeGraphScopeContiguousSampleCount(buffer) {
 // nodeGraphModuleScopeCapturedScope2dBuffer → node-graph-module-scope-capture.js
 // captureNodeGraphLiveModuleScopeOutput → node-graph-module-scope-capture.js
 function resizeNodeGraphLiveModuleScopeBuffer(buffer, frameCapacity) {
-  const capacity = Math.max(0, Math.floor(Number(frameCapacity) || 0));
+  const capacity = Math.max(0, Math.floor(nodeGraphFiniteNumber(frameCapacity)));
   if (capacity <= 0) {
     return new Float32Array(0);
   }
@@ -87,9 +87,9 @@ function resizeNodeGraphLiveModuleScopeBuffer(buffer, frameCapacity) {
   next.set(buffer.subarray(sourceStart, sourceStart + copyCount), targetStart);
   next.nodeGraphScopeRetainedSampleCount = Math.min(
     copyCount,
-    Math.max(0, Math.floor(Number(buffer.nodeGraphScopeRetainedSampleCount) || 0)),
+    Math.max(0, Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeRetainedSampleCount))),
   );
-  next.nodeGraphScopeTotalSampleCount = Math.max(0, Math.floor(Number(buffer.nodeGraphScopeTotalSampleCount) || 0));
+  next.nodeGraphScopeTotalSampleCount = Math.max(0, Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeTotalSampleCount)));
   next.nodeGraphScopeBurnSweepStart = buffer.nodeGraphScopeBurnSweepStart;
   next.nodeGraphScopeBurnSweepLength = buffer.nodeGraphScopeBurnSweepLength;
   next.nodeGraphScopeBurnCrossings = buffer.nodeGraphScopeBurnCrossings;
@@ -136,11 +136,11 @@ function pushNodeGraphLiveModuleScopeSamples(nodeId, values, metadata = null) {
   buffer.nodeGraphScopeRecentSampleCount = count;
   buffer.nodeGraphScopeTotalSampleCount = Math.max(
     0,
-    Math.floor(Number(buffer.nodeGraphScopeTotalSampleCount) || 0),
+    Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeTotalSampleCount)),
   ) + count;
   buffer.nodeGraphScopeRetainedSampleCount = Math.min(
     buffer.length,
-    Math.max(0, Math.floor(Number(buffer.nodeGraphScopeRetainedSampleCount) || 0)) + count,
+    Math.max(0, Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeRetainedSampleCount))) + count,
   );
   if (metadata && typeof metadata === "object") {
     const absoluteFrame = Number(metadata.absoluteFrame);
@@ -167,7 +167,7 @@ function pushNodeGraphLiveModuleScopeSamples(nodeId, values, metadata = null) {
   // Scope-ring posts (Output Instant Trace) often omit absoluteFrame. Drive a
   // monotonic cursor from totalSampleCount so 1D Phosphor undrawn-window and
   // Instant Trace never stall on a missing/stale abs frame.
-  const totalSamples = Math.max(0, Math.floor(Number(buffer.nodeGraphScopeTotalSampleCount) || 0));
+  const totalSamples = Math.max(0, Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeTotalSampleCount)));
   if (totalSamples > 0) {
     const prevAbs = Number(buffer.nodeGraphScopeAbsoluteFrame);
     if (!Number.isFinite(prevAbs) || totalSamples > prevAbs) {
@@ -175,7 +175,7 @@ function pushNodeGraphLiveModuleScopeSamples(nodeId, values, metadata = null) {
       buffer.nodeGraphScopeStartFrame = Math.max(0, totalSamples - count);
     }
   }
-  nodeGraphModuleScopeState.versionSerial = (Number(nodeGraphModuleScopeState.versionSerial) || 0) + 1;
+  nodeGraphModuleScopeState.versionSerial = (nodeGraphFiniteNumber(nodeGraphModuleScopeState.versionSerial)) + 1;
   buffer.nodeGraphScopeVersion = nodeGraphModuleScopeState.versionSerial;
   // Invalidate Instant Trace draw cache for this node so the next RAF paints
   // new ring samples (Output stereo keys are "id:Left" / "id:Right").
@@ -254,7 +254,7 @@ function createNodeGraphVisualInputBuffer(capacity = nodeGraphBufferedInputSampl
 }
 
 function normalizeNodeGraphVisualInputBufferCapacity(capacity = nodeGraphBufferedInputSampleLimit) {
-  return Math.max(1, Math.round(Number(capacity) || nodeGraphBufferedInputSampleLimit));
+  return Math.max(1, Math.round(nodeGraphFiniteNumber(capacity, nodeGraphBufferedInputSampleLimit)));
 }
 
 function resizeNodeGraphVisualInputBufferState(state, capacity = nodeGraphBufferedInputSampleLimit) {
@@ -264,10 +264,10 @@ function resizeNodeGraphVisualInputBufferState(state, capacity = nodeGraphBuffer
     if (!state?.buffer?.length || !state?.length) {
       return next;
     }
-    const oldLength = Math.min(Number(state.length) || 0, state.capacity || state.buffer.length);
+    const oldLength = Math.min(nodeGraphFiniteNumber(state.length), state.capacity || state.buffer.length);
     const copyCount = Math.min(oldLength, safeCapacity);
     const chronological = new Float32Array(copyCount);
-    const first = ((Number(state.writeIndex) || 0) - oldLength + (state.capacity || state.buffer.length)) % (state.capacity || state.buffer.length);
+    const first = ((nodeGraphFiniteNumber(state.writeIndex)) - oldLength + (state.capacity || state.buffer.length)) % (state.capacity || state.buffer.length);
     for (let index = 0; index < copyCount; index += 1) {
       const oldIndex = (first + oldLength - copyCount + index) % (state.capacity || state.buffer.length);
       chronological[index] = state.buffer[oldIndex] || 0;
@@ -275,7 +275,7 @@ function resizeNodeGraphVisualInputBufferState(state, capacity = nodeGraphBuffer
     next.buffer.set(chronological, 0);
     next.length = copyCount;
     next.writeIndex = copyCount % safeCapacity;
-    next.absoluteFrame = Math.max(Number(state.absoluteFrame) || 0, copyCount);
+    next.absoluteFrame = Math.max(nodeGraphFiniteNumber(state.absoluteFrame), copyCount);
     return next;
   }
   return state;

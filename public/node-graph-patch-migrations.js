@@ -128,7 +128,7 @@ function nodeGraphPatchMigrateAdditiveFilterSlopeToDbOct(patch) {
     }
     const bump = (bag) => {
       if (!bag) return bag;
-      if ((Number(bag._slopeUnit) || 0) >= 1) return bag;
+      if ((nodeGraphFiniteNumber(bag._slopeUnit)) >= 1) return bag;
       if (bag.slope == null) {
         changed = true;
         return { ...bag, _slopeUnit: 1 };
@@ -237,7 +237,7 @@ function nodeGraphPatchMigrateAdditiveGeneratorWaveformsBasic(patch) {
     const parameters = node.parameters && typeof node.parameters === "object"
       ? { ...node.parameters }
       : null;
-    const stamp = Number(params._wfBasic ?? parameters?._wfBasic) || 0;
+    const stamp = nodeGraphFiniteNumber(params._wfBasic ?? parameters?._wfBasic);
     if (stamp >= 4) return node;
     // Already on v4 (Saw/Square/Pulse*/Tri/RectSine + PWM) — just stamp.
     if (
@@ -301,14 +301,14 @@ function nodeGraphPatchMigrateAdditiveGeneratorWaveformsPwm(patch) {
     const parameters = node.parameters && typeof node.parameters === "object"
       ? { ...node.parameters }
       : null;
-    const stamp = Number(params._wfBasic ?? parameters?._wfBasic) || 0;
+    const stamp = nodeGraphFiniteNumber(params._wfBasic ?? parameters?._wfBasic);
     if (stamp >= 4) return node;
     if (stamp < 3) return node; // WaveformsBasic runs first
 
     const apply = (obj) => {
       if (!obj) return null;
       const out = { ...obj, _wfBasic: 4 };
-      const wf = Math.round(Number(out.waveform) || 0);
+      const wf = Math.round(nodeGraphFiniteNumber(out.waveform));
       const morphRaw = out.pwm != null ? out.pwm : out.morph;
       const morph = Number(morphRaw);
       const m = Number.isFinite(morph) ? morph : 0;
@@ -447,14 +447,14 @@ function nodeGraphPatchMigrateFrequencyMathBipolar(patch) {
     const parameters = node.parameters && typeof node.parameters === "object"
       ? { ...node.parameters }
       : null;
-    const stamp = Number(params._freqMathBipolar ?? parameters?._freqMathBipolar) || 0;
+    const stamp = nodeGraphFiniteNumber(params._freqMathBipolar ?? parameters?._freqMathBipolar);
     if (stamp >= 1) return node;
     const apply = (obj) => {
       if (!obj) return null;
       const out = { ...obj, _freqMathBipolar: 1 };
       const factor = Number(out.multiplyDivide);
-      const divide = Math.round(Number(out.mulDiv) || 0) === 1;
-      const subtract = Math.round(Number(out.addSub) || 0) === 1;
+      const divide = Math.round(nodeGraphFiniteNumber(out.mulDiv)) === 1;
+      const subtract = Math.round(nodeGraphFiniteNumber(out.addSub)) === 1;
       if (Number.isFinite(factor) && factor > 0) {
         // Legacy unipolar factor 1…24 (or already bipolar −1…1).
         if (factor > 1 + 1e-9 || (divide && factor >= 1 - 1e-9)) {
@@ -528,7 +528,7 @@ function nodeGraphPatchMigrateFrequencySkewCurveExpRational(patch) {
     const parameters = node.parameters && typeof node.parameters === "object"
       ? { ...node.parameters }
       : null;
-    const stamp = Number(params._freqSkewCurve ?? parameters?._freqSkewCurve) || 0;
+    const stamp = nodeGraphFiniteNumber(params._freqSkewCurve ?? parameters?._freqSkewCurve);
     if (stamp >= 1) return node;
     const apply = (obj) => {
       if (!obj) return null;
@@ -652,13 +652,13 @@ function nodeGraphPatchMigrateBubbleSlimParams(patch) {
     const parameters = node.parameters && typeof node.parameters === "object"
       ? { ...node.parameters }
       : null;
-    const stamp = Number(params._bubbleSlim ?? parameters?._bubbleSlim) || 0;
+    const stamp = nodeGraphFiniteNumber(params._bubbleSlim ?? parameters?._bubbleSlim);
     if (stamp >= 2) return node;
     const apply = (obj) => {
       if (!obj) return null;
       const next = { ...obj, _bubbleSlim: 2 };
       if (stamp < 1) {
-        const old = Math.round(Number(next.skewCurveMode) || 0);
+        const old = Math.round(nodeGraphFiniteNumber(next.skewCurveMode));
         // Old: 0 Rat, 1 Exp, 2 Log, 3 Lin → New: 0 Exp, 1 Log
         if (old === 1) next.skewCurveMode = 0;
         else if (old === 2) next.skewCurveMode = 1;
@@ -854,7 +854,7 @@ function nodeGraphPatchMigrateAdditiveFilterCutoffToHz(patch) {
     const parameters = node.parameters && typeof node.parameters === "object"
       ? { ...node.parameters }
       : null;
-    if ((Number(params._cutoffHz) || 0) >= 1 || (Number(parameters?._cutoffHz) || 0) >= 1) {
+    if ((nodeGraphFiniteNumber(params._cutoffHz)) >= 1 || (nodeGraphFiniteNumber(parameters?._cutoffHz)) >= 1) {
       return node;
     }
     const src = params.cutoff != null ? params : parameters;

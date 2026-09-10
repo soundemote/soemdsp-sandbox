@@ -3,19 +3,19 @@ NodeLiveAudioProcessor.prototype.createRasterRgbState = function createRasterRgb
 };
 
 NodeLiveAudioProcessor.prototype.rasterRgbSample = function rasterRgbSample(mixInput, nodeId, options = {}) {
-  const rawR = Number(mixInput(nodeId, "R")) || 0;
-  const rawG = Number(mixInput(nodeId, "G")) || 0;
-  const rawB = Number(mixInput(nodeId, "B")) || 0;
+  const rawR = nodeGraphFiniteNumber(mixInput(nodeId, "R"));
+  const rawG = nodeGraphFiniteNumber(mixInput(nodeId, "G"));
+  const rawB = nodeGraphFiniteNumber(mixInput(nodeId, "B"));
   const opts = {
     brightness: Number(options.brightness),
     contrast: Number(options.contrast),
-    hue: Number(options.hue) || 0,
-    invert: Number(options.invert) || 0,
+    hue: nodeGraphFiniteNumber(options.hue),
+    invert: nodeGraphFiniteNumber(options.invert),
   };
   if (!Number.isFinite(opts.brightness)) opts.brightness = 1;
   if (!Number.isFinite(opts.contrast)) opts.contrast = 1;
   let processed = null;
-  const nativeGradeVersion = Number(this.nativeRasterRgb?.soemdsp_raster_rgb_version?.()) || 0;
+  const nativeGradeVersion = nodeGraphFiniteNumber(this.nativeRasterRgb?.soemdsp_raster_rgb_version?.());
   if (
     this.nativeRasterRgbReady
     && this.nativeRasterRgb?.soemdsp_raster_rgb_sample

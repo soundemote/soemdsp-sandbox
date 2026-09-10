@@ -575,7 +575,7 @@ function nodeGraphCodeScreenWorkspaceCircuitApi() {
     // The real gain module's amplitude param is keyed "amount" (labeled
     // "Amplitude" in the UI, hence the friendlier param name here).
     gain(id = "gain", amplitude = 1) {
-      return addModule("gain", id, { amount: Number(amplitude) || 0 });
+      return addModule("gain", id, { amount: nodeGraphFiniteNumber(amplitude) });
     },
     module(type, id, params = {}) {
       // Wave helpers use polyBlep; type `osc` is Open Sound Control (UC).
@@ -704,22 +704,22 @@ function nodeGraphCodeScreenWorkspaceAudioApi() {
     clamp(value, min = -1, max = 1) {
       const low = Math.min(Number(min), Number(max));
       const high = Math.max(Number(min), Number(max));
-      return Math.min(high, Math.max(low, Number(value) || 0));
+      return Math.min(high, Math.max(low, nodeGraphFiniteNumber(value)));
     },
     dbToGain(db = 0) {
       return 10 ** (Number(db || 0) / 20);
     },
     gainToDb(gain = 1) {
-      const safeGain = Math.max(Number(gain) || 0, 1e-12);
+      const safeGain = Math.max(nodeGraphFiniteNumber(gain), 1e-12);
       return 20 * Math.log10(safeGain);
     },
     hzToMidi(hz = 440, tuning = 440) {
-      const safeHz = Math.max(Number(hz) || 0, 1e-12);
-      const safeTuning = Math.max(Number(tuning) || 440, 1e-12);
+      const safeHz = Math.max(nodeGraphFiniteNumber(hz), 1e-12);
+      const safeTuning = Math.max(nodeGraphFiniteNumber(tuning, 440), 1e-12);
       return 69 + (12 * Math.log2(safeHz / safeTuning));
     },
     midiToHz(note = 69, tuning = 440) {
-      return (Number(tuning) || 440) * (2 ** ((Number(note) - 69) / 12));
+      return (nodeGraphFiniteNumber(tuning, 440)) * (2 ** ((Number(note) - 69) / 12));
     },
     noteToHz(note = 69, tuning = 440) {
       return this.midiToHz(noteToMidi(note), tuning);
@@ -764,11 +764,11 @@ function nodeGraphCodeScreenWorkspaceEnvelopeRecipe({ circuit, tags, visual }) {
   return function makeEnvelope(options = {}) {
     const value = options && typeof options === "object" ? options : {};
     const name = String(value.name || "sample envelope").trim() || "sample envelope";
-    const attack = Math.max(0, Number(value.attack ?? 0.02) || 0);
-    const decay = Math.max(0, Number(value.decay ?? 0.12) || 0);
-    const sustain = Math.max(0, Math.min(1, Number(value.sustain ?? 0.7) || 0));
-    const release = Math.max(0, Number(value.release ?? 0.35) || 0);
-    const level = Number(value.level ?? 1) || 1;
+    const attack = Math.max(0, nodeGraphFiniteNumber(value.attack ?? 0.02));
+    const decay = Math.max(0, nodeGraphFiniteNumber(value.decay ?? 0.12));
+    const sustain = Math.max(0, Math.min(1, nodeGraphFiniteNumber(value.sustain ?? 0.7)));
+    const release = Math.max(0, nodeGraphFiniteNumber(value.release ?? 0.35));
+    const level = nodeGraphFiniteNumber(value.level ?? 1, 1);
     const curve = String(value.curve || "analog").trim() || "analog";
     circuit.create(name);
     // expAdsr's Gate input and the final gain's Out are left unwired --

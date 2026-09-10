@@ -286,10 +286,10 @@ function drawNodeGraphWallRoomDisplay(section) {
     return;
   }
   const pixelRatio = window.devicePixelRatio || 1;
-  const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
+  const zoom = Math.max(0.01, nodeGraphFiniteNumber(nodeGraphMvp?.zoom, 1));
   const rect = section.getBoundingClientRect();
-  const width = Math.max(1, Number(section.clientWidth || section.offsetWidth || 0) || rect.width / zoom);
-  const height = Math.max(1, Number(section.clientHeight || section.offsetHeight || 0) || rect.height / zoom);
+  const width = Math.max(1, nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth || 0, rect.width) / zoom);
+  const height = Math.max(1, nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight || 0, rect.height) / zoom);
   const canvasWidth = Math.max(1, Math.round(width * pixelRatio));
   const canvasHeight = Math.max(1, Math.round(height * pixelRatio));
   if (canvas.width !== canvasWidth) {
@@ -307,12 +307,12 @@ function drawNodeGraphWallRoomDisplay(section) {
   context.fillStyle = "rgba(2, 6, 9, 0.88)";
   context.fillRect(0, 0, width, height);
 
-  const preset = clampNodeSliderValue(Math.round(Number(node.params?.roomPreset) || 0), 0, 2);
-  const seed = Number(node.params?.roomSeed) || 0;
-  const roomWidth = Math.max(0.05, Number(node.params?.roomWidth) || 1);
-  const roomHeight = Math.max(0.05, Number(node.params?.roomHeight) || 1);
-  const roomScale = Math.max(0.05, Number(node.params?.roomScale) || 4);
-  const roomRoundness = clampNodeSliderValue(Number(node.params?.roomRoundness) || 0, 0, 1);
+  const preset = clampNodeSliderValue(Math.round(nodeGraphFiniteNumber(node.params?.roomPreset)), 0, 2);
+  const seed = nodeGraphFiniteNumber(node.params?.roomSeed);
+  const roomWidth = Math.max(0.05, nodeGraphFiniteNumber(node.params?.roomWidth, 1));
+  const roomHeight = Math.max(0.05, nodeGraphFiniteNumber(node.params?.roomHeight, 1));
+  const roomScale = Math.max(0.05, nodeGraphFiniteNumber(node.params?.roomScale, 4));
+  const roomRoundness = clampNodeSliderValue(nodeGraphFiniteNumber(node.params?.roomRoundness), 0, 1);
   // Width/Height are proportions; Scale (meters) converts them to the actual
   // center-to-wall distance the shape math operates on.
   const roomWidthMeters = roomWidth * roomScale;
@@ -322,7 +322,7 @@ function drawNodeGraphWallRoomDisplay(section) {
   // convention used everywhere else in this codebase), earDistance is in
   // centimeters like a real head measurement -- convert to the same meters
   // units as the room before doing any geometry with it.
-  const earDistanceMeters = Math.max(0, Number(node.params?.earDistance) || 0) / 100;
+  const earDistanceMeters = Math.max(0, nodeGraphFiniteNumber(node.params?.earDistance)) / 100;
   const earOffset = earDistanceMeters * 0.5;
   const ears = [
     { color: [61, 224, 255], listener: [-earOffset, 0, 0] }, // Left

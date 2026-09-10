@@ -24,7 +24,7 @@ function nodeGraphDspMidiNoteToHz(midi) {
 function nodeGraphDspKnobBiasRange(rangeMax, polarity) {
   const raw = Math.abs(Number(rangeMax));
   const hi = Number.isFinite(raw) && raw > 0 ? raw : 1;
-  const bipolar = Math.round(Number(polarity) || 0) >= 1;
+  const bipolar = Math.round(nodeGraphFiniteNumber(polarity)) >= 1;
   return {
     bipolar,
     max: hi,
@@ -38,11 +38,11 @@ function nodeGraphDspKnobBiasRange(rangeMax, polarity) {
  * Optional min/max clamps the dial offset only (In can still push Bias outside).
  */
 function nodeGraphDspBiasFromIn(offset, inSample, rangeMin = null, rangeMax = null) {
-  let off = Number(offset) || 0;
+  let off = nodeGraphFiniteNumber(offset);
   if (Number.isFinite(Number(rangeMin)) && Number.isFinite(Number(rangeMax))) {
     off = nodeGraphDspClamp(off, Number(rangeMin), Number(rangeMax));
   }
-  const input = Number(inSample) || 0;
+  const input = nodeGraphFiniteNumber(inSample);
   const value = input + off;
   return { Bias: value, Out: value, offset: off, value: off };
 }
@@ -61,7 +61,7 @@ const NODE_GRAPH_CONTROLLER_SMOOTHING_TYPES = Object.freeze([
 ]);
 
 function nodeGraphDspControllerSmoothingTypeFromIndex(value) {
-  const i = Math.max(0, Math.min(3, Math.round(Number(value) || 0)));
+  const i = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(value))));
   return NODE_GRAPH_CONTROLLER_SMOOTHING_TYPES[i] || "linear";
 }
 
@@ -78,7 +78,7 @@ function nodeGraphDspControllerRange(rangeMin, rangeMax, polarity) {
   if (!Number.isFinite(hi)) {
     hi = 1;
   }
-  if (Math.round(Number(polarity) || 0) >= 1 && Math.abs(lo) <= 1e-12 && hi > 0) {
+  if (Math.round(nodeGraphFiniteNumber(polarity)) >= 1 && Math.abs(lo) <= 1e-12 && hi > 0) {
     lo = -Math.abs(hi);
   }
   if (lo > hi) {
@@ -167,9 +167,9 @@ function nodeGraphDspControllerDisplayIsMouse(node) {
 
 /** Classic stereo bus sum: Left/Right += Mono, Out = mono-mix. */
 function nodeGraphDspStereoMix(mono, left, right) {
-  const m = Number(mono) || 0;
-  const l = Number(left) || 0;
-  const r = Number(right) || 0;
+  const m = nodeGraphFiniteNumber(mono);
+  const l = nodeGraphFiniteNumber(left);
+  const r = nodeGraphFiniteNumber(right);
   return {
     Left: m + l,
     Right: m + r,
@@ -181,9 +181,9 @@ function nodeGraphDspStereoMix(mono, left, right) {
 const NODE_GRAPH_SANDBOX_IO_PORTS = Object.freeze(["Mono", "Left", "Right"]);
 
 function nodeGraphDspSandboxIoTrio(mix) {
-  const left = Number(mix?.Left) || 0;
-  const right = Number(mix?.Right) || 0;
-  const mono = Number(mix?.Out) || (left + right) * 0.5;
+  const left = nodeGraphFiniteNumber(mix?.Left);
+  const right = nodeGraphFiniteNumber(mix?.Right);
+  const mono = nodeGraphFiniteNumber(mix?.Out, (left + right) * 0.5);
   return {
     Left: left,
     Mono: mono,
@@ -197,9 +197,9 @@ function nodeGraphDspSandboxIoFrame(liveStereo, mono, left, right) {
   const wired = nodeGraphDspStereoMix(mono, left, right);
   const live = liveStereo && typeof liveStereo === "object" ? liveStereo : {};
   return nodeGraphDspSandboxIoTrio({
-    Left: (Number(live.Left) || 0) + wired.Left,
-    Right: (Number(live.Right) || 0) + wired.Right,
-    Out: (Number(live.Out) || 0) + wired.Out,
+    Left: (nodeGraphFiniteNumber(live.Left)) + wired.Left,
+    Right: (nodeGraphFiniteNumber(live.Right)) + wired.Right,
+    Out: (nodeGraphFiniteNumber(live.Out)) + wired.Out,
   });
 }
 
@@ -249,7 +249,7 @@ function nodeGraphDspMidiKeyboardPorts(signal, defaultNote) {
   const midi = gateHigh
     ? Math.round(nodeGraphDspClamp(Number(sig.rawMidi ?? sig.midi ?? def), 0, 127))
     : def;
-  const velocity = gateHigh ? nodeGraphDspClamp(Number(sig.velocity) || 0.8, 0, 1) : 0;
+  const velocity = gateHigh ? nodeGraphDspClamp(nodeGraphFiniteNumber(sig.velocity, 0.8), 0, 1) : 0;
   return {
     Gate: velocity,
     Trigger: Number(sig.gatePulse) > 0 ? velocity : 0,
@@ -284,7 +284,7 @@ function nodeGraphDspMidiNumberPorts(midiNumber, options = {}) {
  */
 function nodeGraphDspResolveMidiNumber(knobMidi, jackSample, hasJack) {
   if (hasJack) {
-    return Math.round(nodeGraphDspClamp(Number(jackSample) || 0, 0, 127));
+    return Math.round(nodeGraphDspClamp(nodeGraphFiniteNumber(jackSample), 0, 127));
   }
   return Math.round(nodeGraphDspClamp(knobMidi, 0, 127));
 }

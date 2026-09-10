@@ -12,8 +12,8 @@ function nodeGraphMidSideDbToGain(db) {
 }
 
 function nodeGraphMidSideEncodeSample(left, right, midGainDb = 0, sideGainDb = 0) {
-  const l = Number(left) || 0;
-  const r = Number(right) || 0;
+  const l = nodeGraphFiniteNumber(left);
+  const r = nodeGraphFiniteNumber(right);
   const midG = nodeGraphMidSideDbToGain(midGainDb);
   const sideG = nodeGraphMidSideDbToGain(sideGainDb);
   return {

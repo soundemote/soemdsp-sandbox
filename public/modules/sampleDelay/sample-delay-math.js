@@ -11,7 +11,7 @@ function createNodeGraphSampleDelayState() {
 }
 
 function nodeGraphSampleDelayEnsureBuffer(state, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const capacity = Math.max(2, Math.min(768000, Math.ceil(rate * 4) + 2));
   if (!(state.buffer instanceof Float32Array) || state.capacity !== capacity) {
     state.buffer = new Float32Array(capacity);
@@ -26,9 +26,9 @@ function nodeGraphSampleDelayEnsureBuffer(state, sampleRate) {
  * @returns {{ Out: number, delayed: number, raw: number }}
  */
 function nodeGraphSampleDelayRingSample(state, input, timeSeconds, samplesParam, sampleRate) {
-  const raw = Number(input) || 0;
+  const raw = nodeGraphFiniteNumber(input);
   const { capacity, rate } = nodeGraphSampleDelayEnsureBuffer(state, sampleRate);
-  let delaySamples = (Number(timeSeconds) || 0) * rate + (Number(samplesParam) || 0);
+  let delaySamples = (nodeGraphFiniteNumber(timeSeconds)) * rate + (nodeGraphFiniteNumber(samplesParam));
   if (!(delaySamples >= 0)) {
     delaySamples = 0;
   }

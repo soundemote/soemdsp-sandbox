@@ -33,9 +33,9 @@ function scopePaintIsLiveOutputOn() {
 
 /** Display Settings / patch overlay: scopes frozen without stopping audio. */
 function scopePaintIsVisualPaused() {
-  const visualPause = Number(
+  const visualPause = nodeGraphFiniteNumber(
     typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.visualControls?.scopePaused : 0,
-  ) || 0;
+  );
   return visualPause > 0.5;
 }
 
@@ -331,17 +331,17 @@ function nodeGraphScopeSamplesIdleSilent(samples) {
   if (!samples) {
     return true;
   }
-  const n = Number(samples.length) || 0;
+  const n = nodeGraphFiniteNumber(samples.length);
   if (!n) {
     return true;
   }
   const step = Math.max(1, Math.floor(n / 64));
   for (let i = 0; i < n; i += step) {
-    if (Math.abs(Number(samples[i]) || 0) > nodeGraphScopeIdleHoldEpsilon) {
+    if (Math.abs(nodeGraphFiniteNumber(samples[i])) > nodeGraphScopeIdleHoldEpsilon) {
       return false;
     }
   }
-  return Math.abs(Number(samples[n - 1]) || 0) <= nodeGraphScopeIdleHoldEpsilon;
+  return Math.abs(nodeGraphFiniteNumber(samples[n - 1])) <= nodeGraphScopeIdleHoldEpsilon;
 }
 
 function nodeGraphModuleScopeBuffersIdleSilent() {

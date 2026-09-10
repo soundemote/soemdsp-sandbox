@@ -360,15 +360,15 @@ function syncNodeUiDevDimmerCutoutControls() {
 
   if (mouseEl) mouseOn = Boolean(mouseEl.checked);
   if (sizeEl) {
-    size = Math.max(8, Math.min(240, Number(sizeEl.value) || 56));
+    size = Math.max(8, Math.min(240, nodeGraphFiniteNumber(sizeEl.value, 56)));
     if (!sizeEl.matches(":active")) sizeEl.value = String(size);
   }
   if (softEl) {
-    soft = Math.max(0, Math.min(100, Number(softEl.value) || 0));
+    soft = Math.max(0, Math.min(100, nodeGraphFiniteNumber(softEl.value)));
     if (!softEl.matches(":active")) softEl.value = String(soft);
   }
   if (shapeEl) {
-    shape = Math.max(0, Math.min(100, Number(shapeEl.value) || 0));
+    shape = Math.max(0, Math.min(100, nodeGraphFiniteNumber(shapeEl.value)));
     if (!shapeEl.matches(":active")) shapeEl.value = String(shape);
   }
 
@@ -401,8 +401,8 @@ function syncNodeUiDevDimmerCutoutControls() {
 }
 
 function applyNodeGraphMagnifierRimLook(thicknessPx = 5, softnessPx = 4) {
-  const thickness = Math.max(0, Math.min(24, Number(thicknessPx) || 0));
-  const softness = Math.max(0, Math.min(32, Number(softnessPx) || 0));
+  const thickness = Math.max(0, Math.min(24, nodeGraphFiniteNumber(thicknessPx)));
+  const softness = Math.max(0, Math.min(32, nodeGraphFiniteNumber(softnessPx)));
   const thickCss = `${thickness}px`;
   const softCss = `${softness}px`;
   const workspace = document.getElementById("nodeGraphWorkspace");
@@ -426,7 +426,7 @@ function syncNodeUiDevMagnifierRimControls() {
   let thickness = 5;
   let softness = 4;
   if (thickEl) {
-    thickness = Math.max(0, Math.min(24, Number(thickEl.value) || 0));
+    thickness = Math.max(0, Math.min(24, nodeGraphFiniteNumber(thickEl.value)));
     if (!thickEl.matches(":active")) {
       thickEl.value = String(thickness);
     }
@@ -434,7 +434,7 @@ function syncNodeUiDevMagnifierRimControls() {
     thickness = Number(nodeGraphMvp.magnifierBorderThickness);
   }
   if (softEl) {
-    softness = Math.max(0, Math.min(32, Number(softEl.value) || 0));
+    softness = Math.max(0, Math.min(32, nodeGraphFiniteNumber(softEl.value)));
     if (!softEl.matches(":active")) {
       softEl.value = String(softness);
     }
@@ -751,10 +751,10 @@ function syncNodeUiDevModuleLightGridControls() {
   const gridBrightOut = document.getElementById("nodeUiDevMinimumGridBrightnessValue");
   const gridSpreadOut = document.getElementById("nodeUiDevGridSpreadValue");
 
-  const lightBright = Math.max(0, Math.min(100, Number(lightBrightEl?.value) || 0));
-  const lightSpread = Math.max(40, Math.min(220, Number(lightSpreadEl?.value) || 78));
-  const gridBright = Math.max(0, Math.min(100, Number(gridBrightEl?.value) || 0));
-  const gridSpread = Math.max(40, Math.min(220, Number(gridSpreadEl?.value) || 78));
+  const lightBright = Math.max(0, Math.min(100, nodeGraphFiniteNumber(lightBrightEl?.value)));
+  const lightSpread = Math.max(40, Math.min(220, nodeGraphFiniteNumber(lightSpreadEl?.value, 78)));
+  const gridBright = Math.max(0, Math.min(100, nodeGraphFiniteNumber(gridBrightEl?.value)));
+  const gridSpread = Math.max(40, Math.min(220, nodeGraphFiniteNumber(gridSpreadEl?.value, 78)));
 
   if (lightBrightOut) lightBrightOut.textContent = `${lightBright}%`;
   if (lightSpreadOut) lightSpreadOut.textContent = `${lightSpread}%`;
@@ -925,13 +925,13 @@ function syncNodeUiDevSettingsHeaderControls() {
   const mouseLightEnabled = Boolean(mouseLightEnabledInput.checked);
   const showOriginMarker = Boolean(showOriginMarkerInput.checked);
   // Max ceiling for tip fit-to-box (not a fixed display size).
-  const tooltipTextSizePx = Math.max(12, Math.min(96, Number(tooltipTextSizeInput.value) || 64));
+  const tooltipTextSizePx = Math.max(12, Math.min(96, nodeGraphFiniteNumber(tooltipTextSizeInput.value, 64)));
   const minimumGridBrightnessPercent = Math.max(
     0,
-    Math.min(100, Number(minimumGridBrightnessInput.value) || 0),
+    Math.min(100, nodeGraphFiniteNumber(minimumGridBrightnessInput.value)),
   );
-  const moduleLightSpreadPercent = Math.max(40, Math.min(220, Number(moduleLightSpreadInput.value) || 78));
-  const moduleGridInsetPx = Math.max(0, Math.min(20, Number(moduleGridInsetInput.value) || 0));
+  const moduleLightSpreadPercent = Math.max(40, Math.min(220, nodeGraphFiniteNumber(moduleLightSpreadInput.value, 78)));
+  const moduleGridInsetPx = Math.max(0, Math.min(20, nodeGraphFiniteNumber(moduleGridInsetInput.value)));
   const gridColor = normalizeNodeUiDevColor(gridColorInput.value, "#ffffff");
   const workspaceBackgroundColor = normalizeNodeUiDevColor(workspaceBackgroundColorInput.value, "#1d1b1b");
   const moduleFillColor = normalizeNodeUiDevColor(moduleFillColorInput.value, "#171a1f");
@@ -954,12 +954,12 @@ function syncNodeUiDevSettingsHeaderControls() {
     0,
     Math.min(200, Number.isFinite(wirePatchPointSizeRaw) ? wirePatchPointSizeRaw : 54),
   );
-  const traceWireThicknessPx = Math.max(1, Math.min(12, Number(traceWireThicknessInput.value) || 1));
-  const choiceSlideEmptyBorderPx = Math.max(0, Math.min(8, Number(choiceSlideEmptyBorderInput.value) || 0));
-  const bypassIconSizePercent = Math.max(0, Math.min(100, Number(bypassIconSizeInput.value) || 0));
+  const traceWireThicknessPx = Math.max(1, Math.min(12, nodeGraphFiniteNumber(traceWireThicknessInput.value, 1)));
+  const choiceSlideEmptyBorderPx = Math.max(0, Math.min(8, nodeGraphFiniteNumber(choiceSlideEmptyBorderInput.value)));
+  const bypassIconSizePercent = Math.max(0, Math.min(100, nodeGraphFiniteNumber(bypassIconSizeInput.value)));
   const bypassIconGlowSpreadPercent = Math.max(
     0,
-    Math.min(200, Number(bypassIconGlowSpreadInput.value) || 0),
+    Math.min(200, nodeGraphFiniteNumber(bypassIconGlowSpreadInput.value)),
   );
   const bypassIconGlowColor = normalizeNodeUiDevColor(bypassIconGlowColorInput.value, "#f25d5d");
   const bypassIconOnColor = normalizeNodeUiDevColor(bypassIconOnColorInput.value, "#f7b758");

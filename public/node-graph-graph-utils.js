@@ -292,7 +292,7 @@ function syncNodeGraphGraphPhaseSliderForNode(nodeId, phase) {
   if (!slider) {
     return;
   }
-  slider.value = String(normalizeNodeGraphGraphNumber(phase, Number(slider.value) || 0));
+  slider.value = String(normalizeNodeGraphGraphNumber(phase, nodeGraphFiniteNumber(slider.value)));
   syncNodeSliderReadout(slider);
 }
 
@@ -959,7 +959,7 @@ function nodeGraphGraphModeCurve(position, mode, index = 0) {
 function nodeGraphGraphLegacySegmentShape(p, right, options = {}) {
   const offset = normalizeNodeGraphGraphNumber(options.curveOffset, 0, -1, 1);
   // Per-node c + global Curve Offset, clamped to ±1 (Planck soft-cap in kernels).
-  const contour = nodeGraphGraphNormalizeContour((Number(right?.c) || 0) + offset, 0);
+  const contour = nodeGraphGraphNormalizeContour((nodeGraphFiniteNumber(right?.c)) + offset, 0);
   // Global Shape wins (same as worklet + native step_graph). Per-node shape is legacy only.
   const shape = options.segmentShape != null && String(options.segmentShape).trim() !== ""
     ? normalizeNodeGraphGraphShape(options.segmentShape)
@@ -1065,7 +1065,7 @@ function nodeGraphGraphPointToSvg(x, y) {
 
 function nodeGraphGraphCurvePath(graphValue, sampleCount = 96, smoothingMode, tension = 1, segmentOptions = {}) {
   const graph = normalizeNodeGraphGraph(graphValue);
-  const count = Math.max(2, Math.round(Number(sampleCount) || 96));
+  const count = Math.max(2, Math.round(nodeGraphFiniteNumber(sampleCount, 96)));
   const commands = [];
   for (let index = 0; index < count; index += 1) {
     const x = index / (count - 1);
@@ -1101,7 +1101,7 @@ function nodeGraphGraphScreenRoundRadii(element, radius) {
   const rect = element?.getBoundingClientRect?.();
   const width = Number(rect?.width);
   const height = Number(rect?.height);
-  const safeRadius = Math.max(0, Number(radius) || 0);
+  const safeRadius = Math.max(0, nodeGraphFiniteNumber(radius));
   if (!(width > 0) || !(height > 0)) {
     return { rx: safeRadius, ry: safeRadius };
   }
@@ -1882,14 +1882,14 @@ function beginNodeGraphGraphNodeDrag(event) {
       pointerId: event.pointerId ?? null,
       startClientX: event.clientX,
       startClientY: event.clientY,
-      startNodeX: Number(startNode.x) || 0,
-      startNodeY: Number(startNode.y) || 0,
+      startNodeX: nodeGraphFiniteNumber(startNode.x),
+      startNodeY: nodeGraphFiniteNumber(startNode.y),
       // Incremental drag anchors (updated every move) so clamping never builds
       // pointer "debt" — reverse motion off a limit moves the point immediately.
       lastClientX: event.clientX,
       lastClientY: event.clientY,
-      lastNodeX: Number(startNode.x) || 0,
-      lastNodeY: Number(startNode.y) || 0,
+      lastNodeX: nodeGraphFiniteNumber(startNode.x),
+      lastNodeY: nodeGraphFiniteNumber(startNode.y),
       fineActive: false,
       moved: false,
       svg,
@@ -1986,7 +1986,7 @@ function beginNodeGraphGraphCursorDrag(event, sourceElement, options = {}) {
   const graph = nodeGraphGraphForNode(patchNode);
   const absolute = options.absolute === true || Boolean(event.altKey);
   display?.focus?.({ preventScroll: true });
-  const startCursorX = Number(graph.cursorX) || 0;
+  const startCursorX = nodeGraphFiniteNumber(graph.cursorX);
   nodeGraphMvp.graphNodeDragging = {
     absolute,
     display,
@@ -2179,15 +2179,15 @@ function beginNodeGraphGraphContourDrag(event, contourHandle) {
   // Normal = curve bend; Shift = bar height on prev+next points.
   const contourMode = !event.shiftKey;
   nodeGraphMvp.graphNodeDragging = {
-    barStartLeftY: Number(left.y) || 0,
-    barStartPointerY: Number(pointer.y) || 0,
-    barStartRightY: Number(right.y) || 0,
+    barStartLeftY: nodeGraphFiniteNumber(left.y),
+    barStartPointerY: nodeGraphFiniteNumber(pointer.y),
+    barStartRightY: nodeGraphFiniteNumber(right.y),
     display,
     graph,
     index,
     lastClientX: event.clientX,
     lastClientY: event.clientY,
-    lastContour: Number(right.c) || 0,
+    lastContour: nodeGraphFiniteNumber(right.c),
     mode: contourMode ? "contour" : "stepBar",
     moved: false,
     nodeId,
@@ -2238,14 +2238,14 @@ function dragNodeGraphGraphNode(event) {
   const faceRenderOptions = { segmentOptions, smoothingMode, stepCount, tension };
   const screenDelta = typeof nodeGraphPointerDragScreenDelta === "function"
     ? nodeGraphPointerDragScreenDelta(
-      Number(drag.lastClientX ?? drag.startClientX) || event.clientX,
-      Number(drag.lastClientY ?? drag.startClientY) || event.clientY,
+      nodeGraphFiniteNumber(drag.lastClientX ?? drag.startClientX, event.clientX),
+      nodeGraphFiniteNumber(drag.lastClientY ?? drag.startClientY, event.clientY),
       event.clientX,
       event.clientY,
     )
     : {
-      horizontal: event.clientX - (Number(drag.lastClientX ?? drag.startClientX) || event.clientX),
-      vertical: (Number(drag.lastClientY ?? drag.startClientY) || event.clientY) - event.clientY,
+      horizontal: event.clientX - (nodeGraphFiniteNumber(drag.lastClientX ?? drag.startClientX, event.clientX)),
+      vertical: (nodeGraphFiniteNumber(drag.lastClientY ?? drag.startClientY, event.clientY)) - event.clientY,
       combined: 0,
     };
   if (!Number.isFinite(screenDelta.combined)) {
@@ -2284,17 +2284,17 @@ function dragNodeGraphGraphNode(event) {
       // Relative phase uses the same diagonal 1D policy as sliders: right+up
       // increases, left+down decreases (not horizontal-only).
       if (!Number.isFinite(Number(drag.lastClientX))) {
-        drag.lastClientX = Number(drag.startClientX) || event.clientX;
-        drag.lastClientY = Number(drag.startClientY) || event.clientY;
+        drag.lastClientX = nodeGraphFiniteNumber(drag.startClientX, event.clientX);
+        drag.lastClientY = nodeGraphFiniteNumber(drag.startClientY, event.clientY);
         drag.lastCursorX = Number.isFinite(Number(drag.startCursorX))
           ? Number(drag.startCursorX)
-          : (Number(drag.graph?.cursorX) || 0);
+          : (nodeGraphFiniteNumber(drag.graph?.cursorX));
       }
       const unitPerPx = nodeGraphGraphDragUnitPerPixel(drag.svg);
       const mult = nodeGraphGraphPointDragMultiplier(event);
       const lastCursorX = Number.isFinite(Number(drag.lastCursorX))
         ? Number(drag.lastCursorX)
-        : (Number(drag.graph?.cursorX) || 0);
+        : (nodeGraphFiniteNumber(drag.graph?.cursorX));
       const frameDelta = typeof nodeGraphPointerDragScreenDelta === "function"
         ? nodeGraphPointerDragScreenDelta(drag.lastClientX, drag.lastClientY, event.clientX, event.clientY)
         : screenDelta;
@@ -2393,7 +2393,7 @@ function dragNodeGraphGraphNode(event) {
     drag.graph = normalizeNodeGraphGraph({ ...drag.graph, nodes });
     drag.lastClientX = event.clientX;
     drag.lastClientY = event.clientY;
-    drag.lastContour = Number(drag.graph.nodes[drag.index]?.c) || 0;
+    drag.lastContour = nodeGraphFiniteNumber(drag.graph.nodes[drag.index]?.c);
     setNodeGraphGraphSelectedNodeIndex(drag.nodeId, drag.graph, drag.index);
     renderNodeGraphGraphDisplay(drag.display, drag.graph, drag.index, faceRenderOptions);
     if (typeof scheduleNodeGraphLiveGraphData === "function") {
@@ -2416,10 +2416,10 @@ function dragNodeGraphGraphNode(event) {
   //   • Ctrl/Cmd = free single-point (no snap)
   const currentNode = drag.graph?.nodes?.[drag.index] || { x: 0, y: 0 };
   if (!Number.isFinite(Number(drag.lastClientX)) || !Number.isFinite(Number(drag.lastClientY))) {
-    drag.lastClientX = Number(drag.startClientX) || event.clientX;
-    drag.lastClientY = Number(drag.startClientY) || event.clientY;
-    drag.lastNodeX = Number(currentNode.x) || 0;
-    drag.lastNodeY = Number(currentNode.y) || 0;
+    drag.lastClientX = nodeGraphFiniteNumber(drag.startClientX, event.clientX);
+    drag.lastClientY = nodeGraphFiniteNumber(drag.startClientY, event.clientY);
+    drag.lastNodeX = nodeGraphFiniteNumber(currentNode.x);
+    drag.lastNodeY = nodeGraphFiniteNumber(currentNode.y);
   }
   const fine = Boolean(event.shiftKey);
   const isStepGraph = nodeGraphGraphIsStepGraphType(dragPatchNode?.type);
@@ -2432,8 +2432,8 @@ function dragNodeGraphGraphNode(event) {
   ) {
     drag.lastClientX = event.clientX;
     drag.lastClientY = event.clientY;
-    drag.lastNodeX = Number(currentNode.x) || 0;
-    drag.lastNodeY = Number(currentNode.y) || 0;
+    drag.lastNodeX = nodeGraphFiniteNumber(currentNode.x);
+    drag.lastNodeY = nodeGraphFiniteNumber(currentNode.y);
     drag.fineActive = fine;
     drag.stepSnapActive = stepSnapMode;
     drag.stepFreeActive = freePoint;
@@ -2458,10 +2458,10 @@ function dragNodeGraphGraphNode(event) {
       : screenDelta;
     const lastNodeX = Number.isFinite(Number(drag.lastNodeX))
       ? Number(drag.lastNodeX)
-      : (Number(currentNode.x) || 0);
+      : (nodeGraphFiniteNumber(currentNode.x));
     const lastNodeY = Number.isFinite(Number(drag.lastNodeY))
       ? Number(drag.lastNodeY)
-      : (Number(currentNode.y) || 0);
+      : (nodeGraphFiniteNumber(currentNode.y));
     moved = nodeGraphGraphMoveNode(drag.graph, drag.index, {
       x: lastNodeX + frameDelta.horizontal * unitPerPx * mult,
       y: lastNodeY + frameDelta.vertical * unitPerPx * mult,
@@ -2475,8 +2475,8 @@ function dragNodeGraphGraphNode(event) {
   const resultNode = drag.graph?.nodes?.[drag.index] || currentNode;
   drag.lastClientX = event.clientX;
   drag.lastClientY = event.clientY;
-  drag.lastNodeX = Number(resultNode.x) || 0;
-  drag.lastNodeY = Number(resultNode.y) || 0;
+  drag.lastNodeX = nodeGraphFiniteNumber(resultNode.x);
+  drag.lastNodeY = nodeGraphFiniteNumber(resultNode.y);
   nodeGraphGraphDebugTrace("graph node moved", {
     newIndex: drag.index,
     nodeCount: drag.graph.nodes.length,
@@ -2638,8 +2638,8 @@ function addFocusedNodeGraphGraphNode() {
   const place = isStep
     ? {
       x: stepCount > 0
-        ? nodeGraphGraphSnapXToStepGrid(Number(targetNode.graph?.cursorX) || 0.5, stepCount)
-        : (Number(targetNode.graph?.cursorX) || 0.5),
+        ? nodeGraphGraphSnapXToStepGrid(nodeGraphFiniteNumber(targetNode.graph?.cursorX, 0.5), stepCount)
+        : (nodeGraphFiniteNumber(targetNode.graph?.cursorX, 0.5)),
       shape: "linear",
     }
     : { shape: "linear" };

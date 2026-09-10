@@ -26,8 +26,8 @@ function nodeGraphPassiveFilterStaggerRatio(stagger) {
  * Mode 0 LP → LPF = center. Mode 2 HP → HPF = center. Mode 1 BP → geo-mean scale.
  */
 function nodeGraphPassiveFilterApplyCenter(mode, lowFrequency, highFrequency, centerFrequency) {
-  let low = Math.max(0, Number(lowFrequency) || 0);
-  let high = Math.max(0, Number(highFrequency) || 0);
+  let low = Math.max(0, nodeGraphFiniteNumber(lowFrequency));
+  let high = Math.max(0, nodeGraphFiniteNumber(highFrequency));
   const centerHz = Number(centerFrequency);
   if (!Number.isFinite(centerHz)) {
     return { lowFrequency: low, highFrequency: high };
@@ -153,7 +153,7 @@ function nodeGraphPassiveFilterAnalogMagAtFc(kind, freqs, fc, alpha) {
   }
   let mag = 1;
   for (let i = 0; i < freqs.length; i += 1) {
-    const fi = Math.max(0, Number(freqs[i]) || 0) * alpha;
+    const fi = Math.max(0, nodeGraphFiniteNumber(freqs[i])) * alpha;
     const den = Math.hypot(c, fi);
     if (!(den > 0)) {
       mag = 0;
@@ -173,7 +173,7 @@ function nodeGraphPassiveFilterCompAlpha(kind, freqs, fc) {
   }
   let identical = true;
   for (let i = 0; i < n; i += 1) {
-    if (Math.abs((Number(freqs[i]) || 0) - c) > 1e-9 * Math.max(1, c)) {
+    if (Math.abs((nodeGraphFiniteNumber(freqs[i])) - c) > 1e-9 * Math.max(1, c)) {
       identical = false;
       break;
     }
@@ -227,9 +227,9 @@ function nodeGraphPassiveFilterMemoizedCompAlpha(kind, freqs, fc, stagger) {
  * Gain Comp On: one scale so |H(jωc)| = −3 dB (LP vs HP reciprocal when k=1).
  */
 function nodeGraphPassiveFilterStackFrequencies(fc, stageCount, stagger, gainCompensation, kind) {
-  const n = Math.max(1, Math.min(nodeGraphPassiveFilterMaxStages, Math.round(Number(stageCount) || 1)));
+  const n = Math.max(1, Math.min(nodeGraphPassiveFilterMaxStages, Math.round(nodeGraphFiniteNumber(stageCount, 1))));
   const k = nodeGraphPassiveFilterStaggerRatio(stagger);
-  const center = Math.max(0, Number(fc) || 0);
+  const center = Math.max(0, nodeGraphFiniteNumber(fc));
   const mid = (n - 1) / 2;
   const freqs = [];
   for (let i = 0; i < n; i += 1) {
@@ -278,8 +278,8 @@ function nodeGraphPassiveFilterPrepare(
   const stages = nodeGraphPassiveFilterStageCount(slope);
   const k = nodeGraphPassiveFilterStaggerRatio(stagger);
   const comp = Number(gainCompensation) > 0.5 ? 1 : 0;
-  const lo = Math.max(0, Number(lowFrequency) || 0);
-  const hi = Math.max(0, Number(highFrequency) || 0);
+  const lo = Math.max(0, nodeGraphFiniteNumber(lowFrequency));
+  const hi = Math.max(0, nodeGraphFiniteNumber(highFrequency));
   const key = `${safeMode}|${stages}|${k}|${comp}|${lo}|${hi}`;
   if (host._pfKey === key && host._pfCoeff) {
     return host._pfCoeff;

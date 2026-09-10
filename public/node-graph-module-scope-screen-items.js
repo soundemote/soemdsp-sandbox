@@ -21,7 +21,7 @@ function applyNodeGraphModuleScopeCanvasAnalogFade(context, canvas, settings) {
   if (!canvas?.width || !canvas?.height || !context) {
     return;
   }
-  const fadeAlpha = clampNodeSliderValue(Number(settings?.fadeAlpha) || 0.08, 0.006, 0.18);
+  const fadeAlpha = clampNodeSliderValue(nodeGraphFiniteNumber(settings?.fadeAlpha, 0.08), 0.006, 0.18);
   context.save();
   context.globalCompositeOperation = "destination-out";
   context.fillStyle = `rgba(0, 0, 0, ${fadeAlpha.toFixed(4)})`;
@@ -33,26 +33,26 @@ function nodeGraphModuleScopeFallbackBufferView(buffer, limit = 2048) {
   if (!buffer) {
     return buffer;
   }
-  const safeLimit = Math.max(16, Math.min(1024, Math.floor(Number(limit) || 384)));
+  const safeLimit = Math.max(16, Math.min(1024, Math.floor(nodeGraphFiniteNumber(limit, 384))));
   if (buffer.nodeGraphScopeXy) {
     return {
       ...buffer,
       nodeGraphScopeVisualPointLimit: Math.min(
         safeLimit,
-        Math.max(2, Math.floor(Number(buffer.nodeGraphScopeVisualPointLimit) || safeLimit)),
+        Math.max(2, Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeVisualPointLimit, safeLimit))),
       ),
     };
   }
   buffer.nodeGraphScopeVisualPointLimit = Math.min(
     safeLimit,
-    Math.max(2, Math.floor(Number(buffer.nodeGraphScopeVisualPointLimit) || safeLimit)),
+    Math.max(2, Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeVisualPointLimit, safeLimit))),
   );
   return buffer;
 }
 
 function nodeGraphModuleScopeCanvasRgba(rgb, alpha) {
   const color = Array.isArray(rgb) ? rgb : [1, 1, 1];
-  const opacity = clampNodeSliderValue(Number(alpha) || 0, 0, 1);
+  const opacity = clampNodeSliderValue(nodeGraphFiniteNumber(alpha), 0, 1);
   return `rgba(${Math.round(color[0] * 255)}, ${Math.round(color[1] * 255)}, ${Math.round(color[2] * 255)}, ${opacity})`;
 }
 
@@ -81,7 +81,7 @@ function nodeGraphModuleScopeTrimLightSpriteCache() {
 }
 
 function nodeGraphModuleScopeLightSpriteTexture(options) {
-  const radius = Math.max(0.5, Number(options.radius) || 0.5);
+  const radius = Math.max(0.5, nodeGraphFiniteNumber(options.radius, 0.5));
   const size = Math.max(2, Math.ceil(radius * 2));
   const key = nodeGraphModuleScopeLightSpriteKey({ ...options, radius });
   const cached = nodeGraphModuleScopeState.lightSpriteTextures.get(key);
@@ -126,7 +126,7 @@ function nodeGraphModuleScopeEmissiveShaderRgb(rgb, brightness) {
   if (maxChannel <= 0) {
     return values;
   }
-  const targetMax = clampNodeSliderValue(72 + Math.max(0, Number(brightness) || 0) * 144, 72, 255);
+  const targetMax = clampNodeSliderValue(72 + Math.max(0, nodeGraphFiniteNumber(brightness)) * 144, 72, 255);
   const scale = Math.max(1, targetMax / maxChannel);
   return values.map((component) => Math.round(clampNodeSliderValue(component * scale, 0, 255)));
 }
@@ -139,9 +139,9 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
     Math.round(workspaceRect.width),
     Math.round(workspaceRect.height),
     Math.round(Number(nodeGraphMvp?.zoom) * 1000) || 0,
-    Math.round(Number(nodeGraphMvp?.pan?.x) || 0),
-    Math.round(Number(nodeGraphMvp?.pan?.y) || 0),
-    Math.round(Number(pixelRatio) * 100) || 100,
+    Math.round(nodeGraphFiniteNumber(nodeGraphMvp?.pan?.x)),
+    Math.round(nodeGraphFiniteNumber(nodeGraphMvp?.pan?.y)),
+    Math.round(Number(pixelRatio) * 100, 100),
   ].join("|");
   const layoutCache = nodeGraphModuleScopeState.screenItemLayoutCache || { key: "", rects: new Map() };
   const reuseRects = layoutCache.key === layoutKey;
@@ -445,11 +445,11 @@ function nodeGraphScope2dEnergyBurnDepositGain(a, b, c) {
     brightness = a;
     size01 = b;
   }
-  const br = Math.max(0, Number(brightness) || 0);
+  const br = Math.max(0, nodeGraphFiniteNumber(brightness));
   if (br <= 1e-8) {
     return 0;
   }
-  const s = clampNodeSliderValue(Number(size01) || 0, 0, 1);
+  const s = clampNodeSliderValue(nodeGraphFiniteNumber(size01), 0, 1);
   return Math.max(0, br * 0.1 * (1.12 - s * 0.42));
 }
 
@@ -458,7 +458,7 @@ function nodeGraphScope2dEnergyBurnExposure(bright01) {
   if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.exposure) {
     return PhosphorDrawer.exposure(bright01);
   }
-  const b = clampNodeSliderValue(Number(bright01) || 0, 0, 1);
+  const b = clampNodeSliderValue(nodeGraphFiniteNumber(bright01), 0, 1);
   return 1.55 + b * 2.55;
 }
 
@@ -577,7 +577,7 @@ function nodeGraphCustomDisplayInputApi(node, displayScript, primaryBuffer) {
       (port === displayScript.inputs[0] ? primaryBuffer : null);
     inputs[port] = {
       buffer: buffer || new Float32Array(0),
-      latest: buffer?.length ? Number(buffer[buffer.length - 1]) || 0 : 0,
+      latest: buffer?.length ? nodeGraphFiniteNumber(buffer[buffer.length - 1]) : 0,
       length: buffer?.length || 0,
     };
   }

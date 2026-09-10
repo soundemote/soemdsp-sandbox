@@ -6,7 +6,7 @@ nodeGraphLiveModuleEvaluators.vectorscopeTransform = ({ runtime, node, nodeId, m
   const right = nodeGraphSafeFilterNumber(mixInput(nodeId, "R"), runtime, nodeId, null, "vectorscope R input");
   const rotate = typeof readNodeGraphLiveEffectiveParam === "function"
     ? readNodeGraphLiveEffectiveParam(runtime, node, "rotate", 0, frame, frames, frameValues)
-    : Number(node?.params?.rotate) || 0;
+    : nodeGraphFiniteNumber(node?.params?.rotate);
   const out = nodeGraphVectorscopeTransform(left, right, rotate);
   return {
     X: nodeGraphSafeFilterNumber(out.X, runtime, nodeId, null, "vectorscope X out"),

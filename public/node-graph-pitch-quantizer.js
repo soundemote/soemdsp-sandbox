@@ -37,7 +37,7 @@ function createNodeGraphPitchQuantizerState() {
 function nodeGraphPitchQuantizerMaskFromChoice(choiceIndex) {
   const index = Math.max(
     0,
-    Math.min(nodeGraphPitchQuantizerScaleMasks.length - 1, Math.round(Number(choiceIndex) || 0)),
+    Math.min(nodeGraphPitchQuantizerScaleMasks.length - 1, Math.round(nodeGraphFiniteNumber(choiceIndex))),
   );
   return nodeGraphPitchQuantizerScaleMasks[index];
 }
@@ -134,9 +134,9 @@ function nodeGraphPitchQuantizerChoiceForMask(mask) {
 // active pitch class in a 12-bit scale mask. Empty mask holds the last
 // quantized output (hardware quantizer behavior).
 function nodeGraphPitchQuantizerSample(state, options = {}) {
-  const pitch = Number(options.pitch) || 0;
+  const pitch = nodeGraphFiniteNumber(options.pitch);
   const mask = options.hasScaleInput
-    ? Math.round(Number(options.scaleInput) || 0) & 0xFFF
+    ? Math.round(nodeGraphFiniteNumber(options.scaleInput)) & 0xFFF
     : (
       options.scaleMask != null
         ? nodeGraphPitchQuantizerNormalizeMask(options.scaleMask)

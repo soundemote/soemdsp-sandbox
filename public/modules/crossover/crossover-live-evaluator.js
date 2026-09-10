@@ -28,7 +28,7 @@ function nodeGraphCrossoverLoadMainWasm() {
 }
 
 function nodeGraphCrossoverSilentPorts(bandCount) {
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
   const out = {};
   if (typeof nodeGraphCrossoverOutputPorts === "function") {
     for (const p of nodeGraphCrossoverOutputPorts(n)) out[p] = 0;
@@ -72,7 +72,7 @@ function nodeGraphCrossoverMainSample(runtime, nodeId, bandCount, mono, left, ri
   ) {
     return nodeGraphCrossoverSilentPorts(bandCount);
   }
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
   if (!runtime.crossoverMainNativeHandles) runtime.crossoverMainNativeHandles = new Map();
   let handle = runtime.crossoverMainNativeHandles.get(nodeId) || 0;
   const bandKey = `${nodeId}:bands`;
@@ -93,16 +93,16 @@ function nodeGraphCrossoverMainSample(runtime, nodeId, bandCount, mono, left, ri
   const f = Array.isArray(freqs) ? freqs : [];
   wasm.soemdsp_crossover_sample(
     handle,
-    Number(mono) || 0,
-    Number(left) || 0,
-    Number(right) || 0,
-    Number(f[0]) || 0,
-    Number(f[1]) || 0,
-    Number(f[2]) || 0,
-    Number(f[3]) || 0,
-    Number(f[4]) || 0,
-    Math.round(Number(lrOrder) || 4),
-    Math.max(1, Number(sampleRate) || 44100),
+    nodeGraphFiniteNumber(mono),
+    nodeGraphFiniteNumber(left),
+    nodeGraphFiniteNumber(right),
+    nodeGraphFiniteNumber(f[0]),
+    nodeGraphFiniteNumber(f[1]),
+    nodeGraphFiniteNumber(f[2]),
+    nodeGraphFiniteNumber(f[3]),
+    nodeGraphFiniteNumber(f[4]),
+    Math.round(nodeGraphFiniteNumber(lrOrder, 4)),
+    Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)),
   );
   const out = {};
   for (let i = 0; i < n; i += 1) {

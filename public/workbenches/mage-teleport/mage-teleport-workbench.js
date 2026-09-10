@@ -18,7 +18,7 @@ let burstSerial = 0;
 let lastTime = performance.now();
 
 function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, Number(value) || 0));
+  return Math.max(min, Math.min(max, nodeGraphFiniteNumber(value)));
 }
 
 function readSettings() {
@@ -33,7 +33,7 @@ function readSettings() {
 }
 
 function formatSigned(value, digits = 1) {
-  const number = Number(value) || 0;
+  const number = nodeGraphFiniteNumber(value);
   return `${number >= 0 ? "+" : ""}${number.toFixed(digits)}`;
 }
 

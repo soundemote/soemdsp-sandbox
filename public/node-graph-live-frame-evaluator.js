@@ -61,7 +61,7 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
     if (Math.abs(span) < 1e-12) {
       return 0;
     }
-    return ((Number(raw) || 0) - lo) / span;
+    return ((nodeGraphFiniteNumber(raw)) - lo) / span;
   };
   // LFO / Phasor: connected In is an extra phase offset (via In Min/Max).
   // Unconnected In contributes 0 so ranges like [-1, 1] do not invent bias.
@@ -88,7 +88,7 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
         1,
       );
     }
-    const safeRate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
+    const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100)));
     const rate = Math.max(0, readNodeGraphLiveEffectiveParam(runtime, node, "rate", 1, frame, frames, frameValues));
     const state = runtime.graphLfoStates.get(nodeId) || createNodeGraphGraphLfoState();
     runtime.graphLfoStates.set(nodeId, state);
@@ -153,7 +153,7 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
       : {};
     return nodeGraphGraphValueAt(
       nodeGraphGraphForNode(source),
-      clampNodeSliderValue(Number(x) || 0, 0, 1),
+      clampNodeSliderValue(nodeGraphFiniteNumber(x), 0, 1),
       nodeGraphGraphSmoothingModeForNode(source),
       Number(source?.params?.tension) ?? 1,
       segmentOptions,

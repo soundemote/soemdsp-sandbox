@@ -56,7 +56,7 @@ NodeLiveAudioProcessor.prototype.fractalBrownianNoiseAxisState = function fracta
 
 NodeLiveAudioProcessor.prototype.fractalBrownianNoiseSample = function fractalBrownianNoiseSample(state, params, rate = sampleRate, nodeId = "", axis = "x", options = {}) {
   const axisState = this.fractalBrownianNoiseAxisState(state, axis);
-  const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
   const seed = Math.max(0, Math.round(this.safeFilterNumber(params.seed, null)));
   const seedKey = this.seededKey(nodeId, seed, `fractalBrownianNoise:${axis}`);
   if (axisState.seedKey !== seedKey) {
@@ -85,7 +85,7 @@ NodeLiveAudioProcessor.prototype.fractalBrownianNoiseSample = function fractalBr
 };
 
 NodeLiveAudioProcessor.prototype.fractalBrownianNoiseVector = function fractalBrownianNoiseVector(state, params, rate = sampleRate, nodeId = "", reset = 0) {
-  const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
   const resetHigh = Number(reset) > 0.5;
   if (resetHigh && !state.resetWasHigh) {
     this.resetFractalBrownianNoiseState(state);

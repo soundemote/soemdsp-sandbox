@@ -5,8 +5,8 @@ const nodeGraphPluckEnvelopeMinValue = 1e-8;
 const nodeGraphPluckEnvelopeMaxFeedback = 1 - 1e-6;
 
 function nodeGraphExponentialCurve(value, skew) {
-  const safeValue = clampNodeSliderValue(Number(value) || 0, 0, 1);
-  const safeSkew = clampNodeSliderValue(Number(skew) || 0, -0.99, 0.99);
+  const safeValue = clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
+  const safeSkew = clampNodeSliderValue(nodeGraphFiniteNumber(skew), -0.99, 0.99);
   if (safeSkew === 0) {
     return safeValue;
   }
@@ -80,7 +80,7 @@ function nodeGraphPluckReadParam(params, primary, legacy, fallback, min = -Infin
 }
 
 function nodeGraphPluckEnvelopeSample(state, trigger, release, params, sampleRate, runtime = null, nodeId = "") {
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100)));
   const period = 1 / rate;
   const safeTrigger = nodeGraphSafeFilterNumber(trigger, runtime, nodeId, null, "pluck trigger");
   const safeRelease = nodeGraphSafeFilterNumber(release, runtime, nodeId, null, "pluck release");

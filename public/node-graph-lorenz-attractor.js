@@ -46,15 +46,15 @@ function nodeGraphLorenzAttractorSample(options = {}) {
   }
   wasm.soemdsp_lorenz_attractor_sample(
     state.nativeHandle,
-    Number(options.reset) || 0,
-    Math.max(0, Number(options.speed) || 0),
-    Math.max(0, Number(options.sigma) || 10),
+    nodeGraphFiniteNumber(options.reset),
+    Math.max(0, nodeGraphFiniteNumber(options.speed)),
+    Math.max(0, nodeGraphFiniteNumber(options.sigma, 10)),
     Number.isFinite(Number(options.rho)) ? Number(options.rho) : 28,
-    Math.max(0, Number(options.beta) || 8 / 3),
-    Number(options.rotate) || 0,
-    Math.max(0, Number(options.scale) || 1),
-    Math.max(0, Math.min(1, Number(options.zDepth) || 0)),
-    Math.max(1, Number(options.sampleRate) || 44100),
+    Math.max(0, nodeGraphFiniteNumber(options.beta, 8) / 3),
+    nodeGraphFiniteNumber(options.rotate),
+    Math.max(0, nodeGraphFiniteNumber(options.scale, 1)),
+    Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.zDepth))),
+    Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100)),
   );
   const x = wasm.soemdsp_lorenz_attractor_x(state.nativeHandle);
   const y = wasm.soemdsp_lorenz_attractor_y(state.nativeHandle);

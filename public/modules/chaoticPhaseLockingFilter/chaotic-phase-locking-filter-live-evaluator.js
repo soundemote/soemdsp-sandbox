@@ -3,10 +3,10 @@
 // per-module code instead of the shared file.
 
 function nodeGraphChaoticPhaseLockingFilterSample(state, input, params, sampleRate, runtime = null, nodeId = "") {
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
-  const freqNorm = Math.max(0, Math.min(1, Number(params.frequency) || 0));
-  const reso = Math.max(0, Math.min(1, Number(params.resonance) || 0));
-  const chaos = Math.max(0, Math.min(1, Number(params.chaos) || 0));
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100)));
+  const freqNorm = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.frequency)));
+  const reso = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.resonance)));
+  const chaos = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.chaos)));
 
   const cutoffHz = Math.max(0, Math.min(0.5 * rate, nodeGraphAnalogPitchToFreq(-12 + (135 - -12) * freqNorm)));
   const resGraph = [{x:0,y:0.1,skew:0,shape:0},{x:1,y:20.0,skew:-0.85,shape:2}];

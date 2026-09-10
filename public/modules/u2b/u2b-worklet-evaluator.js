@@ -1,5 +1,5 @@
 NodeLiveAudioProcessor.prototype.u2bSample = function u2bSample(input) {
-  const x = Number(input) || 0;
+  const x = nodeGraphFiniteNumber(input);
   if (this.nativeU2bReady && this.nativeU2b?.soemdsp_u2b_sample) {
     try {
       return this.safeFilterNumber(this.nativeU2b.soemdsp_u2b_sample(x), null);

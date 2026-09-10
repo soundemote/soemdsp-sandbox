@@ -642,13 +642,13 @@ function nodeGraphStampPreviewFaceMinSide(settings) {
   const density = typeof nodeGraphFacePlateDensity === "function"
     ? nodeGraphFacePlateDensity(settings, 1)
     : nodeGraphStampPreviewUnit(settings?.pixelDensity, 1);
-  const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
+  const dpr = Math.max(1, nodeGraphFiniteNumber(window.devicePixelRatio, 1));
   return Math.max(1, Math.round(128 * dpr * Math.max(0, density)));
 }
 
 /** Halo extent in face-buffer px so the full stamp (core + Blur) fits. */
 function nodeGraphStampPreviewExtent(radius, blur01, phosphor) {
-  const r = Math.max(0, Number(radius) || 0);
+  const r = Math.max(0, nodeGraphFiniteNumber(radius));
   const blur = nodeGraphStampPreviewUnit(blur01, 0);
   if (phosphor) {
     return r * (1.2 + 5.3 * blur) + 1.5 * (1 - blur);
@@ -712,7 +712,7 @@ function nodeGraphStampPreviewScratch(owner, size) {
     scratch = document.createElement("canvas");
     owner._stampPreviewScratch = scratch;
   }
-  const n = Math.max(1, Math.round(Number(size) || 1));
+  const n = Math.max(1, Math.round(nodeGraphFiniteNumber(size, 1)));
   if (scratch.width !== n) {
     scratch.width = n;
   }
@@ -776,7 +776,7 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
       fillEmpty();
       return;
     }
-    const blur = Number(ink.blur) || 0;
+    const blur = nodeGraphFiniteNumber(ink.blur);
     const facePad = typeof nodeGraphWaterfallSoftPad === "function"
       ? nodeGraphWaterfallSoftPad(faceRadius, blur)
       : faceRadius * (1 + blur * 1.65) + 1;
@@ -889,9 +889,9 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
       const stampShape = typeof normalizeTraceStampShape === "function"
         ? normalizeTraceStampShape(settings.shape)
         : String(settings.shape || "circle");
-      const shapeParam = Math.max(0, Math.min(1, Number(
+      const shapeParam = Math.max(0, Math.min(1, nodeGraphFiniteNumber(
         settings.shapeParam ?? (stampShape === "oval" ? settings.pill : settings.squircle),
-      ) || 0));
+      )));
       const stretch = stampShape === "oval" ? shapeParam : 0;
       const ext = typeof nodeGraphVectorDotStampExtents === "function"
         ? nodeGraphVectorDotStampExtents(buf, buf, size, stretch)

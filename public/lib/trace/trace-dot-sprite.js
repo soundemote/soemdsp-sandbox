@@ -57,7 +57,7 @@
   }
 
   function innerOuter(radius, blur01) {
-    const R = Math.max(0.5, Number(radius) || 0.5);
+    const R = Math.max(0.5, nodeGraphFiniteNumber(radius, 0.5));
     const b = clamp01(blur01, 0);
     const b2 = b * b;
     const inner = Math.max(0, R * (1 - b2 * 0.88) - (b2 < 0.004 ? 0.65 : 0));
@@ -92,7 +92,7 @@
   }
 
   function sdfPolygon(dx, dy, radius, sides, rot = -Math.PI / 2) {
-    const n = Math.max(3, Math.round(Number(sides) || 3));
+    const n = Math.max(3, Math.round(nodeGraphFiniteNumber(sides, 3)));
     const ang = Math.atan2(dy, dx) - rot;
     const sector = (Math.PI * 2) / n;
     const a = ((ang % sector) + sector) % sector - sector * 0.5;
@@ -291,8 +291,8 @@
       cache.set(key, entry);
       return entry;
     }
-    const x = Math.max(1, Math.min(MAX_RADIUS, Number(rx) || 1));
-    const y = Math.max(1, Math.min(MAX_RADIUS, Number(ry) || 1));
+    const x = Math.max(1, Math.min(MAX_RADIUS, nodeGraphFiniteNumber(rx, 1)));
+    const y = Math.max(1, Math.min(MAX_RADIUS, nodeGraphFiniteNumber(ry, 1)));
     entry = bake(x, y, blur01, shape, shapeParam);
     if (!entry) {
       return null;
@@ -401,7 +401,7 @@
 
   function resolveExtents(radius, style) {
     const opts = style && typeof style === "object" ? style : {};
-    const r = Math.max(0.5, Number(radius) || 0.5);
+    const r = Math.max(0.5, nodeGraphFiniteNumber(radius, 0.5));
     const { shape, shapeParam } = resolveShapeOpts(opts);
     const rxIn = Number(opts.rx);
     const ryIn = Number(opts.ry);

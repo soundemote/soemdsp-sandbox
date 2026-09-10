@@ -49,7 +49,7 @@ NodeLiveAudioProcessor.prototype.clipperLimiterChannel = function clipperLimiter
   }
   const prep = typeof nodeGraphClipperLimiterPrep === "function"
     ? nodeGraphClipperLimiterPrep(input, minDb, maxDb, gainDb)
-    : { dry: true, y: Number(input) || 0 };
+    : { dry: true, y: nodeGraphFiniteNumber(input) };
   if (prep.dry) {
     return prep.y;
   }
@@ -66,7 +66,7 @@ NodeLiveAudioProcessor.prototype.clipperLimiterChannel = function clipperLimiter
       : prep.span * Math.tanh(prep.excess / prep.span));
   return typeof nodeGraphClipperLimiterFinish === "function"
     ? nodeGraphClipperLimiterFinish(prep, shaped)
-    : prep.sign * (prep.minLin + (Number(shaped) || 0));
+    : prep.sign * (prep.minLin + (nodeGraphFiniteNumber(shaped)));
 };
 
 NodeLiveAudioProcessor.prototype.clipperLimiterFrame = function clipperLimiterFrame(
@@ -80,20 +80,20 @@ NodeLiveAudioProcessor.prototype.clipperLimiterFrame = function clipperLimiterFr
   oversample = 2,
 ) {
   if (state && typeof nodeGraphClipperLimiterPrep === "function") {
-    const m = Number(mono) || 0;
+    const m = nodeGraphFiniteNumber(mono);
     return {
       Out: this.clipperLimiterChannel(m, minDb, maxDb, gainDb, state, oversample, 0),
-      Left: this.clipperLimiterChannel((Number(left) || 0) + m, minDb, maxDb, gainDb, state, oversample, 1),
-      Right: this.clipperLimiterChannel((Number(right) || 0) + m, minDb, maxDb, gainDb, state, oversample, 2),
+      Left: this.clipperLimiterChannel((nodeGraphFiniteNumber(left)) + m, minDb, maxDb, gainDb, state, oversample, 1),
+      Right: this.clipperLimiterChannel((nodeGraphFiniteNumber(right)) + m, minDb, maxDb, gainDb, state, oversample, 2),
     };
   }
   if (typeof nodeGraphClipperLimiterFrame === "function") {
     return nodeGraphClipperLimiterFrame(mono, left, right, minDb, maxDb, gainDb, state, oversample);
   }
-  const m = Number(mono) || 0;
+  const m = nodeGraphFiniteNumber(mono);
   return {
     Out: m,
-    Left: (Number(left) || 0) + m,
-    Right: (Number(right) || 0) + m,
+    Left: (nodeGraphFiniteNumber(left)) + m,
+    Right: (nodeGraphFiniteNumber(right)) + m,
   };
 };

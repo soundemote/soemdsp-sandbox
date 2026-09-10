@@ -57,8 +57,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           const n = Number(passiveFreqJack);
           passiveCenter = Number.isFinite(n) ? n : 0;
         } else if (typeof hasInput === "function" && hasInput(nodeId, "0.1V/Oct")) {
-          const lo = Math.max(0, Number(p.lowFrequency) || 0);
-          const hi = Math.max(0, Number(p.highFrequency) || 0);
+          const lo = Math.max(0, nodeGraphFiniteNumber(p.lowFrequency));
+          const hi = Math.max(0, nodeGraphFiniteNumber(p.highFrequency));
           const safeMode = Math.round(Number(passiveMode)) || 0;
           let base;
           if (safeMode === 0) base = hi > 0 ? hi : 1000;
@@ -243,8 +243,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         if (activeFreqJack != null) {
           activeCenter = activeFreqJack;
         } else if (typeof hasInput === "function" && hasInput(nodeId, "0.1V/Oct")) {
-          const lo = Math.max(0, Number(params.lowFrequency) || 0);
-          const hi = Math.max(0, Number(params.highFrequency) || 0);
+          const lo = Math.max(0, nodeGraphFiniteNumber(params.lowFrequency));
+          const hi = Math.max(0, nodeGraphFiniteNumber(params.highFrequency));
           const base = lo > 0 && hi > 0 ? Math.sqrt(lo * hi) : (hi > 0 ? hi : (lo > 0 ? lo : 1000));
           activeCenter = this.frequencyHzFromKnobOrF(base, mixInput, nodeId);
         }
@@ -750,12 +750,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           state.cachedParams = {
             frequency: this.frequencyHzFromKnobOrF(freqKnob, mixInput, nodeId),
             amp: this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues),
-            startPhase: (Number(this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues)) || 0) * Math.PI * 2,
+            startPhase: (nodeGraphFiniteNumber(this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues))) * Math.PI * 2,
           };
         } else if (!hasFreqInput) {
           // Frequency jack unconnected: keep the quantum-cached knob values.
         }
-        const resetIn = Number(mixInput(nodeId, "Reset")) || 0;
+        const resetIn = nodeGraphFiniteNumber(mixInput(nodeId, "Reset"));
         const resetEdge = resetIn >= 0.5 && state.resetPrev < 0.5;
         state.resetPrev = resetIn;
         return {
@@ -1310,7 +1310,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
             timeDenominator: read("timeDenominator", 4),
             timingMode: read("timingMode", 0),
             pulseWidth: read("pulseWidth", 0.5),
-            bpm: read("bpm", Number(this.timing?.tempoBpm) || 120),
+            bpm: read("bpm", nodeGraphFiniteNumber(this.timing?.tempoBpm, 120)),
           },
           safeRate,
         );
@@ -1343,7 +1343,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const clockConnection = (this.inputConnections.get(this.inputKey(nodeId, "Clock")) || [])[0];
         const clockSourceNode = this.nodes.get(clockConnection?.sourceNode);
         const sourceRate = clockSourceNode?.type === "clock"
-          ? Math.max(0, Number(clockSourceNode.params?.rate) || 0)
+          ? Math.max(0, nodeGraphFiniteNumber(clockSourceNode.params?.rate))
           : 0;
         const pulseTime = sourceRate > 0
           ? this.clampValue(read("duty", 0.5), 0.01, 1) * division / sourceRate
@@ -1574,7 +1574,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const softClipperWidth = controls.params.width;
         const drive = typeof nodeGraphClipperDbToLin === "function"
           ? nodeGraphClipperDbToLin(softClipperGainDb)
-          : 10 ** ((Number(softClipperGainDb) || 0) / 20);
+          : 10 ** ((nodeGraphFiniteNumber(softClipperGainDb)) / 20);
         const softClipperMono = mixInput(nodeId) * drive;
         const outM = this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth, state, softClipperOs, 0);
         return this.stereoProcessPorts(
@@ -1805,9 +1805,9 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.readEffectiveParameter(node, "bits", 53, frame, frames, frameValues),
         )));
         const maxValue = 2 ** bits - 1;
-        const fullScale = Math.max(0, Math.min(maxValue, Number(mixInput(nodeId, "Full Scale")) || 0));
-        const unipolar = Math.max(0, Math.min(1, Number(mixInput(nodeId, "Unipolar")) || 0));
-        const bipolar = Math.max(-1, Math.min(1, Number(mixInput(nodeId, "Bipolar")) || 0));
+        const fullScale = Math.max(0, Math.min(maxValue, nodeGraphFiniteNumber(mixInput(nodeId, "Full Scale"))));
+        const unipolar = Math.max(0, Math.min(1, nodeGraphFiniteNumber(mixInput(nodeId, "Unipolar"))));
+        const bipolar = nodeGraphFiniteNumber(mixInput(nodeId, "Bipolar"));
         return {
           "Full Scale to Unipolar": maxValue > 0 ? fullScale / maxValue : 0,
           "Full Scale to Bipolar": maxValue > 0 ? (fullScale / maxValue) * 2 - 1 : -1,

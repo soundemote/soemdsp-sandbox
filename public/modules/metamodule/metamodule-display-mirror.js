@@ -86,7 +86,7 @@ function nodeGraphMetamoduleEnabledDisplayEntries(metaNode) {
   return list
     .filter((entry) => entry && entry.enabled && entry.childId)
     .slice()
-    .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+    .sort((a, b) => (nodeGraphFiniteNumber(a.order)) - (nodeGraphFiniteNumber(b.order)));
 }
 
 /**
@@ -110,7 +110,7 @@ function nodeGraphMetamoduleToggleDisplays(metaId, childIds, patch = nodeGraphMv
 
   let maxOrder = -1;
   for (const entry of payload.displays) {
-    maxOrder = Math.max(maxOrder, Number(entry?.order) || 0);
+    maxOrder = Math.max(maxOrder, nodeGraphFiniteNumber(entry?.order));
   }
 
   let changed = 0;

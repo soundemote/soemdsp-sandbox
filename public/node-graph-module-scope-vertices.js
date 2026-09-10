@@ -5,7 +5,7 @@ function nodeGraphTraceDisplayScratchForSlot(slot, requiredFloats) {
   const nodeId = String(slot?.nodeId || "traceDisplay");
   const scratch = nodeGraphModuleScopeState.traceDisplayScratch;
   let entry = scratch.get(nodeId);
-  const required = Math.max(0, Math.floor(Number(requiredFloats) || 0));
+  const required = Math.max(0, Math.floor(nodeGraphFiniteNumber(requiredFloats)));
   if (!entry || entry.vertices.length < required) {
     let capacity = Math.max(1024, entry?.vertices?.length || 0);
     while (capacity < required) {
@@ -35,10 +35,10 @@ function appendNodeGraphTraceDisplayBeamSegment(vertices, offset, x1, y1, x2, y2
 }
 
 function nodeGraphTraceDisplayVisualPointCount(rect, buffer) {
-  const visualWidth = Math.max(1, Number(rect?.width) || 0);
+  const visualWidth = Math.max(1, nodeGraphFiniteNumber(rect?.width));
   const visualPointLimit = Math.max(
     2,
-    Math.min(32768, Math.floor(Number(buffer?.nodeGraphScopeVisualPointLimit) || 32768)),
+    Math.min(32768, Math.floor(nodeGraphFiniteNumber(buffer?.nodeGraphScopeVisualPointLimit, 32768))),
   );
   return Math.max(2, Math.min(visualPointLimit, Math.ceil(visualWidth * 2)));
 }
@@ -175,7 +175,7 @@ function buildNodeGraphTraceDisplayVertices(buffer, rect, canvas, pixelRatio, sl
 function nodeGraphModuleScopeXyBeamVertices(points, canvas, sparkSizePx = 2) {
   const pixelPoints = nodeGraphModuleScopePixelPoints(points, canvas);
   const vertices = [];
-  const radius = clampNodeSliderValue(Number(sparkSizePx) || 2, 1, 10) * 0.5;
+  const radius = clampNodeSliderValue(nodeGraphFiniteNumber(sparkSizePx, 2), 1, 10) * 0.5;
   for (let index = 0; index + 1 < pixelPoints.length; index += 2) {
     const x = pixelPoints[index];
     const y = pixelPoints[index + 1];
@@ -193,8 +193,8 @@ function nodeGraphModuleScopeDotVertices(points, canvas, ageStart = 0, ageEnd = 
   const pixelPoints = nodeGraphModuleScopePixelPoints(points, canvas);
   const vertices = [];
   const count = Math.max(1, (pixelPoints.length / 2) - 1);
-  const start = clampNodeSliderValue(Number(ageStart) || 0, 0, 1);
-  const end = clampNodeSliderValue(Number(ageEnd) || 0, 0, 1);
+  const start = clampNodeSliderValue(nodeGraphFiniteNumber(ageStart), 0, 1);
+  const end = clampNodeSliderValue(nodeGraphFiniteNumber(ageEnd), 0, 1);
   const skippedPoints = Array.isArray(points?.nodeGraphScopeSkippedPoints)
     ? points.nodeGraphScopeSkippedPoints
     : null;
@@ -234,17 +234,17 @@ function nodeGraphModuleScopeSpectrumBarVertices(buffer, rect, canvas, options =
   }
   const visibleRange = Array.isArray(options.visibleProgressRange)
     ? [
-      clampNodeSliderValue(Number(options.visibleProgressRange[0]) || 0, 0, 1),
-      clampNodeSliderValue(Number(options.visibleProgressRange[1]) || 0, 0, 1),
+      clampNodeSliderValue(nodeGraphFiniteNumber(options.visibleProgressRange[0]), 0, 1),
+      clampNodeSliderValue(nodeGraphFiniteNumber(options.visibleProgressRange[1]), 0, 1),
     ]
     : [0, 1];
   if (visibleRange[1] - visibleRange[0] <= 0.001) {
     return vertices;
   }
-  const left = Number(rect.left) || 0;
-  const right = left + (Number(rect.width) || 0);
-  const bottom = (Number(rect.top) || 0) + (Number(rect.height) || 0);
-  const top = Number(rect.top) || 0;
+  const left = nodeGraphFiniteNumber(rect.left);
+  const right = left + (nodeGraphFiniteNumber(rect.width));
+  const bottom = (nodeGraphFiniteNumber(rect.top)) + (nodeGraphFiniteNumber(rect.height));
+  const top = nodeGraphFiniteNumber(rect.top);
   const pushVertex = (x, y) => {
     vertices.push(
       ((x / canvas.width) * 2) - 1,
@@ -254,7 +254,7 @@ function nodeGraphModuleScopeSpectrumBarVertices(buffer, rect, canvas, options =
   const firstIndex = Math.max(0, Math.floor(length * visibleRange[0]));
   const lastIndex = Math.min(length, Math.ceil(length * visibleRange[1]));
   for (let index = firstIndex; index < lastIndex; index += 1) {
-    const value = clampNodeSliderValue(Number(buffer[index]) || 0, 0, 1);
+    const value = clampNodeSliderValue(nodeGraphFiniteNumber(buffer[index]), 0, 1);
     const x1 = left + (index / length) * (right - left);
     const x2 = left + ((index + 1) / length) * (right - left);
     const y = bottom - value * (bottom - top);
@@ -352,7 +352,7 @@ function nodeGraphModuleScopeGeneratedDotTextureData(...args) {
   const lineThickness = normalizeNodeGraphModuleScopeLineThickness(
     options.lineThickness ?? nodeGraphModuleScopeDefaultSettings.lineThickness,
   );
-  const size = Math.max(1, Math.min(512, Math.round(Number(options.size) || 64)));
+  const size = Math.max(1, Math.min(512, Math.round(nodeGraphFiniteNumber(options.size, 64))));
   const finalCore1Size = core1Size * lineThickness;
   const pixels = new Uint8Array(size * size * 4);
   const center = (size - 1) * 0.5;
@@ -493,9 +493,9 @@ function nodeGraphModuleScopeTraceDotSizeScale(dotSize, fallback = 1) {
 }
 
 function nodeGraphModuleScopeDotBlurMask(distanceSquared, radius, blurValue = 0) {
-  const radiusValue = Math.max(0.0001, Number(radius) || 0.0001);
+  const radiusValue = Math.max(0.0001, nodeGraphFiniteNumber(radius, 0.0001));
   const blur = normalizeNodeGraphModuleScopeDotBlur(blurValue, 0);
-  const normalizedDistance = Math.sqrt(Math.max(0, Number(distanceSquared) || 0)) / radiusValue;
+  const normalizedDistance = Math.sqrt(Math.max(0, nodeGraphFiniteNumber(distanceSquared))) / radiusValue;
   if (normalizedDistance >= 1) {
     return 0;
   }
@@ -518,10 +518,10 @@ function nodeGraphModuleScopeDotBlurMask(distanceSquared, radius, blurValue = 0)
 }
 
 function nodeGraphModuleScopeClippedPixelRect(canvas, rect, pixelRatio = window.devicePixelRatio || 1) {
-  const rectLeft = Number(rect?.left) || 0;
-  const rectTop = Number(rect?.top) || 0;
-  const rectRight = rectLeft + (Number(rect?.width) || 0);
-  const rectBottom = rectTop + (Number(rect?.height) || 0);
+  const rectLeft = nodeGraphFiniteNumber(rect?.left);
+  const rectTop = nodeGraphFiniteNumber(rect?.top);
+  const rectRight = rectLeft + (nodeGraphFiniteNumber(rect?.width));
+  const rectBottom = rectTop + (nodeGraphFiniteNumber(rect?.height));
   const left = Math.max(0, Math.min(canvas.width, Math.floor(rectLeft * pixelRatio)));
   const top = Math.max(0, Math.min(canvas.height, Math.floor(rectTop * pixelRatio)));
   const right = Math.max(0, Math.min(canvas.width, Math.ceil(rectRight * pixelRatio)));
@@ -545,7 +545,7 @@ function nodeGraphModuleScopeClippedPixelRect(canvas, rect, pixelRatio = window.
 // drawNodeGraphModuleScopeSpectrumBarsWebGl → node-graph-module-scope-draw-basic.js
 // drawNodeGraphModuleScopeLightShape → node-graph-module-scope-draw-basic.js
 function nodeGraphModuleScopeLightFillStyle(context, centerX, centerY, radius, rgb, alpha, blurValue = 0) {
-  const alphaValue = clampNodeSliderValue(Number(alpha) || 0, 0, 1);
+  const alphaValue = clampNodeSliderValue(nodeGraphFiniteNumber(alpha), 0, 1);
   const blur = normalizeNodeGraphModuleScopeDotBlur(blurValue, 0);
   if (blur <= 0) {
     return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alphaValue})`;

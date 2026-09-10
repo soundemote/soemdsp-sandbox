@@ -86,7 +86,7 @@ NodeLiveAudioProcessor.prototype.spectrogramFft = function spectrogramFft(real, 
  */
 NodeLiveAudioProcessor.prototype.spectrogramMakeWindow = function spectrogramMakeWindow(n, kind) {
   const w = new Float32Array(n);
-  const k = Math.max(0, Math.min(4, Math.round(Number(kind) || 1)));
+  const k = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(kind, 1))));
   const denom = Math.max(1, n - 1);
   for (let i = 0; i < n; i++) {
     const x = (2 * Math.PI * i) / denom;
@@ -149,14 +149,14 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   const windowKind = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(params.window, 1))));
   const overlapIdx = Math.max(
     0,
-    Math.min(SPECTROGRAM_HOP_FACTORS.length - 1, Math.round(Number(params.overlap) || 2)),
+    Math.min(SPECTROGRAM_HOP_FACTORS.length - 1, Math.round(nodeGraphFiniteNumber(params.overlap, 2))),
   );
   const hopFactor = SPECTROGRAM_HOP_FACTORS[overlapIdx] || 4;
   const hopSize = Math.max(1, Math.floor(winSize / hopFactor));
 
   const padIdx = Math.max(
     0,
-    Math.min(SPECTROGRAM_FREQ_PAD_FACTORS.length - 1, Math.round(Number(params.freqOverlap) || 0)),
+    Math.min(SPECTROGRAM_FREQ_PAD_FACTORS.length - 1, Math.round(nodeGraphFiniteNumber(params.freqOverlap))),
   );
   const padFactor = SPECTROGRAM_FREQ_PAD_FACTORS[padIdx] || 1;
   // FFT length = window × pad (denser bins); cap 32768.
@@ -164,7 +164,7 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   if (fftLen > 32768) fftLen = 32768;
   // Ensure power of two (winSize and padFactor already are).
   const halfN = fftLen >> 1;
-  const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
+  const engineRate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
 
   // Allocate/reallocate when window, pad, or window kind changes.
   if (
@@ -194,8 +194,8 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   }
 
   // Extract fresh samples using own frame tracking
-  const absFrame = Math.max(0, Math.floor(Number(buf.absoluteFrame) || 0));
-  const lastFrame = Math.max(0, Number(state.lastAbsoluteFrame) || 0);
+  const absFrame = Math.max(0, Math.floor(nodeGraphFiniteNumber(buf.absoluteFrame)));
+  const lastFrame = Math.max(0, nodeGraphFiniteNumber(state.lastAbsoluteFrame));
   const capacity = buf.capacity || buf.buffer.length;
   let freshCount = lastFrame > 0
     ? Math.max(0, absFrame - lastFrame)
@@ -205,7 +205,7 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   if (freshCount <= 0) return;
   state.lastAbsoluteFrame = absFrame;
 
-  const writeIdx = Number(buf.writeIndex) || 0;
+  const writeIdx = nodeGraphFiniteNumber(buf.writeIndex);
   const start = (writeIdx - freshCount + capacity) % capacity;
   let accIdx = state.accumCount;
   let hopsThisFrame = 0;
@@ -274,7 +274,7 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
     batchFlat.set(hopColumns[c], c * halfN);
   }
 
-  state.hopSerial = (Number(state.hopSerial) || 0) + 1;
+  state.hopSerial = (nodeGraphFiniteNumber(state.hopSerial)) + 1;
 
   dataPorts.push([nodeId, "Spectrum", state.spectrumOut]);
   dataPorts.push([nodeId, "SpectrumBatch", batchFlat]);

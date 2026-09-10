@@ -2,7 +2,7 @@
 // Single In → Out + Offset. No Left/Right/Mono paths.
 
 function nodeGraphBiasSample(input, offset) {
-  return (Number(input) || 0) + (Number(offset) || 0);
+  return (nodeGraphFiniteNumber(input)) + (nodeGraphFiniteNumber(offset));
 }
 
 /**

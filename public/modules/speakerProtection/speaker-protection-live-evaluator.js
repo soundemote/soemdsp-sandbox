@@ -8,7 +8,7 @@ function nodeGraphSpeakerProtectionSample(value, runtime, nodeId) {
   if (unsafe && runtime) {
     runtime.speakerProtectionMuteCount = (runtime.speakerProtectionMuteCount || 0) + 1;
     runtime.speakerProtectionPeak = Math.max(
-      Number(runtime.speakerProtectionPeak) || 0,
+      nodeGraphFiniteNumber(runtime.speakerProtectionPeak),
       Number.isFinite(number) ? Math.abs(number) : Infinity,
     );
     runtime.lastSpeakerProtection = { nodeId, peak: runtime.speakerProtectionPeak };

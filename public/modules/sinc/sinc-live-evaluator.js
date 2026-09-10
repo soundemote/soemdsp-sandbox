@@ -35,11 +35,11 @@ function nodeGraphSincMainSample(runtime, nodeId, freq, phaseShift, lobes, bandL
   if (!handle) return 0;
   const out = wasm.soemdsp_sinc_sample(
     handle,
-    Math.max(0, Number(freq) || 0),
-    Number(phaseShift) || 0,
-    Math.max(1, Math.round(Number(lobes) || 4)),
-    Math.round(Number(bandLimit) || 0),
-    Math.max(1, Number(sampleRate) || 44100),
+    Math.max(0, nodeGraphFiniteNumber(freq)),
+    nodeGraphFiniteNumber(phaseShift),
+    Math.max(1, Math.round(nodeGraphFiniteNumber(lobes, 4))),
+    Math.round(nodeGraphFiniteNumber(bandLimit)),
+    Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)),
   );
   return Number.isFinite(out) ? out : 0;
 }
@@ -53,7 +53,7 @@ nodeGraphLiveModuleEvaluators.sinc = ({ runtime, node, nodeId, frame, frames, fr
     : 0;
   const phaseShift = typeof nodeGraphParamSignalInPhaseAdd === "function"
     ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
-    : ((Number(phaseKnob) || 0) + (Number(phaseCv) || 0));
+    : ((nodeGraphFiniteNumber(phaseKnob)) + (nodeGraphFiniteNumber(phaseCv)));
   const lobes = Math.max(1, Math.round(read("lobes", 4)));
   const bandLimited = Math.round(read("bandLimit", 1));
 
@@ -90,5 +90,5 @@ nodeGraphLiveModuleEvaluators.sinc = ({ runtime, node, nodeId, frame, frames, fr
     bandLimited,
     sampleRate || 44100,
   );
-  return { Out: Math.max(-1, Math.min(1, value)) };
+  return { Out: value };
 };

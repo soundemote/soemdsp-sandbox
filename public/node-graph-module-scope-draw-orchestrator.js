@@ -110,7 +110,7 @@ function nodeGraphModuleScopeMarkScreenLit(screenElement, strength = 1) {
   if (!screenElement?.dataset) {
     return;
   }
-  const s = Math.max(0, Math.min(1, Number(strength) || 0));
+  const s = Math.max(0, Math.min(1, nodeGraphFiniteNumber(strength)));
   screenElement.dataset.lightStrength = s.toFixed(3);
   // Punch target is often the local fallback canvas, not the outer window.
   const painted = screenElement.querySelector?.(
@@ -213,7 +213,7 @@ function paintNodeGraphModuleScopeColdPlatesOnly(pixelRatio = window.devicePixel
 function drawNodeGraphModuleScopes(options = {}) {
   const force = options?.force === true;
   const debug = setNodeGraphModuleScopeDebugPhase("enter", {
-    drawAttempts: (Number(nodeGraphModuleScopeState.renderDebug?.drawAttempts) || 0) + 1,
+    drawAttempts: (nodeGraphFiniteNumber(nodeGraphModuleScopeState.renderDebug?.drawAttempts)) + 1,
     lastFrameStartMs: nodeGraphModuleScopeNowMs(),
     zoom: nodeGraphModuleScopeZoomScale(),
   });
@@ -345,7 +345,7 @@ function drawNodeGraphModuleScopes(options = {}) {
     ? scopePaintIsPaused()
     : nodeGraphModuleScopePaused();
   const animationTime = (performance.now?.() || Date.now()) / 1000;
-  const previousAnimationTime = Number(nodeGraphModuleScopeState.animationLastTime) || animationTime;
+  const previousAnimationTime = nodeGraphFiniteNumber(nodeGraphModuleScopeState.animationLastTime, animationTime);
   nodeGraphModuleScopeState.animationDeltaSeconds = clampNodeSliderValue(
     animationTime - previousAnimationTime,
     1 / 240,
@@ -354,9 +354,7 @@ function drawNodeGraphModuleScopes(options = {}) {
   nodeGraphModuleScopeState.animationLastTime = animationTime;
   nodeGraphModuleScopeState.animationTime = animationTime;
   beginNodeGraphModuleScopeRenderMetricsFrame();
-  const pixelRatio = Number(renderer.pixelRatio) ||
-    Number(nodeGraphModuleScopeState.backingPixelRatio) ||
-    prePixelRatio;
+  const pixelRatio = nodeGraphFiniteNumber(renderer.pixelRatio, nodeGraphFiniteNumber(nodeGraphModuleScopeState.backingPixelRatio, prePixelRatio));
   debug.pixelRatio = pixelRatio;
   debug.canvasWidth = canvas.width;
   debug.canvasHeight = canvas.height;
@@ -543,7 +541,7 @@ function nodeGraphModuleScopeSimFps() {
   }
   return typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
     ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
-    : Math.max(0, Math.round(Number(nodeGraphMvp?.moduleScopeFramesPerSecond) || 60));
+    : Math.max(0, Math.round(nodeGraphFiniteNumber(nodeGraphMvp?.moduleScopeFramesPerSecond, 60)));
 }
 
 function clearNodeGraphModuleScopeDrawWait() {
@@ -570,7 +568,7 @@ function scheduleNodeGraphModuleScopeDrawAfterSimClock() {
     return;
   }
   const now = (performance.now?.() || Date.now()) / 1000;
-  const last = Number(nodeGraphModuleScopeState.phosphorFrame?.lastUpdate) || 0;
+  const last = nodeGraphFiniteNumber(nodeGraphModuleScopeState.phosphorFrame?.lastUpdate);
   const frameDur = 1 / fps;
   let remainingMs = (last + frameDur - now) * 1000;
   if (!Number.isFinite(remainingMs) || remainingMs < 0) {
@@ -657,7 +655,7 @@ function scheduleNodeGraphModuleScopeDraw(options = {}) {
   }
   if (nodeGraphModuleScopeState.drawFrame) {
     const now = (performance.now?.() || Date.now());
-    const requestedAt = Number(nodeGraphModuleScopeState.drawFrameRequestedAt) || 0;
+    const requestedAt = nodeGraphFiniteNumber(nodeGraphModuleScopeState.drawFrameRequestedAt);
     // force always wins: cancel a pending non-force RAF so Clear is not dropped.
     const pendingForce = nodeGraphModuleScopeState.drawFrameForce === true;
     if (force && !pendingForce) {

@@ -46,8 +46,8 @@ function nodeGraphDelayParabolBipolar(phase01) {
 }
 
 function nodeGraphDelayRationalCurve01(x, k) {
-  const v = Math.max(0, Math.min(1, Number(x) || 0));
-  const kk = Math.max(-0.999, Math.min(0.999, Number(k) || 0));
+  const v = Math.max(0, Math.min(1, nodeGraphFiniteNumber(x)));
+  const kk = Math.max(-0.999, Math.min(0.999, nodeGraphFiniteNumber(k)));
   const denom = 2 * kk * v - kk - 1;
   if (Math.abs(denom) < 1e-12) {
     return v;
@@ -58,8 +58,8 @@ function nodeGraphDelayRationalCurve01(x, k) {
 /** Mod LFO (Parabol / Random Walk / FBM) → bipolar −1…+1. */
 function nodeGraphDelayRunModLfo(ch, style, rateHz, sampleRate) {
   const rate = Math.max(1, sampleRate);
-  const hz = Math.max(0, Number(rateHz) || 0);
-  const st = Math.round(Number(style) || 0);
+  const hz = Math.max(0, nodeGraphFiniteNumber(rateHz));
+  const st = Math.round(nodeGraphFiniteNumber(style));
 
   if (st === 1) {
     // Random Walk (filtered bipolar), same family as Ping Pong / SoEmReverb.
@@ -76,18 +76,18 @@ function nodeGraphDelayRunModLfo(ch, style, rateHz, sampleRate) {
       : 0;
     const randomMix = 1 - whiteNoiseMix;
     const step = noise > 0 ? stepSize : -stepSize;
-    ch.walkOut = Math.max(-1, Math.min(1, (ch.walkOut || 0) + step));
+    ch.walkOut =  (ch.walkOut || 0) + step;
     const mixed = ch.walkOut * randomMix + noise * whiteNoiseMix;
     const w = Math.min((Math.PI * 2) / rate, 0.000142475857) * Math.max(0, hz);
     const a1 = Math.exp(-w);
     ch.walkLpf = (1 - a1) * mixed + a1 * (ch.walkLpf || 0);
-    return Math.max(-1, Math.min(1, ch.walkLpf));
+    return ch.walkLpf;
   }
 
   if (st === 2) {
     ch.fbmTime = (ch.fbmTime || 0) + hz / rate;
     const uni = nodeGraphDelayFbmUnipolar(ch.fbmTime, ch.seed, 4, 0.5);
-    return Math.max(-1, Math.min(1, uni * 2 - 1));
+    return uni * 2 - 1;
   }
 
   // Parabol (smooth cyclic), free-running phase.
@@ -141,7 +141,7 @@ function nodeGraphDelayEffectEnsureLfo(state, nodeId) {
 }
 
 function nodeGraphDelayEffectSample(state, input, params, sampleRate, runtime = null, nodeId = "") {
-  const safeRate = Math.max(1, Number(sampleRate) || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const maxDelaySeconds = 4.25;
   const requiredSize = Math.max(2, Math.ceil(safeRate * maxDelaySeconds) + 2);
   if (!state.buffer || state.bufferSize !== requiredSize) {
@@ -167,10 +167,10 @@ function nodeGraphDelayEffectSample(state, input, params, sampleRate, runtime = 
   const modAmount = Math.max(0, Math.min(0.5, nodeGraphSafeFilterNumber(params.modAmount, runtime, nodeId, state, "delay modulation")));
   const modRate = Math.max(0, Math.min(90, nodeGraphSafeFilterNumber(params.modRate, runtime, nodeId, state, "delay mod rate")));
   const modVariation = Math.max(0, Math.min(1, nodeGraphSafeFilterNumber(params.modVariation, runtime, nodeId, state, "delay variation")));
-  const modStyle = Math.round(nodeGraphSafeFilterNumber(params.modStyle, runtime, nodeId, state, "delay mod style") || 0);
+  const modStyle = Math.round(nodeGraphFiniteNumber(nodeGraphSafeFilterNumber(params.modStyle, runtime, nodeId, state, "delay mod style")));
 
   const ch = state.lfo;
-  const phaseProxy = Number(ch.phase) || Number(ch.fbmTime) || 0;
+  const phaseProxy = nodeGraphFiniteNumber(ch.phase, nodeGraphFiniteNumber(ch.fbmTime));
   const variationTarget = nodeGraphDelayHashBipolar(
     Math.floor(phaseProxy * 997) + state.position,
     ch.seed,

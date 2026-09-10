@@ -27,18 +27,18 @@ function nodeGraphChuaDiode(x, m0, m1) {
  * @returns {{ x: number, y: number, z: number }} scaled outputs in [-1, 1]
  */
 function nodeGraphChuaAttractorCore(state, options = {}) {
-  const resetHigh = (Number(options.reset) || 0) > 0.5;
+  const resetHigh = (nodeGraphFiniteNumber(options.reset)) > 0.5;
   if (resetHigh && !state.resetWasHigh) {
     nodeGraphChuaAttractorResetState(state);
   }
   state.resetWasHigh = resetHigh;
 
-  const sampleRate = Math.max(1, Number(options.sampleRate) || 44100);
-  const speed = Math.max(0, Number(options.speed) || 0);
-  const alpha = Number(options.alpha) || 0;
-  const beta = Number(options.beta) || 0;
-  const m0 = Number(options.m0) || 0;
-  const m1 = Number(options.m1) || 0;
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const speed = Math.max(0, nodeGraphFiniteNumber(options.speed));
+  const alpha = nodeGraphFiniteNumber(options.alpha);
+  const beta = nodeGraphFiniteNumber(options.beta);
+  const m0 = nodeGraphFiniteNumber(options.m0);
+  const m1 = nodeGraphFiniteNumber(options.m1);
 
   const dt = (0.6 * speed) / sampleRate;
   let steps = Math.floor(dt / 0.0004);
@@ -65,7 +65,7 @@ function nodeGraphChuaAttractorCore(state, options = {}) {
   state.y = clamp20(state.y);
   state.z = clamp20(state.z);
 
-  const clamp1 = (v) => Math.max(-1, Math.min(1, Number.isFinite(v) ? v : 0));
+  const clamp1 = (v) => Number.isFinite(v) ? v : 0;
   return {
     x: clamp1(state.x / 2),
     y: clamp1(state.y / 0.5),

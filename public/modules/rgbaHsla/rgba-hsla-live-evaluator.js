@@ -3,9 +3,9 @@
 // per-module code instead of the shared file.
 
 function nodeGraphVisualHslToRgb(hue, saturation, lightness) {
-  const h = ((Number(hue) || 0) % 1 + 1) % 1;
-  const s = clampNodeSliderValue(Number(saturation) || 0, 0, 1);
-  const l = clampNodeSliderValue(Number(lightness) || 0, 0, 1);
+  const h = ((nodeGraphFiniteNumber(hue)) % 1 + 1) % 1;
+  const s = clampNodeSliderValue(nodeGraphFiniteNumber(saturation), 0, 1);
+  const l = clampNodeSliderValue(nodeGraphFiniteNumber(lightness), 0, 1);
   if (s <= 0) {
     return [l, l, l];
   }

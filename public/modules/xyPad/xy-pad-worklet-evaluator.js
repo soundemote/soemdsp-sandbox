@@ -32,7 +32,7 @@
           : { amplitude: 1, pulseSamples: 0 }
       );
       states.set(nodeId, state);
-      const pulseSamples = Math.max(0, Number(state.pulseSamples) || 0);
+      const pulseSamples = Math.max(0, nodeGraphFiniteNumber(state.pulseSamples));
       state.pulseSamples = Math.max(0, pulseSamples - 1);
 
       const gate = read("gate", 0) > 0.5 ? 1 : 0;
@@ -56,14 +56,14 @@
       // Do not use `n || 0.5` — that maps legitimate edge 0 to center.
       const mouseX = Math.max(0, Math.min(1, Number.isFinite(rawMouseX) ? rawMouseX : 0.5));
       const mouseY = Math.max(0, Math.min(1, Number.isFinite(rawMouseY) ? rawMouseY : 0.5));
-      const sigX = nodeGraphXyPadDspUnitToBipolar(mouseX) + (Number(mixInput(nodeId, "X")) || 0);
-      const sigY = nodeGraphXyPadDspUnitToBipolar(mouseY) + (Number(mixInput(nodeId, "Y")) || 0);
+      const sigX = nodeGraphXyPadDspUnitToBipolar(mouseX) + (nodeGraphFiniteNumber(mixInput(nodeId, "X")));
+      const sigY = nodeGraphXyPadDspUnitToBipolar(mouseY) + (nodeGraphFiniteNumber(mixInput(nodeId, "Y")));
 
       const cutoff = nodeGraphXyPadDspPapoulisCutoffHz(read("papoulis", 0.35));
-      const order = Math.max(0, Math.min(1, Math.round(Number(read("filterOrder", 0)) || 0)));
+      const order = Math.max(0, Math.min(1, Math.round(nodeGraphFiniteNumber(read("filterOrder", 0)))));
       const qX = read("xQuantize", 0);
       const qY = read("yQuantize", 0);
-      const rate = Number(safeRate) || sampleRate;
+      const rate = nodeGraphFiniteNumber(safeRate, sampleRate);
       // Native papoulis_filter.wasm only — no JS Papoulis.
       const canFilter = cutoff > 0
         && this.nativePapoulisFilterReady

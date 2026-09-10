@@ -121,10 +121,10 @@ function nodeGraphRgbFractalAudioAdvancePhasors(state, params, dt) {
 
 function nodeGraphRgbFractalAudioReseedZ(state, seed, stepCount, detune, orbitPhase) {
   // Reseed on bailout — angle mixes seed, step count, detune, orbit phase (not multi-sine on c).
-  const d = Math.max(0, Number(detune) || 0);
+  const d = Math.max(0, nodeGraphFiniteNumber(detune));
   const a = seed * 6.28318
     + stepCount * (0.6180339887 + d * 0.271828)
-    + (Number(orbitPhase) || 0) * (0.13 + d * 0.07);
+    + (nodeGraphFiniteNumber(orbitPhase)) * (0.13 + d * 0.07);
   const r = 0.08 + 0.12 * (0.5 + 0.5 * Math.sin(stepCount * (0.31 + d * 0.11) + seed * 4));
   state.zx = r * Math.cos(a);
   state.zy = r * Math.sin(a * (1.17 + d * 0.19) + 0.4);
@@ -164,11 +164,11 @@ function nodeGraphRgbFractalAudioProjectOut(re, im, dcRe, dcIm) {
  * Used for committed steps and for peeking the next jump height (pre-edge BLEP).
  */
 function nodeGraphRgbFractalAudioIterateZ(zx, zy, stepCount, cx, cy, seed, detune, orbitPhase) {
-  const d = Math.max(0, Number(detune) || 0);
+  const d = Math.max(0, nodeGraphFiniteNumber(detune));
   const k = d * 1.2e-4;
-  const sc = Number(stepCount) || 0;
-  const px = (Number(zx) || 0) + k * Math.sin(sc * 1.6180339887 + seed * 3.1);
-  const py = (Number(zy) || 0) + k * Math.cos(sc * 2.4142135623 - seed * 2.7);
+  const sc = nodeGraphFiniteNumber(stepCount);
+  const px = (nodeGraphFiniteNumber(zx)) + k * Math.sin(sc * 1.6180339887 + seed * 3.1);
+  const py = (nodeGraphFiniteNumber(zy)) + k * Math.cos(sc * 2.4142135623 - seed * 2.7);
   const nx = px * px - py * py + cx;
   const ny = 2 * px * py + cy;
   const nextCount = sc + 1;
@@ -176,7 +176,7 @@ function nodeGraphRgbFractalAudioIterateZ(zx, zy, stepCount, cx, cy, seed, detun
     // Match reseed formula (stateless).
     const a = seed * 6.28318
       + nextCount * (0.6180339887 + d * 0.271828)
-      + (Number(orbitPhase) || 0) * (0.13 + d * 0.07);
+      + (nodeGraphFiniteNumber(orbitPhase)) * (0.13 + d * 0.07);
     const r = 0.08 + 0.12 * (0.5 + 0.5 * Math.sin(nextCount * (0.31 + d * 0.11) + seed * 4));
     return {
       zx: r * Math.cos(a),
@@ -215,8 +215,8 @@ function nodeGraphRgbFractalAudioSample(state, params, _input, sampleRate) {
     return { ...NODE_GRAPH_RGB_FRACTAL_AUDIO_SILENCE };
   }
   const p = params || {};
-  const seed = (((Number(p.seed) || 0) % 1) + 1) % 1;
-  const detune = Math.max(0, Number(p.detune) || 0);
+  const seed = (((nodeGraphFiniteNumber(p.seed)) % 1) + 1) % 1;
+  const detune = Math.max(0, nodeGraphFiniteNumber(p.detune));
   if (!state.hasStarted) {
     state.hasStarted = true;
     nodeGraphRgbFractalAudioReseedZ(state, seed, 0, detune, 0);
@@ -227,11 +227,11 @@ function nodeGraphRgbFractalAudioSample(state, params, _input, sampleRate) {
     state.lastDeltaHy = 0;
   }
 
-  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   nodeGraphRgbFractalAudioAdvancePhasors(state, p, 1 / sr);
 
   const orbitSize = Number.isFinite(Number(p.orbitSize)) ? Number(p.orbitSize) : 1;
-  const theta = Number(state.orbitPhasor) || 0;
+  const theta = nodeGraphFiniteNumber(state.orbitPhasor);
   const { cx, cy } = nodeGraphRgbFractalAudioComputeC(seed, theta, orbitSize);
 
   const speed = Number(p.speed);
@@ -240,8 +240,8 @@ function nodeGraphRgbFractalAudioSample(state, params, _input, sampleRate) {
   const iterHz = speedAbs * 180 * (1 + detune * 0.17);
   const dt = iterHz > 0 ? iterHz / sr : 0;
 
-  const dcR = Number(state.dcRe) || 0;
-  const dcI = Number(state.dcIm) || 0;
+  const dcR = nodeGraphFiniteNumber(state.dcRe);
+  const dcI = nodeGraphFiniteNumber(state.dcIm);
 
   // PolyBLEP accumulation in output domain (post-tanh jump heights).
   let blepHx = 0;
@@ -249,7 +249,7 @@ function nodeGraphRgbFractalAudioSample(state, params, _input, sampleRate) {
   let steps = 0;
 
   if (dt > 0) {
-    state.mapPhase = (Number(state.mapPhase) || 0) + dt;
+    state.mapPhase = (nodeGraphFiniteNumber(state.mapPhase)) + dt;
 
     // Pre-edge lobe: if we are about to wrap, peek the true next jump height
     // so the sample(s) before the discontinuity get the correct residual.

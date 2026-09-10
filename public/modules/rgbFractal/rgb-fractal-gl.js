@@ -625,7 +625,7 @@ function nodeGraphRgbFractalGlPaint(canvas, params) {
   const peak = stops?.[stops.length - 1]?.color || "#ffffff";
   nodeGraphRgbFractalGlUploadPalette(state, stops, peak);
 
-  const screenBlur = Math.max(0, Number(params.screenBlur) || 0);
+  const screenBlur = Math.max(0, nodeGraphFiniteNumber(params.screenBlur));
   const useScreenBlur = screenBlur > 0.02 && state.sceneFbo && state.blurProgram;
 
   gl.disable(gl.DEPTH_TEST);
@@ -667,9 +667,9 @@ function nodeGraphRgbFractalGlPaint(canvas, params) {
   gl.uniform1f(U.uTrapMix, params.trapMix);
   gl.uniform2f(U.uTrapPoint, params.trapX, params.trapY);
   gl.uniform1f(U.uTime, params.time);
-  gl.uniform1f(U.uFold, Number(params.fold) || 0);
+  gl.uniform1f(U.uFold, nodeGraphFiniteNumber(params.fold));
   gl.uniform1f(U.uBands, Number.isFinite(Number(params.bands)) ? Number(params.bands) : 1.65);
-  gl.uniform1f(U.uDomainWarp, Number(params.domainWarp) || 0);
+  gl.uniform1f(U.uDomainWarp, nodeGraphFiniteNumber(params.domainWarp));
   const outerPlate = String(params.outerPlate || "stop0");
   // 0 = Stop 0.00 (solid palette t=0), 1 = Gradient (soft full-palette exterior)
   const outerMode = (

@@ -8,7 +8,7 @@ function nodeGraphOfflineIncomingClockRate(nodeId) {
   const sourceNode = (Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes : [])
     .find((node) => node.id === connection?.sourceNode);
   return sourceNode?.type === "clock"
-    ? Math.max(0, Number(sourceNode.params?.rate) || 0)
+    ? Math.max(0, nodeGraphFiniteNumber(sourceNode.params?.rate))
     : 0;
 }
 

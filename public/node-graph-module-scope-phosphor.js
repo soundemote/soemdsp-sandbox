@@ -59,7 +59,7 @@ function nodeGraphModuleScopePhosphorFrameReady(slot) {
   // (or skipped) and 2D Trace looked intermittent.
   const key = "__simulation-fps";
   const fps = normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60);
-  const now = Math.max(0, Number(nodeGraphModuleScopeState.animationTime) || 0);
+  const now = Math.max(0, nodeGraphFiniteNumber(nodeGraphModuleScopeState.animationTime));
   const state = nodeGraphModuleScopeState.phosphorFrame || {
     key: "",
     lastUpdate: 0,
@@ -99,7 +99,7 @@ function nodeGraphPhosphorEnergyEnsureCanvas(host, key, width, height) {
 
 
 function nodeGraphPhosphorEnergyFadeAmount(decay) {
-  const d = clampNodeSliderValue(Number(decay) || 0, 0, 1);
+  const d = clampNodeSliderValue(nodeGraphFiniteNumber(decay), 0, 1);
   if (d <= 0.001) {
     return 0;
   }
@@ -128,7 +128,7 @@ function nodeGraphPhosphorEnergyFade(context, width, height, decay) {
 
 
 function nodeGraphPhosphorEnergySoftnessPx(sizePx, _ignored = 0.5) {
-  const size = Math.max(1, Number(sizePx) || 1);
+  const size = Math.max(1, nodeGraphFiniteNumber(sizePx, 1));
   return Math.max(1.25, size * 0.18);
 }
 
@@ -159,7 +159,7 @@ function nodeGraphPhosphorBuildGradientStops(peakRgb, backgroundHex = "#000000")
 
 
 function nodeGraphPhosphorSampleGradient(energy01, stops) {
-  const e = clampNodeSliderValue(Number(energy01) || 0, 0, 1);
+  const e = clampNodeSliderValue(nodeGraphFiniteNumber(energy01), 0, 1);
   const list = Array.isArray(stops) && stops.length ? stops : nodeGraphPhosphorBuildGradientStops([120, 255, 170]);
   if (e <= list[0].t) {
     return list[0];

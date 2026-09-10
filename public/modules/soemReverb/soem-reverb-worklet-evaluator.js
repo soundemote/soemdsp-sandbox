@@ -7,27 +7,27 @@ NodeLiveAudioProcessor.prototype.createSoemReverbState = function createSoemReve
 };
 
 NodeLiveAudioProcessor.prototype.soemReverbTimingModeMultiplier = function soemReverbTimingModeMultiplier(mode) {
-  const rounded = Math.round(Number(mode) || 0);
+  const rounded = Math.round(nodeGraphFiniteNumber(mode));
   if (rounded === 1) return 1.5;
   if (rounded === 2) return 2 / 3;
   return 1;
 };
 
 NodeLiveAudioProcessor.prototype.soemReverbNoteFraction = function soemReverbNoteFraction(numerator, denominator) {
-  const num = Math.max(0, Number(numerator) || 0);
+  const num = Math.max(0, nodeGraphFiniteNumber(numerator));
   if (num === 0) return 0;
-  const den = Math.max(0, Number(denominator) || 0);
+  const den = Math.max(0, nodeGraphFiniteNumber(denominator));
   return num / Math.max(1, den);
 };
 
 /** One echo base in seconds for both echo L/R. */
 NodeLiveAudioProcessor.prototype.soemReverbEchoSeconds = function soemReverbEchoSeconds(params) {
-  const offsetSeconds = (Number(params.offsetMs) || 0) / 1000;
+  const offsetSeconds = (nodeGraphFiniteNumber(params.offsetMs)) / 1000;
   const freeSeconds = Math.max(0.0001, nodeGraphFiniteNumber(params.echoTime, 0.35));
-  if (Math.round(Number(params.echoTempoSync) || 0) === 0) {
+  if (Math.round(nodeGraphFiniteNumber(params.echoTempoSync)) === 0) {
     return freeSeconds + offsetSeconds;
   }
-  const bpm = Math.max(1, Number(this.timing?.tempoBpm) || 120);
+  const bpm = Math.max(1, nodeGraphFiniteNumber(this.timing?.tempoBpm, 120));
   const secondsPerWholeNote = 240 / bpm;
   const fraction = this.soemReverbNoteFraction(params.timeNumerator, params.timeDenominator);
   const synced = secondsPerWholeNote * fraction * this.soemReverbTimingModeMultiplier(params.timingMode);
@@ -58,8 +58,8 @@ NodeLiveAudioProcessor.prototype.applySoemReverbParams = function applySoemRever
 };
 
 NodeLiveAudioProcessor.prototype.soemReverbSample = function soemReverbSample(state, left, right, params, rateHz) {
-  const inL = Number(left) || 0;
-  const inR = Number(right) || 0;
+  const inL = nodeGraphFiniteNumber(left);
+  const inR = nodeGraphFiniteNumber(right);
   // Dry = pure input; Mix = full dry/wet blend (native left/right).
   const silent = {
     "Dry L": inL,
@@ -75,7 +75,7 @@ NodeLiveAudioProcessor.prototype.soemReverbSample = function soemReverbSample(st
     return silent;
   }
   try {
-    const rate = Math.max(1, Number(rateHz) || sampleRate || 44100);
+    const rate = Math.max(1, nodeGraphFiniteNumber(rateHz, nodeGraphFiniteNumber(sampleRate, 44100)));
     const native = this.nativeSoemReverb;
     if (!state.nativeHandle || state.nativeSampleRate !== rate) {
       if (state.nativeHandle) native.soemdsp_soem_reverb_destroy?.(state.nativeHandle);

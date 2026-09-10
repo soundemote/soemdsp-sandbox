@@ -25,24 +25,24 @@ function nodeGraphMushroomSample(options = {}) {
   }
   state.resetWasHigh = resetHigh;
 
-  const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
-  const frequency = Number(options.frequency) || 0;
-  const phaseOffset = Number(options.phaseOffset) || 0;
-  const numMushroomsRaw = Number(options.numMushrooms) || 0;
-  const grow = Number(options.grow) || 0;
-  const density = Number(options.density) || 0;
-  const capRotation = Number(options.capRotation) || 0;
-  const stemRotationSpeed = Number(options.stemRotationSpeed) || 0;
-  const head = Number(options.head) || 0;
-  const spread = Number(options.spread) || 0;
-  const wobble = Number(options.wobble) || 0;
-  const clusterRotation = Number(options.clusterRotation) || 0;
-  const clusterRotationSpeed = Number(options.clusterRotationSpeed) || 0;
-  const sharp = Number(options.sharp) || 0;
-  const width = Number(options.width) || 0;
-  const stem = Number(options.stem) || 0;
-  const apart = Number(options.apart) || 0;
-  const capStemTransition = Number(options.capStemTransition) || 0;
+  const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const frequency = nodeGraphFiniteNumber(options.frequency);
+  const phaseOffset = nodeGraphFiniteNumber(options.phaseOffset);
+  const numMushroomsRaw = nodeGraphFiniteNumber(options.numMushrooms);
+  const grow = nodeGraphFiniteNumber(options.grow);
+  const density = nodeGraphFiniteNumber(options.density);
+  const capRotation = nodeGraphFiniteNumber(options.capRotation);
+  const stemRotationSpeed = nodeGraphFiniteNumber(options.stemRotationSpeed);
+  const head = nodeGraphFiniteNumber(options.head);
+  const spread = nodeGraphFiniteNumber(options.spread);
+  const wobble = nodeGraphFiniteNumber(options.wobble);
+  const clusterRotation = nodeGraphFiniteNumber(options.clusterRotation);
+  const clusterRotationSpeed = nodeGraphFiniteNumber(options.clusterRotationSpeed);
+  const sharp = nodeGraphFiniteNumber(options.sharp);
+  const width = nodeGraphFiniteNumber(options.width);
+  const stem = nodeGraphFiniteNumber(options.stem);
+  const apart = nodeGraphFiniteNumber(options.apart);
+  const capStemTransition = nodeGraphFiniteNumber(options.capStemTransition);
 
   const nom = clampNodeSliderValue(numMushroomsRaw, -5, 5) || 1;
   const nomTrunc = nom === 0 ? 1 : Math.trunc(nom);

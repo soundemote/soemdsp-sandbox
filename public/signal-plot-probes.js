@@ -7,8 +7,8 @@ function signalPlotProbeAtClientPoint(clientX, clientY) {
   const scale = Math.min(width, height) * 0.44 * state.signalPlotScale;
   const x = (clientX - rect.left - width / 2) / scale;
   const y = -(clientY - rect.top - height / 2) / scale;
-  const normalizedX = Math.max(-1, Math.min(1, x));
-  const normalizedY = Math.max(-1, Math.min(1, y));
+  const normalizedX = x;
+  const normalizedY = y;
 
   if (!waveform) {
     return {

@@ -50,11 +50,11 @@ function nodeGraphRasterRgbApplyScreenChrome(face, canvas, settings) {
   const cellW = face.offsetWidth || 0;
   const cellH = face.offsetHeight || 0;
   const maxInset = Math.max(0, Math.min(cellW, cellH) / 2);
-  const inset = Math.round((Number(settings.screenPadding) || 0) * maxInset);
+  const inset = Math.round((nodeGraphFiniteNumber(settings.screenPadding)) * maxInset);
   const panelW = Math.max(0, cellW - inset * 2);
   const panelH = Math.max(0, cellH - inset * 2);
   const maxRadius = Math.max(0, Math.min(panelW, panelH) / 2);
-  const radius = Math.round((Number(settings.rounding) || 0) / 100 * maxRadius);
+  const radius = Math.round((nodeGraphFiniteNumber(settings.rounding)) / 100 * maxRadius);
   const shape = settings.screenShape === "squircle" ? "squircle" : "round";
   face.dataset.rasterRgbScreen = "true";
   face.style.setProperty("--raster-rgb-inset", `${inset}px`);
@@ -101,7 +101,7 @@ function nodeGraphRasterRgbPosMod(pos, period) {
   if (!(p > 0)) {
     return 0;
   }
-  const n = Number(pos) || 0;
+  const n = nodeGraphFiniteNumber(pos);
   const m = n % p;
   return m < 0 ? m + p : m;
 }
@@ -253,7 +253,7 @@ function nodeGraphRasterRgbApplyGrade(state, grade) {
     state.gradeLutKey = key;
   }
   const lut = state.gradeLut;
-  const hue = Number(grade?.hue) || 0;
+  const hue = nodeGraphFiniteNumber(grade?.hue);
   const rotate = Math.abs(hue) > 1e-9 && typeof nodeGraphRasterRgbHueRotate === "function";
   for (let i = 0; i < src.length; i += 4) {
     let r = lut[src[i]];
@@ -276,8 +276,8 @@ function nodeGraphRasterRgbApplyGrade(state, grade) {
 function nodeGraphRasterRgbState(nodeId, width, height, logicalWidth = width, logicalHeight = height) {
   const key = String(nodeId || "");
   let state = key ? nodeGraphRasterRgbBuffers.get(key) : null;
-  const lw = Math.max(1e-9, Number(logicalWidth) || width);
-  const lh = Math.max(1e-9, Number(logicalHeight) || height);
+  const lw = Math.max(1e-9, nodeGraphFiniteNumber(logicalWidth, width));
+  const lh = Math.max(1e-9, nodeGraphFiniteNumber(logicalHeight, height));
   if (!state || state.width !== width || state.height !== height) {
     state = {
       height,
@@ -296,8 +296,8 @@ function nodeGraphRasterRgbState(nodeId, width, height, logicalWidth = width, lo
       nodeGraphRasterRgbBuffers.set(key, state);
     }
   } else if (
-    Math.abs((Number(state.logicalWidth) || 0) - lw) > 1e-9
-    || Math.abs((Number(state.logicalHeight) || 0) - lh) > 1e-9
+    Math.abs((nodeGraphFiniteNumber(state.logicalWidth)) - lw) > 1e-9
+    || Math.abs((nodeGraphFiniteNumber(state.logicalHeight)) - lh) > 1e-9
   ) {
     // Same ceil buffer, new line period — retune without wiping the plate.
     state.logicalWidth = lw;
@@ -607,7 +607,7 @@ function nodeGraphRasterRgbEnsureCanvas(face, slot, pixelRatio) {
   }
   const cssW = Math.max(1, face.clientWidth || face.offsetWidth || 1);
   const cssH = Math.max(1, face.clientHeight || face.offsetHeight || 1);
-  const dpr = Math.max(1, Number(pixelRatio) || Number(window.devicePixelRatio) || 1);
+  const dpr = Math.max(1, nodeGraphFiniteNumber(pixelRatio, nodeGraphFiniteNumber(window.devicePixelRatio, 1)));
   const bw = Math.max(1, Math.round(cssW * dpr));
   const bh = Math.max(1, Math.round(cssH * dpr));
   if (canvas.width !== bw || canvas.height !== bh) {
@@ -730,8 +730,8 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
   const captured = nodeGraphRasterRgbTakeChannels(paintSlot);
   const cellCount = state.width * state.height;
   const wired = Boolean(captured.length);
-  const logicalW = Math.max(1e-9, Number(state.logicalWidth) || grid.width || state.width);
-  const logicalH = Math.max(1e-9, Number(state.logicalHeight) || grid.height || state.height);
+  const logicalW = Math.max(1e-9, nodeGraphFiniteNumber(state.logicalWidth, grid.width) || state.width);
+  const logicalH = Math.max(1e-9, nodeGraphFiniteNumber(state.logicalHeight, grid.height) || state.height);
   const frameSamples = logicalW * logicalH;
   // New pixels only when the shared Simulation FPS tick arms ingest.
   // Extra paints (pump, collect, slider) re-present grade without a second write.
@@ -760,7 +760,7 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
     if (!(undrawn > 0) && !Number.isFinite(absEnd)) {
       const recent = Math.max(
         0,
-        Math.floor(Number(primary?.nodeGraphScopeRecentSampleCount) || 0),
+        Math.floor(nodeGraphFiniteNumber(primary?.nodeGraphScopeRecentSampleCount)),
       );
       undrawn = recent > 0 ? recent : Math.min(captured.length, oneFrame);
     }
@@ -780,7 +780,7 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
     if (!Number.isFinite(scanCredit) || scanCredit < 0) {
       scanCredit = 0;
     }
-    let writePos = Number(state.writePos) || 0;
+    let writePos = nodeGraphFiniteNumber(state.writePos);
     for (let i = 0; i < take; i += 1) {
       const rByte = nodeGraphRasterRgbByte(redLen ? red[redStart + i] : 0, redBi);
       const gByte = nodeGraphRasterRgbByte(greenLen ? green[greenStart + i] : 0, greenBi);
@@ -1077,7 +1077,7 @@ function scheduleNodeGraphRasterRgbPump() {
 }
 
 function paintNodeGraphRasterRgbFacesNow(pixelRatio = window.devicePixelRatio || 1) {
-  const pr = Math.max(1, Number(pixelRatio) || Number(window.devicePixelRatio) || 1);
+  const pr = Math.max(1, nodeGraphFiniteNumber(pixelRatio, nodeGraphFiniteNumber(window.devicePixelRatio, 1)));
   let painted = 0;
   for (const { slot, face } of nodeGraphRasterRgbCollectFaces()) {
     try {

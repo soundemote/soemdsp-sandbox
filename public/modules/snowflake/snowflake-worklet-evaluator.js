@@ -35,7 +35,7 @@ NodeLiveAudioProcessor.prototype.snowflakeSample = function snowflakeSample(stat
         st.nativeHandle = this.nativeSnowflake.soemdsp_snowflake_create();
       }
       if (st.nativeHandle) {
-        const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
+        const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
         // Direction −1…1. Resolve legacy reverse if direction omitted.
         let direction = Number(options.direction);
         if (!Number.isFinite(direction)) {
@@ -65,30 +65,30 @@ NodeLiveAudioProcessor.prototype.snowflakeSample = function snowflakeSample(stat
           if (nativeVer >= 3) {
             this.nativeSnowflake.soemdsp_snowflake_sample(
               st.nativeHandle,
-              Math.max(0, Number(options.frequencyHz) || 0),
-              Number(options.pattern) || 0,
-              Number(options.iterations) || 0,
+              Math.max(0, nodeGraphFiniteNumber(options.frequencyHz)),
+              nodeGraphFiniteNumber(options.pattern),
+              nodeGraphFiniteNumber(options.iterations),
               nodeGraphFiniteNumber(options.angle, 60),
               sizeArg,
               reverseOrDirection,
-              Number(options.spin) || 0,
+              nodeGraphFiniteNumber(options.spin),
               Number.isFinite(Number(options.level)) ? Number(options.level) : 1,
-              Number(options.reset) || 0,
+              nodeGraphFiniteNumber(options.reset),
               phase01,
               sampleRateValue,
             );
           } else {
             this.nativeSnowflake.soemdsp_snowflake_sample(
               st.nativeHandle,
-              Math.max(0, Number(options.frequencyHz) || 0),
-              Number(options.pattern) || 0,
-              Number(options.iterations) || 0,
+              Math.max(0, nodeGraphFiniteNumber(options.frequencyHz)),
+              nodeGraphFiniteNumber(options.pattern),
+              nodeGraphFiniteNumber(options.iterations),
               nodeGraphFiniteNumber(options.angle, 60),
               sizeArg,
               reverseOrDirection,
-              Number(options.spin) || 0,
+              nodeGraphFiniteNumber(options.spin),
               Number.isFinite(Number(options.level)) ? Number(options.level) : 1,
-              Number(options.reset) || 0,
+              nodeGraphFiniteNumber(options.reset),
               sampleRateValue,
             );
           }

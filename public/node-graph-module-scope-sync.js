@@ -9,11 +9,11 @@ function nodeGraphModuleScopeRisingCrossings(buffer, threshold, start = 1, end =
   if (!Number.isFinite(level) || limit <= first) {
     return crossings;
   }
-  const hyst = Math.max(0, Number(options.hysteresis) || 0);
+  const hyst = Math.max(0, nodeGraphFiniteNumber(options.hysteresis));
   if (hyst <= 0) {
     for (let index = first; index < limit; index += 1) {
-      const previous = Number(buffer[index - 1]) || 0;
-      const current = Number(buffer[index]) || 0;
+      const previous = nodeGraphFiniteNumber(buffer[index - 1]);
+      const current = nodeGraphFiniteNumber(buffer[index]);
       if (previous <= level && current > level) {
         const delta = current - previous;
         const fraction = Math.abs(delta) > 1e-12
@@ -26,10 +26,10 @@ function nodeGraphModuleScopeRisingCrossings(buffer, threshold, start = 1, end =
   }
   const low = level - hyst;
   const high = level + hyst;
-  let armed = (Number(buffer[first - 1]) || 0) < low;
+  let armed = (nodeGraphFiniteNumber(buffer[first - 1])) < low;
   for (let index = first; index < limit; index += 1) {
-    const previous = Number(buffer[index - 1]) || 0;
-    const current = Number(buffer[index]) || 0;
+    const previous = nodeGraphFiniteNumber(buffer[index - 1]);
+    const current = nodeGraphFiniteNumber(buffer[index]);
     if (current < low) {
       armed = true;
       continue;
@@ -91,12 +91,12 @@ function nodeGraphModuleScopeLowpassSyncTrace(buffer, start, end, periodSamples 
   );
   const alpha = clampNodeSliderValue(1 - Math.exp((-2 * Math.PI * cutoff) / Math.max(1, sampleRate)), 0.001, 1);
   const trace = new Float32Array(limit - first);
-  let y1 = (Number(buffer[first]) || 0) - threshold;
+  let y1 = (nodeGraphFiniteNumber(buffer[first])) - threshold;
   let y2 = y1;
   let y3 = y1;
   let y4 = y1;
   for (let index = first; index < limit; index += 1) {
-    const input = (Number(buffer[index]) || 0) - threshold;
+    const input = (nodeGraphFiniteNumber(buffer[index])) - threshold;
     y1 += (input - y1) * alpha;
     y2 += (y1 - y2) * alpha;
     y3 += (y2 - y3) * alpha;
@@ -214,7 +214,7 @@ function nodeGraphModuleScopeEstimatedCycle(buffer) {
 
 /** Most recent rising edge that still fits [start, start+visible] inside the buffer. */
 function nodeGraphModuleScopeTriggeredStart(syncBuffer, cycleEstimate, visibleSamples) {
-  const periodSamples = Number(cycleEstimate?.periodSamples) || 0;
+  const periodSamples = nodeGraphFiniteNumber(cycleEstimate?.periodSamples);
   if (!syncBuffer?.length || !(visibleSamples > 0)) {
     return null;
   }
@@ -251,7 +251,7 @@ function nodeGraphModuleScopeTriggeredStart(syncBuffer, cycleEstimate, visibleSa
  * (true scope re-trigger — not “nearest freerun end”).
  */
 function nodeGraphTraceDisplaySyncedStart(syncBuffer, cycleEstimate, visibleSamples, validStart, validEnd, phaseHint = null) {
-  const periodSamples = Number(cycleEstimate?.periodSamples) || 0;
+  const periodSamples = nodeGraphFiniteNumber(cycleEstimate?.periodSamples);
   if (!syncBuffer?.length || !(visibleSamples > 0)) {
     return null;
   }
@@ -309,7 +309,7 @@ function nodeGraphModuleScopeVisibleSamples(buffer, settings, cycleEstimate) {
   const sampleRate = nodeGraphScopeSampleRate(buffer);
   const cycleRatio = Math.max(
     0.001,
-    (Number(cycles) || nodeGraphModuleScopeDefaultSettings.cycles) /
+    (nodeGraphFiniteNumber(cycles, nodeGraphModuleScopeDefaultSettings.cycles)) /
       Math.max(0.001, nodeGraphModuleScopeDefaultSettings.cycles),
   );
   return settings.timeMs > 0
@@ -326,7 +326,7 @@ function nodeGraphTraceDisplayHistorySampleCount(buffer, settings, options = {})
     : 0;
   const sr = sampleRate > 0
     ? sampleRate
-    : (Number(nodeGraphModuleScopeState?.sampleRate) || Number(nodeGraphMvp?.sampleRate) || 44100);
+    : (nodeGraphFiniteNumber(nodeGraphModuleScopeState?.sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const syncOn = options.syncOn === true
     || (typeof nodeGraphDisplaySyncIsOn === "function" && options.syncOn !== false
       ? nodeGraphDisplaySyncIsOn(safeSettings)
@@ -338,7 +338,7 @@ function nodeGraphTraceDisplayHistorySampleCount(buffer, settings, options = {})
         safeSettings.historyCycles,
         nodeGraphTraceDisplaySettingsDefaults?.historyCycles ?? 4,
       )
-      : Math.max(0.05, Number(safeSettings.historyCycles) || 4);
+      : Math.max(0.05, nodeGraphFiniteNumber(safeSettings.historyCycles, 4));
     const period = Number(options.periodSamples);
     if (Number.isFinite(period) && period >= 2) {
       return Math.max(1, Math.round(period * cycles));
@@ -351,7 +351,7 @@ function nodeGraphTraceDisplayHistorySampleCount(buffer, settings, options = {})
       safeSettings.historyHz,
       nodeGraphTraceDisplaySettingsDefaults?.historyHz ?? 4,
     )
-    : Math.max(0, Number(safeSettings.historyHz) || 4);
+    : Math.max(0, nodeGraphFiniteNumber(safeSettings.historyHz, 4));
   if (!(historyHz > 0)) {
     return Math.max(1, buffer?.length || 1);
   }
@@ -386,7 +386,7 @@ function nodeGraphTraceDisplayPixelLockedView(view, canvasWidthPx) {
   if (!(visible > 0) || !Number.isFinite(visible)) {
     return view;
   }
-  const width = Math.max(1, Math.floor(Number(canvasWidthPx) || 1));
+  const width = Math.max(1, Math.floor(nodeGraphFiniteNumber(canvasWidthPx, 1)));
   const spp = visible / width;
   if (!(spp > 1e-9) || !Number.isFinite(spp)) {
     return view;
@@ -454,7 +454,7 @@ function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycl
   if (!source?.length) {
     return null;
   }
-  const periodHint = Number(cycleEstimate?.periodSamples) || 0;
+  const periodHint = nodeGraphFiniteNumber(cycleEstimate?.periodSamples);
   const totalSampleCount = Number(buffer?.nodeGraphScopeTotalSampleCount);
   const prevTotalSampleCount = Number(lock.lastSyncTotalSampleCount);
   const elapsed = Number.isFinite(prevTotalSampleCount) && Number.isFinite(totalSampleCount)
@@ -525,11 +525,11 @@ function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycl
   // No edge this frame — hold phase briefly (Normal-mode stickiness), then
   // Auto freerun so aperiodic / quiet signals never freeze the face.
   const step = Math.max(1, elapsed || Math.round(Math.max(8, sampleRate / 120)));
-  lock.missedSamples = (Number(lock.missedSamples) || 0) + step;
+  lock.missedSamples = (nodeGraphFiniteNumber(lock.missedSamples)) + step;
   // If samples advance but we keep holding the same phase without reacquire,
   // count "stuck" progress — multi-sync thrash used to freeze here forever.
   if (elapsed > 0 && phaseHint !== null && Number(lock.lastHeldStart) === phaseHint) {
-    lock.stuckFrames = (Number(lock.stuckFrames) || 0) + 1;
+    lock.stuckFrames = (nodeGraphFiniteNumber(lock.stuckFrames)) + 1;
   } else {
     lock.stuckFrames = 0;
   }
@@ -539,7 +539,7 @@ function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycl
     period > 0 ? period * 2.5 : 0,
     Math.round(sampleRate * 0.08),
   );
-  const stuckTooLong = (Number(lock.stuckFrames) || 0) > 12;
+  const stuckTooLong = (nodeGraphFiniteNumber(lock.stuckFrames)) > 12;
   if (
     lock.haveLock
     && phaseHint !== null

@@ -1070,7 +1070,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphSmoothTimeSamplesFromMeta = function
 ) {
   const value = Number(metadata?.smoothingSeconds);
   if (!Number.isFinite(value) || value <= 0) return 0;
-  const rate = Math.max(1, Number(this.engineSampleRate || sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate || sampleRate, 44100));
   if (value > 0 && value < 1) {
     return Math.max(1, Math.round(value * rate));
   }
@@ -1153,7 +1153,7 @@ NodeLiveAudioProcessor.prototype.applyNativeGraphPitchOffset = function applyNat
   const oct = Number(this.pitchOffsetOctaves);
   native.soemdsp_graph_set_pitch_offset(
     handle,
-    Number.isFinite(oct) ? Math.max(-10, Math.min(10, oct)) : 0,
+    Number.isFinite(oct) ? oct : 0,
   );
 };
 
@@ -1449,7 +1449,7 @@ NodeLiveAudioProcessor.prototype.postNativeGraphStatus = function postNativeGrap
       status: this.nativeGraphStatus,
       message: msg,
       compiled: Boolean(this.nativeGraphCompiled),
-      handle: Number(this.nativeGraphHandle) || 0,
+      handle: nodeGraphFiniteNumber(this.nativeGraphHandle),
       planSerial: this.planSerial,
       sessionId: this.sessionId,
     });
@@ -1614,8 +1614,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
 
   // Optional global time cell from worklet autoSmoothingSeconds.
   if (native.soemdsp_graph_set_global_smooth_time) {
-    const rate = Math.max(1, Number(this.engineSampleRate || sampleRate) || 44100);
-    const seconds = Math.max(0, Number(this.autoSmoothingSeconds) || 0);
+    const rate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate || sampleRate, 44100));
+    const seconds = Math.max(0, nodeGraphFiniteNumber(this.autoSmoothingSeconds));
     const globalSamples = seconds > 0 ? Math.max(1, Math.round(seconds * rate)) : 0;
     if (forceAll || this._nativeGraphGlobalSmoothSamples !== globalSamples) {
       this._nativeGraphGlobalSmoothSamples = globalSamples;
@@ -1663,8 +1663,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     let domainAdd = 0;
     if (typeof this.efficientParamModAccumulators === "function") {
       const acc = this.efficientParamModAccumulators(node, key);
-      unitAdd = Number(acc?.unitAdd) || 0;
-      domainAdd = Number(acc?.domainAdd) || 0;
+      unitAdd = nodeGraphFiniteNumber(acc?.unitAdd);
+      domainAdd = nodeGraphFiniteNumber(acc?.domainAdd);
     }
     const modToken = `${unitAdd}\0${domainAdd}`;
     if (forceAll || cache[modKey] !== modToken) {
@@ -1813,9 +1813,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("timeDenominator", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("timeDenominator", 4));
       push("timingMode", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("timingMode", 0));
       push("offset", P.NATIVE_GRAPH_PARAM_OFFSET_MS, Number.isFinite(ppOffset) ? ppOffset : 0);
-      push("lfoAmp", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, Number.isFinite(ppLfoAmp) ? Math.max(0, ppLfoAmp) : 25);
+      push("lfoAmp", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, Number.isFinite(ppLfoAmp) ? ppLfoAmp : 25);
       push("lfoStyle", P.NATIVE_GRAPH_PARAM_LFO_STYLE, disc("lfoStyle", 0));
-      push("lfoRate", P.NATIVE_GRAPH_PARAM_LFO_RATE, Number.isFinite(ppLfoRate) ? Math.max(0, Math.min(20, ppLfoRate)) : 0.35);
+      push("lfoRate", P.NATIVE_GRAPH_PARAM_LFO_RATE, Number.isFinite(ppLfoRate) ? ppLfoRate : 0.35);
       push("lfoVariation", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("lfoVariation", 0.25));
       push("saturate", P.NATIVE_GRAPH_PARAM_SATURATE, cont("saturate", 1));
       push("lpfFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("lpfFrequency", 8000));
@@ -2571,15 +2571,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       if (disc("echoTempoSync", 0) >= 1) {
         const bpm = Number(this.timing?.tempoBpm);
         const safeBpm = Number.isFinite(bpm) && bpm > 0 ? bpm : 120;
-        const num = Math.max(0, cont("timeNumerator", 1));
+        const num = cont("timeNumerator", 1);
         const denRaw = cont("timeDenominator", 4);
         const den = denRaw > 0 ? denRaw : 1;
         const mode = disc("timingMode", 0);
         const mult = mode === 1 ? 1.5 : mode === 2 ? 2 / 3 : 1;
         const offsetSec = cont("offsetMs", 0) * 0.001;
         echoTime = (num / den) * (240 / safeBpm) * mult + offsetSec;
-        if (!(echoTime > 0.0001)) echoTime = 0.0001;
-        if (echoTime > 1) echoTime = 1;
+        if (!Number.isFinite(echoTime)) echoTime = 0.35;
       }
       push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.43));
       push("volume", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("volume", 1));
@@ -2673,7 +2672,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
         push(
           "amplitude",
           P.NATIVE_GRAPH_PARAM_AMPLITUDE,
-          Number.isFinite(ampRaw) ? Math.max(0, ampRaw) : 0.5,
+          Number.isFinite(ampRaw) ? ampRaw : 0.5,
         );
       }
       continue;
@@ -3129,7 +3128,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       // Matches process_audio_player Control map in graph_engine.
       const transportFallback = Object.prototype.hasOwnProperty.call(node?.params || {}, "transport")
         ? 4
-        : ((Number(node?.params?.loop) || 0) >= 0.5 ? 4 : 0);
+        : ((nodeGraphFiniteNumber(node?.params?.loop)) >= 0.5 ? 4 : 0);
       push("transport", P.NATIVE_GRAPH_PARAM_MODE, disc("transport", transportFallback));
       push("speed", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("speed", 1));
       push("start", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("start", 0));
@@ -3393,7 +3392,7 @@ NodeLiveAudioProcessor.prototype.syncNativeYellowCutoffStrips =
       const hash = this.fnv1aHash32(id);
       const n = Math.min(
         strip.length | 0,
-        Math.max(1, Number(native.soemdsp_graph_max_block_frames?.()) || 128) | 0,
+        Math.max(1, nodeGraphFiniteNumber(native.soemdsp_graph_max_block_frames?.(), 128)) | 0,
         _frames | 0 || 128,
       );
       if (n < 1) continue;
@@ -3584,7 +3583,7 @@ NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
         if (n > 64) n = 64;
         let lastFrac = 0;
         try {
-          lastFrac = fracFn ? Number(fracFn(handle)) || 0 : 0;
+          lastFrac = fracFn ? nodeGraphFiniteNumber(fracFn(handle)) : 0;
         } catch (_e) {
           lastFrac = 0;
         }
@@ -3600,7 +3599,7 @@ NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
         } catch (_e) {
           centerSide = 0.5;
         }
-        const cs = Math.max(0, Math.min(1, centerSide));
+        const cs = centerSide;
         const ampCenter = Math.min(2 - cs * 2, 1);
         const ampSide = Math.min(cs * 2, 1);
         const voicePhases = new Array(n);
@@ -3608,7 +3607,7 @@ NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
         const voicePans = new Array(n);
         for (let i = 0; i < n; i++) {
           try {
-            voicePhases[i] = Number(phaseFn(handle, i)) || 0;
+            voicePhases[i] = nodeGraphFiniteNumber(phaseFn(handle, i));
           } catch (_e) {
             voicePhases[i] = 0;
           }
@@ -3806,7 +3805,7 @@ NodeLiveAudioProcessor.prototype.ensureNativeAudioPlayerInternalSmoothing =
   function ensureNativeAudioPlayerInternalSmoothing(native, hash, cache, forceAll) {
     if (!native || !this.nativeGraphHandle || !hash) return;
     const P = NodeLiveAudioProcessor;
-    const rate = Math.max(1, Number(this.engineSampleRate || sampleRate) || 44100);
+    const rate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate || sampleRate, 44100));
     const specs = [
       {
         key: "phaseOffset",
@@ -4114,8 +4113,7 @@ NodeLiveAudioProcessor.prototype.syncNativeAudioPlayerPcm = function syncNativeA
     const sample = sampleId ? this.samples?.get?.(sampleId) : null;
     const frames = Math.max(
       0,
-      Number(sample?.frames)
-        || sample?.channelData?.[0]?.length
+      nodeGraphFiniteNumber(sample?.frames, sample?.channelData?.[0])?.length
         || sample?.samples?.length
         || 0,
     ) | 0;
@@ -4138,10 +4136,7 @@ NodeLiveAudioProcessor.prototype.syncNativeAudioPlayerPcm = function syncNativeA
       Number(sample.channels) || (Array.isArray(sample.channelData) ? sample.channelData.length : 1) || 1,
     ) | 0;
     const channels = channelCount >= 2 ? 2 : 1;
-    const rate = Number(sample.sampleRate)
-      || Number(this.engineSampleRate)
-      || Number(sampleRate)
-      || 44100;
+    const rate = nodeGraphFiniteNumber(sample.sampleRate, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber))(sampleRate, 44100);
 
     let ok = 0;
     try {
@@ -4227,7 +4222,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     native.soemdsp_graph_clear(this.nativeGraphHandle);
     native.soemdsp_graph_set_sample_rate(
       this.nativeGraphHandle,
-      Number(this.engineSampleRate) || Number(this.hostSampleRate) || sampleRate || 44100,
+      nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(nodeGraphFiniteNumber(this.hostSampleRate, sampleRate), 44100)),
     );
     if (typeof this.applyNativeGraphPitchOffset === "function") {
       this.applyNativeGraphPitchOffset();
@@ -4846,7 +4841,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
   const stressed = Boolean(options.stressed);
   const protectedLeft = options.protectedLeft || null;
   const protectedRight = options.protectedRight || protectedLeft;
-  const frameOffset = Math.max(0, Number(options.frameOffset) || 0);
+  const frameOffset = Math.max(0, nodeGraphFiniteNumber(options.frameOffset));
   const outputNodeId = this.outputNode || "output";
   const P = NodeLiveAudioProcessor;
   const audioPorts = [
@@ -4931,8 +4926,8 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
   }
 
   if (protectedLeft && frames > 0) {
-    const lastL = Number(protectedLeft[frameOffset + frames - 1]) || 0;
-    const lastR = Number(protectedRight?.[frameOffset + frames - 1] ?? lastL) || 0;
+    const lastL = nodeGraphFiniteNumber(protectedLeft[frameOffset + frames - 1]);
+    const lastR = nodeGraphFiniteNumber(protectedRight?.[frameOffset + frames - 1] ?? lastL);
     this.nodeOutputs.set(outputNodeId, {
       Left: lastL,
       Right: lastR,
@@ -4954,7 +4949,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
   // Lorenz/attractors look like sparse downsampled polylines.
   // Default: MONO/LEFT/RIGHT (X/Y/Z + Wave/Out). fBm also publishes
   // SAW/RAMP/SQUARE as Out X/Y/Z Raw (pre-level phosphor probes).
-  const engineRateForFaces = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
+  const engineRateForFaces = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
   const facePorts = [
     P.NATIVE_GRAPH_PORT_MONO,
     P.NATIVE_GRAPH_PORT_LEFT,
@@ -5030,13 +5025,13 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       const portId = this.mapNativeGraphSrcPortId(sourcePort, srcType);
       const idx = frameOffset + frame;
       if (portId === P.NATIVE_GRAPH_PORT_RIGHT) {
-        return Number(protectedRight?.[idx] ?? protectedLeft[idx]) || 0;
+        return nodeGraphFiniteNumber(protectedRight?.[idx] ?? protectedLeft[idx]);
       }
       if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
-        return Number(protectedLeft[idx]) || 0;
+        return nodeGraphFiniteNumber(protectedLeft[idx]);
       }
-      const l = Number(protectedLeft[idx]) || 0;
-      const r = Number(protectedRight?.[idx] ?? l) || 0;
+      const l = nodeGraphFiniteNumber(protectedLeft[idx]);
+      const r = nodeGraphFiniteNumber(protectedRight?.[idx] ?? l);
       return (l + r) * 0.5;
     }
     // Yellow Graph Additive Out is JS-sidecar only — tap Mono / Left / Right rings.
@@ -5058,7 +5053,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
         return Number.isFinite(v) ? v : 0;
       }
       const last = this.nodeOutputs?.get?.(String(sourceNode));
-      return Number(last?.[lastKey] ?? last?.Mono) || 0;
+      return nodeGraphFiniteNumber(last?.[lastKey] ?? last?.Mono);
     }
     const portId = this.mapNativeGraphSrcPortId(sourcePort, srcType);
     const hash = this.fnv1aHash32(sourceNode);
@@ -5067,13 +5062,13 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       const v = Number(view[frame]);
       return Number.isFinite(v) ? v : 0;
     }
-    return Number(this.readRuntimePortOutput?.(
+    return nodeGraphFiniteNumber(this.readRuntimePortOutput?.(
       this.nodeOutputs,
       sourceNode,
       sourcePort,
       frame,
       frames,
-    )) || 0;
+    ));
   };
   // Vector RGB / other observers: outs are dry thru — walk past them to DSP.
   const readSrcSample = (sourceNode, sourcePort, frame) => {
@@ -5103,7 +5098,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
   const sinks = this.compiledVisualSinks;
   if (!Array.isArray(sinks) || !sinks.length) return;
   const stride = stressed ? 8 : 1;
-  const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
+  const engineRate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
   for (let s = 0; s < sinks.length; s += 1) {
     const sink = sinks[s];
     const inputs = sink?.inputs;
@@ -5119,8 +5114,8 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
     if (sinkType === "output" && protectedLeft) {
       for (let frame = 0; frame < frames; frame += stride) {
         const idx = frameOffset + frame;
-        const l = Number(protectedLeft[idx]) || 0;
-        const r = Number(protectedRight?.[idx] ?? l) || 0;
+        const l = nodeGraphFiniteNumber(protectedLeft[idx]);
+        const r = nodeGraphFiniteNumber(protectedRight?.[idx] ?? l);
         const m = (l + r) * 0.5;
         this.writeOutputVisualSinkSample?.(sink, m, l, r, rateMeta);
       }
@@ -5185,7 +5180,7 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
     // setPlan often races ahead of combined-wasm instantiate. Retry compile
     // once exports land so we do not stay silent forever after a cold start.
     if (this.nativeGraphExportsReady()) {
-      const now = Number(currentFrame) || 0;
+      const now = nodeGraphFiniteNumber(currentFrame);
       if (!Number.isFinite(this._nativeGraphCompileRetryFrame)
         || now - this._nativeGraphCompileRetryFrame >= 128) {
         this._nativeGraphCompileRetryFrame = now;
@@ -5241,7 +5236,7 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
   }
 
   const native = this.nativeGraph;
-  const maxBlock = Math.max(1, Number(native.soemdsp_graph_max_block_frames()) || 128);
+  const maxBlock = Math.max(1, nodeGraphFiniteNumber(native.soemdsp_graph_max_block_frames(), 128));
   let written = 0;
   const stressed = Boolean(this.audioThreadStressed);
   const addL = this._additiveScratchL;
@@ -5277,8 +5272,8 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
       let right = Number(rightView[i]);
       if (!Number.isFinite(left)) left = 0;
       if (!Number.isFinite(right)) right = 0;
-      if (addL && frame < addL.length) left += Number(addL[frame]) || 0;
-      if (addR && frame < addR.length) right += Number(addR[frame]) || 0;
+      if (addL && frame < addL.length) left += nodeGraphFiniteNumber(addL[frame]);
+      if (addR && frame < addR.length) right += nodeGraphFiniteNumber(addR[frame]);
       if (this.outputSampleClipped?.(left)) this.meterClipCount += 1;
       if (this.outputSampleClipped?.(right)) this.meterClipCount += 1;
       if (
@@ -5286,7 +5281,7 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
         || this.outputSampleTripsEarProtection?.(right)
       ) {
         this.speakerProtectionPeak = Math.max(
-          Number(this.speakerProtectionPeak) || 0,
+          nodeGraphFiniteNumber(this.speakerProtectionPeak),
           Math.abs(left),
           Math.abs(right),
         );

@@ -16,7 +16,7 @@ function createNodeGraphWaveguideState() {
  */
 function nodeGraphWaveguideSample(state, input, amplitude) {
   const amp = Number.isFinite(Number(amplitude)) ? Number(amplitude) : 1;
-  const y = (Number(input) || 0) * amp;
+  const y = (nodeGraphFiniteNumber(input)) * amp;
   if (!Number.isFinite(y)) return 0;
   return y;
 }

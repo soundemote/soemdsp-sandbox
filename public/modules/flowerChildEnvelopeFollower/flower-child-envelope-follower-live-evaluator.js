@@ -7,7 +7,7 @@ function nodeGraphFlowerChildSecondsToSamples(seconds, sampleRate) {
   if (!Number.isFinite(value) || value <= 0) {
     return 1;
   }
-  return Math.max(1, value * Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100));
+  return Math.max(1, value * Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100))));
 }
 
 
@@ -39,12 +39,12 @@ function nodeGraphFlowerChildEnvelopeFollowerSample(state, input, params, sample
   );
   const attackStep = 1 / attackSamples;
   const decayStep = 1 / decaySamples;
-  const current = clampNodeSliderValue(Number(state.currentSlewedValue) || 0, 0, 1);
+  const current = clampNodeSliderValue(nodeGraphFiniteNumber(state.currentSlewedValue), 0, 1);
   if (target >= current) {
     state.currentSlewedValue = Math.min(target, current + attackStep);
     state.holdCounter = holdSamples;
-  } else if ((Number(state.holdCounter) || 0) > 0) {
-    state.holdCounter = Math.max(0, (Number(state.holdCounter) || 0) - 1);
+  } else if ((nodeGraphFiniteNumber(state.holdCounter)) > 0) {
+    state.holdCounter = Math.max(0, (nodeGraphFiniteNumber(state.holdCounter)) - 1);
     state.currentSlewedValue = current;
   } else {
     state.currentSlewedValue = Math.max(target, current - decayStep);

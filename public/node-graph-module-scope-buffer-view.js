@@ -15,7 +15,7 @@ function nodeGraphScopeBufferObjectId(buffer) {
   }
   if (!buffer._nodeGraphScopeObjectId) {
     const serial = (nodeGraphModuleScopeState.bufferObjectIdSerial =
-      (Number(nodeGraphModuleScopeState.bufferObjectIdSerial) || 0) + 1);
+      (nodeGraphFiniteNumber(nodeGraphModuleScopeState.bufferObjectIdSerial)) + 1);
     buffer._nodeGraphScopeObjectId = `b${serial}`;
   }
   return String(buffer._nodeGraphScopeObjectId);
@@ -214,7 +214,7 @@ function nodeGraphModuleScopeBufferView(buffer, slot) {
       start = triggeredStart;
     }
   }
-  const rawPanCycles = Number(settings.pan) || 0;
+  const rawPanCycles = nodeGraphFiniteNumber(settings.pan);
   const panCycles = syncOn && cycleEstimate
     ? Math.round(rawPanCycles)
     : rawPanCycles;
@@ -231,22 +231,22 @@ function nodeGraphModuleScopeBufferView(buffer, slot) {
 }
 
 function nodeGraphModuleScopeInterpolatedSample(buffer, position) {
-  const samplePosition = clampNodeSliderValue(Number(position) || 0, 0, Math.max(0, buffer.length - 1));
+  const samplePosition = clampNodeSliderValue(nodeGraphFiniteNumber(position), 0, Math.max(0, buffer.length - 1));
   const leftIndex = Math.floor(samplePosition);
   const rightIndex = Math.min(buffer.length - 1, leftIndex + 1);
   const blend = samplePosition - leftIndex;
-  const left = Number(buffer[leftIndex]) || 0;
-  const right = Number(buffer[rightIndex]) || left;
+  const left = nodeGraphFiniteNumber(buffer[leftIndex]);
+  const right = nodeGraphFiniteNumber(buffer[rightIndex], left);
   return left + (right - left) * blend;
 }
 
 function nodeGraphModuleScopeSampleInfo(buffer, position) {
-  const samplePosition = clampNodeSliderValue(Number(position) || 0, 0, Math.max(0, buffer.length - 1));
+  const samplePosition = clampNodeSliderValue(nodeGraphFiniteNumber(position), 0, Math.max(0, buffer.length - 1));
   const leftIndex = Math.floor(samplePosition);
   const rightIndex = Math.min(buffer.length - 1, leftIndex + 1);
   const blend = samplePosition - leftIndex;
-  const left = Number(buffer[leftIndex]) || 0;
-  const right = Number(buffer[rightIndex]) || left;
+  const left = nodeGraphFiniteNumber(buffer[leftIndex]);
+  const right = nodeGraphFiniteNumber(buffer[rightIndex], left);
   const discontinuity = rightIndex !== leftIndex &&
     Math.abs(right - left) > nodeGraphModuleScopeDiscontinuityThreshold;
   return {

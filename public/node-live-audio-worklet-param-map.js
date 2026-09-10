@@ -50,8 +50,8 @@ NodeLiveAudioProcessor.prototype.parameterValueToNormalizedSignal = function par
     return 0;
   }
   const bounded = metadata.wraparound
-    ? this.wrapValue(Number(value) || 0, min, max)
-    : this.clampValue(Number(value) || 0, min, max);
+    ? this.wrapValue(nodeGraphFiniteNumber(value), min, max)
+    : this.clampValue(nodeGraphFiniteNumber(value), min, max);
   const normalizedValue = this.clampValue((bounded - min) / range, 0, 1);
   return this.clampValue(normalizedValue ** (1 / this.parameterSkewExponent(metadata)), 0, 1);
 };
@@ -67,8 +67,8 @@ NodeLiveAudioProcessor.prototype.normalizedSignalToParameterValue = function nor
     return Number.isFinite(min) ? min : 0;
   }
   const normalizedSignal = metadata.wraparound
-    ? this.wrapValue(Number(signal) || 0, 0, 1)
-    : this.clampValue(Number(signal) || 0, 0, 1);
+    ? this.wrapValue(nodeGraphFiniteNumber(signal), 0, 1)
+    : this.clampValue(nodeGraphFiniteNumber(signal), 0, 1);
   const normalizedValue = normalizedSignal ** this.parameterSkewExponent(metadata);
   return this.applyParameterBounds(min + range * normalizedValue, metadata);
 };

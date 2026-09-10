@@ -55,23 +55,23 @@ function spectrogramSettingsForNode(node) {
     base = {
       historySeconds: Math.max(
         SPECTROGRAM_MIN_HISTORY_SECONDS,
-        Math.min(SPECTROGRAM_MAX_HISTORY_SECONDS, Number(source.historySeconds) || 2),
+        Math.min(SPECTROGRAM_MAX_HISTORY_SECONDS, nodeGraphFiniteNumber(source.historySeconds, 2)),
       ),
-      fftSize: Math.max(128, Math.min(16384, Math.round(Number(source.fftSize) || 1024))),
-      freqScale: Math.max(0, Math.min(2, Math.round(Number(source.freqScale) || 0))),
+      fftSize: Math.max(128, Math.min(16384, Math.round(nodeGraphFiniteNumber(source.fftSize, 1024)))),
+      freqScale: Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(source.freqScale)))),
       minFreq: 20,
       maxFreq: 20000,
-      window: Math.max(0, Math.min(4, Math.round(Number(source.window) || 1))),
-      overlap: Math.max(0, Math.min(5, Math.round(Number(source.overlap) || 2))),
+      window: Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(source.window, 1)))),
+      overlap: Math.max(0, Math.min(5, Math.round(nodeGraphFiniteNumber(source.overlap, 2)))),
       gradientStops: Array.isArray(source.gradientStops) ? source.gradientStops : spectrogramDefaultGradientStops(),
     };
   }
   // View knobs live on the module face (params). Display settings only as legacy fallback.
   const p = node?.params && typeof node.params === "object" ? node.params : {};
   let minFreq = Number(p.minFreq);
-  if (!Number.isFinite(minFreq)) minFreq = Number(base.minFreq) || 20;
+  if (!Number.isFinite(minFreq)) minFreq = nodeGraphFiniteNumber(base.minFreq, 20);
   let maxFreq = Number(p.maxFreq);
-  if (!Number.isFinite(maxFreq)) maxFreq = Number(base.maxFreq) || 20000;
+  if (!Number.isFinite(maxFreq)) maxFreq = nodeGraphFiniteNumber(base.maxFreq, 20000);
   minFreq = Math.max(1, Math.min(24000, minFreq));
   maxFreq = Math.max(1, Math.min(24000, maxFreq));
   if (!(maxFreq > minFreq)) {
@@ -80,7 +80,7 @@ function spectrogramSettingsForNode(node) {
   }
   let historySeconds = Number(p.historySeconds);
   if (!Number.isFinite(historySeconds) || historySeconds <= 0) {
-    historySeconds = Number(base.historySeconds) || 2;
+    historySeconds = nodeGraphFiniteNumber(base.historySeconds, 2);
   }
   historySeconds = Math.max(
     SPECTROGRAM_MIN_HISTORY_SECONDS,
@@ -161,10 +161,10 @@ function spectrogramHopMeta(settings, node) {
   let fftSize = 1024;
   let hopSerial = 0;
   if (fftMeta instanceof Float32Array && fftMeta.length >= 5) {
-    fftSize = Math.max(128, Math.min(16384, Number(fftMeta[0]) || 1024));
-    hopSize = Math.max(1, Number(fftMeta[3]) || 0);
-    sampleRate = Math.max(1, Number(fftMeta[4]) || 0);
-    hopSerial = fftMeta.length >= 6 ? (Number(fftMeta[5]) || 0) : 0;
+    fftSize = Math.max(128, Math.min(16384, nodeGraphFiniteNumber(fftMeta[0], 1024)));
+    hopSize = Math.max(1, nodeGraphFiniteNumber(fftMeta[3]));
+    sampleRate = Math.max(1, nodeGraphFiniteNumber(fftMeta[4]));
+    hopSerial = fftMeta.length >= 6 ? (nodeGraphFiniteNumber(fftMeta[5])) : 0;
   }
   if (!(hopSize > 0) || !(sampleRate > 0)) {
     if (typeof nodeGraphSpectrogramFftSizeFromNode === "function") {
@@ -172,20 +172,20 @@ function spectrogramHopMeta(settings, node) {
     } else if (typeof nodeGraphSpectrogramSnapFftSize === "function") {
       fftSize = nodeGraphSpectrogramSnapFftSize(settings?.fftSize ?? node?.params?.fftSize);
     } else {
-      fftSize = Math.max(128, Math.min(16384, Math.round(Number(settings?.fftSize) || 1024)));
+      fftSize = Math.max(128, Math.min(16384, Math.round(nodeGraphFiniteNumber(settings?.fftSize, 1024))));
     }
     hopSize = Math.max(1, Math.floor(fftSize / 4));
     sampleRate = Math.max(
       1,
-      Number(nodeGraphModuleScopeState?.sampleRate) || Number(nodeGraphMvp?.sampleRate) || 44100,
+      nodeGraphFiniteNumber(nodeGraphModuleScopeState?.sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)),
     );
   }
   hopSize = Math.max(1, hopSize);
   const batchColumns = (fftMeta instanceof Float32Array && fftMeta.length >= 7)
-    ? Math.max(0, Math.round(Number(fftMeta[6]) || 0))
+    ? Math.max(0, Math.round(nodeGraphFiniteNumber(fftMeta[6])))
     : 0;
   const historyFlag = (fftMeta instanceof Float32Array && fftMeta.length >= 8)
-    ? Math.round(Number(fftMeta[7]) || 0)
+    ? Math.round(nodeGraphFiniteNumber(fftMeta[7]))
     : 0;
   return { hopSize, sampleRate, fftSize, hopSerial, batchColumns, historyFlag };
 }
@@ -208,7 +208,7 @@ function spectrogramBarkToHz(bark) {
  * Defaults match classic spectrogram (20 Hz … Nyquist).
  */
 function spectrogramResolveViewBand(minFreqHz, maxFreqHz, sampleRate) {
-  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const nyquist = sr / 2;
   let lo = Number(minFreqHz);
   let hi = Number(maxFreqHz);
@@ -229,7 +229,7 @@ function spectrogramResolveViewBand(minFreqHz, maxFreqHz, sampleRate) {
  */
 function spectrogramRowTToHz(t, freqScaleIdx, sampleRate, minFreqHz, maxFreqHz) {
   const band = spectrogramResolveViewBand(minFreqHz, maxFreqHz, sampleRate);
-  const scale = Math.max(0, Math.min(2, Math.round(Number(freqScaleIdx) || 0)));
+  const scale = Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(freqScaleIdx))));
   // Face y grows downward; invert so top of face = Max freq.
   const u = Math.max(0, Math.min(1, 1 - t));
   if (scale === 1) {
@@ -247,11 +247,11 @@ function spectrogramRowTToHz(t, freqScaleIdx, sampleRate, minFreqHz, maxFreqHz) 
 
 /** Absolute Hz → linear FFT bin index (spectrum covers 0…Nyquist). */
 function spectrogramHzToLinearBin(hz, linearBins, sampleRate) {
-  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const nyquist = sr / 2;
   const lb = Math.max(1, linearBins | 0);
   // Bin 0 ≈ DC, last bin ≈ Nyquist (matches worklet magnitude packing).
-  const t = Math.max(0, Number(hz) || 0) / Math.max(1e-9, nyquist);
+  const t = Math.max(0, nodeGraphFiniteNumber(hz)) / Math.max(1e-9, nyquist);
   return Math.max(0, Math.min(lb - 1, t * (lb - 1)));
 }
 
@@ -283,7 +283,7 @@ function spectrogramSpectrumToColumnMags(
     const b0 = Math.max(0, Math.min(spectrumBins - 1, Math.floor(binF)));
     const b1 = Math.min(spectrumBins - 1, b0 + 1);
     const bf = binF - b0;
-    const v = (Number(spectrum[b0]) || 0) * (1 - bf) + (Number(spectrum[b1]) || 0) * bf;
+    const v = (nodeGraphFiniteNumber(spectrum[b0])) * (1 - bf) + (nodeGraphFiniteNumber(spectrum[b1])) * bf;
     out[y] = v;
   }
 }
@@ -339,7 +339,7 @@ function spectrogramResizePreserve(st, faceW, faceH) {
 
   const next = spectrogramCreateState(w, h);
   // Time debt is not in pixels — keep as-is across resize.
-  next.scrollDebtSec = Math.max(0, Number(st.scrollDebtSec) || Number(st.scrollDebt) || 0);
+  next.scrollDebtSec = Math.max(0, nodeGraphFiniteNumber(st.scrollDebtSec, nodeGraphFiniteNumber(st.scrollDebt)));
   next.lastHop = st.lastHop;
   next.lastHistorySerial = st.lastHistorySerial;
   next.paintFreqScale = st.paintFreqScale;
@@ -355,8 +355,8 @@ function spectrogramResizePreserve(st, faceW, faceH) {
       const y0 = Math.max(0, Math.min(oldH - 1, Math.floor(srcF)));
       const y1 = Math.min(oldH - 1, y0 + 1);
       const t = srcF - y0;
-      const a = Number(st.pendingMags[y0]) || 0;
-      const b = Number(st.pendingMags[y1]) || 0;
+      const a = nodeGraphFiniteNumber(st.pendingMags[y0]);
+      const b = nodeGraphFiniteNumber(st.pendingMags[y1]);
       next.pendingMags[y] = a * (1 - t) + b * t;
     }
   }
@@ -402,8 +402,8 @@ function spectrogramBufferSizeForFace(nodeId, faceW, faceH, screenElement) {
   if (!(srcW > 0) || !(srcH > 0)) {
     return { w: wantW, h: wantH };
   }
-  const cssW = Math.max(1, Number(screenElement?.clientWidth) || srcW);
-  const cssH = Math.max(1, Number(screenElement?.clientHeight) || srcH);
+  const cssW = Math.max(1, nodeGraphFiniteNumber(screenElement?.clientWidth, srcW));
+  const cssH = Math.max(1, nodeGraphFiniteNumber(screenElement?.clientHeight, srcH));
   return {
     w: Math.max(1, Math.round(srcW * (wantW / cssW))),
     h: Math.max(1, Math.round(srcH * (wantH / cssH))),
@@ -416,7 +416,7 @@ function spectrogramEnsureState(nodeId, faceW, faceH, historySeconds) {
   const wantH = Math.max(1, faceH | 0);
   const hist = Math.max(
     SPECTROGRAM_MIN_HISTORY_SECONDS,
-    Math.min(SPECTROGRAM_MAX_HISTORY_SECONDS, Number(historySeconds) || 2),
+    Math.min(SPECTROGRAM_MAX_HISTORY_SECONDS, nodeGraphFiniteNumber(historySeconds, 2)),
   );
   const key = String(nodeId || "");
   if (!st) {
@@ -514,7 +514,7 @@ function spectrogramScrollPaintPixels(st, nPixels, lutRgb, brightness, contrast)
     const x = w - n + p;
     if (x < 0 || x >= w) continue;
     for (let y = 0; y < h; y += 1) {
-      const t = spectrogramGrade01(Number(st.pendingMags[y]) || 0, cont, bright);
+      const t = spectrogramGrade01(nodeGraphFiniteNumber(st.pendingMags[y]), cont, bright);
       const li = Math.min(255, Math.max(0, Math.floor(t * 255 + 1e-6)));
       const idx = li * 3;
       sctx.fillStyle = `rgb(${lutRgb[idx]},${lutRgb[idx + 1]},${lutRgb[idx + 2]})`;
@@ -551,7 +551,7 @@ function spectrogramIngestHop(
   const w = Math.max(1, (st.presentW | 0) || (st.faceW | 0));
   const hist = Math.max(
     SPECTROGRAM_MIN_HISTORY_SECONDS,
-    Number(st.historySeconds) || 2,
+    nodeGraphFiniteNumber(st.historySeconds, 2),
   );
   const hopSec = Math.max(1, hopSize) / Math.max(1, sampleRate);
   // Seconds of audio represented by one *display* face pixel.
@@ -574,7 +574,7 @@ function spectrogramIngestHop(
   );
   spectrogramPoolPending(st, st.columnScratch);
 
-  st.scrollDebtSec = Math.max(0, Number(st.scrollDebtSec) || 0) + hopSec;
+  st.scrollDebtSec = Math.max(0, nodeGraphFiniteNumber(st.scrollDebtSec)) + hopSec;
   // Emit whole *buffer* pixels. Map display sec/px → buffer pixels so scroll
   // rate matches History (s) even if present size ≠ buffer size mid-resize.
   const bufW = Math.max(1, st.faceW | 0);
@@ -634,13 +634,13 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
   const brightness = Number.isFinite(brightnessRaw) ? brightnessRaw : 0.2;
   const contrastRaw = Number(node?.params?.contrast);
   const contrast = Number.isFinite(contrastRaw) ? contrastRaw : 1;
-  const freqScaleIdx = Math.max(0, Math.min(2, Math.round(Number(settings.freqScale) || 0)));
+  const freqScaleIdx = Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(settings.freqScale))));
   const minFreqHz = Number(settings.minFreq);
   const maxFreqHz = Number(settings.maxFreq);
   const lutRgb = spectrogramLutRgbForStops(settings.gradientStops);
   const historySeconds = Math.max(
     SPECTROGRAM_MIN_HISTORY_SECONDS,
-    Math.min(SPECTROGRAM_MAX_HISTORY_SECONDS, Number(settings.historySeconds) || 2),
+    Math.min(SPECTROGRAM_MAX_HISTORY_SECONDS, nodeGraphFiniteNumber(settings.historySeconds, 2)),
   );
 
   const plateBg = "#000000";

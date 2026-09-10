@@ -7,7 +7,7 @@ const NODE_GRAPH_STFT_BLUR_MIN_N = 256;
 const NODE_GRAPH_STFT_BLUR_MAX_N = 4096;
 
 function nodeGraphStftBlurSnapFftSize(raw) {
-  let n = Math.round(Number(raw) || 2048);
+  let n = Math.round(nodeGraphFiniteNumber(raw, 2048));
   if (n < NODE_GRAPH_STFT_BLUR_MIN_N) n = NODE_GRAPH_STFT_BLUR_MIN_N;
   if (n > NODE_GRAPH_STFT_BLUR_MAX_N) n = NODE_GRAPH_STFT_BLUR_MAX_N;
   let p = 256;
@@ -106,7 +106,7 @@ function createNodeGraphStftBlurState(fftSize) {
 }
 
 function nodeGraphStftBlurFreqBlur(magIn, magOut, bins, blurFreq) {
-  const b = Math.max(0, Math.min(1, Number(blurFreq) || 0));
+  const b = Math.max(0, Math.min(1, nodeGraphFiniteNumber(blurFreq)));
   if (b < 1e-6) {
     for (let k = 0; k < bins; k += 1) magOut[k] = magIn[k];
     return;
@@ -154,7 +154,7 @@ function nodeGraphStftBlurProcessFrame(state, blurTime, blurFreq) {
     magCur[k] = Math.sqrt(rr * rr + ii * ii);
   }
 
-  const bt = Math.max(0, Math.min(1, Number(blurTime) || 0));
+  const bt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(blurTime)));
   const retain = bt * 0.985;
   for (let k = 0; k < bins; k += 1) {
     const m = retain * magMem[k] + (1 - retain) * magCur[k];
@@ -203,10 +203,10 @@ function nodeGraphStftBlurProcessFrame(state, blurTime, blurFreq) {
  * Wet latency ≈ N samples; dry delayed by N for mix alignment.
  */
 function nodeGraphStftBlurSample(state, input, blurTime, blurFreq, fftSize, mix) {
-  if (!state || !state.inBuf) return Number(input) || 0;
+  if (!state || !state.inBuf) return nodeGraphFiniteNumber(input);
 
-  const x = Number(input) || 0;
-  const wetMix = Math.max(0, Math.min(1, Number(mix) || 0));
+  const x = nodeGraphFiniteNumber(input);
+  const wetMix = Math.max(0, Math.min(1, nodeGraphFiniteNumber(mix)));
   const n = state.n;
   const hop = state.hop;
 

@@ -292,7 +292,7 @@ NodeLiveAudioProcessor.prototype.wallDelaySample = function wallDelaySample(stat
     ].map((value) => Number(value).toFixed(4)).join(":");
     if (state.tapPlanKey !== tapKey) {
       state.tapPlanKey = tapKey;
-      const earDistanceMeters = Math.max(0, Number(params.earDistance) || 0) / 100;
+      const earDistanceMeters = Math.max(0, nodeGraphFiniteNumber(params.earDistance)) / 100;
       const earOffset = earDistanceMeters * 0.5;
       state.tapsL = this.wallDelayBuildTapPlan({ ...params, reflectivity }, [-earOffset, 0, 0]);
       state.tapsR = this.wallDelayBuildTapPlan({ ...params, reflectivity }, [earOffset, 0, 0]);

@@ -59,7 +59,7 @@ function normalizeNodeGraphAssetFile(file = {}, fallback = {}) {
   const name = String(source.name || source.fileName || fallbackName || pathName || "").trim().slice(0, 160);
   const extension = String(source.extension || nodeGraphAssetFileExtension(name || pathName)).trim().toLowerCase().slice(0, 32);
   const mime = String(source.mime || source.type || fallback.mime || fallback.type || "").trim().slice(0, 128);
-  const size = Math.max(0, Math.round(Number(source.size ?? fallback.size) || 0));
+  const size = Math.max(0, Math.round(nodeGraphFiniteNumber(source.size ?? fallback.size)));
   const hash = String(source.hash || fallback.hash || "").trim().slice(0, 160);
   return {
     ...(extension ? { extension } : {}),
@@ -88,8 +88,8 @@ function nodeGraphSampleFileKeyFromFile(file) {
     return nodeGraphAudioPlayerLibraryFileKey(file);
   }
   const name = String(file.name || "").trim();
-  const size = Math.max(0, Math.round(Number(file.size) || 0));
-  const stamp = Math.max(0, Math.round(Number(file.lastModified) || 0));
+  const size = Math.max(0, Math.round(nodeGraphFiniteNumber(file.size)));
+  const stamp = Math.max(0, Math.round(nodeGraphFiniteNumber(file.lastModified)));
   return name ? `${name}:${size}:${stamp}` : "";
 }
 
@@ -106,9 +106,9 @@ function normalizeNodeGraphSampleReference(sample = {}) {
   const sourceName = String(source.sourceName || source.fileName || source.file?.name || name || "").trim().slice(0, 160);
   const file = normalizeNodeGraphAssetFile(source.file, { ...source, name, sourceName, sourcePath });
   const metadata = normalizeNodeGraphAssetMetadata(source.metadata);
-  const sampleRate = Math.max(0, Math.round(Number(source.sampleRate) || 0));
-  const channels = Math.max(0, Math.min(64, Math.round(Number(source.channels) || 0)));
-  const frames = Math.max(0, Math.round(Number(source.frames) || 0));
+  const sampleRate = Math.max(0, Math.round(nodeGraphFiniteNumber(source.sampleRate)));
+  const channels = Math.max(0, Math.min(64, Math.round(nodeGraphFiniteNumber(source.channels))));
+  const frames = Math.max(0, Math.round(nodeGraphFiniteNumber(source.frames)));
   return {
     acceptedTypes: ["audio/*"],
     ...(channels ? { channels } : {}),
@@ -761,7 +761,7 @@ function rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase, reason = "") {
   if (why === "engine complete" || why === "engine stopped") {
     return;
   }
-  const clamped = Math.max(0, Math.min(1, Number(phase) || 0));
+  const clamped = Math.max(0, Math.min(1, nodeGraphFiniteNumber(phase)));
   const previous = Number(node.samplePhase);
   if (Number.isFinite(previous) && Math.abs(previous - clamped) < 1e-5) {
     return;
@@ -812,7 +812,7 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
     ? message.nodeIds.map((id) => String(id || "")).filter(Boolean)
     : [];
   const primaryNodeId = String(message.nodeId || nodeIds[0] || "");
-  const phase = Number(message.phase) || 0;
+  const phase = nodeGraphFiniteNumber(message.phase);
   const reason = String(message.reason || "").trim();
   const workletSampleId = String(message.sampleId || "").trim();
   const speeds = message.speeds && typeof message.speeds === "object" ? message.speeds : null;
@@ -1053,8 +1053,8 @@ function nodeGraphSampleSharedDecodeContext() {
 }
 
 async function resampleNodeGraphAudioBuffer(audioBuffer, targetRate = nodeGraphSampleDecodeTargetRate) {
-  const rate = Math.max(1, Number(targetRate) || nodeGraphSampleDecodeTargetRate);
-  if (!audioBuffer || Math.round(Number(audioBuffer.sampleRate) || 0) === rate) {
+  const rate = Math.max(1, nodeGraphFiniteNumber(targetRate, nodeGraphSampleDecodeTargetRate));
+  if (!audioBuffer || Math.round(nodeGraphFiniteNumber(audioBuffer.sampleRate)) === rate) {
     return audioBuffer;
   }
   const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
@@ -1094,7 +1094,7 @@ function nodeGraphSampleDecodedRamBytes() {
 }
 
 function nodeGraphSampleRamBudgetBytes() {
-  const heap = Number(performance?.memory?.jsHeapSizeLimit) || 0;
+  const heap = nodeGraphFiniteNumber(performance?.memory?.jsHeapSizeLimit);
   if (heap > 0) {
     return Math.max(128 * 1024 * 1024, Math.floor(heap * 0.4));
   }
@@ -1102,7 +1102,7 @@ function nodeGraphSampleRamBudgetBytes() {
 }
 
 function nodeGraphSampleFormatBytes(bytes) {
-  const n = Math.max(0, Number(bytes) || 0);
+  const n = Math.max(0, nodeGraphFiniteNumber(bytes));
   if (n < 1024 * 1024) {
     return `${Math.round(n / 1024)} KB`;
   }
@@ -1110,7 +1110,7 @@ function nodeGraphSampleFormatBytes(bytes) {
 }
 
 function nodeGraphSampleRamWouldExceed(extraBytes = 0) {
-  return nodeGraphSampleDecodedRamBytes() + Math.max(0, Number(extraBytes) || 0)
+  return nodeGraphSampleDecodedRamBytes() + Math.max(0, nodeGraphFiniteNumber(extraBytes))
     > nodeGraphSampleRamBudgetBytes();
 }
 
@@ -1150,7 +1150,7 @@ function beginNodeGraphSampleLoadLock({ total = 1, title = "Loading audio" } = {
   bindNodeGraphSampleLoadLockClose();
   bindNodeGraphSampleLoadLockGuard();
   if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
-    nodeGraphMvp.sampleLoadLock = { active: true, total: Math.max(1, Number(total) || 1), index: 0 };
+    nodeGraphMvp.sampleLoadLock = { active: true, total: Math.max(1, nodeGraphFiniteNumber(total, 1)), index: 0 };
   }
   const lock = document.getElementById("nodeSampleLoadLock");
   const titleEl = document.getElementById("nodeSampleLoadLockTitle");
@@ -1162,7 +1162,7 @@ function beginNodeGraphSampleLoadLock({ total = 1, title = "Loading audio" } = {
     titleEl.textContent = title;
   }
   if (progress) {
-    progress.textContent = `0 / ${Math.max(1, Number(total) || 1)}`;
+    progress.textContent = `0 / ${Math.max(1, nodeGraphFiniteNumber(total, 1))}`;
   }
   if (detail) {
     detail.textContent = "Decoding files into RAM…";

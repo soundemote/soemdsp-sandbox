@@ -1262,9 +1262,9 @@
         g = parseInt(hex[1].slice(2, 4), 16);
         b = parseInt(hex[1].slice(4, 6), 16);
       } else if (rgbm) {
-        r = Number(rgbm[1]) || 0;
-        g = Number(rgbm[2]) || 0;
-        b = Number(rgbm[3]) || 0;
+        r = nodeGraphFiniteNumber(rgbm[1]);
+        g = nodeGraphFiniteNumber(rgbm[2]);
+        b = nodeGraphFiniteNumber(rgbm[3]);
       }
       const o = i * 3;
       rgb[o] = r;

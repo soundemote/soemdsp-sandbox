@@ -50,23 +50,23 @@ function nodeGraphRayBouncerSample(options = {}) {
   if (!state.nativeHandle) {
     return { x: 0, y: 0 };
   }
-  const sampleRate = Math.max(1, Number(options.sampleRate) || 44100);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
   wasm.soemdsp_ray_bouncer_sample(
     state.nativeHandle,
     Number(options.reset) > 0.5 ? 1 : 0,
-    Math.max(0, Number(options.frequency) || 0),
+    Math.max(0, nodeGraphFiniteNumber(options.frequency)),
     Number.isFinite(Number(options.launchAngle)) ? Number(options.launchAngle) : 30,
-    Number(options.startX) || 0,
-    Number(options.startY) || 0,
-    Math.max(0.01, Number(options.size) || 1),
-    Math.max(0.05, Number(options.aspect) || 1),
+    nodeGraphFiniteNumber(options.startX),
+    nodeGraphFiniteNumber(options.startY),
+    Math.max(0.01, nodeGraphFiniteNumber(options.size, 1)),
+    Math.max(0.05, nodeGraphFiniteNumber(options.aspect, 1)),
     Number.isFinite(Number(options.rotate)) ? Number(options.rotate) : 0,
-    Number(options.centerX) || 0,
-    Number(options.centerY) || 0,
-    Math.max(0, Number(options.maxDistance) || 0),
-    Math.max(-4, Math.min(4, Number(options.bend) || 0)),
-    Math.max(-4, Math.min(4, Number(options.xToY) || 0)),
-    Math.max(-4, Math.min(4, Number(options.yToX) || 0)),
+    nodeGraphFiniteNumber(options.centerX),
+    nodeGraphFiniteNumber(options.centerY),
+    Math.max(0, nodeGraphFiniteNumber(options.maxDistance)),
+    Math.max(-4, Math.min(4, nodeGraphFiniteNumber(options.bend))),
+    Math.max(-4, Math.min(4, nodeGraphFiniteNumber(options.xToY))),
+    Math.max(-4, Math.min(4, nodeGraphFiniteNumber(options.yToX))),
     sampleRate,
   );
   const x = wasm.soemdsp_ray_bouncer_x(state.nativeHandle);

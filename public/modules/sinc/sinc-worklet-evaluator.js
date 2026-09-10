@@ -28,7 +28,7 @@ NodeLiveAudioProcessor.prototype.sincSample = function sincSample(state, params,
       Math.round(this.safeFilterNumber(params.bandLimit, 1) ?? 1),
       this.effectiveSampleRate(),
     );
-    return { Out: this.clampValue(Number(out) || 0, -1, 1) };
+    return { Out: this.clampValue(nodeGraphFiniteNumber(out), -1, 1) };
   } catch (_error) {
     this.nativeSincReady = false;
     return { Out: 0 };

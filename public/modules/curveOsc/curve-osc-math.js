@@ -15,7 +15,7 @@ function nodeGraphCurveOscWrap01(phase) {
   if (typeof nodeGraphWrap01 === "function") {
     return nodeGraphWrap01(phase);
   }
-  const p = Number(phase) || 0;
+  const p = nodeGraphFiniteNumber(phase);
   return p - Math.floor(p);
 }
 
@@ -24,11 +24,11 @@ function nodeGraphCurveOscWrap01(phase) {
  * θ is phase in cycles [0,1). shape 0…n.
  */
 function nodeGraphCurveOscPoint(shapeIndex, theta01, a, b, morph) {
-  const shape = Math.max(0, Math.min(6, Math.round(Number(shapeIndex) || 0)));
+  const shape = Math.max(0, Math.min(6, Math.round(nodeGraphFiniteNumber(shapeIndex))));
   const t = nodeGraphCurveOscWrap01(theta01) * Math.PI * 2;
   const aa = Number(a);
   const bb = Number(b);
-  const m = Math.max(0, Math.min(1, Number(morph) || 0));
+  const m = Math.max(0, Math.min(1, nodeGraphFiniteNumber(morph)));
   // Sensible defaults if params missing
   const A = Number.isFinite(aa) ? aa : 1;
   const B = Number.isFinite(bb) ? bb : 1;
@@ -133,7 +133,7 @@ function nodeGraphCurveOscPoint(shapeIndex, theta01, a, b, morph) {
  * projectAngle: 0…1 → direction for Dot (cycles)
  */
 function nodeGraphCurveOscProject(x, y, projectMode, projectAngle01) {
-  const mode = Math.max(0, Math.min(4, Math.round(Number(projectMode) || 0)));
+  const mode = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(projectMode))));
   switch (mode) {
     case 1:
       return x;
@@ -157,8 +157,8 @@ function nodeGraphCurveOscProject(x, y, projectMode, projectAngle01) {
 
 function nodeGraphCurveOscillatorSample(state, options = {}) {
   const st = state || createNodeGraphCurveOscState();
-  const sampleRate = Math.max(1, Number(options.sampleRate) || 44100);
-  const frequencyHz = Math.max(0, Number(options.frequencyHz) || 0);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const frequencyHz = Math.max(0, nodeGraphFiniteNumber(options.frequencyHz));
   const phaseOffset = nodeGraphCurveOscWrap01(options.phase || 0);
   const level = Number(options.level);
   const amp = Number.isFinite(level) ? level : 1;

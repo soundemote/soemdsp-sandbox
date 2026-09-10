@@ -8,7 +8,7 @@ nodeGraphLiveModuleEvaluators.macroControls = ({ nodeId, mixInput, hasInput }) =
     const port = `M${index + 1} In`;
     value[`M${index + 1}`] = Math.max(
       0,
-      Math.min(1, hasInput(nodeId, port) ? Number(mixInput(nodeId, port)) || 0 : Number(macros[index]) || 0),
+      Math.min(1, hasInput(nodeId, port) ? nodeGraphFiniteNumber(mixInput(nodeId, port)) : nodeGraphFiniteNumber(macros[index])),
     );
   }
   return value;

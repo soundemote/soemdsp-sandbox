@@ -8,7 +8,7 @@ NodeLiveAudioProcessor.prototype.smoothingSecondsFromMetadata = function smoothi
     }
     // Values in (0, 1) are seconds (e.g. 0.05); ≥ 1 are sample counts.
     if (value > 0 && value < 1) {
-      const rate = Math.max(1, Number(this.engineSampleRate || sampleRate) || 44100);
+      const rate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate || sampleRate, 44100));
       return Math.max(1, Math.round(value * rate));
     }
     return Math.max(0, Math.round(value));
@@ -47,7 +47,7 @@ NodeLiveAudioProcessor.prototype.smoothingTypeFromMetadata = function smoothingT
 };
 
 NodeLiveAudioProcessor.prototype.resolveSmoothingSecondsForMode = function resolveSmoothingSecondsForMode(mode, smoothingSamples, frames, rate = sampleRate, globalSeconds = this.autoSmoothingSeconds) {
-    const safeRate = Math.max(1, Number(rate) || 44100);
+    const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, 44100));
     const safeGlobal = Number.isFinite(Number(globalSeconds)) ? Math.max(0, Number(globalSeconds)) : 0;
     const internalSeconds = smoothingSamples > 0 ? smoothingSamples / safeRate : 0;
     switch (mode) {

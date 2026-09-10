@@ -17,7 +17,7 @@ const GENERIC_LABELS = new Set([
 
 /** Wrap hue degrees into [0, 360). Used for spectrum origin / absolute color math. */
 function wrapHueDeg(h) {
-  const n = Number(h) || 0;
+  const n = nodeGraphFiniteNumber(h);
   return ((n % 360) + 360) % 360;
 }
 
@@ -70,12 +70,12 @@ function hueTrackMetrics(hueBar) {
 }
 
 function hueSampleTClamp(t) {
-  return clamp(Number(t) || 0, 0, 1);
+  return clamp(nodeGraphFiniteNumber(t), 0, 1);
 }
 
 /** Absolute hue 0…360 from spectrum origin + sample t. */
 function absoluteHueFromOriginSample(originDeg, sampleT) {
-  return wrapHueDeg(wrapHueDeg(originDeg) + clamp(Number(sampleT) || 0, 0, 1) * 360);
+  return wrapHueDeg(wrapHueDeg(originDeg) + clamp(nodeGraphFiniteNumber(sampleT), 0, 1) * 360);
 }
 
 /** Sample t 0…1 for absolute hue on a spectrum with the given origin. */
@@ -85,7 +85,7 @@ function sampleTFromAbsoluteHue(originDeg, absoluteH) {
 
 /** Left-edge origin so `absoluteH` lands at the bar center. */
 function originForCenteredHue(absoluteH) {
-  return wrapHueDeg((Number(absoluteH) || 0) - 180);
+  return wrapHueDeg((nodeGraphFiniteNumber(absoluteH)) - 180);
 }
 
 const css = `
@@ -410,9 +410,9 @@ function clamp(value, min, max) {
 function normalizeColor(color) {
   // Hue is a linear 0…360 strip (red at both ends) — no wrap at the UI.
   return {
-    h: Math.round(clamp(Number(color.h) || 0, 0, 360)),
-    s: Math.round(clamp(Number(color.s) || 0, 0, 100)),
-    l: Math.round(clamp(Number(color.l) || 0, 0, 100)),
+    h: Math.round(clamp(nodeGraphFiniteNumber(color.h), 0, 360)),
+    s: Math.round(clamp(nodeGraphFiniteNumber(color.s), 0, 100)),
+    l: Math.round(clamp(nodeGraphFiniteNumber(color.l), 0, 100)),
     a: 1,
   };
 }
@@ -780,7 +780,7 @@ export class SoundColorWidget {
     }
     const hueBar = this.root.querySelector(".scw-hue");
     if (hueBar) {
-      const origin = this.channels === "bw" ? 0 : Number(this.hueOrigin) || 0;
+      const origin = this.channels === "bw" ? 0 : nodeGraphFiniteNumber(this.hueOrigin);
       hueBar.style.setProperty("--scw-hue-spectrum", hueSpectrumCss(origin));
       hueBar.setAttribute(
         "aria-label",
@@ -1012,8 +1012,8 @@ export class SoundColorWidget {
       startY: event.clientY,
       fine: event.shiftKey,
       startColor: { ...this.color },
-      startHueOrigin: Number(this.hueOrigin) || 0,
-      startHueSampleT: clamp(Number(this.hueSampleT) || 0, 0, 1),
+      startHueOrigin: nodeGraphFiniteNumber(this.hueOrigin),
+      startHueSampleT: clamp(nodeGraphFiniteNumber(this.hueSampleT), 0, 1),
     };
     if (part === "plane" && this.channels !== "hue") {
       this.setPlaneFromClient(event.clientX, event.clientY);

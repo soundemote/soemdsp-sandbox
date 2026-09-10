@@ -462,7 +462,7 @@ function nodeGraphTSeriesValueDisplayModes() {
 }
 
 function nodeGraphTSeriesModuleDefinition(lastIndex) {
-  const last = Math.max(0, Math.min(10, Math.round(Number(lastIndex) || 0)));
+  const last = Math.max(0, Math.min(10, Math.round(nodeGraphFiniteNumber(lastIndex))));
   return {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutA,

@@ -18,7 +18,7 @@ function createNodeGraphLutCellState() {
 // freshly dropped cell something to actually show/hear immediately. Wiring
 // either one for real overrides this entirely.
 function nodeGraphLutCellAdvanceSelfClock(state, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const increment = (2 * NODE_GRAPH_LUT_CELL_SELF_CLOCK_HZ) / rate;
   state.selfClockPhase = (state.selfClockPhase || 0) + increment;
   if (state.selfClockPhase >= 1) {
@@ -40,7 +40,7 @@ function nodeGraphLutCellSample(state, options = {}) {
   const b = Number(options.b) > 0 ? 1 : 0;
   const c = Number(options.c) > 0 ? 1 : 0;
   const d = Number(options.d) > 0 ? 1 : 0;
-  const table = Math.max(0, Math.min(0xFFFF, Math.round(Number(options.truthTable) || 0)));
+  const table = Math.max(0, Math.min(0xFFFF, Math.round(nodeGraphFiniteNumber(options.truthTable))));
 
   const index = effectiveA | (b << 1) | (c << 2) | (d << 3);
   const combinational = (table >> index) & 1;

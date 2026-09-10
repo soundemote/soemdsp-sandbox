@@ -42,7 +42,7 @@ function nodeGraphCombResonatorResolveFrequencyHz(
     : 0.4;
   const hasPitch = typeof hasInput === "function" ? hasInput(nodeId, "0.1V/Oct") : false;
   const pitchCv = hasPitch
-    ? Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0))
+    ? nodeGraphFiniteNumber(mixInput(nodeId, "0.1V/Oct"))
     : referenceVoltage;
   if (typeof nodeGraphParamResolveOscPitchHz === "function") {
     return nodeGraphParamResolveOscPitchHz({baseHz: frequency,
@@ -99,7 +99,7 @@ nodeGraphLiveModuleEvaluators.combResonator = ({
   const depth = readNodeGraphLiveEffectiveParam(runtime, node, "depth", 1, frame, frames, frameValues);
   const amplitude = readNodeGraphLiveEffectiveParam(runtime, node, "amplitude", 1, frame, frames, frameValues);
 
-  const audioIn = Number(mixInput(nodeId)) || 0;
+  const audioIn = nodeGraphFiniteNumber(mixInput(nodeId));
   const trig = typeof nodeGraphCombResonatorTriggerEdge === "function"
     ? nodeGraphCombResonatorTriggerEdge(trigState, mixInput(nodeId, "Trigger"))
     : 0;
@@ -116,7 +116,7 @@ nodeGraphLiveModuleEvaluators.combResonator = ({
     invert,
     depth,
     amplitude,
-    Math.max(1, Number(sampleRate) || 44100),
+    Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)),
   );
   return typeof nodeGraphSafeFilterNumber === "function"
     ? nodeGraphSafeFilterNumber(y, runtime, nodeId, null, "comb resonator")

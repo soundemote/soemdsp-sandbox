@@ -48,7 +48,7 @@ function clearNodeGraphModuleScopeCanvas() {
 }
 
 function nodeGraphModuleScopeTracesOff() {
-  const value = Number(nodeGraphMvp?.visualControls?.scopeTracesOff) || 0;
+  const value = nodeGraphFiniteNumber(nodeGraphMvp?.visualControls?.scopeTracesOff);
   return value > 0.5;
 }
 
@@ -108,10 +108,10 @@ function nodeGraphModuleScopePaused() {
 // absorbNodeGraphPhosphorDrawCursorOnCanvas → node-graph-module-scope-phosphor.js
 // absorbNodeGraphModuleScopePhosphorDrawCursors → node-graph-module-scope-phosphor.js
 function nodeGraphModuleScopeBackingPixelRatio(rect, requestedPixelRatio = window.devicePixelRatio || 1) {
-  const width = Math.max(1, Number(rect?.width) || 1);
-  const height = Math.max(1, Number(rect?.height) || 1);
-  const requested = Math.max(0.25, Number(requestedPixelRatio) || 1);
-  const maxSize = Math.max(256, Number(nodeGraphModuleScopeMaxBackingStoreSize) || 4096);
+  const width = Math.max(1, nodeGraphFiniteNumber(rect?.width, 1));
+  const height = Math.max(1, nodeGraphFiniteNumber(rect?.height, 1));
+  const requested = Math.max(0.25, nodeGraphFiniteNumber(requestedPixelRatio, 1));
+  const maxSize = Math.max(256, nodeGraphFiniteNumber(nodeGraphModuleScopeMaxBackingStoreSize, 4096));
   return Math.max(
     0.25,
     Math.min(
@@ -142,11 +142,11 @@ function nodeGraphModuleScopeFaceBackingSize(screenElement, requestedPixelRatio 
     : { width: 0, height: 0 };
   const zoom = Math.max(
     0.01,
-    Number(
+    nodeGraphFiniteNumber(
       typeof nodeGraphZoom === "function"
         ? nodeGraphZoom()
         : (nodeGraphMvp && nodeGraphMvp.zoom),
-    ) || 1,
+    , 1),
   );
   // Layout (pre-transform) CSS pixels — stable under workspace zoom.
   // Prefer client/offset; if layout has not resolved yet (0×0 common before
@@ -184,10 +184,10 @@ function nodeGraphModuleScopeFaceBackingSize(screenElement, requestedPixelRatio 
     }
   }
   if (!(cssWidth > 0)) {
-    cssWidth = (Number(rect.width) || 1) / zoom;
+    cssWidth = (nodeGraphFiniteNumber(rect.width, 1)) / zoom;
   }
   if (!(cssHeight > 0)) {
-    cssHeight = (Number(rect.height) || 1) / zoom;
+    cssHeight = (nodeGraphFiniteNumber(rect.height, 1)) / zoom;
   }
   cssWidth = Math.max(1, cssWidth);
   cssHeight = Math.max(1, cssHeight);
@@ -196,9 +196,7 @@ function nodeGraphModuleScopeFaceBackingSize(screenElement, requestedPixelRatio 
   // graph, and never scale by workspace zoom.
   const requested = Math.max(
     0.25,
-    Number(window.devicePixelRatio)
-      || Number(requestedPixelRatio)
-      || 1,
+    nodeGraphFiniteNumber(window.devicePixelRatio, nodeGraphFiniteNumber(requestedPixelRatio, 1)),
   );
   const pixelRatio = nodeGraphModuleScopeBackingPixelRatio(
     { width: cssWidth, height: cssHeight },

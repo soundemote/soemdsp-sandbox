@@ -260,7 +260,7 @@
 
   function findTokenAt(text = "", index = 0, options = {}) {
     const source = String(text || "");
-    const position = Math.max(0, Math.min(Number(index) || 0, source.length));
+    const position = Math.max(0, Math.min(nodeGraphFiniteNumber(index), source.length));
     const lines = source.split("\n");
     let offset = 0;
     for (const [lineIndex, line] of lines.entries()) {

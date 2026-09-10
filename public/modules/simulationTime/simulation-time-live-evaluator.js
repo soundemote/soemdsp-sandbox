@@ -3,8 +3,8 @@ nodeGraphLiveModuleEvaluators.simulationTime = ({
   frame,
   sampleRate,
 }) => {
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const samples = Math.max(0, Number(runtime?.absoluteFrame) || Number(frame) || 0);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const samples = Math.max(0, nodeGraphFiniteNumber(runtime?.absoluteFrame, nodeGraphFiniteNumber(frame)));
   if (typeof nodeGraphSimulationTimeCore === "function") {
     return nodeGraphSimulationTimeCore(samples, sr);
   }

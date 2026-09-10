@@ -15,7 +15,7 @@ NodeLiveAudioProcessor.prototype.triggerCounterSample = function triggerCounterS
           state.nativeHandle = this.nativeTriggerCounter.soemdsp_trigger_counter_create();
         }
         if (state.nativeHandle) {
-          const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+          const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
           const pulse = this.nativeTriggerCounter.soemdsp_trigger_counter_sample(
             state.nativeHandle,
             this.safeFilterNumber(trigger, null),

@@ -34,16 +34,16 @@ nodeGraphLiveModuleEvaluators.activeFilter = ({
     centerFrequency = (Number.isFinite(n) ? n : 0) * pitchRatio;
   } else if (typeof hasInput === "function" && hasInput(nodeId, "0.1V/Oct")) {
     // Pitch the geometric mean of Low/High Cut (matches WASM process_active_filter).
-    const lo = Math.max(0, Number(lowFrequency) || 0);
-    const hi = Math.max(0, Number(highFrequency) || 0);
+    const lo = Math.max(0, nodeGraphFiniteNumber(lowFrequency));
+    const hi = Math.max(0, nodeGraphFiniteNumber(highFrequency));
     const base = lo > 0 && hi > 0 ? Math.sqrt(lo * hi) : (hi > 0 ? hi : (lo > 0 ? lo : 1000));
     centerFrequency = typeof nodeGraphFrequencyHzFromKnobOrF === "function"
       ? nodeGraphFrequencyHzFromKnobOrF(base, hasInput, mixInput, nodeId)
       : base * pitchRatio;
   } else if (pitchRatio !== 1) {
     // No ƒ / 0.1V: transpose both cuts via center (geo mean × patch Pitch).
-    const lo = Math.max(0, Number(lowFrequency) || 0);
-    const hi = Math.max(0, Number(highFrequency) || 0);
+    const lo = Math.max(0, nodeGraphFiniteNumber(lowFrequency));
+    const hi = Math.max(0, nodeGraphFiniteNumber(highFrequency));
     if (lo > 0 && hi > 0) centerFrequency = Math.sqrt(lo * hi) * pitchRatio;
     else if (hi > 0) centerFrequency = hi * pitchRatio;
     else if (lo > 0) centerFrequency = lo * pitchRatio;
@@ -62,7 +62,7 @@ nodeGraphLiveModuleEvaluators.activeFilter = ({
     sweep: readNodeGraphLiveEffectiveParam(runtime, node, "sweep", 0, frame, frames, frameValues),
   };
   const mono = mixInput(nodeId);
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const run = (ch, x, tag) => {
     const y = nodeGraphActiveFilterProcess(ch, x, params, rate);
     return typeof nodeGraphSafeFilterNumber === "function"

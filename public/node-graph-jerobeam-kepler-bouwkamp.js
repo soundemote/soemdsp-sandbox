@@ -32,14 +32,14 @@ function nodeGraphKeplerBouwkampSample(options = {}) {
   }
   state.resetWasHigh = resetHigh;
 
-  const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
-  const frequency = Number(options.frequency) || 0;
-  const start = Number(options.start) || 0;
-  const length = Number(options.length) || 0;
-  const circles = Number(options.circles) || 0;
-  const zoom = Number(options.zoom) || 0;
-  const rotation = Number(options.rotation) || 0;
-  const tri = Number(options.tri) || 0;
+  const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const frequency = nodeGraphFiniteNumber(options.frequency);
+  const start = nodeGraphFiniteNumber(options.start);
+  const length = nodeGraphFiniteNumber(options.length);
+  const circles = nodeGraphFiniteNumber(options.circles);
+  const zoom = nodeGraphFiniteNumber(options.zoom);
+  const rotation = nodeGraphFiniteNumber(options.rotation);
+  const tri = nodeGraphFiniteNumber(options.tri);
 
   const firstPolygon = Math.trunc(clampNodeSliderValue(Math.trunc(start), 3, 20));
   const n = Math.trunc(clampNodeSliderValue(Math.trunc(length), 1, 20));

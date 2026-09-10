@@ -14,7 +14,7 @@
  *        so 0.5 is always a lattice point (e.g. 2 → 0 / 0.5 / 1)
  */
 function nodeGraphXyPadDspQuantizeLevels(quantize) {
-  const q = Math.max(0, Math.min(1, Number(quantize) || 0));
+  const q = Math.max(0, Math.min(1, nodeGraphFiniteNumber(quantize)));
   if (q <= 0) {
     return 0;
   }
@@ -60,7 +60,7 @@ function nodeGraphXyPadDspBipolarToUnit(bipolar) {
 
 /** 0 = off; (0..1] maps 60 Hz (light) → 2 Hz (heavy). */
 function nodeGraphXyPadDspPapoulisCutoffHz(amount) {
-  const a = Math.max(0, Math.min(1, Number(amount) || 0));
+  const a = Math.max(0, Math.min(1, nodeGraphFiniteNumber(amount)));
   if (a <= 1e-4) {
     return 0;
   }
@@ -70,7 +70,7 @@ function nodeGraphXyPadDspPapoulisCutoffHz(amount) {
 }
 
 function nodeGraphXyPadDspQuantizeBipolar(bipolar, quantizeAmount) {
-  if ((Number(quantizeAmount) || 0) <= 0) {
+  if ((nodeGraphFiniteNumber(quantizeAmount)) <= 0) {
     return bipolar;
   }
   return nodeGraphXyPadDspUnitToBipolar(
@@ -84,10 +84,10 @@ function nodeGraphXyPadDspQuantizeBipolar(bipolar, quantizeAmount) {
  * No JS Papoulis path.
  */
 function nodeGraphXyPadDspProcessAxis(sig, opts = {}) {
-  const cutoff = Math.max(0, Number(opts.cutoff) || 0);
+  const cutoff = Math.max(0, nodeGraphFiniteNumber(opts.cutoff));
   const smoothOn = cutoff > 0;
-  const quantizeAmt = Number(opts.quantizeAmt) || 0;
-  const order = Math.max(0, Math.min(1, Math.round(Number(opts.order) || 0)));
+  const quantizeAmt = nodeGraphFiniteNumber(opts.quantizeAmt);
+  const order = Math.max(0, Math.min(1, Math.round(nodeGraphFiniteNumber(opts.order))));
   const filterSample = typeof opts.filterSample === "function" ? opts.filterSample : null;
 
   const applyPapoulis = (value) => {

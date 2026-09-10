@@ -153,7 +153,7 @@ function matrixRemapHeadStreams(state, newCols, newRows, oldCols = null, oldRows
         // Column center in 0..1 across the face
         u: (c + 0.5) / prevCols,
         // Row position in continuous row units, scaled to new height
-        y: (Number(state.heads[c]) || 0) * (newRows / prevRows),
+        y: (nodeGraphFiniteNumber(state.heads[c])) * (newRows / prevRows),
         speed: state.headSpeed?.[c] || 0.8,
         slot: state.headCharSlot?.[c] || 0,
         // headCharPhase stores last floor(head * charSpeed) mark (not 0..1).
@@ -248,8 +248,8 @@ function matrixDecayEnergy(state, params, _dtSec = 1 / 60) {
   }
   const trail = Number(params.trail);
   const t = Number.isFinite(trail) ? Math.max(0, Math.min(1, trail)) : (Residual.DEFAULT_TRAIL ?? 0.5);
-  const ghostAmt = Math.max(0, Math.min(1, Number(params.ghost) || 0));
-  const burnAmt = Math.max(0, Math.min(1, Number(params.burn) || 0));
+  const ghostAmt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.ghost)));
+  const burnAmt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.burn)));
   const e = state.energy;
   for (let i = 0; i < e.length; i += 1) {
     if (e[i] <= 0) continue;
@@ -271,7 +271,7 @@ function matrixWriteCell(state, idx, nextGlyph, deposit = 1) {
   if (prev !== " ") {
     state.residual[i] = prev;
     // Pure energy deposit — brightness is applied only when presenting.
-    const d = Math.max(0, Math.min(1, Number(deposit) || 0));
+    const d = Math.max(0, Math.min(1, nodeGraphFiniteNumber(deposit)));
     state.energy[i] = Math.max(state.energy[i], d);
   }
   state.live[i] = next;
@@ -305,7 +305,7 @@ function matrixRainDeposit(state, idx, glyph, headEnergy, isTip = false) {
   // Keep glyph for trail; energy decays independently (CRT afterglow).
   state.residual[i] = " ";
   state.live[i] = g === " " ? (MATRIX_GLYPH_RAMP.charAt(1) || ".") : g;
-  const d = Math.max(0, Number(headEnergy) || 0);
+  const d = Math.max(0, nodeGraphFiniteNumber(headEnergy));
   state.energy[i] = Math.max(state.energy[i], d);
   const tip = matrixEnsureTipMask(state);
   if (isTip) {
@@ -423,7 +423,7 @@ function matrixStepWaterfall(state, params, glyphSlots, dtSec) {
   // Stream Death: original per-frame mid-stream roll. 0 none, 0.5 = orig,
   // 1 = high (still spawn — do not kill birth).
   const deathAmt = Math.max(0, Math.min(1,
-    Number(params.streamDeath != null ? params.streamDeath : 0.5) || 0,
+    nodeGraphFiniteNumber(params.streamDeath != null ? params.streamDeath : 0.5),
   ));
   const immortal = deathAmt <= 1e-6;
   const charRate = Number(params.charSpeed);
@@ -626,7 +626,7 @@ function matrixBuildInfoGrid(columns, rows, message, valueLine) {
 
 function matrixApplyInfoGrid(state, grid, deposit = 1) {
   // Deposit = residual excitation on glyph change (0..1). Not brightness.
-  const d = Math.max(0, Math.min(1, Number(deposit) || 0));
+  const d = Math.max(0, Math.min(1, nodeGraphFiniteNumber(deposit)));
   const cols = state.columns;
   const rows = state.rows;
   for (let r = 0; r < rows; r += 1) {
@@ -649,7 +649,7 @@ function matrixApplyInfoGrid(state, grid, deposit = 1) {
 function matrixPhosphorColor(mono, brightness, gradientStops = null) {
   const bRaw = Number(brightness);
   const b = Number.isFinite(bRaw) ? Math.max(0, bRaw) : 1;
-  const e = Math.max(0, Math.min(1, (Number(mono) || 0) * b));
+  const e = Math.max(0, Math.min(1, (nodeGraphFiniteNumber(mono)) * b));
   if (typeof matrixSampleGradientRgb === "function") {
     const c = matrixSampleGradientRgb(gradientStops, e);
     return { r: c.r, g: c.g, b: c.b, a: 1 };
@@ -827,7 +827,7 @@ function matrixReadPortBuffer(nodeId, port) {
 
 function matrixReadPortLast(nodeId, port) {
   const b = matrixReadPortBuffer(nodeId, port);
-  if (b?.length) return Number(b[b.length - 1]) || 0;
+  if (b?.length) return nodeGraphFiniteNumber(b[b.length - 1]);
   return 0;
 }
 
@@ -838,7 +838,7 @@ function matrixPeakFromBuffer(buffer) {
   let peak = 0;
   let last = 0;
   for (let i = start; i < buffer.length; i += 1) {
-    last = Number(buffer[i]) || 0;
+    last = nodeGraphFiniteNumber(buffer[i]);
     const a = Math.abs(last);
     if (a > peak) peak = a;
   }
@@ -900,14 +900,14 @@ function matrixStepSerial(state, params, nodeId) {
     if (state.serialBufRef !== trigBuf || state.serialBufLen > len) {
       state.serialBufRef = trigBuf;
       state.serialBufLen = Math.max(0, len - 1);
-      state.triggerWasHigh = (Number(trigBuf[state.serialBufLen]) || 0) > 0.5;
+      state.triggerWasHigh = (nodeGraphFiniteNumber(trigBuf[state.serialBufLen])) > 0.5;
     }
     let prev = state.triggerWasHigh ? 1 : 0;
     const start = Math.min(state.serialBufLen, len);
     for (let i = start; i < len; i += 1) {
-      const high = (Number(trigBuf[i]) || 0) > 0.5 ? 1 : 0;
+      const high = (nodeGraphFiniteNumber(trigBuf[i])) > 0.5 ? 1 : 0;
       if (high && !prev) {
-        matrixSerialWriteOne(state, Number(charBuf[Math.min(i, charBuf.length - 1)]) || 32);
+        matrixSerialWriteOne(state, nodeGraphFiniteNumber(charBuf[Math.min(i, charBuf.length - 1)], 32));
       }
       prev = high;
     }
@@ -1191,10 +1191,10 @@ function matrixTickWaterfall(face, canvas, node, nodeId) {
   params.renderStyle = store.renderStyle || "vector";
   params.gradientStops = store.gradientStops || null;
   if (matrixReadPortBuffer(nodeId, "Spawn")?.length) {
-    params.spawn = Math.max(0, Number(matrixReadPortLast(nodeId, "Spawn")) || 0);
+    params.spawn = Math.max(0, nodeGraphFiniteNumber(matrixReadPortLast(nodeId, "Spawn")));
   }
   if (matrixReadPortBuffer(nodeId, "Speed")?.length) {
-    params.speed = Number(matrixReadPortLast(nodeId, "Speed")) || 0;
+    params.speed = nodeGraphFiniteNumber(matrixReadPortLast(nodeId, "Speed"));
   }
   const resetLevel = matrixReadPortLast(nodeId, "Reset");
   const resetHigh = resetLevel > 0.5;
@@ -1220,7 +1220,7 @@ function matrixTickWaterfall(face, canvas, node, nodeId) {
     stampY: 1,
   });
   const state = matrixEnsureSim(nodeId, params);
-  const rise = (Number(params.speed) || 0) < 0;
+  const rise = (nodeGraphFiniteNumber(params.speed)) < 0;
   if (resetHigh && !state.resetWasHigh) {
     matrixClearSim(state);
     state.engineWasOff = true;

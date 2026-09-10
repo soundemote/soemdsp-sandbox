@@ -83,7 +83,7 @@ function syncNodeModuleActionsWindowHeightLimit() {
     nodeGraphMvp.moduleActionWindowSize || nodeModuleActionsWindowDefaultSize,
     menu,
   );
-  const height = Number(normalized.height) || nodeModuleActionsWindowDefaultSize.height;
+  const height = nodeGraphFiniteNumber(normalized.height, nodeModuleActionsWindowDefaultSize.height);
   menu.style.setProperty("--node-module-actions-height", `${Math.round(height)}px`);
   return height;
 }
@@ -350,8 +350,8 @@ function setNodeSceneContextMenuViewportPosition(menu, left, top) {
     setNodeGraphFloatingWindowViewportPosition(menu, left, top);
     return;
   }
-  menu.style.left = `${Math.round(Number(left) || 0)}px`;
-  menu.style.top = `${Math.round(Number(top) || 0)}px`;
+  menu.style.left = `${Math.round(nodeGraphFiniteNumber(left))}px`;
+  menu.style.top = `${Math.round(nodeGraphFiniteNumber(top))}px`;
   menu.style.right = "auto";
 }
 
@@ -364,8 +364,8 @@ function positionNodeSceneContextMenuHeaderAtPoint(menu, x, y, remember = false)
   const headingRect = menu.querySelector(".scene-context-heading")?.getBoundingClientRect();
   positionNodeSceneContextMenu(
     menu,
-    (Number(x) || 0) - (menuRect.width * 0.5),
-    (Number(y) || 0) - ((headingRect?.height || 42) * 0.5),
+    (nodeGraphFiniteNumber(x)) - (menuRect.width * 0.5),
+    (nodeGraphFiniteNumber(y)) - ((headingRect?.height || 42) * 0.5),
     remember,
   );
 }
@@ -926,7 +926,7 @@ function showNodeModuleActionsWindow(anchorRect = null) {
         ? replacementRect.top
         : Number.isFinite(Number(rect.top))
         ? rect.top
-        : Number(rect.bottom) || window.innerHeight * 0.25,
+        : nodeGraphFiniteNumber(rect.bottom, window.innerHeight) * 0.25,
     );
     menu.hidden = false;
   }

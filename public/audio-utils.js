@@ -13,7 +13,7 @@ function writeAscii(view, offset, text) {
 }
 
 function nodeGraphRenderedWavBlob(rendered, fallbackSampleRate = 44100) {
-  const sampleRate = Number(rendered?.sampleRate) || fallbackSampleRate;
+  const sampleRate = nodeGraphFiniteNumber(rendered?.sampleRate, fallbackSampleRate);
   const leftSamples = rendered?.leftSamples || rendered?.samples;
   const rightSamples = rendered?.rightSamples || leftSamples;
   const frames = Math.max(leftSamples?.length || 0, rightSamples?.length || 0);
@@ -37,8 +37,8 @@ function nodeGraphRenderedWavBlob(rendered, fallbackSampleRate = 44100) {
   view.setUint32(40, dataSize, true);
   let offset = 44;
   for (let frame = 0; frame < frames; frame += 1) {
-    const left = Math.max(-1, Math.min(1, leftSamples?.[frame] || 0));
-    const right = Math.max(-1, Math.min(1, rightSamples?.[frame] || 0));
+    const left = leftSamples?.[frame] || 0;
+    const right = rightSamples?.[frame] || 0;
     view.setInt16(offset, left < 0 ? left * 0x8000 : left * 0x7fff, true);
     offset += bytesPerSample;
     view.setInt16(offset, right < 0 ? right * 0x8000 : right * 0x7fff, true);

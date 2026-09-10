@@ -85,11 +85,11 @@ NodeLiveAudioProcessor.prototype.visualControlSigned = function visualControlSig
 };
 
 NodeLiveAudioProcessor.prototype.smoothVisualControl = function smoothVisualControl(key, target, rate = sampleRate, seconds = 0.045, min = 0, max = 1) {
-    const safeTarget = this.clampValue(Number(target) || 0, min, max);
+    const safeTarget = this.clampValue(nodeGraphFiniteNumber(target), min, max);
     const previous = Number(this.visualControlStates.get(key));
     const current = Number.isFinite(previous) ? previous : 0;
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const time = Math.max(0, Number(seconds) || 0);
+    const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
+    const time = Math.max(0, nodeGraphFiniteNumber(seconds));
     const coefficient = time <= 0 ? 1 : 1 - Math.exp(-1 / Math.max(1, time * safeRate));
     const next = current + (safeTarget - current) * coefficient;
     const planck = typeof nodeGraphPlanck === "function"

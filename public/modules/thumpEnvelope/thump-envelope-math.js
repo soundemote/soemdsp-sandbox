@@ -76,22 +76,22 @@ function nodeGraphThumpEnvelopeSample(state, gate, params, sampleRate) {
     state.fbIdx = 0;
   }
 
-  const safeGate = Number(gate) || 0;
-  const latchMode = (Number(params?.updateOnTrigger) || 0) >= 0.5;
+  const safeGate = nodeGraphFiniteNumber(gate);
+  const latchMode = (nodeGraphFiniteNumber(params?.updateOnTrigger)) >= 0.5;
   const rising = !(Number(state.lastGate) > 0) && safeGate > 0;
 
   let snapDepth = nodeGraphThumpUiToSnapDepth(params?.decaySnap);
   let bodyDepth = nodeGraphThumpUiToBodyDepth(params?.decayBody);
   let fall = Number(params?.fallCurve);
   if (!Number.isFinite(fall)) fall = THUMP_DEFAULT_FALL;
-  fall = Math.max(-1, Math.min(1, fall));
-  let atk = Math.max(0, Number(params?.attack) || 0);
-  let rel = Math.max(0, Number(params?.release) || 12.824772066678985);
+  fall = fall;
+  let atk = Math.max(0, nodeGraphFiniteNumber(params?.attack));
+  let rel = Math.max(0, nodeGraphFiniteNumber(params?.release, 12.824772066678985));
   // Amplitude = final output trim. Gate height is velocity (old Amplitude→fb).
   let outAmp = Number.isFinite(Number(params?.amplitude))
     ? Number(params.amplitude)
     : THUMP_FB_AMPLITUDE;
-  let looping = Number(params?.loop) || 0;
+  let looping = nodeGraphFiniteNumber(params?.loop);
 
   if (rising) {
     state.gateVel = Math.max(0, Math.min(1, safeGate));
@@ -120,7 +120,7 @@ function nodeGraphThumpEnvelopeSample(state, gate, params, sampleRate) {
   }
   state.lastGate = safeGate;
 
-  const delayed = Number(state.fbDelay[state.fbIdx]) || 0;
+  const delayed = nodeGraphFiniteNumber(state.fbDelay[state.fbIdx]);
   const rangeOut = delayed * THUMP_RANGE_OUT;
   const effDecay = nodeGraphThumpFoldParam(
     THUMP_BASE_DECAY,
@@ -170,15 +170,15 @@ function nodeGraphThumpEnvelopeSample(state, gate, params, sampleRate) {
 }
 
 function nodeGraphThumpEnvelopePreviewCurve(params = {}, points = 160) {
-  const attack = Math.max(0, Number(params.attack) || 0);
-  const release = Math.max(0, Number(params.release) || 12.824772066678985);
+  const attack = Math.max(0, nodeGraphFiniteNumber(params.attack));
+  const release = Math.max(0, nodeGraphFiniteNumber(params.release, 12.824772066678985));
   const decaySnap = Math.max(0, Math.min(1, Number(params.decaySnap) ?? 0));
   const decayBody = Math.max(0, Math.min(1, Number(params.decayBody) ?? 0));
-  const fallCurve = Math.max(-1, Math.min(1, Number(params.fallCurve) ?? THUMP_DEFAULT_FALL));
+  const fallCurve = Number(params.fallCurve) ?? THUMP_DEFAULT_FALL;
   const amplitude = Math.max(0, Number(params.amplitude) ?? THUMP_FB_AMPLITUDE);
   const sr = 2000;
   const state = createNodeGraphThumpEnvelopeState();
-  const n = Math.max(48, Math.round(Number(points) || 160));
+  const n = Math.max(48, Math.round(nodeGraphFiniteNumber(points, 160)));
   // Face window: short Gate through attack settle, then enough Release to show fall.
   // Cap the simulated Release so a 12s patch default still draws a visible tail.
   const gateHoldSec = attack > 0 ? Math.max(0.05, attack + 0.08) : 0.05;
@@ -208,7 +208,7 @@ function nodeGraphThumpEnvelopePreviewCurve(params = {}, points = 160) {
     if (i % step === 0 || i === totalSamples - 1) {
       out.push({
         t: i / Math.max(1, totalSamples - 1),
-        y: Math.max(0, Math.min(1, Number(y) || 0)),
+        y: Math.max(0, Math.min(1, nodeGraphFiniteNumber(y))),
       });
     }
   }

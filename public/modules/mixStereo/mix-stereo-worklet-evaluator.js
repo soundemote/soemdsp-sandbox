@@ -6,16 +6,16 @@ NodeLiveAudioProcessor.prototype.mixStereoFrame = function mixStereoFrame(inputs
       const src = inputs && typeof inputs === "object" ? inputs : {};
       const p = params && typeof params === "object" ? params : {};
       const args = [
-        Number(src.L1) || 0, Number(src.R1) || 0,
-        Number(src.L2) || 0, Number(src.R2) || 0,
-        Number(src.L3) || 0, Number(src.R3) || 0,
-        Number(src.L4) || 0, Number(src.R4) || 0,
+        nodeGraphFiniteNumber(src.L1), nodeGraphFiniteNumber(src.R1),
+        nodeGraphFiniteNumber(src.L2), nodeGraphFiniteNumber(src.R2),
+        nodeGraphFiniteNumber(src.L3), nodeGraphFiniteNumber(src.R3),
+        nodeGraphFiniteNumber(src.L4), nodeGraphFiniteNumber(src.R4),
         0, // legacy mono-in slot (unused)
-        Number(p.volume1) || 0, Number(p.pan1) || 0,
-        Number(p.volume2) || 0, Number(p.pan2) || 0,
-        Number(p.volume3) || 0, Number(p.pan3) || 0,
-        Number(p.volume4) || 0, Number(p.pan4) || 0,
-        Number(p.amplitude) || 0,
+        nodeGraphFiniteNumber(p.volume1), nodeGraphFiniteNumber(p.pan1),
+        nodeGraphFiniteNumber(p.volume2), nodeGraphFiniteNumber(p.pan2),
+        nodeGraphFiniteNumber(p.volume3), nodeGraphFiniteNumber(p.pan3),
+        nodeGraphFiniteNumber(p.volume4), nodeGraphFiniteNumber(p.pan4),
+        nodeGraphFiniteNumber(p.amplitude),
       ];
       return {
         Left: this.safeFilterNumber(this.nativeMixStereo.soemdsp_mix_stereo_sample(1, ...args), null) ?? 0,

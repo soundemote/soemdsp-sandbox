@@ -25,12 +25,12 @@ function nodeGraphBlubbSample(options = {}) {
   }
   state.resetWasHigh = resetHigh;
 
-  const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
-  const frequency = Number(options.frequency) || 0;
-  const shape = Number(options.shape) || 0;
-  const rotX = Number(options.rotX) || 0;
-  const rotY = Number(options.rotY) || 0;
-  const zDepth = Number(options.zDepth) || 0;
+  const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const frequency = nodeGraphFiniteNumber(options.frequency);
+  const shape = nodeGraphFiniteNumber(options.shape);
+  const rotX = nodeGraphFiniteNumber(options.rotX);
+  const rotY = nodeGraphFiniteNumber(options.rotY);
+  const zDepth = nodeGraphFiniteNumber(options.zDepth);
 
   const phase = state.phase;
   let chX, chY;

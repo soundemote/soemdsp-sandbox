@@ -28,15 +28,15 @@ function nodeGraphLinearAttackReleaseSample(state, gate, params, sampleRate) {
   if (state.out == null) state.out = 0;
   if (state.releaseDecrement == null) state.releaseDecrement = 0;
 
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const period = 1 / rate;
-  const attack = Math.max(0, Number(params?.attack) || 0);
-  const release = Math.max(0, Number(params?.release) || 0);
+  const attack = Math.max(0, nodeGraphFiniteNumber(params?.attack));
+  const release = Math.max(0, nodeGraphFiniteNumber(params?.release));
   const amplitude = Number(params?.amplitude);
   const level = Number.isFinite(amplitude) ? amplitude : 1;
-  const inputMode = Math.max(0, Math.min(1, Math.round(Number(params?.inputMode) || 0)));
+  const inputMode = Math.max(0, Math.min(1, Math.round(nodeGraphFiniteNumber(params?.inputMode))));
 
-  const gateOn = (Number(gate) || 0) > 0.5;
+  const gateOn = (nodeGraphFiniteNumber(gate)) > 0.5;
   const rising = gateOn && !(Number(state.lastGate) > 0.5);
   const falling = !gateOn && Number(state.lastGate) > 0.5;
   state.lastGate = gateOn ? 1 : 0;
@@ -111,8 +111,8 @@ function nodeGraphLinearAttackReleaseSample(state, gate, params, sampleRate) {
  * Face preview: gate-high attack then release (Gate mode silhouette).
  */
 function nodeGraphLinearAttackReleasePreviewCurve(params = {}, points = 160) {
-  const attack = Math.max(0, Number(params.attack) || 0);
-  const release = Math.max(0, Number(params.release) || 0);
+  const attack = Math.max(0, nodeGraphFiniteNumber(params.attack));
+  const release = Math.max(0, nodeGraphFiniteNumber(params.release));
   const hold = Math.max(0.04, Math.min(0.35, (attack + release) * 0.2 || 0.08));
   const gateHigh = Math.max(attack + hold, 0.02);
   const total = Math.max(gateHigh + Math.max(release, 0.02), 0.06);
@@ -133,7 +133,7 @@ function nodeGraphLinearAttackReleasePreviewCurve(params = {}, points = 160) {
     }
     keyframes.push(pt);
   }
-  const n = Math.max(32, Math.round(Number(points) || 160));
+  const n = Math.max(32, Math.round(nodeGraphFiniteNumber(points, 160)));
   const out = [];
   let k = 0;
   for (let i = 0; i < n; i += 1) {

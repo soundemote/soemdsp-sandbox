@@ -508,7 +508,7 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
 }
 
 function nodeGraphDisplaySettingsDefaultValue(key) {
-  return Number(nodeGraphDisplaySettingsFormValue(nodeGraphDisplaySettingsDefaultsForFormType(), key)) || 0;
+  return nodeGraphFiniteNumber(nodeGraphDisplaySettingsFormValue(nodeGraphDisplaySettingsDefaultsForFormType(), key));
 }
 
 function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraphTraceDisplaySettingsFormType()) {
@@ -568,7 +568,7 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
     return {
       channel: typeof nodeGraphPortalClampChannel === "function"
         ? nodeGraphPortalClampChannel(settings?.channel)
-        : Math.max(0, Math.round(Number(settings?.channel) || 0)),
+        : Math.max(0, Math.round(nodeGraphFiniteNumber(settings?.channel))),
     };
   }
   if (type === "softwaveOscFace") {
@@ -1615,7 +1615,7 @@ function bindNodeGraphHueTitleSteppers(host) {
       colorInput,
       startX: event.clientX,
       startY: event.clientY,
-      startHue: Number(hsl.h) || 0,
+      startHue: nodeGraphFiniteNumber(hsl.h),
     };
     swatch.setPointerCapture?.(event.pointerId);
     event.preventDefault();
@@ -1915,7 +1915,7 @@ function nodeGraphTraceDisplayPureHueHex(hslOrHex, fallback = "#fcfdbf") {
     h = ((Number(hslOrHex.h) % 360) + 360) % 360;
   } else {
     const parsed = nodeGraphTraceDisplayHexToHsl(String(hslOrHex || fallback));
-    h = Number(parsed.h) || 0;
+    h = nodeGraphFiniteNumber(parsed.h);
   }
   // HSL → RGB (s=1, l=0.5) → #rrggbb
   const s = 1;

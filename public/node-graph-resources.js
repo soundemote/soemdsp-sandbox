@@ -92,7 +92,7 @@ function normalizeNodeGraphFileGridResourceRow(row = {}) {
     rating: Number.isFinite(rating) ? rating : null,
     ratingLabel: String(source.ratingLabel || "").trim().slice(0, 80),
     resourceId: id,
-    size: Math.max(0, Math.round(Number(source.size) || file.size || 0)),
+    size: Math.max(0, Math.round(nodeGraphFiniteNumber(source.size, nodeGraphFiniteNumber(file.size, 0)))),
     sourceName: name,
     sourcePath: rawPath,
     tags: normalizeNodeGraphFileGridTags(source.tags),
@@ -162,7 +162,7 @@ function normalizeNodeGraphResourceManifest(manifest = {}) {
   }
   return {
     resources: [...map.values()],
-    version: Math.max(1, Math.round(Number(source.version) || 1)),
+    version: Math.max(1, Math.round(nodeGraphFiniteNumber(source.version, 1))),
   };
 }
 
@@ -225,7 +225,7 @@ function registerNodeGraphResources(resources = []) {
   }
   nodeGraphMvp.resources = {
     resources: [...byId.values()],
-    version: Math.max(1, Math.round(Number(nodeGraphMvp.resources?.version) || 1)),
+    version: Math.max(1, Math.round(nodeGraphFiniteNumber(nodeGraphMvp.resources?.version, 1))),
   };
   nodeGraphMvp.resourceMap = new Map(nodeGraphMvp.resources.resources.map((resource) => [resource.id, resource]));
   nodeGraphMvp.resourcePathMap = new Map(

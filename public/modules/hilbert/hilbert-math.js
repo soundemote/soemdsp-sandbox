@@ -16,7 +16,7 @@ function nodeGraphHilbertFrame(state, input, mode) {
     return { Out: 0 };
   }
   const pair = nodeGraphQuadratureNetProcess(state.net, input);
-  const m = Math.round(Number(mode) || 0);
+  const m = Math.round(nodeGraphFiniteNumber(mode));
   if (m >= 2) {
     return { Out: pair.i };
   }

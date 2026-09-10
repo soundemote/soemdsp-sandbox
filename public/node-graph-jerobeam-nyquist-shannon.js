@@ -54,21 +54,21 @@ function nodeGraphNyquistShannonSample(options = {}) {
   }
   state.resetWasHigh = resetHigh;
 
-  const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
-  const frequencyA = Number(options.frequencyA) || 0;
-  const midiNoteRaw = Number(options.midiNoteRaw) || 0;
-  const rateRaw = Number(options.rate) || 0;
-  const sampleDots = Number(options.sampleDots) || 0;
-  const phaseOffset = Number(options.phaseOffset) || 0;
-  const frequencyB = Number(options.frequencyB) || 0;
-  const subPhase = Number(options.subPhase) || 0;
-  const subPhaseRotationSpeed = Number(options.subPhaseRotationSpeed) || 0;
-  const tone = Number(options.tone) || 0;
-  const toneSmoothTime = Number(options.toneSmoothTime) || 0;
-  const artifact = Number(options.artifact) || 0;
-  const enableToneModPitch = Number(options.enableToneModPitch) || 0;
-  const enableToneModFreq = Number(options.enableToneModFreq) || 0;
-  const enableToneModNote = Number(options.enableToneModNote) || 0;
+  const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const frequencyA = nodeGraphFiniteNumber(options.frequencyA);
+  const midiNoteRaw = nodeGraphFiniteNumber(options.midiNoteRaw);
+  const rateRaw = nodeGraphFiniteNumber(options.rate);
+  const sampleDots = nodeGraphFiniteNumber(options.sampleDots);
+  const phaseOffset = nodeGraphFiniteNumber(options.phaseOffset);
+  const frequencyB = nodeGraphFiniteNumber(options.frequencyB);
+  const subPhase = nodeGraphFiniteNumber(options.subPhase);
+  const subPhaseRotationSpeed = nodeGraphFiniteNumber(options.subPhaseRotationSpeed);
+  const tone = nodeGraphFiniteNumber(options.tone);
+  const toneSmoothTime = nodeGraphFiniteNumber(options.toneSmoothTime);
+  const artifact = nodeGraphFiniteNumber(options.artifact);
+  const enableToneModPitch = nodeGraphFiniteNumber(options.enableToneModPitch);
+  const enableToneModFreq = nodeGraphFiniteNumber(options.enableToneModFreq);
+  const enableToneModNote = nodeGraphFiniteNumber(options.enableToneModNote);
 
   const userFreqA = frequencyA;
   const pitch = frequencyB;

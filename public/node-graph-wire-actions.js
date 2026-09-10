@@ -208,10 +208,10 @@ function setSelectedNodeGraphWireType(wireType) {
 function nodeGraphAttenuateInsertGridPoint(patch, sourceId, destinationId, slot) {
   const source = patch.nodes.find((node) => node.id === sourceId);
   const destination = patch.nodes.find((node) => node.id === destinationId);
-  const sgx = Number(source?.gx) || 0;
-  const sgy = Number(source?.gy) || 0;
-  const dgx = Number(destination?.gx) || 0;
-  const dgy = Number(destination?.gy) || 0;
+  const sgx = nodeGraphFiniteNumber(source?.gx);
+  const sgy = nodeGraphFiniteNumber(source?.gy);
+  const dgx = nodeGraphFiniteNumber(destination?.gx);
+  const dgy = nodeGraphFiniteNumber(destination?.gy);
   return {
     gx: Math.round((sgx + dgx) / 2),
     gy: Math.round((sgy + dgy) / 2) + Number(slot || 0),

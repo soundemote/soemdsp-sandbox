@@ -12,7 +12,7 @@ function drawNodeGraphModuleScopeBufferWebGl(renderer, rect, buffer, pixelRatio,
     drawNodeGraphModuleScopeSpectrumBarsWebGl(renderer, rect, buffer, pixelRatio, options);
     return;
   }
-  const traceThicknessPx = Math.max(1, Number(options.thicknessPx) || 1);
+  const traceThicknessPx = Math.max(1, nodeGraphFiniteNumber(options.thicknessPx, 1));
   const fixedDotSizeRatio = Number(buffer?.nodeGraphScopeFixedDotSizeRatio);
   const fixedDotSizePx = Number.isFinite(fixedDotSizeRatio) && fixedDotSizeRatio > 0
     ? Math.max(1, Math.min(visibleRect.width, visibleRect.height) * clampNodeSliderValue(fixedDotSizeRatio, 0.01, 1))
@@ -40,7 +40,7 @@ function drawNodeGraphModuleScopeBufferWebGl(renderer, rect, buffer, pixelRatio,
     gl.scissor(clipRect.left, canvas.height - clipRect.bottom, clipRect.width, clipRect.height);
     gl.useProgram(renderer.beamProgram);
     gl.uniform2f(renderer.beamCanvasSizeLocation, canvas.width, canvas.height);
-    gl.uniform1f(renderer.beamBlurLocation, clampNodeSliderValue(Number(options.blur) || 0, 0, 1));
+    gl.uniform1f(renderer.beamBlurLocation, clampNodeSliderValue(nodeGraphFiniteNumber(options.blur), 0, 1));
     gl.uniform1f(renderer.beamSizeLocation, safeDotThicknessPx);
     const intensity = Number(options.intensity);
     gl.uniform1f(renderer.beamIntensityLocation, Number.isFinite(intensity) ? Math.max(0, intensity) : 0.1);
@@ -163,7 +163,7 @@ function drawNodeGraphModuleScopeSpectrumBarsWebGl(renderer, rect, buffer, pixel
   gl.scissor(clipRect.left, canvas.height - clipRect.bottom, clipRect.width, clipRect.height);
   gl.useProgram(renderer.colorProgram);
   const color = Array.isArray(options.color) ? options.color : [0.7, 1, 0.9];
-  const intensity = clampNodeSliderValue(Number(options.intensity) || 0.1, 0, 4);
+  const intensity = clampNodeSliderValue(nodeGraphFiniteNumber(options.intensity, 0.1), 0, 4);
   gl.uniform4f(
     renderer.colorLocation,
     color[0] * intensity,
@@ -285,8 +285,8 @@ function drawNodeGraphModuleScopeLightDisplay(context, rect, buffer, pixelRatio,
   }
   const nodeId = String(slot?.nodeId || "");
   const settings = nodeGraphModuleScopeSetting(nodeId);
-  const dt = clampNodeSliderValue(Number(nodeGraphModuleScopeState.animationDeltaSeconds) || (1 / 60), 1 / 240, 1 / 15);
-  const target = clampNodeSliderValue(Number(buffer.nodeGraphScopeLightTarget) || 0, 0, 1);
+  const dt = clampNodeSliderValue(nodeGraphFiniteNumber(nodeGraphModuleScopeState.animationDeltaSeconds, (1 / 60)), 1 / 240, 1 / 15);
+  const target = clampNodeSliderValue(nodeGraphFiniteNumber(buffer.nodeGraphScopeLightTarget), 0, 1);
   const releaseSeconds = Number(buffer.nodeGraphScopeLightReleaseSeconds);
   const hasRelease = Number.isFinite(releaseSeconds) && releaseSeconds > 0;
   let brightness = target;
@@ -427,9 +427,9 @@ function drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y1, x2, y
   gl.scissor(clipRect.left, canvas.height - clipRect.bottom, clipRect.width, clipRect.height);
   gl.useProgram(renderer.beamProgram);
   gl.uniform2f(renderer.beamCanvasSizeLocation, canvas.width, canvas.height);
-  gl.uniform1f(renderer.beamBlurLocation, clampNodeSliderValue(Number(options.blur) || 0, 0, 1));
-  gl.uniform1f(renderer.beamSizeLocation, Math.max(1, (Number(options.thicknessPx) || 1) * pixelRatio));
-  gl.uniform1f(renderer.beamIntensityLocation, Math.max(0, Number(options.intensity) || 0));
+  gl.uniform1f(renderer.beamBlurLocation, clampNodeSliderValue(nodeGraphFiniteNumber(options.blur), 0, 1));
+  gl.uniform1f(renderer.beamSizeLocation, Math.max(1, (nodeGraphFiniteNumber(options.thicknessPx, 1)) * pixelRatio));
+  gl.uniform1f(renderer.beamIntensityLocation, Math.max(0, nodeGraphFiniteNumber(options.intensity)));
   const color = Array.isArray(options.color) ? options.color : [0.45, 0.92, 1];
   gl.uniform3f(renderer.beamColorLocation, color[0], color[1], color[2]);
   gl.bindBuffer(gl.ARRAY_BUFFER, renderer.beamBuffer);
@@ -448,7 +448,7 @@ function drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y1, x2, y
 
 
 function nodeGraphPhosphorDotLutCss(settings, amount01) {
-  const t = Math.max(0, Math.min(0.999, Number(amount01) || 0));
+  const t = Math.max(0, Math.min(0.999, nodeGraphFiniteNumber(amount01)));
   const stops = Array.isArray(settings?.gradientStops) ? settings.gradientStops : null;
   if (stops?.length >= 2) {
     let a = stops[0];
@@ -519,8 +519,8 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
     : clampNodeSliderValue(Number(settings.trail ?? 0.78), 0, 1);
   const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
     ? PhosphorResidual.migrateGhost(settings, 0.4)
-    : clampNodeSliderValue(Number(settings.ghost) || 0, 0, 1);
-  const lampBright = clampNodeSliderValue(Number(settings.dot1Brightness) || 0, 0, 1);
+    : clampNodeSliderValue(nodeGraphFiniteNumber(settings.ghost), 0, 1);
+  const lampBright = clampNodeSliderValue(nodeGraphFiniteNumber(settings.dot1Brightness), 0, 1);
   const energy = nodeGraphVectorDotFrameEnergy01(buffer, canvas);
   const amount = Math.max(0, Math.min(1, energy * lampBright));
   const frozen0d = typeof nodeGraphModuleScopePhosphorFrozen === "function"
@@ -785,7 +785,7 @@ function nodeGraphVectorDotFrameEnergy01(buffer, canvas) {
   }
   const abs = Math.max(
     0,
-    Math.floor(Number(buffer.nodeGraphScopeTotalSampleCount || buffer.nodeGraphScopeAbsoluteFrame) || 0),
+    Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeTotalSampleCount || buffer.nodeGraphScopeAbsoluteFrame)),
   );
   const prevAbs = Number(canvas?._vectorDotEnergyAbs || 0);
   let n = 0;
@@ -821,10 +821,10 @@ function nodeGraphVectorDotFrameEnergy01(buffer, canvas) {
 }
 
 function nodeGraphVectorDotStampExtents(width, height, size01, pill01) {
-  const w = Math.max(1, Number(width) || 1);
-  const h = Math.max(1, Number(height) || 1);
-  const size = Math.max(0, Math.min(1, Number(size01) || 0));
-  const pill = Math.max(0, Math.min(1, Number(pill01) || 0));
+  const w = Math.max(1, nodeGraphFiniteNumber(width, 1));
+  const h = Math.max(1, nodeGraphFiniteNumber(height, 1));
+  const size = Math.max(0, Math.min(1, nodeGraphFiniteNumber(size01)));
+  const pill = Math.max(0, Math.min(1, nodeGraphFiniteNumber(pill01)));
   const minSide = Math.min(w, h);
   const maxSide = Math.max(w, h);
   const r = minSide * 0.5 * size;
@@ -895,7 +895,7 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
     || settings.faceStyle === "lcd"
     || renderer === "lcdDot";
   const lampBright = clampNodeSliderValue(
-    Number(settings.dot1Brightness ?? settings.brightness) || 0,
+    nodeGraphFiniteNumber(settings.dot1Brightness ?? settings.brightness),
     0,
     1,
   );
@@ -909,7 +909,7 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
     const bgHue = typeof nodeGraphHueDegFromHex === "function"
       ? nodeGraphHueDegFromHex(settings.backgroundColor || settings.background)
       : 220;
-    const bgAmt = clampNodeSliderValue(Number(settings.backgroundBrightness) || 0, 0, 1);
+    const bgAmt = clampNodeSliderValue(nodeGraphFiniteNumber(settings.backgroundBrightness), 0, 1);
     bg = typeof nodeGraphHueBrightnessCss === "function"
       ? nodeGraphHueBrightnessCss(bgHue, bgAmt)
       : "#000000";
@@ -920,12 +920,12 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
   nodeGraphFacePlateFillCanvas(context, canvas, bg);
   const width = canvas.width;
   const height = canvas.height;
-  const size01 = clampNodeSliderValue(Number(settings.dot1Size) || 0, 0, 1);
+  const size01 = clampNodeSliderValue(nodeGraphFiniteNumber(settings.dot1Size), 0, 1);
   const stampShape = typeof normalizeTraceStampShape === "function"
     ? normalizeTraceStampShape(settings.shape)
     : String(settings.shape || "circle");
   const shapeParam = clampNodeSliderValue(
-    Number(settings.shapeParam ?? (stampShape === "oval" ? settings.pill : settings.squircle)) || 0,
+    nodeGraphFiniteNumber(settings.shapeParam ?? (stampShape === "oval" ? settings.pill : settings.squircle)),
     0,
     1,
   );
@@ -933,7 +933,7 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
   const extents = nodeGraphVectorDotStampExtents(width, height, size01, stretch);
   const radius = extents.radius;
   const blur = clampNodeSliderValue(
-    Number(settings.lineThickness ?? settings.blur) || 0,
+    nodeGraphFiniteNumber(settings.lineThickness ?? settings.blur),
     0,
     1,
   );
@@ -956,7 +956,7 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
   const cx = width * 0.5;
   const cy = height * 0.5;
   if (lcd) {
-    const ghostAmt = clampNodeSliderValue(Number(settings.unlitSegments) || 0, 0, 1);
+    const ghostAmt = clampNodeSliderValue(nodeGraphFiniteNumber(settings.unlitSegments), 0, 1);
     let inkCss = settings.dot1Color || settings.color || "#1a2216";
     let ghostCss = inkCss;
     if (typeof nodeGraphNumberReadoutLcdInkRgb === "function") {
@@ -1071,7 +1071,7 @@ function drawNodeGraphCustomDisplayItem(renderer, item, pixelRatio) {
       inputs: nodeGraphCustomDisplayInputApi(node, displayScript, item?.buffer || null),
       node,
       pixelRatio,
-      time: (Number(nodeGraphModuleScopeState.frames) || 0) / 60,
+      time: (nodeGraphFiniteNumber(nodeGraphModuleScopeState.frames)) / 60,
       width: canvas.width,
     }, ...nodeGraphPortScriptHelperValues);
   } catch (error) {

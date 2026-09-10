@@ -722,7 +722,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
             portamentoStyle: read("portamentoStyle", 0.126),
           };
         }
-        const reset = hasResetInput ? (Number(mixInput(nodeId, "Reset")) || 0) : 0;
+        const reset = hasResetInput ? (nodeGraphFiniteNumber(mixInput(nodeId, "Reset"))) : 0;
         return this.robinSupersawSample(state, {
           frequencyHz: state.cachedParams.frequencyHz,
           sampleRate: safeRate,
@@ -1121,7 +1121,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         const unit = (primary, legacy, fallback) => (
           typeof nodeGraphKickEnvelopeReadUnit === "function"
             ? nodeGraphKickEnvelopeReadUnit(read(primary, NaN), read(legacy, NaN), fallback)
-            : Math.max(0, Math.min(1, Number(read(primary, fallback)) || fallback))
+            : Math.max(0, Math.min(1, nodeGraphFiniteNumber(read(primary, fallback), fallback)))
         );
         const sharpRaw = read("sharpness", NaN);
         const sharpness = Number.isFinite(Number(sharpRaw))
@@ -1134,7 +1134,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           unit("high", "highFreq", 1),
           sharpness,
           safeRate,
-          Math.round(Number(read("curve", 1)) || 0) !== 0 ? 1 : 0,
+          Math.round(nodeGraphFiniteNumber(read("curve", 1))) !== 0 ? 1 : 0,
           read("speed", 0.2),
           read("amplitude", 1),
         );

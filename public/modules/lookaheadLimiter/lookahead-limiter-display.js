@@ -217,7 +217,7 @@ function drawNodeGraphLimiterGainFaceItem(renderer, item, pixelRatio) {
     for (let x = 0; x < columns; x += 1) {
       const t = columns <= 1 ? 0 : x / (columns - 1);
       const index = start + Math.min(count - 1, Math.floor(t * (count - 1)));
-      const gain = Math.max(0, Math.min(1, Number(buffer[index]) || 0));
+      const gain = Math.max(0, Math.min(1, nodeGraphFiniteNumber(buffer[index])));
       const y = (1 - gain) * (h - 1) + 0.5;
       if (x === 0) {
         ctx.moveTo(x + 0.5, y);
@@ -226,7 +226,7 @@ function drawNodeGraphLimiterGainFaceItem(renderer, item, pixelRatio) {
       }
     }
   }
-  const dpr = Math.max(1, Number(pixelRatio) || 1);
+  const dpr = Math.max(1, nodeGraphFiniteNumber(pixelRatio, 1));
   ctx.strokeStyle = nodeGraphLimiterGainFaceLineCss(settings);
   ctx.lineWidth = Math.max(1, settings.lineThickness * dpr);
   ctx.lineJoin = "round";
@@ -236,7 +236,7 @@ function drawNodeGraphLimiterGainFaceItem(renderer, item, pixelRatio) {
 
   let latest = 1;
   if (buffer?.length) {
-    latest = Math.max(0, Math.min(1, Number(buffer[buffer.length - 1]) || 0));
+    latest = Math.max(0, Math.min(1, nodeGraphFiniteNumber(buffer[buffer.length - 1])));
   }
   const reduction = 1 - latest;
   if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {

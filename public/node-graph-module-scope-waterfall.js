@@ -108,7 +108,7 @@ function nodeGraphWaterfallMeasureSync(syncBuffer, state, historyCycles = 0, sam
   const edges = Array.isArray(triggers?.edges) ? triggers.edges : [];
   let periodSamples = nodeGraphWaterfallRefinePeriodSamples(edges);
   if (!(periodSamples > 1)) {
-    periodSamples = Number(triggers?.periodSamples) || 0;
+    periodSamples = nodeGraphFiniteNumber(triggers?.periodSamples);
   }
   if (periodSamples > 1 && state) {
     const prev = Number(state.periodEma);
@@ -176,9 +176,9 @@ function nodeGraphWaterfallY(raw, gain, offset, midY, halfHeight, amp = null) {
       ? nodeGraphRmsDbToFaceBipolar(db, amp.minDb, amp.maxDb)
       : 0;
   } else {
-    bipolar = (Number.isFinite(Number(raw)) ? Number(raw) : 0) * (Number(gain) || 1) + (Number(offset) || 0);
+    bipolar = (Number.isFinite(Number(raw)) ? Number(raw) : 0) * (nodeGraphFiniteNumber(gain, 1)) + (nodeGraphFiniteNumber(offset));
   }
-  const v = Math.max(-1, Math.min(1, bipolar));
+  const v = bipolar;
   return midY - v * halfHeight;
 }
 
@@ -218,7 +218,7 @@ function nodeGraphWaterfallAmp(buffer, slot) {
   const view = typeof nodeGraphTraceDisplayBufferView === "function"
     ? nodeGraphTraceDisplayBufferView(buffer, slot, { forceSyncOff: true })
     : null;
-  return { gain: Number(view?.gain) || 1, offset: Number(view?.offset) || 0 };
+  return { gain: nodeGraphFiniteNumber(view?.gain, 1), offset: nodeGraphFiniteNumber(view?.offset) };
 }
 
 function nodeGraphWaterfallAbsEnd(buffer) {
@@ -236,7 +236,7 @@ function nodeGraphWaterfallUndrawn(buffer, lastAbs) {
   const end = buffer?.length || 0;
   if (!end) return { count: 0, absEnd: Number.NaN, start: 0, end: 0 };
   const absEnd = nodeGraphWaterfallAbsEnd(buffer);
-  const recent = Math.max(0, Math.floor(Number(buffer.nodeGraphScopeRecentSampleCount) || 0));
+  const recent = Math.max(0, Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeRecentSampleCount)));
   if (Number.isFinite(absEnd) && absEnd > 0 && Number.isFinite(lastAbs) && lastAbs > 0) {
     if (lastAbs >= absEnd) return { count: 0, absEnd, start: end, end };
     const undrawn = Math.min(end, Math.max(0, Math.floor(absEnd - lastAbs)));
@@ -263,7 +263,7 @@ function nodeGraphWaterfallLatestY(buffer, slot, settings, height) {
 /** Min/max envelope per new pixel column. */
 function nodeGraphWaterfallColumnPath(buffer, slot, columns, height, prevY, settings, start, end) {
   const live = nodeGraphWaterfallPrepare(buffer, settings);
-  const cols = Math.max(1, Math.floor(Number(columns) || 1));
+  const cols = Math.max(1, Math.floor(nodeGraphFiniteNumber(columns, 1)));
   if (!live?.length || cols < 1) {
     return Number.isFinite(prevY) ? [{ x: 0, y: prevY }, { x: cols, y: prevY }] : [];
   }
@@ -305,7 +305,7 @@ function nodeGraphWaterfallSizePx(face, size01) {
   if (typeof TraceStroke !== "undefined" && typeof TraceStroke.diameterPx === "function") {
     return Math.max(1, TraceStroke.diameterPx(face, size01));
   }
-  return Math.max(1, Math.max(1, Number(face) || 1) * Math.max(0, Math.min(1, Number(size01) || 0)));
+  return Math.max(1, Math.max(1, nodeGraphFiniteNumber(face, 1)) * Math.max(0, Math.min(1, nodeGraphFiniteNumber(size01))));
 }
 
 function nodeGraphWaterfallGlRadius(faceMin, size01) {
@@ -313,7 +313,7 @@ function nodeGraphWaterfallGlRadius(faceMin, size01) {
 }
 
 function nodeGraphWaterfallMargin(radiusPx) {
-  return Math.max(1, Math.ceil(Math.max(0.5, Number(radiusPx) || 0.5)));
+  return Math.max(1, Math.ceil(Math.max(0.5, nodeGraphFiniteNumber(radiusPx, 0.5))));
 }
 
 function nodeGraphWaterfallLutRgb(hex, fallback) {
@@ -335,9 +335,9 @@ function nodeGraphWaterfallLutRgb(hex, fallback) {
 function nodeGraphWaterfallParseInkRgb(color) {
   if (Array.isArray(color) && color.length >= 3) {
     return [
-      Math.max(0, Math.min(255, Math.round(Number(color[0]) || 0))),
-      Math.max(0, Math.min(255, Math.round(Number(color[1]) || 0))),
-      Math.max(0, Math.min(255, Math.round(Number(color[2]) || 0))),
+      Math.max(0, Math.min(255, Math.round(nodeGraphFiniteNumber(color[0])))),
+      Math.max(0, Math.min(255, Math.round(nodeGraphFiniteNumber(color[1])))),
+      Math.max(0, Math.min(255, Math.round(nodeGraphFiniteNumber(color[2])))),
     ];
   }
   const m = String(color || "").trim().match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
@@ -352,12 +352,12 @@ function nodeGraphWaterfallParseInkRgb(color) {
 }
 
 function nodeGraphWaterfallClampPoint(x, y, radius, width, height) {
-  const r = Math.max(0.5, Number(radius) || 0.5);
-  const w = Math.max(1, Number(width) || 1);
-  const h = Math.max(1, Number(height) || 1);
+  const r = Math.max(0.5, nodeGraphFiniteNumber(radius, 0.5));
+  const w = Math.max(1, nodeGraphFiniteNumber(width, 1));
+  const h = Math.max(1, nodeGraphFiniteNumber(height, 1));
   return {
-    x: Math.max(r, Math.min(w - r, Number(x) || 0)),
-    y: Math.max(r, Math.min(h - r, Number(y) || 0)),
+    x: Math.max(r, Math.min(w - r, nodeGraphFiniteNumber(x))),
+    y: Math.max(r, Math.min(h - r, nodeGraphFiniteNumber(y))),
   };
 }
 
@@ -379,7 +379,7 @@ function nodeGraphWaterfallScaleRgb(rgb, bright01) {
 
 /** Preview pad = Size radius (blur does not grow the disc). */
 function nodeGraphWaterfallSoftPad(radius, _blur01) {
-  return Math.max(0.5, Number(radius) || 0.5);
+  return Math.max(0.5, nodeGraphFiniteNumber(radius, 0.5));
 }
 
 /**
@@ -387,9 +387,9 @@ function nodeGraphWaterfallSoftPad(radius, _blur01) {
  * Same profile as TraceTape (Size-normalized, no skirt growth).
  */
 function nodeGraphWaterfallBlurAlpha(dist, radius, blur01) {
-  const r = Math.max(0.5, Number(radius) || 0.5);
+  const r = Math.max(0.5, nodeGraphFiniteNumber(radius, 0.5));
   const soft = nodeGraphWaterfallClamp01(blur01, 0);
-  const t = Math.max(0, Number(dist) || 0) / r;
+  const t = Math.max(0, nodeGraphFiniteNumber(dist)) / r;
   if (soft < 0.02) {
     return t < 0.999 ? 1 : 0;
   }
@@ -406,7 +406,7 @@ const nodeGraphWaterfallPreviewDabCache = new Map();
 const NODE_GRAPH_WATERFALL_PREVIEW_DAB_MAX = 32;
 
 function nodeGraphWaterfallPreviewDabSprite(radius, blur01, rgb) {
-  const rQ = Math.round(Math.max(0.5, Number(radius) || 0.5) * 4) / 4;
+  const rQ = Math.round(Math.max(0.5, nodeGraphFiniteNumber(radius, 0.5)) * 4) / 4;
   const bQ = Math.round(nodeGraphWaterfallClamp01(blur01, 0) * 64) / 64;
   const key = rQ + ":" + bQ + ":" + rgb[0] + "," + rgb[1] + "," + rgb[2];
   let entry = nodeGraphWaterfallPreviewDabCache.get(key);
@@ -448,7 +448,7 @@ function nodeGraphWaterfallPreviewDabSprite(radius, blur01, rgb) {
 /** Preview dab — Size-normalized radial smoothstep (matches TraceTape). */
 function nodeGraphWaterfallDab(ctx, x, y, radius, rgb, composite, blur01 = 0, alpha01 = 1) {
   if (!ctx) return;
-  const r = Math.max(0.5, Number(radius) || 0.5);
+  const r = Math.max(0.5, nodeGraphFiniteNumber(radius, 0.5));
   const blur = nodeGraphWaterfallClamp01(blur01, 0);
   const aMul = nodeGraphWaterfallClamp01(alpha01, 1);
   if (aMul <= 0.001) return;
@@ -473,7 +473,7 @@ function nodeGraphWaterfallDab(ctx, x, y, radius, rgb, composite, blur01 = 0, al
 }
 
 function nodeGraphWaterfallShiftPath(points, x0) {
-  const ox = Number(x0) || 0;
+  const ox = nodeGraphFiniteNumber(x0);
   if (!ox || !Array.isArray(points)) return points || [];
   return points.map((p) => (p && Number.isFinite(p.x) ? { x: p.x + ox, y: p.y } : p));
 }
@@ -660,8 +660,8 @@ function nodeGraphWaterfallEnsureHold(canvas, width, height, bg) {
     hold = document.createElement("canvas");
     canvas._waterfallHold = hold;
   }
-  const w = Math.max(1, Math.floor(Number(width) || 1));
-  const h = Math.max(1, Math.floor(Number(height) || 1));
+  const w = Math.max(1, Math.floor(nodeGraphFiniteNumber(width, 1)));
+  const h = Math.max(1, Math.floor(nodeGraphFiniteNumber(height, 1)));
   if (hold.width === w && hold.height === h) {
     return hold;
   }
@@ -701,7 +701,7 @@ function nodeGraphWaterfallResetHold(canvas, bg) {
 }
 
 function nodeGraphWaterfallScrollHold(hold, scrollPx, bg) {
-  const n = Math.max(0, Math.round(Number(scrollPx) || 0));
+  const n = Math.max(0, Math.round(nodeGraphFiniteNumber(scrollPx)));
   if (!hold || n <= 0 || hold.width <= 0 || hold.height <= 0) {
     return;
   }
@@ -723,7 +723,7 @@ function nodeGraphWaterfallPresentTapes(destCtx, destCanvas, tapes, meta, mode, 
   const h = destCanvas.height;
   const meet = (mode === "combine" || mode === "meet") && tapes.length >= 2;
   const plateBg = mode === "multiply" ? "#ffffff" : (bg || "#000000");
-  const scrollPx = Math.max(0, Math.round(Number(options.scrollPx) || 0));
+  const scrollPx = Math.max(0, Math.round(nodeGraphFiniteNumber(options.scrollPx)));
   const resetHold = options.resetHold === true;
   const hold = nodeGraphWaterfallEnsureHold(destCanvas, w, h, plateBg);
   if (hold) {
@@ -804,14 +804,14 @@ function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampl
   const minX = pad;
   const maxX = Math.max(minX + 1, width - pad);
   let n = Math.max(1, Math.floor(columns));
-  let x = Math.floor(Number(x0) || 0);
+  let x = Math.floor(nodeGraphFiniteNumber(x0));
   if (x + n > maxX) x = maxX - n;
   if (x < minX) {
     x = minX;
     if (x + n > maxX) n = Math.max(1, maxX - x);
   }
   if (n < 1 || x >= width) return 0;
-  const scrollPx = Math.max(0, Math.round(Number(options?.scrollPx) || 0));
+  const scrollPx = Math.max(0, Math.round(nodeGraphFiniteNumber(options?.scrollPx)));
   const mode = nodeGraphWaterfallBlendMode(settings, { rgbGuns: Boolean(spec?.rgbBuffers) });
   const count = Math.max(0, Math.floor(sampleEnd) - Math.floor(sampleStart));
   const channels = nodeGraphWaterfallChannelList(spec, settings).filter((ch) => ch.enabled !== false);
@@ -867,7 +867,7 @@ function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampl
     const needDots = Math.ceil(pathLen / spacing) + points.length + 64;
     const budget = Math.max(
       4096,
-      Math.min(16384, Number(settings.dotBudget) || 1024),
+      Math.min(16384, nodeGraphFiniteNumber(settings.dotBudget, 1024)),
       needDots,
     );
     TraceTape.stamp(tape, {
@@ -983,7 +983,7 @@ function nodeGraphWaterfallState(canvas, width, height, syncOn, nowLine, bg, con
 
 function nodeGraphWaterfallFinishOutputInk(spec, context, canvas, scrollPx) {
   if (typeof paintNodeGraphOutputInkFrame === "function") {
-    const px = Math.round(Number(scrollPx) || 0);
+    const px = Math.round(nodeGraphFiniteNumber(scrollPx));
     paintNodeGraphOutputInkFrame(
       context, canvas, spec?.slot, spec?.settings, spec?.density,
       { scrollPx: px, scrolled: px > 0 },
@@ -1163,7 +1163,7 @@ function nodeGraphWaterfallPaint(spec) {
     }
   }
   const samplesPerColumn = Math.max(1e-9, (hz * history) / usableWidth);
-  const columnsFloat = window.count / samplesPerColumn + (Number(st.frac) || 0);
+  const columnsFloat = window.count / samplesPerColumn + (nodeGraphFiniteNumber(st.frac));
   let columns = Math.floor(columnsFloat);
   if (columns < 1) {
     nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);

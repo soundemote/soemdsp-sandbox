@@ -3,7 +3,7 @@ NodeLiveAudioProcessor.prototype.createLutCellState = function createLutCellStat
   };
 
 NodeLiveAudioProcessor.prototype.advanceLutCellSelfClock = function advanceLutCellSelfClock(state) {
-    const rate = Math.max(1, Number(this.engineSampleRate) || 44100);
+    const rate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, 44100));
     const increment = (2 * 220) / rate;
     state.selfClockPhase = (state.selfClockPhase || 0) + increment;
     if (state.selfClockPhase >= 1) {
@@ -18,7 +18,7 @@ NodeLiveAudioProcessor.prototype.lutCellSample = function lutCellSample(state, o
       ? Number(options.clock) > 0
       : this.advanceLutCellSelfClock(state) > 0;
     const effectiveA = options.hasAInput
-      ? Number(options.a) || 0
+      ? nodeGraphFiniteNumber(options.a)
       : (effectiveClockHigh ? 1 : 0);
     const effectiveOptions = {
       ...options,
@@ -36,10 +36,10 @@ NodeLiveAudioProcessor.prototype.lutCellSample = function lutCellSample(state, o
           state.nativeHandle = this.nativeLutCell.soemdsp_lut_cell_create();
         }
         if (state.nativeHandle) {
-          const b = Number(effectiveOptions.b) || 0;
-          const c = Number(effectiveOptions.c) || 0;
-          const d = Number(effectiveOptions.d) || 0;
-          const table = Math.max(0, Math.min(0xFFFF, Math.round(Number(effectiveOptions.truthTable) || 0)));
+          const b = nodeGraphFiniteNumber(effectiveOptions.b);
+          const c = nodeGraphFiniteNumber(effectiveOptions.c);
+          const d = nodeGraphFiniteNumber(effectiveOptions.d);
+          const table = Math.max(0, Math.min(0xFFFF, Math.round(nodeGraphFiniteNumber(effectiveOptions.truthTable))));
           const combinational = this.nativeLutCell.soemdsp_lut_cell_sample(
             state.nativeHandle,
             effectiveOptions.a,

@@ -177,7 +177,7 @@ function nodeGraphRenderedScopeMonitorValue(
 // captureNodeGraphRenderedScopeFrame → node-graph-module-scope-capture.js
 // finishNodeGraphRenderedScopeCapture → node-graph-module-scope-capture.js
 function nodeGraphLiveModuleScopeFrameCapacity(options = {}) {
-  const sampleRate = Math.max(1, Number(nodeGraphModuleScopeState.sampleRate) || Number(nodeGraphMvp?.sampleRate) || 44100);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(nodeGraphModuleScopeState.sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
     ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
     : 60;
@@ -188,7 +188,7 @@ function nodeGraphLiveModuleScopeFrameCapacity(options = {}) {
   const oneSecondWindow = Math.ceil(sampleRate * 1);
   return Math.max(
     32,
-    Math.floor(Number(options.frames) || 0),
+    Math.floor(nodeGraphFiniteNumber(options.frames)),
     nodeGraphModuleScopeState.liveFrameCapacity,
     traceHistoryWindow,
     visualFrameWindow,

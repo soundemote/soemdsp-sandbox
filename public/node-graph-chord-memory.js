@@ -45,11 +45,11 @@ function nodeGraphChordMemorySample(state, options = {}) {
   const latchHigh = Number(options.latch) > 0;
   const clearHigh = Number(options.clear) > 0;
   const advanceHigh = Number(options.advance) > 0;
-  const pitch = Number(options.pitch) || 0;
-  const walk = Math.max(0, Math.min(2, Math.round(Number(options.walk) || 0)));
-  const leap = Math.max(0, Math.min(1, Number(options.leap) || 0));
-  const octaves = Math.max(0, Math.min(3, Math.round(Number(options.octaves) || 0)));
-  const mutate = Math.max(0, Math.min(1, Number(options.mutate) || 0.2));
+  const pitch = nodeGraphFiniteNumber(options.pitch);
+  const walk = Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(options.walk))));
+  const leap = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.leap)));
+  const octaves = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(options.octaves))));
+  const mutate = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.mutate, 0.2)));
 
   if (clearHigh && !state.clearWasHigh) {
     state.slots = [0, 0, 0, 0];
@@ -121,7 +121,7 @@ function nodeGraphChordMemorySample(state, options = {}) {
 
   let arp = activeIndices.length > 0 ? state.slots[state.arpIndex] : 0;
   if (octaveShift !== 0) {
-    arp = (Number(arp) || 0) + octaveShift * (12 / 120);
+    arp = (nodeGraphFiniteNumber(arp)) + octaveShift * (12 / 120);
   }
   if (activeIndices.length > 0) {
     state.lastArpPitch = arp;

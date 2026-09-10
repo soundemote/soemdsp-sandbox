@@ -8,41 +8,41 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
         const resetActive = hasInput(nodeId, "Reset") && Number(mixInput(nodeId, "Reset")) > 0;
         const manualRawMidi = Number.isFinite(Number(signal.rawMidi))
           ? Number(signal.rawMidi)
-          : Number(signal.midi) || 60;
-        const manualOctave = Number(signal.octave) || 0;
+          : nodeGraphFiniteNumber(signal.midi, 60);
+        const manualOctave = nodeGraphFiniteNumber(signal.octave);
         const octave = hasInput(nodeId, "Octave")
-          ? this.clampValue(Math.round(Number(mixInput(nodeId, "Octave")) || 0), -6, 6)
+          ? this.clampValue(Math.round(nodeGraphFiniteNumber(mixInput(nodeId, "Octave"))), -6, 6)
           : manualOctave;
         const rawMidi = resetActive
           ? 60
-          : (hasInput(nodeId, "MIDI Note") ? Number(mixInput(nodeId, "MIDI Note")) || 0 : manualRawMidi);
+          : (hasInput(nodeId, "MIDI Note") ? nodeGraphFiniteNumber(mixInput(nodeId, "MIDI Note")) : manualRawMidi);
         const midi = this.clampValue(Math.round(rawMidi + octave * 12), 0, 127);
         const automatedPitch = resetActive || hasInput(nodeId, "MIDI Note") || hasInput(nodeId, "Octave");
         const key = automatedPitch
           ? this.clampValue(Math.round(rawMidi) - 48, 0, 24)
-          : this.clampValue(Number(signal.keyIndex) || 12, 0, 24);
+          : this.clampValue(nodeGraphFiniteNumber(signal.keyIndex, 12), 0, 24);
         const frequency = 440 * (2 ** ((midi - 69) / 12));
         const outputFrequency = Math.max(0, frequency);
         const increment = Math.max(0, outputFrequency / safeRate);
         const q = automatedPitch
           ? key / 24
-          : this.clampValue(Number(signal.keyQuantized) || key / 24, 0, 1);
+          : this.clampValue(nodeGraphFiniteNumber(signal.keyQuantized, key) / 24, 0, 1);
         const x = resetActive ? 0.5 : (hasInput(nodeId, "X")
-          ? this.clampValue(Number(mixInput(nodeId, "X")) || 0, 0, 1)
-          : this.clampValue(Number(signal.x) || q, 0, 1));
+          ? this.clampValue(nodeGraphFiniteNumber(mixInput(nodeId, "X")), 0, 1)
+          : this.clampValue(nodeGraphFiniteNumber(signal.x, q), 0, 1));
         // Y is mouse/pointer vertical position only — not MIDI velocity.
         const y = resetActive ? 0 : (hasInput(nodeId, "Y")
-          ? this.clampValue(Number(mixInput(nodeId, "Y")) || 0, 0, 1)
-          : this.clampValue(Number(signal.y) || 0, 0, 1));
+          ? this.clampValue(nodeGraphFiniteNumber(mixInput(nodeId, "Y")), 0, 1)
+          : this.clampValue(nodeGraphFiniteNumber(signal.y), 0, 1));
         const hold = hasInput(nodeId, "Hold") && Number(mixInput(nodeId, "Hold")) > 0;
         const velocity01 = hasInput(nodeId, "Velocity")
-          ? this.clampValue(Number(mixInput(nodeId, "Velocity")) || 0, 0, 1)
-          : this.clampValue(Number(signal.velocity) || 0, 0, 1);
+          ? this.clampValue(nodeGraphFiniteNumber(mixInput(nodeId, "Velocity")), 0, 1)
+          : this.clampValue(nodeGraphFiniteNumber(signal.velocity), 0, 1);
         // Gate/Trigger amplitudes follow velocity (not binary 0/1).
         let gateAmp = 0;
         if (!resetActive) {
           if (hasInput(nodeId, "Gate")) {
-            gateAmp = this.clampValue(Number(mixInput(nodeId, "Gate")) || 0, 0, 1);
+            gateAmp = this.clampValue(nodeGraphFiniteNumber(mixInput(nodeId, "Gate")), 0, 1);
           } else if (Number(signal.gate) > 0 || hold) {
             gateAmp = velocity01;
           }
@@ -71,8 +71,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
         // Keyboard face still gets Key/Norm via the shared keyboard evaluator path.
         const out = {
           Trigger: hasInput(nodeId, "Gate") ? gateAmp : gatePulse,
-          "0.1V/Oct": this.clampValue(midi / 120, 0, 1),
-          "0.1v/Oct": this.clampValue(midi / 120, 0, 1),
+          "0.1V/Oct": midi / 120,
+          "0.1v/Oct": midi / 120,
           "Note#/127": this.clampValue(midi / 127, 0, 1),
           Frequency: outputFrequency,
           Gate: gateAmp,
@@ -118,20 +118,20 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
         for (let index = 0; index < 8; index += 1) {
           const port = `M${index + 1} In`;
           value[`M${index + 1}`] = this.clampValue(hasInput(nodeId, port)
-            ? Number(mixInput(nodeId, port)) || 0
-            : Number(this.macroControls?.[index]) || 0, 0, 1);
+            ? nodeGraphFiniteNumber(mixInput(nodeId, port))
+            : nodeGraphFiniteNumber(this.macroControls?.[index]), 0, 1);
         }
         return value;
       },
       pitchModWheel: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const resetActive = hasInput(nodeId, "Reset") && Number(mixInput(nodeId, "Reset")) > 0;
         const pitchWheel = resetActive ? 0 : (hasInput(nodeId, "Pitch")
-          ? Number(mixInput(nodeId, "Pitch")) || 0
+          ? nodeGraphFiniteNumber(mixInput(nodeId, "Pitch"))
           : Number(this.pitchModWheelSignal?.pitch));
         const modWheel = resetActive ? 0 : (hasInput(nodeId, "Mod")
-          ? Number(mixInput(nodeId, "Mod")) || 0
-          : Number(this.pitchModWheelSignal?.mod) || 0);
-        const pitch = this.clampValue(Number.isFinite(pitchWheel) ? pitchWheel : 0, -1, 1);
+          ? nodeGraphFiniteNumber(mixInput(nodeId, "Mod"))
+          : nodeGraphFiniteNumber(this.pitchModWheelSignal?.mod));
+        const pitch = Number.isFinite(pitchWheel) ? pitchWheel : 0;
         const mod = this.clampValue(modWheel, 0, 1);
         return {
           Pitch: pitch,
@@ -165,7 +165,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
           orbitSpeed: read("orbitSpeed", 1),
           detune: read("detune", 0.45),
         };
-        const sr = Math.max(1, Number(safeRate) || sampleRate || 44100);
+        const sr = Math.max(1, nodeGraphFiniteNumber(safeRate, nodeGraphFiniteNumber(sampleRate, 44100)));
         const result = this.rgbFractalSample(state, params, 0, sr) || {};
         return {
           Hx: this.safeFilterNumber(result.Hx, null),

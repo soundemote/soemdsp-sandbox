@@ -64,7 +64,7 @@ function nodeGraphSabrinaReverbSample(state, leftInput, rightInput, params, samp
     return dry;
   }
   try {
-    const safeRate = Math.max(1, Math.round(Number(sampleRate) || 44100));
+    const safeRate = Math.max(1, Math.round(nodeGraphFiniteNumber(sampleRate, 44100)));
     if (!state.nativeHandle || state.nativeSampleRate !== safeRate) {
       if (state.nativeHandle && native.soemdsp_sabrina_reverb_destroy) {
         native.soemdsp_sabrina_reverb_destroy(state.nativeHandle);

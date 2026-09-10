@@ -28,8 +28,8 @@ NodeLiveAudioProcessor.prototype.activeFilterSample = function activeFilterSampl
         }
         const lo = this.safeFilterNumber(resolved.lowFrequency ?? params.lowFrequency, state);
         const hi = this.safeFilterNumber(resolved.highFrequency ?? params.highFrequency, state);
-        const hpSlope = Math.max(0, Math.min(4, Math.round(Number(resolved.hpSlope ?? params.hpSlope) || 0)));
-        const lpSlope = Math.max(0, Math.min(4, Math.round(Number(resolved.lpSlope ?? params.lpSlope) || 0)));
+        const hpSlope = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(resolved.hpSlope ?? params.hpSlope))));
+        const lpSlope = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(resolved.lpSlope ?? params.lpSlope))));
         return this.safeFilterNumber(
           this.nativeActiveFilter.soemdsp_active_filter_sample(
             state.nativeHandle,
@@ -39,9 +39,9 @@ NodeLiveAudioProcessor.prototype.activeFilterSample = function activeFilterSampl
             hpSlope,
             lpSlope,
             this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1),
-            Math.max(0, Math.min(3, Math.round(Number(params.feedbackCircuit) || 0))),
+            Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(params.feedbackCircuit)))),
             Math.round(Number(params.gainCompensation)) !== 0 ? 1 : 0,
-            Math.max(1, Number(rate) || sampleRate || 44100),
+            Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100))),
           ),
           state,
         );

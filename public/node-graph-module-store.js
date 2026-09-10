@@ -3900,12 +3900,12 @@ function normalizeNodeGraphModuleShopWindowSize(size = {}, element = null) {
       nodeGraphModuleShopWindowDefaultSize.minWidth,
       Math.min(
         nodeGraphModuleShopWindowDefaultSize.maxWidth,
-        Math.round(Number(source.width) || nodeGraphModuleShopWindowDefaultSize.width),
+        Math.round(nodeGraphFiniteNumber(source.width, nodeGraphModuleShopWindowDefaultSize.width)),
       ),
     ),
     height: Math.max(
       nodeGraphModuleShopWindowDefaultSize.minHeight,
-      Math.round(Number(source.height) || nodeGraphModuleShopWindowDefaultSize.height),
+      Math.round(nodeGraphFiniteNumber(source.height, nodeGraphModuleShopWindowDefaultSize.height)),
     ),
   };
 }

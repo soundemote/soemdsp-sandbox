@@ -23,8 +23,8 @@ const NODE_GRAPH_VECTORSCOPE_DEG_TO_RAD = Math.PI / 180;
  * @returns {{ X: number, Y: number }}
  */
 function nodeGraphVectorscopeTransform(left, right, rotateDeg) {
-  const L = Number(left) || 0;
-  const R = Number(right) || 0;
+  const L = nodeGraphFiniteNumber(left);
+  const R = nodeGraphFiniteNumber(right);
   const s = NODE_GRAPH_VECTORSCOPE_INV_SQRT2;
   let x = (L - R) * s;
   let y = (L + R) * s;

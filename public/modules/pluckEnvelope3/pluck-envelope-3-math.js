@@ -32,9 +32,9 @@ function nodeGraphPluckEnvelope3ReadDecay(params) {
 
 function nodeGraphPluckEnvelope3Sample(state, input, params, sampleRate) {
   if (!state || typeof state !== "object") return 0;
-  const target = Number(input) || 0;
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const liveAtk = Math.max(0, Number(params?.attack) || 0);
+  const target = nodeGraphFiniteNumber(input);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const liveAtk = Math.max(0, nodeGraphFiniteNumber(params?.attack));
   const liveDecay = nodeGraphPluckEnvelope3ReadDecay(params);
   const liveAmpN = Number(params?.amplitude);
   const liveAmp = Number.isFinite(liveAmpN) ? liveAmpN : 1;
@@ -65,7 +65,7 @@ function nodeGraphPluckEnvelope3Sample(state, input, params, sampleRate) {
       if (ka > 1) ka = 1;
     }
 
-    const relHz = (Number(state.fb) || 0) * PLUCK3_RELEASE_HZ;
+    const relHz = (nodeGraphFiniteNumber(state.fb)) * PLUCK3_RELEASE_HZ;
     let kr = 0;
     if (relHz > 0) {
       if (relHz >= sr * 0.5) kr = 1;
@@ -77,7 +77,7 @@ function nodeGraphPluckEnvelope3Sample(state, input, params, sampleRate) {
       }
     }
 
-    const cur = Number(state.env) || 0;
+    const cur = nodeGraphFiniteNumber(state.env);
     const delta = target - cur;
     state.env = cur + delta * (delta >= 0 ? ka : kr);
     if (!Number.isFinite(state.env)) state.env = 0;
@@ -98,12 +98,12 @@ function nodeGraphPluckEnvelope3Sample(state, input, params, sampleRate) {
 }
 
 function nodeGraphPluckEnvelope3PreviewCurve(params = {}, points = 160) {
-  const attack = Math.max(0, Number(params.attack) || 0);
+  const attack = Math.max(0, nodeGraphFiniteNumber(params.attack));
   const decay = nodeGraphPluckEnvelope3ReadDecay(params);
   const amplitude = Math.max(0, Number(params.amplitude) ?? 1);
   const sr = 2000;
   const state = createNodeGraphPluckEnvelope3State();
-  const n = Math.max(48, Math.round(Number(points) || 160));
+  const n = Math.max(48, Math.round(nodeGraphFiniteNumber(points, 160)));
   // Hold Trigger high through attack settle (~5τ → ~99%), then show fall.
   // Old preview used a 20ms gate + cold-start snap → clipped peak, no rising A.
   const gateHoldSec = attack > 0 ? Math.max(0.05, attack * 5) : 0.02;

@@ -284,7 +284,7 @@ function cloneNodeGraphTypedDisplaySettings(node) {
       return {
         traceDisplaySettings: typeof normalizeNodeGraphHypersawBurnSettings === "function"
           ? normalizeNodeGraphHypersawBurnSettings(bag)
-          : { lineThickness: Number(bag?.lineThickness) || 1 },
+          : { lineThickness: nodeGraphFiniteNumber(bag?.lineThickness, 1) },
       };
     }
     case "scope2d":
@@ -346,7 +346,7 @@ function cloneNodeGraphTypedDisplaySettings(node) {
     case "portalFace": {
       const channel = typeof nodeGraphPortalClampChannel === "function"
         ? nodeGraphPortalClampChannel(node?.params?.channel)
-        : Math.max(0, Math.round(Number(node?.params?.channel) || 0));
+        : Math.max(0, Math.round(nodeGraphFiniteNumber(node?.params?.channel)));
       return { params: { ...(node.params || {}), channel } };
     }
     case "roundShapeFace":

@@ -98,11 +98,11 @@ function nodeGraphFlowerChildFilterEllipse(phase, ellipseC) {
 
 
 function nodeGraphFlowerChildFilterSample(state, input, params, sampleRate, runtime = null, nodeId = "") {
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
-  const freqNorm = Math.max(0, Math.min(1, Number(params.frequency) || 0));
-  const reso = Math.max(0, Math.min(1, Number(params.resonance) || 0));
-  const chaos = Math.max(0, Math.min(1, Number(params.chaos) || 0));
-  const modeNum = Math.round(Number(params.mode) || 0);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100)));
+  const freqNorm = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.frequency)));
+  const reso = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.resonance)));
+  const chaos = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.chaos)));
+  const modeNum = Math.round(nodeGraphFiniteNumber(params.mode));
 
   if (modeNum === 2) {
     const masterPitch = -120 + (105 - -120) * freqNorm;
@@ -165,7 +165,7 @@ function nodeGraphFlowerChildFilterSample(state, input, params, sampleRate, runt
     const selfModAmp = 0.0368 + (0.6333 - 0.0368) * nodeGraphFlowerChildFilterCurveShape(graphValue, 0.4);
 
     const safeInput = nodeGraphSafeFilterNumber(input, runtime, nodeId, state, "flower child downsampled input");
-    let inputSignal = Math.max(-1, Math.min(1, -safeInput)) * 0.036;
+    let inputSignal = -safeInput * 0.036;
     inputSignal += state.selfMod;
 
     const mod = 1.4 * inputSignal;

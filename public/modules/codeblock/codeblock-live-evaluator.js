@@ -66,7 +66,7 @@ function nodeGraphEvaluateCodeblock(runtime, node, mixInput, sampleRate = nodeGr
       frame,
       frames,
       sampleRate,
-      time: (Number(frame) || 0) / (Number(sampleRate) || 44100),
+      time: (nodeGraphFiniteNumber(frame)) / (nodeGraphFiniteNumber(sampleRate, 44100)),
     });
     for (const port of codeblock.outputs) {
       output[port] = nodeGraphSafeFilterNumber(

@@ -49,17 +49,17 @@ function resetNodeGraphTb303FilterState(state) {
 
 /** Soft clip used by ladder family — keeps high res/drive from exploding. */
 function nodeGraphTb303SoftClip(x) {
-  const v = Number(x) || 0;
+  const v = nodeGraphFiniteNumber(x);
   return v / (1 + v * v);
 }
 
 function nodeGraphTb303FilterCoefficients(cutoff, resonance, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   // Param may be 0 (frozen). Only crash-safety: non-negative, <= ~Nyquist.
   // Tiny omega floor is applied below for trig/exp, not as a musical min.
   const rawCutoff = Number(cutoff);
   const safeCutoff = Math.max(0, Math.min(rate * 0.49, Number.isFinite(rawCutoff) ? rawCutoff : 0));
-  const resonanceRaw = Math.max(0, Math.min(1, (Number(resonance) || 0) * 0.01));
+  const resonanceRaw = Math.max(0, Math.min(1, (nodeGraphFiniteNumber(resonance)) * 0.01));
   // Resonance skew: musical curve toward self-oscillation.
   const r = (1 - Math.exp(-3 * resonanceRaw)) / (1 - Math.exp(-3));
   const wc = Math.max(1e-9, Math.min(Math.PI * 0.98, 2 * Math.PI * safeCutoff / rate));
@@ -80,11 +80,11 @@ function nodeGraphTb303FilterCoefficients(cutoff, resonance, sampleRate) {
 
 function nodeGraphTb303FilterMagnitudeAt(params, frequency, sampleRate) {
   const coeff = nodeGraphTb303FilterCoefficients(params.cutoff, params.resonance, sampleRate);
-  const drive = Number(params.drive) || 0;
+  const drive = nodeGraphFiniteNumber(params.drive);
   const driveFactor = 10 ** (Math.max(0, Math.min(24, drive)) / 20);
   const mode = Math.max(0, Math.min(14, Math.round(nodeGraphFiniteNumber(params.mode, 4))));
   const c = nodeGraphTb303FilterModesMix[mode] || nodeGraphTb303FilterModesMix[4];
-  const omega = 2 * Math.PI * Math.max(0, Number(frequency) || 0) / Math.max(1, Number(sampleRate) || 44100);
+  const omega = 2 * Math.PI * Math.max(0, nodeGraphFiniteNumber(frequency)) / Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const zInv = { im: -Math.sin(omega), re: Math.cos(omega) };
   // Stage H(z) = (1+a1) / (1 + a1 z^-1)
   const a1 = coeff.a1;
@@ -150,8 +150,8 @@ function nodeGraphTb303FilterSample(state, input, params, sampleRate, runtime = 
   if (!Array.isArray(state.y) || state.y.length < 4) {
     state.y = [0, 0, 0, 0];
   }
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
-  const drive = Number(params.drive) || 0;
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
+  const drive = nodeGraphFiniteNumber(params.drive);
   const driveFactor = 10 ** (Math.max(0, Math.min(24, drive)) / 20);
   const safeMode = Math.max(0, Math.min(14, Math.round(nodeGraphFiniteNumber(params.mode, 4))));
   const coeff = nodeGraphTb303FilterCoefficients(params.cutoff, params.resonance, rate);
@@ -173,7 +173,7 @@ function nodeGraphTb303FilterSample(state, input, params, sampleRate, runtime = 
 
   const safeIn = typeof nodeGraphSafeFilterNumber === "function"
     ? nodeGraphSafeFilterNumber(input, runtime, nodeId, state, "tb303 in")
-    : (Number(input) || 0);
+    : (nodeGraphFiniteNumber(input));
 
   // Input scale + soft clip (prevents resonance/drive blow-up / permanent silence).
   let y0 = nodeGraphTb303SoftClip(0.125 * driveFactor * safeIn - state.hpY);

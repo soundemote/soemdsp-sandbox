@@ -2,6 +2,16 @@
 // with the real object; without a stub, any early rAF/handler that touches
 // zoom/patch/rendered/live throws and aborts sandbox startup.
 // Must stay in an external file — smoke_test shell contract forbids inline <script>.
+
+// Finite coerce for knobs/CV/samples — 0 is valid. SSOT later in
+// node-graph-param-surface-helpers.js; early stub so rewritten scripts boot.
+if (typeof globalThis.nodeGraphFiniteNumber !== "function") {
+  globalThis.nodeGraphFiniteNumber = function nodeGraphFiniteNumber(value, fallback = 0) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  };
+}
+
 window.nodeGraphMvp = window.nodeGraphMvp || {
   zoom: 1,
   pan: { x: 0, y: 0 },
@@ -189,7 +199,7 @@ function setNodeBootLoadingProgress(value, label = "") {
     || document.querySelector(".node-boot-loading-bar");
   const labelElement = document.getElementById("nodeBootLoadingLabel");
   if (value != null) {
-    const progress = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    const progress = Math.max(0, Math.min(100, Math.round(nodeGraphFiniteNumber(value))));
     if (bar) bar.setAttribute("aria-valuenow", String(progress));
     if (fill) fill.style.width = `${progress}%`;
   }

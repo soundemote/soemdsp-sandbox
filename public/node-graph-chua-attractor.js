@@ -47,12 +47,12 @@ function nodeGraphChuaAttractorSample(options = {}) {
   wasm.soemdsp_chua_attractor_sample(
     state.nativeHandle,
     Number(options.reset) > 0.5 ? 1 : 0,
-    Math.max(0, Number(options.speed) || 0),
-    Number(options.alpha) || 0,
-    Number(options.beta) || 0,
-    Number(options.m0) || 0,
-    Number(options.m1) || 0,
-    Math.max(1, Number(options.sampleRate) || 44100),
+    Math.max(0, nodeGraphFiniteNumber(options.speed)),
+    nodeGraphFiniteNumber(options.alpha),
+    nodeGraphFiniteNumber(options.beta),
+    nodeGraphFiniteNumber(options.m0),
+    nodeGraphFiniteNumber(options.m1),
+    Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100)),
   );
   const x = wasm.soemdsp_chua_attractor_x(state.nativeHandle);
   const y = wasm.soemdsp_chua_attractor_y(state.nativeHandle);

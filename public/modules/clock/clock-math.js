@@ -8,12 +8,12 @@ function createNodeGraphClockState() {
 }
 
 function nodeGraphClockWrap01(p) {
-  const x = Number(p) || 0;
+  const x = nodeGraphFiniteNumber(p);
   return x - Math.floor(x);
 }
 
 function nodeGraphClockClamp01(p) {
-  const x = Number(p) || 0;
+  const x = nodeGraphFiniteNumber(p);
   return x < 0 ? 0 : (x > 1 ? 1 : x);
 }
 
@@ -26,19 +26,19 @@ function nodeGraphClockAnalogWhipSample(phase, level) {
   const liquidBend = 0.075 * Math.sin(Math.PI * 2 * p) * Math.pow(Math.max(0, 1 - p), 1.2);
   const body = Math.sin((sweepTurns + liquidBend) * Math.PI * 2);
   const sheen = Math.sin((sweepTurns * 2.02 + 0.17) * Math.PI * 2) * 0.16 * Math.pow(Math.max(0, 1 - p), 2.8);
-  return (body + sheen) * snapEnvelope * (Number(level) || 0);
+  return (body + sheen) * snapEnvelope * (nodeGraphFiniteNumber(level));
 }
 
 /**
  * @returns {{ "Analog Out": number, "Digital Out": number, Out: number, Pulse: number }}
  */
 function nodeGraphClockCore(state, reset, phaseOffset, rate, duty, level, sampleRate) {
-  const safeReset = Number(reset) || 0;
+  const safeReset = nodeGraphFiniteNumber(reset);
   const safePhaseOffset = nodeGraphClockWrap01(phaseOffset);
-  const safeRate = Math.max(0, Number(rate) || 0);
+  const safeRate = Math.max(0, nodeGraphFiniteNumber(rate));
   const safeDuty = nodeGraphClockClamp01(duty);
-  const safeLevel = Number(level) || 0;
-  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const safeLevel = nodeGraphFiniteNumber(level);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const resetActive = safeReset > 0;
   const rawPhase = resetActive ? 0 : nodeGraphClockWrap01(state.phase);
   const phase = nodeGraphClockWrap01(rawPhase + safePhaseOffset);

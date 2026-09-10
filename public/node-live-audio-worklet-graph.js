@@ -479,7 +479,7 @@ NodeLiveAudioProcessor.prototype.graphSegmentValue = function graphSegmentValue(
     }
     const offset = this.normalizeGraphNumber(segmentOptions.curveOffset, 0, -1, 1);
     // Per-node c + global offset; ±1 = hard step for rational / exp / log.
-    const contour = this.normalizeGraphNumber((Number(right.c) || 0) + offset, 0, -1, 1);
+    const contour = this.normalizeGraphNumber((nodeGraphFiniteNumber(right.c)) + offset, 0, -1, 1);
     const shape = segmentOptions.segmentShape != null && segmentOptions.segmentShape !== ""
       ? this.normalizeGraphShape(segmentOptions.segmentShape)
       : this.normalizeGraphShape(right.shape || "linear");

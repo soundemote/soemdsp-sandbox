@@ -16,7 +16,7 @@ nodeGraphLiveModuleEvaluators.waveguide = ({
     runtime.waveguideStates.set(nodeId, state);
   }
   const amplitude = readNodeGraphLiveEffectiveParam(runtime, node, "amplitude", 1, frame, frames, frameValues);
-  const audioIn = Number(mixInput(nodeId)) || 0;
+  const audioIn = nodeGraphFiniteNumber(mixInput(nodeId));
   const y = nodeGraphWaveguideSample(state, audioIn, amplitude);
   return typeof nodeGraphSafeFilterNumber === "function"
     ? nodeGraphSafeFilterNumber(y, runtime, nodeId, null, "waveguide")

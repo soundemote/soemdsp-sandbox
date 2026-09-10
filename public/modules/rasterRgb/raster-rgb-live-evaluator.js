@@ -24,7 +24,7 @@ nodeGraphLiveModuleEvaluators.rasterRgb = ({
   };
   let processed;
   const wasm = runtime?.nativeRasterRgb || runtime?.nativeModules?.raster_rgb;
-  const nativeGradeVersion = Number(wasm?.soemdsp_raster_rgb_version?.()) || 0;
+  const nativeGradeVersion = nodeGraphFiniteNumber(wasm?.soemdsp_raster_rgb_version?.());
   if (wasm?.soemdsp_raster_rgb_sample && nativeGradeVersion >= 2) {
     if (!runtime.rasterRgbNativeHandles) runtime.rasterRgbNativeHandles = new Map();
     let handle = runtime.rasterRgbNativeHandles.get(nodeId) || 0;

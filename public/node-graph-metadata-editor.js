@@ -96,8 +96,8 @@ function normalizeNodeMetadataPopoverSize(size = {}) {
   const source = size && typeof size === "object" && (Number(size.width) || Number(size.height))
     ? size
     : (typeof nodeGraphMvp === "object" ? nodeGraphMvp?.unifiedWindowSize : null) || {};
-  const width = Math.max(mins.minWidth, Math.round(Number(source.width) || nodeMetadataPopoverDefaultSize.width));
-  const height = Math.max(mins.minHeight, Math.round(Number(source.height) || nodeMetadataPopoverDefaultSize.height));
+  const width = Math.max(mins.minWidth, Math.round(nodeGraphFiniteNumber(source.width, nodeMetadataPopoverDefaultSize.width)));
+  const height = Math.max(mins.minHeight, Math.round(nodeGraphFiniteNumber(source.height, nodeMetadataPopoverDefaultSize.height)));
   return { width, height };
 }
 
@@ -2035,7 +2035,7 @@ function stepNodeMetadataField(event) {
   } else if (input.id === "metadataCurveSensitivityValue") {
     next = typeof normalizeNodeSliderCurveAmount === "function"
       ? normalizeNodeSliderCurveAmount(next, 0)
-      : Math.max(-1, Math.min(1, next));
+      : next;
   }
   input.value = formatMetadataStepperValue(next, quantum);
   syncNodeMetadataMidVisibility();
@@ -2047,10 +2047,10 @@ function stepNodeMetadataField(event) {
 // How many samples a mode will actually use, for the status line under the
 // 5-way smoothing-source buttons. Sample counts are always rounded down.
 function nodeGraphSmoothingModeStatusText(mode, smoothingSamples) {
-  const rate = Math.max(1, Number(nodeGraphMvp?.sampleRate) || 44100);
-  const globalSeconds = Number(nodeGraphMvp?.live?.autoSmoothingSeconds) || 0;
+  const rate = Math.max(1, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100));
+  const globalSeconds = nodeGraphFiniteNumber(nodeGraphMvp?.live?.autoSmoothingSeconds);
   const globalSamples = Math.floor(globalSeconds * rate);
-  const internalSamples = Math.max(0, Math.floor(Number(smoothingSamples) || 0));
+  const internalSamples = Math.max(0, Math.floor(nodeGraphFiniteNumber(smoothingSamples)));
   switch (mode) {
     case "global":
       return `🌍 Global — ${globalSamples} samples.`;
@@ -2351,8 +2351,8 @@ function insertNodeMetadataScriptText(text) {
 
 function nodeMetadataScriptAssignmentInsertion(value, text, start, end = start) {
   const source = String(value || "");
-  const insertStart = Math.max(0, Math.min(source.length, Number(start) || 0));
-  const insertEnd = Math.max(insertStart, Math.min(source.length, Number(end) || insertStart));
+  const insertStart = Math.max(0, Math.min(source.length, nodeGraphFiniteNumber(start)));
+  const insertEnd = Math.max(insertStart, Math.min(source.length, nodeGraphFiniteNumber(end, insertStart)));
   const before = source[insertStart - 1] || "";
   const after = source[insertEnd] || "";
   const prefix = insertStart > 0 && !nodeMetadataScriptIsLineBreak(before) ? "\n" : "";

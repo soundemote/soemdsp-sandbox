@@ -10,7 +10,7 @@ function syncNodeGraphInputModuleLiveState() {
       ? "paused"
       : micStatus;
     const label = nodeGraphLiveMicStatusText(micStatus);
-    const peak = Math.max(0, Math.min(1, Number(nodeGraphMvp.live.inputMeterPeak) || 0));
+    const peak = Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphMvp.live.inputMeterPeak)));
     const peakText = peak.toFixed(3);
     const peakPct = `${Math.round(peak * 100)}%`;
     const title = document.getElementById("nodeLiveMicStatus")?.title || "";
@@ -85,7 +85,7 @@ function updateNodeGraphLiveInputTestStatus() {
   const inputRouteState = nodeGraphLiveInputRouteState();
   const micStatus = nodeGraphMvp.live.micStatus || "off";
   const permissionStatus = nodeGraphMvp.live.inputPermissionStatus || "unknown";
-  const peak = Number(nodeGraphMvp.live.inputMeterPeak) || 0;
+  const peak = nodeGraphFiniteNumber(nodeGraphMvp.live.inputMeterPeak);
   let text = "input test off";
   let state = "";
   let title = "Press Input to show the live input module, then wire it manually.";

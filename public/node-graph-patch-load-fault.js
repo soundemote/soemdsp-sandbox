@@ -72,7 +72,7 @@ function nodeGraphShowPatchLoadFault(options = {}) {
     // Keep failed line near the top when message cites "line N:".
     const lineMatch = message.match(/\bline\s+(\d+)\b/i);
     if (lineMatch) {
-      const lineNo = Math.max(1, Number(lineMatch[1]) || 1);
+      const lineNo = Math.max(1, nodeGraphFiniteNumber(lineMatch[1], 1));
       const lines = script.split(/\r?\n/);
       // Rough scroll: ~14px per line in mono UI.
       box.scrollTop = Math.max(0, (lineNo - 2) * 14);

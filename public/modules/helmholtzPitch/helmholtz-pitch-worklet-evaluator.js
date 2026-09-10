@@ -31,7 +31,7 @@ NodeLiveAudioProcessor.prototype.helmholtzDetune = function helmholtzDetune(freq
     const nearest = Math.round(midi);
     const cents = (midi - nearest) * 100;
     // Map ±50¢ → ±1. At exact midpoint cents is ±50 → ±1; next sample wraps.
-    return Math.max(-1, Math.min(1, cents / 50));
+    return cents / 50;
   };
 
 NodeLiveAudioProcessor.prototype.destroyHelmholtzState = function destroyHelmholtzState(state) {
@@ -68,7 +68,7 @@ NodeLiveAudioProcessor.prototype.helmholtzSample = function helmholtzSample(stat
       return silent;
     }
     try {
-      const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
+      const safeRate = Math.max(1, nodeGraphFiniteNumber(rateHz, nodeGraphFiniteNumber(sampleRate, 44100)));
       if (!state.nativeHandle || state.nativeSampleRate !== safeRate) {
         if (state.nativeHandle && native.soemdsp_helmholtz_destroy) {
           native.soemdsp_helmholtz_destroy(state.nativeHandle);

@@ -82,13 +82,13 @@ function nodeGraphSoftwaveOscillatorSample(state, options = {}) {
   }
   const out = wasm.soemdsp_softwave_sample(
     st.nativeHandle,
-    Math.max(0, Number(options.frequencyHz) || 0),
-    Math.max(1, Number(options.sampleRate) || 44100),
-    Math.round(Number(options.waveform) || 0),
-    Number(options.morph) || 0,
-    Number(options.phase) || 0,
+    Math.max(0, nodeGraphFiniteNumber(options.frequencyHz)),
+    Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100)),
+    Math.round(nodeGraphFiniteNumber(options.waveform)),
+    nodeGraphFiniteNumber(options.morph),
+    nodeGraphFiniteNumber(options.phase),
     Number.isFinite(Number(options.level)) ? Number(options.level) : 1,
-    Math.max(0, Number(options.antialias) || 0),
+    Math.max(0, nodeGraphFiniteNumber(options.antialias)),
   );
   return { Out: Number.isFinite(out) ? out : 0 };
 }

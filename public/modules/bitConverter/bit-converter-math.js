@@ -8,11 +8,11 @@
  * @param {number} bipolar −1…1
  */
 function nodeGraphBitConverterSample(bits, fullScale, unipolar, bipolar) {
-  const b = Math.max(1, Math.min(53, Math.round(Number(bits) || 53)));
+  const b = Math.max(1, Math.min(53, Math.round(nodeGraphFiniteNumber(bits, 53))));
   const maxValue = 2 ** b - 1;
-  const fs = Math.max(0, Math.min(maxValue, Number(fullScale) || 0));
-  const uni = Math.max(0, Math.min(1, Number(unipolar) || 0));
-  const bi = Math.max(-1, Math.min(1, Number(bipolar) || 0));
+  const fs = Math.max(0, Math.min(maxValue, nodeGraphFiniteNumber(fullScale)));
+  const uni = Math.max(0, Math.min(1, nodeGraphFiniteNumber(unipolar)));
+  const bi = nodeGraphFiniteNumber(bipolar);
   return {
     "Full Scale to Unipolar": maxValue > 0 ? fs / maxValue : 0,
     "Full Scale to Bipolar": maxValue > 0 ? (fs / maxValue) * 2 - 1 : -1,

@@ -144,7 +144,7 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
   // Pitch Quantizer: preset Scale slider writes the face keyboard mask so
   // audio + keyboard stay in sync. Custom (choice 6) leaves scaleMask alone.
   if (patchNode.type === "pitchQuantizer" && key === "scale") {
-    const choice = Math.round(Number(patchNode.params.scale) || 0);
+    const choice = Math.round(nodeGraphFiniteNumber(patchNode.params.scale));
     if (
       choice >= 0
       && choice <= 5
@@ -1119,7 +1119,7 @@ function dragNodeSlider(event) {
   // Wrap pointer at screen edges to approximate infinite drag.
   wrapNodeSliderDragAtScreenEdge(drag, event);
 
-  const visualTravelWidth = Math.max(1, drag.width * (Number(drag.visualScale) || 1));
+  const visualTravelWidth = Math.max(1, drag.width * (nodeGraphFiniteNumber(drag.visualScale, 1)));
   // App-wide diagonal policy: right + up increase (see nodeGraphPointerDragTravelDelta).
   const travelDelta = typeof nodeGraphPointerDragTravelDelta === "function"
     ? nodeGraphPointerDragTravelDelta(drag.startX, drag.startY, event.clientX, event.clientY, visualTravelWidth, drag.fineScale)

@@ -9,7 +9,7 @@ NodeLiveAudioProcessor.prototype.readGpuAdditiveQueuedSample = function readGpuA
     if (queue && Number.isFinite(queue.lastSample) && queue.heldSamples < 2048) {
       queue.heldSamples += 1;
       if (queue.heldSamples > 128) {
-        queue.heldGain = Math.max(0, (Number(queue.heldGain) || 1) * 0.9975);
+        queue.heldGain = Math.max(0, (nodeGraphFiniteNumber(queue.heldGain, 1)) * 0.9975);
       } else {
         queue.heldGain = 1;
       }
@@ -18,7 +18,7 @@ NodeLiveAudioProcessor.prototype.readGpuAdditiveQueuedSample = function readGpuA
     return null;
   }
   const chunk = queue.chunks[0];
-  const sample = Number(chunk[queue.readIndex]) || 0;
+  const sample = nodeGraphFiniteNumber(chunk[queue.readIndex]);
   queue.heldGain = 1;
   queue.lastSample = sample;
   queue.heldSamples = 0;
@@ -39,16 +39,16 @@ NodeLiveAudioProcessor.prototype.additiveOscillatorSample = function additiveOsc
     return 0;
   }
   try {
-    const safeRateValue = Math.max(1, Number(rate) || this.engineSampleRate || sampleRate || 44100);
+    const safeRateValue = Math.max(1, nodeGraphFiniteNumber(rate, this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
     return this.nativeAdditiveOsc.soemdsp_additive_osc_sample(
-      Number(phase) || 0,
-      Math.max(0, Number(params.frequency) || 0),
-      Math.max(1, Math.min(1024, Math.round(Number(params.harmonics) || 32))),
-      Math.round(Number(params.waveform) || 0),
-      this.clampValue(Number(params.morph) || 0, 0, 1),
-      this.clampValue(Number(params.harmonicPhaseAdd) || 0, 0, 1),
-      this.clampValue(Number(params.harmonicPhaseMultiply) || 0, 0, 4),
-      this.clampValue(Number(params.amplitude) || 0, 0, 1),
+      nodeGraphFiniteNumber(phase),
+      Math.max(0, nodeGraphFiniteNumber(params.frequency)),
+      Math.max(1, Math.min(1024, Math.round(nodeGraphFiniteNumber(params.harmonics, 32)))),
+      Math.round(nodeGraphFiniteNumber(params.waveform)),
+      this.clampValue(nodeGraphFiniteNumber(params.morph), 0, 1),
+      this.clampValue(nodeGraphFiniteNumber(params.harmonicPhaseAdd), 0, 1),
+      this.clampValue(nodeGraphFiniteNumber(params.harmonicPhaseMultiply), 0, 4),
+      this.clampValue(nodeGraphFiniteNumber(params.amplitude), 0, 1),
       nodeGraphFiniteNumber(params.dampingFilterFrequency, 20000),
       safeRateValue,
     );

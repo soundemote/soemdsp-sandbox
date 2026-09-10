@@ -7,9 +7,9 @@ function nodeGraphPortalLaneSpecOrTrio(type) {
 }
 
 function nodeGraphPortalReadWired(mixInput, nodeId, spec) {
-  const m = spec.hasMono ? Number(mixInput(nodeId, "Mono")) || 0 : 0;
-  const l = spec.hasLeft ? Number(mixInput(nodeId, "Left")) || 0 : 0;
-  const r = spec.hasRight ? Number(mixInput(nodeId, "Right")) || 0 : 0;
+  const m = spec.hasMono ? nodeGraphFiniteNumber(mixInput(nodeId, "Mono")) : 0;
+  const l = spec.hasLeft ? nodeGraphFiniteNumber(mixInput(nodeId, "Left")) : 0;
+  const r = spec.hasRight ? nodeGraphFiniteNumber(mixInput(nodeId, "Right")) : 0;
   return { m, l, r };
 }
 
@@ -33,9 +33,9 @@ function nodeGraphPortalMixLanes(mixInput, nodeId, spec) {
 }
 
 function nodeGraphPortalPublishLanes(mix, spec) {
-  const left = Number(mix?.Left) || 0;
-  const right = Number(mix?.Right) || 0;
-  const mid = Number(mix?.Out) || (left + right) * 0.5;
+  const left = nodeGraphFiniteNumber(mix?.Left);
+  const right = nodeGraphFiniteNumber(mix?.Right);
+  const mid = nodeGraphFiniteNumber(mix?.Out, (left + right)) * 0.5;
   const value = {};
   if (spec.hasMono) {
     value.Mono = mid;
@@ -66,9 +66,9 @@ function nodeGraphEvaluatePortalInlet(externalInput, type, nodeId, mixInput, fra
     ? nodeGraphDspExternalStereoFrame(externalInput, frame, 1)
     : { Left: 0, Right: 0, Out: 0 };
   const wired = nodeGraphPortalMixLanes(mixInput, nodeId, spec);
-  const liveL = spec.hasLeft || spec.hasMono ? Number(live.Left) || 0 : 0;
-  const liveR = spec.hasRight || spec.hasMono ? Number(live.Right) || 0 : 0;
-  const liveM = spec.hasMono ? Number(live.Out) || 0 : 0;
+  const liveL = spec.hasLeft || spec.hasMono ? nodeGraphFiniteNumber(live.Left) : 0;
+  const liveR = spec.hasRight || spec.hasMono ? nodeGraphFiniteNumber(live.Right) : 0;
+  const liveM = spec.hasMono ? nodeGraphFiniteNumber(live.Out) : 0;
   return nodeGraphPortalPublishLanes({
     Left: liveL + wired.Left,
     Right: liveR + wired.Right,
@@ -82,8 +82,8 @@ function nodeGraphEvaluatePortalOutlet(type, nodeId, mixInput) {
 }
 
 function nodeGraphPortalMixOutlets(nodes, mixInput, left, right) {
-  let nextL = Number(left) || 0;
-  let nextR = Number(right) || 0;
+  let nextL = nodeGraphFiniteNumber(left);
+  let nextR = nodeGraphFiniteNumber(right);
   if (!nodes) {
     return { left: nextL, right: nextR };
   }
@@ -99,8 +99,8 @@ function nodeGraphPortalMixOutlets(nodes, mixInput, left, right) {
       continue;
     }
     const mix = nodeGraphPortalMixLanes(mixInput, node.id, nodeGraphPortalLaneSpecOrTrio(node.type));
-    nextL += Number(mix.Left) || 0;
-    nextR += Number(mix.Right) || 0;
+    nextL += nodeGraphFiniteNumber(mix.Left);
+    nextR += nodeGraphFiniteNumber(mix.Right);
   }
   return { left: nextL, right: nextR };
 }

@@ -27,13 +27,13 @@ NodeLiveAudioProcessor.prototype.randomWalkSample = function randomWalkSample(st
           this.nativeRandomWalk.soemdsp_random_walk_reset_seed(state.nativeHandle, this.stableSeed(key));
         }
         const safeRate = Number(rate) > 1 ? Number(rate) : sampleRate;
-        const method = Math.max(0, Math.min(3, Math.round(Number(params.method) || 0)));
+        const method = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(params.method))));
         const out = this.nativeRandomWalk.soemdsp_random_walk_sample(
           state.nativeHandle,
           method,
-          Math.max(0, Number(params.frequency) || 0),
-          Math.max(0, Number(params.jitter) || 0),
-          Number(params.amplitude) || 0,
+          Math.max(0, nodeGraphFiniteNumber(params.frequency)),
+          Math.max(0, nodeGraphFiniteNumber(params.jitter)),
+          nodeGraphFiniteNumber(params.amplitude),
           safeRate,
         );
         return this.safeFilterNumber(out, null);

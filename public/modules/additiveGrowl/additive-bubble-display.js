@@ -66,11 +66,11 @@ function nodeGraphAdditiveBubbleFingerprint(graph, params) {
   let h = `${H}|`;
   const step = Math.max(1, (H / 8) | 0);
   for (let i = 0; i < H; i += step) {
-    h += `${(Number(graph.ratio[i]) || 0).toFixed(4)},`;
-    h += `${(Number(graph.amplitude?.[i]) || 0).toFixed(3)},`;
-    h += `${(Number(graph.phase?.[i]) || 0).toFixed(3)};`;
+    h += `${(nodeGraphFiniteNumber(graph.ratio[i])).toFixed(4)},`;
+    h += `${(nodeGraphFiniteNumber(graph.amplitude?.[i])).toFixed(3)},`;
+    h += `${(nodeGraphFiniteNumber(graph.phase?.[i])).toFixed(3)};`;
   }
-  h += `|${params.phaseSkew.toFixed(3)}|${(Number(params.bubble) || 0).toFixed(4)}`;
+  h += `|${params.phaseSkew.toFixed(3)}|${(nodeGraphFiniteNumber(params.bubble)).toFixed(4)}`;
   h += `|${params.invertBubble ? 1 : 0}|${params.cutoff.toFixed(4)}|${params.unskew.toFixed(3)}`;
   return h;
 }
@@ -115,8 +115,8 @@ function drawNodeGraphAdditiveBubbleDisplay(section) {
     h = metrics.cssHeight;
     pixelRatio = metrics.pixelRatio || 1;
   } else {
-    const rawW = Number(section.clientWidth || section.offsetWidth) || 0;
-    const rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+    const rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
+    const rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
     if (rawW < 8 || rawH < 8) return;
     const dpr = window.devicePixelRatio || 1;
     w = Math.max(1, Math.floor(rawW));
@@ -180,7 +180,7 @@ function drawNodeGraphAdditiveBubbleDisplay(section) {
   ctx.beginPath();
   for (let n = 0; n < wave.length; n += 1) {
     const x = pad + (n / Math.max(1, wave.length - 1)) * span;
-    const y = midY - (Number(wave[n]) || 0) * ampY;
+    const y = midY - (nodeGraphFiniteNumber(wave[n])) * ampY;
     if (n === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }

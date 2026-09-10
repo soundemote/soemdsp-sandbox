@@ -161,13 +161,13 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Fix shape: Store both on `setPlan` and `setConnections`.
 
 ### B-007 — 0.1V/Oct clamped to [−1, 1]
-- Status: open
+- Status: fixed
 - Severity: hear
 - Source: hunt-2026-08-12
-- Files: `public/modules/polyBlep/poly-blep-worklet-evaluator.js` 139–142; copies on additive / ellipsoid / sineWavetable / softpop / surge / `node-live-audio-worklet-evaluators-sources.js`
+- Files: worklet utility midi/120; live evaluators; pitch offset ±10; param-surface pitch ratio
 - What: CV is `midi/120`. MIDI 127 → 1.058, clamped to 1.0. Notes above MIDI 120 flatten.
 - Repro: Keyboard / stacked pitch CV above ~MIDI 120.
-- Fix shape: Do not clamp pitch CV to ±1. Clamp resulting Hz via Speed Limit / `resolveFrequencyHz`.
+- Fix: Removed product-range ±1 / ±10 oct clamps on pitch CV and patch pitch offset. Raw finite CV; Hz via existing pitch resolve / speed limit. (2026-09-10 removal pass)
 
 ### B-008 — Scientific IIR zeros z on every cutoff tick
 - Status: open

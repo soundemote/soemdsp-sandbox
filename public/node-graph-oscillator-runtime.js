@@ -1,5 +1,5 @@
 function nodeGraphPhaseRadians(value) {
-  return wrapNodeSliderValue(Number(value) || 0, 0, 1) * Math.PI * 2;
+  return wrapNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1) * Math.PI * 2;
 }
 
 const nodeGraphSineWavetableSize = 2048;
@@ -9,14 +9,14 @@ const nodeGraphSineWavetable = Object.freeze(Array.from({ length: nodeGraphSineW
 }));
 
 function nodeGraphSmoothStep01(value) {
-  const t = clampNodeSliderValue(Number(value) || 0, 0, 1);
+  const t = clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
   return t * t * (3 - 2 * t);
 }
 
 function nodeGraphNyquistFadeAmplitude(frequency, sampleRate) {
-  const safeRate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const nyquist = safeRate * 0.5;
-  const safeFrequency = Math.max(0, Number(frequency) || 0);
+  const safeFrequency = Math.max(0, nodeGraphFiniteNumber(frequency));
   const fadeStart = Math.min(20000, nyquist * 0.9);
   if (safeFrequency <= fadeStart) {
     return 1;
@@ -29,7 +29,7 @@ function nodeGraphNyquistFadeAmplitude(frequency, sampleRate) {
 }
 
 function nodeGraphSineWavetableLookup(phaseRadians) {
-  const cycle = wrapNodeSliderValue((Number(phaseRadians) || 0) / (Math.PI * 2), 0, 1);
+  const cycle = wrapNodeSliderValue((nodeGraphFiniteNumber(phaseRadians)) / (Math.PI * 2), 0, 1);
   const position = cycle * nodeGraphSineWavetableSize;
   const index = Math.floor(position);
   const fraction = position - index;
@@ -39,18 +39,18 @@ function nodeGraphSineWavetableLookup(phaseRadians) {
 }
 
 function nodeGraphSineCosWavetableSample(phaseRadians, frequency, amplitude, sampleRate) {
-  const level = Math.max(0, Number(amplitude) || 0) * nodeGraphNyquistFadeAmplitude(frequency, sampleRate);
+  const level = Math.max(0, nodeGraphFiniteNumber(amplitude)) * nodeGraphNyquistFadeAmplitude(frequency, sampleRate);
   return {
-    cos: nodeGraphSineWavetableLookup((Number(phaseRadians) || 0) + Math.PI * 0.5) * level,
+    cos: nodeGraphSineWavetableLookup((nodeGraphFiniteNumber(phaseRadians)) + Math.PI * 0.5) * level,
     sin: nodeGraphSineWavetableLookup(phaseRadians) * level,
   };
 }
 
 /** Expand a sin/cos pair into SinCos4 jacks A–D. Unused taps are 0. */
 function nodeGraphSinCos4FromPair(sin, cos, mode) {
-  const s = Number(sin) || 0;
-  const c = Number(cos) || 0;
-  const m = Math.max(0, Math.min(5, Math.round(Number(mode) || 0)));
+  const s = nodeGraphFiniteNumber(sin);
+  const c = nodeGraphFiniteNumber(cos);
+  const m = Math.max(0, Math.min(5, Math.round(nodeGraphFiniteNumber(mode))));
   const z = 0;
   if (m === 0) {
     return { A: s, B: z, C: z, D: z };
@@ -87,7 +87,7 @@ function currentNodeGraphNoiseSample(runtime, nodeId) {
 }
 
 function nodeGraphNoiseSeedKey(nodeId, seedValue, channel = "") {
-  const seed = Math.max(0, Math.min(99999, Math.floor(Number(seedValue) || 0)));
+  const seed = Math.max(0, Math.min(99999, Math.floor(nodeGraphFiniteNumber(seedValue))));
   return `${nodeId}${channel ? `:${channel}` : ""}:seed:${seed}`;
 }
 
@@ -103,8 +103,8 @@ function nextNodeGraphSeededNoiseSample(runtime, nodeId, seedValue, channel = ""
 }
 
 function nodeGraphNoiseSampleHoldSample(runtime, state, nodeId, seedValue, speed, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
-  const safeSpeed = clampNodeSliderValue(Number(speed) || 0, 0, 1);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100)));
+  const safeSpeed = clampNodeSliderValue(nodeGraphFiniteNumber(speed), 0, 1);
   const seedKey = nodeGraphNoiseSeedKey(nodeId, seedValue);
   if (state.seedKey !== seedKey) {
     state.seedKey = seedKey;
@@ -128,7 +128,7 @@ function nodeGraphNoiseSampleHoldSample(runtime, state, nodeId, seedValue, speed
 }
 
 function nodeGraphPolyBlep(phaseCycle, phaseIncrement) {
-  const dt = clampNodeSliderValue(Math.abs(Number(phaseIncrement) || 0), 1e-6, 0.5);
+  const dt = clampNodeSliderValue(Math.abs(nodeGraphFiniteNumber(phaseIncrement)), 1e-6, 0.5);
   if (phaseCycle < dt) {
     const t = phaseCycle / dt;
     return t + t - t * t - 1;
@@ -148,7 +148,7 @@ function nodeGraphPolyBlep(phaseCycle, phaseIncrement) {
 // it to the ordinary forward correction, then negates, which reproduces an
 // exact time-reversal of the forward case. No-op when phaseIncrement >= 0.
 function nodeGraphPolyBlepDirectional(phaseCycle, phaseIncrement) {
-  const increment = Number(phaseIncrement) || 0;
+  const increment = nodeGraphFiniteNumber(phaseIncrement);
   if (increment >= 0) {
     return nodeGraphPolyBlep(phaseCycle, increment);
   }
@@ -173,11 +173,11 @@ function nodeGraphPolyBlepSquareDirectional(phaseCycle, phaseIncrement) {
 // polyBLEP / anti-aliasing). Discontinuities and triangle corners are raw.
 // PolyBLEP helpers above remain for other modules (e.g. surge).
 function nodeGraphOscillatorWaveformSample(runtime, nodeId, phase, phaseIncrement, waveform) {
-  const phaseDelta = Number(phaseIncrement) || 0;
+  const phaseDelta = nodeGraphFiniteNumber(phaseIncrement);
   const phaseStopped = Math.abs(phaseDelta) <= 1e-12;
   const phaseCycle = wrapNodeSliderValue(phase / (Math.PI * 2), 0, 1);
   let sample = 0;
-  switch (Math.round(Number(waveform) || 0)) {
+  switch (Math.round(nodeGraphFiniteNumber(waveform))) {
     case 1: // Ramp
       sample = -1 + phaseCycle * 2;
       break;
@@ -213,12 +213,12 @@ function nodeGraphEllipsoidSineToSquare(
   mode = 1, // ignored — Limit always
   phaseIncCycles = 0, // unused; ABI
 ) {
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const f = Math.max(0, Number(frequencyHz) || 0);
-  const angle = (Number(phaseCycles) || 0) * Math.PI * 2;
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const f = Math.max(0, nodeGraphFiniteNumber(frequencyHz));
+  const angle = (nodeGraphFiniteNumber(phaseCycles)) * Math.PI * 2;
   const sinPhase = Math.sin(angle);
   const cosPhase = Math.cos(angle);
-  let c = 1 - clampNodeSliderValue(Number(shape) || 0, 0, 1);
+  let c = 1 - clampNodeSliderValue(nodeGraphFiniteNumber(shape), 0, 1);
   const cMin = Math.max(0, Math.min(1, (Math.PI * 2 * f) / sr));
   if (c < cMin) c = cMin;
   const xx = (cosPhase * cosPhase) + (sinPhase * c) * (sinPhase * c);
@@ -232,11 +232,11 @@ function nodeGraphEllipsoidSineToSquare(
 }
 
 function nodeGraphEllipsoidSineToSquareVector(phaseCycles, params = {}) {
-  const level = Number(params.amplitude) || Number(params.level) || 0;
-  const shape = clampNodeSliderValue(Number(params.morph) || 0, 0, 1);
-  const phase = Number(phaseCycles) || 0;
-  const frequencyHz = Number(params.frequencyHz) || 0;
-  const sampleRate = Number(params.sampleRate) || 44100;
+  const level = nodeGraphFiniteNumber(params.amplitude, nodeGraphFiniteNumber(params.level));
+  const shape = clampNodeSliderValue(nodeGraphFiniteNumber(params.morph), 0, 1);
+  const phase = nodeGraphFiniteNumber(phaseCycles);
+  const frequencyHz = nodeGraphFiniteNumber(params.frequencyHz);
+  const sampleRate = nodeGraphFiniteNumber(params.sampleRate, 44100);
   // Bi: −1…1 quadrature; Uni: 0…1 = (bi + 1) / 2
   const biX = nodeGraphEllipsoidSineToSquare(phase, shape, frequencyHz, sampleRate) * level;
   const biY = nodeGraphEllipsoidSineToSquare(phase - 0.25, shape, frequencyHz, sampleRate) * level;
@@ -255,16 +255,16 @@ function nodeGraphEllipsoidSineToSquareVector(phaseCycles, params = {}) {
 
 // Full multi-param getEllipsoid (phase radians). Limit: scale floor by f/sr.
 function nodeGraphEllipsoidSample(phase, offset = 0, shape = 0, scale = 1, frequencyHz = 0, sampleRate = 44100) {
-  const phaseRadians = Number(phase) || 0;
+  const phaseRadians = nodeGraphFiniteNumber(phase);
   const sinPhase = Math.sin(phaseRadians);
   const cosPhase = Math.cos(phaseRadians);
-  const shapeRadians = (Number(shape) || 0) * Math.PI;
+  const shapeRadians = (nodeGraphFiniteNumber(shape)) * Math.PI;
   const shapeSin = Math.sin(shapeRadians);
   const shapeCos = Math.cos(shapeRadians);
-  const safeOffset = Number(offset) || 0;
-  let safeScale = Math.max(0, Number(scale) || 0);
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const f = Math.max(0, Number(frequencyHz) || 0);
+  const safeOffset = nodeGraphFiniteNumber(offset);
+  let safeScale = Math.max(0, nodeGraphFiniteNumber(scale));
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const f = Math.max(0, nodeGraphFiniteNumber(frequencyHz));
   const scaleFloor = Math.max(0, Math.min(1, (Math.PI * 2 * f) / sr));
   if (safeScale < scaleFloor) safeScale = scaleFloor;
   const ax = safeOffset + cosPhase;
@@ -282,9 +282,9 @@ function nodeGraphEllipsoidVectorSample(phase, params = {}) {
   if (params && Object.prototype.hasOwnProperty.call(params, "morph") && params.scaleX == null) {
     return nodeGraphEllipsoidSineToSquareVector(phase, params);
   }
-  const level = Math.max(0, Number(params.amplitude) || Number(params.level) || 0);
-  const frequencyHz = Number(params.frequencyHz) || 0;
-  const sampleRate = Number(params.sampleRate) || 44100;
+  const level = Math.max(0, nodeGraphFiniteNumber(params.amplitude, nodeGraphFiniteNumber(params.level)));
+  const frequencyHz = nodeGraphFiniteNumber(params.frequencyHz);
+  const sampleRate = nodeGraphFiniteNumber(params.sampleRate, 44100);
   const x = nodeGraphEllipsoidSample(phase, params.offsetX, params.shapeX, params.scaleX, frequencyHz, sampleRate) * level;
   const y = nodeGraphEllipsoidSample(phase - Math.PI * 0.5, params.offsetY, params.shapeY, params.scaleY, frequencyHz, sampleRate) * level;
   return {
@@ -311,22 +311,22 @@ const nodeGraphAdditiveWaveformChoices = Object.freeze([
 const nodeGraphAdditiveHardMaxHarmonics = 1024;
 
 function nodeGraphAdditiveDampingCurveValue(value = 0) {
-  return clampNodeSliderValue(Number(value) || 0, 0, 1);
+  return clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
 }
 
 function nodeGraphAdditiveDampingAlgorithmValue(value = 0) {
-  return Math.max(0, Math.min(5, Math.round(Number(value) || 0)));
+  return Math.max(0, Math.min(5, Math.round(nodeGraphFiniteNumber(value))));
 }
 
 function nodeGraphRationalCurveValue(value = 0, skew = 0) {
-  const t = clampNodeSliderValue(Number(value) || 0, 0, 1);
+  const t = clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
   if (t <= 0) {
     return 0;
   }
   if (t >= 1) {
     return 1;
   }
-  const safeSkew = clampNodeSliderValue(Number(skew) || 0, -0.999999, 0.999999);
+  const safeSkew = clampNodeSliderValue(nodeGraphFiniteNumber(skew), -0.999999, 0.999999);
   return clampNodeSliderValue(
     ((1 + safeSkew) * t) / (1 - safeSkew + 2 * safeSkew * t),
     0,
@@ -335,18 +335,18 @@ function nodeGraphRationalCurveValue(value = 0, skew = 0) {
 }
 
 function nodeGraphAdditiveFilterFrequencyValue(value = 20000, sampleRate = nodeGraphMvp?.sampleRate || 44100) {
-  const nyquist = Math.max(1, (Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100) * 0.5);
-  return clampNodeSliderValue(Number(value) || 20000, 1, nyquist);
+  const nyquist = Math.max(1, (nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100))) * 0.5);
+  return clampNodeSliderValue(nodeGraphFiniteNumber(value, 20000), 1, nyquist);
 }
 
 function nodeGraphAdditiveHarmonicDamping(harmonic, frequency, sampleRate, curveValue = 0, algorithm = 0, filterFrequency = 20000) {
-  const safeRate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
-  const safeFrequency = Math.max(0, Number(frequency) || 0);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
+  const safeFrequency = Math.max(0, nodeGraphFiniteNumber(frequency));
   const safeFilterFrequency = nodeGraphAdditiveFilterFrequencyValue(filterFrequency, safeRate);
   if (safeFilterFrequency <= 0 || safeFrequency <= 0) {
     return 1;
   }
-  const ratio = clampNodeSliderValue((Math.max(1, Number(harmonic) || 1) * safeFrequency) / safeFilterFrequency, 0, 1);
+  const ratio = clampNodeSliderValue((Math.max(1, nodeGraphFiniteNumber(harmonic, 1)) * safeFrequency) / safeFilterFrequency, 0, 1);
   return nodeGraphAdditiveDampingAmplitude({
     algorithm,
     curveValue,
@@ -365,7 +365,7 @@ function nodeGraphAdditiveDampingAmplitude({
 } = {}) {
   const curve = nodeGraphAdditiveDampingCurveValue(curveValue);
   const mode = nodeGraphAdditiveDampingAlgorithmValue(algorithm);
-  const t = clampNodeSliderValue(Number(ratio) || 0, 0, 1);
+  const t = clampNodeSliderValue(nodeGraphFiniteNumber(ratio), 0, 1);
   if (t <= 0) {
     return 1;
   }
@@ -400,8 +400,8 @@ function nodeGraphAdditiveDampingAmplitude({
     if (tilt <= 0) {
       return 1 - t;
     }
-    const h = Math.max(1, Number(harmonic) || 1);
-    const maxH = Math.max(h, Number(maxHarmonics) || h);
+    const h = Math.max(1, nodeGraphFiniteNumber(harmonic, 1));
+    const maxH = Math.max(h, nodeGraphFiniteNumber(maxHarmonics, h));
     const raw = 1 / (h ** tilt);
     const end = 1 / (maxH ** tilt);
     return clampNodeSliderValue((raw - end) / Math.max(0.0001, 1 - end), 0, 1);
@@ -458,17 +458,17 @@ function nodeGraphAdditiveOscillatorSample(runtime, nodeId, phase, params = {}, 
   if (!wasm?.soemdsp_additive_osc_sample) {
     return 0;
   }
-  const safeRate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const out = wasm.soemdsp_additive_osc_sample(
-    Number(phase) || 0,
-    Math.max(0, Number(params.frequency) || 0),
-    Math.max(1, Math.min(nodeGraphAdditiveHardMaxHarmonics, Math.round(Number(params.harmonics) || 32))),
-    Math.round(Number(params.waveform) || 0),
-    clampNodeSliderValue(Number(params.morph) || 0, 0, 1),
-    clampNodeSliderValue(Number(params.harmonicPhaseAdd) || 0, 0, 1),
-    clampNodeSliderValue(Number(params.harmonicPhaseMultiply) || 0, 0, 4),
-    Math.max(0, Number(params.amplitude) || 0),
-    Number(params.dampingFilterFrequency) || 20000,
+    nodeGraphFiniteNumber(phase),
+    Math.max(0, nodeGraphFiniteNumber(params.frequency)),
+    Math.max(1, Math.min(nodeGraphAdditiveHardMaxHarmonics, Math.round(nodeGraphFiniteNumber(params.harmonics, 32)))),
+    Math.round(nodeGraphFiniteNumber(params.waveform)),
+    clampNodeSliderValue(nodeGraphFiniteNumber(params.morph), 0, 1),
+    clampNodeSliderValue(nodeGraphFiniteNumber(params.harmonicPhaseAdd), 0, 1),
+    clampNodeSliderValue(nodeGraphFiniteNumber(params.harmonicPhaseMultiply), 0, 4),
+    Math.max(0, nodeGraphFiniteNumber(params.amplitude)),
+    nodeGraphFiniteNumber(params.dampingFilterFrequency, 20000),
     safeRate,
   );
   return Number.isFinite(out) ? out : 0;

@@ -59,9 +59,9 @@ function nodeGraphCheapWalkEnsureStereoState(state, seedParam) {
 
 /** @returns {{ Left: number, Right: number }} */
 function nodeGraphCheapWalkCoreStereo(state, params, sampleRate) {
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const rate = Math.max(0, Number(params.rate) || 0);
-  const amp = Math.max(0, Math.min(1, Number(params.amplitude) || 0));
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const rate = Math.max(0, nodeGraphFiniteNumber(params.rate));
+  const amp = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.amplitude)));
   const seedParam = Number(params.seed);
   nodeGraphCheapWalkEnsureStereoState(state, Number.isFinite(seedParam) ? seedParam : state.lastSeed);
   let speed01 = rate / sr;

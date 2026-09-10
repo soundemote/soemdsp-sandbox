@@ -1,5 +1,5 @@
 NodeLiveAudioProcessor.prototype.invSample = function invSample(input) {
-  const x = Number(input) || 0;
+  const x = nodeGraphFiniteNumber(input);
   if (this.nativeInvReady && this.nativeInv?.soemdsp_inv_sample) {
     try {
       return this.safeFilterNumber(this.nativeInv.soemdsp_inv_sample(x), null);

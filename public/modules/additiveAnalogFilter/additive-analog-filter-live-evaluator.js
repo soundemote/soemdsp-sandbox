@@ -22,7 +22,7 @@ function nodeGraphAdditiveAnalogFilterLiveEvaluator({
   const read = (key, fallback) => (typeof nodeGraphAdditiveReadParam === "function"
     ? nodeGraphAdditiveReadParam(node, key, fallback, runtime, frame, frames, frameValues)
     : num(p[key], fallback));
-  const sr = Math.max(1, Number(sampleRate) || Number(runtime?.sampleRate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(runtime?.sampleRate, 44100)));
   // F jack reserved for nonrealtime Cutoff Hz override — unimplemented.
   const cutoffHz = read("cutoff", 2000);
   const fundHz = typeof additiveGraphResolveFundamentalHz === "function"

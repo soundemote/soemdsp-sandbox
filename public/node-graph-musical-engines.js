@@ -32,11 +32,11 @@ function nodeGraphMusicalClassesFromMask(mask) {
 
 /** MIDI note from 0.1V/Oct (semitone = pitch * 120). */
 function nodeGraphMusicalMidiFromPitch(pitch) {
-  return (Number(pitch) || 0) * 120;
+  return (nodeGraphFiniteNumber(pitch)) * 120;
 }
 
 function nodeGraphMusicalPitchFromMidi(midi) {
-  return (Number(midi) || 0) / 120;
+  return (nodeGraphFiniteNumber(midi)) / 120;
 }
 
 /**
@@ -81,7 +81,7 @@ function nodeGraphMusicalDegreeToMidi(rootPitch, classesFromRoot, degreeIndex) {
   const rootMidi = nodeGraphMusicalMidiFromPitch(rootPitch);
   const rootOctaveBase = Math.floor(rootMidi / 12) * 12;
   // Align so degree 0 lands near root's octave.
-  const d = Math.floor(Number(degreeIndex) || 0);
+  const d = Math.floor(nodeGraphFiniteNumber(degreeIndex));
   const wrapped = ((d % n) + n) % n;
   const octaveSpan = Math.floor(d / n) - Math.floor(0 / n);
   // When d negative, floor division already handles octaveSpan.
@@ -122,14 +122,14 @@ function createNodeGraphDegreeTuringState() {
 }
 
 function nodeGraphDegreeTuringSample(state, options = {}) {
-  const length = Math.max(2, Math.min(16, Math.round(Number(options.length) || 8)));
+  const length = Math.max(2, Math.min(16, Math.round(nodeGraphFiniteNumber(options.length, 8))));
   const probability = Math.max(0, Math.min(1, Number(options.probability) ?? 0.18));
-  const octaves = Math.max(0, Math.min(4, Math.round(Number(options.octaves) || 1)));
+  const octaves = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(options.octaves, 1))));
   const level = Number(options.level) ?? 1;
   const mask = nodeGraphMusicalNormalizeMask(
     options.hasScaleInput ? options.scaleInput : (options.scaleMask ?? 2741),
   );
-  const root = Number(options.root) || (60 / 120);
+  const root = nodeGraphFiniteNumber(options.root, (60 / 120));
   const classes = nodeGraphMusicalClassesFromRoot(mask, root);
 
   if (nodeGraphMusicalRisingEdge(state, "resetWasHigh", options.reset, 0)) {
@@ -180,14 +180,14 @@ function createNodeGraphGravityWalkerState() {
 function nodeGraphGravityWalkerSample(state, options = {}) {
   const level = Number(options.level) ?? 1;
   const leapAmount = Math.max(0, Math.min(1, Number(options.leap) ?? 0.15));
-  const leapCv = Math.max(0, Math.min(1, Math.abs(Number(options.leapCv) || 0)));
+  const leapCv = Math.max(0, Math.min(1, Math.abs(nodeGraphFiniteNumber(options.leapCv))));
   const leapProb = Math.max(0, Math.min(1, leapAmount + leapCv * 0.85));
   const gravity = Math.max(0, Math.min(1, Number(options.gravity) ?? 0.65));
-  const octaves = Math.max(0, Math.min(4, Math.round(Number(options.octaves) || 1)));
+  const octaves = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(options.octaves, 1))));
   const mask = nodeGraphMusicalNormalizeMask(
     options.hasScaleInput ? options.scaleInput : (options.scaleMask ?? 2741),
   );
-  const root = Number(options.root) || (60 / 120);
+  const root = nodeGraphFiniteNumber(options.root, (60 / 120));
   const classes = nodeGraphMusicalClassesFromRoot(mask, root);
   const span = Math.max(1, classes.length * (octaves + 1));
 
@@ -257,13 +257,13 @@ function nodeGraphDegreePhraseEnsureLive(state, degrees, rests) {
 
 function nodeGraphDegreePhraseSample(state, options = {}) {
   const level = Number(options.level) ?? 1;
-  const steps = Math.max(1, Math.min(8, Math.round(Number(options.steps) || 8)));
+  const steps = Math.max(1, Math.min(8, Math.round(nodeGraphFiniteNumber(options.steps, 8))));
   const mutate = Math.max(0, Math.min(1, Number(options.mutate) ?? 0.08));
-  const octaves = Math.max(0, Math.min(4, Math.round(Number(options.octaves) || 1)));
+  const octaves = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(options.octaves, 1))));
   const mask = nodeGraphMusicalNormalizeMask(
     options.hasScaleInput ? options.scaleInput : (options.scaleMask ?? 2741),
   );
-  const root = Number(options.root) || (60 / 120);
+  const root = nodeGraphFiniteNumber(options.root, (60 / 120));
   const classes = nodeGraphMusicalClassesFromRoot(mask, root);
   const span = Math.max(1, classes.length * (octaves + 1));
 
@@ -334,9 +334,9 @@ function createNodeGraphNoteGlideState() {
 }
 
 function nodeGraphNoteGlideSample(state, options = {}, sampleRate = 44100) {
-  const target = Number(options.pitch) || 0;
-  const time = Math.max(0, Number(options.time) || 0);
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const target = nodeGraphFiniteNumber(options.pitch);
+  const time = Math.max(0, nodeGraphFiniteNumber(options.time));
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   if (state.current == null || !Number.isFinite(state.current)) {
     state.current = target;
     return { "0.1V/Oct": target };
@@ -358,9 +358,9 @@ function createNodeGraphNoteTransposeState() {
 }
 
 function nodeGraphNoteTransposeSample(options = {}) {
-  const pitch = Number(options.pitch) || 0;
-  const semitones = Number(options.semitones) || 0;
-  const octaves = Number(options.octaves) || 0;
+  const pitch = nodeGraphFiniteNumber(options.pitch);
+  const semitones = nodeGraphFiniteNumber(options.semitones);
+  const octaves = nodeGraphFiniteNumber(options.octaves);
   const midi = nodeGraphMusicalMidiFromPitch(pitch) + semitones + octaves * 12;
   return { "0.1V/Oct": nodeGraphMusicalPitchFromMidi(midi) };
 }

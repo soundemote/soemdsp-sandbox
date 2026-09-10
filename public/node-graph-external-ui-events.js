@@ -174,7 +174,7 @@ function normalizeNodeGraphExternalButtonEventName(name) {
 }
 
 function nodeGraphExternalButtonEventPulseSamples(sampleRate = nodeGraphMvp?.sampleRate || 44100) {
-  return Math.max(1, Math.round(Math.max(1, Number(sampleRate) || 44100) * 0.02));
+  return Math.max(1, Math.round(Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)) * 0.02));
 }
 
 function setNodeGraphExternalButtonEventPulse(target, name, sampleRate) {
@@ -184,7 +184,7 @@ function setNodeGraphExternalButtonEventPulse(target, name, sampleRate) {
     ? target.externalButtonEvents
     : new Map();
   target.externalButtonEvents = map;
-  map.set(key, Math.max(Number(map.get(key)) || 0, nodeGraphExternalButtonEventPulseSamples(sampleRate)));
+  map.set(key, Math.max(nodeGraphFiniteNumber(map.get(key)), nodeGraphExternalButtonEventPulseSamples(sampleRate)));
   return true;
 }
 
@@ -227,11 +227,11 @@ function scheduleNodeGraphLiveGameTriggerEvent(send, reason = "") {
 }
 
 function nodeGraphGameTriggerPulseSamples(sampleRate = nodeGraphMvp?.sampleRate || 44100) {
-  return Math.max(1, Math.round(Math.max(1, Number(sampleRate) || 44100) * nodeGraphGameTriggerPulseSeconds));
+  return Math.max(1, Math.round(Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)) * nodeGraphGameTriggerPulseSeconds));
 }
 
 function nodeGraphWireBreakGateSamples(sampleRate = nodeGraphMvp?.sampleRate || 44100) {
-  return Math.max(1, Math.round(Math.max(1, Number(sampleRate) || 44100) * nodeGraphWireBreakGateSeconds));
+  return Math.max(1, Math.round(Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)) * nodeGraphWireBreakGateSeconds));
 }
 
 function setNodeGraphWireBreakEventPulse(target, sampleRate) {
@@ -241,8 +241,8 @@ function setNodeGraphWireBreakEventPulse(target, sampleRate) {
   const event = target.wireBreakEvent && typeof target.wireBreakEvent === "object"
     ? target.wireBreakEvent
     : { pulseSamples: 0, gateSamples: 0 };
-  event.pulseSamples = Math.max(Number(event.pulseSamples) || 0, nodeGraphGameTriggerPulseSamples(sampleRate));
-  event.gateSamples = Math.max(Number(event.gateSamples) || 0, nodeGraphWireBreakGateSamples(sampleRate));
+  event.pulseSamples = Math.max(nodeGraphFiniteNumber(event.pulseSamples), nodeGraphGameTriggerPulseSamples(sampleRate));
+  event.gateSamples = Math.max(nodeGraphFiniteNumber(event.gateSamples), nodeGraphWireBreakGateSamples(sampleRate));
   target.wireBreakEvent = event;
   return true;
 }
@@ -277,7 +277,7 @@ function setNodeGraphWireConnectEventPulse(target, sampleRate) {
   const event = target.wireConnectEvent && typeof target.wireConnectEvent === "object"
     ? target.wireConnectEvent
     : { pulseSamples: 0 };
-  event.pulseSamples = Math.max(Number(event.pulseSamples) || 0, nodeGraphGameTriggerPulseSamples(sampleRate));
+  event.pulseSamples = Math.max(nodeGraphFiniteNumber(event.pulseSamples), nodeGraphGameTriggerPulseSamples(sampleRate));
   target.wireConnectEvent = event;
   return true;
 }
@@ -312,7 +312,7 @@ function setNodeGraphWireDisconnectEventPulse(target, sampleRate) {
   const event = target.wireDisconnectEvent && typeof target.wireDisconnectEvent === "object"
     ? target.wireDisconnectEvent
     : { pulseSamples: 0 };
-  event.pulseSamples = Math.max(Number(event.pulseSamples) || 0, nodeGraphGameTriggerPulseSamples(sampleRate));
+  event.pulseSamples = Math.max(nodeGraphFiniteNumber(event.pulseSamples), nodeGraphGameTriggerPulseSamples(sampleRate));
   target.wireDisconnectEvent = event;
   return true;
 }
@@ -381,7 +381,7 @@ function setNodeGraphShootingStarExplosionEventPulse(target, sampleRate, speed =
   const event = target.shootingStarExplosionEvent && typeof target.shootingStarExplosionEvent === "object"
     ? target.shootingStarExplosionEvent
     : { pulseSamples: 0, speed: null };
-  event.pulseSamples = Math.max(0, Number(event.pulseSamples) || 0) + 1;
+  event.pulseSamples = Math.max(0, nodeGraphFiniteNumber(event.pulseSamples)) + 1;
   event.speed = Number.isFinite(Number(speed)) ? Number(speed) : null;
   target.shootingStarExplosionEvent = event;
   return true;
@@ -436,7 +436,7 @@ function triggerNodeGraphImpulseButton(nodeId) {
       : new Map();
     nodeGraphMvp.live.runtime.impulseButtonStates = states;
     const state = states.get(nodeId) || { amplitude: 1, pulseSamples: 0 };
-    state.pulseSamples = Math.max(0, Number(state.pulseSamples) || 0) + pulseSamples;
+    state.pulseSamples = Math.max(0, nodeGraphFiniteNumber(state.pulseSamples)) + pulseSamples;
     state.amplitude = amplitude;
     states.set(nodeId, state);
   }
@@ -474,8 +474,8 @@ function setNodeGraphBugButtonInteraction(nodeId, update = {}) {
     downPulse: Boolean(update.downPulse),
     hover: update.hover === undefined ? undefined : (update.hover ? 1 : 0),
     upPulse: Boolean(update.upPulse),
-    x: Number.isFinite(Number(update.x)) ? Math.max(-1, Math.min(1, Number(update.x))) : undefined,
-    y: Number.isFinite(Number(update.y)) ? Math.max(-1, Math.min(1, Number(update.y))) : undefined,
+    x: Number.isFinite(Number(update.x)) ? Number(update.x) : undefined,
+    y: Number.isFinite(Number(update.y)) ? Number(update.y) : undefined,
   };
   if (nodeGraphMvp.live.runtime) {
     const state = nodeGraphBugButtonInteractionState(nodeGraphMvp.live.runtime, nodeId);
@@ -504,7 +504,7 @@ function nodeGraphExternalMessageOriginAllowed(event) {
 }
 
 function nodeGraphWindowReopenGateSamples(sampleRate = nodeGraphMvp?.sampleRate || 44100) {
-  return Math.max(1, Math.round(Math.max(1, Number(sampleRate) || 44100) * nodeGraphWindowReopenGateSeconds));
+  return Math.max(1, Math.round(Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)) * nodeGraphWindowReopenGateSeconds));
 }
 
 function setNodeGraphWindowReopenEventPulse(target, sampleRate) {

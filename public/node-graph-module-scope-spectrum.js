@@ -70,7 +70,7 @@ function nodeGraphModuleScopeSpectrumBuffer(capturedBuffer) {
   const real = new Float64Array(size);
   const imag = new Float64Array(size);
   for (let i = 0; i < available; i += 1) {
-    real[windowOffset + i] = (Number(capturedBuffer[offset + i]) || 0) *
+    real[windowOffset + i] = (nodeGraphFiniteNumber(capturedBuffer[offset + i])) *
       nodeGraphSpectrumHannWindowCache[windowOffset + i];
   }
   nodeGraphSpectrumFftInPlace(real, imag);

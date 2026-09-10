@@ -207,8 +207,8 @@ function nodeGraphPhosphorWaveformSyncTimeWindowFromView(nodeId, windowFrames, s
   if (!node) {
     return;
   }
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const frames = Math.max(1, Number(windowFrames) || 1);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const frames = Math.max(1, nodeGraphFiniteNumber(windowFrames, 1));
   const seconds = frames <= 1
     ? 0
     : Math.max(0, Math.min(60, frames / rate));
@@ -965,7 +965,7 @@ function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, 
   const borderColor = powered
     ? `hsl(${Math.round(settings.backgroundHue)} 100% 68% / 0.16)`
     : "transparent";
-  const labelInset = Math.max(0, Math.min(48, Math.round(Number(settings.labelInsetPx) || 0)));
+  const labelInset = Math.max(0, Math.min(48, Math.round(nodeGraphFiniteNumber(settings.labelInsetPx))));
   const next = `${inset}|${radius}|${shape}|${borderColor}|${powered ? 1 : 0}|${labelInset}`;
   if (section.dataset.panelShape === next) {
     return;
@@ -1119,7 +1119,7 @@ function nodeGraphPhosphorWaveformBeginNumberDrag(event) {
     pointerId: event.pointerId ?? null,
     startX: event.clientX,
     startY: event.clientY,
-    startValue: Number(input.value) || 0,
+    startValue: nodeGraphFiniteNumber(input.value),
     accum: 0,
     lastCombined: 0,
     fineScale: mult,
@@ -1156,7 +1156,7 @@ function nodeGraphPhosphorWaveformMoveNumberDrag(event) {
     ? nodeGraphNumericDragMultiplier(event)
     : 1;
   if (mult !== drag.fineScale) {
-    drag.startValue = Number(drag.input.value) || drag.startValue;
+    drag.startValue = nodeGraphFiniteNumber(drag.input.value, drag.startValue);
     drag.startX = event.clientX;
     drag.startY = event.clientY;
     drag.accum = 0;
@@ -1296,7 +1296,7 @@ function endNodeGraphPhosphorWaveformSettingsDrag(event) {
 }
 
 function nodeGraphPhosphorWaveformViewState(nodeId, frames, sectionOrFace) {
-  const safeFrames = Math.max(1, Math.round(Number(frames) || 1));
+  const safeFrames = Math.max(1, Math.round(nodeGraphFiniteNumber(frames, 1)));
   const key = nodeGraphPhosphorWaveformViewKey(nodeId, sectionOrFace);
   let state = nodeGraphPhosphorWaveformViewStates.get(key)
     || nodeGraphPhosphorWaveformViewStates.get(nodeId);
@@ -1325,13 +1325,13 @@ function nodeGraphPhosphorWaveformClampWindow(state) {
  * GPU/canvas antialias the stroke. Clamps to the file only.
  */
 function nodeGraphPhosphorWaveformContinuousView(idealStart, windowFrames, totalFrames) {
-  const total = Math.max(1, Math.round(Number(totalFrames) || 1));
+  const total = Math.max(1, Math.round(nodeGraphFiniteNumber(totalFrames, 1)));
   const win = Math.max(
     Math.min(total, nodeGraphPhosphorWaveformMinWindowFrames),
-    Math.max(1, Math.min(total, Math.round(Number(windowFrames) || 1))),
+    Math.max(1, Math.min(total, Math.round(nodeGraphFiniteNumber(windowFrames, 1)))),
   );
   const maxStart = Math.max(0, total - win);
-  const viewStart = Math.max(0, Math.min(maxStart, Number(idealStart) || 0));
+  const viewStart = Math.max(0, Math.min(maxStart, nodeGraphFiniteNumber(idealStart)));
   return {
     viewEnd: viewStart + win,
     viewStart,
@@ -1368,7 +1368,7 @@ function nodeGraphPhosphorWaveformSampleEntry(nodeId) {
   const sampleId = node?.sample?.id;
   let entry = sampleId ? nodeGraphMvp?.sampleBuffers?.get?.(sampleId) : null;
   let samples = nodeGraphPhosphorWaveformEntrySamples(entry);
-  let frames = Math.max(0, Number(entry?.frames) || samples?.length || 0);
+  let frames = Math.max(0, nodeGraphFiniteNumber(entry?.frames, nodeGraphFiniteNumber(samples?.length, 0)));
   if (!(entry && samples && frames > 0) && typeof nodeGraphAudioPlayerLibraryFindBufferForItem === "function") {
     const pl = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
       ? nodeGraphAudioPlayerPlaylistForNode(nodeId)
@@ -1377,7 +1377,7 @@ function nodeGraphPhosphorWaveformSampleEntry(nodeId) {
     if (found?.buf) {
       entry = found.buf;
       samples = nodeGraphPhosphorWaveformEntrySamples(entry);
-      frames = Math.max(0, Number(found.frames) || samples?.length || 0);
+      frames = Math.max(0, nodeGraphFiniteNumber(found.frames, nodeGraphFiniteNumber(samples?.length, 0)));
     }
   }
   return entry && samples && frames > 0 ? entry : null;
@@ -1471,11 +1471,11 @@ function nodeGraphPhosphorWaveformNudgePhaseOffset(nodeId, deltaCycles) {
   if (!node || node.type !== "audioPlayer") {
     return;
   }
-  const delta = Number(deltaCycles) || 0;
+  const delta = nodeGraphFiniteNumber(deltaCycles);
   if (!delta) {
     return;
   }
-  const current = Number(node.params?.phaseOffset) || 0;
+  const current = nodeGraphFiniteNumber(node.params?.phaseOffset);
   const next = typeof wrapNodeSliderValue === "function"
     ? wrapNodeSliderValue(current + delta, -1, 1)
     : ((((current + delta) + 1) % 2) + 2) % 2 - 1;
@@ -1508,7 +1508,7 @@ function nodeGraphPhosphorWaveformNudgePhaseOffset(nodeId, deltaCycles) {
 }
 
 function nodeGraphPhosphorWaveformFormatZoomPercent(ratio) {
-  const pct = Math.max(0, Number(ratio) || 0) * 100;
+  const pct = Math.max(0, nodeGraphFiniteNumber(ratio)) * 100;
   if (pct >= 9.95) {
     return `${Math.round(pct)}%`;
   }
@@ -1894,12 +1894,12 @@ function nodeGraphPhosphorWaveformBuildVectorPath(
   if (!total || !(width > 0)) {
     return new Float32Array(0);
   }
-  const first = Math.max(0, Math.floor(Number(viewStart) || 0));
-  const last = Math.min(total - 1, Math.ceil(Number(viewEnd) || 0));
+  const first = Math.max(0, Math.floor(nodeGraphFiniteNumber(viewStart)));
+  const last = Math.min(total - 1, Math.ceil(nodeGraphFiniteNumber(viewEnd)));
   if (last < first) {
     return new Float32Array(0);
   }
-  const span = Math.max(1e-9, (Number(viewEnd) || 0) - (Number(viewStart) || 0));
+  const span = Math.max(1e-9, (nodeGraphFiniteNumber(viewEnd)) - (nodeGraphFiniteNumber(viewStart)));
   const sampleCount = last - first + 1;
   // Vertex budget when dense: ~3 pairs/pixel keeps peaks smooth without
   // scanning the whole file every frame (CPU guard for long zooms-out).
@@ -2041,9 +2041,9 @@ function nodeGraphPhosphorWaveformLineColor(settings, lightness, alpha) {
   const brightnessRaw = Number(s.lineBrightness);
   const brightness = Number.isFinite(brightnessRaw)
     ? brightnessRaw
-    : Number(defaults.lineBrightness) || 0.5;
+    : nodeGraphFiniteNumber(defaults.lineBrightness, 0.5);
   const hueRaw = Number(s.hue);
-  const hue = Number.isFinite(hueRaw) ? hueRaw : Number(defaults.hue) || 140;
+  const hue = Number.isFinite(hueRaw) ? hueRaw : nodeGraphFiniteNumber(defaults.hue, 140);
   const a = Number(alpha);
   if (typeof nodeGraphHueBrightnessCss === "function") {
     return nodeGraphHueBrightnessCss(hue, brightness, Number.isFinite(a) ? a : 1);
@@ -2059,7 +2059,7 @@ function nodeGraphPhosphorWaveformBackgroundColor(settings) {
   // the trace (~85%) so a stored 1.0 (old 0–2 mid, or slider max) cannot
   // become a solid green/white square that hides the waveform.
   const s = normalizeNodeGraphPhosphorWaveformSettings(settings);
-  const normalized = Math.max(0, Math.min(1, Number(s.backgroundBrightness) || 0));
+  const normalized = Math.max(0, Math.min(1, nodeGraphFiniteNumber(s.backgroundBrightness)));
   const scaledLightness = Math.max(0, Math.min(24, 100 * (normalized ** 3.5)));
   return `hsl(${s.backgroundHue}, 70%, ${scaledLightness}%)`;
 }
@@ -2094,7 +2094,7 @@ function nodeGraphMusicPlayerFaceMetrics(section, canvas, face = "") {
   }
   if (!(cssWidth > 2) || !(cssHeight > 2)) {
     const rect = section.getBoundingClientRect();
-    const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
+    const zoom = Math.max(0.01, nodeGraphFiniteNumber(nodeGraphMvp?.zoom, 1));
     cssWidth = rect.width / zoom;
     cssHeight = rect.height / zoom;
   }
@@ -2113,7 +2113,7 @@ function drawNodeGraphPhosphorWaveformPlaceholder(context, width, height, messag
   if (!context) {
     return;
   }
-  const dpr = Math.max(1, Number(pixelRatio) || 1);
+  const dpr = Math.max(1, nodeGraphFiniteNumber(pixelRatio, 1));
   context.fillStyle = nodeGraphPhosphorWaveformLineColor(settings, 57, 0.55);
   context.font = `600 ${Math.round(11 * dpr)}px system-ui, sans-serif`;
   context.textAlign = "center";
@@ -2330,8 +2330,8 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
 
   // Start/End region (params start/end). Selection is the bright middle;
   // outside is dimmed after the trace so the effect is obvious.
-  const loopStart = clampNodeSliderValue(Number(node.params?.start) || 0, 0, 1) * entry.frames;
-  const loopEnd = clampNodeSliderValue(Number(node.params?.end) || 1, 0, 1) * entry.frames;
+  const loopStart = clampNodeSliderValue(nodeGraphFiniteNumber(node.params?.start), 0, 1) * entry.frames;
+  const loopEnd = clampNodeSliderValue(nodeGraphFiniteNumber(node.params?.end, 1), 0, 1) * entry.frames;
   const regionX0 = clampNodeSliderValue(frameToX(Math.min(loopStart, loopEnd)), 0, width);
   const regionX1 = clampNodeSliderValue(frameToX(Math.max(loopStart, loopEnd)), 0, width);
 
@@ -2340,7 +2340,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   // nature of the buffer visible instead of implying a continuous signal.
   // gridBrightness 0 = hidden; 1 = full (former top of 0…2 scale).
   const pixelsPerFrame = width / viewSpan;
-  const gridBrightness = Math.max(0, Math.min(1, Number(settings.gridBrightness) || 0));
+  const gridBrightness = Math.max(0, Math.min(1, nodeGraphFiniteNumber(settings.gridBrightness)));
   const showSampleGrid = gridBrightness > 0.001 && pixelsPerFrame >= 6 * pixelRatio;
   if (showSampleGrid) {
     const gridHue = Number.isFinite(Number(settings.hue)) ? Number(settings.hue) : 140;
@@ -2361,7 +2361,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
 
   // Vector trace: core width + free half-pixel skirt (cheap AA that matches
   // the pixel grid — not a blur/glow pass, just width + 0.5 in device px).
-  const traceCss = Math.max(0.5, Math.min(5, Math.round((Number(settings.traceWidth) || 1.5) * 2) / 2));
+  const traceCss = Math.max(0.5, Math.min(5, Math.round((nodeGraphFiniteNumber(settings.traceWidth, 1.5)) * 2) / 2));
   const tracePx = Math.max(0.5, traceCss * pixelRatio);
   const skirtPx = tracePx + 0.5;
   const vectorPoints = nodeGraphPhosphorWaveformBuildVectorPath(
@@ -2466,10 +2466,10 @@ function nodeGraphPhosphorWaveformPaintSpeedLabel(context, nodeId, node, width, 
     }
   }
   const speedLabel = `${speed.toFixed(3)}x`;
-  const ratio = Number(pixelRatio) || 1;
+  const ratio = nodeGraphFiniteNumber(pixelRatio, 1);
   const fontPx = Math.max(1, Math.round(10 * ratio));
   context.font = `600 ${fontPx}px system-ui, sans-serif`;
-  const labelPadCss = Math.max(0, Math.min(48, Number(settings?.labelInsetPx) || 0));
+  const labelPadCss = Math.max(0, Math.min(48, nodeGraphFiniteNumber(settings?.labelInsetPx)));
   const pad = labelPadCss * ratio;
   const x = Math.round(width - pad);
   const y = Math.round(height - pad);

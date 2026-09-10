@@ -225,7 +225,7 @@ function nodeGraphModuleUiWithFaceHeightGu(ui, type, faceGu) {
   const limits = nodeGraphModuleDisplayHeightLimitsForType(type);
   const face = Math.max(
     limits.minGu,
-    Math.min(limits.maxGu, Math.round(Number(faceGu) || limits.minGu)),
+    Math.min(limits.maxGu, Math.round(nodeGraphFiniteNumber(faceGu, limits.minGu))),
   );
   return {
     ...base,
@@ -383,7 +383,7 @@ function normalizeNodeGraphModuleDisplayHeightOffsetUnits(typeOrOffsetGu, offset
   const type = hasType ? typeOrOffsetGu : null;
   const offset = hasType ? offsetGu : typeOrOffsetGu;
   const defaultHeightGu = type ? nodeGraphModuleDefaultDisplayHeightUnits(type) : nodeGraphModuleLayout.moduleScopeHeightGu;
-  const targetHeightGu = defaultHeightGu + Math.round(Number(offset) || 0);
+  const targetHeightGu = defaultHeightGu + Math.round(nodeGraphFiniteNumber(offset));
   return normalizeNodeGraphModuleDisplayHeightUnits(targetHeightGu, type) - defaultHeightGu;
 }
 
@@ -546,9 +546,9 @@ function normalizeNodeGraphModuleHeightUnits(type, heightGu, ui = {}) {
  * minmax(2px, 1fr) track (see --node-module-bottom-gap-track).
  */
 function nodeGraphModuleHeightWithBottomClearance(contentGu) {
-  const required = Math.max(0, Number(contentGu) || 0);
+  const required = Math.max(0, nodeGraphFiniteNumber(contentGu));
   let heightGu = Math.ceil(required);
-  const gridPx = Math.max(1, Number(nodeGraphGrid?.heightPx) || 28);
+  const gridPx = Math.max(1, nodeGraphFiniteNumber(nodeGraphGrid?.heightPx, 28));
   const slackPx = (heightGu - required) * gridPx;
   if (slackPx < 2) {
     heightGu += 1;
@@ -760,7 +760,7 @@ function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
       ? nodeGraphPatchNodeGridHeightUnits(patchNode)
       : nodeGraphModuleGridHeightUnitsForUi(type, ui);
     const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
-    faceGu = Math.max(1, Math.round(Number(outerGu) || 0) - Math.ceil(Number(headerGu) || 0));
+    faceGu = Math.max(1, Math.round(nodeGraphFiniteNumber(outerGu)) - Math.ceil(nodeGraphFiniteNumber(headerGu)));
   }
   // Face units drive LayoutA --node-module-scope-height / Metamodule face track.
   element.style.setProperty("--node-module-display-height-units", String(faceGu));
@@ -913,7 +913,7 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
     }
     bands.push({
       id: "shell",
-      heightGu: Math.max(1, Number(shellGu) || 1),
+      heightGu: Math.max(1, nodeGraphFiniteNumber(shellGu, 1)),
       visible: true,
       grow: paramsGu <= 0,
     });
@@ -935,11 +935,11 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
     }
     if (id === "lip") {
       if (widget.visible !== false) {
-        lipFloorGu = Math.max(lipFloorGu, Math.max(0, Number(widget.heightGu) || 0));
+        lipFloorGu = Math.max(lipFloorGu, Math.max(0, nodeGraphFiniteNumber(widget.heightGu)));
       }
       continue;
     }
-    const heightGu = Math.max(0, Number(widget.heightGu) || 0);
+    const heightGu = Math.max(0, nodeGraphFiniteNumber(widget.heightGu));
     const visible = widget.visible !== false && (heightGu > 0 || id === "io");
     const existing = byId.get(id);
     if (!existing) {
@@ -1609,7 +1609,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
 function nodeGraphModuleRequiredHeightUnitsForUi(type, ui = {}, node = null) {
   return nodeGraphModuleHeightWidgetUnits(type, ui, node)
     .filter((widget) => widget.visible !== false)
-    .reduce((total, widget) => total + Math.max(0, Number(widget.heightGu) || 0), 0);
+    .reduce((total, widget) => total + Math.max(0, nodeGraphFiniteNumber(widget.heightGu)), 0);
 }
 
 function nodeGraphModuleGridHeightUnits(type) {
@@ -1781,7 +1781,7 @@ function nodeGraphApplyModuleHeightDelta(patchNode, delta) {
     return false;
   }
   const type = patchNode.type;
-  const step = Math.sign(Number(delta) || 0) * (nodeGraphModuleGuPolicy.stepGu || 1);
+  const step = Math.sign(nodeGraphFiniteNumber(delta)) * (nodeGraphModuleGuPolicy.stepGu || 1);
   if (!step) {
     return false;
   }

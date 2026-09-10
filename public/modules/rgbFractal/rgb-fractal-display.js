@@ -254,7 +254,7 @@ function nodeGraphRgbFractalShouldFreeze(moduleSpeed = 1) {
       return true;
     }
   } catch (_) { /* fall through */ }
-  return !(Math.abs(Number(moduleSpeed) || 0) > 1e-6);
+  return !(Math.abs(nodeGraphFiniteNumber(moduleSpeed)) > 1e-6);
 }
 
 /**
@@ -314,14 +314,14 @@ function nodeGraphRgbFractalEnsurePhasors(face, nodeId) {
     // Fresh face (recreated on resize): restore from map.
     // Live face: keep face values, then write-through below after sim step.
     if (!face._rgbFractalPhasorsBound || !Number.isFinite(face._rgbFractalOrbitPhasor)) {
-      face._rgbFractalOrbitPhasor = Number(durable.orbitPhasor) || 0;
-      face._rgbFractalRotationPhasor = Number(durable.rotationPhasor) || 0;
-      face._rgbFractalColorPhasor = Number(durable.colorPhasor) || 0;
+      face._rgbFractalOrbitPhasor = nodeGraphFiniteNumber(durable.orbitPhasor);
+      face._rgbFractalRotationPhasor = nodeGraphFiniteNumber(durable.rotationPhasor);
+      face._rgbFractalColorPhasor = nodeGraphFiniteNumber(durable.colorPhasor);
       face._rgbFractalPhasorsBound = true;
     }
   } else {
     if (!Number.isFinite(face._rgbFractalOrbitPhasor)) {
-      face._rgbFractalOrbitPhasor = Number(face._rgbFractalPhase) || 0;
+      face._rgbFractalOrbitPhasor = nodeGraphFiniteNumber(face._rgbFractalPhase);
     }
     if (!Number.isFinite(face._rgbFractalRotationPhasor)) {
       face._rgbFractalRotationPhasor = 0;
@@ -348,9 +348,9 @@ function nodeGraphRgbFractalCommitPhasors(face, nodeId) {
   if (!durable) {
     return;
   }
-  durable.orbitPhasor = Number(face._rgbFractalOrbitPhasor) || 0;
-  durable.rotationPhasor = Number(face._rgbFractalRotationPhasor) || 0;
-  durable.colorPhasor = Number(face._rgbFractalColorPhasor) || 0;
+  durable.orbitPhasor = nodeGraphFiniteNumber(face._rgbFractalOrbitPhasor);
+  durable.rotationPhasor = nodeGraphFiniteNumber(face._rgbFractalRotationPhasor);
+  durable.colorPhasor = nodeGraphFiniteNumber(face._rgbFractalColorPhasor);
   face._rgbFractalPhasorsBound = true;
 }
 
@@ -496,7 +496,7 @@ function syncNodeGraphRgbFractalCanvas(canvas, face, pixelRatio, downsample = 1)
   if (!canvas || !face) {
     return false;
   }
-  const dpr = Math.max(1, Number(pixelRatio) || window.devicePixelRatio || 1);
+  const dpr = Math.max(1, nodeGraphFiniteNumber(pixelRatio, nodeGraphFiniteNumber(window.devicePixelRatio, 1)));
   const ds = nodeGraphRgbFractalNormalizeDownsample(downsample);
   // clientWidth/Height = layout size; ignores workspace CSS transform scale.
   // Downsample divides the buffer so each face CSS pixel maps to a chunky texel.
@@ -647,8 +647,8 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
   }
   const aspect = simW / Math.max(1, simH);
   const { cx, cy, halfSpan, cosR, sinR, centerX, centerY, colorPhase, breath, glow } = params;
-  const panX = Number(params.panX) || 0;
-  const panY = Number(params.panY) || 0;
+  const panX = nodeGraphFiniteNumber(params.panX);
+  const panY = nodeGraphFiniteNumber(params.panY);
   for (let j = 0; j < simH; j += 1) {
     const row = j * simW;
     for (let i = 0; i < simW; i += 1) {
@@ -661,8 +661,8 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
       const ry = zx * sinR + zy * cosR + centerY + panY;
       let e = nodeGraphRgbFractalJuliaSmooth(rx, ry, cx, cy, maxIter);
       // Soft creams energy structure (gamma); Color Shift / Bands own palette mapping.
-      const soft = Math.max(0, Math.min(1, Number(params.soft) || 0));
-      const gamma = 0.72 + soft * 0.46 - (Number(glow) || 0) * 0.25;
+      const soft = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.soft)));
+      const gamma = 0.72 + soft * 0.46 - (nodeGraphFiniteNumber(glow)) * 0.25;
       e = Math.pow(Math.max(0, Math.min(1, e)), Math.max(0.45, gamma));
       // Soft escape cream (smoothstep-ish)
       if (soft > 0.01) {
@@ -671,14 +671,14 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
         e = e * (1 - soft * 0.55) + e * e * (3 - 2 * e) * soft * 0.55;
       }
       // Color Bands + Color Shift only — Soft must not scale phase/bands (was "gradient spin").
-      const bands = Math.max(0.25, Number(params.bands) || 1);
-      const phase = Number(colorPhase) || 0;
+      const bands = Math.max(0.25, nodeGraphFiniteNumber(params.bands, 1));
+      const phase = nodeGraphFiniteNumber(colorPhase);
       let eColor = e * bands + phase;
       eColor = eColor - Math.floor(eColor);
       const tri = 1 - Math.abs(eColor * 2 - 1);
       eColor = tri * tri * (3 - 2 * tri);
       eColor = e * 0.48 + eColor * 0.52;
-      eColor = Math.max(0, Math.min(1, eColor * (Number(breath) || 1)));
+      eColor = Math.max(0, Math.min(1, eColor * (nodeGraphFiniteNumber(breath, 1))));
       eColor = eColor * (1 - soft * 0.35)
         + (0.5 + (eColor - 0.5) * (1 - soft * 0.22)) * soft * 0.35;
       field[row + i] = Math.max(0, Math.min(1, eColor));
@@ -686,8 +686,8 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
   }
 
   // Soft + Edge Blur (CPU): spatial cream on field (Soft alone must read as soften, not recolor).
-  const softAmt = Math.max(0, Math.min(1, Number(params.soft) || 0));
-  const blurAmt = Math.max(0, Math.min(8, Number(params.blur) || 0));
+  const softAmt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.soft)));
+  const blurAmt = Math.max(0, Math.min(8, nodeGraphFiniteNumber(params.blur)));
   const softSigma = softAmt * 1.25;
   const blurSigma = blurAmt > 0.015 ? Math.min(2, 0.15 + blurAmt * 0.23) : 0;
   const sigma = Math.sqrt(softSigma * softSigma + blurSigma * blurSigma);
@@ -767,7 +767,7 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
   ctx.drawImage(off, 0, 0, simW, simH, 0, 0, w, h);
 
   // Screen Blur (CPU): one H+V pair, continuous sub-pixel → light max (matches GPU).
-  const screenBlurAmt = Math.max(0, Math.min(8, Number(params.screenBlur) || 0));
+  const screenBlurAmt = Math.max(0, Math.min(8, nodeGraphFiniteNumber(params.screenBlur)));
   if (screenBlurAmt > 0.02 && w > 2 && h > 2) {
     const t = screenBlurAmt / 8;
     const tEase = t * t;
@@ -820,9 +820,9 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   if (!canvas || !face || !nodeId) {
     return false;
   }
-  const pixelRatio = Number(typeof nodeGraphModuleScopeState !== "undefined"
+  const pixelRatio = nodeGraphFiniteNumber(typeof nodeGraphModuleScopeState !== "undefined"
     ? nodeGraphModuleScopeState?.backingPixelRatio
-    : 0) || window.devicePixelRatio || 1;
+    : 0, nodeGraphFiniteNumber(window.devicePixelRatio, 1));
   // Read downsample before buffer sync so resolution follows the knob live.
   const downsample = nodeGraphRgbFractalNormalizeDownsample(
     nodeGraphRgbFractalReadParam(nodeId, "downsample", 1),
@@ -874,12 +874,12 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
 
   if (!glReady && !options.force && face._rgbFractalHasFrame && !frozen) {
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-    face._rgbFractalPendingDt = (Number(face._rgbFractalPendingDt) || 0) + dt;
-    const lastSim = Number(face._rgbFractalLastSimMs) || 0;
+    face._rgbFractalPendingDt = (nodeGraphFiniteNumber(face._rgbFractalPendingDt)) + dt;
+    const lastSim = nodeGraphFiniteNumber(face._rgbFractalLastSimMs);
     if (now - lastSim < NODE_GRAPH_RGB_FRACTAL_CPU_SIM_MS) {
       return true;
     }
-    dt = Number(face._rgbFractalPendingDt) || 0;
+    dt = nodeGraphFiniteNumber(face._rgbFractalPendingDt);
     face._rgbFractalPendingDt = 0;
     face._rgbFractalLastSimMs = now;
   } else {
@@ -940,7 +940,7 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   }
   nodeGraphRgbFractalCommitPhasors(face, nodeId);
 
-  const tOrbit = Number(face._rgbFractalOrbitPhasor) || 0;
+  const tOrbit = nodeGraphFiniteNumber(face._rgbFractalOrbitPhasor);
   const { cx, cy } = nodeGraphRgbFractalComputeC(seed, tOrbit, orbitSize);
 
   const halfSpan = Math.max(
@@ -955,14 +955,14 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
 
   // Static Rotation (0…1 cycle) + free-running Rotation Speed phasor.
   // Rotation is about the look-at (applied before pan in the shader).
-  const rot = (Number(face._rgbFractalRotationPhasor) || 0) + rotAngle01 * Math.PI * 2;
+  const rot = (nodeGraphFiniteNumber(face._rgbFractalRotationPhasor)) + rotAngle01 * Math.PI * 2;
   const cosR = Math.cos(rot);
   const sinR = Math.sin(rot);
   const centerX = 0;
   const centerY = 0;
 
   // Continuous palette phase + static Color Shift (wraps in shader via fract).
-  const colorPhase = (Number(face._rgbFractalColorPhasor) || 0) + colorShift;
+  const colorPhase = (nodeGraphFiniteNumber(face._rgbFractalColorPhasor)) + colorShift;
 
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const settings = nodeGraphRgbFractalSettingsForNode(patchNode);

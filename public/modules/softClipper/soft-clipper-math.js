@@ -40,7 +40,7 @@ function createNodeGraphSoftClipperState() {
 
 /** Same odd sigmoid as native soft_clipper.cpp (wasm32, no libm tanh). */
 function nodeGraphSoftClipperTanhApprox(value) {
-  const x = Number(value) || 0;
+  const x = nodeGraphFiniteNumber(value);
   const x2 = x * x;
   const den = 27 + 9 * x2;
   return den <= 0 ? 0 : (x * (27 + x2)) / den;
@@ -48,7 +48,7 @@ function nodeGraphSoftClipperTanhApprox(value) {
 
 /** ∫ tanhApprox(x) dx = x²/18 + (4/3) ln(x²+3) */
 function nodeGraphSoftClipperTanhAntideriv(value) {
-  const x = Number(value) || 0;
+  const x = nodeGraphFiniteNumber(value);
   return (x * x) / 18 + (4 / 3) * Math.log(x * x + 3);
 }
 
@@ -63,7 +63,7 @@ function nodeGraphSoftClipperHashBipolar(index, seed) {
 
 function nodeGraphSoftClipperShaperCoeffs(center, width) {
   const safeWidth = Math.max(0.000001, Math.abs(nodeGraphFiniteNumber(width, 2)));
-  const safeCenter = Number(center) || 0;
+  const safeCenter = nodeGraphFiniteNumber(center);
   const scaleX = 2 / safeWidth;
   const shiftX = -1 - (scaleX * (safeCenter - 0.5 * safeWidth));
   const scaleY = 1 / scaleX;
@@ -81,7 +81,7 @@ function nodeGraphSoftClipperEvalAt(u, scaleY, shiftY) {
  */
 function nodeGraphSoftClipperShape(input, center, width, state, useAdaa) {
   const { scaleX, shiftX, scaleY, shiftY } = nodeGraphSoftClipperShaperCoeffs(center, width);
-  let x = Number(input) || 0;
+  let x = nodeGraphFiniteNumber(input);
   if (!useAdaa || !state) {
     return nodeGraphSoftClipperEvalAt(scaleX * x + shiftX, scaleY, shiftY);
   }
@@ -106,7 +106,7 @@ function nodeGraphSoftClipperShape(input, center, width, state, useAdaa) {
  */
 function nodeGraphSoftClipperSample(input, center = 0, width = 2, state = null, oversample = 0) {
   const mode = nodeGraphSoftClipperOversampleMode(oversample);
-  const x = Number(input) || 0;
+  const x = nodeGraphFiniteNumber(input);
   if (mode <= 0 || !state) {
     if (state) {
       state.x1 = x;
@@ -134,11 +134,11 @@ function nodeGraphSoftClipperSample(input, center = 0, width = 2, state = null, 
  */
 function nodeGraphSoftClipperFrame(mono, left, right, center, width, state = null, oversample = 2, gainDb = 0) {
   const drive = nodeGraphClipperDbToLin(gainDb);
-  const m = (Number(mono) || 0) * drive;
+  const m = (nodeGraphFiniteNumber(mono)) * drive;
   const st = state || null;
   return {
     Out: nodeGraphSoftClipperSample(m, center, width, st?.mono, oversample),
-    Left: nodeGraphSoftClipperSample((Number(left) || 0) * drive + m, center, width, st?.left, oversample),
-    Right: nodeGraphSoftClipperSample((Number(right) || 0) * drive + m, center, width, st?.right, oversample),
+    Left: nodeGraphSoftClipperSample((nodeGraphFiniteNumber(left)) * drive + m, center, width, st?.left, oversample),
+    Right: nodeGraphSoftClipperSample((nodeGraphFiniteNumber(right)) * drive + m, center, width, st?.right, oversample),
   };
 }

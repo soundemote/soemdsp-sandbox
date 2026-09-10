@@ -319,9 +319,9 @@ function nodeGraphTraceDisplayHistoryControlRange(key) {
  * min≤0: t = (s/max)^(1/exp); min>0: t = log(s/min)/log(max/min).
  */
 function nodeGraphTraceDisplaySecondsToControlValue(seconds, min, max) {
-  const lo = Math.max(0, Number(min) || 0);
-  const hi = Math.max(lo + 1e-9, Number(max) || 10);
-  const s = clampNodeSliderValue(Number(seconds) || 0, lo, hi);
+  const lo = Math.max(0, nodeGraphFiniteNumber(min));
+  const hi = Math.max(lo + 1e-9, nodeGraphFiniteNumber(max, 10));
+  const s = clampNodeSliderValue(nodeGraphFiniteNumber(seconds), lo, hi);
   const exp = nodeGraphTraceDisplayHistoryControlExponent;
   if (lo <= 0) {
     if (s <= 0) {
@@ -334,9 +334,9 @@ function nodeGraphTraceDisplaySecondsToControlValue(seconds, min, max) {
 
 /** Map 0…1 control → stored seconds (inverse of SecondsToControl). */
 function nodeGraphTraceDisplayControlToSecondsValue(control, min, max) {
-  const t = clampNodeSliderValue(Number(control) || 0, 0, 1);
-  const lo = Math.max(0, Number(min) || 0);
-  const hi = Math.max(lo + 1e-9, Number(max) || 10);
+  const t = clampNodeSliderValue(nodeGraphFiniteNumber(control), 0, 1);
+  const lo = Math.max(0, nodeGraphFiniteNumber(min));
+  const hi = Math.max(lo + 1e-9, nodeGraphFiniteNumber(max, 10));
   const exp = nodeGraphTraceDisplayHistoryControlExponent;
   if (lo <= 0) {
     return Math.pow(t, exp) * hi;
@@ -346,13 +346,13 @@ function nodeGraphTraceDisplayControlToSecondsValue(control, min, max) {
 
 function nodeGraphTraceDisplaySizeToControlValue(value, max = 1) {
   return Math.pow(
-    clampNodeSliderValue(Number(value) || 0, 0, max) / max,
+    clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, max) / max,
     1 / nodeGraphTraceDisplaySensitiveControlExponent,
   );
 }
 
 function nodeGraphTraceDisplayControlToSizeValue(value, max = 1) {
-  const control = clampNodeSliderValue(Number(value) || 0, 0, 1);
+  const control = clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
   return Math.pow(control, nodeGraphTraceDisplaySensitiveControlExponent) * max;
 }
 
@@ -380,11 +380,11 @@ function adjustNodeGraphTraceDisplaySettingByControlDelta(key, startValue, delta
   );
 }
 function nodeGraphTraceDisplayClampUnit(value) {
-  return clampNodeSliderValue(Number(value) || 0, 0, 1);
+  return clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
 }
 
 function nodeGraphTraceDisplayClampNonNegative(value) {
-  return Math.max(0, Number(value) || 0);
+  return Math.max(0, nodeGraphFiniteNumber(value));
 }
 
 /** History / zoom window: 0 … nodeGraphTraceDisplayMaxZoomSeconds (10 s). */
@@ -415,7 +415,7 @@ function nodeGraphTraceDisplayClampBrightness(value) {
 }
 
 function nodeGraphTraceDisplayClampPixelDensity(value) {
-  return clampNodeSliderValue(Number(value) || 0, 0, 1);
+  return clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
 }
 
 // Stamp blur 0–1 (hard→soft). Migrates legacy signed -1..1 patch values.
@@ -466,13 +466,13 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   capLength: nodeGraphTraceDisplayClampUnit,
   capPadding: nodeGraphTraceDisplayClampUnit,
   capSize: nodeGraphTraceDisplayClampUnit,
-  cycles: (value) => Math.max(1, Math.min(64, Math.round(Number(value) || 0))),
+  cycles: (value) => Math.max(1, Math.min(64, Math.round(nodeGraphFiniteNumber(value)))),
   trail: nodeGraphTraceDisplayClampUnit,
   // Sticky residual floor 0…1.
   burn: nodeGraphTraceDisplayClampUnit,
   // Deposit gain vs Bright (0…4, default 1).
   burnAmount: (value) => {
-    const max = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.BURN_AMOUNT_MAX) || 4;
+    const max = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.BURN_AMOUNT_MAX, 4);
     const n = Number(value);
     if (!Number.isFinite(n)) {
       return 1;
@@ -505,7 +505,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
     }
     return Math.max(1, Math.min(12, n));
   },
-  decimals: (value) => Math.max(0, Math.min(8, Math.round(Number(value) || 0))),
+  decimals: (value) => Math.max(0, Math.min(8, Math.round(nodeGraphFiniteNumber(value)))),
   dot1Brightness: nodeGraphTraceDisplayClampBrightness,
   dot1Size: nodeGraphTraceDisplayClampUnit,
   ghost: nodeGraphTraceDisplayClampUnit,
@@ -513,11 +513,11 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   fade: nodeGraphTraceDisplayClampUnit,
   lineLength: nodeGraphTraceDisplayClampUnit,
   lineThickness: nodeGraphTraceDisplayClampNonNegative,
-  lineBlur: (value) => clampNodeSliderValue(Number(value) || 0, 0, 8),
+  lineBlur: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 8),
   stampDensity: nodeGraphTraceDisplayClampUnit,
   shapeParam: nodeGraphTraceDisplayClampUnit,
   pixelDensity: nodeGraphTraceDisplayClampPixelDensity,
-  puckSize: (value) => clampNodeSliderValue(Number(value) || 0, 0.005, 0.25),
+  puckSize: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0.005, 0.25),
   scale: nodeGraphTraceDisplayClampNonNegative,
   secondaryBrightness: nodeGraphTraceDisplayClampBrightness,
   secondaryLineThickness: nodeGraphTraceDisplayClampNonNegative,
@@ -526,16 +526,16 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   sweepSeconds: nodeGraphTraceDisplayClampSweepSeconds,
   sweepHz: (value) => (typeof nodeGraphTraceDisplayClampSweepHz === "function"
     ? nodeGraphTraceDisplayClampSweepHz(value, 4)
-    : clampNodeSliderValue(Number(value) || 4, 0, 100)),
+    : clampNodeSliderValue(nodeGraphFiniteNumber(value, 4), 0, 100)),
   sweepCycles: (value) => (typeof nodeGraphTraceDisplayClampSweepCycles === "function"
     ? nodeGraphTraceDisplayClampSweepCycles(value, 4)
-    : clampNodeSliderValue(Number(value) || 4, 0.05, 100)),
+    : clampNodeSliderValue(nodeGraphFiniteNumber(value, 4), 0.05, 100)),
   historyHz: (value) => (typeof nodeGraphTraceDisplayClampHistoryHz === "function"
     ? nodeGraphTraceDisplayClampHistoryHz(value, 4)
-    : Math.max(0, Math.min(100, Number(value) || 4))),
+    : Math.max(0, Math.min(100, nodeGraphFiniteNumber(value, 4)))),
   historyCycles: (value) => (typeof nodeGraphTraceDisplayClampHistoryCycles === "function"
     ? nodeGraphTraceDisplayClampHistoryCycles(value, 4)
-    : clampNodeSliderValue(Number(value) || 4, 0.05, 100)),
+    : clampNodeSliderValue(nodeGraphFiniteNumber(value, 4), 0.05, 100)),
   fftSize: (value) => (typeof nodeGraphSpectrogramSnapFftSize === "function"
     ? nodeGraphSpectrogramSnapFftSize(value)
     : 1024),
@@ -565,19 +565,19 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   },
   textSize: (value) => (typeof nodeGraphKeypadClampTextSize === "function"
     ? nodeGraphKeypadClampTextSize(value)
-    : Math.max(0, Math.min(1, Number(value) || 0.55))),
+    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(value, 0.55)))),
   textSizePx: (value) => (typeof nodeGraphKeypadClampTextSize === "function"
     ? nodeGraphKeypadClampTextSize(value)
-    : Math.max(0, Math.min(1, Number(value) || 0.55))),
+    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(value, 0.55)))),
   textWeight: (value) => (typeof nodeGraphKeypadClampWeight === "function"
     ? nodeGraphKeypadClampWeight(value)
-    : Math.max(100, Math.min(900, Math.round((Number(value) || 400) / 100) * 100))),
+    : Math.max(100, Math.min(900, Math.round((nodeGraphFiniteNumber(value, 400)) / 100) * 100))),
   buttonWidth: (value) => (typeof nodeGraphKeypadClampWidth === "function"
     ? nodeGraphKeypadClampWidth(value)
-    : Math.max(0, Math.min(1, Number(value) || 0.94))),
+    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(value, 0.94)))),
   buttonHeight: (value) => (typeof nodeGraphKeypadClampHeight === "function"
     ? nodeGraphKeypadClampHeight(value)
-    : Math.max(0, Math.min(1, Number(value) || 0.94))),
+    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(value, 0.94)))),
 });
 
 // Per-formType overrides, only for the (formType, field) pairs that diverge
@@ -663,31 +663,31 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
   roundShapeFace: Object.freeze({
-    lineThickness: (value) => clampNodeSliderValue(Number(value) || 2, 0.25, 16),
-    lineBlur: (value) => clampNodeSliderValue(Number(value) || 0, 0, 8),
-    lineBrightness: (value) => clampNodeSliderValue(Number(value) || 0, 0, 1),
-    dotThickness: (value) => clampNodeSliderValue(Number(value) || 5, 0.25, 32),
-    dotBrightness: (value) => clampNodeSliderValue(Number(value) || 0, 0, 1),
-    backgroundBrightness: (value) => clampNodeSliderValue(Number(value) || 0, 0, 1),
+    lineThickness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value, 2), 0.25, 16),
+    lineBlur: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 8),
+    lineBrightness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1),
+    dotThickness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value, 5), 0.25, 32),
+    dotBrightness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1),
+    backgroundBrightness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1),
     pixelDensity: nodeGraphTraceDisplayClampPixelDensity,
   }),
   basicShapeFace: Object.freeze({
-    lineThickness: (value) => clampNodeSliderValue(Number(value) || 2, 0.25, 16),
-    lineBlur: (value) => clampNodeSliderValue(Number(value) || 0, 0, 8),
-    lineBrightness: (value) => clampNodeSliderValue(Number(value) || 0, 0, 1),
-    dotThickness: (value) => clampNodeSliderValue(Number(value) || 5, 0.25, 32),
-    dotBrightness: (value) => clampNodeSliderValue(Number(value) || 0, 0, 1),
-    backgroundBrightness: (value) => clampNodeSliderValue(Number(value) || 0, 0, 1),
+    lineThickness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value, 2), 0.25, 16),
+    lineBlur: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 8),
+    lineBrightness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1),
+    dotThickness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value, 5), 0.25, 32),
+    dotBrightness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1),
+    backgroundBrightness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1),
     pixelDensity: nodeGraphTraceDisplayClampPixelDensity,
   }),
   softwaveOscFace: Object.freeze({
-    lineThickness: (value) => clampNodeSliderValue(Number(value) || 3, 0.25, 16),
-    lineBrightness: (value) => clampNodeSliderValue(Number(value) || 0, 0, 1),
-    dotThickness: (value) => clampNodeSliderValue(Number(value) || 5, 0.25, 32),
-    backgroundBrightness: (value) => clampNodeSliderValue(Number(value) || 0, 0, 1),
+    lineThickness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value, 3), 0.25, 16),
+    lineBrightness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1),
+    dotThickness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value, 5), 0.25, 32),
+    backgroundBrightness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1),
   }),
   sinCos4Face: Object.freeze({
-    backgroundBrightness: (value) => clampNodeSliderValue(Number(value) || 0, 0, 1),
+    backgroundBrightness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1),
   }),
   // 1D Waterfall / Output: blur 0 hard … 1 soft skirt (instant, no persistence).
   trace: Object.freeze({

@@ -14,7 +14,7 @@ function nodeGraphAliasSineSample(state, normFreq, level, runtime = null, nodeId
   state.phase -= Math.floor(state.phase);
 
   const out = Math.sin(state.phase * Math.PI * 2) * safeLevel;
-  return nodeGraphSafeFilterNumber(Math.max(-1, Math.min(1, out)), runtime, nodeId, null, "alias sine output");
+  return nodeGraphSafeFilterNumber(out, runtime, nodeId, null, "alias sine output");
 }
 
 
@@ -27,7 +27,7 @@ nodeGraphLiveModuleEvaluators.aliasSine = ({ runtime, node, nodeId, frame, frame
   // normFreq is cycles/sample. When universal `f` is wired (absolute Hz),
   // convert via f / sampleRate; otherwise keep the Norm Freq knob.
   const normFromKnob = readNodeGraphLiveEffectiveParam(runtime, node, "normFreq", 0.1, frame, frames, frameValues);
-  const safeRate = Math.max(1, Number(sampleRate) || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const normFreq = normFromKnob;
   return nodeGraphAliasSineSample(
     state,

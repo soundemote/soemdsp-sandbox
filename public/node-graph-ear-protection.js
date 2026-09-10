@@ -3,7 +3,7 @@
 // wraps that circuit for the Output bus and flags the Output face banner.
 
 function createNodeGraphEarProtector(sampleRate = nodeGraphMvp?.sampleRate, options = {}) {
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const state = typeof createNodeGraphSpeakerProtector2State === "function"
     ? createNodeGraphSpeakerProtector2State(rate)
     : { mode: "idle", gain: 1 };
@@ -14,8 +14,8 @@ function createNodeGraphEarProtector(sampleRate = nodeGraphMvp?.sampleRate, opti
         return nodeGraphSpeakerProtector2Protect(state, left, right, rate, options);
       }
       return {
-        left: Number(left) || 0,
-        right: Number(right) || 0,
+        left: nodeGraphFiniteNumber(left),
+        right: nodeGraphFiniteNumber(right),
         gain: 1,
         muted: false,
         engaged: false,
@@ -42,7 +42,7 @@ function nodeGraphOutputProtectMuteAmount(gain) {
 }
 
 function nodeGraphSyncOutputProtectOverlay(muteAmount = globalThis.nodeGraphOutputProtectMute || 0, options = {}) {
-  const mute = Math.max(0, Math.min(1, Number(muteAmount) || 0));
+  const mute = Math.max(0, Math.min(1, nodeGraphFiniteNumber(muteAmount)));
   const prev = Number(globalThis.nodeGraphOutputProtectMute);
   globalThis.nodeGraphOutputProtectMute = mute;
   const visible = mute > 0.001;

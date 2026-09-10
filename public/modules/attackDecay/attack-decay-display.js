@@ -41,7 +41,7 @@ function drawNodeGraphEnvelopeCurveDisplay(section) {
 }
 
 function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
-  const pts = Math.max(64, Math.floor(Number(width) || 128));
+  const pts = Math.max(64, Math.floor(nodeGraphFiniteNumber(width, 128)));
   if (
     (type === "expAdsr" || type === "curveEnvelopeMod")
     && typeof nodeGraphExpAdsrPreviewCurve === "function"
@@ -162,7 +162,7 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
     const release = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "release", 12.824772066678985));
     const decaySnap = Math.max(0, Math.min(1, nodeGraphEnvelopeCurveLiveParam(node, "decaySnap", 0)));
     const decayBody = Math.max(0, Math.min(1, nodeGraphEnvelopeCurveLiveParam(node, "decayBody", 0)));
-    const fallCurve = Math.max(-1, Math.min(1, nodeGraphEnvelopeCurveLiveParam(node, "fallCurve", 0.8062943900342834)));
+    const fallCurve = nodeGraphEnvelopeCurveLiveParam(node, "fallCurve", 0.8062943900342834);
     const amplitude = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "amplitude", 0.980691228326368));
     const preview = nodeGraphThumpEnvelopePreviewCurve({
       attack, release, decaySnap, decayBody, fallCurve, amplitude,
@@ -237,8 +237,8 @@ function drawNodeGraphEnvelopeCurveDisplayInner(section) {
     return;
   }
   const type = section.dataset.nodeType || node.type || "expAdsr";
-  const cssW = Math.max(1, Number(section.clientWidth || section.offsetWidth) || 1);
-  const cssH = Math.max(1, Number(section.clientHeight || section.offsetHeight) || 1);
+  const cssW = Math.max(1, nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth, 1));
+  const cssH = Math.max(1, nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight, 1));
   const built = nodeGraphEnvelopeCurveBuildPreview(node, type, cssW);
   const signature = JSON.stringify(built.signature);
   if (

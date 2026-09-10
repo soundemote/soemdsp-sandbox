@@ -26,8 +26,8 @@ nodeGraphLiveModuleEvaluators.phaseDisperse = ({
     filters = readNodeGraphLiveEffectiveParam(runtime, node, "amount", 0.5, frame, frames, frameValues);
   }
   const pinch = readNodeGraphLiveEffectiveParam(runtime, node, "pinch", 0.5, frame, frames, frameValues);
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
-  const x = Number(mixInput(nodeId)) || 0;
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
+  const x = nodeGraphFiniteNumber(mixInput(nodeId));
   const y = nodeGraphPhaseDisperseSample(state, x, frequency, filters, pinch, rate);
   return typeof nodeGraphSafeFilterNumber === "function"
     ? nodeGraphSafeFilterNumber(y, runtime, nodeId, null, "phase disperse")

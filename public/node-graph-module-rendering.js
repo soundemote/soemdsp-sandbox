@@ -590,8 +590,8 @@ function createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, op
   const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
   // Drive section track widths from each column's longest label (LayoutA
   // used to hard-cap sides at 2gu and clip Frequency / Fidelity / etc.).
-  const inCh = Number(inputColumn?.dataset?.maxLabelChars) || 0;
-  const outCh = Number(outputColumn?.dataset?.maxLabelChars) || 0;
+  const inCh = nodeGraphFiniteNumber(inputColumn?.dataset?.maxLabelChars);
+  const outCh = nodeGraphFiniteNumber(outputColumn?.dataset?.maxLabelChars);
   if (inCh > 0) {
     ioSection.style.setProperty("--node-io-input-label-ch", String(inCh));
   }

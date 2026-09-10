@@ -14,7 +14,7 @@ NodeLiveAudioProcessor.prototype.pllSample = function pllSample(state, signalIn,
       return { "VCO Out": 0, "PC Out": 0, "LPF Out": 0, Locked: 0 };
     }
     try {
-      const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
+      const safeRate = Math.max(1, nodeGraphFiniteNumber(rateHz, nodeGraphFiniteNumber(sampleRate, 44100)));
       if (!state.nativeHandle || state.nativeSampleRate !== safeRate) {
         if (state.nativeHandle && native.soemdsp_pll_destroy) {
           native.soemdsp_pll_destroy(state.nativeHandle);

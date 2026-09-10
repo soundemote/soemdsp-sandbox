@@ -1,9 +1,9 @@
 nodeGraphLiveModuleEvaluators.b2u = ({ runtime, nodeId, mixInput }) => {
-  const x = Number(mixInput(nodeId)) || 0;
+  const x = nodeGraphFiniteNumber(mixInput(nodeId));
   const native = runtime?.nativeB2uReady ? runtime?.nativeB2u : null;
   if (native?.soemdsp_b2u_sample) {
     try {
-      return { Out: Number(native.soemdsp_b2u_sample(x)) || 0 };
+      return { Out: nodeGraphFiniteNumber(native.soemdsp_b2u_sample(x)) };
     } catch (_error) {
       if (runtime) {
         runtime.nativeB2uReady = false;

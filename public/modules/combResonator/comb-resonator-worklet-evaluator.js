@@ -8,7 +8,7 @@ NodeLiveAudioProcessor.prototype.combResonatorTriggerEdge = function combResonat
   if (typeof nodeGraphCombResonatorTriggerEdge === "function") {
     return nodeGraphCombResonatorTriggerEdge(state, trigger);
   }
-  const t = Number(trigger) || 0;
+  const t = nodeGraphFiniteNumber(trigger);
   const on = t > 0.5;
   const edge = on && !state._lastTrig ? 1 : 0;
   state._lastTrig = on ? 1 : 0;
@@ -44,15 +44,15 @@ NodeLiveAudioProcessor.prototype.combResonatorSample = function combResonatorSam
       this.nativeCombResonator.soemdsp_comb_resonator_sample(
         state.nativeHandle,
         this.safeFilterNumber(input, null),
-        Math.max(0, Number(frequencyHz) || 0),
-        Math.max(0, Number(decaySec) || 0),
+        Math.max(0, nodeGraphFiniteNumber(frequencyHz)),
+        Math.max(0, nodeGraphFiniteNumber(decaySec)),
         hold ? 1 : 0,
-        Number(damping) || 0,
-        Math.round(Number(topology) || 0),
-        Math.round(Number(invert) || 0),
-        Number(depth) || 0,
-        Number(amplitude) || 0,
-        Math.max(1, Number(rate) || sampleRate || 44100),
+        nodeGraphFiniteNumber(damping),
+        Math.round(nodeGraphFiniteNumber(topology)),
+        Math.round(nodeGraphFiniteNumber(invert)),
+        nodeGraphFiniteNumber(depth),
+        nodeGraphFiniteNumber(amplitude),
+        Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100))),
       ),
       null,
     );

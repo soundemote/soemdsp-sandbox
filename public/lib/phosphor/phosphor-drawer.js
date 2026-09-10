@@ -25,7 +25,7 @@
     }
     const n = Number(value);
     if (!Number.isFinite(n)) {
-      return Math.max(0, Math.min(1, Number(fallback) || 0));
+      return Math.max(0, Math.min(1, nodeGraphFiniteNumber(fallback)));
     }
     return Math.max(0, Math.min(1, n));
   }
@@ -48,7 +48,7 @@
   }
 
   function depositGain(brightness, size01 = 0) {
-    const br = Math.max(0, Number(brightness) || 0);
+    const br = Math.max(0, nodeGraphFiniteNumber(brightness));
     const s = clamp01(size01, 0);
     return Math.max(0, br * DEPOSIT_SCALE * (1.12 - s * 0.42));
   }
@@ -62,7 +62,7 @@
    * radius = half. Linear geometric size; Blur handles hard→soft.
    */
   function size01ToDiameterPx(faceMinSide, size01) {
-    const side = Math.max(1, Number(faceMinSide) || 1);
+    const side = Math.max(1, nodeGraphFiniteNumber(faceMinSide, 1));
     const t = clamp01(size01, 0.08);
     return Math.max(0.7, side * t);
   }
@@ -72,7 +72,7 @@
   }
 
   function radiusFromSize(faceMinSide, size01) {
-    const side = Math.max(1, Number(faceMinSide) || 1);
+    const side = Math.max(1, nodeGraphFiniteNumber(faceMinSide, 1));
     const t = clamp01(size01, 0.08);
     return Math.max(0.35, side * t * 0.5);
   }
@@ -130,7 +130,7 @@
     if (!Number.isFinite(brightness) || options.useDepositGain) {
       const raw = Number.isFinite(Number(options.dotBrightness))
         ? Number(options.dotBrightness)
-        : Number(options.brightness) || 1;
+        : nodeGraphFiniteNumber(options.brightness, 1);
       brightness = depositGain(raw, size01);
     }
     return global.nodeGraphPhosphorEnergyGlStepBeams(face, {
@@ -138,11 +138,11 @@
       ghost: resolveGhost(options),
       pathPoints: options.pathPoints || null,
       vertices: options.vertices || null,
-      radius: Math.max(0.35, Number(options.radius) || 2),
+      radius: Math.max(0.35, nodeGraphFiniteNumber(options.radius, 2)),
       brightness: Math.max(0, brightness || 0),
       blur,
       mode: "dots",
-      maxDots: Math.max(64, Math.min(8192, Math.round(Number(options.maxDots) || 2048))),
+      maxDots: Math.max(64, Math.min(8192, Math.round(nodeGraphFiniteNumber(options.maxDots, 2048)))),
       bleed: options.bleed,
       fullEconomy: options.fullEconomy === true
         || options.fullDotEconomy === true
@@ -171,7 +171,7 @@
     if (!face) {
       return false;
     }
-    const scrollPx = Math.round(Number(options.scrollPx) || 0);
+    const scrollPx = Math.round(nodeGraphFiniteNumber(options.scrollPx));
     if (scrollPx && typeof global.nodeGraphPhosphorEnergyGlScroll === "function") {
       global.nodeGraphPhosphorEnergyGlScroll(face, scrollPx);
     }
@@ -190,7 +190,7 @@
     const radius = Number.isFinite(Number(options.radius))
       ? Math.max(0.35, Number(options.radius))
       : radiusFromSize(options.faceMinSide || face.width || 1, size01);
-    const brightness = Math.max(0, Math.min(1.5, Number(options.brightness) || 0));
+    const brightness = Math.max(0, Math.min(1.5, nodeGraphFiniteNumber(options.brightness)));
     if (brightness < 1e-6) {
       return true;
     }
@@ -199,7 +199,7 @@
       radius,
       brightness,
       blur,
-      maxDots: Math.max(64, Math.min(8192, Math.round(Number(options.maxDots) || 4096))),
+      maxDots: Math.max(64, Math.min(8192, Math.round(nodeGraphFiniteNumber(options.maxDots, 4096)))),
       fullEconomy: true,
     });
     if (face) {
@@ -226,8 +226,8 @@
     if (!face || !destCtx || typeof global.nodeGraphPhosphorEnergyGlPresent !== "function") {
       return false;
     }
-    const width = Math.max(1, Number(options.width) || face.width || 1);
-    const height = Math.max(1, Number(options.height) || face.height || 1);
+    const width = Math.max(1, nodeGraphFiniteNumber(options.width, nodeGraphFiniteNumber(face.width, 1)));
+    const height = Math.max(1, nodeGraphFiniteNumber(options.height, nodeGraphFiniteNumber(face.height, 1)));
     const trailGain = Number.isFinite(Number(options.trailGain))
       ? Number(options.trailGain)
       : 1;
@@ -255,7 +255,7 @@
       return points;
     }
     const dist = Math.abs(b - a);
-    const step = Math.max(0.5, Number(spacingPx) || 2);
+    const step = Math.max(0.5, nodeGraphFiniteNumber(spacingPx, 2));
     const n = Math.max(1, Math.ceil(dist / step));
     for (let i = 0; i <= n; i += 1) {
       const t = i / n;
@@ -272,7 +272,7 @@
       out.push(null);
     }
     const dist = Math.hypot(x1 - x0, y1 - y0);
-    const step = Math.max(0.5, Number(spacingPx) || 2);
+    const step = Math.max(0.5, nodeGraphFiniteNumber(spacingPx, 2));
     const n = Math.max(1, Math.ceil(dist / step));
     for (let i = 0; i <= n; i += 1) {
       const t = i / n;

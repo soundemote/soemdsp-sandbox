@@ -11,7 +11,7 @@ function createNodeGraphNoiseGeneratorState() {
 
 // 0 = even bipolar U(−1,1), 1 = Gaussian ~N(0,1). Smoothstep-blended.
 function nodeGraphNoiseGeneratorShapedBipolar(state, shape) {
-  const t = Math.max(0, Math.min(1, Number(shape) || 0));
+  const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(shape)));
   if (t <= 1e-12) {
     return nodeGraphNextSeededBipolar(state);
   }
@@ -32,7 +32,7 @@ function nodeGraphNoiseGeneratorChannelSample(state, mode, mean, deviation, shap
   }
   if (mode === 2) {
     const step = white * Math.max(0.001, deviation) * 0.05;
-    state.brown = Math.max(-1, Math.min(1, (Number(state.brown) || 0) + step));
+    state.brown = Math.max(-1, Math.min(1, (nodeGraphFiniteNumber(state.brown)) + step));
     return mean + state.brown;
   }
   if (mode === 3) {
@@ -59,18 +59,18 @@ function nodeGraphNoiseGeneratorChannelSample(state, mode, mean, deviation, shap
  * @returns {{ Left: number, Right: number }}
  */
 function nodeGraphNoiseGeneratorCore(state, params, nodeId) {
-  const mode = Math.max(0, Math.min(4, Math.round(Number(params?.mode) || 0)));
-  const mean = Number(params?.mean) || 0;
-  const deviation = Math.max(0, Number(params?.deviation) || 0);
-  const shape = Math.max(0, Math.min(1, Number(params?.shape) || 0));
-  const level = Number(params?.level) || 0;
-  const seed = Number(params?.seed) || 0;
+  const mode = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(params?.mode))));
+  const mean = nodeGraphFiniteNumber(params?.mean);
+  const deviation = Math.max(0, nodeGraphFiniteNumber(params?.deviation));
+  const shape = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params?.shape)));
+  const level = nodeGraphFiniteNumber(params?.level);
+  const seed = nodeGraphFiniteNumber(params?.seed);
   if (typeof nodeGraphResetSeededState === "function") {
     nodeGraphResetSeededState(state.left, `${nodeId}:left`, seed, "noiseGenerator");
     nodeGraphResetSeededState(state.right, `${nodeId}:right`, seed, "noiseGenerator");
   }
-  const left = Math.max(-1, Math.min(1, nodeGraphNoiseGeneratorChannelSample(state.left, mode, mean, deviation, shape))) * level;
-  const right = Math.max(-1, Math.min(1, nodeGraphNoiseGeneratorChannelSample(state.right, mode, mean, deviation, shape))) * level;
+  const left = nodeGraphNoiseGeneratorChannelSample(state.left, mode, mean, deviation, shape) * level;
+  const right = nodeGraphNoiseGeneratorChannelSample(state.right, mode, mean, deviation, shape) * level;
   return {
     Left: left,
     Right: right,

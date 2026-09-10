@@ -2,7 +2,7 @@
 // Load after core class, before registerProcessor.
 
 NodeLiveAudioProcessor.prototype.onePoleHighpassSample = function onePoleHighpassSample(state, input, frequency, rate = sampleRate) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+    const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
     const safeInput = this.safeFilterNumber(input, state);
     const frequencyValue = Math.max(0, this.safeFilterNumber(frequency, state));
     const w = Math.min((Math.PI * 2) / safeRate, 0.000142475857) * frequencyValue;
@@ -18,7 +18,7 @@ NodeLiveAudioProcessor.prototype.onePoleHighpassSample = function onePoleHighpas
 };
 
 NodeLiveAudioProcessor.prototype.onePoleLowpassSample = function onePoleLowpassSample(state, input, frequency, rate = sampleRate) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+    const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
     const safeInput = this.safeFilterNumber(input, state);
     const frequencyValue = Math.max(0, this.safeFilterNumber(frequency, state));
     const w = Math.min((Math.PI * 2) / safeRate, 0.000142475857) * frequencyValue;
@@ -135,7 +135,7 @@ NodeLiveAudioProcessor.prototype.delayInterpolateLinear = function delayInterpol
 };
 
 NodeLiveAudioProcessor.prototype.seededKey = function seededKey(nodeId, seed, salt) {
-    return `${nodeId}.${salt}.${Math.max(0, Math.round(Number(seed) || 0))}`;
+    return `${nodeId}.${salt}.${Math.max(0, Math.round(nodeGraphFiniteNumber(seed)))}`;
 };
 
 NodeLiveAudioProcessor.prototype.resetSeededState = function resetSeededState(state, nodeId, seed, salt) {

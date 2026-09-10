@@ -445,7 +445,7 @@
    * Later swapped via setStampTexture for arbitrary art (heart, …).
    */
   function bakeGaussianStampTexture(gl, size = 64) {
-    const n = Math.max(8, Math.min(256, Math.round(Number(size) || 64)));
+    const n = Math.max(8, Math.min(256, Math.round(nodeGraphFiniteNumber(size, 64))));
     const data = new Uint8Array(n * n * 4);
     const cx = (n - 1) * 0.5;
     const sigma = n * 0.18;
@@ -510,8 +510,8 @@
     if (global.PhosphorResidual?.ghostKeep) {
       return global.PhosphorResidual.ghostKeep(ghost, baseKeep);
     }
-    const g = Math.max(0, Math.min(1, Number(ghost) || 0));
-    const k = Math.max(0, Math.min(1, Number(baseKeep) || 0));
+    const g = Math.max(0, Math.min(1, nodeGraphFiniteNumber(ghost)));
+    const k = Math.max(0, Math.min(1, nodeGraphFiniteNumber(baseKeep)));
     if (g <= 0.001) {
       return k;
     }
@@ -861,10 +861,10 @@
    */
   function buildDotVertices(pathPoints, options = {}) {
     const points = Array.isArray(pathPoints) ? pathPoints : [];
-    const radius = Math.max(0.5, Number(options.radius) || 2);
+    const radius = Math.max(0.5, nodeGraphFiniteNumber(options.radius, 2));
     // Blur 0..1; denser packing at hard end so discs fuse without soft skirts.
-    const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
-    const maxDots = Math.max(16, Math.floor(Number(options.maxDots) || 2048));
+    const blur = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.blur)));
+    const maxDots = Math.max(16, Math.floor(nodeGraphFiniteNumber(options.maxDots, 2048)));
     const fullEconomy = options.fullEconomy === true
       || options.fullDotEconomy === true
       || options.useFullDotEconomy === true;
@@ -1019,12 +1019,12 @@
     if (vertexCount <= 0) {
       return 0;
     }
-    const radius = Math.max(0.5, Number(options.radius) || 2);
-    const brightness = Math.max(0, Number(options.brightness) || 0);
+    const radius = Math.max(0.5, nodeGraphFiniteNumber(options.radius, 2));
+    const brightness = Math.max(0, nodeGraphFiniteNumber(options.brightness));
     if (brightness < 1e-6) {
       return 0;
     }
-    const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
+    const blur = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.blur)));
     const { gl } = renderer;
 
     if (renderer.segmentScratch.length < vertices.length) {
@@ -1076,13 +1076,13 @@
     if (vertexCount <= 0) {
       return 0;
     }
-    const radius = Math.max(0.5, Number(options.radius) || 2);
-    const brightness = Math.max(0, Number(options.brightness) || 0);
+    const radius = Math.max(0.5, nodeGraphFiniteNumber(options.radius, 2));
+    const brightness = Math.max(0, nodeGraphFiniteNumber(options.brightness));
     if (brightness < 1e-6) {
       return 0;
     }
     // Blur 0 hard … 1 full soft gaussian.
-    const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
+    const blur = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.blur)));
     const { gl } = renderer;
 
     if (renderer.segmentScratch.length < vertices.length) {
@@ -1144,8 +1144,8 @@
     gl.bindTexture(gl.TEXTURE_2D, sourceSurface.texture);
     gl.uniform1i(renderer.copy.uTexture, 0);
     if (renderer.copy.uUvOffset) {
-      const ox = Number(options?.uvOffsetX) || 0;
-      const oy = Number(options?.uvOffsetY) || 0;
+      const ox = nodeGraphFiniteNumber(options?.uvOffsetX);
+      const oy = nodeGraphFiniteNumber(options?.uvOffsetY);
       gl.uniform2f(renderer.copy.uUvOffset, ox, oy);
     }
     drawFullScreen(renderer, renderer.copy);
@@ -1162,7 +1162,7 @@
     if (!isRendererLive(renderer) || !renderer.copy?.program) {
       return false;
     }
-    const dx = Math.round(Number(dxPx) || 0);
+    const dx = Math.round(nodeGraphFiniteNumber(dxPx));
     if (dx === 0) {
       return true;
     }
@@ -1515,9 +1515,9 @@
       mode = "segments",
     } = options;
     const dotsMode = String(mode || "segments").toLowerCase() === "dots";
-    const maxDots = Math.max(64, Math.floor(Number(options.maxDots) || 2048));
+    const maxDots = Math.max(64, Math.floor(nodeGraphFiniteNumber(options.maxDots, 2048)));
     // Blur 0..1 — wider bleed when user asks for soft.
-    const softAmt = Math.max(0, Math.min(1, Number(blur) || 0));
+    const softAmt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(blur)));
     const bleedOpt = Number(options.bleed);
     const bleed = Number.isFinite(bleedOpt)
       ? Math.max(0, Math.min(1, bleedOpt))
@@ -1623,7 +1623,7 @@
     gl.bindTexture(gl.TEXTURE_2D, renderer.lutTexture);
     gl.uniform1i(renderer.present.uLut, 1);
 
-    gl.uniform1f(renderer.present.uTrailGain, Math.max(0, Math.min(2, Number(trailGain) || 0.85)));
+    gl.uniform1f(renderer.present.uTrailGain, Math.max(0, Math.min(2, nodeGraphFiniteNumber(trailGain, 0.85))));
     const exposure = Number(options?.exposure);
     gl.uniform1f(
       renderer.present.uExposure,
@@ -1638,8 +1638,8 @@
   }
 
   function softnessPx(sizePx, burn = 0.5) {
-    const size = Math.max(1, Number(sizePx) || 1);
-    const b = Math.max(0, Math.min(1, Number(burn) || 0));
+    const size = Math.max(1, nodeGraphFiniteNumber(sizePx, 1));
+    const b = Math.max(0, Math.min(1, nodeGraphFiniteNumber(burn)));
     return Math.max(1.25, size * (0.1 + b * 0.22));
   }
 

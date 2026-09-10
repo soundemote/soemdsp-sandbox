@@ -13,14 +13,14 @@ function createNodeGraphTriggerCounterState() {
  * @returns {{ Count: number, Pulse: number }}
  */
 function nodeGraphTriggerCounterCore(state, trigger, reset, params, sampleRate) {
-  const safeTrigger = Number(trigger) || 0;
-  const safeReset = Number(reset) || 0;
-  const threshold = Number(params?.threshold) || 0;
+  const safeTrigger = nodeGraphFiniteNumber(trigger);
+  const safeReset = nodeGraphFiniteNumber(reset);
+  const threshold = nodeGraphFiniteNumber(params?.threshold);
   const countMax = Math.max(1, nodeGraphFiniteNumber(params?.countMax, 1));
-  const increment = Math.max(0, Number(params?.increment) || 0);
-  const pulseTime = Math.max(0, Number(params?.pulseTime) || 0);
-  const level = Number(params?.level) || 0;
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const increment = Math.max(0, nodeGraphFiniteNumber(params?.increment));
+  const pulseTime = Math.max(0, nodeGraphFiniteNumber(params?.pulseTime));
+  const level = nodeGraphFiniteNumber(params?.level);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
 
   if (state.lastReset <= threshold && safeReset > threshold) {
     state.count = 0;

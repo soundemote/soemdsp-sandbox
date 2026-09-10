@@ -198,8 +198,8 @@ function nodeGraphScreenSoloFaceScore(face) {
   if (face.classList.contains("node-module-scope-window")) score += 25;
   if (face.classList.contains("node-module-face")) score += 10;
   if (face.classList.contains("node-text-box-body")) score += 30;
-  const w = Number(face.clientWidth || face.offsetWidth) || 0;
-  const h = Number(face.clientHeight || face.offsetHeight) || 0;
+  const w = nodeGraphFiniteNumber(face.clientWidth || face.offsetWidth);
+  const h = nodeGraphFiniteNumber(face.clientHeight || face.offsetHeight);
   if (w >= 8 && h >= 8) score += 20;
   return score;
 }
@@ -410,7 +410,7 @@ function nodeGraphScreenSoloLcm(a, b) {
  *   else → two rows floor(n/2) / ceil(n/2)
  */
 function nodeGraphScreenSoloRowPlan(count) {
-  const n = Math.max(1, Math.round(Number(count) || 1));
+  const n = Math.max(1, Math.round(nodeGraphFiniteNumber(count, 1)));
   if (n === 1) {
     return { rows: [1], cols: 1 };
   }
@@ -495,8 +495,8 @@ function applyNodeGraphScreenSoloFit(mode) {
       const item = items[itemIndex];
       itemIndex += 1;
       if (fit === "contain") {
-        const srcW = Math.max(1, Number(item.sourceWidth) || 1);
-        const srcH = Math.max(1, Number(item.sourceHeight) || 1);
+        const srcW = Math.max(1, nodeGraphFiniteNumber(item.sourceWidth, 1));
+        const srcH = Math.max(1, nodeGraphFiniteNumber(item.sourceHeight, 1));
         const scale = Math.min(cellW / srcW, cellH / srcH);
         const w = Math.max(1, Math.round(srcW * scale));
         const h = Math.max(1, Math.round(srcH * scale));

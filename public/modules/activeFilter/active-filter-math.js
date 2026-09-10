@@ -32,7 +32,7 @@ function nodeGraphActiveFilterSlopeIndex(value, fallback = 0) {
 }
 
 function nodeGraphActiveFilterLegacyModeToSlopes(mode) {
-  const m = Math.max(0, Math.min(9, Math.round(Number(mode) || 0)));
+  const m = Math.max(0, Math.min(9, Math.round(nodeGraphFiniteNumber(mode))));
   if (m <= 3) return { hpSlope: 0, lpSlope: m + 1 }; // LP6..24
   if (m <= 7) return { hpSlope: m - 3, lpSlope: 0 }; // HP6..24
   // Old BP — both on; prefer stored slopes if any, else 12/12
@@ -41,7 +41,7 @@ function nodeGraphActiveFilterLegacyModeToSlopes(mode) {
 
 function nodeGraphActiveFilterResolveInto(dst, params) {
   const out = dst && typeof dst === "object" ? dst : {};
-  const sweep = Number(params?.sweep) || 0;
+  const sweep = nodeGraphFiniteNumber(params?.sweep);
   out.feedbackCircuit = params?.feedbackCircuit;
   out.gainCompensation = params?.gainCompensation;
   out.resonance = params?.resonance;
@@ -61,7 +61,7 @@ function nodeGraphActiveFilterResolveInto(dst, params) {
   let low = Number(params?.lowFrequency);
   let high = Number(params?.highFrequency);
   if (params?.inheritBandFromFrequency && !Number.isFinite(low) && !Number.isFinite(high)) {
-    const center = Math.max(0, Number(params?.frequency) || 0);
+    const center = Math.max(0, nodeGraphFiniteNumber(params?.frequency));
     low = center > 0 ? center * 0.5 : 0;
     high = center > 0 ? center * 2 : 0;
   }
@@ -115,7 +115,7 @@ function nodeGraphActiveFilterIsBandpass(paramsOrMode) {
     return !!r.bandpass;
   }
   // Legacy: mode >= 8 was BP
-  return Math.round(Number(paramsOrMode) || 0) >= 8;
+  return Math.round(nodeGraphFiniteNumber(paramsOrMode)) >= 8;
 }
 
 function nodeGraphActiveFilterFillLadderParams(dst, resolved, which) {
@@ -154,7 +154,7 @@ function nodeGraphActiveFilterProcess(state, input, params, sampleRate) {
   }
   const resolved = nodeGraphActiveFilterResolveInto(state._resolved || (state._resolved = {}), params);
   if (resolved.bypass) {
-    return Number(input) || 0;
+    return nodeGraphFiniteNumber(input);
   }
   if (resolved.bandpass) {
     if (!state.hp) state.hp = createNodeGraphActiveFilterState();
@@ -197,7 +197,7 @@ function nodeGraphActiveFilterModeToLadder(mode) {
     [2, 1], [2, 2], [2, 3], [2, 4],
     [3, 1], [3, 4],
   ];
-  const idx = Math.max(0, Math.min(9, Math.round(Number(mode) || 0)));
+  const idx = Math.max(0, Math.min(9, Math.round(nodeGraphFiniteNumber(mode))));
   return table[idx];
 }
 
@@ -208,16 +208,16 @@ function nodeGraphActiveFilterSample(state, input, params, sampleRate) {
   if (!state.y || state.y.length < 5) {
     state.y = [0, 0, 0, 0, 0];
   }
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const rawHz = Number(params?.frequency);
   const cutoffHz = Math.max(0, Math.min(rate * 0.49, Number.isFinite(rawHz) ? rawHz : 0));
 
-  const circuit = Math.max(0, Math.min(3, Math.round(Number(params?.feedbackCircuit) || 0)));
+  const circuit = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(params?.feedbackCircuit))));
   const useRes = circuit === 1 || circuit === 3;
   const useClip = circuit === 2 || circuit === 3;
   const useGainComp = Math.round(Number(params?.gainCompensation)) !== 0;
 
-  const feedback = useRes ? Math.max(0, Math.min(1, Number(params?.resonance) || 0)) : 0;
+  const feedback = useRes ? Math.max(0, Math.min(1, nodeGraphFiniteNumber(params?.resonance))) : 0;
 
   // Prefer explicit slopes when provided (0 Bypass skipped by Process).
   let ladderMode = 1;
@@ -268,7 +268,7 @@ function nodeGraphActiveFilterSample(state, input, params, sampleRate) {
   const k = feedback / g2sq;
   const g = useGainComp ? (1 + mixS * k) : 1;
 
-  const xIn = Number(input) || 0;
+  const xIn = nodeGraphFiniteNumber(input);
   const driven = useClip ? Math.tanh(xIn * 2) : xIn;
   const safeIn = g * driven - k * state.y[4];
   let y0 = safeIn / (1 + safeIn * safeIn);

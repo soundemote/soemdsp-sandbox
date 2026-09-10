@@ -24,7 +24,7 @@ NodeLiveAudioProcessor.prototype.spiralTrisaw = function spiralTrisaw(phase, sha
   };
 
 NodeLiveAudioProcessor.prototype.spiralNextPhasor = function spiralNextPhasor(state, key, frequency, offset, sampleRate, bipolar = false) {
-    const base = Number(state[key]) || 0;
+    const base = nodeGraphFiniteNumber(state[key]);
     const current = this.spiralWrap01(base + offset);
     state[key] = this.spiralWrap01(base + frequency / sampleRate);
     return bipolar ? current * 2 - 1 : current;
@@ -117,25 +117,25 @@ NodeLiveAudioProcessor.prototype.jerobeamSpiralSample = function jerobeamSpiralS
           state.nativeHandle = this.nativeJerobeamSpiral.soemdsp_jerobeam_spiral_create();
         }
         if (state.nativeHandle) {
-          const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
+          const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
           this.nativeJerobeamSpiral.soemdsp_jerobeam_spiral_sample(
             state.nativeHandle,
-            Number(options.frequency) || 0,
-            Number(options.density) || 0,
-            Number(options.size) || 0,
-            Number(options.sharp) || 0,
-            Number(options.sharpCurve) || 0,
-            Number(options.sharpCurveMult) || 0,
-            Number(options.morph) || 0,
-            Number(options.morphSpeed) || 0,
-            Number(options.position) || 0,
-            Number(options.positionSpeed) || 0,
-            Number(options.rotX) || 0,
-            Number(options.rotXSpeed) || 0,
-            Number(options.rotY) || 0,
-            Number(options.rotYSpeed) || 0,
-            Number(options.zAmount) || 0,
-            Number(options.zDepth) || 0,
+            nodeGraphFiniteNumber(options.frequency),
+            nodeGraphFiniteNumber(options.density),
+            nodeGraphFiniteNumber(options.size),
+            nodeGraphFiniteNumber(options.sharp),
+            nodeGraphFiniteNumber(options.sharpCurve),
+            nodeGraphFiniteNumber(options.sharpCurveMult),
+            nodeGraphFiniteNumber(options.morph),
+            nodeGraphFiniteNumber(options.morphSpeed),
+            nodeGraphFiniteNumber(options.position),
+            nodeGraphFiniteNumber(options.positionSpeed),
+            nodeGraphFiniteNumber(options.rotX),
+            nodeGraphFiniteNumber(options.rotXSpeed),
+            nodeGraphFiniteNumber(options.rotY),
+            nodeGraphFiniteNumber(options.rotYSpeed),
+            nodeGraphFiniteNumber(options.zAmount),
+            nodeGraphFiniteNumber(options.zDepth),
             sampleRateValue,
           );
           return {

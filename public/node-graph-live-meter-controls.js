@@ -81,14 +81,14 @@ function setNodeGraphGpuAdditiveStatus(details = null) {
     return;
   }
   const queues = Array.isArray(details?.queues) ? details.queues : [];
-  const underruns = Math.max(0, Number(details?.underruns) || 0);
+  const underruns = Math.max(0, nodeGraphFiniteNumber(details?.underruns));
   if (!queues.length) {
     status.textContent = "gpu add idle";
     status.className = "pill";
     status.removeAttribute("title");
     return;
   }
-  const totalChunks = queues.reduce((sum, queue) => sum + (Number(queue.chunks) || 0), 0);
+  const totalChunks = queues.reduce((sum, queue) => sum + (nodeGraphFiniteNumber(queue.chunks)), 0);
   const backends = Array.from(
     new Set(queues.map((queue) => String(queue.backend || "unknown")).filter(Boolean))
   );
@@ -103,17 +103,17 @@ function setNodeGraphGpuAdditiveStatus(details = null) {
     .map((queue) => {
       const nodeId = queue.nodeId || "node";
       const backend = queue.backend || "unknown";
-      const chunks = Number(queue.chunks) || 0;
+      const chunks = nodeGraphFiniteNumber(queue.chunks);
       const diagnostics = queue.diagnostics || {};
-      const dropped = Number(queue.droppedChunks) || 0;
+      const dropped = nodeGraphFiniteNumber(queue.droppedChunks);
       const heldGain = Number.isFinite(Number(queue.heldGain)) ? Number(queue.heldGain) : 1;
-      const held = Number(queue.heldSamples) || 0;
+      const held = nodeGraphFiniteNumber(queue.heldSamples);
       const recipe = nodeGraphGpuAdditiveRecipeText(queue);
       const renderMs = Number.isFinite(Number(diagnostics.renderMs))
         ? ` / render ${Number(diagnostics.renderMs).toFixed(2)}ms`
         : "";
-      const sequence = Number(queue.expectedSequence) || 0;
-      const samples = Number(queue.samples) || 0;
+      const sequence = nodeGraphFiniteNumber(queue.expectedSequence);
+      const samples = nodeGraphFiniteNumber(queue.samples);
       const adapter = nodeGraphGpuAdditiveAdapterText(diagnostics.adapter);
       const adapterText = adapter ? ` / adapter ${adapter}` : "";
       const diagnosticsText = Object.keys(diagnostics).length

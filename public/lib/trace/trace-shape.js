@@ -98,7 +98,7 @@
   function clamp01(value, fallback = 0) {
     const n = Number(value);
     if (!Number.isFinite(n)) {
-      return Math.max(0, Math.min(1, Number(fallback) || 0));
+      return Math.max(0, Math.min(1, nodeGraphFiniteNumber(fallback)));
     }
     return Math.max(0, Math.min(1, n));
   }
@@ -166,8 +166,8 @@
 
   /** Discrete counts from 0…1. 0 always maps to minCount (ngon: triangle). */
   function traceStampParamToCount(param01, minCount, maxCount) {
-    const lo = Math.max(3, Math.floor(Number(minCount) || 3));
-    const hi = Math.max(lo, Math.floor(Number(maxCount) || lo));
+    const lo = Math.max(3, Math.floor(nodeGraphFiniteNumber(minCount, 3)));
+    const hi = Math.max(lo, Math.floor(nodeGraphFiniteNumber(maxCount, lo)));
     const t = clamp01(param01, 0);
     if (t <= 1e-9) {
       return lo;
@@ -237,8 +237,8 @@
    * dx/dy are pixel offsets from center; rx/ry half-extents.
    */
   function traceStampHeartSdf(dx, dy, rx, ry, plump01) {
-    const hx = Math.max(1e-6, Number(rx) || 1);
-    const hy = Math.max(1e-6, Number(ry) || 1);
+    const hx = Math.max(1e-6, nodeGraphFiniteNumber(rx, 1));
+    const hy = Math.max(1e-6, nodeGraphFiniteNumber(ry, 1));
     const ux = dx / hx;
     const uy = dy / hy;
     const poly = traceStampHeartUnitPolyline(plump01);

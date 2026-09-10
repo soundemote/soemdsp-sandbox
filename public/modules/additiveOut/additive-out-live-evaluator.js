@@ -33,7 +33,7 @@ function nodeGraphAdditiveOutLiveEvaluator({
   const referenceVoltage = 48 / 120;
   const baseFrequency = read("frequency", 100);
   const pitchCv = hasInput?.(nodeId, "0.1V/Oct")
-    ? Number(mixInput(nodeId, "0.1V/Oct")) || 0
+    ? nodeGraphFiniteNumber(mixInput(nodeId, "0.1V/Oct"))
     : referenceVoltage;
   let frequencyHz = typeof nodeGraphPitchedFrequency === "function"
     ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
@@ -47,7 +47,7 @@ function nodeGraphAdditiveOutLiveEvaluator({
   if (graph.phaseReset) state.phaseAcc = null;
 
   if (hasInput?.(nodeId, "Reset")) {
-    const rv = Number(mixInput(nodeId, "Reset")) || 0;
+    const rv = nodeGraphFiniteNumber(mixInput(nodeId, "Reset"));
     if (state.lastReset <= 0 && rv > 0) {
       state.phaseAcc = null;
     }
@@ -79,7 +79,7 @@ function nodeGraphAdditiveOutLiveEvaluator({
   }
 
   if (hasInput?.(nodeId, "Increment")) {
-    const inc = Number(mixInput(nodeId, "Increment")) || 0;
+    const inc = nodeGraphFiniteNumber(mixInput(nodeId, "Increment"));
     if (state.phaseAcc) {
       for (let i = 0; i < state.phaseAcc.length; i += 1) {
         state.phaseAcc[i] = additiveGraphWrap01(state.phaseAcc[i] + inc);

@@ -239,10 +239,10 @@ function nodeGraphModuleFrameCollectGaps(nodeElement, width, height, nodeRect) {
  */
 function nodeGraphModuleFrameBuildPath(width, height, radius, leftGaps, rightGaps, outset = 0) {
   // Same units as the viewBox (live CSS box, not rounded).
-  const w = Math.max(1, Number(width) || 0);
-  const h = Math.max(1, Number(height) || 0);
+  const w = Math.max(1, nodeGraphFiniteNumber(width));
+  const h = Math.max(1, nodeGraphFiniteNumber(height));
   // Outset: expand path beyond the plate (negative would be inset — wrong).
-  const s = Math.max(0, Number(outset) || 0);
+  const s = Math.max(0, nodeGraphFiniteNumber(outset));
   const left = -s;
   const top = -s;
   const right = w + s;
@@ -250,7 +250,7 @@ function nodeGraphModuleFrameBuildPath(width, height, radius, leftGaps, rightGap
   const innerW = right - left;
   const innerH = bottom - top;
   // Top corners only — bottom stays square (rBottom = 0).
-  const rTop = Math.max(0, Math.min(Number(radius) || 0, innerW * 0.5, innerH * 0.5));
+  const rTop = Math.max(0, Math.min(nodeGraphFiniteNumber(radius), innerW * 0.5, innerH * 0.5));
   const edgeTop = top + rTop;
   const edgeBottom = bottom;
   let d = "";

@@ -78,8 +78,8 @@ function nodeGraphAdvancePhase01(state, frequencyHz, sampleRate, reset = 0, rese
   state.lastReset = resetActive;
   const freq = Number(frequencyHz);
   const safeFreq = Number.isFinite(freq) ? freq : 0;
-  const rate = Math.max(1, Number(sampleRate) || 1);
-  state.phase = nodeGraphWrap01((Number(state.phase) || 0) + safeFreq / rate);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 1));
+  state.phase = nodeGraphWrap01((nodeGraphFiniteNumber(state.phase)) + safeFreq / rate);
   return state.phase;
 }
 

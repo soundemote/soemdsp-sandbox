@@ -26,8 +26,8 @@ nodeGraphLiveModuleEvaluators.rgbShape = ({ runtime, nodeId, mixInput, readParam
   if (typeof RgbShapeMath !== "undefined" && typeof RgbShapeMath.outlinePoint === "function") {
     point = RgbShapeMath.outlinePoint(shape, shapeParam, phase);
   }
-  const xOut = (Number(point.x) || 0) * size * width * amp;
-  const yOut = (Number(point.y) || 0) * size * height * amp;
+  const xOut = (nodeGraphFiniteNumber(point.x)) * size * width * amp;
+  const yOut = (nodeGraphFiniteNumber(point.y)) * size * height * amp;
   // Touch mix inputs so the graph stays hot when wired.
   if (typeof mixInput === "function") {
     mixInput(nodeId, "Reset");

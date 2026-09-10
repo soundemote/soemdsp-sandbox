@@ -545,7 +545,7 @@ function nodeGraphTraceDisplaySettingsOpenPosition(popover, sharedInspectorState
       visibleWidth: Math.min(Math.max(80, rect.width * 0.5), rect.width || 80),
       width: rect.width,
     })
-    : { left: Math.round(Number(x) || 0), top: Math.round(Number(y) || 0) };
+    : { left: Math.round(nodeGraphFiniteNumber(x)), top: Math.round(nodeGraphFiniteNumber(y)) };
 }
 
 function restoreNodeGraphTraceDisplaySettingsWindowFromState(state = {}) {

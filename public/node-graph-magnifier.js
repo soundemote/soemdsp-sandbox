@@ -141,7 +141,7 @@ function bindNodeGraphMagnifierSizeControl() {
       set: (value) => {
         setNodeGraphMagnifierSize(value);
       },
-      format: (value) => `${Math.round(Number(value) || 0)}px`,
+      format: (value) => `${Math.round(nodeGraphFiniteNumber(value))}px`,
     });
     return;
   }
@@ -287,7 +287,7 @@ function nodeGraphMagnifierShouldBlockContext() {
   if (session.active) {
     return true;
   }
-  const until = Number(session.blockContextUntil) || 0;
+  const until = nodeGraphFiniteNumber(session.blockContextUntil);
   return until > 0 && performance.now() < until;
 }
 
@@ -455,7 +455,7 @@ function zoomNodeGraphMagnifierByWheel(event) {
   event.stopPropagation();
   const steps = typeof nodeGraphWheelZoomSteps === "function"
     ? nodeGraphWheelZoomSteps(event)
-    : -(Number(event.deltaY) || 0) / 100;
+    : -(nodeGraphFiniteNumber(event.deltaY)) / 100;
   if (!steps) {
     return true;
   }

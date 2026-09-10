@@ -1,11 +1,11 @@
 NodeLiveAudioProcessor.prototype.vectorRgbSample = function vectorRgbSample(mixInput, nodeId) {
   return {
-    X: Number(mixInput(nodeId, "X")) || 0,
-    Y: Number(mixInput(nodeId, "Y")) || 0,
-    R: Number(mixInput(nodeId, "R")) || 0,
-    G: Number(mixInput(nodeId, "G")) || 0,
-    B: Number(mixInput(nodeId, "B")) || 0,
-    Blank: Number(mixInput(nodeId, "Blank")) || 0,
+    X: nodeGraphFiniteNumber(mixInput(nodeId, "X")),
+    Y: nodeGraphFiniteNumber(mixInput(nodeId, "Y")),
+    R: nodeGraphFiniteNumber(mixInput(nodeId, "R")),
+    G: nodeGraphFiniteNumber(mixInput(nodeId, "G")),
+    B: nodeGraphFiniteNumber(mixInput(nodeId, "B")),
+    Blank: nodeGraphFiniteNumber(mixInput(nodeId, "Blank")),
   };
 };
 
@@ -13,23 +13,23 @@ NodeLiveAudioProcessor.prototype.vectorRgbSample = function vectorRgbSample(mixI
 
 NodeLiveAudioProcessor.prototype.gradientVectorscopeSample = function gradientVectorscopeSample(mixInput, nodeId) {
   return {
-    X: Number(mixInput(nodeId, "X")) || 0,
-    Y: Number(mixInput(nodeId, "Y")) || 0,
+    X: nodeGraphFiniteNumber(mixInput(nodeId, "X")),
+    Y: nodeGraphFiniteNumber(mixInput(nodeId, "Y")),
   };
 };
 
 NodeLiveAudioProcessor.prototype.traceXyzSample = function traceXyzSample(mixInput, nodeId) {
   return {
-    X: Number(mixInput(nodeId, "X")) || 0,
-    Y: Number(mixInput(nodeId, "Y")) || 0,
-    Z: Number(mixInput(nodeId, "Z")) || 0,
+    X: nodeGraphFiniteNumber(mixInput(nodeId, "X")),
+    Y: nodeGraphFiniteNumber(mixInput(nodeId, "Y")),
+    Z: nodeGraphFiniteNumber(mixInput(nodeId, "Z")),
   };
 };
 
 NodeLiveAudioProcessor.prototype.traceRgbSample = function traceRgbSample(mixInput, nodeId) {
   return {
-    R: Number(mixInput(nodeId, "R")) || 0,
-    G: Number(mixInput(nodeId, "G")) || 0,
-    B: Number(mixInput(nodeId, "B")) || 0,
+    R: nodeGraphFiniteNumber(mixInput(nodeId, "R")),
+    G: nodeGraphFiniteNumber(mixInput(nodeId, "G")),
+    B: nodeGraphFiniteNumber(mixInput(nodeId, "B")),
   };
 };

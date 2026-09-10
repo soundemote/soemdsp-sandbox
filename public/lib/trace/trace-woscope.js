@@ -161,7 +161,7 @@ void main (void) {
     if (list.length < 2) {
       return hexRgb(fallbackHex);
     }
-    const u = Math.max(0, Math.min(1, Number(t) || 0));
+    const u = Math.max(0, Math.min(1, nodeGraphFiniteNumber(t)));
     const first = hexRgb(list[0]?.color, hexRgb(fallbackHex));
     const last = hexRgb(list[list.length - 1]?.color, first);
     return [
@@ -195,9 +195,9 @@ void main (void) {
     for (let i = 0; i < LUT_WIDTH; i += 1) {
       const rgb = sample(i / (LUT_WIDTH - 1)) || [255, 255, 255];
       const o = i * 4;
-      pixels[o] = Math.max(0, Math.min(255, Math.round(Number(rgb[0]) || 0)));
-      pixels[o + 1] = Math.max(0, Math.min(255, Math.round(Number(rgb[1]) || 0)));
-      pixels[o + 2] = Math.max(0, Math.min(255, Math.round(Number(rgb[2]) || 0)));
+      pixels[o] = Math.max(0, Math.min(255, Math.round(nodeGraphFiniteNumber(rgb[0]))));
+      pixels[o + 1] = Math.max(0, Math.min(255, Math.round(nodeGraphFiniteNumber(rgb[1]))));
+      pixels[o + 2] = Math.max(0, Math.min(255, Math.round(nodeGraphFiniteNumber(rgb[2]))));
       pixels[o + 3] = 255;
     }
     gl.bindTexture(gl.TEXTURE_2D, glDevice.lutTexture);
@@ -359,7 +359,7 @@ void main (void) {
       return 0;
     }
     const face = Math.max(1, Number(options.faceMinSide) || Math.min(width, height));
-    const size01 = Math.max(0, Math.min(1, Number(options.size) || 0));
+    const size01 = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.size)));
     const intensity = Math.max(0, Number(options.intensity ?? options.brightness ?? 1));
     if (intensity <= 0 || size01 <= 0) {
       return 0;

@@ -1,7 +1,7 @@
 NodeLiveAudioProcessor.prototype.visualHslToRgb = function visualHslToRgb(hue, saturation, lightness) {
-    const h = ((Number(hue) || 0) % 1 + 1) % 1;
-    const s = this.clampValue(Number(saturation) || 0, 0, 1);
-    const l = this.clampValue(Number(lightness) || 0, 0, 1);
+    const h = ((nodeGraphFiniteNumber(hue)) % 1 + 1) % 1;
+    const s = this.clampValue(nodeGraphFiniteNumber(saturation), 0, 1);
+    const l = this.clampValue(nodeGraphFiniteNumber(lightness), 0, 1);
     if (s <= 0) {
       return [l, l, l];
     }

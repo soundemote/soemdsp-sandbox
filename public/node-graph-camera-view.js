@@ -48,10 +48,10 @@ function nodeGraphCameraWithAspect(camera, primary = "width") {
   const ratio = nodeGraphCameraAspectRatio(camera);
   const next = { ...camera };
   if (primary === "height") {
-    next.height = Math.max(nodeGraphCameraDragMinSize.height, Math.round(Number(next.height) || 0));
+    next.height = Math.max(nodeGraphCameraDragMinSize.height, Math.round(nodeGraphFiniteNumber(next.height)));
     next.width = Math.max(nodeGraphCameraDragMinSize.width, Math.round(next.height * ratio));
   } else {
-    next.width = Math.max(nodeGraphCameraDragMinSize.width, Math.round(Number(next.width) || 0));
+    next.width = Math.max(nodeGraphCameraDragMinSize.width, Math.round(nodeGraphFiniteNumber(next.width)));
     next.height = Math.max(nodeGraphCameraDragMinSize.height, Math.round(next.width / ratio));
   }
   next.x = nodeGraphSnapCameraValue(next.x, "x");
@@ -416,7 +416,7 @@ function createNodeGraphUtilityCameraForElement(id, element, options = {}) {
       right: element.offsetLeft + element.offsetWidth,
       top: element.offsetTop,
     };
-  const padding = Math.max(0, Number(options.padding) || 0);
+  const padding = Math.max(0, nodeGraphFiniteNumber(options.padding));
   const x = Math.max(0, Math.floor(bounds.left - padding));
   const y = Math.max(0, Math.floor(bounds.top - padding));
   const width = Math.max(1, Math.ceil(bounds.right - bounds.left + padding * 2));

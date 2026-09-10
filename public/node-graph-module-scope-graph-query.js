@@ -26,7 +26,7 @@ function nodeGraphSimFpsRate() {
       nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60,
     );
   }
-  return Math.max(0, Math.round(Number(nodeGraphMvp?.moduleScopeFramesPerSecond) || 60));
+  return Math.max(0, Math.round(nodeGraphFiniteNumber(nodeGraphMvp?.moduleScopeFramesPerSecond, 60)));
 }
 
 /**
@@ -150,13 +150,13 @@ function nodeGraphModuleScopeAdvanceFixedFrameClock(state, now, fps) {
 function nodeGraphModuleScopeModelFrameTime(slot) {
   const nodeId = String(slot?.nodeId || "");
   if (!nodeId) {
-    return Math.max(0, Number(nodeGraphModuleScopeState.animationTime) || 0);
+    return Math.max(0, nodeGraphFiniteNumber(nodeGraphModuleScopeState.animationTime));
   }
   const fps = normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60);
   if (fps <= 0) {
     return false;
   }
-  const now = Math.max(0, Number(nodeGraphModuleScopeState.animationTime) || 0);
+  const now = Math.max(0, nodeGraphFiniteNumber(nodeGraphModuleScopeState.animationTime));
   const state = nodeGraphModuleScopeState.modelFrameTimes.get(nodeId);
   if (!state) {
     const initialState = {
@@ -219,7 +219,7 @@ function nodeGraphModuleScopeStableSeed(text) {
 }
 
 function nodeGraphModuleScopeLinearToDb(value) {
-  const amplitude = Math.abs(Number(value) || 0);
+  const amplitude = Math.abs(nodeGraphFiniteNumber(value));
   return amplitude > 0.000001 ? 20 * Math.log10(amplitude) : -Infinity;
 }
 
@@ -239,7 +239,7 @@ function nodeGraphModuleScopeBufferStats(buffer) {
   let peak = 0;
   let sumSquares = 0;
   for (let index = 0; index < buffer.length; index += 1) {
-    const sample = Number(buffer[index]) || 0;
+    const sample = nodeGraphFiniteNumber(buffer[index]);
     const magnitude = Math.abs(sample);
     peak = Math.max(peak, magnitude);
     sumSquares += sample * sample;

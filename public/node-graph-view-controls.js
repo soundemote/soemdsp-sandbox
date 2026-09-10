@@ -1137,7 +1137,7 @@ function nodeGraphDialogDragTargetIsInteractive(event) {
 }
 
 function nodeGraphFloatingWindowViewportOffset() {
-  const innerWidth = Number(window.innerWidth) || 0;
+  const innerWidth = nodeGraphFiniteNumber(window.innerWidth);
   const clientWidth = Number(document.documentElement?.clientWidth) || innerWidth;
   return {
     left: Math.max(0, Math.round(innerWidth - clientWidth)),
@@ -1148,16 +1148,16 @@ function nodeGraphFloatingWindowViewportOffset() {
 function nodeGraphFloatingWindowCssPositionFromViewport(left, top) {
   const offset = nodeGraphFloatingWindowViewportOffset();
   return {
-    left: Math.round((Number(left) || 0) - offset.left),
-    top: Math.round((Number(top) || 0) - offset.top),
+    left: Math.round((nodeGraphFiniteNumber(left)) - offset.left),
+    top: Math.round((nodeGraphFiniteNumber(top)) - offset.top),
   };
 }
 
 function nodeGraphFloatingWindowViewportPositionFromCss(left, top) {
   const offset = nodeGraphFloatingWindowViewportOffset();
   return {
-    left: Math.round((Number(left) || 0) + offset.left),
-    top: Math.round((Number(top) || 0) + offset.top),
+    left: Math.round((nodeGraphFiniteNumber(left)) + offset.left),
+    top: Math.round((nodeGraphFiniteNumber(top)) + offset.top),
   };
 }
 
@@ -1177,8 +1177,8 @@ function setNodeGraphFloatingWindowViewportPosition(element, left, top) {
   style.top = `${css.top}px`;
   style.right = "auto";
   return {
-    left: Math.round(Number(left) || 0),
-    top: Math.round(Number(top) || 0),
+    left: Math.round(nodeGraphFiniteNumber(left)),
+    top: Math.round(nodeGraphFiniteNumber(top)),
   };
 }
 
@@ -1202,8 +1202,8 @@ function nodeGraphFloatingWindowPosition(element, x, y, options = {}) {
   // Vertical: title bar (top) must stay fully on screen; bottom 50% may go off
   const minTop = 0;
   const maxTop = viewportHeight - height * 0.5;
-  const left = Math.round(Math.max(minLeft, Math.min(maxLeft, Number(x) || 0)));
-  const top = Math.round(Math.max(minTop, Math.min(maxTop, Number(y) || 0)));
+  const left = Math.round(Math.max(minLeft, Math.min(maxLeft, nodeGraphFiniteNumber(x))));
+  const top = Math.round(Math.max(minTop, Math.min(maxTop, nodeGraphFiniteNumber(y))));
   element.hidden = wasHidden;
   return { left, top };
 }
@@ -1363,7 +1363,7 @@ function applyNodeGraphVisibilityMenuSize(size = {}, menuArg = null) {
     {
       minWidth: minimum.width,
       minHeight: minimum.height,
-      width: Number(shared.width) || 185,
+      width: nodeGraphFiniteNumber(shared.width, 185),
       height: wantHeight ? height : minimum.height,
     },
   );
@@ -1988,7 +1988,7 @@ function renderNodeGraphVideoViewToggle() {
 }
 
 function normalizeNodeGraphMacroValue(value) {
-  return clampNodeSliderValue(Number(value) || 0, 0, 1);
+  return clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
 }
 
 // No arbitrary numeric ceiling (the old 2-16px range was just a made-up
@@ -2013,7 +2013,7 @@ function normalizeNodeGraphMacroKnobArcThickness(value) {
 // scale and the pixel value that's actually stored/applied, so the number
 // readout can keep showing real pixels while the slider stays percent-based.
 function nodeGraphMacroKnobArcThicknessPercentToPx(percent) {
-  const ratio = clampNodeSliderValue(Number(percent) || 0, 0, 100) / 100;
+  const ratio = clampNodeSliderValue(nodeGraphFiniteNumber(percent), 0, 100) / 100;
   return nodeGraphMacroKnobArcThicknessMinPx +
     ratio * (nodeGraphMacroKnobArcThicknessMaxPx - nodeGraphMacroKnobArcThicknessMinPx);
 }
@@ -2189,7 +2189,7 @@ function renderNodeGraphMacroControls() {
     ? nodeGraphMacroControlsFaceSettings()
     : null;
   document.querySelectorAll("[data-macro-index]").forEach((knob) => {
-    const index = Math.max(0, Math.min(7, Math.round(Number(knob.dataset.macroIndex) || 0)));
+    const index = Math.max(0, Math.min(7, Math.round(nodeGraphFiniteNumber(knob.dataset.macroIndex))));
     const value = normalizeNodeGraphMacroValue(nodeGraphMvp.macroControls[index]);
     const angle = -132 + value * 264;
     knob.style.setProperty("--macro-value", String(value));
@@ -2210,7 +2210,7 @@ function renderNodeGraphMacroControls() {
 
 function setNodeGraphMacroControl(index, value) {
   ensureNodeGraphMacroControls();
-  const safeIndex = Math.max(0, Math.min(7, Math.round(Number(index) || 0)));
+  const safeIndex = Math.max(0, Math.min(7, Math.round(nodeGraphFiniteNumber(index))));
   nodeGraphMvp.macroControls[safeIndex] = normalizeNodeGraphMacroValue(value);
   renderNodeGraphMacroControls();
   if (typeof sendNodeGraphLiveMacroControls === "function") {
@@ -2258,7 +2258,7 @@ function beginNodeGraphMacroControlDrag(event) {
   ) {
     return;
   }
-  const index = Math.max(0, Math.min(7, Math.round(Number(knob.dataset.macroIndex) || 0)));
+  const index = Math.max(0, Math.min(7, Math.round(nodeGraphFiniteNumber(knob.dataset.macroIndex))));
   event.preventDefault();
   knob.setPointerCapture?.(event.pointerId);
   const resetToDefaultOnClick = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
@@ -2346,7 +2346,7 @@ function beginNodeGraphMacroKnobEdit(event) {
   if (knob.dataset.editing === "true") {
     return;
   }
-  const index = Math.max(0, Math.min(7, Math.round(Number(knob.dataset.macroIndex) || 0)));
+  const index = Math.max(0, Math.min(7, Math.round(nodeGraphFiniteNumber(knob.dataset.macroIndex))));
   const readout = knob.querySelector("[data-macro-value]");
   if (!readout) {
     return;
@@ -2519,11 +2519,11 @@ function renderNodeGraphMidiKeyboardKeys() {
 // numbers -- low (bits 0-48) and high (bits 0-38, representing absolute
 // key index 49-87) -- never combined into one.
 function nodeGraphMidiKeyboardBitmaskHasBit(mask, index) {
-  return Math.floor((Number(mask) || 0) / 2 ** index) % 2 === 1;
+  return Math.floor((nodeGraphFiniteNumber(mask)) / 2 ** index) % 2 === 1;
 }
 
 function nodeGraphMidiKeyboardBitmaskSetBit(mask, index, on) {
-  const safeMask = Number(mask) || 0;
+  const safeMask = nodeGraphFiniteNumber(mask);
   const has = nodeGraphMidiKeyboardBitmaskHasBit(safeMask, index);
   if (has === Boolean(on)) {
     return safeMask;
@@ -2651,18 +2651,18 @@ function nodeGraphMidiKeyboardBitmaskDisplayBitCount() {
 const nodeGraphMidiKeyboardHeldKeysPhaseValue = 2 ** nodeGraphMidiKeyboardHeldKeysLowBitCount;
 
 function nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase) {
-  const safeHigh = Number(high) || 0;
+  const safeHigh = nodeGraphFiniteNumber(high);
   if (!safeHigh) {
-    return Number(low) || 0;
+    return nodeGraphFiniteNumber(low);
   }
   return phase
     ? nodeGraphMidiKeyboardHeldKeysPhaseValue + safeHigh
-    : Number(low) || 0;
+    : nodeGraphFiniteNumber(low);
 }
 
 /** Split a transmitted Held Keys / Polyphony sample into low/high halves. */
 function nodeGraphHeldKeysDemux(value) {
-  const v = Number(value) || 0;
+  const v = nodeGraphFiniteNumber(value);
   if (v >= nodeGraphMidiKeyboardHeldKeysPhaseValue) {
     return { low: 0, high: v - nodeGraphMidiKeyboardHeldKeysPhaseValue };
   }
@@ -2679,7 +2679,7 @@ function nodeGraphHeldKeysDemux(value) {
 // alternation happens at all, which is what's actually meaningful to see
 // at a glance. Then one square per key, across the full key range.
 function nodeGraphMidiKeyboardBitmaskEmoji(low, high) {
-  let out = (Number(high) || 0) !== 0 ? "🔴" : "🟢";
+  let out = (nodeGraphFiniteNumber(high)) !== 0 ? "🔴" : "🟢";
   for (let index = 0; index < nodeGraphMidiKeyboardBitmaskDisplayBitCount(); index += 1) {
     out += nodeGraphMidiKeyboardHeldKeyBitIsSet(index, low, high) ? "⬛" : "⬜";
   }
@@ -2729,14 +2729,14 @@ function nodeGraphMidiListenChannel(value = nodeGraphMvp.midiListenChannel) {
 }
 
 function nodeGraphMidiKeyboardClamp01(value) {
-  return clampNodeSliderValue(Number(value) || 0, 0, 1);
+  return clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
 }
 
 /** Pointer velocity range 0…127. Default both 127 = no scaling (always full). */
 function nodeGraphMidiKeyboardClampVel127(value, fallback = 127) {
   const n = Math.round(Number(value));
   if (!Number.isFinite(n)) {
-    return Math.max(0, Math.min(127, Math.round(Number(fallback) || 127)));
+    return Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(fallback, 127))));
   }
   return Math.max(0, Math.min(127, n));
 }
@@ -2774,19 +2774,19 @@ function nodeGraphMidiKeyboardMapStrikeVelocity01(strike01) {
 }
 
 function nodeGraphMidiKeyboardTenthVoltPerOctave(midi) {
-  return nodeGraphMidiKeyboardClamp01((Number(midi) || 0) / 120);
+  return nodeGraphMidiKeyboardClamp01((nodeGraphFiniteNumber(midi)) / 120);
 }
 
 function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
   if (!signal || typeof signal !== "object") {
     return null;
   }
-  const midi = Math.max(0, Math.min(127, Math.round(Number(signal.midi) || 60)));
-  const rawMidi = Math.max(0, Math.min(127, Math.round(Number(signal.rawMidi) || midi)));
+  const midi = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(signal.midi, 60))));
+  const rawMidi = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(signal.rawMidi, midi))));
   const octave = nodeGraphMidiKeyboardOctaveOffset(signal.octave);
-  const keyIndex = Math.max(0, Math.min(nodeGraphMidiKeyboardKeyCount() - 1, Number(signal.keyIndex) || 0));
+  const keyIndex = Math.max(0, Math.min(nodeGraphMidiKeyboardKeyCount() - 1, nodeGraphFiniteNumber(signal.keyIndex)));
   const keyQuantized = nodeGraphMidiKeyboardClamp01(signal.keyQuantized ?? (keyIndex / Math.max(1, nodeGraphMidiKeyboardKeyCount() - 1)));
-  const frequency = Math.max(0, Number(signal.frequency) || 440 * 2 ** ((midi - 69) / 12));
+  const frequency = Math.max(0, nodeGraphFiniteNumber(signal.frequency, 440) * 2 ** ((midi - 69) / 12));
   const gate = options.preserveGate ? (Number(signal.gate) > 0 ? 1 : 0) : 0;
   return {
     source: signal.source || "remembered",
@@ -2802,10 +2802,10 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
     octave,
     midi,
     pitch: signal.pitch || nodeGraphMidiKeyboardPitchLabel(midi),
-    pitchValue: Math.max(0, Math.min(127, Number(signal.pitchValue) || midi)),
+    pitchValue: Math.max(0, Math.min(127, nodeGraphFiniteNumber(signal.pitchValue, midi))),
     midiNormalized: nodeGraphMidiKeyboardClamp01(signal.midiNormalized ?? (midi / 127)),
     tenthVoltPerOctave: nodeGraphMidiKeyboardClamp01(signal.tenthVoltPerOctave ?? (midi / 120)),
-    increment: Math.max(0, Number(signal.increment) || frequency / nodeGraphMidiKeyboardSampleRate),
+    increment: Math.max(0, nodeGraphFiniteNumber(signal.increment, frequency / nodeGraphMidiKeyboardSampleRate)),
     frequency,
   };
 }
@@ -2919,11 +2919,11 @@ function ensureNodeGraphMidiKeyboardMemoryLoaded() {
 }
 
 function nodeGraphPerformancePitchWheelValue(value = nodeGraphMvp.pitchWheelSignal) {
-  return clampNodeSliderValue(Number(value) || 0, -1, 1);
+  return clampNodeSliderValue(nodeGraphFiniteNumber(value), -1, 1);
 }
 
 function nodeGraphPerformanceModWheelValue(value = nodeGraphMvp.modWheelSignal) {
-  return clampNodeSliderValue(Number(value) || 0, 0, 1);
+  return clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
 }
 
 function renderNodeGraphPerformanceWheels() {
@@ -3014,7 +3014,7 @@ function endNodeGraphPerformanceWheelDrag(event) {
 // signal readout, the MIDI status line and the key-map grid all call it -- so
 // changing the -2 here shifts the whole scheme consistently.
 function nodeGraphMidiKeyboardPitchLabel(midi) {
-  const rounded = Math.round(Number(midi) || 0);
+  const rounded = Math.round(nodeGraphFiniteNumber(midi));
   const note = nodeGraphMidiKeyboardNoteNames[((rounded % 12) + 12) % 12];
   return `${note}${Math.floor(rounded / 12) - 2}`;
 }
@@ -3026,7 +3026,7 @@ function nodeGraphMidiKeyboardKeyCapText(midi) {
   if (mode === "off") {
     return "";
   }
-  const rounded = Math.max(0, Math.min(127, Math.round(Number(midi) || 0)));
+  const rounded = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(midi))));
   if (mode === "number") {
     return String(rounded);
   }
@@ -3036,12 +3036,12 @@ function nodeGraphMidiKeyboardKeyCapText(midi) {
 function nodeGraphMidiKeyboardOctaveOffset(value = nodeGraphMvp.midiKeyboardOctave) {
   return Math.max(
     nodeGraphMidiKeyboardMinOctave,
-    Math.min(nodeGraphMidiKeyboardMaxOctave, Math.round(Number(value) || 0)),
+    Math.min(nodeGraphMidiKeyboardMaxOctave, Math.round(nodeGraphFiniteNumber(value))),
   );
 }
 
 function nodeGraphMidiKeyboardShiftMidi(rawMidi, octave = nodeGraphMidiKeyboardOctaveOffset()) {
-  return Math.max(0, Math.min(127, Math.round(Number(rawMidi) || 0) + octave * 12));
+  return Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(rawMidi)) + octave * 12));
 }
 
 function nodeGraphMidiKeyboardOctaveLabel(value = nodeGraphMidiKeyboardOctaveOffset()) {
@@ -3069,13 +3069,13 @@ function nodeGraphMidiKeyboardRawMidiFromSignal(signal) {
     return Math.round(Number(signal.rawMidi));
   }
   const signalOctave = nodeGraphMidiKeyboardOctaveOffset(signal?.octave);
-  return Math.round(Number(signal?.midi) || 60) - signalOctave * 12;
+  return Math.round(nodeGraphFiniteNumber(signal?.midi, 60)) - signalOctave * 12;
 }
 
 function renderNodeGraphMidiKeyboardKeyLabels() {
   const octave = nodeGraphMidiKeyboardOctaveOffset();
   document.querySelectorAll(".node-midi-keyboard-module [data-midi]").forEach((key) => {
-    const rawMidi = Math.round(Number(key.dataset.midi) || 0);
+    const rawMidi = Math.round(nodeGraphFiniteNumber(key.dataset.midi));
     const sounding = nodeGraphMidiKeyboardShiftMidi(rawMidi, octave);
     key.textContent = nodeGraphMidiKeyboardKeyCapText(sounding);
     key.setAttribute("aria-label", `${nodeGraphMidiKeyboardPitchLabel(sounding)} / MIDI ${sounding}`);
@@ -3087,7 +3087,7 @@ function nodeGraphMidiKeyboardSignalFromRaw(rawMidi, options = {}) {
   const midi = nodeGraphMidiKeyboardShiftMidi(rawMidi, octave);
   const rawKeyIndex = Math.max(
     0,
-    Math.min(nodeGraphMidiKeyboardKeyCount() - 1, Math.round(Number(rawMidi) || 0) - nodeGraphMidiKeyboardStartMidi),
+    Math.min(nodeGraphMidiKeyboardKeyCount() - 1, Math.round(nodeGraphFiniteNumber(rawMidi)) - nodeGraphMidiKeyboardStartMidi),
   );
   const keyQuantized = nodeGraphMidiKeyboardKeyCount() > 1 ? rawKeyIndex / (nodeGraphMidiKeyboardKeyCount() - 1) : 0;
   const frequency = 440 * 2 ** ((midi - 69) / 12);
@@ -3100,7 +3100,7 @@ function nodeGraphMidiKeyboardSignalFromRaw(rawMidi, options = {}) {
     velocity: nodeGraphMidiKeyboardClamp01(options.velocity ?? 0),
     keyIndex: rawKeyIndex,
     keyQuantized,
-    rawMidi: Math.round(Number(rawMidi) || 0),
+    rawMidi: Math.round(nodeGraphFiniteNumber(rawMidi)),
     octave,
     midi,
     pitchValue: midi,
@@ -3200,8 +3200,8 @@ function updateNodeGraphMidiKeyboardPointerPosition(event, surface) {
 }
 
 function nodeGraphMidiKeyboardSignalFromMidi(midiValue, velocityValue = 0, gateValue = 0, pulseValue = 0) {
-  const rawMidi = Math.max(0, Math.min(127, Math.round(Number(midiValue) || 0)));
-  const velocity = Math.max(0, Math.min(127, Math.round(Number(velocityValue) || 0)));
+  const rawMidi = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(midiValue))));
+  const velocity = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(velocityValue))));
   const prev = nodeGraphMvp.midiKeyboardSignal;
   return nodeGraphMidiKeyboardSignalFromRaw(rawMidi, {
     source: "midi",
@@ -3234,7 +3234,7 @@ function clearNodeGraphMidiKeyboardPointerHold(status = "") {
 }
 
 function nodeGraphMidiKeyboardFixedText(text, width) {
-  return String(text ?? "").padStart(Math.max(0, Number(width) || 0), " ");
+  return String(text ?? "").padStart(Math.max(0, nodeGraphFiniteNumber(width)), " ");
 }
 
 function nodeGraphMidiKeyboardFixedInteger(value, width, fallback = "-") {
@@ -3306,7 +3306,7 @@ function renderNodeGraphMidiKeyboardSignal(signal = null) {
     nextSignal.gatePulse = Number(nextSignal.gatePulse) > 0 || (gate > 0 && previousGate <= 0) ? 1 : 0;
     nodeGraphMvp.midiKeyboardPreviousGate = gate;
     if (nextSignal.gatePulse > 0) {
-      nodeGraphMvp.midiKeyboardPulseSerial = (Number(nodeGraphMvp.midiKeyboardPulseSerial) || 0) + 1;
+      nodeGraphMvp.midiKeyboardPulseSerial = (nodeGraphFiniteNumber(nodeGraphMvp.midiKeyboardPulseSerial)) + 1;
     }
   } else {
     nodeGraphMvp.midiKeyboardPreviousGate = 0;

@@ -1,5 +1,5 @@
 NodeLiveAudioProcessor.prototype.b2uSample = function b2uSample(input) {
-  const x = Number(input) || 0;
+  const x = nodeGraphFiniteNumber(input);
   if (this.nativeB2uReady && this.nativeB2u?.soemdsp_b2u_sample) {
     try {
       return this.safeFilterNumber(this.nativeB2u.soemdsp_b2u_sample(x), null);

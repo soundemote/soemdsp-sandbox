@@ -83,19 +83,19 @@ function nodeGraphPolyBlepMainVectorSample(runtime, nodeId, phase, phaseIncremen
   const morphVal = Number(morph);
   wasm.soemdsp_polyblep_sample(
     handle,
-    Number(phase) || 0,
-    Number(phaseIncrement) || 0,
-    Math.round(Number(waveform) || 0),
-    Number(level) || 0,
+    nodeGraphFiniteNumber(phase),
+    nodeGraphFiniteNumber(phaseIncrement),
+    Math.round(nodeGraphFiniteNumber(waveform)),
+    nodeGraphFiniteNumber(level),
     Number.isFinite(morphVal) ? morphVal : 0.5,
   );
   return {
-    out: Number(wasm.soemdsp_polyblep_out(handle)) || 0,
-    saw: Number(wasm.soemdsp_polyblep_saw(handle)) || 0,
-    ramp: Number(wasm.soemdsp_polyblep_ramp(handle)) || 0,
-    square: Number(wasm.soemdsp_polyblep_square(handle)) || 0,
-    tri: Number(wasm.soemdsp_polyblep_tri(handle)) || 0,
-    sine: Number(wasm.soemdsp_polyblep_sine(handle)) || 0,
+    out: nodeGraphFiniteNumber(wasm.soemdsp_polyblep_out(handle)),
+    saw: nodeGraphFiniteNumber(wasm.soemdsp_polyblep_saw(handle)),
+    ramp: nodeGraphFiniteNumber(wasm.soemdsp_polyblep_ramp(handle)),
+    square: nodeGraphFiniteNumber(wasm.soemdsp_polyblep_square(handle)),
+    tri: nodeGraphFiniteNumber(wasm.soemdsp_polyblep_tri(handle)),
+    sine: nodeGraphFiniteNumber(wasm.soemdsp_polyblep_sine(handle)),
   };
 }
 
@@ -115,18 +115,18 @@ function nodeGraphBlitMainVectorSample(runtime, nodeId, phase, phaseIncrement, w
   if (resetEdge) wasm.soemdsp_blit_reset?.(handle);
   wasm.soemdsp_blit_sample(
     handle,
-    Number(phase) || 0,
-    Number(phaseIncrement) || 0,
-    Math.round(Number(waveform) || 0),
-    Number(level) || 0,
+    nodeGraphFiniteNumber(phase),
+    nodeGraphFiniteNumber(phaseIncrement),
+    Math.round(nodeGraphFiniteNumber(waveform)),
+    nodeGraphFiniteNumber(level),
   );
   return {
-    out: Number(wasm.soemdsp_blit_out(handle)) || 0,
-    saw: Number(wasm.soemdsp_blit_saw(handle)) || 0,
-    ramp: Number(wasm.soemdsp_blit_ramp(handle)) || 0,
-    square: Number(wasm.soemdsp_blit_square(handle)) || 0,
-    tri: Number(wasm.soemdsp_blit_tri(handle)) || 0,
-    sine: Number(wasm.soemdsp_blit_sine(handle)) || 0,
+    out: nodeGraphFiniteNumber(wasm.soemdsp_blit_out(handle)),
+    saw: nodeGraphFiniteNumber(wasm.soemdsp_blit_saw(handle)),
+    ramp: nodeGraphFiniteNumber(wasm.soemdsp_blit_ramp(handle)),
+    square: nodeGraphFiniteNumber(wasm.soemdsp_blit_square(handle)),
+    tri: nodeGraphFiniteNumber(wasm.soemdsp_blit_tri(handle)),
+    sine: nodeGraphFiniteNumber(wasm.soemdsp_blit_sine(handle)),
   };
 }
 
@@ -146,9 +146,9 @@ function nodeGraphBasicOscMainSample(runtime, tapId, phase, phaseIncrement, wave
   if (!handle) return 0;
   const out = wasm.soemdsp_basic_oscillator_sample(
     handle,
-    Number(phase) || 0,
-    Number(phaseIncrement) || 0,
-    Math.round(Number(waveform) || 0),
+    nodeGraphFiniteNumber(phase),
+    nodeGraphFiniteNumber(phaseIncrement),
+    Math.round(nodeGraphFiniteNumber(waveform)),
   );
   return Number.isFinite(out) ? out : 0;
 }

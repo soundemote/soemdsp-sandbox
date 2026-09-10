@@ -15,13 +15,13 @@ function createNodeGraphTriggerDividerState() {
  * @returns {number} pulse level or 0
  */
 function nodeGraphTriggerDividerCore(state, trigger, reset, params, sampleRate) {
-  const safeTrigger = Number(trigger) || 0;
-  const safeReset = Number(reset) || 0;
-  const threshold = Number(params?.threshold) || 0;
+  const safeTrigger = nodeGraphFiniteNumber(trigger);
+  const safeReset = nodeGraphFiniteNumber(reset);
+  const threshold = nodeGraphFiniteNumber(params?.threshold);
   const division = Math.max(1, Math.min(64, Math.round(nodeGraphFiniteNumber(params?.division, 1))));
-  const pulseTime = Math.max(0, Number(params?.pulseTime) || 0);
-  const level = Number(params?.level) || 0;
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const pulseTime = Math.max(0, nodeGraphFiniteNumber(params?.pulseTime));
+  const level = nodeGraphFiniteNumber(params?.level);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
 
   if (state.lastReset <= threshold && safeReset > threshold) {
     state.count = 0;

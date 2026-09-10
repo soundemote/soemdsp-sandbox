@@ -212,7 +212,7 @@ function syncNodeGraphConstraintOverlayToggles(options = {}) {
 }
 
 function formatNodeGraphConstraintMetricNumber(value, digits = 4) {
-  const number = Math.max(0, Math.floor(Number(value) || 0));
+  const number = Math.max(0, Math.floor(nodeGraphFiniteNumber(value)));
   return String(Math.min(number, (10 ** digits) - 1)).padStart(digits, "0");
 }
 
@@ -244,10 +244,10 @@ function syncNodeGraphCpuConstraintMetrics() {
     return;
   }
   const metrics = nodeGraphMvp.constraintResourceMetrics || {};
-  const frameRate = Number(metrics.mainFrameRate) || 0;
+  const frameRate = nodeGraphFiniteNumber(metrics.mainFrameRate);
   const busyPct = frameRate > 0
     ? Math.min(100, Math.max(0, Math.round((1 - Math.min(frameRate, 60) / 60) * 100)))
-    : Math.min(100, Math.max(0, Math.round((Number(metrics.mainThreadLagMs) || 0) / 10)));
+    : Math.min(100, Math.max(0, Math.round((nodeGraphFiniteNumber(metrics.mainThreadLagMs)) / 10)));
   // DSP load: worklet block wall time / quantum budget.
   // If the timer never advances inside process(), show upper-bound + module count
   // — do NOT imply the patch is free / 100× headroom.
@@ -255,9 +255,9 @@ function syncNodeGraphCpuConstraintMetrics() {
   const audioMsRaw = Number(metrics.audioBlockMs);
   const audioPct = Number.isFinite(audioPctRaw) ? Math.max(0, audioPctRaw) : null;
   const timedOutFlag = Boolean(metrics.audioMeterTimedOut);
-  const moduleCount = Math.max(0, Math.floor(Number(metrics.audioModuleCount) || 0));
-  const estimatedPct = Math.max(0, Number(metrics.audioEstimatedPct) || 0);
-  const overruns = Math.max(0, Math.floor(Number(metrics.audioOverrunCount) || 0));
+  const moduleCount = Math.max(0, Math.floor(nodeGraphFiniteNumber(metrics.audioModuleCount)));
+  const estimatedPct = Math.max(0, nodeGraphFiniteNumber(metrics.audioEstimatedPct));
+  const overruns = Math.max(0, Math.floor(nodeGraphFiniteNumber(metrics.audioOverrunCount)));
   // UI-side belt-and-suspenders: a displayed 0.0% 0ms is the timer floor.
   const belowTimerFloor = timedOutFlag
     || (audioPct !== null && audioPct < 0.05 && !(audioMsRaw > 0));

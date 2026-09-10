@@ -85,8 +85,8 @@ function nodeGraphEqFilterSetupCore(state, omega, r, aL, aB, aH, gScale) {
   const w = Number.isFinite(rawW)
     ? Math.max(0, Math.min(Math.PI * 0.999, rawW))
     : 0;
-  const safeR = Math.max(1e-9, Number(r) || 1e-9);
-  const g = Math.tan(0.5 * w) * (Number(gScale) || 1);
+  const safeR = Math.max(1e-9, nodeGraphFiniteNumber(r, 1e-9));
+  const g = Math.tan(0.5 * w) * (nodeGraphFiniteNumber(gScale, 1));
   const c = g + safeR;
   const denom = 1 + g * c;
   state.g = g;
@@ -103,8 +103,8 @@ function nodeGraphEqFilterSetupCore(state, omega, r, aL, aB, aH, gScale) {
  */
 function nodeGraphEqFilterSetup(state, mode, omega, q, linearA) {
   const safeMode = Math.round(nodeGraphEqFilterClamp(mode, 0, 9));
-  const Q = Math.max(1e-4, Number(q) || 0.707);
-  const A = Math.max(1e-6, Number(linearA) || 1);
+  const Q = Math.max(1e-4, nodeGraphFiniteNumber(q, 0.707));
+  const A = Math.max(1e-6, nodeGraphFiniteNumber(linearA, 1));
 
   if (safeMode === 0) {
     nodeGraphEqFilterSetupBypass(state);
@@ -166,15 +166,15 @@ function nodeGraphEqFilterSetup(state, mode, omega, q, linearA) {
 }
 
 function nodeGraphEqFilterEnsureSetup(state, mode, frequency, q, gainDb, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const safeMode = Math.round(nodeGraphEqFilterClamp(mode, 0, 9));
   // Param may be 0 (frozen). Only non-negative + Nyquist — no musical floor.
   const rawFreq = Number(frequency);
   const freq = Math.max(0, Math.min(rate * 0.49, Number.isFinite(rawFreq) ? rawFreq : 0));
   const omega = (2 * Math.PI * freq) / rate;
-  const safeQ = Math.max(0.05, Number(q) || 0.707);
+  const safeQ = Math.max(0.05, nodeGraphFiniteNumber(q, 0.707));
   // Robin / RBJ: A = 10^(dB/40) for shelf and bell (amplitude = sqrt of power gain).
-  const A = Math.pow(10, 0.025 * (Number(gainDb) || 0));
+  const A = Math.pow(10, 0.025 * (nodeGraphFiniteNumber(gainDb)));
 
   if (
     state.lastMode === safeMode
@@ -196,7 +196,7 @@ function nodeGraphEqFilterEnsureSetup(state, mode, frequency, q, gainDb, sampleR
  * @param {ReturnType<typeof createNodeGraphEqFilterState>} state
  */
 function nodeGraphEqFilterSample(state, input, mode, frequency, q, gainDb, sampleRate) {
-  const x = Number(input) || 0;
+  const x = nodeGraphFiniteNumber(input);
   const safeMode = Math.round(nodeGraphEqFilterClamp(mode, 0, 9));
   if (safeMode === 0) {
     return x;
@@ -266,8 +266,8 @@ function nodeGraphEqFilterMagnitudeAt(mode, frequency, q, gainDb, probeHz, sampl
   const scratch = createNodeGraphEqFilterState();
   nodeGraphEqFilterEnsureSetup(scratch, safeMode, frequency, q, gainDb, sampleRate);
   const coeff = nodeGraphEqFilterBiquadFromState(scratch);
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const w = (2 * Math.PI * Math.max(0, Number(probeHz) || 0)) / rate;
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const w = (2 * Math.PI * Math.max(0, nodeGraphFiniteNumber(probeHz))) / rate;
   const cos1 = Math.cos(w);
   const cos2 = Math.cos(2 * w);
   const sin1 = Math.sin(w);

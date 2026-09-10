@@ -23,7 +23,7 @@ function nodeGraphSinepulseResolveRateHz(
     : 0.4;
   const hasPitch = typeof hasInput === "function" ? hasInput(nodeId, "0.1V/Oct") : false;
   const pitchCv = hasPitch
-    ? Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0))
+    ? nodeGraphFiniteNumber(mixInput(nodeId, "0.1V/Oct"))
     : referenceVoltage;
   if (typeof nodeGraphParamResolveOscPitchHz === "function") {
     return nodeGraphParamResolveOscPitchHz({baseHz: rate,
@@ -52,7 +52,7 @@ function nodeGraphSinepulseReadFreqCurve(runtime, node, frame, frames, frameValu
 function nodeGraphSinepulseSafePorts(out, runtime, nodeId) {
   const safe = (v) => (typeof nodeGraphSafeFilterNumber === "function"
     ? nodeGraphSafeFilterNumber(v, runtime, nodeId, null, "sinepulse")
-    : (Number(v) || 0));
+    : (nodeGraphFiniteNumber(v)));
   if (out && typeof out === "object") {
     return {
       Out: safe(out.Out),
@@ -108,9 +108,9 @@ nodeGraphLiveModuleEvaluators.sinepulse = ({
   const hardReset = Math.round(
     readNodeGraphLiveEffectiveParam(runtime, node, "hardReset", 1, frame, frames, frameValues),
   );
-  const increment = Number(mixInput(nodeId, "Increment")) || 0;
+  const increment = nodeGraphFiniteNumber(mixInput(nodeId, "Increment"));
   const resetGate = mixInput(nodeId, "Reset");
-  const sr = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
 
   const out = nodeGraphSinepulseSample(
     state,

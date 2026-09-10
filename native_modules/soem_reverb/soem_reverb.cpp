@@ -22,7 +22,6 @@ using namespace soemdsp_maths;
 constexpr int kMaxInstances = 1;
 constexpr int kMaxDelays = 12;
 constexpr int kMaxDelaySamples = 48000; // 1 s @ 48 kHz
-constexpr double kMaxDelaySeconds = 1.0;
 // Per instance: L delays + R delays + echo L + echo R
 constexpr int kLinesPerInstance = kMaxDelays * 2 + 2;
 
@@ -498,7 +497,7 @@ static void configureLineLfo(ModulatedDelay& d, SoEmReverbState& s, double lfoAm
 }
 
 static void applyLfoIncs(SoEmReverbState& s) {
-  double f = clamp(s.lfoFrequency, 0.1, 90.0);
+  double f = safe(s.lfoFrequency);
   double baseInc = f / maxd(1.0, s.sampleRate);
   for (int i = 0; i < s.numDelays; i++) {
     s.delaysL[i].feedback = s.diffusionAmount;
@@ -539,7 +538,7 @@ static void applyEchoTime(SoEmReverbState& s) {
 
 static void reseedDiffusion(SoEmReverbState& s) {
   s.rng = (unsigned int)(s.seed + 1) * 2654435761u;
-  double f = clamp(s.lfoFrequency, 0.1, 90.0);
+  double f = safe(s.lfoFrequency);
   for (int i = 0; i < kMaxDelays; i++) {
     s.delaysL[i].diffusionSizeRnd = rndU(s);
     s.delaysR[i].diffusionSizeRnd = s.delaysL[i].diffusionSizeRnd;
@@ -840,38 +839,38 @@ extern "C" void soemdsp_soem_reverb_set_params(
     return d < 1e-12 && d > -1e-12;
   };
 
-  // Live Wire-style params: assign only.
-  s.mix = clamp(mix, 0.0, 1.0);
-  s.volume = maxd(0.0, volume);
-  s.recycle = clamp(recycle, 0.0, 2.0);
+  // Live Wire-style params: assign only (paramMeta / host is SSOT — no product-range clamps).
+  s.mix = safe(mix);
+  s.volume = safe(volume);
+  s.recycle = safe(recycle);
   s.echoMode = (int)dsp_floor(echoMode + 0.5);
   s.pingPong = (int)dsp_floor(pingPong + 0.5) != 0 ? 1 : 0;
 
-  const double nextEchoTime = clamp(echoTime, 0.0001, kMaxDelaySeconds);
+  const double nextEchoTime = safe(echoTime);
   int nd = (int)dsp_floor(numDelays + 0.5);
   if (nd < 0) nd = 0;
   if (nd > kMaxDelays) nd = kMaxDelays;
-  const double nextDiffusionSize = clamp(diffusionSize, 0.0001, kMaxDelaySeconds);
-  const double nextDiffusionAmount = clamp(diffusionAmount, 0.0, 0.98);
+  const double nextDiffusionSize = safe(diffusionSize);
+  const double nextDiffusionAmount = safe(diffusionAmount);
   const int nextSeed = (int)dsp_floor(seed + 0.5);
-  const double nextLfoAmp = clamp(lfoAmp, 0.0, 0.5);
-  const double nextLfoFrequency = clamp(lfoFrequency, 0.1, 90.0);
-  const double nextLfoVariation = clamp(lfoVariation, 0.0, 10.0);
+  const double nextLfoAmp = safe(lfoAmp);
+  const double nextLfoFrequency = safe(lfoFrequency);
+  const double nextLfoVariation = safe(lfoVariation);
   int nextStyle = (int)dsp_floor(lfoStyle + 0.5);
   if (nextStyle < 0) nextStyle = 0;
   if (nextStyle > 2) nextStyle = 2;
   const int nextDoModulateEcho = (int)dsp_floor(doModulateEcho + 0.5) != 0 ? 1 : 0;
-  const double nextSaturate = maxd(0.01, saturate);
+  const double nextSaturate = maxd(0.01, safe(saturate));
   // Freq params: no product clamps — DSP floors 0 / caps Nyquist in coeff setters.
   const double nextLpfFrequency = maxd(0.0, safe(lpfFrequency));
   const double nextHpfFrequency = maxd(0.0, safe(hpfFrequency));
   const double nextBandFrequency = maxd(0.0, safe(bandFrequency));
-  const double nextBandDecibels = clamp(bandDecibels, -24.0, 24.0);
+  const double nextBandDecibels = safe(bandDecibels);
   const double nextBandQ = maxd(0.05, safe(bandQ));
   const int nextLpfStages = (int)clamp(dsp_floor(lpfStages + 0.5), 0.0, 5.0);
   const int nextBandStages = (int)clamp(dsp_floor(bandStages + 0.5), 0.0, 5.0);
-  const double nextDuckLimit = clamp(duckLimit, 0.01, 1.0);
-  const double nextDuckRelease = maxd(0.001, duckRelease);
+  const double nextDuckLimit = safe(duckLimit);
+  const double nextDuckRelease = maxd(0.001, safe(duckRelease));
 
   // Match soemdsp::delay::Reverb *Changed split (SoEmReverbModule wiring):
   // Live Wire (no *Changed): mix, volume, recycle, diffusionAmount, lfoAmp, echoMode, pingPong

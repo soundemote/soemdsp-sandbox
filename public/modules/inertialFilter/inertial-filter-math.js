@@ -25,7 +25,7 @@ function createNodeGraphStereoInertialFilterState() {
 
 /** One-pole mix from cutoff Hz. 0 → freeze; Nyquist+ → 1 (instant). */
 function nodeGraphInertialFilterCoeffFromHz(hz, sampleRate) {
-  const fs = Math.max(1, Number(sampleRate) || 44100);
+  const fs = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const f = Number(hz);
   if (!Number.isFinite(f) || f <= 0) {
     return 0;
@@ -47,7 +47,7 @@ function nodeGraphInertialFilterCoeffFromHz(hz, sampleRate) {
  * @param {number} release 0…1 mix when falling
  */
 function nodeGraphInertialFilterSample(state, input, attack, release) {
-  const target = Number(input) || 0;
+  const target = nodeGraphFiniteNumber(input);
   if (!state.initialized) {
     state.initialized = true;
     state.out = target;
@@ -55,7 +55,7 @@ function nodeGraphInertialFilterSample(state, input, attack, release) {
   }
   const a = Math.max(0, Math.min(1, Number(attack)));
   const r = Math.max(0, Math.min(1, Number(release)));
-  const cur = Number(state.out) || 0;
+  const cur = nodeGraphFiniteNumber(state.out);
   const delta = target - cur;
   const k = delta >= 0
     ? (Number.isFinite(a) ? a : 1)
@@ -80,7 +80,7 @@ function nodeGraphInertialFilterSampleHz(
   sampleRate,
   smoothAttack = 1,
 ) {
-  const attackOn = (Number(smoothAttack) || 0) >= 0.5;
+  const attackOn = (nodeGraphFiniteNumber(smoothAttack)) >= 0.5;
   return nodeGraphInertialFilterSample(
     state,
     input,

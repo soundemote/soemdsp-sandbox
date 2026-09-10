@@ -15,7 +15,7 @@ NodeLiveAudioProcessor.prototype.triggerDividerSample = function triggerDividerS
           state.nativeHandle = this.nativeTriggerDivider.soemdsp_trigger_divider_create();
         }
         if (state.nativeHandle) {
-          const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+          const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
           return this.safeFilterNumber(
             this.nativeTriggerDivider.soemdsp_trigger_divider_sample(
               state.nativeHandle,

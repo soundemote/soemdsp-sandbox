@@ -104,8 +104,8 @@ function nodeGraphZoomLabel() {
 }
 
 function nodeGraphRenderedPanValue(value, origin = 0) {
-  const number = Number(value) || 0;
-  const originNumber = Number(origin) || 0;
+  const number = nodeGraphFiniteNumber(value);
+  const originNumber = nodeGraphFiniteNumber(origin);
   const rendered = Math.round(originNumber + number) - originNumber;
   return Object.is(rendered, -0) ? 0 : rendered;
 }
@@ -129,10 +129,10 @@ function nodeGraphWorkspaceLayoutMetrics(container = document.getElementById("no
     borderLeft: Number.parseFloat(style?.borderLeftWidth) || 0,
     borderRight: Number.parseFloat(style?.borderRightWidth) || 0,
     borderTop: Number.parseFloat(style?.borderTopWidth) || 0,
-    height: Number(rect?.height) || 0,
-    left: Number(rect?.left) || 0,
-    top: Number(rect?.top) || 0,
-    width: Number(rect?.width) || 0,
+    height: nodeGraphFiniteNumber(rect?.height),
+    left: nodeGraphFiniteNumber(rect?.left),
+    top: nodeGraphFiniteNumber(rect?.top),
+    width: nodeGraphFiniteNumber(rect?.width),
   };
   if (gesturing && typeof nodeGraphMvp === "object" && nodeGraphMvp) {
     nodeGraphMvp._workspaceLayoutMetrics = metrics;
@@ -181,8 +181,8 @@ function rememberNodeGraphWorkspaceCameraBox(container = document.getElementById
 function nodeGraphWorkspaceChromePin() {
   const pin = typeof nodeGraphMvp === "object" ? nodeGraphMvp?.workspaceChromePin : null;
   return {
-    x: Number(pin?.x) || 0,
-    y: Number(pin?.y) || 0,
+    x: nodeGraphFiniteNumber(pin?.x),
+    y: nodeGraphFiniteNumber(pin?.y),
   };
 }
 
@@ -246,7 +246,7 @@ function nodeGraphSectionResizeAcceptPoint(event, lastPoint) {
     return null;
   }
   if (lastPoint) {
-    const span = Math.min(Number(window.innerWidth) || 800, Number(window.innerHeight) || 600);
+    const span = Math.min(nodeGraphFiniteNumber(window.innerWidth, 800), nodeGraphFiniteNumber(window.innerHeight, 600));
     const maxJump = Math.max(160, Math.round(span * 0.4));
     if (Math.abs(x - lastPoint.x) > maxJump || Math.abs(y - lastPoint.y) > maxJump) {
       return null;
@@ -259,8 +259,8 @@ function watchNodeGraphSectionResizeDrag(event, options = {}) {
   const handle = options.handle || event.currentTarget;
   const pointerId = event.pointerId;
   let lastPoint = nodeGraphSectionResizeAcceptPoint(event, null) || {
-    x: Number(event.clientX) || 0,
-    y: Number(event.clientY) || 0,
+    x: nodeGraphFiniteNumber(event.clientX),
+    y: nodeGraphFiniteNumber(event.clientY),
   };
   let finished = false;
   setNodeGraphChromeSectionResizing(true);
@@ -462,7 +462,7 @@ function nodeGraphGridBackgroundPhase(origin, cell) {
   if (!(period > 0) || !Number.isFinite(period)) {
     return 0;
   }
-  const value = Number(origin) || 0;
+  const value = nodeGraphFiniteNumber(origin);
   return ((value % period) + period) % period;
 }
 
@@ -547,10 +547,10 @@ function updateNodeGraphGridHeatmap(options = {}) {
     Math.min(1, nodeGraphWorkspaceFloatProperty(workspace, "--node-module-light-brightness", 1)),
   );
   const roomDim = typeof nodeGraphRoomDim === "function"
-    ? Math.max(0, Math.min(1, Number(nodeGraphRoomDim()) || 0))
+    ? Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphRoomDim())))
     : 0;
   const deep = typeof nodeGraphRoomDimDeep === "function"
-    ? Math.max(0, Math.min(1, Number(nodeGraphRoomDimDeep()) || 0))
+    ? Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphRoomDimDeep())))
     : (roomDim <= 0.5 ? 0 : Math.min(1, (roomDim - 0.5) * 2));
   const moduleAmt = Math.max(0, 1 - deep);
   const moduleBright = lightBright * moduleAmt;
@@ -559,8 +559,8 @@ function updateNodeGraphGridHeatmap(options = {}) {
       continue;
     }
     const bounds = nodeGraphNodeBounds(node);
-    const centerX = (bounds.left + (bounds.right - bounds.left) / 2) * zoom + (Number(origin.x) || 0);
-    const centerY = (bounds.top + (bounds.bottom - bounds.top) / 2) * zoom + (Number(origin.y) || 0);
+    const centerX = (bounds.left + (bounds.right - bounds.left) / 2) * zoom + (nodeGraphFiniteNumber(origin.x));
+    const centerY = (bounds.top + (bounds.bottom - bounds.top) / 2) * zoom + (nodeGraphFiniteNumber(origin.y));
     const baseX = Math.max(nodeGraphGridWidth() * 5, (bounds.right - bounds.left) * 1.18) * zoom;
     const baseY = Math.max(nodeGraphGridHeight() * 5, (bounds.bottom - bounds.top) * 1.35) * zoom;
     if (wantLight && moduleBright > 0) {
@@ -592,7 +592,7 @@ function updateNodeGraphGridHeatmap(options = {}) {
   // (the hole reveals it at design strength).
   if (mouseAmount > 0 && nodeGraphMvp?.dimmerCutoutMouseEnabled !== true
     && typeof nodeGraphRoomDim === "function") {
-    const roomDim = Math.max(0, Math.min(1, Number(nodeGraphRoomDim()) || 0));
+    const roomDim = Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphRoomDim())));
     if (roomDim > 0.0005) {
       mouseAmount *= Math.max(0, 1 - roomDim);
     }

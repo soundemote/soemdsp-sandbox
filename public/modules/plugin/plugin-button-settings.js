@@ -211,7 +211,7 @@ function nodeGraphPluginButtonMeasureScratch() {
 
 /** Size 0 = 1px. Size 1 = glyph box touching the inner button walls. */
 function nodeGraphPluginButtonFitFontPx(btn, family, textSize) {
-  const t = Math.max(0, Math.min(1, Number(textSize) || 0));
+  const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(textSize)));
   const minPx = 1;
   const text = String(btn?.textContent || "").replace(/\s+/g, " ").trim();
   const availW = Math.max(1, btn.clientWidth || 1);

@@ -76,7 +76,7 @@ function nodeGraphDelayInterpolate(buffer, where, interpolation = 0) {
   if (mode < 1) {
     return nodeGraphDelayInterpolateLinear(buffer, where);
   }
-  let w = Number(where) || 0;
+  let w = nodeGraphFiniteNumber(where);
   while (w < 0) w += length;
   const whole = Math.floor(w);
   const t = w - whole;
@@ -85,10 +85,10 @@ function nodeGraphDelayInterpolate(buffer, where, interpolation = 0) {
   const im1 = i0 === 0 ? length - 1 : i0 - 1;
   const i1 = i0 + 1 >= length ? i0 + 1 - length : i0 + 1;
   const i2 = i1 + 1 >= length ? i1 + 1 - length : i1 + 1;
-  const ym1 = Number(buffer[im1]) || 0;
-  const y0 = Number(buffer[i0]) || 0;
-  const y1 = Number(buffer[i1]) || 0;
-  const y2 = Number(buffer[i2]) || 0;
+  const ym1 = nodeGraphFiniteNumber(buffer[im1]);
+  const y0 = nodeGraphFiniteNumber(buffer[i0]);
+  const y1 = nodeGraphFiniteNumber(buffer[i1]);
+  const y2 = nodeGraphFiniteNumber(buffer[i2]);
   const c0 = y0;
   const c1 = 0.5 * (y1 - ym1);
   const c2 = ym1 - 2.5 * y0 + 2.0 * y1 - 0.5 * y2;
@@ -105,7 +105,7 @@ function createNodeGraphNoiseGeneratorChannelState() {
 }
 
 function nodeGraphOnePoleLowpassSample(state, input, frequency, sampleRate, runtime = null, nodeId = "") {
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100)));
   const safeInput = nodeGraphSafeFilterNumber(input, runtime, nodeId, state, "lowpass input");
   const frequencyValue = Math.max(0, nodeGraphSafeFilterNumber(frequency, runtime, nodeId, state, "lowpass frequency"));
   const w = Math.min((Math.PI * 2) / rate, 0.000142475857) * frequencyValue;
@@ -132,7 +132,7 @@ function nodeGraphLadderFilterStageCount(stages) {
 
 /** Face + DSP mix taps for ladder LP/HP/BP/notch stage counts. */
 function nodeGraphLadderFilterMix(mode, stages) {
-  const safeMode = Math.round(clampNodeSliderValue(Number(mode) || 0, 0, 3));
+  const safeMode = Math.round(clampNodeSliderValue(nodeGraphFiniteNumber(mode), 0, 3));
   const stageCount = nodeGraphLadderFilterStageCount(stages);
   const c = [0, 0, 0, 0, 0];
   let s = 1;

@@ -46,12 +46,12 @@ function nodeGraphHenonMapSample(options = {}) {
   wasm.soemdsp_henon_map_sample(
     state.nativeHandle,
     Number(options.reset) > 0 ? 1 : 0,
-    Math.max(0, Number(options.rate) || 0),
-    Math.max(0, Math.min(2, Number(options.a) || 0)),
-    Math.max(-1, Math.min(1, Number(options.b) || 0)),
-    Number(options.seedX) || 0,
-    Number(options.seedY) || 0,
-    Math.max(1, Number(options.sampleRate) || 44100),
+    Math.max(0, nodeGraphFiniteNumber(options.rate)),
+    Math.max(0, Math.min(2, nodeGraphFiniteNumber(options.a))),
+    nodeGraphFiniteNumber(options.b),
+    nodeGraphFiniteNumber(options.seedX),
+    nodeGraphFiniteNumber(options.seedY),
+    Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100)),
   );
   const x = wasm.soemdsp_henon_map_x(state.nativeHandle);
   const y = wasm.soemdsp_henon_map_y(state.nativeHandle);

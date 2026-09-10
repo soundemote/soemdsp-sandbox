@@ -190,15 +190,9 @@ function applyNodeGraphUnifiedWindowShellSize(element, size = {}) {
   const mins = nodeGraphUnifiedWindowMinSize;
   const rect = element?.hidden ? null : element.getBoundingClientRect?.();
   const merged = {
-    width: Number(size.width)
-      || Number(nodeGraphMvp?.unifiedWindowSize?.width)
-      || Number(rect?.width)
-      || defaults.width
+    width: nodeGraphFiniteNumber(size.width, nodeGraphFiniteNumber(nodeGraphMvp?.unifiedWindowSize?.width, nodeGraphFiniteNumber(rect?.width, defaults.width)))
       || mins.minWidth,
-    height: Number(size.height)
-      || Number(nodeGraphMvp?.unifiedWindowSize?.height)
-      || Number(rect?.height)
-      || defaults.height
+    height: nodeGraphFiniteNumber(size.height, nodeGraphFiniteNumber(nodeGraphMvp?.unifiedWindowSize?.height, nodeGraphFiniteNumber(rect?.height, defaults.height)))
       || mins.minHeight,
   };
   const normalized = typeof normalizeNodeGraphFloatingWindowSize === "function"
@@ -811,10 +805,10 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
       case "commandCenter": {
         const x = Number.isFinite(Number(seat?.left))
           ? Number(seat.left)
-          : (Number(options.x) || window.innerWidth / 2);
+          : (nodeGraphFiniteNumber(options.x, window.innerWidth) / 2);
         const y = Number.isFinite(Number(seat?.top))
           ? Number(seat.top)
-          : (Number(options.y) || window.innerHeight / 2);
+          : (nodeGraphFiniteNumber(options.y, window.innerHeight) / 2);
         if (typeof openNodeGraphCommandCenter === "function") {
           openNodeGraphCommandCenter(x, y);
         }
@@ -1083,7 +1077,7 @@ function nodeGraphCommandCenterDockWidthLimits() {
   let maxWidth = Math.max(minWidth, Math.round(row?.clientWidth || window.innerWidth || 800) - minWidth);
   if (typeof nodeGraphFloatingWindowAvailableBox === "function") {
     const available = nodeGraphFloatingWindowAvailableBox();
-    maxWidth = Math.max(minWidth, Math.round(Number(available.maxWidth) || maxWidth));
+    maxWidth = Math.max(minWidth, Math.round(nodeGraphFiniteNumber(available.maxWidth, maxWidth)));
   }
   return { min: minWidth, max: maxWidth };
 }

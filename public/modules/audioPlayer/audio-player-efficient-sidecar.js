@@ -12,7 +12,7 @@ NodeLiveAudioProcessor.prototype.processAudioPlayerEfficientSidecar = function p
   if (!output || !output[0] || !(frames > 0)) return;
   if (typeof this.audioPlayerSample !== "function") return;
 
-  const rate = Math.max(1, Number(this.engineSampleRate) || Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
   const outL = output[0];
   const outR = output[1] || output[0];
   const nFrames = Math.min(frames, outL.length | 0);
@@ -65,9 +65,9 @@ NodeLiveAudioProcessor.prototype.processAudioPlayerEfficientSidecar = function p
       const sample = frameOut[route.nodeId];
       if (!sample) continue;
       let v = 0;
-      if (route.src === "left") v = Number(sample.Left) || 0;
-      else if (route.src === "right") v = Number(sample.Right) || 0;
-      else v = Number(sample.Mono) || 0;
+      if (route.src === "left") v = nodeGraphFiniteNumber(sample.Left);
+      else if (route.src === "right") v = nodeGraphFiniteNumber(sample.Right);
+      else v = nodeGraphFiniteNumber(sample.Mono);
       if (route.dst === "left") outL[f] = (outL[f] || 0) + v;
       else if (route.dst === "right") outR[f] = (outR[f] || 0) + v;
       else {

@@ -65,24 +65,24 @@ function nodeGraphRoundShapeLivePlaying() {
 
 /** Unit-orbit cursor from live oscillator phase (same math as the stroke). */
 function nodeGraphRoundShapeLiveCursor(nodeId, node, section) {
-  const shape = Math.max(0, Math.min(1, Number(nodeGraphRoundShapeLiveParam(node, "morph", 0)) || 0));
+  const shape = Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphRoundShapeLiveParam(node, "morph", 0))));
   let phase = nodeGraphRoundShapeReadScopePort(nodeId, "__Phase");
   if (!Number.isFinite(phase) && typeof nodeGraphMvp !== "undefined") {
     const stored = nodeGraphMvp?.live?.runtime?.phases?.get?.(nodeId);
     if (Number.isFinite(Number(stored))) {
-      const offset = Number(nodeGraphRoundShapeLiveParam(node, "phase", 0)) || 0;
+      const offset = nodeGraphFiniteNumber(nodeGraphRoundShapeLiveParam(node, "phase", 0));
       phase = Number(stored) + offset;
     }
   }
   if (!Number.isFinite(phase) && nodeGraphRoundShapeLivePlaying()) {
     const now = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
-    const freq = Number(nodeGraphRoundShapeLiveParam(node, "frequency", 1)) || 0;
-    const offset = Number(nodeGraphRoundShapeLiveParam(node, "phase", 0)) || 0;
+    const freq = nodeGraphFiniteNumber(nodeGraphRoundShapeLiveParam(node, "frequency", 1));
+    const offset = nodeGraphFiniteNumber(nodeGraphRoundShapeLiveParam(node, "phase", 0));
     const speed = Number(nodeGraphMvp?.live?.speedMultiplier);
     const mul = Number.isFinite(speed) ? speed : 1;
     if (section && Number.isFinite(section._roundShapeClock)) {
       const dt = Math.max(0, Math.min(0.25, now - section._roundShapeClock));
-      let next = (Number(section._roundShapePhase) || 0) + freq * dt * mul;
+      let next = (nodeGraphFiniteNumber(section._roundShapePhase)) + freq * dt * mul;
       next -= Math.floor(next);
       section._roundShapePhase = next;
       section._roundShapeClock = now;
@@ -116,9 +116,9 @@ function nodeGraphRoundShapeFaceLook(node) {
     strokePaint: String(face.strokePaint || face.strokeColor || "rgba(120, 220, 200, 0.92)"),
     dotColor: String(face.dotColor || "#ffffff"),
     dotPaint: String(face.dotPaint || face.dotColor || "#ffffff"),
-    lineThickness: Math.max(0.25, Number(face.lineThickness) || 2),
-    dotThickness: Math.max(0.25, Number(face.dotThickness) || 5),
-    lineBlur: Math.max(0, Number(face.lineBlur) || 0),
+    lineThickness: Math.max(0.25, nodeGraphFiniteNumber(face.lineThickness, 2)),
+    dotThickness: Math.max(0.25, nodeGraphFiniteNumber(face.dotThickness, 5)),
+    lineBlur: Math.max(0, nodeGraphFiniteNumber(face.lineBlur)),
     pixelDensity: Number.isFinite(Number(face.pixelDensity)) ? Number(face.pixelDensity) : 1,
   };
 }
@@ -139,7 +139,7 @@ function drawNodeGraphRoundShapeDisplay(section) {
 }
 
 function nodeGraphRoundShapeEllipsoidOscPoint(phase01, node) {
-  const phase = (Number(phase01) || 0) * Math.PI * 2;
+  const phase = (nodeGraphFiniteNumber(phase01)) * Math.PI * 2;
   const params = {
     amplitude: nodeGraphRoundShapeLiveParam(node, "amplitude", 1),
     frequencyHz: 0,
@@ -210,13 +210,13 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
   const dotW = Number.isFinite(Number(look.dotThickness)) ? Number(look.dotThickness) : 5;
   const lineBlur = look.lineBlur;
   const pixelDensity = look.pixelDensity;
-  let rawW = Number(section.clientWidth || section.offsetWidth) || 0;
-  let rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+  let rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
+  let rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
   if (rawW < 8 || rawH < 8) {
     const stage = section.closest?.("#nodeScreenSoloStage") || section.parentElement;
     if (stage?.id === "nodeScreenSoloStage") {
-      const cols = Math.max(1, Number(stage.style.getPropertyValue("--node-screen-solo-cols")) || 1);
-      const rows = Math.max(1, Number(stage.style.getPropertyValue("--node-screen-solo-rows")) || 1);
+      const cols = Math.max(1, nodeGraphFiniteNumber(stage.style.getPropertyValue("--node-screen-solo-cols"), 1));
+      const rows = Math.max(1, nodeGraphFiniteNumber(stage.style.getPropertyValue("--node-screen-solo-rows"), 1));
       rawW = Math.max(rawW, Math.floor((stage.clientWidth || window.innerWidth || 0) / cols));
       rawH = Math.max(rawH, Math.floor((stage.clientHeight || window.innerHeight || 0) / rows));
     }
@@ -284,7 +284,7 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
     pixelRatio = metrics.pixelRatio || 1;
   } else {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const density = Math.max(0, Math.min(1, Number(pixelDensity) || 1));
+    const density = Math.max(0, Math.min(1, nodeGraphFiniteNumber(pixelDensity, 1)));
     pixelRatio = dpr * Math.max(density, 1e-6);
     width = Math.max(1, Math.floor(rawW));
     height = Math.max(1, Math.floor(rawH));

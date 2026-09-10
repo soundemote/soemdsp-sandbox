@@ -9,7 +9,7 @@ const NODE_GRAPH_T_SERIES_TYPES = Object.freeze([
 ]);
 
 function nodeGraphTSeriesType(lastIndex) {
-  const last = Math.max(0, Math.min(10, Math.round(Number(lastIndex) || 0)));
+  const last = Math.max(0, Math.min(10, Math.round(nodeGraphFiniteNumber(lastIndex))));
   return last === 0 ? "t" : `t${last}`;
 }
 
@@ -35,13 +35,13 @@ function nodeGraphTSeriesSample(options = {}) {
   const hasAnalog = Boolean(options.hasAnalog);
   const hasDigital = Boolean(options.hasDigital);
   const hasIn = Boolean(options.hasIn);
-  const unit = Math.max(0, Math.min(1, Number(options.analog) || 0));
+  const unit = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.analog)));
   const addr = unit * lastIndex;
-  const idx = Math.round(Number(options.digital) || 0);
+  const idx = Math.round(nodeGraphFiniteNumber(options.digital));
   const inRange = Number(idx >= 0) * Number(idx <= lastIndex);
   const lone = 1 + (unit - 1) * Number(lastIndex === 0);
   const carrier = hasIn
-    ? (Number(options.input) || 0)
+    ? (nodeGraphFiniteNumber(options.input))
     : Number(hasAnalog || hasDigital);
   const out = {};
   for (let i = 0; i < count; i += 1) {

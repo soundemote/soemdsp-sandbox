@@ -3,10 +3,10 @@
 // per-module code instead of the shared file.
 
 function nodeGraphYellowjacketFilterSample(state, input, params, sampleRate, runtime = null, nodeId = "") {
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
-  const freqNorm = Math.max(0, Math.min(1, Number(params.frequency) || 0));
-  const reso = Math.max(0, Math.min(1, Number(params.resonance) || 0));
-  const chaos = Math.max(0, Math.min(1, Number(params.chaos) || 0));
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100)));
+  const freqNorm = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.frequency)));
+  const reso = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.resonance)));
+  const chaos = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.chaos)));
 
   let maxPitch, resDropPoint;
   if (rate <= 44100) { maxPitch = 87.7; resDropPoint = 0.77; }

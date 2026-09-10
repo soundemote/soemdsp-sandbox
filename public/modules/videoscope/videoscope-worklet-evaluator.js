@@ -19,27 +19,27 @@ NodeLiveAudioProcessor.prototype.videoscopeExtractFreshSamples = function videos
   if (!buf?.buffer?.length) {
     return { newLastFrame: lastFrame, samples: null };
   }
-  const length = Math.min(Number(buf.length) || 0, buf.capacity || buf.buffer.length);
-  const absoluteFrame = Math.max(0, Math.floor(Number(buf.absoluteFrame) || 0));
+  const length = Math.min(nodeGraphFiniteNumber(buf.length), buf.capacity || buf.buffer.length);
+  const absoluteFrame = Math.max(0, Math.floor(nodeGraphFiniteNumber(buf.absoluteFrame)));
   // Frame counter went backwards (buffer recreate / plan sync) — re-arm from now.
   if (lastFrame > absoluteFrame) {
     lastFrame = 0;
   }
   const freshCount = lastFrame > 0
     ? Math.max(0, absoluteFrame - lastFrame)
-    : Math.min(length, Math.ceil((Number(this.engineSampleRate) || sampleRate || 44100) / 30));
+    : Math.min(length, Math.ceil((nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100))) / 30));
   // Cap a single tick so UI stalls / zoom freezes don't dump a huge backlog
   // into the native ring (would thrash re-triggers and look like a wipe).
   const maxBurst = Math.min(
     length,
-    Math.max(512, Math.ceil((Number(this.engineSampleRate) || sampleRate || 44100) / 8)),
+    Math.max(512, Math.ceil((nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100))) / 8)),
   );
   const count = Math.min(length, freshCount, maxBurst);
   if (count <= 0) {
     return { newLastFrame: absoluteFrame, samples: null };
   }
   const ordered = new Float32Array(count);
-  const start = ((Number(buf.writeIndex) || 0) - count + buf.capacity) % buf.capacity;
+  const start = ((nodeGraphFiniteNumber(buf.writeIndex)) - count + buf.capacity) % buf.capacity;
   for (let index = 0; index < count; index += 1) {
     ordered[index] = buf.buffer[(start + index) % buf.capacity] || 0;
   }

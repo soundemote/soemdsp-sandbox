@@ -304,7 +304,7 @@ function validateNodeGraphPatch(patch) {
             && Object.hasOwn(rawParams, "amount")
             ? (typeof nodeGraphPhaseDisperseAmountToStages === "function"
               ? nodeGraphPhaseDisperseAmountToStages(rawParams.amount)
-              : 1 + Math.max(0, Math.min(1, Number(rawParams.amount) || 0)) * 63)
+              : 1 + Math.max(0, Math.min(1, nodeGraphFiniteNumber(rawParams.amount))) * 63)
             : ((parameter.key === "upShape" || parameter.key === "downShape")
               && type === "slewLimiter"
               && Object.hasOwn(rawParams, "shape")
@@ -357,7 +357,7 @@ function validateNodeGraphPatch(patch) {
         && (parameter.key === "width" || parameter.key === "height")
         && Object.hasOwn(rawParams, "squares")
       ) {
-        const squares = Number(rawParams.squares) || 0;
+        const squares = nodeGraphFiniteNumber(rawParams.squares);
         const offset = Number(value);
         value = Math.max(0, Math.round((Number.isFinite(offset) ? offset : 0) + squares));
       }
@@ -959,7 +959,7 @@ function nodeGraphPatchErrorLineNumber(sourceText, error) {
 
   const posMatch = msg.match(/position\s+(\d+)/i);
   if (posMatch) {
-    const pos = Math.max(0, Number(posMatch[1]) || 0);
+    const pos = Math.max(0, nodeGraphFiniteNumber(posMatch[1]));
     let line = 1;
     const limit = Math.min(pos, source.length);
     for (let i = 0; i < limit; i += 1) {
@@ -972,7 +972,7 @@ function nodeGraphPatchErrorLineNumber(sourceText, error) {
 
   const lineMatch = msg.match(/\bline\s+(\d+)\b/i);
   if (lineMatch) {
-    return Math.max(1, Number(lineMatch[1]) || 1);
+    return Math.max(1, nodeGraphFiniteNumber(lineMatch[1], 1));
   }
 
   // Validation messages often name a type or id — land on that line of JSON.

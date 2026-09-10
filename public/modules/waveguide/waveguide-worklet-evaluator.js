@@ -12,5 +12,5 @@ NodeLiveAudioProcessor.prototype.waveguideSample = function waveguideSample(stat
     return this.safeFilterNumber(nodeGraphWaveguideSample(state, input, amplitude), null);
   }
   const amp = Number.isFinite(Number(amplitude)) ? Number(amplitude) : 1;
-  return this.safeFilterNumber((Number(input) || 0) * amp, null);
+  return this.safeFilterNumber((nodeGraphFiniteNumber(input)) * amp, null);
 };

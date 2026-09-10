@@ -21,5 +21,5 @@ NodeLiveAudioProcessor.prototype.phaseDisperseSample = function phaseDisperseSam
       null,
     );
   }
-  return this.safeFilterNumber(Number(input) || 0, null);
+  return this.safeFilterNumber(nodeGraphFiniteNumber(input), null);
 };

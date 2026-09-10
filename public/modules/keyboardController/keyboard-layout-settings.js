@@ -80,11 +80,11 @@ function applyNodeGraphMidiKeyboardLayout(settings = null) {
 
 /** Black keys must leave a white-key front lip — never meet the bottom wall. */
 function nodeGraphMidiKeyboardBlackKeyHeightPx(surfaceHeight, blackHeightPercent) {
-  const h = Math.max(0, Number(surfaceHeight) || 0);
+  const h = Math.max(0, nodeGraphFiniteNumber(surfaceHeight));
   if (h <= 0) {
     return 0;
   }
-  const pct = Math.max(28, Math.min(82, Number(blackHeightPercent) || 62));
+  const pct = Math.max(28, Math.min(82, nodeGraphFiniteNumber(blackHeightPercent, 62)));
   const lip = Math.max(12, Math.round(h * 0.24));
   const desired = h * (pct / 100);
   return Math.max(6, Math.min(desired, h - lip));

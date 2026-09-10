@@ -71,7 +71,7 @@ function nodeGraphSinepulseSetPeriodU(state, voice, aaMode, uIn) {
     aaMode === NODE_GRAPH_SINEPULSE_AA_FINE
     || aaMode === NODE_GRAPH_SINEPULSE_AA_NOISE_HALF
   ) {
-    let halfLen = Number(voice.halfLen) || 0;
+    let halfLen = nodeGraphFiniteNumber(voice.halfLen);
     if (!(halfLen >= 4)) halfLen = 200;
     // Snap to even half-count (each audio sample steps +2).
     let halfCount = Math.round((u * halfLen) / 2) * 2;
@@ -91,7 +91,7 @@ function nodeGraphSinepulseSetPeriodU(state, voice, aaMode, uIn) {
     || aaMode === NODE_GRAPH_SINEPULSE_AA_ADAPTIVE
     || aaMode === NODE_GRAPH_SINEPULSE_AA_NOISE_BLEND
   ) {
-    let lenNow = Number(voice.lenNow) || 0;
+    let lenNow = nodeGraphFiniteNumber(voice.lenNow);
     if (!(lenNow >= 2)) lenNow = 100;
     const slope = 1 / Math.max(1, lenNow - 1);
     voice.phaseSlope = slope;
@@ -187,8 +187,8 @@ function nodeGraphSinepulseUpdateRateCycleLength(voice) {
  * patterned PM is pushed upward (less “tick-tick” at moderate Rates).
  */
 function nodeGraphSinepulseUpdateRateCycleLengthShaped(voice, meanC) {
-  const c = Math.max(2, Number(meanC) || 2);
-  let err = Number(voice.shapeErr) || 0;
+  const c = Math.max(2, nodeGraphFiniteNumber(meanC, 2));
+  let err = nodeGraphFiniteNumber(voice.shapeErr);
   if (!Number.isFinite(err)) err = 0;
   // Soft-clip residual so a bad start can't walk length forever.
   if (err > 4) err = 4;
@@ -222,9 +222,9 @@ function nodeGraphSinepulseUpdateRateHalfCycleLength(voice) {
 
 /** Continuous fractional Rate advance (Off / Soft Edge / Adaptive continuous side). */
 function nodeGraphSinepulseAdvanceContinuous(state, toothHz, sampleRate) {
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const th = Math.max(0, Number(toothHz) || 0);
-  let tooth = Number(state.tooth) || 0;
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const th = Math.max(0, nodeGraphFiniteNumber(toothHz));
+  let tooth = nodeGraphFiniteNumber(state.tooth);
   if (!Number.isFinite(tooth)) tooth = 0;
   let wrapped = false;
   if (th > 0) {
@@ -248,8 +248,8 @@ function nodeGraphSinepulseAdvanceIntegerLocked(voice, toothHz, sampleRate, shap
   if (!voice || typeof voice !== "object") {
     return { u: 0, wrapped: false };
   }
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const th = Math.max(0, Number(toothHz) || 0);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const th = Math.max(0, nodeGraphFiniteNumber(toothHz));
 
   if (!(voice.lenNow >= 2) || !Number.isFinite(voice.phaseSlope) || !(voice.phaseSlope > 0)) {
     if (shaped) {
@@ -259,9 +259,9 @@ function nodeGraphSinepulseAdvanceIntegerLocked(voice, toothHz, sampleRate, shap
     }
   }
 
-  let sampleCount = Number(voice.sampleCount) || 0;
+  let sampleCount = nodeGraphFiniteNumber(voice.sampleCount);
   if (!Number.isFinite(sampleCount) || sampleCount < 0) sampleCount = 0;
-  let u = sampleCount * (Number(voice.phaseSlope) || 0);
+  let u = sampleCount * (nodeGraphFiniteNumber(voice.phaseSlope));
   if (!Number.isFinite(u)) u = 0;
   u = Math.max(0, Math.min(1, u));
 
@@ -290,7 +290,7 @@ function nodeGraphSinepulseAdvanceIntegerLocked(voice, toothHz, sampleRate, shap
     wrapped = true;
   }
   voice.sampleCount = sampleCount;
-  u = (Number(voice.phaseSlope) || 0) * sampleCount;
+  u = (nodeGraphFiniteNumber(voice.phaseSlope)) * sampleCount;
   if (!Number.isFinite(u)) u = 0;
   return { u: Math.max(0, Math.min(1, u)), wrapped };
 }
@@ -303,12 +303,12 @@ function nodeGraphSinepulseAdvanceHalfSample(voice, toothHz, sampleRate) {
   if (!voice || typeof voice !== "object") {
     return { u: 0, wrapped: false };
   }
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const th = Math.max(0, Number(toothHz) || 0);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const th = Math.max(0, nodeGraphFiniteNumber(toothHz));
 
-  let halfCount = Number(voice.halfCount) || 0;
+  let halfCount = nodeGraphFiniteNumber(voice.halfCount);
   if (!Number.isFinite(halfCount) || halfCount < 0) halfCount = 0;
-  let halfLen = Number(voice.halfLen) || 0;
+  let halfLen = nodeGraphFiniteNumber(voice.halfLen);
   if (!(halfLen >= 4)) {
     halfLen = 200;
     voice.halfLen = halfLen;
@@ -352,8 +352,8 @@ function nodeGraphSinepulseAdvanceHalfSample(voice, toothHz, sampleRate) {
  * Blend thresholds (samples): ≤12 → always continuous; ≥64 → always Noise.
  */
 function nodeGraphSinepulseAdvanceNoiseBlend(state, voice, toothHz, sampleRate) {
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const th = Math.max(0, Number(toothHz) || 0);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const th = Math.max(0, nodeGraphFiniteNumber(toothHz));
   if (!(th > 0)) {
     return nodeGraphSinepulseAdvanceContinuous(state, toothHz, sampleRate);
   }
@@ -486,7 +486,7 @@ function nodeGraphSinepulseEndpoints(frequencyHigh, frequencyLow) {
 
 /** Master period rate (chirps per second). */
 function nodeGraphSinepulseToothRateHz(frequencyHz) {
-  const f = Math.abs(Number(frequencyHz) || 0);
+  const f = Math.abs(nodeGraphFiniteNumber(frequencyHz));
   if (!(f > 0) || !Number.isFinite(f)) return 0;
   return Math.min(nodeGraphSinepulseMaxHz(), f);
 }
@@ -496,9 +496,9 @@ function nodeGraphSinepulseToothRateHz(frequencyHz) {
  * Sweep 0 → one sample; Sweep 1 → full period.
  */
 function nodeGraphSinepulseActiveFill(sweep, toothHz, sampleRate) {
-  const s = Math.max(0, Math.min(1, Number(sweep) || 0));
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const th = Math.max(0, Number(toothHz) || 0);
+  const s = Math.max(0, Math.min(1, nodeGraphFiniteNumber(sweep)));
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const th = Math.max(0, nodeGraphFiniteNumber(toothHz));
   const oneSampleU = th > 0 ? Math.min(1, th / sr) : 1 / sr;
   return oneSampleU + s * (1 - oneSampleU);
 }
@@ -508,10 +508,10 @@ function nodeGraphSinepulseActiveFill(sweep, toothHz, sampleRate) {
  *   −1 super-log … −0.5 log … 0 linear … +0.5 exp … +1 super-exp
  */
 function nodeGraphSinepulseBipolarCurve(u, curve) {
-  const t = Math.max(0, Math.min(1, Number(u) || 0));
+  const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(u)));
   let c = Number(curve);
   if (!Number.isFinite(c)) c = 0;
-  c = Math.max(-1, Math.min(1, c));
+  c = c;
 
   const abs = Math.abs(c);
   const expMix = Math.min(1, abs * 2);
@@ -533,14 +533,14 @@ function nodeGraphSinepulseBipolarCurve(u, curve) {
  * Result hard-capped to 20 kHz.
  */
 function nodeGraphSinepulseInstantHz(f0, f1, localT, freqCurve) {
-  let a = Math.max(1e-6, Number(f0) || 0);
-  let b = Math.max(1e-6, Number(f1) || 0);
+  let a = Math.max(1e-6, nodeGraphFiniteNumber(f0));
+  let b = Math.max(1e-6, nodeGraphFiniteNumber(f1));
   if (!(a > 0) || !Number.isFinite(a)) {
     return { f: 0, freqPos: 0 };
   }
   if (!(b > 0) || !Number.isFinite(b)) b = a;
 
-  const t = Math.max(0, Math.min(1, Number(localT) || 0));
+  const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(localT)));
   const { warped, expMix } = nodeGraphSinepulseBipolarCurve(t, freqCurve);
 
   const fLin = a + (b - a) * warped;
@@ -559,8 +559,8 @@ function nodeGraphSinepulseInstantHz(f0, f1, localT, freqCurve) {
  * Amplitude envelope 0..1 with bipolar AmpCurve.
  */
 function nodeGraphSinepulseActiveEnv(localT, direction, ampCurve) {
-  const t = Math.max(0, Math.min(1, Number(localT) || 0));
-  const up = Math.round(Number(direction) || 0) === 0;
+  const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(localT)));
+  const up = Math.round(nodeGraphFiniteNumber(direction)) === 0;
   const away = up ? 1 - t : t;
 
   const { warped, expMix } = nodeGraphSinepulseBipolarCurve(away, ampCurve);
@@ -607,17 +607,17 @@ function nodeGraphSinepulseSample(
   hardReset = 1,
 ) {
   if (!state || typeof state !== "object") return nodeGraphSinepulseSilentOut();
-  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   // Increment jack is cycles-per-sample → add to master Rate (Hz).
   let toothHz = nodeGraphSinepulseToothRateHz(frequencyHz);
-  const incHz = (Number(increment) || 0) * sr;
+  const incHz = (nodeGraphFiniteNumber(increment)) * sr;
   if (Number.isFinite(incHz) && incHz !== 0) {
     toothHz = nodeGraphSinepulseToothRateHz(toothHz + incHz);
   }
   let aaMode = Math.round(Number(antialias));
   if (!Number.isFinite(aaMode) || aaMode < 0) aaMode = NODE_GRAPH_SINEPULSE_AA_FINE;
   if (aaMode > NODE_GRAPH_SINEPULSE_AA_MAX) aaMode = NODE_GRAPH_SINEPULSE_AA_FINE;
-  const doHardReset = Math.round(Number(hardReset) || 0) !== 0;
+  const doHardReset = Math.round(nodeGraphFiniteNumber(hardReset)) !== 0;
   const useSoftEdge = aaMode === NODE_GRAPH_SINEPULSE_AA_SOFT_EDGE;
   const shifted = nodeGraphSinepulseApplyShift(
     frequencyHigh,
@@ -626,7 +626,7 @@ function nodeGraphSinepulseSample(
   );
   const { fTop, fBot } = nodeGraphSinepulseEndpoints(shifted.high, shifted.low);
 
-  const g = Number(resetGate) || 0;
+  const g = nodeGraphFiniteNumber(resetGate);
   const on = g > 0.5;
   if (on && !state.lastReset) {
     state.tooth = 0;
@@ -696,7 +696,7 @@ function nodeGraphSinepulseSample(
 
   // Direction flip: reflect active progress so f0/f1 swap keeps the same Hz
   // (linear path exact; continues modulation the other way without a pitch jump).
-  const dir = Math.round(Number(direction) || 0) !== 0 ? 1 : 0;
+  const dir = Math.round(nodeGraphFiniteNumber(direction)) !== 0 ? 1 : 0;
   const prevDir = Number(state.lastDirection);
   if ((prevDir === 0 || prevDir === 1) && dir !== prevDir && fill > 1e-12 && u < fill) {
     u = nodeGraphSinepulseSetPeriodU(state, voice, aaMode, fill - u);
@@ -706,14 +706,14 @@ function nodeGraphSinepulseSample(
   // Soft Edge: carry residual from previous sample (2nd half of edge correction).
   let blepCarry = 0;
   if (useSoftEdge) {
-    blepCarry = Number(state.blepMem) || 0;
+    blepCarry = nodeGraphFiniteNumber(state.blepMem);
     state.blepMem = 0;
   }
 
   if (u >= fill) {
     let ySilent = blepCarry;
     if (useSoftEdge && dt > 0) {
-      const prev = Number(state.prevOut) || 0;
+      const prev = nodeGraphFiniteNumber(state.prevOut);
       if (Math.abs(prev) > 1e-8 && u - fill < dt * 2) {
         ySilent = prev * 0.5 + blepCarry;
         state.blepMem = 0;
@@ -746,7 +746,7 @@ function nodeGraphSinepulseSample(
     state.phase -= Math.floor(state.phase);
   }
 
-  const ph = (Number(state.phase) || 0) + (Number(phaseOffset) || 0);
+  const ph = (nodeGraphFiniteNumber(state.phase)) + (nodeGraphFiniteNumber(phaseOffset));
   const amp = Number.isFinite(Number(amplitude)) ? Number(amplitude) : 1;
   const env = nodeGraphSinepulseActiveEnv(localT, dir, ampCurve);
   let y = Math.sin(ph * Math.PI * 2) * amp * env;
@@ -754,7 +754,7 @@ function nodeGraphSinepulseSample(
 
   // Soft Edge: PolyBLEP residual around tooth wrap / hard-reset edge.
   if (useSoftEdge && dt > 0 && toothHz > 0) {
-    const prev = Number(state.prevOut) || 0;
+    const prev = nodeGraphFiniteNumber(state.prevOut);
     let edgeH = 0;
     if (wrapped) {
       edgeH = y - prev;

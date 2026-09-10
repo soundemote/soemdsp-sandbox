@@ -14,7 +14,7 @@ NodeLiveAudioProcessor.prototype.aliasSineSample = function aliasSineSample(stat
               state.nativeHandle,
               this.safeFilterNumber(normFreq, state),
               this.safeFilterNumber(level, state),
-              Math.max(1, Number(rate) || sampleRate || 44100),
+              Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100))),
             ),
             state,
           );

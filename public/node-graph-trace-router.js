@@ -10,7 +10,7 @@
 // units -- the crisp-pixel alignment this was already trying to do, just
 // computed at the resolution it's actually meant for.
 function nodeGraphTracePoint(value) {
-  const number = Number(value) || 0;
+  const number = nodeGraphFiniteNumber(value);
   const zoom = typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1;
   const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
   const screen = number * safeZoom;

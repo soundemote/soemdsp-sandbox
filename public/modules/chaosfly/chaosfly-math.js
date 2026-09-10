@@ -6,8 +6,8 @@
 const nodeGraphChaosflyMaxLpStages = 64;
 
 function nodeGraphChaosflyTaper(a, x) {
-  const aa = Number(a) || 0;
-  const xx = Math.max(0, Math.min(1, Number(x) || 0));
+  const aa = nodeGraphFiniteNumber(a);
+  const xx = Math.max(0, Math.min(1, nodeGraphFiniteNumber(x)));
   const den = 2 * aa * xx - aa - 1;
   if (Math.abs(den) < 1e-12) return xx;
   return (aa * xx - xx) / den;
@@ -15,29 +15,29 @@ function nodeGraphChaosflyTaper(a, x) {
 
 /** Map 0..1 Lowpass Chaos knob → cutoff Hz (JSFX display formula). */
 function nodeGraphChaosflyLowpassHz(amount01, sampleRate) {
-  const a = Math.max(0, Math.min(1, Number(amount01) || 0));
+  const a = Math.max(0, Math.min(1, nodeGraphFiniteNumber(amount01)));
   if (a <= 0) return 0;
-  if (a >= 1) return Math.max(1, Number(sampleRate) || 44100) * 0.45;
+  if (a >= 1) return Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)) * 0.45;
   const lpcut = 1 - nodeGraphChaosflyTaper(0.5, a);
-  if (!(lpcut > 0) || lpcut >= 1) return a >= 1 ? Math.max(1, Number(sampleRate) || 44100) * 0.45 : 0;
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  if (!(lpcut > 0) || lpcut >= 1) return a >= 1 ? Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)) * 0.45 : 0;
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   return Math.max(0, -Math.log(lpcut) * rate / (Math.PI * 2));
 }
 
 /** Map 0..1 Highpass Chaos knob → cutoff Hz. */
 function nodeGraphChaosflyHighpassHz(amount01, sampleRate) {
-  const a = Math.max(0, Math.min(1, Number(amount01) || 0));
+  const a = Math.max(0, Math.min(1, nodeGraphFiniteNumber(amount01)));
   if (a <= 0) return 0;
-  if (a >= 1) return Math.max(1, Number(sampleRate) || 44100) * 0.45;
+  if (a >= 1) return Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)) * 0.45;
   const hpcut = 1 - nodeGraphChaosflyTaper(-0.1, a);
-  if (!(hpcut > 0) || hpcut >= 1) return a >= 1 ? Math.max(1, Number(sampleRate) || 44100) * 0.45 : 0;
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  if (!(hpcut > 0) || hpcut >= 1) return a >= 1 ? Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)) * 0.45 : 0;
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   return Math.max(0, -Math.log(hpcut) * rate / (Math.PI * 2));
 }
 
 // Direct pole count 1…64 (not a power-of-two index).
 function nodeGraphChaosflyTapCount(taps) {
-  const n = Math.round(Number(taps) || 0);
+  const n = Math.round(nodeGraphFiniteNumber(taps));
   return Math.max(1, Math.min(nodeGraphChaosflyMaxLpStages, n));
 }
 
@@ -64,7 +64,7 @@ function createNodeGraphChaosflyState() {
 
 function nodeGraphChaosflyWrapTau(phase) {
   const tau = Math.PI * 2;
-  let p = Number(phase) || 0;
+  let p = nodeGraphFiniteNumber(phase);
   if (!Number.isFinite(p)) return 0;
   while (p >= tau) p -= tau;
   while (p < 0) p += tau;
@@ -75,7 +75,7 @@ function nodeGraphChaosflySine(phaseRadians) {
   if (typeof nodeGraphSineWavetableLookup === "function") {
     return nodeGraphSineWavetableLookup(phaseRadians);
   }
-  return Math.sin(Number(phaseRadians) || 0);
+  return Math.sin(nodeGraphFiniteNumber(phaseRadians));
 }
 
 function nodeGraphChaosflyOnePoleLp(pole, input, frequencyHz, sampleRate) {
@@ -85,13 +85,13 @@ function nodeGraphChaosflyOnePoleLp(pole, input, frequencyHz, sampleRate) {
   if (typeof nodeGraphOnePoleLowpassSample === "function") {
     return nodeGraphOnePoleLowpassSample(pole, input, frequencyHz, sampleRate, null, "");
   }
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const freq = Math.max(0, Number(frequencyHz) || 0);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const freq = Math.max(0, nodeGraphFiniteNumber(frequencyHz));
   const w = Math.min((Math.PI * 2) / rate, 0.000142475857) * freq;
   const a1 = Math.exp(-w);
   const b0 = 1 - a1;
-  const x = Number(input) || 0;
-  pole.outputBuffer = b0 * x + a1 * (Number(pole.outputBuffer) || 0);
+  const x = nodeGraphFiniteNumber(input);
+  pole.outputBuffer = b0 * x + a1 * (nodeGraphFiniteNumber(pole.outputBuffer));
   return pole.outputBuffer;
 }
 
@@ -99,13 +99,13 @@ function nodeGraphChaosflyOnePoleHp(pole, input, frequencyHz, sampleRate) {
   if (typeof nodeGraphOnePoleHighpassSample === "function") {
     return nodeGraphOnePoleHighpassSample(pole, input, frequencyHz, sampleRate, null, "");
   }
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const freq = Math.max(0, Number(frequencyHz) || 0);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const freq = Math.max(0, nodeGraphFiniteNumber(frequencyHz));
   const w = Math.min((Math.PI * 2) / rate, 0.000142475857) * freq;
   const a1 = Math.exp(-w);
   const b0 = 0.5 * (1 + a1);
-  const x = Number(input) || 0;
-  const y = b0 * x - b0 * (Number(pole.inputBuffer) || 0) + a1 * (Number(pole.outputBuffer) || 0);
+  const x = nodeGraphFiniteNumber(input);
+  const y = b0 * x - b0 * (nodeGraphFiniteNumber(pole.inputBuffer)) + a1 * (nodeGraphFiniteNumber(pole.outputBuffer));
   pole.inputBuffer = x;
   pole.outputBuffer = y;
   return y;
@@ -117,7 +117,7 @@ function nodeGraphChaosflyOnePoleHp(pole, input, frequencyHz, sampleRate) {
  */
 function nodeGraphChaosflyCore(state, options = {}) {
   const s = state && typeof state === "object" ? state : createNodeGraphChaosflyState();
-  const rate = Math.max(1, Number(options.sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
   const tau = Math.PI * 2;
   const invRate = 1 / rate;
   const fRef = 55; // when Frequency≈0 (Phase PM), filters still have a base
@@ -140,20 +140,20 @@ function nodeGraphChaosflyCore(state, options = {}) {
     return f * (2 ** o);
   };
 
-  const mixMode = Math.max(0, Math.min(6, Math.round(Number(options.outputMode) || 0)));
-  const frequencyHz = Number(options.frequency) || 0;
+  const mixMode = Math.max(0, Math.min(6, Math.round(nodeGraphFiniteNumber(options.outputMode))));
+  const frequencyHz = nodeGraphFiniteNumber(options.frequency);
   const baseAbs = Math.abs(frequencyHz) > 1e-9 ? Math.abs(frequencyHz) : fRef;
   const oscHz = applyOct(frequencyHz, pitchOct);
   const pitchScale = Math.max(1e-12, 2 ** pitchOct);
 
-  const masterFm = Number(options.masterFm) || 0;
+  const masterFm = nodeGraphFiniteNumber(options.masterFm);
   const taps = nodeGraphChaosflyTapCount(options.taps);
-  const hpPos = Math.max(0, Math.min(2, Math.round(Number(options.hpPosition) || 0)));
-  const osc1Detune = (Number(options.osc1Detune) || 0) * pitchScale;
-  const osc2Detune = (Number(options.osc2Detune) || 0) * pitchScale;
-  const fm1 = ((Number(options.fm1) || 0) + masterFm) * pitchScale;
-  const fm2 = ((Number(options.fm2) || 0) + masterFm) * pitchScale;
-  const pan = Math.max(0, Math.min(1, ((Number(options.pan) || 0) + 1) * 0.5));
+  const hpPos = Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(options.hpPosition))));
+  const osc1Detune = (nodeGraphFiniteNumber(options.osc1Detune)) * pitchScale;
+  const osc2Detune = (nodeGraphFiniteNumber(options.osc2Detune)) * pitchScale;
+  const fm1 = ((nodeGraphFiniteNumber(options.fm1)) + masterFm) * pitchScale;
+  const fm2 = ((nodeGraphFiniteNumber(options.fm2)) + masterFm) * pitchScale;
+  const pan = Math.max(0, Math.min(1, ((nodeGraphFiniteNumber(options.pan)) + 1) * 0.5));
   let volume = Number(options.amplitude);
   if (!Number.isFinite(volume) || volume < 0) volume = 0;
 
@@ -169,17 +169,17 @@ function nodeGraphChaosflyCore(state, options = {}) {
   const osc1Inc = osc1Detune * tau * invRate;
   const osc2Inc = osc2Detune * tau * invRate;
   // Phase offset (cycles → radians) — lookup only, so 0 Hz still modulates.
-  let phaseOff = Number(options.phase) || 0;
+  let phaseOff = nodeGraphFiniteNumber(options.phase);
   phaseOff -= Math.floor(phaseOff);
   if (phaseOff < 0) phaseOff += 1;
   const phaseOffRad = phaseOff * tau;
 
-  let out1 = Number(s.out1) || 0;
-  let out2 = Number(s.out2) || 0;
+  let out1 = nodeGraphFiniteNumber(s.out1);
+  let out2 = nodeGraphFiniteNumber(s.out2);
 
   // Oscillator 1 — FM from osc2 (Hz terms already pitch-scaled)
   const adj1 = (tau * invRate * out2 * fm1) + freqInc + osc1Inc;
-  s.pos1 = nodeGraphChaosflyWrapTau((Number(s.pos1) || 0) + adj1);
+  s.pos1 = nodeGraphChaosflyWrapTau((nodeGraphFiniteNumber(s.pos1)) + adj1);
   out1 = nodeGraphChaosflySine(s.pos1 + phaseOffRad);
 
   // HP Position relative to LP in the chaos chain (feeds Osc2 FM):
@@ -207,7 +207,7 @@ function nodeGraphChaosflyCore(state, options = {}) {
 
   // Oscillator 2 — FM from filtered osc1, cosine phase
   const adj2 = (tau * invRate * out1 * fm2) + freqInc + osc2Inc;
-  s.pos2 = nodeGraphChaosflyWrapTau((Number(s.pos2) || 0) + adj2);
+  s.pos2 = nodeGraphChaosflyWrapTau((nodeGraphFiniteNumber(s.pos2)) + adj2);
   out2 = nodeGraphChaosflySine(s.pos2 + Math.PI * 0.5 + phaseOffRad);
 
   s.out1 = out1;

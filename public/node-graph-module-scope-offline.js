@@ -112,8 +112,8 @@ function nodeGraphModuleScopeOfflineSignalSample(context, nodeId, localTime, sam
       nodeGraphModuleScopeModelFrameTime({ nodeId: node.id }),
     );
     const displayFrame = Number(context.zeroFrequencyDisplayFrame);
-    const displayFrames = Math.max(1, Number(context.zeroFrequencyDisplayFrames) || 1);
-    const displayCycles = Math.max(0.125, Number(context.zeroFrequencyDisplayCycles) || 1);
+    const displayFrames = Math.max(1, nodeGraphFiniteNumber(context.zeroFrequencyDisplayFrames, 1));
+    const displayCycles = Math.max(0.125, nodeGraphFiniteNumber(context.zeroFrequencyDisplayCycles, 1));
     const zeroFrequencyDisplayPhase = Number.isFinite(displayFrame)
       ? (displayFrame / Math.max(1, displayFrames - 1)) * displayCycles
       : 0;
@@ -122,7 +122,7 @@ function nodeGraphModuleScopeOfflineSignalSample(context, nodeId, localTime, sam
       0,
       localTime - (Number.isFinite(scopeStartTime) ? scopeStartTime : localTime),
     );
-    const signalPhase = (Number(phasor.signal) || 0) +
+    const signalPhase = (nodeGraphFiniteNumber(phasor.signal)) +
       (frequency > 0 ? elapsedTime * frequency : zeroFrequencyDisplayPhase);
     return nodeGraphModuleScopeOfflineOscillatorSample(waveform, phase + signalPhase) * level;
   }
@@ -154,7 +154,7 @@ function nodeGraphModuleScopeOfflineSignalSample(context, nodeId, localTime, sam
       0,
       localTime - (Number.isFinite(scopeStartTime) ? scopeStartTime : localTime),
     );
-    const signalPhase = (Number(phasor.signal) || 0) + elapsedTime * frequency;
+    const signalPhase = (nodeGraphFiniteNumber(phasor.signal)) + elapsedTime * frequency;
     return nodeGraphAdditiveOscillatorSample(
       null,
       node.id,
@@ -166,14 +166,14 @@ function nodeGraphModuleScopeOfflineSignalSample(context, nodeId, localTime, sam
         morph: nodeGraphModuleScopeNodeParam(node, "morph", 0.5),
         waveform: nodeGraphModuleScopeNodeParam(node, "waveform", 1),
       },
-      Number(nodeGraphModuleScopeState.sampleRate) || nodeGraphMvp.sampleRate || 44100,
+      nodeGraphFiniteNumber(nodeGraphModuleScopeState.sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100)),
     );
   }
   if (node.type === "clock") {
     const rate = Math.max(0, nodeGraphModuleScopeNodeParam(node, "rate", 0));
     const duty = clampNodeSliderValue(nodeGraphModuleScopeNodeParam(node, "duty", 0.5), 0, 1);
     const level = clampNodeSliderValue(nodeGraphModuleScopeNodeParam(node, "level", 1), 0, 1);
-    const sampleRate = Number(nodeGraphModuleScopeState.sampleRate) || nodeGraphMvp.sampleRate || 44100;
+    const sampleRate = nodeGraphFiniteNumber(nodeGraphModuleScopeState.sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100));
     const phase = nodeGraphModuleScopeClockPhaseAt(context, node.id, rate, localTime);
     if (port === "Analog Out") {
       return nodeGraphModuleScopeClockAnalogMonitorSample(phase, level);
@@ -220,7 +220,7 @@ function nodeGraphModuleScopeOfflineSignalSample(context, nodeId, localTime, sam
 // 0 Saw, 1 Ramp, 2 Square, 3 Triangle, 4 Sine, 5 Noise.
 function nodeGraphModuleScopeOfflineOscillatorSample(waveform, phaseCycle) {
   const cycle = wrapNodeSliderValue(phaseCycle, 0, 1);
-  switch (Math.round(Number(waveform) || 0)) {
+  switch (Math.round(nodeGraphFiniteNumber(waveform))) {
     case 1: // Ramp
       return -1 + cycle * 2;
     case 2: // Square
@@ -243,8 +243,8 @@ function nodeGraphModuleScopeOfflineOscillatorSample(waveform, phaseCycle) {
 
 function nodeGraphModuleScopeClockPhasor(slot, rate, modelTime = nodeGraphModuleScopeModelFrameTime(slot)) {
   const nodeId = String(slot?.nodeId || "");
-  const now = Math.max(0, Number(modelTime) || 0);
-  const safeRate = Math.max(0, Number(rate) || 0);
+  const now = Math.max(0, nodeGraphFiniteNumber(modelTime));
+  const safeRate = Math.max(0, nodeGraphFiniteNumber(rate));
   let phasor = nodeGraphModuleScopeState.clockPhasors.get(nodeId);
   if (!phasor) {
     const phase = wrapNodeSliderValue(now * safeRate, 0, 1);
@@ -264,10 +264,10 @@ function nodeGraphModuleScopeClockPhasor(slot, rate, modelTime = nodeGraphModule
     return phasor;
   }
 
-  const lastTime = Math.max(0, Number(phasor.lastTime) || now);
-  const advanceRate = Math.max(0, Number(phasor.rate) || 0);
+  const lastTime = Math.max(0, nodeGraphFiniteNumber(phasor.lastTime, now));
+  const advanceRate = Math.max(0, nodeGraphFiniteNumber(phasor.rate));
   if (now < lastTime) {
-    const phase = wrapNodeSliderValue((Number(phasor.phase) || 0) - advanceRate * (lastTime - now), 0, 1);
+    const phase = wrapNodeSliderValue((nodeGraphFiniteNumber(phasor.phase)) - advanceRate * (lastTime - now), 0, 1);
     return {
       ...phasor,
       phase,
@@ -278,7 +278,7 @@ function nodeGraphModuleScopeClockPhasor(slot, rate, modelTime = nodeGraphModule
     };
   }
   const dt = clampNodeSliderValue(now - lastTime, 0, 0.25);
-  const previousPhase = Number(phasor.phase) || 0;
+  const previousPhase = nodeGraphFiniteNumber(phasor.phase);
   if (dt > 0 && advanceRate > 0) {
     phasor.phase = wrapNodeSliderValue(previousPhase + advanceRate * dt, 0, 1);
   }
@@ -292,8 +292,8 @@ function nodeGraphModuleScopeClockPhasor(slot, rate, modelTime = nodeGraphModule
 }
 
 function nodeGraphModuleScopeClockPhaseAt(context, nodeId, rate, localTime) {
-  const safeRate = Math.max(0, Number(rate) || 0);
-  const safeTime = Math.max(0, Number(localTime) || 0);
+  const safeRate = Math.max(0, nodeGraphFiniteNumber(rate));
+  const safeTime = Math.max(0, nodeGraphFiniteNumber(localTime));
   if (!context.clockPhaseAnchors) {
     context.clockPhaseAnchors = new Map();
   }
@@ -304,14 +304,14 @@ function nodeGraphModuleScopeClockPhaseAt(context, nodeId, rate, localTime) {
     const anchorTime = Number.isFinite(scopeStartTime) ? Math.max(0, scopeStartTime) : safeTime;
     const phasor = nodeGraphModuleScopeClockPhasor({ nodeId: key }, safeRate, anchorTime);
     anchor = {
-      phase: Number(phasor.phase) || 0,
+      phase: nodeGraphFiniteNumber(phasor.phase),
       rate: safeRate,
       time: anchorTime,
     };
     context.clockPhaseAnchors.set(key, anchor);
   }
   return wrapNodeSliderValue(
-    (Number(anchor.phase) || 0) + Math.max(0, safeTime - (Number(anchor.time) || safeTime)) * safeRate,
+    (nodeGraphFiniteNumber(anchor.phase)) + Math.max(0, safeTime - (nodeGraphFiniteNumber(anchor.time, safeTime))) * safeRate,
     0,
     1,
   );
@@ -319,9 +319,9 @@ function nodeGraphModuleScopeClockPhaseAt(context, nodeId, rate, localTime) {
 
 function nodeGraphModuleScopeOscillatorPhasor(slot, frequency, cycles, modelTime = nodeGraphModuleScopeModelFrameTime(slot)) {
   const nodeId = String(slot?.nodeId || "");
-  const now = Math.max(0, Number(modelTime) || 0);
-  const safeFrequency = Math.max(0, Number(frequency) || 0);
-  const safeCycles = Math.max(1e-6, Number(cycles) || 1);
+  const now = Math.max(0, nodeGraphFiniteNumber(modelTime));
+  const safeFrequency = Math.max(0, nodeGraphFiniteNumber(frequency));
+  const safeCycles = Math.max(1e-6, nodeGraphFiniteNumber(cycles, 1));
   let phasor = nodeGraphModuleScopeState.oscillatorPhasors.get(nodeId);
   if (!phasor) {
     phasor = {
@@ -340,15 +340,15 @@ function nodeGraphModuleScopeOscillatorPhasor(slot, frequency, cycles, modelTime
     return phasor;
   }
 
-  const dt = clampNodeSliderValue(now - (Number(phasor.lastTime) || now), 0, 0.25);
-  const previousSweep = Number(phasor.sweep) || 0;
+  const dt = clampNodeSliderValue(now - (nodeGraphFiniteNumber(phasor.lastTime, now)), 0, 0.25);
+  const previousSweep = nodeGraphFiniteNumber(phasor.sweep);
   phasor.previousSweep = previousSweep;
   phasor.sweepDelta = 0;
-  const advanceFrequency = Math.max(0, Number(phasor.frequency) || 0);
+  const advanceFrequency = Math.max(0, nodeGraphFiniteNumber(phasor.frequency));
   if (dt > 0 && advanceFrequency > 0) {
     const cycleDelta = advanceFrequency * dt;
     const sweepDelta = cycleDelta / safeCycles;
-    phasor.signal = wrapNodeSliderValue((Number(phasor.signal) || 0) + cycleDelta, 0, 1);
+    phasor.signal = wrapNodeSliderValue((nodeGraphFiniteNumber(phasor.signal)) + cycleDelta, 0, 1);
     phasor.sweep = wrapNodeSliderValue(previousSweep + sweepDelta, 0, 1);
     phasor.sweepDelta = sweepDelta;
   }
@@ -633,7 +633,7 @@ function prepareNodeGraphTraceDisplayBuffer(buffer, settings = nodeGraphTraceDis
 
 // nodeGraphModuleScopeClockCapturedLightTarget → node-graph-module-scope-capture.js
 function nodeGraphModuleScopeClockAnalogMonitorSample(phase, level) {
-  const p = clampNodeSliderValue(Number(phase) || 0, 0, 1);
+  const p = clampNodeSliderValue(nodeGraphFiniteNumber(phase), 0, 1);
   const attack = 1 - Math.pow(1 - Math.min(1, p / 0.035), 4);
   const release = Math.pow(Math.max(0, 1 - p), 1.85);
   const snapEnvelope = attack * release;
@@ -646,30 +646,30 @@ function nodeGraphModuleScopeClockAnalogMonitorSample(phase, level) {
 
 function nodeGraphModuleScopeClockMonitorTargetAtPhase(slot, node, phase, duty, level) {
   const port = nodeGraphModuleScopeShaderOutputPortForSlot(slot) || "Digital Out";
-  const safePhase = clampNodeSliderValue(Number(phase) || 0, 0, 1);
-  const safeLevel = clampNodeSliderValue(Number(level) || 0, 0, 1);
+  const safePhase = clampNodeSliderValue(nodeGraphFiniteNumber(phase), 0, 1);
+  const safeLevel = clampNodeSliderValue(nodeGraphFiniteNumber(level), 0, 1);
   if (port === "Analog Out") {
     return clampNodeSliderValue(Math.abs(nodeGraphModuleScopeClockAnalogMonitorSample(safePhase, safeLevel)), 0, 1);
   }
   if (port === "Pulse" || port === "T") {
     const rate = Math.max(0, nodeGraphModuleScopeNodeParam(node, "rate", 0));
-    const frameWindow = Math.max(1 / 120, Number(nodeGraphModuleScopeState.animationDeltaSeconds) || (1 / 60));
+    const frameWindow = Math.max(1 / 120, nodeGraphFiniteNumber(nodeGraphModuleScopeState.animationDeltaSeconds, (1 / 60)));
     return rate > 0 && safePhase < Math.min(1, rate * frameWindow) ? safeLevel : 0;
   }
   return duty > 0 && safeLevel > 0 && safePhase < duty ? safeLevel : 0;
 }
 
 function nodeGraphModuleScopeClockGateFrameBrightness(previousPhase, turns, duty, level) {
-  const safeDuty = clampNodeSliderValue(Number(duty) || 0, 0, 1);
-  const safeLevel = clampNodeSliderValue(Number(level) || 0, 0, 1);
+  const safeDuty = clampNodeSliderValue(nodeGraphFiniteNumber(duty), 0, 1);
+  const safeLevel = clampNodeSliderValue(nodeGraphFiniteNumber(level), 0, 1);
   if (safeDuty <= 0 || safeLevel <= 0) {
     return 0;
   }
   if (safeDuty >= 1) {
     return safeLevel;
   }
-  const start = wrapNodeSliderValue(Number(previousPhase) || 0, 0, 1);
-  const span = Math.max(0, Number(turns) || 0);
+  const start = wrapNodeSliderValue(nodeGraphFiniteNumber(previousPhase), 0, 1);
+  const span = Math.max(0, nodeGraphFiniteNumber(turns));
   if (span <= 0) {
     return start < safeDuty ? safeLevel : 0;
   }
@@ -695,36 +695,36 @@ function nodeGraphModuleScopeClockGateFrameBrightness(previousPhase, turns, duty
 }
 
 function nodeGraphModuleScopeClockPulseFrameBrightness(previousPhase, turns, rate, level) {
-  const safeLevel = clampNodeSliderValue(Number(level) || 0, 0, 1);
-  const safeRate = Math.max(0, Number(rate) || 0);
-  const span = Math.max(0, Number(turns) || 0);
+  const safeLevel = clampNodeSliderValue(nodeGraphFiniteNumber(level), 0, 1);
+  const safeRate = Math.max(0, nodeGraphFiniteNumber(rate));
+  const span = Math.max(0, nodeGraphFiniteNumber(turns));
   if (safeLevel <= 0 || safeRate <= 0 || span <= 0) {
     return 0;
   }
-  const start = wrapNodeSliderValue(Number(previousPhase) || 0, 0, 1);
+  const start = wrapNodeSliderValue(nodeGraphFiniteNumber(previousPhase), 0, 1);
   const pulseCount = Math.max(0, Math.floor(start + span));
   if (pulseCount <= 0) {
     return 0;
   }
-  const sampleRate = Math.max(1, Number(nodeGraphModuleScopeState.sampleRate) || nodeGraphMvp.sampleRate || 44100);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(nodeGraphModuleScopeState.sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100)));
   const frameSeconds = span / safeRate;
   const pulseSeconds = pulseCount / sampleRate;
   return clampNodeSliderValue((pulseSeconds / Math.max(1 / sampleRate, frameSeconds)) * safeLevel, 0, 1);
 }
 
 function nodeGraphModuleScopeClockAnalogFrameBrightness(previousPhase, turns, level) {
-  const safeLevel = clampNodeSliderValue(Number(level) || 0, 0, 1);
+  const safeLevel = clampNodeSliderValue(nodeGraphFiniteNumber(level), 0, 1);
   if (safeLevel <= 0) {
     return 0;
   }
-  const span = Math.max(0, Number(turns) || 0);
+  const span = Math.max(0, nodeGraphFiniteNumber(turns));
   if (span <= 0) {
     return clampNodeSliderValue(Math.abs(
       nodeGraphModuleScopeClockAnalogMonitorSample(previousPhase, safeLevel),
     ), 0, 1);
   }
   const cycleSpan = span >= 1 ? 1 : span;
-  const startPhase = span >= 1 ? 0 : wrapNodeSliderValue(Number(previousPhase) || 0, 0, 1);
+  const startPhase = span >= 1 ? 0 : wrapNodeSliderValue(nodeGraphFiniteNumber(previousPhase), 0, 1);
   const samples = Math.max(4, Math.min(128, Math.ceil(cycleSpan * 96) + 4));
   let sum = 0;
   for (let index = 0; index < samples; index += 1) {
@@ -738,9 +738,9 @@ function nodeGraphModuleScopeClockAnalogFrameBrightness(previousPhase, turns, le
 function nodeGraphModuleScopeClockMonitorTarget(slot, node, phasor, duty, level) {
   const port = nodeGraphModuleScopeShaderOutputPortForSlot(slot) || "Digital Out";
   const previousPhase = Number(phasor?.previousPhase);
-  const fallbackPhase = Number(phasor?.phase) || 0;
+  const fallbackPhase = nodeGraphFiniteNumber(phasor?.phase);
   const frameStartPhase = Number.isFinite(previousPhase) ? previousPhase : fallbackPhase;
-  const turns = Math.max(0, Number(phasor?.turns) || 0);
+  const turns = Math.max(0, nodeGraphFiniteNumber(phasor?.turns));
   if (turns <= 0) {
     return nodeGraphModuleScopeClockMonitorTargetAtPhase(slot, node, fallbackPhase, duty, level);
   }
@@ -774,7 +774,7 @@ function nodeGraphModuleScopeOfflineClockBlinkBuffer(slot, capturedBuffer = null
   return {
     length: 1,
     nodeGraphScopeFrameBrightness: true,
-    nodeGraphScopeEventFrameTurns: Math.max(0, Number(phasor.turns) || 0),
+    nodeGraphScopeEventFrameTurns: Math.max(0, nodeGraphFiniteNumber(phasor.turns)),
     nodeGraphScopeLightDisplay: true,
     nodeGraphScopeLightInstant: true,
     nodeGraphScopeLightReleaseSeconds: 0.006,
@@ -831,7 +831,7 @@ function nodeGraphModuleScopeOfflineGainAnalyzerBuffer(slot) {
     return null;
   }
   const settings = nodeGraphModuleScopeEffectiveSettingForSlot(slot);
-  const sampleRate = Math.max(1, Number(nodeGraphModuleScopeState.sampleRate) || nodeGraphMvp.sampleRate || 44100);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(nodeGraphModuleScopeState.sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100)));
   const nodeMap = nodeGraphModuleScopeNodeMap();
   const sourceFrequency = nodeGraphModuleScopeOfflineSourceFrequency(node.id, nodeMap);
   const cycles = nodeGraphModuleScopeEffectiveCycles(settings) || nodeGraphModuleScopeDefaultSettings.cycles;

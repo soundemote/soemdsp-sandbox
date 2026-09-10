@@ -41,9 +41,9 @@ function nodeGraphAdditiveCurveEnvelopeLiveEvaluator({
     updateOnTrigger: read("updateOnTrigger", 0),
   };
   const gate = hasInput?.(nodeId, "Gate")
-    ? Number(mixInput(nodeId, "Gate")) || 0
+    ? nodeGraphFiniteNumber(mixInput(nodeId, "Gate"))
     : 0;
-  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const params = typeof nodeGraphExpAdsrParamsForSample === "function"
     ? nodeGraphExpAdsrParamsForSample(state, gate, live, live.updateOnTrigger)
     : live;

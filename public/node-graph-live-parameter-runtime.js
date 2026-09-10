@@ -107,8 +107,8 @@ function nodeGraphParameterValueToNormalizedSignal(value, metadata = {}) {
     return 0;
   }
   const bounded = metadata.wraparound
-    ? wrapNodeSliderValue(Number(value) || 0, min, max)
-    : clampNodeSliderValue(Number(value) || 0, min, max);
+    ? wrapNodeSliderValue(nodeGraphFiniteNumber(value), min, max)
+    : clampNodeSliderValue(nodeGraphFiniteNumber(value), min, max);
   const normalizedValue = clampNodeSliderValue((bounded - min) / range, 0, 1);
   return clampNodeSliderValue(
     normalizedValue ** (1 / nodeGraphParameterSkewExponent(metadata)),
@@ -128,8 +128,8 @@ function nodeGraphNormalizedSignalToParameterValue(signal, metadata = {}) {
     return Number.isFinite(min) ? min : 0;
   }
   const normalizedSignal = metadata.wraparound
-    ? wrapNodeSliderValue(Number(signal) || 0, 0, 1)
-    : clampNodeSliderValue(Number(signal) || 0, 0, 1);
+    ? wrapNodeSliderValue(nodeGraphFiniteNumber(signal), 0, 1)
+    : clampNodeSliderValue(nodeGraphFiniteNumber(signal), 0, 1);
   const normalizedValue = normalizedSignal ** nodeGraphParameterSkewExponent(metadata);
   return nodeGraphApplyParameterBounds(min + range * normalizedValue, metadata);
 }

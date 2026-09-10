@@ -49,7 +49,7 @@ function recordNodeGraphBadvalModuleHit(nodeId, reason, options = {}) {
   if (!state) {
     return;
   }
-  const add = Math.max(1, Number(options.count) || 1);
+  const add = Math.max(1, nodeGraphFiniteNumber(options.count, 1));
   const prevReason = state.reason;
   const wasClear = !(state.count > 0);
   state.count += add;

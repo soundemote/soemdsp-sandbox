@@ -7,7 +7,7 @@ const NODE_GRAPH_PI_SPIGOT_SERIES_M = [1, 4, 5, 6];
 const NODE_GRAPH_PI_SPIGOT_SERIES_C = [4, -2, -1, -1];
 
 function applyNodeGraphPiSpigotSmoothing(channel, x, smoothing) {
-  const safeSmoothing = clampNodeSliderValue(Number(smoothing) || 0, 0, 1);
+  const safeSmoothing = clampNodeSliderValue(nodeGraphFiniteNumber(smoothing), 0, 1);
   if (safeSmoothing <= 0) return x;
   const g = Math.exp(safeSmoothing * -3.912023005428146);
   let y = x;
@@ -118,8 +118,8 @@ function nodeGraphPiSpigotRestartDigit(state) {
 }
 
 function nodeGraphPiSpigotApplyStartStride(state, start, stride) {
-  const startN = clampNodeSliderValue(Math.round((Number(start) || 0) * NODE_GRAPH_PI_SPIGOT_MAX_N), 0, NODE_GRAPH_PI_SPIGOT_MAX_N);
-  const st = clampNodeSliderValue(Math.round(Number(stride) || 1), 1, 16);
+  const startN = clampNodeSliderValue(Math.round((nodeGraphFiniteNumber(start)) * NODE_GRAPH_PI_SPIGOT_MAX_N), 0, NODE_GRAPH_PI_SPIGOT_MAX_N);
+  const st = clampNodeSliderValue(Math.round(nodeGraphFiniteNumber(stride, 1)), 1, 16);
   if (startN === state.startN && st === state.stride) return;
   state.startN = startN;
   state.stride = st;
@@ -189,7 +189,7 @@ function nodeGraphPiSpigotPortsFromState(state, color, smoothing, level) {
 
 function nodeGraphPiSpigotNoiseSample(state, params, runtime = null, nodeId = "") {
   const start = clampNodeSliderValue(nodeGraphSafeFilterNumber(params.start ?? params.seedLeft, runtime, nodeId, null, "pi spigot start"), 0, 1);
-  const stride = clampNodeSliderValue(nodeGraphSafeFilterNumber(params.stride, runtime, nodeId, null, "pi spigot stride") || 1, 1, 16);
+  const stride = clampNodeSliderValue(nodeGraphFiniteNumber(nodeGraphSafeFilterNumber(params.stride, runtime, nodeId, null, "pi spigot stride"), 1), 1, 16);
   const color = clampNodeSliderValue(Math.round(nodeGraphSafeFilterNumber(params.color, runtime, nodeId, null, "pi spigot noise color")), 0, 4);
   const smoothing = clampNodeSliderValue(nodeGraphSafeFilterNumber(params.smoothing, runtime, nodeId, null, "pi spigot noise smoothing"), 0, 1);
   const level = nodeGraphSafeFilterNumber(params.amplitude ?? params.level, runtime, nodeId, null, "pi spigot noise level");

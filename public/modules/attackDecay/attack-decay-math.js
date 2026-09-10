@@ -9,7 +9,7 @@ function nodeGraphAttackDecayCoefficient(seconds, sampleRate) {
   if (!Number.isFinite(time) || time <= 0) {
     return 1;
   }
-  const samples = Math.max(1, time * Math.max(1, Number(sampleRate) || 44100));
+  const samples = Math.max(1, time * Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)));
   return 1 - Math.exp(-1 / samples);
 }
 
@@ -46,16 +46,16 @@ function nodeGraphAttackDecaySample(state, gate, params, sampleRate) {
   if (state.phase == null) state.phase = "idle";
   if (state.lastGate == null) state.lastGate = 0;
 
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const attack = Math.max(0, Number(params?.attack) || 0);
-  const decay = Math.max(0, Number(params?.decay) || 0);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const attack = Math.max(0, nodeGraphFiniteNumber(params?.attack));
+  const decay = Math.max(0, nodeGraphFiniteNumber(params?.decay));
   const curve = Math.max(0.001, nodeGraphFiniteNumber(params?.curve, 1));
   const amplitude = Number(params?.amplitude);
   const level = Number.isFinite(amplitude) ? amplitude : 1;
-  const inputMode = Math.max(0, Math.min(1, Math.round(Number(params?.inputMode) || 0)));
-  const cycle = Math.max(0, Math.min(2, Math.round(Number(params?.cycle) || 0)));
+  const inputMode = Math.max(0, Math.min(1, Math.round(nodeGraphFiniteNumber(params?.inputMode))));
+  const cycle = Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(params?.cycle))));
 
-  const gateOn = (Number(gate) || 0) > 0.5;
+  const gateOn = (nodeGraphFiniteNumber(gate)) > 0.5;
   const rising = gateOn && !(Number(state.lastGate) > 0.5);
   const falling = !gateOn && Number(state.lastGate) > 0.5;
   state.lastGate = gateOn ? 1 : 0;
@@ -151,13 +151,13 @@ function nodeGraphAttackDecayPreviewCurve(
   sampleRate = 1000,
   points = 128,
 ) {
-  const a = Math.max(0, Number(attackSec) || 0);
-  const d = Math.max(0, Number(decaySec) || 0);
-  const c = Math.max(0.001, Number(curve) || 1);
+  const a = Math.max(0, nodeGraphFiniteNumber(attackSec));
+  const d = Math.max(0, nodeGraphFiniteNumber(decaySec));
+  const c = Math.max(0.001, nodeGraphFiniteNumber(curve, 1));
   const attackHold = Math.max(a * 4, a + 1e-4, 0.001);
   const total = Math.max(attackHold + Math.max(d * 4, d + 1e-4, 0.001), 0.002);
-  const rate = Math.max(100, Number(sampleRate) || 1000);
-  const n = Math.max(16, Math.round(Number(points) || 128));
+  const rate = Math.max(100, nodeGraphFiniteNumber(sampleRate, 1000));
+  const n = Math.max(16, Math.round(nodeGraphFiniteNumber(points, 128)));
   // Pure follower path for a clean A/D silhouette on the face.
   const state = createNodeGraphAttackDecayState();
   const out = [];

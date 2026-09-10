@@ -27,22 +27,22 @@ NodeLiveAudioProcessor.prototype.wirdoSpiralSample = function wirdoSpiralSample(
           state.nativeHandle = this.nativeWirdoSpiral.soemdsp_jbwirdo_create();
         }
         if (state.nativeHandle) {
-          const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
+          const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
           this.nativeWirdoSpiral.soemdsp_jbwirdo_sample(
             state.nativeHandle,
-            Number(options.frequency) || 0,
-            this.clampValue(Number(options.sharp) || 0, 0, 1),
-            Number(options.cross) || 0,
-            Number(options.density) || 0,
-            Number(options.length) || 0,
-            Number(options.rotate) || 0,
-            Number(options.splashDepth) || 0,
-            Number(options.splashDensity) || 0,
-            Number(options.cut) || 0,
-            Number(options.scrap) || 0,
-            Number(options.ringCut) || 0,
-            Number(options.splashSpeed) || 0,
-            Number(options.syncCut) || 0,
+            nodeGraphFiniteNumber(options.frequency),
+            this.clampValue(nodeGraphFiniteNumber(options.sharp), 0, 1),
+            nodeGraphFiniteNumber(options.cross),
+            nodeGraphFiniteNumber(options.density),
+            nodeGraphFiniteNumber(options.length),
+            nodeGraphFiniteNumber(options.rotate),
+            nodeGraphFiniteNumber(options.splashDepth),
+            nodeGraphFiniteNumber(options.splashDensity),
+            nodeGraphFiniteNumber(options.cut),
+            nodeGraphFiniteNumber(options.scrap),
+            nodeGraphFiniteNumber(options.ringCut),
+            nodeGraphFiniteNumber(options.splashSpeed),
+            nodeGraphFiniteNumber(options.syncCut),
             sampleRateValue,
           );
           return {

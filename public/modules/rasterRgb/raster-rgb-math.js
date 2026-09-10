@@ -62,7 +62,7 @@ function nodeGraphRasterRgbGradeChannel01(x, opts = {}) {
 }
 
 function nodeGraphRasterRgbHueRotate(r, g, b, hueCycles) {
-  const hShift = Number(hueCycles) || 0;
+  const hShift = nodeGraphFiniteNumber(hueCycles);
   if (!(Math.abs(hShift) > 1e-9)) {
     return { r, g, b };
   }
@@ -124,7 +124,7 @@ function nodeGraphRasterRgbProcessSample(r, g, b, opts = {}) {
   let R = bipolar ? nodeGraphRasterRgbAsVideo01(r) : nodeGraphRasterRgbClamp01(r);
   let G = bipolar ? nodeGraphRasterRgbAsVideo01(g) : nodeGraphRasterRgbClamp01(g);
   let B = bipolar ? nodeGraphRasterRgbAsVideo01(b) : nodeGraphRasterRgbClamp01(b);
-  const hue = Number(opts.hue) || 0;
+  const hue = nodeGraphFiniteNumber(opts.hue);
   R = nodeGraphRasterRgbGradeChannel01(R, opts);
   G = nodeGraphRasterRgbGradeChannel01(G, opts);
   B = nodeGraphRasterRgbGradeChannel01(B, opts);

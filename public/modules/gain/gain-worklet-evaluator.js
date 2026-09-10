@@ -7,11 +7,11 @@ NodeLiveAudioProcessor.prototype.gainFrame = function gainFrame(mono, left, righ
 NodeLiveAudioProcessor.prototype.gainFrameDb = function gainFrameDb(mono, left, right, opts) {
   if (this.nativeGainReady && this.nativeGain?.soemdsp_gain_sample) {
     try {
-      const masterDb = Number(opts?.masterDb) || 0;
-      const leftDb = Number(opts?.leftDb) || 0;
-      const rightDb = Number(opts?.rightDb) || 0;
-      const monoSum = Number(opts?.monoSum) || 0;
-      const offset = Number(opts?.offset) || 0;
+      const masterDb = nodeGraphFiniteNumber(opts?.masterDb);
+      const leftDb = nodeGraphFiniteNumber(opts?.leftDb);
+      const rightDb = nodeGraphFiniteNumber(opts?.rightDb);
+      const monoSum = nodeGraphFiniteNumber(opts?.monoSum);
+      const offset = nodeGraphFiniteNumber(opts?.offset);
       const args = [mono, left, right, masterDb, leftDb, rightDb, monoSum, offset];
       return {
         Out: this.safeFilterNumber(this.nativeGain.soemdsp_gain_sample(0, ...args), null) ?? 0,

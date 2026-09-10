@@ -15,11 +15,11 @@ function nodeGraphSampleChannelAt(sample, channelIndex, frameIndex, interpolatio
     return 0;
   }
   const maxIndex = channel.length - 1;
-  const index = clampNodeSliderValue(Number(frameIndex) || 0, 0, maxIndex);
+  const index = clampNodeSliderValue(nodeGraphFiniteNumber(frameIndex), 0, maxIndex);
   const low = Math.floor(index);
   const high = Math.min(maxIndex, low + 1);
   const frac = index - low;
-  return (Number(channel[low]) || 0) + ((Number(channel[high]) || 0) - (Number(channel[low]) || 0)) * frac;
+  return (nodeGraphFiniteNumber(channel[low])) + ((nodeGraphFiniteNumber(channel[high])) - (nodeGraphFiniteNumber(channel[low]))) * frac;
 }
 
 
@@ -54,7 +54,7 @@ function nodeGraphAudioPlayerSample(runtime, node, nodeId, readInput, readParam,
   runtime.samplePlaybackStates.set(nodeId, state);
   const sampleId = normalizeNodeGraphSampleId(node.sample?.id);
   const sample = runtime.samples?.get?.(sampleId);
-  const frames = Math.max(0, Number(sample?.frames) || sample?.samples?.length || sample?.channelData?.[0]?.length || 0);
+  const frames = Math.max(0, nodeGraphFiniteNumber(sample?.frames, sample?.samples?.length) || sample?.channelData?.[0]?.length || 0);
   if (!sample || frames <= 1) {
     return { Left: 0, Mono: 0, Out: 0, Phase: 0, Right: 0 };
   }
@@ -96,7 +96,7 @@ function nodeGraphAudioPlayerSample(runtime, node, nodeId, readInput, readParam,
   }
   const transportFallback = Object.hasOwn(node?.params || {}, "transport")
     ? 4
-    : ((Number(node?.params?.loop) || 0) >= 0.5 ? 4 : 0);
+    : ((nodeGraphFiniteNumber(node?.params?.loop)) >= 0.5 ? 4 : 0);
   const transportMode = Math.max(0, Math.min(5, Math.round(readParam("transport", transportFallback))));
   const transportReset = transportMode <= 0;
   const transportStopped = transportMode === 1;
@@ -108,7 +108,7 @@ function nodeGraphAudioPlayerSample(runtime, node, nodeId, readInput, readParam,
     state.transportMode = transportMode;
   }
   // Absolute seek token from playlist scrub / track change.
-  const seekToken = Number(node?.samplePhaseSeek) || 0;
+  const seekToken = nodeGraphFiniteNumber(node?.samplePhaseSeek);
   if (seekToken && seekToken !== state.seekToken) {
     const seekPhase = Number(node?.samplePhase);
     if (Number.isFinite(seekPhase)) {
@@ -129,18 +129,18 @@ function nodeGraphAudioPlayerSample(runtime, node, nodeId, readInput, readParam,
   const phaseConnected = runtime.inputConnections?.has?.(nodeGraphInputKey(nodeId, "Phase"));
   const speedInput = readInput("Speed");
   const speed = readParam("speed", 1) + speedInput;
-  const sampleRateRatio = (Number(sample.sampleRate) || sampleRate || 44100) / Math.max(1, sampleRate || 44100);
+  const sampleRateRatio = (nodeGraphFiniteNumber(sample.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100))) / Math.max(1, sampleRate || 44100);
   const increment = (speed * sampleRateRatio) / frames;
   const basePhase = phaseConnected
     ? clampNodeSliderValue(readInput("Phase"), 0, 1)
     : clampNodeSliderValue(state.phase, 0, 1);
-  const phaseOffset = Number(readParam("phaseOffset", 0)) || 0;
-  const phaseSkip = Number(readParam("phase", 0)) || 0;
-  const playlistScrub = Number(readParam("playlistScrub", 0)) || 0;
+  const phaseOffset = nodeGraphFiniteNumber(readParam("phaseOffset", 0));
+  const phaseSkip = nodeGraphFiniteNumber(readParam("phase", 0));
+  const playlistScrub = nodeGraphFiniteNumber(readParam("playlistScrub", 0));
   const phaseWithOffset = basePhase + phaseOffset + phaseSkip + playlistScrub;
   const boundedPhase = startPhase + wrapNodeSliderValue((phaseWithOffset - startPhase) / span, 0, 1) * span;
   const frameIndex = boundedPhase * (frames - 1);
-  const interpolation = Math.round(Number(readParam("antialias", 0)) || 0) >= 1 ? "hermite" : "linear";
+  const interpolation = Math.round(nodeGraphFiniteNumber(readParam("antialias", 0))) >= 1 ? "hermite" : "linear";
   const stereo = nodeGraphSampleStereoAt(sample, frameIndex, interpolation);
   const level = readParam("level", 1);
   let done = 0;
@@ -188,7 +188,7 @@ function nodeGraphSampleLibrarySample(runtime, node, nodeId, readInput, readPara
   runtime.samplePlaybackStates.set(nodeId, state);
   const sampleId = normalizeNodeGraphSampleId(node.sample?.id);
   const sample = runtime.samples?.get?.(sampleId);
-  const frames = Math.max(0, Number(sample?.frames) || sample?.samples?.length || sample?.channelData?.[0]?.length || 0);
+  const frames = Math.max(0, nodeGraphFiniteNumber(sample?.frames, sample?.samples?.length) || sample?.channelData?.[0]?.length || 0);
   if (!sample || frames <= 1) {
     return { Left: 0, Out: 0, Right: 0 };
   }
@@ -216,10 +216,10 @@ function nodeGraphSampleLibrarySample(runtime, node, nodeId, readInput, readPara
   const oneShot = readParam("oneShot", 1) >= 0.5;
   const pitch = readParam("pitch", 0);
   const level = readParam("level", 1);
-  const ratio = (Number(sample.sampleRate) || sampleRate || 44100) / Math.max(1, sampleRate || 44100);
+  const ratio = (nodeGraphFiniteNumber(sample.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100))) / Math.max(1, sampleRate || 44100);
   const increment = (Math.pow(2, pitch) * ratio) / frames;
   if (state.playing) {
-    state.phase = Number(state.phase) || startPhase;
+    state.phase = nodeGraphFiniteNumber(state.phase, startPhase);
     state.phase += increment;
     if (state.phase >= endPhase) {
       if (oneShot) {
@@ -231,7 +231,7 @@ function nodeGraphSampleLibrarySample(runtime, node, nodeId, readInput, readPara
       }
     }
   }
-  const phase = clampNodeSliderValue(Number(state.phase) || startPhase, startPhase, endPhase);
+  const phase = clampNodeSliderValue(nodeGraphFiniteNumber(state.phase, startPhase), startPhase, endPhase);
   const stereo = nodeGraphSampleStereoAt(sample, phase * (frames - 1));
   const active = state.playing || (!oneShot && !state.completed);
   const gain = active ? level : 0;
@@ -247,9 +247,9 @@ function nodeGraphSampleLooperMixStereo(a, b, fadeIn) {
   const w = t * t * (3 - 2 * t);
   const ow = 1 - w;
   return {
-    Left: (Number(a?.Left) || 0) * ow + (Number(b?.Left) || 0) * w,
-    Out: (Number(a?.Out) || 0) * ow + (Number(b?.Out) || 0) * w,
-    Right: (Number(a?.Right) || 0) * ow + (Number(b?.Right) || 0) * w,
+    Left: (nodeGraphFiniteNumber(a?.Left)) * ow + (nodeGraphFiniteNumber(b?.Left)) * w,
+    Out: (nodeGraphFiniteNumber(a?.Out)) * ow + (nodeGraphFiniteNumber(b?.Out)) * w,
+    Right: (nodeGraphFiniteNumber(a?.Right)) * ow + (nodeGraphFiniteNumber(b?.Right)) * w,
   };
 }
 
@@ -258,7 +258,7 @@ function nodeGraphSampleLooperSample(runtime, node, nodeId, readInput, readParam
   runtime.samplePlaybackStates.set(nodeId, state);
   const sampleId = normalizeNodeGraphSampleId(node.sample?.id);
   const sample = runtime.samples?.get?.(sampleId);
-  const frames = Math.max(0, Number(sample?.frames) || sample?.samples?.length || sample?.channelData?.[0]?.length || 0);
+  const frames = Math.max(0, nodeGraphFiniteNumber(sample?.frames, sample?.samples?.length) || sample?.channelData?.[0]?.length || 0);
   if (!sample || frames <= 1) {
     return { Left: 0, Out: 0, Phase: 0, Right: 0 };
   }
@@ -303,10 +303,10 @@ function nodeGraphSampleLooperSample(runtime, node, nodeId, readInput, readParam
   }
   const pitch = (readParam("pitch", 0) || 0) + (readInput("Pitch") || 0);
   const level = readParam("level", 1);
-  const ratio = (Number(sample.sampleRate) || sampleRate || 44100) / Math.max(1, sampleRate || 44100);
+  const ratio = (nodeGraphFiniteNumber(sample.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100))) / Math.max(1, sampleRate || 44100);
   const increment = (Math.pow(2, pitch) * ratio) / frames;
   if (state.playing) {
-    state.phase = Number(state.phase) || startPhase;
+    state.phase = nodeGraphFiniteNumber(state.phase, startPhase);
     state.phase += increment;
     if (oneShot) {
       if (state.phase >= endPhase) {
@@ -320,10 +320,10 @@ function nodeGraphSampleLooperSample(runtime, node, nodeId, readInput, readParam
       state.phase = loopA;
     }
   }
-  const phase = clampNodeSliderValue(Number(state.phase) || startPhase, startPhase, endPhase);
+  const phase = clampNodeSliderValue(nodeGraphFiniteNumber(state.phase, startPhase), startPhase, endPhase);
   let stereo = nodeGraphSampleStereoAt(sample, phase * (frames - 1));
-  const xfSeconds = Math.max(0, Number(readParam("crossfade", 0.005)) || 0);
-  const xfPhase = Math.min(loopSpan * 0.45, (xfSeconds * (Number(sample.sampleRate) || sampleRate || 44100)) / frames);
+  const xfSeconds = Math.max(0, nodeGraphFiniteNumber(readParam("crossfade", 0.005)));
+  const xfPhase = Math.min(loopSpan * 0.45, (xfSeconds * (nodeGraphFiniteNumber(sample.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)))) / frames);
   if (!oneShot && state.playing && xfPhase > 1e-9) {
     const intoLoop = phase - loopA;
     if (intoLoop >= 0 && intoLoop < xfPhase) {

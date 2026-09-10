@@ -28,8 +28,8 @@ const NODE_GRAPH_PHONE_TONE_PAIRS = Object.freeze([
 ]);
 
 function nodeGraphPhoneToneWrap(value, count = NODE_GRAPH_PHONE_TONE_COUNT) {
-  const n = Math.max(1, Math.round(Number(count) || NODE_GRAPH_PHONE_TONE_COUNT));
-  const raw = Math.round(Number(value) || 0);
+  const n = Math.max(1, Math.round(nodeGraphFiniteNumber(count, NODE_GRAPH_PHONE_TONE_COUNT)));
+  const raw = Math.round(nodeGraphFiniteNumber(value));
   return ((raw % n) + n) % n;
 }
 
@@ -37,8 +37,8 @@ function nodeGraphPhoneToneAnalogSlot(analog, count = NODE_GRAPH_PHONE_TONE_COUN
   if (typeof nodeGraphKeypadAnalogSlot === "function") {
     return nodeGraphKeypadAnalogSlot(analog, count);
   }
-  const n = Math.max(1, Math.round(Number(count) || NODE_GRAPH_PHONE_TONE_COUNT));
-  const unit = Math.max(0, Math.min(1, Number(analog) || 0));
+  const n = Math.max(1, Math.round(nodeGraphFiniteNumber(count, NODE_GRAPH_PHONE_TONE_COUNT)));
+  const unit = Math.max(0, Math.min(1, nodeGraphFiniteNumber(analog)));
   if (!(unit > 0)) {
     return null;
   }
@@ -50,8 +50,8 @@ function nodeGraphPhoneToneDigitalSlot(digital, count = NODE_GRAPH_PHONE_TONE_CO
   if (typeof nodeGraphKeypadDigitalToSlot === "function") {
     return nodeGraphKeypadDigitalToSlot(digital, count);
   }
-  const n = Math.max(1, Math.round(Number(count) || NODE_GRAPH_PHONE_TONE_COUNT));
-  const value = Math.round(Number(digital) || 0);
+  const n = Math.max(1, Math.round(nodeGraphFiniteNumber(count, NODE_GRAPH_PHONE_TONE_COUNT)));
+  const value = Math.round(nodeGraphFiniteNumber(digital));
   if (value <= 0) {
     return null;
   }
@@ -160,7 +160,7 @@ function nodeGraphPhoneToneSample(state, options = {}) {
   const pitchCvRatio = Number.isFinite(cvRatioIn) && cvRatioIn > 0 ? cvRatioIn : 1;
   const amp = Number(options.amplitude);
   const amplitude = Number.isFinite(amp) ? amp : 0;
-  const rate = Math.max(1, Number(options.sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
   const pitchPair = (pair) => [
     nodeGraphPhoneTonePitchedHz(pair[0], pitchOff, freqOffset, pitchCvRatio),
     nodeGraphPhoneTonePitchedHz(pair[1], pitchOff, freqOffset, pitchCvRatio),
@@ -204,8 +204,8 @@ function nodeGraphPhoneToneSample(state, options = {}) {
   const x = gateOpen ? low : 0;
   const z = gateOpen ? high : 0;
   const tone = x + z;
-  const analogThru = hasAnalog ? Number(options.analog) || 0 : 0;
-  const digitalThru = hasDigital ? Number(options.digital) || 0 : 0;
+  const analogThru = hasAnalog ? nodeGraphFiniteNumber(options.analog) : 0;
+  const digitalThru = hasDigital ? nodeGraphFiniteNumber(options.digital) : 0;
   return {
     "Analog Thru": analogThru,
     "Digital Thru": digitalThru,

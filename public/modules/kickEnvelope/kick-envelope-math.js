@@ -46,7 +46,7 @@ function createNodeGraphKickEnvelopeState() {
 function nodeGraphKickEnvelopeApplyAmp(a, amplitude) {
   const g = Number(amplitude);
   const gain = Number.isFinite(g) ? Math.max(0, g) : 1;
-  const y = (Number(a) || 0) * gain;
+  const y = (nodeGraphFiniteNumber(a)) * gain;
   return Number.isFinite(y) ? y : 0;
 }
 
@@ -61,7 +61,7 @@ function nodeGraphKickEnvelopeIdleOut(low = 0, sharpness = 0, amplitude = 1) {
  * Sharpness 0 = cosine (round). 1 = rectangular hold then snap.
  */
 function nodeGraphKickEnvelopeEnv01(localT, sharpness) {
-  const t = Math.max(0, Math.min(1, Number(localT) || 0));
+  const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(localT)));
   const s = nodeGraphKickEnvelopeClampUnit(sharpness, 0);
   const sineEnv = Math.cos((Math.PI * t) / 2);
   const squareEnv = t < 1 ? 1 : 0;
@@ -71,7 +71,7 @@ function nodeGraphKickEnvelopeEnv01(localT, sharpness) {
 }
 
 function nodeGraphKickEnvelopeCurveIsExpo(curve) {
-  return Math.round(Number(curve) || 0) !== 0;
+  return Math.round(nodeGraphFiniteNumber(curve)) !== 0;
 }
 
 /**
@@ -97,9 +97,9 @@ function nodeGraphKickEnvelopeSineToSquare(phaseCycles, shape, frequencyHz, samp
   if (typeof nodeGraphEllipsoidSineToSquare === "function") {
     return nodeGraphEllipsoidSineToSquare(phaseCycles, shape, frequencyHz, sampleRate);
   }
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const f = Math.max(0, Number(frequencyHz) || 0);
-  const angle = (Number(phaseCycles) || 0) * Math.PI * 2;
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const f = Math.max(0, nodeGraphFiniteNumber(frequencyHz));
+  const angle = (nodeGraphFiniteNumber(phaseCycles)) * Math.PI * 2;
   const sinPhase = Math.sin(angle);
   const cosPhase = Math.cos(angle);
   let c = 1 - nodeGraphKickEnvelopeClampUnit(shape, 0);
@@ -128,8 +128,8 @@ function nodeGraphKickEnvelopeQuarterPoint(progress01, sharpness) {
       sampleRate: 44100,
     });
     return {
-      x: Number(v["Bi X"]) || 0,
-      y: Number(v["Bi Y"]) || 0,
+      x: nodeGraphFiniteNumber(v["Bi X"]),
+      y: nodeGraphFiniteNumber(v["Bi Y"]),
     };
   }
   if (!(s > 0)) {
@@ -167,11 +167,11 @@ function nodeGraphKickEnvelopeSample(
   if (!state || typeof state !== "object") {
     return nodeGraphKickEnvelopeIdleOut(low, sharpness, amplitude);
   }
-  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const a0 = nodeGraphKickEnvelopeClampUnit(low, 0);
   const a1 = nodeGraphKickEnvelopeClampUnit(high, 1);
   const s = nodeGraphKickEnvelopeClampUnit(sharpness, 0);
-  const g = Number(trigger) || 0;
+  const g = nodeGraphFiniteNumber(trigger);
   const on = g > 0.5;
   if (on && !state.lastTrig) {
     state.t = 0;

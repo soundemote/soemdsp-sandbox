@@ -15,7 +15,7 @@ NodeLiveAudioProcessor.prototype.createRandomClockState = function createRandomC
   };
 
 NodeLiveAudioProcessor.prototype.randomClockNextUnit = function randomClockNextUnit(state, nodeId, seed) {
-    const seedKey = `${nodeId}:${Math.round(Number(seed) || 0)}`;
+    const seedKey = `${nodeId}:${Math.round(nodeGraphFiniteNumber(seed))}`;
     if (state.seedKey !== seedKey) {
       state.seedKey = seedKey;
       state.randomState = this.stableSeed(seedKey);
@@ -37,8 +37,8 @@ NodeLiveAudioProcessor.prototype.randomClockSample = function randomClockSample(
           state.nativeHandle = this.nativeRandomClock.soemdsp_random_clock_create();
         }
         if (state.nativeHandle) {
-          const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
-          const seedKeyStr = `${nodeId}:${Math.round(Number(params.seed) || 0)}`;
+          const safeRate = Math.max(1, nodeGraphFiniteNumber(rateHz, nodeGraphFiniteNumber(sampleRate, 44100)));
+          const seedKeyStr = `${nodeId}:${Math.round(nodeGraphFiniteNumber(params.seed))}`;
           const seedInt = this.stableSeed(seedKeyStr) | 0;
           const trigger = this.nativeRandomClock.soemdsp_random_clock_sample(
             state.nativeHandle,

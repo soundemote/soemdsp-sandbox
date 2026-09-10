@@ -35,7 +35,7 @@ NodeLiveAudioProcessor.prototype.createPiSpigotNoiseState = function createPiSpi
 };
 
 NodeLiveAudioProcessor.prototype.applyPiSpigotSmoothing = function applyPiSpigotSmoothing(channel, x, smoothing) {
-  const safeSmoothing = this.clampValue(Number(smoothing) || 0, 0, 1);
+  const safeSmoothing = this.clampValue(nodeGraphFiniteNumber(smoothing), 0, 1);
   if (safeSmoothing <= 0) return x;
   const g = Math.exp(safeSmoothing * -3.912023005428146);
   let y = x;
@@ -117,8 +117,8 @@ NodeLiveAudioProcessor.prototype.piSpigotRestartDigit = function piSpigotRestart
 };
 
 NodeLiveAudioProcessor.prototype.piSpigotApplyStartStride = function piSpigotApplyStartStride(state, start, stride) {
-  const startN = this.clampValue(Math.round((Number(start) || 0) * NODE_GRAPH_PI_SPIGOT_MAX_N), 0, NODE_GRAPH_PI_SPIGOT_MAX_N);
-  const st = this.clampValue(Math.round(Number(stride) || 1), 1, 16);
+  const startN = this.clampValue(Math.round((nodeGraphFiniteNumber(start)) * NODE_GRAPH_PI_SPIGOT_MAX_N), 0, NODE_GRAPH_PI_SPIGOT_MAX_N);
+  const st = this.clampValue(Math.round(nodeGraphFiniteNumber(stride, 1)), 1, 16);
   if (startN === state.startN && st === state.stride) return;
   state.startN = startN;
   state.stride = st;
@@ -173,7 +173,7 @@ NodeLiveAudioProcessor.prototype.piSpigotPortsFromState = function piSpigotPorts
 
 NodeLiveAudioProcessor.prototype.piSpigotNoiseSample = function piSpigotNoiseSample(state, params) {
   const start = this.clampValue(this.safeFilterNumber(params.start ?? params.seedLeft, null), 0, 1);
-  const stride = this.clampValue(this.safeFilterNumber(params.stride, null) || 1, 1, 16);
+  const stride = this.clampValue(nodeGraphFiniteNumber(this.safeFilterNumber(params.stride, null), 1), 1, 16);
   const color = this.clampValue(Math.round(this.safeFilterNumber(params.color, null)), 0, 4);
   const smoothing = this.clampValue(this.safeFilterNumber(params.smoothing, null), 0, 1);
   const level = this.safeFilterNumber(params.amplitude ?? params.level, null);

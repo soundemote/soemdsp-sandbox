@@ -20,11 +20,11 @@ nodeGraphLiveModuleEvaluators.robinSinusoid = ({
   const freqKnob = readNodeGraphLiveEffectiveParam(runtime, node, "frequency", 440, frame, frames, frameValues);
   const amp = readNodeGraphLiveEffectiveParam(runtime, node, "amplitude", 1, frame, frames, frameValues);
   const phaseCycle = readNodeGraphLiveEffectiveParam(runtime, node, "phase", 0, frame, frames, frameValues);
-  const startPhase = (Number(phaseCycle) || 0) * Math.PI * 2;
+  const startPhase = (nodeGraphFiniteNumber(phaseCycle)) * Math.PI * 2;
   const frequency = nodeGraphFrequencyHzFromKnobOrF(freqKnob, hasInput, mixInput, nodeId);
 
   const resetIn = hasInput?.(nodeId, "Reset")
-    ? (Number(mixInput(nodeId, "Reset")) || 0)
+    ? (nodeGraphFiniteNumber(mixInput(nodeId, "Reset")))
     : 0;
   const resetEdge = resetIn >= 0.5 && state.resetPrev < 0.5;
   state.resetPrev = resetIn;

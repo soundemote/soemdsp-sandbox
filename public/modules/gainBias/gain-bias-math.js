@@ -2,7 +2,7 @@
 // out = in * amount + offset (scale first, then offset).
 
 function nodeGraphGainBiasSample(input, amount, offset) {
-  return (Number(input) || 0) * (Number(amount) || 0) + (Number(offset) || 0);
+  return (nodeGraphFiniteNumber(input)) * (nodeGraphFiniteNumber(amount)) + (nodeGraphFiniteNumber(offset));
 }
 
 /**
@@ -10,10 +10,10 @@ function nodeGraphGainBiasSample(input, amount, offset) {
  * @returns {{ Out: number, Left: number, Right: number }}
  */
 function nodeGraphGainBiasFrame(mono, left, right, amount, offset) {
-  const m = Number(mono) || 0;
+  const m = nodeGraphFiniteNumber(mono);
   return {
     Out: nodeGraphGainBiasSample(m, amount, offset),
-    Left: nodeGraphGainBiasSample((Number(left) || 0) + m, amount, offset),
-    Right: nodeGraphGainBiasSample((Number(right) || 0) + m, amount, offset),
+    Left: nodeGraphGainBiasSample((nodeGraphFiniteNumber(left)) + m, amount, offset),
+    Right: nodeGraphGainBiasSample((nodeGraphFiniteNumber(right)) + m, amount, offset),
   };
 }

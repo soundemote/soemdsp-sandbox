@@ -33,20 +33,20 @@
 // Highest harmonic count that keeps M * freq below Nyquist, with a small
 // guard band so the topmost partial is not sitting exactly on the fold point.
 function nodeGraphSincMaxHarmonics(freq, sampleRate) {
-  const safeRate = Math.max(1, Number(sampleRate) || 44100);
-  const safeFreq = Math.max(1e-9, Number(freq) || 0);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const safeFreq = Math.max(1e-9, nodeGraphFiniteNumber(freq));
   return Math.max(1, Math.floor((safeRate * 0.5) / safeFreq) - 1);
 }
 
 // phase is 0..1 across the cycle; the kernel peak sits at phase 0.5.
 function nodeGraphIdealSincSample(phase, lobes) {
-  const count = Math.max(1, Math.round(Number(lobes) || 1));
+  const count = Math.max(1, Math.round(nodeGraphFiniteNumber(lobes, 1)));
   const x = (phase - 0.5) * 2 * Math.PI * count;
   return Math.abs(x) < 1e-9 ? 1 : Math.sin(x) / x;
 }
 
 function nodeGraphBandLimitedSincSample(phase, lobes, freq, sampleRate) {
-  const requested = Math.max(1, Math.round(Number(lobes) || 1));
+  const requested = Math.max(1, Math.round(nodeGraphFiniteNumber(lobes, 1)));
   const harmonics = Math.min(requested, nodeGraphSincMaxHarmonics(freq, sampleRate));
   const order = 2 * harmonics + 1;
   const theta = Math.PI * (phase - 0.5);

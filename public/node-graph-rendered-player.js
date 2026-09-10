@@ -20,7 +20,7 @@ function nodeGraphRenderedPlayerElements() {
 }
 
 function nodeGraphRenderedPlayerFormatTime(seconds) {
-  const s = Math.max(0, Number(seconds) || 0);
+  const s = Math.max(0, nodeGraphFiniteNumber(seconds));
   const m = Math.floor(s / 60);
   const r = Math.floor(s % 60);
   return `${m}:${String(r).padStart(2, "0")}`;
@@ -93,8 +93,8 @@ function drawNodeGraphRenderedPlayerWave() {
     for (let x = 0; x < columns.length; x++) {
       const [min, max] = columns[x];
       const px = x * dpr + 0.5;
-      ctx.moveTo(px, mid - Math.max(-1, Math.min(1, max)) * amp);
-      ctx.lineTo(px, mid - Math.max(-1, Math.min(1, min)) * amp + 1);
+      ctx.moveTo(px, mid - max * amp);
+      ctx.lineTo(px, mid - min * amp + 1);
     }
     ctx.stroke();
     ctx.restore();
@@ -114,7 +114,7 @@ function updateNodeGraphRenderedPlayerUi() {
     return;
   }
   const duration = Number.isFinite(els.audio.duration) ? els.audio.duration : 0;
-  const current = Math.min(duration || 0, Number(els.audio.currentTime) || 0);
+  const current = Math.min(duration || 0, nodeGraphFiniteNumber(els.audio.currentTime));
   if (els.time) {
     els.time.textContent = `${nodeGraphRenderedPlayerFormatTime(current)} / ${nodeGraphRenderedPlayerFormatTime(duration)}`;
   }
@@ -129,7 +129,7 @@ function updateNodeGraphRenderedPlayerUi() {
     && els.audio.paused
     && !els.audio.ended
     && (els.audio.currentSrc || els.audio.getAttribute("src"))
-    && (Number(els.audio.currentTime) || 0) > 0.02,
+    && (nodeGraphFiniteNumber(els.audio.currentTime)) > 0.02,
   );
   if (els.play) {
     els.play.classList.add("node-transport-play");

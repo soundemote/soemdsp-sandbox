@@ -4,12 +4,12 @@ function setNodeGraphLiveEvidence(kind = "idle", details = {}) {
   const currentPatchFingerprint = nodeGraphPatchFingerprint();
   nodeGraphMvp.live.lastEvidence = {
     active: Boolean(nodeGraphMvp.live.node || nodeGraphMvp.live.context),
-    connectionCount: Number(details.connectionCount ?? planEvidence.connectionCount) || 0,
+    connectionCount: nodeGraphFiniteNumber(details.connectionCount ?? planEvidence.connectionCount),
     currentPatchFingerprint,
     engine: nodeGraphMvp.live.usesWorklet ? "worklet" : nodeGraphMvp.live.runtime ? "fallback" : "idle",
-    engineSampleRate: Number(details.engineSampleRate ?? planEvidence.engineSampleRate) || 0,
-    feedbackConnectionCount: Number(details.feedbackConnectionCount ?? planEvidence.feedbackConnectionCount) || 0,
-    feedbackModulationCount: Number(details.feedbackModulationCount ?? planEvidence.feedbackModulationCount) || 0,
+    engineSampleRate: nodeGraphFiniteNumber(details.engineSampleRate ?? planEvidence.engineSampleRate),
+    feedbackConnectionCount: nodeGraphFiniteNumber(details.feedbackConnectionCount ?? planEvidence.feedbackConnectionCount),
+    feedbackModulationCount: nodeGraphFiniteNumber(details.feedbackModulationCount ?? planEvidence.feedbackModulationCount),
     feedbackModulations: [
       ...(details.feedbackModulations || planEvidence.feedbackModulations || []),
     ],
@@ -22,21 +22,21 @@ function setNodeGraphLiveEvidence(kind = "idle", details = {}) {
     issues: Array.isArray(details.issues) ? details.issues.map((issue) => String(issue)) : [],
     stack: String(details.stack || ""),
     action: String(details.action || ""),
-    modulationCount: Number(details.modulationCount ?? planEvidence.modulationCount) || 0,
-    nodeCount: Number(details.nodeCount ?? planEvidence.nodeCount) || 0,
-    oversamplingRatio: Number(details.oversamplingRatio ?? planEvidence.oversamplingRatio) || 1,
-    parameterCount: Number(details.parameterCount) || 0,
+    modulationCount: nodeGraphFiniteNumber(details.modulationCount ?? planEvidence.modulationCount),
+    nodeCount: nodeGraphFiniteNumber(details.nodeCount ?? planEvidence.nodeCount),
+    oversamplingRatio: nodeGraphFiniteNumber(details.oversamplingRatio ?? planEvidence.oversamplingRatio, 1),
+    parameterCount: nodeGraphFiniteNumber(details.parameterCount),
     patchFingerprint,
-    planSerial: Number(details.planSerial) || nodeGraphMvp.live.planSerial || 0,
-    sampleRate: Number(details.sampleRate ?? planEvidence.sampleRate) || 0,
+    planSerial: nodeGraphFiniteNumber(details.planSerial, nodeGraphFiniteNumber(nodeGraphMvp.live.planSerial, 0)),
+    sampleRate: nodeGraphFiniteNumber(details.sampleRate ?? planEvidence.sampleRate),
     sessionId: nodeGraphMvp.live.sessionId,
     speakerOutputActive: Boolean(details.speakerOutputActive ?? planEvidence.speakerOutputActive),
-    stateReadCount: Number(details.stateReadCount ?? planEvidence.stateReadCount) || 0,
+    stateReadCount: nodeGraphFiniteNumber(details.stateReadCount ?? planEvidence.stateReadCount),
     visualControls: {
       ...(planEvidence.visualControls || {}),
       ...(details.visualControls || {}),
     },
-    visualSinkCount: Number(details.visualSinkCount ?? planEvidence.visualSinkCount) || 0,
+    visualSinkCount: nodeGraphFiniteNumber(details.visualSinkCount ?? planEvidence.visualSinkCount),
     visualSinks: (details.visualSinks || planEvidence.visualSinks || []).map((sink) => ({
       ...sink,
       inputs: (sink.inputs || []).map((input) => ({ ...input })),
@@ -129,7 +129,7 @@ function nodeGraphRecordBadValueEvent(details = {}) {
   store.serial = (store.serial || 0) + 1;
   const nodeId = String(details.nodeId || "");
   const reason = String(details.reason || "bad");
-  const count = Math.max(1, Number(details.count) || 1);
+  const count = Math.max(1, nodeGraphFiniteNumber(details.count, 1));
   store.events = [
     ...nodeGraphBadValueMonitorEvents(),
     {

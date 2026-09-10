@@ -67,20 +67,20 @@ function nodeGraphBoingSample(options = {}) {
   }
   state.resetWasHigh = resetHigh;
 
-  const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
-  const frequency = Number(options.frequency) || 0;
-  const density = Number(options.density) || 0;
-  const sharpness = Number(options.sharpness) || 0;
-  const rotX = Number(options.rotX) || 0;
-  const rotY = Number(options.rotY) || 0;
-  const zDepth = Number(options.zDepth) || 0;
-  const zAmount = Number(options.zAmount) || 0;
-  const ends = Number(options.ends) || 0;
-  const boing = Number(options.boing) || 0;
-  const boingStrength = Number(options.boingStrength) || 0;
-  const dir = Number(options.dir) || 0;
-  const shape = Number(options.shape) || 0;
-  const volume = Number(options.volume) || 0;
+  const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const frequency = nodeGraphFiniteNumber(options.frequency);
+  const density = nodeGraphFiniteNumber(options.density);
+  const sharpness = nodeGraphFiniteNumber(options.sharpness);
+  const rotX = nodeGraphFiniteNumber(options.rotX);
+  const rotY = nodeGraphFiniteNumber(options.rotY);
+  const zDepth = nodeGraphFiniteNumber(options.zDepth);
+  const zAmount = nodeGraphFiniteNumber(options.zAmount);
+  const ends = nodeGraphFiniteNumber(options.ends);
+  const boing = nodeGraphFiniteNumber(options.boing);
+  const boingStrength = nodeGraphFiniteNumber(options.boingStrength);
+  const dir = nodeGraphFiniteNumber(options.dir);
+  const shape = nodeGraphFiniteNumber(options.shape);
+  const volume = nodeGraphFiniteNumber(options.volume);
   const prejump = Number(options.volumePreJump) >= 0.5;
 
   const tri = sharpness * 0.5 + 0.5;

@@ -118,10 +118,10 @@ NodeLiveAudioProcessor.prototype.codeblockFunctionBody = function codeblockFunct
   const context = [
     "const state = __state;",
     "const __ctx = __context || {};",
-    "const sampleRate = Number(__ctx.sampleRate) || 44100;",
-    "const frame = Number(__ctx.frame) || 0;",
-    "const frames = Number(__ctx.frames) || 1;",
-    "const time = Number(__ctx.time) || 0;",
+    "const sampleRate = nodeGraphFiniteNumber(__ctx.sampleRate, 44100);",
+    "const frame = nodeGraphFiniteNumber(__ctx.frame);",
+    "const frames = nodeGraphFiniteNumber(__ctx.frames, 1);",
+    "const time = nodeGraphFiniteNumber(__ctx.time);",
     "const dt = 1 / sampleRate;",
   ].join("\n");
   const inputs = codeblock.inputs
@@ -209,7 +209,7 @@ NodeLiveAudioProcessor.prototype.evaluateCodeblock = function evaluateCodeblock(
       frame,
       frames,
       sampleRate,
-      time: (Number(inputFrame) || 0) / (Number(sampleRate) || 44100),
+      time: (nodeGraphFiniteNumber(inputFrame)) / (nodeGraphFiniteNumber(sampleRate, 44100)),
     });
     for (const port of codeblock.outputs) {
       output[port] = this.safeCodeblockNumber(output[port], node.id, port);

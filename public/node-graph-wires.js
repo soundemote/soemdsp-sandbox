@@ -172,7 +172,7 @@
     // rather than left as a landmine with the same zoom/rounding-order bug
     // if something ever starts relying on the fallback again.
     function traceCoordinate(value) {
-      const number = Number(value) || 0;
+      const number = nodeGraphFiniteNumber(value);
       const zoom = typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1;
       const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
       return (Math.round(number * safeZoom) + 0.5) / safeZoom;
@@ -235,8 +235,8 @@
       // Push the axis past each jack so a curved stroke still samples the
       // solid end color at the contact disc (userSpaceOnUse is a chord, not
       // the bezier).
-      const dx = (Number(to.x) || 0) - (Number(from.x) || 0);
-      const dy = (Number(to.y) || 0) - (Number(from.y) || 0);
+      const dx = (nodeGraphFiniteNumber(to.x)) - (nodeGraphFiniteNumber(from.x));
+      const dy = (nodeGraphFiniteNumber(to.y)) - (nodeGraphFiniteNumber(from.y));
       const len = Math.hypot(dx, dy) || 1;
       const pad = Math.max(wireEndpointCapRadius() * 3, Math.min(36, len * 0.12));
       const ux = dx / len;
@@ -1289,7 +1289,7 @@
       if (!port) {
         return;
       }
-      const detail = Number(event.detail) || 1;
+      const detail = nodeGraphFiniteNumber(event.detail, 1);
       if (handlePortClickFromElement(port, event.clientX, event.clientY, detail)) {
         event.preventDefault();
         event.stopPropagation();

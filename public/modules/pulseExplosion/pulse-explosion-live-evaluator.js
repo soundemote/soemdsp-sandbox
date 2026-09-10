@@ -29,7 +29,7 @@ function nodeGraphPulseExplosionMulberry32(seed) {
 }
 function nodeGraphPulseExplosionSeedHash(seed) {
   const buffer = new ArrayBuffer(8);
-  new Float64Array(buffer)[0] = Number(seed) || 0;
+  new Float64Array(buffer)[0] = nodeGraphFiniteNumber(seed);
   const words = new Uint32Array(buffer);
   let x = (words[0] ^ words[1]) >>> 0;
   x ^= x >>> 16;
@@ -50,7 +50,7 @@ function nodeGraphPulseExplosionDensity(t, startTime, centerTime, endTime, skew)
 }
 
 function nodeGraphPulseExplosionRandomFn(seed) {
-  const seedNumber = Number(seed) || 0;
+  const seedNumber = nodeGraphFiniteNumber(seed);
   if (seedNumber === 0) {
     return Math.random;
   }
@@ -58,18 +58,18 @@ function nodeGraphPulseExplosionRandomFn(seed) {
 }
 
 function nodeGraphPulseExplosionComputeSchedule(params, random = Math.random) {
-  const safeStart = Math.max(0, Number(params.startTime) || 0);
-  let safeEnd = Number(params.endTime) || 0;
+  const safeStart = Math.max(0, nodeGraphFiniteNumber(params.startTime));
+  let safeEnd = nodeGraphFiniteNumber(params.endTime);
   if (safeEnd <= safeStart) safeEnd = safeStart + 0.001;
-  let safeCenter = Math.max(safeStart, Math.min(safeEnd, Number(params.centerTime) || 0));
+  let safeCenter = Math.max(safeStart, Math.min(safeEnd, nodeGraphFiniteNumber(params.centerTime)));
   if (safeCenter <= safeStart) safeCenter = safeStart + 1e-6;
   if (safeCenter >= safeEnd) safeCenter = safeEnd - 1e-6;
   // 0..1 spread -> -0.99..0.99 skew (0 concentrates tightly at centerTime,
   // 1 spreads widely -- measured empirically, see the .cpp header comment).
-  const skew = -0.99 + 1.98 * Math.max(0, Math.min(1, Number(params.timeSpread) || 0));
-  const safeCount = Math.max(1, Math.min(kNodeGraphPulseExplosionMaxPulses, Math.round(Number(params.numberOfPulses) || 1)));
-  const lo = Math.min(Number(params.lowAmplitude) || 0, Number(params.highAmplitude) || 0);
-  const hi = Math.max(Number(params.lowAmplitude) || 0, Number(params.highAmplitude) || 0);
+  const skew = -0.99 + 1.98 * Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.timeSpread)));
+  const safeCount = Math.max(1, Math.min(kNodeGraphPulseExplosionMaxPulses, Math.round(nodeGraphFiniteNumber(params.numberOfPulses, 1))));
+  const lo = Math.min(nodeGraphFiniteNumber(params.lowAmplitude), nodeGraphFiniteNumber(params.highAmplitude));
+  const hi = Math.max(nodeGraphFiniteNumber(params.lowAmplitude), nodeGraphFiniteNumber(params.highAmplitude));
 
   const pulses = [];
   for (let i = 0; i < safeCount; i++) {
@@ -102,9 +102,9 @@ function createNodeGraphPulseExplosionState() {
 }
 
 function nodeGraphPulseExplosionSample(state, trigger, params, sampleRate, runtime = null, nodeId = "") {
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100)));
 
-  const high = (Number(trigger) || 0) > 0.5;
+  const high = (nodeGraphFiniteNumber(trigger)) > 0.5;
   if (high && !state.wasHigh) {
     state.nextPulseIndex = 0;
     state.elapsed = 0;

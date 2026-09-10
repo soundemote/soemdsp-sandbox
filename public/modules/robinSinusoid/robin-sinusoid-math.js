@@ -26,8 +26,8 @@ function createNodeGraphRobinSinusoidState() {
  * Place the phasor on the unit circle at `phase` and cache rotation for `omega`.
  */
 function nodeGraphRobinSinusoidPrime(state, omega, phase = 0) {
-  const w = Number(omega) || 0;
-  const p = Number(phase) || 0;
+  const w = nodeGraphFiniteNumber(omega);
+  const p = nodeGraphFiniteNumber(phase);
   state.omega = w;
   state.cosW = Math.cos(w);
   state.sinW = Math.sin(w);
@@ -49,7 +49,7 @@ function nodeGraphRobinSinusoidSample(
   startPhaseRadians = 0,
   reset = false,
 ) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const freq = Number(frequencyHz);
   const safeFreq = Number.isFinite(freq) ? freq : 0;
   // Allow negative / through-zero FM (rotation still works).
@@ -63,7 +63,7 @@ function nodeGraphRobinSinusoidSample(
   const safeAmp = Number.isFinite(amp) ? amp : 0;
 
   if (reset || !state.primed) {
-    nodeGraphRobinSinusoidPrime(state, omega, Number(startPhaseRadians) || 0);
+    nodeGraphRobinSinusoidPrime(state, omega, nodeGraphFiniteNumber(startPhaseRadians));
   } else if (Math.abs(omega - state.omega) > 1e-12) {
     // Update step only — keep (x, y) continuous so level never drops to zero.
     state.omega = omega;
@@ -78,7 +78,7 @@ function nodeGraphRobinSinusoidSample(
   let y1 = x0 * state.sinW + y0 * state.cosW;
 
   if (!Number.isFinite(x1) || !Number.isFinite(y1)) {
-    nodeGraphRobinSinusoidPrime(state, omega, Number(startPhaseRadians) || 0);
+    nodeGraphRobinSinusoidPrime(state, omega, nodeGraphFiniteNumber(startPhaseRadians));
     return 0;
   }
 

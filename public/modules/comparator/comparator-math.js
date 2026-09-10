@@ -11,7 +11,7 @@ function createNodeGraphComparatorState() {
  * @returns {{ Up: number, Down: number, Change: number, Steady: number, Sign: number, Thru: number }}
  */
 function nodeGraphComparatorSample(state, signalIn) {
-  const raw = Number(signalIn) || 0;
+  const raw = nodeGraphFiniteNumber(signalIn);
   const sign = raw > 0 ? 1 : 0;
   if (!state.hasPrev) {
     state.prev = raw;

@@ -18,7 +18,7 @@ function nodeGraphMixStereoPanGains(pan) {
   if (typeof nodeGraphOutputPanGains === "function") {
     return nodeGraphOutputPanGains(pan);
   }
-  const p = Math.max(-1, Math.min(1, Number(pan) || 0));
+  const p = nodeGraphFiniteNumber(pan);
   if (p <= 0) {
     return { left: 1, right: Math.cos(-p * Math.PI * 0.5) };
   }
@@ -39,8 +39,8 @@ function nodeGraphMixStereoFrame(inputs, params) {
   for (let i = 1; i <= 4; i += 1) {
     const vol = nodeGraphMixStereoDbToLin(p[`volume${i}`]) * master;
     const pan = nodeGraphMixStereoPanGains(p[`pan${i}`]);
-    const L = Number(src[`L${i}`]) || 0;
-    const R = Number(src[`R${i}`]) || 0;
+    const L = nodeGraphFiniteNumber(src[`L${i}`]);
+    const R = nodeGraphFiniteNumber(src[`R${i}`]);
     left += L * vol * pan.left;
     right += R * vol * pan.right;
   }

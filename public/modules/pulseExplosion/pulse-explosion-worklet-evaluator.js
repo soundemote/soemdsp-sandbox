@@ -32,7 +32,7 @@ NodeLiveAudioProcessor.prototype.pulseExplosionMulberry32 = function pulseExplos
 
 NodeLiveAudioProcessor.prototype.pulseExplosionSeedHash = function pulseExplosionSeedHash(seed) {
     const buffer = new ArrayBuffer(8);
-    new Float64Array(buffer)[0] = Number(seed) || 0;
+    new Float64Array(buffer)[0] = nodeGraphFiniteNumber(seed);
     const words = new Uint32Array(buffer);
     let x = (words[0] ^ words[1]) >>> 0;
     x ^= x >>> 16;
@@ -58,11 +58,11 @@ NodeLiveAudioProcessor.prototype.pulseExplosionSample = function pulseExplosionS
               this.safeFilterNumber(params.centerTime, state),
               this.safeFilterNumber(params.endTime, state),
               this.clampValue(this.safeFilterNumber(params.timeSpread, state), 0, 1),
-              Math.max(1, Math.min(128, Math.round(Number(params.numberOfPulses) || 1))),
+              Math.max(1, Math.min(128, Math.round(nodeGraphFiniteNumber(params.numberOfPulses, 1)))),
               this.safeFilterNumber(params.lowAmplitude, state),
               this.safeFilterNumber(params.highAmplitude, state),
-              Number(params.seed) || 0,
-              Math.max(1, Number(rate) || sampleRate || 44100),
+              nodeGraphFiniteNumber(params.seed),
+              Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100))),
             ),
             state,
           );

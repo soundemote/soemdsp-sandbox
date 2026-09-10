@@ -7,7 +7,7 @@ function nodeGraphExternalButtonEventPulse(runtime, name) {
   if (!(events instanceof Map)) {
     return 0;
   }
-  const remaining = Number(events.get(name)) || 0;
+  const remaining = nodeGraphFiniteNumber(events.get(name));
   if (remaining <= 0) {
     events.delete(name);
     return 0;

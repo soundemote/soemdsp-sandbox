@@ -22,17 +22,17 @@ NodeLiveAudioProcessor.prototype.lorenzAttractorSample = function lorenzAttracto
         state.nativeHandle = this.nativeLorenzAttractor.soemdsp_lorenz_attractor_create();
       }
       if (state.nativeHandle) {
-        const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
+        const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
         this.nativeLorenzAttractor.soemdsp_lorenz_attractor_sample(
           state.nativeHandle,
-          Number(options.reset) || 0,
-          Math.max(0, Number(options.speed) || 0),
+          nodeGraphFiniteNumber(options.reset),
+          Math.max(0, nodeGraphFiniteNumber(options.speed)),
           Math.max(0, nodeGraphFiniteNumber(options.sigma, 10)),
           Number.isFinite(Number(options.rho)) ? Number(options.rho) : 28,
           Math.max(0, nodeGraphFiniteNumber(options.beta, 8) / 3),
-          Number(options.rotate) || 0,
+          nodeGraphFiniteNumber(options.rotate),
           Math.max(0, nodeGraphFiniteNumber(options.scale, 1)),
-          this.clampValue(Number(options.zDepth) || 0, 0, 1),
+          this.clampValue(nodeGraphFiniteNumber(options.zDepth), 0, 1),
           sampleRateValue,
         );
         return {

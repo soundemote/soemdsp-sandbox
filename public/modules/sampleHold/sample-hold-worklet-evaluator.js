@@ -46,7 +46,7 @@ NodeLiveAudioProcessor.prototype.sampleHoldSample = function sampleHoldSample(
         state.nativeHandle = this.nativeSampleHold.soemdsp_sample_hold_create();
       }
       if (state.nativeHandle) {
-        const safeRate = Math.max(1, Number(sampleRate) || 44100);
+        const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
         const seedKey = this.seededKey(nodeId, 0, "sampleHoldNoise");
         const seedInt = this.stableSeed(seedKey) | 0;
         return this.safeFilterNumber(
@@ -55,7 +55,7 @@ NodeLiveAudioProcessor.prototype.sampleHoldSample = function sampleHoldSample(
             this.safeFilterNumber(input, null),
             this.safeFilterNumber(clock, null),
             this.safeFilterNumber(threshold, null),
-            Math.max(0, Number(sampleFrequency) || 0),
+            Math.max(0, nodeGraphFiniteNumber(sampleFrequency)),
             safeRate,
             hasInConnected ? 1 : 0,
             seedInt,

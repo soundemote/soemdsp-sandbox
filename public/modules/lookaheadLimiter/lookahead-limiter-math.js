@@ -53,12 +53,12 @@ function nodeGraphLookaheadLimiterSyncControls(
   lookaheadEnabled,
   dipGain,
 ) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const ceilDb = Number(ceilingDb);
-  const attMs = Math.max(0, Number(attackMs) || 0);
+  const attMs = Math.max(0, nodeGraphFiniteNumber(attackMs));
   const relMs = Math.max(0, nodeGraphFiniteNumber(releaseMs, 100));
-  const laMs = Number(lookaheadMs) || 0;
-  const laSamp = Number(lookaheadSamples) || 0;
+  const laMs = nodeGraphFiniteNumber(lookaheadMs);
+  const laSamp = nodeGraphFiniteNumber(lookaheadSamples);
   const laEn = lookaheadEnabled == null ? 1 : Number(lookaheadEnabled);
   const dip = Number(dipGain);
   const dipSafe = Number.isFinite(dip) ? dip : 1;
@@ -131,8 +131,8 @@ function nodeGraphLookaheadLimiterFrame(
   dipGain,
 ) {
   if (!state || !state.delayL) {
-    const x = Number(left) || 0;
-    const y = Number(right) || 0;
+    const x = nodeGraphFiniteNumber(left);
+    const y = nodeGraphFiniteNumber(right);
     return { Out: 0.5 * (x + y), Left: x, Right: y, Gain: 1 };
   }
 
@@ -148,8 +148,8 @@ function nodeGraphLookaheadLimiterFrame(
     dipGain,
   );
 
-  const lIn = Number(left) || 0;
-  const rIn = Number(right) || 0;
+  const lIn = nodeGraphFiniteNumber(left);
+  const rIn = nodeGraphFiniteNumber(right);
   const ceiling = state.ceiling;
   const la = state.lookaheadSamplesResolved;
   const attCoeff = state.attCoeff;
@@ -246,35 +246,35 @@ function nodeGraphPumpingLimiterFrame(
   amplitude,
 ) {
   if (!state || !state.delayL) {
-    const x = Number(left) || 0;
-    const y = Number(right) || 0;
+    const x = nodeGraphFiniteNumber(left);
+    const y = nodeGraphFiniteNumber(right);
     return { Out: 0.5 * (x + y), Left: x, Right: y, Gain: 1, Env: 0 };
   }
 
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const inGain = nodeGraphLookaheadLimiterDbToGain(
     Number.isFinite(Number(inputGainDb)) ? Number(inputGainDb) : 0,
   );
-  const lIn = (Number(left) || 0) * inGain;
-  const rIn = (Number(right) || 0) * inGain;
+  const lIn = (nodeGraphFiniteNumber(left)) * inGain;
+  const rIn = (nodeGraphFiniteNumber(right)) * inGain;
 
   const laOn = lookaheadEnabled == null ? true : Number(lookaheadEnabled) > 0.5;
-  const laFromMs = laOn ? Math.max(0, Number(lookaheadMs) || 0) * 0.001 * rate : 0;
-  const laFromSamples = laOn ? Math.max(0, Number(lookaheadSamples) || 0) : 0;
+  const laFromMs = laOn ? Math.max(0, nodeGraphFiniteNumber(lookaheadMs)) * 0.001 * rate : 0;
+  const laFromSamples = laOn ? Math.max(0, nodeGraphFiniteNumber(lookaheadSamples)) : 0;
   let la = Math.round(laFromMs + laFromSamples);
   if (!Number.isFinite(la) || la < 0) la = 0;
   if (la > state.cap - 1) la = state.cap - 1;
 
   // Detect: sidechain when connected, else linked stereo from the gained input.
   const detectPeak = hasSidechain
-    ? Math.abs(Number(sidechain) || 0)
+    ? Math.abs(nodeGraphFiniteNumber(sidechain))
     : Math.max(Math.abs(lIn), Math.abs(rIn));
   const instantPower = detectPeak * detectPeak;
-  const attMs = Math.max(0, Number(attackMs) || 0);
+  const attMs = Math.max(0, nodeGraphFiniteNumber(attackMs));
   const relMs = Math.max(1, nodeGraphFiniteNumber(releaseMs, 250));
   const attCoeff = attMs <= 0 ? 1 : 1 - Math.exp(-1 / Math.max(1, attMs * 0.001 * rate));
   const relCoeff = 1 - Math.exp(-1 / Math.max(1, relMs * 0.001 * rate));
-  const ms = Number(state.meanSquare) || 0;
+  const ms = nodeGraphFiniteNumber(state.meanSquare);
   if (instantPower > ms) {
     state.meanSquare = ms + attCoeff * (instantPower - ms);
   } else {

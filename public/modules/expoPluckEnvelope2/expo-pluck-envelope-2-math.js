@@ -18,8 +18,8 @@ function createExpoPluckEnvelope2State() {
 }
 
 function expoPluck2ExponentialCurve(value, skew) {
-  const v = Math.min(1, Math.max(0, Number(value) || 0));
-  let s = Math.min(0.99, Math.max(-0.99, Number(skew) || 0));
+  const v = Math.min(1, Math.max(0, nodeGraphFiniteNumber(value)));
+  let s = Math.min(0.99, Math.max(-0.99, nodeGraphFiniteNumber(skew)));
   if (s === 0) return v;
   const c = 0.5 * (s + 1);
   const a = 2 * Math.log10((1 - c) / c);
@@ -52,18 +52,18 @@ function expoPluck2DecayFeedback(state, p) {
 
 function expoPluck2Sanitize(params = {}) {
   return {
-    attack: Math.max(0, Number(params.attack) || 0),
-    decaySlopeTop: Math.min(1.8, Math.max(0.001, Number(params.decaySlopeTop) || 0.9)),
-    decaySlopeMid: Math.min(1, Math.max(0.1, Number(params.decaySlopeMid) || 0.7)),
-    decaySlopeBottom: Math.min(6, Math.max(0.01, Number(params.decaySlopeBottom) || 4.8)),
-    sustain: Math.min(1.4, Math.max(0, Number(params.sustain) || 1.2)),
-    release: Math.min(1, Math.max(0, Number(params.release) || 0.86)),
-    autoReleaseTime: Math.min(500, Math.max(0, Number(params.autoReleaseTime) || 0)),
-    envelopeCurve: Math.min(1, Math.max(-1, Number(params.envelopeCurve) || -0.5)),
-    envelopeDamping: Math.min(100, Math.max(0, Number(params.envelopeDamping) || 15)),
-    velocity: Math.min(1, Math.max(0, Number(params.velocity) || 1)),
-    velocitySensitivity: Math.min(1, Math.max(0, Number(params.velocitySensitivity) || 0.5)),
-    level: Math.max(0, Number(params.level) || 0),
+    attack: Math.max(0, nodeGraphFiniteNumber(params.attack)),
+    decaySlopeTop: Math.min(1.8, Math.max(0.001, nodeGraphFiniteNumber(params.decaySlopeTop, 0.9))),
+    decaySlopeMid: Math.min(1, Math.max(0.1, nodeGraphFiniteNumber(params.decaySlopeMid, 0.7))),
+    decaySlopeBottom: Math.min(6, Math.max(0.01, nodeGraphFiniteNumber(params.decaySlopeBottom, 4.8))),
+    sustain: Math.min(1.4, Math.max(0, nodeGraphFiniteNumber(params.sustain, 1.2))),
+    release: Math.min(1, Math.max(0, nodeGraphFiniteNumber(params.release, 0.86))),
+    autoReleaseTime: Math.min(500, Math.max(0, nodeGraphFiniteNumber(params.autoReleaseTime))),
+    envelopeCurve: Math.min(1, Math.max(-1, nodeGraphFiniteNumber(params.envelopeCurve, -0.5))),
+    envelopeDamping: Math.min(100, Math.max(0, nodeGraphFiniteNumber(params.envelopeDamping, 15))),
+    velocity: Math.min(1, Math.max(0, nodeGraphFiniteNumber(params.velocity, 1))),
+    velocitySensitivity: Math.min(1, Math.max(0, nodeGraphFiniteNumber(params.velocitySensitivity, 0.5))),
+    level: Math.max(0, nodeGraphFiniteNumber(params.level)),
   };
 }
 
@@ -72,8 +72,8 @@ function expoPluck2Sanitize(params = {}) {
  */
 function expoPluckEnvelope2PreviewCurve(params = {}, pointCount = 128, sampleRate = 800) {
   const state = createExpoPluckEnvelope2State();
-  const sr = Math.max(100, Number(sampleRate) || 800);
-  const pts = Math.max(48, Math.floor(Number(pointCount) || 128));
+  const sr = Math.max(100, nodeGraphFiniteNumber(sampleRate, 800));
+  const pts = Math.max(48, Math.floor(nodeGraphFiniteNumber(pointCount, 128)));
   const p = expoPluck2Sanitize({ ...params, level: 1 });
   const series = [];
   const maxSamples = Math.min(Math.floor(sr * 4), 6000);
@@ -94,7 +94,7 @@ function expoPluckEnvelope2PreviewCurve(params = {}, pointCount = 128, sampleRat
     const idx = Math.min(total - 1, Math.round((i / steps) * (total - 1)));
     points.push({ t: i / steps, y: series[idx] });
   }
-  return { points, totalSec: total / sr, level: Math.min(1, Number(params.level) || 1) };
+  return { points, totalSec: total / sr, level: Math.min(1, nodeGraphFiniteNumber(params.level, 1)) };
 }
 
 /**
@@ -104,10 +104,10 @@ function expoPluckEnvelope2PreviewCurve(params = {}, pointCount = 128, sampleRat
  * @param {number} params.release — Release knob 0…1
  */
 function expoPluckEnvelope2Sample(state, params, rate) {
-  const sr = Math.max(1, Number(rate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(rate, 44100));
   const period = 1 / sr;
-  const trig = Number(params.trigger) || 0;
-  const relGate = Number(params.releaseGate) || 0;
+  const trig = nodeGraphFiniteNumber(params.trigger);
+  const relGate = nodeGraphFiniteNumber(params.releaseGate);
   const p = expoPluck2Sanitize(params);
 
   if (state.lastTrigger <= 0 && trig > 0) {

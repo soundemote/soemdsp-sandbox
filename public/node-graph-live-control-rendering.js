@@ -132,11 +132,11 @@ function nodeGraphLiveControlsChromeSignature() {
     : "";
   const speedLimit = typeof nodeGraphLiveSpeedLimitHz === "function"
     ? nodeGraphLiveSpeedLimitHz()
-    : Number(live.speedLimit) || 0;
+    : nodeGraphFiniteNumber(live.speedLimit);
   const paused = typeof nodeGraphLiveEngineIsPaused === "function" && nodeGraphLiveEngineIsPaused();
   return [
     transport,
-    Number(live.speedMultiplier) || 0,
+    nodeGraphFiniteNumber(live.speedMultiplier),
     speedLimit,
     Boolean(live.outputEnabled) | 0,
     Boolean(live.inputActive) | 0,
@@ -335,7 +335,7 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp?.live?.node)
   const transportSide = [
     transportState,
     Boolean(nodeGraphMvp.live.node) | 0,
-    Number(nodeGraphMvp.live.speedMultiplier) || 0,
+    nodeGraphFiniteNumber(nodeGraphMvp.live.speedMultiplier),
   ].join("|");
   const transportSideChanged = force
     || !prevSignature
@@ -451,7 +451,7 @@ function renderNodeGraphSpeedReadout() {
 function renderNodeGraphSpeedLimitReadout() {
   const limit = typeof nodeGraphLiveSpeedLimitHz === "function"
     ? nodeGraphLiveSpeedLimitHz()
-    : Math.max(1, Number(nodeGraphMvp?.live?.speedLimit) || 20000);
+    : Math.max(1, nodeGraphFiniteNumber(nodeGraphMvp?.live?.speedLimit, 20000));
   const text = String(limit);
   for (const input of document.querySelectorAll("[data-speed-limit]")) {
     if (document.activeElement === input) {
@@ -481,7 +481,7 @@ function bindNodeGraphVolumeSlider(sliderId, readoutId, apply, initialValue = 1)
     }
   };
   const handle = () => {
-    const value = Math.max(0, Math.min(1, Number(slider.value) || 0));
+    const value = Math.max(0, Math.min(1, nodeGraphFiniteNumber(slider.value)));
     apply(value);
     render(value);
   };
@@ -494,7 +494,7 @@ function bindNodeGraphVolumeSlider(sliderId, readoutId, apply, initialValue = 1)
 function syncNodeGraphVolumeSlider(sliderId, readoutId, value) {
   const slider = document.getElementById(sliderId);
   const readout = document.getElementById(readoutId);
-  const level = Math.max(0, Math.min(1, Number(value) || 0));
+  const level = Math.max(0, Math.min(1, nodeGraphFiniteNumber(value)));
   if (slider && document.activeElement !== slider) {
     slider.value = String(level);
   }
@@ -544,7 +544,7 @@ function bindNodeGraphLiveVolumeControls() {
     outSlider.dataset.volumeBound = "true";
     const readout = document.getElementById("nodeLiveOutputVolumeValue");
     const handle = () => {
-      const value = Math.max(0, Math.min(1, Number(outSlider.value) || 0));
+      const value = Math.max(0, Math.min(1, nodeGraphFiniteNumber(outSlider.value)));
       if (typeof setNodeGraphOutputModuleVolume === "function") {
         setNodeGraphOutputModuleVolume(value, { fromToolbar: true, interaction: "drag" });
       } else if (typeof setNodeGraphLiveOutputVolume === "function") {

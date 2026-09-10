@@ -12,9 +12,9 @@ function beginNodeGraphModuleScopeRenderMetricsFrame() {
 
 function recordNodeGraphModuleScopeRenderMetrics(pointCount = 0, vertexCount = 0) {
   const metrics = nodeGraphModuleScopeState.renderMetrics || beginNodeGraphModuleScopeRenderMetricsFrame();
-  metrics.drawCalls = (Number(metrics.drawCalls) || 0) + 1;
-  metrics.points += Math.max(0, Math.floor(Number(pointCount) || 0));
-  metrics.vertices += Math.max(0, Math.floor(Number(vertexCount) || 0));
+  metrics.drawCalls = (nodeGraphFiniteNumber(metrics.drawCalls)) + 1;
+  metrics.points += Math.max(0, Math.floor(nodeGraphFiniteNumber(pointCount)));
+  metrics.vertices += Math.max(0, Math.floor(nodeGraphFiniteNumber(vertexCount)));
 }
 
 function nodeGraphModuleScopeNowMs() {
@@ -59,7 +59,7 @@ function nodeGraphTraceDisplayBufferContentFingerprint(buffer) {
   const i1 = Math.max(0, n - 2);
   const i2 = Math.max(0, Math.floor(n * 0.5));
   const i3 = 0;
-  const q = (i) => Math.round((Number(buffer[i]) || 0) * 1e4);
+  const q = (i) => Math.round((nodeGraphFiniteNumber(buffer[i])) * 1e4);
   return `${q(i0)}:${q(i1)}:${q(i2)}:${q(i3)}`;
 }
 
@@ -81,31 +81,31 @@ function nodeGraphTraceDisplayDrawSignature(slot, item, buffer, settings) {
     const left = ports ? nodeGraphModuleScopeState.buffers.get(`${nodeId}:${ports.left}`) : null;
     const right = ports ? nodeGraphModuleScopeState.buffers.get(`${nodeId}:${ports.right}`) : null;
     stereoSig = [
-      Number(left?.nodeGraphScopeVersion) || 0,
-      Math.floor(Number(left?.nodeGraphScopeTotalSampleCount) || 0),
+      nodeGraphFiniteNumber(left?.nodeGraphScopeVersion),
+      Math.floor(nodeGraphFiniteNumber(left?.nodeGraphScopeTotalSampleCount)),
       nodeGraphTraceDisplayBufferContentFingerprint(left),
-      Number(right?.nodeGraphScopeVersion) || 0,
-      Math.floor(Number(right?.nodeGraphScopeTotalSampleCount) || 0),
+      nodeGraphFiniteNumber(right?.nodeGraphScopeVersion),
+      Math.floor(nodeGraphFiniteNumber(right?.nodeGraphScopeTotalSampleCount)),
       nodeGraphTraceDisplayBufferContentFingerprint(right),
     ].join(",");
   }
   return [
-    Number(buffer?.nodeGraphScopeVersion) || 0,
+    nodeGraphFiniteNumber(buffer?.nodeGraphScopeVersion),
     nodeGraphScopeAvailableSampleCount(buffer),
     // Strip chart advances on absolute sample count, not just retained length.
-    Math.floor(Number(buffer?.nodeGraphScopeTotalSampleCount) || 0),
+    Math.floor(nodeGraphFiniteNumber(buffer?.nodeGraphScopeTotalSampleCount)),
     nodeGraphTraceDisplayBufferContentFingerprint(buffer),
     stereoSig,
-    Math.round(Number(item?.scopeRect?.left) || 0),
-    Math.round(Number(item?.scopeRect?.top) || 0),
-    Math.round(Number(item?.scopeRect?.width) || 0),
-    Math.round(Number(item?.scopeRect?.height) || 0),
-    Math.round((Number(item?.visibleProgressRange?.[0]) || 0) * 10000),
-    Math.round((Number(item?.visibleProgressRange?.[1]) || 0) * 10000),
+    Math.round(nodeGraphFiniteNumber(item?.scopeRect?.left)),
+    Math.round(nodeGraphFiniteNumber(item?.scopeRect?.top)),
+    Math.round(nodeGraphFiniteNumber(item?.scopeRect?.width)),
+    Math.round(nodeGraphFiniteNumber(item?.scopeRect?.height)),
+    Math.round((nodeGraphFiniteNumber(item?.visibleProgressRange?.[0])) * 10000),
+    Math.round((nodeGraphFiniteNumber(item?.visibleProgressRange?.[1])) * 10000),
     settings.zoomSeconds,
     Number.isFinite(Number(settings.fade)) ? Number(settings.fade) : 0,
     settings.padding,
-    Number(settings.scale) || 1,
+    nodeGraphFiniteNumber(settings.scale, 1),
     settings.skipDiscontinuities ? 1 : 0,
     settings.lineThickness,
     settings.brightness,
@@ -115,12 +115,12 @@ function nodeGraphTraceDisplayDrawSignature(slot, item, buffer, settings) {
     settings.secondaryColor,
     settings.stereoBlend || "combine",
     settings.meetColor || "auto",
-    // Keep 0 density as 0 (Number(0) || 1 would wrongly snap to 1).
+    // Keep 0 density as 0 (Number(0, 1) would wrongly snap to 1).
     Number.isFinite(Number(settings.pixelDensity)) ? Number(settings.pixelDensity) : 1,
     settings.background || settings.backgroundColor || "",
     settings.sourceSync === false ? 0 : 1,
     settings.syncChannel || "off",
-    Math.round((Number(globalThis.nodeGraphOutputProtectMute) || 0) * 1000),
+    Math.round((nodeGraphFiniteNumber(globalThis.nodeGraphOutputProtectMute)) * 1000),
   ].join("|");
 }
 
@@ -163,7 +163,7 @@ function finishNodeGraphTraceDisplayTiming(timing) {
     vertices: timing.vertices,
   };
   const now = nodeGraphModuleScopeNowMs();
-  if (typeof console !== "undefined" && now - (Number(debug.traceDisplayTimingLastLogMs) || 0) > 500) {
+  if (typeof console !== "undefined" && now - (nodeGraphFiniteNumber(debug.traceDisplayTimingLastLogMs)) > 500) {
     debug.traceDisplayTimingLastLogMs = now;
     console.table([debug.traceDisplayTiming]);
   }
@@ -186,7 +186,7 @@ function markNodeGraphModuleScopeDebugSkip(reason) {
   const debug = setNodeGraphModuleScopeDebugPhase("skip", {
     lastSkipReason: String(reason || "unknown"),
   });
-  debug.skippedFrames = (Number(debug.skippedFrames) || 0) + 1;
+  debug.skippedFrames = (nodeGraphFiniteNumber(debug.skippedFrames)) + 1;
   pushNodeGraphModuleScopeDebugHistory(`skip:${debug.lastSkipReason}`);
   syncNodeGraphScopeGpuDebugDisplay();
 }
@@ -201,7 +201,7 @@ function nodeGraphModuleScopeDebugSnapshot() {
     phase: debug.phase || "",
     scopeSlots: Array.isArray(debug.scopeSlots) ? debug.scopeSlots : [],
     totalSlots: nodeGraphModuleScopeSlots().length,
-    visibleItems: Number(debug.visibleItems) || 0,
+    visibleItems: nodeGraphFiniteNumber(debug.visibleItems),
   };
 }
 
@@ -222,21 +222,21 @@ function pushNodeGraphModuleScopeDebugHistory(reason = "frame") {
   const history = Array.isArray(debug.debugHistory) ? debug.debugHistory : [];
   const now = nodeGraphModuleScopeNowMs();
   const entry = {
-    ageMs: Math.max(0, now - (Number(debug.lastFrameEndMs) || now)),
-    canvasHeight: Math.max(0, Math.floor(Number(debug.canvasHeight) || 0)),
-    canvasWidth: Math.max(0, Math.floor(Number(debug.canvasWidth) || 0)),
-    drawMs: Math.max(0, Number(debug.lastDrawMs) || 0),
+    ageMs: Math.max(0, now - (nodeGraphFiniteNumber(debug.lastFrameEndMs, now))),
+    canvasHeight: Math.max(0, Math.floor(nodeGraphFiniteNumber(debug.canvasHeight))),
+    canvasWidth: Math.max(0, Math.floor(nodeGraphFiniteNumber(debug.canvasWidth))),
+    drawMs: Math.max(0, nodeGraphFiniteNumber(debug.lastDrawMs)),
     error: debug.lastError || "",
     phase: debug.phase || "idle",
-    pixelRatio: Number(debug.pixelRatio) || 0,
-    points: Math.max(0, Math.floor(Number(nodeGraphModuleScopeState.renderMetrics?.points) || 0)),
+    pixelRatio: nodeGraphFiniteNumber(debug.pixelRatio),
+    points: Math.max(0, Math.floor(nodeGraphFiniteNumber(nodeGraphModuleScopeState.renderMetrics?.points))),
     reason: String(reason || "frame"),
-    skippedFrames: Math.max(0, Math.floor(Number(debug.skippedFrames) || 0)),
+    skippedFrames: Math.max(0, Math.floor(nodeGraphFiniteNumber(debug.skippedFrames))),
     timeMs: now,
-    totalSlots: Math.max(0, Math.floor(Number(debug.totalSlots) || 0)),
-    vertices: Math.max(0, Math.floor(Number(nodeGraphModuleScopeState.renderMetrics?.vertices) || 0)),
-    visibleItems: Math.max(0, Math.floor(Number(debug.visibleItems) || 0)),
-    zoom: Number(debug.zoom) || 0,
+    totalSlots: Math.max(0, Math.floor(nodeGraphFiniteNumber(debug.totalSlots))),
+    vertices: Math.max(0, Math.floor(nodeGraphFiniteNumber(nodeGraphModuleScopeState.renderMetrics?.vertices))),
+    visibleItems: Math.max(0, Math.floor(nodeGraphFiniteNumber(debug.visibleItems))),
+    zoom: nodeGraphFiniteNumber(debug.zoom),
   };
   history.push(entry);
   if (history.length > 120) {
@@ -256,36 +256,36 @@ function pushNodeGraphModuleScopeDebugHistory(reason = "frame") {
 function commitNodeGraphModuleScopeRenderMetricsFrame(nowSeconds = (performance.now?.() || Date.now()) / 1000) {
   const metrics = nodeGraphModuleScopeState.renderMetrics || beginNodeGraphModuleScopeRenderMetricsFrame();
   const debug = nodeGraphModuleScopeDebugState();
-  const now = Math.max(0, Number(nowSeconds) || 0);
-  metrics.fpsFrames = (Number(metrics.fpsFrames) || 0) + 1;
-  debug.committedFrames = (Number(debug.committedFrames) || 0) + 1;
+  const now = Math.max(0, nodeGraphFiniteNumber(nowSeconds));
+  metrics.fpsFrames = (nodeGraphFiniteNumber(metrics.fpsFrames)) + 1;
+  debug.committedFrames = (nodeGraphFiniteNumber(debug.committedFrames)) + 1;
   debug.lastFrameEndMs = nodeGraphModuleScopeNowMs();
-  debug.lastDrawMs = Math.max(0, debug.lastFrameEndMs - (Number(debug.lastFrameStartMs) || debug.lastFrameEndMs));
-  const last = Number(metrics.fpsLastTime) || 0;
+  debug.lastDrawMs = Math.max(0, debug.lastFrameEndMs - (nodeGraphFiniteNumber(debug.lastFrameStartMs, debug.lastFrameEndMs)));
+  const last = nodeGraphFiniteNumber(metrics.fpsLastTime);
   if (!last) {
     metrics.fpsLastTime = now;
   } else if (now - last >= 0.5) {
     metrics.fps = metrics.fpsFrames / Math.max(0.001, now - last);
     metrics.fpsFrames = 0;
     metrics.fpsLastTime = now;
-    const samples = Math.max(1, Number(metrics.pointsSamples) || 0);
-    const sum = Math.max(0, Number(metrics.pointsSum) || 0);
+    const samples = Math.max(1, nodeGraphFiniteNumber(metrics.pointsSamples));
+    const sum = Math.max(0, nodeGraphFiniteNumber(metrics.pointsSum));
     metrics.pointsAvg = Math.round(sum / samples);
     metrics.pointsSum = 0;
     metrics.pointsSamples = 0;
   }
   // FPS-gate / empty ticks would otherwise flash 0. Average only real draws.
-  if ((Number(metrics.drawCalls) || 0) > 0 || (Number(metrics.points) || 0) > 0) {
-    metrics.pointsSum = (Number(metrics.pointsSum) || 0) + Math.max(0, Number(metrics.points) || 0);
-    metrics.pointsSamples = (Number(metrics.pointsSamples) || 0) + 1;
+  if ((nodeGraphFiniteNumber(metrics.drawCalls)) > 0 || (nodeGraphFiniteNumber(metrics.points)) > 0) {
+    metrics.pointsSum = (nodeGraphFiniteNumber(metrics.pointsSum)) + Math.max(0, nodeGraphFiniteNumber(metrics.points));
+    metrics.pointsSamples = (nodeGraphFiniteNumber(metrics.pointsSamples)) + 1;
   }
   pushNodeGraphModuleScopeDebugHistory("commit");
   syncNodeGraphScopeGpuMetricsDisplay();
 }
 
 function formatNodeGraphScopeGpuMetricFixedNumber(value, digits = 6) {
-  const count = Math.max(0, Math.floor(Number(value) || 0));
-  const width = Math.max(1, Math.floor(Number(digits) || 1));
+  const count = Math.max(0, Math.floor(nodeGraphFiniteNumber(value)));
+  const width = Math.max(1, Math.floor(nodeGraphFiniteNumber(digits, 1)));
   const max = (10 ** width) - 1;
   return String(Math.min(count, max)).padStart(width, "0");
 }
@@ -305,12 +305,12 @@ function syncNodeGraphScopeGpuMetricsDisplay() {
   }
   const metrics = nodeGraphModuleScopeState.renderMetrics || {};
   const constraint = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.constraintResourceMetrics : null;
-  const fps = Number(metrics.fps) || Number(constraint?.mainFrameRate) || 0;
+  const fps = nodeGraphFiniteNumber(metrics.fps, nodeGraphFiniteNumber(constraint?.mainFrameRate));
   const points = Math.max(
     0,
-    Math.floor(Number(metrics.pointsAvg) || Number(metrics.points) || 0),
+    Math.floor(nodeGraphFiniteNumber(metrics.pointsAvg, nodeGraphFiniteNumber(metrics.points))),
   );
-  const vertices = Math.max(0, Math.floor(Number(metrics.vertices) || 0));
+  const vertices = Math.max(0, Math.floor(nodeGraphFiniteNumber(metrics.vertices)));
   const contexts = document.querySelectorAll(
     "#nodeGraphWorkspace canvas, #nodeGraphWorkspace .node-module-scope-webgl",
   ).length;
@@ -338,12 +338,12 @@ function nodeGraphScopeGpuMetricsVisible(root = document.getElementById("nodeSco
 }
 
 function formatNodeGraphScopeGpuDebugNumber(value, digits = 3) {
-  const number = Math.max(0, Math.floor(Number(value) || 0));
+  const number = Math.max(0, Math.floor(nodeGraphFiniteNumber(value)));
   return String(number).padStart(Math.max(1, digits), "0");
 }
 
 function formatNodeGraphScopeGpuDebugMs(value) {
-  const number = Math.max(0, Number(value) || 0);
+  const number = Math.max(0, nodeGraphFiniteNumber(value));
   return Math.min(9999, number).toFixed(number >= 100 ? 0 : 1).padStart(5, "0");
 }
 
@@ -355,9 +355,9 @@ function syncNodeGraphScopeGpuDebugDisplay() {
   }
   const debug = nodeGraphModuleScopeDebugState();
   const now = nodeGraphModuleScopeNowMs();
-  const pendingAt = Number(nodeGraphModuleScopeState.drawFrameRequestedAt) || 0;
+  const pendingAt = nodeGraphFiniteNumber(nodeGraphModuleScopeState.drawFrameRequestedAt);
   const pendingAge = nodeGraphModuleScopeState.drawFrame && pendingAt > 0 ? Math.max(0, now - pendingAt) : 0;
-  const lastEnd = Number(debug.lastFrameEndMs) || 0;
+  const lastEnd = nodeGraphFiniteNumber(debug.lastFrameEndMs);
   const frameAge = lastEnd > 0 ? Math.max(0, now - lastEnd) : 0;
   debug.pendingAgeMs = pendingAge;
   debug.lastHeartbeatMs = now;
@@ -366,7 +366,7 @@ function syncNodeGraphScopeGpuDebugDisplay() {
     .filter((slot) => ["scope2d", "scope2dTrace", "traceDisplay", "lineBurnOscilloscope", "dotOscilloscope", "valueOscilloscope"].includes(slot?.type))
     .map((slot) => {
       const id = String(slot.nodeId || slot.type || "?").replace(/Oscilloscope|Display/g, "");
-      const length = Math.max(0, Math.floor(Number(slot.bufferLength) || 0));
+      const length = Math.max(0, Math.floor(nodeGraphFiniteNumber(slot.bufferLength)));
       return `${id}:${slot.displayType || slot.type}:${length}${slot.skip ? `:${slot.skip}` : ""}`;
     })
     .slice(0, 6);
@@ -376,29 +376,29 @@ function syncNodeGraphScopeGpuDebugDisplay() {
     return;
   }
   const snapshot = {
-    canvas: `${Math.max(0, Math.floor(Number(debug.canvasWidth) || 0))}x${Math.max(0, Math.floor(Number(debug.canvasHeight) || 0))}`,
-    drawMs: Math.max(0, Number(debug.lastDrawMs) || 0),
+    canvas: `${Math.max(0, Math.floor(nodeGraphFiniteNumber(debug.canvasWidth)))}x${Math.max(0, Math.floor(nodeGraphFiniteNumber(debug.canvasHeight)))}`,
+    drawMs: Math.max(0, nodeGraphFiniteNumber(debug.lastDrawMs)),
     error: debug.lastError || "",
     frameAgeMs: frameAge,
     historyTail: (Array.isArray(debug.debugHistory) ? debug.debugHistory : []).slice(-12),
     pendingAgeMs: pendingAge,
     phase: debug.phase || "idle",
-    pixelRatio: Number(debug.pixelRatio) || 0,
-    points: Math.max(0, Math.floor(Number(nodeGraphModuleScopeState.renderMetrics?.points) || 0)),
+    pixelRatio: nodeGraphFiniteNumber(debug.pixelRatio),
+    points: Math.max(0, Math.floor(nodeGraphFiniteNumber(nodeGraphModuleScopeState.renderMetrics?.points))),
     scopeSlots: Array.isArray(debug.scopeSlots) ? debug.scopeSlots : [],
-    slots: `${Math.max(0, Math.floor(Number(debug.visibleItems) || 0))}/${Math.max(0, Math.floor(Number(debug.totalSlots) || 0))}`,
-    vertices: Math.max(0, Math.floor(Number(nodeGraphModuleScopeState.renderMetrics?.vertices) || 0)),
-    zoom: Number(debug.zoom) || 0,
+    slots: `${Math.max(0, Math.floor(nodeGraphFiniteNumber(debug.visibleItems)))}/${Math.max(0, Math.floor(nodeGraphFiniteNumber(debug.totalSlots)))}`,
+    vertices: Math.max(0, Math.floor(nodeGraphFiniteNumber(nodeGraphModuleScopeState.renderMetrics?.vertices))),
+    zoom: nodeGraphFiniteNumber(debug.zoom),
   };
   root.dataset.debugSnapshot = JSON.stringify(snapshot);
   debugElement.textContent = [
-    `z${(Number(debug.zoom) || 0).toFixed(2)}`,
+    `z${(nodeGraphFiniteNumber(debug.zoom)).toFixed(2)}`,
     `age${formatNodeGraphScopeGpuDebugMs(frameAge)}ms`,
     `draw${formatNodeGraphScopeGpuDebugMs(debug.lastDrawMs)}ms`,
     `pend${formatNodeGraphScopeGpuDebugMs(pendingAge)}ms`,
     `slots${formatNodeGraphScopeGpuDebugNumber(debug.visibleItems, 2)}/${formatNodeGraphScopeGpuDebugNumber(debug.totalSlots, 2)}`,
     `cv${formatNodeGraphScopeGpuDebugNumber(debug.canvasWidth, 4)}x${formatNodeGraphScopeGpuDebugNumber(debug.canvasHeight, 4)}`,
-    `pr${(Number(debug.pixelRatio) || 0).toFixed(2)}`,
+    `pr${(nodeGraphFiniteNumber(debug.pixelRatio)).toFixed(2)}`,
     slotSummary.length ? `scope:${slotSummary.join(",")}` : "",
     `phase:${debug.phase || "idle"}`,
     debug.lastSkipReason ? `skip:${debug.lastSkipReason}` : "",

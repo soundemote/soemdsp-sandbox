@@ -11,7 +11,7 @@ function nodeGraphPllSample(state, signalIn, cvIn, cvConnected, params, sampleRa
   const native = runtime?.nativePllReady ? runtime?.nativePll : null;
   if (!native?.soemdsp_pll_create || !native?.soemdsp_pll_process) return silent;
   try {
-    const safeRate = Math.max(1, Math.round(Number(sampleRate) || 44100));
+    const safeRate = Math.max(1, Math.round(nodeGraphFiniteNumber(sampleRate, 44100)));
     if (!state.nativeHandle || state.nativeSampleRate !== safeRate) {
       if (state.nativeHandle && native.soemdsp_pll_destroy) {
         native.soemdsp_pll_destroy(state.nativeHandle);

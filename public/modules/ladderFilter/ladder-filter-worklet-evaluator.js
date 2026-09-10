@@ -58,9 +58,9 @@ NodeLiveAudioProcessor.prototype.applyLadderNativeParams = function applyLadderN
     state.nativeHandle,
     Math.max(0, this.safeFilterNumber(params.frequency, state)),
     this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1),
-    Math.max(0, Math.min(3, Math.round(Number(params.mode) || 0))),
-    Math.max(1, Math.min(4, Math.round(Number(params.stages) || 4))),
-    Math.max(1, Number(rate) || sampleRate || 44100),
+    Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(params.mode)))),
+    Math.max(1, Math.min(4, Math.round(nodeGraphFiniteNumber(params.stages, 4)))),
+    Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100))),
   );
 };
 
@@ -90,10 +90,10 @@ NodeLiveAudioProcessor.prototype.ladderFilterSample = function ladderFilterSampl
       return 0;
     }
 
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+    const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
     const blockSize = Math.min(
       NodeLiveAudioProcessor.LADDER_NATIVE_BLOCK_SIZE,
-      Number(native.soemdsp_ladder_filter_max_block_frames?.()) || 128,
+      nodeGraphFiniteNumber(native.soemdsp_ladder_filter_max_block_frames?.(), 128),
     );
 
     if (!this.bindLadderBlockViews(native, state, blockSize)) {
@@ -104,8 +104,8 @@ NodeLiveAudioProcessor.prototype.ladderFilterSample = function ladderFilterSampl
           this.safeFilterNumber(input, state),
           Math.max(0, this.safeFilterNumber(params.frequency, state)),
           this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1),
-          Math.max(0, Math.min(3, Math.round(Number(params.mode) || 0))),
-          Math.max(1, Math.min(4, Math.round(Number(params.stages) || 4))),
+          Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(params.mode)))),
+          Math.max(1, Math.min(4, Math.round(nodeGraphFiniteNumber(params.stages, 4)))),
           safeRate,
         ),
         state,

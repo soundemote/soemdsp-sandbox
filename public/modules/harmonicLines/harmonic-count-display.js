@@ -88,8 +88,8 @@ function drawNodeGraphHarmonicCountDisplay(section) {
     h = metrics.cssHeight;
     pixelRatio = metrics.pixelRatio || 1;
   } else {
-    const rawW = Number(section.clientWidth || section.offsetWidth) || 0;
-    const rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+    const rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
+    const rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
     if (rawW < 8 || rawH < 8) return;
     const dpr = window.devicePixelRatio || 1;
     w = Math.max(1, Math.floor(rawW));

@@ -14,28 +14,28 @@ function createNodeGraphRandomWalkState() {
 }
 
 function nodeGraphRandomWalkClamp01(v) {
-  const x = Number(v) || 0;
+  const x = nodeGraphFiniteNumber(v);
   return x < 0 ? 0 : (x > 1 ? 1 : x);
 }
 
 function nodeGraphRandomWalkClamp11(v) {
-  const x = Number(v) || 0;
+  const x = nodeGraphFiniteNumber(v);
   return x < -1 ? -1 : (x > 1 ? 1 : x);
 }
 
 function nodeGraphRandomWalkRationalCurve(value, skew) {
   const t = nodeGraphRandomWalkClamp01(value);
-  const safeSkew = Math.max(-0.999, Math.min(0.999, Number(skew) || 0));
+  const safeSkew = Math.max(-0.999, Math.min(0.999, nodeGraphFiniteNumber(skew)));
   return ((1 + safeSkew) * t) / (1 - safeSkew + 2 * safeSkew * t);
 }
 
 function nodeGraphRandomWalkOnePole(state, input, frequency, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const frequencyValue = Math.max(0, Number(frequency) || 0);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const frequencyValue = Math.max(0, nodeGraphFiniteNumber(frequency));
   const w = Math.min((Math.PI * 2) / rate, 0.000142475857) * frequencyValue;
   const a1 = Math.exp(-w);
   const b0 = 1 - a1;
-  state.outputBuffer = b0 * (Number(input) || 0) + a1 * (Number(state.outputBuffer) || 0);
+  state.outputBuffer = b0 * (nodeGraphFiniteNumber(input)) + a1 * (nodeGraphFiniteNumber(state.outputBuffer));
   return state.outputBuffer;
 }
 
@@ -46,11 +46,11 @@ function nodeGraphRandomWalkCore(state, params, sampleRate, nodeId) {
   if (typeof nodeGraphResetSeededState === "function") {
     nodeGraphResetSeededState(state, nodeId, params?.seed, "randomWalk");
   }
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const method = Math.max(0, Math.min(3, Math.round(Number(params?.method) || 0)));
-  const frequency = Math.max(0, Number(params?.frequency) || 0);
-  const jitter = Math.max(0, Number(params?.jitter) || 0);
-  const level = Number(params?.level) || 0;
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const method = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(params?.method))));
+  const frequency = Math.max(0, nodeGraphFiniteNumber(params?.frequency));
+  const jitter = Math.max(0, nodeGraphFiniteNumber(params?.jitter));
+  const level = nodeGraphFiniteNumber(params?.level);
   const noise = typeof nodeGraphNextSeededBipolar === "function"
     ? nodeGraphNextSeededBipolar(state)
     : 0;
@@ -70,7 +70,7 @@ function nodeGraphRandomWalkCore(state, params, sampleRate, nodeId) {
     return nodeGraphRandomWalkOnePole(state.lowpass, noise, frequency, rate) * level;
   }
   const step = method === 3 ? (noise > 0 ? stepSize : -stepSize) : noise * stepSize;
-  state.out = nodeGraphRandomWalkClamp11((Number(state.out) || 0) + step);
+  state.out = nodeGraphRandomWalkClamp11((nodeGraphFiniteNumber(state.out)) + step);
   const mixed = state.out * randomMix + noise * whiteNoiseMix;
   return nodeGraphRandomWalkOnePole(state.lowpass, mixed, frequency, rate) * level;
 }

@@ -869,7 +869,7 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
 
 /** Degrees for Bias unit 0…1 along centered span (applied only to layers with rotate). */
 function nodeGraphKnobFaceRotationDeg(face, unit01) {
-  const u = Math.max(0, Math.min(1, Number(unit01) || 0));
+  const u = Math.max(0, Math.min(1, nodeGraphFiniteNumber(unit01)));
   const span = Number.isFinite(Number(face?.rotationDegrees))
     ? Math.max(0, Math.min(1440, Number(face.rotationDegrees)))
     : 270;

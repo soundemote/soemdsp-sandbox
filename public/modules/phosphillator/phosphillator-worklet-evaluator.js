@@ -44,7 +44,7 @@ NodeLiveAudioProcessor.prototype.phosphillatorPathSample = function phosphillato
     if (n < 2) {
       return { x: decoded.decodedX[0] || 0, y: decoded.decodedY[0] || 0 };
     }
-    const pos = Math.min(1, Math.max(0, Number(pathPos) || 0));
+    const pos = Math.min(1, Math.max(0, nodeGraphFiniteNumber(pathPos)));
     const index = pos * (n - 1);
     const i0 = Math.min(n - 2, Math.floor(index));
     const i1 = i0 + 1;
@@ -66,7 +66,7 @@ NodeLiveAudioProcessor.prototype.phosphillatorJsPlaybackSample = function phosph
     if (!decoded) {
       return { X: 0, Y: 0 };
     }
-    const effectivePhase = nodeGraphWrap01((Number(phase) || 0) + (Number(phaseOffset) || 0));
+    const effectivePhase = nodeGraphWrap01((nodeGraphFiniteNumber(phase)) + (nodeGraphFiniteNumber(phaseOffset)));
     const sharp = Number.isFinite(Number(sharpness)) ? Number(sharpness) : 0.5;
     const point = this.phosphillatorLoopSample(decoded, effectivePhase, sharp);
     // Finite-only filter (not safeFilterNumber): packed pen/intensity LSBs can

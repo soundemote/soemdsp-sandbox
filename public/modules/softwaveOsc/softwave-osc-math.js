@@ -6,7 +6,7 @@ const SOFTWAVE_HALF_PI = Math.PI * 0.5;
 const SOFTWAVE_LN2 = Math.LN2;
 
 function nodeGraphSoftwaveWrap01(x) {
-  const n = Number(x) || 0;
+  const n = nodeGraphFiniteNumber(x);
   return n - Math.floor(n);
 }
 
@@ -18,7 +18,7 @@ function nodeGraphSoftwaveTanh(v) {
 }
 
 function nodeGraphSoftwaveAcos(x) {
-  const a = Math.max(-1, Math.min(1, Number(x) || 0));
+  const a = nodeGraphFiniteNumber(x);
   const x2 = a * a;
   const series = a * (1 + x2 * (1 / 6
     + x2 * (0.075
@@ -37,13 +37,13 @@ function nodeGraphSoftwaveParabolSine(x) {
 }
 
 function nodeGraphSoftwaveFreqToPitch(frequencyHz) {
-  const f = Math.max(1e-12, Number(frequencyHz) || 1e-12);
+  const f = Math.max(1e-12, nodeGraphFiniteNumber(frequencyHz, 1e-12));
   return 69 + 12 * (Math.log(f / 440) / SOFTWAVE_LN2);
 }
 
 function nodeGraphSoftwaveSineAmp(frequencyHz, sampleRate = 44100) {
-  const f = Math.max(1, Number(frequencyHz) || 1);
-  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const f = Math.max(1, nodeGraphFiniteNumber(frequencyHz, 1));
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const quarter = sr * 0.25;
   const denom = Math.log10(f) * f;
   const d = Math.abs(denom) > 1e-12 ? denom : 1e-12;
@@ -51,7 +51,7 @@ function nodeGraphSoftwaveSineAmp(frequencyHz, sampleRate = 44100) {
 }
 
 function nodeGraphSoftwaveMorphFactor(morph) {
-  const m = Math.max(0, Math.min(1, Number(morph) || 0));
+  const m = Math.max(0, Math.min(1, nodeGraphFiniteNumber(morph)));
   const m2 = m * m;
   const m4 = m2 * m2;
   return m4 * 0.999 + 0.001;
@@ -60,7 +60,7 @@ function nodeGraphSoftwaveMorphFactor(morph) {
 /** One sample of Softwave shape at phase ∈ [0,1). Matches native run_shape. */
 function nodeGraphSoftwaveShapeAt(phase01, waveform, morph, frequencyHz = 100, sampleRate = 44100) {
   const p = nodeGraphSoftwaveWrap01(phase01);
-  const shape = Math.max(0, Math.min(9, Math.round(Number(waveform) || 0)));
+  const shape = Math.max(0, Math.min(9, Math.round(nodeGraphFiniteNumber(waveform))));
   const sa = nodeGraphSoftwaveSineAmp(frequencyHz, sampleRate);
   const mf = nodeGraphSoftwaveMorphFactor(morph);
   switch (shape) {
@@ -74,7 +74,7 @@ function nodeGraphSoftwaveShapeAt(phase01, waveform, morph, frequencyHz = 100, s
     case 2: {
       const a = nodeGraphSoftwaveTanh(Math.sin(p * SOFTWAVE_PI * 2) * sa * mf)
         * Math.sin(nodeGraphSoftwaveWrap01(p + 0.25) * SOFTWAVE_PI * 2);
-      return nodeGraphSoftwaveAcos(Math.max(-1, Math.min(1, a))) / (SOFTWAVE_PI * 0.5) - 1;
+      return nodeGraphSoftwaveAcos(a) / (SOFTWAVE_PI * 0.5) - 1;
     }
     case 3: {
       const bow = nodeGraphSoftwaveParabolSine(p);
@@ -89,7 +89,7 @@ function nodeGraphSoftwaveShapeAt(phase01, waveform, morph, frequencyHz = 100, s
       const adjusted = 0.15 + (1 - 0.15) * t;
       const scaling = nodeGraphSoftwaveTanh((1 - (nodeGraphSoftwaveFreqToPitch(frequencyHz) / 127)) * 9);
       return nodeGraphSoftwaveAcos(
-        Math.max(-1, Math.min(1, Math.sin(p * SOFTWAVE_PI * 2) * adjusted * scaling)),
+        Math.sin(p * SOFTWAVE_PI * 2) * adjusted * scaling,
       ) / SOFTWAVE_PI * 2 - 1;
     }
     case 6: {

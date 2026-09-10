@@ -4,7 +4,7 @@ NodeLiveAudioProcessor.prototype.createPitchQuantizerState = function createPitc
 
 NodeLiveAudioProcessor.prototype.pitchQuantizerMaskFromChoice = function pitchQuantizerMaskFromChoice(choiceIndex) {
   const masks = [4095, 2741, 1453, 661, 1193, 1365];
-  const index = Math.max(0, Math.min(masks.length - 1, Math.round(Number(choiceIndex) || 0)));
+  const index = Math.max(0, Math.min(masks.length - 1, Math.round(nodeGraphFiniteNumber(choiceIndex))));
   return masks[index];
 };
 
@@ -18,7 +18,7 @@ NodeLiveAudioProcessor.prototype.pitchQuantizerNormalizeMask = function pitchQua
 
 NodeLiveAudioProcessor.prototype.pitchQuantizerResolveMask = function pitchQuantizerResolveMask(options = {}) {
   if (options.hasScaleInput) {
-    return Math.round(Number(options.scaleInput) || 0) & 0xFFF;
+    return Math.round(nodeGraphFiniteNumber(options.scaleInput)) & 0xFFF;
   }
   if (options.scaleMask != null && String(options.scaleMask).trim() !== "") {
     return this.pitchQuantizerNormalizeMask(options.scaleMask);
@@ -27,7 +27,7 @@ NodeLiveAudioProcessor.prototype.pitchQuantizerResolveMask = function pitchQuant
 };
 
 NodeLiveAudioProcessor.prototype.pitchQuantizerSample = function pitchQuantizerSample(state, options = {}) {
-  const pitch = Number(options.pitch) || 0;
+  const pitch = nodeGraphFiniteNumber(options.pitch);
   const mask = this.pitchQuantizerResolveMask(options);
   if (
     this.nativePitchQuantizerReady &&

@@ -104,7 +104,7 @@ function nodeGraphClampUnit(value) {
  * through grey. Smoothstep + gamma 2.2 keeps the ends from sticking.
  */
 function nodeGraphHueUnitRgb01(hueDeg) {
-  const h = ((((Number(hueDeg) || 0) % 360) + 360) % 360) / 60;
+  const h = ((((nodeGraphFiniteNumber(hueDeg)) % 360) + 360) % 360) / 60;
   const x = 1 - Math.abs((h % 2) - 1);
   if (h < 1) return [1, x, 0];
   if (h < 2) return [x, 1, 0];
@@ -115,7 +115,7 @@ function nodeGraphHueUnitRgb01(hueDeg) {
 }
 
 function nodeGraphHueBrightnessRgb01(hueDeg, brightness01) {
-  const t = Math.max(0, Math.min(1, Number(brightness01) || 0));
+  const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(brightness01)));
   const [hr, hg, hb] = nodeGraphHueUnitRgb01(hueDeg);
   const toLin = (c) => c ** 2.2;
   const toSrgb = (c) => Math.max(0, c) ** (1 / 2.2);
@@ -159,9 +159,9 @@ function nodeGraphHueUnitHex(hueDeg) {
 }
 
 function nodeGraphHueDegFromRgb01(r, g, b) {
-  const rr = Number(r) || 0;
-  const gg = Number(g) || 0;
-  const bb = Number(b) || 0;
+  const rr = nodeGraphFiniteNumber(r);
+  const gg = nodeGraphFiniteNumber(g);
+  const bb = nodeGraphFiniteNumber(b);
   const max = Math.max(rr, gg, bb);
   const min = Math.min(rr, gg, bb);
   const span = max - min;
@@ -247,7 +247,7 @@ function nodeGraphSizeDisplayCanvas(section, canvas, options = {}) {
   let cssHeight = Math.max(0, Number(section.clientHeight || section.offsetHeight || 0));
   if (!(cssWidth > 0) || !(cssHeight > 0)) {
     const rect = section.getBoundingClientRect();
-    const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
+    const zoom = Math.max(0.01, nodeGraphFiniteNumber(nodeGraphMvp?.zoom, 1));
     if (!(cssWidth > 0)) {
       cssWidth = Math.max(1, rect.width / zoom);
     }
@@ -298,8 +298,8 @@ function nodeGraphStrokePathWithLineBlur(context, options = {}) {
     return;
   }
   const strokeStyle = options.strokeStyle || options.color || "#ffffff";
-  const lineWidth = Math.max(0.25, Number(options.lineWidth) || 1);
-  const blur = Math.max(0, Number(options.lineBlur ?? options.blur) || 0);
+  const lineWidth = Math.max(0.25, nodeGraphFiniteNumber(options.lineWidth, 1));
+  const blur = Math.max(0, nodeGraphFiniteNumber(options.lineBlur ?? options.blur));
   context.lineJoin = options.lineJoin || "round";
   context.lineCap = options.lineCap || "round";
   context.strokeStyle = strokeStyle;
@@ -337,9 +337,9 @@ function nodeGraphStrokePathWithLineBlur(context, options = {}) {
 }
 
 function nodeGraphHslToHex(background = {}) {
-  const h = ((Number(background.h) || 0) % 360 + 360) % 360;
-  const s = nodeGraphClampUnit((Number(background.s) || 0) / 100);
-  const l = nodeGraphClampUnit((Number(background.l) || 0) / 100);
+  const h = ((nodeGraphFiniteNumber(background.h)) % 360 + 360) % 360;
+  const s = nodeGraphClampUnit((nodeGraphFiniteNumber(background.s)) / 100);
+  const l = nodeGraphClampUnit((nodeGraphFiniteNumber(background.l)) / 100);
   const chroma = (1 - Math.abs(2 * l - 1)) * s;
   const huePrime = h / 60;
   const x = chroma * (1 - Math.abs((huePrime % 2) - 1));

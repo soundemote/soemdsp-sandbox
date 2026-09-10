@@ -7,7 +7,7 @@ NodeLiveAudioProcessor.prototype.createClockState = function createClockState() 
   };
 
 NodeLiveAudioProcessor.prototype.clockAnalogWhipSample = function clockAnalogWhipSample(phase, level) {
-    const p = this.clampValue(Number(phase) || 0, 0, 1);
+    const p = this.clampValue(nodeGraphFiniteNumber(phase), 0, 1);
     const attack = 1 - Math.pow(1 - Math.min(1, p / 0.035), 4);
     const release = Math.pow(Math.max(0, 1 - p), 1.85);
     const snapEnvelope = attack * release;
@@ -25,7 +25,7 @@ NodeLiveAudioProcessor.prototype.clockSample = function clockSample(state, reset
           state.nativeHandle = this.nativeClock.soemdsp_clock_create();
         }
         if (state.nativeHandle) {
-          const safeRateHz = Math.max(1, Number(rateHz) || sampleRate || 44100);
+          const safeRateHz = Math.max(1, nodeGraphFiniteNumber(rateHz, nodeGraphFiniteNumber(sampleRate, 44100)));
           const digital = this.safeFilterNumber(
             this.nativeClock.soemdsp_clock_sample(
               state.nativeHandle,

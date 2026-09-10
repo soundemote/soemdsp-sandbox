@@ -12,7 +12,7 @@ NodeLiveAudioProcessor.prototype.createSampleDelayState = function createSampleD
 };
 
 NodeLiveAudioProcessor.prototype.sampleDelayEnsureJsBuffer = function sampleDelayEnsureJsBuffer(state, rate) {
-  const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
   const capacity = Math.max(2, Math.min(768000, Math.ceil(safeRate * 4) + 2));
   if (!(state.buffer instanceof Float32Array) || state.capacity !== capacity) {
     state.buffer = new Float32Array(capacity);
@@ -59,7 +59,7 @@ NodeLiveAudioProcessor.prototype.sampleDelaySample = function sampleDelaySample(
         state.nativeHandle = this.nativeSampleDelay.soemdsp_sample_delay_create();
       }
       if (state.nativeHandle) {
-        const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+        const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
         const delayed = this.safeFilterNumber(
           this.nativeSampleDelay.soemdsp_sample_delay_sample(
             state.nativeHandle,

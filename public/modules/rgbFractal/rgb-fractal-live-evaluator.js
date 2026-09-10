@@ -56,7 +56,7 @@ nodeGraphLiveModuleEvaluators.rgbFractal = ({
     return { Hx: 0, Hy: 0 };
   }
 
-  const sr = Math.max(1, Number(sampleRate) || Number(runtime?.sampleRate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(runtime?.sampleRate, 44100)));
   const result = nodeGraphRgbFractalAudioSample(state, params, 0, sr);
   return {
     Hx: nodeGraphRgbFractalSafeOut(runtime, nodeId, result.Hx, "rgb fractal Hx"),

@@ -36,7 +36,7 @@ function nodeGraphChordSequencerRotateLeft12(mask, amount) {
 }
 
 function nodeGraphChordSequencerBaseMask(quality) {
-  const q = Math.round(Number(quality) || 0);
+  const q = Math.round(nodeGraphFiniteNumber(quality));
   if (q === 1) return nodeGraphChordSequencerMinorTriadMask;
   if (q === 2) return nodeGraphChordSequencerDom7Mask;
   if (q === 3) return nodeGraphChordSequencerMin7Mask;
@@ -51,10 +51,10 @@ function nodeGraphChordSequencerSample(state, options = {}) {
   const clockHigh = Number(options.clock) > 0;
   const resetHigh = Number(options.reset) > 0;
   const progressions = nodeGraphChordSequencerProgressions;
-  const progressionIndex = Math.max(0, Math.min(progressions.length - 1, Math.round(Number(options.progression) || 0)));
-  const level = Number(options.level) || 0;
-  const directionMode = Math.max(0, Math.min(2, Math.round(Number(options.direction) || 0)));
-  const key = Math.max(0, Math.min(11, Math.round(Number(options.key) || 0)));
+  const progressionIndex = Math.max(0, Math.min(progressions.length - 1, Math.round(nodeGraphFiniteNumber(options.progression))));
+  const level = nodeGraphFiniteNumber(options.level);
+  const directionMode = Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(options.direction))));
+  const key = Math.max(0, Math.min(11, Math.round(nodeGraphFiniteNumber(options.key))));
   const prog = progressions[progressionIndex];
   const len = prog.length;
 

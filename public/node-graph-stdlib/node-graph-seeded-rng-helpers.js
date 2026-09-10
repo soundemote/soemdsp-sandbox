@@ -4,7 +4,7 @@
 // randomWalk, and sampleHold.
 
 function nodeGraphSeedKey(nodeId, seed, salt) {
-  return `${nodeId}.${salt}.${Math.max(0, Math.round(Number(seed) || 0))}`;
+  return `${nodeId}.${salt}.${Math.max(0, Math.round(nodeGraphFiniteNumber(seed)))}`;
 }
 
 function nodeGraphResetSeededState(state, nodeId, seed, salt) {

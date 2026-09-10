@@ -29,7 +29,7 @@ NodeLiveAudioProcessor.prototype.softpopOscillatorSample = function softpopOscil
     return nodeGraphSoftpopOscillatorSample(state, params, rate, nodeId);
   }
   // Fallback path if math chunk missing
-  const level = Number(params?.amplitude) || 0;
+  const level = nodeGraphFiniteNumber(params?.amplitude);
   this.resetSeededState?.(state.left.noise, `${nodeId}:L`, params?.seed || 1, "softpop");
   this.resetSeededState?.(state.right.noise, `${nodeId}:R`, params?.seed || 1, "softpop");
   const nL = this.nextSeededGaussian?.(state.left.noise) ?? 0;
@@ -73,5 +73,5 @@ NodeLiveAudioProcessor.prototype.resolveSoftpopOrBandpassHz = function resolveSo
       nodeId,
     }));
   }
-  return Math.max(0, Number(baseHz) || 0);
+  return Math.max(0, nodeGraphFiniteNumber(baseHz));
 };

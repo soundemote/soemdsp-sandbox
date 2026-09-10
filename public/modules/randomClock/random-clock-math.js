@@ -28,7 +28,7 @@ function nodeGraphRandomClockStableSeed(seedKey) {
 }
 
 function nodeGraphRandomClockNextUnit(state, nodeId, seed) {
-  const seedKey = `${nodeId}:${Math.round(Number(seed) || 0)}`;
+  const seedKey = `${nodeId}:${Math.round(nodeGraphFiniteNumber(seed))}`;
   if (state.seedKey !== seedKey) {
     state.seedKey = seedKey;
     state.randomState = nodeGraphRandomClockStableSeed(seedKey);
@@ -44,10 +44,10 @@ function nodeGraphRandomClockNextUnit(state, nodeId, seed) {
 }
 
 function nodeGraphRandomClockIntervalFromUnit(unit, minSeconds, maxSeconds, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const low = Math.min(Math.max(0, Number(minSeconds) || 0), Math.max(0, Number(maxSeconds) || 0));
-  const high = Math.max(Math.max(0, Number(minSeconds) || 0), Math.max(0, Number(maxSeconds) || 0));
-  const t = Math.max(0, Math.min(1, Number(unit) || 0));
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const low = Math.min(Math.max(0, nodeGraphFiniteNumber(minSeconds)), Math.max(0, nodeGraphFiniteNumber(maxSeconds)));
+  const high = Math.max(Math.max(0, nodeGraphFiniteNumber(minSeconds)), Math.max(0, nodeGraphFiniteNumber(maxSeconds)));
+  const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(unit)));
   return Math.max(1, Math.round((low + (high - low) * t) * rate));
 }
 
@@ -65,15 +65,15 @@ function nodeGraphRandomClockChooseIntervalSamples(state, params, sampleRate, no
  * @returns {{ Gate: number, Trigger: number }}
  */
 function nodeGraphRandomClockCore(state, reset, params, sampleRate, nodeId) {
-  const safeReset = Number(reset) || 0;
-  const threshold = Number(params?.threshold) || 0;
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const duty = Math.max(0, Math.min(1, Number(params?.duty) || 0));
-  const triggerTime = Math.max(0, Number(params?.triggerTime) || 0);
-  const level = Number(params?.level) || 0;
+  const safeReset = nodeGraphFiniteNumber(reset);
+  const threshold = nodeGraphFiniteNumber(params?.threshold);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const duty = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params?.duty)));
+  const triggerTime = Math.max(0, nodeGraphFiniteNumber(params?.triggerTime));
+  const level = nodeGraphFiniteNumber(params?.level);
   const resetEdge = state.lastReset <= threshold && safeReset > threshold;
-  const minSeconds = Math.max(0, Number(params?.minSeconds) || 0);
-  const maxSeconds = Math.max(0, Number(params?.maxSeconds) || 0);
+  const minSeconds = Math.max(0, nodeGraphFiniteNumber(params?.minSeconds));
+  const maxSeconds = Math.max(0, nodeGraphFiniteNumber(params?.maxSeconds));
   const rangeChanged = state.lastMinSeconds !== minSeconds || state.lastMaxSeconds !== maxSeconds;
   state.lastMinSeconds = minSeconds;
   state.lastMaxSeconds = maxSeconds;

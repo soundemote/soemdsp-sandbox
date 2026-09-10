@@ -17,7 +17,7 @@ NodeLiveAudioProcessor.prototype.delayedTriggerSample = function delayedTriggerS
           state.nativeHandle = this.nativeDelayedTrigger.soemdsp_delayed_trigger_create();
         }
         if (state.nativeHandle) {
-          const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
+          const safeRate = Math.max(1, nodeGraphFiniteNumber(rateHz, nodeGraphFiniteNumber(sampleRate, 44100)));
           return this.safeFilterNumber(
             this.nativeDelayedTrigger.soemdsp_delayed_trigger_sample(
               state.nativeHandle,

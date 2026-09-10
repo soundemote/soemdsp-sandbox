@@ -29,21 +29,21 @@ function nodeGraphLastRenderDebug() {
   }
   const currentPatchFingerprint = nodeGraphPatchFingerprint();
   return {
-    connectionCount: Number(rendered.connectionCount) || 0,
-    clipCount: Number(rendered.clipCount) || 0,
+    connectionCount: nodeGraphFiniteNumber(rendered.connectionCount),
+    clipCount: nodeGraphFiniteNumber(rendered.clipCount),
     currentPatchFingerprint,
-    durationSeconds: Number(rendered.durationSeconds) || 0,
-    feedbackConnectionCount: Number(rendered.feedbackConnectionCount) || 0,
-    feedbackModulationCount: Number(rendered.feedbackModulationCount) || 0,
-    frames: Number(rendered.frames) || 0,
+    durationSeconds: nodeGraphFiniteNumber(rendered.durationSeconds),
+    feedbackConnectionCount: nodeGraphFiniteNumber(rendered.feedbackConnectionCount),
+    feedbackModulationCount: nodeGraphFiniteNumber(rendered.feedbackModulationCount),
+    frames: nodeGraphFiniteNumber(rendered.frames),
     matchesCurrentPatch: rendered.patchFingerprint === currentPatchFingerprint,
-    modulationCount: Number(rendered.modulationCount) || 0,
-    nodeCount: Number(rendered.nodeCount) || 0,
+    modulationCount: nodeGraphFiniteNumber(rendered.modulationCount),
+    nodeCount: nodeGraphFiniteNumber(rendered.nodeCount),
     patchFingerprint: rendered.patchFingerprint || "",
-    peak: Number(rendered.peak) || 0,
-    rms: Number(rendered.rms) || 0,
-    sampleRate: Number(rendered.sampleRate) || nodeGraphMvp.sampleRate,
-    stateReadCount: Number(rendered.stateReadCount) || 0,
+    peak: nodeGraphFiniteNumber(rendered.peak),
+    rms: nodeGraphFiniteNumber(rendered.rms),
+    sampleRate: nodeGraphFiniteNumber(rendered.sampleRate, nodeGraphMvp.sampleRate),
+    stateReadCount: nodeGraphFiniteNumber(rendered.stateReadCount),
   };
 }
 

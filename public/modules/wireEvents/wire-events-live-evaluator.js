@@ -7,8 +7,8 @@ function nodeGraphWireBreakEventSample(runtime) {
   if (!event || typeof event !== "object") {
     return { Pulse: 0, Gate: 0 };
   }
-  const pulseSamples = Math.max(0, Number(event.pulseSamples) || 0);
-  const gateSamples = Math.max(0, Number(event.gateSamples) || 0);
+  const pulseSamples = Math.max(0, nodeGraphFiniteNumber(event.pulseSamples));
+  const gateSamples = Math.max(0, nodeGraphFiniteNumber(event.gateSamples));
   const output = {
     Pulse: pulseSamples > 0 ? 1 : 0,
     Gate: gateSamples > 0 ? 1 : 0,
@@ -23,7 +23,7 @@ function nodeGraphWireDisconnectEventSample(runtime) {
   if (!event || typeof event !== "object") {
     return { Pulse: 0 };
   }
-  const pulseSamples = Math.max(0, Number(event.pulseSamples) || 0);
+  const pulseSamples = Math.max(0, nodeGraphFiniteNumber(event.pulseSamples));
   event.pulseSamples = Math.max(0, pulseSamples - 1);
   return { Pulse: pulseSamples > 0 ? 1 : 0 };
 }
@@ -33,7 +33,7 @@ function nodeGraphWireConnectEventSample(runtime) {
   if (!event || typeof event !== "object") {
     return { Pulse: 0 };
   }
-  const pulseSamples = Math.max(0, Number(event.pulseSamples) || 0);
+  const pulseSamples = Math.max(0, nodeGraphFiniteNumber(event.pulseSamples));
   event.pulseSamples = Math.max(0, pulseSamples - 1);
   return { Pulse: pulseSamples > 0 ? 1 : 0 };
 }
@@ -43,9 +43,9 @@ function nodeGraphWindowReopenEventSample(runtime) {
   if (!event || typeof event !== "object") {
     return { Pulse: 0, Gate: 0, Sine: 0 };
   }
-  const pulseSamples = Math.max(0, Number(event.pulseSamples) || 0);
-  const gateSamples = Math.max(0, Number(event.gateSamples) || 0);
-  const totalSamples = Math.max(1, Number(event.totalSamples) || gateSamples || 1);
+  const pulseSamples = Math.max(0, nodeGraphFiniteNumber(event.pulseSamples));
+  const gateSamples = Math.max(0, nodeGraphFiniteNumber(event.gateSamples));
+  const totalSamples = Math.max(1, nodeGraphFiniteNumber(event.totalSamples, nodeGraphFiniteNumber(gateSamples, 1)));
   const progress = gateSamples > 0 ? 1 - gateSamples / totalSamples : 1;
   const sine = gateSamples > 0 ? Math.sin(Math.PI * Math.max(0, Math.min(1, progress))) : 0;
   event.pulseSamples = Math.max(0, pulseSamples - 1);

@@ -43,7 +43,7 @@ function nodeGraphFrequencyToDetune(hz, a4Hz = nodeGraphPitchA4Hz) {
   if (!Number.isFinite(cents)) {
     return 0;
   }
-  return Math.max(-1, Math.min(1, cents / 50));
+  return cents / 50;
 }
 
 /**
@@ -76,7 +76,7 @@ const nodeGraphMidiFlatSymbol = "\u266D";
  *   3 | -1 | 0
  */
 function nodeGraphMidiOctaveField(octave) {
-  const o = Math.trunc(Number(octave) || 0);
+  const o = Math.trunc(nodeGraphFiniteNumber(octave));
   if (o < 0) {
     return String(o);
   }
@@ -92,7 +92,7 @@ function nodeGraphMidiOctaveField(octave) {
  * @param {{ preferFlats?: boolean }} [options]
  */
 function nodeGraphMidiToNoteName(midi, options = null) {
-  const n = Math.round(Number(midi) || 0);
+  const n = Math.round(nodeGraphFiniteNumber(midi));
   const pc = ((n % 12) + 12) % 12;
   const preferFlats = Boolean(options && options.preferFlats);
   let letter = nodeGraphMidiNoteNameParts[pc].letter;
@@ -193,7 +193,7 @@ function nodeGraphPitchDetectorFormatDisplay(hz, mode = "hz", decimals = 2, opti
     });
     return String(formatted || "").replace(/^\s+/, "") || "0";
   }
-  const places = Math.max(0, Math.min(8, Math.round(Number(decimals) || 2)));
+  const places = Math.max(0, Math.min(8, Math.round(nodeGraphFiniteNumber(decimals, 2))));
   try {
     return f.toFixed(places);
   } catch {

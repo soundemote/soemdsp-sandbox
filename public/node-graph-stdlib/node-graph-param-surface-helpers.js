@@ -145,12 +145,13 @@ function nodeGraphParamSkewExponent(metadata = {}) {
   if (curve === "custom") {
     const amount = typeof normalizeNodeSliderCurveAmount === "function"
       ? normalizeNodeSliderCurveAmount(metadata.curveAmount)
-      : Math.max(-1, Math.min(1, Number(metadata.curveAmount) || 0));
+      : nodeGraphFiniteNumber(metadata.curveAmount);
     if (typeof nodeSliderSkewExponentFromSensitivity === "function") {
       return nodeSliderSkewExponentFromSensitivity(amount);
     }
     // Fallback if slider-values not loaded yet (same mapping as UI).
-    const a = Math.max(-1, Math.min(1, Number(amount) || 0));
+    // `amount` already -1…1 from normalize or the branch above.
+    const a = amount;
     if (a <= 0) {
       return 1 + (-a) * 3; // 1…4
     }
@@ -181,8 +182,8 @@ function nodeGraphParamDomainToUnit(value, metadata = {}) {
     return 0;
   }
   const bounded = metadata.wraparound
-    ? nodeGraphParamWrap(Number(value) || 0, min, max)
-    : nodeGraphParamClamp(Number(value) || 0, min, max);
+    ? nodeGraphParamWrap(nodeGraphFiniteNumber(value), min, max)
+    : nodeGraphParamClamp(nodeGraphFiniteNumber(value), min, max);
   const normalizedValue = nodeGraphParamClamp((bounded - min) / range, 0, 1);
   const exp = nodeGraphParamSkewExponent(metadata);
   return nodeGraphParamClamp(normalizedValue ** (1 / exp), 0, 1);
@@ -200,8 +201,8 @@ function nodeGraphParamUnitToDomain(unit, metadata = {}) {
     return Number.isFinite(min) ? min : 0;
   }
   const normalizedSignal = meta.wraparound
-    ? nodeGraphParamWrap(Number(unit) || 0, 0, 1)
-    : nodeGraphParamClamp(Number(unit) || 0, 0, 1);
+    ? nodeGraphParamWrap(nodeGraphFiniteNumber(unit), 0, 1)
+    : nodeGraphParamClamp(nodeGraphFiniteNumber(unit), 0, 1);
   const exp = nodeGraphParamSkewExponent(meta);
   const normalizedValue = normalizedSignal ** exp;
   return nodeGraphParamApplyDomainBounds(min + range * normalizedValue, meta);
@@ -262,7 +263,7 @@ function nodeGraphParamNormalizeModInput(value, _metadata = {}) {
 
 /**
  * Coerce to number; use fallback ONLY when non-finite.
- * 0 is a real value — never write `Number(x) || default` for knobs/CV.
+ * 0 is a real value — never write `nodeGraphFiniteNumber(x, default)` for knobs/CV.
  */
 function nodeGraphFiniteNumber(value, fallback = 0) {
   const n = Number(value);
@@ -375,7 +376,7 @@ function nodeGraphParamDomainToModOutput(value, metadata = {}) {
  * Unwired inSample should be passed as 0.
  */
 function nodeGraphParamSignalInAdditive(domainValue, inSample) {
-  return (Number(domainValue) || 0) + (Number(inSample) || 0);
+  return nodeGraphFiniteNumber(domainValue) + nodeGraphFiniteNumber(inSample);
 }
 
 /**
@@ -385,7 +386,7 @@ function nodeGraphParamSignalInAdditive(domainValue, inSample) {
 function nodeGraphParamSignalInMultiply(domainValue, scaleSample, defaultScale = 1) {
   const s = Number(scaleSample);
   const scale = Number.isFinite(s) ? s : defaultScale;
-  return (Number(domainValue) || 0) * scale;
+  return (nodeGraphFiniteNumber(domainValue)) * scale;
 }
 
 /**
@@ -393,7 +394,7 @@ function nodeGraphParamSignalInMultiply(domainValue, scaleSample, defaultScale =
  * Unwired phaseCv should be 0.
  */
 function nodeGraphParamSignalInPhaseAdd(domainPhase, phaseCv) {
-  const p = (Number(domainPhase) || 0) + (Number(phaseCv) || 0);
+  const p = nodeGraphFiniteNumber(domainPhase) + nodeGraphFiniteNumber(phaseCv);
   return p - Math.floor(p);
 }
 
@@ -403,7 +404,7 @@ function nodeGraphParamSignalInPhaseAdd(domainPhase, phaseCv) {
  */
 function nodeGraphParamSignalInAmplitude(domainLevel, ampSample, hasAmp) {
   if (!hasAmp) {
-    return Number(domainLevel) || 0;
+    return nodeGraphFiniteNumber(domainLevel);
   }
   return nodeGraphParamSignalInMultiply(domainLevel, ampSample, 1);
 }
@@ -430,9 +431,9 @@ function nodeGraphPatchPitchOffsetRatio() {
   const audio = typeof normalizeNodeGraphPatchAudio === "function"
     ? normalizeNodeGraphPatchAudio(nodeGraphMvp?.patch?.audio)
     : null;
-  const oct = Number(audio?.pitchOffsetOctaves);
-  if (!Number.isFinite(oct) || oct === 0) return 1;
-  const ratio = 2 ** Math.max(-10, Math.min(10, oct));
+  const oct = nodeGraphFiniteNumber(audio?.pitchOffsetOctaves, 0);
+  if (oct === 0) return 1;
+  const ratio = 2 ** oct;
   return Number.isFinite(ratio) ? ratio : 1;
 }
 
@@ -454,7 +455,7 @@ function nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId) {
         typeof normalizeNodeGraphPatchAudio === "function" && nodeGraphMvp?.patch?.audio
           ? normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote / 120
           : 0.4;
-      const pitchCv = Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0));
+      const pitchCv = nodeGraphFiniteNumber(mixInput(nodeId, "0.1V/Oct"));
       if (typeof nodeGraphParamResolveOscPitchHz === "function") {
         hz = nodeGraphParamResolveOscPitchHz({
           baseHz: knobHz,

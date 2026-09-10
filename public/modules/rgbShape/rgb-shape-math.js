@@ -21,7 +21,7 @@
   function shapeIdFromIndex(index) {
     const ids = global.TRACE_STAMP_SHAPE_IDS;
     if (Array.isArray(ids) && ids.length) {
-      const i = Math.max(0, Math.min(ids.length - 1, Math.round(Number(index) || 0)));
+      const i = Math.max(0, Math.min(ids.length - 1, Math.round(nodeGraphFiniteNumber(index))));
       return ids[i];
     }
     return "circle";
@@ -85,8 +85,8 @@
         const s = Math.sin(a);
         if (id === "pill") {
           // Morph box → circle via rounded-rect approximation on the unit circle ray.
-          const bx = Math.max(-1, Math.min(1, c === 0 ? 0 : Math.sign(c)));
-          const by = Math.max(-1, Math.min(1, s === 0 ? 0 : Math.sign(s)));
+          const bx = c === 0 ? 0 : Math.sign(c);
+          const by = s === 0 ? 0 : Math.sign(s);
           // Intersect ray with unit square, then blend toward circle.
           const tx = Math.abs(c) < 1e-9 ? 1e9 : 1 / Math.abs(c);
           const ty = Math.abs(s) < 1e-9 ? 1e9 : 1 / Math.abs(s);
@@ -257,7 +257,7 @@
         ? global.normalizeTraceStampShape(shapeIdOrIndex)
         : String(shapeIdOrIndex || "circle"));
     const entry = cachedOutline(id, shapeParam);
-    const t = ((Number(phase01) || 0) % 1 + 1) % 1;
+    const t = ((nodeGraphFiniteNumber(phase01)) % 1 + 1) % 1;
     const target = t * entry.total;
     let lo = 0;
     let hi = entry.n;

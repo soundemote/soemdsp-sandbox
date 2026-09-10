@@ -22,7 +22,7 @@ nodeGraphLiveModuleEvaluators.eqFilter = ({
   const frequency = nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId);
   const q = readNodeGraphLiveEffectiveParam(runtime, node, "q", 0.707, frame, frames, frameValues);
   const gain = readNodeGraphLiveEffectiveParam(runtime, node, "gain", 0, frame, frames, frameValues);
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const mono = mixInput(nodeId);
   return {
     Out: nodeGraphSafeFilterNumber(

@@ -47,11 +47,11 @@ function nodeGraphLogisticMapSample(options = {}) {
   const out = wasm.soemdsp_logistic_map_sample(
     state.nativeHandle,
     Number(options.reset) > 0 ? 1 : 0,
-    Math.max(0, Number(options.rate) || 0),
-    Math.max(0, Math.min(4, Number(options.r) || 0)),
-    Math.max(0.0001, Math.min(0.9999, Number(options.seed) || 0.5)),
-    Number(options.level) || 0,
-    Math.max(1, Number(options.sampleRate) || 44100),
+    Math.max(0, nodeGraphFiniteNumber(options.rate)),
+    Math.max(0, Math.min(4, nodeGraphFiniteNumber(options.r))),
+    Math.max(0.0001, Math.min(0.9999, nodeGraphFiniteNumber(options.seed, 0.5))),
+    nodeGraphFiniteNumber(options.level),
+    Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100)),
   );
   return Number.isFinite(out) ? out : 0;
 }

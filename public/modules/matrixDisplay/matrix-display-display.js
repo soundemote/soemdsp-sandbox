@@ -84,9 +84,9 @@ function matrixDisplayEnsureSim(nodeId, paramsOrCols, maybeRows) {
  */
 function matrixDisplayFade(ages, trail, _dtSec = 1 / 60, maxAge = 32, ghost = 0, burn = 0) {
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
-  const t = Math.max(0, Math.min(1, Number(trail) || 0));
-  const ghostAmt = Math.max(0, Math.min(1, Number(ghost) || 0));
-  const burnAmt = Math.max(0, Math.min(1, Number(burn) || 0));
+  const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(trail)));
+  const ghostAmt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(ghost)));
+  const burnAmt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(burn)));
   const ma = Math.max(1, maxAge);
   const step = Residual?.applyResidual
     ? (e) => Residual.applyResidual(e, t, ghostAmt, burnAmt)
@@ -108,7 +108,7 @@ function matrixDisplayPlot(state, x, y, intensity, maxAge) {
   if (px < 0 || px >= cols || py < 0 || py >= rows) {
     return;
   }
-  const dep = Math.max(0, Math.min(1, Number(intensity) || 0));
+  const dep = Math.max(0, Math.min(1, nodeGraphFiniteNumber(intensity)));
   if (dep <= 0) return;
   const age = Math.max(1, Math.min(maxAge, Math.round(maxAge * dep)));
   const idx = py * cols + px;
@@ -162,15 +162,15 @@ function matrixDisplayIngestBuffers(state, maxAge, brightness) {
 
   let plotted = 0;
   // Burn = deposit gain only. 0 is valid (no write). Brightness is display-only.
-  const intensity = Math.max(0, Math.min(1, Number(burn) || 0));
+  const intensity = Math.max(0, Math.min(1, nodeGraphFiniteNumber(burn)));
 
   if (xArr && yArr && Number.isFinite(len) && len > 0) {
     // Plot up to last N samples for frame budget
     const budget = Math.min(len, 2048);
     const start = len - budget;
     for (let i = start; i < len; i += 1) {
-      const x = Number(xArr[i]) || 0;
-      const y = Number(yArr[i]) || 0;
+      const x = nodeGraphFiniteNumber(xArr[i]);
+      const y = nodeGraphFiniteNumber(yArr[i]);
       matrixDisplayPlot(state, x, y, intensity, maxAge);
       plotted += 1;
     }
@@ -181,9 +181,9 @@ function matrixDisplayIngestBuffers(state, maxAge, brightness) {
     const budget = Math.min(mono.length, 2048);
     const start = mono.length - budget;
     for (let i = start; i < mono.length; i += 1) {
-      const v = Number(mono[i]) || 0;
+      const v = nodeGraphFiniteNumber(mono[i]);
       // Lissajous-ish fallback: v vs delayed self
-      const d = Number(mono[Math.max(start, i - 32)]) || 0;
+      const d = nodeGraphFiniteNumber(mono[Math.max(start, i - 32)]);
       matrixDisplayPlot(state, v, d, intensity, maxAge);
       plotted += 1;
     }

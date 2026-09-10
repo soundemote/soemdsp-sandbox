@@ -87,7 +87,7 @@ NodeLiveAudioProcessor.prototype.applySoftClipperNativeParams = function applySo
   const antialias = osMode > 0 ? 1 : 0;
   native.soemdsp_soft_clipper_set_params(
     state.nativeHandle,
-    Number(center) || 0,
+    nodeGraphFiniteNumber(center),
     nodeGraphFiniteNumber(width, 2),
     antialias,
     osMode,
@@ -133,7 +133,7 @@ NodeLiveAudioProcessor.prototype.nativeSoftClipperSample = function nativeSoftCl
     const ch = channel === 1 ? 1 : (channel === 2 ? 2 : 0);
     const blockSize = Math.min(
       NodeLiveAudioProcessor.SOFT_CLIPPER_NATIVE_BLOCK_SIZE,
-      Number(native.soemdsp_soft_clipper_max_block_frames?.()) || 128,
+      nodeGraphFiniteNumber(native.soemdsp_soft_clipper_max_block_frames?.(), 128),
     );
 
     if (!this.bindSoftClipperBlockViews(native, state, blockSize)) {
@@ -142,7 +142,7 @@ NodeLiveAudioProcessor.prototype.nativeSoftClipperSample = function nativeSoftCl
       const os = Math.round(Number(oversample));
       if (os <= 0) {
         return this.safeFilterNumber(
-          native.soemdsp_soft_clipper_sample(Number(input) || 0, Number(center) || 0, nodeGraphFiniteNumber(width, 2)),
+          native.soemdsp_soft_clipper_sample(nodeGraphFiniteNumber(input), nodeGraphFiniteNumber(center), nodeGraphFiniteNumber(width, 2)),
           null,
         );
       }
@@ -150,8 +150,8 @@ NodeLiveAudioProcessor.prototype.nativeSoftClipperSample = function nativeSoftCl
         native.soemdsp_soft_clipper_sample_aa(
           state.nativeHandle,
           ch,
-          Number(input) || 0,
-          Number(center) || 0,
+          nodeGraphFiniteNumber(input),
+          nodeGraphFiniteNumber(center),
           nodeGraphFiniteNumber(width, 2),
           1,
         ),
@@ -164,7 +164,7 @@ NodeLiveAudioProcessor.prototype.nativeSoftClipperSample = function nativeSoftCl
     const inBuf = ch === 1 ? cache.in1 : (ch === 2 ? cache.in2 : cache.in0);
     const outBuf = ch === 1 ? cache.out1 : (ch === 2 ? cache.out2 : cache.out0);
     const y = outBuf[index] || 0;
-    inBuf[index] = Number(input) || 0;
+    inBuf[index] = nodeGraphFiniteNumber(input);
     cache.activeMask |= (1 << ch);
 
     // Advance cursor only once per sample (mono call is authoritative when stereoProcessPorts runs mono first).

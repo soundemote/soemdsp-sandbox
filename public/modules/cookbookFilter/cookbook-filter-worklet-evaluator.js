@@ -22,20 +22,20 @@ NodeLiveAudioProcessor.prototype.cookbookFilterStageCount = function cookbookFil
   };
 
 NodeLiveAudioProcessor.prototype.cookbookFilterCoefficients = function cookbookFilterCoefficients(mode, frequency, q, gainDb, rate = sampleRate) {
-    const safeMode = Math.round(this.clampValue(Number(mode) || 0, 0, 9));
+    const safeMode = Math.round(this.clampValue(nodeGraphFiniteNumber(mode), 0, 9));
     if (safeMode === 0) {
       return { a1: 0, a2: 0, b0: 1, b1: 0, b2: 0 };
     }
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+    const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
     // 0 Hz allowed; only non-negative + Nyquist. No arbitrary 20 Hz floor.
     const rawFreq = Number(frequency);
     const freq = Math.max(0, Math.min(safeRate * 0.49, Number.isFinite(rawFreq) ? rawFreq : 0));
-    const safeQ = Math.max(0.0001, Number(q) || 1);
+    const safeQ = Math.max(0.0001, nodeGraphFiniteNumber(q, 1));
     const omega = 2 * Math.PI * freq / safeRate;
     const sine = Math.sin(omega);
     const cosine = Math.cos(omega);
     const alpha = sine / (2 * safeQ);
-    const amplitude = 10 ** (0.025 * (Number(gainDb) || 0));
+    const amplitude = 10 ** (0.025 * (nodeGraphFiniteNumber(gainDb)));
     const beta = Math.sqrt(amplitude) / safeQ;
     let a0 = 1 + alpha;
     let a1 = -2 * cosine;
@@ -98,8 +98,8 @@ NodeLiveAudioProcessor.prototype.cookbookFilterCoefficients = function cookbookF
 
 NodeLiveAudioProcessor.prototype.cookbookFilterSample = function cookbookFilterSample(state, input, mode, frequency, q, gainDb, stages, rate = sampleRate) {
     const stageCount = this.cookbookFilterStageCount(stages);
-    if (!state || stageCount <= 0 || Math.round(Number(mode) || 0) === 0) {
-      return Number(input) || 0;
+    if (!state || stageCount <= 0 || Math.round(nodeGraphFiniteNumber(mode)) === 0) {
+      return nodeGraphFiniteNumber(input);
     }
     if (state.lastStages !== stageCount) {
       this.resetCookbookFilterState(state);

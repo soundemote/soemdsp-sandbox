@@ -24,13 +24,13 @@ function nodeGraphModuleScopeBufferProgressRanges(buffer) {
 }
 
 function nodeGraphModuleScopeProgressRangeIntersection(range, clipRange) {
-  const start = clampNodeSliderValue(Number(range?.[0]) || 0, 0, 1);
-  const end = clampNodeSliderValue(Number(range?.[1]) || 0, 0, 1);
+  const start = clampNodeSliderValue(nodeGraphFiniteNumber(range?.[0]), 0, 1);
+  const end = clampNodeSliderValue(nodeGraphFiniteNumber(range?.[1]), 0, 1);
   if (!Array.isArray(clipRange)) {
     return end - start > 0.001 ? [start, end] : null;
   }
-  const clipStart = clampNodeSliderValue(Number(clipRange[0]) || 0, 0, 1);
-  const clipEnd = clampNodeSliderValue(Number(clipRange[1]) || 0, 0, 1);
+  const clipStart = clampNodeSliderValue(nodeGraphFiniteNumber(clipRange[0]), 0, 1);
+  const clipEnd = clampNodeSliderValue(nodeGraphFiniteNumber(clipRange[1]), 0, 1);
   const clippedStart = Math.max(start, clipStart);
   const clippedEnd = Math.min(end, clipEnd);
   return clippedEnd - clippedStart > 0.001 ? [clippedStart, clippedEnd] : null;
@@ -86,7 +86,7 @@ function nodeGraphModuleScopeTraceEdgePaddingRatio(slot, rect) {
     });
   }
   // Match exp size map: diameter fraction = side^(t-1) ≈ size face occupancy.
-  const faceSide = Math.max(1, Number(rect?.height) || Number(rect?.width) || 256);
+  const faceSide = Math.max(1, nodeGraphFiniteNumber(rect?.height, nodeGraphFiniteNumber(rect?.width, 256)));
   const visualPadding = activePasses.reduce((largest, pass) => {
     const diam = typeof nodeGraphScopeSize01ToDiameterPx === "function"
       ? nodeGraphScopeSize01ToDiameterPx(faceSide, pass.size)
@@ -155,8 +155,8 @@ function nodeGraphModuleScopeBufferSegmentPoints(
   const sampleWidth = nodeGraphModuleScopeRenderedSampleWidth(metricRect);
   const metricDrawSpan = metricRect === rect ? drawSpan : 1;
   const visibleSampleWidth = sampleWidth * metricDrawSpan;
-  const minPointSpacingPx = clampNodeSliderValue(Number(buffer.nodeGraphScopeMinPointSpacingPx) || 0.5, 0.25, 32);
-  const visualPointLimit = Math.max(2, Math.min(32768, Math.floor(Number(buffer.nodeGraphScopeVisualPointLimit) || 32768)));
+  const minPointSpacingPx = clampNodeSliderValue(nodeGraphFiniteNumber(buffer.nodeGraphScopeMinPointSpacingPx, 0.5), 0.25, 32);
+  const visualPointLimit = Math.max(2, Math.min(32768, Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeVisualPointLimit, 32768))));
   const pointCount = spectrumMode
     ? Math.max(2, Math.min(visualPointLimit, Math.ceil(visibleSamples)))
     : holdPointMode
@@ -169,7 +169,7 @@ function nodeGraphModuleScopeBufferSegmentPoints(
   const skippedPoints = [];
   const discontinuitySkipDisabled = buffer?.nodeGraphScopeDisableDiscontinuitySkip === true;
   const skipSamples = nodeGraphModuleScopeDiscontinuitySkipSamplesForSlot(slot, buffer);
-  const holdPointX = clampNodeSliderValue(Number(buffer.nodeGraphScopeHoldPointX) || 0.5, 0, 1);
+  const holdPointX = clampNodeSliderValue(nodeGraphFiniteNumber(buffer.nodeGraphScopeHoldPointX, 0.5), 0, 1);
   const holdPointSamplePosition = Number(buffer.nodeGraphScopeHoldPointSamplePosition);
   const holdSample = Number.isFinite(holdPointSamplePosition)
     ? clampNodeSliderValue(holdPointSamplePosition, 0, Math.max(0, buffer.length - 1))
@@ -219,24 +219,24 @@ function nodeGraphModuleScopeBufferPoints(buffer, rect, canvas, pixelRatio, slot
 }
 
 function nodeGraphModuleScopeCenteredSquareRect(rect) {
-  const size = Math.max(1, Math.min(Number(rect?.width) || 0, Number(rect?.height) || 0));
+  const size = Math.max(1, Math.min(nodeGraphFiniteNumber(rect?.width), nodeGraphFiniteNumber(rect?.height)));
   return {
     height: size,
-    left: (Number(rect?.left) || 0) + ((Number(rect?.width) || size) - size) * 0.5,
-    top: (Number(rect?.top) || 0) + ((Number(rect?.height) || size) - size) * 0.5,
+    left: (nodeGraphFiniteNumber(rect?.left)) + ((nodeGraphFiniteNumber(rect?.width, size)) - size) * 0.5,
+    top: (nodeGraphFiniteNumber(rect?.top)) + ((nodeGraphFiniteNumber(rect?.height, size)) - size) * 0.5,
     width: size,
   };
 }
 
 function nodeGraphModuleScopePaddedRect(rect, padding = 0) {
-  const width = Math.max(1, Number(rect?.width) || 0);
-  const height = Math.max(1, Number(rect?.height) || 0);
-  const safePadding = clampNodeSliderValue(Number(padding) || 0, 0, 0.45);
+  const width = Math.max(1, nodeGraphFiniteNumber(rect?.width));
+  const height = Math.max(1, nodeGraphFiniteNumber(rect?.height));
+  const safePadding = clampNodeSliderValue(nodeGraphFiniteNumber(padding), 0, 0.45);
   const inset = Math.min(width, height) * safePadding;
   return {
     height: Math.max(1, height - inset * 2),
-    left: (Number(rect?.left) || 0) + inset,
-    top: (Number(rect?.top) || 0) + inset,
+    left: (nodeGraphFiniteNumber(rect?.left)) + inset,
+    top: (nodeGraphFiniteNumber(rect?.top)) + inset,
     width: Math.max(1, width - inset * 2),
   };
 }
@@ -253,15 +253,15 @@ function nodeGraphModuleScopeDrawingRect(rect, buffer = null, slot = null) {
 }
 
 function nodeGraphModuleScopeRectIntersection(rect, bounds) {
-  const left = Math.max(Number(rect?.left) || 0, Number(bounds?.left) || 0);
-  const top = Math.max(Number(rect?.top) || 0, Number(bounds?.top) || 0);
+  const left = Math.max(nodeGraphFiniteNumber(rect?.left), nodeGraphFiniteNumber(bounds?.left));
+  const top = Math.max(nodeGraphFiniteNumber(rect?.top), nodeGraphFiniteNumber(bounds?.top));
   const right = Math.min(
-    (Number(rect?.left) || 0) + (Number(rect?.width) || 0),
-    (Number(bounds?.left) || 0) + (Number(bounds?.width) || 0),
+    (nodeGraphFiniteNumber(rect?.left)) + (nodeGraphFiniteNumber(rect?.width)),
+    (nodeGraphFiniteNumber(bounds?.left)) + (nodeGraphFiniteNumber(bounds?.width)),
   );
   const bottom = Math.min(
-    (Number(rect?.top) || 0) + (Number(rect?.height) || 0),
-    (Number(bounds?.top) || 0) + (Number(bounds?.height) || 0),
+    (nodeGraphFiniteNumber(rect?.top)) + (nodeGraphFiniteNumber(rect?.height)),
+    (nodeGraphFiniteNumber(bounds?.top)) + (nodeGraphFiniteNumber(bounds?.height)),
   );
   const width = right - left;
   const height = bottom - top;
@@ -271,18 +271,18 @@ function nodeGraphModuleScopeRectIntersection(rect, bounds) {
 }
 
 function nodeGraphModuleScopeVisibleDrawGeometry(screenRect, drawRect, viewportRect, zoomScale = nodeGraphModuleScopeZoomScale()) {
-  const screenW = Number(screenRect?.width) || 0;
-  const screenH = Number(screenRect?.height) || 0;
+  const screenW = nodeGraphFiniteNumber(screenRect?.width);
+  const screenH = nodeGraphFiniteNumber(screenRect?.height);
   // 0×0 layout rects (pre-reflow) used to fail intersection and skip the face.
   // Treat tiny/unknown sizes as fully visible so phosphor still deposits.
   if (!(screenW > 0.5) || !(screenH > 0.5)) {
     const fallbackDraw = drawRect && Number(drawRect.width) > 0 && Number(drawRect.height) > 0
       ? drawRect
       : screenRect;
-    const fw = Math.max(1, Number(fallbackDraw?.width) || 1);
-    const fh = Math.max(1, Number(fallbackDraw?.height) || 1);
-    const fl = Number(fallbackDraw?.left) || 0;
-    const ft = Number(fallbackDraw?.top) || 0;
+    const fw = Math.max(1, nodeGraphFiniteNumber(fallbackDraw?.width, 1));
+    const fh = Math.max(1, nodeGraphFiniteNumber(fallbackDraw?.height, 1));
+    const fl = nodeGraphFiniteNumber(fallbackDraw?.left);
+    const ft = nodeGraphFiniteNumber(fallbackDraw?.top);
     return {
       visibleDrawRect: { left: fl, top: ft, width: fw, height: fh },
       visibleProgressRange: [0, 1],
@@ -343,8 +343,8 @@ function nodeGraphModuleScopeXyPoints(buffer, rect, canvas, pixelRatio, slot) {
   const centerY = square.top + square.height * 0.5;
   const radius = Math.max(1, square.width * 0.44);
   for (let index = 0; index < length; index += 1) {
-    const x = centerX + clampNodeSliderValue((Number(buffer.x[index]) || 0) * gain, -1, 1) * radius;
-    const y = centerY - clampNodeSliderValue((Number(buffer.y[index]) || 0) * gain, -1, 1) * radius;
+    const x = centerX + clampNodeSliderValue((nodeGraphFiniteNumber(buffer.x[index])) * gain, -1, 1) * radius;
+    const y = centerY - clampNodeSliderValue((nodeGraphFiniteNumber(buffer.y[index])) * gain, -1, 1) * radius;
     points.push(
       ((x * pixelRatio) / canvas.width) * 2 - 1,
       1 - ((y * pixelRatio) / canvas.height) * 2,

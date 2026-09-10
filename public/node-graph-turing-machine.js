@@ -13,13 +13,13 @@ function createNodeGraphTuringMachineState() {
 function nodeGraphTuringMachineSample(state, options = {}) {
   const clockHigh = Number(options.clock) > 0;
   const resetHigh = Number(options.reset) > 0;
-  const length = Math.max(1, Math.min(16, Math.round(Number(options.length) || 8)));
-  const probability = Math.max(0, Math.min(1, Number(options.probability) || 0));
-  const level = Number(options.level) || 0;
-  const octaves = Math.max(0, Math.min(4, Math.round(Number(options.octaves) || 1)));
+  const length = Math.max(1, Math.min(16, Math.round(nodeGraphFiniteNumber(options.length, 8))));
+  const probability = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.probability)));
+  const level = nodeGraphFiniteNumber(options.level);
+  const octaves = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(options.octaves, 1))));
   const hasScale = Boolean(options.hasScaleInput);
   const mask = hasScale
-    ? (Math.round(Number(options.scaleInput) || 0) & 0xFFF)
+    ? (Math.round(nodeGraphFiniteNumber(options.scaleInput)) & 0xFFF)
     : 0;
   const root = Number(options.root);
   const rootPitch = Number.isFinite(root) ? root : (60 / 120);

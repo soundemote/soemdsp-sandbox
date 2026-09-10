@@ -19,11 +19,11 @@ NodeLiveAudioProcessor.prototype.logisticMapSample = function logisticMapSample(
       }
       if (state.nativeHandle) {
         const resetActive = Number(options.reset) > 0 ? 1 : 0;
-        const rate = Math.max(0, Number(options.rate) || 0);
-        const r = this.clampValue(Number(options.r) || 0, 0, 4);
+        const rate = Math.max(0, nodeGraphFiniteNumber(options.rate));
+        const r = this.clampValue(nodeGraphFiniteNumber(options.r), 0, 4);
         const seed = this.clampValue(nodeGraphFiniteNumber(options.seed, 0.5), 0.0001, 0.9999);
-        const level = Number(options.level) || 0;
-        const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
+        const level = nodeGraphFiniteNumber(options.level);
+        const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
         const scaled = this.nativeLogisticMap.soemdsp_logistic_map_sample(
           state.nativeHandle,
           resetActive,

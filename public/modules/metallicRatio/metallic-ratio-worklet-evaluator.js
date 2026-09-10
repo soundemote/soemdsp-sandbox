@@ -4,7 +4,7 @@ NodeLiveAudioProcessor.prototype.metallicRatioSample = function metallicRatioSam
   if (this.nativeMetallicRatioReady && this.nativeMetallicRatio?.soemdsp_metallic_ratio_sample) {
     try {
       return this.safeFilterNumber(
-        this.nativeMetallicRatio.soemdsp_metallic_ratio_sample(Number(index) || 0),
+        this.nativeMetallicRatio.soemdsp_metallic_ratio_sample(nodeGraphFiniteNumber(index)),
         null,
       );
     } catch (error) {

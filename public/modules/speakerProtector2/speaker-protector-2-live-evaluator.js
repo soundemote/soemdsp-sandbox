@@ -4,7 +4,7 @@ nodeGraphLiveModuleEvaluators.speakerProtector2 = ({ runtime, node, nodeId, fram
   if (!runtime.speakerProtector2States) {
     runtime.speakerProtector2States = new Map();
   }
-  const rate = Number(sampleRate) || Number(runtime.sampleRate) || 44100;
+  const rate = nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(runtime.sampleRate, 44100));
   const state = runtime.speakerProtector2States.get(nodeId)
     || createNodeGraphSpeakerProtector2State(rate);
   runtime.speakerProtector2States.set(nodeId, state);

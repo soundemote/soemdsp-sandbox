@@ -41,7 +41,7 @@ NodeLiveAudioProcessor.prototype.graphMapInputToUnit = function graphMapInputToU
   if (Math.abs(span) < 1e-12) {
     return 0;
   }
-  return ((Number(raw) || 0) - lo) / span;
+  return ((nodeGraphFiniteNumber(raw)) - lo) / span;
 };
 
 NodeLiveAudioProcessor.prototype.graphInputPhaseOffset = function graphInputPhaseOffset(node, nodeId) {
@@ -88,7 +88,7 @@ NodeLiveAudioProcessor.prototype.graphSampleXAt = function graphSampleXAt(node, 
     return this.wrapValue(phasor + phaseValue + inputOffset, 0, 1);
   }
   const resetValue = 0;
-  const currentFrame = Number(this.absoluteFrame) || 0;
+  const currentFrame = nodeGraphFiniteNumber(this.absoluteFrame);
   if (state.lastReset <= 0 && resetValue > 0) {
     state.resetFrame = currentFrame;
   }
@@ -130,7 +130,7 @@ NodeLiveAudioProcessor.prototype.graphInputValueAt = function graphInputValueAt(
   }
   return this.graphValueAt(
     this.graphForNode(source),
-    this.clampValue(Number(x) || 0, 0, 1),
+    this.clampValue(nodeGraphFiniteNumber(x), 0, 1),
     this.graphSmoothingModeForNode(source),
     Number(source?.params?.tension) ?? 1,
     this.graphSegmentOptionsForNode(source),
@@ -266,9 +266,9 @@ NodeLiveAudioProcessor.prototype.nodeNeedsEvaluate = function nodeNeedsEvaluate(
 };
 
 NodeLiveAudioProcessor.prototype.evaluateFrame = function evaluateFrame(frame, frames, inputs = [], rate = this.engineSampleRate || sampleRate, inputFrame = frame) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+    const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
     // Advance free-running sample clock used by graph LFO Rate mode.
-    this.absoluteFrame = (Number(this.absoluteFrame) || 0) + 1;
+    this.absoluteFrame = (nodeGraphFiniteNumber(this.absoluteFrame)) + 1;
     // soemdsp SmootherManager::run — one step for dirty chases only, before DSP.
     this.runActiveSmoothers(frames);
 

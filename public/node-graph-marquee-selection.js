@@ -30,7 +30,7 @@ function nodeGraphHitTrailPath() {
 }
 
 function nodeGraphHitTrailZoom() {
-  return Math.max(0.0001, typeof nodeGraphZoom === "function" ? Number(nodeGraphZoom()) || 1 : 1);
+  return Math.max(0.0001, typeof nodeGraphZoom === "function" ? nodeGraphFiniteNumber(nodeGraphZoom(), 1) : 1);
 }
 
 /** Surface (layout) point → viewport client coordinates. */
@@ -56,8 +56,8 @@ function nodeGraphHitTrailSmoothPathD(points) {
     return "";
   }
   const pts = points.map((p) => ({
-    x: Number(p.x) || 0,
-    y: Number(p.y) || 0,
+    x: nodeGraphFiniteNumber(p.x),
+    y: nodeGraphFiniteNumber(p.y),
   }));
   if (pts.length === 1) {
     // A lone M does not paint a stroke — fake a tiny segment so the tip is visible.
@@ -91,7 +91,7 @@ function nodeGraphHitTrailKeptStrokes() {
 }
 
 function nodeGraphHitTrailLivePen(zoom = nodeGraphHitTrailZoom()) {
-  const z = Math.max(0.0001, Number(zoom) || 1);
+  const z = Math.max(0.0001, nodeGraphFiniteNumber(zoom, 1));
   return {
     width: 6 / z,
     dash: `${14 / z} ${11 / z}`,
@@ -110,7 +110,7 @@ function nodeGraphHitTrailPushKept(points, pen = null) {
   const strokes = nodeGraphHitTrailKeptStrokes();
   strokes.push({
     dash: style.dash,
-    points: points.map((p) => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })),
+    points: points.map((p) => ({ x: nodeGraphFiniteNumber(p.x), y: nodeGraphFiniteNumber(p.y) })),
     width: style.width,
   });
   while (strokes.length > 48) {
@@ -349,8 +349,8 @@ function nodeGraphHitTrailEnsureMouseSmooth(drag, point, amount) {
 
 function nodeGraphHitTrailSmoothPointer(drag, point) {
   const amount = nodeGraphSnakeMouseSmoothAmount();
-  let sx = Number(point.x) || 0;
-  let sy = Number(point.y) || 0;
+  let sx = nodeGraphFiniteNumber(point.x);
+  let sy = nodeGraphFiniteNumber(point.y);
   const filter = nodeGraphHitTrailEnsureMouseSmooth(drag, point, amount);
   if (filter && typeof nodeGraphMouseSmoothPoint === "function") {
     const smoothed = nodeGraphMouseSmoothPoint(filter, sx, sy, amount);
@@ -490,7 +490,7 @@ function nodeGraphModulesContainingSurfacePoint(point, padPx = 0, boundsCache = 
   if (!point) {
     return hits;
   }
-  const pad = Math.max(0, Number(padPx) || 0);
+  const pad = Math.max(0, nodeGraphFiniteNumber(padPx));
   const list = boundsCache
     || (typeof nodeGraphHitTrailEnsureModuleBoundsCache === "function"
       ? nodeGraphHitTrailEnsureModuleBoundsCache(nodeGraphMvp?.marqueeSelection)
@@ -653,7 +653,7 @@ function nodeGraphHitTrailEnsureWireGeomCache(drag) {
     }
     let total = 0;
     try {
-      total = Number(pathEl.getTotalLength()) || 0;
+      total = nodeGraphFiniteNumber(pathEl.getTotalLength());
     } catch (_error) {
       total = 0;
     }
@@ -669,8 +669,8 @@ function nodeGraphHitTrailEnsureWireGeomCache(drag) {
     let maxY = -Infinity;
     for (let i = 0; i <= count; i += 1) {
       const p = pathEl.getPointAtLength((total * i) / count);
-      const x = Number(p.x) || 0;
-      const y = Number(p.y) || 0;
+      const x = nodeGraphFiniteNumber(p.x);
+      const y = nodeGraphFiniteNumber(p.y);
       pts.push(x, y);
       if (x < minX) minX = x;
       if (y < minY) minY = y;
@@ -713,7 +713,7 @@ function nodeGraphWiresNearSurfacePoint(point, radiusPx = nodeGraphHitTrailHitRa
   if (!Array.isArray(geoms) || !geoms.length) {
     return hits;
   }
-  const r = Math.max(0, Number(radiusPx) || 0);
+  const r = Math.max(0, nodeGraphFiniteNumber(radiusPx));
   const r2 = r * r;
   const px = point.x;
   const py = point.y;

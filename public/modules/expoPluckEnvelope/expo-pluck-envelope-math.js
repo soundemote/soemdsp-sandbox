@@ -19,11 +19,11 @@ function createExpoPluckEnvelopeState() {
 
 function expoPluckSanitize(p) {
   const out = { ...p };
-  out.attack = Math.max(0, Number(out.attack) || 0);
-  out.decay = Math.max(0.01, Number(out.decay) || 5);
-  out.frequency = Math.min(20000, Math.max(10, Number(out.frequency) || 110));
-  out.damping = Math.min(1, Math.max(0, Number(out.damping) || 0));
-  out.level = Math.max(0, Number(out.level) || 0);
+  out.attack = Math.max(0, nodeGraphFiniteNumber(out.attack));
+  out.decay = Math.max(0.01, nodeGraphFiniteNumber(out.decay, 5));
+  out.frequency = Math.min(20000, Math.max(10, nodeGraphFiniteNumber(out.frequency, 110)));
+  out.damping = Math.min(1, Math.max(0, nodeGraphFiniteNumber(out.damping)));
+  out.level = Math.max(0, nodeGraphFiniteNumber(out.level));
   return out;
 }
 
@@ -58,8 +58,8 @@ function expoPluckKsMul(frequencyHz, damping01, decaySec, rate) {
  */
 function expoPluckEnvelopePreviewCurve(params = {}, pointCount = 128, sampleRate = 800) {
   const p = expoPluckSanitize(params);
-  const sr = Math.max(100, Number(sampleRate) || 800);
-  const pts = Math.max(48, Math.floor(Number(pointCount) || 128));
+  const sr = Math.max(100, nodeGraphFiniteNumber(sampleRate, 800));
+  const pts = Math.max(48, Math.floor(nodeGraphFiniteNumber(pointCount, 128)));
   const attack = Math.max(0, p.attack);
   const mul = expoPluckKsMul(p.frequency, p.damping, p.decay, sr);
   const series = [];
@@ -109,7 +109,7 @@ function expoPluckEnvelopePreviewCurve(params = {}, pointCount = 128, sampleRate
 }
 
 function expoPluckEnvelopeSample(state, params, rate) {
-  const sr = Math.max(1, Number(rate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(rate, 44100));
   const live = expoPluckSanitize({
     attack: params.attack,
     decay: params.decay,
@@ -125,8 +125,8 @@ function expoPluckEnvelopeSample(state, params, rate) {
     state.shot = { ...live };
   }
 
-  const trig = Number(params.trigger) || 0;
-  const gat = Number(params.gate) || 0;
+  const trig = nodeGraphFiniteNumber(params.trigger);
+  const gat = nodeGraphFiniteNumber(params.gate);
   const trigRise = state.lastTrigger <= 0 && trig > 0;
   const gateRise = state.lastGate <= 0 && gat > 0;
   const gateFall = state.lastGate > 0 && gat <= 0;

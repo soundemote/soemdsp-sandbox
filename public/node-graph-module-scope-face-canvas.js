@@ -291,7 +291,7 @@ function syncNodeGraphModuleScopeFaceCanvasTape(canvas, screenElement, pixelRati
   }
   const density = typeof nodeGraphFacePlateDensity === "function"
     ? nodeGraphFacePlateDensity({ pixelDensity }, 1)
-    : Math.max(0, Math.min(1, Number(pixelDensity) || 0));
+    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(pixelDensity)));
   let width = Math.max(1, Math.round(size.width * density));
   let height = Math.max(1, Math.round(size.height * density));
   const frozen = typeof scopePaintIsFrozen === "function"
@@ -367,7 +367,7 @@ function syncNodeGraphModuleScopeFaceCanvasBurn(canvas, screenElement, pixelRati
   }
   const density = typeof nodeGraphFacePlateDensity === "function"
     ? nodeGraphFacePlateDensity({ pixelDensity }, 1)
-    : Math.max(0, Math.min(1, Number(pixelDensity) || 0));
+    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(pixelDensity)));
   let width = Math.max(1, Math.round(size.width * density));
   let height = Math.max(1, Math.round(size.height * density));
   const hostNode = screenElement?.closest?.(".dsp-node");

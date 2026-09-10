@@ -102,7 +102,7 @@ void main() {
    */
   function stamp(ctx, packed, count, opts = {}) {
     const dest = ctx?.canvas;
-    const n = Math.max(0, Math.floor(Number(count) || 0));
+    const n = Math.max(0, Math.floor(nodeGraphFiniteNumber(count)));
     if (!dest || !packed || n <= 0) {
       return false;
     }
@@ -121,7 +121,7 @@ void main() {
     const gl = d.gl;
     const w = off.width;
     const h = off.height;
-    const sizePx = Math.max(1, Number(opts.sizePx) || 2);
+    const sizePx = Math.max(1, nodeGraphFiniteNumber(opts.sizePx, 2));
     gl.viewport(0, 0, w, h);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);

@@ -91,7 +91,7 @@ function paintNodeGraphValueFacesNow(pixelRatio = window.devicePixelRatio || 1) 
   if (typeof nodeGraphVisibleModuleScopeSlots !== "function") {
     return 0;
   }
-  const pr = Math.max(1, Number(pixelRatio) || 1);
+  const pr = Math.max(1, nodeGraphFiniteNumber(pixelRatio, 1));
   let painted = 0;
   for (const slot of nodeGraphVisibleModuleScopeSlots()) {
     const renderer = typeof nodeGraphModuleDisplayRendererForSlot === "function"
@@ -294,8 +294,8 @@ function nodeGraphNumberReadoutClearBurnPlate(canvas) {
  * Burn sticky floor is applied separately (per-pixel) when Burn > 0.
  */
 function nodeGraphNumberReadoutBurnEraseAlpha(trailHang, ghostHang = 0) {
-  const trail = clampNodeSliderValue(Number(trailHang) || 0, 0, 1);
-  const ghost = clampNodeSliderValue(Number(ghostHang) || 0, 0, 1);
+  const trail = clampNodeSliderValue(nodeGraphFiniteNumber(trailHang), 0, 1);
+  const ghost = clampNodeSliderValue(nodeGraphFiniteNumber(ghostHang), 0, 1);
   if (trail <= 0.001 && ghost <= 0.001) {
     return 1;
   }
@@ -331,12 +331,12 @@ function nodeGraphNumberReadoutApplyResidualPlate(burnCtx, width, height, trailH
   if (!burnCtx || width <= 0 || height <= 0) {
     return;
   }
-  const trail = clampNodeSliderValue(Number(trailHang) || 0, 0, 1);
-  const ghost = clampNodeSliderValue(Number(ghostHang) || 0, 0, 1);
+  const trail = clampNodeSliderValue(nodeGraphFiniteNumber(trailHang), 0, 1);
+  const ghost = clampNodeSliderValue(nodeGraphFiniteNumber(ghostHang), 0, 1);
   // Sticky Burn floor 0…1 only.
   const burn = typeof PhosphorResidual !== "undefined" && PhosphorResidual.clampBurn
     ? PhosphorResidual.clampBurn(burnHang, 0)
-    : clampNodeSliderValue(Number(burnHang) || 0, 0, 1);
+    : clampNodeSliderValue(nodeGraphFiniteNumber(burnHang), 0, 1);
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   if (!Residual || typeof Residual.applyResidual !== "function") {
     return;
@@ -473,9 +473,9 @@ function nodeGraphNumberReadoutLcdGhostRgb(inkRgb, settings = null) {
     const [r, g, b] = nodeGraphHueBrightnessRgb01(hue, ghostAmt);
     return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
   }
-  const r = Number(inkRgb?.[0]) || 0;
-  const g = Number(inkRgb?.[1]) || 0;
-  const b = Number(inkRgb?.[2]) || 0;
+  const r = nodeGraphFiniteNumber(inkRgb?.[0]);
+  const g = nodeGraphFiniteNumber(inkRgb?.[1]);
+  const b = nodeGraphFiniteNumber(inkRgb?.[2]);
   const y = Math.max(0, Math.min(255, Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b)));
   return [y, y, y];
 }
@@ -507,7 +507,7 @@ function nodeGraphNumberReadoutLcdBgCss(settings) {
  * so soft mid-range stays usable and hardness 1 collapses to a hard rim.
  */
 function nodeGraphNumberReadoutSmoothstep01(t) {
-  const x = clampNodeSliderValue(Number(t) || 0, 0, 1);
+  const x = clampNodeSliderValue(nodeGraphFiniteNumber(t), 0, 1);
   return x * x * (3 - 2 * x);
 }
 
@@ -534,13 +534,13 @@ function nodeGraphNumberReadoutDrawLcdInnerShadow(
   if (!context || !(width > 2) || !(height > 2)) {
     return;
   }
-  const dist = clampNodeSliderValue(Number(distance01) || 0, 0, 1);
+  const dist = clampNodeSliderValue(nodeGraphFiniteNumber(distance01), 0, 1);
   if (dist <= 0.001) {
     return;
   }
-  const sharp = clampNodeSliderValue(Number(sharpness01) || 0, 0, 1);
-  const ox01 = clampNodeSliderValue(Number(offsetX01) || 0, -1, 1);
-  const oy01 = clampNodeSliderValue(Number(offsetY01) || 0, -1, 1);
+  const sharp = clampNodeSliderValue(nodeGraphFiniteNumber(sharpness01), 0, 1);
+  const ox01 = clampNodeSliderValue(nodeGraphFiniteNumber(offsetX01), -1, 1);
+  const oy01 = clampNodeSliderValue(nodeGraphFiniteNumber(offsetY01), -1, 1);
   const minSide = Math.min(width, height);
   // Reach of the shadow band from the rim (px) — also scales max offset.
   const reach = Math.max(1, dist * minSide * 0.42);
@@ -633,7 +633,7 @@ function nodeGraphNumberReadoutLightRgb(settings) {
   // Extract hue from stored pure-hue (or legacy) hex.
   let h = 50;
   if (typeof nodeGraphTraceDisplayHexToHsl === "function") {
-    h = Number(nodeGraphTraceDisplayHexToHsl(hex).h) || 0;
+    h = nodeGraphFiniteNumber(nodeGraphTraceDisplayHexToHsl(hex).h);
   } else {
     const m = String(hex).match(/^#?([0-9a-f]{6})$/i);
     if (m) {
@@ -698,7 +698,7 @@ function nodeGraphNumberReadoutLightRgb(settings) {
  * Never bake color into the burn plate.
  */
 function nodeGraphNumberReadoutGhostRgbFromEnergy(energy, gradientStops, peakHex) {
-  const e = clampNodeSliderValue(Number(energy) || 0, 0, 1);
+  const e = clampNodeSliderValue(nodeGraphFiniteNumber(energy), 0, 1);
   if (typeof nodeGraphSampleGradientStopsRgb === "function") {
     const rgb = nodeGraphSampleGradientStopsRgb(gradientStops, e, peakHex || "#fcfdbf");
     if (Array.isArray(rgb) && rgb.length >= 3) {
@@ -722,13 +722,13 @@ function nodeGraphNumberReadoutPresentBurnPlate(
   if (!destCtx || !burnPlate?.width || !burnPlate?.height) {
     return;
   }
-  const a = clampNodeSliderValue(Number(alpha) || 0, 0, 1);
+  const a = clampNodeSliderValue(nodeGraphFiniteNumber(alpha), 0, 1);
   if (a <= 0.001) {
     return;
   }
-  const r = Math.max(0, Math.min(255, Math.round(Number(rgb?.[0]) || 0)));
-  const g = Math.max(0, Math.min(255, Math.round(Number(rgb?.[1]) || 0)));
-  const b = Math.max(0, Math.min(255, Math.round(Number(rgb?.[2]) || 0)));
+  const r = Math.max(0, Math.min(255, Math.round(nodeGraphFiniteNumber(rgb?.[0]))));
+  const g = Math.max(0, Math.min(255, Math.round(nodeGraphFiniteNumber(rgb?.[1]))));
+  const b = Math.max(0, Math.min(255, Math.round(nodeGraphFiniteNumber(rgb?.[2]))));
   let tint = destCtx.canvas?._numberReadoutBurnTint;
   if (!tint) {
     tint = document.createElement("canvas");
@@ -877,12 +877,10 @@ function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio, opt
       : { width: 0, height: 0 };
     const dpr = Math.max(
       1,
-      Number(window.devicePixelRatio)
-        || Number(pixelRatio)
-        || 1,
+      nodeGraphFiniteNumber(window.devicePixelRatio, nodeGraphFiniteNumber(pixelRatio, 1)),
     );
-    let w = Math.max(1, Math.round((Number(rect.width) || 1) * dpr));
-    let h = Math.max(1, Math.round((Number(rect.height) || 1) * dpr));
+    let w = Math.max(1, Math.round((nodeGraphFiniteNumber(rect.width, 1)) * dpr));
+    let h = Math.max(1, Math.round((nodeGraphFiniteNumber(rect.height, 1)) * dpr));
     const maxDim = 4096;
     if (w > maxDim || h > maxDim) {
       const s = maxDim / Math.max(w, h);
@@ -1342,7 +1340,7 @@ function nodeGraphPitchCentsBandIndex(cents) {
 }
 
 function nodeGraphPitchDetectorDrawCentsBands(context, left, top, width, height, cents, brightness) {
-  const b = clampNodeSliderValue(Number(brightness) || 0, 0, 1);
+  const b = clampNodeSliderValue(nodeGraphFiniteNumber(brightness), 0, 1);
   if (!context || !(width > 0) || !(height > 0) || b <= 0.0005) {
     return;
   }
@@ -1365,11 +1363,11 @@ function nodeGraphPitchDetectorDrawCentsBands(context, left, top, width, height,
 function nodeGraphNumberReadoutWorkspaceZoom() {
   return Math.max(
     0.01,
-    Number(
+    nodeGraphFiniteNumber(
       typeof nodeGraphZoom === "function"
         ? nodeGraphZoom()
         : (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp && nodeGraphMvp.zoom),
-    ) || 1,
+    , 1),
   );
 }
 
@@ -1382,12 +1380,12 @@ function nodeGraphNumberReadoutWorkspaceZoom() {
  */
 function nodeGraphNumberReadoutPinSizePx(faceStyle, pixelRatio, zoom = 1) {
   const style = String(faceStyle || "led").toLowerCase();
-  const z = Math.max(0.01, Number(zoom) || 1);
+  const z = Math.max(0.01, nodeGraphFiniteNumber(zoom, 1));
   if (style === "lcd") {
     // Hard square on the device pixel grid; grows with workspace zoom.
     return Math.max(1, Math.round(z));
   }
-  const dpr = Math.max(1, Number(pixelRatio) || 1);
+  const dpr = Math.max(1, nodeGraphFiniteNumber(pixelRatio, 1));
   return Math.max(1, Math.round(dpr));
 }
 
@@ -1580,13 +1578,13 @@ function nodeGraphNumberReadoutDrawPixelPin(context, layout, faceLeft, faceTop, 
   if (!context || !layout?.pixelPin) {
     return;
   }
-  const side = Math.max(1, Number(layout.pinPx) || 1);
+  const side = Math.max(1, nodeGraphFiniteNumber(layout.pinPx, 1));
   const x = faceLeft + Math.max(0, (faceW - side) * 0.5);
   const y = faceTop + Math.max(0, (faceH - side) * 0.5);
-  const a = clampNodeSliderValue(Number(alpha) || 0, 0, 1);
-  const r = Number(rgb?.[0]) || 0;
-  const g = Number(rgb?.[1]) || 0;
-  const b = Number(rgb?.[2]) || 0;
+  const a = clampNodeSliderValue(nodeGraphFiniteNumber(alpha), 0, 1);
+  const r = nodeGraphFiniteNumber(rgb?.[0]);
+  const g = nodeGraphFiniteNumber(rgb?.[1]);
+  const b = nodeGraphFiniteNumber(rgb?.[2]);
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.globalCompositeOperation = "source-over";
@@ -1932,17 +1930,17 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
   const padPxY = layout.padPxY != null ? layout.padPxY : padPx;
   const digitX = left + padPx + layout.contentW * 0.5;
   const digitY = top + padPxY + digitAreaHeight * 0.5;
-  const unlitAmount = clampNodeSliderValue(Number(settings?.unlitSegments) || 0, 0, 1);
+  const unlitAmount = clampNodeSliderValue(nodeGraphFiniteNumber(settings?.unlitSegments), 0, 1);
   // Ghost plate alpha: continuous from 0 (no 0.12 pedestal — that made the
   // first slider tick a hard on/off pop). pow < 1 = more sensitivity near 0
   // so ~0.06 is a faint wash that eases in, not a binary flash.
   const ghostPlateAlpha = unlitAmount <= 0
     ? 0
     : Math.min(0.92, Math.pow(unlitAmount, 0.58));
-  const shadowDist = clampNodeSliderValue(Number(settings?.innerShadowDistance) || 0, 0, 1);
-  const shadowSharp = clampNodeSliderValue(Number(settings?.innerShadowSharpness) || 0, 0, 1);
-  const shadowOffX = clampNodeSliderValue(Number(settings?.innerShadowOffsetX) || 0, -1, 1);
-  const shadowOffY = clampNodeSliderValue(Number(settings?.innerShadowOffsetY) || 0, -1, 1);
+  const shadowDist = clampNodeSliderValue(nodeGraphFiniteNumber(settings?.innerShadowDistance), 0, 1);
+  const shadowSharp = clampNodeSliderValue(nodeGraphFiniteNumber(settings?.innerShadowSharpness), 0, 1);
+  const shadowOffX = clampNodeSliderValue(nodeGraphFiniteNumber(settings?.innerShadowOffsetX), -1, 1);
+  const shadowOffY = clampNodeSliderValue(nodeGraphFiniteNumber(settings?.innerShadowOffsetY), -1, 1);
   const text = unit ? `${valueText} ${unit}` : valueText;
 
   // Full clear each frame — no residual burn plate.
@@ -1955,7 +1953,7 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
   // 8ve page: cents-accuracy stripes behind the note-name text.
   const pitchMode = options && options.pitchMode;
   const centsOff = options && options.cents;
-  const centsBand = clampNodeSliderValue(Number(settings?.centsBand) || 0, 0, 1);
+  const centsBand = clampNodeSliderValue(nodeGraphFiniteNumber(settings?.centsBand), 0, 1);
   if (slot?.type === "helmholtzPitch" && pitchMode === "name" && centsBand > 0.0005) {
     nodeGraphPitchDetectorDrawCentsBands(context, left, top, width, height, centsOff, centsBand);
   }
@@ -2154,7 +2152,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       ? nodeGraphNumberReadoutFormatValue(
         (() => {
           const raw = nodeGraphOscilloscopeLatestSample(item.buffer, 0);
-          return String(settings.polarity || "bipolar") === "unipolar" ? Math.abs(Number(raw) || 0) : raw;
+          return String(settings.polarity || "bipolar") === "unipolar" ? Math.abs(nodeGraphFiniteNumber(raw)) : raw;
         })(),
         decimals,
         formatOptions,
@@ -2222,7 +2220,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       canvas._nodeGraphNumberReadoutWidth !== canvas.width ||
       canvas._nodeGraphNumberReadoutHeight !== canvas.height ||
       // Pin size is round(zoom); repaint when that step changes even if buffer size stalls.
-      Math.round(Number(canvas._nodeGraphNumberReadoutZoom) || 1) !== Math.round(lcdZoomNow);
+      Math.round(nodeGraphFiniteNumber(canvas._nodeGraphNumberReadoutZoom, 1)) !== Math.round(lcdZoomNow);
     const textChanged = canvas._nodeGraphNumberReadoutText == null
       || canvas._nodeGraphNumberReadoutText !== text;
     if (!textChanged && !styleChanged) {
@@ -2251,12 +2249,12 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   //  • Burn Amount → multiplies Bright for residual deposits (default 1).
   //  • Freeze (pause / engine off): hold burn plate + last digits — no wipe.
   const trailHang = clampNodeSliderValue(
-    Number(settings.trail ?? settings.residual) || 0,
+    nodeGraphFiniteNumber(settings.trail ?? settings.residual),
     0,
     1,
   );
   const ghostHang = clampNodeSliderValue(
-    Number(settings.ghost ?? settings.ghostBrightness) || 0,
+    nodeGraphFiniteNumber(settings.ghost ?? settings.ghostBrightness),
     0,
     1,
   );
@@ -2264,12 +2262,12 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     ? PhosphorResidual.migrateBurn(settings, 0)
     : (
       Number(settings.residualSchema) >= 2
-        ? clampNodeSliderValue(Number(settings.burn) || 0, 0, 1)
+        ? clampNodeSliderValue(nodeGraphFiniteNumber(settings.burn), 0, 1)
         : 0
     );
   const burnAmountHang = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateBurnAmount
     ? PhosphorResidual.migrateBurnAmount(settings, 1)
-    : Math.max(0, Math.min(4, Number(settings.burnAmount) || 1));
+    : Math.max(0, Math.min(4, nodeGraphFiniteNumber(settings.burnAmount, 1)));
   const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
   const styleChanged =
     canvas._nodeGraphNumberReadoutSettingsSig !== settingsSig ||
@@ -2353,7 +2351,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         burnCtx.restore();
       }
     }
-    const prevE = Number(canvas._numberReadoutResidualEnergy) || 0;
+    const prevE = nodeGraphFiniteNumber(canvas._numberReadoutResidualEnergy);
     const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
     if (Residual && typeof Residual.applyResidual === "function") {
       canvas._numberReadoutResidualEnergy = Residual.applyResidual(
@@ -2379,7 +2377,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const ResidualApi = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const depositPeak = ResidualApi && typeof ResidualApi.depositBrightness === "function"
     ? ResidualApi.depositBrightness(bright, burnAmountHang)
-    : bright * Math.max(0, Number(burnAmountHang) || 1);
+    : bright * Math.max(0, nodeGraphFiniteNumber(burnAmountHang, 1));
   // Canvas alpha maxes at 1; peak energy can track >1 for gradient sampling.
   const depositBright = Math.min(1, depositPeak);
   if (
@@ -2501,14 +2499,14 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       burnCtx.restore();
       // Peak residual energy follows Bright × Burn Amount (may exceed 1 for LUT).
       canvas._numberReadoutResidualEnergy = Math.max(
-        Number(canvas._numberReadoutResidualEnergy) || 0,
+        nodeGraphFiniteNumber(canvas._numberReadoutResidualEnergy),
         Math.min(4, depositPeak),
       );
       canvas._numberReadoutLastTextChangeAt = now;
     }
   }
 
-  const depositEnergy = Number(canvas._numberReadoutResidualEnergy) || 0;
+  const depositEnergy = nodeGraphFiniteNumber(canvas._numberReadoutResidualEnergy);
   if (depositEnergy <= 0.008) {
     canvas._numberReadoutResidualEnergy = 0;
     // Hard-clear plate crumbs when residual energy is gone (Trail 0 wipes).
@@ -2537,7 +2535,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const alpha = 1;
   // Room dimmer punches the canvas (not only the face). Always set both —
   // stop wipe used to leave canvas at strength 0 and veil painted digits.
-  const punch = Math.max(0.001, Number(bright) || 0).toFixed(3);
+  const punch = Math.max(0.001, nodeGraphFiniteNumber(bright)).toFixed(3);
   if (canvas?.dataset) {
     canvas.dataset.lightSource = "screen";
     canvas.dataset.lightStrength = punch;

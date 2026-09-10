@@ -2,7 +2,7 @@
 // Load after core class, before registerProcessor.
 
 NodeLiveAudioProcessor.prototype.createEarProtector = function createEarProtector(rate = sampleRate) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+    const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
     const state = typeof createNodeGraphSpeakerProtector2State === "function"
       ? createNodeGraphSpeakerProtector2State(safeRate)
       : this.createSpeakerProtector2State?.(safeRate);
@@ -13,8 +13,8 @@ NodeLiveAudioProcessor.prototype.createEarProtector = function createEarProtecto
           return nodeGraphSpeakerProtector2Protect(state, left, right, safeRate);
         }
         return {
-          left: Number(left) || 0,
-          right: Number(right) || 0,
+          left: nodeGraphFiniteNumber(left),
+          right: nodeGraphFiniteNumber(right),
           gain: 1,
           muted: false,
           engaged: false,
@@ -35,7 +35,7 @@ NodeLiveAudioProcessor.prototype.resetRaptEllipticDecimator = function resetRapt
 };
 
 NodeLiveAudioProcessor.prototype.processRaptEllipticDecimatorSample = function processRaptEllipticDecimatorSample(input, states) {
-    let y = Number(input) || 0;
+    let y = nodeGraphFiniteNumber(input);
     for (let section = 0; section < nodeLiveRaptEllipticQuarterbandSos.length; section += 1) {
       const [b0, b1, b2, , a1, a2] = nodeLiveRaptEllipticQuarterbandSos[section];
       const z1 = states[section][0];
@@ -97,7 +97,7 @@ NodeLiveAudioProcessor.prototype.readRuntimeOutput = function readRuntimeOutput(
 };
 
 NodeLiveAudioProcessor.prototype.phaseRadians = function phaseRadians(value) {
-    return this.wrapValue(Number(value) || 0, 0, 1) * Math.PI * 2;
+    return this.wrapValue(nodeGraphFiniteNumber(value), 0, 1) * Math.PI * 2;
 };
 
 NodeLiveAudioProcessor.prototype.nextNoiseSample = function nextNoiseSample(nodeId) {
@@ -114,12 +114,12 @@ NodeLiveAudioProcessor.prototype.currentNoiseSample = function currentNoiseSampl
 };
 
 NodeLiveAudioProcessor.prototype.noiseSeedKey = function noiseSeedKey(nodeId, seedValue, channel = "") {
-    const seed = Math.max(0, Math.min(99999, Math.floor(Number(seedValue) || 0)));
+    const seed = Math.max(0, Math.min(99999, Math.floor(nodeGraphFiniteNumber(seedValue))));
     return `${nodeId}${channel ? `:${channel}` : ""}:seed:${seed}`;
 };
 
 NodeLiveAudioProcessor.prototype.polyBlep = function polyBlep(phaseCycle, phaseIncrement) {
-    const dt = this.clampValue(Math.abs(Number(phaseIncrement) || 0), 1e-6, 0.5);
+    const dt = this.clampValue(Math.abs(nodeGraphFiniteNumber(phaseIncrement)), 1e-6, 0.5);
     if (phaseCycle < dt) {
       const t = phaseCycle / dt;
       return t + t - t * t - 1;
@@ -147,9 +147,9 @@ NodeLiveAudioProcessor.prototype.archimedesSample = function archimedesSample(op
       throw new Error("native Archimedes Oscillator not ready");
     }
     const state = options.state || this.createArchimedesState();
-    const dtShift = this.clampValue(Math.round(Number(options.profile) || 12), 4, 24);
-    const freqHz = Math.max(0, Math.round(Number(options.frequency) || 0));
-    const ditherBits = Math.max(0, Math.round(Number(options.dither) || 0));
+    const dtShift = this.clampValue(Math.round(nodeGraphFiniteNumber(options.profile, 12)), 4, 24);
+    const freqHz = Math.max(0, Math.round(nodeGraphFiniteNumber(options.frequency)));
+    const ditherBits = Math.max(0, Math.round(nodeGraphFiniteNumber(options.dither)));
     if (!state.nativeHandle) {
       state.nativeHandle = this.nativeArchimedes.soemdsp_archimedes_create();
     }
@@ -335,11 +335,11 @@ NodeLiveAudioProcessor.prototype.sampleChannelAt = function sampleChannelAt(samp
       return 0;
     }
     const maxIndex = channel.length - 1;
-    const index = this.clampValue(Number(frameIndex) || 0, 0, maxIndex);
+    const index = this.clampValue(nodeGraphFiniteNumber(frameIndex), 0, maxIndex);
     const low = Math.floor(index);
     const high = Math.min(maxIndex, low + 1);
     const frac = index - low;
-    return (Number(channel[low]) || 0) + ((Number(channel[high]) || 0) - (Number(channel[low]) || 0)) * frac;
+    return (nodeGraphFiniteNumber(channel[low])) + ((nodeGraphFiniteNumber(channel[high])) - (nodeGraphFiniteNumber(channel[low]))) * frac;
 };
 
 NodeLiveAudioProcessor.prototype.sampleStereoAt = function sampleStereoAt(sample, frameIndex, interpolation) {
@@ -358,9 +358,9 @@ NodeLiveAudioProcessor.prototype.sampleStereoAt = function sampleStereoAt(sample
 NodeLiveAudioProcessor.prototype.normalizePatchTiming = function normalizePatchTiming(timing = {}) {
     const source = timing && typeof timing === "object" ? timing : {};
     return {
-      tempoBpm: Math.max(1, Math.round(Number(source.tempoBpm) || 120)),
-      timeSignatureDenominator: Math.max(1, Math.round(Number(source.timeSignatureDenominator) || 4)),
-      timeSignatureNumerator: Math.max(1, Math.round(Number(source.timeSignatureNumerator) || 4)),
+      tempoBpm: Math.max(1, Math.round(nodeGraphFiniteNumber(source.tempoBpm, 120))),
+      timeSignatureDenominator: Math.max(1, Math.round(nodeGraphFiniteNumber(source.timeSignatureDenominator, 4))),
+      timeSignatureNumerator: Math.max(1, Math.round(nodeGraphFiniteNumber(source.timeSignatureNumerator, 4))),
     };
 };
 

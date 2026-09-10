@@ -18,14 +18,14 @@ function createNodeGraphPulseCurveDisplay(nodeId, type) {
 
 function nodeGraphPulseCurveNodeParams(node) {
   return {
-    startTime: Number(node?.params?.startTime) || 0,
-    centerTime: Number(node?.params?.centerTime) || 0.5,
-    endTime: Number(node?.params?.endTime) || 1,
-    timeSpread: Number(node?.params?.timeSpread) || 0.3,
-    numberOfPulses: Number(node?.params?.numberOfPulses) || 20,
-    lowAmplitude: Number(node?.params?.lowAmplitude) || 0.3,
-    highAmplitude: Number(node?.params?.highAmplitude) || 1,
-    seed: Number(node?.params?.seed) || 0,
+    startTime: nodeGraphFiniteNumber(node?.params?.startTime),
+    centerTime: nodeGraphFiniteNumber(node?.params?.centerTime, 0.5),
+    endTime: nodeGraphFiniteNumber(node?.params?.endTime, 1),
+    timeSpread: nodeGraphFiniteNumber(node?.params?.timeSpread, 0.3),
+    numberOfPulses: nodeGraphFiniteNumber(node?.params?.numberOfPulses, 20),
+    lowAmplitude: nodeGraphFiniteNumber(node?.params?.lowAmplitude, 0.3),
+    highAmplitude: nodeGraphFiniteNumber(node?.params?.highAmplitude, 1),
+    seed: nodeGraphFiniteNumber(node?.params?.seed),
   };
 }
 

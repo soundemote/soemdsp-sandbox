@@ -6,8 +6,8 @@ function nodeGraphBugButtonPointerPosition(control, event) {
   const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1;
   const y = 1 - ((event.clientY - rect.top) / Math.max(1, rect.height)) * 2;
   return {
-    x: Math.max(-1, Math.min(1, x)),
-    y: Math.max(-1, Math.min(1, y)),
+    x: nodeGraphFiniteNumber(x),
+    y: nodeGraphFiniteNumber(y),
   };
 }
 
@@ -32,8 +32,8 @@ function syncNodeGraphBugButtonVisual(face) {
   const y = effective("Y", "__VisualY", value("yPosition", 0));
   const opacity = effective("Opacity", "__VisualOpacity", value("opacity", 1));
   glyph.style.setProperty("--node-bug-button-size", String(Math.max(0, Math.min(2, size))));
-  glyph.style.setProperty("--node-bug-button-x", String(Math.max(-1, Math.min(1, x))));
-  glyph.style.setProperty("--node-bug-button-y", String(Math.max(-1, Math.min(1, y))));
+  glyph.style.setProperty("--node-bug-button-x", String(nodeGraphFiniteNumber(x)));
+  glyph.style.setProperty("--node-bug-button-y", String(nodeGraphFiniteNumber(y)));
   glyph.style.opacity = String(Math.max(0, Math.min(1, opacity)));
 }
 

@@ -22,5 +22,5 @@ NodeLiveAudioProcessor.prototype.bodeSample = function bodeSample(
       null,
     );
   }
-  return this.safeFilterNumber(Number(input) || 0, null);
+  return this.safeFilterNumber(nodeGraphFiniteNumber(input), null);
 };

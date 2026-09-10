@@ -141,8 +141,8 @@ function paintNodeGraphRgbPictureFace(canvas, face, nodeId) {
   const height = Math.max(0, nodeGraphRgbPictureReadParam(nodeId, "height", 1));
   const x = nodeGraphRgbPictureReadParam(nodeId, "x", 0);
   const y = nodeGraphRgbPictureReadParam(nodeId, "y", 0);
-  const cx = w * 0.5 + (Math.max(-1, Math.min(1, x)) * w * 0.5);
-  const cy = h * 0.5 - (Math.max(-1, Math.min(1, y)) * h * 0.5);
+  const cx = w * 0.5 + (x * w * 0.5);
+  const cy = h * 0.5 - (y * h * 0.5);
   const halfW = Math.max(0.5, (width * 0.5) * (w * 0.5));
   const halfH = Math.max(0.5, (height * 0.5) * (h * 0.5));
 

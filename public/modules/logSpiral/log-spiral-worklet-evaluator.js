@@ -17,14 +17,14 @@ NodeLiveAudioProcessor.prototype.logSpiralSample = function logSpiralSample(stat
           state.nativeHandle = this.nativeLogSpiral.soemdsp_log_spiral_create();
         }
         if (state.nativeHandle) {
-          const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
+          const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
           this.nativeLogSpiral.soemdsp_log_spiral_sample(
             state.nativeHandle,
-            Number(options.frequency) || 0,
-            Number(options.spin) || 0,
-            Math.max(0, Number(options.size) || 0),
-            Number(options.growth) || 0,
-            Math.max(0.1, Number(options.turns) || 1),
+            nodeGraphFiniteNumber(options.frequency),
+            nodeGraphFiniteNumber(options.spin),
+            Math.max(0, nodeGraphFiniteNumber(options.size)),
+            nodeGraphFiniteNumber(options.growth),
+            Math.max(0.1, nodeGraphFiniteNumber(options.turns, 1)),
             sampleRateValue,
           );
           return {

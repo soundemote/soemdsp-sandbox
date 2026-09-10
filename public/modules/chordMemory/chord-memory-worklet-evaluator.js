@@ -23,7 +23,7 @@ NodeLiveAudioProcessor.prototype.chordMemorySample = function chordMemorySample(
             Number(options.latch) > 0 ? 1 : 0,
             Number(options.clear) > 0 ? 1 : 0,
             Number(options.advance) > 0 ? 1 : 0,
-            Number(options.pitch) || 0,
+            nodeGraphFiniteNumber(options.pitch),
           );
           return {
             "Note 1": note1,

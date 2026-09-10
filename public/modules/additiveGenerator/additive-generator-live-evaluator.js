@@ -47,10 +47,10 @@ function nodeGraphAdditiveGeneratorLiveEvaluator({ node, nodeId }) {
   genState.prevPhase = new Float32Array(storeH);
   for (let i = 0; i < storeH; i += 1) {
     genState.prevAmp[i] = graph.ampLerp?.to
-      ? Number(graph.ampLerp.to[i]) || 0
-      : Number(graph.amplitude?.[i]) || 0;
-    genState.prevRatio[i] = Number(graph.ratio?.[i]) || 0;
-    genState.prevPhase[i] = Number(graph.phase?.[i]) || 0;
+      ? nodeGraphFiniteNumber(graph.ampLerp.to[i])
+      : nodeGraphFiniteNumber(graph.amplitude?.[i]);
+    genState.prevRatio[i] = nodeGraphFiniteNumber(graph.ratio?.[i]);
+    genState.prevPhase[i] = nodeGraphFiniteNumber(graph.phase?.[i]);
   }
   if (typeof writeNodeGraphDataOutput === "function") {
     writeNodeGraphDataOutput(id, "Graph", graph);

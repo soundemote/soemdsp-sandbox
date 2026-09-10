@@ -78,11 +78,11 @@ function nodeGraphBodeHilbert(state) {
  * @param {number} mix 0..1 dry/wet
  */
 function nodeGraphBodeSample(state, input, shiftHz, fineHz, feedback, mix, sampleRate) {
-  if (!state || !state.buf) return Number(input) || 0;
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const dry = Number(input) || 0;
-  const fb = Math.max(0, Math.min(0.95, Number(feedback) || 0));
-  const wetMix = Math.max(0, Math.min(1, Number(mix) || 0));
+  if (!state || !state.buf) return nodeGraphFiniteNumber(input);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const dry = nodeGraphFiniteNumber(input);
+  const fb = Math.max(0, Math.min(0.95, nodeGraphFiniteNumber(feedback)));
+  const wetMix = Math.max(0, Math.min(1, nodeGraphFiniteNumber(mix)));
 
   // Soft-saturate feedback path to avoid blowups
   let fbIn = state.fbZ * fb;
@@ -100,7 +100,7 @@ function nodeGraphBodeSample(state, input, shiftHz, fineHz, feedback, mix, sampl
     : 0;
   const quad = state.filled >= state.buf.length ? nodeGraphBodeHilbert(state) : 0;
 
-  const delta = (Number(shiftHz) || 0) + (Number(fineHz) || 0);
+  const delta = (nodeGraphFiniteNumber(shiftHz)) + (nodeGraphFiniteNumber(fineHz));
   // Clamp extreme shifts for stability
   const df = Math.max(-rate * 0.49, Math.min(rate * 0.49, delta));
   const step = (2 * Math.PI * df) / rate;

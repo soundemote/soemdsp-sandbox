@@ -7,10 +7,10 @@ function nodeGraphShootingStarExplosionEventSample(runtime, lowRange, highRange)
   if (!event || typeof event !== "object") {
     return { Pulse: 0 };
   }
-  const pulseSamples = Math.max(0, Number(event.pulseSamples) || 0);
+  const pulseSamples = Math.max(0, nodeGraphFiniteNumber(event.pulseSamples));
   const speed = Number(event.speed);
-  const low = Number(lowRange) || 0;
-  const high = Number(highRange) || 0;
+  const low = nodeGraphFiniteNumber(lowRange);
+  const high = nodeGraphFiniteNumber(highRange);
   const lo = Math.min(low, high);
   const hi = Math.max(low, high);
   // speed is expected 0-1 (the site's trigger intensity), interpolated

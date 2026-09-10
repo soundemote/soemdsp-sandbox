@@ -23,7 +23,7 @@ function spiralTrisaw(phase, sharp) {
 }
 
 function spiralNextPhasor(state, key, frequency, offset, sampleRate, bipolar = false) {
-  const base = Number(state[key]) || 0;
+  const base = nodeGraphFiniteNumber(state[key]);
   const current = spiralWrap01(base + offset);
   state[key] = spiralWrap01(base + frequency / sampleRate);
   return bipolar ? current * 2 - 1 : current;

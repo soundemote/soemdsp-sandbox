@@ -83,7 +83,7 @@ function nodeGraphFbmFieldShouldFreeze(domainRate) {
     const speed = Number(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.speedMultiplier : 1);
     if (Number.isFinite(speed) && speed <= 0) return true;
   } catch (_) { /* fall through */ }
-  return !(Math.abs(Number(domainRate) || 0) > 1e-6);
+  return !(Math.abs(nodeGraphFiniteNumber(domainRate)) > 1e-6);
 }
 
 /**
@@ -474,7 +474,7 @@ function nodeGraphFbmFieldCollectFaces() {
 function paintNodeGraphFbmFieldFacesNow(options = {}) {
   const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
     ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
-    : Math.max(0, Math.round(Number(nodeGraphMvp?.moduleScopeFramesPerSecond) || 60));
+    : Math.max(0, Math.round(nodeGraphFiniteNumber(nodeGraphMvp?.moduleScopeFramesPerSecond, 60)));
   const dt = options.dt != null
     ? Number(options.dt)
     : (fps > 0 ? Math.min(0.05, 1 / fps) : 0);

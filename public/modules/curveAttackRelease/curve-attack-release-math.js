@@ -21,24 +21,24 @@ function nodeGraphCurveArNormalizeShape(shape) {
   }
   const s = Number(shape);
   if (!Number.isFinite(s)) return 0;
-  return Math.max(-1, Math.min(1, s));
+  return s;
 }
 
 function nodeGraphCurveArShapedProgress(t, shape) {
   if (typeof nodeGraphExpAdsrShapedProgress === "function") {
     return nodeGraphExpAdsrShapedProgress(t, shape);
   }
-  return Math.max(0, Math.min(1, Number(t) || 0));
+  return Math.max(0, Math.min(1, nodeGraphFiniteNumber(t)));
 }
 
 function nodeGraphCurveArCopyShot(params, inputMode) {
   return {
-    attack: Math.max(0, Number(params?.attack) || 0),
+    attack: Math.max(0, nodeGraphFiniteNumber(params?.attack)),
     attackShape: nodeGraphCurveArNormalizeShape(params?.attackShape),
-    release: Math.max(0, Number(params?.release) || 0),
+    release: Math.max(0, nodeGraphFiniteNumber(params?.release)),
     releaseShape: nodeGraphCurveArNormalizeShape(params?.releaseShape),
     amplitude: Number.isFinite(Number(params?.amplitude)) ? Number(params.amplitude) : 1,
-    inputMode: Math.max(0, Math.min(1, Math.round(Number(inputMode) || 0))),
+    inputMode: Math.max(0, Math.min(1, Math.round(nodeGraphFiniteNumber(inputMode)))),
   };
 }
 
@@ -58,7 +58,7 @@ function nodeGraphCurveArRetargetStage(state, newEnd, newDuration, period) {
     t = 1;
   }
   state.stageEnd = newEnd;
-  state.stageDuration = Math.max(0, Number(newDuration) || 0);
+  state.stageDuration = Math.max(0, nodeGraphFiniteNumber(newDuration));
   if (state.stageDuration <= period) {
     state.stageElapsed = t >= 1 ? period : 0;
   } else {
@@ -107,12 +107,12 @@ function nodeGraphCurveArStartRelease(state, shot, period) {
 
 function nodeGraphCurveAttackReleaseSample(state, gate, params, sampleRate) {
   if (!state || typeof state !== "object") return 0;
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const period = 1 / rate;
   const latch = Number(params?.updateOnTrigger) >= 0.5;
-  const inputMode = Math.max(0, Math.min(1, Math.round(Number(params?.inputMode) || 0)));
+  const inputMode = Math.max(0, Math.min(1, Math.round(nodeGraphFiniteNumber(params?.inputMode))));
 
-  const gateOn = (Number(gate) || 0) > 0.5;
+  const gateOn = (nodeGraphFiniteNumber(gate)) > 0.5;
   const rising = gateOn && !(Number(state.lastGate) > 0.5);
   const falling = !gateOn && Number(state.lastGate) > 0.5;
   state.lastGate = gateOn ? 1 : 0;
@@ -164,15 +164,15 @@ function nodeGraphCurveAttackReleaseSample(state, gate, params, sampleRate) {
 }
 
 function nodeGraphCurveAttackReleasePreviewCurve(params = {}, points = 160) {
-  const attack = Math.max(0, Number(params.attack) || 0);
-  const release = Math.max(0, Number(params.release) || 0);
+  const attack = Math.max(0, nodeGraphFiniteNumber(params.attack));
+  const release = Math.max(0, nodeGraphFiniteNumber(params.release));
   const attackShape = nodeGraphCurveArNormalizeShape(params.attackShape);
   const releaseShape = nodeGraphCurveArNormalizeShape(params.releaseShape);
   const amplitude = Math.max(0, Number(params.amplitude) ?? 1);
   const hold = Math.max(0.04, Math.min(0.3, (attack + release) * 0.15 || 0.08));
   const gateHigh = Math.max(attack + hold, 0.02);
   const total = Math.max(gateHigh + Math.max(release, 0.02), 0.06);
-  const n = Math.max(48, Math.round(Number(points) || 160));
+  const n = Math.max(48, Math.round(nodeGraphFiniteNumber(points, 160)));
   const out = [];
   const pushSeg = (t0, t1, y0, y1, shape, segs) => {
     const span = Math.max(0, t1 - t0);

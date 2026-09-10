@@ -30,7 +30,7 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
     if (!Number.isFinite(frequencyHz)) frequencyHz = 100;
     const hasPitch = this.inputConnections?.has?.(this.inputKey(nodeId, "0.1V/Oct"));
     if (hasPitch) {
-      const pitchCv = Number(mixInput(nodeId, "0.1V/Oct")) || 0;
+      const pitchCv = nodeGraphFiniteNumber(mixInput(nodeId, "0.1V/Oct"));
       frequencyHz = typeof this.pitchedFrequency === "function"
         ? this.pitchedFrequency(frequencyHz, pitchCv, referenceVoltage)
         : frequencyHz * Math.pow(2, (pitchCv - referenceVoltage) / 0.1);
@@ -52,7 +52,7 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
 
   const hasReset = this.inputConnections?.has?.(this.inputKey(nodeId, "Reset"));
   if (hasReset) {
-    const rv = Number(mixInput(nodeId, "Reset")) || 0;
+    const rv = nodeGraphFiniteNumber(mixInput(nodeId, "Reset"));
     if (state.lastReset <= 0 && rv > 0) state.phaseAcc = null;
     state.lastReset = rv;
   }
@@ -69,7 +69,7 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
     const referenceVoltage = 48 / 120;
     let base = Number(node?.parameters?.frequency);
     if (!Number.isFinite(base)) base = 100;
-    const pitchCv = Number(mixInput(nodeId, "0.1V/Oct")) || 0;
+    const pitchCv = nodeGraphFiniteNumber(mixInput(nodeId, "0.1V/Oct"));
     freq = typeof this.pitchedFrequency === "function"
       ? this.pitchedFrequency(base, pitchCv, referenceVoltage)
       : base * Math.pow(2, (pitchCv - referenceVoltage) / 0.1);
@@ -92,7 +92,7 @@ NodeLiveAudioProcessor.prototype.additiveOutWorkletEvaluate = function additiveO
 
   const hasInc = this.inputConnections?.has?.(this.inputKey(nodeId, "Increment"));
   if (hasInc && state.phaseAcc) {
-    const inc = Number(mixInput(nodeId, "Increment")) || 0;
+    const inc = nodeGraphFiniteNumber(mixInput(nodeId, "Increment"));
     for (let i = 0; i < state.phaseAcc.length; i += 1) {
       state.phaseAcc[i] = additiveGraphWrap01(state.phaseAcc[i] + inc);
     }

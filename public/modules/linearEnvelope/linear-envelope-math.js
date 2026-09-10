@@ -37,15 +37,15 @@ function nodeGraphLinearEnvelopeTriggerAttack(state, delay, attack, sampleRate) 
  * @returns {number}
  */
 function nodeGraphLinearEnvelopeCore(state, gate, params, sampleRate) {
-  const safeGate = Number(gate) || 0;
-  const delay = Math.max(0, Number(params.delay) || 0);
-  const attack = Math.max(0, Number(params.attack) || 0);
-  const decay = Math.max(0, Number(params.decay) || 0);
-  const sustain = Math.max(0, Math.min(1, Number(params.sustain) || 0));
-  const release = Math.max(0, Number(params.release) || 0);
-  const level = Number(params.level) || 0;
-  const looping = (Number(params.loop) || 0) >= 0.5;
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const safeGate = nodeGraphFiniteNumber(gate);
+  const delay = Math.max(0, nodeGraphFiniteNumber(params.delay));
+  const attack = Math.max(0, nodeGraphFiniteNumber(params.attack));
+  const decay = Math.max(0, nodeGraphFiniteNumber(params.decay));
+  const sustain = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.sustain)));
+  const release = Math.max(0, nodeGraphFiniteNumber(params.release));
+  const level = nodeGraphFiniteNumber(params.level);
+  const looping = (nodeGraphFiniteNumber(params.loop)) >= 0.5;
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const period = 1 / rate;
 
   if (state.lastGate <= 0 && safeGate > 0) {
@@ -121,11 +121,11 @@ function nodeGraphLinearEnvelopeSample(state, gate, params, sampleRate, runtime 
  * Delay → Attack → Decay → Sustain hold → Release.
  */
 function nodeGraphLinearEnvelopePreviewCurve(params = {}, points = 160) {
-  const delay = Math.max(0, Number(params.delay) || 0);
-  const attack = Math.max(0, Number(params.attack) || 0);
-  const decay = Math.max(0, Number(params.decay) || 0);
-  const sustain = Math.max(0, Math.min(1, Number(params.sustain) || 0));
-  const release = Math.max(0, Number(params.release) || 0);
+  const delay = Math.max(0, nodeGraphFiniteNumber(params.delay));
+  const attack = Math.max(0, nodeGraphFiniteNumber(params.attack));
+  const decay = Math.max(0, nodeGraphFiniteNumber(params.decay));
+  const sustain = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.sustain)));
+  const release = Math.max(0, nodeGraphFiniteNumber(params.release));
   const sustainHold = Math.max(0.05, Math.min(0.4, (attack + decay + release) * 0.15 || 0.08));
   const gateHigh = delay + Math.max(attack + decay + sustainHold, 0.02);
   const total = Math.max(gateHigh + Math.max(release, 0.02), 0.08);
@@ -149,7 +149,7 @@ function nodeGraphLinearEnvelopePreviewCurve(params = {}, points = 160) {
     }
     keyframes.push(pt);
   }
-  const n = Math.max(32, Math.round(Number(points) || 160));
+  const n = Math.max(32, Math.round(nodeGraphFiniteNumber(points, 160)));
   const out = [];
   let k = 0;
   for (let i = 0; i < n; i += 1) {

@@ -18,8 +18,8 @@ function nodeGraphVisualOutputSourceCanvas() {
 }
 
 function nodeGraphVisualOutputSize(sourceCanvas = nodeGraphVisualOutputSourceCanvas()) {
-  const sourceWidth = Math.max(1, Number(sourceCanvas?.width) || 720);
-  const sourceHeight = Math.max(1, Number(sourceCanvas?.height) || 300);
+  const sourceWidth = Math.max(1, nodeGraphFiniteNumber(sourceCanvas?.width, 720));
+  const sourceHeight = Math.max(1, nodeGraphFiniteNumber(sourceCanvas?.height, 300));
   return { height: sourceHeight, width: sourceWidth };
 }
 

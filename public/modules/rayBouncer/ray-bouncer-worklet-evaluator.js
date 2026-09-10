@@ -27,23 +27,23 @@ NodeLiveAudioProcessor.prototype.rayBouncerSample = function rayBouncerSample(st
     if (!state.nativeHandle) {
       return { x: 0, y: 0 };
     }
-    const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
+    const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
     this.nativeRayBouncer.soemdsp_ray_bouncer_sample(
       state.nativeHandle,
       Number(options.reset) > 0.5 ? 1 : 0,
-      Math.max(0, Number(options.frequency) || 0),
+      Math.max(0, nodeGraphFiniteNumber(options.frequency)),
       Number.isFinite(Number(options.launchAngle)) ? Number(options.launchAngle) : 30,
-      Number(options.startX) || 0,
-      Number(options.startY) || 0,
+      nodeGraphFiniteNumber(options.startX),
+      nodeGraphFiniteNumber(options.startY),
       Math.max(0.01, nodeGraphFiniteNumber(options.size, 1)),
       Math.max(0.05, nodeGraphFiniteNumber(options.aspect, 1)),
       Number.isFinite(Number(options.rotate)) ? Number(options.rotate) : 0,
-      Number(options.centerX) || 0,
-      Number(options.centerY) || 0,
-      Math.max(0, Number(options.maxDistance) || 0),
-      this.clampValue(Number(options.bend) || 0, -4, 4),
-      this.clampValue(Number(options.xToY) || 0, -4, 4),
-      this.clampValue(Number(options.yToX) || 0, -4, 4),
+      nodeGraphFiniteNumber(options.centerX),
+      nodeGraphFiniteNumber(options.centerY),
+      Math.max(0, nodeGraphFiniteNumber(options.maxDistance)),
+      this.clampValue(nodeGraphFiniteNumber(options.bend), -4, 4),
+      this.clampValue(nodeGraphFiniteNumber(options.xToY), -4, 4),
+      this.clampValue(nodeGraphFiniteNumber(options.yToX), -4, 4),
       sampleRateValue,
     );
     return {

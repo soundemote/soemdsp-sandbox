@@ -252,11 +252,11 @@ async function nodeGraphEnsureGpuAdditiveBackend() {
 }
 
 function nodeGraphGpuAdditiveCpuRender(params = {}, frameCount = 128, sampleRate = nodeGraphMvp?.sampleRate || 44100) {
-  const frames = Math.max(1, Math.floor(Number(frameCount) || 1));
-  const safeRate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const frames = Math.max(1, Math.floor(nodeGraphFiniteNumber(frameCount, 1)));
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const out = new Float32Array(frames);
-  const frequency = Math.max(0, Number(params.frequency) || 0);
-  const phase = Number(params.phase) || 0;
+  const frequency = Math.max(0, nodeGraphFiniteNumber(params.frequency));
+  const phase = nodeGraphFiniteNumber(params.phase);
   const phaseIncrement = (frequency / safeRate) * Math.PI * 2;
   for (let frame = 0; frame < frames; frame += 1) {
     out[frame] = nodeGraphAdditiveOscillatorSample(
@@ -346,8 +346,8 @@ function nodeGraphGpuAdditiveRenderTarget(device, pipeline, frameCount, cacheKey
 }
 
 async function nodeGraphRenderGpuAdditiveChunk(params = {}, options = {}) {
-  const frameCount = Math.max(1, Math.min(65536, Math.floor(Number(options.frameCount) || 128)));
-  const sampleRate = Math.max(1, Number(options.sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const frameCount = Math.max(1, Math.min(65536, Math.floor(nodeGraphFiniteNumber(options.frameCount, 128))));
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const cacheKey = String(options.cacheKey || "");
   const backend = await nodeGraphEnsureGpuAdditiveBackend();
   if (!backend?.device || !backend?.pipeline) {
@@ -367,19 +367,19 @@ async function nodeGraphRenderGpuAdditiveChunk(params = {}, options = {}) {
   const paramsFloat = new Float32Array(paramsArray);
   const paramsUint = new Uint32Array(paramsArray);
   paramsFloat[0] = sampleRate;
-  paramsFloat[1] = Math.max(0, Number(params.frequency) || 0);
-  paramsFloat[2] = Number(params.phase) || 0;
-  paramsFloat[3] = clampNodeSliderValue(Number(params.amplitude) || 0, 0, 1);
-  paramsUint[4] = Math.max(1, Math.min(nodeGraphAdditiveHardMaxHarmonics, Math.round(Number(params.harmonics) || 32)));
-  paramsUint[5] = Math.max(0, Math.min(7, Math.round(Number(params.waveform) || 1)));
+  paramsFloat[1] = Math.max(0, nodeGraphFiniteNumber(params.frequency));
+  paramsFloat[2] = nodeGraphFiniteNumber(params.phase);
+  paramsFloat[3] = clampNodeSliderValue(nodeGraphFiniteNumber(params.amplitude), 0, 1);
+  paramsUint[4] = Math.max(1, Math.min(nodeGraphAdditiveHardMaxHarmonics, Math.round(nodeGraphFiniteNumber(params.harmonics, 32))));
+  paramsUint[5] = Math.max(0, Math.min(7, Math.round(nodeGraphFiniteNumber(params.waveform, 1))));
   paramsUint[6] = frameCount;
   paramsUint[7] = 0;
-  paramsFloat[8] = clampNodeSliderValue(Number(params.morph) || 0, 0, 1);
-  paramsFloat[9] = clampNodeSliderValue(Number(params.harmonicPhaseAdd) || 0, 0, 1);
-  paramsFloat[10] = clampNodeSliderValue(Number(params.harmonicPhaseMultiply) || 0, 0, 4);
+  paramsFloat[8] = clampNodeSliderValue(nodeGraphFiniteNumber(params.morph), 0, 1);
+  paramsFloat[9] = clampNodeSliderValue(nodeGraphFiniteNumber(params.harmonicPhaseAdd), 0, 1);
+  paramsFloat[10] = clampNodeSliderValue(nodeGraphFiniteNumber(params.harmonicPhaseMultiply), 0, 4);
   paramsFloat[11] = 0;
   paramsFloat[12] = 0;
-  paramsFloat[13] = Math.max(1, Number(params.dampingFilterFrequency) || 20000);
+  paramsFloat[13] = Math.max(1, nodeGraphFiniteNumber(params.dampingFilterFrequency, 20000));
   paramsUint[14] = 0;
   paramsUint[15] = 0;
 

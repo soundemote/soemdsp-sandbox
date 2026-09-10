@@ -23,12 +23,12 @@ function createNodeGraphSpeedColorInertiaState() {
  * @returns {{ Raw: number, Speed: number, Inertia: number }}
  */
 function nodeGraphSpeedColorInertiaSample(state, currentSample, params = {}) {
-  const sample = Number(currentSample) || 0;
-  const gain = Math.max(0, Number(params.gain) || 0);
+  const sample = nodeGraphFiniteNumber(currentSample);
+  const gain = Math.max(0, nodeGraphFiniteNumber(params.gain));
   const attack = Math.max(0, Math.min(1, Number(params.attack)));
   const release = Math.max(0, Math.min(1, Number(params.release)));
 
-  const slopeSpeed = Math.abs(sample - (Number(state.lastSample) || 0));
+  const slopeSpeed = Math.abs(sample - (nodeGraphFiniteNumber(state.lastSample)));
   state.lastSample = sample;
 
   const speed01 = Math.min(slopeSpeed * gain, 1);
@@ -73,8 +73,8 @@ function nodeGraphSpeedColorInertiaSample(state, currentSample, params = {}) {
 }
 
 function nodeGraphSpeedColorInertiaHslCss(inertia01, hueCycle = 240 / 360, lightness01 = 0.5) {
-  const h = (((Number(hueCycle) || 0) % 1) + 1) % 1 * 360;
-  const s = Math.max(0, Math.min(100, (Number(inertia01) || 0) * 100));
-  const l = Math.max(0, Math.min(100, (Number(lightness01) || 0) * 100));
+  const h = (((nodeGraphFiniteNumber(hueCycle)) % 1) + 1) % 1 * 360;
+  const s = Math.max(0, Math.min(100, (nodeGraphFiniteNumber(inertia01)) * 100));
+  const l = Math.max(0, Math.min(100, (nodeGraphFiniteNumber(lightness01)) * 100));
   return `hsl(${h}, ${s}%, ${l}%)`;
 }

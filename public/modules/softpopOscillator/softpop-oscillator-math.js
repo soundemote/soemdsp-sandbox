@@ -50,15 +50,15 @@ function createNodeGraphSoftpopOscillatorState() {
  * 0 White → Gaussian (mode 1), 1 Pink → mode 3, 2 Brown → mode 2.
  */
 function nodeGraphSoftpopColorToNoiseMode(color) {
-  const c = Math.max(0, Math.min(2, Math.round(Number(color) || 0)));
+  const c = Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(color))));
   if (c === 1) return 3; // pink
   if (c === 2) return 2; // brown
   return 1; // gaussian white
 }
 
 function nodeGraphSoftpopForceReseed(state, nodeId, seed) {
-  const gen = Number(state.generation) || 0;
-  const s = Math.max(0, Math.round(Number(seed) || 0));
+  const gen = nodeGraphFiniteNumber(state.generation);
+  const s = Math.max(0, Math.round(nodeGraphFiniteNumber(seed)));
   if (typeof nodeGraphResetSeededState === "function") {
     // Clear key so salt change always restarts, even same seed.
     state.left.noise.seedKey = "";
@@ -100,22 +100,22 @@ function nodeGraphSoftpopOscillatorSample(state, params, sampleRate, nodeId = "s
     Object.assign(state, fresh);
   }
 
-  const color = Math.max(0, Math.min(2, Math.round(Number(params?.color) || 0)));
+  const color = Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(params?.color))));
   const noiseMode = nodeGraphSoftpopColorToNoiseMode(color);
   // 0 Stereo (independent L/R), 1 Mono (shared noise → both channels)
-  const stereoMode = Math.max(0, Math.min(1, Math.round(Number(params?.stereoMode) || 0)));
-  const frequency = Math.max(0, Number(params?.frequency) || 0);
-  const q = Math.max(0.05, Number(params?.q) || 1);
+  const stereoMode = Math.max(0, Math.min(1, Math.round(nodeGraphFiniteNumber(params?.stereoMode))));
+  const frequency = Math.max(0, nodeGraphFiniteNumber(params?.frequency));
+  const q = Math.max(0.05, nodeGraphFiniteNumber(params?.q, 1));
   const amplitude = Number(params?.amplitude);
   const level = Number.isFinite(amplitude) ? amplitude : 1;
-  const seed = Math.max(0, Math.round(Number(params?.seed) || 0));
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const seed = Math.max(0, Math.round(nodeGraphFiniteNumber(params?.seed)));
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
 
   // Rising-edge Reset → new generation, reseed from Seed param.
-  const resetIn = Number(params?.reset) || 0;
+  const resetIn = nodeGraphFiniteNumber(params?.reset);
   const resetActive = resetIn > 0.5;
   if (resetActive && !state.lastReset) {
-    state.generation = (Number(state.generation) || 0) + 1;
+    state.generation = (nodeGraphFiniteNumber(state.generation)) + 1;
     nodeGraphSoftpopForceReseed(state, nodeId, seed);
   }
   state.lastReset = resetActive;
@@ -126,7 +126,7 @@ function nodeGraphSoftpopOscillatorSample(state, params, sampleRate, nodeId = "s
     nodeGraphSoftpopForceReseed(state, nodeId, seed);
   } else if (typeof nodeGraphResetSeededState === "function") {
     // Keep running sequence; ensure key still matches generation.
-    const gen = Number(state.generation) || 0;
+    const gen = nodeGraphFiniteNumber(state.generation);
     nodeGraphResetSeededState(state.left.noise, `${nodeId}:L:g${gen}`, seed, "softpop");
     nodeGraphResetSeededState(state.right.noise, `${nodeId}:R:g${gen}`, seed, "softpop");
   }

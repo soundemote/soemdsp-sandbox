@@ -135,7 +135,7 @@ function nodeGraphAudioPlayerLibraryWindowSize() {
 
 function nodeGraphAudioPlayerLibraryShuffleTake(list, count) {
   const pool = Array.isArray(list) ? list.slice() : [];
-  const want = Math.max(0, Math.min(pool.length, Math.round(Number(count) || 0)));
+  const want = Math.max(0, Math.min(pool.length, Math.round(nodeGraphFiniteNumber(count))));
   for (let i = pool.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     const swap = pool[i];
@@ -169,8 +169,8 @@ function nodeGraphAudioPlayerLibraryFileKey(file) {
     return "";
   }
   const name = String(file.name || "").trim();
-  const size = Math.max(0, Math.round(Number(file.size) || 0));
-  const stamp = Math.max(0, Math.round(Number(file.lastModified) || 0));
+  const size = Math.max(0, Math.round(nodeGraphFiniteNumber(file.size)));
+  const stamp = Math.max(0, Math.round(nodeGraphFiniteNumber(file.lastModified)));
   return `${name}:${size}:${stamp}`;
 }
 
@@ -212,15 +212,15 @@ function nodeGraphAudioPlayerLibraryNormalizeCard(raw, index = 0) {
     return null;
   }
   return {
-    bytes: Math.max(0, Math.round(Number(source.bytes) || 0)),
-    channels: Math.max(0, Math.round(Number(source.channels) || 0)),
+    bytes: Math.max(0, Math.round(nodeGraphFiniteNumber(source.bytes))),
+    channels: Math.max(0, Math.round(nodeGraphFiniteNumber(source.channels))),
     fileKey,
-    frames: Math.max(0, Math.round(Number(source.frames) || 0)),
+    frames: Math.max(0, Math.round(nodeGraphFiniteNumber(source.frames))),
     id: String(source.id || `pl-${index}-${label}`).slice(0, 80),
     name: label || name,
     path,
     sampleId,
-    sampleRate: Math.max(0, Math.round(Number(source.sampleRate) || 0)),
+    sampleRate: Math.max(0, Math.round(nodeGraphFiniteNumber(source.sampleRate))),
   };
 }
 
@@ -481,7 +481,7 @@ function nodeGraphAudioPlayerLibraryRememberPickedFiles(nodeId, files) {
     const path = rel || file.name || fileKey;
     list.push(file);
     cards.push({
-      bytes: Math.max(0, Math.round(Number(file.size) || 0)),
+      bytes: Math.max(0, Math.round(nodeGraphFiniteNumber(file.size))),
       fileKey,
       name: file.name || path.split("/").pop() || fileKey,
       path: `browser:${path}`,
@@ -986,7 +986,7 @@ async function nodeGraphAudioPlayerLibraryEnsureItemLoaded(nodeId, item) {
     fileKey: item.fileKey || "",
     path,
     fileName: file?.name || "",
-    fileBytes: Math.max(0, Math.round(Number(file?.size) || 0)),
+    fileBytes: Math.max(0, Math.round(nodeGraphFiniteNumber(file?.size))),
   });
   if (file && typeof loadNodeGraphSampleForNode === "function") {
     const sample = await loadNodeGraphSampleForNode(nodeId, file, {
@@ -1042,7 +1042,7 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
     nodeGraphAudioPlayerLog("FAIL", "play ignored: playlist empty", { nodeId });
     return;
   }
-  const nextIndex = Math.max(0, Math.min(pl.items.length - 1, Math.round(Number(index) || 0)));
+  const nextIndex = Math.max(0, Math.min(pl.items.length - 1, Math.round(nodeGraphFiniteNumber(index))));
   let item = pl.items[nextIndex];
   if (!item) {
     if (typeof nodeGraphAudioPlayerPlaylistEndLoad === "function") {
@@ -1067,7 +1067,7 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
     pl.playNext = null;
   }
   const tokens = nodeGraphAudioPlayerLibraryPlayTokens();
-  const token = (Number(tokens.get(nodeId)) || 0) + 1;
+  const token = (nodeGraphFiniteNumber(tokens.get(nodeId))) + 1;
   tokens.set(nodeId, token);
   node.playlist = pl;
   nodeGraphAudioPlayerLog("INFO", "play", {
@@ -1154,7 +1154,7 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
     ...(item.path ? { sourcePath: item.path } : {}),
   };
   live.samplePhase = 0;
-  live.samplePhaseSeek = (Math.round(Number(live.samplePhaseSeek) || 0) + 1) || 1;
+  live.samplePhaseSeek = (Math.round(nodeGraphFiniteNumber(live.samplePhaseSeek)) + 1, 1);
   if (!live.params || typeof live.params !== "object") {
     live.params = {};
   }
@@ -1288,7 +1288,7 @@ function nodeGraphAudioPlayerLibraryPlayNext(nodeId, options = {}) {
       ? (pl.items || []).findIndex((entry) => keyOf(entry) === fromKey)
       : -1;
     if (from < 0) {
-      from = Math.max(0, Math.round(Number(pl.index) || 0));
+      from = Math.max(0, Math.round(nodeGraphFiniteNumber(pl.index)));
     }
     const after = pool.find((item) => {
       const found = (pl.items || []).findIndex((entry) => keyOf(entry) === keyOf(item));

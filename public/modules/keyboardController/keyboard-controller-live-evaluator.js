@@ -6,7 +6,7 @@ const NODE_GRAPH_HELD_KEYS_PHASE = 2 ** 49;
 const NODE_GRAPH_HELD_KEYS_LOW_BITS = 49;
 
 function nodeGraphHeldKeysDemux(value) {
-  const v = Number(value) || 0;
+  const v = nodeGraphFiniteNumber(value);
   if (v >= NODE_GRAPH_HELD_KEYS_PHASE) {
     return { low: 0, high: v - NODE_GRAPH_HELD_KEYS_PHASE };
   }
@@ -15,8 +15,8 @@ function nodeGraphHeldKeysDemux(value) {
 
 function nodeGraphHeldKeysBitmaskOr(a, b) {
   let out = 0;
-  const left = Number(a) || 0;
-  const right = Number(b) || 0;
+  const left = nodeGraphFiniteNumber(a);
+  const right = nodeGraphFiniteNumber(b);
   for (let i = 0; i < NODE_GRAPH_HELD_KEYS_LOW_BITS; i += 1) {
     const bit = 2 ** i;
     if ((Math.floor(left / bit) % 2) || (Math.floor(right / bit) % 2)) {
@@ -49,18 +49,18 @@ function nodeGraphKeyboardCollectInputValues(nodeId, port, ctx = {}) {
   const key = `${nodeId}.${port}`;
   const conns = runtime?.inputConnections?.get?.(key);
   if (Array.isArray(conns) && conns.length && typeof readNodeGraphRuntimePortOutput === "function") {
-    return conns.map((connection) => Number(readNodeGraphRuntimePortOutput(
+    return conns.map((connection) => nodeGraphFiniteNumber(readNodeGraphRuntimePortOutput(
       runtime,
       frameValues,
       connection.sourceNode,
       connection.sourcePort,
       frame,
       frames,
-    )) || 0);
+    )));
   }
   // Sidecar / fallback: one summed value.
   if (typeof mixInput === "function") {
-    return [Number(mixInput(nodeId, port)) || 0];
+    return [nodeGraphFiniteNumber(mixInput(nodeId, port))];
   }
   return [];
 }
@@ -68,7 +68,7 @@ function nodeGraphKeyboardCollectInputValues(nodeId, port, ctx = {}) {
 function nodeGraphKeyboardMixMax(nodeId, port, ctx) {
   const values = nodeGraphKeyboardCollectInputValues(nodeId, port, ctx);
   if (!values.length) return 0;
-  return Math.max(0, ...values.map((v) => Math.max(0, Number(v) || 0)));
+  return Math.max(0, ...values.map((v) => Math.max(0, nodeGraphFiniteNumber(v))));
 }
 
 function nodeGraphKeyboardMixOrBits(nodeId, port, ctx, phase) {
@@ -102,7 +102,7 @@ function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null)
   const key = Math.max(0, Math.min(24, Math.round(
     Number.isFinite(Number(signal?.keyIndex))
       ? Number(signal.keyIndex)
-      : (Number(prev?.key) || 0),
+      : (nodeGraphFiniteNumber(prev?.key)),
   )));
   const q = Math.max(0, Math.min(1,
     Number.isFinite(Number(signal?.keyQuantized))
@@ -112,7 +112,7 @@ function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null)
   const velocity01 = Math.max(0, Math.min(1,
     Number.isFinite(Number(signal?.velocity))
       ? Number(signal.velocity)
-      : (Number(prev?.velocity01) || 0),
+      : (nodeGraphFiniteNumber(prev?.velocity01)),
   ));
   const gateOn = Number(signal?.gate) > 0;
   const gateAmp = gateOn ? velocity01 : 0;
@@ -126,13 +126,13 @@ function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null)
         ? prevFreq
         : (440 * (2 ** ((midi - 69) / 12)))),
   );
-  const rate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const increment = Math.max(0, frequency / rate);
   const x = Math.max(0, Math.min(1,
-    Number.isFinite(Number(signal?.x)) ? Number(signal.x) : (Number(prev?.x) || q),
+    Number.isFinite(Number(signal?.x)) ? Number(signal.x) : (nodeGraphFiniteNumber(prev?.x, q)),
   ));
   const y = Math.max(0, Math.min(1,
-    Number.isFinite(Number(signal?.y)) ? Number(signal.y) : (Number(prev?.y) || 0),
+    Number.isFinite(Number(signal?.y)) ? Number(signal.y) : (nodeGraphFiniteNumber(prev?.y)),
   ));
   return {
     midi,
@@ -149,8 +149,8 @@ function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null)
 }
 
 function nodeGraphKeyboardLocalHeldTransmit(phase) {
-  const low = Number(nodeGraphMvp?.midiKeyboardHeldKeysLowBitmask) || 0;
-  const high = Number(nodeGraphMvp?.midiKeyboardHeldKeysHighBitmask) || 0;
+  const low = nodeGraphFiniteNumber(nodeGraphMvp?.midiKeyboardHeldKeysLowBitmask);
+  const high = nodeGraphFiniteNumber(nodeGraphMvp?.midiKeyboardHeldKeysHighBitmask);
   if (typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function") {
     return nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase);
   }

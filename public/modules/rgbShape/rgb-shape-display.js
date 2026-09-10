@@ -132,8 +132,8 @@ function paintNodeGraphRgbShapeFace(canvas, face, nodeId, buffer = null) {
   const shapeParam = nodeGraphRgbShapeReadParam(nodeId, "shapeParam", 0.5);
   const blur = Math.max(0, Math.min(1, nodeGraphRgbShapeReadParam(nodeId, "blur", 0.35)));
 
-  const cx = w * 0.5 + (Math.max(-1, Math.min(1, x)) * w * 0.5);
-  const cy = h * 0.5 - (Math.max(-1, Math.min(1, y)) * h * 0.5);
+  const cx = w * 0.5 + (x * w * 0.5);
+  const cy = h * 0.5 - (y * h * 0.5);
   const minSide = Math.min(w, h);
   // Size 1 ≈ half min-side radius; Width/Height multiply axes independently.
   const halfW = Math.max(0.5, size * width * 0.5 * minSide);

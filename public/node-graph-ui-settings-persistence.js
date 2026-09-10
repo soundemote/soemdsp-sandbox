@@ -804,10 +804,10 @@ function normalizeNodeUiDevSettings(settings = {}) {
     : (nodeGraphMvp.tooltipEmbedded !== false);
   const tooltipEmbedHeight = typeof normalizeNodeGraphTooltipEmbedHeight === "function"
     ? normalizeNodeGraphTooltipEmbedHeight(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight ?? 46)
-    : Math.max(32, Math.min(320, Math.round(Number(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight) || 46)));
+    : Math.max(32, Math.min(320, Math.round(nodeGraphFiniteNumber(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight, 46))));
   const controllerDockHeight = typeof normalizeNodeGraphControllerDockHeight === "function"
     ? normalizeNodeGraphControllerDockHeight(view.controllerDockHeight ?? nodeGraphMvp.controllerDockHeight ?? 0)
-    : Math.max(0, Math.min(620, Math.round(Number(view.controllerDockHeight ?? nodeGraphMvp.controllerDockHeight) || 0)));
+    : Math.max(0, Math.min(620, Math.round(nodeGraphFiniteNumber(view.controllerDockHeight ?? nodeGraphMvp.controllerDockHeight))));
   const moduleButtonsVisible = Boolean(view.moduleButtonsVisible ?? nodeGraphMvp.moduleButtonsVisible);
   const appChromeBarsVisible = view.appChromeBarsVisible === undefined
     ? (nodeGraphMvp.appChromeBarsVisible !== false)
@@ -947,10 +947,10 @@ function normalizeNodeUiDevSettings(settings = {}) {
   );
   const savedPatchBankIndex = typeof normalizeNodeGraphSavedPatchBankIndex === "function"
     ? normalizeNodeGraphSavedPatchBankIndex(view.savedPatchBankIndex ?? nodeGraphMvp.savedPatchBankIndex)
-    : Math.max(0, Math.min(127, Math.round(Number(view.savedPatchBankIndex ?? nodeGraphMvp.savedPatchBankIndex) || 0)));
+    : Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(view.savedPatchBankIndex ?? nodeGraphMvp.savedPatchBankIndex))));
   const savedPatchGridColumns = typeof normalizeNodeGraphSavedPatchGridColumns === "function"
     ? normalizeNodeGraphSavedPatchGridColumns(view.savedPatchGridColumns ?? nodeGraphMvp.savedPatchGridColumns)
-    : Math.max(1, Math.min(16, Math.round(Number(view.savedPatchGridColumns ?? nodeGraphMvp.savedPatchGridColumns) || 3)));
+    : Math.max(1, Math.min(16, Math.round(nodeGraphFiniteNumber(view.savedPatchGridColumns ?? nodeGraphMvp.savedPatchGridColumns, 3))));
   const savedPatchBankName = typeof nodeGraphOneLineText === "function"
     ? nodeGraphOneLineText(view.savedPatchBankName ?? nodeGraphMvp.savedPatchBankName ?? "")
     : String(view.savedPatchBankName ?? nodeGraphMvp.savedPatchBankName ?? "").trim();
@@ -1069,7 +1069,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       tooltipEmbedded: Boolean(nodeGraphMvp.tooltipEmbedded),
       tooltipEmbedHeight: typeof normalizeNodeGraphTooltipEmbedHeight === "function"
         ? normalizeNodeGraphTooltipEmbedHeight(nodeGraphMvp.tooltipEmbedHeight ?? 46)
-        : Math.max(32, Math.min(320, Math.round(Number(nodeGraphMvp.tooltipEmbedHeight) || 46))),
+        : Math.max(32, Math.min(320, Math.round(nodeGraphFiniteNumber(nodeGraphMvp.tooltipEmbedHeight, 46)))),
       moduleButtonsVisible: Boolean(nodeGraphMvp.moduleButtonsVisible),
       appChromeBarsVisible: nodeGraphMvp.appChromeBarsVisible !== false,
       appChromeBarsMode: typeof nodeGraphAppChromeBarsMode === "function"
@@ -1086,7 +1086,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       globalSmoothingManual: Boolean(nodeGraphMvp?.live?.autoSmoothingManual),
       snakeMouseSmooth: typeof clampNodeGraphSnakeMouseSmooth === "function"
         ? clampNodeGraphSnakeMouseSmooth(nodeGraphMvp?.snakeMouseSmooth ?? 0)
-        : Math.max(0, Math.min(1, Number(nodeGraphMvp?.snakeMouseSmooth) || 0)),
+        : Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphMvp?.snakeMouseSmooth))),
       moduleScopeDotCore1Enabled: normalizeNodeGraphModuleScopeDotCoreEnabled(nodeGraphMvp.moduleScopeDotCore1Enabled ?? false),
       moduleScopeDotCore1Size: normalizeNodeGraphModuleScopeDotCoreSize(nodeGraphMvp.moduleScopeDotCore1Size ?? 2, 2),
       moduleScopeDotCore1Brightness: normalizeNodeGraphModuleScopeDotCoreBrightness(nodeGraphMvp.moduleScopeDotCore1Brightness ?? 0.23, 0.23),
@@ -1304,7 +1304,7 @@ function normalizeNodeGraphUserSession(payload = {}) {
         : "untouched";
   const controllerDockHeight = typeof normalizeNodeGraphControllerDockHeight === "function"
     ? normalizeNodeGraphControllerDockHeight(payload.controllerDockHeight ?? view.controllerDockHeight ?? nodeGraphMvp.controllerDockHeight ?? 0)
-    : Math.max(0, Math.min(620, Math.round(Number(payload.controllerDockHeight ?? view.controllerDockHeight ?? nodeGraphMvp.controllerDockHeight) || 0)));
+    : Math.max(0, Math.min(620, Math.round(nodeGraphFiniteNumber(payload.controllerDockHeight ?? view.controllerDockHeight ?? nodeGraphMvp.controllerDockHeight))));
   const sceneContextWindowSize = typeof normalizeNodeSceneContextWindowSize === "function"
     ? normalizeNodeSceneContextWindowSize(
       payload.sceneContextWindowSize ?? view.sceneContextWindowSize ?? nodeGraphMvp.sceneContextWindowSize ?? undefined,
@@ -1345,10 +1345,10 @@ function normalizeNodeGraphUserSession(payload = {}) {
   );
   const savedPatchBankIndex = typeof normalizeNodeGraphSavedPatchBankIndex === "function"
     ? normalizeNodeGraphSavedPatchBankIndex(payload.savedPatchBankIndex ?? view.savedPatchBankIndex ?? nodeGraphMvp.savedPatchBankIndex)
-    : Math.max(0, Math.min(127, Math.round(Number(payload.savedPatchBankIndex ?? view.savedPatchBankIndex ?? nodeGraphMvp.savedPatchBankIndex) || 0)));
+    : Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(payload.savedPatchBankIndex ?? view.savedPatchBankIndex ?? nodeGraphMvp.savedPatchBankIndex))));
   const savedPatchGridColumns = typeof normalizeNodeGraphSavedPatchGridColumns === "function"
     ? normalizeNodeGraphSavedPatchGridColumns(payload.savedPatchGridColumns ?? view.savedPatchGridColumns ?? nodeGraphMvp.savedPatchGridColumns)
-    : Math.max(1, Math.min(16, Math.round(Number(payload.savedPatchGridColumns ?? view.savedPatchGridColumns ?? nodeGraphMvp.savedPatchGridColumns) || 3)));
+    : Math.max(1, Math.min(16, Math.round(nodeGraphFiniteNumber(payload.savedPatchGridColumns ?? view.savedPatchGridColumns ?? nodeGraphMvp.savedPatchGridColumns, 3))));
   const savedPatchBankName = typeof nodeGraphOneLineText === "function"
     ? nodeGraphOneLineText(payload.savedPatchBankName ?? view.savedPatchBankName ?? nodeGraphMvp.savedPatchBankName ?? "")
     : String(payload.savedPatchBankName ?? view.savedPatchBankName ?? nodeGraphMvp.savedPatchBankName ?? "").trim();
@@ -1417,12 +1417,12 @@ function normalizeNodeGraphUserSession(payload = {}) {
           ?? nodeGraphMvp.moduleScopeFramesPerSecond
           ?? 60,
       )
-      : Math.max(0, Math.min(240, Math.round(Number(
+      : Math.max(0, Math.min(240, Math.round(nodeGraphFiniteNumber(
         payload.moduleScopeFramesPerSecond
           ?? view.moduleScopeFramesPerSecond
           ?? nodeGraphMvp.moduleScopeFramesPerSecond
           ?? 60,
-      ) || 60))),
+      , 60)))),
     traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
       ? normalizeNodeGraphTraceDisplaySettings(
         payload.traceSettings ?? view.traceSettings ?? nodeGraphMvp.traceSettings,
@@ -1461,7 +1461,7 @@ function readNodeGraphUserSessionFromState() {
         : "untouched",
     controllerDockHeight: typeof normalizeNodeGraphControllerDockHeight === "function"
       ? normalizeNodeGraphControllerDockHeight(nodeGraphMvp.controllerDockHeight ?? 0)
-      : Math.max(0, Math.min(620, Math.round(Number(nodeGraphMvp.controllerDockHeight) || 0))),
+      : Math.max(0, Math.min(620, Math.round(nodeGraphFiniteNumber(nodeGraphMvp.controllerDockHeight)))),
     sceneContextWindowSize: typeof normalizeNodeSceneContextWindowSize === "function"
       ? normalizeNodeSceneContextWindowSize(nodeGraphMvp.sceneContextWindowSize)
       : nodeGraphMvp.sceneContextWindowSize,
@@ -1479,7 +1479,7 @@ function readNodeGraphUserSessionFromState() {
     moduleStoreDepartment: normalizeNodeGraphModuleStoreDepartmentState(nodeGraphMvp.moduleStoreDepartment),
     savedPatchBankIndex: typeof normalizeNodeGraphSavedPatchBankIndex === "function"
       ? normalizeNodeGraphSavedPatchBankIndex(nodeGraphMvp.savedPatchBankIndex)
-      : Math.max(0, Math.min(127, Math.round(Number(nodeGraphMvp.savedPatchBankIndex) || 0))),
+      : Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(nodeGraphMvp.savedPatchBankIndex)))),
     savedPatchBankName: typeof nodeGraphOneLineText === "function"
       ? nodeGraphOneLineText(nodeGraphMvp.savedPatchBankName)
       : String(nodeGraphMvp.savedPatchBankName || "").trim(),
@@ -1487,7 +1487,7 @@ function readNodeGraphUserSessionFromState() {
     savedPatchUserPath: String(nodeGraphMvp.savedPatchUserPath || "").trim(),
     savedPatchGridColumns: typeof normalizeNodeGraphSavedPatchGridColumns === "function"
       ? normalizeNodeGraphSavedPatchGridColumns(nodeGraphMvp.savedPatchGridColumns)
-      : Math.max(1, Math.min(16, Math.round(Number(nodeGraphMvp.savedPatchGridColumns) || 3))),
+      : Math.max(1, Math.min(16, Math.round(nodeGraphFiniteNumber(nodeGraphMvp.savedPatchGridColumns, 3)))),
     filePicker: typeof normalizeNodeGraphFilePickerState === "function"
       ? normalizeNodeGraphFilePickerState(nodeGraphMvp.filePicker)
       : nodeGraphMvp.filePicker,
@@ -1594,7 +1594,7 @@ function applyNodeGraphUserSession(session, options = {}) {
   nodeGraphMvp.moduleStoreDepartmentAnchor = nodeGraphMvp.moduleStoreDepartment;
   nodeGraphMvp.savedPatchBankIndex = typeof normalizeNodeGraphSavedPatchBankIndex === "function"
     ? normalizeNodeGraphSavedPatchBankIndex(normalized.savedPatchBankIndex)
-    : Math.max(0, Math.min(127, Math.round(Number(normalized.savedPatchBankIndex) || 0)));
+    : Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(normalized.savedPatchBankIndex))));
   nodeGraphMvp.savedPatchBankName = typeof nodeGraphOneLineText === "function"
     ? nodeGraphOneLineText(normalized.savedPatchBankName)
     : String(normalized.savedPatchBankName || "").trim();
@@ -1602,7 +1602,7 @@ function applyNodeGraphUserSession(session, options = {}) {
   nodeGraphMvp.savedPatchUserPath = String(normalized.savedPatchUserPath || "").trim();
   nodeGraphMvp.savedPatchGridColumns = typeof normalizeNodeGraphSavedPatchGridColumns === "function"
     ? normalizeNodeGraphSavedPatchGridColumns(normalized.savedPatchGridColumns)
-    : Math.max(1, Math.min(16, Math.round(Number(normalized.savedPatchGridColumns) || 3)));
+    : Math.max(1, Math.min(16, Math.round(nodeGraphFiniteNumber(normalized.savedPatchGridColumns, 3))));
   if (normalized.workingPatch) {
     nodeGraphMvp.workingPatch = cloneNodeGraphPatch(normalized.workingPatch);
   } else if (options.replaceWorkingPatch) {
@@ -1803,7 +1803,7 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.tooltipEmbedded = normalized.view.tooltipEmbedded !== false;
   nodeGraphMvp.tooltipEmbedHeight = typeof normalizeNodeGraphTooltipEmbedHeight === "function"
     ? normalizeNodeGraphTooltipEmbedHeight(normalized.view.tooltipEmbedHeight ?? 46)
-    : Math.max(32, Math.min(320, Math.round(Number(normalized.view.tooltipEmbedHeight) || 46)));
+    : Math.max(32, Math.min(320, Math.round(nodeGraphFiniteNumber(normalized.view.tooltipEmbedHeight, 46))));
   if (typeof applyNodeGraphTooltipEmbed === "function") {
     applyNodeGraphTooltipEmbed({ shown: nodeGraphMvp.tooltipEmbedded, persist: false });
   } else if (typeof applyNodeGraphTooltipEmbedHeight === "function") {
@@ -1843,7 +1843,7 @@ function applyNodeUiDevSettings(settings) {
   }
   nodeGraphMvp.snakeMouseSmooth = typeof clampNodeGraphSnakeMouseSmooth === "function"
     ? clampNodeGraphSnakeMouseSmooth(normalized.view.snakeMouseSmooth ?? 0)
-    : Math.max(0, Math.min(1, Number(normalized.view.snakeMouseSmooth) || 0));
+    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(normalized.view.snakeMouseSmooth)));
   if (typeof syncNodeGraphSnakeMouseSmoothControl === "function") {
     syncNodeGraphSnakeMouseSmoothControl();
   }

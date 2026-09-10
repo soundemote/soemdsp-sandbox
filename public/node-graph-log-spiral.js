@@ -34,12 +34,12 @@ function logSpiralWrap01(value) {
 
 function logSpiralSample(options = {}) {
   const state = options.state || createLogSpiralState();
-  const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
-  const frequency = Number(options.frequency) || 0;
-  const spin = Number(options.spin) || 0;
-  const size = Math.max(0, Number(options.size) || 0);
-  const growth = Number(options.growth) || 0;
-  const turns = Math.max(0.1, Number(options.turns) || 1);
+  const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const frequency = nodeGraphFiniteNumber(options.frequency);
+  const spin = nodeGraphFiniteNumber(options.spin);
+  const size = Math.max(0, nodeGraphFiniteNumber(options.size));
+  const growth = nodeGraphFiniteNumber(options.growth);
+  const turns = Math.max(0.1, nodeGraphFiniteNumber(options.turns, 1));
 
   const mainPhase = logSpiralWrap01(state.phase);
   state.phase = logSpiralWrap01(state.phase + frequency / sampleRateValue);

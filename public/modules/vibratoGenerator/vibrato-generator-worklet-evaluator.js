@@ -28,13 +28,13 @@ NodeLiveAudioProcessor.prototype.vibratoGeneratorSample = function vibratoGenera
   const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
   const y = this.nativeVibratoGenerator.soemdsp_vibrato_generator_sample(
     state.nativeHandle,
-    Number(options.frequencyHz) || 0,
+    nodeGraphFiniteNumber(options.frequencyHz),
     sampleRate,
-    Number(options.phaseOffset) || 0,
-    Number(options.amplitude) || 0,
-    Number(options.morph) || 0,
-    Number(options.randomFreq) || 0,
-    Number(options.randomAmp) || 0,
+    nodeGraphFiniteNumber(options.phaseOffset),
+    nodeGraphFiniteNumber(options.amplitude),
+    nodeGraphFiniteNumber(options.morph),
+    nodeGraphFiniteNumber(options.randomFreq),
+    nodeGraphFiniteNumber(options.randomAmp),
     Number.isFinite(Number(options.seed)) ? Number(options.seed) : 1,
   );
   return { Out: y, Left: y, Right: y, Mono: y };

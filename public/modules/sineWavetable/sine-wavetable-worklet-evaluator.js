@@ -6,7 +6,7 @@ for (let index = 0; index <= nodeLiveSineWavetableSize; index += 1) {
 }
 
 function nodeLiveClamp01(value) {
-  return Math.max(0, Math.min(1, Number(value) || 0));
+  return Math.max(0, Math.min(1, nodeGraphFiniteNumber(value)));
 }
 
 function nodeLiveSmoothStep01(value) {
@@ -15,9 +15,9 @@ function nodeLiveSmoothStep01(value) {
 }
 
 function nodeLiveNyquistFadeAmplitude(frequency, sampleRate) {
-  const safeRate = Math.max(1, Number(sampleRate) || 44100);
+  const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const nyquist = safeRate * 0.5;
-  const safeFrequency = Math.max(0, Number(frequency) || 0);
+  const safeFrequency = Math.max(0, nodeGraphFiniteNumber(frequency));
   const fadeStart = Math.min(20000, nyquist * 0.9);
   if (safeFrequency <= fadeStart) {
     return 1;
@@ -30,11 +30,11 @@ function nodeLiveNyquistFadeAmplitude(frequency, sampleRate) {
 }
 
 function nodeLiveWrap01(value) {
-  return ((Number(value) || 0) % 1 + 1) % 1;
+  return ((nodeGraphFiniteNumber(value)) % 1 + 1) % 1;
 }
 
 function nodeLiveSineWavetableLookup(phaseRadians) {
-  const cycle = nodeLiveWrap01((Number(phaseRadians) || 0) / (Math.PI * 2));
+  const cycle = nodeLiveWrap01((nodeGraphFiniteNumber(phaseRadians)) / (Math.PI * 2));
   const position = cycle * nodeLiveSineWavetableSize;
   const index = Math.floor(position);
   const fraction = position - index;
@@ -44,9 +44,9 @@ function nodeLiveSineWavetableLookup(phaseRadians) {
 }
 
 function nodeLiveSineCosWavetableSample(phaseRadians, frequency, amplitude, sampleRate) {
-  const level = Math.max(0, Number(amplitude) || 0) * nodeLiveNyquistFadeAmplitude(frequency, sampleRate);
+  const level = Math.max(0, nodeGraphFiniteNumber(amplitude)) * nodeLiveNyquistFadeAmplitude(frequency, sampleRate);
   return {
-    cos: nodeLiveSineWavetableLookup((Number(phaseRadians) || 0) + Math.PI * 0.5) * level,
+    cos: nodeLiveSineWavetableLookup((nodeGraphFiniteNumber(phaseRadians)) + Math.PI * 0.5) * level,
     sin: nodeLiveSineWavetableLookup(phaseRadians) * level,
   };
 }
@@ -69,7 +69,7 @@ function nodeLiveEnsureAdditiveSinLut() {
 function nodeLiveAdditiveSinTurn(phase01) {
   const lut = nodeLiveEnsureAdditiveSinLut();
   const n = nodeLiveAdditiveSinLutHalf;
-  let p = Number(phase01) || 0;
+  let p = nodeGraphFiniteNumber(phase01);
   p -= Math.floor(p);
   if (p < 0) p += 1;
   if (p < 0.5) {
@@ -88,8 +88,8 @@ function nodeLiveAdditiveSinTurn(phase01) {
   return -(a + (b - a) * f);
 }
 function nodeLiveSineCosAdditiveLutSample(phaseRadians, frequency, amplitude, sampleRate) {
-  const level = Math.max(0, Number(amplitude) || 0) * nodeLiveNyquistFadeAmplitude(frequency, sampleRate);
-  const turns = (Number(phaseRadians) || 0) / (Math.PI * 2);
+  const level = Math.max(0, nodeGraphFiniteNumber(amplitude)) * nodeLiveNyquistFadeAmplitude(frequency, sampleRate);
+  const turns = (nodeGraphFiniteNumber(phaseRadians)) / (Math.PI * 2);
   return {
     sin: nodeLiveAdditiveSinTurn(turns) * level,
     cos: nodeLiveAdditiveSinTurn(turns + 0.25) * level,
@@ -97,9 +97,9 @@ function nodeLiveSineCosAdditiveLutSample(phaseRadians, frequency, amplitude, sa
 }
 
 function nodeLiveSinCos4FromPair(sin, cos, mode) {
-  const s = Number(sin) || 0;
-  const c = Number(cos) || 0;
-  const m = Math.max(0, Math.min(5, Math.round(Number(mode) || 0)));
+  const s = nodeGraphFiniteNumber(sin);
+  const c = nodeGraphFiniteNumber(cos);
+  const m = Math.max(0, Math.min(5, Math.round(nodeGraphFiniteNumber(mode))));
   const z = 0;
   if (m === 0) {
     return { A: s, B: z, C: z, D: z };
@@ -158,7 +158,7 @@ NodeLiveAudioProcessor.prototype.sineWavetableAdvancePair = function sineWavetab
   const pitchCv = hasPitchInput
     ? this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null)
     : referenceVoltage;
-  const baseWithFreqJack = baseFrequency + (Number(freqInput) || 0);
+  const baseWithFreqJack = baseFrequency + (nodeGraphFiniteNumber(freqInput));
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
     ? nodeGraphParamResolveOscPitchHz({baseHz: baseWithFreqJack,
       hasPitchCv: hasPitchInput,
@@ -173,9 +173,9 @@ NodeLiveAudioProcessor.prototype.sineWavetableAdvancePair = function sineWavetab
         ? nodeGraphPitchedFrequency(baseWithFreqJack, pitchCv, referenceVoltage)
         : Math.max(0, baseWithFreqJack * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
     );
-  const phaseIncrement = (effectiveFrequency / safeRate) + (Number(incrementInput) || 0);
+  const phaseIncrement = (effectiveFrequency / safeRate) + (nodeGraphFiniteNumber(incrementInput));
   const method = Math.round(
-    Number(this.readEffectiveParameter(node, "method", 1, frame, frames, frameValues)) || 0,
+    nodeGraphFiniteNumber(this.readEffectiveParameter(node, "method", 1, frame, frames, frameValues)),
   );
   const useAdditiveLut = method >= 1;
   let pair;

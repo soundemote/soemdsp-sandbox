@@ -132,7 +132,7 @@ function nodeGraphModuleScopeShaderGlobalValue(dotName, key, fallback) {
       defaultCore.size,
     );
     return normalizeNodeGraphModuleScopeDotCoreSize(
-      (Number(fallback) || 0) * (size / defaultCore.size),
+      (nodeGraphFiniteNumber(fallback)) * (size / defaultCore.size),
       defaultCore.size,
     );
   }

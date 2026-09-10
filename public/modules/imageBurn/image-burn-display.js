@@ -44,7 +44,7 @@ function clampNodeGraphImageBurnSize(value, fallback = 1) {
 function clampNodeGraphImageBurnUnit(value, fallback = 0) {
   const n = Number(value);
   if (!Number.isFinite(n)) {
-    return Math.max(0, Math.min(1, Number(fallback) || 0));
+    return Math.max(0, Math.min(1, nodeGraphFiniteNumber(fallback)));
   }
   return Math.max(0, Math.min(1, n));
 }
@@ -53,7 +53,7 @@ function clampNodeGraphImageBurnUnit(value, fallback = 0) {
 function clampNodeGraphImageBurnContrast(value, fallback = 0) {
   const n = Number(value);
   if (!Number.isFinite(n)) {
-    return Math.max(0, Math.min(2, Number(fallback) || 0));
+    return Math.max(0, Math.min(2, nodeGraphFiniteNumber(fallback)));
   }
   return Math.max(0, Math.min(2, n));
 }
@@ -128,7 +128,7 @@ function nodeGraphImageBurnMigrateParamsFromDisplay(node) {
   }
   // Patch normalize fills new param defaults before draw — stamp versions:
   // 1 = Size/Bright/Feedback/Burn/Blur from display; 2 = +Blacks/Hang.
-  const mig = Number(node.params._imageBurnParamMig) || 0;
+  const mig = nodeGraphFiniteNumber(node.params._imageBurnParamMig);
   if (mig >= 2) {
     return;
   }
@@ -182,7 +182,7 @@ function nodeGraphImageBurnMigrateParamsFromDisplay(node) {
  */
 function nodeGraphImageBurnFeedbackDeposit(lit, feedback) {
   const fb = Number.isFinite(Number(feedback)) ? Number(feedback) : 0;
-  const light = Math.max(0, Number(lit) || 0);
+  const light = Math.max(0, nodeGraphFiniteNumber(lit));
   if (light <= 0) {
     return { deposit: 0, dim: 1, accumulate: false };
   }
@@ -225,7 +225,7 @@ function syncNodeGraphImageBurnCanvas(canvas, face, pixelRatio) {
   if (!canvas || !face) {
     return false;
   }
-  const dpr = Math.max(1, Number(pixelRatio) || window.devicePixelRatio || 1);
+  const dpr = Math.max(1, nodeGraphFiniteNumber(pixelRatio, nodeGraphFiniteNumber(window.devicePixelRatio, 1)));
   const w = Math.max(1, Math.round(face.clientWidth * dpr));
   const h = Math.max(1, Math.round(face.clientHeight * dpr));
   if (canvas.width !== w || canvas.height !== h) {
@@ -295,8 +295,8 @@ function nodeGraphImageBurnEnsureImage(face, dataUrl, onReady) {
 function nodeGraphImageBurnDestRect(faceW, faceH, imageSize, imgW, imgH) {
   const size = clampNodeGraphImageBurnSize(imageSize, 0);
   if (!(size > 0) || !(faceW > 0) || !(faceH > 0)) return null;
-  const natW = Math.max(1, Number(imgW) || 1);
-  const natH = Math.max(1, Number(imgH) || 1);
+  const natW = Math.max(1, nodeGraphFiniteNumber(imgW, 1));
+  const natH = Math.max(1, nodeGraphFiniteNumber(imgH, 1));
   const availW = Math.max(1, faceW * size);
   const availH = Math.max(1, faceH * size);
   const imgAspect = natW / natH;
@@ -389,12 +389,12 @@ function nodeGraphImageBurnBufferedEnergy(face, buffer) {
 
   const abs = Math.max(
     0,
-    Math.floor(Number(buffer.nodeGraphScopeTotalSampleCount || buffer.nodeGraphScopeAbsoluteFrame) || 0),
+    Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeTotalSampleCount || buffer.nodeGraphScopeAbsoluteFrame)),
   );
-  const prevAbs = Math.max(0, Number(face._imageBurnEnergyAbs) || 0);
+  const prevAbs = Math.max(0, nodeGraphFiniteNumber(face._imageBurnEnergyAbs));
   const writeRate = typeof nodeGraphScopeSampleRate === "function"
     ? nodeGraphScopeSampleRate(buffer)
-    : (Number(buffer.nodeGraphScopeSampleRate) || 60);
+    : (nodeGraphFiniteNumber(buffer.nodeGraphScopeSampleRate, 60));
   // At most ~two display frames of hopped samples — never a multi-second peak hold.
   const maxWindow = Math.max(1, Math.ceil(Math.max(1, writeRate) / 30));
 
@@ -415,7 +415,7 @@ function nodeGraphImageBurnBufferedEnergy(face, buffer) {
 
   // Newest sample is authoritative for "now"; short-window peak catches a
   // hop that landed between paints without dragging older modulation.
-  let peak = Math.abs(Number(buffer[buffer.length - 1]) || 0);
+  let peak = Math.abs(nodeGraphFiniteNumber(buffer[buffer.length - 1]));
   const start = Math.max(0, buffer.length - n);
   for (let i = start; i < buffer.length; i += 1) {
     const sample = Number(buffer[i]);
@@ -460,7 +460,7 @@ function nodeGraphImageBurnDrawGl(face, ctx, w, h, opts) {
 
 /** Fade buffer toward black by (1 - keep). keep 0 = wipe, 1 = freeze. */
 function nodeGraphImageBurnFadeBuf(ctx, w, h, keep) {
-  const k = Math.max(0, Math.min(1, Number(keep) || 0));
+  const k = Math.max(0, Math.min(1, nodeGraphFiniteNumber(keep)));
   const fade = 1 - k;
   if (fade >= 0.999) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -509,8 +509,8 @@ function nodeGraphImageBurnFadeByLuma(canvas, hangKeep, burn01) {
   if (!canvas) {
     return;
   }
-  const hang = Math.max(0, Math.min(1, Number(hangKeep) || 0));
-  const burn = Math.max(0, Math.min(1, Number(burn01) || 0));
+  const hang = Math.max(0, Math.min(1, nodeGraphFiniteNumber(hangKeep)));
+  const burn = Math.max(0, Math.min(1, nodeGraphFiniteNumber(burn01)));
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) {
     return;
@@ -575,15 +575,15 @@ function nodeGraphImageBurnContrastStamp(canvas, contrast02) {
 
 /** Canvas 2D blur radius — 8px at 256 reference, scales with buffer size (F solo). */
 function nodeGraphImageBurnBlurRadiusPx(blur01, width, height) {
-  const a = Math.max(0, Math.min(1, Number(blur01) || 0));
+  const a = Math.max(0, Math.min(1, nodeGraphFiniteNumber(blur01)));
   const refPx = Math.pow(a, 1.15) * 8.0;
-  const minSide = Math.max(1, Math.min(Number(width) || 256, Number(height) || 256));
+  const minSide = Math.max(1, Math.min(nodeGraphFiniteNumber(width, 256), nodeGraphFiniteNumber(height, 256)));
   return refPx * (minSide / 256);
 }
 
 /** Recirculate src through Gaussian blur; mix from curve (0 → leave src). */
 function nodeGraphImageBurnBlurBuf(src, scratch, blur01) {
-  const amt = Math.max(0, Math.min(1, Number(blur01) || 0));
+  const amt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(blur01)));
   if (!src || !scratch) {
     return;
   }
@@ -684,7 +684,7 @@ function nodeGraphImageBurnStampInto(ctx, img, imageSize, alpha) {
   if (!ctx || !img?.complete || !(img.naturalWidth > 0)) {
     return false;
   }
-  const a = Math.max(0, Math.min(1.5, Number(alpha) || 0));
+  const a = Math.max(0, Math.min(1.5, nodeGraphFiniteNumber(alpha)));
   if (a < 1e-5) {
     return false;
   }
@@ -708,7 +708,7 @@ function nodeGraphImageBurnDrawDry(ctx, img, imageSize, alpha, composite = "sour
   if (!ctx || !img?.complete || !(img.naturalWidth > 0)) {
     return false;
   }
-  const a = Math.max(0, Math.min(1, Number(alpha) || 0));
+  const a = Math.max(0, Math.min(1, nodeGraphFiniteNumber(alpha)));
   if (a < 1e-4) {
     return false;
   }
@@ -905,7 +905,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
   if (energy.peak > 0.04 || energy.deposit > 0.04) {
     face._imageBurnSeedFrames = 0;
   }
-  const seedLeft = Math.max(0, Number(face._imageBurnSeedFrames) || 0);
+  const seedLeft = Math.max(0, nodeGraphFiniteNumber(face._imageBurnSeedFrames));
   if (seedLeft > 0) {
     face._imageBurnSeedFrames = seedLeft - 1;
   }

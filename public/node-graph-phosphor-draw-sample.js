@@ -35,7 +35,7 @@ function packNodeGraphPhosphorDrawSample(x, y, pen, intensity) {
   const xBits = (nodeGraphPhosphorDrawSampleU32[0] & nodeGraphPhosphorDrawSampleXMask) | penBit;
   nodeGraphPhosphorDrawSampleU32[0] = xBits >>> 0;
 
-  const intensityBits = Math.max(0, Math.min(31, Math.round(Number(intensity) || 0)));
+  const intensityBits = Math.max(0, Math.min(31, Math.round(nodeGraphFiniteNumber(intensity))));
   const yBits = (nodeGraphPhosphorDrawSampleU32[1] & nodeGraphPhosphorDrawSampleYMask) | intensityBits;
   nodeGraphPhosphorDrawSampleU32[1] = yBits >>> 0;
 

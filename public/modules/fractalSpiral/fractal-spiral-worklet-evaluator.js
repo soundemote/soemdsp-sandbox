@@ -17,17 +17,17 @@ NodeLiveAudioProcessor.prototype.fractalSpiralSample = function fractalSpiralSam
           state.nativeHandle = this.nativeFractalSpiral.soemdsp_fractal_spiral_create();
         }
         if (state.nativeHandle) {
-          const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
+          const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
           this.nativeFractalSpiral.soemdsp_fractal_spiral_sample(
             state.nativeHandle,
-            Number(options.frequency) || 0,
-            Number(options.spin) || 0,
-            Math.max(0, Number(options.size) || 0),
-            Number(options.growth) || 0,
+            nodeGraphFiniteNumber(options.frequency),
+            nodeGraphFiniteNumber(options.spin),
+            Math.max(0, nodeGraphFiniteNumber(options.size)),
+            nodeGraphFiniteNumber(options.growth),
             Math.max(0.001, Math.min(0.98, Number(options.gain))),
-            Math.max(1.0001, Number(options.lacunarity) || 1),
-            Math.max(1, Math.min(16, Math.round(Number(options.octaves) || 1))),
-            Number(options.twist) || 0,
+            Math.max(1.0001, nodeGraphFiniteNumber(options.lacunarity, 1)),
+            Math.max(1, Math.min(16, Math.round(nodeGraphFiniteNumber(options.octaves, 1)))),
+            nodeGraphFiniteNumber(options.twist),
             sampleRateValue,
           );
           return {

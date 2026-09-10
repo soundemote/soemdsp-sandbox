@@ -6,7 +6,7 @@ function nodeGraphSampleReadLinear(channel, frameIndex) {
     return 0;
   }
   const maxIndex = channel.length - 1;
-  let index = Number(frameIndex) || 0;
+  let index = nodeGraphFiniteNumber(frameIndex);
   if (index < 0) {
     index = 0;
   } else if (index > maxIndex) {
@@ -15,8 +15,8 @@ function nodeGraphSampleReadLinear(channel, frameIndex) {
   const low = Math.floor(index);
   const high = low < maxIndex ? low + 1 : maxIndex;
   const t = index - low;
-  const a = Number(channel[low]) || 0;
-  const b = Number(channel[high]) || 0;
+  const a = nodeGraphFiniteNumber(channel[low]);
+  const b = nodeGraphFiniteNumber(channel[high]);
   return a + (b - a) * t;
 }
 
@@ -25,7 +25,7 @@ function nodeGraphSampleReadHermite(channel, frameIndex) {
     return 0;
   }
   const maxIndex = channel.length - 1;
-  let index = Number(frameIndex) || 0;
+  let index = nodeGraphFiniteNumber(frameIndex);
   if (index < 0) {
     index = 0;
   } else if (index > maxIndex) {
@@ -36,10 +36,10 @@ function nodeGraphSampleReadHermite(channel, frameIndex) {
   const i0 = i1 > 0 ? i1 - 1 : 0;
   const i2 = i1 < maxIndex ? i1 + 1 : maxIndex;
   const i3 = i2 < maxIndex ? i2 + 1 : maxIndex;
-  const y0 = Number(channel[i0]) || 0;
-  const y1 = Number(channel[i1]) || 0;
-  const y2 = Number(channel[i2]) || 0;
-  const y3 = Number(channel[i3]) || 0;
+  const y0 = nodeGraphFiniteNumber(channel[i0]);
+  const y1 = nodeGraphFiniteNumber(channel[i1]);
+  const y2 = nodeGraphFiniteNumber(channel[i2]);
+  const y3 = nodeGraphFiniteNumber(channel[i3]);
   const c1 = 0.5 * (y2 - y0);
   const c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3;
   const c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);

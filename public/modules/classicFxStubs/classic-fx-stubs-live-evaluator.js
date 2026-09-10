@@ -3,7 +3,7 @@
 // (bode, phaseDisperse, stftBlur have real engines in their own modules.)
 
 function nodeGraphClassicFxStubPassthrough(nodeId, mixInput) {
-  const mono = Number(mixInput(nodeId)) || 0;
+  const mono = nodeGraphFiniteNumber(mixInput(nodeId));
   return mono;
 }
 

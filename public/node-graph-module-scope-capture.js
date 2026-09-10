@@ -10,7 +10,7 @@ function nodeGraphModuleScopeCaptureMonitors(patch = nodeGraphMvp?.patch) {
 function beginNodeGraphRenderedScopeCapture(options = {}) {
   const patch = options.patch || nodeGraphMvp?.patch;
   const monitors = nodeGraphModuleScopeCaptureMonitors(patch);
-  const frames = Math.max(0, Math.floor(Number(options.frames) || 0));
+  const frames = Math.max(0, Math.floor(nodeGraphFiniteNumber(options.frames)));
   if (!monitors.length || frames <= 0) {
     // Do not wipe painted phosphor faces on empty offline capture re-arms.
     clearNodeGraphModuleScopeBuffers({ preserveDisplay: true });
@@ -33,7 +33,7 @@ function beginNodeGraphRenderedScopeCapture(options = {}) {
     groups,
     monitorFingerprint: nodeGraphModuleScopeMonitorFingerprint(monitors),
     patchFingerprint: String(options.patchFingerprint || ""),
-    sampleRate: Number(options.sampleRate) || 0,
+    sampleRate: nodeGraphFiniteNumber(options.sampleRate),
   };
 }
 
@@ -146,7 +146,7 @@ function beginNodeGraphLiveModuleScopeCapture(plan = {}, options = {}) {
   nodeGraphModuleScopeState.monitorFingerprint = topologyFingerprint;
   nodeGraphModuleScopeState.mode = "live";
   nodeGraphModuleScopeState.patchFingerprint = patchFingerprint;
-  nodeGraphModuleScopeState.sampleRate = Number(options.sampleRate) || Number(nodeGraphModuleScopeState.sampleRate) || 0;
+  nodeGraphModuleScopeState.sampleRate = nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(nodeGraphModuleScopeState.sampleRate));
   scheduleNodeGraphModuleScopeDraw();
 }
 
@@ -201,7 +201,7 @@ function nodeGraphModuleScopeCapturedFramePositiveLightTarget(capturedBuffer) {
   if (!capturedBuffer?.length) {
     return null;
   }
-  const recentCount = Math.max(0, Math.floor(Number(capturedBuffer.nodeGraphScopeRecentSampleCount) || 0));
+  const recentCount = Math.max(0, Math.floor(nodeGraphFiniteNumber(capturedBuffer.nodeGraphScopeRecentSampleCount)));
   const startIndex = recentCount > 0
     ? Math.max(0, capturedBuffer.length - Math.min(capturedBuffer.length, recentCount))
     : 0;
@@ -223,7 +223,7 @@ function nodeGraphModuleScopeCapturedFrameBipolarLightTarget(capturedBuffer) {
   if (!capturedBuffer?.length) {
     return null;
   }
-  const recentCount = Math.max(0, Math.floor(Number(capturedBuffer.nodeGraphScopeRecentSampleCount) || 0));
+  const recentCount = Math.max(0, Math.floor(nodeGraphFiniteNumber(capturedBuffer.nodeGraphScopeRecentSampleCount)));
   const startIndex = recentCount > 0
     ? Math.max(0, capturedBuffer.length - Math.min(capturedBuffer.length, recentCount))
     : 0;
@@ -415,7 +415,7 @@ function nodeGraphModuleScopeClockCapturedLightTarget(slot, capturedBuffer) {
 
 
 function nodeGraphModuleScopeXyTraceFrameCount(length) {
-  const safeLength = Math.max(2, Math.floor(Number(length) || 0));
+  const safeLength = Math.max(2, Math.floor(nodeGraphFiniteNumber(length)));
   return safeLength;
 }
 
@@ -434,11 +434,11 @@ function nodeGraphModuleScopeCapturedXyTraceFrameCount(slot, length) {
  * totalSampleCount (module port streams).
  */
 function nodeGraphScopeBufferAbsoluteFrame(buffer) {
-  const abs = Math.floor(Number(buffer?.nodeGraphScopeAbsoluteFrame) || 0);
+  const abs = Math.floor(nodeGraphFiniteNumber(buffer?.nodeGraphScopeAbsoluteFrame));
   if (abs > 0) {
     return abs;
   }
-  return Math.max(0, Math.floor(Number(buffer?.nodeGraphScopeTotalSampleCount) || 0));
+  return Math.max(0, Math.floor(nodeGraphFiniteNumber(buffer?.nodeGraphScopeTotalSampleCount)));
 }
 
 /**
@@ -452,7 +452,7 @@ function nodeGraphScopeBufferSampleAtAbsoluteFrame(buffer, absoluteFrame) {
   }
   const abs = nodeGraphScopeBufferAbsoluteFrame(buffer);
   const retained = nodeGraphScopeAvailableSampleCount(buffer);
-  const frame = Math.floor(Number(absoluteFrame) || 0);
+  const frame = Math.floor(nodeGraphFiniteNumber(absoluteFrame));
   if (abs <= 0 || retained <= 0 || frame < abs - retained || frame >= abs) {
     return null;
   }
@@ -480,8 +480,8 @@ function nodeGraphScope2dPickRicherBuffer(local, connected) {
   const connAvail = typeof nodeGraphScopeAvailableSampleCount === "function"
     ? nodeGraphScopeAvailableSampleCount(connected)
     : (connected.length || 0);
-  const localRate = Number(local.nodeGraphScopeSampleRate) || 0;
-  const connRate = Number(connected.nodeGraphScopeSampleRate) || 0;
+  const localRate = nodeGraphFiniteNumber(local.nodeGraphScopeSampleRate);
+  const connRate = nodeGraphFiniteNumber(connected.nodeGraphScopeSampleRate);
   // Prefer higher sample rate; then more retained samples.
   if (connRate > localRate * 1.05) {
     return connected;
@@ -514,7 +514,7 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   if (length <= 0) {
     return null;
   }
-  const sampleRate = Math.max(1, Number(nodeGraphModuleScopeState.sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(nodeGraphModuleScopeState.sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
     ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
     : 60;
@@ -540,8 +540,8 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
     nodeGraphScopeAvailableSampleCount(yBuffer),
     length,
   );
-  const xTotal = Math.max(0, Math.floor(Number(xBuffer.nodeGraphScopeTotalSampleCount) || 0));
-  const yTotal = Math.max(0, Math.floor(Number(yBuffer.nodeGraphScopeTotalSampleCount) || 0));
+  const xTotal = Math.max(0, Math.floor(nodeGraphFiniteNumber(xBuffer.nodeGraphScopeTotalSampleCount)));
+  const yTotal = Math.max(0, Math.floor(nodeGraphFiniteNumber(yBuffer.nodeGraphScopeTotalSampleCount)));
   const absoluteFrame = Math.min(xTotal, yTotal);
   // Peek only — Instant Trace must not hit burn recreate via capture.
   const canvas = typeof peekNodeGraphModuleScopeFaceCanvas === "function"
@@ -644,7 +644,7 @@ function captureNodeGraphLiveModuleScopeFrame(runtime, sampleRate) {
   if (!(fps > 0)) {
     return;
   }
-  const interval = Math.max(1, Math.floor((Number(sampleRate) || nodeGraphMvp.sampleRate || 44100) / fps));
+  const interval = Math.max(1, Math.floor((nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp.sampleRate, 44100))) / fps));
   runtime.scopeBuffers ||= new Map();
   const visibleScopeNodeIds = Array.isArray(runtime.scopeCaptureNodeIds) && runtime.scopeCaptureNodeIds.length
     ? new Set(runtime.scopeCaptureNodeIds.map((nodeId) => String(nodeId || "")).filter(Boolean))

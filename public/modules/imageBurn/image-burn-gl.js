@@ -22,23 +22,23 @@
   function clamp01(v, fallback = 0) {
     const n = Number(v);
     if (!Number.isFinite(n)) {
-      return Math.max(0, Math.min(1, Number(fallback) || 0));
+      return Math.max(0, Math.min(1, nodeGraphFiniteNumber(fallback)));
     }
     return Math.max(0, Math.min(1, n));
   }
 
   function glSizeCap(gl) {
     if (!gl) return MAX_DIM;
-    const tex = Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || MAX_DIM;
-    const rb = Number(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)) || tex;
+    const tex = nodeGraphFiniteNumber(gl.getParameter(gl.MAX_TEXTURE_SIZE), MAX_DIM);
+    const rb = nodeGraphFiniteNumber(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), tex);
     return Math.max(256, Math.min(MAX_DIM, tex, rb));
   }
 
   function fitDims(width, height, maxDim) {
-    let w = Math.max(1, Math.round(Number(width) || 1));
-    let h = Math.max(1, Math.round(Number(height) || 1));
+    let w = Math.max(1, Math.round(nodeGraphFiniteNumber(width, 1)));
+    let h = Math.max(1, Math.round(nodeGraphFiniteNumber(height, 1)));
     const longest = Math.max(w, h);
-    const cap = Math.max(1, Number(maxDim) || MAX_DIM);
+    const cap = Math.max(1, nodeGraphFiniteNumber(maxDim, MAX_DIM));
     if (longest > cap) {
       const s = cap / longest;
       w = Math.max(1, Math.round(w * s));
@@ -596,7 +596,7 @@
   /** Contain-fit stamp rect in UV (same math as 2D dest rect). */
   function imageRectUv(renderer, imageSize) {
     // Soft layout guard only — Size dial range is owned by param metadata.
-    const size = Math.max(0, Math.min(64, Number(imageSize) || 1));
+    const size = Math.max(0, Math.min(64, nodeGraphFiniteNumber(imageSize, 1)));
     const faceW = Math.max(1, renderer.width || 1);
     const faceH = Math.max(1, renderer.height || 1);
     const natW = Math.max(1, renderer.imageNatW || 1);
@@ -665,7 +665,7 @@
     const contrast = Math.max(0, Math.min(2, Number(options.contrast)));
     const contrastAmt = Number.isFinite(contrast) ? contrast : 0;
     const blur = clamp01(options.blur);
-    const deposit = Math.max(0, Number(options.deposit) || 0);
+    const deposit = Math.max(0, nodeGraphFiniteNumber(options.deposit));
     const accumulate = Boolean(options.accumulate);
     const img = options.image;
     const { gl, device } = renderer;

@@ -21,16 +21,16 @@ NodeLiveAudioProcessor.prototype.keplerBouwkampSample = function keplerBouwkampS
           state.nativeHandle = this.nativeKeplerBouwkamp.soemdsp_jbkepler_create();
         }
         if (state.nativeHandle) {
-          const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
+          const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
           this.nativeKeplerBouwkamp.soemdsp_jbkepler_sample(
             state.nativeHandle,
-            Number(options.frequency) || 0,
-            Number(options.start) || 0,
-            Number(options.length) || 0,
-            Number(options.circles) || 0,
-            Number(options.zoom) || 0,
-            Number(options.rotation) || 0,
-            Number(options.tri) || 0,
+            nodeGraphFiniteNumber(options.frequency),
+            nodeGraphFiniteNumber(options.start),
+            nodeGraphFiniteNumber(options.length),
+            nodeGraphFiniteNumber(options.circles),
+            nodeGraphFiniteNumber(options.zoom),
+            nodeGraphFiniteNumber(options.rotation),
+            nodeGraphFiniteNumber(options.tri),
             sampleRateValue,
           );
           return {

@@ -96,8 +96,8 @@ function drawNodeGraphExpoPluckEnvelope2DisplayInner(section) {
     level: nodeGraphExpoPluck2LiveParam(node, "level", 1),
   };
 
-  const rawW = Math.max(1, Number(section.clientWidth || section.offsetWidth) || 1);
-  const rawH = Math.max(1, Number(section.clientHeight || section.offsetHeight) || 1);
+  const rawW = Math.max(1, nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth, 1));
+  const rawH = Math.max(1, nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight, 1));
   const signature = Object.values(params).map((v) => Number(v).toFixed(4)).join("|")
     + `|${Math.round(rawW)}x${Math.round(rawH)}`;
 
@@ -201,7 +201,7 @@ function drawNodeGraphExpoPluckEnvelope2DisplayInner(section) {
   let env = nodeGraphExpoPluck2ReadEnv(nodeId);
   if (!Number.isFinite(env)) env = 0;
   env = Math.max(0, env);
-  const yMax = Math.max(1e-6, Number(section._expoPluck2YMax) || 1);
+  const yMax = Math.max(1e-6, nodeGraphFiniteNumber(section._expoPluck2YMax, 1));
   const preview = section._expoPluck2Preview;
   let t = 0;
   if (preview?.points?.length) {

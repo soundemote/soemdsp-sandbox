@@ -24,20 +24,20 @@ function nodeGraphWirdoSpiralSample(options = {}) {
   }
   state.resetWasHigh = resetHigh;
 
-  const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
-  const frequency = Number(options.frequency) || 0;
-  const sharp = clampNodeSliderValue(Number(options.sharp) || 0, 0, 1);
-  const cross = Number(options.cross) || 0;
-  const density = Number(options.density) || 0;
-  const length = Number(options.length) || 0;
-  const rotate = Number(options.rotate) || 0;
-  const splashDepth = Number(options.splashDepth) || 0;
-  const splashDensity = Number(options.splashDensity) || 0;
-  const cut = Number(options.cut) || 0;
-  const scrap = Number(options.scrap) || 0;
-  const ringCut = Number(options.ringCut) || 0;
-  const splashSpeed = Number(options.splashSpeed) || 0;
-  const syncCut = Number(options.syncCut) || 0;
+  const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const frequency = nodeGraphFiniteNumber(options.frequency);
+  const sharp = clampNodeSliderValue(nodeGraphFiniteNumber(options.sharp), 0, 1);
+  const cross = nodeGraphFiniteNumber(options.cross);
+  const density = nodeGraphFiniteNumber(options.density);
+  const length = nodeGraphFiniteNumber(options.length);
+  const rotate = nodeGraphFiniteNumber(options.rotate);
+  const splashDepth = nodeGraphFiniteNumber(options.splashDepth);
+  const splashDensity = nodeGraphFiniteNumber(options.splashDensity);
+  const cut = nodeGraphFiniteNumber(options.cut);
+  const scrap = nodeGraphFiniteNumber(options.scrap);
+  const ringCut = nodeGraphFiniteNumber(options.ringCut);
+  const splashSpeed = nodeGraphFiniteNumber(options.splashSpeed);
+  const syncCut = nodeGraphFiniteNumber(options.syncCut);
 
   const dens = density * Math.PI * 2;
   const safeScrap = clampNodeSliderValue(scrap, 0.0001, 1);

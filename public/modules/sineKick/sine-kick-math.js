@@ -68,7 +68,7 @@ function nodeGraphSineKickTauA(decayS) {
 }
 
 function nodeGraphSineKickAmp01(timeS, decayS) {
-  const t = Math.max(0, Number(timeS) || 0);
+  const t = Math.max(0, nodeGraphFiniteNumber(timeS));
   const amp = Math.exp(-t / nodeGraphSineKickTauA(decayS));
   if (!Number.isFinite(amp) || amp < 1e-8) {
     return 0;
@@ -81,7 +81,7 @@ function nodeGraphSineKickHz(timeS, pitchHz, punchOct, decayS, pitchCvRatio = 1)
   const cv = Number(pitchCvRatio);
   const ratio = Number.isFinite(cv) && cv > 0 ? cv : 1;
   const punch = nodeGraphSineKickPunchOct(punchOct);
-  const t = Math.max(0, Number(timeS) || 0);
+  const t = Math.max(0, nodeGraphFiniteNumber(timeS));
   const tauP = nodeGraphSineKickTauA(decayS) / NODE_GRAPH_SINE_KICK_PITCH_FASTER;
   const oct = punch * Math.exp(-t / Math.max(1e-6, tauP));
   const hz = rest * ratio * (2 ** oct);
@@ -95,9 +95,9 @@ function nodeGraphSineKickSineToSquare(phaseCycles, shape, frequencyHz, sampleRa
   if (typeof nodeGraphKickEnvelopeSineToSquare === "function") {
     return nodeGraphKickEnvelopeSineToSquare(phaseCycles, shape, frequencyHz, sampleRate);
   }
-  const sr = Math.max(1, Number(sampleRate) || 44100);
-  const f = Math.max(0, Number(frequencyHz) || 0);
-  const angle = (Number(phaseCycles) || 0) * Math.PI * 2;
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const f = Math.max(0, nodeGraphFiniteNumber(frequencyHz));
+  const angle = (nodeGraphFiniteNumber(phaseCycles)) * Math.PI * 2;
   const sinPhase = Math.sin(angle);
   const cosPhase = Math.cos(angle);
   let c = 1 - nodeGraphSineKickClampUnit(shape, 0);
@@ -134,12 +134,12 @@ function nodeGraphSineKickSample(
   if (!state || typeof state !== "object") {
     return nodeGraphSineKickIdleOut(sharpness);
   }
-  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const dt = 1 / sr;
   const gain = nodeGraphSineKickGain(amplitude);
   const decay = nodeGraphSineKickDecayS(decayS);
   const sharp = nodeGraphSineKickClampUnit(sharpness, 0);
-  const g = Number(trigger) || 0;
+  const g = nodeGraphFiniteNumber(trigger);
   const on = g > 0.5;
   if (on && !state.lastTrig) {
     state.t = 0;

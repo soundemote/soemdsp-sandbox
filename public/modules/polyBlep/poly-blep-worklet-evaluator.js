@@ -22,9 +22,9 @@ NodeLiveAudioProcessor.prototype.oscillatorSample = function oscillatorSample(no
     }
     return this.nativeBasicOscillator.soemdsp_basic_oscillator_sample(
       handle,
-      Number(phase) || 0,
-      Number(phaseIncrement) || 0,
-      Math.round(Number(waveform) || 0),
+      nodeGraphFiniteNumber(phase),
+      nodeGraphFiniteNumber(phaseIncrement),
+      Math.round(nodeGraphFiniteNumber(waveform)),
     );
   } catch (_error) {
     this.nativeBasicOscillatorReady = false;
@@ -134,7 +134,7 @@ NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepN
     const nativeVer = Number(native.soemdsp_polyblep_version?.() || 0);
     const blockSize = Math.min(
       NodeLiveAudioProcessor.POLYBLEP_NATIVE_BLOCK_SIZE,
-      Number(native.soemdsp_polyblep_max_block_frames?.()) || 128,
+      nodeGraphFiniteNumber(native.soemdsp_polyblep_max_block_frames?.(), 128),
     );
 
     if (
@@ -154,15 +154,15 @@ NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepN
       cache.cursor += 1;
       if (cache.cursor >= blockSize) {
         // Generate the *next* block starting at the phase after this sample.
-        const phaseStep = Math.PI * 2 * (Number(phaseIncrement) || 0);
-        const nextPhase0 = (Number(phase) || 0) + phaseStep;
+        const phaseStep = Math.PI * 2 * (nodeGraphFiniteNumber(phaseIncrement));
+        const nextPhase0 = (nodeGraphFiniteNumber(phase)) + phaseStep;
         native.soemdsp_polyblep_process_block(
           state.nativeHandle,
           blockSize,
           nextPhase0,
-          Number(phaseIncrement) || 0,
-          Math.round(Number(waveform) || 0),
-          Number(level) || 0,
+          nodeGraphFiniteNumber(phaseIncrement),
+          Math.round(nodeGraphFiniteNumber(waveform)),
+          nodeGraphFiniteNumber(level),
           morphVal,
           tapMask,
         );
@@ -174,20 +174,20 @@ NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepN
     if (native.soemdsp_polyblep_sample_masked) {
       native.soemdsp_polyblep_sample_masked(
         state.nativeHandle,
-        Number(phase) || 0,
-        Number(phaseIncrement) || 0,
-        Math.round(Number(waveform) || 0),
-        Number(level) || 0,
+        nodeGraphFiniteNumber(phase),
+        nodeGraphFiniteNumber(phaseIncrement),
+        Math.round(nodeGraphFiniteNumber(waveform)),
+        nodeGraphFiniteNumber(level),
         morphVal,
         tapMask,
       );
     } else {
       native.soemdsp_polyblep_sample(
         state.nativeHandle,
-        Number(phase) || 0,
-        Number(phaseIncrement) || 0,
-        Math.round(Number(waveform) || 0),
-        Number(level) || 0,
+        nodeGraphFiniteNumber(phase),
+        nodeGraphFiniteNumber(phaseIncrement),
+        Math.round(nodeGraphFiniteNumber(waveform)),
+        nodeGraphFiniteNumber(level),
         morphVal,
       );
     }
@@ -221,10 +221,10 @@ NodeLiveAudioProcessor.prototype.blitNativeVectorSample = function blitNativeVec
     }
     this.nativeBlit.soemdsp_blit_sample(
       state.nativeHandle,
-      Number(phase) || 0,
-      Number(phaseIncrement) || 0,
-      Math.round(Number(waveform) || 0),
-      Number(level) || 0,
+      nodeGraphFiniteNumber(phase),
+      nodeGraphFiniteNumber(phaseIncrement),
+      Math.round(nodeGraphFiniteNumber(waveform)),
+      nodeGraphFiniteNumber(level),
     );
     return {
       out: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_out(state.nativeHandle), null),

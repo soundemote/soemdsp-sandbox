@@ -21,8 +21,8 @@ var NODE_GRAPH_SPEAKER_PROTECTOR2_MODE_HOLD = "hold";
 var NODE_GRAPH_SPEAKER_PROTECTOR2_MODE_RISE = "rise";
 
 function nodeGraphSpeakerProtector2HpCoeffs(sampleRate, frequencyHz) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const frequencyValue = Math.max(0, Number(frequencyHz) || 0);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const frequencyValue = Math.max(0, nodeGraphFiniteNumber(frequencyHz));
   const w = Math.min((Math.PI * 2) / rate, 0.000142475857) * frequencyValue;
   const a1 = Math.exp(-w);
   const b0 = 0.5 * (1 + a1);
@@ -30,7 +30,7 @@ function nodeGraphSpeakerProtector2HpCoeffs(sampleRate, frequencyHz) {
 }
 
 function createNodeGraphSpeakerProtector2State(sampleRate = 44100) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const hp = nodeGraphSpeakerProtector2HpCoeffs(rate, NODE_GRAPH_SPEAKER_PROTECTOR2_HP_HZ);
   return {
     mode: NODE_GRAPH_SPEAKER_PROTECTOR2_MODE_IDLE,
@@ -46,7 +46,7 @@ function createNodeGraphSpeakerProtector2State(sampleRate = 44100) {
 }
 
 function nodeGraphSpeakerProtector2Prepare(state, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   if (!state) {
     return createNodeGraphSpeakerProtector2State(rate);
   }
@@ -87,8 +87,8 @@ function nodeGraphSpeakerProtector2SampleTrips(value) {
 }
 
 function nodeGraphSpeakerProtector2SlewToward(gain, target, seconds, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const time = Math.max(0, Number(seconds) || 0);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const time = Math.max(0, nodeGraphFiniteNumber(seconds));
   if (time <= 0) {
     return target;
   }
@@ -181,11 +181,11 @@ function nodeGraphSpeakerProtector2Protect(state, left, right, sampleRate, optio
 }
 
 function nodeGraphSpeakerProtector2Frame(state, mono, left, right, sampleRate, options) {
-  const m = Number(mono) || 0;
+  const m = nodeGraphFiniteNumber(mono);
   return nodeGraphSpeakerProtector2Protect(
     state,
-    (Number(left) || 0) + m,
-    (Number(right) || 0) + m,
+    (nodeGraphFiniteNumber(left)) + m,
+    (nodeGraphFiniteNumber(right)) + m,
     sampleRate,
     options,
   );

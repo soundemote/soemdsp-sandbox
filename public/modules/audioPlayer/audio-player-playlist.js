@@ -18,7 +18,7 @@ function nodeGraphAudioPlayerPlaylistNormalizeCardList(raw, startIndex = 0) {
       if (!card) {
         return null;
       }
-      const listNumber = Math.max(0, Math.round(Number(item.listNumber) || 0));
+      const listNumber = Math.max(0, Math.round(nodeGraphFiniteNumber(item.listNumber)));
       if (listNumber) {
         card.listNumber = listNumber;
       }
@@ -97,7 +97,7 @@ function nodeGraphAudioPlayerPlaylistRebuildItems(pl) {
   } else if (!pl.items.length) {
     pl.index = 0;
   } else {
-    pl.index = Math.max(0, Math.min(pl.items.length - 1, Math.round(Number(pl.index) || 0)));
+    pl.index = Math.max(0, Math.min(pl.items.length - 1, Math.round(nodeGraphFiniteNumber(pl.index))));
   }
   pl.selectedIndex = pl.index;
   return pl;
@@ -207,7 +207,7 @@ function nodeGraphAudioPlayerPlaylistEnsureQueues(pl) {
     return nodeGraphAudioPlayerPlaylistSyncQueues(pl);
   }
   const items = Array.isArray(pl.items) ? pl.items : [];
-  const i = Math.max(0, Math.min(items.length ? items.length - 1 : 0, Math.round(Number(pl.index) || 0)));
+  const i = Math.max(0, Math.min(items.length ? items.length - 1 : 0, Math.round(nodeGraphFiniteNumber(pl.index))));
   pl.played = items.slice(0, i);
   pl.playing = items[i] || null;
   pl.unplayed = items.slice(i + 1);
@@ -232,10 +232,10 @@ function nodeGraphAudioPlayerPlaylistNormalize(raw = null) {
   if (!items.length && hasQueues) {
     items = [...played, ...playingList, ...unplayed];
   }
-  const index = Math.max(0, Math.min(items.length ? items.length - 1 : 0, Math.round(Number(source.index) || 0)));
+  const index = Math.max(0, Math.min(items.length ? items.length - 1 : 0, Math.round(nodeGraphFiniteNumber(source.index))));
   const selectedIndex = Math.max(
     0,
-    Math.min(items.length ? items.length - 1 : 0, Math.round(Number(source.selectedIndex ?? source.index) || 0)),
+    Math.min(items.length ? items.length - 1 : 0, Math.round(nodeGraphFiniteNumber(source.selectedIndex ?? source.index))),
   );
   const face = nodeGraphAudioPlayerPlaylistNormalizeFace(source.face);
   const shuffle = source.shuffle === true || source.shuffle === "true" || source.shuffle === 1;
@@ -356,8 +356,8 @@ function nodeGraphAudioPlayerPlaylistEstimateBytes(sampleId) {
     return { bytes: 0, frames: 0, sampleRate: 0, channels: 0, loaded: false };
   }
   const channelData = buf.channelData || [];
-  let frames = Math.max(0, Math.round(Number(buf.frames) || 0));
-  let channels = Math.max(0, Math.round(Number(buf.channels) || channelData.length || 0));
+  let frames = Math.max(0, Math.round(nodeGraphFiniteNumber(buf.frames)));
+  let channels = Math.max(0, Math.round(nodeGraphFiniteNumber(buf.channels, nodeGraphFiniteNumber(channelData.length, 0))));
   if (!frames && channelData[0]?.length) {
     frames = channelData[0].length;
   }
@@ -380,14 +380,14 @@ function nodeGraphAudioPlayerPlaylistEstimateBytes(sampleId) {
   return {
     bytes: samples * 4,
     frames,
-    sampleRate: Math.max(0, Math.round(Number(buf.sampleRate) || 0)),
+    sampleRate: Math.max(0, Math.round(nodeGraphFiniteNumber(buf.sampleRate))),
     channels,
     loaded: true,
   };
 }
 
 function nodeGraphAudioPlayerPlaylistFormatBytes(bytes) {
-  const n = Math.max(0, Number(bytes) || 0);
+  const n = Math.max(0, nodeGraphFiniteNumber(bytes));
   if (n < 1024) {
     return `${n} B`;
   }
@@ -531,7 +531,7 @@ function nodeGraphAudioPlayerWriteTransport(nodeId, mode, { record = false } = {
   if (!node || node.type !== "audioPlayer") {
     return;
   }
-  const next = Math.max(0, Math.min(5, Math.round(Number(mode) || 0)));
+  const next = Math.max(0, Math.min(5, Math.round(nodeGraphFiniteNumber(mode))));
   node.params = { ...(node.params || {}), transport: String(next) };
   const slider = document.querySelector(
     `.dsp-node[data-node="${CSS.escape(String(nodeId))}"] input[data-param="transport"]`,
@@ -701,7 +701,7 @@ function nodeGraphAudioPlayerPlaylistStop(nodeId) {
     node.params = {};
   }
   node.params.playlistScrub = "0";
-  node.samplePhaseSeek = (Math.round(Number(node.samplePhaseSeek) || 0) + 1) || 1;
+  node.samplePhaseSeek = (Math.round(nodeGraphFiniteNumber(node.samplePhaseSeek)) + 1, 1);
   if (typeof rememberNodeGraphAudioPlayerSamplePhase === "function") {
     rememberNodeGraphAudioPlayerSamplePhase(nodeId, 0);
   }
@@ -767,7 +767,7 @@ function nodeGraphAudioPlayerPlaylistPlay(nodeId) {
     const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
     if (node) {
       node.samplePhase = 0;
-      node.samplePhaseSeek = (Math.round(Number(node.samplePhaseSeek) || 0) + 1) || 1;
+      node.samplePhaseSeek = (Math.round(nodeGraphFiniteNumber(node.samplePhaseSeek)) + 1, 1);
     }
     if (transport !== 1 && typeof nodeGraphAudioPlayerWriteTransport === "function") {
       nodeGraphAudioPlayerWriteTransport(nodeId, 1);
@@ -1454,9 +1454,9 @@ function nodeGraphAudioPlayerPlaylistSeekAbsolute(nodeId, phase01, { record = fa
   if (!node || node.type !== "audioPlayer") {
     return;
   }
-  const phase = Math.max(0, Math.min(1, Number(phase01) || 0));
+  const phase = Math.max(0, Math.min(1, nodeGraphFiniteNumber(phase01)));
   node.samplePhase = phase;
-  node.samplePhaseSeek = (Math.round(Number(node.samplePhaseSeek) || 0) + 1) || 1;
+  node.samplePhaseSeek = (Math.round(nodeGraphFiniteNumber(node.samplePhaseSeek)) + 1, 1);
   node.params = { ...(node.params || {}), playlistScrub: "0" };
   if (typeof rememberNodeGraphAudioPlayerSamplePhase === "function") {
     rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase);
@@ -1480,7 +1480,7 @@ function nodeGraphAudioPlayerPlaylistApplyScrub(nodeId, raw, { record = false, c
   if (!node || node.type !== "audioPlayer") {
     return;
   }
-  const desired = Math.max(0, Math.min(1, Number(raw) || 0));
+  const desired = Math.max(0, Math.min(1, nodeGraphFiniteNumber(raw)));
   if (commit) {
     // On release: fold into free-running phase so Phase Offset stays clean.
     nodeGraphAudioPlayerPlaylistSeekAbsolute(nodeId, desired, { record });
@@ -1488,8 +1488,8 @@ function nodeGraphAudioPlayerPlaylistApplyScrub(nodeId, raw, { record = false, c
   }
   const actual = typeof nodeGraphSamplePhaseForNode === "function"
     ? nodeGraphSamplePhaseForNode(nodeId)
-    : Number(node.samplePhase) || 0;
-  const currentOffset = Number(node.params?.playlistScrub) || 0;
+    : nodeGraphFiniteNumber(node.samplePhase);
+  const currentOffset = nodeGraphFiniteNumber(node.params?.playlistScrub);
   const offset01 = ((currentOffset % 1) + 1) % 1;
   const base = ((actual - offset01) % 1 + 1) % 1;
   let newOffset = desired - base;
@@ -1689,7 +1689,7 @@ function nodeGraphAudioPlayerPlaylistOnRuntimeStatus(nodeId, reason = "", workle
   const text = String(reason || "").trim().toLowerCase();
   const playing = text === "engine playing" || text === "engine looping";
   const completed = text === "engine complete";
-  const transport = Math.round(Number(node.params?.transport) || 0);
+  const transport = Math.round(nodeGraphFiniteNumber(node.params?.transport));
   const wantKey = nodeGraphAudioPlayerPlaylistLoadTarget.get(id)
     || nodeGraphAudioPlayerPlaylistItemKey(pl.playing);
   const engineSid = nodeGraphAudioPlayerPlaylistEngineSampleId(nodeId, workletSampleId);
@@ -1961,7 +1961,7 @@ function nodeGraphAudioPlayerPlaylistSizeWaveCanvas(canvas) {
   }
   const cssW = Math.max(1, canvas.clientWidth || 0);
   const cssH = Math.max(1, canvas.clientHeight || 0);
-  const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
+  const dpr = Math.max(1, nodeGraphFiniteNumber(window.devicePixelRatio, 1));
   const width = Math.max(1, Math.round(cssW * dpr));
   const height = Math.max(1, Math.round(cssH * dpr));
   if (canvas.width !== width) {
@@ -2030,7 +2030,7 @@ function nodeGraphAudioPlayerPlaylistPaintWaveCanvas(canvas, {
   if (!total) {
     return;
   }
-  const start = live ? Number(viewStart) || 0 : 0;
+  const start = live ? nodeGraphFiniteNumber(viewStart) : 0;
   const end = live && viewEnd > viewStart ? viewEnd : total;
   const midY = height * 0.5;
   const amplitude = midY * 0.9;
@@ -2118,7 +2118,7 @@ function nodeGraphAudioPlayerPlaylistPaintWaves(nodeId, { liveOnly = false } = {
   const playheadFrame = playingEntry ? phase * playingEntry.frames : 0;
   if (view && playingEntry && settings && typeof nodeGraphPhosphorWaveformContinuousView === "function") {
     const frames = Math.max(1, playingEntry.frames || 1);
-    const rate = Math.max(1, Number(playingEntry.sampleRate) || 44100);
+    const rate = Math.max(1, nodeGraphFiniteNumber(playingEntry.sampleRate, 44100));
     const windowFrames = settings.timeWindowSeconds <= 0
       ? 1
       : Math.max(1, Math.min(frames, Math.round(settings.timeWindowSeconds * rate)));
@@ -2140,7 +2140,7 @@ function nodeGraphAudioPlayerPlaylistPaintWaves(nodeId, { liveOnly = false } = {
 }
 
 function nodeGraphAudioPlayerPlaylistSmoothstep(t) {
-  const x = Math.max(0, Math.min(1, Number(t) || 0));
+  const x = Math.max(0, Math.min(1, nodeGraphFiniteNumber(t)));
   return x * x * (3 - 2 * x);
 }
 
@@ -2153,7 +2153,7 @@ function nodeGraphAudioPlayerPlaylistPlayingIndex(nodeId, playingId = "") {
       return found;
     }
   }
-  const hinted = Math.max(0, Math.round(Number(pl.index) || 0));
+  const hinted = Math.max(0, Math.round(nodeGraphFiniteNumber(pl.index)));
   const sid = normalizeNodeGraphSampleId
     ? normalizeNodeGraphSampleId(playingId)
     : String(playingId || "").trim();
@@ -2174,11 +2174,11 @@ function nodeGraphAudioPlayerPlaylistPlayingIndex(nodeId, playingId = "") {
  * 1 = only the playing row is visible; everything else is fully faded.
  */
 function nodeGraphAudioPlayerPlaylistSlotFade(index, playingIndex, slotCount, playlistFade = 0.25) {
-  const amount = Math.max(0, Math.min(1, Number(playlistFade) || 0));
+  const amount = Math.max(0, Math.min(1, nodeGraphFiniteNumber(playlistFade)));
   if (amount <= 0) {
     return 1;
   }
-  const dist = Math.abs((Number(index) || 0) - (Number(playingIndex) || 0));
+  const dist = Math.abs((nodeGraphFiniteNumber(index)) - (nodeGraphFiniteNumber(playingIndex)));
   const span = 100 + (1 - 100) * amount;
   return 1 - nodeGraphAudioPlayerPlaylistSmoothstep(Math.min(1, dist / Math.max(1, span)));
 }
@@ -2233,8 +2233,8 @@ function nodeGraphAudioPlayerPlaylistSlotCount(list, nodeId) {
 }
 
 function nodeGraphAudioPlayerPlaylistClampViewStart(start, itemCount, slotCount) {
-  const maxStart = Math.max(0, (Number(itemCount) || 0) - Math.max(1, Number(slotCount) || 1));
-  return Math.max(0, Math.min(maxStart, Math.round(Number(start) || 0)));
+  const maxStart = Math.max(0, (nodeGraphFiniteNumber(itemCount)) - Math.max(1, nodeGraphFiniteNumber(slotCount, 1)));
+  return Math.max(0, Math.min(maxStart, Math.round(nodeGraphFiniteNumber(start))));
 }
 
 function nodeGraphAudioPlayerPlaylistBindListResize(list, nodeId) {
@@ -2260,7 +2260,7 @@ function nodeGraphAudioPlayerPlaylistBindListResize(list, nodeId) {
     const slots = nodeGraphAudioPlayerPlaylistSlotCount(list, nodeId);
     const step = event.deltaY > 0 || event.deltaX > 0 ? 1 : -1;
     const next = nodeGraphAudioPlayerPlaylistClampViewStart(
-      (Number(list.dataset.plViewStart) || 0) + step,
+      (nodeGraphFiniteNumber(list.dataset.plViewStart)) + step,
       pl.items.length,
       slots,
     );
@@ -2306,7 +2306,7 @@ function nodeGraphAudioPlayerPlaylistBindListResize(list, nodeId) {
 // Face buttons are a fixed slot pool (how many rows fit). The file list is
 // separate data. Wheel only changes which list index each slot shows.
 function nodeGraphAudioPlayerPlaylistEnsureSlotButtons(list, slotCount) {
-  const want = Math.max(1, Math.round(Number(slotCount) || 1));
+  const want = Math.max(1, Math.round(nodeGraphFiniteNumber(slotCount, 1)));
   list.querySelectorAll(".node-music-player-pl-virtual-rail").forEach((el) => el.remove());
   const rows = [...list.querySelectorAll(":scope > .node-music-player-pl-row")];
   if (rows.length === want) {
@@ -2339,7 +2339,7 @@ function nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying = 
     ? normalizeNodeGraphSampleId(nodeGraphPatchNode(nodeId)?.sample?.id)
     : String(nodeGraphPatchNode(nodeId)?.sample?.id || "").trim();
   const playingIndex = nodeGraphAudioPlayerPlaylistPlayingIndex(nodeId, playingId);
-  let start = Number(list.dataset.plViewStart) || 0;
+  let start = nodeGraphFiniteNumber(list.dataset.plViewStart);
   if (items.length <= slotCount) {
     start = 0;
   } else if (followPlaying && (playingIndex < start || playingIndex >= start + slotCount)) {
@@ -2399,7 +2399,7 @@ function nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying = 
     const num = row.querySelector(".node-music-player-pl-num");
     const name = row.querySelector(".node-music-player-pl-name");
     if (num) {
-      const listNumber = Math.max(1, Math.round(Number(item.listNumber) || index + 1));
+      const listNumber = Math.max(1, Math.round(nodeGraphFiniteNumber(item.listNumber, index) + 1));
       num.textContent = String(listNumber).padStart(2, "0");
     }
     if (name) {
@@ -2442,7 +2442,7 @@ function nodeGraphAudioPlayerPlaylistTogglePlayNext(nodeId, index) {
   if (!item) {
     return;
   }
-  pl.selectedIndex = Math.max(0, Math.min(pl.items.length - 1, Math.round(Number(index) || 0)));
+  pl.selectedIndex = Math.max(0, Math.min(pl.items.length - 1, Math.round(nodeGraphFiniteNumber(index))));
   const key = nodeGraphAudioPlayerPlaylistItemKey(item);
   const playingKey = nodeGraphAudioPlayerPlaylistItemKey(pl.playing);
   if (!key || key === playingKey) {
@@ -2609,7 +2609,7 @@ function nodeGraphAudioPlayerPlaylistBindScrubber(nodeId, scrub) {
   scrub.addEventListener("blur", endScrub);
 
   scrub.addEventListener("input", () => {
-    const phase = Math.max(0, Math.min(1, Number(scrub.value) || 0));
+    const phase = Math.max(0, Math.min(1, nodeGraphFiniteNumber(scrub.value)));
     // Live drag: drive Phase Offset param so it behaves like any other control.
     nodeGraphAudioPlayerPlaylistApplyScrub(nodeId, phase, { record: false, commit: false });
     // While dragging, show scrub target; rAF loop resumes actual engine Phase after release.
@@ -2619,7 +2619,7 @@ function nodeGraphAudioPlayerPlaylistBindScrubber(nodeId, scrub) {
     }
   });
   scrub.addEventListener("change", () => {
-    const phase = Math.max(0, Math.min(1, Number(scrub.value) || 0));
+    const phase = Math.max(0, Math.min(1, nodeGraphFiniteNumber(scrub.value)));
     // Commit folds offset into free-running samplePhase (clean param = 0).
     nodeGraphAudioPlayerPlaylistApplyScrub(nodeId, phase, { record: true, commit: true });
     scrub.dataset.scrubbing = "0";
@@ -2724,8 +2724,8 @@ function nodeGraphAudioPlayerVideoscopeChannels(nodeId) {
   return {
     left,
     right: entry?.channelData?.[1] || left,
-    frames: Math.max(1, Number(entry.frames) || left.length),
-    sampleRate: Math.max(1, Number(entry.sampleRate) || 44100),
+    frames: Math.max(1, nodeGraphFiniteNumber(entry.frames, left.length)),
+    sampleRate: Math.max(1, nodeGraphFiniteNumber(entry.sampleRate, 44100)),
   };
 }
 
@@ -2733,7 +2733,7 @@ function nodeGraphAudioPlayerVideoscopeWindow(nodeId, frames, sampleRate) {
   const settings = typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
     ? nodeGraphPhosphorWaveformSettingsForNode(nodeId)
     : null;
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const seconds = Number(settings?.timeWindowSeconds);
   const want = Number.isFinite(seconds) && seconds > 0
     ? Math.round(seconds * rate)
@@ -2822,12 +2822,12 @@ function nodeGraphAudioPlayerVideoscopePaintXy(context, width, height, channels,
   const count = Math.max(1, win.end - win.start);
   const step = Math.max(1, Math.floor(count / Math.max(width, 256)));
   context.strokeStyle = ink;
-  context.lineWidth = Math.max(1, Math.round((Number(settings?.traceWidth) || 1.5)));
+  context.lineWidth = Math.max(1, Math.round((nodeGraphFiniteNumber(settings?.traceWidth, 1.5))));
   context.beginPath();
   let started = false;
   for (let i = win.start; i < win.end; i += step) {
-    const x = ((Number(channels.left[i]) || 0) * 0.5 + 0.5) * (width - 1);
-    const y = (0.5 - (Number(channels.right[i]) || 0) * 0.5) * (height - 1);
+    const x = ((nodeGraphFiniteNumber(channels.left[i])) * 0.5 + 0.5) * (width - 1);
+    const y = (0.5 - (nodeGraphFiniteNumber(channels.right[i])) * 0.5) * (height - 1);
     if (!started) {
       context.moveTo(x, y);
       started = true;
@@ -2839,8 +2839,8 @@ function nodeGraphAudioPlayerVideoscopePaintXy(context, width, height, channels,
     context.stroke();
   }
   const play = Math.max(win.start, Math.min(win.end - 1, Math.round(win.playhead)));
-  const hx = ((Number(channels.left[play]) || 0) * 0.5 + 0.5) * (width - 1);
-  const hy = (0.5 - (Number(channels.right[play]) || 0) * 0.5) * (height - 1);
+  const hx = ((nodeGraphFiniteNumber(channels.left[play])) * 0.5 + 0.5) * (width - 1);
+  const hy = (0.5 - (nodeGraphFiniteNumber(channels.right[play])) * 0.5) * (height - 1);
   context.strokeStyle = "rgba(255, 255, 255, 0.9)";
   context.lineWidth = 1;
   context.beginPath();
@@ -2879,7 +2879,7 @@ function nodeGraphAudioPlayerVideoscopePaintLr(context, width, height, channels,
       let min = 1;
       let max = -1;
       for (let i = i0; i < Math.max(i0 + 1, i1); i += 1) {
-        const s = Number(channel[i]) || 0;
+        const s = nodeGraphFiniteNumber(channel[i]);
         if (s < min) min = s;
         if (s > max) max = s;
       }

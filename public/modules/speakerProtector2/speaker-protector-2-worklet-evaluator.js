@@ -18,6 +18,6 @@ NodeLiveAudioProcessor.prototype.speakerProtector2Frame = function speakerProtec
   if (typeof nodeGraphSpeakerProtector2Frame === "function") {
     return nodeGraphSpeakerProtector2Frame(state, mono, left, right, rate, options);
   }
-  const m = Number(mono) || 0;
-  return { Out: m, Left: (Number(left) || 0) + m, Right: (Number(right) || 0) + m, gain: 1, engaged: false };
+  const m = nodeGraphFiniteNumber(mono);
+  return { Out: m, Left: (nodeGraphFiniteNumber(left)) + m, Right: (nodeGraphFiniteNumber(right)) + m, gain: 1, engaged: false };
 };

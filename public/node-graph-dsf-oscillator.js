@@ -48,14 +48,14 @@ function nodeGraphDsfOscillatorSample(state, options = {}) {
   }
   wasm.soemdsp_dsf_oscillator_sample(
     state.nativeHandle,
-    Number(options.frequencyHz) || 0,
+    nodeGraphFiniteNumber(options.frequencyHz),
     Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000,
-    Math.round(Number(options.waveform) || 0),
-    Number(options.morph) || 0,
+    Math.round(nodeGraphFiniteNumber(options.waveform)),
+    nodeGraphFiniteNumber(options.morph),
     Number(options.pulseWidth) ?? 0.5,
     Number(options.blend) ?? 0.5,
-    Number(options.phase) || 0,
-    Number(options.level) || 0,
+    nodeGraphFiniteNumber(options.phase),
+    nodeGraphFiniteNumber(options.level),
   );
-  return { Out: Number(wasm.soemdsp_dsf_oscillator_out(state.nativeHandle)) || 0 };
+  return { Out: nodeGraphFiniteNumber(wasm.soemdsp_dsf_oscillator_out(state.nativeHandle)) };
 }

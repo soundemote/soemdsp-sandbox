@@ -13,9 +13,9 @@ NodeLiveAudioProcessor.prototype.chordPadRotateLeft12 = function chordPadRotateL
 };
 
 NodeLiveAudioProcessor.prototype.chordPadSample = function chordPadSample(_state, options = {}) {
-  const key = ((Math.round(Number(options.key) || 0) % 12) + 12) % 12;
-  const mode = Math.round(Number(options.mode) || 0) === 1 ? 1 : 0;
-  let degree = Math.max(0, Math.min(6, Math.round(Number(options.degree) || 0)));
+  const key = ((Math.round(nodeGraphFiniteNumber(options.key)) % 12) + 12) % 12;
+  const mode = Math.round(nodeGraphFiniteNumber(options.mode)) === 1 ? 1 : 0;
+  let degree = Math.max(0, Math.min(6, Math.round(nodeGraphFiniteNumber(options.degree))));
   if (options.hasSelectInput) {
     const v = Number(options.select);
     if (Number.isFinite(v)) {

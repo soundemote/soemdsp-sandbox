@@ -30,14 +30,14 @@ function nodeGraphKeypadLabelsList(value) {
 }
 
 function nodeGraphKeypadWrap(value, count = NODE_GRAPH_KEYPAD_COUNT) {
-  const n = Math.max(1, Math.round(Number(count) || NODE_GRAPH_KEYPAD_COUNT));
-  const raw = Math.round(Number(value) || 0);
+  const n = Math.max(1, Math.round(nodeGraphFiniteNumber(count, NODE_GRAPH_KEYPAD_COUNT)));
+  const raw = Math.round(nodeGraphFiniteNumber(value));
   return ((raw % n) + n) % n;
 }
 
 function nodeGraphKeypadAnalogSlot(analog, count = NODE_GRAPH_KEYPAD_COUNT) {
-  const n = Math.max(1, Math.round(Number(count) || NODE_GRAPH_KEYPAD_COUNT));
-  const unit = Math.max(0, Math.min(1, Number(analog) || 0));
+  const n = Math.max(1, Math.round(nodeGraphFiniteNumber(count, NODE_GRAPH_KEYPAD_COUNT)));
+  const unit = Math.max(0, Math.min(1, nodeGraphFiniteNumber(analog)));
   if (!(unit > 0)) {
     return null;
   }
@@ -46,8 +46,8 @@ function nodeGraphKeypadAnalogSlot(analog, count = NODE_GRAPH_KEYPAD_COUNT) {
 
 /** Digital/script 1 = key "1". 0 = idle (no key). */
 function nodeGraphKeypadDigitalToSlot(digital, count = NODE_GRAPH_KEYPAD_COUNT) {
-  const n = Math.max(1, Math.round(Number(count) || NODE_GRAPH_KEYPAD_COUNT));
-  const value = Math.round(Number(digital) || 0);
+  const n = Math.max(1, Math.round(nodeGraphFiniteNumber(count, NODE_GRAPH_KEYPAD_COUNT)));
+  const value = Math.round(nodeGraphFiniteNumber(digital));
   if (value <= 0) {
     return null;
   }
@@ -62,7 +62,7 @@ function nodeGraphKeypadSlotToDigital(slot, count = NODE_GRAPH_KEYPAD_COUNT) {
 }
 
 function nodeGraphKeypadSlotToAnalog(slot, count = NODE_GRAPH_KEYPAD_COUNT) {
-  const n = Math.max(1, Math.round(Number(count) || NODE_GRAPH_KEYPAD_COUNT));
+  const n = Math.max(1, Math.round(nodeGraphFiniteNumber(count, NODE_GRAPH_KEYPAD_COUNT)));
   const digital = nodeGraphKeypadSlotToDigital(slot, n);
   if (digital <= 0 || n <= 0) {
     return 0;
@@ -86,7 +86,7 @@ function nodeGraphKeypadSlotToXY(slot) {
  * Priority (when we add script later): script → digital → analog → pointer.
  */
 function nodeGraphKeypadResolveSlot(options = {}) {
-  const count = Math.max(1, Math.round(Number(options.count) || NODE_GRAPH_KEYPAD_COUNT));
+  const count = Math.max(1, Math.round(nodeGraphFiniteNumber(options.count, NODE_GRAPH_KEYPAD_COUNT)));
   const offset = nodeGraphKeypadWrap(options.offset, count);
   const applyOffset = (slot) => (
     slot == null ? null : nodeGraphKeypadWrap(slot + offset, count)
@@ -262,8 +262,8 @@ function nodeGraphKeypadClampPadPx(value) {
 
 /** 3×4 drawing box inside the padded keypad face. Square on = largest pack of equal cells. */
 function nodeGraphKeypadGridMetrics(innerW, innerH, squareRatio) {
-  const width = Math.max(0, Number(innerW) || 0);
-  const height = Math.max(0, Number(innerH) || 0);
+  const width = Math.max(0, nodeGraphFiniteNumber(innerW));
+  const height = Math.max(0, nodeGraphFiniteNumber(innerH));
   if (squareRatio && width > 0 && height > 0) {
     const cell = Math.min(width / 3, height / 4);
     return {
@@ -374,7 +374,7 @@ function nodeGraphKeypadClampStroke(value, legacyPx) {
 
 function nodeGraphKeypadStrokePixels(stroke, widthPx, heightPx) {
   const t = nodeGraphKeypadClampStroke(stroke);
-  const max = Math.max(0, Math.min(Number(widthPx) || 0, Number(heightPx) || 0) * 0.5);
+  const max = Math.max(0, Math.min(nodeGraphFiniteNumber(widthPx), nodeGraphFiniteNumber(heightPx)) * 0.5);
   return Math.round(t * max);
 }
 

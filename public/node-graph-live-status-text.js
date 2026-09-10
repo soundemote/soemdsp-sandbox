@@ -98,24 +98,24 @@ function nodeGraphLiveParametersSentStatusText(nodes = [], serial = nodeGraphMvp
 }
 
 function nodeGraphLiveParametersAppliedStatusText(message) {
-  const serial = Number(message.planSerial) || 0;
+  const serial = nodeGraphFiniteNumber(message.planSerial);
   const serialText = serial ? ` #${serial}` : "";
   const fingerprintText = message.patchFingerprint ? ` / fp ${message.patchFingerprint}` : "";
-  return `params${serialText} ${Number(message.nodeCount) || 0} nodes / ${Number(message.parameterCount) || 0} params${fingerprintText}`;
+  return `params${serialText} ${nodeGraphFiniteNumber(message.nodeCount)} nodes / ${nodeGraphFiniteNumber(message.parameterCount)} params${fingerprintText}`;
 }
 
 function nodeGraphLivePlanAppliedStatusText(message) {
-  const serial = Number(message.planSerial) || 0;
+  const serial = nodeGraphFiniteNumber(message.planSerial);
   const serialText = serial ? ` #${serial}` : "";
-  const feedbackCount = (Number(message.feedbackConnectionCount) || 0) +
-    (Number(message.feedbackModulationCount) || 0);
+  const feedbackCount = (nodeGraphFiniteNumber(message.feedbackConnectionCount)) +
+    (nodeGraphFiniteNumber(message.feedbackModulationCount));
   const feedbackText = feedbackCount ? ` / ${nodeGraphStateReadText(feedbackCount)}` : "";
-  const oversamplingRatio = Number(message.oversamplingRatio) || 1;
+  const oversamplingRatio = nodeGraphFiniteNumber(message.oversamplingRatio, 1);
   const oversamplingText = oversamplingRatio > 1
     ? ` / ${nodeGraphFormatOversamplingRatio(oversamplingRatio)} live`
     : "";
   const fingerprintText = message.patchFingerprint ? ` / fp ${message.patchFingerprint}` : "";
   const visualText = Number(message.visualSinkCount) ? ` / ${Number(message.visualSinkCount)} visual` : "";
   const routeText = message.speakerOutputActive ? "" : visualText ? " / visual-only" : "";
-  return `plan${serialText} ${Number(message.nodeCount) || 0} nodes / ${Number(message.connectionCount) || 0} wires / ${Number(message.modulationCount) || 0} mods${visualText}${routeText}${feedbackText}${oversamplingText}${fingerprintText}`;
+  return `plan${serialText} ${nodeGraphFiniteNumber(message.nodeCount)} nodes / ${nodeGraphFiniteNumber(message.connectionCount)} wires / ${nodeGraphFiniteNumber(message.modulationCount)} mods${visualText}${routeText}${feedbackText}${oversamplingText}${fingerprintText}`;
 }

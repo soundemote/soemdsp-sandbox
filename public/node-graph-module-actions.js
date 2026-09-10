@@ -1052,8 +1052,8 @@ function applyNodeGraphPatchDefaultsWindowSize(size = {}, element = null) {
   const normalized = typeof normalizeNodeGraphFloatingWindowSize === "function"
     ? normalizeNodeGraphFloatingWindowSize(size, nodeGraphPatchDefaultsWindowDefaultSize, { element: panel })
     : {
-      width: Number(size?.width) || nodeGraphPatchDefaultsWindowDefaultSize.width,
-      height: Number(size?.height) || nodeGraphPatchDefaultsWindowDefaultSize.height,
+      width: nodeGraphFiniteNumber(size?.width, nodeGraphPatchDefaultsWindowDefaultSize.width),
+      height: nodeGraphFiniteNumber(size?.height, nodeGraphPatchDefaultsWindowDefaultSize.height),
     };
   if (typeof applyNodeGraphFloatingWindowSizeVars === "function") {
     applyNodeGraphFloatingWindowSizeVars(panel, "--node-patch-defaults", nodeGraphPatchDefaultsWindowDefaultSize, normalized);
@@ -2140,10 +2140,10 @@ function nodeGraphCodeblockBuildFunctionBody(codeblock) {
   const context = [
     "const state = __state;",
     "const __ctx = __context || {};",
-    "const sampleRate = Number(__ctx.sampleRate) || 44100;",
-    "const frame = Number(__ctx.frame) || 0;",
-    "const frames = Number(__ctx.frames) || 1;",
-    "const time = Number(__ctx.time) || 0;",
+    "const sampleRate = nodeGraphFiniteNumber(__ctx.sampleRate, 44100);",
+    "const frame = nodeGraphFiniteNumber(__ctx.frame);",
+    "const frames = nodeGraphFiniteNumber(__ctx.frames, 1);",
+    "const time = nodeGraphFiniteNumber(__ctx.time);",
     "const dt = 1 / sampleRate;",
   ].join("\n");
   const inputs = codeblock.inputs

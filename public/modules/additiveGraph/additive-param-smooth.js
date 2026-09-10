@@ -115,8 +115,8 @@ if (typeof NodeLiveAudioProcessor === "function") {
     const smoothingSamples = typeof this.smoothingSecondsFromMetadata === "function"
       ? this.smoothingSecondsFromMetadata(metadata)
       : 0;
-    const frames = Math.max(1, Number(blockFrames) || 128);
-    const rate = Math.max(1, Number(this.engineSampleRate) || Number(sampleRate) || 44100);
+    const frames = Math.max(1, nodeGraphFiniteNumber(blockFrames, 128));
+    const rate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
 
     let seconds = typeof this.resolveSmoothingSecondsForMode === "function"
       ? this.resolveSmoothingSecondsForMode(

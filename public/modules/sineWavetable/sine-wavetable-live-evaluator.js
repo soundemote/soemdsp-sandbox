@@ -71,7 +71,7 @@ function nodeGraphSineWavetableAdvancePair({ runtime, node, nodeId, frame, frame
       "sine wavetable 0.1v input",
     ), -1, 1)
     : referenceVoltage;
-  const baseWithFreqJack = baseFrequency + (Number(freqInput) || 0);
+  const baseWithFreqJack = baseFrequency + (nodeGraphFiniteNumber(freqInput));
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
     ? nodeGraphParamResolveOscPitchHz({baseHz: baseWithFreqJack,
       hasPitchCv: hasPitch,
@@ -84,7 +84,7 @@ function nodeGraphSineWavetableAdvancePair({ runtime, node, nodeId, frame, frame
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(baseWithFreqJack, pitchCv, referenceVoltage)
       : Math.max(0, baseWithFreqJack * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
-  const phaseIncrement = (effectiveFrequency / sampleRate) + (Number(incrementInput) || 0);
+  const phaseIncrement = (effectiveFrequency / sampleRate) + (nodeGraphFiniteNumber(incrementInput));
   const pair = nodeGraphSineCosWavetableSample(phase + phaseOffset, effectiveFrequency, amplitude, sampleRate);
   runtime.phases.set(
     nodeId,

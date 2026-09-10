@@ -26,7 +26,7 @@ NodeLiveAudioProcessor.prototype.nextSeededGaussian = function nextSeededGaussia
 
 // 0 = even bipolar, 1 = Gaussian. Smoothstep blend (matches native).
 NodeLiveAudioProcessor.prototype.noiseGeneratorShapedBipolar = function noiseGeneratorShapedBipolar(chanState, shape) {
-  const t = this.clampValue(Number(shape) || 0, 0, 1);
+  const t = this.clampValue(nodeGraphFiniteNumber(shape), 0, 1);
   if (t <= 1e-12) {
     return this.nextSeededBipolar(chanState);
   }

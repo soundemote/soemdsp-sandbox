@@ -30,7 +30,7 @@ function createNodeGraphModeResonatorState() {
  */
 function nodeGraphModeResonatorRadius(decaySec, sampleRate, hold) {
   if (hold) return 1;
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const tau = Math.max(1e-6, nodeGraphFiniteNumber(decaySec, 1e-6));
   // r = e^{−1/(τ fs)}  →  τ is 1/e envelope time
   let r = Math.exp(-1 / (tau * rate));
@@ -49,9 +49,9 @@ function nodeGraphModeResonatorEnsure(
   amplitude,
   sampleRate,
 ) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const f = Math.max(0, Math.min(rate * 0.499, Number(frequencyHz) || 0));
-  const decay = Math.max(0, Number(decaySec) || 0);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const f = Math.max(0, Math.min(rate * 0.499, nodeGraphFiniteNumber(frequencyHz)));
+  const decay = Math.max(0, nodeGraphFiniteNumber(decaySec));
   const isHold = hold ? 1 : 0;
   const amp = Number(amplitude);
   const level = Number.isFinite(amp) ? amp : 1;
@@ -105,7 +105,7 @@ function nodeGraphModeResonatorSample(
   if (!state || typeof state !== "object") return 0;
   nodeGraphModeResonatorEnsure(state, frequencyHz, decaySec, hold, amplitude, sampleRate);
 
-  const x = Number(input) || 0;
+  const x = nodeGraphFiniteNumber(input);
   // y = g x + a1 y1 + a2 y2   with a2 = −r² already
   let y = state.g * x + state.a1 * state.y1 + state.a2 * state.y2;
   if (!Number.isFinite(y)) y = 0;
@@ -123,7 +123,7 @@ function nodeGraphModeResonatorSample(
 function nodeGraphModeResonatorTriggerEdge(state, trigger, threshold = 0.5) {
   if (!state || typeof state !== "object") return 0;
   if (state._lastTrig == null) state._lastTrig = 0;
-  const t = Number(trigger) || 0;
+  const t = nodeGraphFiniteNumber(trigger);
   const on = t > threshold;
   const edge = on && !state._lastTrig;
   state._lastTrig = on ? 1 : 0;

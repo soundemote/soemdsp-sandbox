@@ -13,7 +13,7 @@
   function clamp01(value, fallback = 0) {
     const n = Number(value);
     if (!Number.isFinite(n)) {
-      return Math.max(0, Math.min(1, Number(fallback) || 0));
+      return Math.max(0, Math.min(1, nodeGraphFiniteNumber(fallback)));
     }
     return Math.max(0, Math.min(1, n));
   }
@@ -41,7 +41,7 @@
    * Phosphor stamps keep their own 1px floor; do not share that helper.
    */
   function diameterPx(faceMinSide, size01) {
-    const side = Math.max(1, Number(faceMinSide) || 1);
+    const side = Math.max(1, nodeGraphFiniteNumber(faceMinSide, 1));
     return side * clamp01(size01, 0);
   }
 
@@ -105,7 +105,7 @@
       if (!next || !Number.isFinite(next?.x) || !Number.isFinite(next?.y)) {
         // 1-point segments: stroke() is invisible — draw a dot instead.
         if (segmentStart === i) {
-          const w = Math.max(0, Number(context.lineWidth) || 0);
+          const w = Math.max(0, nodeGraphFiniteNumber(context.lineWidth));
           if (w <= 0) {
             drawing = false;
             segmentStart = -1;
@@ -430,10 +430,10 @@
     if (!context || !Array.isArray(points) || !points.length) {
       return 0;
     }
-    const face = Math.max(1, Number(options.faceMinSide) || 1);
+    const face = Math.max(1, nodeGraphFiniteNumber(options.faceMinSide, 1));
     const size01 = clamp01(options.size, 0);
     const blur = normalizeBlur(options.blur, 0.2);
-    const brightness = Math.max(0, Number(options.brightness) || 0);
+    const brightness = Math.max(0, nodeGraphFiniteNumber(options.brightness));
     const fade = clamp01(options.fade, 0);
     if (brightness <= 0 || size01 <= 0) {
       return 0;
@@ -539,7 +539,7 @@
    */
   function budgetPoints(points, maxPoints) {
     const src = Array.isArray(points) ? points : [];
-    const cap = Math.max(16, Math.floor(Number(maxPoints) || 2048));
+    const cap = Math.max(16, Math.floor(nodeGraphFiniteNumber(maxPoints, 2048)));
     if (src.length <= cap) {
       return src;
     }
@@ -585,9 +585,9 @@
 
   /** Suggest max control points from face area. */
   function pointBudget(faceWidth, faceHeight, userBudget) {
-    const area = Math.max(1, (Number(faceWidth) || 1) * (Number(faceHeight) || 1));
+    const area = Math.max(1, (nodeGraphFiniteNumber(faceWidth, 1)) * (nodeGraphFiniteNumber(faceHeight, 1)));
     const auto = Math.max(256, Math.min(4096, Math.floor(Math.sqrt(area) * 8)));
-    const user = Math.floor(Number(userBudget) || 0);
+    const user = Math.floor(nodeGraphFiniteNumber(userBudget));
     if (user >= 1) {
       return Math.max(1, Math.min(8192, user));
     }
@@ -727,7 +727,7 @@
     const blend = normalizeStereoBlend(stereo.blend);
     const faceFromOpts = Math.max(
       1,
-      Number(leftOptions.faceMinSide) || Number(rightOptions.faceMinSide) || 0,
+      nodeGraphFiniteNumber(leftOptions.faceMinSide, nodeGraphFiniteNumber(rightOptions.faceMinSide)),
     );
     const face = faceFromOpts > 1
       ? faceFromOpts
@@ -831,8 +831,8 @@
     const blend = normalizeStereoBlend(stereo.blend);
     const faceFromOpts = Math.max(
       1,
-      ...list.map((layer) => Number(layer.faceMinSide) || 0),
-      Number(stereo.faceMinSide) || 0,
+      ...list.map((layer) => nodeGraphFiniteNumber(layer.faceMinSide)),
+      nodeGraphFiniteNumber(stereo.faceMinSide),
     );
     const face = faceFromOpts > 1
       ? faceFromOpts

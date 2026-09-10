@@ -20,7 +20,7 @@ function nodeGraphXyPadDivisions(quantize) {
   if (typeof nodeGraphXyPadDspDivisions === "function") {
     return nodeGraphXyPadDspDivisions(quantize);
   }
-  const q = Math.max(0, Math.min(1, Number(quantize) || 0));
+  const q = Math.max(0, Math.min(1, nodeGraphFiniteNumber(quantize)));
   return q <= 0 ? 0 : Math.max(1, Math.round(q * 16));
 }
 
@@ -28,7 +28,7 @@ function nodeGraphXyPadDivisions(quantize) {
 function nodeGraphXyPadQuantizeValue(value, quantize) {
   return typeof nodeGraphXyPadDspQuantizeUnit === "function"
     ? nodeGraphXyPadDspQuantizeUnit(value, quantize)
-    : Math.max(0, Math.min(1, Number(value) || 0));
+    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(value)));
 }
 
 function nodeGraphXyPadSnapUnit(pad, unitX, unitY) {
@@ -332,8 +332,8 @@ function nodeGraphXyPadPhosphorOutPathPoints(pad, width, height) {
   if (len < 1) {
     return null;
   }
-  const xTotal = Math.max(0, Math.floor(Number(xBuf.nodeGraphScopeTotalSampleCount) || len));
-  const yTotal = Math.max(0, Math.floor(Number(yBuf.nodeGraphScopeTotalSampleCount) || len));
+  const xTotal = Math.max(0, Math.floor(nodeGraphFiniteNumber(xBuf.nodeGraphScopeTotalSampleCount, len)));
+  const yTotal = Math.max(0, Math.floor(nodeGraphFiniteNumber(yBuf.nodeGraphScopeTotalSampleCount, len)));
   const absoluteFrame = Math.min(xTotal, yTotal);
   if (absoluteFrame < 1) {
     return null;
@@ -410,7 +410,7 @@ function nodeGraphXyPadPhosphorTargetUnit(pad) {
   const process = typeof nodeGraphXyPadDspProcessAxis === "function"
     ? nodeGraphXyPadDspProcessAxis
     : (sig, opts) => {
-      const q = Number(opts?.quantizeAmt) || 0;
+      const q = nodeGraphFiniteNumber(opts?.quantizeAmt);
       if (q <= 0 || typeof nodeGraphXyPadDspQuantizeBipolar !== "function") {
         return sig;
       }
@@ -536,22 +536,22 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
     : Math.max(0, Math.min(1, Number(options.trail) ?? (Number.isFinite(Number(options.decay)) ? 1 - Number(options.decay) : 0.88)));
   const ghost = Residual && typeof Residual.migrateGhost === "function"
     ? Residual.migrateGhost(options, 0.45)
-    : Math.max(0, Math.min(1, Number(options.ghost) || 0));
+    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.ghost)));
   const burn = Residual && typeof Residual.migrateBurn === "function"
     ? Residual.migrateBurn(options, 0)
     : (
       Number(options.residualSchema) >= 2
-        ? Math.max(0, Math.min(1, Number(options.burn) || 0))
+        ? Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.burn)))
         : 0
     );
   const residualSchema = Residual?.RESIDUAL_SCHEMA || 2;
-  const brightness01 = Math.max(0, Number(options.brightness) || 0.78);
+  const brightness01 = Math.max(0, nodeGraphFiniteNumber(options.brightness, 0.78));
   const minSide = Math.max(1, Math.min(width, height));
   // Full 0–1 size range (was capped at 0.2 — blocked large hard discs).
-  const size01 = Math.max(0, Math.min(1, Number(options.size01) || 0.07));
+  const size01 = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.size01, 0.07)));
   const blur = drawer?.normalizeBlur
     ? drawer.normalizeBlur(options.blur, 0)
-    : Math.max(0, Math.min(1, Number(options.blur) || 0));
+    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.blur)));
   const radius = Math.max(
     0.5,
     Number(options.radius) || (drawer?.size01ToRadiusPx
@@ -572,7 +572,7 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
   }
   const maxDots = Math.max(
     1,
-    Math.min(8192, Math.round(Number(options.maxDots) || 2048)),
+    Math.min(8192, Math.round(nodeGraphFiniteNumber(options.maxDots, 2048))),
   );
   // Default ON: spend dense packing up to Dot budget (hard solid trails).
   const fullDotEconomy = options.fullDotEconomy !== false;
@@ -747,31 +747,31 @@ function drawNodeGraphXyPad(pad, options = {}) {
     || display.dot1Color
     || "#7fc7d9";
   // Face = phosphor of Out X/Y (same idea as wiring Out → scope2d) + vector UI.
-  const brightness = Math.max(0, Number(display.dot1Brightness) || 0.78);
+  const brightness = Math.max(0, nodeGraphFiniteNumber(display.dot1Brightness, 0.78));
   const ResidualUx = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const trailUx = ResidualUx && typeof ResidualUx.migrateTrail === "function"
     ? ResidualUx.migrateTrail(display, 0.65)
     : Math.max(0, Math.min(1, Number(display.trail) ?? (Number.isFinite(Number(display.decay)) ? 1 - Number(display.decay) : 0.65)));
   const ghostUx = ResidualUx && typeof ResidualUx.migrateGhost === "function"
     ? ResidualUx.migrateGhost(display, 0.45)
-    : Math.max(0, Math.min(1, Number(display.ghost) || 0));
+    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(display.ghost)));
   const burnUx = ResidualUx && typeof ResidualUx.migrateBurn === "function"
     ? ResidualUx.migrateBurn(display, 0)
     : (
       Number(display.residualSchema) >= 2
-        ? Math.max(0, Math.min(1, Number(display.burn) || 0))
+        ? Math.max(0, Math.min(1, nodeGraphFiniteNumber(display.burn)))
         : 0
     );
   const residualSchemaUx = ResidualUx?.RESIDUAL_SCHEMA || 2;
   // Phosphor beam stamp size (unit face); not multiplied by a global scale.
-  const beamSize01 = Math.max(0.005, Math.min(1, Number(display.dot1Size) || 0.07));
+  const beamSize01 = Math.max(0.005, Math.min(1, nodeGraphFiniteNumber(display.dot1Size, 0.07)));
   const blur = typeof nodeGraphTraceDisplayClampStampBlur === "function"
     ? nodeGraphTraceDisplayClampStampBlur(display.lineThickness)
-    : Math.max(0, Math.min(1, Number(display.lineThickness) || 0.42));
-  const puckSize01 = Math.max(0.005, Math.min(0.25, Number(display.puckSize) || 0.045));
+    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(display.lineThickness, 0.42)));
+  const puckSize01 = Math.max(0.005, Math.min(0.25, nodeGraphFiniteNumber(display.puckSize, 0.045)));
   const dotBudget = Math.max(
     1,
-    Math.min(8192, Math.round(Number(display.dotBudget) || 2048)),
+    Math.min(8192, Math.round(nodeGraphFiniteNumber(display.dotBudget, 2048))),
   );
   const fullDotEconomy = display.fullDotEconomy !== false;
   const minSide = Math.max(1, Math.min(width, height));
@@ -1015,7 +1015,7 @@ function nodeGraphXyPadParseHexColor(hex, fallback = { r: 127, g: 199, b: 217 })
 
 function nodeGraphXyPadRgba(hex, alpha) {
   const { r, g, b } = nodeGraphXyPadParseHexColor(hex);
-  const a = Math.max(0, Math.min(1, Number(alpha) || 0));
+  const a = Math.max(0, Math.min(1, nodeGraphFiniteNumber(alpha)));
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
@@ -1129,7 +1129,7 @@ function nodeGraphXyPadNormalizeGhostUnit(value, fallbackUnit = 0.5) {
   }
   const n = Number(value);
   if (!Number.isFinite(n)) {
-    return Math.max(0, Math.min(1, Number(fallbackUnit) || 0.5));
+    return Math.max(0, Math.min(1, nodeGraphFiniteNumber(fallbackUnit, 0.5)));
   }
   return Math.max(0, Math.min(1, (n + 1) * 0.5));
 }

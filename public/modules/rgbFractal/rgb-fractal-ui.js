@@ -40,7 +40,7 @@ function nodeGraphRgbFractalStartLoop(face, nodeId) {
     nodeGraphRgbFractalEnsurePhasors(face, nodeId);
   } else {
     if (!Number.isFinite(face._rgbFractalOrbitPhasor)) {
-      face._rgbFractalOrbitPhasor = Number(face._rgbFractalPhase) || 0;
+      face._rgbFractalOrbitPhasor = nodeGraphFiniteNumber(face._rgbFractalPhase);
     }
     if (!Number.isFinite(face._rgbFractalRotationPhasor)) {
       face._rgbFractalRotationPhasor = 0;
@@ -65,9 +65,9 @@ function nodeGraphRgbFractalStartLoop(face, nodeId) {
     // Respect global scope FPS (fixed layout×dpr buffer; zoom is CSS pixelate).
     const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
       ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
-      : Math.max(1, Number(nodeGraphMvp?.moduleScopeFramesPerSecond) || 60);
+      : Math.max(1, nodeGraphFiniteNumber(nodeGraphMvp?.moduleScopeFramesPerSecond, 60));
     const minDtMs = 1000 / Math.max(1, fps);
-    const lastPaint = Number(face._rgbFractalLastPaintTs) || 0;
+    const lastPaint = nodeGraphFiniteNumber(face._rgbFractalLastPaintTs);
     if (lastPaint && (ts - lastPaint) < minDtMs - 0.5) {
       return;
     }

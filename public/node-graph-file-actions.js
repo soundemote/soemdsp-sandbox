@@ -342,7 +342,7 @@ function loadNodeGraphPatchPresetEntries() {
         .map((entry) => ({
           name: normalizeNodeGraphPatchPresetName(entry?.name),
           text: typeof entry?.text === "string" ? entry.text : "",
-          updatedAt: Number(entry?.updatedAt) || 0,
+          updatedAt: nodeGraphFiniteNumber(entry?.updatedAt),
         }))
         .filter((entry) => entry.name && entry.text)
         .sort((a, b) => a.name.localeCompare(b.name))

@@ -9,9 +9,9 @@ NodeLiveAudioProcessor.prototype.harmonicSeriesSample = function harmonicSeriesS
     try {
       return this.safeFilterNumber(
         this.nativeHarmonicSeries.soemdsp_harmonic_series_sample(
-          Number(baseHz) || 0,
-          Number(harmonic) || 0,
-          Number(offset) || 0,
+          nodeGraphFiniteNumber(baseHz),
+          nodeGraphFiniteNumber(harmonic),
+          nodeGraphFiniteNumber(offset),
         ),
         null,
       );

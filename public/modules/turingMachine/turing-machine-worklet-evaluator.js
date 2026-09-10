@@ -10,9 +10,9 @@ NodeLiveAudioProcessor.prototype.turingMachineSample = function turingMachineSam
           state.nativeHandle = this.nativeTuringMachine.soemdsp_turing_machine_create(entropy);
         }
         if (state.nativeHandle) {
-          const length = Math.max(1, Math.min(16, Math.round(Number(options.length) || 8)));
-          const probability = this.clampValue(Number(options.probability) || 0, 0, 1);
-          const level = Number(options.level) || 0;
+          const length = Math.max(1, Math.min(16, Math.round(nodeGraphFiniteNumber(options.length, 8))));
+          const probability = this.clampValue(nodeGraphFiniteNumber(options.probability), 0, 1);
+          const level = nodeGraphFiniteNumber(options.level);
           const cv = this.nativeTuringMachine.soemdsp_turing_machine_sample(
             state.nativeHandle,
             Number(options.clock) > 0 ? 1 : 0,

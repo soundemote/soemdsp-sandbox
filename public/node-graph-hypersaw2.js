@@ -46,8 +46,8 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     return { Left: 0, Right: 0, voicePhases: [], voiceAmplitudes: [], voicePans: [] };
   }
   const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
-  const frequencyHz = Number(options.frequencyHz) || 0;
-  const phaseGlobal = Number(options.phaseOffset) || 0;
+  const frequencyHz = nodeGraphFiniteNumber(options.frequencyHz);
+  const phaseGlobal = nodeGraphFiniteNumber(options.phaseOffset);
   let numVoicesExact = Number(options.numVoices);
   if (!Number.isFinite(numVoicesExact) || numVoicesExact < 1) numVoicesExact = 1;
   if (numVoicesExact > 64) numVoicesExact = 64;
@@ -65,7 +65,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
   const centerSide = Number(options.centerSide);
   const waveform = Number(options.waveform);
   const morph = Number(options.morph);
-  const level = Number(options.level) || 0;
+  const level = nodeGraphFiniteNumber(options.level);
   const seed = Number(options.seed);
   wasm.soemdsp_hypersaw2_sample(
     state.nativeHandle,
@@ -94,7 +94,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     ? Math.max(0, Math.min(64, wasm.soemdsp_hypersaw2_voice_count(state.nativeHandle) | 0))
     : Math.max(0, Math.min(64, Math.ceil(numVoicesExact - 1e-9)));
   const lastFrac = wasm.soemdsp_hypersaw2_voice_last_frac
-    ? Number(wasm.soemdsp_hypersaw2_voice_last_frac(state.nativeHandle)) || 0
+    ? nodeGraphFiniteNumber(wasm.soemdsp_hypersaw2_voice_last_frac(state.nativeHandle))
     : 0;
   // Same crossfade as native getCenterSideAmplitudeValue (0=center, 1=sides).
   const cs = Math.max(0, Math.min(1, Number.isFinite(centerSide) ? centerSide : 0.5));
@@ -105,7 +105,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
   const voicePans = new Array(n);
   for (let i = 0; i < n; i++) {
     voicePhases[i] = wasm.soemdsp_hypersaw2_voice_phase
-      ? Number(wasm.soemdsp_hypersaw2_voice_phase(state.nativeHandle, i)) || 0
+      ? nodeGraphFiniteNumber(wasm.soemdsp_hypersaw2_voice_phase(state.nativeHandle, i))
       : 0;
     const isCenter = i === 0;
     const base = (lastFrac > 0 && i === n - 1) ? lastFrac : 1;
@@ -113,8 +113,8 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     voicePans[i] = isCenter ? 0 : (((i - 1) % 2 === 0) ? -1 : 1);
   }
   return {
-    Left: Number(wasm.soemdsp_hypersaw2_left(state.nativeHandle)) || 0,
-    Right: Number(wasm.soemdsp_hypersaw2_right(state.nativeHandle)) || 0,
+    Left: nodeGraphFiniteNumber(wasm.soemdsp_hypersaw2_left(state.nativeHandle)),
+    Right: nodeGraphFiniteNumber(wasm.soemdsp_hypersaw2_right(state.nativeHandle)),
     voicePhases,
     voiceAmplitudes,
     voicePans,

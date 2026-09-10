@@ -15,7 +15,7 @@ NodeLiveAudioProcessor.prototype.additiveLadderFilterWorkletEvaluate = function 
     const n = Number(v);
     return Number.isFinite(n) ? n : fb;
   };
-  const sr = Math.max(1, Number(this.engineSampleRate) || Number(sampleRate) || 44100);
+  const sr = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
   const cutoffHz = num(p.cutoff, 2000);
   const fundHz = typeof additiveGraphResolveFundamentalHz === "function"
     ? additiveGraphResolveFundamentalHz({

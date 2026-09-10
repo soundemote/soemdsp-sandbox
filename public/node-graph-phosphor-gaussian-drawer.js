@@ -39,8 +39,8 @@
    * Fixed grid → radius is stable while zooming.
    */
   function radiusFromThickness(sizePx, thickness01 = 0.14) {
-    const size = Math.max(1, Number(sizePx) || 1);
-    const t = Math.max(0, Math.min(1, Number(thickness01) || 0));
+    const size = Math.max(1, nodeGraphFiniteNumber(sizePx, 1));
+    const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(thickness01)));
     // ~0.6%–3.4% of face min side; never thinner than ~1.25px.
     return Math.max(1.25, size * (0.006 + t * 0.028));
   }
@@ -116,7 +116,7 @@
     if (!ctx) {
       return false;
     }
-    const a = Math.max(0, Number(intensity) || 0);
+    const a = Math.max(0, nodeGraphFiniteNumber(intensity));
     if (a < 0.0015) {
       return false;
     }
@@ -156,7 +156,7 @@
     if (!ctx) {
       return 0;
     }
-    const peak = Math.max(0, Math.min(1.5, Number(intensity) || 0));
+    const peak = Math.max(0, Math.min(1.5, nodeGraphFiniteNumber(intensity)));
     if (peak < 0.0015) {
       return 0;
     }

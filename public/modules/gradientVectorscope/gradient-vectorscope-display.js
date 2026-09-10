@@ -45,8 +45,8 @@ function normalizeNodeGraphGradientVectorscopeSettings(settings = {}) {
         ? normalizeNodeGraphTraceDisplayColor(source.background ?? source.backgroundColor, d.background)
         : String(source.background || d.background),
       backgroundColor: source.backgroundColor || source.background || d.background,
-      backgroundHue: Number(source.backgroundHue) || 0,
-      backgroundBrightness: Number(source.backgroundBrightness) || 0,
+      backgroundHue: nodeGraphFiniteNumber(source.backgroundHue),
+      backgroundBrightness: nodeGraphFiniteNumber(source.backgroundBrightness),
     };
   let gradientStops;
   if (typeof nodeGraphPhosphorGradientStopsFromSettings === "function") {
@@ -165,12 +165,9 @@ function drawNodeGraphGradientVectorscopeFaceItem(_renderer, item, pixelRatio) {
       : null;
     const sampleRate = Math.max(
       1,
-      Number(source?.nodeGraphScopeSampleRate)
-        || Number(nodeGraphModuleScopeState?.sampleRate)
-        || Number(nodeGraphMvp?.sampleRate)
-        || 44100,
+      nodeGraphFiniteNumber(source?.nodeGraphScopeSampleRate, nodeGraphFiniteNumber(nodeGraphModuleScopeState?.sampleRate, nodeGraphFiniteNumber))(nodeGraphMvp?.sampleRate, 44100),
     );
-    const abs = Math.max(0, Math.floor(Number(source?.nodeGraphScopeTotalSampleCount) || 0));
+    const abs = Math.max(0, Math.floor(nodeGraphFiniteNumber(source?.nodeGraphScopeTotalSampleCount)));
     const prev = Number(canvas._gvsAbs || 0);
     const deltaSec = prev > 0 && abs > prev
       ? (abs - prev) / sampleRate
@@ -202,8 +199,8 @@ function drawNodeGraphGradientVectorscopeFaceItem(_renderer, item, pixelRatio) {
     let lastPoint = canvas._gvsLastPoint || null;
     for (let i = 0; i < captured.length; i += 1) {
       const rotated = nodeGraphGradientVectorscopeRotate(captured.X[i], captured.Y[i], settings.rotate90);
-      const px = ox + (0.5 + 0.5 * Math.max(-1, Math.min(1, rotated.x * scale))) * side;
-      const py = oy + (0.5 + 0.5 * Math.max(-1, Math.min(1, -rotated.y * scale))) * side;
+      const px = ox + (0.5 + 0.5 * rotated.x * scale) * side;
+      const py = oy + (0.5 + 0.5 * -rotated.y * scale) * side;
       if (!Number.isFinite(px) || !Number.isFinite(py)) {
         points.push(null);
         lastPoint = null;

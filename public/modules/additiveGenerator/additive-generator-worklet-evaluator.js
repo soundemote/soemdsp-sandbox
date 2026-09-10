@@ -126,13 +126,13 @@ NodeLiveAudioProcessor.prototype.additiveGeneratorBuildAndStamp = function addit
       const from = new Float32Array(Hlerp);
       const to = new Float32Array(Hlerp);
       for (let i = 0; i < Hlerp; i += 1) {
-        from[i] = prevAmp && i < prevH ? Number(prevAmp[i]) || 0 : 0;
+        from[i] = prevAmp && i < prevH ? nodeGraphFiniteNumber(prevAmp[i]) : 0;
         if (i < newH) {
-          to[i] = Number(graph.amplitude[i]) || 0;
+          to[i] = nodeGraphFiniteNumber(graph.amplitude[i]);
         } else {
           to[i] = 0;
-          if (prevRatio && i < prevH) graph.ratio[i] = Number(prevRatio[i]) || 0;
-          if (prevPhase && i < prevH) graph.phase[i] = Number(prevPhase[i]) || 0;
+          if (prevRatio && i < prevH) graph.ratio[i] = nodeGraphFiniteNumber(prevRatio[i]);
+          if (prevPhase && i < prevH) graph.phase[i] = nodeGraphFiniteNumber(prevPhase[i]);
           graph.amplitude[i] = 0;
           graph.pan[i] = 0;
         }
@@ -149,10 +149,10 @@ NodeLiveAudioProcessor.prototype.additiveGeneratorBuildAndStamp = function addit
   genState.prevPhase = new Float32Array(storeH);
   for (let i = 0; i < storeH; i += 1) {
     genState.prevAmp[i] = graph.ampLerp?.to
-      ? Number(graph.ampLerp.to[i]) || 0
-      : Number(graph.amplitude?.[i]) || 0;
-    genState.prevRatio[i] = Number(graph.ratio?.[i]) || 0;
-    genState.prevPhase[i] = Number(graph.phase?.[i]) || 0;
+      ? nodeGraphFiniteNumber(graph.ampLerp.to[i])
+      : nodeGraphFiniteNumber(graph.amplitude?.[i]);
+    genState.prevRatio[i] = nodeGraphFiniteNumber(graph.ratio?.[i]);
+    genState.prevPhase[i] = nodeGraphFiniteNumber(graph.phase?.[i]);
   }
   this.additiveGraphWrite(nodeId, graph);
 };

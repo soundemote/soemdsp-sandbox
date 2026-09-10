@@ -16,7 +16,7 @@ NodeLiveAudioProcessor.prototype.yellowjacketFilterSample = function yellowjacke
               this.clampValue(this.safeFilterNumber(params.frequency, state), 0, 1),
               this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1),
               this.clampValue(this.safeFilterNumber(params.chaos, state), 0, 1),
-              Math.max(1, Number(rate) || sampleRate || 44100),
+              Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100))),
             ),
             state,
           );

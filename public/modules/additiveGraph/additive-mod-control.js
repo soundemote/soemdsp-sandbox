@@ -26,7 +26,7 @@ function additiveModControlCloneState(state) {
  */
 function additiveModControlCreate(kind, fields = {}) {
   const k = String(kind || "scalar");
-  const sampleRate = Math.max(1, Number(fields.sampleRate) || 44100);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(fields.sampleRate, 44100));
   const base = {
     kind: k,
     version: ADDITIVE_MOD_CONTROL_VERSION,
@@ -35,18 +35,18 @@ function additiveModControlCreate(kind, fields = {}) {
   if (k === "adsr") {
     return {
       ...base,
-      gate: Number(fields.gate) || 0,
+      gate: nodeGraphFiniteNumber(fields.gate),
       params: {
-        delay: Math.max(0, Number(fields.delay) || 0),
-        attack: Math.max(0, Number(fields.attack) || 0),
-        decay: Math.max(0, Number(fields.decay) || 0),
-        sustain: Math.max(0, Math.min(1, Number(fields.sustain) || 0)),
-        release: Math.max(0, Number(fields.release) || 0),
-        attackShape: Math.max(-1, Math.min(1, Number(fields.attackShape) || 0)),
-        releaseShape: Math.max(-1, Math.min(1, Number(fields.releaseShape) || 0)),
-        level: Number(fields.level) || 1,
-        loop: Number(fields.loop) || 0,
-        updateOnTrigger: Number(fields.updateOnTrigger) || 0,
+        delay: Math.max(0, nodeGraphFiniteNumber(fields.delay)),
+        attack: Math.max(0, nodeGraphFiniteNumber(fields.attack)),
+        decay: Math.max(0, nodeGraphFiniteNumber(fields.decay)),
+        sustain: Math.max(0, Math.min(1, nodeGraphFiniteNumber(fields.sustain))),
+        release: Math.max(0, nodeGraphFiniteNumber(fields.release)),
+        attackShape: nodeGraphFiniteNumber(fields.attackShape),
+        releaseShape: nodeGraphFiniteNumber(fields.releaseShape),
+        level: nodeGraphFiniteNumber(fields.level, 1),
+        loop: nodeGraphFiniteNumber(fields.loop),
+        updateOnTrigger: nodeGraphFiniteNumber(fields.updateOnTrigger),
       },
       state: fields.state && typeof fields.state === "object"
         ? fields.state
@@ -59,10 +59,10 @@ function additiveModControlCreate(kind, fields = {}) {
     // Param keys match gold pluckEnvelope / nodeGraphPluckEnvelopeSample.
     return {
       ...base,
-      trigger: Number(fields.trigger) || 0,
-      release: Number(fields.release) || 0,
+      trigger: nodeGraphFiniteNumber(fields.trigger),
+      release: nodeGraphFiniteNumber(fields.release),
       params: {
-        delayTime: Math.max(0, Number(fields.delayTime) || 0),
+        delayTime: Math.max(0, nodeGraphFiniteNumber(fields.delayTime)),
         // Allow 0 attack (instant peak) — do not coalesce 0 → default.
         attackFeedback: Math.max(
           0,
@@ -129,9 +129,9 @@ function additiveModControlCreate(kind, fields = {}) {
   if (k === "robin") {
     return {
       ...base,
-      frequency: Number(fields.frequency) || 0,
-      amplitude: Number(fields.amplitude) || 1,
-      phase: Number(fields.phase) || 0, // cycles at block start
+      frequency: nodeGraphFiniteNumber(fields.frequency),
+      amplitude: nodeGraphFiniteNumber(fields.amplitude, 1),
+      phase: nodeGraphFiniteNumber(fields.phase), // cycles at block start
       bipolar: Number(fields.bipolar) >= 0.5,
     };
   }
@@ -139,14 +139,14 @@ function additiveModControlCreate(kind, fields = {}) {
   return {
     ...base,
     kind: "scalar",
-    value: Number(fields.value) || 0,
+    value: nodeGraphFiniteNumber(fields.value),
     mapToUnipolar: fields.mapToUnipolar !== false,
   };
 }
 
 function additiveModControlStepAdsr(control) {
   const state = control.state;
-  const gate = Number(control.gate) || 0;
+  const gate = nodeGraphFiniteNumber(control.gate);
   const live = control.params || {};
   const params = typeof nodeGraphExpAdsrParamsForSample === "function"
     ? nodeGraphExpAdsrParamsForSample(state, gate, live, live.updateOnTrigger)
@@ -157,8 +157,8 @@ function additiveModControlStepAdsr(control) {
 
 function additiveModControlStepPluck(control) {
   const state = control.state;
-  const trigger = Number(control.trigger) || 0;
-  const release = Number(control.release) || 0;
+  const trigger = nodeGraphFiniteNumber(control.trigger);
+  const release = nodeGraphFiniteNumber(control.release);
   const params = control.params || {};
   if (typeof nodeGraphPluckEnvelopeSample === "function") {
     return nodeGraphPluckEnvelopeSample(state, trigger, release, params, control.sampleRate);
@@ -167,10 +167,10 @@ function additiveModControlStepPluck(control) {
 }
 
 function additiveModControlRobinAt(control, sampleIndex) {
-  const sr = Math.max(1, Number(control.sampleRate) || 44100);
-  const f = Number(control.frequency) || 0;
-  const amp = Number(control.amplitude) || 0;
-  const phase0 = Number(control.phase) || 0;
+  const sr = Math.max(1, nodeGraphFiniteNumber(control.sampleRate, 44100));
+  const f = nodeGraphFiniteNumber(control.frequency);
+  const amp = nodeGraphFiniteNumber(control.amplitude);
+  const phase0 = nodeGraphFiniteNumber(control.phase);
   const i = Math.max(0, sampleIndex | 0);
   const x = Math.sin((phase0 + (f * i) / sr) * Math.PI * 2) * amp;
   if (control.bipolar) return additiveModControlClamp01(0.5 + 0.5 * x);
@@ -187,7 +187,7 @@ function additiveModControlValueAt(control, sampleIndex, blockFrames = 128) {
   const kind = String(control.kind || "");
   const i = Math.max(0, sampleIndex | 0);
   if (kind === "scalar") {
-    const v = Number(control.value) || 0;
+    const v = nodeGraphFiniteNumber(control.value);
     return control.mapToUnipolar === false ? v : additiveModControlClamp01(v);
   }
   if (kind === "robin") {
@@ -225,7 +225,7 @@ function additiveModControlBakeStrip(control, blockFrames = 128) {
   const kind = String(control.kind || "");
   if (kind === "scalar") {
     const v = control.mapToUnipolar === false
-      ? (Number(control.value) || 0)
+      ? (nodeGraphFiniteNumber(control.value))
       : additiveModControlClamp01(control.value);
     strip.fill(v);
     return strip;
@@ -233,9 +233,9 @@ function additiveModControlBakeStrip(control, blockFrames = 128) {
   if (kind === "robin") {
     for (let i = 0; i < N; i += 1) strip[i] = additiveModControlRobinAt(control, i);
     // Advance phase for next quantum continuity.
-    const sr = Math.max(1, Number(control.sampleRate) || 44100);
-    const f = Number(control.frequency) || 0;
-    control.phase = (Number(control.phase) || 0) + (f * N) / sr;
+    const sr = Math.max(1, nodeGraphFiniteNumber(control.sampleRate, 44100));
+    const f = nodeGraphFiniteNumber(control.frequency);
+    control.phase = (nodeGraphFiniteNumber(control.phase)) + (f * N) / sr;
     control.phase -= Math.floor(control.phase);
     return strip;
   }

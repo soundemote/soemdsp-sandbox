@@ -15,12 +15,12 @@ function createNodeGraphHenonMapJsState() {
  */
 function nodeGraphHenonMapCore(state, options = {}) {
   const reset = Number(options.reset) > 0;
-  const rate = Math.max(0, Number(options.rate) || 0);
-  const a = Math.max(0, Math.min(2, Number(options.a) || 0));
-  const b = Math.max(-1, Math.min(1, Number(options.b) || 0));
-  const seedX = Number(options.seedX) || 0;
-  const seedY = Number(options.seedY) || 0;
-  const sampleRate = Math.max(1, Number(options.sampleRate) || 44100);
+  const rate = Math.max(0, nodeGraphFiniteNumber(options.rate));
+  const a = Math.max(0, Math.min(2, nodeGraphFiniteNumber(options.a)));
+  const b = nodeGraphFiniteNumber(options.b);
+  const seedX = nodeGraphFiniteNumber(options.seedX);
+  const seedY = nodeGraphFiniteNumber(options.seedY);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
 
   if (reset || !state.hasStarted) {
     state.x = seedX;

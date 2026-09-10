@@ -14,12 +14,12 @@ NodeLiveAudioProcessor.prototype.henonMapSample = function henonMapSample(state,
         }
         if (state.nativeHandle) {
           const resetActive = Number(options.reset) > 0 ? 1 : 0;
-          const rate = Math.max(0, Number(options.rate) || 0);
-          const a = this.clampValue(Number(options.a) || 0, 0, 2);
-          const b = this.clampValue(Number(options.b) || 0, -1, 1);
-          const seedX = Number(options.seedX) || 0;
-          const seedY = Number(options.seedY) || 0;
-          const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
+          const rate = Math.max(0, nodeGraphFiniteNumber(options.rate));
+          const a = this.clampValue(nodeGraphFiniteNumber(options.a), 0, 2);
+          const b = nodeGraphFiniteNumber(options.b);
+          const seedX = nodeGraphFiniteNumber(options.seedX);
+          const seedY = nodeGraphFiniteNumber(options.seedY);
+          const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
           this.nativeHenonMap.soemdsp_henon_map_sample(
             state.nativeHandle,
             resetActive,

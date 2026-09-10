@@ -28,7 +28,7 @@ function createNodeGraphCombResonatorState() {
 }
 
 function nodeGraphCombResonatorEnsureBuffer(state, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const capacity = Math.max(
     64,
     Math.min(768000, Math.ceil(rate * NODE_GRAPH_COMB_RESONATOR_MAX_SECONDS) + 8),
@@ -51,7 +51,7 @@ function nodeGraphCombResonatorEnsureBuffer(state, sampleRate) {
  */
 function nodeGraphCombResonatorFeedbackGain(decaySec, delaySamples, sampleRate, hold) {
   if (hold) return 1 - 1e-12;
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const D = Math.max(1, nodeGraphFiniteNumber(delaySamples, 1));
   const tau = Math.max(1e-6, nodeGraphFiniteNumber(decaySec, 1e-6));
   let g = Math.exp(-D / (tau * rate));
@@ -80,7 +80,7 @@ function nodeGraphCombResonatorReadInt(state, delayInt) {
  * When frac≈0, pure passthrough (no extra delay).
  */
 function nodeGraphCombResonatorThiran(state, x, frac) {
-  let d = Number(frac) || 0;
+  let d = nodeGraphFiniteNumber(frac);
   if (d < 1e-12) {
     // Keep state continuous but add no delay.
     state.thiranX1 = x;
@@ -108,7 +108,7 @@ function nodeGraphCombResonatorReadFrac(state, delaySamples) {
   const capacity = state.capacity;
   if (!state.buffer || capacity < 2) return 0;
 
-  let D = Number(delaySamples) || 0;
+  let D = nodeGraphFiniteNumber(delaySamples);
   if (D < 2) D = 2;
   if (D > capacity - 2) D = capacity - 2;
 
@@ -123,7 +123,7 @@ function nodeGraphCombResonatorReadFrac(state, delaySamples) {
  * No DC blocker in the loop — that would steal energy and falsify Decay.
  */
 function nodeGraphCombResonatorLoopFilter(state, x, damping) {
-  const d = Math.max(0, Math.min(1, Number(damping) || 0));
+  const d = Math.max(0, Math.min(1, nodeGraphFiniteNumber(damping)));
   if (d <= 1e-9) {
     state.lp = x;
     return x;
@@ -158,7 +158,7 @@ function nodeGraphCombResonatorSample(
 
   const f0 = Math.max(
     NODE_GRAPH_COMB_RESONATOR_MIN_HZ,
-    Math.min(rate * 0.499, Number(frequencyHz) || NODE_GRAPH_COMB_RESONATOR_MIN_HZ),
+    Math.min(rate * 0.499, nodeGraphFiniteNumber(frequencyHz, NODE_GRAPH_COMB_RESONATOR_MIN_HZ)),
   );
   // Continuous pitch: D = fs/f0 (fractional). Thiran handles the sub-sample.
   let delaySamples = rate / f0;
@@ -166,14 +166,14 @@ function nodeGraphCombResonatorSample(
   if (delaySamples > capacity - 2) delaySamples = capacity - 2;
 
   const amp = Number.isFinite(Number(amplitude)) ? Number(amplitude) : 1;
-  const x = (Number(input) || 0) * amp;
-  const sign = Math.round(Number(invert) || 0) !== 0 ? -1 : 1;
-  const isFf = Math.round(Number(topology) || 0) !== 0;
+  const x = (nodeGraphFiniteNumber(input)) * amp;
+  const sign = Math.round(nodeGraphFiniteNumber(invert)) !== 0 ? -1 : 1;
+  const isFf = Math.round(nodeGraphFiniteNumber(topology)) !== 0;
 
   let y;
   if (isFf) {
     const delayed = nodeGraphCombResonatorReadFrac(state, delaySamples);
-    const amt = Math.max(0, Math.min(1, Number(depth) || 0));
+    const amt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(depth)));
     y = x + sign * amt * delayed;
   } else {
     const delayed = nodeGraphCombResonatorReadFrac(state, delaySamples);
@@ -201,7 +201,7 @@ function nodeGraphCombResonatorSample(
 function nodeGraphCombResonatorTriggerEdge(state, trigger, threshold = 0.5) {
   if (!state || typeof state !== "object") return 0;
   if (state._lastTrig == null) state._lastTrig = 0;
-  const t = Number(trigger) || 0;
+  const t = nodeGraphFiniteNumber(trigger);
   const on = t > threshold;
   const edge = on && !state._lastTrig;
   state._lastTrig = on ? 1 : 0;

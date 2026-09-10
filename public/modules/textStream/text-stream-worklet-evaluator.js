@@ -15,10 +15,10 @@ NodeLiveAudioProcessor.prototype.textStreamSample = function textStreamSample(st
   const message = String(options.message ?? "HELLO MATRIX");
   const len = message.length;
   const loop = Boolean(options.loop);
-  const rate = Math.max(0, Number(options.rate) || 0);
-  const sampleRate = Math.max(1, Number(options.sampleRate) || 44100);
-  const clock = Number(options.clock) || 0;
-  const reset = Number(options.reset) || 0;
+  const rate = Math.max(0, nodeGraphFiniteNumber(options.rate));
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const clock = nodeGraphFiniteNumber(options.clock);
+  const reset = nodeGraphFiniteNumber(options.reset);
   const clocked = Boolean(options.clockConnected);
 
   const resetHigh = reset > 0.5;

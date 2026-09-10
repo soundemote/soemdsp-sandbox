@@ -85,8 +85,8 @@ function setNodeGraphZoom(nextZoom, anchor = null) {
     : null;
   const anchoredContentPoint = workspaceRect && anchorPoint
     ? {
-      x: (anchorPoint.x - workspaceRect.left - (Number(oldOrigin.x) || 0)) / oldZoom,
-      y: (anchorPoint.y - workspaceRect.top - (Number(oldOrigin.y) || 0)) / oldZoom,
+      x: (anchorPoint.x - workspaceRect.left - (nodeGraphFiniteNumber(oldOrigin.x))) / oldZoom,
+      y: (anchorPoint.y - workspaceRect.top - (nodeGraphFiniteNumber(oldOrigin.y))) / oldZoom,
     }
     : null;
   const zoom = clampNodeGraphZoom(nextZoom);
@@ -101,13 +101,13 @@ function setNodeGraphZoom(nextZoom, anchor = null) {
     : { x: 0, y: 0 };
   const nextPan = workspaceRect && anchorPoint && anchoredContentPoint
     ? {
-      x: anchorPoint.x - workspaceRect.left - nextCenter.x - (Number(pin.x) || 0) - anchoredContentPoint.x * zoom,
-      y: anchorPoint.y - workspaceRect.top - nextCenter.y - (Number(pin.y) || 0) - anchoredContentPoint.y * zoom,
+      x: anchorPoint.x - workspaceRect.left - nextCenter.x - (nodeGraphFiniteNumber(pin.x)) - anchoredContentPoint.x * zoom,
+      y: anchorPoint.y - workspaceRect.top - nextCenter.y - (nodeGraphFiniteNumber(pin.y)) - anchoredContentPoint.y * zoom,
     }
     : oldPan;
   nodeGraphMvp.pan = {
-    x: Number(nextPan.x) || 0,
-    y: Number(nextPan.y) || 0,
+    x: nodeGraphFiniteNumber(nextPan.x),
+    y: nodeGraphFiniteNumber(nextPan.y),
   };
   // One light CSS pass for zoom+pan (pan via skipHeavy), then single coalesced heavy chrome.
   applyNodeGraphZoom({ gestureKind: "wheel", layout: false });
@@ -320,7 +320,7 @@ if (typeof window !== "undefined") {
 }
 
 function nodeGraphZoomRatioBySteps(steps, baseRatio = nodeGraphZoomLimits.wheelRatio) {
-  const stepCount = Number(steps) || 0;
+  const stepCount = nodeGraphFiniteNumber(steps);
   const ratio = Number(baseRatio);
   if (!Number.isFinite(ratio) || ratio <= 0 || ratio === 1 || !stepCount) {
     return 1;
@@ -342,7 +342,7 @@ function nodeGraphWheelZoomSteps(event) {
   const deltaModeScale = event?.deltaMode === 1
     ? 16
     : event?.deltaMode === 2 ? 800 : 1;
-  return -(Number(event?.deltaY) || 0) * deltaModeScale / 100;
+  return -(nodeGraphFiniteNumber(event?.deltaY)) * deltaModeScale / 100;
 }
 
 function nodeGraphZoomBySteps(steps, anchor = null, baseRatio = nodeGraphZoomLimits.wheelRatio) {
@@ -359,7 +359,7 @@ function zoomNodeGraphBy(delta) {
 }
 
 function zoomNodeGraphAt(delta, clientX, clientY) {
-  const steps = Number(delta) || 0;
+  const steps = nodeGraphFiniteNumber(delta);
   if (!steps) {
     return;
   }

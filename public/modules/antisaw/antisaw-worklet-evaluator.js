@@ -30,10 +30,10 @@ NodeLiveAudioProcessor.prototype.antisawSample = function antisawSample(state, p
         const safeRate = Number(rate) > 1 ? Number(rate) : sampleRate;
         const out = this.nativeAntisaw.soemdsp_antisaw_sample(
           state.nativeHandle,
-          Number(params.fundamental) || 0,
-          Number(params.reflections) || 0,
-          Number(params.tilt) || 0,
-          Number(params.amplitude) || 0,
+          nodeGraphFiniteNumber(params.fundamental),
+          nodeGraphFiniteNumber(params.reflections),
+          nodeGraphFiniteNumber(params.tilt),
+          nodeGraphFiniteNumber(params.amplitude),
           safeRate,
         );
         return this.safeFilterNumber(out, null);

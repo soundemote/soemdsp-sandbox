@@ -54,7 +54,7 @@ function normalizeNodeGraphPatchAudio(audio = {}) {
       ? Math.max(0.01, Math.min(safeSpeedLimit, pitchReferenceHz))
       : 100,
     pitchOffsetOctaves: Number.isFinite(pitchOffsetOctaves)
-      ? Math.max(-10, Math.min(10, pitchOffsetOctaves))
+      ? pitchOffsetOctaves
       : 0,
     speedLimitHz: safeSpeedLimit,
   };

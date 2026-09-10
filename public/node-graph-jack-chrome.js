@@ -503,8 +503,8 @@ function nodeGraphJackElementVisibility(element) {
   const display = cs?.display || "";
   const visibility = cs?.visibility || "";
   const opacity = cs ? Number(cs.opacity) : 1;
-  const width = Number(rect.width) || 0;
-  const height = Number(rect.height) || 0;
+  const width = nodeGraphFiniteNumber(rect.width);
+  const height = nodeGraphFiniteNumber(rect.height);
   const hiddenHost = Boolean(element.hidden || element.closest?.("[hidden]"));
   const ioHidden = Boolean(element.closest?.(".io-hidden"));
   const unusedHost = Boolean(element.closest?.(".unused-hidden, .patch-unused-ports-hidden"));

@@ -44,8 +44,8 @@ function createNodeGraphRmsState() {
 }
 
 function nodeGraphRmsCoeffForSeconds(seconds, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const sec = Math.max(0, Number(seconds) || 0);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const sec = Math.max(0, nodeGraphFiniteNumber(seconds));
   if (sec <= 1e-6) {
     return 1;
   }
@@ -53,8 +53,8 @@ function nodeGraphRmsCoeffForSeconds(seconds, sampleRate) {
 }
 
 function nodeGraphRmsEnsureWindowCoeff(state, windowSec, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const win = Math.max(1e-4, Math.min(10, Number(windowSec) || 0.05));
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const win = Math.max(1e-4, Math.min(10, nodeGraphFiniteNumber(windowSec, 0.05)));
   if (state.sampleRate !== rate || state.windowSec !== win) {
     state.sampleRate = rate;
     state.windowSec = win;
@@ -76,14 +76,14 @@ function nodeGraphRmsUpdateMeanSquare(channel, sample, coeff) {
 }
 
 function nodeGraphRmsApplyBallistics(channel, targetAmp, attackSec, releaseSec, sampleRate) {
-  const target = Math.max(0, Number(targetAmp) || 0);
+  const target = Math.max(0, nodeGraphFiniteNumber(targetAmp));
   if (!Number.isFinite(channel.envAmp) || channel.envAmp < 0) {
     channel.envAmp = 0;
   }
   const rising = target > channel.envAmp;
   const sec = rising
-    ? Math.max(0, Number(attackSec) || 0)
-    : Math.max(0, Number(releaseSec) || 0);
+    ? Math.max(0, nodeGraphFiniteNumber(attackSec))
+    : Math.max(0, nodeGraphFiniteNumber(releaseSec));
   const coeff = nodeGraphRmsCoeffForSeconds(sec, sampleRate);
   channel.envAmp += coeff * (target - channel.envAmp);
   if (!(channel.envAmp > 0) || !Number.isFinite(channel.envAmp)) {
@@ -150,13 +150,13 @@ function nodeGraphRmsDbToLinear(db) {
 function nodeGraphRmsApplyPeakHold(channel, db, peakHoldSec, sampleRate) {
   const value = Number(db);
   const safeDb = Number.isFinite(value) ? value : NODE_GRAPH_RMS_DB_FLOOR;
-  const holdSec = Math.max(0, Number(peakHoldSec) || 0);
+  const holdSec = Math.max(0, nodeGraphFiniteNumber(peakHoldSec));
   if (!(holdSec > 0)) {
     channel.holdDb = safeDb;
     channel.holdSamples = 0;
     return safeDb;
   }
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   if (safeDb >= channel.holdDb - 1e-9) {
     channel.holdDb = safeDb;
     channel.holdSamples = Math.max(1, Math.round(holdSec * rate));
@@ -171,11 +171,11 @@ function nodeGraphRmsApplyPeakHold(channel, db, peakHoldSec, sampleRate) {
 }
 
 function nodeGraphRmsNormalizeOptions(options = {}) {
-  const windowSec = Math.max(1e-4, Math.min(10, Number(options.windowSec) || 0.05));
+  const windowSec = Math.max(1e-4, Math.min(10, nodeGraphFiniteNumber(options.windowSec, 0.05)));
   const attackSec = Math.max(0, Math.min(5, Number(options.attackSec)));
   const releaseSec = Math.max(0, Math.min(10, Number(options.releaseSec)));
   const thresholdDb = Number(options.thresholdDb);
-  const peakHoldSec = Math.max(0, Math.min(30, Number(options.peakHoldSec) || 0));
+  const peakHoldSec = Math.max(0, Math.min(30, nodeGraphFiniteNumber(options.peakHoldSec)));
   const useLogLut = options.useLogLut === true
     || options.useLogLut === 1
     || options.useLogLut === "1"
@@ -281,7 +281,7 @@ function nodeGraphRmsDbToFaceBipolar(db, minDb, maxDb) {
   if (!(span > 1e-12)) {
     return 0;
   }
-  return Math.max(-1, Math.min(1, 2 * ((Number(db) || 0) - range.minDb) / span - 1));
+  return Math.max(-1, Math.min(1, 2 * ((nodeGraphFiniteNumber(db)) - range.minDb) / span - 1));
 }
 
 /**
@@ -335,7 +335,7 @@ function nodeGraphRmsSample(state, input, options, sampleRate, hasInput) {
   const opts = nodeGraphRmsReadOptions(options, state, sampleRate);
   const channel = nodeGraphRmsProcessChannel(
     state.mono,
-    hasInput ? (Number(input) || 0) : 0,
+    hasInput ? (nodeGraphFiniteNumber(input)) : 0,
     opts,
     sampleRate,
     Boolean(hasInput),
@@ -361,8 +361,8 @@ function nodeGraphRmsStereoSample(
   hasRight,
 ) {
   const opts = nodeGraphRmsReadOptions(options, state, sampleRate);
-  const lIn = hasLeft ? (Number(left) || 0) : 0;
-  const rIn = hasRight ? (Number(right) || 0) : 0;
+  const lIn = hasLeft ? (nodeGraphFiniteNumber(left)) : 0;
+  const rIn = hasRight ? (nodeGraphFiniteNumber(right)) : 0;
   let avgIn = 0;
   let hasAvg = false;
   if (hasLeft && hasRight) {

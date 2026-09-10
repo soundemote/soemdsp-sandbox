@@ -488,7 +488,7 @@ function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
-      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 1024))),
+      : Math.max(1, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 1024)))),
     // Default ON when missing (devilish solid trails). Explicit false stays off.
     fullDotEconomy: source.fullDotEconomy !== false
       && source.useFullDotEconomy !== false,
@@ -750,7 +750,7 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     // Dot Budget + Full Dot Economy persist (toggle was dropped before).
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
-      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 1024))),
+      : Math.max(1, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 1024)))),
     // Shared packing toggles. Fall back to lineBurn defaults (Full Dot Economy ON
     // for c1091b42 fused CRT look). Explicit false stays off.
     // Packing toggles retired — always chord-pack continuous trails.
@@ -889,7 +889,7 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
     ),
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
-      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 1024))),
+      : Math.max(1, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 1024)))),
     pixelDensity: normalizeNodeGraphTraceDisplayNumber(
       source.pixelDensity,
       defaults.pixelDensity,
@@ -1020,7 +1020,7 @@ function nodeGraphSampleGradientStopsRgb(stops, energyT, peakFallback = "#75ebff
   const list = Array.isArray(stops) && stops.length >= 2
     ? stops
     : nodeGraphPhosphorDefaultGradientStops(peakFallback);
-  const t = Math.max(0, Math.min(1, Number(energyT) || 0));
+  const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(energyT)));
   const hexToRgb = (hex, fb = "#808080") => {
     const color = normalizeNodeGraphTraceDisplayColor(hex, fb);
     const match = /^#?([0-9a-f]{6})$/i.exec(String(color).trim());
@@ -1032,17 +1032,17 @@ function nodeGraphSampleGradientStopsRgb(stops, energyT, peakFallback = "#75ebff
   };
   const first = list[0];
   const last = list[list.length - 1];
-  if (t <= (Number(first.t) || 0)) {
+  if (t <= (nodeGraphFiniteNumber(first.t))) {
     return hexToRgb(first.color, peakFallback);
   }
-  if (t >= (Number(last.t) || 1)) {
+  if (t >= (nodeGraphFiniteNumber(last.t, 1))) {
     return hexToRgb(last.color, peakFallback);
   }
   for (let i = 1; i < list.length; i += 1) {
     const a = list[i - 1];
     const b = list[i];
-    const at = Number(a.t) || 0;
-    const bt = Number(b.t) || 1;
+    const at = nodeGraphFiniteNumber(a.t);
+    const bt = nodeGraphFiniteNumber(b.t, 1);
     if (t <= bt) {
       const u = (t - at) / Math.max(1e-6, bt - at);
       const ar = hexToRgb(a.color, peakFallback);
@@ -1501,7 +1501,7 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
-      : Math.max(1, Math.min(8192, Math.round(Number(source.dotBudget ?? defaults.dotBudget) || 1024))),
+      : Math.max(1, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 1024)))),
     // Full Dots / Dots only — shared phosphor packing (scope2d SSOT).
     // Accept bool true and common form/patch coercions (1 / "1" / "true" / "on").
     // Packing toggles retired — always chord-pack continuous trails.

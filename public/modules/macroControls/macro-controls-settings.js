@@ -63,17 +63,17 @@ function normalizeNodeGraphMacroControlsFaceSettings(raw = {}) {
       ? normalizeNodeGraphMacroKnobArcThickness(
         source.arcThickness ?? source.macroKnobArcThickness ?? nodeGraphMvp?.macroKnobArcThickness,
       )
-      : Number(source.arcThickness) || nodeGraphMacroControlsFaceDefaults.arcThickness,
+      : nodeGraphFiniteNumber(source.arcThickness, nodeGraphMacroControlsFaceDefaults.arcThickness),
     arcGapBrightness: typeof normalizeNodeGraphMacroKnobArcGapBrightness === "function"
       ? normalizeNodeGraphMacroKnobArcGapBrightness(
         source.arcGapBrightness ?? source.macroKnobArcGapBrightness ?? nodeGraphMvp?.macroKnobArcGapBrightness,
       )
-      : Number(source.arcGapBrightness) || 0,
+      : nodeGraphFiniteNumber(source.arcGapBrightness),
     sizeScale: typeof normalizeNodeGraphMacroKnobSizeScale === "function"
       ? normalizeNodeGraphMacroKnobSizeScale(
         source.sizeScale ?? source.macroKnobSizeScale ?? nodeGraphMvp?.macroKnobSizeScale,
       )
-      : Number(source.sizeScale) || 1,
+      : nodeGraphFiniteNumber(source.sizeScale, 1),
     knobSpacing: (() => {
       const n = Number(source.knobSpacing ?? source.spacing);
       return Number.isFinite(n) ? Math.max(0, Math.min(32, Math.round(n))) : 4;
@@ -145,7 +145,7 @@ function applyNodeGraphMacroControlsLook(settings) {
   }
   const root = document.documentElement;
   if (root?.style) {
-    const span = Number(s.rotationDegrees) || nodeGraphMacroControlsFaceDefaults.rotationDegrees;
+    const span = nodeGraphFiniteNumber(s.rotationDegrees, nodeGraphMacroControlsFaceDefaults.rotationDegrees);
     root.style.setProperty("--macro-arc-start-deg", `${-span * 0.5}deg`);
     root.style.setProperty("--macro-arc-span-deg", `${span}deg`);
     const gap = Number.isFinite(Number(s.knobSpacing)) ? Math.max(0, Math.min(32, Number(s.knobSpacing))) : 4;
@@ -169,7 +169,7 @@ function applyNodeGraphMacroControlsFaceSettings() {
     root.style.setProperty("--macro-arc-track", settings.arcTrack);
   }
   document.querySelectorAll("[data-macro-index]").forEach((knob) => {
-    const index = Math.max(0, Math.min(7, Math.round(Number(knob.dataset.macroIndex) || 0)));
+    const index = Math.max(0, Math.min(7, Math.round(nodeGraphFiniteNumber(knob.dataset.macroIndex))));
     const name = settings.labels[index] || `M${index + 1}`;
     // Title sits above the dial (shared layout).
     const nameEl = knob.querySelector(

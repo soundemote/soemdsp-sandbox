@@ -52,7 +52,7 @@ function nodeGraphSinCos4LiveParam(node, key, fallback = 0) {
 
 /** Mode → relative phase offsets in cycles (A at 0). */
 function nodeGraphSinCos4PhaseOffsets(mode) {
-  const m = Math.max(0, Math.min(5, Math.round(Number(mode) || 0)));
+  const m = Math.max(0, Math.min(5, Math.round(nodeGraphFiniteNumber(mode))));
   if (m === 0) return [0];
   if (m === 1) return [0.25];
   if (m === 2) return [0, 0.25];
@@ -89,7 +89,7 @@ function nodeGraphSinCos4FaceNorm(node) {
 }
 
 function nodeGraphSinCos4Wrap01(v) {
-  const n = Number(v) || 0;
+  const n = nodeGraphFiniteNumber(v);
   return n - Math.floor(n);
 }
 
@@ -101,13 +101,13 @@ function nodeGraphSinCos4ReadPhase(nodeId, node, section) {
     }
   }
   const now = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
-  const freq = Number(nodeGraphSinCos4LiveParam(node, "freq", 100)) || 0;
-  const offset = Number(nodeGraphSinCos4LiveParam(node, "phase", 0)) || 0;
+  const freq = nodeGraphFiniteNumber(nodeGraphSinCos4LiveParam(node, "freq", 100));
+  const offset = nodeGraphFiniteNumber(nodeGraphSinCos4LiveParam(node, "phase", 0));
   const speed = Number(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.speedMultiplier : 1);
   const mul = Number.isFinite(speed) ? speed : 1;
   if (section && Number.isFinite(section._sinCos4Clock)) {
     const dt = Math.max(0, Math.min(0.25, now - section._sinCos4Clock));
-    let next = (Number(section._sinCos4Phase) || 0) + freq * dt * mul;
+    let next = (nodeGraphFiniteNumber(section._sinCos4Phase)) + freq * dt * mul;
     next = nodeGraphSinCos4Wrap01(next);
     section._sinCos4Phase = next;
     section._sinCos4Clock = now;
@@ -162,16 +162,16 @@ function drawNodeGraphSinCos4DisplayInner(section) {
   const look = nodeGraphSinCos4FaceNorm(node);
   // Prefer the live layout box; in F solo fill, fall back to the stage cell so
   // we never paint into a leftover short filter-curve band.
-  let rawW = Number(section.clientWidth || section.offsetWidth) || 0;
-  let rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+  let rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
+  let rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
   if (
     (rawW < 8 || rawH < 8 || section.classList.contains("node-screen-solo-face"))
     && typeof document !== "undefined"
   ) {
     const stage = section.closest?.("#nodeScreenSoloStage");
     if (stage) {
-      const cols = Math.max(1, Number(stage.style.getPropertyValue("--node-screen-solo-cols")) || 1);
-      const rows = Math.max(1, Number(stage.style.getPropertyValue("--node-screen-solo-rows")) || 1);
+      const cols = Math.max(1, nodeGraphFiniteNumber(stage.style.getPropertyValue("--node-screen-solo-cols"), 1));
+      const rows = Math.max(1, nodeGraphFiniteNumber(stage.style.getPropertyValue("--node-screen-solo-rows"), 1));
       const cellW = Math.floor((stage.clientWidth || window.innerWidth || 0) / cols);
       const cellH = Math.floor((stage.clientHeight || window.innerHeight || 0) / rows);
       if (section.getAttribute("data-solo-fit") === "contain") {
@@ -215,7 +215,7 @@ function drawNodeGraphSinCos4DisplayInner(section) {
       return;
     }
     ctx = metrics.context;
-    pixelRatio = Math.max(1e-6, Number(metrics.pixelRatio) || 1);
+    pixelRatio = Math.max(1e-6, nodeGraphFiniteNumber(metrics.pixelRatio, 1));
     cssW = Math.max(1, (metrics.width || canvas.width) / pixelRatio);
     cssH = Math.max(1, (metrics.height || canvas.height) / pixelRatio);
   }

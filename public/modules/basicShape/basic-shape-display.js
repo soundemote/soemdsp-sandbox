@@ -52,20 +52,20 @@ function nodeGraphBasicShapeReadPhase(nodeId, node, section) {
   if (typeof nodeGraphMvp !== "undefined") {
     const stored = Number(nodeGraphMvp?.live?.runtime?.phases?.get?.(nodeId));
     if (Number.isFinite(stored)) {
-      const offset = Number(nodeGraphBasicShapeLiveParam(node, "phase", 0)) || 0;
+      const offset = nodeGraphFiniteNumber(nodeGraphBasicShapeLiveParam(node, "phase", 0));
       const phase = stored + offset;
       return phase - Math.floor(phase);
     }
   }
   if (typeof nodeGraphRoundShapeLivePlaying === "function" && nodeGraphRoundShapeLivePlaying()) {
     const now = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
-    const freq = Number(nodeGraphBasicShapeLiveParam(node, "frequency", 1)) || 0;
-    const offset = Number(nodeGraphBasicShapeLiveParam(node, "phase", 0)) || 0;
+    const freq = nodeGraphFiniteNumber(nodeGraphBasicShapeLiveParam(node, "frequency", 1));
+    const offset = nodeGraphFiniteNumber(nodeGraphBasicShapeLiveParam(node, "phase", 0));
     const speed = Number(nodeGraphMvp?.live?.speedMultiplier);
     const mul = Number.isFinite(speed) ? speed : 1;
     if (section && Number.isFinite(section._basicShapeClock)) {
       const dt = Math.max(0, Math.min(0.25, now - section._basicShapeClock));
-      let next = (Number(section._basicShapePhase) || 0) + freq * dt * mul;
+      let next = (nodeGraphFiniteNumber(section._basicShapePhase)) + freq * dt * mul;
       next -= Math.floor(next);
       section._basicShapePhase = next;
       section._basicShapeClock = now;
@@ -88,9 +88,9 @@ function nodeGraphBasicShapeSample(phase01, waveform, pulseWidth, amplitude) {
   if (waves && typeof nodeGraphBasicShapeSelect === "function") {
     y = nodeGraphBasicShapeSelect(waves, waveform);
   } else {
-    const cycle = (Number(phase01) || 0) - Math.floor(Number(phase01) || 0);
-    const i = Math.max(0, Math.min(6, Math.round(Number(waveform) || 0)));
-    const width = Math.max(0, Math.min(1, Number(pulseWidth) || 0.5));
+    const cycle = (nodeGraphFiniteNumber(phase01)) - Math.floor(nodeGraphFiniteNumber(phase01));
+    const i = Math.max(0, Math.min(6, Math.round(nodeGraphFiniteNumber(waveform))));
+    const width = Math.max(0, Math.min(1, nodeGraphFiniteNumber(pulseWidth, 0.5)));
     if (i === 1) {
       y = 1 - 4 * Math.abs(cycle - 0.5);
     } else if (i === 2) {
@@ -125,9 +125,9 @@ function nodeGraphBasicShapeFaceLook(node) {
     backgroundPaint: String(face.backgroundPaint || face.background || "#020609"),
     strokePaint: String(face.strokePaint || face.strokeColor || "rgba(120, 220, 200, 0.92)"),
     dotPaint: String(face.dotPaint || face.dotColor || "#ffffff"),
-    lineThickness: Math.max(0.25, Number(face.lineThickness) || 2),
-    dotThickness: Math.max(0.25, Number(face.dotThickness) || 5),
-    lineBlur: Math.max(0, Number(face.lineBlur) || 0),
+    lineThickness: Math.max(0.25, nodeGraphFiniteNumber(face.lineThickness, 2)),
+    dotThickness: Math.max(0.25, nodeGraphFiniteNumber(face.dotThickness, 5)),
+    lineBlur: Math.max(0, nodeGraphFiniteNumber(face.lineBlur)),
     pixelDensity: Number.isFinite(Number(face.pixelDensity)) ? Number(face.pixelDensity) : 1,
   };
 }
@@ -161,28 +161,28 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
   const waveform = nodeGraphBasicShapeLiveParam(node, "waveform", 0);
   const pulseWidth = nodeGraphBasicShapeLiveParam(node, "morph", 0.5);
   const amplitude = nodeGraphBasicShapeLiveParam(node, "amplitude", 1);
-  const phaseParam = Number(nodeGraphBasicShapeLiveParam(node, "phase", 0)) || 0;
+  const phaseParam = nodeGraphFiniteNumber(nodeGraphBasicShapeLiveParam(node, "phase", 0));
   const polarity = nodeGraphBasicShapeLiveParam(node, "polarity", 0);
   const strokeW = look.lineThickness;
   const dotW = look.dotThickness;
   const lineBlur = look.lineBlur;
   const pixelDensity = look.pixelDensity;
-  let rawW = Number(section.clientWidth || section.offsetWidth) || 0;
-  let rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+  let rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
+  let rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
   if (rawW < 8 || rawH < 8) {
     const stage = section.closest?.("#nodeScreenSoloStage") || section.parentElement;
     if (stage?.id === "nodeScreenSoloStage") {
-      rawW = Number(stage.clientWidth) || rawW;
-      rawH = Number(stage.clientHeight) || rawH;
+      rawW = nodeGraphFiniteNumber(stage.clientWidth, rawW);
+      rawH = nodeGraphFiniteNumber(stage.clientHeight, rawH);
     }
   }
   const signature = [
     String(nodeId),
-    String(Math.round(Number(waveform) || 0)),
+    String(Math.round(nodeGraphFiniteNumber(waveform))),
     String(Number(pulseWidth).toFixed(4)),
     String(Number(amplitude).toFixed(4)),
     String((phaseParam - Math.floor(phaseParam)).toFixed(4)),
-    String(Math.round(Number(polarity) || 0)),
+    String(Math.round(nodeGraphFiniteNumber(polarity))),
     look.strokePaint,
     look.backgroundPaint,
     String(strokeW),
@@ -228,7 +228,7 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
     pixelRatio = metrics.pixelRatio || 1;
   } else {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
-    pixelRatio = dpr * Math.max(Number(pixelDensity) || 1, 1e-6);
+    pixelRatio = dpr * Math.max(nodeGraphFiniteNumber(pixelDensity, 1), 1e-6);
     width = Math.max(1, Math.floor(rawW));
     height = Math.max(1, Math.floor(rawH));
     canvas.width = Math.max(1, Math.round(width * pixelRatio));
@@ -269,11 +269,11 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
   const midY = padY + innerH * 0.5;
   const halfH = innerH * 0.5;
   const mapX = (phase) => padX + phase * innerW;
-  const mapY = (value) => midY - Math.max(-1, Math.min(1, value)) * halfH;
+  const mapY = (value) => midY - value * halfH;
   const samples = Math.max(32, Math.min(256, Math.ceil(innerW)));
 
   const wrap01 = (p) => {
-    const n = Number(p) || 0;
+    const n = nodeGraphFiniteNumber(p);
     return n - Math.floor(n);
   };
   const phaseOff = wrap01(phaseParam);
@@ -281,7 +281,7 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
     let y = nodeGraphBasicShapeSample(cycle01, waveform, pulseWidth, amplitude);
     if (typeof nodeGraphBasicShapePolarity === "function") {
       y = nodeGraphBasicShapePolarity(y, polarity);
-    } else if (Math.round(Number(polarity) || 0) >= 1) {
+    } else if (Math.round(nodeGraphFiniteNumber(polarity)) >= 1) {
       y = (Number(y) + 1) * 0.5;
     }
     return y;

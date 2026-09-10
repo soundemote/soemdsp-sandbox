@@ -27,12 +27,12 @@
 
   function interpolatedSample(buffer, position) {
     const last = Math.max(0, (buffer?.length || 1) - 1);
-    const p = Math.max(0, Math.min(last, Number(position) || 0));
+    const p = Math.max(0, Math.min(last, nodeGraphFiniteNumber(position)));
     const i0 = Math.floor(p);
     const i1 = Math.min(last, i0 + 1);
     const t = p - i0;
-    const a = Number(buffer[i0]) || 0;
-    const b = Number(buffer[i1]) || a;
+    const a = nodeGraphFiniteNumber(buffer[i0]);
+    const b = nodeGraphFiniteNumber(buffer[i1], a);
     return a + (b - a) * t;
   }
 
@@ -42,8 +42,8 @@
     }
     const last = (buffer?.length || 1) - 1;
     for (let i = from; i < to; i += 1) {
-      const a = Number(buffer[i]) || 0;
-      const b = Number(buffer[Math.min(last, i + 1)]) || 0;
+      const a = nodeGraphFiniteNumber(buffer[i]);
+      const b = nodeGraphFiniteNumber(buffer[Math.min(last, i + 1)]);
       if (Math.abs(b - a) > threshold) {
         return true;
       }
@@ -67,8 +67,8 @@
    */
   function buildPoints(options) {
     const buffer = options?.buffer;
-    const width = Math.max(1, Number(options?.width) || 1);
-    const height = Math.max(1, Number(options?.height) || 1);
+    const width = Math.max(1, nodeGraphFiniteNumber(options?.width, 1));
+    const height = Math.max(1, nodeGraphFiniteNumber(options?.height, 1));
     if (!buffer?.length || !(width > 0) || !(height > 0)) {
       return [];
     }
@@ -79,7 +79,7 @@
     }
     const span = end - start;
     const gain = Number.isFinite(Number(options.gain)) ? Number(options.gain) : 1;
-    const offset = Number(options.offset) || 0;
+    const offset = nodeGraphFiniteNumber(options.offset);
     const midY = Number.isFinite(Number(options.midY)) ? Number(options.midY) : height * 0.5;
     const halfHeight = Number.isFinite(Number(options.halfHeight))
       ? Number(options.halfHeight)
@@ -112,7 +112,7 @@
     const sampleCount = last - first + 1;
     // ~3 verts/pixel of the FACE, not a 1–2px scroll strip. Using strip
     // width here min/max-bucketed every column (0↔peak blobs on stereo 1D).
-    const budgetWidth = Math.max(width, Number(options.vertexWidth) || 0);
+    const budgetWidth = Math.max(width, nodeGraphFiniteNumber(options.vertexWidth));
     const maxVertices = Math.max(2, Math.floor(budgetWidth) * 3);
 
     if (sampleCount <= maxVertices) {
@@ -124,9 +124,9 @@
       }
       let prev = first;
       for (let i = first; i <= last; i += 1) {
-        const value = Number(buffer[i]) || 0;
+        const value = nodeGraphFiniteNumber(buffer[i]);
         const broke = i > prev
-          && Math.abs(value - (Number(buffer[prev]) || 0)) > discThreshold;
+          && Math.abs(value - (nodeGraphFiniteNumber(buffer[prev]))) > discThreshold;
         push(mapX(i), mapY(value), broke);
         prev = i;
       }
@@ -138,7 +138,7 @@
     }
 
     const buckets = Math.max(1, Math.floor(maxVertices / 2));
-    let prevValue = Number(buffer[first]) || 0;
+    let prevValue = nodeGraphFiniteNumber(buffer[first]);
     for (let b = 0; b < buckets; b += 1) {
       const t0 = start + (b / buckets) * span;
       const t1 = start + ((b + 1) / buckets) * span;
@@ -151,7 +151,7 @@
       let minI = rangeStart;
       let maxI = rangeStart;
       for (let i = rangeStart; i < rangeEnd; i += stride) {
-        const value = Number(buffer[i]) || 0;
+        const value = nodeGraphFiniteNumber(buffer[i]);
         if (value < minV) {
           minV = value;
           minI = i;
@@ -163,7 +163,7 @@
       }
       if (stride > 1) {
         const i = rangeEnd - 1;
-        const value = Number(buffer[i]) || 0;
+        const value = nodeGraphFiniteNumber(buffer[i]);
         if (value < minV) {
           minV = value;
           minI = i;

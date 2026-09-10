@@ -29,12 +29,12 @@ function createNodeGraphPhaseDisperseState() {
  * b0 = (1-α)/(1+α), b1 = -2 cosω/(1+α), b2 = 1, a1 = b1, a2 = b0
  */
 function nodeGraphPhaseDisperseEnsure(state, frequencyHz, q, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   // No musical floor — min/max are the parameter system / slider only.
   // Clamp only to (0, Nyquist) so ω/tan(ω/2) stay defined.
   const raw = Number(frequencyHz);
   const f = Math.max(0, Math.min(rate * 0.49, Number.isFinite(raw) ? raw : 100));
-  const safeQ = Math.max(0.05, Math.min(40, Number(q) || 0.707));
+  const safeQ = Math.max(0.05, Math.min(40, nodeGraphFiniteNumber(q, 0.707)));
 
   if (state.lastF === f && state.lastQ === safeQ && state.lastRate === rate) {
     return;
@@ -75,7 +75,7 @@ function nodeGraphPhaseDisperseStage(stage, x, b0, b1, b2, a1, a2) {
  * Pinch 0..1 → Q. Low pinch = broad group delay, high = concentrated at Frequency.
  */
 function nodeGraphPhaseDispersePinchToQ(pinch) {
-  const p = Math.max(0, Math.min(1, Number(pinch) || 0));
+  const p = Math.max(0, Math.min(1, nodeGraphFiniteNumber(pinch)));
   // ~0.35 .. ~18 (musical disperser range)
   return 0.35 * Math.pow(50, p);
 }
@@ -84,7 +84,7 @@ function nodeGraphPhaseDispersePinchToQ(pinch) {
  * Legacy Amount 0..1 → stage count 1..MAX (pre-Filters patches).
  */
 function nodeGraphPhaseDisperseAmountToStages(amount) {
-  const a = Math.max(0, Math.min(1, Number(amount) || 0));
+  const a = Math.max(0, Math.min(1, nodeGraphFiniteNumber(amount)));
   return 1 + a * (NODE_GRAPH_PHASE_DISPERSE_MAX_STAGES - 1);
 }
 
@@ -112,7 +112,7 @@ function nodeGraphPhaseDisperseResolveStageCount(filtersOrAmount) {
  * Legacy callers may still pass amount 0…1; resolveStageCount maps both.
  */
 function nodeGraphPhaseDisperseSample(state, input, frequencyHz, filters, pinch, sampleRate) {
-  if (!state || !state.stages) return Number(input) || 0;
+  if (!state || !state.stages) return nodeGraphFiniteNumber(input);
 
   const q = nodeGraphPhaseDispersePinchToQ(pinch);
   nodeGraphPhaseDisperseEnsure(state, frequencyHz, q, sampleRate);
@@ -122,7 +122,7 @@ function nodeGraphPhaseDisperseSample(state, input, frequencyHz, filters, pinch,
   const full = Math.floor(stageCount);
   const frac = stageCount - full;
 
-  let y = Number(input) || 0;
+  let y = nodeGraphFiniteNumber(input);
   const max = Math.min(NODE_GRAPH_PHASE_DISPERSE_MAX_STAGES, full);
   for (let i = 0; i < max; i += 1) {
     y = nodeGraphPhaseDisperseStage(state.stages[i], y, b0, b1, b2, a1, a2);

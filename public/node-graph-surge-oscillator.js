@@ -45,17 +45,17 @@ function nodeGraphSurgeOscillatorWaveformSample(state, phaseCycle, phaseIncremen
 // sync sweep with no patching required.
 function nodeGraphSurgeOscillatorSample(state, options = {}) {
   const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
-  const increment = clampNodeSliderValue((Number(options.frequencyHz) || 0) / sampleRate, -0.5, 0.5);
-  const level = Number(options.level) || 0;
+  const increment = clampNodeSliderValue((nodeGraphFiniteNumber(options.frequencyHz)) / sampleRate, -0.5, 0.5);
+  const level = nodeGraphFiniteNumber(options.level);
 
   state.phase = wrapNodeSliderValue(state.phase + increment, 0, 1);
   state.syncedThisSample = false;
 
-  const masterIncrement = clampNodeSliderValue((Number(options.syncFrequencyHz) || 0) / sampleRate, -0.5, 0.5);
+  const masterIncrement = clampNodeSliderValue((nodeGraphFiniteNumber(options.syncFrequencyHz)) / sampleRate, -0.5, 0.5);
   state.masterPhase = wrapNodeSliderValue(state.masterPhase + masterIncrement, 0, 1);
   state.internalSyncOut = Math.sin(state.masterPhase * Math.PI * 2);
 
-  const effectiveSyncIn = options.hasExternalSync ? (Number(options.syncIn) || 0) : state.internalSyncOut;
+  const effectiveSyncIn = options.hasExternalSync ? (nodeGraphFiniteNumber(options.syncIn)) : state.internalSyncOut;
 
   if (state.hasPrevSyncIn && state.prevSyncIn <= 0 && effectiveSyncIn > 0) {
     const denom = effectiveSyncIn - state.prevSyncIn;
@@ -72,7 +72,7 @@ function nodeGraphSurgeOscillatorSample(state, options = {}) {
   const tri = nodeGraphSurgeOscillatorWaveformSample(state, phaseCycle, increment, 2) * level;
   const sine = nodeGraphSurgeOscillatorWaveformSample(state, phaseCycle, increment, 3) * level;
 
-  const waveform = Math.max(0, Math.min(3, Math.round(Number(options.waveform) || 0)));
+  const waveform = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(options.waveform))));
   const out = [saw, square, tri, sine][waveform];
 
   return {

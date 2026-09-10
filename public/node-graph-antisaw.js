@@ -62,11 +62,11 @@ function nodeGraphAntisawSample(state, params = {}, sampleRate = 44100) {
   }
   const out = wasm.soemdsp_antisaw_sample(
     state.nativeHandle,
-    Number(params.fundamental) || 0,
-    Number(params.reflections) || 0,
-    Number(params.tilt) || 0,
-    Number(params.level) || 0,
-    Math.max(1, Number(sampleRate) || 44100),
+    nodeGraphFiniteNumber(params.fundamental),
+    nodeGraphFiniteNumber(params.reflections),
+    nodeGraphFiniteNumber(params.tilt),
+    nodeGraphFiniteNumber(params.level),
+    Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100)),
   );
   return Number.isFinite(out) ? out : 0;
 }

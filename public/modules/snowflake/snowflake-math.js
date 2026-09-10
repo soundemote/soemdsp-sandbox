@@ -76,13 +76,13 @@ function nodeGraphSnowflakeWrap01(value) {
   if (typeof nodeGraphWrap01 === "function") {
     return nodeGraphWrap01(value);
   }
-  const p = Number(value) || 0;
+  const p = nodeGraphFiniteNumber(value);
   return p - Math.floor(p);
 }
 
 function nodeGraphSnowflakeExpand(axiom, rules, iterations) {
   let current = String(axiom || "F");
-  const iters = Math.max(0, Math.min(NODE_GRAPH_SNOWFLAKE_MAX_ITER, Math.round(Number(iterations) || 0)));
+  const iters = Math.max(0, Math.min(NODE_GRAPH_SNOWFLAKE_MAX_ITER, Math.round(nodeGraphFiniteNumber(iterations))));
   const ruleMap = rules || {};
   for (let i = 0; i < iters; i += 1) {
     let next = "";
@@ -103,7 +103,7 @@ function nodeGraphSnowflakeExpand(axiom, rules, iterations) {
  * Each point is { x, y, s } where s is cumulative path length from the start.
  */
 function nodeGraphSnowflakeBuildPath(commands, angleDeg) {
-  const angleRad = ((Number(angleDeg) || 60) * Math.PI) / 180;
+  const angleRad = ((nodeGraphFiniteNumber(angleDeg, 60)) * Math.PI) / 180;
   const step = 1;
   let x = 0;
   let y = 0;
@@ -194,8 +194,8 @@ function nodeGraphSnowflakeBuildPath(commands, angleDeg) {
 }
 
 function nodeGraphSnowflakeEnsurePath(state, patternIndex, iterations, angleDeg) {
-  const idx = Math.max(0, Math.min(NODE_GRAPH_SNOWFLAKE_PATTERNS.length - 1, Math.round(Number(patternIndex) || 0)));
-  const iters = Math.max(0, Math.min(NODE_GRAPH_SNOWFLAKE_MAX_ITER, Math.round(Number(iterations) || 0)));
+  const idx = Math.max(0, Math.min(NODE_GRAPH_SNOWFLAKE_PATTERNS.length - 1, Math.round(nodeGraphFiniteNumber(patternIndex))));
+  const iters = Math.max(0, Math.min(NODE_GRAPH_SNOWFLAKE_MAX_ITER, Math.round(nodeGraphFiniteNumber(iterations))));
   const angle = Number.isFinite(Number(angleDeg)) ? Number(angleDeg) : 60;
   const key = `${idx}|${iters}|${angle.toFixed(4)}`;
   if (state.cacheKey === key && state.points && state.points.length >= 2) {
@@ -258,15 +258,15 @@ function nodeGraphSnowflakeResolveDirection(options = {}) {
 
 function nodeGraphSnowflakeSample(state, options = {}) {
   const st = state || createNodeGraphSnowflakeState();
-  const sampleRate = Math.max(1, Number(options.sampleRate) || 44100);
-  const frequencyHz = Math.max(0, Number(options.frequencyHz) || 0);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const frequencyHz = Math.max(0, nodeGraphFiniteNumber(options.frequencyHz));
   const pattern = options.pattern;
   const iterations = options.iterations;
   const angle = options.angle;
   // Size removed — Amplitude / level scales the figure only.
   const level = Number.isFinite(Number(options.level)) ? Number(options.level) : 1;
   const direction = nodeGraphSnowflakeResolveDirection(options);
-  const spin = Number(options.spin) || 0;
+  const spin = nodeGraphFiniteNumber(options.spin);
   const phaseOffset = Number.isFinite(Number(options.phase))
     ? nodeGraphSnowflakeWrap01(Number(options.phase))
     : 0;

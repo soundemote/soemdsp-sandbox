@@ -3,8 +3,8 @@
 // time / (frames / sampleRate). Unconnected jacks keep the start/end sliders.
 
 function nodeGraphAudioPlayerTimeSecondsToPhase(timeSeconds, frames, sampleRate) {
-  const frameCount = Math.max(0, Number(frames) || 0);
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const frameCount = Math.max(0, nodeGraphFiniteNumber(frames));
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   if (!(frameCount > 1)) {
     return 0;
   }
@@ -27,8 +27,8 @@ function nodeGraphAudioPlayerTimeSecondsToPhase(timeSeconds, frames, sampleRate)
 }
 
 function nodeGraphAudioPlayerResolvedPhaseRange(options = {}) {
-  const frames = Math.max(0, Number(options.frames) || 0);
-  const rate = Math.max(1, Number(options.sampleRate) || 44100);
+  const frames = Math.max(0, nodeGraphFiniteNumber(options.frames));
+  const rate = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
   const hasInput = typeof options.hasInput === "function" ? options.hasInput : () => false;
   const readInput = typeof options.readInput === "function" ? options.readInput : () => 0;
   const readParam = typeof options.readParam === "function" ? options.readParam : (_key, fallback) => fallback;

@@ -577,10 +577,10 @@ static void process_one(PingPongDelayState& s, double inputL, double inputR) {
   // Modulation of the tempo base (same idea as Delay's time + mod).
   const double offsetSec = safe(s.liveOffsetMs) / 1000.0;
   // Amp = milliseconds of delay modulation (never treat as Hz).
-  const double lfoAmpSec = clamp(safe(s.liveLfoAmpMs), 0.0, 500.0) / 1000.0;
+  const double lfoAmpSec = safe(s.liveLfoAmpMs) / 1000.0;
   const int style = (int)dsp_floor(safe(s.liveLfoStyle) + 0.5);
-  // Rate = Hz only (0…20). Values in the tens/hundreds are Amp mistaken for Rate.
-  const double hz = clamp(safe(s.liveLfoRate), 0.0, 20.0);
+  // Rate = Hz (paramMeta / host is SSOT — no product-range clamp).
+  const double hz = safe(s.liveLfoRate);
   const double vary = clamp(safe(s.liveLfoVariation), 0.0, 1.0);
 
   const double rateL = hz * (1.0 + vary * 0.31);
@@ -675,9 +675,9 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   s.liveMix = mix;
   s.liveAmplitude = amplitude;
   s.liveOffsetMs = offsetMs;
-  s.liveLfoAmpMs = clamp(safe(lfoAmpMs), 0.0, 500.0);
+  s.liveLfoAmpMs = safe(lfoAmpMs);
   s.liveLfoStyle = lfoStyle;
-  s.liveLfoRate = clamp(safe(lfoRate), 0.0, 20.0);
+  s.liveLfoRate = safe(lfoRate);
   s.liveLfoVariation = lfoVariation;
   // Never allow broken SR (would make phase += hz/sr ≈ hz per sample → FM).
   s.liveSampleRate = (rate >= 1000.0 && rate <= 384000.0) ? rate : 44100.0;

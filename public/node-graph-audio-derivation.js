@@ -106,12 +106,12 @@ function nodeGraphAudioDerivation(patch = nodeGraphMvp?.patch) {
 
 function nodeGraphSampleRateDebugText(reason = "") {
   const audio = nodeGraphAudioDerivation();
-  const host = Number(nodeGraphMvp?.live?.context?.sampleRate) || 0;
-  const decode = Number(
+  const host = nodeGraphFiniteNumber(nodeGraphMvp?.live?.context?.sampleRate);
+  const decode = nodeGraphFiniteNumber(
     typeof nodeGraphSampleDecodeTargetRate !== "undefined"
       ? nodeGraphSampleDecodeTargetRate
       : 44100,
-  ) || 44100;
+  , 44100);
   const live = nodeGraphMvp?.live?.context ? "on" : "off";
   const prefix = reason ? `sample rates (${reason})` : "sample rates";
   return `${prefix} — live ${live}, host ${host || "n/a"} Hz, engine ${audio.clampedEngineSampleRate} Hz, decode ${decode} Hz, patch target ${audio.targetSampleRate} Hz`;

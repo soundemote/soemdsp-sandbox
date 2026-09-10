@@ -55,8 +55,8 @@ function syncNodeGraphModuleScopeHeartbeat() {
       return;
     }
     syncNodeGraphScopeGpuDebugDisplay();
-    const pendingFrame = Number(nodeGraphModuleScopeState.drawFrame) || 0;
-    const requestedAt = Number(nodeGraphModuleScopeState.drawFrameRequestedAt) || 0;
+    const pendingFrame = nodeGraphFiniteNumber(nodeGraphModuleScopeState.drawFrame);
+    const requestedAt = nodeGraphFiniteNumber(nodeGraphModuleScopeState.drawFrameRequestedAt);
     const now = (performance.now?.() || Date.now());
     if (pendingFrame && requestedAt > 0 && now - requestedAt <= 250) {
       return;

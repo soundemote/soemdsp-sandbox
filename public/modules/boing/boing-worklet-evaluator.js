@@ -22,23 +22,23 @@ NodeLiveAudioProcessor.prototype.boingSample = function boingSample(state, optio
           state.nativeHandle = this.nativeBoing.soemdsp_jbboing_create();
         }
         if (state.nativeHandle) {
-          const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
+          const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
           this.nativeBoing.soemdsp_jbboing_sample(
             state.nativeHandle,
-            Number(options.frequency) || 0,
-            Number(options.density) || 0,
-            Number(options.sharpness) || 0,
-            Number(options.rotX) || 0,
-            Number(options.rotY) || 0,
-            Number(options.zDepth) || 0,
-            Number(options.zAmount) || 0,
-            Number(options.ends) || 0,
-            Number(options.boing) || 0,
-            Number(options.boingStrength) || 0,
-            Number(options.dir) || 0,
-            Number(options.shape) || 0,
-            Number(options.volume) || 0,
-            Number(options.volumePreJump) || 0,
+            nodeGraphFiniteNumber(options.frequency),
+            nodeGraphFiniteNumber(options.density),
+            nodeGraphFiniteNumber(options.sharpness),
+            nodeGraphFiniteNumber(options.rotX),
+            nodeGraphFiniteNumber(options.rotY),
+            nodeGraphFiniteNumber(options.zDepth),
+            nodeGraphFiniteNumber(options.zAmount),
+            nodeGraphFiniteNumber(options.ends),
+            nodeGraphFiniteNumber(options.boing),
+            nodeGraphFiniteNumber(options.boingStrength),
+            nodeGraphFiniteNumber(options.dir),
+            nodeGraphFiniteNumber(options.shape),
+            nodeGraphFiniteNumber(options.volume),
+            nodeGraphFiniteNumber(options.volumePreJump),
             sampleRateValue,
           );
           return {

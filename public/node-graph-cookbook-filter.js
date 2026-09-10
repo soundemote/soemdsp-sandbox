@@ -43,20 +43,20 @@ function nodeGraphCookbookFilterCoefficients(
   gainDb,
   sampleRate = 44100,
 ) {
-  const safeMode = Math.round(clampNodeSliderValue(Number(mode) || 0, 0, 9));
+  const safeMode = Math.round(clampNodeSliderValue(nodeGraphFiniteNumber(mode), 0, 9));
   if (safeMode === 0) {
     return { a1: 0, a2: 0, b0: 1, b1: 0, b2: 0 };
   }
-  const rate = Math.max(1, Number(sampleRate) || Number(globalThis.nodeGraphMvp?.sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(globalThis.nodeGraphMvp?.sampleRate, 44100)));
   // 0 Hz allowed (frozen). Only crash-safety: non-negative + Nyquist ceiling.
   const rawFreq = Number(frequency);
   const freq = Math.max(0, Math.min(rate * 0.49, Number.isFinite(rawFreq) ? rawFreq : 0));
-  const safeQ = Math.max(0.0001, Number(q) || 1);
+  const safeQ = Math.max(0.0001, nodeGraphFiniteNumber(q, 1));
   const omega = 2 * Math.PI * freq / rate;
   const sine = Math.sin(omega);
   const cosine = Math.cos(omega);
   const alpha = sine / (2 * safeQ);
-  const amplitude = 10 ** (0.025 * (Number(gainDb) || 0));
+  const amplitude = 10 ** (0.025 * (nodeGraphFiniteNumber(gainDb)));
   const beta = Math.sqrt(amplitude) / safeQ;
   let a0 = 1 + alpha;
   let a1 = -2 * cosine;
@@ -133,8 +133,8 @@ function nodeGraphCookbookFilterSample(
   nodeId = "",
 ) {
   const stageCount = nodeGraphCookbookFilterStageCount(stages);
-  if (!state || stageCount <= 0 || Math.round(Number(mode) || 0) === 0) {
-    return Number(input) || 0;
+  if (!state || stageCount <= 0 || Math.round(nodeGraphFiniteNumber(mode)) === 0) {
+    return nodeGraphFiniteNumber(input);
   }
   if (state.lastStages !== stageCount) {
     resetNodeGraphCookbookFilterState(state);
@@ -143,7 +143,7 @@ function nodeGraphCookbookFilterSample(
   const coeff = nodeGraphCookbookFilterCoefficients(mode, frequency, q, gainDb, sampleRate);
   let value = typeof nodeGraphSafeFilterNumber === "function"
     ? nodeGraphSafeFilterNumber(input, runtime, nodeId, state, "cookbook filter input")
-    : Number(input) || 0;
+    : nodeGraphFiniteNumber(input);
   for (let index = 0; index < stageCount; index += 1) {
     const previousInput = value;
     value = coeff.b0 * value + coeff.b1 * state.x1[index] + coeff.b2 * state.x2[index]
@@ -174,8 +174,8 @@ function nodeGraphCookbookFilterMagnitudeAt(coeff, frequency, sampleRate, stages
 }
 
 function nodeGraphOnePoleFilterCoefficient(frequency, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || Number(globalThis.nodeGraphMvp?.sampleRate) || 44100);
-  const frequencyValue = Math.max(0, Number(frequency) || 0);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(globalThis.nodeGraphMvp?.sampleRate, 44100)));
+  const frequencyValue = Math.max(0, nodeGraphFiniteNumber(frequency));
   const w = Math.min((Math.PI * 2) / rate, 0.000142475857) * frequencyValue;
   return Math.exp(-w);
 }
@@ -198,8 +198,8 @@ function nodeGraphOnePoleHighpassMagnitudeAt(cutoff, frequency, sampleRate) {
 }
 
 function nodeGraphBandpassMagnitudeAt(lowCut, highCut, frequency, sampleRate) {
-  const low = Math.min(Number(lowCut) || 0, Number(highCut) || 0);
-  const high = Math.max(Number(lowCut) || 0, Number(highCut) || 0);
+  const low = Math.min(nodeGraphFiniteNumber(lowCut), nodeGraphFiniteNumber(highCut));
+  const high = Math.max(nodeGraphFiniteNumber(lowCut), nodeGraphFiniteNumber(highCut));
   return nodeGraphOnePoleHighpassMagnitudeAt(low, frequency, sampleRate) *
     nodeGraphOnePoleLowpassMagnitudeAt(high, frequency, sampleRate);
 }
@@ -284,7 +284,7 @@ function nodeGraphLadderFilterMagnitudeAt(params, frequency, sampleRate) {
   const s4 = taps[4];
   const feedbackDen = nodeGraphComplexAdd(
     { re: 1, im: 0 },
-    nodeGraphComplexScale(s4, Number(coeff.k) || 0),
+    nodeGraphComplexScale(s4, nodeGraphFiniteNumber(coeff.k)),
   );
   const invDenMag2 = Math.max(
     1e-12,
@@ -292,11 +292,11 @@ function nodeGraphLadderFilterMagnitudeAt(params, frequency, sampleRate) {
   );
   const y0FromX = nodeGraphComplexScale(
     { re: feedbackDen.re, im: -feedbackDen.im },
-    (Number(coeff.g) || 1) / invDenMag2,
+    (nodeGraphFiniteNumber(coeff.g, 1)) / invDenMag2,
   );
   let sum = { re: 0, im: 0 };
   for (let index = 0; index < coeff.c.length; index += 1) {
-    const weight = Number(coeff.c[index]) || 0;
+    const weight = nodeGraphFiniteNumber(coeff.c[index]);
     if (!weight) {
       continue;
     }
@@ -322,7 +322,7 @@ function nodeGraphFilterCurveLiveParam(node, key, fallback = 0) {
     ? nodeGraphReadPatchParameterMetadata(node, key)
     : (node?.paramMeta?.[key] || {});
   const metadata = rawMeta && typeof rawMeta === "object" ? rawMeta : {};
-  let base = Number(fallback) || 0;
+  let base = nodeGraphFiniteNumber(fallback);
   const slider = typeof nodeGraphSliderForParameter === "function"
     ? nodeGraphSliderForParameter(nodeId, key)
     : null;
@@ -366,7 +366,7 @@ function nodeGraphCrossoverBandCountFromType(type) {
 
 /** Param keys for the N-1 split frequencies on a crossover module. */
 function nodeGraphCrossoverSplitFreqKeys(bandCount) {
-  const splits = Math.max(1, (Number(bandCount) || 2) - 1);
+  const splits = Math.max(1, (nodeGraphFiniteNumber(bandCount, 2)) - 1);
   if (splits === 1) {
     return ["frequency"];
   }
@@ -400,14 +400,14 @@ function nodeGraphFilterCurveFormatHz(hz) {
  * stages ≈ LR order/2 one-pole sections (LR2→1, LR4→2, LR8→4).
  */
 function nodeGraphCrossoverBandMagnitudeAt(hz, splits, bandIndex, bandCount, lrOrder, sampleRate) {
-  const order = Math.round(Number(lrOrder) || 4);
+  const order = Math.round(nodeGraphFiniteNumber(lrOrder, 4));
   const stages = order <= 2 ? 1 : order >= 8 ? 4 : 2;
-  const n = Math.max(2, Number(bandCount) || 2);
-  const b = Math.max(0, Math.min(n - 1, Number(bandIndex) || 0));
+  const n = Math.max(2, nodeGraphFiniteNumber(bandCount, 2));
+  const b = Math.max(0, Math.min(n - 1, nodeGraphFiniteNumber(bandIndex)));
   const freqs = Array.isArray(splits) ? splits : [];
   let mag = 1;
   for (let i = 0; i < freqs.length; i += 1) {
-    const fc = Math.max(0, Number(freqs[i]) || 0);
+    const fc = Math.max(0, nodeGraphFiniteNumber(freqs[i]));
     for (let s = 0; s < stages; s += 1) {
       if (b > i) {
         mag *= nodeGraphOnePoleHighpassMagnitudeAt(fc, hz, sampleRate);
@@ -561,7 +561,7 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
     // Composite flat-ish sum of band magnitudes (visual check that bands cover spectrum).
     const bandCount = Number(v.bandCount) || nodeGraphCrossoverBandCountFromType(node.type) || 2;
     const splits = Array.isArray(v.frequencies) ? v.frequencies : [];
-    const order = Number(v.order) || 4;
+    const order = nodeGraphFiniteNumber(v.order, 4);
     let sum = 0;
     for (let b = 0; b < bandCount; b += 1) {
       sum += nodeGraphCrossoverBandMagnitudeAt(frequency, splits, b, bandCount, order, sampleRate);
@@ -569,7 +569,7 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
     return Number.isFinite(sum) && sum > 0 ? sum : 1e-6;
   }
   if (node.type === "passiveFilter") {
-    const mode = Math.round(Number(v.mode) || 0);
+    const mode = Math.round(nodeGraphFiniteNumber(v.mode));
     const stages = typeof nodeGraphPassiveFilterStageCount === "function"
       ? nodeGraphPassiveFilterStageCount(v.slope)
       : 1;
@@ -580,7 +580,7 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
     const stackHz = (fc, kind) => (
       typeof nodeGraphPassiveFilterStackFrequencies === "function"
         ? nodeGraphPassiveFilterStackFrequencies(fc, stages, k, comp, kind)
-        : [Number(fc) || 0]
+        : [nodeGraphFiniteNumber(fc)]
     );
     let mag = 1;
     if (mode === 1 || mode === 2) {
@@ -599,8 +599,8 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
   }
   if (node.type === "activeFilter") {
     if (v.bypass) return 1;
-    const hp = Number(v.hpSlope) || 0;
-    const lp = Number(v.lpSlope) || 0;
+    const hp = nodeGraphFiniteNumber(v.hpSlope);
+    const lp = nodeGraphFiniteNumber(v.lpSlope);
     let mag = 1;
     if (hp > 0) {
       mag *= nodeGraphActiveFilterSlopeMagnitudeAt("hp", v.lowFrequency, frequency, hp, sampleRate);
@@ -613,9 +613,9 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
   if (node.type === "ladderFilter") {
     return nodeGraphLadderFilterMagnitudeAt({
       frequency: nodeGraphFilterCurveFiniteHz(v.frequency, 1000),
-      mode: Number(v.mode) || 1,
-      resonance: Number(v.resonance) || 0,
-      stages: Number(v.stages) || 4,
+      mode: nodeGraphFiniteNumber(v.mode, 1),
+      resonance: nodeGraphFiniteNumber(v.resonance),
+      stages: nodeGraphFiniteNumber(v.stages, 4),
     }, frequency, sampleRate);
   }
   if (node.type === "papoulisFilter") {
@@ -625,9 +625,9 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
     if (typeof nodeGraphTb303FilterMagnitudeAt === "function") {
       const mag = nodeGraphTb303FilterMagnitudeAt({
         cutoff: nodeGraphFilterCurveFiniteHz(v.cutoff, 1000),
-        drive: Number(v.drive) || 0,
-        mode: Number(v.mode) || 4,
-        resonance: Number(v.resonance) || 0,
+        drive: nodeGraphFiniteNumber(v.drive),
+        mode: nodeGraphFiniteNumber(v.mode, 4),
+        resonance: nodeGraphFiniteNumber(v.resonance),
       }, frequency, sampleRate);
       return Number.isFinite(mag) && mag > 0 ? mag : 1e-6;
     }
@@ -638,8 +638,8 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
       const mag = nodeGraphEqFilterMagnitudeAt(
         Number(v.mode) || (node.type === "bandpass" ? 4 : node.type === "allpass" ? 6 : 1),
         nodeGraphFilterCurveFiniteHz(v.frequency, 1000),
-        Number(v.q) || 0.707,
-        Number(v.gain) || 0,
+        nodeGraphFiniteNumber(v.q, 0.707),
+        nodeGraphFiniteNumber(v.gain),
         frequency,
         sampleRate,
       );
@@ -647,10 +647,10 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
     }
     return 1;
   }
-  const mode = Number(v.mode) || 0;
+  const mode = nodeGraphFiniteNumber(v.mode);
   const cutoff = nodeGraphFilterCurveFiniteHz(v.frequency, 1000);
-  const q = Number(v.q) || 1;
-  const gain = Number(v.gain) || 0;
+  const q = nodeGraphFiniteNumber(v.q, 1);
+  const gain = nodeGraphFiniteNumber(v.gain);
   const stages = nodeGraphCookbookFilterStageCount(v.stages);
   const coeff = nodeGraphCookbookFilterCoefficients(mode, cutoff, q, gain, sampleRate);
   return nodeGraphCookbookFilterMagnitudeAt(coeff, frequency, sampleRate, stages);
@@ -664,7 +664,7 @@ function nodeGraphFilterCurveCutoffFrequencies(node, view = null) {
       .filter((value) => Number.isFinite(value) && value >= 0);
   }
   if (node.type === "passiveFilter") {
-    const mode = Math.round(Number(v.mode) || 0);
+    const mode = Math.round(nodeGraphFiniteNumber(v.mode));
     if (mode === 2) {
       return [nodeGraphFilterCurveFiniteHz(v.lowFrequency, 0)]
         .filter((x) => Number.isFinite(x) && x >= 0);
@@ -680,8 +680,8 @@ function nodeGraphFilterCurveCutoffFrequencies(node, view = null) {
   if (node.type === "activeFilter") {
     if (v.bypass) return [];
     const marks = [];
-    if ((Number(v.hpSlope) || 0) > 0) marks.push(v.lowFrequency);
-    if ((Number(v.lpSlope) || 0) > 0) marks.push(v.highFrequency);
+    if ((nodeGraphFiniteNumber(v.hpSlope)) > 0) marks.push(v.lowFrequency);
+    if ((nodeGraphFiniteNumber(v.lpSlope)) > 0) marks.push(v.highFrequency);
     return marks
       .map((value) => nodeGraphFilterCurveFiniteHz(value, 0))
       .filter((value) => Number.isFinite(value) && value >= 0);
@@ -719,11 +719,11 @@ function nodeGraphFilterCurveCutoffRatio(frequencyHz, minFreq, maxFreq) {
 function nodeGraphFilterCurveLabel(node) {
   if (nodeGraphIsCrossoverType(node.type)) {
     const n = nodeGraphCrossoverBandCountFromType(node.type);
-    const order = Math.round(Number(node.params?.order) || 4);
+    const order = Math.round(nodeGraphFiniteNumber(node.params?.order, 4));
     return `${n}-way LR${order}`;
   }
   if (node.type === "passiveFilter") {
-    const mode = Math.round(Number(node.params?.mode) || 0);
+    const mode = Math.round(nodeGraphFiniteNumber(node.params?.mode));
     const stages = typeof nodeGraphPassiveFilterStageCount === "function"
       ? nodeGraphPassiveFilterStageCount(node.params?.slope)
       : 1;
@@ -731,29 +731,29 @@ function nodeGraphFilterCurveLabel(node) {
     return mode === 1 ? `BP${db}` : mode === 2 ? `HP${db}` : `LP${db}`;
   }
   if (node.type === "ladderFilter") {
-    return nodeGraphLadderFilterModes[Math.round(Number(node.params?.mode) || 0)] || "Ladder";
+    return nodeGraphLadderFilterModes[Math.round(nodeGraphFiniteNumber(node.params?.mode))] || "Ladder";
   }
   if (node.type === "papoulisFilter") {
     return "Papoulis LP";
   }
   if (node.type === "tb303Filter") {
     const modes = typeof nodeGraphTb303FilterModes !== "undefined" ? nodeGraphTb303FilterModes : null;
-    return modes?.[Math.round(Number(node.params?.mode) || 4)] || "TB-303";
+    return modes?.[Math.round(nodeGraphFiniteNumber(node.params?.mode, 4))] || "TB-303";
   }
   if (node.type === "eqFilter") {
     const modes = typeof nodeGraphEqFilterModes !== "undefined" ? nodeGraphEqFilterModes : null;
-    return modes?.[Math.round(Number(node.params?.mode) || 1)] || "EQ";
+    return modes?.[Math.round(nodeGraphFiniteNumber(node.params?.mode, 1))] || "EQ";
   }
   if (node.type === "activeFilter") {
-    const hp = Math.round(Number(node.params?.hpSlope) || 0);
-    const lp = Math.round(Number(node.params?.lpSlope) || 0);
+    const hp = Math.round(nodeGraphFiniteNumber(node.params?.hpSlope));
+    const lp = Math.round(nodeGraphFiniteNumber(node.params?.lpSlope));
     const label = (n) => (n <= 0 ? "Off" : `${n * 6}`);
     if (hp <= 0 && lp <= 0) return "Thru";
     if (hp > 0 && lp > 0) return `BP HP${label(hp)}/LP${label(lp)}`;
     if (hp > 0) return `HP${label(hp)}`;
     return `LP${label(lp)}`;
   }
-  return nodeGraphCookbookFilterModes[Math.round(Number(node.params?.mode) || 0)] || "Filter";
+  return nodeGraphCookbookFilterModes[Math.round(nodeGraphFiniteNumber(node.params?.mode))] || "Filter";
 }
 
 /** Room dimmer punch strength for crossover faces (dimmer than full scopes). */
@@ -895,13 +895,13 @@ function drawNodeGraphFilterCurveDisplay(section) {
 }
 
 function nodeGraphFilterCurveMeasureBox(section) {
-  let rawW = Number(section.clientWidth || section.offsetWidth) || 0;
-  let rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+  let rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
+  let rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
   if (rawW < 8 || rawH < 8) {
     const stage = section.closest?.("#nodeScreenSoloStage") || section.parentElement;
     if (stage?.id === "nodeScreenSoloStage") {
-      const cols = Math.max(1, Number(stage.style.getPropertyValue("--node-screen-solo-cols")) || 1);
-      const rows = Math.max(1, Number(stage.style.getPropertyValue("--node-screen-solo-rows")) || 1);
+      const cols = Math.max(1, nodeGraphFiniteNumber(stage.style.getPropertyValue("--node-screen-solo-cols"), 1));
+      const rows = Math.max(1, nodeGraphFiniteNumber(stage.style.getPropertyValue("--node-screen-solo-rows"), 1));
       rawW = Math.max(rawW, Math.floor((stage.clientWidth || window.innerWidth || 0) / cols));
       rawH = Math.max(rawH, Math.floor((stage.clientHeight || window.innerHeight || 0) / rows));
     }
@@ -909,20 +909,18 @@ function nodeGraphFilterCurveMeasureBox(section) {
   if (rawW < 8 || rawH < 8) {
     const host = section.closest?.(".dsp-node");
     if (host) {
-      rawW = Math.max(rawW, Number(host.clientWidth || host.offsetWidth) || 0);
-      const gu = Number(
+      rawW = Math.max(rawW, nodeGraphFiniteNumber(host.clientWidth || host.offsetWidth));
+      const gu = nodeGraphFiniteNumber(
         (host.style && host.style.getPropertyValue("--node-module-display-height-units"))
         || (typeof getComputedStyle === "function"
           ? getComputedStyle(host).getPropertyValue("--node-module-display-height-units")
-          : "")
-        || 5,
-      ) || 5;
-      const gridH = Number(
+          : "", 5),
+      , 5);
+      const gridH = nodeGraphFiniteNumber(
         (typeof getComputedStyle === "function"
           ? parseFloat(getComputedStyle(host).getPropertyValue("--node-grid-height"))
-          : 0)
-        || 28,
-      ) || 28;
+          : 0, 28),
+      , 28);
       rawH = Math.max(rawH, Math.round(gridH * Math.max(2, gu)));
     }
   }
@@ -963,7 +961,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
     // Face not laid out yet — do not cache signature; keep retrying.
     section._filterCurveLaidOut = false;
     section._filterCurveForceDraw = true;
-    const tries = (Number(section._filterCurveRetryCount) || 0) + 1;
+    const tries = (nodeGraphFiniteNumber(section._filterCurveRetryCount)) + 1;
     section._filterCurveRetryCount = tries;
     if (tries <= 45 && !section._filterCurveRetryFrame) {
       section._filterCurveRetryFrame = requestAnimationFrame(() => {
@@ -974,7 +972,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
     return;
   }
   section._filterCurveRetryCount = 0;
-  if ((Number(section.clientWidth) || 0) < 8 || (Number(section.clientHeight) || 0) < 8) {
+  if ((nodeGraphFiniteNumber(section.clientWidth)) < 8 || (nodeGraphFiniteNumber(section.clientHeight)) < 8) {
     section.style.width = `${Math.max(8, rawW)}px`;
     section.style.height = `${Math.max(8, rawH)}px`;
   }
@@ -1000,7 +998,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
     return;
   }
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  const sampleRate = Math.max(1, Number(nodeGraphMvp?.sampleRate) || 44100);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100));
   const minFreq = 20;
   const maxFreq = Math.max(minFreq * 2, Math.min(20000, sampleRate * 0.5));
   const minDb = -48;

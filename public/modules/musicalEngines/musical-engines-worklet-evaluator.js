@@ -18,11 +18,11 @@ NodeLiveAudioProcessor.prototype.musicalClassesFromMask = function musicalClasse
 };
 
 NodeLiveAudioProcessor.prototype.musicalMidiFromPitch = function musicalMidiFromPitch(pitch) {
-  return (Number(pitch) || 0) * 120;
+  return (nodeGraphFiniteNumber(pitch)) * 120;
 };
 
 NodeLiveAudioProcessor.prototype.musicalPitchFromMidi = function musicalPitchFromMidi(midi) {
-  return (Number(midi) || 0) / 120;
+  return (nodeGraphFiniteNumber(midi)) / 120;
 };
 
 NodeLiveAudioProcessor.prototype.musicalClassesFromRoot = function musicalClassesFromRoot(mask, rootPitch) {
@@ -43,7 +43,7 @@ NodeLiveAudioProcessor.prototype.musicalDegreeToMidi = function musicalDegreeToM
   if (n < 1) return this.musicalMidiFromPitch(rootPitch);
   const rootMidi = this.musicalMidiFromPitch(rootPitch);
   const rootOctaveBase = Math.floor(rootMidi / 12) * 12;
-  const d = Math.floor(Number(degreeIndex) || 0);
+  const d = Math.floor(nodeGraphFiniteNumber(degreeIndex));
   const wrapped = ((d % n) + n) % n;
   const octaveSpan = Math.floor(d / n);
   let midi = rootOctaveBase + classesFromRoot[wrapped] + octaveSpan * 12;
@@ -61,7 +61,7 @@ NodeLiveAudioProcessor.prototype.musicalRisingEdge = function musicalRisingEdge(
 const NODE_GRAPH_MUSICAL_SCALE_PRESETS = [4095, 2741, 1453, 661, 1193, 1365];
 
 NodeLiveAudioProcessor.prototype.musicalPresetMask = function musicalPresetMask(choice) {
-  const i = Math.max(0, Math.min(NODE_GRAPH_MUSICAL_SCALE_PRESETS.length - 1, Math.round(Number(choice) || 0)));
+  const i = Math.max(0, Math.min(NODE_GRAPH_MUSICAL_SCALE_PRESETS.length - 1, Math.round(nodeGraphFiniteNumber(choice))));
   return NODE_GRAPH_MUSICAL_SCALE_PRESETS[i];
 };
 
@@ -72,14 +72,14 @@ NodeLiveAudioProcessor.prototype.createDegreeTuringState = function createDegree
 };
 
 NodeLiveAudioProcessor.prototype.degreeTuringSample = function degreeTuringSample(state, options = {}) {
-  const length = Math.max(2, Math.min(16, Math.round(Number(options.length) || 8)));
+  const length = Math.max(2, Math.min(16, Math.round(nodeGraphFiniteNumber(options.length, 8))));
   const probability = this.clampValue(Number(options.probability) ?? 0.18, 0, 1);
-  const octaves = Math.max(0, Math.min(4, Math.round(Number(options.octaves) || 1)));
+  const octaves = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(options.octaves, 1))));
   const level = Number(options.level) ?? 1;
   const mask = options.hasScaleInput
     ? this.musicalNormalizeMask(options.scaleInput)
     : this.musicalPresetMask(options.scaleChoice);
-  const root = Number(options.root) || (60 / 120);
+  const root = nodeGraphFiniteNumber(options.root, (60 / 120));
   const classes = this.musicalClassesFromRoot(mask, root);
 
   if (this.musicalRisingEdge(state, "resetWasHigh", options.reset, 0)) {
@@ -117,14 +117,14 @@ NodeLiveAudioProcessor.prototype.createGravityWalkerState = function createGravi
 NodeLiveAudioProcessor.prototype.gravityWalkerSample = function gravityWalkerSample(state, options = {}) {
   const level = Number(options.level) ?? 1;
   const leapAmount = this.clampValue(Number(options.leap) ?? 0.15, 0, 1);
-  const leapCv = this.clampValue(Math.abs(Number(options.leapCv) || 0), 0, 1);
+  const leapCv = this.clampValue(Math.abs(nodeGraphFiniteNumber(options.leapCv)), 0, 1);
   const leapProb = this.clampValue(leapAmount + leapCv * 0.85, 0, 1);
   const gravity = this.clampValue(Number(options.gravity) ?? 0.65, 0, 1);
-  const octaves = Math.max(0, Math.min(4, Math.round(Number(options.octaves) || 1)));
+  const octaves = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(options.octaves, 1))));
   const mask = options.hasScaleInput
     ? this.musicalNormalizeMask(options.scaleInput)
     : this.musicalPresetMask(options.scaleChoice);
-  const root = Number(options.root) || (60 / 120);
+  const root = nodeGraphFiniteNumber(options.root, (60 / 120));
   const classes = this.musicalClassesFromRoot(mask, root);
   const span = Math.max(1, classes.length * (octaves + 1));
 
@@ -165,13 +165,13 @@ NodeLiveAudioProcessor.prototype.createDegreePhraseState = function createDegree
 
 NodeLiveAudioProcessor.prototype.degreePhraseSample = function degreePhraseSample(state, options = {}) {
   const level = Number(options.level) ?? 1;
-  const steps = Math.max(1, Math.min(8, Math.round(Number(options.steps) || 8)));
+  const steps = Math.max(1, Math.min(8, Math.round(nodeGraphFiniteNumber(options.steps, 8))));
   const mutate = this.clampValue(Number(options.mutate) ?? 0.08, 0, 1);
-  const octaves = Math.max(0, Math.min(4, Math.round(Number(options.octaves) || 1)));
+  const octaves = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(options.octaves, 1))));
   const mask = options.hasScaleInput
     ? this.musicalNormalizeMask(options.scaleInput)
     : this.musicalPresetMask(options.scaleChoice);
-  const root = Number(options.root) || (60 / 120);
+  const root = nodeGraphFiniteNumber(options.root, (60 / 120));
   const classes = this.musicalClassesFromRoot(mask, root);
   const span = Math.max(1, classes.length * (octaves + 1));
   const degrees = [];
@@ -231,9 +231,9 @@ NodeLiveAudioProcessor.prototype.createNoteGlideState = function createNoteGlide
 };
 
 NodeLiveAudioProcessor.prototype.noteGlideSample = function noteGlideSample(state, options = {}, sampleRate = 44100) {
-  const target = Number(options.pitch) || 0;
-  const time = Math.max(0, Number(options.time) || 0);
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const target = nodeGraphFiniteNumber(options.pitch);
+  const time = Math.max(0, nodeGraphFiniteNumber(options.time));
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   if (state.current == null || !Number.isFinite(state.current)) {
     state.current = target;
     return { "0.1V/Oct": target };
@@ -248,9 +248,9 @@ NodeLiveAudioProcessor.prototype.noteGlideSample = function noteGlideSample(stat
 };
 
 NodeLiveAudioProcessor.prototype.noteTransposeSample = function noteTransposeSample(options = {}) {
-  const pitch = Number(options.pitch) || 0;
-  const semitones = Number(options.semitones) || 0;
-  const octaves = Number(options.octaves) || 0;
+  const pitch = nodeGraphFiniteNumber(options.pitch);
+  const semitones = nodeGraphFiniteNumber(options.semitones);
+  const octaves = nodeGraphFiniteNumber(options.octaves);
   const midi = this.musicalMidiFromPitch(pitch) + semitones + octaves * 12;
   return { "0.1V/Oct": this.musicalPitchFromMidi(midi) };
 };
@@ -261,10 +261,10 @@ NodeLiveAudioProcessor.prototype.chordMemoryJsSample = function chordMemoryJsSam
   const latchHigh = Number(options.latch) > 0;
   const clearHigh = Number(options.clear) > 0;
   const advanceHigh = Number(options.advance) > 0;
-  const pitch = Number(options.pitch) || 0;
-  const walk = Math.max(0, Math.min(2, Math.round(Number(options.walk) || 0)));
-  const leap = this.clampValue(Number(options.leap) || 0, 0, 1);
-  const octaves = Math.max(0, Math.min(3, Math.round(Number(options.octaves) || 0)));
+  const pitch = nodeGraphFiniteNumber(options.pitch);
+  const walk = Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(options.walk))));
+  const leap = this.clampValue(nodeGraphFiniteNumber(options.leap), 0, 1);
+  const octaves = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(options.octaves))));
   const mutate = this.clampValue(nodeGraphFiniteNumber(options.mutate, 0.2), 0, 1);
   if (!state.bag) state.bag = [];
 
@@ -333,7 +333,7 @@ NodeLiveAudioProcessor.prototype.chordMemoryJsSample = function chordMemoryJsSam
   state.advanceWasHigh = advanceHigh;
 
   let arp = activeIndices.length > 0 ? state.slots[state.arpIndex] : 0;
-  if (octaveShift !== 0) arp = (Number(arp) || 0) + octaveShift * (12 / 120);
+  if (octaveShift !== 0) arp = (nodeGraphFiniteNumber(arp)) + octaveShift * (12 / 120);
   return {
     "Note 1": state.slots[0],
     "Note 2": state.slots[1],
@@ -355,10 +355,10 @@ NodeLiveAudioProcessor.prototype.chordMemorySample = function chordMemorySample(
 NodeLiveAudioProcessor.prototype.turingMachineJsSample = function turingMachineJsSample(state, options = {}) {
   const clockHigh = Number(options.clock) > 0;
   const resetHigh = Number(options.reset) > 0;
-  const length = Math.max(1, Math.min(16, Math.round(Number(options.length) || 8)));
-  const probability = this.clampValue(Number(options.probability) || 0, 0, 1);
-  const level = Number(options.level) || 0;
-  const octaves = Math.max(0, Math.min(4, Math.round(Number(options.octaves) || 1)));
+  const length = Math.max(1, Math.min(16, Math.round(nodeGraphFiniteNumber(options.length, 8))));
+  const probability = this.clampValue(nodeGraphFiniteNumber(options.probability), 0, 1);
+  const level = nodeGraphFiniteNumber(options.level);
+  const octaves = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(options.octaves, 1))));
   const hasScale = Boolean(options.hasScaleInput);
   const mask = hasScale ? this.musicalNormalizeMask(options.scaleInput) : 0;
   const rootPitch = Number.isFinite(Number(options.root)) ? Number(options.root) : (60 / 120);
@@ -428,10 +428,10 @@ const NODE_GRAPH_WORKLET_CHORD_PROGS = [
 NodeLiveAudioProcessor.prototype.chordSequencerJsSample = function chordSequencerJsSample(state, options = {}) {
   const clockHigh = Number(options.clock) > 0;
   const resetHigh = Number(options.reset) > 0;
-  const progressionIndex = Math.max(0, Math.min(NODE_GRAPH_WORKLET_CHORD_PROGS.length - 1, Math.round(Number(options.progression) || 0)));
-  const level = Number(options.level) || 0;
-  const directionMode = Math.max(0, Math.min(2, Math.round(Number(options.direction) || 0)));
-  const key = Math.max(0, Math.min(11, Math.round(Number(options.key) || 0)));
+  const progressionIndex = Math.max(0, Math.min(NODE_GRAPH_WORKLET_CHORD_PROGS.length - 1, Math.round(nodeGraphFiniteNumber(options.progression))));
+  const level = nodeGraphFiniteNumber(options.level);
+  const directionMode = Math.max(0, Math.min(2, Math.round(nodeGraphFiniteNumber(options.direction))));
+  const key = Math.max(0, Math.min(11, Math.round(nodeGraphFiniteNumber(options.key))));
   const prog = NODE_GRAPH_WORKLET_CHORD_PROGS[progressionIndex];
   const len = prog.length;
   if (state.direction == null) state.direction = 1;

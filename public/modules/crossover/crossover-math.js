@@ -11,7 +11,7 @@
 const nodeGraphCrossoverLrOrders = Object.freeze([2, 4, 8]); // LR2 / LR4 / LR8
 
 function nodeGraphCrossoverClampLrOrder(order) {
-  const o = Math.round(Number(order) || 4);
+  const o = Math.round(nodeGraphFiniteNumber(order, 4));
   if (o <= 2) return 2;
   if (o <= 4) return 4;
   return 8;
@@ -33,8 +33,8 @@ function nodeGraphCrossoverButterworthQs(butterOrder) {
 
 function nodeGraphCrossoverDesignBiquadLp(f0, Q, rate) {
   const sr = Math.max(1, nodeGraphFiniteNumber(rate, 44100));
-  const f = Math.max(1e-9, Math.min(sr * 0.49, Number(f0) || 0));
-  const q = Math.max(0.05, Math.min(100, Number(Q) || 0.707));
+  const f = Math.max(1e-9, Math.min(sr * 0.49, nodeGraphFiniteNumber(f0)));
+  const q = Math.max(0.05, Math.min(100, nodeGraphFiniteNumber(Q, 0.707)));
   const w0 = (2 * Math.PI * f) / sr;
   const sinw = Math.sin(w0);
   const cosw = Math.cos(w0);
@@ -56,8 +56,8 @@ function nodeGraphCrossoverDesignBiquadLp(f0, Q, rate) {
 
 function nodeGraphCrossoverDesignBiquadHp(f0, Q, rate) {
   const sr = Math.max(1, nodeGraphFiniteNumber(rate, 44100));
-  const f = Math.max(1e-9, Math.min(sr * 0.49, Number(f0) || 0));
-  const q = Math.max(0.05, Math.min(100, Number(Q) || 0.707));
+  const f = Math.max(1e-9, Math.min(sr * 0.49, nodeGraphFiniteNumber(f0)));
+  const q = Math.max(0.05, Math.min(100, nodeGraphFiniteNumber(Q, 0.707)));
   const w0 = (2 * Math.PI * f) / sr;
   const sinw = Math.sin(w0);
   const cosw = Math.cos(w0);
@@ -87,7 +87,7 @@ function nodeGraphCrossoverBiquadProcess(s, x) {
 
 function nodeGraphCrossoverOnePoleLpCoeff(f0, rate) {
   const sr = Math.max(1, nodeGraphFiniteNumber(rate, 44100));
-  const f = Math.max(0, Math.min(sr * 0.49, Number(f0) || 0));
+  const f = Math.max(0, Math.min(sr * 0.49, nodeGraphFiniteNumber(f0)));
   const w = Math.min((2 * Math.PI * f) / sr, Math.PI * 0.999);
   // a = exp(-w); y = (1-a)*x + a*y
   const a = Math.exp(-w);
@@ -294,7 +294,7 @@ function nodeGraphCrossoverLrAllpass(state, x, fc, lrOrder, rate) {
  * comps[p][i] compensates earlier band p for stage i (i > p)
  */
 function createNodeGraphCrossoverChannelState(bandCount) {
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
   const splitCount = n - 1;
   const splits = [];
   const comps = [];
@@ -318,7 +318,7 @@ function createNodeGraphCrossoverChannelState(bandCount) {
 }
 
 function createNodeGraphCrossoverStereoState(bandCount) {
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
   const portPairs = [];
   for (let i = 0; i < n; i += 1) {
     portPairs.push(nodeGraphCrossoverBandPortPair(n, i));
@@ -337,7 +337,7 @@ function createNodeGraphCrossoverStereoState(bandCount) {
 function nodeGraphCrossoverFillSortedFreqs(dest, freqs, count) {
   const n = Math.max(0, count);
   for (let i = 0; i < n; i += 1) {
-    dest[i] = Math.max(0, Number(freqs[i]) || 0);
+    dest[i] = Math.max(0, nodeGraphFiniteNumber(freqs[i]));
   }
   for (let i = 1; i < n; i += 1) {
     if (dest[i] < dest[i - 1]) dest[i] = dest[i - 1];
@@ -373,7 +373,7 @@ function nodeGraphCrossoverProcessChannel(ch, x, freqs, lrOrder, rate) {
   const order = nodeGraphCrossoverClampLrOrder(lrOrder);
   const bands = ch.bands;
   const splits = ch.splits;
-  const xin = Number(x) || 0;
+  const xin = nodeGraphFiniteNumber(x);
 
   if (n === 2) {
     nodeGraphCrossoverLrSplitInto(splits[0], xin, f[0], order, rate);
@@ -451,15 +451,15 @@ function nodeGraphCrossoverProcessChannel(ch, x, freqs, lrOrder, rate) {
  * @returns {Record<string, number>} port map (reused object — read immediately)
  */
 function nodeGraphCrossoverSample(state, mono, leftIn, rightIn, freqs, lrOrder, sampleRate, bandCount) {
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
   if (!state.left || state.left.bandCount !== n || !state.out || !state.portPairs) {
     Object.assign(state, createNodeGraphCrossoverStereoState(n));
   }
-  const m = Number(mono) || 0;
-  const lIn = (Number(leftIn) || 0) + m;
-  const rIn = (Number(rightIn) || 0) + m;
+  const m = nodeGraphFiniteNumber(mono);
+  const lIn = (nodeGraphFiniteNumber(leftIn)) + m;
+  const rIn = (nodeGraphFiniteNumber(rightIn)) + m;
   const order = nodeGraphCrossoverClampLrOrder(lrOrder);
-  const rate = Math.max(1, Number(sampleRate) || 44100);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const out = state.out;
   const portPairs = state.portPairs;
 
@@ -492,7 +492,7 @@ function nodeGraphCrossoverSample(state, mono, leftIn, rightIn, freqs, lrOrder, 
  * e.g. 2→Low/High, 3→Low/Mid/High, 4→Low/1/2/High
  */
 function nodeGraphCrossoverBandNames(bandCount) {
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
   if (n === 2) {
     return ["Low", "High"];
   }
@@ -513,8 +513,8 @@ function nodeGraphCrossoverBandNames(bandCount) {
  * @returns {{ L: string, R: string }}
  */
 function nodeGraphCrossoverBandPortPair(bandCount, bandIndex) {
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
-  const i = Math.max(0, Math.min(n - 1, Math.round(Number(bandIndex) || 0)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
+  const i = Math.max(0, Math.min(n - 1, Math.round(nodeGraphFiniteNumber(bandIndex))));
   if (i === 0) {
     return { L: "LFL", R: "LFR" };
   }
@@ -531,7 +531,7 @@ function nodeGraphCrossoverBandPortPair(bandCount, bandIndex) {
 
 /** Canonical stereo outs: LFL, LFR, [ML/MR | L1 R1 …], HFL, HFR. */
 function nodeGraphCrossoverOutputPorts(bandCount) {
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
   const outs = [];
   for (let i = 0; i < n; i += 1) {
     const pair = nodeGraphCrossoverBandPortPair(n, i);
@@ -542,7 +542,7 @@ function nodeGraphCrossoverOutputPorts(bandCount) {
 
 /** Map legacy port names (Low L, High R, Mid, L1, Band N, "1 L", …) → current scheme. */
 function nodeGraphCrossoverOutputAliases(bandCount) {
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
   const aliases = {};
   // Older title sets → current band index.
   const legacyTitles = {
@@ -607,12 +607,12 @@ function nodeGraphCrossoverOutputAliases(bandCount) {
  * All crossovers: "Freq L1", "Freq L2", … (2-way single also "Freq L1").
  */
 function nodeGraphCrossoverFrequencyLabel(splitIndex1Based) {
-  const i = Math.max(1, Math.round(Number(splitIndex1Based) || 1));
+  const i = Math.max(1, Math.round(nodeGraphFiniteNumber(splitIndex1Based, 1)));
   return `Freq L${i}`;
 }
 
 function nodeGraphCrossoverDefaultFreqs(bandCount) {
-  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const n = Math.max(2, Math.min(6, Math.round(nodeGraphFiniteNumber(bandCount, 2))));
   // Musical defaults spanning the spectrum
   const table = {
     2: [1000],

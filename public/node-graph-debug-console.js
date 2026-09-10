@@ -52,12 +52,12 @@
   }
 
   function formatDelta(deltaMs) {
-    const d = Math.max(0, Number(deltaMs) || 0);
+    const d = Math.max(0, nodeGraphFiniteNumber(deltaMs));
     return d >= 1000 ? `+${(d / 1000).toFixed(1)}s` : `+${Math.round(d)}ms`;
   }
 
   function deltaColor(deltaMs) {
-    const d = Math.max(0, Number(deltaMs) || 0);
+    const d = Math.max(0, nodeGraphFiniteNumber(deltaMs));
     if (d >= 1000) return "#f87171";
     if (d >= 100) return "#fbbf24";
     return "#4b5563";
@@ -243,14 +243,14 @@
         .slice(0, CAP)
         .map((e) => {
           const id = ++seq;
-          const ts = Number(e.ts) || 0;
+          const ts = nodeGraphFiniteNumber(e.ts);
           return {
             id,
             t: e.t && /AM|PM/i.test(String(e.t))
               ? String(e.t)
               : (ts ? formatLogTime(ts, id) : String(e.t || "?")),
             ts,
-            delta: Number(e.delta) || 0,
+            delta: nodeGraphFiniteNumber(e.delta),
             level: LEVELS[e.level] ? e.level : "LOG",
             loc: String(e.loc || ""),
             msg: String(e.msg),

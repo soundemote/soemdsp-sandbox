@@ -22,12 +22,12 @@ NodeLiveAudioProcessor.prototype.chuaAttractorSample = function chuaAttractorSam
       }
       if (state.nativeHandle) {
         const resetActive = Number(options.reset) > 0.5 ? 1 : 0;
-        const speed = Math.max(0, Number(options.speed) || 0);
-        const alpha = Number(options.alpha) || 0;
-        const beta = Number(options.beta) || 0;
-        const m0 = Number(options.m0) || 0;
-        const m1 = Number(options.m1) || 0;
-        const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
+        const speed = Math.max(0, nodeGraphFiniteNumber(options.speed));
+        const alpha = nodeGraphFiniteNumber(options.alpha);
+        const beta = nodeGraphFiniteNumber(options.beta);
+        const m0 = nodeGraphFiniteNumber(options.m0);
+        const m1 = nodeGraphFiniteNumber(options.m1);
+        const sampleRateValue = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
         this.nativeChuaAttractor.soemdsp_chua_attractor_sample(
           state.nativeHandle,
           resetActive,

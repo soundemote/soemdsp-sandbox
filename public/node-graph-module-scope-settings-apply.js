@@ -62,7 +62,7 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
   if (displayType === "portalFace") {
     const channel = typeof nodeGraphPortalClampChannel === "function"
       ? nodeGraphPortalClampChannel(settings?.channel)
-      : Math.max(0, Math.round(Number(settings?.channel) || 0));
+      : Math.max(0, Math.round(nodeGraphFiniteNumber(settings?.channel)));
     node.params = { ...(node.params || {}), channel };
     if (typeof applyNodeGraphPortalDisplaySettingsToFace === "function") {
       applyNodeGraphPortalDisplaySettingsToFace(node);
@@ -590,7 +590,7 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
   if (settingsSchema === "portalFace") {
     return typeof nodeGraphPortalDisplaySettingsForNode === "function"
       ? nodeGraphPortalDisplaySettingsForNode(node)
-      : { channel: Number(node?.params?.channel) || 0 };
+      : { channel: nodeGraphFiniteNumber(node?.params?.channel) };
   }
   if (settingsSchema === "keypadFace") {
     return node.layout && typeof node.layout === "object" ? { ...node.layout } : {};

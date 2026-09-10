@@ -112,15 +112,15 @@ NodeLiveAudioProcessor.prototype.robinSupersawSample = function robinSupersawSam
     throw new Error("native RobinSupersaw failed to create instance");
   }
   const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
-  const frequencyHz = Number(options.frequencyHz) || 0;
-  const detuneCents = Number(options.detuneCents) || 0;
+  const frequencyHz = nodeGraphFiniteNumber(options.frequencyHz);
+  const detuneCents = nodeGraphFiniteNumber(options.detuneCents);
   const voices = Number(options.voices);
   const voicesExact = Number.isFinite(voices) && voices > 0 ? voices : 1;
-  const level = Number(options.level) || 0;
+  const level = nodeGraphFiniteNumber(options.level);
   const phaseSpread = Number.isFinite(Number(options.phaseSpread))
     ? Number(options.phaseSpread)
     : 1;
-  const stereoMode = Number(options.stereoMode) || 0;
+  const stereoMode = nodeGraphFiniteNumber(options.stereoMode);
   const detuneAlgorithmRaw = Number(options.detuneAlgorithm);
   const detuneAlgorithm = Number.isFinite(detuneAlgorithmRaw) ? detuneAlgorithmRaw : 2;
   const portaTimeMinRaw = Number(options.portaTimeMin);
@@ -129,7 +129,7 @@ NodeLiveAudioProcessor.prototype.robinSupersawSample = function robinSupersawSam
   const portaTimeMax = Number.isFinite(portaTimeMaxRaw) ? Math.max(0, portaTimeMaxRaw) : 0;
   const portamentoStyleRaw = Number(options.portamentoStyle);
   const portamentoStyle = Number.isFinite(portamentoStyleRaw) ? portamentoStyleRaw : 0.126;
-  const reset = Number(options.reset) || 0;
+  const reset = nodeGraphFiniteNumber(options.reset);
   const out = state.out || (state.out = { Mono: 0, Left: 0, Right: 0 });
   const blockSize = NodeLiveAudioProcessor.ROBIN_SUPERSAW_NATIVE_BLOCK_SIZE;
   if (
@@ -160,9 +160,9 @@ NodeLiveAudioProcessor.prototype.robinSupersawSample = function robinSupersawSam
     }
     const index = cache.cursor;
     cache.cursor += 1;
-    out.Mono = Number(cache.mono[index]) || 0;
-    out.Left = Number(cache.left[index]) || 0;
-    out.Right = Number(cache.right[index]) || 0;
+    out.Mono = nodeGraphFiniteNumber(cache.mono[index]);
+    out.Left = nodeGraphFiniteNumber(cache.left[index]);
+    out.Right = nodeGraphFiniteNumber(cache.right[index]);
     return out;
   }
   native.soemdsp_robin_supersaw_sample(
@@ -181,8 +181,8 @@ NodeLiveAudioProcessor.prototype.robinSupersawSample = function robinSupersawSam
     reset,
   );
   this.robinSupersawPublishVoices(native, state);
-  out.Mono = Number(native.soemdsp_robin_supersaw_mono(state.nativeHandle)) || 0;
-  out.Left = Number(native.soemdsp_robin_supersaw_left(state.nativeHandle)) || 0;
-  out.Right = Number(native.soemdsp_robin_supersaw_right(state.nativeHandle)) || 0;
+  out.Mono = nodeGraphFiniteNumber(native.soemdsp_robin_supersaw_mono(state.nativeHandle));
+  out.Left = nodeGraphFiniteNumber(native.soemdsp_robin_supersaw_left(state.nativeHandle));
+  out.Right = nodeGraphFiniteNumber(native.soemdsp_robin_supersaw_right(state.nativeHandle));
   return out;
 };

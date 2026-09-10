@@ -6,8 +6,8 @@ function applyNodeGraphPagesPageSize(size = {}, panelArg = null) {
   if (!panel) {
     return { width: 0, height: 0 };
   }
-  const width = Math.round(Number(size.width) || 0);
-  const height = Math.round(Number(size.height) || 0);
+  const width = Math.round(nodeGraphFiniteNumber(size.width));
+  const height = Math.round(nodeGraphFiniteNumber(size.height));
   if (width >= 24) {
     panel.style.width = `${width}px`;
   }

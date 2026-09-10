@@ -20,20 +20,20 @@ function nodeGraphLorenzAttractorResetState(state) {
  * @returns {{ x: number, y: number, z: number }} normalized / rotated outputs in [-1, 1]
  */
 function nodeGraphLorenzAttractorCore(state, options = {}) {
-  const resetHigh = (Number(options.reset) || 0) > 0.5;
+  const resetHigh = (nodeGraphFiniteNumber(options.reset)) > 0.5;
   if (resetHigh && !state.resetWasHigh) {
     nodeGraphLorenzAttractorResetState(state);
   }
   state.resetWasHigh = resetHigh;
 
-  const sampleRate = Math.max(1, Number(options.sampleRate) || 44100);
-  const speed = Math.max(0, Number(options.speed) || 0);
+  const sampleRate = Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100));
+  const speed = Math.max(0, nodeGraphFiniteNumber(options.speed));
   const sigma = Math.max(0, nodeGraphFiniteNumber(options.sigma, 10));
   const rho = Number.isFinite(Number(options.rho)) ? Number(options.rho) : 28;
   const beta = Math.max(0, nodeGraphFiniteNumber(options.beta, 8) / 3);
-  const rotate = Number(options.rotate) || 0;
+  const rotate = nodeGraphFiniteNumber(options.rotate);
   const scale = Math.max(0, nodeGraphFiniteNumber(options.scale, 1));
-  const zDepth = Math.max(0, Math.min(1, Number(options.zDepth) || 0));
+  const zDepth = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.zDepth)));
 
   const dt = (0.75 * speed) / sampleRate;
   // Match native ceil(dt/0.0007) with floor of 1 (dt is always >= 0).
@@ -66,7 +66,7 @@ function nodeGraphLorenzAttractorCore(state, options = {}) {
   const outY = (normalizedX * sinRotate + normalizedY * cosRotate) * finalScale;
   const outZ = normalizedZ * finalScale;
 
-  const clamp1 = (v) => Math.max(-1, Math.min(1, Number.isFinite(v) ? v : 0));
+  const clamp1 = (v) => Number.isFinite(v) ? v : 0;
   return {
     x: clamp1(outX),
     y: clamp1(outY),
