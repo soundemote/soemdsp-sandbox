@@ -93,6 +93,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-040 | see | fixed | Copy LCD does not copy size/colors |
 | B-041 | see | fixed | Room dimmer cutouts ignore zoom/pan |
 | B-042 | hear | fixed | Parameter smoothing intermittently snaps |
+| B-043 | hear | fixed | Control chase not sample-accurate by default (Output Volume repro) |
 
 ---
 
@@ -101,6 +102,8 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 
 <!-- user: paste below this line -->
+
+- 2026-09-10: Desktop patch `zipper noise on volume knob of output module.json` — Output Volume zipper while dragging. Promoted → **B-043**.
 
 ---
 
@@ -446,6 +449,14 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - What: User: lowpass in the passive filter set is broken. LP is mode 0 and reads **High Cut**, not Low Cut. Live path is native-only and **throws** if wasm is not ready (not silence). Offline is JS one-pole.
 - Repro: Passive Filter Mode LP6. Sweep High Cut (and Low Cut) vs a bright osc. Compare HP6 / BP6.
 - Fix shape: Confirm mode/cutoff mapping and native LP coeffs. If High Cut is the intended LP knob, make the unused Low Cut inert/hidden in LP6 so it does not look dead. Native-not-ready must silence, not throw.
+
+### B-043 — Control chase not sample-accurate by default (Output Volume repro)
+- Status: fixed
+- Severity: hear
+- Source: user (Desktop patch `zipper noise on volume knob of output module.json`) — **framework**, not Output-special
+- Files: `native_modules/graph_engine/graph_engine.cpp`
+- What: Trailing `smoother_run` after DSP + freeze-outside `control_effective` → one ZOH jump/block (zipper). `smoother_step_node` was opt-in.
+- Fix: SSOT `control_audio(g, c, f)` / `control_ensure_stepped` with `steppedCount` (idempotent per Control per frame). Heard continuous params in sample loops use `control_audio`. Deleted `smoother_step_node` / `node_control_smoothing` / `blockStepped`. Trailing `smoother_run` is catch-up only for unread/block-ZOH Controls. Output/Gain/Mix/MixStereo/Bias (+ Class A loops) sample-accurate. Smoke: `scripts/smoke_output_volume_chase.mjs`.
 
 ---
 

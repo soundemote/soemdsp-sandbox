@@ -1800,7 +1800,7 @@ struct Control {
   unsigned char mode;
   unsigned char type; // kSmoothType*
   unsigned char snap; // discrete: out=target immediately, never on toSmooth_
-  unsigned char blockStepped; // sample path already advanced this quantum
+  int steppedCount; // samples advanced this quantum (control_audio catch-up)
   unsigned char modFlags; // bit0 wraparound, bit1 modClamp (post-MOD bounds)
 };
 
@@ -2309,7 +2309,7 @@ static void init_control(Control& c, double value, bool snap) {
   c.mode = kSmoothModeInternal;
   c.type = kSmoothTypeOnePole;
   c.snap = snap ? 1 : 0;
-  c.blockStepped = 0;
+  c.steppedCount = 0;
   c.modFlags = 0;
 }
 
@@ -3579,13 +3579,50 @@ static void control_step(Control& c, Circuit& g) {
   control_fold_wrap_state(c);
 }
 
+// Ensure Control chase has advanced through audio frame `f` (0-based).
+// Idempotent for repeated reads of the same Control at the same f.
+static inline void control_ensure_stepped(Circuit& g, Control& c, int f) {
+  if (f < 0 || c.snap || !c.active) return;
+  while (c.steppedCount <= f) {
+    control_step(c, g);
+    c.steppedCount += 1;
+  }
+}
+
+// Sample-accurate heard param: chase then effective (MOD after smooth).
+static inline double control_audio(Circuit& g, Control& c, int f) {
+  control_ensure_stepped(g, c, f);
+  return control_effective(c);
+}
+
+// Fast-path predicate: any continuous Control on this node is chasing.
+static bool node_has_active_chase(const Node& node) {
+  const Control* slots[] = {
+    &node.volumeDb, &node.pan, &node.frequency, &node.amplitude, &node.shape,
+    &node.phaseParam, &node.resonance, &node.center, &node.width, &node.mix,
+    &node.gainDb, &node.gainLeftDb, &node.gainRightDb, &node.gainMonoSum, &node.offset,
+    &node.lpfFrequency, &node.hpfFrequency, &node.feedback, &node.level,
+    &node.timeNumerator, &node.timeDenominator,
+    &node.laneVol[0], &node.laneVol[1], &node.laneVol[2], &node.laneVol[3],
+    &node.laneBias[0], &node.laneBias[1], &node.laneBias[2], &node.laneBias[3],
+    &node.bleed2, &node.bleed3, &node.bleed4
+  };
+  for (unsigned i = 0; i < sizeof(slots) / sizeof(slots[0]); i++) {
+    if (slots[i]->active && !slots[i]->snap) return true;
+  }
+  return false;
+}
+
 static void smoother_run(Circuit& g, int n) {
+  // Catch-up only: Controls read via control_audio already have steppedCount>=n.
+  // Unread chasing Controls (intentional block-ZOH natives) advance here.
   if (g.toSmoothCount <= 0 || n < 1) return;
-  for (int f = 0; f < n; f++) {
-    for (int i = 0; i < g.toSmoothCount; i++) {
-      Control* c = g.toSmooth[i];
-      // Skip Controls already advanced sample-accurately this quantum.
-      if (c && !c->blockStepped) control_step(*c, g);
+  for (int i = 0; i < g.toSmoothCount; i++) {
+    Control* c = g.toSmooth[i];
+    if (!c || c->snap || !c->active) continue;
+    while (c->steppedCount < n) {
+      control_step(*c, g);
+      c->steppedCount += 1;
     }
   }
 }
@@ -3595,7 +3632,7 @@ static void control_snap_to_target(Control& c) {
   c.stage1 = c.target;
   c.stage2 = c.target;
   c.active = false;
-  c.blockStepped = 0;
+  c.steppedCount = 0;
   c.dirty = true;
   if (c.papHandle > 0) soemdsp_papoulis_filter_snap(c.papHandle, c.target);
 }
@@ -3626,44 +3663,12 @@ static void smoother_snap_all(Circuit& g) {
   g.toSmoothCount = 0;
 }
 
-// One sample of a node's continuous Controls (sample-accurate osc/filter path).
-static void smoother_step_node(Circuit& g, Node& node) {
-  Control* slots[] = {
-    &node.volumeDb, &node.pan, &node.frequency, &node.amplitude, &node.shape,
-    &node.phaseParam, &node.resonance, &node.center, &node.width, &node.mix,
-    &node.diffusionSize, &node.diffusionAmount, &node.delaySize, &node.recycle,
-    &node.lfoAmplitude, &node.lfoBaseSpeed, &node.lfoVariation, &node.feedback,
-    &node.level, &node.timeNumerator, &node.timeDenominator, &node.offsetMs,
-    &node.tapOffsetMs, &node.lfoRate, &node.saturate, &node.lpfFrequency, &node.hpfFrequency,
-    &node.tempoBpm, &node.offset, &node.inLow, &node.inHigh, &node.outLow,
-    &node.outHigh, &node.gainDb, &node.gainLeftDb, &node.gainRightDb
-  };
-  for (unsigned i = 0; i < sizeof(slots) / sizeof(slots[0]); i++) {
-    Control* c = slots[i];
-    if (c && c->active && !c->snap) {
-      control_step(*c, g);
-      c->blockStepped = 1;
-    }
-  }
-}
-
-static bool node_control_smoothing(const Node& node) {
-  const Control* slots[] = {
-    &node.frequency, &node.amplitude, &node.shape, &node.phaseParam,
-    &node.resonance, &node.center, &node.width, &node.mix, &node.volumeDb, &node.pan
-  };
-  for (unsigned i = 0; i < sizeof(slots) / sizeof(slots[0]); i++) {
-    if (slots[i]->active && !slots[i]->snap) return true;
-  }
-  return false;
-}
-
 static void smoother_clean(Circuit& g) {
   int w = 0;
   for (int i = 0; i < g.toSmoothCount; i++) {
     Control* c = g.toSmooth[i];
     if (!c) continue;
-    c->blockStepped = 0;
+    c->steppedCount = 0;
     if (dsp_fabs(c->out - c->target) <= kPlanck) {
       c->out = c->target;
       c->stage1 = c->target;
@@ -4097,15 +4102,15 @@ static double resolve_cutoff_hz(
 // Oscillator / Chaosfly Hz: same ƒ / 0.1V / knob law as filters, then patch Pitch.
 static double resolve_osc_hz(
   Circuit& g, int frame, bool liveF, bool livePitch,
-  const Control& frequency, double referenceVoltage, double sr
+  Control& frequency, double referenceVoltage, double sr
 ) {
   double freq;
   if (liveF) {
     freq = g.mixF[frame];
   } else if (livePitch) {
-    freq = pitched_hz(control_effective(frequency), g.mixPitch[frame], referenceVoltage);
+    freq = pitched_hz(control_audio(g, frequency, frame), g.mixPitch[frame], referenceVoltage);
   } else {
-    freq = control_effective(frequency);
+    freq = control_audio(g, frequency, frame);
   }
   freq = apply_global_pitch(g, freq);
   return clamp_hz_nyquist(freq, sr);
@@ -4128,11 +4133,11 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool livePhase = mix_live_port(g, node, kPortPhaseCv, frames, g.mixPhaseCv);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   // Range/Knob→Morph ParamModEdge must take the sample path (stamp before read).
   const bool liveParamMods = node_has_live_param_mods(g, node);
   const bool audioRatePitch =
-    liveF || livePitch || liveInc || liveReset || livePhase || controlSmoothing
+    liveF || livePitch || liveInc || liveReset || livePhase || takeSamplePath
     || liveParamMods;
   const int mask = polyblep_tap_mask(g, node);
 
@@ -4142,7 +4147,6 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   // Morph / Amp / Wave: stamp frame 0 so ParamModEdge (Range→Morph) is audible
   // even on the block path. No Morph SIGNAL IN — Morph is the parameter (+ MOD).
   stamp_live_param_mods(g, node, 0);
-  if (controlSmoothing) smoother_step_node(g, node);
   const double phaseParam = phase_offset_cycles(
     node.phaseParam, livePhase ? g.mixPhaseCv[0] : 0.0
   );
@@ -4191,10 +4195,9 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
     node.lastReset = 0.0;
   }
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (f > 0 && controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     morph = shape_param_01(node);
-    level = control_effective(node.amplitude);
+    level = control_audio(g, node.amplitude, f);
     if (!(level == level)) level = 0.0;
     const double phaseParamNow = phase_offset_cycles(
       node.phaseParam, livePhase ? g.mixPhaseCv[f] : 0.0
@@ -4261,7 +4264,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
-  const bool controlSmoothing =
+  const bool takeSamplePath =
     node.frequency.active || node.resonance.active || node.amplitude.active;
 
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
@@ -4270,7 +4273,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   double amp = control_effective(node.amplitude);
   if (!(amp == amp)) amp = 1.0;
 
-  if (!liveF && !livePitch && !controlSmoothing) {
+  if (!liveF && !livePitch && !takeSamplePath) {
     double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
     if (freq < 0.0) freq = 0.0;
     double* out0 = nullptr;
@@ -4280,7 +4283,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
       out0 = ptr_from_export(soemdsp_ladder_filter_block_output_ptr(node.nativeHandle));
       if (!inPtr || !out0) return;
       for (int f = 0; f < frames; f++) {
-                stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
         inPtr[f] = g.mixMono[f];
         if (!hasLeftIn && !hasRightIn) inPtr[f] += g.mixLeft[f] + g.mixRight[f];
       }
@@ -4313,7 +4316,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
     }
     if (amp != 1.0) {
       for (int f = 0; f < frames; f++) {
-                stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
         node.buf[kPortMono][f] *= amp;
         node.buf[kPortLeft][f] *= amp;
         node.buf[kPortRight][f] *= amp;
@@ -4324,11 +4327,10 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
 
   // Live ƒ / 0.1V/Oct and/or Control chase: per-sample cutoff / resonance.
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
-    amp = control_effective(node.amplitude);
+    stamp_live_param_mods(g, node, f);
+    amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 1.0;
-    reso = control_effective(node.resonance);
+    reso = control_audio(g, node.resonance, f);
     if (!(reso == reso)) reso = 0.0;
     if (reso < 0.0) reso = 0.0;
     if (reso > 0.999) reso = 0.999;
@@ -4400,7 +4402,7 @@ static void process_clipper_limiter(Circuit& g, Node& node, int frames) {
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
@@ -4451,7 +4453,7 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
     out0 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 0));
     if (!in0 || !out0) return;
     for (int f = 0; f < frames; f++) {
-            stamp_live_param_mods(g, node, f);
+        stamp_live_param_mods(g, node, f);
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) {
         in += g.mixLeft[f] + g.mixRight[f];
@@ -4467,7 +4469,7 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
     double* out1 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 1));
     if (in1 && out1) {
       for (int f = 0; f < frames; f++) {
-                stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
         in1[f] = (g.mixLeft[f] + g.mixMono[f]) * drive;
       }
       soemdsp_soft_clipper_process_block(node.nativeHandle, 1, frames);
@@ -4482,7 +4484,7 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
     double* out2 = ptr_from_export(soemdsp_soft_clipper_block_output_ptr(node.nativeHandle, 2));
     if (in2 && out2) {
       for (int f = 0; f < frames; f++) {
-                stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
         in2[f] = (g.mixRight[f] + g.mixMono[f]) * drive;
       }
       soemdsp_soft_clipper_process_block(node.nativeHandle, 2, frames);
@@ -4518,7 +4520,7 @@ static void process_reverb(Circuit& g, Node& node, int frames) {
 
   // Mono In folds into both sides; dedicated L/R add on top (JS mixInput).
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double mono = g.mixMono[f];
     inL[f] = mono + g.mixLeft[f];
     inR[f] = mono + g.mixRight[f];
@@ -4529,7 +4531,7 @@ static void process_reverb(Circuit& g, Node& node, int frames) {
   copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
   copy_tap_to_buf(node.buf[kPortRight], outR, frames);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     node.buf[kPortDryL][f] = inL[f];
     node.buf[kPortDryR][f] = inR[f];
     node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
@@ -4545,32 +4547,31 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
   // delay = tempoBase + Offset_ms + LFO_Amp_ms * lfoBipolar.
   // Keep stereo: Mono folds into both; Left/Right stay separate (no L+R sum).
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double dryL = g.mixMono[f] + g.mixLeft[f];
     const double dryR = g.mixMono[f] + g.mixRight[f];
-    const double offsetMs = control_effective(node.offsetMs);
-    const double lfoAmpMs = control_effective(node.lfoAmplitude);
-    const double lfoRateHz = control_effective(node.lfoRate);
+    const double offsetMs = control_audio(g, node.offsetMs, f);
+    const double lfoAmpMs = control_audio(g, node.lfoAmplitude, f);
+    const double lfoRateHz = control_audio(g, node.lfoRate, f);
     const double left = soemdsp_ping_pong_delay_sample(
       node.nativeHandle,
       dryL,
       dryR,
-      control_effective(node.feedback),
-      control_effective(node.mix),
-      control_effective(node.level),
-      control_effective(node.timeNumerator),
-      control_effective(node.timeDenominator),
+      control_audio(g, node.feedback, f),
+      control_audio(g, node.mix, f),
+      control_audio(g, node.level, f),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.timeDenominator, f),
       control_effective(node.timingMode),
       offsetMs,
       lfoAmpMs,
       control_effective(node.lfoStyle),
       lfoRateHz,
-      control_effective(node.lfoVariation),
-      control_effective(node.saturate),
-      control_effective(node.lpfFrequency),
-      control_effective(node.hpfFrequency),
-      control_effective(node.tempoBpm),
+      control_audio(g, node.lfoVariation, f),
+      control_audio(g, node.saturate, f),
+      control_audio(g, node.lpfFrequency, f),
+      control_audio(g, node.hpfFrequency, f),
+      control_audio(g, node.tempoBpm, f),
       sr
     );
     const double right = soemdsp_ping_pong_delay_right(node.nativeHandle);
@@ -4591,7 +4592,7 @@ static void process_attenuverter(Circuit& g, Node& node, int frames) {
   double* outPtr = ptr_from_export(soemdsp_attenuverter_block_output_ptr(node.nativeHandle));
   if (!inPtr || !outPtr) return;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
   }
   soemdsp_attenuverter_process_block(node.nativeHandle, frames);
@@ -4610,7 +4611,7 @@ static void process_amp_curve(Circuit& g, Node& node, int frames) {
   double* outPtr = ptr_from_export(soemdsp_amp_curve_block_output_ptr(node.nativeHandle));
   if (!inPtr || !outPtr) return;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
   }
   soemdsp_amp_curve_process_block(node.nativeHandle, frames);
@@ -4633,7 +4634,7 @@ static void process_range(Circuit& g, Node& node, int frames) {
   double* outPtr = ptr_from_export(soemdsp_range_block_output_ptr(node.nativeHandle));
   if (!inPtr || !outPtr) return;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
   }
   soemdsp_range_process_block(node.nativeHandle, frames);
@@ -4646,7 +4647,7 @@ static void process_range(Circuit& g, Node& node, int frames) {
 static void process_inv(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double out = -(g.mixMono[f] + g.mixLeft[f] + g.mixRight[f]);
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
@@ -4677,7 +4678,7 @@ static void process_transistor(Circuit& g, Node& node, int frames) {
   const bool hasDigital = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double unit = hasAnalog ? g.mixMorph[f] : 0.0;
     double u = unit;
     if (u < 0.0) u = 0.0;
@@ -4709,7 +4710,7 @@ static void process_transistor(Circuit& g, Node& node, int frames) {
 static void process_u2b(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = 2.0 * in - 1.0;
     node.buf[kPortMono][f] = out;
@@ -4721,7 +4722,7 @@ static void process_u2b(Circuit& g, Node& node, int frames) {
 static void process_b2u(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = (in + 1.0) * 0.5;
     node.buf[kPortMono][f] = out;
@@ -4743,7 +4744,7 @@ static void process_min_max(Circuit& g, Node& node, int frames) {
   const bool c4 = mix_live_port(g, node, kPortIn4, frames, in4);
   const int mask = (c1 ? 1 : 0) | (c2 ? 2 : 0) | (c3 ? 4 : 0) | (c4 ? 8 : 0);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double mx = soemdsp_min_max_sample(
       node.nativeHandle, in1[f], in2[f], in3[f], in4[f], mask
     );
@@ -4762,19 +4763,19 @@ static void process_mix(Circuit& g, Node& node, int frames) {
   mix_live_port(g, node, kPortIn2, frames, in2);
   mix_live_port(g, node, kPortIn3, frames, in3);
   mix_live_port(g, node, kPortIn4, frames, in4);
-  const double v1 = control_effective(node.laneVol[0]);
-  const double v2 = control_effective(node.laneVol[1]);
-  const double v3 = control_effective(node.laneVol[2]);
-  const double v4 = control_effective(node.laneVol[3]);
-  const double b1 = control_effective(node.laneBias[0]);
-  const double b2 = control_effective(node.laneBias[1]);
-  const double b3 = control_effective(node.laneBias[2]);
-  const double b4 = control_effective(node.laneBias[3]);
-  const double bl2 = control_effective(node.bleed2);
-  const double bl3 = control_effective(node.bleed3);
-  const double bl4 = control_effective(node.bleed4);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
+    const double v1 = control_audio(g, node.laneVol[0], f);
+    const double v2 = control_audio(g, node.laneVol[1], f);
+    const double v3 = control_audio(g, node.laneVol[2], f);
+    const double v4 = control_audio(g, node.laneVol[3], f);
+    const double b1 = control_audio(g, node.laneBias[0], f);
+    const double b2 = control_audio(g, node.laneBias[1], f);
+    const double b3 = control_audio(g, node.laneBias[2], f);
+    const double b4 = control_audio(g, node.laneBias[3], f);
+    const double bl2 = control_audio(g, node.bleed2, f);
+    const double bl3 = control_audio(g, node.bleed3, f);
+    const double bl4 = control_audio(g, node.bleed4, f);
     node.buf[kPortOut1][f] = soemdsp_mix_sample(
       1.0, in1[f], in2[f], in3[f], in4[f], v1, v2, v3, v4, b1, b2, b3, b4, bl2, bl3, bl4
     );
@@ -4802,7 +4803,7 @@ static void process_clock(Circuit& g, Node& node, int frames) {
   const double duty = control_effective(node.shape);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double reset = hasReset ? g.mixReset[f] : 0.0;
     const double rate = liveF ? g.mixF[f] : rateKnob;
     const double digital = soemdsp_clock_sample(
@@ -4825,7 +4826,7 @@ static void process_trigger_divider(Circuit& g, Node& node, int frames) {
   const double pulseTime = control_effective(node.timeNumerator);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double out = soemdsp_trigger_divider_sample(
       node.nativeHandle,
       hasTrig ? g.mixTrigger[f] : 0.0,
@@ -4854,7 +4855,7 @@ static void process_clock_divider(Circuit& g, Node& node, int frames) {
   const double duty = control_effective(node.shape);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double out = soemdsp_trigger_divider_sample_clock(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
@@ -4878,7 +4879,7 @@ static void process_alias_sine(Circuit& g, Node& node, int frames) {
   const double normFreq = control_effective(node.frequency);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double y = soemdsp_alias_sine_sample(node.nativeHandle, normFreq, level, sr);
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
@@ -4895,15 +4896,14 @@ static void process_phone_tone(Circuit& g, Node& node, int frames) {
   const bool liveDigital = mix_live_port(g, node, kPortLeft, frames, g.mixLeft);
   const bool liveGate = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = 48.0 / 120.0;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (f > 0 && controlSmoothing) smoother_step_node(g, node);
-    double amp = control_effective(node.amplitude);
+    stamp_live_param_mods(g, node, f);
+    double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 0.0;
-    const double pitchOff = control_effective(node.shape);
-    const double freqOff = control_effective(node.frequency);
+    const double pitchOff = control_audio(g, node.shape, f);
+    const double freqOff = control_audio(g, node.frequency, f);
     const double analog = liveAnalog ? g.mixMono[f] : 0.0;
     const double digital = liveDigital ? g.mixLeft[f] : 0.0;
     const double gate = liveGate ? g.mixTrigger[f] : 0.0;
@@ -4944,18 +4944,17 @@ static void process_blit(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = 48.0 / 120.0;
 
   // PhaseOffset = freePhase + Control phase; re-apply offset every sample.
   double freePhase = node.phase;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
-    double level = control_effective(node.amplitude);
+    stamp_live_param_mods(g, node, f);
+    double level = control_audio(g, node.amplitude, f);
     if (!(level == level)) level = 0.0;
-    const double phaseParamNow = control_effective(node.phaseParam);
+    const double phaseParamNow = control_audio(g, node.phaseParam, f);
     const double waveNow = control_effective(node.waveform);
     int waveform = (int)(waveNow + (waveNow >= 0.0 ? 0.5 : -0.5));
     if (waveform < 0) waveform = 0;
@@ -5036,7 +5035,7 @@ static void sin_cos_pair_advance(
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool livePhase = mix_live_port(g, node, kPortPhaseCv, frames, g.mixPhaseCv);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = 48.0 / 120.0;
   const double methodV = control_effective(node.shape);
   const int method = (methodV >= 0.5) ? 1 : 0;
@@ -5052,11 +5051,10 @@ static void sin_cos_pair_advance(
 
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double liveCv = livePhase ? g.mixPhaseCv[f] : 0.0;
     const double phaseOff = phase_offset_cycles(node.phaseParam, liveCv) * kTwoPi;
-    double amp = control_effective(node.amplitude);
+    double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 0.0;
     if (liveReset) {
       const double rv = g.mixReset[f];
@@ -5110,8 +5108,8 @@ static void process_antisaw(Circuit& g, Node& node, int frames) {
   const double tilt = control_effective(node.shape);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    const double fundamental = liveF ? g.mixF[f] : control_effective(node.frequency);
+    stamp_live_param_mods(g, node, f);
+    const double fundamental = liveF ? g.mixF[f] : control_audio(g, node.frequency, f);
     const double y = soemdsp_antisaw_sample(
       node.nativeHandle, fundamental, reflections, tilt, level, sr
     );
@@ -5145,7 +5143,7 @@ static void process_archimedes(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -5184,7 +5182,7 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = 48.0 / 120.0;
 
   // PhaseOffset = freePhase + Control phase; re-apply offset every sample.
@@ -5192,7 +5190,6 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
 
   // ZOH capture after first smoother step so knob chase still moves over time.
-  if (controlSmoothing) smoother_step_node(g, node);
   const double heldHarmonics = control_effective(node.stages);
   const double heldWaveform = control_effective(node.waveform);
   // Morph CV (turquoise): one sample per quantum, zero-order held.
@@ -5203,8 +5200,7 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
   const double heldDamp = control_effective(node.lpfFrequency);
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (f > 0 && controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -5220,7 +5216,7 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
     if (phaseInc > 0.5) phaseInc = 0.5;
     if (phaseInc < -0.5) phaseInc = -0.5;
 
-    const double renderPhase = wrap_phase_pi(freePhase + control_effective(node.phaseParam) * kTwoPi);
+    const double renderPhase = wrap_phase_pi(freePhase + control_audio(g, node.phaseParam, f) * kTwoPi);
     const double y = soemdsp_additive_osc_sample(
       renderPhase,
       freq,
@@ -5340,7 +5336,7 @@ static void process_additive_bubble(Circuit& g, Node& node, int frames) {
   }
   // Same Control ownership as Pan / filters / Quantize: do NOT step here.
   // process_block's smoother_run advances knobs for the full quantum. A lone
-  // smoother_step_node() marked blockStepped after 1 sample and starved the
+  // smoother_step_node() marked steppedCount after 1 sample and starved the
   // rest of the chase (~frames× too slow). Stamp Growl from Control.out
   // (end of previous quantum) + plane lerp across this block — like Pan.
   // Host-uploaded yellowCutoffStrip → defer amp bake; Out gates per sample.
@@ -5782,15 +5778,13 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = 48.0 / 120.0;
   const int optimize = (int)(control_effective(node.mode) + (control_effective(node.mode) >= 0.0 ? 0.5 : -0.5));
   if (!liveReset) node.lastReset = 0.0;
 
-  if (controlSmoothing) smoother_step_node(g, node);
 
   for (int f = 0; f < frames; f += 1) {
-    if (f > 0 && controlSmoothing) smoother_step_node(g, node);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -5855,7 +5849,7 @@ static void process_surge_oscillator(Circuit& g, Node& node, int frames) {
   if (waveform > 3) waveform = 3;
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -5890,14 +5884,12 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = 48.0 / 120.0;
   if (!liveReset) node.lastReset = 0.0;
-  if (controlSmoothing) smoother_step_node(g, node);
 
   for (int f = 0; f < frames; f++) {
     stamp_live_param_mods(g, node, f);
-    if (f > 0 && controlSmoothing) smoother_step_node(g, node);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -5908,16 +5900,16 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
-    double morph = control_effective(node.shape);
+    double morph = control_audio(g, node.shape, f);
     if (!(morph == morph)) morph = 0.5;
     if (morph < 0.0) morph = 0.0;
     if (morph > 1.0) morph = 1.0;
-    const double phaseOff = control_effective(node.phaseParam);
-    double level = control_effective(node.amplitude);
+    const double phaseOff = control_audio(g, node.phaseParam, f);
+    double level = control_audio(g, node.amplitude, f);
     if (!(level == level)) level = 1.0;
     if (level < 0.0) level = 0.0;
     if (level > 1.0) level = 1.0;
-    const double antialias = control_effective(node.center);
+    const double antialias = control_audio(g, node.center, f);
     const double waveV = control_effective(node.waveform);
     const double y = soemdsp_softwave_sample(
       node.nativeHandle, freq, sr, waveV, morph, phaseOff, level, antialias
@@ -5949,9 +5941,9 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
   if (waveform > 4) waveform = 4;
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     morph = morph_zoh_hold(g, node, liveMorph, true);
-    level = control_effective(node.amplitude);
+    level = control_audio(g, node.amplitude, f);
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6001,7 +5993,7 @@ static void process_hypersaw(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -6080,7 +6072,7 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -6134,7 +6126,7 @@ static void process_sinc(Circuit& g, Node& node, int frames) {
   const double bandLimit = control_effective(node.mode);
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6171,7 +6163,7 @@ static void process_bradley2a(Circuit& g, Node& node, int frames) {
   const double level = control_effective(node.amplitude);
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6226,7 +6218,7 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
   double phase = node.phase; // cycles 0..1
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -6293,7 +6285,7 @@ static void process_snowflake(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     double resetGate = 0.0;
     if (liveReset) {
       const double rv = g.mixReset[f];
@@ -6333,7 +6325,7 @@ static void process_speaker_protection(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
@@ -6360,11 +6352,10 @@ static void process_speaker_protector2(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   // drop/hold/rise reused on timeNumerator / timeDenominator / offsetMs.
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double l = g.mixLeft[f] + g.mixMono[f];
     const double r = g.mixRight[f] + g.mixMono[f];
     double outL = 0.0, outR = 0.0, outM = 0.0;
@@ -6373,9 +6364,9 @@ static void process_speaker_protector2(Circuit& g, Node& node, int frames) {
       l,
       r,
       sr,
-      control_effective(node.timeNumerator),
-      control_effective(node.timeDenominator),
-      control_effective(node.offsetMs),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.offsetMs, f),
       &outL,
       &outR,
       &outM
@@ -6395,10 +6386,9 @@ static void process_papoulis_filter(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6406,7 +6396,7 @@ static void process_papoulis_filter(Circuit& g, Node& node, int frames) {
     const double out = soemdsp_papoulis_filter_sample(
       node.nativeHandle, in, freq, sr
     );
-    node.buf[kPortMono][f] = out * control_effective(node.amplitude);
+    node.buf[kPortMono][f] = out * control_audio(g, node.amplitude, f);
   }
 }
 
@@ -6427,7 +6417,7 @@ static void process_scientific_iir(
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
@@ -6440,8 +6430,7 @@ static void process_scientific_iir(
   const double ripple = control_effective(node.resonance);
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -6461,19 +6450,18 @@ static void process_eq_filter(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double modeV = control_effective(node.mode);
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
-    const double q = control_effective(node.resonance);
-    const double gain = control_effective(node.gainDb);
+    const double q = control_audio(g, node.resonance, f);
+    const double gain = control_audio(g, node.gainDb, f);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
@@ -6507,7 +6495,7 @@ static void process_eq_filter_fixed_mode(
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = 48.0 / 120.0;
   const double modeV = forcedMode;
   const double gain = 0.0;
@@ -6515,13 +6503,12 @@ static void process_eq_filter_fixed_mode(
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
-    const double q = control_effective(node.resonance);
-    const double amp = control_effective(node.amplitude);
+    const double q = control_audio(g, node.resonance, f);
+    const double amp = control_audio(g, node.amplitude, f);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
@@ -6566,20 +6553,19 @@ static void process_phase_disperse(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
     const double stages = control_effective(node.stages);
-    const double q = phase_disperse_pinch_to_q(control_effective(node.resonance));
+    const double q = phase_disperse_pinch_to_q(control_audio(g, node.resonance, f));
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_phase_disperse_sample(
       node.nativeHandle, in, freq, stages, q, sr
     );
-    node.buf[kPortMono][f] = out * control_effective(node.amplitude);
+    node.buf[kPortMono][f] = out * control_audio(g, node.amplitude, f);
   }
 }
 
@@ -6587,11 +6573,10 @@ static void process_phase_disperse(Circuit& g, Node& node, int frames) {
 static void process_quadrature(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
-    const double amp = control_effective(node.amplitude);
+    stamp_live_param_mods(g, node, f);
+    const double amp = control_audio(g, node.amplitude, f);
     double i = 0.0, q = 0.0, midI = 0.0, sideQ = 0.0;
     soemdsp_quadrature_process_sample(
       node.nativeHandle,
@@ -6611,10 +6596,9 @@ static void process_quadrature(Circuit& g, Node& node, int frames) {
 static void process_hilbert(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double modeV = control_effective(node.mode);
     int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
     if (mode < 0) mode = 0;
@@ -6623,7 +6607,7 @@ static void process_hilbert(Circuit& g, Node& node, int frames) {
     soemdsp_quadrature_process_mono(
       node.nativeHandle, g.mixMono[f] + g.mixLeft[f] + g.mixRight[f], mode, &out
     );
-    node.buf[kPortMono][f] = out * control_effective(node.amplitude);
+    node.buf[kPortMono][f] = out * control_audio(g, node.amplitude, f);
   }
 }
 
@@ -6634,16 +6618,15 @@ static void process_binary_clock(Circuit& g, Node& node, int frames) {
   const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double out = soemdsp_binary_clock_sample(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
       hasClock ? 1.0 : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
-      control_effective(node.frequency),
+      control_audio(g, node.frequency, f),
       control_effective(node.stages),
       sr
     );
@@ -6666,7 +6649,7 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
-  const bool controlSmoothing = node_control_smoothing(node)
+  const bool takeSamplePath = node_has_active_chase(node)
     || node.hpfFrequency.active || node.lpfFrequency.active;
   int hpSlope = (int)(control_effective(node.waveform) + (control_effective(node.waveform) >= 0.0 ? 0.5 : -0.5));
   int lpSlope = (int)(control_effective(node.shape) + (control_effective(node.shape) >= 0.0 ? 0.5 : -0.5));
@@ -6682,12 +6665,11 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
-    double lo = control_effective(node.hpfFrequency);
-    double hi = control_effective(node.lpfFrequency);
+    stamp_live_param_mods(g, node, f);
+    double lo = control_audio(g, node.hpfFrequency, f);
+    double hi = control_audio(g, node.lpfFrequency, f);
     if (!(lo == lo)) lo = 200.0;
-    if (!(hi == hi)) hi = control_effective(node.frequency);
+    if (!(hi == hi)) hi = control_audio(g, node.frequency, f);
     if (!(hi == hi)) hi = 1000.0;
     double center = 0.0;
     bool haveCenter = false;
@@ -6696,7 +6678,7 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
       haveCenter = true;
     } else if (livePitch) {
       // Pitch the geometric mean of the HP/LP band from Frequency (or mid).
-      double base = control_effective(node.frequency);
+      double base = control_audio(g, node.frequency, f);
       if (!(base == base) || base <= 0.0) {
         base = (lo > 0.0 && hi > 0.0) ? dsp_exp(0.5 * dsp_ln(lo * hi)) : 1000.0;
       }
@@ -6730,7 +6712,7 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
     hi = clamp_hz_nyquist(hi, sr);
     if (lo < 0.0) lo = 0.0;
     if (hi < 0.0) hi = 0.0;
-    const double reso = control_effective(node.resonance);
+    const double reso = control_audio(g, node.resonance, f);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
@@ -6763,7 +6745,7 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
-  const bool controlSmoothing = node_control_smoothing(node)
+  const bool takeSamplePath = node_has_active_chase(node)
     || node.hpfFrequency.active || node.lpfFrequency.active;
   const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
@@ -6773,10 +6755,9 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
-    double lo = control_effective(node.hpfFrequency);
-    double hi = control_effective(node.lpfFrequency);
+    stamp_live_param_mods(g, node, f);
+    double lo = control_audio(g, node.hpfFrequency, f);
+    double hi = control_audio(g, node.lpfFrequency, f);
     if (!(lo == lo)) lo = 200.0;
     if (!(hi == hi)) hi = 1000.0;
     double center = 0.0;
@@ -6850,8 +6831,8 @@ static void process_tb303_filter(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
-  const bool controlSmoothing =
-    node_control_smoothing(node) || node.gainDb.active || node.amplitude.active;
+  const bool takeSamplePath =
+    node_has_active_chase(node) || node.gainDb.active || node.amplitude.active;
   const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
@@ -6860,14 +6841,13 @@ static void process_tb303_filter(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
-    const double reso = control_effective(node.resonance);
-    const double drive = control_effective(node.gainDb);
-    double amp = control_effective(node.amplitude);
+    const double reso = control_audio(g, node.resonance, f);
+    const double drive = control_audio(g, node.gainDb, f);
+    double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 1.0;
     if (needMono) {
       double in = g.mixMono[f];
@@ -6901,7 +6881,7 @@ static void process_norm_chaos_filter(
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
+  const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active;
   int mode = 0;
   if (hasMode) {
     const double modeV = control_effective(node.mode);
@@ -6911,15 +6891,14 @@ static void process_norm_chaos_filter(
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
-    double freq = control_effective(node.frequency);
+    stamp_live_param_mods(g, node, f);
+    double freq = control_audio(g, node.frequency, f);
     if (!(freq == freq)) freq = 0.5;
     if (freq < 0.0) freq = 0.0;
     if (freq > 1.0) freq = 1.0;
-    const double reso = control_effective(node.resonance);
-    const double chaos = control_effective(node.shape);
-    double amp = control_effective(node.amplitude);
+    const double reso = control_audio(g, node.resonance, f);
+    const double chaos = control_audio(g, node.shape, f);
+    double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 1.0;
     if (needMono) {
       double in = g.mixMono[f];
@@ -6974,20 +6953,19 @@ static void process_flower_child_filter(Circuit& g, Node& node, int frames) {
   }
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
+  const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active;
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
-    double freq = control_effective(node.frequency);
+    stamp_live_param_mods(g, node, f);
+    double freq = control_audio(g, node.frequency, f);
     if (!(freq == freq)) freq = 0.5;
     if (freq < 0.0) freq = 0.0;
     if (freq > 1.0) freq = 1.0;
-    const double reso = control_effective(node.resonance);
-    const double chaos = control_effective(node.shape);
-    double amp = control_effective(node.amplitude);
+    const double reso = control_audio(g, node.resonance, f);
+    const double chaos = control_audio(g, node.shape, f);
+    double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 1.0;
     const double modeV = control_effective(node.mode);
     const int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
@@ -7044,20 +7022,19 @@ static void process_chaotic_phase_locking_filter(Circuit& g, Node& node, int fra
   }
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
+  const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active;
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
-    double freq = control_effective(node.frequency);
+    stamp_live_param_mods(g, node, f);
+    double freq = control_audio(g, node.frequency, f);
     if (!(freq == freq)) freq = 0.5;
     if (freq < 0.0) freq = 0.0;
     if (freq > 1.0) freq = 1.0;
-    const double reso = control_effective(node.resonance);
-    const double chaos = control_effective(node.shape);
-    double amp = control_effective(node.amplitude);
+    const double reso = control_audio(g, node.resonance, f);
+    const double chaos = control_audio(g, node.shape, f);
+    double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 1.0;
     const double monoIn = g.mixMono[f];
     const double inL = g.mixLeft[f] + monoIn;
@@ -7085,20 +7062,19 @@ static void process_mode_resonator(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node)
+  const bool takeSamplePath = node_has_active_chase(node)
     || node.timeNumerator.active || node.amplitude.active;
   const int hold = (int)(control_effective(node.timingMode) + (control_effective(node.timingMode) >= 0.0 ? 0.5 : -0.5));
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
     double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     if (hasTrig) in += g.mixTrigger[f];
     const double out = soemdsp_mode_resonator_sample(
-      node.nativeHandle, in, freq, control_effective(node.timeNumerator), hold,
-      control_effective(node.amplitude), sr
+      node.nativeHandle, in, freq, control_audio(g, node.timeNumerator, f), hold,
+      control_audio(g, node.amplitude, f), sr
     );
     node.buf[kPortMono][f] = out;
   }
@@ -7114,7 +7090,7 @@ static void process_comb_resonator(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node)
+  const bool takeSamplePath = node_has_active_chase(node)
     || node.timeNumerator.active || node.amplitude.active;
   const int hold = (int)(control_effective(node.timingMode) + (control_effective(node.timingMode) >= 0.0 ? 0.5 : -0.5));
   const double modeV = control_effective(node.mode);
@@ -7125,16 +7101,15 @@ static void process_comb_resonator(Circuit& g, Node& node, int frames) {
   if (invert < 0) invert = 0;
   if (invert > 1) invert = 1;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double freq = resolve_cutoff_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
     double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     if (hasTrig) in += g.mixTrigger[f];
     const double out = soemdsp_comb_resonator_sample(
-      node.nativeHandle, in, freq, control_effective(node.timeNumerator), hold,
-      control_effective(node.shape), topology, invert, control_effective(node.width), control_effective(node.amplitude), sr
+      node.nativeHandle, in, freq, control_audio(g, node.timeNumerator, f), hold,
+      control_audio(g, node.shape, f), topology, invert, control_audio(g, node.width, f), control_audio(g, node.amplitude, f), sr
     );
     node.buf[kPortMono][f] = out;
   }
@@ -7145,16 +7120,15 @@ static void process_inertial_filter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node) || node.lpfFrequency.active;
+  const bool takeSamplePath = node_has_active_chase(node) || node.lpfFrequency.active;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_inertial_filter_sample(
       node.nativeHandle,
       in,
-      control_effective(node.frequency),
-      control_effective(node.lpfFrequency),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.lpfFrequency, f),
       control_effective(node.mode),
       sr
     );
@@ -7170,23 +7144,22 @@ static void process_exp_adsr(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_exp_adsr_sample(
       node.nativeHandle,
       gate,
-      control_effective(node.timeNumerator),
-      control_effective(node.timeDenominator),
-      control_effective(node.shape),
-      control_effective(node.feedback),
-      control_effective(node.mix),
-      control_effective(node.offsetMs),
-      control_effective(node.center),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.feedback, f),
+      control_audio(g, node.mix, f),
+      control_audio(g, node.offsetMs, f),
+      control_audio(g, node.center, f),
       control_effective(node.mode),
-      control_effective(node.level),
+      control_audio(g, node.level, f),
       control_effective(node.timingMode),
       sr
     );
@@ -7203,18 +7176,17 @@ static void process_attack_decay(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_attack_decay_sample(
       node.nativeHandle,
       gate,
-      control_effective(node.timeDenominator),
-      control_effective(node.feedback),
-      control_effective(node.shape),
-      control_effective(node.amplitude),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.feedback, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.amplitude, f),
       control_effective(node.mode),
       control_effective(node.timingMode),
       sr
@@ -7231,17 +7203,16 @@ static void process_linear_attack_release(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_linear_attack_release_sample(
       node.nativeHandle,
       gate,
-      control_effective(node.timeNumerator),
-      control_effective(node.timeDenominator),
-      control_effective(node.amplitude),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.amplitude, f),
       control_effective(node.mode),
       sr
     );
@@ -7258,19 +7229,18 @@ static void process_curve_attack_release(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
     stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
     const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_curve_attack_release_sample(
       node.nativeHandle,
       gate,
-      control_effective(node.timeDenominator),
-      control_effective(node.shape),
-      control_effective(node.offsetMs),
-      control_effective(node.center),
-      control_effective(node.amplitude),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.offsetMs, f),
+      control_audio(g, node.center, f),
+      control_audio(g, node.amplitude, f),
       control_effective(node.mode),
       control_effective(node.timingMode),
       sr
@@ -7289,23 +7259,22 @@ static void process_thump_envelope(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
     stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
     const double mono = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double gate = trig + mono;
     const double out = soemdsp_thump_envelope_sample(
       node.nativeHandle,
       gate,
-      control_effective(node.timeDenominator),
-      control_effective(node.offsetMs),
-      control_effective(node.width),
-      control_effective(node.center),
-      control_effective(node.shape),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.offsetMs, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.center, f),
+      control_audio(g, node.shape, f),
       control_effective(node.mode),
-      control_effective(node.amplitude),
+      control_audio(g, node.amplitude, f),
       control_effective(node.timingMode),
       sr
     );
@@ -7322,19 +7291,18 @@ static void process_pluck_envelope_3(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
     stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
     const double mono = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double input = trig + mono;
     const double out = soemdsp_pluck_envelope_3_sample(
       node.nativeHandle,
       input,
-      control_effective(node.timeDenominator),
-      control_effective(node.width),
-      control_effective(node.amplitude),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.amplitude, f),
       control_effective(node.mode),
       sr
     );
@@ -7364,7 +7332,7 @@ static void process_basic_shape(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
@@ -7392,21 +7360,20 @@ static void process_linear_envelope(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_linear_envelope_sample(
       node.nativeHandle,
       gate,
-      control_effective(node.timeNumerator),
-      control_effective(node.timeDenominator),
-      control_effective(node.feedback),
-      control_effective(node.mix),
-      control_effective(node.offsetMs),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.feedback, f),
+      control_audio(g, node.mix, f),
+      control_audio(g, node.offsetMs, f),
       control_effective(node.mode),
-      control_effective(node.level),
+      control_audio(g, node.level, f),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -7428,28 +7395,27 @@ static void process_pluck_envelope(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double trigger = hasTrig ? g.mixTrigger[f] : 0.0;
     const double releaseGate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_pluck_envelope_sample(
       node.nativeHandle,
       trigger,
       releaseGate,
-      control_effective(node.center),
-      control_effective(node.timeDenominator),
-      control_effective(node.diffusionSize),
-      control_effective(node.feedback),
-      control_effective(node.diffusionAmount),
-      control_effective(node.delaySize),
-      control_effective(node.recycle),
-      control_effective(node.offsetMs),
-      control_effective(node.shape),
-      control_effective(node.frequency),
-      control_effective(node.width),
-      control_effective(node.level),
+      control_audio(g, node.center, f),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.diffusionSize, f),
+      control_audio(g, node.feedback, f),
+      control_audio(g, node.diffusionAmount, f),
+      control_audio(g, node.delaySize, f),
+      control_audio(g, node.recycle, f),
+      control_audio(g, node.offsetMs, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.level, f),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -7468,22 +7434,21 @@ static void process_expo_pluck_envelope(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
     stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
     const double trigger = hasTrig ? g.mixTrigger[f] : 0.0;
     const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double out = soemdsp_expo_pluck_envelope_sample(
       node.nativeHandle,
       trigger,
       gate,
-      control_effective(node.timeDenominator),
-      control_effective(node.feedback),
-      control_effective(node.frequency),
-      control_effective(node.width),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.feedback, f),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.width, f),
       control_effective(node.timingMode),
-      control_effective(node.level),
+      control_audio(g, node.level, f),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -7503,10 +7468,9 @@ static void process_expo_pluck_envelope_2(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
     stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
     const double trigger = hasTrig ? g.mixTrigger[f] : 0.0;
     // Release jack folds via Mono+L+R (same as pluckEnvelope).
     const double releaseGate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
@@ -7514,18 +7478,18 @@ static void process_expo_pluck_envelope_2(Circuit& g, Node& node, int frames) {
       node.nativeHandle,
       trigger,
       releaseGate,
-      control_effective(node.center),
-      control_effective(node.timeDenominator),
-      control_effective(node.diffusionSize),
-      control_effective(node.feedback),
-      control_effective(node.diffusionAmount),
-      control_effective(node.delaySize),
-      control_effective(node.recycle),
-      control_effective(node.offsetMs),
-      control_effective(node.shape),
-      control_effective(node.frequency),
-      control_effective(node.width),
-      control_effective(node.level),
+      control_audio(g, node.center, f),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.diffusionSize, f),
+      control_audio(g, node.feedback, f),
+      control_audio(g, node.diffusionAmount, f),
+      control_audio(g, node.delaySize, f),
+      control_audio(g, node.recycle, f),
+      control_audio(g, node.offsetMs, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.level, f),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -7540,20 +7504,19 @@ static void process_flower_child_envelope_follower(Circuit& g, Node& node, int f
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double env = soemdsp_flower_child_envelope_follower_sample(
       node.nativeHandle,
       in,
-      control_effective(node.timeNumerator),
-      control_effective(node.timeDenominator),
-      control_effective(node.feedback),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.feedback, f),
       sr
     );
-    const double out = env * control_effective(node.amplitude);
+    const double out = env * control_audio(g, node.amplitude, f);
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
@@ -7566,21 +7529,20 @@ static void process_vactrol(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double light = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double env = soemdsp_vactrol_envelope_sample(
       node.nativeHandle,
       light,
-      control_effective(node.timeNumerator),
-      control_effective(node.timeDenominator),
-      control_effective(node.shape),
-      control_effective(node.width),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.width, f),
       sr
     );
-    const double out = env * control_effective(node.amplitude);
+    const double out = env * control_audio(g, node.amplitude, f);
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
@@ -7595,21 +7557,20 @@ static void process_delay_effect(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const unsigned int seed = node.idHash;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     soemdsp_delay_effect_sample(
       node.nativeHandle,
       in,
-      control_effective(node.timeNumerator),
-      control_effective(node.feedback),
-      control_effective(node.mix),
-      control_effective(node.level),
-      control_effective(node.lfoAmplitude),
-      control_effective(node.lfoRate),
-      control_effective(node.lfoVariation),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.feedback, f),
+      control_audio(g, node.mix, f),
+      control_audio(g, node.level, f),
+      control_audio(g, node.lfoAmplitude, f),
+      control_audio(g, node.lfoRate, f),
+      control_audio(g, node.lfoVariation, f),
       0.0,
       seed,
       sr
@@ -7662,7 +7623,7 @@ static void process_soem_reverb(Circuit& g, Node& node, int frames) {
     control_effective(node.offsetMs)
   );
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double mono = g.mixMono[f];
     const double inL = mono + g.mixLeft[f];
     const double inR = mono + g.mixRight[f];
@@ -7701,7 +7662,7 @@ static void process_pll(Circuit& g, Node& node, int frames) {
     control_effective(node.frequency)
   );
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     soemdsp_pll_process(
       node.nativeHandle,
       g.mixMono[f],
@@ -7722,23 +7683,22 @@ static void process_lorenz_attractor(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     soemdsp_lorenz_attractor_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
-      control_effective(node.frequency),
-      control_effective(node.shape),
-      control_effective(node.resonance),
-      control_effective(node.width),
-      control_effective(node.phaseParam),
-      control_effective(node.center),
-      control_effective(node.mix),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.resonance, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.phaseParam, f),
+      control_audio(g, node.center, f),
+      control_audio(g, node.mix, f),
       sr
     );
-    const double amp = control_effective(node.amplitude);
+    const double amp = control_audio(g, node.amplitude, f);
     node.buf[kPortMono][f] = soemdsp_lorenz_attractor_x(node.nativeHandle) * amp;
     node.buf[kPortLeft][f] = soemdsp_lorenz_attractor_y(node.nativeHandle) * amp;
     node.buf[kPortRight][f] = soemdsp_lorenz_attractor_z(node.nativeHandle) * amp;
@@ -7751,17 +7711,16 @@ static void process_logistic_map(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double out = soemdsp_logistic_map_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
-      control_effective(node.frequency),
-      control_effective(node.shape),
-      control_effective(node.center),
-      control_effective(node.amplitude),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.center, f),
+      control_audio(g, node.amplitude, f),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -7776,21 +7735,20 @@ static void process_henon_map(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     soemdsp_henon_map_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
-      control_effective(node.frequency),
-      control_effective(node.shape),
-      control_effective(node.width),
-      control_effective(node.center),
-      control_effective(node.mix),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.center, f),
+      control_audio(g, node.mix, f),
       sr
     );
-    const double amp = control_effective(node.amplitude);
+    const double amp = control_audio(g, node.amplitude, f);
     const double x = soemdsp_henon_map_x(node.nativeHandle) * amp;
     const double y = soemdsp_henon_map_y(node.nativeHandle) * amp;
     node.buf[kPortMono][f] = x;
@@ -7805,21 +7763,20 @@ static void process_chua_attractor(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     soemdsp_chua_attractor_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
-      control_effective(node.frequency),
-      control_effective(node.shape),
-      control_effective(node.width),
-      control_effective(node.center),
-      control_effective(node.mix),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.center, f),
+      control_audio(g, node.mix, f),
       sr
     );
-    const double amp = control_effective(node.amplitude);
+    const double amp = control_audio(g, node.amplitude, f);
     node.buf[kPortMono][f] = soemdsp_chua_attractor_x(node.nativeHandle) * amp;
     node.buf[kPortLeft][f] = soemdsp_chua_attractor_y(node.nativeHandle) * amp;
     node.buf[kPortRight][f] = soemdsp_chua_attractor_z(node.nativeHandle) * amp;
@@ -7839,12 +7796,11 @@ static void process_chaosfly(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool livePhase = mix_live_port(g, node, kPortPhaseCv, frames, g.mixPhaseCv);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = 48.0 / 120.0;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -7857,7 +7813,7 @@ static void process_chaosfly(Circuit& g, Node& node, int frames) {
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
     // Pitch octaves: NaN → 0 only; range is metaparam-owned (same as LP/HP).
-    double pitchOct = control_effective(node.offset);
+    double pitchOct = control_audio(g, node.offset, f);
     if (!(pitchOct == pitchOct)) pitchOct = 0.0;
     const double liveCv = livePhase ? g.mixPhaseCv[f] : 0.0;
     const double phaseOff = phase_offset_cycles(node.phaseParam, liveCv);
@@ -7865,17 +7821,17 @@ static void process_chaosfly(Circuit& g, Node& node, int frames) {
       node.nativeHandle,
       control_effective(node.mode),
       freq,
-      control_effective(node.shape),
-      control_effective(node.lpfFrequency),
-      control_effective(node.hpfFrequency),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.lpfFrequency, f),
+      control_audio(g, node.hpfFrequency, f),
       control_effective(node.stages),
       control_effective(node.oversample),
-      control_effective(node.width),
-      control_effective(node.center),
-      control_effective(node.inLow),
-      control_effective(node.inHigh),
-      control_effective(node.pan),
-      control_effective(node.amplitude),
+      control_audio(g, node.width, f),
+      control_audio(g, node.center, f),
+      control_audio(g, node.inLow, f),
+      control_audio(g, node.inHigh, f),
+      control_audio(g, node.pan, f),
+      control_audio(g, node.amplitude, f),
       pitchOct,
       phaseOff,
       sr
@@ -7895,29 +7851,28 @@ static void process_ray_bouncer(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     soemdsp_ray_bouncer_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
-      control_effective(node.frequency),
-      control_effective(node.phaseParam),
-      control_effective(node.inLow),
-      control_effective(node.inHigh),
-      control_effective(node.width),
-      control_effective(node.center),
-      control_effective(node.mix),
-      control_effective(node.outLow),
-      control_effective(node.outHigh),
-      control_effective(node.timeNumerator),
-      control_effective(node.feedback),
-      control_effective(node.diffusionSize),
-      control_effective(node.diffusionAmount),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.phaseParam, f),
+      control_audio(g, node.inLow, f),
+      control_audio(g, node.inHigh, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.center, f),
+      control_audio(g, node.mix, f),
+      control_audio(g, node.outLow, f),
+      control_audio(g, node.outHigh, f),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.feedback, f),
+      control_audio(g, node.diffusionSize, f),
+      control_audio(g, node.diffusionAmount, f),
       sr
     );
-    const double amp = control_effective(node.level);
+    const double amp = control_audio(g, node.level, f);
     const double x = soemdsp_ray_bouncer_x(node.nativeHandle) * amp;
     const double y = soemdsp_ray_bouncer_y(node.nativeHandle) * amp;
     node.buf[kPortMono][f] = x;
@@ -7935,7 +7890,7 @@ static void process_chord_memory(Circuit& g, Node& node, int frames) {
   const bool hasAdvance = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool hasPitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double note1 = soemdsp_chord_memory_sample(
       node.nativeHandle,
       hasLatch ? g.mixTrigger[f] : 0.0,
@@ -7958,10 +7913,9 @@ static void process_chord_sequencer(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double progression = control_effective(node.mode);
     const double clock = hasClock ? g.mixTrigger[f] : 0.0;
     soemdsp_chord_sequencer_sample(
@@ -7972,7 +7926,7 @@ static void process_chord_sequencer(Circuit& g, Node& node, int frames) {
     );
     const double scale = (double)soemdsp_chord_sequencer_scale(node.nativeHandle, progression);
     const double root = soemdsp_chord_sequencer_root(node.nativeHandle, progression);
-    const double gate = (clock > 0.0 ? 1.0 : 0.0) * control_effective(node.amplitude);
+    const double gate = (clock > 0.0 ? 1.0 : 0.0) * control_audio(g, node.amplitude, f);
     const double step = (double)soemdsp_chord_sequencer_step(node.nativeHandle);
     node.buf[kPortMono][f] = scale;
     node.buf[kPortLeft][f] = root;
@@ -7986,10 +7940,9 @@ static void process_pitch_quantizer(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasPitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool hasScale = mix_live_port(g, node, kPortMono, frames, g.mixMono);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double pitch = hasPitch ? g.mixPitch[f] : 0.0;
     int mask;
     if (hasScale) {
@@ -8010,17 +7963,16 @@ static void process_turing_machine(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double cv = soemdsp_turing_machine_sample(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
       control_effective(node.stages),
-      control_effective(node.shape),
-      control_effective(node.amplitude)
+      control_audio(g, node.shape, f),
+      control_audio(g, node.amplitude, f)
     );
     node.buf[kPortMono][f] = cv;
     node.buf[kPortLeft][f] = soemdsp_turing_machine_scale(node.nativeHandle);
@@ -8033,10 +7985,9 @@ static void process_turing_machine(Circuit& g, Node& node, int frames) {
 static void process_chord_pad(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasSelect = mix_live_port(g, node, kPortMono, frames, g.mixMono);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double scale = soemdsp_chord_pad_sample(
       node.nativeHandle,
       hasSelect ? g.mixMono[f] : 0.0,
@@ -8044,7 +7995,7 @@ static void process_chord_pad(Circuit& g, Node& node, int frames) {
       control_effective(node.mode),
       control_effective(node.waveform),
       control_effective(node.stages),
-      control_effective(node.amplitude)
+      control_audio(g, node.amplitude, f)
     );
     node.buf[kPortMono][f] = scale;
     node.buf[kPortLeft][f] = soemdsp_chord_pad_root(node.nativeHandle);
@@ -8057,14 +8008,13 @@ static void process_note_glide(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasPitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double out = soemdsp_note_glide_sample(
       node.nativeHandle,
       hasPitch ? g.mixPitch[f] : 0.0,
-      control_effective(node.timeNumerator),
+      control_audio(g, node.timeNumerator, f),
       sr
     );
     node.buf[kPortMono][f] = out;
@@ -8077,10 +8027,9 @@ static void process_note_glide(Circuit& g, Node& node, int frames) {
 static void process_note_transpose(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasPitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double out = soemdsp_note_transpose_sample(
       node.nativeHandle,
       hasPitch ? g.mixPitch[f] : 0.0,
@@ -8102,18 +8051,17 @@ static void process_degree_turing(Circuit& g, Node& node, int frames) {
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool hasScale = mix_live_port(g, node, kPortMono, frames, g.mixMono);
   const bool hasRoot = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double pitch = soemdsp_degree_turing_sample(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
       control_effective(node.stages),
-      control_effective(node.shape),
+      control_audio(g, node.shape, f),
       control_effective(node.mode),
-      control_effective(node.amplitude),
+      control_audio(g, node.amplitude, f),
       hasScale ? g.mixMono[f] : 0.0,
       hasScale ? 1.0 : 0.0,
       hasRoot ? g.mixPitch[f] : (60.0 / 120.0),
@@ -8137,26 +8085,25 @@ static void process_degree_phrase(Circuit& g, Node& node, int frames) {
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool hasScale = mix_live_port(g, node, kPortMono, frames, g.mixMono);
   const bool hasRoot = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double pitch = soemdsp_degree_phrase_sample(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
       control_effective(node.stages),
-      control_effective(node.shape),
+      control_audio(g, node.shape, f),
       control_effective(node.mode),
-      control_effective(node.amplitude),
+      control_audio(g, node.amplitude, f),
       hasScale ? g.mixMono[f] : 0.0,
       hasScale ? 1.0 : 0.0,
       hasRoot ? g.mixPitch[f] : (60.0 / 120.0),
       control_effective(node.seed),
-      control_effective(node.laneVol[0]), control_effective(node.laneVol[1]), control_effective(node.laneVol[2]), control_effective(node.laneVol[3]),
-      control_effective(node.laneBias[0]), control_effective(node.laneBias[1]), control_effective(node.laneBias[2]), control_effective(node.laneBias[3]),
-      control_effective(node.inLow), control_effective(node.inHigh), control_effective(node.outLow), control_effective(node.outHigh),
-      control_effective(node.bleed2), control_effective(node.bleed3), control_effective(node.bleed4), control_effective(node.offset)
+      control_audio(g, node.laneVol[0], f), control_audio(g, node.laneVol[1], f), control_audio(g, node.laneVol[2], f), control_audio(g, node.laneVol[3], f),
+      control_audio(g, node.laneBias[0], f), control_audio(g, node.laneBias[1], f), control_audio(g, node.laneBias[2], f), control_audio(g, node.laneBias[3], f),
+      control_audio(g, node.inLow, f), control_audio(g, node.inHigh, f), control_audio(g, node.outLow, f), control_audio(g, node.outHigh, f),
+      control_audio(g, node.bleed2, f), control_audio(g, node.bleed3, f), control_audio(g, node.bleed4, f), control_audio(g, node.offset, f)
     );
     node.buf[kPortMono][f] = pitch;
     node.buf[kPortLeft][f] = soemdsp_degree_phrase_gate(node.nativeHandle);
@@ -8175,11 +8122,10 @@ static void process_arp(Circuit& g, Node& node, int frames) {
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   mix_live_port(g, node, kPortF, frames, g.mixF); // ƒ in present for patching / future CV
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double pitch = soemdsp_arp_sample(
       node.nativeHandle,
       hasHeld ? g.mixMono[f] : 0.0,
@@ -8187,11 +8133,11 @@ static void process_arp(Circuit& g, Node& node, int frames) {
       hasTrig ? g.mixTrigger[f] : 0.0,
       hasTrig ? 1.0 : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
-      control_effective(node.frequency),
+      control_audio(g, node.frequency, f),
       control_effective(node.mode),
       control_effective(node.stages),
       control_effective(node.seed),
-      control_effective(node.offset),
+      control_audio(g, node.offset, f),
       sr
     );
     node.buf[kPortMono][f] = pitch;
@@ -8211,19 +8157,18 @@ static void process_gravity_walker(Circuit& g, Node& node, int frames) {
   const bool hasScale = mix_live_port(g, node, kPortMono, frames, g.mixMono);
   const bool hasRoot = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool hasLeap = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double pitch = soemdsp_gravity_walker_sample(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
-      control_effective(node.shape),
-      control_effective(node.width),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.width, f),
       hasLeap ? g.mixMorph[f] : 0.0,
       control_effective(node.mode),
-      control_effective(node.amplitude),
+      control_audio(g, node.amplitude, f),
       hasScale ? g.mixMono[f] : 0.0,
       hasScale ? 1.0 : 0.0,
       hasRoot ? g.mixPitch[f] : (60.0 / 120.0),
@@ -8290,18 +8235,17 @@ static double graph_curve_sample_x(
 static void process_smooth_graph(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   // smoothingMode→STAGES, tension→SHAPE
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double inSample = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const bool hasIn = true; // mix may be silent; map still applies when mode=Input
     const double x = graph_curve_sample_x(g, node, f, hasIn, inSample);
     const double y = soemdsp_smooth_graph_sample(
-      node.nativeHandle, x, control_effective(node.stages), control_effective(node.shape)
+      node.nativeHandle, x, control_effective(node.stages), control_audio(g, node.shape, f)
     );
-    const double out = control_effective(node.outLow) + y * (control_effective(node.outHigh) - control_effective(node.outLow));
+    const double out = control_audio(g, node.outLow, f) + y * (control_audio(g, node.outHigh, f) - control_audio(g, node.outLow, f));
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
@@ -8311,17 +8255,16 @@ static void process_smooth_graph(Circuit& g, Node& node, int frames) {
 static void process_step_graph(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   // segmentShape→WAVEFORM, curveOffset→CENTER
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double inSample = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double x = graph_curve_sample_x(g, node, f, true, inSample);
     const double y = soemdsp_step_graph_sample(
-      node.nativeHandle, x, control_effective(node.waveform), control_effective(node.center)
+      node.nativeHandle, x, control_effective(node.waveform), control_audio(g, node.center, f)
     );
-    const double out = control_effective(node.outLow) + y * (control_effective(node.outHigh) - control_effective(node.outLow));
+    const double out = control_audio(g, node.outLow, f) + y * (control_audio(g, node.outHigh, f) - control_audio(g, node.outLow, f));
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
@@ -8334,11 +8277,10 @@ static void process_fractal_brownian_noise(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const bool high = hasReset && g.mixReset[f] > 0.0;
     if (high && !wasHigh) soemdsp_fbm_reset(node.nativeHandle);
     wasHigh = high;
@@ -8346,10 +8288,10 @@ static void process_fractal_brownian_noise(Circuit& g, Node& node, int frames) {
       node.nativeHandle,
       (int)(control_effective(node.seed) + 0.5),
       (int)(control_effective(node.stages) + 0.5),
-      control_effective(node.shape),
-      control_effective(node.center),
-      control_effective(node.frequency),
-      control_effective(node.amplitude),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.center, f),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.amplitude, f),
       sr
     );
     node.buf[kPortMono][f] = soemdsp_fbm_x(node.nativeHandle);
@@ -8372,7 +8314,7 @@ static void process_fractal_brownian_noise(Circuit& g, Node& node, int frames) {
 // B0 omitted from graph taps (still computed in native).
 static void process_pi_spigot_noise(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double start = control_effective(node.center);
   const double stride = control_effective(node.stages);
   const double key = start * 1000.0 + stride;
@@ -8381,10 +8323,9 @@ static void process_pi_spigot_noise(Circuit& g, Node& node, int frames) {
     node.lastReset = key;
   }
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     soemdsp_pi_spigot_noise_sample(
-      node.nativeHandle, control_effective(node.mode), control_effective(node.shape), control_effective(node.amplitude)
+      node.nativeHandle, control_effective(node.mode), control_audio(g, node.shape, f), control_audio(g, node.amplitude, f)
     );
     node.buf[kPortMono][f] = soemdsp_pi_spigot_noise_left(node.nativeHandle);
     node.buf[kPortLeft][f] = soemdsp_pi_spigot_noise_right(node.nativeHandle);
@@ -8401,15 +8342,14 @@ static void process_pi_spigot_noise(Circuit& g, Node& node, int frames) {
 static void process_cheap_walk(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
+  const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active;
   // rate → frequency Control; seed → seed Control
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     double left = 0.0;
     double right = 0.0;
     soemdsp_cheap_walk_sample_stereo(
-      node.nativeHandle, control_effective(node.frequency), control_effective(node.amplitude), control_effective(node.seed), sr,
+      node.nativeHandle, control_audio(g, node.frequency, f), control_audio(g, node.amplitude, f), control_effective(node.seed), sr,
       &left, &right
     );
     node.buf[kPortLeft][f] = left;
@@ -8425,27 +8365,26 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
+  const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
-        soemdsp_vibrato_generator_reset(node.nativeHandle, control_effective(node.phaseParam));
+        soemdsp_vibrato_generator_reset(node.nativeHandle, control_audio(g, node.phaseParam, f));
       }
       node.lastReset = rv;
     }
     const double y = soemdsp_vibrato_generator_sample(
       node.nativeHandle,
-      control_effective(node.frequency),
+      control_audio(g, node.frequency, f),
       sr,
-      control_effective(node.phaseParam),
-      control_effective(node.amplitude),
-      control_effective(node.shape),
-      control_effective(node.width),
-      control_effective(node.center),
+      control_audio(g, node.phaseParam, f),
+      control_audio(g, node.amplitude, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.center, f),
       control_effective(node.seed)
     );
     node.buf[kPortMono][f] = y;
@@ -8462,29 +8401,28 @@ static void process_wow_and_flutter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool controlSmoothing = node_control_smoothing(node) || node.amplitude.active;
+  const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
-        soemdsp_wow_and_flutter_reset(node.nativeHandle, control_effective(node.phaseParam));
+        soemdsp_wow_and_flutter_reset(node.nativeHandle, control_audio(g, node.phaseParam, f));
       }
       node.lastReset = rv;
     }
     const double y = soemdsp_wow_and_flutter_sample(
       node.nativeHandle,
-      control_effective(node.frequency),
+      control_audio(g, node.frequency, f),
       sr,
-      control_effective(node.phaseParam),
-      control_effective(node.shape),
-      control_effective(node.lfoRate),
-      control_effective(node.width),
-      control_effective(node.center),
+      control_audio(g, node.phaseParam, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.lfoRate, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.center, f),
       control_effective(node.seed),
-      control_effective(node.amplitude)
+      control_audio(g, node.amplitude, f)
     );
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
@@ -8495,7 +8433,7 @@ static void process_wow_and_flutter(Circuit& g, Node& node, int frames) {
 static void process_random_walk(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   const double seed = control_effective(node.seed);
   if (seed != node.lastReset) {
     const unsigned int seedU = (unsigned int)(seed < 1.0 ? 1.0 : seed);
@@ -8508,14 +8446,13 @@ static void process_random_walk(Circuit& g, Node& node, int frames) {
     node.lastReset = seed;
   }
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double left = soemdsp_random_walk_sample(
       node.nativeHandle,
       control_effective(node.mode),
-      control_effective(node.frequency),
-      control_effective(node.width),
-      control_effective(node.amplitude),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.amplitude, f),
       sr
     );
     double right = left;
@@ -8523,9 +8460,9 @@ static void process_random_walk(Circuit& g, Node& node, int frames) {
       right = soemdsp_random_walk_sample(
         node.nativeHandleR,
         control_effective(node.mode),
-        control_effective(node.frequency),
-        control_effective(node.width),
-        control_effective(node.amplitude),
+        control_audio(g, node.frequency, f),
+        control_audio(g, node.width, f),
+        control_audio(g, node.amplitude, f),
         sr
       );
     }
@@ -8540,20 +8477,19 @@ static void process_pulse_explosion(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double out = soemdsp_pulse_explosion_sample(
       node.nativeHandle,
       hasTrig ? g.mixTrigger[f] : 0.0,
-      control_effective(node.timeNumerator),   // startTime
-      control_effective(node.center),          // centerTime
-      control_effective(node.timeDenominator), // endTime
-      control_effective(node.mix),             // timeSpread
+      control_audio(g, node.timeNumerator, f),   // startTime
+      control_audio(g, node.center, f),          // centerTime
+      control_audio(g, node.timeDenominator, f), // endTime
+      control_audio(g, node.mix, f),             // timeSpread
       (int)(control_effective(node.stages) + 0.5),
-      control_effective(node.inLow),           // lowAmplitude
-      control_effective(node.inHigh),          // highAmplitude
+      control_audio(g, node.inLow, f),           // lowAmplitude
+      control_audio(g, node.inHigh, f),          // highAmplitude
       control_effective(node.seed),
       sr
     );
@@ -8580,16 +8516,15 @@ static bool rising_reset(Circuit& g, Node& node, int frames, bool hasReset, int 
 static void process_jerobeam_spiral(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     soemdsp_jerobeam_spiral_sample(
       node.nativeHandle,
-      control_effective(node.frequency), control_effective(node.shape), control_effective(node.width), control_effective(node.resonance),
-      control_effective(node.mix), control_effective(node.center), control_effective(node.phaseParam), 0.0,
-      control_effective(node.offset), 0.0, control_effective(node.inLow), 0.0, control_effective(node.inHigh), 0.0,
-      control_effective(node.feedback), control_effective(node.level), sr
+      control_audio(g, node.frequency, f), control_audio(g, node.shape, f), control_audio(g, node.width, f), control_audio(g, node.resonance, f),
+      control_audio(g, node.mix, f), control_audio(g, node.center, f), control_audio(g, node.phaseParam, f), 0.0,
+      control_audio(g, node.offset, f), 0.0, control_audio(g, node.inLow, f), 0.0, control_audio(g, node.inHigh, f), 0.0,
+      control_audio(g, node.feedback, f), control_audio(g, node.level, f), sr
     );
     xy_amp(node, f,
       soemdsp_jerobeam_spiral_x(node.nativeHandle),
@@ -8601,14 +8536,13 @@ static void process_jerobeam_spiral(Circuit& g, Node& node, int frames) {
 static void process_fractal_spiral(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     soemdsp_fractal_spiral_sample(
       node.nativeHandle,
-      control_effective(node.frequency), control_effective(node.phaseParam), control_effective(node.width), control_effective(node.shape),
-      control_effective(node.resonance), control_effective(node.center), control_effective(node.stages), control_effective(node.mix), sr
+      control_audio(g, node.frequency, f), control_audio(g, node.phaseParam, f), control_audio(g, node.width, f), control_audio(g, node.shape, f),
+      control_audio(g, node.resonance, f), control_audio(g, node.center, f), control_effective(node.stages), control_audio(g, node.mix, f), sr
     );
     xy_amp(node, f,
       soemdsp_fractal_spiral_x(node.nativeHandle),
@@ -8620,13 +8554,12 @@ static void process_fractal_spiral(Circuit& g, Node& node, int frames) {
 static void process_log_spiral(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     soemdsp_log_spiral_sample(
       node.nativeHandle,
-      control_effective(node.frequency), control_effective(node.phaseParam), control_effective(node.width), control_effective(node.shape),
+      control_audio(g, node.frequency, f), control_audio(g, node.phaseParam, f), control_audio(g, node.width, f), control_audio(g, node.shape, f),
       control_effective(node.stages), sr
     );
     xy_amp(node, f,
@@ -8640,18 +8573,17 @@ static void process_blubb(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbblubb_reset(node.nativeHandle);
     }
     soemdsp_jbblubb_sample(
       node.nativeHandle,
-      control_effective(node.frequency), control_effective(node.shape), control_effective(node.inLow), control_effective(node.inHigh),
-      control_effective(node.level), sr
+      control_audio(g, node.frequency, f), control_audio(g, node.shape, f), control_audio(g, node.inLow, f), control_audio(g, node.inHigh, f),
+      control_audio(g, node.level, f), sr
     );
     xy_amp(node, f, soemdsp_jbblubb_x(node.nativeHandle), soemdsp_jbblubb_y(node.nativeHandle));
   }
@@ -8662,20 +8594,19 @@ static void process_boing(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbboing_reset(node.nativeHandle);
     }
     soemdsp_jbboing_sample(
       node.nativeHandle,
-      control_effective(node.frequency), control_effective(node.shape), control_effective(node.resonance),
-      control_effective(node.inLow), control_effective(node.inHigh), control_effective(node.level), control_effective(node.feedback),
-      control_effective(node.mix), control_effective(node.center), control_effective(node.width), control_effective(node.mode),
-      control_effective(node.phaseParam), control_effective(node.offset) > 0.0 ? control_effective(node.offset) : 1.0,
+      control_audio(g, node.frequency, f), control_audio(g, node.shape, f), control_audio(g, node.resonance, f),
+      control_audio(g, node.inLow, f), control_audio(g, node.inHigh, f), control_audio(g, node.level, f), control_audio(g, node.feedback, f),
+      control_audio(g, node.mix, f), control_audio(g, node.center, f), control_audio(g, node.width, f), control_effective(node.mode),
+      control_audio(g, node.phaseParam, f), control_audio(g, node.offset, f) > 0.0 ? control_audio(g, node.offset, f) : 1.0,
       control_effective(node.timingMode), sr
     );
     xy_amp(node, f, soemdsp_jbboing_x(node.nativeHandle), soemdsp_jbboing_y(node.nativeHandle));
@@ -8687,18 +8618,17 @@ static void process_kepler_bouwkamp(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbkepler_reset(node.nativeHandle);
     }
     soemdsp_jbkepler_sample(
       node.nativeHandle,
-      control_effective(node.frequency), control_effective(node.center), control_effective(node.stages), control_effective(node.shape),
-      control_effective(node.mix), control_effective(node.phaseParam), control_effective(node.resonance), sr
+      control_audio(g, node.frequency, f), control_audio(g, node.center, f), control_effective(node.stages), control_audio(g, node.shape, f),
+      control_audio(g, node.mix, f), control_audio(g, node.phaseParam, f), control_audio(g, node.resonance, f), sr
     );
     xy_amp(node, f, soemdsp_jbkepler_x(node.nativeHandle), soemdsp_jbkepler_y(node.nativeHandle));
   }
@@ -8709,22 +8639,21 @@ static void process_mushroom(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbmushroom_reset(node.nativeHandle);
     }
     // Face defaults for lesser-used visual knobs when not chased separately.
     soemdsp_jbmushroom_sample(
       node.nativeHandle,
-      control_effective(node.frequency), control_effective(node.phaseParam), control_effective(node.stages), control_effective(node.mix),
-      control_effective(node.shape), control_effective(node.inLow), control_effective(node.lfoRate), control_effective(node.center),
-      control_effective(node.width), control_effective(node.resonance), control_effective(node.inHigh), control_effective(node.offsetMs),
-      control_effective(node.feedback), control_effective(node.level), control_effective(node.mode), control_effective(node.oversample),
-      control_effective(node.recycle), sr
+      control_audio(g, node.frequency, f), control_audio(g, node.phaseParam, f), control_effective(node.stages), control_audio(g, node.mix, f),
+      control_audio(g, node.shape, f), control_audio(g, node.inLow, f), control_audio(g, node.lfoRate, f), control_audio(g, node.center, f),
+      control_audio(g, node.width, f), control_audio(g, node.resonance, f), control_audio(g, node.inHigh, f), control_audio(g, node.offsetMs, f),
+      control_audio(g, node.feedback, f), control_audio(g, node.level, f), control_effective(node.mode), control_effective(node.oversample),
+      control_audio(g, node.recycle, f), sr
     );
     xy_amp(node, f, soemdsp_jbmushroom_x(node.nativeHandle), soemdsp_jbmushroom_y(node.nativeHandle));
   }
@@ -8735,19 +8664,18 @@ static void process_nyquist_shannon(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbnyquist_reset(node.nativeHandle);
     }
     soemdsp_jbnyquist_sample(
       node.nativeHandle,
-      control_effective(node.frequency), control_effective(node.seed), control_effective(node.center), control_effective(node.mix),
-      control_effective(node.phaseParam), control_effective(node.width), control_effective(node.inLow), control_effective(node.lfoRate),
-      control_effective(node.shape), control_effective(node.timeNumerator), control_effective(node.resonance),
+      control_audio(g, node.frequency, f), control_effective(node.seed), control_audio(g, node.center, f), control_audio(g, node.mix, f),
+      control_audio(g, node.phaseParam, f), control_audio(g, node.width, f), control_audio(g, node.inLow, f), control_audio(g, node.lfoRate, f),
+      control_audio(g, node.shape, f), control_audio(g, node.timeNumerator, f), control_audio(g, node.resonance, f),
       control_effective(node.mode), control_effective(node.stages), control_effective(node.oversample), sr
     );
     xy_amp(node, f, soemdsp_jbnyquist_x(node.nativeHandle), soemdsp_jbnyquist_y(node.nativeHandle));
@@ -8759,22 +8687,21 @@ static void process_radar(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbradar_reset(node.nativeHandle);
     }
     // Discrete visual flags default off (0); core shape/audio Controls mapped.
     soemdsp_jbradar_sample(
       node.nativeHandle,
-      control_effective(node.frequency), control_effective(node.phaseParam), control_effective(node.shape), control_effective(node.resonance),
-      control_effective(node.center), control_effective(node.mix), control_effective(node.mode), control_effective(node.width), control_effective(node.level),
+      control_audio(g, node.frequency, f), control_audio(g, node.phaseParam, f), control_audio(g, node.shape, f), control_audio(g, node.resonance, f),
+      control_audio(g, node.center, f), control_audio(g, node.mix, f), control_effective(node.mode), control_audio(g, node.width, f), control_audio(g, node.level, f),
       0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      control_effective(node.stages), control_effective(node.feedback), control_effective(node.offset), control_effective(node.diffusionSize),
-      control_effective(node.inHigh), control_effective(node.inLow), control_effective(node.outLow), control_effective(node.outHigh), sr
+      control_effective(node.stages), control_audio(g, node.feedback, f), control_audio(g, node.offset, f), control_audio(g, node.diffusionSize, f),
+      control_audio(g, node.inHigh, f), control_audio(g, node.inLow, f), control_audio(g, node.outLow, f), control_audio(g, node.outHigh, f), sr
     );
     xy_amp(node, f, soemdsp_jbradar_x(node.nativeHandle), soemdsp_jbradar_y(node.nativeHandle));
   }
@@ -8785,21 +8712,20 @@ static void process_torus(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbtorus_reset(node.nativeHandle);
     }
     soemdsp_jbtorus_sample(
       node.nativeHandle,
-      control_effective(node.frequency), control_effective(node.shape), control_effective(node.mode), control_effective(node.center),
-      control_effective(node.stages), control_effective(node.resonance), control_effective(node.width), control_effective(node.mix),
-      control_effective(node.phaseParam), control_effective(node.level), control_effective(node.offset), control_effective(node.seed),
-      control_effective(node.inLow), control_effective(node.inHigh), control_effective(node.outLow), control_effective(node.outHigh),
-      control_effective(node.feedback), control_effective(node.diffusionSize), sr
+      control_audio(g, node.frequency, f), control_audio(g, node.shape, f), control_effective(node.mode), control_audio(g, node.center, f),
+      control_effective(node.stages), control_audio(g, node.resonance, f), control_audio(g, node.width, f), control_audio(g, node.mix, f),
+      control_audio(g, node.phaseParam, f), control_audio(g, node.level, f), control_audio(g, node.offset, f), control_effective(node.seed),
+      control_audio(g, node.inLow, f), control_audio(g, node.inHigh, f), control_audio(g, node.outLow, f), control_audio(g, node.outHigh, f),
+      control_audio(g, node.feedback, f), control_audio(g, node.diffusionSize, f), sr
     );
     xy_amp(node, f, soemdsp_jbtorus_x(node.nativeHandle), soemdsp_jbtorus_y(node.nativeHandle));
   }
@@ -8810,19 +8736,18 @@ static void process_wirdo_spiral(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     if (rising_reset(g, node, frames, hasReset, f, wasHigh)) {
       soemdsp_jbwirdo_reset(node.nativeHandle);
     }
     soemdsp_jbwirdo_sample(
       node.nativeHandle,
-      control_effective(node.frequency), control_effective(node.resonance), control_effective(node.mix), control_effective(node.shape),
-      control_effective(node.width), control_effective(node.phaseParam), control_effective(node.center), control_effective(node.level),
-      control_effective(node.stages), control_effective(node.feedback), control_effective(node.offset), control_effective(node.lfoRate),
+      control_audio(g, node.frequency, f), control_audio(g, node.resonance, f), control_audio(g, node.mix, f), control_audio(g, node.shape, f),
+      control_audio(g, node.width, f), control_audio(g, node.phaseParam, f), control_audio(g, node.center, f), control_audio(g, node.level, f),
+      control_effective(node.stages), control_audio(g, node.feedback, f), control_audio(g, node.offset, f), control_audio(g, node.lfoRate, f),
       control_effective(node.mode), sr
     );
     xy_amp(node, f, soemdsp_jbwirdo_x(node.nativeHandle), soemdsp_jbwirdo_y(node.nativeHandle));
@@ -8854,18 +8779,17 @@ static void process_phosphillator(Circuit& g, Node& node, int frames) {
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool hasPitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node);
+  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
+    stamp_live_param_mods(g, node, f);
     const double x = soemdsp_phosphillator_sample(
       node.nativeHandle,
       hasPitch ? g.mixPitch[f] : 0.0,
-      control_effective(node.frequency),
-      control_effective(node.phaseParam),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.phaseParam, f),
       hasReset ? g.mixReset[f] : 0.0,
       sr,
-      control_effective(node.shape)
+      control_audio(g, node.shape, f)
     );
     const double y = soemdsp_phosphillator_y(node.nativeHandle);
     xy_amp(node, f, x, y);
@@ -8887,7 +8811,7 @@ static void process_transport(Circuit& g, Node& node, int frames) {
   const double pulseWidth = control_effective(node.width);
   bool wasHigh = node.lastReset > 0.5;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double bipolar = soemdsp_transport_sample(
       node.nativeHandle,
       amplitude,
@@ -8929,7 +8853,7 @@ static void process_step_sequencer(Circuit& g, Node& node, int frames) {
   const double v6 = control_effective(node.laneBias[2]);
   const double v7 = control_effective(node.laneBias[3]);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double out = soemdsp_step_sequencer_sample(
       node.nativeHandle,
       hasTrig ? g.mixTrigger[f] : 0.0,
@@ -8963,7 +8887,7 @@ static void process_pump_limiter(Circuit& g, Node& node, int frames) {
   const double lookaheadEnabled = control_effective(node.mode);
   const double amplitude = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double l = g.mixMono[f] + g.mixLeft[f];
     const double r = g.mixMono[f] + g.mixRight[f];
     const double sc = hasSc ? g.mixMorph[f] : 0.0;
@@ -9003,22 +8927,19 @@ static void process_audio_player(Circuit& g, Node& node, int frames) {
   const bool hasPhase = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   // Sample-accurate Internal glides for ◀◀▶▶ / Scratch / playlist scrub.
-  const bool controlSmoothing = node.phaseParam.active || node.shape.active
+  const bool takeSamplePath = node.phaseParam.active || node.shape.active
     || node.seed.active || node.frequency.active || node.amplitude.active
     || node.timeNumerator.active || node.timeDenominator.active;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) {
+    stamp_live_param_mods(g, node, f);
+    if (takeSamplePath) {
       Control* chase[] = {
         &node.phaseParam, &node.shape, &node.seed, &node.frequency, &node.amplitude,
         &node.timeNumerator, &node.timeDenominator
       };
       for (unsigned ci = 0; ci < sizeof(chase) / sizeof(chase[0]); ci += 1) {
         Control* c = chase[ci];
-        if (c && c->active && !c->snap) {
-          control_step(*c, g);
-          c->blockStepped = 1;
-        }
+        if (c && c->active && !c->snap) { control_ensure_stepped(g, *c, f); }
       }
     }
     const double reset = hasReset ? g.mixReset[f] : 0.0;
@@ -9031,12 +8952,12 @@ static void process_audio_player(Circuit& g, Node& node, int frames) {
       phaseCv,
       hasPhase ? 1 : 0,
       control_effective(node.mode),
-      control_effective(node.frequency),
-      control_effective(node.timeNumerator),
-      control_effective(node.timeDenominator),
-      control_effective(node.amplitude),
-      control_effective(node.phaseParam),
-      control_effective(node.shape),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.amplitude, f),
+      control_audio(g, node.phaseParam, f),
+      control_audio(g, node.shape, f),
       control_effective(node.seed),
       control_effective(node.stages),
       sr
@@ -9064,7 +8985,7 @@ static void process_lookahead_limiter(Circuit& g, Node& node, int frames) {
   const double gainCompensation = control_effective(node.timingMode);
   const double dipGain = control_effective(node.laneBias[1]);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double l = g.mixMono[f] + g.mixLeft[f];
     const double r = g.mixMono[f] + g.mixRight[f];
     const double monoOut = soemdsp_lookahead_limiter_sample(
@@ -9093,7 +9014,7 @@ static void process_metallic_ratio(Circuit& g, Node& node, int frames) {
   const double index = control_effective(node.width);
   const double ratio = soemdsp_metallic_ratio_sample(index);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     node.buf[kPortMono][f] = ratio;
     node.buf[kPortLeft][f] = ratio;
     node.buf[kPortRight][f] = ratio;
@@ -9110,7 +9031,7 @@ static void process_harmonic_series(Circuit& g, Node& node, int frames) {
   if (!liveF) {
     const double hz = soemdsp_harmonic_series_sample(knobHz, harmonic, offset);
     for (int f = 0; f < frames; f++) {
-            stamp_live_param_mods(g, node, f);
+        stamp_live_param_mods(g, node, f);
       node.buf[kPortMono][f] = hz;
       node.buf[kPortLeft][f] = knobHz;
       node.buf[kPortRight][f] = hz;
@@ -9118,7 +9039,7 @@ static void process_harmonic_series(Circuit& g, Node& node, int frames) {
     return;
   }
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double base = g.mixF[f];
     const double hz = soemdsp_harmonic_series_sample(base, harmonic, offset);
     node.buf[kPortMono][f] = hz;
@@ -9138,7 +9059,7 @@ static void process_lut_cell(Circuit& g, Node& node, int frames) {
   const bool hasClk = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double truth = control_effective(node.seed);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double clk = hasClk ? g.mixTrigger[f] : 0.0;
     const int comb = soemdsp_lut_cell_sample(
       node.nativeHandle, a[f], b[f], c[f], d[f], clk, truth
@@ -9164,7 +9085,7 @@ static void process_random_clock(Circuit& g, Node& node, int frames) {
   const double level = control_effective(node.amplitude);
   const int seedKey = (int)(control_effective(node.seed) + (control_effective(node.seed) >= 0.0 ? 0.5 : -0.5));
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double trig = soemdsp_random_clock_sample(
       node.nativeHandle,
       hasReset ? g.mixReset[f] : 0.0,
@@ -9196,7 +9117,7 @@ static void process_trigger_counter(Circuit& g, Node& node, int frames) {
   const double pulseTime = control_effective(node.timeNumerator);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double pulse = soemdsp_trigger_counter_sample(
       node.nativeHandle,
       hasTrig ? g.mixTrigger[f] : 0.0,
@@ -9225,7 +9146,7 @@ static void process_delayed_trigger(Circuit& g, Node& node, int frames) {
   const double pulseTime = control_effective(node.timeDenominator);
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double out = soemdsp_delayed_trigger_sample(
       node.nativeHandle,
       hasTrig ? g.mixTrigger[f] : 0.0,
@@ -9251,7 +9172,7 @@ static void process_mid_side_encode(Circuit& g, Node& node, int frames) {
   const double midGain = control_effective(node.gainDb);
   const double sideGain = control_effective(node.gainLeftDb);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     node.buf[kPortMono][f] = soemdsp_mid_side_encode_sample(
       0.0, left[f], right[f], midGain, sideGain
     );
@@ -9269,7 +9190,7 @@ static void process_vectorscope_transform(Circuit& g, Node& node, int frames) {
   mix_live_port(g, node, kPortRight, frames, right);
   const double rotateDeg = control_effective(node.laneBias[0]);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     node.buf[kPortMono][f] = soemdsp_vectorscope_transform_sample(
       0.0, left[f], right[f], rotateDeg
     );
@@ -9291,7 +9212,7 @@ static void process_rotate_3d_to_2d(Circuit& g, Node& node, int frames) {
   const double ry = control_effective(node.laneBias[1]);
   const double rz = control_effective(node.laneBias[2]);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     node.buf[kPortMono][f] = soemdsp_rotate_3d_to_2d_sample(
       0.0, xIn[f], yIn[f], zIn[f], rx, ry, rz
     );
@@ -9319,18 +9240,17 @@ static void process_crossover(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing = node_control_smoothing(node)
+  const bool takeSamplePath = node_has_active_chase(node)
     || node.lpfFrequency.active || node.hpfFrequency.active;
   const int bands = crossover_band_count_for_type(node.typeId);
   const double amp = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
-    double f0 = liveF ? g.mixF[f] : control_effective(node.frequency);
-    double f1 = control_effective(node.center);
-    double f2 = control_effective(node.width);
-    double f3 = control_effective(node.lpfFrequency);
-    double f4 = control_effective(node.hpfFrequency);
+    stamp_live_param_mods(g, node, f);
+    double f0 = liveF ? g.mixF[f] : control_audio(g, node.frequency, f);
+    double f1 = control_audio(g, node.center, f);
+    double f2 = control_audio(g, node.width, f);
+    double f3 = control_audio(g, node.lpfFrequency, f);
+    double f4 = control_audio(g, node.hpfFrequency, f);
     if (!(f0 == f0) || f0 < 20.0) f0 = 20.0;
     if (!(f1 == f1) || f1 < 20.0) f1 = 20.0;
     if (!(f2 == f2) || f2 < 20.0) f2 = 20.0;
@@ -9372,17 +9292,17 @@ static void process_mix_stereo(Circuit& g, Node& node, int frames) {
   mix_live_port(g, node, 6, frames, r3);
   mix_live_port(g, node, 7, frames, l4);
   mix_live_port(g, node, kPortMixStereoR4, frames, r4);
-  const double vol1 = control_effective(node.laneVol[0]);
-  const double vol2 = control_effective(node.laneVol[1]);
-  const double vol3 = control_effective(node.laneVol[2]);
-  const double vol4 = control_effective(node.laneVol[3]);
-  const double pan1 = control_effective(node.laneBias[0]);
-  const double pan2 = control_effective(node.laneBias[1]);
-  const double pan3 = control_effective(node.laneBias[2]);
-  const double pan4 = control_effective(node.laneBias[3]);
-  const double amp = control_effective(node.volumeDb); // Amplitude (All) in dB
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
+    const double vol1 = control_audio(g, node.laneVol[0], f);
+    const double vol2 = control_audio(g, node.laneVol[1], f);
+    const double vol3 = control_audio(g, node.laneVol[2], f);
+    const double vol4 = control_audio(g, node.laneVol[3], f);
+    const double pan1 = control_audio(g, node.laneBias[0], f);
+    const double pan2 = control_audio(g, node.laneBias[1], f);
+    const double pan3 = control_audio(g, node.laneBias[2], f);
+    const double pan4 = control_audio(g, node.laneBias[3], f);
+    const double amp = control_audio(g, node.volumeDb, f); // Amplitude (All) in dB
     node.buf[kPortMono][f] = 0.0;
     node.buf[kPortLeft][f] = soemdsp_mix_stereo_sample(
       1.0,
@@ -9418,7 +9338,7 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
     break;
   }
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
     const double out = soemdsp_sample_hold_sample(
@@ -9443,15 +9363,14 @@ static void process_sample_delay(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool controlSmoothing =
-    node_control_smoothing(node)
+  const bool takeSamplePath =
+    node_has_active_chase(node)
     || (node.timeNumerator.active && !node.timeNumerator.snap)
     || (node.timeDenominator.active && !node.timeDenominator.snap);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
-    if (controlSmoothing) smoother_step_node(g, node);
-    const double timeSec = control_effective(node.timeNumerator);
-    const double samples = control_effective(node.timeDenominator);
+    stamp_live_param_mods(g, node, f);
+    const double timeSec = control_audio(g, node.timeNumerator, f);
+    const double samples = control_audio(g, node.timeDenominator, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double delayed = soemdsp_sample_delay_sample(
       node.nativeHandle, in, timeSec, samples, sr
@@ -9469,7 +9388,7 @@ static void process_comparator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     soemdsp_comparator_sample(node.nativeHandle, in);
     node.buf[kPortCmpThru][f] = soemdsp_comparator_thru(node.nativeHandle);
@@ -9490,7 +9409,7 @@ static void process_slew_limiter(Circuit& g, Node& node, int frames) {
   double* inPtr = ptr_from_export(soemdsp_slew_limiter_block_input_ptr(node.nativeHandle));
   if (!inPtr) return;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     inPtr[f] = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
   }
   // timeNumerator=upTime, timeDenominator=downTime, shape=upShape, mode=downShape, offset=bias
@@ -9514,9 +9433,9 @@ static void process_slew_limiter(Circuit& g, Node& node, int frames) {
 // Bias: out = in + offset (Control `offset`, same slot as attenuverter DC).
 static void process_bias(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
-  const double bias = control_effective(node.offset);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
+    const double bias = control_audio(g, node.offset, f);
     const double out = (g.mixMono[f] + g.mixLeft[f] + g.mixRight[f]) + bias;
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
@@ -9546,7 +9465,7 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
   }
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     double resetGate = 0.0;
     if (liveReset) {
       const double rv = g.mixReset[f];
@@ -9555,7 +9474,7 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
     }
     const double freq = liveF
       ? clamp_hz_nyquist(g.mixF[f], srD)
-      : clamp_hz_nyquist(control_effective(node.frequency), srD);
+      : clamp_hz_nyquist(control_audio(g, node.frequency, f), srD);
     const double y = soemdsp_robin_sinusoid_sample(
       node.nativeHandle, freq, amp, srD, phase0, resetGate
     );
@@ -9600,7 +9519,7 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
   if (outM) copy_tap_to_buf(node.buf[kPortMono], outM, frames);
   else {
     for (int f = 0; f < frames; f++) {
-            stamp_live_param_mods(g, node, f);
+        stamp_live_param_mods(g, node, f);
       node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
     }
   }
@@ -9628,7 +9547,7 @@ static void process_noise_generator(Circuit& g, Node& node, int frames) {
   copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
   copy_tap_to_buf(node.buf[kPortRight], outR, frames);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
   }
 }
@@ -9648,7 +9567,7 @@ static void process_raster_rgb(Circuit& g, Node& node, int frames) {
   const double invert = control_effective(node.center);
   const double hue = control_effective(node.phaseParam);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     soemdsp_raster_rgb_sample(
       node.nativeHandle,
       rIn[f], gIn[f], bIn[f],
@@ -9664,13 +9583,13 @@ static void process_raster_rgb(Circuit& g, Node& node, int frames) {
 // Gain: soemdsp_gain_sample (master/L/R dB, mono-sum law, offset).
 static void process_gain(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
-  const double masterDb = control_effective(node.gainDb);
-  const double leftDb = control_effective(node.gainLeftDb);
-  const double rightDb = control_effective(node.gainRightDb);
-  const double monoSum = control_effective(node.gainMonoSum);
-  const double off = control_effective(node.offset);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
+    const double masterDb = control_audio(g, node.gainDb, f);
+    const double leftDb = control_audio(g, node.gainLeftDb, f);
+    const double rightDb = control_audio(g, node.gainRightDb, f);
+    const double monoSum = control_audio(g, node.gainMonoSum, f);
+    const double off = control_audio(g, node.offset, f);
     const double mono = g.mixMono[f];
     const double left = g.mixLeft[f];
     const double right = g.mixRight[f];
@@ -9688,11 +9607,11 @@ static void process_gain(Circuit& g, Node& node, int frames) {
 
 static void process_output(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
-  float gL = 1.0f, gR = 1.0f;
-  pan_gains((float)control_effective(node.pan), &gL, &gR);
-  const float vol = db_to_lin((float)control_effective(node.volumeDb));
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
+    float gL = 1.0f, gR = 1.0f;
+    pan_gains((float)control_audio(g, node.pan, f), &gL, &gR);
+    const float vol = db_to_lin((float)control_audio(g, node.volumeDb, f));
     const double m = g.mixMono[f];
     const double l = (m + g.mixLeft[f]) * (double)vol * (double)gL;
     const double r = (m + g.mixRight[f]) * (double)vol * (double)gR;
@@ -9711,7 +9630,7 @@ static void process_portal_outlet(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   (void)monoOutWired;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double m = hasMonoIn ? g.mixMono[f] : 0.0;
     const double lIn = hasLeftIn ? g.mixLeft[f] : 0.0;
     const double rIn = hasRightIn ? g.mixRight[f] : 0.0;
@@ -9744,7 +9663,7 @@ static void process_portal_inlet(Circuit& g, Node& node, int frames) {
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   (void)monoOutWired;
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double m = hasMonoIn ? g.mixMono[f] : 0.0;
     const double lIn = hasLeftIn ? g.mixLeft[f] : 0.0;
     const double rIn = hasRightIn ? g.mixRight[f] : 0.0;
@@ -9812,7 +9731,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
   }
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
-        stamp_live_param_mods(g, node, f);
+    stamp_live_param_mods(g, node, f);
     const double mono = g.mixMono[f];
     const double left = mono + g.mixLeft[f];
     const double right = mono + g.mixRight[f];
@@ -11112,6 +11031,7 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     // unknown: silence
   }
 
+  // Catch-up chase for Controls not heard via control_audio this quantum.
   smoother_run(*g, frames);
   smoother_clean(*g);
   return frames;
