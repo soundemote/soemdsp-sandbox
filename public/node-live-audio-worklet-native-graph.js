@@ -2338,10 +2338,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "passiveFilter") {
-      // Native is 1-pole; slope/stagger stay UI-only until native grows.
+      // stages=slope 0..3, width=stagger, center=sweep st, shape=gainComp.
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("slope", P.NATIVE_GRAPH_PARAM_STAGES, disc("slope", 0));
+      push("stagger", P.NATIVE_GRAPH_PARAM_WIDTH, cont("stagger", 1));
       push("lowFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("lowFrequency", 200));
       push("highFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("highFrequency", 1000));
+      push("sweep", P.NATIVE_GRAPH_PARAM_CENTER, cont("sweep", 0));
+      push("gainCompensation", P.NATIVE_GRAPH_PARAM_SHAPE, disc("gainCompensation", 1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }

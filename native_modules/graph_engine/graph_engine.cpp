@@ -734,6 +734,10 @@ extern "C" double soemdsp_passive_filter_sample(
   int handle, double input, int mode, double lowFrequency,
   double highFrequency, double sampleRate
 );
+extern "C" double soemdsp_passive_filter_sample_ex(
+  int handle, double input, int mode, double lowFrequency, double highFrequency,
+  double sampleRate, double slope, double stagger, double sweepSemis, double gainCompensation
+);
 
 extern "C" int soemdsp_tb303_filter_create();
 extern "C" void soemdsp_tb303_filter_destroy(int handle);
@@ -3134,7 +3138,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypePulseExplosion) ? 0.3 // lowAmplitude
       : (typeId == kTypeAdditiveFrequencySkew) ? 1.0 // lowStretch
       : (typeId == kTypeDegreePhrase) ? 0.0 // rest1
-      : (typeId == kTypeRange) ? 0.0 // unipolar In (knob/env); was −1
+      : (typeId == kTypeRange) ? -1.0 // bipolar In default; wire unipolar spawn uses 0…1
       : (typeId == kTypeClipperLimiter) ? -12.0 : 0.0,
     (typeId == kTypeDegreePhrase)
   );
@@ -3148,13 +3152,13 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.outLow,
-    (typeId == kTypeRange) ? 0.0 // unit CV (Morph-safe); was −10 and pegged 0…1 MOD
+    (typeId == kTypeRange) ? -10.0 // bipolar Out param default; wire spawn uses ±1 / 0…1
       : 0.0,
     (typeId == kTypeDegreePhrase)
   ); // rest3 / Range outLow
   init_control(
     n.outHigh,
-    (typeId == kTypeRange) ? 1.0 // unit CV default; set higher for Hz maps
+    (typeId == kTypeRange) ? 10.0 // bipolar Out param default; unipolar wire spawn 0…1
       : (typeId == kTypeDegreePhrase) ? 1.0 // rest4
       : 1.0,
     (typeId == kTypeDegreePhrase)
@@ -6869,8 +6873,10 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
-  const bool takeSamplePath = node_has_active_chase(node)
-    || node.hpfFrequency.active || node.lpfFrequency.active;
+  const bool takeSamplePath = node_needs_sample_accurate_controls(
+    g, node, liveF || livePitch
+  ) || node.hpfFrequency.active || node.lpfFrequency.active;
+  (void)takeSamplePath;
   const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
@@ -6882,6 +6888,11 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     double lo = control_audio(g, node.hpfFrequency, f);
     double hi = control_audio(g, node.lpfFrequency, f);
+    // stages=slope 0..3, width=stagger, center=sweep st, shape=gainComp
+    const double slope = control_audio(g, node.stages, f);
+    const double stagger = control_audio(g, node.width, f);
+    const double sweep = control_audio(g, node.center, f);
+    const double gainComp = control_audio(g, node.shape, f);
     if (!(lo == lo)) lo = 200.0;
     if (!(hi == hi)) hi = 1000.0;
     double center = 0.0;
@@ -6927,21 +6938,23 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
-      const double out = soemdsp_passive_filter_sample(
-        node.nativeHandle, in, mode, lo, hi, sr
+      const double out = soemdsp_passive_filter_sample_ex(
+        node.nativeHandle, in, mode, lo, hi, sr, slope, stagger, sweep, gainComp
       );
       node.buf[kPortMono][f] = out;
       if (!hasLeftIn) node.buf[kPortLeft][f] = out;
       if (!hasRightIn) node.buf[kPortRight][f] = out;
     }
     if (hasLeftIn && node.nativeHandleL > 0) {
-      node.buf[kPortLeft][f] = soemdsp_passive_filter_sample(
-        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], mode, lo, hi, sr
+      node.buf[kPortLeft][f] = soemdsp_passive_filter_sample_ex(
+        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], mode, lo, hi, sr,
+        slope, stagger, sweep, gainComp
       );
     }
     if (hasRightIn && node.nativeHandleR > 0) {
-      node.buf[kPortRight][f] = soemdsp_passive_filter_sample(
-        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], mode, lo, hi, sr
+      node.buf[kPortRight][f] = soemdsp_passive_filter_sample_ex(
+        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], mode, lo, hi, sr,
+        slope, stagger, sweep, gainComp
       );
     }
   }

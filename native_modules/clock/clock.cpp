@@ -3,11 +3,8 @@
 // soemdsp-native-target: clock
 // soemdsp-native-kind: utility
 //
-// A free-running phasor at `rate` Hz (Digital Out/Out: a duty-cycle
-// square wave; Pulse: a single-sample tick each time the phase wraps;
-// Analog Out: an analog-clock-style "tick" waveshape derived from the
-// phase, hand-tuned rather than physically modeled). Reset holds the
-// phase at 0 until released.
+// Free-running phasor. Rising Reset: emit Pulse as if a cycle just finished,
+// then restart phase and continue cycling (not hold silent for the reset).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -21,6 +18,7 @@ static const double kPiLocal = 3.141592653589793238;
 struct ClockState {
   bool active;
   bool hasStarted;
+  bool resetWasHigh;
   double phase;
   double lastAnalog;
   double lastDigital;
@@ -29,8 +27,6 @@ struct ClockState {
 
 static ClockState gPool[kMaxInstances];
 
-// pow(base, exponent) for base >= 0, exponent > 0 (the only case this
-// module needs -- every base here is already clamped non-negative).
 static double pow_nonneg(double base, double exponent) {
   if (base <= 0.0) return 0.0;
   return dsp_exp(exponent * dsp_ln(base));
@@ -55,6 +51,7 @@ extern "C" int soemdsp_clock_create() {
     if (!gPool[i].active) {
       ClockState& s = gPool[i];
       s.hasStarted = false;
+      s.resetWasHigh = false;
       s.phase = 0.0;
       s.lastAnalog = 0.0;
       s.lastDigital = 0.0;
@@ -90,8 +87,17 @@ extern "C" double soemdsp_clock_sample(
   const double safeLevel = safe(level);
   const double rateHz = maxd(1.0, safe(sampleRate));
 
-  const bool resetActive = safeReset > 0.0;
-  const double rawPhase = resetActive ? 0.0 : wrap01(s.phase);
+  const bool resetHigh = safeReset > 0.0;
+  const bool resetRise = resetHigh && !s.resetWasHigh;
+  s.resetWasHigh = resetHigh;
+
+  // Rising Reset = finished a cycle: fire Pulse, then restart from phase 0.
+  if (resetRise) {
+    s.phase = 0.0;
+    s.hasStarted = true;
+  }
+
+  const double rawPhase = wrap01(s.phase);
   const double phase = wrap01(rawPhase + safePhaseOffset);
   const double periodSamples = safeRate > 0.0 ? rateHz / safeRate : 0.0;
   double digital = 0.0;
@@ -101,11 +107,18 @@ extern "C" double soemdsp_clock_sample(
     digital = phaseSamples < dutySamples ? safeLevel : 0.0;
   }
   const double analog = clock_analog_whip_sample(phase, safeLevel);
-  const double nextRawPhase = wrap01(rawPhase + safeRate / rateHz);
-  const double pulse = (safeRate > 0.0 && !resetActive && (!s.hasStarted || nextRawPhase < rawPhase)) ? safeLevel : 0.0;
 
-  s.hasStarted = !resetActive;
-  s.phase = resetActive ? 0.0 : nextRawPhase;
+  const double nextRawPhase = wrap01(rawPhase + safeRate / rateHz);
+  const bool wrapped = safeRate > 0.0 && s.hasStarted && nextRawPhase < rawPhase;
+  const double pulse = (resetRise || wrapped) ? safeLevel : 0.0;
+
+  // Hold at 0 while Reset stays high; otherwise advance.
+  if (resetHigh && !resetRise) {
+    s.phase = 0.0;
+  } else {
+    s.phase = nextRawPhase;
+    s.hasStarted = true;
+  }
 
   s.lastAnalog = analog;
   s.lastDigital = digital;
@@ -124,5 +137,5 @@ extern "C" double soemdsp_clock_pulse(int handle) {
 }
 
 extern "C" int soemdsp_clock_version() {
-  return 1;
+  return 2;
 }

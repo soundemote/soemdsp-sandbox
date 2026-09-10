@@ -6851,7 +6851,8 @@ const nodeGraphModuleDefinitions = (
     },
     parameters: [
       {
-        defaultValue: "0",
+        // Browser spawn (bipolar): In −1…+1. Wire unipolar spawn overrides to 0…1.
+        defaultValue: "-1",
         key: "inLow",
         label: "In Low",
         max: "20000",
@@ -6860,8 +6861,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         showSign: true,
         step: "any",
-        // Match Knob / envelope unipolar 0…1. For bipolar audio use −1…+1.
-        tooltip: "Input value that maps to Out Low. Default 0 (knob/envelope). Use −1 for bipolar audio.",
+        tooltip: "Input value that maps to Out Low. Default −1 (bipolar). Wire unipolar spawn uses 0…1.",
       },
       {
         defaultValue: "1",
@@ -6873,10 +6873,11 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         showSign: true,
         step: "any",
-        tooltip: "Input value that maps to Out High. Default 1.",
+        tooltip: "Input value that maps to Out High. Default +1 (bipolar).",
       },
       {
-        defaultValue: "0",
+        // Parameter default Out −10…+10 (Hz-friendly). Wire spawn keeps Out −1…+1 / 0…1.
+        defaultValue: "-10",
         key: "outLow",
         label: "Out Low",
         max: "20000",
@@ -6885,13 +6886,10 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         showSign: true,
         step: "any",
-        // Default 0…1 keeps |Out|≤1 so Morph MOD stays unit-band. Old −10…+10
-        // defaults were classified as domain-add and pegged Morph at 0 or 1.
-        // For Hz: set Out High to 1000+ (slider spans ±20 kHz).
-        tooltip: "Output at In Low. Default 0 (unit CV / Morph-safe). Pair with Out High for Hz maps.",
+        tooltip: "Output at In Low. Module default −10 (bipolar). Wire spawn uses −1 or 0 for unit CV.",
       },
       {
-        defaultValue: "1",
+        defaultValue: "10",
         key: "outHigh",
         label: "Out High",
         max: "20000",
@@ -6900,7 +6898,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         showSign: true,
         step: "any",
-        tooltip: "Output at In High. Default 1 (unit CV / Morph). Use 1000+ for frequency.",
+        tooltip: "Output at In High. Module default +10 (bipolar). Wire spawn uses +1 for unit CV; unipolar param default is 0…10.",
       },
     ]
   },
@@ -13892,7 +13890,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "On = latch Attack/Decay/Amplitude on rising Trigger. Off = knobs always live.",
+        tooltip: "On = latch Attack/Decay/Amplitude on rising Trigger. Off = knobs always live. Rising Trigger never resets the envelope level.",
       },
       {
         defaultValue: "0",
@@ -13905,7 +13903,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "One-pole rise toward Trigger. 0 = instant (like patch Attack ~20 kHz).",
+        tooltip: "One-pole rise toward Trigger/Gate from the current level (no snap-reset). 0 = instant.",
       },
       {
         defaultValue: "0.5",

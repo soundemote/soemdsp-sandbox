@@ -3,12 +3,9 @@
 // soemdsp-native-target: pluckEnvelope3
 // soemdsp-native-kind: envelope
 //
-// Bake of patches/pluck envelope 1.json:
-//   Inertial Filter (asymmetric one-pole toward Trigger)
-//   Attack = rise time (s); 0 = instant (patch used ~20 kHz)
-//   Out → Exp → release Hz feedback (0…10 Hz)
-//   Decay 0…1 (Thump-style: 0 = short, 1 = long) → Exp offset
-//   Recalc On Trig: latch Attack/Decay/Amplitude on rising Trigger (default On)
+// Inertial one-pole toward Trigger/Gate level. Attack from current env (never
+// snap-reset on rising Trigger). Trigger is an instant gate: same slew law as
+// Gate — high → attack toward peak, low → release toward 0.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -29,7 +26,6 @@ struct State {
   double shotDecay;
   double shotAmp;
   bool hasShot;
-  bool primed;
   bool active;
 };
 
@@ -78,7 +74,6 @@ extern "C" int soemdsp_pluck_envelope_3_create() {
       s.shotDecay = 0.5;
       s.shotAmp = 1.0;
       s.hasShot = false;
-      s.primed = false;
       s.active = true;
       return i + 1;
     }
@@ -103,6 +98,7 @@ extern "C" double soemdsp_pluck_envelope_3_sample(
   if (handle < 1 || handle > kMaxInstances || !gPool[handle - 1].active) return 0.0;
   State& s = gPool[handle - 1];
 
+  // Gate/Trigger level — Trigger is an instant gate, not a restart command.
   const double target = safe(input);
   const double sr = sampleRate < 1.0 ? 44100.0 : sampleRate;
   const double liveAtk = maxd(0.0, safe(attackSec));
@@ -112,13 +108,12 @@ extern "C" double soemdsp_pluck_envelope_3_sample(
   const double liveAmp = (amplitude * 0.0 == 0.0) ? amplitude : 1.0;
   const bool latch = safe(recalculateOnTrigger) >= 0.5;
 
-  // Any >0 counts as Trigger high (Transport amp can be << 0.5).
   const bool trigHigh = target > 0.0;
   const bool trigRise = !(s.lastTrig > 0.0) && trigHigh;
   s.lastTrig = trigHigh ? 1.0 : 0.0;
 
-  // On: latch Attack/Decay/Amplitude only on rising Trigger.
-  // Off: live knobs always drive the shot.
+  // Latch Attack/Decay/Amplitude on rising edge only when Recalc On Trig.
+  // Never zero or snap env on rise — attack from current level.
   if (!latch || trigRise || !s.hasShot) {
     s.shotAttack = liveAtk;
     s.shotDecay = liveDecay;
@@ -126,27 +121,19 @@ extern "C" double soemdsp_pluck_envelope_3_sample(
     s.hasShot = true;
   }
 
-  // Match inertial filter: first sample settles to input, then one-pole.
-  if (!s.primed) {
-    s.primed = true;
-    s.env = target;
-    s.fb = 0.0;
-  } else {
-    const double ka = k_attack(s.shotAttack, sr);
-    const double kr = k_hz(s.fb * kReleaseHzMax, sr);
-    const double cur = safe(s.env);
-    const double delta = target - cur;
-    s.env = cur + delta * (delta >= 0.0 ? ka : kr);
-    if (!(s.env * 0.0 == 0.0)) s.env = 0.0;
-  }
+  const double ka = k_attack(s.shotAttack, sr);
+  const double kr = k_hz(s.fb * kReleaseHzMax, sr);
+  const double cur = safe(s.env);
+  const double delta = target - cur;
+  s.env = cur + delta * (delta >= 0.0 ? ka : kr);
+  if (!(s.env * 0.0 == 0.0)) s.env = 0.0;
 
-  // Decay UI up = longer = less fall feedback (patch Exp → release).
   s.fb = exp_curve(s.env + (0.5 - s.shotDecay));
 
   const double y = s.env * s.shotAmp;
   return (y * 0.0 == 0.0) ? y : 0.0;
 }
 
-extern "C" int soemdsp_pluck_envelope_3_version() { return 6; }
+extern "C" int soemdsp_pluck_envelope_3_version() { return 7; }
 extern "C" const char* soemdsp_pluck_envelope_3_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_pluck_envelope_3_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

@@ -406,10 +406,11 @@ function rangeSelectedNodeGraphWires(mode = "bipolar") {
     : {};
   const pairSlots = new Map();
   const newIds = [];
+  // Spawn (wire insert): In always unit; Out always unit. Module browser
+  // parameter defaults differ (bipolar Out −10…+10 / unipolar Out 0…10).
   const params = unipolar
-    // Unit CV 0…1 — Morph-safe. Old −10…+10 pegged |v|>1 domain-add MOD.
     ? { inLow: 0, inHigh: 1, outLow: 0, outHigh: 1 }
-    : { inLow: 0, inHigh: 1, outLow: 0, outHigh: 1 };
+    : { inLow: -1, inHigh: 1, outLow: -1, outHigh: 1 };
   for (const entry of snapshots) {
     const wire = entry.wire;
     if (!wire?.sourceNode || !wire?.destinationNode) {
@@ -468,7 +469,7 @@ function rangeSelectedNodeGraphWires(mode = "bipolar") {
   if (!newIds.length) {
     return 0;
   }
-  const noun = unipolar ? "range (0…1)" : "range (−1…1)";
+  const noun = unipolar ? "range (0…1 → 0…1)" : "range (−1…1 → −1…1)";
   commitNodeGraphPatch(patch, {
     status: newIds.length === 1 ? `${noun} inserted` : `${newIds.length} ${noun} inserted`,
   });
