@@ -95,6 +95,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-042 | hear | fixed | Parameter smoothing intermittently snaps |
 | B-043 | hear | fixed | Control chase not sample-accurate by default (Output Volume repro) |
 | B-044 | hear | fixed | PolyBLEP Sine clicks once per cycle (Taylor ±π) |
+| B-045 | hear | fixed | Self-mod (outlet→own param) silent — buf zeroed before stamp |
 
 ---
 
@@ -470,6 +471,13 @@ epeating clicks from a sinewave.json)
 ative_modules/polyblep/polyblep.cpp; sandbox_native_maths/analog_filter_trig.h; SinCos method expansion in sine_wavetable.cpp
 - What: Sine used Taylor-about-zero on phase wrapped to ±π. sinApprox(π)≠0 → jump ~0.014 each wrap → clicks at f0.
 - Fix: PolyBLEP Sine = shared half-sine wavetable LUT (APP_POLICY sine SSOT). Taylor Method on SinCos is quadrant-folded (continuous). Smoke: scripts/smoke_polyblep_sine_wrap.mjs.
+
+### B-045 — Self-mod (outlet→own param) silent
+- Status: fixed
+- Severity: hear
+- Source: user (PolyBLEP out → own param; app-wide)
+- What: ParamModEdge stamped from node.buf after process_block zeroed buf → self-mod always 0. Early JS kept prior output.
+- Fix: Unified Edge (Port|Control sinks); per-channel z^-1 hist; stamp/mix read hist for self/unprocessed sources; update hist after write. Smoke: scripts/smoke_polyblep_self_mod.mjs.
 
 ## Fixed
 
