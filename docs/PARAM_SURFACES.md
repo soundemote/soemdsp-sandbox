@@ -46,6 +46,8 @@ already-modulated value. Full/live JS does that in `readEffectiveParameter` /
 `readNodeGraphLiveEffectiveParam`. Efficient native: knob → `set_param` →
 `Control.target` → smoother → `Control.out`; DSP reads `control_effective`.
 
+**Sample-path entry (efficient native):** Control sink (`ParamModEdge`), live continuous SIGNAL IN, or active chase ⇒ `node_needs_sample_accurate_controls` forces the sample loop (`control_frame` per sample). Dual-path natives must not stay on block/`process_block` when those are present. Intentional ZOH only: Additive/Yellow morph, discrete enums, cyan controller MOD. Enforced by `scripts/check_graph_engine_contracts.py`.
+
 **MOD sources (efficient native) — sample-accurate by default:**
 
 | Source | Path |

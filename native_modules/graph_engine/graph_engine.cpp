@@ -1985,6 +1985,9 @@ static double morph_zoh_hold(Circuit& g, Node& node, bool liveMorph, bool additi
   return m;
 }
 
+static bool node_has_live_param_mods(const Circuit& g, const Node& node);
+static bool node_has_active_chase(const Node& node);
+
 static bool node_has_live_param_mods(const Circuit& g, const Node& node) {
   const unsigned int dst = node.idHash;
   for (int i = 0; i < g.paramModEdgeCount; i++) {
@@ -1992,6 +1995,19 @@ static bool node_has_live_param_mods(const Circuit& g, const Node& node) {
     if (e.used && e.dstHash == dst) return true;
   }
   return false;
+}
+
+// SSOT: sample path whenever continuous Controls must move inside the quantum.
+// liveContinuousSignalIns = caller OR of gold continuous live ports (ƒ / 0.1V /
+// Phase CV / Inc / …). Do not pass cyan Morph ZOH (kPortMorph) here.
+static inline bool node_needs_sample_accurate_controls(
+  const Circuit& g,
+  const Node& node,
+  bool liveContinuousSignalIns
+) {
+  return liveContinuousSignalIns
+      || node_has_active_chase(node)
+      || node_has_live_param_mods(g, node);
 }
 
 static double shape_param_01(const Node& node) {
@@ -4245,20 +4261,14 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool livePhase = mix_live_port(g, node, kPortPhaseCv, frames, g.mixPhaseCv);
-  const bool takeSamplePath = node_has_active_chase(node);
-  // Range/Knob→Morph ParamModEdge must take the sample path (stamp before read).
-  const bool liveParamMods = node_has_live_param_mods(g, node);
-  const bool audioRatePitch =
-    liveF || livePitch || liveInc || liveReset || livePhase || takeSamplePath
-    || liveParamMods;
+  const bool audioRatePitch = node_needs_sample_accurate_controls(
+    g, node, liveF || livePitch || liveInc || liveReset || livePhase
+  );
   const int mask = polyblep_tap_mask(g, node);
 
   // Midi note 48 → 0.4 reference voltage (matches worklet default).
   const double referenceVoltage = 48.0 / 120.0;
 
-  // Morph / Amp / Wave: stamp frame 0 so ParamModEdge (Range→Morph) is audible
-  // even on the block path. No Morph SIGNAL IN — Morph is the parameter (+ MOD).
-  stamp_live_param_mods(g, node, 0);
   const double phaseParam = phase_offset_cycles(
     node.phaseParam, livePhase ? g.mixPhaseCv[0] : 0.0
   );
@@ -4378,7 +4388,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
   const bool takeSamplePath =
-    node.frequency.active || node.resonance.active || node.amplitude.active;
+    node_needs_sample_accurate_controls(g, node, liveF || livePitch);
 
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
@@ -4386,7 +4396,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   double amp = control_effective(node.amplitude);
   if (!(amp == amp)) amp = 1.0;
 
-  if (!liveF && !livePitch && !takeSamplePath) {
+  if (!takeSamplePath) {
     double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
     if (freq < 0.0) freq = 0.0;
     double* out0 = nullptr;
@@ -4396,7 +4406,6 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
       out0 = ptr_from_export(soemdsp_ladder_filter_block_output_ptr(node.nativeHandle));
       if (!inPtr || !out0) return;
       for (int f = 0; f < frames; f++) {
-    control_frame(g, node, f);
         inPtr[f] = g.mixMono[f];
         if (!hasLeftIn && !hasRightIn) inPtr[f] += g.mixLeft[f] + g.mixRight[f];
       }
@@ -4429,7 +4438,6 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
     }
     if (amp != 1.0) {
       for (int f = 0; f < frames; f++) {
-    control_frame(g, node, f);
         node.buf[kPortMono][f] *= amp;
         node.buf[kPortLeft][f] *= amp;
         node.buf[kPortRight][f] *= amp;
@@ -5900,6 +5908,7 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
 
 
   for (int f = 0; f < frames; f += 1) {
+    control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -6044,7 +6053,6 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const double referenceVoltage = 48.0 / 120.0;
-  stamp_live_param_mods(g, node, 0);
   double morph = morph_zoh_hold(g, node, liveMorph, true);
   const double pulseWidth = control_effective(node.width);
   const double blend = control_effective(node.mix);
@@ -6320,9 +6328,6 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const double referenceVoltage = 48.0 / 120.0;
-  const double phaseOff = control_effective(node.phaseParam);
-  const double shape = morph_zoh_hold(g, node, liveMorph, true);
-  const double level = control_effective(node.amplitude);
   int motion = (int)(control_effective(node.mode) + (control_effective(node.mode) >= 0.0 ? 0.5 : -0.5));
   if (motion < 0) motion = 0;
   if (motion > 3) motion = 3;
@@ -6334,6 +6339,10 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
+    // Morph param MOD is gold (sample-accurate); Morph CV jack stays ZOH hold.
+    const double phaseOff = control_audio(g, node.phaseParam, f);
+    const double shape = morph_zoh_hold(g, node, liveMorph, true);
+    const double level = control_audio(g, node.amplitude, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
       if (node.lastReset <= 0.0 && rv > 0.0) {
@@ -9140,13 +9149,13 @@ static void process_metallic_ratio(Circuit& g, Node& node, int frames) {
 // Wired ƒ cancels Frequency. Mono=ƒ, Left=ƒ0, Right fans ƒ.
 static void process_harmonic_series(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
-  const double harmonic = control_effective(node.width);
-  const double offset = control_effective(node.center);
-  const double knobHz = control_effective(node.frequency);
-  if (!liveF) {
+  const bool takeSamplePath = node_needs_sample_accurate_controls(g, node, liveF);
+  if (!liveF && !takeSamplePath) {
+    const double harmonic = control_effective(node.width);
+    const double offset = control_effective(node.center);
+    const double knobHz = control_effective(node.frequency);
     const double hz = soemdsp_harmonic_series_sample(knobHz, harmonic, offset);
     for (int f = 0; f < frames; f++) {
-        control_frame(g, node, f);
       node.buf[kPortMono][f] = hz;
       node.buf[kPortLeft][f] = knobHz;
       node.buf[kPortRight][f] = hz;
@@ -9155,7 +9164,9 @@ static void process_harmonic_series(Circuit& g, Node& node, int frames) {
   }
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
-    const double base = g.mixF[f];
+    const double harmonic = control_audio(g, node.width, f);
+    const double offset = control_audio(g, node.center, f);
+    const double base = liveF ? g.mixF[f] : control_audio(g, node.frequency, f);
     const double hz = soemdsp_harmonic_series_sample(base, harmonic, offset);
     node.buf[kPortMono][f] = hz;
     node.buf[kPortLeft][f] = base;
@@ -9564,9 +9575,11 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const double amp = control_effective(node.amplitude);
-  const double phase0 = control_effective(node.phaseParam) * kTwoPi;
-  if (!liveF && !liveReset) {
+  const bool takeSamplePath =
+    node_needs_sample_accurate_controls(g, node, liveF || liveReset);
+  if (!takeSamplePath) {
+    const double amp = control_effective(node.amplitude);
+    const double phase0 = control_effective(node.phaseParam) * kTwoPi;
     const double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
     soemdsp_robin_sinusoid_process_block(
       node.nativeHandle, freq, amp, srD, phase0, 0.0, frames
@@ -9587,6 +9600,8 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
       if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
       node.lastReset = rv;
     }
+    const double amp = control_audio(g, node.amplitude, f);
+    const double phase0 = control_audio(g, node.phaseParam, f) * kTwoPi;
     const double freq = liveF
       ? clamp_hz_nyquist(g.mixF[f], srD)
       : clamp_hz_nyquist(control_audio(g, node.frequency, f), srD);
@@ -9606,37 +9621,59 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const double amp = control_effective(node.amplitude);
-  const double detune = control_effective(node.width); // detune cents (no hard 100¢ cap)
-  const double voicesExact = control_effective(node.stages); // fractional voices
-  const double phaseSpread = control_effective(node.shape); // Random Phase live offset scale
-  const double stereoMode = control_effective(node.mode); // 0 Dual Channel, 1 Alternating
-  const double detuneAlgorithm = control_effective(node.center); // 0..6 Linear…Exponential (2=Emotional)
-  const double portaTimeMin = control_effective(node.timeNumerator); // seconds
-  const double portaTimeMax = control_effective(node.timeDenominator); // seconds
-  const double portamentoStyle = control_effective(node.offset); // 0..1 lin→exp
   const double referenceVoltage = 48.0 / 120.0;
-  const double resetGate = hasReset ? g.mixReset[0] : 0.0;
+  const bool takeSamplePath =
+    node_needs_sample_accurate_controls(g, node, liveF || livePitch || hasReset);
 
-  double freq = resolve_osc_hz(
-    g, 0, liveF, livePitch, node.frequency, referenceVoltage, srD
-  );
-  soemdsp_robin_supersaw_process_block(
-    node.nativeHandle, freq, srD, detune, voicesExact, amp, phaseSpread, stereoMode,
-    detuneAlgorithm, portaTimeMin, portaTimeMax, portamentoStyle, resetGate, frames
-  );
-  double* outL = ptr_from_export(soemdsp_robin_supersaw_block_output_left_ptr(node.nativeHandle));
-  double* outR = ptr_from_export(soemdsp_robin_supersaw_block_output_right_ptr(node.nativeHandle));
-  double* outM = ptr_from_export(soemdsp_robin_supersaw_block_output_mono_ptr(node.nativeHandle));
-  if (!outL || !outR) return;
-  copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
-  copy_tap_to_buf(node.buf[kPortRight], outR, frames);
-  if (outM) copy_tap_to_buf(node.buf[kPortMono], outM, frames);
-  else {
-    for (int f = 0; f < frames; f++) {
-        control_frame(g, node, f);
-      node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
+  auto run_block = [&](int nFrames, int frameIndexForHz, double resetGate) {
+    const double amp = control_effective(node.amplitude);
+    const double detune = control_effective(node.width);
+    const double voicesExact = control_effective(node.stages);
+    const double phaseSpread = control_effective(node.shape);
+    const double stereoMode = control_effective(node.mode);
+    const double detuneAlgorithm = control_effective(node.center);
+    const double portaTimeMin = control_effective(node.timeNumerator);
+    const double portaTimeMax = control_effective(node.timeDenominator);
+    const double portamentoStyle = control_effective(node.offset);
+    double freq = resolve_osc_hz(
+      g, frameIndexForHz, liveF, livePitch, node.frequency, referenceVoltage, srD
+    );
+    soemdsp_robin_supersaw_process_block(
+      node.nativeHandle, freq, srD, detune, voicesExact, amp, phaseSpread, stereoMode,
+      detuneAlgorithm, portaTimeMin, portaTimeMax, portamentoStyle, resetGate, nFrames
+    );
+  };
+
+  if (!takeSamplePath) {
+    const double resetGate = hasReset ? g.mixReset[0] : 0.0;
+    run_block(frames, 0, resetGate);
+    double* outL = ptr_from_export(soemdsp_robin_supersaw_block_output_left_ptr(node.nativeHandle));
+    double* outR = ptr_from_export(soemdsp_robin_supersaw_block_output_right_ptr(node.nativeHandle));
+    double* outM = ptr_from_export(soemdsp_robin_supersaw_block_output_mono_ptr(node.nativeHandle));
+    if (!outL || !outR) return;
+    copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
+    copy_tap_to_buf(node.buf[kPortRight], outR, frames);
+    if (outM) copy_tap_to_buf(node.buf[kPortMono], outM, frames);
+    return;
+  }
+
+  if (!hasReset) node.lastReset = 0.0;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    double resetGate = 0.0;
+    if (hasReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
+      node.lastReset = rv;
     }
+    run_block(1, f, resetGate);
+    double* outL = ptr_from_export(soemdsp_robin_supersaw_block_output_left_ptr(node.nativeHandle));
+    double* outR = ptr_from_export(soemdsp_robin_supersaw_block_output_right_ptr(node.nativeHandle));
+    double* outM = ptr_from_export(soemdsp_robin_supersaw_block_output_mono_ptr(node.nativeHandle));
+    if (!outL || !outR) return;
+    node.buf[kPortLeft][f] = outL[0];
+    node.buf[kPortRight][f] = outR[0];
+    node.buf[kPortMono][f] = outM ? outM[0] : 0.5 * (outL[0] + outR[0]);
   }
 }
 

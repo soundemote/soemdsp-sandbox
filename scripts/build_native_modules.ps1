@@ -453,6 +453,12 @@ Write-Output "Built combined native module: native_modules\combined\soemdsp_comb
 # Smoke test: instantiate the combined binary and call every _version()
 # export, failing the build on any missing export or bad startup. Requires
 # node; skipped with a loud warning if it isn't installed.
+# Static graph_engine contracts (control_frame / sample-path gates) before Node smokes.
+& python "$root\scripts\check_graph_engine_contracts.py"
+if ($LASTEXITCODE -ne 0) {
+  throw "graph_engine static contract FAILED"
+}
+
 $node = Get-Command node -ErrorAction SilentlyContinue
 if ($node) {
   & $node.Source "$root\scripts\smoke_test_combined.js" "$combinedDir\soemdsp_combined.wasm" $responseFile
@@ -484,6 +490,26 @@ if ($node) {
   & $node.Source "$root\scripts\smoke_pll_param_stick.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: pll param stickiness smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_polyblep_morph_mod.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: polyblep ParamModEdge morph smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_ladder_param_mod.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: ladder ParamModEdge smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_robin_sinusoid_param_mod.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: robin sinusoid ParamModEdge smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_polyblep_self_mod.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: polyblep self-mod smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_cycle_freq_mod_not_block_zoh.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: cycle freq mod block-ZOH smoke FAILED"
   }
 } else {
   Write-Warning "node not found -- combined wasm smoke test SKIPPED. Install Node.js to enable it."
