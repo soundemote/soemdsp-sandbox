@@ -1085,7 +1085,8 @@ const nodeGraphModuleDefinitions = (
           "How many phase taps. sine / cosine: A only. sincos: A=sin B=cos. antiphase: A and −A. 3-phase: 0°/120°/240°. 4-phase: 0°/90°/180°/270°. Unused A–D sit at 0.",
       },
       {
-        choices: ["Polynomial", "Wavetable"],
+        // Indices keep old 0=Polynomial / 1=Wavetable for saved patches; default Wavetable (SSOT).
+        choices: ["Polynomial", "Wavetable", "std::sin", "Taylor"],
         defaultValue: "1",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -1093,12 +1094,12 @@ const nodeGraphModuleDefinitions = (
         label: "Method",
         linearSmoothing: false,
         smoothingType: "none",
-        max: "1",
+        max: "3",
         mid: "1",
         min: "0",
         step: "1",
         tooltip:
-          "Wavetable = additive’s half-sine LUT (2¹⁵, default). Polynomial = exact joint sin/cos.",
+          "Sine SSOT default = Wavetable (additive half-sine LUT 2¹⁵). Polynomial = joint quadrant poly. std::sin = full-range sandbox poly (freestanding; no libm). Taylor = short quadrant-folded Taylor (continuous at wrap).",
       },
       {
         defaultValue: "0",
@@ -1157,20 +1158,20 @@ const nodeGraphModuleDefinitions = (
     },
     parameters: [
       {
-        choices: ["Polynomial", "Wavetable"],
-        defaultValue: "0",
+        choices: ["Polynomial", "Wavetable", "std::sin", "Taylor"],
+        defaultValue: "1",
         displayChoices: true,
         divideChoicesVisibly: true,
         key: "method",
         label: "Method",
         linearSmoothing: false,
         smoothingType: "none",
-        max: "1",
-        mid: "0",
+        max: "3",
+        mid: "1",
         min: "0",
         step: "1",
         tooltip:
-          "Polynomial = exact joint sin/cos (default). Wavetable = additive’s half-sine LUT (2¹⁵) for lower CPU.",
+          "Sine SSOT default = Wavetable (additive half-sine LUT 2¹⁵). Polynomial = joint quadrant poly. std::sin = full-range sandbox poly (freestanding; no libm). Taylor = short quadrant-folded Taylor (continuous at wrap).",
       },
       {
         defaultValue: "0",

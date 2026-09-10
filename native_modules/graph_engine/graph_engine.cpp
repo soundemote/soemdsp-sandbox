@@ -2603,16 +2603,15 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpoPluckEnvelope) ? 0.0 // Attack Shape Log
       : (typeId == kTypeThumpEnvelope) ? 0.8062943900342834 // fallCurve (pluck envelope 2)
       : (typeId == kTypeRobinSupersaw) ? 1.0 // Random Phase (live offset scale)
-      : (typeId == kTypeSineWavetable) ? 1.0 // SinCos4 method=Wavetable (additive LUT)
+      : (typeId == kTypeSineWavetable || typeId == kTypeSinCos) ? 1.0 // method=Wavetable SSOT
       : (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter || typeId == kTypeAntisaw
       || typeId == kTypeBradley2a || typeId == kTypeEllipsoid || typeId == kTypeSnowflake
       || typeId == kTypeFlowerChildFilter || typeId == kTypeYellowjacketFilter
       || typeId == kTypeHumanFilter || typeId == kTypeResonatorFilter
       || typeId == kTypeCombResonator
       || typeId == kTypeAdditiveBubble || typeId == kTypeAdditiveGenerator
-      || typeId == kTypeAdditiveFrequencySkew
-      || typeId == kTypeSinCos)
-      ? 0.0 // chaos/damping/pwm/bubble/freqSkew off; SinCos method=Polynomial
+      || typeId == kTypeAdditiveFrequencySkew)
+      ? 0.0 // chaos/damping/pwm/bubble/freqSkew off
       : (typeId == kTypeAdditiveBlaster) ? 179.0 // quantization (PoC default)
       : (typeId == kTypeAdditiveDiffusor) ? 0.0 // skew (rational)
       : (typeId == kTypeAdditiveLinearFilter) ? 0.25 // slope 0..1
@@ -5019,8 +5018,8 @@ static void sin_cos4_from_pair(
   }
 }
 
-// Shared SinCos / SinCos4 advance. method (shape): 0=poly, 1=additive LUT.
-// Returns sin/cos pair; caller maps to face ports.
+// Shared SinCos / SinCos4 advance. method (shape): 0=poly, 1=wavetable LUT,
+// 2=stdlib sin, 3=taylor (folded). Returns sin/cos; caller maps to face ports.
 // Phase is a free-run offset (cycles→radians), same model as polyBlep/BLIT:
 // re-apply Control phase every sample while the smoother chases. Freezing it
 // ZOH for the quantum made Phase scrub zipper/scratch despite smoothing —
@@ -5038,7 +5037,9 @@ static void sin_cos_pair_advance(
   const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = 48.0 / 120.0;
   const double methodV = control_effective(node.shape);
-  const int method = (methodV >= 0.5) ? 1 : 0;
+  int method = (int)(methodV + (methodV >= 0.0 ? 0.5 : -0.5));
+  if (method < 0) method = 0;
+  if (method > 3) method = 3;
   soemdsp_sine_wavetable_set_method(node.nativeHandle, method);
 
   int mode = 2;

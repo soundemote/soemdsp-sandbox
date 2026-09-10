@@ -52,17 +52,8 @@ double clampD(double value, double lo, double hi) {
   return value < lo ? lo : (value > hi ? hi : value);
 }
 
-double wrapRadians(double value) {
-  while (value > kPi) value -= kTwoPi;
-  while (value < -kPi) value += kTwoPi;
-  return value;
-}
-
-double sinApprox(double value) {
-  const double x = wrapRadians(value);
-  const double x2 = x * x;
-  return x * (1.0 + x2 * (-1.0 / 6.0 + x2 * (1.0 / 120.0 + x2 * (-1.0 / 5040.0 + x2 * (1.0 / 362880.0)))));
-}
+// APP_POLICY sine SSOT: pure-tone sine from shared half-sine wavetable LUT.
+// (Old Taylor-about-zero on ±π clicked once per cycle.)
 
 // Legacy sandbox BLEP (kept for Saw / Ramp / Square continuity).
 double polyBlep(double phaseCycle, double phaseIncrement) {
@@ -211,7 +202,7 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
       break;
     }
     case 5:
-      sample = sinApprox(phase);
+      sample = dsp_sin_turns_lut(phase * (1.0 / kTwoPi));
       break;
     case 6:
       sample = polyBlepCenterSquare(phaseCycle, absInc, morph);
@@ -412,5 +403,5 @@ extern "C" double soemdsp_polyblep_sine(int handle) {
 }
 
 extern "C" int soemdsp_polyblep_version() {
-  return 7; // Drop Noise waveform; Center Square = centered pulse
+  return 8; // Sine tap = shared half-sine wavetable LUT (no ±π Taylor click)
 }

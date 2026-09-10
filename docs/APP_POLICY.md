@@ -253,6 +253,15 @@ This app is a **C++ DSP engine with a JS interface** (§0). JS authors and obser
 - Same rule offline: Render Sample uses the **same native core** (see §5).
 - **Match the module’s channel model — do not invent stereo inside natives.** A mono utility stays mono-per-handle (`process_block` on one buffer). The graph folds Mono+L+R and fans Out when the patch presents stereo jacks (same pattern as attenuverter / range / bias). True-stereo modules keep independent L/R state because the algorithm is stereo — not because the UI has Left/Right jacks.
 
+### Sine SSOT (wavetable)
+
+- **Default pure-tone sine** in oscillators / LFOs / taps must come from the **shared half-sine wavetable** (`dsp_sin_turns_lut` / `dsp_sin_cos_lut` in `sandbox_native_maths`, same LUT Additive / Vibrato / SinCos use). Do **not** invent a per-module Taylor-about-zero on wrapped ±π (that clicks once per cycle).
+- **SinCos** and **SinCos4** expose **all** available sin methods as an explicit Method control: **Wavetable** (default), **Polynomial** (joint quadrant poly), **std::sin** (platform/`__builtin_sin`), **Taylor** (quadrant-folded Taylor — must be continuous at cycle wrap; never evaluate raw Taylor at ±π).
+- **Exceptions** (documented, not silent forks):
+  - **RobinSinusoid** — iterative / recurrence sine (special case).
+  - Modules that need sin/cos as **kernel math** (BLIT sinc, DSF, filter coeff helpers) may use shared `dsp_sin` / `dsp_sin_cos` polys — still from `sandbox_native_maths`, not a private clicking approx.
+  - A module may ship wavetable **plus** other Method choices (SinCos / SinCos4); product default remains wavetable.
+
 ---
 
 ## 2b. Delay / large buffers: pay for what you use

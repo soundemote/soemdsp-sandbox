@@ -1903,7 +1903,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "sineWavetable") {
       // freq/amp/phase keys match module defs; mode → A/B/C/D layout from sin/cos.
-      // method → shape: 0=poly, 1=additive half-sine LUT (SinCos4 default).
+      // method → shape: 0=poly, 1=wavetable (SSOT default), 2=stdlib, 3=taylor.
       push("freq", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("freq", 100));
       push("amp", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amp", 1));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
@@ -1915,7 +1915,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("freq", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("freq", 100));
       push("amp", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amp", 1));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
-      push("method", P.NATIVE_GRAPH_PARAM_SHAPE, disc("method", 0));
+      push("method", P.NATIVE_GRAPH_PARAM_SHAPE, disc("method", 1));
       continue;
     }
     if (type === "antisaw") {

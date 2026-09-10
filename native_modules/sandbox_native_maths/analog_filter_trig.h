@@ -174,6 +174,51 @@ static inline void dsp_sin_cos_lut(double x, double* sOut, double* cOut) {
   dsp_sin_cos_turns_lut(x * (1.0 / kTwoPi), sOut, cOut);
 }
 
+// ---------------------------------------------------------------------------
+// Taylor polynomial on [0, π/2] only (after quadrant fold). Continuous at
+// cycle wrap — never evaluate raw Taylor near ±π (that clicks once per period).
+// ---------------------------------------------------------------------------
+static inline double poly_sin_taylor_0_halfpi(double x) {
+  // x in [0, π/2]. Terms through x^9.
+  const double x2 = x * x;
+  return x * (1.0 + x2 * (-1.0 / 6.0 + x2 * (1.0 / 120.0 + x2 * (-1.0 / 5040.0 + x2 * (1.0 / 362880.0)))));
+}
+
+static inline double dsp_sin_turns_taylor(double turns) {
+  double p = turns - dsp_floor(turns);
+  if (p < 0.0) p += 1.0;
+  double sign = 1.0;
+  if (p >= 0.5) {
+    p -= 0.5;
+    sign = -1.0;
+  }
+  if (p > 0.25) {
+    p = 0.5 - p;
+  }
+  return sign * poly_sin_taylor_0_halfpi(p * kTwoPi);
+}
+
+static inline double dsp_cos_turns_taylor(double turns) {
+  return dsp_sin_turns_taylor(turns + 0.25);
+}
+
+static inline void dsp_sin_cos_turns_taylor(double turns, double* sOut, double* cOut) {
+  *sOut = dsp_sin_turns_taylor(turns);
+  *cOut = dsp_sin_turns_taylor(turns + 0.25);
+}
+
+static inline void dsp_sin_cos_taylor(double x, double* sOut, double* cOut) {
+  dsp_sin_cos_turns_taylor(x * (1.0 / kTwoPi), sOut, cOut);
+}
+
+// "std::sin" Method on freestanding wasm (no libm): full-range quadrant poly
+// via dsp_sin/dsp_cos. Distinct from joint dsp_sin_cos (one reduce) and from
+// the short folded Taylor Method.
+static inline void dsp_sin_cos_stdlib(double x, double* sOut, double* cOut) {
+  *sOut = dsp_sin(x);
+  *cOut = dsp_cos(x);
+}
+
 // 2^f for f in [0,1), truncated Taylor series of e^(f*ln2) -- accurate to
 // better than 1e-5 relative error, which is far more precision than a
 // musical pitch-to-frequency conversion needs.

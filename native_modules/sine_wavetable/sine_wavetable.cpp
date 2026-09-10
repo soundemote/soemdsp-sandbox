@@ -3,9 +3,11 @@
 // soemdsp-native-target: sineWavetable
 // soemdsp-native-kind: oscillator
 //
-// Shared by SinCos4 (sineWavetable) and SinCos (sinCos). Two sin paths:
-//   method 0 = Exact poly (dsp_sin_cos) — default, matches prior native.
-//   method 1 = Fast wavetable — same half-sine LUT additive uses (2^15).
+// Shared by SinCos4 (sineWavetable) and SinCos (sinCos). Method indices match UI:
+//   0 = Polynomial — joint quadrant poly (dsp_sin_cos) — kept for old patches
+//   1 = Wavetable — additive half-sine LUT (2^15) — product SSOT default
+//   2 = std::sin — platform / __builtin_sin+cos
+//   3 = Taylor — quadrant-folded Taylor (continuous at wrap; no ±π click)
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -25,7 +27,8 @@ static const char kMetadataJson[] =
       "{\"key\":\"phase\",\"label\":\"Phase\",\"kind\":\"phase\",\"defaultValue\":0,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":0.01,\"unit\":\"cycle\"},"
       "{\"key\":\"freq\",\"label\":\"Freq\",\"kind\":\"frequency\",\"defaultValue\":100,\"min\":0,\"mid\":220,\"max\":20000,\"step\":\"any\",\"unit\":\"Hz\"},"
       "{\"key\":\"amp\",\"label\":\"Amp\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
-      "{\"key\":\"method\",\"label\":\"Method\",\"defaultValue\":0,\"min\":0,\"mid\":0,\"max\":1,\"step\":1}"
+      "{\"key\":\"method\",\"label\":\"Method\",\"defaultValue\":1,\"min\":0,\"mid\":1,\"max\":3,\"step\":1,"
+        "\"choices\":[\"Polynomial\",\"Wavetable\",\"std::sin\",\"Taylor\"]}"
     "]"
   "}";
 
@@ -51,11 +54,17 @@ struct SineWavetableState {
   double samplePhase01; // last render phase in cycles (incl. offset) for face
   double outSin;
   double outCos;
-  int method; // 0 = poly, 1 = additive half-sine LUT
+  int method; // 0 poly, 1 wavetable, 2 stdlib, 3 taylor
   bool active;
 };
 
 static SineWavetableState gPool[kMaxInstances];
+
+static inline int clamp_method(int method) {
+  if (method < 0) return 0;
+  if (method > 3) return 3;
+  return method;
+}
 
 }  // namespace
 
@@ -67,7 +76,7 @@ extern "C" int soemdsp_sine_wavetable_create() {
       s.samplePhase01 = 0.0;
       s.outSin = 0.0;
       s.outCos = 0.0;
-      s.method = 0;
+      s.method = 1; // wavetable SSOT default
       s.active = true;
       return i + 1;
     }
@@ -87,7 +96,7 @@ extern "C" void soemdsp_sine_wavetable_reset(int handle) {
 
 extern "C" void soemdsp_sine_wavetable_set_method(int handle, int method) {
   if (handle < 1 || handle > kMaxInstances) return;
-  gPool[handle - 1].method = method ? 1 : 0;
+  gPool[handle - 1].method = clamp_method(method);
 }
 
 extern "C" void soemdsp_sine_wavetable_sample(
@@ -108,11 +117,19 @@ extern "C" void soemdsp_sine_wavetable_sample(
 
   double sn = 0.0;
   double cn = 0.0;
-  if (s.method != 0) {
-    dsp_sin_cos_lut(samplePhase, &sn, &cn);
-  } else {
-    // One range-reduce + two polys (joint), not two full dsp_sin paths.
-    dsp_sin_cos(samplePhase, &sn, &cn);
+  switch (clamp_method(s.method)) {
+    case 0:
+      dsp_sin_cos(samplePhase, &sn, &cn);
+      break;
+    case 2:
+      dsp_sin_cos_stdlib(samplePhase, &sn, &cn);
+      break;
+    case 3:
+      dsp_sin_cos_taylor(samplePhase, &sn, &cn);
+      break;
+    default: // 1 = wavetable SSOT
+      dsp_sin_cos_lut(samplePhase, &sn, &cn);
+      break;
   }
   s.outSin = sn * level;
   s.outCos = cn * level;
@@ -140,7 +157,7 @@ extern "C" double soemdsp_sine_wavetable_phase(int handle) {
 }
 
 extern "C" int soemdsp_sine_wavetable_version() {
-  return 3; // samplePhase01 for SinCos4 face
+  return 4; // methods: wavetable / poly / stdlib / taylor
 }
 
 extern "C" const char* soemdsp_sine_wavetable_metadata_json() {

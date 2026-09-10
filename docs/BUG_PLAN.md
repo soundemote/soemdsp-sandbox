@@ -94,6 +94,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-041 | see | fixed | Room dimmer cutouts ignore zoom/pan |
 | B-042 | hear | fixed | Parameter smoothing intermittently snaps |
 | B-043 | hear | fixed | Control chase not sample-accurate by default (Output Volume repro) |
+| B-044 | hear | fixed | PolyBLEP Sine clicks once per cycle (Taylor ±π) |
 
 ---
 
@@ -104,6 +105,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 <!-- user: paste below this line -->
 
 - 2026-09-10: Desktop patch `zipper noise on volume knob of output module.json` — Output Volume zipper while dragging. Promoted → **B-043**.
+- 2026-09-10: Desktop `repeating clicks from a sinewave.json` — PolyBLEP Sine @ 4 Hz clicks once/cycle. Promoted → **B-044**.
 
 ---
 
@@ -458,6 +460,16 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Fix: SSOT `control_audio(g, c, f)` / `control_ensure_stepped` with `steppedCount` (idempotent per Control per frame). Heard continuous params in sample loops use `control_audio`. Deleted `smoother_step_node` / `node_control_smoothing` / `blockStepped`. Trailing `smoother_run` is catch-up only for unread/block-ZOH Controls. Output/Gain/Mix/MixStereo/Bias (+ Class A loops) sample-accurate. Smoke: `scripts/smoke_output_volume_chase.mjs`.
 
 ---
+
+### B-044 — PolyBLEP Sine clicks once per cycle (Taylor ±π)
+- Status: fixed
+- Severity: hear
+- Source: user (Desktop 
+epeating clicks from a sinewave.json)
+- Files: 
+ative_modules/polyblep/polyblep.cpp; sandbox_native_maths/analog_filter_trig.h; SinCos method expansion in sine_wavetable.cpp
+- What: Sine used Taylor-about-zero on phase wrapped to ±π. sinApprox(π)≠0 → jump ~0.014 each wrap → clicks at f0.
+- Fix: PolyBLEP Sine = shared half-sine wavetable LUT (APP_POLICY sine SSOT). Taylor Method on SinCos is quadrant-folded (continuous). Smoke: scripts/smoke_polyblep_sine_wrap.mjs.
 
 ## Fixed
 
