@@ -12668,16 +12668,19 @@ const nodeGraphModuleDefinitions = (
   },
   // Local piano face + explicit INs (wire MIDI→Keyboard Play Keys for device blue).
   // Play Keys = blue sounding mask. Arp Keys = gold ctrl+click latch.
+  // Voices = black stub thru (unimplemented voice bus).
   keyboard: {
     planRole: "source",
     digitalInputs: ["Play Keys", "Arp Keys"],
     digitalOutputs: ["Play Keys", "Arp Keys"],
-    inputs: ["Play Keys", "Arp Keys", "Gate", "Trigger"],
+    inputs: ["Voices", "Play Keys", "Arp Keys", "Gate", "Trigger"],
     inputChannels: {
+      Voices: "black",
       "Play Keys": "blue",
       "Arp Keys": "gold",
     },
     outputChannels: {
+      Voices: "black",
       "Play Keys": "blue",
       "Arp Keys": "gold",
     },
@@ -12698,6 +12701,7 @@ const nodeGraphModuleDefinitions = (
       Inc: "Inc.",
     },
     outputLabels: {
+      Voices: "Voices",
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
       KeyboardKey: "KeyboardKey",
@@ -12709,12 +12713,14 @@ const nodeGraphModuleDefinitions = (
       f: "ƒ",
     },
     inputLabels: {
+      Voices: "Voices",
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
       Gate: "Gate",
       Trigger: "Trigger",
     },
     outputs: [
+      "Voices",
       "Play Keys",
       "Arp Keys",
       "Gate",

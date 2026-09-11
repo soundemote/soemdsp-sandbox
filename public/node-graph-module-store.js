@@ -1287,9 +1287,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   keyboard: {
     category: "controller",
-    description: "Local piano (dock + face). Wire Play Keys (blue) / Arp Keys (gold) / Gate / Trigger in to mix; does not auto-follow hardware MIDI — use the MIDI module for that.",
+    description: "Local piano (dock + face). Wire Play Keys (blue) / Arp Keys (gold) / Voices (black stub thru) / Gate / Trigger; does not auto-follow hardware MIDI — use the MIDI module for that.",
     label: "Keyboard",
-    notes: ["keyboard", "piano", "play keys", "arp keys", "controller", "performance", "gate", "trigger", "velocity", "note"],
+    notes: ["keyboard", "piano", "play keys", "arp keys", "voices", "controller", "performance", "gate", "trigger", "velocity", "note"],
   },
   macroControls: {
     category: "controller",

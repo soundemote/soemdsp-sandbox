@@ -172,6 +172,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     if (isKeyboard) {
       const gateOut = Math.max(cv.gateAmp, mixMax(nid, "Gate"));
       const triggerOut = Math.max(cv.triggerAmp, mixMax(nid, "Trigger"));
+      const voicesOut = mixMax(nid, "Voices");
       const arpIn = collectIn(nid, "Arp Keys");
       const arpOut = orTransmit([arpLocal, ...arpIn], phaseOn);
       const playIn = collectIn(nid, "Play Keys");
@@ -182,6 +183,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       }
       const playOut = orTransmit([playLocal, ...playIn], phaseOn);
       this.nodeOutputs.set(nid, {
+        Voices: voicesOut,
         "Play Keys": playOut,
         "Arp Keys": arpOut,
         Gate: gateOut,
@@ -228,6 +230,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const cv = buildCv(signal, false, "keyboard");
     const gateOut = Math.max(cv.gateAmp, mixMax(nid, "Gate"));
     const triggerOut = Math.max(cv.triggerAmp, mixMax(nid, "Trigger"));
+    const voicesOut = mixMax(nid, "Voices");
     const arpOut = orTransmit([arpLocal, ...collectIn(nid, "Arp Keys")], phaseOn);
     let playLocal = 0;
     if (cv.gateAmp > 0) {
@@ -236,6 +239,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const playOut = orTransmit([playLocal, ...collectIn(nid, "Play Keys")], phaseOn);
     this.nodeOutputs.set(nid, {
       ...prev,
+      Voices: voicesOut,
       "Play Keys": playOut,
       "Arp Keys": arpOut,
       Gate: gateOut,
