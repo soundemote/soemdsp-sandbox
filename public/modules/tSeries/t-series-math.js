@@ -42,6 +42,7 @@ function nodeGraphTSeriesSample(options = {}) {
     ? (nodeGraphFiniteNumber(options.input))
     : Number(hasAnalog || hasDigital);
   const out = {};
+  let openAmount = 0;
   for (let i = 0; i < count; i += 1) {
     // Lone t: Digital = gate presence (any > 0 → send). Multi-t: one-hot index.
     let digitalGain = 0;
@@ -54,7 +55,11 @@ function nodeGraphTSeriesSample(options = {}) {
       }
     }
     const analogGain = Math.max(0, 1 - Math.abs(addr - i)) * lone * Number(hasAnalog);
-    out[String(i)] = carrier * Math.max(digitalGain, analogGain);
+    const gain = Math.max(digitalGain, analogGain);
+    if (gain > openAmount) openAmount = gain;
+    out[String(i)] = carrier * gain;
   }
+  // Face Value Line: how open the switch is (not In × gain).
+  out.Open = openAmount;
   return out;
 }

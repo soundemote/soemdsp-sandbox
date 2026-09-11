@@ -661,7 +661,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   t: {
     category: "digital",
-    description: "One transistor. Digital 0 sends In (open In = 1); analog 0–1 is conduction.",
+    description: "One transistor. Digital any>0 sends In (open In = 1); Analog 0–1 conduction. Face shows openness, not In.",
     label: "t",
     notes: ["transistor", "t"],
   },

@@ -456,7 +456,8 @@ function nodeGraphTSeriesValueDisplayModes() {
       label: "Value Line",
       renderer: "value",
       settingsSchema: "value",
-      source: { value: "0" },
+      // Combined Digital/Analog openness (not In × gate on out "0").
+      source: { value: "Open" },
     },
   ];
 }

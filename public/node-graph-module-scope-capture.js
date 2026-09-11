@@ -355,10 +355,9 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
       null;
   }
+  // t-series Value Line: combined Digital/Analog openness — never In/sample.
   if (/^t([1-9]|10)?$/.test(String(slot?.type || ""))) {
-    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:0`) ||
-      nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||
-      nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
+    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:Open`) ||
       null;
   }
   // Pitch Detector LCD: own Frequency out (not an external In wire).

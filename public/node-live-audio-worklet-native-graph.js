@@ -5270,6 +5270,10 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Right"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_SAW) {
+    // t-series: Saw bus holds combined Digital/Analog openness for Value Line.
+    if (type === "t" || /^t([1-9]|10)$/.test(type)) {
+      return ["Open"];
+    }
     if (type === "rasterRgb") return ["rgba", "📺"];
     if (type === "fractalBrownianNoise") return ["Out X Raw"];
     if (type === "phoneTone") return ["ƒ1", "f1", "Df1"];

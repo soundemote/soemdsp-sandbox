@@ -4818,6 +4818,7 @@ static void process_transistor(Circuit& g, Node& node, int frames) {
       ? (g.mixMono[f] + g.mixLeft[f] + g.mixRight[f])
       : ((hasAnalog || hasDigital) ? 1.0 : 0.0);
 
+    double openAmount = 0.0;
     for (int i = 0; i < count; i++) {
       double digitalGain = 0.0;
       if (hasDigital) {
@@ -4834,11 +4835,15 @@ static void process_transistor(Circuit& g, Node& node, int frames) {
       if (ad < 0.0) ad = 0.0;
       const double analogGain = ad * lone * (hasAnalog ? 1.0 : 0.0);
       const double gain = digitalGain > analogGain ? digitalGain : analogGain;
+      if (gain > openAmount) openAmount = gain;
       node.buf[i][f] = carrier * gain;
     }
     for (int i = count; i < kChannels; i++) {
       node.buf[i][f] = 0.0;
     }
+    // Face Value Line reads "Open" (Saw bus) = combined Digital/Analog openness,
+    // not the In sample (carrier × gain on outs 0…n).
+    node.buf[kPortSaw][f] = openAmount;
   }
 }
 
