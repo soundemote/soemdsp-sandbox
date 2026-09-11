@@ -5555,7 +5555,10 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
               ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW, P.NATIVE_GRAPH_PORT_RAMP)
               : (type === "lookaheadLimiter"
                 ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW)
-                : facePorts))));
+                // t-series: Saw bus = Open (gate openness for Value Line).
+                : (type === "t" || /^t([1-9]|10)$/.test(type)
+                  ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW)
+                  : facePorts)))));
       const bindings = [];
       for (let pi = 0; pi < ports.length; pi += 1) {
         const portId = ports[pi];

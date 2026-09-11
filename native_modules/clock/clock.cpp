@@ -3,8 +3,9 @@
 // soemdsp-native-target: clock
 // soemdsp-native-kind: utility
 //
-// Free-running phasor. Rising Reset: emit Pulse as if a cycle just finished,
-// then restart phase and continue cycling (not hold silent for the reset).
+// Free-running phasor. Rising Reset (edge only): emit Pulse as if a cycle just
+// finished, then restart phase and keep advancing (do not freeze while Reset
+// stays high — that stretched the first Digital gate).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -91,7 +92,10 @@ extern "C" double soemdsp_clock_sample(
   const bool resetRise = resetHigh && !s.resetWasHigh;
   s.resetWasHigh = resetHigh;
 
-  // Rising Reset = finished a cycle: fire Pulse, then restart from phase 0.
+  // Rising Reset only (edge): treat as end-of-cycle Pulse, then restart.
+  // Do NOT hold phase at 0 while Reset stays high — that freezes Digital in the
+  // duty-high region and makes the first gate longer than subsequent ones
+  // (Keyboard Trigger can stay high for many samples).
   if (resetRise) {
     s.phase = 0.0;
     s.hasStarted = true;
@@ -112,13 +116,8 @@ extern "C" double soemdsp_clock_sample(
   const bool wrapped = safeRate > 0.0 && s.hasStarted && nextRawPhase < rawPhase;
   const double pulse = (resetRise || wrapped) ? safeLevel : 0.0;
 
-  // Hold at 0 while Reset stays high; otherwise advance.
-  if (resetHigh && !resetRise) {
-    s.phase = 0.0;
-  } else {
-    s.phase = nextRawPhase;
-    s.hasStarted = true;
-  }
+  s.phase = nextRawPhase;
+  s.hasStarted = true;
 
   s.lastAnalog = analog;
   s.lastDigital = digital;
@@ -137,5 +136,5 @@ extern "C" double soemdsp_clock_pulse(int handle) {
 }
 
 extern "C" int soemdsp_clock_version() {
-  return 2;
+  return 3;
 }

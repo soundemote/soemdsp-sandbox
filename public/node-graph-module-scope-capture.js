@@ -350,14 +350,31 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
     };
     return pick(`${nodeId}:R`) || pick(`${nodeId}:G`) || pick(`${nodeId}:B`) || pick(nodeId);
   }
+  // t-series Value Line: Open = Digital∨Analog openness (slot.type is valueOscilloscope).
+  {
+    const moduleType = String(
+      (typeof nodeGraphModuleScopeNodeForSlot === "function"
+        ? nodeGraphModuleScopeNodeForSlot(slot)?.type
+        : null)
+      || "",
+    );
+    if (/^t([1-9]|10)?$/.test(moduleType)) {
+      return nodeGraphModuleScopeState.buffers.get(`${nodeId}:Open`) || null;
+    }
+  }
   if (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "numberReadout", "valueLcd", "lineBurnOscilloscope", "led", "vectorDot", "lcdDot"].includes(slot?.type)) {
+    const source = typeof nodeGraphModuleDisplaySourceForSlot === "function"
+      ? nodeGraphModuleDisplaySourceForSlot(slot)
+      : null;
+    const sourcePort = String(source?.value || "").trim();
+    if (sourcePort) {
+      const sourceBuffer = nodeGraphModuleScopeState.buffers.get(`${nodeId}:${sourcePort}`);
+      if (sourceBuffer?.length) {
+        return sourceBuffer;
+      }
+    }
     return nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
-      null;
-  }
-  // t-series Value Line: combined Digital/Analog openness — never In/sample.
-  if (/^t([1-9]|10)?$/.test(String(slot?.type || ""))) {
-    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:Open`) ||
       null;
   }
   // Pitch Detector LCD: own Frequency out (not an external In wire).
