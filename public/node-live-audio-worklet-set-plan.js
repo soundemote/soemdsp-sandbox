@@ -130,6 +130,10 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       // an empty path and output silence (engine still ran).
       drawnPath: node.drawnPath || null,
       graph: node.graph || null,
+      // Metamodule / Group ownership — Polyphony voice lanes need this.
+      ownerMetamoduleId: node.ownerMetamoduleId
+        ? String(node.ownerMetamoduleId)
+        : undefined,
       paramMeta: node.paramMeta || {},
       params: node.params || {},
       sample: node.sample || null,

@@ -178,6 +178,10 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
         params,
         type: node.type,
       };
+      // Metamodule / Group ownership — required for Polyphony voice lanes.
+      if (node.ownerMetamoduleId) {
+        runtimeNode.ownerMetamoduleId = String(node.ownerMetamoduleId);
+      }
       if (typeof nodeGraphDspApplyControllerLiveSmoothing === "function") {
         nodeGraphDspApplyControllerLiveSmoothing(runtimeNode);
       }
@@ -238,6 +242,9 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
         params,
         type: node.type,
       };
+      if (node.ownerMetamoduleId) {
+        runtimeNode.ownerMetamoduleId = String(node.ownerMetamoduleId);
+      }
       if (typeof nodeGraphDspApplyControllerLiveSmoothing === "function") {
         nodeGraphDspApplyControllerLiveSmoothing(runtimeNode);
       }
