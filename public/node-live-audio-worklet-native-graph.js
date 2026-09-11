@@ -4333,11 +4333,14 @@ NodeLiveAudioProcessor.prototype.syncNativeAudioPlayerPcm = function syncNativeA
 
     const sampleId = String(node?.sample?.id || "");
     const sample = sampleId ? this.samples?.get?.(sampleId) : null;
+    // Planar PCM: prefer channelData[0].length. Never pass a TypedArray into
+    // nodeGraphFiniteNumber as a fallback then read `.length` off the result —
+    // a finite frames number has no .length and collapsed to 0 (engine waiting).
     const frames = Math.max(
       0,
-      nodeGraphFiniteNumber(sample?.frames, sample?.channelData?.[0])?.length
-        || sample?.samples?.length
-        || 0,
+      Math.round(Number(sample?.frames)) || 0,
+      sample?.channelData?.[0]?.length || 0,
+      sample?.samples?.length || 0,
     ) | 0;
     const prev = cache.get(nodeId);
 
@@ -4358,7 +4361,13 @@ NodeLiveAudioProcessor.prototype.syncNativeAudioPlayerPcm = function syncNativeA
       Number(sample.channels) || (Array.isArray(sample.channelData) ? sample.channelData.length : 1) || 1,
     ) | 0;
     const channels = channelCount >= 2 ? 2 : 1;
-    const rate = nodeGraphFiniteNumber(sample.sampleRate, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber))(sampleRate, 44100);
+    const rate = Math.max(
+      1,
+      nodeGraphFiniteNumber(
+        sample.sampleRate,
+        nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)),
+      ),
+    );
 
     let ok = 0;
     try {
