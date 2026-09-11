@@ -46,6 +46,12 @@ graphify update . --force   # no LLM; AST re-extract
 - Contracts: `check_graph_engine_contracts.py` + ParamMod/self-mod/cycle smokes in native build
 - Tip commits: `e03ee57c` … `b6412277`
 
+### MODULE DELETE DOES NOT (should not) RESET AUDIO ENGINE (2026-09-10)
+- Deleting any module (even unconnected) used `soemdsp_graph_clear` and recreated every native instance
+- Fix: `soemdsp_graph_remove_node` + `clear_connections` + surgical `syncNativeGraphFromPlan`
+- Survivors keep env/phase/filter state; smoke `smoke_remove_node_preserves_state.mjs`
+- Commit: `5a6e8fbb`
+
 
 
 - [x] **CLAP host extracted** — https://github.com/soundemote/soemdsp-sandbox-claphost
