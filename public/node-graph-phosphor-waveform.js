@@ -60,46 +60,30 @@ const nodeGraphPhosphorWaveformScrollLinePositionRatios = Object.freeze({
 });
 
 // Geometric lengths (trace/scroll/label/font/corner/edge) are 0..1 of the
-// face min-edge in the draw space. Defaults match the old CSS-px look at a
-// 256 CSS-px reference face (displayScaleFromRefCssPx). See display-scale.js.
+// face min-edge in the draw space. See display-scale.js / APP_POLICY §15.
 const nodeGraphPhosphorWaveformDefaultSettings = Object.freeze({
   scrollMode: "smooth",
   timeWindowSeconds: 2,
   scrollLinePosition: "mid",
-  // 0 = hide playhead. Default ≈ former 2.5 CSS px @ 256 face.
-  scrollLineWidth: typeof displayScaleFromRefCssPx === "function"
-    ? displayScaleFromRefCssPx(2.5)
-    : 2.5 / 256,
-  // Trace core width. Drawing adds a +0.5 device-px skirt. Default ≈ 1.5 CSS px @ 256.
-  traceWidth: typeof displayScaleFromRefCssPx === "function"
-    ? displayScaleFromRefCssPx(1.5)
-    : 1.5 / 256,
-  // Both color pairs default to the phosphor-green look this display
-  // always had (hue ~140, a green), so an untouched node renders exactly
-  // as before.
+  // 0 = hide playhead.
+  scrollLineWidth: 0.01,
+  // Trace core width (+0.5 device-px skirt at draw).
+  traceWidth: 0.006,
   hue: 140,
   lineBrightness: 0.5,
-  // Per-sample vertical grid (visible when zoomed in). 0 = hidden; 0.5 ≈ legacy mid.
+  // Per-sample vertical grid when zoomed in. 0 = hidden.
   gridBrightness: 0.5,
   backgroundHue: 140,
-  // 0…1. Default 0.5 ≈ former mid of 0…2 scale (~8.8% lightness).
-  // 1 is the brightest *plate*, not white — a 100% field hid the trace.
+  // 0…1 plate brightness. 1 is the brightest plate, not white.
   backgroundBrightness: 0.5,
-  // Panel shape/inset. cornerShape only has a visible effect once
-  // cornerRadius > 0. edgeSpacing is 0..1 of maxInset (half min-edge), so
-  // 1 collapses the panel. cornerRadius is 0..1 of maxRadius (half the
-  // panel's shorter side) — 1 is fully round for either corner shape.
+  // cornerShape only matters once cornerRadius > 0.
+  // edgeSpacing: 0..1 of maxInset (half min-edge); 1 collapses the panel.
+  // cornerRadius: 0..1 of maxRadius (half panel min-edge); 1 is fully round.
   cornerShape: "squircle",
   cornerRadius: 0,
   edgeSpacing: 0.05,
-  // Zoom / speed labels: inset from the face corner (0..1 of min-edge).
-  labelInset: typeof displayScaleFromRefCssPx === "function"
-    ? displayScaleFromRefCssPx(6)
-    : 6 / 256,
-  // HUD / placeholder text size (0..1 of min-edge). Default ≈ 10 CSS px @ 256.
-  fontSize: typeof displayScaleFromRefCssPx === "function"
-    ? displayScaleFromRefCssPx(10)
-    : 10 / 256,
+  labelInset: 0.025,
+  fontSize: 0.04,
   // Playlist row fade. 0 = no fade, 1 = only the playing row is visible.
   playlistFade: 0.25,
   playlistVisibleCount: 8,
@@ -107,12 +91,6 @@ const nodeGraphPhosphorWaveformDefaultSettings = Object.freeze({
 
 function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
-  const unit01 = typeof clampDisplayUnit01 === "function"
-    ? clampDisplayUnit01
-    : (value, fallback = 0) => {
-      const n = Number(value);
-      return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback;
-    };
   const timeWindowSeconds = Number(source.timeWindowSeconds);
   const scrollLineWidth = Number(source.scrollLineWidth);
   const traceWidth = Number(source.traceWidth);
@@ -139,13 +117,11 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
     )
       ? source.scrollLinePosition
       : nodeGraphPhosphorWaveformDefaultSettings.scrollLinePosition,
-    // 0 = hide playhead / scroll line. 0..1 of face min-edge.
     scrollLineWidth: Number.isFinite(scrollLineWidth)
-      ? unit01(scrollLineWidth, nodeGraphPhosphorWaveformDefaultSettings.scrollLineWidth)
+      ? clampDisplayUnit01(scrollLineWidth, nodeGraphPhosphorWaveformDefaultSettings.scrollLineWidth)
       : nodeGraphPhosphorWaveformDefaultSettings.scrollLineWidth,
-    // Trace core width. 0..1 of face min-edge.
     traceWidth: Number.isFinite(traceWidth)
-      ? unit01(traceWidth, nodeGraphPhosphorWaveformDefaultSettings.traceWidth)
+      ? clampDisplayUnit01(traceWidth, nodeGraphPhosphorWaveformDefaultSettings.traceWidth)
       : nodeGraphPhosphorWaveformDefaultSettings.traceWidth,
     hue: Number.isFinite(hue) ? ((hue % 360) + 360) % 360 : nodeGraphPhosphorWaveformDefaultSettings.hue,
     lineBrightness: Number.isFinite(lineBrightness)
@@ -160,19 +136,18 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
     backgroundBrightness: Number.isFinite(backgroundBrightness)
       ? Math.max(0, Math.min(1, backgroundBrightness))
       : nodeGraphPhosphorWaveformDefaultSettings.backgroundBrightness,
-    // Default squircle; only an explicit "square" (pill) opt-out sticks.
     cornerShape: source.cornerShape === "square" ? "square" : "squircle",
     cornerRadius: Number.isFinite(cornerRadius)
-      ? unit01(cornerRadius, nodeGraphPhosphorWaveformDefaultSettings.cornerRadius)
+      ? clampDisplayUnit01(cornerRadius, nodeGraphPhosphorWaveformDefaultSettings.cornerRadius)
       : nodeGraphPhosphorWaveformDefaultSettings.cornerRadius,
     edgeSpacing: Number.isFinite(edgeSpacing)
-      ? unit01(edgeSpacing, nodeGraphPhosphorWaveformDefaultSettings.edgeSpacing)
+      ? clampDisplayUnit01(edgeSpacing, nodeGraphPhosphorWaveformDefaultSettings.edgeSpacing)
       : nodeGraphPhosphorWaveformDefaultSettings.edgeSpacing,
     labelInset: Number.isFinite(labelInset)
-      ? unit01(labelInset, nodeGraphPhosphorWaveformDefaultSettings.labelInset)
+      ? clampDisplayUnit01(labelInset, nodeGraphPhosphorWaveformDefaultSettings.labelInset)
       : nodeGraphPhosphorWaveformDefaultSettings.labelInset,
     fontSize: Number.isFinite(fontSize)
-      ? unit01(fontSize, nodeGraphPhosphorWaveformDefaultSettings.fontSize)
+      ? clampDisplayUnit01(fontSize, nodeGraphPhosphorWaveformDefaultSettings.fontSize)
       : nodeGraphPhosphorWaveformDefaultSettings.fontSize,
     playlistFade: Number.isFinite(playlistFade)
       ? Math.max(0, Math.min(1, playlistFade))
@@ -976,9 +951,7 @@ function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, 
   // the result depends only on the setting.
   const outerWidth = cellWidth;
   const outerHeight = cellHeight;
-  const faceMin = typeof displayFaceMinSide === "function"
-    ? displayFaceMinSide(outerWidth, outerHeight)
-    : Math.min(outerWidth, outerHeight);
+  const faceMin = displayFaceMinSide(outerWidth, outerHeight);
   const maxInset = Math.max(0, Math.floor(faceMin / 2));
   const inset = Math.round(settings.edgeSpacing * maxInset);
   // Largest meaningful radius is half the panel's shorter side: at 1 a
@@ -988,21 +961,11 @@ function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, 
   const maxRadius = Math.max(0, Math.min(panelWidth, panelHeight) / 2);
   const radius = Math.round(settings.cornerRadius * maxRadius);
   const shape = settings.cornerShape === "squircle" ? "squircle" : "round";
-  // The panel outline follows BG Hue so the frame and the field it encloses
-  // stay the same colour family. Saturation/lightness/alpha are the values
-  // the old hardcoded rgba(90, 255, 150, 0.16) worked out to, so at the
-  // default hue (140) this is visually unchanged. Off = no frame (black plate).
+  // Panel outline follows BG Hue. Off = no frame (black plate).
   const borderColor = powered
     ? `hsl(${Math.round(settings.backgroundHue)} 100% 68% / 0.16)`
     : "transparent";
-  const toPx = typeof displayScaleToPx === "function"
-    ? displayScaleToPx
-    : (unit01, side) => Math.max(0, Math.min(1, Number(unit01) || 0)) * Math.max(0, side);
-  const labelInset = Math.round(toPx(
-    settings.labelInset,
-    faceMin,
-    nodeGraphFiniteNumber(nodeGraphPhosphorWaveformDefaultSettings.labelInset) * faceMin,
-  ));
+  const labelInset = Math.round(displayScaleToPx(settings.labelInset, faceMin));
   const next = `${inset}|${radius}|${shape}|${borderColor}|${powered ? 1 : 0}|${labelInset}`;
   if (section.dataset.panelShape === next) {
     return;
@@ -1308,10 +1271,6 @@ function bindNodeGraphPhosphorWaveformTimeWindowEditing() {
     ?.closest?.("[data-display-settings-body]")
     || document.querySelector("[data-display-settings-body]");
   bindNodeGraphPhosphorWaveformNumberDrags(host);
-}
-
-function bindNodeGraphPhosphorWaveformPxFields() {
-  bindNodeGraphPhosphorWaveformTimeWindowEditing();
 }
 
 function dragNodeGraphPhosphorWaveformSettings(event) {
@@ -2151,22 +2110,11 @@ function drawNodeGraphPhosphorWaveformPlaceholder(context, width, height, messag
   if (!context) {
     return;
   }
-  const faceMin = typeof displayFaceMinSide === "function"
-    ? displayFaceMinSide(width, height)
-    : Math.min(width, height);
-  const unit = settings && Number.isFinite(Number(settings.fontSize))
+  const faceMin = displayFaceMinSide(width, height);
+  const fontUnit = settings && Number.isFinite(Number(settings.fontSize))
     ? Number(settings.fontSize)
     : nodeGraphPhosphorWaveformDefaultSettings.fontSize;
-  // Slightly larger than HUD font (legacy was 11 vs 10 CSS px).
-  const fontUnit = Math.min(1, unit * 1.1);
-  const fontPx = Math.max(
-    1,
-    Math.round(
-      typeof displayScaleToPx === "function"
-        ? displayScaleToPx(fontUnit, faceMin, 11 * Math.max(1, nodeGraphFiniteNumber(pixelRatio, 1)))
-        : fontUnit * faceMin,
-    ),
-  );
+  const fontPx = Math.max(1, Math.round(displayScaleToPx(fontUnit, faceMin)));
   context.fillStyle = nodeGraphPhosphorWaveformLineColor(settings, 57, 0.55);
   context.font = `600 ${fontPx}px system-ui, sans-serif`;
   context.textAlign = "center";
@@ -2412,19 +2360,9 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     context.stroke();
   }
 
-  // Vector trace: core width + free half-pixel skirt (cheap AA that matches
-  // the pixel grid — not a blur/glow pass, just width + 0.5 in device px).
-  // traceWidth is 0..1 of face min-edge in device-pixel space.
-  const faceMinDevice = typeof displayFaceMinSide === "function"
-    ? displayFaceMinSide(width, height)
-    : Math.min(width, height);
-  const toPx = typeof displayScaleToPx === "function"
-    ? displayScaleToPx
-    : (unit01, side) => Math.max(0, Math.min(1, Number(unit01) || 0)) * Math.max(0, side);
-  const tracePx = Math.max(
-    0.5,
-    toPx(settings.traceWidth, faceMinDevice, nodeGraphPhosphorWaveformDefaultSettings.traceWidth * faceMinDevice),
-  );
+  // Vector trace: core width + half-pixel skirt (cheap AA on the pixel grid).
+  const faceMinDevice = displayFaceMinSide(width, height);
+  const tracePx = Math.max(0.5, displayScaleToPx(settings.traceWidth, faceMinDevice));
   const skirtPx = tracePx + 0.5;
   const vectorPoints = nodeGraphPhosphorWaveformBuildVectorPath(
     nodeGraphPhosphorWaveformEntrySamples(entry),
@@ -2466,13 +2404,14 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     context.fillRect(regionX0, 0, regionX1 - regionX0, height);
   }
 
-  // Playhead — plain line at scrollLineWidth (0..1 of face min-edge). 0 = hidden.
+  // Playhead — scrollLineWidth (0..1 of face min-edge). 0 = hidden.
   // Offline: no playhead (static sample preview only).
-  const rawScrollW = Number(settings.scrollLineWidth);
-  const scrollUnit = Number.isFinite(rawScrollW)
-    ? Math.max(0, Math.min(1, rawScrollW))
-    : nodeGraphPhosphorWaveformDefaultSettings.scrollLineWidth;
-  const scrollPx = toPx(scrollUnit, faceMinDevice, 0);
+  const scrollPx = displayScaleToPx(
+    Number.isFinite(Number(settings.scrollLineWidth))
+      ? settings.scrollLineWidth
+      : nodeGraphPhosphorWaveformDefaultSettings.scrollLineWidth,
+    faceMinDevice,
+  );
   if (
     circuitRunning
     && scrollPx > 0
@@ -2529,28 +2468,23 @@ function nodeGraphPhosphorWaveformPaintSpeedLabel(context, nodeId, node, width, 
     }
   }
   const speedLabel = `${speed.toFixed(3)}x`;
-  const faceMin = typeof displayFaceMinSide === "function"
-    ? displayFaceMinSide(width, height)
-    : Math.min(width, height);
-  const toPx = typeof displayScaleToPx === "function"
-    ? displayScaleToPx
-    : (unit01, side) => Math.max(0, Math.min(1, Number(unit01) || 0)) * Math.max(0, side);
+  const faceMin = displayFaceMinSide(width, height);
   const fontUnit = settings && Number.isFinite(Number(settings.fontSize))
     ? Number(settings.fontSize)
     : nodeGraphPhosphorWaveformDefaultSettings.fontSize;
-  const fontPx = Math.max(1, Math.round(toPx(fontUnit, faceMin, 10 * nodeGraphFiniteNumber(pixelRatio, 1))));
+  const fontPx = Math.max(1, Math.round(displayScaleToPx(fontUnit, faceMin)));
   context.font = `600 ${fontPx}px system-ui, sans-serif`;
   const labelUnit = settings && Number.isFinite(Number(settings.labelInset))
     ? Number(settings.labelInset)
     : nodeGraphPhosphorWaveformDefaultSettings.labelInset;
-  const pad = toPx(labelUnit, faceMin, 0);
+  const pad = displayScaleToPx(labelUnit, faceMin);
   const x = Math.round(width - pad);
   const y = Math.round(height - pad);
   context.textAlign = "right";
   context.textBaseline = "bottom";
   if (Math.abs(speed) < 1e-5) {
     const textW = context.measureText(speedLabel).width;
-    const boxPad = Math.max(1, Math.round(toPx(2 / 256, faceMin, 2 * nodeGraphFiniteNumber(pixelRatio, 1))));
+    const boxPad = Math.max(1, Math.round(displayScaleToPx(fontUnit * 0.2, faceMin)));
     context.fillStyle = "#FF0000";
     context.fillRect(
       Math.round(x - textW - boxPad),
@@ -2559,9 +2493,7 @@ function nodeGraphPhosphorWaveformPaintSpeedLabel(context, nodeId, node, width, 
       Math.round(fontPx + boxPad * 2),
     );
   }
-  context.fillStyle = typeof nodeGraphPhosphorWaveformLineColor === "function"
-    ? nodeGraphPhosphorWaveformLineColor(settings, 85, 0.7)
-    : "hsla(140, 90%, 85%, 0.7)";
+  context.fillStyle = nodeGraphPhosphorWaveformLineColor(settings, 85, 0.7);
   context.fillText(speedLabel, x, y);
   context.textAlign = "left";
   context.textBaseline = "alphabetic";

@@ -2823,20 +2823,11 @@ function nodeGraphAudioPlayerVideoscopePaintXy(context, width, height, channels,
   const step = Math.max(1, Math.floor(count / Math.max(width, 256)));
   context.strokeStyle = ink;
   {
-    const faceMin = typeof displayFaceMinSide === "function"
-      ? displayFaceMinSide(width, height)
-      : Math.min(width, height);
+    const faceMin = displayFaceMinSide(width, height);
     const unit = settings && Number.isFinite(Number(settings.traceWidth))
       ? Number(settings.traceWidth)
-      : (typeof nodeGraphPhosphorWaveformDefaultSettings !== "undefined"
-        ? nodeGraphPhosphorWaveformDefaultSettings.traceWidth
-        : 1.5 / 256);
-    context.lineWidth = Math.max(
-      0.5,
-      typeof displayScaleToPx === "function"
-        ? displayScaleToPx(unit, faceMin, 1)
-        : unit * faceMin,
-    );
+      : nodeGraphPhosphorWaveformDefaultSettings.traceWidth;
+    context.lineWidth = Math.max(0.5, displayScaleToPx(unit, faceMin));
   }
   context.beginPath();
   let started = false;
@@ -2887,20 +2878,11 @@ function nodeGraphAudioPlayerVideoscopePaintLr(context, width, height, channels,
     const count = Math.max(1, win.end - win.start);
     context.strokeStyle = color;
     {
-      const faceMin = typeof displayFaceMinSide === "function"
-        ? displayFaceMinSide(width, height)
-        : Math.min(width, height);
+      const faceMin = displayFaceMinSide(width, height);
       const unit = settings && Number.isFinite(Number(settings.traceWidth))
         ? Number(settings.traceWidth)
-        : (typeof nodeGraphPhosphorWaveformDefaultSettings !== "undefined"
-          ? nodeGraphPhosphorWaveformDefaultSettings.traceWidth
-          : 1.5 / 256);
-      context.lineWidth = Math.max(
-        0.5,
-        typeof displayScaleToPx === "function"
-          ? displayScaleToPx(unit, faceMin, 1)
-          : unit * faceMin,
-      );
+        : nodeGraphPhosphorWaveformDefaultSettings.traceWidth;
+      context.lineWidth = Math.max(0.5, displayScaleToPx(unit, faceMin));
     }
     context.beginPath();
     for (let x = 0; x < width; x += 1) {

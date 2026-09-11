@@ -81,8 +81,8 @@ function bindNodeGraphHeaderControlEvents() {
   if (typeof bindNodeGraphPhosphorWaveformTimeWindowEditing === "function") {
     bindNodeGraphPhosphorWaveformTimeWindowEditing();
   }
-  if (typeof bindNodeGraphPhosphorWaveformPxFields === "function") {
-    bindNodeGraphPhosphorWaveformPxFields();
+  if (typeof bindNodeGraphPhosphorWaveformTimeWindowEditing === "function") {
+    bindNodeGraphPhosphorWaveformTimeWindowEditing();
   }
   if (typeof bindNodeGraphPhosphorWaveformSettingModifiers === "function") {
     bindNodeGraphPhosphorWaveformSettingModifiers();

@@ -1,11 +1,10 @@
 // Display length scale — app-wide SSOT for canvas / face geometry.
 //
-// Policy: every face-relative length is stored as 0..1 of min(faceW, faceH)
-// in the coordinate space being drawn (CSS px for DOM chrome, device px for
-// canvas). No percent, rem, or absolute px in settings. Resolve at draw:
-//   px = unit01 * min(width, height)
+// Every face-relative length is stored as 0..1 of min(faceW, faceH) in the
+// coordinate space being drawn (CSS for DOM chrome, device pixels for canvas).
+// Resolve at draw: px = unit01 * min(width, height)
 //
-// See docs/APP_POLICY.md § Display length scale (0–1 of face min-edge).
+// See docs/APP_POLICY.md §15.
 
 (function initDisplayScale(global) {
   "use strict";
@@ -30,38 +29,20 @@
   /**
    * @param {number} unit01  0..1 of face min-edge
    * @param {number} faceMinSide  min(width, height) in the draw space
-   * @param {number} [fallbackPx=0]
    * @returns {number} pixels in the same space as faceMinSide
    */
-  function displayScaleToPx(unit01, faceMinSide, fallbackPx = 0) {
+  function displayScaleToPx(unit01, faceMinSide) {
     const side = Number(faceMinSide);
     if (!(side > 0)) {
-      const fb = Number(fallbackPx);
-      return Number.isFinite(fb) ? Math.max(0, fb) : 0;
-    }
-    return clampDisplayUnit01(unit01, 0) * side;
-  }
-
-  /**
-   * Reference face used only to pick defaults that match old CSS-px looks.
-   * Not a runtime scale factor — draw always uses the live face min-edge.
-   */
-  const DISPLAY_SCALE_REF_FACE_CSS_PX = 256;
-
-  function displayScaleFromRefCssPx(cssPx) {
-    const px = Number(cssPx);
-    if (!Number.isFinite(px) || !(DISPLAY_SCALE_REF_FACE_CSS_PX > 0)) {
       return 0;
     }
-    return clampDisplayUnit01(px / DISPLAY_SCALE_REF_FACE_CSS_PX, 0);
+    return clampDisplayUnit01(unit01, 0) * side;
   }
 
   const api = {
     displayFaceMinSide,
     clampDisplayUnit01,
     displayScaleToPx,
-    displayScaleFromRefCssPx,
-    DISPLAY_SCALE_REF_FACE_CSS_PX,
   };
 
   Object.assign(global, api);
