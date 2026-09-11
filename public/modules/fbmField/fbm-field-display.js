@@ -86,25 +86,26 @@ function nodeGraphFbmFieldShouldFreeze(domainRate) {
   return !(Math.abs(nodeGraphFiniteNumber(domainRate)) > 1e-6);
 }
 
+/** Per-face layout metrics. Paint reads this; SyncLayout / ResizeObserver write it. */
+const nodeGraphFbmFieldMetricsCache = new WeakMap();
+
 /**
- * Size canvas buffer to 1 sample per pixel (capped by WASM max grid).
+ * Compute eval grid from CSS box (no DOM measure).
  * DPR is NOT applied as extra supersampling — that would be a second scale.
- * CSS size = face; buffer = eval grid (1:1 with WASM).
  */
-function nodeGraphFbmFieldResolveGridSize(face, wasmMaxW, wasmMaxH) {
-  const cssW = Math.max(1, Math.round(face.clientWidth || 1));
-  const cssH = Math.max(1, Math.round(face.clientHeight || 1));
+function nodeGraphFbmFieldGridFromCss(cssW, cssH, wasmMaxW, wasmMaxH) {
+  const w = Math.max(1, Math.round(cssW || 1));
+  const h = Math.max(1, Math.round(cssH || 1));
   const maxW = Math.max(8, Math.min(512, wasmMaxW || 512));
   const maxH = Math.max(8, Math.min(512, wasmMaxH || 512));
-  // Fit inside max while preserving aspect — still 1:1 samples, may pixelate via CSS if capped
-  let gw = cssW;
-  let gh = cssH;
+  let gw = w;
+  let gh = h;
   if (gw > maxW || gh > maxH) {
     const s = Math.min(maxW / gw, maxH / gh);
     gw = Math.max(1, Math.round(gw * s));
     gh = Math.max(1, Math.round(gh * s));
   }
-  return { gridW: gw, gridH: gh, cssW, cssH, capped: cssW !== gw || cssH !== gh };
+  return { gridW: gw, gridH: gh, cssW: w, cssH: h, capped: w !== gw || h !== gh };
 }
 
 function syncNodeGraphFbmFieldCanvas1to1(canvas, face, gridW, gridH) {
@@ -121,19 +122,91 @@ function syncNodeGraphFbmFieldCanvas1to1(canvas, face, gridW, gridH) {
   return true;
 }
 
+/**
+ * Measure face once, compute grid, size canvas, store metrics cache.
+ * Call only from layout owners (ResizeObserver, mount, cold-path miss).
+ */
+function nodeGraphFbmFieldSyncLayout(face, options = {}) {
+  if (!face) return null;
+  const canvas = options.canvas || face.querySelector?.(".node-fbm-field-canvas");
+  const cssW = Math.max(1, Math.round(face.clientWidth || face.offsetWidth || 1));
+  const cssH = Math.max(1, Math.round(face.clientHeight || face.offsetHeight || 1));
+  const wasm = typeof nodeGraphFbmFieldWasm !== "undefined" ? nodeGraphFbmFieldWasm.exports : null;
+  const maxW = options.wasmMaxW
+    || wasm?.soemdsp_fbm_field_grid_max_width?.()
+    || 512;
+  const maxH = options.wasmMaxH
+    || wasm?.soemdsp_fbm_field_grid_max_height?.()
+    || 512;
+  const metrics = nodeGraphFbmFieldGridFromCss(cssW, cssH, maxW, maxH);
+  if (canvas) {
+    syncNodeGraphFbmFieldCanvas1to1(canvas, face, metrics.gridW, metrics.gridH);
+  }
+  nodeGraphFbmFieldMetricsCache.set(face, metrics);
+  face._fbmMetrics = metrics;
+  return metrics;
+}
+
+function nodeGraphFbmFieldReadMetrics(face) {
+  if (!face) return null;
+  return nodeGraphFbmFieldMetricsCache.get(face) || face._fbmMetrics || null;
+}
+
+/**
+ * Face metrics for paint. Cache only; cold path syncs layout once.
+ */
+function nodeGraphFbmFieldResolveGridSize(face, wasmMaxW, wasmMaxH) {
+  let metrics = nodeGraphFbmFieldReadMetrics(face);
+  if (!metrics) {
+    metrics = nodeGraphFbmFieldSyncLayout(face, { wasmMaxW, wasmMaxH });
+  }
+  if (!metrics) {
+    return nodeGraphFbmFieldGridFromCss(1, 1, wasmMaxW, wasmMaxH);
+  }
+  // Recompute grid from cached CSS if WASM caps differ — no DOM remeasure.
+  const next = nodeGraphFbmFieldGridFromCss(metrics.cssW, metrics.cssH, wasmMaxW, wasmMaxH);
+  if (next.gridW !== metrics.gridW || next.gridH !== metrics.gridH || next.capped !== metrics.capped) {
+    nodeGraphFbmFieldMetricsCache.set(face, next);
+    face._fbmMetrics = next;
+    return next;
+  }
+  return metrics;
+}
+
+function nodeGraphFbmFieldEnsureLayoutObserver(face) {
+  if (!face || face.dataset.fbmLayoutObs === "1") {
+    return;
+  }
+  if (typeof ResizeObserver !== "function") {
+    nodeGraphFbmFieldSyncLayout(face);
+    return;
+  }
+  face.dataset.fbmLayoutObs = "1";
+  const ro = new ResizeObserver(() => {
+    if (!face.isConnected) {
+      return;
+    }
+    nodeGraphFbmFieldSyncLayout(face);
+  });
+  try {
+    ro.observe(face);
+  } catch (_error) {
+    // Best-effort.
+  }
+  face._fbmLayoutObserver = ro;
+  nodeGraphFbmFieldSyncLayout(face);
+}
+
 function nodeGraphFbmFieldEnsureCanvasSize(canvas, face) {
   if (!canvas) return false;
-  const cssW = Math.max(1, Math.round(face?.clientWidth || canvas.clientWidth || canvas.width || 1));
-  const cssH = Math.max(1, Math.round(face?.clientHeight || canvas.clientHeight || canvas.height || 1));
-  if (canvas.width !== cssW || canvas.height !== cssH) {
-    canvas.width = cssW;
-    canvas.height = cssH;
+  let metrics = face ? nodeGraphFbmFieldReadMetrics(face) : null;
+  if (!metrics && face) {
+    metrics = nodeGraphFbmFieldSyncLayout(face, { canvas });
   }
-  canvas.style.width = "100%";
-  canvas.style.height = "100%";
-  canvas.style.imageRendering = "pixelated";
-  canvas.style.imageRendering = "crisp-edges";
-  return true;
+  if (!metrics) {
+    return false;
+  }
+  return syncNodeGraphFbmFieldCanvas1to1(canvas, face, metrics.gridW, metrics.gridH);
 }
 
 function nodeGraphFbmFieldFillBlack(canvas, face) {
@@ -300,8 +373,12 @@ function nodeGraphFbmFieldSyncProbeMarkers(face, nodeId, visible) {
       ? "rgba(255,220,140,0.95)"
       : "rgba(180,220,255,0.95)";
   }
-  const faceW = Math.max(1, face.clientWidth || 1);
-  const faceH = Math.max(1, face.clientHeight || 1);
+  let metrics = nodeGraphFbmFieldReadMetrics(face);
+  if (!metrics) {
+    metrics = nodeGraphFbmFieldSyncLayout(face);
+  }
+  const faceW = Math.max(1, metrics?.cssW || 1);
+  const faceH = Math.max(1, metrics?.cssH || 1);
   const triPts = [];
   for (const p of probes) {
     const mark = overlay.querySelector(`.node-fbm-field-probe-mark[data-probe="${p.key}"]`);

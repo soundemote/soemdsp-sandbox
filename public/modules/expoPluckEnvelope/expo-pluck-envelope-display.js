@@ -33,7 +33,10 @@ function createNodeGraphExpoPluckEnvelopeDisplay(nodeId, type = "expoPluckEnvelo
       forceKey: "_expoPluckForceDraw",
       rafKey: "_expoPluckPlayheadRaf",
       paint: drawNodeGraphExpoPluckEnvelopeDisplay,
-      onResize: (el) => { el._expoPluckLaidOut = false; },
+      onResize: (el) => {
+        if (typeof syncFaceMetrics === "function") syncFaceMetrics(el);
+        el._expoPluckLaidOut = false;
+      },
       paintOnCreate: false,
     });
   }
@@ -98,8 +101,15 @@ function drawNodeGraphExpoPluckEnvelopeDisplayInner(section) {
   const damping = Math.min(1, Math.max(0, nodeGraphExpoPluckLiveParam(node, "damping", 0)));
   const level = Math.min(1, Math.max(0, nodeGraphExpoPluckLiveParam(node, "level", 1)));
 
-  const rawW = Math.max(1, nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth, 1));
-  const rawH = Math.max(1, nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight, 1));
+  const faceMetrics = typeof ensureFaceMetrics === "function"
+    ? ensureFaceMetrics(section, { observe: true })
+    : null;
+  const rawW = Math.max(1, faceMetrics
+    ? faceMetrics.cssW
+    : nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth, 1));
+  const rawH = Math.max(1, faceMetrics
+    ? faceMetrics.cssH
+    : nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight, 1));
   const signature = [
     attack.toFixed(5),
     decay.toFixed(4),

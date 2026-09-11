@@ -6,6 +6,15 @@ function registerNodeGraphModuleScopeSlot(moduleElement, options = {}) {
   if (!nodeId) {
     return null;
   }
+  const prior = nodeGraphModuleScopeState.slots.get(nodeId);
+  if (prior?._faceLayoutObserver) {
+    try {
+      prior._faceLayoutObserver.disconnect();
+    } catch (_error) {
+      // Best-effort.
+    }
+    prior._faceLayoutObserver = null;
+  }
   const scopeElement = options.scopeElement
     || moduleElement?.querySelector?.(".node-module-scope-window")
     || null;
@@ -27,6 +36,12 @@ function registerNodeGraphModuleScopeSlot(moduleElement, options = {}) {
     );
   }
   nodeGraphModuleScopeState.slots.set(nodeId, slot);
+  if (typeof invalidateNodeGraphModuleScopeFaceLayout === "function") {
+    invalidateNodeGraphModuleScopeFaceLayout(slot);
+  }
+  if (typeof ensureNodeGraphModuleScopeFaceLayoutObserver === "function") {
+    ensureNodeGraphModuleScopeFaceLayoutObserver(slot);
+  }
   if (slot.type === "rasterRgb" && typeof scheduleNodeGraphRasterRgbPump === "function") {
     scheduleNodeGraphRasterRgbPump();
   }
@@ -46,6 +61,15 @@ function unregisterNodeGraphModuleScopeSlot(nodeId) {
   if (burnCanvas && typeof disposeNodeGraphScope2dBurnRendererForCanvas === "function") {
     disposeNodeGraphScope2dBurnRendererForCanvas(burnCanvas);
   }
+  if (slot?._faceLayoutObserver) {
+    try {
+      slot._faceLayoutObserver.disconnect();
+    } catch (_error) {
+      // Best-effort.
+    }
+    slot._faceLayoutObserver = null;
+  }
+  slot && (slot._faceLayoutInHost = null);
   nodeGraphModuleScopeState.slots.delete(nodeId);
   nodeGraphModuleScopeState.lightDisplayStates.delete(nodeId);
   nodeGraphModuleScopeState.modelFrameTimes.delete(nodeId);

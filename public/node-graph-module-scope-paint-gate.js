@@ -208,6 +208,10 @@ function nodeGraphInstallDrawingFacePump(section, options = {}) {
   if (options.observeResize !== false && typeof ResizeObserver === "function") {
     const ro = new ResizeObserver(() => {
       section[forceKey] = true;
+      // SyncLayout before paint — face CSS/buffer metrics are resize-owned.
+      if (typeof syncFaceMetrics === "function") {
+        syncFaceMetrics(section);
+      }
       if (typeof options.onResize === "function") {
         options.onResize(section);
       }

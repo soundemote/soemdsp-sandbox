@@ -150,6 +150,13 @@ function applyNodeGraphViewportCssLight(options = {}) {
     workspace.style.setProperty("--node-graph-pan-y", `${originOffset.y}px`);
     workspace.dataset.panX = String(pan.x);
     workspace.dataset.panY = String(pan.y);
+    // Scope screen-items convert layout→screen from this (no gBCR on paint).
+    if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+      nodeGraphMvp._cameraScreenOrigin = {
+        x: nodeGraphFiniteNumber(originOffset.x),
+        y: nodeGraphFiniteNumber(originOffset.y),
+      };
+    }
   }
   if (options.zoomButtons !== false && options.zoom !== false) {
     const zoomOutButton = document.getElementById("nodeZoomOutButton");

@@ -142,6 +142,9 @@ function nodeGraphFbmFieldStartLoop(face, nodeId) {
   if (typeof nodeGraphFbmFieldCircuitRunning === "function" && !nodeGraphFbmFieldCircuitRunning()) {
     return;
   }
+  if (typeof nodeGraphFbmFieldEnsureLayoutObserver === "function") {
+    nodeGraphFbmFieldEnsureLayoutObserver(face);
+  }
   face._fbmFieldRunning = true;
   if (!Number.isFinite(face._fbmFieldTime)) face._fbmFieldTime = 0;
   face._fbmFieldLastTs = 0;
@@ -202,6 +205,11 @@ registerNodeGraphChromelessModuleUi("fbmField", {
         type,
         viewDrag: false,
       });
+    }
+    if (typeof nodeGraphFbmFieldEnsureLayoutObserver === "function") {
+      nodeGraphFbmFieldEnsureLayoutObserver(body);
+    } else if (typeof nodeGraphFbmFieldSyncLayout === "function") {
+      nodeGraphFbmFieldSyncLayout(body);
     }
     const repaint = () => {
       if (typeof paintNodeGraphFbmFieldFaceForNode === "function") {

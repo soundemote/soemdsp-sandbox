@@ -317,9 +317,15 @@ function drawNodeGraphModuleScopes(options = {}) {
     return;
   }
   setNodeGraphModuleScopeDebugPhase("ready");
-  // Read workspace layout BEFORE flushing readouts to avoid forced reflow
-  const workspaceRect = workspace.getBoundingClientRect();
-  const prePixelRatio = nodeGraphModuleScopeBackingPixelRatio(workspaceRect);
+  // Cached workspace CSS size (ResizeObserver) — no getBoundingClientRect on
+  // the steady Instant Trace path (APP_POLICY §15 paint vs layout).
+  const workspaceSize = typeof nodeGraphWorkspaceCssSize === "function"
+    ? nodeGraphWorkspaceCssSize(workspace)
+    : {
+      height: workspace.clientHeight || workspace.offsetHeight || 1,
+      width: workspace.clientWidth || workspace.offsetWidth || 1,
+    };
+  const prePixelRatio = nodeGraphModuleScopeBackingPixelRatio(workspaceSize);
   flushNodeSliderReadoutUpdates();
   // Do NOT schedule filter-curve redraws from the scope loop. That forced
   // getBoundingClientRect on every filter every frame, layout-thrashed the

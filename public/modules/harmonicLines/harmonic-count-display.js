@@ -85,18 +85,16 @@ function drawNodeGraphHarmonicCountDisplay(section) {
     h = metrics.cssHeight;
     pixelRatio = metrics.pixelRatio || 1;
   } else {
-    const rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
-    const rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
-    if (rawW < 8 || rawH < 8) return;
-    const dpr = window.devicePixelRatio || 1;
-    w = Math.max(1, Math.floor(rawW));
-    h = Math.max(1, Math.floor(rawH));
-    canvas.width = Math.max(1, Math.round(w * dpr));
-    canvas.height = Math.max(1, Math.round(h * dpr));
-    canvas.style.width = `${w}px`;
-    canvas.style.height = `${h}px`;
+    const face = typeof ensureFaceMetrics === "function"
+      ? ensureFaceMetrics(section, { observe: true })
+      : null;
+    if (!face || face.cssW < 8 || face.cssH < 8) return;
+    w = face.cssW;
+    h = face.cssH;
+    pixelRatio = face.dpr;
+    canvas.width = face.width;
+    canvas.height = face.height;
     ctx = canvas.getContext("2d");
-    pixelRatio = dpr;
   }
   if (!ctx || w < 8 || h < 8) return;
 

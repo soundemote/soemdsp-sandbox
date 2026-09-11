@@ -96,8 +96,15 @@ function drawNodeGraphExpoPluckEnvelope2DisplayInner(section) {
     level: nodeGraphExpoPluck2LiveParam(node, "level", 1),
   };
 
-  const rawW = Math.max(1, nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth, 1));
-  const rawH = Math.max(1, nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight, 1));
+  const faceMetrics = typeof ensureFaceMetrics === "function"
+    ? ensureFaceMetrics(section, { observe: true })
+    : null;
+  const rawW = Math.max(1, faceMetrics
+    ? faceMetrics.cssW
+    : nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth, 1));
+  const rawH = Math.max(1, faceMetrics
+    ? faceMetrics.cssH
+    : nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight, 1));
   const signature = Object.values(params).map((v) => Number(v).toFixed(4)).join("|")
     + `|${Math.round(rawW)}x${Math.round(rawH)}`;
 

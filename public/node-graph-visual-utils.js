@@ -238,25 +238,36 @@ function nodeGraphSizeDisplayCanvas(section, canvas, options = {}) {
   if (!section || !canvas) {
     return null;
   }
-  const devicePixelRatio = window.devicePixelRatio || 1;
   const density = nodeGraphResolveDisplayPixelDensity(options?.pixelDensity);
-  // Prefer layout sizes (offset/client) so we do not force a layout reflow via
-  // getBoundingClientRect on every filter-curve / face paint. Workspace zoom is
-  // a CSS transform; face backing must stay on the unzoomed layout grid.
-  let cssWidth = Math.max(0, Number(section.clientWidth || section.offsetWidth || 0));
-  let cssHeight = Math.max(0, Number(section.clientHeight || section.offsetHeight || 0));
-  if (!(cssWidth > 0) || !(cssHeight > 0)) {
-    const rect = section.getBoundingClientRect();
-    const zoom = Math.max(0.01, nodeGraphFiniteNumber(nodeGraphMvp?.zoom, 1));
-    if (!(cssWidth > 0)) {
-      cssWidth = Math.max(1, rect.width / zoom);
+  // Resize-only face metrics (display-face-metrics.js). Paint must not read
+  // clientWidth every frame — SyncLayout owns chrome / CSS box size.
+  const face = typeof ensureFaceMetrics === "function"
+    ? ensureFaceMetrics(section, { observe: true, force: Boolean(options?.forceLayout) })
+    : null;
+  let cssWidth;
+  let cssHeight;
+  let devicePixelRatio;
+  if (face) {
+    cssWidth = Math.max(1, face.cssW);
+    cssHeight = Math.max(1, face.cssH);
+    devicePixelRatio = Math.max(1, face.dpr || window.devicePixelRatio || 1);
+  } else {
+    devicePixelRatio = window.devicePixelRatio || 1;
+    cssWidth = Math.max(0, Number(section.clientWidth || section.offsetWidth || 0));
+    cssHeight = Math.max(0, Number(section.clientHeight || section.offsetHeight || 0));
+    if (!(cssWidth > 0) || !(cssHeight > 0)) {
+      const rect = section.getBoundingClientRect();
+      const zoom = Math.max(0.01, nodeGraphFiniteNumber(nodeGraphMvp?.zoom, 1));
+      if (!(cssWidth > 0)) {
+        cssWidth = Math.max(1, rect.width / zoom);
+      }
+      if (!(cssHeight > 0)) {
+        cssHeight = Math.max(1, rect.height / zoom);
+      }
     }
-    if (!(cssHeight > 0)) {
-      cssHeight = Math.max(1, rect.height / zoom);
-    }
+    cssWidth = Math.max(1, cssWidth);
+    cssHeight = Math.max(1, cssHeight);
   }
-  cssWidth = Math.max(1, cssWidth);
-  cssHeight = Math.max(1, cssHeight);
   const nativeWidth = Math.max(1, Math.round(cssWidth * devicePixelRatio));
   const nativeHeight = Math.max(1, Math.round(cssHeight * devicePixelRatio));
   const width = Math.max(1, Math.round(nativeWidth * density));

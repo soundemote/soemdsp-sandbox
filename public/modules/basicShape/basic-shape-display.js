@@ -22,7 +22,10 @@ function createNodeGraphBasicShapeDisplay(nodeId, type = "basicShape") {
     forceKey: "_basicShapeForceDraw",
     rafKey: "_basicShapePlayheadRaf",
     paint: drawNodeGraphBasicShapeDisplay,
-    onResize: (el) => { el._basicShapeLaidOut = false; },
+    onResize: (el) => {
+      if (typeof syncFaceMetrics === "function") syncFaceMetrics(el);
+      el._basicShapeLaidOut = false;
+    },
     paintOnCreate: false,
   });
   requestAnimationFrame(() => {
@@ -167,15 +170,15 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
   const dotW = look.dotThickness;
   const lineBlur = look.lineBlur;
   const pixelDensity = look.pixelDensity;
-  let rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
-  let rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
-  if (rawW < 8 || rawH < 8) {
-    const stage = section.closest?.("#nodeScreenSoloStage") || section.parentElement;
-    if (stage?.id === "nodeScreenSoloStage") {
-      rawW = nodeGraphFiniteNumber(stage.clientWidth, rawW);
-      rawH = nodeGraphFiniteNumber(stage.clientHeight, rawH);
-    }
-  }
+  const faceMetrics = typeof ensureFaceMetrics === "function"
+    ? ensureFaceMetrics(section, { observe: true })
+    : null;
+  const rawW = faceMetrics
+    ? faceMetrics.cssW
+    : nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
+  const rawH = faceMetrics
+    ? faceMetrics.cssH
+    : nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
   const signature = [
     String(nodeId),
     String(Math.round(nodeGraphFiniteNumber(waveform))),

@@ -226,8 +226,13 @@ function syncNodeGraphImageBurnCanvas(canvas, face, pixelRatio) {
     return false;
   }
   const dpr = Math.max(1, nodeGraphFiniteNumber(pixelRatio, nodeGraphFiniteNumber(window.devicePixelRatio, 1)));
-  const w = Math.max(1, Math.round(face.clientWidth * dpr));
-  const h = Math.max(1, Math.round(face.clientHeight * dpr));
+  const faceMetrics = typeof ensureFaceMetrics === "function"
+    ? ensureFaceMetrics(face, { observe: true })
+    : null;
+  const cssW = faceMetrics ? faceMetrics.cssW : Math.max(1, face.clientWidth || 1);
+  const cssH = faceMetrics ? faceMetrics.cssH : Math.max(1, face.clientHeight || 1);
+  const w = Math.max(1, Math.round(cssW * dpr));
+  const h = Math.max(1, Math.round(cssH * dpr));
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
     canvas.height = h;

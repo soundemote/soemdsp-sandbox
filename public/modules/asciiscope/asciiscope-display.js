@@ -1060,18 +1060,29 @@ function matrixApplyWaterfallChrome(face, store) {
   }
   const edgeSpacing = Number(store?.edgeSpacing);
   const cornerRadius = Number(store?.cornerRadius);
-  const box = typeof nodeGraphElementClientSize === "function"
-    ? nodeGraphElementClientSize(face, 0, 0)
-    : {
-      width: face.clientWidth || 0,
-      height: face.clientHeight || 0,
-      skipped: false,
-    };
-  if (box.skipped) {
-    return;
+  // Resize-owned face metrics — do not clientWidth every tick.
+  const faceMetrics = typeof ensureFaceMetrics === "function"
+    ? ensureFaceMetrics(face, { observe: true })
+    : null;
+  let cellW = 0;
+  let cellH = 0;
+  if (faceMetrics) {
+    cellW = faceMetrics.cssW > 0 ? faceMetrics.cssW : 0;
+    cellH = faceMetrics.cssH > 0 ? faceMetrics.cssH : 0;
+  } else {
+    const box = typeof nodeGraphElementClientSize === "function"
+      ? nodeGraphElementClientSize(face, 0, 0)
+      : {
+        width: face.clientWidth || 0,
+        height: face.clientHeight || 0,
+        skipped: false,
+      };
+    if (box.skipped) {
+      return;
+    }
+    cellW = box.width > 0 ? box.width : 0;
+    cellH = box.height > 0 ? box.height : 0;
   }
-  const cellW = box.width > 0 ? box.width : 0;
-  const cellH = box.height > 0 ? box.height : 0;
   const shape = store?.cornerShape === "squircle" ? "squircle" : "round";
   const chromeKey = `${cellW}|${cellH}|${edgeSpacing}|${cornerRadius}|${shape}`;
   if (face._matrixChromeKey === chromeKey) {

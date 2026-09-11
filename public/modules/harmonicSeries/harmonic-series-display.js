@@ -123,8 +123,15 @@ function drawNodeGraphHarmonicSeriesFaceItem(sectionOrRenderer, item) {
   const readout = nodeGraphHarmonicSeriesFaceReadout(nodeId);
   const harmText = nodeGraphHarmonicSeriesFaceFormatEffective(readout.effective);
   const hzText = nodeGraphHarmonicSeriesFaceFormatHz(readout.hz);
-  const rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
-  const rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
+  const faceMetrics = typeof ensureFaceMetrics === "function"
+    ? ensureFaceMetrics(section, { observe: true })
+    : null;
+  const rawW = faceMetrics
+    ? faceMetrics.cssW
+    : nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
+  const rawH = faceMetrics
+    ? faceMetrics.cssH
+    : nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
   const signature = `${harmText}|${hzText}|${Math.round(rawW)}|${Math.round(rawH)}`;
   if (
     !section._forceDraw

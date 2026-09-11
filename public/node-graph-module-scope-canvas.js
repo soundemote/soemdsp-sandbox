@@ -137,24 +137,18 @@ function nodeGraphModuleScopeFaceBackingSize(screenElement, requestedPixelRatio 
   if (!screenElement) {
     return null;
   }
-  const rect = typeof screenElement.getBoundingClientRect === "function"
-    ? screenElement.getBoundingClientRect()
-    : { width: 0, height: 0 };
-  const zoom = Math.max(
-    0.01,
-    nodeGraphFiniteNumber(
-      typeof nodeGraphZoom === "function"
-        ? nodeGraphZoom()
-        : (nodeGraphMvp && nodeGraphMvp.zoom),
-      1,
-    ),
-  );
-  // Layout (pre-transform) CSS pixels — stable under workspace zoom.
-  // Prefer client/offset; if layout has not resolved yet (0×0 common before
-  // first reflow), fall back to CSS display-height vars so faces still get a
-  // real buffer instead of a 1×1 plate that never looks painted.
-  let cssWidth = Number(screenElement.clientWidth || screenElement.offsetWidth || 0);
-  let cssHeight = Number(screenElement.clientHeight || screenElement.offsetHeight || 0);
+  // Resize-only face metrics (APP_POLICY §15). Never gBCR; never remasure
+  // every Instant Trace paint — pan must not force layout.
+  const metrics = typeof ensureFaceMetrics === "function"
+    ? ensureFaceMetrics(screenElement, { observe: true })
+    : null;
+  let cssWidth = Number(metrics?.cssW || metrics?.cssWidth || 0);
+  let cssHeight = Number(metrics?.cssH || metrics?.cssHeight || 0);
+  if (!(cssWidth > 0) || !(cssHeight > 0)) {
+    // Cold seed only when metrics helper missing / not yet observed.
+    cssWidth = Number(screenElement.clientWidth || screenElement.offsetWidth || 0);
+    cssHeight = Number(screenElement.clientHeight || screenElement.offsetHeight || 0);
+  }
   if (!(cssWidth > 0) || !(cssHeight > 0)) {
     const host = screenElement.closest?.(".dsp-node") || screenElement;
     let gridPx = 28;
@@ -184,14 +178,8 @@ function nodeGraphModuleScopeFaceBackingSize(screenElement, requestedPixelRatio 
       // Best-effort CSS var fallback.
     }
   }
-  if (!(cssWidth > 0)) {
-    cssWidth = (nodeGraphFiniteNumber(rect.width, 1)) / zoom;
-  }
-  if (!(cssHeight > 0)) {
-    cssHeight = (nodeGraphFiniteNumber(rect.height, 1)) / zoom;
-  }
-  cssWidth = Math.max(1, cssWidth);
-  cssHeight = Math.max(1, cssHeight);
+  cssWidth = Math.max(1, cssWidth || 1);
+  cssHeight = Math.max(1, cssHeight || 1);
   // Face buffers use devicePixelRatio only (capped by max store vs layout size).
   // Do not inherit a workspace-rect-derived ratio that shrank for the whole
   // graph, and never scale by workspace zoom.
@@ -220,10 +208,16 @@ function syncNodeGraphModuleScopeCanvas() {
     return false;
   }
 
-  const rect = workspace.getBoundingClientRect();
-  const pixelRatio = nodeGraphModuleScopeBackingPixelRatio(rect);
-  const width = Math.max(1, Math.round(rect.width * pixelRatio));
-  const height = Math.max(1, Math.round(rect.height * pixelRatio));
+  // Cached clientWidth/Height (ResizeObserver) — never gBCR on the draw path.
+  const size = typeof nodeGraphWorkspaceCssSize === "function"
+    ? nodeGraphWorkspaceCssSize(workspace)
+    : {
+      height: workspace.clientHeight || workspace.offsetHeight || 1,
+      width: workspace.clientWidth || workspace.offsetWidth || 1,
+    };
+  const pixelRatio = nodeGraphModuleScopeBackingPixelRatio(size);
+  const width = Math.max(1, Math.round(size.width * pixelRatio));
+  const height = Math.max(1, Math.round(size.height * pixelRatio));
   nodeGraphModuleScopeState.backingPixelRatio = pixelRatio;
   if (nodeGraphModuleScopeState.renderer?.canvas === canvas) {
     nodeGraphModuleScopeState.renderer.pixelRatio = pixelRatio;

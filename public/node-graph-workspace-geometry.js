@@ -112,7 +112,67 @@ function nodeGraphRenderedPanValue(value, origin = 0) {
 
 function invalidateNodeGraphWorkspaceLayoutMetrics() {
   if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    // Drop left/top seed only. CSS size stays on the ResizeObserver cache —
+    // pan/zoom end must not force a remasure.
     nodeGraphMvp._workspaceLayoutMetrics = null;
+  }
+}
+
+function invalidateNodeGraphWorkspaceCssSize() {
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp._workspaceCssSize = null;
+    nodeGraphMvp._workspaceLayoutMetrics = null;
+  }
+}
+
+/**
+ * Workspace padding-box size in layout CSS px (clientWidth/Height).
+ * ResizeObserver owns the cache — pan/zoom must not remasure.
+ */
+function nodeGraphWorkspaceCssSize(container = document.getElementById("nodeGraphWorkspace")) {
+  if (!container) {
+    return { height: 0, width: 0 };
+  }
+  ensureNodeGraphWorkspaceCssSizeObserver(container);
+  const cached = typeof nodeGraphMvp === "object" ? nodeGraphMvp?._workspaceCssSize : null;
+  if (
+    cached
+    && cached.el === container
+    && cached.width > 0
+    && cached.height > 0
+  ) {
+    return { height: cached.height, width: cached.width };
+  }
+  const width = Math.max(0, nodeGraphFiniteNumber(container.clientWidth || container.offsetWidth));
+  const height = Math.max(0, nodeGraphFiniteNumber(container.clientHeight || container.offsetHeight));
+  const next = { el: container, height, width };
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp._workspaceCssSize = next;
+  }
+  return { height, width };
+}
+
+function ensureNodeGraphWorkspaceCssSizeObserver(container) {
+  if (!container || typeof ResizeObserver !== "function") {
+    return;
+  }
+  if (container._nodeGraphCssSizeObserver) {
+    return;
+  }
+  const ro = new ResizeObserver(() => {
+    const width = Math.max(0, nodeGraphFiniteNumber(container.clientWidth || container.offsetWidth));
+    const height = Math.max(0, nodeGraphFiniteNumber(container.clientHeight || container.offsetHeight));
+    if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+      nodeGraphMvp._workspaceCssSize = { el: container, height, width };
+      // Size change also drops gesture layout metrics / camera box.
+      nodeGraphMvp._workspaceLayoutMetrics = null;
+    }
+  });
+  try {
+    ro.observe(container);
+    container._nodeGraphCssSizeObserver = ro;
+  } catch (_error) {
+    // Detached / already observed.
   }
 }
 
@@ -122,19 +182,42 @@ function nodeGraphWorkspaceLayoutMetrics(container = document.getElementById("no
   if (gesturing && nodeGraphMvp?._workspaceLayoutMetrics) {
     return nodeGraphMvp._workspaceLayoutMetrics;
   }
-  const rect = container?.getBoundingClientRect?.();
+  // Width/height: layout CSS (client*) — stable under pan/zoom. left/top only
+  // for pan pixel-rounding; cold-seed once and reuse while gesturing.
+  const css = nodeGraphWorkspaceCssSize(container);
+  let left = 0;
+  let top = 0;
+  const prior = nodeGraphMvp?._workspaceLayoutMetrics;
+  if (
+    prior
+    && prior._cssW === css.width
+    && prior._cssH === css.height
+    && Number.isFinite(prior.left)
+    && Number.isFinite(prior.top)
+  ) {
+    left = prior.left;
+    top = prior.top;
+  } else if (container?.getBoundingClientRect) {
+    const rect = container.getBoundingClientRect();
+    left = nodeGraphFiniteNumber(rect?.left);
+    top = nodeGraphFiniteNumber(rect?.top);
+  }
   const style = container ? getComputedStyle(container) : null;
   const metrics = {
+    _cssH: css.height,
+    _cssW: css.width,
     borderBottom: Number.parseFloat(style?.borderBottomWidth) || 0,
     borderLeft: Number.parseFloat(style?.borderLeftWidth) || 0,
     borderRight: Number.parseFloat(style?.borderRightWidth) || 0,
     borderTop: Number.parseFloat(style?.borderTopWidth) || 0,
-    height: nodeGraphFiniteNumber(rect?.height),
-    left: nodeGraphFiniteNumber(rect?.left),
-    top: nodeGraphFiniteNumber(rect?.top),
-    width: nodeGraphFiniteNumber(rect?.width),
+    height: css.height,
+    left,
+    top,
+    width: css.width,
   };
-  if (gesturing && typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    // Always keep last metrics so the next pan sample can reuse left/top
+    // without another gBCR (gesture flag may lag the first CSS apply).
     nodeGraphMvp._workspaceLayoutMetrics = metrics;
   }
   return metrics;
@@ -142,9 +225,11 @@ function nodeGraphWorkspaceLayoutMetrics(container = document.getElementById("no
 
 function nodeGraphWorkspaceCenterOffset(container = document.getElementById("nodeGraphWorkspace")) {
   const box = nodeGraphWorkspaceLayoutMetrics(container);
+  // box.width/height are padding-box (client*). Match prior gBCR formula:
+  // borderLeft + (borderBox - borders) / 2 == borderLeft + clientWidth / 2.
   return {
-    x: box.borderLeft + Math.max(0, box.width - box.borderLeft - box.borderRight) * 0.5,
-    y: box.borderTop + Math.max(0, box.height - box.borderTop - box.borderBottom) * 0.5,
+    x: box.borderLeft + Math.max(0, box.width) * 0.5,
+    y: box.borderTop + Math.max(0, box.height) * 0.5,
   };
 }
 

@@ -192,19 +192,32 @@ function matrixDisplayIngestBuffers(state, maxAge, brightness) {
 }
 
 function matrixDisplayDrawFace(canvas, state, glyphRamp, params) {
-  const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-  const box = typeof nodeGraphElementClientSize === "function"
-    ? nodeGraphElementClientSize(canvas, canvas.width || 1, canvas.height || 1)
-    : {
-      width: Math.max(1, canvas.clientWidth || canvas.width || 1),
-      height: Math.max(1, canvas.clientHeight || canvas.height || 1),
-      skipped: false,
-    };
-  if (box.skipped) {
-    return;
+  const host = canvas?.parentElement || canvas;
+  const faceMetrics = typeof ensureFaceMetrics === "function"
+    ? ensureFaceMetrics(host, { observe: true })
+    : null;
+  let cssW;
+  let cssH;
+  let dpr;
+  if (faceMetrics) {
+    cssW = Math.max(1, faceMetrics.cssW);
+    cssH = Math.max(1, faceMetrics.cssH);
+    dpr = Math.max(1, Math.min(2, faceMetrics.dpr || window.devicePixelRatio || 1));
+  } else {
+    dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const box = typeof nodeGraphElementClientSize === "function"
+      ? nodeGraphElementClientSize(canvas, canvas.width || 1, canvas.height || 1)
+      : {
+        width: Math.max(1, canvas.clientWidth || canvas.width || 1),
+        height: Math.max(1, canvas.clientHeight || canvas.height || 1),
+        skipped: false,
+      };
+    if (box.skipped) {
+      return;
+    }
+    cssW = Math.max(1, box.width);
+    cssH = Math.max(1, box.height);
   }
-  const cssW = Math.max(1, box.width);
-  const cssH = Math.max(1, box.height);
   const pw = Math.round(cssW * dpr);
   const ph = Math.round(cssH * dpr);
   if (canvas.width !== pw || canvas.height !== ph) {

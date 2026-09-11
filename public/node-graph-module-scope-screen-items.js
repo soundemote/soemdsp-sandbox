@@ -133,33 +133,164 @@ function nodeGraphModuleScopeEmissiveShaderRgb(rgb, brightness) {
 
 // drawNodeGraphModuleScopeLightDisplay → node-graph-module-scope-draw-basic.js
 // drawNodeGraphModuleScopeLightDisplays → node-graph-module-scope-draw-basic.js
-function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
-  const workspaceRect = workspace.getBoundingClientRect();
-  const layoutKey = [
-    Math.round(workspaceRect.width),
-    Math.round(workspaceRect.height),
-    Math.round(Number(nodeGraphMvp?.zoom) * 1000) || 0,
-    Math.round(nodeGraphFiniteNumber(nodeGraphMvp?.pan?.x)),
-    Math.round(nodeGraphFiniteNumber(nodeGraphMvp?.pan?.y)),
-    Math.round(Number(pixelRatio) * 100, 100),
-  ].join("|");
-  const layoutCache = nodeGraphModuleScopeState.screenItemLayoutCache || { key: "", rects: new Map() };
-  const reuseRects = layoutCache.key === layoutKey;
-  if (!reuseRects) {
-    layoutCache.key = layoutKey;
-    layoutCache.rects = new Map();
-    nodeGraphModuleScopeState.screenItemLayoutCache = layoutCache;
+
+/** Camera origin already written to CSS by the light viewport path (no layout). */
+function nodeGraphModuleScopeCameraScreenOrigin(workspace) {
+  const cached = nodeGraphMvp?._cameraScreenOrigin;
+  if (cached && Number.isFinite(cached.x) && Number.isFinite(cached.y)) {
+    return { x: cached.x, y: cached.y };
   }
+  const style = workspace?.style;
+  if (style) {
+    const x = Number.parseFloat(style.getPropertyValue("--node-graph-pan-x"));
+    const y = Number.parseFloat(style.getPropertyValue("--node-graph-pan-y"));
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      return { x, y };
+    }
+  }
+  if (typeof nodeGraphRenderedOriginOffset === "function") {
+    const origin = nodeGraphRenderedOriginOffset(nodeGraphMvp?.pan || { x: 0, y: 0 }, workspace);
+    return {
+      x: nodeGraphFiniteNumber(origin?.x),
+      y: nodeGraphFiniteNumber(origin?.y),
+    };
+  }
+  return { x: 0, y: 0 };
+}
+
+/**
+ * Face box in zoom-surface layout px (not screen). Host --node-x/y are live;
+ * in-host offset/size is cached until ResizeObserver / register invalidates.
+ */
+function invalidateNodeGraphModuleScopeFaceLayout(slot) {
+  if (!slot) {
+    return;
+  }
+  slot._faceLayoutInHost = null;
+  slot._faceLayoutGen = (nodeGraphFiniteNumber(slot._faceLayoutGen) + 1) | 0;
+}
+
+function ensureNodeGraphModuleScopeFaceLayoutObserver(slot) {
+  if (!slot?.scopeElement || typeof ResizeObserver !== "function") {
+    return;
+  }
+  if (slot._faceLayoutObserver) {
+    return;
+  }
+  const ro = new ResizeObserver(() => {
+    invalidateNodeGraphModuleScopeFaceLayout(slot);
+  });
+  try {
+    ro.observe(slot.scopeElement);
+    if (slot.element && slot.element !== slot.scopeElement) {
+      ro.observe(slot.element);
+    }
+    slot._faceLayoutObserver = ro;
+  } catch (_error) {
+    // Detached.
+  }
+}
+
+function nodeGraphModuleScopeFaceLayoutInHost(slot) {
+  const face = slot?.scopeElement;
+  const host = slot?.element;
+  if (!face || !host) {
+    return null;
+  }
+  ensureNodeGraphModuleScopeFaceLayoutObserver(slot);
+  const cached = slot._faceLayoutInHost;
+  if (cached && cached.w > 0.5 && cached.h > 0.5) {
+    return cached;
+  }
+  let box = null;
+  if (typeof nodeGraphModuleFrameLayoutBoxInNode === "function") {
+    box = nodeGraphModuleFrameLayoutBoxInNode(face, host);
+  }
+  if (!box) {
+    // Cold seed: offset chain under host (no gBCR).
+    let x = 0;
+    let y = 0;
+    let cur = face;
+    while (cur && cur !== host) {
+      x += cur.offsetLeft || 0;
+      y += cur.offsetTop || 0;
+      const parent = cur.offsetParent;
+      if (!parent || parent === cur) {
+        break;
+      }
+      if (parent !== host && !host.contains(parent)) {
+        break;
+      }
+      cur = parent;
+    }
+    const w = face.offsetWidth || face.clientWidth || 0;
+    const h = face.offsetHeight || face.clientHeight || 0;
+    if (w > 0.5 && h > 0.5) {
+      box = { x, y, w, h };
+    }
+  }
+  if (!box || !(box.w > 0.5) || !(box.h > 0.5)) {
+    return null;
+  }
+  const next = {
+    h: box.h,
+    w: box.w,
+    x: box.x,
+    y: box.y,
+  };
+  slot._faceLayoutInHost = next;
+  return next;
+}
+
+/** Layout-space face box on the zoom surface (host world pos + in-host box). */
+function nodeGraphModuleScopeFaceLayoutInSurface(slot) {
+  const host = slot?.element;
+  const inHost = nodeGraphModuleScopeFaceLayoutInHost(slot);
+  if (!host || !inHost) {
+    return null;
+  }
+  const nodeX = Number.parseFloat(host.style?.getPropertyValue?.("--node-x")) || 0;
+  const nodeY = Number.parseFloat(host.style?.getPropertyValue?.("--node-y")) || 0;
+  return {
+    h: inHost.h,
+    w: inHost.w,
+    x: nodeX + inHost.x,
+    y: nodeY + inHost.y,
+  };
+}
+
+/** translate3d(origin) scale(zoom) with transform-origin 0 0 → workspace px. */
+function nodeGraphModuleScopeLayoutToScreenRect(layout, origin, zoom) {
+  const z = Math.max(0.0001, nodeGraphFiniteNumber(zoom, 1));
+  const ox = nodeGraphFiniteNumber(origin?.x);
+  const oy = nodeGraphFiniteNumber(origin?.y);
+  return {
+    height: layout.h * z,
+    left: ox + layout.x * z,
+    top: oy + layout.y * z,
+    width: layout.w * z,
+  };
+}
+
+function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
+  const workspaceSize = typeof nodeGraphWorkspaceCssSize === "function"
+    ? nodeGraphWorkspaceCssSize(workspace)
+    : {
+      height: workspace?.clientHeight || 0,
+      width: workspace?.clientWidth || 0,
+    };
+  const zoomScale = nodeGraphModuleScopeZoomScale();
+  const origin = nodeGraphModuleScopeCameraScreenOrigin(workspace);
   const viewportRect = {
-    height: workspaceRect.height,
+    height: workspaceSize.height,
     left: 0,
     top: 0,
-    width: workspaceRect.width,
+    width: workspaceSize.width,
   };
   const slotDebug = [];
   const items = nodeGraphVisibleModuleScopeSlots()
     .map((slot) => {
-      const host = slot?.scopeElement?.closest?.(".dsp-node");
+      const host = slot?.element || slot?.scopeElement?.closest?.(".dsp-node");
       if (host?.classList.contains("viewport-asleep")) {
         return null;
       }
@@ -280,21 +411,16 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
         }
         return null;
       }
-      let rect = reuseRects ? layoutCache.rects.get(slot.nodeId) : null;
-      if (!rect) {
-        rect = slot.scopeElement.getBoundingClientRect();
-        layoutCache.rects.set(slot.nodeId, rect);
+      const layout = nodeGraphModuleScopeFaceLayoutInSurface(slot);
+      if (!layout) {
+        entry.skip = "no-layout";
+        slotDebug.push(entry);
+        return null;
       }
-      entry.rectHeight = rect.height;
-      entry.rectWidth = rect.width;
-      const screenRect = {
-        height: rect.height,
-        left: rect.left - workspaceRect.left,
-        top: rect.top - workspaceRect.top,
-        width: rect.width,
-      };
+      const screenRect = nodeGraphModuleScopeLayoutToScreenRect(layout, origin, zoomScale);
+      entry.rectHeight = screenRect.height;
+      entry.rectWidth = screenRect.width;
       const drawRect = nodeGraphModuleScopeDrawingRect(screenRect, buffer, slot);
-      const zoomScale = nodeGraphModuleScopeZoomScale();
       const visibleGeometry = nodeGraphModuleScopeVisibleDrawGeometry(screenRect, drawRect, viewportRect, zoomScale);
       if (!visibleGeometry) {
         entry.skip = "offscreen";
@@ -557,15 +683,17 @@ function syncNodeGraphCustomDisplayCanvas(canvas, screenElement, pixelRatio) {
   if (!canvas || !screenElement) {
     return false;
   }
-  const rect = screenElement.getBoundingClientRect();
-  const width = Math.max(1, Math.floor(rect.width * pixelRatio));
-  const height = Math.max(1, Math.floor(rect.height * pixelRatio));
+  // Layout CSS size — not getBoundingClientRect (zoom would balloon the buffer).
+  const cssWidth = Math.max(1, screenElement.clientWidth || screenElement.offsetWidth || 1);
+  const cssHeight = Math.max(1, screenElement.clientHeight || screenElement.offsetHeight || 1);
+  const width = Math.max(1, Math.floor(cssWidth * pixelRatio));
+  const height = Math.max(1, Math.floor(cssHeight * pixelRatio));
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
   }
-  canvas.style.width = `${rect.width}px`;
-  canvas.style.height = `${rect.height}px`;
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
   return true;
 }
 

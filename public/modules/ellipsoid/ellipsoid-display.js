@@ -23,7 +23,10 @@ function createNodeGraphRoundShapeDisplay(nodeId, type = "ellipsoid") {
     forceKey: "_roundShapeForceDraw",
     rafKey: "_roundShapePlayheadRaf",
     paint: drawNodeGraphRoundShapeDisplay,
-    onResize: (el) => { el._roundShapeLaidOut = false; },
+    onResize: (el) => {
+      if (typeof syncFaceMetrics === "function") syncFaceMetrics(el);
+      el._roundShapeLaidOut = false;
+    },
     paintOnCreate: false,
   });
   requestAnimationFrame(() => {
@@ -210,17 +213,15 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
   const dotW = Number.isFinite(Number(look.dotThickness)) ? Number(look.dotThickness) : 5;
   const lineBlur = look.lineBlur;
   const pixelDensity = look.pixelDensity;
-  let rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
-  let rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
-  if (rawW < 8 || rawH < 8) {
-    const stage = section.closest?.("#nodeScreenSoloStage") || section.parentElement;
-    if (stage?.id === "nodeScreenSoloStage") {
-      const cols = Math.max(1, nodeGraphFiniteNumber(stage.style.getPropertyValue("--node-screen-solo-cols"), 1));
-      const rows = Math.max(1, nodeGraphFiniteNumber(stage.style.getPropertyValue("--node-screen-solo-rows"), 1));
-      rawW = Math.max(rawW, Math.floor((stage.clientWidth || window.innerWidth || 0) / cols));
-      rawH = Math.max(rawH, Math.floor((stage.clientHeight || window.innerHeight || 0) / rows));
-    }
-  }
+  const faceMetrics = typeof ensureFaceMetrics === "function"
+    ? ensureFaceMetrics(section, { observe: true })
+    : null;
+  const rawW = faceMetrics
+    ? faceMetrics.cssW
+    : nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
+  const rawH = faceMetrics
+    ? faceMetrics.cssH
+    : nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
   const signature = [
     isKick ? "kick" : (isEllipsoidOsc ? "ellipsoidOsc" : "orbit"),
     shape.toFixed(4),

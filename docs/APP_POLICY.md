@@ -466,7 +466,9 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 
 **Paint vs layout (display-type contract):** live face paint loops must **not** force layout (`clientWidth` / `getBoundingClientRect` / style writes that change geometry) every frame. ResizeObserver + settings apply own chrome and canvas backing size; paint reads a metrics cache. Visibility uses module `viewport-asleep` cull, not per-frame layout probes. Faces stay live during workspace pan/zoom (see ZOOM_PAN plan — no gesture freeze).
 
-First consumer: Music Player `phosphorWaveformSettings` (`traceWidth`, `scrollLineWidth`, `labelInset`, `fontSize`, `cornerRadius`, `edgeSpacing`). Migrate other displays the same way as they are touched.
+Helpers: `public/lib/visual/display-face-metrics.js` (`ensureFaceMetrics` / `syncFaceMetrics`); Music Player phosphor layout cache; Instant Trace screen items use **layout-space face boxes + camera math** (pan must not remasure). Workspace CSS size: `nodeGraphWorkspaceCssSize` (ResizeObserver).
+
+First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / curves / Harmonic / additive faces, asciiscope / imageBurn / matrix.
 
 ---
 
@@ -507,3 +509,4 @@ Add new rules here when the same class of mistake happens twice. Keep this file 
 - **2026-09-03 — Parameter stickiness:** A continuous knob must chase to the written target and **stay**. Two failures of the same class: (1) JS tied `forceAll` param sync to `planSerial` so every gesture frame wiped the dirty cache and re-stormed `set_param` / smooth / domain cells, fighting Control chase; (2) ping-pong feedback coeffs lived in nested structs whose writes did not survive across `set_params` / buffer setup, so the DSP ran pass-through until the next write (sounded correct only while dragging). Fix: cold force-push only after graph compile/destroy; store live coeffs as plain fields on the instance; build smoke must **set once then `process_block` many times** without rewriting params.
 - **2026-09-10 — Display length 0–1:** Face geometry mixed CSS px (`labelInsetPx`, `traceWidth`), percent (`cornerRadius` 0–100), and true 0–1 (`edgeSpacing`). Normalize all face lengths to **0…1 of min(faceW, faceH)** via `display-scale.js` (§15). No percent / CSS-px bridges, no soft `typeof` helper fallbacks, no dual keys.
 - **2026-09-10 — Legacy display scrub:** Raster/Matrix chrome → `edgeSpacing`/`cornerRadius` 0…1 (no `screenPadding`/`rounding` %). Phosphor residual SSOT = `trail`/`ghost`/`burn`/`burnAmount` (no `decay` mirror, no burn-as-ghost). Dropped `sweepSeconds`, xyPad `scale`→puck, spectrogram overlap+1 shift. Yellow sidecar type/param aliases deleted. Display renderer id `"legacy"` → `"layoutOwned"`. Dead module-frame gapped-SVG path deleted (workspace/faces stay layout **px**; displays/canvases stay **0…1**).
+- **2026-09-10 — Paint never forces layout:** Music Player / fbmField / Instant Trace / curve·shape·harmonic faces stop remasuring every RAF. Shared `display-face-metrics.js`; scope screen rects from layout cache + pan/zoom math (not gBCR per pan sample).
