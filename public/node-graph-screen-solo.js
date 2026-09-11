@@ -802,14 +802,25 @@ function endNodeGraphScreenSolo(options = {}) {
   const session = nodeGraphScreenSoloSession();
   const items = nodeGraphScreenSoloItems();
   if (!items.length && !session.face) {
-    document.body.classList.remove("node-screen-solo-active");
+    document.body.classList.remove(
+      "node-screen-solo-active",
+      "node-layout-canvas-active",
+      "node-layout-canvas-edit",
+    );
     nodeGraphMvp.layoutCanvasActive = false;
-    if (session) session.layoutCanvas = false;
+    nodeGraphMvp.layoutCanvasMode = "off";
+    if (session) {
+      session.layoutCanvas = false;
+      session.layoutCanvasTiles = null;
+    }
     return false;
   }
   nodeGraphMvp.screenSoloNodeId = "";
   nodeGraphMvp.layoutCanvasActive = false;
+  nodeGraphMvp.layoutCanvasMode = "off";
   session.layoutCanvas = false;
+  session.layoutCanvasTiles = null;
+  document.body.classList.remove("node-layout-canvas-active", "node-layout-canvas-edit");
   session.nodeId = "";
   session.fit = "";
   session.sourceWidth = 0;

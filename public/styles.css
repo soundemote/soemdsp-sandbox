@@ -12499,7 +12499,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none !important;
 }
 
-/* F: selected screens reparented onto this body-level even grid. */
+/* F / 📱 layout canvas + legacy screen-solo stage. */
 .node-screen-solo-stage {
   position: fixed;
   inset: 0;
@@ -12512,6 +12512,68 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   justify-items: stretch;
   background: #000;
   pointer-events: auto;
+}
+
+/* Freeform layout canvas — no CSS grid auto-organize. */
+.node-screen-solo-stage.node-layout-canvas-stage {
+  display: block !important;
+  gap: 0;
+}
+
+.node-layout-canvas-tile {
+  position: absolute;
+  box-sizing: border-box;
+  overflow: hidden;
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.node-layout-canvas-tile .node-layout-canvas-face,
+.node-layout-canvas-tile .node-screen-solo-face {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.node-layout-canvas-frame {
+  display: none;
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(0, 208, 255, 0.85);
+  box-sizing: border-box;
+  pointer-events: auto;
+  cursor: move;
+  z-index: 5;
+  background: transparent;
+}
+
+.node-layout-canvas-grip {
+  display: none;
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: rgba(0, 208, 255, 0.95);
+  border: 1px solid #fff;
+  z-index: 6;
+  pointer-events: auto;
+}
+
+.node-layout-canvas-grip-nw { left: -2px; top: -2px; cursor: nwse-resize; }
+.node-layout-canvas-grip-ne { right: -2px; top: -2px; cursor: nesw-resize; }
+.node-layout-canvas-grip-sw { left: -2px; bottom: -2px; cursor: nesw-resize; }
+.node-layout-canvas-grip-se { right: -2px; bottom: -2px; cursor: nwse-resize; }
+
+body.node-layout-canvas-active.node-layout-canvas-edit .node-layout-canvas-frame,
+body.node-layout-canvas-active .node-layout-canvas-stage.node-layout-canvas-edit .node-layout-canvas-frame,
+.node-layout-canvas-stage.node-layout-canvas-edit .node-layout-canvas-frame,
+.node-layout-canvas-stage.node-layout-canvas-edit .node-layout-canvas-grip {
+  display: block;
+}
+
+.node-layout-canvas-tile.is-dragging {
+  outline: 2px solid #fff;
+  opacity: 0.95;
 }
 
 .node-screen-solo-stage[hidden] {
