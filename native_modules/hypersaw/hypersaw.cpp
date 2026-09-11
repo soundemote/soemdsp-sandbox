@@ -23,7 +23,7 @@ namespace {
 
 using namespace soemdsp_maths;
 
-constexpr int kMaxInstances = 8;
+constexpr int kMaxInstances = 32;
 constexpr int kMaxVoices = 64;
 
 double clampD(double value, double lo, double hi) {
