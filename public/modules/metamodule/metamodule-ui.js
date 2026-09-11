@@ -45,7 +45,7 @@ function createNodeGraphMetamoduleFace(nodeId, type) {
   return face;
 }
 
-registerNodeGraphChromelessModuleUi("metamodule", {
+const nodeGraphMetamoduleFaceUi = {
   createBody: createNodeGraphMetamoduleFace,
   afterMount(article, body, nodeId) {
     // Whole shell enters — face dblclick can miss if the face isn't mounted.
@@ -72,4 +72,7 @@ registerNodeGraphChromelessModuleUi("metamodule", {
       }
     }
   },
-});
+};
+
+registerNodeGraphChromelessModuleUi("metamodule", nodeGraphMetamoduleFaceUi);
+registerNodeGraphChromelessModuleUi("group", nodeGraphMetamoduleFaceUi);

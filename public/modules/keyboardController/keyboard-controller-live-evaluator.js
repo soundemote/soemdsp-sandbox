@@ -211,8 +211,6 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
   const triggerIn = nodeGraphKeyboardMixMax(nodeId, "Trigger", ctx);
   const gateOut = Math.max(cv.gateAmp, gateIn);
   const triggerOut = Math.max(cv.triggerAmp, triggerIn);
-  // Voices stub thru — pass inlet; no voice-runner behavior yet.
-  const voicesOut = nodeGraphKeyboardMixMax(nodeId, "Voices", ctx);
 
   const arpLocal = nodeGraphKeyboardLocalArpTransmit(phase);
   const arpIn = nodeGraphKeyboardMixOrBits(nodeId, "Arp Keys", ctx, phase);
@@ -236,7 +234,6 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
   }
 
   return {
-    Voices: voicesOut,
     "Play Keys": playOut,
     "Arp Keys": arpOut,
     Gate: gateOut,
@@ -257,7 +254,7 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
   };
 };
 
-/** MIDI portal: hardware Play Keys + last-note CV. Voices stub = 0. */
+/** MIDI portal: hardware Play Keys + last-note CV. */
 nodeGraphLiveModuleEvaluators.keyboardController = ({
   runtime, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate,
 }) => {
@@ -279,7 +276,6 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({
   const playOut = nodeGraphMidiPlayKeysTransmit(phase);
   return {
     "Play Keys": playOut,
-    Voices: 0,
     Gate: cv.gateAmp,
     Trigger: cv.triggerAmp,
     "Note#/127": Math.max(0, Math.min(1, cv.midi / 127)),

@@ -881,12 +881,15 @@ function copyNodeGraphModule(sourceNode) {
   }
   // Shell/boundary copy would share children/portals (same ids) — not supported yet.
   if (
-    typeof nodeGraphIsMetamoduleType === "function"
-    && nodeGraphIsMetamoduleType(sourceNode?.type)
+    typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(sourceNode?.type)
   ) {
     if (typeof setNodeInteractionHelp === "function") {
+      const kind = typeof nodeGraphIsGroupType === "function" && nodeGraphIsGroupType(sourceNode?.type)
+        ? "Group"
+        : "Metamodule";
       setNodeInteractionHelp(
-        "Duplicate Metamodule is not supported yet (would share children). Group a new selection instead.",
+        `Duplicate ${kind} is not supported yet (would share children). Group a new selection instead.`,
       );
     }
     return;

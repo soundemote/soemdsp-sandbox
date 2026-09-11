@@ -615,15 +615,22 @@ function nodeGraphDeleteTitle(selection = nodeGraphMvp.selected) {
   if ([...selectedNodeIds].every((id) => id === "output")) {
     return nodeGraphTooltipText("actions.deleteUnavailableOutput");
   }
-  // Delete Metamodule shell → ungroup (preserve children).
+  // Delete container shell → ungroup (preserve children).
   if (
-    typeof nodeGraphIsMetamoduleType === "function"
+    typeof nodeGraphIsContainerShellType === "function"
     && [...selectedNodeIds].every((id) => {
       const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
-      return nodeGraphIsMetamoduleType(node?.type);
+      return nodeGraphIsContainerShellType(node?.type);
     })
   ) {
-    return selectedNodeIds.size === 1 ? "Ungroup Metamodule" : "Ungroup Metamodules";
+    const onlyGroups = [...selectedNodeIds].every((id) => {
+      const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+      return typeof nodeGraphIsGroupType === "function" && nodeGraphIsGroupType(node?.type);
+    });
+    if (onlyGroups) {
+      return selectedNodeIds.size === 1 ? "Ungroup Group" : "Ungroup Groups";
+    }
+    return selectedNodeIds.size === 1 ? "Ungroup Metamodule" : "Ungroup containers";
   }
   return selectedNodeIds.size === 1
     ? nodeGraphTooltipText("actions.deleteModuleShort")

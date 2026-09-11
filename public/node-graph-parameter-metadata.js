@@ -129,7 +129,8 @@ function nodeGraphPatchNodeParameterDefinitions(node) {
   });
   // Metamodule shell: append child params marked "Show metaparameter".
   if (
-    patchNode?.type === "metamodule"
+    typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(patchNode?.type)
     && typeof nodeGraphMetamoduleExposedParameterDefinitions === "function"
   ) {
     const exposed = nodeGraphMetamoduleExposedParameterDefinitions(patchNode);
@@ -267,7 +268,8 @@ function nodeGraphPatchNodeInputPorts(node) {
   }
   // Metamodule shell: Poly + boundary-derived Root jacks (portals stay for DSP).
   if (
-    patchNode?.type === "metamodule"
+    typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(patchNode?.type)
     && typeof nodeGraphMetamoduleShellPorts === "function"
   ) {
     return nodeGraphMetamoduleShellPorts(patchNode).inputs;
@@ -291,7 +293,8 @@ function nodeGraphPatchNodeOutputPorts(node) {
     return [];
   }
   if (
-    patchNode?.type === "metamodule"
+    typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(patchNode?.type)
     && typeof nodeGraphMetamoduleShellPorts === "function"
   ) {
     return nodeGraphMetamoduleShellPorts(patchNode).outputs;
@@ -625,12 +628,16 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
   // Metamodule exposed mx_* rows: normalize against the child parameter def.
   if (
     !parameter
-    && type === "metamodule"
+    && typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(type)
     && String(key || "").startsWith("mx_")
     && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
   ) {
     const patch = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.patch : null;
-    const metas = (patch?.nodes || []).filter((n) => n?.type === "metamodule");
+    const metas = (patch?.nodes || []).filter((n) =>
+      typeof nodeGraphIsContainerShellType === "function"
+      && nodeGraphIsContainerShellType(n?.type)
+    );
     for (const meta of metas) {
       const target = nodeGraphMetamoduleResolveExposeTarget(meta, key, patch);
       if (!target?.child) continue;

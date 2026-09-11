@@ -50,21 +50,21 @@ registerNodeGraphChromelessModule("metamoduleOut", {
   },
 });
 
-// Metamodule shell â€” group + optional polyphony (Playmode Off = group only).
+// Metamodule shell — voice host + optional polyphony (Playmode Off ≈ group-like thru).
 // Chromeless: Polyphony (voice-manager in, black) + Amplitude inlets.
 registerNodeGraphChromelessModule("metamodule", {
   label: "Metamodule",
-  // Not LayoutB shell â€” MetamoduleLayout stacks shared IO above the face.
+  // Not LayoutB shell — MetamoduleLayout stacks shared IO above the face.
   solidModule: false,
   customDisplayArea: true,
   definition: {
     planRole: "monitor",
     layoutOnly: true,
-    // IO above face (shared LayoutA jack/label chrome â€” no private dialect).
+    // IO above face (shared LayoutA jack/label chrome — no private dialect).
     chrome: "MetamoduleLayout",
     defaultWidthGu: 4,
     // Outer auto-height from MetamoduleLayout content (header+IO+face+params).
-    // Do not pin defaultHeightGu â€” a short outer crushed the param band.
+    // Do not pin defaultHeightGu — a short outer crushed the param band.
     displayHeightGu: 2,
     // Polyphony = voice-manager inlet (black). Amplitude = group VCA CV (gold).
     inputs: ["Polyphony", "Amplitude"],
@@ -95,13 +95,36 @@ registerNodeGraphChromelessModule("metamodule", {
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Off = group only. Mono / Legato / Voices use the Polyphony inlet (voice manager).",
+        tooltip: "Off = optional group-like thru without using the Group module. Mono / Legato / Voices use the Polyphony inlet (voice manager).",
       },
     ],
   },
   catalog: {
     category: "portal",
-    description: "Group selected modules into a shell. Amplitude inlet scales Meta Outs. Polyphony inlet = voice-manager in (black).",
-    notes: ["metamodule", "group", "polyphony", "voice manager", "container", "portal"],
+    description: "Voice host shell. Polyphony inlet = voice-manager in (black). Amplitude scales Meta Outs. Use Group for simple boxing without polyphony.",
+    notes: ["metamodule", "voice host", "polyphony", "voice manager", "container", "portal"],
+  },
+});
+
+// Group shell — simple one-level copy-paste circuit box (Amplitude only; no polyphony).
+registerNodeGraphChromelessModule("group", {
+  label: "Group",
+  solidModule: false,
+  customDisplayArea: true,
+  definition: {
+    planRole: "monitor",
+    layoutOnly: true,
+    chrome: "MetamoduleLayout",
+    defaultWidthGu: 4,
+    displayHeightGu: 2,
+    inputs: ["Amplitude"],
+    inputLabels: { Amplitude: "Amp" },
+    outputs: [],
+    parameters: [],
+  },
+  catalog: {
+    category: "portal",
+    description: "Simple group / copy-paste circuit box (one nesting level). Amplitude inlet scales Meta Outs. Use Metamodule for voice hosting.",
+    notes: ["group", "container", "box", "portal", "nesting"],
   },
 });

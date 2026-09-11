@@ -1633,7 +1633,8 @@ function connectNodeGraphModulation(sourceNode, sourcePort, destinationNode, des
     ? nodeGraphPatchNode(destNode)
     : null;
   if (
-    destPatchNode?.type === "metamodule"
+    typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(destPatchNode?.type)
     && destParam.startsWith("mx_")
     && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
   ) {

@@ -627,8 +627,7 @@ function nodeGraphPortWireColor(node, port, io) {
   }
   const canonicalPort = nodeGraphCanonicalPortForNode(node, port, io);
   const type = nodeGraphPatchNodeType(node);
-  // Jack channel color first (Voices/black, Play/blue, Arp/gold, RGB, …).
-  // Same path for every port — no Voices special case.
+  // Jack channel color first (Polyphony/black, Play/blue, Arp/gold, RGB, …).
   if (typeof nodeGraphJackWireColor === "function") {
     const channelColor = nodeGraphJackWireColor(type, canonicalPort, io);
     if (channelColor) {

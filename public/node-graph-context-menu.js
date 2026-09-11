@@ -823,6 +823,7 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneTextBoxVerticalAlignControls",
   // Disable lives inside Visibility (under Hide unused) — not a top-level control.
   "nodeSceneCodeGroup",
+  "nodeSceneGroupIntoGroup",
   "nodeSceneGroupMetamodule",
   "nodeSceneDeleteModule",
 ];
@@ -1118,6 +1119,7 @@ function configureNodeSceneContextMenu(mode) {
   const moduleActionsWindowButton = document.getElementById("nodeSceneOpenModuleActions");
   const metaparametersWindowButton = document.getElementById("nodeSceneOpenMetaparameters");
   const deleteButton = document.getElementById("nodeSceneDeleteModule");
+  const groupIntoGroupButton = document.getElementById("nodeSceneGroupIntoGroup");
   const groupMetamoduleButton = document.getElementById("nodeSceneGroupMetamodule");
   const closeButton = document.getElementById(actionMode ? "nodeModuleActionsClose" : "nodeSceneCloseMenu");
   const selectedModule = document.getElementById("nodeSceneSelectedModule");
@@ -1391,23 +1393,35 @@ function configureNodeSceneContextMenu(mode) {
   }
   const targetIsGraphType = nodeGraphModuleIsGraphType(targetNode?.type);
   deleteButton.hidden = !(moduleMode || wireMode);
-  if (groupMetamoduleButton) {
-    // Single or multi selection on Root (not already inside a metamodule).
+  {
+    // Single or multi selection on Root (not already inside a container).
     const canGroup = Boolean(
       moduleMode
       && typeof nodeGraphSelectionCanGroupIntoMetamodule === "function"
       && nodeGraphSelectionCanGroupIntoMetamodule(),
     );
-    groupMetamoduleButton.hidden = !canGroup;
-    groupMetamoduleButton.disabled = !canGroup;
     const n = typeof nodeGraphSelectedNodeIds === "function"
       ? nodeGraphSelectedNodeIds().size
       : 0;
-    const label = groupMetamoduleButton.querySelector("span");
-    if (label) {
-      label.textContent = n <= 1
-        ? "Group into Metamodule"
-        : `Group ${n} into Metamodule`;
+    if (groupIntoGroupButton) {
+      groupIntoGroupButton.hidden = !canGroup;
+      groupIntoGroupButton.disabled = !canGroup;
+      const label = groupIntoGroupButton.querySelector("span");
+      if (label) {
+        label.textContent = n <= 1
+          ? "Group into Group"
+          : `Group ${n} into Group`;
+      }
+    }
+    if (groupMetamoduleButton) {
+      groupMetamoduleButton.hidden = !canGroup;
+      groupMetamoduleButton.disabled = !canGroup;
+      const label = groupMetamoduleButton.querySelector("span");
+      if (label) {
+        label.textContent = n <= 1
+          ? "Group into Metamodule"
+          : `Group ${n} into Metamodule`;
+      }
     }
   }
   selectedModule.hidden = !(moduleMode || wireMode);

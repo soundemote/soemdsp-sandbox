@@ -1,7 +1,8 @@
-// Metamodule â€” group shell + optional polyphony (Playmode Off = group only).
-// Children stay in patch.nodes with ownerMetamoduleId; Root view hides them.
+// Metamodule / Group — container shells (children via ownerMetamoduleId; Root hides them).
+// Metamodule = voice host (Polyphony + playmode). Group = Amplitude-only boxing.
 
 const NODE_GRAPH_METAMODULE_TYPE = "metamodule";
+const NODE_GRAPH_GROUP_TYPE = "group";
 const NODE_GRAPH_METAMODULE_PLAYMODES = Object.freeze([
   "Off",
   "Mono",
@@ -12,6 +13,21 @@ const NODE_GRAPH_METAMODULE_PLAYMODES = Object.freeze([
 
 function nodeGraphIsMetamoduleType(type) {
   return String(type || "").trim() === NODE_GRAPH_METAMODULE_TYPE;
+}
+
+function nodeGraphIsGroupType(type) {
+  return String(type || "").trim() === NODE_GRAPH_GROUP_TYPE;
+}
+
+function nodeGraphIsContainerShellType(type) {
+  return nodeGraphIsMetamoduleType(type) || nodeGraphIsGroupType(type);
+}
+
+/** Reserved Root shell inlets (not Meta In boundary names). Polyphony only on metamodule. */
+function nodeGraphContainerShellReservedInputs(type) {
+  if (nodeGraphIsMetamoduleType(type)) return ["Polyphony", "Amplitude"];
+  if (nodeGraphIsGroupType(type)) return ["Amplitude"];
+  return [];
 }
 
 function nodeGraphIsMetamoduleBoundaryType(type) {
@@ -42,12 +58,12 @@ function nodeGraphMetamoduleNodeVisibleInCurrentView(node) {
   const owner = String(node.ownerMetamoduleId || "");
   const isBoundary = nodeGraphIsMetamoduleBoundaryType(node.type);
   if (!viewId) {
-    // Root: never show Meta In/Out thrus (they live inside a metamodule).
+    // Root: never show Meta In/Out thrus (they live inside a container).
     if (isBoundary) return false;
-    // Hide owned children; show metamodule shells + unowned graph modules.
+    // Hide owned children; show container shells + unowned graph modules.
     return !owner;
   }
-  // Inside metamodule: show only that meta's children / boundary thrus.
+  // Inside container: show only that shell's children / boundary thrus.
   return owner === viewId;
 }
 
@@ -60,7 +76,7 @@ function nodeGraphMetamodulePruneOrphanPortals(patch = nodeGraphMvp?.patch) {
   if (!patch || !Array.isArray(patch.nodes)) return 0;
   const referenced = new Set();
   for (const meta of patch.nodes) {
-    if (!nodeGraphIsMetamoduleType(meta?.type)) continue;
+    if (!nodeGraphIsContainerShellType(meta?.type)) continue;
     const payload = nodeGraphEnsureMetamodulePayload(meta);
     for (const entry of payload.boundary || []) {
       if (entry?.id) referenced.add(String(entry.id));
@@ -128,7 +144,7 @@ function nodeGraphRepairMetamoduleOwnership(patch = nodeGraphMvp?.patch) {
   };
   let fixed = 0;
   for (const meta of nodes) {
-    if (!nodeGraphIsMetamoduleType(meta?.type)) continue;
+    if (!nodeGraphIsContainerShellType(meta?.type)) continue;
     const payload = nodeGraphEnsureMetamodulePayload(meta);
     const metaId = String(meta.id || "");
     const nextDisplays = [];
@@ -299,6 +315,16 @@ function nodeGraphNextMetamoduleId(patch = nodeGraphMvp?.patch) {
   return `metamodule-${max + 1}`;
 }
 
+function nodeGraphNextGroupId(patch = nodeGraphMvp?.patch) {
+  const nodes = Array.isArray(patch?.nodes) ? patch.nodes : [];
+  let max = 0;
+  for (const node of nodes) {
+    const m = /^group-(\d+)$/.exec(String(node?.id || ""));
+    if (m) max = Math.max(max, nodeGraphFiniteNumber(m[1]));
+  }
+  return `group-${max + 1}`;
+}
+
 function nodeGraphSelectionCanGroupIntoMetamodule(selection = nodeGraphMvp?.selected) {
   if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
     return false;
@@ -312,7 +338,7 @@ function nodeGraphSelectionCanGroupIntoMetamodule(selection = nodeGraphMvp?.sele
   for (const id of ids) {
     const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
     if (!node) return false;
-    if (nodeGraphIsMetamoduleType(node.type)) return false;
+    if (nodeGraphIsContainerShellType(node.type)) return false;
     if (nodeGraphIsMetamoduleBoundaryType(node.type)) return false;
     if (node.ownerMetamoduleId) return false;
     if (typeof nodeGraphNodeCanBeDeleted === "function" && !nodeGraphNodeCanBeDeleted(node)) {
@@ -407,12 +433,14 @@ function nodeGraphMetamoduleAllocateShellPortName(entry, portalNode, usedNames, 
     if (name.startsWith("Out ")) name = name.slice(4).trim();
   }
   if (!name) name = "Port";
-  // Polyphony / Amplitude are reserved shell inlets — not Meta In boundary names.
-  // Do not invent "In Polyphony"; collide → generic Port (+ numeric suffix below).
-  if (entry?.direction !== "out" && name === "Polyphony") {
+  // Reserved shell inlets are not Meta In boundary names (Polyphony only on metamodule).
+  const reserved = options.reservedInputs instanceof Set
+    ? options.reservedInputs
+    : new Set(options.reservedInputs || ["Polyphony", "Amplitude"]);
+  if (entry?.direction !== "out" && name === "Polyphony" && reserved.has("Polyphony")) {
     name = "Port";
   }
-  if (entry?.direction !== "out" && (name === "Amplitude" || name === "Amp")) {
+  if (entry?.direction !== "out" && (name === "Amplitude" || name === "Amp") && reserved.has("Amplitude")) {
     name = "In Amplitude";
   }
   let candidate = name;
@@ -506,10 +534,11 @@ function nodeGraphMetamoduleSyncBoundaryShellPorts(metaId, patch = nodeGraphMvp?
       ? nodeGraphPatchNode(id)
       : (patch?.nodes || []).find((n) => n?.id === id))
     : null;
-  if (!nodeGraphIsMetamoduleType(meta?.type)) return false;
+  if (!nodeGraphIsContainerShellType(meta?.type)) return false;
   const payload = nodeGraphEnsureMetamodulePayload(meta);
   if (!Array.isArray(payload.boundary)) payload.boundary = [];
-  const used = new Set(["Polyphony", "Amplitude"]);
+  const reserved = nodeGraphContainerShellReservedInputs(meta.type);
+  const used = new Set(reserved);
   let changed = false;
   for (const entry of payload.boundary) {
     if (!entry?.id || entry.deferred) continue;
@@ -523,7 +552,10 @@ function nodeGraphMetamoduleSyncBoundaryShellPorts(metaId, patch = nodeGraphMvp?
     entry.portLabel = preferred;
     const prev = String(entry.shellPort || "");
     entry.shellPort = "";
-    const next = nodeGraphMetamoduleAllocateShellPortName(entry, portal, used, { preferred });
+    const next = nodeGraphMetamoduleAllocateShellPortName(entry, portal, used, {
+      preferred,
+      reservedInputs: reserved,
+    });
     entry.shellPort = next;
     if (prev !== next) changed = true;
     // Keep TitleBarAndPorts title in sync when user has not set a custom alias.
@@ -541,7 +573,7 @@ function nodeGraphMetamoduleSyncBoundaryShellPorts(metaId, patch = nodeGraphMvp?
 function nodeGraphMetamoduleRemountShell(metaId) {
   const id = String(metaId || "").trim();
   const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
-  if (!nodeGraphIsMetamoduleType(meta?.type)) return false;
+  if (!nodeGraphIsContainerShellType(meta?.type)) return false;
   if (typeof applyNodeGraphModuleElementFromPatch === "function") {
     applyNodeGraphModuleElementFromPatch(meta);
   }
@@ -596,7 +628,7 @@ function nodeGraphMetamoduleRemoveBoundaryPortalInPlace(portalId, patch = nodeGr
   }
   if (ownerId) {
     const meta = patch.nodes.find((n) => n?.id === ownerId);
-    if (nodeGraphIsMetamoduleType(meta?.type)) {
+    if (nodeGraphIsContainerShellType(meta?.type)) {
       const payload = nodeGraphEnsureMetamodulePayload(meta);
       payload.boundary = (payload.boundary || []).filter((entry) =>
         !(entry && String(entry.id) === id)
@@ -607,14 +639,14 @@ function nodeGraphMetamoduleRemoveBoundaryPortalInPlace(portalId, patch = nodeGr
 }
 
 /**
- * Dynamic Root-facing jacks on the Metamodule shell (from boundary portals).
- * Polyphony stays first; Meta In portals → inputs; Meta Out portals → outputs.
+ * Dynamic Root-facing jacks on the container shell (from boundary portals).
+ * Reserved inlets first (Meta: Poly+Amp; Group: Amp); Meta In → inputs; Meta Out → outputs.
  * Read-only: does not allocate/rename shellPort (use SyncBoundaryShellPorts).
  */
 function nodeGraphMetamoduleShellPorts(metaNode) {
-  const inputs = ["Polyphony", "Amplitude"];
+  const inputs = [...nodeGraphContainerShellReservedInputs(metaNode?.type)];
   const outputs = [];
-  if (!nodeGraphIsMetamoduleType(metaNode?.type)) {
+  if (!nodeGraphIsContainerShellType(metaNode?.type)) {
     return { inputs, outputs };
   }
   const payload = nodeGraphEnsureMetamodulePayload(metaNode);
@@ -647,7 +679,7 @@ function nodeGraphMetamoduleShellPorts(metaNode) {
 
 function nodeGraphMetamoduleBoundaryEntryForShellPort(metaNode, shellPort, direction) {
   const want = String(shellPort || "").trim();
-  if (!want || !nodeGraphIsMetamoduleType(metaNode?.type)) return null;
+  if (!want || !nodeGraphIsContainerShellType(metaNode?.type)) return null;
   const payload = nodeGraphEnsureMetamodulePayload(metaNode);
   const wantOut = direction === "out" || direction === "output";
   let sawEmpty = false;
@@ -687,7 +719,7 @@ function nodeGraphMetamoduleWireVisualEndpoint(nodeId, port, io) {
   const metaId = String(node.ownerMetamoduleId || "").trim();
   if (!metaId) return null;
   const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(metaId) : null;
-  if (!nodeGraphIsMetamoduleType(meta?.type)) return null;
+  if (!nodeGraphIsContainerShellType(meta?.type)) return null;
   // Parent shell must be an active Root module (avoid recursion through visibility).
   if (nodeGraphMvp?.activeNodes instanceof Set && !nodeGraphMvp.activeNodes.has(metaId)) {
     return null;
@@ -742,11 +774,11 @@ function nodeGraphMetamoduleExposedModulationWireVisualEndpoint(nodeId, paramKey
   const metaId = String(node.ownerMetamoduleId || "").trim();
   if (!metaId) return null;
   const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(metaId) : null;
-  if (!nodeGraphIsMetamoduleType(meta?.type)) return null;
+  if (!nodeGraphIsContainerShellType(meta?.type)) return null;
   if (nodeGraphMvp?.activeNodes instanceof Set && !nodeGraphMvp.activeNodes.has(metaId)) {
     return null;
   }
-  // Nested metamodule shells are not Root-visible proxies.
+  // Nested container shells are not Root-visible proxies.
   if (String(meta.ownerMetamoduleId || "").trim()) return null;
   if (typeof nodeGraphMetamoduleIsParamExposed !== "function"
     || !nodeGraphMetamoduleIsParamExposed(meta, id, key)) {
@@ -768,7 +800,7 @@ function nodeGraphMetamoduleExposedChildIsWireProxyVisible(nodeId) {
   if (!id) return false;
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
   const metaId = String(node?.ownerMetamoduleId || "").trim();
-  if (!metaId || !nodeGraphIsMetamoduleType?.(nodeGraphPatchNode?.(metaId)?.type)) {
+  if (!metaId || !nodeGraphIsContainerShellType?.(nodeGraphPatchNode?.(metaId)?.type)) {
     return false;
   }
   if (typeof nodeGraphMetamoduleListExposedParamEntries !== "function") {
@@ -800,7 +832,7 @@ function nodeGraphMetamoduleFlipMiswiredOutletToInlet(portalId, patch = nodeGrap
     }
     const dstId = String(c.destinationNode || c.targetNode || "");
     const dst = patch.nodes.find((n) => n?.id === dstId);
-    if (!dst || nodeGraphIsMetamoduleBoundaryType(dst.type) || nodeGraphIsMetamoduleType(dst.type)) {
+    if (!dst || nodeGraphIsMetamoduleBoundaryType(dst.type) || nodeGraphIsContainerShellType(dst.type)) {
       return false;
     }
     return String(dst.ownerMetamoduleId || "") === ownerId;
@@ -809,7 +841,7 @@ function nodeGraphMetamoduleFlipMiswiredOutletToInlet(portalId, patch = nodeGrap
 
   portal.type = "metamoduleIn";
   const meta = patch.nodes.find((n) => n?.id === ownerId);
-  if (nodeGraphIsMetamoduleType(meta?.type)) {
+  if (nodeGraphIsContainerShellType(meta?.type)) {
     const payload = nodeGraphEnsureMetamodulePayload(meta);
     for (const entry of payload.boundary || []) {
       if (entry && String(entry.id) === id) {
@@ -840,7 +872,7 @@ function nodeGraphMetamoduleClaimPlacedNode(node, patch = nodeGraphMvp?.patch) {
       ? nodeGraphPatchNode(viewId)
       : (patch?.nodes || []).find((n) => n?.id === viewId))
     : null;
-  if (!nodeGraphIsMetamoduleType(meta?.type)) return false;
+  if (!nodeGraphIsContainerShellType(meta?.type)) return false;
 
   node.ownerMetamoduleId = viewId;
 
@@ -855,7 +887,8 @@ function nodeGraphMetamoduleClaimPlacedNode(node, patch = nodeGraphMvp?.patch) {
   }
 
   const direction = node.type === "metamoduleOut" ? "out" : "in";
-  const used = new Set(["Polyphony", "Amplitude"]);
+  const reserved = nodeGraphContainerShellReservedInputs(meta.type);
+  const used = new Set(reserved);
   for (const entry of payload.boundary) {
     if (entry?.shellPort) used.add(String(entry.shellPort));
   }
@@ -868,7 +901,9 @@ function nodeGraphMetamoduleClaimPlacedNode(node, patch = nodeGraphMvp?.patch) {
     key: `shop:${node.id}`,
     shellPort: "",
   };
-  record.shellPort = nodeGraphMetamoduleAllocateShellPortName(record, node, used);
+  record.shellPort = nodeGraphMetamoduleAllocateShellPortName(record, node, used, {
+    reservedInputs: reserved,
+  });
   // Prefer alias matching shell jack name for TitleBarAndPorts title.
   if (!String(node.alias || "").trim()) {
     node.alias = record.shellPort;
@@ -888,11 +923,11 @@ function nodeGraphMetamoduleRewriteShellConnection(sourceNode, sourcePort, desti
   let dstPort = String(destinationPort || "");
 
   const dstNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(dst) : null;
+  const dstReserved = new Set(nodeGraphContainerShellReservedInputs(dstNode?.type));
   if (
-    nodeGraphIsMetamoduleType(dstNode?.type)
+    nodeGraphIsContainerShellType(dstNode?.type)
     && dstPort
-    && dstPort !== "Polyphony"
-    && dstPort !== "Amplitude"
+    && !dstReserved.has(dstPort)
   ) {
     const entry = nodeGraphMetamoduleBoundaryEntryForShellPort(dstNode, dstPort, "in");
     if (entry?.id) {
@@ -902,11 +937,11 @@ function nodeGraphMetamoduleRewriteShellConnection(sourceNode, sourcePort, desti
   }
 
   const srcNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(src) : null;
+  const srcReserved = new Set(nodeGraphContainerShellReservedInputs(srcNode?.type));
   if (
-    nodeGraphIsMetamoduleType(srcNode?.type)
+    nodeGraphIsContainerShellType(srcNode?.type)
     && srcPort
-    && srcPort !== "Polyphony"
-    && srcPort !== "Amplitude"
+    && !srcReserved.has(srcPort)
   ) {
     const entry = nodeGraphMetamoduleBoundaryEntryForShellPort(srcNode, srcPort, "out");
     if (entry?.id) {
@@ -948,7 +983,8 @@ function nodeGraphMetamodulePortalizeCrossing(metaNode, crossing, children, patc
   const outletByKey = new Map();
   const portalFed = new Set();
   const boundary = [];
-  const usedShellPorts = new Set(["Polyphony", "Amplitude"]);
+  const reservedShell = nodeGraphContainerShellReservedInputs(metaNode?.type);
+  const usedShellPorts = new Set(reservedShell);
   let inSlot = 0;
   let outSlot = 0;
 
@@ -990,7 +1026,9 @@ function nodeGraphMetamodulePortalizeCrossing(metaNode, crossing, children, patc
       key,
       shellPort: "",
     };
-    record.shellPort = nodeGraphMetamoduleAllocateShellPortName(record, node, usedShellPorts);
+    record.shellPort = nodeGraphMetamoduleAllocateShellPortName(record, node, usedShellPorts, {
+      reservedInputs: reservedShell,
+    });
     map.set(key, record);
     boundary.push(record);
     return record;
@@ -1214,6 +1252,105 @@ function groupNodeGraphSelectionIntoMetamodule() {
 }
 
 /**
+ * Group current selection into a Group shell (Amplitude only; no voices/playmode).
+ */
+function groupNodeGraphSelectionIntoGroup() {
+  if (!nodeGraphSelectionCanGroupIntoMetamodule()) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Select one or more root modules to group.");
+    }
+    return null;
+  }
+  const patch = nodeGraphMvp?.patch;
+  if (!patch || !Array.isArray(patch.nodes)) return null;
+
+  const selectedIds = typeof nodeGraphSelectedNodeIdsInOrder === "function"
+    ? nodeGraphSelectedNodeIdsInOrder()
+    : [...nodeGraphSelectedNodeIds()];
+  const children = selectedIds
+    .map((id) => (typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null))
+    .filter(Boolean);
+  if (!children.length) return null;
+
+  const bounds = nodeGraphMetamoduleBoundsOfNodes(children);
+  const groupId = nodeGraphNextGroupId(patch);
+  const idSet = new Set(selectedIds);
+  const crossing = nodeGraphMetamoduleCrossingConnections(idSet, patch);
+
+  const groupNode = typeof createNodeGraphPatchNode === "function"
+    ? createNodeGraphPatchNode(NODE_GRAPH_GROUP_TYPE, {
+      id: groupId,
+      gx: bounds.gx,
+      gy: bounds.gy,
+      alias: "Group",
+      params: {},
+    })
+    : {
+      id: groupId,
+      type: NODE_GRAPH_GROUP_TYPE,
+      gx: bounds.gx,
+      gy: bounds.gy,
+      alias: "Group",
+      params: {},
+      paramMeta: {},
+    };
+
+  const payload = nodeGraphEnsureMetamodulePayload(groupNode);
+  payload.displays = children.map((child, order) => ({
+    childId: child.id,
+    enabled: false,
+    order,
+  }));
+  payload.boundary = [];
+
+  for (const child of children) {
+    child.ownerMetamoduleId = groupId;
+  }
+
+  patch.nodes.push(groupNode);
+  if (nodeGraphMvp.activeNodes instanceof Set) {
+    nodeGraphMvp.activeNodes.add(groupId);
+  }
+
+  nodeGraphMetamodulePortalizeCrossing(groupNode, crossing, children, patch);
+
+  nodeGraphMvp.metamoduleViewStack = [];
+  if (typeof updateNodeGraphMetamoduleBreadcrumb === "function") {
+    updateNodeGraphMetamoduleBreadcrumb();
+  }
+
+  if (typeof commitNodeGraphPatch === "function") {
+    commitNodeGraphPatch(patch, {
+      status: "group into group",
+      topologyEdit: true,
+    });
+  } else if (typeof applyNodeGraphPatchToDom === "function") {
+    applyNodeGraphPatchToDom();
+    if (typeof noteNodeGraphHeavyHistoryAction === "function") {
+      noteNodeGraphHeavyHistoryAction("group");
+    }
+  }
+
+  if (typeof selectNodeGraphItem === "function") {
+    selectNodeGraphItem({ type: "node", id: groupId });
+  } else {
+    nodeGraphMvp.selected = { type: "node", id: groupId };
+  }
+
+  nodeGraphSyncMetamoduleVisibilityToDom();
+
+  const portalCount = (payload.boundary || []).filter((b) => b && b.id).length;
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      portalCount
+        ? `Grouped ${children.length} into Group (${portalCount} portals). Double-click to enter.`
+        : `Grouped ${children.length} into Group. Double-click to enter.`,
+    );
+  }
+  return groupNode;
+}
+
+/**
  * Reverse portalize for one metamoduleIn/Out: stitch Outsideâ†”Child, drop portal wires.
  * Mutates patch.connections in place. Returns true if any stitch was made.
  */
@@ -1273,7 +1410,7 @@ function ungroupNodeGraphMetamoduleInPlace(metaId, patch = nodeGraphMvp?.patch) 
   const meta = typeof nodeGraphPatchNode === "function"
     ? (patch === nodeGraphMvp?.patch ? nodeGraphPatchNode(id) : patch.nodes.find((n) => n?.id === id))
     : patch.nodes.find((n) => n?.id === id);
-  if (!nodeGraphIsMetamoduleType(meta?.type)) return [];
+  if (!nodeGraphIsContainerShellType(meta?.type)) return [];
 
   const payload = nodeGraphEnsureMetamodulePayload(meta);
   const portalIds = new Set();
@@ -1364,7 +1501,7 @@ function ungroupNodeGraphMetamodulesInPatch(metaIds, patch) {
 function enterNodeGraphMetamoduleView(metamoduleId) {
   const id = String(metamoduleId || "");
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
-  if (!nodeGraphIsMetamoduleType(node?.type)) return false;
+  if (!nodeGraphIsContainerShellType(node?.type)) return false;
   nodeGraphRepairMetamoduleOwnership();
   // One level only.
   nodeGraphMvp.metamoduleViewStack = [id];
@@ -1374,7 +1511,7 @@ function enterNodeGraphMetamoduleView(metamoduleId) {
     const title = (typeof normalizeNodeGraphPatchNodeAlias === "function"
       ? normalizeNodeGraphPatchNodeAlias(node?.alias)
       : String(node?.alias || "").trim())
-      || "Metamodule";
+      || (nodeGraphIsGroupType(node?.type) ? "Group" : "Metamodule");
     setNodeInteractionHelp(`Inside ${title}. Click Root in the breadcrumb to leave.`);
   }
   return true;
@@ -1426,7 +1563,7 @@ function updateNodeGraphMetamoduleBreadcrumb() {
   const title = (typeof normalizeNodeGraphPatchNodeAlias === "function"
     ? normalizeNodeGraphPatchNodeAlias(meta?.alias)
     : String(meta?.alias || "").trim())
-    || "Metamodule";
+    || (nodeGraphIsGroupType(meta?.type) ? "Group" : "Metamodule");
   if (!readout.dataset.metaBreadcrumb) {
     readout.dataset.stashVersion = versionEl?.textContent || "";
     readout.dataset.stashBuild = buildEl?.textContent || "";
@@ -1563,7 +1700,7 @@ function nodeGraphMetamoduleExposedParameterDefinitions(metaNode, patch = nodeGr
 function nodeGraphMetamoduleRemountShellParameters(metaId) {
   const id = String(metaId || "");
   const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
-  if (!nodeGraphIsMetamoduleType(meta?.type)) return false;
+  if (!nodeGraphIsContainerShellType(meta?.type)) return false;
   nodeGraphMetamoduleSeedExposedParamsFromChildren(meta);
   // Expose rows can grow content past a stale stored heightGu â€” drop it so
   // MetamoduleLayout outer height follows content + 2px clearance.
@@ -1611,7 +1748,7 @@ function nodeGraphMetamoduleSyncShellFromChild(childNode, paramKey, patch = node
   const ownerId = String(childNode?.ownerMetamoduleId || "").trim();
   if (!childId || !key || !ownerId) return false;
   const meta = (patch?.nodes || []).find((n) => n?.id === ownerId);
-  if (!nodeGraphIsMetamoduleType(meta?.type)) return false;
+  if (!nodeGraphIsContainerShellType(meta?.type)) return false;
   if (!nodeGraphMetamoduleIsParamExposed(meta, childId, key)) return false;
   const synthKey = nodeGraphMetamoduleExposeParamKey(childId, key);
   if (!synthKey) return false;
@@ -1638,7 +1775,7 @@ function nodeGraphMetamoduleSyncShellFromChild(childNode, paramKey, patch = node
 
 /** Seed all exposed shell params from children (load / remount / apply). */
 function nodeGraphMetamoduleSeedExposedParamsFromChildren(metaNode, patch = nodeGraphMvp?.patch) {
-  if (!nodeGraphIsMetamoduleType(metaNode?.type)) return 0;
+  if (!nodeGraphIsContainerShellType(metaNode?.type)) return 0;
   const entries = nodeGraphMetamoduleListExposedParamEntries(metaNode, patch);
   metaNode.params = { ...(metaNode.params || {}) };
   let n = 0;

@@ -42,6 +42,11 @@ function bindNodeGraphSceneMenuEvents() {
   document.addEventListener("pointerup", endNodeGraphGraphNodeDrag);
   document.addEventListener("pointercancel", endNodeGraphGraphNodeDrag);
   bindNodeGraphSceneElementEvent("nodeSceneDeleteModule", "click", deleteNodeGraphSelectionFromContext);
+  bindNodeGraphSceneElementEvent("nodeSceneGroupIntoGroup", "click", () => {
+    if (typeof groupNodeGraphSelectionIntoGroup === "function") {
+      groupNodeGraphSelectionIntoGroup();
+    }
+  });
   bindNodeGraphSceneElementEvent("nodeSceneGroupMetamodule", "click", () => {
     if (typeof groupNodeGraphSelectionIntoMetamodule === "function") {
       groupNodeGraphSelectionIntoMetamodule();

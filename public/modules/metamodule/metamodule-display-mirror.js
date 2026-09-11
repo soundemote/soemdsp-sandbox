@@ -8,7 +8,7 @@ function nodeGraphMetamoduleMirroredChildIdSet(patch = nodeGraphMvp?.patch) {
   const out = new Set();
   const nodes = Array.isArray(patch?.nodes) ? patch.nodes : [];
   for (const node of nodes) {
-    if (!nodeGraphIsMetamoduleType?.(node?.type)) continue;
+    if (!nodeGraphIsContainerShellType?.(node?.type)) continue;
     const payload = typeof nodeGraphEnsureMetamodulePayload === "function"
       ? nodeGraphEnsureMetamodulePayload(node)
       : node?.metamodule;
@@ -102,7 +102,7 @@ function nodeGraphMetamoduleToggleDisplays(metaId, childIds, patch = nodeGraphMv
     return { changed: 0, enabledIds: [] };
   }
   const meta = patch.nodes.find((n) => n?.id === id);
-  if (!nodeGraphIsMetamoduleType?.(meta?.type)) {
+  if (!nodeGraphIsContainerShellType?.(meta?.type)) {
     return { changed: 0, enabledIds: [] };
   }
   const payload = nodeGraphEnsureMetamodulePayload(meta);
@@ -303,7 +303,7 @@ function nodeGraphMetamoduleRefreshAllMirrors() {
   }
   const nodes = Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes : [];
   for (const node of nodes) {
-    if (!nodeGraphIsMetamoduleType?.(node?.type)) continue;
+    if (!nodeGraphIsContainerShellType?.(node?.type)) continue;
     const enabled = nodeGraphMetamoduleEnabledDisplayEntries(node);
     if (enabled.length) {
       nodeGraphMetamodulePaintMirror(node.id);

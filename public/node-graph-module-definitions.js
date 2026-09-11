@@ -12618,7 +12618,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   // Portal MIDI — hardware device listen only. Does not drive Keyboard face/outs.
-  // Play Keys = live MIDI note bitmask (blue). Voices = black stub (unimplemented).
+  // Play Keys = live MIDI note bitmask (blue).
   keyboardController: {
     planRole: "source",
     digitalOutputs: ["Play Keys"],
@@ -12626,7 +12626,6 @@ const nodeGraphModuleDefinitions = (
     layout: "keyboardController",
     outputChannels: {
       "Play Keys": "blue",
-      Voices: "black",
     },
     outputAliases: {
       NoteNumber: "Note#/127",
@@ -12644,7 +12643,6 @@ const nodeGraphModuleDefinitions = (
     },
     outputLabels: {
       "Play Keys": "Play Keys",
-      Voices: "Voices",
       "Note#/127": "Note#/127",
       "Velocity#/127": "Velocity#/127",
       "0.1V/Oct": "0.1V/Oct",
@@ -12652,7 +12650,6 @@ const nodeGraphModuleDefinitions = (
       Frequency: "ƒ",
     },
     outputs: [
-      "Voices",
       "Play Keys",
       "Gate",
       "Trigger",
@@ -12668,19 +12665,16 @@ const nodeGraphModuleDefinitions = (
   },
   // Local piano face + explicit INs (wire MIDI→Keyboard Play Keys for device blue).
   // Play Keys = blue sounding mask. Arp Keys = gold ctrl+click latch.
-  // Voices = black stub thru (unimplemented voice bus).
   keyboard: {
     planRole: "source",
     digitalInputs: ["Play Keys", "Arp Keys"],
     digitalOutputs: ["Play Keys", "Arp Keys"],
-    inputs: ["Voices", "Play Keys", "Arp Keys", "Gate", "Trigger"],
+    inputs: ["Play Keys", "Arp Keys", "Gate", "Trigger"],
     inputChannels: {
-      Voices: "black",
       "Play Keys": "blue",
       "Arp Keys": "gold",
     },
     outputChannels: {
-      Voices: "black",
       "Play Keys": "blue",
       "Arp Keys": "gold",
     },
@@ -12701,7 +12695,6 @@ const nodeGraphModuleDefinitions = (
       Inc: "Inc.",
     },
     outputLabels: {
-      Voices: "Voices",
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
       KeyboardKey: "KeyboardKey",
@@ -12713,14 +12706,12 @@ const nodeGraphModuleDefinitions = (
       f: "ƒ",
     },
     inputLabels: {
-      Voices: "Voices",
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
       Gate: "Gate",
       Trigger: "Trigger",
     },
     outputs: [
-      "Voices",
       "Play Keys",
       "Arp Keys",
       "Gate",

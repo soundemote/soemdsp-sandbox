@@ -88,8 +88,8 @@ function nodeGraphPatchNodePortDisplayLabel(node, type, port, io) {
   // Metamodule shell: dynamic boundary names are the label (Left / ƒ / Poly).
   // Keep full Left/Right words — LayoutB stereo compaction would shrink to L/R.
   if (
-    typeof nodeGraphIsMetamoduleType === "function"
-    && nodeGraphIsMetamoduleType(type || patchNode?.type)
+    typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(type || patchNode?.type)
   ) {
     const raw = String(port || "").trim();
     return typeof nodeGraphFrequencyValuePortDisplayLabel === "function"
@@ -176,7 +176,7 @@ function createNodeGraphIoColumn(node, type, ports, io) {
         nodeGraphApplyOutletChannelMark(row, type, port);
       }
     }
-    // Colored buses (Voices/black, Play/blue, Arp/gold) are not digital-white.
+    // Colored buses (Polyphony/black, Play/blue, Arp/gold) are not digital-white.
     const jackCh = row.dataset.jackChannel || "";
     const coloredBus = jackCh === "black" || jackCh === "blue" || jackCh === "gold";
     if (!coloredBus && nodeGraphPortIsDigitalSignal(type, port, io)) {

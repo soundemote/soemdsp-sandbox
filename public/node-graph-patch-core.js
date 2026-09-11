@@ -7,7 +7,12 @@ function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
     (candidate) => candidate.key === key,
   );
   // Metamodule exposed child params (mx_*__*) — accept numeric store; clamp via metadata.
-  if (!parameter && type === "metamodule" && String(key || "").startsWith("mx_")) {
+  if (
+    !parameter
+    && typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(type)
+    && String(key || "").startsWith("mx_")
+  ) {
     const number = Number(value);
     const fallback = Number(metadata?.def);
     const candidate = Number.isFinite(number)
@@ -1177,7 +1182,8 @@ function nodeGraphModuleStructuralUiSignature(patchNode) {
   // Metamodule exposed params must force remount when Show metaparameter flips.
   let exposeSig = "";
   if (
-    patchNode?.type === "metamodule"
+    typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(patchNode?.type)
     && patchNode.metamodule?.paramVisibility
     && typeof patchNode.metamodule.paramVisibility === "object"
   ) {
@@ -1316,7 +1322,8 @@ function syncNodeGraphModuleParamElement(element, patchNode) {
     // Exposed shell rows: prefer child paramMeta for ranges / alias chrome.
     if (
       (!metaEntry || typeof metaEntry !== "object")
-      && patchNode.type === "metamodule"
+      && typeof nodeGraphIsContainerShellType === "function"
+      && nodeGraphIsContainerShellType(patchNode.type)
       && String(parameter.key || "").startsWith("mx_")
       && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
     ) {
@@ -1335,7 +1342,8 @@ function syncNodeGraphModuleParamElement(element, patchNode) {
     let value = patchNode.params?.[parameter.key];
     if (
       (value == null || !Number.isFinite(Number(value)))
-      && patchNode.type === "metamodule"
+      && typeof nodeGraphIsContainerShellType === "function"
+      && nodeGraphIsContainerShellType(patchNode.type)
       && String(parameter.key || "").startsWith("mx_")
       && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
     ) {
@@ -1529,7 +1537,8 @@ function applyNodeGraphPatchToDom(options = {}) {
   for (const patchNode of nodeGraphMvp.patch.nodes) {
     // Seed Metamodule exposed param mirrors from children before DOM sync.
     if (
-      patchNode?.type === "metamodule"
+      typeof nodeGraphIsContainerShellType === "function"
+      && nodeGraphIsContainerShellType(patchNode?.type)
       && typeof nodeGraphMetamoduleSeedExposedParamsFromChildren === "function"
     ) {
       nodeGraphMetamoduleSeedExposedParamsFromChildren(patchNode);
@@ -1882,10 +1891,11 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
 
   if (removableNodeIds.size) {
     const live = nodeGraphMvp.patch;
-    // Metamodule delete = ungroup (preserve children, stitch portals out).
+    // Container shell delete = ungroup (preserve children, stitch portals out).
     const metaIdsToUngroup = [...removableNodeIds].filter((nodeId) => {
       const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-      return typeof nodeGraphIsMetamoduleType === "function" && nodeGraphIsMetamoduleType(node?.type);
+      return typeof nodeGraphIsContainerShellType === "function"
+        && nodeGraphIsContainerShellType(node?.type);
     });
     // Meta In/Out: prune from parent boundary (allowed inside the meta view).
     const boundaryIdsToRemove = [...removableNodeIds].filter((nodeId) => {

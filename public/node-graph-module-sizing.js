@@ -646,7 +646,8 @@ function nodeGraphModuleSliderBodyHeightGu(type, ui = null, node = null) {
 function nodeGraphModuleIoRowCount(type, node = null) {
   // Metamodule shell jacks are dynamic (Poly/Amp + boundary) — count live ports.
   if (
-    String(type || "") === "metamodule"
+    typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(type)
     && node
     && typeof nodeGraphMetamoduleShellPorts === "function"
   ) {

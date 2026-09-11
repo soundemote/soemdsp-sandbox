@@ -12,3 +12,4 @@ nodeGraphLiveModuleEvaluators.metamoduleOut = ({ mixInput, nodeId }) => ({
 
 // Shell is chrome-only until the native voice runner (S4).
 nodeGraphLiveModuleEvaluators.metamodule = () => ({});
+nodeGraphLiveModuleEvaluators.group = () => ({});

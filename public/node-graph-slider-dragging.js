@@ -35,7 +35,8 @@ function syncNodeGraphPatchMetadataFromSlider(slider, options = {}) {
     ),
   };
   if (
-    patchNode.type === "metamodule"
+    typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(patchNode.type)
     && String(key || "").startsWith("mx_")
     && typeof nodeGraphMetamoduleSyncExposedParamFromShell === "function"
   ) {
@@ -125,7 +126,8 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
   };
   // Metamodule "Show metaparameter": shell slider writes through to the child.
   if (
-    patchNode.type === "metamodule"
+    typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(patchNode.type)
     && String(key || "").startsWith("mx_")
     && typeof nodeGraphMetamoduleSyncExposedParamFromShell === "function"
   ) {

@@ -666,7 +666,7 @@ function nodeGraphScreenSoloMirrorSourceNodeIds(soloNodeIds) {
   for (const rawId of ids) {
     const metaId = String(rawId || "");
     const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(metaId) : null;
-    if (!meta || typeof nodeGraphIsMetamoduleType !== "function" || !nodeGraphIsMetamoduleType(meta.type)) {
+    if (!meta || typeof nodeGraphIsContainerShellType !== "function" || !nodeGraphIsContainerShellType(meta.type)) {
       continue;
     }
     const enabled = typeof nodeGraphMetamoduleEnabledDisplayEntries === "function"
@@ -771,7 +771,7 @@ function beginNodeGraphScreenSoloGrid(nodeIds) {
   }
   for (const metaId of items.map((item) => item.nodeId)) {
     const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(metaId) : null;
-    if (!meta || typeof nodeGraphIsMetamoduleType !== "function" || !nodeGraphIsMetamoduleType(meta.type)) {
+    if (!meta || typeof nodeGraphIsContainerShellType !== "function" || !nodeGraphIsContainerShellType(meta.type)) {
       continue;
     }
     if (typeof nodeGraphMetamodulePaintMirror === "function") {

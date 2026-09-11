@@ -1513,10 +1513,11 @@ function syncNodeMetadataShowMetaparameterToggle() {
     : null;
   const canExpose = Boolean(
     owner
-    && typeof nodeGraphIsMetamoduleType === "function"
-    && nodeGraphIsMetamoduleType(owner.type)
+    && typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(owner.type)
     && paramKey
-    && patchNode?.type !== "metamodule"
+    && !(typeof nodeGraphIsContainerShellType === "function"
+      && nodeGraphIsContainerShellType(patchNode?.type))
   );
   label.hidden = !canExpose;
   input.disabled = !canExpose;

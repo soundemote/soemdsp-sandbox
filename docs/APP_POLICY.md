@@ -205,7 +205,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    as utilities)
 ```
 
-**Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` and chromeless **Portal In/Out** lane modules (`portalInlet*` / `portalOutlet*`) may remain — each lane shows → in and ← thru jacks; outlets also thru-mix into the speaker bus.
+**Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` and chromeless **Portal In/Out** lane modules (`portalInlet*` / `portalOutlet*`) may remain — each lane shows → in and ← thru jacks; outlets also thru-mix into the speaker bus. Container shells: **`group`** = simple one-level boxing (Amplitude only); **`metamodule`** = voice host (Polyphony + playmode; Off ≈ group-like thru). No separate VoiceManager module; MIDI/Keyboard expose Play Keys (not a Voices bus).
 
 **Singleton app I/O:** exactly one `output` and one `audioInput` may exist in a patch. Both are shop-visible, `uniqueInPatch`, and **must not be deleted**. Day-to-day routing should prefer Portal In/Out modules; the singletons stay as the app-wide mic/speaker endpoints.
 
