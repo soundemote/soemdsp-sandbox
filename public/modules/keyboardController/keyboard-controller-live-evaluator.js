@@ -114,9 +114,11 @@ function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null)
       ? Number(signal.velocity)
       : (nodeGraphFiniteNumber(prev?.velocity01)),
   ));
+  // Gate is digital presence: any gate > 0 → 1 (not velocity). Velocity stays on Velo outs.
   const gateOn = Number(signal?.gate) > 0;
-  const gateAmp = gateOn ? velocity01 : 0;
-  const triggerAmp = Number(signal?.gatePulse) > 0 ? velocity01 : 0;
+  const gateAmp = gateOn ? 1 : 0;
+  // Trigger pulse: same digital rule — any pulse > 0 → 1.
+  const triggerAmp = Number(signal?.gatePulse) > 0 ? 1 : 0;
   const sourceFreq = Number(signal?.frequency);
   const prevFreq = Number(prev?.frequency);
   const frequency = Math.max(0,

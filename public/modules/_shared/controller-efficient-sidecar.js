@@ -129,11 +129,9 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         ? Number(signal.velocity)
         : num(prev.velocity01, 0),
     ));
-    const gateAmp = num(signal.gate, 0) > 0 ? velocity01 : 0;
-    const pulseVel = Number.isFinite(Number(this.midiKeyboardGatePulseVelocity))
-      ? Math.max(0, Math.min(1, Number(this.midiKeyboardGatePulseVelocity)))
-      : velocity01;
-    const triggerAmp = usePulse && pulseActive ? pulseVel : (num(signal.gatePulse, 0) > 0 ? velocity01 : 0);
+    // Gate / Trigger = digital presence (any > 0 → 1). Velocity stays on Velo outs.
+    const gateAmp = num(signal.gate, 0) > 0 ? 1 : 0;
+    const triggerAmp = (usePulse && pulseActive) || num(signal.gatePulse, 0) > 0 ? 1 : 0;
     const sourceFreq = Number(signal.frequency);
     const frequency = Math.max(0,
       Number.isFinite(sourceFreq) && sourceFreq > 0
