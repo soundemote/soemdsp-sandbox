@@ -66,10 +66,10 @@ registerNodeGraphChromelessModule("metamodule", {
     // Outer auto-height from MetamoduleLayout content (header+IO+face+params).
     // Do not pin defaultHeightGu — a short outer crushed the param band.
     displayHeightGu: 2,
-    // Voices = voice bus stub (black). Amplitude = group VCA CV (gold / default analog).
-    inputs: ["Voices", "Amplitude"],
-    inputChannels: { Voices: "black" },
-    inputLabels: { Voices: "Voices", Amplitude: "Amp" },
+    // Polyphony = voice-manager inlet (black). Amplitude = group VCA CV (gold).
+    inputs: ["Polyphony", "Amplitude"],
+    inputChannels: { Polyphony: "black" },
+    inputLabels: { Polyphony: "Polyphony", Amplitude: "Amp" },
     outputs: [],
     parameters: [
       {
@@ -95,13 +95,13 @@ registerNodeGraphChromelessModule("metamodule", {
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Off = group only (no voice runner). Mono / Legato / Voices enable polyphony (runner stub).",
+        tooltip: "Off = group only. Mono / Legato / Voices use the Polyphony inlet (voice manager).",
       },
     ],
   },
   catalog: {
     category: "portal",
-    description: "Group selected modules into a shell. Amplitude inlet scales Meta Outs. Optional polyphony via Playmode + Voices.",
-    notes: ["metamodule", "group", "polyphony", "voices", "container", "portal"],
+    description: "Group selected modules into a shell. Amplitude inlet scales Meta Outs. Polyphony inlet = voice-manager in (black).",
+    notes: ["metamodule", "group", "polyphony", "voice manager", "container", "portal"],
   },
 });

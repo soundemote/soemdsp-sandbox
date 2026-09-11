@@ -342,8 +342,8 @@ function nodeGraphJackChannel(type, port, io = "output") {
   if (!key.trim()) {
     return "";
   }
-  // Port-name SSOT for key buses (works even if chromeless def lookup misses).
-  if (key === "Voices") {
+  // Port-name SSOT for key / voice buses (works even if def lookup misses).
+  if (key === "Voices" || key === "Polyphony") {
     return "black";
   }
   if (key === "Play Keys") {
