@@ -472,18 +472,18 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 
 ---
 
-## 16. Workspace vs displays (hard split)
+## 16. Workspace vs displays (soft preference)
 
-| Layer | Owns | Must not |
-|-------|------|----------|
-| **Workspace** | Module shells, ports, wires, pan/zoom camera, DOM chrome, Display Settings windows | Draw DSP/visual content with CSS text hacks inside the display surface |
-| **Displays** | Face visual content (waveform, Instant Trace, FBM, curves, …) | Drive workspace layout; mix HTML/CSS overlays into the canvas pixel surface |
+| Layer | Owns | Prefer not to |
+|-------|------|----------------|
+| **Workspace** | Module shells, ports, wires, pan/zoom camera, DOM chrome, Display Settings windows | Paint DSP/visual face content with CSS text hacks |
+| **Displays** | Face visual content (waveform, Instant Trace, FBM, curves, …) | Drive workspace layout; fake face pixels with stretched HTML overlays |
 
-**Display canvases are WebGL-only for face content.** Do not mix CSS/HTML *into* the canvas pixel path (no HTML text composited as if it were the canvas; no CSS `transform: scale(sx, sy)` stretching glyphs on the face bitmap). DOM may exist *beside* a face (playlist list, transport bar, Display Settings) as workspace/chrome — that is not the canvas.
+**Preference, not a hard ban:** use **WebGL for most visual faces** (waveforms, Instant Trace, fields, curves, knob graphics). Use **DOM where the job is real editable text** (Text Box / `contenteditable`) or chrome beside the face (playlist, transport, Display Settings).
 
-- **WebGL** draws the face pixels (trace, field, HUD ink that belongs on the face).
-- **Workspace DOM** is layout + controls around the face.
-- Migrating remaining Canvas2D face drawers to WebGL is the direction; do not add new Canvas2D+CSS hybrid face ink.
+- Do **not** stretch face glyphs with CSS `transform: scale(sx, sy)` or non-uniform buffer/CSS aspect.
+- Do **not** force Text Box through WebGL (IME, caret, selection, a11y).
+- Migrating Canvas2D visual drawers toward WebGL is the direction; don’t invent new HTML-as-bitmap hybrids for DSP faces.
 
 ---
 
@@ -512,7 +512,7 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 | Always-visible resize grip on panels | **No** — hover / drag only (§14) |
 | Store face font / stroke / inset as CSS px or % | **No** — 0…1 of face min-edge (§15) |
 | Stretch face text by width≠height | **No** — uniform min-edge only (§15) |
-| Mix HTML/CSS into display canvas pixels | **No** — WebGL face / DOM workspace split (§16) |
+| Stretch HTML as fake face pixels / force Text Box through WebGL | **No** — WebGL for most visuals; DOM for editable text (§16) |
 | Dual `labelInsetPx` + `labelInset` for compatibility | **No** — one key, clean rename (§1 / §15) |
 | Wipe Control dirty-cache / re-push all knobs every `setParams` | **No** — stickiness (§0b); cold push only after compile/destroy |
 | Nested DSP coeff objects in instance pools that lose writes | **No** — flat fields on the instance; smoke “set once, process many” |
@@ -527,4 +527,4 @@ Add new rules here when the same class of mistake happens twice. Keep this file 
 - **2026-09-10 — Display length 0–1:** Face geometry mixed CSS px (`labelInsetPx`, `traceWidth`), percent (`cornerRadius` 0–100), and true 0–1 (`edgeSpacing`). Normalize all face lengths to **0…1 of min(faceW, faceH)** via `display-scale.js` (§15). No percent / CSS-px bridges, no soft `typeof` helper fallbacks, no dual keys.
 - **2026-09-10 — Legacy display scrub:** Raster/Matrix chrome → `edgeSpacing`/`cornerRadius` 0…1 (no `screenPadding`/`rounding` %). Phosphor residual SSOT = `trail`/`ghost`/`burn`/`burnAmount` (no `decay` mirror, no burn-as-ghost). Dropped `sweepSeconds`, xyPad `scale`→puck, spectrogram overlap+1 shift. Yellow sidecar type/param aliases deleted. Display renderer id `"legacy"` → `"layoutOwned"`. Dead module-frame gapped-SVG path deleted (workspace/faces stay layout **px**; displays/canvases stay **0…1**).
 - **2026-09-10 — Paint never forces layout:** Music Player / fbmField / Instant Trace / curve·shape·harmonic faces stop remasuring every RAF. Shared `display-face-metrics.js`; scope screen rects from layout cache + pan/zoom math (not gBCR per pan sample).
-- **2026-09-10 — Music Player play + HUD:** Finite-rewriter comma bug set `samplePhaseSeek = (…+1, 1)` always `1` — seeks never bumped, Play looked dead. Fixed increment. HUD/canvas text: uniform min-edge font; buffer sized to canvas CSS box (no aspect stretch). Policy §16: workspace DOM vs WebGL display split.
+- **2026-09-10 — Music Player play + HUD:** Finite-rewriter comma bug set `samplePhaseSeek = (…+1, 1)` always `1` — seeks never bumped, Play looked dead. Fixed increment. HUD/canvas text: uniform min-edge font; buffer sized to canvas CSS box (no aspect stretch). Policy §16: workspace vs displays — WebGL preferred for visuals; DOM for Text Box / chrome (soft preference, not a hard ban).
