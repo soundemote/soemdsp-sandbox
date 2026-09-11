@@ -68,8 +68,36 @@ function nodeGraphWireTouchesBypassed(wire, plan) {
   return bypassedNodeIds.has(wire.sourceNode) || bypassedNodeIds.has(wire.destinationNode);
 }
 
+/** True when a node should count as "live" for cable paint (not dashed). */
+function nodeGraphWireNodeCountsAsActive(nodeId, activeNodeIds) {
+  const id = String(nodeId || "");
+  if (!id) {
+    return false;
+  }
+  if (activeNodeIds?.has?.(id)) {
+    return true;
+  }
+  // Layout-only shells (Metamodule) are not in the audio reachability set but
+  // still take real cables — treat as active for paint.
+  const type = typeof nodeGraphPatchNodeType === "function"
+    ? nodeGraphPatchNodeType(id)
+    : "";
+  const def = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[type]
+    : null;
+  if (def?.layoutOnly) {
+    return Boolean(
+      typeof nodeGraphMvp !== "undefined"
+      && nodeGraphMvp?.activeNodes instanceof Set
+      && nodeGraphMvp.activeNodes.has(id),
+    );
+  }
+  return false;
+}
+
 function nodeGraphSignalConnectionIsActive(connection, activeNodeIds) {
-  return activeNodeIds.has(connection.sourceNode) && activeNodeIds.has(connection.destinationNode);
+  return nodeGraphWireNodeCountsAsActive(connection.sourceNode, activeNodeIds)
+    && nodeGraphWireNodeCountsAsActive(connection.destinationNode, activeNodeIds);
 }
 
 function nodeGraphModulationIsActive(modulation, activeNodeIds) {

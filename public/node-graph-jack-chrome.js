@@ -458,6 +458,13 @@ function nodeGraphApplyJackChrome(element, type, port, io = "output") {
   delete element.dataset.outletChannel;
   if (channel) {
     element.dataset.jackChannel = channel;
+    // Keep channel on the jack itself so CSS/port paint don't miss row-only marks.
+    const jack = element.classList?.contains("node-port")
+      ? element
+      : element.querySelector?.(".node-port:not(.node-param-port)");
+    if (jack) {
+      jack.dataset.jackChannel = channel;
+    }
   } else {
     delete element.dataset.jackChannel;
   }

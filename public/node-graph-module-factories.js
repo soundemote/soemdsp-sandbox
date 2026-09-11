@@ -152,9 +152,11 @@ function createNodeGraphIoColumn(node, type, ports, io) {
         nodeGraphApplyOutletChannelMark(row, type, port);
       }
     }
-    if (nodeGraphPortIsDigitalSignal(type, port, io)) {
-      // White digital cable: Scale bitmasks, ƒ Hz-value jacks, Gate/Trigger
-      // (app-wide), and digitalInputs/digitalOutputs. 0.1V/Oct stays analog.
+    // Colored buses (Voices/black, Play/blue, Arp/gold) are not digital-white.
+    const jackCh = row.dataset.jackChannel || "";
+    const coloredBus = jackCh === "black" || jackCh === "blue" || jackCh === "gold";
+    if (!coloredBus && nodeGraphPortIsDigitalSignal(type, port, io)) {
+      // White digital: Scale bitmasks, ƒ, Gate/Trigger, digitalInputs/Outputs.
       row.dataset.digitalSignal = io;
     }
     const portLabel = nodeGraphPatchNodePortDisplayLabel(node, type, port, io);

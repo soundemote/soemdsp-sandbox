@@ -12372,9 +12372,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     drop-shadow(0 0 8px rgba(177, 132, 255, 0.42));
 }
 
+/* Dim only — never dash. Dotted = .temp (connecting) only. */
 .node-wire-path.inactive-wire {
-  opacity: 0.32;
-  stroke-dasharray: 3 7;
+  opacity: 0.45;
 }
 
 .node-wire-path.inactive-wire.selected {
@@ -16864,9 +16864,11 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 }
 
 .dsp-node .node-port.input[data-jack-channel="black"]:not(.node-param-port),
-.dsp-node .node-io-row.input[data-jack-channel="black"] .node-port.input:not(.node-param-port) {
+.dsp-node .node-io-row[data-jack-channel="black"] .node-port.input:not(.node-param-port),
+.dsp-node .node-io-row.input[data-jack-channel="black"] .node-port:not(.node-param-port) {
   --node-input-fill: var(--node-jack-black);
   --node-input-stroke: var(--node-jack-black);
+  --node-digital-fill: var(--node-jack-black);
   --node-port-crescent-stroke: var(--node-jack-black);
   --node-port-paint-brightness: 100%;
 }
