@@ -6996,9 +6996,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   --node-jack-cyan: #00e5ff;     /* C — Parameter / block-rate ZOH in/out */
   --node-jack-yellow: #ffe600;   /* Y — Graph chunk in/out */
   --node-jack-magenta: #e040fb;  /* M — reserved unused */
-  /* K / Voices — opaque graphite. Workspace bg is #000; pure/#3a black
-     cables are invisible. #8a8a8a still reads as the black bus vs gold/RGB. */
-  --node-jack-black: #8a8a8a;
+  /* K / Voices — light graphite on #000 workspace (must stay selectable). */
+  --node-jack-black: #c8c8c8;
   /* Legacy turquoise → same ink as cyan (prefer data-jack-channel="cyan"). */
   --node-jack-turquoise: var(--node-jack-cyan);
   --node-port-used-brightness: 85%;

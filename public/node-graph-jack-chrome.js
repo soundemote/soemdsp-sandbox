@@ -170,10 +170,10 @@ function nodeGraphJackChannelCssColor(channel) {
       : "#e040fb";
   }
   if (channel === "black" || channel === "k") {
-    // Voices / CMYK K — graphite so cables stay visible on #000 workspace.
+    // Voices / CMYK K — light graphite so cables stay visible on #000 workspace.
     return typeof nodeGraphCssColor === "function"
-      ? nodeGraphCssColor("--node-jack-black", "#8a8a8a")
-      : "#8a8a8a";
+      ? nodeGraphCssColor("--node-jack-black", "#c8c8c8")
+      : "#c8c8c8";
   }
   return "";
 }

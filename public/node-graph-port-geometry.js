@@ -636,7 +636,7 @@ function nodeGraphPortWireColor(node, port, io) {
     const voices = typeof nodeGraphJackChannelCssColor === "function"
       ? nodeGraphJackChannelCssColor("black")
       : "";
-    return voices || "#8a8a8a";
+    return voices || "#c8c8c8";
   }
   if (typeof nodeGraphJackWireColor === "function") {
     const keyBus = nodeGraphJackWireColor(type, canonicalPort, io);

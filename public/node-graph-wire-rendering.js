@@ -359,9 +359,9 @@ function nodeGraphDrawSignalWire(svg, connection, index, context) {
     pixelWire: Boolean(connection.pixelWire),
     ...(allowPath ? nodeGraphManualTracePathOptions(connection, fromCap, toCap) : {}),
   });
-  if (!context.skipHitPath) {
-    markNodeGraphWireEndpointsConnected(connection);
-  }
+  // Always keep endpoints marked (even when path skipped) so hide-unused
+  // reveals jacks on the next pass / frame.
+  markNodeGraphWireEndpointsConnected(connection);
 }
 
 function nodeGraphDrawModulationWire(svg, modulation, index, context) {
@@ -658,6 +658,23 @@ function drawNodeGraphWires(options = {}) {
 
   const interactColor = moveMode?.interactColor || null;
   const context = { activeNodeIds, feedbackSets, plan, skipHitPath: lite };
+  // Pass 1: mark every claimed jack connected *before* layout/hit tests.
+  // Hide-unused CSS keeps unconnected jacks at display:none; if we only mark
+  // after a successful path, Voices (and any new port) cables deadlock —
+  // no layout box → no path/hit → never marked → stay invisible forever.
+  if (!lite) {
+    for (const connection of nodeGraphMvp.connections) {
+      markNodeGraphWireEndpointsConnected(connection);
+    }
+    for (const modulation of nodeGraphMvp.modulations) {
+      markNodeGraphWireEndpointsConnected(modulation, "modulation");
+    }
+    for (const graphConnection of nodeGraphMvp.graphConnections) {
+      markNodeGraphWireEndpointsConnected(graphConnection, "graph");
+    }
+    // Flush style so newly revealed jacks get non-zero boxes this frame.
+    void workspace.offsetWidth;
+  }
   for (const [index, connection] of nodeGraphMvp.connections.entries()) {
     if (hideWireKeys?.has(`signal:${index}`)) {
       // Caps only at the fixed end(s) — path is replaced by temp ghosts.
