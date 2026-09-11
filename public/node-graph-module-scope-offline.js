@@ -514,10 +514,15 @@ function nodeGraphModuleDisplayRendererForSlot(slot) {
 
 // nodeGraphModuleDisplaySettingsSchemaForSlot → node-graph-module-scope-display-mode.js
 /**
- * Declared Instant-Trace-family renderer for a module type.
- * Custom layout faces (envelopeCurve / filterCurve / …) without displayType
- * are "legacy" — they draw via layout code, NOT Instant Trace/phosphor.
- * Never invent "trace" for every defined module (that was the Ping Envelope bug).
+ * Face renderer for a module type (what paints in the display row).
+ *
+ * - Explicit definition.displayType → that renderer.
+ * - Custom layout faces (envelopeCurve / filterCurve / …) → "legacy"
+ *   (layout code owns the face; not Instant Trace).
+ * - Default LayoutA DSP (no layout / no displayType) → "trace" FACE only
+ *   (historical Instant Trace monitor on filters/utilities). Settings must
+ *   stay blank unless displayType is explicit — see
+ *   nodeGraphModuleDisplaySettingsSchemaForNode.
  */
 function nodeGraphModuleDeclaredDisplayTypeForType(type) {
   let declared = nodeGraphModuleDefinitions?.[type]?.displayType;
@@ -528,6 +533,15 @@ function nodeGraphModuleDeclaredDisplayTypeForType(type) {
   }
   if (nodeGraphDisplayModeRenderers.includes(declared)) {
     return declared;
+  }
+  // Custom layout owns the face — not Instant Trace.
+  if (typeof nodeGraphModuleTypeHasCustomDisplayArea === "function"
+    && nodeGraphModuleTypeHasCustomDisplayArea(type)) {
+    return "legacy";
+  }
+  // Default LayoutA scope window: Instant Trace face (paint), not settings.
+  if (nodeGraphModuleDefinitions?.[type]) {
+    return "trace";
   }
   return "legacy";
 }

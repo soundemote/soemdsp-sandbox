@@ -119,11 +119,17 @@ function nodeGraphModuleImplicitDisplayModeForType(type) {
   if (renderer === "legacy") {
     return null;
   }
+  // Invented Instant Trace face (no explicit displayType): paint as trace,
+  // but settingsSchema stays blank — do not open phosphor Display Settings.
+  const explicitDisplayType = String(nodeGraphModuleDefinitions?.[type]?.displayType || "").trim();
+  const settingsSchema = explicitDisplayType
+    ? nodeGraphDisplayModeSettingsSchemaForRenderer(explicitDisplayType)
+    : "";
   return normalizeNodeGraphDisplayMode({
     key: renderer,
-    label: nodeGraphDisplayModeSettingsSchemaForRenderer(renderer),
+    label: settingsSchema || "display",
     renderer,
-    settingsSchema: nodeGraphDisplayModeSettingsSchemaForRenderer(renderer),
+    settingsSchema,
     source: nodeGraphModuleImplicitDisplayModeSource(type, renderer),
   }, type, 0);
 }
@@ -173,8 +179,22 @@ function nodeGraphModuleDisplayRendererForNode(node) {
 }
 
 
+/**
+ * Display Settings form schema for a node.
+ * Explicit mode.settingsSchema wins (may be "").
+ * Else only modules with an EXPLICIT definition.displayType get a schema from
+ * that type — invented Instant Trace faces (Flower Child, …) stay blank.
+ */
 function nodeGraphModuleDisplaySettingsSchemaForNode(node) {
-  return nodeGraphModuleSelectedDisplayMode(node)?.settingsSchema || nodeGraphDisplayModeSettingsSchemaForRenderer(nodeGraphModuleDisplayRendererForNode(node));
+  const mode = nodeGraphModuleSelectedDisplayMode(node);
+  if (mode && Object.prototype.hasOwnProperty.call(mode, "settingsSchema")) {
+    return String(mode.settingsSchema || "");
+  }
+  const explicit = String(nodeGraphModuleDefinitions?.[node?.type]?.displayType || "").trim();
+  if (!explicit) {
+    return "";
+  }
+  return nodeGraphDisplayModeSettingsSchemaForRenderer(explicit);
 }
 
 
