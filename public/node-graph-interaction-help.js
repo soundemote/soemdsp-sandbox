@@ -137,9 +137,9 @@ function nodeInteractionMouseHint(element) {
     return nodeGraphTooltipText("view.infiniteModular")
       || "Computer view — infinite canvas, no crop.";
   }
-  if (element.id === "nodeModularWindowedViewButton") {
-    return nodeGraphTooltipText("view.windowedModular")
-      || "Phone view — condensed frame with resize widget.";
+  if (element.id === "nodeModularWindowedViewButton"
+    || element.id === "nodeSceneToggleModularWindowedView") {
+    return "Layout canvas — shows displays with “Show in canvas” enabled (same as F).";
   }
   if (element.id === "nodeUndoButton" || element.id === "nodeRedoButton") {
     return nodeGraphTooltipText("history.help");

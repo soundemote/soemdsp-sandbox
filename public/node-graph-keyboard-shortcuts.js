@@ -449,16 +449,9 @@ function handleNodeGraphKeydown(event) {
   }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "f") {
     event.preventDefault();
-    // Inside a Metamodule: F pins selected child faces onto the shell display
-    // stack (additive). Root keeps fullscreen screen-solo.
-    if (typeof nodeGraphMetamoduleToggleDisplaysForSelection === "function"
-      && typeof nodeGraphMetamoduleViewId === "function"
-      && nodeGraphMetamoduleViewId()) {
-      nodeGraphMetamoduleToggleDisplaysForSelection();
-      return;
-    }
-    if (typeof toggleNodeGraphSelectedScreensFullscreen === "function") {
-      toggleNodeGraphSelectedScreensFullscreen();
+    // F = phone button: toggle layout canvas for current scope (root / meta).
+    if (typeof toggleNodeGraphLayoutCanvasView === "function") {
+      toggleNodeGraphLayoutCanvasView();
     }
     return;
   }

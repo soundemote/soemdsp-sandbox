@@ -392,16 +392,20 @@ function bindNodeGraphHeaderControlEvents() {
   document
     .getElementById("nodeModularInfiniteViewButton")
     ?.addEventListener("click", () => {
+      // 💻 — exit layout canvas if open; stay on infinite modular workspace.
+      if (typeof nodeGraphLayoutCanvasClose === "function") {
+        nodeGraphLayoutCanvasClose({ silent: true });
+      }
       if (typeof setNodeGraphModularWindowedActive === "function") {
         setNodeGraphModularWindowedActive(false);
       }
     });
-  // 📱 — phone / condensed frame with resize widget.
+  // 📱 — layout canvas (pinned displays). Same as F.
   document
     .getElementById("nodeModularWindowedViewButton")
     ?.addEventListener("click", () => {
-      if (typeof setNodeGraphModularWindowedActive === "function") {
-        setNodeGraphModularWindowedActive(true);
+      if (typeof toggleNodeGraphLayoutCanvasView === "function") {
+        toggleNodeGraphLayoutCanvasView();
       }
     });
   document
@@ -409,7 +413,14 @@ function bindNodeGraphHeaderControlEvents() {
     .addEventListener("click", handleNodeGraphSnapGridButtonClick);
   document
     .getElementById("nodeModularOnlyBackButton")
-    .addEventListener("click", () => setNodeGraphViewMode("modular"));
+    ?.addEventListener("click", () => {
+      if (typeof nodeGraphLayoutCanvasClose === "function") {
+        nodeGraphLayoutCanvasClose({ silent: true });
+      }
+      if (typeof setNodeGraphViewMode === "function") {
+        setNodeGraphViewMode("modular");
+      }
+    });
   document.getElementById("updateDefaultPresetButton")?.addEventListener("click", handleUpdateDefaultNodeGraphPresetClick);
   document.getElementById("loadNodeGraphScriptButton").addEventListener("click", loadNodeGraphScript);
   // Native save dialog (File System Access API) — same as Ctrl+S.

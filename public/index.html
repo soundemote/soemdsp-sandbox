@@ -235,8 +235,8 @@
           <button
             id="nodeModularWindowedViewButton"
             type="button"
-            aria-label="Phone view"
-            title="Phone view — condensed frame with resize widget"
+            aria-label="Layout canvas"
+            title="Layout canvas — pinned displays (same as F)"
             aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">📱</span></button>
           <span
             id="nodeWorldPositionReadout"
@@ -439,7 +439,7 @@
           <div class="node-hotkeys-row"><kbd>T</kbd><span>Stick transport (overrides V hide)</span></div>
           <div class="node-hotkeys-row"><kbd>D</kbd><span>Debug</span></div>
           <div class="node-hotkeys-row"><kbd>K</kbd><span>Controllers</span></div>
-          <div class="node-hotkeys-row"><kbd>F</kbd><span>Fullscreen selected screens (fit / stretch / off)</span></div>
+          <div class="node-hotkeys-row"><kbd>F</kbd><span>Layout canvas (pinned displays) — same as 📱</span></div>
           <div class="node-hotkeys-row"><kbd>Z</kbd><span>Center view on modules (selection, else all) at current zoom</span></div>
           <div class="node-hotkeys-row"><kbd>?</kbd><span>Command Center</span></div>
           <div class="node-hotkeys-row"><kbd>Space</kbd><span>Pause / play</span></div>
@@ -1993,7 +1993,7 @@
               <button id="nodeSceneToggleModularInfiniteView" class="scene-context-window-button" type="button" aria-label="Computer view" aria-pressed="false" title="Computer view — infinite canvas">
                 <span class="scene-context-window-button-icon" aria-hidden="true">💻</span>
               </button>
-              <button id="nodeSceneToggleModularWindowedView" class="scene-context-window-button" type="button" aria-label="Phone view" aria-pressed="false" title="Phone view — condensed frame">
+              <button id="nodeSceneToggleModularWindowedView" class="scene-context-window-button" type="button" aria-label="Layout canvas" aria-pressed="false" title="Layout canvas — pinned displays (same as F)">
                 <span class="scene-context-window-button-icon" aria-hidden="true">📱</span>
               </button>
               <button id="nodeSceneToggleModularOnlyView" class="scene-context-window-button" type="button" hidden aria-hidden="true" tabindex="-1"></button>
@@ -2668,6 +2668,13 @@
         <div id="nodeSceneScopeControls" class="scene-context-text-box-controls">
           <span>display</span>
           <div class="two scene-context-scope-fields">
+            <label class="node-layout-canvas-pin-label">
+              <input
+                id="nodeLayoutCanvasShowInCanvas"
+                type="checkbox"
+                data-tooltip-key="displaySettings.showInCanvas">
+              <span>Show in canvas</span>
+            </label>
             <label>
               <span>cycles</span>
               <input
@@ -4058,7 +4065,8 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-runtime.js?v=center-side-bright-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-screen-solo.js?v=meta-height-wire-f-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-screen-solo.js?v=layout-canvas-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-layout-canvas.js?v=1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-workspace-event-bindings.js?v=constraint-debug-hide-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-render-live-event-bindings.js?v=transport-click-delegate-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-header-event-bindings.js?v=vis-bars-1"></script>

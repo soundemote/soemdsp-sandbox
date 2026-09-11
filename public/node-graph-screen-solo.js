@@ -803,9 +803,13 @@ function endNodeGraphScreenSolo(options = {}) {
   const items = nodeGraphScreenSoloItems();
   if (!items.length && !session.face) {
     document.body.classList.remove("node-screen-solo-active");
+    nodeGraphMvp.layoutCanvasActive = false;
+    if (session) session.layoutCanvas = false;
     return false;
   }
   nodeGraphMvp.screenSoloNodeId = "";
+  nodeGraphMvp.layoutCanvasActive = false;
+  session.layoutCanvas = false;
   session.nodeId = "";
   session.fit = "";
   session.sourceWidth = 0;

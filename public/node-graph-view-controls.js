@@ -746,6 +746,7 @@ function nodeGraphNormalizeModularViewMode(mode) {
   if (raw === "modular-infinite" || raw === "infinite") {
     return "modular";
   }
+  // Retired condensed phone frame — always infinite modular workspace.
   if (
     raw === "modular-windowed"
     || raw === "modular-only"
@@ -753,7 +754,7 @@ function nodeGraphNormalizeModularViewMode(mode) {
     || raw === "windowed"
     || raw === "condensed"
   ) {
-    return "modular-windowed";
+    return "modular";
   }
   if (raw === "modular" || raw === "full") {
     return "modular";
@@ -909,31 +910,31 @@ function toggleNodeGraphModularInfiniteView() {
   setNodeGraphModularWindowedActive(false);
 }
 
-/** 📱 — phone / condensed frame with resize + back. */
+/**
+ * Condensed modular-windowed phone frame is retired.
+ * 📱 / F open the layout canvas instead (see node-graph-layout-canvas.js).
+ * This stub only forces infinite modular workspace (never windowed).
+ */
 function setNodeGraphModularWindowedActive(active, options = {}) {
-  const on = Boolean(active);
-  if (on) {
-    // Windowed frame always shows back + resize (not controls-hidden).
-    nodeGraphMvp.modularOnlyControlsVisible = true;
-    if (nodeGraphMvp.patch) {
-      nodeGraphMvp.patch.modularOnlyControlsVisible = true;
-    }
-    setNodeGraphViewMode("modular-windowed");
-  } else {
-    // Leave condensed; keep V bar state as-is.
-    setNodeGraphViewMode("modular");
+  if (active && typeof toggleNodeGraphLayoutCanvasView === "function") {
+    toggleNodeGraphLayoutCanvasView(options);
+    return;
   }
+  if (typeof nodeGraphLayoutCanvasClose === "function") {
+    nodeGraphLayoutCanvasClose({ silent: options.help === false });
+  }
+  setNodeGraphViewMode("modular");
   if (options.help !== false && typeof setNodeInteractionHelp === "function") {
-    setNodeInteractionHelp(
-      on
-        ? "Phone view — condensed frame, drag the corner to resize."
-        : "Computer view — infinite canvas.",
-    );
+    setNodeInteractionHelp("Modular workspace.");
   }
 }
 
 function toggleNodeGraphModularWindowedView() {
-  setNodeGraphModularWindowedActive(!nodeGraphIsModularWindowedView());
+  if (typeof toggleNodeGraphLayoutCanvasView === "function") {
+    toggleNodeGraphLayoutCanvasView();
+    return;
+  }
+  setNodeGraphModularWindowedActive(false);
 }
 
 /** @deprecated alias — M path */
@@ -947,20 +948,21 @@ function toggleNodeGraphViewButtonsVisibility() {
 }
 
 function renderNodeGraphModularViewModeButtons() {
-  const windowed = nodeGraphIsModularWindowedView();
+  const canvasOn = typeof nodeGraphLayoutCanvasIsActive === "function"
+    && nodeGraphLayoutCanvasIsActive();
   const computerBtn = document.getElementById("nodeModularInfiniteViewButton");
   const phoneBtn = document.getElementById("nodeModularWindowedViewButton");
-  computerBtn?.classList.toggle("active", !windowed);
-  computerBtn?.setAttribute("aria-pressed", String(!windowed));
-  phoneBtn?.classList.toggle("active", windowed);
-  phoneBtn?.setAttribute("aria-pressed", String(windowed));
+  computerBtn?.classList.toggle("active", !canvasOn);
+  computerBtn?.setAttribute("aria-pressed", String(!canvasOn));
+  phoneBtn?.classList.toggle("active", canvasOn);
+  phoneBtn?.setAttribute("aria-pressed", String(canvasOn));
   const sceneComputer = document.getElementById("nodeSceneToggleModularInfiniteView");
-  sceneComputer?.classList.toggle("active", !windowed);
-  sceneComputer?.setAttribute("aria-pressed", String(!windowed));
+  sceneComputer?.classList.toggle("active", !canvasOn);
+  sceneComputer?.setAttribute("aria-pressed", String(!canvasOn));
   const scenePhone = document.getElementById("nodeSceneToggleModularWindowedView")
     || document.getElementById("nodeSceneToggleModularOnlyView");
-  scenePhone?.classList.toggle("active", windowed);
-  scenePhone?.setAttribute("aria-pressed", String(windowed));
+  scenePhone?.classList.toggle("active", canvasOn);
+  scenePhone?.setAttribute("aria-pressed", String(canvasOn));
 }
 
 function persistNodeGraphModuleScopeFramesPerSecondSetting() {
@@ -1534,7 +1536,8 @@ function nodeGraphStartupViewModeFromUrl() {
     || value === "modular-windowed" || value === "windowed"
     || truthy("modular")
   ) {
-    return "modular-windowed";
+    // Condensed phone frame retired — URL aliases open normal modular.
+    return "modular";
   }
   if (value === "settings" || value === "script") {
     return "settings";

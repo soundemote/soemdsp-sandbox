@@ -127,17 +127,24 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodePatchDefaultsDragHandle", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "patchDefaults"));
   bindNodeGraphSceneElementEvent("nodePatchDefaultsResizeHandle", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "patchDefaults"));
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularInfiniteView", "click", () => {
+    if (typeof nodeGraphLayoutCanvasClose === "function") {
+      nodeGraphLayoutCanvasClose({ silent: true });
+    }
     if (typeof setNodeGraphModularWindowedActive === "function") {
       setNodeGraphModularWindowedActive(false);
     }
   });
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularWindowedView", "click", () => {
-    if (typeof setNodeGraphModularWindowedActive === "function") {
-      setNodeGraphModularWindowedActive(true);
+    if (typeof toggleNodeGraphLayoutCanvasView === "function") {
+      toggleNodeGraphLayoutCanvasView();
     }
   });
   // Legacy ids (hidden).
-  bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyView", "click", toggleNodeGraphModularWindowedView);
+  bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyView", "click", () => {
+    if (typeof toggleNodeGraphLayoutCanvasView === "function") {
+      toggleNodeGraphLayoutCanvasView();
+    }
+  });
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyControls", "click", toggleNodeGraphAppChromeBarsVisibility);
   bindNodeGraphSceneElementEvent("nodeSceneOpenModuleBrowser", "click", () => {
     if (typeof openNodeGraphUnifiedWindowPage === "function") {

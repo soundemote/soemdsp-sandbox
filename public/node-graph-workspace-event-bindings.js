@@ -66,6 +66,9 @@ function bindNodeGraphWorkspaceInteractionEvents() {
   if (typeof bindNodeGraphScreenSoloEvents === "function") {
     bindNodeGraphScreenSoloEvents();
   }
+  if (typeof bindNodeGraphLayoutCanvasEvents === "function") {
+    bindNodeGraphLayoutCanvasEvents();
+  }
   document
     .getElementById("nodeGraphWorkspace")
     .addEventListener("pointerdown", beginNodeGraphWorkspacePinchZoom, true);
