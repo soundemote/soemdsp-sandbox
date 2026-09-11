@@ -631,9 +631,16 @@ function nodeGraphPortWireColor(node, port, io) {
   // color -- see the .node-io-row[data-digital-signal] CSS for the matching
   // port tap color, and nodeGraphPortIsDigitalSignal for what qualifies.
   // Play Keys / Arp Keys / Voices: colored buses (not digital-white).
+  // Voices always resolves — even if module def/channel lookup misses.
+  if (canonicalPort === "Voices") {
+    const voices = typeof nodeGraphJackChannelCssColor === "function"
+      ? nodeGraphJackChannelCssColor("black")
+      : "";
+    return voices || "#8a8a8a";
+  }
   if (typeof nodeGraphJackWireColor === "function") {
     const keyBus = nodeGraphJackWireColor(type, canonicalPort, io);
-    if (keyBus && (canonicalPort === "Play Keys" || canonicalPort === "Arp Keys" || canonicalPort === "Voices")) {
+    if (keyBus && (canonicalPort === "Play Keys" || canonicalPort === "Arp Keys")) {
       return keyBus;
     }
   }
