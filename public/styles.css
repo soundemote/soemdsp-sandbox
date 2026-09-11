@@ -6996,8 +6996,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   --node-jack-cyan: #00e5ff;     /* C — Parameter / block-rate ZOH in/out */
   --node-jack-yellow: #ffe600;   /* Y — Graph chunk in/out */
   --node-jack-magenta: #e040fb;  /* M — reserved unused */
-  /* K / Voices — light graphite on #000 workspace (must stay selectable). */
-  --node-jack-black: #c8c8c8;
+  /* K / Voices — charcoal: dark enough to read as black, light enough on #000. */
+  --node-jack-black: #6a6a6a;
   /* Legacy turquoise → same ink as cyan (prefer data-jack-channel="cyan"). */
   --node-jack-turquoise: var(--node-jack-cyan);
   --node-port-used-brightness: 85%;
@@ -16773,10 +16773,11 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 }
 
 .dsp-node .node-port.output[data-jack-channel="black"],
+.dsp-node .node-io-row[data-jack-channel="black"] .node-port.output,
 .dsp-node .node-io-row.output[data-jack-channel="black"] .node-port.output {
   --node-output-fill: var(--node-jack-black);
   --node-output-stroke: var(--node-jack-black);
-  /* Full opacity — transparent mix makes black look washed out. */
+  --node-digital-fill: var(--node-jack-black);
   --node-port-crescent-stroke: var(--node-jack-black);
   --node-port-paint-brightness: 100%;
 }

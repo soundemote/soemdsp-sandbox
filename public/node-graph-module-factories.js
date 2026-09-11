@@ -145,20 +145,6 @@ function createNodeGraphIoColumn(node, type, ports, io) {
     row.dataset.port = port;
     row.dataset.io = io;
     row.dataset.alias = nodeGraphLabel(node, port);
-    if (io === "output" || io === "input") {
-      if (typeof nodeGraphApplyJackChrome === "function") {
-        nodeGraphApplyJackChrome(row, type, port, io);
-      } else if (typeof nodeGraphApplyOutletChannelMark === "function") {
-        nodeGraphApplyOutletChannelMark(row, type, port);
-      }
-    }
-    // Colored buses (Voices/black, Play/blue, Arp/gold) are not digital-white.
-    const jackCh = row.dataset.jackChannel || "";
-    const coloredBus = jackCh === "black" || jackCh === "blue" || jackCh === "gold";
-    if (!coloredBus && nodeGraphPortIsDigitalSignal(type, port, io)) {
-      // White digital: Scale bitmasks, ƒ, Gate/Trigger, digitalInputs/Outputs.
-      row.dataset.digitalSignal = io;
-    }
     const portLabel = nodeGraphPatchNodePortDisplayLabel(node, type, port, io);
     maxLabelChars = Math.max(maxLabelChars, String(portLabel || "").length);
     row.setAttribute(
@@ -177,10 +163,25 @@ function createNodeGraphIoColumn(node, type, ports, io) {
     } else {
       label.textContent = portLabel;
     }
+    // Create the jack before chrome so channel marks land on row + port.
     if (io === "input") {
       row.append(createNodeGraphPort(node, type, port, io), label);
     } else {
       row.append(label, createNodeGraphPort(node, type, port, io));
+    }
+    if (io === "output" || io === "input") {
+      if (typeof nodeGraphApplyJackChrome === "function") {
+        nodeGraphApplyJackChrome(row, type, port, io);
+      } else if (typeof nodeGraphApplyOutletChannelMark === "function") {
+        nodeGraphApplyOutletChannelMark(row, type, port);
+      }
+    }
+    // Colored buses (Voices/black, Play/blue, Arp/gold) are not digital-white.
+    const jackCh = row.dataset.jackChannel || "";
+    const coloredBus = jackCh === "black" || jackCh === "blue" || jackCh === "gold";
+    if (!coloredBus && nodeGraphPortIsDigitalSignal(type, port, io)) {
+      // White digital: Scale bitmasks, ƒ, Gate/Trigger, digitalInputs/Outputs.
+      row.dataset.digitalSignal = io;
     }
     column.append(row);
   }

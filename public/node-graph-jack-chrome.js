@@ -170,10 +170,10 @@ function nodeGraphJackChannelCssColor(channel) {
       : "#e040fb";
   }
   if (channel === "black" || channel === "k") {
-    // Voices / CMYK K — light graphite so cables stay visible on #000 workspace.
+    // Voices / CMYK K — charcoal on #000 workspace.
     return typeof nodeGraphCssColor === "function"
-      ? nodeGraphCssColor("--node-jack-black", "#c8c8c8")
-      : "#c8c8c8";
+      ? nodeGraphCssColor("--node-jack-black", "#6a6a6a")
+      : "#6a6a6a";
   }
   return "";
 }
@@ -342,8 +342,18 @@ function nodeGraphJackChannel(type, port, io = "output") {
   if (!key.trim()) {
     return "";
   }
+  // Port-name SSOT for key buses (works even if chromeless def lookup misses).
+  if (key === "Voices") {
+    return "black";
+  }
+  if (key === "Play Keys") {
+    return "blue";
+  }
+  if (key === "Arp Keys") {
+    return "gold";
+  }
   const def = nodeGraphJackTypeDefinition(type);
-  // Play Keys / Arp Keys / Voices: explicit color wins before digital→white.
+  // Explicit module channels win before digital→white.
   const fromExplicit = nodeGraphJackExplicitChannel(def, key, io);
   if (fromExplicit === "blue" || fromExplicit === "gold" || fromExplicit === "black") {
     return fromExplicit;
