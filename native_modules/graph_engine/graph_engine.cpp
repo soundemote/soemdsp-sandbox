@@ -4790,7 +4790,8 @@ static bool port_has_audio_conn(Circuit& g, const Node& node, int dstPort) {
 
 // t / t1…t10: transistor-switched paths (JS t-series math).
 // stages = lastIndex (0 = lone t). In→Mono, Analog→Morph, Digital→Trigger.
-// Outs "0"…"10" → buf channels 0…10.
+// Lone t Digital = presence (any > 0 → send). Multi-t Digital = one-hot index.
+// Analog = conduction / address window. Outs "0"…"10" → buf channels 0…10.
 static void process_transistor(Circuit& g, Node& node, int frames) {
   int lastIndex = (int)(control_effective(node.stages) + (control_effective(node.stages) >= 0.0 ? 0.5 : -0.5));
   if (lastIndex < 0) lastIndex = 0;
@@ -4809,7 +4810,8 @@ static void process_transistor(Circuit& g, Node& node, int frames) {
     if (u < 0.0) u = 0.0;
     if (u > 1.0) u = 1.0;
     const double addr = u * (double)lastIndex;
-    const int idx = (int)(g.mixTrigger[f] + (g.mixTrigger[f] >= 0.0 ? 0.5 : -0.5));
+    const double digitalRaw = hasDigital ? g.mixTrigger[f] : 0.0;
+    const int idx = (int)(digitalRaw + (digitalRaw >= 0.0 ? 0.5 : -0.5));
     const double inRange = (idx >= 0 && idx <= lastIndex) ? 1.0 : 0.0;
     const double lone = 1.0 + (u - 1.0) * (lastIndex == 0 ? 1.0 : 0.0);
     const double carrier = hasIn
@@ -4817,7 +4819,15 @@ static void process_transistor(Circuit& g, Node& node, int frames) {
       : ((hasAnalog || hasDigital) ? 1.0 : 0.0);
 
     for (int i = 0; i < count; i++) {
-      const double digitalGain = (i == idx ? 1.0 : 0.0) * inRange * (hasDigital ? 1.0 : 0.0);
+      double digitalGain = 0.0;
+      if (hasDigital) {
+        if (lastIndex == 0) {
+          // Lone t: any Digital > 0 opens path 0 (gate presence).
+          digitalGain = (i == 0 && digitalRaw > 0.0) ? 1.0 : 0.0;
+        } else {
+          digitalGain = (i == idx ? 1.0 : 0.0) * inRange;
+        }
+      }
       double ad = addr - (double)i;
       if (ad < 0.0) ad = -ad;
       ad = 1.0 - ad;

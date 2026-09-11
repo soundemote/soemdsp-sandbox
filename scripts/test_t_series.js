@@ -1,5 +1,11 @@
 var fs = require("fs");
 var path = require("path");
+function nodeGraphFiniteNumber(value, fallback) {
+  var n = Number(value);
+  if (Number.isFinite(n)) return n;
+  var f = Number(fallback);
+  return Number.isFinite(f) ? f : 0;
+}
 eval(fs.readFileSync(path.join(__dirname, "..", "public", "modules", "tSeries", "t-series-math.js"), "utf8"));
 
 function assert(cond, msg) {
@@ -51,10 +57,13 @@ var lone = nodeGraphTSeriesSample({ analog: 0.25, hasAnalog: true, type: "t" });
 assert(Math.abs(lone["0"] - 0.25) < 1e-9, "t analog is conduction");
 assert(lone["1"] === undefined, "t has only out 0");
 
-var loneOn = nodeGraphTSeriesSample({ digital: 0, hasDigital: true, type: "t" });
-assert(loneOn["0"] === 1, "t digital 0 sends");
+var loneOff = nodeGraphTSeriesSample({ digital: 0, hasDigital: true, type: "t" });
+assert(loneOff["0"] === 0, "t digital 0 closed");
 
-var loneOff = nodeGraphTSeriesSample({ digital: 1, hasDigital: true, type: "t" });
-assert(loneOff["0"] === 0, "t digital 1 does not send");
+var loneOn = nodeGraphTSeriesSample({ digital: 1, hasDigital: true, type: "t" });
+assert(loneOn["0"] === 1, "t digital >0 sends");
+
+var loneTiny = nodeGraphTSeriesSample({ digital: 0.01, hasDigital: true, type: "t" });
+assert(loneTiny["0"] === 1, "t digital any >0 sends");
 
 console.log("ok t-series");

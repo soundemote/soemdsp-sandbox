@@ -1,8 +1,7 @@
 // t-series: transistor-switched paths.
-//   t   → out 0            send / don't send
-//   nt  → outs 0 … n       through 10t (0 … 10)
-// out[i] = in * gain[i]. Open In = 1. Digital is one-hot (round + equality).
-// Analog 0…1 windows neighbors: max(0, 1 − |addr − i|). Lone t analog is conduction.
+//   t   → out 0            Digital = presence (any > 0 → send); Analog = conduction 0…1
+//   nt  → outs 0 … n       Digital = one-hot index; Analog = windowed address
+// out[i] = in * gain[i]. Open In = 1.
 
 const NODE_GRAPH_T_SERIES_TYPES = Object.freeze([
   "t", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10",
@@ -37,15 +36,23 @@ function nodeGraphTSeriesSample(options = {}) {
   const hasIn = Boolean(options.hasIn);
   const unit = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.analog)));
   const addr = unit * lastIndex;
-  const idx = Math.round(nodeGraphFiniteNumber(options.digital));
-  const inRange = Number(idx >= 0) * Number(idx <= lastIndex);
+  const digitalRaw = nodeGraphFiniteNumber(options.digital);
   const lone = 1 + (unit - 1) * Number(lastIndex === 0);
   const carrier = hasIn
     ? (nodeGraphFiniteNumber(options.input))
     : Number(hasAnalog || hasDigital);
   const out = {};
   for (let i = 0; i < count; i += 1) {
-    const digitalGain = Number(i === idx) * inRange * Number(hasDigital);
+    // Lone t: Digital = gate presence (any > 0 → send). Multi-t: one-hot index.
+    let digitalGain = 0;
+    if (hasDigital) {
+      if (lastIndex === 0) {
+        digitalGain = Number(i === 0) * Number(digitalRaw > 0);
+      } else {
+        const idx = Math.round(digitalRaw);
+        digitalGain = Number(i === idx) * Number(idx >= 0 && idx <= lastIndex);
+      }
+    }
     const analogGain = Math.max(0, 1 - Math.abs(addr - i)) * lone * Number(hasAnalog);
     out[String(i)] = carrier * Math.max(digitalGain, analogGain);
   }
