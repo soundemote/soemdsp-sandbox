@@ -2470,11 +2470,61 @@ function openNodeRoundShapeContextMenu(event) {
   return false;
 }
 
+/**
+ * Right-click on a module display face → Display Settings (not Module Settings).
+ * Includes envelope / filter curves (Ping Envelope) and other screen faces.
+ * Hits on header, params, or ports are ignored so those keep Module/Parameter Settings.
+ */
 function openNodeScopeContextMenu(event) {
-  const contextScope = event.target.closest?.(
-    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-value-lcd-face, .node-ray-bouncer-face, .node-asciiscope-face, .node-matrix-face, .node-round-shape-display, .node-basic-shape-display, .node-softwave-osc-display",
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  if (target.closest?.(
+    ".dsp-node-header, .node-parameter-row, .node-port, .node-param-port, .node-io-row, .node-slider-readout",
+  )) {
+    return false;
+  }
+  const contextScope = target.closest?.(
+    [
+      ".node-module-scope-window",
+      ".node-led-face",
+      ".node-number-readout-face",
+      ".node-value-lcd-face",
+      ".node-ray-bouncer-face",
+      ".node-asciiscope-face",
+      ".node-matrix-face",
+      ".node-matrix-display-face",
+      ".node-round-shape-display",
+      ".node-basic-shape-display",
+      ".node-softwave-osc-display",
+      ".node-envelope-curve-display",
+      ".node-filter-curve-display",
+      ".node-phone-tone-display",
+      ".node-pulse-curve-display",
+      ".node-harmonic-series-display",
+      ".node-wall-room-display",
+      ".node-fbm-field-face",
+      ".node-raster-rgb-face",
+      ".node-module-graph-display",
+      ".node-additive-filter-curve-display",
+      ".node-text-box-body",
+      ".node-keypad-face",
+      ".node-xy-pad",
+      ".node-phosphor-waveform-display",
+      "[data-light-source='screen']",
+      ".node-module-face",
+    ].join(", "),
   );
-  const nodeId = contextScope?.dataset?.node || "";
+  if (!contextScope) {
+    return false;
+  }
+  // Prefer explicit data-node on the face; else climb to the module shell.
+  const nodeId = String(
+    contextScope.dataset?.node
+    || contextScope.closest?.(".dsp-node")?.dataset?.node
+    || "",
+  ).trim();
   const patchNode = nodeId ? nodeGraphPatchNode(nodeId) : null;
   if (!nodeId || !patchNode) {
     return false;
@@ -2482,14 +2532,17 @@ function openNodeScopeContextMenu(event) {
 
   event.preventDefault();
   event.stopPropagation();
-  closeNodeSceneContextMenu();
+  event.stopImmediatePropagation?.();
+  if (typeof closeNodeSceneContextMenu === "function") {
+    closeNodeSceneContextMenu();
+  }
   nodeGraphMvp.sceneContextPoint = null;
-  nodeGraphMvp.sceneContextTargetNode = null;
+  nodeGraphMvp.sceneContextTargetNode = nodeId;
   nodeGraphMvp.sceneContextTargetWire = null;
   nodeGraphMvp.scopeContextTargetNode = nodeId;
+  nodeGraphMvp.lastModuleActionTargetNode = nodeId;
 
-  // Hypersaw / RobinSupersaw: open Hypersaw Display Settings (line thickness).
-  // LED uses Vector Dot Display Settings.
+  // Display Settings for every module (blank + Show in canvas if no face schema).
   if (typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
     return true;
   }
