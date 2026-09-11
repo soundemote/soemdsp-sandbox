@@ -2822,7 +2822,22 @@ function nodeGraphAudioPlayerVideoscopePaintXy(context, width, height, channels,
   const count = Math.max(1, win.end - win.start);
   const step = Math.max(1, Math.floor(count / Math.max(width, 256)));
   context.strokeStyle = ink;
-  context.lineWidth = Math.max(1, Math.round((nodeGraphFiniteNumber(settings?.traceWidth, 1.5))));
+  {
+    const faceMin = typeof displayFaceMinSide === "function"
+      ? displayFaceMinSide(width, height)
+      : Math.min(width, height);
+    const unit = settings && Number.isFinite(Number(settings.traceWidth))
+      ? Number(settings.traceWidth)
+      : (typeof nodeGraphPhosphorWaveformDefaultSettings !== "undefined"
+        ? nodeGraphPhosphorWaveformDefaultSettings.traceWidth
+        : 1.5 / 256);
+    context.lineWidth = Math.max(
+      0.5,
+      typeof displayScaleToPx === "function"
+        ? displayScaleToPx(unit, faceMin, 1)
+        : unit * faceMin,
+    );
+  }
   context.beginPath();
   let started = false;
   for (let i = win.start; i < win.end; i += step) {
@@ -2871,7 +2886,22 @@ function nodeGraphAudioPlayerVideoscopePaintLr(context, width, height, channels,
     const amp = paneH * 0.42;
     const count = Math.max(1, win.end - win.start);
     context.strokeStyle = color;
-    context.lineWidth = Math.max(1, Math.round(width / 400));
+    {
+      const faceMin = typeof displayFaceMinSide === "function"
+        ? displayFaceMinSide(width, height)
+        : Math.min(width, height);
+      const unit = settings && Number.isFinite(Number(settings.traceWidth))
+        ? Number(settings.traceWidth)
+        : (typeof nodeGraphPhosphorWaveformDefaultSettings !== "undefined"
+          ? nodeGraphPhosphorWaveformDefaultSettings.traceWidth
+          : 1.5 / 256);
+      context.lineWidth = Math.max(
+        0.5,
+        typeof displayScaleToPx === "function"
+          ? displayScaleToPx(unit, faceMin, 1)
+          : unit * faceMin,
+      );
+    }
     context.beginPath();
     for (let x = 0; x < width; x += 1) {
       const i0 = win.start + Math.floor((x / width) * count);

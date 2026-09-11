@@ -916,7 +916,8 @@ function readNodeGraphTraceDisplaySettingsForm() {
       ["nodePhosphorWaveformBackgroundBrightnessInput", "backgroundBrightness"],
       ["nodePhosphorWaveformCornerRadiusInput", "cornerRadius"],
       ["nodePhosphorWaveformEdgeSpacingInput", "edgeSpacing"],
-      ["nodePhosphorWaveformLabelInsetInput", "labelInsetPx"],
+      ["nodePhosphorWaveformLabelInsetInput", "labelInset"],
+      ["nodePhosphorWaveformFontSizeInput", "fontSize"],
       ["nodePhosphorWaveformPlaylistFadeInput", "playlistFade"],
       ["nodePhosphorWaveformPlaylistVisibleCountInput", "playlistVisibleCount"],
     ];

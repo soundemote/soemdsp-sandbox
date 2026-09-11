@@ -448,6 +448,26 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 
 ---
 
+## 15. Display length scale (0–1 of face min-edge)
+
+**Everything geometric on a module face / canvas is stored as 0…1 of `min(faceW, faceH)`.** No percent, rem, or absolute px in display settings.
+
+| Store | Resolve at draw |
+|-------|-----------------|
+| `unit01` in `[0, 1]` | `px = unit01 * min(width, height)` in the **same coordinate space** being drawn |
+
+- **CSS chrome** (panel inset vars, DOM label padding): `width`/`height` are CSS pixels of the face cell.
+- **Canvas paint** (trace stroke, playhead, HUD font): `width`/`height` are the canvas’s device-pixel buffer size.
+- **Helpers SSOT:** `public/lib/visual/display-scale.js` — `displayFaceMinSide`, `clampDisplayUnit01`, `displayScaleToPx`. Prefer these over ad-hoc `* minSide` copies.
+- **Defaults** may be authored via `displayScaleFromRefCssPx(cssPx)` (reference face = 256 CSS px) so new defaults match an old CSS-px look. That reference is **not** a runtime scale — live faces always use their own min-edge.
+- **Do not** invent dual keys (`labelInsetPx` + `labelInset`) or silent px→unit migrations (see §1). Rename clean; old patches reset to default.
+- **Brightness / hue / fade** that are already 0…1 stay 0…1 (not lengths). **Time** stays seconds. **Counts** stay integers.
+- Friendlier authoring UI (percent readout, etc.) is a later step — storage stays 0…1.
+
+First consumer: Music Player `phosphorWaveformSettings` (`traceWidth`, `scrollLineWidth`, `labelInset`, `fontSize`, `cornerRadius`, `edgeSpacing`). Migrate other displays the same way as they are touched.
+
+---
+
 ## Quick “should I?” checklist
 
 | Idea | Usually |
@@ -471,6 +491,8 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 | Reserve 8 s × N delay rings in BSS for empty slots | **No** — size to live delay (§2b) |
 | “Longer delay = more CPU” | **No** — same tap math (§2b) |
 | Always-visible resize grip on panels | **No** — hover / drag only (§14) |
+| Store face font / stroke / inset as CSS px or % | **No** — 0…1 of face min-edge (§15) |
+| Dual `labelInsetPx` + `labelInset` for compatibility | **No** — one key, clean rename (§1 / §15) |
 | Wipe Control dirty-cache / re-push all knobs every `setParams` | **No** — stickiness (§0b); cold push only after compile/destroy |
 | Nested DSP coeff objects in instance pools that lose writes | **No** — flat fields on the instance; smoke “set once, process many” |
 
@@ -481,3 +503,4 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 Add new rules here when the same class of mistake happens twice. Keep this file short and enforceable.
 
 - **2026-09-03 — Parameter stickiness:** A continuous knob must chase to the written target and **stay**. Two failures of the same class: (1) JS tied `forceAll` param sync to `planSerial` so every gesture frame wiped the dirty cache and re-stormed `set_param` / smooth / domain cells, fighting Control chase; (2) ping-pong feedback coeffs lived in nested structs whose writes did not survive across `set_params` / buffer setup, so the DSP ran pass-through until the next write (sounded correct only while dragging). Fix: cold force-push only after graph compile/destroy; store live coeffs as plain fields on the instance; build smoke must **set once then `process_block` many times** without rewriting params.
+- **2026-09-10 — Display length 0–1:** Face geometry mixed CSS px (`labelInsetPx`, `traceWidth`), percent (`cornerRadius` 0–100), and true 0–1 (`edgeSpacing`). Normalize all face lengths to **0…1 of min(faceW, faceH)** via `display-scale.js` (§15). No percent alias; friendlier UI later.
