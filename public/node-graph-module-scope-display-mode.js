@@ -91,11 +91,14 @@ function normalizeNodeGraphDisplayMode(mode, type = "", index = 0) {
   const source = raw.source && typeof raw.source === "object"
     ? { ...raw.source }
     : nodeGraphModuleImplicitDisplayModeSource(type, renderer);
-  // Explicit settingsSchema wins; else derive from renderer — empty means blank settings.
-  const explicitSchema = String(raw.settingsSchema || "").trim();
-  const settingsSchema = explicitSchema
-    ? nodeGraphDisplayModeSettingsSchemaForRenderer(explicitSchema)
-    : nodeGraphDisplayModeSettingsSchemaForRenderer(renderer);
+  // Explicit settingsSchema (including "") wins. Only invent from renderer when
+  // the field was omitted — never treat "" as missing (that re-poisoned trace).
+  let settingsSchema;
+  if (Object.prototype.hasOwnProperty.call(raw, "settingsSchema")) {
+    settingsSchema = nodeGraphDisplayModeSettingsSchemaForRenderer(raw.settingsSchema);
+  } else {
+    settingsSchema = nodeGraphDisplayModeSettingsSchemaForRenderer(renderer);
+  }
   return {
     key,
     label: String(raw.label || key).trim() || key,
