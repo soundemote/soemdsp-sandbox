@@ -1894,19 +1894,47 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     const conns = this.inputConnections?.get?.(polyKey);
     let low = 0;
     let high = 0;
+    // Phase-muxed Play/Arp Keys only carry low OR high each sample. Keep the
+    // previous sample per cable and OR both halves so held bits are never lost.
+    if (!this._metaPolyPhasePrev) {
+      this._metaPolyPhasePrev = new Map();
+    }
+    const prevMap = this._metaPolyPhasePrev;
     if (conns && conns.length) {
       for (let i = 0; i < conns.length; i += 1) {
         const c = conns[i];
+        const srcId = String(c.sourceNode || "");
+        const srcPort = String(c.sourcePort || "");
+        const cableKey = `${srcId}\0${srcPort}`;
+
+        // Arp Keys SSOT = gold latch bitmasks on the worklet (ctrl+click).
+        if (srcPort === "Arp Keys") {
+          low |= Math.trunc(Number(this.midiKeyboardHeldKeysLowBitmask) || 0);
+          high |= Math.trunc(Number(this.midiKeyboardHeldKeysHighBitmask) || 0);
+        }
+        // Play Keys: also OR live MIDI note mask when present.
+        if (srcPort === "Play Keys") {
+          low |= Math.trunc(Number(this.midiKeyboardPlayKeysLowBitmask) || 0);
+          high |= Math.trunc(Number(this.midiKeyboardPlayKeysHighBitmask) || 0);
+        }
+
         let raw = 0;
         if (typeof this.readEfficientModSourceSample === "function") {
-          raw = Number(this.readEfficientModSourceSample(c.sourceNode, c.sourcePort));
+          raw = Number(this.readEfficientModSourceSample(srcId, srcPort));
         } else {
-          const out = this.nodeOutputs?.get?.(String(c.sourceNode));
-          raw = Number(out?.[c.sourcePort] ?? 0);
+          const out = this.nodeOutputs?.get?.(srcId);
+          raw = Number(out?.[srcPort] ?? 0);
         }
-        const d = demux(raw);
-        low = Math.trunc(low) | Math.trunc(d.low);
-        high = Math.trunc(high) | Math.trunc(d.high);
+        const cur = demux(raw);
+        low |= Math.trunc(cur.low);
+        high |= Math.trunc(cur.high);
+        const prevRaw = prevMap.get(cableKey);
+        if (prevRaw != null) {
+          const prev = demux(prevRaw);
+          low |= Math.trunc(prev.low);
+          high |= Math.trunc(prev.high);
+        }
+        prevMap.set(cableKey, raw);
       }
     }
     const notes = [];
