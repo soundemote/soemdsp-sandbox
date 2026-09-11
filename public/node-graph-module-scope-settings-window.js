@@ -19,7 +19,7 @@ function nodeGraphTraceDisplaySettingsElement() {
         id="nodeTraceDisplaySettingsDragHandle"
         class="scene-context-drag-handle node-drag-handle"
         type="button"
-        aria-label="Move Trace Display drawing settings">&#x2725;</button>
+        aria-label="Move Display settings">&#x2725;</button>
       <div class="scene-context-title">
         <span id="nodeTraceDisplaySettingsTitle">DISPLAY</span>
         <small id="nodeTraceDisplaySettingsSubtitle">Settings</small>
@@ -28,17 +28,24 @@ function nodeGraphTraceDisplaySettingsElement() {
         id="nodeTraceDisplaySettingsClose"
         class="panel-close-button"
         type="button"
-        aria-label="Close Trace Display drawing settings">
+        aria-label="Close Display settings">
         <span class="panel-close-glyph" aria-hidden="true"></span>
       </button>
     </div>
     <div class="metadata-popover-grid node-trace-display-settings-grid">
       <div id="nodeTraceDisplaySettingsTarget" class="node-trace-display-settings-target">No module</div>
-      <div class="metadata-field-actions" aria-label="Trace Display drawing actions">
+      <div class="metadata-field-actions" aria-label="Display settings actions">
         <button id="nodeTraceDisplaySettingsCopy" type="button">Copy</button>
         <button id="nodeTraceDisplaySettingsPaste" type="button">Paste</button>
         <button id="nodeTraceDisplaySettingsDefaults" type="button">Defaults</button>
       </div>
+      <label class="node-layout-canvas-pin-label node-display-settings-canvas-pin" for="nodeLayoutCanvasShowInCanvas">
+        <input
+          id="nodeLayoutCanvasShowInCanvas"
+          type="checkbox"
+          data-tooltip-key="displaySettings.showInCanvas">
+        <span>Show in canvas</span>
+      </label>
       <div data-display-settings-body class="node-trace-display-settings-body"></div>
     </div>
     <div
@@ -359,10 +366,20 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
     return;
   }
   const settingsSchema = node
-    ? nodeGraphModuleDisplaySettingsSchemaForNode(node)
+    ? (typeof nodeGraphModuleDisplaySettingsSchemaForNode === "function"
+      ? nodeGraphModuleDisplaySettingsSchemaForNode(node)
+      : "")
     : "";
-  // Global defaults editor uses plain Trace schema when node is null.
-  const formType = settingsSchema || "trace";
+  // Never fall back to phosphor/trace for modules without a schema — blank body.
+  // Global defaults editor (node null) still uses plain Trace.
+  const hasLocal = Boolean(
+    settingsSchema
+    && typeof nodeGraphModuleDisplayTypeHasLocalSettings === "function"
+    && nodeGraphModuleDisplayTypeHasLocalSettings(settingsSchema),
+  );
+  const formType = node
+    ? (hasLocal ? settingsSchema : "blank")
+    : (settingsSchema || "trace");
   // Schema-exclusive body: rebuild when form type or primary node changes
   // (LCD↔LED / module A→B). Multi-select cohort only updates dataset + form write.
   const nodeId = node?.id ? String(node.id) : "";
@@ -383,6 +400,9 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
     syncNodeGraphTraceDisplaySettingsClipboardButtons();
   }
   popover.dataset.displaySettingsTargetNodes = multiKey;
+  if (typeof syncNodeGraphLayoutCanvasSettingsControl === "function") {
+    syncNodeGraphLayoutCanvasSettingsControl();
+  }
 }
 
 function nodeGraphTraceDisplaySettingsFormType() {
@@ -877,10 +897,7 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   if (node.type === "macroControls" && typeof openNodeGraphMacroControlsDisplaySettings === "function") {
     return openNodeGraphMacroControlsDisplaySettings(event);
   }
-  // LED uses Vector Dot Display Settings — same popover as other faces.
-  if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
-    return false;
-  }
+  // Every module opens Display Settings (blank body if no face schema).
   // Do not change graph selection. Pin the form to this face; follow-key is
   // the current selection so wire redraws do not steal the inspector.
   // Multi-select: if every selected module shares this display schema, edit all.
@@ -939,8 +956,18 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   );
   setNodeGraphTraceDisplaySettingsFormType(node);
   // Seed from the node bag only — never from a previous form read.
-  writeNodeGraphTraceDisplaySettingsForm(nodeGraphTraceDisplayCurrentSettingsForFormType());
+  // Blank schema (no face controls) skips phosphor/trace form write.
+  const formType = nodeGraphTraceDisplaySettingsFormType();
+  if (formType && formType !== "blank" && formType !== "none") {
+    writeNodeGraphTraceDisplaySettingsForm(nodeGraphTraceDisplayCurrentSettingsForFormType());
+  }
   setNodeGraphTraceDisplaySettingsBlankState(false);
+  if (typeof bindNodeGraphLayoutCanvasSettingsControl === "function") {
+    bindNodeGraphLayoutCanvasSettingsControl();
+  }
+  if (typeof syncNodeGraphLayoutCanvasSettingsControl === "function") {
+    syncNodeGraphLayoutCanvasSettingsControl();
+  }
   if (typeof discardOpenNodeGraphTraceDisplaySettingsEdits === "function") {
     discardOpenNodeGraphTraceDisplaySettingsEdits();
   }

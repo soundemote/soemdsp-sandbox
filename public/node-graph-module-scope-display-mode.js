@@ -235,11 +235,9 @@ function nodeGraphNodeHasLocalDisplaySettings(node) {
 }
 
 
+/** Every module can open Display Settings (blank body if no face schema). */
 function nodeGraphNodeCanOpenDisplaySettings(node) {
-  return Boolean(
-    nodeGraphNodeHasLocalDisplaySettings(node) ||
-    (typeof nodeGraphPatchNodeHasHideableOscilloscope === "function" && nodeGraphPatchNodeHasHideableOscilloscope(node)),
-  );
+  return Boolean(node && String(node.id || "").trim());
 }
 
 

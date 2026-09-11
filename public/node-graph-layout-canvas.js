@@ -215,23 +215,22 @@ function toggleNodeGraphLayoutCanvasView(options = {}) {
   return nodeGraphLayoutCanvasOpen(options);
 }
 
+/** Sync “Show in canvas” in Display Settings to the inspector’s target module. */
 function syncNodeGraphLayoutCanvasSettingsControl() {
   const input = document.getElementById("nodeLayoutCanvasShowInCanvas");
   if (!(input instanceof HTMLInputElement)) {
     return;
   }
-  const ids = typeof nodeGraphSelectedNodeIdsInOrder === "function"
-    ? nodeGraphSelectedNodeIdsInOrder()
-    : (typeof nodeGraphSelectedNodeIds === "function" ? [...nodeGraphSelectedNodeIds()] : []);
-  const id = ids.length === 1 ? String(ids[0] || "") : "";
-  const eligible = Boolean(id) && typeof nodeGraphScreenSoloFindFace === "function"
-    && Boolean(nodeGraphScreenSoloFindFace(id));
-  input.disabled = !eligible;
-  input.checked = eligible && nodeGraphLayoutCanvasIsPinned(id);
+  const id = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+    ? String(nodeGraphTraceDisplaySettingsTargetNodeId() || "").trim()
+    : String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
+  const hasTarget = Boolean(id && typeof nodeGraphPatchNode === "function" && nodeGraphPatchNode(id));
+  input.disabled = !hasTarget;
+  input.checked = hasTarget && nodeGraphLayoutCanvasIsPinned(id);
   const row = input.closest("label") || input.parentElement;
   if (row) {
     row.hidden = false;
-    row.classList.toggle("is-disabled", !eligible);
+    row.classList.toggle("is-disabled", !hasTarget);
   }
 }
 
@@ -242,10 +241,9 @@ function bindNodeGraphLayoutCanvasSettingsControl() {
   }
   input.dataset.bound = "true";
   input.addEventListener("change", () => {
-    const ids = typeof nodeGraphSelectedNodeIdsInOrder === "function"
-      ? nodeGraphSelectedNodeIdsInOrder()
-      : [];
-    const id = ids.length === 1 ? String(ids[0] || "") : "";
+    const id = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+      ? String(nodeGraphTraceDisplaySettingsTargetNodeId() || "").trim()
+      : String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
     if (!id) {
       input.checked = false;
       return;
@@ -267,18 +265,17 @@ function bindNodeGraphLayoutCanvasEvents() {
   }
   document.documentElement.dataset.layoutCanvasBound = "true";
   bindNodeGraphLayoutCanvasSettingsControl();
-  // Keep checkbox in sync when selection changes.
   document.addEventListener("nodegraph-selection-changed", () => {
     syncNodeGraphLayoutCanvasSettingsControl();
   });
-  // Fallback: poll lightly when display settings menu opens.
-  const menu = document.getElementById("nodeGlobalScopeMenu");
-  if (menu) {
+  const popover = document.getElementById("nodeTraceDisplaySettingsPopover");
+  if (popover) {
     const obs = new MutationObserver(() => {
-      if (!menu.hidden) {
+      if (!popover.hidden) {
+        bindNodeGraphLayoutCanvasSettingsControl();
         syncNodeGraphLayoutCanvasSettingsControl();
       }
     });
-    obs.observe(menu, { attributes: true, attributeFilter: ["hidden"] });
+    obs.observe(popover, { attributes: true, attributeFilter: ["hidden"] });
   }
 }
