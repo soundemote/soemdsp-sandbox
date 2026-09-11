@@ -6996,7 +6996,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   --node-jack-cyan: #00e5ff;     /* C — Parameter / block-rate ZOH in/out */
   --node-jack-yellow: #ffe600;   /* Y — Graph chunk in/out */
   --node-jack-magenta: #e040fb;  /* M — reserved unused */
-  --node-jack-black: #111111;    /* K — reserved unused */
+  /* K / Voices — solid opaque black (never color-mix toward transparent;
+     that reads as low-alpha haze on dark chrome). */
+  --node-jack-black: #000000;
   /* Legacy turquoise → same ink as cyan (prefer data-jack-channel="cyan"). */
   --node-jack-turquoise: var(--node-jack-cyan);
   --node-port-used-brightness: 85%;
@@ -16773,12 +16775,11 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 
 .dsp-node .node-port.output[data-jack-channel="black"],
 .dsp-node .node-io-row.output[data-jack-channel="black"] .node-port.output {
+  --node-output-fill: var(--node-jack-black);
   --node-output-stroke: var(--node-jack-black);
-  --node-port-crescent-stroke: color-mix(
-    in srgb,
-    var(--node-jack-black) var(--node-port-paint-brightness),
-    transparent
-  );
+  /* Full opacity — transparent mix makes black look washed out. */
+  --node-port-crescent-stroke: var(--node-jack-black);
+  --node-port-paint-brightness: 100%;
 }
 
 /* Analog inlet — same gold as analog outlets. RGB inlets override. */
@@ -16864,13 +16865,11 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 }
 
 .dsp-node .node-port.input[data-jack-channel="black"]:not(.node-param-port),
-.dsp-node .node-io-row.input[data-jack-channel="black"]:not([data-digital-signal]) .node-port.input:not(.node-param-port) {
+.dsp-node .node-io-row.input[data-jack-channel="black"] .node-port.input:not(.node-param-port) {
+  --node-input-fill: var(--node-jack-black);
   --node-input-stroke: var(--node-jack-black);
-  --node-port-crescent-stroke: color-mix(
-    in srgb,
-    var(--node-jack-black) var(--node-port-paint-brightness),
-    transparent
-  );
+  --node-port-crescent-stroke: var(--node-jack-black);
+  --node-port-paint-brightness: 100%;
 }
 
 .node-io-label {

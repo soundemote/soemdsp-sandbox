@@ -170,10 +170,10 @@ function nodeGraphJackChannelCssColor(channel) {
       : "#e040fb";
   }
   if (channel === "black" || channel === "k") {
-    // Reserved (CMYK K) — unused for live jack assignment.
+    // Voices / CMYK K — solid opaque black (no washed #111 + alpha mix).
     return typeof nodeGraphCssColor === "function"
-      ? nodeGraphCssColor("--node-jack-black", "#111111")
-      : "#111111";
+      ? nodeGraphCssColor("--node-jack-black", "#000000")
+      : "#000000";
   }
   return "";
 }
