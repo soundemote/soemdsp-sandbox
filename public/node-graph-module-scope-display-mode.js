@@ -122,17 +122,13 @@ function nodeGraphModuleImplicitDisplayModeForType(type) {
   if (renderer === "legacy") {
     return null;
   }
-  // Invented Instant Trace face (no explicit displayType): paint as trace,
-  // but settingsSchema stays blank — do not open phosphor Display Settings.
-  const explicitDisplayType = String(nodeGraphModuleDefinitions?.[type]?.displayType || "").trim();
-  const settingsSchema = explicitDisplayType
-    ? nodeGraphDisplayModeSettingsSchemaForRenderer(explicitDisplayType)
-    : "";
+  // Instant Trace face (explicit or LayoutA invent-trace) → Instant Trace settings.
+  // Custom layouts (envelopeCurve / filterCurve) never reach here (legacy).
   return normalizeNodeGraphDisplayMode({
     key: renderer,
-    label: settingsSchema || "display",
+    label: nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) || renderer,
     renderer,
-    settingsSchema,
+    settingsSchema: nodeGraphDisplayModeSettingsSchemaForRenderer(renderer),
     source: nodeGraphModuleImplicitDisplayModeSource(type, renderer),
   }, type, 0);
 }
@@ -184,20 +180,20 @@ function nodeGraphModuleDisplayRendererForNode(node) {
 
 /**
  * Display Settings form schema for a node.
- * Explicit mode.settingsSchema wins (may be "").
- * Else only modules with an EXPLICIT definition.displayType get a schema from
- * that type — invented Instant Trace faces (Flower Child, …) stay blank.
+ * Mode.settingsSchema wins (including ""). Instant Trace faces (explicit or
+ * LayoutA invent-trace) use Instant Trace settings. Custom layout faces
+ * (envelopeCurve / filterCurve → legacy) have no mode → blank settings.
  */
 function nodeGraphModuleDisplaySettingsSchemaForNode(node) {
   const mode = nodeGraphModuleSelectedDisplayMode(node);
   if (mode && Object.prototype.hasOwnProperty.call(mode, "settingsSchema")) {
     return String(mode.settingsSchema || "");
   }
-  const explicit = String(nodeGraphModuleDefinitions?.[node?.type]?.displayType || "").trim();
-  if (!explicit) {
+  const renderer = nodeGraphModuleDisplayRendererForNode(node);
+  if (!renderer || renderer === "legacy") {
     return "";
   }
-  return nodeGraphDisplayModeSettingsSchemaForRenderer(explicit);
+  return nodeGraphDisplayModeSettingsSchemaForRenderer(renderer);
 }
 
 

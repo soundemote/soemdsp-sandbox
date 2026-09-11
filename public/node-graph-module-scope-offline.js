@@ -516,13 +516,11 @@ function nodeGraphModuleDisplayRendererForSlot(slot) {
 /**
  * Face renderer for a module type (what paints in the display row).
  *
- * - Explicit definition.displayType → that renderer.
+ * - Explicit definition.displayType → that renderer (+ matching settings).
  * - Custom layout faces (envelopeCurve / filterCurve / …) → "legacy"
- *   (layout code owns the face; not Instant Trace).
- * - Default LayoutA DSP (no layout / no displayType) → "trace" FACE only
- *   (historical Instant Trace monitor on filters/utilities). Settings must
- *   stay blank unless displayType is explicit — see
- *   nodeGraphModuleDisplaySettingsSchemaForNode.
+ *   (layout owns the face; blank Display Settings + Show in canvas).
+ * - Default LayoutA DSP with Instant Trace scope window (e.g. Flower Child
+ *   Filter) → "trace" face AND Instant Trace Display Settings.
  */
 function nodeGraphModuleDeclaredDisplayTypeForType(type) {
   let declared = nodeGraphModuleDefinitions?.[type]?.displayType;
@@ -539,7 +537,7 @@ function nodeGraphModuleDeclaredDisplayTypeForType(type) {
     && nodeGraphModuleTypeHasCustomDisplayArea(type)) {
     return "legacy";
   }
-  // Default LayoutA scope window: Instant Trace face (paint), not settings.
+  // LayoutA Instant Trace monitors (Flower Child Filter, …).
   if (nodeGraphModuleDefinitions?.[type]) {
     return "trace";
   }
