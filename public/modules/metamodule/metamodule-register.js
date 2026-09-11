@@ -1,4 +1,4 @@
-// Boundary thru portals (flat-graph safe — no mic bleed / speaker mix).
+// Boundary thru portals (flat-graph safe â€” no mic bleed / speaker mix).
 // TitleBarAndPorts: title + In/Out jacks only (no face, no compactTile port hack).
 registerNodeGraphChromelessModule("metamoduleIn", {
   label: "Meta In",
@@ -7,7 +7,7 @@ registerNodeGraphChromelessModule("metamoduleIn", {
     chrome: "TitleBarAndPorts",
     planRole: "processor",
     planFreeRun: true,
-    // Spawn size only — user may still resize freely (no min clamp).
+    // Spawn size only â€” user may still resize freely (no min clamp).
     defaultWidthGu: 4,
     defaultHeightGu: 3,
     hasFace: false,
@@ -32,7 +32,7 @@ registerNodeGraphChromelessModule("metamoduleOut", {
     chrome: "TitleBarAndPorts",
     planRole: "processor",
     planFreeRun: true,
-    // Spawn size only — user may still resize freely (no min clamp).
+    // Spawn size only â€” user may still resize freely (no min clamp).
     defaultWidthGu: 4,
     defaultHeightGu: 3,
     hasFace: false,
@@ -50,21 +50,21 @@ registerNodeGraphChromelessModule("metamoduleOut", {
   },
 });
 
-// Metamodule shell — group + optional polyphony (Playmode Off = group only).
-// Chromeless LayoutB: Voices / Playmode + Voices + Amplitude inlets.
+// Metamodule shell â€” group + optional polyphony (Playmode Off = group only).
+// Chromeless: Polyphony (voice-manager in, black) + Amplitude inlets.
 registerNodeGraphChromelessModule("metamodule", {
   label: "Metamodule",
-  // Not LayoutB shell — MetamoduleLayout stacks shared IO above the face.
+  // Not LayoutB shell â€” MetamoduleLayout stacks shared IO above the face.
   solidModule: false,
   customDisplayArea: true,
   definition: {
     planRole: "monitor",
     layoutOnly: true,
-    // IO above face (shared LayoutA jack/label chrome — no private dialect).
+    // IO above face (shared LayoutA jack/label chrome â€” no private dialect).
     chrome: "MetamoduleLayout",
     defaultWidthGu: 4,
     // Outer auto-height from MetamoduleLayout content (header+IO+face+params).
-    // Do not pin defaultHeightGu — a short outer crushed the param band.
+    // Do not pin defaultHeightGu â€” a short outer crushed the param band.
     displayHeightGu: 2,
     // Polyphony = voice-manager inlet (black). Amplitude = group VCA CV (gold).
     inputs: ["Polyphony", "Amplitude"],

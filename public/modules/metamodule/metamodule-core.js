@@ -1,4 +1,4 @@
-// Metamodule — group shell + optional polyphony (Playmode Off = group only).
+// Metamodule â€” group shell + optional polyphony (Playmode Off = group only).
 // Children stay in patch.nodes with ownerMetamoduleId; Root view hides them.
 
 const NODE_GRAPH_METAMODULE_TYPE = "metamodule";
@@ -53,7 +53,7 @@ function nodeGraphMetamoduleNodeVisibleInCurrentView(node) {
 
 /**
  * Drop Meta In/Out that are not owned and not listed on any metamodule.boundary
- * (invisible on Root but still in the audio graph — leftover from failed groups).
+ * (invisible on Root but still in the audio graph â€” leftover from failed groups).
  * Mutates patch.nodes / connections. Returns removed count.
  */
 function nodeGraphMetamodulePruneOrphanPortals(patch = nodeGraphMvp?.patch) {
@@ -113,7 +113,7 @@ function nodeGraphMetamoduleRepairMiswiredOutlets(patch = nodeGraphMvp?.patch) {
 
 /**
  * Re-apply ownership from metamodule.boundary / displays (fixes older patches).
- * Never steals a node already owned by another metamodule — strips the duplicate
+ * Never steals a node already owned by another metamodule â€” strips the duplicate
  * listing from this meta instead (copy-shell bugs used to fight over children).
  */
 function nodeGraphRepairMetamoduleOwnership(patch = nodeGraphMvp?.patch) {
@@ -147,7 +147,7 @@ function nodeGraphRepairMetamoduleOwnership(patch = nodeGraphMvp?.patch) {
       } else if (owner === metaId) {
         nextDisplays.push(entry);
       } else {
-        // Owned by another meta — do not steal; drop this meta's listing.
+        // Owned by another meta â€” do not steal; drop this meta's listing.
         fixed += 1;
       }
     }
@@ -182,7 +182,7 @@ function nodeGraphRepairMetamoduleOwnership(patch = nodeGraphMvp?.patch) {
 
 /**
  * Enter/exit must update element.hidden on already-mounted modules.
- * Also clear viewport-asleep on newly shown modules — hidden nodes get culled
+ * Also clear viewport-asleep on newly shown modules â€” hidden nodes get culled
  * (display:none via .viewport-asleep), and without a wake the top view looks
  * empty until the user pans/zooms (which runs scheduleNodeGraphViewportCullRefresh).
  */
@@ -231,7 +231,7 @@ function nodeGraphSyncMetamoduleVisibilityToDom() {
     )).length;
     workspace.classList.toggle("empty-patch", visibleCount === 0);
   }
-  // Wires need a layout frame after unhide + cull wake (ports were 0×0 while asleep).
+  // Wires need a layout frame after unhide + cull wake (ports were 0Ã—0 while asleep).
   const redrawWires = () => {
     if (typeof drawNodeGraphWires === "function") {
       drawNodeGraphWires();
@@ -253,7 +253,7 @@ function nodeGraphSyncMetamoduleVisibilityToDom() {
 }
 
 function nodeGraphRefreshMetamoduleViewDom() {
-  // Dedicated visibility sync — do NOT use skipExistingSync (skips hidden updates).
+  // Dedicated visibility sync â€” do NOT use skipExistingSync (skips hidden updates).
   nodeGraphSyncMetamoduleVisibilityToDom();
 }
 
@@ -316,7 +316,7 @@ function nodeGraphSelectionCanGroupIntoMetamodule(selection = nodeGraphMvp?.sele
     if (nodeGraphIsMetamoduleBoundaryType(node.type)) return false;
     if (node.ownerMetamoduleId) return false;
     if (typeof nodeGraphNodeCanBeDeleted === "function" && !nodeGraphNodeCanBeDeleted(node)) {
-      // Allow grouping undeleteable singletons? No — keep out of groups for v1.
+      // Allow grouping undeleteable singletons? No â€” keep out of groups for v1.
       if (node.type === "output" || node.type === "audioInput") return false;
     }
   }
@@ -407,8 +407,8 @@ function nodeGraphMetamoduleAllocateShellPortName(entry, portalNode, usedNames, 
     if (name.startsWith("Out ")) name = name.slice(4).trim();
   }
   if (!name) name = "Port";
-  // Voices / Amplitude are reserved shell inlets — not Meta In boundary names.
-  // Do not invent "In Voices"; collide → generic Port (+ numeric suffix below).
+  // Polyphony / Amplitude are reserved shell inlets — not Meta In boundary names.
+  // Do not invent "In Polyphony"; collide → generic Port (+ numeric suffix below).
   if (entry?.direction !== "out" && name === "Polyphony") {
     name = "Port";
   }
@@ -427,7 +427,7 @@ function nodeGraphMetamoduleAllocateShellPortName(entry, portalNode, usedNames, 
 
 /**
  * Child signal port attached to a Meta In/Out on the inside of the boundary.
- * Meta In: portal Out → child.port. Meta Out: child.port → portal In.
+ * Meta In: portal Out â†’ child.port. Meta Out: child.port â†’ portal In.
  */
 function nodeGraphMetamoduleConnectedChildPort(portalNode, patch = nodeGraphMvp?.patch) {
   if (!portalNode?.id || !nodeGraphIsMetamoduleBoundaryType(portalNode.type)) return "";
@@ -467,7 +467,7 @@ function nodeGraphMetamoduleConnectedChildPort(portalNode, patch = nodeGraphMvp?
   return "";
 }
 
-/** Desired shell jack base name: alias → connected child port → In/Out. */
+/** Desired shell jack base name: alias â†’ connected child port â†’ In/Out. */
 function nodeGraphMetamoduleDesiredShellPortBase(entry, portalNode, patch = nodeGraphMvp?.patch) {
   const direction = entry?.direction === "out"
     || entry?.type === "metamoduleOut"
@@ -608,7 +608,7 @@ function nodeGraphMetamoduleRemoveBoundaryPortalInPlace(portalId, patch = nodeGr
 
 /**
  * Dynamic Root-facing jacks on the Metamodule shell (from boundary portals).
- * Voices stays first; Meta In portals → inputs; Meta Out portals → outputs.
+ * Polyphony stays first; Meta In portals → inputs; Meta Out portals → outputs.
  * Read-only: does not allocate/rename shellPort (use SyncBoundaryShellPorts).
  */
 function nodeGraphMetamoduleShellPorts(metaNode) {
@@ -674,7 +674,7 @@ function nodeGraphMetamoduleBoundaryEntryForShellPort(metaNode, shellPort, direc
 }
 
 /**
- * On Root, outside↔portal wires visually terminate on the parent shell jack.
+ * On Root, outsideâ†”portal wires visually terminate on the parent shell jack.
  * Returns { nodeId, port, io } or null when no remap applies.
  */
 function nodeGraphMetamoduleWireVisualEndpoint(nodeId, port, io) {
@@ -705,11 +705,11 @@ function nodeGraphMetamoduleWireVisualEndpoint(nodeId, port, io) {
   if (!shellPort) return null;
 
   const canonicalPort = String(port || "").trim();
-  // Outside → Meta In: dest is portal In → shell input.
+  // Outside â†’ Meta In: dest is portal In â†’ shell input.
   if (node.type === "metamoduleIn" && io === "input" && (canonicalPort === "In" || !canonicalPort)) {
     return { nodeId: metaId, port: shellPort, io: "input" };
   }
-  // Meta Out → Outside: source is portal Out → shell output.
+  // Meta Out â†’ Outside: source is portal Out â†’ shell output.
   if (node.type === "metamoduleOut" && io === "output" && (canonicalPort === "Out" || !canonicalPort)) {
     return { nodeId: metaId, port: shellPort, io: "output" };
   }
@@ -735,7 +735,7 @@ function nodeGraphMetamoduleExposedModulationWireVisualEndpoint(nodeId, paramKey
   const id = String(nodeId || "").trim();
   const key = String(paramKey || "").trim();
   if (!id || !key) return null;
-  // Already a shell mx_* key — no remap.
+  // Already a shell mx_* key â€” no remap.
   if (key.startsWith("mx_")) return null;
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
   if (!node) return null;
@@ -782,8 +782,8 @@ function nodeGraphMetamoduleExposedChildIsWireProxyVisible(nodeId) {
 
 /**
  * If a Meta Out's Out is wired into an owned child's inlet, that portal is being
- * used as an inlet — flip it to Meta In and update boundary so the shell shows
- * a left-side jack (e.g. white ƒ inlet instead of white ƒ outlet).
+ * used as an inlet â€” flip it to Meta In and update boundary so the shell shows
+ * a left-side jack (e.g. white Æ’ inlet instead of white Æ’ outlet).
  * Mutates patch. Returns owner meta id when flipped, else "".
  */
 function nodeGraphMetamoduleFlipMiswiredOutletToInlet(portalId, patch = nodeGraphMvp?.patch) {
@@ -819,7 +819,7 @@ function nodeGraphMetamoduleFlipMiswiredOutletToInlet(portalId, patch = nodeGrap
     }
   }
   if (typeof setNodeInteractionHelp === "function") {
-    setNodeInteractionHelp("Meta Out was feeding a child inlet — converted to Meta In (shell inlet).");
+    setNodeInteractionHelp("Meta Out was feeding a child inlet â€” converted to Meta In (shell inlet).");
   }
   return ownerId;
 }
@@ -1013,7 +1013,7 @@ function nodeGraphMetamodulePortalizeCrossing(metaNode, crossing, children, patc
     const portal = ensurePortal("in", key, entry.destinationPort);
     const c = entry.connection;
     if (!c) continue;
-    // Outside → portal In; portal Out → original child port.
+    // Outside â†’ portal In; portal Out â†’ original child port.
     c.destinationNode = portal.id;
     c.destinationPort = "In";
     if (c.targetNode) c.targetNode = portal.id;
@@ -1057,7 +1057,7 @@ function nodeGraphMetamodulePortalizeCrossing(metaNode, crossing, children, patc
     const outsidePort = entry.destinationPort;
     if (!Array.isArray(patch.connections)) patch.connections = [];
     if (!portalFed.has(portal.id)) {
-      // Child → portal In (reuse this wire).
+      // Child â†’ portal In (reuse this wire).
       c.destinationNode = portal.id;
       c.destinationPort = "In";
       if (c.targetNode) c.targetNode = portal.id;
@@ -1070,7 +1070,7 @@ function nodeGraphMetamodulePortalizeCrossing(metaNode, crossing, children, patc
         destinationPort: outsidePort,
       });
     } else {
-      // Same child port → another outside: retarget this wire as portal Out → outside.
+      // Same child port â†’ another outside: retarget this wire as portal Out â†’ outside.
       c.sourceNode = portal.id;
       c.sourcePort = "Out";
     }
@@ -1172,7 +1172,7 @@ function groupNodeGraphSelectionIntoMetamodule() {
 
   nodeGraphMetamodulePortalizeCrossing(metaNode, crossing, children, patch);
 
-  // Stay on Root — user enters with a double-click on the Metamodule face.
+  // Stay on Root â€” user enters with a double-click on the Metamodule face.
   nodeGraphMvp.metamoduleViewStack = [];
   if (typeof updateNodeGraphMetamoduleBreadcrumb === "function") {
     updateNodeGraphMetamoduleBreadcrumb();
@@ -1180,7 +1180,7 @@ function groupNodeGraphSelectionIntoMetamodule() {
 
   // MUST rebuild DOM: visibility-only sync leaves new shell/portals unmounted
   // (Hypersaw hides via owner, meta exists in patch but stays invisible until
-  // something else calls applyNodeGraphPatchToDom — e.g. dragging a module).
+  // something else calls applyNodeGraphPatchToDom â€” e.g. dragging a module).
   if (typeof commitNodeGraphPatch === "function") {
     commitNodeGraphPatch(patch, {
       status: "group into metamodule",
@@ -1214,7 +1214,7 @@ function groupNodeGraphSelectionIntoMetamodule() {
 }
 
 /**
- * Reverse portalize for one metamoduleIn/Out: stitch Outside↔Child, drop portal wires.
+ * Reverse portalize for one metamoduleIn/Out: stitch Outsideâ†”Child, drop portal wires.
  * Mutates patch.connections in place. Returns true if any stitch was made.
  */
 function nodeGraphMetamoduleStitchPortalOut(portalId, patch) {
@@ -1240,7 +1240,7 @@ function nodeGraphMetamoduleStitchPortalOut(portalId, patch) {
       const destinationNode = String(outWire.destinationNode || outWire.targetNode || "");
       const destinationPort = String(outWire.destinationPort || outWire.targetPort || "");
       if (!sourceNode || !destinationNode) continue;
-      // Skip leftover portal↔portal edges.
+      // Skip leftover portalâ†”portal edges.
       if (sourceNode === portalId || destinationNode === portalId) continue;
       const exists = connections.some((w) =>
         w
@@ -1347,7 +1347,7 @@ function ungroupNodeGraphMetamoduleInPlace(metaId, patch = nodeGraphMvp?.patch) 
 }
 
 /**
- * Delete Metamodule shell → ungroup (preserve children). Called from delete path.
+ * Delete Metamodule shell â†’ ungroup (preserve children). Called from delete path.
  * Returns true if at least one metamodule was ungrouped.
  */
 function ungroupNodeGraphMetamodulesInPatch(metaIds, patch) {
@@ -1434,7 +1434,7 @@ function updateNodeGraphMetamoduleBreadcrumb() {
     readout.dataset.metaBreadcrumb = "1";
   }
   if (versionEl) versionEl.textContent = "Root";
-  if (buildEl) buildEl.textContent = "›";
+  if (buildEl) buildEl.textContent = "â€º";
   if (tokenEl) tokenEl.textContent = title;
   readout.classList.add("node-build-number-readout-breadcrumb");
   readout.style.cursor = "pointer";
@@ -1534,7 +1534,7 @@ function nodeGraphMetamoduleExposedParameterDefinitions(metaNode, patch = nodeGr
   const entries = nodeGraphMetamoduleListExposedParamEntries(metaNode, patch);
   const defs = [];
   for (const entry of entries) {
-    // Static module defs only — never call PatchNodeParameterDefinitions here
+    // Static module defs only â€” never call PatchNodeParameterDefinitions here
     // (that expands metamodule exposes and would recurse).
     const baseDefs = nodeGraphModuleDefinitions[entry.child?.type]?.parameters || [];
     const src = baseDefs.find((p) => p.key === entry.paramKey);
@@ -1565,7 +1565,7 @@ function nodeGraphMetamoduleRemountShellParameters(metaId) {
   const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
   if (!nodeGraphIsMetamoduleType(meta?.type)) return false;
   nodeGraphMetamoduleSeedExposedParamsFromChildren(meta);
-  // Expose rows can grow content past a stale stored heightGu — drop it so
+  // Expose rows can grow content past a stale stored heightGu â€” drop it so
   // MetamoduleLayout outer height follows content + 2px clearance.
   if (
     Number.isFinite(Number(meta.heightGu))
@@ -1603,7 +1603,7 @@ function nodeGraphMetamoduleSyncExposedParamFromShell(metaNode, synthKey, value,
 }
 
 /**
- * Child param edited → update owning metamodule shell params + mounted slider DOM.
+ * Child param edited â†’ update owning metamodule shell params + mounted slider DOM.
  */
 function nodeGraphMetamoduleSyncShellFromChild(childNode, paramKey, patch = nodeGraphMvp?.patch) {
   const childId = String(childNode?.id || "");
