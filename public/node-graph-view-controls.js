@@ -2789,7 +2789,11 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
   const octave = nodeGraphMidiKeyboardOctaveOffset(signal.octave);
   const keyIndex = Math.max(0, Math.min(nodeGraphMidiKeyboardKeyCount() - 1, nodeGraphFiniteNumber(signal.keyIndex)));
   const keyQuantized = nodeGraphMidiKeyboardClamp01(signal.keyQuantized ?? (keyIndex / Math.max(1, nodeGraphMidiKeyboardKeyCount() - 1)));
-  const frequency = Math.max(0, nodeGraphFiniteNumber(signal.frequency, 440) * 2 ** ((midi - 69) / 12));
+  // Absolute Hz from MIDI — same SSOT as nodeGraphMidiKeyboardSignalFromRaw.
+  // Never multiply an existing Hz by 2^((midi-69)/12): render/save runs this
+  // every pointer event, so that compound made f jump again on key-up.
+  const frequency = 440 * (2 ** ((midi - 69) / 12));
+  const increment = frequency / nodeGraphMidiKeyboardSampleRate;
   const gate = options.preserveGate ? (Number(signal.gate) > 0 ? 1 : 0) : 0;
   return {
     source: signal.source || "remembered",
@@ -2808,7 +2812,7 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
     pitchValue: Math.max(0, Math.min(127, nodeGraphFiniteNumber(signal.pitchValue, midi))),
     midiNormalized: nodeGraphMidiKeyboardClamp01(signal.midiNormalized ?? (midi / 127)),
     tenthVoltPerOctave: nodeGraphMidiKeyboardClamp01(signal.tenthVoltPerOctave ?? (midi / 120)),
-    increment: Math.max(0, nodeGraphFiniteNumber(signal.increment, frequency / nodeGraphMidiKeyboardSampleRate)),
+    increment,
     frequency,
   };
 }
