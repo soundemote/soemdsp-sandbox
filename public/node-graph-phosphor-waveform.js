@@ -1043,6 +1043,26 @@ function nodeGraphPhosphorWaveformSyncLayout(section, options = {}) {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   const width = Math.max(8, Math.round(cssWidth * dpr));
   const height = Math.max(8, Math.round(cssHeight * dpr));
+  const layoutFp = [
+    face,
+    cellW,
+    cellH,
+    cssWidth,
+    cssHeight,
+    width,
+    height,
+    powered ? 1 : 0,
+    settings.fontSize,
+    settings.labelInset,
+    settings.edgeSpacing,
+    settings.cornerRadius,
+    settings.cornerShape,
+    settings.backgroundHue,
+  ].join("|");
+  const prev = nodeGraphPhosphorWaveformFaceMetricsCache.get(section);
+  if (prev && prev.layoutFp === layoutFp && prev.context?.canvas === canvas) {
+    return prev;
+  }
   if (canvas.width !== width) canvas.width = width;
   if (canvas.height !== height) canvas.height = height;
   const context = canvas.getContext("2d");
@@ -1059,6 +1079,7 @@ function nodeGraphPhosphorWaveformSyncLayout(section, options = {}) {
     face,
     cellW,
     cellH,
+    layoutFp,
   };
   nodeGraphPhosphorWaveformFaceMetricsCache.set(section, metrics);
   return metrics;
@@ -1073,21 +1094,24 @@ function nodeGraphPhosphorWaveformEnsureLayoutObserver(section) {
     return;
   }
   section.dataset.phosphorLayoutObs = "1";
+  // Observe the section only. Panel inset CSS vars resize absolute page hosts;
+  // observing those hosts + writing inset = ResizeObserver feedback loop
+  // ("loop completed with undelivered notifications") and can desync canvas mode.
+  let scheduled = 0;
   const ro = new ResizeObserver(() => {
     if (!section.isConnected) {
       return;
     }
-    nodeGraphPhosphorWaveformSyncLayout(section);
+    if (scheduled) {
+      return;
+    }
+    scheduled = window.requestAnimationFrame(() => {
+      scheduled = 0;
+      nodeGraphPhosphorWaveformSyncLayout(section);
+    });
   });
   try {
     ro.observe(section);
-    // Canvas lives in face pages — observe those boxes so buffer aspect
-    // tracks the paint host, not only the outer section.
-    for (const host of section.querySelectorAll(
-      "[data-music-player-page], [data-music-player-wave-host]",
-    )) {
-      ro.observe(host);
-    }
   } catch (_error) {
     // Ignore.
   }

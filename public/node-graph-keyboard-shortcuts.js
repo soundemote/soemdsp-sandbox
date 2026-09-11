@@ -282,6 +282,31 @@ function handleNodeGraphKeydown(event) {
     setNodeGraphAppChromeBarsMode("all");
     return;
   }
+  // F = layout canvas cycle (phone button). Global view hotkey — handle before
+  // the typing gate so leftover focus on Music Player rows / Display Settings
+  // number fields cannot swallow F after canvas interaction.
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "f") {
+    event.preventDefault();
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement
+      && active !== document.body
+      && active !== document.documentElement
+      && active.closest?.(
+        "#nodeScreenSoloStage, .node-phosphor-waveform-display, .node-music-player-pl-row, .node-music-player-pl-transport, [data-display-settings-body]",
+      )
+    ) {
+      try {
+        active.blur();
+      } catch {
+        // ignore
+      }
+    }
+    if (typeof toggleNodeGraphLayoutCanvasView === "function") {
+      toggleNodeGraphLayoutCanvasView();
+    }
+    return;
+  }
   // While typing in a text/search field (module search, name boxes, code
   // editor), bare-key shortcuts must not fire -- e.g. Space stolen for
   // transport, or single-letter view hotkeys while typing. Range/checkbox
@@ -447,14 +472,7 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "f") {
-    event.preventDefault();
-    // F = phone button: toggle layout canvas for current scope (root / meta).
-    if (typeof toggleNodeGraphLayoutCanvasView === "function") {
-      toggleNodeGraphLayoutCanvasView();
-    }
-    return;
-  }
+  // F handled above (before typing gate).
   // T → docked tooltips on/off.
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "t") {
     event.preventDefault();

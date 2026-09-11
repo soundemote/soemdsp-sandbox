@@ -433,12 +433,31 @@ function nodeGraphLayoutCanvasClose(options = {}) {
   return true;
 }
 
+function nodeGraphLayoutCanvasStageIsLive() {
+  if (!document.body.classList.contains("node-layout-canvas-active")) {
+    return false;
+  }
+  if (typeof nodeGraphScreenSoloIsActive === "function" && !nodeGraphScreenSoloIsActive()) {
+    return false;
+  }
+  const stage = document.getElementById("nodeScreenSoloStage");
+  return Boolean(stage && stage.childElementCount > 0);
+}
+
 /**
  * Phone + F cycle: off → perform → edit → off.
  * No auto-organize; freeform rects only.
  */
 function toggleNodeGraphLayoutCanvasView(options = {}) {
-  const mode = nodeGraphLayoutCanvasMode();
+  let mode = nodeGraphLayoutCanvasMode();
+  // Repair desync: mode says canvas is on but stage was torn down (common after
+  // heavy face layout thrash / Music Player interaction in canvas). Treat as off
+  // so F can re-enter instead of silently no-oping mid-cycle.
+  if ((mode === "perform" || mode === "edit") && !nodeGraphLayoutCanvasStageIsLive()) {
+    nodeGraphMvp.layoutCanvasMode = "off";
+    nodeGraphMvp.layoutCanvasActive = false;
+    mode = "off";
+  }
   if (mode === "off") {
     return nodeGraphLayoutCanvasOpen("perform", options);
   }
