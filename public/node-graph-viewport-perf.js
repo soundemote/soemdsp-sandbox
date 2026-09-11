@@ -403,6 +403,11 @@ function nodeGraphViewportCullWakePainters(element) {
       face._startFaceLoop();
     }
   }
+  for (const face of element.querySelectorAll(".node-phosphor-waveform-display")) {
+    if (typeof nodeGraphPhosphorWaveformEnsureLoop === "function") {
+      nodeGraphPhosphorWaveformEnsureLoop(face);
+    }
+  }
   element.dispatchEvent(new CustomEvent("nodegraphviewport", {
     bubbles: false,
     detail: { asleep: false },
@@ -424,6 +429,11 @@ function nodeGraphViewportCullSleepPainters(element) {
     if (face._raf) {
       window.cancelAnimationFrame(face._raf);
       face._raf = 0;
+    }
+  }
+  for (const face of element.querySelectorAll(".node-phosphor-waveform-display")) {
+    if (typeof nodeGraphPhosphorWaveformStopLoop === "function") {
+      nodeGraphPhosphorWaveformStopLoop(face);
     }
   }
   element.dispatchEvent(new CustomEvent("nodegraphviewport", {

@@ -48,6 +48,10 @@ function nodeGraphModuleFrameHide(nodeElement) {
   if (!nodeElement) {
     return;
   }
+  // Already cleaned — do not querySelector on the hot path.
+  if (nodeElement.dataset.moduleFrameFp === "hidden") {
+    return;
+  }
   const svg = nodeElement.querySelector(":scope > .node-module-frame");
   if (svg) {
     svg.remove();
@@ -83,6 +87,7 @@ function updateAllNodeGraphModuleFrames(options = {}) {
   for (const node of document.querySelectorAll(".dsp-node")) {
     if (force) {
       delete node.dataset.moduleFrameFp;
+      delete node.dataset.plateClipFp;
     }
     updateNodeGraphModuleFrame(node);
   }
@@ -119,6 +124,7 @@ function scheduleNodeGraphModuleFramesUpdate(options = {}) {
       for (const node of pending) {
         if (force) {
           delete node.dataset?.moduleFrameFp;
+          delete node.dataset?.plateClipFp;
         }
         if (node?.isConnected) {
           updateNodeGraphModuleFrame(node);

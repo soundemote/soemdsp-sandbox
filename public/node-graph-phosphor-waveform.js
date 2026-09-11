@@ -918,6 +918,7 @@ function applyNodeGraphPhosphorWaveformDisplaySettingsToFace(node) {
   if (!section) {
     return;
   }
+  nodeGraphPhosphorWaveformSyncLayout(section);
   if (typeof nodeGraphPhosphorWaveformResyncFrameClock === "function") {
     nodeGraphPhosphorWaveformResyncFrameClock(nodeId);
   }
@@ -929,46 +930,34 @@ function applyNodeGraphPhosphorWaveformDisplaySettingsToFace(node) {
   }
 }
 
-// Panel shape/inset are pure CSS, but the inset has to be resolved against the
-// live cell size (so "1" really does collapse the panel whatever the module
-// height is) and quantized to whole pixels (so the black gap and the panel
-// edge both land on a device pixel and stay razor sharp -- a fractional inset
-// would give a soft, half-lit edge). Called from the draw path, which already
-// runs per section per frame and has the measured size to hand.
+// Display-type contract (Music Player phosphor face):
+//   • Layout / chrome / canvas backing size are owned by ResizeObserver +
+//     settings apply — never by the paint loop.
+//   • Paint uses cached metrics only (no clientWidth / getBoundingClientRect).
+//   • Visibility is the module's viewport-asleep cull (world AABB), not a
+//     per-frame layout read. Faces stay live during workspace pan/zoom.
 //
-// powered (default true): when false (audio engine / simulation off), kill the
-// phosphor-green frame so the plate reads as a cold black screen, not a lit
-// empty CRT.
+// Panel shape/inset: CSS vars resolved against the cell size, quantized to
+// whole pixels. cellWidth/Height MUST be the section padding-box (inset does
+// not change it — measuring the canvas would feedback-loop Edge Spacing).
 function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, cellHeight, powered = true) {
-  // cellWidth/cellHeight MUST be the section's own padding-box size, i.e. the
-  // whole grid cell, which the inset does not change: the inset is padding
-  // inside this element, so section.clientWidth stays put while the canvas
-  // inside it shrinks. Feeding the canvas's (inset-dependent) size in here
-  // instead is a feedback loop -- bigger inset shrinks the measurement, which
-  // shrinks maxInset, which shrinks the inset again -- and that oscillation is
-  // what made the module jitter while dragging Edge Spacing. No back-adding of
-  // the applied inset is needed (or correct) any more; the input is stable, so
-  // the result depends only on the setting.
   const outerWidth = cellWidth;
   const outerHeight = cellHeight;
   const faceMin = displayFaceMinSide(outerWidth, outerHeight);
   const maxInset = Math.max(0, Math.floor(faceMin / 2));
   const inset = Math.round(settings.edgeSpacing * maxInset);
-  // Largest meaningful radius is half the panel's shorter side: at 1 a
-  // square panel is a circle and a wide one is a pill/stadium.
   const panelWidth = Math.max(0, outerWidth - inset * 2);
   const panelHeight = Math.max(0, outerHeight - inset * 2);
   const maxRadius = Math.max(0, Math.min(panelWidth, panelHeight) / 2);
   const radius = Math.round(settings.cornerRadius * maxRadius);
   const shape = settings.cornerShape === "squircle" ? "squircle" : "round";
-  // Panel outline follows BG Hue. Off = no frame (black plate).
   const borderColor = powered
     ? `hsl(${Math.round(settings.backgroundHue)} 100% 68% / 0.16)`
     : "transparent";
   const labelInset = Math.round(displayScaleToPx(settings.labelInset, faceMin));
   const next = `${inset}|${radius}|${shape}|${borderColor}|${powered ? 1 : 0}|${labelInset}`;
   if (section.dataset.panelShape === next) {
-    return;
+    return false;
   }
   section.dataset.panelShape = next;
   section.style.setProperty("--phosphor-waveform-inset", `${inset}px`);
@@ -978,9 +967,112 @@ function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, 
   if (typeof applyNodeGraphPhosphorWaveformHudVars === "function") {
     applyNodeGraphPhosphorWaveformHudVars(section, settings);
   }
-  // corner-shape is a progressive enhancement: where it is unsupported the
-  // declaration is dropped and the panel is a normal rounded rect.
   section.style.setProperty("--phosphor-waveform-corner-shape", shape);
+  return true;
+}
+
+/** Per-section face metrics cache. Paint reads this; layout writes it. */
+const nodeGraphPhosphorWaveformFaceMetricsCache = new WeakMap();
+
+function nodeGraphPhosphorWaveformCircuitRunning() {
+  return typeof nodeGraphModuleScopeCircuitRunning === "function"
+    ? nodeGraphModuleScopeCircuitRunning()
+    : Boolean(nodeGraphMvp?.live?.outputEnabled && nodeGraphMvp?.live?.node);
+}
+
+/**
+ * Measure face CSS box once and cache device-pixel canvas metrics.
+ * Call only from layout owners (ResizeObserver, settings apply, face switch).
+ */
+function nodeGraphPhosphorWaveformSyncLayout(section, options = {}) {
+  if (!section?.isConnected) {
+    return null;
+  }
+  const canvas = section.querySelector?.(".node-phosphor-waveform-canvas");
+  if (!canvas) {
+    return null;
+  }
+  const nodeId = section.dataset.node || "";
+  const face = String(
+    options.face
+    || section.dataset.musicPlayerFace
+    || "wave",
+  );
+  const settings = typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
+    ? nodeGraphPhosphorWaveformSettingsForNode(nodeId)
+    : nodeGraphPhosphorWaveformDefaultSettings;
+  const powered = options.powered != null
+    ? Boolean(options.powered)
+    : nodeGraphPhosphorWaveformCircuitRunning();
+
+  // Section padding-box is stable under inset CSS vars (see panel-shape note).
+  const cellW = Math.max(1, section.clientWidth || section.offsetWidth || 0);
+  const cellH = Math.max(1, section.clientHeight || section.offsetHeight || 0);
+  applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellW, cellH, powered);
+
+  const page = section.querySelector(`[data-music-player-page="${face}"]`);
+  const waveHost = face === "waveplay"
+    ? section.querySelector("[data-music-player-wave-host]")
+    : null;
+  const box = (waveHost && page && !page.hidden) ? waveHost : page;
+  let cssWidth = 0;
+  let cssHeight = 0;
+  if (box && !box.hidden) {
+    cssWidth = box.clientWidth || box.offsetWidth || 0;
+    cssHeight = box.clientHeight || box.offsetHeight || 0;
+  }
+  if (!(cssWidth > 2) || !(cssHeight > 2)) {
+    cssWidth = cellW;
+    cssHeight = cellH;
+  }
+  cssWidth = Math.max(8, Math.round(cssWidth));
+  cssHeight = Math.max(8, Math.round(cssHeight));
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const width = Math.max(8, Math.round(cssWidth * dpr));
+  const height = Math.max(8, Math.round(cssHeight * dpr));
+  if (canvas.width !== width) canvas.width = width;
+  if (canvas.height !== height) canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+  const metrics = {
+    context,
+    width,
+    height,
+    pixelRatio: dpr,
+    cssWidth,
+    cssHeight,
+    face,
+    cellW,
+    cellH,
+  };
+  nodeGraphPhosphorWaveformFaceMetricsCache.set(section, metrics);
+  return metrics;
+}
+
+function nodeGraphPhosphorWaveformEnsureLayoutObserver(section) {
+  if (!section || section.dataset.phosphorLayoutObs === "1") {
+    return;
+  }
+  if (typeof ResizeObserver !== "function") {
+    nodeGraphPhosphorWaveformSyncLayout(section);
+    return;
+  }
+  section.dataset.phosphorLayoutObs = "1";
+  const ro = new ResizeObserver(() => {
+    if (!section.isConnected) {
+      return;
+    }
+    nodeGraphPhosphorWaveformSyncLayout(section);
+  });
+  try {
+    ro.observe(section);
+  } catch (_error) {
+    // Ignore.
+  }
+  section._phosphorLayoutObserver = ro;
+  nodeGraphPhosphorWaveformSyncLayout(section);
 }
 
 // Bound to BOTH the drag handle and the whole title bar. Safe to bind on the
@@ -1746,28 +1838,23 @@ function nodeGraphPhosphorWaveformResyncFrameClock(nodeId) {
   nodeGraphPhosphorWaveformFrameClockStates.set(nodeId, { lastUpdate: now, time: now });
 }
 
-// Mirrors the module-scope compositor's off-screen culling
-// (nodeGraphModuleScopeScreenItems/nodeGraphModuleScopeVisibleDrawGeometry
-// in node-graph-module-scopes.js) -- a Music Player scrolled/panned fully
-// outside the workspace viewport shouldn't keep paying for a canvas
-// clear+stroke every frame just because its section is still in the DOM.
-// A plain viewport-rect overlap test is enough here (unlike the scope
-// compositor, the waveform doesn't need a partial-visible-range draw).
+/**
+ * Visibility for paint: module viewport cull (viewport-asleep), not a
+ * layout-forcing getBoundingClientRect. Cull owns wake/sleep of this loop.
+ */
 function nodeGraphPhosphorWaveformSectionOnScreen(section) {
-  const workspace = document.getElementById("nodeGraphWorkspace");
-  if (!workspace) {
+  const node = section?.closest?.(".dsp-node");
+  if (!node) {
     return true;
   }
-  const workspaceRect = workspace.getBoundingClientRect();
-  const rect = section.getBoundingClientRect();
-  return rect.right > workspaceRect.left &&
-    rect.left < workspaceRect.right &&
-    rect.bottom > workspaceRect.top &&
-    rect.top < workspaceRect.bottom;
+  return !node.classList.contains("viewport-asleep");
 }
 
 function nodeGraphPhosphorWaveformShouldKeepLoop(section) {
   if (!section?.isConnected) {
+    return false;
+  }
+  if (section.dataset.phosphorLoopHold === "0") {
     return false;
   }
   const face = section.dataset.musicPlayerFace || "wave";
@@ -1795,6 +1882,7 @@ function scheduleNodeGraphPhosphorWaveformFrame(section) {
     section.dataset.phosphorRaf = "";
     return;
   }
+  const gen = Number(section.dataset.phosphorLoopGen || "0");
   const keep = nodeGraphPhosphorWaveformShouldKeepLoop(section);
   const face = section.dataset.musicPlayerFace || "wave";
   const skipFace = face === "pl" || face === "playinfo";
@@ -1812,11 +1900,32 @@ function scheduleNodeGraphPhosphorWaveformFrame(section) {
     return;
   }
   section.dataset.phosphorRaf = "1";
-  window.requestAnimationFrame(() => scheduleNodeGraphPhosphorWaveformFrame(section));
+  window.requestAnimationFrame(() => {
+    if (Number(section.dataset.phosphorLoopGen || "0") !== gen) {
+      return;
+    }
+    scheduleNodeGraphPhosphorWaveformFrame(section);
+  });
+}
+
+function nodeGraphPhosphorWaveformStopLoop(section) {
+  if (!section) {
+    return;
+  }
+  section.dataset.phosphorLoopHold = "0";
+  section.dataset.phosphorLoopGen = String(
+    (Number(section.dataset.phosphorLoopGen || "0") + 1) | 0,
+  );
+  section.dataset.phosphorRaf = "";
 }
 
 function nodeGraphPhosphorWaveformEnsureLoop(section) {
-  if (!section || section.dataset.phosphorRaf === "1") {
+  if (!section) {
+    return;
+  }
+  nodeGraphPhosphorWaveformEnsureLayoutObserver(section);
+  section.dataset.phosphorLoopHold = "1";
+  if (section.dataset.phosphorRaf === "1") {
     return;
   }
   section.dataset.phosphorRaf = "1";
@@ -1847,6 +1956,7 @@ function createNodeGraphPhosphorWaveformDisplay(nodeId, type) {
     }
   }
   nodeGraphPhosphorWaveformEnsureZoomControl(section);
+  nodeGraphPhosphorWaveformEnsureLayoutObserver(section);
   nodeGraphPhosphorWaveformEnsureLoop(section);
   return section;
 }
@@ -2062,48 +2172,19 @@ function nodeGraphPhosphorWaveformBackgroundColor(settings) {
 }
 
 /**
- * Face bitmap size. The page is absolutely inset (definite box). The canvas
- * is a flex child whose intrinsic bitmap size must NOT drive layout — CSS
- * uses flex:1;height:0. Measuring the canvas itself caused a 1×1 backing
- * store stretched over the plate (solid green / red square, LR flash).
+ * Face bitmap metrics for paint. Uses the layout cache only.
+ * Cold path (no cache yet) syncs layout once — never per steady-state frame.
  */
 function nodeGraphMusicPlayerFaceMetrics(section, canvas, face = "") {
   if (!section || !canvas) {
     return null;
   }
   const key = String(face || section.dataset?.musicPlayerFace || "wave");
-  const page = section.querySelector(`[data-music-player-page="${key}"]`);
-  const waveHost = key === "waveplay"
-    ? section.querySelector("[data-music-player-wave-host]")
-    : null;
-  const box = (waveHost && page && !page.hidden) ? waveHost : page;
-  // Never measure the canvas. height:100% / flex:1 children report 0×0 on the
-  // first paint; a 1×1 backing store CSS-stretched is the solid green/red plate.
-  let cssWidth = 0;
-  let cssHeight = 0;
-  if (box && !box.hidden) {
-    cssWidth = box.clientWidth || box.offsetWidth || 0;
-    cssHeight = box.clientHeight || box.offsetHeight || 0;
+  let metrics = nodeGraphPhosphorWaveformFaceMetricsCache.get(section);
+  if (!metrics || metrics.face !== key || metrics.context?.canvas !== canvas) {
+    metrics = nodeGraphPhosphorWaveformSyncLayout(section, { face: key });
   }
-  if (!(cssWidth > 2) || !(cssHeight > 2)) {
-    cssWidth = section.clientWidth || section.offsetWidth || 0;
-    cssHeight = section.clientHeight || section.offsetHeight || 0;
-  }
-  if (!(cssWidth > 2) || !(cssHeight > 2)) {
-    const rect = section.getBoundingClientRect();
-    const zoom = Math.max(0.01, nodeGraphFiniteNumber(nodeGraphMvp?.zoom, 1));
-    cssWidth = rect.width / zoom;
-    cssHeight = rect.height / zoom;
-  }
-  cssWidth = Math.max(8, Math.round(cssWidth));
-  cssHeight = Math.max(8, Math.round(cssHeight));
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const width = Math.max(8, Math.round(cssWidth * dpr));
-  const height = Math.max(8, Math.round(cssHeight * dpr));
-  if (canvas.width !== width) canvas.width = width;
-  if (canvas.height !== height) canvas.height = height;
-  const context = canvas.getContext("2d");
-  return context ? { context, width, height, pixelRatio: dpr, cssWidth, cssHeight } : null;
+  return metrics || null;
 }
 
 function drawNodeGraphPhosphorWaveformPlaceholder(context, width, height, message, pixelRatio = 1, settings) {
@@ -2144,31 +2225,24 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     return;
   }
   const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
-  // Simulation off → pure black plate + no green frame. Circuit = live output
-  // + audio node + open context (not transport pause).
-  const circuitRunning = typeof nodeGraphModuleScopeCircuitRunning === "function"
-    ? nodeGraphModuleScopeCircuitRunning()
-    : Boolean(nodeGraphMvp?.live?.outputEnabled && nodeGraphMvp?.live?.node);
-  // Shape FIRST, measure second, both in this one frame. The inset is padding
-  // on the section, so writing it changes the canvas's box; measuring before
-  // writing would size the backing store from the PREVIOUS inset and leave the
-  // bitmap stretched over the new box for a frame -- which is the jitter you
-  // see while dragging Edge Spacing, since every drag frame lands mid-change.
-  // The shape input is the section's own padding box (the whole grid cell),
-  // which the inset does not affect -- see the function's comment. Reading the
-  // canvas box right after the write forces a synchronous layout on purpose:
-  // that is what makes the two agree within the frame.
-  applyNodeGraphPhosphorWaveformPanelShape(
-    section,
-    settings,
-    Math.max(1, section.clientWidth),
-    Math.max(1, section.clientHeight),
-    circuitRunning,
-  );
+  // Circuit = live output + audio node (not transport pause). Panel chrome /
+  // canvas size live in the layout cache — paint does not remeasure.
+  const circuitRunning = nodeGraphPhosphorWaveformCircuitRunning();
   const metrics = nodeGraphMusicPlayerFaceMetrics(section, canvas, musicFace);
   if (!metrics) {
     nodeGraphPhosphorWaveformPaintCompanionPlaylist(section, nodeId);
     return;
+  }
+  // Powered frame color can change without a resize — update chrome from cache
+  // cell size only (no layout read).
+  if (metrics.cellW > 0 && metrics.cellH > 0) {
+    applyNodeGraphPhosphorWaveformPanelShape(
+      section,
+      settings,
+      metrics.cellW,
+      metrics.cellH,
+      circuitRunning,
+    );
   }
   const { context, height, pixelRatio, width } = metrics;
   // Draw entirely in device-pixel space (no CSS-pixel transform) so every

@@ -1280,6 +1280,8 @@ function applyNodeGraphModulePlateClip(article) {
     return;
   }
   const faces = article.querySelectorAll(NODE_GRAPH_PLATE_CLIP_SEL);
+  const parts = [`${plateW}|${plateH}`];
+  const writes = [];
   for (const face of faces) {
     if (!(face instanceof HTMLElement)) {
       continue;
@@ -1316,10 +1318,23 @@ function applyNodeGraphModulePlateClip(article) {
     if (top + bottom >= height - 1 || left + right >= width - 1) {
       continue;
     }
-    face.style.setProperty("--node-plate-clip-top", `${Math.max(0, top).toFixed(2)}px`);
-    face.style.setProperty("--node-plate-clip-right", `${right.toFixed(2)}px`);
-    face.style.setProperty("--node-plate-clip-bottom", `${bottom.toFixed(2)}px`);
-    face.style.setProperty("--node-plate-clip-left", `${Math.max(0, left).toFixed(2)}px`);
+    const topPx = Math.max(0, top).toFixed(2);
+    const rightPx = right.toFixed(2);
+    const bottomPx = bottom.toFixed(2);
+    const leftPx = Math.max(0, left).toFixed(2);
+    parts.push(`${topPx},${rightPx},${bottomPx},${leftPx}`);
+    writes.push({ face, topPx, rightPx, bottomPx, leftPx });
+  }
+  const fp = parts.join(";");
+  if (article.dataset.plateClipFp === fp) {
+    return;
+  }
+  article.dataset.plateClipFp = fp;
+  for (const write of writes) {
+    write.face.style.setProperty("--node-plate-clip-top", `${write.topPx}px`);
+    write.face.style.setProperty("--node-plate-clip-right", `${write.rightPx}px`);
+    write.face.style.setProperty("--node-plate-clip-bottom", `${write.bottomPx}px`);
+    write.face.style.setProperty("--node-plate-clip-left", `${write.leftPx}px`);
   }
 }
 

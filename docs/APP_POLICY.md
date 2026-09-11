@@ -464,6 +464,8 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 - **Brightness / hue / fade** that are already 0…1 stay 0…1 (not lengths). **Time** stays seconds. **Counts** stay integers.
 - Friendlier authoring UI is a later step — storage stays 0…1.
 
+**Paint vs layout (display-type contract):** live face paint loops must **not** force layout (`clientWidth` / `getBoundingClientRect` / style writes that change geometry) every frame. ResizeObserver + settings apply own chrome and canvas backing size; paint reads a metrics cache. Visibility uses module `viewport-asleep` cull, not per-frame layout probes. Faces stay live during workspace pan/zoom (see ZOOM_PAN plan — no gesture freeze).
+
 First consumer: Music Player `phosphorWaveformSettings` (`traceWidth`, `scrollLineWidth`, `labelInset`, `fontSize`, `cornerRadius`, `edgeSpacing`). Migrate other displays the same way as they are touched.
 
 ---

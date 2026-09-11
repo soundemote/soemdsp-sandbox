@@ -1414,6 +1414,10 @@ function nodeGraphAudioPlayerPlaylistApplyFace(nodeId) {
   } else {
     nodeGraphAudioPlayerPlaylistStopScrubLoop(nodeId);
   }
+  // Face switch changes which page box owns the bitmap — resync layout cache.
+  if (typeof nodeGraphPhosphorWaveformSyncLayout === "function") {
+    nodeGraphPhosphorWaveformSyncLayout(section, { face });
+  }
   if (typeof nodeGraphPhosphorWaveformEnsureLoop === "function") {
     nodeGraphPhosphorWaveformEnsureLoop(section);
   } else if (typeof scheduleNodeGraphPhosphorWaveformFrame === "function") {
