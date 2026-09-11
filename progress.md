@@ -52,6 +52,14 @@ graphify update . --force   # no LLM; AST re-extract
 - Survivors keep env/phase/filter state; smoke `smoke_remove_node_preserves_state.mjs`
 - Commit: `5a6e8fbb`
 
+### NORMALIZING DISPLAY SETTINGS UX (2026-09-10)
+- Every module opens Display Settings (blank + Show in canvas if no face schema)
+- Stop inventing Instant Trace settings for custom layout faces (envelopeCurve / filterCurve)
+- Instant Trace monitors (Flower Child, …) keep Instant Trace face + Instant Trace settings
+- Right-click on display faces → Display Settings (not Module Settings)
+- Layout canvas Phase 1: Show in canvas + phone/F; condensed phone frame removed
+- Commits: `4f6d8c93` … `b60b747e`
+
 
 
 - [x] **CLAP host extracted** — https://github.com/soundemote/soemdsp-sandbox-claphost
