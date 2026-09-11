@@ -1825,6 +1825,106 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
 };
 
 /**
+ * Metamodule Polyphony inlet → voice gates (compile-once lanes; open/close only).
+ * v1 mono: first voice slot. Play Keys / Voices bitmask on Polyphony → gate owned
+ * hypersaw Amplitude (0 = closed). Pitch still arrives via Meta In / host f feeders.
+ */
+NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function syncNativeMetaPolyphonyVoiceGates() {
+  if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+    return;
+  }
+  const native = this.nativeGraph;
+  if (!native?.soemdsp_graph_set_param) {
+    return;
+  }
+  const PHASE = 2 ** 49;
+  const demux = (value) => {
+    const v = Number(value);
+    if (!Number.isFinite(v) || v <= 0) {
+      return { low: 0, high: 0 };
+    }
+    if (v >= PHASE) {
+      return { low: 0, high: v - PHASE };
+    }
+    return { low: v, high: 0 };
+  };
+  const bitSet = (index, low, high) => {
+    const i = Math.round(Number(index));
+    if (!(i >= 0) || i > 87) {
+      return false;
+    }
+    if (i < 49) {
+      return (Math.trunc(low) & (2 ** i)) !== 0;
+    }
+    return (Math.trunc(high) & (2 ** (i - 49))) !== 0;
+  };
+  const ampParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE;
+  if (!this._nativeMetaVoiceState) {
+    this._nativeMetaVoiceState = new Map();
+  }
+  for (const [metaId, metaNode] of this.nodes) {
+    if (String(metaNode?.type || "") !== "metamodule") {
+      continue;
+    }
+    const playmode = Math.round(Number(metaNode?.params?.playmode) || 0);
+    // 0 = Off (group thru only) — do not touch child Amplitude.
+    if (!(playmode >= 1)) {
+      continue;
+    }
+    const polyKey = typeof this.inputKey === "function"
+      ? this.inputKey(metaId, "Polyphony")
+      : `${metaId}.Polyphony`;
+    const conns = this.inputConnections?.get?.(polyKey);
+    let low = 0;
+    let high = 0;
+    if (conns && conns.length) {
+      for (let i = 0; i < conns.length; i += 1) {
+        const c = conns[i];
+        let raw = 0;
+        if (typeof this.readEfficientModSourceSample === "function") {
+          raw = Number(this.readEfficientModSourceSample(c.sourceNode, c.sourcePort));
+        } else {
+          const out = this.nodeOutputs?.get?.(String(c.sourceNode));
+          raw = Number(out?.[c.sourcePort] ?? 0);
+        }
+        const d = demux(raw);
+        low = Math.trunc(low) | Math.trunc(d.low);
+        high = Math.trunc(high) | Math.trunc(d.high);
+      }
+    }
+    // Mono / first voice: any held Play Keys bit ⇒ gate open.
+    let gate = 0;
+    let note = -1;
+    for (let i = 0; i <= 87; i += 1) {
+      if (bitSet(i, low, high)) {
+        gate = 1;
+        note = i;
+        // Keep scanning so mono uses the highest key (last wins).
+      }
+    }
+    const prev = this._nativeMetaVoiceState.get(metaId) || { gate: 0, note: -1 };
+    this._nativeMetaVoiceState.set(metaId, { gate, note });
+    // Gate owned oscillators (first voice lane = authoring copy).
+    for (const [childId, child] of this.nodes) {
+      if (String(child?.ownerMetamoduleId || "") !== String(metaId)) {
+        continue;
+      }
+      const t = String(child?.type || "");
+      if (t !== "hypersaw" && t !== "hypersaw2") {
+        continue;
+      }
+      const hash = this.fnv1aHash32(childId);
+      // Closed = silence; open = unity (param Amplitude still scales if set by face).
+      const level = gate > 0 ? 1 : 0;
+      if (prev.gate === gate && prev.note === note) {
+        // Still push so param sync cannot reopen a closed voice this quantum.
+      }
+      this.pushNativeGraphParam(native, hash, ampParam, level);
+    }
+  }
+};
+
+/**
  * Write Control targets (+ smooth times from paramMeta) into native graph.
  * Efficient path must not sample JS smoothers — native SmootherManager chases.
  * Only pushes when the domain target / time changed (dirty cache).
@@ -5456,6 +5556,10 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
 
   // Knob targets + MOD cells — native smoother chases knobs; MOD applied after out.
   this.syncNativeGraphParams?.(frames);
+  // Meta Polyphony → voice gates (after param sync so Amplitude override sticks).
+  try {
+    this.syncNativeMetaPolyphonyVoiceGates?.();
+  } catch (_e) { /* keep audio */ }
   // Upload Bubble Cutoff sample-accurate strips (PluckEnvelopeMod / Curve packets).
   this.syncNativeYellowCutoffStrips?.(frames);
   // Upload / refresh Music Player PCM when sample id or length changes.

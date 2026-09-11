@@ -125,6 +125,13 @@
       "sourceNode": "keyboard-1",
       "sourcePort": "Gate",
       "tracePoints": []
+    },
+    {
+      "sourceNode": "keyboard-1",
+      "sourcePort": "Play Keys",
+      "destinationNode": "metamodule-1",
+      "destinationPort": "Polyphony",
+      "tracePoints": []
     }
   ],
   "format": {
@@ -1733,8 +1740,8 @@
         }
       },
       "params": {
-        "voices": 1,
-        "playmode": 0
+        "voices": "1",
+        "playmode": "1"
       },
       "type": "metamodule",
       "alias": "Polyphony Hypersaw",
