@@ -1380,10 +1380,23 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlan = function syncNativeGr
     return true;
   }
   // Cold start or missing surgical APIs → full compile.
+  // Voices-mode Meta needs fixed osc lane clones (__v1…) that surgical sync
+  // does not create — always full-compile when any Meta is in Voices mode.
+  let needsMetaVoiceLanes = false;
+  for (const [, node] of this.nodes) {
+    if (String(node?.type || "") !== "metamodule") continue;
+    const pm = Math.round(Number(node?.params?.playmode) || 0);
+    const vc = Math.max(1, Math.min(32, Math.round(Number(node?.params?.voices) || 1)));
+    if (pm === 4 && vc >= 2) {
+      needsMetaVoiceLanes = true;
+      break;
+    }
+  }
   const native = this.nativeGraph;
   const canSurgical = Boolean(
     this.nativeGraphHandle
     && this.nativeGraphCompiled
+    && !needsMetaVoiceLanes
     && typeof native?.soemdsp_graph_remove_node === "function"
     && typeof native?.soemdsp_graph_clear_connections === "function"
     && typeof native?.soemdsp_graph_compile === "function"
@@ -1916,22 +1929,32 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     const notes = readPolyBits(metaId);
     const metaLanes = lanes.filter((l) => l.metaId === String(metaId));
 
+    // Face Amplitude (0…1). Open gates use this so a face Amp of 0 stays silent
+    // only when closed — open uses max(faceAmp, 1e-3) so poly isn't stuck at 0.
+    const faceAmpOf = (childId) => {
+      const child = this.nodes.get(childId);
+      const a = Number(child?.params?.amplitude);
+      if (Number.isFinite(a) && a > 0) return Math.min(1, a);
+      return 1;
+    };
+
     // Voices mode with compiled lanes: one pitch per open key, up to N.
     if (playmode === 4 && metaLanes.length) {
       for (let li = 0; li < metaLanes.length; li += 1) {
         const lane = metaLanes[li];
         const n = lane.voiceIds.length;
+        const faceAmp = faceAmpOf(lane.baseId);
         for (let v = 0; v < n; v += 1) {
           const oscId = lane.voiceIds[v];
           const oscHash = this.fnv1aHash32(oscId);
           const midi = v < notes.length ? notes[v] : -1;
-          const gate = midi >= 0 ? 1 : 0;
-          this.pushNativeGraphParam(native, oscHash, ampParam, gate);
+          const open = midi >= 0;
+          this.pushNativeGraphParam(native, oscHash, ampParam, open ? faceAmp : 0);
           const feed = pitchFeeders.find(
             (f) => f.metaId === lane.metaId && f.voiceIndex === v && f.oscId === oscId,
           );
           if (feed?.hash) {
-            const freq = midi >= 0 ? 440 * (2 ** ((midi - 69) / 12)) : 0;
+            const freq = open ? 440 * (2 ** ((midi - 69) / 12)) : 0;
             this.pushNativeGraphParam(native, feed.hash, attOffset, freq);
           }
         }
@@ -1940,7 +1963,7 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     }
 
     // Mono / legato (no lane clones): gate authoring Hypersaw; pitch via Meta In f.
-    let gate = notes.length > 0 ? 1 : 0;
+    const gate = notes.length > 0;
     for (const [childId, child] of this.nodes) {
       if (String(child?.ownerMetamoduleId || "") !== String(metaId)) {
         continue;
@@ -1949,7 +1972,13 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
       if (t !== "hypersaw" && t !== "hypersaw2") {
         continue;
       }
-      this.pushNativeGraphParam(native, this.fnv1aHash32(childId), ampParam, gate);
+      const faceAmp = faceAmpOf(childId);
+      this.pushNativeGraphParam(
+        native,
+        this.fnv1aHash32(childId),
+        ampParam,
+        gate ? faceAmp : 0,
+      );
     }
   }
 };
