@@ -513,6 +513,12 @@ function nodeGraphModuleDisplayRendererForSlot(slot) {
 }
 
 // nodeGraphModuleDisplaySettingsSchemaForSlot → node-graph-module-scope-display-mode.js
+/**
+ * Declared Instant-Trace-family renderer for a module type.
+ * Custom layout faces (envelopeCurve / filterCurve / …) without displayType
+ * are "legacy" — they draw via layout code, NOT Instant Trace/phosphor.
+ * Never invent "trace" for every defined module (that was the Ping Envelope bug).
+ */
 function nodeGraphModuleDeclaredDisplayTypeForType(type) {
   let declared = nodeGraphModuleDefinitions?.[type]?.displayType;
   if (declared === "ledLamp") {
@@ -522,9 +528,6 @@ function nodeGraphModuleDeclaredDisplayTypeForType(type) {
   }
   if (nodeGraphDisplayModeRenderers.includes(declared)) {
     return declared;
-  }
-  if (nodeGraphModuleDefinitions?.[type]) {
-    return "trace";
   }
   return "legacy";
 }

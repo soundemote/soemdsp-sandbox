@@ -1,15 +1,25 @@
 // Display-mode selection helpers extracted from node-graph-module-scopes.js
 // (Phase D). Load after normalize.js, before scopes.js.
 
+/**
+ * Settings schema for a display renderer.
+ * Unknown / custom layout faces (envelopeCurve, filterCurve, …) return "" —
+ * NEVER default to "trace"/phosphor. That forced Ping Envelope and friends
+ * into Instant Trace Display Settings.
+ */
 function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
-  if (renderer === "phosphorWaveform") {
+  const r = String(renderer || "").trim();
+  if (!r || r === "legacy" || r === "blank" || r === "none") {
+    return "";
+  }
+  if (r === "phosphorWaveform") {
     return "phosphorWaveform";
   }
   // Alias schemas used with renderer "trace" (Instant Trace family).
-  if (renderer === "traceRgb" || renderer === "traceXyz") {
-    return renderer;
+  if (r === "traceRgb" || r === "traceXyz") {
+    return r;
   }
-  return nodeGraphDisplayModeRenderers.includes(renderer) ? renderer : "trace";
+  return nodeGraphDisplayModeRenderers.includes(r) ? r : "";
 }
 
 
@@ -81,11 +91,16 @@ function normalizeNodeGraphDisplayMode(mode, type = "", index = 0) {
   const source = raw.source && typeof raw.source === "object"
     ? { ...raw.source }
     : nodeGraphModuleImplicitDisplayModeSource(type, renderer);
+  // Explicit settingsSchema wins; else derive from renderer — empty means blank settings.
+  const explicitSchema = String(raw.settingsSchema || "").trim();
+  const settingsSchema = explicitSchema
+    ? nodeGraphDisplayModeSettingsSchemaForRenderer(explicitSchema)
+    : nodeGraphDisplayModeSettingsSchemaForRenderer(renderer);
   return {
     key,
     label: String(raw.label || key).trim() || key,
     renderer,
-    settingsSchema: nodeGraphDisplayModeSettingsSchemaForRenderer(raw.settingsSchema || renderer),
+    settingsSchema,
     source,
   };
 }

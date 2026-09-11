@@ -13870,6 +13870,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     planFreeRun: true,
     layout: "envelopeCurve",
+    // No Instant Trace displayType — custom envelope curve face (blank Display Settings).
     inputs: ["Trigger"],
     inputAliases: { Gate: "Trigger", In: "Trigger", Trig: "Trigger" },
     inputLabels: { Trigger: "Trig" },
