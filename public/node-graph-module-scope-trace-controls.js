@@ -161,7 +161,8 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     ...nodeGraphTraceDisplaySettingFields.map(([key]) => key),
     "hue",
     "rounding",
-    "screenPadding",
+    "edgeSpacing",
+    "cornerRadius",
     "textSize",
     "textSizePx",
     "textWeight",
@@ -201,7 +202,6 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "freqOverlap",
     "freqScale",
     "cornerShape",
-    "screenShape",
     "shape",
     "outerPlate",
     "lightBlend",
@@ -371,10 +371,10 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   rasterRgbFace: Object.freeze({
-    fields: Object.freeze(["screenPadding", "rounding"]),
+    fields: Object.freeze(["edgeSpacing", "cornerRadius"]),
     colors: Object.freeze(["backgroundColor"]),
     toggles: Object.freeze(["squareRatio"]),
-    choices: Object.freeze(["screenShape"]),
+    choices: Object.freeze(["cornerShape"]),
   }),
   gradientVectorscopeFace: Object.freeze({
     fields: Object.freeze([
@@ -896,7 +896,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "labelSize",
       "valueSize",
       "innerRadius",
-      "sweepSeconds",
+      "sweepHz",
       "ghost",
       "trail",
       "burn",
@@ -913,7 +913,8 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "pixelDensity",
       "dotBudget",
       "padding",
-      "screenPadding",
+      "edgeSpacing",
+      "cornerRadius",
       "fftSize",
       "minFreq",
       "maxFreq",
@@ -941,7 +942,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "squareRatio",
     ]),
     // window/overlap/freqOverlap/freqScale = spectrogram; syncChannel/stereoBlend = Output.
-    // cornerShape = LED.
+    // cornerShape = LED / Raster RGB / Matrix Waterfall (square|squircle).
     choices: Object.freeze([
       "outerPlate",
       "lightBlend",
@@ -956,7 +957,6 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "labelPosition",
       "valuePosition",
       "xyzLayout",
-      "screenShape",
       "fftSize",
     ]),
   }),
@@ -1186,12 +1186,6 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayZoomSeconds",
     title: "Seconds of capture shown (0–10 s). Exponential drag: most useful short windows live near 0; longer history toward max.",
   }),
-  sweepSeconds: Object.freeze({
-    label: "Sweep (s)",
-    inputmode: "decimal",
-    id: "nodeTraceDisplaySweepSeconds",
-    title: "Legacy seconds field — prefer Sweep (Hz).",
-  }),
   sweepHz: Object.freeze({
     label: "Sweep (Hz)",
     inputmode: "decimal",
@@ -1271,13 +1265,19 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Rounding",
     inputmode: "decimal",
     id: "nodeTraceDisplayRounding",
-    title: "Corner rounding percent (0 = square, 100 = full capsule/circle). Pairs with Pill or Squircle.",
+    title: "Button corner rounding percent (0 = square, 100 = full capsule/circle).",
   }),
-  screenPadding: Object.freeze({
-    label: "Padding",
+  cornerRadius: Object.freeze({
+    label: "Rounding",
     inputmode: "decimal",
-    id: "nodeTraceDisplayScreenPadding",
-    title: "Screen inset 0…1. 0 = flush to the plate; 1 = collapse to a point. Same role as Music Player edge spacing.",
+    id: "nodeTraceDisplayCornerRadius",
+    title: "Corner radius 0…1 of max radius (half panel min-edge). 0 = square, 1 = full capsule/circle. Pairs with Pill or Squircle.",
+  }),
+  edgeSpacing: Object.freeze({
+    label: "Edge Spacing",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayEdgeSpacing",
+    title: "Screen inset 0…1 of max inset (half face min-edge). 0 = flush; 1 = collapse to a point.",
   }),
   padding: Object.freeze({ label: "Amp", inputmode: "decimal", id: "nodeTraceDisplayPadding" }),
   textSize: Object.freeze({
@@ -1730,19 +1730,10 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
   }),
   cornerShape: Object.freeze({
     label: "Corners",
-    aria: "LED corner shape",
+    aria: "Corner shape",
     id: "nodeTraceDisplayCornerShape",
     options: Object.freeze([
       Object.freeze({ value: "square", label: "Square" }),
-      Object.freeze({ value: "squircle", label: "Squircle" }),
-    ]),
-  }),
-  screenShape: Object.freeze({
-    label: "Corners",
-    aria: "Screen corner shape",
-    id: "nodeTraceDisplayScreenShape",
-    options: Object.freeze([
-      Object.freeze({ value: "pill", label: "Pill" }),
       Object.freeze({ value: "squircle", label: "Squircle" }),
     ]),
   }),

@@ -387,10 +387,15 @@ function copyNodeGraphScope2dBurnSurface(renderer, sourceSurface, targetSurface,
 
 
 function nodeGraphScope2dBurnDecayValues(settings) {
-  const decay = clampNodeSliderValue(nodeGraphFiniteNumber(settings?.decay), 0, 1);
+  const trail = clampNodeSliderValue(
+    Number.isFinite(Number(settings?.trail)) ? Number(settings.trail) : 0.3,
+    0,
+    1,
+  );
+  const erase = 1 - trail;
   return {
-    decayFast: decay > 0 ? 1 - decay * 0.38 : 1,
-    decaySlow: decay > 0 ? 1 - decay * 0.1 : 1,
+    decayFast: erase > 0 ? 1 - erase * 0.38 : 1,
+    decaySlow: erase > 0 ? 1 - erase * 0.1 : 1,
     exposure: nodeGraphScope2dEnergyBurnExposure(),
     floor: erase > 0 ? erase * 0.0035 : 0,
   };
@@ -679,10 +684,10 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
 
   const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
     ? PhosphorResidual.migrateTrail(settings || {}, PhosphorResidual.DEFAULT_TRAIL ?? 0.3)
-    : clampNodeSliderValue(Number(settings?.trail ?? (Number.isFinite(Number(settings?.decay)) ? 1 - Number(settings.decay) : 0.3)), 0, 1);
+    : clampNodeSliderValue(Number.isFinite(Number(settings?.trail)) ? Number(settings.trail) : 0.3, 0, 1);
   const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
     ? PhosphorResidual.migrateGhost(settings || {}, PhosphorResidual.DEFAULT_GHOST ?? 0.25)
-    : clampNodeSliderValue(nodeGraphFiniteNumber(settings?.ghost ?? settings?.burn), 0, 1);
+    : clampNodeSliderValue(nodeGraphFiniteNumber(settings?.ghost), 0, 1);
   const dotSpace = nodeGraphScope2dStrokeSpace(canvas);
   const layers = nodeGraphScope2dBurnLayers(settings, dotSpace);
   const layer = layers[0] || null;

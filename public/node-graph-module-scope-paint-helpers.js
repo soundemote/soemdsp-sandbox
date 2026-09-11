@@ -294,10 +294,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     : null;
   let sweepHz = Number(sweepPair?.sweepHz ?? settings?.sweepHz);
   if (!Number.isFinite(sweepHz)) {
-    const legacySec = Number(settings?.sweepSeconds);
-    sweepHz = Number.isFinite(legacySec) && legacySec > 0
-      ? 1 / legacySec
-      : nodeGraphFiniteNumber(nodeGraphLineBurnSettingsDefaults.sweepHz, 4);
+    sweepHz = nodeGraphFiniteNumber(nodeGraphLineBurnSettingsDefaults.sweepHz, 4);
   }
   if (sweepHz < 0) {
     sweepHz = 0;

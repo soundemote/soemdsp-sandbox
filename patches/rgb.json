@@ -613,9 +613,9 @@
         "background": "#000004",
         "backgroundColor": "#000004",
         "squareRatio": true,
-        "screenPadding": 0,
-        "rounding": 0,
-        "screenShape": "pill"
+        "edgeSpacing": 0,
+        "cornerRadius": 0,
+        "cornerShape": "square"
       }
     },
     {

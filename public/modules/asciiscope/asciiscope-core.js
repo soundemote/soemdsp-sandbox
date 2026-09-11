@@ -662,16 +662,15 @@ function normalizeNodeGraphMatrixWaterfall(raw = null) {
     gradientStops: source.gradientStops ?? source.gradient,
     message: MATRIX_DEFAULT_MESSAGE,
   });
-  const pad = Number(source.screenPadding ?? source.padding);
-  const rounding = Number(source.rounding ?? source.cornerRadius);
-  const shapeRaw = String(source.screenShape ?? source.cornerShape ?? "").toLowerCase();
+  const edgeSpacing = Number(source.edgeSpacing);
+  const cornerRadius = Number(source.cornerRadius);
   return {
     glyphTable: base.glyphTable,
     renderStyle: base.renderStyle,
     gradientStops: base.gradientStops,
-    screenPadding: Number.isFinite(pad) ? Math.max(0, Math.min(1, pad)) : 0,
-    rounding: Number.isFinite(rounding) ? Math.max(0, Math.min(100, rounding)) : 0,
-    screenShape: shapeRaw === "squircle" ? "squircle" : "pill",
+    edgeSpacing: Number.isFinite(edgeSpacing) ? clampDisplayUnit01(edgeSpacing, 0) : 0,
+    cornerRadius: Number.isFinite(cornerRadius) ? clampDisplayUnit01(cornerRadius, 0) : 0,
+    cornerShape: source.cornerShape === "squircle" ? "squircle" : "square",
   };
 }
 

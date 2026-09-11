@@ -86,7 +86,7 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
   if (key === "pixelDensity" || key === "stampDensity") {
     return 0.05;
   }
-  if (key === "sweepSeconds" || key === "sweepHz" || key === "sweepCycles"
+  if (key === "sweepHz" || key === "sweepCycles"
     || key === "historyHz" || key === "historyCycles") {
     return 0.05;
   }
@@ -158,8 +158,7 @@ function nodeGraphTraceDisplayHistoryControlField(key) {
     || key === "historyHz"
     || key === "historyCycles"
     || key === "sweepHz"
-    || key === "sweepCycles"
-    || key === "sweepSeconds";
+    || key === "sweepCycles";
 }
 
 /**
@@ -186,7 +185,8 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "unlitSegments",
     "centsBand",
     "facePadding",
-    "screenPadding",
+    "edgeSpacing",
+    "cornerRadius",
     "innerShadowDistance",
     "innerShadowSharpness",
     "innerShadowOffsetX",
@@ -488,7 +488,8 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
     const n = Number(value);
     return Number.isFinite(n) ? clampNodeSliderValue(n, -0.5, 1) : 0;
   },
-  screenPadding: nodeGraphTraceDisplayClampUnit,
+  edgeSpacing: nodeGraphTraceDisplayClampUnit,
+  cornerRadius: nodeGraphTraceDisplayClampUnit,
   innerShadowDistance: nodeGraphTraceDisplayClampUnit,
   innerShadowSharpness: nodeGraphTraceDisplayClampUnit,
   innerShadowOffsetX: nodeGraphTraceDisplayClampBipolarUnit,
@@ -522,8 +523,6 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   secondaryBrightness: nodeGraphTraceDisplayClampBrightness,
   secondaryLineThickness: nodeGraphTraceDisplayClampNonNegative,
   secondarySize: nodeGraphTraceDisplayClampUnit,
-  // 1D Phosphor: seconds for one left→right pass.
-  sweepSeconds: nodeGraphTraceDisplayClampSweepSeconds,
   sweepHz: (value) => (typeof nodeGraphTraceDisplayClampSweepHz === "function"
     ? nodeGraphTraceDisplayClampSweepHz(value, 4)
     : clampNodeSliderValue(nodeGraphFiniteNumber(value, 4), 0, 100)),

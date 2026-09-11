@@ -4239,20 +4239,25 @@ def require_module_frame_port_gap_contract() -> None:
     patch_core = script_sources["./public/node-graph-patch-core.js"]
     for snippet in [
         "function updateNodeGraphModuleFrame(nodeElement)",
-        "function nodeGraphModuleFrameBuildPath",
+        "function nodeGraphModuleFrameHide",
+        "function nodeGraphModuleFrameLayoutBoxInNode",
         "function syncNodeGraphModuleFramesAfterDom",
-        "node-module-frame-path",
+        "applyNodeGraphModulePlateClip",
     ]:
         require(snippet in frame, f"module frame missing {snippet}")
+    require(
+        "function nodeGraphModuleFrameBuildPath" not in frame,
+        "retired gapped SVG BuildPath must stay deleted",
+    )
     require(
         "syncNodeGraphModuleFramesAfterDom" in patch_core,
         "patch DOM sync should refresh module frames",
     )
     require(
         ".node-module-frame" in styles
-        and "outline: none" in styles
-        and "node-module-frame-path" in styles,
-        "module CSS should use SVG frame without box outline over ports",
+        and "display: none !important" in styles
+        and "Retired SVG frame" in styles,
+        "module CSS should hide retired SVG frame; plate stroke is CSS",
     )
 
 
@@ -13225,7 +13230,7 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         'if (nodeGraphModuleDefinitions?.[type]) {\n    return "trace";\n  }' in node_graph_source
-        and 'nodeGraphModuleDisplayRendererForNode(node) !== "legacy"' in script_sources["./public/node-graph-execution-plan.js"],
+        and 'nodeGraphModuleDisplayRendererForNode(node) !== "layoutOwned"' in script_sources["./public/node-graph-execution-plan.js"],
         "Known modules without specialized displays should default to 1D Trace capture",
     )
     require(

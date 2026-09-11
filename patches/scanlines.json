@@ -435,11 +435,11 @@
           }
         },
         "traceDisplaySettings": {
-          "rounding": 0,
+          "cornerRadius": 0,
           "background": "#000004",
-          "screenShape": "pill",
+          "cornerShape": "square",
           "squareRatio": false,
-          "screenPadding": 0
+          "edgeSpacing": 0
         }
       },
       {

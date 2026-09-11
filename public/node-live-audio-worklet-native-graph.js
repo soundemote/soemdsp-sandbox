@@ -99,10 +99,6 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   additivePhaseEntry: 125,
   additiveBlaster: 126,
   additiveDiffusor: 127,
-  // Legacy aliases → native QuantizeFreq / FrequencySkew
-  additiveHarmonicMath: 118,
-  additiveFrequencyMath: 118,
-  additiveFrequencySlope: 117,
   stepSequencer: 36,
   transport: 37,
   aliasSine: 38,
@@ -3436,25 +3432,15 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0));
       continue;
     }
-    if (type === "additiveFrequencySkew" || type === "additiveFrequencySlope") {
+    if (type === "additiveFrequencySkew") {
       push("curve", P.NATIVE_GRAPH_PARAM_MODE, disc("curve", 0));
       push("lowStretch", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("lowStretch", 1));
       push("highStretch", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("highStretch", 1));
       push("skew", P.NATIVE_GRAPH_PARAM_SHAPE, cont("skew", 0));
       continue;
     }
-    if (
-      type === "additiveQuantizeFreq"
-      || type === "additiveHarmonicMath"
-      || type === "additiveFrequencyMath"
-    ) {
-      const bag = node?.params || node?.parameters || {};
-      const qKey = Object.prototype.hasOwnProperty.call(bag, "quantizeFreq")
-        || bag.quantizeFreq != null
-        ? "quantizeFreq"
-        : (bag.quantize != null ? "quantize" : "quantizeFreq");
-      // Always write MODE from the active choice key (On must reach native).
-      push("quantizeFreq", P.NATIVE_GRAPH_PARAM_MODE, disc(qKey, 0));
+    if (type === "additiveQuantizeFreq") {
+      push("quantizeFreq", P.NATIVE_GRAPH_PARAM_MODE, disc("quantizeFreq", 0));
       push("randomFreqAmount", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomFreqAmount", 0));
       push("affectFundamental", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("affectFundamental", 0));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
@@ -3909,11 +3895,8 @@ NodeLiveAudioProcessor.prototype.syncNativeYellowGraphPublish =
       "additiveAnalogFilter",
       "additiveLadderFilter",
       "additiveFrequencySkew",
-      "additiveFrequencySlope",
       "additiveQuantizeFreq",
       "additiveQuantizePhase",
-      "additiveHarmonicMath",
-      "additiveFrequencyMath",
       "additivePan",
       "additivePhaseEntry",
       "additiveBlaster",
@@ -4000,11 +3983,8 @@ NodeLiveAudioProcessor.prototype.nativeYellowGraphFullyNative =
       "additiveAnalogFilter",
       "additiveLadderFilter",
       "additiveFrequencySkew",
-      "additiveFrequencySlope",
       "additiveQuantizeFreq",
       "additiveQuantizePhase",
-      "additiveHarmonicMath",
-      "additiveFrequencyMath",
       "additivePan",
       "additivePhaseEntry",
       "additiveBlaster",

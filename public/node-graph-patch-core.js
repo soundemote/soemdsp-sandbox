@@ -104,7 +104,8 @@ function migrateNodeGraphPhosphorLightToScope2d(node) {
   const migratedSettings = {
     ...src,
     background: src.background ?? src.backgroundColor,
-    decay: src.decay,
+    trail: src.trail,
+    ghost: src.ghost,
     scale: src.scale,
     dot1Size: src.dot1Size,
     lineThickness: src.lineThickness ?? src.dot1Blur,
@@ -112,6 +113,7 @@ function migrateNodeGraphPhosphorLightToScope2d(node) {
     dot1Color: src.dot1Color ?? src.color,
     dot1Brightness: src.dot1Brightness ?? src.brightness,
   };
+  delete migratedSettings.decay;
   return {
     ...node,
     type: "scope2d",

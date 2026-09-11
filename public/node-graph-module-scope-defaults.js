@@ -182,7 +182,6 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   burn: nodeGraphScopePhosphorLookDefaults.burn,
   burnAmount: nodeGraphScopePhosphorLookDefaults.burnAmount,
   residualSchema: nodeGraphScopePhosphorLookDefaults.residualSchema,
-  decay: 1 - nodeGraphScopePhosphorLookDefaults.trail,
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
   scale: nodeGraphScopePhosphorLookDefaults.scale,
@@ -255,7 +254,6 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   burn: 0,
   burnAmount: 1,
   residualSchema: 3,
-  decay: 1,
   dot1Enabled: true,
   // Stroke diameter: 0 = 1px, 1 = face square min side.
   dot1Size: 0.04,
@@ -492,7 +490,6 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   burn: nodeGraphScopePhosphorLookDefaults.burn,
   burnAmount: nodeGraphScopePhosphorLookDefaults.burnAmount,
   residualSchema: nodeGraphScopePhosphorLookDefaults.residualSchema,
-  decay: 1 - nodeGraphScopePhosphorLookDefaults.trail,
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
   dot1Color: "#75ebff",
   dot1Enabled: true,

@@ -216,7 +216,6 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["historyCycles", "Cycles"],
   ["fade", "Fade"],
   ["scale", "Scale"],
-  ["sweepSeconds", "Sweep (s)"],
   ["sweepHz", "Sweep (Hz)"],
   ["sweepCycles", "Sweep (c)"],
   ["fftSize", "FFT size"],
@@ -236,6 +235,8 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["decimals", "Decimals"],
   ["hue", "Hue"],
   ["rounding", "Rounding"],
+  ["cornerRadius", "Rounding"],
+  ["edgeSpacing", "Edge Spacing"],
   ["innerRadius", "Inner radius"],
   ["rotationDegrees", "Span °"],
   ["dialSize", "Knob size"],
@@ -264,7 +265,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
  */
 const nodeGraphPhosphorDisplayFieldOrder = Object.freeze([
   "scale",
-  "sweepSeconds",
+  "sweepHz",
   "backgroundBrightness",
   "backgroundHue",
   "dot1Size",

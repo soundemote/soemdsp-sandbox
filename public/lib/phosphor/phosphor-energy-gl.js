@@ -1376,23 +1376,19 @@
    * Prefer stepBeams for XY scopes (GPU ribbons, no mask upload).
    *
    * options.bleed: 0–1 per-frame energy diffusion (default soft phosphor seep).
-   * Even with decay=0, bleed still runs so long dwell expands outward.
+   * Even with trail≈1 (no erase), bleed still runs so long dwell expands outward.
+   * options.trail / options.ghost only (SSOT). options.burn is sticky floor elsewhere — not a ghost alias.
    */
   function stepEnergy(renderer, options = {}) {
     if (!isRendererLive(renderer)) {
       return false;
     }
-    // trail (preferred) or legacy decay (high=die → invert). ghost or legacy burn.
     const trail = Number.isFinite(Number(options.trail))
       ? Number(options.trail)
-      : (Number.isFinite(Number(options.decay))
-        ? 1 - Math.max(0, Math.min(1, Number(options.decay)))
-        : (global.PhosphorResidual?.DEFAULT_TRAIL ?? 0.3));
+      : (global.PhosphorResidual?.DEFAULT_TRAIL ?? 0.3);
     const ghostAmt = Number.isFinite(Number(options.ghost))
       ? Math.max(0, Math.min(1, Number(options.ghost)))
-      : (Number.isFinite(Number(options.burn))
-        ? Math.max(0, Math.min(1, Number(options.burn)))
-        : 0);
+      : 0;
     const depositGain = options.depositGain || 0;
     const maskCanvas = options.maskCanvas || null;
     const { gl } = renderer;
@@ -1504,9 +1500,7 @@
     }
     const {
       trail = undefined,
-      decay = undefined, // legacy
       ghost = undefined,
-      burn = undefined, // legacy
       pathPoints = null,
       vertices = null,
       radius = 2,
@@ -1555,9 +1549,7 @@
     // Fade + neighborhood bleed. Trail = hot residual; Ghost = dim scorch floor.
     stepEnergy(renderer, {
       trail,
-      decay,
       ghost,
-      burn,
       depositGain: 0,
       maskCanvas: null,
       bleed: willDeposit || renderer.energyActive ? bleed : 0,

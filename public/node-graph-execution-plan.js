@@ -468,7 +468,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
     if (
       !bypassedNodes.has(node.id)
       && typeof nodeGraphModuleDisplayRendererForNode === "function"
-      && nodeGraphModuleDisplayRendererForNode(node) !== "legacy"
+      && nodeGraphModuleDisplayRendererForNode(node) !== "layoutOwned"
       && nodeGraphPatchNodeDisplayVisibleInPlan(node, { bypassedNodes })
     ) {
       markReachable(node.id);
@@ -773,7 +773,7 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
           && nodeGraphPatchNodeDisplayVisibleInPlan(node, { bypassedNodes })
         ) ||
         (
-          nodeGraphModuleDisplayRendererForNode(node) !== "legacy" &&
+          nodeGraphModuleDisplayRendererForNode(node) !== "layoutOwned" &&
           nodeGraphPatchNodeDisplayVisibleInPlan(node, { bypassedNodes })
         )
       )

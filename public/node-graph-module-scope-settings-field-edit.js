@@ -490,7 +490,6 @@ function stepNodeGraphTraceDisplaySetting(event) {
     || key === "historyCycles"
     || key === "sweepHz"
     || key === "sweepCycles"
-    || key === "sweepSeconds"
   ) {
     // Exponential control-space steps (fine near short/slow, coarser at long/fast).
     const quantum = nodeGraphTraceDisplayStepperQuantum(input, baseValue, direction);

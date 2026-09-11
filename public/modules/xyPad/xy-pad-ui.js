@@ -533,7 +533,7 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const trail = Residual && typeof Residual.migrateTrail === "function"
     ? Residual.migrateTrail(options, 0.88)
-    : Math.max(0, Math.min(1, Number(options.trail) ?? (Number.isFinite(Number(options.decay)) ? 1 - Number(options.decay) : 0.88)));
+    : Math.max(0, Math.min(1, Number.isFinite(Number(options.trail)) ? Number(options.trail) : 0.88));
   const ghost = Residual && typeof Residual.migrateGhost === "function"
     ? Residual.migrateGhost(options, 0.45)
     : Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.ghost)));
@@ -751,7 +751,7 @@ function drawNodeGraphXyPad(pad, options = {}) {
   const ResidualUx = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const trailUx = ResidualUx && typeof ResidualUx.migrateTrail === "function"
     ? ResidualUx.migrateTrail(display, 0.65)
-    : Math.max(0, Math.min(1, Number(display.trail) ?? (Number.isFinite(Number(display.decay)) ? 1 - Number(display.decay) : 0.65)));
+    : Math.max(0, Math.min(1, Number.isFinite(Number(display.trail)) ? Number(display.trail) : 0.65));
   const ghostUx = ResidualUx && typeof ResidualUx.migrateGhost === "function"
     ? ResidualUx.migrateGhost(display, 0.45)
     : Math.max(0, Math.min(1, nodeGraphFiniteNumber(display.ghost)));

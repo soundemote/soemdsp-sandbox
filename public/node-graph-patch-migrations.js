@@ -61,17 +61,22 @@ function nodeGraphPatchMigratePhosphorLightNodes(patch) {
     return {
       ...node,
       type: "scope2d",
-      traceDisplaySettings: {
-        ...src,
-        background: src.background ?? src.backgroundColor,
-        decay: src.decay,
-        scale: src.scale,
-        dot1Size: src.dot1Size,
-        lineThickness: src.lineThickness ?? src.dot1Blur,
-        pixelDensity: src.pixelDensity,
-        dot1Color: src.dot1Color ?? src.color,
-        dot1Brightness: src.dot1Brightness ?? src.brightness,
-      },
+      traceDisplaySettings: (() => {
+        const next = {
+          ...src,
+          background: src.background ?? src.backgroundColor,
+          trail: src.trail,
+          ghost: src.ghost,
+          scale: src.scale,
+          dot1Size: src.dot1Size,
+          lineThickness: src.lineThickness ?? src.dot1Blur,
+          pixelDensity: src.pixelDensity,
+          dot1Color: src.dot1Color ?? src.color,
+          dot1Brightness: src.dot1Brightness ?? src.brightness,
+        };
+        delete next.decay;
+        return next;
+      })(),
     };
   });
   return changed ? { ...patch, nodes } : patch;

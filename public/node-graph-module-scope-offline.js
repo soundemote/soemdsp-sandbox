@@ -372,9 +372,8 @@ function nodeGraphModuleScopeOscillatorPhasor(slot, frequency, cycles, modelTime
 // displayType/renderer "trace"), so the field exists here for all of them,
 // but a non-Output trace node's draw path never reads it.
 // nodeGraphTraceDisplaySettingsDefaults → node-graph-module-scope-defaults.js
-// 1D Phosphor = heart-monitor energy trail: pen takes sweepSeconds to cross left→right.
-// Y = sample. Optional rising-edge Reset snaps to the left. Tune seconds to match
-// the period you care about (easier UX than Hz).
+// 1D Phosphor = heart-monitor energy trail: sweepHz = left→right passes/sec.
+// Y = sample. Optional rising-edge Reset snaps to the left.
 // nodeGraphLineBurnSettingsDefaults → node-graph-module-scope-defaults.js
 // nodeGraphTraceDisplayRenderPointBudgetDefault → node-graph-module-scope-defaults.js
 function nodeGraphTraceDisplayRenderPointBudget() {
@@ -442,13 +441,7 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 // normalizeNodeGraphTraceDisplayColor → node-graph-module-scope-normalize.js
 // normalizeNodeGraphTraceDisplayNumber → node-graph-module-scope-normalize.js
 // normalizeNodeGraphTraceDisplayZoomSeconds → node-graph-module-scope-normalize.js
-/** Clamp sweep duration: 0 s … 10 s (0 = full-width horizontal at sample Y). */
-// nodeGraphTraceDisplayClampSweepSeconds → node-graph-module-scope-normalize.js
-/**
- * Resolve seconds-per-pass. Migrates legacy sweepHz (crossings/sec) and
- * older zoomSeconds/windowSeconds fields that already meant duration.
- */
-// normalizeNodeGraphLineBurnSweepSeconds → node-graph-module-scope-normalize.js
+// normalizeNodeGraphLineBurnSweepPair → node-graph-module-scope-normalize.js
 // normalizeNodeGraphLineBurnSettings → node-graph-module-scope-normalize.js
 // normalizeNodeGraphZeroDBurnSettings → node-graph-module-scope-normalize.js
 // normalizeNodeGraphTraceDisplaySettings → node-graph-module-scope-normalize.js
@@ -517,7 +510,7 @@ function nodeGraphModuleDisplayRendererForSlot(slot) {
  * Face renderer for a module type (what paints in the display row).
  *
  * - Explicit definition.displayType → that renderer (+ matching settings).
- * - Custom layout faces (envelopeCurve / filterCurve / …) → "legacy"
+ * - Custom layout faces (envelopeCurve / filterCurve / …) → "layoutOwned"
  *   (layout owns the face; blank Display Settings + Show in canvas).
  * - Default LayoutA DSP with Instant Trace scope window (e.g. Flower Child
  *   Filter) → "trace" face AND Instant Trace Display Settings.
@@ -535,13 +528,13 @@ function nodeGraphModuleDeclaredDisplayTypeForType(type) {
   // Custom layout owns the face — not Instant Trace.
   if (typeof nodeGraphModuleTypeHasCustomDisplayArea === "function"
     && nodeGraphModuleTypeHasCustomDisplayArea(type)) {
-    return "legacy";
+    return "layoutOwned";
   }
   // LayoutA Instant Trace monitors (Flower Child Filter, …).
   if (nodeGraphModuleDefinitions?.[type]) {
     return "trace";
   }
-  return "legacy";
+  return "layoutOwned";
 }
 
 function nodeGraphModuleDisplayTypeForType(type) {

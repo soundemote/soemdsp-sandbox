@@ -78,12 +78,8 @@ function matrixDisplayParamsFromNode(node) {
     stampY: stamp,
     bufColumns,
     bufRows,
-    // trail: linear residual blend (0 = pure Ghost path; 1 ≈ freeze). Legacy decay inverted.
-    trail: (() => {
-      if (p.trail != null) return matrixDisplayClamp01(p.trail, 0.78);
-      if (p.decay != null) return matrixDisplayClamp01(1 - Number(p.decay), 0.78);
-      return 0.78;
-    })(),
+    // trail: linear residual blend (0 = pure Ghost path; 1 ≈ freeze).
+    trail: matrixDisplayClamp01(p.trail, 0.78),
     // ghost: extreme analog (super-exp) hang
     ghost: matrixDisplayClamp01(p.ghost ?? 0.35, 0.35),
     // burn: sticky residual floor (0 = off). New face param (not legacy ghost alias).

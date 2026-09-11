@@ -30,7 +30,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = key === "historyCycles" ? "Cycles" : "History (Hz)";
     title = "Live history window (Hz when free-run; Cycles when synced).";
   }
-  if (key === "sweepHz" || key === "sweepCycles" || key === "sweepSeconds") {
+  if (key === "sweepHz" || key === "sweepCycles") {
     const syncOn = options.syncOn === true || key === "sweepCycles";
     label = syncOn ? "Sweep (c)" : "Sweep (Hz)";
     title = syncOn
@@ -237,7 +237,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     : "";
   const labelHtml = options.hideLabel
     ? ""
-    : (key === "sweepSeconds" || key === "sweepHz" || key === "sweepCycles"
+    : (key === "sweepHz" || key === "sweepCycles"
       ? `<span data-trace-display-sweep-label>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>`
       : (key === "historySeconds" || key === "zoomSeconds" || key === "historyHz" || key === "historyCycles")
         ? `<span data-trace-display-history-label>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>`
@@ -937,7 +937,7 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
       if (typeof nodeGraphPhosphorEnergyGlClear === "function") {
         nodeGraphPhosphorEnergyGlClear(splat);
       } else if (typeof PhosphorDrawer.stepFade === "function") {
-        PhosphorDrawer.stepFade(splat, { decay: 1, trail: 1, ghost: 1, bleed: 0 });
+        PhosphorDrawer.stepFade(splat, { trail: 1, ghost: 1, bleed: 0 });
       }
       const stops = Array.isArray(settings.gradientStops) ? settings.gradientStops : null;
       if (stops && stops.length >= 2 && typeof PhosphorDrawer.setLutStops === "function") {
@@ -1020,7 +1020,7 @@ function paintNodeGraphStampPreview(root, settings = {}) {
  */
 function syncNodeGraphLineBurnSweepLabel(root, settings = {}) {
   const host = root?.querySelector?.(
-    "[data-trace-display-sweep-label], [data-trace-display-field=\"sweepSeconds\"], [data-trace-display-field=\"sweepHz\"], [data-trace-display-field=\"sweepCycles\"]",
+    "[data-trace-display-sweep-label], [data-trace-display-field=\"sweepHz\"], [data-trace-display-field=\"sweepCycles\"]",
   )
     ? root
     : document.getElementById("nodeTraceDisplaySettingsPopover");
@@ -1029,8 +1029,7 @@ function syncNodeGraphLineBurnSweepLabel(root, settings = {}) {
   }
   const titleSpan = host.querySelector("[data-trace-display-sweep-label]");
   const field = host.querySelector(`[data-trace-display-field="sweepHz"]`)
-    || host.querySelector(`[data-trace-display-field="sweepCycles"]`)
-    || host.querySelector(`[data-trace-display-field="sweepSeconds"]`);
+    || host.querySelector(`[data-trace-display-field="sweepCycles"]`);
   if (!titleSpan && !field) {
     return;
   }
@@ -1309,7 +1308,6 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     "zoomSeconds",
     "sweepHz",
     "sweepCycles",
-    "sweepSeconds",
     "backgroundBrightness",
     "backgroundHue",
   ]);
@@ -1572,7 +1570,7 @@ function buildNodeGraphPhosphorDisplaySettingsBodyHtml(type, node, allowKey) {
     usedChoices.add(key);
   }
   for (const key of ordered) {
-    if (key === "sweepCycles" || key === "sweepSeconds") {
+    if (key === "sweepCycles") {
       continue;
     }
     const rowKey = key === "sweepHz"

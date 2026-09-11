@@ -9,7 +9,7 @@
  */
 function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
   const r = String(renderer || "").trim();
-  if (!r || r === "legacy" || r === "blank" || r === "none") {
+  if (!r || r === "layoutOwned" || r === "blank" || r === "none") {
     return "";
   }
   if (r === "phosphorWaveform") {
@@ -81,7 +81,7 @@ function normalizeNodeGraphDisplayMode(mode, type = "", index = 0) {
   const renderer = nodeGraphDisplayModeRenderers.includes(rawRenderer)
     ? rawRenderer
     : nodeGraphModuleDeclaredDisplayTypeForType(type);
-  if (renderer === "legacy") {
+  if (renderer === "layoutOwned") {
     return null;
   }
   const key = String(raw.key || raw.name || `${renderer}${index + 1}`).trim();
@@ -119,11 +119,11 @@ function nodeGraphModuleImplicitDisplayModeSource(type, renderer) {
 
 function nodeGraphModuleImplicitDisplayModeForType(type) {
   const renderer = nodeGraphModuleDeclaredDisplayTypeForType(type);
-  if (renderer === "legacy") {
+  if (renderer === "layoutOwned") {
     return null;
   }
   // Instant Trace face (explicit or LayoutA invent-trace) → Instant Trace settings.
-  // Custom layouts (envelopeCurve / filterCurve) never reach here (legacy).
+  // Custom layouts (envelopeCurve / filterCurve) never reach here (layoutOwned).
   return normalizeNodeGraphDisplayMode({
     key: renderer,
     label: nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) || renderer,
@@ -182,7 +182,7 @@ function nodeGraphModuleDisplayRendererForNode(node) {
  * Display Settings form schema for a node.
  * Mode.settingsSchema wins (including ""). Instant Trace faces (explicit or
  * LayoutA invent-trace) use Instant Trace settings. Custom layout faces
- * (envelopeCurve / filterCurve → legacy) have no mode → blank settings.
+ * (envelopeCurve / filterCurve → layoutOwned) have no mode → blank settings.
  */
 function nodeGraphModuleDisplaySettingsSchemaForNode(node) {
   const mode = nodeGraphModuleSelectedDisplayMode(node);
@@ -190,7 +190,7 @@ function nodeGraphModuleDisplaySettingsSchemaForNode(node) {
     return String(mode.settingsSchema || "");
   }
   const renderer = nodeGraphModuleDisplayRendererForNode(node);
-  if (!renderer || renderer === "legacy") {
+  if (!renderer || renderer === "layoutOwned") {
     return "";
   }
   return nodeGraphDisplayModeSettingsSchemaForRenderer(renderer);

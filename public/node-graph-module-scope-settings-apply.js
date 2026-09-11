@@ -723,7 +723,6 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
         || k === "historyCycles"
         || k === "sweepHz"
         || k === "sweepCycles"
-        || k === "sweepSeconds"
         || k === "pixelDensity"
         || k === "scale";
     });

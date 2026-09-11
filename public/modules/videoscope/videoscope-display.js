@@ -95,9 +95,7 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
       ? Residual.migrateTrail(face, look?.trail ?? 0.5175)
       : (Number.isFinite(Number(face.trail))
         ? Number(face.trail)
-        : (Number.isFinite(Number(face.decay))
-          ? 1 - Number(face.decay)
-          : (look?.trail ?? 0.5175))),
+        : (look?.trail ?? 0.5175)),
     burn: Residual && typeof Residual.migrateBurn === "function"
       ? Residual.migrateBurn(face, 0)
       : (

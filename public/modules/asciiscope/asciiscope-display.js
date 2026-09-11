@@ -1058,8 +1058,8 @@ function matrixApplyWaterfallChrome(face, store) {
   if (!face?.style) {
     return;
   }
-  const pad = Number(store?.screenPadding);
-  const rounding = Number(store?.rounding);
+  const edgeSpacing = Number(store?.edgeSpacing);
+  const cornerRadius = Number(store?.cornerRadius);
   const box = typeof nodeGraphElementClientSize === "function"
     ? nodeGraphElementClientSize(face, 0, 0)
     : {
@@ -1072,18 +1072,18 @@ function matrixApplyWaterfallChrome(face, store) {
   }
   const cellW = box.width > 0 ? box.width : 0;
   const cellH = box.height > 0 ? box.height : 0;
-  const shape = store?.screenShape === "squircle" ? "squircle" : "round";
-  const chromeKey = `${cellW}|${cellH}|${pad}|${rounding}|${shape}`;
+  const shape = store?.cornerShape === "squircle" ? "squircle" : "round";
+  const chromeKey = `${cellW}|${cellH}|${edgeSpacing}|${cornerRadius}|${shape}`;
   if (face._matrixChromeKey === chromeKey) {
     return;
   }
   face._matrixChromeKey = chromeKey;
   const maxInset = Math.max(0, Math.min(cellW, cellH) / 2);
-  const inset = Math.round((Number.isFinite(pad) ? Math.max(0, Math.min(1, pad)) : 0) * maxInset);
+  const inset = Math.round(clampDisplayUnit01(edgeSpacing, 0) * maxInset);
   const panelW = Math.max(0, cellW - inset * 2);
   const panelH = Math.max(0, cellH - inset * 2);
   const maxRadius = Math.max(0, Math.min(panelW, panelH) / 2);
-  const radius = Math.round((Number.isFinite(rounding) ? Math.max(0, Math.min(100, rounding)) : 0) / 100 * maxRadius);
+  const radius = Math.round(clampDisplayUnit01(cornerRadius, 0) * maxRadius);
   face.style.setProperty("--matrix-face-inset", `${inset}px`);
   face.style.setProperty("--matrix-face-radius", `${radius}px`);
   face.style.setProperty("--matrix-face-corner-shape", shape);

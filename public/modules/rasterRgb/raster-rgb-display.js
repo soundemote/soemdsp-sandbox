@@ -16,9 +16,10 @@ const nodeGraphRasterRgbBuffers = new Map();
 const nodeGraphRasterRgbSettingsDefaults = Object.freeze({
   background: "#000000",
   squareRatio: false,
-  screenPadding: 0,
-  rounding: 0,
-  screenShape: "pill",
+  // edgeSpacing / cornerRadius: 0..1 of maxInset / maxRadius (Music Player §15).
+  edgeSpacing: 0,
+  cornerRadius: 0,
+  cornerShape: "square",
 });
 
 function normalizeNodeGraphRasterRgbSettings(settings = {}) {
@@ -28,18 +29,21 @@ function normalizeNodeGraphRasterRgbSettings(settings = {}) {
     : String(source.background || "#000000");
   const squareRaw = source.squareRatio;
   const squareRatio = squareRaw === true || squareRaw === 1 || squareRaw === "true" || squareRaw === "1";
-  const pad = Number(source.screenPadding ?? source.padding ?? source.edgeSpacing);
-  const rounding = Number(source.rounding ?? source.cornerRadius);
-  const shapeRaw = String(source.screenShape ?? source.cornerShape ?? "").toLowerCase();
-  const screenShape = shapeRaw === "squircle" ? "squircle" : "pill";
+  const edgeSpacing = Number(source.edgeSpacing);
+  const cornerRadius = Number(source.cornerRadius);
+  const cornerShape = source.cornerShape === "squircle" ? "squircle" : "square";
   return {
     background,
     // Alias for Display Settings color widgets (data-trace-display-color=backgroundColor).
     backgroundColor: background,
     squareRatio,
-    screenPadding: Number.isFinite(pad) ? Math.max(0, Math.min(1, pad)) : 0,
-    rounding: Number.isFinite(rounding) ? Math.max(0, Math.min(100, rounding)) : 0,
-    screenShape,
+    edgeSpacing: Number.isFinite(edgeSpacing)
+      ? clampDisplayUnit01(edgeSpacing, nodeGraphRasterRgbSettingsDefaults.edgeSpacing)
+      : nodeGraphRasterRgbSettingsDefaults.edgeSpacing,
+    cornerRadius: Number.isFinite(cornerRadius)
+      ? clampDisplayUnit01(cornerRadius, nodeGraphRasterRgbSettingsDefaults.cornerRadius)
+      : nodeGraphRasterRgbSettingsDefaults.cornerRadius,
+    cornerShape,
   };
 }
 
@@ -50,12 +54,12 @@ function nodeGraphRasterRgbApplyScreenChrome(face, canvas, settings) {
   const cellW = face.offsetWidth || 0;
   const cellH = face.offsetHeight || 0;
   const maxInset = Math.max(0, Math.min(cellW, cellH) / 2);
-  const inset = Math.round((nodeGraphFiniteNumber(settings.screenPadding)) * maxInset);
+  const inset = Math.round(nodeGraphFiniteNumber(settings.edgeSpacing) * maxInset);
   const panelW = Math.max(0, cellW - inset * 2);
   const panelH = Math.max(0, cellH - inset * 2);
   const maxRadius = Math.max(0, Math.min(panelW, panelH) / 2);
-  const radius = Math.round((nodeGraphFiniteNumber(settings.rounding)) / 100 * maxRadius);
-  const shape = settings.screenShape === "squircle" ? "squircle" : "round";
+  const radius = Math.round(nodeGraphFiniteNumber(settings.cornerRadius) * maxRadius);
+  const shape = settings.cornerShape === "squircle" ? "squircle" : "round";
   face.dataset.rasterRgbScreen = "true";
   face.style.setProperty("--raster-rgb-inset", `${inset}px`);
   face.style.setProperty("--raster-rgb-radius", `${radius}px`);

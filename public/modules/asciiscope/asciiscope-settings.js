@@ -13,9 +13,9 @@ function nodeGraphMatrixStoreFromNode(node) {
         glyphTable: ".",
         renderStyle: "vector",
         gradientStops: null,
-        screenPadding: 0,
-        rounding: 0,
-        screenShape: "pill",
+        edgeSpacing: 0,
+        cornerRadius: 0,
+        cornerShape: "square",
       };
   }
   return typeof normalizeNodeGraphMatrixPlate === "function"
@@ -46,18 +46,17 @@ function buildNodeGraphMatrixWaterfallDisplaySettingsBodyHtml() {
       data-matrix-face-settings-panel
       data-matrix-kind="waterfall">
       <label class="node-led-settings-row">
-        <span>Padding</span>
-        <input type="range" min="0" max="1" step="0.01" data-matrix-face-range="screenPadding" aria-label="Plate padding 0–1">
+        <span>Edge Spacing</span>
+        <input type="range" min="0" max="1" step="0.01" data-matrix-face-range="edgeSpacing" aria-label="Edge spacing 0–1 of max inset" title="0..1 of max inset (half face min-edge)">
       </label>
       <div class="node-led-settings-row" role="group" aria-label="Corner shape">
         <span>Corners</span>
-        <button type="button" data-matrix-face-shape="pill" aria-pressed="true">Pill</button>
+        <button type="button" data-matrix-face-shape="square" aria-pressed="true">Pill</button>
         <button type="button" data-matrix-face-shape="squircle" aria-pressed="false">Squircle</button>
       </div>
       <label class="node-led-settings-row">
         <span>Rounding</span>
-        <input type="range" min="0" max="100" step="1" data-matrix-face-range="rounding" aria-label="Corner rounding">
-        <span>%</span>
+        <input type="range" min="0" max="1" step="0.01" data-matrix-face-range="cornerRadius" aria-label="Corner radius 0–1" title="0..1 of max corner radius (half panel min-edge)">
       </label>
       <div class="node-led-settings-row" role="group" aria-label="Render style">
         <span>Render</span>
@@ -149,15 +148,15 @@ function syncNodeGraphMatrixFaceDisplaySettingsControls(root, settings) {
   if (message && document.activeElement !== message && settings.message != null) {
     message.value = settings.message || "";
   }
-  const pad = root.querySelector?.('[data-matrix-face-range="screenPadding"]');
-  if (pad && document.activeElement !== pad && settings.screenPadding != null) {
-    pad.value = String(settings.screenPadding);
+  const pad = root.querySelector?.('[data-matrix-face-range="edgeSpacing"]');
+  if (pad && document.activeElement !== pad && settings.edgeSpacing != null) {
+    pad.value = String(settings.edgeSpacing);
   }
-  const rounding = root.querySelector?.('[data-matrix-face-range="rounding"]');
-  if (rounding && document.activeElement !== rounding && settings.rounding != null) {
-    rounding.value = String(settings.rounding);
+  const rounding = root.querySelector?.('[data-matrix-face-range="cornerRadius"]');
+  if (rounding && document.activeElement !== rounding && settings.cornerRadius != null) {
+    rounding.value = String(settings.cornerRadius);
   }
-  const shape = settings.screenShape === "squircle" ? "squircle" : "pill";
+  const shape = settings.cornerShape === "squircle" ? "squircle" : "square";
   for (const btn of root.querySelectorAll?.("[data-matrix-face-shape]") || []) {
     const active = btn.getAttribute("data-matrix-face-shape") === shape;
     btn.classList.toggle("active", active);
@@ -192,29 +191,29 @@ function readNodeGraphMatrixFaceDisplaySettingsForm(root, current = null) {
     gradientStops = editor.getStops();
   }
 
-  const padInput = panel?.querySelector?.('[data-matrix-face-range="screenPadding"]');
-  const roundingInput = panel?.querySelector?.('[data-matrix-face-range="rounding"]');
+  const padInput = panel?.querySelector?.('[data-matrix-face-range="edgeSpacing"]');
+  const roundingInput = panel?.querySelector?.('[data-matrix-face-range="cornerRadius"]');
   const activeShape = panel?.querySelector?.(
     "[data-matrix-face-shape].active, [data-matrix-face-shape][aria-pressed='true']",
   );
-  const screenPadding = padInput
+  const edgeSpacing = padInput
     ? Number(padInput.value)
-    : base.screenPadding;
-  const rounding = roundingInput
+    : base.edgeSpacing;
+  const cornerRadius = roundingInput
     ? Number(roundingInput.value)
-    : base.rounding;
-  const screenShape = activeShape?.getAttribute?.("data-matrix-face-shape")
-    || base.screenShape
-    || "pill";
+    : base.cornerRadius;
+  const cornerShape = activeShape?.getAttribute?.("data-matrix-face-shape") === "squircle"
+    ? "squircle"
+    : (base.cornerShape === "squircle" ? "squircle" : "square");
 
   if (formType === "matrixWaterfallFace") {
     return normalizeNodeGraphMatrixFaceSettings({
       glyphTable,
       renderStyle,
       gradientStops,
-      screenPadding,
-      rounding,
-      screenShape,
+      edgeSpacing,
+      cornerRadius,
+      cornerShape,
     }, formType);
   }
   return normalizeNodeGraphMatrixFaceSettings({
@@ -262,7 +261,7 @@ function bindNodeGraphMatrixFaceDisplaySettingsBody(host) {
     if (shapeBtn && host.contains(shapeBtn)) {
       event.preventDefault();
       event.stopPropagation();
-      const shape = shapeBtn.getAttribute("data-matrix-face-shape") === "squircle" ? "squircle" : "pill";
+      const shape = shapeBtn.getAttribute("data-matrix-face-shape") === "squircle" ? "squircle" : "square";
       for (const btn of host.querySelectorAll?.("[data-matrix-face-shape]") || []) {
         const active = btn.getAttribute("data-matrix-face-shape") === shape;
         btn.classList.toggle("active", active);

@@ -490,7 +490,7 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "rasterRgbFace") {
     return typeof normalizeNodeGraphRasterRgbSettings === "function"
       ? normalizeNodeGraphRasterRgbSettings()
-      : { background: "#000000", squareRatio: false, screenPadding: 0, rounding: 0, screenShape: "pill" };
+      : { background: "#000000", squareRatio: false, edgeSpacing: 0, cornerRadius: 0, cornerShape: "square" };
   }
   if (type === "gradientVectorscopeFace") {
     return typeof normalizeNodeGraphGradientVectorscopeSettings === "function"
@@ -1115,14 +1115,7 @@ function readNodeGraphTraceDisplaySettingsForm() {
           next.zoomSeconds = "0";
         }
       }
-      if (key === "sweepHz") {
-        const hz = Number(sanitizedValue);
-        if (Number.isFinite(hz) && hz > 0) {
-          next.sweepSeconds = String(1 / hz);
-        } else if (hz === 0) {
-          next.sweepSeconds = "0";
-        }
-      }
+
       // Value LED/LCD: app-wide Trail/Ghost map onto hang + 8-floor aliases.
       if (key === "trail") {
         next.residual = sanitizedValue;
@@ -1296,17 +1289,10 @@ function nodeGraphDisplaySettingsFormValue(settings, key) {
     return settings.historyCycles ?? 4;
   }
   if (key === "sweepHz") {
-    return settings.sweepHz ?? (
-      Number(settings.sweepSeconds) > 0 ? 1 / Number(settings.sweepSeconds) : 4
-    );
+    return settings.sweepHz ?? 4;
   }
   if (key === "sweepCycles") {
     return settings.sweepCycles ?? 4;
-  }
-  if (key === "sweepSeconds") {
-    return settings.sweepSeconds ?? (
-      Number(settings.sweepHz) > 0 ? 1 / Number(settings.sweepHz) : 0.25
-    );
   }
   return settings[key];
 }

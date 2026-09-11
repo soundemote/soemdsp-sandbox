@@ -3,15 +3,12 @@
 // Display Settings order (shared faces, including Lorenz):
 //   Size → Blur → Bright → Ghost → Trail → Scale → Antialiasing → Dot Budget
 //
-// Axes (all 0..1, high = more of the named quality):
-//   Bright     → peak deposit / present light
-//   Trail      → main residual length (1 ≈ freeze-ish hot path)
-//   Ghost      → dim scorched floor hang (screen burn-in, still dies)
-//
-// Legacy patches:
-//   decay  (old: high = faster die) → trail = 1 - decay   [phosphor faces]
-//   burn   (old name for ghost)     → ghost = burn
-//   number-readout decay was already high=long → trail = decay (no invert)
+// Axes (SSOT; high = more of the named quality):
+//   Bright      → peak deposit / present light
+//   Trail       → main residual length (1 ≈ freeze-ish hot path)
+//   Ghost       → dim scorched floor hang (screen burn-in, still dies)
+//   Burn        → sticky residual floor (residualSchema ≥ 2; default 0)
+//   Burn Amount → deposit gain multiplier for residual (default 1)
 //
 // Used by energy-GL, drawer, matrix, asciiscope.
 
@@ -29,11 +26,9 @@
 
   /**
    * Per-frame erase amount from Trail (high trail = low erase).
-   * Matches former fadeAmount(1 - trail) curve.
    */
   function trailFadeAmount(trail) {
     const t = clamp01(trail, DEFAULT_TRAIL);
-    // Invert to old decay domain, then same quadratic fade map.
     const d = 1 - t;
     if (d <= 0.001) {
       return 0;
@@ -119,37 +114,36 @@
   }
 
   /**
-   * Migrate patch fields → trail 0..1 (high = long).
-   * @param {object} source
-   * @param {number} fallback
-   * @param {{ invertLegacyDecay?: boolean }} [options]
-   *   invertLegacyDecay true (default for phosphor): trail = 1 - decay
-   *   invertLegacyDecay false (number readout): trail = decay (already high=long)
+   * Patch fields → trail 0..1 (high = long). SSOT: source.trail only.
    */
-  function migrateTrail(source = {}, fallback = DEFAULT_TRAIL, options = {}) {
-    const invert = options.invertLegacyDecay !== false;
+  function migrateTrail(source = {}, fallback = DEFAULT_TRAIL) {
     if (source && source.trail != null && Number.isFinite(Number(source.trail))) {
       return clamp01(Number(source.trail), fallback);
-    }
-    if (source && source.decay != null && Number.isFinite(Number(source.decay))) {
-      const d = clamp01(Number(source.decay), 0);
-      return invert ? clamp01(1 - d, fallback) : d;
     }
     return clamp01(fallback, DEFAULT_TRAIL);
   }
 
   /**
-   * Migrate patch fields → ghost 0..1 (high = more scorch hang).
-   * Accepts ghost or legacy burn.
+   * Patch fields → ghost 0..1 (high = more scorch hang). SSOT: source.ghost only.
    */
   function migrateGhost(source = {}, fallback = DEFAULT_GHOST) {
     if (source && source.ghost != null && Number.isFinite(Number(source.ghost))) {
       return clamp01(Number(source.ghost), fallback);
     }
+    return clamp01(fallback, DEFAULT_GHOST);
+  }
+
+  /**
+   * Sticky burn floor 0..1 (residualSchema ≥ 2). SSOT: source.burn.
+   */
+  function migrateBurn(source = {}, fallback = 0) {
+    if (!(Number(source?.residualSchema) >= 2)) {
+      return 0;
+    }
     if (source && source.burn != null && Number.isFinite(Number(source.burn))) {
       return clamp01(Number(source.burn), fallback);
     }
-    return clamp01(fallback, DEFAULT_GHOST);
+    return clamp01(fallback, 0);
   }
 
   /** Sleep frame budget so ghost hang is not killed early. */
@@ -161,7 +155,7 @@
     return Math.round(1800 + g * g * 12000);
   }
 
-  function residualKeeps(trail, ghost = 0, burn = 0, burnAmount = 1) {
+  function residualKeeps(trail, ghost = 0, burnAmount = 1) {
     const keepFast = trailKeep(trail);
     const keepSlow = ghostKeep(ghost, keepFast);
     const cap = ghostCap(ghost);
@@ -206,7 +200,7 @@
     residualKeeps,
     migrateTrail,
     migrateGhost,
-    migrateBurn: () => 0,
+    migrateBurn,
     migrateBurnAmount: (source = {}, fallback = 1) => {
       const n = Number(source?.burnAmount);
       if (Number.isFinite(n)) {

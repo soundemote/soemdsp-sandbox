@@ -68,9 +68,6 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     "additiveFrequencySkew",
     "additiveQuantizeFreq",
     "additiveQuantizePhase",
-    "additiveHarmonicMath", // legacy → QuantizeFreq
-    "additiveFrequencyMath", // legacy → QuantizeFreq
-    "additiveFrequencySlope", // legacy → Skew
     "additiveNoisyFreq",
     "additiveNoisyPhase",
     "additivePan",
@@ -98,36 +95,19 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     if (type === "additiveNoisyFreq") {
       map = this.additiveNoisyFreqStates;
       apply = additiveGraphApplyNoisyFreq;
-      // Prefer Add. Legacy Amount was 0…1 with hidden ×0.5.
-      if (node?.params?.add != null && Number.isFinite(Number(node.params.add))) {
-        depth = eff(node, "add", 0.5);
-      } else {
-        depth = eff(node, "amount", 0.25) * 0.5;
-      }
+      depth = eff(node, "add", 0.5);
     } else if (type === "additiveNoisyPhase") {
       map = this.additiveNoisyPhaseStates;
       apply = additiveGraphApplyNoisyPhase;
-      if (node?.params?.add != null && Number.isFinite(Number(node.params.add))) {
-        depth = eff(node, "add", 0.25);
-      } else {
-        depth = eff(node, "amount", 0.25) * 0.5; // legacy Amount had hidden ×0.5
-      }
+      depth = eff(node, "add", 0.25);
     } else if (type === "additiveNoisyPan") {
       map = this.additiveNoisyPanStates;
       apply = additiveGraphApplyNoisyPan;
-      if (node?.params?.add != null && Number.isFinite(Number(node.params.add))) {
-        depth = eff(node, "add", 0.25);
-      } else {
-        depth = eff(node, "amount", 0.25);
-      }
+      depth = eff(node, "add", 0.25);
     } else {
       map = this.additiveNoisyAmpStates;
       apply = additiveGraphApplyNoisyAmp;
-      if (node?.params?.add != null && Number.isFinite(Number(node.params.add))) {
-        depth = eff(node, "add", 0.25);
-      } else {
-        depth = eff(node, "amount", 0.25) * 0.5; // legacy Amount had hidden ×0.5
-      }
+      depth = eff(node, "add", 0.25);
     }
     let state = map.get(String(id)) || {};
     const noiseMode = num(node?.params?.noise, 0);
@@ -167,9 +147,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     const p = node.params || {};
     // Ensure id is set for additive smoother keying (Map key is authoritative).
     if (!node.id) node.id = id;
-    const pwm = (p.pwm != null && Number.isFinite(Number(p.pwm)))
-      ? eff(node, "pwm", 0)
-      : eff(node, "morph", 0); // legacy Morph → PWM
+    const pwm = eff(node, "pwm", 0);
     const fade = typeof additiveGraphNormalizeHarmonicFade === "function"
       ? additiveGraphNormalizeHarmonicFade(num(p.harmonicFade, 1))
       : 1;
@@ -384,21 +362,12 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
         if (out && typeof out === "object") {
           out.phaseEntryMode = Math.max(0, Math.min(2, Math.round(num(p.mode, 0))));
         }
-      } else if (type === "additiveFrequencySkew" || type === "additiveFrequencySlope") {
+      } else if (type === "additiveFrequencySkew") {
         let skewState = this.additiveFrequencySkewStates.get(eid) || {};
-        // Legacy Slope used scale — map into stretch if low/high missing.
-        let lowStretch = eff(node, "lowStretch", NaN);
-        let highStretch = eff(node, "highStretch", NaN);
-        if (!(lowStretch === lowStretch) || !(highStretch === highStretch)) {
-          const scale = eff(node, "scale", 0);
-          const s = nodeGraphFiniteNumber(scale);
-          if (!(lowStretch === lowStretch)) lowStretch = s < 0 ? 1 + Math.abs(s) * 23 : 1;
-          if (!(highStretch === highStretch)) highStretch = s > 0 ? 1 + Math.abs(s) * 23 : 1;
-        }
         const appliedSkew = additiveGraphApplyFrequencySkew(
           out,
-          lowStretch,
-          highStretch,
+          eff(node, "lowStretch", 1),
+          eff(node, "highStretch", 1),
           eff(node, "skew", 0),
           num(p.curve, 0),
           skewState.lerpFrom || null,
@@ -406,16 +375,11 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
         this.additiveFrequencySkewStates.set(eid, {
           lerpFrom: appliedSkew?.lerpFrom || null,
         });
-      } else if (
-        type === "additiveQuantizeFreq"
-        || type === "additiveHarmonicMath"
-        || type === "additiveFrequencyMath"
-      ) {
+      } else if (type === "additiveQuantizeFreq") {
         let freqState = this.additiveQuantizeFreqStates.get(eid) || {};
-        const qOn = p.quantizeFreq != null ? num(p.quantizeFreq, 0) : num(p.quantize, 0);
         const appliedFreq = additiveGraphApplyQuantizeFreq(
           out,
-          qOn,
+          num(p.quantizeFreq, 0),
           eff(node, "randomFreqAmount", 0),
           num(p.seed, 1),
           freqState.lerpFrom || null,

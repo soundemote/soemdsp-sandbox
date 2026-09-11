@@ -394,8 +394,7 @@
         "pixelDensity": 1,
         "scale": 1,
         "sweepHz": 4,
-        "sweepCycles": 4,
-        "sweepSeconds": 0.25
+        "sweepCycles": 4
       }
     }
   ],

@@ -103,19 +103,12 @@
     if (Number.isFinite(Number(options.trail))) {
       return clamp01(Number(options.trail), DEFAULT_TRAIL);
     }
-    if (Number.isFinite(Number(options.decay))) {
-      // Legacy decay: high = die fast → trail high = long.
-      return clamp01(1 - Number(options.decay), DEFAULT_TRAIL);
-    }
     return DEFAULT_TRAIL;
   }
 
   function resolveGhost(options) {
     if (Number.isFinite(Number(options.ghost))) {
       return clamp01(Number(options.ghost), DEFAULT_GHOST);
-    }
-    if (Number.isFinite(Number(options.burn))) {
-      return clamp01(Number(options.burn), DEFAULT_GHOST);
     }
     return DEFAULT_GHOST;
   }
