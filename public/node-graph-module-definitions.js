@@ -12652,8 +12652,8 @@ const nodeGraphModuleDefinitions = (
       Frequency: "ƒ",
     },
     outputs: [
-      "Play Keys",
       "Voices",
+      "Play Keys",
       "Gate",
       "Trigger",
       "Note#/127",
