@@ -627,21 +627,12 @@ function nodeGraphPortWireColor(node, port, io) {
   }
   const canonicalPort = nodeGraphCanonicalPortForNode(node, port, io);
   const type = nodeGraphPatchNodeType(node);
-  // Digital signal ports get a solid white wire instead of the usual role
-  // color -- see the .node-io-row[data-digital-signal] CSS for the matching
-  // port tap color, and nodeGraphPortIsDigitalSignal for what qualifies.
-  // Play Keys / Arp Keys / Voices: colored buses (not digital-white).
-  // Voices always resolves — even if module def/channel lookup misses.
-  if (canonicalPort === "Voices") {
-    const voices = typeof nodeGraphJackChannelCssColor === "function"
-      ? nodeGraphJackChannelCssColor("black")
-      : "";
-    return voices || "#c8c8c8";
-  }
+  // Jack channel color first (Voices/black, Play/blue, Arp/gold, RGB, …).
+  // Same path for every port — no Voices special case.
   if (typeof nodeGraphJackWireColor === "function") {
-    const keyBus = nodeGraphJackWireColor(type, canonicalPort, io);
-    if (keyBus && (canonicalPort === "Play Keys" || canonicalPort === "Arp Keys")) {
-      return keyBus;
+    const channelColor = nodeGraphJackWireColor(type, canonicalPort, io);
+    if (channelColor) {
+      return channelColor;
     }
   }
   if (nodeGraphPortIsDigitalSignal(type, canonicalPort, io)) {
@@ -663,14 +654,6 @@ function nodeGraphPortWireColor(node, port, io) {
     const zoh = nodeGraphJackChannelCssColor("cyan");
     if (zoh) {
       return zoh;
-    }
-  }
-  // UIDEV "wires follow port colors": RGB / stereo / chaos / quad jacks
-  // paint that end of the cable. Dual-color gradient still matches both ends.
-  if (typeof nodeGraphJackWireColor === "function") {
-    const follow = nodeGraphJackWireColor(type, canonicalPort, io);
-    if (follow) {
-      return follow;
     }
   }
   if (io === "input") {
