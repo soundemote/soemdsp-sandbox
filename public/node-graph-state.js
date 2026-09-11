@@ -109,6 +109,8 @@ var nodeGraphMvp = {
   midiKeyboardHeldKeysLowBitmask: 0,
   midiKeyboardHeldKeysHighBitmask: 0,
   midiKeyboardHeldNotes: new Map(),
+  midiKeyboardPlayKeysLowBitmask: 0,
+  midiKeyboardPlayKeysHighBitmask: 0,
   midiKeyboardInputId: "",
   midiKeyboardInputs: [],
   midiListenChannel: 0,

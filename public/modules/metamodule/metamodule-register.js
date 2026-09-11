@@ -51,7 +51,7 @@ registerNodeGraphChromelessModule("metamoduleOut", {
 });
 
 // Metamodule shell — group + optional polyphony (Playmode Off = group only).
-// Chromeless LayoutB: Voices / Playmode + Poly + Amplitude inlets.
+// Chromeless LayoutB: Voices / Playmode + Voices + Amplitude inlets.
 registerNodeGraphChromelessModule("metamodule", {
   label: "Metamodule",
   // Not LayoutB shell — MetamoduleLayout stacks shared IO above the face.
@@ -66,10 +66,10 @@ registerNodeGraphChromelessModule("metamodule", {
     // Outer auto-height from MetamoduleLayout content (header+IO+face+params).
     // Do not pin defaultHeightGu — a short outer crushed the param band.
     displayHeightGu: 2,
-    // Poly = voice bus (purple). Amplitude = group VCA CV (gold / default analog).
-    inputs: ["Poly", "Amplitude"],
-    inputChannels: { Poly: "purple" },
-    inputLabels: { Poly: "Poly", Amplitude: "Amp" },
+    // Voices = voice bus stub (black). Amplitude = group VCA CV (gold / default analog).
+    inputs: ["Voices", "Amplitude"],
+    inputChannels: { Voices: "black" },
+    inputLabels: { Voices: "Voices", Amplitude: "Amp" },
     outputs: [],
     parameters: [
       {
@@ -81,10 +81,10 @@ registerNodeGraphChromelessModule("metamodule", {
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Voice count when Playmode is Poly. Steal = oldest.",
+        tooltip: "Voice count when Playmode is Voices. Steal = oldest.",
       },
       {
-        choices: ["Off", "Mono", "Legato Ties", "Legato Always", "Poly"],
+        choices: ["Off", "Mono", "Legato Ties", "Legato Always", "Voices"],
         defaultValue: "0",
         displayChoices: true,
         key: "playmode",
@@ -95,13 +95,13 @@ registerNodeGraphChromelessModule("metamodule", {
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Off = group only (no voice runner). Mono / Legato / Poly enable polyphony.",
+        tooltip: "Off = group only (no voice runner). Mono / Legato / Voices enable polyphony (runner stub).",
       },
     ],
   },
   catalog: {
     category: "portal",
-    description: "Group selected modules into a shell. Amplitude inlet scales Meta Outs. Optional polyphony via Playmode + Poly.",
+    description: "Group selected modules into a shell. Amplitude inlet scales Meta Outs. Optional polyphony via Playmode + Voices.",
     notes: ["metamodule", "group", "polyphony", "voices", "container", "portal"],
   },
 });

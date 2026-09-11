@@ -148,9 +148,44 @@ function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null)
   };
 }
 
-function nodeGraphKeyboardLocalHeldTransmit(phase) {
+/** Gold Arp Keys latch (ctrl+click mask) — Keyboard only. */
+function nodeGraphKeyboardLocalArpTransmit(phase) {
   const low = nodeGraphFiniteNumber(nodeGraphMvp?.midiKeyboardHeldKeysLowBitmask);
   const high = nodeGraphFiniteNumber(nodeGraphMvp?.midiKeyboardHeldKeysHighBitmask);
+  if (typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function") {
+    return nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase);
+  }
+  return high ? (phase ? NODE_GRAPH_HELD_KEYS_PHASE + high : low) : low;
+}
+
+/**
+ * Blue Play Keys from live hardware MIDI note map (midi − 24 → key index).
+ * Prefers worklet-synced bitmask when present.
+ */
+function nodeGraphMidiPlayKeysTransmit(phase) {
+  const syncLow = nodeGraphFiniteNumber(nodeGraphMvp?.midiKeyboardPlayKeysLowBitmask);
+  const syncHigh = nodeGraphFiniteNumber(nodeGraphMvp?.midiKeyboardPlayKeysHighBitmask);
+  if ((syncLow > 0 || syncHigh > 0)
+    && typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function") {
+    return nodeGraphMidiKeyboardHeldKeysTransmitValue(syncLow, syncHigh, phase);
+  }
+  const notes = nodeGraphMvp?.midiKeyboardHeldNotes;
+  let low = 0;
+  let high = 0;
+  const base = typeof nodeGraphMidiKeyboardStartMidi === "number"
+    ? nodeGraphMidiKeyboardStartMidi
+    : 24;
+  if (notes instanceof Map && typeof nodeGraphMidiKeyboardHeldKeysWithBit === "function") {
+    for (const midi of notes.keys()) {
+      const index = Math.round(Number(midi)) - base;
+      if (index < 0 || index > 87) {
+        continue;
+      }
+      const bits = nodeGraphMidiKeyboardHeldKeysWithBit(low, high, index, true);
+      low = bits.low;
+      high = bits.high;
+    }
+  }
   if (typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function") {
     return nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase);
   }
@@ -177,30 +212,30 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
   const gateOut = Math.max(cv.gateAmp, gateIn);
   const triggerOut = Math.max(cv.triggerAmp, triggerIn);
 
-  const heldLocal = nodeGraphKeyboardLocalHeldTransmit(phase);
-  const heldIn = nodeGraphKeyboardMixOrBits(nodeId, "Held Keys", ctx, phase);
-  const heldOut = nodeGraphHeldKeysOrTransmit([heldLocal, heldIn], phase);
+  const arpLocal = nodeGraphKeyboardLocalArpTransmit(phase);
+  const arpIn = nodeGraphKeyboardMixOrBits(nodeId, "Arp Keys", ctx, phase);
+  const arpOut = nodeGraphHeldKeysOrTransmit([arpLocal, arpIn], phase);
 
-  const polyIn = nodeGraphKeyboardMixOrBits(nodeId, "Polyphony", ctx, phase);
+  const playIn = nodeGraphKeyboardMixOrBits(nodeId, "Play Keys", ctx, phase);
   // Local press mask: single key while gated.
-  let polyLocal = 0;
+  let playLocal = 0;
   if (cv.gateAmp > 0 && typeof nodeGraphMidiKeyboardHeldKeysWithBit === "function") {
     const bits = nodeGraphMidiKeyboardHeldKeysWithBit(0, 0, cv.key, true);
-    polyLocal = typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function"
+    playLocal = typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function"
       ? nodeGraphMidiKeyboardHeldKeysTransmitValue(bits.low, bits.high, phase)
       : bits.low;
   }
-  const polyOut = nodeGraphHeldKeysOrTransmit([polyLocal, polyIn], phase);
+  const playOut = nodeGraphHeldKeysOrTransmit([playLocal, playIn], phase);
 
   // Stash for face paint (main thread).
   if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
-    nodeGraphMvp.keyboardFaceHeldTransmit = heldOut;
-    nodeGraphMvp.keyboardFacePolyTransmit = polyOut;
+    nodeGraphMvp.keyboardFaceArpTransmit = arpOut;
+    nodeGraphMvp.keyboardFacePlayTransmit = playOut;
   }
 
   return {
-    Polyphony: polyOut,
-    "Held Keys": heldOut,
+    "Play Keys": playOut,
+    "Arp Keys": arpOut,
     Gate: gateOut,
     Trigger: triggerOut,
     KeyboardKey: cv.key,
@@ -219,7 +254,7 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
   };
 };
 
-/** MIDI portal: hardware device signal only (no KeyboardKey/Norm, no Keyboard INs). */
+/** MIDI portal: hardware Play Keys + last-note CV. Voices stub = 0. */
 nodeGraphLiveModuleEvaluators.keyboardController = ({
   runtime, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate,
 }) => {
@@ -238,8 +273,10 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({
   );
   runtime.keyboardCvHold.set(nodeId, cv);
   const phase = frame % 2;
-  const heldOut = nodeGraphKeyboardLocalHeldTransmit(phase);
+  const playOut = nodeGraphMidiPlayKeysTransmit(phase);
   return {
+    "Play Keys": playOut,
+    Voices: 0,
     Gate: cv.gateAmp,
     Trigger: cv.triggerAmp,
     "Note#/127": Math.max(0, Math.min(1, cv.midi / 127)),
@@ -252,6 +289,5 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({
     f: cv.frequency,
     X: cv.x,
     Y: cv.y,
-    "Held Keys": heldOut,
   };
 };

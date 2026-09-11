@@ -86,9 +86,9 @@
     },
     {
       "destinationNode": "keyboard-1",
-      "destinationPort": "Held Keys",
+      "destinationPort": "Play Keys",
       "sourceNode": "keyboardController-1",
-      "sourcePort": "Held Keys",
+      "sourcePort": "Play Keys",
       "tracePoints": []
     },
     {

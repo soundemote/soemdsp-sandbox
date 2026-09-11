@@ -873,7 +873,7 @@ function createNodeGraphKeyboardControllerBody(node = null) {
   bitmaskBar.dataset.midiKeyboardBitmaskRow = "true";
   bitmaskBar.setAttribute("aria-live", "polite");
   const bitmaskLabel = document.createElement("span");
-  bitmaskLabel.textContent = "held ";
+  bitmaskLabel.textContent = "arp ";
   const bitmaskValue = document.createElement("strong");
   bitmaskValue.dataset.midiKeyboardBitmaskValue = "true";
   bitmaskBar.append(bitmaskLabel, bitmaskValue);

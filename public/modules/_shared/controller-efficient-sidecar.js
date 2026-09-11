@@ -88,13 +88,25 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
   const pulseActive = this.midiKeyboardGatePulseSamples > 0;
   this.midiKeyboardHeldKeysPhase = this.midiKeyboardHeldKeysPhase ? 0 : 1;
   const phaseOn = this.midiKeyboardHeldKeysPhase;
-  let heldLocal = this.midiKeyboardHeldKeysLowBitmask || 0;
+  // Gold Arp Keys latch (ctrl+click) — Keyboard only.
+  let arpLocal = this.midiKeyboardHeldKeysLowBitmask || 0;
   if (this.midiKeyboardHeldKeysHighBitmask) {
-    heldLocal = transmitBits(
+    arpLocal = transmitBits(
       this.midiKeyboardHeldKeysLowBitmask,
       this.midiKeyboardHeldKeysHighBitmask,
       phaseOn,
     );
+  }
+  // Blue Play Keys from live MIDI note bitmask.
+  let midiPlayLocal = this.midiKeyboardPlayKeysLowBitmask || 0;
+  if (this.midiKeyboardPlayKeysHighBitmask) {
+    midiPlayLocal = transmitBits(
+      this.midiKeyboardPlayKeysLowBitmask,
+      this.midiKeyboardPlayKeysHighBitmask,
+      phaseOn,
+    );
+  } else if (this.midiKeyboardPlayKeysLowBitmask) {
+    midiPlayLocal = transmitBits(this.midiKeyboardPlayKeysLowBitmask, 0, phaseOn);
   }
 
   if (!this._keyboardCvHold) this._keyboardCvHold = new Map();
@@ -160,18 +172,18 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     if (isKeyboard) {
       const gateOut = Math.max(cv.gateAmp, mixMax(nid, "Gate"));
       const triggerOut = Math.max(cv.triggerAmp, mixMax(nid, "Trigger"));
-      const heldIn = collectIn(nid, "Held Keys");
-      const heldOut = orTransmit([heldLocal, ...heldIn], phaseOn);
-      const polyIn = collectIn(nid, "Polyphony");
-      let polyLocal = 0;
+      const arpIn = collectIn(nid, "Arp Keys");
+      const arpOut = orTransmit([arpLocal, ...arpIn], phaseOn);
+      const playIn = collectIn(nid, "Play Keys");
+      let playLocal = 0;
       if (cv.gateAmp > 0) {
         const bit = 2 ** Math.max(0, Math.min(48, cv.key));
-        polyLocal = bit;
+        playLocal = bit;
       }
-      const polyOut = orTransmit([polyLocal, ...polyIn], phaseOn);
+      const playOut = orTransmit([playLocal, ...playIn], phaseOn);
       this.nodeOutputs.set(nid, {
-        Polyphony: polyOut,
-        "Held Keys": heldOut,
+        "Play Keys": playOut,
+        "Arp Keys": arpOut,
         Gate: gateOut,
         Trigger: triggerOut,
         KeyboardKey: cv.key,
@@ -190,6 +202,8 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       });
     } else {
       this.nodeOutputs.set(nid, {
+        "Play Keys": midiPlayLocal,
+        Voices: 0,
         Gate: cv.gateAmp,
         Trigger: cv.triggerAmp,
         "Note#/127": Math.max(0, Math.min(1, cv.midi / 127)),
@@ -202,7 +216,6 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         f: cv.frequency,
         X: cv.x,
         Y: cv.y,
-        "Held Keys": heldLocal,
       });
     }
   }
@@ -215,16 +228,16 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const cv = buildCv(signal, false, "keyboard");
     const gateOut = Math.max(cv.gateAmp, mixMax(nid, "Gate"));
     const triggerOut = Math.max(cv.triggerAmp, mixMax(nid, "Trigger"));
-    const heldOut = orTransmit([heldLocal, ...collectIn(nid, "Held Keys")], phaseOn);
-    let polyLocal = 0;
+    const arpOut = orTransmit([arpLocal, ...collectIn(nid, "Arp Keys")], phaseOn);
+    let playLocal = 0;
     if (cv.gateAmp > 0) {
-      polyLocal = 2 ** Math.max(0, Math.min(48, cv.key));
+      playLocal = 2 ** Math.max(0, Math.min(48, cv.key));
     }
-    const polyOut = orTransmit([polyLocal, ...collectIn(nid, "Polyphony")], phaseOn);
+    const playOut = orTransmit([playLocal, ...collectIn(nid, "Play Keys")], phaseOn);
     this.nodeOutputs.set(nid, {
       ...prev,
-      Polyphony: polyOut,
-      "Held Keys": heldOut,
+      "Play Keys": playOut,
+      "Arp Keys": arpOut,
       Gate: gateOut,
       Trigger: triggerOut,
     });

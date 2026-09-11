@@ -1,4 +1,4 @@
-// Headless: arp (type 150) — Held Keys + free-run Internal Clock / external Trigger.
+// Headless: arp (type 150) — Arp Keys + free-run Internal Clock / external Trigger.
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";

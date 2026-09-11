@@ -452,6 +452,18 @@ NodeLiveAudioProcessor.prototype.setMacroControls = function setMacroControls(va
     ));
 };
 
+NodeLiveAudioProcessor.prototype.setMidiKeyboardPlayKeysBitmask = function setMidiKeyboardPlayKeysBitmask(low, high) {
+  const safeLow = Math.floor(Number(low));
+  const safeHigh = Math.floor(Number(high));
+  try {
+    this.midiKeyboardPlayKeysLowBitmask = Number.isFinite(safeLow) && safeLow >= 0 ? safeLow : 0;
+    this.midiKeyboardPlayKeysHighBitmask = Number.isFinite(safeHigh) && safeHigh >= 0 ? safeHigh : 0;
+  } catch (_error) {
+    this.midiKeyboardPlayKeysLowBitmask = 0;
+    this.midiKeyboardPlayKeysHighBitmask = 0;
+  }
+};
+
 NodeLiveAudioProcessor.prototype.setMidiKeyboardHeldKeysBitmask = function setMidiKeyboardHeldKeysBitmask(low, high) {
     const safeLow = Math.floor(Number(low));
     const safeHigh = Math.floor(Number(high));

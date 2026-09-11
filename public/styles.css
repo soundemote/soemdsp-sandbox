@@ -16627,6 +16627,36 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   );
 }
 
+/* Play Keys (blue) / Arp Keys (gold): digital bitmasks with colored jacks. */
+.node-io-row[data-digital-signal][data-jack-channel="blue"] .node-port,
+.dsp-node .node-port[data-jack-channel="blue"] {
+  --node-digital-fill: var(--node-jack-blue);
+  --node-output-fill: var(--node-jack-blue);
+  --node-output-stroke: var(--node-jack-blue);
+  --node-input-fill: var(--node-jack-blue);
+  --node-input-stroke: var(--node-jack-blue);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-jack-blue) var(--node-port-paint-brightness),
+    transparent
+  );
+}
+
+.node-io-row[data-digital-signal][data-jack-channel="gold"] .node-port,
+.dsp-node .node-port[data-jack-channel="gold"],
+.dsp-node .node-io-row[data-jack-channel="gold"] .node-port {
+  --node-digital-fill: var(--node-output-fill, #e2a86d);
+  --node-output-fill: var(--node-output-fill, #e2a86d);
+  --node-output-stroke: var(--node-output-fill, #e2a86d);
+  --node-input-fill: var(--node-output-fill, #e2a86d);
+  --node-input-stroke: var(--node-output-fill, #e2a86d);
+  --node-port-crescent-stroke: color-mix(
+    in srgb,
+    var(--node-output-fill, #e2a86d) var(--node-port-paint-brightness),
+    transparent
+  );
+}
+
 .node-io-label-rgba {
   display: inline-flex;
   letter-spacing: 0;

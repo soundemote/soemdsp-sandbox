@@ -7,7 +7,7 @@ const NODE_GRAPH_METAMODULE_PLAYMODES = Object.freeze([
   "Mono",
   "Legato Ties",
   "Legato Always",
-  "Poly",
+  "Voices",
 ]);
 
 function nodeGraphIsMetamoduleType(type) {
@@ -407,8 +407,11 @@ function nodeGraphMetamoduleAllocateShellPortName(entry, portalNode, usedNames, 
     if (name.startsWith("Out ")) name = name.slice(4).trim();
   }
   if (!name) name = "Port";
-  // Poly / Amplitude are reserved shell inlets (not boundary jack names).
-  if (entry?.direction !== "out" && name === "Poly") name = "In Poly";
+  // Voices / Amplitude are reserved shell inlets — not Meta In boundary names.
+  // Do not invent "In Voices"; collide → generic Port (+ numeric suffix below).
+  if (entry?.direction !== "out" && name === "Voices") {
+    name = "Port";
+  }
   if (entry?.direction !== "out" && (name === "Amplitude" || name === "Amp")) {
     name = "In Amplitude";
   }
@@ -506,7 +509,7 @@ function nodeGraphMetamoduleSyncBoundaryShellPorts(metaId, patch = nodeGraphMvp?
   if (!nodeGraphIsMetamoduleType(meta?.type)) return false;
   const payload = nodeGraphEnsureMetamodulePayload(meta);
   if (!Array.isArray(payload.boundary)) payload.boundary = [];
-  const used = new Set(["Poly", "Amplitude"]);
+  const used = new Set(["Voices", "Amplitude"]);
   let changed = false;
   for (const entry of payload.boundary) {
     if (!entry?.id || entry.deferred) continue;
@@ -605,11 +608,11 @@ function nodeGraphMetamoduleRemoveBoundaryPortalInPlace(portalId, patch = nodeGr
 
 /**
  * Dynamic Root-facing jacks on the Metamodule shell (from boundary portals).
- * Poly stays first; Meta In portals → inputs; Meta Out portals → outputs.
+ * Voices stays first; Meta In portals → inputs; Meta Out portals → outputs.
  * Read-only: does not allocate/rename shellPort (use SyncBoundaryShellPorts).
  */
 function nodeGraphMetamoduleShellPorts(metaNode) {
-  const inputs = ["Poly", "Amplitude"];
+  const inputs = ["Voices", "Amplitude"];
   const outputs = [];
   if (!nodeGraphIsMetamoduleType(metaNode?.type)) {
     return { inputs, outputs };
@@ -852,7 +855,7 @@ function nodeGraphMetamoduleClaimPlacedNode(node, patch = nodeGraphMvp?.patch) {
   }
 
   const direction = node.type === "metamoduleOut" ? "out" : "in";
-  const used = new Set(["Poly", "Amplitude"]);
+  const used = new Set(["Voices", "Amplitude"]);
   for (const entry of payload.boundary) {
     if (entry?.shellPort) used.add(String(entry.shellPort));
   }
@@ -876,7 +879,7 @@ function nodeGraphMetamoduleClaimPlacedNode(node, patch = nodeGraphMvp?.patch) {
 
 /**
  * Rewrite a shell-jack connection to the flat portal wire used by DSP.
- * Poly stays on the shell (voice bus stub); boundary jacks map to Meta In/Out.
+ * Voices stays on the shell (voice bus stub); boundary jacks map to Meta In/Out.
  */
 function nodeGraphMetamoduleRewriteShellConnection(sourceNode, sourcePort, destinationNode, destinationPort) {
   let src = String(sourceNode || "");
@@ -888,7 +891,7 @@ function nodeGraphMetamoduleRewriteShellConnection(sourceNode, sourcePort, desti
   if (
     nodeGraphIsMetamoduleType(dstNode?.type)
     && dstPort
-    && dstPort !== "Poly"
+    && dstPort !== "Voices"
     && dstPort !== "Amplitude"
   ) {
     const entry = nodeGraphMetamoduleBoundaryEntryForShellPort(dstNode, dstPort, "in");
@@ -902,7 +905,7 @@ function nodeGraphMetamoduleRewriteShellConnection(sourceNode, sourcePort, desti
   if (
     nodeGraphIsMetamoduleType(srcNode?.type)
     && srcPort
-    && srcPort !== "Poly"
+    && srcPort !== "Voices"
     && srcPort !== "Amplitude"
   ) {
     const entry = nodeGraphMetamoduleBoundaryEntryForShellPort(srcNode, srcPort, "out");
@@ -945,7 +948,7 @@ function nodeGraphMetamodulePortalizeCrossing(metaNode, crossing, children, patc
   const outletByKey = new Map();
   const portalFed = new Set();
   const boundary = [];
-  const usedShellPorts = new Set(["Poly", "Amplitude"]);
+  const usedShellPorts = new Set(["Voices", "Amplitude"]);
   let inSlot = 0;
   let outSlot = 0;
 

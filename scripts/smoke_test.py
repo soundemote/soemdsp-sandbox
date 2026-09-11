@@ -7961,7 +7961,7 @@ def require_node_graph_mvp_contract() -> None:
         '"0.1v/Oct"',
         '"Velocity#"',
         '"Velocity#/127"',
-        '"Held Keys"',
+        '"Arp Keys"',
         "macroControls: {",
         'inputs: ["M1 In", "M2 In", "M3 In", "M4 In", "M5 In", "M6 In", "M7 In", "M8 In", "Reset"]',
         'layout: "macroControls"',

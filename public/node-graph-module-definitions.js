@@ -6163,8 +6163,8 @@ const nodeGraphModuleDefinitions = (
   bitConverter: {
     planRole: "processor",
     // Full Scale carries a raw, exact integer (e.g. keyboardController's
-    // Held Keys bitmask) -- must not be smoothed like a normal CV input,
-    // same reasoning as Held Keys itself being a digital output. The two
+    // Arp Keys bitmask) -- must not be smoothed like a normal CV input,
+    // same reasoning as Arp Keys itself being a digital output. The two
     // "-> Full Scale" outputs are the same kind of raw value on the way
     // back out; the two "Full Scale ->" outputs are normal 0..1/-1..1 CV
     // and are left analog.
@@ -10076,9 +10076,10 @@ const nodeGraphModuleDefinitions = (
       { key: "trace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "0.1V/Oct" } },
     ],
     defaultDisplayMode: "trace",
-    digitalInputs: ["Held Keys"],
-    inputs: ["Held Keys", "Trigger", "Reset", "f"],
-    inputLabels: { f: "ƒ", Trigger: "Trig" },
+    digitalInputs: ["Arp Keys"],
+    inputs: ["Arp Keys", "Trigger", "Reset", "f"],
+    inputChannels: { "Arp Keys": "gold" },
+    inputLabels: { "Arp Keys": "Arp Keys", f: "ƒ", Trigger: "Trig" },
     inputAliases: { Clock: "Trigger", Trig: "Trigger", Frequency: "f", Freq: "f", "ƒ": "f" },
     outputs: ["0.1V/Oct", "f", "Gate", "Trigger", "Step"],
     outputLabels: { "0.1V/Oct": "0.1V", f: "ƒ", Trigger: "Trig" },
@@ -10097,7 +10098,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Pattern: up, dn, up/dn, dn/up, or random over Held Keys."
+        tooltip: "Pattern: up, dn, up/dn, dn/up, or random over Arp Keys."
       },
       {
         defaultValue: "8",
@@ -12617,11 +12618,16 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   // Portal MIDI — hardware device listen only. Does not drive Keyboard face/outs.
+  // Play Keys = live MIDI note bitmask (blue). Voices = black stub (unimplemented).
   keyboardController: {
     planRole: "source",
-    digitalOutputs: ["Held Keys"],
+    digitalOutputs: ["Play Keys"],
     inputs: [],
     layout: "keyboardController",
+    outputChannels: {
+      "Play Keys": "blue",
+      Voices: "black",
+    },
     outputAliases: {
       NoteNumber: "Note#/127",
       MIDI: "Note#/127",
@@ -12637,6 +12643,8 @@ const nodeGraphModuleDefinitions = (
       Inc: "Inc.",
     },
     outputLabels: {
+      "Play Keys": "Play Keys",
+      Voices: "Voices",
       "Note#/127": "Note#/127",
       "Velocity#/127": "Velocity#/127",
       "0.1V/Oct": "0.1V/Oct",
@@ -12644,7 +12652,8 @@ const nodeGraphModuleDefinitions = (
       Frequency: "ƒ",
     },
     outputs: [
-      "Held Keys",
+      "Play Keys",
+      "Voices",
       "Gate",
       "Trigger",
       "Note#/127",
@@ -12657,12 +12666,21 @@ const nodeGraphModuleDefinitions = (
     ],
     parameters: []
   },
-  // Local piano face + explicit INs (wire MIDI→Keyboard when you want device data).
+  // Local piano face + explicit INs (wire MIDI→Keyboard Play Keys for device blue).
+  // Play Keys = blue sounding mask. Arp Keys = gold ctrl+click latch.
   keyboard: {
     planRole: "source",
-    digitalInputs: ["Polyphony", "Held Keys"],
-    digitalOutputs: ["Polyphony", "Held Keys"],
-    inputs: ["Polyphony", "Held Keys", "Gate", "Trigger"],
+    digitalInputs: ["Play Keys", "Arp Keys"],
+    digitalOutputs: ["Play Keys", "Arp Keys"],
+    inputs: ["Play Keys", "Arp Keys", "Gate", "Trigger"],
+    inputChannels: {
+      "Play Keys": "blue",
+      "Arp Keys": "gold",
+    },
+    outputChannels: {
+      "Play Keys": "blue",
+      "Arp Keys": "gold",
+    },
     layout: "keyboard",
     displayHeightGu: 8,
     outputAliases: {
@@ -12680,8 +12698,8 @@ const nodeGraphModuleDefinitions = (
       Inc: "Inc.",
     },
     outputLabels: {
-      Polyphony: "Polyphony",
-      "Held Keys": "Held Keys",
+      "Play Keys": "Play Keys",
+      "Arp Keys": "Arp Keys",
       KeyboardKey: "KeyboardKey",
       KeyboardNorm: "KeyboardNorm",
       "Note#/127": "Note#/127",
@@ -12691,14 +12709,14 @@ const nodeGraphModuleDefinitions = (
       f: "ƒ",
     },
     inputLabels: {
-      Polyphony: "Polyphony",
-      "Held Keys": "Held Keys",
+      "Play Keys": "Play Keys",
+      "Arp Keys": "Arp Keys",
       Gate: "Gate",
       Trigger: "Trigger",
     },
     outputs: [
-      "Polyphony",
-      "Held Keys",
+      "Play Keys",
+      "Arp Keys",
       "Gate",
       "Trigger",
       "KeyboardKey",

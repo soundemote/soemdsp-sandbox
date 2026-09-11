@@ -3,7 +3,7 @@
 // soemdsp-native-target: arp
 // soemdsp-native-kind: pitch
 //
-// Clocked arpeggiator over keyboardController "Held Keys" phase-bit mask.
+// Clocked arpeggiator over "Arp Keys" phase-bit mask (gold latch bus).
 // Active list is at most 88 notes; optional steps counter 0..128. If a full
 // step×note sequence buffer were ever stored: ~1MB hard ceiling is ample.
 

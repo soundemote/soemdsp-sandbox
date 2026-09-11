@@ -2606,6 +2606,28 @@ function sendNodeGraphLiveMidiKeyboardHeldKeysBitmask(
   }
 }
 
+/** Blue Play Keys bitmask (live MIDI notes) → worklet. */
+function sendNodeGraphLiveMidiPlayKeysBitmask(
+  low = nodeGraphMvp.midiKeyboardPlayKeysLowBitmask,
+  high = nodeGraphMvp.midiKeyboardPlayKeysHighBitmask,
+) {
+  const safeLow = Math.floor(Number(low));
+  const safeHigh = Math.floor(Number(high));
+  const lowPayload = Number.isFinite(safeLow) && safeLow >= 0 ? safeLow : 0;
+  const highPayload = Number.isFinite(safeHigh) && safeHigh >= 0 ? safeHigh : 0;
+  if (nodeGraphMvp.live.runtime) {
+    nodeGraphMvp.live.runtime.midiKeyboardPlayKeysLowBitmask = lowPayload;
+    nodeGraphMvp.live.runtime.midiKeyboardPlayKeysHighBitmask = highPayload;
+  }
+  if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
+    nodeGraphMvp.live.node.port.postMessage({
+      high: highPayload,
+      low: lowPayload,
+      type: "setMidiKeyboardPlayKeysBitmask",
+    });
+  }
+}
+
 function nodeGraphPitchModWheelPayload() {
   return {
     mod: Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphMvp.modWheelSignal))),
@@ -3020,17 +3042,17 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=output-vol-face-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=pcm-frames-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=play-arp-keys-1",
   "./public/node-live-audio-worklet-set-plan.js?v=patch-pitch-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=wasm-plan-race-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=play-arp-keys-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=hypersaw2-smooth-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=keyboard-hold-freq-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=play-arp-keys-1",
   "./public/node-live-audio-worklet-process.js?v=protect-worklet-1",
 ];
 

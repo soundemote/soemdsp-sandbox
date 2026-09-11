@@ -429,7 +429,7 @@ function nodeGraphPortIsReset(port) {
 }
 
 // App-wide policy: white wire == digital cable.
-//   • bitmasks (Scale, Held Keys, …)
+//   • bitmasks (Scale, Play Keys, Arp Keys, …)
 //   • ƒ real-value jacks (Hz reports: Frequency, Df1/Df2, ƒ1/ƒ2) on inlets and outlets
 //   • Gate / Trigger / Reset (all modules — inlets and outlets)
 //   • anything listed in digitalInputs / digitalOutputs
@@ -630,6 +630,13 @@ function nodeGraphPortWireColor(node, port, io) {
   // Digital signal ports get a solid white wire instead of the usual role
   // color -- see the .node-io-row[data-digital-signal] CSS for the matching
   // port tap color, and nodeGraphPortIsDigitalSignal for what qualifies.
+  // Play Keys / Arp Keys / Voices: colored buses (not digital-white).
+  if (typeof nodeGraphJackWireColor === "function") {
+    const keyBus = nodeGraphJackWireColor(type, canonicalPort, io);
+    if (keyBus && (canonicalPort === "Play Keys" || canonicalPort === "Arp Keys" || canonicalPort === "Voices")) {
+      return keyBus;
+    }
+  }
   if (nodeGraphPortIsDigitalSignal(type, canonicalPort, io)) {
     return "#ffffff";
   }

@@ -852,7 +852,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   ) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
-  if (p === "held keys" && type === "arp") {
+  if (p === "arp keys" && type === "arp") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
   if (

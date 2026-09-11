@@ -1281,15 +1281,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   keyboardController: {
     category: "portal",
-    description: "Hardware MIDI in (Portal): pick a device and listen channel. Gate/Trigger amplitudes follow velocity; note and pitch CV.",
+    description: "Hardware MIDI in (Portal): Play Keys (blue) from live notes, last Note/Velocity, Voices stub (black). Does not auto-drive Keyboard — wire Play Keys.",
     label: "MIDI",
-    notes: ["midi input", "midi channel", "note", "gate", "trigger", "velocity", "portal"],
+    notes: ["midi input", "midi channel", "play keys", "voices", "note", "gate", "trigger", "velocity", "portal"],
   },
   keyboard: {
     category: "controller",
-    description: "Local piano (dock + face). Wire Polyphony/Held Keys/Gate/Trigger in to mix; does not auto-follow hardware MIDI — use the MIDI module for that.",
+    description: "Local piano (dock + face). Wire Play Keys (blue) / Arp Keys (gold) / Gate / Trigger in to mix; does not auto-follow hardware MIDI — use the MIDI module for that.",
     label: "Keyboard",
-    notes: ["keyboard", "piano", "held keys", "polyphony", "controller", "performance", "gate", "trigger", "velocity", "note"],
+    notes: ["keyboard", "piano", "play keys", "arp keys", "controller", "performance", "gate", "trigger", "velocity", "note"],
   },
   macroControls: {
     category: "controller",
@@ -1595,9 +1595,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   arp: {
     category: "musical",
-    description: "Clocked arpeggiator over the MIDI keyboard Held Keys bitmask (up / dn / bounce / random).",
+    description: "Clocked arpeggiator over the Arp Keys bitmask (up / dn / bounce / random).",
     label: "Arp",
-    notes: ["arp", "arpeggiator", "musical", "sequence", "held keys", "pitch", "clock"],
+    notes: ["arp", "arpeggiator", "musical", "sequence", "arp keys", "pitch", "clock"],
   },
   ePiano: {
     category: "sample",

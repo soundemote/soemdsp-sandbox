@@ -2499,7 +2499,7 @@ function renderNodeGraphMidiKeyboardKeys() {
   renderNodeGraphMidiKeyboardHeldKeys();
 }
 
-// Ctrl+click GOLD "Held Keys" bitmask (poly / digital mask cable) —
+// Ctrl+click GOLD "Arp Keys" bitmask (gold latch cable) —
 // bit i = "the key currently at screen position i is toggled held."
 // Positional, not absolute pitch: stable across octave transpose
 // (transpose only shifts output pitch, never which screen position a
@@ -2618,7 +2618,7 @@ function nodeGraphMidiKeyboardToggleHeldKeyBit(index) {
 
 function renderNodeGraphMidiKeyboardHeldKeys() {
   const wired = typeof nodeGraphHeldKeysDemux === "function"
-    ? nodeGraphHeldKeysDemux(nodeGraphMvp.keyboardFaceHeldTransmit || 0)
+    ? nodeGraphHeldKeysDemux(nodeGraphMvp.keyboardFaceArpTransmit || 0)
     : { low: 0, high: 0 };
   document.querySelectorAll(".node-midi-keyboard-module [data-key-index]").forEach((key) => {
     const index = Number(key.dataset.keyIndex);
@@ -2637,7 +2637,7 @@ function nodeGraphMidiKeyboardBitmaskDisplayBitCount() {
   return nodeGraphMidiKeyboardMaxKeyCount;
 }
 
-// Phase-bit multiplexing for the "Held Keys" wire: a single wire is one
+// Phase-bit multiplexing for Play Keys / Arp Keys wires: a single wire is one
 // JS Number, safe up to 2^53-1, but the full held-keys state can span 88
 // bits. Rather than a second wire, the SAME wire carries the low half
 // (bits 0-48) every sample by default -- true 0-sample-delay as long as
@@ -2663,7 +2663,7 @@ function nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase) {
     : nodeGraphFiniteNumber(low);
 }
 
-/** Split a transmitted Held Keys / Polyphony sample into low/high halves. */
+/** Split a transmitted Play Keys / Arp Keys sample into low/high halves. */
 function nodeGraphHeldKeysDemux(value) {
   const v = nodeGraphFiniteNumber(value);
   if (v >= nodeGraphMidiKeyboardHeldKeysPhaseValue) {
@@ -3561,7 +3561,7 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     return;
   }
   const mode = nodeGraphMidiKeyboardMode();
-  // Ctrl+click: GOLD Held Keys bitmask (poly / digital mask). Checked
+  // Ctrl+click: GOLD Arp Keys bitmask. Checked
   // before shift/hold-mode so plain shift+click (BLUE mono sustain)
   // still falls through unchanged.
   if (event.type === "pointerdown" && event.ctrlKey) {
@@ -3589,7 +3589,7 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     event.preventDefault();
     return;
   }
-  // Gold Held Keys (ctrl+click bitmask) only toggles via ctrl+click (or
+  // Gold Arp Keys (ctrl+click bitmask) only toggles via ctrl+click (or
   // Toggle mode). Plain click must NOT clear gold — play blue `.active`
   // on top while the pointer is down; gold stays for arpeggiation.
   // Blue mono latch (shift+click / Hold mode) still clears on plain click.
@@ -3639,7 +3639,7 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     return;
   }
   // Shift+click / hold-mode: blue mono sustain (convenience latch). Distinct
-  // from ctrl+click gold Held Keys bitmask (poly / digital mask cable).
+  // from ctrl+click gold Arp Keys bitmask.
   if (event.type === "pointerdown" && (event.shiftKey || mode === "hold")) {
     toggleNodeGraphMidiKeyboardPointerHold(event, surface);
     try {
@@ -3873,10 +3873,10 @@ function handleNodeGraphMidiKeyboardInputChange(event) {
 }
 
 /**
- * Light sounding / polyphony keys in BLUE (.active).
+ * Light sounding / Play Keys in BLUE (.active).
  * Local pointer / latch only — hardware MIDI does not paint the Keyboard face
- * (wire MIDI→Keyboard Polyphony if you want device notes highlighted).
- * GOLD (.held) = local Ctrl mask OR wired Held Keys (see renderHeldKeys).
+ * (wire MIDI→Keyboard Play Keys for device blue highlights).
+ * GOLD (.held) = local Ctrl Arp Keys mask OR wired Arp Keys.
  */
 function renderNodeGraphMidiKeyboardActiveKeys(nextSignal = nodeGraphMvp.keyboardModuleSignal) {
   const monoHold = nodeGraphMidiKeyboardHeldPointerSignal();
@@ -3886,18 +3886,42 @@ function renderNodeGraphMidiKeyboardActiveKeys(nextSignal = nodeGraphMvp.keyboar
   const signalMidi = activeSignal
     ? nodeGraphMidiKeyboardRawMidiFromSignal(activeSignal)
     : NaN;
-  const poly = typeof nodeGraphHeldKeysDemux === "function"
-    ? nodeGraphHeldKeysDemux(nodeGraphMvp.keyboardFacePolyTransmit || 0)
+  const play = typeof nodeGraphHeldKeysDemux === "function"
+    ? nodeGraphHeldKeysDemux(nodeGraphMvp.keyboardFacePlayTransmit || 0)
     : { low: 0, high: 0 };
   document.querySelectorAll(".node-midi-keyboard-module [data-midi]").forEach((key) => {
     const midi = Number(key.dataset.midi);
     const index = Number(key.dataset.keyIndex);
     const fromSignal = Number.isFinite(signalMidi) && midi === signalMidi;
-    const fromPoly = typeof nodeGraphMidiKeyboardHeldKeyBitIsSet === "function"
-      ? nodeGraphMidiKeyboardHeldKeyBitIsSet(index, poly.low, poly.high)
+    const fromPlay = typeof nodeGraphMidiKeyboardHeldKeyBitIsSet === "function"
+      ? nodeGraphMidiKeyboardHeldKeyBitIsSet(index, play.low, play.high)
       : false;
-    key.classList.toggle("active", fromSignal || fromPoly);
+    key.classList.toggle("active", fromSignal || fromPlay);
   });
+}
+
+/** Rebuild MIDI Play Keys bitmask from live note map and push to worklet. */
+function syncNodeGraphMidiPlayKeysBitmaskFromHeldNotes() {
+  const notes = nodeGraphMvp?.midiKeyboardHeldNotes;
+  let low = 0;
+  let high = 0;
+  const base = nodeGraphMidiKeyboardStartMidi;
+  if (notes instanceof Map && typeof nodeGraphMidiKeyboardHeldKeysWithBit === "function") {
+    for (const midi of notes.keys()) {
+      const index = Math.round(Number(midi)) - base;
+      if (index < 0 || index > 87) {
+        continue;
+      }
+      const bits = nodeGraphMidiKeyboardHeldKeysWithBit(low, high, index, true);
+      low = bits.low;
+      high = bits.high;
+    }
+  }
+  nodeGraphMvp.midiKeyboardPlayKeysLowBitmask = low;
+  nodeGraphMvp.midiKeyboardPlayKeysHighBitmask = high;
+  if (typeof sendNodeGraphLiveMidiPlayKeysBitmask === "function") {
+    sendNodeGraphLiveMidiPlayKeysBitmask(low, high);
+  }
 }
 
 function handleNodeGraphMidiKeyboardMessage(event) {
@@ -3938,9 +3962,11 @@ function handleNodeGraphMidiKeyboardMessage(event) {
     // Hardware MIDI → MIDI module signal only (does not drive Keyboard face/outs).
     nodeGraphMvp.midiKeyboardSignal = nodeGraphMidiKeyboardSignalFromMidi(midi, velocity, 1, 1);
     sendNodeGraphLiveMidiKeyboardSignal(nodeGraphMvp.midiKeyboardSignal);
+    syncNodeGraphMidiPlayKeysBitmaskFromHeldNotes();
     return;
   }
   nodeGraphMvp.midiKeyboardHeldNotes.delete(midi);
+  syncNodeGraphMidiPlayKeysBitmaskFromHeldNotes();
   const held = Array.from(nodeGraphMvp.midiKeyboardHeldNotes.entries()).at(-1);
   if (held) {
     const [heldMidi, heldVelocity] = held;

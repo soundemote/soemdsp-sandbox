@@ -8249,7 +8249,7 @@ static void process_degree_phrase(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Arp: Held Keys→Mono, Trigger→Trigger, Reset→Reset, f→F (thru / future use).
+// Arp: Arp Keys->Mono, Trigger->Trigger, Reset->Reset, f->F (thru / future use).
 // frequency=Internal Clock Hz, mode=mode, stages=steps, seed=seed,
 // offset=octaveOffset (−4…+4).
 // 0.1V/Oct→Mono, Gate→Left, Trigger→Right, Step→Saw, f Hz→Ramp.
@@ -10317,7 +10317,7 @@ extern "C" int soemdsp_graph_snap_controls(int handle) {
   return 0;
 }
 
-// double — Held Keys / Scale bitmasks must survive host→Bias feeders (float32
+// double — Arp Keys / Scale bitmasks must survive host→Bias feeders (float32
 // only keeps exact ints through 2^24; middle-C is bit 36).
 extern "C" int soemdsp_graph_set_param(int handle, unsigned int nodeHash, int paramId, double value) {
   Circuit* g = get(handle);

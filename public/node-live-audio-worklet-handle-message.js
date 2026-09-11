@@ -55,6 +55,10 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       this.setMidiKeyboardHeldKeysBitmask(message.low, message.high);
       return;
     }
+    if (message.type === "setMidiKeyboardPlayKeysBitmask") {
+      this.setMidiKeyboardPlayKeysBitmask(message.low, message.high);
+      return;
+    }
     if (message.type === "setMacroControls") {
       this.setMacroControls(message.values);
       return;

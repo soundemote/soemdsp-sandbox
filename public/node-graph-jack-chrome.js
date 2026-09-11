@@ -135,6 +135,12 @@ function nodeGraphJackChannelCssColor(channel) {
       ? nodeGraphCssColor("--node-jack-blue", "#4d8dff")
       : "#4d8dff";
   }
+  // Keyboard Arp Keys — same gold as piano `.held` / default analog fill.
+  if (channel === "gold") {
+    return typeof nodeGraphCssColor === "function"
+      ? nodeGraphCssColor("--node-output-fill", "#e2a86d")
+      : "#e2a86d";
+  }
   if (channel === "purple") {
     return typeof nodeGraphCssColor === "function"
       ? nodeGraphCssColor("--node-jack-purple", "#c44dff")
@@ -178,13 +184,18 @@ function nodeGraphJackChannelCssColor(channel) {
  * Uncolored analog returns "" so the caller keeps gold/cyan.
  */
 function nodeGraphJackWireColor(type, port, io = "output") {
+  const channel = nodeGraphJackChannel(type, port, io);
+  // Colored digital buses (Play Keys blue, Arp Keys gold) + Voices black.
+  if (channel === "blue" || channel === "gold" || channel === "black") {
+    return nodeGraphJackChannelCssColor(channel) || "";
+  }
   if (nodeGraphJackSignalKind(type, port, io) === "digital") {
     return "#ffffff";
   }
   if (!nodeGraphWiresFollowPortColors()) {
     return "";
   }
-  return nodeGraphJackChannelCssColor(nodeGraphJackChannel(type, port, io));
+  return nodeGraphJackChannelCssColor(channel);
 }
 
 function nodeGraphJackRgbLetterChannel(type, value) {
@@ -317,7 +328,7 @@ function nodeGraphJackExplicitChannel(def, port, io = "output") {
   }
   const raw = String(map[port] || "").trim().toLowerCase();
   if (
-    raw === "red" || raw === "green" || raw === "blue"
+    raw === "red" || raw === "green" || raw === "blue" || raw === "gold"
     || raw === "purple" || raw === "cyan" || raw === "yellow"
     || raw === "magenta" || raw === "black"
   ) {
@@ -331,6 +342,12 @@ function nodeGraphJackChannel(type, port, io = "output") {
   if (!key.trim()) {
     return "";
   }
+  const def = nodeGraphJackTypeDefinition(type);
+  // Play Keys / Arp Keys / Voices: explicit color wins before digital→white.
+  const fromExplicit = nodeGraphJackExplicitChannel(def, key, io);
+  if (fromExplicit === "blue" || fromExplicit === "gold" || fromExplicit === "black") {
+    return fromExplicit;
+  }
   if (nodeGraphJackSignalKind(type, key, io) === "digital") {
     return "";
   }
@@ -340,10 +357,8 @@ function nodeGraphJackChannel(type, port, io = "output") {
   if (typeof nodeGraphPortIsBlockRateSignal === "function" && nodeGraphPortIsBlockRateSignal(type, key, io)) {
     return "cyan";
   }
-  const def = nodeGraphJackTypeDefinition(type);
   // Module-declared channel (e.g. polyBlep Wave → green). Wins over name heuristics.
   // RGB/XYZ stacks still use letter/axis rules — do not put green first there.
-  const fromExplicit = nodeGraphJackExplicitChannel(def, key, io);
   if (fromExplicit) {
     return fromExplicit;
   }

@@ -110,7 +110,7 @@ Only these live-audio types exist in the efficient build:
 | `stepGraph` | Segment / step-grid curve modulator |
 | `phaseDisperse` | Cascaded APF group-delay smear (≤64 stages; CPU ∝ filters) |
 | `quadrature` | Hilbert Pair IIR (In/Mid/Side → I/Q/MidI/SideQ) |
-| `arp` | Clocked arpeggiator over Held Keys bitmask |
+| `arp` | Clocked arpeggiator over Arp Keys bitmask |
 | `hilbert` | Mono +90° / −90° / 0° (shared quadrature net) |
 | `binaryClock` | Free-run or clocked 1–4 bit counter (Out / Bit0–3 / Gate) |
 | `chebyshev` | Chebyshev Type I (equiripple passband) |
