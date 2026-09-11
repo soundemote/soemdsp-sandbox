@@ -456,8 +456,8 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 |-------|-----------------|
 | `unit01` in `[0, 1]` | `px = unit01 * min(width, height)` in the **same coordinate space** being drawn |
 
-- **CSS chrome** (panel inset vars, DOM label padding): `width`/`height` are CSS pixels of the face cell.
-- **Canvas paint** (trace stroke, playhead, HUD font): `width`/`height` are the canvas’s device-pixel buffer size.
+- **Uniform scale only for text.** Font size uses `min(faceW, faceH)` — never scale X from width and Y from height independently. No stretched glyphs.
+- **Canvas buffer aspect must match its CSS paint box.** Sizing the buffer from a different box than the element CSS stretches into non-uniformly stretches the bitmap (text looks elongated). Measure the canvas’s display box; do not stretch to fill a mismatched aspect.
 - **Helpers SSOT:** `public/lib/visual/display-scale.js` — `displayFaceMinSide`, `clampDisplayUnit01`, `displayScaleToPx`. Call them directly; do not re-implement `* minSide` or soft-`typeof` fallbacks.
 - **Defaults are 0…1 literals.** Do not author face lengths from CSS px / percent and convert. Do not keep `*Px` keys, percent aliases, or dual paths “just in case.”
 - **Do not** invent dual keys or silent unit migrations (see §1). Rename clean; old patches reset to default.
@@ -469,6 +469,21 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 Helpers: `public/lib/visual/display-face-metrics.js` (`ensureFaceMetrics` / `syncFaceMetrics`); Music Player phosphor layout cache; Instant Trace screen items use **layout-space face boxes + camera math** (pan must not remasure). Workspace CSS size: `nodeGraphWorkspaceCssSize` (ResizeObserver).
 
 First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / curves / Harmonic / additive faces, asciiscope / imageBurn / matrix.
+
+---
+
+## 16. Workspace vs displays (hard split)
+
+| Layer | Owns | Must not |
+|-------|------|----------|
+| **Workspace** | Module shells, ports, wires, pan/zoom camera, DOM chrome, Display Settings windows | Draw DSP/visual content with CSS text hacks inside the display surface |
+| **Displays** | Face visual content (waveform, Instant Trace, FBM, curves, …) | Drive workspace layout; mix HTML/CSS overlays into the canvas pixel surface |
+
+**Display canvases are WebGL-only for face content.** Do not mix CSS/HTML *into* the canvas pixel path (no HTML text composited as if it were the canvas; no CSS `transform: scale(sx, sy)` stretching glyphs on the face bitmap). DOM may exist *beside* a face (playlist list, transport bar, Display Settings) as workspace/chrome — that is not the canvas.
+
+- **WebGL** draws the face pixels (trace, field, HUD ink that belongs on the face).
+- **Workspace DOM** is layout + controls around the face.
+- Migrating remaining Canvas2D face drawers to WebGL is the direction; do not add new Canvas2D+CSS hybrid face ink.
 
 ---
 
@@ -496,6 +511,8 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 | “Longer delay = more CPU” | **No** — same tap math (§2b) |
 | Always-visible resize grip on panels | **No** — hover / drag only (§14) |
 | Store face font / stroke / inset as CSS px or % | **No** — 0…1 of face min-edge (§15) |
+| Stretch face text by width≠height | **No** — uniform min-edge only (§15) |
+| Mix HTML/CSS into display canvas pixels | **No** — WebGL face / DOM workspace split (§16) |
 | Dual `labelInsetPx` + `labelInset` for compatibility | **No** — one key, clean rename (§1 / §15) |
 | Wipe Control dirty-cache / re-push all knobs every `setParams` | **No** — stickiness (§0b); cold push only after compile/destroy |
 | Nested DSP coeff objects in instance pools that lose writes | **No** — flat fields on the instance; smoke “set once, process many” |
@@ -510,3 +527,4 @@ Add new rules here when the same class of mistake happens twice. Keep this file 
 - **2026-09-10 — Display length 0–1:** Face geometry mixed CSS px (`labelInsetPx`, `traceWidth`), percent (`cornerRadius` 0–100), and true 0–1 (`edgeSpacing`). Normalize all face lengths to **0…1 of min(faceW, faceH)** via `display-scale.js` (§15). No percent / CSS-px bridges, no soft `typeof` helper fallbacks, no dual keys.
 - **2026-09-10 — Legacy display scrub:** Raster/Matrix chrome → `edgeSpacing`/`cornerRadius` 0…1 (no `screenPadding`/`rounding` %). Phosphor residual SSOT = `trail`/`ghost`/`burn`/`burnAmount` (no `decay` mirror, no burn-as-ghost). Dropped `sweepSeconds`, xyPad `scale`→puck, spectrogram overlap+1 shift. Yellow sidecar type/param aliases deleted. Display renderer id `"legacy"` → `"layoutOwned"`. Dead module-frame gapped-SVG path deleted (workspace/faces stay layout **px**; displays/canvases stay **0…1**).
 - **2026-09-10 — Paint never forces layout:** Music Player / fbmField / Instant Trace / curve·shape·harmonic faces stop remasuring every RAF. Shared `display-face-metrics.js`; scope screen rects from layout cache + pan/zoom math (not gBCR per pan sample).
+- **2026-09-10 — Music Player play + HUD:** Finite-rewriter comma bug set `samplePhaseSeek = (…+1, 1)` always `1` — seeks never bumped, Play looked dead. Fixed increment. HUD/canvas text: uniform min-edge font; buffer sized to canvas CSS box (no aspect stretch). Policy §16: workspace DOM vs WebGL display split.

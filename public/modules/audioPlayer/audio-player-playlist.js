@@ -701,7 +701,7 @@ function nodeGraphAudioPlayerPlaylistStop(nodeId) {
     node.params = {};
   }
   node.params.playlistScrub = "0";
-  node.samplePhaseSeek = (Math.round(nodeGraphFiniteNumber(node.samplePhaseSeek)) + 1, 1);
+  node.samplePhaseSeek = Math.round(nodeGraphFiniteNumber(node.samplePhaseSeek, 0)) + 1;
   if (typeof rememberNodeGraphAudioPlayerSamplePhase === "function") {
     rememberNodeGraphAudioPlayerSamplePhase(nodeId, 0);
   }
@@ -767,7 +767,7 @@ function nodeGraphAudioPlayerPlaylistPlay(nodeId) {
     const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
     if (node) {
       node.samplePhase = 0;
-      node.samplePhaseSeek = (Math.round(nodeGraphFiniteNumber(node.samplePhaseSeek)) + 1, 1);
+      node.samplePhaseSeek = Math.round(nodeGraphFiniteNumber(node.samplePhaseSeek, 0)) + 1;
     }
     if (transport !== 1 && typeof nodeGraphAudioPlayerWriteTransport === "function") {
       nodeGraphAudioPlayerWriteTransport(nodeId, 1);
@@ -1460,7 +1460,7 @@ function nodeGraphAudioPlayerPlaylistSeekAbsolute(nodeId, phase01, { record = fa
   }
   const phase = Math.max(0, Math.min(1, nodeGraphFiniteNumber(phase01)));
   node.samplePhase = phase;
-  node.samplePhaseSeek = (Math.round(nodeGraphFiniteNumber(node.samplePhaseSeek)) + 1, 1);
+  node.samplePhaseSeek = Math.round(nodeGraphFiniteNumber(node.samplePhaseSeek, 0)) + 1;
   node.params = { ...(node.params || {}), playlistScrub: "0" };
   if (typeof rememberNodeGraphAudioPlayerSamplePhase === "function") {
     rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase);

@@ -1154,7 +1154,7 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
     ...(item.path ? { sourcePath: item.path } : {}),
   };
   live.samplePhase = 0;
-  live.samplePhaseSeek = (Math.round(nodeGraphFiniteNumber(live.samplePhaseSeek)) + 1, 1);
+  live.samplePhaseSeek = Math.round(nodeGraphFiniteNumber(live.samplePhaseSeek, 0)) + 1;
   if (!live.params || typeof live.params !== "object") {
     live.params = {};
   }

@@ -1009,19 +1009,32 @@ function nodeGraphPhosphorWaveformSyncLayout(section, options = {}) {
   const cellW = Math.max(1, section.clientWidth || section.offsetWidth || 0);
   const cellH = Math.max(1, section.clientHeight || section.offsetHeight || 0);
   applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellW, cellH, powered);
+  // Font / HUD colors always — panel-shape fingerprint does not include fontSize.
+  applyNodeGraphPhosphorWaveformHudVars(section, settings);
 
+  // Buffer must match the CSS box the canvas actually fills. Measuring the
+  // section/cell while CSS sizes the canvas to a different page aspect
+  // non-uniformly stretches the bitmap (HUD text looks elongated).
   const page = section.querySelector(`[data-music-player-page="${face}"]`);
   const waveHost = face === "waveplay"
     ? section.querySelector("[data-music-player-wave-host]")
     : null;
-  const box = (waveHost && page && !page.hidden) ? waveHost : page;
+  const box = (waveHost && page && !page.hidden)
+    ? waveHost
+    : (page && !page.hidden ? page : canvas.parentElement);
   let cssWidth = 0;
   let cssHeight = 0;
-  if (box && !box.hidden) {
+  if (box) {
     cssWidth = box.clientWidth || box.offsetWidth || 0;
     cssHeight = box.clientHeight || box.offsetHeight || 0;
   }
-  if (!(cssWidth > 2) || !(cssHeight > 2)) {
+  // Prefer the canvas's laid-out size when available (exact CSS paint box).
+  const canvasCssW = canvas.clientWidth || canvas.offsetWidth || 0;
+  const canvasCssH = canvas.clientHeight || canvas.offsetHeight || 0;
+  if (canvasCssW > 2 && canvasCssH > 2) {
+    cssWidth = canvasCssW;
+    cssHeight = canvasCssH;
+  } else if (!(cssWidth > 2) || !(cssHeight > 2)) {
     cssWidth = cellW;
     cssHeight = cellH;
   }
@@ -1068,6 +1081,13 @@ function nodeGraphPhosphorWaveformEnsureLayoutObserver(section) {
   });
   try {
     ro.observe(section);
+    // Canvas lives in face pages — observe those boxes so buffer aspect
+    // tracks the paint host, not only the outer section.
+    for (const host of section.querySelectorAll(
+      "[data-music-player-page], [data-music-player-wave-host]",
+    )) {
+      ro.observe(host);
+    }
   } catch (_error) {
     // Ignore.
   }
@@ -2125,6 +2145,18 @@ function applyNodeGraphPhosphorWaveformHudVars(section, settings) {
   section.style.setProperty("--phosphor-hud-color", muted);
   section.style.setProperty("--phosphor-hud-color-hot", hot);
   section.style.setProperty("--phosphor-hud-color-dim", dim);
+  // HUD DOM text: uniform size from face min-edge only — never stretch by
+  // width/height independently (APP_POLICY §15 / §16).
+  const cellW = Math.max(1, section.clientWidth || section.offsetWidth || 0);
+  const cellH = Math.max(1, section.clientHeight || section.offsetHeight || 0);
+  const faceMin = displayFaceMinSide(cellW, cellH);
+  const fontUnit = settings && Number.isFinite(Number(settings.fontSize))
+    ? Number(settings.fontSize)
+    : nodeGraphPhosphorWaveformDefaultSettings.fontSize;
+  const fontPx = Math.max(8, Math.round(displayScaleToPx(fontUnit, faceMin)));
+  const fontSmPx = Math.max(8, Math.round(fontPx * 0.9));
+  section.style.setProperty("--phosphor-hud-font", `600 ${fontPx}px/1 system-ui, sans-serif`);
+  section.style.setProperty("--phosphor-hud-font-sm", `600 ${fontSmPx}px/1 system-ui, sans-serif`);
 }
 
 function nodeGraphPhosphorWaveformLineColor(settings, lightness, alpha) {

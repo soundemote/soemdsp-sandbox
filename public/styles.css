@@ -1520,6 +1520,9 @@ button.scw-label:hover,
   min-width: 0;
   min-height: 0;
   display: block;
+  /* Buffer is sized to this box — never letterbox-stretch glyphs. */
+  object-fit: fill;
+  image-rendering: auto;
 }
 .node-music-player-page-pl,
 .node-music-player-page-playinfo {
