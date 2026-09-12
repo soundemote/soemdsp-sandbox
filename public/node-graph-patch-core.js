@@ -1543,6 +1543,11 @@ function applyNodeGraphPatchToDom(options = {}) {
     }
   }
 
+  // Drop Show-metaparameter rows whose child was deleted (stale patches / undo gaps).
+  if (typeof nodeGraphMetamodulePruneOrphanExposedParams === "function") {
+    nodeGraphMetamodulePruneOrphanExposedParams(nodeGraphMvp.patch, null);
+  }
+
   for (const patchNode of nodeGraphMvp.patch.nodes) {
     // Seed Metamodule exposed param mirrors from children before DOM sync.
     if (
@@ -1963,6 +1968,14 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
     }
 
     if (removableNodeIds.size) {
+      // Owners whose Show-metaparameter rows pointed at deleted children.
+      for (const node of patch.nodes || []) {
+        if (!removableNodeIds.has(node?.id)) continue;
+        const owner = String(node?.ownerMetamoduleId || "").trim();
+        if (owner && !removableNodeIds.has(owner)) {
+          shellOwnersToRefresh.add(owner);
+        }
+      }
       patch = {
         ...patch,
         nodes: (patch.nodes || []).filter((node) => !removableNodeIds.has(node.id)),
@@ -1983,6 +1996,13 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
             !removableNodeIds.has(connection.destinationNode),
         ),
       };
+      // Clear Show metaparameter → deleted child (and shell mx_* params / MOD).
+      if (typeof nodeGraphMetamodulePruneOrphanExposedParams === "function") {
+        const pruned = nodeGraphMetamodulePruneOrphanExposedParams(patch, removableNodeIds);
+        for (const metaId of pruned) {
+          shellOwnersToRefresh.add(metaId);
+        }
+      }
     }
 
     const removedBoundary = shellOwnersToRefresh.size > 0;
@@ -2025,6 +2045,13 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
     if (typeof nodeGraphMetamoduleRefreshShellFromBoundary === "function") {
       for (const metaId of shellOwnersToRefresh) {
         nodeGraphMetamoduleRefreshShellFromBoundary(metaId);
+      }
+    }
+    // Remount Meta face so Show-metaparameter rows for deleted children disappear.
+    if (typeof nodeGraphMetamoduleRemountShellParameters === "function") {
+      for (const metaId of shellOwnersToRefresh) {
+        if (removableNodeIds.has(metaId)) continue;
+        nodeGraphMetamoduleRemountShellParameters(metaId);
       }
     }
     renderNodeGraphLiveControls();

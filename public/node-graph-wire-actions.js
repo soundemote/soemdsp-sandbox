@@ -253,6 +253,15 @@ function nodeGraphAttenuateWireAlias(patch, entry) {
   return `${from} → ${to}`;
 }
 
+/** Stamp ownerMetamoduleId when inserting on a wire inside a Meta view. */
+function nodeGraphWireInsertClaimOwnership(node, patch) {
+  if (!node || typeof nodeGraphMetamoduleClaimPlacedNode !== "function") {
+    return node;
+  }
+  nodeGraphMetamoduleClaimPlacedNode(node, patch);
+  return node;
+}
+
 function attenuateSelectedNodeGraphWires(mode = "attenuate") {
   const bipolar = mode === "attenuvert";
   const snapshots = nodeGraphSelectedWireSnapshots().filter((entry) => entry.kind !== "graph");
@@ -290,7 +299,7 @@ function attenuateSelectedNodeGraphWires(mode = "attenuate") {
     const id = `attenuverter-${counts.attenuverter}`;
     const point = nodeGraphAttenuateInsertGridPoint(patch, wire.sourceNode, wire.destinationNode, slot);
     const alias = nodeGraphAttenuateWireAlias(patch, entry);
-    patch.nodes.push(createNodeGraphPatchNode("attenuverter", {
+    const attenNode = createNodeGraphPatchNode("attenuverter", {
       id,
       gx: point.gx,
       gy: point.gy,
@@ -341,7 +350,9 @@ function attenuateSelectedNodeGraphWires(mode = "attenuate") {
           },
           offset: { visible: false },
         },
-    }));
+    });
+    nodeGraphWireInsertClaimOwnership(attenNode, patch);
+    patch.nodes.push(attenNode);
     newIds.push(id);
     const extras = nodeGraphWireOptionalPatchFields(wire);
     patch.connections.push({
@@ -427,7 +438,7 @@ function rangeSelectedNodeGraphWires(mode = "bipolar") {
     const id = `range-${counts.range}`;
     const point = nodeGraphAttenuateInsertGridPoint(patch, wire.sourceNode, wire.destinationNode, slot);
     const alias = nodeGraphAttenuateWireAlias(patch, entry);
-    patch.nodes.push(createNodeGraphPatchNode("range", {
+    const rangeNode = createNodeGraphPatchNode("range", {
       id,
       gx: point.gx,
       gy: point.gy,
@@ -438,7 +449,9 @@ function rangeSelectedNodeGraphWires(mode = "bipolar") {
         ioHidden: false,
       },
       params,
-    }));
+    });
+    nodeGraphWireInsertClaimOwnership(rangeNode, patch);
+    patch.nodes.push(rangeNode);
     newIds.push(id);
     const extras = nodeGraphWireOptionalPatchFields(wire);
     patch.connections.push({
@@ -519,7 +532,7 @@ function convertPolarityOnSelectedNodeGraphWires(type) {
     counts[kind] = (counts[kind] || 0) + 1;
     const id = `${kind}-${counts[kind]}`;
     const point = nodeGraphAttenuateInsertGridPoint(patch, wire.sourceNode, wire.destinationNode, slot);
-    patch.nodes.push(createNodeGraphPatchNode(kind, {
+    const polarityNode = createNodeGraphPatchNode(kind, {
       id,
       gx: point.gx,
       gy: point.gy,
@@ -529,7 +542,9 @@ function convertPolarityOnSelectedNodeGraphWires(type) {
         oscilloscopeHidden: true,
         ioHidden: false,
       },
-    }));
+    });
+    nodeGraphWireInsertClaimOwnership(polarityNode, patch);
+    patch.nodes.push(polarityNode);
     newIds.push(id);
     const extras = nodeGraphWireOptionalPatchFields(wire);
     patch.connections.push({
@@ -611,7 +626,7 @@ function slewSelectedNodeGraphWires() {
     const alias = typeof nodeGraphAttenuateWireAlias === "function"
       ? nodeGraphAttenuateWireAlias(patch, entry)
       : "Up/Down Slew";
-    patch.nodes.push(createNodeGraphPatchNode("slewLimiter", {
+    const slewNode = createNodeGraphPatchNode("slewLimiter", {
       id,
       gx: point.gx,
       gy: point.gy,
@@ -621,7 +636,9 @@ function slewSelectedNodeGraphWires() {
         oscilloscopeHidden: true,
         ioHidden: false,
       },
-    }));
+    });
+    nodeGraphWireInsertClaimOwnership(slewNode, patch);
+    patch.nodes.push(slewNode);
     newIds.push(id);
     const extras = nodeGraphWireOptionalPatchFields(wire);
     patch.connections.push({
@@ -703,7 +720,7 @@ function ampCurveSelectedNodeGraphWires() {
     const alias = typeof nodeGraphAttenuateWireAlias === "function"
       ? nodeGraphAttenuateWireAlias(patch, entry)
       : "Amp Curve";
-    patch.nodes.push(createNodeGraphPatchNode("ampCurve", {
+    const ampCurveNode = createNodeGraphPatchNode("ampCurve", {
       id,
       gx: point.gx,
       gy: point.gy,
@@ -713,7 +730,9 @@ function ampCurveSelectedNodeGraphWires() {
         oscilloscopeHidden: true,
         ioHidden: false,
       },
-    }));
+    });
+    nodeGraphWireInsertClaimOwnership(ampCurveNode, patch);
+    patch.nodes.push(ampCurveNode);
     newIds.push(id);
     const extras = nodeGraphWireOptionalPatchFields(wire);
     patch.connections.push({

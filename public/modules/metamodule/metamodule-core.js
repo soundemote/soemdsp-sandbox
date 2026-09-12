@@ -2089,6 +2089,78 @@ function nodeGraphMetamoduleSetParamExposed(metaNode, childId, paramKey, exposed
   return true;
 }
 
+/**
+ * Drop "Show metaparameter" entries (and shell mx_* params) whose child is gone.
+ * Call after deleting owned modules so the Meta face stops linking to ghosts.
+ * @param {object} patch
+ * @param {Set<string>|string[]|null} [deletedChildIds] — if set, only prune these ids;
+ *   otherwise prune any visibility key whose child is missing from the patch.
+ * @returns {Set<string>} metamodule ids that changed (need remount)
+ */
+function nodeGraphMetamodulePruneOrphanExposedParams(patch, deletedChildIds = null) {
+  const deleted = deletedChildIds instanceof Set
+    ? deletedChildIds
+    : (Array.isArray(deletedChildIds) ? new Set(deletedChildIds.map(String)) : null);
+  const refreshed = new Set();
+  const nodes = Array.isArray(patch?.nodes) ? patch.nodes : [];
+  const aliveById = new Map();
+  for (const n of nodes) {
+    if (n?.id) aliveById.set(String(n.id), n);
+  }
+  for (const meta of nodes) {
+    if (!nodeGraphIsContainerShellType(meta?.type)) continue;
+    const payload = nodeGraphEnsureMetamodulePayload(meta);
+    if (!payload?.paramVisibility || typeof payload.paramVisibility !== "object") continue;
+    const metaId = String(meta.id || "");
+    let changed = false;
+    for (const visKey of Object.keys(payload.paramVisibility)) {
+      if (payload.paramVisibility[visKey] !== true) {
+        delete payload.paramVisibility[visKey];
+        changed = true;
+        continue;
+      }
+      const split = String(visKey).split("|");
+      if (split.length < 2) {
+        delete payload.paramVisibility[visKey];
+        changed = true;
+        continue;
+      }
+      const childId = split[0];
+      const paramKey = split.slice(1).join("|");
+      const child = aliveById.get(childId);
+      const ownedHere = child && String(child.ownerMetamoduleId || "") === metaId;
+      const targeted = !deleted || deleted.has(childId);
+      if (targeted && (!child || !ownedHere)) {
+        delete payload.paramVisibility[visKey];
+        const synth = nodeGraphMetamoduleExposeParamKey(childId, paramKey);
+        if (synth) {
+          if (meta.params && Object.prototype.hasOwnProperty.call(meta.params, synth)) {
+            delete meta.params[synth];
+          }
+          if (meta.paramMeta && Object.prototype.hasOwnProperty.call(meta.paramMeta, synth)) {
+            delete meta.paramMeta[synth];
+          }
+        }
+        changed = true;
+      }
+    }
+    if (changed) refreshed.add(metaId);
+  }
+  if (refreshed.size && Array.isArray(patch?.modulations)) {
+    patch.modulations = patch.modulations.filter((m) => {
+      const dst = String(m?.destinationNode || "");
+      if (!refreshed.has(dst)) return true;
+      const param = String(m?.destinationParam || "");
+      if (!param.startsWith("mx_")) return true;
+      const meta = aliveById.get(dst);
+      if (!meta) return false;
+      const entries = nodeGraphMetamoduleListExposedParamEntries(meta, patch);
+      return entries.some((e) => e.synthKey === param);
+    });
+  }
+  return refreshed;
+}
+
 function nodeGraphMetamoduleListExposedParamEntries(metaNode, patch = nodeGraphMvp?.patch) {
   const payload = nodeGraphEnsureMetamodulePayload(metaNode);
   if (!payload) return [];
