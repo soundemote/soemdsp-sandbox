@@ -1,5 +1,5 @@
 // Metamodule / Group — container shells (children via ownerMetamoduleId; Root hides them).
-// Metamodule = voice host (Polyphony + playmode). Group = Amplitude-only boxing.
+// Metamodule = voice host (Polyphony + playmode + Voice* bus). Group = Amplitude-only boxing.
 
 const NODE_GRAPH_METAMODULE_TYPE = "metamodule";
 const NODE_GRAPH_GROUP_TYPE = "group";
@@ -8,8 +8,14 @@ const NODE_GRAPH_METAMODULE_PLAYMODES = Object.freeze([
   "Mono",
   "Legato Ties",
   "Legato Always",
-  "Polyphony",
+  "Voices",
 ]);
+const NODE_GRAPH_METAMODULE_VOICE_PORTAL_TYPES = Object.freeze([
+  "voiceFrequency",
+  "voiceGate",
+  "voiceTrigger",
+]);
+const NODE_GRAPH_METAMODULE_DEFAULT_STEREO_OUTS = Object.freeze(["Left", "Right"]);
 
 function nodeGraphIsMetamoduleType(type) {
   return String(type || "").trim() === NODE_GRAPH_METAMODULE_TYPE;
@@ -23,16 +29,43 @@ function nodeGraphIsContainerShellType(type) {
   return nodeGraphIsMetamoduleType(type) || nodeGraphIsGroupType(type);
 }
 
-/** Reserved Root shell inlets (not Meta In boundary names). Polyphony only on metamodule. */
+/** Reserved Root shell inlets (not Meta In boundary names). */
 function nodeGraphContainerShellReservedInputs(type) {
-  if (nodeGraphIsMetamoduleType(type)) return ["Polyphony", "Amplitude"];
+  if (nodeGraphIsMetamoduleType(type)) return ["Polyphony", "Gate"];
   if (nodeGraphIsGroupType(type)) return ["Amplitude"];
+  return [];
+}
+
+/** Fixed Metamodule shell outlets (always present chrome). */
+function nodeGraphContainerShellReservedOutputs(type) {
+  if (nodeGraphIsMetamoduleType(type)) return [...NODE_GRAPH_METAMODULE_DEFAULT_STEREO_OUTS];
   return [];
 }
 
 function nodeGraphIsMetamoduleBoundaryType(type) {
   const t = String(type || "").trim();
   return t === "metamoduleIn" || t === "metamoduleOut";
+}
+
+function nodeGraphIsMetamoduleVoicePortalType(type) {
+  const t = String(type || "").trim();
+  return NODE_GRAPH_METAMODULE_VOICE_PORTAL_TYPES.includes(t);
+}
+
+function nodeGraphMetamoduleVoicePortalId(metaId, voiceType) {
+  return `${String(metaId || "").trim()}__${String(voiceType || "").trim()}`;
+}
+
+/** Owned Meta Voice* or default L/R Meta Out — refuse delete. */
+function nodeGraphMetamoduleNodeIsProtected(node) {
+  if (!node || typeof node !== "object") return false;
+  if (node.metamoduleVoicePortal || nodeGraphIsMetamoduleVoicePortalType(node.type)) {
+    return true;
+  }
+  if (node.metamoduleDefaultStereoOut && node.type === "metamoduleOut") {
+    return true;
+  }
+  return false;
 }
 
 function nodeGraphMetamoduleViewStack() {
@@ -57,13 +90,15 @@ function nodeGraphMetamoduleNodeVisibleInCurrentView(node) {
   const viewId = nodeGraphMetamoduleViewId();
   const owner = String(node.ownerMetamoduleId || "");
   const isBoundary = nodeGraphIsMetamoduleBoundaryType(node.type);
+  const isVoice = nodeGraphIsMetamoduleVoicePortalType(node.type)
+    || Boolean(node.metamoduleVoicePortal);
   if (!viewId) {
-    // Root: never show Meta In/Out thrus (they live inside a container).
-    if (isBoundary) return false;
+    // Root: never show Meta In/Out / Voice* (they live inside a container).
+    if (isBoundary || isVoice) return false;
     // Hide owned children; show container shells + unowned graph modules.
     return !owner;
   }
-  // Inside container: show only that shell's children / boundary thrus.
+  // Inside container: show only that shell's children / boundary thrus / Voice*.
   return owner === viewId;
 }
 
@@ -84,10 +119,14 @@ function nodeGraphMetamodulePruneOrphanPortals(patch = nodeGraphMvp?.patch) {
   }
   const removeIds = new Set();
   for (const node of patch.nodes) {
-    if (!nodeGraphIsMetamoduleBoundaryType(node?.type)) continue;
+    const isBoundary = nodeGraphIsMetamoduleBoundaryType(node?.type);
+    const isVoice = nodeGraphIsMetamoduleVoicePortalType(node?.type)
+      || Boolean(node?.metamoduleVoicePortal);
+    if (!isBoundary && !isVoice) continue;
     const id = String(node.id || "");
     const owner = String(node.ownerMetamoduleId || "").trim();
-    if (owner || referenced.has(id)) continue;
+    if (owner || (isBoundary && referenced.has(id))) continue;
+    // Orphan boundary thrus or Voice* without owner — drop from Root graph.
     removeIds.add(id);
   }
   if (!removeIds.size) return 0;
@@ -192,6 +231,9 @@ function nodeGraphRepairMetamoduleOwnership(patch = nodeGraphMvp?.patch) {
       }
     }
     payload.boundary = nextBoundary;
+  }
+  if (typeof nodeGraphMetamoduleEnsureAllInteriors === "function") {
+    nodeGraphMetamoduleEnsureAllInteriors(patch);
   }
   return fixed;
 }
@@ -433,11 +475,14 @@ function nodeGraphMetamoduleAllocateShellPortName(entry, portalNode, usedNames, 
     if (name.startsWith("Out ")) name = name.slice(4).trim();
   }
   if (!name) name = "Port";
-  // Reserved shell inlets are not Meta In boundary names (Polyphony only on metamodule).
+  // Reserved shell inlets are not Meta In boundary names (Polyphony / Group Amplitude).
   const reserved = options.reservedInputs instanceof Set
     ? options.reservedInputs
-    : new Set(options.reservedInputs || ["Polyphony", "Amplitude"]);
+    : new Set(options.reservedInputs || ["Polyphony", "Gate"]);
   if (entry?.direction !== "out" && name === "Polyphony" && reserved.has("Polyphony")) {
+    name = "Port";
+  }
+  if (entry?.direction !== "out" && name === "Gate" && reserved.has("Gate")) {
     name = "Port";
   }
   if (entry?.direction !== "out" && (name === "Amplitude" || name === "Amp") && reserved.has("Amplitude")) {
@@ -538,6 +583,7 @@ function nodeGraphMetamoduleSyncBoundaryShellPorts(metaId, patch = nodeGraphMvp?
   const payload = nodeGraphEnsureMetamodulePayload(meta);
   if (!Array.isArray(payload.boundary)) payload.boundary = [];
   const reserved = nodeGraphContainerShellReservedInputs(meta.type);
+  // Reserved outlets stay claimable by default stereo portals (preferred Left/Right).
   const used = new Set(reserved);
   let changed = false;
   for (const entry of payload.boundary) {
@@ -548,14 +594,41 @@ function nodeGraphMetamoduleSyncBoundaryShellPorts(metaId, patch = nodeGraphMvp?
         : (patch?.nodes || []).find((n) => n?.id === entry.id))
       : null;
     if (!portal) continue;
-    const preferred = nodeGraphMetamoduleDesiredShellPortBase(entry, portal, patch);
+    let preferred = nodeGraphMetamoduleDesiredShellPortBase(entry, portal, patch);
+    // Default Meta stereo outs keep fixed Left/Right chrome names.
+    if (portal.metamoduleDefaultStereoOut) {
+      const fixed = NODE_GRAPH_METAMODULE_DEFAULT_STEREO_OUTS.find((name) =>
+        name === preferred
+        || name === String(portal.alias || "").trim()
+        || name === String(entry.key || "").replace(/^default:/, "")
+      ) || preferred;
+      if (NODE_GRAPH_METAMODULE_DEFAULT_STEREO_OUTS.includes(fixed)) {
+        preferred = fixed;
+      }
+    }
     entry.portLabel = preferred;
     const prev = String(entry.shellPort || "");
     entry.shellPort = "";
-    const next = nodeGraphMetamoduleAllocateShellPortName(entry, portal, used, {
+    let next = nodeGraphMetamoduleAllocateShellPortName(entry, portal, used, {
       preferred,
       reservedInputs: reserved,
     });
+    if (
+      portal.metamoduleDefaultStereoOut
+      && NODE_GRAPH_METAMODULE_DEFAULT_STEREO_OUTS.includes(preferred)
+    ) {
+      // Reclaim canonical name if allocate had to suffix (e.g. prior collision).
+      if (next !== preferred && !used.has(preferred)) {
+        used.delete(next);
+        next = preferred;
+        used.add(next);
+      } else if (next !== preferred) {
+        // Prefer keeping the fixed name even when already marked used by us.
+        used.delete(next);
+        next = preferred;
+        used.add(next);
+      }
+    }
     entry.shellPort = next;
     if (prev !== next) changed = true;
     // Keep TitleBarAndPorts title in sync when user has not set a custom alias.
@@ -596,12 +669,19 @@ function nodeGraphMetamoduleRefreshShellFromBoundary(metaId, patch = nodeGraphMv
 /**
  * Remove a Meta In/Out from the patch + parent boundary (shop delete inside meta).
  * Mutates patch. Returns owner metamodule id or "".
+ * Refuses default Left/Right stereo outs.
  */
 function nodeGraphMetamoduleRemoveBoundaryPortalInPlace(portalId, patch = nodeGraphMvp?.patch) {
   const id = String(portalId || "").trim();
   if (!id || !patch || !Array.isArray(patch.nodes)) return "";
   const portal = patch.nodes.find((n) => n?.id === id);
   if (!nodeGraphIsMetamoduleBoundaryType(portal?.type)) return "";
+  if (nodeGraphMetamoduleNodeIsProtected(portal)) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Default Meta Out Left/Right cannot be deleted.");
+    }
+    return "";
+  }
   const ownerId = String(portal.ownerMetamoduleId || "").trim();
   const touches = (nodeId) => String(nodeId || "") === id;
   if (Array.isArray(patch.connections)) {
@@ -640,12 +720,13 @@ function nodeGraphMetamoduleRemoveBoundaryPortalInPlace(portalId, patch = nodeGr
 
 /**
  * Dynamic Root-facing jacks on the container shell (from boundary portals).
- * Reserved inlets first (Meta: Poly+Amp; Group: Amp); Meta In → inputs; Meta Out → outputs.
+ * Reserved inlets first (Meta: Polyphony; Group: Amp); Meta always Left+Right outs;
+ * then extra Meta In → inputs / Meta Out → outputs.
  * Read-only: does not allocate/rename shellPort (use SyncBoundaryShellPorts).
  */
 function nodeGraphMetamoduleShellPorts(metaNode) {
   const inputs = [...nodeGraphContainerShellReservedInputs(metaNode?.type)];
-  const outputs = [];
+  const outputs = [...nodeGraphContainerShellReservedOutputs(metaNode?.type)];
   if (!nodeGraphIsContainerShellType(metaNode?.type)) {
     return { inputs, outputs };
   }
@@ -661,6 +742,8 @@ function nodeGraphMetamoduleShellPorts(metaNode) {
   if (missing && typeof nodeGraphMetamoduleSyncBoundaryShellPorts === "function") {
     nodeGraphMetamoduleSyncBoundaryShellPorts(metaNode.id);
   }
+  const seenIn = new Set(inputs);
+  const seenOut = new Set(outputs);
   for (const entry of payload.boundary || []) {
     if (!entry?.id || entry.deferred) continue;
     const portal = typeof nodeGraphPatchNode === "function"
@@ -671,8 +754,15 @@ function nodeGraphMetamoduleShellPorts(metaNode) {
     const isOut = entry.direction === "out"
       || entry.type === "metamoduleOut"
       || portal?.type === "metamoduleOut";
-    if (isOut) outputs.push(shellPort);
-    else inputs.push(shellPort);
+    if (isOut) {
+      if (!seenOut.has(shellPort)) {
+        outputs.push(shellPort);
+        seenOut.add(shellPort);
+      }
+    } else if (!seenIn.has(shellPort)) {
+      inputs.push(shellPort);
+      seenIn.add(shellPort);
+    }
   }
   return { inputs, outputs };
 }
@@ -875,6 +965,10 @@ function nodeGraphMetamoduleClaimPlacedNode(node, patch = nodeGraphMvp?.patch) {
   if (!nodeGraphIsContainerShellType(meta?.type)) return false;
 
   node.ownerMetamoduleId = viewId;
+  if (nodeGraphIsMetamoduleVoicePortalType(node.type)) {
+    node.metamoduleVoicePortal = true;
+    return true;
+  }
 
   if (!nodeGraphIsMetamoduleBoundaryType(node.type)) {
     return true;
@@ -1143,6 +1237,178 @@ function nodeGraphMetamoduleBoundsOfNodes(nodes) {
 }
 
 /**
+ * Seed owned Voice Frequency / Gate / Trigger portals inside a Metamodule.
+ * Stable ids `${metaId}__voiceFrequency` etc. Non-deletable; not Root chrome.
+ */
+function nodeGraphMetamoduleEnsureVoicePortals(metaId, patch = nodeGraphMvp?.patch) {
+  const id = String(metaId || "").trim();
+  if (!id || !patch || !Array.isArray(patch.nodes)) return false;
+  const meta = patch === nodeGraphMvp?.patch && typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(id)
+    : patch.nodes.find((n) => n?.id === id);
+  if (!nodeGraphIsMetamoduleType(meta?.type)) return false;
+
+  const coords = [
+    { type: "voiceFrequency", gx: -6, gy: -2 },
+    { type: "voiceGate", gx: -6, gy: 1 },
+    { type: "voiceTrigger", gx: -6, gy: 4 },
+  ];
+  let created = false;
+  for (const spec of coords) {
+    const portalId = nodeGraphMetamoduleVoicePortalId(id, spec.type);
+    let node = patch.nodes.find((n) => n?.id === portalId);
+    if (!node) {
+      node = typeof createNodeGraphPatchNode === "function"
+        ? createNodeGraphPatchNode(spec.type, {
+          id: portalId,
+          gx: spec.gx,
+          gy: spec.gy,
+          alias: spec.type === "voiceFrequency"
+            ? "Voice Frequency"
+            : (spec.type === "voiceGate" ? "Voice Gate" : "Voice Trigger"),
+        })
+        : {
+          id: portalId,
+          type: spec.type,
+          gx: spec.gx,
+          gy: spec.gy,
+          alias: spec.type,
+          params: {},
+          paramMeta: {},
+        };
+      patch.nodes.push(node);
+      created = true;
+    }
+    node.ownerMetamoduleId = id;
+    node.metamoduleVoicePortal = true;
+    if (nodeGraphMvp?.activeNodes instanceof Set) {
+      nodeGraphMvp.activeNodes.add(portalId);
+    }
+  }
+  return created;
+}
+
+/**
+ * Ensure non-deletable Meta Out portals for shell Left / Right.
+ */
+function nodeGraphMetamoduleEnsureDefaultStereoOuts(metaId, patch = nodeGraphMvp?.patch) {
+  const id = String(metaId || "").trim();
+  if (!id || !patch || !Array.isArray(patch.nodes)) return false;
+  const meta = patch === nodeGraphMvp?.patch && typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(id)
+    : patch.nodes.find((n) => n?.id === id);
+  if (!nodeGraphIsMetamoduleType(meta?.type)) return false;
+
+  const payload = nodeGraphEnsureMetamodulePayload(meta);
+  if (!Array.isArray(payload.boundary)) payload.boundary = [];
+  const reserved = nodeGraphContainerShellReservedInputs(meta.type);
+  const usedShellPorts = new Set(reserved);
+  for (const entry of payload.boundary) {
+    if (entry?.shellPort) usedShellPorts.add(String(entry.shellPort));
+  }
+
+  let created = false;
+  const lanes = [
+    { shellPort: "Left", gx: 6, gy: -1 },
+    { shellPort: "Right", gx: 6, gy: 2 },
+  ];
+  for (const lane of lanes) {
+    let entry = payload.boundary.find((b) =>
+      b && !b.deferred && String(b.shellPort || "") === lane.shellPort
+      && (b.direction === "out" || b.type === "metamoduleOut")
+    );
+    let portal = entry?.id
+      ? patch.nodes.find((n) => n?.id === entry.id)
+      : null;
+    if (!portal) {
+      // Prefer stable id; fall back to next boundary id when taken.
+      const preferId = `${id}__metaOut${lane.shellPort}`;
+      portal = patch.nodes.find((n) => n?.id === preferId) || null;
+      if (!portal) {
+        const portalId = patch.nodes.some((n) => n?.id === preferId)
+          ? nodeGraphNextMetamoduleBoundaryId("out", patch)
+          : preferId;
+        portal = typeof createNodeGraphPatchNode === "function"
+          ? createNodeGraphPatchNode("metamoduleOut", {
+            id: portalId,
+            gx: lane.gx,
+            gy: lane.gy,
+            alias: lane.shellPort,
+          })
+          : {
+            id: portalId,
+            type: "metamoduleOut",
+            gx: lane.gx,
+            gy: lane.gy,
+            alias: lane.shellPort,
+            params: {},
+            paramMeta: {},
+          };
+        patch.nodes.push(portal);
+        created = true;
+      }
+    }
+    portal.ownerMetamoduleId = id;
+    portal.metamoduleDefaultStereoOut = true;
+    portal.alias = lane.shellPort;
+    if (nodeGraphMvp?.activeNodes instanceof Set) {
+      nodeGraphMvp.activeNodes.add(String(portal.id));
+    }
+    if (!entry) {
+      entry = {
+        id: String(portal.id),
+        type: "metamoduleOut",
+        direction: "out",
+        portLabel: lane.shellPort,
+        key: `default:${lane.shellPort}`,
+        shellPort: lane.shellPort,
+      };
+      // Claim name even if previously reserved in used set.
+      usedShellPorts.delete(lane.shellPort);
+      entry.shellPort = nodeGraphMetamoduleAllocateShellPortName(entry, portal, usedShellPorts, {
+        preferred: lane.shellPort,
+        reservedInputs: reserved,
+      });
+      // Force canonical Left/Right for default chrome.
+      entry.shellPort = lane.shellPort;
+      usedShellPorts.add(lane.shellPort);
+      payload.boundary.push(entry);
+      created = true;
+    } else {
+      entry.shellPort = lane.shellPort;
+      entry.portLabel = lane.shellPort;
+      entry.direction = "out";
+      entry.type = "metamoduleOut";
+      usedShellPorts.add(lane.shellPort);
+    }
+  }
+  return created;
+}
+
+/** Voice portals + default stereo outs for one Metamodule. */
+function nodeGraphMetamoduleEnsureInterior(metaId, patch = nodeGraphMvp?.patch) {
+  const id = String(metaId || "").trim();
+  if (!id) return false;
+  const a = nodeGraphMetamoduleEnsureVoicePortals(id, patch);
+  const b = nodeGraphMetamoduleEnsureDefaultStereoOuts(id, patch);
+  if (typeof nodeGraphMetamoduleSyncBoundaryShellPorts === "function") {
+    nodeGraphMetamoduleSyncBoundaryShellPorts(id, patch);
+  }
+  return a || b;
+}
+
+/** Repair-time: seed interiors on every Metamodule in the patch. */
+function nodeGraphMetamoduleEnsureAllInteriors(patch = nodeGraphMvp?.patch) {
+  if (!patch || !Array.isArray(patch.nodes)) return 0;
+  let n = 0;
+  for (const node of patch.nodes) {
+    if (!nodeGraphIsMetamoduleType(node?.type)) continue;
+    if (nodeGraphMetamoduleEnsureInterior(node.id, patch)) n += 1;
+  }
+  return n;
+}
+
+/**
  * Group current multi-selection into a Metamodule shell.
  * Claims children, portalizes crossing signal wires, enters inner view.
  */
@@ -1209,8 +1475,9 @@ function groupNodeGraphSelectionIntoMetamodule() {
   }
 
   nodeGraphMetamodulePortalizeCrossing(metaNode, crossing, children, patch);
+  nodeGraphMetamoduleEnsureInterior(metaId, patch);
 
-  // Stay on Root â€” user enters with a double-click on the Metamodule face.
+  // Stay on Root — user enters with a double-click on the Metamodule face.
   nodeGraphMvp.metamoduleViewStack = [];
   if (typeof updateNodeGraphMetamoduleBreadcrumb === "function") {
     updateNodeGraphMetamoduleBreadcrumb();
@@ -1218,7 +1485,7 @@ function groupNodeGraphSelectionIntoMetamodule() {
 
   // MUST rebuild DOM: visibility-only sync leaves new shell/portals unmounted
   // (Hypersaw hides via owner, meta exists in patch but stays invisible until
-  // something else calls applyNodeGraphPatchToDom â€” e.g. dragging a module).
+  // something else calls applyNodeGraphPatchToDom — e.g. dragging a module).
   if (typeof commitNodeGraphPatch === "function") {
     commitNodeGraphPatch(patch, {
       status: "group into metamodule",
@@ -1422,10 +1689,19 @@ function ungroupNodeGraphMetamoduleInPlace(metaId, patch = nodeGraphMvp?.patch) 
     if (nodeGraphIsMetamoduleBoundaryType(node?.type)) {
       portalIds.add(String(node.id));
     }
+    // Voice bus portals are Meta-owned chrome — prune on ungroup (do not free to Root).
+    if (nodeGraphIsMetamoduleVoicePortalType(node?.type) || node?.metamoduleVoicePortal) {
+      portalIds.add(String(node.id));
+    }
   }
 
   for (const portalId of portalIds) {
-    nodeGraphMetamoduleStitchPortalOut(portalId, patch);
+    // Voice portals have no Outside↔Child stitch.
+    if (nodeGraphIsMetamoduleBoundaryType(
+      patch.nodes.find((n) => n?.id === portalId)?.type,
+    )) {
+      nodeGraphMetamoduleStitchPortalOut(portalId, patch);
+    }
   }
 
   const removeIds = new Set([id, ...portalIds]);
@@ -1503,6 +1779,9 @@ function enterNodeGraphMetamoduleView(metamoduleId) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
   if (!nodeGraphIsContainerShellType(node?.type)) return false;
   nodeGraphRepairMetamoduleOwnership();
+  if (nodeGraphIsMetamoduleType(node?.type)) {
+    nodeGraphMetamoduleEnsureInterior(id);
+  }
   // One level only.
   nodeGraphMvp.metamoduleViewStack = [id];
   updateNodeGraphMetamoduleBreadcrumb();
