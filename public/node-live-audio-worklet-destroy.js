@@ -528,13 +528,6 @@ NodeLiveAudioProcessor.prototype.destroyRobinSupersawNativeState = function dest
     }
 };
 
-NodeLiveAudioProcessor.prototype.destroyHypersawNativeState = function destroyHypersawNativeState(state) {
-    if (state?.nativeHandle && this.nativeHypersaw?.soemdsp_hypersaw_destroy) {
-      this.nativeHypersaw.soemdsp_hypersaw_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-};
-
 NodeLiveAudioProcessor.prototype.destroyVideoscopeNativeState = function destroyVideoscopeNativeState(state) {
     if (state?.nativeHandle && this.nativeVideoscope?.soemdsp_videoscope_destroy) {
       this.nativeVideoscope.soemdsp_videoscope_destroy(state.nativeHandle);

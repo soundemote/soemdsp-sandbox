@@ -109,17 +109,6 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
       try { this.syncNativeRobinSupersawPublish(); } catch (_e) { /* keep prior publish */ }
     }
     const dataPorts = [];
-    for (const [nodeId, state] of this.hypersawStates) {
-      if (Array.isArray(state?.lastVoicePhases) && state.lastVoicePhases.length) {
-        dataPorts.push([nodeId, "Phases", state.lastVoicePhases]);
-      }
-      if (Array.isArray(state?.lastVoiceAmplitudes) && state.lastVoiceAmplitudes.length) {
-        dataPorts.push([nodeId, "Amplitudes", state.lastVoiceAmplitudes]);
-      }
-      if (Array.isArray(state?.lastVoicePans) && state.lastVoicePans.length) {
-        dataPorts.push([nodeId, "Pans", state.lastVoicePans]);
-      }
-    }
     if (this.hypersaw2States) {
       for (const [nodeId, state] of this.hypersaw2States) {
         // Always push Phases (including []) so a silent Meta voice can clear

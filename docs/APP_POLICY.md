@@ -84,7 +84,7 @@ Only these live-audio types exist in the efficient build:
 | `surgeOscillator` | Hard-sync PolyBLEP osc (internal or external Sync) |
 | `softwaveOsc` | Soft-shaped multi-wave morph oscillator |
 | `dsfOscillator` | Discrete Summation Formula oscillator |
-| `hypersaw` | Stereo PolyBLEP saw bank (spread / random / drift) |
+| `hypersaw2` | Stereo PolyBLEP saw bank (spread / random / drift) |
 | `sinc` | Repeating sinc kernel (Ideal / Band Limit) |
 | `bradley2a` | Bradley Telcom jitter/hit impairment synth |
 | `phoneTone` | DTMF Phone Tone (Analog/Digital/Gate; Tone/ToneL/ToneR) |
@@ -179,7 +179,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    clock / binaryClock / triggerDivider / clockDivider / delayedTrigger / randomClock / triggerCounter /
    metallicRatio / lutCell / lookaheadLimiter / limiter / stepSequencer / transport /
    aliasSine / blit / sineWavetable / sinCos / antisaw / archimedes /
-   additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw / sinc /
+   additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw2 / sinc /
    bradley2a / phoneTone / ellipsoid / snowflake /
    butterworth / linkwitzRiley / bessel / papoulisFilter /
    speakerProtection / speakerProtector2 /

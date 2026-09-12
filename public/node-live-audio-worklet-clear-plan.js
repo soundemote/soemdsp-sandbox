@@ -221,7 +221,6 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
     this.snowflakeStates = new Map();
     this.dsfOscillatorStates = new Map();
     this.robinSupersawStates = new Map();
-    this.hypersawStates = new Map();
     this.hypersaw2States = new Map();
     this.videoscopeStates = new Map();
     this.spectrogramStates = new Map();

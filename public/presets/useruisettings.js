@@ -274,7 +274,7 @@
         "ePiano",
         "percussion",
         "phosphillator",
-        "hypersaw",
+        "hypersaw2",
         "gravity",
         "bloomGlow",
         "gradientVectorscope",

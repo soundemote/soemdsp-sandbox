@@ -228,7 +228,9 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const nid = String(id);
     const prev = this.nodeOutputs.get(nid) || {};
     const signal = this.keyboardModuleSignal || {};
-    const cv = buildCv(signal, false, "keyboard");
+    // Keep pulseActive so Trigger is not wiped when gatePulse was already
+    // consumed into midiKeyboardGatePulseSamples by normalize.
+    const cv = buildCv(signal, pulseActive, "keyboard");
     const gateOut = Math.max(cv.gateAmp, mixMax(nid, "Gate"));
     const triggerOut = Math.max(cv.triggerAmp, mixMax(nid, "Trigger"));
     const arpOut = orTransmit([arpLocal, ...collectIn(nid, "Arp Keys")], phaseOn);
@@ -349,6 +351,34 @@ NodeLiveAudioProcessor.prototype.readEfficientModSourceSample = function readEff
     }
     return value;
   }
+  // 1D Phosphor Thru / Vector RGB / other observer outs are dry passthrough —
+  // they are not native nodes and never publish nodeOutputs. Walk to upstream.
+  if (
+    node
+    && typeof this.nativeGraphThruInPortForNode === "function"
+    && this.nativeGraphThruInPortForNode(node, sp)
+    && typeof this.resolveNativeGraphThruSources === "function"
+  ) {
+    const nativeIds = this._nativeGraphNodeIds instanceof Set
+      ? this._nativeGraphNodeIds
+      : null;
+    const resolved = this.resolveNativeGraphThruSources(id, sp, nativeIds, 0);
+    if (resolved.length) {
+      let sum = 0;
+      let any = false;
+      for (let i = 0; i < resolved.length; i += 1) {
+        const r = resolved[i];
+        const rid = String(r?.sourceNode || "");
+        if (!rid || rid === id) continue;
+        const sample = this.readEfficientModSourceSample(rid, r?.sourcePort);
+        if (Number.isFinite(sample)) {
+          sum += sample;
+          any = true;
+        }
+      }
+      if (any) return sum;
+    }
+  }
   const out = this.nodeOutputs?.get?.(id);
   if (!out) return 0;
   const v = out[sp] ?? (sp === "Out" ? out.Bias : null) ?? (sp === "Bias" ? out.Out : null);
@@ -365,21 +395,10 @@ NodeLiveAudioProcessor.prototype.readEfficientParamModSources = function readEff
   if (!mods || !mods.length) return [];
   const metadata = node?.paramMeta?.[key] || {};
   const sources = [];
-  const dstId = String(node?.id || "");
-  const liveMods = this._nativeLiveParamModKeys || this._nativePhaseModLiveKeys;
-  const pk = String(key || "");
   for (let i = 0; i < mods.length; i += 1) {
     const m = mods[i];
     if (!m) continue;
-    // Native audio → param MOD is a sample-accurate ParamModEdge.
-    // Skip here so set_param_mod does not also apply it as cyan ZOH.
-    if (
-      liveMods
-      && liveMods.size
-      && liveMods.has(`${dstId}\0${pk}\0${String(m.sourceNode || "")}\0${String(m.sourcePort || "")}`)
-    ) {
-      continue;
-    }
+    // ADSR/audio Out is 0…1 unit MOD — same cyan set_param_mod path as Knob.
     const sample = this.readEfficientModSourceSample(m.sourceNode, m.sourcePort);
     if (typeof this.normalizeParameterModulationInput === "function") {
       sources.push(this.normalizeParameterModulationInput(sample, metadata));

@@ -51,7 +51,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
   let numVoicesExact = Number(options.numVoices);
   if (!Number.isFinite(numVoicesExact) || numVoicesExact < 1) numVoicesExact = 1;
   if (numVoicesExact > 64) numVoicesExact = 64;
-  const distributePhase = Number(options.distributePhase ?? options.spread);
+  const phaseCollapse = Number(options.phaseCollapse ?? options.spread);
   const randomizePhase = Number(options.randomizePhase ?? options.randomAmount);
   const vibratoAmp = Number(options.vibratoAmp);
   const vibratoSpeedHz = Number(options.vibratoSpeedHz ?? options.vibratoSpeed);
@@ -60,21 +60,21 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
   const phaseMultiplier = Number(options.phaseMultiplier);
   const jitterDistance = Number(options.jitterDistance);
   const jitterSpeed = Number(options.jitterSpeed ?? options.jitterSpeedHz);
-  const jitterPitch = Number(options.jitterPitch ?? options.driftPitch);
+  const jitterTilt = Number(options.jitterTilt ?? -1);
+  const jitterSpeedRef = Number(options.jitterSpeedRef);
   const distanceSlew = Number(options.distanceSlew);
   const centerSide = Number(options.centerSide);
   const waveform = Number(options.waveform);
   const morph = Number(options.morph);
   const level = nodeGraphFiniteNumber(options.level);
   const seed = Number(options.seed);
-  const freeRunningPhase = Number(options.freeRunningPhase);
   wasm.soemdsp_hypersaw2_sample(
     state.nativeHandle,
     frequencyHz,
     sampleRate,
     phaseGlobal,
     numVoicesExact,
-    Number.isFinite(distributePhase) ? distributePhase : 1,
+    Number.isFinite(phaseCollapse) ? phaseCollapse : 1,
     Number.isFinite(randomizePhase) ? randomizePhase : 0.10,
     Number.isFinite(vibratoAmp) ? vibratoAmp : 0,
     Number.isFinite(vibratoSpeedHz) ? vibratoSpeedHz : 0,
@@ -83,14 +83,15 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     Number.isFinite(phaseMultiplier) ? phaseMultiplier : 1,
     Number.isFinite(jitterDistance) ? jitterDistance : 0.1,
     Number.isFinite(jitterSpeed) ? jitterSpeed : 1,
-    Number.isFinite(jitterPitch) ? jitterPitch : 0,
+    Number.isFinite(jitterTilt) ? jitterTilt : -1,
     Number.isFinite(distanceSlew) ? distanceSlew : 8,
     Number.isFinite(centerSide) ? centerSide : 0.5,
     Number.isFinite(waveform) ? waveform : 1,
     Number.isFinite(morph) ? morph : 0.5,
     level,
     Number.isFinite(seed) ? seed : 1,
-    Number.isFinite(freeRunningPhase) ? freeRunningPhase : 1,
+    0, // freeRunningPhase unused — locked master only
+    Number.isFinite(jitterSpeedRef) ? jitterSpeedRef : 261.625565,
   );
   const n = wasm.soemdsp_hypersaw2_voice_count
     ? Math.max(0, Math.min(64, wasm.soemdsp_hypersaw2_voice_count(state.nativeHandle) | 0))

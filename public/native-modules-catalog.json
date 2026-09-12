@@ -730,19 +730,6 @@
       "wasmAvailable": true
     },
     {
-      "name": "hypersaw",
-      "label": "Hypersaw",
-      "targetType": "hypersaw",
-      "kind": "oscillator",
-      "source": "native_modules/hypersaw/hypersaw.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/hypersaw/hypersaw.cpp",
-      "localSourceUrl": "/native_modules/hypersaw/hypersaw.cpp",
-      "libUrl": "",
-      "wasm": "native_modules/hypersaw/hypersaw.wasm",
-      "wasmUrl": "native_modules/hypersaw/hypersaw.wasm",
-      "wasmAvailable": true
-    },
-    {
       "name": "hypersaw2",
       "label": "Hypersaw2",
       "targetType": "hypersaw2",

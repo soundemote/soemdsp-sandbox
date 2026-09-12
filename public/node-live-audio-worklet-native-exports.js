@@ -1222,22 +1222,6 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
-      if (name === "hypersaw" || targetType === "hypersaw") {
-        for (const state of this.hypersawStates.values()) {
-          this.destroyHypersawNativeState(state);
-        }
-        this.nativeHypersaw = exports;
-        this.nativeHypersawReady = Boolean(
-          this.nativeHypersaw?.soemdsp_hypersaw_create &&
-          this.nativeHypersaw?.soemdsp_hypersaw_sample,
-        );
-        this.port.postMessage({
-          type: "nativeModuleStatus",
-          name: "hypersaw",
-          status: this.nativeHypersawReady ? "ready" : "missing exports",
-        });
-        return;
-      }
       if (name === "hypersaw2" || targetType === "hypersaw2") {
         if (this.hypersaw2States) {
           for (const state of this.hypersaw2States.values()) {

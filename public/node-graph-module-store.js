@@ -176,7 +176,6 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "basicShape",
   "chordPad",
   "noteGlide",
-  "hypersaw",
   "hypersaw2",
   "noteTranspose",
   "degreeTuring",
@@ -851,13 +850,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Pitch-dithered supersaw (frequency detune, not phase mod). Fractional voices, Reset, Random Phase, Portamento Min/Max/Style, detune-face lines (±0.5 oct).",
     label: "RobinSupersaw",
     notes: ["oscillator", "supersaw", "pitch dithering", "frequency detune", "portamento", "native", "phosphor display"],
-  },
-  hypersaw: {
-    category: "oscillator",
-    description: "Retired — use Hypersaw (former Hypersaw2).",
-    label: "Hypersaw (retired)",
-    hidden: true,
-    notes: ["retired", "replaced-by-hypersaw2"],
   },
   hypersaw2: {
     category: "oscillator",
@@ -3045,10 +3037,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   humanFilter: {
     source: "public/modules/humanFilter/human-filter-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/humanFilter/human-filter-worklet-evaluator.js",
-  },
-  hypersaw: {
-    source: "public/modules/hypersaw/hypersaw-worklet-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/hypersaw/hypersaw-worklet-evaluator.js",
   },
   hypersaw2: {
     source: "public/modules/hypersaw2/hypersaw2-live-evaluator.js",

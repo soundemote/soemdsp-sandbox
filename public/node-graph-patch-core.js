@@ -371,7 +371,7 @@ function validateNodeGraphPatch(patch) {
       // Hypersaw / Hypersaw2 waveform: Pulse Center moved to sit after Saw.
       // Old: 0 Trisaw, 1 Saw, 2 Ramp, 3 Pulse, 4 Pulse Center, 5 RectSin, 6 Trap
       // New: 0 Trisaw, 1 Saw, 2 Pulse Center, 3 Ramp, 4 Pulse, 5 RectSin, 6 Trap
-      if ((type === "hypersaw" || type === "hypersaw2") && parameter.key === "waveform") {
+      if (type === "hypersaw2" && parameter.key === "waveform") {
         if (Number(rawParams._hypersawWaveOrder) !== 2) {
           if (Object.hasOwn(rawParams, "waveform")) {
             const n = Math.round(Number(value));

@@ -135,7 +135,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   curveOsc: "silence",
   dsfOscillator: "silence",
   robinSupersaw: "silence",
-  hypersaw: "silence",
+  hypersaw2: "silence",
   vibratoGenerator: "silence",
   wowAndFlutter: "silence",
   softpopOscillator: "silence",

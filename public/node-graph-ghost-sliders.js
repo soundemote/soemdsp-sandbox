@@ -90,7 +90,7 @@ function nodeGraphGhostSliderControllerOutSample(nodeId, port) {
   return rangeMin + (rangeMax - rangeMin) * t;
 }
 
-function nodeGraphGhostSliderModSample(sourceNode, sourcePort) {
+function nodeGraphGhostSliderModSample(sourceNode, sourcePort, depth = 0) {
   const port = String(sourcePort || "").trim();
   const scoped = nodeGraphGhostSliderScopeSample(sourceNode, port);
   if (scoped != null) {
@@ -99,6 +99,34 @@ function nodeGraphGhostSliderModSample(sourceNode, sourcePort) {
   const nodeId = String(sourceNode || "").trim();
   if (!nodeId || !port) {
     return null;
+  }
+  // 1D Phosphor Thru (and other monitor thrus): no scope on Thru — sample In's upstream.
+  if (depth < 6 && (port === "Thru" || port === "←")) {
+    const sourceType = typeof nodeGraphPatchNodeType === "function"
+      ? nodeGraphPatchNodeType(nodeId)
+      : "";
+    let inPort = "In";
+    if (sourceType === "customDisplay") inPort = "In1";
+    if (typeof nodeGraphModuleBypassPortMap === "function" && sourceType) {
+      const map = nodeGraphModuleBypassPortMap(sourceType) || [];
+      for (let i = 0; i < map.length; i += 1) {
+        if (String(map[i]?.out || "") === port && map[i]?.in) {
+          inPort = String(map[i].in);
+          break;
+        }
+      }
+    }
+    const conns = nodeGraphMvp?.patch?.connections || [];
+    for (let i = 0; i < conns.length; i += 1) {
+      const c = conns[i];
+      if (String(c?.destinationNode || "") !== nodeId) continue;
+      if (String(c?.destinationPort || "") !== inPort) continue;
+      const up = nodeGraphGhostSliderModSample(c.sourceNode, c.sourcePort, depth + 1);
+      if (up != null && Number.isFinite(Number(up))) return up;
+    }
+    // Face may still have In scope even with no Thru buffer.
+    const inScoped = nodeGraphGhostSliderScopeSample(nodeId, inPort);
+    if (inScoped != null) return inScoped;
   }
   const fromController = nodeGraphGhostSliderControllerOutSample(nodeId, port);
   if (fromController != null && Number.isFinite(fromController)) {

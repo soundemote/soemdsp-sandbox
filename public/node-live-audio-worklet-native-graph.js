@@ -115,7 +115,6 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   surgeOscillator: 44,
   softwaveOsc: 45,
   dsfOscillator: 46,
-  hypersaw: 47,
   hypersaw2: 158,
   rasterRgb: 160,
   chaosfly: 161,
@@ -336,6 +335,21 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   size: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   speed: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FREQUENCY,
   rate: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FREQUENCY,
+  // Hypersaw2 (and any module using these Control slots under local names).
+  // Missing keys made ParamModEdge compile skip MOD (envelope → jitterDistance).
+  jitterDistance: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
+  jitterSpeed: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_RATE,
+  jitterTilt: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LPF_FREQUENCY,
+  jitterSpeedRef: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OVERSAMPLE,
+  distanceSlew: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_HPF_FREQUENCY,
+  phaseCollapse: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
+  centerSide: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PAN,
+  vibratoAmp: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_RESONANCE,
+  vibratoSpeed: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED,
+  vibratoFreqVary: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE,
+  vibratoPhaseVary: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_VARIATION,
+  randomizePhase: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
+  voices: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES,
 });
 
 /**
@@ -350,7 +364,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
   const k = String(key || "");
   const t = String(type || "");
   if (k === "morph") {
-    if (t === "hypersaw" || t === "hypersaw2") return P.NATIVE_GRAPH_PARAM_FEEDBACK;
+    if (t === "hypersaw2") return P.NATIVE_GRAPH_PARAM_FEEDBACK;
     if (t === "spiral") return P.NATIVE_GRAPH_PARAM_PHASE;
     return P.NATIVE_GRAPH_PARAM_SHAPE;
   }
@@ -1001,8 +1015,9 @@ NodeLiveAudioProcessor.prototype.pushNativeGraphParamDomain = function pushNativ
       paramId,
       Number.isFinite(lo) ? lo : 0,
       Number.isFinite(hi) ? hi : 0,
-      // bit0 wrap, bit1 modClamp, bit2 VCA amp multiply — must not strip bit2.
-      (flags | 0) & 7,
+      // bit0 wrap, bit1 modClamp, bit2 VCA, bit3 unbounded (modClamp:false).
+      // Mask 7 used to drop bit3 so jitterDistance modClamp:false never stuck.
+      (flags | 0) & 15,
     );
   } catch (_e) { /* ignore */ }
 };
@@ -1087,7 +1102,6 @@ NodeLiveAudioProcessor.prototype.nativeGraphSmoothModeFromMeta = function native
   const hasExplicit = raw != null && String(raw).trim() !== "";
   // nodeSmoothingModeNormalize(undefined) → "global". That would ignore a
   // positive smoothingSeconds (Music Player ◀◀▶▶ / Scratch are Internal).
-  // Untimed params still default to Global like the rest of the app.
   let mode;
   if (hasExplicit) {
     mode = typeof nodeSmoothingModeNormalize === "function"
@@ -1096,6 +1110,12 @@ NodeLiveAudioProcessor.prototype.nativeGraphSmoothModeFromMeta = function native
   } else {
     const seconds = Number(meta.smoothingSeconds);
     mode = (Number.isFinite(seconds) && seconds > 0) ? "internal" : "global";
+  }
+  // Legacy broken default: mode Global + per-param seconds (seconds were ignored
+  // under Global). Treat as Internal so the stored time actually applies.
+  if (mode === "global") {
+    const sec = Number(meta.smoothingSeconds);
+    if (Number.isFinite(sec) && sec > 0) mode = "internal";
   }
   if (mode === "global") return 1;
   if (mode === "internalGlobal") return 2;
@@ -1532,11 +1552,18 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
           const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, biasTypeId) | 0;
           if (arc !== 0) return false;
           hostFeederHashByKey.set(feedKey, feedHash);
+          // Same shape as compileNativeGraphFromPlan — syncNativeHostCvFeeders
+          // reads feed.hash (not feedHash). Without this, Keyboard Gate→ADSR
+          // dies after surgical rewires while the Keyboard LCD still shows Gate.
           hostFeeders.push({
-            feedHash,
+            hash: feedHash,
             sourceNode: srcId,
             sourcePort: String(srcPort || ""),
           });
+          // Snap — Gate / CV must not chase Bias smoother.
+          this.pushNativeGraphSmoothType(native, feedHash, attOffsetParam, 3);
+          this.pushNativeGraphSmoothMode(native, feedHash, attOffsetParam, 3);
+          this.pushNativeGraphSmoothTime(native, feedHash, attOffsetParam, 0);
         }
         const rc = native.soemdsp_graph_connect(
           this.nativeGraphHandle,
@@ -1553,70 +1580,30 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
         const src = String(c?.sourceNode || "");
         const dst = String(c?.destinationNode || "");
         if (!dst || !idSet.has(dst)) continue;
-        connectOne(src, c?.sourcePort, dst, c?.destinationPort);
+        const srcPort = String(c?.sourcePort || "");
+        const dstPort = String(c?.destinationPort || "");
+        // Same as full compile: walk 1D Phosphor Thru / observer outs to upstream.
+        // Without this, surgical rewire Bias-feeds the monitor (silence).
+        const resolved = idSet.has(src)
+          ? [{ sourceNode: src, sourcePort: srcPort }]
+          : this.resolveNativeGraphThruSources(src, srcPort, idSet, 0);
+        if (!resolved.length) continue;
+        for (let ri = 0; ri < resolved.length; ri += 1) {
+          const r = resolved[ri];
+          connectOne(String(r?.sourceNode || ""), r?.sourcePort, dst, dstPort);
+        }
       }
 
-      // Param MOD edges — same key format as compileNativeGraphFromPlan (dstId.paramKey).
-      const liveParamModKeys = new Set();
-      const discrete = NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS || {};
-      const zohOnlyTypes = new Set([
-        "additiveGenerator",
-        "additiveNoisyAmp",
-        "additivePan",
-        "additivePhaseEntry",
-        "additiveQuantizeFreq",
-        "additiveQuantizePhase",
-        "additiveLinearFilter",
-        "additiveAnalogFilter",
-        "additiveLadderFilter",
-      ]);
-      const modsMap = this.modulationConnections;
-      if (
-        modsMap
-        && typeof modsMap.forEach === "function"
-        && typeof native.soemdsp_graph_add_param_mod_edge === "function"
-      ) {
-        modsMap.forEach((mods, modKey) => {
-          const keyStr = String(modKey || "");
-          const dot = keyStr.lastIndexOf(".");
-          if (dot < 0) return;
-          const dstId = keyStr.slice(0, dot);
-          const paramKey = keyStr.slice(dot + 1);
-          if (!idSet.has(dstId)) return;
-          if (discrete[paramKey]) return;
-          const dstType = String(typeById.get(dstId) || "");
-          if (zohOnlyTypes.has(dstType)) return;
-          const paramId = typeof this.mapNativeGraphParamId === "function"
-            ? this.mapNativeGraphParamId(dstType, paramKey)
-            : (NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS || {})[paramKey];
-          if (!Number.isFinite(paramId)) return;
-          if (!Array.isArray(mods)) return;
-          for (let i = 0; i < mods.length; i += 1) {
-            const m = mods[i];
-            if (!m) continue;
-            const srcId = String(m.sourceNode || "");
-            const srcPort = String(m.sourcePort || "");
-            if (!srcId || !idSet.has(srcId)) continue;
-            const srcPortId = this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId));
-            if (!Number.isFinite(srcPortId) || srcPortId < 0) continue;
-            try {
-              const rc = native.soemdsp_graph_add_param_mod_edge(
-                this.nativeGraphHandle,
-                hashById.get(srcId),
-                srcPortId | 0,
-                hashById.get(dstId),
-                paramId | 0,
-              ) | 0;
-              if (rc !== 0) continue;
-            } catch (_e) {
-              continue;
-            }
-            liveParamModKeys.add(`${dstId}\0${paramKey}\0${srcId}\0${srcPort}`);
-          }
-        });
+      // Param MOD: cyan set_param_mod from nodeOutputs (ADSR Out 0…1 = unit MOD),
+      // same as Knob. Do not register ParamModEdge here — that path was skipping
+      // cyan and leaving audio→param dead.
+      if (typeof native.soemdsp_graph_clear_param_mod_edges === "function") {
+        try {
+          native.soemdsp_graph_clear_param_mod_edges(this.nativeGraphHandle);
+        } catch (_e) { /* older wasm */ }
       }
-      this._nativeLiveParamModKeys = liveParamModKeys;
-      this._nativePhaseModLiveKeys = liveParamModKeys;
+      this._nativeLiveParamModKeys = new Set();
+      this._nativePhaseModLiveKeys = this._nativeLiveParamModKeys;
 
       const crc = native.soemdsp_graph_compile(this.nativeGraphHandle) | 0;
       if (crc !== 0) {
@@ -1821,7 +1808,9 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
     const paramId = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
     for (let i = 0; i < feeders.length; i += 1) {
       const feed = feeders[i];
-      if (!feed?.hash) continue;
+      // Accept legacy surgical shape (feedHash) so Gate does not go silent.
+      const feedHash = feed?.hash || feed?.feedHash;
+      if (!feedHash) continue;
       const sp = String(feed.sourcePort || "");
       let v = 0;
       // Knob Bias/Out and other host CV: prefer shared reader (Bias↔Out aliases).
@@ -1835,7 +1824,7 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
           v = Number.isFinite(raw) ? raw : 0;
         }
       }
-      this.pushNativeGraphParam(native, feed.hash, paramId, v);
+      this.pushNativeGraphParam(native, feedHash, paramId, v);
     }
   }
   // Metamodule Amplitude inlet → attenuverter VCAs on Meta Out exits.
@@ -2373,8 +2362,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       this.pushNativeGraphParamMod(native, hash, paramId, unitAdd, domainAdd);
     }
     // Domain guides for unit-band MOD. Skip when meta has no real range —
-    // pushing 0…0 used to look like a valid domain and broke unit-band MOD
-    // mapping for any continuous param whose paramMeta had not arrived yet.
+    // pushing a fake 0…1 domain was wrong: liveModActive (even at CV=0) then
+    // clamped Frequency/etc into 0…1 and killed ghosts + audible MOD.
     const min = Number(meta.min);
     const max = Number(meta.max);
     let flags = 0;
@@ -2425,7 +2414,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       && (nodeType === "additiveBlaster" || nodeType === "attackDecay");
     // Hypersaw Oscillators is continuous (Decimal ceil + trailing frac amp).
     const continuousVoicesOverride = key === "voices"
-      && (nodeType === "hypersaw" || nodeType === "hypersaw2");
+      && nodeType === "hypersaw2";
     if (discreteKey && !continuousCurveOverride && !continuousVoicesOverride) return;
     const timeKey = `${key}__smoothTime`;
     const modeKey = `${key}__smoothMode`;
@@ -2678,51 +2667,31 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
-    if (type === "hypersaw") {
-      // SoEmHypersaw Phase Modulation map (see process_hypersaw).
-      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
-      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
-      push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 32));
-      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
-      push("distributePhase", P.NATIVE_GRAPH_PARAM_SHAPE, cont("distributePhase", 1));
-      push("randomizePhase", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomizePhase", 0.10));
-      push("driftStyle", P.NATIVE_GRAPH_PARAM_MODE, disc("driftStyle", 0));
-      push("driftAmp", P.NATIVE_GRAPH_PARAM_CENTER, cont("driftAmp", 22.6));
-      push("driftPitch", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("driftPitch", 64.256));
-      push("driftJitter", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("driftJitter", 246));
-      push("driftCompensation", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("driftCompensation", 0));
-      push("centerSide", P.NATIVE_GRAPH_PARAM_PAN, cont("centerSide", 0.5));
-      push("morph", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("morph", 0.5));
-      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
-      // Vibrato block last before amplitude (UI order).
-      push("vibratoDistribution", P.NATIVE_GRAPH_PARAM_MIX, cont("vibratoDistribution", 0));
-      push("vibratoAmp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoAmp", 0));
-      push("vibratoSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("vibratoSpeed", 0));
-      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0.35));
-      continue;
-    }
     if (type === "hypersaw2") {
       // Hypersaw2: HypersawUnit phase math + Random Steps jitter.
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 7));
       push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
-      push("distributePhase", P.NATIVE_GRAPH_PARAM_SHAPE, cont("distributePhase", 1));
-      push("randomizePhase", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomizePhase", 0.10));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 7));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
+      push("morph", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("morph", 0.5));
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("centerSide", P.NATIVE_GRAPH_PARAM_PAN, cont("centerSide", 0.5));
+      push("phaseCollapse", P.NATIVE_GRAPH_PARAM_SHAPE, disc("phaseCollapse", 1));
+      push("jitterTilt", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("jitterTilt", -1));
+      push("jitterDistance", P.NATIVE_GRAPH_PARAM_CENTER, cont("jitterDistance", 0.1));
+      push("jitterSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterSpeed", 1));
+      push("jitterSpeedRef", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, cont("jitterSpeedRef", 261.625565));
+      push("distanceSlew", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("distanceSlew", 8));
       push("vibratoAmp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoAmp", 0));
       push("vibratoSpeed", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("vibratoSpeed", 0));
       push("vibratoFreqVary", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("vibratoFreqVary", 0));
       push("vibratoPhaseVary", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("vibratoPhaseVary", 0));
-      push("phaseMultiplier", P.NATIVE_GRAPH_PARAM_MIX, cont("phaseMultiplier", 1));
-      push("jitterDistance", P.NATIVE_GRAPH_PARAM_CENTER, cont("jitterDistance", 0.1));
-      push("jitterSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterSpeed", 1));
-      push("jitterPitch", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("jitterPitch", 0));
-      push("distanceSlew", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("distanceSlew", 8));
-      push("centerSide", P.NATIVE_GRAPH_PARAM_PAN, cont("centerSide", 0.5));
-      push("morph", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("morph", 0.5));
-      push("freeRunningPhase", P.NATIVE_GRAPH_PARAM_MODE, disc("freeRunningPhase", 1));
-      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0.35));
+      push("randomizePhase", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomizePhase", 0.10));
       continue;
     }
     if (type === "vibratoGenerator") {
@@ -4055,47 +4024,26 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       } else if (t === "ampCurve") {
         push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
       } else if (t === "hypersaw2") {
-        push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
-        push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+        push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
         push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 7));
         push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
-        push("distributePhase", P.NATIVE_GRAPH_PARAM_SHAPE, cont("distributePhase", 1));
-        push("randomizePhase", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomizePhase", 0.10));
+        push("morph", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("morph", 0.5));
+        push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+        push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+        push("centerSide", P.NATIVE_GRAPH_PARAM_PAN, cont("centerSide", 0.5));
+        push("phaseCollapse", P.NATIVE_GRAPH_PARAM_SHAPE, disc("phaseCollapse", 1));
+        push("jitterTilt", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("jitterTilt", -1));
+        push("jitterDistance", P.NATIVE_GRAPH_PARAM_CENTER, cont("jitterDistance", 0.1));
+        push("jitterSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterSpeed", 1));
+        push("jitterSpeedRef", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, cont("jitterSpeedRef", 261.625565));
+        push("distanceSlew", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("distanceSlew", 8));
         push("vibratoAmp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoAmp", 0));
         push("vibratoSpeed", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("vibratoSpeed", 0));
         push("vibratoFreqVary", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("vibratoFreqVary", 0));
         push("vibratoPhaseVary", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("vibratoPhaseVary", 0));
-        push("phaseMultiplier", P.NATIVE_GRAPH_PARAM_MIX, cont("phaseMultiplier", 1));
-        push("jitterDistance", P.NATIVE_GRAPH_PARAM_CENTER, cont("jitterDistance", 0.1));
-        push("jitterSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterSpeed", 1));
-        push("jitterPitch", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("jitterPitch", 0));
-        push("distanceSlew", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("distanceSlew", 8));
-        push("centerSide", P.NATIVE_GRAPH_PARAM_PAN, cont("centerSide", 0.5));
-        push("morph", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("morph", 0.5));
-        push("freeRunningPhase", P.NATIVE_GRAPH_PARAM_MODE, disc("freeRunningPhase", 1));
-        push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
         // Same face amplitude as base (0 + additive Amp Curve MOD = envelope only).
-        // Do NOT force 1 when amp is 0 — that left clones droning after Gate off.
         push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0));
-      } else if (t === "hypersaw") {
-        push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
-        push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
-        push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 32));
-        push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
-        push("distributePhase", P.NATIVE_GRAPH_PARAM_SHAPE, cont("distributePhase", 1));
         push("randomizePhase", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomizePhase", 0.10));
-        push("driftStyle", P.NATIVE_GRAPH_PARAM_MODE, disc("driftStyle", 0));
-        push("driftAmp", P.NATIVE_GRAPH_PARAM_CENTER, cont("driftAmp", 22.6));
-        push("driftPitch", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("driftPitch", 64.256));
-        push("driftJitter", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("driftJitter", 246));
-        push("driftCompensation", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("driftCompensation", 0));
-        push("centerSide", P.NATIVE_GRAPH_PARAM_PAN, cont("centerSide", 0.5));
-        push("morph", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("morph", 0.5));
-        push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
-        push("vibratoDistribution", P.NATIVE_GRAPH_PARAM_MIX, cont("vibratoDistribution", 0));
-        push("vibratoAmp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoAmp", 0));
-        push("vibratoSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("vibratoSpeed", 0));
-        push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0));
       }
     }
   }
@@ -4212,10 +4160,6 @@ NodeLiveAudioProcessor.prototype.syncNativeYellowCutoffStrips =
   };
 
 // Efficient blob has no JS DSP evaluators — keep minimal state factories here.
-NodeLiveAudioProcessor.prototype.createHypersawState = function createHypersawState() {
-  return { nativeHandle: 0, lastReset: 0 };
-};
-
 NodeLiveAudioProcessor.prototype.createVibratoGeneratorState = function createVibratoGeneratorState() {
   return { nativeHandle: 0, lastReset: 0 };
 };
@@ -4461,14 +4405,6 @@ NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
       }
     };
 
-    publishFamily(
-      "hypersaw",
-      this.hypersawStates,
-      this.createHypersawState?.bind(this),
-      native?.soemdsp_hypersaw_voice_phase || this.nativeHypersaw?.soemdsp_hypersaw_voice_phase,
-      native?.soemdsp_hypersaw_voice_count || this.nativeHypersaw?.soemdsp_hypersaw_voice_count,
-      native?.soemdsp_hypersaw_voice_last_frac || this.nativeHypersaw?.soemdsp_hypersaw_voice_last_frac,
-    );
     if (!this.hypersaw2States) this.hypersaw2States = new Map();
     publishFamily(
       "hypersaw2",
@@ -5485,102 +5421,15 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     this._nativeMetaVoicePitchFeeders = metaVoiceBusFeeders.filter((f) => f.kind === "frequency");
     this._nativeMetaAmpVcas = metaAmpVcas;
 
-    // Audio → param MOD = sample-accurate ParamModEdge (not cyan ZOH).
-    // Exceptions stay on set_param_mod: controllers (not in graph), discrete
-    // enum params, and intentional block-rate morph paths (Additive / Yellow).
-    const zohOnlyTypes = new Set([
-      "additiveOsc",
-      "additiveGenerator",
-      "additiveOut",
-      "additiveBlaster",
-      "additiveDiffusor",
-      "additiveBubble",
-      "additiveFrequencySkew",
-      "additiveNoisyFreq",
-      "additiveNoisyPhase",
-      "additiveNoisyPan",
-      "additiveNoisyAmp",
-      "additivePan",
-      "additivePhaseEntry",
-      "additiveQuantizeFreq",
-      "additiveQuantizePhase",
-      "additiveLinearFilter",
-      "additiveAnalogFilter",
-      "additiveLadderFilter",
-    ]);
-    const liveParamModKeys = new Set();
-    const P = NodeLiveAudioProcessor;
-    const keyIds = P.NATIVE_GRAPH_PARAM_KEY_IDS || {};
-    const discrete = P.NATIVE_GRAPH_DISCRETE_PARAMS || {};
+    // Cyan set_param_mod only (ADSR/audio Out 0…1 → unit MOD, same as Knob).
+    // ParamModEdge registration disabled — it skipped cyan and left audio→param dead.
     if (typeof native.soemdsp_graph_clear_param_mod_edges === "function") {
       try {
         native.soemdsp_graph_clear_param_mod_edges(this.nativeGraphHandle);
       } catch (_e) { /* older wasm */ }
     }
-    const modsMap = this.modulationConnections;
-    if (
-      modsMap
-      && typeof modsMap.forEach === "function"
-      && typeof native.soemdsp_graph_add_param_mod_edge === "function"
-    ) {
-      modsMap.forEach((mods, modKey) => {
-        const keyStr = String(modKey || "");
-        const dot = keyStr.lastIndexOf(".");
-        if (dot < 0) return;
-        const dstId = keyStr.slice(0, dot);
-        const paramKey = keyStr.slice(dot + 1);
-        if (!idSet.has(dstId)) return;
-        if (discrete[paramKey]) return; // enum / snap — ZOH is correct
-        const dstType = String(typeById.get(dstId) || "");
-        if (zohOnlyTypes.has(dstType)) return;
-        // Type-aware id (Softwave Morph=SHAPE, not global MIX).
-        const paramId = typeof this.mapNativeGraphParamId === "function"
-          ? this.mapNativeGraphParamId(dstType, paramKey)
-          : keyIds[paramKey];
-        if (!Number.isFinite(paramId)) return;
-        if (!Array.isArray(mods)) return;
-        // Meta Voices: pair cloned mod sources/dests by lane (not cross product).
-        const dstIds = expandVoiceIds(dstId);
-        for (let i = 0; i < mods.length; i += 1) {
-          const m = mods[i];
-          if (!m) continue;
-          const srcId = String(m.sourceNode || "");
-          const srcPort = String(m.sourcePort || "");
-          if (!srcId || !idSet.has(srcId)) continue; // controllers → cyan set_param_mod
-          const srcPortId = this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId));
-          if (!Number.isFinite(srcPortId) || srcPortId < 0) continue;
-          const srcIds = expandVoiceIds(srcId);
-          const addMod = (sId, dId) => {
-            try {
-              const rc = native.soemdsp_graph_add_param_mod_edge(
-                this.nativeGraphHandle,
-                this.fnv1aHash32(sId),
-                srcPortId | 0,
-                this.fnv1aHash32(dId),
-                paramId | 0,
-              ) | 0;
-              if (rc !== 0) return;
-            } catch (_e) {
-              return;
-            }
-            liveParamModKeys.add(`${dId}\0${paramKey}\0${sId}\0${srcPort}`);
-          };
-          if (srcIds.length > 1 && dstIds.length > 1) {
-            const n = Math.min(srcIds.length, dstIds.length);
-            for (let v = 0; v < n; v += 1) addMod(srcIds[v], dstIds[v]);
-          } else if (srcIds.length > 1) {
-            for (let s = 0; s < srcIds.length; s += 1) addMod(srcIds[s], dstIds[0]);
-          } else if (dstIds.length > 1) {
-            for (let d = 0; d < dstIds.length; d += 1) addMod(srcIds[0], dstIds[d]);
-          } else {
-            addMod(srcIds[0], dstIds[0]);
-          }
-        }
-      });
-    }
-    // Back-compat alias used by controller sidecar skip list.
-    this._nativeLiveParamModKeys = liveParamModKeys;
-    this._nativePhaseModLiveKeys = liveParamModKeys;
+    this._nativeLiveParamModKeys = new Set();
+    this._nativePhaseModLiveKeys = this._nativeLiveParamModKeys;
     this._nativeHostCvFeeders = hostFeeders;
 
     const crc = native.soemdsp_graph_compile(this.nativeGraphHandle) | 0;
@@ -5991,6 +5840,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       || type === "pluckEnvelopeMod"
       || type === "pluckEnvelope"
       || type === "expAdsr"
+      || type === "linearEnvelope"
       || type === "thumpEnvelope"
       || type === "pluckEnvelope3"
       || type === "curveAttackRelease"

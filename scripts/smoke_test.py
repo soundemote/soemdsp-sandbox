@@ -426,7 +426,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-dsf-oscillator.js",
     "./public/node-graph-robin-supersaw.js",
     "./public/node-graph-live-frame-evaluator.js",
-    "./public/node-graph-hypersaw.js",
     "./public/node-graph-hypersaw2.js",
     "./public/node-graph-chord-sequencer.js",
     "./public/node-graph-lut-cell.js",
@@ -18316,7 +18315,6 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_robin_supersaw_block_output_right_ptr",
             "soemdsp_robin_supersaw_block_output_mono_ptr",
         ],
-        "hypersaw": ["soemdsp_hypersaw_create", "soemdsp_hypersaw_destroy", "soemdsp_hypersaw_sample", "soemdsp_hypersaw_left", "soemdsp_hypersaw_right"],
         "videoscope": ["soemdsp_videoscope_create", "soemdsp_videoscope_destroy", "soemdsp_videoscope_push", "soemdsp_videoscope_window_size", "soemdsp_videoscope_column_min", "soemdsp_videoscope_column_max", "soemdsp_videoscope_xy_a", "soemdsp_videoscope_xy_b", "soemdsp_videoscope_version"],
         "pll": ["soemdsp_pll_create", "soemdsp_pll_destroy", "soemdsp_pll_process"],
         "polyblep": [

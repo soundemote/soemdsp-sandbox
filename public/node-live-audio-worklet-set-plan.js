@@ -323,9 +323,6 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (node?.type === "robinSupersaw" && !this.robinSupersawStates.has(id)) {
         this.robinSupersawStates.set(id, this.createRobinSupersawState());
       }
-      if (node?.type === "hypersaw" && !this.hypersawStates.has(id)) {
-        this.hypersawStates.set(id, this.createHypersawState());
-      }
       if (node?.type === "hypersaw2") {
         if (!this.hypersaw2States) this.hypersaw2States = new Map();
         if (!this.hypersaw2States.has(id)) {
@@ -860,12 +857,6 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (!ids.has(id)) {
         this.destroyRobinSupersawNativeState(this.robinSupersawStates.get(id));
         this.robinSupersawStates.delete(id);
-      }
-    }
-    for (const id of [...this.hypersawStates.keys()]) {
-      if (!ids.has(id)) {
-        this.destroyHypersawNativeState(this.hypersawStates.get(id));
-        this.hypersawStates.delete(id);
       }
     }
     if (this.hypersaw2States) {
