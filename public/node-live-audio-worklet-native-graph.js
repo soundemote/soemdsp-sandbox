@@ -1871,15 +1871,20 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     }
     return { low: v, high: 0 };
   };
+  // Do NOT use JS `&` — bitwise ops are Int32, so bits ≥31 never read
+  // (C2+ looked stuck / silent while low keys worked). Match view-controls:
+  // floor(mask / 2^i) % 2.
   const bitSet = (index, low, high) => {
     const i = Math.round(Number(index));
     if (!(i >= 0) || i > 87) {
       return false;
     }
-    if (i < 49) {
-      return (Math.trunc(low) & (2 ** i)) !== 0;
+    const mask = i < 49 ? Math.trunc(Number(low) || 0) : Math.trunc(Number(high) || 0);
+    const bit = i < 49 ? i : i - 49;
+    if (bit < 0 || bit > 48) {
+      return false;
     }
-    return (Math.trunc(high) & (2 ** (i - 49))) !== 0;
+    return Math.floor(mask / (2 ** bit)) % 2 === 1;
   };
   const ampParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE;
   const attOffset = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
