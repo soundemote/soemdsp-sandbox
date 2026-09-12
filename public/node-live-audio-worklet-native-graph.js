@@ -2003,6 +2003,12 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
       : 1;
 
     // Drive Voice* Bias feeders from note list + shared Meta pitch params.
+    // Hold last Voice Frequency after note-off so ADSR release can still sound
+    // (zeroing Hz on release = sharp cutoff despite a correct Amp envelope).
+    if (!this._metaVoiceLastHz) {
+      this._metaVoiceLastHz = new Map();
+    }
+    const lastHz = this._metaVoiceLastHz;
     for (let fi = 0; fi < busFeeders.length; fi += 1) {
       const feed = busFeeders[fi];
       if (!feed?.hash || feed.metaId !== metaId) continue;
@@ -2020,8 +2026,14 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
         const midi = v < notes.length ? notes[v] : -1;
         const prevMidi = v < prevNotes.length ? prevNotes[v] : -1;
         const open = midi >= 0;
+        const hzKey = `${metaId}:${v}:${feed.dstId}:${feed.dstPort}`;
         if (kind === "frequency") {
-          value = open ? voiceHz(midi, metaNode) : 0;
+          if (open) {
+            value = voiceHz(midi, metaNode);
+            lastHz.set(hzKey, value);
+          } else {
+            value = lastHz.has(hzKey) ? lastHz.get(hzKey) : 0;
+          }
         } else if (kind === "gate") {
           value = open ? 1 : 0;
         } else if (kind === "trigger") {
