@@ -1099,6 +1099,19 @@ function nodeGraphAutoPairAvailablePorts(nodeId, side = "output") {
     ? nodeGraphPatchNode(nodeId)
     : null;
   const type = patchNode?.type;
+  // Metamodule / Group: shell Left/Right (and Polyphony/Gate) live on dynamic
+  // shell ports — definition.outputs alone can miss reserved chrome.
+  if (
+    typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(type)
+    && typeof nodeGraphMetamoduleShellPorts === "function"
+  ) {
+    const shell = nodeGraphMetamoduleShellPorts(patchNode);
+    if (side === "input") {
+      return Array.isArray(shell?.inputs) ? shell.inputs.slice() : [];
+    }
+    return Array.isArray(shell?.outputs) ? shell.outputs.slice() : [];
+  }
   const definition = typeof nodeGraphModuleDefinition === "function"
     ? nodeGraphModuleDefinition(type)
     : (typeof nodeGraphModuleDefinitions !== "undefined" ? nodeGraphModuleDefinitions[type] : null);
@@ -1472,14 +1485,69 @@ function nodeGraphAutoPairPortConnections(patch, sourceNode, sourcePort, destina
 }
 
 function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinationPort, options = {}) {
-  // Metamodule shell jacks on Root are visual proxies — DSP wires go to Meta In/Out.
-  if (typeof nodeGraphMetamoduleRewriteShellConnection === "function") {
-    const rewritten = nodeGraphMetamoduleRewriteShellConnection(
-      sourceNode,
-      sourcePort,
-      destinationNode,
-      destinationPort,
+  // Stereo/RGB auto-pair must use SHELL port names (Left/Right). Meta rewrite
+  // collapses shell Left → portal Out, which has no pair meta — only one wire
+  // would land. Discover siblings first, then rewrite every candidate.
+  const shellSourceNode = sourceNode;
+  const shellSourcePort = sourcePort;
+  const shellDestinationNode = destinationNode;
+  const shellDestinationPort = destinationPort;
+
+  const pairExtras = [];
+  if (options.autoPair !== false) {
+    const probe = { connections: [] };
+    nodeGraphAutoPairRgbConnections(
+      probe,
+      shellSourceNode,
+      shellSourcePort,
+      shellDestinationNode,
+      shellDestinationPort,
+      {},
     );
+    nodeGraphAutoPairPortConnections(
+      probe,
+      shellSourceNode,
+      shellSourcePort,
+      shellDestinationNode,
+      shellDestinationPort,
+      {},
+    );
+    nodeGraphAutoPairVideoscopeAbConnections(
+      probe,
+      shellSourceNode,
+      shellSourcePort,
+      shellDestinationNode,
+      shellDestinationPort,
+      {},
+    );
+    nodeGraphAutoPairVectorscopeRotationConnections(
+      probe,
+      shellSourceNode,
+      shellSourcePort,
+      shellDestinationNode,
+      shellDestinationPort,
+      {},
+    );
+    for (const extra of probe.connections) {
+      pairExtras.push({
+        sourceNode: extra.sourceNode,
+        sourcePort: extra.sourcePort,
+        destinationNode: extra.destinationNode,
+        destinationPort: extra.destinationPort,
+      });
+    }
+  }
+
+  const rewriteOne = (src, srcPort, dst, dstPort) => {
+    if (typeof nodeGraphMetamoduleRewriteShellConnection === "function") {
+      return nodeGraphMetamoduleRewriteShellConnection(src, srcPort, dst, dstPort);
+    }
+    return { sourceNode: src, sourcePort: srcPort, destinationNode: dst, destinationPort: dstPort };
+  };
+
+  // Metamodule shell jacks on Root are visual proxies — DSP wires go to Meta In/Out.
+  {
+    const rewritten = rewriteOne(sourceNode, sourcePort, destinationNode, destinationPort);
     sourceNode = rewritten.sourceNode;
     sourcePort = rewritten.sourcePort;
     destinationNode = rewritten.destinationNode;
@@ -1533,39 +1601,42 @@ function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinat
     ...nextWireData,
   });
   let autoConnected = 0;
-  if (options.autoPair !== false) {
-    autoConnected += nodeGraphAutoPairRgbConnections(
-      patch,
-      sourceNode,
-      sourcePort,
-      destinationNode,
-      destinationPort,
-      nextWireData,
+  // Apply stereo/RGB siblings discovered on shell names, rewritten to portals.
+  for (const extra of pairExtras) {
+    const rewritten = rewriteOne(
+      extra.sourceNode,
+      extra.sourcePort,
+      extra.destinationNode,
+      extra.destinationPort,
     );
-    autoConnected += nodeGraphAutoPairPortConnections(
-      patch,
-      sourceNode,
-      sourcePort,
-      destinationNode,
-      destinationPort,
-      nextWireData,
+    const srcN = rewritten.sourceNode;
+    const srcP = rewritten.sourcePort;
+    const dstN = rewritten.destinationNode;
+    const dstP = rewritten.destinationPort;
+    if (!nodeGraphInputKey(dstN, dstP)) {
+      continue;
+    }
+    if (!nodeGraphMvp.activeNodes.has(srcN) || !nodeGraphMvp.activeNodes.has(dstN)) {
+      continue;
+    }
+    const duplicate = patch.connections.some(
+      (connection) =>
+        connection.sourceNode === srcN
+        && connection.sourcePort === srcP
+        && connection.destinationNode === dstN
+        && connection.destinationPort === dstP,
     );
-    autoConnected += nodeGraphAutoPairVideoscopeAbConnections(
-      patch,
-      sourceNode,
-      sourcePort,
-      destinationNode,
-      destinationPort,
-      nextWireData,
-    );
-    autoConnected += nodeGraphAutoPairVectorscopeRotationConnections(
-      patch,
-      sourceNode,
-      sourcePort,
-      destinationNode,
-      destinationPort,
-      nextWireData,
-    );
+    if (duplicate) {
+      continue;
+    }
+    patch.connections.push({
+      sourceNode: srcN,
+      sourcePort: srcP,
+      destinationNode: dstN,
+      destinationPort: dstP,
+      ...nextWireData,
+    });
+    autoConnected += 1;
   }
   // Meta Out.Out → owned child inlet ⇒ treat as Meta In (shell inlet, e.g. ƒ).
   const flippedOwners = new Set();
