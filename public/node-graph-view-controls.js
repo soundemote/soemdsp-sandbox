@@ -3754,17 +3754,8 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     return;
   }
   if (nodeGraphMvp.midiKeyboardArpLatchPointerId === pointerId) {
-    if (event.type === "pointermove" && event.buttons > 0) {
-      // Paint more gold keys while dragging; never blue play.
-      const target = typeof nodeGraphMidiKeyboardKeyFromPointer === "function"
-        ? nodeGraphMidiKeyboardKeyFromPointer(event, surface)
-        : event.target?.closest?.("[data-key-index]");
-      if (target && surface.contains(target)) {
-        const index = Number(target.dataset.keyIndex);
-        if (Number.isFinite(index) && !nodeGraphMidiKeyboardHeldKeyBitIsSet(index)) {
-          nodeGraphMidiKeyboardToggleHeldKeyBit(index);
-        }
-      }
+    // Ctrl+gold is click-to-toggle only — no slide/drag painting across keys.
+    if (event.type === "pointermove") {
       event.preventDefault();
       return;
     }

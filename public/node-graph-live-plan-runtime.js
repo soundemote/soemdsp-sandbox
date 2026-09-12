@@ -182,6 +182,20 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
       if (node.ownerMetamoduleId) {
         runtimeNode.ownerMetamoduleId = String(node.ownerMetamoduleId);
       }
+      // Playmode + Voice Count (Module Settings) must reach the worklet.
+      if (node.metamodule && typeof node.metamodule === "object") {
+        runtimeNode.metamodule = typeof cloneNodeGraphMetamodulePayload === "function"
+          ? cloneNodeGraphMetamodulePayload(node.metamodule)
+          : {
+            playmode: Math.max(1, Math.min(4, Math.round(Number(node.metamodule.playmode) || 4))),
+            voices: Math.max(1, Math.min(32, Math.round(Number(node.metamodule.voices) || 10))),
+            boundary: Array.isArray(node.metamodule.boundary) ? node.metamodule.boundary : [],
+            displays: Array.isArray(node.metamodule.displays) ? node.metamodule.displays : [],
+            paramVisibility: node.metamodule.paramVisibility && typeof node.metamodule.paramVisibility === "object"
+              ? { ...node.metamodule.paramVisibility }
+              : {},
+          };
+      }
       if (typeof nodeGraphDspApplyControllerLiveSmoothing === "function") {
         nodeGraphDspApplyControllerLiveSmoothing(runtimeNode);
       }
@@ -244,6 +258,19 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
       };
       if (node.ownerMetamoduleId) {
         runtimeNode.ownerMetamoduleId = String(node.ownerMetamoduleId);
+      }
+      if (node.metamodule && typeof node.metamodule === "object") {
+        runtimeNode.metamodule = typeof cloneNodeGraphMetamodulePayload === "function"
+          ? cloneNodeGraphMetamodulePayload(node.metamodule)
+          : {
+            playmode: Math.max(1, Math.min(4, Math.round(Number(node.metamodule.playmode) || 4))),
+            voices: Math.max(1, Math.min(32, Math.round(Number(node.metamodule.voices) || 10))),
+            boundary: Array.isArray(node.metamodule.boundary) ? node.metamodule.boundary : [],
+            displays: Array.isArray(node.metamodule.displays) ? node.metamodule.displays : [],
+            paramVisibility: node.metamodule.paramVisibility && typeof node.metamodule.paramVisibility === "object"
+              ? { ...node.metamodule.paramVisibility }
+              : {},
+          };
       }
       if (typeof nodeGraphDspApplyControllerLiveSmoothing === "function") {
         nodeGraphDspApplyControllerLiveSmoothing(runtimeNode);

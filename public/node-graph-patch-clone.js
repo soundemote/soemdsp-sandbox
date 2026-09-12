@@ -627,6 +627,8 @@ function cloneNodeGraphPatch(patch) {
                   && typeof node.metamodule.paramVisibility === "object"
                   ? { ...node.metamodule.paramVisibility }
                   : {},
+                playmode: Math.max(1, Math.min(4, Math.round(Number(node.metamodule.playmode) || 4))),
+                voices: Math.max(1, Math.min(32, Math.round(Number(node.metamodule.voices) || 10))),
               },
           }
           : {}),

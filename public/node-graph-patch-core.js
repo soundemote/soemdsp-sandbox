@@ -674,21 +674,29 @@ function validateNodeGraphPatch(patch) {
       normalizedNode.ownerMetamoduleId = ownerMeta;
     }
     if (node.metamodule && typeof node.metamodule === "object") {
-      const boundary = Array.isArray(node.metamodule.boundary)
-        ? node.metamodule.boundary.map((entry) => (
-          entry && typeof entry === "object" ? { ...entry } : entry
-        )).filter(Boolean)
-        : [];
-      const displays = Array.isArray(node.metamodule.displays)
-        ? node.metamodule.displays.map((entry) => (
-          entry && typeof entry === "object" ? { ...entry } : entry
-        )).filter(Boolean)
-        : [];
-      const paramVisibility = node.metamodule.paramVisibility
-        && typeof node.metamodule.paramVisibility === "object"
-        ? { ...node.metamodule.paramVisibility }
-        : {};
-      normalizedNode.metamodule = { boundary, displays, paramVisibility };
+      // Must keep playmode + voices (Module Settings). Older normalize only
+      // kept boundary/displays and wiped voice settings back to defaults.
+      if (typeof cloneNodeGraphMetamodulePayload === "function") {
+        normalizedNode.metamodule = cloneNodeGraphMetamodulePayload(node.metamodule);
+      } else {
+        const boundary = Array.isArray(node.metamodule.boundary)
+          ? node.metamodule.boundary.map((entry) => (
+            entry && typeof entry === "object" ? { ...entry } : entry
+          )).filter(Boolean)
+          : [];
+        const displays = Array.isArray(node.metamodule.displays)
+          ? node.metamodule.displays.map((entry) => (
+            entry && typeof entry === "object" ? { ...entry } : entry
+          )).filter(Boolean)
+          : [];
+        const paramVisibility = node.metamodule.paramVisibility
+          && typeof node.metamodule.paramVisibility === "object"
+          ? { ...node.metamodule.paramVisibility }
+          : {};
+        const playmode = Math.max(1, Math.min(4, Math.round(Number(node.metamodule.playmode) || 4)));
+        const voices = Math.max(1, Math.min(32, Math.round(Number(node.metamodule.voices) || 10)));
+        normalizedNode.metamodule = { boundary, displays, paramVisibility, playmode, voices };
+      }
     }
     return normalizedNode;
   });

@@ -1725,6 +1725,8 @@ NodeLiveAudioProcessor.prototype.postNativeGraphStatus = function postNativeGrap
   } catch (_e) { /* ignore */ }
 };
 
+
+
 // Discrete Controls: push snapped targets (avoid fractional enum while ramping).
 NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   waveform: true,
@@ -1867,13 +1869,16 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
  */
 NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function syncNativeMetaPolyphonyVoiceGates() {
   if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+
     return;
   }
   const native = this.nativeGraph;
   if (!native?.soemdsp_graph_set_param) {
+
     return;
   }
   if (!native.soemdsp_voice_manager_create) {
+
     return;
   }
   const attOffset = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
@@ -1942,6 +1947,7 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
         this.pushNativeGraphParam(native, feed.hash, attOffset, 0);
       }
     }
+
     return;
   }
 
@@ -2008,31 +2014,55 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     }
   }
 
-  // Audio-thread blue note edges (belt-and-suspenders with main-thread vmNote*).
-  // Duplicate on/off is ignored by midiNoteStatus_ — safe if main already sent.
+  // Reconcile VM only when held-note fingerprint changes (not every quantum —
+  // 128× note_is_on + postMessage debug was starving the audio thread).
   {
+    const goldLo = Math.trunc(Number(this.midiKeyboardHeldKeysLowBitmask) || 0);
+    const goldHi = Math.trunc(Number(this.midiKeyboardHeldKeysHighBitmask) || 0);
     const sig = this.keyboardModuleSignal;
-    const gateOn = !!(sig && Number(sig.gate) > 0);
-    const midi = sig && Number.isFinite(Number(sig.midi))
+    const kbGate = sig && Number(sig.gate) > 0 ? 1 : 0;
+    const kbMidi = kbGate && Number.isFinite(Number(sig.midi))
       ? Math.max(0, Math.min(127, Math.round(Number(sig.midi))))
       : -1;
-    const prevGate = this._vmBlueGateWorklet > 0 ? 1 : 0;
-    const prevMidi = Number.isFinite(Number(this._vmBlueMidiWorklet))
-      ? (this._vmBlueMidiWorklet | 0)
-      : -1;
-    if (gateOn && midi >= 0) {
-      if (prevGate <= 0 || prevMidi !== midi) {
-        if (prevGate > 0 && prevMidi >= 0 && prevMidi !== midi) {
-          this.vmNoteOff?.(prevMidi);
-        }
-        const vel01 = Number(sig.velocity);
-        this.vmNoteOn?.(midi, Number.isFinite(vel01) ? vel01 : 1);
+    const kbVel = kbGate ? Math.round((Number(sig.velocity) || 1) * 127) : 0;
+    let midiFp = 0;
+    const midiTable = this.midiPolyphonyVelocities;
+    if (midiTable instanceof Uint8Array) {
+      for (let i = 0; i < 128; i += 1) {
+        if (midiTable[i]) midiFp = (midiFp + ((i + 1) * (midiTable[i] | 0))) | 0;
       }
-    } else if (prevGate > 0 && prevMidi >= 0) {
-      this.vmNoteOff?.(prevMidi);
     }
-    this._vmBlueGateWorklet = gateOn ? 1 : 0;
-    this._vmBlueMidiWorklet = gateOn ? midi : -1;
+    const fp = `${goldLo}|${goldHi}|${kbMidi}|${kbVel}|${midiFp}`;
+    if (fp !== this._vmReconcileFp) {
+      this._vmReconcileFp = fp;
+      const want = typeof polyphonyCreateTable === "function"
+        ? polyphonyCreateTable()
+        : new Uint8Array(128);
+      if (typeof polyphonyTableAddGoldLatchBits === "function") {
+        polyphonyTableAddGoldLatchBits(want, goldLo, goldHi, 24, 100);
+      }
+      if (midiTable instanceof Uint8Array) {
+        if (typeof polyphonyTableMergeMax === "function") {
+          polyphonyTableMergeMax(want, midiTable);
+        } else {
+          for (let i = 0; i < 128; i += 1) {
+            if (midiTable[i] > want[i]) want[i] = midiTable[i];
+          }
+        }
+      }
+      if (kbMidi >= 0 && kbVel > 0) {
+        want[kbMidi] = Math.min(127, kbVel);
+      }
+      for (let m = 0; m < 128; m += 1) {
+        const should = (want[m] | 0) > 0;
+        const isOn = native.soemdsp_voice_manager_note_is_on?.(h, m) | 0;
+        if (should && !isOn) {
+          this.vmNoteOn?.(m, (want[m] | 0) / 127);
+        } else if (!should && isOn) {
+          this.vmNoteOff?.(m);
+        }
+      }
+    }
   }
 
   for (const [metaIdRaw, metaNode] of this.nodes) {
@@ -2041,8 +2071,14 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     const playmode = typeof nodeGraphMetamodulePlaymode === "function"
       ? nodeGraphMetamodulePlaymode(metaNode)
       : Math.round(Number(metaNode?.metamodule?.playmode) || 4);
-    if (!(playmode >= 1)) continue;
-    if (!voicesConnected(metaId)) continue;
+    if (!(playmode >= 1)) {
+
+      continue;
+    }
+    if (!voicesConnected(metaId)) {
+
+      continue;
+    }
 
     const voiceCount = typeof nodeGraphMetamoduleVoiceCount === "function"
       ? nodeGraphMetamoduleVoiceCount(metaNode)
@@ -2091,14 +2127,16 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
         const releasing = state === 2;
         const hzKey = `${metaId}:${v}:${feed.dstId}:${feed.dstPort}`;
         if (kind === "frequency") {
-          // Sustaining: live pitch. Releasing: hold for ADSR tail.
-          // Available: 0 Hz — shared Amp Curve opens ALL osc lanes; held lastHz
-          // on idle lanes made every new note stack the previous pitch until steal.
+          // Sustaining: live pitch. Releasing: hold pitch for ADSR tail.
+          // Available: 0 Hz (idle clones must not drone under shared Amp).
           if (sustaining && midi >= 0) {
             value = voiceHz(midi, metaNode);
             lastHz.set(hzKey, value);
-          } else if (releasing && lastHz.has(hzKey)) {
-            value = lastHz.get(hzKey);
+          } else if (releasing) {
+            value = lastHz.has(hzKey)
+              ? lastHz.get(hzKey)
+              : (midi >= 0 ? voiceHz(midi, metaNode) : 0);
+            if (value > 0) lastHz.set(hzKey, value);
           } else {
             value = 0;
           }
@@ -5755,8 +5793,9 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       || type === "curveAttackRelease"
       || type === "linearAttackRelease"
     ) {
+      const envHash = this.fnv1aHash32(id);
       const monoView = this.bindNativeGraphNodePortView(
-        hash,
+        envHash,
         P.NATIVE_GRAPH_PORT_MONO,
         frames,
       );
@@ -5769,7 +5808,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
         }
         this.additiveModStrips.set(id, strip);
         const last = strip[frames - 1] || 0;
-        const prev = this.nodeOutputs.get(id) || out;
+        const prev = this.nodeOutputs.get(id) || Object.create(null);
         this.nodeOutputs.set(id, {
           ...prev,
           Out: last,
