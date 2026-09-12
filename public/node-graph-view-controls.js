@@ -3588,6 +3588,56 @@ function changeNodeGraphMidiKeyboardOctave(delta) {
   renderNodeGraphMidiKeyboardInputControls();
 }
 
+/**
+ * Keyboard pointer: two exclusive gestures.
+ *   • Arp latch (Ctrl): gold bitmask only — never blue Play/Gate/Trigger.
+ *   • Play: blue .active + Gate/Trigger (slide / press / hold / toggle).
+ * Once an Arp latch gesture starts, the whole capture stays Arp-only even if
+ * Ctrl is released mid-drag (avoids slide-play lighting blue keys).
+ */
+function nodeGraphMidiKeyboardClearPlayGate(status) {
+  const current = nodeGraphMvp.keyboardModuleSignal || nodeGraphMidiKeyboardFallbackSignal();
+  if (!(Number(current.gate) > 0) && !(Number(current.gatePulse) > 0)) {
+    if (status) nodeGraphMvp.midiKeyboardStatus = status;
+    return;
+  }
+  renderNodeGraphMidiKeyboardSignal({
+    ...current,
+    gate: 0,
+    gatePulse: 0,
+  });
+  if (status) nodeGraphMvp.midiKeyboardStatus = status;
+}
+
+function nodeGraphMidiKeyboardApplyArpLatchAtPointer(event, surface) {
+  const target = event.target?.closest?.("[data-key-index]");
+  if (!target || !surface.contains(target)) {
+    return false;
+  }
+  const index = Number(target.dataset.keyIndex);
+  if (!Number.isFinite(index)) {
+    return false;
+  }
+  const keyCount = nodeGraphMidiKeyboardKeyCount();
+  if (event.shiftKey) {
+    const rotated = nodeGraphMidiKeyboardBitmaskRotate(
+      nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
+      nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
+      keyCount,
+    );
+    nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = rotated.low;
+    nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = rotated.high;
+    renderNodeGraphMidiKeyboardHeldKeys();
+    saveNodeGraphMidiKeyboardMemory();
+    if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
+      sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
+    }
+  } else {
+    nodeGraphMidiKeyboardToggleHeldKeyBit(index);
+  }
+  return true;
+}
+
 function updateNodeGraphMidiKeyboardSignal(event) {
   const surface = event.currentTarget?.closest?.(".node-midi-keyboard-module")?.querySelector(".node-midi-keyboard-surface") ||
     document.querySelector(".node-midi-keyboard-module .node-midi-keyboard-surface");
@@ -3595,38 +3645,48 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     return;
   }
   const mode = nodeGraphMidiKeyboardMode();
-  // Ctrl+click: GOLD Arp Keys bitmask. Checked
-  // before shift/hold-mode so plain shift+click (BLUE mono sustain)
-  // still falls through unchanged.
+  const pointerId = event.pointerId;
+
+  // ——— Arp latch gesture (gold only) ———
   if (event.type === "pointerdown" && event.ctrlKey) {
-    const target = event.target?.closest?.("[data-key-index]");
-    if (target && surface.contains(target)) {
-      const index = Number(target.dataset.keyIndex);
-      const keyCount = nodeGraphMidiKeyboardKeyCount();
-      if (event.shiftKey) {
-        const rotated = nodeGraphMidiKeyboardBitmaskRotate(
-          nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
-          nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
-          keyCount,
-        );
-        nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = rotated.low;
-        nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = rotated.high;
-        renderNodeGraphMidiKeyboardHeldKeys();
-        saveNodeGraphMidiKeyboardMemory();
-        if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
-          sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
-        }
-      } else {
-        nodeGraphMidiKeyboardToggleHeldKeyBit(index);
-      }
-    }
+    nodeGraphMvp.midiKeyboardArpLatchPointerId = pointerId;
+    nodeGraphMidiKeyboardClearPlayGate("arp latch");
+    clearNodeGraphMidiKeyboardPointerHold();
+    nodeGraphMidiKeyboardApplyArpLatchAtPointer(event, surface);
+    try {
+      surface.setPointerCapture?.(pointerId);
+    } catch (_e) { /* ignore */ }
     event.preventDefault();
     return;
   }
-  // Gold Arp Keys (ctrl+click bitmask) only toggles via ctrl+click (or
-  // Toggle mode). Plain click must NOT clear gold — play blue `.active`
-  // on top while the pointer is down; gold stays for arpeggiation.
-  // Blue mono latch (shift+click / Hold mode) still clears on plain click.
+  if (nodeGraphMvp.midiKeyboardArpLatchPointerId === pointerId) {
+    if (event.type === "pointermove" && event.buttons > 0) {
+      // Paint more gold keys while dragging; never blue play.
+      const target = event.target?.closest?.("[data-key-index]");
+      if (target && surface.contains(target)) {
+        const index = Number(target.dataset.keyIndex);
+        if (Number.isFinite(index) && !nodeGraphMidiKeyboardHeldKeyBitIsSet(index)) {
+          nodeGraphMidiKeyboardToggleHeldKeyBit(index);
+        }
+      }
+      event.preventDefault();
+      return;
+    }
+    if (event.type === "pointerup" || event.type === "pointercancel") {
+      try {
+        surface.releasePointerCapture?.(pointerId);
+      } catch (_e) { /* ignore */ }
+      nodeGraphMvp.midiKeyboardArpLatchPointerId = null;
+      event.preventDefault();
+      return;
+    }
+    // Any other event during arp latch: ignore play path.
+    event.preventDefault();
+    return;
+  }
+
+  // ——— Play gesture (blue) ———
+  // Plain click clears blue mono hold on the same key; gold Arp bits stay.
   if (event.type === "pointerdown" && !event.ctrlKey && !event.shiftKey && !event.altKey) {
     const target = event.target?.closest?.("[data-key-index]");
     if (target && surface.contains(target)) {
@@ -3639,10 +3699,7 @@ function updateNodeGraphMidiKeyboardSignal(event) {
       }
     }
   }
-  // Toggle mode turns a plain click into what ctrl+click already does --
-  // toggles that key's held-keys bit instead of playing a note. Ctrl and
-  // Shift+Alt keep their own meanings above regardless of mode, so this
-  // only fires for an unmodified click.
+  // Toggle mode: plain click = gold bit toggle (same as Ctrl), not play.
   if (event.type === "pointerdown" && mode === "toggle" && !event.ctrlKey && !event.shiftKey && !event.altKey) {
     const target = event.target?.closest?.("[data-key-index]");
     if (target && surface.contains(target)) {
@@ -3651,9 +3708,7 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     event.preventDefault();
     return;
   }
-  // Shift+Alt+click transposes the held-keys bitmask -- checked before
-  // the plain shift/hold-mode branch below so plain shift+click (no
-  // alt) still falls through unchanged to that existing behavior.
+  // Shift+Alt: transpose gold latch.
   if (event.type === "pointerdown" && event.shiftKey && event.altKey && !event.ctrlKey) {
     const keyCount = nodeGraphMidiKeyboardKeyCount();
     const transposed = nodeGraphMidiKeyboardBitmaskTranspose(
@@ -3672,8 +3727,7 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     event.preventDefault();
     return;
   }
-  // Shift+click / hold-mode: blue mono sustain (convenience latch). Distinct
-  // from ctrl+click gold Arp Keys bitmask.
+  // Shift / Hold mode: blue mono sustain.
   if (event.type === "pointerdown" && (event.shiftKey || mode === "hold")) {
     toggleNodeGraphMidiKeyboardPointerHold(event, surface);
     try {
@@ -3682,13 +3736,15 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     return;
   }
   const held = nodeGraphMidiKeyboardHeldPointerSignal();
-  // Move: Press keeps pitch fixed (X/Y only). Slide retunes while dragged.
   if (event.type === "pointermove") {
-    if (mode === "slide" && event.buttons > 0 && !held) {
+    // Never play-slide while an arp latch gesture owns the pointer.
+    if (nodeGraphMvp.midiKeyboardArpLatchPointerId != null) {
+      return;
+    }
+    if (mode === "slide" && event.buttons > 0 && !held && !event.ctrlKey) {
       const prevMidi = nodeGraphMidiKeyboardRawMidiFromSignal(nodeGraphMvp.keyboardModuleSignal);
       const probe = nodeGraphMidiKeyboardSignalFromPointer(event, surface);
       const nextMidi = nodeGraphMidiKeyboardRawMidiFromSignal(probe);
-      // Trigger only when the key under the pointer changes — not every move sample.
       const keyChanged = Number.isFinite(prevMidi) && prevMidi !== nextMidi;
       const next = nodeGraphMidiKeyboardSignalFromPointer(event, surface, {
         gatePulse: keyChanged,
@@ -3711,7 +3767,6 @@ function updateNodeGraphMidiKeyboardSignal(event) {
       renderNodeGraphMidiKeyboardSignal({ ...held, x, y, gate: 1, gatePulse: 0 });
       return;
     }
-    // Keep last triggered pitch/freq (gate off). Never jump to fallback midi 60.
     const { x, y } = nodeGraphMidiKeyboardPointerXY(event, surface);
     const current = nodeGraphMvp.keyboardModuleSignal || nodeGraphMidiKeyboardFallbackSignal();
     renderNodeGraphMidiKeyboardSignal({
@@ -3723,7 +3778,6 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     });
     return;
   }
-  // pointerdown: commit pitch / gate / trigger / velocity-family outlets.
   if (event.type === "pointerdown") {
     try {
       surface.setPointerCapture?.(event.pointerId);
