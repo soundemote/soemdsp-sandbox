@@ -2915,7 +2915,37 @@ function applyNodeGraphMidiKeyboardMemory() {
   nodeGraphMvp.keyboardModuleSignal = memory.signal;
   nodeGraphMvp.midiKeyboardSignal = null;
   nodeGraphMvp.midiKeyboardPreviousGate = 0;
+  if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
+    renderNodeGraphMidiKeyboardHeldKeys();
+  }
+  // Push latch to worklet immediately (Arp Keys → Polyphony).
+  if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
+    sendNodeGraphLiveMidiKeyboardHeldKeysBitmask(
+      nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
+      nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
+    );
+  }
   return true;
+}
+
+/** Apply gold Arp latch from patch.keyboardLatch (preferred over localStorage). */
+function applyNodeGraphKeyboardLatchFromPatch(patch = nodeGraphMvp?.patch) {
+  const latch = patch?.keyboardLatch;
+  if (!latch || typeof latch !== "object") {
+    return false;
+  }
+  const low = nodeGraphMidiKeyboardHeldKeysBitmaskValue(latch.lowBitmask ?? latch.low);
+  const high = nodeGraphMidiKeyboardHeldKeysBitmaskValue(latch.highBitmask ?? latch.high);
+  nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = low;
+  nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = high;
+  nodeGraphMvp.midiKeyboardMemoryLoaded = true;
+  if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
+    renderNodeGraphMidiKeyboardHeldKeys();
+  }
+  if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
+    sendNodeGraphLiveMidiKeyboardHeldKeysBitmask(low, high);
+  }
+  return low > 0 || high > 0;
 }
 
 function ensureNodeGraphMidiKeyboardMemoryLoaded() {

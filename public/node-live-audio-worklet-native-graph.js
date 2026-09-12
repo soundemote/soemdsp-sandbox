@@ -1871,20 +1871,27 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     }
     return { low: v, high: 0 };
   };
-  // Do NOT use JS `&` — bitwise ops are Int32, so bits ≥31 never read
-  // (C2+ looked stuck / silent while low keys worked). Match view-controls:
-  // floor(mask / 2^i) % 2.
+  // Do NOT use JS `&` (Int32). Prefer BigInt for exact 0..48 bit tests.
   const bitSet = (index, low, high) => {
     const i = Math.round(Number(index));
     if (!(i >= 0) || i > 87) {
       return false;
     }
-    const mask = i < 49 ? Math.trunc(Number(low) || 0) : Math.trunc(Number(high) || 0);
-    const bit = i < 49 ? i : i - 49;
-    if (bit < 0 || bit > 48) {
-      return false;
+    try {
+      const mask = i < 49 ? BigInt(Math.trunc(Number(low) || 0)) : BigInt(Math.trunc(Number(high) || 0));
+      const bit = BigInt(i < 49 ? i : i - 49);
+      if (bit < 0n || bit > 48n) {
+        return false;
+      }
+      return ((mask >> bit) & 1n) === 1n;
+    } catch (_e) {
+      const mask = i < 49 ? Math.trunc(Number(low) || 0) : Math.trunc(Number(high) || 0);
+      const bit = i < 49 ? i : i - 49;
+      if (bit < 0 || bit > 48) {
+        return false;
+      }
+      return Math.floor(mask / (2 ** bit)) % 2 === 1;
     }
-    return Math.floor(mask / (2 ** bit)) % 2 === 1;
   };
   const ampParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE;
   const attOffset = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
@@ -1920,12 +1927,14 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
         const srcPort = String(c.sourcePort || "");
         const cableKey = `${srcId}\0${srcPort}`;
 
-        // Arp Keys SSOT = gold latch bitmasks on the worklet (ctrl+click).
+        // Arp Keys SSOT = gold latch on the worklet — do not demux the phase-mux
+        // cable (large Numbers + PHASE flag corrupt mid-keyboard bits).
         if (srcPort === "Arp Keys") {
           low |= Math.trunc(Number(this.midiKeyboardHeldKeysLowBitmask) || 0);
           high |= Math.trunc(Number(this.midiKeyboardHeldKeysHighBitmask) || 0);
+          continue;
         }
-        // Play Keys: also OR live MIDI note mask when present.
+        // Play Keys: MIDI note mask + phase-pair demux of the cable (mouse bits).
         if (srcPort === "Play Keys") {
           low |= Math.trunc(Number(this.midiKeyboardPlayKeysLowBitmask) || 0);
           high |= Math.trunc(Number(this.midiKeyboardPlayKeysHighBitmask) || 0);

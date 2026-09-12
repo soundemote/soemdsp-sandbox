@@ -3042,7 +3042,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=output-vol-face-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=bitmask-53-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=arp-latch-persist-1",
   "./public/node-live-audio-worklet-set-plan.js?v=voice-bus-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
   "./public/node-live-audio-worklet-handle-message.js?v=play-arp-keys-1",
@@ -3052,7 +3052,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=gate-digital-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=arp-latch-persist-1",
   "./public/node-live-audio-worklet-process.js?v=protect-worklet-1",
 ];
 
@@ -3490,6 +3490,14 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     // Do not force outputEnabled — Input-only starts must leave Output grey/off.
     setNodeGraphLiveOutputMuted(false);
     applyNodeGraphLiveOutputGain();
+    // Arp latch must hit the worklet as soon as the port exists (patch load
+    // may have restored bitmasks before the AudioWorklet was up).
+    if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
+      sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
+    }
+    if (typeof sendNodeGraphLiveMidiPlayKeysBitmask === "function") {
+      sendNodeGraphLiveMidiPlayKeysBitmask();
+    }
     // Pause→stop wipes faces and kills RAF; pause also freezes hold state.
     // Always rearm LCD/LED paint after a successful cold start.
     if (typeof nodeGraphLiveRearmDisplaysAfterEngineStart === "function") {

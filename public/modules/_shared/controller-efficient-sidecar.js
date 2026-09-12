@@ -88,15 +88,12 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
   const pulseActive = this.midiKeyboardGatePulseSamples > 0;
   this.midiKeyboardHeldKeysPhase = this.midiKeyboardHeldKeysPhase ? 0 : 1;
   const phaseOn = this.midiKeyboardHeldKeysPhase;
-  // Gold Arp Keys latch (ctrl+click) — Keyboard only.
-  let arpLocal = this.midiKeyboardHeldKeysLowBitmask || 0;
-  if (this.midiKeyboardHeldKeysHighBitmask) {
-    arpLocal = transmitBits(
-      this.midiKeyboardHeldKeysLowBitmask,
-      this.midiKeyboardHeldKeysHighBitmask,
-      phaseOn,
-    );
-  }
+  // Gold Arp Keys latch (ctrl+click) — always phase-mux both halves.
+  const arpLocal = transmitBits(
+    this.midiKeyboardHeldKeysLowBitmask || 0,
+    this.midiKeyboardHeldKeysHighBitmask || 0,
+    phaseOn,
+  );
   // Blue Play Keys from live MIDI note bitmask.
   let midiPlayLocal = this.midiKeyboardPlayKeysLowBitmask || 0;
   if (this.midiKeyboardPlayKeysHighBitmask) {

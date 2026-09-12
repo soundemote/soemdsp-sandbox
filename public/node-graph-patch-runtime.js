@@ -73,4 +73,8 @@ function syncNodeGraphRuntimeFromPatch() {
       nodeGraphMvp.live.speedLimit = lim;
     }
   }
+  // Gold Arp latch from patch — restore + push to worklet immediately.
+  if (typeof applyNodeGraphKeyboardLatchFromPatch === "function") {
+    applyNodeGraphKeyboardLatchFromPatch(nodeGraphMvp.patch);
+  }
 }

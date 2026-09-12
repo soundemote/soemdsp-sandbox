@@ -48,7 +48,24 @@ function serializeNodeGraphPatch(patch = nodeGraphMvp.patch, options = {}) {
     windows: typeof normalizeNodeGraphPatchWindows === "function"
       ? normalizeNodeGraphPatchWindows(patch.windows)
       : patch.windows,
+    // Gold Arp latch (ctrl+click) — patch-owned, not localStorage-only.
+    keyboardLatch: (typeof nodeGraphMvp !== "undefined" && patch === nodeGraphMvp?.patch)
+      ? {
+        lowBitmask: Math.max(0, Math.floor(Number(nodeGraphMvp.midiKeyboardHeldKeysLowBitmask)) || 0),
+        highBitmask: Math.max(0, Math.floor(Number(nodeGraphMvp.midiKeyboardHeldKeysHighBitmask)) || 0),
+      }
+      : (patch.keyboardLatch && typeof patch.keyboardLatch === "object"
+        ? {
+          lowBitmask: Math.max(0, Math.floor(Number(patch.keyboardLatch.lowBitmask)) || 0),
+          highBitmask: Math.max(0, Math.floor(Number(patch.keyboardLatch.highBitmask)) || 0),
+        }
+        : undefined),
   };
+  if (payload.keyboardLatch
+    && !payload.keyboardLatch.lowBitmask
+    && !payload.keyboardLatch.highBitmask) {
+    delete payload.keyboardLatch;
+  }
   return options.pretty === false
     ? JSON.stringify(payload)
     : JSON.stringify(payload, null, 2);
