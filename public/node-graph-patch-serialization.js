@@ -107,18 +107,29 @@ function serializeNodeGraphPatch(patch = nodeGraphMvp.patch, options = {}) {
       ? {
         lowBitmask: Math.max(0, Math.floor(Number(nodeGraphMvp.midiKeyboardHeldKeysLowBitmask)) || 0),
         highBitmask: Math.max(0, Math.floor(Number(nodeGraphMvp.midiKeyboardHeldKeysHighBitmask)) || 0),
+        velocities: nodeGraphMvp.midiKeyboardHeldKeyVelocities instanceof Uint8Array
+          ? Array.from(nodeGraphMvp.midiKeyboardHeldKeyVelocities)
+          : undefined,
       }
       : (patch.keyboardLatch && typeof patch.keyboardLatch === "object"
         ? {
           lowBitmask: Math.max(0, Math.floor(Number(patch.keyboardLatch.lowBitmask)) || 0),
           highBitmask: Math.max(0, Math.floor(Number(patch.keyboardLatch.highBitmask)) || 0),
+          velocities: Array.isArray(patch.keyboardLatch.velocities)
+            ? patch.keyboardLatch.velocities
+            : undefined,
         }
         : undefined),
   };
-  if (payload.keyboardLatch
-    && !payload.keyboardLatch.lowBitmask
-    && !payload.keyboardLatch.highBitmask) {
-    delete payload.keyboardLatch;
+  if (payload.keyboardLatch) {
+    const vels = payload.keyboardLatch.velocities;
+    if (Array.isArray(vels) && !vels.some((v) => (Number(v) || 0) > 0)) {
+      delete payload.keyboardLatch.velocities;
+    }
+    if (!payload.keyboardLatch.lowBitmask
+      && !payload.keyboardLatch.highBitmask) {
+      delete payload.keyboardLatch;
+    }
   }
   return options.pretty === false
     ? JSON.stringify(payload)

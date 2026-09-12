@@ -4692,8 +4692,22 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "skew",
         tooltip:
-          "Vibrato depth on phase offsets (sides). Distance-compensated (|f|/100 Hz). "
+          "Vibrato depth on phase offsets (sides). Pitch curve is Vibrato Tilt. "
           + "Center osc has no vib feed.",
+      },
+      {
+        key: "vibratoTilt",
+        label: "Vibrato Tilt",
+        defaultValue: "0",
+        min: "-1",
+        mid: "0",
+        max: "1",
+        step: "any",
+        bipolar: true,
+        tooltip:
+          "Pitch curve for Vibrato Amp: depth × (|f|/100 Hz)^tilt. "
+          + "−1 = lows wobble more (∝ 1/f). 0 = even at all pitches. "
+          + "+1 = highs more (∝ f — previous hardcoded law).",
       },
       {
         key: "vibratoSpeed",

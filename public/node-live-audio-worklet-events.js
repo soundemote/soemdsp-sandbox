@@ -470,11 +470,17 @@ NodeLiveAudioProcessor.prototype.setMidiKeyboardPlayKeysBitmask = function setMi
   }
 };
 
-NodeLiveAudioProcessor.prototype.setMidiKeyboardHeldKeysBitmask = function setMidiKeyboardHeldKeysBitmask(low, high) {
+NodeLiveAudioProcessor.prototype.setMidiKeyboardHeldKeysBitmask = function setMidiKeyboardHeldKeysBitmask(low, high, velocities) {
     const safeLow = Math.floor(Number(low));
     const safeHigh = Math.floor(Number(high));
     this.midiKeyboardHeldKeysLowBitmask = Number.isFinite(safeLow) && safeLow >= 0 ? safeLow : 0;
     this.midiKeyboardHeldKeysHighBitmask = Number.isFinite(safeHigh) && safeHigh >= 0 ? safeHigh : 0;
+    if (velocities instanceof Uint8Array) {
+      const n = 88;
+      const copy = new Uint8Array(n);
+      copy.set(velocities.subarray(0, n));
+      this.midiKeyboardHeldKeyVelocities = copy;
+    }
 };
 
 /** Polyphony Midi Note + Velocity table (128 bytes). source: midi | keyboard */

@@ -345,6 +345,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   phaseCollapse: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   centerSide: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PAN,
   vibratoAmp: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_RESONANCE,
+  vibratoTilt: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_HPF_FREQUENCY,
   vibratoSpeed: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED,
   vibratoFreqVary: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE,
   vibratoPhaseVary: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_VARIATION,
@@ -2074,6 +2075,13 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
   {
     const goldLo = Math.trunc(Number(this.midiKeyboardHeldKeysLowBitmask) || 0);
     const goldHi = Math.trunc(Number(this.midiKeyboardHeldKeysHighBitmask) || 0);
+    const goldVels = this.midiKeyboardHeldKeyVelocities;
+    let goldVelFp = 0;
+    if (goldVels instanceof Uint8Array) {
+      for (let i = 0; i < goldVels.length; i += 1) {
+        if (goldVels[i]) goldVelFp = (goldVelFp + ((i + 1) * (goldVels[i] | 0))) | 0;
+      }
+    }
     const sig = this.keyboardModuleSignal;
     const kbGate = sig && Number(sig.gate) > 0 ? 1 : 0;
     const kbMidi = kbGate && Number.isFinite(Number(sig.midi))
@@ -2087,14 +2095,14 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
         if (midiTable[i]) midiFp = (midiFp + ((i + 1) * (midiTable[i] | 0))) | 0;
       }
     }
-    const fp = `${goldLo}|${goldHi}|${kbMidi}|${kbVel}|${midiFp}`;
+    const fp = `${goldLo}|${goldHi}|${goldVelFp}|${kbMidi}|${kbVel}|${midiFp}`;
     if (fp !== this._vmReconcileFp) {
       this._vmReconcileFp = fp;
       const want = typeof polyphonyCreateTable === "function"
         ? polyphonyCreateTable()
         : new Uint8Array(128);
       if (typeof polyphonyTableAddGoldLatchBits === "function") {
-        polyphonyTableAddGoldLatchBits(want, goldLo, goldHi, 24, 100);
+        polyphonyTableAddGoldLatchBits(want, goldLo, goldHi, 24, 100, goldVels);
       }
       if (midiTable instanceof Uint8Array) {
         if (typeof polyphonyTableMergeMax === "function") {
@@ -2791,6 +2799,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("jitterSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterSpeed", 3.6));
       push("jitterSpeedRef", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, cont("jitterSpeedRef", 200));
       push("vibratoAmp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoAmp", 0));
+      push("vibratoTilt", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("vibratoTilt", 0));
       push("vibratoSpeed", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("vibratoSpeed", 0));
       push("vibratoFreqVary", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("vibratoFreqVary", 0));
       push("vibratoPhaseVary", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("vibratoPhaseVary", 0));
@@ -4161,6 +4170,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
         push("jitterSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterSpeed", 3.6));
         push("jitterSpeedRef", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, cont("jitterSpeedRef", 200));
         push("vibratoAmp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoAmp", 0));
+        push("vibratoTilt", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("vibratoTilt", 0));
         push("vibratoSpeed", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("vibratoSpeed", 0));
         push("vibratoFreqVary", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("vibratoFreqVary", 0));
         push("vibratoPhaseVary", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("vibratoPhaseVary", 0));

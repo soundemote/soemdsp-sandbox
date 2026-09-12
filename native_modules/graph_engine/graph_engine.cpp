@@ -544,7 +544,8 @@ extern "C" void soemdsp_hypersaw2_sample(
   double level,
   double seedParam,
   double freeRunningPhase,
-  double jitterSpeedRefHz
+  double jitterSpeedRefHz,
+  double vibratoTilt
 );
 extern "C" double soemdsp_hypersaw2_left(int handle);
 extern "C" double soemdsp_hypersaw2_right(int handle);
@@ -1452,6 +1453,7 @@ static const int kMaxInstances = 4;
 // Meta Voices clones + per-lane Bias feeders (Voice Count×owned + shared).
 // Keep under wasm max-memory; 128 fits ~10 voices of a modest subgraph.
 static const int kMaxNodes = 128;
+static const int kMaxFbGroupNodes = 48;
 static const int kMaxConnections = 512;
 static const int kMaxToSmooth = 256;
 // Hard product invariant: AudioWorklet quantum and all orchestrated natives
@@ -1887,10 +1889,13 @@ struct Node {
   double buf[kChannels][kMaxBlockFrames];
   // z^-1: last sample (self-mod within a sample loop).
   double hist[kChannels];
-  // Previous quantum's full block — cycle/feedback edges read histBuf[ch][f]
-  // so MOD/audio stays sample-varying (never hold one scalar for the whole quantum).
+  // Previous quantum's full block — used when a source has not run this
+  // quantum AND is not in the active 1-sample feedback group.
   double histBuf[kChannels][kMaxBlockFrames];
   unsigned char processedThisBlock;
+  unsigned char processedThisSample;
+  // Compile-time SCC id for multi-node feedback (-1 = not in a group).
+  int fbGroupId;
 };
 
 enum SinkKind : unsigned char { kSinkPort = 0, kSinkControl = 1 };
@@ -1973,6 +1978,15 @@ struct Circuit {
   double mixPhaseCv[kMaxBlockFrames];
   // Set by control_frame each sample; -1 outside sample loops.
   int audioFrame;
+  // Multi-node feedback groups (SCC of audio + param-MOD). Stepped sample-major.
+  int fbGroupCount;
+  int fbGroupFirst[kMaxNodes];
+  int fbGroupLen[kMaxNodes];
+  int fbGroupOrder[kMaxNodes];
+  int fbSampleMajor;
+  int fbFrame;
+  int fbActiveGroup;
+  double fbTape[kMaxFbGroupNodes][kChannels][kMaxBlockFrames];
 };
 
 // Morph ZOH: one sample per quantum. additiveCv = knob + Morph[0] (softwave-style);
@@ -2530,6 +2544,8 @@ static void init_node_defaults(Node& n, int typeId) {
   n.bypassed = false;
   n.reachable = true; // until compile marks orphans
   n.hasParamMods = 0;
+  n.fbGroupId = -1;
+  n.processedThisSample = 0;
   n.voiceSlot = -1;
   n.voiceSilent = true;
   n.nativeHandle = 0;
@@ -3126,6 +3142,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.hpfFrequency,
     (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 200.0 // lowCut
+      : (typeId == kTypeHypersaw2) ? 0.0 // vibratoTilt (0 = even)
       : (typeId == kTypeChaosfly) ? -2.0 // Highpass oct offset (gentler default)
       : (typeId == kTypeCrossover6) ? 10000.0
       : 20.0,
@@ -3369,9 +3386,9 @@ static void clear_live_param_mods_on_node(Node& n) {
 
 // Readable sample for an edge:
 // - Forward (src already processed this quantum): src.buf[f]
-// - Self-mod: src.hist (previous sample, updated each write)
-// - Cycle / not-yet-processed src: src.histBuf[f] (previous quantum, per-frame)
-// Never return one scalar for every f in a quantum — that is block-rate FM zipper.
+// - Self-mod: src.hist (previous sample)
+// - Active 1-sample feedback group: hist if src has not run this sample, else buf[0]
+// - Else not-yet-processed src: src.histBuf[f] (previous quantum)
 static inline double edge_read_sample(
   Circuit& g, unsigned int srcHash, int srcPort, int frame, unsigned int dstHash
 ) {
@@ -3383,6 +3400,10 @@ static inline double edge_read_sample(
   if (frame < 0 || frame >= kMaxBlockFrames) frame = 0;
   if (srcHash == dstHash) {
     double v = src.hist[sp];
+    return (v == v) ? v : 0.0;
+  }
+  if (g.fbSampleMajor && g.fbActiveGroup >= 0 && src.fbGroupId == g.fbActiveGroup) {
+    double v = src.processedThisSample ? src.buf[sp][0] : src.hist[sp];
     return (v == v) ? v : 0.0;
   }
   if (src.processedThisBlock == 0) {
@@ -4162,16 +4183,16 @@ static void mix_node_inputs(Circuit& g, const Node& node, int frames) {
     const int dp = clamp_dst_port(c.dstPort);
     if (is_live_dst_port(dp)) continue; // Live ƒ / CV — not audio bus
     if (is_graph_port(dp)) continue; // Yellow Graph data-plane
-    const int si = find_node(g, c.srcHash);
-    if (si < 0) continue;
-    Node& src = g.nodes[si];
+    if (find_node(g, c.srcHash) < 0) continue;
     const int sp = clamp_src_port(c.srcPort);
     if (is_graph_port(sp)) continue;
     double* dstAcc = g.mixMono;
     if (dp == kPortLeft) dstAcc = g.mixLeft;
     else if (dp == kPortRight) dstAcc = g.mixRight;
     for (int f = 0; f < frames; f++) {
-      dstAcc[f] += src.buf[sp][f];
+      const int srcF = g.fbSampleMajor ? g.fbFrame : f;
+      const int dstF = g.fbSampleMajor ? 0 : f;
+      dstAcc[dstF] += edge_read_sample(g, c.srcHash, sp, srcF, node.idHash);
     }
   }
   // One-shot pokes into Mono/Left/Right (Gate, In, …).
@@ -4201,7 +4222,9 @@ static bool mix_live_port(Circuit& g, const Node& node, int livePort, int frames
     if (find_node(g, c.srcHash) < 0) continue;
     const int sp = clamp_src_port(c.srcPort);
     for (int f = 0; f < frames; f++) {
-      dest[f] += edge_read_sample(g, c.srcHash, sp, f, node.idHash);
+      const int srcF = g.fbSampleMajor ? g.fbFrame : f;
+      const int dstF = g.fbSampleMajor ? 0 : f;
+      dest[dstF] += edge_read_sample(g, c.srcHash, sp, srcF, node.idHash);
     }
     any = true;
   }
@@ -6162,7 +6185,7 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
 // resonance=vibratoAmp, lfoBaseSpeed=vibratoSpeed, mix=phaseMultiplier,
 // lfoAmplitude=vibratoFreqVary, lfoVariation=vibratoPhaseVary,
 // center=jitterDistance, lfoRate=jitterSpeed, lpfFrequency=jitterTilt,
-// pan=centerSide, feedback=morph/PWM,
+// hpfFrequency=vibratoTilt, pan=centerSide, feedback=morph/PWM,
 // mode unused (locked master only),
 // oversample=jitterSpeedRefHz,
 // phaseParam=phase, seed=seed, amplitude=level.
@@ -6193,6 +6216,7 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
     const double jitterDistance = control_effective(node.center);
     const double jitterSpeed = control_effective(node.lfoRate);
     const double jitterTilt = control_effective(node.lpfFrequency);
+    const double vibratoTilt = control_effective(node.hpfFrequency);
     const double centerSide = control_effective(node.pan);
     const double morph = control_effective(node.feedback);
     const double level = control_effective(node.amplitude);
@@ -6229,7 +6253,8 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
         level,
         seed,
         freeRunningPhase,
-        jitterSpeedRefHz
+        jitterSpeedRefHz,
+        vibratoTilt
       );
       const double L = soemdsp_hypersaw2_left(node.nativeHandle);
       const double R = soemdsp_hypersaw2_right(node.nativeHandle);
@@ -6267,6 +6292,7 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
     const double jitterDistance = control_audio(g, node.center, f);
     const double jitterSpeed = control_audio(g, node.lfoRate, f);
     const double jitterTilt = control_audio(g, node.lpfFrequency, f);
+    const double vibratoTilt = control_audio(g, node.hpfFrequency, f);
     const double centerSide = control_audio(g, node.pan, f);
     const double morph = control_audio(g, node.feedback, f);
     const double level = control_audio(g, node.amplitude, f);
@@ -6299,7 +6325,8 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
       level,
       seed,
       freeRunningPhase,
-      jitterSpeedRefHz
+      jitterSpeedRefHz,
+      vibratoTilt
     );
     const double L = soemdsp_hypersaw2_left(node.nativeHandle);
     const double R = soemdsp_hypersaw2_right(node.nativeHandle);
@@ -10680,6 +10707,133 @@ extern "C" int soemdsp_graph_set_global_smooth_time(int handle, float timeSample
   return 0;
 }
 
+static void compile_feedback_groups(Circuit& g) {
+  g.fbGroupCount = 0;
+  g.fbSampleMajor = 0;
+  g.fbFrame = 0;
+  g.fbActiveGroup = -1;
+  for (int i = 0; i < g.nodeCount; i++) {
+    g.nodes[i].fbGroupId = -1;
+    g.nodes[i].processedThisSample = 0;
+  }
+
+  const int kMaxFbAdj = kMaxConnections + kMaxParamModEdges;
+  int head[kMaxNodes];
+  int succ[kMaxConnections + kMaxParamModEdges];
+  int nxt[kMaxConnections + kMaxParamModEdges];
+  int nE = 0;
+  for (int i = 0; i < kMaxNodes; i++) head[i] = -1;
+
+  auto add_edge = [&](int s, int d) {
+    if (s < 0 || d < 0 || s == d) return;
+    if (nE >= kMaxFbAdj) return;
+    succ[nE] = d;
+    nxt[nE] = head[s];
+    head[s] = nE;
+    nE += 1;
+  };
+  for (int i = 0; i < g.connCount; i++) {
+    if (!g.conns[i].used) continue;
+    add_edge(find_node(g, g.conns[i].srcHash), find_node(g, g.conns[i].dstHash));
+  }
+  for (int i = 0; i < g.paramModEdgeCount; i++) {
+    if (!g.paramModEdges[i].used) continue;
+    add_edge(
+      find_node(g, g.paramModEdges[i].srcHash),
+      find_node(g, g.paramModEdges[i].dstHash)
+    );
+  }
+
+  int th[kMaxNodes];
+  int tsucc[kMaxConnections + kMaxParamModEdges];
+  int tnxt[kMaxConnections + kMaxParamModEdges];
+  int nT = 0;
+  for (int i = 0; i < kMaxNodes; i++) th[i] = -1;
+  for (int s = 0; s < g.nodeCount; s++) {
+    for (int e = head[s]; e >= 0; e = nxt[e]) {
+      const int d = succ[e];
+      tsucc[nT] = s;
+      tnxt[nT] = th[d];
+      th[d] = nT;
+      nT += 1;
+    }
+  }
+
+  unsigned char seen[kMaxNodes];
+  unsigned char opened[kMaxNodes];
+  for (int i = 0; i < kMaxNodes; i++) {
+    seen[i] = 0;
+    opened[i] = 0;
+  }
+  int finish[kMaxNodes];
+  int finishN = 0;
+  int st[kMaxNodes];
+  for (int start = 0; start < g.nodeCount; start++) {
+    if (!g.nodes[start].used || seen[start]) continue;
+    int sp = 1;
+    st[0] = start;
+    seen[start] = 1;
+    opened[start] = 0;
+    while (sp > 0) {
+      const int u = st[sp - 1];
+      if (!opened[u]) {
+        opened[u] = 1;
+        for (int e = head[u]; e >= 0; e = nxt[e]) {
+          const int v = succ[e];
+          if (!g.nodes[v].used || seen[v]) continue;
+          seen[v] = 1;
+          opened[v] = 0;
+          st[sp] = v;
+          sp += 1;
+        }
+      } else {
+        sp -= 1;
+        finish[finishN] = u;
+        finishN += 1;
+      }
+    }
+  }
+
+  for (int i = 0; i < kMaxNodes; i++) seen[i] = 0;
+  int assigned = 0;
+  for (int oi = finishN - 1; oi >= 0; oi--) {
+    const int start = finish[oi];
+    if (!g.nodes[start].used || seen[start]) continue;
+    int comp[kMaxNodes];
+    int compN = 0;
+    int sp = 1;
+    st[0] = start;
+    seen[start] = 1;
+    while (sp > 0) {
+      const int u = st[--sp];
+      comp[compN++] = u;
+      for (int e = th[u]; e >= 0; e = tnxt[e]) {
+        const int v = tsucc[e];
+        if (!g.nodes[v].used || seen[v]) continue;
+        seen[v] = 1;
+        st[sp++] = v;
+      }
+    }
+    if (compN < 2) continue;
+    if (g.fbGroupCount >= kMaxNodes) break;
+    const int gid = g.fbGroupCount;
+    g.fbGroupCount += 1;
+    unsigned char inComp[kMaxNodes];
+    for (int i = 0; i < kMaxNodes; i++) inComp[i] = 0;
+    for (int i = 0; i < compN; i++) inComp[comp[i]] = 1;
+    const int first = assigned;
+    for (int i = 0; i < g.orderCount; i++) {
+      const int ni = g.order[i];
+      if (ni < 0 || ni >= g.nodeCount || !inComp[ni]) continue;
+      g.fbGroupOrder[assigned] = ni;
+      assigned += 1;
+      g.nodes[ni].fbGroupId = gid;
+    }
+    g.fbGroupFirst[gid] = first;
+    g.fbGroupLen[gid] = assigned - first;
+  }
+}
+
 extern "C" int soemdsp_graph_compile(int handle) {
   Circuit* g = get(handle);
   if (!g) return -1;
@@ -10790,8 +10944,756 @@ extern "C" int soemdsp_graph_compile(int handle) {
     if (d >= 0) g->nodes[d].hasParamMods = 1;
   }
 
+  compile_feedback_groups(*g);
+
   g->compiled = true;
   return 0;
+}
+
+static void dispatch_process_node(Circuit& g, Node& node, int frames) {
+    // Yellow Graph: handle before generic bypass so Graph copy-thru / clear works.
+    if (node.typeId == kTypeAdditiveGenerator) {
+      process_additive_generator(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveBubble) {
+      process_additive_bubble(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveLinearFilter) {
+      process_additive_linear_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveAnalogFilter) {
+      process_additive_analog_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveLadderFilter) {
+      process_additive_ladder_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveFrequencySkew) {
+      process_additive_frequency_skew(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveQuantizeFreq) {
+      process_additive_quantize_freq(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveQuantizePhase) {
+      process_additive_quantize_phase(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditivePan) {
+      process_additive_pan(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditivePhaseEntry) {
+      process_additive_phase_entry(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveBlaster) {
+      process_additive_blaster(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveDiffusor) {
+      process_additive_diffusor(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveNoisyFreq) {
+      process_additive_noisy_freq(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveNoisyPhase) {
+      process_additive_noisy_phase(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveNoisyPan) {
+      process_additive_noisy_pan(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveNoisyAmp) {
+      process_additive_noisy_amp(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveOut) {
+      process_additive_out(g, node, frames);
+      return;
+    }
+
+    if (node.bypassed) {
+      process_bypass(g, node, frames);
+      return;
+    }
+
+    if (node.typeId == kTypePolyBlep) {
+      process_polyblep(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeNoiseGenerator) {
+      process_noise_generator(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeRobinSinusoid) {
+      process_robin_sinusoid(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeRobinSupersaw) {
+      process_robin_supersaw(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSlewLimiter) {
+      process_slew_limiter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeComparator) {
+      process_comparator(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSampleDelay) {
+      process_sample_delay(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSampleHold) {
+      process_sample_hold(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeMinMax) {
+      process_min_max(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeMix) {
+      process_mix(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeMixStereo) {
+      process_mix_stereo(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeLadderFilter) {
+      process_ladder(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSoftClipper) {
+      process_soft_clipper(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeClipperLimiter) {
+      process_clipper_limiter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeMidSideEncode) {
+      process_mid_side_encode(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeVectorscopeTransform) {
+      process_vectorscope_transform(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeRotate3dTo2d) {
+      process_rotate_3d_to_2d(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeClock) {
+      process_clock(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeTriggerDivider) {
+      // timingMode≥0.5 → clockDivider (duty/period); else triggerDivider.
+      if (control_effective(node.timingMode) >= 0.5) {
+        process_clock_divider(g, node, frames);
+      } else {
+        process_trigger_divider(g, node, frames);
+      }
+      return;
+    }
+    if (node.typeId == kTypeDelayedTrigger) {
+      process_delayed_trigger(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeRandomClock) {
+      process_random_clock(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeTriggerCounter) {
+      process_trigger_counter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeMetallicRatio) {
+      process_metallic_ratio(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeHarmonicSeries) {
+      process_harmonic_series(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeLutCell) {
+      process_lut_cell(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeLookaheadLimiter) {
+      process_lookahead_limiter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePumpLimiter) {
+      process_pump_limiter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAudioPlayer) {
+      process_audio_player(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeStepSequencer) {
+      process_step_sequencer(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeTransport) {
+      process_transport(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAliasSine) {
+      process_alias_sine(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePhoneTone) {
+      process_phone_tone(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeBlit) {
+      process_blit(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSineWavetable) {
+      process_sine_wavetable(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSinCos) {
+      process_sin_cos(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAntisaw) {
+      process_antisaw(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeArchimedes) {
+      process_archimedes(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAdditiveOsc) {
+      process_additive_osc(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSurgeOscillator) {
+      process_surge_oscillator(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSoftwaveOsc) {
+      process_softwave_osc(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeDsfOscillator) {
+      process_dsf_oscillator(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeHypersaw2) {
+      process_hypersaw2(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSinc) {
+      process_sinc(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeBradley2a) {
+      process_bradley2a(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeEllipsoid) {
+      process_ellipsoid(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSnowflake) {
+      process_snowflake(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeButterworth) {
+      process_scientific_iir(g, node, frames, soemdsp_butterworth_sample);
+      return;
+    }
+    if (node.typeId == kTypeLinkwitzRiley) {
+      process_scientific_iir(g, node, frames, soemdsp_linkwitz_riley_sample);
+      return;
+    }
+    if (node.typeId == kTypeBessel) {
+      process_scientific_iir(g, node, frames, soemdsp_bessel_sample);
+      return;
+    }
+    if (node.typeId == kTypePapoulisFilter) {
+      process_papoulis_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSpeakerProtection) {
+      process_speaker_protection(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSpeakerProtector2) {
+      process_speaker_protector2(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAttackDecay) {
+      process_attack_decay(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeBandpass) {
+      process_bandpass(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAllpass) {
+      process_allpass(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeBasicShape) {
+      process_basic_shape(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeChordPad) {
+      process_chord_pad(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeNoteGlide) {
+      process_note_glide(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeNoteTranspose) {
+      process_note_transpose(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeDegreeTuring) {
+      process_degree_turing(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeDegreePhrase) {
+      process_degree_phrase(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeGravityWalker) {
+      process_gravity_walker(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSmoothGraph) {
+      process_smooth_graph(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeStepGraph) {
+      process_step_graph(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePhaseDisperse) {
+      process_phase_disperse(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeQuadrature) {
+      process_quadrature(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeArp) {
+      process_arp(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeHilbert) {
+      process_hilbert(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeBinaryClock) {
+      process_binary_clock(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeChebyshev) {
+      process_scientific_iir(g, node, frames, soemdsp_chebyshev_sample);
+      return;
+    }
+    if (node.typeId == kTypeElliptic) {
+      process_scientific_iir(g, node, frames, soemdsp_elliptic_sample);
+      return;
+    }
+    if (node.typeId == kTypeEqFilter) {
+      process_eq_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeActiveFilter) {
+      process_active_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePassiveFilter) {
+      process_passive_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeTb303Filter) {
+      process_tb303_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeFlowerChildFilter) {
+      process_flower_child_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeYellowjacketFilter) {
+      process_yellowjacket_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSuperloveFilter) {
+      process_superlove_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeHumanFilter) {
+      process_human_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeResonatorFilter) {
+      process_resonator_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeCombResonator) {
+      process_comb_resonator(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeModeResonator) {
+      process_mode_resonator(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeChaoticPhaseLockingFilter) {
+      process_chaotic_phase_locking_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeInertialFilter) {
+      process_inertial_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeExpAdsr) {
+      process_exp_adsr(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeLinearEnvelope) {
+      process_linear_envelope(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeWavetableAdsr) {
+      process_wavetable_adsr(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePluckEnvelope) {
+      process_pluck_envelope(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeExpoPluckEnvelope) {
+      process_expo_pluck_envelope(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeExpoPluckEnvelope2) {
+      process_expo_pluck_envelope_2(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeLinearAttackRelease) {
+      process_linear_attack_release(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeCurveAttackRelease) {
+      process_curve_attack_release(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeThumpEnvelope) {
+      process_thump_envelope(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePluckEnvelope3) {
+      process_pluck_envelope_3(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeFlowerChildEnvelopeFollower) {
+      process_flower_child_envelope_follower(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeDelayEffect) {
+      process_delay_effect(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSoemReverb) {
+      process_soem_reverb(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePll) {
+      process_pll(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeLorenzAttractor) {
+      process_lorenz_attractor(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeLogisticMap) {
+      process_logistic_map(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeHenonMap) {
+      process_henon_map(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeChuaAttractor) {
+      process_chua_attractor(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeChaosfly) {
+      process_chaosfly(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeRayBouncer) {
+      process_ray_bouncer(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeChordMemory) {
+      process_chord_memory(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeChordSequencer) {
+      process_chord_sequencer(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePitchQuantizer) {
+      process_pitch_quantizer(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeTuringMachine) {
+      process_turing_machine(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeFractalBrownianNoise) {
+      process_fractal_brownian_noise(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePiSpigotNoise) {
+      process_pi_spigot_noise(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeRandomWalk) {
+      process_random_walk(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeCheapWalk) {
+      process_cheap_walk(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeVibratoGenerator) {
+      process_vibrato_generator(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeWowAndFlutter) {
+      process_wow_and_flutter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeVactrol) {
+      process_vactrol(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePulseExplosion) {
+      process_pulse_explosion(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSpiral) {
+      process_jerobeam_spiral(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeFractalSpiral) {
+      process_fractal_spiral(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeLogSpiral) {
+      process_log_spiral(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeBlubb) {
+      process_blubb(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeBoing) {
+      process_boing(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeKeplerBouwkamp) {
+      process_kepler_bouwkamp(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeMushroom) {
+      process_mushroom(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeNyquistShannon) {
+      process_nyquist_shannon(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeRadar) {
+      process_radar(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeTorus) {
+      process_torus(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeWirdoSpiral) {
+      process_wirdo_spiral(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePhosphillator) {
+      process_phosphillator(g, node, frames);
+      return;
+    }
+    if (node.typeId >= kTypeCrossover2 && node.typeId <= kTypeCrossover6) {
+      process_crossover(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeReverbEffect) {
+      process_reverb(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePingPongDelay) {
+      process_ping_pong(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAttenuverter) {
+      process_attenuverter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAmpCurve) {
+      process_amp_curve(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeRasterRgb) {
+      process_raster_rgb(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeRange) {
+      process_range(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeInv) {
+      process_inv(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeTransistor) {
+      process_transistor(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeU2b) {
+      process_u2b(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeB2u) {
+      process_b2u(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeBias) {
+      process_bias(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeGain) {
+      process_gain(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeOutput) {
+      process_output(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePortalOutlet) {
+      process_portal_outlet(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePortalInlet) {
+      process_portal_inlet(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAudioInput) {
+      // Host mic bus not in graph_engine yet — silence (module stays plan-legal).
+      for (int f = 0; f < frames; f++) {
+        node.buf[kPortMono][f] = 0.0;
+        node.buf[kPortLeft][f] = 0.0;
+        node.buf[kPortRight][f] = 0.0;
+      }
+      return;
+    }
+    // unknown: silence
+}
+
+static void run_feedback_group(Circuit& g, int groupId, int frames) {
+  if (groupId < 0 || groupId >= g.fbGroupCount) return;
+  const int first = g.fbGroupFirst[groupId];
+  const int len = g.fbGroupLen[groupId];
+  if (len < 2) return;
+  if (len > kMaxFbGroupNodes) {
+    for (int i = 0; i < len; i++) {
+      const int ni = g.fbGroupOrder[first + i];
+      if (ni < 0 || ni >= g.nodeCount) continue;
+      Node& node = g.nodes[ni];
+      if (!node.used || node.processedThisBlock) continue;
+      for (int c = 0; c < kChannels; c++) zero_buf(node.buf[c], frames);
+      dispatch_process_node(g, node, frames);
+      node.processedThisBlock = 1;
+      node_update_hist_last(node, frames);
+    }
+    return;
+  }
+
+  g.fbSampleMajor = 1;
+  g.fbActiveGroup = groupId;
+  for (int f = 0; f < frames; f++) {
+    g.fbFrame = f;
+    for (int i = 0; i < len; i++) {
+      const int ni = g.fbGroupOrder[first + i];
+      if (ni >= 0 && ni < g.nodeCount) g.nodes[ni].processedThisSample = 0;
+    }
+    for (int i = 0; i < len; i++) {
+      const int ni = g.fbGroupOrder[first + i];
+      if (ni < 0 || ni >= g.nodeCount) continue;
+      Node& node = g.nodes[ni];
+      if (!node.used || !node.reachable) {
+        node.processedThisSample = 1;
+        continue;
+      }
+      if (node.voiceSlot >= 0 && g.voiceManagerHandle > 0) {
+        const int st = soemdsp_voice_manager_voice_state(g.voiceManagerHandle, node.voiceSlot);
+        if (st == 0) {
+          const bool preview =
+            g.previewVoiceSlot >= 0 && node.voiceSlot == g.previewVoiceSlot;
+          if (!preview) {
+            for (int c = 0; c < kChannels; c++) {
+              node.buf[c][0] = 0.0;
+              node.hist[c] = 0.0;
+            }
+            node.voiceSilent = true;
+            node.processedThisSample = 1;
+            continue;
+          }
+        }
+        node.voiceSilent = false;
+      }
+      dispatch_process_node(g, node, 1);
+      node.processedThisSample = 1;
+      for (int c = 0; c < kChannels; c++) {
+        double s = node.buf[c][0];
+        if (!(s == s)) s = 0.0;
+        g.fbTape[i][c][f] = s;
+        node.hist[c] = s;
+      }
+    }
+  }
+  for (int i = 0; i < len; i++) {
+    const int ni = g.fbGroupOrder[first + i];
+    if (ni < 0 || ni >= g.nodeCount) continue;
+    Node& node = g.nodes[ni];
+    for (int c = 0; c < kChannels; c++) {
+      for (int f = 0; f < frames; f++) node.buf[c][f] = g.fbTape[i][c][f];
+    }
+    node.processedThisBlock = 1;
+    node_update_hist_last(node, frames);
+  }
+  g.fbSampleMajor = 0;
+  g.fbActiveGroup = -1;
+  g.fbFrame = 0;
 }
 
 extern "C" int soemdsp_graph_process_block(int handle, int n) {
@@ -10808,8 +11710,14 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
   // Block-rate Control: DSP reads current outs (start of quantum), then the
   // chase advances for the next quantum. Matches "JS is interface / per block."
   // Osc/filter sample paths may step their own Controls per sample instead.
+  g->fbSampleMajor = 0;
+  g->fbActiveGroup = -1;
+  g->fbFrame = 0;
   for (int i = 0; i < g->nodeCount; i++) {
-    if (g->nodes[i].used) g->nodes[i].processedThisBlock = 0;
+    if (g->nodes[i].used) {
+      g->nodes[i].processedThisBlock = 0;
+      g->nodes[i].processedThisSample = 0;
+    }
   }
   for (int oi = 0; oi < g->orderCount; oi++) {
     const int ni = g->order[oi];
@@ -10846,1000 +11754,19 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       node.voiceSilent = false;
     }
 
+    if (node.fbGroupId >= 0) {
+      if (!node.processedThisBlock) {
+        run_feedback_group(*g, node.fbGroupId, frames);
+      }
+      continue;
+    }
+
     for (int c = 0; c < kChannels; c++) zero_buf(node.buf[c], frames);
 
-    // Yellow Graph: handle before generic bypass so Graph copy-thru / clear works.
-    if (node.typeId == kTypeAdditiveGenerator) {
-      process_additive_generator(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveBubble) {
-      process_additive_bubble(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveLinearFilter) {
-      process_additive_linear_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveAnalogFilter) {
-      process_additive_analog_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveLadderFilter) {
-      process_additive_ladder_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveFrequencySkew) {
-      process_additive_frequency_skew(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveQuantizeFreq) {
-      process_additive_quantize_freq(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveQuantizePhase) {
-      process_additive_quantize_phase(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditivePan) {
-      process_additive_pan(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditivePhaseEntry) {
-      process_additive_phase_entry(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveBlaster) {
-      process_additive_blaster(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveDiffusor) {
-      process_additive_diffusor(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveNoisyFreq) {
-      process_additive_noisy_freq(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveNoisyPhase) {
-      process_additive_noisy_phase(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveNoisyPan) {
-      process_additive_noisy_pan(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveNoisyAmp) {
-      process_additive_noisy_amp(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveOut) {
-      process_additive_out(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
+    dispatch_process_node(*g, node, frames);
+    node.processedThisBlock = 1;
+    node_update_hist_last(node, frames);
 
-    if (node.bypassed) {
-      process_bypass(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-
-    if (node.typeId == kTypePolyBlep) {
-      process_polyblep(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeNoiseGenerator) {
-      process_noise_generator(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeRobinSinusoid) {
-      process_robin_sinusoid(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeRobinSupersaw) {
-      process_robin_supersaw(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSlewLimiter) {
-      process_slew_limiter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeComparator) {
-      process_comparator(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSampleDelay) {
-      process_sample_delay(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSampleHold) {
-      process_sample_hold(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeMinMax) {
-      process_min_max(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeMix) {
-      process_mix(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeMixStereo) {
-      process_mix_stereo(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeLadderFilter) {
-      process_ladder(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSoftClipper) {
-      process_soft_clipper(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeClipperLimiter) {
-      process_clipper_limiter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeMidSideEncode) {
-      process_mid_side_encode(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeVectorscopeTransform) {
-      process_vectorscope_transform(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeRotate3dTo2d) {
-      process_rotate_3d_to_2d(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeClock) {
-      process_clock(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeTriggerDivider) {
-      // timingMode≥0.5 → clockDivider (duty/period); else triggerDivider.
-      if (control_effective(node.timingMode) >= 0.5) {
-        process_clock_divider(*g, node, frames);
-      } else {
-        process_trigger_divider(*g, node, frames);
-      }
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeDelayedTrigger) {
-      process_delayed_trigger(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeRandomClock) {
-      process_random_clock(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeTriggerCounter) {
-      process_trigger_counter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeMetallicRatio) {
-      process_metallic_ratio(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeHarmonicSeries) {
-      process_harmonic_series(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeLutCell) {
-      process_lut_cell(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeLookaheadLimiter) {
-      process_lookahead_limiter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePumpLimiter) {
-      process_pump_limiter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAudioPlayer) {
-      process_audio_player(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeStepSequencer) {
-      process_step_sequencer(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeTransport) {
-      process_transport(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAliasSine) {
-      process_alias_sine(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePhoneTone) {
-      process_phone_tone(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeBlit) {
-      process_blit(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSineWavetable) {
-      process_sine_wavetable(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSinCos) {
-      process_sin_cos(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAntisaw) {
-      process_antisaw(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeArchimedes) {
-      process_archimedes(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAdditiveOsc) {
-      process_additive_osc(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSurgeOscillator) {
-      process_surge_oscillator(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSoftwaveOsc) {
-      process_softwave_osc(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeDsfOscillator) {
-      process_dsf_oscillator(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeHypersaw2) {
-      process_hypersaw2(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSinc) {
-      process_sinc(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeBradley2a) {
-      process_bradley2a(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeEllipsoid) {
-      process_ellipsoid(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSnowflake) {
-      process_snowflake(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeButterworth) {
-      process_scientific_iir(*g, node, frames, soemdsp_butterworth_sample);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeLinkwitzRiley) {
-      process_scientific_iir(*g, node, frames, soemdsp_linkwitz_riley_sample);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeBessel) {
-      process_scientific_iir(*g, node, frames, soemdsp_bessel_sample);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePapoulisFilter) {
-      process_papoulis_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSpeakerProtection) {
-      process_speaker_protection(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSpeakerProtector2) {
-      process_speaker_protector2(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAttackDecay) {
-      process_attack_decay(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeBandpass) {
-      process_bandpass(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAllpass) {
-      process_allpass(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeBasicShape) {
-      process_basic_shape(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeChordPad) {
-      process_chord_pad(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeNoteGlide) {
-      process_note_glide(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeNoteTranspose) {
-      process_note_transpose(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeDegreeTuring) {
-      process_degree_turing(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeDegreePhrase) {
-      process_degree_phrase(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeGravityWalker) {
-      process_gravity_walker(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSmoothGraph) {
-      process_smooth_graph(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeStepGraph) {
-      process_step_graph(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePhaseDisperse) {
-      process_phase_disperse(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeQuadrature) {
-      process_quadrature(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeArp) {
-      process_arp(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeHilbert) {
-      process_hilbert(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeBinaryClock) {
-      process_binary_clock(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeChebyshev) {
-      process_scientific_iir(*g, node, frames, soemdsp_chebyshev_sample);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeElliptic) {
-      process_scientific_iir(*g, node, frames, soemdsp_elliptic_sample);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeEqFilter) {
-      process_eq_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeActiveFilter) {
-      process_active_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePassiveFilter) {
-      process_passive_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeTb303Filter) {
-      process_tb303_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeFlowerChildFilter) {
-      process_flower_child_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeYellowjacketFilter) {
-      process_yellowjacket_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSuperloveFilter) {
-      process_superlove_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeHumanFilter) {
-      process_human_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeResonatorFilter) {
-      process_resonator_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeCombResonator) {
-      process_comb_resonator(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeModeResonator) {
-      process_mode_resonator(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeChaoticPhaseLockingFilter) {
-      process_chaotic_phase_locking_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeInertialFilter) {
-      process_inertial_filter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeExpAdsr) {
-      process_exp_adsr(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeLinearEnvelope) {
-      process_linear_envelope(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeWavetableAdsr) {
-      process_wavetable_adsr(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePluckEnvelope) {
-      process_pluck_envelope(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeExpoPluckEnvelope) {
-      process_expo_pluck_envelope(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeExpoPluckEnvelope2) {
-      process_expo_pluck_envelope_2(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeLinearAttackRelease) {
-      process_linear_attack_release(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeCurveAttackRelease) {
-      process_curve_attack_release(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeThumpEnvelope) {
-      process_thump_envelope(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePluckEnvelope3) {
-      process_pluck_envelope_3(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeFlowerChildEnvelopeFollower) {
-      process_flower_child_envelope_follower(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeDelayEffect) {
-      process_delay_effect(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSoemReverb) {
-      process_soem_reverb(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePll) {
-      process_pll(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeLorenzAttractor) {
-      process_lorenz_attractor(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeLogisticMap) {
-      process_logistic_map(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeHenonMap) {
-      process_henon_map(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeChuaAttractor) {
-      process_chua_attractor(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeChaosfly) {
-      process_chaosfly(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeRayBouncer) {
-      process_ray_bouncer(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeChordMemory) {
-      process_chord_memory(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeChordSequencer) {
-      process_chord_sequencer(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePitchQuantizer) {
-      process_pitch_quantizer(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeTuringMachine) {
-      process_turing_machine(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeFractalBrownianNoise) {
-      process_fractal_brownian_noise(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePiSpigotNoise) {
-      process_pi_spigot_noise(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeRandomWalk) {
-      process_random_walk(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeCheapWalk) {
-      process_cheap_walk(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeVibratoGenerator) {
-      process_vibrato_generator(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeWowAndFlutter) {
-      process_wow_and_flutter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeVactrol) {
-      process_vactrol(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePulseExplosion) {
-      process_pulse_explosion(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeSpiral) {
-      process_jerobeam_spiral(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeFractalSpiral) {
-      process_fractal_spiral(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeLogSpiral) {
-      process_log_spiral(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeBlubb) {
-      process_blubb(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeBoing) {
-      process_boing(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeKeplerBouwkamp) {
-      process_kepler_bouwkamp(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeMushroom) {
-      process_mushroom(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeNyquistShannon) {
-      process_nyquist_shannon(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeRadar) {
-      process_radar(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeTorus) {
-      process_torus(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeWirdoSpiral) {
-      process_wirdo_spiral(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePhosphillator) {
-      process_phosphillator(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId >= kTypeCrossover2 && node.typeId <= kTypeCrossover6) {
-      process_crossover(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeReverbEffect) {
-      process_reverb(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePingPongDelay) {
-      process_ping_pong(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAttenuverter) {
-      process_attenuverter(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAmpCurve) {
-      process_amp_curve(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeRasterRgb) {
-      process_raster_rgb(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeRange) {
-      process_range(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeInv) {
-      process_inv(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeTransistor) {
-      process_transistor(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeU2b) {
-      process_u2b(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeB2u) {
-      process_b2u(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeBias) {
-      process_bias(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeGain) {
-      process_gain(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeOutput) {
-      process_output(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePortalOutlet) {
-      process_portal_outlet(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypePortalInlet) {
-      process_portal_inlet(*g, node, frames);
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    if (node.typeId == kTypeAudioInput) {
-      // Host mic bus not in graph_engine yet — silence (module stays plan-legal).
-      for (int f = 0; f < frames; f++) {
-        node.buf[kPortMono][f] = 0.0;
-        node.buf[kPortLeft][f] = 0.0;
-        node.buf[kPortRight][f] = 0.0;
-      }
-      node.processedThisBlock = 1;
-      node_update_hist_last(node, frames);
-      continue;
-    }
-    // unknown: silence
   }
 
   // Catch-up chase for Controls not heard via control_audio this quantum.
@@ -11977,5 +11904,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 138; // skip orphan DSP; hasParamMods gate; hypersaw2 static path
+  return 139; // 1-sample delay groups for multi-node feedback SCCs
 }

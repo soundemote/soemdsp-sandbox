@@ -8,6 +8,8 @@
 // Jitter Distance J (>=0, not hard-capped): walk within ±(1/N)*J around centers.
 // Phase Collapse: Merge (0) centers=(i/N)*J; Distribute (1) centers=i/N.
 // Jitter Speed (Hz) × tilt: walkHz = Speed × (f/Ref)^(tilt+1).
+// Vibrato Amp × tilt: depth × (|f|/100 Hz)^tilt.
+//   −1 lows more (∝ 1/f).  0 even.  +1 highs more (∝ f, previous law).
 // Randomize Phase = permanent offset after Distance.
 // Rising Reset re-zeros master + re-rolls seeds.
 // Display: soemdsp_hypersaw2_voice_phase → wrap01(center + walk + randomize).
@@ -374,7 +376,8 @@ extern "C" void soemdsp_hypersaw2_sample(
   double level,
   double seedParam,
   double freeRunningPhase,
-  double jitterSpeedRefHz
+  double jitterSpeedRefHz,
+  double vibratoTilt
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   Hypersaw2State& s = gPool[handle - 1];
@@ -438,6 +441,9 @@ extern "C" void soemdsp_hypersaw2_sample(
   double tilt = (jitterTilt == jitterTilt) ? jitterTilt : -1.0;
   if (tilt < -1.0) tilt = -1.0;
   if (tilt > 1.0) tilt = 1.0;
+  double vibTilt = (vibratoTilt == vibratoTilt) ? vibratoTilt : 0.0;
+  if (vibTilt < -1.0) vibTilt = -1.0;
+  if (vibTilt > 1.0) vibTilt = 1.0;
   double speedRef = (jitterSpeedRefHz == jitterSpeedRefHz) ? jitterSpeedRefHz : 261.625565;
   if (!(speedRef > 1.0e-6)) speedRef = 261.625565;
   const double cs = clampD(centerSide, 0.0, 1.0);
@@ -484,10 +490,23 @@ extern "C" void soemdsp_hypersaw2_sample(
   }
   const double jSpeedEff = jSpeed * speedScale;
 
-  // Vibrato depth scales with |f|/ref (instant).
-  const double distComp = (oscAbs > 1.0e-12) ? (oscAbs / kDistanceRefHz) : 0.0;
+  // Vibrato Amp pitch curve — same power idea as Jitter Tilt, on depth not rate:
+  //   scale = (|f| / 100 Hz)^tilt
+  //   −1 lows more (∝ 1/f).  0 even (constant phase-offset depth).
+  //   +1 highs more (∝ f) — previous hardcoded |f|/100.
+  double vibScale = 1.0;
+  {
+    const double fVib = (oscAbs > 1.0e-12) ? oscAbs : kDistanceRefHz;
+    if (vibTilt * vibTilt > 1.0e-12) {
+      const double ratio = fVib / kDistanceRefHz;
+      vibScale = (ratio > 0.0) ? dsp_exp(vibTilt * dsp_ln(ratio)) : 1.0;
+    }
+    if (!(vibScale > 0.0)) vibScale = 1.0;
+    if (vibScale > 64.0) vibScale = 64.0;
+    if (vibScale < (1.0 / 64.0)) vibScale = 1.0 / 64.0;
+  }
   const double jDistance = jDistanceTarget;
-  const double vibAmpDist = vibAmp * distComp;
+  const double vibAmpDist = vibAmp * vibScale;
 
   double leftSum = 0.0;
   double rightSum = 0.0;
@@ -592,5 +611,5 @@ extern "C" int soemdsp_hypersaw2_max_voices() {
 }
 
 extern "C" int soemdsp_hypersaw2_version() {
-  return 41; // 0 Hz allowed (no dt floor); Phase Slew gone
+  return 42; // Vibrato Tilt (−1 lows / 0 even / +1 highs = old |f|/100)
 }

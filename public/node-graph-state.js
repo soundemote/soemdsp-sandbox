@@ -108,6 +108,7 @@ var nodeGraphMvp = {
   midiKeyboardAccess: null,
   midiKeyboardHeldKeysLowBitmask: 0,
   midiKeyboardHeldKeysHighBitmask: 0,
+  midiKeyboardHeldKeyVelocities: new Uint8Array(88),
   midiKeyboardArpLatchPointerId: null,
   midiKeyboardHeldNotes: new Map(),
   // Local piano held notes (midi → velocity 1..127) for Keyboard Polyphony out.

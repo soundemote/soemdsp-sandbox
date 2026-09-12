@@ -62,6 +62,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
   const jitterSpeed = Number(options.jitterSpeed ?? options.jitterSpeedHz);
   const jitterTilt = Number(options.jitterTilt ?? -1);
   const jitterSpeedRef = Number(options.jitterSpeedRef);
+  const vibratoTilt = Number(options.vibratoTilt);
   const centerSide = Number(options.centerSide);
   const waveform = Number(options.waveform);
   const morph = Number(options.morph);
@@ -90,6 +91,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     Number.isFinite(seed) ? seed : 1,
     0, // freeRunningPhase unused — locked master only
     Number.isFinite(jitterSpeedRef) ? jitterSpeedRef : 261.625565,
+    Number.isFinite(vibratoTilt) ? vibratoTilt : 0,
   );
   const n = wasm.soemdsp_hypersaw2_voice_count
     ? Math.max(0, Math.min(64, wasm.soemdsp_hypersaw2_voice_count(state.nativeHandle) | 0))

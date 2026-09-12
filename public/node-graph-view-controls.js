@@ -2576,6 +2576,10 @@ function nodeGraphMidiKeyboardBitmaskRotate(low, high, keyCount) {
       nodeGraphMidiKeyboardHeldKeyBitIsSet(index - 1, low, high),
     );
   }
+  nodeGraphMidiKeyboardPermuteHeldKeyVelocities(
+    (i) => (i + 1) % keyCount,
+    keyCount,
+  );
   return nodeGraphMidiKeyboardHeldKeysWithBit(rotated.low, rotated.high, 0, topBit);
 }
 
@@ -2597,10 +2601,41 @@ function nodeGraphMidiKeyboardBitmaskTranspose(low, high, keyCount, interval) {
       transposed = nodeGraphMidiKeyboardHeldKeysWithBit(transposed.low, transposed.high, target, true);
     }
   }
+  nodeGraphMidiKeyboardPermuteHeldKeyVelocities(
+    (i) => ((i + interval) % keyCount + keyCount) % keyCount,
+    keyCount,
+  );
   return transposed;
 }
 
-function nodeGraphMidiKeyboardToggleHeldKeyBit(index) {
+function nodeGraphMidiKeyboardEnsureHeldKeyVelocities() {
+  const n = nodeGraphMidiKeyboardMaxKeyCount;
+  if (!(nodeGraphMvp.midiKeyboardHeldKeyVelocities instanceof Uint8Array)
+    || nodeGraphMvp.midiKeyboardHeldKeyVelocities.length < n) {
+    const next = new Uint8Array(n);
+    if (nodeGraphMvp.midiKeyboardHeldKeyVelocities instanceof Uint8Array) {
+      next.set(nodeGraphMvp.midiKeyboardHeldKeyVelocities.subarray(0, n));
+    }
+    nodeGraphMvp.midiKeyboardHeldKeyVelocities = next;
+  }
+  return nodeGraphMvp.midiKeyboardHeldKeyVelocities;
+}
+
+/** Permute gold-latch velocities with the same index map as rotate/transpose. */
+function nodeGraphMidiKeyboardPermuteHeldKeyVelocities(srcToDst, keyCount) {
+  const src = nodeGraphMidiKeyboardEnsureHeldKeyVelocities();
+  const dst = new Uint8Array(nodeGraphMidiKeyboardMaxKeyCount);
+  const n = Math.max(0, Math.min(nodeGraphMidiKeyboardMaxKeyCount, Math.round(Number(keyCount)) || 0));
+  for (let i = 0; i < n; i += 1) {
+    const v = src[i] | 0;
+    if (!v) continue;
+    const t = Math.round(Number(srcToDst(i)));
+    if (t >= 0 && t < dst.length) dst[t] = v;
+  }
+  nodeGraphMvp.midiKeyboardHeldKeyVelocities = dst;
+}
+
+function nodeGraphMidiKeyboardToggleHeldKeyBit(index, strikeVelocity01) {
   const wasOn = nodeGraphMidiKeyboardHeldKeyBitIsSet(index);
   const { low, high } = nodeGraphMidiKeyboardHeldKeysWithBit(
     nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
@@ -2610,21 +2645,36 @@ function nodeGraphMidiKeyboardToggleHeldKeyBit(index) {
   );
   nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = low;
   nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = high;
-  renderNodeGraphMidiKeyboardHeldKeys();
-  saveNodeGraphMidiKeyboardMemory();
-  if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
-    sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
-  }
+  const vels = nodeGraphMidiKeyboardEnsureHeldKeyVelocities();
+  const idx = Math.max(0, Math.min(vels.length - 1, Math.round(Number(index)) || 0));
   // Gold → Voices via VoiceManager note events (absolute sounding MIDI).
   // Arp Keys bitmask stays for paint / Arp module only — not OR'd into Voices.
-  const rawMidi = nodeGraphMidiKeyboardStartMidi + Math.round(Number(index) || 0);
+  const rawMidi = nodeGraphMidiKeyboardStartMidi + idx;
   const midi = typeof nodeGraphMidiKeyboardShiftMidi === "function"
     ? nodeGraphMidiKeyboardShiftMidi(rawMidi)
     : Math.max(0, Math.min(127, rawMidi));
   if (wasOn) {
+    vels[idx] = 0;
     if (typeof sendNodeGraphLiveVmNoteOff === "function") sendNodeGraphLiveVmNoteOff(midi);
-  } else if (typeof sendNodeGraphLiveVmNoteOn === "function") {
-    sendNodeGraphLiveVmNoteOn(midi, 100 / 127);
+  } else {
+    const strike = Number.isFinite(Number(strikeVelocity01))
+      ? nodeGraphMidiKeyboardClamp01(strikeVelocity01)
+      : 1;
+    const mapped = typeof nodeGraphMidiKeyboardMapStrikeVelocity01 === "function"
+      ? nodeGraphMidiKeyboardMapStrikeVelocity01(strike)
+      : strike;
+    let midiVel = Math.round(mapped * 127);
+    if (!(midiVel > 0)) midiVel = 1;
+    if (midiVel > 127) midiVel = 127;
+    vels[idx] = midiVel;
+    if (typeof sendNodeGraphLiveVmNoteOn === "function") {
+      sendNodeGraphLiveVmNoteOn(midi, midiVel / 127);
+    }
+  }
+  renderNodeGraphMidiKeyboardHeldKeys();
+  saveNodeGraphMidiKeyboardMemory();
+  if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
+    sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
   }
 }
 
@@ -2838,6 +2888,7 @@ function nodeGraphMidiKeyboardMemoryPayload() {
   return {
     heldKeysLowBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(nodeGraphMvp.midiKeyboardHeldKeysLowBitmask),
     heldKeysHighBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(nodeGraphMvp.midiKeyboardHeldKeysHighBitmask),
+    heldKeyVelocities: Array.from(nodeGraphMidiKeyboardEnsureHeldKeyVelocities()),
     inputId: nodeGraphMvp.midiKeyboardInputId || "",
     listenChannel: nodeGraphMidiListenChannel(),
     keyCount: nodeGraphMidiKeyboardKeyCount(),
@@ -2881,6 +2932,9 @@ function loadNodeGraphMidiKeyboardMemory() {
     return {
       heldKeysLowBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(payload.heldKeysLowBitmask),
       heldKeysHighBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(payload.heldKeysHighBitmask),
+      heldKeyVelocities: Array.isArray(payload.heldKeyVelocities)
+        ? payload.heldKeyVelocities
+        : null,
       inputId: String(payload.inputId || ""),
       listenChannel: nodeGraphMidiListenChannel(payload.listenChannel),
       keyCount: nodeGraphMidiKeyboardKeyCount(payload.keyCount),
@@ -2911,6 +2965,15 @@ function applyNodeGraphMidiKeyboardMemory() {
   }
   nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = memory.heldKeysLowBitmask;
   nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = memory.heldKeysHighBitmask;
+  if (Array.isArray(memory.heldKeyVelocities)) {
+    const vels = nodeGraphMidiKeyboardEnsureHeldKeyVelocities();
+    vels.fill(0);
+    const n = Math.min(vels.length, memory.heldKeyVelocities.length);
+    for (let i = 0; i < n; i += 1) {
+      const v = Math.round(Number(memory.heldKeyVelocities[i]) || 0);
+      vels[i] = v > 0 ? Math.min(127, v) : 0;
+    }
+  }
   nodeGraphMvp.midiKeyboardInputId = memory.inputId;
   nodeGraphMvp.midiListenChannel = memory.listenChannel;
   nodeGraphMvp.midiKeyboardKeyCount = memory.keyCount;
@@ -2953,6 +3016,15 @@ function applyNodeGraphKeyboardLatchFromPatch(patch = nodeGraphMvp?.patch) {
   const high = nodeGraphMidiKeyboardHeldKeysBitmaskValue(latch.highBitmask ?? latch.high);
   nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = low;
   nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = high;
+  if (Array.isArray(latch.velocities) || latch.velocities instanceof Uint8Array) {
+    const vels = nodeGraphMidiKeyboardEnsureHeldKeyVelocities();
+    vels.fill(0);
+    const n = Math.min(vels.length, latch.velocities.length);
+    for (let i = 0; i < n; i += 1) {
+      const v = Math.round(Number(latch.velocities[i]) || 0);
+      vels[i] = v > 0 ? Math.min(127, v) : 0;
+    }
+  }
   nodeGraphMvp.midiKeyboardMemoryLoaded = true;
   if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
     renderNodeGraphMidiKeyboardHeldKeys();
@@ -3223,9 +3295,25 @@ function nodeGraphMidiKeyboardKeyFromPointer(event, surface) {
 }
 
 /**
- * Pointer X on the keyboard surface; Y / velocity from full surface height.
- * Velocity: vertical center = 1 (max), top and bottom edges = 0 (min).
- * Same mapping for black and white keys (do not use per-key height).
+ * Strike velocity from pointer Y on a key rect.
+ * Top of key = 0 (min), bottom of key = 1 (max). A pad at each end (fraction
+ * of the painted key height) saturates min/max so the user does not need the
+ * last pixel. getBoundingClientRect is post-transform, so pad scales with
+ * workspace zoom and keyboardHeight / blackKeyHeight.
+ */
+function nodeGraphMidiKeyboardStrikeVelocityFromClientY(clientY, keyRect) {
+  if (!keyRect) {
+    return 0;
+  }
+  const h = Math.max(1, Number(keyRect.height) || 0);
+  const pad = Math.min(h * 0.10, h * 0.22);
+  const inner = Math.max(1, h - pad * 2);
+  return nodeGraphMidiKeyboardClamp01((clientY - keyRect.top - pad) / inner);
+}
+
+/**
+ * Pointer X on the keyboard surface; Y from full surface height.
+ * Velocity from the key under the pointer (white or black painted box).
  */
 function nodeGraphMidiKeyboardPointerXY(event, surface) {
   const rect = surface.getBoundingClientRect();
@@ -3234,9 +3322,10 @@ function nodeGraphMidiKeyboardPointerXY(event, surface) {
   const key = nodeGraphMidiKeyboardKeyFromPointer(event, surface);
   // 0 at top edge → 1 at bottom (kept for scrub/readouts); velocity is separate.
   const y = nodeGraphMidiKeyboardClamp01((event.clientY - rect.top) / height);
-  const half = height * 0.5;
-  const distFromCenter = Math.abs(event.clientY - (rect.top + half));
-  const velocity = nodeGraphMidiKeyboardClamp01(1 - distFromCenter / half);
+  const velRect = key && typeof key.getBoundingClientRect === "function"
+    ? key.getBoundingClientRect()
+    : rect;
+  const velocity = nodeGraphMidiKeyboardStrikeVelocityFromClientY(event.clientY, velRect);
   return { x, y, velocity, key };
 }
 
@@ -3727,7 +3816,8 @@ function nodeGraphMidiKeyboardApplyArpLatchAtPointer(event, surface) {
       syncNodeGraphKeyboardPolyphonyFromHeldNotes();
     }
   } else {
-    nodeGraphMidiKeyboardToggleHeldKeyBit(index);
+    const strike = nodeGraphMidiKeyboardPointerXY(event, surface).velocity;
+    nodeGraphMidiKeyboardToggleHeldKeyBit(index, strike);
   }
   return true;
 }
@@ -3790,7 +3880,8 @@ function updateNodeGraphMidiKeyboardSignal(event) {
   if (event.type === "pointerdown" && mode === "toggle" && !event.ctrlKey && !event.shiftKey && !event.altKey) {
     const target = event.target?.closest?.("[data-key-index]");
     if (target && surface.contains(target)) {
-      nodeGraphMidiKeyboardToggleHeldKeyBit(Number(target.dataset.keyIndex));
+      const strike = nodeGraphMidiKeyboardPointerXY(event, surface).velocity;
+      nodeGraphMidiKeyboardToggleHeldKeyBit(Number(target.dataset.keyIndex), strike);
     }
     event.preventDefault();
     return;
@@ -4152,6 +4243,7 @@ function syncNodeGraphKeyboardPolyphonyFromHeldNotes() {
       nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
       base,
       100,
+      nodeGraphMvp.midiKeyboardHeldKeyVelocities,
     );
   } else {
     const lo = Math.trunc(Number(nodeGraphMvp.midiKeyboardHeldKeysLowBitmask) || 0);
@@ -4161,7 +4253,11 @@ function syncNodeGraphKeyboardPolyphonyFromHeldNotes() {
       const bit = i < 49 ? i : i - 49;
       if (Math.floor(mask / (2 ** bit)) % 2 === 1) {
         const m = base + i;
-        if (m >= 0 && m < 128 && !table[m]) table[m] = 100;
+        if (m >= 0 && m < 128 && !table[m]) {
+          const gv = nodeGraphMvp.midiKeyboardHeldKeyVelocities;
+          const stored = gv instanceof Uint8Array ? (gv[i] | 0) : 0;
+          table[m] = stored > 0 ? Math.min(127, stored) : 100;
+        }
       }
     }
   }

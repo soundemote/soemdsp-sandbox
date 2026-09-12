@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=skip-orphan-dsp-138";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=fb-group-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2608,15 +2608,20 @@ function sendNodeGraphLiveMidiKeyboardHeldKeysBitmask(
   const safeHigh = Math.floor(Number(high));
   const lowPayload = Number.isFinite(safeLow) && safeLow >= 0 ? safeLow : 0;
   const highPayload = Number.isFinite(safeHigh) && safeHigh >= 0 ? safeHigh : 0;
+  const vels = nodeGraphMvp.midiKeyboardHeldKeyVelocities instanceof Uint8Array
+    ? new Uint8Array(nodeGraphMvp.midiKeyboardHeldKeyVelocities)
+    : null;
   if (nodeGraphMvp.live.runtime) {
     nodeGraphMvp.live.runtime.midiKeyboardHeldKeysLowBitmask = lowPayload;
     nodeGraphMvp.live.runtime.midiKeyboardHeldKeysHighBitmask = highPayload;
+    if (vels) nodeGraphMvp.live.runtime.midiKeyboardHeldKeyVelocities = vels;
   }
   if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
     nodeGraphMvp.live.node.port.postMessage({
       high: highPayload,
       low: lowPayload,
       type: "setMidiKeyboardHeldKeysBitmask",
+      velocities: vels,
     });
   }
 }
@@ -3114,17 +3119,17 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
   "./public/node-live-audio-worklet-dsp-state.js?v=protect-worklet-1",
-  "./public/lib/polyphony-voices.js?v=gold-sustain-1",
-  "./public/node-live-audio-worklet-events.js?v=voice-count-rebuild-1",
+  "./public/lib/polyphony-voices.js?v=gold-vel-1",
+  "./public/node-live-audio-worklet-events.js?v=gold-vel-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=no-meta-hot-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=vibrato-tilt-1",
   "./public/node-live-audio-worklet-meta-view.js?v=meta-view-rewrite-1",
   "./public/node-live-audio-worklet-set-plan.js?v=meta-payload-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=meta-view-rewrite-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=gold-vel-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=meta-view-rewrite-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
