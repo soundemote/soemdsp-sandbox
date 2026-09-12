@@ -174,15 +174,23 @@ function showNodeGraphModule(node, point = null, options = {}) {
     }
     return "";
   }
-  // Meta In/Out only exist inside a Metamodule view (always hidden on Root).
+  // Meta In/Out / Voice* only exist inside a Metamodule view (always hidden on Root).
   if (
-    typeof nodeGraphIsMetamoduleBoundaryType === "function"
-    && nodeGraphIsMetamoduleBoundaryType(type)
-    && typeof nodeGraphMetamoduleIsRootView === "function"
+    typeof nodeGraphMetamoduleIsRootView === "function"
     && nodeGraphMetamoduleIsRootView()
+    && (
+      (typeof nodeGraphIsMetamoduleBoundaryType === "function"
+        && nodeGraphIsMetamoduleBoundaryType(type))
+      || (typeof nodeGraphIsMetamoduleVoicePortalType === "function"
+        && nodeGraphIsMetamoduleVoicePortalType(type))
+    )
   ) {
     if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp("Open a Metamodule (double-click) to place Meta In / Meta Out.");
+      setNodeInteractionHelp(
+        nodeGraphIsMetamoduleVoicePortalType?.(type)
+          ? "Open a Metamodule (double-click) to use Voice Frequency / Gate / Trigger."
+          : "Open a Metamodule (double-click) to place Meta In / Meta Out.",
+      );
     }
     return "";
   }
@@ -256,6 +264,14 @@ function showNodeGraphModule(node, point = null, options = {}) {
       newNode,
     ],
   };
+  // Fresh Metamodule shell on Root: seed Voice* + default Left/Right outs.
+  if (
+    typeof nodeGraphIsMetamoduleType === "function"
+    && nodeGraphIsMetamoduleType(type)
+    && typeof nodeGraphMetamoduleEnsureInterior === "function"
+  ) {
+    nodeGraphMetamoduleEnsureInterior(newNode.id, patch);
+  }
   const commitAdd = () => {
     commitNodeGraphPatch(patch, {
       status: options.status || "module added",

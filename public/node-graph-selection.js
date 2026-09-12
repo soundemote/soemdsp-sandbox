@@ -571,6 +571,11 @@ function nodeGraphNodeCanBeDeleted(node) {
   if (node.type === "output" || node.type === "audioInput" || node.id === "home") {
     return false;
   }
+  // Metamodule Voice* bus + default Left/Right Meta Outs.
+  if (typeof nodeGraphMetamoduleNodeIsProtected === "function"
+    && nodeGraphMetamoduleNodeIsProtected(node)) {
+    return false;
+  }
   return true;
 }
 

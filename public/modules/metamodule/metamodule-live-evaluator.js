@@ -1,4 +1,4 @@
-// Metamodule boundary thrus + shell stub (Playmode Off = no voice runner yet).
+// Metamodule boundary thrus + shell stub. Voice bus values come from native feeders.
 globalThis.nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators || {};
 var nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators;
 
@@ -10,6 +10,11 @@ nodeGraphLiveModuleEvaluators.metamoduleOut = ({ mixInput, nodeId }) => ({
   Out: mixInput(nodeId, "In"),
 });
 
-// Shell is chrome-only until the native voice runner (S4).
+// Live stubs — real Voice* CV is written by native per-lane Bias feeders.
+nodeGraphLiveModuleEvaluators.voiceFrequency = () => ({ Frequency: 0, Out: 0 });
+nodeGraphLiveModuleEvaluators.voiceGate = () => ({ Gate: 0, Out: 0 });
+nodeGraphLiveModuleEvaluators.voiceTrigger = () => ({ Trigger: 0, Out: 0 });
+
+// Shell is chrome-only; voice runner lives in native-graph.
 nodeGraphLiveModuleEvaluators.metamodule = () => ({});
 nodeGraphLiveModuleEvaluators.group = () => ({});

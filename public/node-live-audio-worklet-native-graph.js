@@ -1847,8 +1847,9 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
 };
 
 /**
- * Metamodule Polyphony → voice lanes (compile-once; open/close + per-lane pitch).
+ * Metamodule Polyphony → voice lanes (open/close + Voice* Bias feeders).
  * Play Keys / Arp Keys bitmasks on Polyphony. Mono = first lane; Voices = N lanes.
+ * Voice Frequency = midiToHz(note) * 2^(oct + st/12 + cents/1200) + Frequency.
  */
 NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function syncNativeMetaPolyphonyVoiceGates() {
   if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
@@ -1883,9 +1884,16 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
   const ampParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE;
   const attOffset = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
   const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
-  const pitchFeeders = Array.isArray(this._nativeMetaVoicePitchFeeders)
-    ? this._nativeMetaVoicePitchFeeders
-    : [];
+  const busFeeders = Array.isArray(this._nativeMetaVoiceBusFeeders)
+    ? this._nativeMetaVoiceBusFeeders
+    : (Array.isArray(this._nativeMetaVoicePitchFeeders) ? this._nativeMetaVoicePitchFeeders : []);
+  const gateCableMetas = this._nativeMetaVoiceGateCableMetas instanceof Set
+    ? this._nativeMetaVoiceGateCableMetas
+    : new Set();
+  if (!this._metaVoicePrevNotes) {
+    this._metaVoicePrevNotes = new Map();
+  }
+  const prevNotesByMeta = this._metaVoicePrevNotes;
 
   const readPolyBits = (metaId) => {
     const polyKey = typeof this.inputKey === "function"
@@ -1946,68 +1954,96 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     return notes;
   };
 
-  for (const [metaId, metaNode] of this.nodes) {
+  const voiceHz = (midi, metaNode) => {
+    if (!(midi >= 0)) return 0;
+    const oct = Number(metaNode?.params?.octave) || 0;
+    const st = Number(metaNode?.params?.semitones) || 0;
+    const cents = Number(metaNode?.params?.cents) || 0;
+    const freqOff = Number(metaNode?.params?.frequency) || 0;
+    const base = 440 * (2 ** ((midi - 69) / 12));
+    return base * (2 ** (oct + (st / 12) + (cents / 1200))) + freqOff;
+  };
+
+  const faceAmpOf = (childId) => {
+    const child = this.nodes.get(childId);
+    const a = Number(child?.params?.amplitude);
+    if (Number.isFinite(a) && a > 0) return Math.min(1, a);
+    return 1;
+  };
+
+  for (const [metaIdRaw, metaNode] of this.nodes) {
     if (String(metaNode?.type || "") !== "metamodule") {
       continue;
     }
+    const metaId = String(metaIdRaw);
     const playmode = Math.round(Number(metaNode?.params?.playmode) || 0);
     if (!(playmode >= 1)) {
       continue;
     }
     const notes = readPolyBits(metaId);
-    const metaLanes = lanes.filter((l) => l.metaId === String(metaId));
+    const prevNotes = prevNotesByMeta.get(metaId) || [];
+    const metaLanes = lanes.filter((l) => l.metaId === metaId);
+    const hasVoiceGate = gateCableMetas.has(metaId);
+    const laneCount = playmode === 4
+      ? Math.max(1, Math.min(32, Math.round(Number(metaNode?.params?.voices) || 1)))
+      : 1;
 
-    // Face Amplitude (0…1). Open gates use this so a face Amp of 0 stays silent
-    // only when closed — open uses max(faceAmp, 1e-3) so poly isn't stuck at 0.
-    const faceAmpOf = (childId) => {
-      const child = this.nodes.get(childId);
-      const a = Number(child?.params?.amplitude);
-      if (Number.isFinite(a) && a > 0) return Math.min(1, a);
-      return 1;
-    };
+    // Drive Voice* Bias feeders from note list + shared Meta pitch params.
+    for (let fi = 0; fi < busFeeders.length; fi += 1) {
+      const feed = busFeeders[fi];
+      if (!feed?.hash || feed.metaId !== metaId) continue;
+      const v = feed.voiceIndex | 0;
+      const midi = v < notes.length ? notes[v] : -1;
+      const prevMidi = v < prevNotes.length ? prevNotes[v] : -1;
+      const open = midi >= 0;
+      const kind = String(feed.kind || "frequency");
+      let value = 0;
+      if (kind === "frequency") {
+        value = open ? voiceHz(midi, metaNode) : 0;
+      } else if (kind === "gate") {
+        value = open ? 1 : 0;
+      } else if (kind === "trigger") {
+        // Note-on edge for this lane only (one quantum pulse).
+        value = open && midi !== prevMidi ? 1 : 0;
+      }
+      this.pushNativeGraphParam(native, feed.hash, attOffset, value);
+    }
 
-    // Voices mode with compiled lanes: one pitch per open key, up to N.
-    if (playmode === 4 && metaLanes.length) {
-      for (let li = 0; li < metaLanes.length; li += 1) {
-        const lane = metaLanes[li];
-        const n = lane.voiceIds.length;
-        const faceAmp = faceAmpOf(lane.baseId);
-        for (let v = 0; v < n; v += 1) {
-          const oscId = lane.voiceIds[v];
-          const oscHash = this.fnv1aHash32(oscId);
-          const midi = v < notes.length ? notes[v] : -1;
-          const open = midi >= 0;
-          this.pushNativeGraphParam(native, oscHash, ampParam, open ? faceAmp : 0);
-          const feed = pitchFeeders.find(
-            (f) => f.metaId === lane.metaId && f.voiceIndex === v && f.oscId === oscId,
-          );
-          if (feed?.hash) {
-            const freq = open ? 440 * (2 ** ((midi - 69) / 12)) : 0;
-            this.pushNativeGraphParam(native, feed.hash, attOffset, freq);
+    // Hypersaw Amplitude fallback when Voice Gate is not wired.
+    if (!hasVoiceGate) {
+      if (playmode === 4 && metaLanes.length) {
+        for (let li = 0; li < metaLanes.length; li += 1) {
+          const lane = metaLanes[li];
+          const n = lane.voiceIds.length;
+          const faceAmp = faceAmpOf(lane.baseId);
+          for (let v = 0; v < n; v += 1) {
+            const oscId = lane.voiceIds[v];
+            const midi = v < notes.length ? notes[v] : -1;
+            this.pushNativeGraphParam(
+              native,
+              this.fnv1aHash32(oscId),
+              ampParam,
+              midi >= 0 ? faceAmp : 0,
+            );
           }
         }
+      } else {
+        const gate = notes.length > 0;
+        for (const [childId, child] of this.nodes) {
+          if (String(child?.ownerMetamoduleId || "") !== metaId) continue;
+          const t = String(child?.type || "");
+          if (t !== "hypersaw" && t !== "hypersaw2") continue;
+          this.pushNativeGraphParam(
+            native,
+            this.fnv1aHash32(childId),
+            ampParam,
+            gate ? faceAmpOf(childId) : 0,
+          );
+        }
       }
-      continue;
     }
 
-    // Mono / legato (no lane clones): gate authoring Hypersaw; pitch via Meta In f.
-    const gate = notes.length > 0;
-    for (const [childId, child] of this.nodes) {
-      if (String(child?.ownerMetamoduleId || "") !== String(metaId)) {
-        continue;
-      }
-      const t = String(child?.type || "");
-      if (t !== "hypersaw" && t !== "hypersaw2") {
-        continue;
-      }
-      const faceAmp = faceAmpOf(childId);
-      this.pushNativeGraphParam(
-        native,
-        this.fnv1aHash32(childId),
-        ampParam,
-        gate ? faceAmp : 0,
-      );
-    }
+    prevNotesByMeta.set(metaId, notes.slice(0, laneCount));
   }
 };
 
@@ -4911,16 +4947,32 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         continue;
       }
 
-      // Meta Out → outside: insert Amplitude VCA. Internal meta wiring stays unity.
+      // Voice bus portals → dedicated per-lane Bias feeders (not a shared host CV).
+      const srcPlanForBus = this.nodes.get(src);
+      const srcBusType = String(srcPlanForBus?.type || "");
+      if (
+        srcBusType === "voiceFrequency"
+        || srcBusType === "voiceGate"
+        || srcBusType === "voiceTrigger"
+      ) {
+        continue;
+      }
+
+      // Group Amplitude inlet → VCA on Meta Out → outside. Metamodule has no Amp inlet.
       const srcPlanNode = this.nodes.get(src);
       let routeViaMetaAmp = false;
       let metaAmpPortalId = "";
       let metaAmpOwnerId = "";
       if (srcPlanNode?.type === "metamoduleOut") {
         metaAmpOwnerId = String(srcPlanNode.ownerMetamoduleId || "");
+        const ownerNode = this.nodes.get(metaAmpOwnerId);
         const dstPlanNode = this.nodes.get(dst);
         const dstOwner = String(dstPlanNode?.ownerMetamoduleId || "");
-        if (metaAmpOwnerId && dstOwner !== metaAmpOwnerId) {
+        if (
+          ownerNode?.type === "group"
+          && metaAmpOwnerId
+          && dstOwner !== metaAmpOwnerId
+        ) {
           routeViaMetaAmp = true;
           metaAmpPortalId = src;
         }
@@ -4946,7 +4998,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         continue;
       }
 
-      // Voices mode: per-lane pitch comes from VoiceManager Bias feeders, not mono f.
+      // Voices mode: per-lane pitch comes from Voice Frequency Bias feeders, not mono f.
       if (voiceLaneByBase.has(dst) && isOscPitchPort(dstPort)) {
         continue;
       }
@@ -4965,44 +5017,96 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       }
     }
 
-    // Per-voice pitch Bias → each Hypersaw lane's f (Voices mode).
-    const metaVoicePitchFeeders = [];
-    for (let li = 0; li < metaVoiceLanes.length; li += 1) {
-      const lane = metaVoiceLanes[li];
-      for (let v = 0; v < lane.voiceIds.length; v += 1) {
-        const oscId = lane.voiceIds[v];
-        if (!idSet.has(oscId) || !biasTypeId) continue;
-        const feedId = `__metaVoicePitch:${lane.metaId}:${v}:${oscId}`;
-        const feedHash = this.fnv1aHash32(feedId);
-        const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, biasTypeId) | 0;
-        if (arc !== 0) {
-          this.postNativeGraphStatus("warning", `voice pitch feeder add failed (${arc}) ${feedId}`);
-          continue;
+    // Voice Frequency / Gate / Trigger → per-lane Bias feeders (user-wired only).
+    const metaVoiceBusFeeders = [];
+    const metaVoiceGateCableMetas = new Set();
+    const findVoicePortalId = (metaId, type) => {
+      const prefer = `${metaId}__${type}`;
+      const preferred = this.nodes.get(prefer);
+      if (preferred && String(preferred.type || "") === type) return prefer;
+      for (const [nid, n] of this.nodes) {
+        if (String(n?.type || "") !== type) continue;
+        if (String(n?.ownerMetamoduleId || "") === metaId) return String(nid);
+      }
+      return "";
+    };
+    const addVoiceBusFeeder = (kind, metaId, voiceIndex, dstId, dstPort) => {
+      if (!biasTypeId || !idSet.has(dstId)) return;
+      const feedId = `__metaVoiceBus:${kind}:${metaId}:${voiceIndex}:${dstId}:${dstPort}`;
+      const feedHash = this.fnv1aHash32(feedId);
+      const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, biasTypeId) | 0;
+      if (arc !== 0) {
+        this.postNativeGraphStatus("warning", `voice ${kind} feeder add failed (${arc}) ${feedId}`);
+        return;
+      }
+      this.pushNativeGraphSmoothType(native, feedHash, attOffsetParam, 3);
+      this.pushNativeGraphSmoothMode(native, feedHash, attOffsetParam, 3);
+      this.pushNativeGraphSmoothTime(native, feedHash, attOffsetParam, 0);
+      this.pushNativeGraphParam(native, feedHash, attOffsetParam, 0);
+      const crcBus = native.soemdsp_graph_connect(
+        this.nativeGraphHandle,
+        feedHash,
+        monoPort,
+        hashById.get(dstId),
+        this.mapNativeGraphDstPortId(dstPort, typeById.get(dstId)),
+      ) | 0;
+      if (crcBus !== 0) {
+        this.postNativeGraphStatus("warning", `voice ${kind} connect failed (${crcBus}) ${feedId}`);
+        return;
+      }
+      metaVoiceBusFeeders.push({
+        hash: feedHash,
+        kind,
+        metaId: String(metaId),
+        voiceIndex: voiceIndex | 0,
+        dstId: String(dstId),
+        dstPort: String(dstPort || ""),
+      });
+    };
+
+    for (const [metaId, metaNode] of this.nodes) {
+      if (String(metaNode?.type || "") !== "metamodule") continue;
+      const playmode = Math.round(Number(metaNode?.params?.playmode) || 0);
+      if (!(playmode >= 1)) continue;
+      const voiceCount = Math.max(1, Math.min(32, Math.round(Number(metaNode?.params?.voices) || 1)));
+      const laneVoiceCount = playmode === 4 ? voiceCount : 1;
+      const busKinds = [
+        { type: "voiceFrequency", kind: "frequency" },
+        { type: "voiceGate", kind: "gate" },
+        { type: "voiceTrigger", kind: "trigger" },
+      ];
+      for (let bi = 0; bi < busKinds.length; bi += 1) {
+        const { type, kind } = busKinds[bi];
+        const portalId = findVoicePortalId(String(metaId), type);
+        if (!portalId) continue;
+        for (const c of connections) {
+          if (String(c?.sourceNode || "") !== portalId) continue;
+          const dst = String(c?.destinationNode || "");
+          const dstPort = String(c?.destinationPort || "");
+          if (!dst || !dstPort) continue;
+          if (kind === "gate") metaVoiceGateCableMetas.add(String(metaId));
+          const dstIds = expandOscIds(dst);
+          if (dstIds.length > 1) {
+            for (let v = 0; v < laneVoiceCount; v += 1) {
+              const laneDst = dstIds[Math.min(v, dstIds.length - 1)];
+              addVoiceBusFeeder(kind, metaId, v, laneDst, dstPort);
+            }
+          } else if (kind === "frequency") {
+            // Non-cloned dest: one pitch feeder (voice 0 / mono).
+            addVoiceBusFeeder(kind, metaId, 0, dst, dstPort);
+          } else {
+            // Gate/Trigger into shared module: one Bias per lane (inputs sum).
+            for (let v = 0; v < laneVoiceCount; v += 1) {
+              addVoiceBusFeeder(kind, metaId, v, dst, dstPort);
+            }
+          }
         }
-        this.pushNativeGraphSmoothType(native, feedHash, attOffsetParam, 3);
-        this.pushNativeGraphSmoothMode(native, feedHash, attOffsetParam, 3);
-        this.pushNativeGraphSmoothTime(native, feedHash, attOffsetParam, 0);
-        this.pushNativeGraphParam(native, feedHash, attOffsetParam, 0);
-        const crcPitch = native.soemdsp_graph_connect(
-          this.nativeGraphHandle,
-          feedHash,
-          monoPort,
-          hashById.get(oscId),
-          this.mapNativeGraphDstPortId("f", typeById.get(oscId)),
-        ) | 0;
-        if (crcPitch !== 0) {
-          this.postNativeGraphStatus("warning", `voice pitch connect failed (${crcPitch}) ${feedId}`);
-          continue;
-        }
-        metaVoicePitchFeeders.push({
-          hash: feedHash,
-          metaId: lane.metaId,
-          voiceIndex: v,
-          oscId,
-        });
       }
     }
-    this._nativeMetaVoicePitchFeeders = metaVoicePitchFeeders;
+    this._nativeMetaVoiceBusFeeders = metaVoiceBusFeeders;
+    this._nativeMetaVoiceGateCableMetas = metaVoiceGateCableMetas;
+    // Back-compat alias used by older runtime bits.
+    this._nativeMetaVoicePitchFeeders = metaVoiceBusFeeders.filter((f) => f.kind === "frequency");
     this._nativeMetaAmpVcas = metaAmpVcas;
 
     // Audio → param MOD = sample-accurate ParamModEdge (not cyan ZOH).
