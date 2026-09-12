@@ -263,7 +263,10 @@ static void handle_polyphony_note_off(Manager& m, int note) {
   }
 }
 
+// Monophony — matches soemdsp VoiceManager handleMonophonyNoteOn/Off.
+// Single slot indexForLegato_; slideMode_ selects never / allow / always.
 static void handle_monophony_note_on(Manager& m, int note, double velocity) {
+  const int hadSustaining = m.sustainingCount > 0 ? 1 : 0;
   move_voice_to_sustaining_by_index(m, m.indexForLegato);
   const int vi = find_voice_by_index(m, m.indexForLegato);
   if (vi < 0) return;
@@ -271,47 +274,81 @@ static void handle_monophony_note_on(Manager& m, int note, double velocity) {
   m.voices[vi].velocity = velocity;
   m.lastAttackSlot = vi;
 
-  const int hadSustaining = (m.sustainingCount > 1) || (m.sustainingCount == 1 && m.noteHistoryCount > 1);
-  // After add_note_to_history, count includes this note. Empty before = attack.
-  // Simpler: if history had only this note (count==1), attack; else legato/slide.
-  if (m.noteHistoryCount <= 1) {
-    if (m.slideMode == SLIDE_ALWAYS) {
-      m.lastEventKind = EV_SLIDE;
-    } else {
-      m.lastEventKind = EV_ATTACK;
-    }
-  } else {
-    if (m.slideMode == SLIDE_NEVER) {
-      m.lastEventKind = EV_ATTACK;
-    } else {
-      m.lastEventKind = EV_LEGATO;
-    }
+  switch (m.slideMode) {
+  case SLIDE_NEVER:
+    // Every note-on attacks (retrigger).
+    m.lastEventKind = EV_ATTACK;
+    break;
+  case SLIDE_ALLOW:
+    // First note attacks; overlapping note-on → legato.
+    m.lastEventKind = hadSustaining ? EV_LEGATO : EV_ATTACK;
+    break;
+  case SLIDE_ALWAYS:
+    // First note slides in; overlapping → legato.
+    m.lastEventKind = hadSustaining ? EV_LEGATO : EV_SLIDE;
+    break;
+  default:
+    m.lastEventKind = EV_ATTACK;
+    break;
   }
-  (void)hadSustaining;
 }
 
 static void handle_monophony_note_off(Manager& m, int note) {
   const int vi = find_voice_by_index(m, m.indexForLegato);
   if (vi < 0) return;
 
-  if (m.noteHistoryCount == 0) {
-    move_voice_to_releasing_by_index(m, m.indexForLegato);
-    m.voices[vi].note = note;
-    m.lastEventKind = EV_RELEASE;
-    m.lastAttackSlot = vi;
-    return;
-  }
-
-  // Still holding other notes — retarget to most recent held.
-  const int retarget = m.noteHistory[0];
-  move_voice_to_sustaining_by_index(m, m.indexForLegato);
-  m.voices[vi].note = retarget;
-  m.previousNoteOn = retarget;
-  m.lastAttackSlot = vi;
-  if (m.slideMode == SLIDE_NEVER) {
-    m.lastEventKind = EV_ATTACK;
-  } else if (m.slideMode == SLIDE_ALLOW || m.slideMode == SLIDE_ALWAYS) {
-    m.lastEventKind = EV_LEGATO;
+  switch (m.slideMode) {
+  case SLIDE_NEVER: {
+    if (m.noteHistoryCount == 0) {
+      // No notes held → release.
+      move_voice_to_releasing_by_index(m, m.indexForLegato);
+      m.voices[vi].note = note;
+      m.lastEventKind = EV_RELEASE;
+      m.lastAttackSlot = vi;
+    } else if (m.previousNoteOn == note) {
+      // Released the latest note-on while others held → retarget + attack.
+      const int retarget = m.noteHistory[0];
+      move_voice_to_sustaining_by_index(m, m.indexForLegato);
+      m.voices[vi].note = retarget;
+      m.lastEventKind = EV_ATTACK;
+      m.lastAttackSlot = vi;
+    }
+    // Else: released an older held note — keep sounding the latest.
+  } break;
+  case SLIDE_ALLOW: {
+    if (m.noteHistoryCount == 0) {
+      move_voice_to_releasing_by_index(m, m.indexForLegato);
+      m.voices[vi].note = note;
+      m.lastEventKind = EV_RELEASE;
+      m.lastAttackSlot = vi;
+    } else if (m.previousNoteOn != note) {
+      // Off an older note while newer held — retarget pitch, no legato pulse.
+      const int retarget = m.noteHistory[0];
+      move_voice_to_sustaining_by_index(m, m.indexForLegato);
+      m.voices[vi].note = retarget;
+      m.lastEventKind = EV_NONE;
+      m.lastAttackSlot = vi;
+    } else {
+      // Off the latest note → legato to next held.
+      const int retarget = m.noteHistory[0];
+      move_voice_to_sustaining_by_index(m, m.indexForLegato);
+      m.voices[vi].note = retarget;
+      m.previousNoteOn = retarget;
+      m.lastEventKind = EV_LEGATO;
+      m.lastAttackSlot = vi;
+    }
+  } break;
+  case SLIDE_ALWAYS: {
+    // Only release when nothing left held; ignore intermediate offs.
+    if (m.noteHistoryCount == 0) {
+      move_voice_to_releasing_by_index(m, m.indexForLegato);
+      m.voices[vi].note = note;
+      m.lastEventKind = EV_RELEASE;
+      m.lastAttackSlot = vi;
+    }
+  } break;
+  default:
+    break;
   }
 }
 
@@ -539,5 +576,5 @@ extern "C" int soemdsp_voice_manager_polyphony(int handle) {
 }
 
 extern "C" int soemdsp_voice_manager_version() {
-  return 1;
+  return 2; // monophony matches soemdsp never/allow/always slide
 }

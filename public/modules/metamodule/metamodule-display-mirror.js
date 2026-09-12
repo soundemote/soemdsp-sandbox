@@ -1,6 +1,6 @@
-// Metamodule shell display mirror — F-inside-meta pins child faces onto the
-// parent shell via DisplayLayerCompositor (additive blit). Patch SSOT:
-// metamodule.displays[{ childId, enabled, order }].
+// Metamodule shell display — F-inside-meta pins selected child faces onto the
+// parent Meta face as a cell grid (like layout canvas / screen-solo cells).
+// Patch SSOT: metamodule.displays[{ childId, enabled, order }].
 
 const NODE_GRAPH_METAMODULE_MIRROR_RAF = new Map(); // metaId → raf id
 
@@ -193,24 +193,23 @@ function nodeGraphMetamodulePaintMirror(metaId) {
   }
   if (canvas) canvas.hidden = false;
 
-  if (typeof createDisplayLayerCompositor !== "function" || !canvas) {
-    return false;
-  }
+  if (!canvas) return false;
 
-  let compositor = face._metaMirrorCompositor;
-  if (!compositor || compositor.canvas !== canvas) {
-    compositor = createDisplayLayerCompositor(canvas, {
-      blend: "lighter",
-      fit: "contain",
-      background: "#000000",
-    });
-    face._metaMirrorCompositor = compositor;
+  // Wake pinned children so their face canvases keep painting while hidden on Root
+  // (same idea as layout-canvas / screen-solo cells).
+  for (const entry of enabled) {
+    const childId = String(entry.childId || "");
+    if (!childId) continue;
+    const host = document.querySelector(`.dsp-node[data-node="${CSS.escape(childId)}"]`);
+    if (host && typeof nodeGraphViewportCullWakePainters === "function") {
+      try { nodeGraphViewportCullWakePainters(host); } catch (_e) { /* ignore */ }
+    }
+  }
+  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    try { scheduleNodeGraphModuleScopeDraw(); } catch (_e) { /* ignore */ }
   }
 
   // Layout CSS size (client/offset) — NOT getBoundingClientRect.
-  // Workspace zoom multiplies screen rects; using them for canvas CSS width
-  // left-aligns a small bitmap with a black gap when zoomed out, and clips
-  // when zoomed in. Same contract as nodeGraphModuleScopeFaceBackingSize.
   let cssW = Number(face.clientWidth || face.offsetWidth || 0);
   let cssH = Number(face.clientHeight || face.offsetHeight || 0);
   if (!(cssW > 0) || !(cssH > 0)) {
@@ -251,19 +250,55 @@ function nodeGraphMetamodulePaintMirror(metaId) {
     }
   }
   const dpr = typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1;
-  compositor.resize(Math.max(1, cssW), Math.max(1, cssH), dpr, { fillParent: true });
+  const cssWSafe = Math.max(1, Math.round(cssW || 1));
+  const cssHSafe = Math.max(1, Math.round(cssH || 1));
+  const bufW = Math.max(1, Math.round(cssWSafe * dpr));
+  const bufH = Math.max(1, Math.round(cssHSafe * dpr));
+  if (canvas.width !== bufW) canvas.width = bufW;
+  if (canvas.height !== bufH) canvas.height = bufH;
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
 
-  const layers = enabled.map((entry, index) => ({
-    id: String(entry.childId),
-    order: Number.isFinite(Number(entry.order)) ? Number(entry.order) : index,
-    source: nodeGraphResolveModuleFaceCanvas(entry.childId),
-    blend: "lighter",
-    opacity: 1,
-    fit: "contain",
-  }));
-  compositor.setLayers(layers);
-  compositor.paint();
-  return true;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return false;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, bufW, bufH);
+
+  // Cell grid like screen-solo / layout canvas — one placed display per cell.
+  const n = enabled.length;
+  const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
+  const rows = Math.max(1, Math.ceil(n / cols));
+  const cellW = bufW / cols;
+  const cellH = bufH / rows;
+  let drawn = 0;
+  for (let i = 0; i < n; i += 1) {
+    const entry = enabled[i];
+    const source = nodeGraphResolveModuleFaceCanvas(entry.childId);
+    if (!source) continue;
+    const srcW = Number(source.videoWidth || source.naturalWidth || source.width) || 0;
+    const srcH = Number(source.videoHeight || source.naturalHeight || source.height) || 0;
+    if (!(srcW > 0) || !(srcH > 0)) continue;
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const cx = col * cellW;
+    const cy = row * cellH;
+    const scale = Math.min(cellW / srcW, cellH / srcH);
+    const dw = Math.max(1, Math.round(srcW * scale));
+    const dh = Math.max(1, Math.round(srcH * scale));
+    const dx = Math.floor(cx + (cellW - dw) * 0.5);
+    const dy = Math.floor(cy + (cellH - dh) * 0.5);
+    try {
+      ctx.drawImage(source, 0, 0, srcW, srcH, dx, dy, dw, dh);
+      drawn += 1;
+    } catch (_err) {
+      // Detached / tainted source — skip cell.
+    }
+  }
+  return drawn > 0 || n > 0;
 }
 
 function nodeGraphMetamoduleArmMirrorLoop(metaId) {

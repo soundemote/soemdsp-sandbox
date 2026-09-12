@@ -299,6 +299,14 @@ function handleNodeGraphKeydown(event) {
         // ignore
       }
     }
+    // Inside a Metamodule: F pins selected child faces onto the Meta display
+    // (canvas of placed displays). Outside: layout canvas cycle.
+    if (
+      typeof nodeGraphMetamoduleToggleDisplaysForSelection === "function"
+      && nodeGraphMetamoduleToggleDisplaysForSelection()
+    ) {
+      return;
+    }
     if (typeof toggleNodeGraphLayoutCanvasView === "function") {
       toggleNodeGraphLayoutCanvasView();
     }

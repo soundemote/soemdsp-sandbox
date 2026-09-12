@@ -1015,6 +1015,11 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
     nodeGraphFacePlateApplyCss(screenElement, bgHex);
   }
 
+  // No voice data → freeze last pixels (do not fade/clear).
+  if (!Array.isArray(phases) || !phases.length) {
+    return;
+  }
+
   // Phosphor residual: fade toward plate (same keep model as energy burn).
   const keep = Math.max(0, Math.min(0.995, trail * 0.97 + ghost * 0.02));
   const fade = 1 - keep;
@@ -1027,14 +1032,6 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
     context.globalAlpha = fade;
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.globalAlpha = 1;
-  } else if (!Array.isArray(phases) || !phases.length) {
-    context.fillStyle = bgHex;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-  }
-
-  if (!Array.isArray(phases) || !phases.length) {
-    context.restore();
-    return;
   }
 
   // Crisp stems: fillRect on integer pixel columns only (no sub-pixel / AA).

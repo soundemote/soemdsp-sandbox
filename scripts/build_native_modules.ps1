@@ -45,6 +45,7 @@ $modules = @(
     "soemdsp_graph_set_global_smooth_time",
     "soemdsp_graph_set_bypassed",
     "soemdsp_graph_set_voice_manager",
+    "soemdsp_graph_set_preview_voice_slot",
     "soemdsp_graph_set_node_voice_slot",
     "soemdsp_graph_poke_input",
     "soemdsp_graph_snap_controls",

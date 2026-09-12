@@ -63,6 +63,14 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       this.setPolyphonyVelocities(message.source, message.velocities);
       return;
     }
+    if (message.type === "setMetaView") {
+      if (typeof this.applyMetaViewPreview === "function") {
+        this.applyMetaViewPreview(message.metaId);
+      } else {
+        this._metaViewId = String(message.metaId || "");
+      }
+      return;
+    }
     if (message.type === "vmNoteOn") {
       this.vmNoteOn?.(message.note, message.velocity);
       return;

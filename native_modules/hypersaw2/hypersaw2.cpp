@@ -3,22 +3,19 @@
 // soemdsp-native-target: hypersaw2
 // soemdsp-native-kind: oscillator
 //
-// Hypersaw2: PolyBLEP + HypersawUnit::run phase math + Random Steps jitter.
-//   phase = div*distribute + random*amt          (vibratoOut_ unused / 0 in SoEm)
-//   phaseOffset = phase * (vibInput*vibAmp + vibOffset) + walkOut
-// vibOffset = Phase Multiplier (default 1). vibInput = shared sine (vibOsc_).
-// SoEm leaves unit 0's vibInput unconnected (0) — center gets no LFO on the scale.
-// +0.5 face center is sandbox-only. Jitter walkOut after the multiply.
+// Hypersaw2: PolyBLEP + Random Steps jitter.
 //
-// Shared locked master phase (SoEm slaveIncrement). Relative positions come
-// only from phaseOffset. Rising Reset re-zeros master + re-rolls seeds.
-// Distance compensation (|f|/100 Hz) keeps jitter/vibrato temporal depth even
-// across pitch; Phase Slew (ms) slews that gain and Phase Multiplier changes.
+// Phase mode (choice): Locked = shared master phase (classic); Free-running =
+// each osc advances independently. All start at phase 0 unless Randomize Phase
+// adds a permanent random offset (after jitter).
 //
-// Waveforms (soemdsp PolyBLEP): Trisaw, Saw, Pulse Center, Ramp, Pulse,
-// RectifiedSin, Trapezoid. Morph = PWM/width for Trisaw / Pulse / Pulse Center.
-//
-// Display: soemdsp_hypersaw2_voice_phase → wrap01(phaseOffset).
+// Jitter Distance J (>=0, not hard-capped):
+//   even centers at (i/N)*J  +  walk within ±(1/N)*J
+//   J=0 → collapse (centers+walk freeze/zero); J=1 → full even fan-out; J=2 doubles.
+// Randomize Phase = permanent offset after Distance (does not replace even spacing).
+// Distribute Phase + Phase Multiplier disabled. Jitter Pitch unused.
+// Rising Reset re-zeros phases + re-rolls seeds.
+// Display: soemdsp_hypersaw2_voice_phase → wrap01(center + walk + randomize).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -204,30 +201,31 @@ static const double kDistanceRefHz = 100.0; // osc Hz where Distance equals Drif
 static const double kJitterPitchBaseSt = 64.256;
 
 struct JitterState {
-  double out;     // raw bipolar walk accumulator
-  double lpfOut;  // OnePoleLP (same as Hypersaw DriftWalkState)
+  double out;       // raw bipolar walk accumulator
+  double lpfOut;    // OnePoleLP (same as Hypersaw DriftWalkState)
+  double frozenOut; // last emitted walk — held when Distance=0
   unsigned int rng;
 };
 
 static inline void jitter_reset(JitterState& j) {
   j.out = 0.0;
   j.lpfOut = 0.0;
+  j.frozenOut = 0.0;
 }
 
-// Exact Hypersaw drift_walk_run Random Steps path, then × Distance × distComp.
-// distComp is |f|/ref (possibly slewed by Phase Slew) — not the carrier.
+// Random Steps walk → bipolar −1…1 × phaseAmp.
+// phaseAmp<=0 freezes output in place (no snap to 0).
 static inline double hypersaw_random_steps(
   JitterState& j,
-  double distance,       // Drift Amp
-  double jitterHz,       // Drift Jitter
-  double jitterPitchSt,  // offset from kJitterPitchBaseSt → LPF Hz
-  double distComp,       // |f|/kDistanceRefHz (slewed)
+  double phaseAmp,       // (1/N) * jitterDistance
+  double jitterHz,       // Drift Jitter (step energy)
   double sampleRate
 ) {
-  if (!(distance > 0.0)) return 0.0;
+  if (!(phaseAmp > 0.0)) return j.frozenOut;
 
   const double sr = sampleRate > 1.0 ? sampleRate : 48000.0;
-  double walkFreqHz = pitch_to_freq(kJitterPitchBaseSt + jitterPitchSt);
+  // Jitter Pitch disabled — fixed walk LPF at baked Hypersaw Drift Pitch.
+  double walkFreqHz = pitch_to_freq(kJitterPitchBaseSt);
   const double nyq = sr * 0.5;
   if (walkFreqHz < 0.0) walkFreqHz = 0.0;
   if (walkFreqHz > nyq) walkFreqHz = nyq;
@@ -262,12 +260,13 @@ static inline double hypersaw_random_steps(
   j.lpfOut = (1.0 - a1) * j.out + a1 * j.lpfOut;
   if (!(j.lpfOut * 0.0 == 0.0)) j.lpfOut = 0.0;
 
-  const double comp = distComp > 0.0 ? distComp : 0.0;
-  return j.lpfOut * distance * comp;
+  j.frozenOut = j.lpfOut * phaseAmp;
+  return j.frozenOut;
 }
 
 struct Hypersaw2VoiceState {
-  double randomOffset;     // bipolar −1…+1 for Randomize Phase
+  double phase;            // free-running oscillator phase (0…1)
+  double randomOffset;     // bipolar −1…+1 permanent Randomize Phase
   double vibPhase;         // per-voice vibrato LFO phase
   double vibPhaseRandom;   // unipolar 0…1 — Vibrato Phase Vary
   double vibFreqBipolar;   // bipolar −1…+1 — Vibrato Freq Vary
@@ -279,8 +278,7 @@ struct Hypersaw2VoiceState {
 struct Hypersaw2State {
   bool active;
   Hypersaw2VoiceState voices[kMaxVoices];
-  // One shared free-phase for every saw (SoEm slaveIncrement). Relative
-  // positions come only from phaseOffset (distribute/random/vibrato/jitter).
+  // Unused for render (per-voice free-run); cleared on reset.
   double masterPhase;
   // Slewed |f|/ref for PM depth only — carrier freq is never smoothed.
   double distCompSmooth;
@@ -303,6 +301,7 @@ void seedVoice(Hypersaw2VoiceState& voice, int instanceIndex, int voiceIndex, un
     ^ static_cast<unsigned int>((instanceIndex + 1) * 16777619u)
     ^ static_cast<unsigned int>((voiceIndex + 1) * 2654435761u);
   if (!voice.rngState) voice.rngState = 0x9E3779B9u;
+  voice.phase = 0.0; // all saws start together; Randomize adds permanent offset
   voice.randomOffset = randomBipolar(voice.rngState);
   voice.vibPhaseRandom = randomUnipolar(voice.rngState);
   voice.vibFreqBipolar = randomBipolar(voice.rngState);
@@ -379,13 +378,16 @@ extern "C" void soemdsp_hypersaw2_sample(
   double waveform,
   double morph,
   double level,
-  double seedParam
+  double seedParam,
+  double freeRunningPhase
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   Hypersaw2State& s = gPool[handle - 1];
 
   const double sr = sampleRate > 1.0 ? sampleRate : 48000.0;
   const double freq = (frequencyHz == frequencyHz) ? frequencyHz : 0.0;
+  // 0 = Locked (shared master), 1 = Free-running (per-osc).
+  const bool freeRun = !(freeRunningPhase < 0.5);
 
   if (!(seedParam == s.lastSeed)) {
     unsigned int seedU = (unsigned int)(seedParam < 1.0 ? 1.0 : seedParam);
@@ -423,7 +425,8 @@ extern "C" void soemdsp_hypersaw2_sample(
   }
   s.lastVoiceFrac = lastFrac;
 
-  const double distribute = (distributePhase == distributePhase) ? distributePhase : 0.0;
+  (void)distributePhase; // disabled — always divide full 0…1 by N
+  (void)phaseMultiplier; // disabled — Jitter Distance owns collapse / spacing
   const double randomAmt = (randomizePhase == randomizePhase) ? randomizePhase : 0.0;
   const double vibAmp = (vibratoAmp == vibratoAmp) ? vibratoAmp : 0.0;
   const double vibHz = (vibratoSpeedHz == vibratoSpeedHz) ? vibratoSpeedHz : 0.0;
@@ -433,10 +436,11 @@ extern "C" void soemdsp_hypersaw2_sample(
   double vibPhaseV = (vibratoPhaseVary == vibratoPhaseVary) ? vibratoPhaseVary : 0.0;
   if (vibPhaseV < 0.0) vibPhaseV = 0.0;
   if (vibPhaseV > 1.0) vibPhaseV = 1.0;
-  const double phaseMultTarget = (phaseMultiplier == phaseMultiplier) ? phaseMultiplier : 1.0;
-  const double jDistance = (jitterDistance == jitterDistance) ? jitterDistance : 0.0;
+  // No upper clamp — J=2 doubles phase area vs J=1. Floor at 0 only.
+  double jDistance = (jitterDistance == jitterDistance) ? jitterDistance : 0.0;
+  if (jDistance < 0.0) jDistance = 0.0;
   const double jSpeed = (jitterSpeed == jitterSpeed && jitterSpeed > 0.0) ? jitterSpeed : 0.0;
-  const double jPitch = (jitterPitchSt == jitterPitchSt) ? jitterPitchSt : 0.0;
+  (void)jitterPitchSt; // disabled — fixed walk LPF
   const double cs = clampD(centerSide, 0.0, 1.0);
   int wave = (int)(waveform + (waveform >= 0.0 ? 0.5 : -0.5));
   if (wave < 0) wave = 0;
@@ -449,7 +453,8 @@ extern "C" void soemdsp_hypersaw2_sample(
   if (voiceCount != s.lastVoiceCount) {
     const int start = s.lastVoiceCount < 0 ? 0 : s.lastVoiceCount;
     for (int v = start; v < voiceCount; v++) {
-      // New voices join the shared master phase — do not free-run from 0.
+      // New voices start at phase 0 (same as a fresh bank); re-roll randomize.
+      s.voices[v].phase = 0.0;
       s.voices[v].randomOffset = randomBipolar(s.voices[v].rngState);
       jitter_reset(s.voices[v].jitter);
     }
@@ -469,8 +474,7 @@ extern "C" void soemdsp_hypersaw2_sample(
   const double blepDt = phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement;
 
   // Phase Slew = one-pole time constant in ms (0 = instant).
-  // Tracks |f|/ref PM-depth gain and Phase Multiplier knob changes so neither
-  // zippers PolyBLEP offsets. Carrier advance still uses raw freq above.
+  // Tracks |f|/ref vibrato depth so PolyBLEP offsets don’t zipper.
   double oscAbs = freq < 0.0 ? -freq : freq;
   const double distCompTarget = (oscAbs > 1.0e-12) ? (oscAbs / kDistanceRefHz) : 0.0;
   const double slewMs = (distanceSlewMs == distanceSlewMs) ? distanceSlewMs : 8.0;
@@ -488,15 +492,6 @@ extern "C" void soemdsp_hypersaw2_sample(
   const double distComp = s.distCompSmooth;
   const double vibAmpDist = vibAmp * distComp;
 
-  if (!s.phaseMultSmoothInit || slewInstant) {
-    s.phaseMultSmooth = phaseMultTarget;
-    s.phaseMultSmoothInit = true;
-  } else {
-    s.phaseMultSmooth = (1.0 - slewA) * phaseMultTarget + slewA * s.phaseMultSmooth;
-  }
-  if (!(s.phaseMultSmooth * 0.0 == 0.0)) s.phaseMultSmooth = phaseMultTarget;
-  const double phaseMult = s.phaseMultSmooth;
-
   double leftSum = 0.0;
   double rightSum = 0.0;
   // Amp weights for √N mix (RobinSupersaw bankMixScale) — /N was too quiet as voices rise.
@@ -504,14 +499,27 @@ extern "C" void soemdsp_hypersaw2_sample(
   double rightWeight = 0.0;
   int sideCh = 0;
 
+  // Distance owns even fan-out + walk room. Share = 1/N of the cycle.
+  // J=1, N=4 → centers 0,0.25,0.5,0.75 and walk ±0.25.
+  const double voiceShare = 1.0 / static_cast<double>(voiceCount);
+  const double walkAmp = voiceShare * jDistance;
+
   for (int i = 0; i < voiceCount; i++) {
     Hypersaw2VoiceState& voice = s.voices[i];
-    // HypersawUnit::div_ = i / N (0 for center voice).
-    const double div = static_cast<double>(i) / static_cast<double>(voiceCount);
 
-    const double walkOut = (jDistance > 0.0)
-      ? hypersaw_random_steps(voice.jitter, jDistance, jSpeed, jPitch, distComp, sr)
-      : 0.0;
+    if (freeRun) {
+      // Each osc advances independently.
+      voice.phase = wrap01(voice.phase + phaseIncrement);
+    } else {
+      // Locked: all saws share masterPhase; keep voice.phase mirrored for Reset.
+      voice.phase = s.masterPhase;
+    }
+
+    const double div = static_cast<double>(i) / static_cast<double>(voiceCount);
+    const double evenCenter = div * jDistance; // even spacing scaled by Distance
+    const double walkOut = hypersaw_random_steps(voice.jitter, walkAmp, jSpeed, sr);
+    // Permanent random offset after Distance — does not replace even centers.
+    const double randomPart = voice.randomOffset * randomAmt;
 
     // Per-voice vibOsc: rate = Speed×(1 + FreqVary×bipolar), phase += PhaseVary×random.
     double rateScale = 1.0 + vibFreqV * voice.vibFreqBipolar;
@@ -521,18 +529,15 @@ extern "C" void soemdsp_hypersaw2_sample(
       wrap01(voice.vibPhase + 0.5 + voice.vibPhaseRandom * vibPhaseV)
     );
 
-    // HypersawUnit::run (vibratoOut_ stays 0 — never assigned in SoEm):
-    //   phase = div*distributePhaseAmp + randomPhaseOffset*randomPhaseAmp
-    //   phaseOffset = phase * (vibInput*vibAmp + vibOffset) + walkOut
     // Master only pointTo's vibOsc into units i>=1; unit 0 vibInput reads 0.
-    const double phase = (div * distribute) + (voice.randomOffset * randomAmt);
     const double vibInput = (i >= 1) ? vibOscOut : 0.0;
-    const double phaseOffset = 0.5 + phase * (vibInput * vibAmpDist + phaseMult) + walkOut;
-    // Scope lines include Frequency→Phase so twisting Phase slides the stems.
+    const double phaseOffset =
+      (evenCenter + walkOut) * (vibInput * vibAmpDist + 1.0) + randomPart;
+    // Scope stems: relative offset (even + walk + randomize), not carrier phase.
     voice.lastOffset = wrap01(phaseG + phaseOffset);
 
-    // Exact locked phase: shared master + offset (not per-voice free-run).
-    const double renderPhase = wrap01(s.masterPhase + phaseG + phaseOffset);
+    const double carrier = freeRun ? voice.phase : s.masterPhase;
+    const double renderPhase = wrap01(carrier + phaseG + phaseOffset);
     double saw = hypersaw2WaveSample(wave, renderPhase, blepDt, morphAmt);
     double voiceAmp = 1.0;
     if (lastFrac > 0.0 && i == voiceCount - 1) voiceAmp = lastFrac;
@@ -561,8 +566,9 @@ extern "C" void soemdsp_hypersaw2_sample(
     }
   }
 
-  // Advance the single shared free-phase once (all saws stay exactly locked).
-  s.masterPhase = wrap01(s.masterPhase + phaseIncrement);
+  if (!freeRun) {
+    s.masterPhase = wrap01(s.masterPhase + phaseIncrement);
+  }
 
   // Detuned/phased saws are partly uncorrelated — √Σamp (not /N) like RobinSupersaw.
   const double leftScale = leftWeight > 0.0 ? (1.0 / __builtin_sqrt(leftWeight)) : 0.0;
@@ -607,5 +613,5 @@ extern "C" int soemdsp_hypersaw2_max_voices() {
 }
 
 extern "C" int soemdsp_hypersaw2_version() {
-  return 22; // solo oscillator ignores Center/Side mute
+  return 29; // Distance = even i/N centers + walk ±(1/N); randomize after
 }

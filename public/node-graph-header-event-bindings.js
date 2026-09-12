@@ -400,10 +400,16 @@ function bindNodeGraphHeaderControlEvents() {
         setNodeGraphModularWindowedActive(false);
       }
     });
-  // 📱 — layout canvas (pinned displays). Same as F.
+  // 📱 — same as F: Meta pin when inside Metamodule, else layout canvas.
   document
     .getElementById("nodeModularWindowedViewButton")
     ?.addEventListener("click", () => {
+      if (
+        typeof nodeGraphMetamoduleToggleDisplaysForSelection === "function"
+        && nodeGraphMetamoduleToggleDisplaysForSelection()
+      ) {
+        return;
+      }
       if (typeof toggleNodeGraphLayoutCanvasView === "function") {
         toggleNodeGraphLayoutCanvasView();
       }

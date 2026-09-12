@@ -1896,6 +1896,35 @@ function nodeGraphMetamoduleRefreshOwnedChildSliderDom(metaId, patch = nodeGraph
   return n;
 }
 
+function nodeGraphSendLiveMetaView(metaId) {
+  const id = String(metaId || "");
+  // Always remember intent — live may start / restart while inside Meta.
+  if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
+    nodeGraphMvp._pendingMetaViewId = id;
+  }
+  const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live : null;
+  const port = live?.node?.port;
+  if (!port || typeof port.postMessage !== "function") return false;
+  try {
+    port.postMessage({
+      type: "setMetaView",
+      metaId: id,
+      sessionId: live.sessionId,
+    });
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+/** Flush pending Meta view to the worklet (call after live start / plan send). */
+function nodeGraphFlushLiveMetaView() {
+  const id = typeof nodeGraphMetamoduleViewId === "function"
+    ? nodeGraphMetamoduleViewId()
+    : (typeof nodeGraphMvp !== "undefined" ? String(nodeGraphMvp?._pendingMetaViewId || "") : "");
+  return nodeGraphSendLiveMetaView(id);
+}
+
 function enterNodeGraphMetamoduleView(metamoduleId) {
   const id = String(metamoduleId || "");
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
@@ -1911,6 +1940,10 @@ function enterNodeGraphMetamoduleView(metamoduleId) {
   // Face mx_* writes update child.params while children are hidden; refresh
   // mounted slider DOM so interior matches the shell / audio.
   nodeGraphMetamoduleRefreshOwnedChildSliderDom(id);
+  // Voice 0 keeps running for faces (Hypersaw stems) while editing inside.
+  if (nodeGraphIsMetamoduleType(node?.type)) {
+    nodeGraphSendLiveMetaView(id);
+  }
   if (typeof setNodeInteractionHelp === "function") {
     const title = (typeof normalizeNodeGraphPatchNodeAlias === "function"
       ? normalizeNodeGraphPatchNodeAlias(node?.alias)
@@ -1938,6 +1971,7 @@ function exitNodeGraphMetamoduleViewToRoot() {
   if (typeof nodeGraphMetamoduleRefreshAllMirrors === "function") {
     nodeGraphMetamoduleRefreshAllMirrors();
   }
+  nodeGraphSendLiveMetaView("");
 }
 
 function updateNodeGraphMetamoduleBreadcrumb() {
@@ -2098,6 +2132,9 @@ function nodeGraphMetamoduleExposedParameterDefinitions(metaNode, patch = nodeGr
       label,
       defaultLabel: src.label || entry.paramKey,
       metaExpose: { childId: entry.childId, paramKey: entry.paramKey },
+      // Show metaparameter means show on the shell — ignore child's hidden flag
+      // (e.g. Hypersaw Phase Multiplier / Distribute Phase are face-only inside).
+      hidden: false,
       // Keep modulation jack unless child disabled it.
       modulation: src.modulation !== false,
     });

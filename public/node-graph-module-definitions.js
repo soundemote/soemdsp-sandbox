@@ -4817,10 +4817,11 @@ const nodeGraphModuleDefinitions = (
         mid: "0.1",
         max: "1",
         step: "any",
+        modClamp: false,
         tooltip:
-          "Hypersaw Drift Amp — phase-modulation depth from the Random Steps walk. "
-          + "Mid skew at 0.1 for fine control near small distances. "
-          + "Scaled by oscillator frequency (|f|/100 Hz) so low and high notes keep the same temporal distance.",
+          "Even phase fan-out + walk room. At 1.0, centers sit at i/N across the "
+          + "cycle and each saw walks ±(1/N). 0 = collapse. 2 = double. "
+          + "Guide 0…1, not hard-capped. Mid skew at 0.1.",
       },
       {
         key: "jitterSpeed",
@@ -4833,21 +4834,20 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Hypersaw Drift Jitter — Random Steps walk step size (Hz). 0 = no step energy.",
+          "How fast the jitter walk moves when Distance > 0.",
       },
       {
         key: "jitterPitch",
         label: "Jitter Pitch",
         defaultValue: "0",
+        hidden: true,
         min: "-128",
         mid: "0",
         max: "128",
         step: "any",
         unit: "st",
         tooltip:
-          "Walk LPF cutoff as a semitone offset from the baked Hypersaw Drift Pitch (64.256). "
-          + "0 = same as before this control existed. Lower ≈ freezes; higher = faster / more open. "
-          + "Overall motion without the stepped character of Jitter Speed.",
+          "Disabled for now — walk LPF is fixed. Kept for patch compatibility.",
       },
       {
         key: "distanceSlew",
@@ -4860,8 +4860,8 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "ms",
         tooltip:
-          "How fast phase depth tracks Frequency (|f|/100 Hz) and how fast Phase Multiplier "
-          + "knob changes settle. 0 = instant. 8 ms = previous default. Higher = slower chase.",
+          "How fast vibrato phase depth tracks Frequency (|f|/100 Hz) and how fast Phase Multiplier "
+          + "knob changes settle. 0 = instant. Does not affect Jitter Distance (phase-space).",
       },
       {
         key: "vibratoAmp",
@@ -4874,8 +4874,8 @@ const nodeGraphModuleDefinitions = (
         modClamp: false,
         tooltip:
           "HypersawUnit vibAmp — phaseOffset = phase × (vibOsc×Amp + PhaseMultiplier) + jitter. "
-          + "With Multiplier 1: scale swings around 1. Amp is distance-compensated (|f|/100 Hz) "
-          + "like Jitter Distance; Phase Slew sets how fast that tracks pitch. "
+          + "With Multiplier 1: scale swings around 1. Amp is distance-compensated (|f|/100 Hz); "
+          + "Phase Slew sets how fast that tracks pitch. Jitter Distance is separate (phase-space). "
           + "Center oscillator has no vibOsc feed in SoEm.",
       },
       {
@@ -4936,7 +4936,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         max: "1",
         step: "any",
-        tooltip: "Evenly spreads saws across phase. 1.0 = fully even 0…1.",
+        tooltip: "Disabled — phase is always divided evenly by oscillator count (1/N).",
       },
       {
         key: "randomizePhase",
@@ -4948,7 +4948,26 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         modClamp: false,
-        tooltip: "Additional bipolar random phase offset per saw (scaled by amount).",
+        tooltip:
+          "Permanent random starting phase offset per saw (after jitter). "
+          + "0 = all saws start on the same carrier phase. Not scaled by Distance.",
+      },
+      {
+        key: "freeRunningPhase",
+        label: "Phase Mode",
+        defaultValue: "1",
+        min: "0",
+        mid: "0",
+        max: "1",
+        step: "1",
+        choices: ["Locked", "Free-running"],
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        linearSmoothing: false,
+        nonlinearSlider: false,
+        tooltip:
+          "Locked: all saws share one master phase (classic). "
+          + "Free-running: each saw advances its own phase.",
       },
       {
         key: "phaseMultiplier",
@@ -4959,10 +4978,7 @@ const nodeGraphModuleDefinitions = (
         max: "4",
         step: "any",
         hidden: true,
-        tooltip:
-          "HypersawUnit vibOffset — static term in phase×(LFO×Amp + Offset). "
-          + "Default 1 = distribute/random at unity when Vibrato Amp is 0. "
-          + "Changes go through Phase Slew so PolyBLEP offsets don’t zipper.",
+        tooltip: "Disabled.",
       },
       {
         key: "amplitude",

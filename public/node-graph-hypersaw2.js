@@ -67,6 +67,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
   const morph = Number(options.morph);
   const level = nodeGraphFiniteNumber(options.level);
   const seed = Number(options.seed);
+  const freeRunningPhase = Number(options.freeRunningPhase);
   wasm.soemdsp_hypersaw2_sample(
     state.nativeHandle,
     frequencyHz,
@@ -89,6 +90,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     Number.isFinite(morph) ? morph : 0.5,
     level,
     Number.isFinite(seed) ? seed : 1,
+    Number.isFinite(freeRunningPhase) ? freeRunningPhase : 1,
   );
   const n = wasm.soemdsp_hypersaw2_voice_count
     ? Math.max(0, Math.min(64, wasm.soemdsp_hypersaw2_voice_count(state.nativeHandle) | 0))

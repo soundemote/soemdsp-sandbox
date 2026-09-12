@@ -140,12 +140,24 @@ function bindNodeGraphSceneMenuEvents() {
     }
   });
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularWindowedView", "click", () => {
+    if (
+      typeof nodeGraphMetamoduleToggleDisplaysForSelection === "function"
+      && nodeGraphMetamoduleToggleDisplaysForSelection()
+    ) {
+      return;
+    }
     if (typeof toggleNodeGraphLayoutCanvasView === "function") {
       toggleNodeGraphLayoutCanvasView();
     }
   });
   // Legacy ids (hidden).
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyView", "click", () => {
+    if (
+      typeof nodeGraphMetamoduleToggleDisplaysForSelection === "function"
+      && nodeGraphMetamoduleToggleDisplaysForSelection()
+    ) {
+      return;
+    }
     if (typeof toggleNodeGraphLayoutCanvasView === "function") {
       toggleNodeGraphLayoutCanvasView();
     }

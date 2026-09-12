@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=voice-available-silence-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=hypersaw2-even-distance-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2399,6 +2399,10 @@ async function sendNodeGraphLivePlan() {
     nodeGraphMvp.live.planShapeSignature = planShapeSignature;
     // Plan applied — never leave host gain muted from a prior error.
     setNodeGraphLiveOutputMuted(false);
+    // Worklet may have been recreated; re-assert inside-Meta voice-0 preview.
+    if (typeof nodeGraphFlushLiveMetaView === "function") {
+      nodeGraphFlushLiveMetaView();
+    }
     return true;
   } catch (error) {
     const issues = nodeGraphLivePlanErrorIssues(error);
@@ -3116,11 +3120,12 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=output-vol-face-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=voice-available-silence-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=meta-view-rewrite-1",
+  "./public/node-live-audio-worklet-meta-view.js?v=meta-view-rewrite-1",
   "./public/node-live-audio-worklet-set-plan.js?v=meta-payload-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=voice-manager-1",
-  "./public/node-live-audio-worklet-scope-snapshot.js?v=hypersaw2-smooth-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=meta-view-rewrite-1",
+  "./public/node-live-audio-worklet-scope-snapshot.js?v=meta-view-rewrite-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
@@ -3521,6 +3526,10 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       }
       renderNodeGraphLiveControls(false);
       return;
+    }
+    // Inside Meta before Play (or after worklet restart): re-apply voice-0 preview.
+    if (typeof nodeGraphFlushLiveMetaView === "function") {
+      nodeGraphFlushLiveMetaView();
     }
     sendNodeGraphLiveMacroControls();
     sendNodeGraphLivePitchModWheelSignal();

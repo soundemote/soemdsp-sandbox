@@ -122,7 +122,9 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
     }
     if (this.hypersaw2States) {
       for (const [nodeId, state] of this.hypersaw2States) {
-        if (Array.isArray(state?.lastVoicePhases) && state.lastVoicePhases.length) {
+        // Always push Phases (including []) so a silent Meta voice can clear
+        // the bus and freeze the last face pixels instead of redrawing stale stems.
+        if (Array.isArray(state?.lastVoicePhases)) {
           dataPorts.push([nodeId, "Phases", state.lastVoicePhases]);
         }
         if (Array.isArray(state?.lastVoiceAmplitudes) && state.lastVoiceAmplitudes.length) {

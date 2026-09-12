@@ -573,7 +573,8 @@ extern "C" void soemdsp_hypersaw2_sample(
   double waveform,
   double morph,
   double level,
-  double seedParam
+  double seedParam,
+  double freeRunningPhase
 );
 extern "C" double soemdsp_hypersaw2_left(int handle);
 extern "C" double soemdsp_hypersaw2_right(int handle);
@@ -1955,6 +1956,9 @@ struct Circuit {
   double pitchOffsetOctaves;
   // VoiceManager instance — voice-lane nodes query Sustaining/Releasing/Available.
   int voiceManagerHandle;
+  // When >= 0 (inside Meta view), that slot still runs DSP while Available so
+  // faces (e.g. Hypersaw) keep painting; outputs are muted after process.
+  int previewVoiceSlot;
   int nodeCount;
   int connCount;
   int orderCount;
@@ -2777,6 +2781,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHilbert) ? 0.0 // +90°
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
       : (typeId == kTypeHypersaw) ? 0.0 // DriftStyle Random Steps
+      : (typeId == kTypeHypersaw2) ? 1.0 // freeRunningPhase Free-running
       : (typeId == kTypePiSpigotNoise) ? 0.0 // color White
       : (typeId == kTypeAudioPlayer) ? 4.0 // Play
       : (typeId == kTypeAdditiveOut) ? 0.0 // optimize Inaudible off
@@ -6197,6 +6202,7 @@ static void process_hypersaw(Circuit& g, Node& node, int frames) {
 // lfoAmplitude=vibratoFreqVary, lfoVariation=vibratoPhaseVary,
 // center=jitterDistance, lfoRate=jitterSpeed, lpfFrequency=jitterPitch,
 // hpfFrequency=distanceSlewMs, pan=centerSide, feedback=morph/PWM,
+// mode=freeRunningPhase (0 Locked, 1 Free-running),
 // phaseParam=phase, seed=seed, amplitude=level.
 static void process_hypersaw2(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
@@ -6221,6 +6227,7 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
   const double centerSide = control_effective(node.pan);
   const double morph = control_effective(node.feedback);
   const double level = control_effective(node.amplitude);
+  const double freeRunningPhase = control_effective(node.mode);
   double voicesExact = control_effective(node.stages);
   if (!(voicesExact * 0.0 == 0.0)) voicesExact = 1.0;
   if (voicesExact < 1.0) voicesExact = 1.0;
@@ -6261,7 +6268,8 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
       waveform,
       morph,
       level,
-      seed
+      seed,
+      freeRunningPhase
     );
     const double L = soemdsp_hypersaw2_left(node.nativeHandle);
     const double R = soemdsp_hypersaw2_right(node.nativeHandle);
@@ -9960,6 +9968,7 @@ extern "C" int soemdsp_graph_create() {
       gPool[i].nodeCount = 0;
       gPool[i].toSmoothCount = 0;
       gPool[i].voiceManagerHandle = 0;
+      gPool[i].previewVoiceSlot = -1;
       clear_graph_contents(gPool[i]);
       return i + 1;
     }
@@ -10358,6 +10367,17 @@ extern "C" int soemdsp_graph_set_voice_manager(int handle, int voiceManagerHandl
 }
 
 /**
+ * Preview slot while editing inside a Metamodule (−1 = off).
+ * That slot keeps running when Available (for faces); audio outs are muted.
+ */
+extern "C" int soemdsp_graph_set_preview_voice_slot(int handle, int voiceSlot) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  g->previewVoiceSlot = voiceSlot >= 0 ? voiceSlot : -1;
+  return 0;
+}
+
+/**
  * Tag a native node as Meta Voices lane slot v (0..poly-1).
  * Slot -1 clears the tag (shared / always process).
  */
@@ -10699,19 +10719,24 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     Node& node = g->nodes[ni];
 
     // Meta Voices: only Sustaining + Releasing slots run DSP (VoiceManager pools).
-    // Available clones stay compiled but are not stepped — always publish silence
-    // so metaOut / mixers never re-read last Hypersaw (or any) samples.
+    // Available clones stay silent — except previewVoiceSlot (inside Meta view):
+    // that slot still runs so faces (Hypersaw stems) keep updating. Gate/amp
+    // feeders are 0 while Available, so it stays quiet in the mix.
     if (node.voiceSlot >= 0 && g->voiceManagerHandle > 0) {
       const int st = soemdsp_voice_manager_voice_state(g->voiceManagerHandle, node.voiceSlot);
       if (st == 0) { // VS_AVAILABLE
-        for (int c = 0; c < kChannels; c++) {
-          zero_buf(node.buf[c], frames);
-          zero_buf(node.histBuf[c], frames);
-          node.hist[c] = 0.0;
+        const bool preview =
+          g->previewVoiceSlot >= 0 && node.voiceSlot == g->previewVoiceSlot;
+        if (!preview) {
+          for (int c = 0; c < kChannels; c++) {
+            zero_buf(node.buf[c], frames);
+            zero_buf(node.histBuf[c], frames);
+            node.hist[c] = 0.0;
+          }
+          node.voiceSilent = true;
+          node.processedThisBlock = 1;
+          continue;
         }
-        node.voiceSilent = true;
-        node.processedThisBlock = 1;
-        continue;
       }
       node.voiceSilent = false;
     }

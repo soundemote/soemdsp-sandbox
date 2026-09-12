@@ -258,6 +258,8 @@ function nodeGraphModuleScopeHasModelDisplay() {
     const outputs = nodeGraphPatchNodeOutputPorts(nodeGraphModuleScopeNodeForSlot(slot));
     return slot.type === "clock" ||
       slot.type === "transport" ||
+      // Hypersaw face paints from data-bus Phases (no sample buffer).
+      renderer === "hypersawBurn" ||
       nodeGraphModuleScopeIsOscillatorType(slot.type) ||
       (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "led"].includes(slot.type) &&
         nodeGraphModuleScopeConnectionsTo(slot.nodeId, "In").length > 0) ||

@@ -393,6 +393,17 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
               slot,
             }, pixelRatio);
           }
+        } else if (nodeGraphModuleDisplayRendererForSlot(slot) === "hypersawBurn") {
+          // Stems are data-bus Phases — no sample monitor buffer required.
+          // Oscillator sources often have no capture ring; without this the
+          // face never entered the paint path and stayed blank while audio ran.
+          if (typeof drawNodeGraphHypersawBurnItem === "function") {
+            drawNodeGraphHypersawBurnItem(null, {
+              buffer: null,
+              screenElement: slot.scopeElement,
+              slot,
+            }, pixelRatio);
+          }
         } else if (
           nodeGraphModuleDisplayRendererForSlot(slot) === "imageBurnFace"
           || slot?.type === "imageBurn"
