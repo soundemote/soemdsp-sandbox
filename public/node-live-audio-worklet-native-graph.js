@@ -116,6 +116,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   softwaveOsc: 45,
   dsfOscillator: 46,
   hypersaw2: 158,
+  wavetableAdsr: 168,
   rasterRgb: 160,
   chaosfly: 161,
   expoPluckEnvelope: 162,
@@ -837,6 +838,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
         tGateEnv === "thumpEnvelope"
         || tGateEnv === "expAdsr"
         || tGateEnv === "linearEnvelope"
+        || tGateEnv === "wavetableAdsr"
         || tGateEnv === "linearAttackRelease"
         || tGateEnv === "curveAttackRelease"
         || tGateEnv === "attackDecay"
@@ -1904,6 +1906,22 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
   }
 };
 
+/** Cached: patch contains at least one metamodule shell. */
+NodeLiveAudioProcessor.prototype.patchHasMetamodule = function patchHasMetamodule() {
+  if (this._patchHasMetamodule === true || this._patchHasMetamodule === false) {
+    return this._patchHasMetamodule;
+  }
+  let has = false;
+  for (const node of this.nodes.values()) {
+    if (String(node?.type || "") === "metamodule") {
+      has = true;
+      break;
+    }
+  }
+  this._patchHasMetamodule = has;
+  return has;
+};
+
 /**
  * Tag Meta Voices clones with VoiceManager slot indices and bind the VM to the
  * graph. process_block then steps only Sustaining + Releasing slots.
@@ -1916,6 +1934,12 @@ NodeLiveAudioProcessor.prototype.bindNativeMetaVoiceProcessSlots = function bind
   if (!native?.soemdsp_graph_set_node_voice_slot || !native?.soemdsp_graph_set_voice_manager) {
     return;
   }
+  const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
+  if (!lanes.length) {
+    this._nativeMetaVoiceSlotsBound = true;
+    this._nativeMetaVoiceSlotsVm = 0;
+    return;
+  }
   const h = this.ensureVoiceManager?.() | 0;
   if (!(h > 0)) return;
   // Bind once per compile (or when forced). Re-tagging every quantum used to
@@ -1926,7 +1950,6 @@ NodeLiveAudioProcessor.prototype.bindNativeMetaVoiceProcessSlots = function bind
   try {
     native.soemdsp_graph_set_voice_manager(this.nativeGraphHandle, h);
   } catch (_e) { /* keep audio */ }
-  const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
   for (let li = 0; li < lanes.length; li += 1) {
     const ids = lanes[li]?.voiceIds || [];
     for (let v = 0; v < ids.length; v += 1) {
@@ -1963,6 +1986,11 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
   }
   if (!native.soemdsp_voice_manager_create) {
 
+    return;
+  }
+  // Non-meta patches must not create a VoiceManager or walk MIDI/idle every quantum.
+  const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
+  if (!lanes.length && !this.patchHasMetamodule?.()) {
     return;
   }
   // Keep graph bound to VM pools (Sustaining / Releasing / Available).
@@ -2388,9 +2416,31 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
   const pushChanged = (hash, cache, key, paramId, value, node) => {
     const v = Number(value);
     if (!Number.isFinite(v)) return;
-    if (forceAll || cache[key] !== v) {
+    const modKey = `${key}__mod`;
+    const domainKey = `${key}__domain`;
+    const timeKey = `${key}__smoothTime`;
+    const modeKey = `${key}__smoothMode`;
+    const typeKey = `${key}__smoothType`;
+    const valueChanged = forceAll || cache[key] !== v;
+    if (valueChanged) {
       cache[key] = v;
       this.pushNativeGraphParam(native, hash, paramId, v);
+    }
+    // Polyphony hot path: once value/domain/smooth are warm, skip meta merges +
+    // mod accumulators unless this param actually has MOD cables (or forceAll).
+    // Dirty cache used to only gate set_param — we still paid full JS every quantum
+    // × Voice Count clones (~200 pushChanged/quantum on the poly Hypersaw patch).
+    const paramMods = this.modulationConnections?.get?.(
+      typeof this.parameterKey === "function" ? this.parameterKey(node?.id, key) : `${node?.id}.${key}`,
+    );
+    const hasModCables = Array.isArray(paramMods) && paramMods.length > 0;
+    const warm = cache[domainKey] != null
+      && cache[modeKey] != null
+      && cache[typeKey] != null
+      && cache[timeKey] != null
+      && cache[modKey] != null;
+    if (!forceAll && !valueChanged && warm && !hasModCables) {
+      return;
     }
     // Merge patch paramMeta with module-definition defaults so Softwave Amp
     // modClamp/modMultiply survive older saved paramMeta blobs.
@@ -2398,11 +2448,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       && nodeGraphModuleDefinitions?.[String(node?.type || "")]?.parameters
       || []).find?.((p) => p && p.key === key) || null;
     const meta = { ...(defParam || {}), ...(node?.paramMeta?.[key] || {}) };
-    const modKey = `${key}__mod`;
-    const domainKey = `${key}__domain`;
     let unitAdd = 0;
     let domainAdd = 0;
-    if (typeof this.efficientParamModAccumulators === "function") {
+    if (hasModCables && typeof this.efficientParamModAccumulators === "function") {
       const acc = this.efficientParamModAccumulators(node, key);
       unitAdd = nodeGraphFiniteNumber(acc?.unitAdd);
       domainAdd = nodeGraphFiniteNumber(acc?.domainAdd);
@@ -2454,6 +2502,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
         cache[domainKey] = domainToken;
         this.pushNativeGraphParamDomain(native, hash, paramId, min, max, flags);
       }
+    } else if (cache[domainKey] == null) {
+      cache[domainKey] = ""; // mark warm even when no domain range
     }
     // Discrete enum keys skip Control chase. Shared names like "curve" are
     // continuous on some modules (Blaster Log Curve, AttackDecay γ) — those
@@ -2466,10 +2516,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     // Hypersaw Oscillators is continuous (Decimal ceil + trailing frac amp).
     const continuousVoicesOverride = key === "voices"
       && nodeType === "hypersaw2";
-    if (discreteKey && !continuousCurveOverride && !continuousVoicesOverride) return;
-    const timeKey = `${key}__smoothTime`;
-    const modeKey = `${key}__smoothMode`;
-    const typeKey = `${key}__smoothType`;
+    if (discreteKey && !continuousCurveOverride && !continuousVoicesOverride) {
+      // Mark warm so next quantum can early-out (no smooth cells for discrete).
+      if (cache[domainKey] == null) cache[domainKey] = "";
+      if (cache[modeKey] == null) cache[modeKey] = -1;
+      if (cache[typeKey] == null) cache[typeKey] = -1;
+      if (cache[timeKey] == null) cache[timeKey] = -1;
+      return;
+    }
     const timeSamples = this.nativeGraphSmoothTimeSamplesFromMeta?.(meta) || 0;
     const smoothMode = this.nativeGraphSmoothModeFromMeta?.(meta) ?? 0;
     const smoothType = this.nativeGraphSmoothTypeFromMeta?.(meta) ?? 0;
@@ -3175,6 +3229,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("sustain", P.NATIVE_GRAPH_PARAM_MIX, cont("sustain", 0.55));
       push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.45));
       push("loop", P.NATIVE_GRAPH_PARAM_MODE, disc("loop", 0));
+      push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
+      continue;
+    }
+    if (type === "wavetableAdsr") {
+      // mode=shape; A/D/S/R/Level use control_audio so MOD is live per sample.
+      push("shape", P.NATIVE_GRAPH_PARAM_MODE, disc("shape", 0));
+      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.01));
+      push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.2));
+      push("sustain", P.NATIVE_GRAPH_PARAM_MIX, cont("sustain", 0.7));
+      push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.3));
       push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
       continue;
     }
@@ -4074,6 +4138,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
         push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.45));
         push("loop", P.NATIVE_GRAPH_PARAM_MODE, disc("loop", 0));
         push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
+      } else if (t === "wavetableAdsr") {
+        push("shape", P.NATIVE_GRAPH_PARAM_MODE, disc("shape", 0));
+        push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.01));
+        push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.2));
+        push("sustain", P.NATIVE_GRAPH_PARAM_MIX, cont("sustain", 0.7));
+        push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.3));
+        push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
       } else if (t === "ampCurve") {
         push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
       } else if (t === "hypersaw2") {
@@ -4329,6 +4400,7 @@ NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
 
     // Oldest active Meta voice: sustaining[0], else releasing[0] (Root Meta pin).
     const oldestActiveVoiceSlot = () => {
+      if (!this._nativeMetaVoiceLanes?.length) return -1;
       const h = this.ensureVoiceManager?.() | 0;
       if (!(h > 0)) return -1;
       try {
@@ -5021,6 +5093,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
   this.nativeGraphBlockViews = null;
   this.nativeGraphPortViewCache = null;
   this._nativeGraphParamCache = null;
+  this._patchHasMetamodule = null;
   // Compile rebuilds native Controls at C++ defaults — next param sync is cold.
   this._nativeGraphParamCacheCold = true;
 
@@ -5566,6 +5639,27 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     this._nativeLiveParamModKeys = liveParamModKeys;
     this._nativePhaseModLiveKeys = liveParamModKeys;
     this._nativeHostCvFeeders = hostFeeders;
+    const wiredIds = new Set();
+    for (let ci = 0; ci < connections.length; ci += 1) {
+      const c = connections[ci];
+      const s = String(c?.sourceNode || "");
+      const d = String(c?.destinationNode || "");
+      if (s) wiredIds.add(s);
+      if (d) wiredIds.add(d);
+    }
+    if (this.modulationConnections && typeof this.modulationConnections.forEach === "function") {
+      this.modulationConnections.forEach((list) => {
+        if (!Array.isArray(list)) return;
+        for (let i = 0; i < list.length; i += 1) {
+          const m = list[i];
+          const s = String(m?.sourceNode || "");
+          const d = String(m?.destinationNode || "");
+          if (s) wiredIds.add(s);
+          if (d) wiredIds.add(d);
+        }
+      });
+    }
+    this._nativeWiredNodeIds = wiredIds;
 
     const crc = native.soemdsp_graph_compile(this.nativeGraphHandle) | 0;
     if (crc !== 0) {
@@ -5978,6 +6072,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       || type === "pluckEnvelope"
       || type === "expAdsr"
       || type === "linearEnvelope"
+      || type === "wavetableAdsr"
       || type === "thumpEnvelope"
       || type === "pluckEnvelope3"
       || type === "curveAttackRelease"
@@ -6059,6 +6154,11 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       const type = String(this.nodes.get(nodeId)?.type || "");
       if (!Object.prototype.hasOwnProperty.call(P.NATIVE_GRAPH_TYPE_IDS, type)) continue;
       if (type === "output") continue;
+      // Unwired leftover modules (e.g. Hypersaw sitting on the canvas) skip
+      // audio-rate face rings — native DSP is also skipped for those.
+      if (this._nativeWiredNodeIds instanceof Set && !this._nativeWiredNodeIds.has(String(nodeId))) {
+        continue;
+      }
       const hash = this.fnv1aHash32(nodeId);
       const writeHz = Number(entry.writeHz);
       // writeHz 0 / unset = every engine sample (waveform / phosphor faces).
@@ -6109,20 +6209,38 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
         bindings.push({ names, view });
       }
       if (!bindings.length) continue;
+      const visualNodeIds = this._visualPortNodeIds;
+      const visualKeys = this.visualInputBuffers;
+      const hasVisualPorts = visualNodeIds instanceof Set
+        ? visualNodeIds.has(String(nodeId))
+        : false;
+      for (let bi = 0; bi < bindings.length; bi += 1) {
+        const binding = bindings[bi];
+        const portIds = new Array(binding.names.length);
+        for (let ni = 0; ni < binding.names.length; ni += 1) {
+          portIds[ni] = `${nodeId}:${binding.names[ni]}`;
+        }
+        binding.portIds = portIds;
+      }
       for (let frame = 0; frame < frames; frame += hop) {
-        const out = Object.create(null);
-        let any = false;
+        let aggregate = 0;
+        let gotAgg = false;
         for (let bi = 0; bi < bindings.length; bi += 1) {
           const binding = bindings[bi];
           const raw = Number(binding.view[Math.min(frame, binding.view.length - 1)]);
           const sample = Number.isFinite(raw) ? raw : 0;
+          if (!gotAgg) {
+            aggregate = sample;
+            gotAgg = true;
+          }
           for (let ni = 0; ni < binding.names.length; ni += 1) {
-            out[binding.names[ni]] = sample;
-            any = true;
+            const portId = binding.portIds[ni];
+            if (visualKeys?.has?.(portId)) continue;
+            this.appendScopeBufferSample?.(portId, sample);
           }
         }
-        if (any) {
-          this.captureModuleScopeOutput?.(nodeId, out);
+        if (!hasVisualPorts && gotAgg) {
+          this.appendScopeBufferSample?.(nodeId, aggregate);
         }
       }
     }

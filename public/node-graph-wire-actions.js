@@ -182,14 +182,9 @@ function setSelectedNodeGraphWirePixel(enabled) {
   return changed > 0;
 }
 
-function nodeGraphConnectionOptionsWithSelfTrace(sourceNode, destinationNode, options = {}) {
-  if (sourceNode !== destinationNode || options.wireType || options.tracePoints?.length) {
-    return options;
-  }
-  return {
-    ...options,
-    wireType: nodeGraphWireTypes.trace,
-  };
+/** Formerly auto-forced Trace on self/feedback patches. Wire system not ready — keep normal cable. */
+function nodeGraphConnectionOptionsWithSelfTrace(_sourceNode, _destinationNode, options = {}) {
+  return options;
 }
 
 function setSelectedNodeGraphWireType(wireType) {

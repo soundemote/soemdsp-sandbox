@@ -74,6 +74,9 @@ NodeLiveAudioProcessor.prototype.compileScopeCapture = function compileScopeCapt
       nodes.push({ nodeId, writeHz: rates[nodeId] });
     }
     this.compiledScopeNodes = nodes;
+    if (!(this._visualPortNodeIds instanceof Set)) {
+      this._visualPortNodeIds = new Set();
+    }
 
     const sinks = this.visualSinks || [];
     const compiled = new Array(sinks.length);
@@ -279,24 +282,27 @@ NodeLiveAudioProcessor.prototype.appendScopeBufferSample = function appendScopeB
     if (!key) {
       return;
     }
-    const engineRate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
-    const fps = Math.max(1, nodeGraphFiniteNumber(this.displayFps, 60));
-    // Waveform / phosphor faces write near engine rate (full quantum). Keep at
-    // least ~0.5 s so a slow paint cannot wrap away undrawn high-speed path.
-    const limit = Math.max(
-      4096,
-      Math.ceil(engineRate / fps) + 256,
-      Math.ceil(engineRate * 0.5),
-    );
     let samples = this.scopeBuffers.get(key);
     if (!(samples instanceof Float32Array)) {
+      const engineRate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
+      const fps = Math.max(1, nodeGraphFiniteNumber(this.displayFps, 60));
+      // Waveform / phosphor faces write near engine rate (full quantum). Keep at
+      // least ~0.5 s so a slow paint cannot wrap away undrawn high-speed path.
+      const limit = Math.max(
+        4096,
+        Math.ceil(engineRate / fps) + 256,
+        Math.ceil(engineRate * 0.5),
+      );
       samples = new Float32Array(limit);
       samples.nodeGraphScopeWriteIndex = 0;
       samples.nodeGraphScopeLength = 0;
+      samples.nodeGraphScopeLimit = limit;
       this.scopeBuffers.set(key, samples);
     }
+    const limit = samples.nodeGraphScopeLimit || samples.length;
     const writeIndex = Math.max(0, Math.min(limit - 1, nodeGraphFiniteNumber(samples.nodeGraphScopeWriteIndex)));
-    samples[writeIndex] = this.scopeScalarValue(value);
+    const number = typeof value === "number" ? value : this.scopeScalarValue(value);
+    samples[writeIndex] = Number.isFinite(number) ? number : 0;
     samples.nodeGraphScopeWriteIndex = (writeIndex + 1) % limit;
     samples.nodeGraphScopeLength = Math.min(limit, (nodeGraphFiniteNumber(samples.nodeGraphScopeLength)) + 1);
     samples.nodeGraphScopeTotalWritten = (nodeGraphFiniteNumber(samples.nodeGraphScopeTotalWritten)) + 1;
@@ -380,6 +386,12 @@ NodeLiveAudioProcessor.prototype.syncVisualInputBuffers = function syncVisualInp
         this.visualInputBuffers.delete(key);
       }
     }
+    const visualNodeIds = new Set();
+    for (const key of this.visualInputBuffers.keys()) {
+      const cut = String(key).indexOf(":");
+      if (cut > 0) visualNodeIds.add(String(key).slice(0, cut));
+    }
+    this._visualPortNodeIds = visualNodeIds;
 };
 
 NodeLiveAudioProcessor.prototype.writeVisualInputBufferSample = function writeVisualInputBufferSample(
@@ -424,7 +436,10 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeOutput = function captureModu
       return;
     }
     const visualKeys = this.visualInputBuffers || new Map();
-    const hasVisualPorts = [...visualKeys.keys()].some((key) => String(key).startsWith(`${id}:`));
+    const visualNodeIds = this._visualPortNodeIds;
+    const hasVisualPorts = visualNodeIds instanceof Set
+      ? visualNodeIds.has(id)
+      : false;
     // Stereo/XYZ waterfall already write Left/Right or X/Y/Z visual rings.
     // Posting the same keys from outputs doubled samples → tape ran ~2× vs Mono (In≠Thru).
     if (!hasVisualPorts) {
@@ -433,8 +448,12 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeOutput = function captureModu
     if (!output || typeof output !== "object") {
       return;
     }
-    for (const [port, value] of Object.entries(output)) {
-      if (!port || !Number.isFinite(Number(value))) {
+    for (const port in output) {
+      if (!Object.prototype.hasOwnProperty.call(output, port) || !port) {
+        continue;
+      }
+      const value = output[port];
+      if (!Number.isFinite(Number(value))) {
         continue;
       }
       const portId = `${id}:${port}`;

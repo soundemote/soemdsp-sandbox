@@ -859,6 +859,15 @@ extern "C" double soemdsp_linear_envelope_sample(
 );
 extern "C" int soemdsp_linear_envelope_is_idle(int handle);
 
+extern "C" int soemdsp_wavetable_adsr_create();
+extern "C" void soemdsp_wavetable_adsr_destroy(int handle);
+extern "C" double soemdsp_wavetable_adsr_sample(
+  int handle, double gate, double reset, double shapeParam,
+  double attack, double decay, double sustain, double release,
+  double level, double sampleRate
+);
+extern "C" int soemdsp_wavetable_adsr_is_idle(int handle);
+
 extern "C" int soemdsp_pluck_envelope_create();
 extern "C" void soemdsp_pluck_envelope_destroy(int handle);
 extern "C" double soemdsp_pluck_envelope_sample(
@@ -1626,6 +1635,7 @@ static const int kTypeLinearAttackRelease = 164;
 static const int kTypePluckEnvelope3 = 165;
 static const int kTypeCurveAttackRelease = 166;
 static const int kTypeThumpEnvelope = 167;
+static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smoothstep)
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -1792,6 +1802,12 @@ struct Node {
   int typeId;
   bool used;
   bool bypassed; // dry/silence passthrough; DSP state kept (no recreate)
+  // True if this node can reach an Output (audio or param-MOD ancestor).
+  // Unreachable modules (e.g. leftover Hypersaw) skip DSP in process_block.
+  bool reachable;
+  // Compile-time: any ParamModEdge targets this node. control_frame skips
+  // stamp_live_param_mods when 0 (53× control_for_param clear was a hot cost).
+  unsigned char hasParamMods;
   // Meta Voices lane slot (0..poly-1). -1 = shared / not a voice clone.
   // process_block only steps Sustaining + Releasing slots (VoiceManager pools).
   int voiceSlot;
@@ -2181,6 +2197,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_exp_adsr_destroy(handle);
   } else if (kind == kTypeLinearEnvelope) {
     soemdsp_linear_envelope_destroy(handle);
+  } else if (kind == kTypeWavetableAdsr) {
+    soemdsp_wavetable_adsr_destroy(handle);
   } else if (kind == kTypePluckEnvelope) {
     soemdsp_pluck_envelope_destroy(handle);
   } else if (kind == kTypeExpoPluckEnvelope) {
@@ -2510,6 +2528,8 @@ static inline double phase_offset_cycles(
 static void init_node_defaults(Node& n, int typeId) {
   n.typeId = typeId;
   n.bypassed = false;
+  n.reachable = true; // until compile marks orphans
+  n.hasParamMods = 0;
   n.voiceSlot = -1;
   n.voiceSilent = true;
   n.nativeHandle = 0;
@@ -2752,6 +2772,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
       : (typeId == kTypeHypersaw2) ? 1.0 // freeRunningPhase Free-running
       : (typeId == kTypeSampleHold) ? 0.0 // polarity Bipolar
+      : (typeId == kTypeWavetableAdsr) ? 0.0 // shape Analog
       : (typeId == kTypePiSpigotNoise) ? 0.0 // color White
       : (typeId == kTypeAudioPlayer) ? 4.0 // Play
       : (typeId == kTypeAdditiveOut) ? 0.0 // optimize Inaudible off
@@ -2895,7 +2916,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypePingPongDelay || typeId == kTypeDelayEffect) ? 0.35
       : (typeId == kTypeDsfOscillator) ? 0.5 // SquSaw blend
       : (typeId == kTypeBradley2a) ? 0.0 // interfLevel
-      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.55 // sustain
+      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope || typeId == kTypeWavetableAdsr) ? 0.55 // sustain
       : (typeId == kTypeVactrol) ? 0.0 // darkCurrent
       : (typeId == kTypeLorenzAttractor) ? 0.4 // zDepth
       : (typeId == kTypeHenonMap) ? 0.1 // seedY
@@ -2987,7 +3008,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.feedback,
     (typeId == kTypeBradley2a) ? 1.0 // hitRate
-      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.22 // decay
+      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope || typeId == kTypeWavetableAdsr) ? 0.22 // decay
       : (typeId == kTypeAttackDecay) ? 0.25 // decay
       : (typeId == kTypePluckEnvelope) ? 0.7 // DecaySlopeMid
       : (typeId == kTypeExpoPluckEnvelope) ? 5.0 // Decay s (Comb-style: leave long)
@@ -3036,7 +3057,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDelayedTrigger) ? 0.01
       : (typeId == kTypeRandomClock) ? 1.0
       : (typeId == kTypeLookaheadLimiter || typeId == kTypePumpLimiter) ? 0.0 // look-ahead samples
-      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.08 // attack
+      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope || typeId == kTypeWavetableAdsr) ? 0.08 // attack
       : (typeId == kTypeAttackDecay || typeId == kTypeCurveAttackRelease) ? 0.01 // attack
       : (typeId == kTypeThumpEnvelope) ? 0.0 // attack
       : (typeId == kTypePluckEnvelope) ? 0.0 // Attack
@@ -3067,7 +3088,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeRandomClock) ? 0.01
       : (typeId == kTypeLookaheadLimiter) ? 0.2 // attack ms
       : (typeId == kTypePumpLimiter) ? 5.0 // attack ms
-      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.45 // release s
+      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope || typeId == kTypeWavetableAdsr) ? 0.45 // release s
       : (typeId == kTypeCurveAttackRelease) ? 0.25 // release s
       : (typeId == kTypeThumpEnvelope) ? 12.824772066678985 // release s (pluck envelope 2)
       : (typeId == kTypePluckEnvelope || typeId == kTypeExpoPluckEnvelope2) ? 0.0 // AutoReleaseTime
@@ -3320,9 +3341,25 @@ static const int kLiveModParamIds[] = {
 };
 
 static void clear_live_param_mods_on_node(Node& n) {
-  for (unsigned int i = 0; i < sizeof(kLiveModParamIds) / sizeof(kLiveModParamIds[0]); i++) {
-    Control* c = control_for_param(n, kLiveModParamIds[i]);
-    if (!c) continue;
+  // Direct slots — do not call control_for_param (53-way if-chain) per Control.
+  Control* slots[] = {
+    &n.volumeDb, &n.pan, &n.frequency, &n.waveform, &n.amplitude,
+    &n.shape, &n.phaseParam, &n.resonance, &n.mode, &n.stages,
+    &n.center, &n.width, &n.oversample, &n.mix, &n.diffusionSize,
+    &n.diffusionAmount, &n.delaySize, &n.recycle, &n.lfoAmplitude,
+    &n.lfoBaseSpeed, &n.lfoVariation, &n.seed, &n.feedback, &n.level,
+    &n.timeNumerator, &n.timeDenominator, &n.timingMode, &n.offsetMs,
+    &n.tapOffsetMs, &n.lfoStyle, &n.lfoRate, &n.saturate, &n.lpfFrequency,
+    &n.hpfFrequency, &n.tempoBpm, &n.offset, &n.inLow, &n.inHigh,
+    &n.outLow, &n.outHigh, &n.gainDb, &n.gainLeftDb, &n.gainRightDb,
+    &n.gainMonoSum,
+    &n.laneVol[0], &n.laneVol[1], &n.laneVol[2], &n.laneVol[3],
+    &n.laneBias[0], &n.laneBias[1], &n.laneBias[2], &n.laneBias[3],
+    &n.bleed2, &n.bleed3, &n.bleed4
+  };
+  for (unsigned i = 0; i < sizeof(slots) / sizeof(slots[0]); i++) {
+    Control* c = slots[i];
+    if (!c || !c->liveModActive) continue;
     c->liveModUnit = 0.0;
     c->liveModDomain = 0.0;
     c->liveModActive = 0;
@@ -3383,10 +3420,9 @@ static inline void node_update_hist_last(Node& node, int frames) {
 // Stamp sample-accurate audio→param MOD onto Controls for this node/frame.
 // Call once at the start of every per-sample process loop iteration.
 static void stamp_live_param_mods(Circuit& g, Node& node, int frame) {
-  // Always clear — if edge count dropped to 0, stale liveModActive must not
-  // leave VCA amps permanently silenced (base × 0).
-  clear_live_param_mods_on_node(node);
   if (g.paramModEdgeCount <= 0) return;
+  // Clear only Controls that were live last sample, then restamp this frame.
+  clear_live_param_mods_on_node(node);
   if (frame < 0 || frame >= kMaxBlockFrames) return;
   const unsigned int dst = node.idHash;
   for (int i = 0; i < g.paramModEdgeCount; i++) {
@@ -3741,7 +3777,7 @@ static void control_frame_step_one(Control& c, void* ctx) {
 // active continuous Control. Not opt-in per knob — Phase/Volume/Morph/Freq
 // all advance here. Sample loops must call this once per f before reading.
 static inline void control_frame(Circuit& g, Node& node, int f) {
-  stamp_live_param_mods(g, node, f);
+  if (node.hasParamMods) stamp_live_param_mods(g, node, f);
   g.audioFrame = f;
   node_for_each_control(node, control_frame_step_one, &g);
 }
@@ -3935,6 +3971,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeInertialFilter) return soemdsp_inertial_filter_create();
   if (typeId == kTypeExpAdsr) return soemdsp_exp_adsr_create();
   if (typeId == kTypeLinearEnvelope) return soemdsp_linear_envelope_create();
+  if (typeId == kTypeWavetableAdsr) return soemdsp_wavetable_adsr_create();
   if (typeId == kTypePluckEnvelope) return soemdsp_pluck_envelope_create();
   if (typeId == kTypeExpoPluckEnvelope) return soemdsp_expo_pluck_envelope_create();
   if (typeId == kTypeExpoPluckEnvelope2) return soemdsp_expo_pluck_envelope_2_create();
@@ -4019,7 +4056,8 @@ static void release_node_papoulis_controls(Node& n) {
 static void clear_graph_contents(Circuit& g) {
   g.compiled = false;
   g.pitchOffsetOctaves = 0.0;
-  for (int i = 0; i < g.nodeCount; i++) {
+  const int oldCount = g.nodeCount;
+  for (int i = 0; i < oldCount; i++) {
     if (g.nodes[i].used) {
       release_node_papoulis_controls(g.nodes[i]);
       destroy_node_native(g.nodes[i]);
@@ -4032,14 +4070,13 @@ static void clear_graph_contents(Circuit& g) {
   g.orderCount = 0;
   g.toSmoothCount = 0;
   g.outputNodeIndex = -1;
-  for (int i = 0; i < kMaxNodes; i++) {
+  // Only reset slots that were used. init_node_defaults on all 128 Nodes
+  // (each ~100KB with Yellow Graph payload) was a multi-ms audio hitch.
+  for (int i = 0; i < oldCount; i++) {
     g.nodes[i].used = false;
     g.nodes[i].idHash = 0;
     init_node_defaults(g.nodes[i], kTypeUnknown);
     g.order[i] = -1;
-  }
-  for (int i = 0; i < kMaxConnections; i++) {
-    g.conns[i].used = false;
   }
   for (int i = 0; i < kMaxPortPokes; i++) {
     g.portPokes[i].used = false;
@@ -6138,6 +6175,71 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
   const double referenceVoltage = 48.0 / 120.0;
   if (!liveReset) node.lastReset = 0.0;
 
+  const bool takeSample = liveF || livePitch || liveReset
+    || node.hasParamMods
+    || node_has_active_chase(node);
+  if (!takeSample) {
+    // Static knobs: one read, then oscillator only. Leftover unused Hypersaw
+    // on a "simple" canvas used to pay control_frame × 53 Controls × 128.
+    const double phaseOff = control_effective(node.phaseParam);
+    const double waveform = control_effective(node.waveform);
+    const double distribute = control_effective(node.shape);
+    const double randomize = control_effective(node.width);
+    const double vibratoAmp = control_effective(node.resonance);
+    const double vibratoSpeed = control_effective(node.lfoBaseSpeed);
+    const double vibratoFreqVary = control_effective(node.lfoAmplitude);
+    const double vibratoPhaseVary = control_effective(node.lfoVariation);
+    const double phaseMultiplier = control_effective(node.mix);
+    const double jitterDistance = control_effective(node.center);
+    const double jitterSpeed = control_effective(node.lfoRate);
+    const double jitterTilt = control_effective(node.lpfFrequency);
+    const double centerSide = control_effective(node.pan);
+    const double morph = control_effective(node.feedback);
+    const double level = control_effective(node.amplitude);
+    const double freeRunningPhase = control_effective(node.mode);
+    const double jitterSpeedRefHz = control_effective(node.oversample);
+    double voicesExact = control_effective(node.stages);
+    if (!(voicesExact * 0.0 == 0.0)) voicesExact = 1.0;
+    if (voicesExact < 1.0) voicesExact = 1.0;
+    if (voicesExact > 64.0) voicesExact = 64.0;
+    const double seed = control_effective(node.seed);
+    double freq = resolve_osc_hz(
+      g, 0, false, false, node.frequency, referenceVoltage, sr
+    );
+    for (int f = 0; f < frames; f++) {
+      soemdsp_hypersaw2_sample(
+        node.nativeHandle,
+        freq,
+        sr,
+        phaseOff,
+        voicesExact,
+        distribute,
+        randomize,
+        vibratoAmp,
+        vibratoSpeed,
+        vibratoFreqVary,
+        vibratoPhaseVary,
+        phaseMultiplier,
+        jitterDistance,
+        jitterSpeed,
+        jitterTilt,
+        centerSide,
+        waveform,
+        morph,
+        level,
+        seed,
+        freeRunningPhase,
+        jitterSpeedRefHz
+      );
+      const double L = soemdsp_hypersaw2_left(node.nativeHandle);
+      const double R = soemdsp_hypersaw2_right(node.nativeHandle);
+      node.buf[kPortLeft][f] = L;
+      node.buf[kPortRight][f] = R;
+      node.buf[kPortMono][f] = 0.5 * (L + R);
+    }
+    return;
+  }
+
   // All knobs via control_audio AFTER control_frame so live param-MOD edges
   // (e.g. envelope → jitterDistance) are sample-accurate — not a pre-loop ZOH
   // that reads liveMod before stamp (often 0 → "modulation not working").
@@ -7458,6 +7560,37 @@ static void process_basic_shape(Circuit& g, Node& node, int frames) {
     node.buf[kPortTrisaw][f] = soemdsp_basic_shape_trisaw(node.nativeHandle);
     node.buf[kPortCenterSquare][f] = soemdsp_basic_shape_center_square(node.nativeHandle);
     node.buf[kPortPhase01][f] = soemdsp_basic_shape_phase(node.nativeHandle);
+  }
+}
+
+// Wavetable ADSR: Gate on Mono(+L/R), Reset live port.
+// mode=shape (0 Analog / 1 Linear / 2 Smoothstep),
+// timeDenominator=attack, feedback=decay, mix=sustain, offsetMs=release, level=level.
+static void process_wavetable_adsr(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double reset = hasReset ? g.mixReset[f] : 0.0;
+    const double out = soemdsp_wavetable_adsr_sample(
+      node.nativeHandle,
+      gate,
+      reset,
+      control_effective(node.mode),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.feedback, f),
+      control_audio(g, node.mix, f),
+      control_audio(g, node.offsetMs, f),
+      control_audio(g, node.level, f),
+      sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+    node.buf[kPortIsIdle][f] = soemdsp_wavetable_adsr_is_idle(node.nativeHandle) ? 1.0 : 0.0;
   }
 }
 
@@ -10129,6 +10262,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeInertialFilter
     || typeId == kTypeExpAdsr
     || typeId == kTypeLinearEnvelope
+    || typeId == kTypeWavetableAdsr
     || typeId == kTypePluckEnvelope
     || typeId == kTypeExpoPluckEnvelope
     || typeId == kTypeExpoPluckEnvelope2
@@ -10628,6 +10762,34 @@ extern "C" int soemdsp_graph_compile(int handle) {
     }
   }
 
+  // Skip DSP for modules with no audio cable and no param-MOD (leftover
+  // Hypersaw on the canvas). Any wire keeps the node live so scope-only
+  // chains still run — do not require a path to Output.
+  for (int i = 0; i < g->nodeCount; i++) {
+    g->nodes[i].reachable = (g->nodes[i].used && g->nodes[i].typeId == kTypeOutput);
+  }
+  for (int i = 0; i < g->connCount; i++) {
+    if (!g->conns[i].used) continue;
+    const int d = find_node(*g, g->conns[i].dstHash);
+    const int s = find_node(*g, g->conns[i].srcHash);
+    if (d >= 0) g->nodes[d].reachable = true;
+    if (s >= 0) g->nodes[s].reachable = true;
+  }
+  for (int i = 0; i < g->paramModEdgeCount; i++) {
+    if (!g->paramModEdges[i].used) continue;
+    const int d = find_node(*g, g->paramModEdges[i].dstHash);
+    const int s = find_node(*g, g->paramModEdges[i].srcHash);
+    if (d >= 0) g->nodes[d].reachable = true;
+    if (s >= 0) g->nodes[s].reachable = true;
+  }
+
+  for (int i = 0; i < g->nodeCount; i++) g->nodes[i].hasParamMods = 0;
+  for (int i = 0; i < g->paramModEdgeCount; i++) {
+    if (!g->paramModEdges[i].used) continue;
+    const int d = find_node(*g, g->paramModEdges[i].dstHash);
+    if (d >= 0) g->nodes[d].hasParamMods = 1;
+  }
+
   g->compiled = true;
   return 0;
 }
@@ -10653,6 +10815,13 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     const int ni = g->order[oi];
     if (ni < 0 || ni >= g->nodeCount || !g->nodes[ni].used) continue;
     Node& node = g->nodes[ni];
+
+    // Orphan modules (not feeding Output via audio or param-MOD) — skip DSP.
+    // Leave last buffers so the face freezes instead of paying 12-channel zero.
+    if (!node.reachable) {
+      node.processedThisBlock = 1;
+      continue;
+    }
 
     // Meta Voices: only Sustaining + Releasing slots run DSP (VoiceManager pools).
     // Available clones stay silent — except previewVoiceSlot (inside Meta view):
@@ -11311,6 +11480,12 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       node_update_hist_last(node, frames);
       continue;
     }
+    if (node.typeId == kTypeWavetableAdsr) {
+      process_wavetable_adsr(*g, node, frames);
+      node.processedThisBlock = 1;
+      node_update_hist_last(node, frames);
+      continue;
+    }
     if (node.typeId == kTypePluckEnvelope) {
       process_pluck_envelope(*g, node, frames);
       node.processedThisBlock = 1;
@@ -11802,5 +11977,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 135; // Global smooth: header time only (0=instant); no Global→Internal rewrite
+  return 138; // skip orphan DSP; hasParamMods gate; hypersaw2 static path
 }

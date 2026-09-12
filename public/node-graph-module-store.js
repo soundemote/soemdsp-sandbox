@@ -1991,6 +1991,26 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Curve ADSR",
     notes: ["gate input", "bipolar curves", "loopable envelope", "curve shape", "native", "DADSR", "log", "exp"],
   },
+  wavetableAdsr: {
+    category: "envelope",
+    description:
+      "Cheap poly ADSR: Analog / Linear / Smoothstep. Velocity from Gate level. "
+      + "No restart on Gate↑. Reset→idle. A/D/S/R/Level modulatable.",
+    label: "Wavetable ADSR",
+    notes: [
+      "gate velocity",
+      "analog",
+      "linear",
+      "smoothstep",
+      "reset",
+      "isIdle",
+      "polyphony",
+      "cheap",
+      "native",
+      "ADSR",
+      "no retrigger",
+    ],
+  },
   attackDecay: {
     category: "envelope",
     description: "Retired — use Vactrol for simple optical A/R. Kept only so old patches still load.",

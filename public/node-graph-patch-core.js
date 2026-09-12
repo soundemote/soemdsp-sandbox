@@ -2023,6 +2023,31 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
     } else if (removableNodeIds.size === 1) {
       status = "module deleted";
     }
+    // Drop canvas pins / meta layout buckets for deleted shells so saves
+    // never keep ghost UI for modules that are already gone.
+    if (patch.view?.canvases && typeof patch.view.canvases === "object") {
+      const canvases = patch.view.canvases;
+      if (Array.isArray(canvases.root?.elements)) {
+        canvases.root.elements = canvases.root.elements.filter(
+          (el) => !removableNodeIds.has(String(el?.nodeId || "")),
+        );
+      }
+      if (canvases.byMetamodule && typeof canvases.byMetamodule === "object") {
+        for (const metaId of removableNodeIds) {
+          if (Object.prototype.hasOwnProperty.call(canvases.byMetamodule, metaId)) {
+            delete canvases.byMetamodule[metaId];
+          }
+        }
+        for (const [metaId, bucket] of Object.entries(canvases.byMetamodule)) {
+          if (!Array.isArray(bucket?.elements)) continue;
+          bucket.elements = bucket.elements.filter(
+            (el) => !removableNodeIds.has(String(el?.nodeId || "")),
+          );
+          if (!bucket.elements.length) delete canvases.byMetamodule[metaId];
+        }
+      }
+    }
+
     commitNodeGraphPatch(patch, {
       topologyEdit: true,
       deferUiPanels: true,
