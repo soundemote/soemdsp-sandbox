@@ -59,6 +59,22 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       this.setMidiKeyboardPlayKeysBitmask(message.low, message.high);
       return;
     }
+    if (message.type === "setPolyphonyVelocities") {
+      this.setPolyphonyVelocities(message.source, message.velocities);
+      return;
+    }
+    if (message.type === "vmNoteOn") {
+      this.vmNoteOn?.(message.note, message.velocity);
+      return;
+    }
+    if (message.type === "vmNoteOff") {
+      this.vmNoteOff?.(message.note);
+      return;
+    }
+    if (message.type === "vmAllNotesOff") {
+      this.vmAllNotesOff?.();
+      return;
+    }
     if (message.type === "setMacroControls") {
       this.setMacroControls(message.values);
       return;

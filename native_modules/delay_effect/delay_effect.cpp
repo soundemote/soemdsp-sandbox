@@ -175,7 +175,7 @@ extern "C" double soemdsp_delay_effect_wet(int handle) {
 }
 
 extern "C" int soemdsp_delay_effect_version() {
-  return 1;
+  return 4; // no isIdle (reverbs + ADSR only)
 }
 
 extern "C" const char* soemdsp_delay_effect_metadata_json() {

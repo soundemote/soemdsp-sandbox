@@ -51,15 +51,21 @@ function setNodeGraphMidiKeyboardLayout(next, options = {}) {
 }
 
 function nodeGraphMidiKeyboardLayoutHostWidth(surface) {
+  // Prefer the piano surface itself — module/dock chrome is wider and made
+  // black-key left offsets drift progressively across the row.
+  const surfaceW = Math.max(0, surface?.clientWidth || 0);
+  if (surfaceW > 0) {
+    return surfaceW;
+  }
   const dock = surface?.closest?.(".node-standalone-midi-keyboard-dock");
   if (dock) {
     const body = dock.querySelector(".node-standalone-midi-keyboard-body") || dock;
     const wheel = Number.parseFloat(getComputedStyle(dock).getPropertyValue("--midi-keyboard-wheel-width")) || 64;
     return Math.max(0, (body.clientWidth || 0) - wheel);
   }
-  const module = surface?.closest?.(".dsp-node, .node-midi-keyboard-module");
-  if (module) {
-    return Math.max(0, module.clientWidth || 0);
+  const whiteRow = surface?.querySelector?.(".node-midi-keyboard-white-row");
+  if (whiteRow?.clientWidth > 0) {
+    return whiteRow.clientWidth;
   }
   return Math.max(0, surface?.parentElement?.clientWidth || 0);
 }
@@ -155,17 +161,33 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
     if (surfaceH < 8) {
       needsSecondPass = true;
     }
+    // Black keys: geometry from key count only (not DOM measure, not octave).
+    // N whites fill 100% width. Black sits on the joint after white[leftWhiteIndex],
+    // centered, width ≈ 65% of one white, height = blackKeyHeight % of surface.
     const blackH = nodeGraphMidiKeyboardBlackKeyHeightPx(surfaceH, s.blackKeyHeight);
-    surface.style.setProperty("--midi-black-key-height", blackH > 0 ? `${blackH}px` : `${s.blackKeyHeight}%`);
+    surface.style.setProperty(
+      "--midi-black-key-height",
+      blackH > 0 ? `${blackH}px` : `${s.blackKeyHeight}%`,
+    );
+    const nW = Math.max(1, totalWhite);
+    const widthPct = Math.min(90 / nW, (blackW / Math.max(1, whiteW)) * (100 / nW));
+    const halfPct = widthPct * 0.5;
     surface.querySelectorAll(".node-midi-keyboard-black-row [data-key-index]").forEach((span) => {
       const key = blackByIndex.get(Number(span.dataset.keyIndex));
-      if (!key) {
+      if (!key) return;
+      const leftIdx = Number(key.leftWhiteIndex);
+      if (!(leftIdx >= 0)) {
+        span.style.display = "none";
         return;
       }
-      // Center on the joint after the preceding white key (C# between C and D).
-      const left = (Number(key.leftWhiteIndex) + 1) * whiteW - blackW / 2;
-      span.style.left = `${left}px`;
-      span.style.width = `${blackW}px`;
+      span.style.display = "";
+      // Joint after that white key, as % of full keyboard width.
+      let centerPct = ((leftIdx + 1) / nW) * 100;
+      centerPct = Math.max(halfPct, Math.min(100 - halfPct, centerPct));
+      span.style.left = `${centerPct}%`;
+      span.style.transform = "translateX(-50%)";
+      span.style.width = `${widthPct}%`;
+      span.style.removeProperty("margin-left");
       if (blackH > 0) {
         span.style.height = `${blackH}px`;
         span.style.maxHeight = `${blackH}px`;
@@ -226,13 +248,11 @@ function installNodeGraphMidiKeyboardLayoutResizeObserver() {
 
 function buildNodeGraphKeyboardControllerFaceDisplaySettingsBodyHtml() {
   const s = nodeGraphMidiKeyboardLayoutSettings();
+  // Module size is Width/Height in Module Settings (and Shift+arrows).
+  // White width / keyboard height layout sliders removed — they no longer drive the face.
   return `
     <div class="metadata-field-section" data-midi-keyboard-layout-settings>
       <div class="metadata-section-title">Keys</div>
-      <label class="node-trace-display-line-burn-row">
-        <span>White width</span>
-        <input type="range" min="6" max="40" step="1" data-midi-key-layout="whiteKeyWidth" value="${s.whiteKeyWidth}" aria-label="White key width">
-      </label>
       <label class="node-trace-display-line-burn-row">
         <span>Black width</span>
         <input type="range" min="4" max="28" step="1" data-midi-key-layout="blackKeyWidth" value="${s.blackKeyWidth}" aria-label="Black key width">
@@ -240,10 +260,6 @@ function buildNodeGraphKeyboardControllerFaceDisplaySettingsBodyHtml() {
       <label class="node-trace-display-line-burn-row">
         <span>Black height</span>
         <input type="range" min="28" max="82" step="1" data-midi-key-layout="blackKeyHeight" value="${s.blackKeyHeight}" aria-label="Black key height">
-      </label>
-      <label class="node-trace-display-line-burn-row">
-        <span>Keyboard height</span>
-        <input type="range" min="48" max="220" step="2" data-midi-key-layout="keyboardHeight" value="${s.keyboardHeight}" aria-label="Keyboard height">
       </label>
       <label class="node-trace-display-line-burn-row">
         <span>Labels</span>

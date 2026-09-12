@@ -322,6 +322,7 @@ function rememberNodeGraphWorkspaceWindowState(key, element, patch = {}, options
   const states = normalizeNodeGraphWorkspaceWindowStates(nodeGraphMvp.workspaceWindowStates);
   // Unified pages share one seat (unifiedWindowPosition). An independent
   // per-page seat is what yanked Command Center when switching pages.
+  // Still persist open/closed — otherwise close is lost on refresh.
   if (typeof nodeGraphWorkspaceKeyIsUnifiedPage === "function"
     ? nodeGraphWorkspaceKeyIsUnifiedPage(key)
     : key === "visibilityMenu") {
@@ -332,6 +333,9 @@ function rememberNodeGraphWorkspaceWindowState(key, element, patch = {}, options
       size: key === "visibilityMenu" ? null : states[key]?.size,
     }, key);
     nodeGraphMvp.workspaceWindowStates = states;
+    if (options.persist !== false) {
+      saveNodeGraphWorkspaceWindowStatesToUserSettings(options);
+    }
     return states[key];
   }
   if (nodeGraphWorkspaceKeyIsControllerDock(key)) {

@@ -664,6 +664,7 @@ function validateNodeGraphPatch(patch) {
       || ui.slidersHidden
       || ui.slidersForceShow
       || ui.displayHeightOffsetGu
+      || ui.displayHeightGu
     ) {
       normalizedNode.ui = ui;
     }
@@ -1891,14 +1892,41 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
 
   if (removableNodeIds.size) {
     const live = nodeGraphMvp.patch;
-    // Container shell delete = ungroup (preserve children, stitch portals out).
-    const metaIdsToUngroup = [...removableNodeIds].filter((nodeId) => {
+    // Container shell delete = delete shell + all owned children (recursive).
+    // Ungroup remains available separately via ungroupNodeGraphMetamodulesInPatch.
+    const containerIdsToDelete = [...removableNodeIds].filter((nodeId) => {
       const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
       return typeof nodeGraphIsContainerShellType === "function"
         && nodeGraphIsContainerShellType(node?.type);
     });
-    // Meta In/Out: prune from parent boundary (allowed inside the meta view).
+    if (containerIdsToDelete.length) {
+      const ownedByContainer = new Set(containerIdsToDelete);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const node of live.nodes || []) {
+          const id = String(node?.id || "");
+          if (!id || ownedByContainer.has(id)) continue;
+          const owner = String(node?.ownerMetamoduleId || "").trim();
+          if (owner && ownedByContainer.has(owner)) {
+            ownedByContainer.add(id);
+            grew = true;
+          }
+        }
+      }
+      for (const id of ownedByContainer) {
+        removableNodeIds.add(id);
+      }
+    }
+    // Meta In/Out deleted alone (inside meta view): prune from parent boundary.
     const boundaryIdsToRemove = [...removableNodeIds].filter((nodeId) => {
+      if (containerIdsToDelete.length && removableNodeIds.has(nodeId)) {
+        // When deleting a whole container, portals go with removableNodeIds — no
+        // separate boundary refresh needed (shell is gone).
+        const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+        const owner = String(node?.ownerMetamoduleId || "").trim();
+        if (owner && removableNodeIds.has(owner)) return false;
+      }
       const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
       return typeof nodeGraphIsMetamoduleBoundaryType === "function"
         && nodeGraphIsMetamoduleBoundaryType(node?.type);
@@ -1907,36 +1935,9 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
       removableNodeIds.delete(nodeId);
     }
 
-    let patch;
-    let ungrouped = false;
-    const shellOwnersToRefresh = new Set();
-    if (metaIdsToUngroup.length && typeof ungroupNodeGraphMetamodulesInPatch === "function") {
-      patch = typeof cloneNodeGraphPatch === "function"
-        ? cloneNodeGraphPatch(live)
-        : {
-          ...live,
-          nodes: [...(live.nodes || [])],
-          bypassedNodes: [...(live.bypassedNodes || [])],
-          connections: [...(live.connections || [])],
-          modulations: [...(live.modulations || [])],
-          graphConnections: [...(live.graphConnections || [])],
-        };
-      ungrouped = ungroupNodeGraphMetamodulesInPatch(metaIdsToUngroup, patch);
-      for (const metaId of metaIdsToUngroup) {
-        removableNodeIds.delete(metaId);
-      }
-      // Drop any selected nodes that ungroup already removed (portals / shell).
-      const stillPresent = new Set((patch.nodes || []).map((node) => node?.id));
-      for (const nodeId of [...removableNodeIds]) {
-        if (!stillPresent.has(nodeId)) removableNodeIds.delete(nodeId);
-      }
-      for (let i = boundaryIdsToRemove.length - 1; i >= 0; i -= 1) {
-        if (!stillPresent.has(boundaryIdsToRemove[i])) {
-          boundaryIdsToRemove.splice(i, 1);
-        }
-      }
-    } else {
-      patch = {
+    let patch = typeof cloneNodeGraphPatch === "function"
+      ? cloneNodeGraphPatch(live)
+      : {
         ...live,
         nodes: [...(live.nodes || [])],
         bypassedNodes: [...(live.bypassedNodes || [])],
@@ -1944,7 +1945,7 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
         modulations: [...(live.modulations || [])],
         graphConnections: [...(live.graphConnections || [])],
       };
-    }
+    const shellOwnersToRefresh = new Set();
 
     if (boundaryIdsToRemove.length && typeof nodeGraphMetamoduleRemoveBoundaryPortalInPlace === "function") {
       for (const portalId of boundaryIdsToRemove) {
@@ -1977,20 +1978,20 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
     }
 
     const removedBoundary = shellOwnersToRefresh.size > 0;
-    if (!ungrouped && !removableNodeIds.size && !removedBoundary) {
+    if (!removableNodeIds.size && !removedBoundary) {
       return;
     }
 
     setNodeGraphSelection(null);
     let status = "modules deleted";
-    if (ungrouped && !removableNodeIds.size && !removedBoundary) {
-      status = metaIdsToUngroup.length === 1 ? "metamodule ungrouped" : "metamodules ungrouped";
-    } else if (ungrouped && (removableNodeIds.size || removedBoundary)) {
-      status = "metamodule ungrouped; modules deleted";
-    } else if (removedBoundary && !removableNodeIds.size) {
+    if (removedBoundary && !removableNodeIds.size) {
       status = shellOwnersToRefresh.size === 1 && boundaryIdsToRemove.length === 1
         ? "meta portal deleted"
         : "meta portals deleted";
+    } else if (containerIdsToDelete.length && removableNodeIds.size) {
+      status = containerIdsToDelete.length === 1
+        ? "metamodule deleted"
+        : "containers deleted";
     } else if (removableNodeIds.size === 1) {
       status = "module deleted";
     }
@@ -1999,7 +2000,18 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
       deferUiPanels: true,
       status,
     });
-    if (ungrouped && typeof nodeGraphSyncMetamoduleVisibilityToDom === "function") {
+    // Leave inner view if we deleted an open container.
+    if (containerIdsToDelete.length && Array.isArray(nodeGraphMvp?.metamoduleViewStack)) {
+      const before = nodeGraphMvp.metamoduleViewStack.length;
+      nodeGraphMvp.metamoduleViewStack = nodeGraphMvp.metamoduleViewStack.filter(
+        (entry) => !removableNodeIds.has(String(entry)),
+      );
+      if (nodeGraphMvp.metamoduleViewStack.length !== before
+        && typeof updateNodeGraphMetamoduleBreadcrumb === "function") {
+        updateNodeGraphMetamoduleBreadcrumb();
+      }
+    }
+    if (typeof nodeGraphSyncMetamoduleVisibilityToDom === "function") {
       nodeGraphSyncMetamoduleVisibilityToDom();
     }
     if (typeof nodeGraphMetamoduleRefreshShellFromBoundary === "function") {

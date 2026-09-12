@@ -817,6 +817,7 @@ extern "C" double soemdsp_exp_adsr_sample(
   double decay, double sustain, double release, double releaseShape,
   double loop, double level, double updateOnTrigger, double sampleRate
 );
+extern "C" int soemdsp_exp_adsr_is_idle(int handle);
 
 extern "C" int soemdsp_attack_decay_create();
 extern "C" void soemdsp_attack_decay_destroy(int handle);
@@ -884,6 +885,7 @@ extern "C" double soemdsp_linear_envelope_sample(
   int handle, double gate, double delay, double attack, double decay,
   double sustain, double release, double loop, double level, double sampleRate
 );
+extern "C" int soemdsp_linear_envelope_is_idle(int handle);
 
 extern "C" int soemdsp_pluck_envelope_create();
 extern "C" void soemdsp_pluck_envelope_destroy(int handle);
@@ -976,6 +978,7 @@ extern "C" double soemdsp_soem_reverb_wet_left(int handle);
 extern "C" double soemdsp_soem_reverb_wet_right(int handle);
 extern "C" double soemdsp_soem_reverb_dry_left(int handle);
 extern "C" double soemdsp_soem_reverb_dry_right(int handle);
+extern "C" int soemdsp_soem_reverb_is_idle(int handle);
 
 extern "C" int soemdsp_pll_create(double sampleRate);
 extern "C" void soemdsp_pll_destroy(int handle);
@@ -1663,6 +1666,7 @@ static const int kPortSine = 7;
 static const int kPortTrisaw = 8;
 static const int kPortCenterSquare = 9;
 static const int kPortPhase01 = 10; // BasicShape / RoundShape face __Phase (0…1)
+static const int kPortIsIdle = 11; // envelopes / reverb / delay isIdle (digital 0/1)
 static const int kPortDryL = 3; // reverb Dry L (shares Saw index)
 static const int kPortDryR = 4; // reverb Dry R (shares Ramp index)
 // Comparator named outs reuse tap slots (module-local meaning, like Dry L/R):
@@ -7318,6 +7322,7 @@ static void process_exp_adsr(Circuit& g, Node& node, int frames) {
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
+    node.buf[kPortIsIdle][f] = soemdsp_exp_adsr_is_idle(node.nativeHandle) ? 1.0 : 0.0;
   }
 }
 
@@ -7531,6 +7536,7 @@ static void process_linear_envelope(Circuit& g, Node& node, int frames) {
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
+    node.buf[kPortIsIdle][f] = soemdsp_linear_envelope_is_idle(node.nativeHandle) ? 1.0 : 0.0;
   }
 }
 
@@ -7786,6 +7792,7 @@ static void process_soem_reverb(Circuit& g, Node& node, int frames) {
     node.buf[kPortDryR][f] = soemdsp_soem_reverb_dry_right(node.nativeHandle);
     node.buf[kPortMono][f] =
       0.5 * (node.buf[kPortLeft][f] + node.buf[kPortRight][f]);
+    node.buf[kPortIsIdle][f] = soemdsp_soem_reverb_is_idle(node.nativeHandle) ? 1.0 : 0.0;
   }
 }
 

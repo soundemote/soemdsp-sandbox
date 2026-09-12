@@ -3797,8 +3797,8 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   box-sizing: border-box;
   min-width: 0;
   height: 100%;
-  /* Labels must stay inside the key — never paint over neighbors */
-  padding: 0 1px 6px;
+  /* Labels near the bottom edge (whites are square-bottomed — no radius). */
+  padding: 0 1px 1px;
   overflow: hidden;
   border-right: 1px solid rgba(5, 6, 7, 0.72);
   color: rgba(5, 6, 7, 0.92);
@@ -3872,6 +3872,7 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   position: absolute;
   top: 0;
   bottom: auto;
+  /* left + width set in % from key count (translateX(-50%) centers on joint) */
   left: 0;
   display: flex;
   align-items: flex-end;
@@ -3879,10 +3880,10 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   box-sizing: border-box;
   width: var(--midi-black-key-width, 10px);
   max-width: none;
-  /* Prefer layout JS px; % fallback still leaves a white-key lip. */
+  /* Prefer layout JS; % fallback still leaves a white-key lip. */
   height: var(--midi-black-key-height, 62%);
   max-height: calc(100% - 12px);
-  padding: 0 1px 5px;
+  padding: 0 1px 1px;
   overflow: hidden;
   border: 1px solid rgba(127, 199, 217, 0.25);
   border-radius: 0 0 4px 4px;

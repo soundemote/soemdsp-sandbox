@@ -620,7 +620,7 @@ function nodeGraphDeleteTitle(selection = nodeGraphMvp.selected) {
   if ([...selectedNodeIds].every((id) => id === "output")) {
     return nodeGraphTooltipText("actions.deleteUnavailableOutput");
   }
-  // Delete container shell → ungroup (preserve children).
+  // Delete container shell → delete shell + owned children.
   if (
     typeof nodeGraphIsContainerShellType === "function"
     && [...selectedNodeIds].every((id) => {
@@ -633,9 +633,9 @@ function nodeGraphDeleteTitle(selection = nodeGraphMvp.selected) {
       return typeof nodeGraphIsGroupType === "function" && nodeGraphIsGroupType(node?.type);
     });
     if (onlyGroups) {
-      return selectedNodeIds.size === 1 ? "Ungroup Group" : "Ungroup Groups";
+      return selectedNodeIds.size === 1 ? "Delete Group" : "Delete Groups";
     }
-    return selectedNodeIds.size === 1 ? "Ungroup Metamodule" : "Ungroup containers";
+    return selectedNodeIds.size === 1 ? "Delete Metamodule" : "Delete containers";
   }
   return selectedNodeIds.size === 1
     ? nodeGraphTooltipText("actions.deleteModuleShort")

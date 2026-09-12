@@ -162,7 +162,13 @@
     "localSync": "sync the selected module display to the incoming waveform period",
     "localFrequencyReset": "reset oscillator display tracing on frequency cycles",
     "localScroll": "scroll the selected output display instead of period-locking it",
-    "blinkShape": "shape used by this module's blink-light display"
+    "blinkShape": "shape used by this module's blink-light display",
+    "showInCanvas": "pin this module's display on the layout canvas (F / phone canvas) | for modules with no drawing controls, this is the main Display Settings action",
+    "blankBody": "this module has no display-specific drawing controls | use Show in canvas above to pin it on the layout canvas"
+  },
+  "moduleSettings": {
+    "metamodulePlaymode": "Mono / Legato Ties / Legato Always / Voices | drives the Voices inlet | Module Settings only | changing recompiles the Meta voice graph | default Voices",
+    "metamoduleVoiceCount": "how many parallel voice copies of the Meta's owned subgraph (1–32) | Module Settings only | changing recompiles the Meta voice graph | default 10"
   },
   "traceDisplaySettings": {
     "save": "save these Trace Display drawing settings to this module",

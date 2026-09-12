@@ -340,6 +340,16 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextScript", "change", () => setNodeGraphTextBoxPortScriptFromContext("Text", { record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneGraphCursorX", "input", () => setNodeGraphGraphCursorFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneGraphCursorX", "change", () => setNodeGraphGraphCursorFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneMetamodulePlaymode", "change", () => {
+    if (typeof nodeGraphMetamoduleApplyVoiceSettingsFromContext === "function") {
+      nodeGraphMetamoduleApplyVoiceSettingsFromContext();
+    }
+  });
+  bindNodeGraphSceneElementEvent("nodeSceneMetamoduleVoiceCount", "change", () => {
+    if (typeof nodeGraphMetamoduleApplyVoiceSettingsFromContext === "function") {
+      nodeGraphMetamoduleApplyVoiceSettingsFromContext();
+    }
+  });
   // List owns node edit / select / remove / add ([+] under last row, ✕ per row).
   bindNodeGraphSceneElementEvent("nodeSceneGraphNodeList", "click", handleNodeGraphGraphNodeListClick);
   bindNodeGraphSceneElementEvent("nodeSceneGraphNodeList", "input", handleNodeGraphGraphNodeListInput);

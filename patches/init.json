@@ -127,10 +127,10 @@
       "tracePoints": []
     },
     {
-      "sourceNode": "keyboard-1",
-      "sourcePort": "Play Keys",
+      "sourceNode": "keyboardController-1",
+      "sourcePort": "Polyphony",
       "destinationNode": "metamodule-1",
-      "destinationPort": "Polyphony",
+      "destinationPort": "Voices",
       "tracePoints": []
     }
   ],

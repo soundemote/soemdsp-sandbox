@@ -1617,12 +1617,14 @@ function buildNodeGraphPhosphorDisplaySettingsBodyHtml(type, node, allowKey) {
 function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   const type = formType || "trace";
   // Modules with no face-specific schema — canvas pin lives in the chrome above.
+  // Hint text is on tooltips (Show in canvas + blank body), not inline copy.
   if (type === "blank" || type === "none") {
     return `
-      <div class="node-display-settings-blank" data-display-settings-blank="true">
-        <p>This module has no display-specific drawing controls.</p>
-        <p>Use <strong>Show in canvas</strong> above to pin it on the layout canvas.</p>
-      </div>`;
+      <div
+        class="node-display-settings-blank"
+        data-display-settings-blank="true"
+        data-tooltip-key="displaySettings.blankBody"
+        aria-label="No display-specific controls"></div>`;
   }
   if (type === "keypadFace" && typeof buildNodeGraphKeypadDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphKeypadDisplaySettingsBodyHtml();

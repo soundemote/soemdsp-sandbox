@@ -25,6 +25,12 @@ function closeNodeSceneContextMenu(options = {}) {
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState("commandCenter", menu, { open: false }, { status: false });
   }
+  // Persist closed unified seat (page + presentation) so refresh does not reopen.
+  if (typeof persistSession === "function") {
+    persistSession({ reason: "session", status: false });
+  } else if (typeof saveNodeGraphWorkspaceWindowStatesToUserSettings === "function") {
+    saveNodeGraphWorkspaceWindowStatesToUserSettings({ status: false });
+  }
   return true;
 }
 
@@ -811,6 +817,7 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneTextBoxHeightControls",
   "nodeSceneTextBoxTextControls",
   "nodeSceneCodeblockControls",
+  "nodeSceneMetamoduleVoiceControls",
   "nodeSceneGraphControls",
   "nodeSceneImageControls",
   "nodeSceneKnobFaceControls",
@@ -1164,6 +1171,9 @@ function configureNodeSceneContextMenu(mode) {
   const textBoxTitleScriptStatus = document.getElementById("nodeSceneTextBoxTitleScriptStatus");
   const textBoxTextScript = document.getElementById("nodeSceneTextBoxTextScript");
   const textBoxTextScriptStatus = document.getElementById("nodeSceneTextBoxTextScriptStatus");
+  const metamoduleVoiceControls = document.getElementById("nodeSceneMetamoduleVoiceControls");
+  const metamodulePlaymode = document.getElementById("nodeSceneMetamodulePlaymode");
+  const metamoduleVoiceCount = document.getElementById("nodeSceneMetamoduleVoiceCount");
   const graphControls = document.getElementById("nodeSceneGraphControls");
   const graphCursorX = document.getElementById("nodeSceneGraphCursorX");
   const graphNodeList = document.getElementById("nodeSceneGraphNodeList");
@@ -2075,6 +2085,38 @@ function configureNodeSceneContextMenu(mode) {
         graphCursorX.disabled = true;
       }
       graphNodeList?.replaceChildren();
+    }
+    const targetIsMetamodule = Boolean(
+      targetNode
+      && typeof nodeGraphIsMetamoduleType === "function"
+      && nodeGraphIsMetamoduleType(targetNode.type),
+    );
+    if (metamoduleVoiceControls) {
+      metamoduleVoiceControls.hidden = !targetIsMetamodule;
+    }
+    if (targetIsMetamodule) {
+      if (typeof nodeGraphEnsureMetamodulePayload === "function") {
+        nodeGraphEnsureMetamodulePayload(targetNode);
+      }
+      if (metamodulePlaymode) {
+        metamodulePlaymode.disabled = false;
+        metamodulePlaymode.value = String(
+          typeof nodeGraphMetamodulePlaymode === "function"
+            ? nodeGraphMetamodulePlaymode(targetNode)
+            : (targetNode.metamodule?.playmode ?? 0),
+        );
+      }
+      if (metamoduleVoiceCount) {
+        metamoduleVoiceCount.disabled = false;
+        metamoduleVoiceCount.value = String(
+          typeof nodeGraphMetamoduleVoiceCount === "function"
+            ? nodeGraphMetamoduleVoiceCount(targetNode)
+            : (targetNode.metamodule?.voices ?? 4),
+        );
+      }
+    } else {
+      if (metamodulePlaymode) metamodulePlaymode.disabled = true;
+      if (metamoduleVoiceCount) metamoduleVoiceCount.disabled = true;
     }
     textBoxAlignLeft.setAttribute("aria-pressed", textBoxLayout.horizontalAlign === "left" ? "true" : "false");
     textBoxAlignCenter.setAttribute("aria-pressed", textBoxLayout.horizontalAlign === "center" ? "true" : "false");

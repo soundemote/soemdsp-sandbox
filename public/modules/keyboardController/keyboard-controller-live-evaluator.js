@@ -228,6 +228,10 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
       : bits.low;
   }
   const playOut = nodeGraphHeldKeysOrTransmit([playLocal, playIn], phase);
+  const polyTable = nodeGraphMvp?.keyboardPolyphonyVelocities;
+  const polyOut = typeof polyphonyTableWireSample === "function"
+    ? polyphonyTableWireSample(polyTable)
+    : 0;
 
   // Stash for face paint (main thread).
   if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
@@ -238,6 +242,7 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
   return {
     "Play Keys": playOut,
     "Arp Keys": arpOut,
+    Polyphony: polyOut,
     Gate: gateOut,
     Trigger: triggerOut,
     KeyboardKey: cv.key,
@@ -276,8 +281,13 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({
   runtime.keyboardCvHold.set(nodeId, cv);
   const phase = frame % 2;
   const playOut = nodeGraphMidiPlayKeysTransmit(phase);
+  const polyTable = nodeGraphMvp?.midiPolyphonyVelocities;
+  const polyOut = typeof polyphonyTableWireSample === "function"
+    ? polyphonyTableWireSample(polyTable)
+    : 0;
   return {
     "Play Keys": playOut,
+    Polyphony: polyOut,
     Gate: cv.gateAmp,
     Trigger: cv.triggerAmp,
     "Note#/127": Math.max(0, Math.min(1, cv.midi / 127)),

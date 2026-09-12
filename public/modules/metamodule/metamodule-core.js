@@ -1,5 +1,5 @@
 // Metamodule / Group — container shells (children via ownerMetamoduleId; Root hides them).
-// Metamodule = voice host (Polyphony + playmode + Voice* bus). Group = Amplitude-only boxing.
+// Metamodule = voice host (Voices inlet + playmode + Voice* bus). Group = Amplitude-only boxing.
 
 const NODE_GRAPH_METAMODULE_TYPE = "metamodule";
 const NODE_GRAPH_GROUP_TYPE = "group";
@@ -13,6 +13,7 @@ const NODE_GRAPH_METAMODULE_PLAYMODES = Object.freeze([
 const NODE_GRAPH_METAMODULE_VOICE_PORTAL_TYPES = Object.freeze([
   "voiceFrequency",
   "voiceGate",
+  "voiceIdle",
   "voiceTrigger",
 ]);
 const NODE_GRAPH_METAMODULE_DEFAULT_STEREO_OUTS = Object.freeze(["Left", "Right"]);
@@ -31,7 +32,7 @@ function nodeGraphIsContainerShellType(type) {
 
 /** Reserved Root shell inlets (not Meta In boundary names). */
 function nodeGraphContainerShellReservedInputs(type) {
-  if (nodeGraphIsMetamoduleType(type)) return ["Polyphony", "Gate"];
+  if (nodeGraphIsMetamoduleType(type)) return ["Voices"];
   if (nodeGraphIsGroupType(type)) return ["Amplitude"];
   return [];
 }
@@ -315,6 +316,20 @@ function nodeGraphRefreshMetamoduleViewDom() {
   nodeGraphSyncMetamoduleVisibilityToDom();
 }
 
+/** Playmode: 1 Mono, 2 Legato Ties, 3 Legato Always, 4 Voices (default). */
+function nodeGraphMetamoduleNormalizePlaymode(raw) {
+  const n = Math.round(Number(raw));
+  if (!Number.isFinite(n) || n < 1 || n > 4) return 4;
+  return n;
+}
+
+/** Voice Count 1–32 (default 10). */
+function nodeGraphMetamoduleNormalizeVoiceCount(raw) {
+  const n = Math.round(Number(raw));
+  if (!Number.isFinite(n) || n < 1) return 10;
+  return Math.max(1, Math.min(32, n));
+}
+
 function nodeGraphEnsureMetamodulePayload(node) {
   if (!node || typeof node !== "object") return null;
   if (!node.metamodule || typeof node.metamodule !== "object") {
@@ -322,12 +337,24 @@ function nodeGraphEnsureMetamodulePayload(node) {
       boundary: [],
       displays: [],
       paramVisibility: {},
+      playmode: 4,
+      voices: 10,
     };
   }
   if (!Array.isArray(node.metamodule.boundary)) node.metamodule.boundary = [];
   if (!Array.isArray(node.metamodule.displays)) node.metamodule.displays = [];
   if (!node.metamodule.paramVisibility || typeof node.metamodule.paramVisibility !== "object") {
     node.metamodule.paramVisibility = {};
+  }
+  node.metamodule.playmode = nodeGraphMetamoduleNormalizePlaymode(node.metamodule.playmode);
+  node.metamodule.voices = nodeGraphMetamoduleNormalizeVoiceCount(node.metamodule.voices);
+  // Drop obsolete face-param keys if anything still wrote them.
+  if (node.params && typeof node.params === "object"
+    && (Object.hasOwn(node.params, "playmode") || Object.hasOwn(node.params, "voices"))) {
+    const next = { ...node.params };
+    delete next.playmode;
+    delete next.voices;
+    node.params = next;
   }
   return node.metamodule;
 }
@@ -344,7 +371,70 @@ function cloneNodeGraphMetamodulePayload(payload) {
   const paramVisibility = source.paramVisibility && typeof source.paramVisibility === "object"
     ? { ...source.paramVisibility }
     : {};
-  return { boundary, displays, paramVisibility };
+  return {
+    boundary,
+    displays,
+    paramVisibility,
+    playmode: nodeGraphMetamoduleNormalizePlaymode(source.playmode),
+    voices: nodeGraphMetamoduleNormalizeVoiceCount(source.voices),
+  };
+}
+
+/** Playmode from node.metamodule only (Module Settings). */
+function nodeGraphMetamodulePlaymode(node) {
+  const payload = typeof nodeGraphEnsureMetamodulePayload === "function"
+    ? nodeGraphEnsureMetamodulePayload(node)
+    : node?.metamodule;
+  return nodeGraphMetamoduleNormalizePlaymode(payload?.playmode);
+}
+
+/** Voice Count from node.metamodule only (Module Settings). */
+function nodeGraphMetamoduleVoiceCount(node) {
+  const payload = typeof nodeGraphEnsureMetamodulePayload === "function"
+    ? nodeGraphEnsureMetamodulePayload(node)
+    : node?.metamodule;
+  return nodeGraphMetamoduleNormalizeVoiceCount(payload?.voices);
+}
+
+function nodeGraphMetamoduleSetPlaymode(node, playmode) {
+  const payload = nodeGraphEnsureMetamodulePayload(node);
+  if (!payload) return false;
+  payload.playmode = nodeGraphMetamoduleNormalizePlaymode(playmode);
+  return true;
+}
+
+function nodeGraphMetamoduleSetVoiceCount(node, voices) {
+  const payload = nodeGraphEnsureMetamodulePayload(node);
+  if (!payload) return false;
+  payload.voices = nodeGraphMetamoduleNormalizeVoiceCount(voices);
+  return true;
+}
+
+/** Module Settings → apply Playmode / Voice Count and recompile voice graph. */
+function nodeGraphMetamoduleApplyVoiceSettingsFromContext() {
+  const nodeId = String(nodeGraphMvp?.lastModuleActionTargetNode || "").trim();
+  const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!live || (typeof nodeGraphIsMetamoduleType === "function" && !nodeGraphIsMetamoduleType(live.type))) {
+    return false;
+  }
+  const playEl = document.getElementById("nodeSceneMetamodulePlaymode");
+  const countEl = document.getElementById("nodeSceneMetamoduleVoiceCount");
+  const playmode = playEl ? Number(playEl.value) : nodeGraphMetamodulePlaymode(live);
+  const voices = countEl ? Number(countEl.value) : nodeGraphMetamoduleVoiceCount(live);
+  const patch = typeof cloneNodeGraphPatch === "function"
+    ? cloneNodeGraphPatch(nodeGraphMvp.patch)
+    : nodeGraphMvp.patch;
+  const node = (patch.nodes || []).find((n) => String(n?.id) === nodeId);
+  if (!node) return false;
+  nodeGraphMetamoduleSetPlaymode(node, playmode);
+  nodeGraphMetamoduleSetVoiceCount(node, voices);
+  if (typeof commitNodeGraphPatch === "function") {
+    commitNodeGraphPatch(patch, {
+      topologyEdit: true,
+      status: "metamodule voice settings",
+    });
+  }
+  return true;
 }
 
 function nodeGraphNextMetamoduleId(patch = nodeGraphMvp?.patch) {
@@ -475,14 +565,12 @@ function nodeGraphMetamoduleAllocateShellPortName(entry, portalNode, usedNames, 
     if (name.startsWith("Out ")) name = name.slice(4).trim();
   }
   if (!name) name = "Port";
-  // Reserved shell inlets are not Meta In boundary names (Polyphony / Group Amplitude).
+  // Reserved shell inlets are not Meta In boundary names (Voices / Group Amplitude).
   const reserved = options.reservedInputs instanceof Set
     ? options.reservedInputs
-    : new Set(options.reservedInputs || ["Polyphony", "Gate"]);
-  if (entry?.direction !== "out" && name === "Polyphony" && reserved.has("Polyphony")) {
-    name = "Port";
-  }
-  if (entry?.direction !== "out" && name === "Gate" && reserved.has("Gate")) {
+    : new Set(options.reservedInputs || ["Voices"]);
+  if (entry?.direction !== "out" && (name === "Voices" || name === "Polyphony")
+    && (reserved.has("Voices") || reserved.has("Polyphony"))) {
     name = "Port";
   }
   if (entry?.direction !== "out" && (name === "Amplitude" || name === "Amp") && reserved.has("Amplitude")) {
@@ -720,7 +808,7 @@ function nodeGraphMetamoduleRemoveBoundaryPortalInPlace(portalId, patch = nodeGr
 
 /**
  * Dynamic Root-facing jacks on the container shell (from boundary portals).
- * Reserved inlets first (Meta: Polyphony; Group: Amp); Meta always Left+Right outs;
+ * Reserved inlets first (Meta: Voices; Group: Amp); Meta always Left+Right outs;
  * then extra Meta In → inputs / Meta Out → outputs.
  * Read-only: does not allocate/rename shellPort (use SyncBoundaryShellPorts).
  */
@@ -1008,7 +1096,7 @@ function nodeGraphMetamoduleClaimPlacedNode(node, patch = nodeGraphMvp?.patch) {
 
 /**
  * Rewrite a shell-jack connection to the flat portal wire used by DSP.
- * Polyphony stays on the shell (voice-manager inlet); boundary jacks map to Meta In/Out.
+ * Voices stays on the shell (voice-manager inlet); boundary jacks map to Meta In/Out.
  */
 function nodeGraphMetamoduleRewriteShellConnection(sourceNode, sourcePort, destinationNode, destinationPort) {
   let src = String(sourceNode || "");
@@ -1252,6 +1340,7 @@ function nodeGraphMetamoduleEnsureVoicePortals(metaId, patch = nodeGraphMvp?.pat
     { type: "voiceFrequency", gx: -6, gy: -2 },
     { type: "voiceGate", gx: -6, gy: 1 },
     { type: "voiceTrigger", gx: -6, gy: 4 },
+    { type: "voiceIdle", gx: -6, gy: 7 },
   ];
   let created = false;
   for (const spec of coords) {
@@ -1265,7 +1354,9 @@ function nodeGraphMetamoduleEnsureVoicePortals(metaId, patch = nodeGraphMvp?.pat
           gy: spec.gy,
           alias: spec.type === "voiceFrequency"
             ? "Voice Frequency"
-            : (spec.type === "voiceGate" ? "Voice Gate" : "Voice Trigger"),
+            : (spec.type === "voiceGate"
+              ? "Voice Gate"
+              : (spec.type === "voiceIdle" ? "Voice Idle" : "Voice Trigger")),
         })
         : {
           id: portalId,
@@ -1441,10 +1532,7 @@ function groupNodeGraphSelectionIntoMetamodule() {
       gx: bounds.gx,
       gy: bounds.gy,
       alias: "Metamodule",
-      params: {
-        voices: 4,
-        playmode: 0, // Off
-      },
+      params: {},
     })
     : {
       id: metaId,
@@ -1452,11 +1540,13 @@ function groupNodeGraphSelectionIntoMetamodule() {
       gx: bounds.gx,
       gy: bounds.gy,
       alias: "Metamodule",
-      params: { voices: 4, playmode: 0 },
+      params: {},
       paramMeta: {},
     };
 
   const payload = nodeGraphEnsureMetamodulePayload(metaNode);
+  payload.playmode = 4; // Voices
+  payload.voices = 10;
   payload.displays = children.map((child, order) => ({
     childId: child.id,
     enabled: false,
@@ -1760,7 +1850,8 @@ function ungroupNodeGraphMetamoduleInPlace(metaId, patch = nodeGraphMvp?.patch) 
 }
 
 /**
- * Delete Metamodule shell â†’ ungroup (preserve children). Called from delete path.
+ * Ungroup Metamodule shells (preserve children on Root). Not used by Delete —
+ * Delete removes shell + owned children. Call this for an explicit Ungroup action.
  * Returns true if at least one metamodule was ungrouped.
  */
 function ungroupNodeGraphMetamodulesInPatch(metaIds, patch) {

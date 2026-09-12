@@ -176,9 +176,14 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         playLocal = bit;
       }
       const playOut = orTransmit([playLocal, ...playIn], phaseOn);
+      // Polyphony jack sample is cosmetic — Voices SSOT is VoiceManager events.
+      const polyOut = cv.gateAmp > 0
+        ? ((cv.midi | 0) + Math.min(1, Math.max(0, cv.velocity01)) / 128)
+        : 0;
       this.nodeOutputs.set(nid, {
         "Play Keys": playOut,
         "Arp Keys": arpOut,
+        Polyphony: polyOut,
         Gate: gateOut,
         Trigger: triggerOut,
         KeyboardKey: cv.key,
@@ -196,8 +201,12 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         Y: cv.y,
       });
     } else {
+      const polyOut = typeof polyphonyTableWireSample === "function"
+        ? polyphonyTableWireSample(this.midiPolyphonyVelocities)
+        : 0;
       this.nodeOutputs.set(nid, {
         "Play Keys": midiPlayLocal,
+        Polyphony: polyOut,
         Gate: cv.gateAmp,
         Trigger: cv.triggerAmp,
         "Note#/127": Math.max(0, Math.min(1, cv.midi / 127)),
@@ -228,10 +237,14 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       playLocal = 2 ** Math.max(0, Math.min(48, cv.key));
     }
     const playOut = orTransmit([playLocal, ...collectIn(nid, "Play Keys")], phaseOn);
+    const polyOut = cv.gateAmp > 0
+      ? ((cv.midi | 0) + Math.min(1, Math.max(0, cv.velocity01)) / 128)
+      : 0;
     this.nodeOutputs.set(nid, {
       ...prev,
       "Play Keys": playOut,
       "Arp Keys": arpOut,
+      Polyphony: polyOut,
       Gate: gateOut,
       Trigger: triggerOut,
     });

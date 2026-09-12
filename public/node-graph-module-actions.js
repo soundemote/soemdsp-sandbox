@@ -1300,12 +1300,9 @@ function adjustNodeGraphModuleWidthFromContext(delta) {
     if (nextWidthGu === currentWidthGu) {
       continue;
     }
-    const defaultWidthGu = nodeGraphDefaultModuleGridWidthUnits(targetNode.type);
-    if (nextWidthGu === defaultWidthGu) {
-      delete targetNode.widthGu;
-    } else {
-      targetNode.widthGu = nextWidthGu;
-    }
+    // Always persist width — omitting “equal to type default” re-binds old
+    // modules when spawn defaults change later.
+    targetNode.widthGu = nextWidthGu;
     changedCount += 1;
   }
   if (changedCount) {
@@ -1397,12 +1394,8 @@ function adjustNodeGraphModuleHeightFromContext(delta) {
     if (nextHeightGu === currentHeightGu) {
       continue;
     }
-    const defaultHeightGu = nodeGraphModuleGridHeightUnitsForUi(targetNode.type, targetNode.ui);
-    if (nextHeightGu === defaultHeightGu) {
-      delete targetNode.heightGu;
-    } else {
-      targetNode.heightGu = nextHeightGu;
-    }
+    // Always persist height (same reason as widthGu).
+    targetNode.heightGu = nextHeightGu;
     changedCount += 1;
   }
   if (changedCount) {
@@ -2770,8 +2763,10 @@ function toggleNodeGraphModuleOscilloscopeFromContext() {
 
 function applyNodeGraphPatchNodeUi(targetNode, ui) {
   const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, targetNode?.type);
-  // Persist ui only when a non-default flag is set. LayoutB titles default on
-  // (titleHidden:false); Hide title persists via titleHidden:true.
+  // Persist ui when any non-default chrome flag OR stored face size is set.
+  // displayHeightGu must persist — dropping ui here made Height +/- a no-op.
+  const hasFaceSize = Number.isFinite(Number(normalizedUi.displayHeightGu))
+    || Number(normalizedUi.displayHeightOffsetGu) !== 0;
   if (
     normalizedUi.buttonsHidden
     || normalizedUi.buttonsForceShow
@@ -2784,7 +2779,7 @@ function applyNodeGraphPatchNodeUi(targetNode, ui) {
     || normalizedUi.oscilloscopeForceShow
     || normalizedUi.slidersHidden
     || normalizedUi.slidersForceShow
-    || normalizedUi.displayHeightOffsetGu
+    || hasFaceSize
   ) {
     targetNode.ui = normalizedUi;
   } else {

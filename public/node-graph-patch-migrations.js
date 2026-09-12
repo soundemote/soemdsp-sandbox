@@ -987,6 +987,62 @@ function nodeGraphPatchMigrateMidSideGainLinearToDb(patch) {
 }
 
 /**
+ * Meta Polyphony inlet → Voices. Play Keys / Arp Keys → Meta Polyphony become
+ * source Polyphony → Meta Voices. Drop obsolete Meta shell Gate cables
+ * (Voices velocity already tracks on/off).
+ */
+function nodeGraphPatchMigrateMetaPolyphonyToVoices(patch) {
+  if (!patch || typeof patch !== "object") return patch;
+  const nodeTypeById = new Map();
+  if (Array.isArray(patch.nodes)) {
+    for (const node of patch.nodes) {
+      if (node && node.id != null) nodeTypeById.set(String(node.id), String(node.type || ""));
+    }
+  }
+  const rewriteConn = (conn) => {
+    if (!conn || typeof conn !== "object") return { conn, changed: false, drop: false };
+    let next = conn;
+    let changed = false;
+    const dstType = nodeTypeById.get(String(conn.destinationNode || ""));
+    const srcType = nodeTypeById.get(String(conn.sourceNode || ""));
+    const dstPort = String(conn.destinationPort || "");
+    const srcPort = String(conn.sourcePort || "");
+    // Shell Gate removed — Voices owns hold state.
+    if (dstType === "metamodule" && dstPort === "Gate") {
+      return { conn: next, changed: true, drop: true };
+    }
+    if (dstType === "metamodule" && dstPort === "Polyphony") {
+      next = { ...next, destinationPort: "Voices" };
+      changed = true;
+    }
+    const dstIsVoices = (changed ? next.destinationPort : dstPort) === "Voices"
+      && (dstType === "metamodule");
+    if (dstIsVoices && (srcPort === "Play Keys" || srcPort === "Arp Keys")) {
+      if (srcType === "keyboard" || srcType === "keyboardController") {
+        next = { ...next, sourcePort: "Polyphony" };
+        changed = true;
+      }
+    }
+    return { conn: next, changed, drop: false };
+  };
+  let changed = false;
+  const mapList = (list) => {
+    if (!Array.isArray(list)) return list;
+    const out = [];
+    for (const c of list) {
+      const r = rewriteConn(c);
+      if (r.changed) changed = true;
+      if (r.drop) continue;
+      out.push(r.conn);
+    }
+    return out;
+  };
+  const connections = mapList(patch.connections);
+  const graphConnections = mapList(patch.graphConnections);
+  return changed ? { ...patch, connections, graphConnections } : patch;
+}
+
+/**
  * Module type + face field renames: valueSlider → knob.
  * Also migrates face property and displayType/mode schema keys when present.
  */
@@ -1143,6 +1199,7 @@ function migrateNodeGraphPatchToCurrent(patch) {
     next = nodeGraphPatchMigrateToQuantizeFreq(next);
     next = nodeGraphPatchMigrateOutputVolumeLinearToDb(next);
     next = nodeGraphPatchMigrateMidSideGainLinearToDb(next);
+    next = nodeGraphPatchMigrateMetaPolyphonyToVoices(next);
   }
 
   return next;

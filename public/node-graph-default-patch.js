@@ -84,6 +84,21 @@ function createNodeGraphPatchNode(type, options = {}) {
     }
   }
   const ui = normalizeNodeGraphPatchNodeUi(uiSource, resolvedType);
+  // Stamp absolute face height at spawn so later type-default changes cannot
+  // resize existing modules (offset-from-default used to leak spawn defaults).
+  if (
+    typeof nodeGraphModuleHasFace === "function"
+    && nodeGraphModuleHasFace(resolvedType)
+    && !Number.isFinite(Number(ui.displayHeightGu))
+  ) {
+    const faceGu = typeof nodeGraphModuleDefaultDisplayHeightUnits === "function"
+      ? nodeGraphModuleDefaultDisplayHeightUnits(resolvedType)
+      : Number(nodeGraphModuleDefinitions[resolvedType]?.displayHeightGu);
+    if (Number.isFinite(faceGu) && faceGu > 0) {
+      ui.displayHeightGu = faceGu;
+      delete ui.displayHeightOffsetGu;
+    }
+  }
   if (
     ui.buttonsHidden
     || ui.buttonsForceShow
@@ -97,11 +112,16 @@ function createNodeGraphPatchNode(type, options = {}) {
     || ui.interfaceControlsHidden
     || ui.interfaceControlsForceShow
     || ui.movementLocked
+    || Number.isFinite(Number(ui.displayHeightGu))
+    || Number.isFinite(Number(ui.displayHeightOffsetGu))
   ) {
     node.ui = ui;
   }
   if (Object.hasOwn(opts, "widthGu")) {
     node.widthGu = normalizeNodeGraphModuleWidthUnits(resolvedType, opts.widthGu);
+  } else if (typeof nodeGraphDefaultModuleGridWidthUnits === "function") {
+    // Always persist spawn width (even when it matches the type default).
+    node.widthGu = nodeGraphDefaultModuleGridWidthUnits(resolvedType);
   } else {
     const defW = Number(nodeGraphModuleDefinitions[resolvedType]?.defaultWidthGu);
     if (Number.isFinite(defW)) {

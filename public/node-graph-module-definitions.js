@@ -11633,9 +11633,13 @@ const nodeGraphModuleDefinitions = (
       "Mono Dry": "Dry L",
       Left: "Mix L",
       Right: "Mix R",
+      Idle: "isIdle",
     },
-    outputs: ["Dry L", "Dry R", "Mix L", "Mix R"],
+    digitalOutputs: ["isIdle"],
+    outputs: ["Dry L", "Dry R", "Mix L", "Mix R", "isIdle"],
+    outputChannels: { isIdle: "black" },
     outputLabels: {
+      isIdle: "isIdle",
       "Dry L": "Dry L",
       "Dry R": "Dry R",
       "Mix L": "Mix L",
@@ -12619,13 +12623,14 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   // Portal MIDI — hardware device listen only. Does not drive Keyboard face/outs.
-  // Play Keys = live MIDI note bitmask (blue).
+  // Play Keys = live MIDI note bitmask (blue). Polyphony = Midi Note + Velocity table (black).
   keyboardController: {
     planRole: "source",
-    digitalOutputs: ["Play Keys"],
+    digitalOutputs: ["Polyphony", "Play Keys"],
     inputs: [],
     layout: "keyboardController",
     outputChannels: {
+      Polyphony: "black",
       "Play Keys": "blue",
     },
     outputAliases: {
@@ -12643,6 +12648,7 @@ const nodeGraphModuleDefinitions = (
       Inc: "Inc.",
     },
     outputLabels: {
+      Polyphony: "Polyphony",
       "Play Keys": "Play Keys",
       "Note#/127": "Note#/127",
       "Velocity#/127": "Velocity#/127",
@@ -12651,6 +12657,7 @@ const nodeGraphModuleDefinitions = (
       Frequency: "ƒ",
     },
     outputs: [
+      "Polyphony",
       "Play Keys",
       "Gate",
       "Trigger",
@@ -12666,21 +12673,24 @@ const nodeGraphModuleDefinitions = (
   },
   // Local piano face + explicit INs (wire MIDI→Keyboard Play Keys for device blue).
   // Play Keys = blue sounding mask. Arp Keys = gold ctrl+click latch.
+  // Polyphony = Midi Note + Velocity (local piano) — wire to Meta Voices.
   keyboard: {
     planRole: "source",
     digitalInputs: ["Play Keys", "Arp Keys"],
-    digitalOutputs: ["Play Keys", "Arp Keys"],
+    digitalOutputs: ["Polyphony", "Play Keys", "Arp Keys"],
     inputs: ["Play Keys", "Arp Keys", "Gate", "Trigger"],
     inputChannels: {
       "Play Keys": "blue",
       "Arp Keys": "gold",
     },
     outputChannels: {
+      Polyphony: "black",
       "Play Keys": "blue",
       "Arp Keys": "gold",
     },
     layout: "keyboard",
-    displayHeightGu: 8,
+    defaultWidthGu: 36,
+    displayHeightGu: 17,
     outputAliases: {
       NoteNumber: "Note#/127",
       MIDI: "Note#/127",
@@ -12696,6 +12706,7 @@ const nodeGraphModuleDefinitions = (
       Inc: "Inc.",
     },
     outputLabels: {
+      Polyphony: "Polyphony",
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
       KeyboardKey: "KeyboardKey",
@@ -12713,6 +12724,7 @@ const nodeGraphModuleDefinitions = (
       Trigger: "Trigger",
     },
     outputs: [
+      "Polyphony",
       "Play Keys",
       "Arp Keys",
       "Gate",
@@ -12941,8 +12953,11 @@ const nodeGraphModuleDefinitions = (
   expAdsr: {
     planRole: "processor",
     layout: "envelopeCurve",
+    digitalOutputs: ["isIdle"],
     inputs: ["Gate"],
-    outputs: ["Out"],
+    outputs: ["Out", "isIdle"],
+    outputChannels: { isIdle: "black" },
+    outputLabels: { isIdle: "isIdle" },
     parameters: [
       {
         choices: ["Off", "On"],
@@ -13159,8 +13174,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     planFreeRun: true,
     layout: "envelopeCurve",
+    digitalOutputs: ["isIdle"],
     inputs: ["Gate"],
-    outputs: ["Out"],
+    outputs: ["Out", "isIdle"],
+    outputChannels: { isIdle: "black" },
+    outputLabels: { isIdle: "isIdle" },
     parameters: [
       { defaultValue: "0", key: "delay", kind: "time", label: "Delay", max: "5", maxDigits: 5, mid: "0.25", min: "0", step: "any", unit: "s" },
       { defaultValue: "0.08", key: "attack", kind: "time", label: "Attack", max: "10", maxDigits: 5, mid: "0.5", min: "0", step: "any", unit: "s" },

@@ -257,6 +257,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_CHROME_TYPES = Object.freeze([
   "voiceFrequency",
   "voiceGate",
   "voiceTrigger",
+  "voiceIdle",
   // Slim repeatable Portal I/O (native thru / inlet silence until mic bus).
   "portalInlet",
   "portalInletMono",

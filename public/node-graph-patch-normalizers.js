@@ -855,6 +855,64 @@ function normalizeNodeGraphPatchViewZoom(value) {
   return Math.max(limits.min, Math.min(limits.max, zoom));
 }
 
+/** Layout canvas pins: Show in canvas (root + per-metamodule buckets). */
+function normalizeNodeGraphPatchViewCanvases(canvases) {
+  const src = canvases && typeof canvases === "object" ? canvases : {};
+  const clamp01 = (n, fallback = 0) => {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return fallback;
+    return Math.max(0, Math.min(1, v));
+  };
+  const normalizeElement = (raw, index = 0) => {
+    if (!raw || typeof raw !== "object") return null;
+    const nodeId = String(raw.nodeId || "").trim();
+    if (!nodeId) return null;
+    const i = Math.max(0, Math.round(Number(index) || 0));
+    let w = Math.max(0.08, clamp01(raw.w, 0.36));
+    let h = Math.max(0.08, clamp01(raw.h, 0.32));
+    let x = clamp01(raw.x, 0.08 + (i % 5) * 0.02);
+    let y = clamp01(raw.y, 0.08 + (i % 5) * 0.02);
+    if (x + w > 1) x = Math.max(0, 1 - w);
+    if (y + h > 1) y = Math.max(0, 1 - h);
+    const z = Number.isFinite(Number(raw.z)) ? Math.round(Number(raw.z)) : i;
+    return {
+      nodeId,
+      enabled: raw.enabled !== false,
+      x,
+      y,
+      w,
+      h,
+      z,
+    };
+  };
+  const normalizeBucket = (bucket) => {
+    const els = Array.isArray(bucket?.elements) ? bucket.elements : [];
+    const seen = new Set();
+    const elements = [];
+    for (let i = 0; i < els.length; i += 1) {
+      const el = normalizeElement(els[i], i);
+      if (!el || seen.has(el.nodeId)) continue;
+      seen.add(el.nodeId);
+      elements.push(el);
+    }
+    return { elements };
+  };
+  const root = normalizeBucket(src.root);
+  const byMetamodule = {};
+  const metaSrc = src.byMetamodule && typeof src.byMetamodule === "object"
+    ? src.byMetamodule
+    : {};
+  for (const [metaIdRaw, bucket] of Object.entries(metaSrc)) {
+    const metaId = String(metaIdRaw || "").trim();
+    if (!metaId) continue;
+    const normalized = normalizeBucket(bucket);
+    if (normalized.elements.length) {
+      byMetamodule[metaId] = normalized;
+    }
+  }
+  return { root, byMetamodule };
+}
+
 function normalizeNodeGraphPatchView(view = {}) {
   const widthGu = Math.round(Number(view?.widthGu));
   const heightGu = Math.round(Number(view?.heightGu));
@@ -870,6 +928,16 @@ function normalizeNodeGraphPatchView(view = {}) {
       ? normalizeNodeGraphModuleScopeFramesPerSecond(fpsNumber)
       : Math.max(0, Math.min(240, Math.round(fpsNumber))))
     : undefined;
+  const canvases = Object.hasOwn(source, "canvases")
+    || (source.canvases && typeof source.canvases === "object")
+    ? normalizeNodeGraphPatchViewCanvases(source.canvases)
+    : undefined;
+  // Always persist canvases when any pins exist (root or metamodule scopes).
+  const hasPins = canvases
+    && (
+      (canvases.root?.elements?.length > 0)
+      || Object.keys(canvases.byMetamodule || {}).length > 0
+    );
   return {
     heightGu: Number.isFinite(heightGu)
       ? Math.max(0, heightGu)
@@ -892,6 +960,9 @@ function normalizeNodeGraphPatchView(view = {}) {
     locked: flag("locked", false),
     hideUnusedPorts: flag("hideUnusedPorts", false),
     ...(moduleScopeFramesPerSecond != null ? { moduleScopeFramesPerSecond } : {}),
+    ...(hasPins || (canvases && Object.hasOwn(source, "canvases"))
+      ? { canvases: canvases || { root: { elements: [] }, byMetamodule: {} } }
+      : {}),
   };
 }
 

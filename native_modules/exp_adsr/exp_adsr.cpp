@@ -257,16 +257,20 @@ extern "C" double soemdsp_exp_adsr_sample(
   if (rising) {
     trigger_attack(s, p, rate);
   } else if (falling) {
-    if (s.stage == STAGE_SUSTAIN || s.stage == STAGE_OFF) {
-      s.stage = STAGE_RELEASE;
-      begin_stage(s, s.out, 0.0, p.release);
-    } else if (
+    // Gate off at any time → Release from current level immediately.
+    // Do not finish Attack/Delay/Decay first (classic ADSR contract).
+    if (
       s.stage == STAGE_DELAY
       || s.stage == STAGE_ATTACK
       || s.stage == STAGE_DECAY
+      || s.stage == STAGE_SUSTAIN
+      || s.stage == STAGE_OFF
     ) {
-      s.releasePending = true;
+      s.releasePending = false;
+      s.stage = STAGE_RELEASE;
+      begin_stage(s, s.out, 0.0, p.release);
     } else if (s.stage != STAGE_RELEASE) {
+      s.releasePending = false;
       s.stage = STAGE_RELEASE;
       begin_stage(s, s.out, 0.0, p.release);
     }
@@ -301,6 +305,13 @@ extern "C" double soemdsp_exp_adsr_sample(
 
   switch (s.stage) {
     case STAGE_DELAY:
+      // Gate already low (missed edge) → release now, do not wait out Delay.
+      if (!(safeGate > 0.0) || s.releasePending) {
+        s.releasePending = false;
+        s.stage = STAGE_RELEASE;
+        begin_stage(s, s.out, 0.0, p.release);
+        break;
+      }
       s.stageElapsed += period;
       if (s.stageElapsed >= s.stageDuration) {
         if (p.attack <= period) {
@@ -314,6 +325,13 @@ extern "C" double soemdsp_exp_adsr_sample(
       }
       break;
     case STAGE_ATTACK:
+      // Gate low mid-attack → Release from current level (do not finish Attack).
+      if (!(safeGate > 0.0) || s.releasePending) {
+        s.releasePending = false;
+        s.stage = STAGE_RELEASE;
+        begin_stage(s, s.out, 0.0, p.release);
+        break;
+      }
       if (advance_shaped(s, p.attackShape, period)) {
         s.stage = STAGE_DECAY;
         begin_stage(s, 1.0, p.sustain, p.decay);
@@ -321,6 +339,13 @@ extern "C" double soemdsp_exp_adsr_sample(
       }
       break;
     case STAGE_DECAY: {
+      // Gate low mid-decay → Release immediately (do not finish Decay).
+      if (!(safeGate > 0.0) || s.releasePending) {
+        s.releasePending = false;
+        s.stage = STAGE_RELEASE;
+        begin_stage(s, s.out, 0.0, p.release);
+        break;
+      }
       const double outBefore = s.out;
       if (advance_shaped(s, p.releaseShape, period)) {
         // Keep level — do not snap up to a recovered live sustain.
@@ -352,8 +377,16 @@ extern "C" double soemdsp_exp_adsr_sample(
   return safe(s.out * p.level);
 }
 
+/** 1 when envelope is finished (STAGE_OFF); wire to Meta Voice Idle. */
+extern "C" int soemdsp_exp_adsr_is_idle(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 1;
+  ExpAdsrState& s = gPool[handle - 1];
+  if (!s.active) return 1;
+  return (s.stage == STAGE_OFF) ? 1 : 0;
+}
+
 extern "C" int soemdsp_exp_adsr_version() {
-  return 8; // Monotonic decay; Release from level (no Body-fb re-attack)
+  return 10; // isIdle export for VoiceManager clean()
 }
 
 extern "C" const char* soemdsp_exp_adsr_metadata_json() {

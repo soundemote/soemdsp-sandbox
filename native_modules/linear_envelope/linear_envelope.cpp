@@ -167,8 +167,16 @@ extern "C" double soemdsp_linear_envelope_sample(
   return safe(clamp(s.out, 0.0, 1.0) * level);
 }
 
+/** 1 when envelope stage is Off. Wire → Meta Voice Idle. */
+extern "C" int soemdsp_linear_envelope_is_idle(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 1;
+  LinearEnvelopeState& s = gPool[handle - 1];
+  if (!s.active) return 1;
+  return (s.stage == STAGE_OFF) ? 1 : 0;
+}
+
 extern "C" int soemdsp_linear_envelope_version() {
-  return 1;
+  return 2;
 }
 
 extern "C" const char* soemdsp_linear_envelope_metadata_json() {

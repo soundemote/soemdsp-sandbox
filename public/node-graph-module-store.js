@@ -1281,15 +1281,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   keyboardController: {
     category: "portal",
-    description: "Hardware MIDI in (Portal): Play Keys (blue) from live notes, last Note/Velocity. Does not auto-drive Keyboard — wire Play Keys. Meta polyphony reads Play Keys on the Polyphony inlet.",
+    description: "Hardware MIDI in (Portal): Play Keys (blue) bitmask + Polyphony (black Midi Note+Velocity table for Meta Voices). Does not auto-drive Keyboard — wire Play Keys for face lights.",
     label: "MIDI",
-    notes: ["midi input", "midi channel", "play keys", "note", "gate", "trigger", "velocity", "portal"],
+    notes: ["midi input", "midi channel", "play keys", "polyphony", "note", "gate", "trigger", "velocity", "portal"],
   },
   keyboard: {
     category: "controller",
-    description: "Local piano (dock + face). Wire Play Keys (blue) / Arp Keys (gold) / Gate / Trigger; does not auto-follow hardware MIDI — use the MIDI module for that.",
+    description: "Local piano (dock + face). Play Keys (blue) / Arp Keys (gold) / Polyphony (black → Meta Voices); does not auto-follow hardware MIDI — use the MIDI module for that.",
     label: "Keyboard",
-    notes: ["keyboard", "piano", "play keys", "arp keys", "controller", "performance", "gate", "trigger", "velocity", "note"],
+    notes: ["keyboard", "piano", "play keys", "arp keys", "polyphony", "controller", "performance", "gate", "trigger", "velocity", "note"],
   },
   macroControls: {
     category: "controller",

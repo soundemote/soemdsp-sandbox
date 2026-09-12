@@ -170,7 +170,7 @@ function nodeGraphJackChannelCssColor(channel) {
       : "#e040fb";
   }
   if (channel === "black" || channel === "k") {
-    // Polyphony / CMYK K — charcoal on #000 workspace.
+    // Polyphony / Voices / CMYK K — charcoal on #000 workspace.
     return typeof nodeGraphCssColor === "function"
       ? nodeGraphCssColor("--node-jack-black", "#6a6a6a")
       : "#6a6a6a";
@@ -185,7 +185,7 @@ function nodeGraphJackChannelCssColor(channel) {
  */
 function nodeGraphJackWireColor(type, port, io = "output") {
   const channel = nodeGraphJackChannel(type, port, io);
-  // Colored digital buses (Play Keys blue, Arp Keys gold) + Polyphony black.
+  // Colored digital buses (Play Keys blue, Arp Keys gold) + Polyphony/Voices black.
   if (channel === "blue" || channel === "gold" || channel === "black") {
     return nodeGraphJackChannelCssColor(channel) || "";
   }
@@ -343,7 +343,7 @@ function nodeGraphJackChannel(type, port, io = "output") {
     return "";
   }
   // Port-name SSOT for voice buses (works even if def lookup misses).
-  if (key === "Polyphony") {
+  if (key === "Polyphony" || key === "Voices") {
     return "black";
   }
   if (key === "Play Keys") {

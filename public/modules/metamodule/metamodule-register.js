@@ -51,9 +51,8 @@ registerNodeGraphChromelessModule("metamoduleOut", {
 });
 
 // Metamodule shell — voice host.
-// Default shell I/O: Polyphony (keys on/off) + Gate (presence from Keyboard Gate);
-// Left + Right out (always). No Velocity inlet — Voice Velocity = 1 for now.
-// Interior Voice bus (Frequency / Gate / Trigger) seeded inside Meta view.
+// Shell I/O: Voices (Midi Note + Velocity; on/off = velocity) in; Left/Right out.
+// Interior Voice Frequency/Gate/Trigger. No shell Gate — Voices already tracks hold.
 registerNodeGraphChromelessModule("metamodule", {
   label: "Metamodule",
   // Not LayoutB shell — MetamoduleLayout stacks shared IO above the face.
@@ -68,37 +67,16 @@ registerNodeGraphChromelessModule("metamodule", {
     // Outer auto-height from MetamoduleLayout content (header+IO+face+params).
     // Do not pin defaultHeightGu — a short outer crushed the param band.
     displayHeightGu: 2,
-    inputs: ["Polyphony", "Gate"],
-    inputChannels: { Polyphony: "black" },
-    inputLabels: { Polyphony: "Polyphony", Gate: "Gate" },
+    digitalInputs: ["Voices"],
+    inputs: ["Voices"],
+    inputChannels: { Voices: "black" },
+    inputLabels: { Voices: "Voices" },
+    inputAliases: { Polyphony: "Voices" },
     outputs: ["Left", "Right"],
     outputLabels: { Left: "Left", Right: "Right" },
+    // Voice Count + Playmode live on node.metamodule (Module Settings only) —
+    // not face parameters (not modulatable).
     parameters: [
-      {
-        defaultValue: "4",
-        key: "voices",
-        label: "Voices",
-        max: "32",
-        mid: "4",
-        min: "1",
-        nonlinearSlider: false,
-        step: "1",
-        tooltip: "Voice lane count (1–32). Changing this recompiles the Meta circuit.",
-      },
-      {
-        choices: ["Off", "Mono", "Legato Ties", "Legato Always", "Voices"],
-        defaultValue: "0",
-        displayChoices: true,
-        key: "playmode",
-        label: "Playmode",
-        linearSmoothing: false,
-        max: "4",
-        mid: "2",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1",
-        tooltip: "Off = thru. Mono / Legato / Voices use Polyphony (voice manager).",
-      },
       {
         defaultValue: "0",
         key: "octave",
@@ -147,8 +125,8 @@ registerNodeGraphChromelessModule("metamodule", {
   },
   catalog: {
     category: "portal",
-    description: "Voice host. Shell: Polyphony + Gate in, Left/Right out. Inside: Voice Frequency/Gate/Trigger. Use Group for simple boxing.",
-    notes: ["metamodule", "voice host", "polyphony", "gate", "voice manager", "container", "portal"],
+    description: "Voice host. Shell: Voices in (Midi Note + Velocity), Left/Right out. Inside: Voice Frequency/Gate/Trigger. Wire Keyboard/MIDI Polyphony → Voices.",
+    notes: ["metamodule", "voice host", "voices", "polyphony", "voice manager", "container", "portal"],
   },
 });
 
@@ -219,6 +197,33 @@ registerNodeGraphChromelessModule("voiceTrigger", {
     category: "portal",
     description: "Metamodule voice trigger (pulse on note-on). Place/seeded inside a Metamodule.",
     notes: ["metamodule", "voice", "trigger", "portal"],
+  },
+});
+
+// Explicit isIdle sink — wire envelope/reverb/delay isIdle here. Not auto-pooled.
+registerNodeGraphChromelessModule("voiceIdle", {
+  label: "Voice Idle",
+  compactTile: false,
+  definition: {
+    chrome: "TitleBarAndPorts",
+    planRole: "monitor",
+    planFreeRun: true,
+    defaultWidthGu: 4,
+    defaultHeightGu: 3,
+    hasFace: false,
+    defaultUi: { buttonsHidden: true },
+    digitalInputs: ["Idle"],
+    inputs: ["Idle"],
+    inputChannels: { Idle: "black" },
+    inputLabels: { Idle: "Idle" },
+    inputAliases: { isIdle: "Idle", In: "Idle" },
+    outputs: [],
+    parameters: [],
+  },
+  catalog: {
+    category: "portal",
+    description: "Metamodule voice idle (explicit). Wire ADSR/reverb/delay isIdle → Idle. When high, releasing voices return to available.",
+    notes: ["metamodule", "voice", "idle", "isIdle", "portal"],
   },
 });
 

@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=slew-up-down-shape-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=voice-owned-subgraph-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2628,6 +2628,68 @@ function sendNodeGraphLiveMidiPlayKeysBitmask(
   }
 }
 
+/**
+ * Polyphony velocity table (Uint8Array[128]) → worklet.
+ * source: "midi" | "keyboard"
+ * Legacy display path — Voices SSOT is VoiceManager note_on/off events.
+ */
+function sendNodeGraphLivePolyphonyVelocities(source, velocities) {
+  const key = String(source || "");
+  if (key !== "midi" && key !== "keyboard") return;
+  const table = velocities instanceof Uint8Array
+    ? velocities
+    : (typeof polyphonyCreateTable === "function" ? polyphonyCreateTable() : new Uint8Array(128));
+  if (key === "midi") {
+    nodeGraphMvp.midiPolyphonyVelocities = table;
+  } else {
+    nodeGraphMvp.keyboardPolyphonyVelocities = table;
+  }
+  if (nodeGraphMvp.live.runtime) {
+    if (key === "midi") nodeGraphMvp.live.runtime.midiPolyphonyVelocities = table;
+    else nodeGraphMvp.live.runtime.keyboardPolyphonyVelocities = table;
+  }
+  if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
+    const copy = new Uint8Array(table);
+    nodeGraphMvp.live.node.port.postMessage({
+      source: key,
+      type: "setPolyphonyVelocities",
+      velocities: copy,
+    });
+  }
+}
+
+/** VoiceManager note_on — Midi Note + Velocity (0..1). */
+function sendNodeGraphLiveVmNoteOn(note, velocity01 = 100 / 127) {
+  const n = Math.max(0, Math.min(127, Math.round(Number(note))));
+  let v = Number(velocity01);
+  if (!Number.isFinite(v) || !(v > 0)) v = 100 / 127;
+  if (v > 1) v = Math.min(1, v / 127);
+  if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
+    nodeGraphMvp.live.node.port.postMessage({
+      type: "vmNoteOn",
+      note: n,
+      velocity: v,
+    });
+  }
+}
+
+/** VoiceManager note_off. */
+function sendNodeGraphLiveVmNoteOff(note) {
+  const n = Math.max(0, Math.min(127, Math.round(Number(note))));
+  if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
+    nodeGraphMvp.live.node.port.postMessage({
+      type: "vmNoteOff",
+      note: n,
+    });
+  }
+}
+
+function sendNodeGraphLiveVmAllNotesOff() {
+  if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
+    nodeGraphMvp.live.node.port.postMessage({ type: "vmAllNotesOff" });
+  }
+}
+
 function nodeGraphPitchModWheelPayload() {
   return {
     mod: Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphMvp.modWheelSignal))),
@@ -3037,22 +3099,23 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
   "./public/node-live-audio-worklet-dsp-state.js?v=protect-worklet-1",
-  "./public/node-live-audio-worklet-events.js?v=keyboard-hold-freq-1",
+  "./public/lib/polyphony-voices.js?v=gold-sustain-1",
+  "./public/node-live-audio-worklet-events.js?v=voice-manager-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=output-vol-face-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=hold-pitch-release-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=meta-clean-1",
   "./public/node-live-audio-worklet-set-plan.js?v=voice-bus-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=play-arp-keys-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=voice-manager-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=hypersaw2-smooth-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=arp-latch-persist-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=voice-manager-1",
   "./public/node-live-audio-worklet-process.js?v=protect-worklet-1",
 ];
 

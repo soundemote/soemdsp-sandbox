@@ -143,11 +143,12 @@ function nodeGraphWorkingPatchShouldRestore(patch) {
   if (nodeGraphPatchIsLegacyEfficientDefault(patch)) {
     return false;
   }
-  if (typeof nodeGraphDefaultPresetPatchIsUsable === "function"
-    && !nodeGraphDefaultPresetPatchIsUsable(patch)) {
-    return false;
-  }
-  return true;
+  // Do NOT use nodeGraphDefaultPresetPatchIsUsable here — that rejects patches
+  // with any "foreign" efficient-product type (e.g. a new Voice Idle portal)
+  // and boot then wipes the session back to Init. Plan-time stripping handles
+  // foreign modules; session restore must keep the user's graph.
+  const hasOutput = patch.nodes.some((node) => node?.id === "output" && node?.type === "output");
+  return hasOutput || patch.nodes.length > 1;
 }
 
 function nodeGraphLocalDefaultPresetAllowed() {

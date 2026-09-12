@@ -167,11 +167,8 @@ function resizeNodeGraphWidthAdjustableModuleOnGrid(patchNode, delta) {
   if (nextWidthGu === currentWidthGu) {
     return false;
   }
-  if (nextWidthGu === nodeGraphDefaultModuleGridWidthUnits(patchNode.type)) {
-    delete patchNode.widthGu;
-  } else {
-    patchNode.widthGu = nextWidthGu;
-  }
+  // Always store width on the node (spawn default must not re-bind later).
+  patchNode.widthGu = nextWidthGu;
   return true;
 }
 

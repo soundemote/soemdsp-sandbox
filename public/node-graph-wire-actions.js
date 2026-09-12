@@ -1099,7 +1099,7 @@ function nodeGraphAutoPairAvailablePorts(nodeId, side = "output") {
     ? nodeGraphPatchNode(nodeId)
     : null;
   const type = patchNode?.type;
-  // Metamodule / Group: shell Left/Right (and Polyphony/Gate) live on dynamic
+  // Metamodule / Group: shell Left/Right (and Voices) live on dynamic
   // shell ports — definition.outputs alone can miss reserved chrome.
   if (
     typeof nodeGraphIsContainerShellType === "function"

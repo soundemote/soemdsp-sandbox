@@ -42,7 +42,8 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
   const titleHidden = Object.prototype.hasOwnProperty.call(source, "titleHidden")
     ? Boolean(source.titleHidden)
     : false;
-  return {
+  const absoluteFace = Number(source.displayHeightGu);
+  const normalized = {
     buttonsHidden: Boolean(source.buttonsHidden),
     // Force-show override when Visibility has the section globally hidden.
     buttonsForceShow: Boolean(source.buttonsForceShow || source.buttonsShown),
@@ -68,6 +69,13 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
       : Boolean(source.slidersForceShow || source.slidersShown),
     titleHidden,
   };
+  // Absolute face height (spawn/resize). Preferred over offset-from-type-default.
+  if (Number.isFinite(absoluteFace) && absoluteFace > 0) {
+    normalized.displayHeightGu = type
+      ? normalizeNodeGraphModuleDisplayHeightUnits(absoluteFace, type)
+      : Math.max(1, Math.round(absoluteFace));
+  }
+  return normalized;
 }
 
 /** @deprecated Multi-mode faces removed — always empty (one face per module). */
@@ -622,7 +630,7 @@ function cloneNodeGraphPatch(patch) {
               },
           }
           : {}),
-        ...(ui.buttonsHidden || ui.buttonsForceShow || ui.ioHidden || ui.hideUnused || ui.interfaceControlsHidden || ui.interfaceControlsForceShow || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.oscilloscopeForceShow || ui.slidersHidden || ui.slidersForceShow || ui.displayHeightOffsetGu ? { ui } : {}),
+        ...(ui.buttonsHidden || ui.buttonsForceShow || ui.ioHidden || ui.hideUnused || ui.interfaceControlsHidden || ui.interfaceControlsForceShow || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.oscilloscopeForceShow || ui.slidersHidden || ui.slidersForceShow || ui.displayHeightOffsetGu || ui.displayHeightGu ? { ui } : {}),
       };
     }),
     requiredAssets: typeof nodeGraphRequiredAssetsForPatch === "function"

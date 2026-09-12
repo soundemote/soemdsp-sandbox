@@ -471,6 +471,55 @@ NodeLiveAudioProcessor.prototype.setMidiKeyboardHeldKeysBitmask = function setMi
     this.midiKeyboardHeldKeysHighBitmask = Number.isFinite(safeHigh) && safeHigh >= 0 ? safeHigh : 0;
 };
 
+/** Polyphony Midi Note + Velocity table (128 bytes). source: midi | keyboard */
+NodeLiveAudioProcessor.prototype.setPolyphonyVelocities = function setPolyphonyVelocities(source, velocities) {
+  const key = String(source || "");
+  const n = typeof POLYPHONY_NOTE_COUNT === "number" ? POLYPHONY_NOTE_COUNT : 128;
+  const table = velocities instanceof Uint8Array
+    ? new Uint8Array(velocities)
+    : new Uint8Array(n);
+  if (table.length < n) {
+    const full = new Uint8Array(n);
+    full.set(table);
+    if (key === "keyboard") this.keyboardPolyphonyVelocities = full;
+    else this.midiPolyphonyVelocities = full;
+    return;
+  }
+  if (key === "keyboard") this.keyboardPolyphonyVelocities = table.subarray(0, n);
+  else this.midiPolyphonyVelocities = table.subarray(0, n);
+};
+
+/** Ensure combined-wasm VoiceManager handle exists. */
+NodeLiveAudioProcessor.prototype.ensureVoiceManager = function ensureVoiceManager() {
+  const native = this.nativeGraph;
+  if (!native?.soemdsp_voice_manager_create) return 0;
+  if (this._voiceManagerHandle > 0) return this._voiceManagerHandle;
+  const h = native.soemdsp_voice_manager_create() | 0;
+  this._voiceManagerHandle = h > 0 ? h : 0;
+  return this._voiceManagerHandle;
+};
+
+NodeLiveAudioProcessor.prototype.vmNoteOn = function vmNoteOn(note, velocity01) {
+  const native = this.nativeGraph;
+  const h = this.ensureVoiceManager();
+  if (!(h > 0) || !native?.soemdsp_voice_manager_note_on) return;
+  native.soemdsp_voice_manager_note_on(h, Math.round(Number(note)) | 0, Number(velocity01) || 0);
+};
+
+NodeLiveAudioProcessor.prototype.vmNoteOff = function vmNoteOff(note) {
+  const native = this.nativeGraph;
+  const h = this.ensureVoiceManager();
+  if (!(h > 0) || !native?.soemdsp_voice_manager_note_off) return;
+  native.soemdsp_voice_manager_note_off(h, Math.round(Number(note)) | 0);
+};
+
+NodeLiveAudioProcessor.prototype.vmAllNotesOff = function vmAllNotesOff() {
+  const native = this.nativeGraph;
+  const h = this._voiceManagerHandle | 0;
+  if (!(h > 0) || !native?.soemdsp_voice_manager_all_notes_off) return;
+  native.soemdsp_voice_manager_all_notes_off(h);
+};
+
 NodeLiveAudioProcessor.prototype.setPitchModWheelSignal = function setPitchModWheelSignal(signal) {
     const source = signal && typeof signal === "object" ? signal : {};
     const pitch = Number(source.pitch);

@@ -996,7 +996,15 @@ extern "C" double soemdsp_soem_reverb_dry_right(int handle) {
   return gPool[handle - 1].dryR;
 }
 
-extern "C" int soemdsp_soem_reverb_version() { return 2; }
+/** 1 when SilenceDetector says quiet (~1s below Planck). Wire → Voice Idle. */
+extern "C" int soemdsp_soem_reverb_is_idle(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 1;
+  SoEmReverbState& s = gPool[handle - 1];
+  if (!s.active) return 1;
+  return s.silence.isSilent ? 1 : 0;
+}
+
+extern "C" int soemdsp_soem_reverb_version() { return 3; }
 extern "C" const char* soemdsp_soem_reverb_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_soem_reverb_metadata_json_size() {
   return (int)(sizeof(kMetadataJson) - 1);

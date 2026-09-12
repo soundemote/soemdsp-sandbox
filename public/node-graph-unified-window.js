@@ -682,6 +682,15 @@ function restoreNodeGraphUnifiedWindowAfterWorkspaceStates() {
   if (!page) {
     return;
   }
+  // Respect closed presentation — do not force Command Center back open on boot.
+  if (String(nodeGraphMvp.unifiedWindowPresentation || "closed") === "closed") {
+    return;
+  }
+  // If the page's workspace open flag is false, stay closed.
+  const pageState = nodeGraphMvp?.workspaceWindowStates?.[page];
+  if (pageState && pageState.open === false) {
+    return;
+  }
   if (!nodeGraphMvp.unifiedWindowPosition) {
     const states = nodeGraphMvp?.workspaceWindowStates || {};
     const fallback = states.commandCenter?.position || states[page]?.position;
@@ -691,9 +700,6 @@ function restoreNodeGraphUnifiedWindowAfterWorkspaceStates() {
         top: Math.round(Number(fallback.top)),
       };
     }
-  }
-  if (String(nodeGraphMvp.unifiedWindowPresentation || "closed") === "closed") {
-    nodeGraphMvp.unifiedWindowPresentation = "open";
   }
   if (typeof openNodeGraphUnifiedWindowPage === "function") {
     openNodeGraphUnifiedWindowPage(page, { force: true });
