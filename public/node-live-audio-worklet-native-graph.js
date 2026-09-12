@@ -1992,19 +1992,28 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     for (let fi = 0; fi < busFeeders.length; fi += 1) {
       const feed = busFeeders[fi];
       if (!feed?.hash || feed.metaId !== metaId) continue;
-      const v = feed.voiceIndex | 0;
-      const midi = v < notes.length ? notes[v] : -1;
-      const prevMidi = v < prevNotes.length ? prevNotes[v] : -1;
-      const open = midi >= 0;
       const kind = String(feed.kind || "frequency");
       let value = 0;
-      if (kind === "frequency") {
-        value = open ? voiceHz(midi, metaNode) : 0;
-      } else if (kind === "gate") {
-        value = open ? 1 : 0;
-      } else if (kind === "trigger") {
-        // Note-on edge for this lane only (one quantum pulse).
-        value = open && midi !== prevMidi ? 1 : 0;
+      if (feed.shared || feed.voiceIndex < 0) {
+        // Shared Voice Gate/Trigger into one ADSR: any held Polyphony key.
+        if (kind === "gate") {
+          value = notes.length > 0 ? 1 : 0;
+        } else if (kind === "trigger") {
+          value = notes.length > prevNotes.length ? 1 : 0;
+        }
+      } else {
+        const v = feed.voiceIndex | 0;
+        const midi = v < notes.length ? notes[v] : -1;
+        const prevMidi = v < prevNotes.length ? prevNotes[v] : -1;
+        const open = midi >= 0;
+        if (kind === "frequency") {
+          value = open ? voiceHz(midi, metaNode) : 0;
+        } else if (kind === "gate") {
+          value = open ? 1 : 0;
+        } else if (kind === "trigger") {
+          // Note-on edge for this lane only (one quantum pulse).
+          value = open && midi !== prevMidi ? 1 : 0;
+        }
       }
       this.pushNativeGraphParam(native, feed.hash, attOffset, value);
     }
@@ -5058,7 +5067,8 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         hash: feedHash,
         kind,
         metaId: String(metaId),
-        voiceIndex: voiceIndex | 0,
+        voiceIndex: Number(voiceIndex),
+        shared: Number(voiceIndex) < 0,
         dstId: String(dstId),
         dstPort: String(dstPort || ""),
       });
@@ -5087,6 +5097,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
           if (kind === "gate") metaVoiceGateCableMetas.add(String(metaId));
           const dstIds = expandOscIds(dst);
           if (dstIds.length > 1) {
+            // Graduated dest (per-voice Hypersaw etc.): one feeder per lane.
             for (let v = 0; v < laneVoiceCount; v += 1) {
               const laneDst = dstIds[Math.min(v, dstIds.length - 1)];
               addVoiceBusFeeder(kind, metaId, v, laneDst, dstPort);
@@ -5095,10 +5106,9 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
             // Non-cloned dest: one pitch feeder (voice 0 / mono).
             addVoiceBusFeeder(kind, metaId, 0, dst, dstPort);
           } else {
-            // Gate/Trigger into shared module: one Bias per lane (inputs sum).
-            for (let v = 0; v < laneVoiceCount; v += 1) {
-              addVoiceBusFeeder(kind, metaId, v, dst, dstPort);
-            }
+            // Shared dest (one ADSR for now): single Bias — OR of any open voice.
+            // Do not sum N lane Biases (2 open ⇒ 2.0; closed lanes fighting).
+            addVoiceBusFeeder(kind, metaId, -1, dst, dstPort);
           }
         }
       }

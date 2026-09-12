@@ -486,6 +486,26 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       }
     }
   }
+  // Metamodule voice bag: if any owned child is reachable (e.g. Hypersaw→Out),
+  // keep the Meta shell + every owned sibling reachable. Voice Gate→ADSR must
+  // stay in the native graph even when ADSR Out isn't wired to Meta Out yet.
+  {
+    const metasToExpand = new Set();
+    for (const nodeId of [...reachableNodes]) {
+      const n = graph.nodeMap.get(nodeId);
+      const owner = String(n?.ownerMetamoduleId || "").trim();
+      if (owner) metasToExpand.add(owner);
+      if (String(n?.type || "") === "metamodule") metasToExpand.add(String(nodeId));
+    }
+    for (const metaId of metasToExpand) {
+      markReachable(metaId);
+      for (const node of graph.nodes) {
+        if (String(node?.ownerMetamoduleId || "") === metaId) {
+          markReachable(node.id);
+        }
+      }
+    }
+  }
   const visualSinks = nodeGraphCompiledVisualSinks(graph, reachableNodes);
   const scopeCaptureNodeIds = nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes);
   const hasActiveVisualSink = nodeGraphActiveVisualSinkExists(visualSinks);
