@@ -381,7 +381,14 @@ NodeLiveAudioProcessor.prototype.readEfficientModSourceSample = function readEff
   }
   const out = this.nodeOutputs?.get?.(id);
   if (!out) return 0;
-  const v = out[sp] ?? (sp === "Out" ? out.Bias : null) ?? (sp === "Bias" ? out.Out : null);
+  let v = out[sp];
+  if (v == null && (sp === "Out" || sp === "Ext Out")) {
+    v = out["Ext Out"] ?? out.Out ?? out.Mono ?? out.Bias;
+  } else if (v == null && sp === "Bias") {
+    v = out.Out ?? out["Ext Out"];
+  } else if (v == null && sp === "Mono") {
+    v = out.Mono ?? out["Ext Out"] ?? out.Out;
+  }
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
@@ -395,10 +402,21 @@ NodeLiveAudioProcessor.prototype.readEfficientParamModSources = function readEff
   if (!mods || !mods.length) return [];
   const metadata = node?.paramMeta?.[key] || {};
   const sources = [];
+  const dstId = String(node?.id || "");
+  const liveMods = this._nativeLiveParamModKeys || this._nativePhaseModLiveKeys;
+  const pk = String(key || "");
   for (let i = 0; i < mods.length; i += 1) {
     const m = mods[i];
     if (!m) continue;
-    // ADSR/audio Out is 0…1 unit MOD — same cyan set_param_mod path as Knob.
+    // Native audio→param is ParamModEdge (sample-accurate, ordered). Skip quantum
+    // set_param_mod so S&H→atten→Frequency is not double-applied / stale ZOH.
+    if (
+      liveMods
+      && liveMods.size
+      && liveMods.has(`${dstId}\0${pk}\0${String(m.sourceNode || "")}\0${String(m.sourcePort || "")}`)
+    ) {
+      continue;
+    }
     const sample = this.readEfficientModSourceSample(m.sourceNode, m.sourcePort);
     if (typeof this.normalizeParameterModulationInput === "function") {
       sources.push(this.normalizeParameterModulationInput(sample, metadata));

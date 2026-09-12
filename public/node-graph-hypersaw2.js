@@ -62,7 +62,6 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
   const jitterSpeed = Number(options.jitterSpeed ?? options.jitterSpeedHz);
   const jitterTilt = Number(options.jitterTilt ?? -1);
   const jitterSpeedRef = Number(options.jitterSpeedRef);
-  const distanceSlew = Number(options.distanceSlew);
   const centerSide = Number(options.centerSide);
   const waveform = Number(options.waveform);
   const morph = Number(options.morph);
@@ -74,7 +73,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     sampleRate,
     phaseGlobal,
     numVoicesExact,
-    Number.isFinite(phaseCollapse) ? phaseCollapse : 1,
+    Number.isFinite(phaseCollapse) ? phaseCollapse : 0,
     Number.isFinite(randomizePhase) ? randomizePhase : 0.10,
     Number.isFinite(vibratoAmp) ? vibratoAmp : 0,
     Number.isFinite(vibratoSpeedHz) ? vibratoSpeedHz : 0,
@@ -84,8 +83,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     Number.isFinite(jitterDistance) ? jitterDistance : 0.1,
     Number.isFinite(jitterSpeed) ? jitterSpeed : 1,
     Number.isFinite(jitterTilt) ? jitterTilt : -1,
-    Number.isFinite(distanceSlew) ? distanceSlew : 8,
-    Number.isFinite(centerSide) ? centerSide : 0.5,
+    Number.isFinite(centerSide) ? centerSide : 1,
     Number.isFinite(waveform) ? waveform : 1,
     Number.isFinite(morph) ? morph : 0.5,
     level,
@@ -100,7 +98,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     ? nodeGraphFiniteNumber(wasm.soemdsp_hypersaw2_voice_last_frac(state.nativeHandle))
     : 0;
   // Same crossfade as native getCenterSideAmplitudeValue (0=center, 1=sides).
-  const cs = Math.max(0, Math.min(1, Number.isFinite(centerSide) ? centerSide : 0.5));
+  const cs = Math.max(0, Math.min(1, Number.isFinite(centerSide) ? centerSide : 1));
   const ampCenter = Math.min(2 - cs * 2, 1);
   const ampSide = Math.min(cs * 2, 1);
   const voicePhases = new Array(n);

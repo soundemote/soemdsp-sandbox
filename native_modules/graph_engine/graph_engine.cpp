@@ -219,7 +219,8 @@ extern "C" int soemdsp_sample_hold_create();
 extern "C" void soemdsp_sample_hold_destroy(int handle);
 extern "C" double soemdsp_sample_hold_sample(
   int handle, double input, double trigger, double threshold,
-  double sampleFrequency, double sampleRate, int hasInConnected, int seed
+  double sampleFrequency, double sampleRate, int hasInConnected, int seed,
+  double amplitude, double polarityMode
 );
 
 extern "C" int soemdsp_min_max_create();
@@ -537,7 +538,6 @@ extern "C" void soemdsp_hypersaw2_sample(
   double jitterDistance,
   double jitterSpeed,
   double jitterTilt,
-  double distanceSlewMs,
   double centerSide,
   double waveform,
   double morph,
@@ -2519,7 +2519,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.volumeDb, (typeId == kTypeMixStereo) ? 0.0 : -3.0, false);
   init_control(
     n.pan,
-    (typeId == kTypeHypersaw2) ? 0.5 // centerSide
+    (typeId == kTypeHypersaw2) ? 1.0 // centerSide (sides)
       : 0.0,
     false
   );
@@ -2651,7 +2651,7 @@ static void init_node_defaults(Node& n, int typeId) {
         ? 12.0 // slope dB/oct
       : (typeId == kTypeChaoticPhaseLockingFilter) ? 1.0 // chaos default
       : (typeId == kTypeDsfOscillator) ? 1.0 // harmonics
-      : (typeId == kTypeHypersaw2) ? 1.0 // DistributePhase
+      : (typeId == kTypeHypersaw2) ? 0.0 // Phase Collapse Merge
       : (typeId == kTypeActiveFilter) ? 4.0 // Dual Ladder LP slope 24 dB
       : (typeId == kTypeVibratoGenerator) ? 0.0 // morph
       : (typeId == kTypeWowAndFlutter) ? 1.0 // wowAmp
@@ -2751,6 +2751,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHilbert) ? 0.0 // +90°
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
       : (typeId == kTypeHypersaw2) ? 1.0 // freeRunningPhase Free-running
+      : (typeId == kTypeSampleHold) ? 0.0 // polarity Bipolar
       : (typeId == kTypePiSpigotNoise) ? 0.0 // color White
       : (typeId == kTypeAudioPlayer) ? 4.0 // Play
       : (typeId == kTypeAdditiveOut) ? 0.0 // optimize Inaudible off
@@ -2802,7 +2803,7 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.center,
-    (typeId == kTypeHypersaw2) ? 0.1 // jitterDistance (Drift Amp)
+    (typeId == kTypeHypersaw2) ? 2.0 // jitterDistance
       : (typeId == kTypePluckEnvelope) ? 0.5 // VelocitySensitivity
       : (typeId == kTypeExpoPluckEnvelope) ? 0.25 // bottomHeight
       : (typeId == kTypeExpoPluckEnvelope2) ? 0.5 // velocitySensitivity
@@ -2885,7 +2886,7 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.oversample,
-    (typeId == kTypeHypersaw2) ? 261.625565 // jitter Speed Reference (middle C)
+    (typeId == kTypeHypersaw2) ? 200.0 // jitter Speed Reference
       : 2.0, // softClipper / clipperLimiter antialias mode
     true
   );
@@ -3081,7 +3082,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.lfoRate,
     (typeId == kTypeBradley2a) ? 60.0 // jitterRate
       : (typeId == kTypeDelayEffect) ? 0.1 // modRate
-      : (typeId == kTypeHypersaw2) ? 1.0 // jitterSpeed (Drift Jitter Hz, 0…50)
+      : (typeId == kTypeHypersaw2) ? 3.6 // jitterSpeed Hz
       : (typeId == kTypeVibratoGenerator) ? 5.0
       : (typeId == kTypeWowAndFlutter) ? 1.0 // flutterFrequency (header default)
       : 0.35,
@@ -3094,7 +3095,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeBradley2a) ? 2600.0 // interfFreq
       : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 1000.0 // highCut
       : (typeId == kTypeInertialFilter) ? 20.0 // release Hz
-      : (typeId == kTypeHypersaw2) ? -1.0 // jitterTilt (−1 = absolute Speed / legacy)
+      : (typeId == kTypeHypersaw2) ? -0.3 // jitterTilt
       : (typeId == kTypeChaosfly) ? 6.0 // Lowpass oct offset (open default)
       : (typeId == kTypeCrossover5) ? 8000.0
       : (typeId == kTypeCrossover6) ? 3000.0
@@ -3106,7 +3107,6 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 200.0 // lowCut
       : (typeId == kTypeChaosfly) ? -2.0 // Highpass oct offset (gentler default)
       : (typeId == kTypeCrossover6) ? 10000.0
-      : (typeId == kTypeHypersaw2) ? 8.0 // phaseSlew ms (param key distanceSlew)
       : 20.0,
     false
   );
@@ -3466,13 +3466,19 @@ static void dirty_all_control_coeffs(Circuit& g) {
 static double resolve_control_time_samples(const Control& c, const Circuit& g) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const double defSamples = kDefaultSmoothSeconds * sr;
-  const double internal = c.timeSamples > 0.0 ? c.timeSamples : defSamples;
-  const double global = g.globalTimeSamples > 0.0 ? g.globalTimeSamples : defSamples;
   if (c.mode == kSmoothModeOff) return 0.0;
-  if (c.mode == kSmoothModeGlobal) return global;
-  if (c.mode == kSmoothModeInternalGlobal) return internal + global;
-  // internal (default)
-  return internal;
+  // Global: header time only. 0 = instant (do not substitute defSamples).
+  if (c.mode == kSmoothModeGlobal) {
+    return g.globalTimeSamples > 0.0 ? g.globalTimeSamples : 0.0;
+  }
+  // Internal+Global: sum; zeros stay zero (no hidden default on either side).
+  if (c.mode == kSmoothModeInternalGlobal) {
+    const double internal = c.timeSamples > 0.0 ? c.timeSamples : 0.0;
+    const double global = g.globalTimeSamples > 0.0 ? g.globalTimeSamples : 0.0;
+    return internal + global;
+  }
+  // Internal: per-param time; unset (0) keeps shared default so cold Controls still glide.
+  return c.timeSamples > 0.0 ? c.timeSamples : defSamples;
 }
 
 static void control_ensure_coeff(Control& c, Circuit& g) {
@@ -6119,7 +6125,7 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
 // resonance=vibratoAmp, lfoBaseSpeed=vibratoSpeed, mix=phaseMultiplier,
 // lfoAmplitude=vibratoFreqVary, lfoVariation=vibratoPhaseVary,
 // center=jitterDistance, lfoRate=jitterSpeed, lpfFrequency=jitterTilt,
-// hpfFrequency=distanceSlewMs, pan=centerSide, feedback=morph/PWM,
+// pan=centerSide, feedback=morph/PWM,
 // mode unused (locked master only),
 // oversample=jitterSpeedRefHz,
 // phaseParam=phase, seed=seed, amplitude=level.
@@ -6159,7 +6165,6 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
     const double jitterDistance = control_audio(g, node.center, f);
     const double jitterSpeed = control_audio(g, node.lfoRate, f);
     const double jitterTilt = control_audio(g, node.lpfFrequency, f);
-    const double distanceSlewMs = control_audio(g, node.hpfFrequency, f);
     const double centerSide = control_audio(g, node.pan, f);
     const double morph = control_audio(g, node.feedback, f);
     const double level = control_audio(g, node.amplitude, f);
@@ -6186,7 +6191,6 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
       jitterDistance,
       jitterSpeed,
       jitterTilt,
-      distanceSlewMs,
       centerSide,
       waveform,
       morph,
@@ -9430,8 +9434,6 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double threshold = control_effective(node.center);
-  const double sampleFreq = control_effective(node.frequency);
   const int seed = (int)node.idHash;
   // hasInConnected: any audio bus cable (Trigger alone does not count).
   bool hasIn = false;
@@ -9445,6 +9447,10 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
   }
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
+    const double threshold = control_audio(g, node.center, f);
+    const double sampleFreq = control_audio(g, node.frequency, f);
+    const double amplitude = control_audio(g, node.amplitude, f);
+    const double polarityMode = control_audio(g, node.mode, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
     const double out = soemdsp_sample_hold_sample(
@@ -9455,7 +9461,9 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
       sampleFreq,
       sr,
       hasIn ? 1 : 0,
-      seed
+      seed,
+      amplitude,
+      polarityMode
     );
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
@@ -11794,5 +11802,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 134; // unit-band without domain = plain add (no fake 0..1 clamp)
+  return 135; // Global smooth: header time only (0=instant); no Global→Internal rewrite
 }

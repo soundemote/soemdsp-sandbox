@@ -79,7 +79,9 @@ extern "C" double soemdsp_sample_hold_sample(
   double sampleFrequency,
   double sampleRate,
   int    hasInConnected,
-  int    seed
+  int    seed,
+  double amplitude,
+  double polarityMode
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   SampleHoldState& s = gPool[handle - 1];
@@ -95,6 +97,9 @@ extern "C" double soemdsp_sample_hold_sample(
   const double safeThreshold = safe(threshold);
   const double safeFreq = maxd(0.0, safe(sampleFrequency));
   const double safeRate = maxd(1.0, safe(sampleRate));
+  const double amp = safe(amplitude);
+  // 0 = Bipolar (−1…1), 1 = Unipolar (0…1) after hold.
+  const bool unipolar = polarityMode >= 0.5;
 
   bool internalFire = false;
   if (safeFreq > 0.0) {
@@ -110,9 +115,11 @@ extern "C" double soemdsp_sample_hold_sample(
     s.held = safeInput;
   }
   s.lastTrigger = safeTrigger;
-  return safe(s.held);
+  double out = s.held;
+  if (unipolar) out = (out + 1.0) * 0.5;
+  return safe(out * amp);
 }
 
 extern "C" int soemdsp_sample_hold_version() {
-  return 1;
+  return 2; // amplitude + bipolar/unipolar
 }

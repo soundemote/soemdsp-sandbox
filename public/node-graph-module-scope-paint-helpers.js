@@ -820,7 +820,8 @@ function bindNodeGraphScope2dQuad(renderer, program, positionLocation) {
 // Hypersaw's own display already uses (worklet -> main thread), not the
 // per-sample audio-rate signal graph.
 //
-// x = phase (0..1 across the canvas), y = amplitude (bipolar stem around
+// x = phase (0..1 across the canvas, free / non-pixel-quantized), additive R/B
+// (left=red, right=blue, center=both). Legacy note — amplitude stem around
 // vertical center), color = pan (red at -1/left, green at 0/center, blue
 // at +1/right), additive blending so overlapping voices actually brighten
 // rather than overpaint, and phosphor persistence via painting a

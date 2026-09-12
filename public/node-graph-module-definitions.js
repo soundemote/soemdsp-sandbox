@@ -4496,9 +4496,11 @@ const nodeGraphModuleDefinitions = (
         max: "99999",
         step: "1",
         maxDigits: 0,
+        nonlinearSlider: true,
+        sliderCurve: "skew",
         linearSmoothing: false,
         smoothingType: "none",
-        tooltip: "Master seed for Randomize Phase and per-voice Random Steps jitter.",
+        tooltip: "Master seed for Random Phase and per-voice Random Steps jitter.",
       },
       {
         constraint: "cpu",
@@ -4509,6 +4511,8 @@ const nodeGraphModuleDefinitions = (
         mid: "16",
         max: "64",
         step: "any",
+        nonlinearSlider: true,
+        sliderCurve: "skew",
         tooltip: "Number of PolyBLEP oscillators (max 64). Decimal like Additive: 12.5 → 13 oscillators with the last at half amplitude.",
       },
       {
@@ -4548,15 +4552,14 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "100",
         min: "0",
         mid: "220",
-        max: "20000",
+        max: "5000",
         step: "any",
         unit: "Hz",
-        smoothingMode: "internal",
-        smoothingSeconds: 0.0333,
-        smoothingType: "onePole",
+        nonlinearSlider: false,
+        sliderCurve: "linear",
         tooltip:
-          "Shared fundamental for every oscillator. Thru-zero: enable Bipolar on Frequency. "
-          + "Uses normal per-knob smoothing (set Smoothing to 0 / none in param meta to snap).",
+          "Shared fundamental for every oscillator. 0 Hz is valid (frozen phase). "
+          + "Thru-zero: enable Bipolar on Frequency. Domain is param-owned — DSP does not floor Hz.",
       },
       {
         key: "phase",
@@ -4569,22 +4572,41 @@ const nodeGraphModuleDefinitions = (
         step: "0.01",
         unit: "cycle",
         wraparound: true,
+        nonlinearSlider: false,
+        sliderCurve: "linear",
         tooltip: "Global phase add on every voice (cycles). Also slides the face phase lines.",
+      },
+      {
+        key: "randomizePhase",
+        label: "Random Phase",
+        defaultValue: "0.1",
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "any",
+        modClamp: false,
+        nonlinearSlider: false,
+        sliderCurve: "linear",
+        tooltip:
+          "Permanent random starting phase offset per saw (after Distance). "
+          + "0 = no extra random offset.",
       },
       {
         key: "centerSide",
         label: "Center/Side",
-        defaultValue: "0.5",
+        defaultValue: "1",
         min: "0",
         mid: "0.5",
         max: "1",
         step: "0.01",
-        tooltip: "0 = center voices only, 1 = side voices only. Face: red=left, green=center, blue=right.",
+        nonlinearSlider: false,
+        sliderCurve: "linear",
+        tooltip: "0 = center voices only, 1 = side voices only. Face: additive off-red=left, off-blue=right, center=both→white.",
       },
       {
         key: "phaseCollapse",
         label: "Phase Collapse",
-        defaultValue: "1",
+        defaultValue: "0",
         min: "0",
         mid: "0",
         max: "1",
@@ -4595,74 +4617,67 @@ const nodeGraphModuleDefinitions = (
         linearSmoothing: false,
         nonlinearSlider: false,
         tooltip:
-          "Where Distance 0 settles. Merge: all phases stack together. "
-          + "Distribute: walk collapses onto even centers (i/N).",
-      },
-      {
-        key: "jitterTilt",
-        label: "Jitter Tilt",
-        defaultValue: "-1",
-        min: "-1",
-        mid: "0",
-        max: "1",
-        step: "any",
-        tooltip:
-          "Pitch curve for Jitter Speed: walkHz = Speed × (f / Speed Ref)^(tilt+1). "
-          + "−1 = absolute Speed. 0 = same aggressiveness vs pitch (∝ f). "
-          + "+1 = highs modulate harder (∝ f²). At f = Speed Ref, tilt does nothing.",
+          "Where Distance 0 settles. Merge (0): all phases stack together. "
+          + "Distribute (1): walk collapses onto even centers (i/N).",
       },
       {
         key: "jitterDistance",
         label: "Jitter Distance",
-        defaultValue: "0.1",
+        defaultValue: "2",
         min: "0",
-        mid: "0.1",
-        max: "1",
+        mid: "10",
+        max: "100",
         step: "any",
         modClamp: false,
+        curveAmount: "-0.9",
+        nonlinearSlider: true,
+        sliderCurve: "custom",
         tooltip:
           "Walk room around phase centers. 0 = collapse onto centers (Merge or Distribute). "
-          + "1 = walk ±(1/N); 2 = double. Uses normal parameter smoothing (param menu).",
+          + "Uses normal parameter smoothing (param menu).",
       },
       {
         key: "jitterSpeed",
         label: "Jitter Speed",
         kind: "frequency",
-        defaultValue: "1",
+        defaultValue: "3.6",
         min: "0",
         mid: "10",
         max: "50",
         step: "any",
         unit: "Hz",
+        nonlinearSlider: true,
+        sliderCurve: "skew",
         tooltip: "Walk step rate when Distance > 0 (also pitch-tilted).",
       },
       {
         key: "jitterSpeedRef",
         label: "Jitter Speed Ref",
         kind: "frequency",
-        defaultValue: "261.625565",
+        defaultValue: "200",
         min: "20",
-        mid: "261.625565",
+        mid: "100",
         max: "2000",
         step: "any",
         unit: "Hz",
+        nonlinearSlider: true,
+        sliderCurve: "skew",
         tooltip:
-          "Anchor pitch where Jitter Tilt is neutral (walkHz = Speed). "
-          + "Default middle C.",
+          "Anchor pitch where Jitter Tilt is neutral (walkHz = Speed).",
       },
       {
-        key: "distanceSlew",
-        label: "Phase Slew",
-        kind: "time",
-        defaultValue: "8",
-        min: "0",
-        mid: "8",
-        max: "500",
+        key: "jitterTilt",
+        label: "Jitter Tilt",
+        defaultValue: "-0.3",
+        min: "-1",
+        mid: "0",
+        max: "1",
         step: "any",
-        unit: "ms",
+        hidden: true,
         tooltip:
-          "How fast vibrato depth tracks Frequency (|f|/100 Hz). "
-          + "0 = instant. Does not own Jitter Distance — set Distance smoothing in param menu.",
+          "Pitch curve for Jitter Speed: walkHz = Speed × (f / Speed Ref)^(tilt+1). "
+          + "−1 = absolute Speed. 0 = same aggressiveness vs pitch (∝ f). "
+          + "+1 = highs modulate harder (∝ f²). Hidden by default — show via metaparam.",
       },
       {
         key: "vibratoAmp",
@@ -4673,9 +4688,11 @@ const nodeGraphModuleDefinitions = (
         max: "2",
         step: "any",
         modClamp: false,
+        nonlinearSlider: true,
+        sliderCurve: "skew",
         tooltip:
-          "Vibrato depth on phase offsets (sides). Distance-compensated (|f|/100 Hz); "
-          + "Phase Slew sets how fast that tracks pitch. Center osc has no vib feed.",
+          "Vibrato depth on phase offsets (sides). Distance-compensated (|f|/100 Hz). "
+          + "Center osc has no vib feed.",
       },
       {
         key: "vibratoSpeed",
@@ -4687,6 +4704,8 @@ const nodeGraphModuleDefinitions = (
         max: "20",
         step: "any",
         unit: "Hz",
+        nonlinearSlider: true,
+        sliderCurve: "skew",
         tooltip: "Base vibrato LFO rate (sine, phase offset 0.5).",
       },
       {
@@ -4697,6 +4716,8 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         max: "1",
         step: "any",
+        nonlinearSlider: false,
+        sliderCurve: "linear",
         tooltip:
           "Per-voice vibrato rate spread (Master Seed). "
           + "0 = all at Vibrato Speed; 1 = each voice ±100% of Speed.",
@@ -4709,6 +4730,8 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         max: "1",
         step: "any",
+        nonlinearSlider: false,
+        sliderCurve: "linear",
         tooltip:
           "Per-voice vibrato LFO phase offset (Master Seed). "
           + "0 = all in phase; 1 = full random 0…1 offset.",
@@ -4722,20 +4745,9 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "0.01",
         modClamp: false,
+        nonlinearSlider: false,
+        sliderCurve: "linear",
         tooltip: "Output level.",
-      },
-      {
-        key: "randomizePhase",
-        label: "Randomize Phase",
-        defaultValue: "0.10",
-        min: "0",
-        mid: "0.5",
-        max: "1",
-        step: "any",
-        modClamp: false,
-        tooltip:
-          "Permanent random starting phase offset per saw (after Distance). "
-          + "0 = no extra random offset.",
       },
     ]
   },
@@ -12359,6 +12371,32 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "1",
         tooltip: "Off = classic hold. Linear / Smoothstep glide from previous hold to the new sample over the clock period (Sample Freq) or last Clock interval. Applies to Ext and internal Left/Right.",
+      },
+      {
+        choices: ["Bipolar", "Unipolar"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "polarity",
+        label: "Polarity",
+        linearSmoothing: false,
+        smoothingType: "none",
+        max: "1",
+        mid: "0",
+        min: "0",
+        step: "1",
+        tooltip:
+          "Bipolar = −1…1 (raw hold / noise). Unipolar = 0…1 remap for MOD into unipolar params (Frequency, etc.) without a B2U.",
+      },
+      {
+        defaultValue: "1",
+        key: "amplitude",
+        label: "Amplitude",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "any",
+        tooltip: "Scale Ext Out (and L/R). 0 = mute, 1 = full. Use instead of an external attenuverter for MOD depth.",
       },
       {
         defaultValue: "0",

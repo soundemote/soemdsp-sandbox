@@ -977,8 +977,9 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
 
 
 function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
-  // Vertical stems: x = phase (incl. Frequency→Phase), color = pan
-  // (red left / green center / blue right), alpha = amplitude 1:1.
+  // Vertical stems: free (non-pixel-quantized) x = phase∈[0,1] × width.
+  // Width = lineThickness∈[0,1] × face width. Additive: left=red, right=blue,
+  // center = red+blue (both channels) by amplitude.
   const nodeId = item?.slot?.nodeId;
   if (!nodeId) {
     return;
@@ -1015,12 +1016,11 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
     nodeGraphFacePlateApplyCss(screenElement, bgHex);
   }
 
-  // No voice data → freeze last pixels (do not fade/clear).
+  // No voice data → freeze last frame (do not fade/clear).
   if (!Array.isArray(phases) || !phases.length) {
     return;
   }
 
-  // Phosphor residual: fade toward plate (same keep model as energy burn).
   const keep = Math.max(0, Math.min(0.995, trail * 0.97 + ghost * 0.02));
   const fade = 1 - keep;
   context.save();
@@ -1034,10 +1034,7 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
     context.globalAlpha = 1;
   }
 
-  // Crisp stems: fillRect on integer pixel columns only (no sub-pixel / AA).
-  // Phase picks a discrete start column; thickness stays a fixed whole-pixel
-  // width across phase changes (a 2px stem stays exactly 2px — no fringing).
-  context.imageSmoothingEnabled = false;
+  context.imageSmoothingEnabled = true;
   context.globalCompositeOperation = "lighter";
 
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
@@ -1046,41 +1043,42 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
     : (typeof normalizeNodeGraphHypersawBurnSettings === "function"
       ? normalizeNodeGraphHypersawBurnSettings(patchNode?.traceDisplaySettings)
       : { lineThickness: 0.01 });
-  // 0…1 of face width (1 = full screen). Round to nearest whole-pixel thickness.
+  // 0…1 of face width — continuous, not snapped to whole pixels.
   const thickness01 = clampNodeSliderValue(nodeGraphFiniteNumber(faceSettings?.lineThickness), 0, 1);
-  const thicknessPx = thickness01 <= 0
-    ? 0
-    : Math.max(1, Math.min(canvas.width, Math.round(thickness01 * canvas.width)));
-  // Discrete slots: phase ∈ [0,1] → start column in [0, width - thickness].
-  const maxStart = Math.max(0, canvas.width - thicknessPx);
+  const widthPx = canvas.width;
+  const heightPx = canvas.height;
+  const thicknessPx = thickness01 * widthPx;
 
   const count = phases.length;
   for (let i = 0; i < count; i += 1) {
     const p = Number(phases[i]);
     if (!Number.isFinite(p)) continue;
     const phase01 = clampNodeSliderValue(p, 0, 1);
-    // floor((maxStart+1) * phase) then clamp — uniform bins, always integer x0.
-    const x0 = maxStart <= 0
-      ? 0
-      : Math.min(maxStart, Math.floor(phase01 * (maxStart + 1)));
+    const w = thicknessPx;
+    if (!(w > 0)) continue;
+    // Free position: phase maps across the face; stem centered on that x.
+    const xCenter = phase01 * widthPx;
+    const x0 = xCenter - w * 0.5;
     const pan = Array.isArray(pans) && i < pans.length ? Number(pans[i]) : 0;
     const ampRaw = Array.isArray(amps) && i < amps.length ? Number(amps[i]) : 1;
-    // Amplitude → alpha 1:1 (full scale = opaque).
     const alpha = clampNodeSliderValue(Math.abs(Number.isFinite(ampRaw) ? ampRaw : 0), 0, 1);
-    if (!(alpha > 0) || !(thicknessPx > 0)) continue;
-    let r = 0;
-    let g = 0;
-    let b = 0;
+    if (!(alpha > 0)) continue;
+    // Additive off-red / off-blue (whitening in the other channels) so
+    // left+right / center combine toward white instead of pure magenta.
+    const leftRgba = `rgba(255,130,110,${alpha})`;
+    const rightRgba = `rgba(110,130,255,${alpha})`;
     if (pan < -0.25) {
-      r = 255; // left
+      context.fillStyle = leftRgba;
+      context.fillRect(x0, 0, w, heightPx);
     } else if (pan > 0.25) {
-      b = 255; // right
+      context.fillStyle = rightRgba;
+      context.fillRect(x0, 0, w, heightPx);
     } else {
-      g = 255; // center
+      context.fillStyle = leftRgba;
+      context.fillRect(x0, 0, w, heightPx);
+      context.fillStyle = rightRgba;
+      context.fillRect(x0, 0, w, heightPx);
     }
-    context.fillStyle = `rgba(${r},${g},${b},${alpha})`;
-    // Always exactly thicknessPx columns (never shrink mid-travel).
-    context.fillRect(x0 | 0, 0, thicknessPx | 0, canvas.height);
   }
   context.restore();
 }

@@ -7,8 +7,6 @@
 //
 // Jitter Distance J (>=0, not hard-capped): walk within ±(1/N)*J around centers.
 // Phase Collapse: Merge (0) centers=(i/N)*J; Distribute (1) centers=i/N.
-// Phase Slew (ms): vibrato |f| depth only — not Jitter Distance.
-// Jitter Distance uses normal Control / param-meta smoothing.
 // Jitter Speed (Hz) × tilt: walkHz = Speed × (f/Ref)^(tilt+1).
 // Randomize Phase = permanent offset after Distance.
 // Rising Reset re-zeros master + re-rolls seeds.
@@ -49,7 +47,9 @@ static const double k1z3 = 1.0 / 3.0;
 static const double k4zPI = 4.0 / 3.141592653589793238;
 
 double blepSoem(double t, double dt) {
-  const double d = dt > 1.0e-12 ? dt : 1.0e-12;
+  // Frequency 0 Hz → dt=0; no invented floor (param domain owns the min).
+  if (!(dt > 0.0)) return 0.0;
+  const double d = dt;
   if (t < d) {
     const double u = t / d - 1.0;
     return -(u * u);
@@ -62,7 +62,8 @@ double blepSoem(double t, double dt) {
 }
 
 double blampSoem(double t, double dt) {
-  const double d = dt > 1.0e-12 ? dt : 1.0e-12;
+  if (!(dt > 0.0)) return 0.0;
+  const double d = dt;
   if (t < d) {
     const double u = t / d - 1.0;
     return -k1z3 * u * u * u;
@@ -164,7 +165,8 @@ double polyBlepTrapezoid(double t, double dt) {
 }
 
 double hypersaw2WaveSample(int waveform, double phase, double dt, double morph) {
-  const double d = dt > 1.0e-12 ? dt : 1.0e-12;
+  // Allow exact 0 Hz (dt=0) — parameter domain owns the floor, not DSP.
+  const double d = dt > 0.0 ? dt : 0.0;
   switch (waveform) {
     case 0: return polyBlepTrisaw(phase, d, morph);
     case 1: return polyBlepSaw(phase, d);
@@ -282,7 +284,6 @@ struct Hypersaw2State {
   bool active;
   Hypersaw2VoiceState voices[kMaxVoices];
   double masterPhase;      // shared locked carrier
-  double distCompSmooth;   // slewed |f|/ref for vibrato PM depth (Phase Slew)
   unsigned int masterRng;
   int lastVoiceCount;
   double lastVoiceFrac;
@@ -312,7 +313,6 @@ void seedVoice(Hypersaw2VoiceState& voice, int instanceIndex, int voiceIndex, un
 void reseedAll(Hypersaw2State& s, int instanceIndex, unsigned int masterSeed) {
   s.masterRng = masterSeed ? masterSeed : 0xC2B2AE3Du;
   s.masterPhase = 0.0;
-  s.distCompSmooth = 1.0; // unity at kDistanceRefHz until first sample
   s.lastVoiceCount = 0;
   s.lastSeed = static_cast<double>(masterSeed);
   for (int v = 0; v < kMaxVoices; v++) {
@@ -368,7 +368,6 @@ extern "C" void soemdsp_hypersaw2_sample(
   double jitterDistance,
   double jitterSpeed,
   double jitterTilt,
-  double distanceSlewMs,
   double centerSide,
   double waveform,
   double morph,
@@ -383,6 +382,7 @@ extern "C" void soemdsp_hypersaw2_sample(
   (void)phaseMultiplier;
 
   const double sr = sampleRate > 1.0 ? sampleRate : 48000.0;
+  // Frequency itself is instant (tilt / jitter speed / vib depth use this).
   const double freq = (frequencyHz == frequencyHz) ? frequencyHz : 0.0;
 
   if (!(seedParam == s.lastSeed)) {
@@ -484,21 +484,8 @@ extern "C" void soemdsp_hypersaw2_sample(
   }
   const double jSpeedEff = jSpeed * speedScale;
 
-  // Phase Slew (ms): vibrato |f| depth only. Jitter Distance uses Control smoothing.
-  const double distCompTarget = (oscAbs > 1.0e-12) ? (oscAbs / kDistanceRefHz) : 0.0;
-  const double slewMs = (distanceSlewMs == distanceSlewMs) ? distanceSlewMs : 8.0;
-  const bool slewInstant = !(slewMs > 1.0e-9);
-  double slewA = 0.0;
-  if (!slewInstant) {
-    slewA = dsp_exp(-1.0 / ((slewMs * 0.001) * sr));
-  }
-  if (slewInstant) {
-    s.distCompSmooth = distCompTarget;
-  } else {
-    s.distCompSmooth = (1.0 - slewA) * distCompTarget + slewA * s.distCompSmooth;
-  }
-  if (!(s.distCompSmooth * 0.0 == 0.0)) s.distCompSmooth = distCompTarget;
-  const double distComp = s.distCompSmooth;
+  // Vibrato depth scales with |f|/ref (instant).
+  const double distComp = (oscAbs > 1.0e-12) ? (oscAbs / kDistanceRefHz) : 0.0;
   const double jDistance = jDistanceTarget;
   const double vibAmpDist = vibAmp * distComp;
 
@@ -605,5 +592,5 @@ extern "C" int soemdsp_hypersaw2_max_voices() {
 }
 
 extern "C" int soemdsp_hypersaw2_version() {
-  return 36; // Phase Slew = vib |f| depth only; Distance uses Control smoothing
+  return 41; // 0 Hz allowed (no dt floor); Phase Slew gone
 }
