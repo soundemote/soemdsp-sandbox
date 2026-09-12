@@ -134,6 +134,16 @@ extern "C" double soemdsp_pluck_envelope_3_sample(
   return (y * 0.0 == 0.0) ? y : 0.0;
 }
 
-extern "C" int soemdsp_pluck_envelope_3_version() { return 7; }
+/** Explicit boolean isIdle — Voice Idle collects this, it does not measure level. */
+extern "C" int soemdsp_pluck_envelope_3_is_idle(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 1;
+  State& s = gPool[handle - 1];
+  if (!s.active) return 1;
+  const double y = s.env * s.shotAmp;
+  const double a = y < 0.0 ? -y : y;
+  return (a < 1.0e-5) ? 1 : 0;
+}
+
+extern "C" int soemdsp_pluck_envelope_3_version() { return 8; }
 extern "C" const char* soemdsp_pluck_envelope_3_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_pluck_envelope_3_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

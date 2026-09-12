@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=voice-owned-subgraph-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=voice-available-silence-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2219,10 +2219,21 @@ function nodeGraphLivePlanShapeSignature(plan = {}) {
     String(c?.destinationPort || ""),
   ]);
   connections.sort((a, b) => a.join("\0").localeCompare(b.join("\0")));
+  // Meta playmode / voice count change native voice-lane clones — must force
+  // setPlan (setConnections/setParams alone never updated metamodule on worklet).
+  const metaVoice = (Array.isArray(plan.nodes) ? plan.nodes : [])
+    .filter((node) => String(node?.type || "") === "metamodule")
+    .map((node) => [
+      String(node.id || ""),
+      Math.max(1, Math.min(4, Math.round(Number(node?.metamodule?.playmode) || 4))),
+      Math.max(1, Math.min(32, Math.round(Number(node?.metamodule?.voices) || 10))),
+    ]);
+  metaVoice.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
   return JSON.stringify({
     nodes: (Array.isArray(plan.nodes) ? plan.nodes : []).map((node) => [node.id, node.type]),
     // Wires change native topology — must invalidate connection-only shortcut.
     connections,
+    metaVoice,
     order: Array.isArray(plan.order) ? plan.order : [],
     outputNode: plan.outputNode || "output",
     samples: (Array.isArray(plan.samples) ? plan.samples : []).map((sample) => sample?.id || ""),
@@ -3100,12 +3111,12 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
   "./public/node-live-audio-worklet-dsp-state.js?v=protect-worklet-1",
   "./public/lib/polyphony-voices.js?v=gold-sustain-1",
-  "./public/node-live-audio-worklet-events.js?v=voice-manager-1",
+  "./public/node-live-audio-worklet-events.js?v=voice-count-rebuild-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=output-vol-face-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=no-poly-debug-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=voice-available-silence-1",
   "./public/node-live-audio-worklet-set-plan.js?v=meta-payload-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
   "./public/node-live-audio-worklet-handle-message.js?v=voice-manager-1",

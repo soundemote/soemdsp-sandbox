@@ -51,8 +51,9 @@ registerNodeGraphChromelessModule("metamoduleOut", {
 });
 
 // Metamodule shell — voice host.
-// Shell I/O: Voices (Midi Note + Velocity; on/off = velocity) in; Left/Right out.
-// Interior Voice Frequency/Gate/Trigger. No shell Gate — Voices already tracks hold.
+// Metamodule = voice container. Shell: Voices in, Left/Right out.
+// Interior built-in per-voice buses: Frequency / Gate / Trigger / Idle.
+// No shell Gate — Voices already tracks hold.
 registerNodeGraphChromelessModule("metamodule", {
   label: "Metamodule",
   // Not LayoutB shell — MetamoduleLayout stacks shared IO above the face.
@@ -125,12 +126,12 @@ registerNodeGraphChromelessModule("metamodule", {
   },
   catalog: {
     category: "portal",
-    description: "Voice host. Shell: Voices in (Midi Note + Velocity), Left/Right out. Inside: Voice Frequency/Gate/Trigger. Wire Keyboard/MIDI Polyphony → Voices.",
-    notes: ["metamodule", "voice host", "voices", "polyphony", "voice manager", "container", "portal"],
+    description: "Voice container. Shell: Voices in (Midi Note + Velocity), Left/Right out. Inside: owned modules = a voice; plus per-voice Frequency/Gate/Trigger/Idle. Wire Keyboard/MIDI Polyphony → Voices.",
+    notes: ["metamodule", "voice container", "voices", "polyphony", "voice manager", "container", "portal"],
   },
 });
 
-// Interior voice-bus sources (owned by Metamodule; not Root shell jacks).
+// Built-in per-voice buses on the Meta container (one signal per voice).
 registerNodeGraphChromelessModule("voiceFrequency", {
   label: "Voice Frequency",
   compactTile: false,
@@ -172,7 +173,7 @@ registerNodeGraphChromelessModule("voiceGate", {
   },
   catalog: {
     category: "portal",
-    description: "Metamodule voice gate (1 open / 0 closed). Place/seeded inside a Metamodule.",
+    description: "This voice's Gate (1 open / 0 closed). Built-in per-voice bus on the Meta container.",
     notes: ["metamodule", "voice", "gate", "portal"],
   },
 });
@@ -195,7 +196,7 @@ registerNodeGraphChromelessModule("voiceTrigger", {
   },
   catalog: {
     category: "portal",
-    description: "Metamodule voice trigger (pulse on note-on). Place/seeded inside a Metamodule.",
+    description: "This voice's Trigger (pulse when this voice starts). Built-in per-voice bus on the Meta container.",
     notes: ["metamodule", "voice", "trigger", "portal"],
   },
 });

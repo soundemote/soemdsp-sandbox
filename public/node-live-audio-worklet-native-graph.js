@@ -1862,6 +1862,47 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
 };
 
 /**
+ * Tag Meta Voices clones with VoiceManager slot indices and bind the VM to the
+ * graph. process_block then steps only Sustaining + Releasing slots.
+ */
+NodeLiveAudioProcessor.prototype.bindNativeMetaVoiceProcessSlots = function bindNativeMetaVoiceProcessSlots(force) {
+  if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+    return;
+  }
+  const native = this.nativeGraph;
+  if (!native?.soemdsp_graph_set_node_voice_slot || !native?.soemdsp_graph_set_voice_manager) {
+    return;
+  }
+  const h = this.ensureVoiceManager?.() | 0;
+  if (!(h > 0)) return;
+  // Bind once per compile (or when forced). Re-tagging every quantum used to
+  // reset voiceSilent and leave Available Hypersaw buffers in the mix.
+  if (!force && this._nativeMetaVoiceSlotsBound && this._nativeMetaVoiceSlotsVm === h) {
+    return;
+  }
+  try {
+    native.soemdsp_graph_set_voice_manager(this.nativeGraphHandle, h);
+  } catch (_e) { /* keep audio */ }
+  const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
+  for (let li = 0; li < lanes.length; li += 1) {
+    const ids = lanes[li]?.voiceIds || [];
+    for (let v = 0; v < ids.length; v += 1) {
+      const id = String(ids[v] || "");
+      if (!id) continue;
+      try {
+        native.soemdsp_graph_set_node_voice_slot(
+          this.nativeGraphHandle,
+          this.fnv1aHash32(id),
+          v,
+        );
+      } catch (_e) { /* ignore */ }
+    }
+  }
+  this._nativeMetaVoiceSlotsBound = true;
+  this._nativeMetaVoiceSlotsVm = h;
+};
+
+/**
  * Metamodule Voices ← soemdsp VoiceManager (wasm).
  * Blue/gold/MIDI are plain note_on/note_off events. Monophony only when
  * Meta playmode is Mono/Legato (VM PhonyMode), never because the source is blue.
@@ -1881,6 +1922,8 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
 
     return;
   }
+  // Keep graph bound to VM pools (Sustaining / Releasing / Available).
+  this.bindNativeMetaVoiceProcessSlots?.();
   const attOffset = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
   const busFeeders = Array.isArray(this._nativeMetaVoiceBusFeeders)
     ? this._nativeMetaVoiceBusFeeders
@@ -1891,6 +1934,10 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
   if (!this._metaVoicePrevEventKind) {
     this._metaVoicePrevEventKind = new Map();
   }
+  if (!this._metaVoiceBusFeederCache) {
+    this._metaVoiceBusFeederCache = new Map();
+  }
+  const feederCache = this._metaVoiceBusFeederCache;
 
   const voicesConnected = (metaId) => {
     for (const port of ["Voices", "Polyphony"]) {
@@ -1951,69 +1998,6 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     return;
   }
 
-  // Explicit Voice Idle: per-lane clean when source is a cloned voice module
-  // (e.g. expAdsr__v2.isIdle); shared clean if source is not lane-cloned.
-  {
-    const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
-    const laneIndexForNativeId = (nativeId) => {
-      const id = String(nativeId || "");
-      for (let li = 0; li < lanes.length; li += 1) {
-        const ids = lanes[li].voiceIds || [];
-        for (let v = 0; v < ids.length; v += 1) {
-          if (ids[v] === id) return v;
-        }
-      }
-      // Authoring id with clones: treat as lane 0.
-      for (let li = 0; li < lanes.length; li += 1) {
-        if (String(lanes[li].baseId) === id) return 0;
-      }
-      return -1;
-    };
-    const readIdle = (srcId, srcPort) => {
-      if (typeof this.readEfficientModSourceSample === "function") {
-        return Number(this.readEfficientModSourceSample(srcId, srcPort));
-      }
-      const out = this.nodeOutputs?.get?.(srcId);
-      return Number(out?.[srcPort] ?? 0);
-    };
-    for (const [nid, node] of this.nodes) {
-      if (String(node?.type || "") !== "voiceIdle") continue;
-      const idleKey = typeof this.inputKey === "function"
-        ? this.inputKey(nid, "Idle")
-        : `${nid}.Idle`;
-      const conns = this.inputConnections?.get?.(idleKey);
-      if (!conns || !conns.length) continue;
-      for (let i = 0; i < conns.length; i += 1) {
-        const c = conns[i];
-        const srcId = String(c.sourceNode || "");
-        const srcPort = String(c.sourcePort || "");
-        // Prefer reading each voice clone's isIdle when the authoring module is cloned.
-        let matchedLane = false;
-        for (let li = 0; li < lanes.length; li += 1) {
-          if (String(lanes[li].baseId) !== srcId) continue;
-          const ids = lanes[li].voiceIds || [];
-          for (let v = 0; v < ids.length; v += 1) {
-            const raw = readIdle(ids[v], srcPort);
-            if (raw > 0.5 && native.soemdsp_voice_manager_clean_slot) {
-              native.soemdsp_voice_manager_clean_slot(h, v, 1);
-            }
-          }
-          matchedLane = true;
-          break;
-        }
-        if (matchedLane) continue;
-        const raw = readIdle(srcId, srcPort);
-        if (!(raw > 0.5)) continue;
-        const slot = laneIndexForNativeId(srcId);
-        if (slot >= 0 && native.soemdsp_voice_manager_clean_slot) {
-          native.soemdsp_voice_manager_clean_slot(h, slot, 1);
-        } else if (native.soemdsp_voice_manager_clean) {
-          native.soemdsp_voice_manager_clean(h, 1);
-        }
-      }
-    }
-  }
-
   // Reconcile VM only when held-note fingerprint changes (not every quantum —
   // 128× note_is_on + postMessage debug was starving the audio thread).
   {
@@ -2065,6 +2049,72 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     }
   }
 
+  // Voice Idle: boolean collection only (never measure envelope level here).
+  // Wired isIdle outs → clean that lane when true.
+  // Unwired: assume idle=false while sustaining, idle=true when voice is off
+  // (releasing → Available immediately).
+  {
+    const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
+    const readIdleBool = (srcId, srcPort) => {
+      let raw = 0;
+      if (typeof this.readEfficientModSourceSample === "function") {
+        raw = Number(this.readEfficientModSourceSample(srcId, srcPort));
+      } else {
+        const out = this.nodeOutputs?.get?.(srcId);
+        raw = Number(out?.[srcPort] ?? 0);
+      }
+      return raw > 0.5;
+    };
+    let anyIdleCable = false;
+    const idleBySlot = Object.create(null); // slot → true if any cable says idle
+    for (const [nid, node] of this.nodes) {
+      if (String(node?.type || "") !== "voiceIdle") continue;
+      const idleKey = typeof this.inputKey === "function"
+        ? this.inputKey(nid, "Idle")
+        : `${nid}.Idle`;
+      const conns = this.inputConnections?.get?.(idleKey);
+      if (!conns || !conns.length) continue;
+      anyIdleCable = true;
+      for (let i = 0; i < conns.length; i += 1) {
+        const c = conns[i];
+        const srcId = String(c.sourceNode || "");
+        const srcPort = String(c.sourcePort || "isIdle");
+        let matchedLane = false;
+        for (let li = 0; li < lanes.length; li += 1) {
+          if (String(lanes[li].baseId) !== srcId) continue;
+          const ids = lanes[li].voiceIds || [];
+          for (let v = 0; v < ids.length; v += 1) {
+            if (readIdleBool(ids[v], srcPort)) idleBySlot[v] = true;
+          }
+          matchedLane = true;
+          break;
+        }
+        if (matchedLane) continue;
+        if (!readIdleBool(srcId, srcPort)) continue;
+        // Non-cloned source: apply to all releasing slots (shared envelope).
+        const poly = native.soemdsp_voice_manager_polyphony?.(h) | 0;
+        for (let v = 0; v < poly; v += 1) idleBySlot[v] = true;
+      }
+    }
+    const poly = native.soemdsp_voice_manager_polyphony?.(h) | 0;
+    if (!anyIdleCable) {
+      // No isIdle wired: voice off → idle true (free releasing slots).
+      for (let v = 0; v < poly; v += 1) {
+        const state = native.soemdsp_voice_manager_voice_state?.(h, v) | 0;
+        if (state === 2 && native.soemdsp_voice_manager_clean_slot) {
+          native.soemdsp_voice_manager_clean_slot(h, v, 1);
+        }
+      }
+    } else {
+      for (const key of Object.keys(idleBySlot)) {
+        const v = Number(key);
+        if (idleBySlot[key] && native.soemdsp_voice_manager_clean_slot) {
+          native.soemdsp_voice_manager_clean_slot(h, v, 1);
+        }
+      }
+    }
+  }
+
   for (const [metaIdRaw, metaNode] of this.nodes) {
     if (String(metaNode?.type || "") !== "metamodule") continue;
     const metaId = String(metaIdRaw);
@@ -2072,11 +2122,9 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
       ? nodeGraphMetamodulePlaymode(metaNode)
       : Math.round(Number(metaNode?.metamodule?.playmode) || 4);
     if (!(playmode >= 1)) {
-
       continue;
     }
     if (!voicesConnected(metaId)) {
-
       continue;
     }
 
@@ -2085,27 +2133,81 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
       : Math.max(1, Math.min(32, Math.round(Number(metaNode?.metamodule?.voices) || 10)));
     const laneCount = applyPlaymode(h, playmode, voiceCount);
 
-    // Read VM voice slots (idx_ stable 0..polyphony-1).
+    // Walk VoiceManager pools — Sustaining + Releasing only (Available is idle).
     const curMidi = [];
     const curState = [];
-    const sustainingCount = native.soemdsp_voice_manager_sustaining_count?.(h) | 0;
-    const sustainingAny = sustainingCount > 0;
     for (let v = 0; v < laneCount; v += 1) {
-      const state = native.soemdsp_voice_manager_voice_state?.(h, v) | 0;
-      const note = native.soemdsp_voice_manager_voice_note?.(h, v);
-      const midi = (state === 1 || state === 2) && Number.isFinite(Number(note)) ? (note | 0) : -1;
-      curState[v] = state; // 0 avail, 1 sust, 2 rel
-      curMidi[v] = midi;
+      curState[v] = 0;
+      curMidi[v] = -1;
+    }
+    const sustainingCount = native.soemdsp_voice_manager_sustaining_count?.(h) | 0;
+    const releasingCount = native.soemdsp_voice_manager_releasing_count?.(h) | 0;
+    const sustainingAny = sustainingCount > 0;
+    const activeSlots = [];
+    for (let i = 0; i < sustainingCount; i += 1) {
+      const slot = native.soemdsp_voice_manager_sustaining_at
+        ? (native.soemdsp_voice_manager_sustaining_at(h, i) | 0)
+        : -1;
+      if (slot < 0 || slot >= laneCount) continue;
+      curState[slot] = 1;
+      const note = native.soemdsp_voice_manager_voice_note?.(h, slot);
+      curMidi[slot] = Number.isFinite(Number(note)) ? (note | 0) : -1;
+      activeSlots.push(slot);
+    }
+    for (let i = 0; i < releasingCount; i += 1) {
+      const slot = native.soemdsp_voice_manager_releasing_at
+        ? (native.soemdsp_voice_manager_releasing_at(h, i) | 0)
+        : -1;
+      if (slot < 0 || slot >= laneCount) continue;
+      if (curState[slot] === 1) continue;
+      curState[slot] = 2;
+      const note = native.soemdsp_voice_manager_voice_note?.(h, slot);
+      curMidi[slot] = Number.isFinite(Number(note)) ? (note | 0) : -1;
+      activeSlots.push(slot);
+    }
+    // Fallback when pool-index exports are missing (older wasm): scan states.
+    if (!native.soemdsp_voice_manager_sustaining_at) {
+      for (let v = 0; v < laneCount; v += 1) {
+        const state = native.soemdsp_voice_manager_voice_state?.(h, v) | 0;
+        if (state !== 1 && state !== 2) continue;
+        curState[v] = state;
+        const note = native.soemdsp_voice_manager_voice_note?.(h, v);
+        curMidi[v] = Number.isFinite(Number(note)) ? (note | 0) : -1;
+        activeSlots.push(v);
+      }
     }
 
+    if (!this._metaVoicePrevMidiByMeta) this._metaVoicePrevMidiByMeta = new Map();
+    if (!this._metaVoicePrevStateByMeta) this._metaVoicePrevStateByMeta = new Map();
     const prevMidi = this._metaVoicePrevMidiByMeta.get(metaId) || [];
+    const prevStateArr = this._metaVoicePrevStateByMeta.get(metaId) || [];
     const eventKind = native.soemdsp_voice_manager_last_event_kind?.(h) | 0;
-    const prevKind = this._metaVoicePrevEventKind.get(metaId) | 0;
-    const attackEdge = eventKind === 1 && prevKind !== 1; // EV_ATTACK
+    // EV_LEGATO / EV_SLIDE — retarget pitch only; do not pulse Trigger.
     const legatoOrSlide = eventKind === 2 || eventKind === 3;
+
+    // Voice Trigger is a built-in per-voice bus on the Meta container (like
+    // Voice Gate / Voice Frequency) — pulse when THIS voice goes into
+    // Sustaining. Not shared across voices; unrelated to note allocation.
+    const slotTriggerPulse = (v) => {
+      if (legatoOrSlide) return false;
+      const state = v < curState.length ? curState[v] : 0;
+      if (state !== 1) return false;
+      const prevSt = v < prevStateArr.length ? (prevStateArr[v] | 0) : 0;
+      return prevSt !== 1;
+    };
 
     if (!this._metaVoiceLastHz) this._metaVoiceLastHz = new Map();
     const lastHz = this._metaVoiceLastHz;
+    const activeSet = new Set(activeSlots);
+
+    const pushFeeder = (feed, value) => {
+      const key = feed.hash >>> 0;
+      const v = Number(value);
+      if (!Number.isFinite(v)) return;
+      if (feederCache.get(key) === v) return;
+      feederCache.set(key, v);
+      this.pushNativeGraphParam(native, feed.hash, attOffset, v);
+    };
 
     for (let fi = 0; fi < busFeeders.length; fi += 1) {
       const feed = busFeeders[fi];
@@ -2116,19 +2218,30 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
         if (kind === "gate") {
           value = sustainingAny ? 1 : 0;
         } else if (kind === "trigger") {
-          value = attackEdge ? 1 : 0;
+          // Shared/mono dest: pulse if any lane's Trigger would fire.
+          let anyPulse = false;
+          for (let si = 0; si < activeSlots.length; si += 1) {
+            if (slotTriggerPulse(activeSlots[si])) {
+              anyPulse = true;
+              break;
+            }
+          }
+          value = anyPulse ? 1 : 0;
         }
       } else {
         const v = feed.voiceIndex | 0;
+        // Available slots: silence feeders once, then leave alone.
+        if (!activeSet.has(v)) {
+          pushFeeder(feed, 0);
+          continue;
+        }
         const midi = v < curMidi.length ? curMidi[v] : -1;
         const state = v < curState.length ? curState[v] : 0;
-        const prev = v < prevMidi.length ? prevMidi[v] : -1;
         const sustaining = state === 1;
         const releasing = state === 2;
         const hzKey = `${metaId}:${v}:${feed.dstId}:${feed.dstPort}`;
         if (kind === "frequency") {
           // Sustaining: live pitch. Releasing: hold pitch for ADSR tail.
-          // Available: 0 Hz (idle clones must not drone under shared Amp).
           if (sustaining && midi >= 0) {
             value = voiceHz(midi, metaNode);
             lastHz.set(hzKey, value);
@@ -2143,14 +2256,10 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
         } else if (kind === "gate") {
           value = sustaining ? 1 : 0;
         } else if (kind === "trigger") {
-          // Attack only — not legato/slide retarget.
-          value = (sustaining && midi >= 0 && midi !== prev && !legatoOrSlide) || attackEdge
-            ? 1
-            : 0;
-          if (sustaining && midi >= 0 && midi !== prev && legatoOrSlide) value = 0;
+          value = slotTriggerPulse(v) ? 1 : 0;
         }
       }
-      this.pushNativeGraphParam(native, feed.hash, attOffset, value);
+      pushFeeder(feed, value);
     }
 
     // Do NOT touch oscillator Amplitude here. Amp is user-wired only
@@ -2158,6 +2267,7 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     // envelope (click on/off) while ADSR still ran.
 
     this._metaVoicePrevMidiByMeta.set(metaId, curMidi.slice());
+    this._metaVoicePrevStateByMeta.set(metaId, curState.slice());
     this._metaVoicePrevEventKind.set(metaId, eventKind);
   }
 };
@@ -4911,8 +5021,9 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       }
       addNativeNode(id, type, node.params || {});
     }
-    // Voices mode: a voice = everything owned by the Meta except shell portals.
-    // No Hypersaw/ADSR special-case — ownership + exclusion list only.
+    // Voices mode: a voice = owned modules inside the Meta container
+    // (exclude shell portals). Container also has per-voice Frequency/Gate/
+    // Trigger/Idle buses. No Hypersaw/ADSR special-case — ownership only.
     const metaVoiceLanes = [];
     const META_VOICE_PORTAL_TYPES = new Set([
       "metamodule",
@@ -5200,7 +5311,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       }
     }
 
-    // Voice Frequency / Gate / Trigger → per-lane Bias feeders (user-wired only).
+    // Meta container per-voice buses → one Bias feeder per voice (user-wired).
     const metaVoiceBusFeeders = [];
     const metaVoiceGateCableMetas = new Set();
     const findVoicePortalId = (metaId, type) => {
@@ -5405,11 +5516,16 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     // New native handles — force PCM / curve re-upload.
     this._nativeAudioPlayerPcmCache = new Map();
     this._nativeGraphCurveCache = new Map();
+    this._metaVoiceBusFeederCache = new Map();
+    this._nativeMetaVoiceSlotsBound = false;
+    this._nativeMetaVoiceSlotsVm = 0;
     this.syncNativeGraphParams();
     // Graph recreate starts Controls at C++ defaults; after targets are
     // written, snap so engine-start does not ramp from defaults → patch.
     this.snapNativeGraphControls();
     this.syncNativeGraphBypass();
+    // VoiceManager pools: tag lane clones so only Sustaining+Releasing step.
+    this.bindNativeMetaVoiceProcessSlots?.(true);
     this.syncNativeAudioPlayerPcm?.();
     this.syncNativeGraphCurvePoints?.();
     this.postNativeGraphStatus("compiled", `nodes=${nodes.length}`);

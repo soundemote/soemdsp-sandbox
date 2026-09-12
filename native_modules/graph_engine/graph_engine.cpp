@@ -854,6 +854,7 @@ extern "C" int soemdsp_thump_envelope_version();
 
 extern "C" int soemdsp_pluck_envelope_3_create();
 extern "C" void soemdsp_pluck_envelope_3_destroy(int handle);
+extern "C" int soemdsp_pluck_envelope_3_is_idle(int handle);
 extern "C" double soemdsp_pluck_envelope_3_sample(
   int handle, double input, double attackSec, double decay,
   double amplitude, double recalculateOnTrigger, double sampleRate
@@ -1468,8 +1469,10 @@ using soemdsp_maths::safe;
 using soemdsp_maths::clamp;
 
 static const int kMaxInstances = 4;
-static const int kMaxNodes = 64;
-static const int kMaxConnections = 256;
+// Meta Voices clones + per-lane Bias feeders (Voice Count×owned + shared).
+// Keep under wasm max-memory; 128 fits ~10 voices of a modest subgraph.
+static const int kMaxNodes = 128;
+static const int kMaxConnections = 512;
 static const int kMaxToSmooth = 256;
 // Hard product invariant: AudioWorklet quantum and all orchestrated natives
 // use 128. Host must chunk if frames ever exceed this (see processNativeGraphQuantum).
@@ -1819,6 +1822,10 @@ struct Node {
   int typeId;
   bool used;
   bool bypassed; // dry/silence passthrough; DSP state kept (no recreate)
+  // Meta Voices lane slot (0..poly-1). -1 = shared / not a voice clone.
+  // process_block only steps Sustaining + Releasing slots (VoiceManager pools).
+  int voiceSlot;
+  bool voiceSilent; // outputs already cleared while Available
   int nativeHandle;
   int nativeHandleL; // independent L filter state (mono-native MLR types)
   int nativeHandleR; // independent R filter state
@@ -1901,7 +1908,7 @@ struct Node {
 };
 
 enum SinkKind : unsigned char { kSinkPort = 0, kSinkControl = 1 };
-static const int kMaxEdges = 512;
+static const int kMaxEdges = 768;
 struct Edge {
   unsigned int srcHash;
   int srcPort;
@@ -1946,6 +1953,8 @@ struct Circuit {
   double globalTimeSamples;
   // Patch-wide pitch transpose (octaves). Multiplies pitched Hz by 2^oct.
   double pitchOffsetOctaves;
+  // VoiceManager instance — voice-lane nodes query Sustaining/Releasing/Available.
+  int voiceManagerHandle;
   int nodeCount;
   int connCount;
   int orderCount;
@@ -2527,6 +2536,8 @@ static inline double phase_offset_cycles(
 static void init_node_defaults(Node& n, int typeId) {
   n.typeId = typeId;
   n.bypassed = false;
+  n.voiceSlot = -1;
+  n.voiceSilent = true;
   n.nativeHandle = 0;
   n.nativeHandleL = 0;
   n.nativeHandleR = 0;
@@ -7466,6 +7477,8 @@ static void process_pluck_envelope_3(Circuit& g, Node& node, int frames) {
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
+    // Explicit boolean isIdle (env < 1e-5) — not the Out level itself.
+    node.buf[kPortIsIdle][f] = soemdsp_pluck_envelope_3_is_idle(node.nativeHandle) ? 1.0 : 0.0;
   }
 }
 
@@ -9935,6 +9948,9 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
 
 }  // namespace
 
+// VoiceManager pools — Available must not run DSP (resolved in combined link).
+extern "C" int soemdsp_voice_manager_voice_state(int handle, int slot);
+
 extern "C" int soemdsp_graph_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
@@ -9943,6 +9959,7 @@ extern "C" int soemdsp_graph_create() {
       gPool[i].globalTimeSamples = kDefaultSmoothSeconds * 44100.0;
       gPool[i].nodeCount = 0;
       gPool[i].toSmoothCount = 0;
+      gPool[i].voiceManagerHandle = 0;
       clear_graph_contents(gPool[i]);
       return i + 1;
     }
@@ -10332,6 +10349,33 @@ extern "C" int soemdsp_graph_set_bypassed(int handle, unsigned int nodeHash, int
   return 0;
 }
 
+/** Bind VoiceManager instance so voice-lane nodes follow Sustaining/Releasing/Available. */
+extern "C" int soemdsp_graph_set_voice_manager(int handle, int voiceManagerHandle) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  g->voiceManagerHandle = voiceManagerHandle > 0 ? voiceManagerHandle : 0;
+  return 0;
+}
+
+/**
+ * Tag a native node as Meta Voices lane slot v (0..poly-1).
+ * Slot -1 clears the tag (shared / always process).
+ */
+extern "C" int soemdsp_graph_set_node_voice_slot(int handle, unsigned int nodeHash, int voiceSlot) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return -2;
+  const int next = voiceSlot >= 0 ? voiceSlot : -1;
+  // Do NOT force voiceSilent here — bind runs often; resetting silent every
+  // quantum skipped Available buffer clears and left stale Hypersaw in metaOut.
+  if (g->nodes[idx].voiceSlot != next) {
+    g->nodes[idx].voiceSlot = next;
+    g->nodes[idx].voiceSilent = false;
+  }
+  return 0;
+}
+
 extern "C" int soemdsp_graph_snap_controls(int handle) {
   Circuit* g = get(handle);
   if (!g) return -1;
@@ -10653,6 +10697,25 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     const int ni = g->order[oi];
     if (ni < 0 || ni >= g->nodeCount || !g->nodes[ni].used) continue;
     Node& node = g->nodes[ni];
+
+    // Meta Voices: only Sustaining + Releasing slots run DSP (VoiceManager pools).
+    // Available clones stay compiled but are not stepped — always publish silence
+    // so metaOut / mixers never re-read last Hypersaw (or any) samples.
+    if (node.voiceSlot >= 0 && g->voiceManagerHandle > 0) {
+      const int st = soemdsp_voice_manager_voice_state(g->voiceManagerHandle, node.voiceSlot);
+      if (st == 0) { // VS_AVAILABLE
+        for (int c = 0; c < kChannels; c++) {
+          zero_buf(node.buf[c], frames);
+          zero_buf(node.histBuf[c], frames);
+          node.hist[c] = 0.0;
+        }
+        node.voiceSilent = true;
+        node.processedThisBlock = 1;
+        continue;
+      }
+      node.voiceSilent = false;
+    }
+
     for (int c = 0; c < kChannels; c++) zero_buf(node.buf[c], frames);
 
     // Yellow Graph: handle before generic bypass so Graph copy-thru / clear works.

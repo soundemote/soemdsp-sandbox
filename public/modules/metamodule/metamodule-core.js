@@ -1865,6 +1865,37 @@ function ungroupNodeGraphMetamodulesInPatch(metaIds, patch) {
   return any;
 }
 
+/** Push patch param values onto already-mounted owned-child sliders (enter Meta). */
+function nodeGraphMetamoduleRefreshOwnedChildSliderDom(metaId, patch = nodeGraphMvp?.patch) {
+  const id = String(metaId || "");
+  if (!id || typeof document === "undefined") return 0;
+  const nodes = Array.isArray(patch?.nodes) ? patch.nodes : [];
+  let n = 0;
+  for (const child of nodes) {
+    if (!child || String(child.ownerMetamoduleId || "") !== id) continue;
+    const childEl = document.querySelector(`.dsp-node[data-node="${CSS.escape(String(child.id))}"]`);
+    if (!childEl) continue;
+    const params = child.params && typeof child.params === "object" ? child.params : {};
+    for (const [paramKey, raw] of Object.entries(params)) {
+      const value = Number(raw);
+      if (!Number.isFinite(value)) continue;
+      const input = childEl.querySelector(`input[data-param="${CSS.escape(paramKey)}"]`);
+      if (!input) continue;
+      if (typeof applyNodeGraphInputUnboundedValue === "function") {
+        applyNodeGraphInputUnboundedValue(input, value);
+      } else {
+        input.dataset.domainValue = String(value);
+        input.value = String(value);
+      }
+      if (typeof syncNodeSliderReadout === "function") {
+        syncNodeSliderReadout(input);
+      }
+      n += 1;
+    }
+  }
+  return n;
+}
+
 function enterNodeGraphMetamoduleView(metamoduleId) {
   const id = String(metamoduleId || "");
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
@@ -1877,6 +1908,9 @@ function enterNodeGraphMetamoduleView(metamoduleId) {
   nodeGraphMvp.metamoduleViewStack = [id];
   updateNodeGraphMetamoduleBreadcrumb();
   nodeGraphRefreshMetamoduleViewDom();
+  // Face mx_* writes update child.params while children are hidden; refresh
+  // mounted slider DOM so interior matches the shell / audio.
+  nodeGraphMetamoduleRefreshOwnedChildSliderDom(id);
   if (typeof setNodeInteractionHelp === "function") {
     const title = (typeof normalizeNodeGraphPatchNodeAlias === "function"
       ? normalizeNodeGraphPatchNodeAlias(node?.alias)
@@ -1894,6 +1928,10 @@ function exitNodeGraphMetamoduleViewToRoot() {
   // Rebuild shell jacks from boundary (visibility sync alone does not remount ports).
   if (leavingId && typeof nodeGraphMetamoduleRefreshShellFromBoundary === "function") {
     nodeGraphMetamoduleRefreshShellFromBoundary(leavingId);
+  }
+  // Interior edits → shell mx_* rows (and remount if expose set changed).
+  if (leavingId && typeof nodeGraphMetamoduleRemountShellParameters === "function") {
+    nodeGraphMetamoduleRemountShellParameters(leavingId);
   }
   nodeGraphRefreshMetamoduleViewDom();
   // Resume additive display mirrors on the shell (children are hidden again).
@@ -2092,7 +2130,7 @@ function nodeGraphMetamoduleRemountShellParameters(metaId) {
   return true;
 }
 
-/** Write shell expose slider through to the owned child param. */
+/** Write shell expose slider through to the owned child param (+ child DOM). */
 function nodeGraphMetamoduleSyncExposedParamFromShell(metaNode, synthKey, value, patch = nodeGraphMvp?.patch) {
   const target = nodeGraphMetamoduleResolveExposeTarget(metaNode, synthKey, patch);
   if (!target?.child) return false;
@@ -2105,6 +2143,25 @@ function nodeGraphMetamoduleSyncExposedParamFromShell(metaNode, synthKey, value,
   child.params = { ...(child.params || {}), [target.paramKey]: next };
   if (metaNode) {
     metaNode.params = { ...(metaNode.params || {}), [synthKey]: next };
+  }
+  // Interior modules stay mounted while hidden on Root — refresh their sliders
+  // so entering the Meta shows the same values as the face (and audio).
+  const childId = String(child.id || "");
+  const paramKey = String(target.paramKey || "");
+  if (childId && paramKey && typeof document !== "undefined") {
+    const childEl = document.querySelector(`.dsp-node[data-node="${CSS.escape(childId)}"]`);
+    const input = childEl?.querySelector?.(`input[data-param="${CSS.escape(paramKey)}"]`);
+    if (input) {
+      if (typeof applyNodeGraphInputUnboundedValue === "function") {
+        applyNodeGraphInputUnboundedValue(input, next);
+      } else {
+        input.dataset.domainValue = String(next);
+        input.value = String(next);
+      }
+      if (typeof syncNodeSliderReadout === "function") {
+        syncNodeSliderReadout(input);
+      }
+    }
   }
   return true;
 }

@@ -467,9 +467,23 @@ extern "C" int soemdsp_voice_manager_sustaining_count(int handle) {
   return m ? m->sustainingCount : 0;
 }
 
+/** Slot index at sustaining[i], or -1 if out of range. */
+extern "C" int soemdsp_voice_manager_sustaining_at(int handle, int i) {
+  Manager* m = get(handle);
+  if (!m || i < 0 || i >= m->sustainingCount) return -1;
+  return m->sustaining[i];
+}
+
 extern "C" int soemdsp_voice_manager_releasing_count(int handle) {
   Manager* m = get(handle);
   return m ? m->releasingCount : 0;
+}
+
+/** Slot index at releasing[i], or -1 if out of range. */
+extern "C" int soemdsp_voice_manager_releasing_at(int handle, int i) {
+  Manager* m = get(handle);
+  if (!m || i < 0 || i >= m->releasingCount) return -1;
+  return m->releasing[i];
 }
 
 extern "C" int soemdsp_voice_manager_voice_note(int handle, int slot) {

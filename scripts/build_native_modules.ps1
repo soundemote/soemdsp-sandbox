@@ -44,6 +44,8 @@ $modules = @(
     "soemdsp_graph_set_smooth_type",
     "soemdsp_graph_set_global_smooth_time",
     "soemdsp_graph_set_bypassed",
+    "soemdsp_graph_set_voice_manager",
+    "soemdsp_graph_set_node_voice_slot",
     "soemdsp_graph_poke_input",
     "soemdsp_graph_snap_controls",
     "soemdsp_graph_compile", "soemdsp_graph_process_block",
@@ -115,7 +117,7 @@ $modules = @(
   @{ Name = "pluck_envelope"; Simd = $false; Exports = @("soemdsp_pluck_envelope_create", "soemdsp_pluck_envelope_destroy", "soemdsp_pluck_envelope_sample", "soemdsp_pluck_envelope_version", "soemdsp_pluck_envelope_metadata_json", "soemdsp_pluck_envelope_metadata_json_size") }
   @{ Name = "expo_pluck_envelope"; Simd = $false; Exports = @("soemdsp_expo_pluck_envelope_create", "soemdsp_expo_pluck_envelope_destroy", "soemdsp_expo_pluck_envelope_reset", "soemdsp_expo_pluck_envelope_sample", "soemdsp_expo_pluck_envelope_out", "soemdsp_expo_pluck_envelope_version", "soemdsp_expo_pluck_envelope_metadata_json", "soemdsp_expo_pluck_envelope_metadata_json_size") }
   @{ Name = "expo_pluck_envelope_2"; Simd = $false; Exports = @("soemdsp_expo_pluck_envelope_2_create", "soemdsp_expo_pluck_envelope_2_destroy", "soemdsp_expo_pluck_envelope_2_reset", "soemdsp_expo_pluck_envelope_2_sample", "soemdsp_expo_pluck_envelope_2_out", "soemdsp_expo_pluck_envelope_2_version", "soemdsp_expo_pluck_envelope_2_metadata_json", "soemdsp_expo_pluck_envelope_2_metadata_json_size") }
-  @{ Name = "pluck_envelope_3"; Simd = $false; Exports = @("soemdsp_pluck_envelope_3_create", "soemdsp_pluck_envelope_3_destroy", "soemdsp_pluck_envelope_3_sample", "soemdsp_pluck_envelope_3_version", "soemdsp_pluck_envelope_3_metadata_json", "soemdsp_pluck_envelope_3_metadata_json_size") }
+  @{ Name = "pluck_envelope_3"; Simd = $false; Exports = @("soemdsp_pluck_envelope_3_create", "soemdsp_pluck_envelope_3_destroy", "soemdsp_pluck_envelope_3_sample", "soemdsp_pluck_envelope_3_is_idle", "soemdsp_pluck_envelope_3_version", "soemdsp_pluck_envelope_3_metadata_json", "soemdsp_pluck_envelope_3_metadata_json_size") }
   @{ Name = "vactrol_envelope"; Simd = $false; Exports = @("soemdsp_vactrol_envelope_create", "soemdsp_vactrol_envelope_destroy", "soemdsp_vactrol_envelope_sample", "soemdsp_vactrol_envelope_version", "soemdsp_vactrol_envelope_metadata_json", "soemdsp_vactrol_envelope_metadata_json_size") }
   @{ Name = "exp_adsr"; Simd = $false; Exports = @("soemdsp_exp_adsr_create", "soemdsp_exp_adsr_destroy", "soemdsp_exp_adsr_sample", "soemdsp_exp_adsr_is_idle", "soemdsp_exp_adsr_version", "soemdsp_exp_adsr_metadata_json", "soemdsp_exp_adsr_metadata_json_size") }
   @{ Name = "random_walk"; Simd = $false; Exports = @("soemdsp_random_walk_create", "soemdsp_random_walk_destroy", "soemdsp_random_walk_reset_seed", "soemdsp_random_walk_sample", "soemdsp_random_walk_version", "soemdsp_random_walk_metadata_json", "soemdsp_random_walk_metadata_json_size") }
@@ -273,7 +275,8 @@ $modules = @(
     "soemdsp_voice_manager_note_on", "soemdsp_voice_manager_note_off",
     "soemdsp_voice_manager_all_notes_off",
     "soemdsp_voice_manager_clean", "soemdsp_voice_manager_clean_slot",
-    "soemdsp_voice_manager_sustaining_count", "soemdsp_voice_manager_releasing_count",
+    "soemdsp_voice_manager_sustaining_count", "soemdsp_voice_manager_sustaining_at",
+    "soemdsp_voice_manager_releasing_count", "soemdsp_voice_manager_releasing_at",
     "soemdsp_voice_manager_voice_note", "soemdsp_voice_manager_voice_state",
     "soemdsp_voice_manager_voice_velocity", "soemdsp_voice_manager_note_is_on",
     "soemdsp_voice_manager_history_count", "soemdsp_voice_manager_history_note",
@@ -376,7 +379,12 @@ foreach ($module in $modules) {
   # With ~77 modules live in the audio worklet at once, unbounded memories
   # sat right at that cap and instantiation OOM'd. 768 pages (48MB) covers
   # the largest module (ping_pong_delay, 752 initial pages).
-  $clangArgs += "-Wl,--max-memory=50331648"
+  # graph_engine holds Meta Voices clones (larger static Node pool).
+  if ($module.Name -eq "graph_engine") {
+    $clangArgs += "-Wl,--max-memory=134217728"
+  } else {
+    $clangArgs += "-Wl,--max-memory=50331648"
+  }
   # graph_engine / thump_envelope call other natives (resolved in combined link).
   if ($module.Name -eq "graph_engine" -or $module.Name -eq "thump_envelope") {
     $clangArgs += "-Wl,--allow-undefined"

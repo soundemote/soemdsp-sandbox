@@ -1447,6 +1447,17 @@ function configureNodeSceneContextMenu(mode) {
   codeblockControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "codeblock");
   textBoxPortScriptControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "animatedTextBox");
   graphControls.hidden = !(moduleMode && !multiModuleMode && targetIsGraphType);
+  // Playmode / Voice Count: Module Settings only — never Wire Settings.
+  if (metamoduleVoiceControls) {
+    const showMetaVoice = Boolean(
+      moduleMode
+      && !multiModuleMode
+      && targetNode
+      && typeof nodeGraphIsMetamoduleType === "function"
+      && nodeGraphIsMetamoduleType(targetNode.type),
+    );
+    metamoduleVoiceControls.hidden = !showMetaVoice;
+  }
   // Disable lives under Visibility → Hide unused (multi-select aware).
   if (toggleModuleEnabledButton) {
     toggleModuleEnabledButton.hidden = !moduleMode;
@@ -2091,9 +2102,6 @@ function configureNodeSceneContextMenu(mode) {
       && typeof nodeGraphIsMetamoduleType === "function"
       && nodeGraphIsMetamoduleType(targetNode.type),
     );
-    if (metamoduleVoiceControls) {
-      metamoduleVoiceControls.hidden = !targetIsMetamodule;
-    }
     if (targetIsMetamodule) {
       if (typeof nodeGraphEnsureMetamodulePayload === "function") {
         nodeGraphEnsureMetamodulePayload(targetNode);
@@ -2111,7 +2119,7 @@ function configureNodeSceneContextMenu(mode) {
         metamoduleVoiceCount.value = String(
           typeof nodeGraphMetamoduleVoiceCount === "function"
             ? nodeGraphMetamoduleVoiceCount(targetNode)
-            : (targetNode.metamodule?.voices ?? 4),
+            : (targetNode.metamodule?.voices ?? 10),
         );
       }
     } else {

@@ -274,6 +274,12 @@ NodeLiveAudioProcessor.prototype.setParams = function setParams(nodes, message =
       }
       current.params = { ...(node.params || {}) };
       current.paramMeta = { ...(node.paramMeta || {}) };
+      // Module Settings voice host fields (not face params).
+      if (Object.hasOwn(node, "metamodule")) {
+        current.metamodule = node.metamodule && typeof node.metamodule === "object"
+          ? node.metamodule
+          : undefined;
+      }
       // Keep drawn path in sync when params push also carries node extras.
       if (Object.hasOwn(node, "drawnPath")) {
         current.drawnPath = node.drawnPath || null;
