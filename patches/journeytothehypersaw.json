@@ -482,7 +482,21 @@
         "octave": 0,
         "semitones": 0,
         "cents": 0,
-        "frequency": 0
+        "frequency": 0,
+        "mx_expAdsr_1__attack": 0,
+        "mx_expAdsr_1__decay": 2.84788157397667,
+        "mx_expAdsr_1__sustain": 1,
+        "mx_expAdsr_1__release": 17.299514308906282,
+        "mx_expAdsr_1__attackShape": 0.9185210860357089,
+        "mx_hypersaw2_4__jitterDistance": 1.5797554759131711,
+        "mx_hypersaw2_4__jitterSpeed": 19.327276321766753,
+        "mx_hypersaw2_4__voices": 7,
+        "mx_hypersaw2_4__waveform": 0,
+        "mx_hypersaw2_4__morph": 0,
+        "mx_hypersaw2_4__jitterSpeedRef": 2000,
+        "mx_hypersaw2_4__vibratoSpeed": 0,
+        "mx_hypersaw2_4__vibratoPhaseVary": 0,
+        "mx_hypersaw2_4__vibratoDistance": 0
       },
       "type": "metamodule",
       "alias": "Hypersaw²",
@@ -643,7 +657,8 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1"
+      "ownerMetamoduleId": "metamodule-1",
+      "metamoduleVoicePortal": true
     },
     {
       "gx": -21,
@@ -706,7 +721,8 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1"
+      "ownerMetamoduleId": "metamodule-1",
+      "metamoduleVoicePortal": true
     },
     {
       "gx": -21,
@@ -769,7 +785,8 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1"
+      "ownerMetamoduleId": "metamodule-1",
+      "metamoduleVoicePortal": true
     },
     {
       "gx": 12,
@@ -832,7 +849,8 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1"
+      "ownerMetamoduleId": "metamodule-1",
+      "metamoduleDefaultStereoOut": true
     },
     {
       "gx": 12,
@@ -895,7 +913,8 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1"
+      "ownerMetamoduleId": "metamodule-1",
+      "metamoduleDefaultStereoOut": true
     },
     {
       "gx": -7,
@@ -958,7 +977,8 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1"
+      "ownerMetamoduleId": "metamodule-1",
+      "metamoduleVoicePortal": true
     },
     {
       "gx": -16,
@@ -1316,6 +1336,41 @@
       },
       "type": "expAdsr",
       "widthGu": 8,
+      "traceDisplaySettings": {
+        "backgroundHue": 0,
+        "backgroundBrightness": 0,
+        "background": "#ff0000",
+        "backgroundColor": "#ff0000",
+        "brightness": 0.95,
+        "color": "#ff0000",
+        "dot1Enabled": true,
+        "dot1Size": 0.035,
+        "secondaryBrightness": 0.95,
+        "secondaryColor": "#0000ff",
+        "secondaryEnabled": true,
+        "secondarySize": 0.035,
+        "secondaryLineThickness": 0,
+        "tertiaryColor": "#00ff00",
+        "cycles": 2,
+        "lineThickness": 0.15,
+        "stampDensity": 0.5,
+        "dotBudget": 1024,
+        "pixelDensity": 1,
+        "padding": 0,
+        "scale": 1,
+        "skipDiscontinuities": false,
+        "cmyMode": false,
+        "sourceSync": false,
+        "stereoBlend": "combine",
+        "meetColor": "auto",
+        "syncChannel": "off",
+        "historyHz": 4,
+        "historyCycles": 4,
+        "historySeconds": 0.25,
+        "zoomSeconds": 0.25,
+        "fade": 0,
+        "xyzLayout": "stack"
+      },
       "ui": {
         "buttonsHidden": false,
         "buttonsForceShow": false,
@@ -1936,7 +1991,7 @@
       "type": "hypersaw2",
       "widthGu": 7,
       "traceDisplaySettings": {
-        "lineThickness": 0.00006875,
+        "lineThickness": 0,
         "lineThicknessFace01": true
       },
       "ui": {
@@ -4506,7 +4561,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 48,
-    "zoom": 0.5674268557185986,
+    "zoom": 0.6355180784048305,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,

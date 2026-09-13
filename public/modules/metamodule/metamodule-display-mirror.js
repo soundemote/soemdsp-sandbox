@@ -10,6 +10,10 @@
 
 const NODE_GRAPH_METAMODULE_CANVAS_SESSIONS = new Map(); // metaId → { items, stage, ro }
 
+// Child-module faces on the Meta plate are not release-ready. Keep the
+// "Double-click to enter" empty face until that feature is turned back on.
+const NODE_GRAPH_METAMODULE_FACE_CHILD_DISPLAYS = false;
+
 function nodeGraphMetamoduleCanvasPinnedElements(metaId, patch = nodeGraphMvp?.patch) {
   const id = String(metaId || "");
   if (!id) return [];
@@ -141,6 +145,7 @@ function nodeGraphMetamoduleRestoreCanvasSessionsForNodes(nodeIds) {
 }
 
 function nodeGraphMetamoduleShouldPresentOnFace(metaId) {
+  if (!NODE_GRAPH_METAMODULE_FACE_CHILD_DISPLAYS) return false;
   const id = String(metaId || "");
   if (!id) return false;
   if (typeof nodeGraphMetamoduleViewId === "function" && nodeGraphMetamoduleViewId() === id) {
