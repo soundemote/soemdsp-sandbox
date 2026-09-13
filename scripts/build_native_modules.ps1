@@ -36,6 +36,7 @@ $modules = @(
     "soemdsp_graph_create", "soemdsp_graph_destroy", "soemdsp_graph_clear",
     "soemdsp_graph_remove_node", "soemdsp_graph_clear_connections",
     "soemdsp_graph_set_sample_rate",
+    "soemdsp_graph_rewind_master",
     "soemdsp_graph_set_pitch_offset",
     "soemdsp_graph_add_node", "soemdsp_graph_connect", "soemdsp_graph_set_param",
     "soemdsp_graph_set_param_mod", "soemdsp_graph_set_param_domain",
@@ -51,6 +52,7 @@ $modules = @(
     "soemdsp_graph_snap_controls",
     "soemdsp_graph_compile", "soemdsp_graph_process_block",
     "soemdsp_graph_block_output_left_ptr", "soemdsp_graph_block_output_right_ptr",
+    "soemdsp_graph_ear_protect_gain",
     "soemdsp_graph_node_port_ptr",
     "soemdsp_graph_node_native_handle",
     "soemdsp_graph_yellow_harmonics",
@@ -199,7 +201,7 @@ $modules = @(
   ) },
   @{ Name = "papoulis_filter"; Simd = $false; Exports = @("soemdsp_papoulis_filter_create", "soemdsp_papoulis_filter_destroy", "soemdsp_papoulis_filter_sample", "soemdsp_papoulis_filter_snap", "soemdsp_papoulis_filter_version") },
   @{ Name = "speaker_protection"; Simd = $false; Exports = @("soemdsp_speaker_protection_create", "soemdsp_speaker_protection_destroy", "soemdsp_speaker_protection_sample", "soemdsp_speaker_protection_version") },
-  @{ Name = "speaker_protector2"; Simd = $false; Exports = @("soemdsp_speaker_protector2_create", "soemdsp_speaker_protector2_destroy", "soemdsp_speaker_protector2_sample", "soemdsp_speaker_protector2_version") },
+  @{ Name = "speaker_protector2"; Simd = $false; Exports = @("soemdsp_speaker_protector2_create", "soemdsp_speaker_protector2_destroy", "soemdsp_speaker_protector2_sample", "soemdsp_speaker_protector2_gain", "soemdsp_speaker_protector2_version") },
   @{ Name = "attack_decay"; Simd = $false; Exports = @("soemdsp_attack_decay_create", "soemdsp_attack_decay_destroy", "soemdsp_attack_decay_sample", "soemdsp_attack_decay_version") },
   @{ Name = "basic_shape"; Simd = $false; Exports = @(
     "soemdsp_basic_shape_create", "soemdsp_basic_shape_destroy", "soemdsp_basic_shape_sample",
@@ -265,8 +267,10 @@ $modules = @(
   ) },
   @{ Name = "arp"; Simd = $false; Exports = @(
     "soemdsp_arp_create", "soemdsp_arp_destroy", "soemdsp_arp_sample",
+    "soemdsp_arp_set_chunks",
     "soemdsp_arp_gate", "soemdsp_arp_trigger", "soemdsp_arp_step",
-    "soemdsp_arp_frequency", "soemdsp_arp_version"
+    "soemdsp_arp_frequency", "soemdsp_arp_play_midi", "soemdsp_arp_set_override_midi",
+    "soemdsp_arp_version"
   ) },
   @{ Name = "voice_manager"; Simd = $false; Exports = @(
     "soemdsp_voice_manager_create", "soemdsp_voice_manager_destroy",

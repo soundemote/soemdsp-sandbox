@@ -1,21 +1,32 @@
-// Metamodule shell display — F-inside-meta pins selected child faces onto the
-// parent Meta face as a cell grid (like layout canvas / screen-solo cells).
-// Patch SSOT: metamodule.displays[{ childId, enabled, order }].
+// Metamodule face canvas — the layout-canvas arrangement, live on the shell.
+//
+// SSOT: patch.view.canvases.byMetamodule[metaId] (same pins / x y w h as F canvas).
+// Root view: reparent pinned child faces onto the Meta face (so Hypersaw etc. have
+// a real layout box — hidden interior articles are display:none / 0×0).
+// Inside Meta or fullscreen F: faces stay on their modules / the F stage.
+//
+// Legacy metamodule.displays[{ childId, enabled, order }] is migrated once into
+// the canvas bucket, then cleared.
 
-const NODE_GRAPH_METAMODULE_MIRROR_RAF = new Map(); // metaId → raf id
+const NODE_GRAPH_METAMODULE_CANVAS_SESSIONS = new Map(); // metaId → { items, stage, ro }
+
+function nodeGraphMetamoduleCanvasPinnedElements(metaId, patch = nodeGraphMvp?.patch) {
+  const id = String(metaId || "");
+  if (!id) return [];
+  if (typeof nodeGraphLayoutCanvasPinnedElementsForScope === "function") {
+    return nodeGraphLayoutCanvasPinnedElementsForScope(id, patch);
+  }
+  return [];
+}
 
 function nodeGraphMetamoduleMirroredChildIdSet(patch = nodeGraphMvp?.patch) {
   const out = new Set();
   const nodes = Array.isArray(patch?.nodes) ? patch.nodes : [];
   for (const node of nodes) {
     if (!nodeGraphIsContainerShellType?.(node?.type)) continue;
-    const payload = typeof nodeGraphEnsureMetamodulePayload === "function"
-      ? nodeGraphEnsureMetamodulePayload(node)
-      : node?.metamodule;
-    for (const entry of payload?.displays || []) {
-      if (entry?.enabled && entry.childId) {
-        out.add(String(entry.childId));
-      }
+    for (const el of nodeGraphMetamoduleCanvasPinnedElements(node.id, patch)) {
+      const childId = String(el?.nodeId || "");
+      if (childId) out.add(childId);
     }
   }
   return out;
@@ -27,332 +38,321 @@ function nodeGraphMetamoduleChildIsMirrorSubscribed(nodeId, patch = nodeGraphMvp
   return nodeGraphMetamoduleMirroredChildIdSet(patch).has(id);
 }
 
-/** Resolve a live face canvas for a module (works even when article.hidden). */
-function nodeGraphResolveModuleFaceCanvas(nodeId) {
-  const id = String(nodeId || "");
-  if (!id) return null;
-
-  if (typeof nodeGraphModuleScopePersistentCanvases !== "undefined"
-    && nodeGraphModuleScopePersistentCanvases instanceof Map
-    && nodeGraphModuleScopePersistentCanvases.has(id)) {
-    const cached = nodeGraphModuleScopePersistentCanvases.get(id);
-    if (cached && cached.width > 0 && cached.height > 0) return cached;
-  }
-
-  const slot = typeof nodeGraphModuleScopeState !== "undefined"
-    ? nodeGraphModuleScopeState?.slots?.get?.(id)
-    : null;
-  if (slot && typeof peekNodeGraphModuleScopeFaceCanvas === "function") {
-    const peeked = peekNodeGraphModuleScopeFaceCanvas(slot);
-    if (peeked && peeked.width > 0 && peeked.height > 0) return peeked;
-  }
-  if (slot && typeof ensureNodeGraphModuleScopeFaceCanvas === "function") {
-    // Ensure mounts into the (possibly hidden) scope window so paint can run.
-    const ensured = ensureNodeGraphModuleScopeFaceCanvas(slot, { mode: "peek" })
-      || ensureNodeGraphModuleScopeFaceCanvas(slot, { mode: "auto" });
-    if (ensured && ensured.width > 0 && ensured.height > 0) return ensured;
-  }
-
-  const host = typeof document !== "undefined"
-    ? document.querySelector(`.dsp-node[data-node="${CSS.escape(id)}"]`)
-    : null;
-  if (!host) return null;
-  const canvas = host.querySelector(
-    "canvas.node-module-scope-local-fallback-canvas, "
-    + "canvas.node-custom-display-canvas, "
-    + ".node-module-face > canvas, "
-    + ".node-solid-module-custom-ui canvas, "
-    + ".node-asciiscope-face canvas, "
-    + ".node-xy-pad canvas, "
-    + ".node-fbm-field-face canvas, "
-    + ".node-keypad-face canvas, "
-    + ".node-led-face canvas, "
-    + ".node-number-readout-face canvas, "
-    + ".node-value-lcd-face canvas, "
-    + ".node-raster-rgb-face canvas",
-  );
-  if (canvas && canvas.width > 0 && canvas.height > 0
-    && !canvas.classList.contains("node-metamodule-mirror-canvas")) {
-    return canvas;
-  }
-  return null;
+/** Compat shape for older call sites: canvas pins as { childId, enabled, order }. */
+function nodeGraphMetamoduleEnabledDisplayEntries(metaNode) {
+  const id = String(metaNode?.id || "");
+  return nodeGraphMetamoduleCanvasPinnedElements(id).map((el, index) => ({
+    childId: String(el.nodeId || ""),
+    enabled: true,
+    order: Number.isFinite(Number(el.z)) ? Number(el.z) : index,
+  }));
 }
 
-function nodeGraphMetamoduleEnabledDisplayEntries(metaNode) {
+function nodeGraphMetamoduleMigrateDisplaysToCanvas(metaNode, patch = nodeGraphMvp?.patch) {
+  if (!metaNode || !nodeGraphIsContainerShellType?.(metaNode.type)) return 0;
   const payload = typeof nodeGraphEnsureMetamodulePayload === "function"
     ? nodeGraphEnsureMetamodulePayload(metaNode)
-    : metaNode?.metamodule;
-  const list = Array.isArray(payload?.displays) ? payload.displays : [];
-  return list
-    .filter((entry) => entry && entry.enabled && entry.childId)
-    .slice()
-    .sort((a, b) => (nodeGraphFiniteNumber(a.order)) - (nodeGraphFiniteNumber(b.order)));
-}
-
-/**
- * Toggle enabled display layers for child ids on a metamodule.
- * Returns { changed, enabledIds }.
- */
-function nodeGraphMetamoduleToggleDisplays(metaId, childIds, patch = nodeGraphMvp?.patch) {
-  const id = String(metaId || "");
-  const kids = (Array.isArray(childIds) ? childIds : [childIds])
-    .map((c) => String(c || ""))
-    .filter(Boolean);
-  if (!id || !kids.length || !patch?.nodes) {
-    return { changed: 0, enabledIds: [] };
+    : metaNode.metamodule;
+  const displays = Array.isArray(payload?.displays) ? payload.displays : [];
+  const enabled = displays.filter((entry) => entry && entry.enabled && entry.childId);
+  if (!enabled.length) return 0;
+  if (typeof nodeGraphLayoutCanvasEnsureView !== "function"
+    || typeof nodeGraphLayoutCanvasNormalizeRect !== "function") {
+    return 0;
   }
-  const meta = patch.nodes.find((n) => n?.id === id);
-  if (!nodeGraphIsContainerShellType?.(meta?.type)) {
-    return { changed: 0, enabledIds: [] };
+  const canvases = nodeGraphLayoutCanvasEnsureView(patch);
+  if (!canvases) return 0;
+  const metaId = String(metaNode.id || "");
+  if (!canvases.byMetamodule[metaId] || typeof canvases.byMetamodule[metaId] !== "object") {
+    canvases.byMetamodule[metaId] = { elements: [] };
   }
-  const payload = nodeGraphEnsureMetamodulePayload(meta);
-  if (!Array.isArray(payload.displays)) payload.displays = [];
-
-  let maxOrder = -1;
-  for (const entry of payload.displays) {
-    maxOrder = Math.max(maxOrder, nodeGraphFiniteNumber(entry?.order));
+  const bucket = canvases.byMetamodule[metaId];
+  if (!Array.isArray(bucket.elements)) bucket.elements = [];
+  const have = new Set(bucket.elements.map((el) => String(el?.nodeId || "")));
+  const n = enabled.length;
+  const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
+  const rows = Math.max(1, Math.ceil(n / cols));
+  let added = 0;
+  for (let i = 0; i < n; i += 1) {
+    const childId = String(enabled[i].childId || "");
+    if (!childId || have.has(childId)) continue;
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    bucket.elements.push({
+      nodeId: childId,
+      enabled: true,
+      ...nodeGraphLayoutCanvasNormalizeRect({
+        x: col / cols,
+        y: row / rows,
+        w: 1 / cols,
+        h: 1 / rows,
+        z: i,
+      }, i),
+    });
+    have.add(childId);
+    added += 1;
   }
-
-  let changed = 0;
-  for (const childId of kids) {
-    const owned = patch.nodes.find((n) => n?.id === childId);
-    if (!owned || String(owned.ownerMetamoduleId || "") !== id) continue;
-
-    let entry = payload.displays.find((e) => e && String(e.childId) === childId);
-    if (!entry) {
-      maxOrder += 1;
-      entry = { childId, enabled: false, order: maxOrder };
-      payload.displays.push(entry);
-    }
-    entry.enabled = !entry.enabled;
-    if (entry.enabled) {
-      maxOrder += 1;
-      entry.order = maxOrder;
-    }
-    changed += 1;
-  }
-
-  const enabledIds = nodeGraphMetamoduleEnabledDisplayEntries(meta).map((e) => String(e.childId));
-  return { changed, enabledIds };
+  payload.displays = [];
+  return added;
 }
 
 function nodeGraphMetamoduleEnsureMirrorCanvas(face) {
   if (!face) return null;
-  let canvas = face.querySelector(":scope > .node-metamodule-mirror-canvas");
-  if (!canvas) {
-    canvas = document.createElement("canvas");
-    canvas.className = "node-metamodule-mirror-canvas";
-    canvas.setAttribute("aria-hidden", "true");
-    face.appendChild(canvas);
-  }
-  return canvas;
+  return face.querySelector(":scope > .node-metamodule-mirror-canvas");
 }
 
-function nodeGraphMetamoduleStopMirrorLoop(metaId) {
+function nodeGraphMetamoduleCanvasStageEl(face) {
+  if (!face) return null;
+  let stage = face.querySelector(":scope > .node-metamodule-canvas-stage");
+  if (!stage) {
+    stage = document.createElement("div");
+    stage.className = "node-metamodule-canvas-stage";
+    stage.hidden = true;
+    face.appendChild(stage);
+  }
+  return stage;
+}
+
+function nodeGraphMetamoduleRestoreCanvasSession(metaId) {
   const id = String(metaId || "");
-  const raf = NODE_GRAPH_METAMODULE_MIRROR_RAF.get(id);
-  if (raf) {
-    cancelAnimationFrame(raf);
-    NODE_GRAPH_METAMODULE_MIRROR_RAF.delete(id);
+  const session = NODE_GRAPH_METAMODULE_CANVAS_SESSIONS.get(id);
+  if (!session) return;
+  if (session.ro) {
+    try { session.ro.disconnect(); } catch (_e) { /* ignore */ }
+  }
+  for (const item of session.items || []) {
+    item.face?.classList.remove("node-layout-canvas-face", "node-metamodule-canvas-face");
+    if (typeof nodeGraphScreenSoloRestoreItem === "function") {
+      nodeGraphScreenSoloRestoreItem(item);
+    }
+    item.tile?.remove();
+  }
+  NODE_GRAPH_METAMODULE_CANVAS_SESSIONS.delete(id);
+}
+
+function nodeGraphMetamoduleRestoreCanvasSessionsForNodes(nodeIds) {
+  const want = new Set((Array.isArray(nodeIds) ? nodeIds : []).map((id) => String(id || "")));
+  if (!want.size) return;
+  for (const metaId of [...NODE_GRAPH_METAMODULE_CANVAS_SESSIONS.keys()]) {
+    const session = NODE_GRAPH_METAMODULE_CANVAS_SESSIONS.get(metaId);
+    const hit = (session?.items || []).some((item) => want.has(String(item.nodeId || "")));
+    if (hit) nodeGraphMetamoduleRestoreCanvasSession(metaId);
   }
 }
 
-function nodeGraphMetamoduleStopAllMirrorLoops() {
-  for (const id of [...NODE_GRAPH_METAMODULE_MIRROR_RAF.keys()]) {
-    nodeGraphMetamoduleStopMirrorLoop(id);
+function nodeGraphMetamoduleShouldPresentOnFace(metaId) {
+  const id = String(metaId || "");
+  if (!id) return false;
+  if (typeof nodeGraphMetamoduleViewId === "function" && nodeGraphMetamoduleViewId() === id) {
+    return false;
+  }
+  if (
+    typeof nodeGraphLayoutCanvasIsActive === "function"
+    && nodeGraphLayoutCanvasIsActive()
+    && typeof nodeGraphLayoutCanvasActiveScopeId === "function"
+    && nodeGraphLayoutCanvasActiveScopeId() === id
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function nodeGraphMetamoduleRelayoutCanvasSession(metaId) {
+  const session = NODE_GRAPH_METAMODULE_CANVAS_SESSIONS.get(String(metaId || ""));
+  if (!session?.stage || !session.items?.length) return;
+  const elements = nodeGraphMetamoduleCanvasPinnedElements(metaId);
+  for (const item of session.items) {
+    const el = elements.find((entry) => String(entry.nodeId) === String(item.nodeId));
+    if (typeof nodeGraphLayoutCanvasApplyTileRect === "function") {
+      nodeGraphLayoutCanvasApplyTileRect(item.tile, el || item.rect, session.stage);
+    }
   }
 }
 
-function nodeGraphMetamodulePaintMirror(metaId) {
+function nodeGraphMetamoduleBuildFaceTile(entry, collected, index, stage) {
+  const found = collected.find((c) => String(c.id) === String(entry.nodeId));
+  if (!found?.face?.parentNode) return null;
+  const parent = found.face.parentNode;
+  const savedLayout = typeof nodeGraphScreenSoloCaptureFaceLayout === "function"
+    ? nodeGraphScreenSoloCaptureFaceLayout(found.face)
+    : { gridColumn: "", gridRow: "" };
+  const nextSibling = found.face.nextSibling;
+  const placeholder = document.createElement("div");
+  placeholder.className = "node-screen-solo-placeholder";
+  placeholder.setAttribute("aria-hidden", "true");
+  parent.insertBefore(placeholder, found.face);
+  if (!found.face.dataset.node) found.face.dataset.node = found.id;
+  found.host?.classList.add("node-screen-solo-host");
+  found.face.classList.add("node-screen-solo-face", "node-layout-canvas-face", "node-metamodule-canvas-face");
+
+  const tile = document.createElement("div");
+  tile.className = "node-layout-canvas-tile";
+  tile.dataset.node = found.id;
+  tile.append(found.face);
+
+  const rect = typeof nodeGraphLayoutCanvasNormalizeRect === "function"
+    ? nodeGraphLayoutCanvasNormalizeRect(entry, index)
+    : { x: 0, y: 0, w: 1, h: 1, z: index };
+  if (typeof nodeGraphLayoutCanvasApplyTileRect === "function") {
+    nodeGraphLayoutCanvasApplyTileRect(tile, rect, stage);
+  }
+  stage.append(tile);
+  return {
+    nodeId: found.id,
+    face: found.face,
+    host: found.host,
+    parent,
+    placeholder,
+    nextSibling,
+    savedLayout,
+    tile,
+    rect,
+  };
+}
+
+function nodeGraphMetamoduleWakePresentedItem(item) {
+  if (typeof nodeGraphScreenSoloWakeFace === "function") {
+    nodeGraphScreenSoloWakeFace(item.face);
+  }
+  const slot = typeof nodeGraphModuleScopeState !== "undefined"
+    ? nodeGraphModuleScopeState?.slots?.get?.(item.nodeId)
+    : null;
+  if (slot && typeof invalidateNodeGraphModuleScopeFaceLayout === "function") {
+    invalidateNodeGraphModuleScopeFaceLayout(slot);
+  }
+}
+
+function nodeGraphMetamodulePresentCanvasOnFace(metaId) {
   const id = String(metaId || "");
   const face = typeof document !== "undefined"
     ? document.querySelector(`.node-metamodule-face[data-node="${CSS.escape(id)}"]`)
     : null;
   if (!face) {
-    nodeGraphMetamoduleStopMirrorLoop(id);
+    nodeGraphMetamoduleRestoreCanvasSession(id);
     return false;
   }
   const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
-  const enabled = nodeGraphMetamoduleEnabledDisplayEntries(meta);
+  nodeGraphMetamoduleMigrateDisplaysToCanvas(meta);
+  const elements = nodeGraphMetamoduleCanvasPinnedElements(id);
   const empty = face.querySelector(".node-metamodule-face-empty");
-  const canvas = nodeGraphMetamoduleEnsureMirrorCanvas(face);
+  const blit = nodeGraphMetamoduleEnsureMirrorCanvas(face);
+  const stage = nodeGraphMetamoduleCanvasStageEl(face);
 
-  if (!enabled.length) {
-    if (canvas) canvas.hidden = true;
+  if (!elements.length || !nodeGraphMetamoduleShouldPresentOnFace(id)) {
+    nodeGraphMetamoduleRestoreCanvasSession(id);
+    if (stage) stage.hidden = true;
+    if (blit) blit.hidden = true;
     if (empty) {
       empty.hidden = false;
       empty.textContent = "Double-click to enter";
     }
-    nodeGraphMetamoduleStopMirrorLoop(id);
     return false;
   }
-  // Display stack active — never show the enter hint over the mirror.
+
   if (empty) {
     empty.hidden = true;
     empty.textContent = "";
   }
-  if (canvas) canvas.hidden = false;
+  if (blit) blit.hidden = true;
+  if (stage) stage.hidden = false;
 
-  if (!canvas) return false;
+  const ids = elements.map((el) => String(el.nodeId));
+  const prev = NODE_GRAPH_METAMODULE_CANVAS_SESSIONS.get(id);
+  const prevKey = (prev?.items || []).map((item) => item.nodeId).join(",");
+  const nextKey = ids.join(",");
+  if (
+    prev
+    && prevKey === nextKey
+    && prev.stage?.isConnected
+    && (prev.items || []).every((item) => item.face?.isConnected && item.tile?.isConnected)
+  ) {
+    nodeGraphMetamoduleRelayoutCanvasSession(id);
+    for (const item of prev.items || []) nodeGraphMetamoduleWakePresentedItem(item);
+    return true;
+  }
 
-  // Wake pinned children so their face canvases keep painting while hidden on Root
-  // (same idea as layout-canvas / screen-solo cells).
-  for (const entry of enabled) {
-    const childId = String(entry.childId || "");
-    if (!childId) continue;
-    const host = document.querySelector(`.dsp-node[data-node="${CSS.escape(childId)}"]`);
-    if (host && typeof nodeGraphViewportCullWakePainters === "function") {
-      try { nodeGraphViewportCullWakePainters(host); } catch (_e) { /* ignore */ }
+  nodeGraphMetamoduleRestoreCanvasSession(id);
+  const collected = typeof nodeGraphScreenSoloCollectFaces === "function"
+    ? nodeGraphScreenSoloCollectFaces(ids)
+    : [];
+  if (!collected.length) {
+    if (empty) {
+      empty.hidden = false;
+      empty.textContent = "Double-click to enter";
     }
+    return false;
+  }
+
+  const items = [];
+  for (let i = 0; i < elements.length; i += 1) {
+    const item = nodeGraphMetamoduleBuildFaceTile(elements[i], collected, i, stage);
+    if (item) items.push(item);
+  }
+  if (!items.length) {
+    if (empty) {
+      empty.hidden = false;
+      empty.textContent = "Double-click to enter";
+    }
+    return false;
+  }
+
+  let ro = null;
+  if (typeof ResizeObserver === "function") {
+    ro = new ResizeObserver(() => nodeGraphMetamoduleRelayoutCanvasSession(id));
+    try { ro.observe(stage); } catch (_e) { ro = null; }
+  }
+  NODE_GRAPH_METAMODULE_CANVAS_SESSIONS.set(id, { items, stage, ro });
+  for (const item of items) nodeGraphMetamoduleWakePresentedItem(item);
+  if (typeof installNodeGraphMidiKeyboardLayoutResizeObserver === "function") {
+    installNodeGraphMidiKeyboardLayoutResizeObserver();
+  }
+  if (typeof applyNodeGraphMidiKeyboardLayout === "function") {
+    applyNodeGraphMidiKeyboardLayout();
+  }
+  if (typeof renderNodeGraphMidiKeyboardKeys === "function") {
+    renderNodeGraphMidiKeyboardKeys();
   }
   if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
-    try { scheduleNodeGraphModuleScopeDraw(); } catch (_e) { /* ignore */ }
+    scheduleNodeGraphModuleScopeDraw();
   }
+  return true;
+}
 
-  // Layout CSS size (client/offset) — NOT getBoundingClientRect.
-  let cssW = Number(face.clientWidth || face.offsetWidth || 0);
-  let cssH = Number(face.clientHeight || face.offsetHeight || 0);
-  if (!(cssW > 0) || !(cssH > 0)) {
-    const host = face.closest?.(".dsp-node") || face;
-    try {
-      const style = getComputedStyle(host);
-      const gridPx = Number.parseFloat(
-        style.getPropertyValue("--node-grid-height")
-        || style.getPropertyValue("--node-grid-size")
-        || "",
-      ) || 28;
-      if (!(cssH > 0)) {
-        const displayGu = Number.parseFloat(
-          style.getPropertyValue("--node-module-display-height-units") || "",
-        );
-        if (Number.isFinite(displayGu) && displayGu > 0) {
-          cssH = displayGu * gridPx;
-        }
-      }
-      if (!(cssW > 0)) {
-        const widthGu = Number.parseFloat(
-          style.getPropertyValue("--node-grid-width-units") || "",
-        );
-        const gw = Number.parseFloat(
-          style.getPropertyValue("--node-grid-width")
-          || style.getPropertyValue("--node-grid-size")
-          || "",
-        ) || gridPx;
-        const inset = Number.parseFloat(
-          style.getPropertyValue("--node-module-grid-inset") || "",
-        ) || 0;
-        if (Number.isFinite(widthGu) && widthGu > 0) {
-          cssW = Math.max(1, widthGu * gw - inset * 2);
-        }
-      }
-    } catch (_error) {
-      // Best-effort fallbacks only.
-    }
+function nodeGraphMetamoduleStopMirrorLoop(metaId) {
+  nodeGraphMetamoduleRestoreCanvasSession(metaId);
+}
+
+function nodeGraphMetamoduleStopAllMirrorLoops() {
+  for (const id of [...NODE_GRAPH_METAMODULE_CANVAS_SESSIONS.keys()]) {
+    nodeGraphMetamoduleRestoreCanvasSession(id);
   }
-  const dpr = typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1;
-  const cssWSafe = Math.max(1, Math.round(cssW || 1));
-  const cssHSafe = Math.max(1, Math.round(cssH || 1));
-  const bufW = Math.max(1, Math.round(cssWSafe * dpr));
-  const bufH = Math.max(1, Math.round(cssHSafe * dpr));
-  if (canvas.width !== bufW) canvas.width = bufW;
-  if (canvas.height !== bufH) canvas.height = bufH;
-  canvas.style.width = "100%";
-  canvas.style.height = "100%";
+}
 
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return false;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = 1;
-  ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = "#000000";
-  ctx.fillRect(0, 0, bufW, bufH);
-
-  // Cell grid like screen-solo / layout canvas — one placed display per cell.
-  const n = enabled.length;
-  const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
-  const rows = Math.max(1, Math.ceil(n / cols));
-  const cellW = bufW / cols;
-  const cellH = bufH / rows;
-  let drawn = 0;
-  for (let i = 0; i < n; i += 1) {
-    const entry = enabled[i];
-    const source = nodeGraphResolveModuleFaceCanvas(entry.childId);
-    if (!source) continue;
-    const srcW = Number(source.videoWidth || source.naturalWidth || source.width) || 0;
-    const srcH = Number(source.videoHeight || source.naturalHeight || source.height) || 0;
-    if (!(srcW > 0) || !(srcH > 0)) continue;
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    const cx = col * cellW;
-    const cy = row * cellH;
-    const scale = Math.min(cellW / srcW, cellH / srcH);
-    const dw = Math.max(1, Math.round(srcW * scale));
-    const dh = Math.max(1, Math.round(srcH * scale));
-    const dx = Math.floor(cx + (cellW - dw) * 0.5);
-    const dy = Math.floor(cy + (cellH - dh) * 0.5);
-    try {
-      ctx.drawImage(source, 0, 0, srcW, srcH, dx, dy, dw, dh);
-      drawn += 1;
-    } catch (_err) {
-      // Detached / tainted source — skip cell.
-    }
-  }
-  return drawn > 0 || n > 0;
+function nodeGraphMetamodulePaintMirror(metaId) {
+  return nodeGraphMetamodulePresentCanvasOnFace(metaId);
 }
 
 function nodeGraphMetamoduleArmMirrorLoop(metaId) {
-  const id = String(metaId || "");
-  if (!id || NODE_GRAPH_METAMODULE_MIRROR_RAF.has(id)) return;
-  if (typeof document !== "undefined" && document.hidden) return;
-  if (typeof scopePaintIsDrawingLive === "function" && !scopePaintIsDrawingLive()) return;
-
-  const tick = () => {
-    NODE_GRAPH_METAMODULE_MIRROR_RAF.delete(id);
-    if (typeof document !== "undefined" && document.hidden) return;
-    if (typeof scopePaintIsDrawingLive === "function" && !scopePaintIsDrawingLive()) return;
-    const should = typeof nodeGraphSimFpsShouldPaint === "function"
-      ? nodeGraphSimFpsShouldPaint(`meta-mirror:${id}`, false)
-      : true;
-    if (should) {
-      const ok = nodeGraphMetamodulePaintMirror(id);
-      if (!ok) return;
-    } else {
-      // Still check enabled — stop if cleared.
-      const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
-      if (!nodeGraphMetamoduleEnabledDisplayEntries(meta).length) return;
-    }
-    if (!NODE_GRAPH_METAMODULE_MIRROR_RAF.has(id)) {
-      const next = requestAnimationFrame(tick);
-      NODE_GRAPH_METAMODULE_MIRROR_RAF.set(id, next);
-    }
-  };
-  const raf = requestAnimationFrame(tick);
-  NODE_GRAPH_METAMODULE_MIRROR_RAF.set(id, raf);
+  nodeGraphMetamodulePresentCanvasOnFace(metaId);
 }
 
 function nodeGraphMetamoduleRefreshAllMirrors() {
-  if (typeof document !== "undefined" && document.hidden) {
-    nodeGraphMetamoduleStopAllMirrorLoops();
-    return;
-  }
   const nodes = Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes : [];
+  const live = new Set();
   for (const node of nodes) {
     if (!nodeGraphIsContainerShellType?.(node?.type)) continue;
-    const enabled = nodeGraphMetamoduleEnabledDisplayEntries(node);
-    if (enabled.length) {
-      nodeGraphMetamodulePaintMirror(node.id);
-      nodeGraphMetamoduleArmMirrorLoop(node.id);
-    } else {
-      nodeGraphMetamoduleStopMirrorLoop(node.id);
-      nodeGraphMetamodulePaintMirror(node.id);
-    }
+    nodeGraphMetamoduleMigrateDisplaysToCanvas(node);
+    live.add(String(node.id || ""));
+    nodeGraphMetamodulePresentCanvasOnFace(node.id);
+  }
+  for (const id of [...NODE_GRAPH_METAMODULE_CANVAS_SESSIONS.keys()]) {
+    if (!live.has(id)) nodeGraphMetamoduleRestoreCanvasSession(id);
   }
 }
 
 /**
- * Inside-meta F: toggle selected owned children onto the parent meta display stack.
- * Returns true when handled.
+ * Inside-meta F with a child selection: toggle Show in canvas for those children.
+ * No selection: return false so F runs the normal canvas cycle (perform / edit / off).
  */
 function nodeGraphMetamoduleToggleDisplaysForSelection() {
   const viewId = typeof nodeGraphMetamoduleViewId === "function"
@@ -374,45 +374,51 @@ function nodeGraphMetamoduleToggleDisplaysForSelection() {
       return node && String(node.ownerMetamoduleId || "") === viewId;
     });
   if (!childIds.length) {
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp("Select modules inside this Metamodule, then press F to pin their displays.");
-    }
-    return true; // handled (inside meta) — do not fall through to fullscreen
+    return false;
   }
 
   const patch = typeof cloneNodeGraphPatch === "function"
     ? cloneNodeGraphPatch(nodeGraphMvp.patch)
     : nodeGraphMvp.patch;
-  const result = nodeGraphMetamoduleToggleDisplays(viewId, childIds, patch);
-  if (!result.changed) {
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp("No display layers toggled.");
+  const meta = patch?.nodes?.find((n) => n?.id === viewId);
+  nodeGraphMetamoduleMigrateDisplaysToCanvas(meta, patch);
+
+  let enabledCount = 0;
+  for (const childId of childIds) {
+    const on = typeof nodeGraphLayoutCanvasIsPinnedInScope === "function"
+      ? nodeGraphLayoutCanvasIsPinnedInScope(childId, viewId, patch)
+      : false;
+    if (typeof nodeGraphLayoutCanvasSetPinned === "function") {
+      nodeGraphLayoutCanvasSetPinned(childId, !on, {
+        patch,
+        scopeId: viewId,
+        persist: false,
+        refresh: false,
+      });
     }
-    return true;
+  }
+  if (typeof nodeGraphLayoutCanvasPinnedElementsForScope === "function") {
+    enabledCount = nodeGraphLayoutCanvasPinnedElementsForScope(viewId, patch).length;
   }
   if (typeof commitNodeGraphPatch === "function") {
     commitNodeGraphPatch(patch, {
-      status: result.enabledIds.length
-        ? `Metamodule display: ${result.enabledIds.length} layer(s)`
-        : "Metamodule display cleared",
-      topologyEdit: true,
+      status: enabledCount
+        ? `Canvas: ${enabledCount} display(s) on Metamodule`
+        : "Metamodule canvas cleared",
+      topologyEdit: false,
     });
   } else {
     nodeGraphMvp.patch = patch;
   }
-  nodeGraphMetamodulePaintMirror(viewId);
-  if (result.enabledIds.length) {
-    nodeGraphMetamoduleArmMirrorLoop(viewId);
-  }
-  // Wake paint for newly mirrored children (may be about to hide on exit).
+  nodeGraphMetamoduleRefreshAllMirrors();
   if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
     scheduleNodeGraphModuleScopeDraw();
   }
   if (typeof setNodeInteractionHelp === "function") {
     setNodeInteractionHelp(
-      result.enabledIds.length
-        ? `Pinned ${result.enabledIds.length} display(s) on Metamodule. F again on a selection toggles.`
-        : "Metamodule display stack empty.",
+      enabledCount
+        ? `Pinned ${enabledCount} display(s) on the Metamodule canvas. F with no selection opens canvas edit.`
+        : "Metamodule canvas empty.",
     );
   }
   return true;

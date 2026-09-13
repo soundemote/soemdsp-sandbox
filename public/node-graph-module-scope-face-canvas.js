@@ -299,19 +299,24 @@ function syncNodeGraphModuleScopeFaceCanvasTape(canvas, screenElement, pixelRati
     : false;
   const holdWaterfall = Boolean(canvas._waterfall?.started || canvas._traceScroll?.started);
   const holdVectorTrace = Boolean(canvas.classList?.contains("node-module-scope-vector-trace"));
-  // Metamodule mirror: keep last real buffer while the child article is hidden
-  // (display:none → 0×0 layout) so Root shell blit does not collapse the source.
-  const hostNode = screenElement?.closest?.(".dsp-node");
-  const mirrorHold = Boolean(
-    hostNode?.hidden
-    && canvas.width >= 2
-    && canvas.height >= 2
+  // Pinned Meta-canvas children: keep last real buffer (or seed one) when the
+  // article is still hidden / 0×0. After reparent onto the Meta face, layout size wins.
+  const pinId = String(screenElement?.dataset?.node || screenElement?.closest?.(".dsp-node")?.dataset?.node || "");
+  const subscribed = Boolean(
+    pinId
     && typeof nodeGraphMetamoduleChildIsMirrorSubscribed === "function"
-    && nodeGraphMetamoduleChildIsMirrorSubscribed(hostNode.dataset?.node),
+    && nodeGraphMetamoduleChildIsMirrorSubscribed(pinId),
   );
-  if (mirrorHold && (width < 4 || height < 4 || width * height < canvas.width * canvas.height * 0.25)) {
-    width = canvas.width;
-    height = canvas.height;
+  const tinyFace = width < 4 || height < 4
+    || (canvas.width >= 2 && canvas.height >= 2 && width * height < canvas.width * canvas.height * 0.25);
+  if (subscribed && tinyFace) {
+    if (canvas.width >= 2 && canvas.height >= 2) {
+      width = canvas.width;
+      height = canvas.height;
+    } else {
+      width = Math.max(256, width);
+      height = Math.max(72, height);
+    }
   }
   if ((frozen || holdWaterfall || holdVectorTrace) && canvas.width >= 2 && canvas.height >= 2) {
     const dw = Math.abs(width - canvas.width);
@@ -370,17 +375,22 @@ function syncNodeGraphModuleScopeFaceCanvasBurn(canvas, screenElement, pixelRati
     : Math.max(0, Math.min(1, nodeGraphFiniteNumber(pixelDensity)));
   let width = Math.max(1, Math.round(size.width * density));
   let height = Math.max(1, Math.round(size.height * density));
-  const hostNode = screenElement?.closest?.(".dsp-node");
-  const mirrorHold = Boolean(
-    hostNode?.hidden
-    && canvas.width >= 2
-    && canvas.height >= 2
+  const pinId = String(screenElement?.dataset?.node || screenElement?.closest?.(".dsp-node")?.dataset?.node || "");
+  const subscribed = Boolean(
+    pinId
     && typeof nodeGraphMetamoduleChildIsMirrorSubscribed === "function"
-    && nodeGraphMetamoduleChildIsMirrorSubscribed(hostNode.dataset?.node),
+    && nodeGraphMetamoduleChildIsMirrorSubscribed(pinId),
   );
-  if (mirrorHold && (width < 4 || height < 4 || width * height < canvas.width * canvas.height * 0.25)) {
-    width = canvas.width;
-    height = canvas.height;
+  const tinyFace = width < 4 || height < 4
+    || (canvas.width >= 2 && canvas.height >= 2 && width * height < canvas.width * canvas.height * 0.25);
+  if (subscribed && tinyFace) {
+    if (canvas.width >= 2 && canvas.height >= 2) {
+      width = canvas.width;
+      height = canvas.height;
+    } else {
+      width = Math.max(256, width);
+      height = Math.max(72, height);
+    }
   }
   const resized = canvas.width !== width || canvas.height !== height;
   if (resized) {

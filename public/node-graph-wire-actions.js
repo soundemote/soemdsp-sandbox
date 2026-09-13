@@ -412,11 +412,12 @@ function rangeSelectedNodeGraphWires(mode = "bipolar") {
     : {};
   const pairSlots = new Map();
   const newIds = [];
-  // Spawn (wire insert): In always unit; Out always unit. Module browser
-  // parameter defaults differ (bipolar Out −10…+10 / unipolar Out 0…10).
+  // Spawn (wire insert): In is unit CV. Out values stay unit; Out slider
+  // domain is −10…+10 (same as browser Range spawn).
   const params = unipolar
     ? { inLow: 0, inHigh: 1, outLow: 0, outHigh: 1 }
     : { inLow: -1, inHigh: 1, outLow: -1, outHigh: 1 };
+  const outMeta = { min: -10, max: 10, mid: 0, bipolar: true, showSign: true, visible: true };
   for (const entry of snapshots) {
     const wire = entry.wire;
     if (!wire?.sourceNode || !wire?.destinationNode) {
@@ -444,6 +445,10 @@ function rangeSelectedNodeGraphWires(mode = "bipolar") {
         ioHidden: false,
       },
       params,
+      paramMeta: {
+        outLow: { ...outMeta, def: params.outLow },
+        outHigh: { ...outMeta, def: params.outHigh },
+      },
     });
     nodeGraphWireInsertClaimOwnership(rangeNode, patch);
     patch.nodes.push(rangeNode);

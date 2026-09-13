@@ -8,6 +8,8 @@ const SEQUENCER_MAX_TICKS = SEQUENCER_TICKS_PER_BAR * SEQUENCER_MAX_BARS;
 const SEQUENCER_BAR_CHOICES = Object.freeze([1, 2, 4, 8, 16, 32, 64]);
 const SEQUENCER_DEFAULT_VEL = 100;
 const SEQUENCER_SNAP_TICKS = Object.freeze({
+  "4/1": 128,
+  "2/1": 64,
   "1/1": 32,
   "1/2": 16,
   "1/4": 8,
@@ -15,7 +17,7 @@ const SEQUENCER_SNAP_TICKS = Object.freeze({
   "1/16": 2,
   "1/32": 1,
 });
-const SEQUENCER_SNAP_LABELS = Object.freeze(["1/1", "1/2", "1/4", "1/8", "1/16", "1/32"]);
+const SEQUENCER_SNAP_LABELS = Object.freeze(["4/1", "2/1", "1/1", "1/2", "1/4", "1/8", "1/16", "1/32"]);
 
 function sequencerDefaultClip() {
   return {
@@ -25,6 +27,7 @@ function sequencerDefaultClip() {
     scrollMidi: 48,
     barsVisible: 1,
     labelMode: "name",
+    audition: true,
     notes: [],
   };
 }
@@ -67,7 +70,7 @@ function sequencerNormalizeClip(raw) {
     Math.min(SEQUENCER_TICKS_PER_BAR * SEQUENCER_MAX_BARS, Math.round(Number(src.loopTicks) || SEQUENCER_TICKS_PER_BAR)),
   );
   const snapRaw = Math.round(Number(src.snap));
-  const snap = [1, 2, 4, 8, 16, 32].includes(snapRaw) ? snapRaw : 8;
+  const snap = [1, 2, 4, 8, 16, 32, 64, 128].includes(snapRaw) ? snapRaw : 8;
   const keysVisibleRaw = Math.round(Number(src.keysVisible));
   const keysVisible = [12, 24, 36, 48, 88, 128].includes(keysVisibleRaw) ? keysVisibleRaw : 24;
   let scrollMidi = Math.round(Number(src.scrollMidi));
@@ -78,10 +81,11 @@ function sequencerNormalizeClip(raw) {
   const barsVisibleRaw = Math.round(Number(src.barsVisible));
   const barsVisible = SEQUENCER_BAR_CHOICES.includes(barsVisibleRaw) ? barsVisibleRaw : 1;
   const labelMode = src.labelMode === "number" ? "number" : "name";
+  const audition = src.audition !== false;
   const notes = Array.isArray(src.notes)
     ? src.notes.map((n) => sequencerNormalizeNote(n, loopTicks))
     : [];
-  return { loopTicks, snap, keysVisible, scrollMidi, barsVisible, labelMode, notes };
+  return { loopTicks, snap, keysVisible, scrollMidi, barsVisible, labelMode, audition, notes };
 }
 
 function sequencerCloneClip(clip) {
@@ -177,20 +181,34 @@ function sequencerBeatsFromSeconds(seconds, bpm) {
   return t * (safeBpm / 60);
 }
 
-function sequencerTransposeOctave(clip, octaves) {
+function sequencerNoteKey(n) {
+  return `${Math.round(Number(n?.midi) || 0)}:${Math.round(Number(n?.start) || 0)}:${Math.round(Number(n?.length) || 1)}`;
+}
+
+function sequencerTransposeOctave(clip, octaves, selectedKeys) {
   const c = sequencerCloneClip(clip);
   const shift = Math.round(Number(octaves) || 0) * 12;
   if (!shift) return c;
+  const filter = selectedKeys instanceof Set && selectedKeys.size > 0 ? selectedKeys : null;
   const notes = [];
   for (let i = 0; i < c.notes.length; i += 1) {
     const n = c.notes[i];
+    if (filter && !filter.has(sequencerNoteKey(n))) {
+      notes.push({ midi: n.midi, start: n.start, length: n.length, vel: n.vel });
+      continue;
+    }
     const midi = n.midi + shift;
-    if (midi < 0 || midi > 127) continue;
+    if (midi < 0 || midi > 127) {
+      if (filter) notes.push({ midi: n.midi, start: n.start, length: n.length, vel: n.vel });
+      continue;
+    }
     notes.push({ midi, start: n.start, length: n.length, vel: n.vel });
   }
   c.notes = notes;
-  const vis = Math.max(1, c.keysVisible | 0);
-  c.scrollMidi = Math.max(0, Math.min(128 - vis, (c.scrollMidi | 0) + shift));
+  if (!filter) {
+    const vis = Math.max(1, c.keysVisible | 0);
+    c.scrollMidi = Math.max(0, Math.min(128 - vis, (c.scrollMidi | 0) + shift));
+  }
   return c;
 }
 
@@ -247,6 +265,14 @@ function sequencerRemoveNoteAt(clip, index) {
   const c = sequencerCloneClip(clip);
   if (index < 0 || index >= c.notes.length) return c;
   c.notes.splice(index, 1);
+  return c;
+}
+
+function sequencerRemoveNotesAt(clip, indices) {
+  const c = sequencerCloneClip(clip);
+  const drop = new Set((indices || []).map((i) => i | 0));
+  if (!drop.size) return c;
+  c.notes = c.notes.filter((_, i) => !drop.has(i));
   return c;
 }
 
@@ -341,11 +367,13 @@ if (typeof globalThis !== "undefined") {
   globalThis.sequencerSoundingInRange = sequencerSoundingInRange;
   globalThis.sequencerTickFromBeats = sequencerTickFromBeats;
   globalThis.sequencerBeatsFromSeconds = sequencerBeatsFromSeconds;
+  globalThis.sequencerNoteKey = sequencerNoteKey;
   globalThis.sequencerTransposeOctave = sequencerTransposeOctave;
   globalThis.sequencerScaleClip = sequencerScaleClip;
   globalThis.sequencerHitNote = sequencerHitNote;
   globalThis.sequencerAddNote = sequencerAddNote;
   globalThis.sequencerRemoveNoteAt = sequencerRemoveNoteAt;
+  globalThis.sequencerRemoveNotesAt = sequencerRemoveNotesAt;
   globalThis.sequencerMoveNote = sequencerMoveNote;
   globalThis.sequencerResizeNote = sequencerResizeNote;
   globalThis.sequencerOutputsFromNotes = sequencerOutputsFromNotes;

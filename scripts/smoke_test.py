@@ -270,6 +270,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/videoscope/videoscope-display.js",
     "./public/modules/spectrogram/spectrogram-display.js",
     "./public/modules/transport/transport-display.js",
+    "./public/modules/arp/arp-settings.js",
+    "./public/modules/arp/arp-display.js",
     "./public/modules/vectorRgb/vector-rgb-display.js",
     "./public/modules/rasterRgb/raster-rgb-math.js",
     "./public/modules/rasterRgb/raster-rgb-display.js",
@@ -327,6 +329,13 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-module-geometry.js",
     "./public/node-graph-port-geometry.js",
     "./public/node-graph-jack-chrome.js",
+    "./public/lib/note-mask-128.js",
+    "./public/lib/polyphony-voices.js",
+    "./public/lib/visual/display-face-metrics.js",
+    "./public/lib/visual/display-scale.js",
+    "./public/node-graph-keyboard-chord-memory.js",
+    "./public/node-graph-layout-canvas.js",
+    "./public/modules/gridKeyboard/grid-keyboard.js",
     "./public/node-graph-slider-readout.js",
     "./public/modules/knob/knob-face.js",
     "./public/modules/plugin/plugin-button-settings.js",
@@ -1337,6 +1346,8 @@ def require_shell_contract(html: str) -> None:
             "./public/modules/pitchQuantizer/pitch-quantizer-ui.css",
             "./public/modules/portal/portal-ui.css",
             "./public/modules/stepGrid/step-grid.css",
+            "./public/modules/sequencer/sequencer.css",
+            "./public/modules/arp/arp-display.css",
             "./public/modules/textStream/text-stream-ui.css",
             "/css2",
         },
@@ -3912,6 +3923,7 @@ def require_chromeless_module_registry_contract() -> None:
         "bugButton",
         "evolveField",
         "fbmField",
+        "group",
         "imageBurn",
         "keypad",
         "lcdDot",
@@ -3930,6 +3942,10 @@ def require_chromeless_module_registry_contract() -> None:
         "simulationTime",
         "stepGrid",
         "valueLcd",
+        "voiceFrequency",
+        "voiceGate",
+        "voiceIdle",
+        "voiceTrigger",
         "xyPad",
     }
     require(
@@ -3949,6 +3965,11 @@ def require_chromeless_module_registry_contract() -> None:
         "lcdDot",
         "metamoduleIn",
         "metamoduleOut",
+        "group",
+        "voiceFrequency",
+        "voiceGate",
+        "voiceIdle",
+        "voiceTrigger",
     }
     for register_path in register_paths:
         module_dir = register_path.parent
@@ -4105,8 +4126,8 @@ def require_chromeless_module_registry_contract() -> None:
         "Plugin must not be a module-browser department",
     )
     require(
-        'label: "Time"' in store_source and 'title: "Time"' in store_source,
-        "Clock department shelf should be labeled Time",
+        'label: "Clock"' in store_source and 'title: "Clock"' in store_source,
+        "Clock department shelf should be labeled Clock",
     )
     require(
         'category: "oscillator"' in store_source
@@ -18123,6 +18144,9 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_arp_create",
             "soemdsp_arp_destroy",
             "soemdsp_arp_sample",
+            "soemdsp_arp_set_chunks",
+            "soemdsp_arp_play_midi",
+            "soemdsp_arp_set_override_midi",
             "soemdsp_arp_gate",
             "soemdsp_arp_trigger",
             "soemdsp_arp_step",
@@ -18488,6 +18512,7 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_speaker_protector2_create",
             "soemdsp_speaker_protector2_destroy",
             "soemdsp_speaker_protector2_sample",
+            "soemdsp_speaker_protector2_gain",
             "soemdsp_speaker_protector2_version",
         ],
         "amp_curve": [
@@ -18539,6 +18564,21 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_wow_and_flutter_sample",
             "soemdsp_wow_and_flutter_out",
             "soemdsp_wow_and_flutter_version",
+        ],
+        "voice_manager": [
+            "soemdsp_voice_manager_create",
+            "soemdsp_voice_manager_destroy",
+            "soemdsp_voice_manager_set_polyphony",
+            "soemdsp_voice_manager_note_on",
+            "soemdsp_voice_manager_note_off",
+            "soemdsp_voice_manager_version",
+        ],
+        "wavetable_adsr": [
+            "soemdsp_wavetable_adsr_create",
+            "soemdsp_wavetable_adsr_destroy",
+            "soemdsp_wavetable_adsr_sample",
+            "soemdsp_wavetable_adsr_is_idle",
+            "soemdsp_wavetable_adsr_version",
         ],
     }
     for source_path in native_sources:

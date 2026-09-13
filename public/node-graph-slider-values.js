@@ -811,7 +811,12 @@ function nodeSliderElementVisualScale(element) {
 }
 
 function nodeSliderVisualLane(surface, slider) {
-  const width = nodeSliderElementLayoutWidth(surface);
+  const knob = typeof nodeSliderKnobDragMetrics === "function"
+    ? nodeSliderKnobDragMetrics(surface)
+    : null;
+  const width = knob
+    ? knob.travelWidth
+    : nodeSliderElementLayoutWidth(surface);
   const handleHalfWidth = Math.min(nodeSliderHandleHalfWidthPx, width / 2);
   // Travel is handle-center. Zero clearance: at 0 the handle left edge is
   // the track left; at 1 the handle right edge is the track right.
@@ -847,6 +852,13 @@ function nodeSliderHandleRangeFromTravel(slider, surface, travel) {
 
 function nodeSliderTravelFromPointer(slider, surface, clientX) {
   const drag = nodeGraphMvp?.sliderDragging;
+  const knob = typeof nodeSliderKnobDragMetrics === "function"
+    ? nodeSliderKnobDragMetrics(surface)
+    : null;
+  if (knob) {
+    const x = clientX - knob.rect.left;
+    return normalizeNodeSliderTravel(slider, x / Math.max(1, knob.travelWidth));
+  }
   const rect = (drag && drag.surface === surface && drag.surfaceRect)
     ? drag.surfaceRect
     : surface.getBoundingClientRect();

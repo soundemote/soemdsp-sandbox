@@ -66,6 +66,19 @@ function nodeGraphTransportPulseWidth(raw) {
   return Math.max(0.01, Math.min(0.99, w));
 }
 
+/** Project tempo as Hz: one cycle per beat (1/1 with the beat). */
+function nodeGraphTransportBeatFrequencyHz(tempoBpm) {
+  return Math.max(1, nodeGraphFiniteNumber(tempoBpm, 120)) / 60;
+}
+
+/** Beat-locked 0…1 phase from master sample time. Independent of Numer/Denom/Sync. */
+function nodeGraphTransportBeatPhase01(absoluteFrame, sampleRate, tempoBpm) {
+  const beatHz = nodeGraphTransportBeatFrequencyHz(tempoBpm);
+  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
+  const frame = Math.max(0, nodeGraphFiniteNumber(absoluteFrame));
+  return nodeGraphTransportWrap01((frame / rate) * beatHz);
+}
+
 /**
  * @param {{
  *   amplitude?: number,
@@ -78,7 +91,7 @@ function nodeGraphTransportPulseWidth(raw) {
  * @param {number} absoluteFrame
  * @param {number} sampleRate
  * @param {number} tempoBpm
- * @returns {{ "Gate -1+1": number, "Gate 0-1": number, Trigger: number, f: number }}
+ * @returns {{ "Gate -1+1": number, "Gate 0-1": number, Trigger: number, f: number, "beat f": number }}
  */
 function nodeGraphTransportCore(params, absoluteFrame, sampleRate, tempoBpm) {
   const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
@@ -115,5 +128,6 @@ function nodeGraphTransportCore(params, absoluteFrame, sampleRate, tempoBpm) {
     "Gate 0-1": high ? amplitude : 0,
     Trigger: trigger,
     f: frequency,
+    "beat f": nodeGraphTransportBeatFrequencyHz(tempoBpm),
   };
 }

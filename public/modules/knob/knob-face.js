@@ -354,9 +354,8 @@ function nodeGraphKnobFaceFormatReadout(value, patchNode, slider = null) {
 }
 
 /**
- * Size readout to fill most of the face: start from height budget, then
- * binary-search down only if the string overflows width (no clip).
- * Previous maxW*0.42 start made values tiny for no good reason.
+ * Value size 0…1 = fraction of the knob square (min side of the dial cell
+ * × Knob size). Same ratio on the module and on canvas.
  */
 function nodeGraphKnobFaceFitReadout(readout, face = null) {
   if (!readout || readout.hidden || readout.getAttribute("aria-hidden") === "true") {
@@ -366,79 +365,26 @@ function nodeGraphKnobFaceFitReadout(readout, face = null) {
   if (!style) {
     return;
   }
-  // Clear prior inline size so we measure against host geometry, not last frame.
-  style.fontSize = "";
-  style.transform = "";
-  style.letterSpacing = "";
-  style.lineHeight = "1";
-
   const host = face || readout.closest?.(".node-knob-face") || readout.parentElement;
   if (!host) {
     return;
   }
-  const hostW = host.clientWidth || 0;
-  const hostH = host.clientHeight || 0;
-  if (hostW < 4 || hostH < 4) {
-    return;
-  }
-
-  const hasImage = host.classList?.contains("has-image");
-  const label = !hasImage ? host.querySelector?.("[data-knob-face-label]") : null;
-  const labelVisible = Boolean(label && !label.hidden && label.offsetParent !== null);
-  const labelH = labelVisible ? (label.offsetHeight || 0) : 0;
-  // Tight side pad — fill the plate; only pull in enough to avoid edge kiss.
-  const padX = hasImage ? Math.max(2, hostW * 0.04) : Math.max(2, hostW * 0.03);
-  const padY = hasImage ? Math.max(2, hostH * 0.04) : Math.max(1, hostH * 0.02);
-  // Prefer host geometry (not readout.clientHeight — that was already tiny from prior fit).
-  const maxW = Math.max(12, hostW - padX * 2);
-  const maxH = Math.max(
-    12,
-    hasImage
-      ? hostH - padY * 2
-      : hostH - labelH - padY * 2,
-  );
-
-  // Prefer filling height; soft width cap only for absurdly wide modules.
-  const hi = Math.min(maxH * 0.94, maxW * 1.15, 96);
-  const lo = 8;
-  if (!(hi >= lo)) {
-    return;
-  }
-
-  const fits = (px) => {
-    style.fontSize = `${px.toFixed(2)}px`;
-    // scrollWidth/Height include overflow past the content box.
-    return readout.scrollWidth <= maxW + 1 && readout.scrollHeight <= maxH + 1;
+  const dial = host.querySelector?.("[data-knob-face-dial], .node-macro-knob-dial") || host;
+  const readVar = (name, fallback) => {
+    const raw = host.style?.getPropertyValue?.(name) || getComputedStyle(host).getPropertyValue(name);
+    const n = Number.parseFloat(raw);
+    return Number.isFinite(n) ? n : fallback;
   };
-
-  // Binary search largest size that still fits (fills the face when space allows).
-  let best = lo;
-  let low = lo;
-  let high = hi;
-  if (fits(hi)) {
-    best = hi;
-  } else {
-    for (let i = 0; i < 14; i += 1) {
-      const mid = (low + high) * 0.5;
-      if (fits(mid)) {
-        best = mid;
-        low = mid;
-      } else {
-        high = mid;
-      }
-    }
+  const dialScale = Math.max(0, Math.min(1, readVar("--knob-dial-size", 1)));
+  const valueScale = Math.max(0, Math.min(1, readVar("--knob-value-size", 0.45)));
+  const side = Math.min(dial.clientWidth || 0, dial.clientHeight || 0) * dialScale;
+  if (!(side > 0)) {
+    return;
   }
-  const valueScale = Number.parseFloat(
-    host.style?.getPropertyValue?.("--knob-value-size")
-    || getComputedStyle(host).getPropertyValue("--knob-value-size"),
-  );
-  const scale = Number.isFinite(valueScale) ? Math.max(0, Math.min(1, valueScale)) : 0.45;
-  style.fontSize = `${(best * scale).toFixed(2)}px`;
-
-  // Very long strings only: nudge tracking after we already took the largest fit size.
-  if (readout.scrollWidth > maxW + 1) {
-    style.letterSpacing = "-0.03em";
-  }
+  style.fontSize = `${(side * valueScale).toFixed(2)}px`;
+  style.lineHeight = "1";
+  style.letterSpacing = "";
+  style.transform = "";
 }
 
 function attachNodeGraphKnobFaceReadoutFit(face) {
@@ -857,6 +803,9 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
       readout.style.display = "";
       readout.setAttribute("aria-hidden", "false");
       readout.textContent = nodeGraphKnobFaceFormatReadout(value, patchNode, slider);
+      if (typeof nodeGraphKnobFaceFitReadout === "function") {
+        nodeGraphKnobFaceFitReadout(readout, face);
+      }
     } else {
       readout.hidden = true;
       readout.style.display = "none";

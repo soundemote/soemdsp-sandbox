@@ -3,14 +3,13 @@
 
 /**
  * Apply / clear Meta interior preview.
- * metaId non-empty → inside that Metamodule: native previewVoiceSlot=0 so voice 0
- * keeps processing while Available; Hypersaw face publishes voiceIds[0].
- * metaId empty → Root: preview off.
+ * First voice always runs for faces (Root canvas and Meta interior).
+ * metaId non-empty → interior view of that Metamodule (interaction = voice 0).
  */
 NodeLiveAudioProcessor.prototype.applyMetaViewPreview = function applyMetaViewPreview(metaId) {
   const id = String(metaId || "");
   this._metaViewId = id;
-  const slot = id ? 0 : -1;
+  const slot = 0;
   const native = this.nativeGraph;
   const handle = this.nativeGraphHandle | 0;
   if (native?.soemdsp_graph_set_preview_voice_slot && handle > 0) {

@@ -1140,7 +1140,7 @@
       "source": "native_modules/passive_filter/passive_filter.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/passive_filter/passive_filter.cpp",
       "localSourceUrl": "/native_modules/passive_filter/passive_filter.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "libUrl": "",
       "wasm": "native_modules/passive_filter/passive_filter.wasm",
       "wasmUrl": "native_modules/passive_filter/passive_filter.wasm",
       "wasmAvailable": true
@@ -1626,7 +1626,6 @@
       "wasmUrl": "native_modules/step_graph/step_graph.wasm",
       "wasmAvailable": true
     },
-
     {
       "name": "superlove_filter",
       "label": "SuperLove Filter",
@@ -1810,6 +1809,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "voice_manager",
+      "label": "VoiceManager",
+      "targetType": "voice_manager",
+      "kind": "pitch",
+      "source": "native_modules/voice_manager/voice_manager.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/voice_manager/voice_manager.cpp",
+      "localSourceUrl": "/native_modules/voice_manager/voice_manager.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/voice_manager/voice_manager.wasm",
+      "wasmUrl": "native_modules/voice_manager/voice_manager.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "wall_delay",
       "label": "Wall Delay",
       "targetType": "wallDelay",
@@ -1820,6 +1832,19 @@
       "libUrl": "",
       "wasm": "native_modules/wall_delay/wall_delay.wasm",
       "wasmUrl": "native_modules/wall_delay/wall_delay.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "wavetable_adsr",
+      "label": "Wavetable ADSR",
+      "targetType": "wavetableAdsr",
+      "kind": "envelope",
+      "source": "native_modules/wavetable_adsr/wavetable_adsr.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/wavetable_adsr/wavetable_adsr.cpp",
+      "localSourceUrl": "/native_modules/wavetable_adsr/wavetable_adsr.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/wavetable_adsr/wavetable_adsr.wasm",
+      "wasmUrl": "native_modules/wavetable_adsr/wavetable_adsr.wasm",
       "wasmAvailable": true
     },
     {

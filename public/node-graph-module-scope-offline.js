@@ -465,7 +465,7 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 // nodeGraphGlobalTraceSettings → node-graph-module-scope-normalize.js
 // nodeGraphTraceDisplaySettingsEditingGlobal → node-graph-module-scope-normalize.js
 // nodeGraphTraceDisplaySettingsEditingTraceDefaults → node-graph-module-scope-normalize.js
-const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "vectorDot", "pulseDot", "lcdDot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "customDisplay", "spectrum", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace", "knobFace", "pluginSliderFace", "toggleButtonFace", "momentaryButtonFace", "rgbShapeFace", "rgbPictureFace", "imageBurnFace", "rgbFractalFace", "evolveFieldFace", "fbmFieldFace", "speedColorInertiaFace", "macroControlsFace", "patchFace", "keypadFace", "textBoxFace", "phoneToneFace", "harmonicSeriesFace", "vectorRgbFace", "rasterRgbFace", "gradientVectorscopeFace", "traceXyz", "portalFace", "roundShapeFace", "basicShapeFace", "softwaveOscFace", "sinCos4Face", "limiterGainFace"]);
+const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "vectorDot", "pulseDot", "lcdDot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "customDisplay", "spectrum", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace", "knobFace", "pluginSliderFace", "toggleButtonFace", "momentaryButtonFace", "rgbShapeFace", "rgbPictureFace", "imageBurnFace", "rgbFractalFace", "evolveFieldFace", "fbmFieldFace", "speedColorInertiaFace", "macroControlsFace", "patchFace", "keypadFace", "keyboardControllerFace", "textBoxFace", "phoneToneFace", "harmonicSeriesFace", "vectorRgbFace", "rasterRgbFace", "gradientVectorscopeFace", "traceXyz", "portalFace", "roundShapeFace", "basicShapeFace", "softwaveOscFace", "sinCos4Face", "limiterGainFace", "arpKeysFace"]);
 const nodeGraphDisplayModeSignalKinds = Object.freeze(["scalar", "xy", "buffer"]);
 
 // nodeGraphDisplayModeSettingsSchemaForRenderer → node-graph-module-scope-display-mode.js
@@ -509,29 +509,35 @@ function nodeGraphModuleDisplayRendererForSlot(slot) {
 /**
  * Face renderer for a module type (what paints in the display row).
  *
- * - Explicit definition.displayType → that renderer (+ matching settings).
- * - Custom layout faces (envelopeCurve / filterCurve / …) → "layoutOwned"
- *   (layout owns the face; blank Display Settings + Show in canvas).
- * - Default LayoutA DSP with Instant Trace scope window (e.g. Flower Child
- *   Filter) → "trace" face AND Instant Trace Display Settings.
+ * - Known phosphor/trace/etc. displayType → that renderer (+ its settings).
+ * - Any other declared face (registered creators, custom layout)
+ *   → layoutOwned (blank Display Settings unless the mode sets a schema).
+ * - LayoutA DSP with no face of its own → Instant Trace.
  */
 function nodeGraphModuleDeclaredDisplayTypeForType(type) {
-  let declared = nodeGraphModuleDefinitions?.[type]?.displayType;
+  const def = nodeGraphModuleDefinitions?.[type];
+  let declared = def?.displayType;
   if (declared === "ledLamp") {
     declared = "vectorDot";
   } else if (declared === "traceXyz") {
     declared = "trace";
   }
-  if (nodeGraphDisplayModeRenderers.includes(declared)) {
-    return declared;
+  const declaredStr = String(declared || "").trim();
+  if (declaredStr && nodeGraphDisplayModeRenderers.includes(declaredStr)) {
+    return declaredStr;
   }
-  // Custom layout owns the face — not Instant Trace.
+  if (declaredStr) {
+    return "layoutOwned";
+  }
   if (typeof nodeGraphModuleTypeHasCustomDisplayArea === "function"
     && nodeGraphModuleTypeHasCustomDisplayArea(type)) {
     return "layoutOwned";
   }
-  // LayoutA Instant Trace monitors (Flower Child Filter, …).
-  if (nodeGraphModuleDefinitions?.[type]) {
+  const layout = String(def?.layout || "").trim();
+  if (layout && layout !== "visualScope" && layout !== "traceDisplay") {
+    return "layoutOwned";
+  }
+  if (def) {
     return "trace";
   }
   return "layoutOwned";

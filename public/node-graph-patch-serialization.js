@@ -121,6 +121,9 @@ function serializeNodeGraphPatch(patch = nodeGraphMvp.patch, options = {}) {
           velocities: Array.isArray(patch.keyboardLatch.velocities)
             ? patch.keyboardLatch.velocities
             : undefined,
+          arpMask: Array.isArray(patch.keyboardLatch.arpMask)
+            ? patch.keyboardLatch.arpMask
+            : undefined,
         }
         : undefined),
   };
@@ -129,8 +132,11 @@ function serializeNodeGraphPatch(patch = nodeGraphMvp.patch, options = {}) {
     if (Array.isArray(vels) && !vels.some((v) => (Number(v) || 0) > 0)) {
       delete payload.keyboardLatch.velocities;
     }
+    const arpBits = Array.isArray(payload.keyboardLatch.arpMask)
+      && payload.keyboardLatch.arpMask.some((v) => Number(v) > 0);
     if (!payload.keyboardLatch.lowBitmask
-      && !payload.keyboardLatch.highBitmask) {
+      && !payload.keyboardLatch.highBitmask
+      && !arpBits) {
       delete payload.keyboardLatch;
     }
   }

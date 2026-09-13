@@ -10,8 +10,9 @@
 // not plain bold). DSEG has no proper letter glyphs for "BPM", so the unit is
 // monospace below the digits - standard digital-clock layout.
 //
-// Gate lamp: small LED on the face that follows Gate 0-1 (captured buffer when
-// available, otherwise the same Numer/Denom/Sync math as the DSP).
+// Beat lamp: optional LED on the face (Display Settings "Gate blink").
+// Off by default. When on, follows project tempo at one blink per beat
+// (1/1 with the beat). Independent of Numer/Denom/Sync.
 
 let nodeGraphTransportBpmFontReady = false;
 document.fonts.load('700 40px "DSEG7 Classic"').then(() => {
@@ -20,57 +21,98 @@ document.fonts.load('700 40px "DSEG7 Classic"').then(() => {
   // Falls back to the monospace stack below if the font fails to load.
 });
 
-function nodeGraphTransportGateLevel01(nodeId, node) {
-  const buffers = typeof nodeGraphModuleScopeState !== "undefined"
-    ? nodeGraphModuleScopeState?.buffers
-    : null;
-  if (buffers && typeof buffers.get === "function") {
-    const gateBuf = buffers.get(`${nodeId}:Gate 0-1`)
-      || buffers.get(`${nodeId}:Gate Uni`)
-      || buffers.get(`${nodeId}:0..1`)
-      || buffers.get(nodeId);
-    if (gateBuf && gateBuf.length && typeof nodeGraphOscilloscopeLatestSample === "function") {
-      return Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphOscilloscopeLatestSample(gateBuf, 0))));
-    }
-  }
+const NODE_GRAPH_TRANSPORT_DISPLAY_DEFAULTS = Object.freeze({
+  gateBlink: false,
+});
 
-  // Fallback: compute from params + audio clock (matches transport-math.js).
-  if (typeof nodeGraphTransportCore !== "function") {
-    return 0;
+function normalizeNodeGraphTransportSettings(settings) {
+  const src = settings && typeof settings === "object" ? settings : {};
+  return {
+    gateBlink: src.gateBlink === true,
+  };
+}
+
+function nodeGraphTransportSettingsForNode(node) {
+  return normalizeNodeGraphTransportSettings(node?.transportSettings);
+}
+
+function buildNodeGraphTransportDisplaySettingsBodyHtml() {
+  return `
+    <div class="node-led-display-settings-panel" data-transport-display-settings-panel>
+      <label class="metadata-checkbox-label" data-trace-display-control-row title="Blink an LED on the Master Clock face once per project-tempo beat. Off by default.">
+        <input type="checkbox" data-transport-field="gateBlink" id="nodeTransportGateBlinkToggle">
+        Gate blink
+      </label>
+    </div>`;
+}
+
+function syncNodeGraphTransportDisplaySettingsControls(root, settings) {
+  if (!root) {
+    return;
   }
-  const params = node?.params || {};
-  const bpm = Math.max(
-    1,
-    Number(params.bpm)
-      || (typeof nodeGraphPatchTimingValue === "function"
-        ? Number(nodeGraphPatchTimingValue("tempoBpm"))
-        : 120)
-      || 120,
-  );
+  const s = normalizeNodeGraphTransportSettings(settings);
+  const toggle = root.querySelector?.('[data-transport-field="gateBlink"]')
+    || document.getElementById("nodeTransportGateBlinkToggle");
+  if (toggle) {
+    toggle.checked = s.gateBlink === true;
+  }
+}
+
+function bindNodeGraphTransportDisplaySettingsBody(host) {
+  if (!host || host.dataset.transportSettingsBound === "true") {
+    return;
+  }
+  host.dataset.transportSettingsBound = "true";
+  const apply = (persist, record) => {
+    if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+      markNodeGraphTraceDisplaySettingsDirty("*");
+    }
+    if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
+      applyNodeGraphTraceDisplaySettingsForm({ persist, record, commit: record });
+    }
+  };
+  host.addEventListener("change", (event) => {
+    if (event.target?.closest?.("[data-transport-field]")) {
+      apply("immediate", true);
+    }
+  });
+}
+
+function readNodeGraphTransportDisplaySettingsForm(root, current) {
+  const panel = root?.querySelector?.("[data-transport-display-settings-panel]") || root;
+  const next = { ...current };
+  const toggle = panel?.querySelector?.('[data-transport-field="gateBlink"]')
+    || document.getElementById("nodeTransportGateBlinkToggle");
+  if (toggle) {
+    next.gateBlink = toggle.checked === true;
+  }
+  return normalizeNodeGraphTransportSettings(next);
+}
+
+function nodeGraphTransportBeatLampLevel01() {
+  const patchBpm = typeof nodeGraphPatchTimingValue === "function"
+    ? Number(nodeGraphPatchTimingValue("tempoBpm"))
+    : NaN;
+  const bpm = Math.max(1, Number.isFinite(patchBpm) && patchBpm > 0 ? patchBpm : 120);
   const sampleRate = Math.max(
     1,
-    nodeGraphFiniteNumber(typeof nodeGraphModuleScopeState !== "undefined"
-      ? nodeGraphModuleScopeState?.sampleRate
-      : 0, nodeGraphFiniteNumber)(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.sampleRate : 0, 44100),
+    nodeGraphFiniteNumber(
+      typeof nodeGraphModuleScopeState !== "undefined"
+        ? nodeGraphModuleScopeState?.sampleRate
+        : 0,
+      nodeGraphFiniteNumber(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.sampleRate : 0, 44100),
+    ),
   );
   const ctx = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.context : null;
   const currentTime = Number(ctx?.currentTime);
   const absoluteFrame = Number.isFinite(currentTime) && currentTime >= 0
     ? Math.floor(currentTime * sampleRate)
     : 0;
-  const out = nodeGraphTransportCore(
-    {
-      amplitude: nodeGraphFiniteNumber(params.amplitude, 1),
-      timeNumerator: params.timeNumerator != null ? Number(params.timeNumerator) : 1,
-      timeDenominator: params.timeDenominator != null ? Number(params.timeDenominator) : 4,
-      timingMode: params.timingMode != null ? Number(params.timingMode) : 0,
-      pulseWidth: params.pulseWidth != null ? Number(params.pulseWidth) : 0.5,
-    },
-    absoluteFrame,
-    sampleRate,
-    bpm,
-  );
-  return Math.max(0, Math.min(1, nodeGraphFiniteNumber(out["Gate 0-1"])));
+  const phase = typeof nodeGraphTransportBeatPhase01 === "function"
+    ? nodeGraphTransportBeatPhase01(absoluteFrame, sampleRate, bpm)
+    : ((absoluteFrame / sampleRate) * (bpm / 60)) % 1;
+  const wrapped = phase - Math.floor(phase);
+  return wrapped < 0.5 ? 1 : 0;
 }
 
 function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
@@ -107,7 +149,8 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
     ),
   );
   const digits = String(bpm);
-  const gate01 = nodeGraphTransportGateLevel01(nodeId, node);
+  const gateBlinkOn = nodeGraphTransportSettingsForNode(node).gateBlink === true;
+  const gate01 = gateBlinkOn ? nodeGraphTransportBeatLampLevel01() : 0;
   const gateLit = gate01 > 0.001 ? 1 : 0;
   const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen();
@@ -161,22 +204,24 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
   ctx.fillStyle = "rgba(120, 255, 170, 0.55)";
   ctx.fillText("BPM", canvas.width * 0.5, digitAreaHeight + labelHeight * 0.5);
 
-  // Gate lamp - top-right corner LED on the BPM plate.
-  const lampR = Math.max(2, Math.min(canvas.width, canvas.height) * 0.07);
-  const lampX = canvas.width - lampR * 1.6;
-  const lampY = lampR * 1.4;
-  ctx.beginPath();
-  ctx.arc(lampX, lampY, lampR, 0, Math.PI * 2);
-  if (drawGate) {
-    ctx.fillStyle = "rgba(120, 255, 170, 0.95)";
-    ctx.shadowColor = "rgba(120, 255, 170, 0.85)";
-    ctx.shadowBlur = lampR * 1.8;
-  } else {
-    ctx.fillStyle = "rgba(120, 255, 170, 0.12)";
+  if (gateBlinkOn) {
+    // Beat lamp — project tempo, one blink per beat (not Numer/Denom/Sync).
+    const lampR = Math.max(2, Math.min(canvas.width, canvas.height) * 0.07);
+    const lampX = canvas.width - lampR * 1.6;
+    const lampY = lampR * 1.4;
+    ctx.beginPath();
+    ctx.arc(lampX, lampY, lampR, 0, Math.PI * 2);
+    if (drawGate) {
+      ctx.fillStyle = "rgba(120, 255, 170, 0.95)";
+      ctx.shadowColor = "rgba(120, 255, 170, 0.85)";
+      ctx.shadowBlur = lampR * 1.8;
+    } else {
+      ctx.fillStyle = "rgba(120, 255, 170, 0.12)";
+      ctx.shadowBlur = 0;
+    }
+    ctx.fill();
     ctx.shadowBlur = 0;
   }
-  ctx.fill();
-  ctx.shadowBlur = 0;
   ctx.restore();
 }
 

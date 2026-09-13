@@ -35,27 +35,55 @@ function nodeGraphLayoutCanvasActiveScopeId() {
   return "";
 }
 
-function nodeGraphLayoutCanvasBucket(patch = nodeGraphMvp?.patch) {
+/** Root canvas when scopeId is empty; otherwise that metamodule's canvas bucket. */
+function nodeGraphLayoutCanvasBucketForScope(scopeId, patch = nodeGraphMvp?.patch) {
   const canvases = nodeGraphLayoutCanvasEnsureView(patch);
   if (!canvases) {
     return { elements: [] };
   }
-  const metaId = nodeGraphLayoutCanvasActiveScopeId();
-  if (!metaId) {
+  const id = String(scopeId || "").trim();
+  if (!id) {
     return canvases.root;
   }
-  if (!canvases.byMetamodule[metaId] || typeof canvases.byMetamodule[metaId] !== "object") {
-    canvases.byMetamodule[metaId] = { elements: [] };
+  if (!canvases.byMetamodule[id] || typeof canvases.byMetamodule[id] !== "object") {
+    canvases.byMetamodule[id] = { elements: [] };
   }
-  if (!Array.isArray(canvases.byMetamodule[metaId].elements)) {
-    canvases.byMetamodule[metaId].elements = [];
+  if (!Array.isArray(canvases.byMetamodule[id].elements)) {
+    canvases.byMetamodule[id].elements = [];
   }
-  return canvases.byMetamodule[metaId];
+  return canvases.byMetamodule[id];
+}
+
+function nodeGraphLayoutCanvasBucket(patch = nodeGraphMvp?.patch) {
+  return nodeGraphLayoutCanvasBucketForScope(nodeGraphLayoutCanvasActiveScopeId(), patch);
+}
+
+/** Owned children pin on their parent Meta; everyone else uses the current view. */
+function nodeGraphLayoutCanvasScopeIdForNode(nodeId, patch = nodeGraphMvp?.patch) {
+  const id = String(nodeId || "").trim();
+  const fromPatch = Array.isArray(patch?.nodes)
+    ? patch.nodes.find((node) => String(node?.id || "") === id)
+    : null;
+  const live = !fromPatch && typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(id)
+    : null;
+  const owner = String((fromPatch || live)?.ownerMetamoduleId || "").trim();
+  if (owner) {
+    return owner;
+  }
+  return nodeGraphLayoutCanvasActiveScopeId();
 }
 
 function nodeGraphLayoutCanvasElements(patch = nodeGraphMvp?.patch) {
   const bucket = nodeGraphLayoutCanvasBucket(patch);
   return Array.isArray(bucket?.elements) ? bucket.elements : [];
+}
+
+function nodeGraphLayoutCanvasPinnedElementsForScope(scopeId, patch = nodeGraphMvp?.patch) {
+  return nodeGraphLayoutCanvasBucketForScope(scopeId, patch).elements
+    .filter((el) => el && el.enabled !== false && String(el.nodeId || "").trim())
+    .slice()
+    .sort((a, b) => (Number(a.z) || 0) - (Number(b.z) || 0));
 }
 
 function nodeGraphLayoutCanvasPinnedNodeIds(patch = nodeGraphMvp?.patch) {
@@ -65,12 +93,25 @@ function nodeGraphLayoutCanvasPinnedNodeIds(patch = nodeGraphMvp?.patch) {
     .filter(Boolean);
 }
 
+function nodeGraphLayoutCanvasIsPinnedInScope(nodeId, scopeId, patch = nodeGraphMvp?.patch) {
+  const id = String(nodeId || "").trim();
+  if (!id) {
+    return false;
+  }
+  return nodeGraphLayoutCanvasBucketForScope(scopeId, patch).elements
+    .some((el) => el && el.enabled !== false && String(el.nodeId || "") === id);
+}
+
 function nodeGraphLayoutCanvasIsPinned(nodeId, patch = nodeGraphMvp?.patch) {
   const id = String(nodeId || "").trim();
   if (!id) {
     return false;
   }
-  return nodeGraphLayoutCanvasPinnedNodeIds(patch).includes(id);
+  return nodeGraphLayoutCanvasIsPinnedInScope(
+    id,
+    nodeGraphLayoutCanvasScopeIdForNode(id, patch),
+    patch,
+  );
 }
 
 function nodeGraphLayoutCanvasClamp01(n, fallback = 0) {
@@ -119,7 +160,10 @@ function nodeGraphLayoutCanvasSetPinned(nodeId, pinned, options = {}) {
   if (!id || !patch) {
     return false;
   }
-  const bucket = nodeGraphLayoutCanvasBucket(patch);
+  const scopeId = Object.prototype.hasOwnProperty.call(options, "scopeId")
+    ? String(options.scopeId || "")
+    : nodeGraphLayoutCanvasScopeIdForNode(id, patch);
+  const bucket = nodeGraphLayoutCanvasBucketForScope(scopeId, patch);
   const els = bucket.elements;
   const idx = els.findIndex((el) => String(el?.nodeId || "") === id);
   const on = Boolean(pinned);
@@ -142,6 +186,9 @@ function nodeGraphLayoutCanvasSetPinned(nodeId, pinned, options = {}) {
   }
   if (options.refresh !== false && nodeGraphLayoutCanvasMode() !== "off") {
     nodeGraphLayoutCanvasRefreshOpenStage();
+  }
+  if (options.refresh !== false && typeof nodeGraphMetamoduleRefreshAllMirrors === "function") {
+    nodeGraphMetamoduleRefreshAllMirrors();
   }
   return true;
 }
@@ -220,6 +267,13 @@ function beginNodeGraphLayoutCanvasStage(nodeIds, mode = "perform") {
   const ids = (Array.isArray(nodeIds) ? nodeIds : []).map((id) => String(id || "").trim()).filter(Boolean);
   if (!ids.length || typeof nodeGraphScreenSoloCollectFaces !== "function") {
     return false;
+  }
+  // Faces may currently sit on a Metamodule shell canvas — put them back first.
+  if (typeof nodeGraphMetamoduleRestoreCanvasSessionsForNodes === "function") {
+    nodeGraphMetamoduleRestoreCanvasSessionsForNodes(ids);
+  }
+  if (typeof nodeGraphSyncMetamoduleVisibilityToDom === "function") {
+    nodeGraphSyncMetamoduleVisibilityToDom();
   }
   if (typeof endNodeGraphScreenSolo === "function") {
     endNodeGraphScreenSolo({ silent: true });
@@ -329,27 +383,32 @@ function beginNodeGraphLayoutCanvasStage(nodeIds, mode = "perform") {
     nodeGraphLayoutCanvasApplyTileRect(item.tile, item.rect, stage);
   }
 
-  const keep = new Set(items.map((item) => item.nodeId));
-  for (const node of document.querySelectorAll(".dsp-node")) {
-    if (keep.has(node.dataset?.node)) {
-      continue;
+  const relayoutKeyboardFaces = () => {
+    for (const item of items) {
+      nodeGraphLayoutCanvasApplyTileRect(item.tile, item.rect, stage);
     }
-    if (typeof nodeGraphViewportCullSleepPainters === "function") {
-      nodeGraphViewportCullSleepPainters(node);
+    if (typeof installNodeGraphMidiKeyboardLayoutResizeObserver === "function") {
+      installNodeGraphMidiKeyboardLayoutResizeObserver();
     }
-  }
+    if (typeof applyNodeGraphMidiKeyboardLayout === "function") {
+      applyNodeGraphMidiKeyboardLayout();
+    }
+    if (typeof renderNodeGraphMidiKeyboardKeys === "function") {
+      renderNodeGraphMidiKeyboardKeys();
+    }
+  };
+
   for (const item of items) {
-    if (typeof nodeGraphViewportCullWakePainters === "function" && item.host) {
-      nodeGraphViewportCullWakePainters(item.host);
-    }
     if (typeof nodeGraphScreenSoloWakeFace === "function") {
       nodeGraphScreenSoloWakeFace(item.face);
     }
   }
   window.requestAnimationFrame(() => {
+    relayoutKeyboardFaces();
     if (typeof nodeGraphScreenSoloRefreshPaint === "function") {
       nodeGraphScreenSoloRefreshPaint();
     }
+    window.requestAnimationFrame(relayoutKeyboardFaces);
   });
   return true;
 }
@@ -413,6 +472,8 @@ function nodeGraphLayoutCanvasOpen(mode = "perform", options = {}) {
 function nodeGraphLayoutCanvasClose(options = {}) {
   nodeGraphMvp.layoutCanvasMode = "off";
   nodeGraphMvp.layoutCanvasActive = false;
+  const hud = document.getElementById("nodeGraphCanvasDebugHud");
+  if (hud) hud.remove();
   const stage = document.getElementById("nodeScreenSoloStage");
   if (stage) {
     nodeGraphLayoutCanvasClearStageChrome(stage);
@@ -423,6 +484,9 @@ function nodeGraphLayoutCanvasClose(options = {}) {
     && typeof nodeGraphScreenSoloIsActive === "function"
     && nodeGraphScreenSoloIsActive()) {
     endNodeGraphScreenSolo({ silent: options.silent === true });
+  }
+  if (typeof nodeGraphMetamoduleRefreshAllMirrors === "function") {
+    nodeGraphMetamoduleRefreshAllMirrors();
   }
   if (options.silent !== true && typeof setNodeInteractionHelp === "function") {
     setNodeInteractionHelp("Canvas off.");
@@ -483,31 +547,6 @@ function syncNodeGraphLayoutCanvasSettingsControl() {
     row.hidden = false;
     row.classList.toggle("is-disabled", !hasTarget);
   }
-}
-
-function bindNodeGraphLayoutCanvasSettingsControl() {
-  const input = document.getElementById("nodeLayoutCanvasShowInCanvas");
-  if (!(input instanceof HTMLInputElement) || input.dataset.bound === "true") {
-    return;
-  }
-  input.dataset.bound = "true";
-  input.addEventListener("change", () => {
-    const id = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
-      ? String(nodeGraphTraceDisplaySettingsTargetNodeId() || "").trim()
-      : String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
-    if (!id) {
-      input.checked = false;
-      return;
-    }
-    nodeGraphLayoutCanvasSetPinned(id, input.checked);
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp(
-        input.checked
-          ? "Show in canvas on. Press F or 📱 for canvas (F again = edit layout)."
-          : "Removed from canvas.",
-      );
-    }
-  });
 }
 
 function nodeGraphLayoutCanvasBindTileInteractions(stage) {

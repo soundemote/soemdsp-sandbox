@@ -3,9 +3,9 @@
 // soemdsp-native-target: transport
 // soemdsp-native-kind: utility
 //
-// Tempo-synced clock. Period = (240/BPM)×(Numer/Denom)×modeMult — same
-// family as Ping Pong Delay (Normal / Dotted / Triplet). Defaults 1/4/Normal
-// = one beat (matches old divisions=0). pulseWidth sets gate high duty.
+// Tempo-synced clock locked to Live master sample time.
+// Period = (240/BPM)×(Numer/Denom)×modeMult — same family as Ping Pong Delay.
+// Changing Numer/Denom/Sync/BPM re-grids onto the playhead (not free-run).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -94,7 +94,8 @@ extern "C" double soemdsp_transport_sample(
   double timingMode,
   double tempoBpm,
   double pulseWidth,
-  double sampleRate
+  double sampleRate,
+  double masterSample
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   TransportState& s = gPool[handle - 1];
@@ -107,9 +108,12 @@ extern "C" double soemdsp_transport_sample(
   const double pw = clamp(safe(pulseWidth), 0.01, 0.99);
   s.lastFrequencyHz = frequency;
 
-  if (frequency > 0.0) {
-    double nextPhase = s.phase + frequency / rate;
-    s.phase = nextPhase - dsp_floor(nextPhase);
+  if (frequency > 0.0 && rate > 0.0) {
+    const double t = masterSample > 0.0 ? masterSample : 0.0;
+    double phase = (t / rate) * frequency;
+    s.phase = phase - dsp_floor(phase);
+  } else {
+    s.phase = 0.0;
   }
 
   const bool high = s.phase < pw;
@@ -129,5 +133,5 @@ extern "C" double soemdsp_transport_frequency(int handle) {
 }
 
 extern "C" int soemdsp_transport_version() {
-  return 7; // single Trigger out (1-sample)
+  return 8; // phase from master sample time
 }

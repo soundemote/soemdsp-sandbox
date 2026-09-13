@@ -291,7 +291,17 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
   const items = nodeGraphVisibleModuleScopeSlots()
     .map((slot) => {
       const host = slot?.element || slot?.scopeElement?.closest?.(".dsp-node");
-      if (host?.classList.contains("viewport-asleep")) {
+      const presented = Boolean(
+        slot?.scopeElement?.closest?.(
+          ".node-layout-canvas-tile, .node-screen-solo-stage, .node-metamodule-canvas-stage",
+        ),
+      );
+      if (
+        host?.classList.contains("viewport-asleep")
+        && !presented
+        && (typeof nodeGraphViewportCullMustStayAwake !== "function"
+          || !nodeGraphViewportCullMustStayAwake(host))
+      ) {
         return null;
       }
       const buffer = nodeGraphModuleScopeDisplayBuffer(

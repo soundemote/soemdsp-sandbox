@@ -131,6 +131,31 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       this.setInputWireBreakTrigger(message.nodeId, message.port);
       return;
     }
+    if (message.type === "arpOverride") {
+      const nid = String(message.nodeId || "");
+      const midi = Number(message.midi);
+      if (!this._arpOverrideByNode) this._arpOverrideByNode = new Map();
+      if (!nid) return;
+      if (Number.isFinite(midi) && midi >= 0) {
+        this._arpOverrideByNode.set(nid, Math.max(0, Math.min(127, midi | 0)));
+      } else {
+        this._arpOverrideByNode.set(nid, -1);
+      }
+      const native = this.nativeGraph;
+      if (native?.soemdsp_arp_set_override_midi && this.nativeGraphHandle) {
+        const hash = this.fnv1aHash32?.(nid) || 0;
+        let handle = 0;
+        try {
+          handle = native.soemdsp_graph_node_native_handle?.(this.nativeGraphHandle, hash) | 0;
+        } catch (_e) {
+          handle = 0;
+        }
+        if (handle > 0) {
+          native.soemdsp_arp_set_override_midi(handle, this._arpOverrideByNode.get(nid));
+        }
+      }
+      return;
+    }
     if (message.type === "setDisplayFps") {
       const fps = Number(message.displayFps);
       this.displayFps = Number.isFinite(fps)

@@ -68,7 +68,12 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       ? this.inputKey(nid, "Chord Memory")
       : `${nid}.Chord Memory`;
     const chordConns = this.inputConnections?.get?.(chordKey);
-    if (!chordConns || !chordConns.length) return;
+    if (!chordConns || !chordConns.length) {
+      if (typeof nodeGraphChordMemoryClearOutLatch === "function") {
+        nodeGraphChordMemoryClearOutLatch(nid);
+      }
+      return;
+    }
     if (typeof nodeGraphChordMemoryApplyInletMask !== "function") return;
     let chordMask = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
     let anyMask = false;
@@ -180,6 +185,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     if (this._sequencerNeedsRewind) {
       this._seqTickFrac = 0;
       this._sequencerEngineSec = 0;
+      this._seqPostedTick = -1;
       this._sequencerNeedsRewind = false;
     }
     const ticksPerSec = (bpm / 60) * (typeof SEQUENCER_TICKS_PER_BEAT === "number" ? SEQUENCER_TICKS_PER_BEAT : 8);
@@ -189,9 +195,9 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       if (String(node?.type || "") !== "sequencer") continue;
       const nid = String(id);
       liveIds.add(nid);
-      const clip = typeof sequencerNormalizeClip === "function"
-        ? sequencerNormalizeClip(node.sequencer)
-        : (node.sequencer || { loopTicks: 32, notes: [] });
+      const clip = node.sequencer && typeof node.sequencer === "object"
+        ? node.sequencer
+        : { loopTicks: 32, notes: [] };
       const loop = Math.max(1, Number(clip.loopTicks) || 32);
       const silent = Boolean(node.bypassed);
       const sounding = silent
@@ -235,44 +241,65 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       this._sequencerEngineSec = 0;
     }
     {
-      const now = typeof currentTime === "number" ? currentTime : 0;
-      if (!this._seqDebugAt || now - this._seqDebugAt > 0.1) {
-        this._seqDebugAt = now;
-        const firstId = liveIds.size ? [...liveIds][0] : "";
-        const node = firstId ? this.nodes.get(firstId) : null;
-        const outs = firstId ? this.nodeOutputs.get(firstId) : null;
-        const playBits = [];
-        const mask = outs?.playMask;
-        if (mask instanceof Uint8Array) {
-          for (let i = 0; i < 128; i += 1) {
-            if (mask[i]) playBits.push(i);
-          }
-        }
-        const host = typeof nodeGraphChordMemoryHost === "function"
-          ? nodeGraphChordMemoryHost()
-          : null;
-        const chordBits = [];
-        const cm = host?.chordMemoryPlayMask;
-        if (cm instanceof Uint8Array) {
-          for (let i = 0; i < 128; i += 1) {
-            if (cm[i]) chordBits.push(i);
-          }
+      const tickI = Math.floor(tickFrom) | 0;
+      if (liveIds.size && tickI !== this._seqPostedTick) {
+        this._seqPostedTick = tickI;
+        let loop = 32;
+        for (const id of liveIds) {
+          const n = this.nodes.get(id);
+          loop = Math.max(1, Number(n?.sequencer?.loopTicks) || 32);
+          break;
         }
         try {
-          this.port.postMessage({
-            type: "sequencerDebug",
-            tick: tickFrom,
-            loop: Number(node?.sequencer?.loopTicks) || 0,
-            bpm,
-            sr,
-            frames,
-            speed,
-            hasNotes,
-            bypassed: Boolean(node?.bypassed),
-            playBits,
-            chordBits,
-          });
+          this.port.postMessage({ type: "seqPlayhead", tick: tickI, loop });
         } catch (_e) { /* ignore */ }
+      }
+      const cmHost = typeof nodeGraphChordMemoryHost === "function"
+        ? nodeGraphChordMemoryHost()
+        : null;
+      const cmActive = cmHost?.chordMemoryActiveSlots;
+      const hasSlots = cmActive instanceof Map && cmActive.size > 0;
+      if (hasSlots || this._chordSlotBitsKey) {
+        const slotBitsByNode = hasSlots && typeof nodeGraphChordMemorySlotBitsByNode === "function"
+          ? nodeGraphChordMemorySlotBitsByNode()
+          : {};
+        const soundingByNode = hasSlots && typeof nodeGraphChordMemorySoundingBitsByNode === "function"
+          ? nodeGraphChordMemorySoundingBitsByNode()
+          : {};
+        let slotKey = "";
+        for (const id in slotBitsByNode) {
+          if (!Object.prototype.hasOwnProperty.call(slotBitsByNode, id)) continue;
+          slotKey += id;
+          slotKey += ":";
+          const arr = slotBitsByNode[id];
+          if (Array.isArray(arr)) {
+            for (let i = 0; i < arr.length; i += 1) {
+              slotKey += arr[i];
+              slotKey += ",";
+            }
+          }
+          slotKey += ";";
+        }
+        slotKey += "|";
+        for (const id in soundingByNode) {
+          if (!Object.prototype.hasOwnProperty.call(soundingByNode, id)) continue;
+          slotKey += id;
+          slotKey += ":";
+          const arr = soundingByNode[id];
+          if (Array.isArray(arr)) {
+            for (let i = 0; i < arr.length; i += 1) {
+              slotKey += arr[i];
+              slotKey += ",";
+            }
+          }
+          slotKey += ";";
+        }
+        if (slotKey !== this._chordSlotBitsKey) {
+          this._chordSlotBitsKey = slotKey;
+          try {
+            this.port.postMessage({ type: "chordMemorySlots", slotBitsByNode, soundingByNode });
+          } catch (_e) { /* ignore */ }
+        }
       }
     }
     for (const id of [...this._sequencerPolyTables.keys()]) {
@@ -301,9 +328,14 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       const arpOut = orTransmit([arpLocal, ...arpIn], phaseOn);
       const playIn = collectIn(nid, "Play Keys");
       applyChordMemoryIn(nid);
-      const chordPlay = typeof nodeGraphChordMemoryPlayTransmit === "function"
-        ? nodeGraphChordMemoryPlayTransmit(phaseOn)
-        : 0;
+      const chordPlay = typeof nodeGraphChordMemoryPlayTransmitForNode === "function"
+        ? nodeGraphChordMemoryPlayTransmitForNode(nid, phaseOn)
+        : (typeof nodeGraphChordMemoryPlayTransmit === "function"
+          ? nodeGraphChordMemoryPlayTransmit(phaseOn)
+          : 0);
+      const chordOut = typeof nodeGraphChordMemoryOutTransmitForNode === "function"
+        ? nodeGraphChordMemoryOutTransmitForNode(nid, phaseOn)
+        : chordPlay;
       let playLocal = 0;
       if (cv.gateAmp > 0) {
         const raw = Number.isFinite(Number(signal.rawMidi)) ? Number(signal.rawMidi) : cv.midi;
@@ -318,9 +350,17 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       const polyOut = cv.gateAmp > 0
         ? ((cv.midi | 0) + Math.min(1, Math.max(0, cv.velocity01)) / 128)
         : 0;
+      const chordMask = typeof nodeGraphChordMemoryOutMaskForNode === "function"
+        ? nodeGraphChordMemoryOutMaskForNode(nid)
+        : null;
       const outs = {
         "Play Keys": playOut,
         "Arp Keys": arpOut,
+        "Chord Memory": chordOut,
+        chordMask: chordMask instanceof Uint8Array ? chordMask : null,
+        arpMask: this.midiKeyboardArpMask instanceof Uint8Array
+          ? this.midiKeyboardArpMask
+          : null,
         Polyphony: polyOut,
         Gate: gateOut,
         Trigger: triggerOut,
@@ -372,9 +412,14 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const triggerOut = Math.max(cv.triggerAmp, mixMax(nid, "Trigger"));
     const arpOut = orTransmit([arpLocal, ...collectIn(nid, "Arp Keys")], phaseOn);
     applyChordMemoryIn(nid);
-    const chordPlay = typeof nodeGraphChordMemoryPlayTransmit === "function"
-      ? nodeGraphChordMemoryPlayTransmit(phaseOn)
-      : 0;
+    const chordPlay = typeof nodeGraphChordMemoryPlayTransmitForNode === "function"
+      ? nodeGraphChordMemoryPlayTransmitForNode(nid, phaseOn)
+      : (typeof nodeGraphChordMemoryPlayTransmit === "function"
+        ? nodeGraphChordMemoryPlayTransmit(phaseOn)
+        : 0);
+    const chordOut = typeof nodeGraphChordMemoryOutTransmitForNode === "function"
+      ? nodeGraphChordMemoryOutTransmitForNode(nid, phaseOn)
+      : chordPlay;
     let playLocal = 0;
     if (cv.gateAmp > 0) {
       const raw = Number.isFinite(Number(signal.rawMidi)) ? Number(signal.rawMidi) : cv.midi;
@@ -388,10 +433,18 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const polyOut = cv.gateAmp > 0
       ? ((cv.midi | 0) + Math.min(1, Math.max(0, cv.velocity01)) / 128)
       : 0;
+    const chordMask2 = typeof nodeGraphChordMemoryOutMaskForNode === "function"
+      ? nodeGraphChordMemoryOutMaskForNode(nid)
+      : null;
     this.nodeOutputs.set(nid, {
       ...prev,
       "Play Keys": playOut,
       "Arp Keys": arpOut,
+      "Chord Memory": chordOut,
+      chordMask: chordMask2 instanceof Uint8Array ? chordMask2 : prev.chordMask,
+      arpMask: this.midiKeyboardArpMask instanceof Uint8Array
+        ? this.midiKeyboardArpMask
+        : prev.arpMask,
       Polyphony: polyOut,
       Gate: gateOut,
       Trigger: triggerOut,

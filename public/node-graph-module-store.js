@@ -600,9 +600,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   transport: {
     category: "clock",
-    description: "BPM-locked square clocks so everything stays in time with the project tempo.",
+    description: "On-the-beat gates locked to Live playhead. Lamp and beat f follow project tempo (one beat). Numer/Denom/Sync re-grid the clock outs; never free-runs.",
     label: "Master Clock",
-    notes: ["master clock", "transport", "project BPM", "Numer/Denom", "Normal/Dotted/Triplet", "engine-start phase"],
+    notes: ["master clock", "transport", "project BPM", "Numer/Denom", "Normal/Dotted/Triplet", "master time", "beat f"],
   },
   clockDivider: {
     category: "clock",
@@ -1015,7 +1015,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   mixStereo2: {
     category: "dynamics",
-    description: "Two stereo pairs into Left/Right, each pair with Volume and Pan, plus master Amplitude.",
+    description: "Two stereo pairs into Left/Right, each pair with Volume and Pan, plus master Gain.",
     label: "MixStereo2",
     notes: ["mixer", "stereo", "pan", "volume", "2-channel", "utility", "native"],
   },
@@ -1233,7 +1233,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   keyboard: {
     category: "controller",
-    description: "Local piano (dock + face). Play Keys (blue) / Arp Keys (gold) / Polyphony (black → Meta Voices); does not auto-follow hardware MIDI — use the MIDI module for that.",
+    description: "Local piano (dock + face). Play Keys (blue) / Arp Keys (gold) / Chord Memory (green in=slots, out=chord tones) / Polyphony (black → Meta Voices).",
     label: "Keyboard",
     notes: ["keyboard", "piano", "play keys", "arp keys", "polyphony", "controller", "performance", "gate", "trigger", "velocity", "note"],
   },
@@ -1547,9 +1547,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   arp: {
     category: "musical",
-    description: "Clocked arpeggiator over the Arp Keys bitmask (up / dn / bounce / random).",
+    description: "Clocked arpeggiator over Arp Keys. Neon key face, Monophony out, sequence offset.",
     label: "Arp",
-    notes: ["arp", "arpeggiator", "musical", "sequence", "arp keys", "pitch", "clock"],
+    notes: ["arp", "arpeggiator", "musical", "sequence", "arp keys", "pitch", "clock", "monophony"],
   },
   ePiano: {
     category: "sample",

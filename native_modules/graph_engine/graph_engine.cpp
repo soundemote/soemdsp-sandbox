@@ -366,7 +366,8 @@ extern "C" double soemdsp_transport_sample(
   double timingMode,
   double tempoBpm,
   double pulseWidth,
-  double sampleRate
+  double sampleRate,
+  double masterSample
 );
 extern "C" double soemdsp_transport_unipolar(int handle);
 extern "C" double soemdsp_transport_frequency(int handle);
@@ -1385,12 +1386,15 @@ extern "C" double soemdsp_arp_sample(
   int handle, double heldKeys, double hasHeldKeys,
   double trigger, double hasTrigger, double reset,
   double rateHz, double mode, double steps, double seed,
-  double octaveOffset, double sampleRate
+  double octaveOffset, double sequenceOffset, double sampleRate
 );
 extern "C" double soemdsp_arp_gate(int handle);
 extern "C" double soemdsp_arp_trigger(int handle);
 extern "C" double soemdsp_arp_step(int handle);
 extern "C" double soemdsp_arp_frequency(int handle);
+extern "C" int soemdsp_arp_play_midi(int handle);
+extern "C" void soemdsp_arp_set_chunks(int handle, double c0, double c1, double c2);
+extern "C" void soemdsp_arp_set_override_midi(int handle, int midi);
 
 extern "C" int soemdsp_binary_clock_create();
 extern "C" void soemdsp_binary_clock_destroy(int handle);
@@ -1423,6 +1427,7 @@ extern "C" void soemdsp_speaker_protector2_sample(
   double* outRight,
   double* outMono
 );
+extern "C" double soemdsp_speaker_protector2_gain(int handle);
 
 namespace {
 
@@ -1930,6 +1935,9 @@ struct Circuit {
   bool compiled;
   float sampleRate;
   double globalTimeSamples;
+  // Processed sample index while Live is running (paused = frozen).
+  // Master Clock phase is derived from this so gates stay on the beat.
+  double masterSamples;
   // Patch-wide pitch transpose (octaves). Multiplies pitched Hz by 2^oct.
   double pitchOffsetOctaves;
   // VoiceManager instance — voice-lane nodes query Sustaining/Releasing/Available.
@@ -1954,6 +1962,8 @@ struct Circuit {
   int edgeCount;
   double outL[kMaxBlockFrames];
   double outR[kMaxBlockFrames];
+  int busEarProtectHandle;
+  double busEarGain;
   double mixMono[kMaxBlockFrames];
   double mixLeft[kMaxBlockFrames];
   double mixRight[kMaxBlockFrames];
@@ -3147,9 +3157,10 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypePulseExplosion) ? 0.3 // lowAmplitude
       : (typeId == kTypeAdditiveFrequencySkew) ? 1.0 // lowStretch
       : (typeId == kTypeDegreePhrase) ? 0.0 // rest1
+      : (typeId == kTypeArp) ? 0.0 // sequenceOffset
       : (typeId == kTypeRange) ? -1.0 // bipolar In default; wire unipolar spawn uses 0…1
       : (typeId == kTypeClipperLimiter) ? -12.0 : 0.0,
-    (typeId == kTypeDegreePhrase)
+    (typeId == kTypeDegreePhrase || typeId == kTypeArp)
   );
   init_control(
     n.inHigh,
@@ -8375,6 +8386,7 @@ static void process_arp(Circuit& g, Node& node, int frames) {
       control_effective(node.stages),
       control_effective(node.seed),
       control_audio(g, node.offset, f),
+      control_effective(node.inLow),
       sr
     );
     node.buf[kPortMono][f] = pitch;
@@ -9033,8 +9045,10 @@ static void process_phosphillator(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Master Clock / transport: tempo square.
-// Gate -1+1→Mono, Gate 0-1→Left, Trigger→Right (1-sample spike), f (Hz)→Saw.
+// Master Clock / transport: tempo square locked to graph masterSamples.
+// Changing Numer/Denom/Sync/BPM re-grids onto the same playhead (not free-run).
+// Gate -1+1→Mono, Gate 0-1→Left, Trigger→Right (1-sample spike), f (Hz)→Saw,
+// beat f (BPM/60, one cycle per beat)→Ramp.
 // Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
 // width = pulseWidth (gate duty). Rate = Numer/Denom × whole note × Sync.
 static void process_transport(Circuit& g, Node& node, int frames) {
@@ -9057,7 +9071,8 @@ static void process_transport(Circuit& g, Node& node, int frames) {
       timingMode,
       tempoBpm,
       pulseWidth,
-      sr
+      sr,
+      g.masterSamples + (double)f
     );
     const double unipolar = soemdsp_transport_unipolar(node.nativeHandle);
     const double freqHz = soemdsp_transport_frequency(node.nativeHandle);
@@ -9069,6 +9084,8 @@ static void process_transport(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = unipolar;
     node.buf[kPortRight][f] = trig;
     node.buf[kPortSaw][f] = freqHz;
+    const double bpmNow = control_effective(node.tempoBpm);
+    node.buf[kPortRamp][f] = ((bpmNow > 1.0) ? bpmNow : 1.0) / 60.0;
   }
   node.lastReset = wasHigh ? 1.0 : 0.0;
 }
@@ -9991,10 +10008,13 @@ extern "C" int soemdsp_graph_create() {
       gPool[i].active = true;
       gPool[i].sampleRate = 44100.0f;
       gPool[i].globalTimeSamples = kDefaultSmoothSeconds * 44100.0;
+      gPool[i].masterSamples = 0.0;
       gPool[i].nodeCount = 0;
       gPool[i].toSmoothCount = 0;
       gPool[i].voiceManagerHandle = 0;
-      gPool[i].previewVoiceSlot = -1;
+      gPool[i].previewVoiceSlot = 0;
+      gPool[i].busEarProtectHandle = soemdsp_speaker_protector2_create();
+      gPool[i].busEarGain = 1.0;
       clear_graph_contents(gPool[i]);
       return i + 1;
     }
@@ -10009,6 +10029,10 @@ extern "C" void soemdsp_graph_destroy(int handle) {
       gPool[handle - 1].active = false;
     }
     return;
+  }
+  if (g->busEarProtectHandle > 0) {
+    soemdsp_speaker_protector2_destroy(g->busEarProtectHandle);
+    g->busEarProtectHandle = 0;
   }
   clear_graph_contents(*g);
   g->active = false;
@@ -10096,6 +10120,13 @@ extern "C" void soemdsp_graph_set_pitch_offset(int handle, double octaves) {
   if (octaves > 10.0) octaves = 10.0;
   if (octaves < -10.0) octaves = -10.0;
   g->pitchOffsetOctaves = octaves;
+}
+
+extern "C" int soemdsp_graph_rewind_master(int handle) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  g->masterSamples = 0.0;
+  return 0;
 }
 
 extern "C" void soemdsp_graph_set_sample_rate(int handle, float sampleRate) {
@@ -11662,7 +11693,7 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
     }
 
     // Meta Voices: only Sustaining + Releasing slots run DSP (VoiceManager pools).
-    // Available clones stay silent — except previewVoiceSlot (inside Meta view):
+    // Available clones stay silent — except previewVoiceSlot (always voice 0):
     // that slot still runs so faces (Hypersaw stems) keep updating. Gate/amp
     // feeders are 0 while Available, so it stays quiet in the mix.
     if (node.voiceSlot >= 0 && g->voiceManagerHandle > 0) {
@@ -11702,7 +11733,39 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
   // Catch-up chase for Controls not heard via control_audio this quantum.
   smoother_run(*g, frames);
   smoother_clean(*g);
+
+  // Framework ear protect on the speaker bus (same math as Speaker Protector 2).
+  if (g->busEarProtectHandle > 0) {
+    const double sr = g->sampleRate < 1.0f ? 44100.0 : (double)g->sampleRate;
+    for (int f = 0; f < frames; f++) {
+      double l = 0.0, r = 0.0, m = 0.0;
+      soemdsp_speaker_protector2_sample(
+        g->busEarProtectHandle,
+        g->outL[f],
+        g->outR[f],
+        sr,
+        0.008,
+        0.333,
+        0.75,
+        &l,
+        &r,
+        &m
+      );
+      g->outL[f] = l;
+      g->outR[f] = r;
+    }
+    g->busEarGain = soemdsp_speaker_protector2_gain(g->busEarProtectHandle);
+  } else {
+    g->busEarGain = 1.0;
+  }
+
+  g->masterSamples += (double)frames;
   return frames;
+}
+
+extern "C" double soemdsp_graph_ear_protect_gain(int handle) {
+  Circuit* g = get(handle);
+  return g ? g->busEarGain : 1.0;
 }
 
 extern "C" double* soemdsp_graph_block_output_left_ptr(int handle) {
@@ -11834,5 +11897,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 140; // arp: f jack rate replaces Internal Clock when wired
+  return 145; // bus ear protect in process_block
 }

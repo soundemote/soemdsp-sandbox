@@ -320,6 +320,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   masterFm: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   osc1Detune: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   osc2Detune: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
+  sequenceOffset: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_LOW,
   fm1: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_LOW,
   fm2: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_HIGH,
   taps: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES,
@@ -550,7 +551,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "phase") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
     if (p === "trigger") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
   }
-  // transport outs (Gate -1+1 / Gate 0-1; Trigger; f)
+  // transport outs (Gate -1+1 / Gate 0-1; Trigger; f; beat f)
   if (t === "transport") {
     if (
       p === "gate -1+1"
@@ -582,6 +583,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
     }
     if (p === "f") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+    if (p === "beat f" || p === "beatf" || p === "beat ƒ") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+    }
   }
   // MixStereo2/4 pair jacks (L1/R1 share Left/Right; L2–L4/R2–R3 on taps; R4 aux).
   if (t === "mixStereo4" || t === "mixStereo2" || t === "mixStereo") {
@@ -1779,6 +1783,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   timingMode: true,
   lfoStyle: true,
   seed: true,
+  sequenceOffset: true,
+  octaveOffset: true,
   filter: true, // Yellow spectral LP/BP/HP
   noise: true, // Yellow Noisy* mode
   // FrequencySkew / curveOsc "curve" = discrete family. NOT additiveBlaster /
@@ -1901,6 +1907,167 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
   }
 };
 
+/**
+ * Arp Keys from Keyboard/Sequencer is a 128-key mask. Host→native Bias is
+ * one float per block, so analog 3-chunk mux cannot assemble a chord
+ * atomically (high MIDI notes stick from the previous chord). Push all
+ * three chunks into the arp instance before process_block.
+ */
+NodeLiveAudioProcessor.prototype.mixNoteMask128 = function mixNoteMask128(nodeId, port) {
+  const mask = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
+  const id = String(nodeId || "");
+  const p = String(port || "");
+  if (!id || !p) return mask;
+  const key = typeof this.inputKey === "function" ? this.inputKey(id, p) : `${id}.${p}`;
+  const conns = this.inputConnections?.get?.(key);
+  if (!conns || !conns.length) return mask;
+  const orIn = (src) => {
+    if (!(src instanceof Uint8Array)) return;
+    if (typeof noteMaskOr === "function") {
+      const next = noteMaskOr(mask, src);
+      mask.set(next);
+      return;
+    }
+    for (let i = 0; i < 128; i += 1) {
+      if (src[i]) mask[i] = 1;
+    }
+  };
+  for (let i = 0; i < conns.length; i += 1) {
+    const c = conns[i];
+    const out = this.nodeOutputs?.get?.(String(c.sourceNode || ""));
+    if (!out || typeof out !== "object") continue;
+    const sp = String(c.sourcePort || "");
+    if (sp === "Chord Memory" && out.chordMask instanceof Uint8Array) {
+      orIn(out.chordMask);
+      continue;
+    }
+    if (sp === "Play Keys" && out.playMask instanceof Uint8Array) {
+      orIn(out.playMask);
+      continue;
+    }
+    if (sp === "Arp Keys" && out.arpMask instanceof Uint8Array) {
+      orIn(out.arpMask);
+      continue;
+    }
+    if (out.playMask instanceof Uint8Array && (sp === "Play Keys" || sp === "Chord Memory")) {
+      orIn(out.playMask);
+      continue;
+    }
+    const analog = Number(out[sp]);
+    if (Number.isFinite(analog) && analog > 0 && typeof noteMaskDemuxRegisters === "function") {
+      const regs = { c0: 0, c1: 0, c2: 0 };
+      noteMaskDemuxRegisters(regs, analog);
+      if (typeof noteMaskFromRegisters === "function") orIn(noteMaskFromRegisters(regs));
+    }
+  }
+  return mask;
+};
+
+NodeLiveAudioProcessor.prototype.syncNativeArpNoteMasks = function syncNativeArpNoteMasks() {
+  if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+    return;
+  }
+  const native = this.nativeGraph;
+  if (!native?.soemdsp_arp_set_chunks || !native.soemdsp_graph_node_native_handle) return;
+  for (const [id, node] of this.nodes) {
+    if (String(node?.type || "") !== "arp") continue;
+    const hash = typeof this.fnv1aHash32 === "function"
+      ? this.fnv1aHash32(String(id))
+      : 0;
+    let handle = 0;
+    try {
+      handle = native.soemdsp_graph_node_native_handle(this.nativeGraphHandle, hash) | 0;
+    } catch (_e) {
+      handle = 0;
+    }
+    if (!(handle > 0)) continue;
+    const mask = this.mixNoteMask128(id, "Arp Keys");
+    const chunks = typeof noteMaskPackChunks === "function"
+      ? noteMaskPackChunks(mask)
+      : { c0: 0, c1: 0, c2: 0 };
+    native.soemdsp_arp_set_chunks(handle, chunks.c0 || 0, chunks.c1 || 0, chunks.c2 || 0);
+    if (typeof native.soemdsp_arp_set_override_midi === "function") {
+      const over = this._arpOverrideByNode?.get?.(String(id));
+      native.soemdsp_arp_set_override_midi(handle, Number.isFinite(Number(over)) ? (over | 0) : -1);
+    }
+  }
+};
+
+NodeLiveAudioProcessor.prototype.syncNativeArpFacesAndMonophony = function syncNativeArpFacesAndMonophony() {
+  if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+    return;
+  }
+  const native = this.nativeGraph;
+  if (!this._arpPolyTables) this._arpPolyTables = new Map();
+  if (!this._arpFaceFp) this._arpFaceFp = new Map();
+  const live = new Set();
+  for (const [id, node] of this.nodes) {
+    if (String(node?.type || "") !== "arp") continue;
+    const nid = String(id);
+    live.add(nid);
+    const hash = this.fnv1aHash32(nid);
+    let handle = 0;
+    try {
+      handle = native.soemdsp_graph_node_native_handle?.(this.nativeGraphHandle, hash) | 0;
+    } catch (_e) {
+      handle = 0;
+    }
+    const mask = this.mixNoteMask128(nid, "Arp Keys");
+    const oct = Math.round(Number(node?.params?.octaveOffset) || 0);
+    const notes = [];
+    if (mask instanceof Uint8Array) {
+      for (let m = 0; m < 128; m += 1) {
+        if (!mask[m]) continue;
+        let midi = m + oct * 12;
+        if (midi < 0) midi = 0;
+        if (midi > 127) midi = 127;
+        notes.push(midi);
+      }
+    }
+    let play = -1;
+    let gate = 0;
+    if (handle > 0) {
+      if (typeof native.soemdsp_arp_play_midi === "function") {
+        play = native.soemdsp_arp_play_midi(handle) | 0;
+      }
+      if (typeof native.soemdsp_arp_gate === "function") {
+        gate = Number(native.soemdsp_arp_gate(handle)) > 0 ? 1 : 0;
+      }
+    }
+    const table = typeof polyphonyCreateTable === "function"
+      ? polyphonyCreateTable()
+      : new Uint8Array(128);
+    if (gate && play >= 0 && play <= 127) table[play] = 100;
+    this._arpPolyTables.set(nid, table);
+    const prev = this.nodeOutputs.get(nid);
+    this.nodeOutputs.set(nid, {
+      ...(prev && typeof prev === "object" ? prev : {}),
+      Monophony: typeof polyphonyTableWireSample === "function"
+        ? polyphonyTableWireSample(table)
+        : 0,
+    });
+    let fp = `${play}:${gate}:`;
+    for (let i = 0; i < notes.length; i += 1) fp += `${notes[i]},`;
+    if (fp !== this._arpFaceFp.get(nid)) {
+      this._arpFaceFp.set(nid, fp);
+      try {
+        this.port.postMessage({
+          type: "arpFace",
+          nodeId: nid,
+          notes,
+          play: gate ? play : -1,
+        });
+      } catch (_e) { /* ignore */ }
+    }
+  }
+  for (const id of [...this._arpPolyTables.keys()]) {
+    if (!live.has(id)) {
+      this._arpPolyTables.delete(id);
+      this._arpFaceFp.delete(id);
+    }
+  }
+};
+
 /** Cached: patch contains at least one metamodule shell. */
 NodeLiveAudioProcessor.prototype.patchHasMetamodule = function patchHasMetamodule() {
   if (this._patchHasMetamodule === true || this._patchHasMetamodule === false) {
@@ -2013,7 +2180,8 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
       const conns = this.inputConnections?.get?.(polyKey);
       if (!conns || !conns.length) continue;
       for (let i = 0; i < conns.length; i += 1) {
-        if (String(conns[i].sourcePort || "") === "Polyphony") return true;
+        const sp = String(conns[i].sourcePort || "");
+        if (sp === "Polyphony" || sp === "Monophony") return true;
       }
     }
     return false;
@@ -2082,13 +2250,12 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
       }
     };
     const addKeyboardSounding = () => {
-      const goldOct = Math.round(Number(this.midiKeyboardOctave) || 0);
       const goldMask = this.midiKeyboardArpMask instanceof Uint8Array
         ? this.midiKeyboardArpMask
         : null;
       const goldVels = this.midiKeyboardHeldKeyVelocities;
       if (typeof polyphonyTableAddNoteMask === "function" && goldMask) {
-        polyphonyTableAddNoteMask(want, goldMask, goldOct, goldVels, 100);
+        polyphonyTableAddNoteMask(want, goldMask, 0, goldVels, 100);
       }
       const chordHost = typeof nodeGraphChordMemoryHost === "function"
         ? nodeGraphChordMemoryHost()
@@ -2106,12 +2273,14 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
       }
     };
     const addFromSource = (sourceNodeId, sourcePort) => {
-      if (String(sourcePort || "") !== "Polyphony") return;
+      const port = String(sourcePort || "");
+      if (port !== "Polyphony" && port !== "Monophony") return;
       const src = this.nodes?.get?.(String(sourceNodeId));
       const type = String(src?.type || "");
       if (type === "keyboard" || type === "gridKeyboard") addKeyboardSounding();
       else if (type === "sequencer") mergeTable(this._sequencerPolyTables?.get?.(String(sourceNodeId)));
       else if (type === "keyboardController") mergeTable(this.midiPolyphonyVelocities);
+      else if (type === "arp") mergeTable(this._arpPolyTables?.get?.(String(sourceNodeId)));
     };
     for (const [metaIdRaw, metaNode] of this.nodes) {
       if (String(metaNode?.type || "") !== "metamodule") continue;
@@ -2228,10 +2397,8 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     const previewing = typeof this.isMetaViewPreview === "function"
       ? this.isMetaViewPreview(metaId)
       : (String(this._metaViewId || "") === metaId);
-    // Root: need Polyphony→Voices. Inside Meta preview: still drive slot-0 feeders.
-    if (!voicesConnected(metaId) && !previewing) {
-      continue;
-    }
+    // Always drive slot-0 frequency so faces keep painting (first voice).
+    // Gate stays 0 while Available so the mix stays quiet.
 
     const voiceCount = typeof nodeGraphMetamoduleVoiceCount === "function"
       ? nodeGraphMetamoduleVoiceCount(metaNode)
@@ -2339,10 +2506,10 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
       } else {
         const v = feed.voiceIndex | 0;
         const hzKey = `${metaId}:${v}:${feed.dstId}:${feed.dstPort}`;
-        // Available slots: silence — except voice 0 frequency while editing
-        // inside this Meta (preview keeps Hypersaw stems moving; Gate stays 0).
+        // Available slots: silence — except voice 0 frequency (first voice
+        // always paints Hypersaw stems; Gate stays 0 so the mix is quiet).
         if (!activeSet.has(v)) {
-          if (previewing && v === 0 && kind === "frequency") {
+          if (v === 0 && kind === "frequency") {
             const previewHz = typeof this.metaViewPreviewHz === "function"
               ? this.metaViewPreviewHz(metaId, metaNode)
               : (lastHz.get(hzKey) || 261.625565);
@@ -3030,6 +3197,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("steps", P.NATIVE_GRAPH_PARAM_STAGES, disc("steps", 8));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
       push("octaveOffset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, disc("octaveOffset", 0));
+      push("sequenceOffset", P.NATIVE_GRAPH_PARAM_IN_LOW, disc("sequenceOffset", 0));
       continue;
     }
     if (type === "hilbert") {
@@ -4095,22 +4263,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "range") {
-      // Heal exact old defaults (−10…+10 Out) in the live node so Morph MOD
-      // works without requiring a patch reload. Intentional Hz maps untouched.
-      const bag = node?.params;
-      if (bag && Number(bag.outLow) === -10 && Number(bag.outHigh) === 10) {
-        bag.outLow = 0;
-        bag.outHigh = 1;
-        if (Number(bag.inLow) === -1 && Number(bag.inHigh) === 1) {
-          bag.inLow = 0;
-          bag.inHigh = 1;
-        }
-      }
-      // Fallbacks must match module defaults (0…1 unit CV).
-      push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", 0));
+      push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", -1));
       push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
-      push("outLow", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("outLow", 0));
-      push("outHigh", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("outHigh", 1));
+      push("outLow", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("outLow", -10));
+      push("outHigh", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("outHigh", 10));
       continue;
     }
     // inv / u2b / b2u: no Control params
@@ -4454,18 +4610,11 @@ NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
         statesMap.set(id, state);
 
         const ownedMeta = String(node?.ownerMetamoduleId || "");
-        // Inside that Meta → always show voice 0 (preview keeps it running).
-        // On Root → oldest active voice; none → freeze last pixels.
-        let slot = -1;
+        // Always show voice 0 (first voice is the interactive / face voice).
+        let slot = 0;
         if (ownedMeta && metaViewId && ownedMeta === metaViewId) {
           slot = 0;
-        } else if (ownedMeta) {
-          if (oldestSlot < 0) {
-            state.lastVoicePhases = [];
-            state.lastVoiceAmplitudes = [];
-            state.lastVoicePans = [];
-            continue;
-          }
+        } else if (ownedMeta && oldestSlot >= 0) {
           slot = oldestSlot;
         }
 
@@ -5698,10 +5847,10 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     this.syncNativeGraphBypass();
     // VoiceManager pools: tag lane clones so only Sustaining+Releasing step.
     this.bindNativeMetaVoiceProcessSlots?.(true);
-    // Re-apply inside-Meta preview (voice 0) after graph recreate.
-    if (this._metaViewId && typeof this.applyMetaViewPreview === "function") {
-      this.applyMetaViewPreview(this._metaViewId);
-    } else if (this._metaViewId && native?.soemdsp_graph_set_preview_voice_slot) {
+    // First voice always processes so faces (Hypersaw) keep painting.
+    if (typeof this.applyMetaViewPreview === "function") {
+      this.applyMetaViewPreview(this._metaViewId || "");
+    } else if (native?.soemdsp_graph_set_preview_voice_slot) {
       try {
         native.soemdsp_graph_set_preview_voice_slot(this.nativeGraphHandle, 0);
       } catch (_e) { /* ignore */ }
@@ -5940,6 +6089,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "ellipsoid") return ["Uni Y"];
     if (type === "comparator") return ["Down"];
     if (type === "mixStereo4" || type === "mixStereo2" || type === "mixStereo") return ["R2"];
+    if (type === "transport") return ["beat f", "beatf", "beat ƒ"];
     if (type === "audioPlayer") return ["Trigger"];
     if (type === "binaryClock") return ["Bit3", "Ramp"];
     if (type === "arp") return ["f", "ƒ", "Frequency", "Freq", "Ramp"];
@@ -6027,6 +6177,8 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
   if (!this.nativeGraphCompiled || !this.nativeGraphHandle || frames < 1) return;
   const fillRings = options.fillRings !== false;
   const stressed = Boolean(options.stressed);
+  const needModStrips = typeof this.processAdditiveYellowGraphSidecar === "function"
+    && !this.nativeYellowGraphFullyNative?.();
   const protectedLeft = options.protectedLeft || null;
   const protectedRight = options.protectedRight || protectedLeft;
   const frameOffset = Math.max(0, nodeGraphFiniteNumber(options.frameOffset));
@@ -6082,16 +6234,19 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
     // Envelope *Mod twins: publish full-quantum Mono as Additive mod strip
     // (native DSP only — no JS BakeStrip).
     if (
-      type === "curveEnvelopeMod"
-      || type === "pluckEnvelopeMod"
-      || type === "pluckEnvelope"
-      || type === "expAdsr"
-      || type === "linearEnvelope"
-      || type === "wavetableAdsr"
-      || type === "thumpEnvelope"
-      || type === "pluckEnvelope3"
-      || type === "curveAttackRelease"
-      || type === "linearAttackRelease"
+      needModStrips
+      && (
+        type === "curveEnvelopeMod"
+        || type === "pluckEnvelopeMod"
+        || type === "pluckEnvelope"
+        || type === "expAdsr"
+        || type === "linearEnvelope"
+        || type === "wavetableAdsr"
+        || type === "thumpEnvelope"
+        || type === "pluckEnvelope3"
+        || type === "curveAttackRelease"
+        || type === "linearAttackRelease"
+      )
     ) {
       const envHash = this.fnv1aHash32(id);
       const monoView = this.bindNativeGraphNodePortView(
@@ -6102,10 +6257,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       if (monoView && monoView.length) {
         if (!this.additiveModStrips) this.additiveModStrips = new Map();
         const strip = new Float32Array(frames);
-        for (let i = 0; i < frames; i += 1) {
-          const v = Number(monoView[i]);
-          strip[i] = Number.isFinite(v) ? v : 0;
-        }
+        strip.set(monoView.subarray(0, frames));
         this.additiveModStrips.set(id, strip);
         const last = strip[frames - 1] || 0;
         const prev = this.nodeOutputs.get(id) || Object.create(null);
@@ -6452,6 +6604,9 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
   try {
     this.syncNativeHostCvFeeders?.();
   } catch (_e) { /* keep audio */ }
+  try {
+    this.syncNativeArpNoteMasks?.();
+  } catch (_e) { /* keep audio */ }
 
   // Knob targets + MOD cells — native smoother chases knobs; MOD applied after out.
   this.syncNativeGraphParams?.(frames);
@@ -6459,16 +6614,17 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
   try {
     this.syncNativeMetaPolyphonyVoiceGates?.();
   } catch (_e) { /* keep audio */ }
-  // Upload Bubble Cutoff sample-accurate strips (PluckEnvelopeMod / Curve packets).
-  this.syncNativeYellowCutoffStrips?.(frames);
+  const useYellowSidecar = typeof this.processAdditiveYellowGraphSidecar === "function"
+    && !this.nativeYellowGraphFullyNative?.();
+  if (useYellowSidecar) {
+    this.syncNativeYellowCutoffStrips?.(frames);
+  }
   // Upload / refresh Music Player PCM when sample id or length changes.
   this.syncNativeAudioPlayerPcm?.();
   // Upload Smooth/Step Graph curve points when face nodes change.
   this.syncNativeGraphCurvePoints?.();
 
   // Yellow Graph: skip JS sidecar when all additive* DSP nodes are native A1+A2.
-  const useYellowSidecar = typeof this.processAdditiveYellowGraphSidecar === "function"
-    && !this.nativeYellowGraphFullyNative?.();
   if (useYellowSidecar) {
     try {
       this.processAdditiveYellowGraphSidecar(output, frames);
@@ -6512,41 +6668,31 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
     const leftView = this.nativeGraphBlockViews.left;
     const rightView = this.nativeGraphBlockViews.right;
     const outCount = Math.min(chunk, leftView.length, rightView.length);
+    const destL = output[0];
+    const destR = output[1] || output[0];
     for (let i = 0; i < outCount; i += 1) {
       const frame = written + i;
-      let left = Number(leftView[i]);
-      let right = Number(rightView[i]);
-      if (!Number.isFinite(left)) left = 0;
-      if (!Number.isFinite(right)) right = 0;
-      if (addL && frame < addL.length) left += nodeGraphFiniteNumber(addL[frame]);
-      if (addR && frame < addR.length) right += nodeGraphFiniteNumber(addR[frame]);
-      if (this.outputSampleClipped?.(left)) this.meterClipCount += 1;
-      if (this.outputSampleClipped?.(right)) this.meterClipCount += 1;
-      if (
-        this.outputSampleTripsEarProtection?.(left)
-        || this.outputSampleTripsEarProtection?.(right)
-      ) {
-        this.speakerProtectionPeak = Math.max(
-          nodeGraphFiniteNumber(this.speakerProtectionPeak),
-          Math.abs(left),
-          Math.abs(right),
-        );
-        this.speakerProtectionNodeId = "output";
-      }
-      const protectedFrame = this.earProtector.protect(left, right);
-      if (protectedFrame.engaged || protectedFrame.muted) {
-        this.meterProtectionMuteCount += 1;
-      }
-      this.protectionEngaged = Boolean(protectedFrame.engaged);
-      this.protectionGain = Number(protectedFrame.gain);
-      const pl = Number.isFinite(Number(protectedFrame.left)) ? Number(protectedFrame.left) : 0;
-      const pr = Number.isFinite(Number(protectedFrame.right)) ? Number(protectedFrame.right) : 0;
-      this.meterPeak = Math.max(this.meterPeak, Math.abs(pl), Math.abs(pr));
-      this.meterSquareSum += (pl * pl + pr * pr) * 0.5;
+      let left = leftView[i];
+      let right = rightView[i];
+      if (addL && frame < addL.length) left += addL[frame];
+      if (addR && frame < addR.length) right += addR[frame];
+      destL[frame] = left;
+      if (destR !== destL) destR[frame] = right;
+      const absL = left < 0 ? -left : left;
+      const absR = right < 0 ? -right : right;
+      if (absL > this.meterPeak) this.meterPeak = absL;
+      if (absR > this.meterPeak) this.meterPeak = absR;
+      this.meterSquareSum += (left * left + right * right) * 0.5;
       this.meterSamples += 1;
-      for (let channelIndex = 0; channelIndex < output.length; channelIndex += 1) {
-        output[channelIndex][frame] = channelIndex === 0 ? pl : pr;
-      }
+    }
+    const busGain = typeof native.soemdsp_graph_ear_protect_gain === "function"
+      ? native.soemdsp_graph_ear_protect_gain(this.nativeGraphHandle)
+      : 1;
+    this.protectionGain = busGain;
+    this.protectionEngaged = busGain < 0.999;
+    if (this.protectionEngaged) {
+      this.meterProtectionMuteCount += outCount;
+      this.speakerProtectionNodeId = "output";
     }
     for (let i = outCount; i < chunk; i += 1) {
       const frame = written + i;
@@ -6571,6 +6717,9 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
   // meters. JS evaluators no longer run on the efficient path, so fill them
   // from native Phase outs + speed param each quantum.
   this.updateNativeAudioPlayerMeters?.();
+  try {
+    this.syncNativeArpFacesAndMonophony?.();
+  } catch (_e) { /* keep audio */ }
 
   return true;
 };

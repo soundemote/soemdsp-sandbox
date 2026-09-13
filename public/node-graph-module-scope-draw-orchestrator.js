@@ -76,6 +76,7 @@ const nodeGraphModuleScopeCustomRenderers = {
     item?.screenElement?.syncFromParameters?.();
   },
   keypadFace: () => {},
+  arpKeysFace: () => {},
   portalFace: () => {},
   roundShapeFace: () => {},
   basicShapeFace: () => {},

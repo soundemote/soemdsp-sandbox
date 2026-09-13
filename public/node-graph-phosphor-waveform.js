@@ -627,6 +627,35 @@ function handleNodeGraphPhosphorWaveformPlaylistVisibleCountChange(event) {
   updateNodeGraphPhosphorWaveformSettings({ playlistVisibleCount: value });
 }
 
+/** Shared Corners / Rounding / Edge Spacing rows (Music Player plate chrome). */
+function buildNodeGraphPhosphorWaveformCornerChromeHtml(options = {}) {
+  const squareId = String(options.squareId || "nodePhosphorWaveformCornerSquareButton");
+  const squircleId = String(options.squircleId || "nodePhosphorWaveformCornerSquircleButton");
+  const radiusId = String(options.radiusId || "nodePhosphorWaveformCornerRadiusInput");
+  const spacingId = String(options.spacingId || "nodePhosphorWaveformEdgeSpacingInput");
+  const includeSpacing = options.includeSpacing !== false;
+  return `
+      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row" role="group" aria-label="Corner shape">
+        <span>Corners</span>
+        <span class="node-phosphor-waveform-control-widgets">
+          <button id="${squareId}" type="button" data-corner-shape="square" aria-pressed="false">Pill</button>
+          <button id="${squircleId}" type="button" data-corner-shape="squircle" aria-pressed="true">Squircle</button>
+        </span>
+      </div>
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
+        <span>Rounding</span>
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="${radiusId}" type="range" min="0" max="1" step="0.01" title="0..1 of max corner radius (half panel min-edge)">
+        </span>
+      </label>
+      ${includeSpacing ? `<label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
+        <span>Edge Spacing</span>
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="${spacingId}" type="range" min="0" max="1" step="0.01" title="0..1 of max inset (half face min-edge)">
+        </span>
+      </label>` : ""}`;
+}
+
 function buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml() {
   return `
     <div class="node-led-display-settings-panel node-phosphor-waveform-display-settings-panel" data-phosphor-waveform-display-settings-panel>
@@ -723,25 +752,7 @@ function buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml() {
           <input id="nodePhosphorWaveformBackgroundBrightnessInput" type="range" min="0" max="1" step="0.01">
         </span>
       </label>
-      <div class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row" role="group" aria-label="Corner shape">
-        <span>Corners</span>
-        <span class="node-phosphor-waveform-control-widgets">
-          <button id="nodePhosphorWaveformCornerSquareButton" type="button" data-corner-shape="square" aria-pressed="false">Pill</button>
-          <button id="nodePhosphorWaveformCornerSquircleButton" type="button" data-corner-shape="squircle" aria-pressed="true">Squircle</button>
-        </span>
-      </div>
-      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
-        <span>Rounding</span>
-        <span class="node-phosphor-waveform-control-widgets">
-          <input id="nodePhosphorWaveformCornerRadiusInput" type="range" min="0" max="1" step="0.01" title="0..1 of max corner radius (half panel min-edge)">
-        </span>
-      </label>
-      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
-        <span>Edge Spacing</span>
-        <span class="node-phosphor-waveform-control-widgets">
-          <input id="nodePhosphorWaveformEdgeSpacingInput" type="range" min="0" max="1" step="0.01" title="0..1 of max inset (half face min-edge)">
-        </span>
-      </label>
+      ${buildNodeGraphPhosphorWaveformCornerChromeHtml()}
       <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
         <span>Label inset</span>
         <span class="node-phosphor-waveform-control-widgets">

@@ -1,11 +1,8 @@
-// Metamodule shell face. Meta In/Out use TitleBarAndPorts (standard IO section) — no custom face.
-// Enabled metamodule.displays layers blit additively onto a present canvas
-// (see metamodule-display-mirror.js + lib/visual/display-layer-compositor.js).
+// Metamodule shell face. Meta In/Out use TitleBarAndPorts — no custom face.
+// Pinned child displays (layout canvas / Show in canvas) live on this face
+// when viewing Root. See metamodule-display-mirror.js.
 
 function createNodeGraphMetamoduleFace(nodeId, type) {
-  const patchNode = typeof nodeGraphPatchNode === "function"
-    ? nodeGraphPatchNode(nodeId)
-    : null;
   const face = document.createElement("div");
   face.className = "node-metamodule-face";
   face.dataset.metamoduleFace = "1";
@@ -17,23 +14,10 @@ function createNodeGraphMetamoduleFace(nodeId, type) {
   empty.textContent = "Double-click to enter";
   face.appendChild(empty);
 
-  const canvas = document.createElement("canvas");
-  canvas.className = "node-metamodule-mirror-canvas";
-  canvas.setAttribute("aria-hidden", "true");
-  canvas.hidden = true;
-  face.appendChild(canvas);
-
-  const payload = typeof nodeGraphEnsureMetamodulePayload === "function"
-    ? nodeGraphEnsureMetamodulePayload(patchNode)
-    : (patchNode?.metamodule || {});
-  const enabled = Array.isArray(payload?.displays)
-    ? payload.displays.filter((d) => d && d.enabled && d.childId)
-    : [];
-  if (enabled.length) {
-    empty.hidden = true;
-    empty.textContent = "";
-    canvas.hidden = false;
-  }
+  const stage = document.createElement("div");
+  stage.className = "node-metamodule-canvas-stage";
+  stage.hidden = true;
+  face.appendChild(stage);
 
   face.addEventListener("dblclick", (event) => {
     event.preventDefault();
@@ -61,15 +45,10 @@ const nodeGraphMetamoduleFaceUi = {
         enterNodeGraphMetamoduleView(nodeId);
       }
     });
-    if (typeof nodeGraphMetamodulePaintMirror === "function") {
+    if (typeof nodeGraphMetamodulePresentCanvasOnFace === "function") {
+      nodeGraphMetamodulePresentCanvasOnFace(nodeId);
+    } else if (typeof nodeGraphMetamodulePaintMirror === "function") {
       nodeGraphMetamodulePaintMirror(nodeId);
-      const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-      const enabled = typeof nodeGraphMetamoduleEnabledDisplayEntries === "function"
-        ? nodeGraphMetamoduleEnabledDisplayEntries(meta)
-        : [];
-      if (enabled.length && typeof nodeGraphMetamoduleArmMirrorLoop === "function") {
-        nodeGraphMetamoduleArmMirrorLoop(nodeId);
-      }
     }
   },
 };

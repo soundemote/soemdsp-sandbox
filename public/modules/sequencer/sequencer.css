@@ -7,6 +7,7 @@
   background: #121214;
   color: #e8e8ea;
   user-select: none;
+  outline: none;
 }
 
 .node-sequencer-chrome {
@@ -40,15 +41,8 @@
   border-color: #6a6a78;
 }
 
-.node-sequencer-debug {
-  flex: 1 1 12em;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 10px/1.2 ui-monospace, monospace;
-  color: #9aa4b2;
-  pointer-events: none;
+.node-sequencer-audition[aria-pressed="true"] {
+  border-color: #6a9e78;
 }
 
 .node-sequencer-roll-host {
@@ -66,14 +60,20 @@
   display: block;
   cursor: var(--node-dot-cursor);
   touch-action: none;
+  image-rendering: pixelated;
 }
 
 .node-midi-keyboard-module [data-key-index].ghost-play,
 .node-grid-keyboard-pad.ghost-play {
-  box-shadow: inset 0 0 0 2px #4aa3ff;
+  box-shadow: inset 0 0 0 2px rgba(74, 163, 255, 0.45);
 }
 
 .node-midi-keyboard-module [data-key-index].ghost-arp,
 .node-grid-keyboard-pad.ghost-arp {
-  box-shadow: inset 0 0 0 2px #d4a017;
+  box-shadow: inset 0 0 0 2px rgba(212, 160, 23, 0.45);
+}
+
+.node-midi-keyboard-module [data-key-index].ghost-chord,
+.node-grid-keyboard-pad.ghost-chord {
+  box-shadow: inset 0 0 0 2px rgba(61, 220, 132, 0.4);
 }

@@ -812,6 +812,20 @@ function nodeGraphCircularKnobHitElement(host) {
   ) || host;
 }
 
+/** Visible knob circle in screen pixels — drag min→max spans this, not the plate. */
+function nodeSliderKnobDragMetrics(surface) {
+  if (!surface?.classList?.contains("node-knob-face")) {
+    return null;
+  }
+  const el = nodeGraphCircularKnobHitElement(surface) || surface;
+  const rect = el.getBoundingClientRect?.();
+  if (!rect || !(rect.width > 2) || !(rect.height > 2)) {
+    return null;
+  }
+  const span = Math.max(8, Math.min(rect.width, rect.height));
+  return { rect, travelWidth: span, visualScale: 1 };
+}
+
 function nodeGraphPointInCircularKnob(host, clientX, clientY) {
   const el = nodeGraphCircularKnobHitElement(host);
   if (!el) {
@@ -1032,6 +1046,9 @@ function beginNodeSliderDrag(event) {
     return;
   }
 
+  const knobMetrics = typeof nodeSliderKnobDragMetrics === "function"
+    ? nodeSliderKnobDragMetrics(surface)
+    : null;
   const lane = nodeSliderVisualLane(surface, slider);
   const resetToDefaultOnClick = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
   const jumpToPointerOnClick = event.altKey && !(event.shiftKey && (event.ctrlKey || event.metaKey));
@@ -1058,8 +1075,8 @@ function beginNodeSliderDrag(event) {
     startX: event.clientX,
     startY: event.clientY,
     fineScale: nodeSliderFineTuneScale(event),
-    visualScale: nodeSliderElementVisualScale(surface),
-    width: lane.travelWidth,
+    visualScale: knobMetrics ? 1 : nodeSliderElementVisualScale(surface),
+    width: knobMetrics ? knobMetrics.travelWidth : lane.travelWidth,
   };
   surface.classList.add("value-dragging");
   document.body.classList.add("node-slider-dragging");

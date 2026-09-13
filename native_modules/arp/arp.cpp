@@ -44,6 +44,10 @@ struct State {
   double lastGate;
   double lastTrigger;
   double lastStep;
+  int lastMidi;
+  bool hostMask;
+  int overrideMidi;
+  int overridePrevMidi;
 };
 
 static State gPool[kMaxInstances];
@@ -192,6 +196,10 @@ extern "C" int soemdsp_arp_create() {
       s.lastGate = 0.0;
       s.lastTrigger = 0.0;
       s.lastStep = 0.0;
+      s.lastMidi = -1;
+      s.hostMask = false;
+      s.overrideMidi = -1;
+      s.overridePrevMidi = -1;
       s.active = true;
       return i + 1;
     }
@@ -204,6 +212,16 @@ extern "C" void soemdsp_arp_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
+/** Host→native note buses are block-rate. Push all 3 chunks atomically. */
+extern "C" void soemdsp_arp_set_chunks(int handle, double c0, double c1, double c2) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  State& s = gPool[handle - 1];
+  s.heldC0 = safe(c0);
+  s.heldC1 = safe(c1);
+  s.heldC2 = safe(c2);
+  s.hostMask = true;
+}
+
 static int clamp_octave_offset(double octaves) {
   int o = (int)(safe(octaves) + (safe(octaves) >= 0.0 ? 0.5 : -0.5));
   if (o < -4) o = -4;
@@ -211,22 +229,44 @@ static int clamp_octave_offset(double octaves) {
   return o;
 }
 
-static void capture_note(State& s, int playIndex, int steps, int octaveOffset) {
-  int midi = s.notes[playIndex] + octaveOffset * 12;
+static int clamp_seq_offset(double v) {
+  int o = (int)(safe(v) + (safe(v) >= 0.0 ? 0.5 : -0.5));
+  if (o < 0) o = 0;
+  if (o > 127) o = 127;
+  return o;
+}
+
+static int wrapped_play_index(const State& s, int sequenceOffset) {
+  const int n = s.noteCount;
+  if (n <= 0) return 0;
+  int i = s.index + sequenceOffset;
+  i %= n;
+  if (i < 0) i += n;
+  return i;
+}
+
+static void capture_midi(State& s, int midi) {
   if (midi < 0) midi = 0;
   if (midi > 127) midi = 127;
+  s.lastMidi = midi;
   s.lastPitch = (double)midi / 120.0;
-  // A4=440, MIDI 69.
   s.lastFreqHz = 440.0 * dsp_exp2(((double)midi - 69.0) / 12.0);
+}
+
+static void capture_note(State& s, int playIndex, int steps, int octaveOffset) {
+  int midi = s.notes[playIndex] + octaveOffset * 12;
+  capture_midi(s, midi);
   s.lastStep = (steps > 0) ? (double)s.clocksSinceRestart : (double)playIndex;
 }
 
-static void do_step(State& s, int mode, int steps, unsigned int seed, int octaveOffset) {
+static void do_step(
+  State& s, int mode, int steps, unsigned int seed, int octaveOffset, int sequenceOffset
+) {
   if (s.noteCount <= 0) return;
   if (steps > 0 && s.clocksSinceRestart >= steps) {
     restart_pattern(s, mode, seed);
   }
-  const int playIndex = s.index;
+  const int playIndex = wrapped_play_index(s, sequenceOffset);
   capture_note(s, playIndex, steps, octaveOffset);
   s.clocksSinceRestart += 1;
   advance(s, mode);
@@ -244,6 +284,7 @@ extern "C" double soemdsp_arp_sample(
   double stepsIn,
   double seedIn,
   double octaveOffsetIn,
+  double sequenceOffsetIn,
   double sampleRate
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
@@ -253,11 +294,12 @@ extern "C" double soemdsp_arp_sample(
   const int steps = clamp_steps(stepsIn);
   const unsigned int seed = seed_u32(seedIn);
   const int octaveOffset = clamp_octave_offset(octaveOffsetIn);
+  const int sequenceOffset = clamp_seq_offset(sequenceOffsetIn);
   const double sr = sampleRate < 1.0 ? 44100.0 : sampleRate;
   const double rate = safe(rateHz);
   const bool trigConnected = safe(hasTrigger) > 0.5;
 
-  if (safe(hasHeldKeys) > 0.5) {
+  if (safe(hasHeldKeys) > 0.5 && !s.hostMask) {
     demux_held_keys(s, heldKeys);
   }
   rebuild_notes(s);
@@ -273,7 +315,7 @@ extern "C" double soemdsp_arp_sample(
   if (trigConnected) {
     const bool trigHigh = safe(trigger) > 0.0;
     if (s.noteCount > 0 && trigHigh && !s.clockWasHigh) {
-      do_step(s, mode, steps, seed, octaveOffset);
+      do_step(s, mode, steps, seed, octaveOffset, sequenceOffset);
       trigOut = 1.0;
     }
     s.clockWasHigh = trigHigh;
@@ -285,7 +327,7 @@ extern "C" double soemdsp_arp_sample(
     // waiting for phase wrap used to hold notes[0] for two periods.
     const bool firstBeat = (s.noteCount > 0 && s.clocksSinceRestart == 0);
     if (firstBeat) {
-      do_step(s, mode, steps, seed, octaveOffset);
+      do_step(s, mode, steps, seed, octaveOffset, sequenceOffset);
       trigOut = 1.0;
       s.phase = 0.0;
     } else {
@@ -293,7 +335,7 @@ extern "C" double soemdsp_arp_sample(
       if (s.phase >= 1.0) {
         s.phase -= dsp_floor(s.phase);
         if (s.noteCount > 0) {
-          do_step(s, mode, steps, seed, octaveOffset);
+          do_step(s, mode, steps, seed, octaveOffset, sequenceOffset);
           trigOut = 1.0;
         }
       }
@@ -306,12 +348,33 @@ extern "C" double soemdsp_arp_sample(
   if (s.noteCount <= 0) {
     s.lastGate = 0.0;
     s.lastTrigger = 0.0;
+    s.lastMidi = -1;
     return s.lastPitch;
   }
 
   s.lastGate = 1.0;
   s.lastTrigger = trigOut;
+  if (s.overrideMidi >= 0) {
+    const bool changed = s.overridePrevMidi != s.overrideMidi;
+    capture_midi(s, s.overrideMidi);
+    s.overridePrevMidi = s.overrideMidi;
+    s.lastTrigger = changed ? 1.0 : 0.0;
+  } else if (s.overridePrevMidi >= 0) {
+    s.overridePrevMidi = -1;
+    s.lastTrigger = 1.0;
+  }
   return s.lastPitch;
+}
+
+extern "C" void soemdsp_arp_set_override_midi(int handle, int midi) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  State& s = gPool[handle - 1];
+  if (midi < 0) {
+    s.overrideMidi = -1;
+    return;
+  }
+  if (midi > 127) midi = 127;
+  s.overrideMidi = midi;
 }
 
 extern "C" double soemdsp_arp_gate(int handle) {
@@ -334,6 +397,11 @@ extern "C" double soemdsp_arp_frequency(int handle) {
   return gPool[handle - 1].lastFreqHz;
 }
 
+extern "C" int soemdsp_arp_play_midi(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return -1;
+  return gPool[handle - 1].lastMidi;
+}
+
 extern "C" int soemdsp_arp_version() {
-  return 5; // f jack rate replaces Internal Clock when wired
+  return 8; // face override midi (sequence still advances)
 }

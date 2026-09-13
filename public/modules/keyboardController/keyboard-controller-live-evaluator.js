@@ -193,9 +193,14 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
       nodeGraphChordMemoryApplyInletMask(nodeId, chordMask, runtime?.nodes || null);
     }
   }
-  const chordPlay = typeof nodeGraphChordMemoryPlayTransmit === "function"
-    ? nodeGraphChordMemoryPlayTransmit(phase)
-    : 0;
+  const chordPlay = typeof nodeGraphChordMemoryPlayTransmitForNode === "function"
+    ? nodeGraphChordMemoryPlayTransmitForNode(nodeId, phase)
+    : (typeof nodeGraphChordMemoryPlayTransmit === "function"
+      ? nodeGraphChordMemoryPlayTransmit(phase)
+      : 0);
+  const chordOut = typeof nodeGraphChordMemoryOutTransmitForNode === "function"
+    ? nodeGraphChordMemoryOutTransmitForNode(nodeId, phase)
+    : chordPlay;
   // Local press mask: single key while gated.
   let playLocal = 0;
   if (cv.gateAmp > 0 && typeof noteMaskCreate === "function") {
@@ -221,6 +226,7 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
   return {
     "Play Keys": playOut,
     "Arp Keys": arpOut,
+    "Chord Memory": chordOut,
     Polyphony: polyOut,
     Gate: gateOut,
     Trigger: triggerOut,
@@ -310,9 +316,14 @@ nodeGraphLiveModuleEvaluators.gridKeyboard = ({
       nodeGraphChordMemoryApplyInletMask(nodeId, chordMask, runtime?.nodes || null);
     }
   }
-  const chordPlay = typeof nodeGraphChordMemoryPlayTransmit === "function"
-    ? nodeGraphChordMemoryPlayTransmit(phase)
-    : 0;
+  const chordPlay = typeof nodeGraphChordMemoryPlayTransmitForNode === "function"
+    ? nodeGraphChordMemoryPlayTransmitForNode(nodeId, phase)
+    : (typeof nodeGraphChordMemoryPlayTransmit === "function"
+      ? nodeGraphChordMemoryPlayTransmit(phase)
+      : 0);
+  const chordOut = typeof nodeGraphChordMemoryOutTransmitForNode === "function"
+    ? nodeGraphChordMemoryOutTransmitForNode(nodeId, phase)
+    : chordPlay;
   let playLocal = 0;
   if (cv.gateAmp > 0 && typeof noteMaskCreate === "function") {
     const one = noteMaskCreate();
@@ -336,6 +347,7 @@ nodeGraphLiveModuleEvaluators.gridKeyboard = ({
   return {
     "Play Keys": playOut,
     "Arp Keys": arpOut,
+    "Chord Memory": chordOut,
     Polyphony: polyOut,
     Gate: cv.gateAmp,
     Trigger: cv.triggerAmp,

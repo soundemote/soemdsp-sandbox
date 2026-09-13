@@ -396,7 +396,7 @@ function bindNodeGraphHeaderControlEvents() {
         setNodeGraphModularWindowedActive(false);
       }
     });
-  // 📱 — same as F: Meta pin when inside Metamodule, else layout canvas.
+  // 📱 — same as F: Meta canvas pin when a child is selected, else layout canvas.
   document
     .getElementById("nodeModularWindowedViewButton")
     ?.addEventListener("click", () => {

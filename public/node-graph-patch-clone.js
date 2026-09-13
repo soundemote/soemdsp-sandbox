@@ -345,6 +345,18 @@ function cloneNodeGraphTypedDisplaySettings(node) {
           ? normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings)
           : (node.phosphorWaveformSettings || {}),
       };
+    case "arpKeysFace":
+      return {
+        arpKeysSettings: typeof normalizeNodeGraphArpKeysSettings === "function"
+          ? normalizeNodeGraphArpKeysSettings(node.arpKeysSettings)
+          : (node.arpKeysSettings || {}),
+      };
+    case "transportBpm":
+      return {
+        transportSettings: typeof normalizeNodeGraphTransportSettings === "function"
+          ? normalizeNodeGraphTransportSettings(node.transportSettings)
+          : (node.transportSettings || { gateBlink: false }),
+      };
     case "knobFace":
       return {
         traceDisplaySettings: typeof normalizeNodeGraphKnobFaceDisplaySettings === "function"
@@ -600,6 +612,13 @@ function cloneNodeGraphPatch(patch) {
           : {}),
         ...(node.type === "audioPlayer" && Object.hasOwn(node, "phosphorWaveformSettings")
           ? { phosphorWaveformSettings: normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings) }
+          : {}),
+        ...(node.type === "arp" && Object.hasOwn(node, "arpKeysSettings")
+          ? {
+            arpKeysSettings: typeof normalizeNodeGraphArpKeysSettings === "function"
+              ? normalizeNodeGraphArpKeysSettings(node.arpKeysSettings)
+              : node.arpKeysSettings,
+          }
           : {}),
         ...(node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhase))
           ? { samplePhase: Math.max(0, Math.min(1, Number(node.samplePhase))) }

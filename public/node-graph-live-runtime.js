@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=seq-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=ear-cpp-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -1867,11 +1867,46 @@ function queueNodeGraphLivePatchCommand(command, nodeId = "") {
   }, 0);
 }
 
+function sendNodeGraphArpOverride(nodeId, midi) {
+  if (!nodeGraphMvp?.live?.node?.port) return;
+  try {
+    nodeGraphMvp.live.node.port.postMessage({
+      type: "arpOverride",
+      nodeId: String(nodeId || ""),
+      midi: Number.isFinite(Number(midi)) ? (Number(midi) | 0) : -1,
+    });
+  } catch (_e) { /* worklet disconnected */ }
+}
+
 function handleNodeGraphLiveWorkletMessage(event) {
   const message = event.data || {};
-  if (message.type === "sequencerDebug") {
+  if (message.type === "arpFace") {
     if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
-      nodeGraphMvp._seqWorkletDebug = message;
+      if (!nodeGraphMvp._arpFaceByNode) nodeGraphMvp._arpFaceByNode = {};
+      nodeGraphMvp._arpFaceByNode[String(message.nodeId || "")] = {
+        notes: Array.isArray(message.notes) ? message.notes : [],
+        play: Number(message.play),
+      };
+    }
+    return;
+  }
+  if (message.type === "seqPlayhead") {
+    if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+      nodeGraphMvp._seqPlayheadTick = Math.floor(Number(message.tick) || 0);
+    }
+    return;
+  }
+  if (message.type === "chordMemorySlots") {
+    if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+      nodeGraphMvp._chordMemorySlotBitsByNode = message.slotBitsByNode && typeof message.slotBitsByNode === "object"
+        ? message.slotBitsByNode
+        : {};
+      nodeGraphMvp._chordMemorySoundingByNode = message.soundingByNode && typeof message.soundingByNode === "object"
+        ? message.soundingByNode
+        : {};
+      if (typeof nodeGraphChordMemoryPaintKeys === "function") {
+        nodeGraphChordMemoryPaintKeys();
+      }
     }
     return;
   }
@@ -3129,26 +3164,26 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
   "./public/node-live-audio-worklet-dsp-state.js?v=protect-worklet-1",
   "./public/lib/polyphony-voices.js?v=gold-oct-1",
-  "./public/lib/note-mask-128.js?v=note-mask-1",
-  "./public/node-graph-keyboard-chord-memory.js?v=arp-clear-3",
-  "./public/modules/sequencer/sequencer-math.js?v=seq-18",
-  "./public/node-live-audio-worklet-events.js?v=seq-17",
+  "./public/lib/note-mask-128.js?v=arp-mask-1",
+  "./public/node-graph-keyboard-chord-memory.js?v=cm-ghost-1",
+  "./public/modules/sequencer/sequencer-math.js?v=seq-23",
+  "./public/node-live-audio-worklet-events.js?v=master-clock-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=seq-19",
-  "./public/node-live-audio-worklet-meta-view.js?v=meta-view-rewrite-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=ear-cpp-1",
+  "./public/node-live-audio-worklet-meta-view.js?v=canvas-face-1",
   "./public/node-live-audio-worklet-set-plan.js?v=chord-seq-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=seq-13",
+  "./public/node-live-audio-worklet-handle-message.js?v=arp-slide-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=meta-view-rewrite-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=seq-18",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=cm-ghost-1",
   "./public/node-live-audio-worklet-process.js?v=protect-worklet-1",
 ];
 
@@ -3654,12 +3689,42 @@ function nodeGraphPageHiddenPauseState() {
   return nodeGraphMvp.live.pageHiddenPause;
 }
 
+function nodeGraphLiveKeepPlayingWhenUnfocused() {
+  return Boolean(nodeGraphMvp?.live?.keepPlayingWhenUnfocused);
+}
+
+function nodeGraphLiveSetKeepPlayingWhenUnfocused(on) {
+  if (!nodeGraphMvp?.live) return;
+  nodeGraphMvp.live.keepPlayingWhenUnfocused = Boolean(on);
+  if (typeof renderNodeGraphLiveControls === "function") {
+    renderNodeGraphLiveControls(true);
+  }
+}
+
+function nodeGraphLiveToggleKeepPlayingWhenUnfocused() {
+  const next = !nodeGraphLiveKeepPlayingWhenUnfocused();
+  nodeGraphLiveSetKeepPlayingWhenUnfocused(next);
+  if (next && typeof nodeGraphTransportHandleAction === "function") {
+    nodeGraphTransportHandleAction("play");
+  }
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      next
+        ? "Keep playing when unfocused (▶▶)."
+        : "Pause when leaving tab.",
+    );
+  }
+}
+
 function nodeGraphApplyPageVisibilityAudioPolicy() {
   const live = nodeGraphMvp?.live;
   const pause = nodeGraphPageHiddenPauseState();
   if (!live || !pause) return;
 
   if (typeof document !== "undefined" && document.hidden) {
+    if (nodeGraphLiveKeepPlayingWhenUnfocused()) {
+      return;
+    }
     if (pause.active) return;
     const speed = Number(live.speedMultiplier);
     const playing = Boolean(live.node) && (!Number.isFinite(speed) || speed > 0);
@@ -3670,18 +3735,9 @@ function nodeGraphApplyPageVisibilityAudioPolicy() {
         ? speed
         : (Number(live.lastPlaySpeed) > 0 ? Number(live.lastPlaySpeed) : 1))
       : 0;
+    // Pause transport only — do not suspend/tear down the AudioContext.
     if (playing && typeof setNodeGraphLiveSpeed === "function") {
       setNodeGraphLiveSpeed(0, { force: true });
-    }
-    try {
-      if (live.context && typeof live.context.suspend === "function" && live.context.state === "running") {
-        live.context.suspend();
-      }
-    } catch (_error) {
-      // Ignore suspend races during teardown.
-    }
-    if (typeof nodeGraphMetamoduleStopAllMirrorLoops === "function") {
-      try { nodeGraphMetamoduleStopAllMirrorLoops(); } catch (_e) { /* ignore */ }
     }
     return;
   }

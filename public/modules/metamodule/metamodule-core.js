@@ -1967,7 +1967,7 @@ function exitNodeGraphMetamoduleViewToRoot() {
     nodeGraphMetamoduleRemountShellParameters(leavingId);
   }
   nodeGraphRefreshMetamoduleViewDom();
-  // Resume additive display mirrors on the shell (children are hidden again).
+  // Put pinned child faces back on the shell canvas (children hide on Root).
   if (typeof nodeGraphMetamoduleRefreshAllMirrors === "function") {
     nodeGraphMetamoduleRefreshAllMirrors();
   }

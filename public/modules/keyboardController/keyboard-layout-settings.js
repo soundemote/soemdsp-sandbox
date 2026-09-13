@@ -102,7 +102,9 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
   document.querySelectorAll(".node-midi-keyboard-module .node-midi-keyboard-surface").forEach((surface) => {
     const available = nodeGraphMidiKeyboardLayoutHostWidth(surface);
     const desired = totalWhite * s.whiteKeyWidth;
-    const inModuleFace = Boolean(surface.closest(".dsp-node.keyboard-layout"));
+    const inModuleFace = Boolean(surface.closest(
+      ".dsp-node.keyboard-layout, .node-layout-canvas-tile, .node-screen-solo-stage, .node-metamodule-canvas-stage",
+    ));
     const scale = desired > 0 && available > 0
       ? (inModuleFace ? (available / desired) : Math.min(1, available / desired))
       : 1;
@@ -218,7 +220,10 @@ function installNodeGraphMidiKeyboardLayoutResizeObserver() {
     window.addEventListener("resize", () => applyNodeGraphMidiKeyboardLayout());
   }
   document.querySelectorAll(
-    ".dsp-node .node-midi-keyboard-module, .node-midi-keyboard-module .node-midi-keyboard-surface",
+    ".dsp-node .node-midi-keyboard-module, "
+    + ".node-midi-keyboard-module .node-midi-keyboard-surface, "
+    + ".node-layout-canvas-tile .node-midi-keyboard-module, "
+    + ".node-metamodule-canvas-stage .node-midi-keyboard-module",
   ).forEach((el) => {
     nodeGraphMidiKeyboardLayoutResizeObserver.observe(el);
   });
@@ -285,9 +290,15 @@ function openNodeGraphKeyboardControllerDisplaySettings(event = {}) {
     event.preventDefault();
     event.stopPropagation();
   }
-  let nodeId = "";
-  if (typeof nodeGraphMvp?.patch?.nodes === "object") {
-    const placed = nodeGraphMvp.patch.nodes.find((n) => n?.type === "keyboardController");
+  const fromEl = event?.target instanceof Element
+    ? event.target
+    : (event?.currentTarget instanceof Element ? event.currentTarget : null);
+  let nodeId = String(
+    fromEl?.closest?.(".node-midi-keyboard-module[data-node], .dsp-node[data-node]")?.dataset?.node
+    || "",
+  ).trim();
+  if (!nodeId && Array.isArray(nodeGraphMvp?.patch?.nodes)) {
+    const placed = nodeGraphMvp.patch.nodes.find((n) => n?.type === "keyboard" || n?.type === "keyboardController");
     if (placed?.id) {
       nodeId = String(placed.id);
     }

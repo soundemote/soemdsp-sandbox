@@ -10,7 +10,7 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
   if (!host) {
     return;
   }
-  const type = formType || "trace";
+  const type = formType || "blank";
   // Tear down widgets bound to the previous schema body before replacing DOM.
   if (typeof destroyNodeGraphTraceDisplayColorWidgets === "function") {
     destroyNodeGraphTraceDisplayColorWidgets();
@@ -65,6 +65,32 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
     }
     if (typeof renderNodeGraphPhosphorWaveformSettingsWindow === "function") {
       renderNodeGraphPhosphorWaveformSettingsWindow();
+    }
+  }
+  if (type === "arpKeysFace") {
+    if (typeof bindNodeGraphArpKeysDisplaySettingsBody === "function") {
+      bindNodeGraphArpKeysDisplaySettingsBody(host);
+    }
+    if (typeof syncNodeGraphArpKeysDisplaySettingsControls === "function") {
+      syncNodeGraphArpKeysDisplaySettingsControls(
+        host,
+        typeof nodeGraphArpKeysSettingsForNode === "function"
+          ? nodeGraphArpKeysSettingsForNode(node)
+          : (node?.arpKeysSettings || {}),
+      );
+    }
+  }
+  if (type === "transportBpm") {
+    if (typeof bindNodeGraphTransportDisplaySettingsBody === "function") {
+      bindNodeGraphTransportDisplaySettingsBody(host);
+    }
+    if (typeof syncNodeGraphTransportDisplaySettingsControls === "function") {
+      syncNodeGraphTransportDisplaySettingsControls(
+        host,
+        typeof nodeGraphTransportSettingsForNode === "function"
+          ? nodeGraphTransportSettingsForNode(node)
+          : (node?.transportSettings || {}),
+      );
     }
   }
   if (type === "limiterGainFace") {
@@ -399,6 +425,18 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
         ? { ...nodeGraphPhosphorWaveformDefaultSettings }
         : {});
   }
+  if (type === "arpKeysFace") {
+    return typeof normalizeNodeGraphArpKeysSettings === "function"
+      ? normalizeNodeGraphArpKeysSettings()
+      : (typeof NODE_GRAPH_ARP_KEYS_DISPLAY_DEFAULTS !== "undefined"
+        ? { ...NODE_GRAPH_ARP_KEYS_DISPLAY_DEFAULTS }
+        : {});
+  }
+  if (type === "transportBpm") {
+    return typeof normalizeNodeGraphTransportSettings === "function"
+      ? normalizeNodeGraphTransportSettings()
+      : { gateBlink: false };
+  }
   if (type === "limiterGainFace") {
     return typeof normalizeNodeGraphLimiterGainFaceSettings === "function"
       ? normalizeNodeGraphLimiterGainFaceSettings()
@@ -512,6 +550,11 @@ function nodeGraphDisplaySettingsDefaultValue(key) {
 }
 
 function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraphTraceDisplaySettingsFormType()) {
+  if (type === "transportBpm") {
+    return typeof normalizeNodeGraphTransportSettings === "function"
+      ? normalizeNodeGraphTransportSettings(settings)
+      : { gateBlink: false };
+  }
   if (type === "spectrogramBurn") {
     const node = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId());
     return normalizeNodeGraphSpectrogramSettings(settings, node);
@@ -596,6 +639,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
       ? normalizeNodeGraphPhosphorWaveformSettings(settings)
       : (settings || {});
   }
+  if (type === "arpKeysFace") {
+    return typeof normalizeNodeGraphArpKeysSettings === "function"
+      ? normalizeNodeGraphArpKeysSettings(settings)
+      : (settings || {});
+  }
   if (type === "limiterGainFace") {
     return typeof normalizeNodeGraphLimiterGainFaceSettings === "function"
       ? normalizeNodeGraphLimiterGainFaceSettings(settings)
@@ -676,7 +724,10 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
         ? normalizeNodeGraphAsciiscope(settings)
         : settings || {});
   }
-  return normalizeNodeGraphTraceDisplaySettings(settings);
+  if (type === "trace" || type === "traceRgb" || type === "traceXyz" || type === "lineBurn") {
+    return normalizeNodeGraphTraceDisplaySettings(settings);
+  }
+  return {};
 }
 
 function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTraceDisplaySettingsFormType()) {
@@ -772,6 +823,20 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
       : (typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
         ? normalizeNodeGraphPhosphorWaveformSettings(node?.phosphorWaveformSettings)
         : (node?.phosphorWaveformSettings || {}));
+  }
+  if (settingsSchema === "arpKeysFace") {
+    return typeof nodeGraphArpKeysSettingsForNode === "function"
+      ? nodeGraphArpKeysSettingsForNode(node)
+      : (typeof normalizeNodeGraphArpKeysSettings === "function"
+        ? normalizeNodeGraphArpKeysSettings(node?.arpKeysSettings)
+        : (node?.arpKeysSettings || {}));
+  }
+  if (settingsSchema === "transportBpm") {
+    return typeof nodeGraphTransportSettingsForNode === "function"
+      ? nodeGraphTransportSettingsForNode(node)
+      : (typeof normalizeNodeGraphTransportSettings === "function"
+        ? normalizeNodeGraphTransportSettings(node?.transportSettings)
+        : (node?.transportSettings || { gateBlink: false }));
   }
   if (settingsSchema === "limiterGainFace") {
     return typeof nodeGraphLimiterGainFaceSettingsForNode === "function"
@@ -884,7 +949,7 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
       ? normalizeNodeGraphRasterRgbSettings(node.traceDisplaySettings)
       : (node.traceDisplaySettings || {});
   }
-  return nodeGraphGlobalTraceSettings();
+  return {};
 }
 
 function readNodeGraphTraceDisplaySettingsForm() {
@@ -902,6 +967,18 @@ function readNodeGraphTraceDisplaySettingsForm() {
       next.channel = Number(input.value);
     }
     return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
+  }
+  if (formType === "arpKeysFace") {
+    if (typeof readNodeGraphArpKeysDisplaySettingsForm === "function") {
+      return readNodeGraphArpKeysDisplaySettingsForm(root, current);
+    }
+    return normalizeNodeGraphDisplaySettingsForFormType(current, formType);
+  }
+  if (formType === "transportBpm") {
+    if (typeof readNodeGraphTransportDisplaySettingsForm === "function") {
+      return readNodeGraphTransportDisplaySettingsForm(root, current);
+    }
+    return normalizeNodeGraphDisplaySettingsForFormType(current, formType);
   }
   if (formType === "phosphorWaveform") {
     const next = { ...current };
@@ -1309,6 +1386,23 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
     const panel = root?.querySelector?.("[data-portal-display-settings-panel]") || root;
     if (typeof syncNodeGraphPortalDisplaySettingsControls === "function") {
       syncNodeGraphPortalDisplaySettingsControls(panel, normalized);
+    }
+    return;
+  }
+  if (formType === "arpKeysFace") {
+    const panel = root?.querySelector?.("[data-arp-keys-display-settings-panel]") || root;
+    if (typeof syncNodeGraphArpKeysDisplaySettingsControls === "function") {
+      syncNodeGraphArpKeysDisplaySettingsControls(panel, normalized);
+    }
+    if (typeof syncNodeGraphHueTitleSteppers === "function") {
+      syncNodeGraphHueTitleSteppers(panel);
+    }
+    return;
+  }
+  if (formType === "transportBpm") {
+    const panel = root?.querySelector?.("[data-transport-display-settings-panel]") || root;
+    if (typeof syncNodeGraphTransportDisplaySettingsControls === "function") {
+      syncNodeGraphTransportDisplaySettingsControls(panel, normalized);
     }
     return;
   }

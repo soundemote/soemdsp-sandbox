@@ -5333,10 +5333,11 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
+  // Master Clock: gates/triggers are derived from Live playhead, never a free phasor.
   transport: {
     planRole: "source",
     displayModes: [
-      { key: "transportBpm", renderer: "transportBpm", source: { value: "bpm" } },
+      { key: "transportBpm", renderer: "transportBpm", settingsSchema: "transportBpm", source: { value: "bpm" } },
     ],
     displaySignals: [
       { key: "bpm", kind: "scalar" },
@@ -5346,6 +5347,7 @@ const nodeGraphModuleDefinitions = (
       "Gate -1+1",
       "Trigger",
       "f",
+      "beat f",
     ],
     displayType: "transportBpm",
     inputs: [],
@@ -5364,18 +5366,24 @@ const nodeGraphModuleDefinitions = (
       "Trig Smooth": "Trigger",
       "Trig Decay": "Trigger",
       Trig: "Trigger",
+      beatf: "beat f",
+      "Beat f": "beat f",
+      "beat ƒ": "beat f",
+      "Beat ƒ": "beat f",
     },
     outputLabels: {
       "Gate 0-1": "Gate 0-1",
       "Gate -1+1": "Gate -1+1",
       Trigger: "Trigger",
       f: "f",
+      "beat f": "beat f",
     },
     outputs: [
       "Gate 0-1",
       "Gate -1+1",
       "Trigger",
       "f",
+      "beat f",
     ],
     parameters: [
       {
@@ -5414,7 +5422,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Numerator of Numer/Denom × whole note (same as Ping Pong). Numer=0 → no clock. 1/4 = one beat at BPM.",
+          "Numerator of Numer/Denom × whole note, locked to master playhead. Numer=0 → no clock. 1/4 = one beat at BPM.",
       },
       {
         control: "number",
@@ -5445,7 +5453,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Normal = Numer/Denom as written. Dotted = 1.5×. Triplet = 2/3× (three fit in two normals).",
+          "Normal = Numer/Denom as written. Dotted = 1.5×. Triplet = 2/3×. Always re-grids onto master time — never free-runs.",
       },
       {
         defaultValue: "1",
@@ -6137,7 +6145,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "0",
         key: "amplitude",
         kind: "decibels",
-        label: "Amplitude (All)",
+        label: "Gain",
         max: "12",
         mid: "0",
         min: "-140",
@@ -6397,29 +6405,29 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Input value that maps to Out High. Default +1 (bipolar).",
       },
       {
-        // Parameter default Out −10…+10 (Hz-friendly). Wire spawn keeps Out −1…+1 / 0…1.
+        // Spawn domain for Out is −10…+10 on every Range variant (browser + wire).
         defaultValue: "-10",
         key: "outLow",
         label: "Out Low",
-        max: "20000",
+        max: "10",
         mid: "0",
-        min: "-20000",
+        min: "-10",
         nonlinearSlider: true,
         showSign: true,
         step: "any",
-        tooltip: "Output at In Low. Module default −10 (bipolar). Wire spawn uses −1 or 0 for unit CV.",
+        tooltip: "Output at In Low. Slider domain −10…+10. Module default −10. Wire spawn still uses −1 or 0 as the value.",
       },
       {
         defaultValue: "10",
         key: "outHigh",
         label: "Out High",
-        max: "20000",
-        mid: "1",
-        min: "-20000",
+        max: "10",
+        mid: "0",
+        min: "-10",
         nonlinearSlider: true,
         showSign: true,
         step: "any",
-        tooltip: "Output at In High. Module default +10 (bipolar). Wire spawn uses +1 for unit CV; unipolar param default is 0…10.",
+        tooltip: "Output at In High. Slider domain −10…+10. Module default +10. Wire spawn still uses +1 as the value.",
       },
     ]
   },
@@ -9588,24 +9596,40 @@ const nodeGraphModuleDefinitions = (
   arp: {
     planRole: "processor",
     planFreeRun: true,
-    displayType: "trace",
+    displayType: "arpKeysFace",
+    defaultDisplayMode: "face",
+    displayModes: [
+      {
+        key: "face",
+        label: "Arp Keys",
+        renderer: "arpKeysFace",
+        settingsSchema: "arpKeysFace",
+        source: { value: "0.1V/Oct" },
+      },
+    ],
+    displayHeightGu: 5,
+    defaultWidthGu: 18,
     displaySignals: [
       { key: "0.1V/Oct", kind: "scalar" },
       { key: "f", kind: "scalar" },
     ],
-    displayModes: [
-      { key: "trace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "0.1V/Oct" } },
-    ],
-    defaultDisplayMode: "trace",
     digitalInputs: ["Arp Keys"],
+    digitalOutputs: ["Monophony", "Step"],
     inputs: ["Arp Keys", "Trigger", "Reset", "f"],
     inputChannels: { "Arp Keys": "gold" },
     inputLabels: { "Arp Keys": "Arp Keys", f: "ƒ", Trigger: "Trig" },
     inputAliases: { Clock: "Trigger", Trig: "Trigger", Frequency: "f", Freq: "f", "ƒ": "f" },
-    digitalOutputs: ["Step"],
-    outputs: ["0.1V/Oct", "f", "Gate", "Trigger", "Step"],
-    outputLabels: { "0.1V/Oct": "0.1V", f: "ƒ", Trigger: "Trig" },
-    outputAliases: { Pitch: "0.1V/Oct", Frequency: "f", Freq: "f", "ƒ": "f", Trig: "Trigger" },
+    outputChannels: { Monophony: "black" },
+    outputs: ["Monophony", "0.1V/Oct", "f", "Gate", "Trigger", "Step"],
+    outputLabels: { Monophony: "Monophony", "0.1V/Oct": "0.1V", f: "ƒ", Trigger: "Trig" },
+    outputAliases: {
+      Pitch: "0.1V/Oct",
+      Frequency: "f",
+      Freq: "f",
+      "ƒ": "f",
+      Trig: "Trigger",
+      Polyphony: "Monophony",
+    },
     parameters: [
       {
         choices: ["up", "dn", "up/dn", "dn/up", "random"],
@@ -9676,6 +9700,19 @@ const nodeGraphModuleDefinitions = (
         step: "1",
         unit: "oct",
         tooltip: "Transpose arpeggiated pitch by whole octaves (−4…+4). Applied to 0.1V/Oct and ƒ outs."
+      },
+      {
+        defaultValue: "0",
+        key: "sequenceOffset",
+        label: "Sequence Offset",
+        max: "127",
+        maxDigits: 0,
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "Rotate the pattern (including Random) by this many steps. Same seed, different offset → a shifted sequence."
       },
     ]
   },
@@ -12220,11 +12257,12 @@ const nodeGraphModuleDefinitions = (
   // Local piano face + explicit INs (wire MIDI→Keyboard Play Keys for device blue).
   // Play Keys = blue sounding mask. Arp Keys = gold ctrl+click latch.
   // Chord Memory IN = green mask: bit n activates saved chord slot n as Play Keys.
+  // Chord Memory OUT = expanded chord tones (patch to Arp Keys).
   // Polyphony = Midi Note + Velocity (local piano) — wire to Meta Voices.
   keyboard: {
     planRole: "source",
     digitalInputs: ["Play Keys", "Arp Keys", "Chord Memory"],
-    digitalOutputs: ["Polyphony", "Play Keys", "Arp Keys"],
+    digitalOutputs: ["Polyphony", "Play Keys", "Arp Keys", "Chord Memory"],
     inputs: ["Play Keys", "Arp Keys", "Chord Memory", "Gate", "Trigger"],
     inputChannels: {
       "Play Keys": "blue",
@@ -12235,8 +12273,17 @@ const nodeGraphModuleDefinitions = (
       Polyphony: "black",
       "Play Keys": "blue",
       "Arp Keys": "gold",
+      "Chord Memory": "green",
     },
     layout: "keyboard",
+    displayType: "keyboardControllerFace",
+    displayModes: [
+      {
+        key: "keyboardControllerFace",
+        renderer: "keyboardControllerFace",
+        settingsSchema: "keyboardControllerFace",
+      },
+    ],
     defaultWidthGu: 36,
     // Face 7 ⇒ outer ~18gu (header + face + 13 jack rows + lip).
     displayHeightGu: 7,
@@ -12256,6 +12303,7 @@ const nodeGraphModuleDefinitions = (
       Polyphony: "Polyphony",
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
+      "Chord Memory": "Chord Memory",
       KeyboardKey: "KeyboardKey",
       KeyboardNorm: "KeyboardNorm",
       "Note#/127": "Note#/127",
@@ -12274,6 +12322,7 @@ const nodeGraphModuleDefinitions = (
       "Polyphony",
       "Play Keys",
       "Arp Keys",
+      "Chord Memory",
       "Gate",
       "Trigger",
       "KeyboardKey",
@@ -12290,7 +12339,7 @@ const nodeGraphModuleDefinitions = (
   gridKeyboard: {
     planRole: "source",
     digitalInputs: ["Play Keys", "Arp Keys", "Chord Memory"],
-    digitalOutputs: ["Polyphony", "Play Keys", "Arp Keys"],
+    digitalOutputs: ["Polyphony", "Play Keys", "Arp Keys", "Chord Memory"],
     inputs: ["Play Keys", "Arp Keys", "Chord Memory"],
     inputChannels: {
       "Play Keys": "blue",
@@ -12301,6 +12350,7 @@ const nodeGraphModuleDefinitions = (
       Polyphony: "black",
       "Play Keys": "blue",
       "Arp Keys": "gold",
+      "Chord Memory": "green",
     },
     layout: "gridKeyboard",
     defaultWidthGu: 40,
@@ -12309,6 +12359,7 @@ const nodeGraphModuleDefinitions = (
       Polyphony: "Polyphony",
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
+      "Chord Memory": "Chord Memory",
       f: "ƒ",
     },
     inputLabels: {
@@ -12320,6 +12371,7 @@ const nodeGraphModuleDefinitions = (
       "Polyphony",
       "Play Keys",
       "Arp Keys",
+      "Chord Memory",
       "Gate",
       "Trigger",
       "f",

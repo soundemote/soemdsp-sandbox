@@ -3,23 +3,22 @@
 
 /**
  * Settings schema for a display renderer.
- * Unknown / custom layout faces (envelopeCurve, filterCurve, …) return "" —
- * NEVER default to "trace"/phosphor. That forced Ping Envelope and friends
- * into Instant Trace Display Settings.
+ * Only faces that actually have Display Settings fields get a schema.
+ * Unknown renderers (clock, transportBpm, …) return "" —
+ * NEVER Instant Trace / phosphor.
  */
 function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
   const r = String(renderer || "").trim();
   if (!r || r === "layoutOwned" || r === "blank" || r === "none") {
     return "";
   }
-  if (r === "phosphorWaveform") {
-    return "phosphorWaveform";
-  }
-  // Alias schemas used with renderer "trace" (Instant Trace family).
   if (r === "traceRgb" || r === "traceXyz") {
     return r;
   }
-  return nodeGraphDisplayModeRenderers.includes(r) ? r : "";
+  if (typeof nodeGraphModuleDisplayTypeHasLocalSettings === "function") {
+    return nodeGraphModuleDisplayTypeHasLocalSettings(r) ? r : "";
+  }
+  return "";
 }
 
 
@@ -242,6 +241,10 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "knobFace",
     // Keypad look: fonts, weight, button size, Sound Color Widgets.
     "keypadFace",
+    // Arp Keys: stroke/font hue + Music Player corners / padding.
+    "arpKeysFace",
+    // Master Clock BPM face: optional beat lamp.
+    "transportBpm",
     // Music Player waveform / playlist look.
     "phosphorWaveform",
     // Text Box look: mode, align, size, Sound Color Widgets.

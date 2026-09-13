@@ -1615,7 +1615,7 @@ function buildNodeGraphPhosphorDisplaySettingsBodyHtml(type, node, allowKey) {
 }
 
 function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
-  const type = formType || "trace";
+  const type = formType || "blank";
   // Modules with no face-specific schema — canvas pin lives in the chrome above.
   // Hint text is on tooltips (Show in canvas + blank body), not inline copy.
   if (type === "blank" || type === "none") {
@@ -1637,6 +1637,12 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   }
   if (type === "phosphorWaveform" && typeof buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml();
+  }
+  if (type === "arpKeysFace" && typeof buildNodeGraphArpKeysDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphArpKeysDisplaySettingsBodyHtml();
+  }
+  if (type === "transportBpm" && typeof buildNodeGraphTransportDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphTransportDisplaySettingsBodyHtml();
   }
   if (type === "limiterGainFace" && typeof buildNodeGraphLimiterGainDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphLimiterGainDisplaySettingsBodyHtml();

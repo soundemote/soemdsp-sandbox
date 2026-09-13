@@ -65,6 +65,7 @@ function nodeGraphLiveTransportUiState() {
 
 // Monochrome text-style glyphs (VS15) so OS emoji does not force red stop / ignore CSS color.
 const NODE_GRAPH_TRANSPORT_GLYPH_PLAY = "▶\uFE0E";
+const NODE_GRAPH_TRANSPORT_GLYPH_KEEP_PLAY = "▶▶\uFE0E";
 const NODE_GRAPH_TRANSPORT_GLYPH_PAUSE = "⏸\uFE0E";
 const NODE_GRAPH_TRANSPORT_GLYPH_STOP = "⏹\uFE0E";
 
@@ -372,7 +373,8 @@ function syncNodeGraphTransportPlayButtons({ playing = false, paused = false, st
   const isStarting = Boolean(starting) && isPlaying;
   // Red stop ONLY when fully cold — not while arming/starting the engine.
   const isStopped = !isPlaying && !isPaused;
-  const signature = `${isPlaying ? 1 : 0}|${isPaused ? 1 : 0}|${isStarting ? 1 : 0}|${isStopped ? 1 : 0}`;
+  const keepPlaying = Boolean(nodeGraphMvp?.live?.keepPlayingWhenUnfocused);
+  const signature = `${isPlaying ? 1 : 0}|${isPaused ? 1 : 0}|${isStarting ? 1 : 0}|${isStopped ? 1 : 0}|${keepPlaying ? 1 : 0}`;
   if (signature === nodeGraphLiveTransportButtonsSignature) {
     return;
   }
@@ -383,18 +385,28 @@ function syncNodeGraphTransportPlayButtons({ playing = false, paused = false, st
     if (tp.id === "nodeRenderedPlayerPlay") continue;
 
     tp.classList.add("node-transport-play");
-    tp.classList.remove("is-playing", "is-paused");
-    tp.textContent = NODE_GRAPH_TRANSPORT_GLYPH_PLAY;
+    tp.classList.remove("is-playing", "is-paused", "is-keep-playing");
+    tp.textContent = keepPlaying
+      ? NODE_GRAPH_TRANSPORT_GLYPH_KEEP_PLAY
+      : NODE_GRAPH_TRANSPORT_GLYPH_PLAY;
     if (isPlaying) {
-      tp.setAttribute("aria-label", isStarting ? "Starting" : "Play");
-      tp.title = isStarting ? "Starting engine…" : "Playing";
+      tp.setAttribute("aria-label", keepPlaying
+        ? "Keep playing when unfocused"
+        : (isStarting ? "Starting" : "Play"));
+      tp.title = keepPlaying
+        ? "Keep playing when unfocused (Ctrl+click to turn off)"
+        : (isStarting ? "Starting engine…" : "Playing");
       tp.setAttribute("aria-pressed", "true");
       tp.classList.add("is-playing");
+      if (keepPlaying) tp.classList.add("is-keep-playing");
       tp.dataset.transportState = isStarting ? "starting" : "playing";
     } else {
-      tp.setAttribute("aria-label", "Play");
-      tp.title = "Play";
+      tp.setAttribute("aria-label", keepPlaying ? "Keep playing when unfocused" : "Play");
+      tp.title = keepPlaying
+        ? "Keep playing when unfocused (Ctrl+click to turn off)"
+        : "Play";
       tp.setAttribute("aria-pressed", "false");
+      if (keepPlaying) tp.classList.add("is-keep-playing");
       tp.dataset.transportState = isPaused ? "paused" : "stopped";
     }
   }
@@ -674,6 +686,9 @@ function nodeGraphTransportHandleAction(action) {
     return;
   }
   if (key === "stop") {
+    if (typeof nodeGraphLiveSetKeepPlayingWhenUnfocused === "function") {
+      nodeGraphLiveSetKeepPlayingWhenUnfocused(false);
+    }
     // Always full stop: clear both Input and Output arms, tear down engine.
     // Pause must not use this path — pause only zeros speed.
     if (typeof stopNodeGraphLiveEngineFully === "function") {
@@ -753,6 +768,12 @@ function bindNodeGraphTransportButtons() {
         return;
       }
       event.preventDefault();
+      if (action === "play" && (event.ctrlKey || event.metaKey)) {
+        if (typeof nodeGraphLiveToggleKeepPlayingWhenUnfocused === "function") {
+          nodeGraphLiveToggleKeepPlayingWhenUnfocused();
+        }
+        return;
+      }
       nodeGraphTransportHandleAction(action);
     });
   }

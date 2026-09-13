@@ -38,6 +38,15 @@ NodeLiveAudioProcessor.prototype.setSpeed = function setSpeed(speed, options) {
       this._sequencerEngineSec = 0;
       this._sequencerNeedsRewind = true;
       this._vmReconcileFp = undefined;
+      if (
+        this.nativeGraphCompiled
+        && this.nativeGraphHandle
+        && this.nativeGraph?.soemdsp_graph_rewind_master
+      ) {
+        try {
+          this.nativeGraph.soemdsp_graph_rewind_master(this.nativeGraphHandle);
+        } catch (_e) { /* keep play */ }
+      }
     }
     // Pause→Play (speed 0→>0) without tearing down the worklet: snap osc phases
     // to 0 so PolyBLEP does not resume at a leftover phase.

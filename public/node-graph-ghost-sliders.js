@@ -166,6 +166,36 @@ function nodeGraphGhostSliderModSample(sourceNode, sourcePort, depth = 0) {
   return nodeGraphParameterValueToNormalizedSignal(domain, sourceMeta);
 }
 
+function nodeGraphParameterGhostModulationMatches(modulation, patchNode, key) {
+  const destNode = String(modulation?.destinationNode || "");
+  const destParam = String(modulation?.destinationParam || "");
+  const id = String(patchNode?.id || "");
+  const param = String(key || "");
+  if (!destNode || !destParam || !id || !param) {
+    return false;
+  }
+  if (destNode === id && destParam === param) {
+    return true;
+  }
+  // Root face: cables into an owned child still ghost on the exposed mx_* row.
+  if (
+    param.startsWith("mx_")
+    && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
+    && typeof nodeGraphIsContainerShellType === "function"
+    && nodeGraphIsContainerShellType(patchNode?.type)
+  ) {
+    const resolved = nodeGraphMetamoduleResolveExposeTarget(patchNode, param);
+    if (
+      resolved
+      && destNode === String(resolved.childId || "")
+      && destParam === String(resolved.paramKey || "")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function nodeGraphParameterGhostSignal(node, key) {
   const patchNode = nodeGraphPatchNode(node);
   if (!patchNode) {
@@ -178,7 +208,7 @@ function nodeGraphParameterGhostSignal(node, key) {
     : nodeGraphReadPatchParameterValue(patchNode, key);
   const sources = [];
   for (const modulation of nodeGraphMvp.patch.modulations || []) {
-    if (modulation.destinationNode !== node || modulation.destinationParam !== key) {
+    if (!nodeGraphParameterGhostModulationMatches(modulation, patchNode, key)) {
       continue;
     }
     const sample = nodeGraphGhostSliderModSample(

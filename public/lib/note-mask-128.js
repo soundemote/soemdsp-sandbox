@@ -81,12 +81,18 @@ function noteMaskHasHighChunks(mask) {
   return false;
 }
 
-/** phase: 0, 1, or 2. */
+function noteMaskPackChunks(mask) {
+  return {
+    c0: noteMaskPackRange(mask, 0, 48),
+    c1: noteMaskPackRange(mask, 49, 97),
+    c2: noteMaskPackRange(mask, 98, 127),
+  };
+}
+
+/** phase: 0, 1, or 2. Always rotate so empty/high chunks can clear latches. */
 function noteMaskTransmit(mask, phase) {
-  const c0 = noteMaskPackRange(mask, 0, 48);
-  if (!noteMaskHasHighChunks(mask)) return c0;
   const p = Math.abs(Math.round(Number(phase) || 0)) % 3;
-  if (p === 0) return c0;
+  if (p === 0) return noteMaskPackRange(mask, 0, 48);
   if (p === 1) return NOTE_MASK_FLAG1 + noteMaskPackRange(mask, 49, 97);
   return NOTE_MASK_FLAG2 + noteMaskPackRange(mask, 98, 127);
 }
@@ -176,6 +182,7 @@ if (typeof globalThis !== "undefined") {
   globalThis.noteMaskGet = noteMaskGet;
   globalThis.noteMaskOr = noteMaskOr;
   globalThis.noteMaskCopy = noteMaskCopy;
+  globalThis.noteMaskPackChunks = noteMaskPackChunks;
   globalThis.noteMaskTransmit = noteMaskTransmit;
   globalThis.noteMaskDemuxRegisters = noteMaskDemuxRegisters;
   globalThis.noteMaskFromRegisters = noteMaskFromRegisters;

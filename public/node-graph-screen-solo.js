@@ -27,6 +27,10 @@ const NODE_GRAPH_SCREEN_SOLO_FACE_SEL = [
   ".node-module-graph-display",
   ".node-additive-filter-curve-display",
   ".node-text-box-body",
+  ".node-midi-keyboard-module",
+  ".node-grid-keyboard-module",
+  ".node-arp-keys-face",
+  ".node-metamodule-face",
   ".node-module-face",
 ].join(", ");
 
@@ -118,8 +122,8 @@ function nodeGraphScreenSoloAllowsNode(nodeId) {
   if (nodeGraphScreenSoloNodeIds().includes(id)) {
     return true;
   }
-  // Metamodule face is a blit target: keep mirrored child painters alive when
-  // their owning shell is solo'd (otherwise Root F shows a black/empty mirror).
+  // Metamodule face hosts pinned child faces: keep those painters alive when
+  // the owning shell is on the root canvas.
   if (
     typeof nodeGraphMetamoduleChildIsMirrorSubscribed === "function"
     && nodeGraphMetamoduleChildIsMirrorSubscribed(id)
@@ -196,6 +200,9 @@ function nodeGraphScreenSoloFaceScore(face) {
   if (face.classList.contains("node-round-shape-display")) score += 35;
   if (face.classList.contains("node-basic-shape-display")) score += 35;
   if (face.classList.contains("node-module-scope-window")) score += 25;
+  if (face.classList.contains("node-midi-keyboard-module")) score += 40;
+  if (face.classList.contains("node-grid-keyboard-module")) score += 40;
+  if (face.classList.contains("node-arp-keys-face")) score += 35;
   if (face.classList.contains("node-module-face")) score += 10;
   if (face.classList.contains("node-text-box-body")) score += 30;
   const w = nodeGraphFiniteNumber(face.clientWidth || face.offsetWidth);
@@ -237,7 +244,9 @@ function nodeGraphScreenSoloFindFace(nodeId) {
     return { id, host, face: fromHost };
   }
   const loose = document.querySelector(
-    `[data-node="${escaped}"].node-filter-curve-display, `
+    `[data-node="${escaped}"].node-midi-keyboard-module, `
+    + `[data-node="${escaped}"].node-grid-keyboard-module, `
+    + `[data-node="${escaped}"].node-filter-curve-display, `
     + `[data-node="${escaped}"].node-round-shape-display, `
     + `[data-node="${escaped}"].node-basic-shape-display, `
     + `[data-node="${escaped}"].node-module-scope-window, `
@@ -325,6 +334,31 @@ function nodeGraphScreenSoloWakeFace(face) {
   if (typeof scheduleNodeGraphFilterCurveDraw === "function"
     && face.classList.contains("node-filter-curve-display")) {
     scheduleNodeGraphFilterCurveDraw();
+  }
+  if (face.classList.contains("node-midi-keyboard-module")
+    || face.querySelector?.(".node-midi-keyboard-surface")) {
+    if (typeof applyNodeGraphMidiKeyboardLayout === "function") {
+      applyNodeGraphMidiKeyboardLayout();
+    }
+    if (typeof renderNodeGraphMidiKeyboardKeys === "function") {
+      renderNodeGraphMidiKeyboardKeys();
+    }
+    if (typeof installNodeGraphMidiKeyboardLayoutResizeObserver === "function") {
+      installNodeGraphMidiKeyboardLayoutResizeObserver();
+    }
+  }
+  if (face.classList.contains("node-phosphor-waveform-display")
+    || face.querySelector?.(".node-phosphor-waveform-display")) {
+    const phosphor = face.classList.contains("node-phosphor-waveform-display")
+      ? face
+      : face.querySelector(".node-phosphor-waveform-display");
+    if (phosphor && typeof nodeGraphPhosphorWaveformEnsureLoop === "function") {
+      nodeGraphPhosphorWaveformEnsureLoop(phosphor);
+    }
+  }
+  if (typeof requestNodeGraphModuleScopeRepaint === "function") {
+    const nid = face.dataset?.node;
+    if (nid) requestNodeGraphModuleScopeRepaint(nid);
   }
 }
 
@@ -637,6 +671,9 @@ function nodeGraphScreenSoloCollectFaces(nodeIds) {
   const seen = new Set();
   const collected = [];
   for (const rawId of nodeIds || []) {
+    if (typeof nodeGraphViewportCullWakePresentedFace === "function") {
+      nodeGraphViewportCullWakePresentedFace(rawId);
+    }
     const found = nodeGraphScreenSoloFindFace(rawId);
     if (!found || seen.has(found.id)) {
       continue;
@@ -752,21 +789,10 @@ function beginNodeGraphScreenSoloGrid(nodeIds) {
   for (const childId of mirrorSources) {
     keep.add(childId);
   }
-  for (const node of document.querySelectorAll(".dsp-node")) {
-    if (keep.has(node.dataset?.node)) {
-      continue;
-    }
-    if (typeof nodeGraphViewportCullSleepPainters === "function") {
-      nodeGraphViewportCullSleepPainters(node);
-    }
-  }
   // Wake mirror sources + arm shell blit loops for solo'd Metamodules.
   for (const childId of mirrorSources) {
-    const host = typeof nodeGraphNodeElement === "function"
-      ? nodeGraphNodeElement(childId)
-      : document.querySelector(`.dsp-node[data-node="${CSS.escape(childId)}"]`);
-    if (host && typeof nodeGraphViewportCullWakePainters === "function") {
-      nodeGraphViewportCullWakePainters(host);
+    if (typeof nodeGraphViewportCullWakePresentedFace === "function") {
+      nodeGraphViewportCullWakePresentedFace(childId);
     }
   }
   for (const metaId of items.map((item) => item.nodeId)) {
@@ -847,20 +873,28 @@ function endNodeGraphScreenSolo(options = {}) {
     stage.hidden = true;
   }
   document.body.classList.remove("node-screen-solo-active");
-  // Re-seal LayoutA band rows / plate clip after solo cleared inline grid.
+  if (typeof nodeGraphSyncMetamoduleVisibilityToDom === "function") {
+    nodeGraphSyncMetamoduleVisibilityToDom();
+  }
   for (const entry of hostsToRelayout) {
-    nodeGraphScreenSoloRelayoutHost(entry.host, entry.nodeId);
-  }
-  if (!options.silent) {
-    for (const node of document.querySelectorAll(".dsp-node")) {
-      if (typeof nodeGraphViewportCullWakePainters === "function") {
-        nodeGraphViewportCullWakePainters(node);
-      }
+    const patchNode = typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(entry.nodeId)
+      : null;
+    const show = typeof nodeGraphModuleShouldBeVisible === "function"
+      ? nodeGraphModuleShouldBeVisible(patchNode)
+      : !entry.host.hidden;
+    if (!show) {
+      entry.host.hidden = true;
+      continue;
     }
-    window.requestAnimationFrame(() => {
-      nodeGraphScreenSoloRefreshPaint();
-    });
+    nodeGraphScreenSoloRelayoutHost(entry.host, entry.nodeId);
+    if (typeof nodeGraphViewportCullApply === "function") {
+      nodeGraphViewportCullApply(entry.host, true);
+    }
   }
+  window.requestAnimationFrame(() => {
+    nodeGraphScreenSoloRefreshPaint();
+  });
   return true;
 }
 

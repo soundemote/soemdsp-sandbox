@@ -12,7 +12,7 @@ namespace {
 
 using namespace soemdsp_maths;
 
-static const int kMaxInstances = 32;
+static const int kMaxInstances = 64;
 static const double kHpHz = 1000.0;
 static const double kThreshold = 1.9952623149688795; // 10^(6/20)
 static const double kDropDefault = 0.008;
@@ -186,6 +186,11 @@ extern "C" void soemdsp_speaker_protector2_sample(
   if (outMono) *outMono = (outL + outR) * 0.5;
 }
 
+extern "C" double soemdsp_speaker_protector2_gain(int handle) {
+  if (handle < 1 || handle > kMaxInstances || !gPool[handle - 1].active) return 1.0;
+  return gPool[handle - 1].gain;
+}
+
 extern "C" int soemdsp_speaker_protector2_version() {
-  return 1;
+  return 2;
 }

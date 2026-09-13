@@ -755,10 +755,10 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       def = Number.isFinite(fallback.def) ? fallback.def : 0;
     }
   }
-  // Range: knob domain was ±1000 / ±10000; sane defaults are −10…+10.
+  // Range Out: spawn domain is −10…+10 (was ±20000 / ±10000 / ±1000).
   if (
     type === "range"
-    && (key === "inLow" || key === "inHigh" || key === "outLow" || key === "outHigh")
+    && (key === "outLow" || key === "outHigh")
     && Number.isFinite(fallback.min)
     && Number.isFinite(fallback.max)
     && fallback.min === -10

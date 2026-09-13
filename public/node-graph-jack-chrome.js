@@ -104,6 +104,7 @@ function nodeGraphPortIsNoteBus(port) {
     || key === "Arp Keys"
     || key === "Chord Memory"
     || key === "Polyphony"
+    || key === "Monophony"
     || key === "Voices";
 }
 
@@ -353,7 +354,7 @@ function nodeGraphJackChannel(type, port, io = "output") {
     return "";
   }
   // Port-name SSOT for voice buses (works even if def lookup misses).
-  if (key === "Polyphony" || key === "Voices") {
+  if (key === "Polyphony" || key === "Monophony" || key === "Voices") {
     return "black";
   }
   if (key === "Play Keys") {
@@ -528,8 +529,9 @@ function nodeGraphJackElementVisibility(element) {
   }
   // Off-screen cull uses display:none on the whole .dsp-node — ports are 0×0
   // by design there. Do not treat them as a jack-chrome failure.
-  const viewportAsleep = Boolean(element.closest?.(".dsp-node.viewport-asleep"));
-  if (viewportAsleep) {
+  const hostNode = element.closest?.(".dsp-node");
+  const viewportAsleep = Boolean(hostNode?.classList.contains("viewport-asleep"));
+  if (viewportAsleep || hostNode?.hidden) {
     return {
       node: element.dataset?.node || "",
       port: element.dataset?.port || "",
@@ -629,7 +631,7 @@ function nodeGraphJackVisibilityCensus(root) {
   const inlets = painted.filter((row) => row.io === "input");
   const outlets = painted.filter((row) => row.io === "output");
   const rgb = painted.filter((row) => row.channel === "red" || row.channel === "green" || row.channel === "blue");
-  const awakeModules = modules.filter((node) => !node.classList.contains("viewport-asleep"));
+  const awakeModules = modules.filter((node) => !node.classList.contains("viewport-asleep") && !node.hidden);
   const workspace = typeof document !== "undefined" && typeof document.getElementById === "function"
     ? document.getElementById("nodeGraphWorkspace")
     : scope.querySelector?.(".node-graph-workspace");

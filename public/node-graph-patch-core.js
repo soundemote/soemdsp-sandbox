@@ -632,6 +632,11 @@ function validateNodeGraphPatch(patch) {
     if (type === "audioPlayer" && Object.hasOwn(node, "phosphorWaveformSettings")) {
       normalizedNode.phosphorWaveformSettings = normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings);
     }
+    if (type === "arp" && Object.hasOwn(node, "arpKeysSettings")) {
+      normalizedNode.arpKeysSettings = typeof normalizeNodeGraphArpKeysSettings === "function"
+        ? normalizeNodeGraphArpKeysSettings(node.arpKeysSettings)
+        : node.arpKeysSettings;
+    }
     // Remembered playhead (0..1) so Music Player restores position after refresh.
     if (type === "audioPlayer" && Object.hasOwn(node, "samplePhase")) {
       const samplePhase = Number(node.samplePhase);

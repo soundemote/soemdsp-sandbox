@@ -2695,8 +2695,12 @@ html.soemdsp-hide-ui.body.node-patch-load-fault-open #nodePatchLoadFault {
   border-radius: 0;
 }
 
-/* Keyboard module face: compact controls on top, piano fills remaining vertical space. */
-.dsp-node.keyboard-layout > .node-midi-keyboard-module.node-module-face {
+/* Keyboard module face: compact controls on top, piano fills remaining vertical space.
+   Same grid when the face is reparented onto layout canvas / Meta shell. */
+.dsp-node.keyboard-layout > .node-midi-keyboard-module.node-module-face,
+.node-layout-canvas-tile > .node-midi-keyboard-module.node-module-face,
+.node-screen-solo-stage .node-midi-keyboard-module.node-module-face,
+.node-metamodule-canvas-stage .node-midi-keyboard-module.node-module-face {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   align-content: stretch;
@@ -2716,12 +2720,57 @@ html.soemdsp-hide-ui.body.node-patch-load-fault-open #nodePatchLoadFault {
   box-shadow: none;
 }
 
+/* Solo-stage rules set position:relative on every face; keyboard on a canvas
+   tile must still fill the tile and keep a real piano row. */
+body.node-screen-solo-active .node-layout-canvas-tile > .node-screen-solo-face.node-midi-keyboard-module,
+.node-layout-canvas-tile > .node-midi-keyboard-module.node-module-face,
+.node-metamodule-canvas-stage .node-layout-canvas-tile > .node-midi-keyboard-module {
+  display: grid !important;
+  grid-template-rows: auto minmax(48px, 1fr) !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-heading,
+.node-layout-canvas-tile .node-midi-keyboard-heading,
+.node-metamodule-canvas-stage .node-midi-keyboard-heading {
+  max-height: 36%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-performance,
+body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-surface,
+.node-layout-canvas-tile .node-midi-keyboard-performance,
+.node-layout-canvas-tile .node-midi-keyboard-surface,
+.node-metamodule-canvas-stage .node-midi-keyboard-performance,
+.node-metamodule-canvas-stage .node-midi-keyboard-surface {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
 .dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-signal-bar,
-.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-bitmask-row {
+.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-bitmask-row,
+.node-layout-canvas-tile .node-midi-keyboard-module .node-midi-keyboard-signal-bar,
+.node-layout-canvas-tile .node-midi-keyboard-module .node-midi-keyboard-bitmask-row,
+.node-screen-solo-stage .node-midi-keyboard-module .node-midi-keyboard-signal-bar,
+.node-screen-solo-stage .node-midi-keyboard-module .node-midi-keyboard-bitmask-row,
+.node-metamodule-canvas-stage .node-midi-keyboard-module .node-midi-keyboard-signal-bar,
+.node-metamodule-canvas-stage .node-midi-keyboard-module .node-midi-keyboard-bitmask-row {
   display: none !important;
 }
 
-.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-heading {
+.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-heading,
+.node-layout-canvas-tile .node-midi-keyboard-module .node-midi-keyboard-heading,
+.node-screen-solo-stage .node-midi-keyboard-module .node-midi-keyboard-heading,
+.node-metamodule-canvas-stage .node-midi-keyboard-module .node-midi-keyboard-heading {
   display: flex;
   min-width: 0;
   max-width: 100%;
@@ -2729,13 +2778,19 @@ html.soemdsp-hide-ui.body.node-patch-load-fault-open #nodePatchLoadFault {
   gap: 4px;
 }
 
-.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls {
+.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls,
+.node-layout-canvas-tile .node-midi-keyboard-module .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls,
+.node-screen-solo-stage .node-midi-keyboard-module .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls,
+.node-metamodule-canvas-stage .node-midi-keyboard-module .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls {
   flex-wrap: wrap;
   justify-content: flex-start;
   gap: 4px;
 }
 
-.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-performance {
+.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-performance,
+.node-layout-canvas-tile .node-midi-keyboard-module .node-midi-keyboard-performance,
+.node-screen-solo-stage .node-midi-keyboard-module .node-midi-keyboard-performance,
+.node-metamodule-canvas-stage .node-midi-keyboard-module .node-midi-keyboard-performance {
   justify-content: stretch;
   min-width: 0;
   min-height: 0;
@@ -2743,7 +2798,10 @@ html.soemdsp-hide-ui.body.node-patch-load-fault-open #nodePatchLoadFault {
   height: 100%;
 }
 
-.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-surface {
+.dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-surface,
+.node-layout-canvas-tile .node-midi-keyboard-module .node-midi-keyboard-surface,
+.node-screen-solo-stage .node-midi-keyboard-module .node-midi-keyboard-surface,
+.node-metamodule-canvas-stage .node-midi-keyboard-module .node-midi-keyboard-surface {
   flex: 1 1 auto;
   width: 100% !important;
   max-width: 100%;
@@ -3069,6 +3127,12 @@ html.soemdsp-hide-ui.body.node-patch-load-fault-open #nodePatchLoadFault {
   color: #f3f1ec;
 }
 
+.node-grid-keyboard-pad.ghost-chord:not(.slot-on):not(.slot-edit):not(.active):not(.held) {
+  background: rgba(61, 220, 132, 0.22);
+  border-color: rgba(125, 255, 176, 0.55);
+  color: inherit;
+  box-shadow: inset 0 0 0 2px rgba(61, 220, 132, 0.4);
+}
 .node-grid-keyboard-pad.chord-memory {
   background: #1f9a55;
   border-color: #7dffb0;
@@ -3093,6 +3157,30 @@ html.soemdsp-hide-ui.body.node-patch-load-fault-open #nodePatchLoadFault {
   box-shadow:
     inset 0 0 0 1px #7fc7d9,
     0 0 0 2px rgba(61, 220, 132, 0.85);
+}
+.node-grid-keyboard-pad.chord-memory.slot-on,
+.node-grid-keyboard-pad.chord-memory.active.slot-on,
+.node-grid-keyboard-pad.chord-memory.held.slot-on {
+  background: #3dff8a;
+  border-color: #e8ffe8;
+  color: #041a0c;
+  box-shadow:
+    inset 0 0 0 1px rgba(230, 255, 240, 0.95),
+    0 0 0 2px #c8ffd8,
+    0 0 16px rgba(90, 255, 160, 0.95);
+}
+.node-grid-keyboard-pad.slot-edit,
+.node-grid-keyboard-pad.chord-memory.slot-edit,
+.node-grid-keyboard-pad.chord-memory.held.slot-edit,
+.node-grid-keyboard-pad.chord-memory.active.slot-edit {
+  background: #3dff8a;
+  border-color: #f4fff4;
+  color: #041a0c;
+  box-shadow:
+    inset 0 0 0 1px rgba(230, 255, 240, 0.95),
+    0 0 0 3px #e8ffe8,
+    0 0 0 6px rgba(61, 220, 132, 0.85),
+    0 0 18px rgba(90, 255, 160, 1);
 }
 
 /* Macro knob bank is the module display — no title/status chrome. */
@@ -3603,6 +3691,25 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   text-shadow: 0 0 7px rgba(234, 248, 255, 0.84);
 }
 
+/* Chord Memory OUT — dim alpha wash over the real key. */
+.node-midi-keyboard-white-row span.ghost-chord:not(.slot-on):not(.slot-edit):not(.active):not(.held) {
+  color: rgba(5, 6, 7, 0.78);
+  background:
+    linear-gradient(180deg, rgba(61, 220, 132, 0.28), rgba(31, 154, 85, 0.16)),
+    linear-gradient(180deg, #f7f2e8 0%, #cfc7b8 72%, #a79f93 100%);
+  box-shadow: inset 0 0 0 2px rgba(61, 220, 132, 0.38);
+  text-shadow: none;
+}
+.node-midi-keyboard-black-row span.ghost-chord:not(.slot-on):not(.slot-edit):not(.active):not(.held) {
+  border-color: rgba(125, 255, 176, 0.45);
+  background:
+    linear-gradient(180deg, rgba(61, 220, 132, 0.32), rgba(31, 154, 85, 0.18)),
+    linear-gradient(180deg, #2a2a2c 0%, #111113 100%);
+  box-shadow:
+    inset 0 0 0 2px rgba(61, 220, 132, 0.4),
+    0 8px 18px rgba(0, 0, 0, 0.45);
+}
+
 /* Chord Memory slot — green fill (same treatment as gold/blue). */
 .node-midi-keyboard-white-row span.chord-memory {
   color: #041a0c;
@@ -3642,6 +3749,37 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
     0 0 0 2px rgba(61, 220, 132, 0.9),
     0 0 28px rgba(61, 220, 132, 0.4);
   text-shadow: 0 0 7px rgba(234, 248, 255, 0.84);
+}
+.node-midi-keyboard-white-row span.chord-memory.slot-on,
+.node-midi-keyboard-white-row span.chord-memory.held.slot-on,
+.node-midi-keyboard-white-row span.chord-memory.active.slot-on {
+  color: #041a0c;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(240, 255, 245, 0.98), transparent 32%),
+    linear-gradient(180deg, #c8ffd8 0%, #3dff8a 55%, #0d6b38 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(230, 255, 240, 0.95),
+    inset 0 0 28px rgba(80, 255, 160, 0.55),
+    0 0 18px rgba(90, 255, 160, 0.9),
+    0 0 40px rgba(61, 220, 132, 0.7),
+    0 0 0 2px rgba(200, 255, 220, 0.95);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+}
+.node-midi-keyboard-white-row span.slot-edit,
+.node-midi-keyboard-white-row span.chord-memory.slot-edit,
+.node-midi-keyboard-white-row span.chord-memory.held.slot-edit,
+.node-midi-keyboard-white-row span.chord-memory.active.slot-edit {
+  color: #041a0c;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(240, 255, 245, 0.98), transparent 32%),
+    linear-gradient(180deg, #c8ffd8 0%, #3dff8a 55%, #0d6b38 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(230, 255, 240, 0.95),
+    inset 0 0 28px rgba(80, 255, 160, 0.55),
+    0 0 18px rgba(90, 255, 160, 1),
+    0 0 0 3px #f4fff4,
+    0 0 0 6px rgba(61, 220, 132, 0.9);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
 }
 
 .node-midi-keyboard-black-row span.chord-memory {
@@ -3686,6 +3824,36 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
     0 8px 18px rgba(0, 0, 0, 0.45),
     0 0 0 2px rgba(61, 220, 132, 0.9),
     0 0 24px rgba(61, 220, 132, 0.4);
+}
+.node-midi-keyboard-black-row span.chord-memory.slot-on,
+.node-midi-keyboard-black-row span.chord-memory.held.slot-on,
+.node-midi-keyboard-black-row span.chord-memory.active.slot-on {
+  border-color: rgba(230, 255, 240, 0.98);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(210, 255, 230, 0.85), transparent 30%),
+    linear-gradient(180deg, #3dff8a 0%, #0a4a28 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(230, 255, 240, 0.9),
+    inset 0 0 18px rgba(80, 255, 160, 0.55),
+    0 8px 18px rgba(0, 0, 0, 0.45),
+    0 0 0 2px rgba(200, 255, 220, 0.95),
+    0 0 28px rgba(90, 255, 160, 0.85);
+}
+.node-midi-keyboard-black-row span.slot-edit,
+.node-midi-keyboard-black-row span.chord-memory.slot-edit,
+.node-midi-keyboard-black-row span.chord-memory.held.slot-edit,
+.node-midi-keyboard-black-row span.chord-memory.active.slot-edit {
+  border-color: rgba(244, 255, 244, 0.98);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(210, 255, 230, 0.85), transparent 30%),
+    linear-gradient(180deg, #3dff8a 0%, #0a4a28 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(230, 255, 240, 0.9),
+    inset 0 0 18px rgba(80, 255, 160, 0.55),
+    0 8px 18px rgba(0, 0, 0, 0.45),
+    0 0 0 3px #f4fff4,
+    0 0 0 6px rgba(61, 220, 132, 0.9),
+    0 0 28px rgba(90, 255, 160, 0.95);
 }
 
 .node-midi-keyboard-white-row span:last-child {
@@ -12509,6 +12677,11 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   display: none !important;
 }
 
+/* Interior / portal modules stay off Root even if cull wake removes viewport-asleep. */
+.dsp-node[hidden] {
+  display: none !important;
+}
+
 .dsp-node {
   --node-module-scope-height: calc(var(--node-grid-height) * var(--node-module-display-height-units, 2));
   --node-module-interface-controls-height: calc(var(--node-grid-height) * var(--node-module-interface-controls-height-units, 4));
@@ -13257,7 +13430,11 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 }
 
 .dsp-node .node-knob-face .node-macro-knob-dial > [data-knob-face-readout],
-.dsp-node .node-knob-face .node-macro-knob-dial > .node-macro-knob-value {
+.dsp-node .node-knob-face .node-macro-knob-dial > .node-macro-knob-value,
+.node-layout-canvas-tile .node-knob-face .node-macro-knob-dial > [data-knob-face-readout],
+.node-layout-canvas-tile .node-knob-face .node-macro-knob-dial > .node-macro-knob-value,
+.node-screen-solo-stage .node-knob-face .node-macro-knob-dial > [data-knob-face-readout],
+.node-metamodule-canvas-stage .node-knob-face .node-macro-knob-dial > [data-knob-face-readout] {
   font-size: calc(0.28rem + var(--knob-value-size, 0.45) * 1.55rem);
 }
 
@@ -13326,7 +13503,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 /* Value readout a bit larger on the module plate. */
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro .node-macro-knob-dial strong,
 .node-knob-face.node-knob-module-macro .node-macro-knob-dial strong {
-  font-size: 0.72rem;
   color: var(--text);
 }
 
@@ -24944,7 +25120,7 @@ code {
   overflow: visible;
 }
 
-/* Metamodule face — additive display mirrors. */
+/* Metamodule face — layout-canvas arrangement of pinned child displays. */
 .node-metamodule-face {
   position: relative;
   display: flex;
@@ -24957,6 +25133,21 @@ code {
   box-sizing: border-box;
   overflow: hidden;
   background: #000;
+}
+.node-metamodule-canvas-stage {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  background: #000;
+  z-index: 2;
+}
+.node-metamodule-canvas-stage[hidden] {
+  display: none !important;
+}
+.node-metamodule-canvas-stage .node-layout-canvas-tile .node-layout-canvas-face,
+.node-metamodule-canvas-stage .node-layout-canvas-tile .node-screen-solo-face {
+  pointer-events: none;
 }
 .node-metamodule-face-empty {
   position: absolute;

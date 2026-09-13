@@ -120,6 +120,18 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     return node.phosphorWaveformSettings;
   }
+  if (displayType === "arpKeysFace") {
+    node.arpKeysSettings = typeof normalizeNodeGraphArpKeysSettings === "function"
+      ? normalizeNodeGraphArpKeysSettings(settings)
+      : (settings || {});
+    return node.arpKeysSettings;
+  }
+  if (displayType === "transportBpm") {
+    node.transportSettings = typeof normalizeNodeGraphTransportSettings === "function"
+      ? normalizeNodeGraphTransportSettings(settings)
+      : (settings || { gateBlink: false });
+    return node.transportSettings;
+  }
   if (displayType === "limiterGainFace") {
     node.traceDisplaySettings = typeof normalizeNodeGraphLimiterGainFaceSettings === "function"
       ? normalizeNodeGraphLimiterGainFaceSettings(settings)
@@ -600,12 +612,26 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
       ? { ...node.phosphorWaveformSettings }
       : {};
   }
+  if (settingsSchema === "arpKeysFace") {
+    return node.arpKeysSettings && typeof node.arpKeysSettings === "object"
+      ? { ...node.arpKeysSettings }
+      : {};
+  }
+  if (settingsSchema === "transportBpm") {
+    return node.transportSettings && typeof node.transportSettings === "object"
+      ? { ...node.transportSettings }
+      : { gateBlink: false };
+  }
   if (settingsSchema === "textBoxFace") {
     return node.layout && typeof node.layout === "object" ? { ...node.layout } : {};
   }
-  return node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
-    ? { ...node.traceDisplaySettings }
-    : {};
+  if (settingsSchema === "trace" || settingsSchema === "traceRgb" || settingsSchema === "traceXyz"
+    || settingsSchema === "lineBurn" || settingsSchema === "value") {
+    return node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+      ? { ...node.traceDisplaySettings }
+      : {};
+  }
+  return {};
 }
 
 function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
