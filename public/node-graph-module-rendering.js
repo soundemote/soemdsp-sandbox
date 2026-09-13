@@ -446,6 +446,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     image: "image-node-layout",
     keyboardController: "keyboard-controller-layout",
     keyboard: "keyboard-layout",
+    gridKeyboard: "grid-keyboard-layout",
     pitchQuantizer: "pitch-quantizer-layout",
     chordPad: "chord-pad-layout",
     asciiscope: "asciiscope-layout",
@@ -958,6 +959,7 @@ function createNodeGraphModuleElement(type, node) {
   } else if (
     definition.layout === "keyboardController"
     || definition.layout === "keyboard"
+    || definition.layout === "gridKeyboard"
     || definition.layout === "macroControls"
     || definition.layout === "pitchModWheel"
   ) {
@@ -967,6 +969,8 @@ function createNodeGraphModuleElement(type, node) {
       article.append(createNodeGraphMidiModuleBody(node));
     } else if (definition.layout === "keyboard") {
       article.append(createNodeGraphKeyboardControllerBody(node));
+    } else if (definition.layout === "gridKeyboard") {
+      article.append(createNodeGraphGridKeyboardBody(node));
     } else if (definition.layout === "macroControls") {
       article.append(createNodeGraphMacroControlsBody(node));
     } else {

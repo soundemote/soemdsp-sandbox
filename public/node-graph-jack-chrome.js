@@ -98,6 +98,11 @@ function nodeGraphJackLastToken(value) {
   return tokens[tokens.length - 1] || "";
 }
 
+function nodeGraphPortIsNoteBus(port) {
+  const key = String(port || "").trim();
+  return key === "Play Keys" || key === "Arp Keys" || key === "Polyphony" || key === "Voices";
+}
+
 function nodeGraphJackSignalKind(type, port, io = null) {
   if (typeof nodeGraphPortIsDigitalSignal === "function" && nodeGraphPortIsDigitalSignal(type, port, io)) {
     return "digital";
@@ -477,6 +482,12 @@ function nodeGraphApplyJackChrome(element, type, port, io = "output") {
     }
   } else {
     delete element.dataset.jackChannel;
+  }
+  const jackEl = element.classList?.contains("node-port")
+    ? element
+    : element.querySelector?.(".node-port:not(.node-param-port)");
+  if (jackEl && typeof nodeGraphPortIsNoteBus === "function") {
+    jackEl.classList.toggle("node-port-square", nodeGraphPortIsNoteBus(port));
   }
   return channel;
 }

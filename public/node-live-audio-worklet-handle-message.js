@@ -52,11 +52,11 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       return;
     }
     if (message.type === "setMidiKeyboardHeldKeysBitmask") {
-      this.setMidiKeyboardHeldKeysBitmask(message.low, message.high, message.velocities);
+      this.setMidiKeyboardHeldKeysBitmask(message.mask, message.velocities, message.octave);
       return;
     }
     if (message.type === "setMidiKeyboardPlayKeysBitmask") {
-      this.setMidiKeyboardPlayKeysBitmask(message.low, message.high);
+      this.setMidiKeyboardPlayKeysBitmask(message.mask);
       return;
     }
     if (message.type === "setPolyphonyVelocities") {

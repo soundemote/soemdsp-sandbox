@@ -211,6 +211,10 @@ function nodeGraphDrawWireWithOptionalPath(svg, options) {
       to,
       skipHitPath,
       wireColors: [fromColor, toColor],
+      squareFrom: typeof nodeGraphPortIsNoteBus === "function"
+        && nodeGraphPortIsNoteBus(pathOptions.sourcePort),
+      squareTo: typeof nodeGraphPortIsNoteBus === "function"
+        && nodeGraphPortIsNoteBus(pathOptions.destinationPort),
     });
     return true;
   }
@@ -329,6 +333,8 @@ function nodeGraphDrawSignalWire(svg, connection, index, context) {
   const fromColor = nodeGraphPortWireColor(connection.sourceNode, connection.sourcePort, "output");
   const toColor = nodeGraphPortWireColor(connection.destinationNode, connection.destinationPort, "input");
   nodeGraphDrawWireWithOptionalPath(svg, {
+    sourcePort: connection.sourcePort,
+    destinationPort: connection.destinationPort,
     alias: `${nodeGraphLabel(connection.sourceNode, connection.sourcePort)} -> ${nodeGraphLabel(
       connection.destinationNode,
       connection.destinationPort,

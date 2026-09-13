@@ -809,6 +809,7 @@ const NODE_GRAPH_MODULE_WIDGET_BAND_ID = Object.freeze({
   canvas: "face",
   text: "face",
   keyboard: "face",
+  gridKeyboard: "face",
   wheels: "face",
   midi: "controls",
   interfaceControls: "controls",
@@ -1515,8 +1516,9 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
-  if (nodeGraphModuleDefinitions[type]?.layout === "keyboard") {
-    // Same stack as dock keyboard: header | face (controls + piano) | I/O.
+  if (nodeGraphModuleDefinitions[type]?.layout === "keyboard"
+    || nodeGraphModuleDefinitions[type]?.layout === "gridKeyboard") {
+    // Same stack as dock keyboard: header | face (controls + piano/grid) | I/O.
     // Face height is freehand display gu so the piano can stretch vertically.
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },

@@ -175,12 +175,7 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "allpass",
   "basicShape",
   "chordPad",
-  "noteGlide",
   "hypersaw2",
-  "noteTranspose",
-  "degreeTuring",
-  "degreePhrase",
-  "gravityWalker",
   "smoothGraph",
   "stepGraph",
   "phaseDisperse",
@@ -737,12 +732,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Chord Pad",
     notes: ["chord", "diatonic", "scale mask", "root", "pitch quantizer", "pads"],
   },
-  chordSequencer: {
-    category: "musical",
-    description: "Clock through progressions for automatic harmony that drives the rest of the pitch chain.",
-    label: "Chord Sequencer",
-    notes: ["chord progression", "scale mask", "root", "ping-pong", "key"],
-  },
   lutCell: {
     category: "digital",
     description: "FPGA-style truth table + flip-flop—build custom digital logic and weird gate patterns.",
@@ -767,12 +756,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Cheap Walk",
     notes: ["reflecting walk", "LCG", "noise", "modulation"],
   },
-  chordMemory: {
-    category: "musical",
-    description: "Capture a chord stack from monophonic pitch and walk or mutate the latched notes.",
-    label: "Chord Memory",
-    notes: ["latch", "mono to chord", "shuffle bag", "mutate walk", "trigger"],
-  },
   turingMachine: {
     category: "digital",
     description: "Evolving CV/melody register—semi-random sequences that slowly corrode over time.",
@@ -784,36 +767,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Snap free pitch CV to a scale so walkers and LFOs land on musical notes.",
     label: "Pitch Quantizer",
     notes: ["quantizer", "scale keyboard", "0.1v/oct", "pitch class mask", "melody from chaos"],
-  },
-  degreeTuring: {
-    category: "musical",
-    description: "Scale-degree Turing melody—mutate within a key instead of raw voltage.",
-    label: "Degree Turing",
-    notes: ["generative melody", "scale degrees", "mutating loop", "mono"],
-  },
-  gravityWalker: {
-    category: "musical",
-    description: "Stepwise scale walker with occasional leaps—melodies that prefer neighbors but escape ruts.",
-    label: "Gravity Walker",
-    notes: ["melodic walker", "gravity", "leap", "mono", "scale"],
-  },
-  degreePhrase: {
-    category: "musical",
-    description: "Loop an 8-step degree phrase that can slowly mutate—aging riffs, not classic arps.",
-    label: "Degree Phrase",
-    notes: ["phrase", "degrees", "rests", "mutate", "mono"],
-  },
-  noteGlide: {
-    category: "musical",
-    description: "Portamento/slew on 0.1V/oct so pitch moves slide instead of jump.",
-    label: "Note Glide",
-    notes: ["portamento", "slew", "0.1v/oct"],
-  },
-  noteTranspose: {
-    category: "musical",
-    description: "Shift pitch by semitones/octaves after quantizers or before oscillators.",
-    label: "Note Transpose",
-    notes: ["transpose", "octave", "semitone"],
   },
   surgeOscillator: {
     category: "oscillator",
@@ -1282,6 +1235,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Local piano (dock + face). Play Keys (blue) / Arp Keys (gold) / Polyphony (black → Meta Voices); does not auto-follow hardware MIDI — use the MIDI module for that.",
     label: "Keyboard",
     notes: ["keyboard", "piano", "play keys", "arp keys", "polyphony", "controller", "performance", "gate", "trigger", "velocity", "note"],
+  },
+  gridKeyboard: {
+    category: "controller",
+    description: "Array-mbira grid: fifths left-to-right from F, octaves bottom-to-top, MIDI 0–127. Same blue Play / gold Arp latch as Keyboard.",
+    label: "Grid Keyboard",
+    notes: ["grid", "array mbira", "circle of fifths", "keyboard", "play keys", "arp keys", "polyphony", "controller"],
   },
   macroControls: {
     category: "controller",
@@ -2855,17 +2814,9 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/scientificIir/scientific-iir-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
   },
-  chordMemory: {
-    source: "public/modules/chordMemory/chord-memory-worklet-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chordMemory/chord-memory-worklet-evaluator.js",
-  },
   chordPad: {
     source: "public/modules/chordPad/chord-pad-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chordPad/chord-pad-worklet-evaluator.js",
-  },
-  chordSequencer: {
-    source: "public/modules/chordSequencer/chord-sequencer-worklet-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chordSequencer/chord-sequencer-worklet-evaluator.js",
   },
   chromaColor: {
     source: "public/modules/chromaColor/chroma-color-live-evaluator.js",
@@ -3083,6 +3034,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/keyboardController/keyboard-controller-live-evaluator.js",
   },
   keyboard: {
+    source: "public/modules/keyboardController/keyboard-controller-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/keyboardController/keyboard-controller-live-evaluator.js",
+  },
+  gridKeyboard: {
     source: "public/modules/keyboardController/keyboard-controller-live-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/keyboardController/keyboard-controller-live-evaluator.js",
   },

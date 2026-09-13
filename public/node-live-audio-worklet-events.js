@@ -458,27 +458,21 @@ NodeLiveAudioProcessor.prototype.setMacroControls = function setMacroControls(va
     ));
 };
 
-NodeLiveAudioProcessor.prototype.setMidiKeyboardPlayKeysBitmask = function setMidiKeyboardPlayKeysBitmask(low, high) {
-  const safeLow = Math.floor(Number(low));
-  const safeHigh = Math.floor(Number(high));
-  try {
-    this.midiKeyboardPlayKeysLowBitmask = Number.isFinite(safeLow) && safeLow >= 0 ? safeLow : 0;
-    this.midiKeyboardPlayKeysHighBitmask = Number.isFinite(safeHigh) && safeHigh >= 0 ? safeHigh : 0;
-  } catch (_error) {
-    this.midiKeyboardPlayKeysLowBitmask = 0;
-    this.midiKeyboardPlayKeysHighBitmask = 0;
-  }
+NodeLiveAudioProcessor.prototype.setMidiKeyboardPlayKeysBitmask = function setMidiKeyboardPlayKeysBitmask(mask) {
+  this.midiKeyboardPlayMask = typeof noteMaskEnsure === "function"
+    ? noteMaskEnsure(mask)
+    : (mask instanceof Uint8Array ? mask : new Uint8Array(128));
 };
 
-NodeLiveAudioProcessor.prototype.setMidiKeyboardHeldKeysBitmask = function setMidiKeyboardHeldKeysBitmask(low, high, velocities) {
-    const safeLow = Math.floor(Number(low));
-    const safeHigh = Math.floor(Number(high));
-    this.midiKeyboardHeldKeysLowBitmask = Number.isFinite(safeLow) && safeLow >= 0 ? safeLow : 0;
-    this.midiKeyboardHeldKeysHighBitmask = Number.isFinite(safeHigh) && safeHigh >= 0 ? safeHigh : 0;
+NodeLiveAudioProcessor.prototype.setMidiKeyboardHeldKeysBitmask = function setMidiKeyboardHeldKeysBitmask(mask, velocities, octave) {
+    const oct = Math.round(Number(octave));
+    this.midiKeyboardOctave = Number.isFinite(oct) ? oct : 0;
+    this.midiKeyboardArpMask = typeof noteMaskEnsure === "function"
+      ? noteMaskEnsure(mask)
+      : (mask instanceof Uint8Array ? new Uint8Array(mask) : new Uint8Array(128));
     if (velocities instanceof Uint8Array) {
-      const n = 88;
-      const copy = new Uint8Array(n);
-      copy.set(velocities.subarray(0, n));
+      const copy = new Uint8Array(128);
+      copy.set(velocities.subarray(0, 128));
       this.midiKeyboardHeldKeyVelocities = copy;
     }
 };

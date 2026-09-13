@@ -51,6 +51,8 @@ const PARAM_FREQUENCY = 10;
 const PARAM_ATT_OFFSET = 71;
 const PHASE = 2 ** 49;
 const SR = 48000;
+// 128-key mask: bit i = MIDI i. C0 E0 G0.
+const CEG = 2 ** 24 + 2 ** 28 + 2 ** 31;
 
 const ver = version() | 0;
 if (ver < 108) {
@@ -81,7 +83,7 @@ function tickExternal(h, mask, rising) {
 {
   const h = arpCreate() | 0;
   if (h <= 0) throw new Error("arp create");
-  const mask = (1 << 0) | (1 << 4) | (1 << 7);
+  const mask = CEG;
   const pitches = [];
   for (let i = 0; i < 6; i++) {
     const pitch = tickExternal(h, mask, true);
@@ -103,7 +105,7 @@ function tickExternal(h, mask, rising) {
 // Octave Offset +1 raises MIDI by 12
 {
   const h = arpCreate() | 0;
-  const mask = (1 << 0) | (1 << 4) | (1 << 7);
+  const mask = CEG;
   const tick = (rising) => {
     if (!rising) return arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 1, SR);
     arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 1, SR);
@@ -128,7 +130,7 @@ function tickExternal(h, mask, rising) {
   arpSample(h, PHASE + high, 1, 0, 1, 0, 0, 0, 0, 1, 0, SR);
   const pitch = arpSample(h, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, SR);
   const midi = Math.round(pitch * 120);
-  if (midi !== 73) throw new Error(`arp high-half midi=${midi} want 73`);
+  if (midi !== 49) throw new Error(`arp high-half midi=${midi} want 49`);
   arpDestroy(h);
   console.log("arp phase-bit demux ok");
 }
@@ -136,7 +138,7 @@ function tickExternal(h, mask, rising) {
 // Free-run Internal Clock (hasTrig=0, rate>0)
 {
   const h = arpCreate() | 0;
-  const mask = (1 << 0) | (1 << 4) | (1 << 7);
+  const mask = CEG;
   let sawTrig = false;
   let lastMidi = -1;
   let changes = 0;
@@ -154,6 +156,40 @@ function tickExternal(h, mask, rising) {
   console.log("arp Internal Clock free-run ok");
 }
 
+// First Internal Clock step is one period (preview used to hold note 0 for 2).
+{
+  const h = arpCreate() | 0;
+  const mask = CEG;
+  const rate = 32;
+  const period = Math.round(SR / rate);
+  const trigAt = [];
+  const midiAtTrig = [];
+  for (let i = 0; i < period * 4 + 8; i++) {
+    const pitch = arpSample(h, mask, 1, 0, 0, 0, rate, 0, 0, 1, 0, SR);
+    if (arpTrigger(h) > 0.5) {
+      trigAt.push(i);
+      midiAtTrig.push(Math.round(pitch * 120));
+    }
+  }
+  if (trigAt[0] !== 0) {
+    throw new Error(`arp first trigger at ${trigAt[0]}, want 0`);
+  }
+  for (let i = 1; i < 4; i++) {
+    const dt = trigAt[i] - trigAt[i - 1];
+    if (Math.abs(dt - period) > 1) {
+      throw new Error(`arp trigger spacing ${dt} != ${period} (i=${i} at ${trigAt.join(",")})`);
+    }
+  }
+  const expect = [24, 28, 31, 24];
+  for (let i = 0; i < expect.length; i++) {
+    if (midiAtTrig[i] !== expect[i]) {
+      throw new Error(`arp first-beat pitches ${midiAtTrig.slice(0, 4).join(",")} != ${expect.join(",")}`);
+    }
+  }
+  arpDestroy(h);
+  console.log("arp Internal Clock first beat ok");
+}
+
 // Graph: Bias (held mask) → arp free-run → out
 {
   const g = create() | 0;
@@ -165,7 +201,7 @@ function tickExternal(h, mask, rising) {
   if ((add(g, hArp, TYPE_ARP) | 0) !== 0) throw new Error("arp add");
   if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("out add");
 
-  const mask = (1 << 0) | (1 << 4) | (1 << 7);
+  const mask = CEG;
   setParam(g, hBias, PARAM_ATT_OFFSET, mask);
   setParam(g, hArp, PARAM_FREQUENCY, 32); // Internal Clock
   setParam(g, hArp, PARAM_MODE, 0);

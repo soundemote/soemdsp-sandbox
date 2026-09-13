@@ -32,35 +32,14 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
   };
 
   // Keyboard (local) vs MIDI (hardware) — separate signals; Keyboard mixes INs.
-  const PHASE = 2 ** 49;
-  const demuxBits = (value) => {
-    const v = num(value, 0);
-    return v >= PHASE ? { low: 0, high: v - PHASE } : { low: v, high: 0 };
-  };
-  const orMask = (a, b) => {
-    let out = 0;
-    const left = num(a, 0);
-    const right = num(b, 0);
-    for (let i = 0; i < 49; i += 1) {
-      const bit = 2 ** i;
-      if ((Math.floor(left / bit) % 2) || (Math.floor(right / bit) % 2)) out += bit;
-    }
-    return out;
-  };
-  const transmitBits = (low, high, phaseOn) => {
-    const hi = num(high, 0);
-    if (!hi) return num(low, 0);
-    return phaseOn ? PHASE + hi : num(low, 0);
-  };
+  const transmitMask = (mask, phase) => (typeof noteMaskTransmit === "function"
+    ? noteMaskTransmit(mask, phase)
+    : 0);
   const orTransmit = (values, phaseOn) => {
-    let low = 0;
-    let high = 0;
-    for (let i = 0; i < values.length; i += 1) {
-      const parts = demuxBits(values[i]);
-      low = orMask(low, parts.low);
-      high = orMask(high, parts.high);
+    if (typeof noteMaskOrTransmit === "function") {
+      return noteMaskOrTransmit(values, phaseOn);
     }
-    return transmitBits(low, high, phaseOn);
+    return 0;
   };
   const collectIn = (nodeId, port) => {
     const key = typeof this.inputKey === "function"
@@ -86,25 +65,20 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
   };
 
   const pulseActive = this.midiKeyboardGatePulseSamples > 0;
-  this.midiKeyboardHeldKeysPhase = this.midiKeyboardHeldKeysPhase ? 0 : 1;
+  this.midiKeyboardHeldKeysPhase = ((this.midiKeyboardHeldKeysPhase | 0) + 1) % 3;
   const phaseOn = this.midiKeyboardHeldKeysPhase;
-  // Gold Arp Keys latch (ctrl+click) — always phase-mux both halves.
-  const arpLocal = transmitBits(
-    this.midiKeyboardHeldKeysLowBitmask || 0,
-    this.midiKeyboardHeldKeysHighBitmask || 0,
+  const arpLocal = transmitMask(
+    this.midiKeyboardArpMask instanceof Uint8Array
+      ? this.midiKeyboardArpMask
+      : (typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128)),
     phaseOn,
   );
-  // Blue Play Keys from live MIDI note bitmask.
-  let midiPlayLocal = this.midiKeyboardPlayKeysLowBitmask || 0;
-  if (this.midiKeyboardPlayKeysHighBitmask) {
-    midiPlayLocal = transmitBits(
-      this.midiKeyboardPlayKeysLowBitmask,
-      this.midiKeyboardPlayKeysHighBitmask,
-      phaseOn,
-    );
-  } else if (this.midiKeyboardPlayKeysLowBitmask) {
-    midiPlayLocal = transmitBits(this.midiKeyboardPlayKeysLowBitmask, 0, phaseOn);
-  }
+  const midiPlayLocal = transmitMask(
+    this.midiKeyboardPlayMask instanceof Uint8Array
+      ? this.midiKeyboardPlayMask
+      : (typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128)),
+    phaseOn,
+  );
 
   if (!this._keyboardCvHold) this._keyboardCvHold = new Map();
   const buildCv = (signal, usePulse, holdKey) => {
@@ -157,9 +131,10 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
   // Pass 1: MIDI from hardware signal; Keyboard base from local signal.
   for (const [id, node] of this.nodes) {
     const nodeType = String(node?.type || "");
-    if (nodeType !== "keyboardController" && nodeType !== "keyboard") continue;
+    if (nodeType !== "keyboardController" && nodeType !== "keyboard" && nodeType !== "gridKeyboard") continue;
     const nid = String(id);
-    const isKeyboard = nodeType === "keyboard";
+    const isKeyboard = nodeType === "keyboard" || nodeType === "gridKeyboard";
+    const isGrid = nodeType === "gridKeyboard";
     const signal = isKeyboard
       ? (this.keyboardModuleSignal || {})
       : (this.midiKeyboardSignal || {});
@@ -172,34 +147,39 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       const playIn = collectIn(nid, "Play Keys");
       let playLocal = 0;
       if (cv.gateAmp > 0) {
-        const bit = 2 ** Math.max(0, Math.min(48, cv.key));
-        playLocal = bit;
+        const raw = Number.isFinite(Number(signal.rawMidi)) ? Number(signal.rawMidi) : cv.midi;
+        const one = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
+        const midi = Math.max(0, Math.min(127, Math.round(raw)));
+        if (typeof noteMaskSet === "function") noteMaskSet(one, midi, true);
+        else one[midi] = 1;
+        playLocal = transmitMask(one, phaseOn);
       }
       const playOut = orTransmit([playLocal, ...playIn], phaseOn);
       // Polyphony jack sample is cosmetic — Voices SSOT is VoiceManager events.
       const polyOut = cv.gateAmp > 0
         ? ((cv.midi | 0) + Math.min(1, Math.max(0, cv.velocity01)) / 128)
         : 0;
-      this.nodeOutputs.set(nid, {
+      const outs = {
         "Play Keys": playOut,
         "Arp Keys": arpOut,
         Polyphony: polyOut,
         Gate: gateOut,
         Trigger: triggerOut,
-        KeyboardKey: cv.key,
-        KeyboardNorm: cv.q,
-        "Note#/127": Math.max(0, Math.min(1, cv.midi / 127)),
-        "Velo#/127": cv.velocity01,
-        "Velocity#/127": cv.velocity01,
-        "0.1V/Oct": cv.tenth,
-        "0.1v/Oct": cv.tenth,
-        "Inc.": cv.increment,
-        Increment: cv.increment,
         f: cv.frequency,
         Frequency: cv.frequency,
         X: cv.x,
         Y: cv.y,
-      });
+      };
+      if (!isGrid) {
+        outs.KeyboardKey = cv.key;
+        outs.KeyboardNorm = cv.q;
+        outs["Note#/127"] = Math.max(0, Math.min(1, cv.midi / 127));
+        outs["Velo#/127"] = cv.velocity01;
+        outs["Velocity#/127"] = cv.velocity01;
+        outs["0.1V/Oct"] = cv.tenth;
+        outs["0.1v/Oct"] = cv.tenth;
+      }
+      this.nodeOutputs.set(nid, outs);
     } else {
       const polyOut = typeof polyphonyTableWireSample === "function"
         ? polyphonyTableWireSample(this.midiPolyphonyVelocities)
@@ -213,8 +193,6 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         "Velocity#/127": cv.velocity01,
         "0.1V/Oct": cv.tenth,
         "0.1v/Oct": cv.tenth,
-        "Inc.": cv.increment,
-        Increment: cv.increment,
         Frequency: cv.frequency,
         f: cv.frequency,
         X: cv.x,
@@ -224,7 +202,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
   }
   // Pass 2: Keyboard INs can read MIDI (and other) outs published above.
   for (const [id, node] of this.nodes) {
-    if (String(node?.type || "") !== "keyboard") continue;
+    if (String(node?.type || "") !== "keyboard" && String(node?.type || "") !== "gridKeyboard") continue;
     const nid = String(id);
     const prev = this.nodeOutputs.get(nid) || {};
     const signal = this.keyboardModuleSignal || {};
@@ -236,7 +214,12 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const arpOut = orTransmit([arpLocal, ...collectIn(nid, "Arp Keys")], phaseOn);
     let playLocal = 0;
     if (cv.gateAmp > 0) {
-      playLocal = 2 ** Math.max(0, Math.min(48, cv.key));
+      const raw = Number.isFinite(Number(signal.rawMidi)) ? Number(signal.rawMidi) : cv.midi;
+      const one = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
+      const midi = Math.max(0, Math.min(127, Math.round(raw)));
+      if (typeof noteMaskSet === "function") noteMaskSet(one, midi, true);
+      else one[midi] = 1;
+      playLocal = transmitMask(one, phaseOn);
     }
     const playOut = orTransmit([playLocal, ...collectIn(nid, "Play Keys")], phaseOn);
     const polyOut = cv.gateAmp > 0
@@ -262,7 +245,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       const p = node?.params || node?.parameters || {};
       const nid = String(id);
 
-      if (type === "keyboardController" || type === "keyboard") {
+      if (type === "keyboardController" || type === "keyboard" || type === "gridKeyboard") {
         continue;
       }
 

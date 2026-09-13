@@ -2,42 +2,11 @@
 globalThis.nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators || {};
 var nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators;
 
-const NODE_GRAPH_HELD_KEYS_PHASE = 2 ** 49;
-const NODE_GRAPH_HELD_KEYS_LOW_BITS = 49;
-
-function nodeGraphHeldKeysDemux(value) {
-  const v = nodeGraphFiniteNumber(value);
-  if (v >= NODE_GRAPH_HELD_KEYS_PHASE) {
-    return { low: 0, high: v - NODE_GRAPH_HELD_KEYS_PHASE };
-  }
-  return { low: v, high: 0 };
-}
-
-function nodeGraphHeldKeysBitmaskOr(a, b) {
-  let out = 0;
-  const left = nodeGraphFiniteNumber(a);
-  const right = nodeGraphFiniteNumber(b);
-  for (let i = 0; i < NODE_GRAPH_HELD_KEYS_LOW_BITS; i += 1) {
-    const bit = 2 ** i;
-    if ((Math.floor(left / bit) % 2) || (Math.floor(right / bit) % 2)) {
-      out += bit;
-    }
-  }
-  return out;
-}
-
 function nodeGraphHeldKeysOrTransmit(values, phase) {
-  let low = 0;
-  let high = 0;
-  for (const value of values || []) {
-    const parts = nodeGraphHeldKeysDemux(value);
-    low = nodeGraphHeldKeysBitmaskOr(low, parts.low);
-    high = nodeGraphHeldKeysBitmaskOr(high, parts.high);
+  if (typeof noteMaskOrTransmit === "function") {
+    return noteMaskOrTransmit(values, phase);
   }
-  if (typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function") {
-    return nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase);
-  }
-  return high ? (phase ? NODE_GRAPH_HELD_KEYS_PHASE + high : low) : low;
+  return 0;
 }
 
 /** Collect raw source values for a port (no sum). */
@@ -152,12 +121,18 @@ function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null)
 
 /** Gold Arp Keys latch (ctrl+click mask) — Keyboard only. */
 function nodeGraphKeyboardLocalArpTransmit(phase) {
-  const low = nodeGraphFiniteNumber(nodeGraphMvp?.midiKeyboardHeldKeysLowBitmask);
-  const high = nodeGraphFiniteNumber(nodeGraphMvp?.midiKeyboardHeldKeysHighBitmask);
-  if (typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function") {
-    return nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase);
+  const mask = nodeGraphMvp?.midiKeyboardArpMask;
+  if (typeof noteMaskTransmit === "function" && mask instanceof Uint8Array) {
+    return noteMaskTransmit(mask, phase);
   }
-  return high ? (phase ? NODE_GRAPH_HELD_KEYS_PHASE + high : low) : low;
+  if (typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function") {
+    return nodeGraphMidiKeyboardHeldKeysTransmitValue(
+      nodeGraphMvp?.midiKeyboardHeldKeysLowBitmask,
+      nodeGraphMvp?.midiKeyboardHeldKeysHighBitmask,
+      phase,
+    );
+  }
+  return 0;
 }
 
 /**
@@ -165,40 +140,26 @@ function nodeGraphKeyboardLocalArpTransmit(phase) {
  * Prefers worklet-synced bitmask when present.
  */
 function nodeGraphMidiPlayKeysTransmit(phase) {
-  const syncLow = nodeGraphFiniteNumber(nodeGraphMvp?.midiKeyboardPlayKeysLowBitmask);
-  const syncHigh = nodeGraphFiniteNumber(nodeGraphMvp?.midiKeyboardPlayKeysHighBitmask);
-  if ((syncLow > 0 || syncHigh > 0)
-    && typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function") {
-    return nodeGraphMidiKeyboardHeldKeysTransmitValue(syncLow, syncHigh, phase);
+  const play = nodeGraphMvp?.midiKeyboardPlayMask;
+  if (typeof noteMaskTransmit === "function" && play instanceof Uint8Array) {
+    return noteMaskTransmit(play, phase);
   }
   const notes = nodeGraphMvp?.midiKeyboardHeldNotes;
-  let low = 0;
-  let high = 0;
-  const base = typeof nodeGraphMidiKeyboardStartMidi === "number"
-    ? nodeGraphMidiKeyboardStartMidi
-    : 24;
-  if (notes instanceof Map && typeof nodeGraphMidiKeyboardHeldKeysWithBit === "function") {
+  if (notes instanceof Map && typeof noteMaskCreate === "function") {
+    const mask = noteMaskCreate();
     for (const midi of notes.keys()) {
-      const index = Math.round(Number(midi)) - base;
-      if (index < 0 || index > 87) {
-        continue;
-      }
-      const bits = nodeGraphMidiKeyboardHeldKeysWithBit(low, high, index, true);
-      low = bits.low;
-      high = bits.high;
+      noteMaskSet(mask, Math.round(Number(midi)), true);
     }
+    return noteMaskTransmit(mask, phase);
   }
-  if (typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function") {
-    return nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase);
-  }
-  return high ? (phase ? NODE_GRAPH_HELD_KEYS_PHASE + high : low) : low;
+  return 0;
 }
 
 /** Keyboard module: local piano + OR/max INs. Does not read hardware MIDI. */
 nodeGraphLiveModuleEvaluators.keyboard = ({
   runtime, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate,
 }) => {
-  const phase = frame % 2;
+  const phase = frame % 3;
   const ctx = { runtime, frameValues, frame, frames, mixInput, hasInput };
   const signal = nodeGraphKeyboardSignalFromMvp(true);
   if (!runtime.keyboardCvHold) runtime.keyboardCvHold = new Map();
@@ -221,11 +182,13 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
   const playIn = nodeGraphKeyboardMixOrBits(nodeId, "Play Keys", ctx, phase);
   // Local press mask: single key while gated.
   let playLocal = 0;
-  if (cv.gateAmp > 0 && typeof nodeGraphMidiKeyboardHeldKeysWithBit === "function") {
-    const bits = nodeGraphMidiKeyboardHeldKeysWithBit(0, 0, cv.key, true);
-    playLocal = typeof nodeGraphMidiKeyboardHeldKeysTransmitValue === "function"
-      ? nodeGraphMidiKeyboardHeldKeysTransmitValue(bits.low, bits.high, phase)
-      : bits.low;
+  if (cv.gateAmp > 0 && typeof noteMaskCreate === "function") {
+    const one = noteMaskCreate();
+    const raw = Number.isFinite(Number(signal?.rawMidi))
+      ? Math.round(Number(signal.rawMidi))
+      : cv.midi;
+    noteMaskSet(one, Math.max(0, Math.min(127, raw)), true);
+    playLocal = noteMaskTransmit(one, phase);
   }
   const playOut = nodeGraphHeldKeysOrTransmit([playLocal, playIn], phase);
   const polyTable = nodeGraphMvp?.keyboardPolyphonyVelocities;
@@ -252,8 +215,6 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
     "Velocity#/127": cv.velocity01,
     "0.1V/Oct": Math.max(0, Math.min(1, cv.midi / 120)),
     "0.1v/Oct": Math.max(0, Math.min(1, cv.midi / 120)),
-    "Inc.": cv.increment,
-    Increment: cv.increment,
     f: cv.frequency,
     Frequency: cv.frequency,
     X: cv.x,
@@ -279,7 +240,7 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({
     runtime.keyboardCvHold.get(nodeId),
   );
   runtime.keyboardCvHold.set(nodeId, cv);
-  const phase = frame % 2;
+  const phase = frame % 3;
   const playOut = nodeGraphMidiPlayKeysTransmit(phase);
   const polyTable = nodeGraphMvp?.midiPolyphonyVelocities;
   const polyOut = typeof polyphonyTableWireSample === "function"
@@ -294,10 +255,56 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({
     "Velocity#/127": cv.velocity01,
     "0.1V/Oct": Math.max(0, Math.min(1, cv.midi / 120)),
     "0.1v/Oct": Math.max(0, Math.min(1, cv.midi / 120)),
-    "Inc.": cv.increment,
-    Increment: cv.increment,
     Frequency: cv.frequency,
     f: cv.frequency,
+    X: cv.x,
+    Y: cv.y,
+  };
+};
+
+/** Grid Keyboard: same Play/Arp/Polyphony engine; X/Y are discrete grid coords. */
+nodeGraphLiveModuleEvaluators.gridKeyboard = ({
+  runtime, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate,
+}) => {
+  const phase = frame % 3;
+  const ctx = { runtime, frameValues, frame, frames, mixInput, hasInput };
+  const signal = nodeGraphKeyboardSignalFromMvp(true);
+  if (!runtime.keyboardCvHold) runtime.keyboardCvHold = new Map();
+  const cv = nodeGraphKeyboardBuildCvFromSignal(
+    signal,
+    sampleRate,
+    runtime.keyboardCvHold.get(nodeId),
+  );
+  runtime.keyboardCvHold.set(nodeId, cv);
+
+  const arpLocal = nodeGraphKeyboardLocalArpTransmit(phase);
+  const arpIn = nodeGraphKeyboardMixOrBits(nodeId, "Arp Keys", ctx, phase);
+  const arpOut = nodeGraphHeldKeysOrTransmit([arpLocal, arpIn], phase);
+
+  const playIn = nodeGraphKeyboardMixOrBits(nodeId, "Play Keys", ctx, phase);
+  let playLocal = 0;
+  if (cv.gateAmp > 0 && typeof noteMaskCreate === "function") {
+    const one = noteMaskCreate();
+    const raw = Number.isFinite(Number(signal?.rawMidi))
+      ? Math.round(Number(signal.rawMidi))
+      : cv.midi;
+    noteMaskSet(one, Math.max(0, Math.min(127, raw)), true);
+    playLocal = noteMaskTransmit(one, phase);
+  }
+  const playOut = nodeGraphHeldKeysOrTransmit([playLocal, playIn], phase);
+  const polyTable = nodeGraphMvp?.keyboardPolyphonyVelocities;
+  const polyOut = typeof polyphonyTableWireSample === "function"
+    ? polyphonyTableWireSample(polyTable)
+    : 0;
+
+  return {
+    "Play Keys": playOut,
+    "Arp Keys": arpOut,
+    Polyphony: polyOut,
+    Gate: cv.gateAmp,
+    Trigger: cv.triggerAmp,
+    f: cv.frequency,
+    Frequency: cv.frequency,
     X: cv.x,
     Y: cv.y,
   };

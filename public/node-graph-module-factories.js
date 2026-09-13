@@ -10,7 +10,8 @@ function nodeGraphPaintRgbaPortLabel(label) {
 
 function createNodeGraphPort(node, type, port, io) {
   const button = document.createElement("button");
-  button.className = `node-port ${io}`;
+  const noteBus = typeof nodeGraphPortIsNoteBus === "function" && nodeGraphPortIsNoteBus(port);
+  button.className = `node-port ${io}${noteBus ? " node-port-square" : ""}`;
   button.type = "button";
   button.dataset.node = node;
   button.dataset.port = port;
@@ -860,7 +861,6 @@ function createNodeGraphKeyboardControllerBody(node = null) {
     ["velocity01", "Velocity#/127", "-"],
     ["tenthVoltPerOctave", "0.1V/Oct", "-"],
     ["frequency", "Frequency", "-"],
-    ["increment", "Inc.", "-"],
   ];
   for (const [key, labelText, valueText] of signals) {
     const item = document.createElement("span");

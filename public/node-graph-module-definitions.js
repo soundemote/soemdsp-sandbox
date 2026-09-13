@@ -87,15 +87,9 @@ const nodeGraphNodeLabels = Object.freeze({
   henonMap: "Henon Map",
   // rayBouncer label lives in modules/rayBouncer/*-register.js (chromeless).
   chuaAttractor: "Chua Attractor",
-  chordMemory: "Chord Memory",
   turingMachine: "Turing Machine",
   pitchQuantizer: "Pitch Quantizer",
   chordPad: "Chord Pad",
-  degreeTuring: "Degree Turing",
-  gravityWalker: "Gravity Walker",
-  degreePhrase: "Degree Phrase",
-  noteGlide: "Note Glide",
-  noteTranspose: "Note Transpose",
   surgeOscillator: "Surge Oscillator",
   softwaveOsc: "Softwave Oscillator",
   curveOsc: "Curve Oscillator",
@@ -105,7 +99,6 @@ const nodeGraphNodeLabels = Object.freeze({
   hypersaw2: "Hypersaw",
   vibratoGenerator: "Vibrato Generator",
   wowAndFlutter: "Wow And Flutter",
-  chordSequencer: "Chord Sequencer",
   lutCell: "LUT Cell",
   metallicRatio: "Metallic Ratio",
   harmonicSeries: "Harmonic Series",
@@ -224,6 +217,7 @@ const nodeGraphNodeLabels = Object.freeze({
   sampleHold: "Sample & Hold",
   keyboardController: "MIDI",
   keyboard: "Keyboard",
+  gridKeyboard: "Grid Keyboard",
   samplePlayer: "Sample Player",
   sampleLooper: "Sample Looper",
   audioPlayer: "Music Player",
@@ -3622,31 +3616,6 @@ const nodeGraphModuleDefinitions = (
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ]
   },
-  chordMemory: {
-    planRole: "source",
-    inputs: ["Pitch", "Latch", "Clear", "Advance"],
-    outputs: ["Note 1", "Note 2", "Note 3", "Note 4", "Arp", "Gate", "Trigger"],
-    parameters: [
-      {
-        choices: ["Order", "Shuffle Bag", "Mutate"],
-        defaultValue: "1",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "walk",
-        label: "Walk",
-        linearSmoothing: false,
-        max: "2",
-        mid: "1",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1",
-        tooltip: "How Advance walks latched notes: order, no-repeat shuffle bag, or mostly-order with random jumps."
-      },
-      { key: "leap", label: "Leap", defaultValue: "0.15", min: "0", mid: "0.25", max: "1", step: "0.01", tooltip: "Chance to jump instead of taking the next slot." },
-      { key: "mutate", label: "Mutate", defaultValue: "0.2", min: "0", mid: "0.25", max: "1", step: "0.01", tooltip: "In Mutate walk: extra chance to pick a random active slot." },
-      { key: "octaves", label: "Leap Octaves", defaultValue: "0", min: "0", mid: "1", max: "3", nonlinearSlider: false, step: "1", tooltip: "On leap, chance to shift Arp by ±octaves." },
-    ]
-  },
   turingMachine: {
     planRole: "source",
     displayType: "trace",
@@ -3666,144 +3635,6 @@ const nodeGraphModuleDefinitions = (
       { key: "probability", label: "Probability", defaultValue: "0.25", min: "0", mid: "0.25", max: "1", step: "any" },
       { key: "octaves", label: "Octaves", defaultValue: "1", min: "0", mid: "1", max: "4", nonlinearSlider: false, step: "1", tooltip: "Pitch range in octaves when Scale is patched (degree span)." },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ]
-  },
-  degreeTuring: {
-    planRole: "processor",
-    planFreeRun: true,
-    displayType: "trace",
-    displaySignals: [
-      { key: "0.1V/Oct", kind: "scalar" },
-    ],
-    displayModes: [
-      { key: "trace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "0.1V/Oct" } },
-    ],
-    defaultDisplayMode: "trace",
-    inputs: ["Clock", "Reset", "Scale", "Root"],
-    outputs: ["0.1V/Oct", "Gate", "Trigger", "Degree", "CV"],
-    parameters: [
-      { key: "length", label: "Length", defaultValue: "8", min: "2", mid: "8", max: "16", nonlinearSlider: false, step: "1" },
-      { key: "probability", label: "Probability", defaultValue: "0.18", min: "0", mid: "0.25", max: "1", step: "any" },
-      { key: "octaves", label: "Octaves", defaultValue: "1", min: "0", mid: "1", max: "4", nonlinearSlider: false, step: "1" },
-      { key: "level", label: "Level", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      {
-        choices: ["Chromatic", "Major", "Minor", "Major Pentatonic", "Minor Pentatonic", "Whole Tone"],
-        defaultValue: "1",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "scale",
-        label: "Scale",
-        linearSmoothing: false,
-        max: "5",
-        mid: "2",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1",
-        tooltip: "Used when Scale jack is empty."
-      },
-    ]
-  },
-  gravityWalker: {
-    planRole: "processor",
-    planFreeRun: true,
-    displayType: "trace",
-    displaySignals: [
-      { key: "0.1V/Oct", kind: "scalar" },
-    ],
-    displayModes: [
-      { key: "trace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "0.1V/Oct" } },
-    ],
-    defaultDisplayMode: "trace",
-    inputs: ["Clock", "Reset", "Scale", "Root", "Leap"],
-    outputs: ["0.1V/Oct", "Gate", "Trigger", "Degree"],
-    parameters: [
-      { key: "gravity", label: "Gravity", defaultValue: "0.65", min: "0", mid: "0.5", max: "1", step: "0.01", tooltip: "Stickiness of step direction (higher = more inertia)." },
-      { key: "leap", label: "Leap", defaultValue: "0.15", min: "0", mid: "0.25", max: "1", step: "0.01", tooltip: "Base chance of a larger jump (added to Leap CV)." },
-      { key: "octaves", label: "Octaves", defaultValue: "1", min: "0", mid: "1", max: "4", nonlinearSlider: false, step: "1" },
-      { key: "level", label: "Level", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      {
-        choices: ["Chromatic", "Major", "Minor", "Major Pentatonic", "Minor Pentatonic", "Whole Tone"],
-        defaultValue: "1",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "scale",
-        label: "Scale",
-        linearSmoothing: false,
-        max: "5",
-        mid: "2",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1"
-      },
-    ]
-  },
-  degreePhrase: {
-    planRole: "processor",
-    planFreeRun: true,
-    displayType: "trace",
-    displaySignals: [
-      { key: "0.1V/Oct", kind: "scalar" },
-    ],
-    displayModes: [
-      { key: "trace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "0.1V/Oct" } },
-    ],
-    defaultDisplayMode: "trace",
-    inputs: ["Clock", "Reset", "Scale", "Root"],
-    outputs: ["0.1V/Oct", "Gate", "Trigger", "Phase"],
-    parameters: [
-      { key: "steps", label: "Steps", defaultValue: "8", min: "1", mid: "4", max: "8", nonlinearSlider: false, step: "1" },
-      { key: "mutate", label: "Mutate", defaultValue: "0.08", min: "0", mid: "0.15", max: "1", step: "0.01", tooltip: "Chance each clock to corrode one step (degree flip or rest)." },
-      { key: "octaves", label: "Octaves", defaultValue: "1", min: "0", mid: "1", max: "4", nonlinearSlider: false, step: "1" },
-      { key: "level", label: "Level", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      {
-        choices: ["Chromatic", "Major", "Minor", "Major Pentatonic", "Minor Pentatonic", "Whole Tone"],
-        defaultValue: "1",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "scale",
-        label: "Scale",
-        linearSmoothing: false,
-        max: "5",
-        mid: "2",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1"
-      },
-      { key: "step1", label: "Deg 1", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "any" },
-      { key: "step2", label: "Deg 2", defaultValue: "0.25", min: "0", mid: "0.5", max: "1", step: "any" },
-      { key: "step3", label: "Deg 3", defaultValue: "0.5", min: "0", mid: "0.5", max: "1", step: "any" },
-      { key: "step4", label: "Deg 4", defaultValue: "0.15", min: "0", mid: "0.5", max: "1", step: "any" },
-      { key: "step5", label: "Deg 5", defaultValue: "0.75", min: "0", mid: "0.5", max: "1", step: "any" },
-      { key: "step6", label: "Deg 6", defaultValue: "0.4", min: "0", mid: "0.5", max: "1", step: "any" },
-      { key: "step7", label: "Deg 7", defaultValue: "0.6", min: "0", mid: "0.5", max: "1", step: "any" },
-      { key: "step8", label: "Deg 8", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "any" },
-      { key: "rest1", label: "Rest 1", defaultValue: "0", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
-      { key: "rest2", label: "Rest 2", defaultValue: "0", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
-      { key: "rest3", label: "Rest 3", defaultValue: "0", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
-      { key: "rest4", label: "Rest 4", defaultValue: "1", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
-      { key: "rest5", label: "Rest 5", defaultValue: "0", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
-      { key: "rest6", label: "Rest 6", defaultValue: "0", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
-      { key: "rest7", label: "Rest 7", defaultValue: "1", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
-      { key: "rest8", label: "Rest 8", defaultValue: "0", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
-    ]
-  },
-  noteGlide: {
-    planRole: "processor",
-    planFreeRun: true,
-    inputs: ["0.1V/Oct"],
-    outputs: ["0.1V/Oct"],
-    parameters: [
-      { key: "time", label: "Time", kind: "time", defaultValue: "0.05", min: "0", mid: "0.1", max: "2", maxDigits: 5, step: "any", unit: "s", tooltip: "Portamento time toward the input pitch." },
-    ]
-  },
-  noteTranspose: {
-    planRole: "processor",
-    planFreeRun: true,
-    inputs: ["0.1V/Oct"],
-    outputs: ["0.1V/Oct"],
-    parameters: [
-      { key: "semitones", label: "Semitones", defaultValue: "0", min: "-24", mid: "0", max: "24", nonlinearSlider: false, step: "1" },
-      { key: "octaves", label: "Octaves", defaultValue: "0", min: "-4", mid: "0", max: "4", nonlinearSlider: false, step: "1" },
     ]
   },
   pitchQuantizer: {
@@ -4649,11 +4480,11 @@ const nodeGraphModuleDefinitions = (
         unit: "Hz",
         nonlinearSlider: true,
         sliderCurve: "skew",
-        tooltip: "Walk step rate when Distance > 0 (also pitch-tilted).",
+        tooltip: "Walk step rate when Distance > 0. Pitch-tilted with Modulation Tilt.",
       },
       {
         key: "jitterSpeedRef",
-        label: "Jitter Speed Ref",
+        label: "Modulation Speed Ref",
         kind: "frequency",
         defaultValue: "200",
         min: "20",
@@ -4664,11 +4495,11 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "skew",
         tooltip:
-          "Anchor pitch where Jitter Tilt is neutral (walkHz = Speed).",
+          "Anchor pitch where Modulation Tilt is 1×: Jitter Speed and Vibrato Distance equal their knobs.",
       },
       {
         key: "jitterTilt",
-        label: "Jitter Tilt",
+        label: "Modulation Tilt",
         defaultValue: "-0.3",
         min: "-1",
         mid: "0",
@@ -4676,38 +4507,25 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         hidden: true,
         tooltip:
-          "Pitch curve for Jitter Speed: walkHz = Speed × (f / Speed Ref)^(tilt+1). "
-          + "−1 = absolute Speed. 0 = same aggressiveness vs pitch (∝ f). "
-          + "+1 = highs modulate harder (∝ f²). Hidden by default — show via metaparam.",
+          "Pitch curve (f / Speed Ref)^(tilt+1). Jitter: scales Speed. Vibrato: scales Distance "
+          + "(sine stays at Vibrato Speed Hz). −1 = same at all pitches. 0 = ∝ f. "
+          + "+1 = highs harder (∝ f²). Hidden by default — show via metaparam.",
       },
       {
-        key: "vibratoAmp",
-        label: "Vibrato Amp",
+        key: "vibratoDistance",
+        label: "Vibrato Distance",
         defaultValue: "0",
         min: "0",
-        mid: "0.5",
-        max: "2",
+        mid: "10",
+        max: "100",
         step: "any",
         modClamp: false,
+        curveAmount: "-0.9",
         nonlinearSlider: true,
-        sliderCurve: "skew",
+        sliderCurve: "custom",
         tooltip:
-          "Vibrato depth on phase offsets (sides). Pitch curve is Vibrato Tilt. "
-          + "Center osc has no vib feed.",
-      },
-      {
-        key: "vibratoTilt",
-        label: "Vibrato Tilt",
-        defaultValue: "0",
-        min: "-1",
-        mid: "0",
-        max: "1",
-        step: "any",
-        bipolar: true,
-        tooltip:
-          "Pitch curve for Vibrato Amp: depth × (|f|/100 Hz)^tilt. "
-          + "−1 = lows wobble more (∝ 1/f). 0 = even at all pitches. "
-          + "+1 = highs more (∝ f — previous hardcoded law).",
+          "Sine phase room around centers — same units as Jitter Distance. "
+          + "(1/N)×Distance × Modulation Tilt × wavetable sine. Speed is constant Hz.",
       },
       {
         key: "vibratoSpeed",
@@ -4721,21 +4539,7 @@ const nodeGraphModuleDefinitions = (
         unit: "Hz",
         nonlinearSlider: true,
         sliderCurve: "skew",
-        tooltip: "Base vibrato LFO rate (sine, phase offset 0.5).",
-      },
-      {
-        key: "vibratoFreqVary",
-        label: "Vibrato Freq Vary",
-        defaultValue: "0",
-        min: "0",
-        mid: "0.5",
-        max: "1",
-        step: "any",
-        nonlinearSlider: false,
-        sliderCurve: "linear",
-        tooltip:
-          "Per-voice vibrato rate spread (Master Seed). "
-          + "0 = all at Vibrato Speed; 1 = each voice ±100% of Speed.",
+        tooltip: "Sine LFO rate in Hz. Not pitch-tilted — Modulation Tilt hits Distance, not this.",
       },
       {
         key: "vibratoPhaseVary",
@@ -4748,7 +4552,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         sliderCurve: "linear",
         tooltip:
-          "Per-voice vibrato LFO phase offset (Master Seed). "
+          "Per-voice sine start phase (Master Seed). "
           + "0 = all in phase; 1 = full random 0…1 offset.",
       },
       {
@@ -4967,61 +4771,6 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Master output level: (wow×wowAmp + flutter×flutterAmp) × Amplitude.",
       },
     ],
-  },
-  chordSequencer: {
-    planRole: "processor",
-    planFreeRun: true,
-    inputs: ["Trigger", "Reset"],
-    inputAliases: { Clock: "Trigger", Trig: "Trigger", Clk: "Trigger" },
-    outputs: ["Scale", "Root", "Gate", "Step"],
-    parameters: [
-      {
-        choices: [
-          "I-V-vi-IV", "I-IV-V-I", "ii-V-I", "vi-IV-I-V", "I-vi-IV-V", "I-vi-ii-V",
-          "I-IV-V7-I", "ii7-V7-I-vi", "I-bIII-IV-V", "I-V-ii-vi", "IV-V-vi-ii", "I-I-IV-V7",
-        ],
-        defaultValue: "0",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "progression",
-        label: "Progression",
-        linearSmoothing: false,
-        max: "11",
-        mid: "5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1"
-      },
-      {
-        choices: ["Forward", "Reverse", "Ping-Pong"],
-        defaultValue: "0",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "direction",
-        label: "Direction",
-        linearSmoothing: false,
-        max: "2",
-        mid: "1",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1"
-      },
-      {
-        choices: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
-        defaultValue: "0",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "key",
-        label: "Key",
-        linearSmoothing: false,
-        max: "11",
-        mid: "5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1"
-      },
-      { key: "level", label: "Level", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
-    ]
   },
   lutCell: {
     planRole: "source",
@@ -9872,6 +9621,7 @@ const nodeGraphModuleDefinitions = (
     inputChannels: { "Arp Keys": "gold" },
     inputLabels: { "Arp Keys": "Arp Keys", f: "ƒ", Trigger: "Trig" },
     inputAliases: { Clock: "Trigger", Trig: "Trigger", Frequency: "f", Freq: "f", "ƒ": "f" },
+    digitalOutputs: ["Step"],
     outputs: ["0.1V/Oct", "f", "Gate", "Trigger", "Step"],
     outputLabels: { "0.1V/Oct": "0.1V", f: "ƒ", Trigger: "Trig" },
     outputAliases: { Pitch: "0.1V/Oct", Frequency: "f", Freq: "f", "ƒ": "f", Trig: "Trigger" },
@@ -9902,7 +9652,10 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Free-run step rate when Trigger is unconnected. 0 = external Trigger only."
+        tooltip:
+          "Free-run step rate when Trigger and f are unconnected. "
+          + "Ignored whenever f is patched (external rate in Hz). "
+          + "Trigger edges always win over both."
       },
       {
         defaultValue: "8",
@@ -12460,8 +12213,6 @@ const nodeGraphModuleDefinitions = (
       Frequency: "Frequency",
       Freq: "Frequency",
       f: "Frequency",
-      Increment: "Inc.",
-      Inc: "Inc.",
     },
     outputLabels: {
       Polyphony: "Polyphony",
@@ -12469,7 +12220,6 @@ const nodeGraphModuleDefinitions = (
       "Note#/127": "Note#/127",
       "Velocity#/127": "Velocity#/127",
       "0.1V/Oct": "0.1V/Oct",
-      "Inc.": "Inc.",
       Frequency: "ƒ",
     },
     outputs: [
@@ -12480,7 +12230,6 @@ const nodeGraphModuleDefinitions = (
       "Note#/127",
       "Velocity#/127",
       "0.1V/Oct",
-      "Inc.",
       "Frequency",
       "X",
       "Y",
@@ -12506,7 +12255,8 @@ const nodeGraphModuleDefinitions = (
     },
     layout: "keyboard",
     defaultWidthGu: 36,
-    displayHeightGu: 17,
+    // Face 7 ⇒ outer ~18gu (header + face + 13 jack rows + lip).
+    displayHeightGu: 7,
     outputAliases: {
       NoteNumber: "Note#/127",
       MIDI: "Note#/127",
@@ -12518,8 +12268,6 @@ const nodeGraphModuleDefinitions = (
       Frequency: "f",
       Freq: "f",
       ƒ: "f",
-      Increment: "Inc.",
-      Inc: "Inc.",
     },
     outputLabels: {
       Polyphony: "Polyphony",
@@ -12530,7 +12278,6 @@ const nodeGraphModuleDefinitions = (
       "Note#/127": "Note#/127",
       "Velo#/127": "Velo#/127",
       "0.1V/Oct": "0.1V/Oct",
-      "Inc.": "Inc.",
       f: "ƒ",
     },
     inputLabels: {
@@ -12550,12 +12297,50 @@ const nodeGraphModuleDefinitions = (
       "Note#/127",
       "Velo#/127",
       "0.1V/Oct",
-      "Inc.",
       "f",
       "X",
       "Y",
     ],
     parameters: []
+  },
+  gridKeyboard: {
+    planRole: "source",
+    digitalInputs: ["Play Keys", "Arp Keys"],
+    digitalOutputs: ["Polyphony", "Play Keys", "Arp Keys"],
+    inputs: ["Play Keys", "Arp Keys"],
+    inputChannels: {
+      "Play Keys": "blue",
+      "Arp Keys": "gold",
+    },
+    outputChannels: {
+      Polyphony: "black",
+      "Play Keys": "blue",
+      "Arp Keys": "gold",
+    },
+    layout: "gridKeyboard",
+    defaultWidthGu: 40,
+    displayHeightGu: 24,
+    outputLabels: {
+      Polyphony: "Polyphony",
+      "Play Keys": "Play Keys",
+      "Arp Keys": "Arp Keys",
+      f: "ƒ",
+    },
+    inputLabels: {
+      "Play Keys": "Play Keys",
+      "Arp Keys": "Arp Keys",
+    },
+    outputs: [
+      "Polyphony",
+      "Play Keys",
+      "Arp Keys",
+      "Gate",
+      "Trigger",
+      "f",
+      "X",
+      "Y",
+    ],
+    parameters: [],
   },
   samplePlayer: {
     planRole: "processor",

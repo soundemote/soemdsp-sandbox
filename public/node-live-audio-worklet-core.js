@@ -102,6 +102,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.midiKeyboardGatePulseVelocity = 0;
     this.midiKeyboardSignal = null;
     this.midiKeyboardHeldKeysLowBitmask = 0;
+    this.midiKeyboardArpMask = new Uint8Array(128);
+    this.midiKeyboardPlayMask = new Uint8Array(128);
     this.midiKeyboardHeldKeysHighBitmask = 0;
     this.midiKeyboardHeldKeysPhase = 0;
     this.modulationConnections = new Map();

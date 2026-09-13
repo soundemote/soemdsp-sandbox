@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=fb-group-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=arp-f-clock-140";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2600,50 +2600,43 @@ function sendNodeGraphLiveMacroControls(values = nodeGraphMvp.macroControls) {
   }
 }
 
-function sendNodeGraphLiveMidiKeyboardHeldKeysBitmask(
-  low = nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
-  high = nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
-) {
-  const safeLow = Math.floor(Number(low));
-  const safeHigh = Math.floor(Number(high));
-  const lowPayload = Number.isFinite(safeLow) && safeLow >= 0 ? safeLow : 0;
-  const highPayload = Number.isFinite(safeHigh) && safeHigh >= 0 ? safeHigh : 0;
+function sendNodeGraphLiveMidiKeyboardHeldKeysBitmask() {
+  const mask = nodeGraphMvp.midiKeyboardArpMask instanceof Uint8Array
+    ? new Uint8Array(nodeGraphMvp.midiKeyboardArpMask)
+    : (typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128));
   const vels = nodeGraphMvp.midiKeyboardHeldKeyVelocities instanceof Uint8Array
     ? new Uint8Array(nodeGraphMvp.midiKeyboardHeldKeyVelocities)
     : null;
+  const octave = typeof nodeGraphMidiKeyboardOctaveOffset === "function"
+    ? nodeGraphMidiKeyboardOctaveOffset()
+    : 0;
   if (nodeGraphMvp.live.runtime) {
-    nodeGraphMvp.live.runtime.midiKeyboardHeldKeysLowBitmask = lowPayload;
-    nodeGraphMvp.live.runtime.midiKeyboardHeldKeysHighBitmask = highPayload;
+    nodeGraphMvp.live.runtime.midiKeyboardArpMask = mask;
     if (vels) nodeGraphMvp.live.runtime.midiKeyboardHeldKeyVelocities = vels;
+    nodeGraphMvp.live.runtime.midiKeyboardOctave = octave;
   }
   if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
     nodeGraphMvp.live.node.port.postMessage({
-      high: highPayload,
-      low: lowPayload,
       type: "setMidiKeyboardHeldKeysBitmask",
+      mask,
       velocities: vels,
+      octave,
     });
   }
 }
 
 /** Blue Play Keys bitmask (live MIDI notes) → worklet. */
-function sendNodeGraphLiveMidiPlayKeysBitmask(
-  low = nodeGraphMvp.midiKeyboardPlayKeysLowBitmask,
-  high = nodeGraphMvp.midiKeyboardPlayKeysHighBitmask,
-) {
-  const safeLow = Math.floor(Number(low));
-  const safeHigh = Math.floor(Number(high));
-  const lowPayload = Number.isFinite(safeLow) && safeLow >= 0 ? safeLow : 0;
-  const highPayload = Number.isFinite(safeHigh) && safeHigh >= 0 ? safeHigh : 0;
+function sendNodeGraphLiveMidiPlayKeysBitmask() {
+  const mask = nodeGraphMvp.midiKeyboardPlayMask instanceof Uint8Array
+    ? new Uint8Array(nodeGraphMvp.midiKeyboardPlayMask)
+    : (typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128));
   if (nodeGraphMvp.live.runtime) {
-    nodeGraphMvp.live.runtime.midiKeyboardPlayKeysLowBitmask = lowPayload;
-    nodeGraphMvp.live.runtime.midiKeyboardPlayKeysHighBitmask = highPayload;
+    nodeGraphMvp.live.runtime.midiKeyboardPlayMask = mask;
   }
   if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
     nodeGraphMvp.live.node.port.postMessage({
-      high: highPayload,
-      low: lowPayload,
       type: "setMidiKeyboardPlayKeysBitmask",
+      mask,
     });
   }
 }
@@ -3119,24 +3112,25 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
   "./public/node-live-audio-worklet-dsp-state.js?v=protect-worklet-1",
-  "./public/lib/polyphony-voices.js?v=gold-vel-1",
-  "./public/node-live-audio-worklet-events.js?v=gold-vel-1",
+  "./public/lib/polyphony-voices.js?v=gold-oct-1",
+  "./public/lib/note-mask-128.js?v=note-mask-1",
+  "./public/node-live-audio-worklet-events.js?v=note-mask-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=vibrato-tilt-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=nuke-musical-1",
   "./public/node-live-audio-worklet-meta-view.js?v=meta-view-rewrite-1",
   "./public/node-live-audio-worklet-set-plan.js?v=meta-payload-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=gold-vel-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=note-mask-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=meta-view-rewrite-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=sandh-amp-pol-2",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=note-mask-1",
   "./public/node-live-audio-worklet-process.js?v=protect-worklet-1",
 ];
 

@@ -3,9 +3,8 @@
 // soemdsp-native-target: arp
 // soemdsp-native-kind: pitch
 //
-// Clocked arpeggiator over "Arp Keys" phase-bit mask (gold latch bus).
-// Active list is at most 88 notes; optional steps counter 0..128. If a full
-// step×note sequence buffer were ever stored: ~1MB hard ceiling is ample.
+// Clocked arpeggiator over "Arp Keys" 128-MIDI mask (gold latch bus).
+// Wire: 3 self-describing chunks (2^49 / 2^50 flags). Notes are MIDI 0..127.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -14,10 +13,9 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 32;
-static const int kKeyCount = 88;
-static const int kMidiBase = 24; // C0
-static const int kLowBitCount = 49;
-static const double kPhaseValue = 562949953421312.0; // 2^49
+static const int kKeyCount = 128;
+static const double kFlag1 = 562949953421312.0;  // 2^49
+static const double kFlag2 = 1125899906842624.0; // 2^50
 
 enum Mode {
   MODE_UP = 0,
@@ -31,8 +29,9 @@ struct State {
   bool active;
   bool clockWasHigh;
   bool resetWasHigh;
-  double heldLow;
-  double heldHigh;
+  double heldC0;
+  double heldC1;
+  double heldC2;
   int notes[kKeyCount];
   int noteCount;
   int index;
@@ -95,20 +94,29 @@ static int bit_set(double mask, int bit) {
 static void demux_held_keys(State& s, double v) {
   const double x = safe(v);
   if (!(x * 0.0 == 0.0)) return;
-  if (x < kPhaseValue) {
-    s.heldLow = x;
+  if (x >= kFlag2) {
+    s.heldC2 = x - kFlag2;
+  } else if (x >= kFlag1) {
+    s.heldC1 = x - kFlag1;
   } else {
-    s.heldHigh = x - kPhaseValue;
+    s.heldC0 = x;
   }
 }
 
 static void rebuild_notes(State& s) {
   int n = 0;
-  for (int i = 0; i < kKeyCount; i++) {
-    const int local = i < kLowBitCount ? i : (i - kLowBitCount);
-    const double half = i < kLowBitCount ? s.heldLow : s.heldHigh;
-    if (bit_set(half, local)) {
-      s.notes[n++] = kMidiBase + i;
+  for (int midi = 0; midi < kKeyCount; midi++) {
+    int local = midi;
+    double chunk = s.heldC0;
+    if (midi >= 98) {
+      local = midi - 98;
+      chunk = s.heldC2;
+    } else if (midi >= 49) {
+      local = midi - 49;
+      chunk = s.heldC1;
+    }
+    if (bit_set(chunk, local)) {
+      s.notes[n++] = midi;
     }
   }
   s.noteCount = n;
@@ -170,8 +178,9 @@ extern "C" int soemdsp_arp_create() {
       State& s = gPool[i];
       s.clockWasHigh = false;
       s.resetWasHigh = false;
-      s.heldLow = 0.0;
-      s.heldHigh = 0.0;
+      s.heldC0 = 0.0;
+      s.heldC1 = 0.0;
+      s.heldC2 = 0.0;
       s.noteCount = 0;
       s.index = 0;
       s.direction = 1;
@@ -261,28 +270,37 @@ extern "C" double soemdsp_arp_sample(
   s.resetWasHigh = resetHigh;
 
   double trigOut = 0.0;
-  if (s.noteCount > 0) {
-    if (trigConnected) {
-      const bool trigHigh = safe(trigger) > 0.0;
-      if (trigHigh && !s.clockWasHigh) {
-        do_step(s, mode, steps, seed, octaveOffset);
-        trigOut = 1.0;
-      }
-      s.clockWasHigh = trigHigh;
-    } else if (rate > 0.0) {
-      // Internal Clock free-run when Trigger unconnected.
+  if (trigConnected) {
+    const bool trigHigh = safe(trigger) > 0.0;
+    if (s.noteCount > 0 && trigHigh && !s.clockWasHigh) {
+      do_step(s, mode, steps, seed, octaveOffset);
+      trigOut = 1.0;
+    }
+    s.clockWasHigh = trigHigh;
+  } else if (rate > 0.0) {
+    // Free-run phasor when Trigger is unconnected. rateHz is Internal Clock
+    // unless the host passes the f jack (cable present → internal ignored).
+    // Keep the phasor running with no notes so a later latch stays on the
+    // grid. First step after create/Reset fires this sample — preview +
+    // waiting for phase wrap used to hold notes[0] for two periods.
+    const bool firstBeat = (s.noteCount > 0 && s.clocksSinceRestart == 0);
+    if (firstBeat) {
+      do_step(s, mode, steps, seed, octaveOffset);
+      trigOut = 1.0;
+      s.phase = 0.0;
+    } else {
       s.phase += rate / sr;
       if (s.phase >= 1.0) {
         s.phase -= dsp_floor(s.phase);
-        do_step(s, mode, steps, seed, octaveOffset);
-        trigOut = 1.0;
+        if (s.noteCount > 0) {
+          do_step(s, mode, steps, seed, octaveOffset);
+          trigOut = 1.0;
+        }
       }
-      s.clockWasHigh = false;
-    } else {
-      s.clockWasHigh = false;
     }
+    s.clockWasHigh = false;
   } else {
-    s.clockWasHigh = safe(trigger) > 0.0;
+    s.clockWasHigh = trigConnected ? (safe(trigger) > 0.0) : false;
   }
 
   if (s.noteCount <= 0) {
@@ -291,10 +309,6 @@ extern "C" double soemdsp_arp_sample(
     return s.lastPitch;
   }
 
-  // Before first step, preview notes[index].
-  if (trigOut < 0.5 && s.clocksSinceRestart == 0) {
-    capture_note(s, s.index, steps, octaveOffset);
-  }
   s.lastGate = 1.0;
   s.lastTrigger = trigOut;
   return s.lastPitch;
@@ -321,5 +335,5 @@ extern "C" double soemdsp_arp_frequency(int handle) {
 }
 
 extern "C" int soemdsp_arp_version() {
-  return 3; // + octaveOffset (−4…+4) on pitch/ƒ outs
+  return 5; // f jack rate replaces Internal Clock when wired
 }

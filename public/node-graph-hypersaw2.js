@@ -53,16 +53,13 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
   if (numVoicesExact > 64) numVoicesExact = 64;
   const phaseCollapse = Number(options.phaseCollapse ?? options.spread);
   const randomizePhase = Number(options.randomizePhase ?? options.randomAmount);
-  const vibratoAmp = Number(options.vibratoAmp);
+  const vibratoDistance = Number(options.vibratoDistance ?? options.vibratoAmp);
   const vibratoSpeedHz = Number(options.vibratoSpeedHz ?? options.vibratoSpeed);
-  const vibratoFreqVary = Number(options.vibratoFreqVary);
   const vibratoPhaseVary = Number(options.vibratoPhaseVary);
-  const phaseMultiplier = Number(options.phaseMultiplier);
   const jitterDistance = Number(options.jitterDistance);
   const jitterSpeed = Number(options.jitterSpeed ?? options.jitterSpeedHz);
   const jitterTilt = Number(options.jitterTilt ?? -1);
   const jitterSpeedRef = Number(options.jitterSpeedRef);
-  const vibratoTilt = Number(options.vibratoTilt);
   const centerSide = Number(options.centerSide);
   const waveform = Number(options.waveform);
   const morph = Number(options.morph);
@@ -76,11 +73,9 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     numVoicesExact,
     Number.isFinite(phaseCollapse) ? phaseCollapse : 0,
     Number.isFinite(randomizePhase) ? randomizePhase : 0.10,
-    Number.isFinite(vibratoAmp) ? vibratoAmp : 0,
+    Number.isFinite(vibratoDistance) ? vibratoDistance : 0,
     Number.isFinite(vibratoSpeedHz) ? vibratoSpeedHz : 0,
-    Number.isFinite(vibratoFreqVary) ? vibratoFreqVary : 0,
     Number.isFinite(vibratoPhaseVary) ? vibratoPhaseVary : 0,
-    Number.isFinite(phaseMultiplier) ? phaseMultiplier : 1,
     Number.isFinite(jitterDistance) ? jitterDistance : 0.1,
     Number.isFinite(jitterSpeed) ? jitterSpeed : 1,
     Number.isFinite(jitterTilt) ? jitterTilt : -1,
@@ -89,9 +84,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     Number.isFinite(morph) ? morph : 0.5,
     level,
     Number.isFinite(seed) ? seed : 1,
-    0, // freeRunningPhase unused — locked master only
     Number.isFinite(jitterSpeedRef) ? jitterSpeedRef : 261.625565,
-    Number.isFinite(vibratoTilt) ? vibratoTilt : 0,
   );
   const n = wasm.soemdsp_hypersaw2_voice_count
     ? Math.max(0, Math.min(64, wasm.soemdsp_hypersaw2_voice_count(state.nativeHandle) | 0))

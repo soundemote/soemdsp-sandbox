@@ -66,11 +66,6 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   allpass: 138,
   basicShape: 139,
   chordPad: 140,
-  noteGlide: 141,
-  noteTranspose: 142,
-  degreeTuring: 143,
-  degreePhrase: 144,
-  gravityWalker: 145,
   smoothGraph: 146,
   stepGraph: 147,
   phaseDisperse: 148,
@@ -344,10 +339,9 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   jitterSpeedRef: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OVERSAMPLE,
   phaseCollapse: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   centerSide: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PAN,
+  vibratoDistance: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_RESONANCE,
   vibratoAmp: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_RESONANCE,
-  vibratoTilt: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_HPF_FREQUENCY,
   vibratoSpeed: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED,
-  vibratoFreqVary: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE,
   vibratoPhaseVary: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_VARIATION,
   randomizePhase: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   voices: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES,
@@ -2073,8 +2067,9 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
   // Reconcile VM only when held-note fingerprint changes (not every quantum —
   // 128× note_is_on + postMessage debug was starving the audio thread).
   {
-    const goldLo = Math.trunc(Number(this.midiKeyboardHeldKeysLowBitmask) || 0);
-    const goldHi = Math.trunc(Number(this.midiKeyboardHeldKeysHighBitmask) || 0);
+    const goldMask = this.midiKeyboardArpMask instanceof Uint8Array
+      ? this.midiKeyboardArpMask
+      : null;
     const goldVels = this.midiKeyboardHeldKeyVelocities;
     let goldVelFp = 0;
     if (goldVels instanceof Uint8Array) {
@@ -2095,14 +2090,21 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
         if (midiTable[i]) midiFp = (midiFp + ((i + 1) * (midiTable[i] | 0))) | 0;
       }
     }
-    const fp = `${goldLo}|${goldHi}|${goldVelFp}|${kbMidi}|${kbVel}|${midiFp}`;
+    const goldOct = Math.round(Number(this.midiKeyboardOctave) || 0);
+    let goldMaskFp = 0;
+    if (goldMask) {
+      for (let i = 0; i < goldMask.length; i += 1) {
+        if (goldMask[i]) goldMaskFp = (goldMaskFp + (i + 1)) | 0;
+      }
+    }
+    const fp = `${goldMaskFp}|${goldVelFp}|${goldOct}|${kbMidi}|${kbVel}|${midiFp}`;
     if (fp !== this._vmReconcileFp) {
       this._vmReconcileFp = fp;
       const want = typeof polyphonyCreateTable === "function"
         ? polyphonyCreateTable()
         : new Uint8Array(128);
-      if (typeof polyphonyTableAddGoldLatchBits === "function") {
-        polyphonyTableAddGoldLatchBits(want, goldLo, goldHi, 24, 100, goldVels);
+      if (typeof polyphonyTableAddNoteMask === "function" && goldMask) {
+        polyphonyTableAddNoteMask(want, goldMask, goldOct, goldVels, 100);
       }
       if (midiTable instanceof Uint8Array) {
         if (typeof polyphonyTableMergeMax === "function") {
@@ -2115,6 +2117,16 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
       }
       if (kbMidi >= 0 && kbVel > 0) {
         want[kbMidi] = Math.min(127, kbVel);
+      }
+      const kbTable = this.keyboardPolyphonyVelocities;
+      if (kbTable instanceof Uint8Array) {
+        if (typeof polyphonyTableMergeMax === "function") {
+          polyphonyTableMergeMax(want, kbTable);
+        } else {
+          for (let i = 0; i < 128; i += 1) {
+            if (kbTable[i] > want[i]) want[i] = kbTable[i];
+          }
+        }
       }
       for (let m = 0; m < 128; m += 1) {
         const should = (want[m] | 0) > 0;
@@ -2798,10 +2810,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("jitterDistance", P.NATIVE_GRAPH_PARAM_CENTER, cont("jitterDistance", 2));
       push("jitterSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterSpeed", 3.6));
       push("jitterSpeedRef", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, cont("jitterSpeedRef", 200));
-      push("vibratoAmp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoAmp", 0));
-      push("vibratoTilt", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("vibratoTilt", 0));
+      push("vibratoDistance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoDistance", 0));
       push("vibratoSpeed", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("vibratoSpeed", 0));
-      push("vibratoFreqVary", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("vibratoFreqVary", 0));
       push("vibratoPhaseVary", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("vibratoPhaseVary", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0.35));
       push("randomizePhase", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomizePhase", 0.1));
@@ -4169,10 +4179,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
         push("jitterDistance", P.NATIVE_GRAPH_PARAM_CENTER, cont("jitterDistance", 2));
         push("jitterSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterSpeed", 3.6));
         push("jitterSpeedRef", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, cont("jitterSpeedRef", 200));
-        push("vibratoAmp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoAmp", 0));
-        push("vibratoTilt", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("vibratoTilt", 0));
+        push("vibratoDistance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoDistance", 0));
         push("vibratoSpeed", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("vibratoSpeed", 0));
-        push("vibratoFreqVary", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("vibratoFreqVary", 0));
         push("vibratoPhaseVary", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("vibratoPhaseVary", 0));
         // Same face amplitude as base (0 + additive Amp Curve MOD = envelope only).
         push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0));

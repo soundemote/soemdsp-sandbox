@@ -110,6 +110,9 @@ function serializeNodeGraphPatch(patch = nodeGraphMvp.patch, options = {}) {
         velocities: nodeGraphMvp.midiKeyboardHeldKeyVelocities instanceof Uint8Array
           ? Array.from(nodeGraphMvp.midiKeyboardHeldKeyVelocities)
           : undefined,
+        arpMask: nodeGraphMvp.midiKeyboardArpMask instanceof Uint8Array
+          ? Array.from(nodeGraphMvp.midiKeyboardArpMask)
+          : undefined,
       }
       : (patch.keyboardLatch && typeof patch.keyboardLatch === "object"
         ? {

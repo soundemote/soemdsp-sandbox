@@ -147,6 +147,28 @@
         return null;
       }
       const fill = wireEndColor(options.endColor, paint);
+      const square = options.square === true;
+      const r = wireEndpointCapRadius();
+      if (square) {
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute(
+          "class",
+          ["node-wire-endpoint-cap", "node-wire-endpoint-cap-square", extraClass].filter(Boolean).join(" "),
+        );
+        const side = r * 2;
+        rect.setAttribute("x", String(point.x - r));
+        rect.setAttribute("y", String(point.y - r));
+        rect.setAttribute("width", String(side));
+        rect.setAttribute("height", String(side));
+        rect.setAttribute("color-interpolation", "sRGB");
+        if (fill) {
+          rect.setAttribute("fill", fill);
+          rect.style.fill = fill;
+        }
+        rect.setAttribute("pointer-events", "none");
+        target.append(rect);
+        return rect;
+      }
       const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       circle.setAttribute(
         "class",
@@ -154,7 +176,7 @@
       );
       circle.setAttribute("cx", String(point.x));
       circle.setAttribute("cy", String(point.y));
-      circle.setAttribute("r", String(wireEndpointCapRadius()));
+      circle.setAttribute("r", String(r));
       circle.setAttribute("color-interpolation", "sRGB");
       if (fill) {
         circle.setAttribute("fill", fill);
@@ -394,8 +416,14 @@
         paintSvg.append(renderedPath);
       }
 
-      drawEndpointCap(paintSvg, from, "from", fromColor, capClass, { endColor: fromColor });
-      drawEndpointCap(paintSvg, to, "to", toColor, capClass, { endColor: toColor });
+      drawEndpointCap(paintSvg, from, "from", fromColor, capClass, {
+        endColor: fromColor,
+        square: options.squareFrom === true,
+      });
+      drawEndpointCap(paintSvg, to, "to", toColor, capClass, {
+        endColor: toColor,
+        square: options.squareTo === true,
+      });
     }
 
     function elementForEndpoint(endpoint) {

@@ -530,22 +530,18 @@ extern "C" void soemdsp_hypersaw2_sample(
   double numVoicesExact,
   double distributePhase,
   double randomizePhase,
-  double vibratoAmp,
+  double vibratoDistance,
   double vibratoSpeedHz,
-  double vibratoFreqVary,
   double vibratoPhaseVary,
-  double phaseMultiplier,
   double jitterDistance,
   double jitterSpeed,
-  double jitterTilt,
+  double modulationTilt,
   double centerSide,
   double waveform,
   double morph,
   double level,
   double seedParam,
-  double freeRunningPhase,
-  double jitterSpeedRefHz,
-  double vibratoTilt
+  double modulationSpeedRefHz
 );
 extern "C" double soemdsp_hypersaw2_left(int handle);
 extern "C" double soemdsp_hypersaw2_right(int handle);
@@ -2731,7 +2727,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.resonance,
     (typeId == kTypeAdditiveBlaster) ? -0.2 // curve bend (PoC)
-      : (typeId == kTypeHypersaw2) ? 0.0 // VibratoAmp
+      : (typeId == kTypeHypersaw2) ? 0.0 // vibratoDistance
       : (typeId == kTypeChebyshev || typeId == kTypeElliptic) ? 1.0 // ripple dB
       : (typeId == kTypeEqFilter || typeId == kTypeAllpass) ? 0.707 // Q
       : (typeId == kTypeBandpass) ? 1.0 // Q
@@ -2981,7 +2977,6 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDelayEffect) ? 0.02 // modAmount
       : (typeId == kTypeSoemReverb) ? 0.002 // lfoAmp
       : (typeId == kTypePingPongDelay) ? 25.0 // lfoAmp ms (audible like Delay modAmount)
-      : (typeId == kTypeHypersaw2) ? 0.0 // vibratoFreqVary
       : 0.07,
     false
   );
@@ -3132,7 +3127,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeBradley2a) ? 2600.0 // interfFreq
       : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 1000.0 // highCut
       : (typeId == kTypeInertialFilter) ? 20.0 // release Hz
-      : (typeId == kTypeHypersaw2) ? -0.3 // jitterTilt
+      : (typeId == kTypeHypersaw2) ? -0.3 // modulationTilt
       : (typeId == kTypeChaosfly) ? 6.0 // Lowpass oct offset (open default)
       : (typeId == kTypeCrossover5) ? 8000.0
       : (typeId == kTypeCrossover6) ? 3000.0
@@ -3142,7 +3137,6 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.hpfFrequency,
     (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 200.0 // lowCut
-      : (typeId == kTypeHypersaw2) ? 0.0 // vibratoTilt (0 = even)
       : (typeId == kTypeChaosfly) ? -2.0 // Highpass oct offset (gentler default)
       : (typeId == kTypeCrossover6) ? 10000.0
       : 20.0,
@@ -6180,14 +6174,11 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Hypersaw2 Phase Modulation (HypersawUnit::run):
+// Hypersaw2: one phase-mod bus (jitter walk + sine vibrato).
 // stages=voices, waveform=PolyBLEP, shape=phaseCollapse (0 Merge, 1 Distribute), width=randomizePhase,
-// resonance=vibratoAmp, lfoBaseSpeed=vibratoSpeed, mix=phaseMultiplier,
-// lfoAmplitude=vibratoFreqVary, lfoVariation=vibratoPhaseVary,
-// center=jitterDistance, lfoRate=jitterSpeed, lpfFrequency=jitterTilt,
-// hpfFrequency=vibratoTilt, pan=centerSide, feedback=morph/PWM,
-// mode unused (locked master only),
-// oversample=jitterSpeedRefHz,
+// resonance=vibratoDistance, lfoBaseSpeed=vibratoSpeed, lfoVariation=vibratoPhaseVary,
+// center=jitterDistance, lfoRate=jitterSpeed, lpfFrequency=modulationTilt,
+// pan=centerSide, feedback=morph/PWM, oversample=modulationSpeedRefHz,
 // phaseParam=phase, seed=seed, amplitude=level.
 static void process_hypersaw2(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
@@ -6208,20 +6199,16 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
     const double waveform = control_effective(node.waveform);
     const double distribute = control_effective(node.shape);
     const double randomize = control_effective(node.width);
-    const double vibratoAmp = control_effective(node.resonance);
+    const double vibratoDistance = control_effective(node.resonance);
     const double vibratoSpeed = control_effective(node.lfoBaseSpeed);
-    const double vibratoFreqVary = control_effective(node.lfoAmplitude);
     const double vibratoPhaseVary = control_effective(node.lfoVariation);
-    const double phaseMultiplier = control_effective(node.mix);
     const double jitterDistance = control_effective(node.center);
     const double jitterSpeed = control_effective(node.lfoRate);
-    const double jitterTilt = control_effective(node.lpfFrequency);
-    const double vibratoTilt = control_effective(node.hpfFrequency);
+    const double modulationTilt = control_effective(node.lpfFrequency);
     const double centerSide = control_effective(node.pan);
     const double morph = control_effective(node.feedback);
     const double level = control_effective(node.amplitude);
-    const double freeRunningPhase = control_effective(node.mode);
-    const double jitterSpeedRefHz = control_effective(node.oversample);
+    const double modulationSpeedRefHz = control_effective(node.oversample);
     double voicesExact = control_effective(node.stages);
     if (!(voicesExact * 0.0 == 0.0)) voicesExact = 1.0;
     if (voicesExact < 1.0) voicesExact = 1.0;
@@ -6239,22 +6226,18 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
         voicesExact,
         distribute,
         randomize,
-        vibratoAmp,
+        vibratoDistance,
         vibratoSpeed,
-        vibratoFreqVary,
         vibratoPhaseVary,
-        phaseMultiplier,
         jitterDistance,
         jitterSpeed,
-        jitterTilt,
+        modulationTilt,
         centerSide,
         waveform,
         morph,
         level,
         seed,
-        freeRunningPhase,
-        jitterSpeedRefHz,
-        vibratoTilt
+        modulationSpeedRefHz
       );
       const double L = soemdsp_hypersaw2_left(node.nativeHandle);
       const double R = soemdsp_hypersaw2_right(node.nativeHandle);
@@ -6284,20 +6267,16 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
     const double waveform = control_audio(g, node.waveform, f);
     const double distribute = control_audio(g, node.shape, f);
     const double randomize = control_audio(g, node.width, f);
-    const double vibratoAmp = control_audio(g, node.resonance, f);
+    const double vibratoDistance = control_audio(g, node.resonance, f);
     const double vibratoSpeed = control_audio(g, node.lfoBaseSpeed, f);
-    const double vibratoFreqVary = control_audio(g, node.lfoAmplitude, f);
     const double vibratoPhaseVary = control_audio(g, node.lfoVariation, f);
-    const double phaseMultiplier = control_audio(g, node.mix, f);
     const double jitterDistance = control_audio(g, node.center, f);
     const double jitterSpeed = control_audio(g, node.lfoRate, f);
-    const double jitterTilt = control_audio(g, node.lpfFrequency, f);
-    const double vibratoTilt = control_audio(g, node.hpfFrequency, f);
+    const double modulationTilt = control_audio(g, node.lpfFrequency, f);
     const double centerSide = control_audio(g, node.pan, f);
     const double morph = control_audio(g, node.feedback, f);
     const double level = control_audio(g, node.amplitude, f);
-    const double freeRunningPhase = control_audio(g, node.mode, f);
-    const double jitterSpeedRefHz = control_audio(g, node.oversample, f);
+    const double modulationSpeedRefHz = control_audio(g, node.oversample, f);
     double voicesExact = control_audio(g, node.stages, f);
     if (!(voicesExact * 0.0 == 0.0)) voicesExact = 1.0;
     if (voicesExact < 1.0) voicesExact = 1.0;
@@ -6311,22 +6290,18 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
       voicesExact,
       distribute,
       randomize,
-      vibratoAmp,
+      vibratoDistance,
       vibratoSpeed,
-      vibratoFreqVary,
       vibratoPhaseVary,
-      phaseMultiplier,
       jitterDistance,
       jitterSpeed,
-      jitterTilt,
+      modulationTilt,
       centerSide,
       waveform,
       morph,
       level,
       seed,
-      freeRunningPhase,
-      jitterSpeedRefHz,
-      vibratoTilt
+      modulationSpeedRefHz
     );
     const double L = soemdsp_hypersaw2_left(node.nativeHandle);
     const double R = soemdsp_hypersaw2_right(node.nativeHandle);
@@ -8380,20 +8355,25 @@ static void process_degree_phrase(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Arp: Arp Keys->Mono, Trigger->Trigger, Reset->Reset, f->F (thru / future use).
-// frequency=Internal Clock Hz, mode=mode, stages=steps, seed=seed,
-// offset=octaveOffset (−4…+4).
+// Arp: Arp Keys->Mono, Trigger->Trigger, Reset->Reset, f->F (external rate Hz).
+// frequency=Internal Clock Hz (ignored when f is wired), mode=mode, stages=steps,
+// seed=seed, offset=octaveOffset (−4…+4).
+// Clock priority: Trigger edges > f jack rate > Internal Clock knob.
 // 0.1V/Oct→Mono, Gate→Left, Trigger→Right, Step→Saw, f Hz→Ramp.
 static void process_arp(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasHeld = mix_live_port(g, node, kPortMono, frames, g.mixMono);
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  mix_live_port(g, node, kPortF, frames, g.mixF); // ƒ in present for patching / future CV
+  const bool hasF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool takeSamplePath = node_has_active_chase(node);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
+    // f cable present → external rate; do not use Internal Clock knob.
+    const double rateHz = hasF
+      ? g.mixF[f]
+      : control_audio(g, node.frequency, f);
     const double pitch = soemdsp_arp_sample(
       node.nativeHandle,
       hasHeld ? g.mixMono[f] : 0.0,
@@ -8401,7 +8381,7 @@ static void process_arp(Circuit& g, Node& node, int frames) {
       hasTrig ? g.mixTrigger[f] : 0.0,
       hasTrig ? 1.0 : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
-      control_audio(g, node.frequency, f),
+      rateHz,
       control_effective(node.mode),
       control_effective(node.stages),
       control_effective(node.seed),
@@ -11904,5 +11884,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 139; // 1-sample delay groups for multi-node feedback SCCs
+  return 140; // arp: f jack rate replaces Internal Clock when wired
 }

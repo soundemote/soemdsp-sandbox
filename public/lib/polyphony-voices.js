@@ -66,9 +66,12 @@ function polyphonyTableNoteOff(table, midi) {
  * Merge gold latch bitmasks (88-key face, baseMidi + index) into a 128 table.
  * Already-sustaining notes are left alone (same velocity).
  */
-function polyphonyTableAddGoldLatchBits(table, low, high, baseMidi = 24, latchVelocity = 100, velocitiesByIndex = null) {
+function polyphonyTableAddGoldLatchBits(
+  table, low, high, baseMidi = 24, latchVelocity = 100, velocitiesByIndex = null, octaveOffset = 0,
+) {
   if (!(table instanceof Uint8Array)) return table;
   const base = Math.round(Number(baseMidi));
+  const oct = Math.round(Number(octaveOffset) || 0);
   const lo = Math.trunc(Number(low) || 0);
   const hi = Math.trunc(Number(high) || 0);
   let vel = Math.round(Number(latchVelocity));
@@ -80,11 +83,13 @@ function polyphonyTableAddGoldLatchBits(table, low, high, baseMidi = 24, latchVe
     const bit = i < 49 ? i : i - 49;
     const on = Math.floor(mask / (2 ** bit)) % 2 === 1;
     if (!on) continue;
+    const m = base + i + oct * 12;
+    if (m < 0 || m > 127) continue;
     let use = vel;
     if (perKey && i < perKey.length && (perKey[i] | 0) > 0) {
       use = Math.min(127, perKey[i] | 0);
     }
-    polyphonyTableNoteOn(table, base + i, use, false);
+    polyphonyTableNoteOn(table, m, use, false);
   }
   return table;
 }

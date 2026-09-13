@@ -172,11 +172,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   triggerDivider: "silence",
   stepSequencer: "silence",
   turingMachine: "silence",
-  degreeTuring: "silence",
-  gravityWalker: "silence",
-  degreePhrase: "silence",
-  chordSequencer: "silence",
-  chordMemory: "silence",
+
   chordPad: "silence",
   lutCell: "silence",
   t: "silence",
@@ -194,6 +190,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   theremin: "silence",
   keyboardController: "silence",
   keyboard: "silence",
+  gridKeyboard: "silence",
   // Crossovers: average In/L/R onto every band out
   crossover2: "crossover-avg",
   crossover3: "crossover-avg",
@@ -213,8 +210,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   mixStereo2: "pass",
   mixStereo: "pass",
   // Pitch utilities
-  noteGlide: "pass",
-  noteTranspose: "pass",
+
   pitchQuantizer: "pass",
   // Analyzer Thru
   spectrogram: "pass",

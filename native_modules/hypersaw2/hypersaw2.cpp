@@ -7,12 +7,13 @@
 //
 // Jitter Distance J (>=0, not hard-capped): walk within ±(1/N)*J around centers.
 // Phase Collapse: Merge (0) centers=(i/N)*J; Distribute (1) centers=i/N.
-// Jitter Speed (Hz) × tilt: walkHz = Speed × (f/Ref)^(tilt+1).
-// Vibrato Amp × tilt: depth × (|f|/100 Hz)^tilt.
-//   −1 lows more (∝ 1/f).  0 even.  +1 highs more (∝ f, previous law).
+// Modulation Tilt (f / Speed Ref)^(tilt+1):
+//   Jitter: scales Speed (walk rate vs pitch).
+//   Vibrato: scales Distance (phase room vs pitch). Vibrato Speed stays Hz.
+// Vibrato: vibOut = sine_lut × (1/N)×Distance×tiltScale. Additive with walkOut.
 // Randomize Phase = permanent offset after Distance.
 // Rising Reset re-zeros master + re-rolls seeds.
-// Display: soemdsp_hypersaw2_voice_phase → wrap01(center + walk + randomize).
+// Display: soemdsp_hypersaw2_voice_phase → wrap01(center + walk + vib + randomize).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -197,7 +198,6 @@ static inline double pitch_to_freq(double pitch) {
     * dsp_exp(0.057762265046662109118102676788181 * pitch);
 }
 
-static const double kDistanceRefHz = 100.0; // osc Hz where Distance equals Drift Amp
 // Former baked DriftPitch — Jitter Pitch 0 lands here.
 static const double kJitterPitchBaseSt = 64.256;
 
@@ -276,7 +276,6 @@ struct Hypersaw2VoiceState {
   double randomOffset;     // bipolar −1…+1 permanent Randomize Phase
   double vibPhase;         // per-voice vibrato LFO phase
   double vibPhaseRandom;   // unipolar 0…1 — Vibrato Phase Vary
-  double vibFreqBipolar;   // bipolar −1…+1 — Vibrato Freq Vary
   JitterState jitter;
   double lastOffset;
   unsigned int rngState;
@@ -296,7 +295,7 @@ struct Hypersaw2State {
 
 static Hypersaw2State gPool[kMaxInstances];
 
-// Master Seed drives every per-voice RNG (randomize + vibrato vary + jitter).
+// Master Seed drives every per-voice RNG (randomize + vibrato phase + jitter).
 void seedVoice(Hypersaw2VoiceState& voice, int instanceIndex, int voiceIndex, unsigned int masterSeed) {
   voice.rngState = masterSeed
     ^ static_cast<unsigned int>((instanceIndex + 1) * 16777619u)
@@ -304,7 +303,6 @@ void seedVoice(Hypersaw2VoiceState& voice, int instanceIndex, int voiceIndex, un
   if (!voice.rngState) voice.rngState = 0x9E3779B9u;
   voice.randomOffset = randomBipolar(voice.rngState);
   voice.vibPhaseRandom = randomUnipolar(voice.rngState);
-  voice.vibFreqBipolar = randomBipolar(voice.rngState);
   voice.vibPhase = 0.0;
   voice.jitter.rng = voice.rngState ^ 0x27D4EB2Du;
   if (!voice.jitter.rng) voice.jitter.rng = 1u;
@@ -351,9 +349,8 @@ extern "C" void soemdsp_hypersaw2_reset(int handle) {
   }
 }
 
-// Phase Modulation — exact HypersawUnit::run:
-//   phaseOffset_ = phase * ((vibInput_ * vibAmp_) + vibOffset_) + walkOut_
-// Vibrato Freq/Phase Vary: per-voice rate & phase offsets (Master Seed).
+// One phase-mod bus: evenCenter + jitter walk + sine vibrato + randomize.
+// Jitter and vibrato share Modulation Tilt on Speed only. Distance is unscaled.
 extern "C" void soemdsp_hypersaw2_sample(
   int handle,
   double frequencyHz,
@@ -362,27 +359,21 @@ extern "C" void soemdsp_hypersaw2_sample(
   double numVoicesExact,
   double distributePhase,
   double randomizePhase,
-  double vibratoAmp,
+  double vibratoDistance,
   double vibratoSpeedHz,
-  double vibratoFreqVary,
   double vibratoPhaseVary,
-  double phaseMultiplier,
   double jitterDistance,
   double jitterSpeed,
-  double jitterTilt,
+  double modulationTilt,
   double centerSide,
   double waveform,
   double morph,
   double level,
   double seedParam,
-  double freeRunningPhase,
-  double jitterSpeedRefHz,
-  double vibratoTilt
+  double modulationSpeedRefHz
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   Hypersaw2State& s = gPool[handle - 1];
-  (void)freeRunningPhase; // removed — shared locked master only
-  (void)phaseMultiplier;
 
   const double sr = sampleRate > 1.0 ? sampleRate : 48000.0;
   // Frequency itself is instant (tilt / jitter speed / vib depth use this).
@@ -427,24 +418,21 @@ extern "C" void soemdsp_hypersaw2_sample(
   // distributePhase arg = Phase Collapse: 0 Merge, 1 Distribute (default).
   const bool collapseDistribute = !(distributePhase < 0.5);
   const double randomAmt = (randomizePhase == randomizePhase) ? randomizePhase : 0.0;
-  const double vibAmp = (vibratoAmp == vibratoAmp) ? vibratoAmp : 0.0;
-  const double vibHz = (vibratoSpeedHz == vibratoSpeedHz) ? vibratoSpeedHz : 0.0;
-  double vibFreqV = (vibratoFreqVary == vibratoFreqVary) ? vibratoFreqVary : 0.0;
-  if (vibFreqV < 0.0) vibFreqV = 0.0;
-  if (vibFreqV > 1.0) vibFreqV = 1.0;
+  double vibDist = (vibratoDistance == vibratoDistance) ? vibratoDistance : 0.0;
+  if (vibDist < 0.0) vibDist = 0.0;
+  const double vibHz = (vibratoSpeedHz == vibratoSpeedHz && vibratoSpeedHz > 0.0)
+    ? vibratoSpeedHz : 0.0;
   double vibPhaseV = (vibratoPhaseVary == vibratoPhaseVary) ? vibratoPhaseVary : 0.0;
   if (vibPhaseV < 0.0) vibPhaseV = 0.0;
   if (vibPhaseV > 1.0) vibPhaseV = 1.0;
   double jDistanceTarget = (jitterDistance == jitterDistance) ? jitterDistance : 0.0;
   if (jDistanceTarget < 0.0) jDistanceTarget = 0.0;
   const double jSpeed = (jitterSpeed == jitterSpeed && jitterSpeed > 0.0) ? jitterSpeed : 0.0;
-  double tilt = (jitterTilt == jitterTilt) ? jitterTilt : -1.0;
+  double tilt = (modulationTilt == modulationTilt) ? modulationTilt : -1.0;
   if (tilt < -1.0) tilt = -1.0;
   if (tilt > 1.0) tilt = 1.0;
-  double vibTilt = (vibratoTilt == vibratoTilt) ? vibratoTilt : 0.0;
-  if (vibTilt < -1.0) vibTilt = -1.0;
-  if (vibTilt > 1.0) vibTilt = 1.0;
-  double speedRef = (jitterSpeedRefHz == jitterSpeedRefHz) ? jitterSpeedRefHz : 261.625565;
+  double speedRef = (modulationSpeedRefHz == modulationSpeedRefHz)
+    ? modulationSpeedRefHz : 261.625565;
   if (!(speedRef > 1.0e-6)) speedRef = 261.625565;
   const double cs = clampD(centerSide, 0.0, 1.0);
   int wave = (int)(waveform + (waveform >= 0.0 ? 0.5 : -0.5));
@@ -489,24 +477,7 @@ extern "C" void soemdsp_hypersaw2_sample(
     if (speedScale < (1.0 / 64.0)) speedScale = 1.0 / 64.0;
   }
   const double jSpeedEff = jSpeed * speedScale;
-
-  // Vibrato Amp pitch curve — same power idea as Jitter Tilt, on depth not rate:
-  //   scale = (|f| / 100 Hz)^tilt
-  //   −1 lows more (∝ 1/f).  0 even (constant phase-offset depth).
-  //   +1 highs more (∝ f) — previous hardcoded |f|/100.
-  double vibScale = 1.0;
-  {
-    const double fVib = (oscAbs > 1.0e-12) ? oscAbs : kDistanceRefHz;
-    if (vibTilt * vibTilt > 1.0e-12) {
-      const double ratio = fVib / kDistanceRefHz;
-      vibScale = (ratio > 0.0) ? dsp_exp(vibTilt * dsp_ln(ratio)) : 1.0;
-    }
-    if (!(vibScale > 0.0)) vibScale = 1.0;
-    if (vibScale > 64.0) vibScale = 64.0;
-    if (vibScale < (1.0 / 64.0)) vibScale = 1.0 / 64.0;
-  }
   const double jDistance = jDistanceTarget;
-  const double vibAmpDist = vibAmp * vibScale;
 
   double leftSum = 0.0;
   double rightSum = 0.0;
@@ -516,6 +487,7 @@ extern "C" void soemdsp_hypersaw2_sample(
 
   const double voiceShare = 1.0 / static_cast<double>(voiceCount);
   const double walkAmp = voiceShare * jDistance;
+  const double vibAmp = voiceShare * vibDist * speedScale;
 
   // Shared locked master — all saws use the same carrier phase.
   s.masterPhase = wrap01(s.masterPhase + phaseIncrement);
@@ -529,16 +501,14 @@ extern "C" void soemdsp_hypersaw2_sample(
       voice.jitter, walkAmp, jSpeedEff, speedScale, sr);
     const double randomPart = voice.randomOffset * randomAmt;
 
-    double rateScale = 1.0 + vibFreqV * voice.vibFreqBipolar;
-    if (rateScale < 0.0) rateScale = 0.0;
-    voice.vibPhase = wrap01(voice.vibPhase + hz_to_increment(vibHz * rateScale, sr));
-    const double vibOscOut = dsp_sin_turns_lut(
-      wrap01(voice.vibPhase + 0.5 + voice.vibPhaseRandom * vibPhaseV)
-    );
+    voice.vibPhase = wrap01(voice.vibPhase + hz_to_increment(vibHz, sr));
+    const double vibOut = (vibAmp > 0.0)
+      ? (dsp_sin_turns_lut(
+           wrap01(voice.vibPhase + 0.5 + voice.vibPhaseRandom * vibPhaseV)
+         ) * vibAmp)
+      : 0.0;
 
-    const double vibInput = (i >= 1) ? vibOscOut : 0.0;
-    const double phaseOffset =
-      (evenCenter + walkOut) * (vibInput * vibAmpDist + 1.0) + randomPart;
+    const double phaseOffset = evenCenter + walkOut + vibOut + randomPart;
     voice.lastOffset = wrap01(phaseG + phaseOffset);
 
     const double renderPhase = wrap01(s.masterPhase + phaseG + phaseOffset);
@@ -611,5 +581,5 @@ extern "C" int soemdsp_hypersaw2_max_voices() {
 }
 
 extern "C" int soemdsp_hypersaw2_version() {
-  return 42; // Vibrato Tilt (−1 lows / 0 even / +1 highs = old |f|/100)
+  return 44; // Modulation Tilt: jitter Speed, vibrato Distance; vib Speed is Hz
 }
