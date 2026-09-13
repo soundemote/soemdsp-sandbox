@@ -960,16 +960,18 @@ function createNodeGraphModuleElement(type, node) {
     definition.layout === "keyboardController"
     || definition.layout === "keyboard"
     || definition.layout === "gridKeyboard"
+    || definition.layout === "sequencer"
     || definition.layout === "macroControls"
     || definition.layout === "pitchModWheel"
   ) {
-    // Controller module faces. State is global on nodeGraphMvp.
     if (definition.layout === "keyboardController") {
       article.append(createNodeGraphMidiModuleBody(node));
     } else if (definition.layout === "keyboard") {
       article.append(createNodeGraphKeyboardControllerBody(node));
     } else if (definition.layout === "gridKeyboard") {
       article.append(createNodeGraphGridKeyboardBody(node));
+    } else if (definition.layout === "sequencer") {
+      article.append(createNodeGraphSequencerBody(node));
     } else if (definition.layout === "macroControls") {
       article.append(createNodeGraphMacroControlsBody(node));
     } else {

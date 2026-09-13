@@ -72,6 +72,16 @@ function createNodeGraphPatchNode(type, options = {}) {
   if (alias) {
     node.alias = alias;
   }
+  // Chord Memory slots (Keyboard / Grid) — MIDI 0..127 → note lists.
+  if (
+    (resolvedType === "keyboard" || resolvedType === "gridKeyboard")
+    && opts.chordMemory
+    && typeof opts.chordMemory === "object"
+  ) {
+    node.chordMemory = typeof nodeGraphChordMemoryNormalizeSlots === "function"
+      ? { slots: nodeGraphChordMemoryNormalizeSlots(opts.chordMemory) }
+      : { slots: opts.chordMemory.slots || opts.chordMemory };
+  }
   // Explicit opts.ui wins. Else module definition.defaultUi (e.g. Vectorscope
   // Rotation). textBox still defaults buttons off when nothing else is set.
   let uiSource = opts.ui;

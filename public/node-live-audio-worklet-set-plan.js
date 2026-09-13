@@ -140,6 +140,8 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
         : undefined,
       paramMeta: node.paramMeta || {},
       params: node.params || {},
+      sequencer: node.sequencer && typeof node.sequencer === "object" ? node.sequencer : null,
+      chordMemory: node.chordMemory && typeof node.chordMemory === "object" ? node.chordMemory : null,
       sample: node.sample || null,
       samplePhase: Number.isFinite(Number(node.samplePhase)) ? Number(node.samplePhase) : null,
       samplePhaseSeek: Number.isFinite(Number(node.samplePhaseSeek))
@@ -578,9 +580,7 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (node?.type === "pluckEnvelope" && !this.pluckEnvelopeStates.has(id)) {
         this.pluckEnvelopeStates.set(id, this.createPluckEnvelopeState());
       }
-      if (node?.type === "stepSequencer" && !this.stepSequencerStates.has(id)) {
-        this.stepSequencerStates.set(id, this.createStepSequencerState());
-      }
+
       if (node?.type === "stepGrid" && !this.stepGridStates.has(id)) {
         this.stepGridStates.set(id, this.createStepGridState());
       }
@@ -1326,12 +1326,7 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
         }
       }
     }
-    for (const id of [...this.stepSequencerStates.keys()]) {
-      if (!ids.has(id)) {
-        this.destroyStepSequencerNativeState(this.stepSequencerStates.get(id));
-        this.stepSequencerStates.delete(id);
-      }
-    }
+
     for (const id of [...this.stepGridStates.keys()]) {
       if (!ids.has(id)) {
         this.stepGridStates.delete(id);

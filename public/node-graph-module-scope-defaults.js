@@ -55,7 +55,7 @@ const nodeGraphModuleScopeUnipolarTypes = new Set([
   "chromaColor",
   "rgbaHsla",
   "sandboxVisuals",
-  "stepSequencer",
+  "sequencer",
   "triggerCounter",
   "triggerDivider",
 ]);

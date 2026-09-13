@@ -28,11 +28,17 @@ NodeLiveAudioProcessor.prototype.setInputWireBreakTrigger = function setInputWir
     }
 };
 
-NodeLiveAudioProcessor.prototype.setSpeed = function setSpeed(speed) {
+NodeLiveAudioProcessor.prototype.setSpeed = function setSpeed(speed, options) {
     const value = Number(speed);
     const next = Number.isFinite(value) ? Math.max(0, value) : 1;
     const wasStopped = !(Number(this.speedMultiplier) > 0);
     this.speedMultiplier = next;
+    if (options?.restartSequencer === true || (wasStopped && next > 0)) {
+      this._seqTickFrac = 0;
+      this._sequencerEngineSec = 0;
+      this._sequencerNeedsRewind = true;
+      this._vmReconcileFp = undefined;
+    }
     // Pause→Play (speed 0→>0) without tearing down the worklet: snap osc phases
     // to 0 so PolyBLEP does not resume at a leftover phase.
     if (wasStopped && next > 0 && this.phases instanceof Map) {
@@ -221,6 +227,17 @@ NodeLiveAudioProcessor.prototype.setConnections = function setConnections(plan, 
         if (node.bypassSpec && typeof node.bypassSpec === "object") {
           current.bypassSpec = node.bypassSpec;
         }
+        if (Object.hasOwn(node, "sequencer")) {
+          current.sequencer = node.sequencer && typeof node.sequencer === "object"
+            ? node.sequencer
+            : null;
+          this._sequencerPrevMasks?.delete?.(node.id);
+        }
+        if (Object.hasOwn(node, "chordMemory")) {
+          current.chordMemory = node.chordMemory && typeof node.chordMemory === "object"
+            ? node.chordMemory
+            : null;
+        }
       }
     } else {
       for (const [id, current] of this.nodes) {
@@ -283,6 +300,17 @@ NodeLiveAudioProcessor.prototype.setParams = function setParams(nodes, message =
       // Keep drawn path in sync when params push also carries node extras.
       if (Object.hasOwn(node, "drawnPath")) {
         current.drawnPath = node.drawnPath || null;
+      }
+      if (Object.hasOwn(node, "sequencer")) {
+        current.sequencer = node.sequencer && typeof node.sequencer === "object"
+          ? node.sequencer
+          : null;
+        this._sequencerPrevMasks?.delete?.(node.id);
+      }
+      if (Object.hasOwn(node, "chordMemory")) {
+        current.chordMemory = node.chordMemory && typeof node.chordMemory === "object"
+          ? node.chordMemory
+          : null;
       }
       if (Object.hasOwn(node, "samplePhase") && Number.isFinite(Number(node.samplePhase))) {
         current.samplePhase = Number(node.samplePhase);

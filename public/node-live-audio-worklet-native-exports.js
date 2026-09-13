@@ -681,22 +681,7 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
-      if (name === "step_sequencer" || targetType === "stepSequencer") {
-        for (const state of this.stepSequencerStates.values()) {
-          this.destroyStepSequencerNativeState(state);
-        }
-        this.nativeStepSequencer = exports;
-        this.nativeStepSequencerReady = Boolean(
-          this.nativeStepSequencer?.soemdsp_step_sequencer_create &&
-          this.nativeStepSequencer?.soemdsp_step_sequencer_sample,
-        );
-        this.port.postMessage({
-          type: "nativeModuleStatus",
-          name: "step_sequencer",
-          status: this.nativeStepSequencerReady ? "ready" : "missing exports",
-        });
-        return;
-      }
+
       if (name === "trigger_counter" || targetType === "triggerCounter") {
         for (const state of this.triggerCounterStates.values()) {
           this.destroyTriggerCounterNativeState(state);

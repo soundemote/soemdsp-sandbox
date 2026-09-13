@@ -719,10 +719,11 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "10t",
     notes: ["transistor", "10t"],
   },
-  stepSequencer: {
-    category: "clock",
-    description: "Classic stepped values under clock—melodies, parameter automation, and rhythmic CV.",
-    notes: ["trigger input", "reset input", "stepped modulation"],
+  sequencer: {
+    category: "musical",
+    description: "Transport-locked piano roll. Click in notes; Play Keys / Polyphony / Gate out. Not a modulation source.",
+    label: "Sequencer",
+    notes: ["piano roll", "play keys", "polyphony", "master clock", "project"],
   },
   // stepGrid registers its own catalog entry from public/modules/stepGrid/
   // step-grid-register.js -- see node-graph-chromeless-module-registry.js.
@@ -3401,9 +3402,9 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/stepGrid/step-grid-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/stepGrid/step-grid-worklet-evaluator.js",
   },
-  stepSequencer: {
-    source: "public/modules/stepSequencer/step-sequencer-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/stepSequencer/step-sequencer-math.js",
+  sequencer: {
+    source: "public/modules/sequencer/sequencer-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sequencer/sequencer-math.js",
   },
   stftBlur: {
     source: "public/modules/stftBlur/stft-blur-math.js",

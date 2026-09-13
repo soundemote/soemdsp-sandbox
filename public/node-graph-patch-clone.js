@@ -541,6 +541,13 @@ function cloneNodeGraphPatch(patch) {
               : nodeGraphGraphWithPhaseCursor(node),
           }
           : {}),
+        ...(node.type === "sequencer"
+          ? {
+            sequencer: typeof sequencerCloneClip === "function"
+              ? sequencerCloneClip(node.sequencer)
+              : (node.sequencer && typeof node.sequencer === "object" ? { ...node.sequencer } : undefined),
+          }
+          : {}),
         ...(node.type === "codeblock"
           ? { codeblock: normalizeNodeGraphCodeblock(node.codeblock) }
           : {}),

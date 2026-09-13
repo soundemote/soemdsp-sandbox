@@ -170,7 +170,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   delayedTrigger: "silence",
   triggerCounter: "silence",
   triggerDivider: "silence",
-  stepSequencer: "silence",
+  sequencer: "silence",
   turingMachine: "silence",
 
   chordPad: "silence",

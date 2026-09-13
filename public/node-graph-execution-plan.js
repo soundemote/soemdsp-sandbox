@@ -574,11 +574,6 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       if (!triggerCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} trigger`);
       }
-    } else if (type === "stepSequencer") {
-      const triggerCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Trigger")) || []).length;
-      if (!triggerCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
-        issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} trigger`);
-      }
     } else if (type === "triggerDivider") {
       const triggerCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Trigger")) || []).length;
       if (!triggerCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {

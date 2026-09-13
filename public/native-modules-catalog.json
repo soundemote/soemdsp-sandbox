@@ -1626,19 +1626,7 @@
       "wasmUrl": "native_modules/step_graph/step_graph.wasm",
       "wasmAvailable": true
     },
-    {
-      "name": "step_sequencer",
-      "label": "Step Sequencer",
-      "targetType": "stepSequencer",
-      "kind": "utility",
-      "source": "native_modules/step_sequencer/step_sequencer.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/step_sequencer/step_sequencer.cpp",
-      "localSourceUrl": "/native_modules/step_sequencer/step_sequencer.cpp",
-      "libUrl": "",
-      "wasm": "native_modules/step_sequencer/step_sequencer.wasm",
-      "wasmUrl": "native_modules/step_sequencer/step_sequencer.wasm",
-      "wasmAvailable": true
-    },
+
     {
       "name": "superlove_filter",
       "label": "SuperLove Filter",

@@ -353,9 +353,11 @@ function nodeGraphModuleDisplayVisibleForUi(type, ui = {}) {
   return !nodeGraphEffectivePatchNodeUi(ui, type).oscilloscopeHidden;
 }
 
-/** Mount-time gate: only create/attach display faces when visible. */
+/** Always mount a face if the module has one. Hide is CSS + layout tracks, not unmount. */
 function nodeGraphModuleShouldMountDisplayFace(type, ui = {}) {
-  return nodeGraphModuleDisplayVisibleForUi(type, ui);
+  return typeof nodeGraphModuleHasFace === "function"
+    ? nodeGraphModuleHasFace(type)
+    : nodeGraphModuleDisplayVisibleForUi(type, ui);
 }
 
 function normalizeNodeGraphModuleDisplayHeightUnits(heightGu, type = null) {
@@ -1233,6 +1235,12 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
       const faceIndex = visible.findIndex((band) => band.id === "face");
       child.style.gridRow = String(faceIndex >= 0 ? faceIndex + 1 : Math.max(2, visible.length));
       child.hidden = false;
+    } else if (id === "face") {
+      // Keep the face mounted. .oscilloscope-hidden CSS hides paint; a track
+      // is omitted so layout does not leave a hole. Never HTML-hidden — that
+      // stuck Keyboard/Sequencer faces until a full remount (Hide unused).
+      child.style.gridRow = "auto";
+      child.hidden = false;
     } else {
       child.style.gridRow = "auto";
       child.hidden = true;
@@ -1517,7 +1525,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "keyboard"
-    || nodeGraphModuleDefinitions[type]?.layout === "gridKeyboard") {
+    || nodeGraphModuleDefinitions[type]?.layout === "gridKeyboard"
+    || nodeGraphModuleDefinitions[type]?.layout === "sequencer") {
     // Header | face (controls + piano/grid) | I/O.
     // Face height is freehand display gu so the piano can stretch vertically.
     return [

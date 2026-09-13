@@ -68,7 +68,7 @@ const nodeGraphNodeLabels = Object.freeze({
   t8: "8t",
   t9: "9t",
   t10: "10t",
-  stepSequencer: "Step Sequencer",
+  sequencer: "Sequencer",
   spiral: "Spiral",
   fractalSpiral: "Fractal Spiral",
   logSpiral: "Logarithmic Spiral",
@@ -5588,51 +5588,32 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
     ]
   },
-  stepSequencer: {
-    planRole: "processor",
-    planFreeRun: true,
-    inputs: ["Trigger", "Reset"],
-    outputs: ["Out", "Gate"],
-    parameters: [
-      {
-        defaultValue: "0",
-        key: "threshold",
-        label: "Threshold",
-        max: "1",
-        mid: "0",
-        min: "-1",
-        nonlinearSlider: false,
-        step: "any"
-      },
-      {
-        defaultValue: "8",
-        key: "steps",
-        label: "Steps",
-        max: "8",
-        mid: "8",
-        min: "1",
-        nonlinearSlider: false,
-        step: "1"
-      },
-      {
-        defaultValue: "1",
-        key: "level",
-        label: "Level",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any"
-      },
-      { defaultValue: "0", key: "step1", label: "Step 1", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0.25", key: "step2", label: "Step 2", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0.5", key: "step3", label: "Step 3", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0.75", key: "step4", label: "Step 4", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-      { defaultValue: "1", key: "step5", label: "Step 5", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0.75", key: "step6", label: "Step 6", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0.5", key: "step7", label: "Step 7", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0.25", key: "step8", label: "Step 8", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-    ]
+  sequencer: {
+    planRole: "source",
+    digitalOutputs: ["Polyphony", "Play Keys"],
+    inputs: [],
+    layout: "sequencer",
+    customDisplayArea: true,
+    defaultWidthGu: 36,
+    displayHeightGu: 14,
+    outputChannels: {
+      Polyphony: "black",
+      "Play Keys": "blue",
+    },
+    outputLabels: {
+      Polyphony: "Polyphony",
+      "Play Keys": "Play Keys",
+      f: "ƒ",
+    },
+    outputs: [
+      "Polyphony",
+      "Play Keys",
+      "Gate",
+      "Trigger",
+      "0.1V/Oct",
+      "f",
+    ],
+    parameters: [],
   },
   // stepGrid registers its own definition from public/modules/stepGrid/
   // step-grid-register.js -- see node-graph-chromeless-module-registry.js.
@@ -12238,15 +12219,17 @@ const nodeGraphModuleDefinitions = (
   },
   // Local piano face + explicit INs (wire MIDI→Keyboard Play Keys for device blue).
   // Play Keys = blue sounding mask. Arp Keys = gold ctrl+click latch.
+  // Chord Memory IN = green mask: bit n activates saved chord slot n as Play Keys.
   // Polyphony = Midi Note + Velocity (local piano) — wire to Meta Voices.
   keyboard: {
     planRole: "source",
-    digitalInputs: ["Play Keys", "Arp Keys"],
+    digitalInputs: ["Play Keys", "Arp Keys", "Chord Memory"],
     digitalOutputs: ["Polyphony", "Play Keys", "Arp Keys"],
-    inputs: ["Play Keys", "Arp Keys", "Gate", "Trigger"],
+    inputs: ["Play Keys", "Arp Keys", "Chord Memory", "Gate", "Trigger"],
     inputChannels: {
       "Play Keys": "blue",
       "Arp Keys": "gold",
+      "Chord Memory": "green",
     },
     outputChannels: {
       Polyphony: "black",
@@ -12283,6 +12266,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: {
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
+      "Chord Memory": "Chord Memory",
       Gate: "Gate",
       Trigger: "Trigger",
     },
@@ -12305,12 +12289,13 @@ const nodeGraphModuleDefinitions = (
   },
   gridKeyboard: {
     planRole: "source",
-    digitalInputs: ["Play Keys", "Arp Keys"],
+    digitalInputs: ["Play Keys", "Arp Keys", "Chord Memory"],
     digitalOutputs: ["Polyphony", "Play Keys", "Arp Keys"],
-    inputs: ["Play Keys", "Arp Keys"],
+    inputs: ["Play Keys", "Arp Keys", "Chord Memory"],
     inputChannels: {
       "Play Keys": "blue",
       "Arp Keys": "gold",
+      "Chord Memory": "green",
     },
     outputChannels: {
       Polyphony: "black",
@@ -12329,6 +12314,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: {
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
+      "Chord Memory": "Chord Memory",
     },
     outputs: [
       "Polyphony",

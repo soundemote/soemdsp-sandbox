@@ -425,7 +425,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.spiralStates = new Map();
     this.fractalSpiralStates = new Map();
     this.logSpiralStates = new Map();
-    this.stepSequencerStates = new Map();
+
     this.stepGridStates = new Map();
     this.timing = this.normalizePatchTiming();
     this.triggerCounterStates = new Map();

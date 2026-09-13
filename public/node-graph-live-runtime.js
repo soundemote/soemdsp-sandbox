@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=arp-f-clock-140";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=seq-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -1324,7 +1324,15 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
   if (clamped > 0) {
     nodeGraphMvp.live.lastPlaySpeed = clamped;
   }
+  const wasStopped = !(Number(nodeGraphMvp.live.speedMultiplier) > 0);
   nodeGraphMvp.live.speedMultiplier = clamped;
+  if (options?.restartSequencer === true || (wasStopped && clamped > 0)) {
+    nodeGraphMvp.live._restartSequencerOnce = true;
+    nodeGraphMvp._seqEngineSec = 0;
+    nodeGraphMvp._seqLastMs = (typeof performance !== "undefined" && performance.now)
+      ? performance.now()
+      : Date.now();
+  }
   sendNodeGraphLiveSpeed();
   if (typeof applyNodeGraphLiveOutputGain === "function") {
     applyNodeGraphLiveOutputGain();
@@ -1431,7 +1439,9 @@ function sendNodeGraphLiveSpeed() {
     nodeGraphMvp.live.node.port.postMessage({
       type: "setSpeed",
       speed: nodeGraphMvp.live.speedMultiplier,
+      restartSequencer: Boolean(nodeGraphMvp.live._restartSequencerOnce),
     });
+    nodeGraphMvp.live._restartSequencerOnce = false;
   } catch (_error) {
     // Worklet may be disconnected.
   }
@@ -1859,6 +1869,12 @@ function queueNodeGraphLivePatchCommand(command, nodeId = "") {
 
 function handleNodeGraphLiveWorkletMessage(event) {
   const message = event.data || {};
+  if (message.type === "sequencerDebug") {
+    if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+      nodeGraphMvp._seqWorkletDebug = message;
+    }
+    return;
+  }
   if (message.type === "meter") {
     if (message.sessionId !== nodeGraphMvp.live.sessionId || !nodeGraphMvp.live.node) {
       return;
@@ -3114,23 +3130,25 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-dsp-state.js?v=protect-worklet-1",
   "./public/lib/polyphony-voices.js?v=gold-oct-1",
   "./public/lib/note-mask-128.js?v=note-mask-1",
-  "./public/node-live-audio-worklet-events.js?v=note-mask-1",
+  "./public/node-graph-keyboard-chord-memory.js?v=arp-clear-3",
+  "./public/modules/sequencer/sequencer-math.js?v=seq-18",
+  "./public/node-live-audio-worklet-events.js?v=seq-17",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=nuke-musical-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=seq-19",
   "./public/node-live-audio-worklet-meta-view.js?v=meta-view-rewrite-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=meta-payload-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=chord-seq-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=note-mask-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=seq-13",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=meta-view-rewrite-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=note-mask-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=seq-18",
   "./public/node-live-audio-worklet-process.js?v=protect-worklet-1",
 ];
 
@@ -3541,7 +3559,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
         ? nodeGraphLiveResumePlaySpeed()
         : 1;
       if (typeof setNodeGraphLiveSpeed === "function") {
-        setNodeGraphLiveSpeed(resume, { force: true });
+        setNodeGraphLiveSpeed(resume, { force: true, restartSequencer: true });
       } else {
         nodeGraphMvp.live.speedMultiplier = resume;
         if (!(Number(nodeGraphMvp.live.lastPlaySpeed) > 0)) {

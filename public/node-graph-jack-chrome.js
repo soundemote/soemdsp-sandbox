@@ -100,7 +100,11 @@ function nodeGraphJackLastToken(value) {
 
 function nodeGraphPortIsNoteBus(port) {
   const key = String(port || "").trim();
-  return key === "Play Keys" || key === "Arp Keys" || key === "Polyphony" || key === "Voices";
+  return key === "Play Keys"
+    || key === "Arp Keys"
+    || key === "Chord Memory"
+    || key === "Polyphony"
+    || key === "Voices";
 }
 
 function nodeGraphJackSignalKind(type, port, io = null) {
@@ -190,8 +194,9 @@ function nodeGraphJackChannelCssColor(channel) {
  */
 function nodeGraphJackWireColor(type, port, io = "output") {
   const channel = nodeGraphJackChannel(type, port, io);
-  // Colored digital buses (Play Keys blue, Arp Keys gold) + Polyphony/Voices black.
-  if (channel === "blue" || channel === "gold" || channel === "black") {
+  // Colored digital buses (Play Keys blue, Arp Keys gold, Chord Memory green)
+  // + Polyphony/Voices black.
+  if (channel === "blue" || channel === "gold" || channel === "green" || channel === "black") {
     return nodeGraphJackChannelCssColor(channel) || "";
   }
   if (nodeGraphJackSignalKind(type, port, io) === "digital") {
@@ -357,10 +362,18 @@ function nodeGraphJackChannel(type, port, io = "output") {
   if (key === "Arp Keys") {
     return "gold";
   }
+  if (key === "Chord Memory") {
+    return "green";
+  }
   const def = nodeGraphJackTypeDefinition(type);
   // Explicit module channels win before digital→white.
   const fromExplicit = nodeGraphJackExplicitChannel(def, key, io);
-  if (fromExplicit === "blue" || fromExplicit === "gold" || fromExplicit === "black") {
+  if (
+    fromExplicit === "blue"
+    || fromExplicit === "gold"
+    || fromExplicit === "green"
+    || fromExplicit === "black"
+  ) {
     return fromExplicit;
   }
   if (nodeGraphJackSignalKind(type, key, io) === "digital") {

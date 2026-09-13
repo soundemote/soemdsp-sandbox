@@ -139,7 +139,7 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       return;
     }
     if (message.type === "setSpeed") {
-      this.setSpeed(message.speed);
+      this.setSpeed(message.speed, { restartSequencer: message.restartSequencer === true });
       return;
     }
     if (message.type === "setSpeedLimit") {

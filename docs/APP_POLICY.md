@@ -72,7 +72,7 @@ Only these live-audio types exist in the efficient build:
 | `lutCell` | 4-in LUT + flip-flop (Out / Q) |
 | `lookaheadLimiter` | Brickwall Limiter — true-stereo ceiling (Out / L / R / Gain) |
 | `limiter` | Pump Limiter — threshold/ratio GR, sidechain, Env (Out / L / R / Gain / Env) |
-| `stepSequencer` | 8-step Trigger/Reset sequencer |
+| `sequencer` | Transport-locked piano roll (Play Keys / Polyphony / Gate) |
 | `transport` | Master Clock (−1..1 / 0..1 / Trigger / f Hz) |
 | `aliasSine` | Normalized-freq sine (aliases by design) |
 | `blit` | Band-limited impulse-train oscillator (Saw/Ramp/Square/Tri/Sine) |
@@ -177,7 +177,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    sampleDelay / sampleHold / minMax / mix / mixStereo / clipperLimiter /
    midSideEncode / vectorscopeTransform / rotate3dTo2d /
    clock / binaryClock / triggerDivider / clockDivider / delayedTrigger / randomClock / triggerCounter /
-   metallicRatio / lutCell / lookaheadLimiter / limiter / stepSequencer / transport /
+   metallicRatio / lutCell / lookaheadLimiter / limiter / sequencer / transport /
    aliasSine / blit / sineWavetable / sinCos / antisaw / archimedes /
    additiveOsc / surgeOscillator / softwaveOsc / dsfOscillator / hypersaw2 / sinc /
    bradley2a / phoneTone / ellipsoid / snowflake /

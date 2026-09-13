@@ -223,6 +223,16 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
       if (nodeGraphModuleIsGraphType(node.type) && node.graph) {
         runtimeNode.graph = node.graph;
       }
+      if (node.type === "sequencer") {
+        runtimeNode.sequencer = typeof sequencerCloneClip === "function"
+          ? sequencerCloneClip(node.sequencer)
+          : (node.sequencer || null);
+      }
+      if ((node.type === "keyboard" || node.type === "gridKeyboard") && node.chordMemory) {
+        runtimeNode.chordMemory = typeof nodeGraphChordMemoryNormalizeSlots === "function"
+          ? { slots: nodeGraphChordMemoryNormalizeSlots(node.chordMemory) }
+          : node.chordMemory;
+      }
       return runtimeNode;
     });
 }
@@ -298,6 +308,16 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
       }
       if (nodeGraphModuleIsGraphType(node.type) && node.graph) {
         runtimeNode.graph = node.graph;
+      }
+      if (node.type === "sequencer") {
+        runtimeNode.sequencer = typeof sequencerCloneClip === "function"
+          ? sequencerCloneClip(node.sequencer)
+          : (node.sequencer || null);
+      }
+      if ((node.type === "keyboard" || node.type === "gridKeyboard") && node.chordMemory) {
+        runtimeNode.chordMemory = typeof nodeGraphChordMemoryNormalizeSlots === "function"
+          ? { slots: nodeGraphChordMemoryNormalizeSlots(node.chordMemory) }
+          : node.chordMemory;
       }
       return runtimeNode;
     });
@@ -467,7 +487,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const samplePlaybackStates = new Map();
   const samples = new Map((plan.samples || []).map((sample) => [sample.id, sample]));
   const slewLimiterStates = new Map();
-  const stepSequencerStates = new Map();
   const spiralStates = new Map();
   const fractalSpiralStates = new Map();
   const logSpiralStates = new Map();
@@ -893,9 +912,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
           : { out: 0, raw: 0 },
       );
     }
-    if (node.type === "stepSequencer") {
-      stepSequencerStates.set(node.id, createNodeGraphStepSequencerState());
-    }
+
     if (node.type === "triggerCounter") {
       triggerCounterStates.set(node.id, createNodeGraphTriggerCounterState());
     }
@@ -1075,7 +1092,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     spiralStates,
     fractalSpiralStates,
     logSpiralStates,
-    stepSequencerStates,
     timing: normalizeNodeGraphPatchTiming(plan.timing),
     triggerCounterStates,
     triggerDividerStates,
@@ -1428,9 +1444,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.patchCommandStates) {
     runtime.patchCommandStates = new Map();
   }
-  if (!runtime.stepSequencerStates) {
-    runtime.stepSequencerStates = new Map();
-  }
+
   if (!runtime.triggerDividerStates) {
     runtime.triggerDividerStates = new Map();
   }
@@ -1910,9 +1924,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     if (node.type === "triggerDivider" && !runtime.triggerDividerStates.has(node.id)) {
       runtime.triggerDividerStates.set(node.id, createNodeGraphTriggerDividerState());
     }
-    if (node.type === "stepSequencer" && !runtime.stepSequencerStates.has(node.id)) {
-      runtime.stepSequencerStates.set(node.id, createNodeGraphStepSequencerState());
-    }
+
     if (node.type === "triggerCounter" && !runtime.triggerCounterStates.has(node.id)) {
       runtime.triggerCounterStates.set(node.id, createNodeGraphTriggerCounterState());
     }
@@ -2508,11 +2520,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       if (!nodeIds.has(id)) {
         runtime.vactrolEnvelopeStates.delete(id);
       }
-    }
-  }
-  for (const id of [...runtime.stepSequencerStates.keys()]) {
-    if (!nodeIds.has(id)) {
-      runtime.stepSequencerStates.delete(id);
     }
   }
   for (const id of [...runtime.triggerCounterStates.keys()]) {

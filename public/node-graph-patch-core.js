@@ -549,6 +549,11 @@ function validateNodeGraphPatch(patch) {
     if (type === "codeblock") {
       normalizedNode.codeblock = normalizeNodeGraphCodeblock(node.codeblock);
     }
+    if (type === "sequencer") {
+      normalizedNode.sequencer = typeof sequencerCloneClip === "function"
+        ? sequencerCloneClip(node.sequencer)
+        : (node.sequencer && typeof node.sequencer === "object" ? node.sequencer : undefined);
+    }
     if (type === "customDisplay") {
       normalizedNode.customDisplay = normalizeNodeGraphCustomDisplay(node.customDisplay);
     }
@@ -667,6 +672,20 @@ function validateNodeGraphPatch(patch) {
       || ui.displayHeightGu
     ) {
       normalizedNode.ui = ui;
+    }
+    // Keyboard / Grid Chord Memory slots (MIDI 0..127 → note lists).
+    if (
+      (type === "keyboard" || type === "gridKeyboard")
+      && node.chordMemory
+      && typeof node.chordMemory === "object"
+    ) {
+      normalizedNode.chordMemory = typeof nodeGraphChordMemoryNormalizeSlots === "function"
+        ? { slots: nodeGraphChordMemoryNormalizeSlots(node.chordMemory) }
+        : {
+          slots: (node.chordMemory.slots && typeof node.chordMemory.slots === "object")
+            ? { ...node.chordMemory.slots }
+            : {},
+        };
     }
     // Metamodule ownership + shell payload must survive normalize/save/load.
     const ownerMeta = String(node.ownerMetamoduleId || "").trim();
@@ -1202,7 +1221,6 @@ function nodeGraphModuleStructuralUiSignature(patchNode) {
       .join(",");
   }
   return [
-    patchNodeUi.oscilloscopeHidden ? "scope-hidden" : "scope-visible",
     patchNodeUi.titleHidden ? "title-hidden" : "title-visible",
     exposeSig ? `expose:${exposeSig}` : "expose:",
   ].join("|");

@@ -62,7 +62,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "limiter",
   // Music Player — interim JS peel on efficient blob until native PCM upload (Phase B).
   "audioPlayer",
-  "stepSequencer",
+  "sequencer",
   "transport",
   "aliasSine",
   "blit",

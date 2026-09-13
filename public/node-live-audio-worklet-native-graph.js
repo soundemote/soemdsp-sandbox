@@ -94,7 +94,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   additivePhaseEntry: 125,
   additiveBlaster: 126,
   additiveDiffusor: 127,
-  stepSequencer: 36,
+
   transport: 37,
   aliasSine: 38,
   blit: 39,
@@ -2064,78 +2064,85 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     return;
   }
 
-  // Reconcile VM only when held-note fingerprint changes (not every quantum —
-  // 128× note_is_on + postMessage debug was starving the audio thread).
+  // VoiceManager follows Polyphony cables into Voices — not a global soup of
+  // every note source. Sequencer Play Keys → Chord Memory expands on the
+  // Keyboard; Keyboard Polyphony → Voices is what should sound.
   {
-    const goldMask = this.midiKeyboardArpMask instanceof Uint8Array
-      ? this.midiKeyboardArpMask
-      : null;
-    const goldVels = this.midiKeyboardHeldKeyVelocities;
-    let goldVelFp = 0;
-    if (goldVels instanceof Uint8Array) {
-      for (let i = 0; i < goldVels.length; i += 1) {
-        if (goldVels[i]) goldVelFp = (goldVelFp + ((i + 1) * (goldVels[i] | 0))) | 0;
+    const want = typeof polyphonyCreateTable === "function"
+      ? polyphonyCreateTable()
+      : new Uint8Array(128);
+    const mergeTable = (table) => {
+      if (!(table instanceof Uint8Array)) return;
+      if (typeof polyphonyTableMergeMax === "function") {
+        polyphonyTableMergeMax(want, table);
+        return;
       }
-    }
-    const sig = this.keyboardModuleSignal;
-    const kbGate = sig && Number(sig.gate) > 0 ? 1 : 0;
-    const kbMidi = kbGate && Number.isFinite(Number(sig.midi))
-      ? Math.max(0, Math.min(127, Math.round(Number(sig.midi))))
-      : -1;
-    const kbVel = kbGate ? Math.round((Number(sig.velocity) || 1) * 127) : 0;
-    let midiFp = 0;
-    const midiTable = this.midiPolyphonyVelocities;
-    if (midiTable instanceof Uint8Array) {
       for (let i = 0; i < 128; i += 1) {
-        if (midiTable[i]) midiFp = (midiFp + ((i + 1) * (midiTable[i] | 0))) | 0;
+        if (table[i] > want[i]) want[i] = table[i];
       }
-    }
-    const goldOct = Math.round(Number(this.midiKeyboardOctave) || 0);
-    let goldMaskFp = 0;
-    if (goldMask) {
-      for (let i = 0; i < goldMask.length; i += 1) {
-        if (goldMask[i]) goldMaskFp = (goldMaskFp + (i + 1)) | 0;
-      }
-    }
-    const fp = `${goldMaskFp}|${goldVelFp}|${goldOct}|${kbMidi}|${kbVel}|${midiFp}`;
-    if (fp !== this._vmReconcileFp) {
-      this._vmReconcileFp = fp;
-      const want = typeof polyphonyCreateTable === "function"
-        ? polyphonyCreateTable()
-        : new Uint8Array(128);
+    };
+    const addKeyboardSounding = () => {
+      const goldOct = Math.round(Number(this.midiKeyboardOctave) || 0);
+      const goldMask = this.midiKeyboardArpMask instanceof Uint8Array
+        ? this.midiKeyboardArpMask
+        : null;
+      const goldVels = this.midiKeyboardHeldKeyVelocities;
       if (typeof polyphonyTableAddNoteMask === "function" && goldMask) {
         polyphonyTableAddNoteMask(want, goldMask, goldOct, goldVels, 100);
       }
-      if (midiTable instanceof Uint8Array) {
-        if (typeof polyphonyTableMergeMax === "function") {
-          polyphonyTableMergeMax(want, midiTable);
-        } else {
-          for (let i = 0; i < 128; i += 1) {
-            if (midiTable[i] > want[i]) want[i] = midiTable[i];
-          }
+      const chordHost = typeof nodeGraphChordMemoryHost === "function"
+        ? nodeGraphChordMemoryHost()
+        : null;
+      const chordMask = chordHost?.chordMemoryPlayMask;
+      if (typeof polyphonyTableAddNoteMask === "function" && chordMask instanceof Uint8Array) {
+        polyphonyTableAddNoteMask(want, chordMask, 0, null, 100);
+      }
+      mergeTable(this.keyboardPolyphonyVelocities);
+      const sig = this.keyboardModuleSignal;
+      if (sig && Number(sig.gate) > 0 && Number.isFinite(Number(sig.midi))) {
+        const midi = Math.max(0, Math.min(127, Math.round(Number(sig.midi))));
+        const vel = Math.round((Number(sig.velocity) || 1) * 127);
+        if (midi >= 0 && vel > 0 && !want[midi]) want[midi] = Math.min(127, vel);
+      }
+    };
+    const addFromSource = (sourceNodeId, sourcePort) => {
+      if (String(sourcePort || "") !== "Polyphony") return;
+      const src = this.nodes?.get?.(String(sourceNodeId));
+      const type = String(src?.type || "");
+      if (type === "keyboard" || type === "gridKeyboard") addKeyboardSounding();
+      else if (type === "sequencer") mergeTable(this._sequencerPolyTables?.get?.(String(sourceNodeId)));
+      else if (type === "keyboardController") mergeTable(this.midiPolyphonyVelocities);
+    };
+    for (const [metaIdRaw, metaNode] of this.nodes) {
+      if (String(metaNode?.type || "") !== "metamodule") continue;
+      const metaId = String(metaIdRaw);
+      const previewing = typeof this.isMetaViewPreview === "function"
+        ? this.isMetaViewPreview(metaId)
+        : (String(this._metaViewId || "") === metaId);
+      if (!voicesConnected(metaId) && !previewing) continue;
+      for (const port of ["Voices", "Polyphony"]) {
+        const polyKey = typeof this.inputKey === "function"
+          ? this.inputKey(metaId, port)
+          : `${metaId}.${port}`;
+        const conns = this.inputConnections?.get?.(polyKey);
+        if (!conns) continue;
+        for (let i = 0; i < conns.length; i += 1) {
+          addFromSource(conns[i].sourceNode, conns[i].sourcePort);
         }
       }
-      if (kbMidi >= 0 && kbVel > 0) {
-        want[kbMidi] = Math.min(127, kbVel);
-      }
-      const kbTable = this.keyboardPolyphonyVelocities;
-      if (kbTable instanceof Uint8Array) {
-        if (typeof polyphonyTableMergeMax === "function") {
-          polyphonyTableMergeMax(want, kbTable);
-        } else {
-          for (let i = 0; i < 128; i += 1) {
-            if (kbTable[i] > want[i]) want[i] = kbTable[i];
-          }
-        }
-      }
-      for (let m = 0; m < 128; m += 1) {
-        const should = (want[m] | 0) > 0;
-        const isOn = native.soemdsp_voice_manager_note_is_on?.(h, m) | 0;
-        if (should && !isOn) {
-          this.vmNoteOn?.(m, (want[m] | 0) / 127);
-        } else if (!should && isOn) {
-          this.vmNoteOff?.(m);
-        }
+    }
+    // Always match VM to `want`. Skipping when the fingerprint is unchanged
+    // dropped the first Chord Memory chord: note_on ran, isIdle cleaned the
+    // slots, then fp matched and we never retried. A rest changes fp so the
+    // *next* chord worked — "only after a blank."
+    this._vmWant = want;
+    for (let m = 0; m < 128; m += 1) {
+      const should = (want[m] | 0) > 0;
+      const isOn = native.soemdsp_voice_manager_note_is_on?.(h, m) | 0;
+      if (should && !isOn) {
+        this.vmNoteOn?.(m, (want[m] | 0) / 127);
+      } else if (!should && isOn) {
+        this.vmNoteOff?.(m);
       }
     }
   }
@@ -2197,11 +2204,14 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
         }
       }
     } else {
+      const want = this._vmWant;
       for (const key of Object.keys(idleBySlot)) {
         const v = Number(key);
-        if (idleBySlot[key] && native.soemdsp_voice_manager_clean_slot) {
-          native.soemdsp_voice_manager_clean_slot(h, v, 1);
-        }
+        if (!idleBySlot[key] || !native.soemdsp_voice_manager_clean_slot) continue;
+        const note = native.soemdsp_voice_manager_voice_note?.(h, v);
+        const midi = Number.isFinite(Number(note)) ? (note | 0) : -1;
+        if (want && midi >= 0 && (want[midi] | 0) > 0) continue;
+        native.soemdsp_voice_manager_clean_slot(h, v, 1);
       }
     }
   }
@@ -4074,20 +4084,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
       continue;
     }
-    if (type === "stepSequencer") {
-      push("threshold", P.NATIVE_GRAPH_PARAM_CENTER, cont("threshold", 0));
-      push("steps", P.NATIVE_GRAPH_PARAM_STAGES, disc("steps", 8));
-      push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
-      push("step1", P.NATIVE_GRAPH_PARAM_LANE_VOL1, cont("step1", 0));
-      push("step2", P.NATIVE_GRAPH_PARAM_LANE_VOL2, cont("step2", 0.25));
-      push("step3", P.NATIVE_GRAPH_PARAM_LANE_VOL3, cont("step3", 0.5));
-      push("step4", P.NATIVE_GRAPH_PARAM_LANE_VOL4, cont("step4", 0.75));
-      push("step5", P.NATIVE_GRAPH_PARAM_LANE_BIAS1, cont("step5", 1));
-      push("step6", P.NATIVE_GRAPH_PARAM_LANE_BIAS2, cont("step6", 0.75));
-      push("step7", P.NATIVE_GRAPH_PARAM_LANE_BIAS3, cont("step7", 0.5));
-      push("step8", P.NATIVE_GRAPH_PARAM_LANE_BIAS4, cont("step8", 0.25));
-      continue;
-    }
+
     if (type === "transport") {
       push("bpm", P.NATIVE_GRAPH_PARAM_TEMPO_BPM, cont("bpm", 120));
       push("pulseWidth", P.NATIVE_GRAPH_PARAM_WIDTH, cont("pulseWidth", 0.5));
@@ -5799,7 +5796,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "metallicRatio") return ["Ratio"];
     if (type === "harmonicSeries") return ["f", "Out", "Mono", "ƒ"];
     if (type === "lutCell") return ["Out"];
-    if (type === "stepSequencer") return ["Out"];
+
     if (type === "transport") return ["Gate -1+1", "Gate Bi"];
     if (type === "ampCurve") return ["Curve", "Out", "Mono"];
     if (type === "fractalBrownianNoise") {
@@ -5846,7 +5843,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "randomClock") return ["Gate"];
     if (type === "triggerCounter") return ["Count"];
     if (type === "lutCell") return ["Q"];
-    if (type === "stepSequencer") return ["Gate"];
+
     if (type === "transport") return ["Gate 0-1", "Gate Uni"];
     if (type === "reverbEffect" || type === "soemReverb" || type === "delayEffect") {
       return ["Left", "Mix Left", "Mix L", "Wet L", "Wet Left"];

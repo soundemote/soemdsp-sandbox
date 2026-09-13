@@ -177,13 +177,6 @@ NodeLiveAudioProcessor.prototype.destroyTriggerDividerNativeState = function des
     }
 };
 
-NodeLiveAudioProcessor.prototype.destroyStepSequencerNativeState = function destroyStepSequencerNativeState(state) {
-    if (state.nativeHandle && this.nativeStepSequencer?.soemdsp_step_sequencer_destroy) {
-      this.nativeStepSequencer.soemdsp_step_sequencer_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-};
-
 NodeLiveAudioProcessor.prototype.destroyTriggerCounterNativeState = function destroyTriggerCounterNativeState(state) {
     if (state.nativeHandle && this.nativeTriggerCounter?.soemdsp_trigger_counter_destroy) {
       this.nativeTriggerCounter.soemdsp_trigger_counter_destroy(state.nativeHandle);

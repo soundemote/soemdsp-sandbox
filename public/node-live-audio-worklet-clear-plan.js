@@ -289,10 +289,7 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
     this.spiralStates = new Map();
     this.fractalSpiralStates = new Map();
     this.logSpiralStates = new Map();
-    for (const state of this.stepSequencerStates.values()) {
-      this.destroyStepSequencerNativeState(state);
-    }
-    this.stepSequencerStates = new Map();
+
     this.stepGridStates = new Map();
     for (const state of this.triggerCounterStates.values()) {
       this.destroyTriggerCounterNativeState(state);

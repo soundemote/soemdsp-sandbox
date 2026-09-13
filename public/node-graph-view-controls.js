@@ -2517,6 +2517,35 @@ function nodeGraphMidiKeyboardPermuteHeldKeyVelocities(srcToDst, keyCount) {
   nodeGraphMvp.midiKeyboardHeldKeyVelocities = dst;
 }
 
+/** Clear gold Arp Keys latch (all held bits + velocities) and reconcile VM. */
+function nodeGraphMidiKeyboardClearArpKeys() {
+  const mask = typeof nodeGraphMidiKeyboardEnsureArpMask === "function"
+    ? nodeGraphMidiKeyboardEnsureArpMask()
+    : nodeGraphMvp?.midiKeyboardArpMask;
+  if (mask instanceof Uint8Array) mask.fill(0);
+  if (typeof nodeGraphMidiKeyboardEnsureHeldKeyVelocities === "function") {
+    nodeGraphMidiKeyboardEnsureHeldKeyVelocities().fill(0);
+  }
+  if (typeof nodeGraphMidiKeyboardSyncBitmaskFieldsFromArpMask === "function") {
+    nodeGraphMidiKeyboardSyncBitmaskFieldsFromArpMask();
+  }
+  if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
+    renderNodeGraphMidiKeyboardHeldKeys();
+  }
+  if (typeof saveNodeGraphMidiKeyboardMemory === "function") {
+    saveNodeGraphMidiKeyboardMemory();
+  }
+  if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
+    sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
+  }
+  if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
+    syncNodeGraphKeyboardPolyphonyFromHeldNotes();
+  }
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.midiKeyboardStatus = "arp keys cleared";
+  }
+}
+
 function nodeGraphMidiKeyboardToggleHeldKeyBit(index, strikeVelocity01) {
   const idx = Math.max(0, Math.min(87, Math.round(Number(index)) || 0));
   const rawMidi = nodeGraphMidiKeyboardStartMidi + idx;
@@ -2553,18 +2582,43 @@ function nodeGraphMidiKeyboardToggleHeldKeyBit(index, strikeVelocity01) {
   if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
     sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
   }
+  if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
+    syncNodeGraphKeyboardPolyphonyFromHeldNotes();
+  }
+}
+
+function nodeGraphSequencerFaceMask(kind, transmit) {
+  if (!nodeGraphMvp._seqFaceRegs) nodeGraphMvp._seqFaceRegs = {};
+  const key = String(kind || "play");
+  if (!nodeGraphMvp._seqFaceRegs[key]) nodeGraphMvp._seqFaceRegs[key] = { c0: 0, c1: 0, c2: 0 };
+  if (typeof noteMaskDemuxRegisters === "function") {
+    noteMaskDemuxRegisters(nodeGraphMvp._seqFaceRegs[key], transmit);
+  }
+  return typeof noteMaskFromRegisters === "function"
+    ? noteMaskFromRegisters(nodeGraphMvp._seqFaceRegs[key])
+    : null;
 }
 
 function renderNodeGraphMidiKeyboardHeldKeys() {
-  const wired = typeof nodeGraphHeldKeysDemux === "function"
-    ? nodeGraphHeldKeysDemux(nodeGraphMvp.keyboardFaceArpTransmit || 0)
-    : { low: 0, high: 0 };
+  const playMask = nodeGraphSequencerFaceMask("play", nodeGraphMvp.keyboardFacePlayTransmit || 0);
+  const arpMask = nodeGraphSequencerFaceMask("arp", nodeGraphMvp.keyboardFaceArpTransmit || 0);
+  const octave = nodeGraphMidiKeyboardOctaveOffset();
   document.querySelectorAll(".node-midi-keyboard-module [data-key-index]").forEach((key) => {
     const index = Number(key.dataset.keyIndex);
     const local = nodeGraphMidiKeyboardHeldKeyBitIsSet(index);
-    const fromWire = nodeGraphMidiKeyboardHeldKeyBitIsSet(index, wired.low, wired.high);
-    key.classList.toggle("held", local || fromWire);
+    const rawMidi = Number(key.dataset.midi);
+    const sounding = typeof nodeGraphMidiKeyboardShiftMidi === "function"
+      ? nodeGraphMidiKeyboardShiftMidi(rawMidi, octave)
+      : rawMidi;
+    const playGhost = playMask && typeof noteMaskGet === "function" && noteMaskGet(playMask, sounding);
+    const arpGhost = arpMask && typeof noteMaskGet === "function" && noteMaskGet(arpMask, sounding);
+    key.classList.toggle("held", local);
+    key.classList.toggle("ghost-play", Boolean(playGhost) && !local);
+    key.classList.toggle("ghost-arp", Boolean(arpGhost) && !local);
   });
+  if (typeof nodeGraphChordMemoryPaintKeys === "function") {
+    nodeGraphChordMemoryPaintKeys();
+  }
   if (typeof renderNodeGraphGridKeyboardPads === "function") {
     renderNodeGraphGridKeyboardPads();
   }
@@ -3090,7 +3144,13 @@ function nodeGraphMidiKeyboardOctaveLabel(value = nodeGraphMidiKeyboardOctaveOff
   return `${octave >= 0 ? "+" : ""}${octave}`;
 }
 
-const nodeGraphMidiKeyboardModes = Object.freeze(["slide", "press", "hold", "toggle"]);
+const nodeGraphMidiKeyboardModes = Object.freeze([
+  "slide",
+  "press",
+  "hold",
+  "toggle",
+  "chordMemory",
+]);
 
 function nodeGraphMidiKeyboardMode(value = nodeGraphMvp.midiKeyboardMode) {
   return nodeGraphMidiKeyboardModes.includes(value) ? value : "slide";
@@ -3102,6 +3162,7 @@ function nodeGraphMidiKeyboardModeLabel(value = nodeGraphMidiKeyboardMode()) {
     press: "Press",
     hold: "Hold",
     toggle: "Toggle",
+    chordMemory: "Chord Memory",
   }[nodeGraphMidiKeyboardMode(value)] || "Slide";
 }
 
@@ -3790,6 +3851,39 @@ function updateNodeGraphMidiKeyboardSignal(event) {
   const mode = nodeGraphMidiKeyboardMode();
   const pointerId = event.pointerId;
 
+  const altDown = Boolean(event.altKey || event.getModifierState?.("Alt"));
+
+  // ——— Chord Memory gestures (shared with Grid) ———
+  if (typeof nodeGraphChordMemoryHandlePointer === "function") {
+    const keyEl = event.target?.closest?.("[data-midi]");
+    const midi = keyEl && surface.contains(keyEl) ? Number(keyEl.dataset.midi) : NaN;
+    const nodeId = typeof nodeGraphChordMemoryNodeIdFromSurface === "function"
+      ? nodeGraphChordMemoryNodeIdFromSurface(surface)
+      : "";
+    if (nodeGraphChordMemoryHandlePointer(event, surface, midi, {
+      nodeId,
+      onArpToggle: (_slotMidi, ev) => {
+        const target = ev.target?.closest?.("[data-key-index]");
+        if (!target || !surface.contains(target)) return;
+        const strike = nodeGraphMidiKeyboardPointerXY(ev, surface).velocity;
+        nodeGraphMidiKeyboardToggleHeldKeyBit(Number(target.dataset.keyIndex), strike);
+      },
+    })) {
+      return;
+    }
+  }
+
+  if (event.type === "pointerdown" && event.ctrlKey && altDown) {
+    if (typeof nodeGraphMidiKeyboardClearArpKeys === "function") {
+      nodeGraphMidiKeyboardClearArpKeys();
+    }
+    nodeGraphMidiKeyboardClearPlayGate("arp clear");
+    clearNodeGraphMidiKeyboardPointerHold();
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
   // ——— Arp latch gesture (gold only) ———
   if (event.type === "pointerdown" && event.ctrlKey) {
     nodeGraphMvp.midiKeyboardArpLatchPointerId = pointerId;
@@ -4207,6 +4301,12 @@ function syncNodeGraphKeyboardPolyphonyFromHeldNotes() {
       nodeGraphMvp.midiKeyboardHeldKeyVelocities,
       goldOct,
     );
+  }
+  const chordPlay = typeof nodeGraphChordMemoryHost === "function"
+    ? nodeGraphChordMemoryHost()?.chordMemoryPlayMask
+    : nodeGraphMvp.chordMemoryPlayMask;
+  if (typeof polyphonyTableAddNoteMask === "function" && chordPlay instanceof Uint8Array) {
+    polyphonyTableAddNoteMask(table, chordPlay, goldOct, null, 100);
   }
   // Blue play: only opens if not already sustaining (gold may already hold it).
   const signal = nodeGraphMvp.keyboardModuleSignal;

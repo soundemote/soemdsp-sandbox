@@ -63,6 +63,46 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     if (!vals.length) return 0;
     return Math.max(0, ...vals);
   };
+  const applyChordMemoryIn = (nid) => {
+    const chordKey = typeof this.inputKey === "function"
+      ? this.inputKey(nid, "Chord Memory")
+      : `${nid}.Chord Memory`;
+    const chordConns = this.inputConnections?.get?.(chordKey);
+    if (!chordConns || !chordConns.length) return;
+    if (typeof nodeGraphChordMemoryApplyInletMask !== "function") return;
+    let chordMask = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
+    let anyMask = false;
+    for (let ci = 0; ci < chordConns.length; ci += 1) {
+      const srcOut = this.nodeOutputs.get(String(chordConns[ci].sourceNode || ""));
+      if (srcOut?.playMask instanceof Uint8Array) {
+        if (typeof noteMaskOr === "function") chordMask = noteMaskOr(chordMask, srcOut.playMask);
+        else {
+          for (let m = 0; m < 128; m += 1) {
+            if (srcOut.playMask[m]) chordMask[m] = 1;
+          }
+        }
+        anyMask = true;
+      }
+    }
+    if (!anyMask) {
+      const chordInSamples = collectIn(nid, "Chord Memory");
+      if (chordInSamples.length && typeof noteMaskDemuxRegisters === "function") {
+        if (!this._chordMemoryInRegs) this._chordMemoryInRegs = new Map();
+        let regs = this._chordMemoryInRegs.get(nid);
+        if (!regs) {
+          regs = { c0: 0, c1: 0, c2: 0 };
+          this._chordMemoryInRegs.set(nid, regs);
+        }
+        for (const sample of chordInSamples) {
+          noteMaskDemuxRegisters(regs, sample);
+        }
+        chordMask = typeof noteMaskFromRegisters === "function"
+          ? noteMaskFromRegisters(regs)
+          : chordMask;
+      }
+    }
+    nodeGraphChordMemoryApplyInletMask(nid, chordMask, this.nodes);
+  };
 
   const pulseActive = this.midiKeyboardGatePulseSamples > 0;
   this.midiKeyboardHeldKeysPhase = ((this.midiKeyboardHeldKeysPhase | 0) + 1) % 3;
@@ -128,6 +168,121 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     return cv;
   };
 
+  // Note sources first (Sequencer Play Keys), then Keyboard expands Chord Memory.
+  if (!this._sequencerPolyTables) this._sequencerPolyTables = new Map();
+  if (!this._sequencerPrevMasks) this._sequencerPrevMasks = new Map();
+  {
+    const bpmRaw = Number(this.timing?.tempoBpm);
+    const bpm = Number.isFinite(bpmRaw) && bpmRaw > 0 ? bpmRaw : 120;
+    const frames = Math.max(1, Number(_frames) || 128);
+    const sr = Math.max(8000, Number(this.sampleRate || this.hostSampleRate || sampleRate) || 44100);
+    const speed = Math.max(0, Number(this.speedMultiplier) || 0);
+    if (this._sequencerNeedsRewind) {
+      this._seqTickFrac = 0;
+      this._sequencerEngineSec = 0;
+      this._sequencerNeedsRewind = false;
+    }
+    const ticksPerSec = (bpm / 60) * (typeof SEQUENCER_TICKS_PER_BEAT === "number" ? SEQUENCER_TICKS_PER_BEAT : 8);
+    const tickFrom = Math.max(0, Number(this._seqTickFrac) || 0);
+    const liveIds = new Set();
+    for (const [id, node] of this.nodes) {
+      if (String(node?.type || "") !== "sequencer") continue;
+      const nid = String(id);
+      liveIds.add(nid);
+      const clip = typeof sequencerNormalizeClip === "function"
+        ? sequencerNormalizeClip(node.sequencer)
+        : (node.sequencer || { loopTicks: 32, notes: [] });
+      const loop = Math.max(1, Number(clip.loopTicks) || 32);
+      const silent = Boolean(node.bypassed);
+      const sounding = silent
+        ? []
+        : (typeof sequencerSoundingInRange === "function"
+          ? sequencerSoundingInRange(clip, tickFrom, tickFrom + 1, loop)
+          : (typeof sequencerSoundingAt === "function"
+            ? sequencerSoundingAt(clip, tickFrom)
+            : []));
+      const prev = this._sequencerPrevMasks.get(nid);
+      const outs = typeof sequencerOutputsFromNotes === "function"
+        ? sequencerOutputsFromNotes(sounding, phaseOn, prev)
+        : { play: 0, poly: 0, gate: 0, trigger: 0, pitch: 0, freq: 0, mask: new Uint8Array(128), table: new Uint8Array(128) };
+      this._sequencerPrevMasks.set(nid, outs.mask);
+      this._sequencerPolyTables.set(nid, outs.table);
+      this.nodeOutputs.set(nid, {
+        "Play Keys": silent ? 0 : outs.play,
+        playMask: outs.mask,
+        Polyphony: silent ? 0 : outs.poly,
+        Gate: silent ? 0 : outs.gate,
+        Trigger: silent ? 0 : outs.trigger,
+        "0.1V/Oct": silent ? 0 : outs.pitch,
+        f: silent ? 0 : outs.freq,
+        Frequency: silent ? 0 : outs.freq,
+      });
+    }
+    let hasNotes = false;
+    for (const id of liveIds) {
+      const node = this.nodes.get(id);
+      const notes = node?.sequencer?.notes;
+      if (Array.isArray(notes) && notes.length) {
+        hasNotes = true;
+        break;
+      }
+    }
+    if (liveIds.size && speed > 0 && hasNotes) {
+      this._seqTickFrac = tickFrom + (frames / sr) * speed * ticksPerSec;
+      this._sequencerEngineSec = this._seqTickFrac / ticksPerSec;
+    } else if (!liveIds.size) {
+      this._seqTickFrac = 0;
+      this._sequencerEngineSec = 0;
+    }
+    {
+      const now = typeof currentTime === "number" ? currentTime : 0;
+      if (!this._seqDebugAt || now - this._seqDebugAt > 0.1) {
+        this._seqDebugAt = now;
+        const firstId = liveIds.size ? [...liveIds][0] : "";
+        const node = firstId ? this.nodes.get(firstId) : null;
+        const outs = firstId ? this.nodeOutputs.get(firstId) : null;
+        const playBits = [];
+        const mask = outs?.playMask;
+        if (mask instanceof Uint8Array) {
+          for (let i = 0; i < 128; i += 1) {
+            if (mask[i]) playBits.push(i);
+          }
+        }
+        const host = typeof nodeGraphChordMemoryHost === "function"
+          ? nodeGraphChordMemoryHost()
+          : null;
+        const chordBits = [];
+        const cm = host?.chordMemoryPlayMask;
+        if (cm instanceof Uint8Array) {
+          for (let i = 0; i < 128; i += 1) {
+            if (cm[i]) chordBits.push(i);
+          }
+        }
+        try {
+          this.port.postMessage({
+            type: "sequencerDebug",
+            tick: tickFrom,
+            loop: Number(node?.sequencer?.loopTicks) || 0,
+            bpm,
+            sr,
+            frames,
+            speed,
+            hasNotes,
+            bypassed: Boolean(node?.bypassed),
+            playBits,
+            chordBits,
+          });
+        } catch (_e) { /* ignore */ }
+      }
+    }
+    for (const id of [...this._sequencerPolyTables.keys()]) {
+      if (!liveIds.has(id)) {
+        this._sequencerPolyTables.delete(id);
+        this._sequencerPrevMasks.delete(id);
+      }
+    }
+  }
+
   // Pass 1: MIDI from hardware signal; Keyboard base from local signal.
   for (const [id, node] of this.nodes) {
     const nodeType = String(node?.type || "");
@@ -145,6 +300,10 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       const arpIn = collectIn(nid, "Arp Keys");
       const arpOut = orTransmit([arpLocal, ...arpIn], phaseOn);
       const playIn = collectIn(nid, "Play Keys");
+      applyChordMemoryIn(nid);
+      const chordPlay = typeof nodeGraphChordMemoryPlayTransmit === "function"
+        ? nodeGraphChordMemoryPlayTransmit(phaseOn)
+        : 0;
       let playLocal = 0;
       if (cv.gateAmp > 0) {
         const raw = Number.isFinite(Number(signal.rawMidi)) ? Number(signal.rawMidi) : cv.midi;
@@ -154,7 +313,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         else one[midi] = 1;
         playLocal = transmitMask(one, phaseOn);
       }
-      const playOut = orTransmit([playLocal, ...playIn], phaseOn);
+      const playOut = orTransmit([playLocal, ...playIn, chordPlay], phaseOn);
       // Polyphony jack sample is cosmetic — Voices SSOT is VoiceManager events.
       const polyOut = cv.gateAmp > 0
         ? ((cv.midi | 0) + Math.min(1, Math.max(0, cv.velocity01)) / 128)
@@ -212,6 +371,10 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const gateOut = Math.max(cv.gateAmp, mixMax(nid, "Gate"));
     const triggerOut = Math.max(cv.triggerAmp, mixMax(nid, "Trigger"));
     const arpOut = orTransmit([arpLocal, ...collectIn(nid, "Arp Keys")], phaseOn);
+    applyChordMemoryIn(nid);
+    const chordPlay = typeof nodeGraphChordMemoryPlayTransmit === "function"
+      ? nodeGraphChordMemoryPlayTransmit(phaseOn)
+      : 0;
     let playLocal = 0;
     if (cv.gateAmp > 0) {
       const raw = Number.isFinite(Number(signal.rawMidi)) ? Number(signal.rawMidi) : cv.midi;
@@ -221,7 +384,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       else one[midi] = 1;
       playLocal = transmitMask(one, phaseOn);
     }
-    const playOut = orTransmit([playLocal, ...collectIn(nid, "Play Keys")], phaseOn);
+    const playOut = orTransmit([playLocal, ...collectIn(nid, "Play Keys"), chordPlay], phaseOn);
     const polyOut = cv.gateAmp > 0
       ? ((cv.midi | 0) + Math.min(1, Math.max(0, cv.velocity01)) / 128)
       : 0;
@@ -234,6 +397,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       Trigger: triggerOut,
     });
   }
+
   if (pulseActive) {
     this.midiKeyboardGatePulseSamples = Math.max(0, (this.midiKeyboardGatePulseSamples || 0) - 1);
   }

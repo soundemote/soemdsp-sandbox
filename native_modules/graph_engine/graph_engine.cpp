@@ -356,14 +356,6 @@ extern "C" double soemdsp_audio_player_right(int handle);
 extern "C" double soemdsp_audio_player_phase(int handle);
 extern "C" double soemdsp_audio_player_trigger(int handle);
 
-extern "C" int soemdsp_step_sequencer_create();
-extern "C" void soemdsp_step_sequencer_destroy(int handle);
-extern "C" double soemdsp_step_sequencer_sample(
-  int handle, double trigger, double reset, double threshold, double steps, double level,
-  double v0, double v1, double v2, double v3, double v4, double v5, double v6, double v7
-);
-extern "C" double soemdsp_step_sequencer_gate(int handle);
-
 extern "C" int soemdsp_transport_create();
 extern "C" void soemdsp_transport_destroy(int handle);
 extern "C" double soemdsp_transport_sample(
@@ -2101,8 +2093,6 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_pumping_limiter_destroy(handle);
   } else if (kind == kTypeAudioPlayer) {
     soemdsp_audio_player_destroy(handle);
-  } else if (kind == kTypeStepSequencer) {
-    soemdsp_step_sequencer_destroy(handle);
   } else if (kind == kTypeTransport) {
     soemdsp_transport_destroy(handle);
   } else if (kind == kTypeAliasSine) {
@@ -3914,7 +3904,6 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeLookaheadLimiter) return soemdsp_lookahead_limiter_create();
   if (typeId == kTypePumpLimiter) return soemdsp_pumping_limiter_create();
   if (typeId == kTypeAudioPlayer) return soemdsp_audio_player_create();
-  if (typeId == kTypeStepSequencer) return soemdsp_step_sequencer_create();
   if (typeId == kTypeTransport) return soemdsp_transport_create();
   if (typeId == kTypeAliasSine) return soemdsp_alias_sine_create();
   if (typeId == kTypePhoneTone) return soemdsp_phone_tone_create();
@@ -9084,40 +9073,6 @@ static void process_transport(Circuit& g, Node& node, int frames) {
   node.lastReset = wasHigh ? 1.0 : 0.0;
 }
 
-// Step sequencer: Trigger+Reset → Out (Mono) + Gate (Left). Steps on laneVol/Bias.
-static void process_step_sequencer(Circuit& g, Node& node, int frames) {
-  if (node.nativeHandle <= 0) return;
-  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
-  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const double threshold = control_effective(node.center);
-  const double steps = control_effective(node.stages);
-  const double level = control_effective(node.amplitude);
-  const double v0 = control_effective(node.laneVol[0]);
-  const double v1 = control_effective(node.laneVol[1]);
-  const double v2 = control_effective(node.laneVol[2]);
-  const double v3 = control_effective(node.laneVol[3]);
-  const double v4 = control_effective(node.laneBias[0]);
-  const double v5 = control_effective(node.laneBias[1]);
-  const double v6 = control_effective(node.laneBias[2]);
-  const double v7 = control_effective(node.laneBias[3]);
-  for (int f = 0; f < frames; f++) {
-    control_frame(g, node, f);
-    const double out = soemdsp_step_sequencer_sample(
-      node.nativeHandle,
-      hasTrig ? g.mixTrigger[f] : 0.0,
-      hasReset ? g.mixReset[f] : 0.0,
-      threshold,
-      steps,
-      level,
-      v0, v1, v2, v3, v4, v5, v6, v7
-    );
-    const double gate = soemdsp_step_sequencer_gate(node.nativeHandle);
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = gate;
-    node.buf[kPortRight][f] = out;
-  }
-}
-
 // Pump Limiter: look-ahead + threshold/ratio GR. Sidechain on Morph bus when wired.
 // Out=mono avg, L/R wet, Gain on Saw, Env on Ramp.
 static void process_pump_limiter(Circuit& g, Node& node, int frames) {
@@ -10213,7 +10168,6 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeLookaheadLimiter
     || typeId == kTypePumpLimiter
     || typeId == kTypeAudioPlayer
-    || typeId == kTypeStepSequencer
     || typeId == kTypeTransport
     || typeId == kTypeAliasSine
     || typeId == kTypePhoneTone
@@ -11121,10 +11075,6 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
     }
     if (node.typeId == kTypeAudioPlayer) {
       process_audio_player(g, node, frames);
-      return;
-    }
-    if (node.typeId == kTypeStepSequencer) {
-      process_step_sequencer(g, node, frames);
       return;
     }
     if (node.typeId == kTypeTransport) {

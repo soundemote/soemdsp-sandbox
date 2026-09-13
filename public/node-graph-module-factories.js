@@ -625,15 +625,16 @@ function createNodeGraphMidiModeControl() {
   const modeSelect = document.createElement("select");
   modeSelect.dataset.midiKeyboardModeSelect = "true";
   modeSelect.setAttribute("aria-label", "Keyboard mode");
-  for (const [value, label] of [
-    ["slide", "Slide"],
-    ["press", "Press"],
-    ["hold", "Hold"],
-    ["toggle", "Toggle"],
-  ]) {
+  const modes = typeof nodeGraphMidiKeyboardModes !== "undefined"
+    && Array.isArray(nodeGraphMidiKeyboardModes)
+    ? nodeGraphMidiKeyboardModes
+    : ["slide", "press", "hold", "toggle", "chordMemory"];
+  for (const value of modes) {
     const option = document.createElement("option");
     option.value = value;
-    option.textContent = label;
+    option.textContent = typeof nodeGraphMidiKeyboardModeLabel === "function"
+      ? nodeGraphMidiKeyboardModeLabel(value)
+      : String(value);
     modeSelect.append(option);
   }
   modeLabel.append(modeText, modeSelect);
