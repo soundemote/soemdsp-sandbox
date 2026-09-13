@@ -77,3 +77,8 @@
 .node-grid-keyboard-pad.ghost-chord {
   box-shadow: inset 0 0 0 2px rgba(61, 220, 132, 0.4);
 }
+
+.node-midi-keyboard-module [data-key-index].chord-edit-note,
+.node-grid-keyboard-pad.chord-edit-note {
+  box-shadow: inset 0 0 0 2px rgba(226, 58, 58, 0.55);
+}

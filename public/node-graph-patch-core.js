@@ -1991,6 +1991,18 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
     }
 
     if (removableNodeIds.size) {
+      // Key-down belongs to the keyboard module. Drop chord play / gold latch /
+      // VoiceManager notes so deleting the keyboard cannot leave keys stuck.
+      for (const node of live.nodes || []) {
+        if (!removableNodeIds.has(node?.id)) continue;
+        const t = String(node?.type || "");
+        if (t !== "keyboard" && t !== "gridKeyboard") continue;
+        if (typeof nodeGraphKeyboardReleaseOwnedKeys === "function") {
+          nodeGraphKeyboardReleaseOwnedKeys(node.id);
+        } else if (typeof nodeGraphChordMemoryReleaseNode === "function") {
+          nodeGraphChordMemoryReleaseNode(node.id);
+        }
+      }
       // Owners whose Show-metaparameter rows pointed at deleted children.
       for (const node of patch.nodes || []) {
         if (!removableNodeIds.has(node?.id)) continue;

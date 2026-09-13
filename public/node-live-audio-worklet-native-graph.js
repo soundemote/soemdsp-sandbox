@@ -346,6 +346,9 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   vibratoPhaseVary: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_VARIATION,
   randomizePhase: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   voices: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES,
+  highFrequency: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LPF_FREQUENCY,
+  lowFrequency: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_HPF_FREQUENCY,
+  cutoff: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FREQUENCY,
 });
 
 /**
@@ -832,7 +835,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   {
     const tGateEnv = String(type || "").trim();
     if (
-      (p === "trigger" || p === "trig")
+      (p === "trigger" || p === "trig" || p === "gate")
       && (
         tGateEnv === "thumpEnvelope"
         || tGateEnv === "expAdsr"
@@ -841,6 +844,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
         || tGateEnv === "linearAttackRelease"
         || tGateEnv === "curveAttackRelease"
         || tGateEnv === "attackDecay"
+        || tGateEnv === "pluckEnvelope3"
       )
     ) {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
@@ -945,6 +949,12 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
     if (p === "x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     if (p === "y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     if (p === "z") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
+  if (p === "out" || p === "output" || p === "mono" || p === "m") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  }
+  if (p === "curve" || p === "env" || p === "envelope") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
   // Pixel Grid: R/G/B inlets (not generic Out aliases).
   if (t === "rasterRgb") {
@@ -1367,7 +1377,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphTopologyKey = function nativeGraphTo
     metaParts.push(`${id}\0${pm}\0${vc}`);
   }
   metaParts.sort();
-  return `${nodeParts.join("|")}#${connParts.join("|")}#${modParts.join("|")}#${metaParts.join("|")}`;
+  return `${nodeParts.join("|")}#${connParts.join("|")}#${modParts.join("|")}#${metaParts.join("|")}#view:${String(this._metaViewId || "")}`;
 };
 
 NodeLiveAudioProcessor.prototype.syncNativeGraphBypass = function syncNativeGraphBypass() {
@@ -1418,10 +1428,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlan = function syncNativeGr
     const vc = typeof nodeGraphMetamoduleVoiceCount === "function"
       ? nodeGraphMetamoduleVoiceCount(node)
       : Math.max(1, Math.min(32, Math.round(Number(node?.metamodule?.voices) || 10)));
-    if (pm === 4 && vc >= 2) {
-      needsMetaVoiceLanes = true;
-      break;
-    }
+    needsMetaVoiceLanes = true;
+    break;
   }
   const native = this.nativeGraph;
   const canSurgical = Boolean(
@@ -1583,11 +1591,32 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
           ? [{ sourceNode: src, sourcePort: srcPort }]
           : this.resolveNativeGraphThruSources(src, srcPort, idSet, 0);
         if (!resolved.length) continue;
+        const srcBusType = String(this.nodes.get(src)?.type || "");
+        if (
+          srcBusType === "voiceFrequency"
+          || srcBusType === "voiceGate"
+          || srcBusType === "voiceTrigger"
+        ) {
+          continue;
+        }
         for (let ri = 0; ri < resolved.length; ri += 1) {
           const r = resolved[ri];
-          connectOne(String(r?.sourceNode || ""), r?.sourcePort, dst, dstPort);
+          this.forEachNativeVoiceCircuitPair?.(
+            String(r?.sourceNode || ""),
+            dst,
+            (s, d) => connectOne(s, r?.sourcePort, d, dstPort),
+          );
         }
       }
+
+      this.installNativeMetaVoiceBusFeeders({
+        native,
+        connections,
+        idSet,
+        hashById,
+        typeById,
+        removeOld: true,
+      });
 
       // Audio→param MOD = ParamModEdge (orders src before dst; stamps each sample).
       // Controllers stay on quantum set_param_mod. clear_connections already wiped edges.
@@ -1687,6 +1716,151 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
       this.postNativeGraphStatus("error", String(error?.message || error || "surgical sync failed"));
       return false;
     }
+  };
+
+/**
+ * Voice Frequency/Gate/Trigger are not native nodes. Full compile and surgical
+ * rewire both need Bias feeders into osc f / gate / trigger. Surgical used to
+ * skip this (bypass of an unrelated module dropped pitch until Stop/Start).
+ */
+NodeLiveAudioProcessor.prototype.installNativeMetaVoiceBusFeeders =
+  function installNativeMetaVoiceBusFeeders(opts = {}) {
+    const native = opts.native || this.nativeGraph;
+    const connections = Array.isArray(opts.connections)
+      ? opts.connections
+      : (Array.isArray(this._planConnections) ? this._planConnections : []);
+    const idSet = opts.idSet instanceof Set
+      ? opts.idSet
+      : (this._nativeGraphNodeIds instanceof Set ? this._nativeGraphNodeIds : new Set());
+    const hashById = opts.hashById instanceof Map ? opts.hashById : null;
+    const typeById = opts.typeById instanceof Map ? opts.typeById : null;
+    if (!native?.soemdsp_graph_add_node || !this.nativeGraphHandle || !hashById || !typeById) {
+      return;
+    }
+    const audioTypes = NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS;
+    const biasTypeId = audioTypes.bias;
+    const attOffsetParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
+    const monoPort = NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (!biasTypeId) return;
+
+    if (opts.removeOld !== false && Array.isArray(this._nativeMetaVoiceBusFeeders)) {
+      for (let i = 0; i < this._nativeMetaVoiceBusFeeders.length; i += 1) {
+        const feed = this._nativeMetaVoiceBusFeeders[i];
+        if (!feed?.hash) continue;
+        try {
+          native.soemdsp_graph_remove_node(this.nativeGraphHandle, feed.hash | 0);
+        } catch (_e) { /* ignore */ }
+      }
+    }
+
+    const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
+    const expandVoiceIds = (id) => {
+      const sid = String(id || "");
+      for (let i = 0; i < lanes.length; i += 1) {
+        if (String(lanes[i]?.baseId || "") === sid) {
+          const ids = lanes[i]?.voiceIds;
+          return Array.isArray(ids) && ids.length ? ids : [sid];
+        }
+      }
+      return [sid];
+    };
+    const findVoicePortalId = (metaId, type) => {
+      const prefer = `${metaId}__${type}`;
+      const preferred = this.nodes.get(prefer);
+      if (preferred && String(preferred.type || "") === type) return prefer;
+      for (const [nid, n] of this.nodes) {
+        if (String(n?.type || "") !== type) continue;
+        if (String(n?.ownerMetamoduleId || "") === metaId) return String(nid);
+      }
+      return "";
+    };
+    const metaVoiceBusFeeders = [];
+    const metaVoiceGateCableMetas = new Set();
+    const addVoiceBusFeeder = (kind, metaId, voiceIndex, dstId, dstPort) => {
+      if (!idSet.has(dstId)) return;
+      const mergeKey = `${metaId}:${voiceIndex}:${dstId}:${dstPort}`;
+      for (let ei = 0; ei < metaVoiceBusFeeders.length; ei += 1) {
+        const prev = metaVoiceBusFeeders[ei];
+        if (prev.mergeKey === mergeKey) {
+          if (!Array.isArray(prev.kinds)) prev.kinds = [prev.kind];
+          if (prev.kinds.indexOf(kind) < 0) prev.kinds.push(kind);
+          return;
+        }
+      }
+      const feedId = `__metaVoiceBus:${kind}:${metaId}:${voiceIndex}:${dstId}:${dstPort}`;
+      const feedHash = this.fnv1aHash32(feedId);
+      const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, biasTypeId) | 0;
+      if (arc !== 0) {
+        this.postNativeGraphStatus("warning", `voice ${kind} feeder add failed (${arc}) ${feedId}`);
+        return;
+      }
+      this.pushNativeGraphSmoothType(native, feedHash, attOffsetParam, 3);
+      this.pushNativeGraphSmoothMode(native, feedHash, attOffsetParam, 3);
+      this.pushNativeGraphSmoothTime(native, feedHash, attOffsetParam, 0);
+      this.pushNativeGraphParam(native, feedHash, attOffsetParam, 0);
+      const crcBus = native.soemdsp_graph_connect(
+        this.nativeGraphHandle,
+        feedHash,
+        monoPort,
+        hashById.get(dstId),
+        this.mapNativeGraphDstPortId(dstPort, typeById.get(dstId)),
+      ) | 0;
+      if (crcBus !== 0) {
+        this.postNativeGraphStatus("warning", `voice ${kind} connect failed (${crcBus}) ${feedId}`);
+        return;
+      }
+      metaVoiceBusFeeders.push({
+        hash: feedHash,
+        kind,
+        kinds: [kind],
+        mergeKey,
+        metaId: String(metaId),
+        voiceIndex: Number(voiceIndex),
+        shared: Number(voiceIndex) < 0,
+        dstId: String(dstId),
+        dstPort: String(dstPort || ""),
+      });
+    };
+
+    for (const [metaId, metaNode] of this.nodes) {
+      if (String(metaNode?.type || "") !== "metamodule") continue;
+      const playmode = typeof nodeGraphMetamodulePlaymode === "function"
+        ? nodeGraphMetamodulePlaymode(metaNode)
+        : Math.round(Number(metaNode?.metamodule?.playmode) || 4);
+      if (!(playmode >= 1)) continue;
+      const voiceCount = typeof nodeGraphMetamoduleVoiceCount === "function"
+        ? nodeGraphMetamoduleVoiceCount(metaNode)
+        : Math.max(1, Math.min(32, Math.round(Number(metaNode?.metamodule?.voices) || 10)));
+      const laneVoiceCount = playmode === 4 ? voiceCount : 1;
+      const busKinds = [
+        { type: "voiceFrequency", kind: "frequency" },
+        { type: "voiceGate", kind: "gate" },
+        { type: "voiceTrigger", kind: "trigger" },
+      ];
+      for (let bi = 0; bi < busKinds.length; bi += 1) {
+        const { type, kind } = busKinds[bi];
+        const portalId = findVoicePortalId(String(metaId), type);
+        if (!portalId) continue;
+        for (const c of connections) {
+          if (String(c?.sourceNode || "") !== portalId) continue;
+          const dst = String(c?.destinationNode || "");
+          const dstPort = String(c?.destinationPort || "");
+          if (!dst || !dstPort) continue;
+          if (kind === "gate") metaVoiceGateCableMetas.add(String(metaId));
+          const dstIds = expandVoiceIds(dst);
+          for (let v = 0; v < laneVoiceCount; v += 1) {
+            const laneDst = dstIds[v] || (v === 0 ? dst : `${dst}__v${v}`);
+            if (!idSet.has(laneDst)) continue;
+            addVoiceBusFeeder(kind, metaId, v, laneDst, dstPort);
+          }
+        }
+      }
+    }
+
+    this._nativeMetaVoiceBusFeeders = metaVoiceBusFeeders;
+    this._nativeMetaVoiceGateCableMetas = metaVoiceGateCableMetas;
+    this._nativeMetaVoicePitchFeeders = metaVoiceBusFeeders.filter((f) => f.kind === "frequency");
+    this._metaVoiceBusFeederCache = new Map();
   };
 
 /**
@@ -1933,32 +2107,12 @@ NodeLiveAudioProcessor.prototype.mixNoteMask128 = function mixNoteMask128(nodeId
     }
   };
   for (let i = 0; i < conns.length; i += 1) {
-    const c = conns[i];
-    const out = this.nodeOutputs?.get?.(String(c.sourceNode || ""));
+    const out = this.nodeOutputs?.get?.(String(conns[i].sourceNode || ""));
     if (!out || typeof out !== "object") continue;
-    const sp = String(c.sourcePort || "");
-    if (sp === "Chord Memory" && out.chordMask instanceof Uint8Array) {
-      orIn(out.chordMask);
-      continue;
-    }
-    if (sp === "Play Keys" && out.playMask instanceof Uint8Array) {
-      orIn(out.playMask);
-      continue;
-    }
-    if (sp === "Arp Keys" && out.arpMask instanceof Uint8Array) {
-      orIn(out.arpMask);
-      continue;
-    }
-    if (out.playMask instanceof Uint8Array && (sp === "Play Keys" || sp === "Chord Memory")) {
-      orIn(out.playMask);
-      continue;
-    }
-    const analog = Number(out[sp]);
-    if (Number.isFinite(analog) && analog > 0 && typeof noteMaskDemuxRegisters === "function") {
-      const regs = { c0: 0, c1: 0, c2: 0 };
-      noteMaskDemuxRegisters(regs, analog);
-      if (typeof noteMaskFromRegisters === "function") orIn(noteMaskFromRegisters(regs));
-    }
+    const sp = String(conns[i].sourcePort || "");
+    if (sp === "Play Keys") orIn(out.playMask);
+    else if (sp === "Arp Keys") orIn(out.arpMask);
+    else if (sp === "Chord Memory") orIn(out.chordMask || out.chordPlayMask);
   }
   return mask;
 };
@@ -2037,11 +2191,22 @@ NodeLiveAudioProcessor.prototype.syncNativeArpFacesAndMonophony = function syncN
     const table = typeof polyphonyCreateTable === "function"
       ? polyphonyCreateTable()
       : new Uint8Array(128);
-    if (gate && play >= 0 && play <= 127) table[play] = 100;
+    const playMask = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
+    if (gate && play >= 0 && play <= 127) {
+      table[play] = 100;
+      if (typeof noteMaskSet === "function") noteMaskSet(playMask, play, true);
+      else playMask[play] = 1;
+    }
     this._arpPolyTables.set(nid, table);
     const prev = this.nodeOutputs.get(nid);
+    const phaseOn = this.midiKeyboardHeldKeysPhase | 0;
+    const playTx = typeof noteMaskTransmit === "function"
+      ? noteMaskTransmit(playMask, phaseOn)
+      : (typeof polyphonyTableWireSample === "function" ? polyphonyTableWireSample(table) : 0);
     this.nodeOutputs.set(nid, {
       ...(prev && typeof prev === "object" ? prev : {}),
+      "Play Keys": playTx,
+      playMask,
       Monophony: typeof polyphonyTableWireSample === "function"
         ? polyphonyTableWireSample(table)
         : 0,
@@ -2085,6 +2250,147 @@ NodeLiveAudioProcessor.prototype.patchHasMetamodule = function patchHasMetamodul
 };
 
 /**
+ * Walk a Meta-internal cable across every voice circuit (same slot on src and
+ * dst). Sum to a shell bus. Never fan one circuit into another.
+ */
+NodeLiveAudioProcessor.prototype.forEachNativeVoiceCircuitPair = function forEachNativeVoiceCircuitPair(
+  srcId,
+  dstId,
+  visit,
+) {
+  const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
+  const byBase = new Map();
+  for (let i = 0; i < lanes.length; i += 1) {
+    const lane = lanes[i];
+    if (lane?.baseId) byBase.set(String(lane.baseId), lane);
+  }
+  const srcLane = byBase.get(String(srcId || ""));
+  const dstLane = byBase.get(String(dstId || ""));
+  if (srcLane && dstLane && srcLane.metaId === dstLane.metaId) {
+    const n = Math.min(srcLane.voiceIds.length, dstLane.voiceIds.length);
+    for (let v = 0; v < n; v += 1) visit(srcLane.voiceIds[v], dstLane.voiceIds[v]);
+    return;
+  }
+  if (srcLane && !dstLane) {
+    for (let v = 0; v < srcLane.voiceIds.length; v += 1) visit(srcLane.voiceIds[v], dstId);
+    return;
+  }
+  if (!srcLane && dstLane) {
+    visit(srcId, dstLane.voiceIds[0]);
+    return;
+  }
+  visit(srcId, dstId);
+};
+
+const META_VOICE_FACE_TYPES = {
+  metamodule: 1,
+  metamoduleIn: 1,
+  metamoduleOut: 1,
+  voiceFrequency: 1,
+  voiceGate: 1,
+  voiceTrigger: 1,
+  voiceIdle: 1,
+};
+
+/**
+ * Compile each Voices Meta as N sealed circuits.
+ * Owned modules + cables + param-mods stay inside slot v.
+ * Face knobs/inputs are shared. Voice Frequency/Gate/Trigger are per-slot
+ * feeders. Circuits mix only at Meta Out.
+ */
+NodeLiveAudioProcessor.prototype.compileNativeMetaVoiceCircuits = function compileNativeMetaVoiceCircuits(ctx) {
+  const native = ctx?.native || this.nativeGraph;
+  const connectOne = ctx?.connectOne;
+  const hashById = ctx?.hashById;
+  const typeById = ctx?.typeById;
+  const idSet = ctx?.idSet;
+  if (!native || typeof connectOne !== "function") {
+    return { cables: 0, mods: 0 };
+  }
+  const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
+  const byBase = new Map();
+  for (let i = 0; i < lanes.length; i += 1) {
+    if (lanes[i]?.baseId) byBase.set(String(lanes[i].baseId), lanes[i]);
+  }
+  const connections = Array.isArray(ctx?.connections)
+    ? ctx.connections
+    : (Array.isArray(this._planConnections) ? this._planConnections : []);
+  let cables = 0;
+  for (let ci = 0; ci < connections.length; ci += 1) {
+    const c = connections[ci];
+    const srcLane = byBase.get(String(c?.sourceNode || ""));
+    const dstLane = byBase.get(String(c?.destinationNode || ""));
+    if (!srcLane || !dstLane || srcLane.metaId !== dstLane.metaId) continue;
+    const n = Math.min(srcLane.voiceIds.length, dstLane.voiceIds.length);
+    for (let v = 0; v < n; v += 1) {
+      if (connectOne(
+        srcLane.voiceIds[v],
+        String(c.sourcePort || ""),
+        dstLane.voiceIds[v],
+        String(c.destinationPort || ""),
+      )) cables += 1;
+    }
+  }
+  let mods = 0;
+  const modsMap = this.modulationConnections;
+  if (
+    modsMap
+    && typeof modsMap.forEach === "function"
+    && typeof native.soemdsp_graph_add_param_mod_edge === "function"
+  ) {
+    const P = NodeLiveAudioProcessor;
+    const keyIds = P.NATIVE_GRAPH_PARAM_KEY_IDS || {};
+    const discrete = P.NATIVE_GRAPH_DISCRETE_PARAMS || {};
+    modsMap.forEach((list, modKey) => {
+      const keyStr = String(modKey || "");
+      const dot = keyStr.lastIndexOf(".");
+      if (dot < 0) return;
+      const dstId = keyStr.slice(0, dot);
+      const paramKey = keyStr.slice(dot + 1);
+      const dstLane = byBase.get(dstId);
+      if (!dstLane || discrete[paramKey]) return;
+      const dstType = String(typeById?.get?.(dstId) || dstLane.type || "");
+      const paramId = typeof this.mapNativeGraphParamId === "function"
+        ? this.mapNativeGraphParamId(dstType, paramKey)
+        : keyIds[paramKey];
+      if (!Number.isFinite(paramId)) return;
+      const arr = Array.isArray(list) ? list : [];
+      for (let i = 0; i < arr.length; i += 1) {
+        const srcId = String(arr[i]?.sourceNode || "");
+        const srcPort = String(arr[i]?.sourcePort || "");
+        const srcLane = byBase.get(srcId);
+        if (!srcLane || srcLane.metaId !== dstLane.metaId) continue;
+        if (!idSet?.has?.(srcId)) continue;
+        const srcPortId = this.mapNativeGraphSrcPortId(srcPort, typeById?.get?.(srcId));
+        if (!Number.isFinite(srcPortId) || srcPortId < 0) continue;
+        const n = Math.min(srcLane.voiceIds.length, dstLane.voiceIds.length);
+        for (let v = 0; v < n; v += 1) {
+          try {
+            const rc = native.soemdsp_graph_add_param_mod_edge(
+              this.nativeGraphHandle,
+              this.fnv1aHash32(srcLane.voiceIds[v]),
+              srcPortId | 0,
+              this.fnv1aHash32(dstLane.voiceIds[v]),
+              paramId | 0,
+            ) | 0;
+            if (rc === 0) {
+              mods += 1;
+              ctx?.liveParamModKeys?.add?.(
+                `${dstLane.voiceIds[v]}\0${paramKey}\0${srcLane.voiceIds[v]}\0${srcPort}`,
+              );
+            }
+          } catch (_e) { /* skip */ }
+        }
+      }
+    });
+  }
+  this._nativeVoiceCircuitPairs = cables;
+  this._nativeVoiceCircuitMods = mods;
+  this.postNativeGraphStatus("ok", `voice circuits cables=${cables} mods=${mods}`);
+  return { cables, mods };
+};
+
+/**
  * Tag Meta Voices clones with VoiceManager slot indices and bind the VM to the
  * graph. process_block then steps only Sustaining + Releasing slots.
  */
@@ -2097,11 +2403,7 @@ NodeLiveAudioProcessor.prototype.bindNativeMetaVoiceProcessSlots = function bind
     return;
   }
   const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
-  if (!lanes.length) {
-    this._nativeMetaVoiceSlotsBound = true;
-    this._nativeMetaVoiceSlotsVm = 0;
-    return;
-  }
+  if (!lanes.length) return;
   const h = this.ensureVoiceManager?.() | 0;
   if (!(h > 0)) return;
   // Bind once per compile (or when forced). Re-tagging every quantum used to
@@ -2128,6 +2430,57 @@ NodeLiveAudioProcessor.prototype.bindNativeMetaVoiceProcessSlots = function bind
   }
   this._nativeMetaVoiceSlotsBound = true;
   this._nativeMetaVoiceSlotsVm = h;
+};
+
+/** After DSP: isIdle on envelope clones frees Releasing slots. */
+NodeLiveAudioProcessor.prototype.syncNativeVoiceIdleCleanup = function syncNativeVoiceIdleCleanup(frames) {
+  const native = this.nativeGraph;
+  const h = this._voiceManagerHandle | 0;
+  if (!(h > 0) || !native?.soemdsp_voice_manager_clean_slot) return;
+  const poly = native.soemdsp_voice_manager_polyphony?.(h) | 0;
+  if (!(poly > 0)) return;
+  const n = Math.max(1, frames | 0);
+  const idle = new Array(poly).fill(false);
+  const P = NodeLiveAudioProcessor;
+  const envTypes = {
+    pluckEnvelope3: 1,
+    expAdsr: 1,
+    linearEnvelope: 1,
+    wavetableAdsr: 1,
+    pluckEnvelope: 1,
+    thumpEnvelope: 1,
+    curveAttackRelease: 1,
+    linearAttackRelease: 1,
+  };
+  const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
+  for (let li = 0; li < lanes.length; li += 1) {
+    const lane = lanes[li];
+    if (!envTypes[String(lane?.type || "")]) continue;
+    const ids = lane.voiceIds || [];
+    for (let v = 0; v < ids.length && v < poly; v += 1) {
+      const id = String(ids[v] || "");
+      if (!id) continue;
+      const hash = this.fnv1aHash32(id);
+      const idleView = this.bindNativeGraphNodePortView?.(hash, P.NATIVE_GRAPH_PORT_IS_IDLE, n);
+      let hi = 0;
+      if (idleView && idleView.length) hi = Number(idleView[idleView.length - 1]);
+      const outObj = this.nodeOutputs?.get?.(id);
+      if (!(hi > 0.5)) hi = Number(outObj?.isIdle ?? outObj?.Idle ?? 0);
+      const ampView = this.bindNativeGraphNodePortView?.(hash, P.NATIVE_GRAPH_PORT_MONO, n);
+      const amp = ampView && ampView.length
+        ? Math.abs(Number(ampView[ampView.length - 1]) || 0)
+        : Math.abs(Number(outObj?.Out ?? outObj?.Mono ?? 0));
+      const st = native.soemdsp_voice_manager_voice_state?.(h, v) | 0;
+      if (hi > 0.5 || (st === 2 && amp < 1e-4)) idle[v] = true;
+    }
+  }
+  this._vmIdleBySlot = idle;
+  for (let v = 0; v < poly; v += 1) {
+    if (!idle[v]) continue;
+    if ((native.soemdsp_voice_manager_voice_state?.(h, v) | 0) !== 2) continue;
+    native.soemdsp_voice_manager_clean_slot(h, v, 1);
+    this.vmLog?.(`idle-clean v${v}`);
+  }
 };
 
 /**
@@ -2181,7 +2534,13 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
       if (!conns || !conns.length) continue;
       for (let i = 0; i < conns.length; i += 1) {
         const sp = String(conns[i].sourcePort || "");
-        if (sp === "Polyphony" || sp === "Monophony") return true;
+        if (
+          sp === "Play Keys"
+          || sp === "Arp Keys"
+          || sp === "Chord Memory"
+          || sp === "Polyphony"
+          || sp === "Monophony"
+        ) return true;
       }
     }
     return false;
@@ -2232,55 +2591,46 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     return;
   }
 
-  // VoiceManager follows Polyphony cables into Voices — not a global soup of
-  // every note source. Sequencer Play Keys → Chord Memory expands on the
-  // Keyboard; Keyboard Polyphony → Voices is what should sound.
+  // VoiceManager follows Play Keys / Arp Keys / Chord Memory cables into
+  // Voices — not a global soup of every note source. Sequencer Play Keys →
+  // Keyboard Chord Memory expands slots; mix those buses into Voices.
   {
     const want = typeof polyphonyCreateTable === "function"
       ? polyphonyCreateTable()
       : new Uint8Array(128);
-    const mergeTable = (table) => {
-      if (!(table instanceof Uint8Array)) return;
-      if (typeof polyphonyTableMergeMax === "function") {
-        polyphonyTableMergeMax(want, table);
+    const addMask = (mask, vels, defVel) => {
+      if (!(mask instanceof Uint8Array)) return;
+      if (typeof polyphonyTableAddNoteMask === "function") {
+        polyphonyTableAddNoteMask(want, mask, 0, vels, defVel || 100);
         return;
       }
+      let fallback = Math.round(Number(defVel));
+      if (!(fallback > 0)) fallback = 100;
+      if (fallback > 127) fallback = 127;
       for (let i = 0; i < 128; i += 1) {
-        if (table[i] > want[i]) want[i] = table[i];
-      }
-    };
-    const addKeyboardSounding = () => {
-      const goldMask = this.midiKeyboardArpMask instanceof Uint8Array
-        ? this.midiKeyboardArpMask
-        : null;
-      const goldVels = this.midiKeyboardHeldKeyVelocities;
-      if (typeof polyphonyTableAddNoteMask === "function" && goldMask) {
-        polyphonyTableAddNoteMask(want, goldMask, 0, goldVels, 100);
-      }
-      const chordHost = typeof nodeGraphChordMemoryHost === "function"
-        ? nodeGraphChordMemoryHost()
-        : null;
-      const chordMask = chordHost?.chordMemoryPlayMask;
-      if (typeof polyphonyTableAddNoteMask === "function" && chordMask instanceof Uint8Array) {
-        polyphonyTableAddNoteMask(want, chordMask, 0, null, 100);
-      }
-      mergeTable(this.keyboardPolyphonyVelocities);
-      const sig = this.keyboardModuleSignal;
-      if (sig && Number(sig.gate) > 0 && Number.isFinite(Number(sig.midi))) {
-        const midi = Math.max(0, Math.min(127, Math.round(Number(sig.midi))));
-        const vel = Math.round((Number(sig.velocity) || 1) * 127);
-        if (midi >= 0 && vel > 0 && !want[midi]) want[midi] = Math.min(127, vel);
+        if (!mask[i]) continue;
+        const v = (vels instanceof Uint8Array && (vels[i] | 0) > 0) ? (vels[i] | 0) : fallback;
+        if (v > want[i]) want[i] = Math.min(127, v);
       }
     };
     const addFromSource = (sourceNodeId, sourcePort) => {
       const port = String(sourcePort || "");
-      if (port !== "Polyphony" && port !== "Monophony") return;
-      const src = this.nodes?.get?.(String(sourceNodeId));
-      const type = String(src?.type || "");
-      if (type === "keyboard" || type === "gridKeyboard") addKeyboardSounding();
-      else if (type === "sequencer") mergeTable(this._sequencerPolyTables?.get?.(String(sourceNodeId)));
-      else if (type === "keyboardController") mergeTable(this.midiPolyphonyVelocities);
-      else if (type === "arp") mergeTable(this._arpPolyTables?.get?.(String(sourceNodeId)));
+      const out = this.nodeOutputs?.get?.(String(sourceNodeId));
+      if (port === "Play Keys" || port === "Polyphony" || port === "Monophony") {
+        addMask(out?.playMask, null, 100);
+        return;
+      }
+      if (port === "Arp Keys") {
+        addMask(out?.arpMask, this.midiKeyboardHeldKeyVelocities, 100);
+        return;
+      }
+      if (port === "Chord Memory") {
+        // Live tones only. Rest latch stays on the Chord Memory jack for arp.
+        if (out?.chordPlayMask instanceof Uint8Array) addMask(out.chordPlayMask, null, 100);
+        else if (typeof nodeGraphChordMemoryLiveMaskForNode === "function") {
+          addMask(nodeGraphChordMemoryLiveMaskForNode(sourceNodeId), null, 100);
+        }
+      }
     };
     for (const [metaIdRaw, metaNode] of this.nodes) {
       if (String(metaNode?.type || "") !== "metamodule") continue;
@@ -2300,89 +2650,88 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
         }
       }
     }
-    // Always match VM to `want`. Skipping when the fingerprint is unchanged
-    // dropped the first Chord Memory chord: note_on ran, isIdle cleaned the
-    // slots, then fp matched and we never retried. A rest changes fp so the
-    // *next* chord worked — "only after a blank."
     this._vmWant = want;
-    for (let m = 0; m < 128; m += 1) {
-      const should = (want[m] | 0) > 0;
-      const isOn = native.soemdsp_voice_manager_note_is_on?.(h, m) | 0;
-      if (should && !isOn) {
-        this.vmNoteOn?.(m, (want[m] | 0) / 127);
-      } else if (!should && isOn) {
-        this.vmNoteOff?.(m);
-      }
+    const prev = this._vmWantPrev instanceof Uint8Array ? this._vmWantPrev : new Uint8Array(128);
+    let poly = native.soemdsp_voice_manager_polyphony?.(h) | 0;
+    if (!(poly > 0)) poly = 4;
+    for (const [metaIdRaw, metaNode] of this.nodes) {
+      if (String(metaNode?.type || "") !== "metamodule") continue;
+      const playmode = typeof nodeGraphMetamodulePlaymode === "function"
+        ? nodeGraphMetamodulePlaymode(metaNode)
+        : Math.round(Number(metaNode?.metamodule?.playmode) || 4);
+      if (playmode !== 4) continue;
+      const voiceCount = typeof nodeGraphMetamoduleVoiceCount === "function"
+        ? nodeGraphMetamoduleVoiceCount(metaNode)
+        : Math.max(1, Math.min(32, Math.round(Number(metaNode?.metamodule?.voices) || 10)));
+      poly = applyPlaymode(h, playmode, voiceCount);
+      break;
     }
+
+    // Bitmask is current held state, not a note-on/off stream. History ranks
+    // newest-on so at most `poly` notes get sustaining voices.
+    if (!Array.isArray(this._vmBitOnOrder)) this._vmBitOnOrder = [];
+    const order = this._vmBitOnOrder;
+    for (let i = order.length - 1; i >= 0; i -= 1) {
+      if ((want[order[i]] | 0) <= 0) order.splice(i, 1);
+    }
+    for (let m = 0; m < 128; m += 1) {
+      if ((want[m] | 0) <= 0) continue;
+      if ((prev[m] | 0) > 0) {
+        if (order.indexOf(m) < 0) order.push(m);
+        continue;
+      }
+      const at = order.indexOf(m);
+      if (at >= 0) order.splice(at, 1);
+      order.push(m);
+    }
+
+    const keep = [];
+    for (let i = order.length - 1; i >= 0 && keep.length < poly; i -= 1) {
+      keep.push(order[i]);
+    }
+    const keepSet = new Set(keep);
+    this._vmKeepNotes = keepSet;
+
+    // Release only voices whose note is no longer in the keep set.
+    const susN = native.soemdsp_voice_manager_sustaining_count?.(h) | 0;
+    const drop = [];
+    for (let i = 0; i < susN; i += 1) {
+      const slot = native.soemdsp_voice_manager_sustaining_at
+        ? (native.soemdsp_voice_manager_sustaining_at(h, i) | 0)
+        : -1;
+      if (slot < 0) continue;
+      const raw = native.soemdsp_voice_manager_voice_note?.(h, slot);
+      const n = Number.isFinite(Number(raw)) ? (raw | 0) : -1;
+      if (n < 0 || !keepSet.has(n)) drop.push(n);
+    }
+    for (let i = 0; i < drop.length; i += 1) {
+      if (drop[i] >= 0) this.vmNoteOff?.(drop[i]);
+    }
+
+    // Every keep bit MUST have a sustaining voice. Steal uses available,
+    // then oldest releasing, then oldest sustaining (VoiceManager add_voice).
+    for (let i = 0; i < keep.length; i += 1) {
+      const n = keep[i];
+      if (native.soemdsp_voice_manager_note_is_on?.(h, n)) continue;
+      this.vmNoteOn?.(n, (want[n] | 0) / 127);
+    }
+    this._vmWantPrev = Uint8Array.from(want);
   }
 
-  // Voice Idle: boolean collection only (never measure envelope level here).
-  // Wired isIdle outs → clean that lane when true.
-  // Unwired: assume idle=false while sustaining, idle=true when voice is off
-  // (releasing → Available immediately).
   {
-    const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
-    const readIdleBool = (srcId, srcPort) => {
-      let raw = 0;
-      if (typeof this.readEfficientModSourceSample === "function") {
-        raw = Number(this.readEfficientModSourceSample(srcId, srcPort));
-      } else {
-        const out = this.nodeOutputs?.get?.(srcId);
-        raw = Number(out?.[srcPort] ?? 0);
-      }
-      return raw > 0.5;
-    };
     let anyIdleCable = false;
-    const idleBySlot = Object.create(null); // slot → true if any cable says idle
-    for (const [nid, node] of this.nodes) {
+    for (const [, node] of this.nodes) {
       if (String(node?.type || "") !== "voiceIdle") continue;
       const idleKey = typeof this.inputKey === "function"
-        ? this.inputKey(nid, "Idle")
-        : `${nid}.Idle`;
+        ? this.inputKey(String(node.id || ""), "Idle")
+        : `${node.id}.Idle`;
       const conns = this.inputConnections?.get?.(idleKey);
-      if (!conns || !conns.length) continue;
-      anyIdleCable = true;
-      for (let i = 0; i < conns.length; i += 1) {
-        const c = conns[i];
-        const srcId = String(c.sourceNode || "");
-        const srcPort = String(c.sourcePort || "isIdle");
-        let matchedLane = false;
-        for (let li = 0; li < lanes.length; li += 1) {
-          if (String(lanes[li].baseId) !== srcId) continue;
-          const ids = lanes[li].voiceIds || [];
-          for (let v = 0; v < ids.length; v += 1) {
-            if (readIdleBool(ids[v], srcPort)) idleBySlot[v] = true;
-          }
-          matchedLane = true;
-          break;
-        }
-        if (matchedLane) continue;
-        if (!readIdleBool(srcId, srcPort)) continue;
-        // Non-cloned source: apply to all releasing slots (shared envelope).
-        const poly = native.soemdsp_voice_manager_polyphony?.(h) | 0;
-        for (let v = 0; v < poly; v += 1) idleBySlot[v] = true;
+      if (conns && conns.length) {
+        anyIdleCable = true;
+        break;
       }
     }
-    const poly = native.soemdsp_voice_manager_polyphony?.(h) | 0;
-    if (!anyIdleCable) {
-      // No isIdle wired: voice off → idle true (free releasing slots).
-      for (let v = 0; v < poly; v += 1) {
-        const state = native.soemdsp_voice_manager_voice_state?.(h, v) | 0;
-        if (state === 2 && native.soemdsp_voice_manager_clean_slot) {
-          native.soemdsp_voice_manager_clean_slot(h, v, 1);
-        }
-      }
-    } else {
-      const want = this._vmWant;
-      for (const key of Object.keys(idleBySlot)) {
-        const v = Number(key);
-        if (!idleBySlot[key] || !native.soemdsp_voice_manager_clean_slot) continue;
-        const note = native.soemdsp_voice_manager_voice_note?.(h, v);
-        const midi = Number.isFinite(Number(note)) ? (note | 0) : -1;
-        if (want && midi >= 0 && (want[midi] | 0) > 0) continue;
-        native.soemdsp_voice_manager_clean_slot(h, v, 1);
-      }
-    }
+    this._vmIdleWired = anyIdleCable;
   }
 
   for (const [metaIdRaw, metaNode] of this.nodes) {
@@ -2394,16 +2743,21 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     if (!(playmode >= 1)) {
       continue;
     }
-    const previewing = typeof this.isMetaViewPreview === "function"
-      ? this.isMetaViewPreview(metaId)
-      : (String(this._metaViewId || "") === metaId);
-    // Always drive slot-0 frequency so faces keep painting (first voice).
-    // Gate stays 0 while Available so the mix stays quiet.
-
     const voiceCount = typeof nodeGraphMetamoduleVoiceCount === "function"
       ? nodeGraphMetamoduleVoiceCount(metaNode)
       : Math.max(1, Math.min(32, Math.round(Number(metaNode?.metamodule?.voices) || 10)));
-    const laneCount = applyPlaymode(h, playmode, voiceCount);
+    // Unwired Voice Idle → monophony (one slot) + free-run voice 0.
+    const idleWired = Boolean(this._vmIdleWired);
+    const effectivePlaymode = idleWired ? playmode : 1;
+    const laneCount = applyPlaymode(h, effectivePlaymode, voiceCount);
+    // Free-run voice 0 only when nothing is patched into Voices.
+    if (
+      !idleWired
+      && !voicesConnected(metaId)
+      && typeof native.soemdsp_voice_manager_keep_sustaining === "function"
+    ) {
+      native.soemdsp_voice_manager_keep_sustaining(h, 0);
+    }
 
     // Walk VoiceManager pools — Sustaining + Releasing only (Available is idle).
     const curMidi = [];
@@ -2457,29 +2811,32 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     // EV_LEGATO / EV_SLIDE — retarget pitch only; do not pulse Trigger.
     const legatoOrSlide = eventKind === 2 || eventKind === 3;
 
-    // Voice Trigger: pulse on enter Sustaining, or Mono never_slide / steal
-    // Attack while already Sustaining (note change on this slot).
+    // Voice Trigger: only a real new attack (Available/Releasing → Sustaining)
+    // while that MIDI is still wanted. Steal of a still-held slot keeps Gate
+    // and only changes Frequency — no Trigger.
     const slotTriggerPulse = (v) => {
       if (legatoOrSlide) return false;
       const state = v < curState.length ? curState[v] : 0;
       if (state !== 1) return false;
-      const prevSt = v < prevStateArr.length ? (prevStateArr[v] | 0) : 0;
-      if (prevSt !== 1) return true;
-      if (eventKind !== 1) return false; // EV_ATTACK only
       const midi = v < curMidi.length ? curMidi[v] : -1;
-      const prev = v < prevMidi.length ? prevMidi[v] : -1;
-      return midi >= 0 && midi !== prev;
+      const held = midi >= 0 && this._vmKeepNotes instanceof Set && this._vmKeepNotes.has(midi);
+      if (!held) return false;
+      const prevSt = v < prevStateArr.length ? (prevStateArr[v] | 0) : 0;
+      return prevSt !== 1;
     };
 
     if (!this._metaVoiceLastHz) this._metaVoiceLastHz = new Map();
     const lastHz = this._metaVoiceLastHz;
     const activeSet = new Set(activeSlots);
+    const want = this._vmWant;
 
     const pushFeeder = (feed, value) => {
       const key = feed.hash >>> 0;
       const v = Number(value);
       if (!Number.isFinite(v)) return;
-      if (feederCache.get(key) === v) return;
+      const kinds = Array.isArray(feed.kinds) ? feed.kinds : [feed.kind];
+      const isGate = kinds.indexOf("gate") >= 0 || kinds.indexOf("trigger") >= 0;
+      if (!isGate && feederCache.get(key) === v) return;
       feederCache.set(key, v);
       this.pushNativeGraphParam(native, feed.hash, attOffset, v);
     };
@@ -2490,46 +2847,32 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
       const kind = String(feed.kind || "frequency");
       let value = 0;
       if (feed.shared || feed.voiceIndex < 0) {
-        if (kind === "gate") {
-          value = sustainingAny ? 1 : 0;
-        } else if (kind === "trigger") {
-          // Shared/mono dest: pulse if any lane's Trigger would fire.
-          let anyPulse = false;
-          for (let si = 0; si < activeSlots.length; si += 1) {
-            if (slotTriggerPulse(activeSlots[si])) {
-              anyPulse = true;
-              break;
-            }
-          }
-          value = anyPulse ? 1 : 0;
-        }
-      } else {
+        pushFeeder(feed, 0);
+        continue;
+      }
+      {
         const v = feed.voiceIndex | 0;
         const hzKey = `${metaId}:${v}:${feed.dstId}:${feed.dstPort}`;
-        // Available slots: silence — except voice 0 frequency (first voice
-        // always paints Hypersaw stems; Gate stays 0 so the mix is quiet).
+        // Available (isIdle cleaned): no pitch/gate/trigger — same for every slot.
         if (!activeSet.has(v)) {
-          if (v === 0 && kind === "frequency") {
-            const previewHz = typeof this.metaViewPreviewHz === "function"
-              ? this.metaViewPreviewHz(metaId, metaNode)
-              : (lastHz.get(hzKey) || 261.625565);
-            value = previewHz > 0 ? previewHz : 261.625565;
-            pushFeeder(feed, value);
-          } else {
-            pushFeeder(feed, 0);
-          }
+          pushFeeder(feed, 0);
           continue;
         }
         const midi = v < curMidi.length ? curMidi[v] : -1;
         const state = v < curState.length ? curState[v] : 0;
         const sustaining = state === 1;
         const releasing = state === 2;
-        if (kind === "frequency") {
-          // Sustaining: live pitch. Releasing: hold pitch for ADSR tail.
-          if (sustaining && midi >= 0) {
+        const kinds = Array.isArray(feed.kinds) && feed.kinds.length ? feed.kinds : [kind];
+        const wantsHz = kinds.indexOf("frequency") >= 0;
+        const wantsGate = kinds.indexOf("gate") >= 0;
+        const wantsTrig = kinds.indexOf("trigger") >= 0;
+        const held = midi >= 0 && this._vmKeepNotes instanceof Set && this._vmKeepNotes.has(midi);
+        const gateOn = sustaining && held;
+        if (wantsHz) {
+          if (sustaining && held) {
             value = voiceHz(midi, metaNode);
             lastHz.set(hzKey, value);
-          } else if (releasing) {
+          } else if (sustaining || releasing) {
             value = lastHz.has(hzKey)
               ? lastHz.get(hzKey)
               : (midi >= 0 ? voiceHz(midi, metaNode) : 0);
@@ -2537,10 +2880,9 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
           } else {
             value = 0;
           }
-        } else if (kind === "gate") {
-          value = sustaining ? 1 : 0;
-        } else if (kind === "trigger") {
-          value = slotTriggerPulse(v) ? 1 : 0;
+        } else if (wantsGate || wantsTrig) {
+          // Same dest (Ping Trigger) must not get Gate=1 then Trigger=0.
+          value = (gateOn || (wantsTrig && slotTriggerPulse(v))) ? 1 : 0;
         }
       }
       pushFeeder(feed, value);
@@ -2553,6 +2895,69 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
     this._metaVoicePrevMidiByMeta.set(metaId, curMidi.slice());
     this._metaVoicePrevStateByMeta.set(metaId, curState.slice());
     this._metaVoicePrevEventKind.set(metaId, eventKind);
+
+    const wantNotes = [];
+    if (want) {
+      for (let m = 0; m < 128; m += 1) {
+        if ((want[m] | 0) > 0) wantNotes.push(m);
+      }
+    }
+    const keepNotes = [];
+    if (this._vmKeepNotes instanceof Set) {
+      this._vmKeepNotes.forEach((n) => keepNotes.push(n));
+    }
+    const stName = (st) => (st === 1 ? "SUS" : (st === 2 ? "REL" : "AVA"));
+    const voices = [];
+    const bads = [];
+    for (let v = 0; v < laneCount; v += 1) {
+      const midi = v < curMidi.length ? curMidi[v] : -1;
+      const st = v < curState.length ? curState[v] : 0;
+      const bit = midi >= 0 && want && (want[midi] | 0) > 0 ? 1 : 0;
+      const keep = midi >= 0 && this._vmKeepNotes instanceof Set && this._vmKeepNotes.has(midi);
+      const gate = (st === 1 && keep) ? 1 : 0;
+      const line = `v${v} ${stName(st)} n=${midi} bit=${bit} keep=${keep ? 1 : 0} gate=${gate}`;
+      voices.push(line);
+      if (st === 1 && !bit) bads.push(`BAD v${v} SUS n=${midi} bitmask OFF`);
+      if (st === 1 && bit && !keep) bads.push(`BAD v${v} SUS n=${midi} not in keep`);
+      if (gate && !bit) bads.push(`BAD v${v} gate=1 n=${midi} bitmask OFF`);
+    }
+    const idleBits = Array.isArray(this._vmIdleBySlot)
+      ? this._vmIdleBySlot.map((x, i) => (x ? String(i) : "")).filter(Boolean).join(",")
+      : "";
+    const acts = Array.isArray(this._vmActLog) ? this._vmActLog.slice() : [];
+    this._vmActLog = [];
+    const gateFeeds = [];
+    for (let fi = 0; fi < busFeeders.length; fi += 1) {
+      const f = busFeeders[fi];
+      if (!f || f.metaId !== metaId || f.kind !== "gate") continue;
+      gateFeeds.push(f.shared || f.voiceIndex < 0 ? "shared" : String(f.voiceIndex | 0));
+    }
+    this._vmDebugSnap = {
+      want: wantNotes.join(","),
+      keep: keepNotes.join(","),
+      hist: Array.isArray(this._vmBitOnOrder) ? this._vmBitOnOrder.join(",") : "",
+      voices: voices.join(" | "),
+      clones: (Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [])
+        .map((l) => `${String(l.type || "?")}:${(l.voiceIds || []).length}`)
+        .join(","),
+      pairs: String(this._nativeVoiceCircuitPairs || 0),
+      mods: String(this._nativeVoiceCircuitMods || 0),
+      feeds: `gate:${gateFeeds.join(",") || "none"} idle:${idleBits || "—"}`,
+      acts: acts.join(" ; "),
+      bad: bads.join(" ; "),
+      ev: eventKind,
+    };
+  }
+  const snap = this._vmDebugSnap;
+  if (snap && this.port) {
+    const key = `${snap.want}|${snap.keep}|${snap.voices}|${snap.acts}|${snap.bad}|${snap.feeds}`;
+    this._vmDebugBeat = (this._vmDebugBeat | 0) + 1;
+    if (key !== this._vmDebugKey || snap.bad || snap.acts) {
+      this._vmDebugKey = key;
+      try {
+        this.port.postMessage({ type: "vmDebug", ...snap });
+      } catch (_e) { /* ignore */ }
+    }
   }
 };
 
@@ -2738,7 +3143,27 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
   };
 
+  // Face knobs → every Meta Voices clone. Do not whitelist types here:
+  // Ping Envelope / Passive Filter / Amp Curve must get the same params as
+  // voice 0 or only slot 0 sounds (init.json vs Hypersaw+ADSR).
+  const paramTargets = [];
   for (const [id, node] of this.nodes) {
+    paramTargets.push([String(id), node]);
+  }
+  {
+    const voiceLanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
+    for (let li = 0; li < voiceLanes.length; li += 1) {
+      const lane = voiceLanes[li];
+      const baseNode = this.nodes.get(lane.baseId);
+      if (!baseNode) continue;
+      const ids = lane.voiceIds || [];
+      for (let v = 1; v < ids.length; v += 1) {
+        const vid = String(ids[v] || "");
+        if (vid) paramTargets.push([vid, baseNode]);
+      }
+    }
+  }
+  for (const [id, node] of paramTargets) {
     const type = String(node?.type || "");
     if (!Object.prototype.hasOwnProperty.call(P.NATIVE_GRAPH_TYPE_IDS, type)) continue;
     const hash = this.fnv1aHash32(id);
@@ -4271,76 +4696,6 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     // inv / u2b / b2u: no Control params
   }
-
-  // Mirror face params onto Meta Voices-mode lane clones (__v1…) for every
-  // owned cloned module (not Hypersaw-only).
-  const voiceLanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
-  for (let li = 0; li < voiceLanes.length; li += 1) {
-    const lane = voiceLanes[li];
-    const baseNode = this.nodes.get(lane.baseId);
-    if (!baseNode) continue;
-    const t = String(lane.type || baseNode.type || "");
-    for (let v = 1; v < lane.voiceIds.length; v += 1) {
-      const vid = lane.voiceIds[v];
-      const hash = this.fnv1aHash32(vid);
-      let cache = cacheById.get(vid);
-      if (!cache || forceAll) {
-        cache = Object.create(null);
-        cacheById.set(vid, cache);
-      }
-      const cont = (key, fallback) => readContinuous(baseNode, key, fallback);
-      const disc = (key, fallback) => readDiscrete(baseNode, key, fallback);
-      const push = (key, paramId, value) => pushChanged(hash, cache, key, paramId, value, baseNode);
-      if (t === "expAdsr" || t === "curveEnvelopeMod") {
-        push("updateOnTrigger", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("updateOnTrigger", 0));
-        push("delay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delay", 0));
-        push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.08));
-        push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.22));
-        push("sustain", P.NATIVE_GRAPH_PARAM_MIX, cont("sustain", 0.55));
-        push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.45));
-        push("attackShape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("attackShape", 0));
-        push("releaseShape", P.NATIVE_GRAPH_PARAM_CENTER, cont("releaseShape", 0));
-        push("loop", P.NATIVE_GRAPH_PARAM_MODE, disc("loop", 0));
-        push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
-      } else if (t === "linearEnvelope") {
-        push("delay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delay", 0));
-        push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.08));
-        push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.22));
-        push("sustain", P.NATIVE_GRAPH_PARAM_MIX, cont("sustain", 0.55));
-        push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.45));
-        push("loop", P.NATIVE_GRAPH_PARAM_MODE, disc("loop", 0));
-        push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
-      } else if (t === "wavetableAdsr") {
-        push("shape", P.NATIVE_GRAPH_PARAM_MODE, disc("shape", 0));
-        push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.01));
-        push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 0.2));
-        push("sustain", P.NATIVE_GRAPH_PARAM_MIX, cont("sustain", 0.7));
-        push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.3));
-        push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
-      } else if (t === "ampCurve") {
-        push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
-      } else if (t === "hypersaw2") {
-        push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
-        push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 7));
-        push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
-        push("morph", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("morph", 0.5));
-        push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
-        push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
-        push("centerSide", P.NATIVE_GRAPH_PARAM_PAN, cont("centerSide", 1));
-        push("phaseCollapse", P.NATIVE_GRAPH_PARAM_SHAPE, disc("phaseCollapse", 0));
-        push("jitterTilt", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("jitterTilt", -0.3));
-        push("jitterDistance", P.NATIVE_GRAPH_PARAM_CENTER, cont("jitterDistance", 2));
-        push("jitterSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterSpeed", 3.6));
-        push("jitterSpeedRef", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, cont("jitterSpeedRef", 200));
-        push("vibratoDistance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoDistance", 0));
-        push("vibratoSpeed", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("vibratoSpeed", 0));
-        push("vibratoPhaseVary", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("vibratoPhaseVary", 0));
-        // Same face amplitude as base (0 + additive Amp Curve MOD = envelope only).
-        push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0));
-        push("randomizePhase", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomizePhase", 0.10));
-      }
-    }
-  }
 };
 
 /**
@@ -4557,8 +4912,7 @@ NodeLiveAudioProcessor.prototype.syncNativeRobinSupersawPublish =
 
 /**
  * Pull Hypersaw / Hypersaw2 phase stems for the face (data-bus Phases relay).
- * Meta Voices: show the oldest active voice clone (oldest Sustaining, else
- * oldest Releasing). No active voices → keep last publish (face freezes).
+ * Meta Voices: oldest Sustaining, else newest Releasing. None → freeze last.
  */
 NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
   function syncNativeHypersawPublish() {
@@ -4569,8 +4923,8 @@ NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
     const handleFn = native?.soemdsp_graph_node_native_handle;
     if (!handleFn) return;
 
-    // Oldest active Meta voice: sustaining[0], else releasing[0] (Root Meta pin).
-    const oldestActiveVoiceSlot = () => {
+    // Preview slot: oldest sustaining[0], else newest releasing[n-1].
+    const previewVoiceSlot = () => {
       if (!this._nativeMetaVoiceLanes?.length) return -1;
       const h = this.ensureVoiceManager?.() | 0;
       if (!(h > 0)) return -1;
@@ -4582,7 +4936,7 @@ NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
         }
         const rc = native.soemdsp_voice_manager_releasing_count?.(h) | 0;
         if (rc > 0 && native.soemdsp_voice_manager_releasing_at) {
-          const slot = native.soemdsp_voice_manager_releasing_at(h, 0) | 0;
+          const slot = native.soemdsp_voice_manager_releasing_at(h, rc - 1) | 0;
           if (slot >= 0) return slot;
         }
       } catch (_e) { /* keep face frozen */ }
@@ -4602,21 +4956,14 @@ NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
 
     const publishFamily = (typeName, statesMap, createState, phaseFn, countFn, fracFn) => {
       if (!phaseFn || !statesMap) return;
-      const metaViewId = String(this._metaViewId || "");
-      const oldestSlot = oldestActiveVoiceSlot();
+      const previewSlot = previewVoiceSlot();
       for (const [id, node] of this.nodes || []) {
         if (String(node?.type || "") !== typeName) continue;
         const state = statesMap.get(id) || createState?.() || { nativeHandle: 0 };
         statesMap.set(id, state);
 
         const ownedMeta = String(node?.ownerMetamoduleId || "");
-        // Always show voice 0 (first voice is the interactive / face voice).
-        let slot = 0;
-        if (ownedMeta && metaViewId && ownedMeta === metaViewId) {
-          slot = 0;
-        } else if (ownedMeta && oldestSlot >= 0) {
-          slot = oldestSlot;
-        }
+        const slot = ownedMeta && previewSlot >= 0 ? previewSlot : 0;
 
         const sourceId = ownedMeta
           ? laneVoiceIdForBase(id, slot)
@@ -5286,6 +5633,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     // Graph owns the only native DSP instances in efficient mode.
     this.releaseEfficientLegacyNativeHandles();
 
+    this._nativeMetaVoiceSlotsBound = false;
     native.soemdsp_graph_clear(this.nativeGraphHandle);
     native.soemdsp_graph_set_sample_rate(
       this.nativeGraphHandle,
@@ -5324,9 +5672,9 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       }
       addNativeNode(id, type, node.params || {});
     }
-    // Voices mode: a voice = owned modules inside the Meta container
-    // (exclude shell portals). Container also has per-voice Frequency/Gate/
-    // Trigger/Idle buses. No Hypersaw/ADSR special-case — ownership only.
+    // A Meta voice is one circuit: every owned module at the same slot
+    // (Hypersaw + Ping + Filter + …). Cables inside the Meta stay inside
+    // that circuit. Circuits only mix at Meta Out.
     const metaVoiceLanes = [];
     const META_VOICE_PORTAL_TYPES = new Set([
       "metamodule",
@@ -5362,7 +5710,27 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         if (!Object.prototype.hasOwnProperty.call(audioTypes, t)) continue;
         ownedVoiceIds.add(String(childId));
       }
+      const wiredOwned = new Set();
+      const markWired = (nid) => {
+        const id = String(nid || "");
+        if (ownedVoiceIds.has(id)) wiredOwned.add(id);
+      };
+      const planConns = Array.isArray(this._planConnections) ? this._planConnections : [];
+      for (let pi = 0; pi < planConns.length; pi += 1) {
+        markWired(planConns[pi]?.sourceNode);
+        markWired(planConns[pi]?.destinationNode);
+      }
+      if (this.modulationConnections && typeof this.modulationConnections.forEach === "function") {
+        this.modulationConnections.forEach((list, key) => {
+          const keyStr = String(key || "");
+          const dot = keyStr.lastIndexOf(".");
+          if (dot >= 0) markWired(keyStr.slice(0, dot));
+          if (!Array.isArray(list)) return;
+          for (let mi = 0; mi < list.length; mi += 1) markWired(list[mi]?.sourceNode);
+        });
+      }
       for (const childId of ownedVoiceIds) {
+        if (!wiredOwned.has(childId)) continue;
         const child = this.nodes.get(childId);
         if (!child) continue;
         const t = String(child?.type || "");
@@ -5373,8 +5741,6 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
             voiceIds.push(vid);
           }
         }
-        // Always register lane (even Voices×1 / Mono) so Gate/Pitch/Trigger
-        // feeders and pitch-cable skip use slot 0 on the authoring node.
         metaVoiceLanes.push({
           metaId: String(metaId),
           baseId: childId,
@@ -5392,30 +5758,39 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     };
     // Back-compat alias used below / surgical sync.
     const expandOscIds = expandVoiceIds;
-    /** Connect cloned subgraphs lane-wise (not full cross product). */
+    /**
+     * Inside a Meta, a cable is copied into every voice circuit (slot v ↔ slot v).
+     * Never fan one circuit into another. Sum only when leaving to Meta Out.
+     */
     const connectExpanded = (srcId, srcPort, dstId, dstPort) => {
-      const srcIds = expandVoiceIds(srcId);
-      const dstIds = expandVoiceIds(dstId);
-      if (srcIds.length > 1 && dstIds.length > 1) {
-        const n = Math.min(srcIds.length, dstIds.length);
+      const srcLane = voiceLaneByBase.get(String(srcId || ""));
+      const dstLane = voiceLaneByBase.get(String(dstId || ""));
+      if (srcLane && dstLane && srcLane.metaId === dstLane.metaId) {
+        const n = Math.min(srcLane.voiceIds.length, dstLane.voiceIds.length);
         for (let v = 0; v < n; v += 1) {
-          if (!connectOne(srcIds[v], srcPort, dstIds[v], dstPort)) return false;
+          if (!connectOne(srcLane.voiceIds[v], srcPort, dstLane.voiceIds[v], dstPort)) {
+            return false;
+          }
         }
         return true;
       }
-      if (srcIds.length > 1) {
-        for (let s = 0; s < srcIds.length; s += 1) {
-          if (!connectOne(srcIds[s], srcPort, dstIds[0], dstPort)) return false;
+      if (srcLane && !dstLane) {
+        for (let v = 0; v < srcLane.voiceIds.length; v += 1) {
+          if (!connectOne(srcLane.voiceIds[v], srcPort, dstId, dstPort)) return false;
         }
         return true;
       }
-      if (dstIds.length > 1) {
-        for (let d = 0; d < dstIds.length; d += 1) {
-          if (!connectOne(srcIds[0], srcPort, dstIds[d], dstPort)) return false;
+      if (!srcLane && dstLane) {
+        const srcType = String(this.nodes?.get?.(srcId)?.type || "");
+        if (srcType === "metamoduleIn") {
+          for (let v = 0; v < dstLane.voiceIds.length; v += 1) {
+            if (!connectOne(srcId, srcPort, dstLane.voiceIds[v], dstPort)) return false;
+          }
+          return true;
         }
-        return true;
+        return connectOne(srcId, srcPort, dstLane.voiceIds[0], dstPort);
       }
-      return connectOne(srcIds[0], srcPort, dstIds[0], dstPort);
+      return connectOne(srcId, srcPort, dstId, dstPort);
     };
 
     // Never mark compiled with an empty DSP graph — that raced ahead of setPlan
@@ -5562,6 +5937,12 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       ) {
         continue;
       }
+      // Internals already compiled as sealed voice circuits.
+      const srcLaneSkip = voiceLaneByBase.get(src);
+      const dstLaneSkip = voiceLaneByBase.get(dst);
+      if (srcLaneSkip && dstLaneSkip && srcLaneSkip.metaId === dstLaneSkip.metaId) {
+        continue;
+      }
 
       // Group Amplitude inlet → VCA on Meta Out → outside. Metamodule has no Amp inlet.
       const srcPlanNode = this.nodes.get(src);
@@ -5614,101 +5995,16 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       }
     }
 
-    // Meta container per-voice buses → one Bias feeder per voice (user-wired).
-    const metaVoiceBusFeeders = [];
-    const metaVoiceGateCableMetas = new Set();
-    const findVoicePortalId = (metaId, type) => {
-      const prefer = `${metaId}__${type}`;
-      const preferred = this.nodes.get(prefer);
-      if (preferred && String(preferred.type || "") === type) return prefer;
-      for (const [nid, n] of this.nodes) {
-        if (String(n?.type || "") !== type) continue;
-        if (String(n?.ownerMetamoduleId || "") === metaId) return String(nid);
-      }
-      return "";
-    };
-    const addVoiceBusFeeder = (kind, metaId, voiceIndex, dstId, dstPort) => {
-      if (!biasTypeId || !idSet.has(dstId)) return;
-      const feedId = `__metaVoiceBus:${kind}:${metaId}:${voiceIndex}:${dstId}:${dstPort}`;
-      const feedHash = this.fnv1aHash32(feedId);
-      const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, biasTypeId) | 0;
-      if (arc !== 0) {
-        this.postNativeGraphStatus("warning", `voice ${kind} feeder add failed (${arc}) ${feedId}`);
-        return;
-      }
-      this.pushNativeGraphSmoothType(native, feedHash, attOffsetParam, 3);
-      this.pushNativeGraphSmoothMode(native, feedHash, attOffsetParam, 3);
-      this.pushNativeGraphSmoothTime(native, feedHash, attOffsetParam, 0);
-      this.pushNativeGraphParam(native, feedHash, attOffsetParam, 0);
-      const crcBus = native.soemdsp_graph_connect(
-        this.nativeGraphHandle,
-        feedHash,
-        monoPort,
-        hashById.get(dstId),
-        this.mapNativeGraphDstPortId(dstPort, typeById.get(dstId)),
-      ) | 0;
-      if (crcBus !== 0) {
-        this.postNativeGraphStatus("warning", `voice ${kind} connect failed (${crcBus}) ${feedId}`);
-        return;
-      }
-      metaVoiceBusFeeders.push({
-        hash: feedHash,
-        kind,
-        metaId: String(metaId),
-        voiceIndex: Number(voiceIndex),
-        shared: Number(voiceIndex) < 0,
-        dstId: String(dstId),
-        dstPort: String(dstPort || ""),
-      });
-    };
-
-    for (const [metaId, metaNode] of this.nodes) {
-      if (String(metaNode?.type || "") !== "metamodule") continue;
-      const playmode = typeof nodeGraphMetamodulePlaymode === "function"
-        ? nodeGraphMetamodulePlaymode(metaNode)
-        : Math.round(Number(metaNode?.metamodule?.playmode) || 4);
-      if (!(playmode >= 1)) continue;
-      const voiceCount = typeof nodeGraphMetamoduleVoiceCount === "function"
-        ? nodeGraphMetamoduleVoiceCount(metaNode)
-        : Math.max(1, Math.min(32, Math.round(Number(metaNode?.metamodule?.voices) || 10)));
-      const laneVoiceCount = playmode === 4 ? voiceCount : 1;
-      const busKinds = [
-        { type: "voiceFrequency", kind: "frequency" },
-        { type: "voiceGate", kind: "gate" },
-        { type: "voiceTrigger", kind: "trigger" },
-      ];
-      for (let bi = 0; bi < busKinds.length; bi += 1) {
-        const { type, kind } = busKinds[bi];
-        const portalId = findVoicePortalId(String(metaId), type);
-        if (!portalId) continue;
-        for (const c of connections) {
-          if (String(c?.sourceNode || "") !== portalId) continue;
-          const dst = String(c?.destinationNode || "");
-          const dstPort = String(c?.destinationPort || "");
-          if (!dst || !dstPort) continue;
-          if (kind === "gate") metaVoiceGateCableMetas.add(String(metaId));
-          const dstIds = expandVoiceIds(dst);
-          if (dstIds.length > 1) {
-            // Owned voice subgraph is cloned — one feeder per lane (Gate/Freq/Trig).
-            for (let v = 0; v < laneVoiceCount; v += 1) {
-              const laneDst = dstIds[Math.min(v, dstIds.length - 1)];
-              addVoiceBusFeeder(kind, metaId, v, laneDst, dstPort);
-            }
-          } else if (dstIds.length === 1 || idSet.has(dst)) {
-            // Mono / Voices×1 / non-cloned dest — slot 0 on authoring node.
-            addVoiceBusFeeder(kind, metaId, 0, dstIds[0] || dst, dstPort);
-          } else {
-            // Dest missing from native graph.
-            addVoiceBusFeeder(kind, metaId, -1, dst, dstPort);
-          }
-        }
-      }
-    }
-    this._nativeMetaVoiceBusFeeders = metaVoiceBusFeeders;
-    this._nativeMetaVoiceGateCableMetas = metaVoiceGateCableMetas;
-    // Back-compat alias used by older runtime bits.
-    this._nativeMetaVoicePitchFeeders = metaVoiceBusFeeders.filter((f) => f.kind === "frequency");
+    this.installNativeMetaVoiceBusFeeders({
+      native,
+      connections,
+      idSet,
+      hashById,
+      typeById,
+      removeOld: false,
+    });
     this._nativeMetaAmpVcas = metaAmpVcas;
+    this._nativeVoiceCircuitMods = 0;
 
     // Audio→param MOD = ParamModEdge (topo-orders S&H→…→atten→param before stamp).
     // Knob / keyboard stay on quantum set_param_mod when src is not in the native graph.
@@ -5762,7 +6058,6 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
           : keyIds[paramKey];
         if (!Number.isFinite(paramId)) return;
         if (!Array.isArray(mods)) return;
-        const dstIds = expandVoiceIds(dstId);
         for (let i = 0; i < mods.length; i += 1) {
           const m = mods[i];
           if (!m) continue;
@@ -5771,7 +6066,8 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
           if (!srcId || !idSet.has(srcId)) continue;
           const srcPortId = this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId));
           if (!Number.isFinite(srcPortId) || srcPortId < 0) continue;
-          const srcIds = expandVoiceIds(srcId);
+          const srcLane = voiceLaneByBase.get(srcId);
+          const dstLane = voiceLaneByBase.get(dstId);
           const addMod = (sId, dId) => {
             try {
               const rc = native.soemdsp_graph_add_param_mod_edge(
@@ -5787,19 +6083,20 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
             }
             liveParamModKeys.add(`${dId}\0${paramKey}\0${sId}\0${srcPort}`);
           };
-          if (srcIds.length > 1 && dstIds.length > 1) {
-            const n = Math.min(srcIds.length, dstIds.length);
-            for (let v = 0; v < n; v += 1) addMod(srcIds[v], dstIds[v]);
-          } else if (srcIds.length > 1) {
-            for (let s = 0; s < srcIds.length; s += 1) addMod(srcIds[s], dstIds[0]);
-          } else if (dstIds.length > 1) {
-            for (let d = 0; d < dstIds.length; d += 1) addMod(srcIds[0], dstIds[d]);
-          } else {
-            addMod(srcIds[0], dstIds[0]);
-          }
+          if (srcLane && dstLane && srcLane.metaId === dstLane.metaId) continue;
+          addMod(srcId, dstId);
         }
       });
     }
+    this.compileNativeMetaVoiceCircuits({
+      native,
+      connectOne,
+      hashById,
+      typeById,
+      idSet,
+      connections,
+      liveParamModKeys,
+    });
     this._nativeLiveParamModKeys = liveParamModKeys;
     this._nativePhaseModLiveKeys = liveParamModKeys;
     this._nativeHostCvFeeders = hostFeeders;
@@ -5847,12 +6144,9 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     this.syncNativeGraphBypass();
     // VoiceManager pools: tag lane clones so only Sustaining+Releasing step.
     this.bindNativeMetaVoiceProcessSlots?.(true);
-    // First voice always processes so faces (Hypersaw) keep painting.
-    if (typeof this.applyMetaViewPreview === "function") {
-      this.applyMetaViewPreview(this._metaViewId || "");
-    } else if (native?.soemdsp_graph_set_preview_voice_slot) {
+    if (native?.soemdsp_graph_set_preview_voice_slot) {
       try {
-        native.soemdsp_graph_set_preview_voice_slot(this.nativeGraphHandle, 0);
+        native.soemdsp_graph_set_preview_voice_slot(this.nativeGraphHandle, -1);
       } catch (_e) { /* ignore */ }
     }
     this.syncNativeAudioPlayerPcm?.();
@@ -6709,6 +7003,9 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
       protectedRight: output[1] || output[0],
       frameOffset: written,
     });
+    try {
+      this.syncNativeVoiceIdleCleanup?.(chunk);
+    } catch (_e) { /* keep audio */ }
 
     written += chunk;
   }

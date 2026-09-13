@@ -17909,6 +17909,30 @@ def require_native_module_contract(base_url: str) -> None:
         _read_if(PUBLIC / "node-live-audio-worklet-process.js"),
     ]
     worklet_source = "\n".join(_worklet_contract_parts)
+    native_graph_source = (PUBLIC / "node-live-audio-worklet-native-graph.js").read_text(encoding="utf-8")
+    chord_memory_source = (PUBLIC / "node-graph-keyboard-chord-memory.js").read_text(encoding="utf-8")
+    require(
+        "const paramTargets = []" in native_graph_source
+        and "Mirror face params onto Meta Voices-mode lane clones" not in native_graph_source
+        and 'if (type === "pluckEnvelope3")' in native_graph_source,
+        "Meta Voices clones must share the main param loop (no ADSR/Hypersaw whitelist) so Ping Envelope patches polyphonize",
+    )
+    require(
+        "function nodeGraphChordMemoryReleasePointerPlay" in chord_memory_source
+        and "function nodeGraphChordMemoryReleaseNode" in chord_memory_source
+        and "nodeGraphChordMemoryLiveMaskForNode" in chord_memory_source
+        and "function nodeGraphChordMemoryUnlatchOthers" in chord_memory_source,
+        "chord play must release on pointer up and live ghost keys must not use the OUT latch",
+    )
+    events_source = (PUBLIC / "node-live-audio-worklet-events.js").read_text(encoding="utf-8")
+    require(
+        "queueVmRetrigger" not in events_source
+        and "_vmRetriggerQueue" not in native_graph_source
+        and "_vmAttackNext" not in native_graph_source
+        and "sustaining && held" in native_graph_source
+        and "prevSt !== 1" in native_graph_source,
+        "Voices Gate follows wanted sustaining slots; Trigger only on new attack, never a Gate dip",
+    )
     native_build_source = (ROOT / "scripts" / "build_native_modules.ps1").read_text(encoding="utf-8")
     # Canonical layout is native_modules/<name>/<name>.cpp. Skip sibling
     # helpers (e.g. soem_reverb/stub_test.cpp) and the combined/ tree.

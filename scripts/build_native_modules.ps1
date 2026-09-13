@@ -279,6 +279,7 @@ $modules = @(
     "soemdsp_voice_manager_note_on", "soemdsp_voice_manager_note_off",
     "soemdsp_voice_manager_all_notes_off",
     "soemdsp_voice_manager_clean", "soemdsp_voice_manager_clean_slot",
+    "soemdsp_voice_manager_keep_sustaining",
     "soemdsp_voice_manager_sustaining_count", "soemdsp_voice_manager_sustaining_at",
     "soemdsp_voice_manager_releasing_count", "soemdsp_voice_manager_releasing_at",
     "soemdsp_voice_manager_voice_note", "soemdsp_voice_manager_voice_state",

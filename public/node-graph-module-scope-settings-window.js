@@ -886,6 +886,15 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
       : false;
   }
   if (nodeId === "__keyboardControllerFace") {
+    const keyboard = Array.isArray(nodeGraphMvp?.patch?.nodes)
+      ? nodeGraphMvp.patch.nodes.find((n) => n?.type === "keyboard")
+      : null;
+    if (keyboard?.id && typeof openNodeGraphKeyboardControllerDisplaySettings === "function") {
+      return openNodeGraphKeyboardControllerDisplaySettings({
+        ...event,
+        currentTarget: document.querySelector(`.dsp-node[data-node="${keyboard.id}"]`),
+      });
+    }
     return typeof openNodeGraphKeyboardControllerDisplaySettings === "function"
       ? openNodeGraphKeyboardControllerDisplaySettings(event)
       : false;

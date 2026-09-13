@@ -4524,8 +4524,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "custom",
         tooltip:
-          "Sine phase room around centers — same units as Jitter Distance. "
-          + "(1/N)×Distance × Modulation Tilt × wavetable sine. Speed is constant Hz.",
+          "Scales each saw's phase spread by the shared vibrato LFO "
+          + "(phaseOffset = spread × (LFO×Distance + 1) + walk). Not pitch FM. "
+          + "Center saw is unmodulated. 0 = rest.",
       },
       {
         key: "vibratoSpeed",
@@ -4539,7 +4540,7 @@ const nodeGraphModuleDefinitions = (
         unit: "Hz",
         nonlinearSlider: true,
         sliderCurve: "skew",
-        tooltip: "Sine LFO rate in Hz. Not pitch-tilted — Modulation Tilt hits Distance, not this.",
+        tooltip: "Shared vibrato LFO rate in Hz. Scales per-saw phase spread, not oscillator pitch.",
       },
       {
         key: "vibratoPhaseVary",
@@ -5598,23 +5599,21 @@ const nodeGraphModuleDefinitions = (
   },
   sequencer: {
     planRole: "source",
-    digitalOutputs: ["Polyphony", "Play Keys"],
+    digitalOutputs: ["Play Keys"],
     inputs: [],
     layout: "sequencer",
     customDisplayArea: true,
     defaultWidthGu: 36,
     displayHeightGu: 14,
     outputChannels: {
-      Polyphony: "black",
       "Play Keys": "blue",
     },
     outputLabels: {
-      Polyphony: "Polyphony",
       "Play Keys": "Play Keys",
       f: "ƒ",
     },
+    outputAliases: { Polyphony: "Play Keys" },
     outputs: [
-      "Polyphony",
       "Play Keys",
       "Gate",
       "Trigger",
@@ -9614,21 +9613,22 @@ const nodeGraphModuleDefinitions = (
       { key: "f", kind: "scalar" },
     ],
     digitalInputs: ["Arp Keys"],
-    digitalOutputs: ["Monophony", "Step"],
+    digitalOutputs: ["Play Keys", "Step"],
     inputs: ["Arp Keys", "Trigger", "Reset", "f"],
     inputChannels: { "Arp Keys": "gold" },
     inputLabels: { "Arp Keys": "Arp Keys", f: "ƒ", Trigger: "Trig" },
     inputAliases: { Clock: "Trigger", Trig: "Trigger", Frequency: "f", Freq: "f", "ƒ": "f" },
-    outputChannels: { Monophony: "black" },
-    outputs: ["Monophony", "0.1V/Oct", "f", "Gate", "Trigger", "Step"],
-    outputLabels: { Monophony: "Monophony", "0.1V/Oct": "0.1V", f: "ƒ", Trigger: "Trig" },
+    outputChannels: { "Play Keys": "blue" },
+    outputs: ["Play Keys", "0.1V/Oct", "f", "Gate", "Trigger", "Step"],
+    outputLabels: { "Play Keys": "Play Keys", "0.1V/Oct": "0.1V", f: "ƒ", Trigger: "Trig" },
     outputAliases: {
       Pitch: "0.1V/Oct",
       Frequency: "f",
       Freq: "f",
       "ƒ": "f",
       Trig: "Trigger",
-      Polyphony: "Monophony",
+      Polyphony: "Play Keys",
+      Monophony: "Play Keys",
     },
     parameters: [
       {
@@ -12210,17 +12210,19 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   // Portal MIDI — hardware device listen only. Does not drive Keyboard face/outs.
-  // Play Keys = live MIDI note bitmask (blue). Polyphony = Midi Note + Velocity table (black).
+  // Play Keys = live MIDI note bitmask (blue). Wire to Meta Voices to mix into voices.
+  // Unique in patch like Output — one hardware MIDI inlet.
   keyboardController: {
     planRole: "source",
-    digitalOutputs: ["Polyphony", "Play Keys"],
+    uniqueInPatch: true,
+    digitalOutputs: ["Play Keys"],
     inputs: [],
     layout: "keyboardController",
     outputChannels: {
-      Polyphony: "black",
       "Play Keys": "blue",
     },
     outputAliases: {
+      Polyphony: "Play Keys",
       NoteNumber: "Note#/127",
       MIDI: "Note#/127",
       Pitch: "Note#/127",
@@ -12233,7 +12235,6 @@ const nodeGraphModuleDefinitions = (
       f: "Frequency",
     },
     outputLabels: {
-      Polyphony: "Polyphony",
       "Play Keys": "Play Keys",
       "Note#/127": "Note#/127",
       "Velocity#/127": "Velocity#/127",
@@ -12241,7 +12242,6 @@ const nodeGraphModuleDefinitions = (
       Frequency: "ƒ",
     },
     outputs: [
-      "Polyphony",
       "Play Keys",
       "Gate",
       "Trigger",
@@ -12256,13 +12256,13 @@ const nodeGraphModuleDefinitions = (
   },
   // Local piano face + explicit INs (wire MIDI→Keyboard Play Keys for device blue).
   // Play Keys = blue sounding mask. Arp Keys = gold ctrl+click latch.
-  // Chord Memory IN = green mask: bit n activates saved chord slot n as Play Keys.
+  // Chord Memory IN = green mask: bit n activates saved chord slot n.
   // Chord Memory OUT = expanded chord tones (patch to Arp Keys).
-  // Polyphony = Midi Note + Velocity (local piano) — wire to Meta Voices.
+  // Mix Play Keys / Arp Keys / Chord Memory into Meta Voices.
   keyboard: {
     planRole: "source",
     digitalInputs: ["Play Keys", "Arp Keys", "Chord Memory"],
-    digitalOutputs: ["Polyphony", "Play Keys", "Arp Keys", "Chord Memory"],
+    digitalOutputs: ["Play Keys", "Arp Keys", "Chord Memory"],
     inputs: ["Play Keys", "Arp Keys", "Chord Memory", "Gate", "Trigger"],
     inputChannels: {
       "Play Keys": "blue",
@@ -12270,7 +12270,6 @@ const nodeGraphModuleDefinitions = (
       "Chord Memory": "green",
     },
     outputChannels: {
-      Polyphony: "black",
       "Play Keys": "blue",
       "Arp Keys": "gold",
       "Chord Memory": "green",
@@ -12288,6 +12287,7 @@ const nodeGraphModuleDefinitions = (
     // Face 7 ⇒ outer ~18gu (header + face + 13 jack rows + lip).
     displayHeightGu: 7,
     outputAliases: {
+      Polyphony: "Play Keys",
       NoteNumber: "Note#/127",
       MIDI: "Note#/127",
       Pitch: "Note#/127",
@@ -12300,7 +12300,6 @@ const nodeGraphModuleDefinitions = (
       ƒ: "f",
     },
     outputLabels: {
-      Polyphony: "Polyphony",
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
       "Chord Memory": "Chord Memory",
@@ -12319,7 +12318,6 @@ const nodeGraphModuleDefinitions = (
       Trigger: "Trigger",
     },
     outputs: [
-      "Polyphony",
       "Play Keys",
       "Arp Keys",
       "Chord Memory",
@@ -12339,7 +12337,7 @@ const nodeGraphModuleDefinitions = (
   gridKeyboard: {
     planRole: "source",
     digitalInputs: ["Play Keys", "Arp Keys", "Chord Memory"],
-    digitalOutputs: ["Polyphony", "Play Keys", "Arp Keys", "Chord Memory"],
+    digitalOutputs: ["Play Keys", "Arp Keys", "Chord Memory"],
     inputs: ["Play Keys", "Arp Keys", "Chord Memory"],
     inputChannels: {
       "Play Keys": "blue",
@@ -12347,7 +12345,6 @@ const nodeGraphModuleDefinitions = (
       "Chord Memory": "green",
     },
     outputChannels: {
-      Polyphony: "black",
       "Play Keys": "blue",
       "Arp Keys": "gold",
       "Chord Memory": "green",
@@ -12355,8 +12352,8 @@ const nodeGraphModuleDefinitions = (
     layout: "gridKeyboard",
     defaultWidthGu: 40,
     displayHeightGu: 24,
+    outputAliases: { Polyphony: "Play Keys" },
     outputLabels: {
-      Polyphony: "Polyphony",
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
       "Chord Memory": "Chord Memory",
@@ -12368,7 +12365,6 @@ const nodeGraphModuleDefinitions = (
       "Chord Memory": "Chord Memory",
     },
     outputs: [
-      "Polyphony",
       "Play Keys",
       "Arp Keys",
       "Chord Memory",

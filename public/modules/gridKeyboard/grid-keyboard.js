@@ -249,47 +249,21 @@ function renderNodeGraphGridKeyboardPads() {
       const goldOn = nodeGraphMidiKeyboardGoldMidiIsOn(midi);
       pad.classList.toggle("held", goldOn);
       pad.classList.toggle("active", Number.isFinite(playing) && playing === midi);
-      const playMask = typeof nodeGraphSequencerFaceMask === "function"
-        ? nodeGraphSequencerFaceMask("play", nodeGraphMvp.keyboardFacePlayTransmit || 0)
+      const momMask = typeof nodeGraphChordMemoryHost === "function"
+        ? nodeGraphChordMemoryHost()?.chordMemoryMomentaryPlayMask
         : null;
-      const arpMask = typeof nodeGraphSequencerFaceMask === "function"
-        ? nodeGraphSequencerFaceMask("arp", nodeGraphMvp.keyboardFaceArpTransmit || 0)
-        : null;
-      const playGhost = playMask && typeof noteMaskGet === "function"
-        ? noteMaskGet(playMask, midi)
-        : false;
-      const arpGhost = arpMask && typeof noteMaskGet === "function"
-        ? noteMaskGet(arpMask, midi)
-        : false;
+      const midiPlay = nodeGraphMvp?.midiKeyboardPlayMask;
+      const playGhost = typeof noteMaskGet === "function"
+        && ((momMask instanceof Uint8Array && noteMaskGet(momMask, midi))
+          || (midiPlay instanceof Uint8Array && noteMaskGet(midiPlay, midi)));
+      const arpGhost = goldOn;
       pad.classList.toggle("ghost-play", Boolean(playGhost) && !goldOn);
       pad.classList.toggle("ghost-arp", Boolean(arpGhost) && !goldOn);
-      const nodeId = typeof nodeGraphChordMemoryNodeIdFromElement === "function"
-        ? nodeGraphChordMemoryNodeIdFromElement(pad)
-        : (pad.closest?.("[data-node], [data-node-id]")?.dataset?.node
-          || pad.closest?.("[data-node], [data-node-id]")?.dataset?.nodeId
-          || "");
-      pad.classList.toggle(
-        "chord-memory",
-        typeof nodeGraphChordMemoryHasSlot === "function"
-          && nodeGraphChordMemoryHasSlot(nodeId, midi),
-      );
-      pad.classList.toggle(
-        "slot-on",
-        typeof nodeGraphChordMemorySlotIsOn === "function"
-          && nodeGraphChordMemorySlotIsOn(nodeId, midi),
-      );
-      pad.classList.toggle(
-        "slot-edit",
-        typeof nodeGraphChordMemoryEditIs === "function"
-          && nodeGraphChordMemoryEditIs(nodeId, midi),
-      );
-      pad.classList.toggle(
-        "ghost-chord",
-        typeof nodeGraphChordMemoryNoteIsSounding === "function"
-          && nodeGraphChordMemoryNoteIsSounding(nodeId, midi),
-      );
     });
   });
+  if (typeof nodeGraphChordMemoryPaintKeys === "function") {
+    nodeGraphChordMemoryPaintKeys();
+  }
 }
 
 function updateNodeGraphGridKeyboardSignal(event) {
@@ -428,6 +402,7 @@ function bindNodeGraphGridKeyboardEvents() {
     surface.addEventListener("pointermove", updateNodeGraphGridKeyboardSignal);
     surface.addEventListener("pointerup", updateNodeGraphGridKeyboardSignal);
     surface.addEventListener("pointercancel", updateNodeGraphGridKeyboardSignal);
+    surface.addEventListener("lostpointercapture", updateNodeGraphGridKeyboardSignal);
   });
   renderNodeGraphGridKeyboardPads();
 }

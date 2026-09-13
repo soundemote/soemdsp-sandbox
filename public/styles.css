@@ -3182,6 +3182,19 @@ body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-surfac
     0 0 0 6px rgba(61, 220, 132, 0.85),
     0 0 18px rgba(90, 255, 160, 1);
 }
+.node-grid-keyboard-pad.chord-edit-note,
+.node-grid-keyboard-pad.chord-edit-note.held,
+.node-grid-keyboard-pad.chord-edit-note.active,
+.node-grid-keyboard-pad.chord-memory.chord-edit-note,
+.node-grid-keyboard-pad.ghost-chord.chord-edit-note {
+  background: #e23a3a;
+  border-color: #ffb0b0;
+  color: #1a0404;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 210, 210, 0.85),
+    0 0 0 2px rgba(226, 58, 58, 0.7),
+    0 0 14px rgba(226, 58, 58, 0.55);
+}
 
 /* Macro knob bank is the module display — no title/status chrome. */
 .node-macro-controls-panel {
@@ -3781,6 +3794,22 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
     0 0 0 6px rgba(61, 220, 132, 0.9);
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
 }
+.node-midi-keyboard-white-row span.chord-edit-note,
+.node-midi-keyboard-white-row span.chord-edit-note.held,
+.node-midi-keyboard-white-row span.chord-edit-note.active,
+.node-midi-keyboard-white-row span.chord-memory.chord-edit-note,
+.node-midi-keyboard-white-row span.ghost-chord.chord-edit-note {
+  color: #2a0606;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 210, 210, 0.95), transparent 28%),
+    linear-gradient(180deg, #ff8a8a 0%, #e23a3a 74%, #7a1010 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 210, 210, 0.85),
+    inset 0 0 22px rgba(226, 58, 58, 0.45),
+    0 0 14px rgba(226, 58, 58, 0.65),
+    0 0 28px rgba(180, 30, 30, 0.4);
+  text-shadow: 0 0 7px rgba(255, 220, 220, 0.84);
+}
 
 .node-midi-keyboard-black-row span.chord-memory {
   border-color: rgba(120, 255, 180, 0.96);
@@ -3854,6 +3883,22 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
     0 0 0 3px #f4fff4,
     0 0 0 6px rgba(61, 220, 132, 0.9),
     0 0 28px rgba(90, 255, 160, 0.95);
+}
+.node-midi-keyboard-black-row span.chord-edit-note,
+.node-midi-keyboard-black-row span.chord-edit-note.held,
+.node-midi-keyboard-black-row span.chord-edit-note.active,
+.node-midi-keyboard-black-row span.chord-memory.chord-edit-note,
+.node-midi-keyboard-black-row span.ghost-chord.chord-edit-note {
+  border-color: rgba(255, 170, 170, 0.96);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255, 160, 160, 0.7), transparent 30%),
+    linear-gradient(180deg, #c62828 0%, #4a0a0a 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 200, 200, 0.72),
+    inset 0 0 18px rgba(226, 58, 58, 0.48),
+    0 8px 18px rgba(0, 0, 0, 0.45),
+    0 0 18px rgba(226, 58, 58, 0.7),
+    0 0 32px rgba(180, 30, 30, 0.4);
 }
 
 .node-midi-keyboard-white-row span:last-child {
@@ -4023,6 +4068,24 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
 
 .node-midi-keyboard-signal-bar [data-keyboard-signal="increment"] {
   --keyboard-readout-width: 9ch;
+}
+
+.node-midi-keyboard-vm-debug {
+  grid-column: 1 / -1;
+  margin: 4px 8px 6px;
+  padding: 4px 6px;
+  max-height: 220px;
+  overflow: auto;
+  font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #c8d0dc;
+  background: rgba(8, 10, 14, 0.72);
+  border: 1px solid rgba(180, 190, 210, 0.18);
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+body.keyboard-debug-hidden .node-midi-keyboard-vm-debug {
+  display: none;
 }
 
 /* Held-keys bitmask readout -- one square per bit (53, the largest

@@ -1065,7 +1065,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       globalSmoothingManual: Boolean(nodeGraphMvp?.live?.autoSmoothingManual),
       snakeMouseSmooth: typeof clampNodeGraphSnakeMouseSmooth === "function"
         ? clampNodeGraphSnakeMouseSmooth(nodeGraphMvp?.snakeMouseSmooth ?? 0)
-        : Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphMvp?.snakeMouseSmooth))),
+        : Math.max(0, Math.min(0.17, nodeGraphFiniteNumber(nodeGraphMvp?.snakeMouseSmooth))),
       moduleScopeDotCore1Enabled: normalizeNodeGraphModuleScopeDotCoreEnabled(nodeGraphMvp.moduleScopeDotCore1Enabled ?? false),
       moduleScopeDotCore1Size: normalizeNodeGraphModuleScopeDotCoreSize(nodeGraphMvp.moduleScopeDotCore1Size ?? 2, 2),
       moduleScopeDotCore1Brightness: normalizeNodeGraphModuleScopeDotCoreBrightness(nodeGraphMvp.moduleScopeDotCore1Brightness ?? 0.23, 0.23),
@@ -1811,7 +1811,7 @@ function applyNodeUiDevSettings(settings) {
   }
   nodeGraphMvp.snakeMouseSmooth = typeof clampNodeGraphSnakeMouseSmooth === "function"
     ? clampNodeGraphSnakeMouseSmooth(normalized.view.snakeMouseSmooth ?? 0)
-    : Math.max(0, Math.min(1, nodeGraphFiniteNumber(normalized.view.snakeMouseSmooth)));
+    : Math.max(0, Math.min(0.17, nodeGraphFiniteNumber(normalized.view.snakeMouseSmooth)));
   if (typeof syncNodeGraphSnakeMouseSmoothControl === "function") {
     syncNodeGraphSnakeMouseSmoothControl();
   }

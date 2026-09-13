@@ -8,14 +8,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=JetBrains+Mono:wght@400;500;600;700&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=cm-ghost-2">
+  <link rel="stylesheet" href="./public/styles.css?v=vm-log-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=portal-thru-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=module-bottom-inset-half-1">
   <link rel="stylesheet" href="./public/modules/pitchQuantizer/pitch-quantizer-ui.css?v=chord-pad-1">
   <link rel="stylesheet" href="./public/modules/chordPad/chord-pad-ui.css?v=chord-pad-1">
-  <link rel="stylesheet" href="./public/modules/sequencer/sequencer.css?v=cm-ghost-2">
+  <link rel="stylesheet" href="./public/modules/sequencer/sequencer.css?v=voices-mix-1">
   <link rel="stylesheet" href="./public/modules/arp/arp-display.css?v=arp-slide-1">
   <link rel="stylesheet" href="./public/modules/asciiscope/asciiscope-ui.css?v=mw-ds-glyphs-1">
   <link rel="stylesheet" href="./public/modules/matrixDisplay/matrix-display-ui.css?v=matrix-lcd-zoom-1">
@@ -319,7 +319,7 @@
             role="slider"
             aria-orientation="vertical"
             aria-valuemin="0"
-            aria-valuemax="1"
+            aria-valuemax="0.17"
             aria-valuenow="0"
             aria-label="Snake select mouse smoothing"
             data-toolbar-fill-tip="Mouse smoothing"
@@ -3673,13 +3673,13 @@
 <script data-boot-defer type="text/plain" src="./public/modules/rayBouncer/ray-bouncer-register.js?v=ray-bouncer-solid-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/keypad/keypad-register.js?v=keypad-index-hover-2"></script>
-  <script data-boot-defer type="text/plain" src="./public/modules/metamodule/metamodule-register.js?v=voice-settings-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/metamodule/metamodule-register.js?v=voices-mix-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/portal/portal-lanes.js?v=title-bar-ports-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/portal/portal-inlet-register.js?v=portal-mlr-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/portal/portal-outlet-register.js?v=portal-mlr-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/simulationTime/simulation-time-register.js?v=sim-time-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/patch/patch-register.js?v=patch-buttons-on-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-module-definitions.js?v=kb-pin-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-module-definitions.js?v=kb-not-single-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-efficient-product.js?v=seq-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-controls.js?v=f-cancel-ssot-1"></script>
@@ -3725,13 +3725,13 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-settings-text-fit.js?v=title-label-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-default-preset.js?v=restore-session-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-script-status.js?v=book-ui-script-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-view-controls.js?v=cm-ghost-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-view-controls.js?v=vm-log-2"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-workspace-geometry.js?v=wf-gl-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-viewport-perf.js?v=canvas-teleport-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-workspace-zoom.js?v=pixelated-zoom-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-workspace-view.js?v=pan-log-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-camera-view.js?v=mag-trace-2"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-marquee-selection.js?v=snake-shift-ink-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-marquee-selection.js?v=mouse-smooth-17-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-node-dragging.js?v=arp-slide-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-context-menu.js?v=no-k-dock-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-magnifier.js?v=mag-trace-2"></script>
@@ -3765,7 +3765,7 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-settings-form-io.js?v=gate-blink-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-settings-field-edit.js?v=display-seed-editing-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-settings-apply.js?v=gate-blink-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-settings-window.js?v=display-open-readonly-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-settings-window.js?v=kb-not-single-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-settings-ui.js?v=one-face-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-capture.js?v=rms-4"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-number-readout.js?v=lcd-dot-1"></script>
@@ -3809,7 +3809,7 @@
 
   <script data-boot-defer type="text/plain" src="./public/node-graph-room-dimmer.js?v=light-up-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-canvas-script.js?v=floating-chrome-unify-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-module-factories.js?v=no-k-dock-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-module-factories.js?v=vm-dbg-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/led/led-ui.js?v=led-lcd-update-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/lcdDot/lcd-dot-display.js?v=lcd-dot-2"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/rgbShape/rgb-shape-math.js?v=heart-ssot-1"></script>
@@ -3872,7 +3872,7 @@
   <script data-boot-defer type="text/plain" src="./public/modules/speakerProtector2/speaker-protector-2-math.js?v=planck-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-ear-protection.js?v=protect-banner-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-patch-load-fault.js?v=patch-load-fault-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-debug-console.js?v=pause-info-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-debug-console.js?v=vm-live-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-diagnostics.js?v=uc-silence-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-rendered-audio.js?v=custom-player-20260723"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-rendered-player.js?v=transport-play-palette-1"></script>
@@ -3896,9 +3896,9 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-user-ui-settings-controls.js?v=macro-cleanup-2"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-ui-settings-panels.js?v=uidev-page-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-ui-settings-persistence.js?v=no-k-dock-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-ui-settings-persistence.js?v=mouse-smooth-17-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-ui-settings-sync.js?v=wire-endpoint-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-keyboard-shortcuts.js?v=meta-canvas-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-keyboard-shortcuts.js?v=f-type-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-meter-controls.js?v=audio-overrun-meter-2"></script>
@@ -3906,14 +3906,14 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-evidence.js?v=badval-face-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-control-rendering.js?v=keep-play-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-default-patch.js?v=persist-size-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-module-store.js?v=mix2-gain-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-module-store.js?v=kb-not-single-1"></script>
   <script data-boot-defer type="text/plain" src="./public/lib/polyphony-voices.js?v=gold-oct-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/lib/note-mask-128.js?v=arp-mask-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-keyboard-chord-memory.js?v=cm-ghost-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/lib/note-mask-128.js?v=mask128-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-keyboard-chord-memory.js?v=mask128-2"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-state.js?v=seq-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-migrations.js?v=voices-no-gate-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-core.js?v=arp-keys-look-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-migrations.js?v=voices-mix-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-core.js?v=cm-up-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-plan-runtime.js?v=chord-seq-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-parameter-runtime.js?v=rgb-shape-3"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-oscillator-runtime.js?v=sincos4-1"></script>
@@ -4040,12 +4040,12 @@
   <script data-boot-defer type="text/plain" src="./public/modules/triggerCounter/trigger-counter-math.js?v=trigger-counter-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/triggerDivider/trigger-divider-math.js?v=trigger-divider-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/sequencer/sequencer-math.js?v=seq-23"></script>
-  <script data-boot-defer type="text/plain" src="./public/modules/sequencer/sequencer-ui.js?v=seq-24"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/sequencer/sequencer-ui.js?v=seq-wrap-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/arp/arp-settings.js?v=arp-keys-look-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/arp/arp-display.js?v=arp-hover-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/modules/keyboardController/keyboard-layout-settings.js?v=kb-pin-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/modules/keyboardController/keyboard-controller-live-evaluator.js?v=arp-latch-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/modules/gridKeyboard/grid-keyboard.js?v=cm-ghost-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/keyboardController/keyboard-layout-settings.js?v=kb-not-single-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/keyboardController/keyboard-controller-live-evaluator.js?v=voices-mix-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/gridKeyboard/grid-keyboard.js?v=mask128-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/macroControls/macro-controls-settings.js?v=macro-knob-size-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/gain/gain-math.js?v=output-db-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/mixStereo/mix-stereo-math.js?v=mixstereo-no-mono-1"></script>
@@ -4076,10 +4076,10 @@
   <script data-boot-defer type="text/plain" src="./public/modules/harmonicLines/harmonic-lines-display.js?v=sim-fps-face-3"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/additiveGenerator/additive-waveform-display.js?v=sim-fps-face-3"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-live-runtime.js?v=cm-ghost-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-live-runtime.js?v=circuit-6"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-screen-solo.js?v=canvas-teleport-2"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-layout-canvas.js?v=canvas-teleport-2"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-layout-canvas.js?v=kb-not-single-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-workspace-event-bindings.js?v=constraint-debug-hide-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-render-live-event-bindings.js?v=transport-click-delegate-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-header-event-bindings.js?v=meta-canvas-1"></script>

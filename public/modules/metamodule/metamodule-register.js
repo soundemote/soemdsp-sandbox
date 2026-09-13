@@ -126,7 +126,7 @@ registerNodeGraphChromelessModule("metamodule", {
   },
   catalog: {
     category: "portal",
-    description: "Voice container. Shell: Voices in (Midi Note + Velocity), Left/Right out. Inside: owned modules = a voice; plus per-voice Frequency/Gate/Trigger/Idle. Wire Keyboard/MIDI Polyphony → Voices.",
+    description: "Voice container. Shell: Voices in (mix of Play Keys / Arp Keys / Chord Memory), Left/Right out. Inside: owned modules = a voice; plus per-voice Frequency/Gate/Trigger/Idle.",
     notes: ["metamodule", "voice container", "voices", "polyphony", "voice manager", "container", "portal"],
   },
 });
@@ -223,7 +223,7 @@ registerNodeGraphChromelessModule("voiceIdle", {
   },
   catalog: {
     category: "portal",
-    description: "Metamodule voice idle (explicit). Wire ADSR/reverb/delay isIdle → Idle. When high, releasing voices return to available.",
+    description: "Metamodule voice idle. Wire ADSR isIdle or Voice Gate → Idle to recycle voices. Unwired: monophony, voice 0 free-runs (stays sustaining).",
     notes: ["metamodule", "voice", "idle", "isIdle", "portal"],
   },
 });

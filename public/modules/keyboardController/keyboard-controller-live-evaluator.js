@@ -181,16 +181,23 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
 
   const playIn = nodeGraphKeyboardMixOrBits(nodeId, "Play Keys", ctx, phase);
   // Chord Memory IN: mask bit n → activate chord slot n as Play Keys.
-  const chordIn = nodeGraphKeyboardMixOrBits(nodeId, "Chord Memory", ctx, phase);
-  if (typeof noteMaskDemuxRegisters === "function" && typeof noteMaskFromRegisters === "function") {
-    if (!runtime.chordMemoryInRegs) runtime.chordMemoryInRegs = {};
-    if (!runtime.chordMemoryInRegs[nodeId]) {
-      runtime.chordMemoryInRegs[nodeId] = { c0: 0, c1: 0, c2: 0 };
-    }
-    noteMaskDemuxRegisters(runtime.chordMemoryInRegs[nodeId], chordIn);
-    const chordMask = noteMaskFromRegisters(runtime.chordMemoryInRegs[nodeId]);
-    if (typeof nodeGraphChordMemoryApplyInletMask === "function") {
-      nodeGraphChordMemoryApplyInletMask(nodeId, chordMask, runtime?.nodes || null);
+  // Unconnected: apply an empty mask (do not demux 0 — that keeps stale halves).
+  const chordInConnected = typeof hasInput !== "function" || hasInput(nodeId, "Chord Memory");
+  if (typeof nodeGraphChordMemoryApplyInletMask === "function") {
+    if (!chordInConnected) {
+      const empty = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
+      nodeGraphChordMemoryApplyInletMask(nodeId, empty, runtime?.nodes || null);
+    } else {
+      const chordIn = nodeGraphKeyboardMixOrBits(nodeId, "Chord Memory", ctx, phase);
+      if (typeof noteMaskDemuxRegisters === "function" && typeof noteMaskFromRegisters === "function") {
+        if (!runtime.chordMemoryInRegs) runtime.chordMemoryInRegs = {};
+        if (!runtime.chordMemoryInRegs[nodeId]) {
+          runtime.chordMemoryInRegs[nodeId] = { c0: 0, c1: 0, c2: 0 };
+        }
+        noteMaskDemuxRegisters(runtime.chordMemoryInRegs[nodeId], chordIn);
+        const chordMask = noteMaskFromRegisters(runtime.chordMemoryInRegs[nodeId]);
+        nodeGraphChordMemoryApplyInletMask(nodeId, chordMask, runtime?.nodes || null);
+      }
     }
   }
   const chordPlay = typeof nodeGraphChordMemoryPlayTransmitForNode === "function"
@@ -211,7 +218,10 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
     noteMaskSet(one, Math.max(0, Math.min(127, raw)), true);
     playLocal = noteMaskTransmit(one, phase);
   }
-  const playOut = nodeGraphHeldKeysOrTransmit([playLocal, playIn, chordPlay], phase);
+  const momentaryPlay = typeof nodeGraphChordMemoryMomentaryPlayTransmit === "function"
+    ? nodeGraphChordMemoryMomentaryPlayTransmit(phase)
+    : 0;
+  const playOut = nodeGraphHeldKeysOrTransmit([playLocal, playIn, momentaryPlay], phase);
   const polyTable = nodeGraphMvp?.keyboardPolyphonyVelocities;
   const polyOut = typeof polyphonyTableWireSample === "function"
     ? polyphonyTableWireSample(polyTable)
@@ -227,7 +237,6 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
     "Play Keys": playOut,
     "Arp Keys": arpOut,
     "Chord Memory": chordOut,
-    Polyphony: polyOut,
     Gate: gateOut,
     Trigger: triggerOut,
     KeyboardKey: cv.key,
@@ -270,7 +279,6 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({
     : 0;
   return {
     "Play Keys": playOut,
-    Polyphony: polyOut,
     Gate: cv.gateAmp,
     Trigger: cv.triggerAmp,
     "Note#/127": Math.max(0, Math.min(1, cv.midi / 127)),
@@ -284,7 +292,7 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({
   };
 };
 
-/** Grid Keyboard: same Play/Arp/Polyphony engine; X/Y are discrete grid coords. */
+/** Grid Keyboard: same Play/Arp/Chord engine; X/Y are discrete grid coords. */
 nodeGraphLiveModuleEvaluators.gridKeyboard = ({
   runtime, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate,
 }) => {
@@ -304,16 +312,22 @@ nodeGraphLiveModuleEvaluators.gridKeyboard = ({
   const arpOut = nodeGraphHeldKeysOrTransmit([arpLocal, arpIn], phase);
 
   const playIn = nodeGraphKeyboardMixOrBits(nodeId, "Play Keys", ctx, phase);
-  const chordIn = nodeGraphKeyboardMixOrBits(nodeId, "Chord Memory", ctx, phase);
-  if (typeof noteMaskDemuxRegisters === "function" && typeof noteMaskFromRegisters === "function") {
-    if (!runtime.chordMemoryInRegs) runtime.chordMemoryInRegs = {};
-    if (!runtime.chordMemoryInRegs[nodeId]) {
-      runtime.chordMemoryInRegs[nodeId] = { c0: 0, c1: 0, c2: 0 };
-    }
-    noteMaskDemuxRegisters(runtime.chordMemoryInRegs[nodeId], chordIn);
-    const chordMask = noteMaskFromRegisters(runtime.chordMemoryInRegs[nodeId]);
-    if (typeof nodeGraphChordMemoryApplyInletMask === "function") {
-      nodeGraphChordMemoryApplyInletMask(nodeId, chordMask, runtime?.nodes || null);
+  const chordInConnected = typeof hasInput !== "function" || hasInput(nodeId, "Chord Memory");
+  if (typeof nodeGraphChordMemoryApplyInletMask === "function") {
+    if (!chordInConnected) {
+      const empty = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
+      nodeGraphChordMemoryApplyInletMask(nodeId, empty, runtime?.nodes || null);
+    } else {
+      const chordIn = nodeGraphKeyboardMixOrBits(nodeId, "Chord Memory", ctx, phase);
+      if (typeof noteMaskDemuxRegisters === "function" && typeof noteMaskFromRegisters === "function") {
+        if (!runtime.chordMemoryInRegs) runtime.chordMemoryInRegs = {};
+        if (!runtime.chordMemoryInRegs[nodeId]) {
+          runtime.chordMemoryInRegs[nodeId] = { c0: 0, c1: 0, c2: 0 };
+        }
+        noteMaskDemuxRegisters(runtime.chordMemoryInRegs[nodeId], chordIn);
+        const chordMask = noteMaskFromRegisters(runtime.chordMemoryInRegs[nodeId]);
+        nodeGraphChordMemoryApplyInletMask(nodeId, chordMask, runtime?.nodes || null);
+      }
     }
   }
   const chordPlay = typeof nodeGraphChordMemoryPlayTransmitForNode === "function"
@@ -333,7 +347,10 @@ nodeGraphLiveModuleEvaluators.gridKeyboard = ({
     noteMaskSet(one, Math.max(0, Math.min(127, raw)), true);
     playLocal = noteMaskTransmit(one, phase);
   }
-  const playOut = nodeGraphHeldKeysOrTransmit([playLocal, playIn, chordPlay], phase);
+  const momentaryPlay = typeof nodeGraphChordMemoryMomentaryPlayTransmit === "function"
+    ? nodeGraphChordMemoryMomentaryPlayTransmit(phase)
+    : 0;
+  const playOut = nodeGraphHeldKeysOrTransmit([playLocal, playIn, momentaryPlay], phase);
   const polyTable = nodeGraphMvp?.keyboardPolyphonyVelocities;
   const polyOut = typeof polyphonyTableWireSample === "function"
     ? polyphonyTableWireSample(polyTable)
@@ -348,7 +365,6 @@ nodeGraphLiveModuleEvaluators.gridKeyboard = ({
     "Play Keys": playOut,
     "Arp Keys": arpOut,
     "Chord Memory": chordOut,
-    Polyphony: polyOut,
     Gate: cv.gateAmp,
     Trigger: cv.triggerAmp,
     f: cv.frequency,

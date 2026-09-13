@@ -10,7 +10,10 @@
 // Modulation Tilt (f / Speed Ref)^(tilt+1):
 //   Jitter: scales Speed (walk rate vs pitch).
 //   Vibrato: scales Distance (phase room vs pitch). Vibrato Speed stays Hz.
-// Vibrato: vibOut = sine_lut × (1/N)×Distance×tiltScale. Additive with walkOut.
+// Vibrato: original Hypersaw.hpp — shared LFO scales per-saw phase spread:
+//   phase = div*distribute + random*amp
+//   osc.phaseOffset = phase * ((vibInput * Distance) + 1) + walkOut
+// Center saw (i=0) is not wired to the LFO. Not additive FM.
 // Randomize Phase = permanent offset after Distance.
 // Rising Reset re-zeros master + re-rolls seeds.
 // Display: soemdsp_hypersaw2_voice_phase → wrap01(center + walk + vib + randomize).
@@ -285,6 +288,7 @@ struct Hypersaw2State {
   bool active;
   Hypersaw2VoiceState voices[kMaxVoices];
   double masterPhase;      // shared locked carrier
+  double vibOscPhase;      // shared PolyBLEP vibrato LFO (original vibOsc_)
   unsigned int masterRng;
   int lastVoiceCount;
   double lastVoiceFrac;
@@ -313,6 +317,7 @@ void seedVoice(Hypersaw2VoiceState& voice, int instanceIndex, int voiceIndex, un
 void reseedAll(Hypersaw2State& s, int instanceIndex, unsigned int masterSeed) {
   s.masterRng = masterSeed ? masterSeed : 0xC2B2AE3Du;
   s.masterPhase = 0.0;
+  s.vibOscPhase = 0.0;
   s.lastVoiceCount = 0;
   s.lastSeed = static_cast<double>(masterSeed);
   for (int v = 0; v < kMaxVoices; v++) {
@@ -343,6 +348,7 @@ extern "C" void soemdsp_hypersaw2_reset(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   Hypersaw2State& s = gPool[handle - 1];
   s.masterPhase = 0.0;
+  s.vibOscPhase = 0.0;
   // Re-roll from each voice's seeded RNG (deterministic under Master Seed).
   for (int v = 0; v < kMaxVoices; v++) {
     seedVoice(s.voices[v], handle - 1, v, s.masterRng);
@@ -487,10 +493,16 @@ extern "C" void soemdsp_hypersaw2_sample(
 
   const double voiceShare = 1.0 / static_cast<double>(voiceCount);
   const double walkAmp = voiceShare * jDistance;
-  const double vibAmp = voiceShare * vibDist * speedScale;
 
   // Shared locked master — all saws use the same carrier phase.
   s.masterPhase = wrap01(s.masterPhase + phaseIncrement);
+
+  // Original vibOsc_: one LFO, phaseOffset 0.5, run once per sample.
+  if (vibHz > 0.0) {
+    s.vibOscPhase = wrap01(s.vibOscPhase + hz_to_increment(vibHz, sr));
+  }
+  const double vibOffset = 1.0;
+  const double vibAmp = vibDist;
 
   for (int i = 0; i < voiceCount; i++) {
     Hypersaw2VoiceState& voice = s.voices[i];
@@ -500,15 +512,18 @@ extern "C" void soemdsp_hypersaw2_sample(
     const double walkOut = hypersaw_random_steps(
       voice.jitter, walkAmp, jSpeedEff, speedScale, sr);
     const double randomPart = voice.randomOffset * randomAmt;
+    // Static spread (original `phase` before LFO multiply).
+    const double phase = evenCenter + randomPart;
 
-    voice.vibPhase = wrap01(voice.vibPhase + hz_to_increment(vibHz, sr));
-    const double vibOut = (vibAmp > 0.0)
-      ? (dsp_sin_turns_lut(
-           wrap01(voice.vibPhase + 0.5 + voice.vibPhaseRandom * vibPhaseV)
-         ) * vibAmp)
-      : 0.0;
-
-    const double phaseOffset = evenCenter + walkOut + vibOut + randomPart;
+    double vibInput = 0.0;
+    if (i > 0 && vibAmp > 0.0) {
+      // Sides only — HypersawMaster wires vibOsc from i=1.
+      const double lfoPhase = wrap01(
+        s.vibOscPhase + 0.5 + voice.vibPhaseRandom * vibPhaseV);
+      vibInput = dsp_sin_turns_lut(lfoPhase);
+    }
+    const double vibScale = (vibInput * vibAmp) + vibOffset;
+    const double phaseOffset = phase * vibScale + walkOut;
     voice.lastOffset = wrap01(phaseG + phaseOffset);
 
     const double renderPhase = wrap01(s.masterPhase + phaseG + phaseOffset);
@@ -581,5 +596,5 @@ extern "C" int soemdsp_hypersaw2_max_voices() {
 }
 
 extern "C" int soemdsp_hypersaw2_version() {
-  return 44; // Modulation Tilt: jitter Speed, vibrato Distance; vib Speed is Hz
+  return 45; // Vibrato multiplies per-saw phase spread (original Hypersaw.hpp)
 }

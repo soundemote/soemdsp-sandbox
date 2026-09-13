@@ -704,8 +704,8 @@ function createNodeGraphMidiModuleBody(node = null) {
   return section;
 }
 
-// Keyboard module piano face. Shared global state on nodeGraphMvp —
-// not the Portal MIDI listen module (createNodeGraphMidiModuleBody).
+// Keyboard module piano face. Not the Portal MIDI listen module
+// (createNodeGraphMidiModuleBody). MIDI is a separate unique inlet.
 function createNodeGraphKeyboardControllerBody(node = null) {
   const section = document.createElement("section");
   section.className = "node-midi-keyboard-panel node-midi-keyboard-module node-module-face";
@@ -839,8 +839,13 @@ function createNodeGraphKeyboardControllerBody(node = null) {
   const bitmaskValue = document.createElement("strong");
   bitmaskValue.dataset.midiKeyboardBitmaskValue = "true";
   bitmaskBar.append(bitmaskLabel, bitmaskValue);
+  const vmDebug = document.createElement("div");
+  vmDebug.className = "node-midi-keyboard-vm-debug node-debug-only";
+  vmDebug.dataset.keyboardVmDebug = "true";
+  vmDebug.setAttribute("aria-live", "polite");
+  vmDebug.textContent = "vm —";
 
-  section.append(heading, performance, signalBar, bitmaskBar);
+  section.append(heading, performance, signalBar, bitmaskBar, vmDebug);
   return section;
 }
 

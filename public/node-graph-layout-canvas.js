@@ -86,9 +86,50 @@ function nodeGraphLayoutCanvasPinnedElementsForScope(scopeId, patch = nodeGraphM
     .sort((a, b) => (Number(a.z) || 0) - (Number(b.z) || 0));
 }
 
+function nodeGraphLayoutCanvasLiveNodeIds(patch = nodeGraphMvp?.patch) {
+  const live = new Set();
+  const nodes = Array.isArray(patch?.nodes) ? patch.nodes : [];
+  for (let i = 0; i < nodes.length; i += 1) {
+    const id = String(nodes[i]?.id || "").trim();
+    if (id) live.add(id);
+  }
+  return live;
+}
+
+function nodeGraphLayoutCanvasPruneMissingPins(patch = nodeGraphMvp?.patch) {
+  const canvases = patch?.view?.canvases;
+  if (!canvases || typeof canvases !== "object") {
+    return false;
+  }
+  const live = nodeGraphLayoutCanvasLiveNodeIds(patch);
+  const pruneBucket = (bucket) => {
+    if (!bucket || !Array.isArray(bucket.elements)) {
+      return false;
+    }
+    const next = bucket.elements.filter((el) => live.has(String(el?.nodeId || "").trim()));
+    if (next.length === bucket.elements.length) {
+      return false;
+    }
+    bucket.elements = next;
+    return true;
+  };
+  let changed = pruneBucket(canvases.root);
+  const byMeta = canvases.byMetamodule && typeof canvases.byMetamodule === "object"
+    ? canvases.byMetamodule
+    : null;
+  if (byMeta) {
+    for (const key of Object.keys(byMeta)) {
+      if (pruneBucket(byMeta[key])) changed = true;
+    }
+  }
+  return changed;
+}
+
 function nodeGraphLayoutCanvasPinnedNodeIds(patch = nodeGraphMvp?.patch) {
+  nodeGraphLayoutCanvasPruneMissingPins(patch);
+  const live = nodeGraphLayoutCanvasLiveNodeIds(patch);
   return nodeGraphLayoutCanvasElements(patch)
-    .filter((el) => el && el.enabled !== false)
+    .filter((el) => el && el.enabled !== false && live.has(String(el.nodeId || "").trim()))
     .map((el) => String(el.nodeId || "").trim())
     .filter(Boolean);
 }

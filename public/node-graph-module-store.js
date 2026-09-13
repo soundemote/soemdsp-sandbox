@@ -721,9 +721,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   sequencer: {
     category: "musical",
-    description: "Transport-locked piano roll. Click in notes; Play Keys / Polyphony / Gate out. Not a modulation source.",
+    description: "Transport-locked piano roll. Click in notes; Play Keys / Gate out. Wire Play Keys into Meta Voices. Not a modulation source.",
     label: "Sequencer",
-    notes: ["piano roll", "play keys", "polyphony", "master clock", "project"],
+    notes: ["piano roll", "play keys", "voices", "master clock", "project"],
   },
   // stepGrid registers its own catalog entry from public/modules/stepGrid/
   // step-grid-register.js -- see node-graph-chromeless-module-registry.js.
@@ -1227,21 +1227,21 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   keyboardController: {
     category: "portal",
-    description: "Hardware MIDI in (Portal): Play Keys (blue) bitmask + Polyphony (black Midi Note+Velocity table for Meta Voices). Does not auto-drive Keyboard — wire Play Keys for face lights.",
+    description: "Hardware MIDI in (Portal): Play Keys (blue) bitmask. Wire Play Keys into Meta Voices (or into Keyboard Play Keys for face lights).",
     label: "MIDI",
-    notes: ["midi input", "midi channel", "play keys", "polyphony", "note", "gate", "trigger", "velocity", "portal"],
+    notes: ["midi input", "midi channel", "play keys", "voices", "note", "gate", "trigger", "velocity", "portal"],
   },
   keyboard: {
     category: "controller",
-    description: "Local piano (dock + face). Play Keys (blue) / Arp Keys (gold) / Chord Memory (green in=slots, out=chord tones) / Polyphony (black → Meta Voices).",
+    description: "Local piano. Holds Play Keys / Arp Keys / Chord Memory on this module. Mix those buses into Meta Voices. Not MIDI — wire a MIDI module into Play Keys for a device.",
     label: "Keyboard",
-    notes: ["keyboard", "piano", "play keys", "arp keys", "polyphony", "controller", "performance", "gate", "trigger", "velocity", "note"],
+    notes: ["keyboard", "piano", "play keys", "arp keys", "chord memory", "controller", "performance", "gate", "trigger", "velocity", "note"],
   },
   gridKeyboard: {
     category: "controller",
     description: "Array-mbira grid: fifths left-to-right from F, octaves bottom-to-top, MIDI 0–127. Same blue Play / gold Arp latch as Keyboard.",
     label: "Grid Keyboard",
-    notes: ["grid", "array mbira", "circle of fifths", "keyboard", "play keys", "arp keys", "polyphony", "controller"],
+    notes: ["grid", "array mbira", "circle of fifths", "keyboard", "play keys", "arp keys", "chord memory", "controller"],
   },
   macroControls: {
     category: "controller",
@@ -1547,9 +1547,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   arp: {
     category: "musical",
-    description: "Clocked arpeggiator over Arp Keys. Neon key face, Monophony out, sequence offset.",
+    description: "Clocked arpeggiator over Arp Keys. Neon key face, Play Keys out, sequence offset.",
     label: "Arp",
-    notes: ["arp", "arpeggiator", "musical", "sequence", "arp keys", "pitch", "clock", "monophony"],
+    notes: ["arp", "arpeggiator", "musical", "sequence", "arp keys", "pitch", "clock", "play keys"],
   },
   ePiano: {
     category: "sample",

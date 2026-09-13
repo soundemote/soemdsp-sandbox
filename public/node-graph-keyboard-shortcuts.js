@@ -1,6 +1,14 @@
+function nodeGraphEventTargetAsElement(target) {
+  if (target instanceof Element) {
+    return target;
+  }
+  const parent = target?.parentElement;
+  return parent instanceof Element ? parent : null;
+}
+
 function nodeGraphEventTargetIsEditable(target) {
-  return target instanceof Element &&
-    Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+  const el = nodeGraphEventTargetAsElement(target);
+  return Boolean(el?.closest("input, textarea, select, [contenteditable='true']"));
 }
 
 /**
@@ -8,9 +16,11 @@ function nodeGraphEventTargetIsEditable(target) {
  * Range / checkbox / button inputs do not count — Shift+arrows still resize.
  */
 function nodeGraphEventTargetIsTextEditable(target) {
-  if (!(target instanceof Element)) {
+  const el = nodeGraphEventTargetAsElement(target);
+  if (!el) {
     return false;
   }
+  target = el;
   if (target.closest?.("[contenteditable='true']")) {
     return true;
   }
@@ -279,28 +289,15 @@ function handleNodeGraphKeydown(event) {
     setNodeGraphAppChromeBarsMode("all");
     return;
   }
-  // F = layout canvas cycle (phone button). Global view hotkey — handle before
-  // the typing gate so leftover focus on Music Player rows / Display Settings
-  // number fields cannot swallow F after canvas interaction.
+  // While typing in a text/search field (module search, name boxes, titles,
+  // code editor), bare-key shortcuts must not fire — Space, F, etc.
+  // Range/checkbox focus does not block shortcuts. Modifier combos still work.
+  if (nodeGraphEventTargetIsTextEditable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    return;
+  }
+  // F = layout canvas cycle (phone button). Same typing gate as Space.
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "f") {
     event.preventDefault();
-    const active = document.activeElement;
-    if (
-      active instanceof HTMLElement
-      && active !== document.body
-      && active !== document.documentElement
-      && active.closest?.(
-        "#nodeScreenSoloStage, .node-phosphor-waveform-display, .node-music-player-pl-row, .node-music-player-pl-transport, [data-display-settings-body]",
-      )
-    ) {
-      try {
-        active.blur();
-      } catch {
-        // ignore
-      }
-    }
-    // Inside a Metamodule: F with a child selection toggles Show in canvas.
-    // No selection: same layout-canvas cycle as Root (perform → edit → off).
     if (
       typeof nodeGraphMetamoduleToggleDisplaysForSelection === "function"
       && nodeGraphMetamoduleToggleDisplaysForSelection()
@@ -310,13 +307,6 @@ function handleNodeGraphKeydown(event) {
     if (typeof toggleNodeGraphLayoutCanvasView === "function") {
       toggleNodeGraphLayoutCanvasView();
     }
-    return;
-  }
-  // While typing in a text/search field (module search, name boxes, code
-  // editor), bare-key shortcuts must not fire -- e.g. Space stolen for
-  // transport, or single-letter view hotkeys while typing. Range/checkbox
-  // focus does not block shortcuts. Modifier combos (Ctrl+Z, etc.) still work.
-  if (nodeGraphEventTargetIsTextEditable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
     return;
   }
   // Space toggles simulation play/pause when not typing.

@@ -55,6 +55,10 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       this.setMidiKeyboardHeldKeysBitmask(message.mask, message.velocities, message.octave);
       return;
     }
+    if (message.type === "setChordMemoryLatch") {
+      this.setChordMemoryLatch?.(message.slotsByNode, message.playMaskByNode, message.momentaryPlayMask);
+      return;
+    }
     if (message.type === "setMidiKeyboardPlayKeysBitmask") {
       this.setMidiKeyboardPlayKeysBitmask(message.mask);
       return;
@@ -68,6 +72,10 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
         this.applyMetaViewPreview(message.metaId);
       } else {
         this._metaViewId = String(message.metaId || "");
+      }
+      this._nativeGraphTopologyKey = "";
+      if (typeof this.compileNativeGraphFromPlan === "function") {
+        this.compileNativeGraphFromPlan();
       }
       return;
     }

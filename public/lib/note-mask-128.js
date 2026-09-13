@@ -1,10 +1,6 @@
-// 128 MIDI on/off mask for Play Keys / Arp Keys.
-// Internal: Uint8Array(128), index = MIDI 0..127.
-// Wire (one analog sample): 3 self-describing chunks (mantissa still ~53 bits).
-//   chunk0 MIDI 0–48:  raw
-//   chunk1 MIDI 49–97: 2^49 + bits
-//   chunk2 MIDI 98–127: 2^50 + bits
-// If only chunk0 is used, every sample is chunk0 (0-sample delay).
+// 128 MIDI on/off mask. Index = MIDI 0..127.
+// Play Keys / Arp Keys / Chord Memory pass this array on nodeOutputs.
+// Analog jack sample is just busy (0/1). Native arp still packs chunks.
 
 const NOTE_MASK_MIDI_COUNT = 128;
 const NOTE_MASK_FLAG1 = 2 ** 49;

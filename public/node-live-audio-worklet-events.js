@@ -501,6 +501,12 @@ NodeLiveAudioProcessor.prototype.setMidiKeyboardPlayKeysBitmask = function setMi
     : (mask instanceof Uint8Array ? mask : new Uint8Array(128));
 };
 
+NodeLiveAudioProcessor.prototype.setChordMemoryLatch = function setChordMemoryLatch(slotsByNode, playMaskByNode, momentaryMask) {
+  if (typeof nodeGraphChordMemoryApplyLiveLatch === "function") {
+    nodeGraphChordMemoryApplyLiveLatch(slotsByNode, playMaskByNode, momentaryMask);
+  }
+};
+
 NodeLiveAudioProcessor.prototype.setMidiKeyboardHeldKeysBitmask = function setMidiKeyboardHeldKeysBitmask(mask, velocities, octave) {
     const oct = Math.round(Number(octave));
     this.midiKeyboardOctave = Number.isFinite(oct) ? oct : 0;
@@ -542,18 +548,30 @@ NodeLiveAudioProcessor.prototype.ensureVoiceManager = function ensureVoiceManage
   return this._voiceManagerHandle;
 };
 
+NodeLiveAudioProcessor.prototype.vmLog = function vmLog(msg) {
+  if (!Array.isArray(this._vmActLog)) this._vmActLog = [];
+  this._vmActLog.push(String(msg || ""));
+};
+
 NodeLiveAudioProcessor.prototype.vmNoteOn = function vmNoteOn(note, velocity01) {
   const native = this.nativeGraph;
   const h = this.ensureVoiceManager();
   if (!(h > 0) || !native?.soemdsp_voice_manager_note_on) return;
-  native.soemdsp_voice_manager_note_on(h, Math.round(Number(note)) | 0, Number(velocity01) || 0);
+  const n = Math.round(Number(note)) | 0;
+  const vel = Number(velocity01) || 0;
+  const already = native.soemdsp_voice_manager_note_is_on?.(h, n) | 0;
+  native.soemdsp_voice_manager_note_on(h, n, vel);
+  this.vmLog?.(already ? `on ${n} (already)` : `on ${n}`);
 };
 
 NodeLiveAudioProcessor.prototype.vmNoteOff = function vmNoteOff(note) {
   const native = this.nativeGraph;
   const h = this.ensureVoiceManager();
   if (!(h > 0) || !native?.soemdsp_voice_manager_note_off) return;
-  native.soemdsp_voice_manager_note_off(h, Math.round(Number(note)) | 0);
+  const n = Math.round(Number(note)) | 0;
+  const was = native.soemdsp_voice_manager_note_is_on?.(h, n) | 0;
+  native.soemdsp_voice_manager_note_off(h, n);
+  this.vmLog?.(was ? `off ${n}` : `off ${n} (already)`);
 };
 
 NodeLiveAudioProcessor.prototype.vmAllNotesOff = function vmAllNotesOff() {

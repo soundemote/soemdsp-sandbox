@@ -128,7 +128,7 @@
     paused = !!next;
     writePausedPreference(paused);
     syncPauseButton();
-    if (!paused) rebuild();
+    rebuild();
   }
 
   function sePanelOpen() {
@@ -147,7 +147,7 @@
     if (!seShouldRecord(level)) {
       return null;
     }
-    if (paused && level !== "ERROR" && level !== "FAIL") {
+    if (paused && level !== "ERROR" && level !== "FAIL" && loc !== "vm") {
       return null;
     }
     const lv = LEVELS[level] || LEVELS.LOG;
@@ -321,6 +321,7 @@
     ERROR: (msg, loc = callerLoc()) => push("ERROR", msg || "ERROR", loc),
     FAIL: (msg) => push("FAIL", msg || "FAIL", callerLoc()),
     LIVE: (msg) => push("LIVE", msg || "", ""),
+    VM: (msg) => push("LIVE", msg || "", "vm"),
     STOP: (msg) => push("FAIL", msg || "DEBUG BREAK", callerLoc()),
     WITHINSIZE: (value, container, msg) => {
       const n = container && container.length != null ? container.length : container && container.size;
@@ -788,7 +789,8 @@
       + `<span class="se-msg">${esc(e.msg)}</span></div>`;
   }
   function render(e) {
-    if (!els.list || paused) return;
+    if (!els.list) return;
+    if (paused && e.loc !== "vm") return;
     const empty = els.list.querySelector(".se-empty");
     if (empty) empty.remove();
     if (!matches(e)) return;

@@ -262,12 +262,14 @@ function renderNodeGraphMarqueeSelection() {
   }
 }
 
+const NODE_GRAPH_SNAKE_MOUSE_SMOOTH_MAX = 0.17;
+
 function clampNodeGraphSnakeMouseSmooth(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) {
     return 0;
   }
-  return Math.max(0, Math.min(1, n));
+  return Math.max(0, Math.min(NODE_GRAPH_SNAKE_MOUSE_SMOOTH_MAX, n));
 }
 
 function nodeGraphSnakeMouseSmoothAmount() {
@@ -319,7 +321,7 @@ function bindNodeGraphSnakeMouseSmoothControl() {
   if (typeof bindNodeGraphToolbarFillSlider === "function") {
     bindNodeGraphToolbarFillSlider(button, {
       min: 0,
-      max: 1,
+      max: NODE_GRAPH_SNAKE_MOUSE_SMOOTH_MAX,
       get: () => nodeGraphSnakeMouseSmoothAmount(),
       set: (value, options = {}) => {
         setNodeGraphSnakeMouseSmooth(value, {

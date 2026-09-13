@@ -113,13 +113,14 @@ extern "C" double soemdsp_pluck_envelope_3_sample(
   s.lastTrig = trigHigh ? 1.0 : 0.0;
 
   // Latch Attack/Decay/Amplitude on rising edge only when Recalc On Trig.
-  // Never zero or snap env on rise — attack from current level.
   if (!latch || trigRise || !s.hasShot) {
     s.shotAttack = liveAtk;
     s.shotDecay = liveDecay;
     s.shotAmp = liveAmp;
     s.hasShot = true;
   }
+  // Rising Trigger never resets the envelope. Gate high slews toward peak;
+  // Gate low slews toward 0. Steal/retrigger is a new Gate rise from 0.
 
   const double ka = k_attack(s.shotAttack, sr);
   const double kr = k_hz(s.fb * kReleaseHzMax, sr);
@@ -144,6 +145,6 @@ extern "C" int soemdsp_pluck_envelope_3_is_idle(int handle) {
   return (a < 1.0e-5) ? 1 : 0;
 }
 
-extern "C" int soemdsp_pluck_envelope_3_version() { return 8; }
+extern "C" int soemdsp_pluck_envelope_3_version() { return 10; }
 extern "C" const char* soemdsp_pluck_envelope_3_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_pluck_envelope_3_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

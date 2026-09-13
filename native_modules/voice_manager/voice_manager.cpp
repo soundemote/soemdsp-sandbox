@@ -483,6 +483,14 @@ extern "C" void soemdsp_voice_manager_clean(int handle, int idleFlag) {
   }
 }
 
+/** Keep slot Sustaining (free-run when Voice Idle is unwired). */
+extern "C" void soemdsp_voice_manager_keep_sustaining(int handle, int slot) {
+  Manager* m = get(handle);
+  if (!m) return;
+  if (slot < 0 || slot >= m->polyphony) return;
+  move_voice_to_sustaining_by_index(*m, slot);
+}
+
 /** Free one releasing slot when that voice's isIdle is high (per-voice envelopes). */
 extern "C" void soemdsp_voice_manager_clean_slot(int handle, int slot, int idleFlag) {
   Manager* m = get(handle);
@@ -576,5 +584,5 @@ extern "C" int soemdsp_voice_manager_polyphony(int handle) {
 }
 
 extern "C" int soemdsp_voice_manager_version() {
-  return 2; // monophony matches soemdsp never/allow/always slide
+  return 3; // keep_sustaining for unwired Voice Idle (free-run mono)
 }

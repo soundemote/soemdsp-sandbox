@@ -10012,7 +10012,7 @@ extern "C" int soemdsp_graph_create() {
       gPool[i].nodeCount = 0;
       gPool[i].toSmoothCount = 0;
       gPool[i].voiceManagerHandle = 0;
-      gPool[i].previewVoiceSlot = 0;
+      gPool[i].previewVoiceSlot = -1;
       gPool[i].busEarProtectHandle = soemdsp_speaker_protector2_create();
       gPool[i].busEarGain = 1.0;
       clear_graph_contents(gPool[i]);
@@ -10421,8 +10421,7 @@ extern "C" int soemdsp_graph_set_voice_manager(int handle, int voiceManagerHandl
 }
 
 /**
- * Preview slot while editing inside a Metamodule (−1 = off).
- * That slot keeps running when Available (for faces); audio outs are muted.
+ * Optional preview slot (−1 = off). Unused for DSP; Available slots stay idle.
  */
 extern "C" int soemdsp_graph_set_preview_voice_slot(int handle, int voiceSlot) {
   Circuit* g = get(handle);
@@ -11617,18 +11616,14 @@ static void run_feedback_group(Circuit& g, int groupId, int frames) {
       }
       if (node.voiceSlot >= 0 && g.voiceManagerHandle > 0) {
         const int st = soemdsp_voice_manager_voice_state(g.voiceManagerHandle, node.voiceSlot);
-        if (st == 0) {
-          const bool preview =
-            g.previewVoiceSlot >= 0 && node.voiceSlot == g.previewVoiceSlot;
-          if (!preview) {
-            for (int c = 0; c < kChannels; c++) {
-              node.buf[c][0] = 0.0;
-              node.hist[c] = 0.0;
-            }
-            node.voiceSilent = true;
-            node.processedThisSample = 1;
-            continue;
+        if (st == 0) { // Available — idle after isIdle / clean
+          for (int c = 0; c < kChannels; c++) {
+            node.buf[c][0] = 0.0;
+            node.hist[c] = 0.0;
           }
+          node.voiceSilent = true;
+          node.processedThisSample = 1;
+          continue;
         }
         node.voiceSilent = false;
       }
@@ -11692,25 +11687,19 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       continue;
     }
 
-    // Meta Voices: only Sustaining + Releasing slots run DSP (VoiceManager pools).
-    // Available clones stay silent — except previewVoiceSlot (always voice 0):
-    // that slot still runs so faces (Hypersaw stems) keep updating. Gate/amp
-    // feeders are 0 while Available, so it stays quiet in the mix.
+    // Meta Voices: Sustaining + Releasing run DSP. Available (isIdle cleaned)
+    // stays silent — every slot, including voice 0.
     if (node.voiceSlot >= 0 && g->voiceManagerHandle > 0) {
       const int st = soemdsp_voice_manager_voice_state(g->voiceManagerHandle, node.voiceSlot);
       if (st == 0) { // VS_AVAILABLE
-        const bool preview =
-          g->previewVoiceSlot >= 0 && node.voiceSlot == g->previewVoiceSlot;
-        if (!preview) {
-          for (int c = 0; c < kChannels; c++) {
-            zero_buf(node.buf[c], frames);
-            zero_buf(node.histBuf[c], frames);
-            node.hist[c] = 0.0;
-          }
-          node.voiceSilent = true;
-          node.processedThisBlock = 1;
-          continue;
+        for (int c = 0; c < kChannels; c++) {
+          zero_buf(node.buf[c], frames);
+          zero_buf(node.histBuf[c], frames);
+          node.hist[c] = 0.0;
         }
+        node.voiceSilent = true;
+        node.processedThisBlock = 1;
+        continue;
       }
       node.voiceSilent = false;
     }
@@ -11897,5 +11886,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 145; // bus ear protect in process_block
+  return 146; // Available voices idle (no voice-0 preview DSP)
 }

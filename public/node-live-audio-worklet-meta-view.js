@@ -1,23 +1,13 @@
-// Metamodule interior view → worklet preview (voice 0 always runs for faces).
+// Metamodule interior view: faces show voice 0 (idle/off is fine).
 // Load after native-graph.js (uses NodeLiveAudioProcessor.prototype).
 
 /**
- * Apply / clear Meta interior preview.
- * First voice always runs for faces (Root canvas and Meta interior).
- * metaId non-empty → interior view of that Metamodule (interaction = voice 0).
+ * Remember which Meta interior is open. Voice 0 is the face we look at;
+ * it does not keep running when Available.
  */
 NodeLiveAudioProcessor.prototype.applyMetaViewPreview = function applyMetaViewPreview(metaId) {
   const id = String(metaId || "");
   this._metaViewId = id;
-  const slot = 0;
-  const native = this.nativeGraph;
-  const handle = this.nativeGraphHandle | 0;
-  if (native?.soemdsp_graph_set_preview_voice_slot && handle > 0) {
-    try {
-      native.soemdsp_graph_set_preview_voice_slot(handle, slot);
-    } catch (_e) { /* keep audio */ }
-  }
-  // Ensure lane tags exist so voiceIds[0] resolves for publish.
   if (id) {
     try {
       this.bindNativeMetaVoiceProcessSlots?.(false);

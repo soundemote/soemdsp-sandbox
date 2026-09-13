@@ -294,17 +294,20 @@ function openNodeGraphKeyboardControllerDisplaySettings(event = {}) {
     ? event.target
     : (event?.currentTarget instanceof Element ? event.currentTarget : null);
   let nodeId = String(
-    fromEl?.closest?.(".node-midi-keyboard-module[data-node], .dsp-node[data-node]")?.dataset?.node
+    fromEl?.closest?.(".node-midi-keyboard-module[data-node], .dsp-node.keyboard-layout[data-node], .dsp-node[data-node]")?.dataset?.node
     || "",
   ).trim();
+  const patchNode = typeof nodeGraphPatchNode === "function" && nodeId
+    ? nodeGraphPatchNode(nodeId)
+    : null;
+  if (patchNode && patchNode.type !== "keyboard" && patchNode.type !== "gridKeyboard") {
+    nodeId = "";
+  }
   if (!nodeId && Array.isArray(nodeGraphMvp?.patch?.nodes)) {
-    const placed = nodeGraphMvp.patch.nodes.find((n) => n?.type === "keyboard" || n?.type === "keyboardController");
+    const placed = nodeGraphMvp.patch.nodes.find((n) => n?.type === "keyboard");
     if (placed?.id) {
       nodeId = String(placed.id);
     }
-  }
-  if (!nodeId) {
-    nodeId = "__keyboardControllerFace";
   }
   const existingPopover = document.getElementById("nodeTraceDisplaySettingsPopover");
   if (
@@ -343,7 +346,7 @@ function openNodeGraphKeyboardControllerDisplaySettings(event = {}) {
   nodeGraphMvp.traceDisplaySettingsTargetNode = nodeId;
   nodeGraphMvp.sharedInspectorActive = "traceDisplaySettings";
   if (typeof setNodeGraphTraceDisplaySettingsHeader === "function") {
-    setNodeGraphTraceDisplaySettingsHeader("DISPLAY", "Settings", "MIDI Keyboard");
+    setNodeGraphTraceDisplaySettingsHeader("DISPLAY", "Settings", "Keyboard");
   }
   popover.dataset.displaySettingsBodyType = "";
   popover.dataset.displaySettingsType = "keyboardControllerFace";

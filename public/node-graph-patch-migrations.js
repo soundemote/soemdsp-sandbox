@@ -987,9 +987,10 @@ function nodeGraphPatchMigrateMidSideGainLinearToDb(patch) {
 }
 
 /**
- * Meta Polyphony inlet → Voices. Play Keys / Arp Keys → Meta Polyphony become
- * source Polyphony → Meta Voices. Drop obsolete Meta shell Gate cables
- * (Voices velocity already tracks on/off).
+ * Meta Polyphony inlet → Voices. Source Polyphony / Monophony → Play Keys
+ * (Voices mixes Play Keys / Arp Keys / Chord Memory). Old Keyboard Polyphony
+ * → Voices also fans Arp Keys + Chord Memory into Voices. Drop obsolete Meta
+ * shell Gate cables (Voices velocity already tracks on/off).
  */
 function nodeGraphPatchMigrateMetaPolyphonyToVoices(patch) {
   if (!patch || typeof patch !== "object") return patch;
@@ -999,41 +1000,66 @@ function nodeGraphPatchMigrateMetaPolyphonyToVoices(patch) {
       if (node && node.id != null) nodeTypeById.set(String(node.id), String(node.type || ""));
     }
   }
+  const connKey = (conn) => [
+    String(conn?.sourceNode || ""),
+    String(conn?.sourcePort || ""),
+    String(conn?.destinationNode || ""),
+    String(conn?.destinationPort || ""),
+  ].join("\0");
   const rewriteConn = (conn) => {
-    if (!conn || typeof conn !== "object") return { conn, changed: false, drop: false };
+    if (!conn || typeof conn !== "object") return { conn, changed: false, drop: false, extra: [] };
     let next = conn;
     let changed = false;
+    const extra = [];
     const dstType = nodeTypeById.get(String(conn.destinationNode || ""));
     const srcType = nodeTypeById.get(String(conn.sourceNode || ""));
     const dstPort = String(conn.destinationPort || "");
     const srcPort = String(conn.sourcePort || "");
     // Shell Gate removed — Voices owns hold state.
     if (dstType === "metamodule" && dstPort === "Gate") {
-      return { conn: next, changed: true, drop: true };
+      return { conn: next, changed: true, drop: true, extra };
     }
     if (dstType === "metamodule" && dstPort === "Polyphony") {
       next = { ...next, destinationPort: "Voices" };
       changed = true;
     }
-    const dstIsVoices = (changed ? next.destinationPort : dstPort) === "Voices"
-      && (dstType === "metamodule");
-    if (dstIsVoices && (srcPort === "Play Keys" || srcPort === "Arp Keys")) {
-      if (srcType === "keyboard" || srcType === "keyboardController") {
-        next = { ...next, sourcePort: "Polyphony" };
-        changed = true;
+    const dstIsVoices = dstType === "metamodule"
+      && String(next.destinationPort || dstPort) === "Voices";
+    if (srcPort === "Polyphony" || srcPort === "Monophony") {
+      next = { ...next, sourcePort: "Play Keys" };
+      changed = true;
+      if (
+        srcPort === "Polyphony"
+        && dstIsVoices
+        && (srcType === "keyboard" || srcType === "gridKeyboard")
+      ) {
+        extra.push({ ...next, sourcePort: "Arp Keys", tracePoints: [] });
+        extra.push({ ...next, sourcePort: "Chord Memory", tracePoints: [] });
       }
     }
-    return { conn: next, changed, drop: false };
+    return { conn: next, changed, drop: false, extra };
   };
   let changed = false;
   const mapList = (list) => {
     if (!Array.isArray(list)) return list;
     const out = [];
+    const seen = new Set();
+    const pending = [];
     for (const c of list) {
       const r = rewriteConn(c);
       if (r.changed) changed = true;
       if (r.drop) continue;
       out.push(r.conn);
+      seen.add(connKey(r.conn));
+      if (Array.isArray(r.extra) && r.extra.length) pending.push(...r.extra);
+    }
+    for (let i = 0; i < pending.length; i += 1) {
+      const e = pending[i];
+      const k = connKey(e);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(e);
+      changed = true;
     }
     return out;
   };

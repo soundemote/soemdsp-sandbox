@@ -432,10 +432,18 @@ function createNodeGraphSequencerBody(node) {
   }
 
   function currentPlayTick(clip) {
+    const loop = Math.max(1, Math.round(Number(clip?.loopTicks) || 32));
+    const wrap = (tick) => {
+      let t = Math.floor(Number(tick));
+      if (!Number.isFinite(t)) t = 0;
+      t %= loop;
+      if (t < 0) t += loop;
+      return t;
+    };
     const audioTick = Number(nodeGraphMvp?._seqPlayheadTick);
-    if (Number.isFinite(audioTick)) return audioTick;
+    if (Number.isFinite(audioTick)) return wrap(audioTick);
     return typeof sequencerTickFromBeats === "function"
-      ? sequencerTickFromBeats(nodeGraphSequencerBeatsNow(), clip?.loopTicks)
+      ? sequencerTickFromBeats(nodeGraphSequencerBeatsNow(), loop)
       : 0;
   }
 

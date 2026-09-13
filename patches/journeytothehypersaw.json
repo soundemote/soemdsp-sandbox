@@ -72,7 +72,21 @@
       "destinationNode": "metamodule-1",
       "destinationPort": "Voices",
       "sourceNode": "keyboard-1",
-      "sourcePort": "Polyphony",
+      "sourcePort": "Play Keys",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "metamodule-1",
+      "destinationPort": "Voices",
+      "sourceNode": "keyboard-1",
+      "sourcePort": "Arp Keys",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "metamodule-1",
+      "destinationPort": "Voices",
+      "sourceNode": "keyboard-1",
+      "sourcePort": "Chord Memory",
       "tracePoints": []
     },
     {
