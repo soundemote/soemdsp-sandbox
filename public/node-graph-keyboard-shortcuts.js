@@ -470,13 +470,6 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "k") {
-    event.preventDefault();
-    if (typeof toggleNodeGraphStandaloneMidiKeyboard === "function") {
-      toggleNodeGraphStandaloneMidiKeyboard();
-    }
-    return;
-  }
   // F handled above (before typing gate).
   // T → docked tooltips on/off.
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "t") {

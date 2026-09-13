@@ -1518,7 +1518,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "keyboard"
     || nodeGraphModuleDefinitions[type]?.layout === "gridKeyboard") {
-    // Same stack as dock keyboard: header | face (controls + piano/grid) | I/O.
+    // Header | face (controls + piano/grid) | I/O.
     // Face height is freehand display gu so the piano can stretch vertically.
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },

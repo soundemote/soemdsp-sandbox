@@ -2643,7 +2643,7 @@ const nodeGraphWorkspaceFloatingUiSelector =
   "#nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeCanvasScriptDialog, " +
   "#nodePhosphorWaveformSettingsWindow, #nodeModuleShopView, " +
   "#nodeTraceDisplaySettingsPopover, #nodeUserUiSettingsPanel, #nodeUiDevHelper, " +
-  "#nodeVisibilityMenu, #nodePatchDefaultsPanel, #nodeStandaloneMidiKeyboardDock, " +
+  "#nodeVisibilityMenu, #nodePatchDefaultsPanel, " +
   "#nodeHotkeysPage, #nodeEmojiPage, " +
   ".node-floating-window-surface";
 // Legacy alias: includes form fields for empty-canvas / marquee checks only.

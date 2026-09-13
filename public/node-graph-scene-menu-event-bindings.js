@@ -204,7 +204,6 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeCodeBoxSource", "scroll", updateNodeGraphCodeBoxWindowEditorChrome);
   bindNodeGraphSceneElementEvent("nodeSceneUndoButton", "click", undoNodeGraphPatch);
   bindNodeGraphSceneElementEvent("nodeSceneRedoButton", "click", redoNodeGraphPatch);
-  bindNodeGraphSceneElementEvent("nodeSceneToggleStandaloneMidiKeyboard", "click", toggleNodeGraphStandaloneMidiKeyboard);
   bindNodeGraphSceneElementEvent("nodeSceneOpenUiSettings", "click", () => {
     if (typeof openNodeGraphUnifiedWindowPage === "function") {
       openNodeGraphUnifiedWindowPage("uiSettings");

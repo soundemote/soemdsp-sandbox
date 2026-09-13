@@ -212,8 +212,6 @@ var nodeGraphMvp = {
   // closed | open | embedLeft | embedRight | float
   unifiedWindowPresentation: "closed",
   commandCenterDockWidth: 320,
-  // 0 = hug controller content. After the user drags the seam, stored px.
-  controllerDockHeight: 0,
   _unifiedWindowSwitching: false,
   _unifiedWindowPendingPosition: null,
   moduleActionDragging: null,

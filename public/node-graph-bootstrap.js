@@ -180,7 +180,6 @@ async function initNodeGraphMvp() {
   if (typeof applyNodeGraphWorkspaceWindowStates === "function") {
     applyNodeGraphWorkspaceWindowStates();
   }
-  renderNodeGraphStandaloneMidiKeyboardToggle();
   if (typeof applyNodeGraphTooltipEmbed === "function") {
     applyNodeGraphTooltipEmbed({
       shown: nodeGraphMvp.tooltipEmbedded !== false,

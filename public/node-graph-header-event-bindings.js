@@ -61,10 +61,6 @@ function bindNodeGraphHeaderControlEvents() {
   document
     .getElementById("nodeHotkeysPageResizeHandle")
     ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "hotkeys"));
-  document.getElementById("nodeStandaloneMidiKeyboardButton")?.addEventListener("click", toggleNodeGraphStandaloneMidiKeyboard);
-  if (typeof bindNodeGraphControllerDockSplit === "function") {
-    bindNodeGraphControllerDockSplit();
-  }
   // Docked tips height: drag strip between tips band and modular workspace.
   const embedResize = document.getElementById("nodeInteractionHelpEmbedResize");
   if (embedResize && typeof beginNodeGraphTooltipEmbedResize === "function") {

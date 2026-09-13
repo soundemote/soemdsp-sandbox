@@ -963,8 +963,7 @@ function createNodeGraphModuleElement(type, node) {
     || definition.layout === "macroControls"
     || definition.layout === "pitchModWheel"
   ) {
-    // Controller faces: embed the same widgets as the K Controllers dock.
-    // State is global on nodeGraphMvp; dock + modules mirror each other.
+    // Controller module faces. State is global on nodeGraphMvp.
     if (definition.layout === "keyboardController") {
       article.append(createNodeGraphMidiModuleBody(node));
     } else if (definition.layout === "keyboard") {

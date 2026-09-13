@@ -2263,8 +2263,7 @@ body.is-resizing-command-center-dock {
   margin-top: 0;
 }
 
-.node-wiring-panel.content-view-mode > .node-graph-main-row,
-.node-wiring-panel.content-view-mode .node-standalone-midi-keyboard-dock {
+.node-wiring-panel.content-view-mode > .node-graph-main-row {
   display: none;
 }
 
@@ -2696,8 +2695,7 @@ html.soemdsp-hide-ui.body.node-patch-load-fault-open #nodePatchLoadFault {
   border-radius: 0;
 }
 
-/* Keyboard module face: same layout as K Controllers dock piano column —
-   compact controls on top, piano fills remaining vertical space. */
+/* Keyboard module face: compact controls on top, piano fills remaining vertical space. */
 .dsp-node.keyboard-layout > .node-midi-keyboard-module.node-module-face {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -2760,338 +2758,6 @@ html.soemdsp-hide-ui.body.node-patch-load-fault-open #nodePatchLoadFault {
   display: none;
 }
 
-.node-standalone-midi-keyboard-dock {
-  position: relative;
-  z-index: 6;
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  justify-content: stretch;
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  height: var(--node-controller-dock-height, 240px);
-  min-height: 72px;
-  margin: 0;
-  overflow: hidden;
-  border: 0;
-  border-top: 1px solid rgba(127, 199, 217, 0.12);
-  border-radius: 0;
-  background:
-    linear-gradient(180deg, rgba(241, 184, 75, 0.05), transparent 48%),
-    #080a0c;
-}
-
-.node-controller-dock-split {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 6;
-  height: 10px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  cursor: ns-resize;
-  touch-action: none;
-}
-
-.node-controller-dock-split::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 4px;
-  background: var(--accent-2, #e2a86d);
-  opacity: 0;
-  pointer-events: none;
-}
-
-.node-controller-dock-split:hover::before,
-.node-controller-dock-split:focus-visible::before,
-.node-controller-dock-split.is-dragging::before,
-body.is-resizing-controller-dock .node-controller-dock-split::before {
-  opacity: 0.92;
-}
-
-body.is-resizing-controller-dock {
-  cursor: ns-resize;
-  user-select: none;
-}
-
-.node-standalone-midi-keyboard-dock[hidden] {
-  display: none;
-}
-
-/* Controller area: even lane cells. Surfaces fill the cell; they do not
-   size the dock. Today two rows (macros | keyboard). */
-.node-standalone-midi-keyboard-body,
-.node-controller-rows {
-  position: relative;
-  flex: 1 1 auto;
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-  align-items: stretch;
-  gap: 0;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  padding: 0;
-}
-
-.node-controller-row {
-  display: flex;
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.node-controller-row > * {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-}
-
-.node-controller-row-split {
-  display: grid;
-  grid-template-columns: var(--midi-keyboard-wheel-width, 64px) minmax(0, 1fr);
-  align-items: stretch;
-  height: 100%;
-  gap: 0;
-  overflow: hidden;
-}
-
-/* Center wheels + piano + mode/freq strip as one unit in the controller. */
-.node-standalone-midi-keyboard-dock .node-controller-row[data-controller-row="keyboard"] {
-  justify-content: center;
-}
-
-.node-standalone-midi-keyboard-dock .node-controller-row[data-controller-row="keyboard"] > * {
-  width: auto;
-  max-width: 100%;
-}
-
-.node-standalone-midi-keyboard-dock .node-controller-row-split {
-  grid-template-columns:
-    var(--midi-keyboard-wheel-width, 64px)
-    var(--midi-keyboard-piano-width, minmax(0, 1fr));
-  width: max-content;
-  max-width: 100%;
-  margin-inline: auto;
-}
-
-/* Pitch and mod stacked in the dock. The row is a grid so the keyboard
-   stack gives the track a definite height; 1fr/1fr then splits that
-   height. Flex-grow / % height on an auto-height flex row stayed at
-   content size and crushed the wheels. Placed pitchModWheel nodes keep
-   their own layout. */
-.node-standalone-midi-keyboard-dock .node-performance-wheels-panel {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
-  align-self: stretch;
-  height: auto;
-  min-height: 0;
-  padding: 0;
-  gap: 4px;
-  border: none;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-  overflow: hidden;
-}
-
-/* Wheels become the panel's two 1fr rows so they split the stretched
-   column without a nested height:100% / flex-grow pass. */
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-wheel-bank {
-  display: contents;
-}
-
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-wheel {
-  min-height: 0 !important;
-  height: auto;
-  max-height: none;
-}
-
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-panel {
-  display: grid;
-  width: var(--midi-keyboard-piano-width, auto);
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  max-width: 100%;
-  padding: 0;
-  overflow: hidden;
-  border: none;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-  /* heading | piano only — signal/bitmask are display:none in the dock */
-  grid-template-rows: auto minmax(0, 1fr);
-  align-content: stretch;
-  justify-items: stretch;
-  gap: 2px;
-}
-
-/* Dock piano already shows freq/pitch/x/y/vel in the heading live-readouts.
-   A second Frequency strip under the white keys steals vertical space and
-   makes the keys clip into the dock wall — keep that chrome off the dock. */
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-signal-bar,
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-bitmask-row {
-  display: none !important;
-}
-
-/* Wheels hug the left edge of the piano and fill the keyboard column. */
-.node-standalone-midi-keyboard-dock .node-performance-wheels-module,
-.node-standalone-midi-keyboard-dock .node-performance-wheels-panel {
-  align-self: stretch;
-  width: var(--midi-keyboard-wheel-width, 64px);
-  height: auto;
-  min-width: 0;
-  min-height: 0;
-}
-
-/* Macro row: same centered width as wheels+piano so knobs sit over the keys. */
-.node-standalone-midi-keyboard-dock .node-controller-row[data-controller-row="macros"] {
-  justify-content: center;
-}
-
-.node-standalone-midi-keyboard-dock .node-controller-row[data-controller-row="macros"] > * {
-  width: auto;
-  max-width: 100%;
-}
-
-.node-standalone-midi-keyboard-dock .node-macro-controls-panel {
-  box-sizing: border-box;
-  width: calc(var(--midi-keyboard-wheel-width, 64px) + var(--midi-keyboard-piano-width, 0px));
-  max-width: 100%;
-  margin-inline: auto;
-  padding: 10px 8px 8px var(--midi-keyboard-wheel-width, 64px);
-  min-height: 72px;
-  max-height: none;
-  gap: 0;
-  border: none;
-  border-radius: 0;
-  background: var(--macro-controls-bg, #000000);
-  overflow: hidden;
-}
-
-/* Piano fills the centered keyboard column (same width as mode / freq strip). */
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-surface {
-  border-radius: 0;
-  border-left: 0;
-  border-right: 0;
-  min-width: 0;
-  max-width: 100%;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  margin-inline: 0;
-  justify-self: stretch;
-}
-
-/* Title-only text removed from the wheel and keyboard panels, same as
-   the macro-controls-heading treatment above -- the wheel heading is
-   pure text/status with no controls, so the whole thing hides; the
-   keyboard heading also holds functional controls (mode/octave/key
-   count/MIDI input), so only its title text is hidden, leaving those
-   controls visible. */
-.node-standalone-midi-keyboard-dock .node-performance-wheels-heading {
-  display: none;
-}
-
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-title {
-  display: none;
-}
-
-/* Mode/octave/key-count/MIDI-input controls all on one horizontal row
-   in the dock -- the generic .node-midi-keyboard-module heading rule
-   (used by placed nodes too) grids title+controls into two columns
-   and lets the controls wrap onto a second line; the dock has no
-   title to share space with (hidden above) so the controls can run
-   as a single flex row instead. */
-/* Specificity note: .node-midi-keyboard-module .node-midi-keyboard-heading
-   (below) sets display: grid with a title/controls column split -- since
-   every dock surface also carries .node-midi-keyboard-module, that rule
-   ties with this one and wins on source order. Match its selector shape
-   (module + heading, doubled dock class to outrank it) so the dock
-   actually gets the single-row flex layout instead of a grid column the
-   hidden title's now-empty track leaves the controls stranded in. */
-.node-standalone-midi-keyboard-dock.node-standalone-midi-keyboard-dock .node-midi-keyboard-heading {
-  display: flex;
-  min-width: 0;
-  max-width: 100%;
-  padding: 2px 6px 0;
-}
-
-/* Specificity note: .node-midi-keyboard-module .node-midi-keyboard-heading
-   > .node-midi-keyboard-midi-controls (below) sets flex-wrap: wrap and
-   would otherwise win here since every dock surface also carries the
-   .node-midi-keyboard-module class -- match its selector shape so this
-   override actually applies. */
-.node-standalone-midi-keyboard-dock.node-standalone-midi-keyboard-dock .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls {
-  flex-wrap: wrap;
-  justify-content: flex-start;
-}
-
-/* Heading chrome removed from Macro Controls entirely (node + dock). */
-
-/* All 8 knobs on one short horizontal row above the keyboard, not a
-   tall multi-row grid -- the dock is wide enough to fit them across,
-   and a single row keeps this from eating vertical space the keyboard
-   needs. Scoped to the dock only; the macroControls node itself keeps
-   its own (narrower, 2-row) layout. */
-.node-standalone-midi-keyboard-dock .node-macro-controls-module .node-macro-controls-row,
-.node-standalone-midi-keyboard-dock .node-macro-controls-row {
-  container-type: size;
-  --macro-knob-fit: min(
-    calc((100cqi - 7 * var(--macro-knob-gap, 4px)) / 8),
-    100cqb
-  );
-  --macro-knob-cell: calc(var(--macro-knob-fit) * var(--macro-knob-size-scale, 1));
-  grid-template-columns: repeat(8, var(--macro-knob-cell));
-  grid-template-rows: var(--macro-knob-cell);
-  gap: var(--macro-knob-gap, 4px);
-  justify-content: center;
-  align-content: center;
-  width: 100%;
-  max-width: 100%;
-  margin-inline: auto;
-  min-width: 0;
-  height: 100%;
-  min-height: 0;
-}
-
-/* Sized for the dock strip without overflowing the top chrome.
-   Size scale is on the arc only (not the whole knob / label / value). */
-.node-standalone-midi-keyboard-dock .node-macro-knob {
-  min-height: 0;
-  height: 100%;
-  padding: 0;
-  font-size: 0.72rem;
-  transform: none;
-  overflow: hidden;
-}
-
-.node-standalone-midi-keyboard-dock .node-macro-knob strong {
-  font-size: 0.78rem;
-}
-
-.node-standalone-midi-keyboard-dock .node-macro-knob i {
-  width: min(100cqmin, 100%);
-  max-width: 100%;
-  max-height: 100%;
-}
 
 .node-midi-module {
   box-sizing: border-box;
@@ -4101,8 +3767,7 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   word-break: break-all;
 }
 
-/* Debug info hidden -- the keyboard's held-keys bitmask row (everywhere
-   a keyboardController surface renders, dock and placed nodes both)
+/* Debug info hidden -- the keyboard's held-keys bitmask row
    and the CPU/RAM/GPU constraint guide, whose vertical space this
    reclaims. Toggled from the Visibility menu's "Hide Debug" button.
    D (constraint-guide-visible) brings the chips back without Evidence. */
@@ -4907,7 +4572,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
 #nodeModuleShopButton,
 #nodeSettingsViewButton,
 #nodeCommandCenterButton,
-#nodeStandaloneMidiKeyboardButton,
 #nodeModularInfiniteViewButton,
 #nodeModularWindowedViewButton {
   display: grid;
@@ -4919,7 +4583,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
 
 #nodeCommandCenterButton,
 #nodeModuleShopButton,
-#nodeStandaloneMidiKeyboardButton,
 #nodeModularInfiniteViewButton,
 #nodeModularWindowedViewButton,
 #nodeSettingsSaveScriptButton,

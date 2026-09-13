@@ -600,46 +600,6 @@ function createNodeGraphPerformanceWheel(spec) {
   return wheel;
 }
 
-function createNodeGraphControllerRow(kind, children = [], options = {}) {
-  const row = document.createElement("div");
-  row.className = "node-controller-row";
-  row.dataset.controllerRow = String(kind || "");
-  if (options.grow) {
-    row.dataset.controllerGrow = "1";
-  }
-  if (options.split) {
-    const split = document.createElement("div");
-    split.className = "node-controller-row-split";
-    split.append(...children);
-    row.append(split);
-  } else {
-    row.append(...children);
-  }
-  return row;
-}
-
-/**
- * K Controllers dock — controller faces (shared global state), not module faces.
- * Each widget factory is also used by the matching patch module:
- *   macros → macroControls, wheels → pitchModWheel, piano → keyboard.
- * Portal MIDI listen UI is separate (keyboardController / createNodeGraphMidiModuleBody).
- */
-function mountNodeGraphControllerRows(host) {
-  if (!host) {
-    return host;
-  }
-  host.classList.add("node-controller-rows");
-  host.replaceChildren(
-    createNodeGraphControllerRow("macros", [createNodeGraphMacroControlsBody()]),
-    createNodeGraphControllerRow(
-      "keyboard",
-      [createNodeGraphPitchModWheelBody(), createNodeGraphKeyboardControllerBody()],
-      { split: true },
-    ),
-  );
-  return host;
-}
-
 function createNodeGraphPitchModWheelBody(node = null) {
   const section = document.createElement("section");
   section.className = "node-performance-wheels-panel node-performance-wheels-module node-module-face";
@@ -743,12 +703,10 @@ function createNodeGraphMidiModuleBody(node = null) {
   return section;
 }
 
-// Controller-face piano (K dock + Keyboard module). Shared global state on
-// nodeGraphMvp — not the Portal MIDI listen module (createNodeGraphMidiModuleBody).
+// Keyboard module piano face. Shared global state on nodeGraphMvp —
+// not the Portal MIDI listen module (createNodeGraphMidiModuleBody).
 function createNodeGraphKeyboardControllerBody(node = null) {
   const section = document.createElement("section");
-  // Module face + dock share this widget. Face band lets the piano fill
-  // remaining height (controls above), matching the K Controllers dock.
   section.className = "node-midi-keyboard-panel node-midi-keyboard-module node-module-face";
   section.dataset.moduleBand = "face";
   if (node) {

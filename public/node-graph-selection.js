@@ -110,7 +110,6 @@ function nodeGraphEventTargetIsFloatingWindow(target) {
     "#nodeUiDevHelper",
     "#nodePhosphorWaveformSettingsWindow",
     "#nodeCodeBoxWindow",
-    "#nodeStandaloneMidiKeyboardDock",
 
     ".node-canvas-script-dialog",
     ".node-scene-context-menu",

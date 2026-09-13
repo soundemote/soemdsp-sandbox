@@ -19,7 +19,6 @@ const nodeGraphWorkspaceWindowStateKeys = Object.freeze([
   "uiSettings",
   "uiDev",
   "traceDisplaySettings",
-  "standaloneMidiKeyboard",
   "tooltipWindow",
   "phosphorWaveformSettings",
   "emoji",
@@ -37,7 +36,6 @@ const nodeGraphWorkspaceWindowElements = Object.freeze({
   patchDefaults: "nodePatchDefaultsPanel",
   uiDev: "nodeUiDevHelper",
   traceDisplaySettings: "nodeTraceDisplaySettingsPopover",
-  standaloneMidiKeyboard: "nodeStandaloneMidiKeyboardDock",
   tooltipWindow: "nodeTooltipWindow",
   phosphorWaveformSettings: "nodePhosphorWaveformSettingsWindow",
   emoji: "nodeEmojiPage",
@@ -165,13 +163,9 @@ function nodeGraphWorkspaceStatesWithSharedInspectorGeometry(states = {}) {
   return states;
 }
 
-function nodeGraphWorkspaceKeyIsControllerDock(key) {
-  return key === "standaloneMidiKeyboard";
-}
-
 function normalizeNodeGraphWorkspaceWindowStateEntry(entry = {}, key = "") {
   const source = entry && typeof entry === "object" ? entry : {};
-  if (key === "visibilityMenu" || nodeGraphWorkspaceKeyIsControllerDock(key)) {
+  if (key === "visibilityMenu") {
     return { open: Boolean(source.open) };
   }
   const isSharedInspector = nodeGraphSharedInspectorWindowKeys.includes(key);
@@ -332,14 +326,6 @@ function rememberNodeGraphWorkspaceWindowState(key, element, patch = {}, options
       position: null,
       size: key === "visibilityMenu" ? null : states[key]?.size,
     }, key);
-    nodeGraphMvp.workspaceWindowStates = states;
-    if (options.persist !== false) {
-      saveNodeGraphWorkspaceWindowStatesToUserSettings(options);
-    }
-    return states[key];
-  }
-  if (nodeGraphWorkspaceKeyIsControllerDock(key)) {
-    states[key] = { open: Boolean(patch.open ?? (element ? !element.hidden : states[key]?.open)) };
     nodeGraphMvp.workspaceWindowStates = states;
     if (options.persist !== false) {
       saveNodeGraphWorkspaceWindowStatesToUserSettings(options);
@@ -536,14 +522,6 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
   }
   const element = document.getElementById(nodeGraphWorkspaceWindowElements[key]);
   if (!element) {
-    return;
-  }
-  if (key === "standaloneMidiKeyboard") {
-    if (typeof setNodeGraphControllerDockVisible === "function") {
-      setNodeGraphControllerDockVisible(state.open, { persist: false, help: false });
-    } else {
-      element.hidden = !state.open;
-    }
     return;
   }
   if (typeof markNodeGraphFloatingWindowSurface === "function") {
@@ -809,9 +787,6 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const tooltipEmbedHeight = typeof normalizeNodeGraphTooltipEmbedHeight === "function"
     ? normalizeNodeGraphTooltipEmbedHeight(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight ?? 46)
     : Math.max(32, Math.min(320, Math.round(nodeGraphFiniteNumber(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight, 46))));
-  const controllerDockHeight = typeof normalizeNodeGraphControllerDockHeight === "function"
-    ? normalizeNodeGraphControllerDockHeight(view.controllerDockHeight ?? nodeGraphMvp.controllerDockHeight ?? 0)
-    : Math.max(0, Math.min(620, Math.round(nodeGraphFiniteNumber(view.controllerDockHeight ?? nodeGraphMvp.controllerDockHeight))));
   const moduleButtonsVisible = Boolean(view.moduleButtonsVisible ?? nodeGraphMvp.moduleButtonsVisible);
   const appChromeBarsVisible = view.appChromeBarsVisible === undefined
     ? (nodeGraphMvp.appChromeBarsVisible !== false)
@@ -1306,9 +1281,6 @@ function normalizeNodeGraphUserSession(payload = {}) {
       : workingPatch
         ? "edited"
         : "untouched";
-  const controllerDockHeight = typeof normalizeNodeGraphControllerDockHeight === "function"
-    ? normalizeNodeGraphControllerDockHeight(payload.controllerDockHeight ?? view.controllerDockHeight ?? nodeGraphMvp.controllerDockHeight ?? 0)
-    : Math.max(0, Math.min(620, Math.round(nodeGraphFiniteNumber(payload.controllerDockHeight ?? view.controllerDockHeight ?? nodeGraphMvp.controllerDockHeight))));
   const sceneContextWindowSize = typeof normalizeNodeSceneContextWindowSize === "function"
     ? normalizeNodeSceneContextWindowSize(
       payload.sceneContextWindowSize ?? view.sceneContextWindowSize ?? nodeGraphMvp.sceneContextWindowSize ?? undefined,
@@ -1367,7 +1339,6 @@ function normalizeNodeGraphUserSession(payload = {}) {
     workingPatch,
     currentSavedPatchFilename,
     patchDirtyState,
-    controllerDockHeight,
     sceneContextWindowSize,
     moduleActionWindowSize,
     workspaceWindowStatesVersion: 1,
@@ -1463,9 +1434,6 @@ function readNodeGraphUserSessionFromState() {
       : nodeGraphMvp.workingPatch
         ? "edited"
         : "untouched",
-    controllerDockHeight: typeof normalizeNodeGraphControllerDockHeight === "function"
-      ? normalizeNodeGraphControllerDockHeight(nodeGraphMvp.controllerDockHeight ?? 0)
-      : Math.max(0, Math.min(620, Math.round(nodeGraphFiniteNumber(nodeGraphMvp.controllerDockHeight)))),
     sceneContextWindowSize: typeof normalizeNodeSceneContextWindowSize === "function"
       ? normalizeNodeSceneContextWindowSize(nodeGraphMvp.sceneContextWindowSize)
       : nodeGraphMvp.sceneContextWindowSize,
@@ -1550,10 +1518,6 @@ function applyNodeGraphUserSession(session, options = {}) {
   const normalized = session?.format?.kind === nodeGraphUserSessionFormatKind
     ? normalizeNodeGraphUserSession(session)
     : normalizeNodeGraphUserSession(session || {});
-  nodeGraphMvp.controllerDockHeight = normalized.controllerDockHeight;
-  if (typeof applyNodeGraphControllerDockHeight === "function") {
-    applyNodeGraphControllerDockHeight(nodeGraphMvp.controllerDockHeight);
-  }
   nodeGraphMvp.sceneContextWindowSize = normalized.sceneContextWindowSize;
   if (typeof applyNodeSceneContextWindowSize === "function") {
     applyNodeSceneContextWindowSize(nodeGraphMvp.sceneContextWindowSize);

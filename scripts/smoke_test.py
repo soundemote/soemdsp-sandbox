@@ -17090,9 +17090,11 @@ def require_node_graph_mvp_contract() -> None:
         and "watchNodeGraphSectionResizeDrag(event, {" in script_sources["./public/node-graph-view-controls.js"]
         and "watchNodeGraphSectionResizeDrag(event, {" in script_sources["./public/node-graph-unified-window.js"]
         and "id=\"nodeBottomStack\"" in index_source
-        and "startHeight - (point.y - startY)" in script_sources["./public/node-graph-view-controls.js"]
-        and ".node-controller-dock-split" in style_source,
-        "controller dock stacks above the button bar; top bar resize is startHeight - dy",
+        and "startHeight + (point.y - startY)" in script_sources["./public/node-graph-view-controls.js"]
+        and "toggleNodeGraphStandaloneMidiKeyboard" not in script_sources["./public/node-graph-keyboard-shortcuts.js"]
+        and "nodeStandaloneMidiKeyboardDock" not in index_source
+        and ".node-controller-dock-split" not in style_source,
+        "chrome section resize is shared; K controller dock is gone",
     )
     require(
         'id: "nodeUiDevSliderHandleHue"' in script_sources["./public/node-graph-ui-settings-definitions.js"]
