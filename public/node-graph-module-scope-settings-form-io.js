@@ -1710,12 +1710,12 @@ function bindNodeGraphHueTitleSteppers(host) {
       return;
     }
     // Right / up = increase, left / down = decrease. ~1.2° per screen px.
-    // App-wide hue policy: no wrap — clamp to red edges (0…360).
+    // Wrap through red so the strip is a continuous hue wheel.
     const fine = event.shiftKey ? 0.15 : 1;
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
     const delta = (dx - dy) * 1.2 * fine;
-    const nextH = Math.max(0, Math.min(360, drag.startHue + delta));
+    const nextH = ((drag.startHue + delta) % 360 + 360) % 360;
     const pure = typeof nodeGraphTraceDisplayPureHueHex === "function"
       ? nodeGraphTraceDisplayPureHueHex({ h: nextH }, "#ff0000")
       : `hsl(${nextH} 100% 50%)`;

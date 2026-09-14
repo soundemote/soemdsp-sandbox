@@ -271,6 +271,10 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
 const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   faceStyle: "led",
   background: nodeGraphScopePhosphorLookDefaults.background,
+  backgroundColor: nodeGraphScopePhosphorLookDefaults.background,
+  // Digit hue saturation 0…1 (0 = grey, 1 = full hue).
+  dot1Saturation: 1,
+  colorSaturation: 1,
   // Bright 0…1: 0 = mid grey, 0.5 = full Hue, 1 = white (never black).
   brightness: 0.5,
   // Live digit “light” — single solid color (not the residual gradient).
@@ -320,11 +324,15 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
     ? nodeGraphHueUnitHex(nodeGraphValueLcdDefaultHueDeg)
     : "#a2ff00",
   backgroundBrightness: 0.88,
+  // Plate chroma 0…1 (0 = grey at the same brightness, 1 = full selected hue).
+  backgroundSaturation: 1,
   // Foreground ink: same hue family, dark end of the brightness cone.
   color: typeof nodeGraphHueUnitHex === "function"
     ? nodeGraphHueUnitHex(nodeGraphValueLcdDefaultHueDeg)
     : "#a2ff00",
   brightness: 0.18,
+  dot1Saturation: 1,
+  colorSaturation: 1,
   // Residual hang unused on LCD (kept 0 so old patches don’t re-enable burn path).
   trail: 0,
   ghost: 0,
@@ -437,7 +445,7 @@ const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   rotationDegrees: 270,
   // Dial ring size 0…1 (1 = fill available dial cell; label/value unchanged).
   dialSize: 1,
-  // Title / value size 0…1 (independent of knob size).
+  // Title / value size 0…1 = fraction of the knob square (same scale).
   labelSize: 0.45,
   valueSize: 0.45,
   // Title / value vs the dial: above | mid | below.

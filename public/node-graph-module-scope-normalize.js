@@ -1015,9 +1015,25 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
     source.background ?? source.backgroundColor,
     defaults.background,
   );
-  let backgroundBrightness = normalizeNodeGraphTraceDisplayNumber(
-    source.backgroundBrightness,
-    defaults.backgroundBrightness ?? 0.88,
+  let backgroundBrightness = faceStyle === "lcd"
+    ? normalizeNodeGraphTraceDisplayNumber(
+      source.backgroundBrightness,
+      defaults.backgroundBrightness ?? 0.88,
+      0,
+      1,
+    )
+    : (source.backgroundBrightness != null && Number.isFinite(Number(source.backgroundBrightness))
+      ? normalizeNodeGraphTraceDisplayNumber(source.backgroundBrightness, 0, 0, 1)
+      : undefined);
+  const backgroundSaturation = normalizeNodeGraphTraceDisplayNumber(
+    source.backgroundSaturation,
+    defaults.backgroundSaturation ?? 1,
+    0,
+    1,
+  );
+  const dot1Saturation = normalizeNodeGraphTraceDisplayNumber(
+    source.dot1Saturation ?? source.colorSaturation,
+    defaults.dot1Saturation ?? defaults.colorSaturation ?? 1,
     0,
     1,
   );
@@ -1118,6 +1134,10 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
     faceStyle,
     background,
     backgroundBrightness,
+    backgroundSaturation,
+    backgroundColor: source.backgroundColor ?? background,
+    dot1Saturation,
+    colorSaturation: dot1Saturation,
     // Live digit light / ink strength 0…1.
     brightness: normalizeNodeGraphTraceDisplayBrightness(
       faceStyle === "lcd"

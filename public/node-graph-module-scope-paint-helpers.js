@@ -681,12 +681,25 @@ function nodeGraphScope2dTraceInkHex(settings = {}) {
 
 /** Resolve face plate color from any display settings object. */
 function nodeGraphFacePlateBackground(settings, fallback = nodeGraphFacePlateDefaultBackground) {
+  const faceStyle = String(settings?.faceStyle || "").toLowerCase();
+  // LED / explicit hex plates: use the stored color (full widget), not hue-only rebuild.
   const bright = settings?.backgroundBrightness;
-  if (bright != null && Number.isFinite(Number(bright))
+  if (faceStyle !== "led" && faceStyle !== "led-value"
+    && bright != null && Number.isFinite(Number(bright))
     && typeof nodeGraphHueBrightnessCss === "function") {
     const hue = typeof nodeGraphHueDegFromHex === "function"
       ? nodeGraphHueDegFromHex(settings.background ?? settings.backgroundColor)
       : 0;
+    const satN = Number(settings.backgroundSaturation);
+    const rgb = typeof nodeGraphHueBrightnessRgb01 === "function"
+      ? nodeGraphHueBrightnessRgb01(hue, Number(bright), Number.isFinite(satN) ? satN : 1)
+      : null;
+    if (rgb) {
+      const R = Math.round(rgb[0] * 255);
+      const G = Math.round(rgb[1] * 255);
+      const B = Math.round(rgb[2] * 255);
+      return `rgb(${R} ${G} ${B})`;
+    }
     return nodeGraphHueBrightnessCss(hue, Number(bright));
   }
   return normalizeNodeGraphTraceDisplayColor(

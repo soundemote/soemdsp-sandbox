@@ -10,9 +10,27 @@
 
 const NODE_GRAPH_METAMODULE_CANVAS_SESSIONS = new Map(); // metaId → { items, stage, ro }
 
-// Child-module faces on the Meta plate are not release-ready. Keep the
-// "Double-click to enter" empty face until that feature is turned back on.
-const NODE_GRAPH_METAMODULE_FACE_CHILD_DISPLAYS = false;
+// Simple Meta plate: first pinned "Show in canvas" child, full-face.
+const NODE_GRAPH_METAMODULE_FACE_CHILD_DISPLAYS = true;
+
+function nodeGraphMetamoduleEngineIsUp() {
+  return Boolean(typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.live?.node);
+}
+
+/** First Show-in-canvas pin, stretched to the whole Meta plate. */
+function nodeGraphMetamoduleFaceDisplayPins(metaId) {
+  const all = nodeGraphMetamoduleCanvasPinnedElements(metaId);
+  if (!all.length) return [];
+  const first = all[0];
+  return [{
+    ...first,
+    x: 0,
+    y: 0,
+    w: 1,
+    h: 1,
+    z: 0,
+  }];
+}
 
 function nodeGraphMetamoduleCanvasPinnedElements(metaId, patch = nodeGraphMvp?.patch) {
   const id = String(metaId || "");
@@ -146,6 +164,8 @@ function nodeGraphMetamoduleRestoreCanvasSessionsForNodes(nodeIds) {
 
 function nodeGraphMetamoduleShouldPresentOnFace(metaId) {
   if (!NODE_GRAPH_METAMODULE_FACE_CHILD_DISPLAYS) return false;
+  // Stopped (no audio node): blank. Pause keeps the face frozen.
+  if (!nodeGraphMetamoduleEngineIsUp()) return false;
   const id = String(metaId || "");
   if (!id) return false;
   if (typeof nodeGraphMetamoduleViewId === "function" && nodeGraphMetamoduleViewId() === id) {
@@ -238,7 +258,7 @@ function nodeGraphMetamodulePresentCanvasOnFace(metaId) {
   }
   const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
   nodeGraphMetamoduleMigrateDisplaysToCanvas(meta);
-  const elements = nodeGraphMetamoduleCanvasPinnedElements(id);
+  const elements = nodeGraphMetamoduleFaceDisplayPins(id);
   const empty = face.querySelector(".node-metamodule-face-empty");
   const blit = nodeGraphMetamoduleEnsureMirrorCanvas(face);
   const stage = nodeGraphMetamoduleCanvasStageEl(face);
@@ -249,7 +269,7 @@ function nodeGraphMetamodulePresentCanvasOnFace(metaId) {
     if (blit) blit.hidden = true;
     if (empty) {
       empty.hidden = false;
-      empty.textContent = "Double-click to enter";
+      empty.textContent = elements.length ? "" : "Double-click to enter";
     }
     return false;
   }

@@ -450,8 +450,10 @@ function nodeGraphNumberReadoutLcdInkRgb(settings) {
     0,
     1,
   );
+  const satN = Number(settings?.dot1Saturation ?? settings?.colorSaturation);
+  const sat = Number.isFinite(satN) ? clampNodeSliderValue(satN, 0, 1) : 1;
   if (typeof nodeGraphHueBrightnessRgb01 === "function") {
-    const [r, g, b] = nodeGraphHueBrightnessRgb01(hue, amount);
+    const [r, g, b] = nodeGraphHueBrightnessRgb01(hue, amount, sat);
     return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
   }
   return [26, 34, 22];
@@ -470,7 +472,9 @@ function nodeGraphNumberReadoutLcdGhostRgb(inkRgb, settings = null) {
     const inkAmt = clampNodeSliderValue(Number(settings.brightness ?? settings.dot1Brightness), 0, 1);
     const plateAmt = clampNodeSliderValue(Number(settings.backgroundBrightness), 0, 1);
     const ghostAmt = plateAmt + (inkAmt - plateAmt) * 0.42;
-    const [r, g, b] = nodeGraphHueBrightnessRgb01(hue, ghostAmt);
+    const satN = Number(settings.dot1Saturation ?? settings.colorSaturation);
+    const sat = Number.isFinite(satN) ? clampNodeSliderValue(satN, 0, 1) : 1;
+    const [r, g, b] = nodeGraphHueBrightnessRgb01(hue, ghostAmt, sat);
     return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
   }
   const r = nodeGraphFiniteNumber(inkRgb?.[0]);
@@ -490,8 +494,10 @@ function nodeGraphNumberReadoutLcdBgRgb(settings) {
     typeof nodeGraphValueLcdDefaultHueDeg === "number" ? nodeGraphValueLcdDefaultHueDeg : 82,
   );
   const amount = clampNodeSliderValue(Number(settings?.backgroundBrightness), 0, 1);
+  const satN = Number(settings?.backgroundSaturation);
+  const sat = Number.isFinite(satN) ? clampNodeSliderValue(satN, 0, 1) : 1;
   if (typeof nodeGraphHueBrightnessRgb01 === "function") {
-    const [r, g, b] = nodeGraphHueBrightnessRgb01(hue, amount);
+    const [r, g, b] = nodeGraphHueBrightnessRgb01(hue, amount, sat);
     return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
   }
   return [176, 181, 166];
@@ -686,10 +692,21 @@ function nodeGraphNumberReadoutLightRgb(settings) {
       Math.round(a[2] + (b[2] - a[2]) * u),
     ];
   };
+  const satN = Number(settings?.dot1Saturation ?? settings?.colorSaturation);
+  const sat = Number.isFinite(satN) ? clampNodeSliderValue(satN, 0, 1) : 1;
+  let rgb;
   if (bright <= 0.5) {
-    return mix(grey, pure, bright * 2);
+    rgb = mix(grey, pure, bright * 2);
+  } else {
+    rgb = mix(pure, white, (bright - 0.5) * 2);
   }
-  return mix(pure, white, (bright - 0.5) * 2);
+  if (sat >= 1 - 1e-9) {
+    return rgb;
+  }
+  const achromatic = bright <= 0.5
+    ? grey
+    : mix(grey, white, (bright - 0.5) * 2);
+  return mix(achromatic, rgb, sat);
 }
 
 /**
@@ -709,52 +726,81 @@ function nodeGraphNumberReadoutGhostRgbFromEnergy(energy, gradientStops, peakHex
 }
 
 /**
- * Colorize a white energy burn plate with gradient RGB (alpha from plate).
- * Plate is the alpha mask; solid gradient color is applied at present time.
- * Pattern: draw mask → source-in solid color.
+ * Present the LED energy plate: each pixel's alpha is its own residual energy
+ * and maps through Ghost Gradient independently (same LUT idea as phosphor
+ * burn). Do not tint the whole plate from one shared energy — that made every
+ * ghost digit shift hue together.
  */
+function nodeGraphNumberReadoutGhostLut256(stops, peakHex) {
+  const lut = new Uint8ClampedArray(256 * 3);
+  const sample = typeof nodeGraphSampleGradientStopsRgb === "function"
+    ? nodeGraphSampleGradientStopsRgb
+    : null;
+  const peak = peakHex || "#fcfdbf";
+  for (let i = 0; i < 256; i += 1) {
+    const rgb = sample
+      ? sample(stops, i / 255, peak)
+      : [252, 253, 191];
+    lut[i * 3] = rgb[0];
+    lut[i * 3 + 1] = rgb[1];
+    lut[i * 3 + 2] = rgb[2];
+  }
+  return lut;
+}
+
 function nodeGraphNumberReadoutPresentBurnPlate(
   destCtx,
   burnPlate,
-  rgb,
-  alpha = 1,
+  gradientStops,
+  peakHex,
 ) {
   if (!destCtx || !burnPlate?.width || !burnPlate?.height) {
     return;
   }
-  const a = clampNodeSliderValue(nodeGraphFiniteNumber(alpha), 0, 1);
-  if (a <= 0.001) {
-    return;
+  const host = destCtx.canvas;
+  const stopsSig = Array.isArray(gradientStops)
+    ? gradientStops.map((s) => `${s.t}:${s.color}`).join(",")
+    : "";
+  const lutKey = `${stopsSig}|${peakHex || ""}`;
+  if (!host._numberReadoutGhostLut || host._numberReadoutGhostLutKey !== lutKey) {
+    host._numberReadoutGhostLut = nodeGraphNumberReadoutGhostLut256(gradientStops, peakHex);
+    host._numberReadoutGhostLutKey = lutKey;
   }
-  const r = Math.max(0, Math.min(255, Math.round(nodeGraphFiniteNumber(rgb?.[0]))));
-  const g = Math.max(0, Math.min(255, Math.round(nodeGraphFiniteNumber(rgb?.[1]))));
-  const b = Math.max(0, Math.min(255, Math.round(nodeGraphFiniteNumber(rgb?.[2]))));
-  let tint = destCtx.canvas?._numberReadoutBurnTint;
+  const lut = host._numberReadoutGhostLut;
+  let tint = host?._numberReadoutBurnTint;
   if (!tint) {
     tint = document.createElement("canvas");
-    if (destCtx.canvas) {
-      destCtx.canvas._numberReadoutBurnTint = tint;
+    if (host) {
+      host._numberReadoutBurnTint = tint;
     }
   }
   if (tint.width !== burnPlate.width || tint.height !== burnPlate.height) {
     tint.width = burnPlate.width;
     tint.height = burnPlate.height;
   }
-  const tctx = tint.getContext("2d");
+  const tctx = tint.getContext("2d", { willReadFrequently: true });
   if (!tctx) {
     return;
   }
   tctx.setTransform(1, 0, 0, 1, 0, 0);
   tctx.clearRect(0, 0, tint.width, tint.height);
-  tctx.globalCompositeOperation = "source-over";
-  tctx.globalAlpha = 1;
   tctx.drawImage(burnPlate, 0, 0);
-  tctx.globalCompositeOperation = "source-in";
-  tctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-  tctx.fillRect(0, 0, tint.width, tint.height);
-  tctx.globalCompositeOperation = "source-over";
+  const img = tctx.getImageData(0, 0, tint.width, tint.height);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const e = d[i + 3];
+    if (e === 0) {
+      continue;
+    }
+    const j = e * 3;
+    d[i] = lut[j];
+    d[i + 1] = lut[j + 1];
+    d[i + 2] = lut[j + 2];
+  }
+  tctx.putImageData(img, 0, 0);
   destCtx.save();
-  destCtx.globalAlpha = a;
+  destCtx.globalAlpha = 1;
+  destCtx.globalCompositeOperation = "source-over";
   destCtx.drawImage(tint, 0, 0);
   destCtx.restore();
 }
@@ -1303,6 +1349,8 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.lightBlend,
     settings.facePadding,
     settings.backgroundBrightness,
+    settings.backgroundSaturation,
+    settings.dot1Saturation ?? settings.colorSaturation,
     settings.unlitSegments,
     settings.innerShadowDistance,
     settings.innerShadowSharpness,
@@ -2604,10 +2652,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     pinPx: layout.pinPx || cellW,
   };
 
-  const depositRgb = depositActive
-    ? nodeGraphNumberReadoutGhostRgbFromEnergy(depositEnergy, gradientStops, peakHex)
-    : null;
-
   // ── Present (Value LED) ──
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
@@ -2615,9 +2659,9 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   context.fillStyle = bg;
   context.fillRect(left, top, width, height);
 
-  // Deposit plate: previous readings; energy decays via Trail + Ghost hang.
-  if (depositActive && burnPlate?.width > 0 && depositRgb) {
-    nodeGraphNumberReadoutPresentBurnPlate(context, burnPlate, depositRgb, 1);
+  // Deposit plate: previous readings; each pixel's energy maps the Ghost Gradient.
+  if (depositActive && burnPlate?.width > 0) {
+    nodeGraphNumberReadoutPresentBurnPlate(context, burnPlate, gradientStops, peakHex);
   }
 
   // Max padding: one phosphor pixel of live light.
@@ -2641,60 +2685,20 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       );
     }
   } else if (digitFontSize > 0.25 && drawLiveDigits) {
-    // Live digits over residual.
-    const lightBlend = String(settings.lightBlend || "lighten").trim().toLowerCase() || "lighten";
-    if (lightBlend === "occlude") {
-      const plateRgb = (() => {
-        const m = String(bg || "").match(/^#?([0-9a-f]{6})$/i);
-        if (m) {
-          const n = Number.parseInt(m[1], 16);
-          return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-        }
-        return [0, 0, 4];
-      })();
-      nodeGraphNumberReadoutDrawDigits(context, {
-        text: valueText,
-        centerX: digitX,
-        centerY: digitY,
-        fontFamily: digitFontFamily,
-        fontSize: digitFontSize,
-        cellW,
-        rgb: plateRgb,
-        alpha: 1,
-        softBlurPx: 0,
-        glow: 0,
-        plate: false,
-      });
-      nodeGraphNumberReadoutDrawDigits(context, {
-        text: valueText,
-        centerX: digitX,
-        centerY: digitY,
-        fontFamily: digitFontFamily,
-        fontSize: digitFontSize,
-        cellW,
-        rgb,
-        alpha,
-        softBlurPx: 0,
-        glow: 0,
-        plate: false,
-        composite: "source-over",
-      });
-    } else {
-      nodeGraphNumberReadoutDrawDigits(context, {
-        text: valueText,
-        centerX: digitX,
-        centerY: digitY,
-        fontFamily: digitFontFamily,
-        fontSize: digitFontSize,
-        cellW,
-        rgb,
-        alpha,
-        softBlurPx: 0,
-        glow: 0,
-        plate: false,
-        composite: lightBlend,
-      });
-    }
+    nodeGraphNumberReadoutDrawDigits(context, {
+      text: valueText,
+      centerX: digitX,
+      centerY: digitY,
+      fontFamily: digitFontFamily,
+      fontSize: digitFontSize,
+      cellW,
+      rgb,
+      alpha,
+      softBlurPx: 0,
+      glow: 0,
+      plate: false,
+      composite: "source-over",
+    });
   }
 
   if (hasUnit && labelHeight > 0.25 && digitFontSize > 0.25) {

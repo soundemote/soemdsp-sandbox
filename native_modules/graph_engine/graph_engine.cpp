@@ -528,13 +528,15 @@ extern "C" void soemdsp_hypersaw2_sample(
   double vibratoPhaseVary,
   double jitterDistance,
   double jitterSpeed,
-  double modulationTilt,
+  double jitterDistanceSource,
+  double jitterSteps,
+  double jitterFilterHz,
+  double vibratoDistanceSource,
   double centerSide,
   double waveform,
   double morph,
   double level,
-  double seedParam,
-  double modulationSpeedRefHz
+  double seedParam
 );
 extern "C" double soemdsp_hypersaw2_left(int handle);
 extern "C" double soemdsp_hypersaw2_right(int handle);
@@ -2782,7 +2784,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAmpCurve) ? 1.0 // Exp (classic VCA CV)
       : (typeId == kTypeHilbert) ? 0.0 // +90°
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
-      : (typeId == kTypeHypersaw2) ? 1.0 // freeRunningPhase Free-running
+      : (typeId == kTypeHypersaw2) ? 0.0 // jitterSteps Fixed
       : (typeId == kTypeSampleHold) ? 0.0 // polarity Bipolar
       : (typeId == kTypeWavetableAdsr) ? 0.0 // shape Analog
       : (typeId == kTypePiSpigotNoise) ? 0.0 // color White
@@ -2919,13 +2921,14 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.oversample,
-    (typeId == kTypeHypersaw2) ? 200.0 // jitter Speed Reference
+    (typeId == kTypeHypersaw2) ? 0.0 // jitterDistanceSource Wavelength
       : 2.0, // softClipper / clipperLimiter antialias mode
     true
   );
   init_control(
     n.mix,
-    (typeId == kTypePingPongDelay || typeId == kTypeDelayEffect) ? 0.35
+    (typeId == kTypeHypersaw2) ? 0.0 // jitterSpeedTiltSource Freq
+      : (typeId == kTypePingPongDelay || typeId == kTypeDelayEffect) ? 0.35
       : (typeId == kTypeDsfOscillator) ? 0.5 // SquSaw blend
       : (typeId == kTypeBradley2a) ? 0.0 // interfLevel
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope || typeId == kTypeWavetableAdsr) ? 0.55 // sustain
@@ -2936,7 +2939,6 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeRayBouncer) ? 0.0 // rotate deg
       : (typeId == kTypePulseExplosion) ? 0.3 // timeSpread
       : (typeId == kTypeAdditivePan) ? 1.0 // AutoPan orbit skew
-      : (typeId == kTypeHypersaw2) ? 1.0 // phaseMultiplier (vibOffset spirit)
       : 0.43,
     false
   );
@@ -2973,7 +2975,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.lfoAmplitude,
-    (typeId == kTypeBradley2a) ? 0.0 // ampDepth
+    (typeId == kTypeHypersaw2) ? 0.0 // vibratoSpeedTilt
+      : (typeId == kTypeBradley2a) ? 0.0 // ampDepth
       : (typeId == kTypeDelayEffect) ? 0.02 // modAmount
       : (typeId == kTypeSoemReverb) ? 0.002 // lfoAmp
       : (typeId == kTypePingPongDelay) ? 25.0 // lfoAmp ms (audible like Delay modAmount)
@@ -3086,7 +3089,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.timingMode,
-    (typeId == kTypeActiveFilter) ? 1.0 // gainCompensation On
+    (typeId == kTypeHypersaw2) ? 0.0 // vibratoSpeedTiltSource Freq
+      : (typeId == kTypeActiveFilter) ? 1.0 // gainCompensation On
       : (typeId == kTypeAttackDecay) ? 0.0 // cycle Off
       : (typeId == kTypeExpoPluckEnvelope) ? 1.0 // recalculateOnTrigger default ON
       : (typeId == kTypeThumpEnvelope) ? 1.0 // updateOnTrigger On (default)
@@ -3109,7 +3113,12 @@ static void init_node_defaults(Node& n, int typeId) {
     false
   );
   init_control(n.tapOffsetMs, 0.0, false); // pingPong Offset (R skew ms)
-  init_control(n.lfoStyle, 0.0, true);
+  init_control(
+    n.lfoStyle,
+    (typeId == kTypeHypersaw2) ? 1.0 // vibratoDistanceSource Division
+      : 0.0,
+    true
+  );
   init_control(
     n.lfoRate,
     (typeId == kTypeBradley2a) ? 60.0 // jitterRate
@@ -3120,14 +3129,19 @@ static void init_node_defaults(Node& n, int typeId) {
       : 0.35,
     false
   );
-  init_control(n.saturate, 1.0, false);
+  init_control(
+    n.saturate,
+    (typeId == kTypeHypersaw2) ? 0.0 // vibratoDistanceTilt
+      : 1.0,
+    false
+  );
   init_control(
     n.lpfFrequency,
     (typeId == kTypeAdditiveOsc) ? 20000.0 // dampingFilterFrequency
       : (typeId == kTypeBradley2a) ? 2600.0 // interfFreq
       : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 1000.0 // highCut
       : (typeId == kTypeInertialFilter) ? 20.0 // release Hz
-      : (typeId == kTypeHypersaw2) ? -0.3 // modulationTilt
+      : (typeId == kTypeHypersaw2) ? 0.0 // jitterDistanceTilt
       : (typeId == kTypeChaosfly) ? 6.0 // Lowpass oct offset (open default)
       : (typeId == kTypeCrossover5) ? 8000.0
       : (typeId == kTypeCrossover6) ? 3000.0
@@ -3136,7 +3150,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.hpfFrequency,
-    (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 200.0 // lowCut
+    (typeId == kTypeHypersaw2) ? 0.0 // jitterSpeedTilt
+      : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 200.0 // lowCut
       : (typeId == kTypeChaosfly) ? -2.0 // Highpass oct offset (gentler default)
       : (typeId == kTypeCrossover6) ? 10000.0
       : 20.0,
@@ -3145,7 +3160,8 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.tempoBpm, 120.0, false);
   init_control(
     n.offset,
-    (typeId == kTypePll) ? 5.0
+    (typeId == kTypeHypersaw2) ? 20.0 // jitterFilter Hz at middle C
+      : (typeId == kTypePll) ? 5.0
       : (typeId == kTypeRobinSupersaw) ? 0.126 // portamentoStyle (SoEm default)
       : (typeId == kTypeArp) ? 0.0 // octaveOffset
       : (typeId == kTypeChaosfly) ? 0.0 // Pitch oct transpose
@@ -3154,7 +3170,8 @@ static void init_node_defaults(Node& n, int typeId) {
   ); // degreePhrase rest8 / robin portamentoStyle / arp octaveOffset / chaosfly pitch
   init_control(
     n.inLow,
-    (typeId == kTypePulseExplosion) ? 0.3 // lowAmplitude
+    (typeId == kTypeHypersaw2) ? 0.0 // jitterFilterTilt
+      : (typeId == kTypePulseExplosion) ? 0.3 // lowAmplitude
       : (typeId == kTypeAdditiveFrequencySkew) ? 1.0 // lowStretch
       : (typeId == kTypeDegreePhrase) ? 0.0 // rest1
       : (typeId == kTypeArp) ? 0.0 // sequenceOffset
@@ -6177,9 +6194,10 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
 // Hypersaw2: one phase-mod bus (jitter walk + sine vibrato).
 // stages=voices, waveform=PolyBLEP, shape=phaseCollapse (0 Merge, 1 Distribute), width=randomizePhase,
 // resonance=vibratoDistance, lfoBaseSpeed=vibratoSpeed, lfoVariation=vibratoPhaseVary,
-// center=jitterDistance, lfoRate=jitterSpeed, lpfFrequency=modulationTilt,
-// pan=centerSide, feedback=morph/PWM, oversample=modulationSpeedRefHz,
-// phaseParam=phase, seed=seed, amplitude=level.
+// center=jitterDistance, lfoRate=jitterSpeed,
+// oversample=jitterDistanceSource, lfoStyle=vibratoDistanceSource,
+// mode=jitterSteps, offset=jitterFilterHz,
+// pan=centerSide, feedback=morph/PWM, phaseParam=phase, seed=seed, amplitude=level.
 static void process_hypersaw2(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
@@ -6204,11 +6222,13 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
     const double vibratoPhaseVary = control_effective(node.lfoVariation);
     const double jitterDistance = control_effective(node.center);
     const double jitterSpeed = control_effective(node.lfoRate);
-    const double modulationTilt = control_effective(node.lpfFrequency);
+    const double jitterDistanceSource = control_effective(node.oversample);
+    const double jitterSteps = control_effective(node.mode);
+    const double jitterFilterHz = control_effective(node.offset);
+    const double vibratoDistanceSource = control_effective(node.lfoStyle);
     const double centerSide = control_effective(node.pan);
     const double morph = control_effective(node.feedback);
     const double level = control_effective(node.amplitude);
-    const double modulationSpeedRefHz = control_effective(node.oversample);
     double voicesExact = control_effective(node.stages);
     if (!(voicesExact * 0.0 == 0.0)) voicesExact = 1.0;
     if (voicesExact < 1.0) voicesExact = 1.0;
@@ -6231,13 +6251,15 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
         vibratoPhaseVary,
         jitterDistance,
         jitterSpeed,
-        modulationTilt,
+        jitterDistanceSource,
+        jitterSteps,
+        jitterFilterHz,
+        vibratoDistanceSource,
         centerSide,
         waveform,
         morph,
         level,
-        seed,
-        modulationSpeedRefHz
+        seed
       );
       const double L = soemdsp_hypersaw2_left(node.nativeHandle);
       const double R = soemdsp_hypersaw2_right(node.nativeHandle);
@@ -6272,11 +6294,13 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
     const double vibratoPhaseVary = control_audio(g, node.lfoVariation, f);
     const double jitterDistance = control_audio(g, node.center, f);
     const double jitterSpeed = control_audio(g, node.lfoRate, f);
-    const double modulationTilt = control_audio(g, node.lpfFrequency, f);
+    const double jitterDistanceSource = control_audio(g, node.oversample, f);
+    const double jitterSteps = control_audio(g, node.mode, f);
+    const double jitterFilterHz = control_audio(g, node.offset, f);
+    const double vibratoDistanceSource = control_audio(g, node.lfoStyle, f);
     const double centerSide = control_audio(g, node.pan, f);
     const double morph = control_audio(g, node.feedback, f);
     const double level = control_audio(g, node.amplitude, f);
-    const double modulationSpeedRefHz = control_audio(g, node.oversample, f);
     double voicesExact = control_audio(g, node.stages, f);
     if (!(voicesExact * 0.0 == 0.0)) voicesExact = 1.0;
     if (voicesExact < 1.0) voicesExact = 1.0;
@@ -6295,13 +6319,15 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
       vibratoPhaseVary,
       jitterDistance,
       jitterSpeed,
-      modulationTilt,
+      jitterDistanceSource,
+      jitterSteps,
+      jitterFilterHz,
+      vibratoDistanceSource,
       centerSide,
       waveform,
       morph,
       level,
-      seed,
-      modulationSpeedRefHz
+      seed
     );
     const double L = soemdsp_hypersaw2_left(node.nativeHandle);
     const double R = soemdsp_hypersaw2_right(node.nativeHandle);

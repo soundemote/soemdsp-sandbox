@@ -433,7 +433,9 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "decimals",
       "facePadding",
       "backgroundBrightness",
+      "backgroundSaturation",
       "dot1Brightness",
+      "dot1Saturation",
       "ghost",
       "trail",
       "burn",
@@ -448,7 +450,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     // GROW: live resize vs fixed Digits+Decimals bins (stored as !decimalBudget).
     toggles: Object.freeze(["digitBins", "decimalBudget", "removeTrailingZeros"]),
-    choices: Object.freeze(["lightBlend", "polarity"]),
+    choices: Object.freeze(["polarity"]),
   }),
   // LED lamp: same shared display inspector as other faces (not a separate window).
   vectorDot: Object.freeze({
@@ -1241,7 +1243,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Label size",
     inputmode: "decimal",
     id: "nodeTraceDisplayKnobLabelSize",
-    title: "Title size 0…1 on the Knob face. Independent of knob size.",
+    title: "Title size 0…1 as a fraction of the knob square (min side of the dial × Knob size). 1 = one square.",
   }),
   valueSize: Object.freeze({
     label: "Value size",
@@ -1368,11 +1370,23 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayBackgroundBrightness",
     title: "Plate brightness 0…1 (black → full hue at 0.5 → white).",
   }),
+  backgroundSaturation: Object.freeze({
+    label: "Sat",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayBackgroundSaturation",
+    title: "Plate saturation 0…1 (0 = grey, 1 = full selected color).",
+  }),
+  dot1Saturation: Object.freeze({
+    label: "Sat",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayDot1Saturation",
+    title: "Color saturation 0…1 (0 = grey, 1 = full selected hue).",
+  }),
   backgroundHue: Object.freeze({
     label: "BG Hue",
     inputmode: "decimal",
     id: "nodeTraceDisplayBackgroundHue",
-    title: "Plate hue in degrees (0–360). App-wide hue policy: no wrap — clamp to red edges.",
+    title: "Plate hue in degrees (0–360). Wraps through red.",
   }),
   dot1Size: Object.freeze({
     label: "Size",

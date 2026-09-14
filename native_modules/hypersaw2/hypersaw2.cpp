@@ -5,12 +5,11 @@
 //
 // Hypersaw2: PolyBLEP + Random Steps jitter. Shared locked master phase only.
 //
-// Jitter Distance J (>=0, not hard-capped): walk within ±(1/N)*J around centers.
-// Phase Collapse: Merge (0) centers=(i/N)*J; Distribute (1) centers=i/N.
-// Modulation Tilt (f / Speed Ref)^(tilt+1):
-//   Jitter: scales Speed (walk rate vs pitch).
-//   Vibrato: scales Distance (phase room vs pitch). Vibrato Speed stays Hz.
-// Vibrato: original Hypersaw.hpp — shared LFO scales per-saw phase spread:
+// Jitter Distance J (>=0): walk room. Distance source Wavelength = ∝ f
+// (same phase-travel vs pitch); Division = 1/N allotted slot.
+// Jitter/Vibrato Speed are Hz, same at every pitch. Jitter Filter is LPF Hz
+// (same at every pitch). Steps: Fixed (±step) or Random (noise×step).
+// Vibrato: shared LFO scales per-saw phase spread:
 //   phase = div*distribute + random*amp
 //   osc.phaseOffset = phase * ((vibInput * Distance) + 1) + walkOut
 // Center saw (i=0) is not wired to the LFO. Not additive FM.
@@ -185,24 +184,15 @@ double hypersaw2WaveSample(int waveform, double phase, double dt, double morph) 
   }
 }
 
-// --- Jitter: Hypersaw Random Steps (Amp / Jitter / Pitch) --------------------
+// --- Jitter: Fixed or Random Steps + walk LPF in Hz ---------------------------
 // Distance = Drift Amp (phase depth). Speed = Drift Jitter (Hz, step size).
-// Jitter Pitch = semitone offset from baked 64.256 (0 = pre-param LPF).
-// Depth × |oscHz|/ref → constant temporal Δt.
+// Filter = LPF cutoff in Hz (same at every pitch).
 
 static inline double rational_curve01(double value, double skew) {
   double t = value < 0.0 ? 0.0 : (value > 1.0 ? 1.0 : value);
   double s = skew < -0.999 ? -0.999 : (skew > 0.999 ? 0.999 : skew);
   return ((1.0 + s) * t) / (1.0 - s + 2.0 * s * t);
 }
-
-static inline double pitch_to_freq(double pitch) {
-  return 8.1757989156437073336828122976033
-    * dsp_exp(0.057762265046662109118102676788181 * pitch);
-}
-
-// Former baked DriftPitch — Jitter Pitch 0 lands here.
-static const double kJitterPitchBaseSt = 64.256;
 
 struct JitterState {
   double out;       // raw bipolar walk accumulator
@@ -217,14 +207,14 @@ static inline void jitter_reset(JitterState& j) {
   j.frozenOut = 0.0;
 }
 
-// Random Steps walk → bipolar −1…1 × phaseAmp.
-// phaseAmp<=0 → collapse walk to 0 (onto jitter center), not freeze mid-wander.
-// speedScale: pitch-tilt factor (1 = Speed Reference pitch).
-static inline double hypersaw_random_steps(
+// Walk → bipolar −1…1 × phaseAmp. phaseAmp<=0 collapses onto the center.
+// walkLpfHz is a constant cutoff (same at every pitch). 0 = freeze (hold).
+static inline double hypersaw_walk(
   JitterState& j,
-  double phaseAmp,       // (1/N) * jitterDistance
-  double jitterHz,       // Drift Jitter (step energy), already pitch-scaled
-  double speedScale,     // same scale applied to walk LPF cutoff
+  double phaseAmp,
+  double jitterHz,
+  double walkLpfHz,
+  int fixedSteps,
   double sampleRate
 ) {
   if (!(phaseAmp > 0.0)) {
@@ -235,28 +225,25 @@ static inline double hypersaw_random_steps(
   }
 
   const double sr = sampleRate > 1.0 ? sampleRate : 48000.0;
-  // Walk LPF tracks pitch tilt with Speed (baked base × scale).
-  double walkFreqHz = pitch_to_freq(kJitterPitchBaseSt) * (speedScale > 0.0 ? speedScale : 1.0);
+  double freq = walkLpfHz > 0.0 ? walkLpfHz : 0.0;
   const double nyq = sr * 0.5;
-  if (walkFreqHz < 0.0) walkFreqHz = 0.0;
-  if (walkFreqHz > nyq) walkFreqHz = nyq;
+  if (freq > nyq) freq = nyq;
 
-  const double freq = walkFreqHz > 0.0 ? walkFreqHz : 0.0;
   const double jitter = jitterHz > 0.0 ? jitterHz : 0.0;
   const double noise = randomBipolar(j.rng);
-
   const double period = 1.0 / sr;
-  const double increment = freq * period * period;
-  const double inc = increment < 0.0 ? 0.0 : (increment > 1.0 ? 1.0 : increment);
   const double jitterIncRaw = jitter * period;
   const double jitterInc = jitterIncRaw < 0.0 ? 0.0 : (jitterIncRaw > 1.0 ? 1.0 : jitterIncRaw);
-  const double mapped = rational_curve01(jitterInc, 0.99);
-  double stepSize = inc + (-inc + (1.0 - inc) * mapped);
+  double stepSize = rational_curve01(jitterInc, 0.99);
   if (stepSize < 0.0) stepSize = 0.0;
   if (stepSize > 1.0) stepSize = 1.0;
 
-  // Random Steps only (not Fixed Steps).
-  j.out += noise * stepSize;
+  if (fixedSteps) {
+    j.out += noise > 0.0 ? stepSize : -stepSize;
+  } else {
+    // Uniform bipolar |n| averages 1/2; ×2 so the same Speed Hz wanders like Fixed.
+    j.out += noise * (stepSize + stepSize);
+  }
   if (j.out > 1.0) j.out = 1.0;
   if (j.out < -1.0) j.out = -1.0;
 
@@ -355,8 +342,32 @@ extern "C" void soemdsp_hypersaw2_reset(int handle) {
   }
 }
 
+static const double kDistancePivotHz = 261.625565301;
+
+static inline int choice01(double v) {
+  int c = (int)(v + (v >= 0.0 ? 0.5 : -0.5));
+  if (c < 0) c = 0;
+  if (c > 1) c = 1;
+  return c;
+}
+
+static inline double clamp_pos_scale(double s) {
+  if (!(s > 0.0)) return 1.0;
+  if (s > 64.0) return 64.0;
+  if (s < 1.0e-6) return 1.0e-6;
+  return s;
+}
+
+// Distance source 0 Wavelength (∝ f), 1 Division (1/N).
+static inline double distance_scale(int source, double freqHz, int voiceCount) {
+  if (source == 0) {
+    const double f = (freqHz > 1.0e-12) ? freqHz : kDistancePivotHz;
+    return clamp_pos_scale(f / kDistancePivotHz);
+  }
+  return 1.0 / (voiceCount > 0 ? static_cast<double>(voiceCount) : 1.0);
+}
+
 // One phase-mod bus: evenCenter + jitter walk + sine vibrato + randomize.
-// Jitter and vibrato share Modulation Tilt on Speed only. Distance is unscaled.
 extern "C" void soemdsp_hypersaw2_sample(
   int handle,
   double frequencyHz,
@@ -370,19 +381,20 @@ extern "C" void soemdsp_hypersaw2_sample(
   double vibratoPhaseVary,
   double jitterDistance,
   double jitterSpeed,
-  double modulationTilt,
+  double jitterDistanceSource,
+  double jitterSteps,
+  double jitterFilterHz,
+  double vibratoDistanceSource,
   double centerSide,
   double waveform,
   double morph,
   double level,
-  double seedParam,
-  double modulationSpeedRefHz
+  double seedParam
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   Hypersaw2State& s = gPool[handle - 1];
 
   const double sr = sampleRate > 1.0 ? sampleRate : 48000.0;
-  // Frequency itself is instant (tilt / jitter speed / vib depth use this).
   const double freq = (frequencyHz == frequencyHz) ? frequencyHz : 0.0;
 
   if (!(seedParam == s.lastSeed)) {
@@ -434,12 +446,6 @@ extern "C" void soemdsp_hypersaw2_sample(
   double jDistanceTarget = (jitterDistance == jitterDistance) ? jitterDistance : 0.0;
   if (jDistanceTarget < 0.0) jDistanceTarget = 0.0;
   const double jSpeed = (jitterSpeed == jitterSpeed && jitterSpeed > 0.0) ? jitterSpeed : 0.0;
-  double tilt = (modulationTilt == modulationTilt) ? modulationTilt : -1.0;
-  if (tilt < -1.0) tilt = -1.0;
-  if (tilt > 1.0) tilt = 1.0;
-  double speedRef = (modulationSpeedRefHz == modulationSpeedRefHz)
-    ? modulationSpeedRefHz : 261.625565;
-  if (!(speedRef > 1.0e-6)) speedRef = 261.625565;
   const double cs = clampD(centerSide, 0.0, 1.0);
   int wave = (int)(waveform + (waveform >= 0.0 ? 0.5 : -0.5));
   if (wave < 0) wave = 0;
@@ -468,31 +474,22 @@ extern "C" void soemdsp_hypersaw2_sample(
   const double blepDt = phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement;
 
   double oscAbs = freq < 0.0 ? -freq : freq;
-  const double fForTilt = (oscAbs > 1.0e-12) ? oscAbs : speedRef;
-  double speedScale = 1.0;
-  {
-    const double exponent = tilt + 1.0;
-    if (exponent <= 1.0e-12) {
-      speedScale = 1.0;
-    } else {
-      const double ratio = fForTilt / speedRef;
-      speedScale = (ratio > 0.0) ? dsp_exp(exponent * dsp_ln(ratio)) : 1.0;
-    }
-    if (!(speedScale > 0.0)) speedScale = 1.0;
-    if (speedScale > 64.0) speedScale = 64.0;
-    if (speedScale < (1.0 / 64.0)) speedScale = 1.0 / 64.0;
-  }
-  const double jSpeedEff = jSpeed * speedScale;
-  const double jDistance = jDistanceTarget;
+  const double fForDist = (oscAbs > 1.0e-12) ? oscAbs : kDistancePivotHz;
+  const int jDistSrc = choice01(jitterDistanceSource);
+  const int vDistSrc = choice01(vibratoDistanceSource);
+  const double jDistScale = distance_scale(jDistSrc, fForDist, voiceCount);
+  const double vDistScale = distance_scale(vDistSrc, fForDist, voiceCount);
+  const double walkAmp = jDistanceTarget * jDistScale;
+  const double vibAmp = vibDist * vDistScale;
+  const int fixedSteps = choice01(jitterSteps) == 0 ? 1 : 0;
+  const double walkLpfHz = (jitterFilterHz == jitterFilterHz && jitterFilterHz > 0.0)
+    ? jitterFilterHz : 0.0;
 
   double leftSum = 0.0;
   double rightSum = 0.0;
   double leftWeight = 0.0;
   double rightWeight = 0.0;
   int sideCh = 0;
-
-  const double voiceShare = 1.0 / static_cast<double>(voiceCount);
-  const double walkAmp = voiceShare * jDistance;
 
   // Shared locked master — all saws use the same carrier phase.
   s.masterPhase = wrap01(s.masterPhase + phaseIncrement);
@@ -502,15 +499,15 @@ extern "C" void soemdsp_hypersaw2_sample(
     s.vibOscPhase = wrap01(s.vibOscPhase + hz_to_increment(vibHz, sr));
   }
   const double vibOffset = 1.0;
-  const double vibAmp = vibDist;
 
   for (int i = 0; i < voiceCount; i++) {
     Hypersaw2VoiceState& voice = s.voices[i];
 
     const double div = static_cast<double>(i) / static_cast<double>(voiceCount);
-    const double evenCenter = collapseDistribute ? div : (div * jDistance);
-    const double walkOut = hypersaw_random_steps(
-      voice.jitter, walkAmp, jSpeedEff, speedScale, sr);
+    // Merge layout uses the raw Distance knob; source only scales the walk.
+    const double evenCenter = collapseDistribute ? div : (div * jDistanceTarget);
+    const double walkOut = hypersaw_walk(
+      voice.jitter, walkAmp, jSpeed, walkLpfHz, fixedSteps, sr);
     const double randomPart = voice.randomOffset * randomAmt;
     // Static spread (original `phase` before LFO multiply).
     const double phase = evenCenter + randomPart;
@@ -596,5 +593,5 @@ extern "C" int soemdsp_hypersaw2_max_voices() {
 }
 
 extern "C" int soemdsp_hypersaw2_version() {
-  return 45; // Vibrato multiplies per-saw phase spread (original Hypersaw.hpp)
+  return 51; // Distance source defaults; random steps ×2 so Speed Hz matches Fixed
 }

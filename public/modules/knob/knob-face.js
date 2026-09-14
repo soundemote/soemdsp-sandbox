@@ -354,37 +354,55 @@ function nodeGraphKnobFaceFormatReadout(value, patchNode, slider = null) {
 }
 
 /**
+ * Knob square in px: min side of the dial cell × Knob size.
+ * Label size and Value size 0…1 are fractions of this square.
+ */
+function nodeGraphKnobFaceSquarePx(face) {
+  if (!face) {
+    return 0;
+  }
+  const dial = face.querySelector?.("[data-knob-face-dial], .node-macro-knob-dial") || face;
+  const raw = face.style?.getPropertyValue?.("--knob-dial-size")
+    || getComputedStyle(face).getPropertyValue("--knob-dial-size");
+  const dialScale = Math.max(0, Math.min(1, Number.parseFloat(raw) || 1));
+  return Math.min(dial.clientWidth || 0, dial.clientHeight || 0) * dialScale;
+}
+
+function nodeGraphKnobFaceFitTextEl(el, face, sizeVar, fallback) {
+  if (!el || el.hidden || el.getAttribute("aria-hidden") === "true") {
+    return;
+  }
+  const style = el.style;
+  if (!style) {
+    return;
+  }
+  const host = face || el.closest?.(".node-knob-face") || el.parentElement;
+  if (!host) {
+    return;
+  }
+  const raw = host.style?.getPropertyValue?.(sizeVar) || getComputedStyle(host).getPropertyValue(sizeVar);
+  const n = Number.parseFloat(raw);
+  const scale = Math.max(0, Math.min(1, Number.isFinite(n) ? n : fallback));
+  const side = nodeGraphKnobFaceSquarePx(host);
+  if (!(side > 0)) {
+    return;
+  }
+  style.fontSize = `${(side * scale).toFixed(2)}px`;
+  style.lineHeight = "1";
+  style.letterSpacing = "";
+  style.transform = "";
+}
+
+/**
  * Value size 0…1 = fraction of the knob square (min side of the dial cell
  * × Knob size). Same ratio on the module and on canvas.
  */
 function nodeGraphKnobFaceFitReadout(readout, face = null) {
-  if (!readout || readout.hidden || readout.getAttribute("aria-hidden") === "true") {
-    return;
-  }
-  const style = readout.style;
-  if (!style) {
-    return;
-  }
-  const host = face || readout.closest?.(".node-knob-face") || readout.parentElement;
-  if (!host) {
-    return;
-  }
-  const dial = host.querySelector?.("[data-knob-face-dial], .node-macro-knob-dial") || host;
-  const readVar = (name, fallback) => {
-    const raw = host.style?.getPropertyValue?.(name) || getComputedStyle(host).getPropertyValue(name);
-    const n = Number.parseFloat(raw);
-    return Number.isFinite(n) ? n : fallback;
-  };
-  const dialScale = Math.max(0, Math.min(1, readVar("--knob-dial-size", 1)));
-  const valueScale = Math.max(0, Math.min(1, readVar("--knob-value-size", 0.45)));
-  const side = Math.min(dial.clientWidth || 0, dial.clientHeight || 0) * dialScale;
-  if (!(side > 0)) {
-    return;
-  }
-  style.fontSize = `${(side * valueScale).toFixed(2)}px`;
-  style.lineHeight = "1";
-  style.letterSpacing = "";
-  style.transform = "";
+  nodeGraphKnobFaceFitTextEl(readout, face, "--knob-value-size", 0.45);
+}
+
+function nodeGraphKnobFaceFitLabel(label, face = null) {
+  nodeGraphKnobFaceFitTextEl(label, face, "--knob-label-size", 0.45);
 }
 
 function attachNodeGraphKnobFaceReadoutFit(face) {
@@ -396,6 +414,10 @@ function attachNodeGraphKnobFaceReadoutFit(face) {
     const readout = face.querySelector?.("[data-knob-face-readout]");
     if (readout) {
       nodeGraphKnobFaceFitReadout(readout, face);
+    }
+    const label = face.querySelector?.("[data-knob-face-label]");
+    if (label) {
+      nodeGraphKnobFaceFitLabel(label, face);
     }
   };
   if (typeof ResizeObserver === "function") {
@@ -793,6 +815,9 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
     }
     label.hidden = !showLabel;
     label.style.display = showLabel ? "" : "none";
+    if (showLabel && typeof nodeGraphKnobFaceFitLabel === "function") {
+      nodeGraphKnobFaceFitLabel(label, face);
+    }
   }
 
   const readout = face.querySelector("[data-knob-face-readout]");

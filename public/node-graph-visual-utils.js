@@ -114,7 +114,7 @@ function nodeGraphHueUnitRgb01(hueDeg) {
   return [1, 0, x];
 }
 
-function nodeGraphHueBrightnessRgb01(hueDeg, brightness01) {
+function nodeGraphHueBrightnessRgb01(hueDeg, brightness01, saturation01 = 1) {
   const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(brightness01)));
   const [hr, hg, hb] = nodeGraphHueUnitRgb01(hueDeg);
   const toLin = (c) => c ** 2.2;
@@ -136,6 +136,14 @@ function nodeGraphHueBrightnessRgb01(hueDeg, brightness01) {
     r = toSrgb(toLin(hr) * (1 - e) + e);
     g = toSrgb(toLin(hg) * (1 - e) + e);
     b = toSrgb(toLin(hb) * (1 - e) + e);
+  }
+  const satN = Number(saturation01);
+  const s = Number.isFinite(satN) ? Math.max(0, Math.min(1, satN)) : 1;
+  if (s < 1 - 1e-9) {
+    const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    r = r * s + y * (1 - s);
+    g = g * s + y * (1 - s);
+    b = b * s + y * (1 - s);
   }
   return [r, g, b];
 }

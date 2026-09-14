@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=ping-retrigger-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=hs-src-def-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -637,12 +637,6 @@ async function sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEn
       neededEntries.push(entry);
     }
   }
-  if (neededEntries.length && typeof console !== "undefined" && console.debug) {
-    console.debug(
-      "[native-wasm slim] fetch",
-      neededEntries.map((e) => e.targetType || e.name).filter(Boolean),
-    );
-  }
   const results = await Promise.all(
     neededEntries.map(async (entry) => {
       const key = String(entry.name || entry.targetType || "");
@@ -655,17 +649,6 @@ async function sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEn
   );
   const missing = results.filter((r) => !r.ok).map((r) => r.key);
   const loaded = results.filter((r) => r.ok).length;
-  if (neededEntries.length && typeof console !== "undefined" && console.debug) {
-    const report = nodeGraphLiveNativeWasmFetchReport();
-    console.debug("[native-wasm slim] totals", {
-      uniqueUrls: report.uniqueUrls,
-      totalKiB: report.totalKiB,
-      mode: report.mode,
-      loaded,
-      needed: neededEntries.length,
-      missing,
-    });
-  }
   return { needed: neededEntries.length, loaded, missing };
 }
 
@@ -1351,7 +1334,8 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
   }
   if (clamped > 0 && typeof nodeGraphMetamoduleRefreshAllMirrors === "function") {
     try { nodeGraphMetamoduleRefreshAllMirrors(); } catch (_e) { /* ignore */ }
-  } else if (clamped <= 0 && typeof nodeGraphMetamoduleStopAllMirrorLoops === "function") {
+  } else if (clamped <= 0 && !nodeGraphMvp?.live?.node
+    && typeof nodeGraphMetamoduleStopAllMirrorLoops === "function") {
     try { nodeGraphMetamoduleStopAllMirrorLoops(); } catch (_e) { /* ignore */ }
   }
   // Speed 0 = simulation pause: stop phosphor energy steps immediately so
@@ -3183,6 +3167,9 @@ async function stopNodeGraphLiveAudio() {
   setNodeGraphLiveScheduleStatus("schedule stopped");
   clearNodeGraphLiveStatusTitle();
   renderNodeGraphLiveControls(false);
+  if (typeof nodeGraphMetamoduleRefreshAllMirrors === "function") {
+    try { nodeGraphMetamoduleRefreshAllMirrors(); } catch (_e) { /* ignore */ }
+  }
   if (typeof refreshNodeGraphBadvalMonitorBodies === "function") {
     refreshNodeGraphBadvalMonitorBodies();
   }
@@ -3231,7 +3218,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=circuit-6",
+  "./public/node-live-audio-worklet-native-graph.js?v=meta-face-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=chord-seq-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",

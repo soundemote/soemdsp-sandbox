@@ -807,7 +807,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   hypersaw2: {
     category: "oscillator",
-    description: "PolyBLEP hypersaw — distribute/randomize, HypersawUnit vibrato, Random Steps jitter (Distance/Speed/Pitch). Decimal oscillators, phase-column face.",
+    description: "PolyBLEP hypersaw — distribute/randomize, vibrato + Fixed/Random Steps jitter. Distance source wavelength/division. Speeds and walk filter in Hz. Decimal oscillators, phase-column face.",
     label: "Hypersaw",
     notes: ["oscillator", "supersaw", "polyblep", "random-steps", "jitter", "vibrato", "native", "phosphor display"],
   },

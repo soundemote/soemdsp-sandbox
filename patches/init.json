@@ -7,11 +7,7 @@
     "pitchOffsetOctaves": 0,
     "speedLimitHz": 20000
   },
-  "bypassedNodes": [
-    "arp-1",
-    "softwaveOsc-1",
-    "sequencer-1"
-  ],
+  "bypassedNodes": [],
   "cameras": [
     {
       "color": "#ff3333",
@@ -181,7 +177,14 @@
       "destinationNode": "metamodule-1",
       "destinationPort": "Voices",
       "sourceNode": "keyboard-1",
-      "sourcePort": "Play Keys",
+      "sourcePort": "Chord Memory",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "arp-1",
+      "destinationPort": "Arp Keys",
+      "sourceNode": "keyboard-1",
+      "sourcePort": "Chord Memory",
       "tracePoints": []
     }
   ],
@@ -239,8 +242,8 @@
   "monitors": [],
   "nodes": [
     {
-      "gx": 10,
-      "gy": -14,
+      "gx": 42,
+      "gy": 4,
       "id": "output",
       "paramMeta": {
         "volume": {
@@ -352,15 +355,15 @@
       }
     },
     {
-      "gx": -18,
-      "gy": -25,
+      "gx": 15,
+      "gy": -4,
       "id": "textBox-1",
       "paramMeta": {},
       "params": {},
       "type": "textBox",
       "alias": "The Journey Starts Here",
-      "widthGu": 20,
-      "heightGu": 11,
+      "widthGu": 32,
+      "heightGu": 8,
       "layout": {
         "backgroundColor": "#020407",
         "font": "cascadia-mono",
@@ -393,8 +396,8 @@
       }
     },
     {
-      "gx": -18,
-      "gy": -14,
+      "gx": 15,
+      "gy": 4,
       "id": "metamodule-1",
       "paramMeta": {
         "octave": {
@@ -534,20 +537,10 @@
         "octave": 0,
         "semitones": 0,
         "cents": 0,
-        "frequency": 0,
-        "mx_hypersaw2_1__jitterDistance": 4.743149075807762,
-        "mx_hypersaw2_1__jitterSpeed": 0.4917774994994258,
-        "mx_hypersaw2_1__jitterTilt": -0.24748842799483461,
-        "mx_hypersaw2_1__waveform": 1,
-        "mx_hypersaw2_1__morph": 0.5,
-        "mx_hypersaw2_1__vibratoDistance": 0.06099997514325224,
-        "mx_hypersaw2_1__vibratoSpeed": 1.0849724726964207,
-        "mx_hypersaw2_1__vibratoPhaseVary": 0,
-        "mx_hypersaw2_1__jitterSpeedRef": 142.03554543902123,
-        "mx_passiveFilter_2__sweep": -47.09021152531858
+        "frequency": 0
       },
       "type": "metamodule",
-      "alias": "Polyphon Hypersaw",
+      "alias": "HYPERSAW",
       "widthGu": 12,
       "traceDisplaySettings": {
         "backgroundHue": 0,
@@ -637,8 +630,8 @@
       }
     },
     {
-      "gx": -19,
-      "gy": -34,
+      "gx": 14,
+      "gy": -16,
       "id": "metamoduleOut-5",
       "paramMeta": {},
       "params": {},
@@ -681,12 +674,11 @@
         "fade": 0,
         "xyzLayout": "stack"
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleDefaultStereoOut": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -19,
-      "gy": -31,
+      "gx": 14,
+      "gy": -13,
       "id": "metamoduleOut-6",
       "paramMeta": {},
       "params": {},
@@ -729,17 +721,16 @@
         "fade": 0,
         "xyzLayout": "stack"
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleDefaultStereoOut": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -55,
-      "gy": -25,
+      "gx": -22,
+      "gy": -7,
       "id": "keyboard-1",
       "paramMeta": {},
       "params": {},
       "type": "keyboard",
-      "alias": "Keyboard",
+      "alias": "Keyboard & Chord Memory",
       "widthGu": 37,
       "traceDisplaySettings": {
         "backgroundHue": 0,
@@ -884,8 +875,8 @@
       }
     },
     {
-      "gx": -63,
-      "gy": -25,
+      "gx": -30,
+      "gy": -7,
       "id": "keyboardController-1",
       "paramMeta": {},
       "params": {},
@@ -927,8 +918,8 @@
       }
     },
     {
-      "gx": -41,
-      "gy": -32,
+      "gx": -8,
+      "gy": -14,
       "id": "metamodule-1__voiceFrequency",
       "paramMeta": {},
       "params": {},
@@ -952,12 +943,11 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleVoicePortal": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -49,
-      "gy": -9,
+      "gx": -16,
+      "gy": 9,
       "id": "metamodule-1__voiceGate",
       "paramMeta": {},
       "params": {},
@@ -981,12 +971,11 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleVoicePortal": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -49,
-      "gy": -6,
+      "gx": -16,
+      "gy": 12,
       "id": "metamodule-1__voiceTrigger",
       "paramMeta": {},
       "params": {},
@@ -1010,12 +999,11 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleVoicePortal": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -35,
-      "gy": -5,
+      "gx": -3,
+      "gy": 14,
       "id": "metamodule-1__voiceIdle",
       "paramMeta": {},
       "params": {},
@@ -1039,47 +1027,13 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleVoicePortal": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -36,
-      "gy": -34,
+      "gx": -3,
+      "gy": -16,
       "id": "hypersaw2-1",
       "paramMeta": {
-        "seed": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 1,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "seed",
-          "bipolar": false,
-          "max": 99999,
-          "maxDigits": 0,
-          "mid": 1,
-          "min": 0,
-          "nonlinearSlider": true,
-          "sliderCurve": "skew",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "global",
-          "smoothingSeconds": null,
-          "smoothingType": "none",
-          "step": 1,
-          "tooltip": "Master seed for Random Phase and per-voice Random Steps jitter.",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": false,
-          "outputDomain": false
-        },
         "voices": {
           "alias": "",
           "choices": [],
@@ -1107,6 +1061,39 @@
           "modMultiply": false,
           "vca": false,
           "constraint": "cpu",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": true,
+          "outputDomain": false
+        },
+        "centerSide": {
+          "alias": "",
+          "choices": [],
+          "curveAmount": 0,
+          "def": 1,
+          "displayChoices": false,
+          "divideChoicesVisibly": false,
+          "kind": "decimal",
+          "bipolar": false,
+          "max": 1,
+          "maxDigits": 3,
+          "mid": 0.5,
+          "min": 0,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "internal",
+          "smoothingSeconds": 0.0333,
+          "smoothingType": "linear",
+          "step": 0.01,
+          "tooltip": "0 = center voices only, 1 = side voices only. Face: additive off-red=left, off-blue=right, center=both→white.",
+          "modClamp": true,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
           "unit": "",
           "wraparound": false,
           "visible": true,
@@ -1253,72 +1240,6 @@
           "linearSmoothing": true,
           "outputDomain": false
         },
-        "randomizePhase": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 0.1,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "decimal",
-          "bipolar": false,
-          "max": 10,
-          "maxDigits": 3,
-          "mid": 0.5,
-          "min": 0,
-          "nonlinearSlider": false,
-          "sliderCurve": "linear",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 1469,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "Permanent random starting phase offset per saw (after Distance). 0 = no extra random offset.",
-          "modClamp": false,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false
-        },
-        "centerSide": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 1,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "decimal",
-          "bipolar": false,
-          "max": 1,
-          "maxDigits": 3,
-          "mid": 0.5,
-          "min": 0,
-          "nonlinearSlider": false,
-          "sliderCurve": "linear",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
-          "smoothingType": "linear",
-          "step": 0.01,
-          "tooltip": "0 = center voices only, 1 = side voices only. Face: additive off-red=left, off-blue=right, center=both→white.",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false
-        },
         "phaseCollapse": {
           "alias": "",
           "choices": [
@@ -1355,6 +1276,39 @@
           "linearSmoothing": false,
           "outputDomain": false
         },
+        "randomizePhase": {
+          "alias": "",
+          "choices": [],
+          "curveAmount": 0,
+          "def": 0.1,
+          "displayChoices": false,
+          "divideChoicesVisibly": false,
+          "kind": "decimal",
+          "bipolar": false,
+          "max": 10,
+          "maxDigits": 3,
+          "mid": 0.5,
+          "min": 0,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "internal",
+          "smoothingSeconds": 1469,
+          "smoothingType": "linear",
+          "step": 0,
+          "tooltip": "Permanent random starting phase offset per saw (after Distance). 0 = no extra random offset.",
+          "modClamp": false,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": true,
+          "outputDomain": false
+        },
         "jitterDistance": {
           "alias": "",
           "choices": [],
@@ -1377,6 +1331,39 @@
           "smoothingType": "linear",
           "step": 0,
           "tooltip": "Walk room around phase centers. 0 = collapse onto centers (Merge or Distribute). Uses normal parameter smoothing (param menu).",
+          "modClamp": false,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": true,
+          "outputDomain": false
+        },
+        "vibratoDistance": {
+          "alias": "",
+          "choices": [],
+          "curveAmount": -0.9,
+          "def": 0,
+          "displayChoices": false,
+          "divideChoicesVisibly": false,
+          "kind": "decimal",
+          "bipolar": false,
+          "max": 100,
+          "maxDigits": 3,
+          "mid": 10,
+          "min": 0,
+          "nonlinearSlider": true,
+          "sliderCurve": "custom",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "internal",
+          "smoothingSeconds": 1469,
+          "smoothingType": "linear",
+          "step": 0,
+          "tooltip": "Sine phase room around centers — same units as Jitter Distance. (1/N)×Distance × Modulation Tilt × wavetable sine. Speed is constant Hz.",
           "modClamp": false,
           "hardClamp": false,
           "modMultiply": false,
@@ -1421,105 +1408,6 @@
           "linearSmoothing": true,
           "outputDomain": false
         },
-        "jitterSpeedRef": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 200,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "frequency",
-          "bipolar": false,
-          "max": 2000,
-          "maxDigits": 5,
-          "mid": 100,
-          "min": 20,
-          "nonlinearSlider": true,
-          "sliderCurve": "skew",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 1469,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "Anchor pitch where Modulation Tilt is 1×: Jitter Speed and Vibrato Distance equal their knobs.",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "Hz",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false
-        },
-        "jitterTilt": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": -0.3,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "decimal",
-          "bipolar": true,
-          "max": 1,
-          "maxDigits": 3,
-          "mid": 0,
-          "min": -1,
-          "nonlinearSlider": false,
-          "sliderCurve": "linear",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 1469,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "Pitch curve (f / Speed Ref)^(tilt+1). Jitter: scales Speed. Vibrato: scales Distance (sine stays at Vibrato Speed Hz). −1 = same at all pitches. 0 = ∝ f. +1 = highs harder (∝ f²). Hidden by default — show via metaparam.",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": false,
-          "linearSmoothing": true,
-          "outputDomain": false
-        },
-        "vibratoDistance": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": -0.9,
-          "def": 0,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "decimal",
-          "bipolar": false,
-          "max": 100,
-          "maxDigits": 3,
-          "mid": 10,
-          "min": 0,
-          "nonlinearSlider": true,
-          "sliderCurve": "custom",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 1469,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "Sine phase room around centers — same units as Jitter Distance. (1/N)×Distance × Modulation Tilt × wavetable sine. Speed is constant Hz.",
-          "modClamp": false,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false
-        },
         "vibratoSpeed": {
           "alias": "",
           "choices": [],
@@ -1553,6 +1441,147 @@
           "linearSmoothing": true,
           "outputDomain": false
         },
+        "jitterSteps": {
+          "alias": "",
+          "choices": [
+            "Fixed",
+            "Random"
+          ],
+          "curveAmount": 0,
+          "def": 0,
+          "displayChoices": true,
+          "divideChoicesVisibly": true,
+          "kind": "decimal",
+          "bipolar": false,
+          "max": 1,
+          "maxDigits": 3,
+          "mid": 0,
+          "min": 0,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "global",
+          "smoothingSeconds": null,
+          "smoothingType": "none",
+          "step": 1,
+          "tooltip": "Fixed: drunk ±step (original Hypersaw). Random: noise×step (noisier grain).",
+          "modClamp": true,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": false,
+          "outputDomain": false
+        },
+        "jitterFilter": {
+          "alias": "",
+          "choices": [],
+          "curveAmount": 0,
+          "def": 20,
+          "displayChoices": false,
+          "divideChoicesVisibly": false,
+          "kind": "frequency",
+          "bipolar": false,
+          "max": 2000,
+          "maxDigits": 5,
+          "mid": 20,
+          "min": 0.1,
+          "nonlinearSlider": true,
+          "sliderCurve": "skew",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "internal",
+          "smoothingSeconds": 0.0333,
+          "smoothingType": "linear",
+          "step": 0,
+          "tooltip": "Walk LPF cutoff in Hz. Same at every pitch. Low = smooth. High = rawer steps.",
+          "modClamp": true,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "Hz",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": true,
+          "outputDomain": false
+        },
+        "jitterDistanceTiltSource": {
+          "alias": "",
+          "choices": [
+            "Wavelength",
+            "Division"
+          ],
+          "curveAmount": 0,
+          "def": 0,
+          "displayChoices": true,
+          "divideChoicesVisibly": true,
+          "kind": "decimal",
+          "bipolar": false,
+          "max": 1,
+          "maxDigits": 3,
+          "mid": 0,
+          "min": 0,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "global",
+          "smoothingSeconds": null,
+          "smoothingType": "none",
+          "step": 1,
+          "tooltip": "Wavelength: higher pitches move more so phase travel matches. Division: allotted 1/N slot space (legacy).",
+          "modClamp": true,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": false,
+          "outputDomain": false
+        },
+        "vibratoDistanceTiltSource": {
+          "alias": "",
+          "choices": [
+            "Wavelength",
+            "Division"
+          ],
+          "curveAmount": 0,
+          "def": 1,
+          "displayChoices": true,
+          "divideChoicesVisibly": true,
+          "kind": "decimal",
+          "bipolar": false,
+          "max": 1,
+          "maxDigits": 3,
+          "mid": 0,
+          "min": 0,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "global",
+          "smoothingSeconds": null,
+          "smoothingType": "none",
+          "step": 1,
+          "tooltip": "Wavelength: higher pitches move more so phase travel matches. Division: allotted 1/N slot space.",
+          "modClamp": true,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": false,
+          "outputDomain": false
+        },
         "vibratoPhaseVary": {
           "alias": "",
           "choices": [],
@@ -1584,6 +1613,39 @@
           "wraparound": false,
           "visible": true,
           "linearSmoothing": true,
+          "outputDomain": false
+        },
+        "seed": {
+          "alias": "",
+          "choices": [],
+          "curveAmount": 0,
+          "def": 1,
+          "displayChoices": false,
+          "divideChoicesVisibly": false,
+          "kind": "seed",
+          "bipolar": false,
+          "max": 99999,
+          "maxDigits": 0,
+          "mid": 1,
+          "min": 0,
+          "nonlinearSlider": true,
+          "sliderCurve": "skew",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "global",
+          "smoothingSeconds": null,
+          "smoothingType": "none",
+          "step": 1,
+          "tooltip": "Master seed for Random Phase and per-voice Random Steps jitter.",
+          "modClamp": true,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": false,
           "outputDomain": false
         },
         "amplitude": {
@@ -1621,29 +1683,31 @@
         }
       },
       "params": {
-        "seed": 1,
-        "voices": 7,
+        "voices": 14.435804084751203,
+        "centerSide": 1,
         "waveform": 1,
         "morph": 0.5,
-        "frequency": 100,
+        "frequency": 208.50994564272867,
         "phase": 0,
-        "randomizePhase": 2.970384733102537,
-        "centerSide": 1,
         "phaseCollapse": 1,
-        "jitterDistance": 4.743149075807762,
-        "jitterSpeed": 0.4917774994994258,
-        "jitterSpeedRef": 142.03554543902123,
-        "jitterTilt": -0.24748842799483461,
-        "vibratoDistance": 0.06099997514325224,
-        "vibratoSpeed": 1.0849724726964207,
+        "randomizePhase": 2.970384733102537,
+        "jitterDistance": 11.16060076231405,
+        "vibratoDistance": 0.32009038906022796,
+        "jitterSpeed": 0.05922263870095852,
+        "vibratoSpeed": 0.9787400493219194,
+        "jitterSteps": 0,
+        "jitterFilter": 35.397278317453484,
+        "jitterDistanceTiltSource": 0,
+        "vibratoDistanceTiltSource": 1,
         "vibratoPhaseVary": 0,
+        "seed": 1,
         "amplitude": 0.18,
         "_hypersawWaveOrder": 2
       },
       "type": "hypersaw2",
       "widthGu": 7,
       "traceDisplaySettings": {
-        "lineThickness": 0.000625,
+        "lineThickness": 0.00056875,
         "lineThicknessFace01": true
       },
       "ui": {
@@ -1666,8 +1730,8 @@
       "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -44,
-      "gy": -9,
+      "gx": -11,
+      "gy": 9,
       "id": "pluckEnvelope3-2",
       "paramMeta": {
         "recalculateOnTrigger": {
@@ -1834,8 +1898,8 @@
       "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -28,
-      "gy": -34,
+      "gx": 5,
+      "gy": -16,
       "id": "passiveFilter-2",
       "paramMeta": {
         "mode": {
@@ -2147,8 +2211,8 @@
       "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -32,
-      "gy": -10,
+      "gx": 0,
+      "gy": 11,
       "id": "ampCurve-2",
       "paramMeta": {
         "mode": {
@@ -2249,8 +2313,8 @@
       "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -34,
-      "gy": -7,
+      "gx": -1,
+      "gy": 11,
       "id": "arp-1",
       "paramMeta": {
         "mode": {
@@ -2496,8 +2560,8 @@
       }
     },
     {
-      "gx": -25,
-      "gy": -7,
+      "gx": 8,
+      "gy": 11,
       "id": "softwaveOsc-1",
       "paramMeta": {
         "waveform": {
@@ -2743,8 +2807,8 @@
       }
     },
     {
-      "gx": -41,
-      "gy": -7,
+      "gx": -8,
+      "gy": 11,
       "id": "transport-1",
       "paramMeta": {
         "bpm": {
@@ -2982,8 +3046,8 @@
       }
     },
     {
-      "gx": 3,
-      "gy": -14,
+      "gx": 35,
+      "gy": 4,
       "id": "mixStereo2-1",
       "paramMeta": {
         "volume1": {
@@ -3215,8 +3279,8 @@
       }
     },
     {
-      "gx": -6,
-      "gy": -8,
+      "gx": 27,
+      "gy": 4,
       "id": "eqFilter-2",
       "paramMeta": {
         "mode": {
@@ -3424,8 +3488,8 @@
       }
     },
     {
-      "gx": -32,
-      "gy": 10,
+      "gx": 8,
+      "gy": 24,
       "id": "robinSinusoid-1",
       "paramMeta": {
         "frequency": {
@@ -3589,8 +3653,8 @@
       }
     },
     {
-      "gx": -91,
-      "gy": -15,
+      "gx": -58,
+      "gy": 3,
       "id": "sequencer-1",
       "paramMeta": {},
       "params": {},
@@ -3709,8 +3773,8 @@
       }
     },
     {
-      "gx": -24,
-      "gy": 6,
+      "gx": -22,
+      "gy": 11,
       "id": "knob-1",
       "paramMeta": {
         "offset": {
@@ -3957,7 +4021,7 @@
         }
       },
       "params": {
-        "offset": 0.0026299236540689302,
+        "offset": 0.004962984619212726,
         "rangeMin": -0.06711182369805968,
         "rangeMax": 0.055985823118891886,
         "smoothingSeconds": 0.0333,
@@ -3966,19 +4030,19 @@
         "polarity": 0
       },
       "type": "knob",
-      "widthGu": 6,
+      "widthGu": 14,
       "traceDisplaySettings": {
         "decimals": 2,
         "background": "#000000",
         "arcFill": "#f1b84b",
         "arcTrack": "#3a3428",
         "rotationDegrees": 270,
-        "dialSize": 1,
-        "labelSize": 0.3227,
-        "valueSize": 0.1727,
+        "dialSize": 0.9182,
+        "labelSize": 0.1546,
+        "valueSize": 0.1636,
         "labelPosition": "above",
         "valuePosition": "mid",
-        "innerRadius": 0.7,
+        "innerRadius": 0.5591,
         "labelText": "Cutoff"
       },
       "ui": {
@@ -3996,7 +4060,7 @@
         "slidersHidden": true,
         "slidersForceShow": false,
         "titleHidden": true,
-        "displayHeightGu": 5
+        "displayHeightGu": 12
       }
     }
   ],
@@ -4011,7 +4075,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 48,
-    "zoom": 0.6012390190730015,
+    "zoom": 0.5782662426244615,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,
@@ -4022,7 +4086,7 @@
     "moduleSlidersVisible": true,
     "sliderAmountVisible": false,
     "sliderPositionVisible": true,
-    "tooltipEmbedded": true,
+    "tooltipEmbedded": false,
     "locked": false,
     "hideUnusedPorts": false,
     "moduleScopeFramesPerSecond": 120,

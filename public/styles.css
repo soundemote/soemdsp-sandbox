@@ -13455,7 +13455,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   flex: 0 0 auto;
   line-height: 1.05;
   max-height: none;
-  font-size: calc(0.28rem + var(--knob-label-size, 0.45) * 1.55rem);
+  /* Size is JS-fit to the knob square (Label size 0…1). Rem is first-paint only. */
+  font-size: calc(var(--knob-label-size, 0.45) * 1em);
   pointer-events: auto;
   cursor: text;
   user-select: text;

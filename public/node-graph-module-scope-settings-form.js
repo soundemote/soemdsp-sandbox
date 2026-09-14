@@ -122,7 +122,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   }
   if (key === "labelSize" && formType === "knobFace") {
     label = "Label size";
-    title = "Title size 0…1. Independent of knob size.";
+    title = "Title size 0…1 as a fraction of the knob square (min side of the dial × Knob size). 1 = one square. Independent of value size.";
   }
   if (key === "valueSize" && formType === "knobFace") {
     label = "Value size";
@@ -171,6 +171,21 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = meta?.label || "Shape";
     title = meta?.title
       || "Shape parameter 0…1. Meaning depends on Shape.";
+  }
+  if (formType === "numberReadout" && key === "backgroundSaturation") {
+    label = "Sat";
+    title = "LCD plate saturation 0…1. 0 = grey at the same brightness; 1 = full selected color.";
+  }
+  if (formType === "numberReadout" && key === "dot1Saturation") {
+    const nodeType = typeof nodeGraphPatchNode === "function"
+      && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+      ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
+      : null;
+    const lcdInk = nodeType === "valueLcd" || nodeType === "helmholtzPitch";
+    label = "Sat";
+    title = lcdInk
+      ? "LCD ink saturation 0…1. 0 = grey; 1 = full selected color."
+      : "LED color saturation 0…1. 0 = grey; 1 = full selected hue (then Bright maps grey → hue → white).";
   }
   if (formType === "numberReadout" && key === "dot1Brightness") {
     const nodeType = typeof nodeGraphPatchNode === "function"
@@ -1851,7 +1866,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           "decimals",
           "facePadding",
           "backgroundBrightness",
+          "backgroundSaturation",
           "dot1Brightness",
+          "dot1Saturation",
           "unlitSegments",
           ...(nrNodeType === "helmholtzPitch" ? ["centsBand"] : []),
           "innerShadowDistance",
@@ -1868,6 +1885,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           "decimals",
           "facePadding",
           "dot1Brightness",
+          "dot1Saturation",
           "ghost",
           "trail",
           "burn",
@@ -1875,7 +1893,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         ].filter((key) => activeFields.has(key));
         colorKeys = ["backgroundColor"]
           .filter((key) => activeColors.has(key));
-        choiceKeys = ["lightBlend", "polarity"]
+        choiceKeys = ["polarity"]
           .filter((key) => activeChoices.has(key));
       }
     }

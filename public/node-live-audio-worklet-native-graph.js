@@ -336,8 +336,10 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   // Missing keys made ParamModEdge compile skip MOD (envelope → jitterDistance).
   jitterDistance: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
   jitterSpeed: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_RATE,
-  jitterTilt: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LPF_FREQUENCY,
-  jitterSpeedRef: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OVERSAMPLE,
+  jitterDistanceTiltSource: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OVERSAMPLE,
+  jitterSteps: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
+  jitterFilter: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET,
+  vibratoDistanceTiltSource: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_STYLE,
   phaseCollapse: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   centerSide: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PAN,
   vibratoDistance: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_RESONANCE,
@@ -1996,6 +1998,10 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   echoTempoSync: true,
   range: true,
   type: true,
+  jitterDistanceTiltSource: true,
+  vibratoDistanceTiltSource: true,
+  jitterSteps: true,
+  phaseCollapse: true,
 });
 
 /**
@@ -2386,7 +2392,6 @@ NodeLiveAudioProcessor.prototype.compileNativeMetaVoiceCircuits = function compi
   }
   this._nativeVoiceCircuitPairs = cables;
   this._nativeVoiceCircuitMods = mods;
-  this.postNativeGraphStatus("ok", `voice circuits cables=${cables} mods=${mods}`);
   return { cables, mods };
 };
 
@@ -3408,13 +3413,15 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("centerSide", P.NATIVE_GRAPH_PARAM_PAN, cont("centerSide", 1));
       push("phaseCollapse", P.NATIVE_GRAPH_PARAM_SHAPE, disc("phaseCollapse", 0));
-      push("jitterTilt", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("jitterTilt", -0.3));
       push("jitterDistance", P.NATIVE_GRAPH_PARAM_CENTER, cont("jitterDistance", 2));
       push("jitterSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterSpeed", 3.6));
-      push("jitterSpeedRef", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, cont("jitterSpeedRef", 200));
+      push("jitterDistanceTiltSource", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, disc("jitterDistanceTiltSource", 0));
+      push("jitterSteps", P.NATIVE_GRAPH_PARAM_MODE, disc("jitterSteps", 0));
+      push("jitterFilter", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("jitterFilter", 20));
       push("vibratoDistance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("vibratoDistance", 0));
       push("vibratoSpeed", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("vibratoSpeed", 0));
       push("vibratoPhaseVary", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("vibratoPhaseVary", 0));
+      push("vibratoDistanceTiltSource", P.NATIVE_GRAPH_PARAM_LFO_STYLE, disc("vibratoDistanceTiltSource", 1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0.35));
       push("randomizePhase", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomizePhase", 0.1));
       continue;
@@ -4911,6 +4918,53 @@ NodeLiveAudioProcessor.prototype.syncNativeRobinSupersawPublish =
   };
 
 /**
+ * Meta Voices face preview: oldest Sustaining, else newest Releasing.
+ * −1 = freeze last (no live voice).
+ */
+NodeLiveAudioProcessor.prototype.nativePreviewVoiceSlot = function nativePreviewVoiceSlot() {
+  if (!this._nativeMetaVoiceLanes?.length) return -1;
+  const native = this.nativeGraph;
+  const h = this.ensureVoiceManager?.() | 0;
+  if (!(h > 0) || !native) return -1;
+  try {
+    const sc = native.soemdsp_voice_manager_sustaining_count?.(h) | 0;
+    if (sc > 0 && native.soemdsp_voice_manager_sustaining_at) {
+      const slot = native.soemdsp_voice_manager_sustaining_at(h, 0) | 0;
+      if (slot >= 0) return slot;
+    }
+    const rc = native.soemdsp_voice_manager_releasing_count?.(h) | 0;
+    if (rc > 0 && native.soemdsp_voice_manager_releasing_at) {
+      const slot = native.soemdsp_voice_manager_releasing_at(h, rc - 1) | 0;
+      if (slot >= 0) return slot;
+    }
+  } catch (_e) { /* freeze */ }
+  return -1;
+};
+
+/**
+ * Authoring id → native clone id for the current preview slot.
+ * null = this id is a voice-lane module and there is no live voice (freeze).
+ */
+NodeLiveAudioProcessor.prototype.nativeVoicePreviewSourceId = function nativeVoicePreviewSourceId(baseId) {
+  const id = String(baseId || "");
+  if (!id) return id;
+  const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
+  let lane = null;
+  for (let i = 0; i < lanes.length; i += 1) {
+    if (String(lanes[i]?.baseId || "") === id) {
+      lane = lanes[i];
+      break;
+    }
+  }
+  if (!lane) return id;
+  const slot = this._previewVoiceSlot;
+  if (!(slot >= 0)) return null;
+  const ids = lane.voiceIds || [];
+  if (slot < ids.length) return String(ids[slot] || id);
+  return String(ids[0] || id);
+};
+
+/**
  * Pull Hypersaw / Hypersaw2 phase stems for the face (data-bus Phases relay).
  * Meta Voices: oldest Sustaining, else newest Releasing. None → freeze last.
  */
@@ -4923,51 +4977,18 @@ NodeLiveAudioProcessor.prototype.syncNativeHypersawPublish =
     const handleFn = native?.soemdsp_graph_node_native_handle;
     if (!handleFn) return;
 
-    // Preview slot: oldest sustaining[0], else newest releasing[n-1].
-    const previewVoiceSlot = () => {
-      if (!this._nativeMetaVoiceLanes?.length) return -1;
-      const h = this.ensureVoiceManager?.() | 0;
-      if (!(h > 0)) return -1;
-      try {
-        const sc = native.soemdsp_voice_manager_sustaining_count?.(h) | 0;
-        if (sc > 0 && native.soemdsp_voice_manager_sustaining_at) {
-          const slot = native.soemdsp_voice_manager_sustaining_at(h, 0) | 0;
-          if (slot >= 0) return slot;
-        }
-        const rc = native.soemdsp_voice_manager_releasing_count?.(h) | 0;
-        if (rc > 0 && native.soemdsp_voice_manager_releasing_at) {
-          const slot = native.soemdsp_voice_manager_releasing_at(h, rc - 1) | 0;
-          if (slot >= 0) return slot;
-        }
-      } catch (_e) { /* keep face frozen */ }
-      return -1;
-    };
-
-    const laneVoiceIdForBase = (baseId, slot) => {
-      const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
-      for (let i = 0; i < lanes.length; i += 1) {
-        if (String(lanes[i]?.baseId || "") !== String(baseId)) continue;
-        const ids = lanes[i]?.voiceIds || [];
-        if (slot >= 0 && slot < ids.length) return String(ids[slot] || "");
-        return String(ids[0] || baseId);
-      }
-      return String(baseId);
-    };
-
     const publishFamily = (typeName, statesMap, createState, phaseFn, countFn, fracFn) => {
       if (!phaseFn || !statesMap) return;
-      const previewSlot = previewVoiceSlot();
       for (const [id, node] of this.nodes || []) {
         if (String(node?.type || "") !== typeName) continue;
         const state = statesMap.get(id) || createState?.() || { nativeHandle: 0 };
         statesMap.set(id, state);
 
         const ownedMeta = String(node?.ownerMetamoduleId || "");
-        const slot = ownedMeta && previewSlot >= 0 ? previewSlot : 0;
-
         const sourceId = ownedMeta
-          ? laneVoiceIdForBase(id, slot)
+          ? this.nativeVoicePreviewSourceId(id)
           : String(id);
+        if (sourceId == null) continue; // no live voice — freeze last stems
         const hash = this.fnv1aHash32(sourceId);
         let handle = 0;
         try {
@@ -6490,6 +6511,16 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
     P.NATIVE_GRAPH_PORT_IS_IDLE,
   ];
 
+  this._previewVoiceSlot = this.nativePreviewVoiceSlot?.() ?? -1;
+  if (this.nativeGraph?.soemdsp_graph_set_preview_voice_slot) {
+    try {
+      this.nativeGraph.soemdsp_graph_set_preview_voice_slot(
+        this.nativeGraphHandle,
+        this._previewVoiceSlot,
+      );
+    } catch (_e) { /* ignore */ }
+  }
+
   const publishOneNativeOut = (id, type) => {
     if (!Object.prototype.hasOwnProperty.call(P.NATIVE_GRAPH_TYPE_IDS, type)) return;
     if (type === "output") return;
@@ -6524,7 +6555,13 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
 
   for (const [id, node] of this.nodes) {
     const type = String(node?.type || "");
-    publishOneNativeOut(id, type);
+    const tapId = this.nativeVoicePreviewSourceId?.(id);
+    if (tapId == null) continue;
+    publishOneNativeOut(tapId, type);
+    if (tapId !== id) {
+      const out = this.nodeOutputs.get(tapId);
+      if (out) this.nodeOutputs.set(id, out);
+    }
     // Envelope *Mod twins: publish full-quantum Mono as Additive mod strip
     // (native DSP only — no JS BakeStrip).
     if (
@@ -6542,7 +6579,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
         || type === "linearAttackRelease"
       )
     ) {
-      const envHash = this.fnv1aHash32(id);
+      const envHash = this.fnv1aHash32(tapId);
       const monoView = this.bindNativeGraphNodePortView(
         envHash,
         P.NATIVE_GRAPH_PORT_MONO,
@@ -6620,7 +6657,9 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       if (this._nativeWiredNodeIds instanceof Set && !this._nativeWiredNodeIds.has(String(nodeId))) {
         continue;
       }
-      const hash = this.fnv1aHash32(nodeId);
+      const tapId = this.nativeVoicePreviewSourceId?.(nodeId);
+      if (tapId == null) continue;
+      const hash = this.fnv1aHash32(tapId);
       const writeHz = Number(entry.writeHz);
       // writeHz 0 / unset = every engine sample (waveform / phosphor faces).
       // Never stress-hop those — hop-2/8 was the high-speed Lorenz downsample.
@@ -6744,7 +6783,8 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       return nodeGraphFiniteNumber(last?.[lastKey] ?? last?.Mono);
     }
     const portId = this.mapNativeGraphSrcPortId(sourcePort, srcType);
-    const hash = this.fnv1aHash32(sourceNode);
+    const tapSrc = this.nativeVoicePreviewSourceId?.(sourceNode) || sourceNode;
+    const hash = this.fnv1aHash32(tapSrc);
     const view = this.bindNativeGraphNodePortView(hash, portId, frames);
     if (view && frame < view.length) {
       const v = Number(view[frame]);
@@ -6809,6 +6849,18 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       }
       continue;
     }
+    let sinkFrozen = false;
+    for (let i = 0; i < inputs.length && !sinkFrozen; i += 1) {
+      const connections = inputs[i]?.connections;
+      if (!Array.isArray(connections)) continue;
+      for (let c = 0; c < connections.length; c += 1) {
+        if (this.nativeVoicePreviewSourceId?.(connections[c].sourceNode) == null) {
+          sinkFrozen = true;
+          break;
+        }
+      }
+    }
+    if (sinkFrozen) continue;
     for (let frame = 0; frame < frames; frame += stride) {
       let aggregate = 0;
       for (let i = 0; i < inputs.length; i += 1) {

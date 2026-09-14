@@ -58,8 +58,10 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
   const vibratoPhaseVary = Number(options.vibratoPhaseVary);
   const jitterDistance = Number(options.jitterDistance);
   const jitterSpeed = Number(options.jitterSpeed ?? options.jitterSpeedHz);
-  const jitterTilt = Number(options.jitterTilt ?? -1);
-  const jitterSpeedRef = Number(options.jitterSpeedRef);
+  const jitterDistanceTiltSource = Number(options.jitterDistanceTiltSource);
+  const jitterSteps = Number(options.jitterSteps);
+  const jitterFilter = Number(options.jitterFilter);
+  const vibratoDistanceTiltSource = Number(options.vibratoDistanceTiltSource);
   const centerSide = Number(options.centerSide);
   const waveform = Number(options.waveform);
   const morph = Number(options.morph);
@@ -78,13 +80,15 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     Number.isFinite(vibratoPhaseVary) ? vibratoPhaseVary : 0,
     Number.isFinite(jitterDistance) ? jitterDistance : 0.1,
     Number.isFinite(jitterSpeed) ? jitterSpeed : 1,
-    Number.isFinite(jitterTilt) ? jitterTilt : -1,
+    Number.isFinite(jitterDistanceTiltSource) ? jitterDistanceTiltSource : 0,
+    Number.isFinite(jitterSteps) ? jitterSteps : 0,
+    Number.isFinite(jitterFilter) ? jitterFilter : 20,
+    Number.isFinite(vibratoDistanceTiltSource) ? vibratoDistanceTiltSource : 1,
     Number.isFinite(centerSide) ? centerSide : 1,
     Number.isFinite(waveform) ? waveform : 1,
     Number.isFinite(morph) ? morph : 0.5,
     level,
     Number.isFinite(seed) ? seed : 1,
-    Number.isFinite(jitterSpeedRef) ? jitterSpeedRef : 261.625565,
   );
   const n = wasm.soemdsp_hypersaw2_voice_count
     ? Math.max(0, Math.min(64, wasm.soemdsp_hypersaw2_voice_count(state.nativeHandle) | 0))
