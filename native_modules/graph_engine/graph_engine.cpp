@@ -1694,7 +1694,7 @@ static const int kParamPhase = 14;       // polyBlep phase offset (radians fract
 static const int kParamResonance = 20;   // ladder
 static const int kParamMode = 21;        // ladder
 static const int kParamStages = 22;      // ladder
-static const int kParamCenter = 30;      // softClipper
+static const int kParamCenter = 30;      // softClipper; Dual Ladder / Passive sweep st
 static const int kParamWidth = 31;       // softClipper
 static const int kParamOversample = 32;  // softClipper
 static const int kParamMix = 40;               // reverb / pingPong
@@ -2868,6 +2868,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCrossover4) ? 1000.0
       : (typeId == kTypeCrossover5) ? 500.0
       : (typeId == kTypeCrossover6) ? 300.0
+      : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 0.0 // sweep st
       : 0.0,
     // Robin detuneAlgorithm is discrete 0…5
     typeId == kTypeRobinSupersaw
@@ -4314,6 +4315,15 @@ static double apply_global_pitch(const Circuit& g, double freq) {
   if (!(oct == oct) || oct == 0.0) return freq;
   const double out = freq * dsp_exp(oct * 0.6931471805599453);
   if (!(out == out)) return 0.0;
+  return out;
+}
+
+// Dual Ladder / Passive Sweep: same JS law hz * 2^(st/12). +12 = one octave.
+static double apply_sweep_hz(double hz, double sweepSemis) {
+  if (!(hz > 0.0)) return 0.0;
+  if (!(sweepSemis == sweepSemis) || sweepSemis == 0.0) return hz;
+  const double out = hz * dsp_exp((sweepSemis / 12.0) * 0.6931471805599453);
+  if (!(out == out) || !(out > 0.0)) return 0.0;
   return out;
 }
 
@@ -6914,8 +6924,9 @@ static void process_binary_clock(Circuit& g, Node& node, int frames) {
 }
 
 // Dual Ladder: waveform=hpSlope, shape=lpSlope (0 Bypass … 4=24 dB),
-// stages=feedbackCircuit, timingMode=gainCompensation,
-// hpfFrequency=lowCut, lpfFrequency=highCut. Live ƒ centers both cuts.
+// stages=feedbackCircuit, timingMode=gainCompensation, center=sweep st,
+// hpfFrequency=lowCut, lpfFrequency=highCut. Live ƒ centers both cuts;
+// sweep then shifts both by the same semitone amount (BP ratio stays).
 static void process_active_filter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -6982,6 +6993,10 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
       lo = apply_global_pitch(g, lo);
       hi = apply_global_pitch(g, hi);
     }
+    // Sweep after ƒ / 0.1V / patch Pitch (same order as JS resolve + Passive).
+    const double sweep = control_audio(g, node.center, f);
+    lo = apply_sweep_hz(lo, sweep);
+    hi = apply_sweep_hz(hi, sweep);
     lo = clamp_hz_nyquist(lo, sr);
     hi = clamp_hz_nyquist(hi, sr);
     if (lo < 0.0) lo = 0.0;
@@ -11967,5 +11982,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 147; // fM ƒ mixer; Passive Filter amplitude applied
+  return 148; // Dual Ladder sweep st (center) after ƒ / pitch, both cuts
 }

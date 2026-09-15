@@ -548,6 +548,10 @@ if ($node) {
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: passive filter crossed BP smoke FAILED"
   }
+  & $node.Source "$root\scripts\smoke_active_filter_sweep.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: Dual Ladder sweep smoke FAILED"
+  }
   & $node.Source "$root\scripts\smoke_remove_node_preserves_state.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: remove_node preserves state smoke FAILED"
