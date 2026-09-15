@@ -111,6 +111,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   softwaveOsc: 45,
   dsfOscillator: 46,
   hypersaw2: 158,
+  fm: 169,
   wavetableAdsr: 168,
   rasterRgb: 160,
   chaosfly: 161,
@@ -348,6 +349,11 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   vibratoPhaseVary: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_VARIATION,
   randomizePhase: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   voices: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES,
+  octave: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
+  semitones: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES,
+  cents: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
+  multiply: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE,
+  add: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET,
   highFrequency: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LPF_FREQUENCY,
   lowFrequency: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_HPF_FREQUENCY,
   cutoff: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FREQUENCY,
@@ -1961,6 +1967,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   seed: true,
   sequenceOffset: true,
   octaveOffset: true,
+  octave: true,
+  semitones: true,
   filter: true, // Yellow spectral LP/BP/HP
   noise: true, // Yellow Noisy* mode
   // FrequencySkew / curveOsc "curve" = discrete family. NOT additiveBlaster /
@@ -4518,6 +4526,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("offset", P.NATIVE_GRAPH_PARAM_CENTER, cont("offset", 0));
       continue;
     }
+    if (type === "fm") {
+      push("octave", P.NATIVE_GRAPH_PARAM_MODE, disc("octave", 0));
+      push("semitones", P.NATIVE_GRAPH_PARAM_STAGES, disc("semitones", 0));
+      push("cents", P.NATIVE_GRAPH_PARAM_CENTER, cont("cents", 0));
+      push("multiply", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("multiply", 1));
+      push("add", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("add", 0));
+      continue;
+    }
     if (type === "lutCell") {
       push("truthTable", P.NATIVE_GRAPH_PARAM_SEED, disc("truthTable", 27030));
       continue;
@@ -6259,6 +6275,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "triggerCounter") return ["Pulse"];
     if (type === "metallicRatio") return ["Ratio"];
     if (type === "harmonicSeries") return ["f", "Out", "Mono", "ƒ"];
+    if (type === "fm") return ["f", "Out", "Mono", "ƒ"];
     if (type === "lutCell") return ["Out"];
 
     if (type === "transport") return ["Gate -1+1", "Gate Bi"];

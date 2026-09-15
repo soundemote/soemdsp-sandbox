@@ -286,11 +286,10 @@ function nodeGraphPassiveFilterPrepare(
   }
   let hpHz = null;
   let lpHz = null;
+  // BP = HP then LP in series. Do not sort cutoffs — HPF > LPF collapses the band.
   if (safeMode === 1) {
-    const low = Math.min(lo, hi);
-    const high = Math.max(lo, hi);
-    hpHz = nodeGraphPassiveFilterStackFrequencies(low, stages, k, comp, "hp");
-    lpHz = nodeGraphPassiveFilterStackFrequencies(high, stages, k, comp, "lp");
+    hpHz = nodeGraphPassiveFilterStackFrequencies(lo, stages, k, comp, "hp");
+    lpHz = nodeGraphPassiveFilterStackFrequencies(hi, stages, k, comp, "lp");
   } else if (safeMode === 2) {
     hpHz = nodeGraphPassiveFilterStackFrequencies(lo, stages, k, comp, "hp");
   } else {

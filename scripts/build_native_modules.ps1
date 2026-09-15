@@ -83,7 +83,7 @@ $modules = @(
   @{ Name = "human_filter"; Simd = $false; Exports = @("soemdsp_human_filter_create", "soemdsp_human_filter_destroy", "soemdsp_human_filter_sample", "soemdsp_human_filter_version") }
   @{ Name = "pulse_explosion"; Simd = $false; Exports = @("soemdsp_pulse_explosion_create", "soemdsp_pulse_explosion_destroy", "soemdsp_pulse_explosion_sample", "soemdsp_pulse_explosion_curve", "soemdsp_pulse_explosion_version") }
   @{ Name = "tb303_filter"; Simd = $false; Exports = @("soemdsp_tb303_filter_create", "soemdsp_tb303_filter_destroy", "soemdsp_tb303_filter_sample", "soemdsp_tb303_filter_version", "soemdsp_tb303_filter_metadata_json", "soemdsp_tb303_filter_metadata_json_size") }
-  @{ Name = "passive_filter"; Simd = $false; Exports = @("soemdsp_passive_filter_create", "soemdsp_passive_filter_destroy", "soemdsp_passive_filter_sample", "soemdsp_passive_filter_version", "soemdsp_passive_filter_metadata_json", "soemdsp_passive_filter_metadata_json_size") }
+  @{ Name = "passive_filter"; Simd = $false; Exports = @("soemdsp_passive_filter_create", "soemdsp_passive_filter_destroy", "soemdsp_passive_filter_sample", "soemdsp_passive_filter_sample_ex", "soemdsp_passive_filter_version", "soemdsp_passive_filter_metadata_json", "soemdsp_passive_filter_metadata_json_size") }
   @{ Name = "shooting_star_explosion"; Simd = $false; Exports = @("soemdsp_shooting_star_explosion_power", "soemdsp_shooting_star_explosion_version", "soemdsp_shooting_star_explosion_metadata_json", "soemdsp_shooting_star_explosion_metadata_json_size") }
   @{ Name = "polyblep"; Simd = $false; Exports = @(
     "soemdsp_polyblep_create", "soemdsp_polyblep_destroy", "soemdsp_polyblep_reset",
@@ -539,6 +539,14 @@ if ($node) {
   & $node.Source "$root\scripts\smoke_cycle_freq_mod_not_block_zoh.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: cycle freq mod block-ZOH smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_polyblep_phase_mod_feedback.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: polyblep phase MOD feedback smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_passive_filter_crossed_bp.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: passive filter crossed BP smoke FAILED"
   }
   & $node.Source "$root\scripts\smoke_remove_node_preserves_state.mjs"
   if ($LASTEXITCODE -ne 0) {

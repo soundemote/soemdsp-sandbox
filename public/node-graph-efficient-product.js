@@ -57,6 +57,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "triggerCounter",
   "metallicRatio",
   "harmonicSeries",
+  "fm",
   "lutCell",
   "lookaheadLimiter",
   "limiter",

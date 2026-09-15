@@ -134,6 +134,7 @@ const nodeGraphNodeLabels = Object.freeze({
   pluginSlider: "Slider",
   toggleButton: "Toggle",
   momentaryButton: "Momentary",
+  fm: "fM",
   passiveFilter: "Passive Filter",
   tiltFilter: "Tilt Filter",
   eqFilter: "EQ Filter",
@@ -6291,6 +6292,83 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
+  fm: {
+    planRole: "processor",
+    planFreeRun: true,
+    defaultWidthGu: 4,
+    defaultHeightGu: 4,
+    defaultUi: {
+      buttonsHidden: true,
+      oscilloscopeHidden: true,
+    },
+    inputs: ["f"],
+    inputAliases: { Freq: "f", Frequency: "f", F: "f", "ƒ": "f", In: "f", Mono: "f" },
+    inputLabels: { f: "ƒ" },
+    outputs: ["f"],
+    outputAliases: { Out: "f", Mono: "f", Frequency: "f", Freq: "f", "ƒ": "f" },
+    outputLabels: { f: "ƒ" },
+    parameters: [
+      {
+        defaultValue: "0",
+        key: "octave",
+        label: "Octave",
+        max: "4",
+        mid: "0",
+        min: "-4",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Pitch transpose in octaves (× 2^oct). Applied after Multiply.",
+      },
+      {
+        defaultValue: "0",
+        key: "semitones",
+        label: "Semitones",
+        max: "12",
+        mid: "0",
+        min: "-12",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Pitch transpose in semitones (× 2^(st/12)).",
+      },
+      {
+        defaultValue: "0",
+        key: "cents",
+        label: "Cents",
+        max: "100",
+        mid: "0",
+        min: "-100",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Fine pitch transpose in cents (× 2^(cents/1200)).",
+      },
+      {
+        defaultValue: "1",
+        key: "multiply",
+        label: "Multiply",
+        max: "16",
+        mid: "1",
+        min: "0",
+        modClamp: false,
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Scale mixed ƒ before pitch transpose (FM depth / ratio). 1 = unity.",
+      },
+      {
+        defaultValue: "0",
+        key: "add",
+        label: "Add",
+        max: "1000",
+        mid: "0",
+        min: "-1000",
+        modClamp: false,
+        nonlinearSlider: false,
+        showSign: true,
+        step: "any",
+        unit: "Hz",
+        tooltip: "Bipolar Hz offset after Multiply and pitch transpose.",
+      },
+    ],
+  },
   u2b: {
     planRole: "processor",
     defaultWidthGu: 3,
@@ -6927,7 +7005,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Real-pole stacks. LP / HP use LPF / HPF. BP is HP then LP. ƒ sets the active cutoff (BP moves both)."
+        tooltip: "Real-pole stacks. LP / HP use LPF / HPF. BP is HP→LP in series (no cutoff swap — HPF above LPF collapses the band)."
       },
       {
         choices: ["6", "12", "18", "24"],
@@ -6966,7 +7044,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Highpass cutoff (HP and BP). Sweep / ƒ / 0.1V move cuts together. When ƒ is wired in HP, that Hz is the cutoff."
+        tooltip: "Highpass cutoff (HP and BP). In BP, raising this past LPF collapses the passband (series HP→LP)."
       },
       {
         defaultValue: "1000",
@@ -6979,7 +7057,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Lowpass cutoff (LP and BP). Sweep / ƒ / 0.1V move cuts together. When ƒ is wired in LP, that Hz is the cutoff."
+        tooltip: "Lowpass cutoff (LP and BP). In BP, lowering this past HPF collapses the passband (series HP→LP)."
       },
       {
         defaultValue: "0",
@@ -7008,7 +7086,14 @@ const nodeGraphModuleDefinitions = (
         step: "1",
         tooltip: "On = scale poles so the labeled cutoff is −3 dB. Off = every pole sits on the staggered freqs. No effect at 6 dB."
       },
-        nodeGraphOutputAmplitudeParam,
+      {
+        ...nodeGraphOutputAmplitudeParam,
+        // Filters often feed ƒ as CV — allow domain raise past 1 without modClamp fights.
+        modClamp: false,
+        max: "100",
+        mid: "1",
+        tooltip: "Output scale. Raise domain for large CV into ƒ (e.g. filter → frequency).",
+      },
     ]
   },
   // First-order spectral tilt (not a 1-pole HP). Credit: Robin Schmidt / RS-MET shelf BLT.

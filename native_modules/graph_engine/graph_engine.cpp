@@ -1633,6 +1633,7 @@ static const int kTypePluckEnvelope3 = 165;
 static const int kTypeCurveAttackRelease = 166;
 static const int kTypeThumpEnvelope = 167;
 static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smoothstep)
+static const int kTypeFm = 169; // ƒ mixer / pitch scale (oct/st/cents × Multiply + Add)
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -2784,6 +2785,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAmpCurve) ? 1.0 // Exp (classic VCA CV)
       : (typeId == kTypeHilbert) ? 0.0 // +90°
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
+      : (typeId == kTypeFm) ? 0.0 // octave
       : (typeId == kTypeHypersaw2) ? 0.0 // jitterSteps Fixed
       : (typeId == kTypeSampleHold) ? 0.0 // polarity Bipolar
       : (typeId == kTypeWavetableAdsr) ? 0.0 // shape Analog
@@ -2831,6 +2833,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSoemReverb) ? 10.0 // numDelays
       : (typeId == kTypePll) ? 1.0 // PC type RS Flip
       : (typeId == kTypeAdditiveDiffusor) ? 0.0 // quantize off
+      : (typeId == kTypeFm) ? 0.0 // semitones
       : 4.0,
     // Generator Harmonics + Hypersaw2/RobinSupersaw voices stay continuous for Decimal trailing amp.
     (typeId != kTypeAdditiveGenerator && typeId != kTypeHypersaw2
@@ -2838,7 +2841,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.center,
-    (typeId == kTypeHypersaw2) ? 2.0 // jitterDistance
+    (typeId == kTypeFm) ? 0.0 // cents
+      : (typeId == kTypeHypersaw2) ? 2.0 // jitterDistance
       : (typeId == kTypePluckEnvelope) ? 0.5 // VelocitySensitivity
       : (typeId == kTypeExpoPluckEnvelope) ? 0.25 // bottomHeight
       : (typeId == kTypeExpoPluckEnvelope2) ? 0.5 // velocitySensitivity
@@ -3401,6 +3405,11 @@ static void clear_live_param_mods_on_node(Node& n) {
 // - Self-mod: src.hist (previous sample)
 // - Active 1-sample feedback group: hist if src has not run this sample, else buf[0]
 // - Else not-yet-processed src: src.histBuf[f] (previous quantum)
+//
+// Feedback sample-major calls dispatch with frames=1, so callers pass frame=0
+// every iteration. Outside sources that already filled a full quantum must be
+// indexed by g.fbFrame — otherwise ParamModEdge (and any Control sink) locks
+// onto buf[0] for the whole quantum (classic rate-limited ZOH).
 static inline double edge_read_sample(
   Circuit& g, unsigned int srcHash, int srcPort, int frame, unsigned int dstHash
 ) {
@@ -3418,11 +3427,16 @@ static inline double edge_read_sample(
     double v = src.processedThisSample ? src.buf[sp][0] : src.hist[sp];
     return (v == v) ? v : 0.0;
   }
+  int readFrame = frame;
+  if (g.fbSampleMajor && g.fbActiveGroup >= 0) {
+    readFrame = g.fbFrame;
+    if (readFrame < 0 || readFrame >= kMaxBlockFrames) readFrame = 0;
+  }
   if (src.processedThisBlock == 0) {
-    double v = src.histBuf[sp][frame];
+    double v = src.histBuf[sp][readFrame];
     return (v == v) ? v : 0.0;
   }
-  double v = src.buf[sp][frame];
+  double v = src.buf[sp][readFrame];
   return (v == v) ? v : 0.0;
 }
 
@@ -4960,6 +4974,42 @@ static void process_b2u(Circuit& g, Node& node, int frames) {
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
+  }
+}
+
+// fM: mix all ƒ cables, then × Multiply × 2^(oct+st/12+cents/1200) + Add.
+// mode=octave (snap), stages=semitones (snap), center=cents, amplitude=multiply, offset=add.
+static void process_fm(Circuit& g, Node& node, int frames) {
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool takeSamplePath = node_needs_sample_accurate_controls(g, node, liveF);
+  if (!liveF && !takeSamplePath) {
+    const double oct = control_effective(node.mode);
+    const double st = control_effective(node.stages);
+    const double cents = control_effective(node.center);
+    const double mul = control_effective(node.amplitude);
+    const double add = control_effective(node.offset);
+    const double ratio = dsp_exp((oct + st / 12.0 + cents / 1200.0) * 0.6931471805599453);
+    const double hz = (0.0 * mul * ratio) + add;
+    for (int f = 0; f < frames; f++) {
+      node.buf[kPortMono][f] = hz;
+      node.buf[kPortLeft][f] = hz;
+      node.buf[kPortRight][f] = hz;
+    }
+    return;
+  }
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double oct = control_audio(g, node.mode, f);
+    const double st = control_audio(g, node.stages, f);
+    const double cents = control_audio(g, node.center, f);
+    const double mul = control_audio(g, node.amplitude, f);
+    const double add = control_audio(g, node.offset, f);
+    const double base = liveF ? g.mixF[f] : 0.0;
+    const double ratio = dsp_exp((oct + st / 12.0 + cents / 1200.0) * 0.6931471805599453);
+    const double hz = base * mul * ratio + add;
+    node.buf[kPortMono][f] = hz;
+    node.buf[kPortLeft][f] = hz;
+    node.buf[kPortRight][f] = hz;
   }
 }
 
@@ -7031,12 +7081,13 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
     hi = clamp_hz_nyquist(hi, sr);
     if (lo < 0.0) lo = 0.0;
     if (hi < 0.0) hi = 0.0;
+    const double amp = control_audio(g, node.amplitude, f);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
       const double out = soemdsp_passive_filter_sample_ex(
         node.nativeHandle, in, mode, lo, hi, sr, slope, stagger, sweep, gainComp
-      );
+      ) * amp;
       node.buf[kPortMono][f] = out;
       if (!hasLeftIn) node.buf[kPortLeft][f] = out;
       if (!hasRightIn) node.buf[kPortRight][f] = out;
@@ -7045,13 +7096,13 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
       node.buf[kPortLeft][f] = soemdsp_passive_filter_sample_ex(
         node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], mode, lo, hi, sr,
         slope, stagger, sweep, gainComp
-      );
+      ) * amp;
     }
     if (hasRightIn && node.nativeHandleR > 0) {
       node.buf[kPortRight][f] = soemdsp_passive_filter_sample_ex(
         node.nativeHandleR, g.mixRight[f] + g.mixMono[f], mode, lo, hi, sr,
         slope, stagger, sweep, gainComp
-      );
+      ) * amp;
     }
   }
 }
@@ -11557,6 +11608,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_range(g, node, frames);
       return;
     }
+    if (node.typeId == kTypeFm) {
+      process_fm(g, node, frames);
+      return;
+    }
     if (node.typeId == kTypeInv) {
       process_inv(g, node, frames);
       return;
@@ -11912,5 +11967,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 146; // Available voices idle (no voice-0 preview DSP)
+  return 147; // fM ƒ mixer; Passive Filter amplitude applied
 }

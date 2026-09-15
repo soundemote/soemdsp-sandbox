@@ -199,11 +199,11 @@ extern "C" double soemdsp_passive_filter_sample_ex(
   double hpHz[kMaxStages];
   double lpHz[kMaxStages];
 
+  // BP = HP then LP in series. Do NOT sort cutoffs — when HPF > LPF the
+  // passband collapses and the cascade attenuates (same as two filters in series).
   if (mode == 1) {
-    const double low = mind(lo, hi);
-    const double high = maxd(lo, hi);
-    stack_freqs(low, n, k, comp, true, hpHz);
-    stack_freqs(high, n, k, comp, false, lpHz);
+    stack_freqs(lo, n, k, comp, true, hpHz);
+    stack_freqs(hi, n, k, comp, false, lpHz);
     const double hp = cascade(s.hp, safeIn, hpHz, n, true, rate);
     return cascade(s.lp, hp, lpHz, n, false, rate);
   }
@@ -229,6 +229,6 @@ extern "C" double soemdsp_passive_filter_sample(
   );
 }
 
-extern "C" int soemdsp_passive_filter_version() { return 2; }
+extern "C" int soemdsp_passive_filter_version() { return 3; } // BP: no HPF/LPF sort
 extern "C" const char* soemdsp_passive_filter_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_passive_filter_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

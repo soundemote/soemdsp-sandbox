@@ -1058,6 +1058,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Range",
     notes: ["range", "map", "scale", "remap", "utility", "dynamics", "native"],
   },
+  fm: {
+    category: "modulator",
+    description: "Mix ƒ cables, then × Multiply × 2^(Octave+Semitones/12+Cents/1200) + Add. Frequency CV / FM utility.",
+    label: "fM",
+    notes: ["fm", "frequency", "ƒ", "multiply", "octave", "semitone", "cents", "pitch", "modulator", "utility"],
+  },
   u2b: {
     category: "dynamics",
     description: "Unipolar 0…1 to bipolar −1…1 (out = 2·in − 1).",
