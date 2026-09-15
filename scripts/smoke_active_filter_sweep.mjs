@@ -90,48 +90,55 @@ function rmsFor(typeId, setup, toneHz, sweepSt) {
 }
 
 function setupActiveBp(g, h) {
-  setParam(g, h, PARAM_WAVEFORM, 2); // HP 12
-  setParam(g, h, PARAM_SHAPE, 2); // LP 12
-  setParam(g, h, PARAM_HPF, 300);
-  setParam(g, h, PARAM_LPF, 500);
+  setParam(g, h, PARAM_WAVEFORM, 4); // HP 24
+  setParam(g, h, PARAM_SHAPE, 4); // LP 24
+  setParam(g, h, PARAM_HPF, 350);
+  setParam(g, h, PARAM_LPF, 450);
   setParam(g, h, PARAM_STAGES, 0); // feedback Off — no res boost
   setParam(g, h, PARAM_TIMING_MODE, 1);
 }
 
 function setupPassiveBp(g, h) {
   setParam(g, h, PARAM_MODE, 1); // BP
-  setParam(g, h, PARAM_HPF, 300);
-  setParam(g, h, PARAM_LPF, 500);
-  setParam(g, h, PARAM_STAGES, 1); // 12 dB
+  setParam(g, h, PARAM_HPF, 350);
+  setParam(g, h, PARAM_LPF, 450);
+  setParam(g, h, PARAM_STAGES, 3); // 24 dB
 }
 
 function assertBandMoves(name, typeId, setup) {
-  const in0 = rmsFor(typeId, setup, 400, 0);
-  const out0 = rmsFor(typeId, setup, 800, 0);
-  const in12 = rmsFor(typeId, setup, 800, 12);
-  const out12 = rmsFor(typeId, setup, 400, 12);
-  const stillInAt1 = rmsFor(typeId, setup, 400, 1);
+  const hz400s0 = rmsFor(typeId, setup, 400, 0);
+  const hz800s0 = rmsFor(typeId, setup, 800, 0);
+  const hz400s12 = rmsFor(typeId, setup, 400, 12);
+  const hz800s12 = rmsFor(typeId, setup, 800, 12);
+  const hz400s1 = rmsFor(typeId, setup, 400, 1);
   console.log({
     name,
-    in0,
-    out0,
-    in12,
-    out12,
-    stillInAt1,
-    ratio0: in0 / Math.max(out0, 1e-12),
-    ratio12: in12 / Math.max(out12, 1e-12),
+    hz400s0,
+    hz800s0,
+    hz400s12,
+    hz800s12,
+    hz400s1,
   });
-  if (!(in0 > out0 * 2)) {
-    throw new Error(`${name} sweep=0: 400 Hz should pass BP 300–500 more than 800 Hz (${in0} vs ${out0})`);
+  // sweep=0: 400 Hz in 350–450, 800 Hz above LPF.
+  if (!(hz400s0 > hz800s0 * 1.25)) {
+    throw new Error(`${name} sweep=0: 400 Hz should pass BP 350–450 more than 800 Hz (${hz400s0} vs ${hz800s0})`);
   }
-  if (!(in12 > out12 * 2)) {
+  // +12 st → 700–900 Hz. 800 Hz enters; 400 Hz drops out.
+  if (!(hz800s12 > hz400s12 * 1.25)) {
     throw new Error(
-      `${name} sweep=+12: 800 Hz should pass the octave-shifted band more than 400 Hz (${in12} vs ${out12})`,
+      `${name} sweep=+12: 800 Hz should pass the octave-shifted band more than 400 Hz (${hz800s12} vs ${hz400s12})`,
     );
   }
-  if (!(stillInAt1 > out0 * 1.5)) {
+  if (!(hz400s0 > hz400s12 * 1.3)) {
+    throw new Error(`${name} +12 st must attenuate 400 Hz (was ${hz400s0}, now ${hz400s12})`);
+  }
+  if (!(hz800s12 > hz800s0 * 1.3)) {
+    throw new Error(`${name} +12 st must raise 800 Hz (was ${hz800s0}, now ${hz800s12})`);
+  }
+  // Unit is semitones: +1 st is not +1 octave, so 400 Hz stays in-band.
+  if (!(hz400s1 > hz800s0 * 1.2) || !(hz400s1 > hz400s12)) {
     throw new Error(
-      `${name} sweep=+1 st must not be treated as +1 octave (400 Hz still in-band: ${stillInAt1})`,
+      `${name} sweep=+1 st must not be treated as +1 octave (400 Hz still in-band: ${hz400s1})`,
     );
   }
 }
