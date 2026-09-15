@@ -3738,11 +3738,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "activeFilter") {
       // Dual Ladder: waveform=hpSlope, shape=lpSlope (0 Bypass … 4=24),
-      // stages=feedbackCircuit, timingMode=gainCompensation; hpf/lpf = cuts.
+      // stages=feedbackCircuit, timingMode=gainCompensation,
+      // center=sweep st; hpf/lpf = cuts. Sweep after ƒ / 0.1V / patch Pitch.
       push("hpSlope", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("hpSlope", 0));
       push("lpSlope", P.NATIVE_GRAPH_PARAM_SHAPE, disc("lpSlope", 4));
       push("highFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("highFrequency", 1000));
       push("lowFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("lowFrequency", 200));
+      push("sweep", P.NATIVE_GRAPH_PARAM_CENTER, cont("sweep", 0));
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
       push("feedbackCircuit", P.NATIVE_GRAPH_PARAM_STAGES, disc("feedbackCircuit", 3));
       push("gainCompensation", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("gainCompensation", 1));

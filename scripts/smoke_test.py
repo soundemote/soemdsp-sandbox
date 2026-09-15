@@ -18746,6 +18746,34 @@ def require_native_module_contract(base_url: str) -> None:
         "basic_oscillator native apply must not steal polyBlep/blit targetTypes",
     )
     graph_engine_source = (ROOT / "native_modules" / "graph_engine" / "graph_engine.cpp").read_text(encoding="utf-8")
+    _af_push = native_graph_source.find('if (type === "activeFilter")')
+    _pf_push = native_graph_source.find('if (type === "passiveFilter")')
+    require(
+        _af_push >= 0
+        and _pf_push > _af_push
+        and 'push("sweep", P.NATIVE_GRAPH_PARAM_CENTER, cont("sweep", 0))'
+        in native_graph_source[_af_push:_pf_push],
+        "Dual Ladder native param push must map sweep → CENTER (semitones), like Passive Filter",
+    )
+    _af_proc = graph_engine_source.find("static void process_active_filter")
+    _pf_proc = graph_engine_source.find("static void process_passive_filter")
+    require(
+        _af_proc >= 0
+        and _pf_proc > _af_proc
+        and "apply_sweep_hz" in graph_engine_source[_af_proc:_pf_proc]
+        and "node.center" in graph_engine_source[_af_proc:_pf_proc],
+        "process_active_filter must apply sweep (node.center, semitones) to both Dual Ladder cuts",
+    )
+    active_filter_math = (PUBLIC / "modules" / "activeFilter" / "active-filter-math.js").read_text(
+        encoding="utf-8"
+    )
+    require(
+        "function nodeGraphSweepFrequencyHz(hz, semitones)" in active_filter_math
+        and "low = nodeGraphSweepFrequencyHz(low, sweep);" in active_filter_math
+        and "high = nodeGraphSweepFrequencyHz(high, sweep);" in active_filter_math
+        and "2 ** (st / 12)" in active_filter_math,
+        "JS Dual Ladder resolve already sweeps both cuts in semitones (native was the missing path)",
+    )
     require(
         'name === "ellipsoid" || targetType === "ellipsoid"' in worklet_source
         and "this.nativeEllipsoidReady" in worklet_source
