@@ -1,6 +1,60 @@
 // Efficient Live: publish Bias/Out for face controllers (not in native graph).
 // Must run before syncNativeGraphParams / Additive sidecar so MOD folds work.
 
+/**
+ * Efficient Live clears JS parameter smoothers (native owns those). Knob /
+ * Plugin Slider / buttons are NOT native — Bias/Out must chase here.
+ * Always re-apply Smooth/Algo from module params onto the control meta so lean
+ * setParams cannot leave offset/value with smoothingMode "off".
+ */
+NodeLiveAudioProcessor.prototype.applyControllerEfficientSmoothingMeta = function applyControllerEfficientSmoothingMeta(
+  node,
+  controlKey,
+) {
+  if (!node || !controlKey) {
+    return null;
+  }
+  if (typeof nodeGraphDspApplyControllerSmoothingMeta === "function") {
+    return nodeGraphDspApplyControllerSmoothingMeta(node, controlKey);
+  }
+  if (!node.paramMeta || typeof node.paramMeta !== "object") {
+    node.paramMeta = {};
+  }
+  const params = node.params && typeof node.params === "object" ? node.params : {};
+  const existing = node.paramMeta[controlKey] && typeof node.paramMeta[controlKey] === "object"
+    ? node.paramMeta[controlKey]
+    : {};
+  const seconds = Number(params.smoothingSeconds);
+  const snap = !Number.isFinite(seconds) || seconds <= 0;
+  let type = "linear";
+  if (typeof nodeGraphDspControllerSmoothingTypeFromIndex === "function") {
+    type = nodeGraphDspControllerSmoothingTypeFromIndex(params.smoothingType);
+  }
+  const meta = {
+    ...existing,
+    linearSmoothing: !snap,
+    smoothingMode: snap ? "off" : "internal",
+    smoothingSeconds: snap ? 0 : seconds,
+    smoothingType: snap ? "none" : type,
+  };
+  node.paramMeta[controlKey] = meta;
+  return meta;
+};
+
+NodeLiveAudioProcessor.prototype.controllerEfficientSmoothedValue = function controllerEfficientSmoothedValue(
+  node,
+  controlKey,
+  fallback,
+  frames,
+) {
+  this.applyControllerEfficientSmoothingMeta?.(node, controlKey);
+  if (typeof this.additiveEffectiveParam === "function") {
+    return this.additiveEffectiveParam(node, controlKey, fallback, frames);
+  }
+  const raw = Number(node?.params?.[controlKey]);
+  return Number.isFinite(raw) ? raw : fallback;
+};
+
 NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function processControllerEfficientSidecar(
   _frames,
 ) {
@@ -464,9 +518,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       if (type === "knob") {
         // Chase offset DOMAIN like other params (linearSmoothing / smoothingSeconds).
         // Raw p.offset is the target only — Bias must publish the smoothed out.
-        const offset = typeof this.additiveEffectiveParam === "function"
-          ? num(this.additiveEffectiveParam(node, "offset", 0, _frames), 0)
-          : num(p.offset, 0);
+        const offset = num(this.controllerEfficientSmoothedValue(node, "offset", 0, _frames), 0);
         const rangeMin = num(p.rangeMin, 0);
         const rangeMax = num(p.rangeMax, 1);
         const polarity = num(p.polarity, 0);
@@ -477,26 +529,36 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
           ? nodeGraphDspBiasFromIn(offset, mixIn(nid, "In"), range.min, range.max)
           : { Bias: offset, Out: offset, offset, value: offset };
         this.nodeOutputs.set(nid, out);
+        if (typeof this.captureModuleScopeOutput === "function") {
+          this.captureModuleScopeOutput(nid, out);
+        }
         continue;
       }
 
       if (type === "pluginSlider") {
-        const value = num(p.value, 0);
+        const value = num(this.controllerEfficientSmoothedValue(node, "value", 0, _frames), 0);
         const out = typeof nodeGraphDspBiasFromIn === "function"
           ? nodeGraphDspBiasFromIn(value, mixIn(nid, "In"))
           : { Bias: value, Out: value, offset: value, value };
         this.nodeOutputs.set(nid, out);
+        if (typeof this.captureModuleScopeOutput === "function") {
+          this.captureModuleScopeOutput(nid, out);
+        }
         continue;
       }
 
       if (type === "toggleButton" || type === "momentaryButton") {
-        const unit = num(p.value, 0);
+        const unit = num(this.controllerEfficientSmoothedValue(node, "value", 0, _frames), 0);
         const rangeMin = num(p.rangeMin, 0);
         const rangeMax = num(p.rangeMax, 1);
         const mapped = typeof nodeGraphDspControllerUnitToRange === "function"
           ? nodeGraphDspControllerUnitToRange(unit, rangeMin, rangeMax)
           : unit;
-        this.nodeOutputs.set(nid, { Out: mapped, value: mapped, Bias: mapped });
+        const btnOut = { Out: mapped, value: mapped, Bias: mapped };
+        this.nodeOutputs.set(nid, btnOut);
+        if (typeof this.captureModuleScopeOutput === "function") {
+          this.captureModuleScopeOutput(nid, btnOut);
+        }
         continue;
       }
 

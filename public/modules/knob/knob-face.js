@@ -753,20 +753,20 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
     ? nodeGraphDspControllerDisplayIsMouse(patchNode)
     : true;
   let value = null;
-  if (!wantsMouse && buffer?.length) {
-    const sample = Number(buffer[buffer.length - 1]);
-    if (Number.isFinite(sample)) {
-      value = sample;
-    }
-  }
-  if (value == null) {
-    if (wantsMouse) {
-      let base = typeof nodeGraphReadNodeNumber === "function"
-        ? nodeGraphReadNodeNumber(nodeId, "offset")
-        : Number(patchNode?.params?.offset);
-      value = Number.isFinite(base) ? base : 0;
-    } else {
-      value = nodeGraphKnobFaceLiveOffset(nodeId);
+  if (wantsMouse) {
+    // Display = Mouse: show the pointer target (hidden offset Control).
+    let base = typeof nodeGraphReadNodeNumber === "function"
+      ? nodeGraphReadNodeNumber(nodeId, "offset")
+      : Number(patchNode?.params?.offset);
+    value = Number.isFinite(base) ? base : 0;
+  } else {
+    // Display = Smoothed: prefer live Bias (scope / published out), not mouse target.
+    value = nodeGraphKnobFaceLiveOffset(nodeId);
+    if (!Number.isFinite(value) && buffer?.length) {
+      const sample = Number(buffer[buffer.length - 1]);
+      if (Number.isFinite(sample)) {
+        value = sample;
+      }
     }
   }
   if (!Number.isFinite(value)) {
