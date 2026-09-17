@@ -6,7 +6,7 @@ This is **not** the sealed `flowerChildFilter` module. It rebuilds a Clean-style
 
 ## Signal path
 
-1. Source (`polyBlep` saw) → (removed; use polyBlep amplitude) (≈0.036) → `mix` In1  
+1. Source (`polyBlep` saw) → polyBlep amplitude (≈0.036) → `mix` In1  
 2. Feedback → `fbVca` → `mix` In2 (`bleed2to1=1`)  
 3. `mix` Out1 → `fmScale` → `osc` **Increment** (FM-ish drive; hand-tune `fmScale`)  
 4. `osc` Sine (`basicShape`) → `lpf1` 6 dB → `lpf2` 6 dB → **Out**  
@@ -42,7 +42,7 @@ Frequency knob Bias feeds three Ranges (no ratio attenuverters):
 
 Range Out values above |1| domain-add on MOD. For PARAM OUT sources that should emit Hz (etc.) instead of 0…1, use Parameter Settings → **Param out: domain**.
 
-Audio-path gains stay attenuverters: (removed; use polyBlep amplitude), `fmScale`, `fbVca`. Resonance still goes Knob → `resGraph` → MOD `fbVca.amplitude` (0…1 curve for now).
+Audio-path gains stay attenuverters: polyBlep amplitude, `fmScale`, `fbVca`. Resonance still goes Knob → `resGraph` → MOD `fbVca.amplitude` (0…1 curve for now).
 
 ## Feedback delay
 

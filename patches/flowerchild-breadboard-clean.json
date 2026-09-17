@@ -18,7 +18,7 @@
       "program": 0,
       "bankName": "",
       "category": "filter",
-      "description": "Graph-driven Clean Flower Child approx \u2014 NOT the sealed flowerChildFilter. Edit resGraph (Resonance\u2192feedback amount). Knob Freq drives osc + dual 6dB Passive Filters (ratios 0.164 / 0.366). Mix = input scale + feedback; FM via Increment. Tune inScale, fmScale, ratios by ear."
+      "description": "Graph-driven Clean Flower Child approx \u2014 NOT the sealed flowerChildFilter. Edit resGraph (Resonance\u2192feedback amount). Knob Freq drives osc + dual 6dB Passive Filters (ratios 0.164 / 0.366). Mix = input scale + feedback; FM via Increment. Tune polyBlep amplitude, fmScale, Ranges by ear."
     },
     "view": {
       "zoom": 0.85,
