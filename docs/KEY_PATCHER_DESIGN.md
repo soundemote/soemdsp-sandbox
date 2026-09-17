@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | **Author** | Sandbox / Argi |
-| **Date** | 2026-09-16 (rev 2 same day) |
+| **Date** | 2026-09-16 (rev 3) |
 | **Status** | Draft � brainstorm — design (rev 2) |
 | **Repo** | `C:\Users\argit\Documents\_PROGRAMMING\soemdsp-sandbox` |
 | **Related** | `docs/PARAM_SURFACES.md` (DOMAIN vs unit 0�1), existing keyboard / pitch-reference UI |
@@ -41,7 +41,7 @@ Goals for a prototype:
 - Manual include / exclude of which params participate � no automatic spread of one key's edits onto all keys.
 - Interpolate between nearest keyframes along the MIDI axis for continuous params; hold for enums / discrete.
 - Blue Note In / Out / Thru (+ mask) so a Keyboard module can drive play-key morph and continue the note chain.
-- Clear poly story: graph-local shared morph vs metamodule Voice DOMAIN rack (per-voice apply).
+- Poly story: Key Patcher morphs metamodule **shell-exposed** DOMAIN params; metamodule maps those into voices.
 
 ### Non-Goals (rev 1)
 
@@ -221,50 +221,43 @@ Gate / velocity: optional later jacks; rev 2 only requires note identity for mor
 
 ---
 
-## Polyphony & metamodules (rev 2)
+## Polyphony & metamodules (rev 3) — decision locked
 
-### The confusion (real)
+**Decision:** Key Patcher only ever targets **parameters exposed on the metamodule shell** (same canvas as the Key Patcher), exactly like any other module’s DOMAIN knobs. It does **not** reach into the child template or cloned voice nodeIds.
 
-A **polyphony metamodule** is a self-contained child universe: voice instances clone a template graph with their own node IDs and DOMAIN state. An outer Key Patcher that writes `passiveFilter-2|lowFrequency` on the **parent** canvas cannot address �voice 3�s filter� � that node does not exist on the parent.
+### Why this is enough
 
-So: **per-key timbre for poly voices cannot be �reach into the metamodule from outside with parent nodeIds.�**
+1. Metamodule authors **expose** the voice-relevant DOMAIN controls on the shell (filter cut, reso, morph, …).
+2. Key Patcher include list / snapshots / morph write those shell params in real DOMAIN units.
+3. The **metamodule** owns mapping shell DOMAIN → each voice instance (existing expose/forward machinery). Per-voice note still enters via blue notes; timbre follows whatever the metamodule already does with exposed params when voices run.
 
-### Recommended split
+So there is no separate “poke the child universe” API for Key Patcher. Poly works if (and only if) the knobs you care about are exposed on the metamodule face.
 
-| Placement | What it morphs | Polyphony |
-|-----------|----------------|-----------|
-| **A. Graph-local Key Patcher** | DOMAIN on modules **in the same canvas** | One shared morph (last/lowest/play note). All voices hear the same knob values if they only share parent-level FX � fine for mono or global FX. |
-| **B. Voice-local keyframes** | DOMAIN **inside the voice template** | Each voice applies keyframes for **its own** note at note-on / note change. This is the poly path. |
+### Graph-local remains one mechanism
 
-**B is where metamodule needs its own parameter hook** � your instinct is right.
+| Target | How Key Patcher sees it |
+|--------|-------------------------|
+| Normal module on canvas | `nodeId\|paramKey` DOMAIN |
+| Metamodule exposed param | `metamoduleId\|exposedParamKey` DOMAIN |
 
-### Metamodule Voice DOMAIN rack (hook)
+Same snapshot / edit / play / morph code path. No template-relative refs in the Key Patcher MVP.
 
-Treat keyframe storage as a **metamodule-owned** table, not a parent-graph poke API:
+### Blue notes
 
-1. Authoring UI can still be the Key Patcher keyboard face (placed **on the metamodule shell**, or **inside** the template for editing).
-2. Include list uses **template-relative** refs (`templatePath|paramKey` or stable child ids inside the template), never live voice instance ids.
-3. Keyframes store **DOMAIN** (same contract as � Parameter value contract).
-4. At **voice start** (and on legato note change if allowed), the metamodule runtime:
-   - reads the voice�s MIDI note
-   - morphs the Voice DOMAIN rack
-   - writes DOMAIN into **that voice instance�s** child controls (same sticky `set_param` path, voice-scoped)
+Keyboard → Key Patcher Note In (morph play key + optional mask) → Note Out/Thru → metamodule Note In. Morph writes shell DOMAIN; metamodule distributes to voices per its own rules.
 
-Parent blue notes: Keyboard ? (optional outer Key Patcher thru) ? metamodule Note In. Outer Key Patcher is **not** required for poly timbre if the rack lives on the metamodule; outer Key Patcher remains useful for **parent-canvas** modules (master filter, FX) with a mono play-key.
+### What not to build (still)
 
-### What not to build
+- Parent Key Patcher walking into metamodule internals / cloned voice ids.
+- A second keyframe system inside the child canvas for MVP.
+- Auto-exposing every child param on the shell.
 
-- Parent Key Patcher walking into metamodule internals by cloned node id.
-- Duplicating the entire child patch JSON per MIDI key.
-- Auto-syncing parent include lists into child racks.
+### Follow-on (metamodule-owned, not Key Patcher)
 
-### Authoring UX sketch (poly)
-
-1. Enter metamodule template; pin include params; Alt+click keys to snapshot DOMAIN inside the template (or on shell while �edit template� is active).
-2. Save rack on the metamodule node.
-3. Perform: notes enter metamodule; each voice gets its own morph apply; no global stomping of sibling voices.
+If exposed shell params are currently **shared across all voices** (one DOMAIN for the whole poly stack), true *per-voice* timbre-at-note may need metamodule work later (e.g. apply exposed DOMAIN as a per-voice offset at note-on). That is **metamodule runtime** scope. Key Patcher still only authors the shell-facing DOMAIN keyframes.
 
 ---
+
 ## Persistence
 
 Store `KeyPatcherState` on the module node params / module-private blob in the patch JSON (same pattern as other modules with structured state). Save/load with the patch.
@@ -297,9 +290,10 @@ Agree: DOMAIN-only storage, click grammar, absolute keyframes, manual include, l
 
 - Note In / Out / Thru + basic mask; face click and Note In share playMidi.
 
-### Phase 5 � Metamodule Voice DOMAIN rack
+### Phase 5 — Metamodule exposed params
 
-- Template-relative include refs; apply on voice start; poly path separate from graph-local Key Patcher.
+- Confirm include/morph against metamodule shell-exposed DOMAIN params (same path as normal modules).
+- Document any metamodule gap if exposed params are voice-global vs per-voice (metamodule follow-on).
 
 ---
 
@@ -309,8 +303,7 @@ Agree: DOMAIN-only storage, click grammar, absolute keyframes, manual include, l
 2. **Rebase:** when base is recaptured, keep absolute keyframe DOMAINs as-is (recommended) or reinterpret as deltas?
 3. **Module name** in the shop: Key Patcher vs Keyframe Keyboard vs Pitch Scene?
 4. **Note mask UI:** range knobs vs per-key toggle vs reuse an existing mask control pattern?
-5. **Legato inside a voice:** re-morph DOMAIN on note change while gated, or only at voice steal / note-on?
-6. **Shell vs inside-template authoring:** is Key Patcher face on the metamodule shell enough, or must authoring happen inside the child canvas?
+5. **Metamodule voice binding:** today, do exposed shell params already fan out per voice at note-on, or are they one shared DOMAIN for all voices? (Determines whether Key Patcher alone yields per-voice timbre or needs a metamodule follow-on.)
 
 ---
 
@@ -322,7 +315,7 @@ Agree: DOMAIN-only storage, click grammar, absolute keyframes, manual include, l
 - Patch save/load restores keyframes.
 - Never round-trips through 0�1 unit space for storage.
 - Blue Note In selects play key; Note Out / Thru behave as documented (graph-local MVP).
-- Design-level clarity: poly timbre uses metamodule Voice DOMAIN rack, not parent poke-into-child.
+- Poly path: Key Patcher morphs metamodule **exposed** shell params only; no child-universe poke.
 
 ---
 
