@@ -4,26 +4,37 @@
 Palette department `text` (emoji memo) holds text/code surfaces: Text Box, Animated Text Box, Text Stream, and **Code**.
 
 ## Code (`codeBox`)
-Control-plane editor. White square **Code** in/out (data bus). Apply publishes text. Never in the audio path.
+Control-plane **document** box for Graph curve JSON. White square **Code** in/out (data bus). Never in the audio path. Not a programming language.
 
-The old JS DSP **Codeblock** module was removed (retired on patch load).
+## Cable payload (SSOT)
+Isomorphic to `normalizeNodeGraphGraph` output (optional ignored `v` tag allowed on parse):
+
+```json
+{
+  "cursorX": 0.5,
+  "nodes": [
+    { "x": 0, "y": 1, "c": 0, "shape": "linear" },
+    { "x": 1, "y": 0, "c": 0, "shape": "linear" }
+  ]
+}
+```
+
+- `nodes`: 2..32 points, sorted by `x` on normalize
+- `c`: contour (tension on Smooth / skew on Step)
+- `shape`: segment style (`linear`, `rational`, `smoothstep`, `log`, …)
+
+Apply = `JSON.parse` → `normalizeNodeGraphGraph` → save canonical JSON + publish Code out. Invalid JSON does not publish a driveable document.
 
 ## Code in behavior
-- Local text always saved on the module (`codeBox.localText`).
+- Local text saved on the module (`codeBox.localText`).
 - While Code in is wired: face not typable; display shows incoming payload; Apply disabled.
 - Disconnect restores saved local text.
 
 ## Graphs
-Smooth/Step Graph have a white square **Code** inlet. Valid curve text (`id x y bend` lines) applies to `graph.nodes` while connected.
+Smooth/Step Graph Code in assigns `patchNode.graph` from a valid document. Code out serializes the live `graph` the same way. Graph face remains the primary authoring UI.
 
 ## Bottom strip
 X / Y / Tension|Skew face strip still deferred.
-
-## Port lists
-- `inputs` / `outputs` — the jacks.
-- `dataInputs` / `dataOutputs` — also jacks. Put a name in **one** list only.
-- `codeInputs` / `codeOutputs` — tags for Code styling only (not jack lists).
-Overlapping names in signal + data lists throw at port build time (definition bug, not silently fixed).
 
 ## Port types
 Code jacks use strict type `code` — see [PORT_TYPES.md](PORT_TYPES.md).

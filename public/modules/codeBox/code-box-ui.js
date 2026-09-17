@@ -1,12 +1,20 @@
-﻿// Code box — control-plane editor. Publishes Code out on the data bus.
-// Never runs in the audio path. localText persists; Code in overrides display.
+// Code box — control-plane document editor for Graph `graph` JSON.
+// Publishes Code out on the data bus. Never runs in the audio path.
+// Payload is isomorphic to normalizeNodeGraphGraph (optional "v" tag only).
 
-const CODE_BOX_DEFAULT_LOCAL_TEXT = [
-  "# codeBox curve v1",
-  "p1  0.00  1.00  0.00",
-  "p2  1.00  0.00  0.00",
-  "",
-].join("\n");
+const CODE_BOX_DEFAULT_GRAPH = Object.freeze({
+  cursorX: 0.5,
+  nodes: Object.freeze([
+    Object.freeze({ x: 0, y: 1, c: 0, shape: "linear" }),
+    Object.freeze({ x: 1, y: 0, c: 0, shape: "linear" }),
+  ]),
+});
+
+function nodeGraphCodeBoxDefaultLocalText() {
+  return `${JSON.stringify(CODE_BOX_DEFAULT_GRAPH, null, 2)}\n`;
+}
+
+const CODE_BOX_DEFAULT_LOCAL_TEXT = nodeGraphCodeBoxDefaultLocalText();
 
 function normalizeNodeGraphCodeBox(value = {}) {
   const source = value && typeof value === "object" ? value : {};
@@ -28,7 +36,19 @@ function nodeGraphCodeBoxIncomingText(nodeId) {
   if (typeof readNodeGraphDataInput !== "function") {
     return undefined;
   }
-  return readNodeGraphDataInput(nodeId, "Code");
+  const value = readNodeGraphDataInput(nodeId, "Code");
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  // Object on the bus (rare) → canonical JSON text for the face.
+  try {
+    return `${JSON.stringify(value, null, 2)}\n`;
+  } catch (_error) {
+    return String(value ?? "");
+  }
 }
 
 function nodeGraphCodeBoxEffectiveText(patchNode) {
@@ -45,29 +65,89 @@ function nodeGraphCodeBoxEffectiveText(patchNode) {
   return store.localText;
 }
 
+/** Parse Code-jack payload → normalized graph, or { ok:false, message }. */
+function nodeGraphParseCodeGraphDocument(textOrValue) {
+  let raw = textOrValue;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return { ok: false, message: "Empty document." };
+    }
+    try {
+      raw = JSON.parse(trimmed);
+    } catch (error) {
+      return { ok: false, message: `Invalid JSON: ${error?.message || "parse error"}` };
+    }
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { ok: false, message: "Document must be a JSON object ({ cursorX, nodes })." };
+  }
+  // Allow optional version tag; ignore unknown keys after normalize.
+  const candidate = {
+    cursorX: raw.cursorX,
+    nodes: raw.nodes,
+  };
+  if (!Array.isArray(candidate.nodes)) {
+    return { ok: false, message: "Missing nodes array." };
+  }
+  if (candidate.nodes.length < 2) {
+    return { ok: false, message: "Need at least 2 points in nodes." };
+  }
+  if (typeof normalizeNodeGraphGraph !== "function") {
+    return { ok: false, message: "Graph normalize unavailable." };
+  }
+  const graph = normalizeNodeGraphGraph(candidate);
+  if (!Array.isArray(graph?.nodes) || graph.nodes.length < 2) {
+    return { ok: false, message: "Normalize produced fewer than 2 points." };
+  }
+  return { ok: true, graph, message: "ok" };
+}
+
+function serializeNodeGraphCurveToCodeText(graph) {
+  const g = typeof normalizeNodeGraphGraph === "function"
+    ? normalizeNodeGraphGraph(graph)
+    : graph;
+  // Strip to the transferable fields only (isomorphic to normalize output).
+  const doc = {
+    cursorX: Number(g?.cursorX),
+    nodes: (Array.isArray(g?.nodes) ? g.nodes : []).map((node) => ({
+      x: Number(node?.x),
+      y: Number(node?.y),
+      c: Number(node?.c),
+      shape: String(node?.shape || "linear"),
+    })),
+  };
+  return `${JSON.stringify(doc, null, 2)}\n`;
+}
+
 function commitNodeGraphCodeBoxLocalText(nodeId, localText, status = "Code local text") {
   if (typeof nodeGraphScriptReadyForGraphAction === "function"
     && !nodeGraphScriptReadyForGraphAction("codeBox")) {
-    return false;
+    return { ok: false, message: "Scripts not ready." };
   }
   if (!nodeId || (typeof nodeGraphMvp !== "undefined" && !nodeGraphMvp.activeNodes?.has?.(nodeId))) {
-    return false;
+    return { ok: false, message: "Module not active." };
+  }
+  if (nodeGraphCodeBoxIsCodeInConnected(nodeId)) {
+    return { ok: false, message: "Code in connected — local Apply disabled." };
+  }
+  const parsed = nodeGraphParseCodeGraphDocument(localText);
+  if (!parsed.ok) {
+    return parsed;
   }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const patchNode = patch.nodes.find((n) => n.id === nodeId);
   if (!patchNode) {
-    return false;
+    return { ok: false, message: "Node missing." };
   }
-  // Refuse local edits while Code in is driving the face.
-  if (nodeGraphCodeBoxIsCodeInConnected(nodeId)) {
-    return false;
-  }
-  patchNode.codeBox = normalizeNodeGraphCodeBox({ localText: String(localText ?? "") });
+  // Persist canonical JSON (what the object is), not whatever the user typed with junk keys.
+  const canonical = serializeNodeGraphCurveToCodeText(parsed.graph);
+  patchNode.codeBox = normalizeNodeGraphCodeBox({ localText: canonical });
   commitNodeGraphPatch(patch, { status, record: true });
   if (typeof writeNodeGraphDataOutput === "function") {
-    writeNodeGraphDataOutput(nodeId, "Code", patchNode.codeBox.localText);
+    writeNodeGraphDataOutput(nodeId, "Code", canonical);
   }
-  return true;
+  return { ok: true, graph: parsed.graph, message: "ok" };
 }
 
 function publishNodeGraphCodeBoxOutput(nodeId) {
@@ -101,10 +181,10 @@ function syncNodeGraphCodeBoxFace(face, nodeId) {
   if (applyBtn) {
     applyBtn.disabled = driven;
   }
-  if (hint) {
+  if (hint && !hint.dataset.stickyError) {
     hint.textContent = driven
-      ? "Code in connected — display follows cable; disconnect restores saved text."
-      : "Edit + Apply publishes Code out. White square jacks are data, not audio.";
+      ? "Code in connected — display follows cable; disconnect restores saved document."
+      : "JSON graph document ({ cursorX, nodes:[{x,y,c,shape}] }). Apply validates, then publishes Code out.";
   }
   // Don't fight the caret while the user is typing local text.
   if (!driven && document.activeElement === area) {
@@ -146,7 +226,7 @@ function createNodeGraphCodeBoxFace(nodeId) {
   area.spellcheck = false;
   area.autocomplete = "off";
   area.value = store.localText;
-  area.setAttribute("aria-label", "Code source");
+  area.setAttribute("aria-label", "Graph JSON document");
 
   const hint = document.createElement("div");
   hint.className = "node-code-box-hint";
@@ -155,7 +235,16 @@ function createNodeGraphCodeBoxFace(nodeId) {
     if (area.readOnly) {
       return;
     }
-    commitNodeGraphCodeBoxLocalText(nodeId, area.value, "Code Apply");
+    const result = commitNodeGraphCodeBoxLocalText(nodeId, area.value, "Code Apply");
+    if (hint) {
+      if (result?.ok) {
+        delete hint.dataset.stickyError;
+        hint.textContent = "Applied — Code out updated.";
+      } else {
+        hint.dataset.stickyError = "1";
+        hint.textContent = result?.message || "Apply failed.";
+      }
+    }
     syncNodeGraphCodeBoxFace(face, nodeId);
   };
 
@@ -165,6 +254,11 @@ function createNodeGraphCodeBoxFace(nodeId) {
     apply();
   });
   area.addEventListener("pointerdown", (e) => e.stopPropagation());
+  area.addEventListener("input", () => {
+    if (hint?.dataset.stickyError) {
+      delete hint.dataset.stickyError;
+    }
+  });
   area.addEventListener("keydown", (e) => {
     e.stopPropagation();
     if ((e.metaKey || e.ctrlKey) && String(e.key).toLowerCase() === "enter") {
@@ -181,7 +275,6 @@ function createNodeGraphCodeBoxFace(nodeId) {
   });
 
   // Never commit during face mount — that re-enters applyNodeGraphPatchToDom and freezes the app.
-  // Spawn/load stamps codeBox via createNodeGraphPatchNode / validate.
   if (patchNode && (!patchNode.codeBox || patchNode.codeBox.localText == null)) {
     patchNode.codeBox = normalizeNodeGraphCodeBox({ localText: store.localText });
   }
@@ -196,43 +289,6 @@ function syncAllNodeGraphCodeBoxFaces() {
   });
 }
 
-
-function nodeGraphParseCodeBoxCurveText(text) {
-  const lines = String(text ?? "").split(/\r?\n/);
-  const nodes = [];
-  for (const rawLine of lines) {
-    const line = String(rawLine || "").trim();
-    if (!line || line.startsWith("#") || line.startsWith("//")) continue;
-    const parts = line.split(/[\s,]+/).filter(Boolean);
-    if (parts.length < 3) continue;
-    let id = null;
-    let x;
-    let y;
-    let bend;
-    if (parts.length >= 4 && Number.isFinite(Number(parts[1]))) {
-      id = String(parts[0]);
-      x = Number(parts[1]);
-      y = Number(parts[2]);
-      bend = Number(parts[3]);
-    } else {
-      x = Number(parts[0]);
-      y = Number(parts[1]);
-      bend = Number(parts[2]);
-    }
-    if (![x, y, bend].every((n) => Number.isFinite(n))) continue;
-    nodes.push({
-      id: id || `p${nodes.length + 1}`,
-      x: Math.max(0, Math.min(1, x)),
-      y: Math.max(0, Math.min(1, y)),
-      c: Math.max(-1, Math.min(1, bend)),
-      shape: "linear",
-    });
-  }
-  if (nodes.length < 2) return null;
-  nodes.sort((a, b) => a.x - b.x);
-  return nodes.slice(0, 32);
-}
-
 function syncNodeGraphGraphCodeInputs() {
   if (typeof nodeGraphPatchNode !== "function" || typeof nodeGraphMvp === "undefined") return;
   const patchNodes = nodeGraphMvp.patch?.nodes || [];
@@ -245,53 +301,22 @@ function syncNodeGraphGraphCodeInputs() {
     if (incoming === undefined) continue;
     const text = String(incoming ?? "");
     if (patchNode.ui?.codeDrivenFingerprint === text) continue;
-    const parsed = nodeGraphParseCodeBoxCurveText(text);
-    if (!parsed) continue;
+    const parsed = nodeGraphParseCodeGraphDocument(text);
+    if (!parsed.ok) continue;
     if (typeof cloneNodeGraphPatch !== "function" || typeof commitNodeGraphPatch !== "function") continue;
     const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
     const node = patch.nodes.find((n) => n.id === patchNode.id);
     if (!node) continue;
-    const prev = typeof normalizeNodeGraphGraph === "function"
-      ? normalizeNodeGraphGraph(node.graph)
-      : { cursorX: 0.5, nodes: [] };
-    node.graph = typeof normalizeNodeGraphGraph === "function"
-      ? normalizeNodeGraphGraph({ cursorX: prev.cursorX, nodes: parsed })
-      : { cursorX: prev.cursorX, nodes: parsed };
-    if (Array.isArray(node.graph?.nodes)) {
-      for (let i = 0; i < node.graph.nodes.length && i < parsed.length; i += 1) {
-        if (parsed[i].id) node.graph.nodes[i].id = parsed[i].id;
-      }
-    }
+    node.graph = parsed.graph;
     node.ui = { ...(node.ui || {}), codeDriven: true, codeDrivenFingerprint: text };
     commitNodeGraphPatch(patch, { status: "Graph Code in", record: false });
   }
-}
-
-
-function serializeNodeGraphCurveToCodeText(graph) {
-  const g = typeof normalizeNodeGraphGraph === "function"
-    ? normalizeNodeGraphGraph(graph)
-    : graph;
-  const nodes = Array.isArray(g?.nodes) ? g.nodes : [];
-  const lines = ["# graph curve v1"];
-  nodes.forEach((node, index) => {
-    const id = node?.id || `p${index + 1}`;
-    const x = Number(node?.x);
-    const y = Number(node?.y);
-    const c = Number(node?.c);
-    if (![x, y].every((n) => Number.isFinite(n))) return;
-    const bend = Number.isFinite(c) ? c : 0;
-    lines.push(`${id}  ${x.toFixed(4)}  ${y.toFixed(4)}  ${bend.toFixed(4)}`);
-  });
-  return lines.join("\n") + "\n";
 }
 
 function publishNodeGraphGraphCodeOutputs() {
   if (typeof nodeGraphMvp === "undefined" || typeof writeNodeGraphDataOutput !== "function") return;
   for (const patchNode of nodeGraphMvp.patch?.nodes || []) {
     if (!patchNode || (patchNode.type !== "smoothGraph" && patchNode.type !== "stepGraph")) continue;
-    // While Code in is driving, publish the incoming/effective curve text if any;
-    // otherwise serialize local graph.nodes.
     let text;
     if (typeof nodeGraphCodeBoxIsCodeInConnected === "function"
       && nodeGraphCodeBoxIsCodeInConnected(patchNode.id)) {
@@ -310,7 +335,6 @@ function syncAllNodeGraphCodeSurfaces() {
   publishNodeGraphGraphCodeOutputs();
 }
 
-// Keep driven faces / graphs in sync when cables or the data bus change.
 if (typeof document !== "undefined") {
   document.addEventListener("DOMContentLoaded", () => {
     if (typeof addNodeGraphModuleScopeSnapshotListener === "function") {
