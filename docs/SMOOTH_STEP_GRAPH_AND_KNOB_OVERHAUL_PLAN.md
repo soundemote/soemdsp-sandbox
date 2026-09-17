@@ -1,12 +1,12 @@
-﻿# Smooth / Step Graph + Knob Overhaul Plan
+# Smooth / Step Graph + Knob Overhaul Plan
 
 | Field | Value |
 |-------|-------|
 | **Author** | Sandbox / Argi |
 | **Date** | 2026-09-17 |
-| **Status** | Draft plan (rev 1) |
+| **Status** | Draft plan (rev 2) |
 | **Repo** | `C:\Users\argit\Documents\_PROGRAMMING\soemdsp-sandbox` |
-| **Near-term use** | Breadboard Flower Child Filter with graphs → filters + feedback; fine-tune over 0…1 controls |
+| **Motivation (user)** | Reliable Knob+Graph editing so you can breadboard Flower Child Filter (and similar) yourself |
 | **Out of scope** | Host/plugin ports, rack engine quirks, multi-rate host assumptions — keep this plan **sandbox-generic** |
 
 ---
@@ -17,11 +17,12 @@ Smooth Graph and Step Graph are the curve tools needed to shape control-rate (an
 
 Knob is the usual X / bias driver into those graphs. It is implemented as a **module-shaped face over a hidden `offset` Control**, and the face does not reliably show the **smoothed** Bias the graph actually hears. That breaks the “turn knob → see graph respond smoothly” loop.
 
-This plan overhauls three things in order:
+This plan overhauls two engineering tracks:
 
 1. **Knob** — real module semantics; face displays audio/control result (smoothed / target), not a pseudo-parameter twin.
 2. **Smooth / Step Graph editor UX** — shared widgets; hover reveals all value + tension handles; fix interaction bugs.
-3. **Breadboard path** — document a minimal patch recipe for Flower Child Filter tuning (graphs + filters + feedback) using 0…1 controls.
+
+Flower Child Filter breadboarding (Knob → Graph → filter + feedback) is **user patch work** once the tools work — not a build phase in this plan.
 
 Native curve evaluators (`smooth_graph` / `step_graph`) stay; this is primarily **host UI + Knob Control/display contract**, not a DSP rewrite.
 
@@ -65,12 +66,8 @@ Native curve evaluators (`smooth_graph` / `step_graph`) stay; this is primarily 
 - Keep existing curve math unless a bug forces a fix; prefer UI/interaction fixes first.
 - Context / floating editor stays in sync with face selection and does not fight face drags.
 
-### Breadboard
-
-- One documented sandbox patch pattern: Knob(s) → Smooth/Step Graph → Flower Child Filter (and related) with feedback routing for 0…1 fine-tune.
-- No special-case code paths for a future rack host.
-
 ---
+
 
 ## Non-Goals
 
@@ -86,7 +83,7 @@ Native curve evaluators (`smooth_graph` / `step_graph`) stay; this is primarily 
 1. Graph number fields: bad UX, cannot drag, not shared widgets.
 2. Graph face: tension/value handles not visible on hover as a set.
 3. Knob: smoothing not reflected; face behaves like a pseudo-parameter rather than a module display of Bias.
-4. That blocks reliable Flower Child Filter curve breadboarding.
+4. That blocks reliable curve authoring for filter breadboards (user-owned).
 
 ---
 
@@ -121,20 +118,9 @@ Native curve evaluators (`smooth_graph` / `step_graph`) stay; this is primarily 
 | Leave | Restore default dim/hide policy |
 | Hit targets | Hover visibility must not change hit geometry in a way that makes points jump |
 
-### D. Breadboard recipe (docs + patch, not engine forks)
-
-Example topology (illustrative):
-
-1. Knob Bias → Smooth/Step Graph drive (X or dedicated map input as designed).
-2. Graph out → Flower Child Filter CV / morph / cutoff-style 0…1 params (and/or intermediate Gain).
-3. Filter audio path + feedback as needed for the character under test.
-4. Scope on audio and on CV.
-
-Save as a tracked patch under `patches/` when stable. Keep comments sandbox-only.
-
----
-
 ## Work phases
+
+
 
 ### Phase 0 — Spike / bug inventory (short)
 
@@ -165,12 +151,8 @@ Save as a tracked patch under `patches/` when stable. Keep comments sandbox-only
 - Pointer capture conflicts between face and floating list.
 - Grid snap / Ctrl-free / Shift-fine still match docs in `graph-utils` header.
 
-### Phase 5 — Flower Child Filter breadboard
-
-- Build/save patch; confirm 0…1 sweeps via Knob+Graph feel right at project rate.
-- Note any filter-side gaps as separate tickets (not graph/knob scope creep).
-
 ---
+
 
 ## File touch map (expected)
 
@@ -180,7 +162,7 @@ Save as a tracked patch under `patches/` when stable. Keep comments sandbox-only
 | Graph list UI | `public/node-graph-module-actions.js` (`createNodeGraphGraphRowNumberInput`, `renderNodeGraphGraphNodeList`) |
 | Graph face | `public/node-graph-graph-utils.js` (+ any face binder) |
 | Shared widgets | existing Sound Color / metadata stepper modules (reuse, don’t fork) |
-| Docs / patch | this plan; later `patches/…flower…json` |
+| Docs | this plan |
 
 ---
 
@@ -190,8 +172,7 @@ Save as a tracked patch under `patches/` when stable. Keep comments sandbox-only
 2. Graph point x/y/(c) use shared drag/stepper widgets; dragging numbers works.
 3. Hovering the graph face reveals all value points and all tension/contour handles.
 4. Smooth + Step remain editable without the “stupid widgets” path.
-5. A Flower Child Filter breadboard patch can be tuned over 0…1 from Knobs+Graphs without fighting the editor.
-6. No host-specific or rack-specific branches introduced for this work.
+5. No host-specific or rack-specific branches introduced for this work.
 
 ---
 
