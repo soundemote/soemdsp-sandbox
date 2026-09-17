@@ -238,21 +238,6 @@
         }
       },
       {
-        "id": "mix",
-        "type": "mix4",
-        "gx": -6,
-        "gy": -8,
-        "params": {
-          "bleed2to1": 1,
-          "bleed3to1": 0,
-          "bleed4to1": 0,
-          "volume1": 1,
-          "volume2": 0,
-          "volume3": 0,
-          "volume4": 0
-        }
-      },
-      {
         "id": "osc",
         "type": "basicShape",
         "gx": 2,
@@ -2472,6 +2457,17 @@
           }
         },
         "title": "LPF2"
+      },
+      {
+        "id": "mix",
+        "type": "mix2",
+        "gx": -6,
+        "gy": -8,
+        "params": {
+          "amplitude1": 1,
+          "amplitude2": 1,
+          "amplitude": 1
+        }
       }
     ],
     "format": {
@@ -2566,7 +2562,7 @@
       },
       {
         "sourceNode": "mix",
-        "sourcePort": "Out1",
+        "sourcePort": "Mix",
         "tracePoints": [],
         "destinationNode": "fmScale",
         "destinationPort": "In"
@@ -2591,20 +2587,6 @@
         "tracePoints": [],
         "destinationNode": "lpf2",
         "destinationPort": "In"
-      },
-      {
-        "sourceNode": "lpf2",
-        "sourcePort": "Out",
-        "tracePoints": [],
-        "destinationNode": "output",
-        "destinationPort": "Left"
-      },
-      {
-        "sourceNode": "lpf2",
-        "sourcePort": "Out",
-        "tracePoints": [],
-        "destinationNode": "output",
-        "destinationPort": "Right"
       },
       {
         "sourceNode": "knobFreq",
@@ -2647,6 +2629,13 @@
         "tracePoints": [],
         "destinationNode": "mix",
         "destinationPort": "In1"
+      },
+      {
+        "sourceNode": "lpf2",
+        "sourcePort": "Out",
+        "tracePoints": [],
+        "destinationNode": "output",
+        "destinationPort": "Mono"
       }
     ],
     "modulations": [

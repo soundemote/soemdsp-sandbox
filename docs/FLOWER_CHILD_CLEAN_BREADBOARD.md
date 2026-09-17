@@ -8,7 +8,7 @@ This is **not** the sealed `flowerChildFilter` module. It rebuilds a Clean-style
 
 1. Source (`polyBlep` saw) → polyBlep amplitude (≈0.036) → `mix` In1  
 2. Feedback → `fbVca` → `mix` In2 (`bleed2to1=1`)  
-3. `mix` Out1 → `fmScale` → `osc` **Increment** (FM-ish drive; hand-tune `fmScale`)  
+3. `mix` Mix → `fmScale` → `osc` **Increment** (FM-ish drive; hand-tune `fmScale`)  
 4. `osc` Sine (`basicShape`) → `lpf1` 6 dB → `lpf2` 6 dB → **Out**  
 5. `lpf2` → 1-sample (removed: use graph feedback state-read) → `fbVca` In (loop)
 
@@ -47,3 +47,6 @@ Audio-path gains stay attenuverters: polyBlep amplitude, `fmScale`, `fbVca`. Res
 ## Feedback delay
 
 No explicit `sampleDelay`. Closing the loop (`lpf2` → `fbVca`) is a scheduler **state-read**: previous-frame output, i.e. the automatic unit delay.
+
+
+Uses **Mix2** (In1/In2 → Mix/Out1/Out2; Amplitude1/2/Amplitude). Passive Filter Mono → Output Mono.

@@ -1486,6 +1486,7 @@ static const int kTypeSampleDelay = 19;
 static const int kTypeSampleHold = 20;
 static const int kTypeMinMax = 21;
 static const int kTypeMix = 22;
+static const int kTypeMix2 = 47;
 static const int kTypeMixStereo = 23;
 static const int kTypeClipperLimiter = 24;
 static const int kTypeMidSideEncode = 25;
@@ -3230,7 +3231,7 @@ static void init_node_defaults(Node& n, int typeId) {
   // pumpLimiter: laneBias[0]=release ms, laneBias[1]=threshold dB
   // stepSequencer: laneVol[0..3]=step1..4, laneBias[0..3]=step5..8
   // degreePhrase: same lanes for Deg 1..8; rests on in*/out*/bleed*/offset
-  const double laneVolDefault = (typeId == kTypeMix || typeId == kTypeRasterRgb) ? 1.0 : 0.0;
+  const double laneVolDefault = (typeId == kTypeMix || typeId == kTypeMix2 || typeId == kTypeRasterRgb) ? 1.0 : 0.0;
   static const double kStepDefaults[8] = {
     0.0, 0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25
   };
@@ -5056,6 +5057,26 @@ static void process_min_max(Circuit& g, Node& node, int frames) {
 }
 
 // mix: free-function 4-in/4-out; In/Out on buses 0–3. No invented stereo.
+
+static void process_mix2(Circuit& g, Node& node, int frames) {
+  double in1[kMaxBlockFrames];
+  double in2[kMaxBlockFrames];
+  mix_live_port(g, node, kPortIn1, frames, in1);
+  mix_live_port(g, node, kPortIn2, frames, in2);
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double a1 = control_audio(g, node.laneVol[0], f);
+    const double a2 = control_audio(g, node.laneVol[1], f);
+    const double amp = control_audio(g, node.amplitude, f);
+    const double o1 = in1[f] * a1;
+    const double o2 = in2[f] * a2;
+    // Mono=Mix, Left=Out1, Right=Out2 (face names via JS port map).
+    node.buf[kPortOut1][f] = (o1 + o2) * amp;
+    node.buf[kPortOut2][f] = o1;
+    node.buf[kPortOut3][f] = o2;
+  }
+}
+
 static void process_mix(Circuit& g, Node& node, int frames) {
   double in1[kMaxBlockFrames];
   double in2[kMaxBlockFrames];
@@ -11154,6 +11175,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
     }
     if (node.typeId == kTypeMix) {
       process_mix(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeMix2) {
+      process_mix2(g, node, frames);
       return;
     }
     if (node.typeId == kTypeMixStereo) {

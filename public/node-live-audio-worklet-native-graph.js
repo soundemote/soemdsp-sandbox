@@ -27,6 +27,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   sampleHold: 20,
   minMax: 21,
   mix4: 22,
+  mix2: 47,
   mix: 22, // legacy → Mix4
   gainBiasMix: 22, // legacy → Mix4
   mixStereo4: 23,
@@ -420,6 +421,12 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   const raw = String(port || "").trim();
   const p = raw.toLowerCase();
   const t = String(type || "").trim();
+  // Mix2: Mix on Mono, Out1 on Left, Out2 on Right (not mix4 Out1=Mono numbering).
+  if (t === "mix2") {
+    if (p === "mix") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "out1") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "out2") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
   // Yellow Graph chunk — never collapse to Mono.
   if (p === "graph") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_GRAPH;
@@ -4458,6 +4465,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("bleed4to1", P.NATIVE_GRAPH_PARAM_BLEED4, cont("bleed4to1", 0));
       continue;
     }
+    if (type === "mix2") {
+      push("amplitude1", P.NATIVE_GRAPH_PARAM_LANE_VOL1, cont("amplitude1", 1));
+      push("amplitude2", P.NATIVE_GRAPH_PARAM_LANE_VOL2, cont("amplitude2", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
     if (type === "mixStereo4" || type === "mixStereo") {
       push("volume1", P.NATIVE_GRAPH_PARAM_LANE_VOL1, cont("volume1", 0));
       push("volume2", P.NATIVE_GRAPH_PARAM_LANE_VOL2, cont("volume2", 0));
@@ -6287,6 +6300,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "sampleHold") return ["Ext Out", "Out", "Mono"];
     if (type === "minMax") return ["Max"];
     if (type === "mix4" || type === "mix" || type === "gainBiasMix") return ["Out1"];
+    if (type === "mix2") return ["Mix"];
     if (type === "midSideEncode") return ["Mid"];
     if (type === "quadrature") return ["I", "Out", "Mono"];
     if (type === "hilbert") return ["Out", "Mono"];
@@ -6340,6 +6354,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "archimedes") return ["Cosine"];
     if (type === "minMax") return ["Min"];
     if (type === "mix4" || type === "mix" || type === "gainBiasMix") return ["Out2"];
+    if (type === "mix2") return ["Out1"];
     if (type === "midSideEncode") return ["Side"];
     if (type === "quadrature") return ["Q", "Left"];
     if (type === "binaryClock") return ["Bit0", "Left"];
@@ -6389,6 +6404,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "sineWavetable") return ["C"];
     if (type === "archimedes") return ["Pi"];
     if (type === "mix4" || type === "mix" || type === "gainBiasMix") return ["Out3"];
+    if (type === "mix2") return ["Out2"];
     if (type === "quadrature") return ["MidI", "Right"];
     if (type === "binaryClock") return ["Bit1", "Right"];
     if (

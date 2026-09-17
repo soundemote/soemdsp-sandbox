@@ -203,6 +203,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   // minMax: In 1 → Max, In 2 → Min
   minMax: "minmax",
   // Parallel buses
+  mix2: "pass",
   mix4: "pass",
   mix: "pass",
   gainBiasMix: "pass",

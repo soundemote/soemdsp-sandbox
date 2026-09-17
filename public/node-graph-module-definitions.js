@@ -110,6 +110,7 @@ const nodeGraphNodeLabels = Object.freeze({
   // Legacy id — patches migrate to "gain" on load.
   gainBias: "Gain",
   mix4: "Mix4",
+  mix2: "Mix2",
   // Legacy id — patches migrate to mix4 on re-save.
   mix: "Mix4",
   mixStereo4: "MixStereo4",
@@ -6010,6 +6011,17 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
+  mix2: {
+    planRole: "processor",
+    inputs: ["In1", "In2"],
+    outputs: ["Mix", "Out1", "Out2"],
+    parameters: [
+      { key: "amplitude1", label: "Amplitude1", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
+      { key: "amplitude2", label: "Amplitude2", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
+    ]
+  },
+
   mix4: {
     planRole: "processor",
     inputs: ["In1", "In2", "In3", "In4"],
