@@ -555,8 +555,10 @@ function validateNodeGraphPatch(patch) {
         ? nodeGraphGraphWithLockedEndpointY(phaseLinkedGraph)
         : phaseLinkedGraph;
     }
-    if (type === "codeblock") {
-      normalizedNode.codeblock = normalizeNodeGraphCodeblock(node.codeblock);
+    if (type === "codeBox") {
+      normalizedNode.codeBox = typeof normalizeNodeGraphCodeBox === "function"
+        ? normalizeNodeGraphCodeBox(node.codeBox)
+        : { localText: String(node?.codeBox?.localText ?? "") };
     }
     if (type === "sequencer") {
       normalizedNode.sequencer = typeof sequencerCloneClip === "function"

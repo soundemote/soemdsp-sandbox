@@ -553,6 +553,13 @@ function cloneNodeGraphPatch(patch) {
               : nodeGraphGraphWithPhaseCursor(node),
           }
           : {}),
+    ...(node.type === "codeBox"
+      ? {
+          codeBox: typeof normalizeNodeGraphCodeBox === "function"
+            ? normalizeNodeGraphCodeBox(node.codeBox)
+            : (node.codeBox || { localText: "" }),
+        }
+      : {}),
         ...(node.type === "sequencer"
           ? {
             sequencer: typeof sequencerCloneClip === "function"

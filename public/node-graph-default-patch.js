@@ -175,6 +175,11 @@ function createNodeGraphPatchNode(type, options = {}) {
   if (nodeGraphModuleIsGraphType(resolvedType)) {
     node.graph = normalizeNodeGraphGraph(opts.graph);
   }
+  if (resolvedType === "codeBox" || nodeGraphModuleDefinitions[resolvedType]?.layout === "codeBox") {
+    node.codeBox = typeof normalizeNodeGraphCodeBox === "function"
+      ? normalizeNodeGraphCodeBox(opts.codeBox)
+      : { localText: String(opts.codeBox?.localText ?? "") };
+  }
   const defDisplay = nodeGraphModuleDefinitions[resolvedType]?.defaultDisplaySettings;
   if (defDisplay && typeof defDisplay === "object") {
     node.traceDisplaySettings = { ...defDisplay };

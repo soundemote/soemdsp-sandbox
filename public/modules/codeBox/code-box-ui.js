@@ -180,16 +180,10 @@ function createNodeGraphCodeBoxFace(nodeId) {
     }
   });
 
-  // Persist default localText once without undo spam when missing.
+  // Never commit during face mount — that re-enters applyNodeGraphPatchToDom and freezes the app.
+  // Spawn/load stamps codeBox via createNodeGraphPatchNode / validate.
   if (patchNode && (!patchNode.codeBox || patchNode.codeBox.localText == null)) {
-    if (typeof cloneNodeGraphPatch === "function" && typeof commitNodeGraphPatch === "function") {
-      const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-      const node = patch.nodes.find((n) => n.id === nodeId);
-      if (node) {
-        node.codeBox = normalizeNodeGraphCodeBox({ localText: store.localText });
-        commitNodeGraphPatch(patch, { status: "Code init", record: false });
-      }
-    }
+    patchNode.codeBox = normalizeNodeGraphCodeBox({ localText: store.localText });
   }
 
   syncNodeGraphCodeBoxFace(face, nodeId);
