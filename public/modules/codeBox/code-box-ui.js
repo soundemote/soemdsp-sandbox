@@ -51,6 +51,24 @@ function nodeGraphCodeBoxIncomingText(nodeId) {
   }
 }
 
+function nodeGraphCodeBoxSourceGraphText(nodeId) {
+  if (typeof nodeGraphModuleScopeConnectionsTo !== "function") {
+    return undefined;
+  }
+  const connection = (nodeGraphModuleScopeConnectionsTo(nodeId, "Code") || [])
+    .find((c) => c?.sourceNode && c?.sourcePort);
+  if (!connection) {
+    return undefined;
+  }
+  const source = typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(connection.sourceNode)
+    : null;
+  if (!source || (source.type !== "smoothGraph" && source.type !== "stepGraph")) {
+    return undefined;
+  }
+  return serializeNodeGraphCurveToCodeText(source.graph);
+}
+
 function nodeGraphCodeBoxEffectiveText(patchNode) {
   if (!patchNode) {
     return CODE_BOX_DEFAULT_LOCAL_TEXT;
@@ -58,8 +76,13 @@ function nodeGraphCodeBoxEffectiveText(patchNode) {
   const store = normalizeNodeGraphCodeBox(patchNode.codeBox);
   if (nodeGraphCodeBoxIsCodeInConnected(patchNode.id)) {
     const incoming = nodeGraphCodeBoxIncomingText(patchNode.id);
-    if (incoming !== undefined) {
-      return String(incoming ?? "");
+    if (incoming !== undefined && String(incoming).trim() !== "") {
+      return String(incoming);
+    }
+    // Bus empty (publish not run yet) — read the wired Graph object directly.
+    const fromSource = nodeGraphCodeBoxSourceGraphText(patchNode.id);
+    if (fromSource !== undefined) {
+      return fromSource;
     }
   }
   return store.localText;
@@ -335,11 +358,27 @@ function syncAllNodeGraphCodeSurfaces() {
   publishNodeGraphGraphCodeOutputs();
 }
 
+function nodeGraphCodeBoxStartSurfaceSync() {
+  if (nodeGraphCodeBoxStartSurfaceSync.started) {
+    return;
+  }
+  nodeGraphCodeBoxStartSurfaceSync.started = true;
+  if (typeof addNodeGraphModuleScopeSnapshotListener === "function") {
+    addNodeGraphModuleScopeSnapshotListener(syncAllNodeGraphCodeSurfaces);
+  }
+  setInterval(syncAllNodeGraphCodeSurfaces, 250);
+  // Prime bus + faces once scripts are up.
+  try {
+    syncAllNodeGraphCodeSurfaces();
+  } catch (_error) {
+    // First tick is best-effort.
+  }
+}
+
 if (typeof document !== "undefined") {
-  document.addEventListener("DOMContentLoaded", () => {
-    if (typeof addNodeGraphModuleScopeSnapshotListener === "function") {
-      addNodeGraphModuleScopeSnapshotListener(syncAllNodeGraphCodeSurfaces);
-    }
-    setInterval(syncAllNodeGraphCodeSurfaces, 250);
-  });
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", nodeGraphCodeBoxStartSurfaceSync);
+  } else {
+    nodeGraphCodeBoxStartSurfaceSync();
+  }
 }
