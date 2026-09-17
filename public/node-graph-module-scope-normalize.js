@@ -1328,7 +1328,7 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
     // Dial ring size 0…1 (1 = fill dial cell; only scales the arc widget).
     dialSize: normalizeNodeGraphTraceDisplayNumber(
       source.dialSize ?? source.knobSize ?? source.size,
-      defaults.dialSize ?? 0.2,
+      defaults.dialSize ?? 1,
       0,
       1,
     ),
@@ -1340,7 +1340,7 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
     ),
     valueSize: normalizeNodeGraphTraceDisplayNumber(
       source.valueSize ?? source.readoutSize,
-      defaults.valueSize ?? 0.45,
+      defaults.valueSize ?? 0.2,
       0,
       1,
     ),
