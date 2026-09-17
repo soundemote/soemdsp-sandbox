@@ -549,6 +549,10 @@ if ($node) {
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: passive filter crossed BP smoke FAILED"
   }
+  & $node.Source "$root\scripts\smoke_active_filter_sweep.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: Dual Ladder sweep smoke FAILED"
+  }
   & $node.Source "$root\scripts\smoke_robin_supersaw_pitch_jitter.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: robin supersaw pitch jitter smoke FAILED"
