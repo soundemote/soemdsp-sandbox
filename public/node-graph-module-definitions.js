@@ -271,6 +271,7 @@ const nodeGraphNodeLabels = Object.freeze({
   speakerProtector2: "Speaker Protector 2.0",
   badvalMonitor: "BADVAL Monitor",
   textBox: "Text Box",
+  codeBox: "Code",
   output: "Output",
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
   // their own label instead of it being hardcoded here -- see
@@ -745,8 +746,10 @@ const nodeGraphModuleDefinitions = (
     // Default face height (was hardcoded 4×moduleScopeHeightGu = 8). Min is 1gu app-wide.
     displayHeightGu: 8,
     layoutBPortLabels: true,
-    inputs: ["In"],
-    inputLabels: { In: "→" },
+    inputs: ["In", "Code"],
+    codeInputs: ["Code"],
+    dataInputs: ["Code"],
+    inputLabels: { In: "→", Code: "Code" },
     layout: "graph",
     outputs: ["Out"],
     outputLabels: { Out: "←" },
@@ -807,8 +810,10 @@ const nodeGraphModuleDefinitions = (
     chrome: NodeGraphModuleChromeLayout.LayoutB,
     displayHeightGu: 8,
     layoutBPortLabels: true,
-    inputs: ["In"],
-    inputLabels: { In: "→" },
+    inputs: ["In", "Code"],
+    codeInputs: ["Code"],
+    dataInputs: ["Code"],
+    inputLabels: { In: "→", Code: "Code" },
     layout: "graph",
     outputs: ["Out"],
     outputLabels: { Out: "←" },
@@ -14636,6 +14641,23 @@ const nodeGraphModuleDefinitions = (
     visualSink: true
   },
   // Text Stream — type text, emit one character at a time (digital Char + Trigger).
+  codeBox: {
+    planRole: "monitor",
+    customDisplayArea: true,
+    layoutOnly: true,
+    defaultWidthGu: 14,
+    displayHeightGu: 8,
+    layout: "codeBox",
+    inputs: ["Code"],
+    outputs: ["Code"],
+    inputLabels: { Code: "Code" },
+    outputLabels: { Code: "Code" },
+    codeInputs: ["Code"],
+    codeOutputs: ["Code"],
+    dataInputs: ["Code"],
+    dataOutputs: ["Code"],
+    parameters: [],
+  },
   textStream: {
     planRole: "monitor",
     customDisplayArea: true,

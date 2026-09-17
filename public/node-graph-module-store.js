@@ -257,6 +257,7 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   // Id stays clock (saved settings / catalog). Shelf label is Time.
   { id: "clock",        emoji: "⌚", label: "Clock",        symbol: "♪",   title: "Clock",     pitch: "Clocks, sequencers, dividers, counters, and trigger timing — everything that decides WHEN the rest of the patch fires." },
   { id: "digital",      emoji: "🔬", label: "Digital",      symbol: "{ }", title: "Digital",   pitch: "Patch-local code surfaces, exact value conversion, and digital/visual programming tools inside the sandbox." },
+  { id: "text",         emoji: "📝", label: "Text",         symbol: "Aa",  title: "Text",      pitch: "Text and code surfaces: labels, streams, and control-plane Code boxes. Not audio DSP." },
   { id: "sample",       emoji: "🎶", label: "Sample Player", symbol: "▣", title: "Sample Player", pitch: "Sample and music-file playback: one-shots, loops, and scrubbable players that turn stored audio into patch signal." },
   { id: "object",       emoji: "🧊", label: "Object",       symbol: "●",   title: "Object",    pitch: "Things you place in the world rather than wire into the signal path -- indicator lights, label plates, and other in-world props." },
   { id: "rgb",          emoji: "🌈", label: "RGB",          symbol: "◍",   title: "RGB",       pitch: "RGB analog picture and vector faces — Pixel Grid, Vector RGB, and other color-path scopes." },
@@ -294,6 +295,10 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   Debug:             "debug",
   Delay:             "space",
   Digital:           "digital",
+  Text:              "text",
+  text:              "text",
+  Texts:             "text",
+  texts:             "text",
   Drum:              "drum",
   Dynamics:          "dynamics",
   Envelope:          "envelope",
@@ -952,9 +957,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["bbp", "pi", "hex", "bits", "sum", "term", "spigot", "native"],
   },
   codeblock: {
-    category: "digital",
+    category: "text",
     description: "Write JS DSP inline when no stock module does the exact math you need.",
     notes: ["dynamic ports", "JavaScript body", "local patch code"],
+  },
+  codeBox: {
+    category: "text",
+    description: "Control-plane code editor. Apply text data out a white square Code jack — never runs in the audio path.",
+    label: "Code",
+    notes: ["codeBox", "data-plane", "localText", "not DSP"],
   },
   customDisplay: {
     category: "oscilloscope",
@@ -2223,7 +2234,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["info plate", "serial", "lcd residual", "text stream", "multimeter"],
   },
   textStream: {
-    category: "digital",
+    category: "text",
     description: "Type once, emit characters over time—serial text into matrix faces.",
     label: "Text Stream",
     notes: ["serial", "character", "digital", "text box"],
@@ -2359,12 +2370,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["speaker protection", "slew", "mute", "hold", "VCA", "safety"],
   },
   textBox: {
-    category: "object",
+    category: "text",
     description: "Static in-world label for notes, lore, and instructions on the patch.",
     notes: ["annotation", "layout", "field notes"],
   },
   animatedTextBox: {
-    category: "object",
+    category: "text",
     description: "Wireable title/text plate so messages can be driven by the patch.",
     notes: ["data-plane ports", "port scripts", "wired label"],
   },

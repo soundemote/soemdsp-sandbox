@@ -109,6 +109,9 @@ function nodeGraphPortIsNoteBus(port) {
 }
 
 function nodeGraphJackSignalKind(type, port, io = null) {
+  if (typeof nodeGraphPortIsCodeSignal === "function" && nodeGraphPortIsCodeSignal(type, port, io)) {
+    return "digital";
+  }
   if (typeof nodeGraphPortIsDigitalSignal === "function" && nodeGraphPortIsDigitalSignal(type, port, io)) {
     return "digital";
   }
@@ -380,6 +383,9 @@ function nodeGraphJackChannel(type, port, io = "output") {
   if (nodeGraphJackSignalKind(type, key, io) === "digital") {
     return "";
   }
+  if (typeof nodeGraphPortIsCodeSignal === "function" && nodeGraphPortIsCodeSignal(type, key, io)) {
+    return "";
+  }
   if (typeof nodeGraphPortIsGraphChunkSignal === "function" && nodeGraphPortIsGraphChunkSignal(type, key, io)) {
     return "yellow";
   }
@@ -500,8 +506,12 @@ function nodeGraphApplyJackChrome(element, type, port, io = "output") {
   const jackEl = element.classList?.contains("node-port")
     ? element
     : element.querySelector?.(".node-port:not(.node-param-port)");
-  if (jackEl && typeof nodeGraphPortIsNoteBus === "function") {
-    jackEl.classList.toggle("node-port-square", nodeGraphPortIsNoteBus(port));
+  if (jackEl) {
+    const square = (
+      (typeof nodeGraphPortIsNoteBus === "function" && nodeGraphPortIsNoteBus(port))
+      || (typeof nodeGraphPortIsCodeSignal === "function" && nodeGraphPortIsCodeSignal(type, port, io))
+    );
+    jackEl.classList.toggle("node-port-square", square);
   }
   return channel;
 }

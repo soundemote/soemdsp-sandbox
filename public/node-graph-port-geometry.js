@@ -480,6 +480,39 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
  * chunks, strings, …). Declared on dataInputs / dataOutputs, or
  * graphChunkInputs / graphChunkOutputs. Not sample-accurate CV/audio.
  */
+
+function nodeGraphPortIsCodeSignal(typeOrNode, port, io = null) {
+  const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
+    ? typeOrNode
+    : nodeGraphPatchNodeType(typeOrNode);
+  const definition = nodeGraphModuleDefinitions[type];
+  if (!definition || !port) {
+    return false;
+  }
+  const name = String(port || "").trim();
+  if (!name) {
+    return false;
+  }
+  if (io !== "output") {
+    if (Array.isArray(definition.codeInputs) && definition.codeInputs.includes(name)) {
+      return true;
+    }
+  }
+  if (io !== "input") {
+    if (Array.isArray(definition.codeOutputs) && definition.codeOutputs.includes(name)) {
+      return true;
+    }
+  }
+  // Convention: port named Code on modules that declare code I/O lists.
+  if (name === "Code" && (
+    Array.isArray(definition.codeInputs)
+    || Array.isArray(definition.codeOutputs)
+  )) {
+    return true;
+  }
+  return false;
+}
+
 function nodeGraphPortIsDataPlane(typeOrNode, port, io = null) {
   const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
     ? typeOrNode
@@ -499,6 +532,9 @@ function nodeGraphPortIsDataPlane(typeOrNode, port, io = null) {
     if (Array.isArray(definition.graphChunkInputs) && definition.graphChunkInputs.includes(name)) {
       return true;
     }
+    if (Array.isArray(definition.codeInputs) && definition.codeInputs.includes(name)) {
+      return true;
+    }
   }
   if (io !== "input") {
     if (Array.isArray(definition.dataOutputs) && definition.dataOutputs.includes(name)) {
@@ -507,6 +543,12 @@ function nodeGraphPortIsDataPlane(typeOrNode, port, io = null) {
     if (Array.isArray(definition.graphChunkOutputs) && definition.graphChunkOutputs.includes(name)) {
       return true;
     }
+    if (Array.isArray(definition.codeOutputs) && definition.codeOutputs.includes(name)) {
+      return true;
+    }
+  }
+  if (typeof nodeGraphPortIsCodeSignal === "function" && nodeGraphPortIsCodeSignal(typeOrNode, port, io)) {
+    return true;
   }
   return false;
 }
