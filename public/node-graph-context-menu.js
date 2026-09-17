@@ -816,7 +816,6 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneTextBoxTextSizeControls",
   "nodeSceneTextBoxHeightControls",
   "nodeSceneTextBoxTextControls",
-  "nodeSceneCodeblockControls",
   "nodeSceneMetamoduleVoiceControls",
     "nodeSceneImageControls",
   "nodeSceneKnobFaceControls",
@@ -1160,11 +1159,6 @@ function configureNodeSceneContextMenu(mode) {
   const textBoxHeightValue = document.getElementById("nodeSceneTextBoxHeightValue");
   const textBoxTextControls = document.getElementById("nodeSceneTextBoxTextControls");
   const textBoxTextInput = document.getElementById("nodeSceneTextBoxTextInput");
-  const codeblockControls = document.getElementById("nodeSceneCodeblockControls");
-  const codeblockInputs = document.getElementById("nodeSceneCodeblockInputs");
-  const codeblockOutputs = document.getElementById("nodeSceneCodeblockOutputs");
-  const codeblockSource = document.getElementById("nodeSceneCodeblockSource");
-  const codeblockStatus = document.getElementById("nodeSceneCodeblockStatus");
   const textBoxPortScriptControls = document.getElementById("nodeSceneTextBoxPortScriptControls");
   const textBoxTitleScript = document.getElementById("nodeSceneTextBoxTitleScript");
   const textBoxTitleScriptStatus = document.getElementById("nodeSceneTextBoxTitleScriptStatus");
@@ -1440,7 +1434,6 @@ function configureNodeSceneContextMenu(mode) {
   wireTypeControl.hidden = !wireMode;
   aliasControl.hidden = !moduleMode;
   textBoxTextControls.hidden = !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight);
-  codeblockControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "codeblock");
   textBoxPortScriptControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "animatedTextBox");
   // Smooth/Step Graph Module Settings editor removed — face is the editor.
   if (graphControls) {
@@ -2053,19 +2046,6 @@ function configureNodeSceneContextMenu(mode) {
       textBoxTextInput.value = targetSupportsTextBoxHeight ? textBoxLayout.text : "";
     }
     textBoxTextInput.title = nodeGraphTooltipText("actions.textBoxContent");
-    if (targetNode?.type === "codeblock") {
-      const codeblock = normalizeNodeGraphCodeblock(targetNode.codeblock);
-      codeblockInputs.value = codeblock.inputs.join(", ");
-      codeblockOutputs.value = codeblock.outputs.join(", ");
-      codeblockSource.value = codeblock.code;
-      const status = nodeGraphCodeblockCompileStatus(codeblock);
-      codeblockStatus.textContent = status.ok ? "code ok" : `compile error: ${status.message}`;
-    } else {
-      codeblockInputs.value = "";
-      codeblockOutputs.value = "";
-      codeblockSource.value = "";
-      codeblockStatus.textContent = "";
-    }
     if (targetNode?.type === "animatedTextBox") {
       const titleScript = targetNode.portScripts?.Title || "";
       const textScript = targetNode.portScripts?.Text || "";
@@ -2210,10 +2190,6 @@ function configureNodeSceneContextMenu(mode) {
     resetNodeGraphModuleSettingsSizeRow(textBoxHeightControls, textBoxHeightDecrease, textBoxHeightIncrease, textBoxHeightValue);
     textBoxTextInput.value = "";
     textBoxTextInput.disabled = true;
-    codeblockInputs.value = "";
-    codeblockOutputs.value = "";
-    codeblockSource.value = "";
-    codeblockStatus.textContent = "";
     textBoxTitleScript.value = "";
     textBoxTextScript.value = "";
     textBoxTitleScriptStatus.textContent = "";
@@ -2281,10 +2257,6 @@ function configureNodeSceneContextMenu(mode) {
     resetNodeGraphModuleSettingsSizeRow(textBoxHeightControls, textBoxHeightDecrease, textBoxHeightIncrease, textBoxHeightValue);
     textBoxTextInput.value = "";
     textBoxTextInput.disabled = true;
-    codeblockInputs.value = "";
-    codeblockOutputs.value = "";
-    codeblockSource.value = "";
-    codeblockStatus.textContent = "";
     textBoxTitleScript.value = "";
     textBoxTextScript.value = "";
     textBoxTitleScriptStatus.textContent = "";

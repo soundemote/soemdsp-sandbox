@@ -945,7 +945,6 @@ function copyNodeGraphModule(sourceNode) {
     layout: sourceNode.layout,
     led: sourceNode.led,
     graph: sourceNode.graph,
-    codeblock: sourceNode.codeblock,
     ui: nodeGraphDeepCloneModuleField(sourceNode.ui),
     ...sizingOptions,
   });
@@ -997,7 +996,6 @@ const nodeGraphModuleSettingsFields = Object.freeze([
   "layout",
   "led",
   "graph",
-  "codeblock",
   "customDisplay",
   "knobFace",
   "canvasScript",
@@ -1779,52 +1777,8 @@ function commitNodeGraphGraphEdit(patch, targetNode, status, options = {}) {
   });
 }
 
-function nodeGraphCodeblockBuildFunctionBody(codeblock) {
-  const context = [
-    "const state = __state;",
-    "const __ctx = __context || {};",
-    "const sampleRate = nodeGraphFiniteNumber(__ctx.sampleRate, 44100);",
-    "const frame = nodeGraphFiniteNumber(__ctx.frame);",
-    "const frames = nodeGraphFiniteNumber(__ctx.frames, 1);",
-    "const time = nodeGraphFiniteNumber(__ctx.time);",
-    "const dt = 1 / sampleRate;",
-  ].join("\n");
-  const inputs = codeblock.inputs
-    .map((port, index) => `const ${port} = __inputs[${index}] || 0;`)
-    .join("\n");
-  const outputs = codeblock.outputs.map((port) => `let ${port} = 0;`).join("\n");
-  const writes = codeblock.outputs
-    .map((port) => `__outputs[${JSON.stringify(port)}] = ${port};`)
-    .join("\n");
-  const shadows = nodeGraphCodeblockShadowedGlobals
-    .filter((name) => name !== "eval")
-    .map((name) => `const ${name} = undefined;`)
-    .join("\n");
-  return `"use strict";\n${shadows}\n${context}\n${inputs}\n${outputs}\n${codeblock.code}\n${writes}\nreturn __outputs;`;
-}
 
-function nodeGraphCodeblockCompileStatus(codeblock) {
-  try {
-    const normalized = normalizeNodeGraphCodeblock(codeblock);
-    Function(
-      "__inputs",
-      "__outputs",
-      "__state",
-      "__context",
-      nodeGraphCodeblockBuildFunctionBody(normalized),
-    );
-    return { ok: true, message: "code ok" };
-  } catch (error) {
-    return { ok: false, message: error?.message || "compile error" };
-  }
-}
 
-function nodeGraphCodeblockPortsFromInput(id, fallbackPrefix) {
-  return normalizeNodeGraphCodeblockPortList(
-    document.getElementById(id)?.value,
-    fallbackPrefix,
-  );
-}
 
 function pruneNodeGraphConnectionsForCodeblockPortChange(patch, nodeId, inputs, outputs) {
   const inputSet = new Set(inputs);
@@ -1843,57 +1797,6 @@ function pruneNodeGraphConnectionsForCodeblockPortChange(patch, nodeId, inputs, 
   ));
 }
 
-function applyNodeGraphCodeblockPortsFromContext() {
-  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
-  if (!sourceNode || sourceNode.type !== "codeblock") {
-    return;
-  }
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
-  if (!targetNode) {
-    return;
-  }
-  const current = normalizeNodeGraphCodeblock(targetNode.codeblock);
-  const next = normalizeNodeGraphCodeblock({
-    ...current,
-    inputs: nodeGraphCodeblockPortsFromInput("nodeSceneCodeblockInputs", "In"),
-    outputs: nodeGraphCodeblockPortsFromInput("nodeSceneCodeblockOutputs", "Out"),
-  });
-  targetNode.codeblock = next;
-  pruneNodeGraphConnectionsForCodeblockPortChange(patch, targetNode.id, next.inputs, next.outputs);
-  commitNodeGraphPatch(patch, { status: "codeblock ports changed" });
-  configureNodeSceneContextMenu("module");
-}
-
-function setNodeGraphCodeblockSourceFromContext({ record = true } = {}) {
-  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
-  if (!sourceNode || sourceNode.type !== "codeblock") {
-    return;
-  }
-  const sourceInput = document.getElementById("nodeSceneCodeblockSource");
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
-  if (!targetNode) {
-    return;
-  }
-  const codeblock = normalizeNodeGraphCodeblock(targetNode.codeblock);
-  targetNode.codeblock = normalizeNodeGraphCodeblock({
-    ...codeblock,
-    code: sourceInput?.value ?? nodeGraphCodeblockDefaultCode,
-  });
-  const status = nodeGraphCodeblockCompileStatus(targetNode.codeblock);
-  const statusOutput = document.getElementById("nodeSceneCodeblockStatus");
-  if (statusOutput) {
-    statusOutput.textContent = status.ok ? "code ok" : `compile error: ${status.message}`;
-  }
-  commitNodeGraphPatch(patch, {
-    record,
-    status: status.ok ? "codeblock code changed" : "codeblock compile error",
-  });
-  if (document.activeElement === sourceInput) {
-    sourceInput.focus();
-  }
-}
 
 function setNodeGraphTextBoxPortScriptFromContext(port, { record = true } = {}) {
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());

@@ -175,9 +175,6 @@ function createNodeGraphPatchNode(type, options = {}) {
   if (nodeGraphModuleIsGraphType(resolvedType)) {
     node.graph = normalizeNodeGraphGraph(opts.graph);
   }
-  if (resolvedType === "codeblock") {
-    node.codeblock = normalizeNodeGraphCodeblock(opts.codeblock);
-  }
   const defDisplay = nodeGraphModuleDefinitions[resolvedType]?.defaultDisplaySettings;
   if (defDisplay && typeof defDisplay === "object") {
     node.traceDisplaySettings = { ...defDisplay };

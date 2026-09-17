@@ -246,6 +246,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPE_SET = new Set(
 const NODE_GRAPH_EFFICIENT_PRODUCT_CHROME_TYPES = Object.freeze([
   "animatedTextBox",
   "textBox",
+  "codeBox",
   "metamodule",
   "group",
   "metamoduleIn",

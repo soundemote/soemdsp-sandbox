@@ -1,4 +1,4 @@
-// Codeblock is one of a few different node types that share the same
+// Custom Display (and similar code-box kinds) share the same
 // {code, inputs, outputs} normalized shape and {ok, message} compile-status
 // shape (see customDisplay below) but have their own storage property,
 // compile helpers, and execution model. Rather than a parallel copy of
@@ -7,20 +7,6 @@
 // declared ports instead of a hardcoded list" fix), every rendering/draft/apply
 // function below is parameterized by this descriptor, keyed by node.type, instead.
 const nodeGraphCodeScreenCodeBoxKinds = Object.freeze({
-  codeblock: {
-    nodeType: "codeblock",
-    property: "codeblock",
-    label: "Codeblock",
-    kindLabelPlural: "codeblocks",
-    normalize: (value) => normalizeNodeGraphCodeblock(value),
-    compileStatus: (value) => nodeGraphCodeblockCompileStatus(value),
-    pruneConnections: (patch, nodeId, inputs, outputs) =>
-      pruneNodeGraphConnectionsForCodeblockPortChange(patch, nodeId, inputs, outputs),
-    contextHint: "state, time, dt, sampleRate, frame, frames in scope -- runs per sample in the audio thread.",
-    emptyStateMessage: "No Codeblock modules exist in this patch yet. Codeblocks stay in-circuit as debug utilities; the Code Screen is where they become easier to find and edit.",
-    createLabel: "New Debug Codeblock",
-    createFn: () => createNodeGraphCodeScreenDebugCodeblock(),
-  },
   customDisplay: {
     nodeType: "customDisplay",
     property: "customDisplay",
@@ -43,7 +29,7 @@ const nodeGraphCodeScreenCodeBoxKinds = Object.freeze({
 });
 
 function nodeGraphCodeScreenKindForNode(node) {
-  return nodeGraphCodeScreenCodeBoxKinds[node?.type] || nodeGraphCodeScreenCodeBoxKinds.codeblock;
+  return nodeGraphCodeScreenCodeBoxKinds[node?.type] || nodeGraphCodeScreenCodeBoxKinds.customDisplay;
 }
 
 const nodeGraphCodeScreenSections = Object.freeze([
@@ -51,7 +37,7 @@ const nodeGraphCodeScreenSections = Object.freeze([
     id: "codeblocks",
     title: "Code Boxes",
     eyebrow: "Code Boxes",
-    summary: "Central editing for Codeblock modules.",
+    summary: "Central editing for Custom Display and other code-box modules.",
   },
   {
     id: "helpers",
@@ -283,7 +269,7 @@ function openNodeGraphCodeScreenForNode(nodeId = "") {
   if (node && Object.hasOwn(nodeGraphCodeScreenCodeBoxKinds, node.type)) {
     nodeGraphMvp.codeScreenSelectedNodeId = node.id;
   }
-  nodeGraphMvp.codeScreenSection = "codeblocks";
+  nodeGraphMvp.codeScreenSection = "script";
   closeNodeSceneContextMenu();
   setNodeGraphViewMode("code");
 }
@@ -864,16 +850,6 @@ function focusNodeGraphCodeScreenModule() {
   setNodeGraphViewMode("modular");
 }
 
-function createNodeGraphCodeScreenDebugCodeblock() {
-  const nodeId = showNodeGraphModule("codeblock", null, { status: "debug codeblock added" });
-  if (!nodeId) {
-    return;
-  }
-  nodeGraphMvp.codeScreenSelectedNodeId = nodeId;
-  nodeGraphMvp.codeScreenSection = "codeblocks";
-  setNodeGraphViewMode("code");
-  renderNodeGraphCodeScreen();
-}
 
 function nodeGraphCodeScreenPrefixBeforeCursor(textarea) {
   const cursor = textarea.selectionStart ?? textarea.value.length;
@@ -1414,10 +1390,6 @@ function handleNodeGraphCodeScreenClick(event) {
   const addSnippetButton = event.target.closest("[data-code-screen-add-snippet]");
   if (addSnippetButton) {
     addNodeGraphCodeScreenSnippetItem();
-    return;
-  }
-  if (event.target.closest("#nodeCodeScreenCreateCodeblockFromList")) {
-    createNodeGraphCodeScreenDebugCodeblock();
     return;
   }
   const duplicateSnippetButton = event.target.closest("[data-code-screen-duplicate-snippet]");

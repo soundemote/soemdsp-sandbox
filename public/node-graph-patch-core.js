@@ -88,6 +88,7 @@ const nodeGraphRetiredNodeTypes = new Set([
   "moduleHome",
   "moduleShop",
   "scriptBox",
+  "codeblock",
   // Replaced by Yellow Graph chain: Additive Generator → filters/Growl/Noisy → Out.
   "additiveOsc",
   "gpuAdditiveOsc",

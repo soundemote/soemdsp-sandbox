@@ -605,29 +605,22 @@ function renderNodeGraphCodeScreenHelperSummary() {
 
 
 function nodeGraphCodeScreenSnippetTarget() {
-  if (nodeGraphMvp.codeScreenSnippetTarget === "codeblock" && nodeGraphCodeScreenSelectedCodeblock()) {
-    return "codeblock";
-  }
   return "script";
 }
 
 
 function setNodeGraphCodeScreenSnippetTarget(target) {
-  nodeGraphMvp.codeScreenSnippetTarget = target === "codeblock" ? "codeblock" : "script";
+  nodeGraphMvp.codeScreenSnippetTarget = "script";
   renderNodeGraphCodeScreen();
 }
 
 
 function renderNodeGraphCodeScreenSnippetTargetControls() {
-  const current = nodeGraphCodeScreenSnippetTarget();
-  const selectedNode = nodeGraphCodeScreenSelectedCodeblock();
-  const selectedKindLabel = selectedNode ? nodeGraphCodeScreenKindForNode(selectedNode).label : "Code Box";
   const controls = document.createElement("div");
   controls.className = "node-code-screen-snippet-target";
   controls.innerHTML = `
     <span>send snippets to</span>
-    <button type="button" data-code-screen-snippet-target="script" aria-pressed="${current === "script" ? "true" : "false"}">Workspace Script</button>
-    <button type="button" data-code-screen-snippet-target="codeblock" aria-pressed="${current === "codeblock" ? "true" : "false"}">Selected ${nodeGraphCodeScreenEscapeHtml(selectedKindLabel)}</button>
+    <button type="button" data-code-screen-snippet-target="script" aria-pressed="true">Workspace Script</button>
   `;
   return controls;
 }
@@ -1304,7 +1297,7 @@ function useNodeGraphCodeScreenSnippetAndReturn(index) {
     updateNodeGraphCodeScreenRegistryStatus("nothing to use", false);
     return;
   }
-  const targetSection = nodeGraphCodeScreenSnippetTarget() === "codeblock" ? "codeblocks" : "script";
+  const targetSection = nodeGraphCodeScreenSnippetTarget() === "codeblock" ? "script" : "script";
   nodeGraphMvp.codeScreenSection = targetSection;
   nodeGraphMvp.codeScreenPendingSnippet = snippet;
   nodeGraphMvp.codeScreenRegistryStatus = "snippet inserted";
@@ -1317,7 +1310,7 @@ function insertNodeGraphCodeScreenHelperSnippet(snippet) {
   const textarea = nodeGraphCodeScreenActiveTextarea();
   if (!textarea) {
     nodeGraphMvp.codeScreenPendingSnippet = String(snippet || "");
-    nodeGraphMvp.codeScreenSection = nodeGraphCodeScreenSnippetTarget() === "codeblock" ? "codeblocks" : "script";
+    nodeGraphMvp.codeScreenSection = nodeGraphCodeScreenSnippetTarget() === "codeblock" ? "script" : "script";
     renderNodeGraphCodeScreen();
     return;
   }

@@ -287,7 +287,6 @@
         "bode",
         "buttonEvents",
         "clockDivider",
-        "codeblock",
         "cookbookFilter",
         "curveOsc",
         "ellipsoidOsc",

@@ -138,7 +138,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "bitConverter",
   "bode",
   "buttonEvents",
-  "codeblock",
   "cookbookFilter",
   "curveOsc",
   "ellipsoidOsc",
@@ -955,11 +954,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Live BBP four-phase π walk: Sum/Term audio, latched hex bits for rhythm. No digit file.",
     label: "Pi Spigot Noise",
     notes: ["bbp", "pi", "hex", "bits", "sum", "term", "spigot", "native"],
-  },
-  codeblock: {
-    category: "text",
-    description: "Write JS DSP inline when no stock module does the exact math you need.",
-    notes: ["dynamic ports", "JavaScript body", "local patch code"],
   },
   codeBox: {
     category: "text",
@@ -2859,10 +2853,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   clockDivider: {
     source: "public/modules/clockDivider/clock-divider-live-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/clockDivider/clock-divider-live-evaluator.js",
-  },
-  codeblock: {
-    source: "public/modules/codeblock/codeblock-worklet-evaluator.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/codeblock/codeblock-worklet-evaluator.js",
   },
   combResonator: {
     source: "native_modules/comb_resonator/comb_resonator.cpp",

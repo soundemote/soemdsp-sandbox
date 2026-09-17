@@ -560,9 +560,6 @@ function cloneNodeGraphPatch(patch) {
               : (node.sequencer && typeof node.sequencer === "object" ? { ...node.sequencer } : undefined),
           }
           : {}),
-        ...(node.type === "codeblock"
-          ? { codeblock: normalizeNodeGraphCodeblock(node.codeblock) }
-          : {}),
         ...(node.type === "customDisplay"
           ? { customDisplay: normalizeNodeGraphCustomDisplay(node.customDisplay) }
           : {}),

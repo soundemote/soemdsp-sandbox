@@ -159,19 +159,22 @@ function renderNodeGraphCodeScreenCodeblocksLanding() {
   const landing = document.createElement("div");
   landing.className = "node-code-screen-empty node-code-screen-codeblocks-landing";
   const heading = document.createElement("h3");
-  heading.textContent = "Write your first Code Box";
+  heading.textContent = "Code Boxes";
   const text = document.createElement("p");
   text.textContent =
-    "Codeblocks run per-sample in the audio thread. Create one below to open the editor.";
+    "Custom Display modules edit here. Curve/data Code boxes live on the modular face (Text shelf → Code).";
   landing.append(heading, text);
   const actions = document.createElement("div");
   actions.className = "node-code-screen-codeblocks-landing-actions";
-  const codeblockButton = document.createElement("button");
-  codeblockButton.type = "button";
-  codeblockButton.className = "node-code-screen-landing-cta";
-  codeblockButton.textContent = "New Debug Codeblock";
-  codeblockButton.addEventListener("click", createNodeGraphCodeScreenDebugCodeblock);
-  actions.append(codeblockButton);
+  const customButton = document.createElement("button");
+  customButton.type = "button";
+  customButton.className = "node-code-screen-landing-cta";
+  customButton.textContent = "New Custom Display";
+  customButton.addEventListener("click", () => {
+    const kind = nodeGraphCodeScreenCodeBoxKinds.customDisplay;
+    if (kind?.createFn) kind.createFn();
+  });
+  actions.append(customButton);
   landing.append(actions);
   return landing;
 }

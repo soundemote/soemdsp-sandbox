@@ -1,11 +1,12 @@
-﻿# Code box + Text category
+# Code box + Text category
 
 ## Text shelf
-Palette department `text` (emoji memo) holds text/code surfaces: Text Box, Animated Text Box, Text Stream, Codeblock, **Code**.
+Palette department `text` (emoji memo) holds text/code surfaces: Text Box, Animated Text Box, Text Stream, and **Code**.
 
-## Code (`codeBox`) vs Codeblock
-- **Code** — control-plane editor. White square **Code** in/out (data bus). Apply publishes text. Never in the audio path.
-- **Codeblock** — existing JS DSP experiment; still listed under Text for now.
+## Code (`codeBox`)
+Control-plane editor. White square **Code** in/out (data bus). Apply publishes text. Never in the audio path.
+
+The old JS DSP **Codeblock** module was removed (retired on patch load).
 
 ## Code in behavior
 - Local text always saved on the module (`codeBox.localText`).
@@ -25,4 +26,4 @@ X / Y / Tension|Skew face strip still deferred.
 Overlapping names in signal + data lists throw at port build time (definition bug, not silently fixed).
 
 ## Port types
-Code jacks use strict type \code\ — see [PORT_TYPES.md](PORT_TYPES.md).
+Code jacks use strict type `code` — see [PORT_TYPES.md](PORT_TYPES.md).

@@ -788,7 +788,6 @@
             <div id="nodeCodeScreenLookupTarget" class="node-code-screen-lookup-target" aria-label="Lookup insert target">
               <span>send to</span>
               <button type="button" data-code-screen-snippet-target="script" aria-pressed="true">Script</button>
-              <button type="button" data-code-screen-snippet-target="codeblock" aria-pressed="false">Codeblock</button>
             </div>
             <output id="nodeCodeScreenLookupTargetSummary" class="node-code-screen-lookup-target-summary" aria-live="polite">inserts into Workspace Script</output>
             <label>
@@ -818,8 +817,8 @@
         <div class="node-code-screen-main">
           <div class="scene-context-heading scene-context-heading-static">
             <div class="scene-context-title">
-              <span id="nodeCodeScreenEyebrow">Codeblocks</span>
-              <small id="nodeCodeScreenTitle">Circuit Debug Codeblocks</small>
+              <span id="nodeCodeScreenEyebrow">Code Screen</span>
+              <small id="nodeCodeScreenTitle">Workspace Script &amp; Helpers</small>
             </div>
             <span id="nodeCodeScreenStatus" class="pill scene-context-heading-meta">ready</span>
           </div>
@@ -2095,37 +2094,6 @@
             rows="4"
             placeholder="text box content"></textarea>
         </label>
-        <div id="nodeSceneCodeblockControls" class="scene-context-codeblock-controls" hidden>
-          <button id="nodeSceneCodeblockOpenCodeScreen" type="button">Open Code Box</button>
-          <label>
-            <span>inputs</span>
-            <input
-              id="nodeSceneCodeblockInputs"
-              type="text"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="In1, freq, gate">
-          </label>
-          <label>
-            <span>outputs</span>
-            <input
-              id="nodeSceneCodeblockOutputs"
-              type="text"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="Out1, env">
-          </label>
-          <button id="nodeSceneCodeblockApplyPorts" type="button">Apply ports</button>
-          <label>
-            <span>code</span>
-            <textarea
-              id="nodeSceneCodeblockSource"
-              spellcheck="false"
-              rows="7"
-              placeholder="Out1 = In1;"></textarea>
-          </label>
-          <output id="nodeSceneCodeblockStatus" aria-live="polite">code ok</output>
-        </div>
         <div id="nodeSceneTextBoxPortScriptControls" class="scene-context-codeblock-controls" hidden>
           <label>
             <span>title script</span>
@@ -3645,7 +3613,7 @@
   <script data-boot-defer type="text/plain" src="./public/modules/patch/patch-register.js?v=patch-buttons-on-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-definitions.js?v=fm-passive-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-efficient-product.js?v=fm-shop-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-efficient-product.js?v=no-codeblock-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-controls.js?v=f-cancel-ssot-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
   <!-- module-store moved after default-patch -->

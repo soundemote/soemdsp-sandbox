@@ -1,6 +1,5 @@
 const nodeGraphNodeLabels = Object.freeze({
   audioInput: "Input",
-  codeblock: "Codeblock",
   customDisplay: "Custom Display",
   // smoothGraph: one global curve through free dots (Curve + Tension).
   // stepGraph: stepped/segment path (Shape + optional step grid + per-node contour).
@@ -716,13 +715,6 @@ const nodeGraphModuleDefinitions = (
         modClamp: false
       },
     ]
-  },
-  codeblock: {
-    planRole: "processor",
-    planFreeRun: true,
-    inputs: ["In1"],
-    outputs: ["Out1"],
-    parameters: []
   },
   customDisplay: {
     planRole: "monitor",

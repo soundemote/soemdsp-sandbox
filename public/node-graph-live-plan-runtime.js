@@ -203,9 +203,6 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
         runtimeNode.bypassed = true;
         runtimeNode.bypassSpec = nodeGraphModuleBypassSpec(node.type);
       }
-      if (node.type === "codeblock") {
-        runtimeNode.codeblock = normalizeNodeGraphCodeblock(node.codeblock);
-      }
       if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
         runtimeNode.sample = typeof normalizeNodeGraphNodeSamplePointer === "function"
           ? normalizeNodeGraphNodeSamplePointer(node.sample)
@@ -288,9 +285,6 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
       if (bypassed.has(node.id) && typeof nodeGraphModuleBypassSpec === "function") {
         runtimeNode.bypassed = true;
         runtimeNode.bypassSpec = nodeGraphModuleBypassSpec(node.type);
-      }
-      if (node.type === "codeblock") {
-        runtimeNode.codeblock = normalizeNodeGraphCodeblock(node.codeblock);
       }
       if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
         runtimeNode.sample = typeof normalizeNodeGraphNodeSamplePointer === "function"

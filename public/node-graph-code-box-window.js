@@ -343,7 +343,7 @@ function openNodeGraphCodeBoxWindowFromHeader() {
     openNodeGraphCodeBoxWindowForNode(existing.id);
     return;
   }
-  const nodeId = showNodeGraphModule("codeblock", null, { status: "debug codeblock added" });
+  const nodeId = null /* codeblock removed */;
   if (nodeId) {
     openNodeGraphCodeBoxWindowForNode(nodeId);
   }
@@ -438,7 +438,7 @@ function openNodeGraphCodeBoxWindowFullScreen() {
   if (node) {
     nodeGraphMvp.codeScreenSelectedNodeId = node.id;
   }
-  nodeGraphMvp.codeScreenSection = "codeblocks";
+  nodeGraphMvp.codeScreenSection = "script";
   setNodeGraphViewMode("code");
 }
 
