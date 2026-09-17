@@ -1648,7 +1648,7 @@ static const int kPortSine = 7;
 // basicShape extra taps (crossover5/6 also use 8–11).
 static const int kPortTrisaw = 8;
 static const int kPortCenterSquare = 9;
-static const int kPortPhase01 = 10; // BasicShape / RoundShape face __Phase (0…1)
+static const int kPortPhase01 = 10; // Face playhead 0…1 (BasicShape __Phase; Smooth/Step Graph __GraphPhase)
 static const int kPortIsIdle = 11; // envelopes / reverb / delay isIdle (digital 0/1)
 static const int kPortDryL = 3; // reverb Dry L (shares Saw index)
 static const int kPortDryR = 4; // reverb Dry R (shares Ramp index)
@@ -8593,6 +8593,8 @@ static void process_smooth_graph(Circuit& g, Node& node, int frames) {
     const double inSample = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const bool hasIn = true; // mix may be silent; map still applies when mode=Input
     const double x = graph_curve_sample_x(g, node, f, hasIn, inSample);
+    // Face purple ghost reads __GraphPhase via kPortPhase01 (Input / LFO / Phasor X).
+    node.buf[kPortPhase01][f] = x;
     const double y = soemdsp_smooth_graph_sample(
       node.nativeHandle, x, control_effective(node.stages), control_audio(g, node.shape, f)
     );
@@ -8612,6 +8614,8 @@ static void process_step_graph(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     const double inSample = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double x = graph_curve_sample_x(g, node, f, true, inSample);
+    // Face purple ghost reads __GraphPhase via kPortPhase01 (Input / LFO / Phasor X).
+    node.buf[kPortPhase01][f] = x;
     const double y = soemdsp_step_graph_sample(
       node.nativeHandle, x, control_effective(node.waveform), control_audio(g, node.center, f)
     );

@@ -270,7 +270,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI = 6;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SINE = 7;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRISAW = 8;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_CENTER_SQUARE = 9;
-NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PHASE01 = 10; // BasicShape face __Phase
+NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PHASE01 = 10; // Face playhead 0…1 (BasicShape __Phase; Smooth/Step __GraphPhase)
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_IS_IDLE = 11; // envelopes / reverb / delay isIdle
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_DRY_L = 3;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_DRY_R = 4;
@@ -6505,6 +6505,10 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "basicShape" || type === "sineWavetable" || type === "sinCos") {
       return ["__Phase"];
     }
+    // Smooth/Step Graph purple ghost (syncNodeGraphGraphLivePlayheads).
+    if (type === "smoothGraph" || type === "stepGraph") {
+      return ["__GraphPhase"];
+    }
     return [];
   }
   return [];
@@ -6591,7 +6595,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
         P.NATIVE_GRAPH_PORT_CENTER_SQUARE,
         P.NATIVE_GRAPH_PORT_PHASE01,
       )
-      : (type === "sineWavetable" || type === "sinCos"
+      : (type === "sineWavetable" || type === "sinCos" || type === "smoothGraph" || type === "stepGraph"
         ? audioPorts.concat(P.NATIVE_GRAPH_PORT_PHASE01)
         : audioPorts);
     for (let pi = 0; pi < ports.length; pi += 1) {
@@ -6734,6 +6738,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       // PolyBLEP/BLIT: publish shape taps so a Sine-only (etc.) cable can feed
       // the face. Unused taps stay silent in DSP via polyblep_tap_mask.
       const ports = type === "basicShape" || type === "sineWavetable" || type === "sinCos"
+        || type === "smoothGraph" || type === "stepGraph"
         ? facePorts.concat(P.NATIVE_GRAPH_PORT_PHASE01)
         : (type === "polyBlep" || type === "blit"
           ? facePorts.concat(
