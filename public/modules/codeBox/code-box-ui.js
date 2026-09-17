@@ -10,8 +10,32 @@ const CODE_BOX_DEFAULT_GRAPH = Object.freeze({
   ]),
 });
 
+/** Compact JSON: one line per point, minimal wrapping. Still valid JSON. */
+function serializeNodeGraphCurveToCodeText(graph) {
+  const g = typeof normalizeNodeGraphGraph === "function"
+    ? normalizeNodeGraphGraph(graph)
+    : graph;
+  const cursorX = Number(g?.cursorX);
+  const nodes = (Array.isArray(g?.nodes) ? g.nodes : []).map((node) => ({
+    x: Number(node?.x),
+    y: Number(node?.y),
+    c: Number(node?.c),
+    shape: String(node?.shape || "linear"),
+  }));
+  const nodeLines = nodes.map((node) => `    ${JSON.stringify(node)}`);
+  return [
+    "{",
+    `  "cursorX": ${JSON.stringify(cursorX)},`,
+    `  "nodes": [`,
+    nodeLines.join(",\n"),
+    "  ]",
+    "}",
+    "",
+  ].join("\n");
+}
+
 function nodeGraphCodeBoxDefaultLocalText() {
-  return `${JSON.stringify(CODE_BOX_DEFAULT_GRAPH, null, 2)}\n`;
+  return serializeNodeGraphCurveToCodeText(CODE_BOX_DEFAULT_GRAPH);
 }
 
 const CODE_BOX_DEFAULT_LOCAL_TEXT = nodeGraphCodeBoxDefaultLocalText();
@@ -43,9 +67,12 @@ function nodeGraphCodeBoxIncomingText(nodeId) {
   if (typeof value === "string") {
     return value;
   }
-  // Object on the bus (rare) → canonical JSON text for the face.
+  // Object on the bus → same compact document form as Graph serialize.
   try {
-    return `${JSON.stringify(value, null, 2)}\n`;
+    if (value && typeof value === "object" && Array.isArray(value.nodes)) {
+      return serializeNodeGraphCurveToCodeText(value);
+    }
+    return `${JSON.stringify(value)}\n`;
   } catch (_error) {
     return String(value ?? "");
   }
@@ -124,23 +151,6 @@ function nodeGraphParseCodeGraphDocument(textOrValue) {
     return { ok: false, message: "Normalize produced fewer than 2 points." };
   }
   return { ok: true, graph, message: "ok" };
-}
-
-function serializeNodeGraphCurveToCodeText(graph) {
-  const g = typeof normalizeNodeGraphGraph === "function"
-    ? normalizeNodeGraphGraph(graph)
-    : graph;
-  // Strip to the transferable fields only (isomorphic to normalize output).
-  const doc = {
-    cursorX: Number(g?.cursorX),
-    nodes: (Array.isArray(g?.nodes) ? g.nodes : []).map((node) => ({
-      x: Number(node?.x),
-      y: Number(node?.y),
-      c: Number(node?.c),
-      shape: String(node?.shape || "linear"),
-    })),
-  };
-  return `${JSON.stringify(doc, null, 2)}\n`;
 }
 
 function commitNodeGraphCodeBoxLocalText(nodeId, localText, status = "Code local text") {
