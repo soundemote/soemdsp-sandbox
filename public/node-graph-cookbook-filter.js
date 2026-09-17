@@ -949,18 +949,28 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   // 1×1 pre-layout paint as final (that froze crossover faces blank).
   const view = nodeGraphFilterCurveView(node);
   const signature = JSON.stringify(view);
-  if (
-    section._filterCurveSignature === signature
-    && !section._filterCurveForceDraw
-    && section._filterCurveLaidOut === true
-  ) {
-    return;
+  // Drop provisional px width/height from older pre-layout fallback. That stamp
+  // overrode CSS width:100% and froze the face when the module was widened.
+  if (section.style.width || section.style.height) {
+    section.style.width = "";
+    section.style.height = "";
   }
   // Layout size: offsetWidth avoids getBoundingClientRect (cheaper; zoom is
   // applied via CSS transform on the workspace, not on face layout size).
   const measured = nodeGraphFilterCurveMeasureBox(section);
   const rawW = measured.rawW;
   const rawH = measured.rawH;
+  const cssW = Math.max(1, rawW);
+  const cssH = Math.max(1, rawH);
+  if (
+    section._filterCurveSignature === signature
+    && section._filterCurveCssW === cssW
+    && section._filterCurveCssH === cssH
+    && !section._filterCurveForceDraw
+    && section._filterCurveLaidOut === true
+  ) {
+    return;
+  }
   if (rawW < 8 || rawH < 8) {
     // Face not laid out yet — do not cache signature; keep retrying.
     section._filterCurveLaidOut = false;
@@ -976,21 +986,6 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
     return;
   }
   section._filterCurveRetryCount = 0;
-  if ((nodeGraphFiniteNumber(section.clientWidth)) < 8 || (nodeGraphFiniteNumber(section.clientHeight)) < 8) {
-    section.style.width = `${Math.max(8, rawW)}px`;
-    section.style.height = `${Math.max(8, rawH)}px`;
-  }
-  const cssW = Math.max(1, rawW);
-  const cssH = Math.max(1, rawH);
-  if (
-    section._filterCurveSignature === signature
-    && section._filterCurveCssW === cssW
-    && section._filterCurveCssH === cssH
-    && !section._filterCurveForceDraw
-    && section._filterCurveLaidOut === true
-  ) {
-    return;
-  }
   const metrics = nodeGraphSizeDisplayCanvas(section, canvas, { pixelDensity: 1 });
   if (!metrics) {
     return;
