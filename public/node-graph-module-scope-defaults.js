@@ -444,9 +444,9 @@ const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   // Centered arc span (degrees Bias 0→1). Start is always −span/2 (no Offset).
   rotationDegrees: 270,
   // Dial ring size 0…1 (1 = fill available dial cell; label/value unchanged).
-  dialSize: 1,
+  dialSize: 0.2,
   // Title / value size 0…1 = fraction of the knob square (same scale).
-  labelSize: 0.45,
+  labelSize: 0.2,
   valueSize: 0.45,
   // Title / value vs the dial: above | mid | below.
   labelPosition: "above",
