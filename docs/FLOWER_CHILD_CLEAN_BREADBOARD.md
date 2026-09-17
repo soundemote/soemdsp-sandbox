@@ -18,7 +18,7 @@ This is **not** the sealed `flowerChildFilter` module. It rebuilds a Clean-style
 |---------|------|
 | **knobRes** + **resGraph** | Main hand-tune surface: Resonance → feedback amount |
 | **knobFreq** + **rangeFreq** | Base Hz for osc; also feeds ratio attenuverters |
-| **ratio1 / ratio2** | ≈0.164 / 0.366 cutoff ratios into the two Passive Filters |
+| **rangeLpf1 / rangeLpf2** | ≈0.164 / 0.366 cutoff ratios into the two Passive Filters |
 | **inScale** | Input into the loop (old ~0.0358) |
 | **fmScale** | How hard the mix FM-drives the osc Increment |
 
@@ -31,3 +31,15 @@ This is **not** the sealed `flowerChildFilter` module. It rebuilds a Clean-style
 ## How to open
 
 Load **FCF Clean breadboard** from the patch bank (same place as `flowerchild` / `flowerchildfilter`). Hard-refresh if the list was cached.
+
+## Control mapping (Ranges, real Hz)
+
+Frequency knob Bias feeds three Ranges (no ratio attenuverters):
+
+- **Freq** (`rangeFreq`): 0…1 → 40…2500 Hz → MOD BasicShape `frequency`
+- **LPF1** (`rangeLpf1`): 0…1 → 40×0.164…2500×0.164 Hz → MOD Passive Filter 1 `highFrequency`
+- **LPF2** (`rangeLpf2`): 0…1 → 40×0.366…2500×0.366 Hz → MOD Passive Filter 2 `highFrequency`
+
+Range Out values above |1| domain-add on MOD. For PARAM OUT sources that should emit Hz (etc.) instead of 0…1, use Parameter Settings → **Param out: domain**.
+
+Audio-path gains stay attenuverters: `inScale`, `fmScale`, `fbVca`. Resonance still goes Knob → `resGraph` → MOD `fbVca.amplitude` (0…1 curve for now).
