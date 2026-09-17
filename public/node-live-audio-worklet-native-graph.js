@@ -3704,7 +3704,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
       push("rate", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("rate", 1));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
-      push("curveOffset", P.NATIVE_GRAPH_PARAM_CENTER, cont("curveOffset", 0));
+      push("skewOffset", P.NATIVE_GRAPH_PARAM_CENTER, (() => { const s = cont("skewOffset", NaN); return Number.isFinite(s) ? s : cont("curveOffset", 0); })());
       push("segmentShape", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("segmentShape", 0));
       push("inputMin", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inputMin", 0));
       push("inputMax", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inputMax", 1));

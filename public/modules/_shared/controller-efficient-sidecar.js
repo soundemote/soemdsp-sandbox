@@ -462,7 +462,11 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       }
 
       if (type === "knob") {
-        const offset = num(p.offset, 0);
+        // Chase offset DOMAIN like other params (linearSmoothing / smoothingSeconds).
+        // Raw p.offset is the target only — Bias must publish the smoothed out.
+        const offset = typeof this.additiveEffectiveParam === "function"
+          ? num(this.additiveEffectiveParam(node, "offset", 0, _frames), 0)
+          : num(p.offset, 0);
         const rangeMin = num(p.rangeMin, 0);
         const rangeMax = num(p.rangeMax, 1);
         const polarity = num(p.polarity, 0);

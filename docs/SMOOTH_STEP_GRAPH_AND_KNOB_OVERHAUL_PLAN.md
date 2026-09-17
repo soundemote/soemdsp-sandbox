@@ -4,7 +4,7 @@
 |-------|-------|
 | **Author** | Sandbox / Argi |
 | **Date** | 2026-09-17 |
-| **Status** | Draft plan (rev 3) |
+| **Status** | Draft plan (rev 4) |
 | **Repo** | `C:\Users\argit\Documents\_PROGRAMMING\soemdsp-sandbox` |
 | **Motivation (user)** | Reliable Knob+Graph editing so you can breadboard Flower Child Filter (and similar) yourself |
 | **Out of scope** | Host/plugin ports, rack engine quirks, multi-rate host assumptions — keep this plan **sandbox-generic** |
@@ -68,11 +68,11 @@ Native curve evaluators (`smooth_graph` / `step_graph`) stay; this is primarily 
 - **Drive readout on the face:** show **input X** as a line and **final sample X** as a line (input + phase offset). User must see both, not only one cream playhead.
 - Rename **Phase → Phase Offset** (param key `phase` → `phaseOffset` with patch migration). Slider + MOD is enough to offset drive without an external Knob.
 
-### Curve Offset vs Phase Offset (glossary)
+### Skew Offset vs Phase Offset (glossary)
 
 | Control | Where | What it actually does |
 |---------|--------|------------------------|
-| **Curve Offset** (`curveOffset`) | **Step Graph only** | Global add into each segment's per-node contour: `effective c = c + curveOffset`. Bends segment *shape*. **Not** the X playhead. |
+| **Skew Offset** (`skewOffset`; was `curveOffset`) | **Step Graph only** | Global add into each segment's per-node contour: `effective c = c + skewOffset`. Bends segment *shape*. **Not** the X playhead. |
 | **Phase Offset** (`phase` → `phaseOffset`) | Smooth + Step | X drive in cycles 0…1 (wrap). Face scrub + LFO/Phasor/Input modes. |
 
 Do not conflate them in labels or overlays.
@@ -101,7 +101,7 @@ Phase Offset stays a normal module parameter so you can trim drive without a Kno
 1. Graph number fields: bad UX, cannot drag, not shared widgets.
 2. Graph face: tension/value handles not visible on hover as a set.
 3. Knob: smoothing not reflected; face behaves like a pseudo-parameter rather than a module display of Bias.
-4. Cannot see input vs final drive on the graph face; Phase naming confuses with Curve Offset.
+4. Cannot see input vs final drive on the graph face; Phase naming confuses with Skew Offset.
 5. That blocks reliable curve authoring for filter breadboards (user-owned).
 
 ---
@@ -145,7 +145,7 @@ Phase Offset stays a normal module parameter so you can trim drive without a Kno
 | Input line | Distinct style (e.g. dim vertical) at mapped In X |
 | Final line | Distinct style (current cream playhead) at `wrap(inputX + phaseOffset)` |
 | Modes | Input mode: both lines. LFO/Phasor: final line is the running phase; input line optional/hidden if In unused |
-| Curve Offset | Unchanged; Step-only; never drawn as an X playhead |
+| Skew Offset | Unchanged; Step-only; never drawn as an X playhead |
 
 ## Work phases
 
@@ -178,7 +178,7 @@ Phase Offset stays a normal module parameter so you can trim drive without a Kno
 
 - Rename Phase → Phase Offset (`phaseOffset` + migration).
 - Draw input X line and final X line (`wrap(input + phaseOffset)`).
-- Document Curve Offset vs Phase Offset in tooltips (Step).
+- Document Skew Offset vs Phase Offset in tooltips (Step).
 - Verify Out samples at final X; scrub still edits Phase Offset.
 
 ### Phase 5 — Interaction bug sweep
@@ -209,7 +209,7 @@ Phase Offset stays a normal module parameter so you can trim drive without a Kno
 3. Hovering the graph face reveals all value points and all tension/contour handles.
 4. Smooth + Step remain editable without the “stupid widgets” path.
 5. Face shows input line and final (input + phase offset) line; Phase labeled Phase Offset.
-6. Curve Offset remains Step contour bias only — not confused with Phase Offset in UI.
+6. Skew Offset remains Step contour bias only — not confused with Phase Offset in UI.
 7. No host-specific or rack-specific branches introduced for this work.
 
 ---

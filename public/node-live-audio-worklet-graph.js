@@ -456,7 +456,7 @@ NodeLiveAudioProcessor.prototype.graphSegmentOptionsForNode = function graphSegm
     }
     const params = node?.params || {};
     return {
-      curveOffset: this.normalizeGraphNumber(params.curveOffset, 0, -1, 1),
+      curveOffset: this.normalizeGraphNumber(params.skewOffset ?? params.curveOffset, 0, -1, 1),
       segmentShape: this.graphSegmentShapeFromParam(
         params.segmentShape != null && params.segmentShape !== ""
           ? params.segmentShape

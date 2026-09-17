@@ -63,7 +63,7 @@ function syncNodeGraphPatchMetadataFromSlider(slider, options = {}) {
       || key === "smoothingMode"
       || key === "steps"
       || key === "segmentShape"
-      || key === "curveOffset"
+      || key === "skewOffset" || key === "curveOffset"
     ) &&
     nodeGraphModuleIsGraphType(patchNode.type)
   );
@@ -215,7 +215,7 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
         || key === "smoothingMode"
         || key === "steps"
         || key === "segmentShape"
-        || key === "curveOffset"
+        || key === "skewOffset" || key === "curveOffset"
       ) &&
       typeof syncNodeGraphGraphDisplaysForNode === "function"
     ) {
@@ -395,7 +395,7 @@ function setNodeSliderValue(slider, value, options = {}) {
     slider?.dataset?.param === "smoothingMode" ||
     slider?.dataset?.param === "steps" ||
     slider?.dataset?.param === "segmentShape" ||
-    slider?.dataset?.param === "curveOffset"
+    slider?.dataset?.param === "skewOffset" || slider?.dataset?.param === "curveOffset"
   );
   // Always write domain into the patch (live sync reads from patch, rAF-coalesced).
   syncNodeGraphPatchParameterFromSlider(slider, {

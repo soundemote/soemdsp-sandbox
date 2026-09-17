@@ -465,6 +465,14 @@ function validateNodeGraphPatch(patch) {
             : (n <= 0 ? 0 : -44100 * Math.log(1 - n) / (2 * Math.PI));
         }
       }
+      if (type === "stepGraph" && node.params && Object.prototype.hasOwnProperty.call(node.params, "curveOffset") && !Object.prototype.hasOwnProperty.call(node.params, "skewOffset")) {
+        node.params.skewOffset = node.params.curveOffset;
+        delete node.params.curveOffset;
+      }
+      if (type === "stepGraph" && node.paramMeta && node.paramMeta.curveOffset && !node.paramMeta.skewOffset) {
+        node.paramMeta.skewOffset = node.paramMeta.curveOffset;
+        delete node.paramMeta.curveOffset;
+      }
       if (type === "smoothGraph" && parameter.key === "smoothingMode") {
         const sourceMax = Number(node.paramMeta?.[parameter.key]?.max);
         const n = Math.round(Number(value));

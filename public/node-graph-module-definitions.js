@@ -788,8 +788,8 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1", key: "outputMax", label: "Out Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
     ]
   },
-  // Step Graph: segment path + optional X grid. Global Shape + Curve Offset;
-  // per-node contour `c` still local (effective = c + curveOffset).
+  // Step Graph: segment path + optional X grid. Global Shape + Skew Offset;
+  // per-node contour `c` still local (effective = c + skewOffset; legacy curveOffset).
   stepGraph: {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
@@ -818,8 +818,8 @@ const nodeGraphModuleDefinitions = (
       },
       {
         defaultValue: "0",
-        key: "curveOffset",
-        label: "Curve Offset",
+        key: "skewOffset",
+        label: "Skew Offset",
         max: "1",
         mid: "0",
         min: "-1",

@@ -1,12 +1,12 @@
 // Step Graph segment Shape keys (global Shape param + per-node `shape`).
 //   linear / rational / exponential / log / smoothstep / hold
 //
-// Contour / Curve Offset domain is always −1…+1. Rational / exp / log evaluate
+// Contour / Skew Offset domain is always −1…+1. Rational / exp / log evaluate
 // continuous with a Planck soft-cap (±(1 − 1e−7)) so kernels never see exact ±1.
 //
 // smoothGraph vs stepGraph:
 //   Smooth: one global curve through free dots (smoothingMode + tension).
-//   Step:   global Shape + Curve Offset; per-node contour `c` still local
+//   Step:   global Shape + Skew Offset; per-node contour `c` still local
 //           (effective contour = c + curveOffset). Empty-circle handles edit bend;
 //           node drag snaps X to the step grid (Ctrl = free X).
 const nodeGraphGraphShapes = Object.freeze([
@@ -370,7 +370,7 @@ function nodeGraphGraphSegmentOptionsForNode(patchNode) {
   }
   const params = patchNode?.params || {};
   return {
-    curveOffset: normalizeNodeGraphGraphNumber(params.curveOffset, 0, -1, 1),
+    curveOffset: normalizeNodeGraphGraphNumber(params.skewOffset ?? params.curveOffset, 0, -1, 1),
     segmentShape: nodeGraphGraphSegmentShapeFromParam(
       params.segmentShape != null && params.segmentShape !== ""
         ? params.segmentShape
@@ -957,8 +957,8 @@ function nodeGraphGraphModeCurve(position, mode, index = 0) {
  * @param {{ segmentShape?: string, curveOffset?: number }} [options]
  */
 function nodeGraphGraphLegacySegmentShape(p, right, options = {}) {
-  const offset = normalizeNodeGraphGraphNumber(options.curveOffset, 0, -1, 1);
-  // Per-node c + global Curve Offset, clamped to ±1 (Planck soft-cap in kernels).
+  const offset = normalizeNodeGraphGraphNumber((options.skewOffset ?? options.curveOffset), 0, -1, 1);
+  // Per-node c + global Skew Offset, clamped to ±1 (Planck soft-cap in kernels).
   const contour = nodeGraphGraphNormalizeContour((nodeGraphFiniteNumber(right?.c)) + offset, 0);
   // Global Shape wins (same as worklet + native step_graph). Per-node shape is legacy only.
   const shape = options.segmentShape != null && String(options.segmentShape).trim() !== ""
@@ -2378,7 +2378,7 @@ function dragNodeGraphGraphNode(event) {
     const nodes = [...(drag.graph.nodes || [])];
     const current = nodes[drag.index] || normalizeNodeGraphGraphNode({}, drag.index);
     // Handle is drawn at effective contour (c + curveOffset). Store residual c
-    // so nonzero Curve Offset does not double-apply / slam to hard step.
+    // so nonzero Skew Offset does not double-apply / slam to hard step.
     const curveOffset = normalizeNodeGraphGraphNumber(
       faceRenderOptions?.segmentOptions?.curveOffset,
       0,
