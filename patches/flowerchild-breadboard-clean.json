@@ -2210,7 +2210,7 @@
         "id": "rangeLpf1",
         "type": "range",
         "gx": -14,
-        "gy": 2,
+        "gy": 6,
         "params": {
           "inLow": 0,
           "inHigh": 1,
@@ -2403,15 +2403,13 @@
             "outputDomain": false
           }
         },
-        "title": "LPF1",
-        "x": 0.0,
-        "y": 140.0
+        "title": "LPF1"
       },
       {
         "id": "rangeLpf2",
         "type": "range",
         "gx": -14,
-        "gy": 2,
+        "gy": 10,
         "params": {
           "inLow": 0,
           "inHigh": 1,
@@ -2604,9 +2602,7 @@
             "outputDomain": false
           }
         },
-        "title": "LPF2",
-        "x": 0.0,
-        "y": 280.0
+        "title": "LPF2"
       }
     ],
     "format": {
