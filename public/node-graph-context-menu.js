@@ -818,8 +818,7 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneTextBoxTextControls",
   "nodeSceneCodeblockControls",
   "nodeSceneMetamoduleVoiceControls",
-  "nodeSceneGraphControls",
-  "nodeSceneImageControls",
+    "nodeSceneImageControls",
   "nodeSceneKnobFaceControls",
   "nodeSceneCanvasControls",
   "nodeSceneLedControls",
@@ -1175,8 +1174,6 @@ function configureNodeSceneContextMenu(mode) {
   const metamodulePlaymode = document.getElementById("nodeSceneMetamodulePlaymode");
   const metamoduleVoiceCount = document.getElementById("nodeSceneMetamoduleVoiceCount");
   const graphControls = document.getElementById("nodeSceneGraphControls");
-  const graphCursorX = document.getElementById("nodeSceneGraphCursorX");
-  const graphNodeList = document.getElementById("nodeSceneGraphNodeList");
   const toggleButtonsButton = document.getElementById("nodeSceneToggleButtons");
   const toggleModuleEnabledButton = document.getElementById("nodeSceneToggleModuleEnabled");
   const nativeCodeGroup = document.getElementById("nodeSceneCodeGroup");
@@ -1401,7 +1398,6 @@ function configureNodeSceneContextMenu(mode) {
     // Stack stays visible with the section; individual buttons still gate per capability.
     moduleVisibilityActionGroup.hidden = false;
   }
-  const targetIsGraphType = nodeGraphModuleIsGraphType(targetNode?.type);
   deleteButton.hidden = !(moduleMode || wireMode);
   {
     // Single or multi selection on Root (not already inside a container).
@@ -1446,7 +1442,10 @@ function configureNodeSceneContextMenu(mode) {
   textBoxTextControls.hidden = !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight);
   codeblockControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "codeblock");
   textBoxPortScriptControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "animatedTextBox");
-  graphControls.hidden = !(moduleMode && !multiModuleMode && targetIsGraphType);
+  // Smooth/Step Graph Module Settings editor removed — face is the editor.
+  if (graphControls) {
+    graphControls.hidden = true;
+  }
   // Playmode / Voice Count: Module Settings only — never Wire Settings.
   if (metamoduleVoiceControls) {
     const showMetaVoice = Boolean(
@@ -2084,19 +2083,6 @@ function configureNodeSceneContextMenu(mode) {
       textBoxTitleScriptStatus.textContent = "";
       textBoxTextScriptStatus.textContent = "";
     }
-    if (targetIsGraphType) {
-      syncNodeGraphGraphControls(nodeGraphGraphForNode(targetNode));
-      if (graphCursorX) {
-        graphCursorX.disabled = false;
-        graphCursorX.title = "Move the vertical graph cursor.";
-      }
-    } else {
-      if (graphCursorX) {
-        graphCursorX.value = "";
-        graphCursorX.disabled = true;
-      }
-      graphNodeList?.replaceChildren();
-    }
     const targetIsMetamodule = Boolean(
       targetNode
       && typeof nodeGraphIsMetamoduleType === "function"
@@ -2232,11 +2218,6 @@ function configureNodeSceneContextMenu(mode) {
     textBoxTextScript.value = "";
     textBoxTitleScriptStatus.textContent = "";
     textBoxTextScriptStatus.textContent = "";
-    if (graphCursorX) {
-      graphCursorX.value = "";
-      graphCursorX.disabled = true;
-    }
-    graphNodeList?.replaceChildren();
     textBoxVerticalAlign.value = "50";
     textBoxVerticalAlignValue.textContent = "";
     textBoxVerticalAlign.disabled = true;
@@ -2308,11 +2289,6 @@ function configureNodeSceneContextMenu(mode) {
     textBoxTextScript.value = "";
     textBoxTitleScriptStatus.textContent = "";
     textBoxTextScriptStatus.textContent = "";
-    if (graphCursorX) {
-      graphCursorX.value = "";
-      graphCursorX.disabled = true;
-    }
-    graphNodeList?.replaceChildren();
     textBoxVerticalAlign.value = "50";
     textBoxVerticalAlignValue.textContent = "";
     textBoxVerticalAlign.disabled = true;

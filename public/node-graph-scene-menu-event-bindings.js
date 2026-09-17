@@ -349,35 +349,7 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTitleScript", "change", () => setNodeGraphTextBoxPortScriptFromContext("Title", { record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextScript", "input", () => setNodeGraphTextBoxPortScriptFromContext("Text", { record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextScript", "change", () => setNodeGraphTextBoxPortScriptFromContext("Text", { record: true }));
-  bindNodeGraphSceneElementEvent("nodeSceneGraphCursorX", "input", () => setNodeGraphGraphCursorFromContext({ record: false }));
-  bindNodeGraphSceneElementEvent("nodeSceneGraphCursorX", "change", () => setNodeGraphGraphCursorFromContext({ record: true }));
-  bindNodeGraphSceneElementEvent("nodeSceneMetamodulePlaymode", "change", () => {
-    if (typeof nodeGraphMetamoduleApplyVoiceSettingsFromContext === "function") {
-      nodeGraphMetamoduleApplyVoiceSettingsFromContext();
-    }
-  });
-  bindNodeGraphSceneElementEvent("nodeSceneMetamoduleVoiceCount", "change", () => {
-    if (typeof nodeGraphMetamoduleApplyVoiceSettingsFromContext === "function") {
-      nodeGraphMetamoduleApplyVoiceSettingsFromContext();
-    }
-  });
-  // List owns node edit / select / remove / add ([+] under last row, ✕ per row).
-  bindNodeGraphSceneElementEvent("nodeSceneGraphNodeList", "click", handleNodeGraphGraphNodeListClick);
-  bindNodeGraphSceneElementEvent("nodeSceneGraphNodeList", "input", handleNodeGraphGraphNodeListInput);
-  bindNodeGraphSceneElementEvent("nodeSceneGraphNodeList", "change", handleNodeGraphGraphNodeListChange);
-  bindNodeGraphSceneElementEvent("nodeSceneGraphReset", "click", resetNodeGraphGraphFromContext);
-  document
-    .querySelectorAll("#nodeSceneGraphPresetControls [data-graph-preset]")
-    .forEach((button) => {
-      button.addEventListener("click", () => setNodeGraphGraphPresetFromContext(button.dataset.graphPreset));
-    });
-  document
-    .querySelectorAll("#nodeSceneGraphTransformControls [data-graph-transform]")
-    .forEach((button) => {
-      button.addEventListener("click", () => transformNodeGraphGraphFromContext(button.dataset.graphTransform));
-    });
-  bindNodeGraphSceneElementEvent("nodeSceneGraphCopy", "click", copyNodeGraphGraphFromContext);
-  bindNodeGraphSceneElementEvent("nodeSceneGraphPaste", "click", pasteNodeGraphGraphFromContext);
+  // Smooth/Step Graph Module Settings editor removed (face-only).
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxAlignLeft", "click", () => setNodeGraphTextBoxHorizontalAlignFromContext("left"));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxAlignCenter", "click", () => setNodeGraphTextBoxHorizontalAlignFromContext("center"));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxAlignRight", "click", () => setNodeGraphTextBoxHorizontalAlignFromContext("right"));

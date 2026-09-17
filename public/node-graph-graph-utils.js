@@ -94,36 +94,6 @@ function nodeGraphGraphPresetData(name) {
   return normalizeNodeGraphGraph(nodeGraphGraphPresets[String(name || "").trim()] || nodeGraphDefaultGraphData);
 }
 
-function nodeGraphGraphTransformedData(graphValue, transform) {
-  const graph = normalizeNodeGraphGraph(graphValue);
-  const type = String(transform || "").trim();
-  if (type === "flipY") {
-    return normalizeNodeGraphGraph({
-      cursorX: graph.cursorX,
-      nodes: graph.nodes.map((node) => ({
-        ...node,
-        y: 1 - node.y,
-      })),
-    });
-  }
-  if (type === "reverseX") {
-    const nodes = graph.nodes.map((node, index) => {
-      const segmentSource = graph.nodes[index + 1] || node;
-      return {
-        c: -nodeGraphGraphNormalizeContour(segmentSource.c, 0),
-        shape: segmentSource.shape,
-        x: 1 - node.x,
-        y: node.y,
-      };
-    });
-    return normalizeNodeGraphGraph({
-      cursorX: 1 - graph.cursorX,
-      nodes,
-    });
-  }
-  return graph;
-}
-
 function addNodeGraphGraphNodeData(graphValue, pointValue = {}) {
   const graph = normalizeNodeGraphGraph(graphValue);
   if (graph.nodes.length >= 32) {
@@ -193,26 +163,6 @@ function duplicateNodeGraphGraphNodeData(graphValue, selectedIndex = 0) {
     selectedIndex: duplicateIndex,
     selectedX: x,
   };
-}
-
-function serializeNodeGraphGraphClipboard(graphValue) {
-  return JSON.stringify({
-    graph: normalizeNodeGraphGraph(graphValue),
-    type: "soemdsp.graph",
-    version: 1,
-  }, null, 2);
-}
-
-function parseNodeGraphGraphClipboard(text) {
-  try {
-    const payload = JSON.parse(String(text || ""));
-    if (payload?.type !== "soemdsp.graph") {
-      return null;
-    }
-    return normalizeNodeGraphGraph(payload.graph);
-  } catch (_error) {
-    return null;
-  }
 }
 
 function normalizeNodeGraphGraphShape(value) {
@@ -1354,8 +1304,8 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
     class: "node-module-graph-curve",
     d: nodeGraphGraphCurvePath(graph, 96, smoothingMode, tension, segmentOptions),
   }));
-  // Face dots/rings stay invisible until a specific index is hot (hover or drag).
-  // No selected styling — panel selection does not lighten face chrome.
+  // Idle: dots/rings opacity 0. Face hover (.is-hover-reveal) shows all;
+  // .is-hot still brightens the active hit. Panel selection does not light face chrome.
   const hitRadii = nodeGraphGraphScreenRoundRadii(element, 5.4);
   const nodeRadii = nodeGraphGraphScreenRoundRadii(element, 1.5);
   const contourRadii = nodeGraphGraphScreenRoundRadii(element, 2.4);
@@ -1524,12 +1474,25 @@ function nodeGraphGraphPhaseHitFromEventTarget(target) {
  *  • phase line stays dim unless pointer is on the phase hit (or scrubbing it)
  *  • only the node under the pointer (and its contour ring) is dim-visible
  */
+function setNodeGraphGraphFaceHoverReveal(display, on) {
+  if (!display) {
+    return;
+  }
+  display.classList.toggle("is-hover-reveal", Boolean(on));
+}
+
 function bindNodeGraphGraphFaceHover(display) {
   if (!display || display.dataset.graphHoverBound === "true") {
     return;
   }
   display.dataset.graphHoverBound = "true";
+  // Pointer over the face = show all value points + contour handles.
+  // Hot index still brightens the active hit for precise editing.
+  display.addEventListener("pointerenter", () => {
+    setNodeGraphGraphFaceHoverReveal(display, true);
+  });
   display.addEventListener("pointermove", (event) => {
+    setNodeGraphGraphFaceHoverReveal(display, true);
     const drag = nodeGraphMvp?.graphNodeDragging;
     const onThisFace = drag && (drag.display === display || drag.nodeId === display.dataset.graphNode);
     if (onThisFace) {
@@ -1571,6 +1534,7 @@ function bindNodeGraphGraphFaceHover(display) {
   display.addEventListener("pointerleave", () => {
     const drag = nodeGraphMvp?.graphNodeDragging;
     if (drag && (drag.display === display || drag.nodeId === display.dataset.graphNode)) {
+      setNodeGraphGraphFaceHoverReveal(display, true);
       if (drag.mode === "cursor") {
         clearNodeGraphGraphHotMarks(display);
         setNodeGraphGraphPhaseHot(display, true);
@@ -1586,6 +1550,7 @@ function bindNodeGraphGraphFaceHover(display) {
       }
       return;
     }
+    setNodeGraphGraphFaceHoverReveal(display, false);
     clearNodeGraphGraphHotMarks(display);
     clearNodeGraphGraphPhaseHot(display);
   });

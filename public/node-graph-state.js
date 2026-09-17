@@ -292,7 +292,6 @@ var nodeGraphMvp = {
   resourceManifestError: "",
   modulations: (__nodeGraphStateDefaultPatch.modulations || []).map((modulation) => ({ ...modulation })),
   graphNodeDragging: null,
-  graphClipboard: null,
   graphSelectedNodeIndices: new Map(),
   uiItemDragging: null,
   nodeDragging: null,

@@ -1719,195 +1719,44 @@ function nodeGraphGraphTargetFromContext(patch = cloneNodeGraphPatch(nodeGraphMv
   return { patch, targetNode };
 }
 
+/** Selected graph node index for face / patch edits (no Module Settings list). */
 function selectedNodeGraphGraphIndex(graph, fallback = undefined) {
-  const input = document.getElementById("nodeSceneGraphNodeIndex");
-  const rawIndex = Number(input?.value);
   const maxIndex = Math.max(0, (graph?.nodes?.length || 1) - 1);
-  const hasFallback = Number.isFinite(Number(fallback));
-  const index = hasFallback
-    ? Number(fallback)
-    : Number.isFinite(rawIndex)
-      ? rawIndex
-      : maxIndex;
-  return Math.max(0, Math.min(maxIndex, Math.round(index)));
+  if (Number.isFinite(Number(fallback))) {
+    return Math.max(0, Math.min(maxIndex, Math.round(Number(fallback))));
+  }
+  return maxIndex;
 }
 
-function populateNodeGraphGraphNodeIndexSelect(graph, selectedIndex = selectedNodeGraphGraphIndex(graph)) {
-  const select = document.getElementById("nodeSceneGraphNodeIndex");
-  if (!select) {
-    return;
-  }
-  const graphData = normalizeNodeGraphGraph(graph);
-  select.replaceChildren();
-  graphData.nodes.forEach((node, index) => {
-    const option = document.createElement("option");
-    option.value = String(index);
-    option.textContent = `${index + 1}: x ${node.x.toFixed(3)}`;
-    select.append(option);
-  });
-  select.value = String(selectedNodeGraphGraphIndex(graphData, selectedIndex));
-}
-
-function createNodeGraphGraphRowNumberInput(index, field, value, options = {}) {
-  const input = document.createElement("input");
-  input.type = "number";
-  input.min = String(options.min ?? 0);
-  input.max = String(options.max ?? 1);
-  input.step = String(options.step ?? 0.001);
-  input.inputMode = "decimal";
-  input.autocomplete = "off";
-  input.value = Number(value).toFixed(3);
-  input.dataset.graphNodeRow = String(index);
-  input.dataset.graphNodeField = field;
-  input.setAttribute("aria-label", `Graph node ${index + 1} ${field}`);
-  if (options.disabled) {
-    input.disabled = true;
-  }
-  return input;
-}
-
-function createNodeGraphGraphRowShapeSelect(index, value, options = {}) {
-  const select = document.createElement("select");
-  select.dataset.graphNodeRow = String(index);
-  select.dataset.graphNodeField = "shape";
-  select.setAttribute("aria-label", `Graph node ${index + 1} shape`);
-  for (const shape of nodeGraphGraphShapes) {
-    const option = document.createElement("option");
-    option.value = shape;
-    option.textContent = shape;
-    select.append(option);
-  }
-  select.value = normalizeNodeGraphGraphShape(value);
-  if (options.disabled) {
-    select.disabled = true;
-  }
-  return select;
-}
-
-function renderNodeGraphGraphNodeList(graph, selectedIndex = selectedNodeGraphGraphIndex(graph), options = {}) {
-  const list = document.getElementById("nodeSceneGraphNodeList");
-  if (!list) {
-    return;
-  }
-  const graphData = normalizeNodeGraphGraph(graph);
-  // Step Graph: x/y + curve + shape on one row. Smooth Graph: x/y only.
-  const usesPerNodeContour = Boolean(options.usesPerNodeContour);
-  const usesPerNodeShapeSelect = Boolean(options.usesPerNodeShapeSelect);
-  const activeIndex = selectedNodeGraphGraphIndex(graphData, selectedIndex);
-  const canRemove = graphData.nodes.length > 2;
-  list.replaceChildren();
-  const header = document.createElement("div");
-  header.className = "scene-context-graph-node-row scene-context-graph-node-row-header";
-  const labels = usesPerNodeContour
-    ? (usesPerNodeShapeSelect
-      ? ["#", "x", "y", "curve", "shape", ""]
-      : ["#", "x", "y", "curve", ""])
-    : ["#", "x", "y", ""];
-  for (const label of labels) {
-    const span = document.createElement("span");
-    span.textContent = label;
-    header.append(span);
-  }
-  list.append(header);
-  list.dataset.graphListMode = usesPerNodeContour
-    ? (usesPerNodeShapeSelect ? "curve-shape" : "curve")
-    : "points";
-  graphData.nodes.forEach((node, index) => {
-    const row = document.createElement("div");
-    row.className = "scene-context-graph-node-row";
-    row.dataset.graphNodeRow = String(index);
-    row.dataset.selected = index === activeIndex ? "true" : "false";
-
-    const label = document.createElement("button");
-    label.type = "button";
-    label.textContent = String(index + 1);
-    label.dataset.graphNodeSelect = String(index);
-    label.setAttribute("aria-pressed", index === activeIndex ? "true" : "false");
-    label.title = "Select node";
-    row.append(label);
-    row.append(createNodeGraphGraphRowNumberInput(index, "x", node.x));
-    row.append(createNodeGraphGraphRowNumberInput(index, "y", node.y));
-    if (usesPerNodeContour) {
-      // Curve + shape sit on the same row (never a separate editor block).
-      row.append(createNodeGraphGraphRowNumberInput(index, "c", node.c, {
-        min: -1,
-        max: 1,
-      }));
-      if (usesPerNodeShapeSelect) {
-        row.append(createNodeGraphGraphRowShapeSelect(index, node.shape));
-      }
-    }
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "scene-context-graph-node-remove";
-    remove.textContent = "✕";
-    remove.dataset.graphNodeRemove = String(index);
-    remove.setAttribute("aria-label", `Remove graph node ${index + 1}`);
-    remove.title = canRemove ? "Remove node" : "Need at least 2 nodes";
-    remove.disabled = !canRemove;
-    row.append(remove);
-    list.append(row);
-  });
-  // [+] square under the last node — only add affordance.
-  const addRow = document.createElement("div");
-  addRow.className = "scene-context-graph-node-add-row";
-  const addButton = document.createElement("button");
-  addButton.type = "button";
-  addButton.id = "nodeSceneGraphAddNode";
-  addButton.className = "scene-context-graph-node-add";
-  addButton.textContent = "+";
-  addButton.setAttribute("aria-label", "Add graph node");
-  addButton.title = "Add node";
-  addRow.append(addButton);
-  list.append(addRow);
-}
-
+/**
+ * Sync Smooth/Step Graph face after edits.
+ * Module Settings point-list / presets / transform / clipboard UI was removed —
+ * the face is the editor.
+ */
 function syncNodeGraphGraphControls(graph, selectedIndex = selectedNodeGraphGraphIndex(graph), options = {}) {
   const graphData = normalizeNodeGraphGraph(graph);
   const index = selectedNodeGraphGraphIndex(graphData, selectedIndex);
-  // Prefer an explicit node id (drag / caller). Falling back to the module
-  // actions target is fine for panel edits, but must never paint face A with
-  // graph data meant for face B.
   const nodeId = String(options.nodeId || nodeGraphModuleActionTargetNodeId() || "").trim();
   const patchNode = nodeGraphPatchNode(nodeId);
   const graphNodeType = patchNode?.type || "";
-  const usesPerNodeContour = typeof nodeGraphGraphUsesPerNodeContour === "function"
-    ? nodeGraphGraphUsesPerNodeContour(graphNodeType)
-    : nodeGraphGraphUsesPerNodeShapes(graphNodeType);
-  const usesPerNodeShapeSelect = typeof nodeGraphGraphUsesPerNodeShapeSelect === "function"
-    ? nodeGraphGraphUsesPerNodeShapeSelect(graphNodeType)
-    : false;
   const paintFace = options.face !== false;
-  if (nodeGraphModuleIsGraphType(graphNodeType)) {
-    setNodeGraphGraphSelectedNodeIndex(nodeId, graphData, index);
-    if (paintFace) {
-      // Only ever paint the workspace face for this exact node id.
-      const moduleElement = typeof nodeGraphGraphLiveDisplayForNodeId === "function"
-        ? nodeGraphGraphLiveDisplayForNodeId(nodeId)?.closest?.(".dsp-node")
-        : nodeGraphNodeElement(nodeId);
-      if (moduleElement) {
-        syncNodeGraphGraphElement(moduleElement, {
-          ...patchNode,
-          graph: graphData,
-          id: nodeId,
-        });
-      }
-    }
-  }
-  renderNodeGraphGraphNodeList(graphData, index, { usesPerNodeContour, usesPerNodeShapeSelect });
-  const cursorInput = document.getElementById("nodeSceneGraphCursorX");
-  if (cursorInput) {
-    cursorInput.value = graphData.cursorX.toFixed(3);
-  }
-}
-
-function setNodeGraphGraphSelectedIndex(index) {
-  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
-  if (!sourceNode || !nodeGraphModuleIsGraphType(sourceNode.type)) {
+  if (!nodeGraphModuleIsGraphType(graphNodeType)) {
     return;
   }
-  const graph = nodeGraphGraphForNode(sourceNode);
-  syncNodeGraphGraphControls(graph, nodeGraphGraphNodeIndexFromValue(graph, index));
+  setNodeGraphGraphSelectedNodeIndex(nodeId, graphData, index);
+  if (!paintFace) {
+    return;
+  }
+  const moduleElement = typeof nodeGraphGraphLiveDisplayForNodeId === "function"
+    ? nodeGraphGraphLiveDisplayForNodeId(nodeId)?.closest?.(".dsp-node")
+    : nodeGraphNodeElement(nodeId);
+  if (moduleElement) {
+    syncNodeGraphGraphElement(moduleElement, {
+      ...patchNode,
+      graph: graphData,
+      id: nodeId,
+    });
+  }
 }
 
 function commitNodeGraphGraphEdit(patch, targetNode, status, options = {}) {
@@ -1915,8 +1764,7 @@ function commitNodeGraphGraphEdit(patch, targetNode, status, options = {}) {
   targetNode.graph = nodeGraphGraphEndpointYLockEnabledForNode(targetNode)
     ? nodeGraphGraphWithLockedEndpointY(targetNode.graph, selectedIndex)
     : normalizeNodeGraphGraph(targetNode.graph);
-  syncNodeGraphGraphPhaseParameterFromCursor(targetNode);
-  if (Number.isFinite(options.selectedX)) {
+  if (options.selectedX != null && Number.isFinite(Number(options.selectedX))) {
     selectedIndex = targetNode.graph.nodes.reduce((bestIndex, node, index) => {
       const best = targetNode.graph.nodes[bestIndex];
       return Math.abs(node.x - options.selectedX) < Math.abs(best.x - options.selectedX)
@@ -1925,226 +1773,9 @@ function commitNodeGraphGraphEdit(patch, targetNode, status, options = {}) {
     }, 0);
   }
   commitNodeGraphPatch(patch, { record: options.record ?? true, status });
-  syncNodeGraphGraphControls(targetNode.graph, selectedIndex);
-}
-
-function setNodeGraphGraphCursorFromContext({ record = true } = {}) {
-  const { patch, targetNode } = nodeGraphGraphTargetFromContext();
-  if (!targetNode) {
-    return;
-  }
-  const input = document.getElementById("nodeSceneGraphCursorX");
-  targetNode.graph = normalizeNodeGraphGraph({
-    ...targetNode.graph,
-    cursorX: normalizeNodeGraphGraphNumber(input?.value, targetNode.graph.cursorX),
-  });
-  commitNodeGraphGraphEdit(patch, targetNode, "graph cursor changed", { record });
-}
-
-function selectNodeGraphGraphNodeFromContext() {
-  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
-  if (!sourceNode || !nodeGraphModuleIsGraphType(sourceNode.type)) {
-    return;
-  }
-  syncNodeGraphGraphControls(nodeGraphGraphForNode(sourceNode));
-}
-
-function setNodeGraphGraphNodeListValueFromContext(event, { record = true } = {}) {
-  const field = event.target?.dataset?.graphNodeField;
-  const rowIndex = event.target?.dataset?.graphNodeRow;
-  if (!field || rowIndex === undefined) {
-    return;
-  }
-  const { patch, targetNode } = nodeGraphGraphTargetFromContext();
-  if (!targetNode) {
-    return;
-  }
-  const usesPerNodeContour = typeof nodeGraphGraphUsesPerNodeContour === "function"
-    ? nodeGraphGraphUsesPerNodeContour(targetNode.type)
-    : nodeGraphGraphUsesPerNodeShapes(targetNode.type);
-  const usesPerNodeShapeSelect = typeof nodeGraphGraphUsesPerNodeShapeSelect === "function"
-    ? nodeGraphGraphUsesPerNodeShapeSelect(targetNode.type)
-    : false;
-  if (field === "c" && !usesPerNodeContour) {
-    return;
-  }
-  if (field === "shape" && !usesPerNodeShapeSelect) {
-    return;
-  }
-  // While typing, intermediate values like "" or "0." are not finite yet.
-  // Keep focus and wait for a complete number; shape selects always apply.
-  if (field !== "shape") {
-    const raw = String(event.target.value ?? "").trim();
-    if (raw === "" || raw === "-" || raw === "." || raw === "-." || raw.endsWith("e") || raw.endsWith("E") || raw.endsWith("-")) {
-      return;
-    }
-    if (!Number.isFinite(Number(raw))) {
-      return;
-    }
-  }
-  const graph = normalizeNodeGraphGraph(targetNode.graph);
-  const selectedIndex = nodeGraphGraphNodeIndexFromValue(graph, rowIndex);
-  const node = graph.nodes[selectedIndex];
-  graph.nodes[selectedIndex] = normalizeNodeGraphGraphNode({
-    ...node,
-    [field]: event.target.value,
-  }, selectedIndex);
-  targetNode.graph = graph;
-
-  if (!record) {
-    // Live typing path: update curve + worklet graph WITHOUT rebuilding the
-    // node list (which would steal focus from the input being edited).
-    const liveNode = nodeGraphMvp?.patch?.nodes?.find?.((candidate) => candidate.id === targetNode.id);
-    if (liveNode) {
-      liveNode.graph = nodeGraphGraphEndpointYLockEnabledForNode(liveNode)
-        ? nodeGraphGraphWithLockedEndpointY(graph, selectedIndex)
-        : normalizeNodeGraphGraph(graph);
-      syncNodeGraphGraphDisplaysForNode(targetNode.id, liveNode);
-    }
-    if (typeof scheduleNodeGraphLivePlanSync === "function") {
-      scheduleNodeGraphLivePlanSync();
-    }
-    if (typeof setNodeGraphPatchDirtyState === "function") {
-      setNodeGraphPatchDirtyState("edited");
-    } else {
-      nodeGraphMvp.patchDirtyState = "edited";
-    }
-    return;
-  }
-
-  // Blur/change: commit to history and full-sync controls.
-  commitNodeGraphGraphEdit(patch, targetNode, "graph node changed", { record: true, selectedIndex });
-}
-
-function handleNodeGraphGraphNodeListClick(event) {
-  const addButton = event.target?.closest?.("#nodeSceneGraphAddNode, .scene-context-graph-node-add");
-  if (addButton) {
-    addNodeGraphGraphNodeFromContext();
-    return;
-  }
-  const removeButton = event.target?.closest?.("[data-graph-node-remove]");
-  if (removeButton) {
-    removeNodeGraphGraphNodeFromContext(removeButton.dataset.graphNodeRemove);
-    return;
-  }
-  const selectButton = event.target?.closest?.("[data-graph-node-select]");
-  if (!selectButton) {
-    return;
-  }
-  setNodeGraphGraphSelectedIndex(selectButton.dataset.graphNodeSelect);
-}
-
-function handleNodeGraphGraphNodeListInput(event) {
-  setNodeGraphGraphNodeListValueFromContext(event, { record: false });
-}
-
-function handleNodeGraphGraphNodeListChange(event) {
-  setNodeGraphGraphNodeListValueFromContext(event, { record: true });
-}
-
-function addNodeGraphGraphNodeFromContext() {
-  const { patch, targetNode } = nodeGraphGraphTargetFromContext();
-  if (!targetNode) {
-    return;
-  }
-  const addition = addNodeGraphGraphNodeData(targetNode.graph);
-  if (!addition.added) {
-    return;
-  }
-  targetNode.graph = addition.graph;
-  commitNodeGraphGraphEdit(patch, targetNode, "graph node added", {
-    selectedIndex: addition.selectedIndex,
-  });
-}
-
-function removeNodeGraphGraphNodeFromContext(indexOverride = null) {
-  const { patch, targetNode } = nodeGraphGraphTargetFromContext();
-  if (!targetNode) {
-    return;
-  }
-  const graph = normalizeNodeGraphGraph(targetNode.graph);
-  if (graph.nodes.length <= 2) {
-    return;
-  }
-  const selectedIndex = indexOverride != null && String(indexOverride).trim() !== ""
-    ? nodeGraphGraphNodeIndexFromValue(graph, indexOverride)
-    : selectedNodeGraphGraphIndex(graph);
-  graph.nodes.splice(selectedIndex, 1);
-  targetNode.graph = graph;
-  const nextIndex = Math.max(0, Math.min(selectedIndex, graph.nodes.length - 1));
-  setNodeGraphGraphSelectedNodeIndex(targetNode.id, graph, nextIndex);
-  commitNodeGraphGraphEdit(patch, targetNode, "graph node removed", {
-    selectedIndex: nextIndex,
-  });
-}
-
-function resetNodeGraphGraphFromContext() {
-  const { patch, targetNode } = nodeGraphGraphTargetFromContext();
-  if (!targetNode) {
-    return;
-  }
-  targetNode.graph = normalizeNodeGraphGraph();
-  commitNodeGraphGraphEdit(patch, targetNode, "graph reset", { selectedIndex: 1 });
-}
-
-function setNodeGraphGraphPresetFromContext(preset) {
-  const { patch, targetNode } = nodeGraphGraphTargetFromContext();
-  if (!targetNode) {
-    return;
-  }
-  targetNode.graph = nodeGraphGraphPresetData(preset);
-  commitNodeGraphGraphEdit(patch, targetNode, `graph preset: ${preset}`, {
-    selectedIndex: Math.min(1, targetNode.graph.nodes.length - 1),
-  });
-}
-
-function transformNodeGraphGraphFromContext(transform) {
-  const { patch, targetNode } = nodeGraphGraphTargetFromContext();
-  if (!targetNode) {
-    return;
-  }
-  targetNode.graph = nodeGraphGraphTransformedData(targetNode.graph, transform);
-  commitNodeGraphGraphEdit(patch, targetNode, `graph transformed: ${transform}`, {
-    selectedIndex: Math.min(1, targetNode.graph.nodes.length - 1),
-  });
-}
-
-async function copyNodeGraphGraphFromContext() {
-  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
-  if (!sourceNode || !nodeGraphModuleIsGraphType(sourceNode.type)) {
-    return;
-  }
-  const graph = nodeGraphGraphForNode(sourceNode);
-  const text = serializeNodeGraphGraphClipboard(graph);
-  nodeGraphMvp.graphClipboard = text;
-  try {
-    await copyTextToClipboard(text);
-  } catch (_error) {
-    // Local clipboard remains available when browser clipboard access is blocked.
-  }
-  configureNodeSceneContextMenu("module");
-}
-
-async function pasteNodeGraphGraphFromContext() {
-  const { patch, targetNode } = nodeGraphGraphTargetFromContext();
-  if (!targetNode) {
-    return;
-  }
-  let text = nodeGraphMvp.graphClipboard || "";
-  try {
-    text = await navigator.clipboard?.readText?.() || text;
-  } catch (_error) {
-    // Browser clipboard read may be unavailable; use the local graph clipboard.
-  }
-  const graph = parseNodeGraphGraphClipboard(text);
-  if (!graph) {
-    configureNodeSceneContextMenu("module");
-    return;
-  }
-  nodeGraphMvp.graphClipboard = serializeNodeGraphGraphClipboard(graph);
-  targetNode.graph = graph;
-  commitNodeGraphGraphEdit(patch, targetNode, "graph pasted", {
-    selectedIndex: Math.min(1, graph.nodes.length - 1),
+  syncNodeGraphGraphControls(targetNode.graph, selectedIndex, {
+    nodeId: targetNode.id,
+    face: options.face,
   });
 }
 
