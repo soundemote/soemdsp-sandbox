@@ -237,6 +237,11 @@
       "slug": "videoscope",
       "label": "videoscope",
       "url": "/soemdsp-sandbox/patches/videoscope.json"
+    },
+    {
+      "slug": "flowerchild-breadboard-clean",
+      "label": "FCF Clean breadboard",
+      "url": "/soemdsp-sandbox/patches/flowerchild-breadboard-clean.json"
     }
   ]
 }
