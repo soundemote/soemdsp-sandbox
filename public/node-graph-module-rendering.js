@@ -904,7 +904,9 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (definition.layout === "graph") {
-    // LayoutB: ports beside graph face.
+    // LayoutB: ports beside graph face (+ numeric point strip under the SVG).
+    const graphFace = document.createElement("div");
+    graphFace.className = "node-module-graph-face";
     const graphSection = document.createElement("div");
     graphSection.className = "node-module-graph-display";
     graphSection.dataset.graphNode = node;
@@ -916,8 +918,15 @@ function createNodeGraphModuleElement(type, node) {
         ? nodeGraphGraphStepCountForNode(patchNode)
         : 0,
       tension: Number(patchNode?.params?.tension) ?? 1,
+      zoomSettings: typeof nodeGraphGraphFaceDisplaySettingsForNode === "function"
+        ? nodeGraphGraphFaceDisplaySettingsForNode(patchNode)
+        : null,
     });
-    const graphShell = createNodeGraphLayoutBShell(node, type, graphSection, null, inputPorts, outputPorts);
+    graphFace.append(graphSection);
+    if (typeof mountNodeGraphGraphPointStrip === "function") {
+      mountNodeGraphGraphPointStrip(graphFace, patchNode);
+    }
+    const graphShell = createNodeGraphLayoutBShell(node, type, graphFace, null, inputPorts, outputPorts);
     article.append(graphShell);
   } else if (definition.layout === "sliderWidget") {
     // LayoutB (XY Pad contract): slim I/O beside a large face; Bias/control under.

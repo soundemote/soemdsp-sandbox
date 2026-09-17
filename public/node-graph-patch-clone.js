@@ -363,6 +363,11 @@ function cloneNodeGraphTypedDisplaySettings(node) {
           ? normalizeNodeGraphKnobFaceDisplaySettings(bag)
           : (bag || {}),
       };
+    case "graphFace":
+      return typeof normalizeNodeGraphGraphFaceDisplaySettings === "function"
+        ? { traceDisplaySettings: normalizeNodeGraphGraphFaceDisplaySettings(bag) }
+        : { traceDisplaySettings: bag || {} };
+
     case "portalFace": {
       const channel = typeof nodeGraphPortalClampChannel === "function"
         ? nodeGraphPortalClampChannel(node?.params?.channel)

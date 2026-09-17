@@ -352,7 +352,12 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       nodeGraphKnobFaceDisplaySettingsDefaults,
     );
   }
-  if (type === "portalFace") {
+    if (type === "graphFace") {
+    return typeof normalizeNodeGraphGraphFaceDisplaySettings === "function"
+      ? normalizeNodeGraphGraphFaceDisplaySettings()
+      : { zoomMin: 0, zoomMax: 1 };
+  }
+if (type === "portalFace") {
     return { channel: 0 };
   }
   if (type === "softwaveOscFace") {
@@ -607,7 +612,12 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   if (type === "knobFace") {
     return normalizeNodeGraphKnobFaceDisplaySettings(settings);
   }
-  if (type === "portalFace") {
+    if (type === "graphFace") {
+    return typeof normalizeNodeGraphGraphFaceDisplaySettings === "function"
+      ? normalizeNodeGraphGraphFaceDisplaySettings(settings)
+      : { zoomMin: 0, zoomMax: 1 };
+  }
+if (type === "portalFace") {
     return {
       channel: typeof nodeGraphPortalClampChannel === "function"
         ? nodeGraphPortalClampChannel(settings?.channel)
@@ -784,7 +794,12 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   if (settingsSchema === "knobFace") {
     return nodeGraphKnobFaceDisplaySettingsForNode(node);
   }
-  if (settingsSchema === "portalFace") {
+    if (settingsSchema === "graphFace") {
+    return typeof normalizeNodeGraphGraphFaceDisplaySettings === "function"
+      ? normalizeNodeGraphGraphFaceDisplaySettings(node?.traceDisplaySettings)
+      : { zoomMin: 0, zoomMax: 1 };
+  }
+if (settingsSchema === "portalFace") {
     return typeof nodeGraphPortalDisplaySettingsForNode === "function"
       ? nodeGraphPortalDisplaySettingsForNode(node)
       : { channel: 0 };

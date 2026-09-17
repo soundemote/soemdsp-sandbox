@@ -677,6 +677,12 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  graphFace: Object.freeze({
+    fields: Object.freeze(["zoomMin", "zoomMax"]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
   toggleButtonFace: Object.freeze({
     fields: Object.freeze([
       "textBrightness",
@@ -1018,6 +1024,18 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "decimal",
     id: "nodeTraceDisplayImageSize",
     title: "Zoom 0…4 (exp). Fine near 0; 1 = fit face; >1 = zoom past edges.",
+  }),
+  zoomMin: Object.freeze({
+    label: "Zoom Min",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayGraphZoomMin",
+    title: "Bottom of the graph face Y view (display only; point data stays 0..1).",
+  }),
+  zoomMax: Object.freeze({
+    label: "Zoom Max",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayGraphZoomMax",
+    title: "Top of the graph face Y view (display only; point data stays 0..1).",
   }),
   image: Object.freeze({
     label: "Image",
@@ -1891,6 +1909,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   oscilloscopeBankBurn: "Bank",
   hypersawBurn: "Hypersaw",
   knobFace: "Knob",
+  graphFace: "Graph",
   keypadFace: "Keypad",
   roundShapeFace: "RoundShape",
   sinCos4Face: "SinCos4",

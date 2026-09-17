@@ -3693,8 +3693,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("smoothingMode", P.NATIVE_GRAPH_PARAM_STAGES, disc("smoothingMode", 1));
       push("inputMin", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inputMin", 0));
       push("inputMax", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inputMax", 1));
-      push("outputMin", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("outputMin", 0));
-      push("outputMax", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("outputMax", 1));
+      // Display Zoom Min/Max is face-only; DSP always maps curve samples 0..1.
+      push("outputMin", P.NATIVE_GRAPH_PARAM_OUT_LOW, 0);
+      push("outputMax", P.NATIVE_GRAPH_PARAM_OUT_HIGH, 1);
       continue;
     }
     if (type === "stepGraph") {
@@ -3708,8 +3709,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("segmentShape", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("segmentShape", 0));
       push("inputMin", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inputMin", 0));
       push("inputMax", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inputMax", 1));
-      push("outputMin", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("outputMin", 0));
-      push("outputMax", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("outputMax", 1));
+      // Display Zoom Min/Max is face-only; DSP always maps curve samples 0..1.
+      push("outputMin", P.NATIVE_GRAPH_PARAM_OUT_LOW, 0);
+      push("outputMax", P.NATIVE_GRAPH_PARAM_OUT_HIGH, 1);
       continue;
     }
     if (type === "phaseDisperse") {

@@ -173,6 +173,15 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     return node.traceDisplaySettings;
   }
+  if (displayType === "graphFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphGraphFaceDisplaySettings === "function"
+      ? normalizeNodeGraphGraphFaceDisplaySettings(settings)
+      : { zoomMin: 0, zoomMax: 1 };
+    if (typeof syncNodeGraphGraphDisplaysForNode === "function") {
+      syncNodeGraphGraphDisplaysForNode(node.id, node);
+    }
+    return node.traceDisplaySettings;
+  }
   if (displayType === "patchFace") {
     node.traceDisplaySettings = typeof normalizeNodeGraphPatchFaceDisplaySettings === "function"
       ? normalizeNodeGraphPatchFaceDisplaySettings(settings)

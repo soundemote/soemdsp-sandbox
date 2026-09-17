@@ -13247,6 +13247,78 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .dsp-node .node-module-scope-window,
 .dsp-node .node-module-face:not(.node-text-box-body):not(.node-filter-curve-display),
 .dsp-node .node-phosphor-waveform-display,
+
+/* Graph face wrapper: SVG plot + compact numeric strip underneath. */
+.node-module-graph-face {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.node-module-graph-face > .node-module-graph-display {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.node-module-graph-point-strip {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.35rem;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.2rem 0.35rem 0.28rem;
+  border-top: 1px solid rgba(128, 224, 224, 0.16);
+  background: rgba(2, 8, 12, 0.92);
+  color: rgba(210, 236, 236, 0.88);
+  font-size: 0.68rem;
+  line-height: 1.1;
+}
+
+.node-module-graph-point-strip-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.node-module-graph-point-strip-label {
+  flex: 0 0 auto;
+  opacity: 0.72;
+  letter-spacing: 0.02em;
+}
+
+.node-module-graph-point-strip-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0.12rem 0.22rem;
+  border: 1px solid rgba(128, 224, 224, 0.22);
+  border-radius: 3px;
+  background: #040a0e;
+  color: rgba(230, 248, 248, 0.95);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.node-module-graph-point-strip-input:focus {
+  outline: 1px solid rgba(255, 236, 181, 0.55);
+  outline-offset: 0;
+  border-color: rgba(255, 236, 181, 0.45);
+}
+
+.node-module-graph-point-strip-input:read-only {
+  opacity: 0.55;
+}
+
 .dsp-node .node-module-graph-display {
   --node-plate-clip-top: 999px;
   --node-plate-clip-right: 999px;

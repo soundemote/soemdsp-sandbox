@@ -184,6 +184,15 @@ function nodeGraphModuleDisplayRendererForNode(node) {
  * (envelopeCurve / filterCurve → layoutOwned) have no mode → blank settings.
  */
 function nodeGraphModuleDisplaySettingsSchemaForNode(node) {
+  const type = String(node?.type || "").trim();
+  if (
+    type === "smoothGraph"
+    || type === "stepGraph"
+    || (typeof nodeGraphModuleDefinitions !== "undefined"
+      && nodeGraphModuleDefinitions?.[type]?.layout === "graph")
+  ) {
+    return "graphFace";
+  }
   const mode = nodeGraphModuleSelectedDisplayMode(node);
   if (mode && Object.prototype.hasOwnProperty.call(mode, "settingsSchema")) {
     return String(mode.settingsSchema || "");
@@ -263,6 +272,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "vectorRgbFace",
     "rasterRgbFace",
     "gradientVectorscopeFace",
+    "graphFace",
   ].includes(displayType);
 }
 

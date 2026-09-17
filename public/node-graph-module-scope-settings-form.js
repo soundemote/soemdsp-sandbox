@@ -146,6 +146,12 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Pixel density";
     title = "1.0 = CSS × devicePixelRatio. Below 1 = chunky lo-fi.";
   }
+  if ((key === "zoomMin" || key === "zoomMax") && formType === "graphFace") {
+    label = key === "zoomMin" ? "Zoom Min" : "Zoom Max";
+    title = key === "zoomMin"
+      ? "Bottom of the graph face Y view (display only; point data stays 0..1)."
+      : "Top of the graph face Y view (display only; point data stays 0..1).";
+  }
   if (key === "innerRadius" && formType === "knobFace") {
     label = "Inner radius";
     title = "Arc hole size 0…1 (0 = solid, ~0.7 default ring, higher = thinner ring).";

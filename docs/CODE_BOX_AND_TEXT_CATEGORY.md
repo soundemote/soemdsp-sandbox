@@ -34,7 +34,10 @@ Apply = `JSON.parse` → `normalizeNodeGraphGraph` → save canonical JSON + pub
 Smooth/Step Graph Code in assigns `patchNode.graph` from a valid document. Code out serializes the live `graph` the same way. Graph face remains the primary authoring UI.
 
 ## Bottom strip
-X / Y / Tension|Skew face strip still deferred.
+Smooth: X / Y / Tension (global Tension param). Step: X / Y / Skew (per-point contour `c`). Synced to face selection. Code stays one-way when wired.
+
+## Display zoom
+Display Settings Zoom Min / Zoom Max rescale face Y only. Out Min/Max params removed; DSP outs stay 0..1.
 
 ## Port types
 Code jacks use strict type `code` — see [PORT_TYPES.md](PORT_TYPES.md).

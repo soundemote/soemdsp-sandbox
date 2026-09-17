@@ -24,7 +24,7 @@ const NODE_GRAPH_SCREEN_SOLO_FACE_SEL = [
   ".node-xy-pad",
   ".node-raster-rgb-face",
   ".node-ray-bouncer-face",
-  ".node-module-graph-display",
+  ".node-module-graph-display, .node-module-graph-face, .node-module-graph-point-strip",
   ".node-additive-filter-curve-display",
   ".node-text-box-body",
   ".node-midi-keyboard-module",

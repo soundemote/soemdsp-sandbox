@@ -551,6 +551,22 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
     return clampNodeSliderValue(n, 1, 24000);
   },
   zoomSeconds: nodeGraphTraceDisplayClampHistorySeconds,
+  zoomMin: (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? clampNodeSliderValue(n, -1, 2) : 0;
+  },
+  zoomMax: (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? clampNodeSliderValue(n, -1, 2) : 1;
+  },
+  zoomMin: (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? clampNodeSliderValue(n, -1, 2) : 0;
+  },
+  zoomMax: (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? clampNodeSliderValue(n, -1, 2) : 1;
+  },
   backgroundBrightness: nodeGraphTraceDisplayClampUnit,
   backgroundSaturation: nodeGraphTraceDisplayClampUnit,
   dot1Saturation: nodeGraphTraceDisplayClampUnit,
