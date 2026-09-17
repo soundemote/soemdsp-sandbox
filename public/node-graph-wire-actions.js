@@ -1504,6 +1504,13 @@ function nodeGraphAutoPairPortConnections(patch, sourceNode, sourcePort, destina
 }
 
 function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinationPort, options = {}) {
+  if (typeof nodeGraphResolvePortType === "function" && typeof nodeGraphPortTypesCompatible === "function") {
+    const srcType = nodeGraphResolvePortType(sourceNode, sourcePort, "output");
+    const dstType = nodeGraphResolvePortType(destinationNode, destinationPort, "input");
+    if (!nodeGraphPortTypesCompatible(srcType, dstType)) {
+      return false;
+    }
+  }
   // Stereo/RGB auto-pair must use SHELL port names (Left/Right). Meta rewrite
   // collapses shell Left → portal Out, which has no pair meta — only one wire
   // would land. Discover siblings first, then rewrite every candidate.

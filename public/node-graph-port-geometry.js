@@ -615,6 +615,11 @@ function nodeGraphWireEndpointsDimensionMismatch(a, b) {
   if (!a || !b) {
     return false;
   }
+  // Strict port types (audio/digital/code/…) — mismatch plays wire-break.
+  if (typeof nodeGraphWireEndpointsPortTypeMismatch === "function"
+    && nodeGraphWireEndpointsPortTypeMismatch(a, b)) {
+    return true;
+  }
   return nodeGraphWireEndpointIsDataPlane(a) !== nodeGraphWireEndpointIsDataPlane(b);
 }
 

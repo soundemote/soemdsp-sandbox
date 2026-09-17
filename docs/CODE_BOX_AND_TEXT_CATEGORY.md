@@ -23,3 +23,6 @@ X / Y / Tension|Skew face strip still deferred.
 - `dataInputs` / `dataOutputs` — also jacks. Put a name in **one** list only.
 - `codeInputs` / `codeOutputs` — tags for Code styling only (not jack lists).
 Overlapping names in signal + data lists throw at port build time (definition bug, not silently fixed).
+
+## Port types
+Code jacks use strict type \code\ — see [PORT_TYPES.md](PORT_TYPES.md).

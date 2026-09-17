@@ -331,7 +331,8 @@ function nodeGraphDrawSignalWire(svg, connection, index, context) {
     ? (nodeGraphWireHelpers.wireEndpointCapCenter(to, "to") || to)
     : to;
   const fromColor = nodeGraphPortWireColor(connection.sourceNode, connection.sourcePort, "output");
-  const toColor = nodeGraphPortWireColor(connection.destinationNode, connection.destinationPort, "input");
+  // Cable color is owned by the output jack — no from→to color transition.
+  const toColor = fromColor;
   nodeGraphDrawWireWithOptionalPath(svg, {
     sourcePort: connection.sourcePort,
     destinationPort: connection.destinationPort,
@@ -386,7 +387,7 @@ function nodeGraphDrawModulationWire(svg, modulation, index, context) {
     ? (nodeGraphWireHelpers.wireEndpointCapCenter(to, "to") || to)
     : to;
   const fromColor = nodeGraphPortWireColor(modulation.sourceNode, modulation.sourcePort, "output");
-  const toColor = nodeGraphPortWireColor(modulation.destinationNode, modulation.destinationParam, "modulation");
+  const toColor = fromColor;
   const both = nodeGraphWirePointIsFinite(from) && nodeGraphWirePointIsFinite(to);
   nodeGraphDrawWireWithOptionalPath(svg, {
     alias: `${nodeGraphLabel(modulation.sourceNode, modulation.sourcePort)} -> ${nodeGraphNodeDisplayName(
@@ -442,7 +443,7 @@ function nodeGraphDrawGraphWire(svg, connection, index, context) {
     ? (nodeGraphWireHelpers.wireEndpointCapCenter(to, "to") || to)
     : to;
   const fromColor = nodeGraphPortWireColor(connection.sourceNode, connection.sourcePort, "output");
-  const toColor = nodeGraphPortWireColor(connection.destinationNode, connection.destinationGraphInput, "graph");
+  const toColor = fromColor;
   const both = nodeGraphWirePointIsFinite(from) && nodeGraphWirePointIsFinite(to);
   nodeGraphDrawWireWithOptionalPath(svg, {
     alias: `${nodeGraphLabel(connection.sourceNode, connection.sourcePort)} -> ${nodeGraphNodeDisplayName(

@@ -750,6 +750,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out", "Code"],
     codeInputs: ["Code"],
     codeOutputs: ["Code"],
+    portTypes: { In: "audio", Out: "audio", Code: "code" },
     inputLabels: { In: "→", Code: "📝" },
     outputLabels: { Out: "←", Code: "📝" },
     layout: "graph",
@@ -814,6 +815,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out", "Code"],
     codeInputs: ["Code"],
     codeOutputs: ["Code"],
+    portTypes: { In: "audio", Out: "audio", Code: "code" },
     inputLabels: { In: "→", Code: "📝" },
     outputLabels: { Out: "←", Code: "📝" },
     layout: "graph",
@@ -14654,6 +14656,7 @@ const nodeGraphModuleDefinitions = (
     outputLabels: { Code: "📝" },
     codeInputs: ["Code"],
     codeOutputs: ["Code"],
+    portTypes: { Code: "code" },
     parameters: [],
   },
   textStream: {
