@@ -1015,16 +1015,6 @@
         }
       },
       {
-        "id": "fbDelay",
-        "type": "sampleDelay",
-        "gx": 18,
-        "gy": -2,
-        "params": {
-          "time": 0,
-          "samples": 1
-        }
-      },
-      {
         "id": "fbVca",
         "type": "attenuverter",
         "gx": 10,
@@ -2752,20 +2742,6 @@
         "destinationPort": "Right"
       },
       {
-        "sourceNode": "lpf2",
-        "sourcePort": "Out",
-        "tracePoints": [],
-        "destinationNode": "fbDelay",
-        "destinationPort": "In"
-      },
-      {
-        "sourceNode": "fbDelay",
-        "sourcePort": "Delayed",
-        "tracePoints": [],
-        "destinationNode": "fbVca",
-        "destinationPort": "In"
-      },
-      {
         "sourceNode": "knobFreq",
         "sourcePort": "Bias",
         "tracePoints": [],
@@ -2791,6 +2767,13 @@
         "sourcePort": "Bias",
         "tracePoints": [],
         "destinationNode": "rangeLpf2",
+        "destinationPort": "In"
+      },
+      {
+        "sourceNode": "lpf2",
+        "sourcePort": "Out",
+        "tracePoints": [],
+        "destinationNode": "fbVca",
         "destinationPort": "In"
       }
     ],

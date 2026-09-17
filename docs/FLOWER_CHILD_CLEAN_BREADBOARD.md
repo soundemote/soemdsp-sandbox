@@ -10,7 +10,7 @@ This is **not** the sealed `flowerChildFilter` module. It rebuilds a Clean-style
 2. Feedback → `fbVca` → `mix` In2 (`bleed2to1=1`)  
 3. `mix` Out1 → `fmScale` → `osc` **Increment** (FM-ish drive; hand-tune `fmScale`)  
 4. `osc` Sine (`basicShape`) → `lpf1` 6 dB → `lpf2` 6 dB → **Out**  
-5. `lpf2` → 1-sample `fbDelay` → `fbVca` In (loop)
+5. `lpf2` → 1-sample (removed: use graph feedback state-read) → `fbVca` In (loop)
 
 ## Controls to edit
 
@@ -43,3 +43,7 @@ Frequency knob Bias feeds three Ranges (no ratio attenuverters):
 Range Out values above |1| domain-add on MOD. For PARAM OUT sources that should emit Hz (etc.) instead of 0…1, use Parameter Settings → **Param out: domain**.
 
 Audio-path gains stay attenuverters: `inScale`, `fmScale`, `fbVca`. Resonance still goes Knob → `resGraph` → MOD `fbVca.amplitude` (0…1 curve for now).
+
+## Feedback delay
+
+No explicit `sampleDelay`. Closing the loop (`lpf2` → `fbVca`) is a scheduler **state-read**: previous-frame output, i.e. the automatic unit delay.
