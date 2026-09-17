@@ -32,6 +32,10 @@ double randomUnit(unsigned int& state) {
   return static_cast<double>(xorshift32(state) >> 8) * (1.0 / 16777216.0);
 }
 
+double randomBipolar(unsigned int& state) {
+  return randomUnit(state) * 2.0 - 1.0;
+}
+
 double floorD(double value) {
   return __builtin_floor(value);
 }
@@ -96,6 +100,16 @@ struct DitherVoiceState {
   double portaCoeff; // exp one-pole b0
   int portaMode; // 0 linear, 1 exponential
   bool portaArmed;
+  // Per-voice pitch jitter (Hypersaw random walk → cents, not phase).
+  struct {
+    double out;
+    double lpfOut;
+    double frozenOut;
+    unsigned int rng;
+  } jitter;
+  double lastJitterCents; // live bipolar cents for face (updates every sample)
+  double hzCeiling; // min(project speed limit, Nyquist) for this block
+  double sampleRateHz;
 };
 
 void updateCycleLength(DitherVoiceState& v) {
@@ -111,6 +125,8 @@ void updateCycleLength(DitherVoiceState& v) {
   v.phaseSlope = 1.0 / (maxCount < 1.0 ? 1.0 : maxCount);
 }
 
+static void beginCycleFromPitch(DitherVoiceState& voice);
+
 double wrap01(double value) {
   double x = value - floorD(value);
   if (x < 0.0) x += 1.0;
@@ -120,6 +136,7 @@ double wrap01(double value) {
 
 // Base phasor advance + live Random Phase offset (voice.phaseRandom × amount).
 // Amount is not hard-clamped — param domain min/max are UI guides only.
+// Pitch jitter is applied as Hz only at cycle boundaries (AA-coherent).
 double getSamplePhasor(DitherVoiceState& v, double randomPhaseAmount) {
   const double base = v.phaseSlope * v.sampleCount;
   const double amount = safe(randomPhaseAmount);
@@ -127,7 +144,7 @@ double getSamplePhasor(DitherVoiceState& v, double randomPhaseAmount) {
   v.sampleCount += 1.0;
   if (v.sampleCount >= v.lenNow) {
     v.sampleCount = 0.0;
-    updateCycleLength(v);
+    beginCycleFromPitch(v);
   }
   return p;
 }
@@ -140,21 +157,125 @@ void rerollPhaseRandom(DitherVoiceState& v) {
   v.phaseRandom = randomUnit(v.rngState);
 }
 
+static double clampVoiceHz(double hz, double hzCeiling) {
+  double f = (hz == hz) ? hz : 0.0;
+  if (f < 1.0) f = 1.0;
+  const double ceil = (hzCeiling > 1.0) ? hzCeiling : 20000.0;
+  if (f > ceil) f = ceil;
+  return f;
+}
+
 void applyHzToVoiceCycle(DitherVoiceState& voice, double hz, double safeSampleRate) {
-  const double voiceFreq = hz > 1.0 ? hz : 1.0;
+  const double voiceFreq = clampVoiceHz(hz, voice.hzCeiling);
   const double meanCycleLength = safeSampleRate / voiceFreq;
   calcCycleDistribution(meanCycleLength, &voice.lenMid, &voice.probShort, &voice.probMid);
-  // Keep phaseSlope in sync for the current cycle (portamento updates each sample).
+  // Keep phaseSlope in sync for the current cycle length (not mid-cycle pitch edits).
   const double maxCount = voice.lenNow > 1.0 ? voice.lenNow - 1.0 : (meanCycleLength > 1.0 ? meanCycleLength - 1.0 : 1.0);
   voice.phaseSlope = 1.0 / (maxCount < 1.0 ? 1.0 : maxCount);
 }
 
-// True bypass when both Min and Max are 0 (after clamp/swap: tMax == 0).
+// At cycle boundary: bake currentHz + jitter cents into a new dithered cycle.
+static void beginCycleFromPitch(DitherVoiceState& voice) {
+  const double sr = voice.sampleRateHz > 1.0 ? voice.sampleRateHz : 48000.0;
+  double hz = voice.currentHz;
+  if (voice.lastJitterCents != 0.0) hz *= centsToRatio(voice.lastJitterCents);
+  hz = clampVoiceHz(hz, voice.hzCeiling);
+  applyHzToVoiceCycle(voice, hz, sr);
+  updateCycleLength(voice);
+}
+
+// True bypass when Max (after clamp/swap) is ~0. Epsilon so knob/smooth crumbs
+// cannot leave a one-sample orchestral glide when the user set Min=Max=0.
 static bool portamentoEnabled(double portaMinSec, double portaMaxSec) {
   double tMin = maxd(0.0, portaMinSec);
   double tMax = maxd(0.0, portaMaxSec);
   if (tMax < tMin) tMax = tMin;
-  return tMax > 0.0;
+  return tMax > 1.0e-4; // > 0.1 ms
+}
+
+// Bipolar pitch tilt vs 440 Hz pivot. Unclamped — param domain is the limit.
+// tilt>0: less effect on low notes, more on high notes; tilt<0 reverses.
+static double pitchTiltScale(double freqHz, double tilt) {
+  if (!(tilt == tilt) || tilt == 0.0) return 1.0;
+  const double f = (freqHz > 1.0e-6) ? freqHz : 1.0e-6;
+  const double oct = dsp_ln(f / 440.0) * (1.0 / 0.6931471805599453); // log2
+  return dsp_exp(tilt * oct * 0.6931471805599453); // 2^(tilt·oct)
+}
+
+// --- Pitch jitter: Hypersaw walk in *cents*. Depth = allowed range, not gain.
+static inline void jitter_reset(DitherVoiceState& voice) {
+  voice.jitter.out = 0.0;
+  voice.jitter.lpfOut = 0.0;
+  voice.jitter.frozenOut = 0.0;
+  voice.lastJitterCents = 0.0;
+}
+
+static inline double rational_curve01(double value, double skew) {
+  double t = value < 0.0 ? 0.0 : (value > 1.0 ? 1.0 : value);
+  double s = skew < -0.999 ? -0.999 : (skew > 0.999 ? 0.999 : skew);
+  return ((1.0 + s) * t) / (1.0 - s + 2.0 * s * t);
+}
+
+// Speed = drunken step rate. Depth = ±cents clamp (how far it may wander).
+// Depth→0 freezes in place (no step, hold last) until Reset. Not a gain/offset.
+// fixedSteps: 1 = ±step, 0 = random bipolar (Hypersaw Random Steps).
+static inline double pitch_jitter_walk(
+  DitherVoiceState& voice,
+  double depthCents,
+  double jitterHz,
+  double walkLpfHz,
+  int fixedSteps,
+  double sampleRate
+) {
+  auto& j = voice.jitter;
+  const double depth = (depthCents > 0.0 && depthCents == depthCents) ? depthCents : 0.0;
+  if (!(depth > 0.0)) {
+    // Collapse range: freeze — do not zero (hold until Reset).
+    j.frozenOut = j.lpfOut;
+    return j.frozenOut;
+  }
+
+  const double sr = sampleRate > 1.0 ? sampleRate : 48000.0;
+  double freq = walkLpfHz > 0.0 ? walkLpfHz : 0.0;
+  const double nyq = sr * 0.5;
+  if (freq > nyq) freq = nyq;
+
+  const double jitter = jitterHz > 0.0 ? jitterHz : 0.0;
+  const double noise = randomBipolar(j.rng);
+  const double period = 1.0 / sr;
+  const double jitterIncRaw = jitter * period;
+  const double jitterInc = jitterIncRaw < 0.0 ? 0.0 : (jitterIncRaw > 1.0 ? 1.0 : jitterIncRaw);
+  // Unit step 0…1 from Speed, then scale into the Depth cents range.
+  double stepUnit = rational_curve01(jitterInc, 0.99);
+  if (stepUnit < 0.0) stepUnit = 0.0;
+  if (stepUnit > 1.0) stepUnit = 1.0;
+  const double stepCents = stepUnit * depth;
+
+  if (fixedSteps) {
+    j.out += noise > 0.0 ? stepCents : -stepCents;
+  } else {
+    // Uniform bipolar |n| averages 1/2; ×2 so Random wanders like Fixed Speed.
+    j.out += noise * (stepCents + stepCents);
+  }
+  if (j.out > depth) j.out = depth;
+  if (j.out < -depth) j.out = -depth;
+
+  static const double kTauOver44100 = 0.000142475857;
+  const double tauZSr = kTwoPi / sr;
+  const double wScale = tauZSr < kTauOver44100 ? tauZSr : kTauOver44100;
+  double w = wScale * freq;
+  if (w < 0.0) w = 0.0;
+  double a1 = dsp_exp(-w);
+  if (a1 > 1.0) a1 = 1.0;
+  if (a1 < 0.0) a1 = 0.0;
+  // Filter in cents; output is already the pitch offset (no × depth).
+  j.lpfOut = (1.0 - a1) * j.out + a1 * j.lpfOut;
+  if (!(j.lpfOut * 0.0 == 0.0)) j.lpfOut = 0.0;
+  if (j.lpfOut > depth) j.lpfOut = depth;
+  if (j.lpfOut < -depth) j.lpfOut = -depth;
+
+  j.frozenOut = j.lpfOut;
+  return j.frozenOut;
 }
 
 static double mapNtoN(double v, double in0, double in1, double out0, double out1) {
@@ -256,11 +377,35 @@ void glideVoiceHz(DitherVoiceState& voice, double safeSampleRate) {
       voice.portaArmed = false;
     }
   }
-  // Cheap slope update from current Hz (full dither redistrib stays on prepare).
-  const double hz = voice.currentHz > 1.0 ? voice.currentHz : 1.0;
-  const double meanCycle = safeSampleRate / hz;
-  const double maxCount = meanCycle > 1.0 ? meanCycle - 1.0 : 1.0;
-  voice.phaseSlope = 1.0 / maxCount;
+  (void)safeSampleRate;
+}
+
+// Portamento + walk every sample (face). Pitch rate only retargets at cycle ends.
+static void applyVoicePitchAndSlope(
+  DitherVoiceState& voice,
+  double safeSampleRate,
+  bool portaOn,
+  double jitterSpeedHz,
+  double jitterDepthCents,
+  double jitterFilterHz,
+  int jitterFixedSteps
+) {
+  if (portaOn) {
+    glideVoiceHz(voice, safeSampleRate);
+  } else {
+    // Hard snap — no residual glide from a previously armed voice.
+    voice.currentHz = voice.targetHz;
+    voice.portaArmed = false;
+    voice.portaInc = 0.0;
+  }
+  voice.currentHz = clampVoiceHz(voice.currentHz, voice.hzCeiling);
+
+  const double sr = safeSampleRate > 1.0 ? safeSampleRate : 48000.0;
+  voice.sampleRateHz = sr;
+  // Walk updates every sample for the face; audio Hz applies at next cycle.
+  voice.lastJitterCents = pitch_jitter_walk(
+    voice, jitterDepthCents, jitterSpeedHz, jitterFilterHz, jitterFixedSteps, sr
+  );
 }
 
 void prepareVoiceAtCents(
@@ -270,16 +415,33 @@ void prepareVoiceAtCents(
   double safeSampleRate,
   double portaMinSec,
   double portaMaxSec,
-  double portaStyle
+  double portaStyle,
+  double hzCeiling
 ) {
   voice.centsOffset = centsOffset;
+  voice.hzCeiling = hzCeiling > 1.0 ? hzCeiling : 20000.0;
+  voice.sampleRateHz = safeSampleRate > 1.0 ? safeSampleRate : 48000.0;
   const double ratio = centsToRatio(centsOffset);
-  const double voiceFreq = safeFrequency * ratio;
+  const double voiceFreq = clampVoiceHz(safeFrequency * ratio, voice.hzCeiling);
   const bool first = !(voice.currentHz > 0.0);
-  voice.targetHz = voiceFreq > 1.0 ? voiceFreq : 1.0;
-  if (first) voice.currentHz = voice.targetHz;
-  configureVoicePortamento(voice, portaMinSec, portaMaxSec, portaStyle, safeSampleRate);
-  applyHzToVoiceCycle(voice, voice.currentHz, safeSampleRate);
+  voice.targetHz = voiceFreq;
+  if (first || !portamentoEnabled(portaMinSec, portaMaxSec)) {
+    // First note or Min≈Max≈0: instant Hz, disarm any leftover glide.
+    voice.currentHz = voice.targetHz;
+    voice.portaArmed = false;
+    voice.portaInc = 0.0;
+    voice.portaCoeff = 1.0;
+  } else {
+    configureVoicePortamento(voice, portaMinSec, portaMaxSec, portaStyle, safeSampleRate);
+    voice.currentHz = clampVoiceHz(voice.currentHz, voice.hzCeiling);
+  }
+  // Refresh cycle distribution from current pitch; keep the running cycle.
+  {
+    double hz = voice.currentHz;
+    if (voice.lastJitterCents != 0.0) hz *= centsToRatio(voice.lastJitterCents);
+    hz = clampVoiceHz(hz, voice.hzCeiling);
+    applyHzToVoiceCycle(voice, hz, safeSampleRate);
+  }
 }
 
 // ---- Detune algorithms (UI order) ----
@@ -482,13 +644,18 @@ void prepareVoiceBank(
   int detuneAlgorithm,
   double portaMinSec,
   double portaMaxSec,
-  double portaStyle
+  double portaStyle,
+  double detuneTilt,
+  double hzCeiling
 ) {
+  // Detune tilt scales total spread from carrier pitch (unclamped).
+  const double tiltedSpread = spreadCents * pitchTiltScale(safeFrequency, detuneTilt);
   double cents[kMaxVoices];
-  fillVoiceCents(cents, voiceCount, detuneAlgorithm, spreadCents);
+  fillVoiceCents(cents, voiceCount, detuneAlgorithm, tiltedSpread);
   for (int i = 0; i < voiceCount; i++) {
     prepareVoiceAtCents(
-      bank[i], cents[i], safeFrequency, safeSampleRate, portaMinSec, portaMaxSec, portaStyle
+      bank[i], cents[i], safeFrequency, safeSampleRate, portaMinSec, portaMaxSec, portaStyle,
+      hzCeiling
     );
     (void)lastFrac;
   }
@@ -500,13 +667,19 @@ double sumPreparedVoiceBank(
   double lastFrac,
   double randomPhaseAmount,
   double safeSampleRate,
-  bool portaOn
+  bool portaOn,
+  double jitterSpeedHz,
+  double jitterDepthCents,
+  double jitterFilterHz,
+  int jitterFixedSteps
 ) {
   double sum = 0.0;
   double norm = 0.0;
   for (int i = 0; i < voiceCount; i++) {
-    if (portaOn) glideVoiceHz(bank[i], safeSampleRate);
-    else bank[i].currentHz = bank[i].targetHz;
+    applyVoicePitchAndSlope(
+      bank[i], safeSampleRate, portaOn, jitterSpeedHz, jitterDepthCents, jitterFilterHz,
+      jitterFixedSteps
+    );
     double saw = sawFromPhasor(getSamplePhasor(bank[i], randomPhaseAmount));
     double amp = 1.0;
     if (lastFrac > 0.0 && i == voiceCount - 1) amp = lastFrac;
@@ -558,6 +731,11 @@ void seedBank(DitherVoiceState* bank, int instanceIndex, int channelSalt) {
     voice.portaCoeff = 1.0;
     voice.portaMode = 0;
     voice.portaArmed = false;
+    voice.jitter.rng = voice.rngState ^ 0x27D4EB2Du;
+    if (!voice.jitter.rng) voice.jitter.rng = 1u;
+    jitter_reset(voice);
+    voice.hzCeiling = 20000.0;
+    voice.sampleRateHz = 48000.0;
   }
 }
 
@@ -599,18 +777,17 @@ double alternatingPan(int index, int voiceCount) {
   return ((index & 1) == 0) ? -1.0 : 1.0;
 }
 
-// Dual Channel: same detune map on L and R — one column per voice, red+blue
-// stacked at that X (both channels share every cents offset).
+// Dual Channel: same detune map; L/R walks independent. Face X = detune + jitter
+// (1200¢ span) so detune spreads lines and jitter wanders from that seat.
 void publishVoicesDual(RobinSupersawState& s, int voiceCount, double lastFrac) {
   int n = 0;
   for (int i = 0; i < voiceCount && n + 1 < kMaxVoices * 2; i++) {
-    const double x = centsToFaceX(s.left[i].centsOffset);
     const double amp = (lastFrac > 0.0 && i == voiceCount - 1) ? lastFrac : 1.0;
-    s.publishX[n] = x;
+    s.publishX[n] = centsToFaceX(s.left[i].centsOffset + s.left[i].lastJitterCents);
     s.publishPan[n] = -1.0;
     s.publishAmp[n] = amp;
     n += 1;
-    s.publishX[n] = x;
+    s.publishX[n] = centsToFaceX(s.right[i].centsOffset + s.right[i].lastJitterCents);
     s.publishPan[n] = 1.0;
     s.publishAmp[n] = amp;
     n += 1;
@@ -621,7 +798,8 @@ void publishVoicesDual(RobinSupersawState& s, int voiceCount, double lastFrac) {
 void publishVoicesAlternating(RobinSupersawState& s, int voiceCount, double lastFrac) {
   int n = 0;
   for (int i = 0; i < voiceCount && n < kMaxVoices * 2; i++) {
-    s.publishX[n] = centsToFaceX(s.left[i].centsOffset);
+    // Detune seats the line; jitter walks away from that seat (same 1200¢ map).
+    s.publishX[n] = centsToFaceX(s.left[i].centsOffset + s.left[i].lastJitterCents);
     s.publishPan[n] = alternatingPan(i, voiceCount);
     s.publishAmp[n] = (lastFrac > 0.0 && i == voiceCount - 1) ? lastFrac : 1.0;
     n += 1;
@@ -637,6 +815,10 @@ void mixAlternatingBank(
   double randomPhaseAmount,
   double safeSampleRate,
   bool portaOn,
+  double jitterSpeedHz,
+  double jitterDepthCents,
+  double jitterFilterHz,
+  int jitterFixedSteps,
   double* outL,
   double* outR
 ) {
@@ -645,8 +827,10 @@ void mixAlternatingBank(
   double normL = 0.0;
   double normR = 0.0;
   for (int i = 0; i < voiceCount; i++) {
-    if (portaOn) glideVoiceHz(bank[i], safeSampleRate);
-    else bank[i].currentHz = bank[i].targetHz;
+    applyVoicePitchAndSlope(
+      bank[i], safeSampleRate, portaOn, jitterSpeedHz, jitterDepthCents, jitterFilterHz,
+      jitterFixedSteps
+    );
     double saw = sawFromPhasor(getSamplePhasor(bank[i], randomPhaseAmount));
     double amp = 1.0;
     if (lastFrac > 0.0 && i == voiceCount - 1) amp = lastFrac;
@@ -685,6 +869,12 @@ void resetBanks(RobinSupersawState& s) {
     rerollPhaseRandom(s.right[v]);
     s.left[v].portaUnit = randomUnit(s.left[v].rngState);
     s.right[v].portaUnit = randomUnit(s.right[v].rngState);
+    s.left[v].jitter.rng = s.left[v].rngState ^ 0x27D4EB2Du;
+    if (!s.left[v].jitter.rng) s.left[v].jitter.rng = 1u;
+    s.right[v].jitter.rng = s.right[v].rngState ^ 0x85EBCA6Bu;
+    if (!s.right[v].jitter.rng) s.right[v].jitter.rng = 1u;
+    jitter_reset(s.left[v]);
+    jitter_reset(s.right[v]);
   }
 }
 
@@ -729,6 +919,12 @@ extern "C" void soemdsp_robin_supersaw_process_block(
   double portaTimeMin,
   double portaTimeMax,
   double portamentoStyle,
+  double jitterSpeed,
+  double jitterDepth,
+  double jitterFilter,
+  double jitterSteps,
+  double detuneTilt,
+  double maxVoiceHz,
   double resetGate,
   int frameCount
 ) {
@@ -744,6 +940,17 @@ extern "C" void soemdsp_robin_supersaw_process_block(
   const double portaMax = maxd(0.0, safe(portaTimeMax));
   const double portaStyle = clamp(safe(portamentoStyle), 0.0, 1.0);
   const bool portaOn = portamentoEnabled(portaMin, portaMax);
+  const double jitSpeed = maxd(0.0, safe(jitterSpeed));
+  const double jitDepth = maxd(0.0, safe(jitterDepth));
+  const double jitFilter = maxd(0.0, safe(jitterFilter));
+  // 0 Fixed Steps / 1 Random Steps (Hypersaw).
+  const int jitFixed = (safe(jitterSteps) < 0.5) ? 1 : 0;
+  const double detTilt = safe(detuneTilt); // unclamped
+  // Voice ceiling: project speed limit ∩ Nyquist.
+  double hzCeil = (maxVoiceHz > 1.0) ? maxVoiceHz : 20000.0;
+  const double nyquist = 0.5 * safeSampleRate;
+  if (hzCeil > nyquist) hzCeil = nyquist;
+  if (!(hzCeil > 1.0)) hzCeil = nyquist > 1.0 ? nyquist : 20000.0;
   // 0 = Dual Channel (N per L + N per R), 1 = Alternating (one bank, LRLR pans)
   const int mode = (safe(stereoMode) >= 0.5) ? 1 : 0;
   int algo = static_cast<int>(floorD(safe(detuneAlgorithm) + 0.5));
@@ -754,22 +961,30 @@ extern "C" void soemdsp_robin_supersaw_process_block(
   resolveVoices(voicesExact, &voiceCount, &lastFrac);
 
   const double reset = safe(resetGate);
-  if (s.lastReset <= 0.0 && reset > 0.0) {
-    resetBanks(s);
+  const bool didReset = (s.lastReset <= 0.0 && reset > 0.0);
+  if (didReset) {
+    resetBanks(s); // zeros walk → origin (unlike Depth→0 freeze)
   }
   s.lastReset = reset;
   s.lastPhaseSpread = safeRandomPhase;
 
   prepareVoiceBank(
     s.left, voiceCount, lastFrac, safeFrequency, safeSampleRate, spreadCents, algo,
-    portaMin, portaMax, portaStyle
+    portaMin, portaMax, portaStyle, detTilt, hzCeil
   );
   if (mode == 0) {
     // Dual: same detune map on Right (independent pitch dither).
     prepareVoiceBank(
       s.right, voiceCount, lastFrac, safeFrequency, safeSampleRate, spreadCents, algo,
-      portaMin, portaMax, portaStyle
+      portaMin, portaMax, portaStyle, detTilt, hzCeil
     );
+  }
+  // After Reset: retarget cycle Hz immediately (don't wait for cycle end).
+  if (didReset) {
+    for (int i = 0; i < voiceCount; i++) {
+      beginCycleFromPitch(s.left[i]);
+      if (mode == 0) beginCycleFromPitch(s.right[i]);
+    }
   }
 
   const int safeFrameCount = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
@@ -778,11 +993,18 @@ extern "C" void soemdsp_robin_supersaw_process_block(
     double right = 0.0;
     if (mode == 0) {
       // Dual channel: N voices per side, independent dither.
-      left = sumPreparedVoiceBank(s.left, voiceCount, lastFrac, safeRandomPhase, safeSampleRate, portaOn);
-      right = sumPreparedVoiceBank(s.right, voiceCount, lastFrac, safeRandomPhase, safeSampleRate, portaOn);
+      left = sumPreparedVoiceBank(
+        s.left, voiceCount, lastFrac, safeRandomPhase, safeSampleRate, portaOn,
+        jitSpeed, jitDepth, jitFilter, jitFixed
+      );
+      right = sumPreparedVoiceBank(
+        s.right, voiceCount, lastFrac, safeRandomPhase, safeSampleRate, portaOn,
+        jitSpeed, jitDepth, jitFilter, jitFixed
+      );
     } else {
       mixAlternatingBank(
-        s.left, voiceCount, lastFrac, safeRandomPhase, safeSampleRate, portaOn, &left, &right
+        s.left, voiceCount, lastFrac, safeRandomPhase, safeSampleRate, portaOn,
+        jitSpeed, jitDepth, jitFilter, jitFixed, &left, &right
       );
     }
     if (!(left * 0.0 == 0.0)) left = 0.0;
@@ -814,11 +1036,19 @@ extern "C" void soemdsp_robin_supersaw_sample(
   double portaTimeMin,
   double portaTimeMax,
   double portamentoStyle,
+  double jitterSpeed,
+  double jitterDepth,
+  double jitterFilter,
+  double jitterSteps,
+  double detuneTilt,
+  double maxVoiceHz,
   double resetGate
 ) {
   soemdsp_robin_supersaw_process_block(
     handle, frequencyHz, sampleRate, detuneCents, voicesExact, level, phaseSpread,
-    stereoMode, detuneAlgorithm, portaTimeMin, portaTimeMax, portamentoStyle, resetGate, 1
+    stereoMode, detuneAlgorithm, portaTimeMin, portaTimeMax, portamentoStyle,
+    jitterSpeed, jitterDepth, jitterFilter, jitterSteps, detuneTilt, maxVoiceHz,
+    resetGate, 1
   );
 }
 
@@ -883,5 +1113,5 @@ extern "C" double soemdsp_robin_supersaw_voice_amp(int handle, int index) {
 }
 
 extern "C" int soemdsp_robin_supersaw_version() {
-  return 20; // Portamento Style: Supersaw Rational time-curve + Lin/Exp mode
+  return 25; // Reset snaps jitter walk + cycle Hz back to origin
 }

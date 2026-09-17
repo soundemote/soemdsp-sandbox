@@ -357,6 +357,16 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   highFrequency: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LPF_FREQUENCY,
   lowFrequency: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_HPF_FREQUENCY,
   cutoff: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FREQUENCY,
+  // RobinSupersaw (shared names that do not collide with Hypersaw KEY_IDS).
+  detuneCents: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
+  detuneAlgorithm: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
+  stereoMode: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
+  phaseSpread: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
+  portaTimeMin: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_NUMERATOR,
+  portaTimeMax: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR,
+  portamentoStyle: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET,
+  jitterDepth: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE,
+  detuneTilt: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FEEDBACK,
 });
 
 /**
@@ -374,6 +384,12 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (t === "hypersaw2") return P.NATIVE_GRAPH_PARAM_FEEDBACK;
     if (t === "spiral") return P.NATIVE_GRAPH_PARAM_PHASE;
     return P.NATIVE_GRAPH_PARAM_SHAPE;
+  }
+  // Robin vs Hypersaw share jitter* names on different Control slots.
+  if (t === "robinSupersaw") {
+    if (k === "jitterSpeed") return P.NATIVE_GRAPH_PARAM_LFO_RATE;
+    if (k === "jitterFilter") return P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY;
+    if (k === "jitterSteps") return P.NATIVE_GRAPH_PARAM_LFO_STYLE;
   }
   const id = (P.NATIVE_GRAPH_PARAM_KEY_IDS || {})[k];
   return Number.isFinite(id) ? id : undefined;
@@ -1191,6 +1207,20 @@ NodeLiveAudioProcessor.prototype.applyNativeGraphPitchOffset = function applyNat
   native.soemdsp_graph_set_pitch_offset(
     handle,
     Number.isFinite(oct) ? oct : 0,
+  );
+};
+
+/** Push project Speed Limit (Hz) into the native graph (Robin voice ceiling, etc.). */
+NodeLiveAudioProcessor.prototype.applyNativeGraphSpeedLimit = function applyNativeGraphSpeedLimit() {
+  const native = this.nativeGraph;
+  const handle = this.nativeGraphHandle;
+  if (!native?.soemdsp_graph_set_speed_limit || !handle) return;
+  const hz = typeof this.speedLimitHz === "function"
+    ? this.speedLimitHz()
+    : Number(this.speedLimit);
+  native.soemdsp_graph_set_speed_limit(
+    handle,
+    Number.isFinite(hz) && hz > 0 ? hz : 20000,
   );
 };
 
@@ -4365,8 +4395,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     if (type === "robinSupersaw") {
       // width=detuneCents, stages=voices, shape=Random Phase, mode=stereoMode,
       // center=detuneAlgorithm; timeNum/Den=porta min/max; offset=portamentoStyle
+      // Pitch jitter: lfoRate=speed, lfoAmp=depth¢, lpf=filter, feedback=detuneTilt.
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("detuneCents", P.NATIVE_GRAPH_PARAM_WIDTH, cont("detuneCents", 30));
+      push("detuneTilt", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("detuneTilt", 0));
       push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 7));
       push("stereoMode", P.NATIVE_GRAPH_PARAM_MODE, disc("stereoMode", 0));
       push("detuneAlgorithm", P.NATIVE_GRAPH_PARAM_CENTER, disc("detuneAlgorithm", 2));
@@ -4374,6 +4406,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("portaTimeMin", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("portaTimeMin", 0));
       push("portaTimeMax", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("portaTimeMax", 0));
       push("portamentoStyle", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("portamentoStyle", 0.126));
+      push("jitterSpeed", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("jitterSpeed", 3.6));
+      push("jitterDepth", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("jitterDepth", 0));
+      push("jitterFilter", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("jitterFilter", 20));
+      push("jitterSteps", P.NATIVE_GRAPH_PARAM_LFO_STYLE, disc("jitterSteps", 1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -5678,6 +5714,9 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     );
     if (typeof this.applyNativeGraphPitchOffset === "function") {
       this.applyNativeGraphPitchOffset();
+    }
+    if (typeof this.applyNativeGraphSpeedLimit === "function") {
+      this.applyNativeGraphSpeedLimit();
     }
 
     const audioTypes = NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS;

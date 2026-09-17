@@ -72,6 +72,9 @@ NodeLiveAudioProcessor.prototype.setSpeed = function setSpeed(speed, options) {
 NodeLiveAudioProcessor.prototype.setSpeedLimit = function setSpeedLimit(limit) {
     const value = Number(limit);
     this.speedLimit = Number.isFinite(value) && value > 0 ? value : 20000;
+    if (typeof this.applyNativeGraphSpeedLimit === "function") {
+      this.applyNativeGraphSpeedLimit();
+    }
 };
 
 NodeLiveAudioProcessor.prototype.speedLimitHz = function speedLimitHz() {
@@ -212,6 +215,9 @@ NodeLiveAudioProcessor.prototype.setConnections = function setConnections(plan, 
       if (typeof this.applyNativeGraphPitchOffset === "function") {
         this.applyNativeGraphPitchOffset();
       }
+    }
+    if (Number.isFinite(Number(message.speedLimit))) {
+      this.setSpeedLimit(message.speedLimit);
     }
     if (Number.isFinite(Number(message.displayFps))) {
       this.displayFps = Math.max(0, Math.min(240, Math.round(Number(message.displayFps))));

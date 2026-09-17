@@ -180,7 +180,9 @@ extern "C" void soemdsp_robin_supersaw_process_block(
   int handle, double frequencyHz, double sampleRate, double detuneCents,
   double voicesExact, double level, double phaseSpread, double stereoMode,
   double detuneAlgorithm, double portaTimeMin, double portaTimeMax,
-  double portamentoStyle, double resetGate, int frameCount
+  double portamentoStyle,
+  double jitterSpeed, double jitterDepth, double jitterFilter, double jitterSteps,
+  double detuneTilt, double maxVoiceHz, double resetGate, int frameCount
 );
 extern "C" int soemdsp_robin_supersaw_block_output_left_ptr(int handle);
 extern "C" int soemdsp_robin_supersaw_block_output_right_ptr(int handle);
@@ -1943,6 +1945,8 @@ struct Circuit {
   double masterSamples;
   // Patch-wide pitch transpose (octaves). Multiplies pitched Hz by 2^oct.
   double pitchOffsetOctaves;
+  // Project oscillator ceiling (Hz). Voice Hz clamps to min(this, Nyquist).
+  double speedLimitHz;
   // VoiceManager instance — voice-lane nodes query Sustaining/Releasing/Available.
   int voiceManagerHandle;
   // When >= 0 (inside Meta view), that slot still runs DSP while Available so
@@ -2980,6 +2984,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.lfoAmplitude,
     (typeId == kTypeHypersaw2) ? 0.0 // vibratoSpeedTilt
+      : (typeId == kTypeRobinSupersaw) ? 0.0 // jitterDepth cents
       : (typeId == kTypeBradley2a) ? 0.0 // ampDepth
       : (typeId == kTypeDelayEffect) ? 0.02 // modAmount
       : (typeId == kTypeSoemReverb) ? 0.002 // lfoAmp
@@ -3026,6 +3031,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.feedback,
     (typeId == kTypeBradley2a) ? 1.0 // hitRate
+      : (typeId == kTypeRobinSupersaw) ? 0.0 // detuneTilt (unclamped)
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope || typeId == kTypeWavetableAdsr) ? 0.22 // decay
       : (typeId == kTypeAttackDecay) ? 0.25 // decay
       : (typeId == kTypePluckEnvelope) ? 0.7 // DecaySlopeMid
@@ -3120,6 +3126,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.lfoStyle,
     (typeId == kTypeHypersaw2) ? 1.0 // vibratoDistanceSource Division
+      : (typeId == kTypeRobinSupersaw) ? 1.0 // jitterSteps Random
       : 0.0,
     true
   );
@@ -3128,6 +3135,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeBradley2a) ? 60.0 // jitterRate
       : (typeId == kTypeDelayEffect) ? 0.1 // modRate
       : (typeId == kTypeHypersaw2) ? 3.6 // jitterSpeed Hz
+      : (typeId == kTypeRobinSupersaw) ? 3.6 // jitterSpeed Hz
       : (typeId == kTypeVibratoGenerator) ? 5.0
       : (typeId == kTypeWowAndFlutter) ? 1.0 // flutterFrequency (header default)
       : 0.35,
@@ -3146,6 +3154,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 1000.0 // highCut
       : (typeId == kTypeInertialFilter) ? 20.0 // release Hz
       : (typeId == kTypeHypersaw2) ? 0.0 // jitterDistanceTilt
+      : (typeId == kTypeRobinSupersaw) ? 20.0 // jitterFilter Hz
       : (typeId == kTypeChaosfly) ? 6.0 // Lowpass oct offset (open default)
       : (typeId == kTypeCrossover5) ? 8000.0
       : (typeId == kTypeCrossover6) ? 3000.0
@@ -4102,6 +4111,7 @@ static void release_node_papoulis_controls(Node& n) {
 static void clear_graph_contents(Circuit& g) {
   g.compiled = false;
   g.pitchOffsetOctaves = 0.0;
+  g.speedLimitHz = 20000.0;
   const int oldCount = g.nodeCount;
   for (int i = 0; i < oldCount; i++) {
     if (g.nodes[i].used) {
@@ -9812,12 +9822,24 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
     const double portaTimeMin = control_effective(node.timeNumerator);
     const double portaTimeMax = control_effective(node.timeDenominator);
     const double portamentoStyle = control_effective(node.offset);
+    // Pitch jitter (Hypersaw walk in cents) + detune tilt — not phase mod.
+    const double jitterSpeed = control_effective(node.lfoRate);
+    const double jitterDepth = control_effective(node.lfoAmplitude);
+    const double jitterFilter = control_effective(node.lpfFrequency);
+    const double jitterSteps = control_effective(node.lfoStyle); // 0 Fixed / 1 Random
+    const double detuneTilt = control_effective(node.feedback);
     double freq = resolve_osc_hz(
       g, frameIndexForHz, liveF, livePitch, node.frequency, referenceVoltage, srD
     );
+    double maxHz = g.speedLimitHz;
+    if (!(maxHz > 0.0)) maxHz = 20000.0;
+    const double nyq = 0.5 * srD;
+    if (maxHz > nyq) maxHz = nyq;
     soemdsp_robin_supersaw_process_block(
       node.nativeHandle, freq, srD, detune, voicesExact, amp, phaseSpread, stereoMode,
-      detuneAlgorithm, portaTimeMin, portaTimeMax, portamentoStyle, resetGate, nFrames
+      detuneAlgorithm, portaTimeMin, portaTimeMax, portamentoStyle,
+      jitterSpeed, jitterDepth, jitterFilter, jitterSteps, detuneTilt, maxHz,
+      resetGate, nFrames
     );
   };
 
@@ -10197,6 +10219,14 @@ extern "C" void soemdsp_graph_set_pitch_offset(int handle, double octaves) {
   if (octaves > 10.0) octaves = 10.0;
   if (octaves < -10.0) octaves = -10.0;
   g->pitchOffsetOctaves = octaves;
+}
+
+extern "C" void soemdsp_graph_set_speed_limit(int handle, double hz) {
+  Circuit* g = get(handle);
+  if (!g) return;
+  if (!(hz == hz) || !(hz > 0.0)) hz = 20000.0;
+  if (hz < 1.0) hz = 1.0;
+  g->speedLimitHz = hz;
 }
 
 extern "C" int soemdsp_graph_rewind_master(int handle) {

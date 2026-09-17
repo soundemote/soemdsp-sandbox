@@ -38,6 +38,7 @@ $modules = @(
     "soemdsp_graph_set_sample_rate",
     "soemdsp_graph_rewind_master",
     "soemdsp_graph_set_pitch_offset",
+    "soemdsp_graph_set_speed_limit",
     "soemdsp_graph_add_node", "soemdsp_graph_connect", "soemdsp_graph_set_param",
     "soemdsp_graph_set_param_mod", "soemdsp_graph_set_param_domain",
     "soemdsp_graph_clear_param_mod_edges", "soemdsp_graph_add_param_mod_edge",
@@ -547,6 +548,10 @@ if ($node) {
   & $node.Source "$root\scripts\smoke_passive_filter_crossed_bp.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: passive filter crossed BP smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_robin_supersaw_pitch_jitter.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: robin supersaw pitch jitter smoke FAILED"
   }
   & $node.Source "$root\scripts\smoke_remove_node_preserves_state.mjs"
   if ($LASTEXITCODE -ne 0) {
