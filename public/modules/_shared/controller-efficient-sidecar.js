@@ -4,41 +4,16 @@
 /**
  * Efficient Live clears JS parameter smoothers (native owns those). Knob /
  * Plugin Slider / buttons are NOT native — Bias/Out must chase here.
- * Always re-apply Smooth/Algo from module params onto the control meta so lean
- * setParams cannot leave offset/value with smoothingMode "off".
+ *
+ * Controller Smooth is always SECONDS (param range 0…10). Do NOT route through
+ * additiveEffectiveParam / smoothingSecondsFromMetadata: that API treats
+ * values ≥ 1 as sample counts, so Smooth≥1s snapped instantly.
  */
-NodeLiveAudioProcessor.prototype.applyControllerEfficientSmoothingMeta = function applyControllerEfficientSmoothingMeta(
-  node,
-  controlKey,
-) {
-  if (!node || !controlKey) {
-    return null;
+NodeLiveAudioProcessor.prototype.ensureControllerParamSmoothers = function ensureControllerParamSmoothers() {
+  if (!this.controllerParamSmoothers) {
+    this.controllerParamSmoothers = new Map();
   }
-  if (typeof nodeGraphDspApplyControllerSmoothingMeta === "function") {
-    return nodeGraphDspApplyControllerSmoothingMeta(node, controlKey);
-  }
-  if (!node.paramMeta || typeof node.paramMeta !== "object") {
-    node.paramMeta = {};
-  }
-  const params = node.params && typeof node.params === "object" ? node.params : {};
-  const existing = node.paramMeta[controlKey] && typeof node.paramMeta[controlKey] === "object"
-    ? node.paramMeta[controlKey]
-    : {};
-  const seconds = Number(params.smoothingSeconds);
-  const snap = !Number.isFinite(seconds) || seconds <= 0;
-  let type = "linear";
-  if (typeof nodeGraphDspControllerSmoothingTypeFromIndex === "function") {
-    type = nodeGraphDspControllerSmoothingTypeFromIndex(params.smoothingType);
-  }
-  const meta = {
-    ...existing,
-    linearSmoothing: !snap,
-    smoothingMode: snap ? "off" : "internal",
-    smoothingSeconds: snap ? 0 : seconds,
-    smoothingType: snap ? "none" : type,
-  };
-  node.paramMeta[controlKey] = meta;
-  return meta;
+  return this.controllerParamSmoothers;
 };
 
 NodeLiveAudioProcessor.prototype.controllerEfficientSmoothedValue = function controllerEfficientSmoothedValue(
@@ -47,12 +22,92 @@ NodeLiveAudioProcessor.prototype.controllerEfficientSmoothedValue = function con
   fallback,
   frames,
 ) {
-  this.applyControllerEfficientSmoothingMeta?.(node, controlKey);
-  if (typeof this.additiveEffectiveParam === "function") {
-    return this.additiveEffectiveParam(node, controlKey, fallback, frames);
-  }
   const raw = Number(node?.params?.[controlKey]);
-  return Number.isFinite(raw) ? raw : fallback;
+  const target = Number.isFinite(raw) ? raw : fallback;
+  const params = node?.params && typeof node.params === "object" ? node.params : {};
+  const seconds = Number(params.smoothingSeconds);
+  const snap = !Number.isFinite(seconds) || seconds <= 0;
+
+  // Keep offset meta in sync for any readers (Display, diagnostics).
+  if (typeof nodeGraphDspApplyControllerSmoothingMeta === "function") {
+    nodeGraphDspApplyControllerSmoothingMeta(node, controlKey);
+  }
+
+  const map = this.ensureControllerParamSmoothers();
+  const smootherKey = `controller:${String(node?.id || "")}:${String(controlKey || "")}`;
+  const quantum = Math.max(1, Math.round(Number(frames) || 128));
+
+  if (snap) {
+    map.set(smootherKey, {
+      value: target,
+      target,
+      rampFrom: target,
+      rampSamples: 0,
+      rampDuration: 0,
+      seconds: 0,
+      quantumSerial: this._controllerSmoothQuantumSerial,
+    });
+    return target;
+  }
+
+  const rate = Math.max(
+    1,
+    nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)),
+  );
+  // Always seconds for controller Smooth (never sample-count encoding).
+  const durationSamples = Math.max(1, Math.round(rate * seconds));
+  const serial = this._controllerSmoothQuantumSerial;
+
+  let state = map.get(smootherKey);
+  if (!state) {
+    state = {
+      value: target,
+      target,
+      rampFrom: target,
+      rampSamples: 0,
+      rampDuration: durationSamples,
+      seconds,
+      quantumSerial: serial,
+    };
+    map.set(smootherKey, state);
+    return target;
+  }
+
+  // Sidecar runs two passes per quantum — only advance the ramp once.
+  if (state.quantumSerial === serial && Number.isFinite(state.value)) {
+    return state.value;
+  }
+  state.quantumSerial = serial;
+
+  const eps = 1e-9;
+  if (Math.abs(target - state.target) > eps) {
+    state.rampFrom = state.value;
+    state.target = target;
+    state.rampSamples = 0;
+    state.rampDuration = durationSamples;
+    state.seconds = seconds;
+  } else if (Math.abs((state.seconds || 0) - seconds) > 1e-6 && state.rampDuration > 0) {
+    const oldDur = Math.max(1, state.rampDuration);
+    const progress = Math.min(1, state.rampSamples / oldDur);
+    state.rampDuration = durationSamples;
+    state.rampSamples = Math.floor(progress * durationSamples);
+    state.seconds = seconds;
+  }
+
+  if (state.rampDuration <= 0 || Math.abs(state.value - state.target) <= eps) {
+    state.value = state.target;
+    return state.value;
+  }
+
+  state.rampSamples += quantum;
+  if (state.rampSamples >= state.rampDuration) {
+    state.value = state.target;
+    state.rampFrom = state.target;
+    return state.value;
+  }
+  const t = state.rampSamples / state.rampDuration;
+  state.value = state.rampFrom + (state.target - state.rampFrom) * t;
+  return state.value;
 };
 
 NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function processControllerEfficientSidecar(
@@ -60,6 +115,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
 ) {
   if (!this.efficientProduct || !this.nodes?.size) return;
   if (!this.nodeOutputs) this.nodeOutputs = new Map();
+  this._controllerSmoothQuantumSerial = (this._controllerSmoothQuantumSerial || 0) + 1;
 
   const num = (v, fb) => {
     const n = Number(v);
@@ -584,6 +640,27 @@ NodeLiveAudioProcessor.prototype.readEfficientModSourceSample = function readEff
   const id = String(sourceNode);
   const sp = String(sourcePort || "");
   const node = this.nodes?.get?.(id);
+  // Controllers publish smoothed Bias/Out in nodeOutputs — prefer that over
+  // raw params (parameterOutputExists is a params-key check and must not win).
+  const controllerType = String(node?.type || "");
+  if (
+    controllerType === "knob"
+    || controllerType === "pluginSlider"
+    || controllerType === "toggleButton"
+    || controllerType === "momentaryButton"
+  ) {
+    const cout = this.nodeOutputs?.get?.(id);
+    if (cout && typeof cout === "object") {
+      let cv = cout[sp];
+      if (cv == null && (sp === "Out" || sp === "Ext Out" || sp === "Bias")) {
+        cv = cout.Bias ?? cout.Out ?? cout["Ext Out"] ?? cout.value;
+      }
+      const cn = Number(cv);
+      if (Number.isFinite(cn)) {
+        return cn;
+      }
+    }
+  }
   // Parameter-row outlet (cyan or gold slider out) → DOMAIN→mod sample.
   // Match full path: smoothed/base slider only (no folding this param's own mods).
   if (
