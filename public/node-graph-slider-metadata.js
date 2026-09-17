@@ -420,6 +420,7 @@ function nodeSliderMetadata(slider) {
     displayChoices: nodeSliderShouldDisplayChoices(slider),
     divideChoicesVisibly: nodeSliderShouldDivideChoicesVisibly(slider),
     bipolar: slider.dataset.bipolar === "true",
+    outputDomain: slider.dataset.outputDomain === "true",
     linearSmoothing: nodeSliderShouldUseLinearSmoothing(slider),
     nonlinearSlider: nodeSliderShouldUseNonlinearSlider(slider),
     sliderCurve: nodeSliderCurve(slider),

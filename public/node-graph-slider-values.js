@@ -929,6 +929,7 @@ function setNodeSliderMetadata(slider, metadata) {
   slider.dataset.showSign = metadata.showSign ? "true" : "false";
   slider.dataset.removeTrailingZeros = metadata.removeTrailingZeros ? "true" : "false";
   slider.dataset.bipolar = metadata.bipolar ? "true" : "false";
+  slider.dataset.outputDomain = metadata.outputDomain ? "true" : "false";
   // Clear legacy overshoot keys if present (older sessions).
   if (slider.dataset.unboundedMax != null) delete slider.dataset.unboundedMax;
   if (slider.dataset.unboundedMin != null) delete slider.dataset.unboundedMin;

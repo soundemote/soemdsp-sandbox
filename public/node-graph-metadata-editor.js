@@ -342,6 +342,7 @@ const nodeMetadataScriptSupportedKeys = new Set([
   "divideChoicesVisibly",
   "kind",
   "bipolar",
+  "outputDomain",
   "linearSmoothing",
   "max",
   "maxDigits",
@@ -401,6 +402,7 @@ function scheduleNodeMetadataTooltipTextareaSize(
 
 const nodeMetadataScriptBooleanKeys = new Set([
   "bipolar",
+  "outputDomain",
   "displayChoices",
   "divideChoicesVisibly",
   "linearSmoothing",
@@ -808,6 +810,7 @@ function formatNodeMetadataScript(slider, metadata = nodeSliderMetadata(slider))
     `param.${key}.displayChoices = ${nodeMetadataScriptValue(metadata.displayChoices, "displayChoices")};`,
     `param.${key}.divideChoicesVisibly = ${nodeMetadataScriptValue(metadata.divideChoicesVisibly, "divideChoicesVisibly")};`,
     `param.${key}.bipolar = ${nodeMetadataScriptValue(Boolean(metadata.bipolar), "bipolar")};`,
+    `param.${key}.outputDomain = ${nodeMetadataScriptValue(Boolean(metadata.outputDomain), "outputDomain")};`,
     `param.${key}.linearSmoothing = ${nodeMetadataScriptValue(metadata.linearSmoothing, "linearSmoothing")};`,
     `param.${key}.smoothingMode = ${nodeMetadataScriptValue(metadata.smoothingMode, "smoothingMode")};`,
     `param.${key}.smoothingSeconds = ${nodeMetadataScriptValue(metadata.smoothingSeconds, "smoothingSeconds")};`,
@@ -1298,7 +1301,7 @@ function parseNodeMetadataScriptValue(rawValue, key, current) {
   if (key === "choices") {
     return parseNodeMetadataScriptChoices(value);
   }
-  if (["bipolar", "displayChoices", "divideChoicesVisibly", "linearSmoothing", "nonlinearSlider", "showSign", "visible", "wraparound"].includes(key)) {
+  if (["bipolar", "outputDomain", "displayChoices", "divideChoicesVisibly", "linearSmoothing", "nonlinearSlider", "showSign", "visible", "wraparound"].includes(key)) {
     return parseNodeMetadataScriptBoolean(value, current[key]);
   }
   if (key === "kind") {
@@ -1470,6 +1473,10 @@ function writeNodeMetadataEditorValues(metadata) {
   const bipolarCheckbox = document.getElementById("metadataBipolarValue");
   if (bipolarCheckbox) {
     bipolarCheckbox.checked = Boolean(metadata.bipolar);
+  }
+  const outputDomainCheckbox = document.getElementById("metadataOutputDomainValue");
+  if (outputDomainCheckbox) {
+    outputDomainCheckbox.checked = Boolean(metadata.outputDomain);
   }
   document.getElementById("metadataNonlinearSliderValue").checked = metadata.nonlinearSlider;
   document.getElementById("metadataSmoothingSecondsValue").value =
@@ -2515,6 +2522,7 @@ function readNodeMetadataEditorValues(slider) {
     min,
     choices: parseNodeMetadataChoices(document.getElementById("metadataChoicesValue").value),
     bipolar: Boolean(document.getElementById("metadataBipolarValue")?.checked),
+    outputDomain: Boolean(document.getElementById("metadataOutputDomainValue")?.checked),
     // Keep these independent — do not force divide from display or vice versa.
     displayChoices: Boolean(document.getElementById("metadataDisplayChoicesValue")?.checked),
     divideChoicesVisibly: Boolean(document.getElementById("metadataDivideChoicesValue")?.checked),
@@ -2725,6 +2733,10 @@ function setNodeMetadataDefaultsFromKind() {
   const bipolarCheckbox = document.getElementById("metadataBipolarValue");
   if (bipolarCheckbox) {
     bipolarCheckbox.checked = Boolean(template.bipolar);
+  }
+  const outputDomainCheckbox = document.getElementById("metadataOutputDomainValue");
+  if (outputDomainCheckbox) {
+    outputDomainCheckbox.checked = Boolean(template.outputDomain);
   }
   document.getElementById("metadataNonlinearSliderValue").checked = Boolean(template.nonlinearSlider);
   // Smoothing type buttons: migrate linearSmoothing=false → none (instant).
