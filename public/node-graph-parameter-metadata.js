@@ -106,11 +106,13 @@ function nodeGraphModuleOutputPorts(type) {
   if (!definition) {
     return [];
   }
-  return [
+  // outputs / dataOutputs are BOTH jack lists — same name in both = duplicate jacks.
+  // codeOutputs only tags; it does not add outlets. Dedup preserves first occurrence.
+  return nodeGraphUniquePortNames([
     ...(definition.outputs || []),
     ...(definition.dataOutputs || []),
     ...(definition.parameters || []).map((parameter) => parameter.key),
-  ];
+  ]);
 }
 
 function nodeGraphPatchNodeParameterDefinitions(node) {
@@ -252,6 +254,20 @@ function normalizeNodeGraphCodeblock(value = {}) {
   };
 }
 
+
+/** Preserve order; drop later duplicates (case-sensitive port names). */
+function nodeGraphUniquePortNames(ports) {
+  const seen = new Set();
+  const out = [];
+  for (const port of ports || []) {
+    const name = String(port || "").trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push(name);
+  }
+  return out;
+}
+
 function nodeGraphPatchNodeInputPorts(node) {
   const patchNode = typeof node === "string" ? nodeGraphPatchNode(node) : node;
   if (patchNode?.type === "codeblock") {
@@ -278,10 +294,13 @@ function nodeGraphPatchNodeInputPorts(node) {
     ? nodeGraphModuleDefinition(patchNode?.type)
     : nodeGraphModuleDefinitions[patchNode?.type];
   // Data-plane inlets (e.g. Additive Graph) stack above signal CV so Graph stays on top.
-  return [
+  // dataInputs / inputs are BOTH jack lists. Never list the same name in both —
+  // historically that drew duplicate jacks (e.g. Code twice). Dedup as a seatbelt.
+  // codeInputs is NOT a jack list; it only tags names already in inputs/dataInputs.
+  return nodeGraphUniquePortNames([
     ...(definition?.dataInputs || []),
     ...(definition?.inputs || []),
-  ];
+  ]);
 }
 
 function nodeGraphPatchNodeOutputPorts(node) {

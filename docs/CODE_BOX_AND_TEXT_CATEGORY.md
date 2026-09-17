@@ -17,3 +17,9 @@ Smooth/Step Graph have a white square **Code** inlet. Valid curve text (`id x y 
 
 ## Bottom strip
 X / Y / Tension|Skew face strip still deferred.
+
+## Port lists (do not double-list)
+- `inputs` / `outputs` — jacks that are drawn and cabled.
+- `dataInputs` / `dataOutputs` — also jacks (data-plane); merged with inputs/outputs for the face.
+- `codeInputs` / `codeOutputs` — **tags only** (white square + Code behavior). Never a second jack list.
+Never put the same port name in both `inputs` and `dataInputs` (or outs). The runtime dedupes now, but defs should stay clean.

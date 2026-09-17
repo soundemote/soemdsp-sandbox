@@ -484,6 +484,10 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
  * graphChunkInputs / graphChunkOutputs. Not sample-accurate CV/audio.
  */
 
+/** True for Code jacks (white square, data bus).
+ * codeInputs / codeOutputs TAG port names that already appear in inputs/outputs
+ * (or dataInputs/dataOutputs). They do not create jacks by themselves.
+ */
 function nodeGraphPortIsCodeSignal(typeOrNode, port, io = null) {
   const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
     ? typeOrNode
