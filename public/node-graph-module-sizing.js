@@ -664,14 +664,12 @@ function nodeGraphModuleIoRowCount(type, node = null) {
   const definition = nodeGraphModuleDefinitions[type];
   // Match LayoutA jack columns: signal + data ports. Parameter keys are
   // slider-row mod ports, not extra I/O rows — do not count them here.
-  // Same merge as nodeGraphPatchNodeInputPorts / OutputPorts — unique names only.
-  const inputNames = typeof nodeGraphUniquePortNames === "function"
-    ? nodeGraphUniquePortNames([...(definition?.dataInputs || []), ...(definition?.inputs || [])])
-    : [...new Set([...(definition?.dataInputs || []), ...(definition?.inputs || [])])];
-  const outputNames = typeof nodeGraphUniquePortNames === "function"
-    ? nodeGraphUniquePortNames([...(definition?.outputs || []), ...(definition?.dataOutputs || [])])
-    : [...new Set([...(definition?.outputs || []), ...(definition?.dataOutputs || [])])];
-  return Math.max(inputNames.length, outputNames.length, 1);
+  // Match LayoutA jack columns: signal + data ports. Parameter keys are
+  // slider-row mod ports, not extra I/O rows — do not count them here.
+  // Count assumes each jack name appears in only one list.
+  const inputs = (definition?.inputs?.length || 0) + (definition?.dataInputs?.length || 0);
+  const outputs = (definition?.outputs?.length || 0) + (definition?.dataOutputs?.length || 0);
+  return Math.max(inputs, outputs, 1);
 }
 
 function nodeGraphModuleTypeHasIoPorts(type) {

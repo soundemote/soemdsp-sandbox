@@ -106,13 +106,13 @@ function nodeGraphModuleOutputPorts(type) {
   if (!definition) {
     return [];
   }
-  // outputs / dataOutputs are BOTH jack lists — same name in both = duplicate jacks.
-  // codeOutputs only tags; it does not add outlets. Dedup preserves first occurrence.
-  return nodeGraphUniquePortNames([
+  // List each jack once: outputs OR dataOutputs, never both. codeOutputs only tags styling.
+  nodeGraphAssertJackListsDisjoint(definition.outputs, definition.dataOutputs, `${type || "module"} outputs`);
+  return [
     ...(definition.outputs || []),
     ...(definition.dataOutputs || []),
     ...(definition.parameters || []).map((parameter) => parameter.key),
-  ]);
+  ];
 }
 
 function nodeGraphPatchNodeParameterDefinitions(node) {
@@ -255,17 +255,24 @@ function normalizeNodeGraphCodeblock(value = {}) {
 }
 
 
-/** Preserve order; drop later duplicates (case-sensitive port names). */
-function nodeGraphUniquePortNames(ports) {
-  const seen = new Set();
-  const out = [];
-  for (const port of ports || []) {
+
+/** inputs+dataInputs (and outs) are both jack lists. Overlap is a definition bug — throw, do not silence. */
+function nodeGraphAssertJackListsDisjoint(signalPorts, dataPorts, where) {
+  const signal = Array.isArray(signalPorts) ? signalPorts : [];
+  const data = Array.isArray(dataPorts) ? dataPorts : [];
+  const signalSet = new Set(signal.map((p) => String(p || "").trim()).filter(Boolean));
+  const overlap = [];
+  for (const port of data) {
     const name = String(port || "").trim();
-    if (!name || seen.has(name)) continue;
-    seen.add(name);
-    out.push(name);
+    if (name && signalSet.has(name)) overlap.push(name);
   }
-  return out;
+  if (overlap.length) {
+    throw new Error(
+      `${where}: jack name(s) listed in both signal and data port lists: ${overlap.join(", ")}. `
+      + "List each jack once (inputs OR dataInputs / outputs OR dataOutputs). "
+      + "codeInputs/codeOutputs only tag Code styling — they are not jack lists.",
+    );
+  }
 }
 
 function nodeGraphPatchNodeInputPorts(node) {
@@ -294,13 +301,12 @@ function nodeGraphPatchNodeInputPorts(node) {
     ? nodeGraphModuleDefinition(patchNode?.type)
     : nodeGraphModuleDefinitions[patchNode?.type];
   // Data-plane inlets (e.g. Additive Graph) stack above signal CV so Graph stays on top.
-  // dataInputs / inputs are BOTH jack lists. Never list the same name in both —
-  // historically that drew duplicate jacks (e.g. Code twice). Dedup as a seatbelt.
-  // codeInputs is NOT a jack list; it only tags names already in inputs/dataInputs.
-  return nodeGraphUniquePortNames([
+  // List each jack once: inputs OR dataInputs, never both. codeInputs only tags styling.
+  nodeGraphAssertJackListsDisjoint(definition?.inputs, definition?.dataInputs, `${patchNode?.type || "module"} inputs`);
+  return [
     ...(definition?.dataInputs || []),
     ...(definition?.inputs || []),
-  ]);
+  ];
 }
 
 function nodeGraphPatchNodeOutputPorts(node) {
