@@ -53,7 +53,7 @@
         "params": {
           "phase": 0,
           "waveform": 1,
-          "amplitude": 1,
+          "amplitude": 0.036,
           "frequency": 110
         },
         "traceDisplaySettings": {
@@ -232,131 +232,6 @@
             "linearSmoothing": true,
             "nonlinearSlider": true,
             "smoothingSeconds": 1469,
-            "removeTrailingZeros": false,
-            "divideChoicesVisibly": false
-          }
-        }
-      },
-      {
-        "id": "inScale",
-        "type": "attenuverter",
-        "gx": -14,
-        "gy": -8,
-        "params": {
-          "offset": 0,
-          "amplitude": 0.036
-        },
-        "ui": {
-          "ioHidden": false,
-          "hideUnused": false,
-          "titleHidden": false,
-          "buttonsHidden": true,
-          "slidersHidden": false,
-          "displayModeKey": "",
-          "movementLocked": false,
-          "buttonsForceShow": false,
-          "slidersForceShow": false,
-          "oscilloscopeHidden": true,
-          "displayHeightOffsetGu": 0,
-          "oscilloscopeForceShow": false,
-          "interfaceControlsHidden": false,
-          "interfaceControlsForceShow": false
-        },
-        "traceDisplaySettings": {
-          "fade": 0,
-          "color": "#ff0000",
-          "scale": 1,
-          "cycles": 2,
-          "cmyMode": false,
-          "padding": 0,
-          "dot1Size": 0.035,
-          "dotBudget": 1024,
-          "historyHz": 4,
-          "meetColor": "auto",
-          "xyzLayout": "stack",
-          "background": "#ff0000",
-          "brightness": 0.95,
-          "sourceSync": false,
-          "dot1Enabled": true,
-          "stereoBlend": "combine",
-          "syncChannel": "off",
-          "zoomSeconds": 0.25,
-          "pixelDensity": 1,
-          "stampDensity": 0.5,
-          "backgroundHue": 0,
-          "historyCycles": 4,
-          "lineThickness": 0.15,
-          "secondarySize": 0.035,
-          "tertiaryColor": "#00ff00",
-          "historySeconds": 0.25,
-          "secondaryColor": "#0000ff",
-          "backgroundColor": "#ff0000",
-          "secondaryEnabled": true,
-          "secondaryBrightness": 0.95,
-          "skipDiscontinuities": false,
-          "backgroundBrightness": 0,
-          "secondaryLineThickness": 0
-        },
-        "paramMeta": {
-          "offset": {
-            "def": 0,
-            "max": 1,
-            "mid": 0,
-            "min": -1,
-            "kind": "decimal",
-            "step": 0,
-            "unit": "",
-            "alias": "",
-            "bipolar": true,
-            "choices": [],
-            "tooltip": "DC offset after scale.",
-            "visible": false,
-            "modClamp": false,
-            "showSign": true,
-            "hardClamp": false,
-            "maxDigits": 3,
-            "constraint": "",
-            "wraparound": false,
-            "curveAmount": 0,
-            "sliderCurve": "linear",
-            "outputDomain": false,
-            "smoothingMode": "global",
-            "smoothingType": "linear",
-            "displayChoices": false,
-            "linearSmoothing": true,
-            "nonlinearSlider": false,
-            "smoothingSeconds": 0.0333,
-            "removeTrailingZeros": false,
-            "divideChoicesVisibly": false
-          },
-          "amplitude": {
-            "def": 0.5,
-            "max": 1,
-            "mid": 0.5,
-            "min": 0,
-            "kind": "decimal",
-            "step": 0,
-            "unit": "",
-            "alias": "",
-            "bipolar": false,
-            "choices": [],
-            "tooltip": "Scale and invert. 0 = mute, +1 = unity, \u22121 = invert. Bipolar rational is finer around 0.",
-            "visible": true,
-            "modClamp": false,
-            "showSign": false,
-            "hardClamp": false,
-            "maxDigits": 3,
-            "constraint": "",
-            "wraparound": false,
-            "curveAmount": 0.55,
-            "sliderCurve": "linear",
-            "outputDomain": false,
-            "smoothingMode": "global",
-            "smoothingType": "linear",
-            "displayChoices": false,
-            "linearSmoothing": true,
-            "nonlinearSlider": false,
-            "smoothingSeconds": 0.0333,
             "removeTrailingZeros": false,
             "divideChoicesVisibly": false
           }
@@ -1406,7 +1281,7 @@
           "slidersHidden": true,
           "slidersForceShow": false,
           "titleHidden": true,
-          "displayHeightGu": 12
+          "displayHeightGu": 4
         },
         "traceDisplaySettings": {
           "decimals": 2,
@@ -1665,7 +1540,9 @@
             "linearSmoothing": false,
             "outputDomain": false
           }
-        }
+        },
+        "widthGu": 5,
+        "heightGu": 4
       },
       {
         "id": "rangeFreq",
@@ -1895,7 +1772,7 @@
           "slidersHidden": true,
           "slidersForceShow": false,
           "titleHidden": true,
-          "displayHeightGu": 12
+          "displayHeightGu": 4
         },
         "traceDisplaySettings": {
           "decimals": 2,
@@ -2154,7 +2031,9 @@
             "linearSmoothing": false,
             "outputDomain": false
           }
-        }
+        },
+        "widthGu": 5,
+        "heightGu": 4
       },
       {
         "id": "resGraph",
@@ -2679,20 +2558,6 @@
     },
     "connections": [
       {
-        "sourceNode": "source",
-        "sourcePort": "Wave",
-        "tracePoints": [],
-        "destinationNode": "inScale",
-        "destinationPort": "In"
-      },
-      {
-        "sourceNode": "inScale",
-        "sourcePort": "Out",
-        "tracePoints": [],
-        "destinationNode": "mix",
-        "destinationPort": "In1"
-      },
-      {
         "sourceNode": "fbVca",
         "sourcePort": "Out",
         "tracePoints": [],
@@ -2775,6 +2640,13 @@
         "tracePoints": [],
         "destinationNode": "fbVca",
         "destinationPort": "In"
+      },
+      {
+        "sourceNode": "source",
+        "sourcePort": "Wave",
+        "tracePoints": [],
+        "destinationNode": "mix",
+        "destinationPort": "In1"
       }
     ],
     "modulations": [
