@@ -354,7 +354,7 @@ function nodeGraphKnobFaceFormatReadout(value, patchNode, slider = null) {
 }
 
 /**
- * Knob square in px: min side of the dial cell × Knob size.
+ * Knob square in px: min side of the dial cell × Dial size.
  * Label size and Value size 0…1 are fractions of this square.
  */
 function nodeGraphKnobFaceSquarePx(face) {
@@ -395,7 +395,7 @@ function nodeGraphKnobFaceFitTextEl(el, face, sizeVar, fallback) {
 
 /**
  * Value size 0…1 = fraction of the knob square (min side of the dial cell
- * × Knob size). Same ratio on the module and on canvas.
+ * × Dial size). Same ratio on the module and on canvas.
  */
 function nodeGraphKnobFaceFitReadout(readout, face = null) {
   nodeGraphKnobFaceFitTextEl(readout, face, "--knob-value-size", 0.45);

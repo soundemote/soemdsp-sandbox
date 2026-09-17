@@ -117,12 +117,12 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     title = "Amplitude zoom on the face (1 = full-scale). Does not change the Display Settings preview dot.";
   }
   if (key === "dialSize" && formType === "knobFace") {
-    label = "Knob size";
+    label = "Dial size";
     title = "Dial ring size 0…1. 1 = fill available space. Only scales the arc — label and value stay put.";
   }
   if (key === "labelSize" && formType === "knobFace") {
     label = "Label size";
-    title = "Title size 0…1 as a fraction of the knob square (min side of the dial × Knob size). 1 = one square. Independent of value size.";
+    title = "Title size 0…1 as a fraction of the knob square (min side of the dial × Dial size). 1 = one square. Independent of value size.";
   }
   if (key === "valueSize" && formType === "knobFace") {
     label = "Value size";

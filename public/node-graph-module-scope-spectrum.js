@@ -239,7 +239,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["edgeSpacing", "Edge Spacing"],
   ["innerRadius", "Inner radius"],
   ["rotationDegrees", "Span °"],
-  ["dialSize", "Knob size"],
+  ["dialSize", "Dial size"],
   ["labelSize", "Label size"],
   ["valueSize", "Value size"],
 

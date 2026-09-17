@@ -1234,7 +1234,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title: "Centered arc sweep across Bias 0…1 (0–1440°). Opens left and right together (gap stays opposite center). Default 270°.",
   }),
   dialSize: Object.freeze({
-    label: "Knob size",
+    label: "Dial size",
     inputmode: "decimal",
     id: "nodeTraceDisplayKnobDialSize",
     title: "Dial ring size 0…1. 1 = fill available dial cell (no padding). Scales only the arc — label and value stay put.",
@@ -1243,7 +1243,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Label size",
     inputmode: "decimal",
     id: "nodeTraceDisplayKnobLabelSize",
-    title: "Title size 0…1 as a fraction of the knob square (min side of the dial × Knob size). 1 = one square.",
+    title: "Title size 0…1 as a fraction of the knob square (min side of the dial × Dial size). 1 = one square.",
   }),
   valueSize: Object.freeze({
     label: "Value size",
