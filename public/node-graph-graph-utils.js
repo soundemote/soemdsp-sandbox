@@ -1131,25 +1131,20 @@ function normalizeNodeGraphStepCount(value) {
 }
 
 function nodeGraphGraphStepCountForNode(patchNode) {
-  // Step grid is Step Graph (stepGraph) only.
-  if (String(patchNode?.type || "").trim() !== "stepGraph") {
+  // Face grid / X snap: Smooth Graph + Step Graph. 0 = grid off.
+  const type = String(patchNode?.type || "").trim();
+  if (type !== "stepGraph" && type !== "smoothGraph") {
     return 0;
   }
   const raw = Number(patchNode?.params?.steps);
-  // Unset / non-numeric → default 8 (matches parameter defaultValue).
-  // Explicit 0 → free X (no grid, no quantize).
+  // Unset / non-numeric → 0 (matches spawn defaultValue). Explicit 0 → free X.
   if (!Number.isFinite(raw)) {
-    return 8;
+    return 0;
   }
   return normalizeNodeGraphStepCount(raw);
 }
 
-/**
- * Snap an x position (0..1) onto the Step Graph vertical grid.
- * steps=0 → no snap (identity).
- * steps=1 → only 0 or 1 (whichever is closer).
- * steps=n → i/n for i = 0..n (same lines as the face grid).
- */
+
 function nodeGraphGraphSnapXToStepGrid(x, stepCount) {
   const steps = normalizeNodeGraphStepCount(stepCount);
   if (steps <= 0) {

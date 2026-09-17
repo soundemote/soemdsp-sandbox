@@ -780,6 +780,18 @@ const nodeGraphModuleDefinitions = (
         step: "0.01"
       },
       { choices: ["Off", "On"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "lockEndpointY", label: "Lock Ends", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
+      {
+        // 0 = no step grid / free X (no auto quantize). 1..64 = vertical grid + snap.
+        defaultValue: "0",
+        key: "steps",
+        label: "Steps",
+        max: "64",
+        maxDigits: 2,
+        mid: "8",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1"
+      },
       { defaultValue: "1", key: "rate", kind: "frequency", label: "Rate", max: "40", maxDigits: 5, mid: "1", min: "0", step: "any", unit: "Hz" },
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
       { defaultValue: "0", key: "inputMin", label: "In Min", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
@@ -829,7 +841,7 @@ const nodeGraphModuleDefinitions = (
       { choices: ["Off", "On"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "lockEndpointY", label: "Lock Ends", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
       {
         // 0 = no step grid / free X (no auto quantize). 1..64 = vertical grid + snap.
-        defaultValue: "8",
+        defaultValue: "0",
         key: "steps",
         label: "Steps",
         max: "64",
