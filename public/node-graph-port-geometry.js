@@ -435,6 +435,9 @@ function nodeGraphPortIsReset(port) {
 //   • anything listed in digitalInputs / digitalOutputs
 // 0.1V/Oct pitch CV stays analog (not white) — it is a smoothly-varying voltage.
 function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
+  if (typeof nodeGraphPortIsCodeSignal === "function" && nodeGraphPortIsCodeSignal(typeOrNode, port, io)) {
+    return true;
+  }
   if (
     port === "Scale"
     || nodeGraphPortIsFrequencyValue(port)

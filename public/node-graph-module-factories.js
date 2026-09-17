@@ -180,7 +180,9 @@ function createNodeGraphIoColumn(node, type, ports, io) {
     // Colored buses (Polyphony/black, Play/blue, Arp/gold) are not digital-white.
     const jackCh = row.dataset.jackChannel || "";
     const coloredBus = jackCh === "black" || jackCh === "blue" || jackCh === "gold";
-    if (!coloredBus && nodeGraphPortIsDigitalSignal(type, port, io)) {
+    const codeSignal = typeof nodeGraphPortIsCodeSignal === "function"
+      && nodeGraphPortIsCodeSignal(type, port, io);
+    if (!coloredBus && (nodeGraphPortIsDigitalSignal(type, port, io) || codeSignal)) {
       // White digital: Scale bitmasks, ƒ, Gate/Trigger, digitalInputs/Outputs.
       row.dataset.digitalSignal = io;
     }

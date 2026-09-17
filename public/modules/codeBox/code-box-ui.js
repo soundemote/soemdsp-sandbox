@@ -273,9 +273,47 @@ function syncNodeGraphGraphCodeInputs() {
   }
 }
 
+
+function serializeNodeGraphCurveToCodeText(graph) {
+  const g = typeof normalizeNodeGraphGraph === "function"
+    ? normalizeNodeGraphGraph(graph)
+    : graph;
+  const nodes = Array.isArray(g?.nodes) ? g.nodes : [];
+  const lines = ["# graph curve v1"];
+  nodes.forEach((node, index) => {
+    const id = node?.id || `p${index + 1}`;
+    const x = Number(node?.x);
+    const y = Number(node?.y);
+    const c = Number(node?.c);
+    if (![x, y].every((n) => Number.isFinite(n))) return;
+    const bend = Number.isFinite(c) ? c : 0;
+    lines.push(`${id}  ${x.toFixed(4)}  ${y.toFixed(4)}  ${bend.toFixed(4)}`);
+  });
+  return lines.join("\n") + "\n";
+}
+
+function publishNodeGraphGraphCodeOutputs() {
+  if (typeof nodeGraphMvp === "undefined" || typeof writeNodeGraphDataOutput !== "function") return;
+  for (const patchNode of nodeGraphMvp.patch?.nodes || []) {
+    if (!patchNode || (patchNode.type !== "smoothGraph" && patchNode.type !== "stepGraph")) continue;
+    // While Code in is driving, publish the incoming/effective curve text if any;
+    // otherwise serialize local graph.nodes.
+    let text;
+    if (typeof nodeGraphCodeBoxIsCodeInConnected === "function"
+      && nodeGraphCodeBoxIsCodeInConnected(patchNode.id)) {
+      const incoming = nodeGraphCodeBoxIncomingText(patchNode.id);
+      text = incoming !== undefined ? String(incoming ?? "") : serializeNodeGraphCurveToCodeText(patchNode.graph);
+    } else {
+      text = serializeNodeGraphCurveToCodeText(patchNode.graph);
+    }
+    writeNodeGraphDataOutput(patchNode.id, "Code", text);
+  }
+}
+
 function syncAllNodeGraphCodeSurfaces() {
   syncAllNodeGraphCodeBoxFaces();
   syncNodeGraphGraphCodeInputs();
+  publishNodeGraphGraphCodeOutputs();
 }
 
 // Keep driven faces / graphs in sync when cables or the data bus change.
