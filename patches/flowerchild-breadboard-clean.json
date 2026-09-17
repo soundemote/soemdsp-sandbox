@@ -1909,7 +1909,7 @@
           "labelPosition": "above",
           "valuePosition": "mid",
           "innerRadius": 0.5591,
-          "labelText": "Cutoff"
+          "labelText": "Resonance"
         },
         "paramMeta": {
           "offset": {
