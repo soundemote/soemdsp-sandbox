@@ -4,7 +4,7 @@
 |-------|-------|
 | **Author** | Sandbox / Argi |
 | **Date** | 2026-09-17 |
-| **Status** | Draft plan (rev 2) |
+| **Status** | Draft plan (rev 3) |
 | **Repo** | `C:\Users\argit\Documents\_PROGRAMMING\soemdsp-sandbox` |
 | **Motivation (user)** | Reliable Knob+Graph editing so you can breadboard Flower Child Filter (and similar) yourself |
 | **Out of scope** | Host/plugin ports, rack engine quirks, multi-rate host assumptions — keep this plan **sandbox-generic** |
@@ -65,9 +65,27 @@ Native curve evaluators (`smooth_graph` / `step_graph`) stay; this is primarily 
 - **On face hover:** show **all** value points and **all** tension/contour handles (Step empty circles + Smooth tension-related affordances). Idle can stay quiet; hover = full edit chrome.
 - Keep existing curve math unless a bug forces a fix; prefer UI/interaction fixes first.
 - Context / floating editor stays in sync with face selection and does not fight face drags.
+- **Drive readout on the face:** show **input X** as a line and **final sample X** as a line (input + phase offset). User must see both, not only one cream playhead.
+- Rename **Phase → Phase Offset** (param key `phase` → `phaseOffset` with patch migration). Slider + MOD is enough to offset drive without an external Knob.
+
+### Curve Offset vs Phase Offset (glossary)
+
+| Control | Where | What it actually does |
+|---------|--------|------------------------|
+| **Curve Offset** (`curveOffset`) | **Step Graph only** | Global add into each segment's per-node contour: `effective c = c + curveOffset`. Bends segment *shape*. **Not** the X playhead. |
+| **Phase Offset** (`phase` → `phaseOffset`) | Smooth + Step | X drive in cycles 0…1 (wrap). Face scrub + LFO/Phasor/Input modes. |
+
+Do not conflate them in labels or overlays.
+
+### Face lines (Input + Phase Offset)
+
+1. **Input line** — mapped In position on X (after In Min/Max), before offset.
+2. **Final line** — `wrap(inputX + phaseOffset)` — where the curve is sampled for Out.
+3. Keep Y readout at the final X on the curve.
+
+Phase Offset stays a normal module parameter so you can trim drive without a Knob module. Face scrub continues to write Phase Offset.
 
 ---
-
 
 ## Non-Goals
 
@@ -83,7 +101,8 @@ Native curve evaluators (`smooth_graph` / `step_graph`) stay; this is primarily 
 1. Graph number fields: bad UX, cannot drag, not shared widgets.
 2. Graph face: tension/value handles not visible on hover as a set.
 3. Knob: smoothing not reflected; face behaves like a pseudo-parameter rather than a module display of Bias.
-4. That blocks reliable curve authoring for filter breadboards (user-owned).
+4. Cannot see input vs final drive on the graph face; Phase naming confuses with Curve Offset.
+5. That blocks reliable curve authoring for filter breadboards (user-owned).
 
 ---
 
@@ -118,6 +137,16 @@ Native curve evaluators (`smooth_graph` / `step_graph`) stay; this is primarily 
 | Leave | Restore default dim/hide policy |
 | Hit targets | Hover visibility must not change hit geometry in a way that makes points jump |
 
+### D. Input line + Phase Offset line
+
+| Concern | Direction |
+|---------|-----------|
+| Naming | UI **Phase Offset**; migrate `phase` → `phaseOffset` (read legacy `phase`) |
+| Input line | Distinct style (e.g. dim vertical) at mapped In X |
+| Final line | Distinct style (current cream playhead) at `wrap(inputX + phaseOffset)` |
+| Modes | Input mode: both lines. LFO/Phasor: final line is the running phase; input line optional/hidden if In unused |
+| Curve Offset | Unchanged; Step-only; never drawn as an X playhead |
+
 ## Work phases
 
 
@@ -145,7 +174,14 @@ Native curve evaluators (`smooth_graph` / `step_graph`) stay; this is primarily 
 - Face render flag `hoverRevealAll`.
 - Smooth + Step both; no layout jump.
 
-### Phase 4 — Interaction bug sweep
+### Phase 4 — Input + Phase Offset face lines + rename
+
+- Rename Phase → Phase Offset (`phaseOffset` + migration).
+- Draw input X line and final X line (`wrap(input + phaseOffset)`).
+- Document Curve Offset vs Phase Offset in tooltips (Step).
+- Verify Out samples at final X; scrub still edits Phase Offset.
+
+### Phase 5 — Interaction bug sweep
 
 - Known flicker / flat-line issues called out in `graph-utils` comments.
 - Pointer capture conflicts between face and floating list.
@@ -172,7 +208,9 @@ Native curve evaluators (`smooth_graph` / `step_graph`) stay; this is primarily 
 2. Graph point x/y/(c) use shared drag/stepper widgets; dragging numbers works.
 3. Hovering the graph face reveals all value points and all tension/contour handles.
 4. Smooth + Step remain editable without the “stupid widgets” path.
-5. No host-specific or rack-specific branches introduced for this work.
+5. Face shows input line and final (input + phase offset) line; Phase labeled Phase Offset.
+6. Curve Offset remains Step contour bias only — not confused with Phase Offset in UI.
+7. No host-specific or rack-specific branches introduced for this work.
 
 ---
 
@@ -183,6 +221,8 @@ Native curve evaluators (`smooth_graph` / `step_graph`) stay; this is primarily 
 3. Hover reveal: module hover vs only display-canvas hover?
 4. Should graph list move fully into Display Settings / unified window, or stay context panel with new widgets?
 5. Plugin Slider: same face-vs-smooth bug class — fix in Phase 1 or defer?
+6. Input/final line colors and whether input line shows in LFO/Phasor modes?
+7. Phase Offset wrap: always wrap 0…1, or clamp when Mode = Input?
 
 ---
 
