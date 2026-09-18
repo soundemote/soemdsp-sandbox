@@ -83,7 +83,7 @@ function createNodeGraphPatchNode(type, options = {}) {
       : { slots: opts.chordMemory.slots || opts.chordMemory };
   }
   // Explicit opts.ui wins. Else module definition.defaultUi (e.g. Vectorscope
-  // Rotation). textBox still defaults buttons off when nothing else is set.
+  // Rotation). Buttons default off except Input/Output (see normalize).
   let uiSource = opts.ui;
   if (!Object.hasOwn(opts, "ui")) {
     const defUi = nodeGraphModuleDefinitions[resolvedType]?.defaultUi;
