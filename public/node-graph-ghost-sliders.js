@@ -233,7 +233,8 @@ function nodeGraphParameterGhostSignal(node, key) {
       : null) || {};
     const taggedDomain = srcParamMeta.outputDomain === true
       || srcType === "range"
-      || srcType === "Range";
+      || srcType === "Range"
+      || metadata.outputDomain === true;
     sources.push(taggedDomain ? { value: Number(normalized), domain: true } : normalized);
   }
   if (!sources.length) {

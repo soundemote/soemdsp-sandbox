@@ -338,8 +338,12 @@ function nodeGraphParamModAccumulators(sources, metadata = {}) {
   let domainAdd = 0;
   let domainReplace = false;
   const list = Array.isArray(sources) ? sources : [sources];
+  // Dest "Use real mod values" / outputDomain: treat every MOD as domain REPLACE
+  // (old absolute f) — knob must not offset the sent value.
+  const destDomain = metadata && metadata.outputDomain === true;
   for (const raw of list) {
     let { value: mod, domain } = nodeGraphParamNormalizeModSource(raw);
+    if (destDomain) domain = true;
     if (clipNeg) {
       mod = Math.max(0, mod);
     }

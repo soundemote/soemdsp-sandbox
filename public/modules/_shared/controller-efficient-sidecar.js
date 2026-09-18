@@ -753,6 +753,19 @@ NodeLiveAudioProcessor.prototype.readEfficientParamModSources = function readEff
       && liveMods.size
       && liveMods.has(`${dstId}\0${pk}\0${String(m.sourceNode || "")}\0${String(m.sourcePort || "")}`)
     ) {
+      // Values stamp via ParamModEdge; still classify so domainReplace bit4 is
+      // pushed — otherwise |v|<=1 live samples unit-band add the knob.
+      const srcNode = this.nodes?.get?.(String(m.sourceNode || ""));
+      const srcPort = String(m.sourcePort || "");
+      const srcParamMeta = srcNode?.paramMeta?.[srcPort] || {};
+      const srcType = String(srcNode?.type || "");
+      const taggedDomain = srcParamMeta.outputDomain === true
+        || srcType === "range"
+        || srcType === "Range"
+        || metadata.outputDomain === true;
+      if (taggedDomain) {
+        sources.push({ value: 0, domain: true });
+      }
       continue;
     }
     const sample = this.readEfficientModSourceSample(m.sourceNode, m.sourcePort);
@@ -772,7 +785,8 @@ NodeLiveAudioProcessor.prototype.readEfficientParamModSources = function readEff
     const srcType = String(srcNode?.type || "");
     const taggedDomain = srcParamMeta.outputDomain === true
       || srcType === "range"
-      || srcType === "Range";
+      || srcType === "Range"
+      || metadata.outputDomain === true;
     if (taggedDomain) {
       sources.push({ value: Number(normalized), domain: true });
     } else {

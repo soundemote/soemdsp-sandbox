@@ -410,13 +410,24 @@ NodeLiveAudioProcessor.prototype.readEffectiveParameter = function readEffective
       return base;
     }
     const metadata = node?.paramMeta?.[key] || {};
-    const sources = modulations.map((modulation) => this.normalizeParameterModulationInput(this.readRuntimePortOutput(
-      frameValues,
-      modulation.sourceNode,
-      modulation.sourcePort,
-      frame,
-      frames,
-    ), metadata));
+    const sources = modulations.map((modulation) => {
+      const sample = this.normalizeParameterModulationInput(this.readRuntimePortOutput(
+        frameValues,
+        modulation.sourceNode,
+        modulation.sourcePort,
+        frame,
+        frames,
+      ), metadata);
+      const srcNode = this.nodes?.get?.(modulation.sourceNode);
+      const srcPort = String(modulation.sourcePort || "");
+      const srcParamMeta = srcNode?.paramMeta?.[srcPort] || {};
+      const srcType = String(srcNode?.type || "");
+      const taggedDomain = srcParamMeta.outputDomain === true
+        || srcType === "range"
+        || srcType === "Range"
+        || metadata.outputDomain === true;
+      return taggedDomain ? { value: Number(sample), domain: true } : sample;
+    });
     if (typeof nodeGraphParamFoldModSources === "function") {
       return nodeGraphParamFoldModSources(base, sources, metadata);
     }

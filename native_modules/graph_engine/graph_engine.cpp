@@ -3508,8 +3508,10 @@ static void stamp_live_param_mods(Circuit& g, Node& node, int frame) {
     Control* c = control_for_param(node, e.paramId);
     if (!c) continue;
     c->liveModActive = 1; // even when v==0 (VCA rest must silence)
-    // Same classify as JS: |v|≤1 unit-band, else domain REPLACE (not add-to-knob).
-    if (v > 1.0 || v < -1.0) {
+    // Same classify as JS: |v|<=1 unit-band, else domain REPLACE (not add-to-knob).
+    // Host bit4 (domainReplace) means this Control's live MOD is domain-valued
+    // (Range / outputDomain) even when |v|<=1 — do not fall back to unit-band+knob.
+    if (((c->modFlags & 16u) != 0) || v > 1.0 || v < -1.0) {
       c->liveModDomain += v;
       c->liveModDomainReplace = 1;
     } else {
@@ -10709,7 +10711,7 @@ extern "C" int soemdsp_graph_set_param_domain(
   c->domainMin = (min == min) ? (double)min : 0.0;
   c->domainMax = (max == max) ? (double)max : 0.0;
   // bit0 wrap, bit1 modClamp, bit2 VCA amp multiply, bit3 unbounded (modClamp:false)
-  c->modFlags = (unsigned char)(flags & 15);
+  c->modFlags = (unsigned char)(flags & 31); // keep bit4 domainReplace
   return 0;
 }
 

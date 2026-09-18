@@ -6555,6 +6555,13 @@ const nodeGraphModuleDefinitions = (
   range: {
     planRole: "processor",
     label: "Range",
+    // Face shows the sent/effective Out value (not Trace). Ranges own the
+    // engineering map; knobs stay unit 0…1 and feed In.
+    displayType: "value",
+    displayHeightGu: 1,
+    displayModes: typeof nodeGraphTSeriesValueDisplayModes === "function"
+      ? nodeGraphTSeriesValueDisplayModes()
+      : [{ key: "value", label: "Value", renderer: "value", settingsSchema: "value" }],
     // Generic In/Out only — gold uncolored analog. No Left/Right/Mono aliases:
     // those paint red/blue/green via jack-chrome even when the face says In/Out.
     inputs: ["In"],

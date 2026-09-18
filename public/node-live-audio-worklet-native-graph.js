@@ -1056,9 +1056,10 @@ NodeLiveAudioProcessor.prototype.pushNativeGraphParamDomain = function pushNativ
       paramId,
       Number.isFinite(lo) ? lo : 0,
       Number.isFinite(hi) ? hi : 0,
-      // bit0 wrap, bit1 modClamp, bit2 VCA, bit3 unbounded (modClamp:false).
-      // Mask 7 used to drop bit3 so jitterDistance modClamp:false never stuck.
-      (flags | 0) & 15,
+      // bit0 wrap, bit1 modClamp, bit2 VCA, bit3 unbounded, bit4 domainReplace.
+      // Must keep bit4 (& 31): masking with 15 dropped domainReplace so cyan
+      // set_param_mod domainAdd was ignored and the knob still drove DSP.
+      (flags | 0) & 31,
     );
   } catch (_e) { /* ignore */ }
 };

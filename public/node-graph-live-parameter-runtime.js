@@ -231,7 +231,8 @@ function readNodeGraphLiveEffectiveParam(
     const srcType = String(srcNode?.type || "");
     const taggedDomain = srcParamMeta.outputDomain === true
       || srcType === "range"
-      || srcType === "Range";
+      || srcType === "Range"
+      || metadata.outputDomain === true;
     return taggedDomain ? { value: Number(sample), domain: true } : sample;
   });
   if (typeof nodeGraphParamFoldModSources === "function") {
