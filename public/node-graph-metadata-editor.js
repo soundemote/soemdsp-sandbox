@@ -2523,6 +2523,10 @@ function readNodeMetadataEditorValues(slider) {
     choices: parseNodeMetadataChoices(document.getElementById("metadataChoicesValue").value),
     bipolar: Boolean(document.getElementById("metadataBipolarValue")?.checked),
     outputDomain: Boolean(document.getElementById("metadataOutputDomainValue")?.checked),
+    // No dedicated editor field — preserve across unrelated field edits / toggle.
+    domainOffset: (Number.isFinite(Number(current.domainOffset))
+      ? Number(current.domainOffset)
+      : 0),
     // Keep these independent — do not force divide from display or vice versa.
     displayChoices: Boolean(document.getElementById("metadataDisplayChoicesValue")?.checked),
     divideChoicesVisibly: Boolean(document.getElementById("metadataDivideChoicesValue")?.checked),
@@ -2549,7 +2553,19 @@ function applyNodeMetadataEditor(options = {}) {
     return;
   }
 
+  const prior = nodeSliderMetadata(slider);
   const nextMetadata = readNodeMetadataEditorValues(slider);
+  // Leaving "Use real mod values": show absolute params again (not leftover offset).
+  if (prior.outputDomain === true && nextMetadata.outputDomain !== true) {
+    const nodeId = slider.closest(".dsp-node")?.dataset?.node;
+    const key = slider.dataset.param;
+    if (nodeId && key && typeof nodeGraphReadNodeNumber === "function") {
+      const abs = Number(nodeGraphReadNodeNumber(nodeId, key));
+      if (Number.isFinite(abs)) {
+        slider.dataset.domainValue = String(abs);
+      }
+    }
+  }
   setNodeSliderMetadata(slider, nextMetadata);
   syncNodeGraphPatchMetadataFromSlider(slider, {
     status: "metadata synced",

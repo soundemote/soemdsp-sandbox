@@ -369,6 +369,21 @@ function nodeGraphParamModAccumulators(sources, metadata = {}) {
   return { unitAdd, domainAdd, domainReplace };
 }
 
+/**
+ * Effective-param early-out + fold. SSOT for live + worklet call sites.
+ * - No mod sources AND not outputDomain → return base (skip fold work).
+ * - outputDomain (mods optional / empty OK) → nodeGraphParamFoldModSources.
+ * - Else fold mapped sources via nodeGraphParamFoldModSources.
+ * Source tagging stays at the call site; this only gates + folds.
+ */
+function nodeGraphParamFoldOrBase(base, sources, metadata = {}) {
+  const list = Array.isArray(sources) ? sources : (sources == null ? [] : [sources]);
+  if (!list.length && !(metadata && metadata.outputDomain === true)) {
+    return base;
+  }
+  return nodeGraphParamFoldModSources(base, list, metadata);
+}
+
 function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
   // "Use real mod values": ignore absolute base. Sent = domain mods + offset.
   // Offset applies even with no mod wires. No slider curve on the offset path.

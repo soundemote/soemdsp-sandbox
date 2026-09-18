@@ -17,23 +17,47 @@ function syncNodeGraphPatchMetadataFromSlider(slider, options = {}) {
   if (!patchNode) {
     return;
   }
-  patchNode.paramMeta = {
-    ...(patchNode.paramMeta || {}),
-    [key]: normalizeNodeGraphPatchParameterMetadata(
-      patchNode.type,
-      key,
-      nodeSliderMetadata(slider),
-    ),
-  };
-  patchNode.params = {
-    ...(patchNode.params || {}),
-    [key]: normalizeNodeGraphPatchParameter(
-      patchNode.type,
-      key,
-      nodeGraphReadNodeNumber(node, key),
-      patchNode.paramMeta[key],
-    ),
-  };
+  const liveMeta = nodeSliderMetadata(slider);
+  let nextMeta = normalizeNodeGraphPatchParameterMetadata(
+    patchNode.type,
+    key,
+    liveMeta,
+  );
+  // Use real mod values: slider edits domainOffset; keep absolute params[key].
+  // (Same rule as syncNodeGraphPatchParameterFromSlider — prevents offset thumb
+  // / missing patch.params from rewriting absolute min-path values, and keeps
+  // outputDomain+domainOffset in paramMeta so remount refreshes ±max UI.)
+  if (nextMeta && nextMeta.outputDomain === true) {
+    const offRaw = Number(liveMeta.domainOffset);
+    const off = Number.isFinite(offRaw)
+      ? offRaw
+      : (Number.isFinite(Number(slider.dataset.domainValue))
+        ? Number(slider.dataset.domainValue)
+        : 0);
+    nextMeta = { ...nextMeta, domainOffset: off };
+    if (slider) {
+      slider.dataset.domainOffset = String(off);
+      slider.dataset.domainValue = String(off);
+    }
+    patchNode.paramMeta = {
+      ...(patchNode.paramMeta || {}),
+      [key]: nextMeta,
+    };
+  } else {
+    patchNode.paramMeta = {
+      ...(patchNode.paramMeta || {}),
+      [key]: nextMeta,
+    };
+    patchNode.params = {
+      ...(patchNode.params || {}),
+      [key]: normalizeNodeGraphPatchParameter(
+        patchNode.type,
+        key,
+        nodeGraphReadNodeNumber(node, key),
+        patchNode.paramMeta[key],
+      ),
+    };
+  }
   if (
     typeof nodeGraphIsContainerShellType === "function"
     && nodeGraphIsContainerShellType(patchNode.type)

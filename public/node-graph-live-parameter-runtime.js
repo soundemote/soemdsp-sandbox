@@ -212,11 +212,14 @@ function readNodeGraphLiveEffectiveParam(
   const base = readNodeGraphLiveSmoothedParam(runtime, node, key, fallback, frame, frames);
   const modulations = runtime.modulationConnections?.get(nodeGraphParameterKey(node?.id, key));
   const metadata = node?.paramMeta?.[key] || {};
-  // Domain mode: offset applies even with no mod wires.
-  if ((!modulations || !modulations.length) && !(metadata && metadata.outputDomain === true)) {
-    return base;
-  }
-  if ((!modulations || !modulations.length) && metadata.outputDomain === true) {
+  // Fold / outputDomain early-out SSOT: nodeGraphParamFoldOrBase.
+  if (!modulations || !modulations.length) {
+    if (typeof nodeGraphParamFoldOrBase === "function") {
+      return nodeGraphParamFoldOrBase(base, [], metadata);
+    }
+    if (!(metadata && metadata.outputDomain === true)) {
+      return base;
+    }
     if (typeof nodeGraphParamFoldModSources === "function") {
       return nodeGraphParamFoldModSources(base, [], metadata);
     }
@@ -244,6 +247,9 @@ function readNodeGraphLiveEffectiveParam(
       || metadata.outputDomain === true;
     return taggedDomain ? { value: Number(sample), domain: true } : sample;
   });
+  if (typeof nodeGraphParamFoldOrBase === "function") {
+    return nodeGraphParamFoldOrBase(base, sources, metadata);
+  }
   if (typeof nodeGraphParamFoldModSources === "function") {
     return nodeGraphParamFoldModSources(base, sources, metadata);
   }

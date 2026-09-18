@@ -406,11 +406,15 @@ NodeLiveAudioProcessor.prototype.readEffectiveParameter = function readEffective
     // per-sample cost behind Sabrina Reverb's real-time audio underruns
     // (measured, not guessed: 8 parameters x this unconditional work was
     // enough to push ctx.currentTime ~5% behind wall-clock).
+    // Fold / outputDomain early-out SSOT: nodeGraphParamFoldOrBase.
     const metadata = node?.paramMeta?.[key] || {};
-    if ((!modulations || !modulations.length) && !(metadata && metadata.outputDomain === true)) {
-      return base;
-    }
-    if ((!modulations || !modulations.length) && metadata.outputDomain === true) {
+    if (!modulations || !modulations.length) {
+      if (typeof nodeGraphParamFoldOrBase === "function") {
+        return nodeGraphParamFoldOrBase(base, [], metadata);
+      }
+      if (!(metadata && metadata.outputDomain === true)) {
+        return base;
+      }
       if (typeof nodeGraphParamFoldModSources === "function") {
         return nodeGraphParamFoldModSources(base, [], metadata);
       }
@@ -437,6 +441,9 @@ NodeLiveAudioProcessor.prototype.readEffectiveParameter = function readEffective
         || metadata.outputDomain === true;
       return taggedDomain ? { value: Number(sample), domain: true } : sample;
     });
+    if (typeof nodeGraphParamFoldOrBase === "function") {
+      return nodeGraphParamFoldOrBase(base, sources, metadata);
+    }
     if (typeof nodeGraphParamFoldModSources === "function") {
       return nodeGraphParamFoldModSources(base, sources, metadata);
     }

@@ -78,6 +78,8 @@ const nodeGraphModuleHeightLimits = nodeGraphModuleGuPolicy;
 // HEIGHT CONTROL   Face modules: "Display Height" shows/steps face gu (0…60),
 //                  including Off at 0. Freehand: "Height" shows/steps heightGu.
 //                  No-face non-freehand: width only (no height row).
+//                  Retired: controllable face "Module Height" / face heightGu —
+//                  outer is content+face; do not revive face heightGu writes.
 //
 // Write path: nodeGraphApplyModuleShellHeightCssVars + --node-grid-height-units.
 // Visibility flips (params / ports / Displays / hide-unused / expose) must
