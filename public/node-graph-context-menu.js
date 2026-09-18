@@ -810,7 +810,7 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneModuleVisibilitySection",
   "nodeSceneAddToUi",
   "nodeSceneWireTypeControl",
-  // Width + Height (display gu) stay paired — app-wide policy for every module.
+  // Width + Display Height (face gu, when module has a face) — app-wide policy.
   "nodeSceneWidthControls",
   "nodeSceneDisplayHeightControls",
   "nodeSceneTextBoxTextSizeControls",
@@ -1277,14 +1277,14 @@ function configureNodeSceneContextMenu(mode) {
   const buttonsHidden = effectiveTargetNodeUi.buttonsHidden;
   const oscilloscopeHidden = effectiveTargetNodeUi.oscilloscopeHidden;
   const interfaceControlsHidden = effectiveTargetNodeUi.interfaceControlsHidden;
-  // Height readout = OUTER module grid height (not face-only). Face min is 1gu.
+  // Display Height readout = face gu (0 = Off). Outer is computed separately.
   const outerHeightGu = targetNode && typeof nodeGraphPatchNodeGridHeightUnits === "function"
     ? nodeGraphPatchNodeGridHeightUnits(targetNode)
     : 0;
   const faceHeightGu = targetNode && typeof nodeGraphModuleConfiguredDisplayHeightUnits === "function"
     ? nodeGraphModuleConfiguredDisplayHeightUnits(targetNode.type, targetNode.ui)
     : 0;
-  const displayHeightGu = outerHeightGu;
+  const displayHeightGu = faceHeightGu;
   const targetNodeLayout = nodeGraphPatchNodeLayout(targetNode);
   const visualFaceLabel = "display";
   const slidersHidden = effectiveTargetNodeUi.slidersHidden;
@@ -1656,11 +1656,11 @@ function configureNodeSceneContextMenu(mode) {
         ? "Increase width of selected modules."
         : nodeGraphTooltipText("actions.widthIncrease"),
     });
-    // Height = OUTER module gu. Face modules shrink until face is 1gu (min outer).
+    // Display Height = face gu (0 = Off). Outer height is computed from content + face.
     const multiDisplayHeights = multiModuleMode
       ? selectedNodes
         .filter((node) => nodeGraphPatchNodeHasResizableDisplayArea(node))
-        .map((node) => nodeGraphPatchNodeGridHeightUnits(node))
+        .map((node) => nodeGraphModuleConfiguredDisplayHeightUnits(node.type, node.ui))
       : [];
     const multiDisplayHeightUniform = multiDisplayHeights.length > 0
       && multiDisplayHeights.every((value) => value === multiDisplayHeights[0]);
@@ -1668,7 +1668,7 @@ function configureNodeSceneContextMenu(mode) {
       if (!nodeGraphPatchNodeHasResizableDisplayArea(node)) {
         return false;
       }
-      return nodeGraphPatchNodeGridHeightUnits(node) > nodeGraphModuleGuPolicy.minGu;
+      return nodeGraphModuleConfiguredDisplayHeightUnits(node.type, node.ui) > 0;
     });
     const multiDisplayCanIncrease = multiModuleMode && selectedNodes.some((node) => {
       if (!nodeGraphPatchNodeHasResizableDisplayArea(node)) {
@@ -1678,6 +1678,12 @@ function configureNodeSceneContextMenu(mode) {
       return face < nodeGraphModuleDisplayHeightLimits.maxGu;
     });
     const faceMax = nodeGraphModuleDisplayHeightLimits.maxGu;
+    const faceMin = nodeGraphModuleDisplayHeightLimits.minGu;
+    const displayHeightLabel = document.getElementById("nodeSceneDisplayHeightLabel");
+    if (displayHeightLabel) {
+      displayHeightLabel.textContent = "Display Height";
+    }
+    const formatFaceHeight = (gu) => (gu <= 0 ? "Off" : `${gu} gu`);
     configureNodeGraphModuleSettingsSizeRow({
       controls: displayHeightControls,
       decreaseButton: displayHeightDecrease,
@@ -1687,20 +1693,20 @@ function configureNodeSceneContextMenu(mode) {
         multiModuleMode ? multiCanDisplayHeight : targetSupportsDisplayHeight
       )),
       value: multiModuleMode
-        ? (multiDisplayHeightUniform ? `${multiDisplayHeights[0]} gu` : "mixed")
-        : `${outerHeightGu} gu`,
+        ? (multiDisplayHeightUniform ? formatFaceHeight(multiDisplayHeights[0]) : "mixed")
+        : formatFaceHeight(faceHeightGu),
       decreaseDisabled: multiModuleMode
         ? !multiDisplayCanDecrease
-        : !targetNode || !targetSupportsDisplayHeight || outerHeightGu <= nodeGraphModuleGuPolicy.minGu,
+        : !targetNode || !targetSupportsDisplayHeight || faceHeightGu <= faceMin,
       increaseDisabled: multiModuleMode
         ? !multiDisplayCanIncrease
         : !targetNode || !targetSupportsDisplayHeight || faceHeightGu >= faceMax,
       decreaseTitle: multiModuleMode
-        ? "Decrease module height (1gu min)."
-        : "Decrease module height. App-wide floor is 1gu.",
+        ? "Decrease display height (0 = Off)."
+        : "Decrease display height. 0 = Off (face gone; outer = content).",
       increaseTitle: multiModuleMode
-        ? "Increase module height (grows face; max face 60gu)."
-        : "Increase module height (grid cells). Face max is 60gu.",
+        ? "Increase display height (max 60gu)."
+        : "Increase display height (face gu; max 60).",
     });
     configureNodeGraphModuleSettingsSizeRow({
       controls: textBoxTextSizeControls,

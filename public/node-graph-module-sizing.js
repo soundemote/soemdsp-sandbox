@@ -45,8 +45,8 @@ function nodeGraphModuleTypeHasHideableSliders(type) {
 }
 
 // APP-WIDE GU POLICY — single source of truth.
-// Every module is at least 1gu × 1gu. Every screen/face is at least 1gu tall.
-// Content clips inside the box. Do not raise these floors per type or layout.
+// Every module is at least 1gu × 1gu. Content clips inside the box.
+// Do not raise module outer floors per type or layout.
 const nodeGraphModuleGuPolicy = Object.freeze({
   minGu: 1,
   maxGu: 60,
@@ -60,28 +60,36 @@ const nodeGraphModuleHeightLimits = nodeGraphModuleGuPolicy;
 // ---------------------------------------------------------------------------
 // Grid unit = nodeGraphGrid.heightPx (28px). Three numbers matter:
 //
-// FACE  (display)  Integer 1…60. Stored as ui.displayHeightGu (absolute).
-//                  Floor is ALWAYS 1gu app-wide (LayoutA scopes, LayoutB shells,
-//                  graph, XY Pad, Keyboard, …). LayoutC has no face.
+// FACE  (display)  Integer 0…60. Stored as ui.displayHeightGu (absolute).
+//                  0 = face off for layout (Display Height control). Displays
+//                  hard-hide also zeros the face track. LayoutC / textBox have
+//                  no face.
 //
-// SHELL (LayoutB)  = FACE. Side jacks share the face height (CSS 1fr rows).
-//                  Jacks must never inflate shell above face (that made Smooth
-//                  Graph paint multi-gu while Height said 1gu).
+// SHELL (LayoutB)  = FACE when face > 0. Side jacks share face height (1fr).
+//                  When faceTrack is 0, shell floors at jack column (min 1gu).
 //
-// OUTER (bounds)   Total patch grid cells. THE Height readout + CSS var
-//                  --node-grid-height-units.
-//                    LayoutA: header + face + IO under + params + inset + lip
-//                    LayoutB: header + shell(face) + params + inset + lip
-//                    LayoutC: freehand heightGu (title + I/O only)
+// OUTER (bounds)   Total patch grid cells → CSS --node-grid-height-units.
+//                  SSOT: nodeGraphModuleOuterHeightGu(type, ui, node).
+//                    Face modules: contentMin(face=0) + faceTrack
+//                      (sum of visible bands with faceTrack applied).
+//                    Freehand (LayoutC / textBox): stored heightGu.
+//                    Everyone else: content formula only (no heightGu).
 //
-// HEIGHT CONTROL   Shows OUTER. Face modules: +/- steps FACE (min at face=1
-//                  ⇒ min outer). LayoutC / textBox: +/- steps outer heightGu.
+// HEIGHT CONTROL   Face modules: "Display Height" shows/steps face gu (0…60),
+//                  including Off at 0. Freehand: "Height" shows/steps heightGu.
+//                  No-face non-freehand: width only (no height row).
 //
 // Write path: nodeGraphApplyModuleShellHeightCssVars + --node-grid-height-units.
+// Visibility flips (params / ports / Displays / hide-unused / expose) must
+// refresh chrome so outer height recomputes — never leave a stale tall box.
 // ---------------------------------------------------------------------------
 
-// Face / display height — same policy (1…60 gu).
-const nodeGraphModuleDisplayHeightLimits = nodeGraphModuleGuPolicy;
+// Face / display height — 0…60 (0 = Off). Module outer policy stays min 1gu.
+const nodeGraphModuleDisplayHeightLimits = Object.freeze({
+  minGu: 0,
+  maxGu: 60,
+  stepGu: 1,
+});
 
 /** @deprecated use nodeGraphModuleGuPolicy.minGu */
 const nodeGraphLayoutBMinGu = nodeGraphModuleGuPolicy.minGu;
@@ -150,7 +158,7 @@ function nodeGraphLayoutCGridHeightUnits(type, ui = {}, heightGu = null) {
   return nodeGraphTitleBarAndPortsGridHeightUnits(type, ui, heightGu);
 }
 
-/** Shared face/display-height limits for every type (min 1gu). Do not raise per-layout. */
+/** Shared face/display-height limits for every type (min 0gu = Off). Do not raise per-layout. */
 function nodeGraphModuleDisplayHeightLimitsForType(_type = null) {
   return nodeGraphModuleGuPolicy;
 }
@@ -215,7 +223,7 @@ function nodeGraphModuleHasFace(type) {
 }
 
 /**
- * Clone ui with an absolute face height (clamped 1…60). Used for min/max outer.
+ * Clone ui with an absolute face height (clamped 0…60). Used for min/max outer.
  */
 function nodeGraphModuleUiWithFaceHeightGu(ui, type, faceGu) {
   const base = typeof normalizeNodeGraphPatchNodeUi === "function"
@@ -314,7 +322,7 @@ function nodeGraphModuleSizingCapabilities(type) {
     });
   }
   // Freehand outer heightGu (text box / keyboard / canvas script). Most modules
-  // use auto outer height + display-height for the face (app policy: Width + Height).
+  // use auto outer height + Display Height for the face (Width + Display Height).
   const moduleHeight = nodeGraphNodeTypeHasTextBoxLayout(normalizedType)
     ? "textBox"
     : normalizedType === "canvas"
@@ -326,7 +334,7 @@ function nodeGraphModuleSizingCapabilities(type) {
           ? false
           : false
       );
-  // Face / display area height (1…60gu) — scopes, graph, XY Pad, filter curves, …
+  // Face / display area height (0…60gu) — scopes, graph, XY Pad, filter curves, …
   // Graph (layout:"graph") must always expose this; no silent opt-out.
   const displayHeight = !moduleHeight && (
     nodeGraphModuleTypeHasHideableOscilloscope(normalizedType) ||
@@ -363,12 +371,12 @@ function nodeGraphModuleShouldMountDisplayFace(type, ui = {}) {
 function normalizeNodeGraphModuleDisplayHeightUnits(heightGu, type = null) {
   const limits = nodeGraphModuleDisplayHeightLimitsForType(type);
   const value = Math.round(Number(heightGu));
-  return Number.isFinite(value)
-    ? Math.max(
-      limits.minGu,
-      Math.min(limits.maxGu, value),
-    )
-    : Math.max(limits.minGu, nodeGraphModuleLayout.moduleScopeHeightGu);
+  if (Number.isFinite(value)) {
+    return Math.max(limits.minGu, Math.min(limits.maxGu, value));
+  }
+  // Missing → type/default face (never collapse to Off accidentally).
+  const fallback = Math.round(Number(nodeGraphModuleLayout.moduleScopeHeightGu)) || 1;
+  return Math.max(1, Math.min(limits.maxGu, fallback));
 }
 
 function nodeGraphModuleDefaultDisplayHeightUnits(type) {
@@ -388,8 +396,9 @@ function normalizeNodeGraphModuleDisplayHeightOffsetUnits(typeOrOffsetGu, offset
 }
 
 /**
- * Absolute face height in gu (1…60), or 0 if this type has no face / face hidden.
- * This is NEVER the Module Settings "Height" readout — that is outer height.
+ * Absolute face height in gu (0…60), or 0 if this type has no face.
+ * Module Settings "Display Height" shows this (Off at 0). Outer height is
+ * nodeGraphModuleOuterHeightGu — computed, not this value.
  */
 function nodeGraphModuleConfiguredDisplayHeightUnits(type, ui = {}) {
   if (!nodeGraphModuleHasFace(type)) {
@@ -408,7 +417,10 @@ function nodeGraphModuleConfiguredDisplayHeightUnits(type, ui = {}) {
   );
 }
 
-/** Face height used for layout (0 when oscilloscope hidden on hideable faces). */
+/**
+ * Face track used for layout (faceTrack).
+ * 0 when Displays hard-hides OR displayHeightGu === 0 OR type has no face.
+ */
 function nodeGraphModuleDisplayHeightUnits(type, ui = {}) {
   if (!nodeGraphModuleHasFace(type)) {
     return 0;
@@ -664,9 +676,6 @@ function nodeGraphModuleIoRowCount(type, node = null) {
   const definition = nodeGraphModuleDefinitions[type];
   // Match LayoutA jack columns: signal + data ports. Parameter keys are
   // slider-row mod ports, not extra I/O rows — do not count them here.
-  // Match LayoutA jack columns: signal + data ports. Parameter keys are
-  // slider-row mod ports, not extra I/O rows — do not count them here.
-  // Count assumes each jack name appears in only one list.
   const inputs = (definition?.inputs?.length || 0) + (definition?.dataInputs?.length || 0);
   const outputs = (definition?.outputs?.length || 0) + (definition?.dataOutputs?.length || 0);
   return Math.max(inputs, outputs, 1);
@@ -723,21 +732,20 @@ function nodeGraphLayoutBIoColumnHeightGu(type) {
 const nodeGraphSolidModuleIoColumnHeightGu = nodeGraphLayoutBIoColumnHeightGu;
 
 /**
- * LayoutB shell height in gu = FACE height (1…60).
+ * LayoutB shell height in gu = FACE track (0…60).
  *
  * Side jacks live inside the shell and share its height via equal 1fr rows.
- * They must never inflate shell above the face — otherwise “Height face = 1gu”
- * still painted multi-gu (Smooth Graph / multi-port LayoutB) and min outer
- * could not reach the true face=1 floor.
+ * They must never inflate shell above the face. When faceTrack is 0, shell
+ * floors at the jack column (app-wide min 1gu plate).
  */
 function nodeGraphLayoutBShellHeightGu(type, ui = {}) {
   const faceGu = nodeGraphModuleDisplayHeightUnits(type, ui);
   if (faceGu > 0) {
-    return Math.max(nodeGraphModuleDisplayHeightLimits.minGu, faceGu);
+    return faceGu;
   }
   // No visible face: still need a 1gu plate (or jack-only floor).
   const ioGu = nodeGraphLayoutBIoColumnHeightGu(type);
-  return Math.max(nodeGraphModuleDisplayHeightLimits.minGu, ioGu);
+  return Math.max(nodeGraphModuleGuPolicy.minGu, ioGu);
 }
 
 /** @deprecated use nodeGraphLayoutBShellHeightGu */
@@ -872,7 +880,7 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
       ? nodeGraphModuleDisplayVisibleForUi(type, ui)
       : true;
     const faceGu = displayVisible
-      ? Math.max(1, nodeGraphModuleDisplayHeightUnits(type, ui) || 1)
+      ? nodeGraphModuleDisplayHeightUnits(type, ui)
       : 0;
     const paramsGu = nodeGraphModuleSliderBodyHeightGu(type, ui, node);
     // Same plate inset floor LayoutA uses so the grow lip cannot collapse to 2px.
@@ -1667,7 +1675,7 @@ function nodeGraphMetamoduleLayoutContentHeightGu(type, ui = {}, node = null) {
     ? nodeGraphModuleDisplayVisibleForUi(type, ui)
     : true;
   const faceGu = displayVisible
-    ? Math.max(1, nodeGraphModuleDisplayHeightUnits(type, ui) || 1)
+    ? nodeGraphModuleDisplayHeightUnits(type, ui)
     : 0;
   const sliderGu = nodeGraphModuleSliderBodyHeightGu(type, ui, node);
   const insetGu = nodeGraphModuleLayout.moduleGridInsetGu * 1.5;
@@ -1750,7 +1758,7 @@ function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}, node = null) {
   if (nodeGraphChromelessModuleLayouts.has(nodeGraphModuleDefinitions[type]?.layout)) {
     if (nodeGraphChromelessModuleIsCompactTile(type)) {
       return nodeGraphModuleSizingCapabilities(type).displayHeight
-        ? Math.max(1, nodeGraphModuleConfiguredDisplayHeightUnits(type, ui))
+        ? Math.max(0, nodeGraphModuleConfiguredDisplayHeightUnits(type, ui))
         : 1;
     }
     return nodeGraphModuleHeightWithBottomClearance(
@@ -1763,35 +1771,52 @@ function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}, node = null) {
 }
 
 /**
- * OUTER module height on the patch grid (THE height readout / CSS height units).
- * Freehand heightGu only for LayoutC / textBox / keyboard-style custom modules.
+ * OUTER module height SSOT (CSS --node-grid-height-units).
+ * Face modules: always content + faceTrack (ignores stored heightGu).
+ * Freehand LayoutC / textBox: heightGu. Others: content formula only.
  */
+function nodeGraphModuleOuterHeightGu(type, ui = {}, node = null) {
+  const patchNode = node && typeof node === "object" ? node : null;
+  const resolvedType = type || patchNode?.type;
+  if (!resolvedType) {
+    return nodeGraphModuleGuPolicy.minGu;
+  }
+  const resolvedUi = ui != null ? ui : patchNode?.ui;
+  if (patchNode) {
+    const scriptGrid = nodeGraphPatchNodeCanvasScriptGridUnits(patchNode);
+    if (scriptGrid?.heightGu) {
+      return normalizeNodeGraphModuleHeightUnits(resolvedType, scriptGrid.heightGu);
+    }
+  }
+  if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(resolvedType)) {
+    return nodeGraphLayoutCGridHeightUnits(resolvedType, resolvedUi, patchNode?.heightGu);
+  }
+  const moduleHeightCapability = nodeGraphModuleSizingCapabilities(resolvedType).moduleHeight;
+  if (moduleHeightCapability === "textBox") {
+    if (patchNode && Number.isFinite(Number(patchNode.heightGu))) {
+      return normalizeNodeGraphTextBoxHeightUnits(patchNode.heightGu, resolvedUi);
+    }
+    return Math.max(
+      nodeGraphModuleGuPolicy.minGu,
+      nodeGraphModuleGridHeightUnitsForUi(resolvedType, resolvedUi, patchNode),
+    );
+  }
+  if (moduleHeightCapability === "custom") {
+    return normalizeNodeGraphModuleHeightUnits(resolvedType, patchNode?.heightGu, resolvedUi);
+  }
+  // Face modules + content-sized modules: never honor freehand heightGu.
+  return Math.max(
+    nodeGraphModuleGuPolicy.minGu,
+    nodeGraphModuleGridHeightUnitsForUi(resolvedType, resolvedUi, patchNode),
+  );
+}
+
 function nodeGraphPatchNodeGridHeightUnits(node) {
   const patchNode = typeof node === "string" ? nodeGraphPatchNode(node) : node;
   if (!patchNode) {
     return 1;
   }
-  const scriptGrid = nodeGraphPatchNodeCanvasScriptGridUnits(patchNode);
-  if (scriptGrid?.heightGu) {
-    return normalizeNodeGraphModuleHeightUnits(patchNode.type, scriptGrid.heightGu);
-  }
-  const type = patchNode.type;
-  const ui = patchNode.ui;
-  if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
-    return nodeGraphLayoutCGridHeightUnits(type, ui, patchNode.heightGu);
-  }
-  const moduleHeightCapability = nodeGraphModuleSizingCapabilities(type).moduleHeight;
-  if (moduleHeightCapability === "textBox" && Number.isFinite(Number(patchNode.heightGu))) {
-    return normalizeNodeGraphTextBoxHeightUnits(patchNode.heightGu, ui);
-  }
-  if (Number.isFinite(Number(patchNode.heightGu))) {
-    return normalizeNodeGraphModuleHeightUnits(type, patchNode.heightGu, ui);
-  }
-  if (moduleHeightCapability === "custom") {
-    return normalizeNodeGraphModuleHeightUnits(type, patchNode.heightGu, ui);
-  }
-  // Face modules: stored heightGu wins (can clip below content). Else content.
-  return Math.max(nodeGraphModuleGuPolicy.minGu, nodeGraphModuleGridHeightUnitsForUi(type, ui, patchNode));
+  return nodeGraphModuleOuterHeightGu(patchNode.type, patchNode.ui, patchNode);
 }
 
 /**
@@ -1808,8 +1833,8 @@ function nodeGraphModuleMinOuterHeightGu(type, ui = {}) {
 /**
  * Height ± for Module Settings and Shift+Up/Down.
  *
- * Display modules (Keyboard, scopes, …): step FACE height (ui.displayHeightGu).
- *   Min face 1gu. Outer height follows from header + face + I/O + …
+ * Face modules: step Display Height (ui.displayHeightGu), range 0…60 (0 = Off).
+ *   Outer height recomputes from content + faceTrack.
  * Freehand modules (text box / LayoutC): step OUTER heightGu (min 1gu).
  */
 function nodeGraphApplyModuleHeightDelta(patchNode, delta) {

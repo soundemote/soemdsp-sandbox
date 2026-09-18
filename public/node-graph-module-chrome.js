@@ -11,12 +11,15 @@
 // TitleBarAndPorts has no face: definition still may list ports only.
 //
 // Height policy (SSOT: node-graph-module-sizing.js):
-//   - FACE 1…60gu → --node-module-display-height-units / LayoutB shell track.
-//   - OUTER grid cells → --node-grid-height-units (Module Settings Height).
-//   - Min outer for face modules is when face = 1gu.
-//   - LayoutB shell = face; side jacks share face height (never inflate shell).
+//   - FACE / Display Height 0…60gu → --node-module-display-height-units / LayoutB shell.
+//     0 = Off (no face track). Displays hard-hide also zeros the face track.
+//   - OUTER grid cells → --node-grid-height-units via nodeGraphModuleOuterHeightGu.
+//     Face modules: contentMin(face=0) + faceTrack (ignores stored heightGu).
+//   - Module Settings: "Display Height" for face modules; "Height" for freehand only.
+//   - LayoutB shell = face when face>0; jack-floor plate when faceTrack is 0.
 //   - MetamoduleLayout: IO band + face are separate tracks (IO cannot crush face).
 //   - TitleBarAndPorts: freehand heightGu, no face (title + I/O only).
+//   - Visibility flips must refresh chrome so outer height recomputes.
 //
 // Authority: definition.chrome (default LayoutA).
 // Call nodeGraphModuleChromeLayoutForType() / nodeGraphModuleChrome().

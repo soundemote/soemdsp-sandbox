@@ -878,7 +878,7 @@ function nodeGraphCopiedModuleSizeOptions(sourceNode) {
   const heightCapability = typeof nodeGraphModuleSizingCapabilities === "function"
     ? nodeGraphModuleSizingCapabilities(sourceNode.type)?.moduleHeight
     : "";
-  // Face modules store height as ui.displayHeightOffsetGu — do not invent a
+  // Face modules store Display Height as ui.displayHeightGu — do not invent a
   // heightGu that fights that offset. Freehand-height modules always pin heightGu.
   if (Object.hasOwn(sourceNode, "heightGu")) {
     options.heightGu = sourceNode.heightGu;
@@ -2298,7 +2298,7 @@ function toggleNodeGraphModuleOscilloscopeFromContext() {
 function applyNodeGraphPatchNodeUi(targetNode, ui) {
   const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, targetNode?.type);
   // Persist ui when any non-default chrome flag OR stored face size is set.
-  // displayHeightGu must persist — dropping ui here made Height +/- a no-op.
+  // displayHeightGu must persist — dropping ui here made Display Height +/- a no-op.
   const hasFaceSize = Number.isFinite(Number(normalizedUi.displayHeightGu))
     || Number(normalizedUi.displayHeightOffsetGu) !== 0;
   if (
@@ -2426,11 +2426,13 @@ function toggleNodeGraphModuleHideUnusedFromContext() {
     changedCount += 1;
   }
   if (changedCount) {
-    commitNodeGraphPatch(patch, {
+    // Chrome path refreshes --node-grid-height-units from outer SSOT after
+    // unused-hidden class flips (same refresh as Displays / param visibility).
+    commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(targetNodeIds, {
       status: wantHidden
         ? (changedCount > 1 ? "unused ports hidden" : "unused ports hidden")
         : (changedCount > 1 ? "unused ports shown" : "unused ports shown"),
-    });
+    }));
   }
   configureNodeSceneContextMenu("module");
 }

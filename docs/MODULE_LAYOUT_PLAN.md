@@ -51,14 +51,27 @@ is still auto-placed into it is how sliders land on the out column.
 
 `public/node-graph-module-sizing.js`
 
+**Product contract (module sizing model):**
+
+- **Face modules:** user control is **Display Height** (`ui.displayHeightGu`,
+  range **0…60**, **0 = Off**). Outer height is **computed** —
+  `nodeGraphModuleOuterHeightGu` = content (faceTrack=0) + faceTrack.
+  faceTrack is 0 when Displays hard-hides **or** displayHeightGu === 0.
+  Stored freehand `heightGu` is ignored for outer on face modules.
+- **Freehand panels** (textBox / LayoutC): **Height** steps `heightGu`.
+  No Display Height row.
+- **Everyone else:** width only; height = content formula.
+- Visibility flips (hide-unused, param/port visibility, Displays,
+  metamodule expose) must refresh chrome so outer recomputes.
+
+Implementation notes:
+
 - `nodeGraphModuleHeightWidgetUnits(type, ui)` returns an ordered list of
-  `{ id, heightGu, visible }`.
-- That list is **not one table**. It is a long `if (layout === …)` / type
-  special-case chain (sample trio, LED, textBox, image, canvas, visualScope,
-  traceDisplay, wallRoom, pulseCurve, then a default).
-- Outer height is the sum of **visible** widgets (+ bottom clearance).
-- Face hide sets `displayHeightUnits → 0` and `visible: false` on the face
-  widget. CSS vars written in `nodeGraphApplyModuleShellHeightCssVars`:
+  `{ id, heightGu, visible }` (long layout/type chain).
+- Outer height is the sum of **visible** widgets (+ bottom clearance) via
+  `nodeGraphModuleOuterHeightGu` / `nodeGraphPatchNodeGridHeightUnits`.
+- Face hide / Display Height 0 sets face track → 0 and omits the face band.
+  CSS vars written in `nodeGraphApplyModuleShellHeightCssVars`:
   `--node-module-display-height-units`, `--node-module-shell-height-units`,
   `--node-module-io-height-units`, plus class `face-row-collapsed`.
 
@@ -290,7 +303,7 @@ Player**, **Sample Looper**, **Music Player**, **one envelope/filter with
 a curve face**, **one LayoutB**, **one LayoutC**:
 
 1. Display on: face, I/O, sliders stacked; no overlap; outer height
-   matches Module Settings Height.
+   matches computed outer; Module Settings shows Display Height (face gu) for face modules.
 2. Display off (local and global): face gone; I/O immediately under
    header (or under sample controls); sliders under I/O; no overlap;
    outer height shrinks by the face gu.
@@ -301,7 +314,7 @@ a curve face**, **one LayoutB**, **one LayoutC**:
 6. Zoom / pan: no band jump (layout is gu + CSS vars, not
    getBoundingClientRect).
 
-Exactness: 1gu = `patch.grid.heightPx` (28 by default). Face 1…60.
+Exactness: 1gu = `patch.grid.heightPx` (28 by default). Face / Display Height 0…60 (0 = Off).
 I/O strip height = `nodeGraphModuleIoSectionHeightGu` (from port rows),
 not a leftover face track.
 
