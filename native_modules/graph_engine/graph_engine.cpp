@@ -1781,6 +1781,7 @@ struct Control {
   double liveModUnit; // per-sample audio MOD (ParamModEdge), cleared+stamped each frame
   double liveModDomain;
   unsigned char liveModActive; // 1 if a ParamModEdge targets this Control this block
+  unsigned char liveModDomainReplace; // 1 if any |v|>1 domain source stamped this frame
   double domainMin; // paramMeta min for unit-band map
   double domainMax; // paramMeta max (max<=min → no unit map)
   double coeff; // one/two/three-pole b0, or linear increment (cached)
@@ -1793,7 +1794,7 @@ struct Control {
   unsigned char type; // kSmoothType*
   unsigned char snap; // discrete: out=target immediately, never on toSmooth_
   int steppedCount; // samples advanced this quantum (control_audio catch-up)
-  unsigned char modFlags; // bit0 wraparound, bit1 modClamp (post-MOD bounds)
+  unsigned char modFlags; // bit0 wrap, bit1 modClamp, bit2 VCA, bit3 unbounded, bit4 domainReplace
 };
 
 static inline double control_effective(const Control& c);
@@ -2360,6 +2361,7 @@ static void init_control(Control& c, double value, bool snap) {
   c.liveModUnit = 0.0;
   c.liveModDomain = 0.0;
   c.liveModActive = 0;
+  c.liveModDomainReplace = 0;
   c.domainMin = 0.0;
   c.domainMax = 0.0; // max<=min → no unit-band map
   c.timeSamples = 0.0; // resolve → default seconds * sr
@@ -2438,7 +2440,8 @@ static inline double control_effective(const Control& c) {
   const double unitAdd = c.modUnit + c.liveModUnit;
   const double domainAdd = c.modDomain + c.liveModDomain;
   const bool anyMod = (unitAdd != 0.0) || (domainAdd != 0.0) || (c.liveModActive != 0)
-    || (c.modUnit != 0.0) || (c.modDomain != 0.0);
+    || (c.modUnit != 0.0) || (c.modDomain != 0.0) || (c.liveModDomainReplace != 0)
+    || ((c.modFlags & 16u) != 0);
   if (!anyMod) {
     if (!c.snap) return base;
     return (double)(int)(base >= 0.0 ? base + 0.5 : base - 0.5);
@@ -2468,8 +2471,18 @@ static inline double control_effective(const Control& c) {
   const bool haveRange = (minV == minV) && (maxV == maxV) && range > 0.0;
   const bool wrap = (c.modFlags & 1u) != 0;
   const bool modClamp = (c.modFlags & 2u) != 0;
-  double result = base + domainAdd;
-  if (haveRange && unitAdd != 0.0) {
+  const bool domainReplace = ((c.modFlags & 16u) != 0) || (c.liveModDomainReplace != 0);
+  double result;
+  if (domainReplace) {
+    // Engineering-unit MOD replaces the knob (old absolute ƒ jack). min/max = zoom only.
+    result = domainAdd;
+  } else if (haveRange && unitAdd != 0.0) {
+    // fall through to unit-band map below using result placeholder
+    result = base; // overwritten in unit branch
+  } else {
+    result = base;
+  }
+  if (!domainReplace && haveRange && unitAdd != 0.0) {
     double b = base;
     if (wrap) {
       double w = b - minV;
@@ -2483,17 +2496,20 @@ static inline double control_effective(const Control& c) {
       u = u - dsp_floor(u);
       if (u < 0.0) u += 1.0;
     }
-    result = minV + u * range + domainAdd;
-  } else if (!haveRange && unitAdd != 0.0) {
+    result = minV + u * range;
+  } else if (!domainReplace && !haveRange && unitAdd != 0.0) {
     // No domain yet — plain add. Do not invent 0…1+clamp (crushes Frequency).
-    result = base + unitAdd + domainAdd;
+    result = base + unitAdd;
   }
   if (!(result == result)) result = 0.0;
   // App-wide: after MOD, clip to DOMAIN when known (Knob 0…1, Amp 0…1, …).
   // Wraparound still wraps. Explicit unbounded: host clears modClamp bit AND
   // sets bit3 (kModFlagUnbounded = 8) — rare; default is clamp.
   const bool unbounded = (c.modFlags & 8u) != 0;
-  if (haveRange && wrap) {
+  // Domain REPLACE: min/max are display zoom only — never hard-clip the sent value.
+  if (domainReplace) {
+    // no wrap/clamp
+  } else if (haveRange && wrap) {
     double w = result - minV;
     w = w - range * dsp_floor(w / range);
     if (w < 0.0) w += range;
@@ -3407,6 +3423,7 @@ static void clear_live_param_mods_on_node(Node& n) {
     c->liveModUnit = 0.0;
     c->liveModDomain = 0.0;
     c->liveModActive = 0;
+    c->liveModDomainReplace = 0;
   }
 }
 
@@ -3491,9 +3508,13 @@ static void stamp_live_param_mods(Circuit& g, Node& node, int frame) {
     Control* c = control_for_param(node, e.paramId);
     if (!c) continue;
     c->liveModActive = 1; // even when v==0 (VCA rest must silence)
-    // Same classify as JS nodeGraphParamModAccumulators: |v|≤1 unit-band, else domain.
-    if (v > 1.0 || v < -1.0) c->liveModDomain += v;
-    else c->liveModUnit += v;
+    // Same classify as JS: |v|≤1 unit-band, else domain REPLACE (not add-to-knob).
+    if (v > 1.0 || v < -1.0) {
+      c->liveModDomain += v;
+      c->liveModDomainReplace = 1;
+    } else {
+      c->liveModUnit += v;
+    }
   }
 }
 
@@ -4344,10 +4365,9 @@ static double resolve_cutoff_hz(
   Circuit& g, int frame, bool liveF, bool livePitch,
   const Control& frequency, double referenceVoltage, double sr
 ) {
+  (void)liveF; // absolute ƒ jack retired
   double freq;
-  if (liveF) {
-    freq = g.mixF[frame];
-  } else if (livePitch) {
+  if (livePitch) {
     freq = pitched_hz(control_effective(frequency), g.mixPitch[frame], referenceVoltage);
   } else {
     freq = control_effective(frequency);
@@ -4364,9 +4384,7 @@ static double resolve_osc_hz(
   Control& frequency, double referenceVoltage, double sr
 ) {
   double freq;
-  if (liveF) {
-    freq = g.mixF[frame];
-  } else if (livePitch) {
+  if (livePitch) {
     freq = pitched_hz(control_audio(g, frequency, frame), g.mixPitch[frame], referenceVoltage);
   } else {
     freq = control_audio(g, frequency, frame);
@@ -5025,7 +5043,7 @@ static void process_fm(Circuit& g, Node& node, int frames) {
     const double cents = control_audio(g, node.center, f);
     const double mul = control_audio(g, node.amplitude, f);
     const double add = control_audio(g, node.offset, f);
-    const double base = liveF ? g.mixF[f] : 0.0;
+    const double base = /*ƒ retired*/ 0.0;
     const double ratio = dsp_exp((oct + st / 12.0 + cents / 1200.0) * 0.6931471805599453);
     const double hz = base * mul * ratio + add;
     node.buf[kPortMono][f] = hz;
@@ -5128,7 +5146,7 @@ static void process_clock(Circuit& g, Node& node, int frames) {
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
     const double reset = hasReset ? g.mixReset[f] : 0.0;
-    const double rate = liveF ? g.mixF[f] : rateKnob;
+    const double rate = /*ƒ retired*/ rateKnob;
     const double digital = soemdsp_clock_sample(
       node.nativeHandle, reset, phaseOff, rate, duty, level, sr
     );
@@ -5434,7 +5452,7 @@ static void process_antisaw(Circuit& g, Node& node, int frames) {
   const double level = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
-    const double fundamental = liveF ? g.mixF[f] : control_audio(g, node.frequency, f);
+    const double fundamental = /*ƒ retired*/ control_audio(g, node.frequency, f);
     const double y = soemdsp_antisaw_sample(
       node.nativeHandle, fundamental, reflections, tilt, level, sr
     );
@@ -6989,10 +7007,7 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
     if (!(hi == hi)) hi = 1000.0;
     double center = 0.0;
     bool haveCenter = false;
-    if (liveF) {
-      center = g.mixF[f];
-      haveCenter = true;
-    } else if (livePitch) {
+    if (livePitch) {
       // Pitch the geometric mean of the HP/LP band from Frequency (or mid).
       double base = control_audio(g, node.frequency, f);
       if (!(base == base) || base <= 0.0) {
@@ -7089,10 +7104,7 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
     if (!(hi == hi)) hi = 1000.0;
     double center = 0.0;
     bool haveCenter = false;
-    if (liveF) {
-      center = g.mixF[f];
-      haveCenter = true;
-    } else if (livePitch) {
+    if (livePitch) {
       double base = 1000.0;
       if (mode == 0) base = hi > 0.0 ? hi : 1000.0;
       else if (mode == 2) base = lo > 0.0 ? lo : 200.0;
@@ -9389,7 +9401,7 @@ static void process_harmonic_series(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     const double harmonic = control_audio(g, node.width, f);
     const double offset = control_audio(g, node.center, f);
-    const double base = liveF ? g.mixF[f] : control_audio(g, node.frequency, f);
+    const double base = /*ƒ retired*/ control_audio(g, node.frequency, f);
     const double hz = soemdsp_harmonic_series_sample(base, harmonic, offset);
     node.buf[kPortMono][f] = hz;
     node.buf[kPortLeft][f] = base;
@@ -9595,7 +9607,7 @@ static void process_crossover(Circuit& g, Node& node, int frames) {
   const double amp = control_effective(node.amplitude);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
-    double f0 = liveF ? g.mixF[f] : control_audio(g, node.frequency, f);
+    double f0 = /*ƒ retired*/ control_audio(g, node.frequency, f);
     double f1 = control_audio(g, node.center, f);
     double f2 = control_audio(g, node.width, f);
     double f3 = control_audio(g, node.lpfFrequency, f);

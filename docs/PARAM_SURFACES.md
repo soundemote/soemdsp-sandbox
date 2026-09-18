@@ -8,7 +8,7 @@ Live and worklet both call it (no dual formulas).
 | Surface | What it is | Math contract |
 |---------|------------|----------------|
 | **DOMAIN** | Knob/slider value in real units | Stored on the node; readout shows this (after smooth). **min/max are slider/unit-map guides**, not hard clips (unless wraparound, `constraint: cpu|gpu|ram`, or `hardClamp: true`). |
-| **MOD** | Param-row modulation CV | Bipolar unit **[−1, 1]** *or* absolute DOMAIN when `|mod| > 1`; see apply rules below |
+| **MOD** | Param-row modulation CV | Bipolar unit **[−1, 1]** *or* DOMAIN REPLACE when tagged `outputDomain` / Range Out / `|mod| > 1`; see apply rules below |
 | **SIGNAL IN** | Named jacks (`In`, `0.1V/Oct`, …) | Module-specific; **not** the same as MOD |
 | **PARAM OUT** | Slider-row output jack | Default: DOMAIN→unit **0…1**. **Yellow Graph** modules (`outputDomain: true`): emit raw **DOMAIN** (Hz, cycles, …). |
 
@@ -67,9 +67,8 @@ unit-band add — so Amp Curve → Amp MOD can reach silence at CV=0. That match
 
 Per-source classify (`nodeGraphParamModAccumulators` / `nodeGraphParamFoldModSources`):
 
-1. **Unit-band** (`|mod| ≤ 1`): linear map across param min…max (no slider skew),
-   add to base unit, map back to domain.
-2. **Absolute** (`|mod| > 1`): domain-add `base + mod` (exact Hz sources, large Bias).
+1. **Unit-band** (`|mod| ≤ 1`, untagged): linear map across param min…max (no slider skew).
+2. **Domain REPLACE** (tagged `outputDomain` / Range Out / `|mod| > 1`): MOD value replaces the slider (old absolute ƒ). min/max = display zoom only.
 
 Pitch exponential is **not** param MOD — use the **0.1V/Oct** SIGNAL IN jack.
 

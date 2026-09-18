@@ -756,12 +756,27 @@ NodeLiveAudioProcessor.prototype.readEfficientParamModSources = function readEff
       continue;
     }
     const sample = this.readEfficientModSourceSample(m.sourceNode, m.sourcePort);
+    let normalized;
     if (typeof this.normalizeParameterModulationInput === "function") {
-      sources.push(this.normalizeParameterModulationInput(sample, metadata));
+      normalized = this.normalizeParameterModulationInput(sample, metadata);
     } else if (typeof nodeGraphParamNormalizeModInput === "function") {
-      sources.push(nodeGraphParamNormalizeModInput(sample, metadata));
+      normalized = nodeGraphParamNormalizeModInput(sample, metadata);
     } else {
-      sources.push(sample);
+      normalized = sample;
+    }
+    // Prefer explicit domain tags (PARAM OUT outputDomain, Range Out, …)
+    // over the |mod|>1 magnitude cliff so engineering-unit sources REPLACE.
+    const srcNode = this.nodes?.get?.(String(m.sourceNode || ""));
+    const srcPort = String(m.sourcePort || "");
+    const srcParamMeta = srcNode?.paramMeta?.[srcPort] || {};
+    const srcType = String(srcNode?.type || "");
+    const taggedDomain = srcParamMeta.outputDomain === true
+      || srcType === "range"
+      || srcType === "Range";
+    if (taggedDomain) {
+      sources.push({ value: Number(normalized), domain: true });
+    } else {
+      sources.push(normalized);
     }
   }
   return sources;
@@ -776,18 +791,18 @@ NodeLiveAudioProcessor.prototype.efficientParamModAccumulators = function effici
   key,
 ) {
   const sources = this.readEfficientParamModSources(node, key);
-  if (!sources.length) return { unitAdd: 0, domainAdd: 0 };
+  if (!sources.length) return { unitAdd: 0, domainAdd: 0, domainReplace: false };
   const metadata = node?.paramMeta?.[key] || {};
   if (typeof nodeGraphParamModAccumulators === "function") {
     return nodeGraphParamModAccumulators(sources, metadata);
   }
-  // Fallback: treat every source as domain-add if helper missing.
+  // Fallback: treat every source as domain-replace if helper missing.
   let domainAdd = 0;
   for (let i = 0; i < sources.length; i += 1) {
-    const n = Number(sources[i]);
+    const n = Number(sources[i]?.value != null ? sources[i].value : sources[i]);
     if (Number.isFinite(n)) domainAdd += n;
   }
-  return { unitAdd: 0, domainAdd };
+  return { unitAdd: 0, domainAdd, domainReplace: sources.length > 0 };
 };
 
 /** Fold patch modulations onto a DOMAIN base (after smooth; never into Control.target). */

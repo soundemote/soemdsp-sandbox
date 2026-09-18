@@ -12,7 +12,7 @@
 //                  unit = linearDomainToUnit(base) + mod
 //                  effective = min + unit * (max − min)
 //                Unipolar Uni X 0…1 + base at min → full range sweep.
-//              • |Σmod| > 1  → domain-add absolute (Pitch Detector Hz, etc.):
+//              • domain-tagged / |Σmod| > 1 → domain REPLACE (Pitch Detector Hz, etc.):
 //                  effective = base + mod
 //              Unipolar: clip mod contribution ≥ 0. Bipolar: signed (TZFM).
 //              Pitch exponential is NOT on MOD — use 0.1V/Oct jack.
@@ -272,21 +272,52 @@ function nodeGraphFiniteNumber(value, fallback = 0) {
 
 /**
  * |mod| ≤ this → treat as unit CV across [min,max] (linear, no skew).
- * |mod| above → domain-add absolute (Pitch Detector Hz, large Knob Bias, …).
+ * Explicit domain tags (outputDomain / {domain:true}) or |mod| above → DOMAIN
+ * REPLACE of the knob (old absolute ƒ jack semantics) — never domain-add.
  */
 const NODE_GRAPH_PARAM_MOD_UNIT_BAND = 1 + 1e-9;
 
 /**
+ * Normalize one MOD source entry to { value, domain }.
+ * Accepts a bare number or { value|mod|sample, domain|isDomain|outputDomain }.
+ * Domain wins when tagged OR |value| > unit band (Range Out / engineering units).
+ */
+function nodeGraphParamNormalizeModSource(raw) {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const value = Number(
+      raw.value != null ? raw.value
+        : raw.mod != null ? raw.mod
+          : raw.sample != null ? raw.sample
+            : raw,
+    );
+    const tagged = raw.domain === true
+      || raw.isDomain === true
+      || raw.outputDomain === true;
+    const v = Number.isFinite(value) ? value : 0;
+    return {
+      value: v,
+      domain: tagged || Math.abs(v) > NODE_GRAPH_PARAM_MOD_UNIT_BAND,
+    };
+  }
+  const v = Number(raw);
+  const n = Number.isFinite(v) ? v : 0;
+  return {
+    value: n,
+    domain: Math.abs(n) > NODE_GRAPH_PARAM_MOD_UNIT_BAND,
+  };
+}
+
+/**
  * Apply summed MOD onto DOMAIN base. Single SSOT for live + worklet.
  *
- * Unit-band (|mod| ≤ 1): linear map across param min…max, bypassing skew.
- *   Uni 0…1 + base at min → full range (e.g. Freq 1…20000).
- * Absolute (|mod| > 1): domain-add base + mod (exact Hz sources).
+ * Unit-band (|mod| ≤ 1, untagged): linear map across param min…max, bypassing skew.
+ * Domain (tagged outputDomain / signal engineering out, or |mod| > 1): REPLACE the
+ * knob with the domain value (sum of domain sources) — old absolute ƒ semantics.
+ * Domain replace wins over the slider; unit-band is ignored while any domain
+ * source is present. min/max are display zoom only for that path (no hard clip).
  *
- * Signed MOD on every dest (negative LFO moves toward min). Only clip
+ * Signed unit MOD on every dest (negative LFO moves toward min). Only clip
  * negatives when metadata.unipolarMod === true (explicit).
- * Callers that have several sources should fold unit vs absolute per source
- * via nodeGraphParamFoldModSources, not by summing first (avoids the |Σ| > 1 cliff).
  */
 function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
   const folded = nodeGraphParamFoldModSources(base, [modSum], metadata);
@@ -294,13 +325,9 @@ function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
 }
 
 /**
- * Combine one or more MOD samples onto DOMAIN base.
- * Each source: |mod| ≤ 1 → unit-map contribution; |mod| > 1 → domain-add.
- */
-/**
- * Classify MOD sources into unit-band vs domain-add accumulators.
+ * Classify MOD sources into unit-band vs domain-replace accumulators.
  * Same per-source rules as fold — used by efficient native set_param_mod.
- * @returns {{ unitAdd: number, domainAdd: number }}
+ * @returns {{ unitAdd: number, domainAdd: number, domainReplace: boolean }}
  */
 function nodeGraphParamModAccumulators(sources, metadata = {}) {
   const min = Number(metadata.min);
@@ -309,35 +336,44 @@ function nodeGraphParamModAccumulators(sources, metadata = {}) {
   const clipNeg = metadata && metadata.unipolarMod === true;
   let unitAdd = 0;
   let domainAdd = 0;
+  let domainReplace = false;
   const list = Array.isArray(sources) ? sources : [sources];
   for (const raw of list) {
-    let mod = Number(raw);
-    if (!Number.isFinite(mod)) {
-      mod = 0;
-    }
+    let { value: mod, domain } = nodeGraphParamNormalizeModSource(raw);
     if (clipNeg) {
       mod = Math.max(0, mod);
     }
-    if (Number.isFinite(range) && range > 0 && Math.abs(mod) <= NODE_GRAPH_PARAM_MOD_UNIT_BAND) {
+    if (domain) {
+      domainReplace = true;
+      domainAdd += mod;
+    } else if (Number.isFinite(range) && range > 0) {
       unitAdd += mod;
     } else {
+      // No domain range → treat leftover as domain replace so value still lands.
+      domainReplace = true;
       domainAdd += mod;
     }
   }
-  return { unitAdd, domainAdd };
+  return { unitAdd, domainAdd, domainReplace };
 }
 
 function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
   const baseN = Number(base);
   const b = Number.isFinite(baseN) ? baseN : 0;
-  const { unitAdd, domainAdd } = nodeGraphParamModAccumulators(sources, metadata);
+  const { unitAdd, domainAdd, domainReplace } = nodeGraphParamModAccumulators(sources, metadata);
   const min = Number(metadata.min);
   const max = Number(metadata.max);
   const range = max - min;
-  let result = b + domainAdd;
-  if (Number.isFinite(range) && range > 0 && unitAdd !== 0) {
-    const baseUnit = nodeGraphParamDomainToUnitLinear(b, metadata);
-    result = nodeGraphParamUnitToDomainLinear(baseUnit + unitAdd, metadata) + domainAdd;
+  let result;
+  if (domainReplace) {
+    // Domain source present → REPLACE slider (bypass knob). Unit-band ignored.
+    result = domainAdd;
+  } else {
+    result = b;
+    if (Number.isFinite(range) && range > 0 && unitAdd !== 0) {
+      const baseUnit = nodeGraphParamDomainToUnitLinear(b, metadata);
+      result = nodeGraphParamUnitToDomainLinear(baseUnit + unitAdd, metadata);
+    }
   }
   if (!Number.isFinite(result)) {
     return 0;
@@ -345,8 +381,11 @@ function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
   if (metadata.wraparound) {
     return nodeGraphParamApplyDomainBounds(result, metadata);
   }
-  // Post-MOD clip to DOMAIN (default on). Do not use ApplyDomainBounds alone —
-  // that only hard-clamps wrap/constraint/hardClamp, not ordinary modClamp.
+  // Domain replace: min/max are display zoom only — do not hard-clip the sent value.
+  if (domainReplace) {
+    return result;
+  }
+  // Post-MOD clip to DOMAIN (default on) for unit-band path only.
   if (nodeGraphParamModClamp(metadata)) {
     const lo = Number(metadata.min);
     const hi = Number(metadata.max);
@@ -410,19 +449,10 @@ function nodeGraphParamSignalInAmplitude(domainLevel, ampSample, hasAmp) {
 }
 
 /**
- * Absolute-Hz jack (ƒ / Freq) when wired. Returns null if unwired.
- * SSOT for “is ƒ patched?” — prefer this over ad-hoc hasInput("f") checks.
+ * Retired absolute-Hz jack resolver (always null). Domain MOD replaces ƒ.
  */
-function nodeGraphResolveAbsHzJack(hasInput, mixInput, nodeId) {
-  if (typeof hasInput !== "function" || typeof mixInput !== "function" || !nodeId) {
-    return null;
-  }
-  if (hasInput(nodeId, "f")) {
-    return mixInput(nodeId, "f");
-  }
-  if (hasInput(nodeId, "Freq")) {
-    return mixInput(nodeId, "Freq");
-  }
+function nodeGraphResolveAbsHzJack(/* hasInput, mixInput, nodeId */) {
+  // Absolute ƒ jack retired — domain MOD on Frequency replaces it.
   return null;
 }
 

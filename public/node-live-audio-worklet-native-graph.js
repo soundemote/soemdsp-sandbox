@@ -3102,12 +3102,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     const meta = { ...(defParam || {}), ...(node?.paramMeta?.[key] || {}) };
     let unitAdd = 0;
     let domainAdd = 0;
+    let domainReplace = false;
     if (hasModCables && typeof this.efficientParamModAccumulators === "function") {
       const acc = this.efficientParamModAccumulators(node, key);
       unitAdd = nodeGraphFiniteNumber(acc?.unitAdd);
       domainAdd = nodeGraphFiniteNumber(acc?.domainAdd);
+      domainReplace = acc?.domainReplace === true;
     }
-    const modToken = `${unitAdd}\0${domainAdd}`;
+    const modToken = `${unitAdd}\0${domainAdd}\0${domainReplace ? 1 : 0}`;
     if (forceAll || cache[modKey] !== modToken) {
       cache[modKey] = modToken;
       this.pushNativeGraphParamMod(native, hash, paramId, unitAdd, domainAdd);
@@ -3119,11 +3121,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     const max = Number(meta.max);
     let flags = 0;
     if (meta.wraparound) flags |= 1;
+    // Domain REPLACE (bit4): engineering-unit MOD bypasses knob; min/max are zoom only.
+    if (domainReplace) {
+      flags |= 16;
+      flags |= 8; // unbounded — do not hard-clip sent domain value
+    }
     // App-wide default: clamp after MOD to DOMAIN. Explicit false → unbounded (bit3).
     if (meta.modClamp === false) {
       flags |= 8; // unbounded MOD past domain
-    } else {
-      flags |= 2; // modClamp (default on)
+    } else if (!domainReplace) {
+      flags |= 2; // modClamp (default on) — unit-band only
     }
     if (meta.hardClamp === true) flags |= 2;
     else {

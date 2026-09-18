@@ -65,7 +65,7 @@
             "alias": "",
             "bipolar": true,
             "choices": [],
-            "tooltip": "Stereo balance after Mono is summed in. 0 = unchanged (Mono to both). −1 = left only. +1 = right only.",
+            "tooltip": "Stereo balance after Mono is summed in. 0 = unchanged (Mono to both). \u22121 = left only. +1 = right only.",
             "visible": true,
             "modClamp": false,
             "showSign": false,
@@ -95,7 +95,7 @@
             "alias": "",
             "bipolar": false,
             "choices": [],
-            "tooltip": "Speaker level (−∞…0 dB). 0 dB is unity. Default −3 dB. Old patches that stored 0…1 linear Volume are converted on load. Type a dB value (or −inf).",
+            "tooltip": "Speaker level (\u2212\u221e\u20260 dB). 0 dB is unity. Default \u22123 dB. Old patches that stored 0\u20261 linear Volume are converted on load. Type a dB value (or \u2212inf).",
             "visible": true,
             "modClamp": false,
             "showSign": false,
@@ -166,7 +166,7 @@
             "alias": "",
             "bipolar": false,
             "choices": [],
-            "tooltip": "Peak of the summed DTMF sines (Tone). Two keys stay inside ±Amplitude.",
+            "tooltip": "Peak of the summed DTMF sines (Tone). Two keys stay inside \u00b1Amplitude.",
             "visible": true,
             "modClamp": false,
             "showSign": false,
@@ -272,7 +272,7 @@
           "font": "thasadith",
           "kind": "keypad",
           "padPx": 2,
-          "labels": "123456789↯0↺",
+          "labels": "123456789\u21af0\u21ba",
           "stroke": 0.0705278719888686,
           "rounding": 48.2527147087858,
           "textSize": 0.87708066581306,
@@ -428,7 +428,7 @@
             "alias": "",
             "bipolar": false,
             "choices": [
-              "□",
+              "\u25a1",
               "1",
               "2",
               "3",
@@ -442,7 +442,7 @@
               "0",
               "#"
             ],
-            "tooltip": "Added to Analog/Digital, the mouse, and later Script, then wrapped around the 12 keys. □ is 0 — analog stays 0 until a key is chosen. 1–12 are the pad keys. The selected Index key uses the hover color.",
+            "tooltip": "Added to Analog/Digital, the mouse, and later Script, then wrapped around the 12 keys. \u25a1 is 0 \u2014 analog stays 0 until a key is chosen. 1\u201312 are the pad keys. The selected Index key uses the hover color.",
             "visible": true,
             "modClamp": false,
             "showSign": false,
@@ -809,20 +809,6 @@
     },
     "connections": [
       {
-        "sourceNode": "phoneTone-1",
-        "sourcePort": "ƒ1",
-        "tracePoints": [],
-        "destinationNode": "robinSinusoid-1",
-        "destinationPort": "f"
-      },
-      {
-        "sourceNode": "phoneTone-1",
-        "sourcePort": "ƒ2",
-        "tracePoints": [],
-        "destinationNode": "robinSinusoid-2",
-        "destinationPort": "f"
-      },
-      {
         "sourceNode": "robinSinusoid-2",
         "sourcePort": "Out",
         "tracePoints": [],
@@ -844,7 +830,22 @@
         "destinationPort": "Analog"
       }
     ],
-    "modulations": [],
+    "modulations": [
+      {
+        "sourceNode": "phoneTone-1",
+        "sourcePort": "\u01921",
+        "tracePoints": [],
+        "destinationNode": "robinSinusoid-1",
+        "destinationParam": "frequency"
+      },
+      {
+        "sourceNode": "phoneTone-1",
+        "sourcePort": "\u01922",
+        "tracePoints": [],
+        "destinationNode": "robinSinusoid-2",
+        "destinationParam": "frequency"
+      }
+    ],
     "bypassedNodes": [],
     "activeCameraId": "camera-1",
     "requiredAssets": [],

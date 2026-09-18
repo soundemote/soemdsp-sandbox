@@ -218,12 +218,23 @@ function nodeGraphParameterGhostSignal(node, key) {
     if (sample == null) {
       continue;
     }
+    let normalized;
     if (typeof nodeGraphParamNormalizeModInput === "function") {
-      sources.push(nodeGraphParamNormalizeModInput(sample, metadata));
+      normalized = nodeGraphParamNormalizeModInput(sample, metadata);
     } else {
       const n = Number(sample);
-      sources.push(Number.isFinite(n) ? n : 0);
+      normalized = Number.isFinite(n) ? n : 0;
     }
+    const srcNode = nodeGraphPatchNode(modulation.sourceNode);
+    const srcType = String(srcNode?.type || "");
+    const srcPort = String(modulation.sourcePort || "");
+    const srcParamMeta = (typeof nodeGraphReadPatchParameterMetadata === "function"
+      ? nodeGraphReadPatchParameterMetadata(srcNode, srcPort)
+      : null) || {};
+    const taggedDomain = srcParamMeta.outputDomain === true
+      || srcType === "range"
+      || srcType === "Range";
+    sources.push(taggedDomain ? { value: Number(normalized), domain: true } : normalized);
   }
   if (!sources.length) {
     return null;
@@ -232,26 +243,37 @@ function nodeGraphParameterGhostSignal(node, key) {
   if (typeof nodeGraphParamFoldModSources === "function") {
     effective = nodeGraphParamFoldModSources(effective, sources, metadata);
   } else if (typeof nodeGraphApplyParameterModulation === "function") {
-    effective = nodeGraphApplyParameterModulation(
-      effective,
-      sources.reduce((sum, value) => sum + value, 0),
-      metadata,
-    );
+    const modSum = sources.reduce((sum, value) => {
+      const n = Number(value && typeof value === "object" ? value.value : value);
+      return sum + (Number.isFinite(n) ? n : 0);
+    }, 0);
+    effective = nodeGraphApplyParameterModulation(effective, modSum, metadata);
   } else {
     const baseUnit = nodeGraphParameterValueToNormalizedSignal(effective, metadata);
-    const contrib = sources.reduce((sum, value) => sum + value, 0);
-    return nodeGraphNormalizedParameterSignalBounds(baseUnit + contrib, metadata);
+    const contrib = sources.reduce((sum, value) => {
+      const n = Number(value && typeof value === "object" ? value.value : value);
+      return sum + (Number.isFinite(n) ? n : 0);
+    }, 0);
+    return {
+      signal: nodeGraphNormalizedParameterSignalBounds(baseUnit + contrib, metadata),
+      effectiveDomain: effective,
+    };
   }
+  // Ghost position uses unit mapped into min/max zoom window (may clip visually).
+  // effectiveDomain is the value actually sent (unclipped under domain REPLACE).
+  let signal;
   if (typeof nodeGraphParamDomainToUnit === "function") {
-    return nodeGraphNormalizedParameterSignalBounds(
+    signal = nodeGraphNormalizedParameterSignalBounds(
       nodeGraphParamDomainToUnit(effective, metadata),
       metadata,
     );
+  } else {
+    signal = nodeGraphNormalizedParameterSignalBounds(
+      nodeGraphParameterValueToNormalizedSignal(effective, metadata),
+      metadata,
+    );
   }
-  return nodeGraphNormalizedParameterSignalBounds(
-    nodeGraphParameterValueToNormalizedSignal(effective, metadata),
-    metadata,
-  );
+  return { signal, effectiveDomain: effective };
 }
 
 let nodeGraphGhostSliderLiveFrame = 0;
@@ -285,14 +307,31 @@ function syncNodeGraphGhostSliders() {
     if (!node || !key || !readout) {
       continue;
     }
-    const ghostSignal = nodeGraphParameterGhostSignal(node, key);
+    const ghost = nodeGraphParameterGhostSignal(node, key);
+    const ghostSignal = ghost && typeof ghost === "object" && "signal" in ghost
+      ? ghost.signal
+      : ghost;
     readout.classList.toggle("has-ghost-slider", ghostSignal !== null);
     if (ghostSignal === null) {
       readout.style.removeProperty("--ghost-start");
       readout.style.removeProperty("--ghost-end");
+      delete slider.dataset.sentDomainValue;
       continue;
     }
     any = true;
+    if (ghost && typeof ghost === "object" && Number.isFinite(Number(ghost.effectiveDomain))) {
+      slider.dataset.sentDomainValue = String(ghost.effectiveDomain);
+      const valueText = readout.querySelector(".node-slider-readout-value");
+      if (valueText && typeof formatNodeSliderReadoutValue === "function") {
+        valueText.textContent = formatNodeSliderReadoutValue(
+          Number(ghost.effectiveDomain),
+          slider.dataset.kind,
+          slider.dataset.maxDigits,
+        );
+      } else if (valueText) {
+        valueText.textContent = String(Number(ghost.effectiveDomain));
+      }
+    }
     const range = nodeSliderHandleRangeFromTravel(
       slider,
       readout,

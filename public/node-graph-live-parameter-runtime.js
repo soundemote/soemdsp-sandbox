@@ -216,18 +216,30 @@ function readNodeGraphLiveEffectiveParam(
     return base;
   }
   const metadata = node?.paramMeta?.[key] || {};
-  const sources = modulations.map((modulation) =>
-    normalizeNodeGraphParameterModulationInput(readNodeGraphRuntimePortOutput(
+  const sources = modulations.map((modulation) => {
+    const sample = normalizeNodeGraphParameterModulationInput(readNodeGraphRuntimePortOutput(
       runtime,
       frameValues,
       modulation.sourceNode,
       modulation.sourcePort,
       frame,
       frames,
-    ), metadata),
-  );
+    ), metadata);
+    const srcNode = runtime.nodes?.get(modulation.sourceNode);
+    const srcPort = modulation.sourcePort;
+    const srcParamMeta = srcNode?.paramMeta?.[srcPort] || {};
+    const srcType = String(srcNode?.type || "");
+    const taggedDomain = srcParamMeta.outputDomain === true
+      || srcType === "range"
+      || srcType === "Range";
+    return taggedDomain ? { value: Number(sample), domain: true } : sample;
+  });
   if (typeof nodeGraphParamFoldModSources === "function") {
     return nodeGraphParamFoldModSources(base, sources, metadata);
   }
-  return nodeGraphApplyParameterModulation(base, sources.reduce((a, b) => a + b, 0), metadata);
+  const modSum = sources.reduce((a, b) => {
+    const n = Number(b && typeof b === "object" ? b.value : b);
+    return a + (Number.isFinite(n) ? n : 0);
+  }, 0);
+  return nodeGraphApplyParameterModulation(base, modSum, metadata);
 }

@@ -82,7 +82,7 @@
             "alias": "",
             "bipolar": true,
             "choices": [],
-            "tooltip": "Stereo balance after Mono is summed in. 0 = unchanged (Mono to both). −1 = left only. +1 = right only.",
+            "tooltip": "Stereo balance after Mono is summed in. 0 = unchanged (Mono to both). \u22121 = left only. +1 = right only.",
             "visible": true,
             "modClamp": false,
             "showSign": false,
@@ -112,7 +112,7 @@
             "alias": "",
             "bipolar": false,
             "choices": [],
-            "tooltip": "Speaker level (−∞…0 dB). 0 dB is unity. Default −3 dB. Old patches that stored 0…1 linear Volume are converted on load. Type a dB value (or −inf).",
+            "tooltip": "Speaker level (\u2212\u221e\u20260 dB). 0 dB is unity. Default \u22123 dB. Old patches that stored 0\u20261 linear Volume are converted on load. Type a dB value (or \u2212inf).",
             "visible": true,
             "modClamp": false,
             "showSign": false,
@@ -185,7 +185,7 @@
             "alias": "",
             "bipolar": false,
             "choices": [],
-            "tooltip": "Fidelity (clarity) threshold 0…1. Below threshold Frequency/Gate report 0 (display shows —). 0 = accept everything; 1 = nearly never lock.",
+            "tooltip": "Fidelity (clarity) threshold 0\u20261. Below threshold Frequency/Gate report 0 (display shows \u2014). 0 = accept everything; 1 = nearly never lock.",
             "visible": true,
             "modClamp": false,
             "showSign": false,
@@ -215,7 +215,7 @@
             "alias": "",
             "bipolar": false,
             "choices": [],
-            "tooltip": "Analysis window in samples (128–4096). Larger windows track lower frequencies but update more slowly. Min pitch ≈ 2×sampleRate/window (e.g. 1024 @ 48 kHz ≈ 94 Hz; 4096 ≈ 23 Hz).",
+            "tooltip": "Analysis window in samples (128\u20134096). Larger windows track lower frequencies but update more slowly. Min pitch \u2248 2\u00d7sampleRate/window (e.g. 1024 @ 48 kHz \u2248 94 Hz; 4096 \u2248 23 Hz).",
             "visible": true,
             "modClamp": false,
             "showSign": false,
@@ -376,7 +376,7 @@
               "LS12",
               "HS12"
             ],
-            "tooltip": "ZDF state-variable EQ (Robin Schmidt / RS-MET). 2-pole modes use compact labels (HP12, LP12, …). Order: Bypass, HP12, LP12, then the rest. Min-phase, zero latency.",
+            "tooltip": "ZDF state-variable EQ (Robin Schmidt / RS-MET). 2-pole modes use compact labels (HP12, LP12, \u2026). Order: Bypass, HP12, LP12, then the rest. Min-phase, zero latency.",
             "visible": false,
             "modClamp": false,
             "showSign": false,
@@ -436,7 +436,7 @@
             "alias": "",
             "bipolar": false,
             "choices": [],
-            "tooltip": "Cutoff / center in Hz. When ƒ is wired, that Hz is the cutoff (Pitch Detector Frequency → ƒ). Unwired uses this knob. 0 allowed (frozen).",
+            "tooltip": "Cutoff / center in Hz. When \u0192 is wired, that Hz is the cutoff (Pitch Detector Frequency \u2192 \u0192). Unwired uses this knob. 0 allowed (frozen).",
             "visible": false,
             "modClamp": false,
             "showSign": false,
@@ -693,7 +693,7 @@
             "alias": "",
             "bipolar": true,
             "choices": [],
-            "tooltip": "Same S-curve as Pixel Grid. 1 = unity. Below 1 compresses highs so bins don’t clip as fast. 0 = mid grey. Negative inverts the curve.",
+            "tooltip": "Same S-curve as Pixel Grid. 1 = unity. Below 1 compresses highs so bins don\u2019t clip as fast. 0 = mid grey. Negative inverts the curve.",
             "visible": true,
             "modClamp": false,
             "showSign": false,
@@ -896,13 +896,6 @@
     },
     "connections": [
       {
-        "sourceNode": "helmholtzPitch-1",
-        "sourcePort": "Frequency",
-        "tracePoints": [],
-        "destinationNode": "eqFilter-1",
-        "destinationPort": "f"
-      },
-      {
         "sourceNode": "robinSinusoid-1",
         "sourcePort": "Out",
         "tracePoints": [],
@@ -931,7 +924,15 @@
         "destinationPort": "Mono"
       }
     ],
-    "modulations": [],
+    "modulations": [
+      {
+        "sourceNode": "helmholtzPitch-1",
+        "sourcePort": "Frequency",
+        "tracePoints": [],
+        "destinationNode": "eqFilter-1",
+        "destinationParam": "frequency"
+      }
+    ],
     "bypassedNodes": [],
     "activeCameraId": "camera-1",
     "requiredAssets": [],
