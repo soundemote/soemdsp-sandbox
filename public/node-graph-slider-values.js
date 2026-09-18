@@ -930,6 +930,11 @@ function setNodeSliderMetadata(slider, metadata) {
   slider.dataset.removeTrailingZeros = metadata.removeTrailingZeros ? "true" : "false";
   slider.dataset.bipolar = metadata.bipolar ? "true" : "false";
   slider.dataset.outputDomain = metadata.outputDomain ? "true" : "false";
+  // Keep readout in sync — CSS/drag use the visual .node-slider-readout, not the hidden input.
+  if (readout) {
+    readout.dataset.outputDomain = slider.dataset.outputDomain;
+    readout.classList.toggle("output-domain-mod", metadata.outputDomain === true);
+  }
   // Clear legacy overshoot keys if present (older sessions).
   if (slider.dataset.unboundedMax != null) delete slider.dataset.unboundedMax;
   if (slider.dataset.unboundedMin != null) delete slider.dataset.unboundedMin;

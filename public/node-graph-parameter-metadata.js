@@ -331,10 +331,6 @@ function nodeGraphParameterDefaultVisible(parameter) {
  * until the metaparameter Show toggle is turned on.
  */
 function nodeGraphParameterEffectiveVisible(parameter, paramMetaEntry) {
-  // "Use real mod values" (outputDomain): domain MOD replaces the slider, so hide it.
-  if (paramMetaEntry && typeof paramMetaEntry === "object" && paramMetaEntry.outputDomain === true) {
-    return false;
-  }
   if (paramMetaEntry && typeof paramMetaEntry === "object" && typeof paramMetaEntry.visible === "boolean") {
     return paramMetaEntry.visible;
   }
