@@ -3194,7 +3194,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=toggle-range-1",
   "./public/modules/portal/portal-lanes.js?v=portal-rename-4x2-1",
   "./public/modules/portal/portal-math.js?v=portal-lanes-1",
-  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=domain-offset-1",
+  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=param-ssot-cleanup-1",
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).

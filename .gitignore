@@ -19,17 +19,14 @@ backups/*.png
 _debug_*/
 _debug_black/
 
-# One-off agent / session scratch scripts
-scripts/_diag_*
-scripts/_add_missing_native_exports.py
-scripts/_list_missing_native_exports.py
-scripts/_insert_code_screen_path.js
-scripts/_insert_code_screen_path.py
-scripts/_patch_smoke_additive_retire.py
-scripts/_patch_smoke_additive_retire2.py
-scripts/_sync_public_script_paths.js
-scripts/_diag_brickwall.py
-scripts/_diag_ladder.py
+# Agent / session scratch (do not commit)
+_*
+!_fs_aug2.glsl
+/*.patch
+/apply-*.ps1
+scripts/_*
+scripts/_*/
+
 
 # Dependencies (install locally; never commit)
 node_modules/

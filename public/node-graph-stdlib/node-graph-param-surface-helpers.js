@@ -1,27 +1,25 @@
-// Explicit parameter surfaces (Phase F — metaparam MOD SSOT).
+// Parameter surfaces - MOD / domain SSOT (pure helpers; main + worklet).
 //
-// Three different ways a control is driven — three different contracts:
+// Three drive paths (do not mix contracts):
 //
-//   DOMAIN   — the knob/slider value in real units (Hz, −1…1, …).
-//              Source of truth for the parameter store / readout.
-//              min/max define the *slider* range (and DOMAIN↔unit for UI).
-//              UI domain↔unit may use mid/custom skew; MOD never uses skew.
+//   DOMAIN  - absolute knob value in params[key] (Hz, -1..1, ...).
+//             min/max = slider range + DOMAIN<->unit map. UI may skew; MOD never does.
 //
-//   MOD      — param-row modulation CV. One SSOT in nodeGraphParamApplyMod:
-//              • |Σmod| ≤ 1  → linear unit map across [min, max] (NO skew):
-//                  unit = linearDomainToUnit(base) + mod
-//                  effective = min + unit * (max − min)
-//                Unipolar Uni X 0…1 + base at min → full range sweep.
-//              • domain-tagged / |Σmod| > 1 / dest outputDomain → domain REPLACE:
-//                  effective = domainMods + domainOffset (offset default 0; no absolute base)
-//              Unipolar: clip mod contribution ≥ 0. Bipolar: signed (TZFM).
-//              Pitch exponential is NOT on MOD — use 0.1V/Oct jack.
+//   MOD     - param-row CV. Fold SSOT: nodeGraphParamFoldModSources /
+//             nodeGraphParamApplyMod.
+//             * Normal dest: |mod|<=1 -> linear unit add across [min,max] (no skew);
+//               domain-tagged / |mod|>1 -> REPLACE absolute with sum(domainMods).
+//             * outputDomain ("Use real mod values"): ignore params[key].
+//               effective = sum(domainMods) + domainOffset
+//               domainOffset (paramMeta, default 0) always applies, even with no
+//               MOD wires. Slider edits offset on +/-|max|, linear (no curve yet).
+//             Unipolar clip only when metadata.unipolarMod. Pitch expo -> 0.1V/Oct.
 //
-//   SIGNAL IN — named input jacks (In, 0.1V/Oct, Phase, Amplitude, …).
-//              NOT the same as MOD. Handled by module evaluators.
+//   SIGNAL IN - named jacks (In, 0.1V/Oct, ...). Not MOD. Module evaluators.
 //
-// Pure: no DOM, no nodeGraphMvp. Safe for main thread + AudioWorklet Blob.
-
+// Native stamp mirrors this: domainReplace bit4; domainAdd includes domainOffset
+// when outputDomain. Yellow Graph / Range sources tag domain the same way.
+//
 /** @typedef {"domain"|"mod"|"signalIn"} NodeGraphParamSurface */
 
 const NODE_GRAPH_PARAM_SURFACES = Object.freeze({
@@ -271,9 +269,8 @@ function nodeGraphFiniteNumber(value, fallback = 0) {
 }
 
 /**
- * |mod| ≤ this → treat as unit CV across [min,max] (linear, no skew).
- * Explicit domain tags (outputDomain / {domain:true}) or |mod| above → DOMAIN
- * REPLACE of the knob (old absolute ƒ jack semantics) — never domain-add.
+ * |mod| <= this -> unit CV across [min,max] (linear, no skew) unless tagged domain.
+ * Tagged domain / |mod| above / dest outputDomain -> domain path (see file header).
  */
 const NODE_GRAPH_PARAM_MOD_UNIT_BAND = 1 + 1e-9;
 
@@ -307,25 +304,13 @@ function nodeGraphParamNormalizeModSource(raw) {
   };
 }
 
-/**
- * Apply summed MOD onto DOMAIN base. Single SSOT for live + worklet.
- *
- * Unit-band (|mod| ≤ 1, untagged): linear map across param min…max, bypassing skew.
- * Domain (tagged outputDomain / signal engineering out, or |mod| > 1): REPLACE the
- * knob with the domain value (sum of domain sources) — old absolute ƒ semantics.
- * Domain replace wins over the slider; unit-band is ignored while any domain
- * source is present. min/max are display zoom only for that path (no hard clip).
- *
- * Signed unit MOD on every dest (negative LFO moves toward min). Only clip
- * negatives when metadata.unipolarMod === true (explicit).
- */
-/** Domain-mode offset ("Use real mod values"). Default 0. */
+/** Domain-mode offset (Use real mod values). Default 0. */
 function nodeGraphParamDomainOffset(metadata = {}) {
   const n = Number(metadata && metadata.domainOffset);
   return Number.isFinite(n) ? n : 0;
 }
 
-/** ±extent for the domain-offset slider: |param max| (fallback |min|, else 1). */
+/** Offset slider span half-width: |param max| (fallback |min|, else 1). */
 function nodeGraphParamDomainOffsetExtent(metadata = {}) {
   const max = Number(metadata && metadata.max);
   if (Number.isFinite(max) && Math.abs(max) > 0) {
@@ -338,6 +323,10 @@ function nodeGraphParamDomainOffsetExtent(metadata = {}) {
   return 1;
 }
 
+/**
+ * Apply one MOD sample onto DOMAIN base. SSOT: nodeGraphParamFoldModSources.
+ * See file header for unit vs domain vs outputDomain+domainOffset rules.
+ */
 function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
   const folded = nodeGraphParamFoldModSources(base, [modSum], metadata);
   return folded;
@@ -411,7 +400,7 @@ function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
   const range = max - min;
   let result;
   if (domainReplace) {
-    // Domain source present → REPLACE slider (bypass knob). Unit-band ignored.
+    // Domain-tagged source: REPLACE absolute base. Unit-band ignored.
     result = domainAdd;
   } else {
     result = b;

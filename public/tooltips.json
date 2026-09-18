@@ -87,7 +87,7 @@
     "parameter": "choose which parameter of this module these metaparameters apply to | includes parameters hidden by default",
     "showParameter": "show this parameter as a slider row on the module | on by default | parameters marked hidden in the module definition stay off until you turn this on",
     "bipolar": "center the amount fill on MID (usually 0) so negative and positive values grow outward from the middle",
-    "outputDomain": "When checked, a plugged-in MOD uses real engineering units (Hz, etc.) and replaces this slider (no offset). PARAM OUT also emits those real units instead of 0…1.",
+    "outputDomain": "When checked, MOD uses real engineering units (Hz, etc.) and replaces the absolute knob. The slider becomes a bipolar domain offset (default 0, span +/- param max) added after replace — works even with no MOD wire. PARAM OUT emits real units instead of 0…1.",
     "smoothingSeconds": "how long this parameter's glide takes, in seconds | 0 snaps instantly | only used when smoothing source is Internal or Internal + Global",
     "smoothingModeGlobal": "🌍 Global: ignore this parameter's own smoothing time, use the app-wide global time",
     "smoothingModeInternal": "🙂 Internal: use only this parameter's own smoothing time | 0 is instant",

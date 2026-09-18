@@ -202,7 +202,7 @@ function nodeGraphOscillatorWaveformSample(runtime, nodeId, phase, phaseIncremen
 }
 
 /**
- * soemdsp Ellipsoid::getSineToSquare — Limit AA always on (C floor by ω=2πf/sr).
+ * soemdsp Ellipsoid::getSineToSquare - AA Off|Limit (Limit floors C by omega=2*pi*f/sr).
  * phaseCycles 0..1 | shape 0=sine 1=square
  */
 function nodeGraphEllipsoidSineToSquare(
