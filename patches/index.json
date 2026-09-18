@@ -242,6 +242,11 @@
       "slug": "flowerchild-breadboard-clean",
       "label": "FCF Clean breadboard",
       "url": "/soemdsp-sandbox/patches/flowerchild-breadboard-clean.json"
+    },
+    {
+      "slug": "self-osc-ladder",
+      "label": "Self-Osc Ladder",
+      "url": "/soemdsp-sandbox/patches/self-osc-ladder.json"
     }
   ]
 }

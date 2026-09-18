@@ -826,8 +826,9 @@ NodeLiveAudioProcessor.prototype.foldEfficientParamModulations = function foldEf
   base,
 ) {
   const sources = this.readEfficientParamModSources(node, key);
-  if (!sources.length) return base;
   const metadata = node?.paramMeta?.[key] || {};
+  // Domain mode: offset applies even with no mod wires.
+  if (!sources.length && !(metadata && metadata.outputDomain === true)) return base;
   if (typeof nodeGraphParamFoldModSources === "function") {
     return nodeGraphParamFoldModSources(base, sources, metadata);
   }

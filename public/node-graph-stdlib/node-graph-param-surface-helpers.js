@@ -12,8 +12,8 @@
 //                  unit = linearDomainToUnit(base) + mod
 //                  effective = min + unit * (max − min)
 //                Unipolar Uni X 0…1 + base at min → full range sweep.
-//              • domain-tagged / |Σmod| > 1 → domain REPLACE (Pitch Detector Hz, etc.):
-//                  effective = base + mod
+//              • domain-tagged / |Σmod| > 1 / dest outputDomain → domain REPLACE:
+//                  effective = domainMods + domainOffset (offset default 0; no absolute base)
 //              Unipolar: clip mod contribution ≥ 0. Bipolar: signed (TZFM).
 //              Pitch exponential is NOT on MOD — use 0.1V/Oct jack.
 //
@@ -319,6 +319,25 @@ function nodeGraphParamNormalizeModSource(raw) {
  * Signed unit MOD on every dest (negative LFO moves toward min). Only clip
  * negatives when metadata.unipolarMod === true (explicit).
  */
+/** Domain-mode offset ("Use real mod values"). Default 0. */
+function nodeGraphParamDomainOffset(metadata = {}) {
+  const n = Number(metadata && metadata.domainOffset);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** ±extent for the domain-offset slider: |param max| (fallback |min|, else 1). */
+function nodeGraphParamDomainOffsetExtent(metadata = {}) {
+  const max = Number(metadata && metadata.max);
+  if (Number.isFinite(max) && Math.abs(max) > 0) {
+    return Math.abs(max);
+  }
+  const min = Number(metadata && metadata.min);
+  if (Number.isFinite(min) && Math.abs(min) > 0) {
+    return Math.abs(min);
+  }
+  return 1;
+}
+
 function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
   const folded = nodeGraphParamFoldModSources(base, [modSum], metadata);
   return folded;
@@ -338,8 +357,8 @@ function nodeGraphParamModAccumulators(sources, metadata = {}) {
   let domainAdd = 0;
   let domainReplace = false;
   const list = Array.isArray(sources) ? sources : [sources];
-  // Dest "Use real mod values" / outputDomain: treat every MOD as domain REPLACE
-  // (old absolute f) — knob must not offset the sent value.
+  // Dest "Use real mod values" / outputDomain: treat every MOD as domain REPLACE.
+  // Absolute params ignored; fold adds domainOffset separately.
   const destDomain = metadata && metadata.outputDomain === true;
   for (const raw of list) {
     let { value: mod, domain } = nodeGraphParamNormalizeModSource(raw);
@@ -362,22 +381,31 @@ function nodeGraphParamModAccumulators(sources, metadata = {}) {
 }
 
 function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
+  // "Use real mod values": ignore absolute base. Sent = domain mods + offset.
+  // Offset applies even with no mod wires. No slider curve on the offset path.
+  if (metadata && metadata.outputDomain === true) {
+    const domainOffset = nodeGraphParamDomainOffset(metadata);
+    let domainAdd = 0;
+    const list = Array.isArray(sources) ? sources : (sources == null ? [] : [sources]);
+    if (list.length) {
+      const acc = nodeGraphParamModAccumulators(list, metadata);
+      domainAdd = Number(acc.domainAdd);
+      if (!Number.isFinite(domainAdd)) domainAdd = 0;
+    }
+    let result = domainAdd + domainOffset;
+    if (!Number.isFinite(result)) {
+      return 0;
+    }
+    if (metadata.wraparound) {
+      return nodeGraphParamApplyDomainBounds(result, metadata);
+    }
+    // min/max are display zoom only — do not hard-clip.
+    return result;
+  }
+
   const baseN = Number(base);
   const b = Number.isFinite(baseN) ? baseN : 0;
   let { unitAdd, domainAdd, domainReplace } = nodeGraphParamModAccumulators(sources, metadata);
-  // Destination "Use real mod values": any plugged MOD replaces the slider (old ƒ semantics).
-  if (metadata && metadata.outputDomain === true && Array.isArray(sources) && sources.length) {
-    domainReplace = true;
-    if (!domainAdd) {
-      let sum = 0;
-      for (const raw of sources) {
-        const n = Number(raw && typeof raw === "object" ? (raw.value ?? raw.mod ?? raw.sample) : raw);
-        if (Number.isFinite(n)) sum += n;
-      }
-      domainAdd = sum;
-      unitAdd = 0;
-    }
-  }
   const min = Number(metadata.min);
   const max = Number(metadata.max);
   const range = max - min;
@@ -412,6 +440,7 @@ function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
   }
   return result;
 }
+
 
 /**
  * Parameter port as MOD/bus source.

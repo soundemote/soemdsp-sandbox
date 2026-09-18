@@ -570,13 +570,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "modulator",
     description: "Sine→square ellipse shapes for soft-to-hard tones and dual uni/bi X/Y outs.",
     label: "RoundShape",
-    notes: ["RoundShape", "getSineToSquare", "Uni X", "Uni Y", "Bi X", "Bi Y", "Limit AA", "f", "native"],
+    notes: ["RoundShape", "getSineToSquare", "Uni X", "Uni Y", "Bi X", "Bi Y", "AA Off|Limit", "f", "native"],
   },
   ellipsoidOsc: {
     category: "oscillator",
     description: "Full parametric ellipsoid path for rich 2D-scope-friendly oscillators.",
     label: "Ellipsoid",
-    notes: ["ellipsoid", "offset", "shape", "scale", "Limit AA", "X/Y", "native"],
+    notes: ["ellipsoid", "offset", "shape", "scale", "AA Off|Limit", "X/Y", "native"],
   },
   basicShape: {
     category: "modulator",
@@ -1063,11 +1063,18 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Range",
     notes: ["range", "map", "scale", "remap", "utility", "dynamics", "native"],
   },
+  pitchHz: {
+    category: "musical",
+    description: "Convert MIDI-style pitch ↔ Hz. Pitch→Hz: tuning·2^((p−69)/12). Hz→Pitch: 69+12·log2(hz/tuning). A4 = Tuning Hz.",
+    label: "Pitch ↔ Hz",
+    notes: ["pitch", "hz", "frequency", "midi", "a4", "tuning", "p2f", "f2p", "convert", "musical", "pitch to hz", "hz to pitch"],
+  },
+
   fm: {
-    category: "modulator",
-    description: "Mix ƒ cables, then × Multiply × 2^(Octave+Semitones/12+Cents/1200) + Add. Frequency CV / FM utility.",
-    label: "fM",
-    notes: ["fm", "frequency", "ƒ", "multiply", "octave", "semitone", "cents", "pitch", "modulator", "utility"],
+    category: "musical",
+    description: "Mix ƒ cables, then × Multiply × 2^(Octave+Semitones/12+Cents/1200) + Add. Frequency CV / pitch utility.",
+    label: "Pitch",
+    notes: ["pitch", "fm", "frequency", "ƒ", "multiply", "octave", "semitone", "cents", "musical", "utility"],
   },
   u2b: {
     category: "dynamics",
@@ -2770,6 +2777,11 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "native_modules/range/range.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/range/range.cpp",
   },
+  pitchHz: {
+    source: "native_modules/graph_engine/graph_engine.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/graph_engine/graph_engine.cpp",
+  },
+
   u2b: {
     source: "native_modules/u2b/u2b.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/u2b/u2b.cpp",

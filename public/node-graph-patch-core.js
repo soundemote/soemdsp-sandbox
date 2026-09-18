@@ -1378,25 +1378,30 @@ function syncNodeGraphModuleParamElement(element, patchNode) {
             : null);
       }
     }
-    setNodeSliderMetadata(
-      input,
-      metaEntry || nodeGraphParameterDefinitionMetadata(parameter),
-    );
-    let value = patchNode.params?.[parameter.key];
-    if (
-      (value == null || !Number.isFinite(Number(value)))
-      && typeof nodeGraphIsContainerShellType === "function"
-      && nodeGraphIsContainerShellType(patchNode.type)
-      && String(parameter.key || "").startsWith("mx_")
-      && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
-    ) {
-      const target = nodeGraphMetamoduleResolveExposeTarget(patchNode, parameter.key);
-      if (target?.child) {
-        value = target.child.params?.[target.paramKey];
+    const resolvedMeta = metaEntry || nodeGraphParameterDefinitionMetadata(parameter);
+    setNodeSliderMetadata(input, resolvedMeta);
+    let value;
+    if (resolvedMeta && resolvedMeta.outputDomain === true) {
+      // Domain mode: slider shows domainOffset (default 0), not absolute params.
+      const off = Number(resolvedMeta.domainOffset);
+      value = Number.isFinite(off) ? off : 0;
+    } else {
+      value = patchNode.params?.[parameter.key];
+      if (
+        (value == null || !Number.isFinite(Number(value)))
+        && typeof nodeGraphIsContainerShellType === "function"
+        && nodeGraphIsContainerShellType(patchNode.type)
+        && String(parameter.key || "").startsWith("mx_")
+        && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
+      ) {
+        const target = nodeGraphMetamoduleResolveExposeTarget(patchNode, parameter.key);
+        if (target?.child) {
+          value = target.child.params?.[target.paramKey];
+        }
       }
-    }
-    if (value == null || !Number.isFinite(Number(value))) {
-      value = nodeGraphParameterFallback(patchNode.type, parameter.key);
+      if (value == null || !Number.isFinite(Number(value))) {
+        value = nodeGraphParameterFallback(patchNode.type, parameter.key);
+      }
     }
     if (typeof applyNodeGraphInputUnboundedValue === "function") {
       applyNodeGraphInputUnboundedValue(input, value);
@@ -1406,6 +1411,9 @@ function syncNodeGraphModuleParamElement(element, patchNode) {
         input.dataset.domainValue = String(n);
       }
       input.value = String(value);
+    }
+    if (resolvedMeta && resolvedMeta.outputDomain === true) {
+      input.dataset.domainOffset = String(Number(value) || 0);
     }
     syncNodeSliderReadout(input);
   }

@@ -2750,15 +2750,11 @@ function syncNodeGraphGraphLivePlayheads() {
   }
 }
 
-// Registering this at top-level script scope (rather than inside an init
-// function) used to throw ReferenceError: node-graph-module-scopes.js --
-// which defines addNodeGraphModuleScopeSnapshotListener -- loads AFTER this
-// file in index.html, so the identifier didn't exist yet when this line ran.
-// That uncaught exception didn't stop OTHER scripts from loading (each
-// <script> tag is its own execution context), but it's still a real crash
-// worth not having. Deferring to DOMContentLoaded guarantees every
-// synchronous, non-deferred <script> tag (all of them, here) has already
-// run by the time this fires.
-document.addEventListener("DOMContentLoaded", () => {
+// graph-utils loads before module-scopes in the boot-defer list, and those
+// scripts execute after DOMContentLoaded — so waiting on that event never
+// attaches the purple ghost. Queue if scopes is not up yet.
+if (typeof addNodeGraphModuleScopeSnapshotListener === "function") {
   addNodeGraphModuleScopeSnapshotListener(syncNodeGraphGraphLivePlayheads);
-});
+} else {
+  (globalThis.__nodeGraphScopeSnapshotPending ||= []).push(syncNodeGraphGraphLivePlayheads);
+}

@@ -402,15 +402,38 @@ function nodeSliderChoiceIndexFromText(slider, value) {
 }
 
 function nodeSliderMetadata(slider) {
-  const min = Number(slider.min);
-  const mid = Number(slider.dataset.mid);
-  const max = Number(slider.max);
-  const def = Number(slider.dataset.default);
+  // Prefer absolute param range datasets so domain-offset UI (±max) never
+  // writes the offset span back into paramMeta.min/max.
+  const min = Number(
+    slider.dataset.paramMin != null && slider.dataset.paramMin !== ""
+      ? slider.dataset.paramMin
+      : slider.min,
+  );
+  const max = Number(
+    slider.dataset.paramMax != null && slider.dataset.paramMax !== ""
+      ? slider.dataset.paramMax
+      : slider.max,
+  );
+  const mid = Number(
+    slider.dataset.paramMid != null && slider.dataset.paramMid !== ""
+      ? slider.dataset.paramMid
+      : slider.dataset.mid,
+  );
+  const def = Number(
+    slider.dataset.paramDefault != null && slider.dataset.paramDefault !== ""
+      ? slider.dataset.paramDefault
+      : slider.dataset.default,
+  );
   const cur = Number(slider.value);
   const step =
     slider.dataset.step && slider.dataset.step !== "any"
       ? Number(slider.dataset.step)
       : 0;
+  const outputDomain = slider.dataset.outputDomain === "true";
+  const domainOffsetRaw = outputDomain
+    ? Number(slider.dataset.domainValue)
+    : Number(slider.dataset.domainOffset);
+  const domainOffset = Number.isFinite(domainOffsetRaw) ? domainOffsetRaw : 0;
   return {
     alias: slider.dataset.alias ?? "",
     choices: parseNodeMetadataChoices(slider.dataset.choices || ""),
@@ -420,7 +443,8 @@ function nodeSliderMetadata(slider) {
     displayChoices: nodeSliderShouldDisplayChoices(slider),
     divideChoicesVisibly: nodeSliderShouldDivideChoicesVisibly(slider),
     bipolar: slider.dataset.bipolar === "true",
-    outputDomain: slider.dataset.outputDomain === "true",
+    outputDomain,
+    domainOffset,
     linearSmoothing: nodeSliderShouldUseLinearSmoothing(slider),
     nonlinearSlider: nodeSliderShouldUseNonlinearSlider(slider),
     sliderCurve: nodeSliderCurve(slider),

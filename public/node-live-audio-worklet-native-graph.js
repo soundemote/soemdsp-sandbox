@@ -113,6 +113,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   dsfOscillator: 46,
   hypersaw2: 158,
   fm: 169,
+  pitchHz: 170,
   wavetableAdsr: 168,
   rasterRgb: 160,
   chaosfly: 161,
@@ -3087,20 +3088,24 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       typeof this.parameterKey === "function" ? this.parameterKey(node?.id, key) : `${node?.id}.${key}`,
     );
     const hasModCables = Array.isArray(paramMods) && paramMods.length > 0;
+    const defParamEarly = (typeof nodeGraphModuleDefinitions !== "undefined"
+      && nodeGraphModuleDefinitions?.[String(node?.type || "")]?.parameters
+      || []).find?.((p) => p && p.key === key) || null;
+    const metaEarly = { ...(defParamEarly || {}), ...(node?.paramMeta?.[key] || {}) };
+    const destDomain = metaEarly.outputDomain === true;
     const warm = cache[domainKey] != null
       && cache[modeKey] != null
       && cache[typeKey] != null
       && cache[timeKey] != null
       && cache[modKey] != null;
-    if (!forceAll && !valueChanged && warm && !hasModCables) {
+    // Domain mode must keep stamping offset even with no mod cables.
+    if (!forceAll && !valueChanged && warm && !hasModCables && !destDomain) {
       return;
     }
     // Merge patch paramMeta with module-definition defaults so Softwave Amp
     // modClamp/modMultiply survive older saved paramMeta blobs.
-    const defParam = (typeof nodeGraphModuleDefinitions !== "undefined"
-      && nodeGraphModuleDefinitions?.[String(node?.type || "")]?.parameters
-      || []).find?.((p) => p && p.key === key) || null;
-    const meta = { ...(defParam || {}), ...(node?.paramMeta?.[key] || {}) };
+    const defParam = defParamEarly;
+    const meta = metaEarly;
     let unitAdd = 0;
     let domainAdd = 0;
     let domainReplace = false;
@@ -3109,6 +3114,15 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       unitAdd = nodeGraphFiniteNumber(acc?.unitAdd);
       domainAdd = nodeGraphFiniteNumber(acc?.domainAdd);
       domainReplace = acc?.domainReplace === true;
+    }
+    if (destDomain) {
+      // Use real mod values: REPLACE with domain mods + domainOffset (offset alone OK).
+      const off = typeof nodeGraphParamDomainOffset === "function"
+        ? nodeGraphParamDomainOffset(meta)
+        : (Number.isFinite(Number(meta.domainOffset)) ? Number(meta.domainOffset) : 0);
+      domainAdd += off;
+      domainReplace = true;
+      unitAdd = 0;
     }
     const modToken = `${unitAdd}\0${domainAdd}\0${domainReplace ? 1 : 0}`;
     if (forceAll || cache[modKey] !== modToken) {
@@ -3532,11 +3546,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "ellipsoid") {
-      // mode=motion; shape=morph (sine→square); free-fn host phase.
+      // mode=motion; shape=morph; center=AA (0 Off / 1 Limit); free-fn host phase.
       push("motion", P.NATIVE_GRAPH_PARAM_MODE, disc("motion", 1));
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0));
+      push("antialias", P.NATIVE_GRAPH_PARAM_CENTER, disc("antialias", 1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -4585,6 +4600,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("harmonic", P.NATIVE_GRAPH_PARAM_WIDTH, cont("harmonic", 0));
       push("offset", P.NATIVE_GRAPH_PARAM_CENTER, cont("offset", 0));
+      continue;
+    }
+
+    if (type === "pitchHz") {
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("tuning", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("tuning", 440));
       continue;
     }
     if (type === "fm") {
@@ -6341,6 +6362,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "metallicRatio") return ["Ratio"];
     if (type === "harmonicSeries") return ["f", "Out", "Mono", "ƒ"];
     if (type === "fm") return ["f", "Out", "Mono", "ƒ"];
+    if (type === "pitchHz") return ["Out", "Mono", "In"];
     if (type === "lutCell") return ["Out"];
 
     if (type === "transport") return ["Gate -1+1", "Gate Bi"];

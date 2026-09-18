@@ -211,11 +211,20 @@ function readNodeGraphLiveEffectiveParam(
 ) {
   const base = readNodeGraphLiveSmoothedParam(runtime, node, key, fallback, frame, frames);
   const modulations = runtime.modulationConnections?.get(nodeGraphParameterKey(node?.id, key));
-  // Skip unit-space round trip when nothing modulates this parameter.
-  if (!modulations || !modulations.length) {
+  const metadata = node?.paramMeta?.[key] || {};
+  // Domain mode: offset applies even with no mod wires.
+  if ((!modulations || !modulations.length) && !(metadata && metadata.outputDomain === true)) {
     return base;
   }
-  const metadata = node?.paramMeta?.[key] || {};
+  if ((!modulations || !modulations.length) && metadata.outputDomain === true) {
+    if (typeof nodeGraphParamFoldModSources === "function") {
+      return nodeGraphParamFoldModSources(base, [], metadata);
+    }
+    const off = typeof nodeGraphParamDomainOffset === "function"
+      ? nodeGraphParamDomainOffset(metadata)
+      : Number(metadata.domainOffset);
+    return Number.isFinite(off) ? off : 0;
+  }
   const sources = modulations.map((modulation) => {
     const sample = normalizeNodeGraphParameterModulationInput(readNodeGraphRuntimePortOutput(
       runtime,

@@ -893,12 +893,34 @@ function setNodeSliderMetadata(slider, metadata) {
       `${nextLabel} current value`,
     );
   }
-  slider.min = String(metadata.min);
-  slider.max = String(metadata.max);
-  slider.dataset.mid = String(clampNodeSliderValue(metadata.mid, metadata.min, metadata.max));
-  slider.dataset.default = String(
-    clampNodeSliderValue(metadata.def, metadata.min, metadata.max),
+  // Absolute param range always stored on the slider (offset mode must not
+  // overwrite paramMeta.min/max when syncing metadata back from the DOM).
+  const absMin = Number(metadata.min);
+  const absMax = Number(metadata.max);
+  const absMid = Number(metadata.mid);
+  const absDef = Number(metadata.def);
+  slider.dataset.paramMin = String(absMin);
+  slider.dataset.paramMax = String(absMax);
+  slider.dataset.paramMid = String(
+    clampNodeSliderValue(absMid, absMin, absMax),
   );
+  slider.dataset.paramDefault = String(
+    clampNodeSliderValue(absDef, absMin, absMax),
+  );
+  const destDomain = metadata.outputDomain === true;
+  const offsetExtent = destDomain
+    ? (typeof nodeGraphParamDomainOffsetExtent === "function"
+      ? nodeGraphParamDomainOffsetExtent(metadata)
+      : (Number.isFinite(absMax) && Math.abs(absMax) > 0 ? Math.abs(absMax) : 1))
+    : 0;
+  const uiMin = destDomain ? -offsetExtent : absMin;
+  const uiMax = destDomain ? offsetExtent : absMax;
+  const uiMid = destDomain ? 0 : absMid;
+  const uiDef = destDomain ? 0 : absDef;
+  slider.min = String(uiMin);
+  slider.max = String(uiMax);
+  slider.dataset.mid = String(clampNodeSliderValue(uiMid, uiMin, uiMax));
+  slider.dataset.default = String(clampNodeSliderValue(uiDef, uiMin, uiMax));
   slider.step = metadata.step > 0 ? String(metadata.step) : "any";
   slider.dataset.step = slider.step;
   slider.dataset.kind = metadata.kind || "decimal";
@@ -923,17 +945,28 @@ function setNodeSliderMetadata(slider, metadata) {
   slider.dataset.smoothingSeconds = Number.isFinite(Number(metadata.smoothingSeconds)) && Number(metadata.smoothingSeconds) >= 0
     ? String(metadata.smoothingSeconds)
     : "";
-  slider.dataset.sliderCurve = normalizeNodeSliderCurve(metadata.sliderCurve, metadata.nonlinearSlider);
-  slider.dataset.curveAmount = String(normalizeNodeSliderCurveAmount(metadata.curveAmount));
-  slider.dataset.nonlinearSlider = slider.dataset.sliderCurve === "linear" ? "false" : "true";
+  // Domain-offset mode: linear only (no curve) for now.
+  if (destDomain) {
+    slider.dataset.sliderCurve = "linear";
+    slider.dataset.curveAmount = "0";
+    slider.dataset.nonlinearSlider = "false";
+  } else {
+    slider.dataset.sliderCurve = normalizeNodeSliderCurve(metadata.sliderCurve, metadata.nonlinearSlider);
+    slider.dataset.curveAmount = String(normalizeNodeSliderCurveAmount(metadata.curveAmount));
+    slider.dataset.nonlinearSlider = slider.dataset.sliderCurve === "linear" ? "false" : "true";
+  }
   slider.dataset.showSign = metadata.showSign ? "true" : "false";
   slider.dataset.removeTrailingZeros = metadata.removeTrailingZeros ? "true" : "false";
   slider.dataset.bipolar = metadata.bipolar ? "true" : "false";
-  slider.dataset.outputDomain = metadata.outputDomain ? "true" : "false";
+  slider.dataset.outputDomain = destDomain ? "true" : "false";
+  {
+    const offN = Number(metadata.domainOffset);
+    slider.dataset.domainOffset = String(Number.isFinite(offN) ? offN : 0);
+  }
   // Keep readout in sync — CSS/drag use the visual .node-slider-readout, not the hidden input.
   if (readout) {
     readout.dataset.outputDomain = slider.dataset.outputDomain;
-    readout.classList.toggle("output-domain-mod", metadata.outputDomain === true);
+    readout.classList.toggle("output-domain-mod", destDomain);
   }
   // Clear legacy overshoot keys if present (older sessions).
   if (slider.dataset.unboundedMax != null) delete slider.dataset.unboundedMax;
@@ -943,13 +976,21 @@ function setNodeSliderMetadata(slider, metadata) {
   if (Object.hasOwn(metadata, "visible")) {
     slider.dataset.visible = metadata.visible === false ? "false" : "true";
   }
-  // Prefer existing domainValue so metadata edits do not snap the parameter to
-  // a clamped HTML thumb (or leave domainValue stale relative to value).
-  const domainSource = Number.isFinite(Number(slider.dataset.domainValue))
-    ? Number(slider.dataset.domainValue)
-    : Number(slider.value);
-  const domain = normalizeNodeSliderValue(slider, domainSource, metadata.min, metadata.max);
+  // Domain mode: slider shows/edits domainOffset. Else prefer existing domainValue.
+  let domainSource;
+  if (destDomain) {
+    const off = Number(metadata.domainOffset);
+    domainSource = Number.isFinite(off) ? off : 0;
+  } else {
+    domainSource = Number.isFinite(Number(slider.dataset.domainValue))
+      ? Number(slider.dataset.domainValue)
+      : Number(slider.value);
+  }
+  const domain = normalizeNodeSliderValue(slider, domainSource, uiMin, uiMax);
   slider.dataset.domainValue = String(domain);
+  if (destDomain) {
+    slider.dataset.domainOffset = String(domain);
+  }
   slider.value = String(
     typeof nodeSliderThumbDisplayValue === "function"
       ? nodeSliderThumbDisplayValue(slider, domain)

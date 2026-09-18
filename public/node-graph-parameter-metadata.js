@@ -938,6 +938,11 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
   } else {
     normalized.outputDomain = Boolean(fallback.outputDomain);
   }
+  // Domain-mode offset ("Use real mod values"): separate from absolute params[key].
+  {
+    const n = Number(Object.hasOwn(source, "domainOffset") ? source.domainOffset : 0);
+    normalized.domainOffset = Number.isFinite(n) ? n : 0;
+  }
   return normalized;
 }
 

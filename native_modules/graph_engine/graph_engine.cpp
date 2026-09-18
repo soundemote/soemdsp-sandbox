@@ -1637,6 +1637,7 @@ static const int kTypeCurveAttackRelease = 166;
 static const int kTypeThumpEnvelope = 167;
 static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smoothstep)
 static const int kTypeFm = 169; // ƒ mixer / pitch scale (oct/st/cents × Multiply + Add)
+static const int kTypePitchHz = 170; // Pitch ↔ Hz (MIDI-ish pitch law, A4 = tuning)
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -2651,7 +2652,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCrossover5) ? 150.0
       : (typeId == kTypeCrossover6) ? 100.0
       : (typeId == kTypeAudioPlayer) ? 1.0 // speed ×
-      : 220.0,
+: (typeId == kTypePitchHz) ? 440.0 // A4 tuning Hz
+            : 220.0,
     false
   );
   init_control(
@@ -2807,6 +2809,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHilbert) ? 0.0 // +90°
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
       : (typeId == kTypeFm) ? 0.0 // octave
+      : (typeId == kTypePitchHz) ? 0.0 // Pitch→Hz
       : (typeId == kTypeHypersaw2) ? 0.0 // jitterSteps Fixed
       : (typeId == kTypeSampleHold) ? 0.0 // polarity Bipolar
       : (typeId == kTypeWavetableAdsr) ? 0.0 // shape Analog
@@ -2890,9 +2893,10 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCrossover5) ? 500.0
       : (typeId == kTypeCrossover6) ? 300.0
       : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 0.0 // sweep st
+      : (typeId == kTypeEllipsoid) ? 1.0 // AA Limit (0 Off / 1 Limit)
       : 0.0,
-    // Robin detuneAlgorithm is discrete 0…5
-    typeId == kTypeRobinSupersaw
+    // Robin detuneAlgorithm is discrete 0…5; RoundShape AA is discrete Off/Limit
+    typeId == kTypeRobinSupersaw || typeId == kTypeEllipsoid
   );
   // Soft-clipper width default 2; noise = deviation; supersaw = detune;
   // triggerCounter = increment; archimedes = dither bits;
@@ -5020,6 +5024,33 @@ static void process_b2u(Circuit& g, Node& node, int frames) {
 
 // fM: mix all ƒ cables, then × Multiply × 2^(oct+st/12+cents/1200) + Add.
 // mode=octave (snap), stages=semitones (snap), center=cents, amplitude=multiply, offset=add.
+
+// Pitch ↔ Hz: In is pitch (mode 0) or Hz (mode 1). tuning = A4 reference (MIDI 69).
+// pitchToFreq: tuning * 2^((pitch - 69) / 12)
+// freqToPitch: 69 + 12 * log2(hz / tuning); non-finite/≤0 → 0
+static void process_pitch_hz(Circuit& g, Node& node, int frames) {
+  mix_node_inputs(g, node, frames);
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double mode = control_audio(g, node.mode, f);
+    const double tuning = control_audio(g, node.frequency, f);
+    const double tun = (tuning > 1e-12 && tuning == tuning) ? tuning : 440.0;
+    const bool toHz = !(mode >= 0.5);
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    double out;
+    if (toHz) {
+      out = tun * dsp_exp(((in - 69.0) / 12.0) * 0.6931471805599453);
+    } else if (!(in > 0.0) || !(in == in)) {
+      out = 0.0;
+    } else {
+      out = 69.0 + 12.0 * (dsp_ln(in / tun) * 1.4426950408889634);
+    }
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
 static void process_fm(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool takeSamplePath = node_needs_sample_accurate_controls(g, node, liveF);
@@ -6529,6 +6560,7 @@ static void process_bradley2a(Circuit& g, Node& node, int frames) {
 
 // RoundShape ellipsoid: free-fn sine→square; Bi X/Y + Uni X/Y.
 // mode=motion (0 ClockPh, 1 CounterClockPh, 2 ClockT, 3 CounterClockT).
+// center=AA (0 Off, nonzero Limit steepness floor).
 // Ports: Left=Bi X, Right=Bi Y, Saw=Uni X, Ramp=Uni Y, Mono=Bi X.
 // Morph CV is turquoise ZOH (additive to knob).
 static void process_ellipsoid(Circuit& g, Node& node, int frames) {
@@ -6545,6 +6577,10 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
   const bool clockWise = (motion == 0 || motion == 2);
   const bool useSimTime = motion >= 2;
   const double dir = clockWise ? -1.0 : 1.0;
+  // AA: 0 = Off, nonzero = Limit. Default Limit if unset.
+  double aaRaw = control_effective(node.center);
+  if (!(aaRaw == aaRaw)) aaRaw = 1.0;
+  int aaMode = (aaRaw >= 0.5) ? 1 : 0;
 
   double phase = node.phase; // cycles 0..1
   if (!liveReset) node.lastReset = 0.0;
@@ -6579,10 +6615,10 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
     samplePhase -= dsp_floor(samplePhase);
 
     const double biX = soemdsp_ellipsoid_sine_to_square_aa(
-      samplePhase, shape, freq < 0.0 ? -freq : freq, sr, 1
+      samplePhase, shape, freq < 0.0 ? -freq : freq, sr, aaMode
     ) * level;
     const double biY = soemdsp_ellipsoid_sine_to_square_aa(
-      samplePhase - 0.25, shape, freq < 0.0 ? -freq : freq, sr, 1
+      samplePhase - 0.25, shape, freq < 0.0 ? -freq : freq, sr, aaMode
     ) * level;
     const double uniX = 0.5 * (biX + level);
     const double uniY = 0.5 * (biY + level);
@@ -8589,12 +8625,22 @@ static double graph_curve_sample_x(
   const double inHi = control_effective(node.inHigh);
   double inputUnit = 0.0;
   if (hasIn) {
+    // Transfer-curve Input: clamp to In Min/Max so full-scale (e.g. Knob=1)
+    // hits x=1. Do not wrap — wrap01(1) → 0 and snaps to the left endpoint.
+    double clampedIn = inSample;
+    const double lo = inLo < inHi ? inLo : inHi;
+    const double hi = inLo < inHi ? inHi : inLo;
+    if (clampedIn < lo) clampedIn = lo;
+    if (clampedIn > hi) clampedIn = hi;
     const double span = inHi - inLo;
-    inputUnit = (dsp_fabs(span) < 1.0e-12) ? 0.0 : (inSample - inLo) / span;
+    inputUnit = (dsp_fabs(span) < 1.0e-12) ? 0.0 : (clampedIn - inLo) / span;
   }
 
   if (mode <= 0) {
-    return wrap01(inputUnit + phaseOff);
+    double x = inputUnit + phaseOff;
+    if (x < 0.0) x = 0.0;
+    if (x > 1.0) x = 1.0;
+    return x;
   }
 
   double rate = control_effective(node.frequency);
@@ -11698,6 +11744,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
     }
     if (node.typeId == kTypeFm) {
       process_fm(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypePitchHz) {
+      process_pitch_hz(g, node, frames);
       return;
     }
     if (node.typeId == kTypeInv) {

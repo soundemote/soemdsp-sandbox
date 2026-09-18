@@ -101,29 +101,45 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
   if (!patchNode) {
     return;
   }
-  patchNode.paramMeta = {
-    ...(patchNode.paramMeta || {}),
-    [key]: normalizeNodeGraphPatchParameterMetadata(
-      patchNode.type,
-      key,
-      patchNode.paramMeta?.[key] || nodeSliderMetadata(slider),
-    ),
-  };
+  const priorMeta = patchNode.paramMeta?.[key] || nodeSliderMetadata(slider);
+  let nextMeta = normalizeNodeGraphPatchParameterMetadata(
+    patchNode.type,
+    key,
+    priorMeta,
+  );
   // Prefer explicit domain value (typed entry may exceed HTML range min/max).
   const rawDomain = options.domainValue != null
     ? Number(options.domainValue)
     : (Number.isFinite(Number(slider?.dataset?.domainValue))
       ? Number(slider.dataset.domainValue)
       : nodeGraphReadNodeNumber(node, key));
-  patchNode.params = {
-    ...(patchNode.params || {}),
-    [key]: normalizeNodeGraphPatchParameter(
-      patchNode.type,
-      key,
-      rawDomain,
-      patchNode.paramMeta[key],
-    ),
-  };
+  // Use real mod values: slider edits domainOffset; keep absolute params[key].
+  if (nextMeta && nextMeta.outputDomain === true) {
+    const off = Number.isFinite(rawDomain) ? rawDomain : 0;
+    nextMeta = { ...nextMeta, domainOffset: off };
+    if (slider) {
+      slider.dataset.domainOffset = String(off);
+      slider.dataset.domainValue = String(off);
+    }
+    patchNode.paramMeta = {
+      ...(patchNode.paramMeta || {}),
+      [key]: nextMeta,
+    };
+  } else {
+    patchNode.paramMeta = {
+      ...(patchNode.paramMeta || {}),
+      [key]: nextMeta,
+    };
+    patchNode.params = {
+      ...(patchNode.params || {}),
+      [key]: normalizeNodeGraphPatchParameter(
+        patchNode.type,
+        key,
+        rawDomain,
+        patchNode.paramMeta[key],
+      ),
+    };
+  }
   // Metamodule "Show metaparameter": shell slider writes through to the child.
   if (
     typeof nodeGraphIsContainerShellType === "function"

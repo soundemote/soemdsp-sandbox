@@ -16978,11 +16978,16 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   border-radius: 0;
   background: transparent;
   color: color-mix(in srgb, var(--accent) 58%, rgba(160, 167, 176, 0.5));
-  font-size: clamp(1.18rem, calc(var(--node-header-height) * 0.28), 1.7rem);
+  /* Size emoji to the button cell (cqh), not the full title+actions header. */
+  container-type: size;
+  font-size: clamp(1.25rem, 62cqh, 1.9rem);
   line-height: 1;
 }
 
 .node-drag-handle {
+  /* Move glyph: slightly smaller than action emoji, still fills the cell. */
+  font-size: clamp(1.1rem, 52cqh, 1.7rem);
+
   /* Module header move glyph — independent of floating-window 100% size. */
   font-size: calc(var(--node-header-height) * 0.6 * 0.47);
 }

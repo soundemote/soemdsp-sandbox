@@ -804,9 +804,8 @@ function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
   // Tracks + child placement are owned by applyNodeGraphModuleLayout.
   // Hidden face ⇒ no face track (do not leave a 0px hole for auto-placement).
   element.classList.remove("face-row-collapsed");
-  if (typeof applyNodeGraphModuleLayout === "function") {
-    applyNodeGraphModuleLayout(element, patchNode);
-  }
+  // CSS vars only — callers apply layout once after this.
+
 }
 
 /** Widget-list ids → one of: header | face | controls | io | params | shell | lip */

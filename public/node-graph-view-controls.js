@@ -387,9 +387,7 @@ function renderNodeGraphModuleVisibilityToggles(options = {}) {
     }
     return;
   }
-  syncNodeGraphVisibleModuleGridHeights();
-  // Refresh per-node visibility classes so unhiding works immediately
-  // without needing a full patch commit.
+  // Classes first (content visibility), then height CSS, then one layout pass.
   for (const element of document.querySelectorAll(".dsp-node[data-node]")) {
     const patchNode = typeof nodeGraphPatchNode === "function"
       ? nodeGraphPatchNode(element.dataset.node)
@@ -407,11 +405,18 @@ function renderNodeGraphModuleVisibilityToggles(options = {}) {
     element.classList.toggle("interface-controls-forced-visible", Boolean(effectiveUi.interfaceControlsForceShow));
     element.classList.toggle("sliders-hidden", effectiveUi.slidersHidden);
     element.classList.toggle("sliders-forced-visible", Boolean(effectiveUi.slidersForceShow));
-    if (typeof applyNodeGraphModuleLayout === "function") {
-      applyNodeGraphModuleLayout(element, patchNode);
-    }
     if (typeof syncNodeGraphLayoutBNoParamsClass === "function") {
       syncNodeGraphLayoutBNoParamsClass(element, patchNode.type, effectiveUi);
+    }
+  }
+  syncNodeGraphVisibleModuleGridHeights();
+  for (const element of document.querySelectorAll(".dsp-node[data-node]")) {
+    const patchNode = typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(element.dataset.node)
+      : null;
+    if (!patchNode) continue;
+    if (typeof applyNodeGraphModuleLayout === "function") {
+      applyNodeGraphModuleLayout(element, patchNode);
     }
   }
   setNodeGraphVisibilityToggleLabel(buttonsButton, buttonsVisible, "Module Buttons", {

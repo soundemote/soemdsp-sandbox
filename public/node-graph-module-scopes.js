@@ -99,6 +99,15 @@ function addNodeGraphModuleScopeSnapshotListener(listener) {
   return () => nodeGraphModuleScopeSnapshotListeners.delete(listener);
 }
 
+// Boot-deferred scripts can run after DOMContentLoaded. Early files (graph-utils)
+// queue playhead/ghost listeners here so they still attach.
+if (Array.isArray(globalThis.__nodeGraphScopeSnapshotPending)) {
+  for (const pending of globalThis.__nodeGraphScopeSnapshotPending) {
+    addNodeGraphModuleScopeSnapshotListener(pending);
+  }
+  globalThis.__nodeGraphScopeSnapshotPending.length = 0;
+}
+
 function notifyNodeGraphModuleScopeSnapshotListeners() {
   for (const listener of nodeGraphModuleScopeSnapshotListeners) {
     try {

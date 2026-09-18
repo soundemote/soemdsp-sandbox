@@ -3,9 +3,9 @@
 // soemdsp-native-target: ellipsoid
 // soemdsp-native-kind: modulator
 //
-// soemdsp Ellipsoid::getSineToSquare — Limit AA always on:
-//   floor C by ω=2πf/sr (edge slope ≲ 1 sample).
-// soemdsp_ellipsoid_sample — full multi-param ellipsoid oscillator.
+// soemdsp Ellipsoid::getSineToSquare — AA Off | Limit:
+//   Limit floors C by ω=2πf/sr (edge slope ≲ 1 sample). Off honors shape as-is.
+// soemdsp_ellipsoid_sample — full multi-param ellipsoid oscillator (same AA).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -19,19 +19,22 @@ static double ellipseCMin(double frequencyHz, double sampleRate) {
   return clamp((kTwoPi * f) / sr, 0.0, 1.0);
 }
 
-// Always Limit: geometric C floor when frequency/sampleRate known.
+// limitAa: false = Off (pure shape); true = Limit (steepness floor by omega).
 static double sineToSquareCore(
   double phaseCycles,
   double shape,
   double frequencyHz,
-  double sampleRate
+  double sampleRate,
+  bool limitAa
 ) {
   const double angle = phaseCycles * kTwoPi;
   const double sinPhase = dsp_sin(angle);
   const double cosPhase = dsp_cos(angle);
   double c = 1.0 - clamp(shape, 0.0, 1.0);
-  const double cFloor = ellipseCMin(frequencyHz, sampleRate);
-  if (c < cFloor) c = cFloor;
+  if (limitAa) {
+    const double cFloor = ellipseCMin(frequencyHz, sampleRate);
+    if (c < cFloor) c = cFloor;
+  }
   const double xx = (cosPhase * cosPhase) + (sinPhase * c) * (sinPhase * c);
   if (xx <= 1.0e-24) {
     if (cosPhase > 0.0) return 1.0;
@@ -69,50 +72,61 @@ static double ellipsoidSampleLegacy(
   return out;
 }
 
-// Full ellipsoid with Limit-style scale floor (same ω idea as C floor).
+// Full ellipsoid; Limit floors scale by ω (same spirit as C floor).
 static double ellipsoidSampleLimited(
   double phaseRadians,
   double offset,
   double shape,
   double scale,
   double frequencyHz,
-  double sampleRate
+  double sampleRate,
+  bool limitAa
 ) {
-  const double scaleFloor = ellipseCMin(frequencyHz, sampleRate);
   double s = scale < 0.0 ? 0.0 : scale;
-  // Soft edge: prevent scale→0 (pointy/aliased) at high f, same spirit as C floor.
-  if (s < scaleFloor) s = scaleFloor;
+  if (limitAa) {
+    const double scaleFloor = ellipseCMin(frequencyHz, sampleRate);
+    if (s < scaleFloor) s = scaleFloor;
+  }
   return ellipsoidSampleLegacy(phaseRadians, offset, shape, s);
+}
+
+static bool aaIsLimit(int antialias) {
+  // 0 = Off; nonzero = Limit (legacy hosts that passed 1 keep Limit).
+  return antialias != 0;
 }
 
 }  // namespace
 
 extern "C" double soemdsp_ellipsoid_sine_to_square(double phaseCycles, double shape) {
-  // No f → pure shape (C floor 0). Prefer sine_to_square_aa / _mode with f.
-  return sineToSquareCore(phaseCycles, shape, 0.0, 44100.0);
+  // No f / no AA arg → Off (pure shape). Prefer sine_to_square_aa with f.
+  return sineToSquareCore(phaseCycles, shape, 0.0, 44100.0, false);
 }
 
-// antialias ignored — Limit is always on when f/sr provided.
+// antialias: 0 = Off, nonzero = Limit (steepness floor by omega when f/sr known).
 extern "C" double soemdsp_ellipsoid_sine_to_square_aa(
   double phaseCycles,
   double shape,
   double frequencyHz,
   double sampleRate,
-  int /* antialias */
+  int antialias
 ) {
-  return sineToSquareCore(phaseCycles, shape, frequencyHz, sampleRate);
+  return sineToSquareCore(
+    phaseCycles, shape, frequencyHz, sampleRate, aaIsLimit(antialias)
+  );
 }
 
-// mode ignored — Limit always. ABI kept for hosts.
+// mode: 0 = Off, nonzero = Limit. phaseIncCycles unused (ABI kept for hosts).
 extern "C" double soemdsp_ellipsoid_sine_to_square_mode(
   double phaseCycles,
   double shape,
   double frequencyHz,
   double sampleRate,
-  int /* mode */,
+  int mode,
   double /* phaseIncCycles */
 ) {
-  return sineToSquareCore(phaseCycles, shape, frequencyHz, sampleRate);
+  return sineToSquareCore(
+    phaseCycles, shape, frequencyHz, sampleRate, aaIsLimit(mode)
+  );
 }
 
 extern "C" double soemdsp_ellipsoid_sample(
@@ -124,18 +138,21 @@ extern "C" double soemdsp_ellipsoid_sample(
   return ellipsoidSampleLegacy(phase, offset, shape, scale);
 }
 
-// Full osc path with Limit (scale floor by f/sr).
+// Full osc path. antialias: 0 = Off, nonzero = Limit (scale floor by f/sr).
 extern "C" double soemdsp_ellipsoid_sample_aa(
   double phase,
   double offset,
   double shape,
   double scale,
   double frequencyHz,
-  double sampleRate
+  double sampleRate,
+  int antialias
 ) {
-  return ellipsoidSampleLimited(phase, offset, shape, scale, frequencyHz, sampleRate);
+  return ellipsoidSampleLimited(
+    phase, offset, shape, scale, frequencyHz, sampleRate, aaIsLimit(antialias)
+  );
 }
 
 extern "C" int soemdsp_ellipsoid_version() {
-  return 9; // Limit always; no Auto/None mode switch
+  return 10; // Off | Limit steepness AA
 }
