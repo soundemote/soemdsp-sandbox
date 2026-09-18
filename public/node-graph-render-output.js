@@ -139,7 +139,7 @@ function nodeGraphResampleLinear(samples, outputFrames) {
 function nodeGraphResampleRenderedChannel(samples, sourceRate, outputRate, outputFrames) {
   const ratio = sourceRate / outputRate;
   const roundedRatio = Math.round(ratio);
-  if (roundedRatio === 4 && Math.abs(ratio - roundedRatio) < 1e-6) {
+  if ((roundedRatio === 2 || roundedRatio === 4) && Math.abs(ratio - roundedRatio) < 1e-6) {
     return nodeGraphRaptEllipticDecimateRenderedChannel(samples, roundedRatio, outputFrames);
   }
   const filtered = nodeGraphTemporaryPrefilterForResample(samples, sourceRate, outputRate);

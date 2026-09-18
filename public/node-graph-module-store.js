@@ -4098,7 +4098,7 @@ function nodeGraphModuleStoreDemoPatch(type) {
     });
   }
   return validateNodeGraphPatch({
-    audio: { targetSampleRate: 44100 },
+    audio: { oversamplingFactor: 1, targetSampleRate: 44100 },
     bypassedNodes: [],
     connections,
     format: { ...nodeGraphPatchFormat },

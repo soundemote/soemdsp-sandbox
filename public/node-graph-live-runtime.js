@@ -2348,6 +2348,7 @@ function nodeGraphLiveConnectionUpdatePayload(plan = {}, audio = {}) {
     bypassedNodes: Array.isArray(plan.bypassedNodes) ? plan.bypassedNodes : [],
     nodes: Array.isArray(plan.nodes) ? plan.nodes : [],
     outputNode: plan.outputNode || "output",
+    oversamplingFactor: audio.oversamplingFactor ?? audio.oversamplingRatio,
     oversamplingRatio: audio.oversamplingRatio,
     patchFingerprint: plan.patchFingerprint,
     pitchReferenceHz: pitchReference.pitchReferenceHz,
@@ -2411,6 +2412,7 @@ async function sendNodeGraphLivePlan() {
     nodeGraphMvp.live.planSerial += 1;
     nodeGraphMvp.live.planEvidence = nodeGraphLivePlanEvidenceDetails(plan, {
       engineSampleRate: audio.clampedEngineSampleRate,
+      oversamplingFactor: audio.oversamplingFactor ?? audio.oversamplingRatio,
       oversamplingRatio: audio.oversamplingRatio,
       planSerial: nodeGraphMvp.live.planSerial,
       sampleRate: nodeGraphMvp.live.context?.sampleRate || nodeGraphMvp.sampleRate,
@@ -2432,6 +2434,7 @@ async function sendNodeGraphLivePlan() {
               ? nodeGraphEfficientProductEnabled()
               : true,
             engineSampleRate: audio.clampedEngineSampleRate,
+            oversamplingFactor: audio.oversamplingFactor ?? audio.oversamplingRatio,
             oversamplingRatio: audio.oversamplingRatio,
             plan,
             patchFingerprint: plan.patchFingerprint,
@@ -3208,7 +3211,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-destroy.js?v=block-scope-1",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
-  "./public/node-live-audio-worklet-dsp-state.js?v=protect-worklet-1",
+  "./public/node-live-audio-worklet-dsp-state.js?v=os-x124-1",
   "./public/lib/polyphony-voices.js?v=gold-oct-1",
   "./public/lib/note-mask-128.js?v=mask128-1",
   "./public/node-graph-keyboard-chord-memory.js?v=mask128-2",
@@ -3220,7 +3223,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
   "./public/node-live-audio-worklet-native-graph.js?v=domain-offset-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=chord-seq-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=os-x124-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
   "./public/node-live-audio-worklet-handle-message.js?v=circuit-6",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=meta-view-rewrite-1",
@@ -3230,7 +3233,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
   "./public/modules/_shared/controller-efficient-sidecar.js?v=domain-offset-1",
-  "./public/node-live-audio-worklet-process.js?v=protect-worklet-1",
+  "./public/node-live-audio-worklet-process.js?v=os-x124-1",
 ];
 
 // Legacy JS DSP evaluators + evaluateFrame — RETIRED. Never load on any product.

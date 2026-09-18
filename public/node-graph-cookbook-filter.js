@@ -1066,7 +1066,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
     }
   }
 
-  // Vertical frequency markers (+ Hz labels for crossovers / multi-cutoff).
+  // Vertical frequency markers + Hz labels (incl. single-cutoff LP/HP).
   context.strokeStyle = "rgba(226, 168, 109, 0.85)";
   context.lineWidth = cutoffLineWidth;
   // Fit labels on 1gu faces (~28px): single baseline, compact type.
@@ -1082,7 +1082,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
     context.moveTo(cutoffX, 0);
     context.lineTo(cutoffX, height);
     context.stroke();
-    if (isCrossover || cutoffs.length > 1) {
+    if (cutoffs.length > 0) {
       const label = nodeGraphFilterCurveFormatHz(frequency);
       const textW = context.measureText(label).width;
       let textX = cutoffX + 3;

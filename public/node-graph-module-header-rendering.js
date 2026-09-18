@@ -27,6 +27,7 @@ function syncNodeGraphHeaderTimingWidgets() {
   if (typeof syncNodeGraphGlobalSmoothingControl === "function") {
     syncNodeGraphGlobalSmoothingControl();
   }
+  syncNodeGraphOversamplingReadouts();
 }
 
 // Keeps every transport node's own "BPM" parameter mirrored to the patch-wide
@@ -81,20 +82,43 @@ function updateNodeGraphPatchAudioFromHeader(input) {
     return;
   }
   const current = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio);
-  const next = normalizeNodeGraphPatchAudio({
+  let nextValue = input.value;
+  if (key === "oversamplingFactor") {
+    const n = Math.round(Number(nextValue));
+    nextValue = (n === 2 || n === 4) ? n : 1;
+  }
+  const draft = {
     ...current,
-    [key]: input.value,
-  });
-  if (current[key] === next[key]) {
-    input.value = String(next[key]);
+    [key]: nextValue,
+  };
+  if (key === "oversamplingFactor") {
+    const host = typeof nodeGraphBaseSampleRate === "function"
+      ? nodeGraphBaseSampleRate()
+      : (nodeGraphMvp?.sampleRate || 44100);
+    draft.oversamplingFactor = nextValue;
+    draft.targetSampleRate = Math.round(host * nextValue);
+  }
+  const next = normalizeNodeGraphPatchAudio(draft);
+  if (current[key] === next[key]
+    && (key !== "oversamplingFactor" || current.oversamplingFactor === next.oversamplingFactor)) {
+    if (key === "oversamplingFactor") {
+      input.value = String(next.oversamplingFactor);
+    } else {
+      input.value = String(next[key]);
+    }
     return;
   }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   patch.audio = next;
   commitNodeGraphPatch(patch, {
     markPending: false,
-    status: key === "pitchOffsetOctaves" ? "pitch synced" : "pitch reference synced",
+    status: key === "oversamplingFactor"
+      ? `oversampling x${next.oversamplingFactor}`
+      : (key === "pitchOffsetOctaves" ? "pitch synced" : "pitch reference synced"),
   });
+  if (key === "oversamplingFactor") {
+    syncNodeGraphOversamplingReadouts();
+  }
 }
 
 function commitNodeGraphHeaderNumberInput(input) {
@@ -585,6 +609,90 @@ function nodeGraphPlanckReadoutText() {
   return Number.isFinite(n) ? n.toFixed(7) : "0.0000001";
 }
 
+
+function nodeGraphOversamplingFactorReadout() {
+  if (typeof nodeGraphOversamplingFactorFromPatch === "function") {
+    return nodeGraphOversamplingFactorFromPatch(nodeGraphMvp?.patch);
+  }
+  const n = Math.round(Number(normalizeNodeGraphPatchAudio(nodeGraphMvp?.patch?.audio).oversamplingFactor));
+  return (n === 2 || n === 4) ? n : 1;
+}
+
+function syncNodeGraphOversamplingReadouts() {
+  const factor = nodeGraphOversamplingFactorReadout();
+  const host = typeof nodeGraphBaseSampleRate === "function"
+    ? nodeGraphBaseSampleRate()
+    : Math.round(Number(nodeGraphMvp?.live?.context?.sampleRate || nodeGraphMvp?.sampleRate || 44100));
+  const simulated = host * factor;
+  const select = document.getElementById("nodeHeaderOversamplingFactor");
+  if (select && String(select.value) !== String(factor)) {
+    select.value = String(factor);
+  }
+  const hostEl = document.querySelector(".node-header-sample-rate-value");
+  if (hostEl) {
+    hostEl.textContent = typeof nodeGraphFormatSampleRate === "function"
+      ? nodeGraphFormatSampleRate(host)
+      : `${host} Hz`;
+  }
+  const simEl = document.querySelector(".node-header-simulated-rate-value");
+  if (simEl) {
+    simEl.textContent = typeof nodeGraphFormatSampleRate === "function"
+      ? nodeGraphFormatSampleRate(simulated)
+      : `${simulated} Hz`;
+  }
+}
+
+function createNodeGraphOversamplingFactorField() {
+  const field = document.createElement("label");
+  field.className = "node-header-timing-field node-header-oversampling-field is-name-value";
+  field.setAttribute("aria-label", "Oversampling");
+  field.dataset.tooltipKey = "timing.oversamplingFactor";
+  const caption = document.createElement("span");
+  caption.className = "node-header-timing-caption";
+  caption.textContent = "OS";
+  const colon = document.createElement("span");
+  colon.className = "node-header-timing-colon";
+  colon.textContent = ":";
+  colon.setAttribute("aria-hidden", "true");
+  const select = document.createElement("select");
+  select.id = "nodeHeaderOversamplingFactor";
+  select.className = "node-header-timing-input node-header-oversampling-select";
+  select.dataset.audioField = "oversamplingFactor";
+  select.setAttribute("aria-label", "Oversampling factor");
+  for (const factor of [1, 2, 4]) {
+    const opt = document.createElement("option");
+    opt.value = String(factor);
+    opt.textContent = `x${factor}`;
+    select.append(opt);
+  }
+  select.value = String(nodeGraphOversamplingFactorReadout());
+  select.addEventListener("change", () => {
+    updateNodeGraphPatchAudioFromHeader(select);
+  });
+  field.append(caption, colon, select);
+  return field;
+}
+
+function createNodeGraphSampleRateReadout(kind, label) {
+  const field = document.createElement("div");
+  field.className = `node-header-timing-field node-header-${kind}-readout is-name-value`;
+  field.setAttribute("aria-label", label);
+  const caption = document.createElement("span");
+  caption.className = "node-header-timing-caption";
+  caption.textContent = label;
+  const colon = document.createElement("span");
+  colon.className = "node-header-timing-colon";
+  colon.textContent = ":";
+  colon.setAttribute("aria-hidden", "true");
+  const value = document.createElement("span");
+  value.className = kind === "sample-rate"
+    ? "node-header-sample-rate-value"
+    : "node-header-simulated-rate-value";
+  value.textContent = "—";
+  field.append(caption, colon, value);
+  return field;
+}
+
 function createNodeGraphPlanckReadout() {
   const field = document.createElement("div");
   field.className = "node-header-timing-field node-header-planck-readout is-name-value";
@@ -628,6 +736,9 @@ function createNodeGraphCommandCenterTimingWidgets() {
       step: "any",
     }),
     createNodeGraphPlanckReadout(),
+    createNodeGraphOversamplingFactorField(),
+    createNodeGraphSampleRateReadout("sample-rate", "Sample Rate"),
+    createNodeGraphSampleRateReadout("simulated-rate", "Simulated Rate"),
   );
   return group;
 }
@@ -640,11 +751,14 @@ function renderNodeGraphCommandCenterTimingControls() {
   if (
     !host.querySelector(".node-command-center-timing-widgets")
     || !host.querySelector(".node-header-planck-readout")
+    || !host.querySelector("#nodeHeaderOversamplingFactor")
+    || !host.querySelector(".node-header-sample-rate-value")
     || !host.querySelector('.node-header-timing-input[data-audio-field="pitchOffsetOctaves"]')
   ) {
     host.replaceChildren(createNodeGraphCommandCenterTimingWidgets());
   }
   bindNodeGraphHeaderTimingWidgets(host);
+  syncNodeGraphOversamplingReadouts();
 }
 
 function renderNodeGraphPatchTimingControls() {

@@ -103,9 +103,19 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
     if (Number.isFinite(Number(message.displayFps))) {
       this.displayFps = Math.max(0, Math.min(240, Math.round(Number(message.displayFps))));
     }
-    // App-wide: oversampling under construction — always ×1 (ignore plan/message).
-    this.oversamplingRatio = 1;
-    this.engineSampleRate = this.hostSampleRate;
+    // App-wide oversampling: host AudioContext rate unchanged; engine runs x1/x2/x4.
+    {
+      const rawFactor = Math.round(Number(
+        message.oversamplingFactor ?? message.oversamplingRatio ?? 1,
+      ));
+      const factor = (rawFactor === 2 || rawFactor === 4) ? rawFactor : 1;
+      this.oversamplingRatio = factor;
+      this.oversamplingFactor = factor;
+      const engineFromMsg = Number(message.engineSampleRate);
+      this.engineSampleRate = Number.isFinite(engineFromMsg) && engineFromMsg > 0
+        ? engineFromMsg
+        : this.hostSampleRate * factor;
+    }
     this.timing = this.normalizePatchTiming(plan?.timing);
     if (this.raptEllipticDecimatorRatio !== this.oversamplingRatio) {
       this.resetRaptEllipticDecimator();

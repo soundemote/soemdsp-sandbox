@@ -43,10 +43,23 @@ function normalizeNodeGraphPatchAudio(audio = {}) {
   const safeSpeedLimit = Number.isFinite(speedLimitHz) && speedLimitHz > 0
     ? Math.min(controlMax, speedLimitHz)
     : defaultLimit;
+  const oversamplingFactorRaw = Number(audio?.oversamplingFactor);
+  let oversamplingFactor = 1;
+  if (oversamplingFactorRaw === 2 || oversamplingFactorRaw === 4) {
+    oversamplingFactor = oversamplingFactorRaw;
+  } else if (Number.isFinite(targetSampleRate) && targetSampleRate > 0) {
+    // Infer from legacy target when factor missing.
+    const host = typeof nodeGraphBaseSampleRate === "function" ? nodeGraphBaseSampleRate() : 44100;
+    const ratio = targetSampleRate / Math.max(1, host);
+    if (Math.abs(ratio - 2) < 0.05) oversamplingFactor = 2;
+    else if (Math.abs(ratio - 4) < 0.05) oversamplingFactor = 4;
+  }
+  const resolvedTarget = Number.isFinite(targetSampleRate)
+    ? Math.max(8000, Math.min(768000, targetSampleRate))
+    : Math.round((typeof nodeGraphBaseSampleRate === "function" ? nodeGraphBaseSampleRate() : 44100) * oversamplingFactor);
   return {
-    targetSampleRate: Number.isFinite(targetSampleRate)
-      ? Math.max(8000, Math.min(768000, targetSampleRate))
-      : 44100,
+    oversamplingFactor,
+    targetSampleRate: resolvedTarget,
     pitchReferenceMidiNote: Number.isFinite(pitchReferenceMidiNote)
       ? Math.max(0, Math.min(127, pitchReferenceMidiNote))
       : 48,

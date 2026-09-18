@@ -48,6 +48,32 @@ NodeLiveAudioProcessor.prototype.processRaptEllipticDecimatorSample = function p
     return y;
 };
 
+NodeLiveAudioProcessor.prototype.decimateRaptEllipticChannel = function decimateRaptEllipticChannel(
+  source,
+  dest,
+  factor,
+  states,
+) {
+    const ratio = (factor === 2 || factor === 4) ? factor : 1;
+    const outFrames = dest?.length || 0;
+    if (!source || !dest || ratio <= 1) {
+      if (source && dest) {
+        const n = Math.min(source.length, dest.length);
+        for (let i = 0; i < n; i += 1) dest[i] = source[i];
+      }
+      return;
+    }
+    let last = 0;
+    for (let frame = 0; frame < outFrames; frame += 1) {
+      for (let sub = 0; sub < ratio; sub += 1) {
+        const idx = frame * ratio + sub;
+        const input = idx < source.length ? source[idx] : 0;
+        last = this.processRaptEllipticDecimatorSample(input, states);
+      }
+      dest[frame] = last;
+    }
+};
+
 NodeLiveAudioProcessor.prototype.outputSampleClipped = function outputSampleClipped(value) {
     return this.badValueReason(value) || value < -0.95 || value > 0.95;
 };

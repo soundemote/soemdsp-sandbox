@@ -255,6 +255,7 @@ const nodeGraphDefaultConnections = Object.freeze([
 const nodeGraphDefaultPatch = Object.freeze({
   activeCameraId: "camera-1",
   audio: {
+    oversamplingFactor: 1,
     targetSampleRate: 44100,
     pitchReferenceMidiNote: 48,
     pitchReferenceHz: 100,

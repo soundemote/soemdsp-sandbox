@@ -44,14 +44,16 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       left: input[0] ?? input[1] ?? null,
       right: input[1] ?? input[0] ?? null,
     };
-    // App-wide: oversampling under construction — never multi-rate in process.
-    const oversamplingRatio = 1;
-    const rawEngineSampleRate = Math.max(1, this.hostSampleRate || this.engineSampleRate || sampleRate || 44100);
+    // App-wide oversampling: process at host*N, Rapt-elliptic decimate to host.
+    const rawFactor = Math.round(Number(this.oversamplingRatio || this.oversamplingFactor || 1));
+    const oversamplingRatio = (rawFactor === 2 || rawFactor === 4) ? rawFactor : 1;
+    const hostRate = Math.max(1, this.hostSampleRate || sampleRate || 44100);
+    const rawEngineSampleRate = Math.max(1, this.engineSampleRate || (hostRate * oversamplingRatio));
     const speedMul = Math.max(0, this.speedMultiplier ?? 1);
     const effectiveRate = speedMul > 0
       ? Math.max(1, rawEngineSampleRate / speedMul)
       : 1;
-    const engineFrames = frames;
+    const engineFrames = frames * oversamplingRatio;
     // Speed 0 = pause: silence and return. Native process_block (and therefore
     // Control smoothers) must not advance — freeze mid-ramps until unpause.
     // Do not snap here; pause→play continues chasing from frozen outs.
@@ -75,9 +77,47 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
 
     // MVEP efficient product: one native graph_process_block per quantum.
     // No evaluateFrame / JS DSP fallback when efficientProduct is on.
-    const usedNativeGraph = Boolean(this.efficientProduct)
-      && typeof this.processNativeGraphQuantum === "function"
-      && this.processNativeGraphQuantum(output, frames);
+    let usedNativeGraph = false;
+    if (Boolean(this.efficientProduct) && typeof this.processNativeGraphQuantum === "function") {
+      if (oversamplingRatio <= 1) {
+        usedNativeGraph = this.processNativeGraphQuantum(output, frames);
+      } else {
+        if (!this._oversampleScratchL || this._oversampleScratchL.length < engineFrames) {
+          this._oversampleScratchL = new Float32Array(engineFrames);
+          this._oversampleScratchR = new Float32Array(engineFrames);
+        }
+        const osOut = [this._oversampleScratchL, this._oversampleScratchR];
+        usedNativeGraph = this.processNativeGraphQuantum(osOut, engineFrames);
+        if (usedNativeGraph && typeof this.decimateRaptEllipticChannel === "function") {
+          this.decimateRaptEllipticChannel(
+            this._oversampleScratchL,
+            output[0],
+            oversamplingRatio,
+            this.raptEllipticDecimatorLeft,
+          );
+          const destR = output[1] || output[0];
+          if (destR && destR !== output[0]) {
+            this.decimateRaptEllipticChannel(
+              this._oversampleScratchR,
+              destR,
+              oversamplingRatio,
+              this.raptEllipticDecimatorRight,
+            );
+          } else if (output[0]) {
+            this.decimateRaptEllipticChannel(
+              this._oversampleScratchR,
+              this._oversampleScratchL,
+              oversamplingRatio,
+              this.raptEllipticDecimatorRight,
+            );
+          }
+        } else if (!usedNativeGraph) {
+          for (const channel of output) {
+            if (channel) channel.fill(0);
+          }
+        }
+      }
+    }
     if (this.efficientProduct && !usedNativeGraph) {
       for (const channel of output) {
         if (channel) channel.fill(0);
