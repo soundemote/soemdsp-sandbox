@@ -50,3 +50,7 @@ No explicit `sampleDelay`. Closing the loop (`lpf2` → `fbVca`) is a scheduler 
 
 
 Uses **Mix2** (In1/In2 → Mix/Out1/Out2; Amplitude1/2/Amplitude). Passive Filter Mono → Output Mono.
+
+## Rev1 reference (2026-09-18 retune)
+
+Aligned gains/spans with FlowerChildRev1 (LP24 Clean) in FlowerChildFilterCore.h: input bleed ~0.03585 (inverted), mix drive 1.4, osc amp 1.3, F span ~9.7–15kHz with LPF ratios 0.164312/0.366131, resGraph to selfMod 0.0368–0.6333, output makeup ~+2.3 dB. Still missing FM/PM crossfade and chaos.
