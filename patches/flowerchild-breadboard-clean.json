@@ -250,6 +250,11 @@
           "morph": 0.5,
           "polarity": 0,
           "amplitude": 1.3
+        },
+        "paramMeta": {
+          "frequency": {
+            "outputDomain": true
+          }
         }
       },
       {
@@ -457,7 +462,7 @@
             "wraparound": false,
             "visible": true,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           },
           "sweep": {
             "alias": "",
@@ -768,7 +773,7 @@
             "wraparound": false,
             "visible": true,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           },
           "sweep": {
             "alias": "",
@@ -1624,7 +1629,7 @@
             "wraparound": false,
             "visible": false,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           },
           "inHigh": {
             "alias": "",
@@ -1657,7 +1662,7 @@
             "wraparound": false,
             "visible": false,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           },
           "outLow": {
             "alias": "",
@@ -1690,7 +1695,7 @@
             "wraparound": false,
             "visible": true,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           },
           "outHigh": {
             "alias": "",
@@ -1723,7 +1728,7 @@
             "wraparound": false,
             "visible": true,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           }
         },
         "title": "Freq"
@@ -2155,7 +2160,7 @@
             "wraparound": false,
             "visible": false,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           },
           "inHigh": {
             "alias": "",
@@ -2188,7 +2193,7 @@
             "wraparound": false,
             "visible": false,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           },
           "outLow": {
             "alias": "",
@@ -2221,7 +2226,7 @@
             "wraparound": false,
             "visible": true,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           },
           "outHigh": {
             "alias": "",
@@ -2254,7 +2259,7 @@
             "wraparound": false,
             "visible": true,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           }
         },
         "title": "LPF1"
@@ -2354,7 +2359,7 @@
             "wraparound": false,
             "visible": false,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           },
           "inHigh": {
             "alias": "",
@@ -2387,7 +2392,7 @@
             "wraparound": false,
             "visible": false,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           },
           "outLow": {
             "alias": "",
@@ -2420,7 +2425,7 @@
             "wraparound": false,
             "visible": true,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           },
           "outHigh": {
             "alias": "",
@@ -2453,7 +2458,7 @@
             "wraparound": false,
             "visible": true,
             "linearSmoothing": true,
-            "outputDomain": false
+            "outputDomain": true
           }
         },
         "title": "LPF2"

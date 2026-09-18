@@ -360,7 +360,20 @@ function nodeGraphParamModAccumulators(sources, metadata = {}) {
 function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
   const baseN = Number(base);
   const b = Number.isFinite(baseN) ? baseN : 0;
-  const { unitAdd, domainAdd, domainReplace } = nodeGraphParamModAccumulators(sources, metadata);
+  let { unitAdd, domainAdd, domainReplace } = nodeGraphParamModAccumulators(sources, metadata);
+  // Destination "Use real mod values": any plugged MOD replaces the slider (old ƒ semantics).
+  if (metadata && metadata.outputDomain === true && Array.isArray(sources) && sources.length) {
+    domainReplace = true;
+    if (!domainAdd) {
+      let sum = 0;
+      for (const raw of sources) {
+        const n = Number(raw && typeof raw === "object" ? (raw.value ?? raw.mod ?? raw.sample) : raw);
+        if (Number.isFinite(n)) sum += n;
+      }
+      domainAdd = sum;
+      unitAdd = 0;
+    }
+  }
   const min = Number(metadata.min);
   const max = Number(metadata.max);
   const range = max - min;
