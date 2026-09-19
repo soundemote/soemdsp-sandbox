@@ -133,6 +133,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "chebyshev",
   "elliptic",
   "eqFilter",
+  "graphicEq",
   "activeFilter",
   "passiveFilter",
   "tb303Filter",

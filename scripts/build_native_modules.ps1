@@ -351,6 +351,15 @@ $modules = @(
   @{ Name = "rotate_3d_to_2d"; Simd = $false; Exports = @("soemdsp_rotate_3d_to_2d_sample", "soemdsp_rotate_3d_to_2d_version", "soemdsp_rotate_3d_to_2d_metadata_json", "soemdsp_rotate_3d_to_2d_metadata_json_size") }
   @{ Name = "clipper_limiter"; Simd = $false; Exports = @("soemdsp_clipper_limiter_create", "soemdsp_clipper_limiter_destroy", "soemdsp_clipper_limiter_sample", "soemdsp_clipper_limiter_version", "soemdsp_clipper_limiter_metadata_json", "soemdsp_clipper_limiter_metadata_json_size") }
   @{ Name = "eq_filter"; Simd = $false; Exports = @("soemdsp_eq_filter_create", "soemdsp_eq_filter_destroy", "soemdsp_eq_filter_sample", "soemdsp_eq_filter_version", "soemdsp_eq_filter_metadata_json", "soemdsp_eq_filter_metadata_json_size") }
+  @{ Name = "graphic_eq"; Simd = $false; Exports = @(
+    "soemdsp_graphic_eq_create", "soemdsp_graphic_eq_destroy", "soemdsp_graphic_eq_reset",
+    "soemdsp_graphic_eq_set_band", "soemdsp_graphic_eq_set_bands",
+    "soemdsp_graphic_eq_band_count", "soemdsp_graphic_eq_band_hz",
+    "soemdsp_graphic_eq_sample",
+    "soemdsp_graphic_eq_version", "soemdsp_graphic_eq_metadata_json",
+    "soemdsp_graphic_eq_metadata_json_size"
+  ) }
+
   @{ Name = "inertial_filter"; Simd = $false; Exports = @("soemdsp_inertial_filter_create", "soemdsp_inertial_filter_destroy", "soemdsp_inertial_filter_sample", "soemdsp_inertial_filter_version", "soemdsp_inertial_filter_metadata_json", "soemdsp_inertial_filter_metadata_json_size") }
   @{ Name = "lookahead_limiter"; Simd = $false; Exports = @("soemdsp_lookahead_limiter_create", "soemdsp_lookahead_limiter_destroy", "soemdsp_lookahead_limiter_sample", "soemdsp_lookahead_limiter_left", "soemdsp_lookahead_limiter_right", "soemdsp_lookahead_limiter_gain", "soemdsp_lookahead_limiter_version", "soemdsp_lookahead_limiter_metadata_json", "soemdsp_lookahead_limiter_metadata_json_size") }
   @{ Name = "pumping_limiter"; Simd = $false; Exports = @("soemdsp_pumping_limiter_create", "soemdsp_pumping_limiter_destroy", "soemdsp_pumping_limiter_sample", "soemdsp_pumping_limiter_left", "soemdsp_pumping_limiter_right", "soemdsp_pumping_limiter_gain", "soemdsp_pumping_limiter_env", "soemdsp_pumping_limiter_version", "soemdsp_pumping_limiter_metadata_json", "soemdsp_pumping_limiter_metadata_json_size") }

@@ -137,6 +137,17 @@ function nodeGraphRequestControllerParamSnap(nodeId, paramKey) {
   set.add(key);
 }
 
+/** Take queued alt-click snaps for one node (clears that node). */
+function nodeGraphTakePendingParamSnaps(nodeId) {
+  const map = nodeGraphMvp?.pendingControllerParamSnaps;
+  if (!map) return null;
+  const id = String(nodeId || "");
+  const set = map.get(id);
+  if (!set || !set.size) return null;
+  map.delete(id);
+  return [...set];
+}
+
 function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
   const node = slider?.closest(".dsp-node")?.dataset.node;
   const key = slider?.dataset.param;
@@ -572,8 +583,11 @@ if (typeof document !== "undefined") {
   });
 }
 
-function nodeSliderValueFromPointer(slider, surface, clientX) {
-  return nodeSliderValueFromPointerTravel(slider, nodeSliderTravelFromPointer(slider, surface, clientX));
+function nodeSliderValueFromPointer(slider, surface, clientX, clientY) {
+  return nodeSliderValueFromPointerTravel(
+    slider,
+    nodeSliderTravelFromPointer(slider, surface, clientX, clientY),
+  );
 }
 
 function nodeSliderFineTuneScale(event) {
@@ -741,11 +755,16 @@ function bindNodeGraphNativeSliderModifiers(input, defaultValue) {
     const { min, max, span } = nodeGraphNativeRangeSpan(input);
     const rect = input.getBoundingClientRect();
     const travelWidth = Math.max(48, rect.width || 0);
-    // Alt click = jump to pointer (same as module face sliders).
+    // Alt click = jump to pointer and snap smoother (same as module face sliders).
     const jumpToPointer = event.altKey && !(event.shiftKey && (event.ctrlKey || event.metaKey));
     if (jumpToPointer && travelWidth > 0) {
       const t = Math.max(0, Math.min(1, (event.clientX - rect.left) / travelWidth));
       emit(clamp(min + t * span), { inputOnly: true });
+      const nodeId = input.closest?.(".dsp-node")?.dataset?.node;
+      const paramKey = input.dataset?.param;
+      if (nodeId && paramKey && typeof nodeGraphRequestControllerParamSnap === "function") {
+        nodeGraphRequestControllerParamSnap(nodeId, paramKey);
+      }
     }
     nodeGraphNativeRangeDrag = {
       input,
@@ -1038,7 +1057,7 @@ function nodeSliderValueAtPointer(slider, surface, event) {
   }
   return nodeSliderShouldDisplayChoices(slider) && nodeSliderShouldDivideChoicesVisibly(slider)
     ? nodeSliderSegmentValueFromPointer(slider, surface, event.clientX)
-    : nodeSliderValueFromPointer(slider, surface, event.clientX);
+    : nodeSliderValueFromPointer(slider, surface, event.clientX, event.clientY);
 }
 
 function setNodeSliderValueAtPointer(slider, surface, event, options = {}) {
@@ -1096,13 +1115,15 @@ function beginNodeSliderDrag(event) {
   // instead of a second drag. Face surfaces edit the linked Bias readout.
   const lastDown = nodeGraphMvp.sliderLastPointerDown;
   const now = performance.now();
-  const isDoubleClick =
+  const altClick = Boolean(event.altKey);
+  const isDoubleClick = !altClick && (
     event.detail > 1 ||
     (lastDown &&
       lastDown.surface === surface &&
       now - lastDown.time < 400 &&
       Math.abs(event.clientX - lastDown.x) < 6 &&
-      Math.abs(event.clientY - lastDown.y) < 6);
+      Math.abs(event.clientY - lastDown.y) < 6)
+  );
   nodeGraphMvp.sliderLastPointerDown = { surface, time: now, x: event.clientX, y: event.clientY };
   // Button faces: double-click must not open type-in. Knob face does (Bias type-in).
   const skipTypeIn = surface.classList.contains("node-plugin-slider-face")
@@ -1194,14 +1215,8 @@ function dragNodeSlider(event) {
     drag.moved = true;
   }
 
-  // ALT+click: jump slider to pointer position.
-  if (event.altKey && !(event.shiftKey && (event.ctrlKey || event.metaKey))) {
-    if (setNodeSliderValueAtPointer(drag.slider, drag.surface, event, { interaction: "drag" })) {
-      reanchorNodeSliderDragAtPointer(drag, event);
-    }
-    event.preventDefault();
-    return;
-  }
+  // Alt-click already snapped on pointerdown. Further motion (incl. alt-drag)
+  // is relative chase so Parameter Settings smoothing runs again.
 
   // Fine/coarse scale from modifier keys — live per-event.
   // Re-anchor travel AND pointer origin when scale changes so releasing Shift

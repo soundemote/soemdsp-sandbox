@@ -4923,27 +4923,33 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   padding: 0;
 }
 
+/* Toolbar emoji buttons: one CSS size from the button box (not JS). */
 #nodeCommandCenterButton,
+#nodeSettingsViewButton,
+#nodeSettingsSaveScriptButton,
 #nodeModuleShopButton,
 #nodeModularInfiniteViewButton,
 #nodeModularWindowedViewButton,
-#nodeSettingsSaveScriptButton,
 #nodeToolbarPastePatchButton {
   padding: 6px;
+  container-type: size;
 }
 
-.node-modular-view-icon {
+#nodeCommandCenterButton > .node-modular-view-icon,
+#nodeSettingsViewButton > .node-modular-view-icon,
+#nodeSettingsSaveScriptButton > .node-modular-view-icon,
+#nodeModuleShopButton > .node-modular-view-icon,
+#nodeModularInfiniteViewButton > .node-modular-view-icon,
+#nodeModularWindowedViewButton > .node-modular-view-icon,
+#nodeToolbarPastePatchButton > .node-modular-view-icon {
   display: grid;
   place-items: center;
-  align-self: stretch;
-  justify-self: stretch;
   width: 100%;
   height: 100%;
-  min-width: 0;
-  min-height: 0;
-  font-size: clamp(1rem, 70%, 2.35rem);
+  margin: 0;
+  padding: 0;
+  font-size: min(100cqw, 100cqh);
   line-height: 1;
-  overflow: hidden;
 }
 
 #nodeDonateFiveButton,
@@ -13525,10 +13531,10 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro .node-macro-knob-label,
 .node-knob-face.node-knob-module-macro .node-macro-knob-label {
   flex: 0 0 auto;
-  line-height: 1.05;
+  line-height: 1;
   max-height: none;
-  /* Size is JS-fit to the knob square (Label size 0…1). Rem is first-paint only. */
-  font-size: calc(var(--knob-label-size, 0.45) * 1em);
+  /* Label size 0…1 × Dial size 0…1 × dial cell (--knob-cell from JS). */
+  font-size: calc(var(--knob-label-size, 0.45) * var(--knob-dial-size, 1) * var(--knob-cell, 0.68rem));
   pointer-events: auto;
   cursor: text;
   user-select: text;
@@ -13571,7 +13577,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .node-layout-canvas-tile .node-knob-face .node-macro-knob-dial > .node-macro-knob-value,
 .node-screen-solo-stage .node-knob-face .node-macro-knob-dial > [data-knob-face-readout],
 .node-metamodule-canvas-stage .node-knob-face .node-macro-knob-dial > [data-knob-face-readout] {
-  font-size: calc(0.28rem + var(--knob-value-size, 0.45) * 1.55rem);
+  /* Value size 0…1 × Dial size 0…1 × dial cqmin (same square as the arc). */
+  font-size: calc(var(--knob-value-size, 0.45) * var(--knob-dial-size, 1) * 100cqmin);
+  line-height: 1;
 }
 
 .dsp-node .node-knob-face[data-knob-value-position="above"] .node-macro-knob-dial > [data-knob-face-readout],
@@ -13619,8 +13627,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 /* Dial scales with face (not fixed 42px bank size).
    Use container min side so the circle fits inside the dial (was width-only
    and clipped the top on wide 5×3 faces). Soften drop-shadow bleed. */
-/* Knob module plate: dial Size 0…1 (--knob-dial-size) scales only the arc.
-   1 = fill available dial cell; label/value unscaled. No glow ring. */
+/* Knob module plate: dial Size 0…1 (--knob-dial-size) scales the arc.
+   Label/value use the same factor via CSS (× --knob-*-size × cell). No glow. */
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro i,
 .node-knob-face.node-knob-module-macro i {
   width: min(100cqmin, 100%);
@@ -13634,386 +13642,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   outline: none;
   box-shadow: none;
   border: none;
-}
-
-/* Value readout a bit larger on the module plate. */
-.dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro .node-macro-knob-dial strong,
-.node-knob-face.node-knob-module-macro .node-macro-knob-dial strong {
-  color: var(--text);
-}
-
-/* Image art loaded: hide shared macro dial chrome; layers take the face. */
-.node-knob-face.has-image .node-macro-knob-dial,
-.node-knob-face.has-image [data-knob-face-dial] {
-  display: none !important;
-}
-
-.node-knob-face.has-image .node-macro-knob-label,
-.node-knob-face.has-image [data-knob-face-label] {
-  display: none !important;
-}
-
-/*
- * Empty face plate: dim chrome stroke (legacy non-macro plate). Macro dial
- * uses solid background from Display Settings instead.
- */
-.node-knob-face:not(.node-knob-module-macro):not(.has-image) {
-  --knob-empty-stroke-inset: 4px;
-  justify-content: flex-start;
-  padding-top: calc(var(--node-grid-size) * 0.28);
-  gap: 2px;
-  border: none;
-  outline: 1px solid rgba(243, 241, 236, 0.26);
-  outline-offset: calc(-1 * var(--knob-empty-stroke-inset, 4px));
-  box-shadow: none;
-}
-
-.node-knob-face.node-knob-module-macro {
-  outline: none !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-
-/* With face art: no plate stroke. */
-.node-knob-face.has-image {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/* Focus / active / drag: never show a plate stroke on knob faces. */
-.node-knob-face:focus,
-.node-knob-face:focus-visible,
-.node-knob-face:active,
-.node-knob-face.value-dragging,
-.node-knob-face.has-image:focus,
-.node-knob-face.has-image:focus-visible,
-.node-knob-face.has-image:active {
-  border: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-}
-
-/* Empty Knob: frame kept for hit layout only — never paint a stroke. */
-.dsp-node.slider-widget-layout:not(.knob-face-has-image) > .node-module-frame {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  pointer-events: none !important;
-}
-
-.dsp-node.slider-widget-layout:not(.knob-face-has-image) > .node-module-frame .node-module-frame-path {
-  stroke: transparent !important;
-  stroke-width: 0 !important;
-  stroke-opacity: 0 !important;
-  fill: none !important;
-}
-
-.dsp-node.slider-widget-layout:not(.knob-face-has-image).selected > .node-module-frame .node-module-frame-path {
-  stroke: transparent !important;
-  stroke-width: 0 !important;
-}
-
-.node-knob-face.value-dragging {
-  cursor: var(--node-dot-cursor);
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/*
- * Face art: keep module plate; no nested face plate.
- * Critical: empty <img> layers must stay display:none. Author `display:block`
- * was overriding the [hidden] attribute, so cleared/empty layers showed the
- * browser broken-image icon (classic ~#C0C0C0 silver frame) that flickered
- * with zoom.
- */
-.dsp-node.slider-widget-layout.knob-face-has-image .node-solid-module-custom-ui,
-.dsp-node.slider-widget-layout[data-hide-module-frame="1"] .node-solid-module-custom-ui {
-  overflow: hidden;
-}
-
-.node-knob-face.has-image {
-  --knob-face-image-inset: 0%;
-  padding: 0;
-  background: transparent;
-  border: none;
-  outline: none;
-  box-shadow: none;
-  overflow: hidden;
-}
-
-.node-knob-face.has-image .node-knob-face-layer {
-  overflow: hidden;
-  border: none;
-  outline: none;
-  box-shadow: none;
-  background: transparent;
-}
-
-.node-knob-face.has-image .node-knob-face-layer.is-empty {
-  display: none !important;
-}
-
-/* Image layers: image1 (back) … image6 (front). Each may rotate with Bias. */
-.node-knob-face-layer {
-  position: absolute;
-  inset: var(--knob-face-image-inset, 6%);
-  display: grid;
-  place-items: center;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  pointer-events: none;
-  transform-origin: 50% 50%;
-  transition: transform 40ms linear;
-  border: none;
-  outline: none;
-  background: transparent;
-}
-
-.node-knob-face-layer.is-empty {
-  display: none !important;
-}
-
-.node-knob-face-layer.is-rotating {
-  /* keep transition for live Bias drag */
-}
-
-.node-knob-face-image {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  background: transparent;
-  user-select: none;
-  -webkit-user-drag: none;
-  pointer-events: none;
-}
-
-/* Author display:block must not defeat [hidden] — broken-image chrome is silver. */
-.node-knob-face-image[hidden],
-.node-knob-face-image.is-empty,
-.node-knob-face-image:not([src]) {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  visibility: hidden !important;
-}
-
-.node-knob-face-label {
-  position: relative;
-  z-index: 5;
-  box-sizing: border-box;
-  flex: 0 0 auto;
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-  padding: 0 4px;
-  overflow: hidden;
-  color: rgba(217, 236, 240, 0.72);
-  /* Normal case (not ALL CAPS). Up to two rows inside the face; then ellipsis. */
-  font: 600 clamp(0.55rem, calc(var(--node-grid-size) * 0.38), 0.78rem) / 1.15 var(--node-mono-font);
-  letter-spacing: 0.02em;
-  text-align: center;
-  text-transform: none;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  max-height: calc(1.15em * 2);
-  pointer-events: none;
-}
-
-.node-knob-face.has-image .node-knob-face-label {
-  display: none;
-}
-
-/* Knob image layers: Display Settings (and legacy Module Settings markup). */
-.node-knob-face-controls .node-knob-face-layer-stack,
-.node-knob-face-display-layers .node-knob-face-layer-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.node-knob-face-controls .node-knob-face-layer-row,
-.node-knob-face-display-layers .node-knob-face-layer-row {
-  display: grid;
-  grid-template-columns: auto auto auto minmax(0, 1fr);
-  align-items: center;
-  gap: 4px 5px;
-  margin: 0;
-  padding: 3px 0;
-  min-width: 0;
-  border-bottom: 1px solid rgba(128, 224, 224, 0.1);
-}
-
-.node-knob-face-controls .node-knob-face-layer-row:last-of-type,
-.node-knob-face-display-layers .node-knob-face-layer-row:last-of-type {
-  border-bottom: 0;
-}
-
-.node-knob-face-controls .node-knob-face-layer-label {
-  display: none;
-}
-
-.node-knob-face-controls .node-knob-face-layer-row button,
-.node-knob-face-display-layers .node-knob-face-layer-row button {
-  margin: 0;
-  padding: 2px 7px;
-  font: 600 0.66rem/1.2 var(--node-mono-font);
-  min-height: 0;
-}
-
-.node-knob-face-controls .node-knob-face-filename,
-.node-knob-face-display-layers .node-knob-face-filename {
-  margin: 0;
-  min-width: 0;
-  color: var(--muted);
-  font: 600 0.64rem/1.2 var(--node-mono-font);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.node-knob-face-controls .node-knob-face-check,
-.node-knob-face-display-layers .node-knob-face-check {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin: 0;
-  white-space: nowrap;
-  font: 600 0.64rem/1.2 var(--node-mono-font);
-  color: var(--muted);
-}
-
-.node-knob-face-display-hint {
-  margin: 0 0 6px;
-  color: var(--muted);
-  font: 0.66rem/1.3 var(--mono);
-}
-
-.node-knob-face-controls .node-knob-face-rotate-inline {
-  margin: 0;
-  padding: 1px 5px;
-  border: 1px solid rgba(127, 199, 217, 0.2);
-  border-radius: 4px;
-  background: rgba(8, 14, 18, 0.55);
-  color: rgba(220, 234, 238, 0.88);
-  font: 600 0.64rem/1 var(--node-mono-font);
-  text-transform: lowercase;
-}
-
-.node-knob-face-controls .node-knob-face-rotate-inline input {
-  margin: 0;
-}
-
-.node-knob-face-controls .node-knob-face-shared-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px 10px;
-  margin-top: 4px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(128, 224, 224, 0.1);
-  overflow: visible;
-  min-width: 0;
-}
-
-.node-knob-face-controls .node-knob-face-shared-row .node-knob-face-num-field {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  flex: 0 0 auto;
-  min-width: 0;
-}
-
-.node-knob-face-controls .node-knob-face-shared-row .node-knob-face-num-field > span {
-  font: 600 0.62rem/1 var(--node-mono-font);
-  color: var(--muted);
-  letter-spacing: 0.03em;
-  text-transform: lowercase;
-}
-
-.node-knob-face-controls .node-knob-face-shared-row input[type="number"] {
-  width: 4.5em;
-  min-width: 0;
-  padding: 2px 4px;
-  font: 600 0.72rem/1.2 var(--node-mono-font);
-}
-
-.node-patch-command-body {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  min-width: 0;
-  min-height: 0;
-  background:
-    radial-gradient(circle at 50% 36%, rgba(127, 199, 217, 0.12), transparent 54%),
-    linear-gradient(180deg, rgba(17, 23, 27, 0.96), rgba(7, 10, 13, 0.96));
-  color: var(--text);
-  text-align: center;
-}
-
-.node-patch-command-body strong {
-  color: rgba(127, 199, 217, 0.94);
-  font: 900 0.82rem/1 var(--mono);
-}
-
-.node-patch-command-body span {
-  color: var(--muted);
-  font: 650 0.58rem/1 var(--mono);
-}
-
-.dsp-node.macro-controls-layout > .node-macro-controls-module {
-  align-self: stretch;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  margin: 0;
-  padding: 4px;
-  border: none;
-  background: var(--macro-controls-bg, #000000);
-}
-
-.dsp-node.badval-monitor-layout > .node-badval-monitor-body {
-  align-self: stretch;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  pointer-events: auto;
-}
-
-/* Pitch Detector: one continuous LED plate; tight Hz/Fid labels at bottom (no bar). */
-.dsp-node.pitch-detector-layout > .node-pitch-detector-face {
-  position: relative;
-  z-index: 2; /* above plate mask */
-  align-self: stretch;
-  box-sizing: border-box;
-  /* LED flex-fills; Hz/Fid is content-height (text px + tiny pad). */
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  /* Square corners — bottom rounding was clipping the Hz/8ve/M meta row. */
-  border-radius: 0 !important;
-  corner-shape: square;
-  overflow: hidden;
-  pointer-events: auto;
-  background: #000004;
-  border: 1px solid rgba(127, 199, 217, 0.16);
 }
 
 /* Phosphor LED plate — all remaining space above the content-sized meta row. */
@@ -16170,6 +15798,32 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   appearance: none;
   -webkit-appearance: none;
   margin: 0;
+}
+
+.node-header-oversampling-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: var(--node-dot-cursor);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(45deg, transparent 50%, #ffffff 50%),
+    linear-gradient(135deg, #ffffff 50%, transparent 50%);
+  background-position: calc(100% - 0.85em) 50%, calc(100% - 0.55em) 50%;
+  background-size: 0.32em 0.32em, 0.32em 0.32em;
+  background-repeat: no-repeat;
+  color: #ffffff;
+  padding-inline: 0.35em 1.2em;
+}
+
+.node-header-oversampling-select:focus {
+  background-color: var(--bg);
+  color: #ffffff;
+}
+
+.node-header-oversampling-select option {
+  background-color: var(--bg);
+  color: #ffffff;
 }
 
 .dsp-node.buttons-hidden .node-header-actions {
@@ -19437,15 +19091,17 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   min-width: 0;
   min-height: var(--ds-latch-h, var(--metadata-control-row-height, 22px));
   margin: 0;
-  padding: var(--metadata-row-pad-y, 3px) 0;
+  padding: 3px 4px;
   border: 1px solid var(--line);
   border-radius: 0;
   background: rgba(5, 9, 11, 0.55);
   color: color-mix(in srgb, var(--text) 48%, transparent);
   font-family: Consolas, "Courier New", monospace;
   font-weight: 600;
-  font-size: 0.72rem; /* floor; AppLatchButton.fitLabel sets size */
+  /* Size once via label + container; no JS fitLabel. */
+  font-size: inherit;
   line-height: 1;
+  container-type: size;
   cursor: var(--node-dot-cursor);
   overflow: hidden;
   user-select: none;
@@ -19509,12 +19165,16 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .app-latch-button-label {
   display: block;
   max-width: 100%;
+  margin: 0;
+  padding: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
   line-height: 1;
   pointer-events: none;
   text-align: center;
+  /* One size from the button content box (height-capped; width clips). */
+  font-size: min(70cqh, 100cqw);
 }
 
 .node-parameter-metadata-popover :is(input, textarea, select),
@@ -21458,6 +21118,12 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   background: transparent;
   font-size: 1.05rem;
   font-weight: 700;
+  text-align: left;
+}
+
+.scene-context-timing-controls .node-header-oversampling-select {
+  background-color: var(--bg);
+  color: #ffffff;
   text-align: left;
 }
 

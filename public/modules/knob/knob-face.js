@@ -1019,6 +1019,9 @@ function attachNodeGraphKnobFaceDrag(face) {
   face.addEventListener("dblclick", (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (event.altKey) {
+      return;
+    }
     if (typeof beginNodeGraphKnobFaceValueEdit === "function") {
       beginNodeGraphKnobFaceValueEdit(face, event);
     }

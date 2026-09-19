@@ -108,6 +108,21 @@ function nodeGraphPointerDragTravelDelta(startClientX, startClientY, clientX, cl
 }
 
 /**
+ * Absolute 0…1 travel from a point in a square, same axes as drag:
+ * right and up increase. Lower-left = 0, upper-right = 1, center = 0.5.
+ * `spanPx` is the square side (knob dial min(width,height)).
+ */
+function nodeGraphPointerAbsoluteTravel(clientX, clientY, rect, spanPx) {
+  const span = Math.max(1, nodeGraphFiniteNumber(spanPx, 1));
+  const box = rect && typeof rect === "object" ? rect : { left: 0, top: 0, width: span, height: span };
+  const left = nodeGraphFiniteNumber(box.left) + (nodeGraphFiniteNumber(box.width, span) - span) * 0.5;
+  const top = nodeGraphFiniteNumber(box.top) + (nodeGraphFiniteNumber(box.height, span) - span) * 0.5;
+  const u = (nodeGraphFiniteNumber(clientX) - left) / span;
+  const v = (top + span - nodeGraphFiniteNumber(clientY)) / span;
+  return (u + v) * 0.5;
+}
+
+/**
  * True when the diagonal drag has moved past a small click threshold.
  */
 function nodeGraphPointerDragExceededMoveThreshold(startClientX, startClientY, clientX, clientY, thresholdPx = 1) {
@@ -850,14 +865,16 @@ function nodeSliderHandleRangeFromTravel(slider, surface, travel) {
   };
 }
 
-function nodeSliderTravelFromPointer(slider, surface, clientX) {
+function nodeSliderTravelFromPointer(slider, surface, clientX, clientY) {
   const drag = nodeGraphMvp?.sliderDragging;
   const knob = typeof nodeSliderKnobDragMetrics === "function"
     ? nodeSliderKnobDragMetrics(surface)
     : null;
   if (knob) {
-    const x = clientX - knob.rect.left;
-    return normalizeNodeSliderTravel(slider, x / Math.max(1, knob.travelWidth));
+    const travel = typeof nodeGraphPointerAbsoluteTravel === "function"
+      ? nodeGraphPointerAbsoluteTravel(clientX, clientY, knob.rect, knob.travelWidth)
+      : (clientX - knob.rect.left) / Math.max(1, knob.travelWidth);
+    return normalizeNodeSliderTravel(slider, travel);
   }
   const rect = (drag && drag.surface === surface && drag.surfaceRect)
     ? drag.surfaceRect

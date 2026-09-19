@@ -178,6 +178,12 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
         params,
         type: node.type,
       };
+      if (typeof nodeGraphTakePendingParamSnaps === "function") {
+        const snaps = nodeGraphTakePendingParamSnaps(node.id);
+        if (snaps && snaps.length) {
+          runtimeNode._pendingSnapParams = snaps;
+        }
+      }
       // Metamodule / Group ownership — required for Polyphony voice lanes.
       if (node.ownerMetamoduleId) {
         runtimeNode.ownerMetamoduleId = String(node.ownerMetamoduleId);
@@ -263,6 +269,12 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
         params,
         type: node.type,
       };
+      if (typeof nodeGraphTakePendingParamSnaps === "function") {
+        const snaps = nodeGraphTakePendingParamSnaps(node.id);
+        if (snaps && snaps.length) {
+          runtimeNode._pendingSnapParams = snaps;
+        }
+      }
       if (node.ownerMetamoduleId) {
         runtimeNode.ownerMetamoduleId = String(node.ownerMetamoduleId);
       }

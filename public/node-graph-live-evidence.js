@@ -6,7 +6,7 @@ function setNodeGraphLiveEvidence(kind = "idle", details = {}) {
     active: Boolean(nodeGraphMvp.live.node || nodeGraphMvp.live.context),
     connectionCount: nodeGraphFiniteNumber(details.connectionCount ?? planEvidence.connectionCount),
     currentPatchFingerprint,
-    engine: nodeGraphMvp.live.usesWorklet ? "worklet" : nodeGraphMvp.live.runtime ? "fallback" : "idle",
+    engine: nodeGraphMvp.live.usesWorklet ? "worklet" : "idle",
     engineSampleRate: nodeGraphFiniteNumber(details.engineSampleRate ?? planEvidence.engineSampleRate),
     feedbackConnectionCount: nodeGraphFiniteNumber(details.feedbackConnectionCount ?? planEvidence.feedbackConnectionCount),
     feedbackModulationCount: nodeGraphFiniteNumber(details.feedbackModulationCount ?? planEvidence.feedbackModulationCount),

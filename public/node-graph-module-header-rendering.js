@@ -133,6 +133,12 @@ function commitNodeGraphHeaderNumberInput(input) {
   ) {
     return;
   }
+  if (input.tagName === "SELECT") {
+    if (input.dataset.audioField) {
+      updateNodeGraphPatchAudioFromHeader(input);
+    }
+    return;
+  }
   if (input.dataset.timingField) {
     updateNodeGraphPatchTimingFromHeader(input);
   } else if (input.dataset.audioField) {
@@ -159,6 +165,9 @@ function commitNodeGraphHeaderNumberInput(input) {
 function bindNodeGraphHeaderTimingWidgets(root = document) {
   for (const input of root.querySelectorAll(".node-header-timing-input")) {
     if (input.dataset.timingBound === "true") {
+      continue;
+    }
+    if (input.tagName === "SELECT" || input.classList.contains("node-header-oversampling-select")) {
       continue;
     }
     // Render Sample Start/End: own handlers in createNodeGraphHeaderRenderRangeInput
@@ -649,7 +658,7 @@ function createNodeGraphOversamplingFactorField() {
   field.dataset.tooltipKey = "timing.oversamplingFactor";
   const caption = document.createElement("span");
   caption.className = "node-header-timing-caption";
-  caption.textContent = "OS";
+  caption.textContent = "Oversample";
   const colon = document.createElement("span");
   colon.className = "node-header-timing-colon";
   colon.textContent = ":";
@@ -748,10 +757,14 @@ function renderNodeGraphCommandCenterTimingControls() {
   if (!host) {
     return;
   }
+  const osSelect = host.querySelector("#nodeHeaderOversamplingFactor");
+  const osCaption = host.querySelector(".node-header-oversampling-field .node-header-timing-caption");
   if (
     !host.querySelector(".node-command-center-timing-widgets")
     || !host.querySelector(".node-header-planck-readout")
-    || !host.querySelector("#nodeHeaderOversamplingFactor")
+    || !osSelect
+    || (osCaption && osCaption.textContent !== "Oversample")
+    || (osSelect && osSelect.dataset.timingBound === "true")
     || !host.querySelector(".node-header-sample-rate-value")
     || !host.querySelector('.node-header-timing-input[data-audio-field="pitchOffsetOctaves"]')
   ) {

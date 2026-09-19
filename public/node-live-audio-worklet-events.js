@@ -334,6 +334,9 @@ NodeLiveAudioProcessor.prototype.setParams = function setParams(nodes, message =
         current.samplePhaseSeek = Math.max(0, Math.round(Number(node.samplePhaseSeek)) || 0);
       }
       parameterCount += Object.keys(current.params || {}).length;
+      if (Array.isArray(node._pendingSnapParams) && node._pendingSnapParams.length) {
+        current._pendingSnapParams = node._pendingSnapParams.slice();
+      }
       // Legacy JS chase only for ?product=full — efficient path is write-only.
       if (!this.efficientProduct) {
         for (const [key, value] of Object.entries(current.params || {})) {
@@ -351,9 +354,15 @@ NodeLiveAudioProcessor.prototype.setParams = function setParams(nodes, message =
       this.activeSmoothers = [];
       this.activeSmootherKeys?.clear?.();
     }
+    if (typeof this.applyPendingParamSnaps === "function") {
+      this.applyPendingParamSnaps();
+    }
     // Efficient mode: push Control targets into native graph (no recompile).
     if (this.efficientProduct && typeof this.syncNativeGraphParams === "function") {
       this.syncNativeGraphParams();
+    }
+    if (typeof this.clearPendingParamSnaps === "function") {
+      this.clearPendingParamSnaps();
     }
     this.port.postMessage({
       nodeCount: this.nodes.size,

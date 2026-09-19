@@ -144,6 +144,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   chebyshev: 55,
   elliptic: 56,
   eqFilter: 57,
+  graphicEq: 171,
   activeFilter: 58,
   passiveFilter: 59,
   tb303Filter: 60,
@@ -205,6 +206,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_VOLUME_DB = 0;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PAN = 1;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FREQUENCY = 10;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_GRAPHIC_EQ_BAND0 = 300;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WAVEFORM = 11;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE = 12;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE = 13;
@@ -1104,6 +1106,26 @@ NodeLiveAudioProcessor.prototype.snapNativeGraphControls = function snapNativeGr
     return (native.soemdsp_graph_snap_controls(this.nativeGraphHandle) | 0) === 0;
   } catch (_e) {
     return false;
+  }
+};
+
+/** Alt-click: settle JS controller smoothers (Knob Bias). Native snap is in pushChanged. */
+NodeLiveAudioProcessor.prototype.applyPendingParamSnaps = function applyPendingParamSnaps() {
+  if (!this.nodes) return;
+  for (const [, node] of this.nodes) {
+    if (!Array.isArray(node?._pendingSnapParams) || !node._pendingSnapParams.length) continue;
+    const keys = node._pendingSnapParams.slice();
+    if (typeof this.snapPendingControllerParams === "function") {
+      this.snapPendingControllerParams(node);
+    }
+    node._pendingSnapParams = keys;
+  }
+};
+
+NodeLiveAudioProcessor.prototype.clearPendingParamSnaps = function clearPendingParamSnaps() {
+  if (!this.nodes) return;
+  for (const [, node] of this.nodes) {
+    node._pendingSnapParams = null;
   }
 };
 
@@ -3102,8 +3124,15 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     const timeKey = `${key}__smoothTime`;
     const modeKey = `${key}__smoothMode`;
     const typeKey = `${key}__smoothType`;
+    const snapList = node?._pendingSnapParams;
+    const shouldSnap = Array.isArray(snapList) && snapList.indexOf(key) >= 0;
+    // Alt-click: time 0 so set_param snaps out=target, then restore chase time.
+    if (shouldSnap) {
+      this.pushNativeGraphSmoothTime(native, hash, paramId, 0);
+      cache[timeKey] = 0;
+    }
     const valueChanged = forceAll || cache[key] !== v;
-    if (valueChanged) {
+    if (valueChanged || shouldSnap) {
       cache[key] = v;
       this.pushNativeGraphParam(native, hash, paramId, v);
     }
@@ -3126,7 +3155,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       && cache[timeKey] != null
       && cache[modKey] != null;
     // Domain mode must keep stamping offset even with no mod cables.
-    if (!forceAll && !valueChanged && warm && !hasModCables && !destDomain) {
+    if (!forceAll && !valueChanged && !shouldSnap && warm && !hasModCables && !destDomain) {
       return;
     }
     // Merge patch paramMeta with module-definition defaults so Softwave Amp
@@ -3236,7 +3265,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       cache[typeKey] = smoothType;
       this.pushNativeGraphSmoothType(native, hash, paramId, smoothType);
     }
-    if (forceAll || cache[timeKey] !== timeSamples) {
+    if (forceAll || shouldSnap || cache[timeKey] !== timeSamples) {
       cache[timeKey] = timeSamples;
       this.pushNativeGraphSmoothTime(native, hash, paramId, timeSamples);
     }
@@ -3823,6 +3852,18 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("q", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("q", 0.707));
       push("gain", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("gain", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "graphicEq") {
+      // UI key "range" → MODE (0=±6, 1=±12, 2=±18). Bands are unit −1…+1.
+      push("range", P.NATIVE_GRAPH_PARAM_MODE, disc("range", 1));
+      push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      const band0 = P.NATIVE_GRAPH_PARAM_GRAPHIC_EQ_BAND0;
+      for (let i = 0; i < 30; i += 1) {
+        const key = "band" + i;
+        push(key, band0 + i, cont(key, 0));
+      }
       continue;
     }
     if (type === "activeFilter") {

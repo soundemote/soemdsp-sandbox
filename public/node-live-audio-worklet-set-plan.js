@@ -150,6 +150,9 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
         : undefined,
       paramMeta: node.paramMeta || {},
       params: node.params || {},
+      _pendingSnapParams: Array.isArray(node._pendingSnapParams)
+        ? node._pendingSnapParams.slice()
+        : null,
       sequencer: node.sequencer && typeof node.sequencer === "object" ? node.sequencer : null,
       chordMemory: node.chordMemory && typeof node.chordMemory === "object" ? node.chordMemory : null,
       sample: node.sample || null,

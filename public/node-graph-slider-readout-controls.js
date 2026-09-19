@@ -132,7 +132,14 @@ function stopNodeSliderReadoutPointer(event) {
 }
 
 function attachNodeSliderReadoutEvents(readout) {
-  readout.addEventListener("dblclick", () => beginNodeSliderReadoutEdit(readout));
+  readout.addEventListener("dblclick", (event) => {
+    if (event.altKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    beginNodeSliderReadoutEdit(readout);
+  });
   readout.addEventListener("contextmenu", (event) => openNodeMetadataPopover(event, readout));
   if (nodeSliderReadoutIsNumberOnly(readout)) {
     readout.addEventListener("pointerdown", stopNodeSliderReadoutPointer);

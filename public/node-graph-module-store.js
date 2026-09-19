@@ -1336,6 +1336,23 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "native",
     ],
   },
+  graphicEq: {
+    category: "dynamics",
+    description: "ISO 1/3-octave graphic EQ — 30 peaking bands with ±6/±12/±18 dB range and dry/wet mix.",
+    label: "Graphic EQ",
+    notes: [
+      "eq",
+      "graphic eq",
+      "graphic equalizer",
+      "1/3 octave",
+      "ISO",
+      "bands",
+      "peaking",
+      "RBJ",
+      "tone",
+      "native",
+    ],
+  },
   papoulisFilter: {
     category: "scientificFilter",
     description: "Smooth lowpass with steeper roll-off than Butterworth for the same order.",

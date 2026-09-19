@@ -21,6 +21,10 @@ NodeLiveAudioProcessor.prototype.ensureControllerParamSmoothers = function ensur
 NodeLiveAudioProcessor.prototype.snapPendingControllerParams = function snapPendingControllerParams(node) {
   const keys = Array.isArray(node?._pendingSnapParams) ? node._pendingSnapParams : [];
   if (!keys.length) return;
+  const type = String(node?.type || "");
+  if (type !== "knob" && type !== "pluginSlider" && type !== "toggleButton" && type !== "momentaryButton") {
+    return;
+  }
   const map = this.ensureControllerParamSmoothers();
   for (const controlKey of keys) {
     const raw = Number(node?.params?.[controlKey]);

@@ -3216,14 +3216,14 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/lib/note-mask-128.js?v=mask128-1",
   "./public/node-graph-keyboard-chord-memory.js?v=mask128-2",
   "./public/modules/sequencer/sequencer-math.js?v=seq-23",
-  "./public/node-live-audio-worklet-events.js?v=vm-log-2",
+  "./public/node-live-audio-worklet-events.js?v=alt-snap-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=pitchhz-norm-freq-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=alt-snap-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=os-x124-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=alt-snap-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
   "./public/node-live-audio-worklet-handle-message.js?v=circuit-6",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=meta-view-rewrite-1",
@@ -3232,7 +3232,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=knob-bias-out-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=alt-snap-1",
   "./public/node-live-audio-worklet-process.js?v=os-x124-1",
 ];
 
@@ -3320,8 +3320,7 @@ function nodeGraphLiveAwaitStartup(promise, message = "live audio startup timed 
 }
 
 function createNodeGraphLiveScriptProcessorNode(_context, _plan) {
-  // APP_POLICY §0b / §2: JS ScriptProcessor audio path is retired. Native worklet only.
-  throw new Error("ScriptProcessor JS audio path removed — AudioWorklet + native graph required");
+  throw new Error("Live audio is AudioWorklet + native graph only");
 }
 
 function stopNodeGraphLiveInputSource() {
@@ -3557,11 +3556,10 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       usesWorklet = true;
     } catch (error) {
       const message = String(error?.message || error || "AudioWorklet failed");
-      // APP_POLICY §0b / §2: never ScriptProcessor → evaluateNodeGraphPlanFrame.
       if (typeof window.SE?.ERROR === "function") {
-        window.SE.ERROR(`AudioWorklet required (no JS audio fallback): ${message}`);
+        window.SE.ERROR(`AudioWorklet failed: ${message}`);
       } else {
-        console.error("[live] AudioWorklet required — no JS audio fallback", error);
+        console.error("[live] AudioWorklet failed", error);
       }
       setNodeGraphLiveEngineStatus("worklet required", "error");
       setNodeGraphLiveEngineTitle(message);
