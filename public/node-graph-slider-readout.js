@@ -351,13 +351,10 @@ function syncNodeSliderReadout(slider) {
   const labelText = readout.querySelector(".node-slider-readout-label");
   const valueText = readout.querySelector(".node-slider-readout-value");
   const unitText = readout.querySelector(".node-slider-readout-unit");
-  // Prefer sent/effective domain (domain MOD REPLACE) → unbounded typed domain → thumb.
-  // min/max are display zoom only for domain MOD; do not clip the shown sent value.
-  const sentRaw = Number(slider.dataset?.sentDomainValue);
+  // Thumb + number track the editable domain (domainOffset when Use real mod).
+  // Ghost bar shows sent/effective; never let sentDomainValue move the thumb.
   const domainRaw = Number(slider.dataset?.domainValue);
-  const displayValue = Number.isFinite(sentRaw)
-    ? sentRaw
-    : (Number.isFinite(domainRaw) ? domainRaw : Number(slider.value));
+  const displayValue = Number.isFinite(domainRaw) ? domainRaw : Number(slider.value);
   const position = nodeSliderTravelFromValue(slider, displayValue) * 100;
   let unit = (slider.dataset.unit || "").trim();
   let formattedValue = displayValue;

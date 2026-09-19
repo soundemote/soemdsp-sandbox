@@ -17,7 +17,12 @@ function syncNodeGraphPatchMetadataFromSlider(slider, options = {}) {
   if (!patchNode) {
     return;
   }
-  const liveMeta = nodeSliderMetadata(slider);
+  // Prefer explicit editor metadata when provided — face paint can rewrite
+  // slider.dataset.paramMax from stale paramMeta between setNodeSliderMetadata
+  // and this sync, which used to snap Bias max back (e.g. 150 → 130).
+  const liveMeta = (options.metadata && typeof options.metadata === "object")
+    ? options.metadata
+    : nodeSliderMetadata(slider);
   let nextMeta = normalizeNodeGraphPatchParameterMetadata(
     patchNode.type,
     key,
@@ -115,6 +120,23 @@ function syncNodeGraphPatchMetadataFromSlider(slider, options = {}) {
   }
 }
 
+
+/** Queue a one-shot smoother snap for the next live param push (alt-click jump). */
+function nodeGraphRequestControllerParamSnap(nodeId, paramKey) {
+  const id = String(nodeId || "").trim();
+  const key = String(paramKey || "").trim();
+  if (!id || !key) return;
+  if (!nodeGraphMvp.pendingControllerParamSnaps) {
+    nodeGraphMvp.pendingControllerParamSnaps = new Map();
+  }
+  let set = nodeGraphMvp.pendingControllerParamSnaps.get(id);
+  if (!set) {
+    set = new Set();
+    nodeGraphMvp.pendingControllerParamSnaps.set(id, set);
+  }
+  set.add(key);
+}
+
 function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
   const node = slider?.closest(".dsp-node")?.dataset.node;
   const key = slider?.dataset.param;
@@ -124,6 +146,9 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
   const patchNode = nodeGraphMvp.patch.nodes.find((candidate) => candidate.id === node);
   if (!patchNode) {
     return;
+  }
+  if (options.bypassSmoothing && typeof nodeGraphRequestControllerParamSnap === "function") {
+    nodeGraphRequestControllerParamSnap(node, key);
   }
   const priorMeta = patchNode.paramMeta?.[key] || nodeSliderMetadata(slider);
   let nextMeta = normalizeNodeGraphPatchParameterMetadata(
@@ -447,6 +472,7 @@ function setNodeSliderValue(slider, value, options = {}) {
     // Mid-frame drag: still write domain, skip graph-face side effects.
     // Graph curve params need every sample for live face animation.
     skipGraphFace: alreadyPending && !graphCurveLiveParam,
+    bypassSmoothing: Boolean(options.bypassSmoothing),
   });
   if (!alreadyPending || graphCurveLiveParam) {
     scheduleNodeGraphModuleScopeDrawIfNeeded();
@@ -903,22 +929,33 @@ function nodeSliderDragSurfaceFromEvent(event) {
   return event?.target?.closest?.(".node-slider-readout, .node-knob-face, .node-plugin-slider-face") || null;
 }
 
-/** Type-in edit for a surface (face → linked Bias readout so we never replace the face DOM). */
+/** Type-in edit for a surface (knob face → face overlay; plugin face → body readout). */
 function beginNodeSliderSurfaceEdit(surface) {
-  if (!surface || typeof beginNodeSliderReadoutEdit !== "function") {
+  if (!surface) {
     return;
   }
-  if (
-    surface.classList.contains("node-knob-face")
-    || surface.classList.contains("node-plugin-slider-face")
-  ) {
+  // Knob: face-local type-in (canvas-safe). Never the Bias body row readout.
+  if (surface.classList.contains("node-knob-face")) {
+    if (typeof beginNodeGraphKnobFaceValueEdit === "function") {
+      beginNodeGraphKnobFaceValueEdit(surface);
+    }
+    return;
+  }
+  if (typeof beginNodeSliderReadoutEdit !== "function") {
+    return;
+  }
+  if (surface.classList.contains("node-plugin-slider-face")) {
     const sliderId = String(surface.dataset.sliderTarget || "").trim();
     if (!sliderId) {
       return;
     }
-    const linked = document.querySelector(
+    let linked = document.querySelector(
       `.node-slider-readout[data-slider-target="${CSS.escape(sliderId)}"]`,
     );
+    if (!linked) {
+      const slider = document.getElementById(sliderId);
+      linked = slider?.closest?.("label")?.querySelector?.(".node-slider-readout") || null;
+    }
     if (linked) {
       beginNodeSliderReadoutEdit(linked);
     }
@@ -1009,7 +1046,11 @@ function setNodeSliderValueAtPointer(slider, surface, event, options = {}) {
   if (!Number.isFinite(value)) {
     return false;
   }
-  setNodeSliderValue(slider, quantizeNodeSliderDragValue(slider, value), options);
+  // Alt absolute jump: set domain and snap smoother for this write only.
+  setNodeSliderValue(slider, quantizeNodeSliderDragValue(slider, value), {
+    ...options,
+    bypassSmoothing: options.bypassSmoothing !== false,
+  });
   return true;
 }
 
@@ -1063,10 +1104,8 @@ function beginNodeSliderDrag(event) {
       Math.abs(event.clientX - lastDown.x) < 6 &&
       Math.abs(event.clientY - lastDown.y) < 6);
   nodeGraphMvp.sliderLastPointerDown = { surface, time: now, x: event.clientX, y: event.clientY };
-  // Knob / button faces: double-click must not open type-in or Module Settings.
-  // Type a value on the numeric readout instead.
-  const skipTypeIn = surface.classList.contains("node-knob-face")
-    || surface.classList.contains("node-plugin-slider-face")
+  // Button faces: double-click must not open type-in. Knob face does (Bias type-in).
+  const skipTypeIn = surface.classList.contains("node-plugin-slider-face")
     || surface.classList.contains("node-plugin-toggle-button")
     || surface.closest?.(".node-plugin-button-shell, .node-bug-button-face, .node-plugin-toggle-button");
   if (isDoubleClick && skipTypeIn) {

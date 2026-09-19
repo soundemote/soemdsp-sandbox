@@ -7252,6 +7252,25 @@ static void process_tb303_filter(Circuit& g, Node& node, int frames) {
   }
 }
 
+
+// Character filters map Frequency 0…1 → MIDI pitch −12…135 → Hz.
+// Domain REPLACE from PitchHz (retired absolute ƒ) sends real Hz — convert back
+// to 0…1 so cutoff tracks instead of clamping every audible Hz to 1.0.
+static inline double norm_pitch_freq_from_control(double freq) {
+  if (!(freq == freq)) return 0.5;
+  if (freq > 1.0) {
+    const double hz = freq;
+    if (!(hz > 1e-12)) return 0.0;
+    const double pitch = 69.0 + 12.0 * (dsp_ln(hz / 440.0) * 1.4426950408889634);
+    double n = (pitch + 12.0) / 147.0;
+    if (n < 0.0) n = 0.0;
+    if (n > 1.0) n = 1.0;
+    return n;
+  }
+  if (freq < 0.0) return 0.0;
+  return freq;
+}
+
 // Character filters with 0..1 normalized frequency; shape=chaos.
 static void process_norm_chaos_filter(
   Circuit& g, Node& node, int frames, bool hasMode,
@@ -7272,10 +7291,7 @@ static void process_norm_chaos_filter(
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
-    double freq = control_audio(g, node.frequency, f);
-    if (!(freq == freq)) freq = 0.5;
-    if (freq < 0.0) freq = 0.0;
-    if (freq > 1.0) freq = 1.0;
+    double freq = norm_pitch_freq_from_control(control_audio(g, node.frequency, f));
     const double reso = control_audio(g, node.resonance, f);
     const double chaos = control_audio(g, node.shape, f);
     double amp = control_audio(g, node.amplitude, f);
@@ -7339,10 +7355,7 @@ static void process_flower_child_filter(Circuit& g, Node& node, int frames) {
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
-    double freq = control_audio(g, node.frequency, f);
-    if (!(freq == freq)) freq = 0.5;
-    if (freq < 0.0) freq = 0.0;
-    if (freq > 1.0) freq = 1.0;
+    double freq = norm_pitch_freq_from_control(control_audio(g, node.frequency, f));
     const double reso = control_audio(g, node.resonance, f);
     const double chaos = control_audio(g, node.shape, f);
     double amp = control_audio(g, node.amplitude, f);
@@ -7408,10 +7421,7 @@ static void process_chaotic_phase_locking_filter(Circuit& g, Node& node, int fra
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
-    double freq = control_audio(g, node.frequency, f);
-    if (!(freq == freq)) freq = 0.5;
-    if (freq < 0.0) freq = 0.0;
-    if (freq > 1.0) freq = 1.0;
+    double freq = norm_pitch_freq_from_control(control_audio(g, node.frequency, f));
     const double reso = control_audio(g, node.resonance, f);
     const double chaos = control_audio(g, node.shape, f);
     double amp = control_audio(g, node.amplitude, f);

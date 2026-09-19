@@ -241,6 +241,18 @@ function readNodeGraphLiveEffectiveParam(
     const srcPort = modulation.sourcePort;
     const srcParamMeta = srcNode?.paramMeta?.[srcPort] || {};
     const srcType = String(srcNode?.type || "");
+    if (typeof nodeGraphNormPitchFrequencyModFromSource === "function") {
+      const converted = nodeGraphNormPitchFrequencyModFromSource(
+        String(node?.type || ""),
+        key,
+        srcType,
+        srcNode,
+        sample,
+      );
+      if (converted) {
+        return converted;
+      }
+    }
     const taggedDomain = srcParamMeta.outputDomain === true
       || srcType === "range"
       || srcType === "Range"

@@ -354,55 +354,62 @@ function nodeGraphKnobFaceFormatReadout(value, patchNode, slider = null) {
 }
 
 /**
- * Knob square in px: min side of the dial cell × Dial size.
- * Label size and Value size 0…1 are fractions of this square.
+ * Dial cell min side in px (unscaled). Label/value CSS multiply this by
+ * --knob-dial-size and --knob-*-size so 0…1 scales stay locked on the module
+ * plate and in layout canvas (no stale inline px).
  */
-function nodeGraphKnobFaceSquarePx(face) {
+function nodeGraphKnobFaceDialCellPx(face) {
   if (!face) {
     return 0;
   }
   const dial = face.querySelector?.("[data-knob-face-dial], .node-macro-knob-dial") || face;
+  return Math.min(dial.clientWidth || 0, dial.clientHeight || 0);
+}
+
+/** @deprecated Prefer nodeGraphKnobFaceDialCellPx; kept for older call sites. */
+function nodeGraphKnobFaceSquarePx(face) {
+  if (!face) {
+    return 0;
+  }
   const raw = face.style?.getPropertyValue?.("--knob-dial-size")
     || getComputedStyle(face).getPropertyValue("--knob-dial-size");
   const dialScale = Math.max(0, Math.min(1, Number.parseFloat(raw) || 1));
-  return Math.min(dial.clientWidth || 0, dial.clientHeight || 0) * dialScale;
-}
-
-function nodeGraphKnobFaceFitTextEl(el, face, sizeVar, fallback) {
-  if (!el || el.hidden || el.getAttribute("aria-hidden") === "true") {
-    return;
-  }
-  const style = el.style;
-  if (!style) {
-    return;
-  }
-  const host = face || el.closest?.(".node-knob-face") || el.parentElement;
-  if (!host) {
-    return;
-  }
-  const raw = host.style?.getPropertyValue?.(sizeVar) || getComputedStyle(host).getPropertyValue(sizeVar);
-  const n = Number.parseFloat(raw);
-  const scale = Math.max(0, Math.min(1, Number.isFinite(n) ? n : fallback));
-  const side = nodeGraphKnobFaceSquarePx(host);
-  if (!(side > 0)) {
-    return;
-  }
-  style.fontSize = `${(side * scale).toFixed(2)}px`;
-  style.lineHeight = "1";
-  style.letterSpacing = "";
-  style.transform = "";
+  return nodeGraphKnobFaceDialCellPx(face) * dialScale;
 }
 
 /**
- * Value size 0…1 = fraction of the knob square (min side of the dial cell
- * × Dial size). Same ratio on the module and on canvas.
+ * Publish --knob-cell for CSS font-size calc. Clears legacy inline fontSize
+ * so rem/px leftovers cannot desync from the arc in canvas tiles.
  */
-function nodeGraphKnobFaceFitReadout(readout, face = null) {
-  nodeGraphKnobFaceFitTextEl(readout, face, "--knob-value-size", 0.45);
+function nodeGraphKnobFaceSyncCellVar(face) {
+  if (!face) {
+    return;
+  }
+  const cell = nodeGraphKnobFaceDialCellPx(face);
+  if (cell > 0) {
+    face.style.setProperty("--knob-cell", `${cell.toFixed(2)}px`);
+  }
+  const readout = face.querySelector?.("[data-knob-face-readout]");
+  if (readout?.style) {
+    readout.style.fontSize = "";
+    readout.style.lineHeight = "";
+  }
+  const label = face.querySelector?.("[data-knob-face-label]");
+  if (label?.style) {
+    label.style.fontSize = "";
+    label.style.lineHeight = "";
+  }
 }
 
-function nodeGraphKnobFaceFitLabel(label, face = null) {
-  nodeGraphKnobFaceFitTextEl(label, face, "--knob-label-size", 0.45);
+/** Value/label sizes are CSS: size × dialSize × --knob-cell (or dial cqmin). */
+function nodeGraphKnobFaceFitReadout(_readout, face = null) {
+  const host = face || _readout?.closest?.(".node-knob-face");
+  nodeGraphKnobFaceSyncCellVar(host);
+}
+
+function nodeGraphKnobFaceFitLabel(_label, face = null) {
+  const host = face || _label?.closest?.(".node-knob-face");
+  nodeGraphKnobFaceSyncCellVar(host);
 }
 
 function attachNodeGraphKnobFaceReadoutFit(face) {
@@ -411,14 +418,7 @@ function attachNodeGraphKnobFaceReadoutFit(face) {
   }
   face._knobReadoutFitBound = true;
   const run = () => {
-    const readout = face.querySelector?.("[data-knob-face-readout]");
-    if (readout) {
-      nodeGraphKnobFaceFitReadout(readout, face);
-    }
-    const label = face.querySelector?.("[data-knob-face-label]");
-    if (label) {
-      nodeGraphKnobFaceFitLabel(label, face);
-    }
+    nodeGraphKnobFaceSyncCellVar(face);
   };
   if (typeof ResizeObserver === "function") {
     const ro = new ResizeObserver(() => {
@@ -428,9 +428,12 @@ function attachNodeGraphKnobFaceReadoutFit(face) {
       face._knobReadoutFitRaf = requestAnimationFrame(run);
     });
     ro.observe(face);
+    const dial = face.querySelector?.("[data-knob-face-dial], .node-macro-knob-dial");
+    if (dial) {
+      ro.observe(dial);
+    }
     face._knobReadoutFitRo = ro;
   }
-  // First layout pass after insert.
   requestAnimationFrame(run);
 }
 
@@ -585,36 +588,27 @@ function nodeGraphKnobFaceLiveOffset(nodeId) {
   return inputSum + slider;
 }
 
-/** Live Min/Max (legacy Polarity) → Bias domain [min, max] for dial mapping. */
+/** Bias domain from Bias parameter min/max (Parameter Settings). */
 function nodeGraphKnobFaceBiasRange(patchNode) {
-  const id = patchNode?.id;
-  let rangeMin = 0;
-  let rangeMax = 1;
-  let polarity = 0;
-  if (id && typeof nodeGraphReadNodeNumber === "function") {
-    const rn = nodeGraphReadNodeNumber(id, "rangeMin");
-    const rm = nodeGraphReadNodeNumber(id, "rangeMax");
-    const pol = nodeGraphReadNodeNumber(id, "polarity");
-    if (Number.isFinite(rn)) rangeMin = rn;
-    if (Number.isFinite(rm)) rangeMax = rm;
-    if (Number.isFinite(pol)) polarity = pol;
-  } else {
-    const rn = Number(patchNode?.params?.rangeMin);
-    const rm = Number(patchNode?.params?.rangeMax);
-    const pol = Number(patchNode?.params?.polarity);
-    if (Number.isFinite(rn)) rangeMin = rn;
-    if (Number.isFinite(rm)) rangeMax = rm;
-    if (Number.isFinite(pol)) polarity = pol;
+  if (typeof nodeGraphDspKnobOffsetDomain === "function") {
+    return nodeGraphDspKnobOffsetDomain(patchNode);
   }
-  if (typeof nodeGraphDspControllerRange === "function") {
-    return nodeGraphDspControllerRange(rangeMin, rangeMax, polarity);
+  let meta = null;
+  if (typeof nodeGraphReadPatchParameterMetadata === "function" && patchNode) {
+    meta = nodeGraphReadPatchParameterMetadata(patchNode, "offset");
   }
-  if (typeof nodeGraphDspKnobBiasRange === "function") {
-    return nodeGraphDspKnobBiasRange(rangeMax, polarity);
+  if (!meta || typeof meta !== "object") {
+    meta = patchNode?.paramMeta?.offset && typeof patchNode.paramMeta.offset === "object"
+      ? patchNode.paramMeta.offset
+      : {};
   }
-  const hi = Math.abs(rangeMax) > 0 ? Math.abs(rangeMax) : 1;
-  const bipolar = Math.round(polarity) >= 1;
-  return { min: bipolar ? -hi : rangeMin, max: hi, bipolar };
+  const lo = Number(meta.min);
+  const hi = Number(meta.max);
+  if (Number.isFinite(lo) && Number.isFinite(hi)) {
+    const bipolar = meta.bipolar === true || (lo < 0 && hi > 0);
+    return { bipolar, max: hi >= lo ? hi : lo, min: hi >= lo ? lo : hi };
+  }
+  return { bipolar: false, max: 1, min: 0 };
 }
 
 function nodeGraphKnobFaceUnitFromValue(value, patchNode) {
@@ -627,7 +621,7 @@ function nodeGraphKnobFaceUnitFromValue(value, patchNode) {
   return Math.max(0, Math.min(1, (Number(value) - lo) / (hi - lo)));
 }
 
-/** Keep hidden offset slider + face ARIA in sync with Max / Polarity. */
+/** Keep Bias slider + face ARIA matched to Bias Parameter Settings min/max. */
 function nodeGraphKnobFaceSyncOffsetDomain(patchNode) {
   if (!patchNode?.id) {
     return null;
@@ -637,25 +631,18 @@ function nodeGraphKnobFaceSyncOffsetDomain(patchNode) {
     ? document.getElementById(`node-${patchNode.id}-offset`)
     : null;
   if (slider) {
+    // Interactive thumb range only. Do NOT rewrite dataset.paramMin/paramMax —
+    // those are Parameter Settings SSOT; stomping them from paramMeta every
+    // paint raced metadata apply and snapped max back (e.g. 150 → 130).
     slider.min = String(range.min);
     slider.max = String(range.max);
     if (slider.dataset) {
       slider.dataset.min = String(range.min);
       slider.dataset.max = String(range.max);
+      slider.dataset.bipolar = range.bipolar ? "true" : "false";
     }
   }
-  if (patchNode.paramMeta && typeof patchNode.paramMeta === "object") {
-    const meta = patchNode.paramMeta.offset && typeof patchNode.paramMeta.offset === "object"
-      ? patchNode.paramMeta.offset
-      : {};
-    patchNode.paramMeta.offset = {
-      ...meta,
-      bipolar: Boolean(range.bipolar),
-      min: range.min,
-      max: range.max,
-      mid: range.bipolar ? 0 : range.max * 0.5,
-    };
-  }
+  // Do not write Bias min/max / paramMin / paramMax here — Parameter Settings owns them.
   const face = typeof document !== "undefined"
     ? document.querySelector(`.node-knob-face[data-node="${CSS.escape(String(patchNode.id))}"]`)
     : null;
@@ -712,6 +699,7 @@ function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
     : 0.45;
   face.style.setProperty("--knob-label-size", String(labelSize));
   face.style.setProperty("--knob-value-size", String(valueSize));
+  nodeGraphKnobFaceSyncCellVar(face);
 
   const labelPos = typeof normalizeNodeGraphKnobFaceTextPosition === "function"
     ? normalizeNodeGraphKnobFaceTextPosition(s.labelPosition, "above")
@@ -736,6 +724,9 @@ function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
  * When any image layer is loaded, hide macro chrome and show layers only.
  */
 function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
+  if (face?.dataset?.knobFaceEditing === "true") {
+    return;
+  }
   if (!face || !nodeId) {
     return;
   }
@@ -885,6 +876,128 @@ function nodeGraphKnobFaceMakeLayerImg(layerId) {
 }
 
 /**
+ * Canvas-safe Bias type-in: overlay an input on the face readout (or dial).
+ * Does not use the module body Bias/offset readout (missing on layout canvas).
+ * Writes through the hidden offset slider → same DSP path as the Bias slider.
+ */
+function beginNodeGraphKnobFaceValueEdit(face, event = null) {
+  if (!face || face.dataset.knobFaceEditing === "true") {
+    return false;
+  }
+  const nodeId = String(face.dataset.node || "").trim();
+  if (!nodeId) {
+    return false;
+  }
+  const slider = document.getElementById(`node-${nodeId}-offset`);
+  if (!slider) {
+    return false;
+  }
+  if (event) {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+  }
+
+  const readout = face.querySelector("[data-knob-face-readout]");
+  const dial = face.querySelector("[data-knob-face-dial], .node-macro-knob-dial") || face;
+  const host = readout || dial;
+  if (!host) {
+    return false;
+  }
+
+  face.dataset.knobFaceEditing = "true";
+  const priorHidden = readout ? readout.hidden : false;
+  if (readout) {
+    readout.hidden = true;
+  }
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "node-knob-face-value-input";
+  input.inputMode = "decimal";
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  const domainRaw = Number(slider.dataset?.domainValue);
+  const editValue = Number.isFinite(domainRaw) ? domainRaw : Number(slider.value);
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  input.value = typeof nodeGraphKnobFaceFormatReadout === "function"
+    ? nodeGraphKnobFaceFormatReadout(editValue, patchNode, slider)
+    : String(editValue);
+  input.setAttribute("aria-label", `${nodeGraphNodeDisplayName?.(nodeId) || "Knob"} Bias`);
+  input.dataset.node = nodeId;
+  input.dataset.sliderTarget = slider.id;
+
+  const stop = (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+  };
+  for (const name of ["pointerdown", "mousedown", "click", "dblclick", "pointerup", "mouseup"]) {
+    input.addEventListener(name, stop);
+  }
+
+  let finished = false;
+  const finish = (commit) => {
+    if (finished) return;
+    finished = true;
+    face.dataset.knobFaceEditing = "false";
+    document.removeEventListener("pointerdown", closeOutside, true);
+    if (commit) {
+      if (typeof updateNodeSliderCurrentValue === "function") {
+        updateNodeSliderCurrentValue(slider, input.value);
+      }
+    }
+    input.remove();
+    if (readout) {
+      readout.hidden = priorHidden;
+      if (typeof paintNodeGraphKnobFaceLive === "function") {
+        paintNodeGraphKnobFaceLive(face, nodeId, null);
+      } else if (typeof syncNodeGraphKnobFaceFromSlider === "function") {
+        syncNodeGraphKnobFaceFromSlider(slider);
+      }
+    }
+  };
+
+  const closeOutside = (ev) => {
+    if (!document.contains(input) || finished) {
+      document.removeEventListener("pointerdown", closeOutside, true);
+      return;
+    }
+    if (ev.target === input || input.contains?.(ev.target)) {
+      return;
+    }
+    finish(true);
+  };
+
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      finish(true);
+    } else if (ev.key === "Escape") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      finish(false);
+    }
+  });
+  input.addEventListener("blur", () => {
+    if (!finished) finish(true);
+  });
+
+  // Overlay on dial so canvas tiles and module plates share one path.
+  const wrap = dial;
+  wrap.style.position = wrap.style.position || "relative";
+  input.style.position = "absolute";
+  input.style.left = "50%";
+  input.style.top = "50%";
+  input.style.transform = "translate(-50%, -50%)";
+  input.style.zIndex = "20";
+  wrap.append(input);
+  document.addEventListener("pointerdown", closeOutside, true);
+  input.focus();
+  input.select();
+  return true;
+}
+
+/**
  * Face is a full drag surface for Bias (offset), same path/modifiers as
  * `.node-slider-readout` (beginNodeSliderDrag / nodeSliderFineTuneScale / etc.).
  */
@@ -906,8 +1019,14 @@ function attachNodeGraphKnobFaceDrag(face) {
   face.addEventListener("dblclick", (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (typeof beginNodeGraphKnobFaceValueEdit === "function") {
+      beginNodeGraphKnobFaceValueEdit(face, event);
+    }
   });
 }
+
+
+
 
 /**
  * Room dimmer cutout only when face art is loaded.
@@ -1000,6 +1119,7 @@ function createNodeGraphKnobFace(node, type) {
   dial.append(readout, arc);
   face.append(label, dial);
   attachNodeGraphKnobFaceDrag(face);
+  attachNodeGraphKnobFaceReadoutFit(face);
   renderNodeGraphKnobFace(face, node);
   return face;
 }

@@ -2,18 +2,66 @@
 // Must run before syncNativeGraphParams / Additive sidecar so MOD folds work.
 
 /**
- * Efficient Live clears JS parameter smoothers (native owns those). Knob /
- * Plugin Slider / buttons are NOT native — Bias/Out must chase here.
+ * Efficient Live clears native-owned param smoothers. Knob / Toggle / Momentary
+ * are not native — Bias/Out chase here using the SAME Parameter Settings
+ * smoother as every other Bias (Lin / 1P / 2P / Papoulis + time).
  *
- * Controller Smooth is always SECONDS (param range 0…10). Do NOT route through
- * additiveEffectiveParam / smoothingSecondsFromMetadata: that API treats
- * values ≥ 1 as sample counts, so Smooth≥1s snapped instantly.
+ * Bias meta may store seconds (0,1) or sample counts (≥1). Normalize to sample
+ * counts before create/update — never treat sample counts as seconds.
  */
 NodeLiveAudioProcessor.prototype.ensureControllerParamSmoothers = function ensureControllerParamSmoothers() {
   if (!this.controllerParamSmoothers) {
     this.controllerParamSmoothers = new Map();
   }
   return this.controllerParamSmoothers;
+};
+
+
+/** Alt-click: settle controller Bias/Out chase to the new target immediately. */
+NodeLiveAudioProcessor.prototype.snapPendingControllerParams = function snapPendingControllerParams(node) {
+  const keys = Array.isArray(node?._pendingSnapParams) ? node._pendingSnapParams : [];
+  if (!keys.length) return;
+  const map = this.ensureControllerParamSmoothers();
+  for (const controlKey of keys) {
+    const raw = Number(node?.params?.[controlKey]);
+    if (!Number.isFinite(raw)) continue;
+    const meta = { ...(node?.paramMeta?.[controlKey] || {}) };
+    const rate = Math.max(
+      1,
+      nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)),
+    );
+    const samplesEncoded = typeof nodeGraphDspControllerSmoothingSamples === "function"
+      ? nodeGraphDspControllerSmoothingSamples(meta, node?.params, rate)
+      : (Number(meta.smoothingSeconds) > 0 && Number(meta.smoothingSeconds) < 1
+        ? Math.max(1, Math.round(Number(meta.smoothingSeconds) * rate))
+        : Math.max(0, Math.round(Number(meta.smoothingSeconds) || 0)));
+    const smootherMeta = {
+      ...meta,
+      smoothingSeconds: samplesEncoded,
+      smoothingMode: meta.smoothingMode || "internal",
+    };
+    const smootherKey = `controller:${String(node.id)}:${String(controlKey)}`;
+    let smoother = map.get(smootherKey);
+    if (typeof this.createSmoother === "function") {
+      if (!smoother || !smoother.metadata) {
+        smoother = this.createSmoother(raw, smootherMeta);
+        map.set(smootherKey, smoother);
+      } else if (typeof this.updateSmoother === "function") {
+        this.updateSmoother(smoother, raw, smootherMeta, smootherKey);
+      }
+      if (typeof this.settleSmoother === "function") {
+        this.settleSmoother(smoother);
+      } else {
+        smoother.target = raw;
+        smoother.current = raw;
+        smoother.lastValue = raw;
+        smoother.outputBuffer = smoother.targetSignal;
+      }
+    } else {
+      map.set(smootherKey, { value: raw, target: raw, quantumSerial: -1 });
+    }
+  }
+  node._pendingSnapParams = null;
 };
 
 NodeLiveAudioProcessor.prototype.controllerEfficientSmoothedValue = function controllerEfficientSmoothedValue(
@@ -25,41 +73,123 @@ NodeLiveAudioProcessor.prototype.controllerEfficientSmoothedValue = function con
   const raw = Number(node?.params?.[controlKey]);
   const target = Number.isFinite(raw) ? raw : fallback;
   const params = node?.params && typeof node.params === "object" ? node.params : {};
-  const seconds = Number(params.smoothingSeconds);
-  const snap = !Number.isFinite(seconds) || seconds <= 0;
 
-  // Keep offset meta in sync for any readers (Display, diagnostics).
   if (typeof nodeGraphDspApplyControllerSmoothingMeta === "function") {
     nodeGraphDspApplyControllerSmoothingMeta(node, controlKey);
   }
-
-  const map = this.ensureControllerParamSmoothers();
-  const smootherKey = `controller:${String(node?.id || "")}:${String(controlKey || "")}`;
-  const quantum = Math.max(1, Math.round(Number(frames) || 128));
-
-  if (snap) {
-    map.set(smootherKey, {
-      value: target,
-      target,
-      rampFrom: target,
-      rampSamples: 0,
-      rampDuration: 0,
-      seconds: 0,
-      quantumSerial: this._controllerSmoothQuantumSerial,
-    });
-    return target;
+  // Consume late snap (setParams may have queued; process runs same quantum).
+  if (Array.isArray(node?._pendingSnapParams) && node._pendingSnapParams.includes(String(controlKey))) {
+    if (typeof this.snapPendingControllerParams === "function") {
+      this.snapPendingControllerParams(node);
+    }
   }
+  const meta = { ...(node?.paramMeta?.[controlKey] || {}) };
 
   const rate = Math.max(
     1,
     nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)),
   );
-  // Always seconds for controller Smooth (never sample-count encoding).
-  const durationSamples = Math.max(1, Math.round(rate * seconds));
+  const quantum = Math.max(1, Math.round(Number(frames) || 128));
   const serial = this._controllerSmoothQuantumSerial;
+  const map = this.ensureControllerParamSmoothers();
+  const smootherKey = `controller:${String(node?.id || "")}:${String(controlKey || "")}`;
 
+  // Dual encoding: (0,1)=seconds, ≥1=sample counts. Pass sample counts into shared API.
+  const samplesEncoded = typeof nodeGraphDspControllerSmoothingSamples === "function"
+    ? nodeGraphDspControllerSmoothingSamples(meta, params, rate)
+    : 0;
+  const seconds = samplesEncoded > 0 ? samplesEncoded / rate : 0;
+  const smootherMeta = {
+    ...meta,
+    smoothingSeconds: samplesEncoded,
+    smoothingMode: meta.smoothingMode || "internal",
+  };
+
+  // Shared Bias smoother path (createSmoother / FilterAdvance).
+  // Pass null key so we are NOT enrolled in worklet activeSmoothers (we advance here).
+  if (typeof this.createSmoother === "function" && typeof this.updateSmoother === "function") {
+    let smoother = map.get(smootherKey);
+    if (!smoother || !smoother.metadata) {
+      smoother = this.createSmoother(target, smootherMeta);
+      smoother._controllerQuantumSerial = serial;
+      map.set(smootherKey, smoother);
+      return Number.isFinite(smoother.lastValue) ? smoother.lastValue : target;
+    }
+
+    this.updateSmoother(smoother, target, smootherMeta, null);
+
+    // Sidecar may run twice per quantum — advance once.
+    if (smoother._controllerQuantumSerial === serial) {
+      return Number.isFinite(smoother.lastValue) ? smoother.lastValue : smoother.target;
+    }
+    smoother._controllerQuantumSerial = serial;
+
+    if (!smoother.linearSmoothing) {
+      if (typeof this.settleSmoother === "function") {
+        this.settleSmoother(smoother, { snapFilter: false });
+      }
+      return smoother.target;
+    }
+
+    const smoothingSecondsResolved = typeof this.resolveSmoothingSecondsForMode === "function"
+      ? this.resolveSmoothingSecondsForMode(
+        smoother.smoothingMode,
+        smoother.smoothingSeconds || 0,
+        quantum,
+        rate,
+      )
+      : (samplesEncoded / rate);
+    const safeSeconds = typeof this.clampAutoSmoothingSeconds === "function"
+      ? this.clampAutoSmoothingSeconds(smoothingSecondsResolved)
+      : Math.max(0, Number(smoothingSecondsResolved) || 0);
+
+    if (!(safeSeconds > 0)) {
+      if (typeof this.settleSmoother === "function") {
+        this.settleSmoother(smoother);
+      }
+      return smoother.target;
+    }
+
+    const cutoff = typeof this.smoothingFrequencyFromSeconds === "function"
+      ? this.smoothingFrequencyFromSeconds(safeSeconds)
+      : (1 / safeSeconds);
+
+    if (typeof nodeGraphParameterSmootherFilterAdvance === "function") {
+      const signal = nodeGraphParameterSmootherFilterAdvance(
+        smoother,
+        smoother.targetSignal,
+        cutoff,
+        rate,
+        quantum,
+      );
+      if (typeof this.smootherNeedsWork === "function" && !this.smootherNeedsWork(smoother)) {
+        if (typeof this.settleSmoother === "function") {
+          this.settleSmoother(smoother);
+        }
+        return smoother.target;
+      }
+      const value = typeof this.normalizedSignalToParameterValue === "function"
+        ? this.normalizedSignalToParameterValue(signal, smoother.metadata)
+        : signal;
+      smoother.current = value;
+      smoother.lastValue = value;
+      return value;
+    }
+
+    if (typeof this.stepSmootherOneSample === "function") {
+      this.stepSmootherOneSample(smoother, quantum);
+      return Number.isFinite(smoother.lastValue) ? smoother.lastValue : smoother.target;
+    }
+  }
+
+  // Fallback: linear domain ramp (should not run in Efficient Live worklet).
+  if (!(seconds > 0)) {
+    map.set(smootherKey, { value: target, target, quantumSerial: serial });
+    return target;
+  }
+  const durationSamples = Math.max(1, Math.round(rate * seconds));
   let state = map.get(smootherKey);
-  if (!state) {
+  if (!state || state.metadata) {
     state = {
       value: target,
       target,
@@ -72,13 +202,10 @@ NodeLiveAudioProcessor.prototype.controllerEfficientSmoothedValue = function con
     map.set(smootherKey, state);
     return target;
   }
-
-  // Sidecar runs two passes per quantum — only advance the ramp once.
   if (state.quantumSerial === serial && Number.isFinite(state.value)) {
     return state.value;
   }
   state.quantumSerial = serial;
-
   const eps = 1e-9;
   if (Math.abs(target - state.target) > eps) {
     state.rampFrom = state.value;
@@ -86,23 +213,14 @@ NodeLiveAudioProcessor.prototype.controllerEfficientSmoothedValue = function con
     state.rampSamples = 0;
     state.rampDuration = durationSamples;
     state.seconds = seconds;
-  } else if (Math.abs((state.seconds || 0) - seconds) > 1e-6 && state.rampDuration > 0) {
-    const oldDur = Math.max(1, state.rampDuration);
-    const progress = Math.min(1, state.rampSamples / oldDur);
-    state.rampDuration = durationSamples;
-    state.rampSamples = Math.floor(progress * durationSamples);
-    state.seconds = seconds;
   }
-
   if (state.rampDuration <= 0 || Math.abs(state.value - state.target) <= eps) {
     state.value = state.target;
     return state.value;
   }
-
   state.rampSamples += quantum;
   if (state.rampSamples >= state.rampDuration) {
     state.value = state.target;
-    state.rampFrom = state.target;
     return state.value;
   }
   const t = state.rampSamples / state.rampDuration;
@@ -572,17 +690,12 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       }
 
       if (type === "knob") {
-        // Chase offset DOMAIN like other params (linearSmoothing / smoothingSeconds).
-        // Raw p.offset is the target only — Bias must publish the smoothed out.
+        // Bias jack = smoothed Bias parameter + In. Smoothing is Parameter
+        // Settings on `offset` (same Control smoother as any other param).
+        // Do not remap or clamp here — min/max already bound the target.
         const offset = num(this.controllerEfficientSmoothedValue(node, "offset", 0, _frames), 0);
-        const rangeMin = num(p.rangeMin, 0);
-        const rangeMax = num(p.rangeMax, 1);
-        const polarity = num(p.polarity, 0);
-        const range = typeof nodeGraphDspControllerRange === "function"
-          ? nodeGraphDspControllerRange(rangeMin, rangeMax, polarity)
-          : { min: 0, max: 1 };
         const out = typeof nodeGraphDspBiasFromIn === "function"
-          ? nodeGraphDspBiasFromIn(offset, mixIn(nid, "In"), range.min, range.max)
+          ? nodeGraphDspBiasFromIn(offset, mixIn(nid, "In"))
           : { Bias: offset, Out: offset, offset, value: offset };
         this.nodeOutputs.set(nid, out);
         if (typeof this.captureModuleScopeOutput === "function") {
@@ -753,20 +866,27 @@ NodeLiveAudioProcessor.prototype.readEfficientParamModSources = function readEff
       && liveMods.size
       && liveMods.has(`${dstId}\0${pk}\0${String(m.sourceNode || "")}\0${String(m.sourcePort || "")}`)
     ) {
-      // Values stamp via ParamModEdge; still classify so domainReplace bit4 is
-      // pushed — otherwise |v|<=1 live samples unit-band add the knob.
-      const srcNode = this.nodes?.get?.(String(m.sourceNode || ""));
-      const srcPort = String(m.sourcePort || "");
-      const srcParamMeta = srcNode?.paramMeta?.[srcPort] || {};
-      const srcType = String(srcNode?.type || "");
-      const taggedDomain = srcParamMeta.outputDomain === true
-        || srcType === "range"
-        || srcType === "Range"
-        || metadata.outputDomain === true;
-      if (taggedDomain) {
-        sources.push({ value: 0, domain: true });
+      const srcNodeLive = this.nodes?.get?.(String(m.sourceNode || ""));
+      const srcTypeLive = String(srcNodeLive?.type || "");
+      const dstTypeLive = String(node?.type || "");
+      const needsNormPitchLive = typeof nodeGraphIsNormPitchFrequencyParam === "function"
+        && nodeGraphIsNormPitchFrequencyParam(dstTypeLive, pk);
+      // PitchHz→norm-Frequency must not rely on raw-Hz ParamModEdge (clamped to 1).
+      // Fall through to host conversion below.
+      if (!(needsNormPitchLive && srcTypeLive === "pitchHz")) {
+        // Values stamp via ParamModEdge; still classify so domainReplace bit4 is
+        // pushed — otherwise |v|<=1 live samples unit-band add the knob.
+        const srcPort = String(m.sourcePort || "");
+        const srcParamMeta = srcNodeLive?.paramMeta?.[srcPort] || {};
+        const taggedDomain = srcParamMeta.outputDomain === true
+          || srcTypeLive === "range"
+          || srcTypeLive === "Range"
+          || metadata.outputDomain === true;
+        if (taggedDomain) {
+          sources.push({ value: 0, domain: true });
+        }
+        continue;
       }
-      continue;
     }
     const sample = this.readEfficientModSourceSample(m.sourceNode, m.sourcePort);
     let normalized;
@@ -783,6 +903,17 @@ NodeLiveAudioProcessor.prototype.readEfficientParamModSources = function readEff
     const srcPort = String(m.sourcePort || "");
     const srcParamMeta = srcNode?.paramMeta?.[srcPort] || {};
     const srcType = String(srcNode?.type || "");
+    // PitchHz / Knob / Bias → Superlove/… Frequency (0…1 pitch-norm).
+    const dstType = String(node?.type || "");
+    if (typeof nodeGraphNormPitchFrequencyModFromSource === "function") {
+      const converted = nodeGraphNormPitchFrequencyModFromSource(
+        dstType, pk, srcType, srcNode, sample,
+      );
+      if (converted) {
+        sources.push(converted);
+        continue;
+      }
+    }
     const taggedDomain = srcParamMeta.outputDomain === true
       || srcType === "range"
       || srcType === "Range"

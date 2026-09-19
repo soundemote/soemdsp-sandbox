@@ -687,6 +687,25 @@ const nodeGraphRmsModuleParameterDefs = Object.freeze([
   },
 ]);
 
+function nodeGraphControllerDisplayParameter() {
+  return [
+    {
+      choices: ["Mouse", "Smoothed"],
+      defaultValue: "0",
+      displayChoices: true,
+      divideChoicesVisibly: true,
+      key: "displaySource",
+      label: "Display",
+      linearSmoothing: false,
+      max: "1",
+      mid: "0",
+      min: "0",
+      step: "1",
+      tooltip: "Mouse = pointer target. Smoothed = Bias after Parameter Settings smooth.",
+    },
+  ];
+}
+
 const nodeGraphModuleDefinitions = (
   typeof finalizeNodeGraphModuleDefinitionsChrome === "function"
     ? finalizeNodeGraphModuleDefinitionsChrome
@@ -6981,12 +7000,10 @@ const nodeGraphModuleDefinitions = (
       {
         bipolar: false,
         defaultValue: "0",
-        // Hidden control state — face is the only UI; no param-out twin of Bias.
-        // Domain range follows Min/Max (synced at runtime).
-        hidden: true,
+        // Bias is the parameter; face displays/controls it. Min/Max = Parameter Settings.
         parameterOutput: false,
         key: "offset",
-        label: "Offset",
+        label: "Bias",
         max: "1",
         mid: "0.5",
         min: "0",
@@ -6996,8 +7013,9 @@ const nodeGraphModuleDefinitions = (
         smoothingMode: "internal",
         smoothingSeconds: 0.0333,
         smoothingType: "linear",
+        tooltip: "Bias value. Face shows and edits this. Swing + Smooth time/algo live in Parameter Settings.",
       },
-      ...nodeGraphControllerRangeSmoothingParameters(),
+      ...nodeGraphControllerDisplayParameter(),
       {
         choices: ["Unipolar", "Bipolar"],
         defaultValue: "0",
@@ -7009,7 +7027,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Legacy. Bipolar with Min at 0 maps Bias to −Max…+Max.",
+        tooltip: "Unused. Bias swing is min/max on the Bias parameter.",
       },
     ],
   },
@@ -10179,7 +10197,18 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1"
       },
-      { defaultValue: "0.5", key: "frequency", label: "Frequency", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
+      {
+        defaultValue: "0.5",
+        key: "frequency",
+        label: "Frequency",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip:
+          "0…1 pitch-norm (maps to MIDI −12…+135 → Hz). Knob/Bias → Frequency MOD sets this directly (not unit-add).",
+      },
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.5", key: "chaos", label: "Chaos", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
         nodeGraphOutputAmplitudeParam,

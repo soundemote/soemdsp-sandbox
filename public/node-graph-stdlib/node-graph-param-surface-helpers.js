@@ -272,7 +272,95 @@ function nodeGraphFiniteNumber(value, fallback = 0) {
  * |mod| <= this -> unit CV across [min,max] (linear, no skew) unless tagged domain.
  * Tagged domain / |mod| above / dest outputDomain -> domain path (see file header).
  */
+
+/**
+ * Character filters (Superlove / Yellowjacket / …) map Frequency 0…1 → MIDI pitch
+ * −12…135 → Hz inside native. PitchHz (and retired absolute ƒ) send real Hz.
+ * Convert Hz → that 0…1 norm so domain REPLACE actually tracks the knob.
+ */
+const NODE_GRAPH_NORM_PITCH_FREQ_TYPES = new Set([
+  "superloveFilter",
+  "yellowjacketFilter",
+  "flowerChildFilter",
+  "humanFilter",
+  "resonatorFilter",
+  "chaoticPhaseLockingFilter",
+]);
+
+function nodeGraphIsNormPitchFrequencyParam(nodeType, paramKey) {
+  return NODE_GRAPH_NORM_PITCH_FREQ_TYPES.has(String(nodeType || ""))
+    && String(paramKey || "") === "frequency";
+}
+
+/** Inverse of pitchToFreq(jmap01(n, −12, 135)). */
+function nodeGraphHzToNormPitchFrequency(hz) {
+  const h = Number(hz);
+  if (!(h > 1e-12) || !Number.isFinite(h)) return 0;
+  const pitch = 69 + 12 * (Math.log(h / 440) / Math.LN2);
+  let n = (pitch + 12) / 147;
+  if (n < 0) n = 0;
+  if (n > 1) n = 1;
+  return n;
+}
+
+/** PitchHz Out → Superlove-style Frequency: Pitch→Hz is Hz; Hz→Pitch is MIDI pitch. */
+function nodeGraphPitchHzSampleToNormPitchFrequency(srcNode, sample) {
+  const mode = Number(
+    srcNode?.params?.mode ?? srcNode?.parameters?.mode ?? 0,
+  );
+  const v = Number(sample);
+  if (!Number.isFinite(v)) return 0;
+  // mode >= 0.5 → Hz→Pitch (Out is MIDI-ish pitch)
+  if (mode >= 0.5) {
+    let n = (v + 12) / 147;
+    if (n < 0) n = 0;
+    if (n > 1) n = 1;
+    return n;
+  }
+  return nodeGraphHzToNormPitchFrequency(v);
+}
+
 const NODE_GRAPH_PARAM_MOD_UNIT_BAND = 1 + 1e-9;
+
+function nodeGraphIsControllerModSourceType(type) {
+  const t = String(type || "");
+  return t === "knob"
+    || t === "pluginSlider"
+    || t === "bias"
+    || t === "toggleButton"
+    || t === "momentaryButton";
+}
+
+/**
+ * Knob/Bias/PitchHz/Hz → Superlove Frequency 0…1 (domain REPLACE payload).
+ * Returns null when this source should use the normal unit/domain path.
+ */
+function nodeGraphNormPitchFrequencyModFromSource(dstType, paramKey, srcType, srcNode, sample) {
+  if (!nodeGraphIsNormPitchFrequencyParam(dstType, paramKey)) {
+    return null;
+  }
+  const v = Number(sample);
+  if (!Number.isFinite(v)) {
+    return { value: 0, domain: true };
+  }
+  if (srcType === "pitchHz") {
+    return {
+      value: nodeGraphPitchHzSampleToNormPitchFrequency(srcNode, v),
+      domain: true,
+    };
+  }
+  if (nodeGraphIsControllerModSourceType(srcType)) {
+    if (Math.abs(v) > NODE_GRAPH_PARAM_MOD_UNIT_BAND) {
+      return { value: nodeGraphHzToNormPitchFrequency(v), domain: true };
+    }
+    const n = v < 0 ? 0 : (v > 1 ? 1 : v);
+    return { value: n, domain: true };
+  }
+  if (Math.abs(v) > NODE_GRAPH_PARAM_MOD_UNIT_BAND) {
+    return { value: nodeGraphHzToNormPitchFrequency(v), domain: true };
+  }
+  return null;
+}
 
 /**
  * Normalize one MOD source entry to { value, domain }.

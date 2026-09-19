@@ -415,6 +415,32 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphTypeId = function mapNativeGraphT
 /** Audio tap ports only (0–7). Never maps Live aliases — those are destination-only.
  *  Optional `type` disambiguates module-local names that reuse tap slots (Thru, etc.).
  */
+
+/**
+ * PitchHz (Hz) → Superlove/Yellowjacket/… Frequency (0…1 pitch-norm) cannot use
+ * raw ParamModEdge: process_norm_chaos_filter clamps frequency to 0…1, so any
+ * audible Hz becomes 1.0 (max cutoff). Host converts Hz→norm via set_param_mod.
+ */
+NodeLiveAudioProcessor.prototype.shouldSkipPitchHzNormFreqParamModEdge = function shouldSkipPitchHzNormFreqParamModEdge(
+  srcType,
+  dstType,
+  paramKey,
+) {
+  if (String(srcType || "") !== "pitchHz") return false;
+  if (typeof nodeGraphIsNormPitchFrequencyParam === "function") {
+    return nodeGraphIsNormPitchFrequencyParam(dstType, paramKey);
+  }
+  const normTypes = {
+    superloveFilter: 1,
+    yellowjacketFilter: 1,
+    flowerChildFilter: 1,
+    humanFilter: 1,
+    resonatorFilter: 1,
+    chaoticPhaseLockingFilter: 1,
+  };
+  return !!normTypes[String(dstType || "")] && String(paramKey || "") === "frequency";
+};
+
 NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGraphSrcPortId(
   port,
   type,
@@ -1712,6 +1738,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
             const srcId = String(m.sourceNode || "");
             const srcPort = String(m.sourcePort || "");
             if (!srcId || !idSet.has(srcId)) continue;
+            if (this.shouldSkipPitchHzNormFreqParamModEdge?.(typeById.get(srcId), dstType, paramKey)) continue;
             const srcPortId = this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId));
             if (!Number.isFinite(srcPortId) || srcPortId < 0) continue;
             try {
@@ -6186,6 +6213,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
           const srcId = String(m.sourceNode || "");
           const srcPort = String(m.sourcePort || "");
           if (!srcId || !idSet.has(srcId)) continue;
+          if (this.shouldSkipPitchHzNormFreqParamModEdge?.(typeById.get(srcId), dstType, paramKey)) continue;
           const srcPortId = this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId));
           if (!Number.isFinite(srcPortId) || srcPortId < 0) continue;
           const srcLane = voiceLaneByBase.get(srcId);

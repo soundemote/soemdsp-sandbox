@@ -67,7 +67,23 @@ function nodeGraphGhostSliderControllerOutSample(nodeId, port) {
   // Toggle/momentary: unit `value` mapped through Min/Max.
   if (type === "knob" || type === "pluginSlider") {
     const domain = type === "knob" ? read("offset", 0) : read("value", 0);
-    const rangeMin = read("rangeMin", type === "pluginSlider" ? -1 : 0);
+    if (type === "knob") {
+      const patchNode = typeof nodeGraphPatchNode === "function"
+        ? nodeGraphPatchNode(nodeId)
+        : null;
+      const range = typeof nodeGraphDspKnobOffsetDomain === "function"
+        ? nodeGraphDspKnobOffsetDomain(patchNode)
+        : null;
+      if (range) {
+        const lo = Number(range.min);
+        const hi = Number(range.max);
+        if (Number.isFinite(lo) && Number.isFinite(hi)) {
+          return domain < lo ? lo : (domain > hi ? hi : domain);
+        }
+      }
+      return domain;
+    }
+    const rangeMin = read("rangeMin", -1);
     const rangeMax = read("rangeMax", 1);
     const polarity = read("polarity", 0);
     if (typeof nodeGraphDspControllerRange === "function") {
@@ -231,6 +247,19 @@ function nodeGraphParameterGhostSignal(node, key) {
     const srcParamMeta = (typeof nodeGraphReadPatchParameterMetadata === "function"
       ? nodeGraphReadPatchParameterMetadata(srcNode, srcPort)
       : null) || {};
+    if (typeof nodeGraphNormPitchFrequencyModFromSource === "function") {
+      const converted = nodeGraphNormPitchFrequencyModFromSource(
+        String(patchNode?.type || ""),
+        key,
+        srcType,
+        srcNode,
+        normalized,
+      );
+      if (converted) {
+        sources.push(converted);
+        continue;
+      }
+    }
     const taggedDomain = srcParamMeta.outputDomain === true
       || srcType === "range"
       || srcType === "Range"
@@ -320,18 +349,10 @@ function syncNodeGraphGhostSliders() {
       continue;
     }
     any = true;
+    // Keep sentDomainValue for diagnostics only. Do not rewrite the readout
+    // number or thumb — those stay on editable domainValue; ghost CSS shows sent.
     if (ghost && typeof ghost === "object" && Number.isFinite(Number(ghost.effectiveDomain))) {
       slider.dataset.sentDomainValue = String(ghost.effectiveDomain);
-      const valueText = readout.querySelector(".node-slider-readout-value");
-      if (valueText && typeof formatNodeSliderReadoutValue === "function") {
-        valueText.textContent = formatNodeSliderReadoutValue(
-          Number(ghost.effectiveDomain),
-          slider.dataset.kind,
-          slider.dataset.maxDigits,
-        );
-      } else if (valueText) {
-        valueText.textContent = String(Number(ghost.effectiveDomain));
-      }
     }
     const range = nodeSliderHandleRangeFromTravel(
       slider,

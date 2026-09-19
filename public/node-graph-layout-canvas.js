@@ -424,10 +424,26 @@ function beginNodeGraphLayoutCanvasStage(nodeIds, mode = "perform") {
     nodeGraphLayoutCanvasApplyTileRect(item.tile, item.rect, stage);
   }
 
+  const syncKnobFaceCells = () => {
+    for (const item of items) {
+      const face = item.face;
+      if (!face?.classList?.contains("node-knob-face")) {
+        continue;
+      }
+      if (typeof attachNodeGraphKnobFaceReadoutFit === "function") {
+        attachNodeGraphKnobFaceReadoutFit(face);
+      }
+      if (typeof nodeGraphKnobFaceSyncCellVar === "function") {
+        nodeGraphKnobFaceSyncCellVar(face);
+      }
+    }
+  };
+
   const relayoutKeyboardFaces = () => {
     for (const item of items) {
       nodeGraphLayoutCanvasApplyTileRect(item.tile, item.rect, stage);
     }
+    syncKnobFaceCells();
     if (typeof installNodeGraphMidiKeyboardLayoutResizeObserver === "function") {
       installNodeGraphMidiKeyboardLayoutResizeObserver();
     }

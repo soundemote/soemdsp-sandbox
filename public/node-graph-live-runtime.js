@@ -3194,10 +3194,10 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Output-bus ear protector (must be in the worklet blob — main-thread only = passthrough clip).
   "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=worklet-protect-1",
   "./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1",
-  "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=toggle-range-1",
+  "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=knob-bias-out-1",
   "./public/modules/portal/portal-lanes.js?v=portal-rename-4x2-1",
   "./public/modules/portal/portal-math.js?v=portal-lanes-1",
-  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=param-ssot-cleanup-1",
+  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=pitchhz-norm-freq-1",
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
@@ -3221,7 +3221,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=domain-offset-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=pitchhz-norm-freq-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=os-x124-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
@@ -3232,7 +3232,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=domain-offset-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=knob-bias-out-1",
   "./public/node-live-audio-worklet-process.js?v=os-x124-1",
 ];
 

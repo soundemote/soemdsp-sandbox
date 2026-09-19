@@ -120,10 +120,10 @@ NodeLiveAudioProcessor.prototype.syncNestedAutoSmoothingSeconds = function syncN
 };
 
 NodeLiveAudioProcessor.prototype.smootherNeedsWork = function smootherNeedsWork(smoother) {
-    // Shared floor with main-thread smoothers (filters.js). Planck.
+    // Shared floor with main-thread smoothers (filters.js). Epsilon.
     const eps = typeof nodeGraphParameterSmootherConvergenceEpsilon === "number"
       ? nodeGraphParameterSmootherConvergenceEpsilon
-      : (typeof NODE_GRAPH_PLANCK === "number" ? NODE_GRAPH_PLANCK : 1e-7);
+      : (typeof NODE_GRAPH_EPSILON === "number" ? NODE_GRAPH_EPSILON : 1e-7);
     return Math.abs((smoother.outputBuffer ?? 0) - (smoother.targetSignal ?? 0)) > eps;
 };
 

@@ -30,10 +30,10 @@ function nodeGraphModuleSmoothingDefaultSeconds() {
 }
 
 // One-pole / multi-pole smoothers asymptote toward the target and never quite
-// land. When |out − target| is within Planck, snap exactly so knobs read 1.00
+// land. When |out − target| is within Epsilon, snap exactly so knobs read 1.00
 // and Number Readout settles. Same floor as silence/idle/dirty-near.
 const nodeGraphParameterSmootherConvergenceEpsilon =
-  typeof NODE_GRAPH_PLANCK === "number" ? NODE_GRAPH_PLANCK : 1e-7;
+  typeof NODE_GRAPH_EPSILON === "number" ? NODE_GRAPH_EPSILON : 1e-7;
 
 const nodeGraphParameterSmootherFilterTypes = Object.freeze([
   "linear",

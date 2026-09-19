@@ -39,13 +39,82 @@ function nodeGraphDspKnobBiasRange(rangeMax, polarity) {
  */
 function nodeGraphDspBiasFromIn(offset, inSample, rangeMin = null, rangeMax = null) {
   let off = nodeGraphFiniteNumber(offset);
-  if (Number.isFinite(Number(rangeMin)) && Number.isFinite(Number(rangeMax))) {
-    off = nodeGraphDspClamp(off, Number(rangeMin), Number(rangeMax));
+  // Only clamp when the caller actually passed a range. Number(null) is 0, so
+  // `Number.isFinite(Number(null))` used to snap every omitted-range call to 0.
+  const lo = Number(rangeMin);
+  const hi = Number(rangeMax);
+  if (
+    rangeMin != null
+    && rangeMax != null
+    && Number.isFinite(lo)
+    && Number.isFinite(hi)
+  ) {
+    off = nodeGraphDspClamp(off, lo, hi);
   }
   const input = nodeGraphFiniteNumber(inSample);
   const value = input + off;
   return { Bias: value, Out: value, offset: off, value: off };
 }
+
+/** Knob Bias domain from Parameter Settings on `offset` (min/max). */
+function nodeGraphDspKnobOffsetDomain(node) {
+  const meta = node?.paramMeta?.offset && typeof node.paramMeta.offset === "object"
+    ? node.paramMeta.offset
+    : {};
+  let lo = Number(meta.min);
+  let hi = Number(meta.max);
+  // Read-only legacy fallback when Settings unset — does not write/migrate patch.
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
+    const params = node?.params && typeof node.params === "object" ? node.params : {};
+    const rn = Number(params.rangeMin);
+    const rm = Number(params.rangeMax);
+    const pol = Number(params.polarity);
+    if (Number.isFinite(rn) || Number.isFinite(rm)) {
+      if (typeof nodeGraphDspControllerRange === "function") {
+        const range = nodeGraphDspControllerRange(
+          Number.isFinite(rn) ? rn : 0,
+          Number.isFinite(rm) ? rm : 1,
+          Number.isFinite(pol) ? pol : 0,
+        );
+        lo = Number(range.min);
+        hi = Number(range.max);
+      } else {
+        if (!Number.isFinite(lo) && Number.isFinite(rn)) lo = rn;
+        if (!Number.isFinite(hi) && Number.isFinite(rm)) hi = rm;
+      }
+    }
+  }
+  if (!Number.isFinite(lo)) lo = 0;
+  if (!Number.isFinite(hi)) hi = 1;
+  if (lo > hi) {
+    const swap = lo;
+    lo = hi;
+    hi = swap;
+  }
+  if (!(hi > lo)) hi = lo + 1e-9;
+  return {
+    bipolar: lo < 0 && hi > 0,
+    max: hi,
+    min: lo,
+  };
+}
+
+function nodeGraphDspControllerSmoothingSamples(meta, params, sampleRate) {
+  const rate = Math.max(1, Number(sampleRate) || 44100);
+  let v = Number(meta && meta.smoothingSeconds);
+  if (!Number.isFinite(v) && params && typeof params === "object"
+      && Object.prototype.hasOwnProperty.call(params, "smoothingSeconds")) {
+    v = Number(params.smoothingSeconds);
+  }
+  if (!Number.isFinite(v) || v <= 0) {
+    return 0;
+  }
+  if (v > 0 && v < 1) {
+    return Math.max(1, Math.round(v * rate));
+  }
+  return Math.max(1, Math.round(v));
+}
+
 
 /** Latch / toggle / gate style binary out from a continuous param. */
 function nodeGraphDspBinaryOut(raw) {
@@ -124,6 +193,11 @@ function nodeGraphDspApplyControllerSmoothingMeta(node, controlKey) {
   const existing = node.paramMeta[controlKey] && typeof node.paramMeta[controlKey] === "object"
     ? node.paramMeta[controlKey]
     : {};
+  const hasModuleSmooth = Object.prototype.hasOwnProperty.call(params, "smoothingSeconds");
+  if (!hasModuleSmooth) {
+    // Knob: Bias Parameter Settings own smooth — do not invent / stomp.
+    return existing;
+  }
   const seconds = Number(params.smoothingSeconds);
   const snap = !Number.isFinite(seconds) || seconds <= 0;
   const type = nodeGraphDspControllerSmoothingTypeFromIndex(params.smoothingType);
@@ -145,7 +219,11 @@ function nodeGraphDspApplyControllerLiveSmoothing(runtimeNode) {
   }
   const controlKey = type === "knob" ? "offset" : "value";
   nodeGraphDspApplyControllerSmoothingMeta(runtimeNode, controlKey);
-  if (type === "knob") {
+  // Toggle/momentary still map unit 0…1 through module Min/Max params.
+  // Knob Bias min/max live on Parameter Settings (paramMeta.offset). Do not
+  // overwrite those from missing rangeMin/rangeMax — that snapped 0…150 → 0…1
+  // so a Bias of 67 was smoothed/clamped to 1 before the jack ever saw it.
+  if (type === "toggleButton" || type === "momentaryButton") {
     const params = runtimeNode.params || {};
     const range = nodeGraphDspControllerRange(params.rangeMin, params.rangeMax, params.polarity);
     const meta = runtimeNode.paramMeta[controlKey] || {};
