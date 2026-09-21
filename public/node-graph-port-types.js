@@ -117,15 +117,24 @@ function nodeGraphParameterIsSetup(parameter) {
   return Boolean(parameter && parameter.setup === true);
 }
 
-/** Same type only, plus audio/digital → setup (Knob/OSC sampled once per quantum). */
+/**
+ * Same type, plus:
+ *   audio ↔ digital (white gates/triggers are still voltages; Knob can drive 2t D)
+ *   audio/digital → setup (Knob/OSC sampled once per quantum)
+ */
 function nodeGraphPortTypesCompatible(typeA, typeB) {
   const a = nodeGraphNormalizePortType(typeA) || NODE_GRAPH_PORT_TYPES.audio;
   const b = nodeGraphNormalizePortType(typeB) || NODE_GRAPH_PORT_TYPES.audio;
   if (a === b) {
     return true;
   }
+  const audio = NODE_GRAPH_PORT_TYPES.audio;
+  const digital = NODE_GRAPH_PORT_TYPES.digital;
+  if ((a === audio && b === digital) || (a === digital && b === audio)) {
+    return true;
+  }
   const setup = NODE_GRAPH_PORT_TYPES.setup;
-  if (b === setup && (a === NODE_GRAPH_PORT_TYPES.audio || a === NODE_GRAPH_PORT_TYPES.digital)) {
+  if (b === setup && (a === audio || a === digital)) {
     return true;
   }
   return false;

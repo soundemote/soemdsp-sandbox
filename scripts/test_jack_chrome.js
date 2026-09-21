@@ -461,6 +461,8 @@ var qMod = sandbox.createNodeParameterModulationPort("n1", "cookbookFilter", {
 assert(!qMod.classList.contains("node-port-square"), "ordinary param MOD stays round");
 assert(sandbox.nodeGraphPortIsSetupParam("cookbookFilter", "stages") === true, "stages is setup");
 assert(sandbox.nodeGraphPortIsSetupParam("cookbookFilter", "q") === false, "q is not setup");
+assert(sandbox.nodeGraphPortTypesCompatible("audio", "digital") === true, "analog may feed digital");
+assert(sandbox.nodeGraphPortTypesCompatible("digital", "audio") === true, "digital may feed analog");
 assert(sandbox.nodeGraphPortTypesCompatible("audio", "setup") === true, "audio may feed setup");
 assert(sandbox.nodeGraphPortTypesCompatible("setup", "audio") === false, "setup does not feed analog");
 assert(css.includes(".node-param-port.node-port-square::before"), "CSS squares setup param jacks");
