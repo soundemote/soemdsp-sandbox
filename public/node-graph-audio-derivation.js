@@ -3,6 +3,15 @@ function nodeGraphBaseSampleRate() {
   return Number.isFinite(sampleRate) && sampleRate > 0 ? sampleRate : 44100;
 }
 
+/** Host rate Live actually runs at (AudioContext). Render must use this too. */
+function nodeGraphLiveHostSampleRate() {
+  const live = Number(nodeGraphMvp?.live?.context?.sampleRate);
+  if (Number.isFinite(live) && live > 0) {
+    return live;
+  }
+  return nodeGraphBaseSampleRate();
+}
+
 function nodeGraphTargetSampleRate(patch = nodeGraphMvp.patch) {
   return normalizeNodeGraphPatchAudio(patch?.audio).targetSampleRate;
 }
@@ -97,8 +106,10 @@ function nodeGraphFormatOversamplingRatio(ratio) {
   return `x${value}`;
 }
 
-function nodeGraphAudioDerivation(patch = nodeGraphMvp?.patch) {
-  const currentSampleRate = nodeGraphBaseSampleRate();
+function nodeGraphAudioDerivation(patch = nodeGraphMvp?.patch, hostRate = null) {
+  const currentSampleRate = Number.isFinite(Number(hostRate)) && Number(hostRate) > 0
+    ? Number(hostRate)
+    : nodeGraphLiveHostSampleRate();
   const factor = nodeGraphOversamplingFactorFromPatch(patch);
   const targetSampleRate = nodeGraphTargetSampleRateForOversampling(factor, currentSampleRate);
   const oversamplingRatio = factor;

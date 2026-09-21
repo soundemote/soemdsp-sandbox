@@ -7,7 +7,13 @@ function setNodeGraphSelection(selection) {
   if (active instanceof HTMLElement) {
     if (typeof nodeGraphTextBoxIsTypingElement === "function" && nodeGraphTextBoxIsTypingElement(active)) {
       // Title / area editors stay put — window chrome is not a focus target.
-    } else if (active.id === "nodeSceneAliasInput" || active.id === "nodeSceneKnobTextInput") {
+    } else if (
+      active.id === "nodeSceneAliasInput"
+      || active.id === "nodeSceneKnobTextInput"
+      || active.id === "nodeSceneKnobPluginFolder"
+      || active.id === "nodeSceneKnobPluginName"
+      || active.id === "nodeSceneKnobPluginId"
+    ) {
       try {
         active.blur();
       } catch {

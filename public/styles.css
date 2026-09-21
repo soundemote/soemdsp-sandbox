@@ -3196,72 +3196,8 @@ body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-surfac
     0 0 14px rgba(226, 58, 58, 0.55);
 }
 
-/* Macro knob bank is the module display — no title/status chrome. */
-.node-macro-controls-panel {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr);
-  gap: 0;
-  width: calc(100% - 6px);
-  margin: 3px auto 0;
-  padding: 6px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  /* Solid black plate by default; Display Settings can override via CSS var. */
-  background: var(--macro-controls-bg, #000000);
-  box-sizing: border-box;
-}
-
-.node-macro-controls-module {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  margin: 0;
-  border-radius: 0;
-  /* Fill the module body / display slot. */
-  flex: 1 1 auto;
-}
-
-.node-macro-controls-panel[hidden] {
-  display: none;
-}
-
-/* Legacy class kept so old dock CSS does not throw; heading no longer built. */
-.node-macro-controls-heading {
-  display: none;
-}
-
-.node-macro-controls-row {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(54px, 1fr));
-  gap: var(--macro-knob-gap, 6px);
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  width: 100%;
-  align-content: center;
-  justify-content: center;
-  justify-items: stretch;
-}
-
-/* Module face: 2×4. Cell size = remaining space after gaps, times knob size.
-   Spacing is the gap between cells, so growing size does not overlap neighbors. */
-.node-macro-controls-module .node-macro-controls-row {
-  container-type: size;
-  --macro-knob-fit: min(
-    calc((100cqi - 3 * var(--macro-knob-gap, 4px)) / 4),
-    calc((100cqb - var(--macro-knob-gap, 4px)) / 2)
-  );
-  --macro-knob-cell: calc(var(--macro-knob-fit) * var(--macro-knob-size-scale, 1));
-  grid-template-columns: repeat(4, var(--macro-knob-cell));
-  grid-template-rows: repeat(2, var(--macro-knob-cell));
-  gap: var(--macro-knob-gap, 4px);
-}
-
-/* Shared macro dial (bank, keyboard dock, Knob module):
-   title above the dial · value in the center of the circle · arc centered in dial.
-   Angle drag uses the circle center, not the full button (see view-controls).
-   Size scale applies ONLY to the arc widget — not label or value. */
+/* Knob dial (class names shared with the old 8-knob plate CSS):
+   title above the dial · value in the center of the circle · arc centered in dial. */
 .node-macro-knob {
   position: relative;
   display: flex;
@@ -3283,28 +3219,6 @@ body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-surfac
   cursor: var(--node-dot-cursor);
   user-select: none;
   transform: none;
-}
-
-.node-macro-controls-module .node-macro-knob {
-  min-height: 0;
-  height: 100%;
-  width: 100%;
-  padding: 0;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-/* Title sits above the dial widget (not over the circle). */
-.node-macro-controls-panel.macro-labels-hidden .node-macro-knob-label,
-.node-macro-controls-panel.macro-labels-hidden .node-macro-knob > span:not(.node-macro-knob-dial):not(.node-macro-knob-edit-input),
-[data-macro-controls-display].macro-labels-hidden .node-macro-knob-label {
-  display: none;
-}
-
-.node-macro-controls-panel.macro-values-hidden .node-macro-knob-value,
-.node-macro-controls-panel.macro-values-hidden .node-macro-knob-dial > strong,
-[data-macro-controls-display].macro-values-hidden .node-macro-knob-value {
-  display: none;
 }
 
 .node-macro-knob-label,
@@ -3471,12 +3385,6 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   box-shadow: none;
   border: none;
   pointer-events: none;
-}
-
-@media (max-width: 880px) {
-  .node-macro-controls-row {
-    grid-template-columns: repeat(5, minmax(54px, 1fr));
-  }
 }
 
 .node-midi-keyboard-performance {
@@ -13481,9 +13389,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   fill: none !important;
 }
 
-/* Knob module face = macro dial renderer, sized to the LayoutB display plate.
-   Colors via per-face --macro-arc-* / background (Display Settings), not the
-   global Macro Controls bank. Do not apply --macro-knob-size-scale here. */
+/* Knob module face, sized to the LayoutB display plate.
+   Colors via per-face --macro-arc-* / background (Display Settings). */
 .node-knob-face {
   position: relative;
   box-sizing: border-box;
@@ -20792,6 +20699,16 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   display: none;
 }
 
+.node-knob-plugin-identity {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.node-knob-plugin-identity[hidden] {
+  display: none;
+}
+
 .scene-context-alias-control span {
   color: var(--muted);
   font-size: 0.62rem;
@@ -22227,6 +22144,11 @@ body.node-slider-dragging .node-param-port {
   background: transparent;
   box-shadow: inset 0 0 0 var(--node-port-crescent-stroke-width) var(--node-port-crescent-stroke);
   pointer-events: none;
+}
+
+/* Setup params: same purple as ordinary param MOD (--node-mod-input-fill), square = not realtime. */
+.node-param-port.node-port-square::before {
+  border-radius: 1px;
 }
 
 .node-param-port.modulation-input {

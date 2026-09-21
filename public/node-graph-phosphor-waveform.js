@@ -1753,13 +1753,98 @@ function beginNodeGraphPhosphorWaveformZoomDrag(event, section) {
   control.addEventListener("pointercancel", endDrag);
 }
 
+const nodeGraphPhosphorWaveformHandleHitPx = 10;
+
+function nodeGraphPhosphorWaveformRegionHandleHit(section, canvas, clientX) {
+  const nodeId = section?.dataset?.node;
+  const entry = typeof nodeGraphPhosphorWaveformSampleEntry === "function"
+    ? nodeGraphPhosphorWaveformSampleEntry(nodeId)
+    : null;
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!entry?.frames || !node || !canvas) {
+    return null;
+  }
+  const rect = canvas.getBoundingClientRect();
+  if (!(rect.width > 0)) {
+    return null;
+  }
+  const state = nodeGraphPhosphorWaveformViewState(nodeId, entry.frames, section);
+  const viewStart = state.startFrame;
+  const viewEnd = state.endFrame;
+  const viewSpan = Math.max(1e-9, viewEnd - viewStart);
+  const loopStart = clampNodeSliderValue(nodeGraphFiniteNumber(node.params?.start), 0, 1) * entry.frames;
+  const loopEnd = clampNodeSliderValue(nodeGraphFiniteNumber(node.params?.end, 1), 0, 1) * entry.frames;
+  const x0 = ((Math.min(loopStart, loopEnd) - viewStart) / viewSpan) * rect.width;
+  const x1 = ((Math.max(loopStart, loopEnd) - viewStart) / viewSpan) * rect.width;
+  const localX = clientX - rect.left;
+  const hit = nodeGraphPhosphorWaveformHandleHitPx;
+  const d0 = Math.abs(localX - x0);
+  const d1 = Math.abs(localX - x1);
+  if (d0 <= hit && d0 <= d1) {
+    return "start";
+  }
+  if (d1 <= hit) {
+    return "end";
+  }
+  return null;
+}
+
+function nodeGraphPhosphorWaveformWriteRegionParam(nodeId, key, phase01) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!node || (key !== "start" && key !== "end")) {
+    return;
+  }
+  const next = clampNodeSliderValue(nodeGraphFiniteNumber(phase01), 0, 1);
+  node.params = { ...(node.params || {}), [key]: next };
+  const safeId = String(nodeId || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const moduleEl = document.querySelector(`.dsp-node[data-node="${safeId}"]`);
+  const slider = moduleEl?.querySelector?.(`input[data-param="${key}"]`);
+  if (slider) {
+    if (typeof setNodeSliderValue === "function") {
+      setNodeSliderValue(slider, next, { interaction: "program", bypassSmoothing: true });
+    } else {
+      slider.value = String(next);
+      if (typeof syncNodeSliderReadout === "function") {
+        syncNodeSliderReadout(slider);
+      }
+    }
+  }
+  if (typeof scheduleNodeGraphLiveParameterSync === "function") {
+    scheduleNodeGraphLiveParameterSync();
+  }
+  if (typeof markNodeGraphRenderPending === "function") {
+    markNodeGraphRenderPending();
+  }
+}
+
+function nodeGraphPhosphorWaveformSetRegionFromClientX(section, canvas, clientX, which) {
+  const nodeId = section?.dataset?.node;
+  const entry = nodeGraphPhosphorWaveformSampleEntry(nodeId);
+  if (!entry?.frames || !canvas) {
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  if (!(rect.width > 0)) {
+    return;
+  }
+  const state = nodeGraphPhosphorWaveformViewState(nodeId, entry.frames, section);
+  const viewStart = state.startFrame;
+  const viewEnd = state.endFrame;
+  const viewSpan = Math.max(1e-9, viewEnd - viewStart);
+  const localX = clampNodeSliderValue((clientX - rect.left) / rect.width, 0, 1);
+  const frame = viewStart + localX * viewSpan;
+  const phase = clampNodeSliderValue(frame / Math.max(1, entry.frames), 0, 1);
+  nodeGraphPhosphorWaveformWriteRegionParam(nodeId, which === "end" ? "end" : "start", phase);
+  nodeGraphPhosphorWaveformMarkInteraction(nodeId);
+}
+
 function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
   canvas.style.touchAction = "none";
 
   let dragPointerId = null;
   let lastClientX = 0;
   let lastClientY = 0;
-  // "pan" = view window (horizontal), "phase" = relative phaseOffset scrub (Shift+drag).
+  // "pan" = view window, "phase" = phaseOffset scrub, "start"/"end" = region handles.
   let dragMode = "pan";
   canvas.addEventListener("pointerdown", (event) => {
     if (typeof nodeGraphAudioPlayerFaceIsWave === "function"
@@ -1773,19 +1858,35 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
     dragPointerId = event.pointerId;
     lastClientX = event.clientX;
     lastClientY = event.clientY;
-    dragMode = event.shiftKey ? "phase" : "pan";
+    const handle = event.shiftKey
+      ? null
+      : nodeGraphPhosphorWaveformRegionHandleHit(section, canvas, event.clientX);
+    if (handle) {
+      dragMode = handle;
+      nodeGraphPhosphorWaveformSetRegionFromClientX(section, canvas, event.clientX, handle);
+    } else {
+      dragMode = event.shiftKey ? "phase" : "pan";
+    }
     canvas.setPointerCapture?.(dragPointerId);
     canvas.classList.add("dragging");
     canvas.classList.toggle("phase-scrubbing", dragMode === "phase");
+    canvas.classList.toggle("region-handle-dragging", dragMode === "start" || dragMode === "end");
     event.stopPropagation();
   });
   canvas.addEventListener("pointermove", (event) => {
     if (dragPointerId === null || event.pointerId !== dragPointerId) {
+      // Hover cursor near start/end handles.
+      const hover = nodeGraphPhosphorWaveformRegionHandleHit(section, canvas, event.clientX);
+      canvas.style.cursor = hover ? "ew-resize" : "";
       return;
     }
     const nodeId = section.dataset.node;
     const canvasW = canvas.clientWidth || canvas.width;
-    if (dragMode === "phase") {
+    if (dragMode === "start" || dragMode === "end") {
+      nodeGraphPhosphorWaveformSetRegionFromClientX(section, canvas, event.clientX, dragMode);
+      lastClientX = event.clientX;
+      lastClientY = event.clientY;
+    } else if (dragMode === "phase") {
       // Same diagonal 1D policy as sliders: right+up / left+down.
       const axes = typeof nodeGraphPointerDragScreenDelta === "function"
         ? nodeGraphPointerDragScreenDelta(lastClientX, lastClientY, event.clientX, event.clientY)
@@ -1822,6 +1923,7 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
     dragMode = "pan";
     canvas.classList.remove("dragging");
     canvas.classList.remove("phase-scrubbing");
+    canvas.classList.remove("region-handle-dragging");
   };
   canvas.addEventListener("pointerup", endDrag);
   canvas.addEventListener("pointercancel", endDrag);
@@ -1995,7 +2097,10 @@ function createNodeGraphPhosphorWaveformDisplay(nodeId, type) {
   // Room dimmer rect punch (same contract as .node-module-scope-window).
   section.dataset.lightSource = "screen";
   section.dataset.lightStrength = "1";
-  section.setAttribute("aria-label", `${nodeGraphNodeDisplayName?.(nodeId) || "Music Player"} phosphor waveform display`);
+  const faceLabel = type === "samplePlayer"
+    ? "Sample Player"
+    : (nodeGraphNodeDisplayName?.(nodeId) || "Music Player");
+  section.setAttribute("aria-label", `${faceLabel} phosphor waveform display`);
 
   const canvas = document.createElement("canvas");
   canvas.className = "node-phosphor-waveform-canvas";
@@ -2543,6 +2648,27 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   if (regionX1 > regionX0) {
     context.fillStyle = nodeGraphPhosphorWaveformLineColor(settings, 70, 0.06);
     context.fillRect(regionX0, 0, regionX1 - regionX0, height);
+  }
+  // Draggable Start / End handles (visible lines at region edges).
+  {
+    const handlePx = Math.max(1, displayScaleToPx(0.008, faceMinDevice));
+    context.shadowBlur = 0;
+    context.lineCap = "butt";
+    context.strokeStyle = "rgba(255, 220, 120, 0.95)";
+    context.lineWidth = handlePx;
+    context.beginPath();
+    context.moveTo(regionX0, 0);
+    context.lineTo(regionX0, height);
+    context.moveTo(regionX1, 0);
+    context.lineTo(regionX1, height);
+    context.stroke();
+    // Small top/bottom caps so the handles read as grab points.
+    const cap = Math.max(4, displayScaleToPx(0.03, faceMinDevice));
+    context.fillStyle = "rgba(255, 220, 120, 0.95)";
+    context.fillRect(regionX0 - handlePx * 1.5, 0, handlePx * 3, cap);
+    context.fillRect(regionX0 - handlePx * 1.5, height - cap, handlePx * 3, cap);
+    context.fillRect(regionX1 - handlePx * 1.5, 0, handlePx * 3, cap);
+    context.fillRect(regionX1 - handlePx * 1.5, height - cap, handlePx * 3, cap);
   }
 
   // Playhead — scrollLineWidth (0..1 of face min-edge). 0 = hidden.

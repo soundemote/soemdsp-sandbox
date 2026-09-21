@@ -1,13 +1,5 @@
-// Softwave Oscillator face — static waveshape (waveform/morph/phase).
-// Morph drives softness on the plate. Walter Wave draws two periods.
-// Not a live scope: frequency does not animate the plate. Playhead optional (off by default).
-
-// Preview Hz high enough that Morph 0…1 spans soft→hard (at 100 Hz, sine_amp
-// saturates tanh above Morph ≈ 0.5 so the face looked morph-deaf).
-const NODE_GRAPH_SOFTWAVE_FACE_PREVIEW_HZ = 1200;
-const NODE_GRAPH_SOFTWAVE_FACE_PREVIEW_SR = 44100;
-/** Walter Wave (waveform index 8) — draw two periods across the face. */
-const NODE_GRAPH_SOFTWAVE_WALTER_WAVE = 8;
+// Softwave Oscillator face — one cycle of the actual shape at Frequency + Morph.
+// Phase is a moving dot on that cycle (live phasor, else the Phase param).
 
 function createNodeGraphSoftwaveOscDisplay(nodeId, type = "softwaveOsc") {
   const id = nodeId && typeof nodeId === "object"
@@ -33,24 +25,17 @@ function createNodeGraphSoftwaveOscDisplay(nodeId, type = "softwaveOsc") {
     paint: drawNodeGraphSoftwaveOscDisplay,
     onResize: (el) => { el._softwaveOscLaidOut = false; },
     paintOnCreate: false,
-    // Continuous RAF only when the optional playhead is shown.
     shouldAnimate: (el) => {
       if (typeof scopePaintFaceShouldAnimate === "function" && !scopePaintFaceShouldAnimate(el)) {
         return false;
       }
-      const node = typeof nodeGraphPatchNode === "function"
-        ? nodeGraphPatchNode(el?.dataset?.node || "")
-        : null;
-      const look = nodeGraphSoftwaveOscFaceLook(node);
-      return Boolean(look.showDot);
+      return Boolean(nodeGraphMvp?.live?.node);
     },
   });
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       drawNodeGraphSoftwaveOscDisplay(section);
-      // Arm loop only if showDot — otherwise one static paint is enough.
-      const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
-      if (nodeGraphSoftwaveOscFaceLook(node).showDot) {
+      if (nodeGraphMvp?.live?.node) {
         section._startFaceLoop?.();
       }
     });
@@ -134,13 +119,16 @@ function drawNodeGraphSoftwaveOscDisplayInner(section) {
   }
   const look = nodeGraphSoftwaveOscFaceLook(node);
   const waveform = nodeGraphSoftwaveOscLiveParam(node, "waveform", 0);
-  const morph = nodeGraphSoftwaveOscLiveParam(node, "morph", 0.5);
+  const morph = nodeGraphSoftwaveOscLiveParam(node, "morph", 1);
   const phaseParam = nodeGraphFiniteNumber(nodeGraphSoftwaveOscLiveParam(node, "phase", 0));
+  const frequencyHz = Math.abs(nodeGraphFiniteNumber(nodeGraphSoftwaveOscLiveParam(node, "frequency", 100), 100));
+  const sampleRate = typeof nodeGraphLiveHostSampleRate === "function"
+    ? nodeGraphLiveHostSampleRate()
+    : nodeGraphFiniteNumber(nodeGraphMvp?.live?.context?.sampleRate, 44100);
   const strokeW = look.lineThickness;
   const dotW = look.dotThickness;
   const lineBlur = look.lineBlur;
   const pixelDensity = look.pixelDensity;
-  const showDot = Boolean(look.showDot);
   let rawW = nodeGraphFiniteNumber(section.clientWidth || section.offsetWidth);
   let rawH = nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
   if (rawW < 8 || rawH < 8) {
@@ -150,24 +138,24 @@ function drawNodeGraphSoftwaveOscDisplayInner(section) {
       rawH = nodeGraphFiniteNumber(stage.clientHeight, rawH);
     }
   }
-  // Shape signature — no frequency (static plate). Playhead is overlaid separately.
   const signature = [
     String(nodeId),
     String(Math.round(nodeGraphFiniteNumber(waveform))),
     String(Number(morph).toFixed(4)),
-    String((phaseParam - Math.floor(phaseParam)).toFixed(4)),
+    String(Number(frequencyHz).toFixed(3)),
+    String(Math.round(sampleRate)),
     look.strokePaint,
     look.backgroundPaint,
     String(strokeW),
     String(lineBlur),
     String(pixelDensity),
-    showDot ? "1" : "0",
     String(dotW),
     look.dotPaint || "",
     `${Math.round(rawW)}x${Math.round(rawH)}`,
   ].join("|");
+  const liveDot = Boolean(nodeGraphMvp?.live?.node);
   if (
-    !showDot
+    !liveDot
     && section._softwaveOscSignature === signature
     && !section._softwaveOscForceDraw
     && section._softwaveOscLaidOut === true
@@ -241,24 +229,20 @@ function drawNodeGraphSoftwaveOscDisplayInner(section) {
   const halfH = innerH * 0.5;
   const mapX = (phase) => padX + phase * innerW;
   const mapY = (value) => midY - value * halfH;
-  const samples = Math.max(48, Math.min(320, Math.ceil(innerW)));
+  const samples = Math.max(64, Math.min(512, Math.ceil(innerW)));
 
   const wrap01 = (p) => {
     const n = nodeGraphFiniteNumber(p);
     return n - Math.floor(n);
   };
-  const phaseOff = wrap01(phaseParam);
   const waveIndex = Math.max(0, Math.min(9, Math.round(nodeGraphFiniteNumber(waveform))));
-  // Walter Wave reads as a two-hump motif — show two periods across the plate.
-  const cycles = waveIndex === NODE_GRAPH_SOFTWAVE_WALTER_WAVE ? 2 : 1;
-  // Fixed preview Hz — Frequency knob does not reshape the face; Morph does.
   const sampleAt = (cycle01) => {
     const y = nodeGraphSoftwaveShapeAt(
       cycle01,
       waveIndex,
       morph,
-      NODE_GRAPH_SOFTWAVE_FACE_PREVIEW_HZ,
-      NODE_GRAPH_SOFTWAVE_FACE_PREVIEW_SR,
+      frequencyHz,
+      sampleRate,
     );
     return Number.isFinite(y) ? y : 0;
   };
@@ -272,7 +256,7 @@ function drawNodeGraphSoftwaveOscDisplayInner(section) {
     for (let i = 0; i <= samples; i += 1) {
       const xNorm = i / samples;
       const x = mapX(xNorm);
-      const sample = sampleAt(wrap01(xNorm * cycles + phaseOff));
+      const sample = sampleAt(wrap01(xNorm));
       const y = mapY(sample);
       if (i === 0 || prevY == null) {
         context.moveTo(x, y);
@@ -315,19 +299,13 @@ function drawNodeGraphSoftwaveOscDisplayInner(section) {
     }
   }
 
-  if (!showDot) {
-    return;
-  }
-
   let play = nodeGraphSoftwaveOscReadPhase(nodeId, node, section);
   if (!Number.isFinite(play)) {
-    play = phaseOff;
+    play = wrap01(phaseParam);
   }
   play = wrap01(play);
-  // One phasor sweep across the face; wave sampling uses ×cycles (Walter = 2).
-  const playX = wrap01(play - phaseOff);
-  const px = mapX(playX);
-  const py = mapY(sampleAt(wrap01(playX * cycles + phaseOff)));
+  const px = mapX(play);
+  const py = mapY(sampleAt(play));
   if (Number.isFinite(px) && Number.isFinite(py)) {
     context.beginPath();
     context.fillStyle = look.dotPaint || look.dotColor || "#ffffff";
@@ -350,8 +328,7 @@ function applyNodeGraphSoftwaveOscDisplaySettingsToFace(node) {
   el._softwaveOscLaidOut = false;
   el._softwaveOscWaveSig = "";
   drawNodeGraphSoftwaveOscDisplay(el);
-  const look = nodeGraphSoftwaveOscFaceLook(node);
-  if (look.showDot) {
+  if (nodeGraphMvp?.live?.node) {
     el._startFaceLoop?.();
   }
 }

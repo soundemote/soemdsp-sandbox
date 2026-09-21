@@ -1,4 +1,6 @@
-// Per-stage biquad is 2-pole (12 dB/oct); cascade Stages multiplies slope.
+// Face/plot twin of RS-MET rosic::CookbookFilter (RBJ biquad cascade).
+// Audio is native cookbook_filter.cpp. Per-stage biquad is 2-pole (12 dB/oct);
+// cascade Stages multiplies slope. Not analog ladder (RAPT::rsLadderFilter).
 // Compact labels match Active/TB-303 style (no spaces).
 const nodeGraphCookbookFilterModes = Object.freeze([
   "Bypass",
@@ -171,6 +173,126 @@ function nodeGraphCookbookFilterMagnitudeAt(coeff, frequency, sampleRate, stages
   const numerator = Math.hypot(numeratorRe, numeratorIm);
   const denominator = Math.max(1e-12, Math.hypot(denominatorRe, denominatorIm));
   return (numerator / denominator) ** nodeGraphCookbookFilterStageCount(stages);
+}
+
+const nodeGraphScientificIirKinds = Object.freeze({
+  butterworth: 0,
+  linkwitzRiley: 1,
+  bessel: 2,
+  chebyshev: 3,
+  elliptic: 4,
+});
+
+function nodeGraphIsScientificIirType(type) {
+  return Object.prototype.hasOwnProperty.call(nodeGraphScientificIirKinds, type);
+}
+
+function nodeGraphScientificIirClampOrder(order) {
+  let o = Math.round(Number(order) || 4);
+  if (o < 2) o = 2;
+  if (o > 8) o = 8;
+  if (o & 1) o += 1;
+  return o;
+}
+
+function nodeGraphScientificIirButterworthQ(order, sectionIndex) {
+  const n = order;
+  const i = sectionIndex;
+  const ang = (2 * i + 1) * Math.PI / (2 * n);
+  const s = Math.max(1e-9, Math.sin(ang));
+  return 1 / (2 * s);
+}
+
+function nodeGraphScientificIirBesselQ(order, i) {
+  if (order <= 2) return 0.57735026919;
+  if (order <= 4) return [0.805538, 0.521935][i < 0 ? 0 : (i > 1 ? 1 : i)];
+  if (order <= 6) return [1.023314, 0.611195, 0.510318][i < 0 ? 0 : (i > 2 ? 2 : i)];
+  return [1.225670, 0.710852, 0.559609, 0.505991][i < 0 ? 0 : (i > 3 ? 3 : i)];
+}
+
+function nodeGraphScientificIirEllipticQ(order, i, rippleDb) {
+  const qb = nodeGraphScientificIirButterworthQ(order, i);
+  const boost = 1 + 0.35 * (rippleDb < 0.1 ? 0.1 : rippleDb);
+  return qb * boost * (1 + 0.15 * i);
+}
+
+function nodeGraphScientificIirChebyQ(order, i, rippleDb) {
+  const r = rippleDb < 0.01 ? 0.01 : rippleDb;
+  const eps = Math.sqrt(Math.max(1e-12, 10 ** (r / 10) - 1));
+  return nodeGraphScientificIirButterworthQ(order, i) * (1 + 0.5 * eps * (1 + i));
+}
+
+function nodeGraphScientificIirRbjSection(mode, f0, Q, rate) {
+  const sr = rate < 1 ? 44100 : rate;
+  let f = f0 < 0 ? 0 : f0;
+  if (f > sr * 0.49) f = sr * 0.49;
+  if (f < 1e-9) f = 1e-9;
+  let q = Q < 0.05 ? 0.05 : (Q > 100 ? 100 : Q);
+  const w0 = 2 * Math.PI * f / sr;
+  const sinw = Math.sin(w0);
+  const cosw = Math.cos(w0);
+  const alpha = sinw / (2 * q);
+  let A0 = 1 + alpha;
+  let B0 = 1, B1 = 0, B2 = 0;
+  let A1 = -2 * cosw, A2 = 1 - alpha;
+  if (mode === 0) {
+    B1 = 1 - cosw;
+    B0 = 0.5 * B1;
+    B2 = B0;
+  } else if (mode === 1) {
+    B1 = -(1 + cosw);
+    B0 = -0.5 * B1;
+    B2 = B0;
+  } else if (mode === 2) {
+    B0 = alpha;
+    B1 = 0;
+    B2 = -alpha;
+  } else {
+    B0 = 1;
+    B1 = -2 * cosw;
+    B2 = 1;
+  }
+  const inv = A0 !== 0 ? 1 / A0 : 1;
+  return { b0: B0 * inv, b1: B1 * inv, b2: B2 * inv, a1: A1 * inv, a2: A2 * inv };
+}
+
+function nodeGraphScientificIirSectionQ(kind, order, i, rippleDb) {
+  if (kind === 2) return nodeGraphScientificIirBesselQ(order, i);
+  if (kind === 3) return nodeGraphScientificIirChebyQ(order, i, rippleDb);
+  if (kind === 4) return nodeGraphScientificIirEllipticQ(order, i, rippleDb);
+  return nodeGraphScientificIirButterworthQ(order, i);
+}
+
+function nodeGraphScientificIirMagnitudeAt(kind, mode, order, freqHz, bandwidthOct, rippleDb, frequency, sampleRate) {
+  const n = nodeGraphScientificIirClampOrder(order);
+  const m = n / 2;
+  const bw = bandwidthOct < 0.05 ? 0.05 : bandwidthOct;
+  let bandQ = 1 / (2 * (bw * 0.5));
+  if (bandQ < 0.2) bandQ = 0.2;
+  if (bandQ > 50) bandQ = 50;
+  const useBandQ = mode === 2 || mode === 3;
+  let mag = 1;
+  const designKind = kind === 1 ? 0 : kind;
+  let sections = m;
+  let passes = kind === 1 ? 2 : 1;
+  if (kind === 1 && n <= 2) {
+    sections = 2;
+    passes = 1;
+  }
+  const half = kind === 1 && n > 2 ? nodeGraphScientificIirClampOrder(n / 2) : n;
+  const sectionCount = kind === 1 && n > 2 ? half / 2 : (kind === 1 && n <= 2 ? 2 : m);
+  const orderForQ = kind === 1 && n > 2 ? half : n;
+  for (let pass = 0; pass < passes; pass += 1) {
+    for (let i = 0; i < sectionCount; i += 1) {
+      let Q = 0.707;
+      if (!(kind === 1 && n <= 2)) {
+        Q = useBandQ ? bandQ : nodeGraphScientificIirSectionQ(designKind, orderForQ, i, rippleDb);
+      }
+      const coeff = nodeGraphScientificIirRbjSection(mode, freqHz, Q, sampleRate);
+      mag *= nodeGraphCookbookFilterMagnitudeAt(coeff, frequency, sampleRate, 1);
+    }
+  }
+  return Number.isFinite(mag) && mag > 0 ? mag : 1e-6;
 }
 
 function nodeGraphOnePoleFilterCoefficient(frequency, sampleRate) {
@@ -511,13 +633,31 @@ function nodeGraphFilterCurveView(node) {
       drive: nodeGraphFilterCurveLiveParam(node, "drive", 0),
     };
   }
-  if (node.type === "eqFilter") {
+  if (nodeGraphIsScientificIirType(node.type)) {
     return {
       type: node.type,
-      mode: nodeGraphFilterCurveLiveParam(node, "mode", 1),
+      kind: nodeGraphScientificIirKinds[node.type],
+      mode: Math.round(nodeGraphFilterCurveLiveParam(node, "mode", 0)),
+      frequency: nodeGraphFilterCurveLiveParam(node, "frequency", 1000),
+      order: nodeGraphFilterCurveLiveParam(node, "order", 4),
+      bandwidth: nodeGraphFilterCurveLiveParam(node, "bandwidth", 1),
+      ripple: nodeGraphFilterCurveLiveParam(node, "ripple", 1),
+    };
+  }
+  if (node.type === "eqFilter") {
+    const uiMode = nodeGraphFilterCurveLiveParam(node, "mode", 1);
+    const ignoreBoost = typeof nodeGraphEqFilterUiIgnoresBoostCut === "function"
+      ? nodeGraphEqFilterUiIgnoresBoostCut(uiMode)
+      : uiMode <= 2;
+    const dspMode = typeof nodeGraphEqFilterUiToDsp === "function"
+      ? nodeGraphEqFilterUiToDsp(uiMode)
+      : uiMode;
+    return {
+      type: node.type,
+      mode: dspMode,
       frequency: nodeGraphFilterCurveLiveParam(node, "frequency", 1000),
       q: nodeGraphFilterCurveLiveParam(node, "q", 0.707),
-      gain: nodeGraphFilterCurveLiveParam(node, "gain", 0),
+      gain: ignoreBoost ? 0 : nodeGraphFilterCurveLiveParam(node, "gain", 0),
     };
   }
   if (node.type === "bandpass") {
@@ -544,7 +684,7 @@ function nodeGraphFilterCurveView(node) {
     mode: nodeGraphFilterCurveLiveParam(node, "mode", 0),
     frequency: nodeGraphFilterCurveLiveParam(node, "frequency", 1000),
     q: nodeGraphFilterCurveLiveParam(node, "q", 1),
-    gain: nodeGraphFilterCurveLiveParam(node, "gain", 0),
+    gain: 0,
     stages: nodeGraphFilterCurveLiveParam(node, "stages", 1),
   };
 }
@@ -633,10 +773,26 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
     }
     return 1;
   }
+  if (nodeGraphIsScientificIirType(node.type)) {
+    return nodeGraphScientificIirMagnitudeAt(
+      nodeGraphFiniteNumber(v.kind, nodeGraphScientificIirKinds[node.type] || 0),
+      Math.round(nodeGraphFiniteNumber(v.mode)),
+      nodeGraphFiniteNumber(v.order, 4),
+      nodeGraphFilterCurveFiniteHz(v.frequency, 1000),
+      nodeGraphFiniteNumber(v.bandwidth, 1),
+      nodeGraphFiniteNumber(v.ripple, 1),
+      frequency,
+      sampleRate,
+    );
+  }
   if (node.type === "eqFilter" || node.type === "bandpass" || node.type === "allpass") {
     if (typeof nodeGraphEqFilterMagnitudeAt === "function") {
+      const rawMode = Number(v.mode);
+      const dspMode = Number.isFinite(rawMode)
+        ? rawMode
+        : (node.type === "bandpass" ? 4 : node.type === "allpass" ? 6 : 1);
       const mag = nodeGraphEqFilterMagnitudeAt(
-        Number(v.mode) || (node.type === "bandpass" ? 4 : node.type === "allpass" ? 6 : 1),
+        dspMode,
         nodeGraphFilterCurveFiniteHz(v.frequency, 1000),
         nodeGraphFiniteNumber(v.q, 0.707),
         nodeGraphFiniteNumber(v.gain),
@@ -739,6 +895,12 @@ function nodeGraphFilterCurveLabel(node) {
   if (node.type === "tb303Filter") {
     const modes = typeof nodeGraphTb303FilterModes !== "undefined" ? nodeGraphTb303FilterModes : null;
     return modes?.[Math.round(nodeGraphFiniteNumber(node.params?.mode, 4))] || "TB-303";
+  }
+  if (nodeGraphIsScientificIirType(node.type)) {
+    const modes = ["LP", "HP", "BP", "BR"];
+    const mode = modes[Math.round(nodeGraphFiniteNumber(node.params?.mode))] || "LP";
+    const order = nodeGraphScientificIirClampOrder(node.params?.order);
+    return `${mode}${order * 6}`;
   }
   if (node.type === "eqFilter") {
     const modes = typeof nodeGraphEqFilterModes !== "undefined" ? nodeGraphEqFilterModes : null;
@@ -948,7 +1110,8 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   // unchanged AND we already painted a real layout-sized face. Never treat a
   // 1×1 pre-layout paint as final (that froze crossover faces blank).
   const view = nodeGraphFilterCurveView(node);
-  const signature = JSON.stringify(view);
+  const amplitude = Math.max(0, nodeGraphFilterCurveLiveParam(node, "amplitude", 1));
+  const signature = JSON.stringify(view) + "|a=" + amplitude;
   // Drop provisional px width/height from older pre-layout fallback. That stamp
   // overrode CSS width:100% and froze the face when the module was widened.
   if (section.style.width || section.style.height) {
@@ -1010,6 +1173,16 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   context.clearRect(0, 0, width, height);
   context.fillStyle = "rgba(2, 6, 9, 0.88)";
   context.fillRect(0, 0, width, height);
+  // 0 dB reference (unity). Curve includes Amplitude so you can match passband to this line.
+  const zeroDbY = (1 - ((0 - minDb) / (maxDb - minDb))) * height;
+  if (Number.isFinite(zeroDbY)) {
+    context.strokeStyle = "rgba(255, 255, 255, 0.22)";
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(0, zeroDbY);
+    context.lineTo(width, zeroDbY);
+    context.stroke();
+  }
   const logMin = Math.log10(minFreq);
   const logRange = Math.log10(maxFreq) - logMin;
   const cutoffLineWidth = 1;
@@ -1035,6 +1208,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
       if (!Number.isFinite(magnitude) || magnitude <= 0) {
         magnitude = 1e-6;
       }
+      magnitude *= amplitude;
       const db = clampNodeSliderValue(20 * Math.log10(Math.max(1e-6, magnitude)), minDb, maxDb);
       const y = (1 - ((db - minDb) / (maxDb - minDb))) * height;
       if (!Number.isFinite(y)) {
@@ -1055,6 +1229,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
       if (!Number.isFinite(magnitude) || magnitude <= 0) {
         magnitude = 1e-6;
       }
+      magnitude *= amplitude;
       const db = clampNodeSliderValue(20 * Math.log10(Math.max(1e-6, magnitude)), minDb, maxDb);
       const y = (1 - ((db - minDb) / (maxDb - minDb))) * height;
       if (Number.isFinite(y)) {

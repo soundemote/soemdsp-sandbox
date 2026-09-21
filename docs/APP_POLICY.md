@@ -411,7 +411,7 @@ Additive modules use a **CMYK** jack story for **non-realtime** ports (once per 
 
 | Ink | Role | Color | Rate |
 |-----|------|--------|------|
-| **C (Cyan)** | Parameter in/out (block-rate ZOH Morph CV, …) | **Cyan** (`#00e5ff`) — not turquoise | **1 sample per quantum, held** |
+| **C (Cyan)** | Additive / graphics Parameter (block-rate ZOH Morph CV, …) | **Cyan** (`#00e5ff`) — not turquoise | **1 sample per quantum, held** |
 | **M (Magenta)** | *Reserved unused* | — | — |
 | **Y (Yellow)** | Graph in/out (harmonic Graph chunk, …) | **Yellow** (`#ffe600`) | **Data-plane payload once per quantum** |
 | **K (Black)** | *Reserved unused* | — | — |
@@ -427,6 +427,8 @@ Additive modules use a **CMYK** jack story for **non-realtime** ports (once per 
 List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOutputs` (same pattern as `digitalInputs` / `digitalOutputs`). Ordinary Morph / CV inlets that are **sample-accurate** (PolyBLEP, Softwave, Ellipsoid, DSF, …) stay **unlisted** and paint **gold** — do not mark them block-rate just because the knob is named Morph.
 
 **Additive series exception:** parameter-row **mod jacks** (and matching slider-out jacks) on `additiveGenerator` / filters / Growl / NoisyFreq|Phase|Pan|Amp / `additiveOut` paint **cyan** even though they are modulation ports (not left-column IO). Graph cables follow jack color → **yellow** (YellowWire).
+
+**Setup parameters** (`setup: true` on the param — Cookbook Topology / Stages): not Additive cyan. Param-row jacks are **purple square** (existing param purple, square shape). Automatable once per quantum (host / OSC / Knob sampled into the Control); not sample-accurate CV. Changing Topology or Stages **resets** filter state. Cyan stays Additive / graphics.
 
 **Yellow Graph chunk ports**
 

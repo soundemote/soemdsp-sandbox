@@ -239,27 +239,28 @@ async function renderNodeGraphAudio() {
       : (nodeGraphFiniteNumber(nodeGraphMvp.seconds, 2)),
   );
   const keepDuration = Math.max(0.05, renderEnd - renderStart);
-  const audio = nodeGraphAudioDerivation(nodeGraphMvp.patch);
+  const hostRate = nodeGraphLiveHostSampleRate();
+  const audio = nodeGraphAudioDerivation(nodeGraphMvp.patch, hostRate);
   const outputSampleRate = audio.outputSampleRate;
   const engineSampleRate = audio.clampedEngineSampleRate;
   const patchFingerprint = nodeGraphPatchFingerprint();
-  // Full bounce length (0 → End). Kept window length (Start → End).
-  const fullEngineFrames = Math.max(1, Math.round(engineSampleRate * renderEnd));
-  const keepEngineFrames = Math.max(1, Math.round(engineSampleRate * keepDuration));
-  const startEngineFrame = Math.max(
+  // Bounce at the *host* rate, same as Live. The worklet oversamples internally
+  // (x2/x4) then decimates. Creating OfflineAudioContext at engineRate while
+  // also passing oversamplingRatio made OS apply twice and playback pitch-shift.
+  const fullOutputFrames = Math.max(1, Math.round(outputSampleRate * renderEnd));
+  const keepOutputFrames = Math.max(1, Math.round(outputSampleRate * keepDuration));
+  const startOutputFrame = Math.max(
     0,
     Math.min(
-      Math.round(engineSampleRate * renderStart),
-      Math.max(0, fullEngineFrames - keepEngineFrames),
+      Math.round(outputSampleRate * renderStart),
+      Math.max(0, fullOutputFrames - keepOutputFrames),
     ),
   );
-  const requestedOutputFrames = Math.max(1, Math.floor(outputSampleRate * keepDuration));
-  const requestedEngineFrames = keepEngineFrames;
   const plan = nodeGraphBuildLivePlan();
-  const engineFrames = keepEngineFrames;
-  const outputFrames = requestedOutputFrames;
-  const engineLeftSamples = new Float32Array(engineFrames);
-  const engineRightSamples = new Float32Array(engineFrames);
+  const outputFrames = keepOutputFrames;
+  const engineFrames = keepOutputFrames;
+  const engineLeftSamples = new Float32Array(outputFrames);
+  const engineRightSamples = new Float32Array(outputFrames);
   const stateReadCount = nodeGraphStateReadCount(plan);
   renderStatus.textContent = renderStart > 0
     ? `rendering 0…${renderEnd.toFixed(2)}s (keep ${renderStart.toFixed(2)}…${renderEnd.toFixed(2)}s)`
@@ -275,7 +276,7 @@ async function renderNodeGraphAudio() {
     if (!Offline || typeof createNodeGraphLiveWorkletNode !== "function") {
       throw new Error("native Render requires OfflineAudioContext + AudioWorklet");
     }
-    const offlineCtx = new Offline(2, fullEngineFrames, engineSampleRate);
+    const offlineCtx = new Offline(2, fullOutputFrames, outputSampleRate);
     const workletNode = await createNodeGraphLiveWorkletNode(offlineCtx, plan);
     workletNode.connect(offlineCtx.destination);
     const planSerial = (nodeGraphFiniteNumber(nodeGraphMvp?.live?.planSerial)) + 1;
@@ -285,7 +286,7 @@ async function renderNodeGraphAudio() {
       plan,
       planSerial,
       patchFingerprint,
-      sampleRate: engineSampleRate,
+      sampleRate: outputSampleRate,
       engineSampleRate,
       oversamplingRatio: audio.oversamplingRatio,
       pitchReferenceHz: nodeGraphFiniteNumber(nodeGraphMvp?.pitchReferenceHz, 440),
@@ -336,8 +337,8 @@ async function renderNodeGraphAudio() {
       : ch0;
     const earProtector = createNodeGraphEarProtector(engineSampleRate);
     const available = Math.min(ch0.length, ch1.length);
-    for (let i = 0; i < engineFrames; i += 1) {
-      const src = startEngineFrame + i;
+    for (let i = 0; i < outputFrames; i += 1) {
+      const src = startOutputFrame + i;
       const rawL = src < available ? (nodeGraphFiniteNumber(ch0[src])) : 0;
       const rawR = src < available ? (nodeGraphFiniteNumber(ch1[src])) : 0;
       if (nodeGraphOutputSampleClipped(rawL)) clipCount += 1;
@@ -374,13 +375,13 @@ async function renderNodeGraphAudio() {
 
   const leftSamples = nodeGraphResampleRenderedChannel(
     engineLeftSamples,
-    engineSampleRate,
+    outputSampleRate,
     outputSampleRate,
     outputFrames,
   );
   const rightSamples = nodeGraphResampleRenderedChannel(
     engineRightSamples,
-    engineSampleRate,
+    outputSampleRate,
     outputSampleRate,
     outputFrames,
   );
@@ -411,10 +412,10 @@ async function renderNodeGraphAudio() {
     peak,
     renderStartSeconds: renderStart,
     renderEndSeconds: renderEnd,
-    fullEngineFrames,
-    startEngineFrame,
-    requestedEngineFrames,
-    requestedFrames: requestedOutputFrames,
+    fullEngineFrames: fullOutputFrames,
+    startEngineFrame: startOutputFrame,
+    requestedEngineFrames: keepOutputFrames,
+    requestedFrames: keepOutputFrames,
     leftSamples,
     patchFingerprint,
     rightSamples,

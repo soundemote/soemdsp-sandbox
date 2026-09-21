@@ -122,7 +122,7 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
     }
     const nodes = Array.isArray(plan?.nodes) ? plan.nodes : [];
     this.audioPlayerNodeIds = nodes
-      .filter((node) => node?.type === "audioPlayer")
+      .filter((node) => node?.type === "audioPlayer" || node?.type === "samplePlayer")
       .map((node) => String(node.id || ""))
       .filter(Boolean);
     const ids = new Set(nodes.map((node) => node.id));

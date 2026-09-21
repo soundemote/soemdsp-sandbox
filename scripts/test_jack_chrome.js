@@ -36,6 +36,13 @@ function el(tag) {
         for (var i = 0; i < arguments.length; i++) classSet.delete(arguments[i]);
       },
       contains: function (name) { return classSet.has(name); },
+      toggle: function (name, force) {
+        if (force === true) classSet.add(name);
+        else if (force === false) classSet.delete(name);
+        else if (classSet.has(name)) classSet.delete(name);
+        else classSet.add(name);
+        return classSet.has(name);
+      },
     },
     append: function () {
       for (var i = 0; i < arguments.length; i++) {
@@ -65,6 +72,10 @@ var sandbox = {
   Set: Set,
   document: { createElement: el },
   window: {},
+  nodeGraphFiniteNumber: function (n) {
+    n = Number(n);
+    return isFinite(n) ? n : 0;
+  },
   nodeGraphModuleDefinitions: {
     output: {
       inputs: ["Mono", "Left", "Right"],
@@ -212,6 +223,7 @@ var sandbox = {
     fractalBrownianNoise: "Fractal Brownian Motion",
     phoneTone: "Phone Tone",
   },
+  nodeGraphNodeDisplayName: function (node) { return String(node || ""); },
   nodeGraphLabel: function (node, port) { return String(port || ""); },
   nodeGraphPatchNode: function () { return null; },
   normalizeNodeGraphPatchMetadataAlias: function (value) { return value ? String(value).trim() : ""; },
@@ -423,7 +435,34 @@ var empty = sandbox.nodeGraphJackVisibilityCensus({
   },
   querySelector: function () { return null; },
 });
-assert(empty.ok === false, "empty census is not ok");
+assert(empty.ok === true, "empty census is ok (no awake signal ports)");
 assert(empty.portCount === 0, "empty census has no ports");
+
+load("node-graph-port-types.js");
+sandbox.nodeGraphModuleDefinitions.cookbookFilter = {
+  parameters: [
+    { key: "stages", setup: true, label: "Stages" },
+    { key: "q", label: "Q" },
+  ],
+};
+sandbox.nodeGraphNodeLabels.cookbookFilter = "Cookbook Filter";
+var setupMod = sandbox.createNodeParameterModulationPort("n1", "cookbookFilter", {
+  key: "stages",
+  label: "Stages",
+  setup: true,
+});
+assert(setupMod.classList.contains("node-port-square"), "setup mod jack is square");
+assert(!setupMod.dataset.jackChannel, "setup mod jack uses param MOD purple, not analog jack-purple");
+assert(setupMod.dataset.portType === "setup", "setup mod jack portType");
+var qMod = sandbox.createNodeParameterModulationPort("n1", "cookbookFilter", {
+  key: "q",
+  label: "Q",
+});
+assert(!qMod.classList.contains("node-port-square"), "ordinary param MOD stays round");
+assert(sandbox.nodeGraphPortIsSetupParam("cookbookFilter", "stages") === true, "stages is setup");
+assert(sandbox.nodeGraphPortIsSetupParam("cookbookFilter", "q") === false, "q is not setup");
+assert(sandbox.nodeGraphPortTypesCompatible("audio", "setup") === true, "audio may feed setup");
+assert(sandbox.nodeGraphPortTypesCompatible("setup", "audio") === false, "setup does not feed analog");
+assert(css.includes(".node-param-port.node-port-square::before"), "CSS squares setup param jacks");
 
 console.log("ok jack chrome + visibility");

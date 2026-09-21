@@ -154,7 +154,7 @@ function commitNodeGraphHeaderNumberInput(input) {
         ? nodeGraphProjectSpeedLimitHz()
         : (typeof nodeGraphLiveSpeedLimitHz === "function"
           ? nodeGraphLiveSpeedLimitHz()
-          : 20000),
+          : 22050),
     );
   } else if (input.dataset.globalScopeInput) {
     setNodeGraphScopeNumberInputValue(input, input.value);
@@ -287,7 +287,7 @@ function createNodeGraphHeaderAudioInput(key, label, options = {}) {
   input.dataset.globalScopeNumberDrag = "true";
   input.inputMode = "decimal";
   input.min = String(options.min ?? 0.01);
-  input.max = String(options.max ?? 20000);
+  input.max = String(options.max ?? 22050);
   // "any", not a numeric step. Pitch reference frequency is continuous --
   // normalizeNodeGraphPatchAudio only clamps it to 0.01..20000. With a step
   // of 1 and a min of 0.01 the browser considers the valid values to be
@@ -361,7 +361,7 @@ function createNodeGraphHeaderSpeedPlaceholder() {
 }
 
 // Project Speed Limit (Hz): live pitch/f + DSP ceiling only (not knob metaparam max).
-// No project minimum frequency (0 allowed). Default 20000; user-adjustable.
+// No project minimum frequency (0 allowed). Default 22050; user-adjustable.
 // Same interaction as BPM / pitch ref: drag to tune, double-click to type.
 function createNodeGraphHeaderSpeedLimitField() {
   const field = document.createElement("label");
@@ -369,7 +369,7 @@ function createNodeGraphHeaderSpeedLimitField() {
   field.setAttribute("aria-label", "Project speed limit in Hertz");
   field.dataset.headerNumberDrag = "true";
   field.title =
-    "Project Speed Limit (Hz): runtime max for pitch / f jacks / DSP frequency resolve. Does not rewrite frequency knob ranges. No minimum frequency. Default 20000. Drag to tune; double-click to type.";
+    "Project Speed Limit (Hz): runtime max for pitch / f jacks / DSP frequency resolve. Does not rewrite frequency knob ranges. No minimum frequency. Default 22050. Drag to tune; double-click to type.";
 
   const caption = document.createElement("span");
   caption.className = "node-header-timing-caption";
@@ -398,7 +398,7 @@ function createNodeGraphHeaderSpeedLimitField() {
       ? nodeGraphProjectSpeedLimitHz()
       : (typeof nodeGraphLiveSpeedLimitHz === "function"
         ? nodeGraphLiveSpeedLimitHz()
-        : (nodeGraphMvp?.live?.speedLimit ?? 20000)),
+        : (nodeGraphMvp?.live?.speedLimit ?? 22050)),
   );
   input.setAttribute("aria-label", "Project speed limit Hertz");
   input.title = field.title;

@@ -1,5 +1,5 @@
 // soemdsp-native-module: eq_filter
-// soemdsp-native-label: EQ Filter
+// soemdsp-native-label: EQ Filter ZDF
 // soemdsp-native-target: eqFilter
 // soemdsp-native-kind: dynamics
 //
@@ -26,7 +26,7 @@ static State gPool[kMaxInstances];
 static const char kMetadataJson[] =
   "{"
     "\"module\":\"eq_filter\","
-    "\"label\":\"EQ Filter\","
+    "\"label\":\"EQ Filter ZDF\","
     "\"targetType\":\"eqFilter\","
     "\"kind\":\"dynamics\""
   "}";

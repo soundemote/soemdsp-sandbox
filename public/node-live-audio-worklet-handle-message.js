@@ -91,10 +91,6 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       this.vmAllNotesOff?.();
       return;
     }
-    if (message.type === "setMacroControls") {
-      this.setMacroControls(message.values);
-      return;
-    }
     if (message.type === "setPitchModWheelSignal") {
       this.setPitchModWheelSignal(message.signal);
       return;

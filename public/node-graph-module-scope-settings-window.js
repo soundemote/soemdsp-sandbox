@@ -879,12 +879,6 @@ function bindNodeGraphTraceDisplaySettingsEvents(popover) {
 }
 
 function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
-  // Macro Controls face is a global bank — open dedicated face settings.
-  if (nodeId === "__macroControlsFace") {
-    return typeof openNodeGraphMacroControlsDisplaySettings === "function"
-      ? openNodeGraphMacroControlsDisplaySettings(event)
-      : false;
-  }
   if (nodeId === "__keyboardControllerFace") {
     const keyboard = Array.isArray(nodeGraphMvp?.patch?.nodes)
       ? nodeGraphMvp.patch.nodes.find((n) => n?.type === "keyboard")
@@ -902,9 +896,6 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   const node = nodeGraphPatchNode(nodeId);
   if (!node) {
     return false;
-  }
-  if (node.type === "macroControls" && typeof openNodeGraphMacroControlsDisplaySettings === "function") {
-    return openNodeGraphMacroControlsDisplaySettings(event);
   }
   // Every module opens Display Settings (blank body if no face schema).
   // Do not change graph selection. Pin the form to this face; follow-key is

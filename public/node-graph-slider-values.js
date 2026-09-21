@@ -51,17 +51,13 @@ function nodeGraphNumericModifierReserved() {
 }
 
 function nodeGraphNumericDragMultiplier(event) {
-  if (event?.shiftKey && (event.ctrlKey || event.metaKey) && event.altKey) {
-    return 0.001;
-  }
+  // Alt is snap-to-value on click, not a drag-speed multiplier. After an
+  // alt-jump, holding Alt and dragging must match a normal click-drag.
   if (event?.shiftKey && (event.ctrlKey || event.metaKey)) {
     return 0.01;
   }
   if (event?.shiftKey || event?.ctrlKey || event?.metaKey) {
     return 0.1;
-  }
-  if (event?.altKey) {
-    return 10;
   }
   return 1;
 }

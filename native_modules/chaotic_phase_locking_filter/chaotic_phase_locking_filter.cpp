@@ -123,6 +123,7 @@ extern "C" double soemdsp_chaotic_phase_locking_filter_sample(
   double frequency,  // 0..1 normalized
   double resonance,  // 0..1
   double chaosAmount,  // 0..1
+  double phaseBias,    // cycles added into ellipse (original setPhase)
   double sampleRate
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
@@ -132,13 +133,14 @@ extern "C" double soemdsp_chaotic_phase_locking_filter_sample(
   const double freqNorm = clampd(frequency, 0.0, 1.0);
   const double reso = clampd(resonance, 0.0, 1.0);
   const double chaos = clampd(chaosAmount, 0.0, 1.0);
+  const double phase = (phaseBias == phaseBias) ? phaseBias : 0.0;
 
   const double cutoffHz = clampd(pitchToFreq(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
   const double mod = evalExponentialGraph2(reso, 0.1, 20.0, -0.85);
   const double shape = 1.0 - chaos;
 
   s.feedbackSignal = mod * s.feedbackSignal + (-input);
-  const double oscValue = waveEllipse(s.feedbackSignal, shape);
+  const double oscValue = waveEllipse(s.feedbackSignal + phase, shape);
 
   const double a = ladderCoefficient(cutoffHz, safeRate);
   s.feedbackSignal = ladderTapStep(s.filterY, oscValue, a, 1, 2);
@@ -150,5 +152,5 @@ extern "C" double soemdsp_chaotic_phase_locking_filter_sample(
 }
 
 extern "C" int soemdsp_chaotic_phase_locking_filter_version() {
-  return 1;
+  return 2;
 }

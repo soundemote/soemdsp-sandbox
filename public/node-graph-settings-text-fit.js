@@ -214,14 +214,14 @@ function fitNodeModularToolbarText() {
   if (!context) {
     return;
   }
+  // ONE size, one owner: emoji/view icons are CSS-only (clamp). Never JS-fit them.
   toolbar.querySelectorAll(
-    "#nodeUndoButton, #nodeRedoButton, #nodeDonateFiveButton, #nodeDonateFiveButton > span, #nodeDownloadFiftyButton > span, #seDebugButton, #seDebugButton .se-badge",
+    "#nodeUndoButton, #nodeRedoButton, #nodeDonateFiveButton, #nodeDonateFiveButton > span, #nodeDownloadFiftyButton > span, #seDebugButton, #seDebugButton .se-badge, .node-modular-view-icon",
   ).forEach((el) => {
     el.style.removeProperty("font-size");
   });
   const spans = toolbar.querySelectorAll([
     ".node-view-tabs > .node-toolbar-stack-label > span",
-    ".node-view-tabs > button > .node-modular-view-icon",
     ".node-history-controls > button:not(.node-room-dimmer-button):not(#nodeUndoButton):not(#nodeRedoButton):not(#nodeDonateFiveButton):not(#seDebugButton) > span",
     ".node-world-position-readout > span",
     ".node-modular-view-size-readout > span",
@@ -229,13 +229,15 @@ function fitNodeModularToolbarText() {
   ].join(", "));
   const floorPx = 11;
   for (const span of spans) {
+    // Skip emoji/icon glyphs if any slip into the list.
+    if (span.classList.contains("node-modular-view-icon")) {
+      span.style.removeProperty("font-size");
+      continue;
+    }
     const box = nodeModularToolbarFitBox(span);
-    const isIcon = span.classList.contains("node-modular-view-icon");
-    const minPx = isIcon ? 16 : floorPx;
+    const minPx = floorPx;
     const lineBudget = nodeModularToolbarStackLineBudget(span, box.height);
-    const maxCap = isIcon
-      ? Math.min(box.width, box.height)
-      : Math.min(box.width, lineBudget);
+    const maxCap = Math.min(box.width, lineBudget);
     if (maxCap < minPx) {
       span.style.fontSize = `${minPx}px`;
       continue;

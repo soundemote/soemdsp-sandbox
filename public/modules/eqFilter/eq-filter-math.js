@@ -11,20 +11,39 @@
 // https://github.com/RobinSchmidt/RS-MET
 // Notes: https://github.com/RobinSchmidt/RS-MET/blob/work/Notes/StateVariableFilter.txt
 
-// 2-pole ZDF SVF → 12 dB/oct LP/HP (and matching 2-pole BP/BR/AP/shelves).
-// Compact pole labels, no spaces (HP12 not "HP 12").
+// Face order (param 0…9). Native/Robin DSP indices stay:
+// 0 Bypass, 1 HP, 2 LP, 3 BP skirt, 4 BP peak, 5 BR, 6 AP, 7 Peak, 8 LS, 9 HS.
 const nodeGraphEqFilterModes = Object.freeze([
   "Bypass",
-  "HP12",
-  "LP12",
-  "BP12 Skirt",
-  "BP12 Peak",
-  "BR12",
-  "AP12",
+  "Lowpass",
+  "Highpass",
+  "Bandpass",
   "Peak",
-  "LS12",
-  "HS12",
+  "Isolate",
+  "Low Shelf",
+  "High Shelf",
+  "Notch",
+  "Allpass",
+  "Bandpass Skirt",
 ]);
+
+// DSP 10 = Isolate (dry→BP mix / peak-cut), handled in graph + magnitude.
+const nodeGraphEqFilterUiToDspMode = Object.freeze([
+  0, 2, 1, 4, 7, 10, 8, 9, 5, 6, 3,
+]);
+
+function nodeGraphEqFilterUiToDsp(uiMode) {
+  const i = Math.round(Number(uiMode));
+  const idx = Number.isFinite(i) ? i : 0;
+  if (idx < 0) return 0;
+  if (idx > 10) return 10;
+  return nodeGraphEqFilterUiToDspMode[idx];
+}
+
+function nodeGraphEqFilterUiIgnoresBoostCut(uiMode) {
+  const i = Math.round(Number(uiMode));
+  return !Number.isFinite(i) || i <= 2;
+}
 
 function createNodeGraphEqFilterState() {
   return {
@@ -259,10 +278,20 @@ function nodeGraphEqFilterBiquadFromState(state) {
 
 /** Magnitude response |H(e^{jω})| for curve display (does not touch audio state). */
 function nodeGraphEqFilterMagnitudeAt(mode, frequency, q, gainDb, probeHz, sampleRate) {
-  const safeMode = Math.round(nodeGraphEqFilterClamp(mode, 0, 9));
-  if (safeMode === 0) {
+  const rawMode = Math.round(nodeGraphEqFilterClamp(mode, 0, 10));
+  if (rawMode === 0) {
     return 1;
   }
+  if (rawMode === 10) {
+    const g = nodeGraphFiniteNumber(gainDb);
+    if (g >= 0) {
+      const k = Math.max(0, Math.min(1, g / 24));
+      const bp = nodeGraphEqFilterMagnitudeAt(4, frequency, q, 0, probeHz, sampleRate);
+      return (1 - k) * 1 + k * bp;
+    }
+    return nodeGraphEqFilterMagnitudeAt(7, frequency, q, g, probeHz, sampleRate);
+  }
+  const safeMode = rawMode;
   const scratch = createNodeGraphEqFilterState();
   nodeGraphEqFilterEnsureSetup(scratch, safeMode, frequency, q, gainDb, sampleRate);
   const coeff = nodeGraphEqFilterBiquadFromState(scratch);

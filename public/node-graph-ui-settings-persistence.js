@@ -847,32 +847,6 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const moduleScopeDiscontinuitySkipSamples = normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
     view.moduleScopeDiscontinuitySkipSamples ?? nodeGraphMvp.moduleScopeDiscontinuitySkipSamples ?? 1,
   );
-  const macroControlsFaceRaw = {
-    ...((view.macroControlsFace && typeof view.macroControlsFace === "object")
-      ? view.macroControlsFace
-      : (nodeGraphMvp.macroControlsFace && typeof nodeGraphMvp.macroControlsFace === "object"
-        ? nodeGraphMvp.macroControlsFace
-        : {})),
-  };
-  // Legacy UIDEV view keys fold into the face SSOT.
-  if (macroControlsFaceRaw.arcThickness == null) {
-    macroControlsFaceRaw.arcThickness = view.macroKnobArcThickness ?? nodeGraphMvp.macroKnobArcThickness;
-  }
-  if (macroControlsFaceRaw.arcGapBrightness == null) {
-    macroControlsFaceRaw.arcGapBrightness = view.macroKnobArcGapBrightness ?? nodeGraphMvp.macroKnobArcGapBrightness;
-  }
-  if (macroControlsFaceRaw.sizeScale == null) {
-    macroControlsFaceRaw.sizeScale = view.macroKnobSizeScale ?? nodeGraphMvp.macroKnobSizeScale;
-  }
-  if (macroControlsFaceRaw.labelPosition == null) {
-    macroControlsFaceRaw.labelPosition = view.macroKnobLabelPosition ?? nodeGraphMvp.macroKnobLabelPosition;
-  }
-  if (macroControlsFaceRaw.valuePosition == null) {
-    macroControlsFaceRaw.valuePosition = view.macroKnobValuePosition ?? nodeGraphMvp.macroKnobValuePosition;
-  }
-  const macroControlsFace = typeof normalizeNodeGraphMacroControlsFaceSettings === "function"
-    ? normalizeNodeGraphMacroControlsFaceSettings(macroControlsFaceRaw)
-    : macroControlsFaceRaw;
   const traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(
       typeof migrateNodeGraphLegacyDot2Settings === "function"
@@ -988,7 +962,6 @@ function normalizeNodeUiDevSettings(settings = {}) {
       moduleScopePointBudget,
       moduleScopeLineThickness,
       moduleScopeDiscontinuitySkipSamples,
-      macroControlsFace,
       traceSettings,
       sliderLayout,
       sliderAmountVisible,
@@ -1076,9 +1049,6 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       moduleScopeDiscontinuitySkipSamples: normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
         nodeGraphMvp.moduleScopeDiscontinuitySkipSamples ?? 1,
       ),
-      macroControlsFace: typeof normalizeNodeGraphMacroControlsFaceSettings === "function"
-        ? normalizeNodeGraphMacroControlsFaceSettings(nodeGraphMvp.macroControlsFace)
-        : nodeGraphMvp.macroControlsFace,
       sliderLayout: normalizeNodeGraphSliderLayout(nodeGraphMvp.sliderLayout),
       sliderAmountVisible: Boolean(nodeGraphMvp.sliderAmountVisible),
       sliderPositionVisible: Boolean(nodeGraphMvp.sliderPositionVisible),
@@ -1825,12 +1795,6 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.moduleScopeDiscontinuitySkipSamples = normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
     normalized.view.moduleScopeDiscontinuitySkipSamples,
   );
-  if (typeof normalizeNodeGraphMacroControlsFaceSettings === "function") {
-    nodeGraphMvp.macroControlsFace = normalizeNodeGraphMacroControlsFaceSettings(normalized.view.macroControlsFace);
-    if (typeof applyNodeGraphMacroControlsFaceSettings === "function") {
-      applyNodeGraphMacroControlsFaceSettings();
-    }
-  }
   nodeGraphMvp.traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(normalized.view.traceSettings)
     : normalized.view.traceSettings;

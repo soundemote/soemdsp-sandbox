@@ -78,6 +78,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   lookaheadLimiter: 35,
   limiter: 109, // Pump Limiter
   audioPlayer: 110, // Music Player (PCM upload)
+  samplePlayer: 174, // Gate-driven sample player (PCM upload)
   additiveGenerator: 111, // Yellow Graph
   additiveBubble: 112,
   additiveOut: 113,
@@ -134,6 +135,16 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   t8: 159,
   t9: 159,
   t10: 159,
+  "1t": 175,
+  "2t": 175,
+  "3t": 175,
+  "4t": 175,
+  "5t": 175,
+  "6t": 175,
+  "7t": 175,
+  "8t": 175,
+  "9t": 175,
+  "10t": 175,
   sinc: 48,
   bradley2a: 49,
   ellipsoid: 50,
@@ -145,12 +156,14 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   elliptic: 56,
   eqFilter: 57,
   graphicEq: 171,
+  cookbookFilter: 173,
   activeFilter: 58,
   passiveFilter: 59,
   tb303Filter: 60,
   flowerChildFilter: 61,
   yellowjacketFilter: 62,
   superloveFilter: 63,
+  superloveRev2: 172,
   humanFilter: 64,
   resonatorFilter: 65,
   combResonator: 66,
@@ -434,6 +447,7 @@ NodeLiveAudioProcessor.prototype.shouldSkipPitchHzNormFreqParamModEdge = functio
   }
   const normTypes = {
     superloveFilter: 1,
+    superloveRev2: 1,
     yellowjacketFilter: 1,
     flowerChildFilter: 1,
     humanFilter: 1,
@@ -468,12 +482,16 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (t === "harmonicSeries" && (p === "f0" || p === "ƒ0")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
-  // t / t1…t10 transistor outs "0"…"10".
+  // t / t1…t10 demux outs "0"…"10".
   if (t === "t" || /^t([1-9]|10)$/.test(t)) {
     if (/^\d+$/.test(p)) {
       const n = Number(p);
       if (n >= 0 && n <= 10) return n;
     }
+  }
+  // 1t…10t mux Out.
+  if (/^([1-9]|10)t$/.test(t)) {
+    if (p === "out" || p === "mono") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
   if (
     p === "left" || p === "l" || p === "mix l" || p === "mix left" || p === "wet l"
@@ -890,7 +908,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PHASE_CV;
     }
   }
-  // Gate-primary envelopes: Trigger/Trig are inputAliases of Gate → Mono bus.
+  // Gate-primary envelopes + Sample Player: Trigger/Trig/Gate → Mono bus.
   // Do not route them to the sampleHold Trigger bus (silent on Mono-only mix).
   {
     const tGateEnv = String(type || "").trim();
@@ -905,6 +923,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
         || tGateEnv === "curveAttackRelease"
         || tGateEnv === "attackDecay"
         || tGateEnv === "pluckEnvelope3"
+        || tGateEnv === "samplePlayer"
       )
     ) {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
@@ -957,11 +976,20 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   if (p === "env" && String(type || "").trim() === "ampCurve") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
-  // t / t1…t10: In→Mono, Analog→Morph, Digital→Trigger.
+  // t / t1…t10 demux: In→Mono, Analog→Morph, Digital→Trigger.
   {
     const tt = String(type || "").trim();
     if (tt === "t" || /^t([1-9]|10)$/.test(tt)) {
       if (p === "in") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+      if (p === "analog" || p === "a") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MORPH;
+      if (p === "digital" || p === "d") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
+    }
+    // 1t…10t mux: numbered Ins → channels 0…N, A→Morph, D→Trigger.
+    if (/^([1-9]|10)t$/.test(tt)) {
+      if (/^\d+$/.test(p)) {
+        const n = Number(p);
+        if (n >= 0 && n <= 10) return n;
+      }
       if (p === "analog" || p === "a") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MORPH;
       if (p === "digital" || p === "d") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRIGGER;
     }
@@ -3397,6 +3425,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("stages", P.NATIVE_GRAPH_PARAM_STAGES, Number.isFinite(last) ? last : 0);
       continue;
     }
+    if (/^([1-9]|10)t$/.test(type)) {
+      // stages = last path index (1t→1 … 10t→10).
+      const last = Number(String(type).replace(/t$/, ""));
+      push("stages", P.NATIVE_GRAPH_PARAM_STAGES, Number.isFinite(last) ? last : 1);
+      continue;
+    }
     if (type === "bias") {
       push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 0));
       continue;
@@ -3635,6 +3669,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       if (type === "chebyshev" || type === "elliptic") {
         push("ripple", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("ripple", 1));
       }
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "papoulisFilter") {
@@ -3846,11 +3881,20 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "eqFilter") {
-      // resonance=Q, gainDb=shelf/peak gain.
+      // Face mode is remapped to Robin DSP in process_eq_filter.
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1000));
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
       push("q", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("q", 0.707));
       push("gain", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("gain", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "cookbookFilter") {
+      // q→RESONANCE, stages 0..5, topology→WAVEFORM (0 Direct / 1 Lattice).
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1000));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
+      push("q", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("q", 1));
+      push("stages", P.NATIVE_GRAPH_PARAM_STAGES, disc("stages", 2));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -3925,6 +3969,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
+    if (type === "superloveRev2") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
+      push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0.75));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("noise", P.NATIVE_GRAPH_PARAM_MIX, cont("noise", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
     if (type === "humanFilter") {
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
@@ -3965,6 +4019,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
       push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
       push("chaos", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chaos", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -4728,6 +4783,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       // Definition SSOT for internal glides — keep native chase correct even if
       // worklet paramMeta lost smoothingMode/seconds on a lean params push.
       this.ensureNativeAudioPlayerInternalSmoothing?.(native, hash, cache, forceAll);
+      continue;
+    }
+    if (type === "samplePlayer") {
+      // Matches process_sample_player Control map in graph_engine.
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("speed", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("speed", 1));
+      push("start", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("start", 0));
+      push("end", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("end", 1));
       continue;
     }
     if (type === "additiveGenerator") {
@@ -5570,18 +5633,24 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphCurvePoints = function syncNativ
 };
 
 /**
-/**
  * Fill audioPlayerMeter* from native graph outs so main-thread HUD / phosphor
  * scroll get phase+speed (JS worklet evaluator no longer runs in efficient).
+ * Covers Music Player and Sample Player.
  */
 NodeLiveAudioProcessor.prototype.updateNativeAudioPlayerMeters = function updateNativeAudioPlayerMeters() {
   const ids = Array.isArray(this.audioPlayerNodeIds) && this.audioPlayerNodeIds.length
     ? this.audioPlayerNodeIds
-    : [...(this.nodes?.keys?.() || [])].filter((id) => this.nodes.get(id)?.type === "audioPlayer");
+    : [...(this.nodes?.keys?.() || [])].filter((id) => {
+      const t = this.nodes.get(id)?.type;
+      return t === "audioPlayer" || t === "samplePlayer";
+    });
   if (!ids.length) return;
 
   if (!this.audioPlayerMeterSpeeds) {
     this.audioPlayerMeterSpeeds = Object.create(null);
+  }
+  if (!this.audioPlayerMeterPhases) {
+    this.audioPlayerMeterPhases = Object.create(null);
   }
 
   const readNum = (node, key, fallback) => {
@@ -5596,11 +5665,13 @@ NodeLiveAudioProcessor.prototype.updateNativeAudioPlayerMeters = function update
     const id = String(ids[i] || "");
     if (!id) continue;
     const node = this.nodes?.get?.(id);
-    if (!node || String(node.type) !== "audioPlayer") continue;
+    const nodeType = String(node?.type || "");
+    if (!node || (nodeType !== "audioPlayer" && nodeType !== "samplePlayer")) continue;
 
     const out = this.nodeOutputs?.get?.(id);
     const phase = Number(out?.Phase);
     const trigger = Number(out?.Trigger);
+    this.audioPlayerMeterPhases[id] = Number.isFinite(phase) ? phase : 0;
 
     // Speed jack is live Pitch CV — not in nodeOutputs. Param covers the HUD
     // for the common case; CV still affects DSP via process_audio_player.
@@ -5631,23 +5702,28 @@ NodeLiveAudioProcessor.prototype.updateNativeAudioPlayerMeters = function update
     this.audioPlayerMeterSpeeds[id] = speed;
 
     const sampleId = String(node?.sample?.id || "");
-    const transport = Math.round(readNum(node, "transport", 4));
     const hasPcm = Boolean(sampleId) && Boolean(this.samples?.get?.(sampleId));
     let reason = "engine off reset";
     if (!hasPcm) {
       reason = sampleId ? "engine waiting for sample" : "engine no sample id";
-    } else if (transport <= 0) {
-      reason = "engine off reset";
-    } else if (transport === 1) {
-      reason = "engine stopped";
-    } else if (transport === 2) {
-      reason = "engine paused";
-    } else if (trigger > 0.5) {
-      reason = "engine complete";
-    } else if (transport === 3) {
-      reason = "engine looping";
-    } else if (transport >= 4) {
-      reason = "engine playing";
+    } else if (nodeType === "samplePlayer") {
+      const mode = Math.round(readNum(node, "mode", 0));
+      reason = mode === 2 ? "engine looping" : (mode === 1 ? "engine hold" : "engine one-shot");
+    } else {
+      const transport = Math.round(readNum(node, "transport", 4));
+      if (transport <= 0) {
+        reason = "engine off reset";
+      } else if (transport === 1) {
+        reason = "engine stopped";
+      } else if (transport === 2) {
+        reason = "engine paused";
+      } else if (trigger > 0.5) {
+        reason = "engine complete";
+      } else if (transport === 3) {
+        reason = "engine looping";
+      } else if (transport >= 4) {
+        reason = "engine playing";
+      }
     }
 
     if (!primaryId || hasPcm) {
@@ -5662,34 +5738,47 @@ NodeLiveAudioProcessor.prototype.updateNativeAudioPlayerMeters = function update
 };
 
 /**
- * Copy Music Player planar PCM from this.samples into native audio_player
+ * Copy Music Player / Sample Player planar PCM from this.samples into native
  * buffers (set_pcm + l_ptr/r_ptr). Re-binds TypedArrays after memory.grow.
- * Full tracks stay supported — same data the JS peel already held.
  */
 NodeLiveAudioProcessor.prototype.syncNativeAudioPlayerPcm = function syncNativeAudioPlayerPcm() {
   if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
     return;
   }
   const native = this.nativeGraph;
-  if (
-    !native?.soemdsp_graph_node_native_handle
-    || !native?.soemdsp_audio_player_set_pcm
-    || !native?.soemdsp_audio_player_l_ptr
-  ) {
+  if (!native?.soemdsp_graph_node_native_handle || !native.memory?.buffer) {
     return;
   }
-  if (!native.memory?.buffer) return;
 
   const cache = this._nativeAudioPlayerPcmCache || (this._nativeAudioPlayerPcmCache = new Map());
   const ids = Array.isArray(this.audioPlayerNodeIds) && this.audioPlayerNodeIds.length
     ? this.audioPlayerNodeIds
-    : [...this.nodes.keys()].filter((id) => this.nodes.get(id)?.type === "audioPlayer");
+    : [...this.nodes.keys()].filter((id) => {
+      const t = this.nodes.get(id)?.type;
+      return t === "audioPlayer" || t === "samplePlayer";
+    });
 
   for (let i = 0; i < ids.length; i += 1) {
     const nodeId = String(ids[i] || "");
     if (!nodeId) continue;
     const node = this.nodes.get(nodeId);
-    if (!node || String(node.type) !== "audioPlayer") continue;
+    const nodeType = String(node?.type || "");
+    if (!node || (nodeType !== "audioPlayer" && nodeType !== "samplePlayer")) continue;
+
+    const isSample = nodeType === "samplePlayer";
+    const setPcm = isSample
+      ? native.soemdsp_sample_player_set_pcm
+      : native.soemdsp_audio_player_set_pcm;
+    const lPtrFn = isSample
+      ? native.soemdsp_sample_player_l_ptr
+      : native.soemdsp_audio_player_l_ptr;
+    const rPtrFn = isSample
+      ? native.soemdsp_sample_player_r_ptr
+      : native.soemdsp_audio_player_r_ptr;
+    const clearPcm = isSample
+      ? native.soemdsp_sample_player_clear_pcm
+      : native.soemdsp_audio_player_clear_pcm;
+    if (!setPcm || !lPtrFn) continue;
 
     const hash = this.fnv1aHash32(nodeId);
     let handle = 0;
@@ -5715,7 +5804,7 @@ NodeLiveAudioProcessor.prototype.syncNativeAudioPlayerPcm = function syncNativeA
 
     if (!sample || frames < 2) {
       if (prev?.sampleId) {
-        try { native.soemdsp_audio_player_clear_pcm?.(handle); } catch (_e) { /* ignore */ }
+        try { clearPcm?.(handle); } catch (_e) { /* ignore */ }
         cache.set(nodeId, { sampleId: "", frames: 0 });
       }
       continue;
@@ -5740,7 +5829,7 @@ NodeLiveAudioProcessor.prototype.syncNativeAudioPlayerPcm = function syncNativeA
 
     let ok = 0;
     try {
-      ok = native.soemdsp_audio_player_set_pcm(handle, frames, rate, channels) | 0;
+      ok = setPcm(handle, frames, rate, channels) | 0;
     } catch (_e) {
       ok = 0;
     }
@@ -5752,8 +5841,8 @@ NodeLiveAudioProcessor.prototype.syncNativeAudioPlayerPcm = function syncNativeA
     let lPtr = 0;
     let rPtr = 0;
     try {
-      lPtr = native.soemdsp_audio_player_l_ptr(handle) | 0;
-      rPtr = native.soemdsp_audio_player_r_ptr?.(handle) | 0;
+      lPtr = lPtrFn(handle) | 0;
+      rPtr = rPtrFn?.(handle) | 0;
     } catch (_e) {
       lPtr = 0;
     }
@@ -6396,6 +6485,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "sampleDelay") return ["Delayed", "Out", "Mono"];
     // Face jack is Ext Out (Out/Mono are aliases). MOD/scope must publish that name.
     if (type === "sampleHold") return ["Ext Out", "Out", "Mono"];
+    if (/^([1-9]|10)t$/.test(type)) return ["Out", "Mono"];
     if (type === "minMax") return ["Max"];
     if (type === "mix4" || type === "mix" || type === "gainBiasMix") return ["Out1"];
     if (type === "mix2") return ["Mix"];
@@ -6541,8 +6631,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Right"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_SAW) {
-    // t-series: Saw bus holds combined Digital/Analog openness for Value Line.
-    if (type === "t" || /^t([1-9]|10)$/.test(type)) {
+    // t-series demux/mux: Saw bus holds combined Digital/Analog openness for Value Line.
+    if (type === "t" || /^t([1-9]|10)$/.test(type) || /^([1-9]|10)t$/.test(type)) {
       return ["Open"];
     }
     if (type === "rasterRgb") return ["rgba", "📺"];
@@ -6557,7 +6647,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "mixStereo4" || type === "mixStereo2" || type === "mixStereo") return ["L2"];
     if (type === "lookaheadLimiter" || type === "limiter") return ["Gain"];
     if (type === "transport") return ["f"];
-    if (type === "audioPlayer") return ["Phase"];
+    if (type === "audioPlayer" || type === "samplePlayer") return ["Phase"];
     if (type === "chaosfly") return ["X", "DisplayX"];
     if (type === "quadrature") return ["SideQ", "Saw"];
     if (type === "arp") return ["Step", "Saw"];

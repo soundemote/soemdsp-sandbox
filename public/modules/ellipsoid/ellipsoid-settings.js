@@ -149,7 +149,7 @@ const nodeGraphSoftwaveOscFaceDisplaySettingsDefaults = Object.freeze({
   backgroundHue: 200,
   backgroundBrightness: 0.03,
   pixelDensity: 1,
-  showDot: false,
+  showDot: true,
 });
 
 function normalizeNodeGraphSoftwaveOscFaceSettings(settings = {}) {
@@ -158,11 +158,13 @@ function normalizeNodeGraphSoftwaveOscFaceSettings(settings = {}) {
   // Softwave defaults (thicker line) then patch overrides.
   const base = normalizeNodeGraphRoundShapeFaceSettings({ ...d, ...source });
   const rawShow = source.showDot;
-  const showDot = rawShow === true
-    || rawShow === 1
-    || rawShow === "1"
-    || rawShow === "true"
-    || rawShow === "on";
+  const showDot = rawShow === undefined || rawShow === null
+    ? d.showDot
+    : (rawShow === true
+      || rawShow === 1
+      || rawShow === "1"
+      || rawShow === "true"
+      || rawShow === "on");
   return { ...base, showDot };
 }
 

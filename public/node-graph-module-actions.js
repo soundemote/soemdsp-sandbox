@@ -1626,6 +1626,12 @@ function setNodeGraphKnobTextFromContext({ record = true } = {}) {
   }
 }
 
+function setNodeGraphKnobPluginIdentityFromContext() {
+  if (typeof commitNodeGraphKnobPluginIdentity === "function") {
+    commitNodeGraphKnobPluginIdentity();
+  }
+}
+
 function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
   if (!sourceNode) {

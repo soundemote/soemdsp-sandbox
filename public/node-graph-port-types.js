@@ -12,6 +12,7 @@
  *   data       — generic non-audio data plane
  *   graphChunk — Additive Yellow Graph chunks (yellow)
  *   blockRate  — Additive cyan Parameter / once-per-quantum (cyan)
+ *   setup      — setup param (purple square): automatable once/quantum, not realtime
  *   texture    — TV/RGBA video-style taps (📺) — reserved / not fully implemented
  */
 const NODE_GRAPH_PORT_TYPES = Object.freeze({
@@ -22,6 +23,7 @@ const NODE_GRAPH_PORT_TYPES = Object.freeze({
   data: "data",
   graphChunk: "graphChunk",
   blockRate: "blockRate",
+  setup: "setup",
   texture: "texture",
 });
 
@@ -87,18 +89,57 @@ function nodeGraphResolvePortType(typeOrNode, port, io = null) {
   return NODE_GRAPH_PORT_TYPES.audio;
 }
 
-/** Same type only. Modulation / graph-face io are handled by the wire controller separately. */
+/**
+ * Parameter marked setup: true — not realtime, once-per-quantum automatable.
+ * Param-row MOD / slider-out use this type (purple square). Cyan stays Additive.
+ */
+function nodeGraphPortIsSetupParam(typeOrNode, port, io = null) {
+  const type = typeof typeOrNode === "string" && typeof nodeGraphModuleDefinitions === "object"
+    ? typeOrNode
+    : (typeof nodeGraphPatchNodeType === "function" ? nodeGraphPatchNodeType(typeOrNode) : null);
+  const definition = (typeof nodeGraphModuleDefinitions === "object" && type)
+    ? nodeGraphModuleDefinitions[type]
+    : null;
+  const key = String(port || "").trim();
+  if (!definition || !key || !Array.isArray(definition.parameters)) {
+    return false;
+  }
+  for (let i = 0; i < definition.parameters.length; i += 1) {
+    const parameter = definition.parameters[i];
+    if (parameter && parameter.key === key) {
+      return parameter.setup === true;
+    }
+  }
+  return false;
+}
+
+function nodeGraphParameterIsSetup(parameter) {
+  return Boolean(parameter && parameter.setup === true);
+}
+
+/** Same type only, plus audio/digital → setup (Knob/OSC sampled once per quantum). */
 function nodeGraphPortTypesCompatible(typeA, typeB) {
   const a = nodeGraphNormalizePortType(typeA) || NODE_GRAPH_PORT_TYPES.audio;
   const b = nodeGraphNormalizePortType(typeB) || NODE_GRAPH_PORT_TYPES.audio;
-  return a === b;
+  if (a === b) {
+    return true;
+  }
+  const setup = NODE_GRAPH_PORT_TYPES.setup;
+  if (b === setup && (a === NODE_GRAPH_PORT_TYPES.audio || a === NODE_GRAPH_PORT_TYPES.digital)) {
+    return true;
+  }
+  return false;
 }
 
 function nodeGraphEndpointPortType(endpoint) {
   if (!endpoint || !endpoint.port) {
     return NODE_GRAPH_PORT_TYPES.audio;
   }
-  // Modulation destinations are not typed jacks in this system.
+  if (typeof nodeGraphPortIsSetupParam === "function"
+    && nodeGraphPortIsSetupParam(endpoint.node, endpoint.port, endpoint.io)) {
+    return NODE_GRAPH_PORT_TYPES.setup;
+  }
+  // Ordinary modulation destinations stay untyped (any analog/param-out may connect).
   if (endpoint.io === "modulation") {
     return null;
   }

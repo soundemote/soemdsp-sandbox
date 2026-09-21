@@ -358,6 +358,17 @@ extern "C" double soemdsp_audio_player_right(int handle);
 extern "C" double soemdsp_audio_player_phase(int handle);
 extern "C" double soemdsp_audio_player_trigger(int handle);
 
+extern "C" int soemdsp_sample_player_create();
+extern "C" void soemdsp_sample_player_destroy(int handle);
+extern "C" double soemdsp_sample_player_sample(
+  int handle,
+  double gate, double modeParam, double speedParam,
+  double start, double end, double engineSampleRate
+);
+extern "C" double soemdsp_sample_player_left(int handle);
+extern "C" double soemdsp_sample_player_right(int handle);
+extern "C" double soemdsp_sample_player_phase(int handle);
+
 extern "C" int soemdsp_transport_create();
 extern "C" void soemdsp_transport_destroy(int handle);
 extern "C" double soemdsp_transport_sample(
@@ -693,6 +704,13 @@ extern "C" double soemdsp_graphic_eq_sample(
   double sampleRate
 );
 
+extern "C" int soemdsp_cookbook_filter_create();
+extern "C" void soemdsp_cookbook_filter_destroy(int handle);
+extern "C" double soemdsp_cookbook_filter_sample(
+  int handle, double input, double mode, double frequencyHz, double q,
+  double gainDb, double stages, double topology, double sampleRate
+);
+
 extern "C" int soemdsp_active_filter_create();
 extern "C" void soemdsp_active_filter_destroy(int handle);
 extern "C" double soemdsp_active_filter_sample(
@@ -735,6 +753,12 @@ extern "C" double soemdsp_yellowjacket_filter_sample(
 
 extern "C" int soemdsp_superlove_filter_create();
 extern "C" void soemdsp_superlove_filter_destroy(int handle);
+extern "C" int soemdsp_superlove_rev2_create();
+extern "C" void soemdsp_superlove_rev2_destroy(int handle);
+extern "C" double soemdsp_superlove_rev2_sample(
+  int handle, double input, double frequency, double resonance,
+  double morphAmount, double noiseAmount, double phaseBias, int mode, double sampleRate
+);
 extern "C" double soemdsp_superlove_filter_sample(
   int handle, double input, double frequency, double resonance,
   double chaosAmount, int mode, double sampleRate
@@ -773,7 +797,7 @@ extern "C" int soemdsp_chaotic_phase_locking_filter_create();
 extern "C" void soemdsp_chaotic_phase_locking_filter_destroy(int handle);
 extern "C" double soemdsp_chaotic_phase_locking_filter_sample(
   int handle, double input, double frequency, double resonance,
-  double chaosAmount, double sampleRate
+  double chaosAmount, double phaseBias, double sampleRate
 );
 
 extern "C" int soemdsp_inertial_filter_create();
@@ -1583,6 +1607,7 @@ static const int kTypeCrossover6 = 107;
 static const int kTypeCheapWalk = 108;
 static const int kTypePumpLimiter = 109; // musical Pump Limiter (type `limiter`)
 static const int kTypeAudioPlayer = 110; // Music Player (PCM upload)
+static const int kTypeSamplePlayer = 174; // Gate-driven sample player (PCM upload)
 // Yellow Graph (Additive) — A1+A2 (see additive_yellow_graph.h)
 static const int kTypeAdditiveGenerator = 111;
 static const int kTypeAdditiveBubble = 112;
@@ -1634,7 +1659,8 @@ static const int kTypeWowAndFlutter = 155;
 static const int kTypeVactrol = 156; // roll-your-own optical lag (not tombstone 74)
 static const int kTypeAmpCurve = 157; // CV → Amplitude response (Lin/Exp VCA curve)
 static const int kTypeHypersaw2 = 158;
-static const int kTypeTransistor = 159; // t / t1…t10 — stages = last path index
+static const int kTypeTransistor = 159; // t / t1…t10 demux — stages = last path index
+static const int kTypeTransistorMux = 175; // 1t…10t mux — stages = last path index
 static const int kTypeRasterRgb = 160; // Pixel Grid — graded R/G/B (+ rgba luma)
 static const int kTypeChaosfly = 161;
 static const int kTypeExpoPluckEnvelope = 162;
@@ -1647,6 +1673,8 @@ static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smo
 static const int kTypeFm = 169; // ƒ mixer / pitch scale (oct/st/cents × Multiply + Add)
 static const int kTypePitchHz = 170; // Pitch ↔ Hz (MIDI-ish pitch law, A4 = tuning)
 static const int kTypeGraphicEq = 171; // ISO 1/3-octave graphic EQ (30 peaking bands)
+static const int kTypeSuperloveRev2 = 172; // Softwave-Tri LP + classic HP/BP
+static const int kTypeCookbookFilter = 173; // RS-MET rosic::CookbookFilter (RBJ cascade)
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -2123,6 +2151,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_pumping_limiter_destroy(handle);
   } else if (kind == kTypeAudioPlayer) {
     soemdsp_audio_player_destroy(handle);
+  } else if (kind == kTypeSamplePlayer) {
+    soemdsp_sample_player_destroy(handle);
   } else if (kind == kTypeTransport) {
     soemdsp_transport_destroy(handle);
   } else if (kind == kTypeAliasSine) {
@@ -2201,6 +2231,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_eq_filter_destroy(handle);
   } else if (kind == kTypeGraphicEq) {
     soemdsp_graphic_eq_destroy(handle);
+  } else if (kind == kTypeCookbookFilter) {
+    soemdsp_cookbook_filter_destroy(handle);
   } else if (kind == kTypeActiveFilter) {
     soemdsp_active_filter_destroy(handle);
   } else if (kind == kTypePassiveFilter) {
@@ -2213,6 +2245,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_yellowjacket_filter_destroy(handle);
   } else if (kind == kTypeSuperloveFilter) {
     soemdsp_superlove_filter_destroy(handle);
+  } else if (kind == kTypeSuperloveRev2) {
+    soemdsp_superlove_rev2_destroy(handle);
   } else if (kind == kTypeHumanFilter) {
     soemdsp_human_filter_destroy(handle);
   } else if (kind == kTypeResonatorFilter) {
@@ -2334,6 +2368,7 @@ static bool type_wants_mlr_native_handles(int typeId) {
   return typeId == kTypeLadderFilter
     || typeId == kTypeEqFilter
     || typeId == kTypeGraphicEq
+    || typeId == kTypeCookbookFilter
     || typeId == kTypeBandpass
     || typeId == kTypeAllpass
     || typeId == kTypeActiveFilter
@@ -2342,6 +2377,7 @@ static bool type_wants_mlr_native_handles(int typeId) {
     || typeId == kTypeFlowerChildFilter
     || typeId == kTypeYellowjacketFilter
     || typeId == kTypeSuperloveFilter
+    || typeId == kTypeSuperloveRev2
     || typeId == kTypeHumanFilter
     || typeId == kTypeResonatorFilter
     || typeId == kTypeChaoticPhaseLockingFilter;
@@ -2599,13 +2635,13 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeLadderFilter
       || typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
       || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic
-      || typeId == kTypeEqFilter || typeId == kTypeGraphicEq || typeId == kTypeBandpass || typeId == kTypeAllpass
+      || typeId == kTypeEqFilter || typeId == kTypeGraphicEq || typeId == kTypeCookbookFilter || typeId == kTypeBandpass || typeId == kTypeAllpass
       || typeId == kTypeActiveFilter
       || typeId == kTypeTb303Filter
       || typeId == kTypePapoulisFilter)
       ? 1000.0
       : (typeId == kTypeFlowerChildFilter || typeId == kTypeYellowjacketFilter
-          || typeId == kTypeSuperloveFilter || typeId == kTypeHumanFilter
+          || typeId == kTypeSuperloveFilter || typeId == kTypeSuperloveRev2 || typeId == kTypeHumanFilter
           || typeId == kTypeResonatorFilter || typeId == kTypeChaoticPhaseLockingFilter)
         ? 0.5
       : (typeId == kTypeModeResonator) ? 440.0
@@ -2664,7 +2700,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCrossover4) ? 200.0
       : (typeId == kTypeCrossover5) ? 150.0
       : (typeId == kTypeCrossover6) ? 100.0
-      : (typeId == kTypeAudioPlayer) ? 1.0 // speed ×
+      : (typeId == kTypeAudioPlayer || typeId == kTypeSamplePlayer) ? 1.0 // speed ×
 : (typeId == kTypePitchHz) ? 440.0 // A4 tuning Hz
             : 220.0,
     false
@@ -2674,6 +2710,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeAdditiveOsc || typeId == kTypeDsfOscillator) ? 1.0
       : (typeId == kTypeHypersaw2) ? 1.0 // Saw (Trisaw=0 … Trapezoid=6)
       : (typeId == kTypeActiveFilter) ? 0.0 // Dual Ladder HP slope Bypass
+      : (typeId == kTypeCookbookFilter) ? 0.0 // Direct Form 1
       : (typeId == kTypeSoemReverb) ? 1.0 // doModulateEcho On
       : (typeId == kTypeAdditiveGenerator) ? 0.0 // Saw
       : (typeId == kTypeAdditiveBlaster) ? 1.0 // curveKind Exponential (PoC)
@@ -2727,7 +2764,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeVibratoGenerator) ? 0.0 // morph
       : (typeId == kTypeWowAndFlutter) ? 1.0 // wowAmp
       : (typeId == kTypeVactrol) ? 1.0 // curve gamma
-      : (typeId == kTypeSoftwaveOsc || typeId == kTypeSuperloveFilter
+      : (typeId == kTypeSoftwaveOsc || typeId == kTypeSuperloveFilter || typeId == kTypeSuperloveRev2
           || typeId == kTypeBasicShape) ? 0.5 // morph/chaos
       : (typeId == kTypeSmoothGraph) ? 1.0 // tension
       : (typeId == kTypeExpAdsr || typeId == kTypeCurveAttackRelease) ? 0.0 // attackShape (bipolar; 0=linear)
@@ -2769,7 +2806,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHypersaw2) ? 0.0 // vibratoDistance
       : (typeId == kTypeChebyshev || typeId == kTypeElliptic) ? 1.0 // ripple dB
       : (typeId == kTypeEqFilter || typeId == kTypeAllpass) ? 0.707 // Q
-      : (typeId == kTypeBandpass) ? 1.0 // Q
+      : (typeId == kTypeCookbookFilter || typeId == kTypeBandpass) ? 1.0 // Q
       : (typeId == kTypePhaseDisperse) ? 0.5 // pinch 0..1
       : (typeId == kTypeTb303Filter) ? 0.0 // %
       : (typeId == kTypeSoemReverb) ? 1.0 // bandQ
@@ -2829,6 +2866,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeWavetableAdsr) ? 0.0 // shape Analog
       : (typeId == kTypePiSpigotNoise) ? 0.0 // color White
       : (typeId == kTypeAudioPlayer) ? 4.0 // Play
+      : (typeId == kTypeSamplePlayer) ? 0.0 // One-shot
       : (typeId == kTypeAdditiveOut) ? 0.0 // optimize Inaudible off
       : (typeId == kTypeAdditiveGenerator) ? 1.0 // HarmonicFade Smoothed
       : 1.0,
@@ -2849,6 +2887,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeChordPad || typeId == kTypeNoteTranspose) ? 0.0 // degree / semis
       : (typeId == kTypeSmoothGraph) ? 1.0 // smoothingMode Catmull
       : (typeId == kTypePhaseDisperse) ? 32.0 // cascade depth
+      : (typeId == kTypeCookbookFilter) ? 2.0 // RS-MET default stages
       : (typeId == kTypeArp) ? 8.0 // steps
       : (typeId == kTypeBinaryClock) ? 4.0 // bits
       : (typeId == kTypeFractalBrownianNoise) ? 4.0 // octaves
@@ -3104,7 +3143,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeVactrol) ? 0.0 // attack
       : (typeId == kTypeLinearAttackRelease) ? 0.01 // attack
       : (typeId == kTypeDelayEffect) ? 0.18 // time s
-      : (typeId == kTypeAudioPlayer) ? 0.0 // start phase
+      : (typeId == kTypeAudioPlayer || typeId == kTypeSamplePlayer) ? 0.0 // start phase
       : (typeId == kTypeSpeakerProtector2) ? 0.008 // dropSeconds
       : (typeId == kTypeRobinSupersaw) ? 0.0 // portaTimeMin s
       : 1.0,
@@ -3128,7 +3167,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // hold
       : (typeId == kTypeVactrol) ? 0.1 // release
       : (typeId == kTypeLinearAttackRelease) ? 0.25 // release
-      : (typeId == kTypeAudioPlayer) ? 1.0 // end phase
+      : (typeId == kTypeAudioPlayer || typeId == kTypeSamplePlayer) ? 1.0 // end phase
       : (typeId == kTypeSpeakerProtector2) ? 0.333 // holdSeconds
       : (typeId == kTypeRobinSupersaw) ? 0.0 // portaTimeMax s (0 = off)
       : 4.0,
@@ -3999,6 +4038,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeLookaheadLimiter) return soemdsp_lookahead_limiter_create();
   if (typeId == kTypePumpLimiter) return soemdsp_pumping_limiter_create();
   if (typeId == kTypeAudioPlayer) return soemdsp_audio_player_create();
+  if (typeId == kTypeSamplePlayer) return soemdsp_sample_player_create();
   if (typeId == kTypeTransport) return soemdsp_transport_create();
   if (typeId == kTypeAliasSine) return soemdsp_alias_sine_create();
   if (typeId == kTypePhoneTone) return soemdsp_phone_tone_create();
@@ -4054,6 +4094,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeChebyshev) return soemdsp_chebyshev_create();
   if (typeId == kTypeElliptic) return soemdsp_elliptic_create();
   if (typeId == kTypeGraphicEq) return soemdsp_graphic_eq_create();
+  if (typeId == kTypeCookbookFilter) return soemdsp_cookbook_filter_create();
   if (typeId == kTypeEqFilter || typeId == kTypeBandpass || typeId == kTypeAllpass) {
     return soemdsp_eq_filter_create();
   }
@@ -4063,6 +4104,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeFlowerChildFilter) return soemdsp_flower_child_filter_create();
   if (typeId == kTypeYellowjacketFilter) return soemdsp_yellowjacket_filter_create();
   if (typeId == kTypeSuperloveFilter) return soemdsp_superlove_filter_create();
+  if (typeId == kTypeSuperloveRev2) return soemdsp_superlove_rev2_create();
   if (typeId == kTypeHumanFilter) return soemdsp_human_filter_create();
   if (typeId == kTypeResonatorFilter) return soemdsp_resonator_filter_create();
   if (typeId == kTypeCombResonator) return soemdsp_comb_resonator_create();
@@ -4381,36 +4423,31 @@ static double apply_sweep_hz(double hz, double sweepSemis) {
   return out;
 }
 
-// Filter / resonator cutoff: ƒ = absolute Hz; else 0.1V/Oct pitches Frequency;
-// else the Frequency knob. Then × patch Pitch. Matches oscillator pitch wiring.
+// Filter / resonator cutoff: Frequency knob (Hz), domain REPLACE from Pitch↔Hz.
+// 0.1V/Oct tracking + frequency-ref retired on Hz modules.
 static double resolve_cutoff_hz(
   Circuit& g, int frame, bool liveF, bool livePitch,
   const Control& frequency, double referenceVoltage, double sr
 ) {
-  (void)liveF; // absolute ƒ jack retired
-  double freq;
-  if (livePitch) {
-    freq = pitched_hz(control_effective(frequency), g.mixPitch[frame], referenceVoltage);
-  } else {
-    freq = control_effective(frequency);
-  }
+  (void)liveF;
+  (void)livePitch;
+  (void)referenceVoltage;
+  double freq = control_effective(frequency);
   freq = apply_global_pitch(g, freq);
   freq = clamp_hz_nyquist(freq, sr);
   if (freq < 0.0) freq = 0.0;
   return freq;
 }
 
-// Oscillator / Chaosfly Hz: same ƒ / 0.1V / knob law as filters, then patch Pitch.
+// Oscillator / Chaosfly Hz: Frequency knob + patch Pitch. Pitch CV via Pitch↔Hz.
 static double resolve_osc_hz(
   Circuit& g, int frame, bool liveF, bool livePitch,
   Control& frequency, double referenceVoltage, double sr
 ) {
-  double freq;
-  if (livePitch) {
-    freq = pitched_hz(control_audio(g, frequency, frame), g.mixPitch[frame], referenceVoltage);
-  } else {
-    freq = control_audio(g, frequency, frame);
-  }
+  (void)liveF;
+  (void)livePitch;
+  (void)referenceVoltage;
+  double freq = control_audio(g, frequency, frame);
   freq = apply_global_pitch(g, freq);
   return clamp_hz_nyquist(freq, sr);
 }
@@ -4955,7 +4992,92 @@ static bool port_has_audio_conn(Circuit& g, const Node& node, int dstPort) {
   return false;
 }
 
-// t / t1…t10: transistor-switched paths (JS t-series math).
+// 1t…10t mux: ins 0…N + A/D → Out.
+// stages = lastIndex (1…10). Inputs on channels 0…N, A→Morph, D→Trigger, Out→Mono.
+// D only = discrete index. A only = −1…+1 full-range crossfade.
+// Both: D is base; A −1…0 sweeps 0…D, A 0…+1 sweeps D…N.
+static void process_transistor_mux(Circuit& g, Node& node, int frames) {
+  int lastIndex = (int)(control_effective(node.stages) + (control_effective(node.stages) >= 0.0 ? 0.5 : -0.5));
+  if (lastIndex < 1) lastIndex = 1;
+  if (lastIndex > 10) lastIndex = 10;
+  const int count = lastIndex + 1;
+
+  double ins[11][kMaxBlockFrames];
+  bool hasIn[11];
+  for (int i = 0; i < count; i++) {
+    hasIn[i] = mix_live_port(g, node, i, frames, ins[i]);
+  }
+  for (int i = count; i < 11; i++) {
+    hasIn[i] = false;
+    zero_buf(ins[i], frames);
+  }
+  const bool hasAnalog = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
+  const bool hasDigital = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    if (!hasAnalog && !hasDigital) {
+      node.buf[kPortMono][f] = 0.0;
+      node.buf[kPortLeft][f] = 0.0;
+      node.buf[kPortRight][f] = 0.0;
+      node.buf[kPortSaw][f] = 0.0;
+      continue;
+    }
+
+    double a = hasAnalog ? g.mixMorph[f] : 0.0;
+    if (a < -1.0) a = -1.0;
+    if (a > 1.0) a = 1.0;
+    const double d = hasDigital ? g.mixTrigger[f] : 0.0;
+
+    double addr = 0.0;
+    bool discrete = false;
+    if (hasDigital && !hasAnalog) {
+      int idx = (int)(d + (d >= 0.0 ? 0.5 : -0.5));
+      if (idx < 0) idx = 0;
+      if (idx > lastIndex) idx = lastIndex;
+      addr = (double)idx;
+      discrete = true;
+    } else if (hasAnalog && !hasDigital) {
+      addr = ((a + 1.0) * 0.5) * (double)lastIndex;
+    } else {
+      double base = d;
+      if (base < 0.0) base = 0.0;
+      if (base > (double)lastIndex) base = (double)lastIndex;
+      if (a >= 0.0) {
+        addr = base + a * ((double)lastIndex - base);
+      } else {
+        addr = base * (a + 1.0);
+      }
+    }
+
+    double out = 0.0;
+    double openAmount = 0.0;
+    if (discrete) {
+      const int idx = (int)(addr + 0.5);
+      out = ins[idx][f];
+      openAmount = 1.0;
+      (void)hasIn;
+    } else {
+      int i0 = (int)dsp_floor(addr);
+      if (i0 < 0) i0 = 0;
+      if (i0 > lastIndex) i0 = lastIndex;
+      int i1 = i0 + 1;
+      if (i1 > lastIndex) i1 = lastIndex;
+      double frac = addr - (double)i0;
+      if (frac < 0.0) frac = 0.0;
+      if (frac > 1.0) frac = 1.0;
+      out = ins[i0][f] * (1.0 - frac) + ins[i1][f] * frac;
+      openAmount = (i0 == i1) ? 1.0 : (frac > 0.5 ? frac : (1.0 - frac));
+    }
+
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+    node.buf[kPortSaw][f] = openAmount;
+  }
+}
+
+// t / t1…t10: transistor-switched demux (JS t-series math).
 // stages = lastIndex (0 = lone t). In→Mono, Analog→Morph, Digital→Trigger.
 // Lone t Digital = presence (any > 0 → send). Multi-t Digital = one-hot index.
 // Analog = conduction / address window. Outs "0"…"10" → buf channels 0…10.
@@ -6822,14 +6944,37 @@ static void process_scientific_iir(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double amp = control_audio(g, node.amplitude, f);
     const double out = sampleFn(
       node.nativeHandle, in, mode, freq, order, bandwidth, ripple, sr
     );
-    node.buf[kPortMono][f] = out;
+    node.buf[kPortMono][f] = out * amp;
   }
 }
 
-// EQ Filter (ZDF SVF): resonance=Q, gainDb=shelf/peak gain.
+// Face: Bypass, LP, HP, BP, Peak, Isolate, LS, HS, Notch, AP, BP skirt.
+// DSP 10 = Isolate (not a Robin mode).
+static int eq_filter_ui_to_dsp(int ui) {
+  static const int kMap[11] = { 0, 2, 1, 4, 7, 10, 8, 9, 5, 6, 3 };
+  if (ui < 0) ui = 0;
+  if (ui > 10) ui = 10;
+  return kMap[ui];
+}
+
+static double eq_filter_isolate_sample(
+  int handle, double in, double freq, double q, double gainDb, double sr
+) {
+  if (gainDb >= 0.0) {
+    double k = gainDb * (1.0 / 24.0);
+    if (k > 1.0) k = 1.0;
+    if (k < 0.0) k = 0.0;
+    const double bp = soemdsp_eq_filter_sample(handle, in, 4.0, freq, q, 0.0, sr);
+    return (1.0 - k) * in + k * bp;
+  }
+  return soemdsp_eq_filter_sample(handle, in, 7.0, freq, q, gainDb, sr);
+}
+
+// EQ Filter (ZDF SVF): resonance=Q, gainDb=boost/cut (ignored on Bypass/LP/HP).
 static void process_eq_filter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -6838,7 +6983,12 @@ static void process_eq_filter(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const double referenceVoltage = 48.0 / 120.0;
   const bool takeSamplePath = node_has_active_chase(node);
-  const double modeV = control_effective(node.mode);
+  const double uiMode = control_effective(node.mode);
+  int ui = (int)(uiMode + (uiMode >= 0.0 ? 0.5 : -0.5));
+  if (ui < 0) ui = 0;
+  if (ui > 10) ui = 10;
+  const bool isolate = (ui == 5);
+  const double modeV = isolate ? 0.0 : (double)eq_filter_ui_to_dsp(ui);
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
@@ -6848,26 +6998,32 @@ static void process_eq_filter(Circuit& g, Node& node, int frames) {
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
     const double q = control_audio(g, node.resonance, f);
-    const double gain = control_audio(g, node.gainDb, f);
+    const double gain = (ui <= 2) ? 0.0 : control_audio(g, node.gainDb, f);
+    const double amp = control_audio(g, node.amplitude, f);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
-      const double out = soemdsp_eq_filter_sample(
-        node.nativeHandle, in, modeV, freq, q, gain, sr
-      );
+      const double raw = isolate
+        ? eq_filter_isolate_sample(node.nativeHandle, in, freq, q, gain, sr)
+        : soemdsp_eq_filter_sample(node.nativeHandle, in, modeV, freq, q, gain, sr);
+      const double out = raw * amp;
       node.buf[kPortMono][f] = out;
       if (!hasLeftIn) node.buf[kPortLeft][f] = out;
       if (!hasRightIn) node.buf[kPortRight][f] = out;
     }
     if (hasLeftIn && node.nativeHandleL > 0) {
-      node.buf[kPortLeft][f] = soemdsp_eq_filter_sample(
-        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], modeV, freq, q, gain, sr
-      );
+      const double inL = g.mixLeft[f] + g.mixMono[f];
+      const double rawL = isolate
+        ? eq_filter_isolate_sample(node.nativeHandleL, inL, freq, q, gain, sr)
+        : soemdsp_eq_filter_sample(node.nativeHandleL, inL, modeV, freq, q, gain, sr);
+      node.buf[kPortLeft][f] = rawL * amp;
     }
     if (hasRightIn && node.nativeHandleR > 0) {
-      node.buf[kPortRight][f] = soemdsp_eq_filter_sample(
-        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], modeV, freq, q, gain, sr
-      );
+      const double inR = g.mixRight[f] + g.mixMono[f];
+      const double rawR = isolate
+        ? eq_filter_isolate_sample(node.nativeHandleR, inR, freq, q, gain, sr)
+        : soemdsp_eq_filter_sample(node.nativeHandleR, inR, modeV, freq, q, gain, sr);
+      node.buf[kPortRight][f] = rawR * amp;
     }
   }
 }
@@ -6960,6 +7116,53 @@ static void process_graphic_eq(Circuit& g, Node& node, int frames) {
       node.buf[kPortRight][f] = soemdsp_graphic_eq_sample(
         node.nativeHandleR, g.mixRight[f] + g.mixMono[f], rangeChoice, mix, amp, sr
       );
+    }
+  }
+}
+
+// Cookbook Filter: stacked identical RBJ biquads. MLR + ƒ / 0.1V/Oct.
+static void process_cookbook_filter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const double referenceVoltage = 48.0 / 120.0;
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double freq = resolve_cutoff_hz(
+      g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
+    );
+    const double modeV = control_effective(node.mode);
+    const double q = control_audio(g, node.resonance, f);
+    const double gain = 0.0;
+    const double stages = control_effective(node.stages);
+    const double topology = 0.0; // Direct Form 1 only
+    const double amp = control_audio(g, node.amplitude, f);
+    if (needMono) {
+      double in = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
+      const double out = soemdsp_cookbook_filter_sample(
+        node.nativeHandle, in, modeV, freq, q, gain, stages, topology, sr
+      ) * amp;
+      node.buf[kPortMono][f] = out;
+      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
+      if (!hasRightIn) node.buf[kPortRight][f] = out;
+    }
+    if (hasLeftIn && node.nativeHandleL > 0) {
+      node.buf[kPortLeft][f] = soemdsp_cookbook_filter_sample(
+        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], modeV, freq, q, gain,
+        stages, topology, sr
+      ) * amp;
+    }
+    if (hasRightIn && node.nativeHandleR > 0) {
+      node.buf[kPortRight][f] = soemdsp_cookbook_filter_sample(
+        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], modeV, freq, q, gain,
+        stages, topology, sr
+      ) * amp;
     }
   }
 }
@@ -7445,6 +7648,52 @@ static void process_superlove_filter(Circuit& g, Node& node, int frames) {
   );
 }
 
+// Superlove Rev2: mix Control = noise inject amount (host: noise×noiseAmount meta).
+static void process_superlove_rev2(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double modeV = control_effective(node.mode);
+  int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+  if (mode < 0) mode = 0;
+  if (mode > 3) mode = 3;
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double freq = norm_pitch_freq_from_control(control_audio(g, node.frequency, f));
+    const double reso = control_audio(g, node.resonance, f);
+    const double morph = control_audio(g, node.shape, f);
+    const double noiseAmt = control_audio(g, node.mix, f);
+    const double phase = control_audio(g, node.phaseParam, f);
+    double amp = control_audio(g, node.amplitude, f);
+    if (!(amp == amp)) amp = 1.0;
+    if (needMono) {
+      double in = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
+      const double out = soemdsp_superlove_rev2_sample(
+        node.nativeHandle, in, freq, reso, morph, noiseAmt, phase, mode, sr
+      ) * amp;
+      node.buf[kPortMono][f] = out;
+      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
+      if (!hasRightIn) node.buf[kPortRight][f] = out;
+    }
+    if (hasLeftIn && node.nativeHandleL > 0) {
+      node.buf[kPortLeft][f] = soemdsp_superlove_rev2_sample(
+        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f],
+        freq, reso, morph, noiseAmt, phase, mode, sr
+      ) * amp;
+    }
+    if (hasRightIn && node.nativeHandleR > 0) {
+      node.buf[kPortRight][f] = soemdsp_superlove_rev2_sample(
+        node.nativeHandleR, g.mixRight[f] + g.mixMono[f],
+        freq, reso, morph, noiseAmt, phase, mode, sr
+      ) * amp;
+    }
+  }
+}
+
 static void process_human_filter(Circuit& g, Node& node, int frames) {
   process_norm_chaos_filter(
     g, node, frames, true, nullptr, soemdsp_human_filter_sample
@@ -7460,16 +7709,11 @@ static void process_resonator_filter(Circuit& g, Node& node, int frames) {
 // Always dual-instance stereo: independent L/R native states (chaos diverges).
 // Mono In folds into both; Mono Out = (L+R)/2 when needed.
 static void process_chaotic_phase_locking_filter(Circuit& g, Node& node, int frames) {
-  if (node.nativeHandleL <= 0 || node.nativeHandleR <= 0) {
-    // Fallback: single-handle path if MLR pool failed.
-    process_norm_chaos_filter(
-      g, node, frames, false, soemdsp_chaotic_phase_locking_filter_sample, nullptr
-    );
-    return;
-  }
+  const int hL = node.nativeHandleL > 0 ? node.nativeHandleL : node.nativeHandle;
+  const int hR = node.nativeHandleR > 0 ? node.nativeHandleR : node.nativeHandle;
+  if (hL <= 0 || hR <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active;
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
@@ -7478,16 +7722,17 @@ static void process_chaotic_phase_locking_filter(Circuit& g, Node& node, int fra
     double freq = norm_pitch_freq_from_control(control_audio(g, node.frequency, f));
     const double reso = control_audio(g, node.resonance, f);
     const double chaos = control_audio(g, node.shape, f);
+    const double phase = control_audio(g, node.phaseParam, f);
     double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 1.0;
     const double monoIn = g.mixMono[f];
     const double inL = g.mixLeft[f] + monoIn;
     const double inR = g.mixRight[f] + monoIn;
     const double outL = soemdsp_chaotic_phase_locking_filter_sample(
-      node.nativeHandleL, inL, freq, reso, chaos, sr
+      hL, inL, freq, reso, chaos, phase, sr
     ) * amp;
     const double outR = soemdsp_chaotic_phase_locking_filter_sample(
-      node.nativeHandleR, inR, freq, reso, chaos, sr
+      hR, inR, freq, reso, chaos, phase, sr
     ) * amp;
     node.buf[kPortLeft][f] = outL;
     node.buf[kPortRight][f] = outR;
@@ -9387,6 +9632,43 @@ static void process_pump_limiter(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Sample Player — Gate-driven PCM; host uploads via set_pcm + l_ptr/r_ptr.
+// Params: mode=One-shot/Hold/Loop, frequency=speed, timeNum/Den=start/end.
+// Gate on Mono (velocity = Gate level at rising edge).
+static void process_sample_player(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasGate = mix_live_port(g, node, kPortMono, frames, g.mixMono);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool takeSamplePath = node.frequency.active
+    || node.timeNumerator.active || node.timeDenominator.active;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    if (takeSamplePath) {
+      Control* chase[] = {
+        &node.frequency, &node.timeNumerator, &node.timeDenominator
+      };
+      for (unsigned ci = 0; ci < sizeof(chase) / sizeof(chase[0]); ci += 1) {
+        Control* c = chase[ci];
+        if (c && c->active && !c->snap) { control_ensure_stepped(g, *c, f); }
+      }
+    }
+    const double gate = hasGate ? g.mixMono[f] : 0.0;
+    const double mono = soemdsp_sample_player_sample(
+      node.nativeHandle,
+      gate,
+      control_effective(node.mode),
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.timeDenominator, f),
+      sr
+    );
+    node.buf[kPortMono][f] = mono;
+    node.buf[kPortLeft][f] = soemdsp_sample_player_left(node.nativeHandle);
+    node.buf[kPortRight][f] = soemdsp_sample_player_right(node.nativeHandle);
+    node.buf[kPortSaw][f] = soemdsp_sample_player_phase(node.nativeHandle);
+  }
+}
+
 // Music Player — PCM-backed; host uploads via set_pcm + l_ptr/r_ptr.
 // Params: mode=transport, frequency≈speed, timeNum/Den=start/end,
 // amplitude, phaseParam=phaseOffset, shape=phase skip, seed=playlistScrub,
@@ -10470,6 +10752,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeLookaheadLimiter
     || typeId == kTypePumpLimiter
     || typeId == kTypeAudioPlayer
+    || typeId == kTypeSamplePlayer
     || typeId == kTypeTransport
     || typeId == kTypeAliasSine
     || typeId == kTypePhoneTone
@@ -10512,12 +10795,14 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeElliptic
     || typeId == kTypeEqFilter
     || typeId == kTypeGraphicEq
+    || typeId == kTypeCookbookFilter
     || typeId == kTypeActiveFilter
     || typeId == kTypePassiveFilter
     || typeId == kTypeTb303Filter
     || typeId == kTypeFlowerChildFilter
     || typeId == kTypeYellowjacketFilter
     || typeId == kTypeSuperloveFilter
+    || typeId == kTypeSuperloveRev2
     || typeId == kTypeHumanFilter
     || typeId == kTypeResonatorFilter
     || typeId == kTypeCombResonator
@@ -11393,6 +11678,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_audio_player(g, node, frames);
       return;
     }
+    if (node.typeId == kTypeSamplePlayer) {
+      process_sample_player(g, node, frames);
+      return;
+    }
     if (node.typeId == kTypeTransport) {
       process_transport(g, node, frames);
       return;
@@ -11569,6 +11858,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_graphic_eq(g, node, frames);
       return;
     }
+    if (node.typeId == kTypeCookbookFilter) {
+      process_cookbook_filter(g, node, frames);
+      return;
+    }
     if (node.typeId == kTypeActiveFilter) {
       process_active_filter(g, node, frames);
       return;
@@ -11591,6 +11884,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
     }
     if (node.typeId == kTypeSuperloveFilter) {
       process_superlove_filter(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSuperloveRev2) {
+      process_superlove_rev2(g, node, frames);
       return;
     }
     if (node.typeId == kTypeHumanFilter) {
@@ -11837,6 +12134,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_transistor(g, node, frames);
       return;
     }
+    if (node.typeId == kTypeTransistorMux) {
+      process_transistor_mux(g, node, frames);
+      return;
+    }
     if (node.typeId == kTypeU2b) {
       process_u2b(g, node, frames);
       return;
@@ -11866,12 +12167,7 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       return;
     }
     if (node.typeId == kTypeAudioInput) {
-      // Host mic bus not in graph_engine yet — silence (module stays plan-legal).
-      for (int f = 0; f < frames; f++) {
-        node.buf[kPortMono][f] = 0.0;
-        node.buf[kPortLeft][f] = 0.0;
-        node.buf[kPortRight][f] = 0.0;
-      }
+      // Host (plugin / worklet) fills node.buf via node_port_ptr before process_block.
       return;
     }
     // unknown: silence
@@ -12009,7 +12305,11 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       continue;
     }
 
-    for (int c = 0; c < kChannels; c++) zero_buf(node.buf[c], frames);
+    // AudioInput is filled by the host via node_port_ptr before process_block.
+    // Do not wipe it — that was silencing the plugin graph.
+    if (node.typeId != kTypeAudioInput) {
+      for (int c = 0; c < kChannels; c++) zero_buf(node.buf[c], frames);
+    }
 
     dispatch_process_node(*g, node, frames);
     node.processedThisBlock = 1;

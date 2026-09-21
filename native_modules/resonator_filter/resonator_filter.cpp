@@ -1,5 +1,5 @@
 // soemdsp-native-module: resonator_filter
-// soemdsp-native-label: Resonator Filter
+// soemdsp-native-label: Shaped Resonator Filter
 // soemdsp-native-target: resonatorFilter
 // soemdsp-native-kind: filter
 //

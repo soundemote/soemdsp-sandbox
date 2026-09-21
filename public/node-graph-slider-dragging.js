@@ -622,10 +622,9 @@ function nodeSliderKeyboardStep(slider, event) {
 // MUST share the same modifier vocabulary:
 //
 //   ctrl/cmd + click          reset to default
-//   alt + click (range)       jump thumb to pointer
+//   alt + click               jump to pointer and snap smoother
+//   then drag                 same as a normal click-drag (smoothing on)
 //   shift / ctrl / cmd        fine   (nodeGraphNumericDragMultiplier)
-//   alt                       coarse
-//   shift+ctrl, shift+ctrl+alt finer tiers (same helper)
 //
 // Range drag is relative (like beginNodeSliderDrag), not browser thumb-jump,
 // so holding Ctrl while dragging fine-tunes instead of resetting / snapping.

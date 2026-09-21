@@ -267,6 +267,7 @@ divideChoicesVisibly — boolean, add visual divider between choices
 showSign          — boolean, show +/- prefix
 wraparound        — boolean, value wraps (for phase)
 linearSmoothing   — boolean, enable parameter smoothing
+setup             — boolean, setup param: once-per-quantum automatable, not realtime (purple square jacks)
 nonlinearSlider   — boolean, apply skew to slider
 maxDigits         — number, display precision
 ```

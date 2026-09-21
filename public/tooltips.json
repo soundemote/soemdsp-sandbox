@@ -86,6 +86,7 @@
     "linearSmoothing": "legacy: use Smoothing Type L instead of unchecking this",
     "parameter": "choose which parameter of this module these metaparameters apply to | includes parameters hidden by default",
     "showParameter": "show this parameter as a slider row on the module | on by default | parameters marked hidden in the module definition stay off until you turn this on",
+    "showMetaparameter": "show this parameter as a slider on the parent Metamodule",
     "bipolar": "center the amount fill on MID (usually 0) so negative and positive values grow outward from the middle",
     "outputDomain": "When checked, MOD uses real engineering units (Hz, etc.) and replaces the absolute knob. The slider becomes a bipolar domain offset (default 0, span +/- param max) added after replace — works even with no MOD wire. PARAM OUT emits real units instead of 0…1.",
     "smoothingSeconds": "how long this parameter's glide takes, in seconds | 0 snaps instantly | only used when smoothing source is Internal or Internal + Global",

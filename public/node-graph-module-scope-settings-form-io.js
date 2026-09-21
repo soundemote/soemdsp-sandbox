@@ -138,11 +138,6 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       bindNodeGraphMatrixFaceDisplaySettingsBody(host);
     }
   }
-  if (type === "macroControlsFace") {
-    if (typeof bindNodeGraphMacroControlsFaceDisplaySettingsBody === "function") {
-      bindNodeGraphMacroControlsFaceDisplaySettingsBody(host);
-    }
-  }
   if (type === "keyboardControllerFace") {
     if (typeof bindNodeGraphKeyboardControllerFaceDisplaySettingsBody === "function") {
       bindNodeGraphKeyboardControllerFaceDisplaySettingsBody(host);

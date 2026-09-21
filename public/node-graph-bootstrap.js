@@ -138,22 +138,8 @@ async function initNodeGraphMvp() {
   if (typeof renderNodeGraphWiresAboveModulesToggle === "function") {
     renderNodeGraphWiresAboveModulesToggle();
   }
-  bindNodeGraphMacroControlModuleEvents();
   bindNodeGraphKeyboardControllerModuleEvents();
   bindNodeGraphMetadataPopoverEvents();
-  renderNodeGraphMacroControls();
-  if (typeof applyNodeGraphMacroControlsFaceSettings === "function") {
-    applyNodeGraphMacroControlsFaceSettings();
-  } else {
-    applyNodeGraphMacroKnobArcThickness();
-    applyNodeGraphMacroKnobArcGapBrightness();
-    applyNodeGraphMacroKnobSizeScale();
-    applyNodeGraphMacroKnobLabelPosition();
-    applyNodeGraphMacroKnobValuePosition();
-  }
-  if (typeof bindNodeGraphMacroControlsDisplayContextMenu === "function") {
-    bindNodeGraphMacroControlsDisplayContextMenu();
-  }
   renderNodeGraphKeyboardControllerModules();
   renderNodeGraphModuleVisibilityToggles();
   renderNodeGraphPatchTimingControls();

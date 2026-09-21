@@ -79,6 +79,7 @@ $modules = @(
   @{ Name = "active_filter"; Simd = $false; Exports = @("soemdsp_active_filter_create", "soemdsp_active_filter_destroy", "soemdsp_active_filter_sample", "soemdsp_active_filter_version", "soemdsp_active_filter_metadata_json", "soemdsp_active_filter_metadata_json_size") }
   @{ Name = "yellowjacket_filter"; Simd = $false; Exports = @("soemdsp_yellowjacket_filter_create", "soemdsp_yellowjacket_filter_destroy", "soemdsp_yellowjacket_filter_sample", "soemdsp_yellowjacket_filter_version") }
   @{ Name = "superlove_filter"; Simd = $false; Exports = @("soemdsp_superlove_filter_create", "soemdsp_superlove_filter_destroy", "soemdsp_superlove_filter_sample", "soemdsp_superlove_filter_version") }
+  @{ Name = "superlove_rev2"; Simd = $false; Exports = @("soemdsp_superlove_rev2_create", "soemdsp_superlove_rev2_destroy", "soemdsp_superlove_rev2_sample", "soemdsp_superlove_rev2_version") }
   @{ Name = "chaotic_phase_locking_filter"; Simd = $false; Exports = @("soemdsp_chaotic_phase_locking_filter_create", "soemdsp_chaotic_phase_locking_filter_destroy", "soemdsp_chaotic_phase_locking_filter_sample", "soemdsp_chaotic_phase_locking_filter_version") }
   @{ Name = "resonator_filter"; Simd = $false; Exports = @("soemdsp_resonator_filter_create", "soemdsp_resonator_filter_destroy", "soemdsp_resonator_filter_sample", "soemdsp_resonator_filter_version") }
   @{ Name = "human_filter"; Simd = $false; Exports = @("soemdsp_human_filter_create", "soemdsp_human_filter_destroy", "soemdsp_human_filter_sample", "soemdsp_human_filter_version") }
@@ -351,6 +352,12 @@ $modules = @(
   @{ Name = "rotate_3d_to_2d"; Simd = $false; Exports = @("soemdsp_rotate_3d_to_2d_sample", "soemdsp_rotate_3d_to_2d_version", "soemdsp_rotate_3d_to_2d_metadata_json", "soemdsp_rotate_3d_to_2d_metadata_json_size") }
   @{ Name = "clipper_limiter"; Simd = $false; Exports = @("soemdsp_clipper_limiter_create", "soemdsp_clipper_limiter_destroy", "soemdsp_clipper_limiter_sample", "soemdsp_clipper_limiter_version", "soemdsp_clipper_limiter_metadata_json", "soemdsp_clipper_limiter_metadata_json_size") }
   @{ Name = "eq_filter"; Simd = $false; Exports = @("soemdsp_eq_filter_create", "soemdsp_eq_filter_destroy", "soemdsp_eq_filter_sample", "soemdsp_eq_filter_version", "soemdsp_eq_filter_metadata_json", "soemdsp_eq_filter_metadata_json_size") }
+  @{ Name = "cookbook_filter"; Simd = $false; Exports = @(
+    "soemdsp_cookbook_filter_create", "soemdsp_cookbook_filter_destroy",
+    "soemdsp_cookbook_filter_sample",
+    "soemdsp_cookbook_filter_version", "soemdsp_cookbook_filter_metadata_json",
+    "soemdsp_cookbook_filter_metadata_json_size"
+  ) }
   @{ Name = "graphic_eq"; Simd = $false; Exports = @(
     "soemdsp_graphic_eq_create", "soemdsp_graphic_eq_destroy", "soemdsp_graphic_eq_reset",
     "soemdsp_graphic_eq_set_band", "soemdsp_graphic_eq_set_bands",
@@ -373,6 +380,17 @@ $modules = @(
     "soemdsp_audio_player_phase", "soemdsp_audio_player_trigger",
     "soemdsp_audio_player_version", "soemdsp_audio_player_metadata_json",
     "soemdsp_audio_player_metadata_json_size"
+  ) }
+  @{ Name = "sample_player"; Simd = $false; Exports = @(
+    "soemdsp_sample_player_create", "soemdsp_sample_player_destroy",
+    "soemdsp_sample_player_clear_pcm", "soemdsp_sample_player_set_pcm",
+    "soemdsp_sample_player_l_ptr", "soemdsp_sample_player_r_ptr",
+    "soemdsp_sample_player_max_frames",
+    "soemdsp_sample_player_sample",
+    "soemdsp_sample_player_left", "soemdsp_sample_player_right",
+    "soemdsp_sample_player_phase",
+    "soemdsp_sample_player_version", "soemdsp_sample_player_metadata_json",
+    "soemdsp_sample_player_metadata_json_size"
   ) }
 )
 
@@ -521,6 +539,10 @@ if ($node) {
   & $node.Source "$root\scripts\smoke_soem_reverb_param_stick.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: soem_reverb param stickiness smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_sabrina_diffusion_live.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: sabrina diffusionAmount live smoke FAILED"
   }
   & $node.Source "$root\scripts\smoke_ladder_param_stick.mjs"
   if ($LASTEXITCODE -ne 0) {

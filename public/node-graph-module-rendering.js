@@ -454,7 +454,6 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     matrixWaterfall: "matrix-waterfall-layout",
     matrixPlate: "matrix-plate-layout",
     textStream: "text-stream-layout",
-    macroControls: "macro-controls-layout",
     patchCommand: "patch-command-layout",
     phosphillatorDraw: "phosphillator-draw-layout",
     phosphorWaveform: "phosphor-waveform-layout",
@@ -970,7 +969,6 @@ function createNodeGraphModuleElement(type, node) {
     || definition.layout === "keyboard"
     || definition.layout === "gridKeyboard"
     || definition.layout === "sequencer"
-    || definition.layout === "macroControls"
     || definition.layout === "pitchModWheel"
   ) {
     if (definition.layout === "keyboardController") {
@@ -981,8 +979,6 @@ function createNodeGraphModuleElement(type, node) {
       article.append(createNodeGraphGridKeyboardBody(node));
     } else if (definition.layout === "sequencer") {
       article.append(createNodeGraphSequencerBody(node));
-    } else if (definition.layout === "macroControls") {
-      article.append(createNodeGraphMacroControlsBody(node));
     } else {
       article.append(createNodeGraphPitchModWheelBody(node));
     }

@@ -214,10 +214,16 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
           ? normalizeNodeGraphNodeSamplePointer(node.sample)
           : { id: normalizeNodeGraphSampleId(node.sample?.id) };
       }
-      if (node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhase))) {
+      if (
+        (node.type === "audioPlayer" || node.type === "samplePlayer")
+        && Number.isFinite(Number(node.samplePhase))
+      ) {
         runtimeNode.samplePhase = Math.max(0, Math.min(1, Number(node.samplePhase)));
       }
-      if (node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhaseSeek))) {
+      if (
+        (node.type === "audioPlayer" || node.type === "samplePlayer")
+        && Number.isFinite(Number(node.samplePhaseSeek))
+      ) {
         runtimeNode.samplePhaseSeek = Math.max(0, Math.round(Number(node.samplePhaseSeek)) || 0);
       }
       if (node.type === "phosphillator" && Array.isArray(node.drawnPath?.points)) {
@@ -303,10 +309,16 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
           ? normalizeNodeGraphNodeSamplePointer(node.sample)
           : { id: normalizeNodeGraphSampleId(node.sample?.id) };
       }
-      if (node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhase))) {
+      if (
+        (node.type === "audioPlayer" || node.type === "samplePlayer")
+        && Number.isFinite(Number(node.samplePhase))
+      ) {
         runtimeNode.samplePhase = Math.max(0, Math.min(1, Number(node.samplePhase)));
       }
-      if (node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhaseSeek))) {
+      if (
+        (node.type === "audioPlayer" || node.type === "samplePlayer")
+        && Number.isFinite(Number(node.samplePhaseSeek))
+      ) {
         runtimeNode.samplePhaseSeek = Math.max(0, Math.round(Number(node.samplePhaseSeek)) || 0);
       }
       if (node.type === "phosphillator" && Array.isArray(node.drawnPath?.points)) {
@@ -1041,7 +1053,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     meterSamples: 0,
     meterSquareSum: 0,
     modulationConnections,
-    macroControls: Array.isArray(nodeGraphMvp?.macroControls) ? [...nodeGraphMvp.macroControls] : new Array(10).fill(0),
     externalButtonEvents: new Map(),
     wireBreakEvent: { pulseSamples: 0, gateSamples: 0 },
     wireConnectEvent: { pulseSamples: 0 },

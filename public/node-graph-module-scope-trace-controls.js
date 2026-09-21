@@ -817,13 +817,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ]),
     choices: Object.freeze([]),
   }),
-  // Custom body (colors + 8 name fields) — see macro-controls-settings.js.
-  macroControlsFace: Object.freeze({
-    fields: Object.freeze([]),
-    colors: Object.freeze([]),
-    toggles: Object.freeze([]),
-    choices: Object.freeze([]),
-  }),
   keyboardControllerFace: Object.freeze({
     fields: Object.freeze([]),
     colors: Object.freeze([]),
@@ -1915,7 +1908,6 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   sinCos4Face: "SinCos4",
   textBoxFace: "Text Box",
   pluginSliderFace: "Slider",
-  macroControlsFace: "Macro Controls",
   keyboardControllerFace: "MIDI Keyboard",
   toggleButtonFace: "Toggle",
   momentaryButtonFace: "Momentary",

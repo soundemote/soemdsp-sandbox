@@ -381,12 +381,24 @@ void applyDelayGeometry(SabrinaState& state) {
   }
 }
 
+// LIVE diffusionAmount is delay-line allpass feedback (not a tap-length
+// param). applyDelayGeometry writes it, but that call is skipped once the
+// smoothed* geometry targets have settled -- so a Diffusion-only change
+// would freeze the network. Always stamp feedback from the live value.
+void applyLiveDiffusionAmount(SabrinaState& state) {
+  const double liveFeedback = state.diffusionAmount;
+  for (int index = 0; index < kDiffusionCount; index += 1) {
+    state.delays[index].feedback = liveFeedback;
+  }
+}
+
 // Mirrors soemdsp::filter::SmootherBase::needsSmoothing(): true only while at
 // least one ramped copy is still meaningfully short of its target. Once a
 // patch settles (no param changes, no modulation), every smoothed* field
 // sits within epsilon of its target and this goes false -- letting
 // advanceSabrinaSmoothing skip applyDelayGeometry's 14-delay-line recompute
 // entirely instead of redoing it, unchanged, every single sample forever.
+// diffusionAmount is not in this check: it is LIVE (see applyLiveDiffusionAmount).
 bool sabrinaSmoothingNeedsWork(const SabrinaState& state) {
   auto near = [](double a, double b) { return near_planck(a, b); };
   return !(
@@ -435,15 +447,15 @@ bool sabrinaIdleFromPorts(SabrinaState& state, double inL, double inR) {
 }
 
 void advanceSabrinaSmoothing(SabrinaState& state) {
-  if (!sabrinaSmoothingNeedsWork(state)) {
-    return;
+  if (sabrinaSmoothingNeedsWork(state)) {
+    state.smoothedDiffusionSize = smoothStep(state.smoothedDiffusionSize, state.diffusionSize, state.paramSmoothAlpha);
+    state.smoothedDelaySize = smoothStep(state.smoothedDelaySize, state.delaySize, state.paramSmoothAlpha);
+    state.smoothedLfoAmplitude = smoothStep(state.smoothedLfoAmplitude, state.lfoAmplitude, state.paramSmoothAlpha);
+    state.smoothedLfoBaseSpeed = smoothStep(state.smoothedLfoBaseSpeed, state.lfoBaseSpeed, state.paramSmoothAlpha);
+    state.smoothedLfoVariation = smoothStep(state.smoothedLfoVariation, state.lfoVariation, state.paramSmoothAlpha);
+    applyDelayGeometry(state);
   }
-  state.smoothedDiffusionSize = smoothStep(state.smoothedDiffusionSize, state.diffusionSize, state.paramSmoothAlpha);
-  state.smoothedDelaySize = smoothStep(state.smoothedDelaySize, state.delaySize, state.paramSmoothAlpha);
-  state.smoothedLfoAmplitude = smoothStep(state.smoothedLfoAmplitude, state.lfoAmplitude, state.paramSmoothAlpha);
-  state.smoothedLfoBaseSpeed = smoothStep(state.smoothedLfoBaseSpeed, state.lfoBaseSpeed, state.paramSmoothAlpha);
-  state.smoothedLfoVariation = smoothStep(state.smoothedLfoVariation, state.lfoVariation, state.paramSmoothAlpha);
-  applyDelayGeometry(state);
+  applyLiveDiffusionAmount(state);
 }
 
 // Block-processing boundary: params/state are read once per sample inside
@@ -646,11 +658,6 @@ extern "C" void soemdsp_sabrina_reverb_process(int handle, double leftInput, dou
     return;
   }
   advanceSabrinaSmoothing(*state);
-  // LIVE diffusionAmount → feedback (Wire-style; do not wait for geometry step).
-  const double liveFeedback = state->diffusionAmount;
-  for (int index = 0; index < kDiffusionCount; index += 1) {
-    state->delays[index].feedback = liveFeedback;
-  }
   // Left and right channels are independent within this call (cross-feed
   // only happens via ch0/ch1 persisted from the *previous* call), so both
   // chains are processed together, one SIMD lane per channel, instead of
@@ -749,5 +756,5 @@ extern "C" int soemdsp_sabrina_reverb_is_idle(int handle) {
 }
 
 extern "C" int soemdsp_sabrina_reverb_version() {
-  return 2;
+  return 3;
 }

@@ -1,10 +1,9 @@
-// Knob face = shared macro-knob dial renderer (arc + label + value).
-// Colors / readout options live in per-node Display Settings (not the global
-// Macro Controls bank). Bank look (thickness, span, size) is the Macro
-// Controls display-settings face. Drag still drives Bias via the offset slider.
+// Knob face = dial renderer (arc + label + value).
+// Colors / readout options live in per-node Display Settings.
+// Drag still drives Bias via the offset slider.
 //
-// Legacy image-layer APIs remain for old Module Settings / patches; the live
-// face no longer paints stacked images.
+// Image-layer APIs remain for Module Settings / patches; the live
+// face no longer paints stacked images unless art is loaded.
 
 const nodeGraphKnobFaceAcceptedTypes = Object.freeze([
   "image/png",
@@ -1631,11 +1630,57 @@ function buildNodeGraphKnobFaceLayersDisplaySettingsHtml() {
   return `
     <div class="metadata-section-title">Image layers</div>
     <div class="metadata-field-section node-knob-face-display-layers" data-knob-face-display-settings-panel>
-      <p class="node-knob-face-display-hint">Back (1) → front (${layerCount}). Optional art replaces the macro dial.</p>
+      <p class="node-knob-face-display-hint">Back (1) → front (${layerCount}). Optional art replaces the dial.</p>
       <div class="node-knob-face-layer-stack">
         ${rows.join("\n")}
       </div>
     </div>`;
+}
+
+function commitNodeGraphKnobPluginIdentity() {
+  const moduleId = typeof nodeGraphModuleActionTargetNodeId === "function"
+    ? nodeGraphModuleActionTargetNodeId()
+    : "";
+  const { patch, targetNode } = nodeGraphKnobFacePatchTarget(moduleId);
+  if (!patch || !targetNode || targetNode.type !== "knob") {
+    return;
+  }
+  const folderEl = document.getElementById("nodeSceneKnobPluginFolder");
+  const nameEl = document.getElementById("nodeSceneKnobPluginName");
+  const idEl = document.getElementById("nodeSceneKnobPluginId");
+  if (!folderEl && !nameEl && !idEl) {
+    return;
+  }
+  const folder = String(folderEl?.value || "").trim();
+  const name = String(nameEl?.value || "").trim();
+  const idRaw = String(idEl?.value || "").trim();
+  if (folder) {
+    targetNode.pluginFolder = folder;
+  } else {
+    delete targetNode.pluginFolder;
+  }
+  if (name) {
+    targetNode.pluginName = name;
+  } else {
+    delete targetNode.pluginName;
+  }
+  if (idRaw === "") {
+    delete targetNode.pluginId;
+  } else {
+    let n = Math.round(Number(idRaw));
+    if (!Number.isFinite(n)) {
+      delete targetNode.pluginId;
+    } else {
+      n = Math.max(0, Math.min(31, n));
+      targetNode.pluginId = n;
+      if (idEl && String(idEl.value) !== String(n) && document.activeElement !== idEl) {
+        idEl.value = String(n);
+      }
+    }
+  }
+  if (typeof commitNodeGraphPatch === "function") {
+    commitNodeGraphPatch(patch, { record: true, status: "knob plugin identity", softDom: true, markPending: false });
+  }
 }
 
 function bindNodeGraphKnobFaceDisplaySettingsEvents(root) {
@@ -1669,7 +1714,9 @@ function bindNodeGraphKnobFaceDisplaySettingsEvents(root) {
 }
 
 function syncNodeGraphKnobFaceDisplaySettingsControls(root) {
-  const panel = root?.querySelector?.("[data-knob-face-display-settings-panel]")
+  const host = root
+    || document.getElementById("nodeTraceDisplaySettingsPopover");
+  const panel = host?.querySelector?.("[data-knob-face-display-settings-panel]")
     || document.querySelector("#nodeTraceDisplaySettingsPopover [data-knob-face-display-settings-panel]");
   if (!panel) {
     return;

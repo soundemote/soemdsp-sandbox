@@ -31,12 +31,12 @@ function normalizeNodeGraphPatchAudio(audio = {}) {
   // One header knob sweeps the whole patch together. Range ±10 octaves.
   const pitchOffsetOctaves = Number(audio?.pitchOffsetOctaves);
   // Project Speed Limit: absolute max Hz for frequency domains / f-jack /
-  // DSP clamps. User-adjustable (header + patch settings). Default 20000.
+  // DSP clamps. User-adjustable (header + patch settings). Default 22050.
   // There is no project minimum frequency (0 is allowed on signals).
   const speedLimitHz = Number(audio?.speedLimitHz);
   const defaultLimit = typeof nodeGraphProjectSpeedLimitDefaultHz === "function"
     ? nodeGraphProjectSpeedLimitDefaultHz()
-    : 20000;
+    : 22050;
   const controlMax = typeof NODE_GRAPH_PROJECT_SPEED_LIMIT_CONTROL_MAX_HZ === "number"
     ? NODE_GRAPH_PROJECT_SPEED_LIMIT_CONTROL_MAX_HZ
     : 192000;
@@ -92,9 +92,15 @@ function normalizeNodeGraphPatchTiming(timing = {}) {
 
 function normalizeNodeGraphPatchGrid(grid = {}) {
   const fallbackSize = Number(grid?.sizePx);
+  const gridDefault = (typeof nodeGraphGrid !== "undefined"
+    && nodeGraphGrid
+    && Number.isFinite(Number(nodeGraphGrid.sizePx))
+    && Number(nodeGraphGrid.sizePx) > 0)
+    ? Number(nodeGraphGrid.sizePx)
+    : 28;
   const fallback = Number.isFinite(fallbackSize) && fallbackSize > 0
     ? fallbackSize
-    : nodeGraphGrid.sizePx;
+    : gridDefault;
   const width = Number(grid?.widthPx);
   const height = Number(grid?.heightPx);
   const widthPx = Number.isFinite(width) && width > 0 ? width : fallback;

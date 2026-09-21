@@ -23,7 +23,6 @@ window.nodeGraphMvp = window.nodeGraphMvp || {
   activeNodes: new Set(),
   sliderDragging: null,
   tooltips: {},
-  macroKnobArcThickness: 7,
   midiKeyboardKeyCount: 25,
   efficientProduct: true,
 };

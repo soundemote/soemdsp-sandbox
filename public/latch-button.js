@@ -7,7 +7,7 @@
 // Usage:
 //   const el = AppLatchButton.create({ label: "Full Dot Economy", on: false, title: "…" });
 //   AppLatchButton.toggle(el);
-//   AppLatchButton.fitAll(root);
+//   AppLatchButton.fitAll(root); // clears legacy inline sizes; CSS owns font-size
 //   html = AppLatchButton.buildHtml({ label, on, title, toggleKey: "fullDotEconomy" });
 //
 // Modes:
@@ -72,82 +72,40 @@
   }
 
   /**
-   * Size the label font so the full title fits inside the button box.
-   * Binary search on px size using canvas measureText.
+   * Label size is CSS-owned (container query on .app-latch-button).
+   * Keep these as no-ops that only clear leftover inline font-size from older builds.
    */
-  function fitLabel(el) {
+  function clearInlineLabelSize(el) {
     if (!isLatchButton(el)) {
       return;
     }
     const label = el.querySelector(`.${LABEL_CLASS}`);
-    if (!label) {
-      return;
+    if (label?.style) {
+      label.style.removeProperty("font-size");
     }
-    const ctx = measureContext();
-    if (!ctx) {
-      return;
-    }
-    const styles = getComputedStyle(el);
-    const padX = (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0);
-    const padY = (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0);
-    const width = Math.max(0, el.clientWidth - padX - 2);
-    const height = Math.max(0, el.clientHeight - padY - 2);
-    const text = label.textContent || "";
-    if (width <= 1 || height <= 1 || !text) {
-      label.style.fontSize = "0px";
-      return;
-    }
-    const fontFamily = styles.fontFamily || "inherit";
-    const fontWeight = styles.fontWeight || "600";
-    const fontStyle = styles.fontStyle || "normal";
-    // Cap by height first; then shrink for width.
-    let low = 0;
-    let high = Math.max(1, height);
-    for (let i = 0; i < 14; i += 1) {
-      const mid = (low + high) * 0.5;
-      ctx.font = `${fontStyle} ${fontWeight} ${mid}px ${fontFamily}`;
-      const tw = ctx.measureText(text).width;
-      if (tw <= width && mid <= height) {
-        low = mid;
-      } else {
-        high = mid;
-      }
-    }
-    label.style.fontSize = `${Math.max(0, low).toFixed(2)}px`;
+  }
+
+  function fitLabel(el) {
+    clearInlineLabelSize(el);
   }
 
   function fitAll(root = document) {
     const scope = root && root.querySelectorAll ? root : document;
     for (const el of scope.querySelectorAll(`.${ROOT_CLASS}`)) {
-      fitLabel(el);
+      clearInlineLabelSize(el);
     }
   }
 
   function scheduleFit(root = document) {
-    requestAnimationFrame(() => {
-      fitAll(root);
-      // Second pass after layout settles (grid/flex often 0-width first frame).
-      requestAnimationFrame(() => fitAll(root));
-    });
+    requestAnimationFrame(() => fitAll(root));
   }
 
-  function observe(el) {
-    if (!el || typeof ResizeObserver === "undefined") {
-      return;
-    }
-    if (fitObservers.has(el)) {
-      return;
-    }
-    const ro = new ResizeObserver(() => fitLabel(el));
-    ro.observe(el);
-    fitObservers.set(el, ro);
+  function observe(_el) {
+    // No ResizeObserver font fitting — CSS owns size.
   }
 
   function observeAll(root = document) {
-    const scope = root && root.querySelectorAll ? root : document;
-    for (const el of scope.querySelectorAll(`.${ROOT_CLASS}`)) {
-      observe(el);
-    }
+    fitAll(root);
   }
 
   function applyAttrs(btn, options = {}) {

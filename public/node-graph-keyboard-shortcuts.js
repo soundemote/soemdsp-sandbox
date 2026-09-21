@@ -27,7 +27,7 @@ function nodeGraphEventTargetIsTextEditable(target) {
   if (typeof nodeGraphTextBoxIsTypingElement === "function" && nodeGraphTextBoxIsTypingElement(target)) {
     return true;
   }
-  if (target.closest?.(".node-text-box-input, #nodeSceneTextBoxTextInput, #nodeSceneAliasInput, #nodeSceneKnobTextInput, [data-knob-face-label]")) {
+  if (target.closest?.(".node-text-box-input, #nodeSceneTextBoxTextInput, #nodeSceneAliasInput, #nodeSceneKnobTextInput, #nodeSceneKnobPluginFolder, #nodeSceneKnobPluginName, #nodeSceneKnobPluginId, [data-knob-face-label]")) {
     return true;
   }
   const field = target.closest?.("textarea, select, input");

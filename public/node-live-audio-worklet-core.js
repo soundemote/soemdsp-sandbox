@@ -85,7 +85,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.meterProtectionMuteCount = 0;
     this.meterSamples = 0;
     this.meterSquareSum = 0;
-    this.macroControls = new Array(8).fill(0);
     this.externalButtonEvents = new Map();
     this.wireBreakEvent = { pulseSamples: 0, gateSamples: 0 };
     this.wireConnectEvent = { pulseSamples: 0 };

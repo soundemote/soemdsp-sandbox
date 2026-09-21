@@ -208,7 +208,6 @@ function nodeGraphModuleHasFace(type) {
     "canvas",
     "image",
     "keyboardController",
-    "macroControls",
     "screenSpaceShader",
     "speakerProtection",
     "textBox",
@@ -279,7 +278,6 @@ function nodeGraphModuleTypeHasCustomDisplayArea(type) {
     || layout === "pitchDetector"
     || layout === "pitchQuantizer"
     || layout === "asciiscope"
-    || layout === "macroControls"
     || layout === "filterCurve"
     || layout === "roundShape"
     || layout === "basicShape"
@@ -1548,15 +1546,6 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
-  if (nodeGraphModuleDefinitions[type]?.layout === "macroControls") {
-    // Macro knobs are the display face (no heading chrome).
-    return [
-      { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: true },
-      { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-    ];
-  }
-
   // LayoutA custom display faces (BADVAL warning panel, …): same row stack as
   // a normal scope module — header / display / IO / params / inset — so Height
   // resize follows LayoutA display-height policy.

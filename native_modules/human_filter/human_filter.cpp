@@ -118,9 +118,11 @@ struct SvfState {
   double z1, z2;
 };
 
-static double svfBellStep(SvfState* st, double input, double gainDb, double sampleRate) {
-  const double centerHz = 1000.0;  // documented approximation, see file header
-  const double Q = 1.0;            // documented approximation, see file header
+static double svfBellStep(SvfState* st, double input, double gainDb, double sampleRate, double centerHz) {
+  // Original never called setCutoff on the BELL SVF. Center tracks filter Hz
+  // (not a frozen 1 kHz guess). Q is still the documented 1.0 approximation.
+  if (!(centerHz > 1.0)) centerHz = 1.0;
+  const double Q = 1.0;
   const double A = dbToAmp(gainDb);
   const double w = clampd(kTwoPi * centerHz / sampleRate, 1e-9, kPi * 0.98);
   const double r = 1.0 / (Q * A);
@@ -218,7 +220,7 @@ extern "C" double soemdsp_human_filter_sample(
   const double gainDb = (chaos < chaosMax ? chaos : chaosMax) * 14.9;
 
   double inputSignal = clampd(input, -2.0, 2.0);
-  inputSignal = svfBellStep(&s.fbFilter, s.osc2Value + s.osc1ModSelf + inputSignal + s.lastOutValue, gainDb, safeRate);
+  inputSignal = svfBellStep(&s.fbFilter, s.osc2Value + s.osc1ModSelf + inputSignal + s.lastOutValue, gainDb, safeRate, frequencyHz);
 
   const double fm1 = -2.2784975504539248 * inputSignal;
   s.phase1 = s.phase1 + (frequencyHz * fm1) / safeRate;
@@ -246,5 +248,5 @@ extern "C" double soemdsp_human_filter_sample(
 }
 
 extern "C" int soemdsp_human_filter_version() {
-  return 1;
+  return 2;
 }

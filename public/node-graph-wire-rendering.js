@@ -1,3 +1,18 @@
+function nodeGraphWireJackIsSquare(node, port, io) {
+  if (typeof nodeGraphPortIsNoteBus === "function" && nodeGraphPortIsNoteBus(port)) {
+    return true;
+  }
+  if (typeof nodeGraphPortIsCodeSignal === "function"
+    && nodeGraphPortIsCodeSignal(node, port, io)) {
+    return true;
+  }
+  if (typeof nodeGraphPortIsSetupParam === "function"
+    && nodeGraphPortIsSetupParam(node, port, io)) {
+    return true;
+  }
+  return false;
+}
+
 function nodeGraphTraceModuleRect(nodeId) {
   const surface = nodeGraphZoomSurface();
   const node = nodeGraphNodeElement(nodeId);
@@ -211,10 +226,16 @@ function nodeGraphDrawWireWithOptionalPath(svg, options) {
       to,
       skipHitPath,
       wireColors: [fromColor, toColor],
-      squareFrom: typeof nodeGraphPortIsNoteBus === "function"
-        && nodeGraphPortIsNoteBus(pathOptions.sourcePort),
-      squareTo: typeof nodeGraphPortIsNoteBus === "function"
-        && nodeGraphPortIsNoteBus(pathOptions.destinationPort),
+      squareFrom: nodeGraphWireJackIsSquare(
+        pathOptions.sourceNode,
+        pathOptions.sourcePort,
+        "output"
+      ),
+      squareTo: nodeGraphWireJackIsSquare(
+        pathOptions.destinationNode,
+        pathOptions.destinationPort,
+        pathOptions.kind === "modulation" ? "modulation" : "input"
+      ),
     });
     return true;
   }
@@ -334,7 +355,9 @@ function nodeGraphDrawSignalWire(svg, connection, index, context) {
   // Cable color is owned by the output jack — no from→to color transition.
   const toColor = fromColor;
   nodeGraphDrawWireWithOptionalPath(svg, {
+    sourceNode: connection.sourceNode,
     sourcePort: connection.sourcePort,
+    destinationNode: connection.destinationNode,
     destinationPort: connection.destinationPort,
     alias: `${nodeGraphLabel(connection.sourceNode, connection.sourcePort)} -> ${nodeGraphLabel(
       connection.destinationNode,
@@ -390,6 +413,10 @@ function nodeGraphDrawModulationWire(svg, modulation, index, context) {
   const toColor = fromColor;
   const both = nodeGraphWirePointIsFinite(from) && nodeGraphWirePointIsFinite(to);
   nodeGraphDrawWireWithOptionalPath(svg, {
+    sourceNode: modulation.sourceNode,
+    sourcePort: modulation.sourcePort,
+    destinationNode: modulation.destinationNode,
+    destinationPort: modulation.destinationParam,
     alias: `${nodeGraphLabel(modulation.sourceNode, modulation.sourcePort)} -> ${nodeGraphNodeDisplayName(
       modulation.destinationNode,
     )}.${modulation.destinationParam} mod`,
@@ -446,6 +473,10 @@ function nodeGraphDrawGraphWire(svg, connection, index, context) {
   const toColor = fromColor;
   const both = nodeGraphWirePointIsFinite(from) && nodeGraphWirePointIsFinite(to);
   nodeGraphDrawWireWithOptionalPath(svg, {
+    sourceNode: connection.sourceNode,
+    sourcePort: connection.sourcePort,
+    destinationNode: connection.destinationNode,
+    destinationPort: connection.destinationGraphInput,
     alias: `${nodeGraphLabel(connection.sourceNode, connection.sourcePort)} -> ${nodeGraphNodeDisplayName(
       connection.destinationNode,
     )}.${connection.destinationGraphInput} graph`,

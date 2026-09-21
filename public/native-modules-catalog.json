@@ -405,6 +405,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "cookbook_filter",
+      "label": "Cookbook Filter",
+      "targetType": "cookbookFilter",
+      "kind": "filter",
+      "source": "native_modules/cookbook_filter/cookbook_filter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/cookbook_filter/cookbook_filter.cpp",
+      "localSourceUrl": "/native_modules/cookbook_filter/cookbook_filter.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "wasm": "native_modules/cookbook_filter/cookbook_filter.wasm",
+      "wasmUrl": "native_modules/cookbook_filter/cookbook_filter.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "crossover",
       "label": "Crossover",
       "targetType": "crossover2",
@@ -523,7 +536,7 @@
     },
     {
       "name": "eq_filter",
-      "label": "EQ Filter",
+      "label": "EQ Filter ZDF",
       "targetType": "eqFilter",
       "kind": "dynamics",
       "source": "native_modules/eq_filter/eq_filter.cpp",
@@ -662,6 +675,19 @@
       "libUrl": "",
       "wasm": "native_modules/graph_engine/graph_engine.wasm",
       "wasmUrl": "native_modules/graph_engine/graph_engine.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "graphic_eq",
+      "label": "Graphic EQ",
+      "targetType": "graphicEq",
+      "kind": "dynamics",
+      "source": "native_modules/graphic_eq/graphic_eq.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/graphic_eq/graphic_eq.cpp",
+      "localSourceUrl": "/native_modules/graphic_eq/graphic_eq.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/graphic_eq/graphic_eq.wasm",
+      "wasmUrl": "native_modules/graphic_eq/graphic_eq.wasm",
       "wasmAvailable": true
     },
     {
@@ -1381,7 +1407,7 @@
     },
     {
       "name": "resonator_filter",
-      "label": "Resonator Filter",
+      "label": "Shaped Resonator Filter",
       "targetType": "resonatorFilter",
       "kind": "filter",
       "source": "native_modules/resonator_filter/resonator_filter.cpp",
@@ -1468,6 +1494,19 @@
       "libUrl": "",
       "wasm": "native_modules/sample_hold/sample_hold.wasm",
       "wasmUrl": "native_modules/sample_hold/sample_hold.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "sample_player",
+      "label": "Sample Player",
+      "targetType": "samplePlayer",
+      "kind": "player",
+      "source": "native_modules/sample_player/sample_player.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/sample_player/sample_player.cpp",
+      "localSourceUrl": "/native_modules/sample_player/sample_player.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/sample_player/sample_player.wasm",
+      "wasmUrl": "native_modules/sample_player/sample_player.wasm",
       "wasmAvailable": true
     },
     {
@@ -1637,6 +1676,19 @@
       "libUrl": "",
       "wasm": "native_modules/superlove_filter/superlove_filter.wasm",
       "wasmUrl": "native_modules/superlove_filter/superlove_filter.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "superlove_rev2",
+      "label": "Superlove Rev2",
+      "targetType": "superloveRev2",
+      "kind": "filter",
+      "source": "native_modules/superlove_rev2/superlove_rev2.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/superlove_rev2/superlove_rev2.cpp",
+      "localSourceUrl": "/native_modules/superlove_rev2/superlove_rev2.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/superlove_rev2/superlove_rev2.wasm",
+      "wasmUrl": "native_modules/superlove_rev2/superlove_rev2.wasm",
       "wasmAvailable": true
     },
     {

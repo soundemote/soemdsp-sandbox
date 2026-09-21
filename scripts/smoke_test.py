@@ -4740,25 +4740,32 @@ def require_node_graph_mvp_contract() -> None:
         "t: nodeGraphTSeriesSingleModuleDefinition()" in script_sources["./public/node-graph-module-definitions.js"]
         and "t1: nodeGraphTSeriesModuleDefinition(1)" in script_sources["./public/node-graph-module-definitions.js"]
         and "t10: nodeGraphTSeriesModuleDefinition(10)" in script_sources["./public/node-graph-module-definitions.js"]
+        and '"3t": nodeGraphTSeriesMuxModuleDefinition(3)' in script_sources["./public/node-graph-module-definitions.js"]
+        and '"10t": nodeGraphTSeriesMuxModuleDefinition(10)' in script_sources["./public/node-graph-module-definitions.js"]
         and 't: "t"' in script_sources["./public/node-graph-module-definitions.js"]
-        and 't2: "2t"' in script_sources["./public/node-graph-module-definitions.js"]
-        and 't10: "10t"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 't2: "t2"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 't10: "t10"' in script_sources["./public/node-graph-module-definitions.js"]
+        and '"3t": "3t"' in script_sources["./public/node-graph-module-definitions.js"]
         and 'displayType: "value"' in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("function nodeGraphTSeriesModuleDefinition"):
             script_sources["./public/node-graph-module-definitions.js"].index("const nodeGraphModuleDefinitions")
         ]
         and 'label: "t"' in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "2t"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "t2"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "t10"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "3t"' in script_sources["./public/node-graph-module-store.js"]
         and 'label: "10t"' in script_sources["./public/node-graph-module-store.js"]
         and 'category: "digital"' in script_sources["./public/node-graph-module-store.js"]
         and 'inputs: ["In", "Analog", "Digital"]' in script_sources["./public/node-graph-module-definitions.js"]
         and "digitalInputs: [\"Digital\"]" in script_sources["./public/node-graph-module-definitions.js"]
         and "function nodeGraphTSeriesSample" in script_sources["./public/modules/tSeries/t-series-math.js"]
+        and "function nodeGraphTSeriesMuxSample" in script_sources["./public/modules/tSeries/t-series-math.js"]
         and "NODE_GRAPH_T_SERIES_TYPES" in script_sources["./public/modules/tSeries/t-series-live-evaluator.js"]
+        and "NODE_GRAPH_T_SERIES_MUX_TYPES" in script_sources["./public/modules/tSeries/t-series-math.js"]
         and "gate2" not in script_sources["./public/node-graph-module-definitions.js"]
         and "numberGate" not in script_sources["./public/node-graph-module-definitions.js"]
         and "gate12" not in script_sources["./public/node-graph-default-patch.js"],
-        "t-series should be transistor paths t…10t with no gateN leftovers",
+        "t-series should be demux t…t10 plus mux 1t…10t with no gateN leftovers",
     )
     require(
         (lambda defs: (
@@ -7949,7 +7956,7 @@ def require_node_graph_mvp_contract() -> None:
         'key: "lowFrequency"',
         'key: "highFrequency"',
         "ladderFilter: {",
-        "cookbookFilter: \"Multi Stage Filter\"",
+        "cookbookFilter: \"Cookbook Filter\"",
         "cookbookFilter: {",
         'layout: "filterCurve"',
         'inputs: ["In", "Left", "Right", "f"]',
@@ -7958,6 +7965,7 @@ def require_node_graph_mvp_contract() -> None:
         'key: "mode"',
         'key: "frequency"',
         'key: "stages"',
+        "setup: true",
         'key: "q"',
         'key: "gain"',
         "ladderFilter: \"Ladder Filter\"",
@@ -13028,8 +13036,10 @@ def require_node_graph_mvp_contract() -> None:
     require('canvas: {' in module_store_source, "Canvas should live in Digital")
     require('bitConverter: {' in module_store_source and 'label: "BitConverter"' in module_store_source, "BitConverter should live in Digital")
     require('t: {' in module_store_source and 'label: "t"' in module_store_source, "t should live in Digital")
-    require('t2: {' in module_store_source and 'label: "2t"' in module_store_source, "2t should live in Digital")
-    require('t10: {' in module_store_source and 'label: "10t"' in module_store_source, "10t should live in Digital")
+    require('t2: {' in module_store_source and 'label: "t2"' in module_store_source, "t2 should live in Digital")
+    require('t10: {' in module_store_source and 'label: "t10"' in module_store_source, "t10 should live in Digital")
+    require('"3t": {' in module_store_source and 'label: "3t"' in module_store_source, "3t mux should live in Digital")
+    require('"10t": {' in module_store_source and 'label: "10t"' in module_store_source, "10t mux should live in Digital")
     require('traceDisplay: {' in module_store_source, "Trace Display should author as Oscilloscope before display-category normalization")
     require("dotOscilloscope: {" in module_store_source and 'label: "0D Burn"' in module_store_source, "0D Burn oscilloscope should exist")
     require("valueOscilloscope: {" in module_store_source and 'label: "0D Value"' in module_store_source, "0D Value oscilloscope should exist")

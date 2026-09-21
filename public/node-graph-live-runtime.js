@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=ellipsoid-aa-off-limit-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=t-mux-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2011,6 +2011,7 @@ function handleNodeGraphLiveWorkletMessage(event) {
         phase: nodeGraphFiniteNumber(message.audioPlayerPhase),
         speed: Number(message.audioPlayerSpeed),
         speeds: message.audioPlayerSpeeds || null,
+        phases: message.audioPlayerPhases || null,
         reason: message.audioPlayerReason || "",
         sampleId: message.audioPlayerSampleId || "",
       });
@@ -2396,7 +2397,10 @@ async function sendNodeGraphLivePlan() {
     if (planSendGen !== nodeGraphMvp.live.planSendGen) {
       return true;
     }
-    const audio = nodeGraphAudioDerivation(nodeGraphMvp.patch);
+    const audio = nodeGraphAudioDerivation(
+      nodeGraphMvp.patch,
+      nodeGraphMvp.live.context?.sampleRate || nodeGraphBaseSampleRate(),
+    );
     const planShapeSignature = nodeGraphLivePlanShapeSignature(plan);
     const canSendConnectionUpdate = Boolean(
       hadLivePlan &&
@@ -2664,21 +2668,6 @@ function sendNodeGraphLiveKeyboardModuleSignal(signal = nodeGraphMvp.keyboardMod
     nodeGraphMvp.live.node.port.postMessage({
       signal: payload,
       type: "setKeyboardModuleSignal",
-    });
-  }
-}
-
-function sendNodeGraphLiveMacroControls(values = nodeGraphMvp.macroControls) {
-  const payload = Array.from({ length: 8 }, (_, index) => (
-    Math.max(0, Math.min(1, nodeGraphFiniteNumber(values?.[index])))
-  ));
-  if (nodeGraphMvp.live.runtime) {
-    nodeGraphMvp.live.runtime.macroControls = payload;
-  }
-  if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
-    nodeGraphMvp.live.node.port.postMessage({
-      values: payload,
-      type: "setMacroControls",
     });
   }
 }
@@ -3202,8 +3191,8 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=t-series-1",
-  "./public/node-graph-efficient-product.js?v=thump-1",
-  "./public/node-live-audio-worklet-core.js?v=transistor-back-1",
+  "./public/node-graph-efficient-product.js?v=t-mux-1",
+  "./public/node-live-audio-worklet-core.js?v=no-macro-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
   "./public/node-live-audio-worklet-smoother.js?v=domain-offset-1",
@@ -3216,24 +3205,25 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/lib/note-mask-128.js?v=mask128-1",
   "./public/node-graph-keyboard-chord-memory.js?v=mask128-2",
   "./public/modules/sequencer/sequencer-math.js?v=seq-23",
-  "./public/node-live-audio-worklet-events.js?v=alt-snap-1",
+  "./public/node-live-audio-worklet-events.js?v=no-macro-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
-  "./public/node-live-audio-worklet-native-exports.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=alt-snap-1",
+  "./public/node-live-audio-worklet-native-exports.js?v=sample-player-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=no-lattice-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=alt-snap-1",
-  "./public/node-live-audio-worklet-clear-plan.js?v=hypersaw2-smooth-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=circuit-6",
+  "./public/node-live-audio-worklet-set-plan.js?v=sample-player-1",
+  "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=no-macro-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=meta-view-rewrite-1",
+  "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=restore-fft-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
   "./public/modules/_shared/controller-efficient-sidecar.js?v=alt-snap-1",
-  "./public/node-live-audio-worklet-process.js?v=os-x124-1",
+  "./public/node-live-audio-worklet-process.js?v=sample-player-1",
 ];
 
 // Legacy JS DSP evaluators + evaluateFrame — RETIRED. Never load on any product.
@@ -3527,7 +3517,13 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     if (!AudioContextConstructor) {
       throw new Error("Web Audio API unavailable");
     }
-    const context = new AudioContextConstructor();
+    const wantRate = nodeGraphBaseSampleRate();
+    let context;
+    try {
+      context = new AudioContextConstructor({ sampleRate: wantRate });
+    } catch (_e) {
+      context = new AudioContextConstructor();
+    }
     nodeGraphMvp.live.sessionId += 1;
     nodeGraphMvp.live.planSerial = 0;
     if (context.state === "suspended") {
@@ -3630,7 +3626,6 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     if (typeof nodeGraphFlushLiveMetaView === "function") {
       nodeGraphFlushLiveMetaView();
     }
-    sendNodeGraphLiveMacroControls();
     sendNodeGraphLivePitchModWheelSignal();
     // Play must never hand the worklet speed 0. Stop leaves pause (0) alone;
     // starting live audio is always "run". Always go through setNodeGraphLiveSpeed

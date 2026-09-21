@@ -504,12 +504,6 @@ NodeLiveAudioProcessor.prototype.setKeyboardModuleSignal = function setKeyboardM
     });
 };
 
-NodeLiveAudioProcessor.prototype.setMacroControls = function setMacroControls(values) {
-    this.macroControls = Array.from({ length: 8 }, (_, index) => (
-      this.clampValue(nodeGraphFiniteNumber(values?.[index]), 0, 1)
-    ));
-};
-
 NodeLiveAudioProcessor.prototype.setMidiKeyboardPlayKeysBitmask = function setMidiKeyboardPlayKeysBitmask(mask) {
   this.midiKeyboardPlayMask = typeof noteMaskEnsure === "function"
     ? noteMaskEnsure(mask)

@@ -175,30 +175,6 @@
     "moduleScopePointBudget": 4096,
     "moduleScopeLineThickness": 1,
     "moduleScopeDiscontinuitySkipSamples": 1,
-    "macroControlsFace": {
-      "background": "#000000",
-      "arcFill": "#f1b84b",
-      "arcTrack": "#3a3428",
-      "labels": [
-        "M1",
-        "M2",
-        "M3",
-        "M4",
-        "M5",
-        "M6",
-        "M7",
-        "M8"
-      ],
-      "arcThickness": 7,
-      "arcGapBrightness": 0,
-      "sizeScale": 0.55,
-      "knobSpacing": 0,
-      "labelPosition": "bottom",
-      "valuePosition": "mid",
-      "rotationDegrees": 258,
-      "showLabels": true,
-      "showValues": true
-    },
     "traceSettings": {
       "backgroundHue": 240,
       "backgroundBrightness": 0,

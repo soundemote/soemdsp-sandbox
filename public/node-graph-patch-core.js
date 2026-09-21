@@ -526,6 +526,21 @@ function validateNodeGraphPatch(patch) {
       ...(normalizeNodeGraphPatchNodeAlias(node.alias)
         ? { alias: normalizeNodeGraphPatchNodeAlias(node.alias) }
         : {}),
+      ...(type === "knob" && String(node.pluginFolder || "").trim()
+        ? { pluginFolder: String(node.pluginFolder).trim() }
+        : {}),
+      ...(type === "knob" && String(node.pluginName || "").trim()
+        ? { pluginName: String(node.pluginName).trim() }
+        : {}),
+      ...(type === "knob" && (() => {
+        if (node.pluginId !== 0 && !node.pluginId) {
+          return false;
+        }
+        const n = Math.round(Number(node.pluginId));
+        return Number.isFinite(n);
+      })()
+        ? { pluginId: Math.max(0, Math.min(31, Math.round(Number(node.pluginId)))) }
+        : {}),
       ...(hasCustomWidth ? { widthGu } : {}),
       ...(hasCustomModuleHeight ? { heightGu } : {}),
     };
@@ -640,7 +655,10 @@ function validateNodeGraphPatch(patch) {
         normalizedNode.sample = pointer;
       }
     }
-    if (type === "audioPlayer" && Object.hasOwn(node, "phosphorWaveformSettings")) {
+    if (
+      (type === "audioPlayer" || type === "samplePlayer")
+      && Object.hasOwn(node, "phosphorWaveformSettings")
+    ) {
       normalizedNode.phosphorWaveformSettings = normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings);
     }
     if (type === "arp" && Object.hasOwn(node, "arpKeysSettings")) {
@@ -1620,9 +1638,6 @@ function applyNodeGraphPatchToDom(options = {}) {
     invalidateNodeGraphLiveControlsPaintCache();
   }
   syncNodeGraphInputModuleLiveState();
-  if (typeof bindNodeGraphMacroControlModuleEvents === "function") {
-    bindNodeGraphMacroControlModuleEvents();
-  }
   if (typeof renderNodeGraphKeyboardControllerModules === "function") {
     renderNodeGraphKeyboardControllerModules();
   }

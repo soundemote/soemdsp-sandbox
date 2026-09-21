@@ -243,8 +243,6 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     // Picture load + Image Burn phosphor stamp.
     "rgbPictureFace",
     "imageBurnFace",
-    // Macro Controls face: bg / arc colors / names (global bank).
-    "macroControlsFace",
     "keyboardControllerFace",
     // Knob module: macro dial colors, image layers, centered span, readout.
     "knobFace",

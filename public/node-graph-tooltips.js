@@ -1,4 +1,4 @@
-const nodeGraphTooltipSourceUrl = "./public/tooltips.json?v=playmode-voices-default-1";
+const nodeGraphTooltipSourceUrl = "./public/tooltips.json?v=show-on-metamodule-1";
 const sandboxNativeTitleStorageAttribute = "data-native-title-disabled";
 
 function sandboxStoreAndRemoveNativeTitle(element) {

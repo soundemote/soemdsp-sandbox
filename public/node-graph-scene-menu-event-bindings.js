@@ -275,6 +275,15 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneKnobTextInput", "change", () => setNodeGraphKnobTextFromContext({ record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneKnobTextInput", "keydown", (event) => event.stopPropagation());
   bindNodeGraphSceneElementEvent("nodeSceneKnobTextInput", "keyup", (event) => event.stopPropagation());
+  bindNodeGraphSceneElementEvent("nodeSceneKnobPluginFolder", "change", () => setNodeGraphKnobPluginIdentityFromContext());
+  bindNodeGraphSceneElementEvent("nodeSceneKnobPluginName", "change", () => setNodeGraphKnobPluginIdentityFromContext());
+  bindNodeGraphSceneElementEvent("nodeSceneKnobPluginId", "change", () => setNodeGraphKnobPluginIdentityFromContext());
+  bindNodeGraphSceneElementEvent("nodeSceneKnobPluginFolder", "keydown", (event) => event.stopPropagation());
+  bindNodeGraphSceneElementEvent("nodeSceneKnobPluginName", "keydown", (event) => event.stopPropagation());
+  bindNodeGraphSceneElementEvent("nodeSceneKnobPluginId", "keydown", (event) => event.stopPropagation());
+  bindNodeGraphSceneElementEvent("nodeSceneKnobPluginFolder", "keyup", (event) => event.stopPropagation());
+  bindNodeGraphSceneElementEvent("nodeSceneKnobPluginName", "keyup", (event) => event.stopPropagation());
+  bindNodeGraphSceneElementEvent("nodeSceneKnobPluginId", "keyup", (event) => event.stopPropagation());
   bindNodeGraphSceneElementEvent("nodeSceneToggleButtons", "click", toggleNodeGraphModuleButtonsFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneToggleModuleEnabled", "click", toggleNodeGraphModuleEnabledFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneOpenNativeCode", "click", openNodeGraphNativeModuleCodeFromContext);

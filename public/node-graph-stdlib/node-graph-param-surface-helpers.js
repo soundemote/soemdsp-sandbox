@@ -280,6 +280,7 @@ function nodeGraphFiniteNumber(value, fallback = 0) {
  */
 const NODE_GRAPH_NORM_PITCH_FREQ_TYPES = new Set([
   "superloveFilter",
+  "superloveRev2",
   "yellowjacketFilter",
   "flowerChildFilter",
   "humanFilter",

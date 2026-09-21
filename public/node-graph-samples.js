@@ -722,7 +722,7 @@ const nodeGraphAudioPlayerPhasePersistMs = 400;
 function flushNodeGraphAudioPlayerSamplePhase(nodeId) {
   nodeGraphAudioPlayerPhasePersistTimers.delete(nodeId);
   const live = nodeGraphPatchNode(nodeId);
-  if (!live || live.type !== "audioPlayer") {
+  if (!live || (live.type !== "audioPlayer" && live.type !== "samplePlayer")) {
     return;
   }
   const statusPhase = Number(nodeGraphMvp.sampleRuntimeStatus?.get?.(nodeId)?.phase);
@@ -733,7 +733,7 @@ function flushNodeGraphAudioPlayerSamplePhase(nodeId) {
 
 function flushAllNodeGraphAudioPlayerSamplePhases() {
   for (const node of nodeGraphMvp.patch?.nodes || []) {
-    if (node?.type === "audioPlayer") {
+    if (node?.type === "audioPlayer" || node?.type === "samplePlayer") {
       const statusPhase = Number(nodeGraphMvp.sampleRuntimeStatus?.get?.(node.id)?.phase);
       if (Number.isFinite(statusPhase)) {
         node.samplePhase = Math.max(0, Math.min(1, statusPhase));
@@ -751,7 +751,7 @@ function flushAllNodeGraphAudioPlayerSamplePhases() {
 
 function rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase, reason = "") {
   const node = nodeGraphPatchNode(nodeId);
-  if (!node || node.type !== "audioPlayer") {
+  if (!node || (node.type !== "audioPlayer" && node.type !== "samplePlayer")) {
     return;
   }
   const why = String(reason || "").trim().toLowerCase();
@@ -816,19 +816,29 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
   const reason = String(message.reason || "").trim();
   const workletSampleId = String(message.sampleId || "").trim();
   const speeds = message.speeds && typeof message.speeds === "object" ? message.speeds : null;
+  const phases = message.phases && typeof message.phases === "object" ? message.phases : null;
   const primarySpeed = Number(message.speed);
-  const activeIds = new Set(primaryNodeId ? [primaryNodeId] : nodeIds);
+  const activeIds = new Set(nodeIds.length ? nodeIds : (primaryNodeId ? [primaryNodeId] : []));
   for (const nodeId of nodeIds) {
     const mapped = speeds ? Number(speeds[nodeId]) : NaN;
     const speed = Number.isFinite(mapped)
       ? mapped
       : (activeIds.has(nodeId) && Number.isFinite(primarySpeed) ? primarySpeed : undefined);
+    const mappedPhase = phases ? Number(phases[nodeId]) : NaN;
+    const nodePhase = Number.isFinite(mappedPhase)
+      ? mappedPhase
+      : (nodeId === primaryNodeId ? phase : 0);
+    const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+    const sampleId = String(node?.sample?.id || (nodeId === primaryNodeId ? workletSampleId : "")).trim();
     nodeGraphMvp.sampleRuntimeStatus?.set?.(nodeId, {
-      phase: activeIds.has(nodeId) ? phase : 0,
-      reason: activeIds.has(nodeId) ? reason : "engine not in live path",
-      sampleId: activeIds.has(nodeId) ? workletSampleId : "",
+      phase: nodePhase,
+      reason: activeIds.has(nodeId) ? (nodeId === primaryNodeId ? reason : "engine playing") : "engine not in live path",
+      sampleId,
       speed,
     });
+    if (Number.isFinite(nodePhase)) {
+      rememberNodeGraphAudioPlayerSamplePhase(nodeId, nodePhase, reason);
+    }
   }
   if (primaryNodeId && !nodeGraphMvp.sampleRuntimeStatus?.has?.(primaryNodeId)) {
     nodeGraphMvp.sampleRuntimeStatus?.set?.(primaryNodeId, {
@@ -837,15 +847,6 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
       sampleId: workletSampleId,
       speed: Number.isFinite(primarySpeed) ? primarySpeed : undefined,
     });
-  }
-  // Persist playhead on the active Music Player(s) for refresh restore.
-  if (primaryNodeId && activeIds.has(primaryNodeId)) {
-    rememberNodeGraphAudioPlayerSamplePhase(primaryNodeId, phase, reason);
-  }
-  for (const nodeId of nodeIds) {
-    if (activeIds.has(nodeId) && nodeId !== primaryNodeId) {
-      rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase, reason);
-    }
   }
   if (primaryNodeId && reason && typeof nodeGraphAudioPlayerLog === "function") {
     const interesting = reason.includes("sample")

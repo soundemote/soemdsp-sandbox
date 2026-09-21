@@ -1135,11 +1135,27 @@ function configureNodeSceneContextMenu(mode) {
   const aliasInput = document.getElementById("nodeSceneAliasInput");
   const knobTextControl = document.getElementById("nodeSceneKnobTextControl");
   const knobTextInput = document.getElementById("nodeSceneKnobTextInput");
+  const knobPluginIdentity = document.getElementById("nodeSceneKnobPluginIdentity");
+  const knobPluginFolder = document.getElementById("nodeSceneKnobPluginFolder");
+  const knobPluginName = document.getElementById("nodeSceneKnobPluginName");
+  const knobPluginId = document.getElementById("nodeSceneKnobPluginId");
   if (knobTextControl) {
     knobTextControl.hidden = true;
   }
   if (knobTextInput) {
     knobTextInput.disabled = true;
+  }
+  if (knobPluginIdentity) {
+    knobPluginIdentity.hidden = true;
+  }
+  if (knobPluginFolder) {
+    knobPluginFolder.disabled = true;
+  }
+  if (knobPluginName) {
+    knobPluginName.disabled = true;
+  }
+  if (knobPluginId) {
+    knobPluginId.disabled = true;
   }
   const widthControls = document.getElementById("nodeSceneWidthControls");
   const widthDecrease = document.getElementById("nodeSceneWidthDecrease");
@@ -1564,6 +1580,32 @@ function configureNodeSceneContextMenu(mode) {
       }
       knobTextInput.placeholder = "knob text";
       knobTextInput.title = "Face name on the dial. Separate from the module title.";
+    }
+    if (knobPluginIdentity) {
+      knobPluginIdentity.hidden = !knobSelected;
+    }
+    const pluginFolderVal = knobSelected ? String(targetNode.pluginFolder || "") : "";
+    const pluginNameVal = knobSelected ? String(targetNode.pluginName || "") : "";
+    const pluginIdVal = knobSelected && (targetNode.pluginId === 0 || targetNode.pluginId)
+      ? String(targetNode.pluginId)
+      : "";
+    if (knobPluginFolder) {
+      knobPluginFolder.disabled = !knobSelected;
+      if (document.activeElement !== knobPluginFolder) {
+        knobPluginFolder.value = pluginFolderVal;
+      }
+    }
+    if (knobPluginName) {
+      knobPluginName.disabled = !knobSelected;
+      if (document.activeElement !== knobPluginName) {
+        knobPluginName.value = pluginNameVal;
+      }
+    }
+    if (knobPluginId) {
+      knobPluginId.disabled = !knobSelected;
+      if (document.activeElement !== knobPluginId) {
+        knobPluginId.value = pluginIdVal;
+      }
     }
     if (copyButton) {
       setNodeGraphSceneContextButtonLines(copyButton, "Copy", "Module");

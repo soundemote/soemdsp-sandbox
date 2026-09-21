@@ -1687,9 +1687,6 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   ) {
     return buildNodeGraphMatrixFaceDisplaySettingsBodyHtml(type);
   }
-  if (type === "macroControlsFace" && typeof buildNodeGraphMacroControlsFaceDisplaySettingsBodyHtml === "function") {
-    return buildNodeGraphMacroControlsFaceDisplaySettingsBodyHtml();
-  }
   if (type === "keyboardControllerFace" && typeof buildNodeGraphKeyboardControllerFaceDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphKeyboardControllerFaceDisplaySettingsBodyHtml();
   }

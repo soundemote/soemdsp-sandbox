@@ -90,16 +90,6 @@ var nodeGraphMvp = {
   fullyOpaqueWires: false,
   // Cable strokes under modules by default; Visibility can raise them above.
   wiresAboveModules: false,
-  macroControls: new Array(10).fill(0),
-  // Face appearance + look (colors, names, thickness, span, size, positions).
-  // Live macroKnob* fields below are mirrors applied from this object.
-  macroControlsFace: null,
-  macroKnobArcThickness: 7,
-  macroKnobArcGapBrightness: 0,
-  macroKnobSizeScale: 1,
-  macroKnobLabelPosition: "top",
-  // Value centered in the circle; title sits above the dial widget.
-  macroKnobValuePosition: "mid",
   sliderLayout: "text-inside",
   // Amount fill off until the user turns it on (Visibility / UI settings).
   sliderAmountVisible: false,
@@ -339,6 +329,7 @@ var nodeGraphMvp = {
     chaoticPhaseLockingFilter: 0,
     resonatorFilter: 0,
     humanFilter: 0,
+    vocoder: 0,
     pulseExplosion: 0,
     smoothGraph: 0,
     stepGraph: 0,

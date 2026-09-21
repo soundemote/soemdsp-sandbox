@@ -243,9 +243,12 @@ function createNodeParameterModulationPort(node, type, parameter) {
   button.dataset.port = parameter.key;
   button.dataset.io = "modulation";
   button.dataset.alias = `${nodeGraphNodeDisplayName(node)}.${parameter.key} mod`;
-  // Additive CMYK C — Parameter mod jacks paint cyan (not purple).
-  if (typeof nodeGraphModuleUsesCmykParameterChrome === "function"
+  if (parameter?.setup === true) {
+    button.classList.add("node-port-square");
+    button.dataset.portType = "setup";
+  } else if (typeof nodeGraphModuleUsesCmykParameterChrome === "function"
     && nodeGraphModuleUsesCmykParameterChrome(type)) {
+    // Additive CMYK C — Parameter mod jacks paint cyan (not purple).
     button.dataset.jackChannel = "cyan";
   }
   const label = `${nodeGraphNodeLabels[type]} ${parameter.label} modulation input`;
@@ -262,7 +265,10 @@ function createNodeParameterOutputPort(node, type, parameter) {
   button.dataset.port = parameter.key;
   button.dataset.io = "output";
   button.dataset.alias = `${nodeGraphNodeDisplayName(node)}.${parameter.key} slider`;
-  if (typeof nodeGraphModuleUsesCmykParameterChrome === "function"
+  if (parameter?.setup === true) {
+    button.classList.add("node-port-square");
+    button.dataset.portType = "setup";
+  } else if (typeof nodeGraphModuleUsesCmykParameterChrome === "function"
     && nodeGraphModuleUsesCmykParameterChrome(type)) {
     button.dataset.jackChannel = "cyan";
   }
@@ -517,64 +523,6 @@ function refreshNodeGraphScreenSpaceShaderBodyStatus(body) {
   status.textContent = `${script.inputs.length} inputs / ${script.visualInputs.length} controls`;
 }
 
-// node is optional -- see the comment on createNodeGraphKeyboardControllerBody;
-// same reuse pattern for the standalone performance dock.
-// The knob bank IS the module display (no title/status chrome).
-function createNodeGraphMacroControlsBody(node = null) {
-  const section = document.createElement("section");
-  section.className = "node-macro-controls-panel node-macro-controls-module node-module-scope-window";
-  if (node) {
-    section.dataset.node = node;
-  }
-  section.dataset.macroControlsDisplay = "true";
-  section.setAttribute("aria-label", "Macro controls");
-  const row = document.createElement("div");
-  row.className = "node-macro-controls-row";
-  row.setAttribute("aria-label", "Macro knob row");
-  for (let index = 0; index < 8; index += 1) {
-    const knob = document.createElement("button");
-    knob.className = "node-macro-knob";
-    knob.type = "button";
-    knob.dataset.macroIndex = String(index);
-    knob.setAttribute("aria-label", `Macro ${index + 1}`);
-    knob.setAttribute("aria-valuemin", "0");
-    knob.setAttribute("aria-valuemax", "1");
-    knob.setAttribute("aria-valuenow", "0");
-    knob.setAttribute("role", "slider");
-    const face = typeof nodeGraphMacroControlsFaceSettings === "function"
-      ? nodeGraphMacroControlsFaceSettings()
-      : null;
-    // Shared layout: title above dial, value centered in the circle.
-    const label = document.createElement("span");
-    label.className = "node-macro-knob-label";
-    label.dataset.macroKnobLabel = "true";
-    label.textContent = face?.labels?.[index] || `M${index + 1}`;
-    const dial = document.createElement("span");
-    dial.className = "node-macro-knob-dial";
-    dial.dataset.macroKnobDial = "true";
-    const value = document.createElement("strong");
-    value.className = "node-macro-knob-value";
-    value.dataset.macroValue = String(index);
-    value.textContent = "0.00";
-    const indicator = document.createElement("i");
-    indicator.className = "node-macro-knob-arc";
-    indicator.dataset.macroKnobArc = "true";
-    indicator.setAttribute("aria-hidden", "true");
-    dial.append(value, indicator);
-    knob.append(label, dial);
-    knob.setAttribute("aria-label", label.textContent);
-    row.append(knob);
-  }
-  section.append(row);
-  if (typeof applyNodeGraphMacroControlsFaceSettings === "function") {
-    // Defer so CSS vars apply after insert (dock + module).
-    requestAnimationFrame(() => applyNodeGraphMacroControlsFaceSettings());
-  }
-  return section;
-}
-
-// node is optional -- see the comment on createNodeGraphKeyboardControllerBody;
-// same reuse pattern for the standalone performance dock.
 function nodeGraphPerformanceWheelSpecs() {
   return [
     { className: "pitch", key: "pitchWheel", label: "Pitch", max: "1", min: "-1" },

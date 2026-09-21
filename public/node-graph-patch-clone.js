@@ -638,7 +638,8 @@ function cloneNodeGraphPatch(patch) {
             return pointer ? { sample: pointer } : {};
           })()
           : {}),
-        ...(node.type === "audioPlayer" && Object.hasOwn(node, "phosphorWaveformSettings")
+        ...((node.type === "audioPlayer" || node.type === "samplePlayer")
+          && Object.hasOwn(node, "phosphorWaveformSettings")
           ? { phosphorWaveformSettings: normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings) }
           : {}),
         ...(node.type === "arp" && Object.hasOwn(node, "arpKeysSettings")
