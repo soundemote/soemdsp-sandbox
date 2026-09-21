@@ -166,10 +166,8 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     // Live repaint so Span / Inner radius apply immediately.
     if (typeof paintNodeGraphKnobFaceLive === "function" && node?.id) {
-      const el = document.querySelector?.(`.node-knob-face[data-node="${CSS.escape(String(node.id))}"]`);
-      if (el) {
-        paintNodeGraphKnobFaceLive(el, node.id, null);
-      }
+      const els = document.querySelectorAll?.(`.node-knob-face[data-node="${CSS.escape(String(node.id))}"]`);
+      els?.forEach((el) => paintNodeGraphKnobFaceLive(el, node.id, null));
     }
     return node.traceDisplaySettings;
   }

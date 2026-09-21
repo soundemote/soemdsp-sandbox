@@ -1897,6 +1897,21 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+      if (name === "wavetable_2d" || targetType === "wavetable2d") {
+        this.nativeWavetable2d = exports;
+        this.nativeWavetable2dReady = Boolean(
+          this.nativeWavetable2d?.soemdsp_wavetable_2d_create &&
+          this.nativeWavetable2d?.soemdsp_wavetable_2d_sample &&
+          this.nativeWavetable2d?.soemdsp_wavetable_2d_set_pcm &&
+          this.nativeWavetable2d?.soemdsp_wavetable_2d_l_ptr,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "wavetable_2d",
+          status: this.nativeWavetable2dReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "pumping_limiter" || targetType === "limiter") {
         this.nativePumpingLimiter = exports;
         this.nativePumpingLimiterReady = Boolean(

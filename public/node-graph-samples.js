@@ -241,7 +241,7 @@ function nodeGraphRequiredAssetsForPatch(patch = {}) {
   const samples = new Map(normalizeNodeGraphPatchSamples(patch.samples).map((sample) => [sample.id, sample]));
   const assets = new Map();
   for (const node of patch.nodes || []) {
-    if (!(node?.type === "samplePlayer" || node?.type === "sampleLooper" || node?.type === "audioPlayer")) {
+    if (!(node?.type === "samplePlayer" || node?.type === "sampleLooper" || node?.type === "audioPlayer" || node?.type === "wavetable2d")) {
       continue;
     }
     // Music Player window cards are path metadata. Only the playing sample
@@ -722,7 +722,7 @@ const nodeGraphAudioPlayerPhasePersistMs = 400;
 function flushNodeGraphAudioPlayerSamplePhase(nodeId) {
   nodeGraphAudioPlayerPhasePersistTimers.delete(nodeId);
   const live = nodeGraphPatchNode(nodeId);
-  if (!live || (live.type !== "audioPlayer" && live.type !== "samplePlayer")) {
+  if (!live || (live.type !== "audioPlayer" && live.type !== "samplePlayer" && live.type !== "wavetable2d")) {
     return;
   }
   const statusPhase = Number(nodeGraphMvp.sampleRuntimeStatus?.get?.(nodeId)?.phase);
@@ -733,7 +733,7 @@ function flushNodeGraphAudioPlayerSamplePhase(nodeId) {
 
 function flushAllNodeGraphAudioPlayerSamplePhases() {
   for (const node of nodeGraphMvp.patch?.nodes || []) {
-    if (node?.type === "audioPlayer" || node?.type === "samplePlayer") {
+    if (node?.type === "audioPlayer" || node?.type === "samplePlayer" || node?.type === "wavetable2d") {
       const statusPhase = Number(nodeGraphMvp.sampleRuntimeStatus?.get?.(node.id)?.phase);
       if (Number.isFinite(statusPhase)) {
         node.samplePhase = Math.max(0, Math.min(1, statusPhase));
@@ -751,7 +751,7 @@ function flushAllNodeGraphAudioPlayerSamplePhases() {
 
 function rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase, reason = "") {
   const node = nodeGraphPatchNode(nodeId);
-  if (!node || (node.type !== "audioPlayer" && node.type !== "samplePlayer")) {
+  if (!node || (node.type !== "audioPlayer" && node.type !== "samplePlayer" && node.type !== "wavetable2d")) {
     return;
   }
   const why = String(reason || "").trim().toLowerCase();
@@ -1859,7 +1859,7 @@ async function nodeGraphDecodedSampleForReference(reference) {
 async function nodeGraphRuntimeSamplesForPlan(plan, patch = nodeGraphMvp.patch) {
   const needed = new Set(
     (plan?.nodes || [])
-      .filter((node) => node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer")
+      .filter((node) => node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer" || node.type === "wavetable2d")
       .map((node) => normalizeNodeGraphSampleId(node.sample?.id))
       .filter(Boolean),
   );
@@ -1903,7 +1903,7 @@ function nodeGraphLiveSampleForReference(reference) {
 function nodeGraphLiveSamplesForPlan(plan, patch = nodeGraphMvp.patch) {
   const needed = new Set(
     (plan?.nodes || [])
-      .filter((node) => node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer")
+      .filter((node) => node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer" || node.type === "wavetable2d")
       .map((node) => normalizeNodeGraphSampleId(node.sample?.id))
       .filter(Boolean),
   );
@@ -1925,7 +1925,7 @@ function nodeGraphLiveSamplesForPlan(plan, patch = nodeGraphMvp.patch) {
 async function nodeGraphEnsureLiveSamplesForPlan(plan, patch = nodeGraphMvp.patch) {
   const needed = new Set(
     (plan?.nodes || [])
-      .filter((node) => node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer")
+      .filter((node) => node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer" || node.type === "wavetable2d")
       .map((node) => normalizeNodeGraphSampleId(node.sample?.id))
       .filter(Boolean),
   );

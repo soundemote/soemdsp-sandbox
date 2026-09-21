@@ -239,7 +239,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
 // strings and mismatched keys between them.
 const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "portal",       emoji: "🌐", label: "Portal",       symbol: "IO",  title: "Portals",   pitch: "Patch boundary portals for moving left, right, and mono signal lanes between rooms, templates, and larger circuits." },
-  { id: "controller",   emoji: "🕹️", label: "Controller",   symbol: "⌘",   title: "Controllers", pitch: "Face controls and input bridges: knobs, sliders, buttons, XY pads, macros, and external gestures." },
+  { id: "controller",   emoji: "🕹️", label: "Controller",   symbol: "⌘",   title: "Controllers", pitch: "Face controls and input bridges: knobs, buttons, XY pads, and external gestures." },
   { id: "oscillator",   emoji: "〰️", label: "Oscillator",   symbol: "∿",   title: "Oscillator", pitch: "Voices and raw tones: classic waves, tables, sync, supersaws, and other things that start a sound." },
   { id: "oms",          emoji: "♻️", label: "Oscillator 2D", symbol: "2D",  title: "Oscillator 2D", pitch: "2D motion oscillators: spirals, orbits, and ornamental X/Y voices." },
   { id: "modulator",    emoji: "♾️", label: "Modulator",    symbol: "⇄",   title: "Modulator", pitch: "Motion sources for pitch, amplitude, time, and texture. Small control engines that make patches move." },
@@ -1129,6 +1129,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Pitch ↔ Hz",
     notes: ["pitch", "hz", "frequency", "midi", "a4", "tuning", "p2f", "f2p", "convert", "musical", "pitch to hz", "hz to pitch"],
   },
+  ampDb: {
+    category: "dynamics",
+    description: "Convert linear amplitude ↔ dB (20·log10). dB→Amp: 10^(dB/20). Amp→dB: 20·log10(amp). 0 dB = 1.",
+    label: "Amp ↔ dB",
+    notes: ["amplitude", "db", "decibel", "gain", "convert", "lin", "dynamics", "amp to db", "db to amp"],
+  },
 
   fm: {
     category: "musical",
@@ -1214,7 +1220,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   knob: {
     category: "controller",
-    description: "Macro face control for one Bias value you want always visible and tweakable.",
+    description: "Face Bias control. Display Settings Look = Knob or Slider.",
     label: "Knob",
     notes: [
       "plugin",
@@ -1230,12 +1236,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "macro",
       "value slider",
     ],
-  },
-  pluginSlider: {
-    category: "controller",
-    description: "Vertical Bias control on the face—performance levels and slow rides.",
-    label: "Slider",
-    notes: ["plugin", "fader", "slider", "bias", "display", "control"],
   },
   toggleButton: {
     category: "controller",
@@ -1326,6 +1326,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Read pitch bend and mod wheel next to the keyboard for expression.",
     label: "Pitch Mod Wheel",
     notes: ["pitch wheel", "mod wheel", "performance control", "pitch", "mod"],
+  },
+  wavetable2d: {
+    category: "oscillator",
+    description: "PCM wavetable oscillator. Load a cycle; Morph reserved for multi-frame banks.",
+    label: "Wavetable 2D",
+    notes: ["wavetable", "oscillator", "morph", "sample", "pcm"],
   },
   samplePlayer: {
     category: "sample",
@@ -2902,6 +2908,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   pitchHz: {
     source: "native_modules/graph_engine/graph_engine.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/graph_engine/graph_engine.cpp",
+  },
+  ampDb: {
+    source: "native_modules/amp_db/amp_db.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/amp_db/amp_db.cpp",
   },
 
   u2b: {

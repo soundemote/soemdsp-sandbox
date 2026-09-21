@@ -929,11 +929,9 @@ function createNodeGraphModuleElement(type, node) {
     article.append(graphShell);
   } else if (definition.layout === "sliderWidget") {
     // LayoutB (XY Pad contract): slim I/O beside a large face; Bias/control under.
-    // Controller shelf: Knob, Slider, Toggle, Momentary each pick a face.
+    // Controller shelf: Knob (dial or slider look), Toggle, Momentary.
     let face = null;
-    if (type === "pluginSlider" && typeof createNodeGraphPluginSliderFace === "function") {
-      face = createNodeGraphPluginSliderFace(node, type);
-    } else if (type === "toggleButton" && typeof createNodeGraphToggleButtonFace === "function") {
+    if (type === "toggleButton" && typeof createNodeGraphToggleButtonFace === "function") {
       face = createNodeGraphToggleButtonFace(node, type);
     } else if (type === "momentaryButton" && typeof createNodeGraphMomentaryButtonFace === "function") {
       face = createNodeGraphMomentaryButtonFace(node, type);
@@ -948,7 +946,6 @@ function createNodeGraphModuleElement(type, node) {
     }
     const shell = createNodeGraphLayoutBShell(node, type, face, null, inputPorts, outputPorts);
     shell.classList.add("node-knob-shell");
-    if (type === "pluginSlider") shell.classList.add("node-plugin-slider-shell");
     if (type === "toggleButton" || type === "momentaryButton") {
       shell.classList.add("node-plugin-button-shell");
     }
@@ -1510,7 +1507,7 @@ function createNodeGraphModuleElement(type, node) {
       scopeSection = createNodeGraphModuleScopeSection(node, type);
       article.append(scopeSection);
     }
-    if ((type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer") && typeof createNodeGraphSampleModuleBody === "function") {
+    if ((type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer" || type === "wavetable2d") && typeof createNodeGraphSampleModuleBody === "function") {
       const sampleBody = createNodeGraphSampleModuleBody(node);
       if (sampleBody) {
         article.append(sampleBody);

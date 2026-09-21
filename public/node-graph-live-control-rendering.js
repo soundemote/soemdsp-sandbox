@@ -65,9 +65,25 @@ function nodeGraphLiveTransportUiState() {
 
 // Monochrome text-style glyphs (VS15) so OS emoji does not force red stop / ignore CSS color.
 const NODE_GRAPH_TRANSPORT_GLYPH_PLAY = "▶\uFE0E";
-const NODE_GRAPH_TRANSPORT_GLYPH_KEEP_PLAY = "▶▶\uFE0E";
+const NODE_GRAPH_TRANSPORT_GLYPH_KEEP_PLAY_LOCK = "🔒";
 const NODE_GRAPH_TRANSPORT_GLYPH_PAUSE = "⏸\uFE0E";
 const NODE_GRAPH_TRANSPORT_GLYPH_STOP = "⏹\uFE0E";
+
+function nodeGraphTransportSetPlayGlyph(button, keepPlaying) {
+  if (!(button instanceof HTMLElement)) return;
+  button.replaceChildren();
+  const play = document.createElement("span");
+  play.className = "node-transport-play-glyph";
+  play.textContent = NODE_GRAPH_TRANSPORT_GLYPH_PLAY;
+  button.appendChild(play);
+  if (keepPlaying) {
+    const lock = document.createElement("span");
+    lock.className = "node-transport-play-lock";
+    lock.setAttribute("aria-hidden", "true");
+    lock.textContent = NODE_GRAPH_TRANSPORT_GLYPH_KEEP_PLAY_LOCK;
+    button.appendChild(lock);
+  }
+}
 
 function nodeGraphLiveOutputButtonTitle(transportState, outputEnabled) {
   const inputActive = Boolean(nodeGraphMvp.live.inputActive);
@@ -386,24 +402,24 @@ function syncNodeGraphTransportPlayButtons({ playing = false, paused = false, st
 
     tp.classList.add("node-transport-play");
     tp.classList.remove("is-playing", "is-paused", "is-keep-playing");
-    tp.textContent = keepPlaying
-      ? NODE_GRAPH_TRANSPORT_GLYPH_KEEP_PLAY
-      : NODE_GRAPH_TRANSPORT_GLYPH_PLAY;
+    nodeGraphTransportSetPlayGlyph(tp, keepPlaying);
     if (isPlaying) {
       tp.setAttribute("aria-label", keepPlaying
-        ? "Keep playing when unfocused"
+        ? "Play locked — keeps playing when unfocused"
         : (isStarting ? "Starting" : "Play"));
       tp.title = keepPlaying
-        ? "Keep playing when unfocused (Ctrl+click to turn off)"
+        ? "Play locked — keeps playing when the tab is unfocused (Ctrl+click to unlock)"
         : (isStarting ? "Starting engine…" : "Playing");
       tp.setAttribute("aria-pressed", "true");
       tp.classList.add("is-playing");
       if (keepPlaying) tp.classList.add("is-keep-playing");
       tp.dataset.transportState = isStarting ? "starting" : "playing";
     } else {
-      tp.setAttribute("aria-label", keepPlaying ? "Keep playing when unfocused" : "Play");
+      tp.setAttribute("aria-label", keepPlaying
+        ? "Play locked — keeps playing when unfocused"
+        : "Play");
       tp.title = keepPlaying
-        ? "Keep playing when unfocused (Ctrl+click to turn off)"
+        ? "Play locked — keeps playing when the tab is unfocused (Ctrl+click to unlock)"
         : "Play";
       tp.setAttribute("aria-pressed", "false");
       if (keepPlaying) tp.classList.add("is-keep-playing");

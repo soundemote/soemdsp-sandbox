@@ -155,6 +155,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   piSpigotNoise: "silence",
   fractalBrownianNoise: "silence",
   samplePlayer: "silence",
+  wavetable2d: "silence",
   sampleLooper: "silence",
   audioPlayer: "silence",
   audioInput: "silence",

@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=flanger-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=amp-db-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3191,7 +3191,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=t-series-1",
-  "./public/node-graph-efficient-product.js?v=t-mux-1",
+  "./public/node-graph-efficient-product.js?v=wt2d-1",
   "./public/node-live-audio-worklet-core.js?v=no-macro-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
@@ -3209,10 +3209,10 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
-  "./public/node-live-audio-worklet-native-exports.js?v=sample-player-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=flanger-1",
+  "./public/node-live-audio-worklet-native-exports.js?v=wt2d-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=amp-db-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=sample-player-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=wt2d-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",
   "./public/node-live-audio-worklet-handle-message.js?v=no-macro-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=meta-view-rewrite-1",
@@ -3222,8 +3222,8 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=alt-snap-1",
-  "./public/node-live-audio-worklet-process.js?v=sample-player-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=ctrl-bias-1",
+  "./public/node-live-audio-worklet-process.js?v=wt2d-1",
 ];
 
 // Legacy JS DSP evaluators + evaluateFrame — RETIRED. Never load on any product.

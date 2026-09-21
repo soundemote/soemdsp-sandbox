@@ -455,6 +455,28 @@ const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   labelText: "Knob",
   // Hole size 0…1 (0 = solid disk, ~0.7 default, 1 = thin outer ring).
   innerRadius: 0.7,
+  look: "knob",
+  sliderLength: 1,
+  sliderHeight: 0.22,
+  sliderAlign: "mid",
+  sliderColor: "#4a6a78",
+  sliderNumberColor: "#ffffff",
+  sliderTextColor: "#cfdde5",
+  sliderUnitColor: "#7fc7d9",
+  sliderShowLabel: true,
+  sliderShowNumber: true,
+  sliderShowUnit: true,
+  sliderLabelAlign: "topleft",
+  sliderLabelPadding: 0.04,
+  sliderLabelScale: 0.22,
+  sliderNumberAlign: "mid",
+  sliderNumberPadding: 0,
+  sliderNumberScale: 0.22,
+  sliderUnitAlign: "topright",
+  sliderUnitPadding: 0.04,
+  sliderUnitScale: 0.18,
+  sliderCornerShape: "squircle",
+  sliderRounding: 0.5,
 });
 
 

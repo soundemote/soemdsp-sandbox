@@ -2099,7 +2099,9 @@ function createNodeGraphPhosphorWaveformDisplay(nodeId, type) {
   section.dataset.lightStrength = "1";
   const faceLabel = type === "samplePlayer"
     ? "Sample Player"
-    : (nodeGraphNodeDisplayName?.(nodeId) || "Music Player");
+    : (type === "wavetable2d"
+      ? "Wavetable 2D"
+      : (nodeGraphNodeDisplayName?.(nodeId) || "Music Player"));
   section.setAttribute("aria-label", `${faceLabel} phosphor waveform display`);
 
   const canvas = document.createElement("canvas");
@@ -2114,6 +2116,22 @@ function createNodeGraphPhosphorWaveformDisplay(nodeId, type) {
     if (typeof window.__nodeGraphAudioPlayerPlaylistWrapRuntime === "function") {
       window.__nodeGraphAudioPlayerPlaylistWrapRuntime();
     }
+  }
+  // Wavetable 2D: reserve a strip under the main cycle for future morph frames.
+  if (type === "wavetable2d") {
+    section.classList.add("has-wavetable-morph-strip");
+    const strip = document.createElement("div");
+    strip.className = "node-wavetable-morph-strip";
+    strip.setAttribute("aria-label", "Wavetable morph frames");
+    strip.dataset.node = nodeId;
+    // Placeholder boxes — filled when multi-frame banks land.
+    for (let i = 0; i < 8; i += 1) {
+      const box = document.createElement("div");
+      box.className = "node-wavetable-morph-slot";
+      box.dataset.slot = String(i);
+      strip.append(box);
+    }
+    section.append(strip);
   }
   nodeGraphPhosphorWaveformEnsureZoomControl(section);
   nodeGraphPhosphorWaveformEnsureLayoutObserver(section);

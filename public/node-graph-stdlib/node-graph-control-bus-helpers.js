@@ -1,7 +1,7 @@
 // Pure control/bus DSP primitives shared by live evaluators and the worklet.
 // No DOM, no nodeGraphMvp — safe to load into the AudioWorklet Blob.
 //
-// Used by: knob, pluginSlider, toggle/momentary, audioInput,
+// Used by: knob, toggle/momentary, audioInput,
 // output (and similar).
 
 function nodeGraphDspClamp(n, lo, hi) {
@@ -217,25 +217,29 @@ function nodeGraphDspApplyControllerLiveSmoothing(runtimeNode) {
   if (type !== "knob" && type !== "toggleButton" && type !== "momentaryButton") {
     return runtimeNode;
   }
-  const controlKey = type === "knob" ? "offset" : "value";
-  nodeGraphDspApplyControllerSmoothingMeta(runtimeNode, controlKey);
-  // Toggle/momentary still map unit 0…1 through module Min/Max params.
-  // Knob Bias min/max live on Parameter Settings (paramMeta.offset). Do not
-  // overwrite those from missing rangeMin/rangeMax — that snapped 0…150 → 0…1
-  // so a Bias of 67 was smoothed/clamped to 1 before the jack ever saw it.
-  if (type === "toggleButton" || type === "momentaryButton") {
-    const params = runtimeNode.params || {};
-    const range = nodeGraphDspControllerRange(params.rangeMin, params.rangeMax, params.polarity);
-    const meta = runtimeNode.paramMeta[controlKey] || {};
-    runtimeNode.paramMeta[controlKey] = {
-      ...meta,
-      bipolar: range.bipolar,
-      max: range.max,
-      mid: range.bipolar ? 0 : range.min + (range.max - range.min) * 0.5,
-      min: range.min,
-    };
-  }
+  nodeGraphDspApplyControllerSmoothingMeta(runtimeNode, "offset");
   return runtimeNode;
+}
+
+function nodeGraphDspControllerBiasEnds(node, key = "offset") {
+  const meta = node?.paramMeta?.[key] && typeof node.paramMeta[key] === "object"
+    ? node.paramMeta[key]
+    : {};
+  let lo = Number(meta.min);
+  let hi = Number(meta.max);
+  if (!Number.isFinite(lo)) lo = 0;
+  if (!Number.isFinite(hi)) hi = 1;
+  return { min: lo, max: hi };
+}
+
+function nodeGraphDspControllerBiasIsOn(value, ends) {
+  const v = Number(value);
+  if (!Number.isFinite(v)) return false;
+  const lo = Number(ends?.min);
+  const hi = Number(ends?.max);
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return v > 0.5;
+  if (Math.abs(hi - lo) < 1e-12) return v > 0.5;
+  return Math.abs(v - hi) <= Math.abs(v - lo);
 }
 
 function nodeGraphDspControllerDisplayIsMouse(node) {

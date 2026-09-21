@@ -66,9 +66,6 @@ const nodeGraphModuleScopeCustomRenderers = {
   matrixWaterfallFace: drawNodeGraphSelfPaintFaceItem,
   matrixDisplayFace: drawNodeGraphSelfPaintFaceItem,
   knobFace: drawNodeGraphKnobFaceItem,
-  pluginSliderFace: (renderer, item) => {
-    item?.screenElement?.syncFromParameters?.();
-  },
   toggleButtonFace: (renderer, item) => {
     item?.screenElement?.syncFromParameters?.();
   },

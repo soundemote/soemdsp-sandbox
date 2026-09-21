@@ -1437,7 +1437,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
     ];
   }
-  if (type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer") {
+  if (type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer" || type === "wavetable2d") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "scope", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },

@@ -54,6 +54,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "amp_db",
+      "label": "Amp \u2194 dB",
+      "targetType": "ampDb",
+      "kind": "utility",
+      "source": "native_modules/amp_db/amp_db.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/amp_db/amp_db.cpp",
+      "localSourceUrl": "/native_modules/amp_db/amp_db.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/amp_db/amp_db.wasm",
+      "wasmUrl": "native_modules/amp_db/amp_db.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "antisaw",
       "label": "Antisaw",
       "targetType": "antisaw",
@@ -1910,6 +1923,19 @@
       "libUrl": "",
       "wasm": "native_modules/wall_delay/wall_delay.wasm",
       "wasmUrl": "native_modules/wall_delay/wall_delay.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "wavetable_2d",
+      "label": "Wavetable 2D",
+      "targetType": "wavetable2d",
+      "kind": "oscillator",
+      "source": "native_modules/wavetable_2d/wavetable_2d.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/wavetable_2d/wavetable_2d.cpp",
+      "localSourceUrl": "/native_modules/wavetable_2d/wavetable_2d.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/wavetable_2d/wavetable_2d.wasm",
+      "wasmUrl": "native_modules/wavetable_2d/wavetable_2d.wasm",
       "wasmAvailable": true
     },
     {

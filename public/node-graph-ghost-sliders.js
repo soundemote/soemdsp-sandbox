@@ -42,7 +42,6 @@ function nodeGraphGhostSliderControllerOutSample(nodeId, port) {
     type !== "toggleButton"
     && type !== "momentaryButton"
     && type !== "knob"
-    && type !== "pluginSlider"
   ) {
     return null;
   }
@@ -63,31 +62,15 @@ function nodeGraphGhostSliderControllerOutSample(nodeId, port) {
       : Number.NaN;
     return Number.isFinite(n) ? n : fallback;
   };
-  // Knob: hidden control is `offset` (domain). Plugin slider: `value`.
-  // Toggle/momentary: unit `value` mapped through Min/Max.
-  if (type === "knob" || type === "pluginSlider") {
-    const domain = type === "knob" ? read("offset", 0) : read("value", 0);
-    if (type === "knob") {
-      const patchNode = typeof nodeGraphPatchNode === "function"
-        ? nodeGraphPatchNode(nodeId)
-        : null;
-      const range = typeof nodeGraphDspKnobOffsetDomain === "function"
-        ? nodeGraphDspKnobOffsetDomain(patchNode)
-        : null;
-      if (range) {
-        const lo = Number(range.min);
-        const hi = Number(range.max);
-        if (Number.isFinite(lo) && Number.isFinite(hi)) {
-          return domain < lo ? lo : (domain > hi ? hi : domain);
-        }
-      }
-      return domain;
-    }
-    const rangeMin = read("rangeMin", -1);
-    const rangeMax = read("rangeMax", 1);
-    const polarity = read("polarity", 0);
-    if (typeof nodeGraphDspControllerRange === "function") {
-      const range = nodeGraphDspControllerRange(rangeMin, rangeMax, polarity);
+  const domain = read("offset", 0);
+  const patchNode = typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(nodeId)
+    : null;
+  if (type === "knob") {
+    const range = typeof nodeGraphDspKnobOffsetDomain === "function"
+      ? nodeGraphDspKnobOffsetDomain(patchNode)
+      : null;
+    if (range) {
       const lo = Number(range.min);
       const hi = Number(range.max);
       if (Number.isFinite(lo) && Number.isFinite(hi)) {
@@ -96,14 +79,17 @@ function nodeGraphGhostSliderControllerOutSample(nodeId, port) {
     }
     return domain;
   }
-  const unit = read("value", 0);
-  const rangeMin = read("rangeMin", 0);
-  const rangeMax = read("rangeMax", 1);
-  if (typeof nodeGraphDspControllerUnitToRange === "function") {
-    return nodeGraphDspControllerUnitToRange(unit, rangeMin, rangeMax);
+  const ends = typeof nodeGraphDspControllerBiasEnds === "function"
+    ? nodeGraphDspControllerBiasEnds(patchNode, "offset")
+    : null;
+  if (ends) {
+    const lo = Number(ends.min);
+    const hi = Number(ends.max);
+    if (Number.isFinite(lo) && Number.isFinite(hi)) {
+      return domain < lo ? lo : (domain > hi ? hi : domain);
+    }
   }
-  const t = unit < 0 ? 0 : (unit > 1 ? 1 : unit);
-  return rangeMin + (rangeMax - rangeMin) * t;
+  return domain;
 }
 
 function nodeGraphGhostSliderModSample(sourceNode, sourcePort, depth = 0) {

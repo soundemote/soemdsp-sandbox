@@ -1363,6 +1363,32 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
       0,
       0.95,
     ),
+    look: String(source.look || defaults.look || "knob").trim().toLowerCase() === "slider"
+      ? "slider"
+      : "knob",
+    sliderLength: normalizeNodeGraphTraceDisplayNumber(source.sliderLength, defaults.sliderLength ?? 1, 0, 1),
+    sliderHeight: normalizeNodeGraphTraceDisplayNumber(source.sliderHeight, defaults.sliderHeight ?? 0.22, 0, 1),
+    sliderAlign: normalizeNodeGraphKnobSliderBarAlign(source.sliderAlign, defaults.sliderAlign || "mid"),
+    sliderColor: parseColor(source.sliderColor, defaults.sliderColor || "#4a6a78"),
+    sliderNumberColor: parseColor(source.sliderNumberColor, defaults.sliderNumberColor || "#ffffff"),
+    sliderTextColor: parseColor(source.sliderTextColor, defaults.sliderTextColor || "#cfdde5"),
+    sliderUnitColor: parseColor(source.sliderUnitColor, defaults.sliderUnitColor || "#7fc7d9"),
+    sliderShowLabel: source.sliderShowLabel !== false && source.sliderShowLabel !== "false",
+    sliderShowNumber: source.sliderShowNumber !== false && source.sliderShowNumber !== "false",
+    sliderShowUnit: source.sliderShowUnit !== false && source.sliderShowUnit !== "false",
+    sliderLabelAlign: normalizeNodeGraphKnobPinAlign(source.sliderLabelAlign, defaults.sliderLabelAlign || "topleft"),
+    sliderLabelPadding: normalizeNodeGraphTraceDisplayNumber(source.sliderLabelPadding, defaults.sliderLabelPadding ?? 0.04, 0, 1),
+    sliderLabelScale: normalizeNodeGraphTraceDisplayNumber(source.sliderLabelScale, defaults.sliderLabelScale ?? 0.22, 0, 1),
+    sliderNumberAlign: normalizeNodeGraphKnobPinAlign(source.sliderNumberAlign, defaults.sliderNumberAlign || "mid"),
+    sliderNumberPadding: normalizeNodeGraphTraceDisplayNumber(source.sliderNumberPadding, defaults.sliderNumberPadding ?? 0, 0, 1),
+    sliderNumberScale: normalizeNodeGraphTraceDisplayNumber(source.sliderNumberScale, defaults.sliderNumberScale ?? 0.22, 0, 1),
+    sliderUnitAlign: normalizeNodeGraphKnobPinAlign(source.sliderUnitAlign, defaults.sliderUnitAlign || "topright"),
+    sliderUnitPadding: normalizeNodeGraphTraceDisplayNumber(source.sliderUnitPadding, defaults.sliderUnitPadding ?? 0.04, 0, 1),
+    sliderUnitScale: normalizeNodeGraphTraceDisplayNumber(source.sliderUnitScale, defaults.sliderUnitScale ?? 0.18, 0, 1),
+    sliderCornerShape: String(source.sliderCornerShape || defaults.sliderCornerShape || "squircle").trim().toLowerCase() === "square"
+      ? "square"
+      : "squircle",
+    sliderRounding: normalizeNodeGraphTraceDisplayNumber(source.sliderRounding ?? source.cornerRadius, defaults.sliderRounding ?? 0.5, 0, 1),
     labelText: typeof nodeGraphKnobFaceNormalizeLabelText === "function"
       ? nodeGraphKnobFaceNormalizeLabelText(source.labelText ?? source.knobText ?? source.text)
       : String(source.labelText ?? source.knobText ?? source.text ?? defaults.labelText ?? "Knob")
@@ -1370,6 +1396,53 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
         .trim()
         .slice(0, 48),
   };
+}
+
+const nodeGraphKnobSliderBarAligns = Object.freeze(["top", "mid", "bottom"]);
+const nodeGraphKnobPinAligns = Object.freeze([
+  "topleft", "top", "topright",
+  "midleft", "mid", "midright",
+  "bottomleft", "bottom", "bottomright",
+]);
+
+function normalizeNodeGraphKnobSliderBarAlign(value, fallback = "mid") {
+  const raw = String(value || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+  if (raw === "middle" || raw === "center") {
+    return "mid";
+  }
+  if (nodeGraphKnobSliderBarAligns.includes(raw)) {
+    return raw;
+  }
+  const fb = String(fallback || "mid").trim().toLowerCase();
+  return nodeGraphKnobSliderBarAligns.includes(fb) ? fb : "mid";
+}
+
+function normalizeNodeGraphKnobPinAlign(value, fallback = "mid") {
+  const raw = String(value || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+  const aliases = {
+    topleft: "topleft",
+    topcenter: "top",
+    topmiddle: "top",
+    topright: "topright",
+    middleleft: "midleft",
+    centerleft: "midleft",
+    center: "mid",
+    middle: "mid",
+    middleright: "midright",
+    centerright: "midright",
+    bottomleft: "bottomleft",
+    bottomcenter: "bottom",
+    bottommiddle: "bottom",
+    bottomright: "bottomright",
+  };
+  if (aliases[raw]) {
+    return aliases[raw];
+  }
+  if (nodeGraphKnobPinAligns.includes(raw)) {
+    return raw;
+  }
+  const fb = String(fallback || "mid").trim().toLowerCase().replace(/[\s_-]+/g, "");
+  return nodeGraphKnobPinAligns.includes(fb) ? fb : "mid";
 }
 
 const nodeGraphKnobFaceTextPositions = Object.freeze(["off", "above", "mid", "below"]);

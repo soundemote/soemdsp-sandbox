@@ -157,6 +157,7 @@ $modules = @(
   @{ Name = "harmonic_series"; Simd = $false; Exports = @("soemdsp_harmonic_series_sample", "soemdsp_harmonic_series_effective", "soemdsp_harmonic_series_version", "soemdsp_harmonic_series_metadata_json", "soemdsp_harmonic_series_metadata_json_size") }
   @{ Name = "u2b"; Simd = $false; Exports = @("soemdsp_u2b_sample", "soemdsp_u2b_version", "soemdsp_u2b_metadata_json", "soemdsp_u2b_metadata_json_size") }
   @{ Name = "b2u"; Simd = $false; Exports = @("soemdsp_b2u_sample", "soemdsp_b2u_version", "soemdsp_b2u_metadata_json", "soemdsp_b2u_metadata_json_size") }
+  @{ Name = "amp_db"; Simd = $false; Exports = @("soemdsp_amp_db_sample", "soemdsp_amp_db_version", "soemdsp_amp_db_metadata_json", "soemdsp_amp_db_metadata_json_size") }
   @{ Name = "inv"; Simd = $false; Exports = @("soemdsp_inv_sample", "soemdsp_inv_version", "soemdsp_inv_metadata_json", "soemdsp_inv_metadata_json_size") }
   @{ Name = "bradley_2a"; Simd = $false; Exports = @("soemdsp_bradley_2a_create", "soemdsp_bradley_2a_destroy", "soemdsp_bradley_2a_sample", "soemdsp_bradley_2a_version", "soemdsp_bradley_2a_metadata_json", "soemdsp_bradley_2a_metadata_json_size") }
   @{ Name = "antisaw"; Simd = $false; Exports = @("soemdsp_antisaw_create", "soemdsp_antisaw_destroy", "soemdsp_antisaw_sample", "soemdsp_antisaw_version", "soemdsp_antisaw_metadata_json", "soemdsp_antisaw_metadata_json_size") }
@@ -401,6 +402,17 @@ $modules = @(
     "soemdsp_sample_player_phase",
     "soemdsp_sample_player_version", "soemdsp_sample_player_metadata_json",
     "soemdsp_sample_player_metadata_json_size"
+  ) }
+  @{ Name = "wavetable_2d"; Simd = $false; Exports = @(
+    "soemdsp_wavetable_2d_create", "soemdsp_wavetable_2d_destroy",
+    "soemdsp_wavetable_2d_clear_pcm", "soemdsp_wavetable_2d_set_pcm",
+    "soemdsp_wavetable_2d_l_ptr", "soemdsp_wavetable_2d_r_ptr",
+    "soemdsp_wavetable_2d_max_frames",
+    "soemdsp_wavetable_2d_reset",
+    "soemdsp_wavetable_2d_sample",
+    "soemdsp_wavetable_2d_phase", "soemdsp_wavetable_2d_out",
+    "soemdsp_wavetable_2d_version", "soemdsp_wavetable_2d_metadata_json",
+    "soemdsp_wavetable_2d_metadata_json_size"
   ) }
 )
 

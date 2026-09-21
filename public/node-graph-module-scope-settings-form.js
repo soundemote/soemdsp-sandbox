@@ -1658,6 +1658,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   if (type === "keypadFace" && typeof buildNodeGraphKeypadDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphKeypadDisplaySettingsBodyHtml();
   }
+  if (type === "knobFace" && typeof buildNodeGraphKnobFaceDisplaySettingsHtml === "function") {
+    return buildNodeGraphKnobFaceDisplaySettingsHtml();
+  }
   if (
     (type === "toggleButtonFace" || type === "momentaryButtonFace")
     && typeof buildNodeGraphPluginButtonDisplaySettingsBodyHtml === "function"
@@ -2151,11 +2154,6 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         }</div>`,
       );
     }
-  }
-
-  // Knob image layers + rotate flags live only in Display Settings.
-  if (type === "knobFace" && typeof buildNodeGraphKnobFaceLayersDisplaySettingsHtml === "function") {
-    parts.push(buildNodeGraphKnobFaceLayersDisplaySettingsHtml());
   }
 
   // Pixel Grid: Clear packing row (wipe rolling W×H plate + re-arm ingest).

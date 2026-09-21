@@ -326,7 +326,6 @@ const NODE_GRAPH_PARAM_MOD_UNIT_BAND = 1 + 1e-9;
 function nodeGraphIsControllerModSourceType(type) {
   const t = String(type || "");
   return t === "knob"
-    || t === "pluginSlider"
     || t === "bias"
     || t === "toggleButton"
     || t === "momentaryButton";

@@ -43,6 +43,20 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       );
     }
   }
+  if (type === "knobFace") {
+    if (typeof bindNodeGraphKnobFaceDisplaySettingsEvents === "function") {
+      bindNodeGraphKnobFaceDisplaySettingsEvents(host);
+    }
+    if (typeof syncNodeGraphKnobFaceDisplaySettingsControls === "function") {
+      syncNodeGraphKnobFaceDisplaySettingsControls(host);
+    }
+    const look = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
+      ? nodeGraphKnobFaceDisplaySettingsForNode(node)?.look
+      : node?.traceDisplaySettings?.look;
+    if (typeof nodeGraphKnobFaceSyncLookTabs === "function") {
+      nodeGraphKnobFaceSyncLookTabs(host, look);
+    }
+  }
   if (type === "toggleButtonFace" || type === "momentaryButtonFace") {
     if (typeof bindNodeGraphPluginButtonDisplaySettingsBody === "function") {
       bindNodeGraphPluginButtonDisplaySettingsBody(host);
@@ -1324,6 +1338,17 @@ function readNodeGraphTraceDisplaySettingsForm() {
       : "mono";
   } else if (next.sourceSync === false) {
     next.syncChannel = "off";
+  }
+  if (formType === "knobFace") {
+    const squareOn = Boolean(root?.querySelector?.("#nodeKnobSliderCornerSquareButton")?.classList.contains("active"));
+    const squircleOn = Boolean(root?.querySelector?.("#nodeKnobSliderCornerSquircleButton")?.classList.contains("active"));
+    if (squareOn || squircleOn) {
+      next.sliderCornerShape = squareOn ? "square" : "squircle";
+    }
+    const radius = root?.querySelector?.("#nodeKnobSliderCornerRadiusInput");
+    if (radius) {
+      next.sliderRounding = Number(radius.value);
+    }
   }
   return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
 }

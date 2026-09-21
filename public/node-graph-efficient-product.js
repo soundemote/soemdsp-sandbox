@@ -17,7 +17,6 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "bias",
   // Controller face widgets (Bias / Gate / pad) — shop under Controller.
   "knob",
-  "pluginSlider",
   "toggleButton",
   "momentaryButton",
   "xyPad",
@@ -59,12 +58,14 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "harmonicSeries",
   "fm",
   "pitchHz",
+  "ampDb",
   "lutCell",
   "lookaheadLimiter",
   "limiter",
   // Music Player / Sample Player — native PCM upload on the efficient path.
   "audioPlayer",
   "samplePlayer",
+  "wavetable2d",
   "sequencer",
   "transport",
   "aliasSine",

@@ -122,7 +122,10 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
     }
     const nodes = Array.isArray(plan?.nodes) ? plan.nodes : [];
     this.audioPlayerNodeIds = nodes
-      .filter((node) => node?.type === "audioPlayer" || node?.type === "samplePlayer")
+      .filter((node) => {
+        const t = node?.type;
+        return t === "audioPlayer" || t === "samplePlayer" || t === "wavetable2d";
+      })
       .map((node) => String(node.id || ""))
       .filter(Boolean);
     const ids = new Set(nodes.map((node) => node.id));
@@ -530,7 +533,7 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       if (node?.type === "sampleHold" && !this.sampleHoldStates.has(id)) {
         this.sampleHoldStates.set(id, this.createStereoSampleHoldState());
       }
-      if ((node?.type === "samplePlayer" || node?.type === "sampleLooper" || node?.type === "audioPlayer") && !this.samplePlaybackStates.has(id)) {
+      if ((node?.type === "samplePlayer" || node?.type === "sampleLooper" || node?.type === "audioPlayer" || node?.type === "wavetable2d") && !this.samplePlaybackStates.has(id)) {
         this.samplePlaybackStates.set(id, this.createSamplePlaybackState());
       }
       if ((node?.type === "nextPatch" || node?.type === "previousPatch") && !this.patchCommandStates.has(id)) {

@@ -209,7 +209,7 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
         runtimeNode.bypassed = true;
         runtimeNode.bypassSpec = nodeGraphModuleBypassSpec(node.type);
       }
-      if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
+      if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer" || node.type === "wavetable2d") {
         runtimeNode.sample = typeof normalizeNodeGraphNodeSamplePointer === "function"
           ? normalizeNodeGraphNodeSamplePointer(node.sample)
           : { id: normalizeNodeGraphSampleId(node.sample?.id) };
@@ -304,7 +304,7 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
         runtimeNode.bypassed = true;
         runtimeNode.bypassSpec = nodeGraphModuleBypassSpec(node.type);
       }
-      if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
+      if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer" || node.type === "wavetable2d") {
         runtimeNode.sample = typeof normalizeNodeGraphNodeSamplePointer === "function"
           ? normalizeNodeGraphNodeSamplePointer(node.sample)
           : { id: normalizeNodeGraphSampleId(node.sample?.id) };
@@ -792,7 +792,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     if (node.type === "sampleHold") {
       sampleHoldStates.set(node.id, createNodeGraphStereoSampleHoldState());
     }
-    if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
+    if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer" || node.type === "wavetable2d") {
       samplePlaybackStates.set(node.id, createNodeGraphSamplePlaybackState());
     }
     if (node.type === "nextPatch" || node.type === "previousPatch") {
@@ -1797,7 +1797,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     if (node.type === "sampleHold" && !runtime.sampleHoldStates.has(node.id)) {
       runtime.sampleHoldStates.set(node.id, createNodeGraphStereoSampleHoldState());
     }
-    if ((node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") && !runtime.samplePlaybackStates.has(node.id)) {
+    if ((node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer" || node.type === "wavetable2d") && !runtime.samplePlaybackStates.has(node.id)) {
       runtime.samplePlaybackStates.set(node.id, createNodeGraphSamplePlaybackState());
     }
     if ((node.type === "nextPatch" || node.type === "previousPatch") && !runtime.patchCommandStates.has(node.id)) {

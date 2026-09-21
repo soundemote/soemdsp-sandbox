@@ -369,6 +369,16 @@ extern "C" double soemdsp_sample_player_left(int handle);
 extern "C" double soemdsp_sample_player_right(int handle);
 extern "C" double soemdsp_sample_player_phase(int handle);
 
+extern "C" int soemdsp_wavetable_2d_create();
+extern "C" void soemdsp_wavetable_2d_destroy(int handle);
+extern "C" void soemdsp_wavetable_2d_reset(int handle);
+extern "C" double soemdsp_wavetable_2d_sample(
+  int handle,
+  double reset, double frequencyHz, double phaseOffset,
+  double amplitude, double morph, double engineSampleRate
+);
+extern "C" double soemdsp_wavetable_2d_phase(int handle);
+
 extern "C" int soemdsp_transport_create();
 extern "C" void soemdsp_transport_destroy(int handle);
 extern "C" double soemdsp_transport_sample(
@@ -720,6 +730,8 @@ extern "C" double soemdsp_flanger_sample(
   double stereoSeconds, double rateHz, double feedback, double mix,
   double amplitude, double reset, double sampleRate
 );
+
+extern "C" double soemdsp_amp_db_sample(double input, double mode);
 
 extern "C" int soemdsp_cookbook_filter_create();
 extern "C" void soemdsp_cookbook_filter_destroy(int handle);
@@ -1625,6 +1637,7 @@ static const int kTypeCheapWalk = 108;
 static const int kTypePumpLimiter = 109; // musical Pump Limiter (type `limiter`)
 static const int kTypeAudioPlayer = 110; // Music Player (PCM upload)
 static const int kTypeSamplePlayer = 174; // Gate-driven sample player (PCM upload)
+static const int kTypeWavetable2d = 180; // PCM wavetable oscillator
 // Yellow Graph (Additive) — A1+A2 (see additive_yellow_graph.h)
 static const int kTypeAdditiveGenerator = 111;
 static const int kTypeAdditiveBubble = 112;
@@ -1689,6 +1702,7 @@ static const int kTypeThumpEnvelope = 167;
 static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smoothstep)
 static const int kTypeFm = 169; // ƒ mixer / pitch scale (oct/st/cents × Multiply + Add)
 static const int kTypePitchHz = 170; // Pitch ↔ Hz (MIDI-ish pitch law, A4 = tuning)
+static const int kTypeAmpDb = 180; // Amp ↔ dB (20·log10 voltage gain, 0 dB = 1)
 static const int kTypeGraphicEq = 171; // ISO 1/3-octave graphic EQ (30 peaking bands)
 static const int kTypeSuperloveRev2 = 172; // Softwave-Tri LP + classic HP/BP
 static const int kTypeCookbookFilter = 173; // RS-MET rosic::CookbookFilter (RBJ cascade)
@@ -2174,6 +2188,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_audio_player_destroy(handle);
   } else if (kind == kTypeSamplePlayer) {
     soemdsp_sample_player_destroy(handle);
+  } else if (kind == kTypeWavetable2d) {
+    soemdsp_wavetable_2d_destroy(handle);
   } else if (kind == kTypeTransport) {
     soemdsp_transport_destroy(handle);
   } else if (kind == kTypeAliasSine) {
@@ -2893,7 +2909,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHilbert) ? 0.0 // +90°
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
       : (typeId == kTypeFm) ? 0.0 // octave
-      : (typeId == kTypePitchHz) ? 0.0 // Pitch→Hz
+      : (typeId == kTypePitchHz || typeId == kTypeAmpDb) ? 0.0 // Pitch→Hz / dB→Amp
       : (typeId == kTypeHypersaw2) ? 0.0 // jitterSteps Fixed
       : (typeId == kTypeSampleHold) ? 0.0 // polarity Bipolar
       : (typeId == kTypeWavetableAdsr) ? 0.0 // shape Analog
@@ -4084,6 +4100,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypePumpLimiter) return soemdsp_pumping_limiter_create();
   if (typeId == kTypeAudioPlayer) return soemdsp_audio_player_create();
   if (typeId == kTypeSamplePlayer) return soemdsp_sample_player_create();
+  if (typeId == kTypeWavetable2d) return soemdsp_wavetable_2d_create();
   if (typeId == kTypeTransport) return soemdsp_transport_create();
   if (typeId == kTypeAliasSine) return soemdsp_alias_sine_create();
   if (typeId == kTypePhoneTone) return soemdsp_phone_tone_create();
@@ -5231,6 +5248,21 @@ static void process_pitch_hz(Circuit& g, Node& node, int frames) {
     } else {
       out = 69.0 + 12.0 * (dsp_ln(in / tun) * 1.4426950408889634);
     }
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+// Amp ↔ dB: In is dB (mode 0) or linear amplitude (mode 1). 0 dB = 1.
+// dBToAmp: 10^(dB/20). ampToDb: 20·log10(amp); non-positive → −120.
+static void process_amp_db(Circuit& g, Node& node, int frames) {
+  mix_node_inputs(g, node, frames);
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double mode = control_audio(g, node.mode, f);
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_amp_db_sample(in, mode);
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
@@ -9839,6 +9871,51 @@ static void process_pump_limiter(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Wavetable 2D — PCM cycle oscillator; host uploads via set_pcm + l_ptr.
+// Params: shape=morph (reserved), frequency=Hz, phaseParam=phase, amplitude.
+// Reset → kPortReset. Morph unused until multi-frame banks exist.
+static void process_wavetable_2d(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool takeSamplePath = node.frequency.active || node.phaseParam.active
+    || node.amplitude.active || node.shape.active;
+  if (!liveReset) node.lastReset = 0.0;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    if (takeSamplePath) {
+      Control* chase[] = {
+        &node.frequency, &node.phaseParam, &node.amplitude, &node.shape
+      };
+      for (unsigned ci = 0; ci < sizeof(chase) / sizeof(chase[0]); ci += 1) {
+        Control* c = chase[ci];
+        if (c && c->active && !c->snap) { control_ensure_stepped(g, *c, f); }
+      }
+    }
+    double reset = 0.0;
+    if (liveReset) {
+      reset = g.mixReset[f];
+      if (node.lastReset <= 0.0 && reset > 0.0) {
+        soemdsp_wavetable_2d_reset(node.nativeHandle);
+      }
+      node.lastReset = reset;
+    }
+    const double y = soemdsp_wavetable_2d_sample(
+      node.nativeHandle,
+      reset,
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.phaseParam, f),
+      control_audio(g, node.amplitude, f),
+      control_audio(g, node.shape, f),
+      sr
+    );
+    node.buf[kPortMono][f] = y;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+    node.buf[kPortSaw][f] = soemdsp_wavetable_2d_phase(node.nativeHandle);
+  }
+}
+
 // Sample Player — Gate-driven PCM; host uploads via set_pcm + l_ptr/r_ptr.
 // Params: mode=One-shot/Hold/Loop, frequency=speed, timeNum/Den=start/end.
 // Gate on Mono (velocity = Gate level at rising edge).
@@ -10960,6 +11037,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypePumpLimiter
     || typeId == kTypeAudioPlayer
     || typeId == kTypeSamplePlayer
+    || typeId == kTypeWavetable2d
     || typeId == kTypeTransport
     || typeId == kTypeAliasSine
     || typeId == kTypePhoneTone
@@ -11893,6 +11971,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_sample_player(g, node, frames);
       return;
     }
+    if (node.typeId == kTypeWavetable2d) {
+      process_wavetable_2d(g, node, frames);
+      return;
+    }
     if (node.typeId == kTypeTransport) {
       process_transport(g, node, frames);
       return;
@@ -12351,6 +12433,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
     }
     if (node.typeId == kTypePitchHz) {
       process_pitch_hz(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeAmpDb) {
+      process_amp_db(g, node, frames);
       return;
     }
     if (node.typeId == kTypeInv) {

@@ -452,6 +452,13 @@ function nodeGraphKnobFaceSyncCellVar(face) {
   if (cell > 0) {
     face.style.setProperty("--knob-cell", `${cell.toFixed(2)}px`);
   }
+  const minSide = Math.min(face.clientWidth || 0, face.clientHeight || 0);
+  if (minSide > 0) {
+    face.style.setProperty("--knob-face-min", `${minSide.toFixed(2)}px`);
+  }
+  if (face.dataset.knobLook === "slider") {
+    return;
+  }
   const readout = face.querySelector?.("[data-knob-face-readout]");
   if (readout?.style) {
     readout.style.fontSize = "";
@@ -721,6 +728,95 @@ function nodeGraphKnobFaceUnitFromParams(patchNode) {
   return nodeGraphKnobFaceUnitFromValue(live, patchNode);
 }
 
+function nodeGraphKnobFaceClearSliderPinStyles(face) {
+  const nodes = [
+    face?.querySelector?.("[data-knob-face-dial]"),
+    face?.querySelector?.("[data-knob-face-arc]"),
+    face?.querySelector?.("[data-knob-face-label]"),
+    face?.querySelector?.("[data-knob-face-readout]"),
+    face?.querySelector?.("[data-knob-face-unit]"),
+  ];
+  const props = [
+    "position", "top", "left", "right", "bottom", "margin", "margin-top", "margin-left",
+    "transform", "width", "height", "font-size", "line-height", "overflow", "z-index",
+    "white-space",
+  ];
+  for (const el of nodes) {
+    if (!el?.style) {
+      continue;
+    }
+    for (const prop of props) {
+      el.style.removeProperty(prop);
+    }
+    delete el.dataset.pinAnchor;
+  }
+}
+
+function nodeGraphKnobFaceApplySliderPin(el, align, pad, scale, fallbackAlign) {
+  if (!el) {
+    return;
+  }
+  const a = typeof normalizeNodeGraphKnobPinAlign === "function"
+    ? normalizeNodeGraphKnobPinAlign(align, fallbackAlign)
+    : (align || fallbackAlign || "mid");
+  const p = Number.isFinite(Number(pad)) ? Math.max(0, Math.min(1, Number(pad))) : 0;
+  const sc = Number.isFinite(Number(scale)) ? Math.max(0, Math.min(1, Number(scale))) : 0.2;
+  el.dataset.pinAnchor = a;
+  const set = (prop, value) => el.style.setProperty(prop, value, "important");
+  set("position", "absolute");
+  set("top", "auto");
+  set("left", "auto");
+  set("right", "auto");
+  set("bottom", "auto");
+  set("margin", "0");
+  set("width", "max-content");
+  set("height", "1em");
+  set("line-height", "1");
+  set("white-space", "nowrap");
+  set("overflow", "visible");
+  set("z-index", "3");
+  set("font-size", `calc(${sc} * var(--knob-face-min, 100cqmin))`);
+  const inset = `${(p * 100).toFixed(4)}%`;
+  // Anchor is the matching edge or midpoint of the rendered text box.
+  if (a === "topleft") {
+    set("top", inset);
+    set("left", inset);
+    set("transform", "none");
+  } else if (a === "top") {
+    set("top", inset);
+    set("left", "50%");
+    set("transform", "translateX(-50%)");
+  } else if (a === "topright") {
+    set("top", inset);
+    set("right", inset);
+    set("transform", "none");
+  } else if (a === "midleft") {
+    set("top", "50%");
+    set("left", inset);
+    set("transform", "translateY(-50%)");
+  } else if (a === "mid") {
+    set("top", "50%");
+    set("left", "50%");
+    set("transform", "translate(-50%, -50%)");
+  } else if (a === "midright") {
+    set("top", "50%");
+    set("right", inset);
+    set("transform", "translateY(-50%)");
+  } else if (a === "bottomleft") {
+    set("bottom", inset);
+    set("left", inset);
+    set("transform", "none");
+  } else if (a === "bottom") {
+    set("bottom", inset);
+    set("left", "50%");
+    set("transform", "translateX(-50%)");
+  } else {
+    set("bottom", inset);
+    set("right", inset);
+    set("transform", "none");
+  }
+}
+
 /** Apply per-node macro dial colors + arc geometry onto the face (local CSS vars only). */
 function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
   if (!face) {
@@ -772,6 +868,68 @@ function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
     : (s.valuePosition || "mid");
   face.dataset.knobLabelPosition = labelPos;
   face.dataset.knobValuePosition = valuePos;
+  face.dataset.knobLook = s.look === "slider" ? "slider" : "knob";
+  face.classList.toggle("is-slider-look", s.look === "slider");
+  if (s.look !== "slider") {
+    nodeGraphKnobFaceClearSliderPinStyles(face);
+  }
+  if (s.look === "slider") {
+    const length = Number.isFinite(Number(s.sliderLength)) ? Math.max(0, Math.min(1, Number(s.sliderLength))) : 1;
+    const height = Number.isFinite(Number(s.sliderHeight)) ? Math.max(0, Math.min(1, Number(s.sliderHeight))) : 0.22;
+    const barAlign = typeof normalizeNodeGraphKnobSliderBarAlign === "function"
+      ? normalizeNodeGraphKnobSliderBarAlign(s.sliderAlign, "mid")
+      : (s.sliderAlign || "mid");
+    face.setAttribute("data-slider-align", barAlign);
+    face.style.setProperty("--knob-slider-length", String(length));
+    face.style.setProperty("--knob-slider-height", String(height));
+    face.classList.toggle("slider-bar-gone", length <= 0 || height <= 0);
+    if (s.sliderColor) {
+      face.style.setProperty("--macro-arc-fill", s.sliderColor);
+    }
+    if (s.sliderNumberColor) {
+      face.style.setProperty("--knob-slider-number-color", s.sliderNumberColor);
+    }
+    if (s.sliderTextColor) {
+      face.style.setProperty("--knob-slider-text-color", s.sliderTextColor);
+    }
+    if (s.sliderUnitColor) {
+      face.style.setProperty("--knob-slider-unit-color", s.sliderUnitColor);
+    }
+    face.classList.toggle("hide-slider-label", s.sliderShowLabel === false);
+    face.classList.toggle("hide-slider-number", s.sliderShowNumber === false);
+    face.classList.toggle("hide-slider-unit", s.sliderShowUnit === false);
+    nodeGraphKnobFaceApplySliderPin(
+      face.querySelector("[data-knob-face-label]"),
+      s.sliderLabelAlign,
+      s.sliderLabelPadding,
+      s.sliderLabelScale,
+      "topleft",
+    );
+    nodeGraphKnobFaceApplySliderPin(
+      face.querySelector("[data-knob-face-readout]"),
+      s.sliderNumberAlign,
+      s.sliderNumberPadding,
+      s.sliderNumberScale,
+      "mid",
+    );
+    nodeGraphKnobFaceApplySliderPin(
+      face.querySelector("[data-knob-face-unit]"),
+      s.sliderUnitAlign,
+      s.sliderUnitPadding,
+      s.sliderUnitScale,
+      "topright",
+    );
+    const rounding = Number.isFinite(Number(s.sliderRounding)) ? Math.max(0, Math.min(1, Number(s.sliderRounding))) : 0.5;
+    face.style.setProperty("--knob-slider-rounding", String(rounding));
+    face.style.setProperty(
+      "--knob-slider-corner-shape",
+      s.sliderCornerShape === "square" ? "round" : "squircle",
+    );
+    const minSide = Math.min(face.clientWidth || 0, face.clientHeight || 0);
+    if (minSide > 0) {
+      face.style.setProperty("--knob-face-min", `${minSide.toFixed(2)}px`);
+    }
+  }
 
   // Inner radius 0…1 → hole size; thickness fraction of radius = 1 − inner.
   const inner = Number.isFinite(Number(s.innerRadius))
@@ -859,8 +1017,25 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
   }
 
   nodeGraphKnobFaceApplyMacroStyle(face, display);
-  const showLabel = face.dataset.knobLabelPosition !== "off";
-  const showReadout = face.dataset.knobValuePosition !== "off";
+  const sliderLook = face.dataset.knobLook === "slider";
+  const showLabel = sliderLook
+    ? !face.classList.contains("hide-slider-label")
+    : face.dataset.knobLabelPosition !== "off";
+  const showReadout = sliderLook
+    ? !face.classList.contains("hide-slider-number")
+    : face.dataset.knobValuePosition !== "off";
+  const unitEl = face.querySelector("[data-knob-face-unit]");
+  if (unitEl) {
+    const showUnit = sliderLook && !face.classList.contains("hide-slider-unit");
+    const slider = document.getElementById(`node-${nodeId}-offset`);
+    const unit = showUnit
+      ? String(slider?.dataset?.unit || patchNode?.paramMeta?.offset?.unit || "").trim()
+      : "";
+    if (unitEl.textContent !== unit) {
+      unitEl.textContent = unit;
+    }
+    unitEl.hidden = !unit;
+  }
 
   const label = face.querySelector("[data-knob-face-label]");
   if (label) {
@@ -869,7 +1044,7 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
     }
     label.hidden = !showLabel;
     label.style.display = showLabel ? "" : "none";
-    if (showLabel && typeof nodeGraphKnobFaceFitLabel === "function") {
+    if (showLabel && !sliderLook && typeof nodeGraphKnobFaceFitLabel === "function") {
       nodeGraphKnobFaceFitLabel(label, face);
     }
   }
@@ -882,7 +1057,7 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
       readout.style.display = "";
       readout.setAttribute("aria-hidden", "false");
       readout.textContent = nodeGraphKnobFaceFormatReadout(value, patchNode, slider);
-      if (typeof nodeGraphKnobFaceFitReadout === "function") {
+      if (!sliderLook && typeof nodeGraphKnobFaceFitReadout === "function") {
         nodeGraphKnobFaceFitReadout(readout, face);
       }
     } else {
@@ -1182,8 +1357,12 @@ function createNodeGraphKnobFace(node, type) {
   arc.dataset.macroKnobArc = "true";
   arc.setAttribute("aria-hidden", "true");
 
-  dial.append(readout, arc);
-  face.append(label, dial);
+  dial.append(arc);
+  const unitEl = document.createElement("span");
+  unitEl.className = "node-knob-face-unit";
+  unitEl.dataset.knobFaceUnit = "true";
+  unitEl.hidden = true;
+  face.append(label, dial, readout, unitEl);
   attachNodeGraphKnobFaceDrag(face);
   attachNodeGraphKnobFaceReadoutFit(face);
   renderNodeGraphKnobFace(face, node);
@@ -1673,6 +1852,97 @@ function syncNodeGraphKnobFaceControls(_targetNode) {
   }
 }
 
+function nodeGraphKnobFaceSyncLookTabs(root, look) {
+  const host = root?.querySelector?.("[data-knob-look-tabs]") ? root : root;
+  const mode = look === "slider" ? "slider" : "knob";
+  host?.querySelectorAll?.("[data-knob-look-tab]").forEach((btn) => {
+    const on = btn.getAttribute("data-knob-look-tab") === mode;
+    btn.classList.toggle("is-on", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  host?.querySelectorAll?.("[data-knob-look-pane]").forEach((pane) => {
+    pane.hidden = pane.getAttribute("data-knob-look-pane") !== mode;
+  });
+}
+
+function commitNodeGraphKnobFaceLook(look) {
+  const id = typeof nodeGraphKnobFaceTargetNodeId === "function"
+    ? nodeGraphKnobFaceTargetNodeId()
+    : "";
+  const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+  if (!live || live.type !== "knob") {
+    return;
+  }
+  const prev = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
+    ? nodeGraphKnobFaceDisplaySettingsForNode(live)
+    : {};
+  live.traceDisplaySettings = {
+    ...prev,
+    look: look === "slider" ? "slider" : "knob",
+  };
+  const face = typeof document !== "undefined"
+    ? document.querySelector(`.node-knob-face[data-node="${CSS.escape(String(live.id))}"]`)
+    : null;
+  if (face) {
+    if (typeof nodeGraphKnobFaceApplyMacroStyle === "function") {
+      nodeGraphKnobFaceApplyMacroStyle(face, live.traceDisplaySettings);
+    }
+    if (typeof paintNodeGraphKnobFaceLive === "function") {
+      paintNodeGraphKnobFaceLive(face, live.id, null);
+    }
+  }
+}
+
+function buildNodeGraphKnobFaceDisplaySettingsHtml() {
+  const row = (fn, keys) => keys.map((key) => fn(key, "knobFace")).join("");
+  const colorRow = typeof nodeGraphDisplaySettingsBuildColorRowHtml === "function"
+    ? (key) => nodeGraphDisplaySettingsBuildColorRowHtml(key, "knobFace")
+    : () => "";
+  const fieldRow = typeof nodeGraphDisplaySettingsBuildStepperRowHtml === "function"
+    ? (key) => nodeGraphDisplaySettingsBuildStepperRowHtml(key, "knobFace")
+    : () => "";
+  const choiceRow = typeof nodeGraphDisplaySettingsBuildChoiceRowHtml === "function"
+    ? (key) => nodeGraphDisplaySettingsBuildChoiceRowHtml(key)
+    : () => "";
+  const toggleRow = typeof nodeGraphDisplaySettingsBuildToggleRowHtml === "function"
+    ? (key) => nodeGraphDisplaySettingsBuildToggleRowHtml(key)
+    : () => "";
+  const layers = typeof buildNodeGraphKnobFaceLayersDisplaySettingsHtml === "function"
+    ? buildNodeGraphKnobFaceLayersDisplaySettingsHtml()
+    : "";
+  return `
+    <div class="node-knob-look-tabs" data-knob-look-tabs>
+      <button type="button" class="is-on" data-knob-look-tab="knob" aria-pressed="true">Knob</button>
+      <button type="button" data-knob-look-tab="slider" aria-pressed="false">Slider</button>
+    </div>
+    <div data-knob-look-pane="knob">
+      <div class="metadata-field-section">${row(colorRow, ["backgroundColor", "arcFill", "arcTrack"])}</div>
+      <div class="metadata-field-section">${row(fieldRow, ["decimals", "rotationDegrees", "dialSize", "labelSize", "valueSize", "innerRadius"])}</div>
+      <div class="metadata-field-section">${row(choiceRow, ["labelPosition", "valuePosition"])}</div>
+      ${layers}
+    </div>
+    <div data-knob-look-pane="slider" hidden>
+      <div class="metadata-section-title">Bar</div>
+      <div class="metadata-field-section">${row(colorRow, ["backgroundColor", "sliderColor"])}</div>
+      <div class="metadata-field-section">${row(fieldRow, ["sliderLength", "sliderHeight"])}</div>
+      <div class="metadata-field-section">${row(choiceRow, ["sliderAlign"])}</div>
+      <div class="metadata-field-section">${typeof buildNodeGraphPhosphorWaveformCornerChromeHtml === "function"
+        ? buildNodeGraphPhosphorWaveformCornerChromeHtml({
+          squareId: "nodeKnobSliderCornerSquareButton",
+          squircleId: "nodeKnobSliderCornerSquircleButton",
+          radiusId: "nodeKnobSliderCornerRadiusInput",
+          includeSpacing: false,
+        })
+        : ""}</div>
+      <div class="metadata-section-title">Label</div>
+      <div class="metadata-field-section">${row(toggleRow, ["sliderShowLabel"])}${row(choiceRow, ["sliderLabelAlign"])}${row(fieldRow, ["sliderLabelPadding", "sliderLabelScale"])}${row(colorRow, ["sliderTextColor"])}</div>
+      <div class="metadata-section-title">Number</div>
+      <div class="metadata-field-section">${row(toggleRow, ["sliderShowNumber"])}${row(choiceRow, ["sliderNumberAlign"])}${row(fieldRow, ["sliderNumberPadding", "sliderNumberScale"])}${row(colorRow, ["sliderNumberColor"])}</div>
+      <div class="metadata-section-title">Unit</div>
+      <div class="metadata-field-section">${row(toggleRow, ["sliderShowUnit"])}${row(choiceRow, ["sliderUnitAlign"])}${row(fieldRow, ["sliderUnitPadding", "sliderUnitScale"])}${row(colorRow, ["sliderUnitColor"])}</div>
+    </div>`;
+}
+
 /** Image-layer rows for Knob Display Settings (not Module Settings). */
 function buildNodeGraphKnobFaceLayersDisplaySettingsHtml() {
   const layerCount = typeof nodeGraphKnobFaceLayerCount === "number"
@@ -1748,33 +2018,92 @@ function commitNodeGraphKnobPluginIdentity() {
 }
 
 function bindNodeGraphKnobFaceDisplaySettingsEvents(root) {
-  const panel = root?.querySelector?.("[data-knob-face-display-settings-panel]") || root;
-  if (!panel || panel.dataset.knobFaceDisplayBound === "true") {
-    return;
+  const host = root?.querySelector?.("[data-knob-look-tabs]")
+    ? root
+    : (root?.closest?.("[data-display-settings-body]") || root);
+  const panel = host?.querySelector?.("[data-knob-face-display-settings-panel]") || host;
+  if (panel && panel.dataset.knobFaceDisplayBound !== "true") {
+    panel.dataset.knobFaceDisplayBound = "true";
+    panel.addEventListener("click", (event) => {
+      const btn = event.target?.closest?.("[data-knob-face-action]");
+      if (!btn) {
+        return;
+      }
+      event.preventDefault();
+      const layerId = btn.dataset.knobFaceLayerId || "image1";
+      const action = btn.dataset.knobFaceAction;
+      if (action === "load") {
+        pickNodeGraphKnobFaceImage(layerId);
+      } else if (action === "clear") {
+        clearNodeGraphKnobFaceImage(layerId);
+      }
+    });
+    panel.addEventListener("change", (event) => {
+      const input = event.target?.closest?.("[data-knob-face-rotate]");
+      if (!input) {
+        return;
+      }
+      const layerId = input.getAttribute("data-knob-face-rotate") || "image1";
+      setNodeGraphKnobFaceLayerRotate(layerId, Boolean(input.checked), { record: true });
+    });
   }
-  panel.dataset.knobFaceDisplayBound = "true";
-  panel.addEventListener("click", (event) => {
-    const btn = event.target?.closest?.("[data-knob-face-action]");
-    if (!btn) {
-      return;
-    }
-    event.preventDefault();
-    const layerId = btn.dataset.knobFaceLayerId || "image1";
-    const action = btn.dataset.knobFaceAction;
-    if (action === "load") {
-      pickNodeGraphKnobFaceImage(layerId);
-    } else if (action === "clear") {
-      clearNodeGraphKnobFaceImage(layerId);
-    }
-  });
-  panel.addEventListener("change", (event) => {
-    const input = event.target?.closest?.("[data-knob-face-rotate]");
-    if (!input) {
-      return;
-    }
-    const layerId = input.getAttribute("data-knob-face-rotate") || "image1";
-    setNodeGraphKnobFaceLayerRotate(layerId, Boolean(input.checked), { record: true });
-  });
+  const tabs = host?.querySelector?.("[data-knob-look-tabs]");
+  if (tabs && tabs.dataset.knobLookTabsBound !== "true") {
+    tabs.dataset.knobLookTabsBound = "true";
+    tabs.addEventListener("click", (event) => {
+      const btn = event.target?.closest?.("[data-knob-look-tab]");
+      if (!btn) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const look = btn.getAttribute("data-knob-look-tab") === "slider" ? "slider" : "knob";
+      nodeGraphKnobFaceSyncLookTabs(host, look);
+      commitNodeGraphKnobFaceLook(look);
+      const popover = document.getElementById("nodeTraceDisplaySettingsPopover");
+      if (typeof syncNodeGraphTraceDisplayColorWidgets === "function") {
+        syncNodeGraphTraceDisplayColorWidgets(popover);
+      }
+    });
+  }
+  if (host && host.dataset.knobSliderCornersBound !== "true") {
+    host.dataset.knobSliderCornersBound = "true";
+    const applyCorners = (persist, record) => {
+      if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+        markNodeGraphTraceDisplaySettingsDirty("*");
+      }
+      if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
+        applyNodeGraphTraceDisplaySettingsForm({ persist, record, commit: record });
+      }
+    };
+    host.addEventListener("input", (event) => {
+      if (event.target?.id === "nodeKnobSliderCornerRadiusInput") {
+        applyCorners("none", false);
+      }
+    });
+    host.addEventListener("change", (event) => {
+      if (event.target?.id === "nodeKnobSliderCornerRadiusInput") {
+        applyCorners("immediate", true);
+      }
+    });
+    host.addEventListener("click", (event) => {
+      const corner = event.target?.closest?.("[data-corner-shape]");
+      if (!corner || !host.contains(corner)) {
+        return;
+      }
+      if (!host.querySelector("#nodeKnobSliderCornerSquareButton")) {
+        return;
+      }
+      event.preventDefault();
+      const next = corner.getAttribute("data-corner-shape") === "square" ? "square" : "squircle";
+      for (const button of host.querySelectorAll("[data-corner-shape]")) {
+        const on = button.getAttribute("data-corner-shape") === next;
+        button.classList.toggle("active", on);
+        button.setAttribute("aria-pressed", String(on));
+      }
+      applyCorners("immediate", true);
+    });
+  }
 }
 
 function syncNodeGraphKnobFaceDisplaySettingsControls(root) {
@@ -1791,6 +2120,28 @@ function syncNodeGraphKnobFaceDisplaySettingsControls(root) {
     return;
   }
   const face = nodeGraphKnobFaceForNode(node);
+  const display = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
+    ? nodeGraphKnobFaceDisplaySettingsForNode(node)
+    : null;
+  if (typeof nodeGraphKnobFaceSyncLookTabs === "function") {
+    nodeGraphKnobFaceSyncLookTabs(host, display?.look);
+  }
+  const s = display || {};
+  const setPressed = (id, active) => {
+    const el = host.querySelector?.(`#${id}`) || document.getElementById(id);
+    if (!el) {
+      return;
+    }
+    el.classList.toggle("active", active);
+    el.setAttribute("aria-pressed", String(active));
+  };
+  setPressed("nodeKnobSliderCornerSquareButton", s.sliderCornerShape === "square");
+  setPressed("nodeKnobSliderCornerSquircleButton", s.sliderCornerShape !== "square");
+  const radius = host.querySelector?.("#nodeKnobSliderCornerRadiusInput")
+    || document.getElementById("nodeKnobSliderCornerRadiusInput");
+  if (radius && document.activeElement !== radius) {
+    radius.value = String(s.sliderRounding ?? 0.5);
+  }
   for (let i = 0; i < nodeGraphKnobFaceLayerCount; i += 1) {
     const layerId = `image${i + 1}`;
     const layer = face.layers[i];

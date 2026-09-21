@@ -22,7 +22,7 @@ NodeLiveAudioProcessor.prototype.snapPendingControllerParams = function snapPend
   const keys = Array.isArray(node?._pendingSnapParams) ? node._pendingSnapParams : [];
   if (!keys.length) return;
   const type = String(node?.type || "");
-  if (type !== "knob" && type !== "pluginSlider" && type !== "toggleButton" && type !== "momentaryButton") {
+  if (type !== "knob" && type !== "toggleButton" && type !== "momentaryButton") {
     return;
   }
   const map = this.ensureControllerParamSmoothers();
@@ -708,26 +708,9 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         continue;
       }
 
-      if (type === "pluginSlider") {
-        const value = num(this.controllerEfficientSmoothedValue(node, "value", 0, _frames), 0);
-        const out = typeof nodeGraphDspBiasFromIn === "function"
-          ? nodeGraphDspBiasFromIn(value, mixIn(nid, "In"))
-          : { Bias: value, Out: value, offset: value, value };
-        this.nodeOutputs.set(nid, out);
-        if (typeof this.captureModuleScopeOutput === "function") {
-          this.captureModuleScopeOutput(nid, out);
-        }
-        continue;
-      }
-
       if (type === "toggleButton" || type === "momentaryButton") {
-        const unit = num(this.controllerEfficientSmoothedValue(node, "value", 0, _frames), 0);
-        const rangeMin = num(p.rangeMin, 0);
-        const rangeMax = num(p.rangeMax, 1);
-        const mapped = typeof nodeGraphDspControllerUnitToRange === "function"
-          ? nodeGraphDspControllerUnitToRange(unit, rangeMin, rangeMax)
-          : unit;
-        const btnOut = { Out: mapped, value: mapped, Bias: mapped };
+        const mapped = num(this.controllerEfficientSmoothedValue(node, "offset", 0, _frames), 0);
+        const btnOut = { Bias: mapped };
         this.nodeOutputs.set(nid, btnOut);
         if (typeof this.captureModuleScopeOutput === "function") {
           this.captureModuleScopeOutput(nid, btnOut);
@@ -762,7 +745,6 @@ NodeLiveAudioProcessor.prototype.readEfficientModSourceSample = function readEff
   const controllerType = String(node?.type || "");
   if (
     controllerType === "knob"
-    || controllerType === "pluginSlider"
     || controllerType === "toggleButton"
     || controllerType === "momentaryButton"
   ) {

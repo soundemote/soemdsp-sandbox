@@ -645,7 +645,7 @@ function validateNodeGraphPatch(patch) {
       normalizedNode.scopeShader = normalizeNodeGraphScopeShader(node.scopeShader);
     }
     if (
-      (type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer") &&
+      (type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer" || type === "wavetable2d") &&
       node.sample
     ) {
       const pointer = typeof normalizeNodeGraphNodeSamplePointer === "function"
@@ -656,7 +656,7 @@ function validateNodeGraphPatch(patch) {
       }
     }
     if (
-      (type === "audioPlayer" || type === "samplePlayer")
+      (type === "audioPlayer" || type === "samplePlayer" || type === "wavetable2d")
       && Object.hasOwn(node, "phosphorWaveformSettings")
     ) {
       normalizedNode.phosphorWaveformSettings = normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings);
