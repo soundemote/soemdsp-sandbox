@@ -113,7 +113,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "rgbaHsla",
   "screenSpaceShader",
   "waveguide",
-  "phaser",
   "vocoder",
   "flanger",
   "chorus",
@@ -187,6 +186,7 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "chaoticPhaseLockingFilter",
   "cookbookFilter",
   "samplePlayer",
+  "phaser",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
@@ -209,7 +209,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   besselThomson: "Maximally flat group-delay filter. Parked until that filter lands.",
   massSpringDamper: "2-pole mechanical resonator. Parked until that analog lands.",
   waveguide: "Full waveguide. Use Comb/Mode resonators for now.",
-  phaser: "Modulated phaser FX. Parked until the analog FX pass.",
+
   vocoder: "Filter-bank vocoder. Parked until the analog-filter / bandpass-bank pass.",
   flanger: "Short-delay flanger. Parked until the space FX pass.",
   chorus: "Multi-voice chorus. Parked until the space FX pass.",
@@ -1477,15 +1477,27 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   bandpass: {
     category: "scientificFilter",
-    description: "Resonant pitched bandpass for formants, peaks, and ringing filters.",
+    description: "ZDF SVF bandpass. Slope stacks identical 12 dB stages (12/24/36/48).",
     label: "Bandpass Filter ZDF",
-    notes: ["bandpass", "resonant", "2-pole", "SVF", "ZDF", "scientific", "Robin Schmidt", "RS-MET", "0.1V"],
+    notes: ["bandpass", "resonant", "SVF", "ZDF", "scientific", "Robin Schmidt", "RS-MET"],
   },
   allpass: {
     category: "scientificFilter",
-    description: "Phase-only filtering for phasers, correction, and delay-ish lag without EQ.",
+    description: "ZDF SVF allpass. Slope stacks identical 12 dB stages (12/24/36/48).",
     label: "Allpass Filter ZDF",
     notes: ["allpass", "phase", "SVF", "ZDF", "scientific", "Robin Schmidt", "RS-MET", "not a delay line"],
+  },
+  lowpass: {
+    category: "scientificFilter",
+    description: "ZDF SVF lowpass. Slope stacks identical 12 dB stages (12/24/36/48).",
+    label: "Lowpass Filter ZDF",
+    notes: ["lowpass", "SVF", "ZDF", "scientific", "Robin Schmidt", "RS-MET"],
+  },
+  highpass: {
+    category: "scientificFilter",
+    description: "ZDF SVF highpass. Slope stacks identical 12 dB stages (12/24/36/48).",
+    label: "Highpass Filter ZDF",
+    notes: ["highpass", "SVF", "ZDF", "scientific", "Robin Schmidt", "RS-MET"],
   },
   crossover2: {
     category: "dynamics",
@@ -1750,9 +1762,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   phaser: {
     category: "space",
-    description: "Placeholder classic modulated phaser FX.",
+    description: "Up to 8 parallel ZDF bandpasses (12–48 dB each), LFO sweep, mix, feedback.",
     label: "Phaser",
-    notes: ["under construction", "phaser", "allpass", "modulation", "space"],
+    notes: ["phaser", "bandpass", "ZDF", "SVF", "space", "Robin Schmidt"],
   },
   vocoder: {
     category: "analogFilter",
@@ -2821,8 +2833,12 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/robin_sinusoid/robin_sinusoid.cpp",
   },
   allpass: {
-    source: "public/modules/scientificIir/scientific-iir-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
+    source: "native_modules/eq_filter/eq_filter.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/eq_filter/eq_filter.cpp",
+  },
+  phaser: {
+    source: "native_modules/phaser/phaser.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/phaser/phaser.cpp",
   },
   antisaw: {
     source: "public/modules/antisaw/antisaw-worklet-evaluator.js",
@@ -2849,8 +2865,16 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js",
   },
   bandpass: {
-    source: "public/modules/scientificIir/scientific-iir-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
+    source: "native_modules/eq_filter/eq_filter.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/eq_filter/eq_filter.cpp",
+  },
+  lowpass: {
+    source: "native_modules/eq_filter/eq_filter.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/eq_filter/eq_filter.cpp",
+  },
+  highpass: {
+    source: "native_modules/eq_filter/eq_filter.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/eq_filter/eq_filter.cpp",
   },
   bessel: {
     source: "public/modules/scientificIir/scientific-iir-math.js",

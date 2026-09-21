@@ -193,6 +193,9 @@ function nodeGraphModuleDisplaySettingsSchemaForNode(node) {
   ) {
     return "graphFace";
   }
+  if (type === "phaser") {
+    return "phaserFace";
+  }
   const mode = nodeGraphModuleSelectedDisplayMode(node);
   if (mode && Object.prototype.hasOwnProperty.call(mode, "settingsSchema")) {
     return String(mode.settingsSchema || "");
@@ -271,6 +274,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "rasterRgbFace",
     "gradientVectorscopeFace",
     "graphFace",
+    "phaserFace",
   ].includes(displayType);
 }
 

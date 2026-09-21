@@ -352,6 +352,11 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       ? normalizeNodeGraphGraphFaceDisplaySettings()
       : { zoomMin: 0, zoomMax: 1 };
   }
+  if (type === "phaserFace") {
+    return typeof normalizeNodeGraphPhaserFaceDisplaySettings === "function"
+      ? normalizeNodeGraphPhaserFaceDisplaySettings()
+      : { barThickness: 0.04, curveThickness: 0.02 };
+  }
 if (type === "portalFace") {
     return { channel: 0 };
   }
@@ -612,6 +617,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
       ? normalizeNodeGraphGraphFaceDisplaySettings(settings)
       : { zoomMin: 0, zoomMax: 1 };
   }
+  if (type === "phaserFace") {
+    return typeof normalizeNodeGraphPhaserFaceDisplaySettings === "function"
+      ? normalizeNodeGraphPhaserFaceDisplaySettings(settings)
+      : { barThickness: 0.04, curveThickness: 0.02 };
+  }
 if (type === "portalFace") {
     return {
       channel: typeof nodeGraphPortalClampChannel === "function"
@@ -793,6 +803,11 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
     return typeof normalizeNodeGraphGraphFaceDisplaySettings === "function"
       ? normalizeNodeGraphGraphFaceDisplaySettings(node?.traceDisplaySettings)
       : { zoomMin: 0, zoomMax: 1 };
+  }
+  if (settingsSchema === "phaserFace") {
+    return typeof normalizeNodeGraphPhaserFaceDisplaySettings === "function"
+      ? normalizeNodeGraphPhaserFaceDisplaySettings(node?.traceDisplaySettings)
+      : { barThickness: 0.04, curveThickness: 0.02 };
   }
 if (settingsSchema === "portalFace") {
     return typeof nodeGraphPortalDisplaySettingsForNode === "function"

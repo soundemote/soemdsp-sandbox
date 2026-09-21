@@ -20,15 +20,80 @@ function nodeGraphKnobFaceNormalizeLabelText(value) {
   return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, NODE_GRAPH_KNOB_FACE_LABEL_TEXT_MAX);
 }
 
-function nodeGraphKnobFaceLabelTextForNode(node) {
+function nodeGraphKnobDisplayNameForNode(node) {
   const settings = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
     ? nodeGraphKnobFaceDisplaySettingsForNode(node)
     : node?.traceDisplaySettings;
-  const text = nodeGraphKnobFaceNormalizeLabelText(settings?.labelText);
+  return nodeGraphKnobFaceNormalizeLabelText(settings?.labelText);
+}
+
+function nodeGraphKnobTitleForNode(node) {
+  return typeof normalizeNodeGraphPatchNodeAlias === "function"
+    ? normalizeNodeGraphPatchNodeAlias(node?.alias)
+    : String(node?.alias || "").trim();
+}
+
+function nodeGraphKnobPortalNameForNode(node) {
+  const portal = String(node?.pluginName || "").trim();
+  if (portal) {
+    return portal;
+  }
+  const display = nodeGraphKnobDisplayNameForNode(node);
+  if (display) {
+    return display;
+  }
+  return nodeGraphKnobTitleForNode(node) || "";
+}
+
+function nodeGraphKnobFaceLabelTextForNode(node) {
+  const text = nodeGraphKnobDisplayNameForNode(node);
   if (text) {
     return text;
   }
-  return String(nodeGraphNodeLabels?.knob || "Knob");
+  return nodeGraphKnobTitleForNode(node) || String(nodeGraphNodeLabels?.knob || "Knob");
+}
+
+function nodeGraphNextFreeKnobPortalIndex(used) {
+  for (let i = 0; i < 32; i += 1) {
+    if (!used.has(i)) {
+      return i;
+    }
+  }
+  return null;
+}
+
+/** Unique 0–31 pluginId on every Knob. First claim wins; clashes/empty take next free. */
+function nodeGraphAssignKnobPortalIndexes(patch) {
+  const nodes = patch?.nodes;
+  if (!Array.isArray(nodes)) {
+    return false;
+  }
+  const used = new Set();
+  let changed = false;
+  for (const node of nodes) {
+    if (!node || node.type !== "knob") {
+      continue;
+    }
+    const raw = node.pluginId;
+    const has = raw === 0 || (raw != null && raw !== "");
+    let id = has ? Math.round(Number(raw)) : NaN;
+    if (!Number.isFinite(id) || id < 0 || id > 31 || used.has(id)) {
+      id = nodeGraphNextFreeKnobPortalIndex(used);
+    }
+    if (id == null) {
+      if (Object.hasOwn(node, "pluginId")) {
+        delete node.pluginId;
+        changed = true;
+      }
+      continue;
+    }
+    if (node.pluginId !== id) {
+      node.pluginId = id;
+      changed = true;
+    }
+    used.add(id);
+  }
+  return changed;
 }
 
 function nodeGraphKnobFaceApplyLabelTextToDom(nodeId, text) {
@@ -54,8 +119,7 @@ function nodeGraphKnobFaceWriteLabelText(nodeId, rawText, { record = true } = {}
   if (!id) {
     return;
   }
-  const text = nodeGraphKnobFaceNormalizeLabelText(rawText);
-  const stored = text || "Knob";
+  const stored = nodeGraphKnobFaceNormalizeLabelText(rawText);
   if (!record) {
     const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
     if (!live) {

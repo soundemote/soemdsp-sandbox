@@ -182,6 +182,8 @@ const nodeGraphNodeLabels = Object.freeze({
   elliptic: "Elliptic Filter",
   bandpass: "Bandpass Filter ZDF",
   allpass: "Allpass Filter ZDF",
+  lowpass: "Lowpass Filter ZDF",
+  highpass: "Highpass Filter ZDF",
   crossover2: "2-Crossover",
   crossover3: "3-Crossover",
   crossover4: "4-Crossover",
@@ -321,6 +323,23 @@ const nodeGraphTb303FilterModes = Object.freeze([
 // jack. PolyBLEP: 0.1V/Oct is an input; Phase/Amplitude are parameters only.
 // DSF: uses both (knob + dedicated Phase/Amplitude jacks). Full write-up:
 // docs/MODULE_PATTERN_REFERENCE.md § "Three control surfaces".
+
+const nodeGraphZdfSlopeParam = Object.freeze({
+  choices: ["12", "24", "36", "48"],
+  defaultValue: "0",
+  displayChoices: true,
+  divideChoicesVisibly: true,
+  key: "slope",
+  label: "Slope",
+  linearSmoothing: false,
+  max: "3",
+  mid: "0",
+  min: "0",
+  nonlinearSlider: false,
+  setup: true,
+  step: "1",
+  tooltip: "Stacked identical ZDF SVFs. 12 dB each. Default 12.",
+});
 
 const nodeGraphOutputAmplitudeParam = Object.freeze({
   defaultValue: "1",
@@ -7451,12 +7470,12 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "0.707",
         key: "q",
         label: "Q",
-        max: "20",
+        max: "1000",
         mid: "0.707",
-        min: "0.05",
+        min: "0.01",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Resonance / bandwidth. ~0.707 is Butterworth-like for Lowpass/Highpass."
+        tooltip: "Resonance / bandwidth. ~0.707 is Butterworth-like for Lowpass/Highpass. High Q pings."
       },
       {
         defaultValue: "0",
@@ -7843,6 +7862,7 @@ const nodeGraphModuleDefinitions = (
     outputLabels: {Out: "Mono"},
     outputs: ["Out", "Left", "Right"],
     parameters: [
+      nodeGraphZdfSlopeParam,
       {
         defaultValue: "1000",
         key: "frequency",
@@ -7860,12 +7880,12 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "q",
         label: "Q",
-        max: "50",
+        max: "1000",
         mid: "1",
-        min: "0.05",
+        min: "0.01",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Resonance. True 2-pole constant-peak bandpass (EQ Filter ZDF Bandpass)."
+        tooltip: "Resonance. High Q pings / long tails."
       },
         nodeGraphOutputAmplitudeParam,
     ]
@@ -7881,6 +7901,7 @@ const nodeGraphModuleDefinitions = (
     outputLabels: {Out: "Mono"},
     outputs: ["Out", "Left", "Right"],
     parameters: [
+      nodeGraphZdfSlopeParam,
       {
         defaultValue: "1000",
         key: "frequency",
@@ -7898,14 +7919,90 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "0.707",
         key: "q",
         label: "Q",
-        max: "20",
+        max: "1000",
         mid: "0.707",
-        min: "0.05",
+        min: "0.01",
         nonlinearSlider: false,
         step: "any",
         tooltip: "Phase slope sharpness around Frequency. Flat magnitude always."
       },
         nodeGraphOutputAmplitudeParam,
+    ]
+  },
+  lowpass: {
+    planRole: "processor",
+    inputAliases: {Mono: "In"},
+    inputLabels: {In: "Mono"},
+    inputs: ["In", "Left", "Right"],
+    layout: "filterCurve",
+    outputAliases: {Mono: "Out"},
+    outputLabels: {Out: "Mono"},
+    outputs: ["Out", "Left", "Right"],
+    parameters: [
+      nodeGraphZdfSlopeParam,
+      {
+        defaultValue: "1000",
+        key: "frequency",
+        kind: "frequency",
+        label: "Frequency",
+        max: "20000",
+        maxDigits: 5,
+        mid: "1000",
+        min: "0",
+        step: "any",
+        unit: "Hz",
+        tooltip: "Cutoff in Hz."
+      },
+      {
+        defaultValue: "0.707",
+        key: "q",
+        label: "Q",
+        max: "1000",
+        mid: "0.707",
+        min: "0.01",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "~0.707 is Butterworth-like per 12 dB stage. High Q pings."
+      },
+      nodeGraphOutputAmplitudeParam,
+    ]
+  },
+  highpass: {
+    planRole: "processor",
+    inputAliases: {Mono: "In"},
+    inputLabels: {In: "Mono"},
+    inputs: ["In", "Left", "Right"],
+    layout: "filterCurve",
+    outputAliases: {Mono: "Out"},
+    outputLabels: {Out: "Mono"},
+    outputs: ["Out", "Left", "Right"],
+    parameters: [
+      nodeGraphZdfSlopeParam,
+      {
+        defaultValue: "1000",
+        key: "frequency",
+        kind: "frequency",
+        label: "Frequency",
+        max: "20000",
+        maxDigits: 5,
+        mid: "1000",
+        min: "0",
+        step: "any",
+        unit: "Hz",
+        tooltip: "Cutoff in Hz."
+      },
+      {
+        defaultValue: "0.707",
+        key: "q",
+        label: "Q",
+        max: "1000",
+        mid: "0.707",
+        min: "0.01",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "~0.707 is Butterworth-like per 12 dB stage. High Q pings."
+      },
+      nodeGraphOutputAmplitudeParam,
     ]
   },
   // Softpop: Gaussian white / pink / brown → resonant Peak BP. Oscillator-dept noise voice.
@@ -10568,12 +10665,75 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  // Under construction: classic modulation / spectral FX shells (dry passthrough).
   phaser: {
     planRole: "processor",
-    inputs: ["In"],
-    outputs: ["Out"],
+    layout: "filterCurve",
+    displayHeightGu: 2,
+    inputAliases: { Mono: "In" },
+    inputLabels: { In: "Mono" },
+    inputs: ["In", "Left", "Right"],
+    outputAliases: { Mono: "Out" },
+    outputLabels: { Out: "Mono" },
+    outputs: ["Out", "Left", "Right"],
     parameters: [
+      nodeGraphZdfSlopeParam,
+      {
+        constraint: "cpu",
+        defaultValue: "4",
+        key: "stages",
+        label: "Bands",
+        max: "8",
+        mid: "4",
+        min: "1",
+        step: "1",
+        tooltip: "Parallel ZDF bandpasses (1–8). Each band uses Slope (12–48 dB)."
+      },
+      {
+        defaultValue: "1000",
+        key: "frequency",
+        kind: "frequency",
+        label: "Frequency",
+        max: "20000",
+        maxDigits: 5,
+        mid: "1000",
+        min: "0",
+        step: "any",
+        unit: "Hz",
+        tooltip: "Geometric center of the bandpass bank."
+      },
+      {
+        defaultValue: "0.5",
+        key: "spread",
+        label: "Band Spread",
+        max: "4",
+        mid: "0.5",
+        min: "0",
+        step: "any",
+        unit: "oct",
+        tooltip: "Octaves between adjacent bands."
+      },
+      {
+        defaultValue: "0",
+        key: "stereoSpread",
+        label: "Stereo Spread",
+        max: "4",
+        mid: "0",
+        min: "0",
+        step: "any",
+        unit: "oct",
+        tooltip: "Left/right bank offset in octaves. Unused if only Mono out is wired."
+      },
+      {
+        defaultValue: "1",
+        key: "q",
+        label: "Q",
+        max: "1000",
+        mid: "1",
+        min: "0.01",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Resonance of each bandpass. High Q pings / long tails."
+      },
       {
         defaultValue: "0.2",
         key: "rate",
@@ -10583,38 +10743,28 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction. Planned: LFO rate for all-pass notch sweep."
+        tooltip: "LFO rate. Sweeps the whole bank in octaves."
       },
       {
         defaultValue: "0.5",
         key: "depth",
         label: "Depth",
-        max: "1",
+        max: "4",
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: modulation depth of center frequency."
+        unit: "oct",
+        tooltip: "LFO sweep amount in octaves."
       },
       {
-        constraint: "cpu",
-        defaultValue: "4",
-        key: "stages",
-        label: "Stages",
-        max: "16",
-        mid: "4",
-        min: "1",
-        step: "1",
-        tooltip: "Under construction. Planned: number of all-pass stages."
-      },
-      {
-        defaultValue: "0.5",
+        defaultValue: "0.3",
         key: "feedback",
         label: "Feedback",
-        max: "0.95",
-        mid: "0.5",
-        min: "0",
+        max: "4",
+        mid: "0.3",
+        min: "-2",
         step: "any",
-        tooltip: "Under construction. Planned: regenerative feedback."
+        tooltip: "Last wet summed back into the bank. Negative inverts. Output mutes above 1."
       },
       {
         defaultValue: "0.5",
@@ -10624,9 +10774,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: dry/wet."
+        tooltip: "Dry/wet."
       },
-        nodeGraphOutputAmplitudeParam,
+      nodeGraphOutputAmplitudeParam,
     ]
   },
   vocoder: {

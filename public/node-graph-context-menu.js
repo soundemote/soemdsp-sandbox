@@ -1148,6 +1148,7 @@ function configureNodeSceneContextMenu(mode) {
   if (knobPluginIdentity) {
     knobPluginIdentity.hidden = true;
   }
+  selectedModule?.classList.remove("is-knob-settings");
   if (knobPluginFolder) {
     knobPluginFolder.disabled = true;
   }
@@ -1548,7 +1549,8 @@ function configureNodeSceneContextMenu(mode) {
       selectedLabel.textContent = "";
       selectedLabel.hidden = true;
     }
-    // Catalog type name (never alias) above the alias field.
+    // Catalog type name (never alias) above the alias field. Hidden for Knob
+    // (title field is unlabeled; five identity rows stay stacked).
     selectedModule.querySelector("strong").textContent = multiModuleMode
       ? `${selectedNodeIds.size} modules`
       : targetNode
@@ -1568,18 +1570,20 @@ function configureNodeSceneContextMenu(mode) {
       : "module title";
     aliasInput.title = nodeGraphTooltipText("actions.moduleAlias");
     const knobSelected = Boolean(targetNode && targetNode.type === "knob" && !multiModuleMode);
+    selectedModule.classList.toggle("is-knob-settings", knobSelected);
     if (knobTextControl) {
       knobTextControl.hidden = !knobSelected;
     }
     if (knobTextInput) {
       knobTextInput.disabled = !knobSelected;
       if (document.activeElement !== knobTextInput) {
-        knobTextInput.value = knobSelected && typeof nodeGraphKnobFaceLabelTextForNode === "function"
-          ? nodeGraphKnobFaceLabelTextForNode(targetNode)
+        const storedDisplay = knobSelected && typeof nodeGraphKnobDisplayNameForNode === "function"
+          ? nodeGraphKnobDisplayNameForNode(targetNode)
           : "";
+        knobTextInput.value = storedDisplay;
       }
-      knobTextInput.placeholder = "knob text";
-      knobTextInput.title = "Face name on the dial. Separate from the module title.";
+      knobTextInput.placeholder = "Display";
+      knobTextInput.title = "Name on the knob face.";
     }
     if (knobPluginIdentity) {
       knobPluginIdentity.hidden = !knobSelected;
@@ -1588,6 +1592,9 @@ function configureNodeSceneContextMenu(mode) {
     const pluginNameVal = knobSelected ? String(targetNode.pluginName || "") : "";
     const pluginIdVal = knobSelected && (targetNode.pluginId === 0 || targetNode.pluginId)
       ? String(targetNode.pluginId)
+      : "";
+    const portalFallback = knobSelected && typeof nodeGraphKnobPortalNameForNode === "function"
+      ? nodeGraphKnobPortalNameForNode(targetNode)
       : "";
     if (knobPluginFolder) {
       knobPluginFolder.disabled = !knobSelected;
@@ -1600,6 +1607,7 @@ function configureNodeSceneContextMenu(mode) {
       if (document.activeElement !== knobPluginName) {
         knobPluginName.value = pluginNameVal;
       }
+      knobPluginName.placeholder = portalFallback || "Control";
     }
     if (knobPluginId) {
       knobPluginId.disabled = !knobSelected;

@@ -146,6 +146,14 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Pixel density";
     title = "1.0 = CSS × devicePixelRatio. Below 1 = chunky lo-fi.";
   }
+  if (formType === "phaserFace" && key === "barThickness") {
+    label = "Bar thickness";
+    title = "Peak bar width 0…1 of the face min side. Scales with the canvas.";
+  }
+  if (formType === "phaserFace" && key === "curveThickness") {
+    label = "Curve thickness";
+    title = "Analytic curve stroke 0…1 of the face min side. Scales with the canvas.";
+  }
   if ((key === "zoomMin" || key === "zoomMax") && formType === "graphFace") {
     label = key === "zoomMin" ? "Zoom Min" : "Zoom Max";
     title = key === "zoomMin"

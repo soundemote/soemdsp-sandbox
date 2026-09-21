@@ -683,6 +683,12 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  phaserFace: Object.freeze({
+    fields: Object.freeze(["barThickness", "curveThickness"]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
   toggleButtonFace: Object.freeze({
     fields: Object.freeze([
       "textBrightness",
@@ -1017,6 +1023,18 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "decimal",
     id: "nodeTraceDisplayImageSize",
     title: "Zoom 0…4 (exp). Fine near 0; 1 = fit face; >1 = zoom past edges.",
+  }),
+  barThickness: Object.freeze({
+    label: "Bar thickness",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayPhaserBarThickness",
+    title: "Peak bar width 0…1 of the face min side. Scales with canvas size.",
+  }),
+  curveThickness: Object.freeze({
+    label: "Curve thickness",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayPhaserCurveThickness",
+    title: "Analytic curve stroke 0…1 of the face min side. Scales with canvas size.",
   }),
   zoomMin: Object.freeze({
     label: "Zoom Min",
@@ -1903,6 +1921,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   hypersawBurn: "Hypersaw",
   knobFace: "Knob",
   graphFace: "Graph",
+  phaserFace: "Phaser",
   keypadFace: "Keypad",
   roundShapeFace: "RoundShape",
   sinCos4Face: "SinCos4",

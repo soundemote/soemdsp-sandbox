@@ -182,6 +182,15 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     return node.traceDisplaySettings;
   }
+  if (displayType === "phaserFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphPhaserFaceDisplaySettings === "function"
+      ? normalizeNodeGraphPhaserFaceDisplaySettings(settings)
+      : { barThickness: 0.04, curveThickness: 0.02 };
+    if (typeof scheduleNodeGraphFilterCurveDraw === "function") {
+      scheduleNodeGraphFilterCurveDraw();
+    }
+    return node.traceDisplaySettings;
+  }
   if (displayType === "patchFace") {
     node.traceDisplaySettings = typeof normalizeNodeGraphPatchFaceDisplaySettings === "function"
       ? normalizeNodeGraphPatchFaceDisplaySettings(settings)

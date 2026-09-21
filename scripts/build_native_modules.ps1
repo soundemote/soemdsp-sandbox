@@ -352,6 +352,11 @@ $modules = @(
   @{ Name = "rotate_3d_to_2d"; Simd = $false; Exports = @("soemdsp_rotate_3d_to_2d_sample", "soemdsp_rotate_3d_to_2d_version", "soemdsp_rotate_3d_to_2d_metadata_json", "soemdsp_rotate_3d_to_2d_metadata_json_size") }
   @{ Name = "clipper_limiter"; Simd = $false; Exports = @("soemdsp_clipper_limiter_create", "soemdsp_clipper_limiter_destroy", "soemdsp_clipper_limiter_sample", "soemdsp_clipper_limiter_version", "soemdsp_clipper_limiter_metadata_json", "soemdsp_clipper_limiter_metadata_json_size") }
   @{ Name = "eq_filter"; Simd = $false; Exports = @("soemdsp_eq_filter_create", "soemdsp_eq_filter_destroy", "soemdsp_eq_filter_sample", "soemdsp_eq_filter_version", "soemdsp_eq_filter_metadata_json", "soemdsp_eq_filter_metadata_json_size") }
+  @{ Name = "phaser"; Simd = $false; Exports = @(
+    "soemdsp_phaser_create", "soemdsp_phaser_destroy", "soemdsp_phaser_sample",
+    "soemdsp_phaser_version", "soemdsp_phaser_metadata_json",
+    "soemdsp_phaser_metadata_json_size"
+  ) }
   @{ Name = "cookbook_filter"; Simd = $false; Exports = @(
     "soemdsp_cookbook_filter_create", "soemdsp_cookbook_filter_destroy",
     "soemdsp_cookbook_filter_sample",

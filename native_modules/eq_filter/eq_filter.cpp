@@ -12,11 +12,14 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 256;
+static const int kMaxCascade = 4;
 
 struct State {
   bool active;
-  double z1, z2;
+  double z1[kMaxCascade];
+  double z2[kMaxCascade];
   int lastMode;
+  int lastStages;
   double lastOmega, lastQ, lastA;
   double g, c, s, aL, aB, aH;
 };
@@ -72,7 +75,7 @@ static void setup_core(State* st, double omega, double r, double aL, double aB, 
 }
 
 static void setup(State* st, int mode, double omega, double q, double A) {
-  const double Q = q > 1e-4 ? q : 0.707;
+  const double Q = (q > 1e-9 || q < -1e-9) ? q : 1e-9;
   const double a = A > 1e-6 ? A : 1.0;
   if (mode == 0) { setup_bypass(st); return; }
   if (mode == 1) { setup_core(st, omega, 1.0 / Q, 0, 0, 1, 1); return; }
@@ -119,7 +122,7 @@ static void ensure_setup(State* st, int mode, double frequency, double q, double
   const double ny = rate * 0.49;
   if (freq > ny) freq = ny;
   const double omega = (kTwoPi * freq) / rate;
-  const double safeQ = q > 0.05 ? q : 0.707;
+  const double safeQ = (q > 1e-9 || q < -1e-9) ? q : 1e-9;
   const double A = dsp_exp(0.025 * safe(gainDb) * 2.302585092994046); // 10^(dB/40) = exp(dB * ln10 / 40)
   if (st->lastMode == safeMode && st->lastOmega == omega && st->lastQ == safeQ && st->lastA == A) {
     return;
@@ -137,9 +140,12 @@ extern "C" int soemdsp_eq_filter_create() {
   for (int i = 0; i < kMaxInstances; i += 1) {
     if (!gPool[i].active) {
       State& s = gPool[i];
-      s.z1 = 0.0;
-      s.z2 = 0.0;
+      for (int k = 0; k < kMaxCascade; k += 1) {
+        s.z1[k] = 0.0;
+        s.z2[k] = 0.0;
+      }
       s.lastMode = -1;
+      s.lastStages = 1;
       s.lastOmega = 0.0 / 0.0;
       s.lastQ = 0.0 / 0.0;
       s.lastA = 0.0 / 0.0;
@@ -163,7 +169,8 @@ extern "C" double soemdsp_eq_filter_sample(
   double frequency,
   double q,
   double gainDb,
-  double sampleRate
+  double sampleRate,
+  double stages
 ) {
   const double x = safe(input);
   int safeMode = (int)(safe(mode) + (safe(mode) >= 0.0 ? 0.5 : -0.5));
@@ -172,20 +179,34 @@ extern "C" double soemdsp_eq_filter_sample(
   if (safeMode == 0) return x;
   if (handle < 1 || handle > kMaxInstances || !gPool[handle - 1].active) return x;
   State* st = &gPool[handle - 1];
+  int n = (int)(safe(stages) + (safe(stages) >= 0.0 ? 0.5 : -0.5));
+  if (n < 1) n = 1;
+  if (n > kMaxCascade) n = kMaxCascade;
+  if (n != st->lastStages) {
+    for (int k = 0; k < kMaxCascade; k += 1) {
+      st->z1[k] = 0.0;
+      st->z2[k] = 0.0;
+    }
+    st->lastStages = n;
+  }
   ensure_setup(st, safeMode, frequency, q, gainDb, sampleRate);
   const double g = st->g;
   const double c = st->c;
   const double s = st->s;
-  const double z1 = st->z1;
-  const double z2 = st->z2;
-  const double yH = (x - c * z1 - z2) * s;
-  const double yB = z1 + g * yH;
-  const double yL = z2 + g * yB;
-  st->z1 = 2.0 * yB - z1;
-  st->z2 = 2.0 * yL - z2;
-  return st->aH * yH + st->aB * yB + st->aL * yL;
+  double y = x;
+  for (int i = 0; i < n; i += 1) {
+    const double z1 = st->z1[i];
+    const double z2 = st->z2[i];
+    const double yH = (y - c * z1 - z2) * s;
+    const double yB = z1 + g * yH;
+    const double yL = z2 + g * yB;
+    st->z1[i] = 2.0 * yB - z1;
+    st->z2[i] = 2.0 * yL - z2;
+    y = st->aH * yH + st->aB * yB + st->aL * yL;
+  }
+  return y;
 }
 
-extern "C" int soemdsp_eq_filter_version() { return 1; }
+extern "C" int soemdsp_eq_filter_version() { return 2; }
 extern "C" const char* soemdsp_eq_filter_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_eq_filter_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

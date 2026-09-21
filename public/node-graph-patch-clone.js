@@ -386,6 +386,10 @@ function cloneNodeGraphTypedDisplaySettings(node) {
       return typeof normalizeNodeGraphGraphFaceDisplaySettings === "function"
         ? { traceDisplaySettings: normalizeNodeGraphGraphFaceDisplaySettings(bag) }
         : { traceDisplaySettings: bag || {} };
+    case "phaserFace":
+      return typeof normalizeNodeGraphPhaserFaceDisplaySettings === "function"
+        ? { traceDisplaySettings: normalizeNodeGraphPhaserFaceDisplaySettings(bag) }
+        : { traceDisplaySettings: bag || {} };
 
     case "portalFace": {
       const channel = typeof nodeGraphPortalClampChannel === "function"

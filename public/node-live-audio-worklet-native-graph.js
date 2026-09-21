@@ -65,6 +65,9 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   attackDecay: 136,
   bandpass: 137,
   allpass: 138,
+  lowpass: 176,
+  highpass: 177,
+  phaser: 178,
   basicShape: 139,
   chordPad: 140,
   smoothGraph: 146,
@@ -3700,15 +3703,25 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
-    if (type === "bandpass") {
+    if (type === "phaser") {
+      push("slope", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("slope", 0));
+      push("stages", P.NATIVE_GRAPH_PARAM_STAGES, disc("stages", 4));
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1000));
+      push("spread", P.NATIVE_GRAPH_PARAM_WIDTH, cont("spread", 0.5));
+      push("stereoSpread", P.NATIVE_GRAPH_PARAM_CENTER, cont("stereoSpread", 0));
       push("q", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("q", 1));
+      push("rate", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("rate", 0.2));
+      push("depth", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("depth", 0.5));
+      push("feedback", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("feedback", 0.3));
+      push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.5));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
-    if (type === "allpass") {
+    if (type === "bandpass" || type === "allpass" || type === "lowpass" || type === "highpass") {
+      const q0 = type === "bandpass" ? 1 : 0.707;
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1000));
-      push("q", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("q", 0.707));
+      push("q", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("q", q0));
+      push("slope", P.NATIVE_GRAPH_PARAM_STAGES, disc("slope", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }

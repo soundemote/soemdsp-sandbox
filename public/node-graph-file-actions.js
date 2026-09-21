@@ -398,7 +398,15 @@ function saveCurrentNodeGraphPatchPreset() {
     setNodeGraphScriptStatus("preset needs a name", false);
     return;
   }
-  const text = serializeNodeGraphPatch();
+  const presetPatch = typeof cloneNodeGraphPatch === "function"
+    ? cloneNodeGraphPatch(nodeGraphMvp.patch)
+    : nodeGraphMvp.patch;
+  if (typeof nodeGraphAssignKnobPortalIndexes === "function") {
+    nodeGraphAssignKnobPortalIndexes(presetPatch);
+  }
+  const text = typeof serializeNodeGraphPatch === "function"
+    ? serializeNodeGraphPatch(presetPatch)
+    : JSON.stringify(presetPatch, null, 2);
   const entries = loadNodeGraphPatchPresetEntries().filter((entry) => entry.name !== name);
   entries.push({ name, text, updatedAt: Date.now() });
   try {
@@ -548,6 +556,9 @@ function nodeGraphPatchExportPayload() {
     : nodeGraphMvp?.patch;
   if (!patchToSave) {
     return null;
+  }
+  if (typeof nodeGraphAssignKnobPortalIndexes === "function") {
+    nodeGraphAssignKnobPortalIndexes(patchToSave);
   }
   const patchText = typeof serializeNodeGraphPatch === "function"
     ? serializeNodeGraphPatch(patchToSave)
@@ -880,6 +891,9 @@ async function saveNodeGraphScript() {
   }
   try {
     const patchToSave = nodeGraphPatchWithLiveHeaderInfo();
+    if (typeof nodeGraphAssignKnobPortalIndexes === "function") {
+      nodeGraphAssignKnobPortalIndexes(patchToSave);
+    }
     const patchText = serializeNodeGraphPatch(patchToSave);
     const info = normalizeNodeGraphPatchInfo(patchToSave.info);
     const response = await fetch(
@@ -1346,7 +1360,15 @@ async function updateDefaultNodeGraphPreset() {
   if (!nodeGraphScriptReadyForGraphAction("save init")) {
     return false;
   }
-  const text = serializeNodeGraphPatch();
+  const initPatch = typeof cloneNodeGraphPatch === "function"
+    ? cloneNodeGraphPatch(nodeGraphMvp.patch)
+    : nodeGraphMvp.patch;
+  if (typeof nodeGraphAssignKnobPortalIndexes === "function") {
+    nodeGraphAssignKnobPortalIndexes(initPatch);
+  }
+  const text = typeof serializeNodeGraphPatch === "function"
+    ? serializeNodeGraphPatch(initPatch)
+    : JSON.stringify(initPatch, null, 2);
   try {
     const response = await fetch("/api/presets/default", {
       method: "POST",

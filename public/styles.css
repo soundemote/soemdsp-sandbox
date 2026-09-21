@@ -19946,14 +19946,18 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
-  gap: 4px;
-  min-height: 32px;
+  gap: 2px;
+  min-height: 0;
   min-width: 0;
   margin: 0;
-  padding: 6px 8px 6px;
+  padding: 2px 4px;
   overflow: hidden;
   border-radius: 0;
   border-inline: 0;
+}
+
+.node-module-actions-window .scene-context-selected-module.is-knob-settings > strong {
+  display: none;
 }
 
 .node-module-actions-window .scene-context-selected-module span[hidden],
@@ -20701,12 +20705,41 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 
 .node-knob-plugin-identity {
   display: grid;
-  gap: 6px;
+  gap: 2px;
   min-width: 0;
 }
 
 .node-knob-plugin-identity[hidden] {
   display: none;
+}
+
+.node-module-actions-window .node-knob-settings-field {
+  display: grid;
+  grid-template-columns: 55px minmax(0, 1fr);
+  grid-auto-rows: auto;
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.node-module-actions-window .node-knob-settings-field span {
+  min-height: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.node-module-actions-window .node-knob-settings-field input {
+  min-height: 26px;
+  height: 26px;
+  padding: 0 6px;
 }
 
 .scene-context-alias-control span {

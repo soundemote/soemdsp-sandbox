@@ -195,6 +195,8 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "labelSize",
     "valueSize",
     "innerRadius",
+    "barThickness",
+    "curveThickness",
     "buttonWidth",
     "buttonHeight",
     "textSize",

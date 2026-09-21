@@ -644,6 +644,32 @@ function nodeGraphFilterCurveView(node) {
       ripple: nodeGraphFilterCurveLiveParam(node, "ripple", 1),
     };
   }
+  if (node.type === "phaser") {
+    const outs = nodeGraphPhaserWiredOuts(node);
+    const rate = nodeGraphFilterCurveLiveParam(node, "rate", 0.2);
+    const depth = nodeGraphFilterCurveLiveParam(node, "depth", 0.5);
+    const t = (typeof performance !== "undefined" ? performance.now() : 0) / 1000;
+    const sweep = (rate > 1e-9 || rate < -1e-9)
+      ? Math.sin(2 * Math.PI * t * rate) * depth
+      : 0;
+    const face = typeof normalizeNodeGraphPhaserFaceDisplaySettings === "function"
+      ? normalizeNodeGraphPhaserFaceDisplaySettings(node.traceDisplaySettings)
+      : nodeGraphPhaserFaceDisplaySettingsDefaults;
+    return {
+      type: node.type,
+      frequency: nodeGraphFilterCurveLiveParam(node, "frequency", 1000),
+      bands: nodeGraphFilterCurveLiveParam(node, "stages", 4),
+      slope: nodeGraphFilterCurveLiveParam(node, "slope", 0),
+      spread: nodeGraphFilterCurveLiveParam(node, "spread", 0.5),
+      stereoSpread: nodeGraphFilterCurveLiveParam(node, "stereoSpread", 0),
+      q: nodeGraphFilterCurveLiveParam(node, "q", 1),
+      leftOut: outs.left,
+      rightOut: outs.right,
+      sweep,
+      barThickness: face.barThickness,
+      curveThickness: face.curveThickness,
+    };
+  }
   if (node.type === "eqFilter") {
     const uiMode = nodeGraphFilterCurveLiveParam(node, "mode", 1);
     const ignoreBoost = typeof nodeGraphEqFilterUiIgnoresBoostCut === "function"
@@ -660,22 +686,22 @@ function nodeGraphFilterCurveView(node) {
       gain: ignoreBoost ? 0 : nodeGraphFilterCurveLiveParam(node, "gain", 0),
     };
   }
-  if (node.type === "bandpass") {
+  if (node.type === "bandpass" || node.type === "allpass"
+      || node.type === "lowpass" || node.type === "highpass") {
+    const slope = Math.round(nodeGraphFilterCurveLiveParam(node, "slope", 0));
+    const zdfStages = Math.max(1, Math.min(4, slope + 1));
+    const mode = node.type === "bandpass" ? 4
+      : node.type === "allpass" ? 6
+      : node.type === "highpass" ? 1
+      : 2;
+    const q0 = node.type === "bandpass" ? 1 : 0.707;
     return {
       type: node.type,
-      mode: 4, // Bandpass Peak
+      mode,
       frequency: nodeGraphFilterCurveLiveParam(node, "frequency", 1000),
-      q: nodeGraphFilterCurveLiveParam(node, "q", 1),
+      q: nodeGraphFilterCurveLiveParam(node, "q", q0),
       gain: 0,
-    };
-  }
-  if (node.type === "allpass") {
-    return {
-      type: node.type,
-      mode: 6, // Allpass (flat magnitude — curve still draws ~0 dB)
-      frequency: nodeGraphFilterCurveLiveParam(node, "frequency", 1000),
-      q: nodeGraphFilterCurveLiveParam(node, "q", 0.707),
-      gain: 0,
+      zdfStages,
     };
   }
   // cookbook / multi-stage family
@@ -785,13 +811,14 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
       sampleRate,
     );
   }
-  if (node.type === "eqFilter" || node.type === "bandpass" || node.type === "allpass") {
+  if (node.type === "eqFilter" || node.type === "bandpass" || node.type === "allpass"
+      || node.type === "lowpass" || node.type === "highpass") {
     if (typeof nodeGraphEqFilterMagnitudeAt === "function") {
       const rawMode = Number(v.mode);
       const dspMode = Number.isFinite(rawMode)
         ? rawMode
         : (node.type === "bandpass" ? 4 : node.type === "allpass" ? 6 : 1);
-      const mag = nodeGraphEqFilterMagnitudeAt(
+      let mag = nodeGraphEqFilterMagnitudeAt(
         dspMode,
         nodeGraphFilterCurveFiniteHz(v.frequency, 1000),
         nodeGraphFiniteNumber(v.q, 0.707),
@@ -799,6 +826,10 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
         frequency,
         sampleRate,
       );
+      const copies = Math.max(1, Math.min(4, Math.round(nodeGraphFiniteNumber(v.zdfStages, 1))));
+      if (copies > 1 && Number.isFinite(mag) && mag > 0) {
+        mag **= copies;
+      }
       return Number.isFinite(mag) && mag > 0 ? mag : 1e-6;
     }
     return 1;
@@ -902,9 +933,22 @@ function nodeGraphFilterCurveLabel(node) {
     const order = nodeGraphScientificIirClampOrder(node.params?.order);
     return `${mode}${order * 6}`;
   }
+  if (node.type === "phaser") {
+    return "";
+  }
   if (node.type === "eqFilter") {
     const modes = typeof nodeGraphEqFilterModes !== "undefined" ? nodeGraphEqFilterModes : null;
     return modes?.[Math.round(nodeGraphFiniteNumber(node.params?.mode, 1))] || "EQ";
+  }
+  if (node.type === "bandpass" || node.type === "allpass"
+      || node.type === "lowpass" || node.type === "highpass") {
+    const slope = Math.round(nodeGraphFiniteNumber(node.params?.slope));
+    const db = (Math.max(0, Math.min(3, slope)) + 1) * 12;
+    const prefix = node.type === "bandpass" ? "BP"
+      : node.type === "allpass" ? "AP"
+      : node.type === "highpass" ? "HP"
+      : "LP";
+    return `${prefix}${db}`;
   }
   if (node.type === "activeFilter") {
     const hp = Math.round(nodeGraphFiniteNumber(node.params?.hpSlope));
@@ -1093,6 +1137,146 @@ function nodeGraphFilterCurveMeasureBox(section) {
   return { rawW, rawH };
 }
 
+const nodeGraphPhaserFaceDisplaySettingsDefaults = Object.freeze({
+  barThickness: 0.04,
+  curveThickness: 0.02,
+});
+
+function normalizeNodeGraphPhaserFaceDisplaySettings(source) {
+  const raw = source && typeof source === "object" ? source : {};
+  const bar = Number(raw.barThickness);
+  const curve = Number(raw.curveThickness);
+  return {
+    barThickness: Number.isFinite(bar)
+      ? Math.max(0, Math.min(1, bar))
+      : nodeGraphPhaserFaceDisplaySettingsDefaults.barThickness,
+    curveThickness: Number.isFinite(curve)
+      ? Math.max(0, Math.min(1, curve))
+      : nodeGraphPhaserFaceDisplaySettingsDefaults.curveThickness,
+  };
+}
+
+function nodeGraphPhaserWiredOuts(node) {
+  const id = node?.id;
+  const conns = (typeof nodeGraphMvp === "object" && nodeGraphMvp?.connections) || [];
+  let left = false;
+  let right = false;
+  if (!id) return { left, right };
+  for (let i = 0; i < conns.length; i += 1) {
+    const c = conns[i];
+    if (!c || c.sourceNode !== id) continue;
+    const p = String(c.sourcePort || "");
+    if (p === "Left") left = true;
+    else if (p === "Right") right = true;
+  }
+  return { left, right };
+}
+
+function nodeGraphPhaserBpMag(freq, f0, q, cascade) {
+  const f = Math.max(1e-9, freq);
+  const fC = Math.max(1e-9, f0);
+  const ratio = f / fC - fC / f;
+  const den = Math.sqrt(1 + (q * q) * (ratio * ratio));
+  let h = den > 0 ? 1 / den : 0;
+  if (cascade > 1) h **= cascade;
+  return h;
+}
+
+function drawNodeGraphPhaserPeakMarks(context, view, box) {
+  const width = box.width;
+  const height = box.height;
+  const logMin = box.logMin;
+  const logRange = box.logRange;
+  const n = Math.max(1, Math.min(8, Math.round(nodeGraphFiniteNumber(view?.bands, 4))));
+  const f0 = Math.max(1e-6, nodeGraphFilterCurveFiniteHz(view?.frequency, 1000));
+  const spread = nodeGraphFiniteNumber(view?.spread, 0.5);
+  const stereo = nodeGraphFiniteNumber(view?.stereoSpread);
+  const sweep = nodeGraphFiniteNumber(view?.sweep);
+  const q = Math.max(0.01, nodeGraphFiniteNumber(view?.q, 1));
+  const cascade = Math.max(1, Math.min(4, Math.round(nodeGraphFiniteNumber(view?.slope)) + 1));
+  const mid = 0.5 * (n - 1);
+  const minSide = Math.max(1, Math.min(width, height));
+  const barT = Math.max(0, Math.min(1, nodeGraphFiniteNumber(view?.barThickness, 0.04)));
+  const curveT = Math.max(0, Math.min(1, nodeGraphFiniteNumber(view?.curveThickness, 0.02)));
+  const barW = barT > 0 ? Math.max(1, barT * minSide) : 0;
+  const curveW = curveT > 0 ? Math.max(1, curveT * minSide) : 0;
+  const leftOut = view?.leftOut === true;
+  const rightOut = view?.rightOut === true;
+  const stereoOut = leftOut || rightOut;
+  const xOf = (hz) => {
+    const h = Math.max(1e-9, hz);
+    return ((Math.log10(h) - logMin) / logRange) * width;
+  };
+  const centers = (octOffset) => {
+    const list = [];
+    for (let i = 0; i < n; i += 1) {
+      list.push(f0 * (2 ** ((i - mid) * spread + octOffset + sweep)));
+    }
+    return list;
+  };
+  const magAt = (hz, octOffset) => {
+    const list = centers(octOffset);
+    let sum = 0;
+    for (let i = 0; i < list.length; i += 1) {
+      sum += nodeGraphPhaserBpMag(hz, list[i], q, cascade);
+    }
+    return sum;
+  };
+  const drawBars = (octOffset, color) => {
+    if (!(barW > 0)) return;
+    context.fillStyle = color;
+    const list = centers(octOffset);
+    for (let i = 0; i < list.length; i += 1) {
+      const x = xOf(list[i]);
+      if (!Number.isFinite(x)) continue;
+      context.fillRect(x - barW * 0.5, 0, barW, height);
+    }
+  };
+  const drawCurve = (octOffset, color) => {
+    if (!(curveW > 0)) return;
+    const step = Math.max(2, Math.ceil(width / 96));
+    let peak = 1e-9;
+    const ys = [];
+    for (let x = 0; x < width; x += step) {
+      const progress = width <= 1 ? 0 : x / (width - 1);
+      const hz = 10 ** (logMin + progress * logRange);
+      const m = magAt(hz, octOffset);
+      ys.push({ x, m });
+      if (m > peak) peak = m;
+    }
+    context.strokeStyle = color;
+    context.lineWidth = curveW;
+    context.lineJoin = "round";
+    context.lineCap = "round";
+    context.beginPath();
+    for (let i = 0; i < ys.length; i += 1) {
+      const y = height * (1 - ys[i].m / peak);
+      if (i === 0) context.moveTo(ys[i].x, y);
+      else context.lineTo(ys[i].x, y);
+    }
+    context.stroke();
+  };
+  const colorL = "rgb(255, 128, 128)";
+  const colorR = "rgb(128, 128, 255)";
+  const colorM = "rgb(80, 220, 110)";
+  context.save();
+  context.globalCompositeOperation = "lighter";
+  if (!stereoOut) {
+    drawBars(0, colorM);
+    drawCurve(0, "rgb(160, 255, 180)");
+  } else {
+    if (leftOut || !rightOut) {
+      drawBars(-0.5 * stereo, colorL);
+      drawCurve(-0.5 * stereo, colorL);
+    }
+    if (rightOut || !leftOut) {
+      drawBars(0.5 * stereo, colorR);
+      drawCurve(0.5 * stereo, colorR);
+    }
+  }
+  context.restore();
+}
+
 function drawNodeGraphFilterCurveDisplayInner(section) {
   if (section) {
     section.hidden = false;
@@ -1173,9 +1357,9 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   context.clearRect(0, 0, width, height);
   context.fillStyle = "rgba(2, 6, 9, 0.88)";
   context.fillRect(0, 0, width, height);
-  // 0 dB reference (unity). Curve includes Amplitude so you can match passband to this line.
+  const isPhaser = node.type === "phaser";
   const zeroDbY = (1 - ((0 - minDb) / (maxDb - minDb))) * height;
-  if (Number.isFinite(zeroDbY)) {
+  if (!isPhaser && Number.isFinite(zeroDbY)) {
     context.strokeStyle = "rgba(255, 255, 255, 0.22)";
     context.lineWidth = 1;
     context.beginPath();
@@ -1185,6 +1369,17 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   }
   const logMin = Math.log10(minFreq);
   const logRange = Math.log10(maxFreq) - logMin;
+  if (isPhaser) {
+    drawNodeGraphPhaserPeakMarks(context, view, {
+      width,
+      height,
+      logMin,
+      logRange,
+      minFreq,
+      maxFreq,
+      zeroDbY,
+    });
+  }
   const cutoffLineWidth = 1;
   const cutoffInset = cutoffLineWidth * 0.5;
   const cutoffDrawableWidth = Math.max(1, width - cutoffLineWidth);
@@ -1193,7 +1388,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
 
   // Crossover faces: split lines + Hz only (no magnitude curves / band titles).
   // Keeps 1gu display height readable and cheap to paint.
-  if (!isCrossover) {
+  if (!isCrossover && !isPhaser) {
     // Cap sample density for filter magnitude paths.
     const maxSamples = 220;
     const step = Math.max(1, Math.ceil(width / maxSamples));
@@ -1249,7 +1444,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   context.font = `600 ${fontPx}px system-ui, sans-serif`;
   context.textBaseline = "middle";
   const labelY = height * 0.5;
-  cutoffs.forEach((frequency, index) => {
+  if (!isPhaser) cutoffs.forEach((frequency, index) => {
     // 0 Hz (and anything below the log axis floor) → left edge, not minFreq.
     const cutoffRatio = nodeGraphFilterCurveCutoffRatio(frequency, minFreq, maxFreq);
     const cutoffX = cutoffInset + cutoffRatio * cutoffDrawableWidth;
@@ -1275,7 +1470,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   });
 
   // Non-crossover filter title (crossovers stay markers-only).
-  if (!isCrossover) {
+  if (!isCrossover && !isPhaser) {
     const title = nodeGraphFilterCurveLabel(node);
     context.font = "600 10px system-ui, sans-serif";
     context.textBaseline = "top";

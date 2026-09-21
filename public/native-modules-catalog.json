@@ -1185,6 +1185,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "phaser",
+      "label": "Phaser",
+      "targetType": "phaser",
+      "kind": "filter",
+      "source": "native_modules/phaser/phaser.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/phaser/phaser.cpp",
+      "localSourceUrl": "/native_modules/phaser/phaser.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "wasm": "native_modules/phaser/phaser.wasm",
+      "wasmUrl": "native_modules/phaser/phaser.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "phone_tone",
       "label": "Phone Tone",
       "targetType": "phoneTone",
