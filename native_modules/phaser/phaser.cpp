@@ -4,8 +4,9 @@
 // soemdsp-native-kind: filter
 // soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
 //
-// Up to 8 parallel ZDF SVF bandpasses (EQ Filter ZDF Bandpass Peak),
-// each 1–4 identical 12 dB stages (slope 12/24/36/48). Mix + feedback + LFO.
+// Up to 8 ZDF SVF stages (Bandpass Peak parallel, or Allpass series),
+// each 1–4 identical 12 dB copies (slope 12/24/36/48). Mix + feedback + LFO.
+// Reset jack zeros LFO phase only (filter memory stays).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -28,6 +29,7 @@ struct PhaserState {
   Svf svf[kMaxBands][kMaxCascade];
   double lastWet;
   double lfoPhase;
+  double lastReset;
   int lastBands;
   int lastCascade;
 };
@@ -63,7 +65,10 @@ static void reset_svfs(PhaserState& s) {
   s.lastWet = 0.0;
 }
 
-static double process_bp_peak(Svf& st, double x, double g, double c, double s, double aB) {
+static double process_svf(
+  Svf& st, double x, double g, double c, double s,
+  double aL, double aB, double aH
+) {
   const double z1 = st.z1;
   const double z2 = st.z2;
   const double yH = (x - c * z1 - z2) * s;
@@ -71,7 +76,7 @@ static double process_bp_peak(Svf& st, double x, double g, double c, double s, d
   const double yL = z2 + g * yB;
   st.z1 = 2.0 * yB - z1;
   st.z2 = 2.0 * yL - z2;
-  return aB * yB;
+  return aL * yL + aB * yB + aH * yH;
 }
 
 }  // namespace
@@ -82,6 +87,7 @@ extern "C" int soemdsp_phaser_create() {
       PhaserState& s = gPool[i];
       reset_svfs(s);
       s.lfoPhase = 0.0;
+      s.lastReset = 0.0;
       s.lastBands = 4;
       s.lastCascade = 1;
       s.active = true;
@@ -110,6 +116,8 @@ extern "C" double soemdsp_phaser_sample(
   double feedback,
   double mix,
   double amplitude,
+  double kernelMode,
+  double reset,
   double sampleRate
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
@@ -149,6 +157,14 @@ extern "C" double soemdsp_phaser_sample(
   const double fb = safe(feedback);
   const double wetMix = safe(mix);
   const double amp = safe(amplitude);
+  int kernel = (int)(safe(kernelMode) + (safe(kernelMode) >= 0.0 ? 0.5 : -0.5));
+  if (kernel < 0) kernel = 0;
+  if (kernel > 1) kernel = 1;
+  const double resetV = safe(reset);
+  if (resetV > 0.5 && st.lastReset <= 0.5) {
+    st.lfoPhase = 0.0;
+  }
+  st.lastReset = resetV;
 
   st.lfoPhase += lfoHz / rate;
   if (st.lfoPhase >= 1.0) st.lfoPhase -= (double)((int)st.lfoPhase);
@@ -159,7 +175,10 @@ extern "C" double soemdsp_phaser_sample(
 
   const double driven = x + fb * st.lastWet;
   const double mid = 0.5 * (double)(nBands - 1);
-  double wetSum = 0.0;
+  const double aL = kernel == 1 ? 1.0 : 0.0;
+  const double aB = kernel == 1 ? -r : r;
+  const double aH = kernel == 1 ? 1.0 : 0.0;
+  double wet = kernel == 1 ? driven : 0.0;
   for (int b = 0; b < nBands; b += 1) {
     double fc = f0 * pow2(((double)b - mid) * spread + sweepOct + stereo);
     if (fc < 0.0) fc = 0.0;
@@ -169,19 +188,25 @@ extern "C" double soemdsp_phaser_sample(
     const double c = g + r;
     const double denom = 1.0 + g * c;
     const double s = denom != 0.0 ? 1.0 / denom : 0.0;
-    double y = driven;
-    for (int k = 0; k < cascade; k += 1) {
-      y = process_bp_peak(st.svf[b][k], y, g, c, s, r);
+    if (kernel == 1) {
+      for (int k = 0; k < cascade; k += 1) {
+        wet = process_svf(st.svf[b][k], wet, g, c, s, aL, aB, aH);
+      }
+    } else {
+      double y = driven;
+      for (int k = 0; k < cascade; k += 1) {
+        y = process_svf(st.svf[b][k], y, g, c, s, aL, aB, aH);
+      }
+      wet += y;
     }
-    wetSum += y;
   }
-  st.lastWet = wetSum;
-  const double out = (1.0 - wetMix) * x + wetMix * wetSum;
+  st.lastWet = wet;
+  const double out = (1.0 - wetMix) * x + wetMix * wet;
   return out * amp;
 }
 
 extern "C" int soemdsp_phaser_version() {
-  return 3;
+  return 4;
 }
 
 extern "C" const char* soemdsp_phaser_metadata_json() {

@@ -68,6 +68,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   lowpass: 176,
   highpass: 177,
   phaser: 178,
+  flanger: 179,
   basicShape: 139,
   chordPad: 140,
   smoothGraph: 146,
@@ -410,6 +411,12 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "jitterSpeed") return P.NATIVE_GRAPH_PARAM_LFO_RATE;
     if (k === "jitterFilter") return P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY;
     if (k === "jitterSteps") return P.NATIVE_GRAPH_PARAM_LFO_STYLE;
+  }
+  if (t === "flanger") {
+    if (k === "delay") return P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR;
+    if (k === "depth") return P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE;
+    if (k === "rate") return P.NATIVE_GRAPH_PARAM_LFO_RATE;
+    if (k === "stereoSpread") return P.NATIVE_GRAPH_PARAM_CENTER;
   }
   const id = (P.NATIVE_GRAPH_PARAM_KEY_IDS || {})[k];
   return Number.isFinite(id) ? id : undefined;
@@ -3705,6 +3712,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "phaser") {
       push("slope", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("slope", 0));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
       push("stages", P.NATIVE_GRAPH_PARAM_STAGES, disc("stages", 4));
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1000));
       push("spread", P.NATIVE_GRAPH_PARAM_WIDTH, cont("spread", 0.5));
@@ -3713,6 +3721,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("rate", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("rate", 0.2));
       push("depth", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("depth", 0.5));
       push("feedback", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("feedback", 0.3));
+      push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.5));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "flanger") {
+      push("delay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delay", 0.005));
+      push("depth", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("depth", 0.002));
+      push("rate", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("rate", 0.2));
+      push("stereoSpread", P.NATIVE_GRAPH_PARAM_CENTER, cont("stereoSpread", 0));
+      push("feedback", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("feedback", 0.5));
       push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.5));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;

@@ -1573,6 +1573,7 @@ function setNodeMetadataPopoverBlankState(blank = true, message = "Right-click o
     empty.className = "node-unified-inspector-empty";
     empty.setAttribute("role", "status");
   }
+  empty.classList.remove("has-module-list");
   empty.textContent = message;
   placeNodeGraphUnifiedInspectorEmpty(popover, empty);
   empty.hidden = !blank;
@@ -1580,6 +1581,36 @@ function setNodeMetadataPopoverBlankState(blank = true, message = "Right-click o
     grid.hidden = Boolean(blank);
   }
   popover.dataset.inspectorBlank = blank ? "true" : "false";
+}
+
+function showNodeMetadataNoParametersContent(node) {
+  nodeGraphMvp.metadataEditorTarget = null;
+  nodeGraphMvp.sharedInspectorActive = "metaparameters";
+  const title = document.getElementById("metadataPopoverTitle");
+  const subtitle = document.getElementById("metadataPopoverSubtitle");
+  const scriptTarget = document.getElementById("metadataScriptTarget");
+  const name = node && typeof nodeGraphNodeDisplayName === "function"
+    ? nodeGraphNodeDisplayName(node.id || node)
+    : (node?.alias || node?.type || "");
+  if (title) {
+    title.textContent = name || "PARAMETER";
+  }
+  if (subtitle) {
+    subtitle.textContent = "Settings";
+  }
+  if (scriptTarget) {
+    scriptTarget.textContent = "No parameters";
+  }
+  setMetadataScriptSourceText("");
+  if (typeof updateNodeMetadataScriptPreview === "function") {
+    updateNodeMetadataScriptPreview("");
+  }
+  if (typeof updateNodeMetadataScriptEffective === "function") {
+    updateNodeMetadataScriptEffective("");
+  }
+  setNodeMetadataScriptDirty(false, "no parameters", false, "No parameters for this module");
+  setNodeMetadataPopoverBlankState(true, "No parameters for this module");
+  syncNodeMetadataParameterVisibilityButtons(true);
 }
 
 function fillNodeMetadataPopover(slider) {
@@ -1704,11 +1735,72 @@ function nodeGraphMetaparametersTargetNodeId(options = {}) {
   ).trim();
 }
 
+function presentNodeMetadataPopoverWindow(event = {}) {
+  const displayRect = typeof prepareNodeGraphTraceDisplaySettingsForInspectorReplacement === "function"
+    ? prepareNodeGraphTraceDisplaySettingsForInspectorReplacement()
+    : null;
+  if (displayRect === false) {
+    return false;
+  }
+  const moduleActionsRect = typeof prepareNodeModuleActionsWindowForInspectorReplacement === "function"
+    ? prepareNodeModuleActionsWindowForInspectorReplacement()
+    : null;
+  const savedPosition = nodeGraphMvp.unifiedWindowPosition || nodeGraphMvp.metadataPopoverPosition;
+  const hasSavedPosition =
+    Number.isFinite(Number(savedPosition?.left)) &&
+    Number.isFinite(Number(savedPosition?.top));
+  const popover = document.getElementById("nodeParameterMetadataPopover");
+  if (!nodeGraphMvp._unifiedWindowSwitching && typeof captureNodeGraphUnifiedWindowSeat === "function") {
+    captureNodeGraphUnifiedWindowSeat("metaparameters");
+  }
+  if (nodeGraphMvp._unifiedWindowSwitching) {
+    popover.hidden = false;
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(popover);
+    }
+  } else if (typeof applyNodeGraphUnifiedSeatToElement === "function"
+    && applyNodeGraphUnifiedSeatToElement(popover)) {
+    popover.hidden = false;
+  } else {
+    positionNodeMetadataPopover(
+      popover,
+      hasSavedPosition
+        ? savedPosition.left
+        : nodeMetadataReplacementX(displayRect || moduleActionsRect, popover, event.clientX),
+      hasSavedPosition
+        ? savedPosition.top
+        : (displayRect?.top ?? moduleActionsRect?.top ?? event.clientY),
+    );
+  }
+  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+    rememberNodeGraphWorkspaceWindowState("metaparameters", popover, { open: true }, { status: false });
+  }
+  if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+    noteNodeGraphUnifiedWindowOpened("metaparameters", popover);
+  }
+  scheduleNodeMetadataTooltipTextareaSize();
+  return true;
+}
+
 function openNodeGraphMetaparametersForNode(nodeId, event = {}) {
   const id = String(nodeId || "").trim();
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
-  if (!id || !node || !nodeGraphNodeCanOpenParameterSettings(node)) {
+  if (!id || !node) {
     return false;
+  }
+  if (typeof nodeGraphSelectInspectorModule === "function") {
+    nodeGraphSelectInspectorModule(id);
+  } else if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.sceneContextTargetNode = id;
+    nodeGraphMvp.lastModuleActionTargetNode = id;
+  }
+  if (!nodeGraphNodeCanOpenParameterSettings(node)) {
+    bindNodeGraphMetadataPopoverEvents();
+    if (nodeGraphMvp.metadataEditorTarget && !confirmNodeMetadataScriptDiscard()) {
+      return false;
+    }
+    showNodeMetadataNoParametersContent(node);
+    return presentNodeMetadataPopoverWindow(event && typeof event === "object" ? event : {});
   }
   const element = typeof nodeGraphNodeElement === "function"
     ? nodeGraphNodeElement(id)
@@ -1765,6 +1857,15 @@ function syncOpenNodeMetadataPopoverToModule(nodeId) {
     return false;
   }
   const selectedNode = String(nodeId || "").trim();
+  if (selectedNode) {
+    const selectedPatch = typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(selectedNode)
+      : null;
+    if (selectedPatch && !nodeGraphNodeCanOpenParameterSettings(selectedPatch)) {
+      showNodeMetadataNoParametersContent(selectedPatch);
+      return true;
+    }
+  }
   const targetId = String(nodeGraphMvp.metadataEditorTarget || "").trim();
   if (!targetId) {
     // Already blank — keep blank even when a module is selected.

@@ -148,6 +148,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "graphicEq",
   "cookbookFilter",
   "phaser",
+  "flanger",
   "activeFilter",
   "passiveFilter",
   "tb303Filter",

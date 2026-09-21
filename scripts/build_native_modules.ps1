@@ -357,6 +357,11 @@ $modules = @(
     "soemdsp_phaser_version", "soemdsp_phaser_metadata_json",
     "soemdsp_phaser_metadata_json_size"
   ) }
+  @{ Name = "flanger"; Simd = $false; Exports = @(
+    "soemdsp_flanger_create", "soemdsp_flanger_destroy", "soemdsp_flanger_sample",
+    "soemdsp_flanger_version", "soemdsp_flanger_metadata_json",
+    "soemdsp_flanger_metadata_json_size"
+  ) }
   @{ Name = "cookbook_filter"; Simd = $false; Exports = @(
     "soemdsp_cookbook_filter_create", "soemdsp_cookbook_filter_destroy",
     "soemdsp_cookbook_filter_sample",

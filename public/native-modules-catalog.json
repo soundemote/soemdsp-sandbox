@@ -600,6 +600,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "flanger",
+      "label": "Flanger",
+      "targetType": "flanger",
+      "kind": "effect",
+      "source": "native_modules/flanger/flanger.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/flanger/flanger.cpp",
+      "localSourceUrl": "/native_modules/flanger/flanger.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/flanger/flanger.wasm",
+      "wasmUrl": "native_modules/flanger/flanger.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "flower_child_envelope_follower",
       "label": "Flower Child Envelope Follower",
       "targetType": "flowerChildEnvelopeFollower",

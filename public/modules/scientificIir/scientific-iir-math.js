@@ -11,6 +11,10 @@ const nodeGraphScientificIirKinds = Object.freeze({
   elliptic: 4,
 });
 
+function nodeGraphIsScientificIirType(type) {
+  return Object.prototype.hasOwnProperty.call(nodeGraphScientificIirKinds, type);
+}
+
 const nodeGraphScientificIirModes = Object.freeze(["LP", "HP", "BP", "BR"]);
 
 function createNodeGraphScientificIirState() {
@@ -170,6 +174,19 @@ function nodeGraphScientificIirDesign(kind, mode, order, freqHz, bandwidthOct, r
   }
   const qs = nodeGraphScientificIirSectionQs(kind, order, safeMode, bandwidthOct, rippleDb);
   return qs.map((Q) => nodeGraphScientificIirDesignSection(safeMode, freq, Q, rate));
+}
+
+function nodeGraphScientificIirMagnitudeAt(kind, mode, order, freqHz, bandwidthOct, rippleDb, frequency, sampleRate) {
+  const sections = nodeGraphScientificIirDesign(
+    kind, mode, order, freqHz, bandwidthOct, rippleDb, sampleRate,
+  );
+  let mag = 1;
+  for (let i = 0; i < sections.length; i += 1) {
+    mag *= typeof nodeGraphCookbookFilterMagnitudeAt === "function"
+      ? nodeGraphCookbookFilterMagnitudeAt(sections[i], frequency, sampleRate, 1)
+      : 1;
+  }
+  return Number.isFinite(mag) && mag > 0 ? mag : 1e-6;
 }
 
 function nodeGraphScientificIirEnsure(state, kind, mode, order, freqHz, bandwidthOct, rippleDb, sampleRate) {

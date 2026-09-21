@@ -114,7 +114,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "screenSpaceShader",
   "waveguide",
   "vocoder",
-  "flanger",
   "chorus",
   "electroKick",
   "electroSnare",
@@ -187,6 +186,7 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "cookbookFilter",
   "samplePlayer",
   "phaser",
+  "flanger",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
@@ -211,7 +211,6 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   waveguide: "Full waveguide. Use Comb/Mode resonators for now.",
 
   vocoder: "Filter-bank vocoder. Parked until the analog-filter / bandpass-bank pass.",
-  flanger: "Short-delay flanger. Parked until the space FX pass.",
   chorus: "Multi-voice chorus. Parked until the space FX pass.",
   wallDelay: "Geometric room/wall delay. Parked until ray-room DSP lands.",
   electroKick: "Electro kick voice. Parked until the drum shelf ships.",
@@ -253,7 +252,7 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "scientificFilter", emoji: "💧", label: "Scientific Filter", symbol: "🔬", title: "Scientific Filter", pitch: "Textbook responses. Hz, order, clean controls — Tilt, Butterworth, and other predictable spectral tools." },
   { id: "analogFilter",     emoji: "🔥", label: "Analog Filter",     symbol: "≈",  title: "Analog Filter",     pitch: "Circuit-style filters — Dual Ladder, Ladder, Passive, 303, Flower Child, SuperLove, and other engines with personality." },
   { id: "musical",      emoji: "🎼", label: "Musical",      symbol: "𝄞",  title: "Musical",  pitch: "Pitch, scale, and harmony tools: quantizers, chord pickers, progressions, and other note-theory building blocks." },
-  { id: "space",        emoji: "⛪", label: "Space",        symbol: "FX",  title: "Space",     pitch: "Delay, reverb, distortion, and performance processors for shaping finished sound." },
+  { id: "space",        emoji: "⛪", label: "Space",        symbol: "FX",  title: "Space",     pitch: "Space and multifx: delay, reverb, flanger, phaser, and other processors for shaping finished sound." },
   // Id stays clock (saved settings / catalog). Shelf label is Time.
   { id: "clock",        emoji: "⌚", label: "Clock",        symbol: "♪",   title: "Clock",     pitch: "Clocks, sequencers, dividers, counters, and trigger timing — everything that decides WHEN the rest of the patch fires." },
   { id: "digital",      emoji: "🔬", label: "Digital",      symbol: "{ }", title: "Digital",   pitch: "Patch-local code surfaces, exact value conversion, and digital/visual programming tools inside the sandbox." },
@@ -1755,14 +1754,14 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     ],
   },
   phaseDisperse: {
-    category: "scientificFilter",
+    category: "space",
     description: "Cascade allpass smear—group-delay wash without changing magnitude.",
     label: "Phase Disperse",
-    notes: ["allpass", "group delay", "disperser", "scientific", "phase", "cpu"],
+    notes: ["allpass", "group delay", "disperser", "space", "multifx", "phase", "cpu"],
   },
   phaser: {
     category: "space",
-    description: "Up to 8 parallel ZDF bandpasses (12–48 dB each), LFO sweep, mix, feedback.",
+    description: "Up to 8 ZDF stages: Bandpass (parallel) or Allpass (series, classic notches). Slope 12–48, LFO, mix, feedback.",
     label: "Phaser",
     notes: ["phaser", "bandpass", "ZDF", "SVF", "space", "Robin Schmidt"],
   },
@@ -1774,9 +1773,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   flanger: {
     category: "space",
-    description: "Placeholder classic short-delay flanger FX.",
+    description: "Short interpolating delay comb + LFO. Harmonic notches at n/delay. Mix, feedback, stereo time offset.",
     label: "Flanger",
-    notes: ["under construction", "flanger", "delay", "modulation", "space"],
+    notes: ["flanger", "delay", "comb", "modulation", "space", "multifx"],
   },
   chorus: {
     category: "space",
@@ -2839,6 +2838,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   phaser: {
     source: "native_modules/phaser/phaser.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/phaser/phaser.cpp",
+  },
+  flanger: {
+    source: "native_modules/flanger/flanger.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/flanger/flanger.cpp",
   },
   antisaw: {
     source: "public/modules/antisaw/antisaw-worklet-evaluator.js",

@@ -6536,8 +6536,8 @@ const nodeGraphModuleDefinitions = (
       buttonsHidden: true,
       oscilloscopeHidden: true,
     },
-    inputLabels: { In: "in" },
-    outputLabels: { Out: "out" },
+    inputLabels: { In: "→" },
+    outputLabels: { Out: "←" },
     inputs: ["In"],
     outputs: ["Out"],
     parameters: [],
@@ -6551,8 +6551,8 @@ const nodeGraphModuleDefinitions = (
       buttonsHidden: true,
       oscilloscopeHidden: true,
     },
-    inputLabels: { In: "in" },
-    outputLabels: { Out: "out" },
+    inputLabels: { In: "→" },
+    outputLabels: { Out: "←" },
     inputs: ["In"],
     outputs: ["Out"],
     parameters: [
@@ -6592,8 +6592,8 @@ const nodeGraphModuleDefinitions = (
       buttonsHidden: true,
       oscilloscopeHidden: true,
     },
-    inputLabels: { In: "in" },
-    outputLabels: { Out: "out" },
+    inputLabels: { In: "→" },
+    outputLabels: { Out: "←" },
     inputs: ["In"],
     outputs: ["Out"],
     parameters: [],
@@ -6606,8 +6606,8 @@ const nodeGraphModuleDefinitions = (
       buttonsHidden: true,
       oscilloscopeHidden: true,
     },
-    inputLabels: { In: "in" },
-    outputLabels: { Out: "out" },
+    inputLabels: { In: "→" },
+    outputLabels: { Out: "←" },
     inputs: ["In"],
     outputs: ["Out"],
     parameters: [],
@@ -10669,14 +10669,30 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     layout: "filterCurve",
     displayHeightGu: 2,
+    digitalInputs: ["Reset"],
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
-    inputs: ["In", "Left", "Right"],
+    inputs: ["In", "Left", "Right", "Reset"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
     outputs: ["Out", "Left", "Right"],
     parameters: [
       nodeGraphZdfSlopeParam,
+      {
+        choices: ["Bandpass", "Allpass"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "mode",
+        label: "Kernel",
+        linearSmoothing: false,
+        max: "1",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Bandpass: parallel peaks. Allpass: series stages mixed with dry (classic phaser notches)."
+      },
       {
         constraint: "cpu",
         defaultValue: "4",
@@ -10686,7 +10702,7 @@ const nodeGraphModuleDefinitions = (
         mid: "4",
         min: "1",
         step: "1",
-        tooltip: "Parallel ZDF bandpasses (1–8). Each band uses Slope (12–48 dB)."
+        tooltip: "1–8 stages. Bandpass = parallel. Allpass = series."
       },
       {
         defaultValue: "1000",
@@ -10834,9 +10850,38 @@ const nodeGraphModuleDefinitions = (
   },
   flanger: {
     planRole: "processor",
-    inputs: ["In"],
-    outputs: ["Out"],
+    digitalInputs: ["Reset"],
+    inputAliases: { Mono: "In" },
+    inputLabels: { In: "Mono" },
+    inputs: ["In", "Left", "Right", "Reset"],
+    outputAliases: { Mono: "Out" },
+    outputLabels: { Out: "Mono" },
+    outputs: ["Out", "Left", "Right"],
     parameters: [
+      {
+        defaultValue: "0.005",
+        key: "delay",
+        kind: "time",
+        label: "Delay",
+        max: "0.05",
+        mid: "0.005",
+        min: "0",
+        step: "any",
+        unit: "s",
+        tooltip: "Base delay. Comb notches at n / delay. 0 is through-zero."
+      },
+      {
+        defaultValue: "0.002",
+        key: "depth",
+        kind: "time",
+        label: "Depth",
+        max: "0.02",
+        mid: "0.002",
+        min: "0",
+        step: "any",
+        unit: "s",
+        tooltip: "LFO amount added to Delay (seconds)."
+      },
       {
         defaultValue: "0.2",
         key: "rate",
@@ -10846,39 +10891,29 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction. Planned: LFO rate for delay modulation."
+        tooltip: "LFO rate. Sweeps delay time."
       },
       {
-        defaultValue: "0.5",
-        key: "depth",
-        label: "Depth",
-        max: "1",
-        mid: "0.5",
+        defaultValue: "0",
+        key: "stereoSpread",
+        kind: "time",
+        label: "Stereo Spread",
+        max: "0.01",
+        mid: "0",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: delay-time modulation amount."
-      },
-      {
-        defaultValue: "0.005",
-        key: "delay",
-        kind: "time",
-        label: "Delay",
-        max: "0.02",
-        mid: "0.005",
-        min: "0.0001",
-        step: "any",
         unit: "s",
-        tooltip: "Under construction. Planned: base delay (short comb region)."
+        tooltip: "Left/right delay offset. Unused if only Mono out is wired."
       },
       {
         defaultValue: "0.5",
         key: "feedback",
         label: "Feedback",
-        max: "0.95",
+        max: "4",
         mid: "0.5",
-        min: "0",
+        min: "-2",
         step: "any",
-        tooltip: "Under construction. Planned: regenerative feedback."
+        tooltip: "Around the delay. Negative inverts. Output mutes above 1."
       },
       {
         defaultValue: "0.5",
@@ -10888,8 +10923,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: dry/wet."
+        tooltip: "Dry/wet."
       },
+      nodeGraphOutputAmplitudeParam,
     ]
   },
   chorus: {
