@@ -4,7 +4,7 @@
 // soemdsp-native-kind: dynamics
 //
 // ISO 1/3-octave graphic EQ: cascade of peaking biquads (RBJ Cookbook).
-// Band gains are unit −1…+1; Range (±6/±12/±18 dB) scales them.
+// Band gains are absolute decibels (±12 dB UI default; hard clamp ±24).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -14,8 +14,10 @@ using namespace soemdsp_maths;
 
 static const int kMaxInstances = 128;
 static const int kBandCount = 30;
-static const double kQ = 1.4142135623730951; // ≈ √2 — 1/3-octave
+// 1 / (2 * sinh(ln(2)/2 * 1/3)) — one-third octave. Wider Q stacks neighbors.
+static const double kDefaultQ = 4.32;
 static const double kSmoothTauSec = 0.015;
+static const double kBandDbClamp = 24.0;
 
 static const double kCentersHz[kBandCount] = {
   25.0, 31.5, 40.0, 50.0, 63.0, 80.0, 100.0, 125.0, 160.0, 200.0,
@@ -26,8 +28,8 @@ static const double kCentersHz[kBandCount] = {
 struct PeakBand {
   double b0, b1, b2, a1, a2;
   double z1, z2;
-  double gainTarget; // unit −1…+1
-  double gainSmooth;
+  double gainTarget; // dB
+  double gainSmooth; // dB
   double lastDb;
   int active; // 0 = bypassed (near 0 dB or above Nyquist)
 };
@@ -36,9 +38,9 @@ struct State {
   bool active;
   PeakBand bands[kBandCount];
   double sampleRate;
-  double rangeDb;
   double mix;
   double amplitude;
+  double q;
   double smoothCoeff;
 };
 
@@ -50,14 +52,15 @@ static const char kMetadataJson[] =
     "\"label\":\"Graphic EQ\","
     "\"targetType\":\"graphicEq\","
     "\"kind\":\"dynamics\","
-    "\"bands\":30"
+    "\"bands\":30,"
+    "\"bandUnit\":\"dB\""
   "}";
 
-static double range_from_choice(double choice) {
-  int i = (int)(safe(choice) + (safe(choice) >= 0.0 ? 0.5 : -0.5));
-  if (i <= 0) return 6.0;
-  if (i == 1) return 12.0;
-  return 18.0;
+static double clamp_band_db(double g) {
+  g = safe(g);
+  if (g < -kBandDbClamp) g = -kBandDbClamp;
+  if (g > kBandDbClamp) g = kBandDbClamp;
+  return g;
 }
 
 static void set_bypass_coeffs(PeakBand* b) {
@@ -69,7 +72,7 @@ static void set_bypass_coeffs(PeakBand* b) {
   b->active = 0;
 }
 
-static void design_peak(PeakBand* b, double freqHz, double gainDb, double sr) {
+static void design_peak(PeakBand* b, double freqHz, double gainDb, double q, double sr) {
   const double ny = sr * 0.49;
   if (!(freqHz > 1.0) || freqHz >= ny || dsp_fabs(gainDb) < 1.0e-4) {
     set_bypass_coeffs(b);
@@ -82,7 +85,7 @@ static void design_peak(PeakBand* b, double freqHz, double gainDb, double sr) {
   if (w0 > kPi * 0.999) w0 = kPi * 0.999;
   double sn = 0.0, cs = 0.0;
   dsp_sin_cos(w0, &sn, &cs);
-  const double alpha = sn / (2.0 * kQ);
+  const double alpha = sn / (2.0 * q);
   const double b0 = 1.0 + alpha * A;
   const double b1 = -2.0 * cs;
   const double b2 = 1.0 - alpha * A;
@@ -101,11 +104,11 @@ static void design_peak(PeakBand* b, double freqHz, double gainDb, double sr) {
 
 static void refresh_band(State* st, int i) {
   PeakBand* b = &st->bands[i];
-  const double db = b->gainSmooth * st->rangeDb;
+  const double db = b->gainSmooth;
   if (dsp_fabs(db - b->lastDb) < 1.0e-4 && b->active == (dsp_fabs(db) >= 1.0e-4 ? 1 : 0)) {
     return;
   }
-  design_peak(b, kCentersHz[i], db, st->sampleRate);
+  design_peak(b, kCentersHz[i], db, st->q > 0.05 ? st->q : kDefaultQ, st->sampleRate);
 }
 
 static void refresh_all(State* st) {
@@ -123,9 +126,9 @@ static double process_band(PeakBand* b, double x) {
 
 static void reset_state(State& s) {
   s.sampleRate = 44100.0;
-  s.rangeDb = 12.0;
   s.mix = 1.0;
   s.amplitude = 1.0;
+  s.q = kDefaultQ;
   s.smoothCoeff = one_pole_coeff(kSmoothTauSec, s.sampleRate);
   for (int i = 0; i < kBandCount; i += 1) {
     PeakBand& b = s.bands[i];
@@ -160,14 +163,12 @@ extern "C" void soemdsp_graphic_eq_reset(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   State& s = gPool[handle - 1];
   const double sr = s.sampleRate;
-  const double range = s.rangeDb;
   const double mix = s.mix;
   const double amp = s.amplitude;
   double targets[kBandCount];
   for (int i = 0; i < kBandCount; i += 1) targets[i] = s.bands[i].gainTarget;
   reset_state(s);
   s.sampleRate = sr > 1.0 ? sr : 44100.0;
-  s.rangeDb = range;
   s.mix = mix;
   s.amplitude = amp;
   s.smoothCoeff = one_pole_coeff(kSmoothTauSec, s.sampleRate);
@@ -178,26 +179,21 @@ extern "C" void soemdsp_graphic_eq_reset(int handle) {
   refresh_all(&s);
 }
 
-extern "C" void soemdsp_graphic_eq_set_band(int handle, int index, double unitGain) {
+/** Band gain in decibels (clamped). Legacy name kept for ABI. */
+extern "C" void soemdsp_graphic_eq_set_band(int handle, int index, double gainDb) {
   if (handle < 1 || handle > kMaxInstances) return;
   if (index < 0 || index >= kBandCount) return;
-  double g = safe(unitGain);
-  if (g < -1.0) g = -1.0;
-  if (g > 1.0) g = 1.0;
-  gPool[handle - 1].bands[index].gainTarget = g;
+  gPool[handle - 1].bands[index].gainTarget = clamp_band_db(gainDb);
 }
 
-extern "C" void soemdsp_graphic_eq_set_bands(int handle, const double* units, int count) {
+extern "C" void soemdsp_graphic_eq_set_bands(int handle, const double* gainsDb, int count) {
   if (handle < 1 || handle > kMaxInstances) return;
-  if (!units) return;
+  if (!gainsDb) return;
   const int n = count < kBandCount ? count : kBandCount;
   if (n < 0) return;
   State& s = gPool[handle - 1];
   for (int i = 0; i < n; i += 1) {
-    double g = safe(units[i]);
-    if (g < -1.0) g = -1.0;
-    if (g > 1.0) g = 1.0;
-    s.bands[i].gainTarget = g;
+    s.bands[i].gainTarget = clamp_band_db(gainsDb[i]);
   }
 }
 
@@ -210,10 +206,11 @@ extern "C" double soemdsp_graphic_eq_band_hz(int index) {
   return kCentersHz[index];
 }
 
+/** Third argument is band Q (1/3-octave default 4.32). Old name was rangeChoice. */
 extern "C" double soemdsp_graphic_eq_sample(
   int handle,
   double in,
-  double rangeChoice,
+  double qIn,
   double mix,
   double amplitude,
   double sampleRate
@@ -223,29 +220,31 @@ extern "C" double soemdsp_graphic_eq_sample(
 
   double sr = safe(sampleRate);
   if (!(sr > 1.0)) sr = 44100.0;
-  const double rangeDb = range_from_choice(rangeChoice);
   double wet = safe(mix);
   if (wet < 0.0) wet = 0.0;
   if (wet > 1.0) wet = 1.0;
   double amp = safe(amplitude);
   if (!(amp * 0.0 == 0.0)) amp = 1.0;
 
+  double q = safe(qIn);
+  if (!(q > 0.05)) q = kDefaultQ;
+  if (q > 24.0) q = 24.0;
   const bool srChanged = dsp_fabs(sr - s.sampleRate) > 1.0e-6;
-  const bool rangeChanged = dsp_fabs(rangeDb - s.rangeDb) > 1.0e-9;
+  const bool qChanged = dsp_fabs(q - s.q) > 1.0e-3;
   if (srChanged) {
     s.sampleRate = sr;
     s.smoothCoeff = one_pole_coeff(kSmoothTauSec, sr);
   }
-  s.rangeDb = rangeDb;
   s.mix = wet;
   s.amplitude = amp;
+  s.q = q;
 
   const double coeff = s.smoothCoeff;
   for (int i = 0; i < kBandCount; i += 1) {
     PeakBand& b = s.bands[i];
     b.gainSmooth += coeff * (b.gainTarget - b.gainSmooth);
-    if (rangeChanged || srChanged || dsp_fabs(b.gainSmooth * rangeDb - b.lastDb) > 0.02) {
-      design_peak(&b, kCentersHz[i], b.gainSmooth * rangeDb, sr);
+    if (srChanged || qChanged || dsp_fabs(b.gainSmooth - b.lastDb) > 0.02) {
+      design_peak(&b, kCentersHz[i], b.gainSmooth, q, sr);
     }
   }
 
@@ -259,7 +258,7 @@ extern "C" double soemdsp_graphic_eq_sample(
 }
 
 extern "C" int soemdsp_graphic_eq_version() {
-  return 1;
+  return 2;
 }
 
 extern "C" const char* soemdsp_graphic_eq_metadata_json() {

@@ -710,7 +710,7 @@ extern "C" int soemdsp_graphic_eq_create();
 extern "C" void soemdsp_graphic_eq_destroy(int handle);
 extern "C" void soemdsp_graphic_eq_set_band(int handle, int index, double unitGain);
 extern "C" double soemdsp_graphic_eq_sample(
-  int handle, double in, double rangeChoice, double mix, double amplitude,
+  int handle, double in, double q, double mix, double amplitude,
   double sampleRate
 );
 
@@ -1763,7 +1763,7 @@ static const int kPortOut4 = 3;
 static const int kParamVolumeDb = 0;
 static const int kParamPan = 1;
 static const int kParamFrequency = 10;   // polyBlep Hz / ladder cutoff
-static const int kParamGraphicEqBand0 = 300; // graphicEq unit gains 300..329 (not Control slots)
+static const int kParamGraphicEqBand0 = 300; // graphicEq band dB 300..329 (not Control slots)
 static const int kParamWaveform = 11;    // polyBlep
 static const int kParamAmplitude = 12;   // polyBlep level
 static const int kParamShape = 13;       // polyBlep morph
@@ -2854,6 +2854,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeChebyshev || typeId == kTypeElliptic) ? 1.0 // ripple dB
       : (typeId == kTypeEqFilter || typeId == kTypeAllpass
           || typeId == kTypeLowpass || typeId == kTypeHighpass) ? 0.707 // Q
+      : (typeId == kTypeGraphicEq) ? 4.32 // 1/3-octave graphic band
       : (typeId == kTypeCookbookFilter || typeId == kTypeBandpass || typeId == kTypePhaser) ? 1.0 // Q
       : (typeId == kTypePhaseDisperse) ? 0.5 // pinch 0..1
       : (typeId == kTypeTb303Filter) ? 0.0 // %
@@ -2889,7 +2890,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePluckEnvelope3) ? 1.0 // recalculateOnTrigger On
       : (typeId == kTypePhaser) ? 0.0 // Bandpass kernel
       : (typeId == kTypeEqFilter) ? 1.0 // HP12
-      : (typeId == kTypeGraphicEq) ? 1.0 // ±12 dB
+      : (typeId == kTypeGraphicEq) ? 0.0 // unused (bands are absolute dB)
       : (typeId == kTypeBandpass) ? 4.0 // forced BP12 Peak
       : (typeId == kTypeAllpass) ? 6.0 // forced AP12
       : (typeId == kTypeTb303Filter) ? 4.0 // LP_24
@@ -7322,8 +7323,8 @@ static void process_flanger(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Graphic EQ: 30 peaking bands. mode=rangeChoice 0/1/2 (±6/±12/±18 dB).
-// Band gains live on native instances (param 300..329), not Control slots.
+// Graphic EQ: 30 peaking bands in absolute dB (param 300..329).
+// Legacy rangeChoice ABI arg is unused (pass 0).
 static void process_graphic_eq(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -7333,14 +7334,14 @@ static void process_graphic_eq(Circuit& g, Node& node, int frames) {
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
-    const double rangeChoice = control_effective(node.mode);
+    const double q = control_audio(g, node.resonance, f);
     const double mix = control_audio(g, node.mix, f);
     const double amp = control_audio(g, node.amplitude, f);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
       const double out = soemdsp_graphic_eq_sample(
-        node.nativeHandle, in, rangeChoice, mix, amp, sr
+        node.nativeHandle, in, q, mix, amp, sr
       );
       node.buf[kPortMono][f] = out;
       if (!hasLeftIn) node.buf[kPortLeft][f] = out;
@@ -7348,12 +7349,12 @@ static void process_graphic_eq(Circuit& g, Node& node, int frames) {
     }
     if (hasLeftIn && node.nativeHandleL > 0) {
       node.buf[kPortLeft][f] = soemdsp_graphic_eq_sample(
-        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], rangeChoice, mix, amp, sr
+        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], q, mix, amp, sr
       );
     }
     if (hasRightIn && node.nativeHandleR > 0) {
       node.buf[kPortRight][f] = soemdsp_graphic_eq_sample(
-        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], rangeChoice, mix, amp, sr
+        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], q, mix, amp, sr
       );
     }
   }
@@ -8908,15 +8909,17 @@ static void process_pitch_quantizer(Circuit& g, Node& node, int frames) {
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
     const double pitch = hasPitch ? g.mixPitch[f] : 0.0;
-    int mask;
+    // Keyboard mask lives in seed (scaleMask). Scale in overrides while patched.
+    // Unplug Scale → seed again. Jack 0 (silent cable) does not replace seed.
+    const int keyboardMask = (int)(control_effective(node.seed) + 0.5) & 0xFFF;
+    int mask = keyboardMask;
     if (hasScale) {
-      mask = (int)(g.mixMono[f] + (g.mixMono[f] >= 0.0 ? 0.5 : -0.5)) & 0xFFF;
-    } else {
-      mask = (int)(control_effective(node.seed) + 0.5) & 0xFFF;
+      const int jackMask = (int)(g.mixMono[f] + (g.mixMono[f] >= 0.0 ? 0.5 : -0.5)) & 0xFFF;
+      if (jackMask != 0) mask = jackMask;
     }
     const double out = soemdsp_pitch_quantizer_sample(node.nativeHandle, pitch, mask);
     node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
+    node.buf[kPortLeft][f] = (double)mask;
     node.buf[kPortRight][f] = out;
   }
 }

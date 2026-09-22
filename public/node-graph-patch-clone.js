@@ -33,8 +33,8 @@ function normalizeNodeGraphPatchPortMeta(portMeta = {}) {
 }
 
 function nodeGraphModuleButtonsVisibleByDefault(type = "") {
-  // Input + Output are the only modules that spawn with buttons shown.
-  // Everyone else defaults buttons off (hidden).
+  // Input + Output spawn with buttons shown (not hidden). That is only a
+  // default — never force-show; every module must allow hiding buttons.
   const t = String(type || "");
   return t === "audioInput" || t === "output";
 }
@@ -50,8 +50,9 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
     ? Boolean(source.titleHidden)
     : false;
   const absoluteFace = Number(source.displayHeightGu);
-  // Default: buttons hidden, except Input/Output (shown, incl. force-show so
-  // they stay visible when the global Buttons visibility switch is off).
+  // Default: buttons hidden for most modules; Input/Output show buttons.
+  // buttonsForceShow is NEVER implied by type — only an explicit local override
+  // (e.g. show buttons while the global Buttons visibility switch is off).
   const buttonsVisibleByDefault = nodeGraphModuleButtonsVisibleByDefault(type);
   const buttonsHidden = Object.prototype.hasOwnProperty.call(source, "buttonsHidden")
     ? Boolean(source.buttonsHidden)
@@ -61,7 +62,7 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
     || Object.prototype.hasOwnProperty.call(source, "buttonsShown")
   )
     ? Boolean(source.buttonsForceShow || source.buttonsShown)
-    : buttonsVisibleByDefault;
+    : false;
   const normalized = {
     buttonsHidden,
     // Force-show override when Visibility has the section globally hidden.

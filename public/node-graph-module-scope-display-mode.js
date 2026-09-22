@@ -249,6 +249,8 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "keyboardControllerFace",
     // Knob module: macro dial colors, image layers, centered span, readout.
     "knobFace",
+    // Slider module: bar geometry, pins, Pill/Squircle rounding.
+    "pluginSliderFace",
     // Keypad look: fonts, weight, button size, Sound Color Widgets.
     "keypadFace",
     // Arp Keys: stroke/font hue + Music Player corners / padding.

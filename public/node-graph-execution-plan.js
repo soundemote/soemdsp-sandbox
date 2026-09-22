@@ -461,18 +461,10 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
     ) {
       markReachable(node.id);
     }
-    // On-module faces (fBm X/Y phosphor, attractors, …): keep reachable so
-    // scope capture publishes even before the module is wired to Output.
-    // Native graph already processes every allowlisted node; this only gates
-    // plan order + face rings.
-    if (
-      !bypassedNodes.has(node.id)
-      && typeof nodeGraphModuleDisplayRendererForNode === "function"
-      && nodeGraphModuleDisplayRendererForNode(node) !== "layoutOwned"
-      && nodeGraphPatchNodeDisplayVisibleInPlan(node, { bypassedNodes })
-    ) {
-      markReachable(node.id);
-    }
+    // Do not pull a module into the DSP plan just because its face is open.
+    // Show/hide display must not add or remove audio nodes (that rebuilt the
+    // native graph and restarted sources such as Music Player). Scope capture
+    // still follows face visibility below.
     // Meters/analyzers: stay live when any declared signal input is wired,
     // even with nothing routed to Output. Do not hardcode "In" — RMS Stereo
     // / Noise Detector / LUFS use Left/Right/Mono.

@@ -482,6 +482,7 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
     maxDigits: normalizeNodeGraphMetadataMaxDigits(parameter.maxDigits, kind),
     mid: safeMid,
     min: safeMin,
+    reverse: Boolean(parameter.reverse),
     nonlinearSlider: Object.hasOwn(parameter, "nonlinearSlider")
       ? Boolean(parameter.nonlinearSlider)
       : midInsideRange && Math.abs(safeMid - (safeMin + safeMax) / 2) > Number.EPSILON,
@@ -687,8 +688,14 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
   if (!Number.isFinite(max)) {
     max = fallback.max;
   }
+  // Backwards typed range means "knob left is the first number". Store min<=max
+  // and turn Reverse on so the mapping math can keep assuming a positive span.
+  let reverse = Object.hasOwn(source, "reverse")
+    ? Boolean(source.reverse)
+    : Boolean(fallback.reverse);
   if (min > max) {
     [min, max] = [max, min];
+    reverse = true;
   }
   if (max <= min) {
     max = min + 1;
@@ -830,6 +837,7 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
     ),
     mid: clampNodeSliderValue(Number.isFinite(mid) ? mid : fallback.mid, min, max),
     min,
+    reverse,
     nonlinearSlider: Object.hasOwn(source, "nonlinearSlider")
       ? Boolean(source.nonlinearSlider)
       : fallback.nonlinearSlider,

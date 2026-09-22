@@ -568,6 +568,20 @@ function nodeGraphFilterCurveView(node) {
       gain: ignoreBoost ? 0 : nodeGraphFilterCurveLiveParam(node, "gain", 0),
     };
   }
+  if (node.type === "graphicEq") {
+    const bands = new Array(30);
+    for (let i = 0; i < 30; i += 1) {
+      bands[i] = nodeGraphFilterCurveLiveParam(node, `band${i}`, 0);
+    }
+    return {
+      type: node.type,
+      bands,
+      q: nodeGraphFilterCurveLiveParam(node, "q", 4.32),
+      mix: nodeGraphFilterCurveLiveParam(node, "mix", 1),
+      // Decade markers for log-frequency orientation (not all 30 ISO centers).
+      frequencies: [100, 1000, 10000],
+    };
+  }
   if (node.type === "bandpass" || node.type === "allpass"
       || node.type === "lowpass" || node.type === "highpass") {
     const slope = Math.round(nodeGraphFilterCurveLiveParam(node, "slope", 0));
@@ -601,6 +615,36 @@ function nodeGraphFilterCurveView(node) {
 function nodeGraphFilterCurveFiniteHz(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/** ISO 1/3-octave centers — must match native graphic_eq.cpp. */
+const nodeGraphGraphicEqCentersHz = Object.freeze([
+  25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200,
+  250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000,
+  2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000,
+]);
+
+/** Cascade of peaking bands. Mix blends toward flat. */
+function nodeGraphGraphicEqMagnitudeAt(view, probeHz, sampleRate) {
+  const bands = Array.isArray(view?.bands) ? view.bands : null;
+  if (!bands || bands.length < 1) {
+    return 1;
+  }
+  const q = Math.max(0.05, nodeGraphFiniteNumber(view?.q, 4.32));
+  let mag = 1;
+  if (typeof nodeGraphEqFilterMagnitudeAt === "function") {
+    for (let i = 0; i < bands.length && i < nodeGraphGraphicEqCentersHz.length; i += 1) {
+      const gainDb = nodeGraphFiniteNumber(bands[i]);
+      if (!(Math.abs(gainDb) > 1e-4)) continue;
+      const f0 = nodeGraphGraphicEqCentersHz[i];
+      const bandMag = nodeGraphEqFilterMagnitudeAt(7, f0, q, gainDb, probeHz, sampleRate);
+      if (Number.isFinite(bandMag) && bandMag > 0) mag *= bandMag;
+    }
+  }
+  const mix = Math.max(0, Math.min(1, nodeGraphFiniteNumber(view?.mix, 1)));
+  // Dry/wet on magnitude: flat → EQ.
+  mag = (1 - mix) * 1 + mix * mag;
+  return Number.isFinite(mag) && mag > 0 ? mag : 1e-6;
 }
 
 function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null) {
@@ -693,6 +737,9 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
       sampleRate,
     );
   }
+  if (node.type === "graphicEq") {
+    return nodeGraphGraphicEqMagnitudeAt(v, frequency, sampleRate);
+  }
   if (node.type === "eqFilter" || node.type === "bandpass" || node.type === "allpass"
       || node.type === "lowpass" || node.type === "highpass") {
     if (typeof nodeGraphEqFilterMagnitudeAt === "function") {
@@ -727,7 +774,7 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
 
 function nodeGraphFilterCurveCutoffFrequencies(node, view = null) {
   const v = view || nodeGraphFilterCurveView(node) || {};
-  if (nodeGraphIsCrossoverType(node.type) || Array.isArray(v.frequencies)) {
+  if (node.type === "graphicEq" || nodeGraphIsCrossoverType(node.type) || Array.isArray(v.frequencies)) {
     return (Array.isArray(v.frequencies) ? v.frequencies : [])
       .map((value) => nodeGraphFilterCurveFiniteHz(value, 0))
       .filter((value) => Number.isFinite(value) && value >= 0);
@@ -821,6 +868,9 @@ function nodeGraphFilterCurveLabel(node) {
   if (node.type === "eqFilter") {
     const modes = typeof nodeGraphEqFilterModes !== "undefined" ? nodeGraphEqFilterModes : null;
     return modes?.[Math.round(nodeGraphFiniteNumber(node.params?.mode, 1))] || "EQ";
+  }
+  if (node.type === "graphicEq") {
+    return "Graphic EQ";
   }
   if (node.type === "bandpass" || node.type === "allpass"
       || node.type === "lowpass" || node.type === "highpass") {

@@ -21,9 +21,7 @@ function nodeGraphKnobFaceNormalizeLabelText(value) {
 }
 
 function nodeGraphKnobDisplayNameForNode(node) {
-  const settings = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
-    ? nodeGraphKnobFaceDisplaySettingsForNode(node)
-    : node?.traceDisplaySettings;
+  const settings = nodeGraphControllerFaceSettingsForNode(node);
   return nodeGraphKnobFaceNormalizeLabelText(settings?.labelText);
 }
 
@@ -46,6 +44,15 @@ function nodeGraphKnobPortalNameForNode(node) {
 }
 
 function nodeGraphKnobFaceLabelTextForNode(node) {
+  if (node?.type === "pluginSlider" && typeof nodeGraphSliderFaceDisplaySettingsForNode === "function") {
+    const sliderText = nodeGraphKnobFaceNormalizeLabelText(
+      nodeGraphSliderFaceDisplaySettingsForNode(node)?.labelText,
+    );
+    if (sliderText) {
+      return sliderText;
+    }
+    return nodeGraphKnobTitleForNode(node) || String(nodeGraphNodeLabels?.pluginSlider || "Slider");
+  }
   const text = nodeGraphKnobDisplayNameForNode(node);
   if (text) {
     return text;
@@ -114,6 +121,24 @@ function nodeGraphKnobFaceApplyLabelTextToDom(nodeId, text) {
   }
 }
 
+function nodeGraphControllerFaceSettingsForNode(node) {
+  if (node?.type === "pluginSlider" && typeof nodeGraphSliderFaceDisplaySettingsForNode === "function") {
+    return nodeGraphSliderFaceDisplaySettingsForNode(node);
+  }
+  return typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
+    ? nodeGraphKnobFaceDisplaySettingsForNode(node)
+    : {};
+}
+
+function nodeGraphControllerFaceNormalizeSettings(node, settings) {
+  if (node?.type === "pluginSlider" && typeof normalizeNodeGraphSliderFaceDisplaySettings === "function") {
+    return normalizeNodeGraphSliderFaceDisplaySettings(settings);
+  }
+  return typeof normalizeNodeGraphKnobFaceDisplaySettings === "function"
+    ? normalizeNodeGraphKnobFaceDisplaySettings(settings)
+    : settings;
+}
+
 function nodeGraphKnobFaceWriteLabelText(nodeId, rawText, { record = true } = {}) {
   const id = String(nodeId || "").trim();
   if (!id) {
@@ -125,12 +150,8 @@ function nodeGraphKnobFaceWriteLabelText(nodeId, rawText, { record = true } = {}
     if (!live) {
       return;
     }
-    const current = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
-      ? nodeGraphKnobFaceDisplaySettingsForNode(live)
-      : {};
-    live.traceDisplaySettings = typeof normalizeNodeGraphKnobFaceDisplaySettings === "function"
-      ? normalizeNodeGraphKnobFaceDisplaySettings({ ...current, labelText: stored })
-      : { ...(live.traceDisplaySettings || {}), labelText: stored };
+    const current = nodeGraphControllerFaceSettingsForNode(live);
+    live.traceDisplaySettings = nodeGraphControllerFaceNormalizeSettings(live, { ...current, labelText: stored });
     if (nodeGraphMvp) {
       nodeGraphMvp.patchDirtyState = "edited";
     }
@@ -145,18 +166,14 @@ function nodeGraphKnobFaceWriteLabelText(nodeId, rawText, { record = true } = {}
   if (!target) {
     return;
   }
-  const current = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
-    ? nodeGraphKnobFaceDisplaySettingsForNode(target)
-    : {};
-  const next = typeof normalizeNodeGraphKnobFaceDisplaySettings === "function"
-    ? normalizeNodeGraphKnobFaceDisplaySettings({ ...current, labelText: stored })
-    : { ...(target.traceDisplaySettings || {}), labelText: stored };
+  const current = nodeGraphControllerFaceSettingsForNode(target);
+  const next = nodeGraphControllerFaceNormalizeSettings(target, { ...current, labelText: stored });
   if (nodeGraphKnobFaceNormalizeLabelText(current.labelText) === next.labelText) {
     nodeGraphKnobFaceApplyLabelTextToDom(id, next.labelText);
     return;
   }
   target.traceDisplaySettings = next;
-  commitNodeGraphPatch(patch, { status: "knob text changed" });
+  commitNodeGraphPatch(patch, { status: target.type === "pluginSlider" ? "slider text changed" : "knob text changed" });
 }
 
 function beginNodeGraphKnobFaceLabelEdit(label, nodeId) {
@@ -791,6 +808,10 @@ function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
  * When any image layer is loaded, hide macro chrome and show layers only.
  */
 function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
+  if (face?.classList?.contains("is-slider-look") && typeof paintNodeGraphSliderFaceLive === "function") {
+    paintNodeGraphSliderFaceLive(face, nodeId, buffer);
+    return;
+  }
   if (face?.dataset?.knobFaceEditing === "true") {
     return;
   }
@@ -1331,6 +1352,13 @@ function renderNodeGraphKnobFace(faceOrNodeId, nodeIdOpt) {
 
 function refreshNodeGraphKnobFaces() {
   for (const face of document.querySelectorAll(".node-knob-face")) {
+    if (face.classList.contains("is-slider-look")) {
+      const id = face.dataset?.node;
+      if (id && typeof paintNodeGraphSliderFaceLive === "function") {
+        paintNodeGraphSliderFaceLive(face, id, null);
+      }
+      continue;
+    }
     renderNodeGraphKnobFace(face);
   }
 }
@@ -1341,7 +1369,8 @@ function syncNodeGraphKnobFaceFromSlider(slider) {
     return;
   }
   const module = slider.closest?.(".dsp-node");
-  if (!module || module.dataset.nodeType !== "knob") {
+  const type = module?.dataset?.nodeType;
+  if (!module || (type !== "knob" && type !== "pluginSlider")) {
     return;
   }
   const face = module.querySelector(".node-knob-face");
@@ -1349,7 +1378,12 @@ function syncNodeGraphKnobFaceFromSlider(slider) {
     return;
   }
   const nodeId = module.dataset.node;
-  // Prefer full live paint (includes In + mod) when available.
+  if (type === "pluginSlider" || face.classList.contains("is-slider-look")) {
+    if (typeof paintNodeGraphSliderFaceLive === "function" && nodeId) {
+      paintNodeGraphSliderFaceLive(face, nodeId, null);
+    }
+    return;
+  }
   if (typeof paintNodeGraphKnobFaceLive === "function" && nodeId) {
     paintNodeGraphKnobFaceLive(face, nodeId, null);
     return;
@@ -1835,7 +1869,7 @@ function openNodeKnobFaceContextMenu(event) {
   const patchNode = nodeId && typeof nodeGraphPatchNode === "function"
     ? nodeGraphPatchNode(nodeId)
     : null;
-  if (!patchNode || patchNode.type !== "knob") {
+  if (!patchNode || (patchNode.type !== "knob" && patchNode.type !== "pluginSlider")) {
     return false;
   }
   event.preventDefault();

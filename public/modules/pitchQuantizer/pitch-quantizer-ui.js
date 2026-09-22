@@ -23,6 +23,12 @@ function createNodeGraphPitchQuantizerFace(node) {
   allBtn.textContent = "All";
   allBtn.setAttribute("aria-label", "Enable all pitch classes (chromatic)");
   allBtn.addEventListener("click", (event) => {
+    if (typeof nodeGraphPitchQuantizerScaleJackConnected === "function"
+      && nodeGraphPitchQuantizerScaleJackConnected(node)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     setNodeGraphPitchQuantizerMask(node, 0xFFF, event, "chromatic");
   });
   const noneBtn = document.createElement("button");
@@ -31,12 +37,15 @@ function createNodeGraphPitchQuantizerFace(node) {
   noneBtn.textContent = "None";
   noneBtn.setAttribute("aria-label", "Clear all pitch classes");
   noneBtn.addEventListener("click", (event) => {
+    if (typeof nodeGraphPitchQuantizerScaleJackConnected === "function"
+      && nodeGraphPitchQuantizerScaleJackConnected(node)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     setNodeGraphPitchQuantizerMask(node, 0, event, "empty");
   });
-  const hint = document.createElement("span");
-  hint.className = "node-pitch-quantizer-hint";
-  hint.textContent = "keys → all octaves";
-  toolbar.append(allBtn, noneBtn, hint);
+  toolbar.append(allBtn, noneBtn);
 
   const surface = document.createElement("div");
   surface.className = "node-pitch-quantizer-keyboard";
@@ -89,6 +98,11 @@ function createNodeGraphPitchQuantizerFace(node) {
     }
   });
 
+  if (typeof syncNodeGraphPitchQuantizerFace === "function") {
+    // Defer so the face is in the module DOM for the querySelector.
+    queueMicrotask(() => syncNodeGraphPitchQuantizerFace(node));
+  }
+
   return face;
 }
 
@@ -111,7 +125,6 @@ function createNodeGraphPitchQuantizerKeyButton(nodeId, pitchClass, label, mask,
   btn.classList.toggle("active", on);
   btn.textContent = label;
   btn.addEventListener("click", (event) => {
-    // Scale jack owns the mask when patched — face is display-only then.
     if (typeof nodeGraphPitchQuantizerScaleJackConnected === "function"
       && nodeGraphPitchQuantizerScaleJackConnected(nodeId)) {
       event.preventDefault();
@@ -139,9 +152,6 @@ function setNodeGraphPitchQuantizerMask(nodeId, mask, event, statusLabel = "scal
   const nextMask = typeof nodeGraphPitchQuantizerNormalizeMask === "function"
     ? nodeGraphPitchQuantizerNormalizeMask(mask)
     : (Math.round(Number(mask)) || 0) & 0xFFF;
-  const scaleChoice = typeof nodeGraphPitchQuantizerChoiceForMask === "function"
-    ? nodeGraphPitchQuantizerChoiceForMask(nextMask)
-    : 6;
   patchNode.params = {
     ...(patchNode.params || {}),
     scaleMask: normalizeNodeGraphPatchParameter(
@@ -150,14 +160,15 @@ function setNodeGraphPitchQuantizerMask(nodeId, mask, event, statusLabel = "scal
       nextMask,
       patchNode.paramMeta?.scaleMask,
     ),
-    scale: normalizeNodeGraphPatchParameter(
-      patchNode.type,
-      "scale",
-      scaleChoice,
-      patchNode.paramMeta?.scale,
-    ),
   };
-  commitNodeGraphPatch(patch, { status: `pitch quantizer ${statusLabel}` });
+  commitNodeGraphPatch(patch, {
+    status: `pitch quantizer ${statusLabel}`,
+    faceEdit: true,
+    liveParamsOnly: true,
+  });
+  if (typeof syncNodeGraphPitchQuantizerFace === "function") {
+    syncNodeGraphPitchQuantizerFace(nodeId);
+  }
   event?.preventDefault?.();
   event?.stopPropagation?.();
   return true;
@@ -216,7 +227,7 @@ function syncNodeGraphPitchQuantizerFace(nodeId) {
   }
   root.classList.toggle("scale-jacked", jacked);
   root.title = jacked
-    ? "Scale jack connected — keyboard shows the external mask (read-only)"
+    ? "Scale in is patched — using that mask. Unplug to edit this keyboard."
     : "";
   for (const btn of root.querySelectorAll("[data-pitch-class]")) {
     const pc = Number(btn.dataset.pitchClass);
@@ -225,6 +236,6 @@ function syncNodeGraphPitchQuantizerFace(nodeId) {
       : false;
     btn.classList.toggle("active", on);
     btn.setAttribute("aria-pressed", on ? "true" : "false");
-    btn.disabled = jacked;
+    btn.disabled = false;
   }
 }

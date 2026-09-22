@@ -219,27 +219,7 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
   ) {
     nodeGraphMetamoduleSyncShellFromChild(patchNode, key, nodeGraphMvp.patch);
   }
-  // Pitch Quantizer: preset Scale slider writes the face keyboard mask so
-  // audio + keyboard stay in sync. Custom (choice 6) leaves scaleMask alone.
-  if (patchNode.type === "pitchQuantizer" && key === "scale") {
-    const choice = Math.round(nodeGraphFiniteNumber(patchNode.params.scale));
-    if (
-      choice >= 0
-      && choice <= 5
-      && typeof nodeGraphPitchQuantizerMaskFromChoice === "function"
-    ) {
-      const mask = nodeGraphPitchQuantizerMaskFromChoice(choice);
-      patchNode.params.scaleMask = normalizeNodeGraphPatchParameter(
-        patchNode.type,
-        "scaleMask",
-        mask,
-        patchNode.paramMeta?.scaleMask,
-      );
-      if (typeof syncNodeGraphPitchQuantizerFace === "function") {
-        syncNodeGraphPitchQuantizerFace(node);
-      }
-    }
-  }
+
   // Value-only writes (mid-frame drag coalesce): domain is already on the
   // patch; skip graph-face / history / transport side effects until a full sync.
   if (options.skipGraphFace) {

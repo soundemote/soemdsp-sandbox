@@ -417,6 +417,32 @@ function validateNodeGraphPatch(patch) {
           value = (Math.log(100) - Math.log(r)) / (Math.log(100) - Math.log(1e-4));
         }
       }
+      // Graphic EQ: old unit −1…+1 × Range (±6/±12/±18) → absolute dB (±12 UI).
+      // Run once on the first parameter so every band sees converted rawParams.
+      if (type === "graphicEq" && Number(rawParams._graphicEqDbBands) !== 1) {
+        const sampleMetaMax = Number(rawParamMeta.band0?.max ?? rawParamMeta.band16?.max);
+        const legacy = Object.hasOwn(rawParams, "range")
+          || (Number.isFinite(sampleMetaMax) && sampleMetaMax <= 1.0001);
+        if (legacy) {
+          let rangeDb = 12;
+          const rangeChoice = Number(rawParams.range);
+          if (Number.isFinite(rangeChoice)) {
+            if (rangeChoice <= 0) rangeDb = 6;
+            else if (rangeChoice >= 2) rangeDb = 18;
+            else rangeDb = 12;
+          }
+          for (let i = 0; i < 30; i += 1) {
+            const key = `band${i}`;
+            if (!Object.hasOwn(rawParams, key)) continue;
+            const n = Number(rawParams[key]);
+            if (Number.isFinite(n)) rawParams[key] = n * rangeDb;
+          }
+        }
+        rawParams._graphicEqDbBands = 1;
+        if (Object.hasOwn(rawParams, "range")) delete rawParams.range;
+        if (Object.hasOwn(rawParamMeta, "range")) delete rawParamMeta.range;
+        if (Object.hasOwn(rawParams, parameter.key)) value = rawParams[parameter.key];
+      }
       // Chaosfly LP/HP/Pitch: old 0…1 amount → −10…+10 octave offset.
       // Stale values in (0,1] are meaningless as octaves; snap to 0 (at master).
       if (
@@ -688,6 +714,14 @@ function validateNodeGraphPatch(patch) {
     // Drop legacy multi-mode face selection (one display type per module now).
     if (ui.displayModeKey) {
       ui.displayModeKey = "";
+    }
+    // Legacy: Input/Output/Patch implied buttonsForceShow, which made Hide
+    // Buttons a no-op. Keep buttons visible by default, but never force-show.
+    if (ui.buttonsForceShow && (type === "output" || type === "audioInput" || type === "patch")) {
+      ui.buttonsForceShow = false;
+      if (!Object.prototype.hasOwnProperty.call(node.ui || {}, "buttonsHidden")) {
+        ui.buttonsHidden = false;
+      }
     }
     if (
       ui.buttonsHidden
@@ -1759,6 +1793,10 @@ function commitNodeGraphPatch(patch, options = {}) {
     applyNodeGraphLayoutPositionsToDom(nodeGraphMvp.patch);
   } else if (isChromeEdit) {
     applyNodeGraphChromeNodesToDom(options.chromeNodeIds);
+  } else if (isWireEdit) {
+    if (typeof syncNodeGraphAllPitchQuantizerFaces === "function") {
+      syncNodeGraphAllPitchQuantizerFaces();
+    }
   } else if (!isWireEdit && !isSoftDom) {
     applyNodeGraphPatchToDom({
       skipExistingSync: isTopologyEdit,
@@ -1782,16 +1820,11 @@ function commitNodeGraphPatch(patch, options = {}) {
   } else if (options.autosaveWorkingPatch !== false) {
     nodeGraphMvp.patchDirtyState = "edited";
   }
-  // Audio graph topology/params are unchanged by gx/gy, size, or most chrome.
-  // Hide-display may defer a plan sync so the click stays responsive.
+  // Audio graph topology/params are unchanged by gx/gy, size, or chrome.
+  // Show/hide display is face chrome only. Do not setPlan — that recompiled
+  // the native graph and restarted Music Player from the top.
   if (isChromeEdit && options.deferLivePlan) {
-    window.requestAnimationFrame(() => {
-      window.setTimeout(() => {
-        if (typeof scheduleNodeGraphLivePlanSync === "function") {
-          scheduleNodeGraphLivePlanSync();
-        }
-      }, 0);
-    });
+    // Intentionally no live plan sync.
   } else if (options.liveParamsOnly) {
     if (typeof scheduleNodeGraphLiveParameterSync === "function") {
       scheduleNodeGraphLiveParameterSync();

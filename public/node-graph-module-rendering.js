@@ -1262,6 +1262,13 @@ function createNodeGraphModuleElement(type, node) {
       && typeof createNodeGraphPitchQuantizerFace === "function") {
       article.append(createNodeGraphPitchQuantizerFace(node));
     }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "chordPad") {
     if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)

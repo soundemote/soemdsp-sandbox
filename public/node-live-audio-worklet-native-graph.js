@@ -776,6 +776,12 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "arp") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
     if (p === "gate") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE;
   }
+  if (t === "pitchQuantizer") {
+    if (p === "0.1v/oct" || p === "0.1v" || p === "v/oct" || p === "pitch" || p === "out") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    }
+    if (p === "scale") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  }
   if (t === "chordSequencer" || t === "chordPad") {
     if (p === "scale") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     if (p === "root") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
@@ -3932,8 +3938,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "graphicEq") {
-      // UI key "range" → MODE (0=±6, 1=±12, 2=±18). Bands are unit −1…+1.
-      push("range", P.NATIVE_GRAPH_PARAM_MODE, disc("range", 1));
+      // Bands are absolute dB (±12 UI). Q 4.32 is one-third octave.
+      push("q", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("q", 4.32));
       push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       const band0 = P.NATIVE_GRAPH_PARAM_GRAPHIC_EQ_BAND0;
@@ -6554,6 +6560,9 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
       || type === "gravityWalker"
     ) {
       return ["0.1V/Oct", "0.1v/Oct", "Out", "Mono"];
+    }
+    if (type === "pitchQuantizer") {
+      return ["0.1V/Oct", "0.1v/Oct", "Out", "Mono", "Scale"];
     }
     if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["X"];
     // Lorenz/Chua/…: native X lives on MONO (see mapNativeGraphSrcPortId).

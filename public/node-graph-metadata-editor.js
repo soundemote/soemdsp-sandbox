@@ -342,6 +342,7 @@ const nodeMetadataScriptSupportedKeys = new Set([
   "divideChoicesVisibly",
   "kind",
   "bipolar",
+  "reverse",
   "outputDomain",
   "linearSmoothing",
   "max",
@@ -402,6 +403,7 @@ function scheduleNodeMetadataTooltipTextareaSize(
 
 const nodeMetadataScriptBooleanKeys = new Set([
   "bipolar",
+  "reverse",
   "outputDomain",
   "displayChoices",
   "divideChoicesVisibly",
@@ -810,6 +812,7 @@ function formatNodeMetadataScript(slider, metadata = nodeSliderMetadata(slider))
     `param.${key}.displayChoices = ${nodeMetadataScriptValue(metadata.displayChoices, "displayChoices")};`,
     `param.${key}.divideChoicesVisibly = ${nodeMetadataScriptValue(metadata.divideChoicesVisibly, "divideChoicesVisibly")};`,
     `param.${key}.bipolar = ${nodeMetadataScriptValue(Boolean(metadata.bipolar), "bipolar")};`,
+    `param.${key}.reverse = ${nodeMetadataScriptValue(Boolean(metadata.reverse), "reverse")};`,
     `param.${key}.outputDomain = ${nodeMetadataScriptValue(Boolean(metadata.outputDomain), "outputDomain")};`,
     `param.${key}.linearSmoothing = ${nodeMetadataScriptValue(metadata.linearSmoothing, "linearSmoothing")};`,
     `param.${key}.smoothingMode = ${nodeMetadataScriptValue(metadata.smoothingMode, "smoothingMode")};`,
@@ -1301,7 +1304,7 @@ function parseNodeMetadataScriptValue(rawValue, key, current) {
   if (key === "choices") {
     return parseNodeMetadataScriptChoices(value);
   }
-  if (["bipolar", "outputDomain", "displayChoices", "divideChoicesVisibly", "linearSmoothing", "nonlinearSlider", "showSign", "visible", "wraparound"].includes(key)) {
+  if (["bipolar", "reverse", "outputDomain", "displayChoices", "divideChoicesVisibly", "linearSmoothing", "nonlinearSlider", "showSign", "visible", "wraparound"].includes(key)) {
     return parseNodeMetadataScriptBoolean(value, current[key]);
   }
   if (key === "kind") {
@@ -1473,6 +1476,10 @@ function writeNodeMetadataEditorValues(metadata) {
   const bipolarCheckbox = document.getElementById("metadataBipolarValue");
   if (bipolarCheckbox) {
     bipolarCheckbox.checked = Boolean(metadata.bipolar);
+  }
+  const reverseCheckbox = document.getElementById("metadataReverseValue");
+  if (reverseCheckbox) {
+    reverseCheckbox.checked = Boolean(metadata.reverse);
   }
   const outputDomainCheckbox = document.getElementById("metadataOutputDomainValue");
   if (outputDomainCheckbox) {
@@ -2574,16 +2581,20 @@ function readNodeMetadataEditorValues(slider) {
   };
   let min = parseNodeMetadataNumber(sanitizeMetadataNumberInput("metadataMinValue"), current.min);
   let max = parseNodeMetadataNumber(sanitizeMetadataNumberInput("metadataMaxValue"), current.max);
+  let reverse = Boolean(document.getElementById("metadataReverseValue")?.checked);
   if (Number.isFinite(min) && Number.isFinite(max) && min > max) {
     [min, max] = [max, min];
+    reverse = true;
     const minInput = document.getElementById("metadataMinValue");
     const maxInput = document.getElementById("metadataMaxValue");
+    const reverseInput = document.getElementById("metadataReverseValue");
     if (minInput) {
       minInput.value = formatNodeSliderCompactNumber(min);
     }
     if (maxInput) {
       maxInput.value = formatNodeSliderCompactNumber(max);
     }
+    if (reverseInput) reverseInput.checked = true;
   }
   const stepInput = sanitizeMetadataNumberInput("metadataStepValue");
   const kind = normalizeNodeMetadataKind(document.getElementById("metadataKindValue").value);
@@ -2623,6 +2634,7 @@ function readNodeMetadataEditorValues(slider) {
     min,
     choices: parseNodeMetadataChoices(document.getElementById("metadataChoicesValue").value),
     bipolar: Boolean(document.getElementById("metadataBipolarValue")?.checked),
+    reverse,
     outputDomain: Boolean(document.getElementById("metadataOutputDomainValue")?.checked),
     // No dedicated editor field — preserve across unrelated field edits / toggle.
     domainOffset: (Number.isFinite(Number(current.domainOffset))
@@ -2850,6 +2862,10 @@ function setNodeMetadataDefaultsFromKind() {
   const bipolarCheckbox = document.getElementById("metadataBipolarValue");
   if (bipolarCheckbox) {
     bipolarCheckbox.checked = Boolean(template.bipolar);
+  }
+  const reverseCheckbox = document.getElementById("metadataReverseValue");
+  if (reverseCheckbox) {
+    reverseCheckbox.checked = Boolean(template.reverse);
   }
   const outputDomainCheckbox = document.getElementById("metadataOutputDomainValue");
   if (outputDomainCheckbox) {

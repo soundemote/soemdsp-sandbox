@@ -1404,7 +1404,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   graphicEq: {
     category: "scientificFilter",
-    description: "ISO 1/3-octave graphic EQ — 30 peaking bands with ±6/±12/±18 dB range and dry/wet mix.",
+    description: "ISO 1/3-octave graphic EQ — 30 peaking bands in dB (±12) with dry/wet mix.",
     label: "Graphic EQ",
     notes: [
       "eq",
@@ -1416,6 +1416,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "peaking",
       "RBJ",
       "tone",
+      "dB",
       "native",
     ],
   },

@@ -1586,7 +1586,7 @@ function configureNodeSceneContextMenu(mode) {
           : "";
         knobTextInput.value = storedDisplay;
       }
-      knobTextInput.placeholder = "Display";
+      knobTextInput.placeholder = targetNode.type === "pluginSlider" ? "Slider" : "Display";
       knobTextInput.title = "Name on the knob face.";
     }
     if (knobPluginIdentity) {

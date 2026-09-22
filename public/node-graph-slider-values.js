@@ -559,7 +559,11 @@ function nodeSliderThumbDisplayValue(slider, domainValue) {
   if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
     return n;
   }
-  return clampNodeSliderValue(n, min, max);
+  const shown = clampNodeSliderValue(n, min, max);
+  if (slider?.dataset?.reverse === "true" && !String(slider.dataset.choices || "").trim()) {
+    return min + max - shown;
+  }
+  return shown;
 }
 
 function normalizedNodeSliderMid(slider) {
@@ -728,7 +732,8 @@ function nodeSliderValueFromTravel(slider, travel) {
     return min;
   }
 
-  return min + range * nodeSliderCurveValueFromTravel(slider, travel);
+  const directed = slider?.dataset?.reverse === "true" ? (1 - travel) : travel;
+  return min + range * nodeSliderCurveValueFromTravel(slider, directed);
 }
 
 function nodeSliderValueFromPointerTravel(slider, travel) {
@@ -739,7 +744,8 @@ function nodeSliderValueFromPointerTravel(slider, travel) {
     return min;
   }
 
-  return min + range * nodeSliderCurveValueFromTravel(slider, travel);
+  const directed = slider?.dataset?.reverse === "true" ? (1 - travel) : travel;
+  return min + range * nodeSliderCurveValueFromTravel(slider, directed);
 }
 
 function nodeSliderValueFromRelativeTravel(slider, travel) {
@@ -763,7 +769,8 @@ function nodeSliderTravelFromValue(slider, value) {
   }
 
   const normalizedValue = clampNodeSliderValue((value - min) / range, 0, 1);
-  return nodeSliderCurveTravelFromValue(slider, normalizedValue);
+  const travel = nodeSliderCurveTravelFromValue(slider, normalizedValue);
+  return slider?.dataset?.reverse === "true" ? (1 - travel) : travel;
 }
 
 function nodeSliderElementLayoutWidth(element) {
@@ -986,6 +993,7 @@ function setNodeSliderMetadata(slider, metadata) {
   if (slider.dataset.unboundedMin != null) delete slider.dataset.unboundedMin;
   if (slider.dataset.unboundedValue != null) delete slider.dataset.unboundedValue;
   slider.dataset.wraparound = metadata.wraparound ? "true" : "false";
+  slider.dataset.reverse = metadata.reverse ? "true" : "false";
   if (Object.hasOwn(metadata, "visible")) {
     slider.dataset.visible = metadata.visible === false ? "false" : "true";
   }
