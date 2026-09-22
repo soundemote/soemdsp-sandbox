@@ -271,7 +271,7 @@ function buildNodeGraphSliderFaceDisplaySettingsHtml() {
     <div class="metadata-section-title">Label</div>
     <div class="metadata-field-section">${row(toggleRow, ["sliderShowLabel", "sliderLabelInside"])}${row(choiceRow, ["sliderLabelAlign"])}${row(fieldRow, ["sliderLabelPadding", "sliderLabelScale"])}</div>
     <div class="metadata-section-title">Number</div>
-    <div class="metadata-field-section">${row(toggleRow, ["sliderShowNumber", "sliderNumberInside"])}${row(choiceRow, ["sliderNumberAlign"])}${row(fieldRow, ["sliderNumberPadding", "sliderNumberScale"])}</div>
+    <div class="metadata-field-section">${row(toggleRow, ["sliderShowNumber", "sliderNumberInside"])}${row(choiceRow, ["sliderNumberAlign"])}${row(fieldRow, ["maxDigits", "sliderNumberPadding", "sliderNumberScale"])}</div>
     <div class="metadata-section-title">Unit</div>
     <div class="metadata-field-section">${row(toggleRow, ["sliderShowUnit", "sliderUnitInside"])}${row(choiceRow, ["sliderUnitAlign"])}${row(fieldRow, ["sliderUnitPadding", "sliderUnitScale"])}</div>
     <div class="metadata-section-title">Colors</div>
@@ -310,13 +310,20 @@ function bindNodeGraphSliderFaceDisplaySettingsEvents(root) {
   });
 }
 
-function syncNodeGraphSliderFaceDisplaySettingsControls(root) {
+function syncNodeGraphSliderFaceDisplaySettingsControls(root, settings) {
   const host = root || document.getElementById("nodeTraceDisplaySettingsPopover");
-  const id = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
-    ? nodeGraphTraceDisplaySettingsTargetNodeId()
-    : "";
-  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
-  const s = nodeGraphSliderFaceDisplaySettingsForNode(node);
+  let s = null;
+  if (settings && typeof settings === "object") {
+    s = typeof normalizeNodeGraphSliderFaceDisplaySettings === "function"
+      ? normalizeNodeGraphSliderFaceDisplaySettings(settings)
+      : settings;
+  } else {
+    const id = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+      ? nodeGraphTraceDisplaySettingsTargetNodeId()
+      : "";
+    const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+    s = nodeGraphSliderFaceDisplaySettingsForNode(node);
+  }
   const setPressed = (btnId, active) => {
     const el = host?.querySelector?.(`#${btnId}`);
     if (!el) return;

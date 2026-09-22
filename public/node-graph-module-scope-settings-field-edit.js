@@ -74,16 +74,21 @@ function commitNodeGraphTraceDisplayFieldEdit(input) {
   if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
     markNodeGraphTraceDisplaySettingsDirty(input.dataset?.traceDisplayField || input.getAttribute("data-trace-display-field"));
   }
-  applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
+  const stored = applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
   if (input.dataset.traceDisplayField === "zoomSeconds") {
     setNodeGraphTraceDisplayZoomEditActive(false);
   }
-  input.value = formatNodeGraphTraceDisplaySetting(
-    nodeGraphDisplaySettingsFormValue(
-      normalizeNodeGraphDisplaySettingsForFormType(nodeGraphTraceDisplayCurrentSettingsForFormType()),
-      input.dataset.traceDisplayField,
-    ),
-  );
+  // Show the value just stored. Re-reading through a schema switch that
+  // missed this face used to put the factory default back in the box.
+  const key = input.dataset.traceDisplayField || input.getAttribute("data-trace-display-field");
+  const bag = stored && typeof stored === "object"
+    ? stored
+    : normalizeNodeGraphDisplaySettingsForFormType(nodeGraphTraceDisplayCurrentSettingsForFormType());
+  const shown = nodeGraphDisplaySettingsFormValue(bag, key);
+  const number = Number(shown);
+  if (Number.isFinite(number)) {
+    input.value = formatNodeGraphTraceDisplaySetting(number);
+  }
 }
 
 function finishNodeGraphTraceDisplayFieldEdit(event) {

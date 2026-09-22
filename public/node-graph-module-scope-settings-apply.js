@@ -601,64 +601,58 @@ function nodeGraphMergeDisplaySettingsDirty(existing, form, dirtyKeys) {
   return base;
 }
 
+function nodeGraphCopyDisplaySettingsBag(bag) {
+  return bag && typeof bag === "object" ? { ...bag } : null;
+}
+
+/**
+ * Raw display-settings bag on a node. Faces that do not name another store
+ * live on traceDisplaySettings — including slider. Do not return {} for those:
+ * an empty bag normalizes to factory defaults and the form then overwrites
+ * a value the face already painted.
+ */
 function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
   if (!node) {
     return {};
   }
-  if (typeof nodeGraphTraceDisplayCurrentSettingsForFormType === "function") {
-    // Temporarily not available per-node — read typed bags.
+  const schema = String(settingsSchema || "");
+  if (schema === "dot") {
+    return nodeGraphCopyDisplaySettingsBag(node.zeroDBurnSettings) || {};
   }
-  if (settingsSchema === "lineBurn" || settingsSchema === "value" || settingsSchema === "trace"
-    || settingsSchema === "traceRgb"
-    || settingsSchema === "scope2d" || settingsSchema === "scope2dTrace"
-    || settingsSchema === "numberReadout" || settingsSchema === "knobFace"
-    || settingsSchema === "phosphorLight" || settingsSchema === "roundShapeFace"
-    || settingsSchema === "basicShapeFace"
-    || settingsSchema === "softwaveOscFace"
-    || settingsSchema === "limiterGainFace"
-    || settingsSchema === "toggleButtonFace" || settingsSchema === "momentaryButtonFace") {
-    return node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
-      ? { ...node.traceDisplaySettings }
-      : {};
+  if (schema === "vectorDot" || schema === "pulseDot" || schema === "lcdDot") {
+    return nodeGraphCopyDisplaySettingsBag(node.vectorDotSettings)
+      || nodeGraphCopyDisplaySettingsBag(node.zeroDBurnSettings)
+      || nodeGraphCopyDisplaySettingsBag(node.traceDisplaySettings)
+      || {};
   }
-  if (settingsSchema === "dot") {
-    return node.zeroDBurnSettings && typeof node.zeroDBurnSettings === "object"
-      ? { ...node.zeroDBurnSettings }
-      : {};
-  }
-  if (settingsSchema === "portalFace") {
+  if (schema === "portalFace") {
     return typeof nodeGraphPortalDisplaySettingsForNode === "function"
       ? nodeGraphPortalDisplaySettingsForNode(node)
       : { channel: nodeGraphFiniteNumber(node?.params?.channel) };
   }
-  if (settingsSchema === "keypadFace") {
-    return node.layout && typeof node.layout === "object" ? { ...node.layout } : {};
+  if (schema === "keypadFace" || schema === "textBoxFace") {
+    return nodeGraphCopyDisplaySettingsBag(node.layout) || {};
   }
-  if (settingsSchema === "phosphorWaveform") {
-    return node.phosphorWaveformSettings && typeof node.phosphorWaveformSettings === "object"
-      ? { ...node.phosphorWaveformSettings }
-      : {};
+  if (schema === "phosphorWaveform") {
+    return nodeGraphCopyDisplaySettingsBag(node.phosphorWaveformSettings) || {};
   }
-  if (settingsSchema === "arpKeysFace") {
-    return node.arpKeysSettings && typeof node.arpKeysSettings === "object"
-      ? { ...node.arpKeysSettings }
-      : {};
+  if (schema === "arpKeysFace") {
+    return nodeGraphCopyDisplaySettingsBag(node.arpKeysSettings) || {};
   }
-  if (settingsSchema === "transportBpm") {
-    return node.transportSettings && typeof node.transportSettings === "object"
-      ? { ...node.transportSettings }
-      : { gateBlink: false };
+  if (schema === "transportBpm") {
+    return nodeGraphCopyDisplaySettingsBag(node.transportSettings) || { gateBlink: false };
   }
-  if (settingsSchema === "textBoxFace") {
-    return node.layout && typeof node.layout === "object" ? { ...node.layout } : {};
+  if (schema === "matrixWaterfallFace") {
+    return nodeGraphCopyDisplaySettingsBag(node.matrixWaterfall)
+      || nodeGraphCopyDisplaySettingsBag(node.matrixDisplay)
+      || {};
   }
-  if (settingsSchema === "trace" || settingsSchema === "traceRgb" || settingsSchema === "traceXyz"
-    || settingsSchema === "lineBurn" || settingsSchema === "value") {
-    return node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
-      ? { ...node.traceDisplaySettings }
-      : {};
+  if (schema === "matrixFace" || schema === "matrixDisplayFace") {
+    return nodeGraphCopyDisplaySettingsBag(node.matrixDisplay)
+      || nodeGraphCopyDisplaySettingsBag(node.matrixWaterfall)
+      || {};
   }
-  return {};
+  return nodeGraphCopyDisplaySettingsBag(node.traceDisplaySettings) || {};
 }
 
 function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
@@ -681,9 +675,11 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
     return null;
   }
   const settings = readNodeGraphTraceDisplaySettingsForm();
+  let storedSettings = null;
 
   if (nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
-    nodeGraphMvp.traceSettings = normalizeNodeGraphTraceDisplaySettings(settings);
+    storedSettings = normalizeNodeGraphTraceDisplaySettings(settings);
+    nodeGraphMvp.traceSettings = storedSettings;
   } else {
     // Multi-adjust: same display schema across selection → write targets.
     const targetIds = typeof nodeGraphTraceDisplaySettingsActiveTargetIds === "function"
@@ -709,7 +705,10 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
           continue;
         }
       }
-      assignNodeGraphTypedDisplaySettingsEverywhere(node, settingsSchema, toApply);
+      const stored = assignNodeGraphTypedDisplaySettingsEverywhere(node, settingsSchema, toApply);
+      if (storedSettings == null && stored && typeof stored === "object") {
+        storedSettings = stored;
+      }
       anyApplied = true;
       if (settingsSchema === "spectrogramBurn") {
         needsParamSync = true;
@@ -831,7 +830,7 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
       }
     }
   }
-  return settings;
+  return storedSettings || settings;
 }
 
 /**

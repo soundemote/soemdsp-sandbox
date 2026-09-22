@@ -394,43 +394,71 @@ function nodeGraphKnobFaceForNode(node) {
   return normalizeNodeGraphKnobFace(patchNode?.knobFace);
 }
 
+function nodeGraphControllerFaceReadoutSettings(patchNode) {
+  const type = String(patchNode?.type || "");
+  if (type === "pluginSlider" && typeof nodeGraphSliderFaceDisplaySettingsForNode === "function") {
+    return nodeGraphSliderFaceDisplaySettingsForNode(patchNode);
+  }
+  if (typeof nodeGraphKnobFaceDisplaySettingsForNode === "function") {
+    return nodeGraphKnobFaceDisplaySettingsForNode(patchNode);
+  }
+  return patchNode?.traceDisplaySettings && typeof patchNode.traceDisplaySettings === "object"
+    ? patchNode.traceDisplaySettings
+    : {};
+}
+
 /** Fixed decimal places for the face readout (Display Settings → Num decimals). */
 function nodeGraphKnobFaceReadoutDecimals(patchNode) {
-  if (typeof nodeGraphKnobFaceDisplaySettingsForNode === "function") {
-    const settings = nodeGraphKnobFaceDisplaySettingsForNode(patchNode);
-    const n = Math.round(Number(settings?.decimals));
-    if (Number.isFinite(n)) {
-      return Math.max(0, Math.min(8, n));
-    }
-  }
-  const raw = Number(
-    patchNode?.traceDisplaySettings?.decimals
-    ?? patchNode?.knobFace?.decimals,
-  );
-  if (Number.isFinite(raw)) {
-    return Math.max(0, Math.min(8, Math.round(raw)));
+  const settings = nodeGraphControllerFaceReadoutSettings(patchNode);
+  const n = Math.round(Number(settings?.decimals));
+  if (Number.isFinite(n)) {
+    return Math.max(0, Math.min(8, n));
   }
   return 2;
 }
 
-/** Format live Bias for the face plate using Display Settings decimals. */
+/** Total digit budget for the face number (Display Settings → Max digits). */
+function nodeGraphKnobFaceReadoutMaxDigits(patchNode) {
+  const settings = nodeGraphControllerFaceReadoutSettings(patchNode);
+  const n = Math.round(Number(settings?.maxDigits));
+  if (Number.isFinite(n)) {
+    return Math.max(0, Math.min(12, n));
+  }
+  return nodeGraphKnobFaceReadoutDecimals(patchNode);
+}
+
+/** Format live Bias for the face plate. Max digits is the accuracy ceiling. */
 function nodeGraphKnobFaceFormatReadout(value, patchNode, slider = null) {
   const number = Number(value);
   if (!Number.isFinite(number)) {
     return "0";
   }
-  const places = nodeGraphKnobFaceReadoutDecimals(patchNode);
+  const decimals = nodeGraphKnobFaceReadoutDecimals(patchNode);
+  const maxDigits = nodeGraphKnobFaceReadoutMaxDigits(patchNode);
   const showSign = typeof nodeSliderShouldShowSign === "function" && slider
     ? nodeSliderShouldShowSign(slider)
     : true;
-  const absText = number.toFixed(places);
+  const abs = Math.abs(number);
+  let absText;
+  if (typeof limit_decimals === "function") {
+    const plain = typeof nodeGraphNumberReadoutPlainDecimalSource === "function"
+      ? nodeGraphNumberReadoutPlainDecimalSource(abs)
+      : String(abs);
+    const minPlaces = Math.min(decimals, maxDigits);
+    const maxPlaces = Math.max(decimals, maxDigits);
+    const wholeDigits = String(Math.trunc(abs)).length;
+    const budget = Math.max(maxDigits, minPlaces + wholeDigits);
+    absText = limit_decimals(plain, budget, minPlaces, maxPlaces, false, false) || abs.toFixed(minPlaces);
+  } else {
+    absText = abs.toFixed(Math.min(decimals, maxDigits));
+  }
   if (showSign && number >= 0) {
     return `+${absText}`;
   }
   if (number >= 0) {
     return ` ${absText}`;
   }
-  return absText;
+  return `-${absText}`;
 }
 
 /**

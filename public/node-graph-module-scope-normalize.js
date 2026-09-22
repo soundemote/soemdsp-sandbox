@@ -1288,6 +1288,14 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
 }
 
 
+function nodeGraphFaceClampMaxDigits(value, fallback = 2) {
+  const missing = value == null || value === "";
+  const n = Math.round(Number(missing ? fallback : value));
+  const fb = Math.round(Number(fallback));
+  const safe = Number.isFinite(n) ? n : (Number.isFinite(fb) ? fb : 2);
+  return Math.max(0, Math.min(12, safe));
+}
+
 function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const defaults = nodeGraphKnobFaceDisplaySettingsDefaults;
@@ -1310,6 +1318,10 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
       0,
       8,
       true,
+    ),
+    maxDigits: nodeGraphFaceClampMaxDigits(
+      source.maxDigits,
+      source.decimals ?? source.numDecimals ?? defaults.maxDigits ?? defaults.decimals ?? 2,
     ),
     background: parseColor(
       source.background ?? source.backgroundColor,
@@ -1451,6 +1463,10 @@ function normalizeNodeGraphSliderFaceDisplaySettings(settings = {}, defaultsOver
   };
   return {
     decimals: Math.max(0, Math.min(6, Math.round(Number(source.decimals ?? defaults.decimals ?? 2)) || 0)),
+    maxDigits: nodeGraphFaceClampMaxDigits(
+      source.maxDigits,
+      source.decimals ?? defaults.maxDigits ?? defaults.decimals ?? 2,
+    ),
     background: parseColor(source.background ?? source.backgroundColor, defaults.background || "#000000"),
     arcTrack: parseColor(source.arcTrack, defaults.arcTrack || "#1a2226"),
     sliderLength: normalizeNodeGraphTraceDisplayNumber(source.sliderLength, defaults.sliderLength ?? 1, 0, 1),
@@ -1465,7 +1481,9 @@ function normalizeNodeGraphSliderFaceDisplaySettings(settings = {}, defaultsOver
     sliderShowNumber: source.sliderShowNumber !== false && source.sliderShowNumber !== "false",
     sliderShowUnit: source.sliderShowUnit !== false && source.sliderShowUnit !== "false",
     sliderLabelInside: source.sliderLabelInside === true || source.sliderLabelInside === "true",
-    sliderNumberInside: source.sliderNumberInside === true || source.sliderNumberInside === "true",
+    sliderNumberInside: source.sliderNumberInside == null
+      ? defaults.sliderNumberInside !== false
+      : source.sliderNumberInside === true || source.sliderNumberInside === "true",
     sliderUnitInside: source.sliderUnitInside === true || source.sliderUnitInside === "true",
     sliderLabelAlign: normalizeNodeGraphKnobPinAlign(source.sliderLabelAlign, defaults.sliderLabelAlign || "topleft"),
     sliderLabelPadding: normalizeNodeGraphTraceDisplayNumber(source.sliderLabelPadding, defaults.sliderLabelPadding ?? 0.04, 0, 1),

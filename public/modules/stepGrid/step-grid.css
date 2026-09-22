@@ -50,7 +50,6 @@
   background: rgba(9, 13, 16, 0.82);
   cursor: var(--node-dot-cursor);
   padding: 0;
-  transition: background 0.12s ease-out, border-color 0.12s ease-out;
 }
 
 .node-step-grid-square:hover,

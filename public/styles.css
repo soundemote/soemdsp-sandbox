@@ -133,7 +133,6 @@ body.node-boot-fading .shell {
   font-weight: 400;
   letter-spacing: 0;
   opacity: 1;
-  transition: opacity 333ms ease;
 }
 
 .node-boot-loading-panel {
@@ -177,7 +176,6 @@ body.node-boot-fading .shell {
   min-width: min(90vw, 28rem);
   cursor: pointer;
   box-shadow: 0 0 28px rgba(127, 199, 217, 0.18);
-  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
 
 .node-boot-start-button:hover,
@@ -228,7 +226,6 @@ body:not(.node-boot-waiting) .node-boot-start-button {
   border-radius: inherit;
   background: linear-gradient(90deg, rgba(127, 199, 217, 0.42), rgba(243, 241, 236, 0.92));
   box-shadow: 0 0 18px rgba(127, 199, 217, 0.34);
-  transition: width 200ms ease;
 }
 
 .node-boot-loading-meta {
@@ -4593,10 +4590,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   line-height: 1;
   text-align: center;
   text-transform: none;
-  transition:
-    background-color 2s ease-out,
-    box-shadow 2s ease-out,
-    color 2s ease-out;
 }
 
 #nodeUndoButton,
@@ -4604,10 +4597,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
 #nodeSceneUndoButton,
 #nodeSceneRedoButton {
   box-shadow: none;
-  transition:
-    background-color 2s ease-out,
-    box-shadow 2s ease-out,
-    color 2s ease-out;
 }
 
 #nodeUndoButton.is-history-glow-undo,
@@ -4722,7 +4711,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
     linear-gradient(180deg, rgba(255, 210, 90, 0.08), rgba(255, 200, 80, 0.42));
   pointer-events: none;
   z-index: 0;
-  transition: height 40ms linear;
 }
 
 /* Lightbulb fill tracks room light (up = brighter), not veil amount. */
@@ -4753,7 +4741,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   display: block;
   user-select: none;
   -webkit-user-drag: none;
-  transition: opacity 40ms linear;
 }
 
 .node-room-dimmer-button.room-dimmer-dragging .node-room-dimmer-icon {
@@ -6695,7 +6682,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   z-index: 0;
   border-radius: 5px;
   opacity: 0;
-  transition: opacity 120ms ease;
   box-shadow:
     inset 0 0 0 1px var(--node-constraint-ring-cpu),
     inset 0 0 0 2px var(--node-constraint-ring-ram),
@@ -7266,7 +7252,6 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   touch-action: none;
   /* APP_POLICY §14: idle-hidden; panel/handle hover or drag reveals. */
   opacity: 0;
-  transition: opacity 120ms ease;
 }
 
 .node-wiring-panel.modular-only-view .node-graph-resize-handle {
@@ -9350,7 +9335,6 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   font-size: 0.9rem;
   font-weight: 600;
   cursor: var(--node-dot-cursor);
-  transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
 }
 
 .node-code-screen-landing-cta:hover {
@@ -9816,7 +9800,6 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   pointer-events: auto;
   cursor: se-resize;
   opacity: 0;
-  transition: opacity 120ms ease;
 }
 
 .scene-context-resize-handle:is(:hover, :focus-visible, :active, .dragging) {
@@ -10648,7 +10631,6 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   text-shadow:
     0 0 8px rgba(127, 199, 217, 0.55),
     0 0 18px rgba(127, 199, 217, 0.22);
-  transition: opacity 140ms ease;
   z-index: 4;
 }
 
@@ -11228,12 +11210,6 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   line-height: 1.05;
   text-align: center;
   text-decoration: none;
-  transition:
-    border-color 150ms linear,
-    background 150ms linear,
-    color 150ms linear,
-    box-shadow 150ms linear,
-    transform 150ms linear;
 }
 
 .node-settings-link-action span:first-child {
@@ -14255,7 +14231,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   line-height: 1;
   pointer-events: none;
   transform: translate(-50%, -50%) scale(var(--node-bug-button-pressed-scale, 1));
-  transition: transform 80ms ease-out;
 }
 
 .node-bug-button-emoji.editing {
@@ -15236,7 +15211,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   stroke-width: 0.9;
   opacity: 0.42;
   pointer-events: none;
-  transition: opacity 80ms ease;
 }
 
 .node-module-graph-cursor.is-phase-hot {
@@ -15256,7 +15230,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   stroke-width: 0.7;
   opacity: 0.42;
   pointer-events: none;
-  transition: opacity 80ms ease;
 }
 
 .node-module-graph-cursor-value-guide.is-phase-hot {
@@ -15275,7 +15248,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   stroke-dasharray: 2.4 2.6;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 120ms ease;
 }
 
 .node-module-graph-playhead.live,
@@ -15326,7 +15298,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   stroke-width: 0.7;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 80ms ease;
 }
 
 .node-module-graph-node.is-hot {
@@ -15350,7 +15321,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   pointer-events: all;
   touch-action: none;
   opacity: 0;
-  transition: opacity 80ms ease;
 }
 
 .node-module-graph-contour-handle.is-hot {
@@ -17091,7 +17061,6 @@ body.node-slider-dragging * {
   right: calc(100% - var(--ghost-end, 0));
   opacity: 0;
   background: var(--node-slider-ghost-color);
-  transition: opacity 120ms ease;
 }
 
 .node-slider-readout.has-ghost-slider::after {
@@ -18182,7 +18151,6 @@ body.node-slider-dragging * {
   font-size: 1.02rem;
   line-height: 1;
   cursor: var(--node-dot-cursor);
-  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .metadata-smoothing-mode-button:last-child {
@@ -19218,7 +19186,6 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
-  transition: background 80ms ease, color 80ms ease, box-shadow 80ms ease, opacity 80ms ease;
 }
 
 /* Segmented strip: outer corners only; collapse shared edges between cells. */
@@ -19600,10 +19567,6 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   background: rgba(8, 18, 22, 0.82);
   color: rgba(205, 214, 216, 0.78);
   font-size: 0.72rem;
-  transition:
-    border-color 120ms ease,
-    background 120ms ease,
-    color 120ms ease;
 }
 
 .metadata-script-actions button:last-child {
@@ -19763,15 +19726,6 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   .node-parameter-metadata-popover {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-
-button.confirming-default,
-button.saved-default {
-  transition:
-    border-color 140ms ease,
-    background 140ms ease,
-    color 140ms ease,
-    box-shadow 140ms ease;
 }
 
 button.confirming-default,
@@ -22862,7 +22816,6 @@ body.node-slider-dragging .node-param-port {
   font-size: 0.75rem;
   line-height: 1;
   cursor: var(--node-dot-cursor);
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 /* Conglomerate strip: overlap 1px so one seam is shared. Raise z-index so
@@ -24751,7 +24704,7 @@ code {
 }
 .node-plugin-toggle-face,
 .node-plugin-momentary-face {
-  padding: var(--plugin-btn-pad, 4px);
+  padding: 0;
   pointer-events: auto;
   z-index: 2;
 }
@@ -24767,19 +24720,19 @@ code {
   justify-content: center;
   overflow: hidden;
   box-sizing: border-box;
-  width: 100%;
-  height: 100%;
+  width: calc(var(--plugin-btn-scale, 1) * 100%);
+  height: calc(var(--plugin-btn-scale, 1) * 100%);
+  flex: 0 0 auto;
   min-width: 0;
   min-height: 0;
   margin: 0;
   padding: 0;
   appearance: none;
   -webkit-appearance: none;
-  border: var(--plugin-btn-stroke-w, 1px) solid var(--plugin-btn-stroke, hsl(200 20% 35% / 0.85));
-  border-radius: var(--plugin-btn-radius, 6px);
-  corner-shape: var(--plugin-btn-corner-shape, squircle);
-  background: var(--plugin-btn-fill, hsl(210 16% 16%));
-  color: var(--plugin-btn-text, #d8e6ef);
+  border: var(--plugin-btn-stroke-w, 1px) solid var(--plugin-btn-stroke, #5c5071);
+  border-radius: var(--plugin-btn-radius, 8px);
+  corner-shape: squircle;
+  color: #f4f7f8;
   font-weight: 700;
   font-size: 12px;
   line-height: 1;
@@ -24789,40 +24742,18 @@ code {
   cursor: var(--node-dot-cursor);
   user-select: none;
   touch-action: none;
-}
-.node-plugin-toggle-button:hover,
-.node-plugin-momentary-button:hover {
-  filter: none;
-  border-color: var(--plugin-btn-stroke, hsl(200 20% 35% / 0.85));
-  color: var(--plugin-btn-text, #d8e6ef);
+  transition: none;
   background: color-mix(
     in srgb,
-    var(--plugin-btn-hover, transparent) calc(var(--plugin-btn-hover-alpha, 0.45) * 100%),
-    var(--plugin-btn-fill, hsl(210 16% 16%))
+    var(--plugin-btn-active, #2f8f86) calc(var(--plugin-btn-value, 0) * 100%),
+    var(--plugin-btn-inactive, #1a2228)
   );
 }
-.node-plugin-toggle-button.is-on,
-.node-plugin-momentary-button.is-down {
-  filter: none;
-  border-color: var(--plugin-btn-stroke, hsl(200 20% 35% / 0.85));
-  color: var(--plugin-btn-text, #d8e6ef);
-  background: color-mix(
-    in srgb,
-    var(--plugin-btn-on, transparent) calc(var(--plugin-btn-on-alpha, 0.7) * 100%),
-    var(--plugin-btn-fill, hsl(210 16% 16%))
-  );
-}
-.node-plugin-toggle-button.is-on:hover,
-.node-plugin-momentary-button.is-down:hover {
-  background: color-mix(
-    in srgb,
-    var(--plugin-btn-hover, transparent) calc(var(--plugin-btn-hover-alpha, 0.45) * 100%),
-    color-mix(
-      in srgb,
-      var(--plugin-btn-on, transparent) calc(var(--plugin-btn-on-alpha, 0.7) * 100%),
-      var(--plugin-btn-fill, hsl(210 16% 16%))
-    )
-  );
+.node-plugin-toggle-button:hover:not(.is-on),
+.node-plugin-momentary-button:hover:not(.is-held) {
+  border-color: var(--plugin-btn-stroke, #5c5071);
+  transition: none;
+  background: var(--plugin-btn-hover, #89bfc2);
 }
 .node-plugin-slider-face {
   pointer-events: auto;

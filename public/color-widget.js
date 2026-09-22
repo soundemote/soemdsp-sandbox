@@ -386,7 +386,6 @@ const css = `
     font-size: min(72cqh, 12cqw);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 120ms ease;
   }
   .scw-copy-toast[data-visible="true"] {
     opacity: 1;

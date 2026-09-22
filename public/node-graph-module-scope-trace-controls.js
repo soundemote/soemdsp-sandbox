@@ -170,6 +170,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "buttonHeight",
     "labelSize",
     "valueSize",
+    "maxDigits",
     "sliderLength",
     "sliderHeight",
     "sliderPadding",
@@ -680,6 +681,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   knobFace: Object.freeze({
     fields: Object.freeze([
       "decimals",
+      "maxDigits",
       "rotationDegrees",
       "dialSize",
       "labelSize",
@@ -697,6 +699,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "sliderPadding",
       "sliderLabelPadding",
       "sliderLabelScale",
+      "maxDigits",
       "sliderNumberPadding",
       "sliderNumberScale",
       "sliderUnitPadding",
@@ -737,52 +740,16 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   toggleButtonFace: Object.freeze({
-    fields: Object.freeze([
-      "textBrightness",
-      "textSize",
-      "rounding",
-      "buttonBrightness",
-      "buttonStrokeBrightness",
-      "buttonStrokeThickness",
-      "padPx",
-      "hoverBrightness",
-      "hoverAlpha",
-      "onBrightness",
-      "onAlpha",
-    ]),
-    colors: Object.freeze([
-      "textColor",
-      "buttonColor",
-      "buttonStrokeColor",
-      "hoverColor",
-      "onColor",
-    ]),
+    fields: Object.freeze(["strokeScale", "buttonScale", "textScale", "padding"]),
+    colors: Object.freeze(["strokeColor", "inactiveColor", "activeColor", "hoverColor"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze(["font"]),
+    choices: Object.freeze([]),
   }),
   momentaryButtonFace: Object.freeze({
-    fields: Object.freeze([
-      "textBrightness",
-      "textSize",
-      "rounding",
-      "buttonBrightness",
-      "buttonStrokeBrightness",
-      "buttonStrokeThickness",
-      "padPx",
-      "hoverBrightness",
-      "hoverAlpha",
-      "onBrightness",
-      "onAlpha",
-    ]),
-    colors: Object.freeze([
-      "textColor",
-      "buttonColor",
-      "buttonStrokeColor",
-      "hoverColor",
-      "onColor",
-    ]),
+    fields: Object.freeze(["strokeScale", "buttonScale", "textScale", "padding"]),
+    colors: Object.freeze(["strokeColor", "inactiveColor", "activeColor", "hoverColor"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze(["font"]),
+    choices: Object.freeze([]),
   }),
   keypadFace: Object.freeze({
     fields: Object.freeze(["textSize", "textWeight", "buttonWidth", "buttonHeight", "buttonSize", "padPx"]),
@@ -944,6 +911,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     // Stamp size/blur/bright live only under the Dot/Stamp section.
     fields: Object.freeze([
       "decimals",
+      "maxDigits",
       "residual",
       "rotationDegrees",
       "dialSize",
@@ -1302,6 +1270,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayDecimals",
     title:
       "Digits after the decimal point (0–8). Capped by Digits budget via limit_decimals (min/max decimal economy).",
+  }),
+  maxDigits: Object.freeze({
+    label: "Max digits",
+    inputmode: "numeric",
+    id: "nodeTraceDisplayFaceMaxDigits",
+    title: "Face number accuracy, 0–12. Counts whole digits and fraction. Raise it to show more of the value. 0 = whole number only.",
   }),
   rotationDegrees: Object.freeze({
     label: "Span °",
@@ -1792,6 +1766,18 @@ const nodeGraphDisplaySettingsColorMeta = Object.freeze({
     aria: "Keypad mouse hover color",
     defaultValue: "#ddd9d2",
     id: "nodeTraceDisplayKeypadHoverColor",
+  }),
+  inactiveColor: Object.freeze({
+    label: "",
+    aria: "Button inactive color",
+    defaultValue: "#1a2228",
+    id: "nodeTraceDisplayButtonInactiveColor",
+  }),
+  activeColor: Object.freeze({
+    label: "",
+    aria: "Button active color",
+    defaultValue: "#2f8f86",
+    id: "nodeTraceDisplayButtonActiveColor",
   }),
   downColor: Object.freeze({
     label: "",

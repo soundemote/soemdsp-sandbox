@@ -1,6 +1,7 @@
 // Toggle and momentary faces. Same Bias parameter as Knob.
 // Toggle writes min or max. Momentary writes max while held, min on release.
-// Smoothing is the Bias parameter smoother. The face does not interpolate.
+// The on-color follows the Bias smoother (same time and curve as the audio
+// parameter). There is no separate hover or CSS fade.
 
 function nodeGraphPluginWriteParamValue(nodeId, key, value, options = {}) {
   const id = String(nodeId || "").trim();
@@ -77,6 +78,87 @@ function nodeGraphControllerBiasEnd(nodeId, high) {
   return nodeGraphParamDomainFromControlPosition(high ? 1 : 0, nodeGraphControllerBiasMeta(nodeId));
 }
 
+function nodeGraphControllerFaceSampleRate() {
+  if (typeof nodeGraphSmoothingSampleRate === "function") {
+    const rate = Number(nodeGraphSmoothingSampleRate());
+    if (Number.isFinite(rate) && rate > 0) return rate;
+  }
+  return 44100;
+}
+
+function nodeGraphControllerFaceSmoothingType(meta) {
+  const raw = meta?.smoothingType;
+  if (raw != null && String(raw).trim() !== "" && typeof normalizeNodeGraphParameterSmootherFilterType === "function") {
+    return normalizeNodeGraphParameterSmootherFilterType(raw);
+  }
+  if (meta?.linearSmoothing === false) return "none";
+  const key = String(raw || "").trim();
+  if (key === "none" || key === "off" || key === "instant") return "none";
+  if (key === "linear" || key === "L" || key === "lerp") return "linear";
+  return key || "onePole";
+}
+
+function nodeGraphControllerFaceSmoothingSeconds(meta) {
+  const mode = typeof nodeSmoothingModeNormalize === "function"
+    ? nodeSmoothingModeNormalize(meta?.smoothingMode)
+    : String(meta?.smoothingMode || "internal");
+  if (mode === "off" || mode === "blockSize") return 0;
+  const internal = typeof nodeGraphMetadataSmoothingSamplesToSeconds === "function"
+    ? nodeGraphMetadataSmoothingSamplesToSeconds(meta?.smoothingSeconds)
+    : 0;
+  const globalSeconds = Number(nodeGraphMvp?.live?.autoSmoothingSeconds);
+  const globalSafe = Number.isFinite(globalSeconds) && globalSeconds > 0 ? globalSeconds : 0;
+  if (mode === "global") return globalSafe;
+  if (mode === "internalGlobal") return Math.max(0, internal) + globalSafe;
+  return Math.max(0, internal);
+}
+
+/** Bias as the audio smoother currently has it. Not a UI timer. */
+function nodeGraphControllerFaceChasedBias(nodeId, target) {
+  const meta = nodeGraphControllerBiasMeta(nodeId);
+  const type = nodeGraphControllerFaceSmoothingType(meta);
+  const seconds = nodeGraphControllerFaceSmoothingSeconds(meta);
+  const now = performance.now();
+  const key = String(nodeId || "");
+  let state = nodeGraphControllerFaceChasedBias._states.get(key);
+  if (!state) {
+    state = { value: target, lastNow: now, smoother: null, type: "" };
+    nodeGraphControllerFaceChasedBias._states.set(key, state);
+  }
+  const dt = Math.max(0, Math.min(0.25, (now - state.lastNow) / 1000));
+  state.lastNow = now;
+  const snap = type === "none" || !(seconds > 0) || typeof nodeGraphParameterSmootherFilterAdvance !== "function";
+  if (snap) {
+    state.value = target;
+    state.smoother = null;
+    state.settled = true;
+    return target;
+  }
+  if (!state.smoother || state.type !== type) {
+    const start = Number.isFinite(state.value) ? state.value : target;
+    const signal = typeof nodeGraphParamValueToNormalizedSignal === "function"
+      ? nodeGraphParamValueToNormalizedSignal(start, meta)
+      : start;
+    state.smoother = { smoothingType: type, metadata: meta, outputBuffer: signal, filterState: null };
+    state.type = type;
+  }
+  state.smoother.metadata = meta;
+  state.smoother.smoothingType = type;
+  const targetSignal = typeof nodeGraphParamValueToNormalizedSignal === "function"
+    ? nodeGraphParamValueToNormalizedSignal(target, meta)
+    : target;
+  const rate = nodeGraphControllerFaceSampleRate();
+  const frames = Math.max(1, Math.round(dt * rate));
+  const signal = nodeGraphParameterSmootherFilterAdvance(state.smoother, targetSignal, 1 / seconds, rate, frames);
+  const value = typeof nodeGraphParamNormalizedSignalToValue === "function"
+    ? nodeGraphParamNormalizedSignalToValue(signal, meta)
+    : signal;
+  state.value = Number.isFinite(value) ? value : target;
+  state.settled = Math.abs(state.value - target) <= 1e-4;
+  return state.value;
+}
+nodeGraphControllerFaceChasedBias._states = new Map();
+
 function nodeGraphControllerShownBias(nodeId, patchNode) {
   const target = nodeGraphPluginReadParamDom(nodeId, "offset", 0);
   const wantsMouse = typeof nodeGraphDspControllerDisplayIsMouse === "function"
@@ -105,7 +187,13 @@ function createNodeGraphToggleButtonFace(node, type) {
     const wantsMouse = typeof nodeGraphDspControllerDisplayIsMouse === "function"
       ? nodeGraphDspControllerDisplayIsMouse(patchNode)
       : true;
-    const shown = nodeGraphControllerShownBias(node, patchNode);
+    const target = nodeGraphPluginReadParamDom(node, "offset", 0);
+    const chased = nodeGraphControllerFaceChasedBias(node, target);
+    const unit = nodeGraphParamControlPosition(chased, nodeGraphControllerBiasMeta(node));
+    const mix = Number.isFinite(unit) ? Math.max(0, Math.min(1, unit)) : 0;
+    btn.style.setProperty("--plugin-btn-value", String(mix));
+    face._pluginBtnChaseActive = nodeGraphControllerFaceChasedBias._states.get(String(node))?.settled === false;
+    const shown = wantsMouse ? chased : nodeGraphControllerShownBias(node, patchNode);
     const on = nodeGraphControllerBiasAtHighThrow(node, shown);
     btn.classList.toggle("is-on", on);
     btn.setAttribute("aria-pressed", on ? "true" : "false");
@@ -132,9 +220,23 @@ function createNodeGraphToggleButtonFace(node, type) {
     const next = nodeGraphControllerBiasEnd(node, !nodeGraphControllerBiasAtHighThrow(node, current));
     nodeGraphPluginWriteParamValue(node, "offset", next, { record: true, status: "toggle" });
     sync();
+    face._pluginBtnKickChase?.();
   });
   face.append(btn);
   face.syncFromParameters = sync;
+  const chase = () => {
+    if (!face.isConnected) return;
+    sync();
+    if (face._pluginBtnChaseActive) {
+      face._pluginBtnChaseRaf = requestAnimationFrame(chase);
+    } else {
+      face._pluginBtnChaseRaf = 0;
+    }
+  };
+  face._pluginBtnKickChase = () => {
+    if (face._pluginBtnChaseRaf) return;
+    face._pluginBtnChaseRaf = requestAnimationFrame(chase);
+  };
   if (typeof nodeGraphPluginButtonBindLook === "function") {
     nodeGraphPluginButtonBindLook(face, node);
   }
@@ -155,8 +257,13 @@ function createNodeGraphMomentaryButtonFace(node, type) {
 
   const sync = () => {
     const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
-    const shown = nodeGraphControllerShownBias(node, patchNode);
-    const down = nodeGraphControllerBiasAtHighThrow(node, shown);
+    const target = nodeGraphPluginReadParamDom(node, "offset", 0);
+    const chased = nodeGraphControllerFaceChasedBias(node, target);
+    const unit = nodeGraphParamControlPosition(chased, nodeGraphControllerBiasMeta(node));
+    const mix = Number.isFinite(unit) ? Math.max(0, Math.min(1, unit)) : 0;
+    btn.style.setProperty("--plugin-btn-value", String(mix));
+    face._pluginBtnChaseActive = nodeGraphControllerFaceChasedBias._states.get(String(node))?.settled === false;
+    const down = mix >= 0.5;
     btn.classList.toggle("is-down", down);
     const labels = typeof nodeGraphPluginButtonFaceLabels === "function"
       ? nodeGraphPluginButtonFaceLabels(patchNode || node)
@@ -170,7 +277,9 @@ function createNodeGraphMomentaryButtonFace(node, type) {
       record: false,
       status: "momentary",
     });
+    btn.classList.toggle("is-held", Boolean(down));
     sync();
+    face._pluginBtnKickChase?.();
   };
 
   btn.addEventListener("pointerdown", (event) => {
@@ -179,6 +288,7 @@ function createNodeGraphMomentaryButtonFace(node, type) {
     event.stopPropagation();
     btn.setPointerCapture?.(event.pointerId);
     setDown(true);
+    face._pluginBtnKickChase?.();
   });
   const release = (event) => {
     if (event && btn.hasPointerCapture?.(event.pointerId)) {
@@ -192,6 +302,19 @@ function createNodeGraphMomentaryButtonFace(node, type) {
 
   face.append(btn);
   face.syncFromParameters = sync;
+  const chase = () => {
+    if (!face.isConnected) return;
+    sync();
+    if (face._pluginBtnChaseActive) {
+      face._pluginBtnChaseRaf = requestAnimationFrame(chase);
+    } else {
+      face._pluginBtnChaseRaf = 0;
+    }
+  };
+  face._pluginBtnKickChase = () => {
+    if (face._pluginBtnChaseRaf) return;
+    face._pluginBtnChaseRaf = requestAnimationFrame(chase);
+  };
   if (typeof nodeGraphPluginButtonBindLook === "function") {
     nodeGraphPluginButtonBindLook(face, node);
   }

@@ -63,7 +63,7 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
     return 0.1;
   }
   const key = input.dataset?.traceDisplayField;
-  if (["cycles", "decimals", "textSizePx"].includes(key)) {
+  if (["cycles", "decimals", "maxDigits", "textSizePx"].includes(key)) {
     return 1;
   }
   if (key === "textWeight") {
@@ -520,6 +520,13 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
     return Math.max(1, Math.min(12, n));
   },
   decimals: (value) => Math.max(0, Math.min(8, Math.round(nodeGraphFiniteNumber(value)))),
+  maxDigits: (value) => {
+    const n = Math.round(Number(value));
+    if (!Number.isFinite(n)) {
+      return 2;
+    }
+    return Math.max(0, Math.min(12, n));
+  },
   dot1Brightness: nodeGraphTraceDisplayClampBrightness,
   dot1Size: nodeGraphTraceDisplayClampUnit,
   ghost: nodeGraphTraceDisplayClampUnit,

@@ -825,7 +825,7 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   if (settingsSchema === "knobFace") {
     return nodeGraphKnobFaceDisplaySettingsForNode(node);
   }
-    if (settingsSchema === "graphFace") {
+  if (settingsSchema === "graphFace") {
     return typeof normalizeNodeGraphGraphFaceDisplaySettings === "function"
       ? normalizeNodeGraphGraphFaceDisplaySettings(node?.traceDisplaySettings)
       : { zoomMin: 0, zoomMax: 1 };
@@ -1000,7 +1000,26 @@ if (settingsSchema === "portalFace") {
       ? normalizeNodeGraphRasterRgbSettings(node.traceDisplaySettings)
       : (node.traceDisplaySettings || {});
   }
-  return {};
+  // A schema missing from the list above must still round-trip the node's bag.
+  // Returning {} made normalize fill factory defaults into the field the user
+  // just edited (slider label scale 0.1 snapped to 0.22, then the next edit
+  // painted 0.22 over the face).
+  return nodeGraphDisplaySettingsNormalizeStoredBag(node, settingsSchema || formType);
+}
+
+function nodeGraphDisplaySettingsNormalizeStoredBag(node, schema) {
+  const stored = typeof nodeGraphTraceDisplayExistingSettingsForNode === "function"
+    ? nodeGraphTraceDisplayExistingSettingsForNode(node, schema)
+    : (node?.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+      ? node.traceDisplaySettings
+      : {});
+  const normalized = normalizeNodeGraphDisplaySettingsForFormType(stored || {}, schema);
+  if (normalized && typeof normalized === "object" && Object.keys(normalized).length) {
+    return normalized;
+  }
+  return typeof nodeGraphDisplaySettingsDefaultsForFormType === "function"
+    ? nodeGraphDisplaySettingsDefaultsForFormType(schema)
+    : (stored || {});
 }
 
 function readNodeGraphTraceDisplaySettingsForm() {
@@ -1633,6 +1652,9 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   if (formType === "knobFace" && typeof syncNodeGraphKnobFaceDisplaySettingsControls === "function") {
     syncNodeGraphKnobFaceDisplaySettingsControls(root);
   }
+  if (formType === "pluginSliderFace" && typeof syncNodeGraphSliderFaceDisplaySettingsControls === "function") {
+    syncNodeGraphSliderFaceDisplaySettingsControls(root, normalized);
+  }
   if ((formType === "vectorDot" || formType === "pulseDot" || formType === "lcdDot")
     && typeof syncNodeGraphStampShapeControls === "function") {
     syncNodeGraphStampShapeControls(root, normalized);
@@ -1850,13 +1872,13 @@ function nodeGraphTraceDisplayColorWidgetModuleUrl() {
   }
   const script = document.querySelector('script[src*="node-graph-module-scopes.js"]');
   if (script?.src) {
-    return new URL("color-widget.js?v=hue-reset-red-1", script.src).href;
+    return new URL("color-widget.js?v=no-ui-fade-1", script.src).href;
   }
   // Fallbacks: site root /public/, then document-relative public/
   try {
-    return new URL("/public/color-widget.js?v=hue-reset-red-1", window.location.origin).href;
+    return new URL("/public/color-widget.js?v=no-ui-fade-1", window.location.origin).href;
   } catch {
-    return new URL("public/color-widget.js?v=hue-reset-red-1", window.location.href).href;
+    return new URL("public/color-widget.js?v=no-ui-fade-1", window.location.href).href;
   }
 }
 
@@ -1992,6 +2014,13 @@ function destroyNodeGraphTraceDisplayColorWidgets() {
 
 function nodeGraphTraceDisplayColorWidgetLabel(field) {
   // Title lives inside the widget (swatch). Never a side "Color" heading.
+  const buttonForm = nodeGraphTraceDisplaySettingsFormType();
+  if (buttonForm === "toggleButtonFace" || buttonForm === "momentaryButtonFace") {
+    if (field === "strokeColor") return "Stroke";
+    if (field === "activeColor") return "Active";
+    if (field === "inactiveColor") return "Inactive";
+    if (field === "hoverColor") return "Hover";
+  }
   if (nodeGraphTraceDisplaySettingsFormType() === "pluginSliderFace") {
     if (field === "backgroundColor") return "Background";
     if (field === "sliderColor") return "Bar";

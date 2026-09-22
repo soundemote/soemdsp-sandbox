@@ -533,7 +533,7 @@
       #seDebugPanel.se-resizing .se-log{overflow:hidden;pointer-events:none;}
       #seDebugPanel .se-resize-grip{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;z-index:3;
         background:linear-gradient(135deg,transparent 0 48%,#3a4558 48% 52%,transparent 52% 68%,#3a4558 68% 72%,transparent 72%);
-        touch-action:none;opacity:0;transition:opacity 120ms ease;}
+        touch-action:none;opacity:0;}
       #seDebugPanel:hover > .se-resize-grip,
       #seDebugPanel .se-resize-grip:hover,
       #seDebugPanel.se-resizing .se-resize-grip{opacity:1;}
