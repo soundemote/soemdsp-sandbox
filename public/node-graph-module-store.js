@@ -1220,7 +1220,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   knob: {
     category: "controller",
-    description: "Face Bias control. Display Settings Look = Knob or Slider.",
+    description: "Face Bias control. Dial on the module.",
     label: "Knob",
     notes: [
       "plugin",
@@ -1236,6 +1236,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "macro",
       "value slider",
     ],
+  },
+  pluginSlider: {
+    category: "controller",
+    description: "Face Bias control. Horizontal slider on the module.",
+    label: "Slider",
+    notes: ["plugin", "fader", "slider", "bias", "display", "control"],
   },
   toggleButton: {
     category: "controller",
@@ -2375,7 +2381,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Lit LED digits for the latest value—meters with phosphor residual hang.",
     label: "LED Value",
     notes: [
+      "led",
+      "lcd",
       "led value",
+      "lcd value",
       "led readout",
       "number readout",
       "latest value",
@@ -2397,8 +2406,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Reflective LCD-style digits—cheap multimeter look for numbers.",
     label: "LCD Value",
     notes: [
-      "lcd value",
+      "led",
       "lcd",
+      "led value",
+      "lcd value",
       "lcd readout",
       "numeric display",
       "digital readout",

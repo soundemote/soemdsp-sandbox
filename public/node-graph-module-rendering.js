@@ -935,6 +935,8 @@ function createNodeGraphModuleElement(type, node) {
       face = createNodeGraphToggleButtonFace(node, type);
     } else if (type === "momentaryButton" && typeof createNodeGraphMomentaryButtonFace === "function") {
       face = createNodeGraphMomentaryButtonFace(node, type);
+    } else if (type === "pluginSlider" && typeof createNodeGraphPluginSliderFace === "function") {
+      face = createNodeGraphPluginSliderFace(node, type);
     } else if (typeof createNodeGraphKnobFace === "function") {
       face = createNodeGraphKnobFace(node, type);
     } else {

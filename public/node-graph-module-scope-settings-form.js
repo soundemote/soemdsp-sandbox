@@ -199,7 +199,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Sat";
     title = lcdInk
       ? "LCD ink saturation 0…1. 0 = grey; 1 = full selected color."
-      : "LED color saturation 0…1. 0 = grey; 1 = full selected hue (then Bright maps grey → hue → white).";
+      : "LED color saturation 0…1. 0 = grey at this brightness; 1 = the hue×brightness color (black→hue→white).";
   }
   if (formType === "numberReadout" && key === "dot1Brightness") {
     const nodeType = typeof nodeGraphPatchNode === "function"
@@ -211,7 +211,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
       title = "LCD ink strength 0…1 (how hard the dark digits print on the plate). Also scales deposit energy on digit change.";
     } else {
       label = "LED";
-      title = "Live light grey→hue→white (0 = mid grey, 0.5 = full Hue, 1 = white; never black). Also scales deposit energy on digit change.";
+      title = "Live light black→hue→white (0 = black, 0.5 = full Hue, 1 = white). Ghost/Trail stay on the gradient. Also scales deposit energy on digit change.";
     }
   }
   if (formType === "numberReadout" && (key === "ghost" || key === "ghostBrightness")) {
@@ -347,7 +347,7 @@ function nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml(options = {}) {
   const meta = nodeGraphDisplaySettingsFieldMeta[stepField] || { inputmode: "decimal" };
   let titleTip = options.titleAttr || "";
   if (!titleTip && formType === "numberReadout" && stepField === "dot1Brightness") {
-    titleTip = "LED amount 0…1 (0 grey, 0.5 full Hue, 1 white). Drag title strip to change hue.";
+    titleTip = "LED amount 0…1 (0 black, 0.5 full Hue, 1 white). Drag title strip to change hue.";
   }
   const tipAttr = titleTip
     ? ` title="${nodeGraphDisplaySettingsEscapeHtml(titleTip)}"`
@@ -1658,8 +1658,8 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   if (type === "keypadFace" && typeof buildNodeGraphKeypadDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphKeypadDisplaySettingsBodyHtml();
   }
-  if (type === "knobFace" && typeof buildNodeGraphKnobFaceDisplaySettingsHtml === "function") {
-    return buildNodeGraphKnobFaceDisplaySettingsHtml();
+  if (type === "pluginSliderFace" && typeof buildNodeGraphSliderFaceDisplaySettingsHtml === "function") {
+    return buildNodeGraphSliderFaceDisplaySettingsHtml();
   }
   if (
     (type === "toggleButtonFace" || type === "momentaryButtonFace")
@@ -2154,6 +2154,10 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         }</div>`,
       );
     }
+  }
+
+  if (type === "knobFace" && typeof buildNodeGraphKnobFaceLayersDisplaySettingsHtml === "function") {
+    parts.push(buildNodeGraphKnobFaceLayersDisplaySettingsHtml());
   }
 
   // Pixel Grid: Clear packing row (wipe rolling W×H plate + re-arm ingest).

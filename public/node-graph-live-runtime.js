@@ -3222,7 +3222,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=ctrl-bias-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=slider-module-1",
   "./public/node-live-audio-worklet-process.js?v=wt2d-1",
 ];
 

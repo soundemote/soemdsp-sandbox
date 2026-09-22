@@ -125,17 +125,7 @@ function beginNodeGraphNodeDrag(event) {
     && event.target.closest?.(
       // Jacks / controls block drag (wire handlers own jacks). Header chrome
       // buttons are allowed (drag to move; click-up opens if the box did not move).
-      ".node-port, .node-param-port, button, input:not(.node-header-title-input), textarea, select, option, [contenteditable='true'], .node-xy-pad-canvas, .node-sequencer-roll, .node-sequencer-panel, .node-module-graph-display, .node-module-graph-point-strip, .node-module-graph-face, .node-keypad-face, .node-keypad-grid, .node-keypad-key, .node-plugin-toggle-face, .node-plugin-momentary-face, .node-plugin-toggle-button, .node-plugin-momentary-button, .node-arp-keys-face, .node-arp-keys-canvas",
-    )
-  ) {
-    return;
-  }
-  const knobFace = event.target.closest?.(".node-knob-face");
-  if (
-    knobFace
-    && (
-      typeof nodeGraphPointInCircularKnob !== "function"
-      || nodeGraphPointInCircularKnob(knobFace, event.clientX, event.clientY)
+      ".node-port, .node-param-port, button, input:not(.node-header-title-input), textarea, select, option, [contenteditable='true'], .node-xy-pad-canvas, .node-sequencer-roll, .node-sequencer-panel, .node-module-graph-display, .node-module-graph-point-strip, .node-module-graph-face, .node-keypad-face, .node-keypad-grid, .node-keypad-key, .node-plugin-toggle-face, .node-plugin-momentary-face, .node-plugin-toggle-button, .node-plugin-momentary-button, .node-arp-keys-face, .node-arp-keys-canvas, .node-module-scope-window, .node-module-display-face, .node-knob-face",
     )
   ) {
     return;

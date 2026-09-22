@@ -27,10 +27,12 @@ registerNodeGraphChromelessModule("valueLcd", {
   },
   catalog: {
     category: "multimeter",
-    description: "LCD Value: grey plate, dark ink DSEG digits, faint always-on segments (Ghost) + previous-value Trail. Cheap reflective LCD look. Search: LCD Value, LCD, multimeter.",
+    description: "LCD Value: grey plate, dark ink DSEG digits, faint always-on segments (Ghost) + previous-value Trail. Cheap reflective LCD look. Search: LED, LCD, multimeter.",
     notes: [
-      "lcd value",
+      "led",
       "lcd",
+      "led value",
+      "lcd value",
       "lcd readout",
       "numeric display",
       "digital readout",

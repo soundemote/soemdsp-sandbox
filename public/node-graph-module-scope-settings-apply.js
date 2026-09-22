@@ -150,6 +150,17 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     return node.layout;
   }
+  if (displayType === "pluginSliderFace") {
+    const normalized = typeof normalizeNodeGraphSliderFaceDisplaySettings === "function"
+      ? normalizeNodeGraphSliderFaceDisplaySettings(settings)
+      : settings;
+    node.traceDisplaySettings = normalized;
+    if (typeof paintNodeGraphSliderFaceLive === "function" && node?.id) {
+      document.querySelectorAll?.(`[data-node="${CSS.escape(String(node.id))}"].is-slider-look`)
+        ?.forEach((el) => paintNodeGraphSliderFaceLive(el, node.id, null));
+    }
+    return node.traceDisplaySettings;
+  }
   if (displayType === "knobFace") {
     const normalized = normalizeNodeGraphKnobFaceDisplaySettings(settings);
     node.traceDisplaySettings = normalized;

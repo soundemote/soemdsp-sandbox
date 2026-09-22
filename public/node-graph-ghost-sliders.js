@@ -42,6 +42,7 @@ function nodeGraphGhostSliderControllerOutSample(nodeId, port) {
     type !== "toggleButton"
     && type !== "momentaryButton"
     && type !== "knob"
+    && type !== "pluginSlider"
   ) {
     return null;
   }
@@ -66,7 +67,7 @@ function nodeGraphGhostSliderControllerOutSample(nodeId, port) {
   const patchNode = typeof nodeGraphPatchNode === "function"
     ? nodeGraphPatchNode(nodeId)
     : null;
-  if (type === "knob") {
+  if (type === "knob" || type === "pluginSlider") {
     const range = typeof nodeGraphDspKnobOffsetDomain === "function"
       ? nodeGraphDspKnobOffsetDomain(patchNode)
       : null;

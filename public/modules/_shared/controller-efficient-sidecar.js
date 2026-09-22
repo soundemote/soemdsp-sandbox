@@ -693,7 +693,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         continue;
       }
 
-      if (type === "knob") {
+      if (type === "knob" || type === "pluginSlider") {
         // Bias jack = smoothed Bias parameter + In. Smoothing is Parameter
         // Settings on `offset` (same Control smoother as any other param).
         // Do not remap or clamp here — min/max already bound the target.

@@ -275,10 +275,12 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   // Digit hue saturation 0…1 (0 = grey, 1 = full hue).
   dot1Saturation: 1,
   colorSaturation: 1,
-  // Bright 0…1: 0 = mid grey, 0.5 = full Hue, 1 = white (never black).
+  // Bright 0…1: live light black → full hue at 0.5 → white at 1. Residual uses Ghost Gradient.
   brightness: 0.5,
-  // Live digit “light” — single solid color (not the residual gradient).
-  color: nodeGraphScopePhosphorLookDefaults.peakColor,
+  // Spawn live hue 52. Ghost Gradient stays the phosphor LUT.
+  color: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(52)
+    : "#ffdd00",
   // Trail / Ghost — same phosphor drawer SSOT as 1D/2D scopes.
   trail: nodeGraphScopePhosphorLookDefaults.trail,
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
@@ -292,9 +294,8 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   residual: nodeGraphScopePhosphorLookDefaults.trail,
   ghostBrightness: nodeGraphScopePhosphorLookDefaults.ghost,
   // Total digit budget (whole + fractional) for limit_decimals / GROW-off bins.
-  // Default 8 ≈ former hard-coded 6 integer slots + 2 decimals.
-  digits: 8,
-  decimals: 2,
+  digits: 5,
+  decimals: 4,
   // When true: lock digit size to fixed Digits+Decimals bins (stable width).
   // When false (GROW): resize digits to fill available space for the live value.
   // Default OFF (GROW off) so Digit bins can hold a realistic meter.
@@ -323,16 +324,14 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   background: typeof nodeGraphHueUnitHex === "function"
     ? nodeGraphHueUnitHex(nodeGraphValueLcdDefaultHueDeg)
     : "#a2ff00",
-  backgroundBrightness: 0.88,
-  // Plate chroma 0…1 (0 = grey at the same brightness, 1 = full selected hue).
-  backgroundSaturation: 1,
-  // Foreground ink: same hue family, dark end of the brightness cone.
+  backgroundBrightness: 0.9,
+  backgroundSaturation: 0,
   color: typeof nodeGraphHueUnitHex === "function"
-    ? nodeGraphHueUnitHex(nodeGraphValueLcdDefaultHueDeg)
-    : "#a2ff00",
-  brightness: 0.18,
-  dot1Saturation: 1,
-  colorSaturation: 1,
+    ? nodeGraphHueUnitHex(210)
+    : "#00aaff",
+  brightness: 0,
+  dot1Saturation: 0.9,
+  colorSaturation: 0.9,
   // Residual hang unused on LCD (kept 0 so old patches don’t re-enable burn path).
   trail: 0,
   ghost: 0,
@@ -341,9 +340,8 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   residualSchema: 3,
   residual: 0,
   ghostBrightness: 0,
-  // Total digit budget (whole + fractional). Default 9 ≈ 6 int + 3 decimals.
-  digits: 9,
-  decimals: 3,
+  digits: 5,
+  decimals: 4,
   // Same budget policy as Value LED (GROW off / digit bins on).
   decimalBudget: true,
   digitBins: true,
@@ -353,13 +351,11 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   polarity: "bipolar",
   removeTrailingZeros: false,
   // LCD Ghost: permanent “8” skeleton amount 0…1 (soft fade from 0).
-  unlitSegments: 0.22,
-  // Inner shadow (screen glass): Gaussian soft inset + CSS-like offset.
+  unlitSegments: 0.1,
   innerShadowDistance: 1,
-  innerShadowSharpness: 0.732,
-  // Offset −1…1 (0 = centered). Positive X/Y darkens left/top (light from +X/+Y).
-  innerShadowOffsetX: 0,
-  innerShadowOffsetY: 0.135,
+  innerShadowSharpness: 0.7,
+  innerShadowOffsetX: 0.03,
+  innerShadowOffsetY: 0.05,
   gradientStops: Object.freeze([]),
 });
 
@@ -455,7 +451,13 @@ const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   labelText: "Knob",
   // Hole size 0…1 (0 = solid disk, ~0.7 default, 1 = thin outer ring).
   innerRadius: 0.7,
-  look: "knob",
+});
+
+const nodeGraphSliderFaceDisplaySettingsDefaults = Object.freeze({
+  decimals: 2,
+  labelText: "Slider",
+  background: "#000000",
+  arcTrack: "#1a2226",
   sliderLength: 1,
   sliderHeight: 0.22,
   sliderAlign: "mid",

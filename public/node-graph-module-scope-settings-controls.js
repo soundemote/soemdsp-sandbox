@@ -679,7 +679,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   oscilloscopeBankBurn: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
-  knobFace: Object.freeze({
+  pluginSliderFace: Object.freeze({
     sliderLength: nodeGraphTraceDisplayClampUnit,
     sliderHeight: nodeGraphTraceDisplayClampUnit,
     sliderLabelPadding: nodeGraphTraceDisplayClampUnit,
@@ -689,6 +689,8 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     sliderUnitPadding: nodeGraphTraceDisplayClampUnit,
     sliderUnitScale: nodeGraphTraceDisplayClampUnit,
     sliderRounding: nodeGraphTraceDisplayClampUnit,
+  }),
+  knobFace: Object.freeze({
     dialSize: nodeGraphTraceDisplayClampUnit,
     labelSize: nodeGraphTraceDisplayClampUnit,
     valueSize: nodeGraphTraceDisplayClampUnit,

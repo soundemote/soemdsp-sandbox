@@ -50,11 +50,13 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
     if (typeof syncNodeGraphKnobFaceDisplaySettingsControls === "function") {
       syncNodeGraphKnobFaceDisplaySettingsControls(host);
     }
-    const look = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
-      ? nodeGraphKnobFaceDisplaySettingsForNode(node)?.look
-      : node?.traceDisplaySettings?.look;
-    if (typeof nodeGraphKnobFaceSyncLookTabs === "function") {
-      nodeGraphKnobFaceSyncLookTabs(host, look);
+  }
+  if (type === "pluginSliderFace") {
+    if (typeof bindNodeGraphSliderFaceDisplaySettingsEvents === "function") {
+      bindNodeGraphSliderFaceDisplaySettingsEvents(host);
+    }
+    if (typeof syncNodeGraphSliderFaceDisplaySettingsControls === "function") {
+      syncNodeGraphSliderFaceDisplaySettingsControls(host);
     }
   }
   if (type === "toggleButtonFace" || type === "momentaryButtonFace") {
@@ -361,6 +363,11 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       nodeGraphKnobFaceDisplaySettingsDefaults,
     );
   }
+  if (type === "pluginSliderFace") {
+    return typeof normalizeNodeGraphSliderFaceDisplaySettings === "function"
+      ? normalizeNodeGraphSliderFaceDisplaySettings(nodeGraphSliderFaceDisplaySettingsDefaults)
+      : { ...nodeGraphSliderFaceDisplaySettingsDefaults };
+  }
     if (type === "graphFace") {
     return typeof normalizeNodeGraphGraphFaceDisplaySettings === "function"
       ? normalizeNodeGraphGraphFaceDisplaySettings()
@@ -625,6 +632,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   }
   if (type === "knobFace") {
     return normalizeNodeGraphKnobFaceDisplaySettings(settings);
+  }
+  if (type === "pluginSliderFace") {
+    return typeof normalizeNodeGraphSliderFaceDisplaySettings === "function"
+      ? normalizeNodeGraphSliderFaceDisplaySettings(settings)
+      : settings;
   }
     if (type === "graphFace") {
     return typeof normalizeNodeGraphGraphFaceDisplaySettings === "function"
@@ -1339,7 +1351,7 @@ function readNodeGraphTraceDisplaySettingsForm() {
   } else if (next.sourceSync === false) {
     next.syncChannel = "off";
   }
-  if (formType === "knobFace") {
+  if (formType === "pluginSliderFace") {
     const squareOn = Boolean(root?.querySelector?.("#nodeKnobSliderCornerSquareButton")?.classList.contains("active"));
     const squircleOn = Boolean(root?.querySelector?.("#nodeKnobSliderCornerSquircleButton")?.classList.contains("active"));
     if (squareOn || squircleOn) {
@@ -1654,7 +1666,7 @@ function nodeGraphHueTitleInkForHex(hex) {
   return y > 0.55 ? "#000000" : "#ffffff";
 }
 
-function nodeGraphHueTitleStepperApplySwatch(root, pureHex) {
+function nodeGraphHueTitleStepperApplySwatch(root, pureHex, hueLabel = null) {
   if (!root) {
     return;
   }
@@ -1670,6 +1682,10 @@ function nodeGraphHueTitleStepperApplySwatch(root, pureHex) {
     swatch.style.backgroundColor = hex;
     swatch.style.color = ink;
     swatch.style.backgroundImage = "none";
+  }
+  const label = root.querySelector?.(".hue-title-stepper-label");
+  if (label && hueLabel != null) {
+    label.textContent = hueLabel;
   }
 }
 
@@ -1719,6 +1735,10 @@ function bindNodeGraphHueTitleSteppers(host) {
     if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
       applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
     }
+    const label = drag.row?.querySelector?.(".hue-title-stepper-label");
+    if (label && drag.labelText != null) {
+      label.textContent = drag.labelText;
+    }
     drag = null;
   };
 
@@ -1739,6 +1759,7 @@ function bindNodeGraphHueTitleSteppers(host) {
     const hsl = typeof nodeGraphTraceDisplayHexToHsl === "function"
       ? nodeGraphTraceDisplayHexToHsl(colorInput.value)
       : { h: 0 };
+    const labelEl = row.querySelector(".hue-title-stepper-label");
     drag = {
       pointerId: event.pointerId ?? null,
       swatch,
@@ -1747,6 +1768,7 @@ function bindNodeGraphHueTitleSteppers(host) {
       startX: event.clientX,
       startY: event.clientY,
       startHue: nodeGraphFiniteNumber(hsl.h),
+      labelText: labelEl ? String(labelEl.textContent || "") : "",
     };
     swatch.setPointerCapture?.(event.pointerId);
     event.preventDefault();
@@ -1770,7 +1792,7 @@ function bindNodeGraphHueTitleSteppers(host) {
       ? nodeGraphTraceDisplayPureHueHex({ h: nextH }, "#ff0000")
       : `hsl(${nextH} 100% 50%)`;
     drag.colorInput.value = pure;
-    nodeGraphHueTitleStepperApplySwatch(drag.row, pure);
+    nodeGraphHueTitleStepperApplySwatch(drag.row, pure, String(Math.round(nextH)));
     // Live-paint LED only — do NOT rewrite the whole form / re-sync Background
     // color widgets (that was coupling LED hue with the plane widget).
     if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
@@ -2125,7 +2147,7 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
       const hex = nodeGraphTraceDisplayNormalizeHexColor(input.value, "#ffffff");
       const hsl = nodeGraphTraceDisplayHexToHsl(hex);
       const label = nodeGraphTraceDisplayColorWidgetLabel(field);
-      // Value LED Light: hue bar only (Bright does grey→hue→white).
+      // Value LED Light: hue bar only (Bright does black→hue→white).
       // Value LCD Foreground: full color widget (same as Background).
       const lcdNode = liveType === "numberReadout"
         && typeof nodeGraphPatchNode === "function"

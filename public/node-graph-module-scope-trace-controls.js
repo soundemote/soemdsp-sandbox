@@ -681,6 +681,13 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "labelSize",
       "valueSize",
       "innerRadius",
+    ]),
+    colors: Object.freeze(["backgroundColor", "arcFill", "arcTrack"]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze(["labelPosition", "valuePosition"]),
+  }),
+  pluginSliderFace: Object.freeze({
+    fields: Object.freeze([
       "sliderLength",
       "sliderHeight",
       "sliderLabelPadding",
@@ -692,8 +699,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ]),
     colors: Object.freeze([
       "backgroundColor",
-      "arcFill",
-      "arcTrack",
       "sliderColor",
       "sliderNumberColor",
       "sliderTextColor",
@@ -701,8 +706,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ]),
     toggles: Object.freeze(["sliderShowLabel", "sliderShowNumber", "sliderShowUnit"]),
     choices: Object.freeze([
-      "labelPosition",
-      "valuePosition",
       "sliderAlign",
       "sliderLabelAlign",
       "sliderNumberAlign",
@@ -1432,7 +1435,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Bright",
     inputmode: "decimal",
     id: "nodeTraceDisplayBrightness",
-    title: "Peak deposit / present light 0–1 (1 = full). Number Readout LED: live light grey→hue→white (never black); also deposit energy.",
+    title: "Peak deposit / present light 0–1 (1 = full). Number Readout LED: live light black→hue→white; Ghost/Trail stay on the gradient.",
   }),
   lineThickness: Object.freeze({
     label: "Blur",
@@ -2101,6 +2104,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   oscilloscopeBankBurn: "Bank",
   hypersawBurn: "Hypersaw",
   knobFace: "Knob",
+  pluginSliderFace: "Slider",
   graphFace: "Graph",
   phaserFace: "Phaser",
   keypadFace: "Keypad",

@@ -214,7 +214,7 @@ function nodeGraphDspApplyControllerSmoothingMeta(node, controlKey) {
 
 function nodeGraphDspApplyControllerLiveSmoothing(runtimeNode) {
   const type = String(runtimeNode?.type || "");
-  if (type !== "knob" && type !== "toggleButton" && type !== "momentaryButton") {
+  if (type !== "knob" && type !== "pluginSlider" && type !== "toggleButton" && type !== "momentaryButton") {
     return runtimeNode;
   }
   nodeGraphDspApplyControllerSmoothingMeta(runtimeNode, "offset");

@@ -883,6 +883,14 @@ function bindNodeGraphNativeSliderModifiersIn(root, defaultsByKey = null) {
   }
 }
 
+function nodeGraphKnobFaceIsSliderLook(face) {
+  return Boolean(
+    face?.classList?.contains("is-slider-look")
+    || face?.dataset?.knobLook === "slider"
+    || face?.dataset?.nodeType === "pluginSlider",
+  );
+}
+
 /** Circular hit for a knob dial (not the rectangular parent plate). */
 function nodeGraphCircularKnobHitElement(host) {
   if (!host) {
@@ -900,6 +908,14 @@ function nodeGraphCircularKnobHitElement(host) {
 function nodeSliderKnobDragMetrics(surface) {
   if (!surface?.classList?.contains("node-knob-face")) {
     return null;
+  }
+  if (nodeGraphKnobFaceIsSliderLook(surface)) {
+    const bar = surface.querySelector(".node-macro-knob-dial") || surface;
+    const rect = bar.getBoundingClientRect?.();
+    if (!rect || !(rect.width > 2) || !(rect.height > 1)) {
+      return null;
+    }
+    return { rect, travelWidth: Math.max(8, rect.width), visualScale: 1 };
   }
   const el = nodeGraphCircularKnobHitElement(surface) || surface;
   const rect = el.getBoundingClientRect?.();
@@ -1102,6 +1118,7 @@ function beginNodeSliderDrag(event) {
   }
   if (
     surface.classList.contains("node-knob-face")
+    && !nodeGraphKnobFaceIsSliderLook(surface)
     && !nodeGraphPointInCircularKnob(surface, event.clientX, event.clientY)
   ) {
     return;

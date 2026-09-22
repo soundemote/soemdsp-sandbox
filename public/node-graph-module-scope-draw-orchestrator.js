@@ -66,6 +66,13 @@ const nodeGraphModuleScopeCustomRenderers = {
   matrixWaterfallFace: drawNodeGraphSelfPaintFaceItem,
   matrixDisplayFace: drawNodeGraphSelfPaintFaceItem,
   knobFace: drawNodeGraphKnobFaceItem,
+  pluginSliderFace: (renderer, item, pixelRatio) => {
+    if (typeof paintNodeGraphSliderFaceLive === "function") {
+      const face = item?.screenElement || item?.slot?.scopeElement;
+      const nodeId = item?.slot?.nodeId || item?.nodeId;
+      if (face && nodeId) paintNodeGraphSliderFaceLive(face, nodeId, item?.buffer);
+    }
+  },
   toggleButtonFace: (renderer, item) => {
     item?.screenElement?.syncFromParameters?.();
   },

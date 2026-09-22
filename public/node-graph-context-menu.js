@@ -1569,7 +1569,11 @@ function configureNodeSceneContextMenu(mode) {
       ? nodeGraphDefaultNodeTitle(targetNode.type, targetNode.id)
       : "module title";
     aliasInput.title = nodeGraphTooltipText("actions.moduleAlias");
-    const knobSelected = Boolean(targetNode && targetNode.type === "knob" && !multiModuleMode);
+    const knobSelected = Boolean(
+      targetNode
+      && (targetNode.type === "knob" || targetNode.type === "pluginSlider")
+      && !multiModuleMode,
+    );
     selectedModule.classList.toggle("is-knob-settings", knobSelected);
     if (knobTextControl) {
       knobTextControl.hidden = !knobSelected;
