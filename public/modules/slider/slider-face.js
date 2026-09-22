@@ -29,6 +29,13 @@ function nodeGraphSliderFaceClearPinStyles(face) {
   }
 }
 
+function nodeGraphSliderFacePlacePin(face, el, inside) {
+  const dial = face?.querySelector?.("[data-knob-face-dial]");
+  if (!el || !face || !dial) return;
+  const parent = inside ? dial : face;
+  if (el.parentElement !== parent) parent.append(el);
+}
+
 function nodeGraphSliderFaceApplyPin(el, align, pad, scale, fallbackAlign) {
   if (!el) return;
   const a = typeof normalizeNodeGraphKnobPinAlign === "function"
@@ -89,8 +96,10 @@ function nodeGraphSliderFaceApplyStyle(face, settings) {
     ? normalizeNodeGraphKnobSliderBarAlign(s.sliderAlign, "mid")
     : (s.sliderAlign || "mid");
   face.setAttribute("data-slider-align", barAlign);
+  const padding = Number.isFinite(Number(s.sliderPadding)) ? Math.max(0, Math.min(0.5, Number(s.sliderPadding))) : 0;
   face.style.setProperty("--knob-slider-length", String(length));
   face.style.setProperty("--knob-slider-height", String(height));
+  face.style.setProperty("--knob-slider-padding", String(padding));
   face.classList.toggle("slider-bar-gone", length <= 0 || height <= 0);
   face.style.setProperty("--macro-arc-fill", s.sliderColor || "#4a6a78");
   face.style.setProperty("--macro-arc-track", s.arcTrack || "#1a2226");
@@ -100,9 +109,15 @@ function nodeGraphSliderFaceApplyStyle(face, settings) {
   face.classList.toggle("hide-slider-label", s.sliderShowLabel === false);
   face.classList.toggle("hide-slider-number", s.sliderShowNumber === false);
   face.classList.toggle("hide-slider-unit", s.sliderShowUnit === false);
-  nodeGraphSliderFaceApplyPin(face.querySelector("[data-knob-face-label]"), s.sliderLabelAlign, s.sliderLabelPadding, s.sliderLabelScale, "topleft");
-  nodeGraphSliderFaceApplyPin(face.querySelector("[data-knob-face-readout]"), s.sliderNumberAlign, s.sliderNumberPadding, s.sliderNumberScale, "mid");
-  nodeGraphSliderFaceApplyPin(face.querySelector("[data-knob-face-unit]"), s.sliderUnitAlign, s.sliderUnitPadding, s.sliderUnitScale, "topright");
+  const labelEl = face.querySelector("[data-knob-face-label]");
+  const numberEl = face.querySelector("[data-knob-face-readout]");
+  const unitEl = face.querySelector("[data-knob-face-unit]");
+  nodeGraphSliderFacePlacePin(face, labelEl, s.sliderLabelInside === true);
+  nodeGraphSliderFacePlacePin(face, numberEl, s.sliderNumberInside === true);
+  nodeGraphSliderFacePlacePin(face, unitEl, s.sliderUnitInside === true);
+  nodeGraphSliderFaceApplyPin(labelEl, s.sliderLabelAlign, s.sliderLabelPadding, s.sliderLabelScale, "topleft");
+  nodeGraphSliderFaceApplyPin(numberEl, s.sliderNumberAlign, s.sliderNumberPadding, s.sliderNumberScale, "mid");
+  nodeGraphSliderFaceApplyPin(unitEl, s.sliderUnitAlign, s.sliderUnitPadding, s.sliderUnitScale, "topright");
   const rounding = Number.isFinite(Number(s.sliderRounding)) ? Math.max(0, Math.min(1, Number(s.sliderRounding))) : 0.5;
   face.style.setProperty("--knob-slider-rounding", String(rounding));
   face.style.setProperty("--knob-slider-corner-shape", s.sliderCornerShape === "square" ? "round" : "squircle");
@@ -122,10 +137,16 @@ function paintNodeGraphSliderFaceLive(face, nodeId, buffer = null) {
     : true;
   let value = 0;
   if (wantsMouse) {
-    const base = typeof nodeGraphReadNodeNumber === "function"
-      ? nodeGraphReadNodeNumber(nodeId, "offset")
-      : Number(patchNode?.params?.offset);
-    value = Number.isFinite(base) ? base : 0;
+    const slider = document.getElementById(`node-${nodeId}-offset`);
+    const domain = Number(slider?.dataset?.domainValue);
+    if (Number.isFinite(domain)) {
+      value = domain;
+    } else {
+      const base = typeof nodeGraphReadNodeNumber === "function"
+        ? nodeGraphReadNodeNumber(nodeId, "offset")
+        : Number(patchNode?.params?.offset);
+      value = Number.isFinite(base) ? base : 0;
+    }
   } else if (typeof nodeGraphKnobFaceLiveOffset === "function") {
     value = nodeGraphKnobFaceLiveOffset(nodeId);
   }
@@ -244,16 +265,17 @@ function buildNodeGraphSliderFaceDisplaySettingsHtml() {
     : "";
   return `
     <div class="metadata-section-title">Bar</div>
-    <div class="metadata-field-section">${row(colorRow, ["backgroundColor", "sliderColor"])}</div>
-    <div class="metadata-field-section">${row(fieldRow, ["sliderLength", "sliderHeight"])}</div>
+    <div class="metadata-field-section">${row(fieldRow, ["sliderLength", "sliderHeight", "sliderPadding"])}</div>
     <div class="metadata-field-section">${row(choiceRow, ["sliderAlign"])}</div>
     <div class="metadata-field-section">${corners}</div>
     <div class="metadata-section-title">Label</div>
-    <div class="metadata-field-section">${row(toggleRow, ["sliderShowLabel"])}${row(choiceRow, ["sliderLabelAlign"])}${row(fieldRow, ["sliderLabelPadding", "sliderLabelScale"])}${row(colorRow, ["sliderTextColor"])}</div>
+    <div class="metadata-field-section">${row(toggleRow, ["sliderShowLabel", "sliderLabelInside"])}${row(choiceRow, ["sliderLabelAlign"])}${row(fieldRow, ["sliderLabelPadding", "sliderLabelScale"])}</div>
     <div class="metadata-section-title">Number</div>
-    <div class="metadata-field-section">${row(toggleRow, ["sliderShowNumber"])}${row(choiceRow, ["sliderNumberAlign"])}${row(fieldRow, ["sliderNumberPadding", "sliderNumberScale"])}${row(colorRow, ["sliderNumberColor"])}</div>
+    <div class="metadata-field-section">${row(toggleRow, ["sliderShowNumber", "sliderNumberInside"])}${row(choiceRow, ["sliderNumberAlign"])}${row(fieldRow, ["sliderNumberPadding", "sliderNumberScale"])}</div>
     <div class="metadata-section-title">Unit</div>
-    <div class="metadata-field-section">${row(toggleRow, ["sliderShowUnit"])}${row(choiceRow, ["sliderUnitAlign"])}${row(fieldRow, ["sliderUnitPadding", "sliderUnitScale"])}${row(colorRow, ["sliderUnitColor"])}</div>`;
+    <div class="metadata-field-section">${row(toggleRow, ["sliderShowUnit", "sliderUnitInside"])}${row(choiceRow, ["sliderUnitAlign"])}${row(fieldRow, ["sliderUnitPadding", "sliderUnitScale"])}</div>
+    <div class="metadata-section-title">Colors</div>
+    <div class="metadata-field-section">${row(colorRow, ["backgroundColor", "sliderColor", "sliderTextColor", "sliderNumberColor", "sliderUnitColor"])}</div>`;
 }
 
 function bindNodeGraphSliderFaceDisplaySettingsEvents(root) {

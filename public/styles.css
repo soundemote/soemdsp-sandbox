@@ -13601,29 +13601,30 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 
 .node-knob-face.is-slider-look .node-macro-knob-dial {
   position: absolute !important;
-  left: 0 !important;
+  left: 50% !important;
   width: calc(var(--knob-slider-length, 1) * 100%) !important;
   height: calc(var(--knob-slider-height, 0.22) * 100%) !important;
+  transform: translateX(-50%) !important;
   container-type: size;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .node-knob-face.is-slider-look[data-slider-align="top"] .node-macro-knob-dial {
-  top: 0 !important;
+  top: calc(var(--knob-slider-padding, 0) * 100%) !important;
   bottom: auto !important;
-  transform: none !important;
+  transform: translateX(-50%) !important;
 }
 
 .node-knob-face.is-slider-look[data-slider-align="mid"] .node-macro-knob-dial {
   top: 50% !important;
   bottom: auto !important;
-  transform: translateY(-50%) !important;
+  transform: translate(-50%, -50%) !important;
 }
 
 .node-knob-face.is-slider-look[data-slider-align="bottom"] .node-macro-knob-dial {
   top: auto !important;
-  bottom: 0 !important;
-  transform: none !important;
+  bottom: calc(var(--knob-slider-padding, 0) * 100%) !important;
+  transform: translateX(-50%) !important;
 }
 
 .node-knob-face.is-slider-look.slider-bar-gone .node-macro-knob-dial {

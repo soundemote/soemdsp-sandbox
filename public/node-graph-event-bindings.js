@@ -15,6 +15,7 @@ async function bindNodeGraphMvpEvents() {
   await bindNodeGraphMvpEventGroup("workspace", bindNodeGraphWorkspaceInteractionEvents);
   await bindNodeGraphMvpEventGroup("keyboard", () => {
     bindNodeGraphFloatingWindowLockHandles();
+    document.addEventListener("keydown", handleNodeGraphModuleArrowKeys, true);
     document.addEventListener("keydown", handleNodeGraphFloatingWindowKeyboardNudge, true);
     document.addEventListener("keyup", handleNodeGraphFloatingWindowKeyboardRelease, true);
     document.addEventListener("keydown", handleNodeGraphKeydown);

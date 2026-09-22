@@ -170,7 +170,48 @@ function nodeGraphParamSkewExponent(metadata = {}) {
 }
 
 /**
+ * Widget throw: 0 = bottom/left of the control, 1 = top/right.
+ * Reverse swaps which domain end sits at the bottom. Skew is included.
+ * Ghosts and jacks must NOT use this — they follow the stored value.
+ */
+function nodeGraphParamControlPosition(value, metadata = {}) {
+  const min = Number(metadata.min);
+  const max = Number(metadata.max);
+  const range = max - min;
+  if (!Number.isFinite(range) || range <= 0) {
+    return 0;
+  }
+  const bounded = metadata.wraparound
+    ? nodeGraphParamWrap(nodeGraphFiniteNumber(value), min, max)
+    : nodeGraphParamClamp(nodeGraphFiniteNumber(value), min, max);
+  const normalizedValue = nodeGraphParamClamp((bounded - min) / range, 0, 1);
+  const exp = nodeGraphParamSkewExponent(metadata);
+  const unit = nodeGraphParamClamp(normalizedValue ** (1 / exp), 0, 1);
+  return metadata.reverse === true ? (1 - unit) : unit;
+}
+
+/** Inverse of nodeGraphParamControlPosition. */
+function nodeGraphParamDomainFromControlPosition(position, metadata = {}) {
+  const meta = metadata && typeof metadata === "object" ? metadata : {};
+  const min = Number(meta.min);
+  const max = Number(meta.max);
+  const range = max - min;
+  if (!Number.isFinite(range) || range <= 0) {
+    return Number.isFinite(min) ? min : 0;
+  }
+  let unitIn = nodeGraphFiniteNumber(position);
+  if (meta.reverse === true) unitIn = 1 - unitIn;
+  const normalizedSignal = meta.wraparound
+    ? nodeGraphParamWrap(unitIn, 0, 1)
+    : nodeGraphParamClamp(unitIn, 0, 1);
+  const exp = nodeGraphParamSkewExponent(meta);
+  const normalizedValue = normalizedSignal ** exp;
+  return nodeGraphParamApplyDomainBounds(min + range * normalizedValue, meta);
+}
+
+/**
  * DOMAIN → unit [0, 1] for UI / display (may apply mid/custom skew).
+ * Straight map of the stored value. Reverse is not applied.
  */
 function nodeGraphParamDomainToUnit(value, metadata = {}) {
   const min = Number(metadata.min);
@@ -184,9 +225,7 @@ function nodeGraphParamDomainToUnit(value, metadata = {}) {
     : nodeGraphParamClamp(nodeGraphFiniteNumber(value), min, max);
   const normalizedValue = nodeGraphParamClamp((bounded - min) / range, 0, 1);
   const exp = nodeGraphParamSkewExponent(metadata);
-  const unit = nodeGraphParamClamp(normalizedValue ** (1 / exp), 0, 1);
-  // Reverse flips knob travel only. Domain min/max stay in order.
-  return metadata.reverse === true ? (1 - unit) : unit;
+  return nodeGraphParamClamp(normalizedValue ** (1 / exp), 0, 1);
 }
 
 /**
@@ -200,11 +239,9 @@ function nodeGraphParamUnitToDomain(unit, metadata = {}) {
   if (!Number.isFinite(range) || range <= 0) {
     return Number.isFinite(min) ? min : 0;
   }
-  let unitIn = nodeGraphFiniteNumber(unit);
-  if (meta.reverse === true) unitIn = 1 - unitIn;
   const normalizedSignal = meta.wraparound
-    ? nodeGraphParamWrap(unitIn, 0, 1)
-    : nodeGraphParamClamp(unitIn, 0, 1);
+    ? nodeGraphParamWrap(nodeGraphFiniteNumber(unit), 0, 1)
+    : nodeGraphParamClamp(nodeGraphFiniteNumber(unit), 0, 1);
   const exp = nodeGraphParamSkewExponent(meta);
   const normalizedValue = normalizedSignal ** exp;
   return nodeGraphParamApplyDomainBounds(min + range * normalizedValue, meta);

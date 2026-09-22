@@ -2671,6 +2671,10 @@ function selectFocusedNodeGraphGraphNodeOffset(offset) {
 }
 
 function nudgeFocusedNodeGraphGraphNode(event) {
+  if (event?.key === "ArrowUp" || event?.key === "ArrowDown"
+      || event?.key === "ArrowLeft" || event?.key === "ArrowRight") {
+    return false;
+  }
   const display = document.activeElement?.closest?.(".node-module-graph-display");
   const moves = {
     ArrowDown: { x: 0, y: -1 },

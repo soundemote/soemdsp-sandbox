@@ -443,6 +443,7 @@ function nodeSliderMetadata(slider) {
     displayChoices: nodeSliderShouldDisplayChoices(slider),
     divideChoicesVisibly: nodeSliderShouldDivideChoicesVisibly(slider),
     bipolar: slider.dataset.bipolar === "true",
+    reverse: slider.dataset.reverse === "true",
     outputDomain,
     domainOffset,
     linearSmoothing: nodeSliderShouldUseLinearSmoothing(slider),

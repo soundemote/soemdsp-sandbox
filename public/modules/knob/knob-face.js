@@ -695,7 +695,20 @@ function nodeGraphKnobFaceBiasRange(patchNode) {
   return { bipolar: false, max: 1, min: 0 };
 }
 
+function nodeGraphKnobFaceOffsetMetadata(patchNode) {
+  if (typeof nodeGraphReadPatchParameterMetadata === "function" && patchNode) {
+    const meta = nodeGraphReadPatchParameterMetadata(patchNode, "offset");
+    if (meta && typeof meta === "object") return meta;
+  }
+  const raw = patchNode?.paramMeta?.offset;
+  return raw && typeof raw === "object" ? raw : {};
+}
+
 function nodeGraphKnobFaceUnitFromValue(value, patchNode) {
+  const meta = nodeGraphKnobFaceOffsetMetadata(patchNode);
+  if (typeof nodeGraphParamControlPosition === "function") {
+    return nodeGraphParamControlPosition(value, meta);
+  }
   const range = nodeGraphKnobFaceBiasRange(patchNode);
   const lo = range.min;
   const hi = range.max;
@@ -832,12 +845,18 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
     ? nodeGraphDspControllerDisplayIsMouse(patchNode)
     : true;
   let value = null;
+  const offsetSlider = document.getElementById(`node-${nodeId}-offset`);
   if (wantsMouse) {
-    // Display = Mouse: show the pointer target (hidden offset Control).
-    let base = typeof nodeGraphReadNodeNumber === "function"
-      ? nodeGraphReadNodeNumber(nodeId, "offset")
-      : Number(patchNode?.params?.offset);
-    value = Number.isFinite(base) ? base : 0;
+    // Arc follows the stored Bias the finger wrote, not the scope sample.
+    const domain = Number(offsetSlider?.dataset?.domainValue);
+    if (Number.isFinite(domain)) {
+      value = domain;
+    } else {
+      const base = typeof nodeGraphReadNodeNumber === "function"
+        ? nodeGraphReadNodeNumber(nodeId, "offset")
+        : Number(patchNode?.params?.offset);
+      value = Number.isFinite(base) ? base : 0;
+    }
   } else {
     // Display = Smoothed: prefer live Bias (scope / published out), not mouse target.
     value = nodeGraphKnobFaceLiveOffset(nodeId);
@@ -1389,20 +1408,15 @@ function syncNodeGraphKnobFaceFromSlider(slider) {
     return;
   }
   const readout = face.querySelector("[data-knob-face-readout]");
-  const displayValue = Number(slider.value);
+  const domainRaw = Number(slider.dataset?.domainValue);
+  const displayValue = Number.isFinite(domainRaw) ? domainRaw : Number(slider.value);
   const patchNode = typeof nodeGraphPatchNode === "function"
     ? nodeGraphPatchNode(nodeId)
     : null;
   if (readout && !readout.hidden) {
     readout.textContent = nodeGraphKnobFaceFormatReadout(displayValue, patchNode, slider);
   }
-  const min = Number(slider.min);
-  const max = Number(slider.max);
-  let u = 0.5;
-  if (Number.isFinite(min) && Number.isFinite(max) && max !== min) {
-    u = (displayValue - min) / (max - min);
-  }
-  u = Math.max(0, Math.min(1, u));
+  const u = nodeGraphKnobFaceUnitFromValue(displayValue, patchNode);
   face.style.setProperty("--macro-value", String(u));
 }
 

@@ -560,8 +560,13 @@ function nodeSliderThumbDisplayValue(slider, domainValue) {
     return n;
   }
   const shown = clampNodeSliderValue(n, min, max);
-  if (slider?.dataset?.reverse === "true" && !String(slider.dataset.choices || "").trim()) {
-    return min + max - shown;
+  if (
+    slider?.dataset?.reverse === "true"
+    && !String(slider.dataset.choices || "").trim()
+    && typeof nodeGraphParamControlPosition === "function"
+  ) {
+    const pos = nodeGraphParamControlPosition(shown, nodeSliderMetadata(slider));
+    return min + pos * (max - min);
   }
   return shown;
 }
@@ -732,8 +737,10 @@ function nodeSliderValueFromTravel(slider, travel) {
     return min;
   }
 
-  const directed = slider?.dataset?.reverse === "true" ? (1 - travel) : travel;
-  return min + range * nodeSliderCurveValueFromTravel(slider, directed);
+  if (typeof nodeGraphParamDomainFromControlPosition === "function") {
+    return nodeGraphParamDomainFromControlPosition(travel, nodeSliderMetadata(slider));
+  }
+  return min + range * nodeSliderCurveValueFromTravel(slider, travel);
 }
 
 function nodeSliderValueFromPointerTravel(slider, travel) {
@@ -743,9 +750,10 @@ function nodeSliderValueFromPointerTravel(slider, travel) {
   if (!Number.isFinite(range) || range <= 0) {
     return min;
   }
-
-  const directed = slider?.dataset?.reverse === "true" ? (1 - travel) : travel;
-  return min + range * nodeSliderCurveValueFromTravel(slider, directed);
+  if (typeof nodeGraphParamDomainFromControlPosition === "function") {
+    return nodeGraphParamDomainFromControlPosition(travel, nodeSliderMetadata(slider));
+  }
+  return min + range * nodeSliderCurveValueFromTravel(slider, travel);
 }
 
 function nodeSliderValueFromRelativeTravel(slider, travel) {
@@ -768,9 +776,11 @@ function nodeSliderTravelFromValue(slider, value) {
     return 0;
   }
 
+  if (typeof nodeGraphParamControlPosition === "function") {
+    return nodeGraphParamControlPosition(value, nodeSliderMetadata(slider));
+  }
   const normalizedValue = clampNodeSliderValue((value - min) / range, 0, 1);
-  const travel = nodeSliderCurveTravelFromValue(slider, normalizedValue);
-  return slider?.dataset?.reverse === "true" ? (1 - travel) : travel;
+  return nodeSliderCurveTravelFromValue(slider, normalizedValue);
 }
 
 function nodeSliderElementLayoutWidth(element) {

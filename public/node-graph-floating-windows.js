@@ -1483,25 +1483,9 @@ function nodeGraphFloatingWindowKeyboardEventIsEditable(event) {
   );
 }
 
-function handleNodeGraphFloatingWindowKeyboardNudge(event) {
-  if (!nodeGraphFloatingWindowArrowDeltas[event.key] || event.ctrlKey || event.metaKey || event.altKey) {
-    return false;
-  }
-  if (nodeGraphFloatingWindowKeyboardEventIsEditable(event)) {
-    clearNodeGraphFloatingWindowKeyboardState();
-    return false;
-  }
-  const target = nodeGraphActiveFloatingWindowKeyboardTarget();
-  if (!target) {
-    clearNodeGraphFloatingWindowKeyboardState();
-    return false;
-  }
-  nodeGraphFloatingWindowHeldArrowKeys.add(event.key);
-  nodeGraphFloatingWindowKeyboardState.shiftKey = Boolean(event.shiftKey);
-  startNodeGraphFloatingWindowKeyboardLoop();
-  event.preventDefault();
-  event.stopPropagation();
-  return true;
+function handleNodeGraphFloatingWindowKeyboardNudge() {
+  // Arrows are reserved for moving and resizing the selected module.
+  return false;
 }
 
 function handleNodeGraphFloatingWindowKeyboardRelease(event) {

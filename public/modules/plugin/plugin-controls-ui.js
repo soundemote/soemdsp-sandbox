@@ -1,4 +1,6 @@
-// Plugin control faces: Toggle, Momentary (Bias). Knob/Slider look is knob-face.js.
+// Toggle and momentary faces. Same Bias parameter as Knob.
+// Toggle writes min or max. Momentary writes max while held, min on release.
+// Smoothing is the Bias parameter smoother. The face does not interpolate.
 
 function nodeGraphPluginWriteParamValue(nodeId, key, value, options = {}) {
   const id = String(nodeId || "").trim();
@@ -9,20 +11,22 @@ function nodeGraphPluginWriteParamValue(nodeId, key, value, options = {}) {
     if (Number.isFinite(numeric)) {
       slider.dataset.domainValue = String(numeric);
     }
-    slider.value = String(value);
-    if (typeof applyNodeGraphInputUnboundedValue === "function") {
-      applyNodeGraphInputUnboundedValue(slider, Number.isFinite(numeric) ? numeric : value);
-    }
-    if (typeof syncNodeGraphPatchParameterFromSlider === "function") {
-      syncNodeGraphPatchParameterFromSlider(slider, {
-        domainValue: Number.isFinite(numeric) ? numeric : undefined,
+    if (typeof setNodeSliderValue === "function" && Number.isFinite(numeric)) {
+      setNodeSliderValue(slider, numeric, {
         record: Boolean(options.record),
-        status: options.status || "plugin control",
+        status: options.status || "controller",
       });
     } else {
-      slider.dispatchEvent(new Event("input", { bubbles: true }));
-      if (options.record) {
-        slider.dispatchEvent(new Event("change", { bubbles: true }));
+      slider.value = String(value);
+      if (typeof applyNodeGraphInputUnboundedValue === "function") {
+        applyNodeGraphInputUnboundedValue(slider, Number.isFinite(numeric) ? numeric : value);
+      }
+      if (typeof syncNodeGraphPatchParameterFromSlider === "function") {
+        syncNodeGraphPatchParameterFromSlider(slider, {
+          domainValue: Number.isFinite(numeric) ? numeric : undefined,
+          record: Boolean(options.record),
+          status: options.status || "controller",
+        });
       }
     }
     if (typeof scheduleNodeGraphLiveParameterSync === "function") {
@@ -34,50 +38,55 @@ function nodeGraphPluginWriteParamValue(nodeId, key, value, options = {}) {
     return;
   }
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
-  if (!patchNode) return;
-  patchNode.params = { ...(patchNode.params || {}), [key]: String(value) };
-  if (typeof scheduleNodeGraphLiveParameterSync === "function") {
-    scheduleNodeGraphLiveParameterSync();
-  }
-  if (options.record && typeof recordNodeGraphHistory === "function") {
-    recordNodeGraphHistory();
-  }
-  if (typeof scheduleNodeGraphGhostSlidersFromLive === "function") {
-    scheduleNodeGraphGhostSlidersFromLive();
+  if (patchNode) {
+    if (!patchNode.params || typeof patchNode.params !== "object") patchNode.params = {};
+    patchNode.params[key] = Number.isFinite(numeric) ? numeric : value;
+    if (typeof scheduleNodeGraphLiveParameterSync === "function") {
+      scheduleNodeGraphLiveParameterSync();
+    }
   }
 }
 
 function nodeGraphPluginReadParamDom(nodeId, key, fallback = 0) {
-  if (typeof nodeGraphReadNodeNumber === "function") {
-    const n = nodeGraphReadNodeNumber(nodeId, key);
+  const slider = document.getElementById(`node-${nodeId}-${key}`);
+  if (slider) {
+    const domain = Number(slider.dataset?.domainValue);
+    if (Number.isFinite(domain)) return domain;
+    const n = Number(slider.value);
     if (Number.isFinite(n)) return n;
   }
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  const raw = Number(patchNode?.params?.[key]);
-  return Number.isFinite(raw) ? raw : fallback;
+  const stored = Number(patchNode?.params?.[key]);
+  return Number.isFinite(stored) ? stored : fallback;
 }
 
-// —— Toggle ————————————————————————————————————————————————————————————
-
-function nodeGraphPluginButtonBindLook(face, nodeId) {
-  const paint = () => {
-    const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-    if (typeof nodeGraphPluginButtonPaintFace === "function") {
-      nodeGraphPluginButtonPaintFace(
-        face,
-        typeof nodeGraphPluginButtonDisplaySettingsForNode === "function"
-          ? nodeGraphPluginButtonDisplaySettingsForNode(patchNode)
-          : patchNode?.traceDisplaySettings,
-      );
-    }
-  };
-  face._pluginBtnPaintLook = paint;
-  if (typeof ResizeObserver === "function") {
-    const ro = new ResizeObserver(paint);
-    ro.observe(face);
-    face._pluginBtnResize = ro;
+function nodeGraphControllerBiasMeta(nodeId) {
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (typeof nodeGraphKnobFaceOffsetMetadata === "function") {
+    return nodeGraphKnobFaceOffsetMetadata(patchNode);
   }
-  requestAnimationFrame(paint);
+  const raw = patchNode?.paramMeta?.offset;
+  return raw && typeof raw === "object" ? raw : { min: 0, max: 1 };
+}
+
+function nodeGraphControllerBiasAtHighThrow(nodeId, value) {
+  return nodeGraphParamControlPosition(value, nodeGraphControllerBiasMeta(nodeId)) >= 0.5;
+}
+
+function nodeGraphControllerBiasEnd(nodeId, high) {
+  return nodeGraphParamDomainFromControlPosition(high ? 1 : 0, nodeGraphControllerBiasMeta(nodeId));
+}
+
+function nodeGraphControllerShownBias(nodeId, patchNode) {
+  const target = nodeGraphPluginReadParamDom(nodeId, "offset", 0);
+  const wantsMouse = typeof nodeGraphDspControllerDisplayIsMouse === "function"
+    ? nodeGraphDspControllerDisplayIsMouse(patchNode)
+    : true;
+  if (!wantsMouse && typeof nodeGraphModuleScopeLatestOutputValue === "function") {
+    const live = Number(nodeGraphModuleScopeLatestOutputValue(nodeId, "Bias", Number.NaN));
+    if (Number.isFinite(live)) return live;
+  }
+  return target;
 }
 
 function createNodeGraphToggleButtonFace(node, type) {
@@ -89,43 +98,29 @@ function createNodeGraphToggleButtonFace(node, type) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "node-plugin-toggle-button";
-  btn.setAttribute("aria-pressed", "false");
   btn.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} toggle`);
 
-  const biasEnds = () => {
-    const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
-    return typeof nodeGraphDspControllerBiasEnds === "function"
-      ? nodeGraphDspControllerBiasEnds(patchNode, "offset")
-      : { min: 0, max: 1 };
-  };
-  const biasIsOn = (v, ends) => (typeof nodeGraphDspControllerBiasIsOn === "function"
-    ? nodeGraphDspControllerBiasIsOn(v, ends)
-    : Number(v) > 0.5);
   const sync = () => {
     const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
     const wantsMouse = typeof nodeGraphDspControllerDisplayIsMouse === "function"
       ? nodeGraphDspControllerDisplayIsMouse(patchNode)
       : true;
-    const target = nodeGraphPluginReadParamDom(node, "offset", 0);
-    const ends = biasEnds();
-    let shown = target;
-    if (!wantsMouse && typeof nodeGraphModuleScopeLatestOutputValue === "function") {
-      const live = Number(nodeGraphModuleScopeLatestOutputValue(node, "Bias", Number.NaN));
-      if (Number.isFinite(live)) shown = live;
-    }
-    const on = biasIsOn(shown, ends);
+    const shown = nodeGraphControllerShownBias(node, patchNode);
+    const on = nodeGraphControllerBiasAtHighThrow(node, shown);
     btn.classList.toggle("is-on", on);
     btn.setAttribute("aria-pressed", on ? "true" : "false");
     const labels = typeof nodeGraphPluginButtonFaceLabels === "function"
       ? nodeGraphPluginButtonFaceLabels(patchNode || node)
       : { off: "Off", on: "On" };
     if (wantsMouse) {
-      btn.textContent = (biasIsOn(target, ends) ? labels.on : labels.off) || "";
+      const target = nodeGraphPluginReadParamDom(node, "offset", 0);
+      btn.textContent = (nodeGraphControllerBiasAtHighThrow(node, target) ? labels.on : labels.off) || "";
     } else {
       btn.textContent = Number.isFinite(shown) ? shown.toFixed(2) : "0.00";
     }
     face._pluginBtnPaintLook?.();
   };
+
   btn.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     event.stopPropagation();
@@ -133,27 +128,21 @@ function createNodeGraphToggleButtonFace(node, type) {
   btn.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    const ends = biasEnds();
-    const on = biasIsOn(nodeGraphPluginReadParamDom(node, "offset", 0), ends);
-    nodeGraphPluginWriteParamValue(node, "offset", on ? ends.min : ends.max, { record: true, status: "toggle" });
+    const current = nodeGraphPluginReadParamDom(node, "offset", 0);
+    const next = nodeGraphControllerBiasEnd(node, !nodeGraphControllerBiasAtHighThrow(node, current));
+    nodeGraphPluginWriteParamValue(node, "offset", next, { record: true, status: "toggle" });
     sync();
-    if (typeof scheduleNodeGraphGhostSlidersFromLive === "function") {
-      scheduleNodeGraphGhostSlidersFromLive();
-    }
   });
   face.append(btn);
   face.syncFromParameters = sync;
-  nodeGraphPluginButtonBindLook(face, node);
+  if (typeof nodeGraphPluginButtonBindLook === "function") {
+    nodeGraphPluginButtonBindLook(face, node);
+  }
   requestAnimationFrame(sync);
   return face;
 }
 
-// —— Momentary ————————————————————————————————————————————————————————
-
 function createNodeGraphMomentaryButtonFace(node, type) {
-  if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
-    if (!nodeGraphMvp.pluginMomentary) nodeGraphMvp.pluginMomentary = Object.create(null);
-  }
   const face = document.createElement("div");
   face.className = "node-plugin-momentary-face node-module-scope-window";
   face.dataset.node = node;
@@ -162,30 +151,26 @@ function createNodeGraphMomentaryButtonFace(node, type) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "node-plugin-momentary-button";
-  btn.textContent = "GATE";
   btn.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} momentary`);
 
-  const biasEnds = () => {
+  const sync = () => {
     const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
-    return typeof nodeGraphDspControllerBiasEnds === "function"
-      ? nodeGraphDspControllerBiasEnds(patchNode, "offset")
-      : { min: 0, max: 1 };
-  };
-  const biasIsOn = (v, ends) => (typeof nodeGraphDspControllerBiasIsOn === "function"
-    ? nodeGraphDspControllerBiasIsOn(v, ends)
-    : Number(v) > 0.5);
-  const setDown = (down) => {
-    const ends = biasEnds();
-    const v = down ? ends.max : ends.min;
-    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
-      if (!nodeGraphMvp.pluginMomentary) nodeGraphMvp.pluginMomentary = Object.create(null);
-      nodeGraphMvp.pluginMomentary[node] = v;
-    }
-    nodeGraphPluginWriteParamValue(node, "offset", v, { record: false, status: "momentary" });
+    const shown = nodeGraphControllerShownBias(node, patchNode);
+    const down = nodeGraphControllerBiasAtHighThrow(node, shown);
     btn.classList.toggle("is-down", down);
-    if (typeof scheduleNodeGraphLiveParameterSync === "function") {
-      scheduleNodeGraphLiveParameterSync();
-    }
+    const labels = typeof nodeGraphPluginButtonFaceLabels === "function"
+      ? nodeGraphPluginButtonFaceLabels(patchNode || node)
+      : { off: "Off", on: "On" };
+    btn.textContent = (down ? labels.on : labels.off) || "On";
+    face._pluginBtnPaintLook?.();
+  };
+
+  const setDown = (down) => {
+    nodeGraphPluginWriteParamValue(node, "offset", nodeGraphControllerBiasEnd(node, down), {
+      record: false,
+      status: "momentary",
+    });
+    sync();
   };
 
   btn.addEventListener("pointerdown", (event) => {
@@ -204,34 +189,12 @@ function createNodeGraphMomentaryButtonFace(node, type) {
   btn.addEventListener("pointerup", release);
   btn.addEventListener("pointercancel", release);
   btn.addEventListener("lostpointercapture", () => setDown(false));
-  const sync = () => {
-    const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
-    const wantsMouse = typeof nodeGraphDspControllerDisplayIsMouse === "function"
-      ? nodeGraphDspControllerDisplayIsMouse(patchNode)
-      : true;
-    const target = nodeGraphPluginReadParamDom(node, "offset", 0);
-    const ends = biasEnds();
-    let shown = target;
-    if (!wantsMouse && typeof nodeGraphModuleScopeLatestOutputValue === "function") {
-      const live = Number(nodeGraphModuleScopeLatestOutputValue(node, "Bias", Number.NaN));
-      if (Number.isFinite(live)) shown = live;
-    }
-    btn.classList.toggle("is-down", biasIsOn(wantsMouse ? target : shown, ends));
-    const labels = typeof nodeGraphPluginButtonFaceLabels === "function"
-      ? nodeGraphPluginButtonFaceLabels(patchNode || node)
-      : { off: "GATE", on: "GATE" };
-    if (wantsMouse) {
-      btn.textContent = (biasIsOn(wantsMouse ? target : shown, ends) ? labels.on : labels.off) || "";
-    } else {
-      btn.textContent = Number.isFinite(shown) ? shown.toFixed(2) : "0.00";
-    }
-    face._pluginBtnPaintLook?.();
-  };
+
   face.append(btn);
   face.syncFromParameters = sync;
-  nodeGraphPluginButtonBindLook(face, node);
+  if (typeof nodeGraphPluginButtonBindLook === "function") {
+    nodeGraphPluginButtonBindLook(face, node);
+  }
   requestAnimationFrame(sync);
   return face;
 }
-
-// Faces are created by node-graph-module-rendering.js (layout: sliderWidget).

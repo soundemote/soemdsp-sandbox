@@ -678,6 +678,26 @@ const nodeGraphRmsModuleParameterDefs = Object.freeze([
   },
 ]);
 
+function nodeGraphControllerBiasParameter() {
+  return {
+    bipolar: false,
+    defaultValue: "0",
+    parameterOutput: false,
+    key: "offset",
+    label: "Bias",
+    max: "1",
+    mid: "0.5",
+    min: "0",
+    nonlinearSlider: false,
+    step: "any",
+    linearSmoothing: true,
+    smoothingMode: "internal",
+    smoothingSeconds: 0.0333,
+    smoothingType: "linear",
+    tooltip: "Bias. The face edits this. Min, max, reverse, curve, and smooth time are Parameter Settings.",
+  };
+}
+
 function nodeGraphControllerDisplayParameter() {
   return [
     {
@@ -694,6 +714,13 @@ function nodeGraphControllerDisplayParameter() {
       step: "1",
       tooltip: "Mouse = pointer target. Smoothed = Bias after Parameter Settings smooth.",
     },
+  ];
+}
+
+function nodeGraphControllerModuleParameters() {
+  return [
+    nodeGraphControllerBiasParameter(),
+    ...nodeGraphControllerDisplayParameter(),
   ];
 }
 
@@ -6956,8 +6983,7 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  // Plugin Knob (type id knob kept for patch compatibility).
-  // Module-first: macro-dial face + Bias out; offset is hidden state.
+  // Knob, slider, toggle, and momentary share Bias. Only the face differs.
   knob: {
     planRole: "source",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
@@ -6983,40 +7009,7 @@ const nodeGraphModuleDefinitions = (
     outputLabels: {
       Bias: "Bias"
     },
-    parameters: [
-      {
-        bipolar: false,
-        defaultValue: "0",
-        // Bias is the parameter; face displays/controls it. Min/Max = Parameter Settings.
-        parameterOutput: false,
-        key: "offset",
-        label: "Bias",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        linearSmoothing: true,
-        smoothingMode: "internal",
-        smoothingSeconds: 0.0333,
-        smoothingType: "linear",
-        tooltip: "Bias value. Face shows and edits this. Swing + Smooth time live in Parameter Settings.",
-      },
-      ...nodeGraphControllerDisplayParameter(),
-      {
-        choices: ["Unipolar", "Bipolar"],
-        defaultValue: "0",
-        hidden: true,
-        key: "polarity",
-        label: "Polarity",
-        linearSmoothing: false,
-        max: "1",
-        mid: "0",
-        min: "0",
-        step: "1",
-        tooltip: "Unused. Bias swing is min/max on the Bias parameter.",
-      },
-    ],
+    parameters: nodeGraphControllerModuleParameters(),
   },
   pluginSlider: {
     planRole: "source",
@@ -7039,26 +7032,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { In: "In" },
     outputs: ["Bias"],
     outputLabels: { Bias: "Bias" },
-    parameters: [
-      {
-        bipolar: false,
-        defaultValue: "0",
-        parameterOutput: false,
-        key: "offset",
-        label: "Bias",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        linearSmoothing: true,
-        smoothingMode: "internal",
-        smoothingSeconds: 0.0333,
-        smoothingType: "linear",
-        tooltip: "Bias value. Face shows and edits this. Swing + Smooth time live in Parameter Settings.",
-      },
-      ...nodeGraphControllerDisplayParameter(),
-    ],
+    parameters: nodeGraphControllerModuleParameters(),
   },
   toggleButton: {
     planRole: "source",
@@ -7077,29 +7051,11 @@ const nodeGraphModuleDefinitions = (
     ],
     defaultDisplayMode: "face",
     layout: "sliderWidget",
-    // Old patches wired .Out — map to Bias so they still load.
-    outputAliases: { Out: "Bias" },
+    inputs: ["In"],
+    inputLabels: { In: "In" },
     outputs: ["Bias"],
     outputLabels: { Bias: "Bias" },
-    parameters: [
-      {
-        defaultValue: "0",
-        parameterOutput: false,
-        key: "offset",
-        label: "Bias",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        linearSmoothing: true,
-        smoothingMode: "internal",
-        smoothingSeconds: 0.0333,
-        smoothingType: "linear",
-        tooltip: "Bias. Face snaps Off/On to Parameter Settings min/max. Smooth time lives there too.",
-      },
-      ...nodeGraphControllerDisplayParameter(),
-    ]
+    parameters: nodeGraphControllerModuleParameters(),
   },
   momentaryButton: {
     planRole: "source",
@@ -7119,29 +7075,11 @@ const nodeGraphModuleDefinitions = (
     ],
     defaultDisplayMode: "face",
     layout: "sliderWidget",
-    outputAliases: { Out: "Bias" },
+    inputs: ["In"],
+    inputLabels: { In: "In" },
     outputs: ["Bias"],
     outputLabels: { Bias: "Bias" },
-    parameters: [
-      {
-        defaultValue: "0",
-        parameterOutput: false,
-        key: "offset",
-        label: "Bias",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        hidden: true,
-        linearSmoothing: true,
-        smoothingMode: "internal",
-        smoothingSeconds: 0.0333,
-        smoothingType: "linear",
-        tooltip: "Bias. Face hold writes Parameter Settings max; release writes min. Smooth time lives there too.",
-      },
-      ...nodeGraphControllerDisplayParameter(),
-    ]
+    parameters: nodeGraphControllerModuleParameters(),
   },
   passiveFilter: {
     planRole: "processor",

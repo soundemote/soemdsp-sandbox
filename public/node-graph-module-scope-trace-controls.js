@@ -172,6 +172,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "valueSize",
     "sliderLength",
     "sliderHeight",
+    "sliderPadding",
     "sliderLabelPadding",
     "sliderLabelScale",
     "sliderNumberPadding",
@@ -203,6 +204,9 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "sliderShowLabel",
     "sliderShowNumber",
     "sliderShowUnit",
+    "sliderLabelInside",
+    "sliderNumberInside",
+    "sliderUnitInside",
   ],
   choices: [
     "syncChannel",
@@ -690,6 +694,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     fields: Object.freeze([
       "sliderLength",
       "sliderHeight",
+      "sliderPadding",
       "sliderLabelPadding",
       "sliderLabelScale",
       "sliderNumberPadding",
@@ -704,7 +709,14 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "sliderTextColor",
       "sliderUnitColor",
     ]),
-    toggles: Object.freeze(["sliderShowLabel", "sliderShowNumber", "sliderShowUnit"]),
+    toggles: Object.freeze([
+      "sliderShowLabel",
+      "sliderShowNumber",
+      "sliderShowUnit",
+      "sliderLabelInside",
+      "sliderNumberInside",
+      "sliderUnitInside",
+    ]),
     choices: Object.freeze([
       "sliderAlign",
       "sliderLabelAlign",
@@ -1333,6 +1345,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayKnobSliderHeight",
     title: "Bar height 0…1 of the face. 0 = hidden, 1 = full height.",
   }),
+  sliderPadding: Object.freeze({
+    label: "Pad",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayKnobSliderPadding",
+    title: "Inset from the aligned edge, 0…0.5 of the face. Moves a top or bottom bar off the edge. Mid stays centered.",
+  }),
   sliderLabelPadding: Object.freeze({
     label: "Label pad",
     inputmode: "decimal",
@@ -1601,6 +1619,21 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     label: "Unit",
     id: "nodeTraceDisplayKnobSliderShowUnit",
     title: "Show the Bias unit if the parameter has one.",
+  }),
+  sliderLabelInside: Object.freeze({
+    label: "Inside slider",
+    id: "nodeTraceDisplayKnobSliderLabelInside",
+    title: "Align the label to the bar itself, after length, height, and padding. Off uses the whole face.",
+  }),
+  sliderNumberInside: Object.freeze({
+    label: "Inside slider",
+    id: "nodeTraceDisplayKnobSliderNumberInside",
+    title: "Align the number to the bar itself, after length, height, and padding. Off uses the whole face.",
+  }),
+  sliderUnitInside: Object.freeze({
+    label: "Inside slider",
+    id: "nodeTraceDisplayKnobSliderUnitInside",
+    title: "Align the unit to the bar itself, after length, height, and padding. Off uses the whole face.",
   }),
   rotate90: Object.freeze({
     label: "90°",

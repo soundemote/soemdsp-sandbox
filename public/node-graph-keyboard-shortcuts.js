@@ -89,6 +89,62 @@ function nodeGraphBlurActiveTextEditableIfOutside(eventTarget) {
   return true;
 }
 
+const nodeGraphModuleArrowKeys = Object.freeze({
+  ArrowDown: true,
+  ArrowLeft: true,
+  ArrowRight: true,
+  ArrowUp: true,
+});
+
+function nodeGraphArrowKeyIsModulePolicy(event) {
+  return Boolean(nodeGraphModuleArrowKeys[event?.key])
+    && !event.ctrlKey
+    && !event.metaKey
+    && !event.altKey;
+}
+
+/** Text caret only. Number fields and range sliders are not typing. */
+function nodeGraphArrowKeyYieldsToTextCaret(event) {
+  if (!nodeGraphEventTargetIsTextEditable(event?.target)) {
+    return false;
+  }
+  const type = String(event.target?.type || "").toLowerCase();
+  return type !== "number";
+}
+
+/**
+ * App-wide: arrows move the selection, Shift+arrows resize it.
+ * Nothing else may use these keys. No selection means the key is swallowed.
+ */
+function handleNodeGraphModuleArrowKeys(event) {
+  if (!nodeGraphArrowKeyIsModulePolicy(event) || nodeGraphArrowKeyYieldsToTextCaret(event)) {
+    return false;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  if (typeof event.stopImmediatePropagation === "function") {
+    event.stopImmediatePropagation();
+  }
+  if (event.shiftKey) {
+    const resize = {
+      ArrowLeft: ["width", -1],
+      ArrowRight: ["width", 1],
+      ArrowDown: ["height", 1],
+      ArrowUp: ["height", -1],
+    }[event.key];
+    resizeSelectedNodeGraphModulesOnGrid(resize[0], resize[1]);
+  } else {
+    const move = {
+      ArrowDown: ["y", 1],
+      ArrowLeft: ["x", -1],
+      ArrowRight: ["x", 1],
+      ArrowUp: ["y", -1],
+    }[event.key];
+    nudgeSelectedNodeGraphModulesOnGrid(move[0], move[1]);
+  }
+  return true;
+}
+
 function nudgeSelectedNodeGraphModulesOnGrid(axis, direction) {
   const selectedNodeIds = new Set([...nodeGraphSelectedNodeIds()].filter((id) =>
     nodeGraphMvp.activeNodes.has(id),
@@ -495,39 +551,8 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  if (nudgeFocusedNodeGraphGraphNode(event)) {
-    event.preventDefault();
+  if (nodeGraphArrowKeyIsModulePolicy(event)) {
     return;
-  }
-  if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
-    const shiftArrowSizeActions = {
-      ArrowLeft: ["width", -1],
-      ArrowRight: ["width", 1],
-      ArrowDown: ["height", 1],
-      ArrowUp: ["height", -1],
-    };
-    const action = shiftArrowSizeActions[event.key];
-    if (action) {
-      if (resizeSelectedNodeGraphModulesOnGrid(action[0], action[1])) {
-        event.preventDefault();
-      }
-      return;
-    }
-  }
-  if (!event.ctrlKey && !event.metaKey && !event.altKey) {
-    const arrowMoveActions = {
-      ArrowDown: ["y", 1],
-      ArrowLeft: ["x", -1],
-      ArrowRight: ["x", 1],
-      ArrowUp: ["y", -1],
-    };
-    const action = arrowMoveActions[event.key];
-    if (action) {
-      if (nudgeSelectedNodeGraphModulesOnGrid(action[0], action[1])) {
-        event.preventDefault();
-      }
-      return;
-    }
   }
   // Delete only -- Backspace is not a module-delete hotkey (it steals typing
   // focus and was never an approved shortcut).

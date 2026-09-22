@@ -682,6 +682,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   pluginSliderFace: Object.freeze({
     sliderLength: nodeGraphTraceDisplayClampUnit,
     sliderHeight: nodeGraphTraceDisplayClampUnit,
+    sliderPadding: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 0.5),
     sliderLabelPadding: nodeGraphTraceDisplayClampUnit,
     sliderLabelScale: nodeGraphTraceDisplayClampUnit,
     sliderNumberPadding: nodeGraphTraceDisplayClampUnit,

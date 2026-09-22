@@ -1992,6 +1992,13 @@ function destroyNodeGraphTraceDisplayColorWidgets() {
 
 function nodeGraphTraceDisplayColorWidgetLabel(field) {
   // Title lives inside the widget (swatch). Never a side "Color" heading.
+  if (nodeGraphTraceDisplaySettingsFormType() === "pluginSliderFace") {
+    if (field === "backgroundColor") return "Background";
+    if (field === "sliderColor") return "Bar";
+    if (field === "sliderTextColor") return "Label";
+    if (field === "sliderNumberColor") return "Number";
+    if (field === "sliderUnitColor") return "Unit";
+  }
   const nodeType = typeof nodeGraphPatchNode === "function"
     ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
     : null;

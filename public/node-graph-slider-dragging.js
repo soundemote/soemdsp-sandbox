@@ -826,17 +826,10 @@ function bindNodeGraphNativeSliderModifiers(input, defaultValue) {
   }, { passive: false });
 
   input.addEventListener("keydown", (event) => {
-    const direction = event.key === "ArrowUp" || event.key === "ArrowRight"
-      ? 1
-      : event.key === "ArrowDown" || event.key === "ArrowLeft"
-        ? -1
-        : 0;
-    if (!direction) {
+    if (event.key === "ArrowUp" || event.key === "ArrowRight"
+        || event.key === "ArrowDown" || event.key === "ArrowLeft") {
       return;
     }
-    event.preventDefault();
-    event.stopPropagation();
-    nudge(event, direction);
   });
 }
 
@@ -979,6 +972,10 @@ function beginNodeSliderSurfaceEdit(surface) {
 }
 
 function stepNodeSliderFromKeyboard(event) {
+  if (event?.key === "ArrowUp" || event?.key === "ArrowDown"
+      || event?.key === "ArrowLeft" || event?.key === "ArrowRight") {
+    return false;
+  }
   const surface = nodeSliderDragSurfaceFromEvent(event);
   const slider = document.getElementById(surface?.dataset?.sliderTarget || "");
   if (!surface || !slider) {
