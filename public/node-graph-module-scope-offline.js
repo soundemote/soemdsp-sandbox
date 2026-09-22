@@ -512,7 +512,8 @@ function nodeGraphModuleDisplayRendererForSlot(slot) {
  * - Known phosphor/trace/etc. displayType → that renderer (+ its settings).
  * - Any other declared face (registered creators, custom layout)
  *   → layoutOwned (blank Display Settings unless the mode sets a schema).
- * - LayoutA DSP with no face of its own → Instant Trace.
+ * - visualScope / traceDisplay layout → Instant Trace (declared shell).
+ * - LayoutA DSP with no declaration → no canvas. Do not invent Instant Trace.
  */
 function nodeGraphModuleDeclaredDisplayTypeForType(type) {
   const def = nodeGraphModuleDefinitions?.[type];
@@ -534,10 +535,7 @@ function nodeGraphModuleDeclaredDisplayTypeForType(type) {
     return "layoutOwned";
   }
   const layout = String(def?.layout || "").trim();
-  if (layout && layout !== "visualScope" && layout !== "traceDisplay") {
-    return "layoutOwned";
-  }
-  if (def) {
+  if (layout === "visualScope" || layout === "traceDisplay") {
     return "trace";
   }
   return "layoutOwned";

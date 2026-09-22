@@ -171,11 +171,10 @@ function nodeGraphModuleDisplayHeightLimitsForType(_type = null) {
  * LayoutC / chromeless compact tiles have no face.
  * Must not call HasHideable* (that depends on this).
  *
- * Policy is opt-out (same as pre–DISPLAY HIDE SSOT HasHideableOscilloscope):
- * any defined LayoutA processor gets a default scope face even with no
- * displayType/layout field. Requiring displayType/layout only stripped faces
- * from linear envelopes, pluck, and other plain defs.
- * Hide still applies via nodeGraphModuleDisplayVisibleForUi when HasFace.
+ * Opt-in: a face exists only when the type declares one (displayType,
+ * displayModes, custom display area, or a layout that owns a face row).
+ * LayoutA DSP with no declaration has no canvas. Instant Trace is not a
+ * fallback. Hide still applies via DisplayVisibleForUi when HasFace.
  */
 function nodeGraphModuleHasFace(type) {
   const normalizedType = String(type || "").trim();
@@ -203,7 +202,7 @@ function nodeGraphModuleHasFace(type) {
     return true;
   }
   const layout = definition.layout;
-  // Shells with no display face row (opt-out list).
+  // Shells with no display face row.
   if ([
     "canvas",
     "image",
@@ -214,13 +213,13 @@ function nodeGraphModuleHasFace(type) {
   ].includes(layout)) {
     return false;
   }
-  // Explicit analyzer / multi-mode faces.
   if (definition.displayType || (Array.isArray(definition.displayModes) && definition.displayModes.length)) {
     return true;
   }
-  // Named layout that owns a face row, OR default LayoutA (no layout) DSP —
-  // both get a face. Plain envelopes/filters rely on the no-layout path.
-  return true;
+  if (layout === "visualScope" || layout === "traceDisplay") {
+    return true;
+  }
+  return false;
 }
 
 /**

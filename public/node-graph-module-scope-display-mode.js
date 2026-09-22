@@ -121,7 +121,7 @@ function nodeGraphModuleImplicitDisplayModeForType(type) {
   if (renderer === "layoutOwned") {
     return null;
   }
-  // Instant Trace face (explicit or LayoutA invent-trace) → Instant Trace settings.
+  // Instant Trace only when the type declares it (displayType / visualScope).
   // Custom layouts (envelopeCurve / filterCurve) never reach here (layoutOwned).
   return normalizeNodeGraphDisplayMode({
     key: renderer,
@@ -179,8 +179,8 @@ function nodeGraphModuleDisplayRendererForNode(node) {
 
 /**
  * Display Settings form schema for a node.
- * Mode.settingsSchema wins (including ""). Instant Trace faces (explicit or
- * LayoutA invent-trace) use Instant Trace settings. Custom layout faces
+ * Mode.settingsSchema wins (including ""). Instant Trace only when the
+ * module declares displayType "trace". Custom layout faces
  * (envelopeCurve / filterCurve → layoutOwned) have no mode → blank settings.
  */
 function nodeGraphModuleDisplaySettingsSchemaForNode(node) {
