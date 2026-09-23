@@ -1,4 +1,4 @@
-// Toggle and momentary faces. Same Bias parameter as Knob.
+﻿// Toggle and momentary faces. Same Bias parameter as Knob.
 // Toggle writes min or max. Momentary writes max while held, min on release.
 // The on-color follows the Bias smoother (same time and curve as the audio
 // parameter). There is no separate hover or CSS fade.
@@ -6,6 +6,36 @@
 function nodeGraphPluginWriteParamValue(nodeId, key, value, options = {}) {
   const id = String(nodeId || "").trim();
   if (!id || !key) return;
+  if (
+    window.soemdspPerformMode
+    && key === "offset"
+    && window.soemdspPerform
+    && typeof window.soemdspPerform._handleControllerWrite === "function"
+  ) {
+    const pluginId = window.soemdspPerform._pluginIdForNodeId
+      ? window.soemdspPerform._pluginIdForNodeId(id)
+      : null;
+    if (pluginId != null) {
+      const status = String(options?.status || "");
+      let phase = "set";
+      if (status === "momentary") {
+        // Momentary writes max on press and min on release — map to begin/end.
+        const unit = typeof window.soemdspPerform._handleControllerWrite === "function"
+          ? null
+          : null;
+        const metaHigh = typeof nodeGraphControllerBiasAtHighThrow === "function"
+          ? nodeGraphControllerBiasAtHighThrow(id, value)
+          : Number(value) > 0;
+        phase = metaHigh ? "begin" : "end";
+      } else if (status === "toggle") {
+        phase = "set";
+      }
+      if (window.soemdspPerform._handleControllerWrite(id, value, phase)) {
+        // Paint already done inside handle; still refresh button face chrome.
+        return;
+      }
+    }
+  }
   const numeric = Number(value);
   const slider = document.getElementById(`node-${id}-${key}`);
   if (slider) {
@@ -330,3 +360,4 @@ function createNodeGraphMomentaryButtonFace(node, type) {
   requestAnimationFrame(sync);
   return face;
 }
+

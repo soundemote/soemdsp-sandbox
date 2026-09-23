@@ -424,6 +424,9 @@ function beginNodeGraphLayoutCanvasStage(nodeIds, mode = "perform") {
     nodeGraphLayoutCanvasApplyTileRect(item.tile, item.rect, stage);
   }
 
+  // Knob/slider text uses CSS cqmin on the face/dial. Only clear any stale
+  // absolute --knob-cell / --knob-face-min left on the shared face DOM — never
+  // publish the canvas tile's measured px back onto the module plate.
   const syncKnobFaceCells = () => {
     for (const item of items) {
       const face = item.face;

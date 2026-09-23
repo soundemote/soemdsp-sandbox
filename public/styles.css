@@ -173,6 +173,26 @@ body:not(.node-boot-waiting) .node-boot-start-button {
   display: none;
 }
 
+
+.node-boot-hero-title {
+  margin: 0 0 0.35rem;
+  padding: 0;
+  max-width: min(94vw, 42rem);
+  color: rgba(243, 241, 236, 0.98);
+  font-family: "Big Shoulders", "Tenor Sans", system-ui, sans-serif;
+  font-size: clamp(2.4rem, 8vw, 4.6rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.05;
+  text-align: center;
+  text-shadow: 0 0 28px rgba(127, 199, 217, 0.35);
+  word-break: break-word;
+}
+
+body:not(.node-boot-waiting) .node-boot-hero-title {
+  display: none;
+}
+
 /* Boot menu links: same chrome as START SANDBOX */
 .node-boot-menu-links {
   display: flex;
@@ -13538,6 +13558,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   font: 700 0.68rem/1 "Cascadia Mono", Consolas, monospace;
   color: var(--muted);
   overflow: hidden;
+  /* Label cqmin uses this face box (module plate or canvas tile) — not JS px. */
+  container-type: size;
 }
 
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro .node-macro-knob-label,
@@ -13545,8 +13567,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   flex: 0 0 auto;
   line-height: 1;
   max-height: none;
-  /* Label size 0…1 × Dial size 0…1 × dial cell (--knob-cell from JS). */
-  font-size: calc(var(--knob-label-size, 0.45) * var(--knob-dial-size, 1) * var(--knob-cell, 0.68rem));
+  /* Label size 0…1 × Dial size 0…1 × face cqmin (module plate / canvas tile). */
+  font-size: calc(var(--knob-label-size, 0.45) * var(--knob-dial-size, 1) * 100cqmin);
   pointer-events: auto;
   cursor: text;
   user-select: text;

@@ -1,0 +1,74 @@
+﻿/* Perform mode: hide workshop chrome; layout-canvas perform only. */
+html.node-perform-mode,
+body.node-perform-mode {
+  background: #0a0a0a;
+}
+
+body.node-perform-mode .node-boot-menu-links,
+body.node-perform-mode .node-boot-discord-button,
+body.node-perform-mode .node-boot-menu-rect,
+body.node-perform-mode .node-boot-menu-squares {
+  display: none !important;
+}
+
+body.node-perform-mode.node-boot-ready .node-boot-loading-screen {
+  display: none !important;
+}
+
+body.node-perform-mode .status-strip,
+body.node-perform-mode .node-command-center-dock,
+body.node-perform-mode #nodeModuleShopView,
+body.node-perform-mode .node-module-shop-view,
+body.node-perform-mode #nodeGraphWorkspace,
+body.node-perform-mode .node-graph-workspace,
+body.node-perform-mode .node-wiring-panel,
+body.node-perform-mode .node-modular-only-back-button,
+body.node-perform-mode .node-graph-resize-handle,
+body.node-perform-mode #nodeSceneContextMenu,
+body.node-perform-mode .node-floating-window-surface,
+body.node-perform-mode #nodeUserUiSettingsPanel,
+body.node-perform-mode #nodeVisibilityMenu,
+body.node-perform-mode #nodeModuleActionsWindow,
+body.node-perform-mode #nodeGlobalScopeMenu,
+body.node-perform-mode .node-interaction-help,
+body.node-perform-mode #nodeInteractionHelp {
+  display: none !important;
+}
+
+body.node-perform-mode .shell {
+  min-height: 100vh;
+  background: #0a0a0a;
+}
+
+body.node-perform-mode #nodeScreenSoloStage,
+body.node-perform-mode .node-screen-solo-stage {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 40;
+  background: #0a0a0a;
+}
+
+body.node-perform-mode .node-layout-canvas-grip,
+body.node-perform-mode .node-layout-canvas-frame,
+body.node-perform-mode.node-layout-canvas-edit .node-layout-canvas-grip,
+body.node-perform-mode.node-layout-canvas-edit .node-layout-canvas-frame {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+body.node-perform-mode .soemdsp-perform-empty-note {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: min(28rem, 90vw);
+  padding: 1rem 1.25rem;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #bdbdbd;
+  font: 500 0.95rem/1.4 "JetBrains Mono", ui-monospace, monospace;
+  text-align: center;
+  background: #141414;
+}
+

@@ -462,9 +462,9 @@ function nodeGraphKnobFaceFormatReadout(value, patchNode, slider = null) {
 }
 
 /**
- * Dial cell min side in px (unscaled). Label/value CSS multiply this by
- * --knob-dial-size and --knob-*-size so 0…1 scales stay locked on the module
- * plate and in layout canvas (no stale inline px).
+ * Dial cell min side in px (unscaled). Kept for geometry probes only —
+ * do not publish this onto the shared face root (module + layout-canvas
+ * reparent the same DOM; absolute px leaks canvas size onto the plate).
  */
 function nodeGraphKnobFaceDialCellPx(face) {
   if (!face) {
@@ -486,20 +486,17 @@ function nodeGraphKnobFaceSquarePx(face) {
 }
 
 /**
- * Publish --knob-cell for CSS font-size calc. Clears legacy inline fontSize
- * so rem/px leftovers cannot desync from the arc in canvas tiles.
+ * Clear canvas/module-shared size px vars + legacy inline fontSize.
+ * Label/value scale via CSS container queries (cqmin) on the face/dial so
+ * layout-canvas tile size cannot stick on the module plate.
  */
 function nodeGraphKnobFaceSyncCellVar(face) {
   if (!face) {
     return;
   }
-  const cell = nodeGraphKnobFaceDialCellPx(face);
-  if (cell > 0) {
-    face.style.setProperty("--knob-cell", `${cell.toFixed(2)}px`);
-  }
-  const minSide = Math.min(face.clientWidth || 0, face.clientHeight || 0);
-  if (minSide > 0) {
-    face.style.setProperty("--knob-face-min", `${minSide.toFixed(2)}px`);
+  if (face.style) {
+    face.style.removeProperty("--knob-cell");
+    face.style.removeProperty("--knob-face-min");
   }
   const readout = face.querySelector?.("[data-knob-face-readout]");
   if (readout?.style) {
@@ -513,7 +510,7 @@ function nodeGraphKnobFaceSyncCellVar(face) {
   }
 }
 
-/** Value/label sizes are CSS: size × dialSize × --knob-cell (or dial cqmin). */
+/** Value/label sizes are CSS: size × dialSize × 100cqmin (face/dial container). */
 function nodeGraphKnobFaceFitReadout(_readout, face = null) {
   const host = face || _readout?.closest?.(".node-knob-face");
   nodeGraphKnobFaceSyncCellVar(host);

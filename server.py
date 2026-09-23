@@ -471,7 +471,7 @@ class SandboxServer(BaseHTTPRequestHandler):
 
     def serve_request(self, send_body: bool) -> None:
         parsed = urlparse(self.path)
-        if parsed.path in ("/", "/index.html"):
+        if parsed.path in ("/", "/index.html", "/perform.html"):
             ensure_user_ui_settings_files()
             self.serve_index(send_body=send_body)
             return
@@ -1534,7 +1534,10 @@ class SandboxServer(BaseHTTPRequestHandler):
         self.serve_file(path, send_body=send_body)
 
     def serve_index(self, send_body: bool = True) -> None:
-        path = PUBLIC / "index.html"
+        # perform.html is the same shell with perform-boot; stamp it like index.
+        req = urlparse(self.path).path if hasattr(self, "path") else "/index.html"
+        name = "perform.html" if req.endswith("perform.html") else "index.html"
+        path = PUBLIC / name
         if not path.exists():
             self.send_error(404, "Not found")
             return
@@ -1589,7 +1592,7 @@ class SandboxServer(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def serve_file(self, path: Path, send_body: bool = True) -> None:
-        if path.resolve() == (PUBLIC / "index.html").resolve():
+        if path.resolve() in {(PUBLIC / "index.html").resolve(), (PUBLIC / "perform.html").resolve()}:
             self.serve_index(send_body=send_body)
             return
         if not path.exists() or not path.is_file():

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=JetBrains+Mono:wght@400;500;600;700&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=layout-b-display-only-1">
+  <link rel="stylesheet" href="./public/styles.css?v=knob-canvas-face-size-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=portal-thru-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -25,6 +25,7 @@
 <body class="debug-collapsed keyboard-debug-hidden node-boot-waiting node-boot-loading" data-build-mode-value="{{BUILD_MODE}}">
   <div class="node-boot-loading-screen" role="status" aria-live="polite" aria-label="Sandbox" data-build-mode-value="{{BUILD_MODE}}">
     <div class="node-boot-loading-panel">
+      <h1 id="nodeBootHeroTitle" class="node-boot-hero-title">Soundemote.io</h1>
       <div class="node-boot-menu-links" id="nodeBootMenuLinks">
         <button
           id="nodeBootStartButton"
@@ -197,7 +198,8 @@
       </button>
     </div>
   </div>
-  <script src="./public/boot-loading.js?v=no-macro-1"></script>
+  <script src="./public/boot-loading.js?v=boot-hero-1"></script>
+  <script src="./public/perform-boot.js?v=perform-1"></script>
   <main class="shell">
     <section class="status-strip" aria-label="Sandbox status">
       <div>
@@ -3891,8 +3893,8 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-jack-chrome.js?v=canvas-teleport-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-port-types.js?v=ad-compat-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-slider-readout.js?v=btn-choice-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/modules/knob/knob-face.js?v=face-max-digits-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/modules/slider/slider-face.js?v=face-max-digits-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/knob/knob-face.js?v=knob-canvas-face-size-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/slider/slider-face.js?v=knob-canvas-face-size-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/plugin/plugin-button-settings.js?v=btn-pad-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/plugin/plugin-controls-ui.js?v=btn-pin-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-slider-readout-controls.js?v=alt-no-dblclick-1"></script>
@@ -4111,8 +4113,8 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-runtime.js?v=portal-rewrite-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-screen-solo.js?v=graph-face-strip-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-layout-canvas.js?v=knob-bias-cherry-4"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-screen-solo.js?v=knob-canvas-face-size-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-layout-canvas.js?v=knob-canvas-face-size-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-workspace-event-bindings.js?v=constraint-debug-hide-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-render-live-event-bindings.js?v=transport-click-delegate-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-header-event-bindings.js?v=meta-canvas-1"></script>

@@ -57,7 +57,7 @@ function nodeGraphSliderFaceApplyPin(el, align, pad, scale, fallbackAlign) {
   set("white-space", "nowrap");
   set("overflow", "visible");
   set("z-index", "3");
-  set("font-size", `calc(${sc} * var(--knob-face-min, 100cqmin))`);
+  set("font-size", `calc(${sc} * 100cqmin)`);
   const inset = `${(p * 100).toFixed(4)}%`;
   if (a === "topleft") {
     set("top", inset); set("left", inset); set("transform", "none");
@@ -121,9 +121,10 @@ function nodeGraphSliderFaceApplyStyle(face, settings) {
   const rounding = Number.isFinite(Number(s.sliderRounding)) ? Math.max(0, Math.min(1, Number(s.sliderRounding))) : 0.5;
   face.style.setProperty("--knob-slider-rounding", String(rounding));
   face.style.setProperty("--knob-slider-corner-shape", s.sliderCornerShape === "square" ? "round" : "squircle");
-  const minSide = Math.min(face.clientWidth || 0, face.clientHeight || 0);
-  if (minSide > 0) {
-    face.style.setProperty("--knob-face-min", `${minSide.toFixed(2)}px`);
+  // Pin font-size uses 100cqmin on the face container — never publish absolute
+  // --knob-face-min from a layout-canvas tile onto the shared module face DOM.
+  if (face.style) {
+    face.style.removeProperty("--knob-face-min");
   }
 }
 

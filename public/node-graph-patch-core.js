@@ -1,4 +1,4 @@
-function nodeGraphBypassGlyph(bypassed) {
+﻿function nodeGraphBypassGlyph(bypassed) {
   return "\u{1F5F2}";
 }
 
@@ -6,7 +6,7 @@ function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
   let parameter = nodeGraphModuleDefinitions[type]?.parameters?.find(
     (candidate) => candidate.key === key,
   );
-  // Metamodule exposed child params (mx_*__*) — accept numeric store; clamp via metadata.
+  // Metamodule exposed child params (mx_*__*) â€” accept numeric store; clamp via metadata.
   if (
     !parameter
     && typeof nodeGraphIsContainerShellType === "function"
@@ -39,7 +39,7 @@ function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
     : Number.isFinite(fallback)
       ? fallback
       : 0;
-  // min/max are slider guides — only hard-clamp wraparound / resource constraints.
+  // min/max are slider guides â€” only hard-clamp wraparound / resource constraints.
   const meta = metadata && typeof metadata === "object"
     ? metadata
     : {
@@ -82,14 +82,14 @@ const nodeGraphRetiredNodeTypes = new Set([
   "clapPlugin",
   "formulaVisual",
   // graph / graph2 / graphCopy rename via nodeGraphResolveModuleTypeAlias
-  // (smoothGraph / stepGraph) — not retired-drop.
+  // (smoothGraph / stepGraph) â€” not retired-drop.
   "impulseButton",
   "macroKnob",
   "moduleHome",
   "moduleShop",
   "scriptBox",
   "codeblock",
-  // Replaced by Yellow Graph chain: Additive Generator → filters/Growl/Noisy → Out.
+  // Replaced by Yellow Graph chain: Additive Generator â†’ filters/Growl/Noisy â†’ Out.
   "additiveOsc",
   "gpuAdditiveOsc",
   // Split into additiveLinearFilter / AnalogFilter / Growl / Noisy.
@@ -97,8 +97,8 @@ const nodeGraphRetiredNodeTypes = new Set([
 ]);
 
 /**
- * Legacy phosphorLight → scope2d (2D Phosphor).
- * Ports stay X/Y; settings map color/brightness → dot1Color/dot1Brightness.
+ * Legacy phosphorLight â†’ scope2d (2D Phosphor).
+ * Ports stay X/Y; settings map color/brightness â†’ dot1Color/dot1Brightness.
  */
 function migrateNodeGraphPhosphorLightToScope2d(node) {
   if (!node || String(node.type || "").trim() !== "phosphorLight") {
@@ -178,7 +178,7 @@ function validateNodeGraphPatch(patch) {
     const resolved = typeof nodeGraphResolveModuleTypeAlias === "function"
       ? nodeGraphResolveModuleTypeAlias(rawType)
       : rawType;
-    // phosphorLight migrates to scope2d — not unknown.
+    // phosphorLight migrates to scope2d â€” not unknown.
     const probeType = resolved === "phosphorLight" ? "scope2d" : resolved;
     if (!Object.hasOwn(nodeGraphModuleDefinitions, probeType)) {
       droppedNodeIds.add(id);
@@ -191,7 +191,7 @@ function validateNodeGraphPatch(patch) {
   const uniqueTypesSeen = new Set();
   const nodes = patch.nodes
     .filter((node) => !droppedNodeIds.has(String(node.id || "").trim()))
-    // phosphorLight → scope2d also runs inside migrateNodeGraphPatchToCurrent;
+    // phosphorLight â†’ scope2d also runs inside migrateNodeGraphPatchToCurrent;
     // keep local map for boot if migrations.js is missing.
     .map((rawNode) => (
       typeof migrateNodeGraphPhosphorLightToScope2d === "function"
@@ -265,14 +265,14 @@ function validateNodeGraphPatch(patch) {
     const liftFbmFieldFaceParams = type === "fbmField"
       && fbmFieldFaceKeys.every((key) => rawParamMeta[key]?.visible !== true);
     for (const parameter of nodeGraphModuleDefinitions[type].parameters || []) {
-      // Legacy source "level" → "amplitude" (RoundShape and other sources).
+      // Legacy source "level" â†’ "amplitude" (RoundShape and other sources).
       const legacyLevelMeta = parameter.key === "amplitude" ? rawParamMeta.level : undefined;
       const metadata = normalizeNodeGraphPatchParameterMetadata(
         type,
         parameter.key,
         rawParamMeta[parameter.key] ?? legacyLevelMeta,
       );
-      // Raster RGB: contrast/brightness used to be 0…1 unipolar.
+      // Raster RGB: contrast/brightness used to be 0â€¦1 unipolar.
       if (
         type === "rasterRgb"
         && (parameter.key === "contrast" || parameter.key === "brightness")
@@ -318,8 +318,8 @@ function validateNodeGraphPatch(patch) {
               && Object.hasOwn(rawParams, "shape")
               ? rawParams.shape
               : parameter.defaultValue)));
-      // Range: exact old defaults Out −10…+10 peg Morph MOD (|v|>1 = domain-add).
-      // Rewrite only that pair (and matching In −1…+1) to unit CV 0…1.
+      // Range: exact old defaults Out âˆ’10â€¦+10 peg Morph MOD (|v|>1 = domain-add).
+      // Rewrite only that pair (and matching In âˆ’1â€¦+1) to unit CV 0â€¦1.
       // Intentional Hz maps (Out High 1000, etc.) are left alone.
       if (type === "range") {
         const oLo = Number(rawParams.outLow);
@@ -335,7 +335,7 @@ function validateNodeGraphPatch(patch) {
           }
         }
       }
-      // Pluck Envelope: Dampen (0=long…1=short) → Decay (0=short…1=long), inverted.
+      // Pluck Envelope: Dampen (0=longâ€¦1=short) â†’ Decay (0=shortâ€¦1=long), inverted.
       if (
         type === "pluckEnvelope3"
         && parameter.key === "decay"
@@ -359,7 +359,7 @@ function validateNodeGraphPatch(patch) {
           value = hz;
         }
       }
-      // Squares+offset era → absolute W×H. Missing Squares means W×H already absolute.
+      // Squares+offset era â†’ absolute WÃ—H. Missing Squares means WÃ—H already absolute.
       if (
         type === "rasterRgb"
         && (parameter.key === "width" || parameter.key === "height")
@@ -386,15 +386,15 @@ function validateNodeGraphPatch(patch) {
       }
       // Smooth Graph Curve: collapse old 6-choice layout (Linear/Smooth/Bezier/
       // Quadratic/Cubic/Catmull) where Smooth/Bezier/Catmull were one path.
-      // Detect old layout via saved max≥5 or orphan indices 4–5.
-      // Gain Mono Sum: old order Average,Power,Sum,… → Sum,Average,Power,…
+      // Detect old layout via saved maxâ‰¥5 or orphan indices 4â€“5.
+      // Gain Mono Sum: old order Average,Power,Sum,â€¦ â†’ Sum,Average,Power,â€¦
       if ((type === "gain" || type === "gainBias") && parameter.key === "monoSum") {
         if (Number(rawParams._monoSumOrder) !== 2) {
           // Only remap when a saved value exists (legacy patches). Fresh defaults
           // already use the new order (0 = Sum).
           if (Object.hasOwn(rawParams, "monoSum")) {
             const n = Math.round(Number(value));
-            // old → new: 0Avg→1, 1Pow→2, 2Sum→0, 3…6 unchanged
+            // old â†’ new: 0Avgâ†’1, 1Powâ†’2, 2Sumâ†’0, 3â€¦6 unchanged
             const map = [1, 2, 0, 3, 4, 5, 6];
             if (Number.isFinite(n) && n >= 0 && n < map.length) {
               value = map[n];
@@ -403,7 +403,7 @@ function validateNodeGraphPatch(patch) {
           rawParams._monoSumOrder = 2;
         }
       }
-      // Curve Envelope shapes: legacy target-ratio [1e-4,100] → bipolar [-1,1].
+      // Curve Envelope shapes: legacy target-ratio [1e-4,100] â†’ bipolar [-1,1].
       if (
         (type === "expAdsr" || type === "curveEnvelopeMod")
         && (parameter.key === "attackShape" || parameter.key === "releaseShape")
@@ -417,7 +417,7 @@ function validateNodeGraphPatch(patch) {
           value = (Math.log(100) - Math.log(r)) / (Math.log(100) - Math.log(1e-4));
         }
       }
-      // Graphic EQ: old unit −1…+1 × Range (±6/±12/±18) → absolute dB (±12 UI).
+      // Graphic EQ: old unit âˆ’1â€¦+1 Ã— Range (Â±6/Â±12/Â±18) â†’ absolute dB (Â±12 UI).
       // Run once on the first parameter so every band sees converted rawParams.
       if (type === "graphicEq" && Number(rawParams._graphicEqDbBands) !== 1) {
         const sampleMetaMax = Number(rawParamMeta.band0?.max ?? rawParamMeta.band16?.max);
@@ -443,7 +443,7 @@ function validateNodeGraphPatch(patch) {
         if (Object.hasOwn(rawParamMeta, "range")) delete rawParamMeta.range;
         if (Object.hasOwn(rawParams, parameter.key)) value = rawParams[parameter.key];
       }
-      // Chaosfly LP/HP/Pitch: old 0…1 amount → −10…+10 octave offset.
+      // Chaosfly LP/HP/Pitch: old 0â€¦1 amount â†’ âˆ’10â€¦+10 octave offset.
       // Stale values in (0,1] are meaningless as octaves; snap to 0 (at master).
       if (
         type === "chaosfly"
@@ -460,7 +460,7 @@ function validateNodeGraphPatch(patch) {
           value = 0;
         }
       }
-      // Chaosfly LP Taps: old 0…6 power-of-two index → direct 1…64 pole count.
+      // Chaosfly LP Taps: old 0â€¦6 power-of-two index â†’ direct 1â€¦64 pole count.
       if (type === "chaosfly" && parameter.key === "taps") {
         const sourceMax = Number(rawParamMeta[parameter.key]?.max);
         const sourceMin = Number(rawParamMeta[parameter.key]?.min);
@@ -472,7 +472,7 @@ function validateNodeGraphPatch(patch) {
           value = 1 << i;
         }
       }
-      // Inertial Filter: Attack/Release used to be 0…1 mix/sample. Now Hz.
+      // Inertial Filter: Attack/Release used to be 0â€¦1 mix/sample. Now Hz.
       if (
         type === "inertialFilter"
         && (parameter.key === "attack" || parameter.key === "release")
@@ -514,7 +514,7 @@ function validateNodeGraphPatch(patch) {
           value = Number.isFinite(n) && n >= 0 && n < six.length ? six[n] : 1;
         }
       }
-      // Thump Decay Body: old 0…10 atten → new 0…1 inverted UI (10→0, 0→1).
+      // Thump Decay Body: old 0â€¦10 atten â†’ new 0â€¦1 inverted UI (10â†’0, 0â†’1).
       if (type === "thumpEnvelope" && parameter.key === "decayBody") {
         const n = Number(value);
         const sourceMax = Number(node.paramMeta?.[parameter.key]?.max);
@@ -529,7 +529,7 @@ function validateNodeGraphPatch(patch) {
         metadata,
       );
     }
-    // Keep `_…` migration stamps (e.g. _wfBasic, _freqSkewCurve). They are not
+    // Keep `_â€¦` migration stamps (e.g. _wfBasic, _freqSkewCurve). They are not
     // module parameters, but must survive normalize/save so one-shot migrators
     // do not rewrite real parameter values on every load.
     for (const [stampKey, stampValue] of Object.entries(rawParams)) {
@@ -558,7 +558,7 @@ function validateNodeGraphPatch(patch) {
       ...(type === "knob" && String(node.pluginName || "").trim()
         ? { pluginName: String(node.pluginName).trim() }
         : {}),
-      ...(type === "knob" && (() => {
+      ...((type === "knob" || type === "pluginSlider" || type === "toggleButton" || type === "momentaryButton") && (() => {
         if (node.pluginId !== 0 && !node.pluginId) {
           return false;
         }
@@ -741,7 +741,7 @@ function validateNodeGraphPatch(patch) {
     ) {
       normalizedNode.ui = ui;
     }
-    // Keyboard / Grid Chord Memory slots (MIDI 0..127 → note lists).
+    // Keyboard / Grid Chord Memory slots (MIDI 0..127 â†’ note lists).
     if (
       (type === "keyboard" || type === "gridKeyboard")
       && node.chordMemory
@@ -800,7 +800,7 @@ function validateNodeGraphPatch(patch) {
       throw new Error("bypassedNodes entry missing node id");
     }
     if (!ids.has(id)) {
-      // Dropped unknown/retired node — ignore stale bypass entry.
+      // Dropped unknown/retired node â€” ignore stale bypass entry.
       if (droppedNodeIds.has(id)) {
         continue;
       }
@@ -1022,14 +1022,14 @@ function validateNodeGraphPatch(patch) {
     windows: normalizeNodeGraphPatchWindows(patch.windows),
   };
   if (loadWarnings.length) {
-    // Ephemeral — stripped before serialize / commit persistence.
+    // Ephemeral â€” stripped before serialize / commit persistence.
     normalized.loadWarnings = loadWarnings;
   }
   return normalized;
 }
 
 /**
- * Hard-fail patch load diagnostics. No soft recovery — either the patch
+ * Hard-fail patch load diagnostics. No soft recovery â€” either the patch
  * validates or we throw with a concrete source line.
  *
  * Message shape:
@@ -1055,7 +1055,7 @@ function nodeGraphPatchFindLineNumber(sourceText, needle) {
   return 0;
 }
 
-/** Map JSON SyntaxError / message → 1-based line in sourceText. */
+/** Map JSON SyntaxError / message â†’ 1-based line in sourceText. */
 function nodeGraphPatchErrorLineNumber(sourceText, error) {
   const source = String(sourceText ?? "");
   const msg = String(error?.message || error || "");
@@ -1078,7 +1078,7 @@ function nodeGraphPatchErrorLineNumber(sourceText, error) {
     return Math.max(1, nodeGraphFiniteNumber(lineMatch[1], 1));
   }
 
-  // Validation messages often name a type or id — land on that line of JSON.
+  // Validation messages often name a type or id â€” land on that line of JSON.
   const typeMatch = msg.match(/unknown node type\s+([A-Za-z0-9_.:-]+)/i);
   if (typeMatch) {
     const t = typeMatch[1];
@@ -1141,7 +1141,7 @@ function nodeGraphPatchThrowLoadFailure(sourceText, error) {
   const fail = new Error(message);
   fail.patchScript = source;
   fail.patchLoadFailure = true;
-  // Keep the script on screen — do not rely on clipboard alone.
+  // Keep the script on screen â€” do not rely on clipboard alone.
   if (typeof nodeGraphShowPatchLoadFault === "function") {
     try {
       nodeGraphShowPatchLoadFault({ message, script: source });
@@ -1689,7 +1689,7 @@ function applyNodeGraphPatchToDom(options = {}) {
   if (typeof syncNodeGraphModuleFramesAfterDom === "function") {
     syncNodeGraphModuleFramesAfterDom();
   }
-  // Bottom 🔊 mirrors Output.volume + Input.level after every full DOM rebuild.
+  // Bottom ðŸ”Š mirrors Output.volume + Input.level after every full DOM rebuild.
   if (typeof syncNodeGraphLiveVolumeMirrorsFromModules === "function") {
     syncNodeGraphLiveVolumeMirrorsFromModules();
   } else if (typeof syncNodeGraphLiveOutputVolumeFromOutputModule === "function") {
@@ -1703,7 +1703,7 @@ function applyNodeGraphPatchToDom(options = {}) {
 /**
  * Layout-only path after module drag: positions are already on the DOM.
  * Avoid full applyNodeGraphPatchToDom (re-syncs every slider / face / knob),
- * live plan rebuild, and render-pending — none of those depend on gx/gy.
+ * live plan rebuild, and render-pending â€” none of those depend on gx/gy.
  */
 function applyNodeGraphLayoutPositionsToDom(patch = nodeGraphMvp.patch) {
   for (const patchNode of patch?.nodes || []) {
@@ -1752,13 +1752,13 @@ function scheduleNodeGraphChromeHistoryAndAutosave(options = {}) {
 
 function commitNodeGraphPatch(patch, options = {}) {
   const isWireEdit = Boolean(options.wireEdit);
-  // layoutEdit: module move / snap only — skip DOM rebuild + audio plan + render pending.
+  // layoutEdit: module move / snap only â€” skip DOM rebuild + audio plan + render pending.
   const isLayoutEdit = Boolean(options.layoutEdit);
-  // topologyEdit: add/remove modules — do not re-sync every existing slider/face.
+  // topologyEdit: add/remove modules â€” do not re-sync every existing slider/face.
   const isTopologyEdit = Boolean(options.topologyEdit);
-  // chromeEdit: size / show-hide — touch only named modules, defer history/serialize.
+  // chromeEdit: size / show-hide â€” touch only named modules, defer history/serialize.
   const isChromeEdit = Boolean(options.chromeEdit);
-  // softDom: cosmetic module face / label-only edits — keep existing module DOM
+  // softDom: cosmetic module face / label-only edits â€” keep existing module DOM
   // (avoids image reload flash on Knob readout/rotate toggles).
   const isSoftDom = Boolean(options.softDom || options.faceEdit);
   const skipValidate = Boolean(options.skipValidate);
@@ -1772,7 +1772,7 @@ function commitNodeGraphPatch(patch, options = {}) {
     try {
       validated = validateNodeGraphPatch(patch);
     } catch (error) {
-      // Hard fail with source line — no soft recovery.
+      // Hard fail with source line â€” no soft recovery.
       let pretty = "";
       try {
         pretty = JSON.stringify(patch, null, 2);
@@ -1821,7 +1821,7 @@ function commitNodeGraphPatch(patch, options = {}) {
     nodeGraphMvp.patchDirtyState = "edited";
   }
   // Audio graph topology/params are unchanged by gx/gy, size, or chrome.
-  // Show/hide display is face chrome only. Do not setPlan — that recompiled
+  // Show/hide display is face chrome only. Do not setPlan â€” that recompiled
   // the native graph and restarted Music Player from the top.
   if (isChromeEdit && options.deferLivePlan) {
     // Intentionally no live plan sync.
@@ -1872,7 +1872,7 @@ function commitNodeGraphPatch(patch, options = {}) {
       );
       syncNodeGraphScriptView(scriptStatus.message, scriptStatus.ok);
     } else if (typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
-      // Light header dirty-state only — no full script panel rewrite.
+      // Light header dirty-state only â€” no full script panel rewrite.
       syncNodeGraphCurrentSavedPatchHeader();
     }
     if (options.record !== false) {
@@ -1955,7 +1955,7 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
     const entries = typeof nodeGraphSelectedWireEntries === "function"
       ? nodeGraphSelectedWireEntries(selection)
       : [{ kind: selection.kind || "signal", index: selection.index }];
-    // High → low per kind so indices stay valid while removing.
+    // High â†’ low per kind so indices stay valid while removing.
     const byKind = new Map();
     for (const entry of entries) {
       const kind = entry.kind || "signal";
@@ -2024,7 +2024,7 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
     // Meta In/Out deleted alone (inside meta view): prune from parent boundary.
     const boundaryIdsToRemove = [...removableNodeIds].filter((nodeId) => {
       if (containerIdsToDelete.length && removableNodeIds.has(nodeId)) {
-        // When deleting a whole container, portals go with removableNodeIds — no
+        // When deleting a whole container, portals go with removableNodeIds â€” no
         // separate boundary refresh needed (shell is gone).
         const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
         const owner = String(node?.ownerMetamoduleId || "").trim();
@@ -2098,7 +2098,7 @@ function performNodeGraphDeleteSelection(selection = nodeGraphMvp.selected) {
             !removableNodeIds.has(connection.destinationNode),
         ),
       };
-      // Clear Show metaparameter → deleted child (and shell mx_* params / MOD).
+      // Clear Show metaparameter â†’ deleted child (and shell mx_* params / MOD).
       if (typeof nodeGraphMetamodulePruneOrphanExposedParams === "function") {
         const pruned = nodeGraphMetamodulePruneOrphanExposedParams(patch, removableNodeIds);
         for (const metaId of pruned) {
@@ -2206,3 +2206,4 @@ function nodeGraphStableSeed(text) {
   }
   return seed || 0x12345678;
 }
+

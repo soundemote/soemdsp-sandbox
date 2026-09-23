@@ -38,6 +38,56 @@ function nodeGraphBootBuildMode() {
   return raw === "release" ? "release" : "debug";
 }
 
+/** Start-menu hero: Soundemote.io, or soundemote.io/{patch} from URL / embed path. */
+function nodeBootHeroPatchSlug() {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const fromQuery = String(params.get("pagePatch") || "").trim();
+    if (fromQuery) return fromQuery;
+  } catch (_error) {
+    /* ignore */
+  }
+  const reserved = new Set([
+    "",
+    "index.html",
+    "perform.html",
+    "sandbox",
+    "public",
+    "soemdsp-sandbox",
+  ]);
+  const tryPath = (pathname) => {
+    const path = String(pathname || "").replace(/^\/+|\/+$/g, "");
+    if (!path || reserved.has(path.toLowerCase())) return "";
+    // Single segment only (soundemote.io/ThePatchName).
+    if (path.includes("/")) return "";
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(path)) return "";
+    return path;
+  };
+  try {
+    if (window.parent && window.parent !== window) {
+      const parentSlug = tryPath(window.parent.location.pathname);
+      if (parentSlug) return parentSlug;
+    }
+  } catch (_error) {
+    /* cross-origin parent */
+  }
+  try {
+    return tryPath(window.location.pathname);
+  } catch (_error) {
+    return "";
+  }
+}
+
+function nodeBootRefreshHeroTitle() {
+  const el = document.getElementById("nodeBootHeroTitle");
+  if (!el) return;
+  const slug = nodeBootHeroPatchSlug();
+  el.textContent = slug ? `soundemote.io/${slug}` : "Soundemote.io";
+}
+
+nodeBootRefreshHeroTitle();
+
+
 function nodeGraphBootIsRelease() {
   return nodeGraphBootBuildMode() === "release";
 }

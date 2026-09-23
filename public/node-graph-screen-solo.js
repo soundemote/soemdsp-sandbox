@@ -646,14 +646,25 @@ function nodeGraphScreenSoloRestoreItem(item) {
   if (!face) {
     return;
   }
-  face.classList.remove("node-screen-solo-face");
+  face.classList.remove("node-screen-solo-face", "node-layout-canvas-face");
   face.removeAttribute("data-solo-fit");
   face.style.removeProperty("--node-screen-solo-item-w");
   face.style.removeProperty("--node-screen-solo-item-h");
+  // Shared face DOM: drop any canvas-measured size px before returning to plate.
+  face.style.removeProperty("--knob-cell");
+  face.style.removeProperty("--knob-face-min");
   nodeGraphScreenSoloApplySavedFaceLayout(face, item.savedLayout);
   nodeGraphScreenSoloInsertFace(item);
   if (item.placeholder?.isConnected) {
     item.placeholder.remove();
+  }
+  if (typeof nodeGraphKnobFaceSyncCellVar === "function") {
+    const host = face;
+    window.requestAnimationFrame(() => {
+      if (typeof nodeGraphKnobFaceSyncCellVar === "function") {
+        nodeGraphKnobFaceSyncCellVar(host);
+      }
+    });
   }
 }
 
