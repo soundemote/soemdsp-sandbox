@@ -12578,15 +12578,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     displayHeightGu: 3,
     displayType: "trace",
-    defaultDisplayMode: "env",
+    // Sole face: Gain is 1 at rest (top of the bipolar trace) and falls
+    // toward 0 while limiting, so the line dips from the top.
+    defaultDisplayMode: "gain",
     displayModes: [
-      {
-        key: "env",
-        label: "Env",
-        renderer: "trace",
-        settingsSchema: "trace",
-        source: { value: "Env" },
-      },
       {
         key: "gain",
         label: "Gain",

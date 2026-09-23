@@ -178,6 +178,13 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
         params,
         type: node.type,
       };
+      const portalTitle = typeof normalizeNodeGraphPatchNodeAlias === "function"
+        ? normalizeNodeGraphPatchNodeAlias(node.alias)
+        : String(node.alias || "").trim();
+      if (portalTitle) {
+        runtimeNode.alias = portalTitle;
+        runtimeNode.portalTitle = portalTitle;
+      }
       if (typeof nodeGraphTakePendingParamSnaps === "function") {
         const snaps = nodeGraphTakePendingParamSnaps(node.id);
         if (snaps && snaps.length) {
@@ -275,6 +282,13 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
         params,
         type: node.type,
       };
+      const portalTitle = typeof normalizeNodeGraphPatchNodeAlias === "function"
+        ? normalizeNodeGraphPatchNodeAlias(node.alias)
+        : String(node.alias || "").trim();
+      if (portalTitle) {
+        runtimeNode.alias = portalTitle;
+        runtimeNode.portalTitle = portalTitle;
+      }
       if (typeof nodeGraphTakePendingParamSnaps === "function") {
         const snaps = nodeGraphTakePendingParamSnaps(node.id);
         if (snaps && snaps.length) {

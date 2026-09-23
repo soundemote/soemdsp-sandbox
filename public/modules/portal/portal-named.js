@@ -132,7 +132,7 @@ function nodeGraphSpliceNamedPortalCables(nodes, connections, modulations) {
     if (!node) return "";
     const type = String(node.type || "");
     if (type !== "namedPortalIn" && type !== "namedPortalOut") return "";
-    const title = String(node.alias || "").trim().toLowerCase();
+    const title = String(node.alias || node.portalTitle || "").trim().toLowerCase();
     if (!title) return "";
     return `${String(node.ownerMetamoduleId || "")}\0${title}`;
   };

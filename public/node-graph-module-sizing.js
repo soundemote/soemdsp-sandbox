@@ -629,6 +629,25 @@ function nodeGraphModuleIsCollapsedUi(type, ui = {}) {
     && ioOff;
 }
 
+/**
+ * Layout B with every chrome band off (title, header buttons, sliders).
+ * Not a fifth chrome type — same Layout B, omitted bands. Outer = face.
+ * Side jacks stay in the shell.
+ */
+function nodeGraphModuleIsLayoutBDisplayOnly(type, ui = {}, node = null) {
+  if (typeof nodeGraphModuleUsesLayoutB !== "function" || !nodeGraphModuleUsesLayoutB(type)) {
+    return false;
+  }
+  if (typeof nodeGraphModuleDisplayVisibleForUi === "function"
+    && !nodeGraphModuleDisplayVisibleForUi(type, ui)) {
+    return false;
+  }
+  if (nodeGraphModuleHeaderHeightUnits(ui, type) > 0) {
+    return false;
+  }
+  return nodeGraphModuleSliderBodyHeightGu(type, ui, node) <= 0;
+}
+
 function normalizeNodeGraphTextBoxHeightUnits(heightGu, ui = {}) {
   const value = Math.round(Number(heightGu));
   if (!Number.isFinite(value)) {
@@ -923,6 +942,8 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
       ? nodeGraphLayoutBShellHeightGu(type, ui)
       : nodeGraphModuleDisplayHeightUnits(type, ui);
     const paramsGu = nodeGraphModuleSliderBodyHeightGu(type, ui, node);
+    const displayOnly = typeof nodeGraphModuleIsLayoutBDisplayOnly === "function"
+      && nodeGraphModuleIsLayoutBDisplayOnly(type, ui, node);
     const bands = [];
     if (headerGu > 0) {
       bands.push({ id: "header", heightGu: headerGu, visible: true, grow: false });
@@ -931,7 +952,9 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
       id: "shell",
       heightGu: Math.max(1, nodeGraphFiniteNumber(shellGu, 1)),
       visible: true,
-      grow: paramsGu <= 0,
+      // Display-only: the face is the plate. 1fr of the inset article box,
+      // never a raw N×gridHeight track (that is taller than the plate).
+      grow: displayOnly || paramsGu <= 0,
     });
     if (paramsGu > 0) {
       bands.push({ id: "params", heightGu: paramsGu, visible: true, grow: false });

@@ -151,7 +151,12 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       ownerMetamoduleId: node.ownerMetamoduleId
         ? String(node.ownerMetamoduleId)
         : undefined,
-      alias: node.alias ? String(node.alias) : undefined,
+      alias: (node.alias || node.portalTitle)
+        ? String(node.alias || node.portalTitle)
+        : undefined,
+      portalTitle: (node.alias || node.portalTitle)
+        ? String(node.alias || node.portalTitle)
+        : undefined,
       // Playmode + Voice Count live on metamodule (Module Settings), not params.
       metamodule: node.metamodule && typeof node.metamodule === "object"
         ? node.metamodule

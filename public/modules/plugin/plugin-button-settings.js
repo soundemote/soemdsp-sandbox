@@ -146,20 +146,22 @@ function nodeGraphPluginButtonStrokePixels(strokeScale, boxPx) {
   return t * max;
 }
 
-function nodeGraphPluginButtonApplyBoxPin(el, align, padPx, widthPx, heightPx, faceW, faceH) {
+function nodeGraphPluginButtonApplyBoxPin(el, align, pad01, widthPx, heightPx, faceW, faceH) {
   if (!el) return;
   const a = nodeGraphPluginButtonNormalizeAlign(align, "mid");
   const w = Math.max(0, Number(widthPx) || 0);
   const h = Math.max(0, Number(heightPx) || 0);
-  const pad = Math.max(0, Number(padPx) || 0);
+  const p = Math.max(0, Math.min(1, Number(pad01) || 0));
   const fw = Math.max(0, Number(faceW) || 0);
   const fh = Math.max(0, Number(faceH) || 0);
-  let x = pad;
-  let y = pad;
+  const padX = p * fw;
+  const padY = p * fh;
+  let x = padX;
+  let y = padY;
   if (a === "top" || a === "mid" || a === "bottom") x = (fw - w) * 0.5;
-  else if (a === "topright" || a === "midright" || a === "bottomright") x = fw - pad - w;
+  else if (a === "topright" || a === "midright" || a === "bottomright") x = fw - padX - w;
   if (a === "midleft" || a === "mid" || a === "midright") y = (fh - h) * 0.5;
-  else if (a === "bottomleft" || a === "bottom" || a === "bottomright") y = fh - pad - h;
+  else if (a === "bottomleft" || a === "bottom" || a === "bottomright") y = fh - padY - h;
   const set = (prop, value) => el.style.setProperty(prop, value, "important");
   set("position", "absolute");
   set("top", `${y}px`);
@@ -198,14 +200,11 @@ function nodeGraphPluginButtonPaintFace(face, settings) {
   if (minSide > 0) {
     face.style.setProperty("--knob-face-min", `${minSide.toFixed(2)}px`);
   }
-  const padPx = s.buttonPadding * minSide * 0.5;
-  const innerW = Math.max(0, faceW - padPx * 2);
-  const innerH = Math.max(0, faceH - padPx * 2);
-  const boxW = innerW * s.buttonScale;
-  const boxH = innerH * s.buttonScale;
+  const boxW = faceW * s.buttonScale;
+  const boxH = faceH * s.buttonScale;
   const box = Math.min(boxW, boxH);
   if (btn) {
-    nodeGraphPluginButtonApplyBoxPin(btn, s.buttonAlign, padPx, boxW, boxH, faceW, faceH);
+    nodeGraphPluginButtonApplyBoxPin(btn, s.buttonAlign, s.buttonPadding, boxW, boxH, faceW, faceH);
     const strokePx = nodeGraphPluginButtonStrokePixels(s.strokeScale, box || minSide);
     btn.style.setProperty("--plugin-btn-stroke", s.strokeColor);
     btn.style.setProperty("--plugin-btn-stroke-w", `${strokePx}px`);
@@ -227,7 +226,7 @@ function nodeGraphPluginButtonPaintFace(face, settings) {
     if (typeof nodeGraphSliderFaceApplyPin === "function") {
       nodeGraphSliderFaceApplyPin(label, s.labelAlign, s.labelPadding, s.labelScale, "topleft");
     } else {
-      nodeGraphPluginButtonApplyBoxPin(label, s.labelAlign, s.labelPadding * minSide, 0, 0, faceW, faceH);
+      nodeGraphPluginButtonApplyBoxPin(label, s.labelAlign, s.labelPadding, 0, 0, faceW, faceH);
       label.style.fontSize = `${s.labelScale * minSide}px`;
       label.style.width = "max-content";
       label.style.height = "1em";
@@ -294,7 +293,7 @@ function buildNodeGraphPluginButtonDisplaySettingsBodyHtml(formType) {
   const offPh = momentary ? "Gate" : "Off";
   const onPh = momentary ? "Gate" : "On";
   return `
-    <div class="node-led-display-settings-panel" data-plugin-button-display-settings-panel>
+    <div data-plugin-button-display-settings-panel>
       <div class="metadata-section-title">Button</div>
       <div class="metadata-field-section">${["strokeScale", "buttonScale", "textScale", "buttonPadding"].map(fieldRow).join("")}</div>
       <div class="metadata-field-section">${choiceRow("buttonAlign")}</div>

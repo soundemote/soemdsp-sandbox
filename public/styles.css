@@ -161,33 +161,7 @@ body.node-boot-fading .shell {
   text-align: center;
 }
 
-.node-boot-start-button {
-  appearance: none;
-  border: 1px solid rgba(127, 199, 217, 0.45);
-  border-radius: 0.85rem;
-  background: linear-gradient(180deg, rgba(127, 199, 217, 0.22), rgba(127, 199, 217, 0.08));
-  color: rgba(243, 241, 236, 0.96);
-  font-family: inherit;
-  font-size: clamp(1.65rem, 4.5vw, 3.1rem);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1.1;
-  padding: 1.15rem 2.4rem;
-  min-width: min(90vw, 28rem);
-  cursor: pointer;
-  box-shadow: 0 0 28px rgba(127, 199, 217, 0.18);
-}
 
-.node-boot-start-button:hover,
-.node-boot-start-button:focus-visible {
-  border-color: rgba(243, 241, 236, 0.7);
-  background: linear-gradient(180deg, rgba(127, 199, 217, 0.34), rgba(127, 199, 217, 0.14));
-  outline: none;
-}
-
-.node-boot-start-button:active {
-  transform: translateY(1px);
-}
 
 body.node-boot-waiting .node-boot-loading-label,
 body.node-boot-waiting .node-boot-loading-bar,
@@ -197,6 +171,120 @@ body.node-boot-waiting .node-boot-loading-messages {
 
 body:not(.node-boot-waiting) .node-boot-start-button {
   display: none;
+}
+
+/* Boot menu links: same chrome as START SANDBOX */
+.node-boot-menu-links {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  width: min(90vw, 28rem);
+}
+
+body:not(.node-boot-waiting) .node-boot-menu-links {
+  display: none;
+}
+
+.node-boot-start-button,
+.node-boot-discord-button,
+.node-boot-menu-rect {
+  appearance: none;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-width: min(90vw, 28rem);
+  padding: 1.15rem 2.4rem;
+  border: 1px solid rgba(127, 199, 217, 0.45);
+  border-radius: 0.85rem;
+  background: linear-gradient(180deg, rgba(127, 199, 217, 0.22), rgba(127, 199, 217, 0.08));
+  color: rgba(243, 241, 236, 0.96);
+  font-family: inherit;
+  font-size: clamp(1.15rem, 3.2vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 0 28px rgba(127, 199, 217, 0.18);
+}
+
+.node-boot-start-button:hover,
+.node-boot-start-button:focus-visible,
+.node-boot-discord-button:hover,
+.node-boot-discord-button:focus-visible,
+.node-boot-menu-rect:hover,
+.node-boot-menu-rect:focus-visible {
+  border-color: rgba(243, 241, 236, 0.7);
+  background: linear-gradient(180deg, rgba(127, 199, 217, 0.34), rgba(127, 199, 217, 0.14));
+  outline: none;
+}
+
+.node-boot-start-button:active,
+.node-boot-discord-button:active,
+.node-boot-menu-rect:active {
+  transform: translateY(1px);
+}
+
+.node-boot-discord-icon,
+.node-boot-youtube-icon {
+  width: 1.2em;
+  height: 1.2em;
+  flex: 0 0 auto;
+}
+
+.node-boot-menu-squares {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+}
+
+.node-boot-email-button,
+.node-boot-youtube-button {
+  appearance: none;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 4.25rem;
+  height: 4.25rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(127, 199, 217, 0.45);
+  border-radius: 0.85rem;
+  background: linear-gradient(180deg, rgba(127, 199, 217, 0.22), rgba(127, 199, 217, 0.08));
+  color: rgba(243, 241, 236, 0.96);
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 0 28px rgba(127, 199, 217, 0.18);
+}
+
+.node-boot-email-button:hover,
+.node-boot-email-button:focus-visible,
+.node-boot-youtube-button:hover,
+.node-boot-youtube-button:focus-visible {
+  border-color: rgba(243, 241, 236, 0.7);
+  background: linear-gradient(180deg, rgba(127, 199, 217, 0.34), rgba(127, 199, 217, 0.14));
+  outline: none;
+}
+
+.node-boot-email-button:active,
+.node-boot-youtube-button:active {
+  transform: translateY(1px);
+}
+
+.node-boot-email-emoji {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.node-boot-youtube-icon {
+  width: 1.75rem;
+  height: 1.75rem;
 }
 
 .node-boot-loading-label {
@@ -10973,6 +11061,7 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   text-align: center;
   text-overflow: clip;
   white-space: nowrap;
+  font-size: clamp(0.62rem, 16cqi, 0.95rem);
 }
 
 .node-settings-actions button > span:last-child,
@@ -10989,6 +11078,7 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   text-align: center;
   text-overflow: clip;
   white-space: nowrap;
+  font-size: clamp(0.62rem, 16cqi, 0.95rem);
 }
 
 #nodeUiDevButton {
@@ -13121,10 +13211,11 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   align-self: stretch;
   box-sizing: border-box;
   width: 100%;
-  /* Exact face track — never grow with jack min-content. */
-  height: var(--node-module-layout-b-shell-track);
+  /* Fill the article track. Do not also set height to raw face-gu pixels —
+     that ignores plate insets and hangs the display off the module. */
+  height: 100%;
   min-height: 0;
-  max-height: var(--node-module-layout-b-shell-track);
+  max-height: 100%;
   /* visible so half-crescents are not clipped by the shell box */
   overflow: visible;
 }
@@ -13153,13 +13244,14 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 
 .dsp-node.chrome-layout-b.layout-b-no-params > .node-solid-module-shell,
 .dsp-node.chrome-layout-b.layout-b-no-params > .node-module-chrome-layout-b-shell,
-.dsp-node.solid-module-layout.layout-b-no-params > .node-solid-module-shell {
+.dsp-node.solid-module-layout.layout-b-no-params > .node-solid-module-shell,
+.dsp-node.layout-b-display-only > .node-solid-module-shell,
+.dsp-node.layout-b-display-only > .node-module-chrome-layout-b-shell {
   height: 100%;
   min-height: 0;
   max-height: 100%;
   overflow: visible;
-  border-end-start-radius: inherit;
-  border-end-end-radius: inherit;
+  border-radius: inherit;
   corner-shape: inherit;
 }
 
@@ -13265,9 +13357,14 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 
 .dsp-node.layout-b-no-params
   > :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
+  > :is(.node-module-face, .node-module-scope-window, .node-solid-module-custom-ui),
+.dsp-node.layout-b-display-only
+  > :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
   > :is(.node-module-face, .node-module-scope-window, .node-solid-module-custom-ui) {
   overflow: hidden;
   clip-path: none;
+  height: 100%;
+  max-height: 100%;
   border-radius: var(--node-module-frame-radius);
   corner-shape: inherit;
 }
@@ -23094,6 +23191,10 @@ button[data-transport-action="stop"]:disabled {
   text-align: center;
   text-overflow: clip;
   white-space: nowrap;
+  line-height: 1;
+  font-family: inherit;
+  font-weight: inherit;
+  font-size: clamp(0.72rem, calc(var(--node-toolbar-row-height) * 0.3), 1.05rem);
 }
 
 .node-live-toggle-palette .node-live-toggle:hover,
@@ -23258,12 +23359,7 @@ button[data-transport-action="stop"]:disabled {
 .json-token-keyword { color: rgba(211, 160, 112, 0.96); }
 .json-token-punct { color: rgba(156, 172, 176, 0.72); }
 
-/* "Render / Sample" stacked on two lines, styled to match the Input/Output/
-   MIDI live toggles beside it: same two-row grid, same casing (none), same
-   inherited family/weight. The per-line font SIZE is not set here either --
-   fitNodeLiveToggleText (node-graph-settings-text-fit.js) measures these
-   spans along with the live toggles and writes an inline font-size, so the
-   hardcoded 89% scale in fitNodeLiveToggleText drives both. */
+/* "Render / Sample" stacked on two lines, same type as Input/Output/MIDI. */
 .node-render-duration-control #nodeRenderButton {
   display: grid;
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
@@ -23303,11 +23399,6 @@ button[data-transport-action="stop"]:disabled {
   line-height: 1;
   font-family: inherit;
   font-weight: inherit;
-  /* Readable fallback. fitNodeLiveToggleText normally overrides this with an
-     inline px size (measured the same way as Input/Output/MIDI), but it sets
-     every span to 1px before measuring and bails early if the measuring
-     canvas is unavailable or the row is not laid out yet -- without a sane
-     stylesheet value the text can be left at 1px and effectively invisible. */
   font-size: clamp(0.72rem, calc(var(--node-toolbar-row-height) * 0.3), 1.05rem);
 }
 
@@ -24713,7 +24804,7 @@ code {
   position: relative;
   display: block;
   padding: 0;
-  overflow: visible;
+  overflow: hidden;
   pointer-events: auto;
   z-index: 2;
 }

@@ -2043,6 +2043,13 @@ function handleNodeGraphLiveWorkletMessage(event) {
         },
       );
     }
+  } else if (message.type === "portalDebug") {
+    const text = JSON.stringify(message.report || {}, null, 2);
+    globalThis.nodeGraphPortalDebug = text;
+    console.log("PORTAL_DEBUG\n" + text);
+    if (typeof setNodeGraphLivePlanStatus === "function") {
+      setNodeGraphLivePlanStatus("PORTAL_DEBUG is in the console — copy that", "warn");
+    }
   } else if (message.type === "nativeGraphStatus") {
     setNodeGraphLiveEvidence("native-graph", message);
     const status = String(message.status || "");
@@ -3180,7 +3187,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=knob-bias-out-1",
   "./public/modules/portal/portal-lanes.js?v=portal-rename-4x2-1",
   "./public/modules/portal/portal-math.js?v=portal-lanes-1",
-  "./public/modules/portal/portal-named.js?v=named-portal-10",
+  "./public/modules/portal/portal-named.js?v=portal-rewrite-1",
   "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=pitchhz-norm-freq-1",
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
@@ -3205,9 +3212,9 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=wt2d-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=named-portal-10",
+  "./public/node-live-audio-worklet-native-graph.js?v=portal-rewrite-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=named-portal-6",
+  "./public/node-live-audio-worklet-set-plan.js?v=portal-rewrite-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",
   "./public/node-live-audio-worklet-handle-message.js?v=no-macro-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=meta-view-rewrite-1",

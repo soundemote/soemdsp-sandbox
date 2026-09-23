@@ -723,6 +723,11 @@ function createNodeGraphModuleElement(type, node) {
   if (typeof syncNodeGraphLayoutBNoParamsClass === "function") {
     syncNodeGraphLayoutBNoParamsClass(article, type, patchNodeUi);
   }
+  article.classList.toggle(
+    "layout-b-display-only",
+    typeof nodeGraphModuleIsLayoutBDisplayOnly === "function"
+      && nodeGraphModuleIsLayoutBDisplayOnly(type, patchNode.ui, patchNode),
+  );
 
   const chromelessRegistration = nodeGraphChromelessModuleLayouts.has(layout)
     ? nodeGraphChromelessModuleRegistrations.get(layout)

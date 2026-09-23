@@ -421,7 +421,22 @@ function nodeGraphValidateRuntimeRoute(issues, options = {}) {
 }
 
 function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
-  const graph = nodeGraphBuildDependencyMap(patch);
+  // Portals are wires. Expand them before reachability, or a node that is only
+  // fed through a portal (Gate, Reset, Frequency) is dropped from the live plan.
+  let planPatch = patch;
+  if (patch && typeof nodeGraphSpliceNamedPortalCables === "function") {
+    const spliced = nodeGraphSpliceNamedPortalCables(
+      patch.nodes,
+      patch.connections,
+      patch.modulations,
+    );
+    planPatch = {
+      ...patch,
+      connections: spliced.connections,
+      modulations: spliced.modulations,
+    };
+  }
+  const graph = nodeGraphBuildDependencyMap(planPatch);
   const issues = [...graph.issues];
   const outputNode = "output";
   const reachableNodes = new Set();
@@ -502,6 +517,23 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
         if (String(node?.ownerMetamoduleId || "") === metaId) {
           markReachable(node.id);
         }
+      }
+    }
+  }
+  // A cable out of a live node must keep its destination. Otherwise Portal ← → Gate
+  // (or the spliced Keyboard → Gate) is deleted because the envelope is not
+  // itself on the path into Output, and the filter never opens.
+  {
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const connection of graph.connections) {
+        if (!reachableNodes.has(connection.sourceNode)) continue;
+        if (reachableNodes.has(connection.destinationNode)) continue;
+        if (!graph.nodeMap.has(connection.destinationNode)) continue;
+        const before = reachableNodes.size;
+        markReachable(connection.destinationNode);
+        if (reachableNodes.size > before) grew = true;
       }
     }
   }

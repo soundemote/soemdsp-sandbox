@@ -1408,7 +1408,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Button pad",
     inputmode: "decimal",
     id: "nodeTraceDisplayButtonPadding",
-    title: "Inset 0…1 from the aligned edge of the face.",
+    title: "Moves the button away from the aligned edge. Does not change size. Mid stays centered.",
   }),
   labelPadding: Object.freeze({
     label: "Label pad",

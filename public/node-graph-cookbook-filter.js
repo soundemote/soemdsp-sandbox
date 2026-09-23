@@ -1144,11 +1144,11 @@ function drawNodeGraphPhaserPeakMarks(context, view, box) {
   const q = Math.max(0.01, nodeGraphFiniteNumber(view?.q, 1));
   const cascade = Math.max(1, Math.min(4, Math.round(nodeGraphFiniteNumber(view?.slope)) + 1));
   const mid = 0.5 * (n - 1);
-  const minSide = Math.max(1, Math.min(width, height));
-  const barT = Math.max(0, Math.min(1, nodeGraphFiniteNumber(view?.barThickness, 0.04)));
-  const curveT = Math.max(0, Math.min(1, nodeGraphFiniteNumber(view?.curveThickness, 0.02)));
-  const barW = barT > 0 ? Math.max(1, barT * minSide) : 0;
-  const curveW = curveT > 0 ? Math.max(1, curveT * minSide) : 0;
+  const minSide = displayFaceMinSide(width, height);
+  const barT = clampDisplayUnit01(view?.barThickness, 0.04);
+  const curveT = clampDisplayUnit01(view?.curveThickness, 0.02);
+  const barW = barT > 0 ? Math.max(1, displayScaleToPx(barT, minSide)) : 0;
+  const curveW = curveT > 0 ? Math.max(1, displayScaleToPx(curveT, minSide)) : 0;
   const leftOut = view?.leftOut === true;
   const rightOut = view?.rightOut === true;
   const stereoOut = leftOut || rightOut;
@@ -1314,6 +1314,15 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   const maxFreq = Math.max(minFreq * 2, Math.min(20000, sampleRate * 0.5));
   const minDb = -48;
   const maxDb = 18;
+  const minSide = displayFaceMinSide(width, height);
+  const strokeGrid = Math.max(1, displayScaleToPx(0.008, minSide));
+  const strokeCurve = Math.max(1, displayScaleToPx(0.012, minSide));
+  const strokeCutoff = Math.max(1, displayScaleToPx(0.008, minSide));
+  const fontPx = Math.max(8, displayScaleToPx(0.07, minSide));
+  const titlePx = Math.max(8, displayScaleToPx(0.078, minSide));
+  const labelGap = Math.max(2, displayScaleToPx(0.022, minSide));
+  const titlePad = Math.max(2, displayScaleToPx(0.045, minSide));
+  const staggerPx = displayScaleToPx(0.07, minSide);
   section._filterCurveSignature = signature;
   section._filterCurveCssW = cssW;
   section._filterCurveCssH = cssH;
@@ -1326,7 +1335,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   const zeroDbY = (1 - ((0 - minDb) / (maxDb - minDb))) * height;
   if (!isPhaser && Number.isFinite(zeroDbY)) {
     context.strokeStyle = "rgba(255, 255, 255, 0.22)";
-    context.lineWidth = 1;
+    context.lineWidth = strokeGrid;
     context.beginPath();
     context.moveTo(0, zeroDbY);
     context.lineTo(width, zeroDbY);
@@ -1345,7 +1354,7 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
       zeroDbY,
     });
   }
-  const cutoffLineWidth = 1;
+  const cutoffLineWidth = strokeCutoff;
   const cutoffInset = cutoffLineWidth * 0.5;
   const cutoffDrawableWidth = Math.max(1, width - cutoffLineWidth);
   const cutoffs = nodeGraphFilterCurveCutoffFrequencies(node, view);
@@ -1358,7 +1367,9 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
     const maxSamples = 220;
     const step = Math.max(1, Math.ceil(width / maxSamples));
     context.strokeStyle = "rgba(61, 224, 255, 0.95)";
-    context.lineWidth = 1.5;
+    context.lineWidth = strokeCurve;
+    context.lineJoin = "round";
+    context.lineCap = "round";
     context.beginPath();
     let started = false;
     for (let x = 0; x < width; x += step) {
@@ -1404,8 +1415,6 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   // Vertical frequency markers + Hz labels (incl. single-cutoff LP/HP).
   context.strokeStyle = "rgba(226, 168, 109, 0.85)";
   context.lineWidth = cutoffLineWidth;
-  // Fit labels on 1gu faces (~28px): single baseline, compact type.
-  const fontPx = height < 36 ? 8 : 9;
   context.font = `600 ${fontPx}px system-ui, sans-serif`;
   context.textBaseline = "middle";
   const labelY = height * 0.5;
@@ -1420,15 +1429,14 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
     if (cutoffs.length > 0) {
       const label = nodeGraphFilterCurveFormatHz(frequency);
       const textW = context.measureText(label).width;
-      let textX = cutoffX + 3;
-      if (textX + textW > width - 2) {
-        textX = Math.max(2, cutoffX - textW - 3);
+      let textX = cutoffX + labelGap;
+      if (textX + textW > width - labelGap) {
+        textX = Math.max(labelGap, cutoffX - textW - labelGap);
       }
-      // Slight vertical stagger only when the face is tall enough.
-      const stagger = height >= 40 ? ((index % 3) - 1) * 10 : 0;
+      const stagger = height >= fontPx * 4 ? ((index % 3) - 1) * staggerPx : 0;
       const textY = Math.max(fontPx * 0.55, Math.min(height - fontPx * 0.55, labelY + stagger));
       context.fillStyle = "rgba(2, 6, 9, 0.75)";
-      context.fillRect(textX - 1, textY - fontPx * 0.55, textW + 3, fontPx + 2);
+      context.fillRect(textX - labelGap * 0.35, textY - fontPx * 0.55, textW + labelGap, fontPx + labelGap * 0.7);
       context.fillStyle = "rgba(255, 220, 170, 0.95)";
       context.fillText(label, textX, textY);
     }
@@ -1437,14 +1445,14 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   // Non-crossover filter title (crossovers stay markers-only).
   if (!isCrossover && !isPhaser) {
     const title = nodeGraphFilterCurveLabel(node);
-    context.font = "600 10px system-ui, sans-serif";
+    context.font = `600 ${titlePx}px system-ui, sans-serif`;
     context.textBaseline = "top";
     const titleW = context.measureText(title).width;
-    const titleY = 3;
+    const titleY = titlePad * 0.5;
     context.fillStyle = "rgba(2, 6, 9, 0.65)";
-    context.fillRect(6, titleY - 1, titleW + 4, 12);
+    context.fillRect(titlePad, titleY - titlePad * 0.15, titleW + titlePad * 0.7, titlePx + titlePad * 0.35);
     context.fillStyle = "rgba(229, 238, 242, 0.82)";
-    context.fillText(title, 8, titleY);
+    context.fillText(title, titlePad * 1.3, titleY);
   }
 
   // Keep the dimmer hole open after paint. Stop wipe used to leave strength 0

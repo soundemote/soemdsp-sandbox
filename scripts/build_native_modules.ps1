@@ -577,6 +577,10 @@ if ($node) {
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: named portal bus smoke FAILED"
   }
+  & $node.Source "$root\scripts\smoke_portal_splice_breadboard.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: portal splice breadboard smoke FAILED"
+  }
   & $node.Source "$root\scripts\smoke_ladder_param_stick.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: ladder_filter param stickiness smoke FAILED"

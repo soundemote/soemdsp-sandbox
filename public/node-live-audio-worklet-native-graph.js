@@ -1702,6 +1702,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
       const attOffsetParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
       const monoPort = NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
       const connectOne = (srcId, srcPort, dstId, dstPort) => {
+        const srcType = String(this.nodes.get(String(srcId))?.type || "");
+        const dstType = String(this.nodes.get(String(dstId))?.type || "");
+        if (
+          srcType === "namedPortalIn" || srcType === "namedPortalOut"
+          || dstType === "namedPortalIn" || dstType === "namedPortalOut"
+        ) {
+          return true;
+        }
         if (idSet.has(srcId)) {
           const rc = native.soemdsp_graph_connect(
             this.nativeGraphHandle,
@@ -1884,9 +1892,11 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
         "ok",
         `surgical nodes=${desired.size} removed=${[...prev].filter((id) => !desired.has(id)).length} added=${addedIds.length}`,
       );
+      this.postPortalDebug?.("surgical-ok", { nativeNodes: desired.size });
       return true;
     } catch (error) {
       this.postNativeGraphStatus("error", String(error?.message || error || "surgical sync failed"));
+      this.postPortalDebug?.("surgical-error", { error: String(error?.message || error || "") });
       return false;
     }
   };
@@ -6007,6 +6017,54 @@ NodeLiveAudioProcessor.prototype.nativeHostCvFeederHash = function nativeHostCvF
   return feedHash;
 };
 
+NodeLiveAudioProcessor.prototype.postPortalDebug = function postPortalDebug(where, extra) {
+  const portals = [];
+  if (this.nodes && typeof this.nodes.forEach === "function") {
+    this.nodes.forEach((node, id) => {
+      const type = String(node?.type || "");
+      if (type !== "namedPortalIn" && type !== "namedPortalOut") return;
+      portals.push({
+        id: String(id),
+        type,
+        alias: (node?.alias || node?.portalTitle)
+          ? String(node.alias || node.portalTitle)
+          : null,
+      });
+    });
+  }
+  const wires = (Array.isArray(this._planConnections) ? this._planConnections : []).map((c) =>
+    `${c?.sourceNode}.${c?.sourcePort} -> ${c?.destinationNode}.${c?.destinationPort}`);
+  const mods = [];
+  if (this.modulationConnections && typeof this.modulationConnections.forEach === "function") {
+    this.modulationConnections.forEach((list, key) => {
+      if (!Array.isArray(list)) return;
+      for (let i = 0; i < list.length; i += 1) {
+        const m = list[i];
+        mods.push(`${m?.sourceNode}.${m?.sourcePort} -> ${key}`);
+      }
+    });
+  }
+  const feeders = (Array.isArray(this._nativeHostCvFeeders) ? this._nativeHostCvFeeders : []).map((f) =>
+    `${f?.sourceNode}.${f?.sourcePort}`);
+  const report = {
+    where: String(where || ""),
+    spliceFn: typeof nodeGraphSpliceNamedPortalCables === "function",
+    setNamedPortal: typeof this.nativeGraph?.soemdsp_graph_set_named_portal === "function",
+    compiled: Boolean(this.nativeGraphCompiled),
+    efficient: this.efficientProduct !== false,
+    status: String(this.nativeGraphStatus || ""),
+    statusMessage: String(this.nativeGraphStatusMessage || ""),
+    portals,
+    wires,
+    mods,
+    feeders,
+    ...(extra && typeof extra === "object" ? extra : {}),
+  };
+  try {
+    this.port.postMessage({ type: "portalDebug", report });
+  } catch (_e) { /* ignore */ }
+};
+
 /** Rewrite portal cables into the wires they stand for. Portals are not DSP nodes. */
 NodeLiveAudioProcessor.prototype.applyNamedPortalSplice = function applyNamedPortalSplice() {
   if (typeof nodeGraphSpliceNamedPortalCables !== "function") return;
@@ -6046,6 +6104,7 @@ NodeLiveAudioProcessor.prototype.applyNamedPortalSplice = function applyNamedPor
   }
   this.modulationConnections = map;
   this._planConnectionsByDst = null;
+  this.postPortalDebug?.("after-splice");
 };
 
 NodeLiveAudioProcessor.prototype.bindNativeNamedPortalNode = function bindNativeNamedPortalNode(id, node, slot) {
@@ -6321,6 +6380,14 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     const attOffsetParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
     const monoPort = NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     const connectOne = (srcId, srcPort, dstId, dstPort) => {
+      const srcType = String(this.nodes.get(String(srcId))?.type || "");
+      const dstType = String(this.nodes.get(String(dstId))?.type || "");
+      if (
+        srcType === "namedPortalIn" || srcType === "namedPortalOut"
+        || dstType === "namedPortalIn" || dstType === "namedPortalOut"
+      ) {
+        return true;
+      }
       if (idSet.has(srcId)) {
         const rc = native.soemdsp_graph_connect(
           this.nativeGraphHandle,
@@ -6633,6 +6700,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     const crc = native.soemdsp_graph_compile(this.nativeGraphHandle) | 0;
     if (crc !== 0) {
       this.postNativeGraphStatus("error", `compile failed (${crc})`);
+      this.postPortalDebug?.("compile-error", { crc });
       return false;
     }
 
@@ -6663,12 +6731,17 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       "compiled",
       `nodes=${nodes.length} portals=${this._nativeNamedPortalStampCount || 0}`,
     );
+    this.postPortalDebug?.("compile-ok", {
+      nativeNodes: nodes.length,
+      portalStamps: this._nativeNamedPortalStampCount || 0,
+    });
     return true;
   } catch (error) {
     this.nativeGraphCompiled = false;
     this._nativeGraphTopologyKey = "";
     this._nativeGraphNodeIds = new Set();
     this.postNativeGraphStatus("error", String(error?.message || error || "compile threw"));
+    this.postPortalDebug?.("compile-threw", { error: String(error?.message || error || "") });
     return false;
   }
 };
