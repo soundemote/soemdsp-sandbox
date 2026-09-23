@@ -2,8 +2,8 @@
   "activeCameraId": "camera-1",
   "audio": {
     "targetSampleRate": 44100,
-    "pitchReferenceMidiNote": 48,
-    "pitchReferenceHz": 100,
+    "pitchReferenceMidiNote": 69,
+    "pitchReferenceHz": 440,
     "speedLimitHz": 20000
   },
   "bypassedNodes": [],

@@ -698,6 +698,10 @@
     }
 
     function endpointsShouldBurst(a, b) {
+      if (typeof nodeGraphMvp === "object" && nodeGraphMvp?.portalFeedbackBurst) {
+        nodeGraphMvp.portalFeedbackBurst = false;
+        return true;
+      }
       if (endpointsShareNode(a, b)) {
         return false;
       }

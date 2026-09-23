@@ -257,8 +257,8 @@ const nodeGraphDefaultPatch = Object.freeze({
   audio: {
     oversamplingFactor: 1,
     targetSampleRate: 44100,
-    pitchReferenceMidiNote: 48,
-    pitchReferenceHz: 100,
+    pitchReferenceMidiNote: 69,
+    pitchReferenceHz: 440,
     pitchOffsetOctaves: 0,
   },
   bypassedNodes: [],

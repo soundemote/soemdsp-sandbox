@@ -40,8 +40,8 @@ function nodeGraphTrisaw(phase, warp) {
 
 /**
  * 0.1V/Oct pitch tracking: baseHz * 2^((cv - reference) / 0.1).
- * Through-zero: baseHz may be negative (reverse phase). Sign of base is kept;
- * magnitude scales with the octave ratio.
+ * CV is MIDI/120 (+0.1 = +1 octave). reference is pitchReferenceMidiNote/120
+ * (default MIDI 69 → 0.575). Through-zero: baseHz may be negative.
  */
 function nodeGraphPitchedFrequency(baseHz, cv01Voct = 0, referenceVoltage = 0) {
   const base = Number(baseHz);

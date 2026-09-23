@@ -1848,6 +1848,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "vcvrack_superlove_filter",
+      "label": "VCVRack Superlove Filter",
+      "targetType": "vcvrackSuperloveFilter",
+      "kind": "filter",
+      "source": "native_modules/vcvrack_superlove_filter/vcvrack_superlove_filter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/vcvrack_superlove_filter/vcvrack_superlove_filter.cpp",
+      "localSourceUrl": "/native_modules/vcvrack_superlove_filter/vcvrack_superlove_filter.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/vcvrack_superlove_filter/vcvrack_superlove_filter.wasm",
+      "wasmUrl": "native_modules/vcvrack_superlove_filter/vcvrack_superlove_filter.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "vectorscope_transform",
       "label": "Vectorscope Rotation",
       "targetType": "vectorscopeTransform",

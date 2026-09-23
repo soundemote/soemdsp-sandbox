@@ -1770,9 +1770,27 @@ function normalizeNodeGraphLcdDotSettings(settings = {}) {
   return {
     ...merged,
     faceStyle: "lcd",
+    backgroundSaturation: normalizeNodeGraphTraceDisplayNumber(
+      source.backgroundSaturation,
+      lcdDefaults.backgroundSaturation ?? 0,
+      0,
+      1,
+    ),
+    dot1Saturation: normalizeNodeGraphTraceDisplayNumber(
+      source.dot1Saturation ?? source.colorSaturation,
+      lcdDefaults.dot1Saturation ?? lcdDefaults.colorSaturation ?? 0.9,
+      0,
+      1,
+    ),
+    colorSaturation: normalizeNodeGraphTraceDisplayNumber(
+      source.colorSaturation ?? source.dot1Saturation,
+      lcdDefaults.colorSaturation ?? lcdDefaults.dot1Saturation ?? 0.9,
+      0,
+      1,
+    ),
     unlitSegments: normalizeNodeGraphTraceDisplayNumber(
       source.unlitSegments,
-      lcdDefaults.unlitSegments ?? 0.22,
+      lcdDefaults.unlitSegments ?? 0.1,
       0,
       1,
     ),
@@ -1825,7 +1843,14 @@ function nodeGraphVectorDotSettingsForNode(node) {
     || node?.lcdDotSettings
     || node?.zeroDBurnSettings
     || node?.traceDisplaySettings;
-  if (node?.type === "lcdDot" && typeof normalizeNodeGraphLcdDotSettings === "function") {
+  const mode = typeof nodeGraphModuleSelectedDisplayMode === "function"
+    ? nodeGraphModuleSelectedDisplayMode(node)
+    : null;
+  const lcd = node?.type === "lcdDot"
+    || mode?.renderer === "lcdDot"
+    || mode?.settingsSchema === "lcdDot"
+    || String(node?.ui?.displayModeKey || "") === "lcdDot";
+  if (lcd && typeof normalizeNodeGraphLcdDotSettings === "function") {
     return normalizeNodeGraphLcdDotSettings(bag);
   }
   return normalizeNodeGraphVectorDotSettings(bag);

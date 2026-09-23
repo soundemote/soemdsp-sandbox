@@ -322,6 +322,7 @@ function nodeGraphDspExternalStereoFrame(externalInput, frame, level) {
 
 /**
  * Plugin / keyboard MIDI → Gate, MIDI, Velocity, 0.1V/Oct, Frequency.
+ * 0.1V/Oct = midi/120 (not clamped to 1; MIDI 127 → 1.058). Frequency is A440.
  * signal: { gate, rawMidi|midi, velocity }
  */
 function nodeGraphDspMidiKeyboardPorts(signal, defaultNote) {

@@ -95,7 +95,7 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
   }
   if (displayType === "toggleButtonFace" || displayType === "momentaryButtonFace") {
     node.traceDisplaySettings = typeof normalizeNodeGraphPluginButtonDisplaySettings === "function"
-      ? normalizeNodeGraphPluginButtonDisplaySettings(settings)
+      ? normalizeNodeGraphPluginButtonDisplaySettings(settings, displayType)
       : (settings || {});
     if (typeof applyNodeGraphPluginButtonDisplaySettingsToFace === "function") {
       applyNodeGraphPluginButtonDisplaySettingsToFace(node);

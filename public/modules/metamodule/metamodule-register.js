@@ -1,7 +1,7 @@
 // Boundary thru portals (flat-graph safe â€” no mic bleed / speaker mix).
 // TitleBarAndPorts: title + In/Out jacks only (no face, no compactTile port hack).
 registerNodeGraphChromelessModule("metamoduleIn", {
-  label: "Meta In",
+  label: "Metamodule In",
   compactTile: false,
   definition: {
     chrome: "TitleBarAndPorts",
@@ -21,12 +21,12 @@ registerNodeGraphChromelessModule("metamoduleIn", {
   catalog: {
     category: "portal",
     description: "Metamodule boundary inlet (unity thru). Place inside a Metamodule.",
-    notes: ["metamodule", "portal", "inlet", "boundary"],
+    notes: ["metamodule", "portal", "inlet", "boundary", "meta in"],
   },
 });
 
 registerNodeGraphChromelessModule("metamoduleOut", {
-  label: "Meta Out",
+  label: "Metamodule Out",
   compactTile: false,
   definition: {
     chrome: "TitleBarAndPorts",
@@ -46,7 +46,7 @@ registerNodeGraphChromelessModule("metamoduleOut", {
   catalog: {
     category: "portal",
     description: "Metamodule boundary outlet (unity thru). Place inside a Metamodule.",
-    notes: ["metamodule", "portal", "outlet", "boundary"],
+    notes: ["metamodule", "portal", "outlet", "boundary", "meta out"],
   },
 });
 
@@ -246,7 +246,7 @@ registerNodeGraphChromelessModule("group", {
   },
   catalog: {
     category: "portal",
-    description: "Simple group / copy-paste circuit box (one nesting level). Amplitude inlet scales Meta Outs. Use Metamodule for voice hosting.",
+    description: "Simple group / copy-paste circuit box (one nesting level). Amplitude inlet scales Metamodule Outs. Use Metamodule for voice hosting.",
     notes: ["group", "container", "box", "portal", "nesting"],
   },
 });

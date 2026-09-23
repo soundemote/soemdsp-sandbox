@@ -176,7 +176,7 @@ function registerNodeGraphPortalLaneFamily(kind) {
     return;
   }
   const isOutlet = kind === "outlet";
-  const noun = isOutlet ? "Out" : "In";
+  const noun = isOutlet ? "Output" : "Input";
   for (const spec of NODE_GRAPH_PORTAL_LANE_SPECS) {
     registerNodeGraphPortalLaneFamilyEntry(kind, noun, spec);
   }
@@ -203,6 +203,9 @@ function registerNodeGraphPortalLaneFamilyEntry(kind, noun, spec) {
         spec.key,
         spec.label,
         `in ${spec.label}`,
+        `input ${spec.label}`,
+        `out ${spec.label}`,
+        `output ${spec.label}`,
         "mono",
         "left",
         "right",

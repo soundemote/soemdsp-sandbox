@@ -1,3 +1,6 @@
+globalThis.nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators || {};
+var nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators;
+
 function nodeGraphBindPortalLiveEvaluators() {
   const inletTypes = typeof nodeGraphPortalInletTypes === "function"
     ? nodeGraphPortalInletTypes()
@@ -13,6 +16,18 @@ function nodeGraphBindPortalLiveEvaluators() {
     nodeGraphLiveModuleEvaluators[type] = ({ node, nodeId, mixInput }) =>
       nodeGraphEvaluatePortalOutlet(node?.type || type, nodeId, mixInput);
   }
+  nodeGraphLiveModuleEvaluators.namedPortalIn = ({ nodeId, mixInput }) =>
+    (typeof nodeGraphEvaluateNamedPortalIn === "function"
+      ? nodeGraphEvaluateNamedPortalIn(nodeId, mixInput)
+      : { Out: 0 });
+  nodeGraphLiveModuleEvaluators.namedPortalOut = ({ node, mixInput, runtime }) => {
+    const nodes = runtime?.nodes
+      ? (typeof runtime.nodes.values === "function" ? [...runtime.nodes.values()] : [...runtime.nodes])
+      : (typeof nodeGraphMvp?.patch?.nodes === "object" ? nodeGraphMvp.patch.nodes : []);
+    return typeof nodeGraphEvaluateNamedPortalOut === "function"
+      ? nodeGraphEvaluateNamedPortalOut(node, nodes, mixInput)
+      : { Out: 0 };
+  };
 }
 
 nodeGraphBindPortalLiveEvaluators();

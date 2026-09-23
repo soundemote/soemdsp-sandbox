@@ -421,7 +421,14 @@ function syncNodeSliderReadout(slider) {
     readout.style.removeProperty("--value-end");
     readout.classList.remove("is-bipolar");
     readout.style.setProperty("--choice-divider-background", "none");
-    syncNodeSliderChoiceDebugSquares(readout, choices, true, Number(slider.value));
+    syncNodeSliderChoiceDebugSquares(
+      readout,
+      choices,
+      true,
+      typeof nodeSliderChoiceIndexFromValue === "function"
+        ? nodeSliderChoiceIndexFromValue(slider, slider.value)
+        : Number(slider.value),
+    );
     syncNodeSliderPortalHandle(readout, slider, position, false);
   } else {
     const travel = Math.max(0, Math.min(1, position / 100));

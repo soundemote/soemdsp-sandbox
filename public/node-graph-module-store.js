@@ -187,6 +187,7 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "samplePlayer",
   "phaser",
   "flanger",
+  "vcvrackSuperloveFilter",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
@@ -1713,6 +1714,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "native",
     ],
   },
+  vcvrackSuperloveFilter: {
+    category: "object",
+    description: "VCV Rack Super Love DSP in the sandbox: phase-feedback wavetable filter, LP18/LP24/HP/BP, Drive and Noise.",
+    label: "VCVRack Superlove Filter",
+    notes: ["vcvrack", "superlove", "filter", "native", "trace"],
+  },
   chaoticPhaseLockingFilter: {
     category: "analogFilter",
     description: "Phase-locked chaotic feedback textures through LP/HP stages.",
@@ -3161,6 +3168,14 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
         sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/portal/portal-live-evaluator.js",
       },
     }),
+  namedPortalIn: {
+    source: "public/modules/portal/portal-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/portal/portal-live-evaluator.js",
+  },
+  namedPortalOut: {
+    source: "public/modules/portal/portal-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/portal/portal-live-evaluator.js",
+  },
   helmholtzPitch: {
     source: "public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js",
@@ -3572,6 +3587,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   superloveFilter: {
     source: "public/modules/superloveFilter/superlove-filter-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/superloveFilter/superlove-filter-worklet-evaluator.js",
+  },
+  vcvrackSuperloveFilter: {
+    source: "native_modules/vcvrack_superlove_filter/vcvrack_superlove_filter.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/vcvrack_superlove_filter/vcvrack_superlove_filter.cpp",
   },
   surgeOscillator: {
     source: "public/modules/surgeOscillator/surge-oscillator-worklet-evaluator.js",

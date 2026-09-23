@@ -158,6 +158,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "yellowjacketFilter",
   "superloveFilter",
   "superloveRev2",
+  "vcvrackSuperloveFilter",
   "humanFilter",
   "resonatorFilter",
   "combResonator",
@@ -254,6 +255,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPES = Object.freeze([
   "valueLcd",
   "valueOscilloscope",
   "vectorDot",
+  "lcdDot",
   "vectorRgb",
   "videoscope",
   "visualOscilloscope",
@@ -287,6 +289,8 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_CHROME_TYPES = Object.freeze([
   "portalOutletLeft",
   "portalOutletRight",
   "portalOutletLeftRight",
+  "namedPortalIn",
+  "namedPortalOut",
 ]);
 
 const NODE_GRAPH_EFFICIENT_PRODUCT_CHROME_TYPE_SET = new Set(

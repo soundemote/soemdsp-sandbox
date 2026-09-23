@@ -303,6 +303,7 @@ var nodeGraphMvp = {
     clock: 0,
     clockDivider: 0,
     cookbookFilter: 0,
+    vcvrackSuperloveFilter: 0,
     chordMemory: 0,
     chuaAttractor: 0,
     henonMap: 0,

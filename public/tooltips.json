@@ -67,7 +67,7 @@
   "timing": {
     "globalSmoothing": "global smoothing time in seconds | controls how quickly smoothed parameters glide to new values | drag to tune | double-click to type | Ctrl-click to reset to one audio block",
     "speedUnderConstruction": "speed control is under construction | shown as a future global timing multiplier, not active yet",
-    "pitchReferenceHz": "Pitch Reference Frequency in Hz | frequency sounded at the Pitch Reference Note under this patch's 0.1V/Oct convention | drag to tune | double-click to type | Ctrl-click to reset to default (100Hz)"
+    "pitchReferenceHz": "Freq Ref (Hz) | Hz at the patch Pitch Reference Note (default A4 / MIDI 69) when a 0.1V/Oct cable is converted to Hz. 0.1V/Oct is MIDI/120 (+0.1 = +1 octave); Keyboard ƒ is already A440. | drag to tune | double-click to type | Ctrl-click to reset to 440"
   },
   "parameterSettings": {
     "alias": "display name for this parameter",

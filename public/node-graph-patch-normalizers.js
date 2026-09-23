@@ -15,15 +15,13 @@ function normalizeNodeGraphPatchInfo(info = {}) {
 
 function normalizeNodeGraphPatchAudio(audio = {}) {
   const targetSampleRate = Number(audio?.targetSampleRate);
-  // Global 0.1V/Oct pitch reference: "pitchReferenceHz" is the frequency
-  // sounded at "pitchReferenceMidiNote" (0.1V/Oct = midi/120 in this
-  // sandbox's keyboard/pitch-quantizer convention). Any oscillator that
-  // sets its own Frequency parameter equal to this value is, by
-  // definition, in tune with a MIDI keyboard -- and doubling that
-  // Frequency transposes the whole instrument up exactly one octave.
-  // Defaults to C3 @ 100Hz (this sandbox's chosen standard) rather than
-  // the more common A4/440Hz convention, which is available as a preset
-  // in the Patch Settings panel for anyone who wants it instead.
+  // Global 0.1V/Oct pitch reference.
+  //   0.1V/Oct cable = MIDI / 120  (+0.1 = +1 octave). 0.0 is MIDI 0,
+  //   1.0 is MIDI 120 — not a 0–1 knob and not MIDI/127.
+  //   pitchReferenceHz is the Hz sounded at pitchReferenceMidiNote when a
+  //   leftover 0.1V/Oct consumer converts CV → Hz. Keyboard ƒ is already
+  //   concert A440 (independent of this). Missing fields default A4 @ 440;
+  //   saved patches that store 100 Hz @ MIDI 48 keep those values.
   const pitchReferenceMidiNote = Number(audio?.pitchReferenceMidiNote);
   const pitchReferenceHz = Number(audio?.pitchReferenceHz);
   // Global pitch transpose in octaves: multiplies every pitched Hz
@@ -62,10 +60,10 @@ function normalizeNodeGraphPatchAudio(audio = {}) {
     targetSampleRate: resolvedTarget,
     pitchReferenceMidiNote: Number.isFinite(pitchReferenceMidiNote)
       ? Math.max(0, Math.min(127, pitchReferenceMidiNote))
-      : 48,
+      : 69,
     pitchReferenceHz: Number.isFinite(pitchReferenceHz) && pitchReferenceHz > 0
       ? Math.max(0.01, Math.min(safeSpeedLimit, pitchReferenceHz))
-      : 100,
+      : 440,
     pitchOffsetOctaves: Number.isFinite(pitchOffsetOctaves)
       ? pitchOffsetOctaves
       : 0,

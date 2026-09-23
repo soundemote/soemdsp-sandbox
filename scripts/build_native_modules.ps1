@@ -38,6 +38,8 @@ $modules = @(
     "soemdsp_graph_set_sample_rate",
     "soemdsp_graph_rewind_master",
     "soemdsp_graph_set_pitch_offset",
+    "soemdsp_graph_set_pitch_reference",
+    "soemdsp_graph_set_named_portal",
     "soemdsp_graph_set_speed_limit",
     "soemdsp_graph_add_node", "soemdsp_graph_connect", "soemdsp_graph_set_param",
     "soemdsp_graph_set_param_mod", "soemdsp_graph_set_param_domain",
@@ -80,6 +82,11 @@ $modules = @(
   @{ Name = "yellowjacket_filter"; Simd = $false; Exports = @("soemdsp_yellowjacket_filter_create", "soemdsp_yellowjacket_filter_destroy", "soemdsp_yellowjacket_filter_sample", "soemdsp_yellowjacket_filter_version") }
   @{ Name = "superlove_filter"; Simd = $false; Exports = @("soemdsp_superlove_filter_create", "soemdsp_superlove_filter_destroy", "soemdsp_superlove_filter_sample", "soemdsp_superlove_filter_version") }
   @{ Name = "superlove_rev2"; Simd = $false; Exports = @("soemdsp_superlove_rev2_create", "soemdsp_superlove_rev2_destroy", "soemdsp_superlove_rev2_sample", "soemdsp_superlove_rev2_version") }
+  @{ Name = "vcvrack_superlove_filter"; Simd = $false; Exports = @(
+    "soemdsp_vcvrack_superlove_filter_create", "soemdsp_vcvrack_superlove_filter_destroy",
+    "soemdsp_vcvrack_superlove_filter_sample", "soemdsp_vcvrack_superlove_filter_version",
+    "soemdsp_vcvrack_superlove_filter_metadata_json", "soemdsp_vcvrack_superlove_filter_metadata_json_size"
+  ) }
   @{ Name = "chaotic_phase_locking_filter"; Simd = $false; Exports = @("soemdsp_chaotic_phase_locking_filter_create", "soemdsp_chaotic_phase_locking_filter_destroy", "soemdsp_chaotic_phase_locking_filter_sample", "soemdsp_chaotic_phase_locking_filter_version") }
   @{ Name = "resonator_filter"; Simd = $false; Exports = @("soemdsp_resonator_filter_create", "soemdsp_resonator_filter_destroy", "soemdsp_resonator_filter_sample", "soemdsp_resonator_filter_version") }
   @{ Name = "human_filter"; Simd = $false; Exports = @("soemdsp_human_filter_create", "soemdsp_human_filter_destroy", "soemdsp_human_filter_sample", "soemdsp_human_filter_version") }
@@ -565,6 +572,10 @@ if ($node) {
   & $node.Source "$root\scripts\smoke_sabrina_diffusion_live.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: sabrina diffusionAmount live smoke FAILED"
+  }
+  & $node.Source "$root\scripts\smoke_named_portal_bus.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: named portal bus smoke FAILED"
   }
   & $node.Source "$root\scripts\smoke_ladder_param_stick.mjs"
   if ($LASTEXITCODE -ne 0) {

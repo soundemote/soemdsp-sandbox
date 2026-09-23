@@ -369,14 +369,14 @@ const nodeGraphVectorDotSettingsDefaults = Object.freeze({
     ? nodeGraphHueUnitHex(220)
     : "#0055ff",
   dot1Color: typeof nodeGraphHueUnitHex === "function"
-    ? nodeGraphHueUnitHex(25)
-    : "#ff6a00",
+    ? nodeGraphHueUnitHex(30)
+    : "#ff8000",
   color: typeof nodeGraphHueUnitHex === "function"
-    ? nodeGraphHueUnitHex(25)
-    : "#ff6a00",
-  hue: 25,
-  dot1Brightness: 0.5,
-  brightness: 0.5,
+    ? nodeGraphHueUnitHex(30)
+    : "#ff8000",
+  hue: 30,
+  dot1Brightness: 0.9,
+  brightness: 0.9,
   dot1Size: 0.85,
   lineThickness: 0.35,
   blur: 0.35,
@@ -388,33 +388,28 @@ const nodeGraphVectorDotSettingsDefaults = Object.freeze({
   squircle: 0,
 });
 
-// LCD Dot — Vector Dot shape + LCD Value plate/ink/glass.
+// LCD Dot — Vector Dot shape + LCD Value plate/ink/glass (same spawn as Value LCD).
 const nodeGraphLcdDotSettingsDefaults = Object.freeze({
   faceStyle: "lcd",
   background: typeof nodeGraphHueUnitHex === "function"
-    ? nodeGraphHueUnitHex(typeof nodeGraphValueLcdDefaultHueDeg === "number"
-      ? nodeGraphValueLcdDefaultHueDeg
-      : 82)
+    ? nodeGraphHueUnitHex(nodeGraphValueLcdDefaultHueDeg)
     : "#a2ff00",
-  backgroundBrightness: 0.88,
+  backgroundBrightness: 0.9,
+  backgroundSaturation: 0,
   backgroundColor: typeof nodeGraphHueUnitHex === "function"
-    ? nodeGraphHueUnitHex(typeof nodeGraphValueLcdDefaultHueDeg === "number"
-      ? nodeGraphValueLcdDefaultHueDeg
-      : 82)
+    ? nodeGraphHueUnitHex(nodeGraphValueLcdDefaultHueDeg)
     : "#a2ff00",
   dot1Color: typeof nodeGraphHueUnitHex === "function"
-    ? nodeGraphHueUnitHex(typeof nodeGraphValueLcdDefaultHueDeg === "number"
-      ? nodeGraphValueLcdDefaultHueDeg
-      : 82)
-    : "#a2ff00",
+    ? nodeGraphHueUnitHex(210)
+    : "#00aaff",
   color: typeof nodeGraphHueUnitHex === "function"
-    ? nodeGraphHueUnitHex(typeof nodeGraphValueLcdDefaultHueDeg === "number"
-      ? nodeGraphValueLcdDefaultHueDeg
-      : 82)
-    : "#a2ff00",
-  hue: typeof nodeGraphValueLcdDefaultHueDeg === "number" ? nodeGraphValueLcdDefaultHueDeg : 82,
-  dot1Brightness: 0.18,
-  brightness: 0.18,
+    ? nodeGraphHueUnitHex(210)
+    : "#00aaff",
+  hue: 210,
+  dot1Brightness: 0,
+  brightness: 0,
+  dot1Saturation: 0.9,
+  colorSaturation: 0.9,
   dot1Size: 0.72,
   lineThickness: 0.12,
   blur: 0.12,
@@ -423,11 +418,11 @@ const nodeGraphLcdDotSettingsDefaults = Object.freeze({
   shapeParam: 0.5,
   pill: 0,
   squircle: 0,
-  unlitSegments: 0.22,
+  unlitSegments: 0.1,
   innerShadowDistance: 1,
-  innerShadowSharpness: 0.732,
-  innerShadowOffsetX: 0,
-  innerShadowOffsetY: 0.135,
+  innerShadowSharpness: 0.7,
+  innerShadowOffsetX: 0.03,
+  innerShadowOffsetY: 0.05,
 });
 
 

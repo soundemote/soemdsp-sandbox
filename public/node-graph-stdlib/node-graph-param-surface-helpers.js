@@ -322,6 +322,7 @@ function nodeGraphFiniteNumber(value, fallback = 0) {
 const NODE_GRAPH_NORM_PITCH_FREQ_TYPES = new Set([
   "superloveFilter",
   "superloveRev2",
+  "vcvrackSuperloveFilter",
   "yellowjacketFilter",
   "flowerChildFilter",
   "humanFilter",
@@ -649,8 +650,9 @@ function nodeGraphPatchPitchOffsetRatio() {
 
 /**
  * Wired ƒ / Freq = absolute Hz (cancels Frequency knob + 0.1V/Oct).
- * Else wired 0.1V/Oct pitches the Frequency knob vs patch pitch reference.
- * Else returns knobHz. Then × patch Pitch (−10…+10 oct). Same as WASM.
+ * Else wired 0.1V/Oct (MIDI/120) pitches the Frequency knob vs patch
+ * pitchReferenceMidiNote/120 (default 69 → 0.575). Else knobHz.
+ * Then × patch Pitch (−10…+10 oct). Same as WASM.
  */
 function nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId) {
   let hz;
@@ -664,7 +666,7 @@ function nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId) {
       const referenceVoltage =
         typeof normalizeNodeGraphPatchAudio === "function" && nodeGraphMvp?.patch?.audio
           ? normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote / 120
-          : 0.4;
+          : 69 / 120;
       const pitchCv = nodeGraphFiniteNumber(mixInput(nodeId, "0.1V/Oct"));
       if (typeof nodeGraphParamResolveOscPitchHz === "function") {
         hz = nodeGraphParamResolveOscPitchHz({

@@ -189,7 +189,7 @@ function showNodeGraphModule(node, point = null, options = {}) {
       setNodeInteractionHelp(
         nodeGraphIsMetamoduleVoicePortalType?.(type)
           ? "Open a Metamodule (double-click) to use Voice Frequency / Gate / Trigger."
-          : "Open a Metamodule (double-click) to place Meta In / Meta Out.",
+          : "Open a Metamodule (double-click) to place Metamodule In / Metamodule Out.",
       );
     }
     return "";
@@ -915,7 +915,7 @@ function copyNodeGraphModule(sourceNode) {
     && nodeGraphIsMetamoduleBoundaryType(sourceNode?.type)
   ) {
     if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp("Duplicate Meta In/Out is not supported. Place a new one inside the Metamodule.");
+      setNodeInteractionHelp("Duplicate Metamodule In/Out is not supported. Place a new one inside the Metamodule.");
     }
     return;
   }
@@ -1583,6 +1583,15 @@ function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = n
     changed += 1;
   }
   if (!changed) {
+    return;
+  }
+  if (
+    typeof nodeGraphNamedPortalWouldFeedback === "function"
+    && nodeGraphNamedPortalWouldFeedback(patch)
+  ) {
+    if (typeof nodeGraphArmPortalFeedbackBreak === "function") {
+      nodeGraphArmPortalFeedbackBreak();
+    }
     return;
   }
   // Meta In/Out alias → Root shell jack label.

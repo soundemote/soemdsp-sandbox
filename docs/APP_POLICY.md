@@ -6,6 +6,13 @@
 
 When in doubt: prefer **honesty, one path, and delete over compatibility**.
 
+### Pitch convention
+
+- **`0.1V/Oct` cable** = MIDI / 120. `+0.1` = +1 octave. `0.0` is MIDI 0; `1.0` is MIDI 120. Not a 0–1 knob and not MIDI/127 (`Note#/127`). MIDI 127 is `1.058` — do not clamp the cable to 1.
+- **Freq Ref** (`pitchReferenceHz`) + **Pitch Reference Note** (`pitchReferenceMidiNote`): Hz sounded at that MIDI note when a leftover 0.1V/Oct consumer converts CV → Hz. **Default A4 / MIDI 69 @ 440 Hz.** Saved patches that store 100 Hz @ 48 keep those values.
+- **Keyboard `ƒ`** is already concert A440 (`440 × 2^((midi−69)/12)`). Independent of Freq Ref. Wire Keyboard `ƒ` → osc `ƒ` for Hz; wire `0.1V/Oct` only into remaining pitch-CV utilities (quantizer, glide, transpose, Phone Tone).
+- Hz modules (oscs / most filters): Frequency knob and `ƒ` jack are **absolute Hz**. They do not track 0.1V/Oct.
+
 ---
 
 ## 0. Architecture north star
@@ -205,7 +212,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    as utilities)
 ```
 
-**Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` and chromeless **Portal In/Out** lane modules (`portalInlet*` / `portalOutlet*`) may remain — each lane shows → in and ← thru jacks; outlets also thru-mix into the speaker bus. Container shells: **`group`** = simple one-level boxing (Amplitude only); **`metamodule`** = **voice container** (**Voices** in + Left/Right out; shared Octave/Semitones/Cents/Frequency face params). **Playmode** (Mono / Legato / Voices — no Off; default **Voices**) and **Voice Count** (default **10**) live on `node.metamodule` (**Module Settings only** — not face sliders, not modulatable). No shell Gate inlet.
+**Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` and chromeless **Input/Output** lane modules (`portalInlet*` / `portalOutlet*`) may remain — each lane shows → in and ← thru jacks; outlets also thru-mix into the speaker bus. **Portal → / Portal ←** (`namedPortalIn` / `namedPortalOut`): JS only declares the modules and titles. C++ `soemdsp_graph_set_named_portal` + compile groups matching bus keys and mixes Mono In→Out. Same title is one bus within a universe (root, or one Metamodule, per voice replica). They never cross a Metamodule shell. A cable that would close a portal loop is refused with the wire-break animation. Container shells: **`group`** = simple one-level boxing (Amplitude only); **`metamodule`** = **voice container** (**Voices** in + Left/Right out; shared Octave/Semitones/Cents/Frequency face params). **Playmode** (Mono / Legato / Voices — no Off; default **Voices**) and **Voice Count** (default **10**) live on `node.metamodule` (**Module Settings only** — not face sliders, not modulatable). No shell Gate inlet.
 
 **Voice definition:** a voice is the set of modules **owned by** the Metamodule, excluding shell portals. That set is replicated × Voice Count (no Hypersaw/ADSR special-case). The container also exposes **built-in per-voice buses** — **Voice Frequency**, **Voice Gate**, **Voice Trigger**, **Voice Idle** — one instance of each signal **per voice**. Gate / Trigger / Pitch are properties of that voice, not of note-steal policy. A voice does not “steal for itself.”
 

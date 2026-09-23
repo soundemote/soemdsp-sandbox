@@ -788,6 +788,12 @@ extern "C" double soemdsp_superlove_rev2_sample(
   int handle, double input, double frequency, double resonance,
   double morphAmount, double noiseAmount, double phaseBias, int mode, double sampleRate
 );
+extern "C" int soemdsp_vcvrack_superlove_filter_create();
+extern "C" void soemdsp_vcvrack_superlove_filter_destroy(int handle);
+extern "C" double soemdsp_vcvrack_superlove_filter_sample(
+  int handle, double input, double frequency, double resonance,
+  double noise01, double drive, int mode, double sampleRate
+);
 extern "C" double soemdsp_superlove_filter_sample(
   int handle, double input, double frequency, double resonance,
   double chaosAmount, int mode, double sampleRate
@@ -1638,6 +1644,8 @@ static const int kTypePumpLimiter = 109; // musical Pump Limiter (type `limiter`
 static const int kTypeAudioPlayer = 110; // Music Player (PCM upload)
 static const int kTypeSamplePlayer = 174; // Gate-driven sample player (PCM upload)
 static const int kTypeWavetable2d = 180; // PCM wavetable oscillator
+static const int kTypeNamedPortalIn = 182; // wireless Portal →
+static const int kTypeNamedPortalOut = 184; // wireless Portal ←
 // Yellow Graph (Additive) — A1+A2 (see additive_yellow_graph.h)
 static const int kTypeAdditiveGenerator = 111;
 static const int kTypeAdditiveBubble = 112;
@@ -1706,6 +1714,7 @@ static const int kTypeAmpDb = 180; // Amp ↔ dB (20·log10 voltage gain, 0 dB =
 static const int kTypeGraphicEq = 171; // ISO 1/3-octave graphic EQ (30 peaking bands)
 static const int kTypeSuperloveRev2 = 172; // Softwave-Tri LP + classic HP/BP
 static const int kTypeCookbookFilter = 173; // RS-MET rosic::CookbookFilter (RBJ cascade)
+static const int kTypeVcvrackSuperloveFilter = 183; // VCV Rack Super Love DSP
 static const int kTypeLowpass = 176; // EQ ZDF SVF Lowpass (mode 2), slope 12…48
 static const int kTypeHighpass = 177; // EQ ZDF SVF Highpass (mode 1), slope 12…48
 static const int kTypePhaser = 178; // Parallel ZDF bandpass bank (1–8 × 12–48 dB)
@@ -1798,6 +1807,7 @@ static const int kParamTempoBpm = 61;          // pingPong
 static const int kParamTapOffsetMs = 62;       // unused (kept for id stability)
 static const int kParamAttAmplitude = 70;      // attenuverter
 static const int kParamAttOffset = 71;         // attenuverter
+static const int kParamNamedPortalBus = 201;   // uint32 bus key as double
 static const int kParamInLow = 80;             // range
 static const int kParamInHigh = 81;            // range
 static const int kParamOutLow = 82;            // range
@@ -1878,6 +1888,9 @@ struct Node {
   int typeId;
   bool used;
   bool bypassed; // dry/silence passthrough; DSP state kept (no recreate)
+  // Named Portal →/← : JS declares title; C++ groups matching bus keys.
+  unsigned int namedPortalBus;
+  unsigned char namedPortalKind; // 0 none, 1 in, 2 out
   // True if this node can reach an Output (audio or param-MOD ancestor).
   // Unreachable modules (e.g. leftover Hypersaw) skip DSP in process_block.
   bool reachable;
@@ -1990,6 +2003,7 @@ struct Conn {
   unsigned int dstHash;
   int dstPort;
   bool used;
+  bool namedPortal; // compile-owned bus edge (not a drawn cable)
 };
 
 // Audio-rate param MOD: src node audio port → dst Control (sample-accurate).
@@ -2021,6 +2035,9 @@ struct Circuit {
   double masterSamples;
   // Patch-wide pitch transpose (octaves). Multiplies pitched Hz by 2^oct.
   double pitchOffsetOctaves;
+  // MIDI note whose 0.1V/Oct (midi/120) is the 0-octave point for leftover
+  // pitch-CV consumers. Default 69 (A4). Saved patches may still send 48.
+  double pitchReferenceMidiNote;
   // Project oscillator ceiling (Hz). Voice Hz clamps to min(this, Nyquist).
   double speedLimitHz;
   // VoiceManager instance — voice-lane nodes query Sustaining/Releasing/Available.
@@ -2289,6 +2306,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_superlove_filter_destroy(handle);
   } else if (kind == kTypeSuperloveRev2) {
     soemdsp_superlove_rev2_destroy(handle);
+  } else if (kind == kTypeVcvrackSuperloveFilter) {
+    soemdsp_vcvrack_superlove_filter_destroy(handle);
   } else if (kind == kTypeHumanFilter) {
     soemdsp_human_filter_destroy(handle);
   } else if (kind == kTypeResonatorFilter) {
@@ -2424,6 +2443,7 @@ static bool type_wants_mlr_native_handles(int typeId) {
     || typeId == kTypeYellowjacketFilter
     || typeId == kTypeSuperloveFilter
     || typeId == kTypeSuperloveRev2
+    || typeId == kTypeVcvrackSuperloveFilter
     || typeId == kTypeHumanFilter
     || typeId == kTypeResonatorFilter
     || typeId == kTypeChaoticPhaseLockingFilter;
@@ -2658,6 +2678,9 @@ static inline double phase_offset_cycles(
 static void init_node_defaults(Node& n, int typeId) {
   n.typeId = typeId;
   n.bypassed = false;
+  n.namedPortalBus = 0;
+  n.namedPortalKind = (typeId == kTypeNamedPortalIn) ? 1
+    : (typeId == kTypeNamedPortalOut) ? 2 : 0;
   n.reachable = true; // until compile marks orphans
   n.hasParamMods = 0;
   n.fbGroupId = -1;
@@ -2687,7 +2710,8 @@ static void init_node_defaults(Node& n, int typeId) {
       || typeId == kTypePapoulisFilter)
       ? 1000.0
       : (typeId == kTypeFlowerChildFilter || typeId == kTypeYellowjacketFilter
-          || typeId == kTypeSuperloveFilter || typeId == kTypeSuperloveRev2 || typeId == kTypeHumanFilter
+          || typeId == kTypeSuperloveFilter || typeId == kTypeSuperloveRev2
+          || typeId == kTypeVcvrackSuperloveFilter || typeId == kTypeHumanFilter
           || typeId == kTypeResonatorFilter || typeId == kTypeChaoticPhaseLockingFilter)
         ? 0.5
       : (typeId == kTypeModeResonator) ? 440.0
@@ -2872,6 +2896,7 @@ static void init_node_defaults(Node& n, int typeId) {
       || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic
       || typeId == kTypePassiveFilter
       || typeId == kTypeFlowerChildFilter || typeId == kTypeSuperloveFilter
+      || typeId == kTypeVcvrackSuperloveFilter
       || typeId == kTypeHumanFilter || typeId == kTypeResonatorFilter
       || typeId == kTypeCombResonator
       || typeId == kTypeAdditiveLinearFilter || typeId == kTypeAdditiveAnalogFilter
@@ -3010,7 +3035,8 @@ static void init_node_defaults(Node& n, int typeId) {
   // bradley2a = freqOffset; snowflake = angle°.
   init_control(
     n.width,
-    (typeId == kTypePhaser) ? 0.5 // spread octaves
+    (typeId == kTypeVcvrackSuperloveFilter) ? 0.0 // spread
+      : (typeId == kTypePhaser) ? 0.5 // spread octaves
       : (typeId == kTypeNoiseGenerator) ? 0.5
       : (typeId == kTypeExpoPluckEnvelope) ? 0.0 // damping
       : (typeId == kTypeExpoPluckEnvelope2) ? 1.0 // velocity
@@ -3064,7 +3090,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.mix,
-    (typeId == kTypePhaser || typeId == kTypeFlanger) ? 0.5
+    (typeId == kTypeVcvrackSuperloveFilter) ? 0.0 // noise
+      : (typeId == kTypePhaser || typeId == kTypeFlanger) ? 0.5
       : (typeId == kTypeGraphicEq) ? 1.0
       :     (typeId == kTypeHypersaw2) ? 0.0 // jitterSpeedTiltSource Freq
       : (typeId == kTypePingPongDelay || typeId == kTypeDelayEffect) ? 0.35
@@ -3353,7 +3380,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.gainDb,
-    (typeId == kTypeLookaheadLimiter) ? -1.0 // ceiling dB
+    (typeId == kTypeVcvrackSuperloveFilter) ? 0.5 // drive 0…4
+      : (typeId == kTypeLookaheadLimiter) ? -1.0 // ceiling dB
       : (typeId == kTypePumpLimiter) ? 0.0 // inputGain dB
       : 0.0,
     false
@@ -4171,6 +4199,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeYellowjacketFilter) return soemdsp_yellowjacket_filter_create();
   if (typeId == kTypeSuperloveFilter) return soemdsp_superlove_filter_create();
   if (typeId == kTypeSuperloveRev2) return soemdsp_superlove_rev2_create();
+  if (typeId == kTypeVcvrackSuperloveFilter) return soemdsp_vcvrack_superlove_filter_create();
   if (typeId == kTypeHumanFilter) return soemdsp_human_filter_create();
   if (typeId == kTypeResonatorFilter) return soemdsp_resonator_filter_create();
   if (typeId == kTypeCombResonator) return soemdsp_comb_resonator_create();
@@ -4264,6 +4293,7 @@ static void release_node_papoulis_controls(Node& n) {
 static void clear_graph_contents(Circuit& g) {
   g.compiled = false;
   g.pitchOffsetOctaves = 0.0;
+  g.pitchReferenceMidiNote = 69.0;
   g.speedLimitHz = 20000.0;
   const int oldCount = g.nodeCount;
   for (int i = 0; i < oldCount; i++) {
@@ -4471,6 +4501,13 @@ static double pitched_hz(double baseHz, double pitchCv, double referenceVoltage)
   return out;
 }
 
+// 0.1V/Oct = MIDI/120. Default A4 (69) → 0.575.
+static double circuit_pitch_ref_v(const Circuit& g) {
+  double n = g.pitchReferenceMidiNote;
+  if (!(n == n) || n < 0.0) n = 69.0;
+  return n / 120.0;
+}
+
 // Patch Pitch (−10…+10 oct): one header control sweeps oscs / Chaosfly / filters.
 static double apply_global_pitch(const Circuit& g, double freq) {
   const double oct = g.pitchOffsetOctaves;
@@ -4540,8 +4577,8 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   );
   const int mask = polyblep_tap_mask(g, node);
 
-  // Midi note 48 → 0.4 reference voltage (matches worklet default).
-  const double referenceVoltage = 48.0 / 120.0;
+  // 0.1V/Oct leftover consumers: midi/120 at patch pitchReferenceMidiNote.
+  const double referenceVoltage = circuit_pitch_ref_v(g);
 
   const double phaseParam = phase_offset_cycles(
     node.phaseParam, livePhase ? g.mixPhaseCv[0] : 0.0
@@ -4660,7 +4697,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
 
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const bool takeSamplePath =
     node_needs_sample_accurate_controls(g, node, liveF || livePitch);
 
@@ -5490,7 +5527,7 @@ static void process_phone_tone(Circuit& g, Node& node, int frames) {
   const bool liveGate = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool takeSamplePath = node_has_active_chase(node);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
     double amp = control_audio(g, node.amplitude, f);
@@ -5538,7 +5575,7 @@ static void process_blit(Circuit& g, Node& node, int frames) {
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
 
   // PhaseOffset = freePhase + Control phase; re-apply offset every sample.
   double freePhase = node.phase;
@@ -5629,7 +5666,7 @@ static void sin_cos_pair_advance(
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool livePhase = mix_live_port(g, node, kPortPhaseCv, frames, g.mixPhaseCv);
   const bool takeSamplePath = node_has_active_chase(node);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const double methodV = control_effective(node.shape);
   int method = (int)(methodV + (methodV >= 0.0 ? 0.5 : -0.5));
   if (method < 0) method = 0;
@@ -5721,7 +5758,7 @@ static void process_archimedes(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
 
   double profileV = control_effective(node.stages);
@@ -5778,7 +5815,7 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const bool takeSamplePath = node_has_active_chase(node);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
 
   // PhaseOffset = freePhase + Control phase; re-apply offset every sample.
   double freePhase = node.phase;
@@ -6374,7 +6411,7 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const int optimize = (int)(control_effective(node.mode) + (control_effective(node.mode) >= 0.0 ? 0.5 : -0.5));
   if (!liveReset) node.lastReset = 0.0;
 
@@ -6436,7 +6473,7 @@ static void process_surge_oscillator(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool hasSync = mix_live_port(g, node, kPortMono, frames, g.mixMono);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const double syncFreq = control_effective(node.width);
   const double level = control_effective(node.amplitude);
   const double waveV = control_effective(node.waveform);
@@ -6481,7 +6518,7 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   if (!liveReset) node.lastReset = 0.0;
 
   for (int f = 0; f < frames; f++) {
@@ -6524,7 +6561,7 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   double morph = morph_zoh_hold(g, node, liveMorph, true);
   const double pulseWidth = control_effective(node.width);
   const double blend = control_effective(node.mix);
@@ -6565,7 +6602,7 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   if (!liveReset) node.lastReset = 0.0;
 
   const bool takeSample = liveF || livePitch || liveReset
@@ -6704,7 +6741,7 @@ static void process_sinc(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const double phaseOff = control_effective(node.phaseParam);
   const double lobes = control_effective(node.stages);
   const double bandLimit = control_effective(node.mode);
@@ -6729,7 +6766,7 @@ static void process_bradley2a(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const double freqOffset = control_effective(node.width);
   const double jitterDepth = control_effective(node.shape);
   const double jitterRate = control_effective(node.lfoRate);
@@ -6789,7 +6826,7 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   int motion = (int)(control_effective(node.mode) + (control_effective(node.mode) >= 0.0 ? 0.5 : -0.5));
   if (motion < 0) motion = 0;
   if (motion > 3) motion = 3;
@@ -6864,7 +6901,7 @@ static void process_snowflake(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const double pattern = control_effective(node.mode);
   const double iterations = control_effective(node.stages);
   const double angleDeg = control_effective(node.width);
@@ -6975,7 +7012,7 @@ static void process_papoulis_filter(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
@@ -7006,7 +7043,7 @@ static void process_scientific_iir(
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const bool takeSamplePath = node_has_active_chase(node);
   const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
@@ -7062,7 +7099,7 @@ static void process_eq_filter(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const bool takeSamplePath = node_has_active_chase(node);
   const double uiMode = control_effective(node.mode);
   int ui = (int)(uiMode + (uiMode >= 0.0 ? 0.5 : -0.5));
@@ -7120,7 +7157,7 @@ static void process_eq_filter_fixed_mode(
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool takeSamplePath = node_has_active_chase(node);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const double modeV = forcedMode;
   const double gain = 0.0;
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
@@ -7185,7 +7222,7 @@ static void process_phaser(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   bool leftOutWired = false, rightOutWired = false;
@@ -7367,7 +7404,7 @@ static void process_cookbook_filter(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
@@ -7420,7 +7457,7 @@ static void process_phase_disperse(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
@@ -7517,7 +7554,7 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const bool takeSamplePath = node_has_active_chase(node)
     || node.hpfFrequency.active || node.lpfFrequency.active;
   int hpSlope = (int)(control_effective(node.waveform) + (control_effective(node.waveform) >= 0.0 ? 0.5 : -0.5));
@@ -7614,7 +7651,7 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const bool takeSamplePath = node_needs_sample_accurate_controls(
     g, node, liveF || livePitch
   ) || node.hpfFrequency.active || node.lpfFrequency.active;
@@ -7707,7 +7744,7 @@ static void process_tb303_filter(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const bool takeSamplePath =
     node_has_active_chase(node) || node.gainDb.active || node.amplitude.active;
   const double modeV = control_effective(node.mode);
@@ -7889,6 +7926,59 @@ static void process_superlove_filter(Circuit& g, Node& node, int frames) {
 }
 
 // Superlove Rev2: mix Control = noise inject amount (host: noise×noiseAmount meta).
+static void process_vcvrack_superlove_filter(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double modeV = control_effective(node.mode);
+  int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+  if (mode < 0) mode = 0;
+  if (mode > 3) mode = 3;
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool stereo = hasLeftIn && hasRightIn;
+  const bool needMono = hasMonoIn || monoOutWired || !stereo;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double freq = norm_pitch_freq_from_control(control_audio(g, node.frequency, f));
+    const double reso = control_audio(g, node.resonance, f);
+    const double noiseAmt = control_audio(g, node.mix, f);
+    const double drive = control_audio(g, node.gainDb, f);
+    const double spread = stereo ? control_audio(g, node.width, f) : 0.0;
+    const double spreadAmt = spread < -1.0 ? -0.15 : (spread > 1.0 ? 0.15 : spread * 0.15);
+    double amp = control_audio(g, node.amplitude, f);
+    if (!(amp == amp)) amp = 1.0;
+    if (needMono) {
+      double in = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
+      const double out = soemdsp_vcvrack_superlove_filter_sample(
+        node.nativeHandle, in, freq, reso, noiseAmt, drive, mode, sr
+      ) * amp;
+      node.buf[kPortMono][f] = out;
+      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
+      if (!hasRightIn) node.buf[kPortRight][f] = out;
+    }
+    if (hasLeftIn && node.nativeHandleL > 0) {
+      double freqL = freq - spreadAmt;
+      if (freqL < 0.0) freqL = 0.0;
+      if (freqL > 1.0) freqL = 1.0;
+      node.buf[kPortLeft][f] = soemdsp_vcvrack_superlove_filter_sample(
+        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f],
+        freqL, reso, noiseAmt, drive, mode, sr
+      ) * amp;
+    }
+    if (hasRightIn && node.nativeHandleR > 0) {
+      double freqR = freq + spreadAmt;
+      if (freqR < 0.0) freqR = 0.0;
+      if (freqR > 1.0) freqR = 1.0;
+      node.buf[kPortRight][f] = soemdsp_vcvrack_superlove_filter_sample(
+        node.nativeHandleR, g.mixRight[f] + g.mixMono[f],
+        freqR, reso, noiseAmt, drive, mode, sr
+      ) * amp;
+    }
+  }
+}
+
 static void process_superlove_rev2(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -7989,7 +8079,7 @@ static void process_mode_resonator(Circuit& g, Node& node, int frames) {
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node)
     || node.timeNumerator.active || node.amplitude.active;
@@ -8017,7 +8107,7 @@ static void process_comb_resonator(Circuit& g, Node& node, int frames) {
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node)
     || node.timeNumerator.active || node.amplitude.active;
@@ -8254,7 +8344,7 @@ static void process_basic_shape(Circuit& g, Node& node, int frames) {
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const double phaseOff = control_effective(node.phaseParam);
   const double morph = control_effective(node.shape);
   const double amp = control_effective(node.amplitude);
@@ -8762,7 +8852,7 @@ static void process_chaosfly(Circuit& g, Node& node, int frames) {
   const bool livePhase = mix_live_port(g, node, kPortPhaseCv, frames, g.mixPhaseCv);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
@@ -10541,7 +10631,7 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const double referenceVoltage = 48.0 / 120.0;
+  const double referenceVoltage = circuit_pitch_ref_v(g);
   const bool takeSamplePath =
     node_needs_sample_accurate_controls(g, node, liveF || livePitch || hasReset);
 
@@ -10771,6 +10861,34 @@ static void process_portal_inlet(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Named Portal In/Out: unity sum of Mono cables → Mono (wireless bus via JS edges).
+static void process_named_portal(Circuit& g, Node& node, int frames) {
+  if (node.typeId == kTypeNamedPortalOut && node.namedPortalBus != 0) {
+    for (int f = 0; f < frames; f++) node.buf[kPortMono][f] = 0.0;
+    for (int i = 0; i < g.nodeCount; i++) {
+      const Node& inn = g.nodes[i];
+      if (!inn.used || inn.typeId != kTypeNamedPortalIn) continue;
+      if (inn.namedPortalBus != node.namedPortalBus) continue;
+      for (int f = 0; f < frames; f++) {
+        node.buf[kPortMono][f] += inn.buf[kPortMono][f];
+      }
+    }
+    for (int f = 0; f < frames; f++) {
+      const double y = node.buf[kPortMono][f];
+      node.buf[kPortLeft][f] = y;
+      node.buf[kPortRight][f] = y;
+    }
+    return;
+  }
+  mix_node_inputs(g, node, frames);
+  for (int f = 0; f < frames; f++) {
+    const double y = g.mixMono[f];
+    node.buf[kPortMono][f] = y;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+  }
+}
+
 // Bypass: route dry audio (or silence for sources). Do NOT call native
 // process_block / reset — tails and filter state stay warm.
 static void process_bypass(Circuit& g, Node& node, int frames) {
@@ -10954,6 +11072,15 @@ extern "C" void soemdsp_graph_set_pitch_offset(int handle, double octaves) {
   g->pitchOffsetOctaves = octaves;
 }
 
+extern "C" void soemdsp_graph_set_pitch_reference(int handle, double midiNote) {
+  Circuit* g = get(handle);
+  if (!g) return;
+  if (!(midiNote == midiNote)) midiNote = 69.0;
+  if (midiNote < 0.0) midiNote = 0.0;
+  if (midiNote > 127.0) midiNote = 127.0;
+  g->pitchReferenceMidiNote = midiNote;
+}
+
 extern "C" void soemdsp_graph_set_speed_limit(int handle, double hz) {
   Circuit* g = get(handle);
   if (!g) return;
@@ -11095,6 +11222,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeYellowjacketFilter
     || typeId == kTypeSuperloveFilter
     || typeId == kTypeSuperloveRev2
+    || typeId == kTypeVcvrackSuperloveFilter
     || typeId == kTypeHumanFilter
     || typeId == kTypeResonatorFilter
     || typeId == kTypeCombResonator
@@ -11213,6 +11341,7 @@ extern "C" int soemdsp_graph_connect(
   if (g->connCount >= kMaxConnections) return -3;
   Conn& c = g->conns[g->connCount];
   c.used = true;
+  c.namedPortal = false;
   c.srcHash = srcHash;
   c.srcPort = clamp_src_port(srcPort);
   c.dstHash = dstHash;
@@ -11314,6 +11443,13 @@ extern "C" int soemdsp_graph_set_param(int handle, unsigned int nodeHash, int pa
   if (idx < 0) return -2;
   if (!(value == value)) return 0;
   Node& n = g->nodes[idx];
+  if (paramId == kParamNamedPortalBus
+      && (n.typeId == kTypeNamedPortalIn || n.typeId == kTypeNamedPortalOut)) {
+    const double k = value < 0.0 ? 0.0 : value;
+    n.namedPortalBus = (unsigned int)k;
+    n.namedPortalKind = (n.typeId == kTypeNamedPortalIn) ? 1 : 2;
+    return 0;
+  }
   if (n.typeId == kTypeGraphicEq
       && paramId >= kParamGraphicEqBand0
       && paramId < kParamGraphicEqBand0 + 30) {
@@ -11657,9 +11793,146 @@ static void compile_feedback_groups(Circuit& g) {
   }
 }
 
+static int named_portal_index(Circuit& g, unsigned int hash) {
+  const int idx = find_node(g, hash);
+  if (idx < 0) return -1;
+  const int t = g.nodes[idx].typeId;
+  if (t != kTypeNamedPortalIn && t != kTypeNamedPortalOut) return -1;
+  return idx;
+}
+
+// Portals are not DSP. Compile rewrites
+//   src → Portal →  and  Portal ← → dst
+// into src → dst, same as a drawn cable. Several Ins sum; several Outs fan out.
+static void splice_named_portals(Circuit& g) {
+  int w = 0;
+  for (int i = 0; i < g.connCount; i++) {
+    if (!g.conns[i].used || g.conns[i].namedPortal) continue;
+    g.conns[w++] = g.conns[i];
+  }
+  g.connCount = w;
+
+  struct Src { unsigned int hash; int port; unsigned int bus; };
+  struct Sink { unsigned int hash; int port; unsigned int bus; int isParam; int paramId; };
+  Src srcs[256];
+  Sink sinks[256];
+  int nsrc = 0;
+  int nsink = 0;
+
+  for (int i = 0; i < g.connCount; i++) {
+    const Conn& c = g.conns[i];
+    if (!c.used) continue;
+    const int di = named_portal_index(g, c.dstHash);
+    const int si = named_portal_index(g, c.srcHash);
+    if (di >= 0 && g.nodes[di].typeId == kTypeNamedPortalIn && g.nodes[di].namedPortalBus != 0 && si < 0) {
+      if (nsrc < 256) {
+        srcs[nsrc].hash = c.srcHash;
+        srcs[nsrc].port = c.srcPort;
+        srcs[nsrc].bus = g.nodes[di].namedPortalBus;
+        nsrc += 1;
+      }
+    }
+    if (si >= 0 && g.nodes[si].typeId == kTypeNamedPortalOut && g.nodes[si].namedPortalBus != 0 && di < 0) {
+      if (nsink < 256) {
+        sinks[nsink].hash = c.dstHash;
+        sinks[nsink].port = c.dstPort;
+        sinks[nsink].bus = g.nodes[si].namedPortalBus;
+        sinks[nsink].isParam = 0;
+        sinks[nsink].paramId = 0;
+        nsink += 1;
+      }
+    }
+  }
+  for (int i = 0; i < g.paramModEdgeCount; i++) {
+    const ParamModEdge& e = g.paramModEdges[i];
+    if (!e.used) continue;
+    const int si = named_portal_index(g, e.srcHash);
+    if (si < 0 || g.nodes[si].typeId != kTypeNamedPortalOut || g.nodes[si].namedPortalBus == 0) continue;
+    if (nsink < 256) {
+      sinks[nsink].hash = e.dstHash;
+      sinks[nsink].port = 0;
+      sinks[nsink].bus = g.nodes[si].namedPortalBus;
+      sinks[nsink].isParam = 1;
+      sinks[nsink].paramId = e.paramId;
+      nsink += 1;
+    }
+  }
+
+  w = 0;
+  for (int i = 0; i < g.connCount; i++) {
+    const Conn c = g.conns[i];
+    if (!c.used) continue;
+    if (named_portal_index(g, c.srcHash) >= 0 || named_portal_index(g, c.dstHash) >= 0) continue;
+    g.conns[w++] = c;
+  }
+  g.connCount = w;
+
+  int pe = 0;
+  for (int i = 0; i < g.paramModEdgeCount; i++) {
+    if (!g.paramModEdges[i].used) continue;
+    const int si = named_portal_index(g, g.paramModEdges[i].srcHash);
+    if (si >= 0 && g.nodes[si].typeId == kTypeNamedPortalOut) continue;
+    g.paramModEdges[pe++] = g.paramModEdges[i];
+  }
+  g.paramModEdgeCount = pe;
+
+  for (int s = 0; s < nsrc; s++) {
+    for (int k = 0; k < nsink; k++) {
+      if (srcs[s].bus != sinks[k].bus) continue;
+      if (sinks[k].isParam) {
+        if (g.paramModEdgeCount >= kMaxParamModEdges) continue;
+        ParamModEdge& e = g.paramModEdges[g.paramModEdgeCount];
+        e.used = true;
+        e.srcHash = srcs[s].hash;
+        e.srcPort = srcs[s].port;
+        e.dstHash = sinks[k].hash;
+        e.paramId = sinks[k].paramId;
+        g.paramModEdgeCount += 1;
+        continue;
+      }
+      if (g.connCount >= kMaxConnections) continue;
+      int dup = 0;
+      for (int i = 0; i < g.connCount; i++) {
+        if (!g.conns[i].used) continue;
+        if (g.conns[i].srcHash == srcs[s].hash && g.conns[i].srcPort == srcs[s].port
+            && g.conns[i].dstHash == sinks[k].hash && g.conns[i].dstPort == sinks[k].port) {
+          dup = 1;
+          break;
+        }
+      }
+      if (dup) continue;
+      Conn& c = g.conns[g.connCount];
+      c.used = true;
+      c.namedPortal = true;
+      c.srcHash = srcs[s].hash;
+      c.srcPort = srcs[s].port;
+      c.dstHash = sinks[k].hash;
+      c.dstPort = sinks[k].port;
+      g.connCount += 1;
+    }
+  }
+}
+
+extern "C" void soemdsp_graph_set_named_portal(
+  int handle,
+  unsigned int nodeHash,
+  unsigned int busKey,
+  int kind
+) {
+  Circuit* g = get(handle);
+  if (!g) return;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return;
+  Node& n = g->nodes[idx];
+  n.namedPortalBus = busKey;
+  n.namedPortalKind = (kind == 1 || kind == 2) ? (unsigned char)kind : 0;
+  g->compiled = false;
+}
+
 extern "C" int soemdsp_graph_compile(int handle) {
   Circuit* g = get(handle);
   if (!g) return -1;
+  splice_named_portals(*g);
   g->compiled = false;
   g->orderCount = 0;
   g->outputNodeIndex = -1;
@@ -11759,7 +12032,6 @@ extern "C" int soemdsp_graph_compile(int handle) {
     if (d >= 0) g->nodes[d].reachable = true;
     if (s >= 0) g->nodes[s].reachable = true;
   }
-
   for (int i = 0; i < g->nodeCount; i++) g->nodes[i].hasParamMods = 0;
   for (int i = 0; i < g->paramModEdgeCount; i++) {
     if (!g->paramModEdges[i].used) continue;
@@ -12202,6 +12474,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_superlove_rev2(g, node, frames);
       return;
     }
+    if (node.typeId == kTypeVcvrackSuperloveFilter) {
+      process_vcvrack_superlove_filter(g, node, frames);
+      return;
+    }
     if (node.typeId == kTypeHumanFilter) {
       process_human_filter(g, node, frames);
       return;
@@ -12482,6 +12758,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_portal_inlet(g, node, frames);
       return;
     }
+    if (node.typeId == kTypeNamedPortalIn || node.typeId == kTypeNamedPortalOut) {
+      process_named_portal(g, node, frames);
+      return;
+    }
     if (node.typeId == kTypeAudioInput) {
       // Host (plugin / worklet) fills node.buf via node_port_ptr before process_block.
       return;
@@ -12585,6 +12865,7 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       g->nodes[i].processedThisSample = 0;
     }
   }
+
   for (int oi = 0; oi < g->orderCount; oi++) {
     const int ni = g->order[oi];
     if (ni < 0 || ni >= g->nodeCount || !g->nodes[ni].used) continue;
@@ -12620,6 +12901,8 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
       }
       continue;
     }
+
+    if (node.processedThisBlock) continue;
 
     // AudioInput is filled by the host via node_port_ptr before process_block.
     // Do not wipe it — that was silencing the plugin graph.

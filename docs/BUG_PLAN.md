@@ -158,13 +158,13 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Fix shape: `Number.isFinite` / `??`, never `||` for samples.
 
 ### B-006 — Patch pitch reference posted, never stored
-- Status: open
+- Status: fixed
 - Severity: hear
 - Source: hunt-2026-08-12
-- Files: `public/node-graph-live-runtime.js` ~2160; `public/node-live-audio-worklet-set-plan.js`; `public/modules/polyBlep/poly-blep-worklet-evaluator.js` 137–142
+- Files: worklet `setPlan` / events; native `soemdsp_graph_set_pitch_reference`
 - What: `pitchReferenceHz` / `pitchReferenceMidiNote` are posted. Worklet never assigns `this.pitchReferenceMidiNote`. Oscs always MIDI 48 / 0.4 V.
 - Repro: Change Patch Settings concert pitch / reference note. 0.1V/Oct tracking unchanged.
-- Fix shape: Store both on `setPlan` and `setConnections`.
+- Fix: Worklet stores both on `setPlan`/`setConnections`. Native graph uses `pitchReferenceMidiNote/120` (default 69) instead of hardcoded 48/120. New-patch default is 440 Hz @ MIDI 69. (2026-09-22)
 
 ### B-007 — 0.1V/Oct clamped to [−1, 1]
 - Status: fixed
@@ -173,7 +173,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Files: worklet utility midi/120; live evaluators; pitch offset ±10; param-surface pitch ratio
 - What: CV is `midi/120`. MIDI 127 → 1.058, clamped to 1.0. Notes above MIDI 120 flatten.
 - Repro: Keyboard / stacked pitch CV above ~MIDI 120.
-- Fix: Removed product-range ±1 / ±10 oct clamps on pitch CV and patch pitch offset. Raw finite CV; Hz via existing pitch resolve / speed limit. (2026-09-10 removal pass)
+- Fix: Removed product-range ±1 / ±10 oct clamps on pitch CV and patch pitch offset (2026-09-10). Keyboard / MIDI `0.1V/Oct` no longer clamp midi/120 to 1.0 (2026-09-22).
 
 ### B-008 — Scientific IIR zeros z on every cutoff tick
 - Status: open

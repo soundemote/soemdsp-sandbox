@@ -221,6 +221,8 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   mixStereo4: "pass",
   mixStereo2: "pass",
   mixStereo: "pass",
+  namedPortalIn: "pass",
+  namedPortalOut: "pass",
   // Pitch utilities
 
   pitchQuantizer: "pass",

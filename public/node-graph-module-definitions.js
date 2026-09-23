@@ -157,6 +157,7 @@ const nodeGraphNodeLabels = Object.freeze({
   yellowjacketFilter: "Yellowjacket Filter",
   superloveFilter: "Superlove Filter Rev1",
   superloveRev2: "Superlove Filter Rev2",
+  vcvrackSuperloveFilter: "VCVRack Superlove Filter",
   chaoticPhaseLockingFilter: "Chaotic Phaselocking Filter",
   resonatorFilter: "Shaped Resonator Filter",
   modeResonator: "Mode Resonator",
@@ -322,7 +323,7 @@ const nodeGraphTb303FilterModes = Object.freeze([
 //
 // Trap: "add a phase input" often means a left-side CV jack → must list it in
 // `inputs`. Putting it only under `parameters` creates a knob, not a left
-// jack. PolyBLEP: 0.1V/Oct is an input; Phase/Amplitude are parameters only.
+// jack. PolyBLEP: Reset/Increment are inputs; Phase/Amplitude are parameters only.
 // DSF: uses both (knob + dedicated Phase/Amplitude jacks). Full write-up:
 // docs/MODULE_PATTERN_REFERENCE.md § "Three control surfaces".
 
@@ -408,7 +409,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       step: "any",
       unit: "Hz",
-      tooltip: "Highpass cutoff (when HP Slope ≠ Bypass). Sweep / ƒ / 0.1V move cuts together.",
+      tooltip: "Highpass cutoff (when HP Slope ≠ Bypass). Sweep / ƒ move cuts together.",
     },
     {
       defaultValue: "1000",
@@ -421,7 +422,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       step: "any",
       unit: "Hz",
-      tooltip: "Lowpass cutoff (when LP Slope ≠ Bypass). Sweep / ƒ / 0.1V move cuts together.",
+      tooltip: "Lowpass cutoff (when LP Slope ≠ Bypass). Sweep / ƒ move cuts together.",
     },
     {
       defaultValue: "0",
@@ -724,6 +725,24 @@ function nodeGraphControllerModuleParameters() {
   ];
 }
 
+function nodeGraphControllerButtonBiasParameter() {
+  return {
+    ...nodeGraphControllerBiasParameter(),
+    step: "1",
+    displayChoices: true,
+    divideChoicesVisibly: true,
+    choices: ["Off", "On"],
+    tooltip: "Bias. Off/On choices by default. Min, max, reverse, curve, and smooth time are Parameter Settings.",
+  };
+}
+
+function nodeGraphControllerButtonModuleParameters() {
+  return [
+    nodeGraphControllerButtonBiasParameter(),
+    ...nodeGraphControllerDisplayParameter(),
+  ];
+}
+
 const nodeGraphModuleDefinitions = (
   typeof finalizeNodeGraphModuleDefinitionsChrome === "function"
     ? finalizeNodeGraphModuleDefinitionsChrome
@@ -894,7 +913,7 @@ const nodeGraphModuleDefinitions = (
     ]
   },
   // Reference oscillator for port layout:
-  //   inputs[]     = left jacks only (Reset / 0.1V / Increment)
+  //   inputs[]     = left jacks only (Reset / Increment)
   //   parameters[] = sliders (Waveform / Frequency / Phase / Amplitude)
   // Phase and Amplitude are NOT left-side jacks here — only knobs (+ auto mod
   // ports on each slider row). If a consumer needs full left-column Phase/Amp
@@ -4117,11 +4136,9 @@ const nodeGraphModuleDefinitions = (
   dsfOscillator: {
     planRole: "source",
     // Left jacks (inputs[]) AND knobs (parameters[]) for pitch/phase/level:
-    //   0.1V/Oct  → pitch CV (PolyBLEP-style; not a parameter)
     //   Phase     → CV jack that ADDS to the Phase knob
     //   Amplitude → CV jack that MULTIPLIES the Amplitude knob
-    // First attempt only put phase/level in parameters[] — user looking at
-    // the left IO column correctly saw only 0.1V. See MODULE_PATTERN_REFERENCE
+    // Frequency is Hz (ƒ jack = absolute Hz). See MODULE_PATTERN_REFERENCE
     // "Three control surfaces".
     inputs: ["Morph", "Phase", "Amplitude"],
     inputLabels: {
@@ -5386,7 +5403,8 @@ const nodeGraphModuleDefinitions = (
     displayType: "vectorDot",
     displayRenderer: "vectorDot",
     displayModes: [
-      { key: "vectorDot", label: "LED Dot", renderer: "vectorDot", source: { value: "Digital Out" } },
+      { key: "vectorDot", label: "LED Dot", renderer: "vectorDot", settingsSchema: "vectorDot", source: { value: "Digital Out" } },
+      { key: "lcdDot", label: "LCD Dot", renderer: "lcdDot", settingsSchema: "lcdDot", source: { value: "Digital Out" } },
     ],
     inputs: ["Reset"],
     inputLabels: { f: "ƒ" },
@@ -7055,7 +7073,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { In: "In" },
     outputs: ["Bias"],
     outputLabels: { Bias: "Bias" },
-    parameters: nodeGraphControllerModuleParameters(),
+    parameters: nodeGraphControllerButtonModuleParameters(),
   },
   momentaryButton: {
     planRole: "source",
@@ -7079,7 +7097,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { In: "In" },
     outputs: ["Bias"],
     outputLabels: { Bias: "Bias" },
-    parameters: nodeGraphControllerModuleParameters(),
+    parameters: nodeGraphControllerButtonModuleParameters(),
   },
   passiveFilter: {
     planRole: "processor",
@@ -7228,7 +7246,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Frequency the tilt balances around. When ƒ is wired, that Hz is absolute. Unwired uses this knob, tracked by 0.1V/Oct. 0 allowed; circuit floors tiny values for stability only."
+        tooltip: "Frequency the tilt balances around. When ƒ is wired, that Hz is absolute. Unwired uses this knob (Hz). 0 allowed; circuit floors tiny values for stability only."
       },
         nodeGraphOutputAmplitudeParam,
     ]
@@ -7346,7 +7364,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Cutoff / center in Hz. When ƒ is wired, that Hz is absolute. Unwired uses this knob, tracked by 0.1V/Oct. 0 allowed (frozen)."
+          "Cutoff / center in Hz. When ƒ is wired, that Hz is absolute. Unwired uses this knob (Hz). 0 allowed (frozen)."
       },
       {
         defaultValue: "0.707",
@@ -7394,7 +7412,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "When ƒ is wired, that Hz is the cutoff (absolute). Unwired uses this knob, tracked by 0.1V/Oct. 0 allowed. DSP floors tiny values only when coefficients would blow up."
+        tooltip: "When ƒ is wired, that Hz is the cutoff (absolute). Unwired uses this knob (Hz). 0 allowed. DSP floors tiny values only when coefficients would blow up."
       },
         nodeGraphOutputAmplitudeParam,
     ]
@@ -7756,7 +7774,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Center. When ƒ is wired, that Hz is the center (absolute). Unwired uses this knob, tracked by 0.1V/Oct."
+        tooltip: "Center. When ƒ is wired, that Hz is the center (absolute). Unwired uses this knob (Hz)."
       },
       {
         defaultValue: "1",
@@ -7795,7 +7813,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Allpass transition frequency (phase curve center). When ƒ is wired, that Hz is the center. Unwired uses this knob, tracked by 0.1V/Oct."
+        tooltip: "Allpass transition frequency (phase curve center). When ƒ is wired, that Hz is the center. Unwired uses this knob (Hz)."
       },
       {
         defaultValue: "0.707",
@@ -8594,7 +8612,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Band center. 0.1V/Oct tracks pitch. When f is wired: Hz = f × Frequency."
+        tooltip: "Band center in Hz. When f is wired: Hz = f × Frequency."
       },
       {
         defaultValue: "4",
@@ -8777,7 +8795,7 @@ const nodeGraphModuleDefinitions = (
         min: "8",
         step: "any",
         unit: "Hz",
-        tooltip: "Rest frequency. The hit starts Punch octaves above this, then falls back. 0.1V/Oct tracks it.",
+        tooltip: "Rest frequency in Hz. The hit starts Punch octaves above this, then falls back.",
       },
       {
         defaultValue: "1.7",
@@ -9605,7 +9623,7 @@ const nodeGraphModuleDefinitions = (
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
-    // Reset / 0.1V / Phase / ƒ — sample-accurate. Phase offsets both oscs in
+    // Reset / Phase / ƒ — sample-accurate. Phase offsets both oscs in
     // cycles (works at 0 Hz). Reset rising edge clears osc + filter state.
     inputs: ["Reset", "Phase"],
     inputLabels: {Reset: "Reset",
@@ -9660,7 +9678,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Base frequency (signed; negative reverses phase). ƒ = absolute Hz; 0.1V/Oct pitches this base. Pitch then transposes everything; Lowpass/Highpass are octave offsets from the pitched master.",
+          "Base frequency (signed; negative reverses phase). ƒ = absolute Hz. Pitch then transposes everything; Lowpass/Highpass are octave offsets from the pitched master.",
       },
       {
         bipolar: true,
@@ -10335,6 +10353,76 @@ const nodeGraphModuleDefinitions = (
         nodeGraphOutputAmplitudeParam,
     ]
   },
+  vcvrackSuperloveFilter: {
+    planRole: "processor",
+    displayType: "trace",
+    displayModes: [
+      { key: "trace", renderer: "trace", source: { value: "Out" } },
+    ],
+    displaySignals: [
+      { key: "Out", kind: "scalar" },
+      { key: "Left", kind: "scalar" },
+      { key: "Right", kind: "scalar" },
+    ],
+    inputAliases: { Mono: "In" },
+    inputLabels: { In: "Mono" },
+    inputs: ["In", "Left", "Right"],
+    outputAliases: { Mono: "Out" },
+    outputLabels: { Out: "Mono" },
+    outputs: ["Out", "Left", "Right"],
+    parameters: [
+      {
+        choices: ["LP18", "LP24", "HP", "BP"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "mode",
+        label: "Mode",
+        linearSmoothing: false,
+        max: "3",
+        mid: "1.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+      },
+      {
+        defaultValue: "0.5",
+        key: "frequency",
+        label: "Frequency",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "0…1 pitch-norm (MIDI −12…+135 → Hz).",
+      },
+      { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
+      {
+        defaultValue: "0.5",
+        key: "drive",
+        label: "Drive",
+        max: "4",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Input gain 0…4. Default 0.5. Noon 1.0 on the VCV panel is a 4t² curve; this slider is linear gain.",
+      },
+      { defaultValue: "0", key: "noise", label: "Noise", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
+      {
+        defaultValue: "0",
+        key: "spread",
+        label: "Spread",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Stereo cutoff offset. Only when Left and Right are both wired.",
+      },
+      nodeGraphOutputAmplitudeParam,
+    ]
+  },
   chaoticPhaseLockingFilter: {
     planRole: "processor",
     // True stereo: two independent filter states (L/R). Mono folds into both.
@@ -10383,7 +10471,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Rings at this frequency: complex poles at r·e^{±jω} with ω = 2πf/fs. When ƒ is wired, that Hz is the ring (absolute). Unwired uses this knob, tracked by 0.1V/Oct."
+          "Rings at this frequency: complex poles at r·e^{±jω} with ω = 2πf/fs. When ƒ is wired, that Hz is the ring (absolute). Unwired uses this knob (Hz)."
       },
       {
         defaultValue: "1",
@@ -10448,7 +10536,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Pitch of the comb: delay D = fs/f (fractional). When ƒ is wired, that Hz is the pitch (absolute). Unwired uses this knob, tracked by 0.1V/Oct."
+          "Pitch of the comb: delay D = fs/f (fractional). When ƒ is wired, that Hz is the pitch (absolute). Unwired uses this knob (Hz)."
       },
       {
         defaultValue: "1",
@@ -11301,7 +11389,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "When ƒ is wired, that Hz is the cutoff (absolute). Unwired uses this knob, tracked by 0.1V/Oct. 0 allowed (frozen). No hardware 200 Hz floor."
+        tooltip: "When ƒ is wired, that Hz is the cutoff (absolute). Unwired uses this knob (Hz). 0 allowed (frozen). No hardware 200 Hz floor."
       },
       {
         defaultValue: "0",
@@ -14629,7 +14717,8 @@ const nodeGraphModuleDefinitions = (
     displayType: "vectorDot",
     displayRenderer: "vectorDot",
     displayModes: [
-      { key: "vectorDot", label: "LED Dot", renderer: "vectorDot", source: { value: "In" } },
+      { key: "vectorDot", label: "LED Dot", renderer: "vectorDot", settingsSchema: "vectorDot", source: { value: "In" } },
+      { key: "lcdDot", label: "LCD Dot", renderer: "lcdDot", settingsSchema: "lcdDot", source: { value: "In" } },
     ],
     inputs: ["In"],
     layout: "traceDisplay",
@@ -14646,6 +14735,10 @@ const nodeGraphModuleDefinitions = (
     bufferedInputs: ["In"],
     displayType: "vectorDot",
     displayRenderer: "vectorDot",
+    displayModes: [
+      { key: "vectorDot", label: "LED Dot", renderer: "vectorDot", settingsSchema: "vectorDot", source: { value: "In" } },
+      { key: "lcdDot", label: "LCD Dot", renderer: "lcdDot", settingsSchema: "lcdDot", source: { value: "In" } },
+    ],
     inputs: ["In"],
     layout: "traceDisplay",
     // Dry passthrough so the face can sit in-line (In → face + Thru).

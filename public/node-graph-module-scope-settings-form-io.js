@@ -422,7 +422,7 @@ if (type === "portalFace") {
   }
   if (type === "toggleButtonFace" || type === "momentaryButtonFace") {
     return typeof normalizeNodeGraphPluginButtonDisplaySettings === "function"
-      ? normalizeNodeGraphPluginButtonDisplaySettings()
+      ? normalizeNodeGraphPluginButtonDisplaySettings(undefined, type)
       : { ...(typeof NODE_GRAPH_PLUGIN_BUTTON_DISPLAY_DEFAULTS !== "undefined" ? NODE_GRAPH_PLUGIN_BUTTON_DISPLAY_DEFAULTS : {}) };
   }
   if (type === "keypadFace") {
@@ -667,7 +667,7 @@ if (type === "portalFace") {
   }
   if (type === "toggleButtonFace" || type === "momentaryButtonFace") {
     return typeof normalizeNodeGraphPluginButtonDisplaySettings === "function"
-      ? normalizeNodeGraphPluginButtonDisplaySettings(settings)
+      ? normalizeNodeGraphPluginButtonDisplaySettings(settings, type)
       : (settings || {});
   }
   if (type === "keypadFace") {
@@ -858,7 +858,7 @@ if (settingsSchema === "portalFace") {
     return typeof nodeGraphPluginButtonDisplaySettingsForNode === "function"
       ? nodeGraphPluginButtonDisplaySettingsForNode(node)
       : (typeof normalizeNodeGraphPluginButtonDisplaySettings === "function"
-        ? normalizeNodeGraphPluginButtonDisplaySettings(node?.traceDisplaySettings)
+        ? normalizeNodeGraphPluginButtonDisplaySettings(node?.traceDisplaySettings, settingsSchema)
         : (node?.traceDisplaySettings || {}));
   }
   if (settingsSchema === "keypadFace") {
@@ -2020,6 +2020,7 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     if (field === "activeColor") return "Active";
     if (field === "inactiveColor") return "Inactive";
     if (field === "hoverColor") return "Hover";
+    if (field === "textColor") return "Text";
   }
   if (nodeGraphTraceDisplaySettingsFormType() === "pluginSliderFace") {
     if (field === "backgroundColor") return "Background";

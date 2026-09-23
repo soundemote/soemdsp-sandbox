@@ -766,7 +766,7 @@ function nodeGraphMetamoduleRemoveBoundaryPortalInPlace(portalId, patch = nodeGr
   if (!nodeGraphIsMetamoduleBoundaryType(portal?.type)) return "";
   if (nodeGraphMetamoduleNodeIsProtected(portal)) {
     if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp("Default Meta Out Left/Right cannot be deleted.");
+      setNodeInteractionHelp("Default Metamodule Out Left/Right cannot be deleted.");
     }
     return "";
   }
@@ -1029,7 +1029,7 @@ function nodeGraphMetamoduleFlipMiswiredOutletToInlet(portalId, patch = nodeGrap
     }
   }
   if (typeof setNodeInteractionHelp === "function") {
-    setNodeInteractionHelp("Meta Out was feeding a child inlet â€” converted to Meta In (shell inlet).");
+    setNodeInteractionHelp("Metamodule Out was feeding a child inlet — converted to Metamodule In (shell inlet).");
   }
   return ownerId;
 }

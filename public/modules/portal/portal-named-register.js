@@ -1,0 +1,68 @@
+// Wireless named buses. Title (alias) matches In ↔ Out. Default title "A".
+registerNodeGraphChromelessModule("namedPortalIn", {
+  label: "Portal \u2192",
+  compactTile: false,
+  definition: {
+    chrome: "TitleBarAndPorts",
+    planRole: "processor",
+    planFreeRun: true,
+    defaultWidthGu: 4,
+    defaultHeightGu: 3,
+    hasFace: false,
+    defaultAlias: "A",
+    defaultUi: { buttonsHidden: true, titleHidden: false },
+    inputChannels: { In: "gold" },
+    inputs: ["In"],
+    inputLabels: { In: "\u2192" },
+    outputs: [],
+    inputAliases: { Mono: "In", "\u2192": "In" },
+    parameters: [],
+  },
+  catalog: {
+    category: "portal",
+    description: "Wireless send (\u2192). Matching Portal \u2190 titles in the same patch (root or this Metamodule) receive the sum. Gold mono. Does not cross a Metamodule shell.",
+    notes: [
+      "portal",
+      "portal in",
+      "wireless",
+      "send",
+      "bus",
+      "named",
+      "gold",
+    ],
+  },
+});
+
+registerNodeGraphChromelessModule("namedPortalOut", {
+  label: "Portal \u2190",
+  compactTile: false,
+  definition: {
+    chrome: "TitleBarAndPorts",
+    planRole: "source",
+    planFreeRun: true,
+    defaultWidthGu: 4,
+    defaultHeightGu: 3,
+    hasFace: false,
+    defaultAlias: "A",
+    defaultUi: { buttonsHidden: true, titleHidden: false },
+    outputChannels: { Out: "gold" },
+    inputs: [],
+    outputs: ["Out"],
+    outputLabels: { Out: "\u2190" },
+    outputAliases: { Mono: "Out", "\u2190": "Out" },
+    parameters: [],
+  },
+  catalog: {
+    category: "portal",
+    description: "Wireless return (\u2190). Plays the sum of every Portal \u2192 with the same title in this patch (root or this Metamodule). Gold mono. Does not cross a Metamodule shell.",
+    notes: [
+      "portal",
+      "portal out",
+      "wireless",
+      "return",
+      "bus",
+      "named",
+      "gold",
+    ],
+  },
+});

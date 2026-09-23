@@ -92,9 +92,13 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
     }
     if (Number.isFinite(Number(message.pitchReferenceMidiNote))) {
       this.pitchReferenceMidiNote = Number(message.pitchReferenceMidiNote);
+    } else if (!Number.isFinite(Number(this.pitchReferenceMidiNote))) {
+      this.pitchReferenceMidiNote = 69;
     }
     if (Number.isFinite(Number(message.pitchReferenceHz))) {
       this.pitchReferenceHz = Number(message.pitchReferenceHz);
+    } else if (!Number.isFinite(Number(this.pitchReferenceHz))) {
+      this.pitchReferenceHz = 440;
     }
     if (Number.isFinite(Number(message.pitchOffsetOctaves))) {
       this.pitchOffsetOctaves = Number(message.pitchOffsetOctaves);
@@ -147,6 +151,7 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       ownerMetamoduleId: node.ownerMetamoduleId
         ? String(node.ownerMetamoduleId)
         : undefined,
+      alias: node.alias ? String(node.alias) : undefined,
       // Playmode + Voice Count live on metamodule (Module Settings), not params.
       metamodule: node.metamodule && typeof node.metamodule === "object"
         ? node.metamodule

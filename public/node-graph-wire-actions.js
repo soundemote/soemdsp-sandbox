@@ -1608,6 +1608,22 @@ function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinat
     return false;
   }
 
+  if (typeof nodeGraphNamedPortalWouldFeedback === "function") {
+    const probe = {
+      ...(nodeGraphMvp.patch || {}),
+      connections: [
+        ...(nodeGraphMvp.patch?.connections || []),
+        { sourceNode, sourcePort, destinationNode, destinationPort },
+      ],
+    };
+    if (nodeGraphNamedPortalWouldFeedback(probe)) {
+      if (typeof nodeGraphArmPortalFeedbackBreak === "function") {
+        nodeGraphArmPortalFeedbackBreak();
+      }
+      return false;
+    }
+  }
+
   const effectiveOptions = nodeGraphConnectionOptionsWithSelfTrace(sourceNode, destinationNode, options);
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const nextWireData = nodeGraphWireOptionalPatchFields(effectiveOptions);
@@ -1676,7 +1692,7 @@ function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinat
   }
   commitNodeGraphPatch(patch, {
     status: flippedOwners.size
-      ? "wire connected (Meta Out → Meta In)"
+      ? "wire connected (Metamodule Out → Metamodule In)"
       : (autoConnected ? `wire connected +${autoConnected}` : "wire connected"),
     wireEdit: true,
     ...(flippedOwners.size ? { topologyEdit: true } : {}),

@@ -177,6 +177,11 @@ function createNodeGraphToggleButtonFace(node, type) {
   face.dataset.node = node;
   face.dataset.nodeType = type;
 
+  const label = document.createElement("span");
+  label.className = "node-plugin-button-label";
+  label.dataset.pluginBtnLabel = "true";
+  label.hidden = true;
+
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "node-plugin-toggle-button";
@@ -200,12 +205,7 @@ function createNodeGraphToggleButtonFace(node, type) {
     const labels = typeof nodeGraphPluginButtonFaceLabels === "function"
       ? nodeGraphPluginButtonFaceLabels(patchNode || node)
       : { off: "Off", on: "On" };
-    if (wantsMouse) {
-      const target = nodeGraphPluginReadParamDom(node, "offset", 0);
-      btn.textContent = (nodeGraphControllerBiasAtHighThrow(node, target) ? labels.on : labels.off) || "";
-    } else {
-      btn.textContent = Number.isFinite(shown) ? shown.toFixed(2) : "0.00";
-    }
+    btn.textContent = (on ? labels.on : labels.off) || "";
     face._pluginBtnPaintLook?.();
   };
 
@@ -222,7 +222,7 @@ function createNodeGraphToggleButtonFace(node, type) {
     sync();
     face._pluginBtnKickChase?.();
   });
-  face.append(btn);
+  face.append(btn, label);
   face.syncFromParameters = sync;
   const chase = () => {
     if (!face.isConnected) return;
@@ -250,6 +250,11 @@ function createNodeGraphMomentaryButtonFace(node, type) {
   face.dataset.node = node;
   face.dataset.nodeType = type;
 
+  const label = document.createElement("span");
+  label.className = "node-plugin-button-label";
+  label.dataset.pluginBtnLabel = "true";
+  label.hidden = true;
+
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "node-plugin-momentary-button";
@@ -263,12 +268,16 @@ function createNodeGraphMomentaryButtonFace(node, type) {
     const mix = Number.isFinite(unit) ? Math.max(0, Math.min(1, unit)) : 0;
     btn.style.setProperty("--plugin-btn-value", String(mix));
     face._pluginBtnChaseActive = nodeGraphControllerFaceChasedBias._states.get(String(node))?.settled === false;
-    const down = mix >= 0.5;
+    const wantsMouse = typeof nodeGraphDspControllerDisplayIsMouse === "function"
+      ? nodeGraphDspControllerDisplayIsMouse(patchNode)
+      : true;
+    const shown = wantsMouse ? chased : nodeGraphControllerShownBias(node, patchNode);
+    const down = nodeGraphControllerBiasAtHighThrow(node, shown);
     btn.classList.toggle("is-down", down);
     const labels = typeof nodeGraphPluginButtonFaceLabels === "function"
       ? nodeGraphPluginButtonFaceLabels(patchNode || node)
       : { off: "Off", on: "On" };
-    btn.textContent = (down ? labels.on : labels.off) || "On";
+    btn.textContent = (down ? labels.on : labels.off) || "";
     face._pluginBtnPaintLook?.();
   };
 
@@ -300,7 +309,7 @@ function createNodeGraphMomentaryButtonFace(node, type) {
   btn.addEventListener("pointercancel", release);
   btn.addEventListener("lostpointercapture", () => setDown(false));
 
-  face.append(btn);
+  face.append(btn, label);
   face.syncFromParameters = sync;
   const chase = () => {
     if (!face.isConnected) return;

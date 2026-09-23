@@ -26,7 +26,7 @@ registerNodeGraphChromelessModule("lcdDot", {
   },
   catalog: {
     category: "multimeter",
-    description: "LCD Dot: grey glass plate, dark ink shape. Same stamp as Vector Dot (size, blur, pill, squircle) with LCD color and inner shadow. Search: lcd, dot, blink, indicator.",
+    description: "LCD Dot: glass plate, ink shape (circle/pill/squircle). LCD Value plate/ink/shadow + LED Dot stamps. Search: lcd, led, dot, blink, indicator.",
     notes: [
       "lcd",
       "lcd dot",

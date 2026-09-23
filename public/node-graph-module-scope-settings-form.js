@@ -186,16 +186,18 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     title = meta?.title
       || "Shape parameter 0…1. Meaning depends on Shape.";
   }
-  if (formType === "numberReadout" && key === "backgroundSaturation") {
+  if ((formType === "numberReadout" || formType === "lcdDot") && key === "backgroundSaturation") {
     label = "Sat";
     title = "LCD plate saturation 0…1. 0 = grey at the same brightness; 1 = full selected color.";
   }
-  if (formType === "numberReadout" && key === "dot1Saturation") {
+  if ((formType === "numberReadout" || formType === "lcdDot") && key === "dot1Saturation") {
     const nodeType = typeof nodeGraphPatchNode === "function"
       && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
       ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
       : null;
-    const lcdInk = nodeType === "valueLcd" || nodeType === "helmholtzPitch";
+    const lcdInk = formType === "lcdDot"
+      || nodeType === "valueLcd"
+      || nodeType === "helmholtzPitch";
     label = "Sat";
     title = lcdInk
       ? "LCD ink saturation 0…1. 0 = grey; 1 = full selected color."
@@ -522,6 +524,9 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}
   } else if (formType === "keypadFace" && key === "downColor") {
     aria = "Keypad mouse down color";
     base = { ...base, defaultValue: "#c4bdb3" };
+  } else if ((formType === "toggleButtonFace" || formType === "momentaryButtonFace") && key === "textColor") {
+    aria = "Button text color";
+    base = { ...base, defaultValue: "#f4f7f8" };
   } else if (formType === "keypadFace" && key === "textColor") {
     aria = "Keypad text color";
   } else if (formType === "keypadFace" && key === "strokeColor") {
@@ -1665,7 +1670,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     (type === "toggleButtonFace" || type === "momentaryButtonFace")
     && typeof buildNodeGraphPluginButtonDisplaySettingsBodyHtml === "function"
   ) {
-    return buildNodeGraphPluginButtonDisplaySettingsBodyHtml();
+    return buildNodeGraphPluginButtonDisplaySettingsBodyHtml(type);
   }
   if (type === "phosphorWaveform" && typeof buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml();
@@ -1867,6 +1872,24 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         fieldKeys.push("shapeParam");
       }
     }
+    if (type === "lcdDot" && section === "trace") {
+      fieldKeys = [
+        "dot1Size",
+        "lineThickness",
+        "shapeParam",
+        "backgroundBrightness",
+        "backgroundSaturation",
+        "dot1Brightness",
+        "dot1Saturation",
+        "unlitSegments",
+        "innerShadowDistance",
+        "innerShadowSharpness",
+        "innerShadowOffsetX",
+        "innerShadowOffsetY",
+      ].filter((key) => activeFields.has(key));
+      colorKeys = [];
+      choiceKeys = ["shape"].filter((key) => activeChoices.has(key));
+    }
     if (type === "numberReadout" && section === "trace") {
       const nrNodeType = node?.type
         || (typeof nodeGraphPatchNode === "function"
@@ -1951,6 +1974,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       && nodeGraphDisplaySettingsIsPhosphorFormType(type);
     const skipSectionTitle =
       (type === "numberReadout" && section === "trace")
+      || (type === "lcdDot" && section === "trace")
       || (isPhosphorForm && (section === "trace" || section === "dot1"))
       || (isVectorTraceForm && section === "dot1" && !(isStereoTraceNode && type === "trace"));
     if (skipSectionTitle) {
@@ -2048,7 +2072,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       }
       if ((type === "vectorDot" || type === "pulseDot" || type === "lcdDot") && key === "backgroundBrightness") {
         rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
-          title: "BG",
+          title: type === "lcdDot" ? "Background" : "BG",
           stepField: "backgroundBrightness",
           colorField: "backgroundColor",
           formType: type,
@@ -2057,21 +2081,21 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
               ? (typeof nodeGraphValueLcdDefaultHueDeg === "number" ? nodeGraphValueLcdDefaultHueDeg : 82)
               : 220)
             : (type === "lcdDot" ? "#a2ff00" : "#0055ff"),
-          titleAttr: "Plate brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
+          titleAttr: type === "lcdDot"
+            ? "LCD plate brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue."
+            : "Plate brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
         }));
         continue;
       }
       if ((type === "vectorDot" || type === "pulseDot" || type === "lcdDot") && key === "dot1Brightness") {
         rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
-          title: type === "lcdDot" ? "Ink" : "Dot",
+          title: type === "lcdDot" ? "Foreground" : "Dot",
           stepField: "dot1Brightness",
           colorField: "dot1Color",
           formType: type,
           defaultHueHex: typeof nodeGraphHueUnitHex === "function"
-            ? nodeGraphHueUnitHex(type === "lcdDot"
-              ? (typeof nodeGraphValueLcdDefaultHueDeg === "number" ? nodeGraphValueLcdDefaultHueDeg : 82)
-              : 25)
-            : (type === "lcdDot" ? "#a2ff00" : "#ff6a00"),
+            ? nodeGraphHueUnitHex(type === "lcdDot" ? 210 : 30)
+            : (type === "lcdDot" ? "#00aaff" : "#ff8000"),
           titleAttr: type === "lcdDot"
             ? "LCD ink brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue."
             : "Dot brightness gain 0…1 (black → full hue at 0.5 → white). Signal energy scales this. Drag the title to change hue.",

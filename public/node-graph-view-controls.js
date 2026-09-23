@@ -2462,7 +2462,8 @@ function nodeGraphMidiKeyboardMapStrikeVelocity01(strike01) {
 }
 
 function nodeGraphMidiKeyboardTenthVoltPerOctave(midi) {
-  return nodeGraphMidiKeyboardClamp01((nodeGraphFiniteNumber(midi)) / 120);
+  // MIDI/120: +0.1 = +1 octave. MIDI 127 → 1.058; do not clamp to 1.
+  return (nodeGraphFiniteNumber(midi)) / 120;
 }
 
 function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
@@ -2496,7 +2497,9 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
     pitch: signal.pitch || nodeGraphMidiKeyboardPitchLabel(midi),
     pitchValue: Math.max(0, Math.min(127, nodeGraphFiniteNumber(signal.pitchValue, midi))),
     midiNormalized: nodeGraphMidiKeyboardClamp01(signal.midiNormalized ?? (midi / 127)),
-    tenthVoltPerOctave: nodeGraphMidiKeyboardClamp01(signal.tenthVoltPerOctave ?? (midi / 120)),
+    tenthVoltPerOctave: Number.isFinite(Number(signal.tenthVoltPerOctave))
+      ? Number(signal.tenthVoltPerOctave)
+      : midi / 120,
     increment,
     frequency,
   };

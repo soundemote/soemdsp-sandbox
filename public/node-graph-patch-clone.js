@@ -290,6 +290,14 @@ function cloneNodeGraphTypedDisplaySettings(node) {
   switch (displayType) {
     case "dot":
       return { zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(migrate(node.zeroDBurnSettings, false)) };
+    case "lcdDot": {
+      const packed = node.vectorDotSettings || node.lcdDotSettings || {};
+      return {
+        vectorDotSettings: typeof normalizeNodeGraphLcdDotSettings === "function"
+          ? normalizeNodeGraphLcdDotSettings(packed)
+          : packed,
+      };
+    }
     case "vectorDot":
     case "pulseDot": {
       const packed = node.vectorDotSettings
@@ -408,7 +416,7 @@ function cloneNodeGraphTypedDisplaySettings(node) {
     case "momentaryButtonFace":
       return {
         traceDisplaySettings: typeof normalizeNodeGraphPluginButtonDisplaySettings === "function"
-          ? normalizeNodeGraphPluginButtonDisplaySettings(bag)
+          ? normalizeNodeGraphPluginButtonDisplaySettings(bag, displayType)
           : (bag || {}),
       };
     case "keypadFace":

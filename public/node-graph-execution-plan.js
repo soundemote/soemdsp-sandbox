@@ -67,6 +67,12 @@ function nodeGraphBuildDependencyMap(patch = nodeGraphMvp.patch) {
     addDependency(dependencies, connection.destinationNode, connection.sourceNode);
   }
 
+  if (typeof nodeGraphNamedPortalPairs === "function") {
+    for (const pair of nodeGraphNamedPortalPairs(nodeList)) {
+      addDependency(dependencies, pair.destId, pair.sourceId);
+    }
+  }
+
   for (const modulation of patch.modulations || []) {
     const source = nodeMap.get(modulation.sourceNode);
     const destination = nodeMap.get(modulation.destinationNode);
@@ -420,7 +426,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   const outputNode = "output";
   const reachableNodes = new Set();
   const bypassedNodes = new Set(graph.bypassedNodes || []);
-  const passthroughTypes = new Set(["asciiscope", "matrixDisplay", "matrixWaterfall", "activeFilter", "allpass", "badvalMonitor", "bandpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaser", "flanger", "chorus", "bode", "phaseDisperse", "stftBlur", "bessel", "bias", "u2b", "pitchHz", "ampDb", "b2u", "inv", "butterworth", "chaoticPhaseLockingFilter", "chebyshev", "cookbookFilter", "elliptic", "eqFilter", "graphicEq", "flowerChildFilter", "formantFilter", "besselThomson", "massSpringDamper", "gain", "mix2", "mix4", "mixStereo4", "mixStereo2", "mixStereo", "humanFilter", "inertialFilter", "ladderFilter", "linkwitzRiley", "papoulisFilter", "passiveFilter", "pll", "resonatorFilter", "reverbEffect", "sampleDelay", "sampleHold", "slewLimiter", "softClipper", "clipperLimiter", "speakerProtection", "speakerProtector2", "spectrogram", "speedColorInertia", "superloveFilter", "superloveRev2", "tb303Filter", "tiltFilter", "wallDelay", "yellowjacketFilter", "midSideEncode", "quadrature", "hilbert", "lookaheadLimiter", "limiter", "metamoduleIn", "metamoduleOut", "voiceFrequency", "voiceGate", "voiceTrigger"]);
+  const passthroughTypes = new Set(["asciiscope", "matrixDisplay", "matrixWaterfall", "activeFilter", "allpass", "badvalMonitor", "bandpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaser", "flanger", "chorus", "bode", "phaseDisperse", "stftBlur", "bessel", "bias", "u2b", "pitchHz", "ampDb", "b2u", "inv", "butterworth", "chaoticPhaseLockingFilter", "chebyshev", "cookbookFilter", "elliptic", "eqFilter", "graphicEq", "flowerChildFilter", "formantFilter", "besselThomson", "massSpringDamper", "gain", "mix2", "mix4", "mixStereo4", "mixStereo2", "mixStereo", "humanFilter", "inertialFilter", "ladderFilter", "linkwitzRiley", "papoulisFilter", "passiveFilter", "pll", "resonatorFilter", "reverbEffect", "sampleDelay", "sampleHold", "slewLimiter", "softClipper", "clipperLimiter", "speakerProtection", "speakerProtector2", "spectrogram", "speedColorInertia", "superloveFilter", "superloveRev2", "vcvrackSuperloveFilter", "tb303Filter", "tiltFilter", "wallDelay", "yellowjacketFilter", "midSideEncode", "quadrature", "hilbert", "lookaheadLimiter", "limiter", "metamoduleIn", "metamoduleOut", "namedPortalIn", "namedPortalOut", "voiceFrequency", "voiceGate", "voiceTrigger"]);
 
   function markReachable(nodeId) {
     if (reachableNodes.has(nodeId) || !graph.nodeMap.has(nodeId)) {
@@ -440,7 +446,8 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   for (const node of graph.nodes) {
     if (
       (node?.type === "portalOutlet"
-        || (typeof nodeGraphPortalIsOutletType === "function" && nodeGraphPortalIsOutletType(node?.type)))
+        || (typeof nodeGraphPortalIsOutletType === "function" && nodeGraphPortalIsOutletType(node?.type))
+        || (typeof nodeGraphIsNamedPortalOutType === "function" && nodeGraphIsNamedPortalOutType(node?.type)))
       && !bypassedNodes.has(node.id)
     ) {
       markReachable(node.id);

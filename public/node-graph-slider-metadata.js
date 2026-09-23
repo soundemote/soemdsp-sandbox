@@ -349,6 +349,49 @@ function parseNodeMetadataChoices(value) {
     .filter(Boolean);
 }
 
+function nodeSliderChoiceIndexFromValue(slider, value) {
+  const choices = parseNodeMetadataChoices(slider?.dataset?.choices || "");
+  const n = choices.length;
+  if (n <= 0) {
+    return 0;
+  }
+  const min = Number(slider?.min);
+  const max = Number(slider?.max);
+  const v = Number(value);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min || !Number.isFinite(v)) {
+    return Math.max(0, Math.min(n - 1, Math.round(v)));
+  }
+  const step = Number(slider?.dataset?.step);
+  const integerChoices = Number.isFinite(step) && step > 0
+    && Math.abs((max - min) / step + 1 - n) < 1e-6;
+  if (integerChoices) {
+    return Math.max(0, Math.min(n - 1, Math.round((v - min) / step)));
+  }
+  const t = (v - min) / (max - min);
+  return Math.max(0, Math.min(n - 1, Math.round(t * (n - 1))));
+}
+
+function nodeSliderChoiceValueFromIndex(slider, index) {
+  const choices = parseNodeMetadataChoices(slider?.dataset?.choices || "");
+  const n = choices.length;
+  const min = Number(slider?.min);
+  const max = Number(slider?.max);
+  const i = Math.max(0, Math.min(Math.max(0, n - 1), Math.round(Number(index))));
+  if (!Number.isFinite(min)) {
+    return i;
+  }
+  if (n <= 1 || !Number.isFinite(max) || max <= min) {
+    return min;
+  }
+  const step = Number(slider?.dataset?.step);
+  const integerChoices = Number.isFinite(step) && step > 0
+    && Math.abs((max - min) / step + 1 - n) < 1e-6;
+  if (integerChoices) {
+    return min + i * step;
+  }
+  return min + (i / (n - 1)) * (max - min);
+}
+
 function formatNodeMetadataChoices(choices) {
   return choices.join(", ");
 }
@@ -359,7 +402,9 @@ function nodeSliderChoiceLabel(slider) {
     return null;
   }
 
-  const index = Math.round(Number(slider.value));
+  const index = typeof nodeSliderChoiceIndexFromValue === "function"
+    ? nodeSliderChoiceIndexFromValue(slider, slider.value)
+    : Math.round(Number(slider.value));
   if (!Number.isFinite(index)) {
     return null;
   }

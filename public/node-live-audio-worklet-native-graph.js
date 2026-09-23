@@ -57,6 +57,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   portalInletLeft: 131,
   portalInletRight: 131,
   portalInletLeftRight: 131,
+  namedPortalIn: 182,
+  namedPortalOut: 184,
   // Singleton live Input (mic/line) — host capture bus TBD; native silence stub for plan.
   audioInput: 132,
   papoulisFilter: 133,
@@ -170,6 +172,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   yellowjacketFilter: 62,
   superloveFilter: 63,
   superloveRev2: 172,
+  vcvrackSuperloveFilter: 183,
   humanFilter: 64,
   resonatorFilter: 65,
   combResonator: 66,
@@ -260,6 +263,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TEMPO_BPM = 61;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TAP_OFFSET_MS = 62;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_AMPLITUDE = 70;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET = 71;
+NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PORTAL_BUS = 201;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_LOW = 80;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_HIGH = 81;
 NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OUT_LOW = 82;
@@ -420,6 +424,11 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "rate") return P.NATIVE_GRAPH_PARAM_LFO_RATE;
     if (k === "stereoSpread") return P.NATIVE_GRAPH_PARAM_CENTER;
   }
+  if (t === "vcvrackSuperloveFilter") {
+    if (k === "drive") return P.NATIVE_GRAPH_PARAM_GAIN_DB;
+    if (k === "noise") return P.NATIVE_GRAPH_PARAM_MIX;
+    if (k === "spread") return P.NATIVE_GRAPH_PARAM_WIDTH;
+  }
   const id = (P.NATIVE_GRAPH_PARAM_KEY_IDS || {})[k];
   return Number.isFinite(id) ? id : undefined;
 };
@@ -460,6 +469,7 @@ NodeLiveAudioProcessor.prototype.shouldSkipPitchHzNormFreqParamModEdge = functio
   const normTypes = {
     superloveFilter: 1,
     superloveRev2: 1,
+    vcvrackSuperloveFilter: 1,
     yellowjacketFilter: 1,
     flowerChildFilter: 1,
     humanFilter: 1,
@@ -1313,6 +1323,18 @@ NodeLiveAudioProcessor.prototype.applyNativeGraphPitchOffset = function applyNat
   );
 };
 
+/** Push 0.1V/Oct reference MIDI note (default A4 / 69) into the native graph. */
+NodeLiveAudioProcessor.prototype.applyNativeGraphPitchReference = function applyNativeGraphPitchReference() {
+  const native = this.nativeGraph;
+  const handle = this.nativeGraphHandle;
+  if (!native?.soemdsp_graph_set_pitch_reference || !handle) return;
+  const midi = Number(this.pitchReferenceMidiNote);
+  native.soemdsp_graph_set_pitch_reference(
+    handle,
+    Number.isFinite(midi) ? midi : 69,
+  );
+};
+
 /** Push project Speed Limit (Hz) into the native graph (Robin voice ceiling, etc.). */
 NodeLiveAudioProcessor.prototype.applyNativeGraphSpeedLimit = function applyNativeGraphSpeedLimit() {
   const native = this.nativeGraph;
@@ -1604,11 +1626,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
       this.postNativeGraphStatus("missing", "graph_engine exports not loaded");
       return false;
     }
+    this.applyNamedPortalSplice?.();
     const native = this.nativeGraph;
     const audioTypes = NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS;
     const desired = new Map();
     for (const [id, node] of this.nodes) {
       const type = String(node?.type || "");
+      if (type === "namedPortalIn" || type === "namedPortalOut") continue;
       const typeId = this.mapNativeGraphTypeId(type);
       if (!typeId || !Object.prototype.hasOwnProperty.call(audioTypes, type)) continue;
       desired.set(id, { type, typeId, hash: this.fnv1aHash32(id), params: node.params || {} });
@@ -1674,6 +1698,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
       const hostFeeders = [];
       const hostFeederHashByKey = new Map();
       const biasTypeId = audioTypes.bias;
+      this._nativeHostFeederBuild = { native, biasTypeId, hostFeeders, hostFeederHashByKey };
       const attOffsetParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
       const monoPort = NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
       const connectOne = (srcId, srcPort, dstId, dstPort) => {
@@ -1805,14 +1830,19 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
             if (!m) continue;
             const srcId = String(m.sourceNode || "");
             const srcPort = String(m.sourcePort || "");
-            if (!srcId || !idSet.has(srcId)) continue;
+            if (!srcId) continue;
             if (this.shouldSkipPitchHzNormFreqParamModEdge?.(typeById.get(srcId), dstType, paramKey)) continue;
-            const srcPortId = this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId));
-            if (!Number.isFinite(srcPortId) || srcPortId < 0) continue;
+            const srcHash = idSet.has(srcId)
+              ? (hashById.get(srcId) || this.fnv1aHash32(srcId))
+              : this.nativeHostCvFeederHash(srcId, srcPort);
+            const srcPortId = idSet.has(srcId)
+              ? this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId))
+              : NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+            if (!srcHash || !Number.isFinite(srcPortId) || srcPortId < 0) continue;
             try {
               const rc = native.soemdsp_graph_add_param_mod_edge(
                 this.nativeGraphHandle,
-                hashById.get(srcId),
+                srcHash,
                 srcPortId | 0,
                 hashById.get(dstId),
                 paramId | 0,
@@ -1828,6 +1858,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
       this._nativeLiveParamModKeys = liveParamModKeys;
       this._nativePhaseModLiveKeys = liveParamModKeys;
 
+      this.bindNativeNamedPortals?.();
       const crc = native.soemdsp_graph_compile(this.nativeGraphHandle) | 0;
       if (crc !== 0) {
         this.postNativeGraphStatus("error", `surgical compile failed (${crc})`);
@@ -3350,6 +3381,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     const disc = (key, fallback) => readDiscrete(node, key, fallback);
     const push = (key, paramId, value) => pushChanged(hash, cache, key, paramId, value, node);
 
+    if (type === "namedPortalIn" || type === "namedPortalOut") {
+      const title = String(node.alias || "").trim().toLowerCase();
+      const uni = String(node.ownerMetamoduleId || "");
+      let slot = 0;
+      const m = String(id).match(/__v(\d+)$/);
+      if (m) slot = Number(m[1]) || 0;
+      const key = title ? (this.fnv1aHash32(`${uni}\0${title}\0${slot}`) >>> 0) : 0;
+      push("portalBus", P.NATIVE_GRAPH_PARAM_PORTAL_BUS, key);
+      continue;
+    }
     if (type === "output") {
       push("volume", P.NATIVE_GRAPH_PARAM_VOLUME_DB, cont("volume", -3));
       push("pan", P.NATIVE_GRAPH_PARAM_PAN, cont("pan", 0));
@@ -4015,6 +4056,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0.75));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("noise", P.NATIVE_GRAPH_PARAM_MIX, cont("noise", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "vcvrackSuperloveFilter") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.5));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
+      push("resonance", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("resonance", 0.2));
+      push("drive", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("drive", 0.5));
+      push("noise", P.NATIVE_GRAPH_PARAM_MIX, cont("noise", 0));
+      push("spread", P.NATIVE_GRAPH_PARAM_WIDTH, cont("spread", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -5935,6 +5986,104 @@ NodeLiveAudioProcessor.prototype.syncNativeAudioPlayerPcm = function syncNativeA
  * Rebuild the native graph from the current plan (DSP allowlist types only).
  * Returns true when compile succeeded.
  */
+/** JS declares Portal →/← + title; C++ groups matching bus keys at compile. */
+/** Bias stand-in for a keyboard/knob port, shared by signal cables and param mods. */
+NodeLiveAudioProcessor.prototype.nativeHostCvFeederHash = function nativeHostCvFeederHash(srcId, srcPort) {
+  const build = this._nativeHostFeederBuild;
+  if (!build?.biasTypeId || !build.native || !this.nativeGraphHandle) return 0;
+  const feedKey = `${srcId}\0${String(srcPort || "")}`;
+  const existing = build.hostFeederHashByKey.get(feedKey);
+  if (existing) return existing;
+  const feedId = `__hostCv:${srcId}:${String(srcPort || "")}`;
+  const feedHash = this.fnv1aHash32(feedId);
+  const arc = build.native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, build.biasTypeId) | 0;
+  if (arc !== 0 && arc !== -3) return 0;
+  build.hostFeederHashByKey.set(feedKey, feedHash);
+  build.hostFeeders.push({
+    hash: feedHash,
+    sourceNode: String(srcId),
+    sourcePort: String(srcPort || ""),
+  });
+  return feedHash;
+};
+
+/** Rewrite portal cables into the wires they stand for. Portals are not DSP nodes. */
+NodeLiveAudioProcessor.prototype.applyNamedPortalSplice = function applyNamedPortalSplice() {
+  if (typeof nodeGraphSpliceNamedPortalCables !== "function") return;
+  const mods = [];
+  if (this.modulationConnections && typeof this.modulationConnections.forEach === "function") {
+    this.modulationConnections.forEach((list, key) => {
+      const keyStr = String(key || "");
+      const dot = keyStr.lastIndexOf(".");
+      if (dot < 0 || !Array.isArray(list)) return;
+      const dstId = keyStr.slice(0, dot);
+      const param = keyStr.slice(dot + 1);
+      for (let i = 0; i < list.length; i += 1) {
+        const m = list[i];
+        if (!m) continue;
+        mods.push({
+          sourceNode: m.sourceNode,
+          sourcePort: m.sourcePort,
+          destinationNode: dstId,
+          destinationParam: param,
+        });
+      }
+    });
+  }
+  const spliced = nodeGraphSpliceNamedPortalCables(
+    this.nodes,
+    this._planConnections,
+    mods,
+  );
+  this._planConnections = spliced.connections;
+  const map = new Map();
+  for (let i = 0; i < spliced.modulations.length; i += 1) {
+    const m = spliced.modulations[i];
+    const k = `${m.destinationNode}.${m.destinationParam}`;
+    const arr = map.get(k) || [];
+    arr.push({ sourceNode: m.sourceNode, sourcePort: m.sourcePort });
+    map.set(k, arr);
+  }
+  this.modulationConnections = map;
+  this._planConnectionsByDst = null;
+};
+
+NodeLiveAudioProcessor.prototype.bindNativeNamedPortalNode = function bindNativeNamedPortalNode(id, node, slot) {
+  const native = this.nativeGraph;
+  const set = native?.soemdsp_graph_set_named_portal;
+  if (!this.nativeGraphHandle || typeof set !== "function") return false;
+  const type = String(node?.type || "");
+  const kind = type === "namedPortalIn" ? 1 : (type === "namedPortalOut" ? 2 : 0);
+  if (!kind) return false;
+  const title = String(node?.alias || "").trim().toLowerCase();
+  const uni = String(node?.ownerMetamoduleId || "");
+  const key = title ? (this.fnv1aHash32(`${uni}\0${title}\0${slot | 0}`) >>> 0) : 0;
+  set(this.nativeGraphHandle, this.fnv1aHash32(String(id)), key, kind);
+  return key !== 0;
+};
+
+NodeLiveAudioProcessor.prototype.bindNativeNamedPortals = function bindNativeNamedPortals() {
+  let stamped = 0;
+  if (this.nodes && typeof this.nodes.forEach === "function") {
+    this.nodes.forEach((node, id) => {
+      if (this.bindNativeNamedPortalNode(id, node, 0)) stamped += 1;
+    });
+  }
+  const lanes = Array.isArray(this._nativeMetaVoiceLanes) ? this._nativeMetaVoiceLanes : [];
+  for (let li = 0; li < lanes.length; li += 1) {
+    const lane = lanes[li];
+    const t = String(lane?.type || "");
+    if (t !== "namedPortalIn" && t !== "namedPortalOut") continue;
+    const base = this.nodes?.get?.(lane.baseId);
+    if (!base) continue;
+    const ids = lane.voiceIds || [];
+    for (let v = 1; v < ids.length; v += 1) {
+      if (this.bindNativeNamedPortalNode(ids[v], base, v)) stamped += 1;
+    }
+  }
+  this._nativeNamedPortalStampCount = stamped;
+};
+
 NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNativeGraphFromPlan() {
   this.nativeGraphCompiled = false;
   this._nativeGraphTopologyKey = "";
@@ -5979,10 +6128,14 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     if (typeof this.applyNativeGraphPitchOffset === "function") {
       this.applyNativeGraphPitchOffset();
     }
+    if (typeof this.applyNativeGraphPitchReference === "function") {
+      this.applyNativeGraphPitchReference();
+    }
     if (typeof this.applyNativeGraphSpeedLimit === "function") {
       this.applyNativeGraphSpeedLimit();
     }
 
+    this.applyNamedPortalSplice?.();
     const audioTypes = NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS;
     const nodes = [];
     const skipped = [];
@@ -6002,10 +6155,13 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         return false;
       }
       nodes.push({ id, hash, type, params: params || {} });
+      const live = this.nodes?.get?.(id);
+      if (live) this.bindNativeNamedPortalNode(id, live, 0);
       return true;
     };
     for (const [id, node] of this.nodes) {
       const type = String(node?.type || "");
+      if (type === "namedPortalIn" || type === "namedPortalOut") continue;
       if (!Object.prototype.hasOwnProperty.call(audioTypes, type)) {
         if (type) skipped.push(type);
         continue;
@@ -6079,6 +6235,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
           const vid = `${childId}__v${v}`;
           if (addNativeNode(vid, t, child.params || {})) {
             voiceIds.push(vid);
+            this.bindNativeNamedPortalNode(vid, child, v);
           }
         }
         metaVoiceLanes.push({
@@ -6160,6 +6317,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     const hostFeeders = [];
     const hostFeederHashByKey = new Map();
     const biasTypeId = audioTypes.bias;
+    this._nativeHostFeederBuild = { native, biasTypeId, hostFeeders, hostFeederHashByKey };
     const attOffsetParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
     const monoPort = NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     const connectOne = (srcId, srcPort, dstId, dstPort) => {
@@ -6403,17 +6561,25 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
           if (!m) continue;
           const srcId = String(m.sourceNode || "");
           const srcPort = String(m.sourcePort || "");
-          if (!srcId || !idSet.has(srcId)) continue;
+          if (!srcId) continue;
           if (this.shouldSkipPitchHzNormFreqParamModEdge?.(typeById.get(srcId), dstType, paramKey)) continue;
-          const srcPortId = this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId));
+          const hostSrc = !idSet.has(srcId);
+          const srcPortId = hostSrc
+            ? NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO
+            : this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId));
+          if (hostSrc) this.nativeHostCvFeederHash(srcId, srcPort);
           if (!Number.isFinite(srcPortId) || srcPortId < 0) continue;
           const srcLane = voiceLaneByBase.get(srcId);
           const dstLane = voiceLaneByBase.get(dstId);
           const addMod = (sId, dId) => {
+            const srcHash = idSet.has(sId)
+              ? (hashById.get(sId) || this.fnv1aHash32(sId))
+              : this.nativeHostCvFeederHash(sId, srcPort);
+            if (!srcHash) return;
             try {
               const rc = native.soemdsp_graph_add_param_mod_edge(
                 this.nativeGraphHandle,
-                this.fnv1aHash32(sId),
+                srcHash,
                 srcPortId | 0,
                 this.fnv1aHash32(dId),
                 paramId | 0,
@@ -6463,6 +6629,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     }
     this._nativeWiredNodeIds = wiredIds;
 
+    this.bindNativeNamedPortals?.();
     const crc = native.soemdsp_graph_compile(this.nativeGraphHandle) | 0;
     if (crc !== 0) {
       this.postNativeGraphStatus("error", `compile failed (${crc})`);
@@ -6492,7 +6659,10 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     }
     this.syncNativeAudioPlayerPcm?.();
     this.syncNativeGraphCurvePoints?.();
-    this.postNativeGraphStatus("compiled", `nodes=${nodes.length}`);
+    this.postNativeGraphStatus(
+      "compiled",
+      `nodes=${nodes.length} portals=${this._nativeNamedPortalStampCount || 0}`,
+    );
     return true;
   } catch (error) {
     this.nativeGraphCompiled = false;

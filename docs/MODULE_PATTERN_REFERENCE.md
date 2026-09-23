@@ -139,10 +139,10 @@ the definition and they **do not render the same place** on the module face.
 
 Request: *"add 0.1V like PolyBLEP, plus phase and amplitude."*
 
-PolyBLEP definition:
+PolyBLEP definition (historical; 0.1V/Oct was later retired on Hz oscs — now Reset / Increment only):
 
 ```js
-inputs: ["Reset", "0.1V/Oct", "Increment"],  // left-side jacks only
+inputs: ["Reset", "0.1V/Oct", "Increment"],  // left-side jacks only (then)
 parameters: [
   { key: "waveform", ... },
   { key: "frequency", ... },

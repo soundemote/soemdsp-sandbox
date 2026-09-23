@@ -508,7 +508,9 @@ function nodeSliderSegmentValueFromPointer(slider, surface, clientX) {
   const scale = nodeSliderElementVisualScale(surface);
   const progress = clampNodeSliderValue(((clientX - rect.left) / scale) / width, 0, 0.999999);
   const index = Math.min(choices.length - 1, Math.floor(progress * choices.length));
-  return Number(slider.min) + index;
+  return typeof nodeSliderChoiceValueFromIndex === "function"
+    ? nodeSliderChoiceValueFromIndex(slider, index)
+    : Number(slider.min) + index;
 }
 
 function setNodeChoiceSliderFromPointer(slider, surface, clientX, options = {}) {
@@ -1224,6 +1226,15 @@ function dragNodeSlider(event) {
 
   // Wrap pointer at screen edges to approximate infinite drag.
   wrapNodeSliderDragAtScreenEdge(drag, event);
+
+  if (
+    nodeSliderShouldDisplayChoices(drag.slider)
+    && nodeSliderShouldDivideChoicesVisibly(drag.slider)
+  ) {
+    setNodeChoiceSliderFromPointer(drag.slider, drag.surface, event.clientX, { interaction: "drag" });
+    event.preventDefault();
+    return;
+  }
 
   const visualTravelWidth = Math.max(1, drag.width * (nodeGraphFiniteNumber(drag.visualScale, 1)));
   // App-wide diagonal policy: right + up increase (see nodeGraphPointerDragTravelDelta).

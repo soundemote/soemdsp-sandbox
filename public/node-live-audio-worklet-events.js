@@ -216,6 +216,9 @@ NodeLiveAudioProcessor.prototype.setConnections = function setConnections(plan, 
         this.applyNativeGraphPitchOffset();
       }
     }
+    if (typeof this.applyNativeGraphPitchReference === "function") {
+      this.applyNativeGraphPitchReference();
+    }
     if (Number.isFinite(Number(message.speedLimit))) {
       this.setSpeedLimit(message.speedLimit);
     }
@@ -239,6 +242,9 @@ NodeLiveAudioProcessor.prototype.setConnections = function setConnections(plan, 
           continue;
         }
         current.bypassed = Boolean(node.bypassed) || bypassed.has(node.id);
+        if (Object.hasOwn(node, "alias")) {
+          current.alias = node.alias ? String(node.alias) : undefined;
+        }
         if (node.bypassSpec && typeof node.bypassSpec === "object") {
           current.bypassSpec = node.bypassSpec;
         }
@@ -471,13 +477,9 @@ NodeLiveAudioProcessor.prototype._normalizeKeyboardSignalPayload = function _nor
         0,
         1,
       ),
-      tenthVoltPerOctave: this.clampValue(
-        Number.isFinite(Number(source.tenthVoltPerOctave))
-          ? Number(source.tenthVoltPerOctave)
-          : midi / 120,
-        0,
-        1,
-      ),
+      tenthVoltPerOctave: Number.isFinite(Number(source.tenthVoltPerOctave))
+        ? Number(source.tenthVoltPerOctave)
+        : midi / 120,
       increment: Math.max(
         0,
         Number.isFinite(Number(source.increment)) && Number(source.increment) > 0
