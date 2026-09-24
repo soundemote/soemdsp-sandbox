@@ -222,7 +222,8 @@ extern "C" void soemdsp_sample_hold_destroy(int handle);
 extern "C" double soemdsp_sample_hold_sample(
   int handle, double input, double trigger, double threshold,
   double sampleFrequency, double sampleRate, int hasInConnected, int seed,
-  double amplitude, double polarityMode
+  double amplitude, double polarityMode,
+  double interpolateMode, double phaseOffset
 );
 
 extern "C" int soemdsp_min_max_create();
@@ -1197,10 +1198,11 @@ extern "C" double soemdsp_degree_phrase_phase(int handle);
 
 extern "C" int soemdsp_gravity_walker_create(unsigned int entropySeed);
 extern "C" void soemdsp_gravity_walker_destroy(int handle);
+extern "C" void soemdsp_gravity_walker_set_chunks(int handle, double c0, double c1, double c2);
 extern "C" double soemdsp_gravity_walker_sample(
   int handle, double clock, double reset, double gravityIn, double leapIn,
-  double leapCv, double octaves, double level, double scaleIn, double hasScale,
-  double root, double scaleChoice
+  double octaves, double steps, double seed, double scaleOffset,
+  double keysIn, double hasKeys
 );
 extern "C" double soemdsp_gravity_walker_gate(int handle);
 extern "C" double soemdsp_gravity_walker_trigger(int handle);
@@ -1868,7 +1870,7 @@ struct Control {
   double liveModUnit; // per-sample audio MOD (ParamModEdge), cleared+stamped each frame
   double liveModDomain;
   unsigned char liveModActive; // 1 if a ParamModEdge targets this Control this block
-  unsigned char liveModDomainReplace; // 1 if any |v|>1 domain source stamped this frame
+  unsigned char liveModDomainReplace; // 1 if domain-valued live MOD stamped (ADD unless bit4)
   double domainMin; // paramMeta min for unit-band map
   double domainMax; // paramMeta max (max<=min → no unit map)
   double coeff; // one/two/three-pole b0, or linear increment (cached)
@@ -1881,7 +1883,7 @@ struct Control {
   unsigned char type; // kSmoothType*
   unsigned char snap; // discrete: out=target immediately, never on toSmooth_
   int steppedCount; // samples advanced this quantum (control_audio catch-up)
-  unsigned char modFlags; // bit0 wrap, bit1 modClamp, bit2 VCA, bit3 unbounded, bit4 domainReplace
+  unsigned char modFlags; // bit0 wrap, bit1 modClamp, bit2 VCA, bit3 unbounded, bit4 domainValued, bit5 replaceOnly
 };
 
 static inline double control_effective(const Control& c);
@@ -2590,18 +2592,23 @@ static inline double control_effective(const Control& c) {
   const bool haveRange = (minV == minV) && (maxV == maxV) && range > 0.0;
   const bool wrap = (c.modFlags & 1u) != 0;
   const bool modClamp = (c.modFlags & 2u) != 0;
-  const bool domainReplace = ((c.modFlags & 16u) != 0) || (c.liveModDomainReplace != 0);
+  // bit4 = domain-valued (live |v|<=1 still domain path). Domain ADDS to knob
+  // (offset) unless bit5 replace-only (unit-span pitch-norm / explicit).
+  // liveModDomainReplace marks domain-valued live samples — not a wipe.
+  const bool hostReplace = (c.modFlags & 32u) != 0; // bit5
+  const bool domainValued = ((c.modFlags & 16u) != 0) || hostReplace
+    || (c.liveModDomainReplace != 0) || (domainAdd != 0.0);
   double result;
-  if (domainReplace) {
-    // Engineering-unit MOD replaces the knob (old absolute ƒ jack). min/max = zoom only.
+  if (hostReplace) {
+    // Replace-only: absolute = domain mods (Superlove pitch-norm Frequency).
     result = domainAdd;
   } else if (haveRange && unitAdd != 0.0) {
-    // fall through to unit-band map below using result placeholder
+    // Unit-band on knob, then domain ADD as offset.
     result = base; // overwritten in unit branch
   } else {
     result = base;
   }
-  if (!domainReplace && haveRange && unitAdd != 0.0) {
+  if (!hostReplace && haveRange && unitAdd != 0.0) {
     double b = base;
     if (wrap) {
       double w = b - minV;
@@ -2616,17 +2623,21 @@ static inline double control_effective(const Control& c) {
       if (u < 0.0) u += 1.0;
     }
     result = minV + u * range;
-  } else if (!domainReplace && !haveRange && unitAdd != 0.0) {
+  } else if (!hostReplace && !haveRange && unitAdd != 0.0) {
     // No domain yet — plain add. Do not invent 0…1+clamp (crushes Frequency).
     result = base + unitAdd;
+  }
+  if (!hostReplace) {
+    // Real-mod / engineering-unit: Control/knob + domain MOD sum.
+    result = result + domainAdd;
   }
   if (!(result == result)) result = 0.0;
   // App-wide: after MOD, clip to DOMAIN when known (Knob 0…1, Amp 0…1, …).
   // Wraparound still wraps. Explicit unbounded: host clears modClamp bit AND
   // sets bit3 (kModFlagUnbounded = 8) — rare; default is clamp.
   const bool unbounded = (c.modFlags & 8u) != 0;
-  // Domain REPLACE: min/max are display zoom only — never hard-clip the sent value.
-  if (domainReplace) {
+  // Domain-valued (ADD or replace-only): min/max are display zoom — no hard-clip.
+  if (domainValued) {
     // no wrap/clamp
   } else if (haveRange && wrap) {
     double w = result - minV;
@@ -2863,6 +2874,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePhosphillator) ? 0.5 // sharpness
       : (typeId == kTypeAudioPlayer) ? 0.0 // Scratch
       : (typeId == kTypeStepGraph) ? 0.0 // curveOffset (CENTER used; shape unused)
+      : (typeId == kTypeSampleHold) ? 0.0 // interpolate Off
       : 0.5,
     (typeId == kTypeSlewLimiter || typeId == kTypeSineWavetable || typeId == kTypeSinCos)
   );
@@ -3660,10 +3672,9 @@ static void stamp_live_param_mods(Circuit& g, Node& node, int frame) {
     Control* c = control_for_param(node, e.paramId);
     if (!c) continue;
     c->liveModActive = 1; // even when v==0 (VCA rest must silence)
-    // Same classify as JS: |v|<=1 unit-band, else domain REPLACE (not add-to-knob).
-    // Host bit4 (domainReplace) means this Control's live MOD is domain-valued
-    // (Range / outputDomain) even when |v|<=1 — do not fall back to unit-band+knob.
-    if (((c->modFlags & 16u) != 0) || v > 1.0 || v < -1.0) {
+    // |v|<=1 unit-band, else domain-valued (ADD to knob unless bit5 replace).
+    // Host bit4/bit5 force domain path for |v|<=1 (Range / outputDomain tagged).
+    if (((c->modFlags & (16u | 32u)) != 0) || v > 1.0 || v < -1.0) {
       c->liveModDomain += v;
       c->liveModDomainReplace = 1;
     } else {
@@ -5671,7 +5682,6 @@ static void sin_cos_pair_advance(
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool livePhase = mix_live_port(g, node, kPortPhaseCv, frames, g.mixPhaseCv);
   const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = circuit_pitch_ref_v(g);
   const double methodV = control_effective(node.shape);
@@ -5691,8 +5701,7 @@ static void sin_cos_pair_advance(
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
-    const double liveCv = livePhase ? g.mixPhaseCv[f] : 0.0;
-    const double phaseOff = phase_offset_cycles(node.phaseParam, liveCv) * kTwoPi;
+    const double phaseOff = phase_offset_cycles(node.phaseParam, 0.0) * kTwoPi;
     double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 0.0;
     if (liveReset) {
@@ -6561,15 +6570,14 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
 }
 
 // DSF: shape=morph/harmonics, width=pulseWidth, mix=blend, phaseParam=phase.
-// Morph CV jack is turquoise ZOH; Morph param MOD is stamped per sample.
+// Morph / Phase / Amplitude are parameters (+ MOD) only — no twin CV jacks.
 static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const double referenceVoltage = circuit_pitch_ref_v(g);
-  double morph = morph_zoh_hold(g, node, liveMorph, true);
+  double morph = shape_param_01(node);
   const double pulseWidth = control_effective(node.width);
   const double blend = control_effective(node.mix);
   const double phase = control_effective(node.phaseParam);
@@ -6581,7 +6589,7 @@ static void process_dsf_oscillator(Circuit& g, Node& node, int frames) {
 
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
-    morph = morph_zoh_hold(g, node, liveMorph, true);
+    morph = shape_param_01(node);
     level = control_audio(g, node.amplitude, f);
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
@@ -6825,14 +6833,13 @@ static void process_bradley2a(Circuit& g, Node& node, int frames) {
 // mode=motion (0 ClockPh, 1 CounterClockPh, 2 ClockT, 3 CounterClockT).
 // center=AA (0 Off, nonzero Limit steepness floor).
 // Ports: Left=Bi X, Right=Bi Y, Saw=Uni X, Ramp=Uni Y, Mono=Bi X.
-// Morph CV is turquoise ZOH (additive to knob).
+// Morph is the parameter (+ MOD) only — no Morph CV jack twin.
 static void process_ellipsoid(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const double referenceVoltage = circuit_pitch_ref_v(g);
   int motion = (int)(control_effective(node.mode) + (control_effective(node.mode) >= 0.0 ? 0.5 : -0.5));
   if (motion < 0) motion = 0;
@@ -6849,9 +6856,9 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
-    // Morph param MOD is gold (sample-accurate); Morph CV jack stays ZOH hold.
+    // Morph param (+ MOD) only — no Morph CV jack.
     const double phaseOff = control_audio(g, node.phaseParam, f);
-    const double shape = morph_zoh_hold(g, node, liveMorph, true);
+    const double shape = shape_param_01(node);
     const double level = control_audio(g, node.amplitude, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
@@ -8856,7 +8863,6 @@ static void process_chaosfly(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool livePhase = mix_live_port(g, node, kPortPhaseCv, frames, g.mixPhaseCv);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = circuit_pitch_ref_v(g);
@@ -8877,8 +8883,7 @@ static void process_chaosfly(Circuit& g, Node& node, int frames) {
     // Pitch octaves: NaN → 0 only; range is metaparam-owned (same as LP/HP).
     double pitchOct = control_audio(g, node.offset, f);
     if (!(pitchOct == pitchOct)) pitchOct = 0.0;
-    const double liveCv = livePhase ? g.mixPhaseCv[f] : 0.0;
-    const double phaseOff = phase_offset_cycles(node.phaseParam, liveCv);
+    const double phaseOff = phase_offset_cycles(node.phaseParam, 0.0);
     soemdsp_chaosfly_sample(
       node.nativeHandle,
       control_effective(node.mode),
@@ -9218,37 +9223,40 @@ static void process_arp(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Gravity Walker: Leap CV→Morph. shape=gravity, width=leap, mode=octaves, seed=scale.
-// Pitch→Mono, Gate→Left, Trigger→Right, Degree→Saw, f Hz→Ramp.
+// Gravity Walker: Keys noteMask128 (Mono), Clock->Trigger, Reset->Reset, Leap CV->PitchCv.
+// shape=gravity, width=leap, mode=octaves, stages=steps, seed=seed, offset=scaleOffset.
+// Pitch->Mono, Gate->Left, Trigger->Right, Degree->Saw, f Hz->Ramp.
 static void process_gravity_walker(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool hasScale = mix_live_port(g, node, kPortMono, frames, g.mixMono);
-  const bool hasRoot = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool hasLeap = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
-  const bool takeSamplePath = node_has_active_chase(node);
+  const bool hasKeys = mix_live_port(g, node, kPortMono, frames, g.mixMono);
+  const bool hasLeapCv = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
+    const double leapParam = control_audio(g, node.width, f);
+    const double leapCv = hasLeapCv ? g.mixPitch[f] : 0.0;
+    double leap = leapParam + leapCv;
+    if (leap < 0.0) leap = 0.0;
+    if (leap > 1.0) leap = 1.0;
     const double pitch = soemdsp_gravity_walker_sample(
       node.nativeHandle,
       hasClock ? g.mixTrigger[f] : 0.0,
       hasReset ? g.mixReset[f] : 0.0,
       control_audio(g, node.shape, f),
-      control_audio(g, node.width, f),
-      hasLeap ? g.mixMorph[f] : 0.0,
+      leap,
       control_effective(node.mode),
-      control_audio(g, node.amplitude, f),
-      hasScale ? g.mixMono[f] : 0.0,
-      hasScale ? 1.0 : 0.0,
-      hasRoot ? g.mixPitch[f] : (60.0 / 120.0),
-      control_effective(node.seed)
+      control_effective(node.stages),
+      control_effective(node.seed),
+      control_effective(node.offset),
+      hasKeys ? g.mixMono[f] : 0.0,
+      hasKeys ? 1.0 : 0.0
     );
     node.buf[kPortMono][f] = pitch;
     node.buf[kPortLeft][f] = soemdsp_gravity_walker_gate(node.nativeHandle);
     node.buf[kPortRight][f] = soemdsp_gravity_walker_trigger(node.nativeHandle);
     node.buf[kPortSaw][f] = soemdsp_gravity_walker_degree(node.nativeHandle);
-    // f Hz → Ramp (arp-style A4=440 MIDI law; pitch is midi/120).
+    // f Hz -> Ramp (arp-style A4=440 MIDI law; pitch is midi/120).
     node.buf[kPortRamp][f] = 440.0 * dsp_exp(((pitch * 120.0 - 69.0) / 12.0) * 0.6931471805599453);
   }
 }
@@ -10468,22 +10476,28 @@ static void process_mix_stereo(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Mono sample & hold: fold Mono+L+R for In; Trigger is a live-style dest port.
-// One handle per node (not invented M/L/R inside native). Seed = node id hash.
+// Sample & Hold: Ext (Mono) + independent Left/Right noise lanes.
+// Ext In->Ext Out (hasIn always; unwired Ext holds 0). L/R = internal noise.
+// Clock on Trigger bus; Sample Freq shared; phaseParam offsets Right only.
+// shape = interpolate (0 Off / 1 Linear / 2 Smoothstep).
 static void process_sample_hold(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const int seed = (int)node.idHash;
-  // hasInConnected: any audio bus cable (Trigger alone does not count).
-  bool hasIn = false;
+  const int seedExt = (int)node.idHash;
+  const int seedL = (int)(node.idHash ^ 0xA5A5A5A5u);
+  const int seedR = (int)(node.idHash ^ 0x5A5A5A5Au);
+  const int hL = node.nativeHandleL > 0 ? node.nativeHandleL : node.nativeHandle;
+  const int hR = node.nativeHandleR > 0 ? node.nativeHandleR : node.nativeHandle;
+  // Ext In present on any audio bus (Trigger alone does not count).
+  bool hasExtIn = false;
   for (int ci = 0; ci < g.connCount; ci++) {
     const Conn& c = g.conns[ci];
     if (!c.used || c.dstHash != node.idHash) continue;
     const int dp = clamp_dst_port(c.dstPort);
     if (is_live_dst_port(dp) || is_graph_port(dp)) continue;
-    hasIn = true;
+    hasExtIn = true;
     break;
   }
   for (int f = 0; f < frames; f++) {
@@ -10492,23 +10506,56 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
     const double sampleFreq = control_audio(g, node.frequency, f);
     const double amplitude = control_audio(g, node.amplitude, f);
     const double polarityMode = control_audio(g, node.mode, f);
+    const double interpolate = control_audio(g, node.shape, f);
+    const double phaseOffset = control_audio(g, node.phaseParam, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
-    const double out = soemdsp_sample_hold_sample(
+    // Ext: always hasIn so unwired Ext holds 0 (not noise).
+    const double ext = soemdsp_sample_hold_sample(
       node.nativeHandle,
-      in,
+      hasExtIn ? in : 0.0,
       trig,
       threshold,
       sampleFreq,
       sr,
-      hasIn ? 1 : 0,
-      seed,
+      1,
+      seedExt,
       amplitude,
-      polarityMode
+      polarityMode,
+      interpolate,
+      0.0
     );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
+    const double left = soemdsp_sample_hold_sample(
+      hL,
+      0.0,
+      trig,
+      threshold,
+      sampleFreq,
+      sr,
+      0,
+      seedL,
+      amplitude,
+      polarityMode,
+      interpolate,
+      0.0
+    );
+    const double right = soemdsp_sample_hold_sample(
+      hR,
+      0.0,
+      trig,
+      threshold,
+      sampleFreq,
+      sr,
+      0,
+      seedR,
+      amplitude,
+      polarityMode,
+      interpolate,
+      phaseOffset
+    );
+    node.buf[kPortMono][f] = ext;
+    node.buf[kPortLeft][f] = left;
+    node.buf[kPortRight][f] = right;
   }
 }
 
@@ -11320,6 +11367,16 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
         return -5;
       }
     }
+    // Sample & Hold: Ext + independent Left/Right noise handles.
+    if (typeId == kTypeSampleHold) {
+      n.nativeHandleL = create_native_for_type(typeId, g->sampleRate);
+      n.nativeHandleR = create_native_for_type(typeId, g->sampleRate);
+      if (n.nativeHandleL <= 0 || n.nativeHandleR <= 0) {
+        destroy_node_native(n);
+        n.used = false;
+        return -5;
+      }
+    }
     if (typeId == kTypePolyBlep) {
       soemdsp_polyblep_reset(n.nativeHandle);
     } else if (typeId == kTypeRobinSinusoid) {
@@ -11564,7 +11621,7 @@ extern "C" int soemdsp_graph_set_param_domain(
   c->domainMin = (min == min) ? (double)min : 0.0;
   c->domainMax = (max == max) ? (double)max : 0.0;
   // bit0 wrap, bit1 modClamp, bit2 VCA amp multiply, bit3 unbounded (modClamp:false)
-  c->modFlags = (unsigned char)(flags & 31); // keep bit4 domainReplace
+  c->modFlags = (unsigned char)(flags & 63); // bit4 domainValued, bit5 replaceOnly
   return 0;
 }
 
@@ -13102,5 +13159,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 148; // Dual Ladder sweep st (center) after ƒ / pitch, both cuts
+  return 149; // sampleHold Ext+L/R independent + interpolate/phaseOffset
 }

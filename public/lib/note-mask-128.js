@@ -134,7 +134,40 @@ function noteMaskOrTransmit(values, phase) {
   return noteMaskTransmit(acc, phase);
 }
 
+function noteMaskPitchClassBits(mask) {
+  const m = noteMaskEnsure(mask);
+  let bits = 0;
+  for (let i = 0; i < NOTE_MASK_MIDI_COUNT; i += 1) {
+    if (m[i]) bits |= (1 << (i % 12));
+  }
+  return bits & 0xFFF;
+}
+
+/** Expand 12-bit pitch-class mask to noteMask128 (all octaves of each class). */
+function noteMaskFromPitchClassBits(bits) {
+  const mask = noteMaskCreate();
+  const b = (Math.round(Number(bits)) || 0) & 0xFFF;
+  if (!b) return mask;
+  for (let i = 0; i < NOTE_MASK_MIDI_COUNT; i += 1) {
+    if (b & (1 << (i % 12))) mask[i] = 1;
+  }
+  return mask;
+}
+
+/**
+ * Scale bus SSOT: noteMask128, legacy 12-bit number, or anything falsy → 0..4095.
+ * Packed note-mask transmits (FLAG1+) are not scale values.
+ */
+function noteMaskResolveScaleBits(value) {
+  if (value instanceof Uint8Array) return noteMaskPitchClassBits(value);
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (typeof NOTE_MASK_FLAG1 === 'number' && n >= NOTE_MASK_FLAG1) return 0;
+  return Math.round(n) & 0xFFF;
+}
+
 function noteMaskToMidiList(mask) {
+
   const m = noteMaskEnsure(mask);
   const out = [];
   for (let i = 0; i < NOTE_MASK_MIDI_COUNT; i += 1) {
@@ -184,5 +217,8 @@ if (typeof globalThis !== "undefined") {
   globalThis.noteMaskFromRegisters = noteMaskFromRegisters;
   globalThis.noteMaskOrTransmit = noteMaskOrTransmit;
   globalThis.noteMaskToMidiList = noteMaskToMidiList;
+  globalThis.noteMaskPitchClassBits = noteMaskPitchClassBits;
+  globalThis.noteMaskFromPitchClassBits = noteMaskFromPitchClassBits;
+  globalThis.noteMaskResolveScaleBits = noteMaskResolveScaleBits;
   globalThis.polyphonyTableAddNoteMask = polyphonyTableAddNoteMask;
 }

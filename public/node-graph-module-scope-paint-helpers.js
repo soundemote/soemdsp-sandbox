@@ -1513,15 +1513,29 @@ function nodeGraphRgbTraceBuffers(nodeId, type) {
   return { R, G, B };
 }
 
+/** True when L or R jack is actually wired (input sink or output source). */
+function nodeGraphStereoTracePortWired(nodeId, port) {
+  const id = String(nodeId || "");
+  const p = String(port || "");
+  if (!id || !p) return false;
+  const to = typeof nodeGraphModuleScopeConnectionsTo === "function"
+    ? nodeGraphModuleScopeConnectionsTo(id, p).length > 0
+    : false;
+  const fr = typeof nodeGraphModuleScopeConnectionsFrom === "function"
+    ? nodeGraphModuleScopeConnectionsFrom(id, p).length > 0
+    : false;
+  return to || fr;
+}
+
 /** True when L or R jack is actually wired. Unwired L/R rings are silence. */
 function nodeGraphStereoTraceLrWired(nodeId, type) {
   const id = String(nodeId || "");
   const ports = nodeGraphModuleStereoTracePorts(type);
-  if (!id || !ports || typeof nodeGraphModuleScopeConnectionsTo !== "function") {
+  if (!id || !ports) {
     return false;
   }
-  return nodeGraphModuleScopeConnectionsTo(id, ports.left).length > 0
-    || nodeGraphModuleScopeConnectionsTo(id, ports.right).length > 0;
+  return nodeGraphStereoTracePortWired(id, ports.left)
+    || nodeGraphStereoTracePortWired(id, ports.right);
 }
 
 /**
@@ -1550,8 +1564,15 @@ function nodeGraphStereoTraceBuffers(nodeId, type) {
   // Same rings as 1D Stereo Trace: this node's visual L/R only.
   // Do not fall back to the wired source's capture buffer — that clock/rate
   // mix is what made Output Instant Trace blob between 0 and the signal.
-  const left = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.left}`);
-  const right = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.right}`);
+  // Only include channels whose jack is wired (Left-only / Right-only / both).
+  const leftWired = nodeGraphStereoTracePortWired(id, ports.left);
+  const rightWired = nodeGraphStereoTracePortWired(id, ports.right);
+  const left = leftWired
+    ? nodeGraphModuleScopeState.buffers.get(`${id}:${ports.left}`)
+    : null;
+  const right = rightWired
+    ? nodeGraphModuleScopeState.buffers.get(`${id}:${ports.right}`)
+    : null;
   if (!left?.length && !right?.length) {
     return null;
   }

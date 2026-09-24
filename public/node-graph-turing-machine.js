@@ -19,7 +19,9 @@ function nodeGraphTuringMachineSample(state, options = {}) {
   const octaves = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(options.octaves, 1))));
   const hasScale = Boolean(options.hasScaleInput);
   const mask = hasScale
-    ? (Math.round(nodeGraphFiniteNumber(options.scaleInput)) & 0xFFF)
+    ? (typeof noteMaskResolveScaleBits === "function"
+      ? noteMaskResolveScaleBits(options.scaleInput)
+      : (Math.round(nodeGraphFiniteNumber(options.scaleInput)) & 0xFFF))
     : 0;
   const root = Number(options.root);
   const rootPitch = Number.isFinite(root) ? root : (60 / 120);

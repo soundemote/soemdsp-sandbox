@@ -247,6 +247,7 @@ $modules = @(
   ) },
   @{ Name = "gravity_walker"; Simd = $false; Exports = @(
     "soemdsp_gravity_walker_create", "soemdsp_gravity_walker_destroy",
+    "soemdsp_gravity_walker_set_chunks",
     "soemdsp_gravity_walker_sample", "soemdsp_gravity_walker_gate",
     "soemdsp_gravity_walker_trigger", "soemdsp_gravity_walker_degree",
     "soemdsp_gravity_walker_version"
@@ -556,7 +557,7 @@ if ($node) {
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: ping_pong LFO persistence smoke FAILED"
   }
-  # Stickiness: set cutoff once, process_block many times — must stay filtered.
+  # Stickiness: set cutoff once, process_block many times â€” must stay filtered.
   & $node.Source "$root\scripts\smoke_ping_pong_param_stick.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: ping_pong param stickiness smoke FAILED"

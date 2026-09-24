@@ -936,10 +936,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   if (p === "phase" || p === "phaseoffset" || p === "phase offset") {
     const t = String(type || "").trim();
     if (
-      t === "sineWavetable"
-      || t === "sinCos"
-      || t === "polyBlep"
-      || t === "chaosfly"
+      t === "polyBlep"
     ) {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PHASE_CV;
     }
@@ -986,7 +983,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
     p === "scale"
     && (
       type === "pitchQuantizer" || type === "turingMachine"
-      || type === "degreeTuring" || type === "degreePhrase" || type === "gravityWalker"
+      || type === "degreeTuring" || type === "degreePhrase"
     )
   ) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
@@ -994,20 +991,23 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   if (p === "arp keys" && type === "arp") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
+  if (p === "keys" && type === "gravityWalker") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  }
+  if (p === "leap" && type === "gravityWalker") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PITCH_CV;
+  }
   if (
     p === "root"
     && (
       type === "turingMachine" || type === "degreeTuring"
-      || type === "degreePhrase" || type === "gravityWalker"
+      || type === "degreePhrase"
     )
   ) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PITCH_CV;
   }
   if (p === "select" && type === "chordPad") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
-  }
-  if (p === "leap" && type === "gravityWalker") {
-    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MORPH;
   }
   // Amp Curve gold CV inlet.
   if (p === "env" && String(type || "").trim() === "ampCurve") {
@@ -1150,10 +1150,9 @@ NodeLiveAudioProcessor.prototype.pushNativeGraphParamDomain = function pushNativ
       paramId,
       Number.isFinite(lo) ? lo : 0,
       Number.isFinite(hi) ? hi : 0,
-      // bit0 wrap, bit1 modClamp, bit2 VCA, bit3 unbounded, bit4 domainReplace.
-      // Must keep bit4 (& 31): masking with 15 dropped domainReplace so cyan
-      // set_param_mod domainAdd was ignored and the knob still drove DSP.
-      (flags | 0) & 31,
+      // bit0 wrap, bit1 modClamp, bit2 VCA, bit3 unbounded, bit4 domainValued,
+      // bit5 replaceOnly. Must keep & 63 (not 15/31) or domain/replace flags drop.
+      (flags | 0) & 63,
     );
   } catch (_e) { /* ignore */ }
 };
@@ -1683,16 +1682,17 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
         return false;
       }
 
-      // Drop prior host Bias feeders (not in the patch node list) before rewiring.
-      if (Array.isArray(this._nativeHostCvFeeders)) {
-        for (let i = 0; i < this._nativeHostCvFeeders.length; i += 1) {
-          const feed = this._nativeHostCvFeeders[i];
-          const feedHash = feed?.hash || feed?.feedHash;
-          if (!feedHash) continue;
-          try {
-            native.soemdsp_graph_remove_node(this.nativeGraphHandle, feedHash | 0);
-          } catch (_e) { /* ignore */ }
-        }
+      // Drop prior host Bias + Scale noteMask feeders before rewiring.
+      const dropFeeders = []
+        .concat(Array.isArray(this._nativeHostCvFeeders) ? this._nativeHostCvFeeders : [])
+        .concat(Array.isArray(this._nativeScaleFeeders) ? this._nativeScaleFeeders : []);
+      for (let i = 0; i < dropFeeders.length; i += 1) {
+        const feed = dropFeeders[i];
+        const feedHash = feed?.hash || feed?.feedHash;
+        if (!feedHash) continue;
+        try {
+          native.soemdsp_graph_remove_node(this.nativeGraphHandle, feedHash | 0);
+        } catch (_e) { /* ignore */ }
       }
 
       // Rebuild edges without destroying surviving DSP instances.
@@ -1717,6 +1717,48 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
           srcType === "namedPortalIn" || srcType === "namedPortalOut"
           || dstType === "namedPortalIn" || dstType === "namedPortalOut"
         ) {
+          return true;
+        }
+
+
+        // Scale = noteMask128 bus (Play/Arp/Chord Keys family). Fold in syncNativeScaleMasks.
+        if (String(dstPort || "") === "Scale" || String(srcPort || "") === "Scale") {
+          if (String(dstPort || "") !== "Scale") return true;
+          const scaleKey = `__scaleMask:${dstId}`;
+          let scaleHash = hostFeederHashByKey.get(scaleKey);
+          if (scaleHash) return true;
+          if (!biasTypeId) return true;
+          scaleHash = this.fnv1aHash32(scaleKey);
+          const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, scaleHash, biasTypeId) | 0;
+          if (arc !== 0) {
+            this.postNativeGraphStatus("error", `scale feeder add_node failed (${arc}) ${scaleKey}`);
+            return false;
+          }
+          hostFeederHashByKey.set(scaleKey, scaleHash);
+          hostFeeders.push({
+            hash: scaleHash,
+            sourceNode: srcId,
+            sourcePort: "Scale",
+            destinationNode: dstId,
+            scaleMaskFeeder: true,
+          });
+          this.pushNativeGraphSmoothType(native, scaleHash, attOffsetParam, 3);
+          this.pushNativeGraphSmoothMode(native, scaleHash, attOffsetParam, 3);
+          this.pushNativeGraphSmoothTime(native, scaleHash, attOffsetParam, 0);
+          const crcScale = native.soemdsp_graph_connect(
+            this.nativeGraphHandle,
+            scaleHash,
+            monoPort,
+            hashById.get(dstId),
+            this.mapNativeGraphDstPortId(dstPort, typeById.get(dstId)),
+          ) | 0;
+          if (crcScale !== 0) {
+            this.postNativeGraphStatus(
+              "error",
+              `scale feeder connect failed (${crcScale}) Scale->${dstId}`,
+            );
+            return false;
+          }
           return true;
         }
         if (idSet.has(srcId)) {
@@ -1869,28 +1911,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
               continue;
             }
             liveParamModKeys.add(`${dstId}\0${paramKey}\0${srcId}\0${srcPort}`);
-            // Absolute-Hz outs (Walker/Arp f): also wire audio->kPortF so
-            // resolve_osc_hz(liveF) hears melody; ParamModEdge alone can leave
-            // Frequency stuck on the Hz knob when domainReplace fights.
-            {
-              const sp = srcPort.trim().toLowerCase();
-              const isFreqParam = paramKey === "frequency" || paramKey === "freq";
-              const isHzPort = sp === "f" || sp === "\u0192" || sp === "freq" || sp === "frequency";
-              if (
-                isFreqParam && isHzPort && idSet.has(srcId)
-                && typeof native.soemdsp_graph_connect === "function"
-              ) {
-                try {
-                  native.soemdsp_graph_connect(
-                    this.nativeGraphHandle,
-                    srcHash,
-                    srcPortId | 0,
-                    hashById.get(dstId),
-                    NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_F | 0,
-                  );
-                } catch (_e) { /* ignore */ }
-              }
-            }
+            // Domain Hz MOD ADDS to Frequency Control (shared fold / ParamModEdge).
+            // No dual-wire to kPortF — that path wiped the knob offset.
           }
         });
       }
@@ -1906,10 +1928,11 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
 
       this.nativeGraphCompiled = true;
       this._nativeGraphNodeIds = new Set(desired.keys());
-      this._nativeHostCvFeeders = hostFeeders;
-    if (typeof this.snapNativeHostCvFeederSmoothing === "function") {
-      this.snapNativeHostCvFeederSmoothing(native, hostFeeders);
-    }
+      this._nativeHostCvFeeders = hostFeeders.filter((f) => !f?.scaleMaskFeeder);
+      this._nativeScaleFeeders = hostFeeders.filter((f) => f?.scaleMaskFeeder);
+      if (typeof this.snapNativeHostCvFeederSmoothing === "function") {
+        this.snapNativeHostCvFeederSmoothing(native, hostFeeders);
+      }
       // Keep param cache warm for survivors; only force push for newly added.
       if (addedIds.length && this._nativeGraphParamCache && typeof this._nativeGraphParamCache === "object") {
         for (const id of addedIds) {
@@ -2333,11 +2356,46 @@ NodeLiveAudioProcessor.prototype.mixNoteMask128 = function mixNoteMask128(nodeId
     const out = this.nodeOutputs?.get?.(String(conns[i].sourceNode || ""));
     if (!out || typeof out !== "object") continue;
     const sp = String(conns[i].sourcePort || "");
-    if (sp === "Play Keys") orIn(out.playMask);
+    if (sp === "Play Keys" || sp === "Keys") orIn(out.playMask || out.keysMask || out.playKeysMask);
     else if (sp === "Arp Keys") orIn(out.arpMask);
     else if (sp === "Chord Memory") orIn(out.chordMask || out.chordPlayMask);
+    else if (sp === "Scale") {
+      if (out.scaleMask instanceof Uint8Array) orIn(out.scaleMask);
+      else if (typeof noteMaskFromPitchClassBits === "function") {
+        const bits = typeof noteMaskResolveScaleBits === "function"
+          ? noteMaskResolveScaleBits(out.Scale)
+          : (Math.round(Number(out.Scale)) & 0xFFF);
+        if (bits) orIn(noteMaskFromPitchClassBits(bits));
+      }
+    }
   }
   return mask;
+};
+
+/**
+ * Scale is a noteMask128 bus (same family as Play/Arp/Chord Keys).
+ * Fold lit MIDI notes via n%12 → 12-bit pitch-class mask, then Bias-feed
+ * each Scale consumer's Mono inlet. One path for Keys→Scale and Scale→Scale.
+ */
+NodeLiveAudioProcessor.prototype.syncNativeScaleMasks = function syncNativeScaleMasks() {
+  if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+    return;
+  }
+  const feeders = this._nativeScaleFeeders;
+  if (!Array.isArray(feeders) || !feeders.length) return;
+  const native = this.nativeGraph;
+  const paramId = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
+  for (let i = 0; i < feeders.length; i += 1) {
+    const feed = feeders[i];
+    const feedHash = feed?.hash || feed?.feedHash;
+    const dstId = String(feed?.destinationNode || "");
+    if (!feedHash || !dstId) continue;
+    const mask = this.mixNoteMask128(dstId, "Scale");
+    const bits = typeof noteMaskPitchClassBits === "function"
+      ? noteMaskPitchClassBits(mask)
+      : 0;
+    this.pushNativeGraphParam(native, feedHash, paramId, bits);
+  }
 };
 
 NodeLiveAudioProcessor.prototype.syncNativeArpNoteMasks = function syncNativeArpNoteMasks() {
@@ -2369,6 +2427,33 @@ NodeLiveAudioProcessor.prototype.syncNativeArpNoteMasks = function syncNativeArp
     }
   }
 };
+
+NodeLiveAudioProcessor.prototype.syncNativeGravityWalkerNoteMasks = function syncNativeGravityWalkerNoteMasks() {
+  if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+    return;
+  }
+  const native = this.nativeGraph;
+  if (!native?.soemdsp_gravity_walker_set_chunks || !native.soemdsp_graph_node_native_handle) return;
+  for (const [id, node] of this.nodes) {
+    if (String(node?.type || "") !== "gravityWalker") continue;
+    const hash = typeof this.fnv1aHash32 === "function"
+      ? this.fnv1aHash32(String(id))
+      : 0;
+    let handle = 0;
+    try {
+      handle = native.soemdsp_graph_node_native_handle(this.nativeGraphHandle, hash) | 0;
+    } catch (_e) {
+      handle = 0;
+    }
+    if (!(handle > 0)) continue;
+    const mask = this.mixNoteMask128(id, "Keys");
+    const chunks = typeof noteMaskPackChunks === "function"
+      ? noteMaskPackChunks(mask)
+      : { c0: 0, c1: 0, c2: 0 };
+    native.soemdsp_gravity_walker_set_chunks(handle, chunks.c0 || 0, chunks.c1 || 0, chunks.c2 || 0);
+  }
+};
+
 
 NodeLiveAudioProcessor.prototype.syncNativeArpFacesAndMonophony = function syncNativeArpFacesAndMonophony() {
   if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
@@ -3293,12 +3378,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       domainReplace = acc?.domainReplace === true;
     }
     if (destDomain) {
-      // Use real mod values: REPLACE with domain mods + domainOffset (offset alone OK).
+      // Use real mod values: domain mods + domainOffset ADD to Control/knob.
       const off = typeof nodeGraphParamDomainOffset === "function"
         ? nodeGraphParamDomainOffset(meta)
         : (Number.isFinite(Number(meta.domainOffset)) ? Number(meta.domainOffset) : 0);
       domainAdd += off;
-      domainReplace = true;
+      // Do NOT force replace-only — knob/offset stays. bit4 domainValued set below.
       unitAdd = 0;
     }
     const modToken = `${unitAdd}\0${domainAdd}\0${domainReplace ? 1 : 0}`;
@@ -3313,10 +3398,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     const max = Number(meta.max);
     let flags = 0;
     if (meta.wraparound) flags |= 1;
-    // Domain REPLACE (bit4): engineering-unit MOD bypasses knob; min/max are zoom only.
+    // Domain-valued (bit4): engineering-unit / outputDomain MOD path (ADD to knob).
+    // Replace-only (bit5): unit-span pitch-norm Frequency tracked by PitchHz.
+    const destDomainValued = destDomain || domainReplace
+      || (Number.isFinite(domainAdd) && domainAdd !== 0);
+    if (destDomainValued) {
+      flags |= 16; // domain-valued classify for |v|<=1 live samples
+      flags |= 8; // unbounded — min/max are zoom only
+    }
     if (domainReplace) {
-      flags |= 16;
-      flags |= 8; // unbounded — do not hard-clip sent domain value
+      flags |= 32; // replace-only (wipe knob)
     }
     // App-wide default: clamp after MOD to DOMAIN. Explicit false → unbounded (bit3).
     if (meta.modClamp === false) {
@@ -3907,11 +3998,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "gravityWalker") {
+      // gravity->SHAPE, leap->WIDTH (+ Leap CV on PitchCv), octaves->MODE,
+      // steps->STAGES, seed->SEED, scaleOffset->ATT_OFFSET.
       push("gravity", P.NATIVE_GRAPH_PARAM_SHAPE, cont("gravity", 0.65));
       push("leap", P.NATIVE_GRAPH_PARAM_WIDTH, cont("leap", 0.15));
-      push("octaves", P.NATIVE_GRAPH_PARAM_MODE, disc("octaves", 1));
-      push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
-      push("scale", P.NATIVE_GRAPH_PARAM_SEED, disc("scale", 1));
+      push("octaves", P.NATIVE_GRAPH_PARAM_MODE, disc("octaves", 0));
+      push("steps", P.NATIVE_GRAPH_PARAM_STAGES, disc("steps", 0));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("scaleOffset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, disc("scaleOffset", 0));
       continue;
     }
     if (type === "arp") {
@@ -4736,11 +4830,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "sampleHold") {
       // center=threshold, frequency=sampleFrequency, amplitude=Amplitude,
-      // mode=polarity (0 bipolar / 1 unipolar); noise seed = node id hash in C++.
+      // mode=polarity (0 bipolar / 1 unipolar), shape=interpolate,
+      // phase=phaseOffset (Right lane); noise seed = node id hash in C++.
       push("threshold", P.NATIVE_GRAPH_PARAM_CENTER, cont("threshold", 0));
       push("sampleFrequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("sampleFrequency", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       push("polarity", P.NATIVE_GRAPH_PARAM_MODE, disc("polarity", 0));
+      push("interpolate", P.NATIVE_GRAPH_PARAM_SHAPE, disc("interpolate", 0));
+      push("phaseOffset", P.NATIVE_GRAPH_PARAM_PHASE, cont("phaseOffset", 0));
       continue;
     }
     // minMax: no Control params
@@ -6457,6 +6554,48 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       ) {
         return true;
       }
+
+      // Scale = noteMask128 bus (Play/Arp/Chord Keys family). Fold in syncNativeScaleMasks.
+      if (String(dstPort || "") === "Scale" || String(srcPort || "") === "Scale") {
+        if (String(dstPort || "") !== "Scale") return true;
+        const scaleKey = `__scaleMask:${dstId}`;
+        let scaleHash = hostFeederHashByKey.get(scaleKey);
+        if (scaleHash) return true;
+        if (!biasTypeId) return true;
+        scaleHash = this.fnv1aHash32(scaleKey);
+        const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, scaleHash, biasTypeId) | 0;
+        if (arc !== 0) {
+          this.postNativeGraphStatus("error", `scale feeder add_node failed (${arc}) ${scaleKey}`);
+          return false;
+        }
+        hostFeederHashByKey.set(scaleKey, scaleHash);
+        hostFeeders.push({
+          hash: scaleHash,
+          sourceNode: srcId,
+          sourcePort: "Scale",
+          destinationNode: dstId,
+          scaleMaskFeeder: true,
+        });
+        this.pushNativeGraphSmoothType(native, scaleHash, attOffsetParam, 3);
+        this.pushNativeGraphSmoothMode(native, scaleHash, attOffsetParam, 3);
+        this.pushNativeGraphSmoothTime(native, scaleHash, attOffsetParam, 0);
+        const crcScale = native.soemdsp_graph_connect(
+          this.nativeGraphHandle,
+          scaleHash,
+          monoPort,
+          hashById.get(dstId),
+          this.mapNativeGraphDstPortId(dstPort, typeById.get(dstId)),
+        ) | 0;
+        if (crcScale !== 0) {
+          this.postNativeGraphStatus(
+            "error",
+            `scale feeder connect failed (${crcScale}) Scale->${dstId}`,
+          );
+          return false;
+        }
+        return true;
+      }
+
       if (idSet.has(srcId)) {
         const rc = native.soemdsp_graph_connect(
           this.nativeGraphHandle,
@@ -6725,25 +6864,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
               return;
             }
             liveParamModKeys.add(`${dId}\0${paramKey}\0${sId}\0${srcPort}`);
-            {
-              const sp = srcPort.trim().toLowerCase();
-              const isFreqParam = paramKey === "frequency" || paramKey === "freq";
-              const isHzPort = sp === "f" || sp === "\u0192" || sp === "freq" || sp === "frequency";
-              if (
-                isFreqParam && isHzPort && idSet.has(sId)
-                && typeof native.soemdsp_graph_connect === "function"
-              ) {
-                try {
-                  native.soemdsp_graph_connect(
-                    this.nativeGraphHandle,
-                    srcHash,
-                    srcPortId | 0,
-                    this.fnv1aHash32(dId),
-                    NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_F | 0,
-                  );
-                } catch (_e) { /* ignore */ }
-              }
-            }
+            // Domain Hz MOD ADDS to Frequency Control — no kPortF dual-wire.
           };
           if (srcLane && dstLane && srcLane.metaId === dstLane.metaId) continue;
           addMod(srcId, dstId);
@@ -6761,7 +6882,8 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     });
     this._nativeLiveParamModKeys = liveParamModKeys;
     this._nativePhaseModLiveKeys = liveParamModKeys;
-    this._nativeHostCvFeeders = hostFeeders;
+    this._nativeHostCvFeeders = hostFeeders.filter((f) => !f?.scaleMaskFeeder);
+    this._nativeScaleFeeders = hostFeeders.filter((f) => f?.scaleMaskFeeder);
     if (typeof this.snapNativeHostCvFeederSmoothing === "function") {
       this.snapNativeHostCvFeederSmoothing(native, hostFeeders);
     }
@@ -6896,7 +7018,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
       return ["0.1V/Oct", "0.1v/Oct", "Out", "Mono"];
     }
     if (type === "pitchQuantizer") {
-      return ["0.1V/Oct", "0.1v/Oct", "Out", "Mono", "Scale"];
+      return ["0.1V/Oct", "0.1v/Oct", "Out", "Mono"];
     }
     if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["X"];
     // Lorenz/Chua/…: native X lives on MONO (see mapNativeGraphSrcPortId).
@@ -6929,9 +7051,13 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "fractalBrownianNoise") {
       return ["Out X", "X", "Out", "Mono"];
     }
+    if (type === "chordPad" || type === "chordSequencer") {
+      return ["Scale", "Out", "Mono"];
+    }
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
+    if (type === "sampleHold") return ["Left"];
     if (type === "rasterRgb") return ["G"];
     if (type === "fractalBrownianNoise") {
       return ["Out Y", "Y", "Left"];
@@ -6982,9 +7108,16 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "noiseGenerator" || type === "cheapWalk" || type === "randomWalk") {
       return ["Left", "Left Out"];
     }
+    if (type === "pitchQuantizer" || type === "turingMachine") {
+      return ["Scale", "Left"];
+    }
+    if (type === "chordPad" || type === "chordSequencer") {
+      return ["Root", "Left"];
+    }
     return ["Left"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RIGHT) {
+    if (type === "sampleHold") return ["Right"];
     if (type === "rasterRgb") return ["B"];
     if (type === "fractalBrownianNoise") {
       return ["Out Z", "Z", "Right"];
@@ -7219,6 +7352,14 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
         out[names[ni]] = sample;
         any = true;
       }
+    }
+    // Scale jack is noteMask128 — expand legacy 12-bit Scale sample when present.
+    if (any && Object.prototype.hasOwnProperty.call(out, "Scale")
+      && typeof noteMaskFromPitchClassBits === "function") {
+      const bits = typeof noteMaskResolveScaleBits === "function"
+        ? noteMaskResolveScaleBits(out.Scale)
+        : (Math.round(Number(out.Scale)) & 0xFFF);
+      out.scaleMask = noteMaskFromPitchClassBits(bits);
     }
     if (any) {
       this.nodeOutputs.set(id, out);
@@ -7625,6 +7766,10 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
   } catch (_e) { /* keep audio */ }
   try {
     this.syncNativeArpNoteMasks?.();
+    this.syncNativeGravityWalkerNoteMasks?.();
+  } catch (_e) { /* keep audio */ }
+  try {
+    this.syncNativeScaleMasks?.();
   } catch (_e) { /* keep audio */ }
 
   // Knob targets + MOD cells — native smoother chases knobs; MOD applied after out.

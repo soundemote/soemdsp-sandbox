@@ -2751,7 +2751,7 @@ def require_root_shell(base_url: str) -> None:
     # here is what keeps this expected-bytes computation in sync with what
     # the server under test actually serves.
     build_mode = "release" if os.environ.get("SOEMDSP_BUILD_MODE", "").strip().lower() == "release" else "debug"
-    # BUILD_TOKEN is rolled per server process — extract from the live shell
+    # BUILD_TOKEN is rolled per server process â€” extract from the live shell
     # instead of guessing, then verify the rest of the template matches.
     root_probe = request(f"{base_url}/")
     require(root_probe.status == 200, "/ shell did not return 200")
@@ -3954,7 +3954,7 @@ def require_chromeless_module_registry_contract() -> None:
     )
 
     # Each registered type needs a matching UI registration in the same
-    # module folder — unless the face is fully shared (e.g. Value LCD reuses
+    # module folder â€” unless the face is fully shared (e.g. Value LCD reuses
     # the number-readout draw path and has no dedicated *-ui.js).
     # Meta In/Out are TitleBarAndPorts (no custom face UI).
     chromeless_ui_optional = {
@@ -4528,7 +4528,7 @@ def require_node_graph_mvp_contract() -> None:
         and "soemdsp_helmholtz_create" in helmholtz_exports_source
         and "soemdsp_helmholtz_process" in helmholtz_exports_source
         and "soemdsp_helmholtz_frequency" in helmholtz_exports_source,
-        "Helmholtz Pitch should clamp analysis windows to 128–4096 and wire native exports",
+        "Helmholtz Pitch should clamp analysis windows to 128â€“4096 and wire native exports",
     )
     noise_detector_definition_start = node_graph_module_definitions_source.index("  noiseDetector: {")
     noise_detector_definition_end = node_graph_module_definitions_source.index("  rms: {", noise_detector_definition_start)
@@ -4654,7 +4654,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'function nodeGraphJackVisibilityCensus' in script_sources["./public/node-graph-jack-chrome.js"]
         and 'axis === "x"' in script_sources["./public/node-graph-jack-chrome.js"]
         and "layoutBPortLabels: true" in script_sources["./public/modules/fbmField/fbm-field-register.js"]
-        and 'In: "→"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
+        and 'In: "â†’"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
         and 'Reset: "In"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
         and 'key: "rotate"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
         and 'key: "amplitude"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
@@ -4721,7 +4721,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'category: "object"' in script_sources["./public/node-graph-module-store.js"]
         and 'inputs: ["Analog", "Digital", "Gate", "0.1V/Oct"]' in script_sources["./public/node-graph-module-definitions.js"]
         and "smoothingSeconds: 0.1" in script_sources["./public/node-graph-module-definitions.js"]
-        and 'outputs: ["Tone", "ToneL", "ToneR", "ƒ1", "ƒ2", "Analog Thru", "Digital Thru"]' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'outputs: ["Tone", "ToneL", "ToneR", "Æ’1", "Æ’2", "Analog Thru", "Digital Thru"]' in script_sources["./public/node-graph-module-definitions.js"]
         and 'Tone: "Tone"' in script_sources["./public/node-graph-module-definitions.js"]
         and "LayoutA" in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("phoneTone: {"):
@@ -4765,7 +4765,7 @@ def require_node_graph_mvp_contract() -> None:
         and "gate2" not in script_sources["./public/node-graph-module-definitions.js"]
         and "numberGate" not in script_sources["./public/node-graph-module-definitions.js"]
         and "gate12" not in script_sources["./public/node-graph-default-patch.js"],
-        "t-series should be demux t…t10 plus mux 1t…10t with no gateN leftovers",
+        "t-series should be demux tâ€¦t10 plus mux 1tâ€¦10t with no gateN leftovers",
     )
     require(
         (lambda defs: (
@@ -5030,7 +5030,7 @@ def require_node_graph_mvp_contract() -> None:
             graph_contract_sources["store"],
             [
                 "smoothGraph: {",
-                "Draw free dots; one global Curve (Linear/Catmull/Quadratic/Cubic) maps Input · LFO · Phasor.",
+                "Draw free dots; one global Curve (Linear/Catmull/Quadratic/Cubic) maps Input Â· LFO Â· Phasor.",
                 "Smooth Graph",
             ],
         ),
@@ -5038,7 +5038,7 @@ def require_node_graph_mvp_contract() -> None:
             "normalizer",
             graph_contract_sources["utils"],
             [
-                # Lean core API — signatures evolve; avoid brittle long string lists.
+                # Lean core API â€” signatures evolve; avoid brittle long string lists.
                 "function normalizeNodeGraphGraph(value = {})",
                 "function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode, tension = 1, segmentOptions = {})",
                 "function nodeGraphGraphCurvePath(graphValue, sampleCount = 96, smoothingMode, tension = 1, segmentOptions = {})",
@@ -5102,7 +5102,7 @@ def require_node_graph_mvp_contract() -> None:
             ],
         ),
         (
-            # Lean style/sizing check — class names evolve with the graph face.
+            # Lean style/sizing check â€” class names evolve with the graph face.
             "sizing and style",
             "\n".join([graph_contract_sources["sizing"], graph_contract_sources["style"]]),
             [
@@ -5236,7 +5236,7 @@ def require_node_graph_mvp_contract() -> None:
         "graph module branch should still render the graph face display",
     )
 
-    # Module-by-module string contracts (delay, codeblock, filters, …) lag product
+    # Module-by-module string contracts (delay, codeblock, filters, â€¦) lag product
     # renames. Core shell + graph/helmholtz/source gates above stay mandatory.
     # Full suite: SMOKE_FULL_MVP=1 python scripts/smoke_test.py
     if os.environ.get("SMOKE_FULL_MVP", "").strip().lower() not in {"1", "true", "yes"}:
@@ -6802,7 +6802,7 @@ def require_node_graph_mvp_contract() -> None:
         "nodeSceneTextBoxVerticalAlign",
         "nodeSceneTextBoxVerticalAlignValue",
         "nodeSceneDeleteModule",
-        '<button id="nodeSceneDeleteModule" class="scene-context-danger" type="button" role="menuitem" hidden>\n          <span>🗑️ Delete</span>\n        </button>',
+        '<button id="nodeSceneDeleteModule" class="scene-context-danger" type="button" role="menuitem" hidden>\n          <span>ðŸ—‘ï¸ Delete</span>\n        </button>',
         "Delete",
         "nodeModuleActionsWindow",
         "nodeModuleActionsWindowHeading",
@@ -7307,7 +7307,7 @@ def require_node_graph_mvp_contract() -> None:
             script_sources["./public/node-graph-module-store.js"].index("const nodeGraphModuleShopWindowDefaultSize")
         ]
         and 'card.classList.add("under-construction")' in script_sources["./public/node-graph-module-store.js"]
-        and 'nativeStatus.textContent = "🚧"' in script_sources["./public/node-graph-module-store.js"]
+        and 'nativeStatus.textContent = "ðŸš§"' in script_sources["./public/node-graph-module-store.js"]
         and '.scene-context-store-card.under-construction' in style_source,
         "unfinished modules should render inside their category as disabled under-construction cards",
     )
@@ -7525,7 +7525,7 @@ def require_node_graph_mvp_contract() -> None:
                 "nodeGraphSamplePhaseCopyTextForNode",
                 "copyNodeGraphSamplePhaseForNode",
                 "nodeGraphSamplePhaseForNode(nodeId).toPrecision(17)",
-                'copyPhaseButton.textContent = "📋"',
+                'copyPhaseButton.textContent = "ðŸ“‹"',
                 'copyPhaseButton.setAttribute("aria-label", "Copy the current phase as a full precision number")',
                 "data-sample-phase-for-node",
                 "node-sample-phase-readout",
@@ -11226,7 +11226,7 @@ def require_node_graph_mvp_contract() -> None:
         'getElementById(actionMode ? "nodeModuleActionsClose" : "nodeSceneCloseMenu")',
         'event.target.closest(".dsp-node")',
         "function openNodeGraphModuleSettingsFromContextEvent(event, nodeElement = null)",
-        "Anywhere on a module (ports, inputs, body, header) → Module Settings.",
+        "Anywhere on a module (ports, inputs, body, header) â†’ Module Settings.",
         "nodeGraphWorkspaceFloatingUiSelector",
         'for (const port of node.querySelectorAll(".node-port"))',
         'for (const row of node.querySelectorAll(".node-io-row"))',
@@ -13120,8 +13120,8 @@ def require_node_graph_mvp_contract() -> None:
         osc_chunk_start = module_definitions_source.index(f"{oscilloscope_type}: {{")
         osc_chunk = module_definitions_source[osc_chunk_start:osc_chunk_start + 700]
         require(
-            'outputs: ["Thru"]' in osc_chunk and 'outputLabels: { Thru: "→" }' in osc_chunk,
-            f"{oscilloscope_type} should expose → Thru dry passthrough",
+            'outputs: ["Thru"]' in osc_chunk and 'outputLabels: { Thru: "â†’" }' in osc_chunk,
+            f"{oscilloscope_type} should expose â†’ Thru dry passthrough",
         )
     for xy_type in ["scope2d", "scope2dTrace", "phosphorLight", "asciiscope"]:
         require(f"{xy_type}: {{" in module_definitions_source, f"{xy_type} should have a spawnable module definition")
@@ -13141,9 +13141,9 @@ def require_node_graph_mvp_contract() -> None:
     require(
         'displayType: "numberReadout"' in number_readout_register_source
         and 'outputs: ["Thru"]' in number_readout_register_source
-        and 'outputLabels: { Thru: "→" }' in number_readout_register_source
+        and 'outputLabels: { Thru: "â†’" }' in number_readout_register_source
         and 'displayHeightGu: 2' in number_readout_register_source,
-        "Number Readout should be its own module type with → Thru passthrough for in-line chaining",
+        "Number Readout should be its own module type with â†’ Thru passthrough for in-line chaining",
     )
     number_readout_defaults_start = node_graph_source.index("const nodeGraphNumberReadoutSettingsDefaults")
     number_readout_defaults_end = node_graph_source.index("const nodeGraphScope2dSettingsDefaults", number_readout_defaults_start)
@@ -14326,7 +14326,7 @@ def require_node_graph_mvp_contract() -> None:
 
     require(
         "selectedDepartmentCount" not in script_sources["./public/node-graph-module-store.js"]
-        and "`${selectedDepartment} Â·" not in script_sources["./public/node-graph-module-store.js"],
+        and "`${selectedDepartment} Ã‚Â·" not in script_sources["./public/node-graph-module-store.js"],
         "module browser selected category title should not append module count",
     )
     require(
@@ -14606,8 +14606,8 @@ def require_node_graph_mvp_contract() -> None:
         and "function nodeGraphTraceDisplayControlToSizeValue(value, max = 1)" in node_graph_source
         and "return Math.pow(control, nodeGraphTraceDisplaySensitiveControlExponent) * max;" in node_graph_source
         and "if (!nodeGraphTraceDisplaySensitiveControlField(key))" in node_graph_source
-        # historySeconds is linear seconds (0–5 spectrogram); must NOT use the 0–1
-        # sensitive fader or History + snaps 2→1 and cannot go above 1.
+        # historySeconds is linear seconds (0â€“5 spectrogram); must NOT use the 0â€“1
+        # sensitive fader or History + snaps 2â†’1 and cannot go above 1.
         and 'key === "historySeconds" ||' not in node_graph_source
         and "adjustNodeGraphTraceDisplaySettingByControlDelta(drag.key, startValue, controlDelta)" in node_graph_source
         and "adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum)" in node_graph_source
@@ -15675,8 +15675,8 @@ def require_node_graph_mvp_contract() -> None:
     require(
         'id="nodeModularInfiniteViewButton"' in index_source
         and 'id="nodeModularWindowedViewButton"' in index_source
-        and 'aria-hidden="true">💻</span></button>' in index_source
-        and 'aria-hidden="true">📱</span></button>' in index_source
+        and 'aria-hidden="true">ðŸ’»</span></button>' in index_source
+        and 'aria-hidden="true">ðŸ“±</span></button>' in index_source
         and 'id="nodeAppChromeBarsToggleButton"' in index_source
         and "<kbd>V</kbd>" in index_source
         and 'id="nodeSceneToggleModularInfiniteView"' in index_source
@@ -15703,7 +15703,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'event.key.toLowerCase() === "v"' in script_sources["./public/node-graph-keyboard-shortcuts.js"]
         and "toggleNodeGraphModularWindowedView" in node_graph_source
         and 'event.key.toLowerCase() === "b"' not in script_sources["./public/node-graph-keyboard-shortcuts.js"],
-        "Modular chrome SSOT: V hides bars only (floating windows stay); 💻 infinite; 📱 condensed",
+        "Modular chrome SSOT: V hides bars only (floating windows stay); ðŸ’» infinite; ðŸ“± condensed",
     )
 
     require(
@@ -18496,6 +18496,7 @@ def require_native_module_contract(base_url: str) -> None:
         "gravity_walker": [
             "soemdsp_gravity_walker_create",
             "soemdsp_gravity_walker_destroy",
+            "soemdsp_gravity_walker_set_chunks",
             "soemdsp_gravity_walker_sample",
             "soemdsp_gravity_walker_gate",
             "soemdsp_gravity_walker_trigger",
@@ -18642,7 +18643,7 @@ def require_native_module_contract(base_url: str) -> None:
                 and "analysisIntervalSamples" in source_text
                 and "s->hopCounter >= s->analysisIntervalSamples" in source_text
                 and "const int hop = s->windowSize / 2;" not in source_text,
-                "native Helmholtz should keep MPM analysis bounded by window cap 128–4096 and control-rate cadence",
+                "native Helmholtz should keep MPM analysis bounded by window cap 128â€“4096 and control-rate cadence",
             )
 
     ellipsoid_source_path = ROOT / "native_modules" / "ellipsoid" / "ellipsoid.cpp"
@@ -18763,7 +18764,7 @@ def require_native_module_contract(base_url: str) -> None:
         and _pf_push > _af_push
         and 'push("sweep", P.NATIVE_GRAPH_PARAM_CENTER, cont("sweep", 0))'
         in native_graph_source[_af_push:_pf_push],
-        "Dual Ladder native param push must map sweep → CENTER (semitones), like Passive Filter",
+        "Dual Ladder native param push must map sweep â†’ CENTER (semitones), like Passive Filter",
     )
     _af_proc = graph_engine_source.find("static void process_active_filter")
     _pf_proc = graph_engine_source.find("static void process_passive_filter")

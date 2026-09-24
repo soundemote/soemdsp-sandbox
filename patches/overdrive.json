@@ -582,7 +582,7 @@
           "alias": "",
           "bipolar": false,
           "choices": [],
-          "tooltip": "Base chance of a larger jump (added to Leap CV).",
+          "tooltip": "Chance of a larger jump.",
           "visible": true,
           "modClamp": false,
           "showSign": false,

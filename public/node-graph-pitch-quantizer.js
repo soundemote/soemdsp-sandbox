@@ -1,7 +1,7 @@
-// Pitch Quantizer helpers: 12-bit pitch-class masks + quantization math.
+// Pitch Quantizer helpers: pitch-class masks + quantization math.
 //
-// Bit i = pitch class i (0=C … 11=B) is in the scale. Applied across every
-// octave: the keyboard face edits this mask; the Scale jack can override it.
+// Face keyboard edits a 12-bit class mask (bit i = class i). Scale jack is the
+// shared noteMask128 bus (Play/Arp/Chord Keys); DSP folds lit notes via n%12.
 
 // Preset scale masks. Index matches the "scale" parameter choice order
 // (0…5 presets; 6 = Custom when the face keyboard has been edited).
@@ -43,6 +43,10 @@ function nodeGraphPitchQuantizerMaskFromChoice(choiceIndex) {
 }
 
 function nodeGraphPitchQuantizerNormalizeMask(raw) {
+  if (typeof noteMaskResolveScaleBits === "function") {
+    const bits = noteMaskResolveScaleBits(raw);
+    return bits || nodeGraphPitchQuantizerScaleMasks[1];
+  }
   const n = Math.round(Number(raw));
   if (!Number.isFinite(n)) {
     return nodeGraphPitchQuantizerScaleMasks[1]; // Major
@@ -70,19 +74,50 @@ function nodeGraphPitchQuantizerScaleJackConnected(nodeId) {
   return (nodeGraphModuleScopeConnectionsTo(nodeId, "Scale") || []).length > 0;
 }
 
-/** Face paint: Chord Pad Scale can be read from pad params; otherwise keyboard. */
+
+/** OR Scale-jack cables into one 12-bit mask (noteMask128 fold / pad params). */
+function nodeGraphResolveScaleBitsFromConnections(nodeId) {
+  if (typeof nodeGraphModuleScopeConnectionsTo !== "function") return 0;
+  const connections = nodeGraphModuleScopeConnectionsTo(nodeId, "Scale") || [];
+  let bits = 0;
+  const fold = (mask) => (typeof noteMaskPitchClassBits === "function" && mask instanceof Uint8Array
+    ? noteMaskPitchClassBits(mask) : 0);
+  for (let i = 0; i < connections.length; i += 1) {
+    const sp = String(connections[i]?.sourcePort || "");
+    const srcId = connections[i]?.sourceNode;
+    const source = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(srcId) : null;
+    if (source?.type === "chordPad" && typeof nodeGraphChordPadScaleForNode === "function") {
+      bits |= nodeGraphChordPadScaleForNode(source) & 0xFFF;
+    } else if (source?.type === "pitchQuantizer") {
+      bits |= nodeGraphPitchQuantizerKeyboardMask(source) & 0xFFF;
+    }
+    const live = typeof nodeGraphMvp !== "undefined"
+      ? nodeGraphMvp?.live?.nodeOutputs?.get?.(String(srcId))
+      : null;
+    if (!live || typeof live !== "object") continue;
+    if (sp === "Play Keys") bits |= fold(live.playMask);
+    else if (sp === "Arp Keys") bits |= fold(live.arpMask);
+    else if (sp === "Chord Memory") bits |= fold(live.chordMask || live.chordPlayMask);
+    else if (sp === "Scale") {
+      bits |= fold(live.scaleMask);
+      if (!live.scaleMask && typeof noteMaskResolveScaleBits === "function") {
+        bits |= noteMaskResolveScaleBits(live.Scale);
+      }
+    }
+  }
+  return bits & 0xFFF;
+}
+
+/** Face paint: Scale jack (noteMask128 / legacy bits) overrides keyboard when patched. */
 function nodeGraphPitchQuantizerMaskForNode(node) {
   if (!node || typeof node !== "object") {
     return nodeGraphPitchQuantizerScaleMasks[1];
   }
   if (nodeGraphPitchQuantizerScaleJackConnected(node.id)) {
-    const connections = nodeGraphModuleScopeConnectionsTo(node.id, "Scale") || [];
-    const source = typeof nodeGraphPatchNode === "function"
-      ? nodeGraphPatchNode(connections[0]?.sourceNode)
-      : null;
-    if (source?.type === "chordPad" && typeof nodeGraphChordPadScaleForNode === "function") {
-      return nodeGraphPitchQuantizerNormalizeMask(nodeGraphChordPadScaleForNode(source));
-    }
+    const bits = typeof nodeGraphResolveScaleBitsFromConnections === "function"
+      ? nodeGraphResolveScaleBitsFromConnections(node.id)
+      : 0;
+    if (bits) return nodeGraphPitchQuantizerNormalizeMask(bits);
   }
   return nodeGraphPitchQuantizerKeyboardMask(node);
 }
@@ -141,7 +176,9 @@ function nodeGraphPitchQuantizerSample(state, options = {}) {
   const keyboard = options.scaleMask != null
     ? nodeGraphPitchQuantizerNormalizeMask(options.scaleMask)
     : nodeGraphPitchQuantizerMaskFromChoice(options.scaleChoice);
-  const jack = Math.round(nodeGraphFiniteNumber(options.scaleInput)) & 0xFFF;
+  const jack = typeof noteMaskResolveScaleBits === "function"
+    ? noteMaskResolveScaleBits(options.scaleInput)
+    : (Math.round(nodeGraphFiniteNumber(options.scaleInput)) & 0xFFF);
   const mask = (options.hasScaleInput && jack !== 0) ? jack : keyboard;
 
   if (mask === 0) {

@@ -185,6 +185,11 @@ function nodeGraphModuleScopeConnectionsTo(nodeId, port = "In") {
     .filter((connection) => connection.destinationNode === nodeId && connection.destinationPort === port);
 }
 
+function nodeGraphModuleScopeConnectionsFrom(nodeId, port = "Out") {
+  return (Array.isArray(nodeGraphMvp?.patch?.connections) ? nodeGraphMvp.patch.connections : [])
+    .filter((connection) => connection.sourceNode === nodeId && connection.sourcePort === port);
+}
+
 function nodeGraphModuleScopeConnectedSourceBuffer(nodeId, port = "In") {
   const connection = nodeGraphModuleScopeConnectionsTo(nodeId, port)
     .find((candidate) => candidate?.sourceNode && candidate?.sourcePort);

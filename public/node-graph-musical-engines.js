@@ -3,7 +3,7 @@
 //
 // Shared helpers + modules:
 //   degreeTuring   — mutating shift-register over scale degrees
-//   gravityWalker  — nearest-tone walk with leap CV / residual memory
+//   gravityWalker  — nearest-tone walk with Leap param / residual memory
 //   degreePhrase   — 8-step degree phrase + rest + mutate corrosion
 //   noteGlide      — portamento on 0.1V/Oct
 //   noteTranspose  — semitone / octave offset on 0.1V/Oct
@@ -11,6 +11,12 @@
 // ─── shared pitch-class helpers ─────────────────────────────────────────────
 
 function nodeGraphMusicalNormalizeMask(raw) {
+  if (typeof noteMaskResolveScaleBits === "function") {
+    return noteMaskResolveScaleBits(raw);
+  }
+  if (raw instanceof Uint8Array && typeof noteMaskPitchClassBits === "function") {
+    return noteMaskPitchClassBits(raw);
+  }
   const n = Math.round(Number(raw));
   if (!Number.isFinite(n)) {
     return 0;
@@ -165,73 +171,173 @@ function nodeGraphDegreeTuringSample(state, options = {}) {
 }
 
 // ─── Gravity Walker ─────────────────────────────────────────────────────────
-// Cursor on degree line; each clock prefers small steps, leap CV / leap% jumps.
+// Sticky/random walk over Keys noteMask128 (Arp Keys cousin).
+// Pool: held MIDI → expand Octaves → Scale Offset rotate → walk.
 
 function createNodeGraphGravityWalkerState() {
   return {
     clockWasHigh: false,
     resetWasHigh: false,
     degree: 0,
+    inertia: 1,
+    clocksSinceRestart: 0,
+    rngState: 1,
     lastMidi: 60,
-    inertia: 1, // last step direction ±1
   };
 }
 
-function nodeGraphGravityWalkerSample(state, options = {}) {
-  const level = Number(options.level) ?? 1;
-  const leapAmount = Math.max(0, Math.min(1, Number(options.leap) ?? 0.15));
-  const leapCv = Math.max(0, Math.min(1, Math.abs(nodeGraphFiniteNumber(options.leapCv))));
-  const leapProb = Math.max(0, Math.min(1, leapAmount + leapCv * 0.85));
-  const gravity = Math.max(0, Math.min(1, Number(options.gravity) ?? 0.65));
-  const octaves = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(options.octaves, 1))));
-  const mask = nodeGraphMusicalNormalizeMask(
-    options.hasScaleInput ? options.scaleInput : (options.scaleMask ?? 2741),
-  );
-  const root = nodeGraphFiniteNumber(options.root, (60 / 120));
-  const classes = nodeGraphMusicalClassesFromRoot(mask, root);
-  const span = Math.max(1, classes.length * (octaves + 1));
+function nodeGraphGravityWalkerSeedU32(seed) {
+  let s = Number(seed);
+  if (!Number.isFinite(s)) s = 1;
+  if (s < 0) s = 0;
+  if (s > 2147483647) s = 2147483647;
+  const u = Math.round(s) >>> 0;
+  return u || 1;
+}
 
-  if (nodeGraphMusicalRisingEdge(state, "resetWasHigh", options.reset, 0)) {
-    state.degree = 0;
-    state.inertia = 1;
-  }
+function nodeGraphGravityWalkerNextUnit(state) {
+  let x = state.rngState >>> 0;
+  x ^= (x << 13) >>> 0;
+  x ^= x >>> 17;
+  x ^= (x << 5) >>> 0;
+  state.rngState = x || 1;
+  return state.rngState / 4294967295;
+}
 
-  let trig = 0;
-  if (nodeGraphMusicalRisingEdge(state, "clockWasHigh", options.clock, 0) && classes.length) {
-    trig = 1;
-    if (Math.random() < leapProb) {
-      // Leap: random degree, mild bias toward remaining in band.
-      const jump = 1 + Math.floor(Math.random() * Math.max(1, Math.floor(span / 2)));
-      state.inertia = Math.random() < 0.5 ? -1 : 1;
-      state.degree = (state.degree + state.inertia * jump + span * 8) % span;
-    } else {
-      // Gravity: continue in inertia direction; sometimes reverse or stay.
-      let step = state.inertia;
-      if (Math.random() > gravity) {
-        step = Math.random() < 0.5 ? -step : 0;
-      }
-      if (step === 0) {
-        step = Math.random() < 0.5 ? -1 : 1;
-      }
-      state.inertia = step >= 0 ? 1 : -1;
-      state.degree = (state.degree + step + span * 8) % span;
+function nodeGraphGravityWalkerRestart(state, seed) {
+  state.degree = 0;
+  state.inertia = 1;
+  state.rngState = nodeGraphGravityWalkerSeedU32(seed);
+  state.clocksSinceRestart = 0;
+}
+
+function nodeGraphGravityWalkerBuildPool(options = {}) {
+  const held = [];
+  const rawMask = options.keysMask;
+  if (rawMask instanceof Uint8Array) {
+    for (let m = 0; m < 128; m += 1) {
+      if (rawMask[m]) held.push(m);
+    }
+  } else if (Array.isArray(options.keysMidi)) {
+    for (const n of options.keysMidi) {
+      const m = Math.round(Number(n));
+      if (m >= 0 && m <= 127) held.push(m);
+    }
+  } else if (options.hasKeysInput && typeof noteMaskFromRegisters === "function") {
+    // Legacy demux path if a numeric chunk sample is provided.
+    const regs = { c0: 0, c1: 0, c2: 0 };
+    if (typeof noteMaskDemuxRegisters === "function") {
+      noteMaskDemuxRegisters(regs, options.keysInput);
+    }
+    const mask = noteMaskFromRegisters(regs);
+    for (let m = 0; m < 128; m += 1) {
+      if (mask[m]) held.push(m);
     }
   }
 
-  const midi = classes.length
-    ? nodeGraphMusicalDegreeToMidi(root, classes, state.degree)
-    : state.lastMidi;
-  state.lastMidi = midi;
+  const octaves = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(options.octaves, 0))));
+  const seen = new Set();
+  const expanded = [];
+  for (const midi of held) {
+    for (let o = 0; o <= octaves; o += 1) {
+      const m = midi + o * 12;
+      if (m < 0 || m > 127 || seen.has(m)) continue;
+      seen.add(m);
+      expanded.push(m);
+    }
+  }
+  expanded.sort((a, b) => a - b);
 
+  let offset = Math.round(nodeGraphFiniteNumber(options.scaleOffset, 0));
+  if (offset > 24) offset = 24;
+  if (offset < -24) offset = -24;
+  const pool = expanded.slice();
+  const times = Math.min(64, Math.abs(offset));
+  for (let t = 0; t < times; t += 1) {
+    if (!pool.length) break;
+    if (offset > 0) {
+      const lowest = pool.shift();
+      pool.push(Math.max(0, Math.min(127, lowest + 12)));
+    } else {
+      const highest = pool.pop();
+      pool.unshift(Math.max(0, Math.min(127, highest - 12)));
+    }
+  }
+  return pool;
+}
+
+function nodeGraphGravityWalkerWalk(state, pool, gravity, leapProb) {
+  const span = pool.length;
+  if (span <= 0) return;
+  if (span === 1) {
+    state.degree = 0;
+    return;
+  }
+  if (nodeGraphGravityWalkerNextUnit(state) < leapProb) {
+    const half = Math.floor(span / 2);
+    const jumpMax = half > 1 ? half : 1;
+    const jump = 1 + Math.floor(nodeGraphGravityWalkerNextUnit(state) * jumpMax);
+    state.inertia = nodeGraphGravityWalkerNextUnit(state) < 0.5 ? -1 : 1;
+    state.degree = (state.degree + state.inertia * jump + span * 8) % span;
+  } else {
+    let step = state.inertia;
+    if (nodeGraphGravityWalkerNextUnit(state) > gravity) {
+      step = nodeGraphGravityWalkerNextUnit(state) < 0.5 ? -step : 0;
+    }
+    if (step === 0) {
+      step = nodeGraphGravityWalkerNextUnit(state) < 0.5 ? -1 : 1;
+    }
+    state.inertia = step >= 0 ? 1 : -1;
+    state.degree = (state.degree + step + span * 8) % span;
+  }
+}
+
+function nodeGraphGravityWalkerSample(state, options = {}) {
+  const leapAmount = Math.max(0, Math.min(1, Number(options.leap) ?? 0.15));
+  const gravity = Math.max(0, Math.min(1, Number(options.gravity) ?? 0.65));
+  const steps = Math.max(0, Math.min(128, Math.round(nodeGraphFiniteNumber(options.steps, 0))));
+  const seed = nodeGraphGravityWalkerSeedU32(options.seed ?? 1);
+  const pool = nodeGraphGravityWalkerBuildPool(options);
+
+  if (nodeGraphMusicalRisingEdge(state, "resetWasHigh", options.reset, 0)) {
+    nodeGraphGravityWalkerRestart(state, seed);
+  }
+
+  let trig = 0;
+  if (nodeGraphMusicalRisingEdge(state, "clockWasHigh", options.clock, 0) && pool.length) {
+    if (steps > 0 && state.clocksSinceRestart >= steps) {
+      nodeGraphGravityWalkerRestart(state, seed);
+    }
+    trig = 1;
+    state.clocksSinceRestart += 1;
+    // Latch current degree, then advance for next clock (Arp-like).
+    // walk happens after midi latch below
+    state._pendingWalk = { gravity, leapAmount };
+  }
+
+  let midi = state.lastMidi;
+  if (pool.length) {
+    let idx = state.degree | 0;
+    if (idx < 0) idx = 0;
+    if (idx >= pool.length) idx = pool.length - 1;
+    midi = pool[idx];
+    state.lastMidi = midi;
+  }
+
+  if (state._pendingWalk) {
+    nodeGraphGravityWalkerWalk(state, pool, state._pendingWalk.gravity, state._pendingWalk.leapAmount);
+    state._pendingWalk = null;
+  }
+
+  const span = Math.max(1, pool.length);
   return {
     "0.1V/Oct": nodeGraphMusicalPitchFromMidi(midi),
-    // Absolute Hz (A4=440), matches native Ramp / Arp f out.
     f: (typeof nodeGraphMidiToHz === "function"
       ? nodeGraphMidiToHz(midi)
       : (440 * (2 ** ((Number(midi) - 69) / 12)))),
-    Gate: (classes.length ? 1 : 0) * level,
-    Trigger: trig * level,
-    Degree: span > 1 ? state.degree / (span - 1) : 0,
+    Gate: pool.length ? 1 : 0,
+    Trigger: trig,
+    Degree: pool.length > 1 ? (Math.max(0, Math.min(pool.length - 1, state.degree)) / (pool.length - 1)) : 0,
   };
 }
 

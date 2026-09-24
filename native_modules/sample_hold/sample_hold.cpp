@@ -5,17 +5,12 @@
 //
 // Latches its input whenever the Clock input crosses above threshold
 // (rising edge), or on every internal-clock tick if sampleFrequency > 0.
-// When nothing is patched into a channel In, the "input" fed to the latch is
-// instead a seeded LCG bipolar noise source -- same LCG as native_modules/
-// noise_generator (1664525*seed + 1013904223 mod 2^32), reseeded whenever
-// the caller passes a different `seed` integer (JS computes that integer
-// once via its own stableSeed(nodeId+salt) hash and only changes it if the
-// node identity changes -- same "precomputed seed, passed as a plain int"
-// split as delay_effect's variation seed).
-//
-// JS bundles independent left/right instances (no Mono jack). Interpolate
-// Linear/Smoothstep is JS-only; native path is classic hold (Off).
-// This native module itself is single-channel, one handle per channel.
+// When hasInConnected==0, the latch samples seeded LCG bipolar noise
+// (same LCG as noise_generator). Graph engine runs three handles per node:
+// Ext (external hold), Left + Right (independent internal noise).
+// phaseOffset (cycles, mod 1) desyncs that lane's Sample Freq / Clock fires
+// vs offset 0: 0 and 1 fire together, 0.5 is halfway. Interpolate 0/1/2 =
+// Off / Linear / Smoothstep glide over the clock period.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -23,16 +18,20 @@ namespace {
 
 using namespace soemdsp_maths;
 
-static const int kMaxInstances = 96;
+static const int kMaxInstances = 192;
 
 struct SampleHoldState {
   bool active;
   double clockPhase;
   double held;
-  double lastTrigger;  // starts at 0, matching the JS reference exactly --
-                       // NOT guarded against firing on the very first
-                       // sample (0 <= threshold && trigger > threshold can
-                       // be true immediately, and that's intentional/matched).
+  double from;
+  double out;
+  double samplesInSegment;
+  double segmentSamples;
+  double lastIntervalSamples;
+  double samplesSinceFire;
+  double lastTrigger;
+  int pendingFireSamples; // Clock-edge delay for phaseOffset (>0 counting down)
   unsigned int noiseSeed;
   int currentSeed;
 };
@@ -48,6 +47,11 @@ static double next_bipolar(unsigned int& seed) {
   return (double)lcg_next(seed) / (double)0xffffffffU * 2.0 - 1.0;
 }
 
+static double smoothstep01(double t) {
+  const double x = t <= 0.0 ? 0.0 : (t >= 1.0 ? 1.0 : t);
+  return x * x * (3.0 - 2.0 * x);
+}
+
 }  // namespace
 
 extern "C" int soemdsp_sample_hold_create() {
@@ -56,7 +60,14 @@ extern "C" int soemdsp_sample_hold_create() {
       SampleHoldState& s = gPool[i];
       s.clockPhase = 0.0;
       s.held = 0.0;
+      s.from = 0.0;
+      s.out = 0.0;
+      s.samplesInSegment = 0.0;
+      s.segmentSamples = 1.0;
+      s.lastIntervalSamples = 0.0;
+      s.samplesSinceFire = 0.0;
       s.lastTrigger = 0.0;
+      s.pendingFireSamples = 0;
       s.noiseSeed = 1U;
       s.currentSeed = 0;
       s.active = true;
@@ -81,7 +92,9 @@ extern "C" double soemdsp_sample_hold_sample(
   int    hasInConnected,
   int    seed,
   double amplitude,
-  double polarityMode
+  double polarityMode,
+  double interpolateMode,
+  double phaseOffset
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   SampleHoldState& s = gPool[handle - 1];
@@ -98,28 +111,100 @@ extern "C" double soemdsp_sample_hold_sample(
   const double safeFreq = maxd(0.0, safe(sampleFrequency));
   const double safeRate = maxd(1.0, safe(sampleRate));
   const double amp = safe(amplitude);
-  // 0 = Bipolar (−1…1), 1 = Unipolar (0…1) after hold.
   const bool unipolar = polarityMode >= 0.5;
+  int interp = (int)(safe(interpolateMode) + (safe(interpolateMode) >= 0.0 ? 0.5 : -0.5));
+  if (interp < 0) interp = 0;
+  if (interp > 2) interp = 2;
+  const double offset = wrap01(safe(phaseOffset));
 
   bool internalFire = false;
   if (safeFreq > 0.0) {
+    const double prev = s.clockPhase;
     s.clockPhase += safeFreq / safeRate;
+    bool wrapped = false;
     if (s.clockPhase >= 1.0) {
       s.clockPhase -= dsp_floor(s.clockPhase);
-      internalFire = true;
+      wrapped = true;
+    }
+    // Fire when free-running phase crosses `offset` (0/1 ≡ wrap).
+    if (offset <= 1.0e-12 || offset >= 1.0 - 1.0e-12) {
+      internalFire = wrapped;
+    } else if (wrapped) {
+      internalFire = (prev < offset) || (s.clockPhase >= offset);
+    } else {
+      internalFire = (prev < offset && s.clockPhase >= offset);
     }
   }
 
   const bool risingEdge = s.lastTrigger <= safeThreshold && safeTrigger > safeThreshold;
-  if (risingEdge || internalFire) {
-    s.held = safeInput;
+  bool fire = internalFire;
+
+  if (risingEdge) {
+    // Ext/Left (offset≈0) fire with Clock; Right delays by offset·period.
+    if (offset <= 1.0e-12 || offset >= 1.0 - 1.0e-12) {
+      fire = true;
+      s.pendingFireSamples = 0;
+    } else {
+      const double period = safeFreq > 0.0
+        ? (safeRate / safeFreq)
+        : maxd(1.0, s.lastIntervalSamples > 0.0 ? s.lastIntervalSamples : (safeRate / 10.0));
+      int delay = (int)(offset * period + 0.5);
+      if (delay < 1) {
+        fire = true;
+        s.pendingFireSamples = 0;
+      } else {
+        s.pendingFireSamples = delay;
+      }
+    }
   }
+
+  if (s.pendingFireSamples > 0) {
+    s.pendingFireSamples -= 1;
+    if (s.pendingFireSamples <= 0) {
+      s.pendingFireSamples = 0;
+      fire = true;
+    }
+  }
+
+  s.samplesSinceFire = safe(s.samplesSinceFire) + 1.0;
+
+  if (fire) {
+    const double interval = maxd(1.0, safe(s.samplesSinceFire));
+    s.lastIntervalSamples = interval;
+    s.samplesSinceFire = 0.0;
+    const double seg = safeFreq > 0.0
+      ? maxd(1.0, (double)((int)(safeRate / safeFreq + 0.5)))
+      : maxd(1.0, safe(s.lastIntervalSamples));
+    s.segmentSamples = seg;
+    s.samplesInSegment = 0.0;
+    s.from = safe(s.out);
+    s.held = safeInput;
+    if (interp == 0) {
+      s.out = safeInput;
+      s.from = safeInput;
+    }
+  }
+
   s.lastTrigger = safeTrigger;
-  double out = s.held;
+
+  double out;
+  if (interp == 0) {
+    s.out = safe(s.held);
+    out = s.out;
+  } else {
+    s.samplesInSegment = safe(s.samplesInSegment) + 1.0;
+    const double seg = maxd(1.0, safe(s.segmentSamples));
+    double t = s.samplesInSegment / seg;
+    if (t > 1.0) t = 1.0;
+    if (interp == 2) t = smoothstep01(t);
+    out = safe(s.from) + (safe(s.held) - safe(s.from)) * t;
+    s.out = out;
+  }
+
   if (unipolar) out = (out + 1.0) * 0.5;
   return safe(out * amp);
 }
 
 extern "C" int soemdsp_sample_hold_version() {
-  return 2; // amplitude + bipolar/unipolar
+  return 3; // interpolate + phaseOffset; glide state
 }

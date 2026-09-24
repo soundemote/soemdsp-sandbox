@@ -532,6 +532,17 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 
 ---
 
+
+## 17. No duplicate inputs that are parameters
+
+**Do not ship a left-side CV / audio input jack that is only a duplicate of a modulatable parameter.**
+
+- If a value is already a **parameter** (knob + normal param MOD), do **not** also expose a same-named **Morph**, **Phase**, or **Amplitude** input jack that adds/multiplies the same value.
+- **Morph / Phase / Amplitude CV twins of params are disallowed** (standing approval to remove). Keep the parameter; drop the jack and any dedicated add/mul twin path so the param alone drives the value (normal param modulation still applies).
+- **Other** twin removals (e.g. Size/Opacity, Speed, Spawn) need **human approval** first — do not remove without asking.
+- Gravity Walker **Leap** input was an approved twin of the Leap param: removed; `leapProb` = clamp(leap param only).
+
+
 ## Amendments
 
 Add new rules here when the same class of mistake happens twice. Keep this file short and enforceable.

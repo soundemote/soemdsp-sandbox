@@ -2086,8 +2086,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   sampleHold: {
     category: "modulator",
-    description: "Grab on Clock: Ext In→Ext Out plus internal noise on Left/Right, same clock. Interpolate Off/Linear/Smoothstep.",
-    notes: ["clock capture", "ext in out", "internal noise", "left right", "interpolate"],
+    description: "Grab on Clock: Ext In→Ext Out plus internal noise on Left/Right. Phase Offset desyncs Right. Interpolate Off/Linear/Smoothstep.",
+    notes: ["clock capture", "ext in out", "internal noise", "left right", "interpolate", "phase offset"],
   },
   expAdsr: {
     category: "envelope",

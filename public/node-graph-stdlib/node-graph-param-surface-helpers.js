@@ -8,17 +8,21 @@
 //   MOD     - param-row CV. Fold SSOT: nodeGraphParamFoldModSources /
 //             nodeGraphParamApplyMod.
 //             * Normal dest: |mod|<=1 -> linear unit add across [min,max] (no skew);
-//               domain-tagged / |mod|>1 -> REPLACE absolute with sum(domainMods).
-//             * outputDomain ("Use real mod values"): ignore params[key].
-//               effective = sum(domainMods) + domainOffset
+//               domain-tagged / |mod|>1 / engineering-unit -> ADD to Control/knob:
+//               effective = paramValue + sum(domainMods)  (knob is an offset).
+//             * outputDomain ("Use real mod values"): same ADD rule.
+//               effective = paramValue + sum(domainMods) + domainOffset
 //               domainOffset (paramMeta, default 0) always applies, even with no
 //               MOD wires. Slider edits offset on +/-|max|, linear (no curve yet).
-//             Unipolar clip only when metadata.unipolarMod. Pitch expo -> 0.1V/Oct.
+//             * Replace-only exception: explicit metadata.domainReplace, or unit-span
+//               0..1 destinations (Superlove-style pitch-norm Frequency) so PitchHz
+//               can track cutoff. Unipolar clip when metadata.unipolarMod.
 //
 //   SIGNAL IN - named jacks (In, 0.1V/Oct, ...). Not MOD. Module evaluators.
 //
-// Native stamp mirrors this: domainReplace bit4; domainAdd includes domainOffset
-// when outputDomain. Yellow Graph / Range sources tag domain the same way.
+// Native stamp mirrors this: bit4 = domain-valued (ADD to Control.out);
+// bit5 = replace-only (unit-span pitch-norm). outputDomain stamps domainOffset
+// into domainAdd. Yellow Graph / Range sources tag domain the same way.
 //
 /** @typedef {"domain"|"mod"|"signalIn"} NodeGraphParamSurface */
 
@@ -464,7 +468,34 @@ function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
 }
 
 /**
- * Classify MOD sources into unit-band vs domain-replace accumulators.
+ * True when domain MOD should REPLACE the Control/knob (not add as offset).
+ * Default for real-mod / engineering-unit / outputDomain is ADD (knob = offset).
+ * Replace-only: explicit metadata.domainReplace, or unit-span 0…1 destinations
+ * (Superlove-style pitch-norm Frequency tracked by PitchHz).
+ */
+function nodeGraphParamDomainModReplacesBase(metadata = {}) {
+  if (metadata && metadata.domainReplace === true) {
+    return true;
+  }
+  // Real-mod mode: Control/knob is always an offset.
+  if (metadata && metadata.outputDomain === true) {
+    return false;
+  }
+  const min = Number(metadata && metadata.min);
+  const max = Number(metadata && metadata.max);
+  if (Number.isFinite(min) && Number.isFinite(max) && max > min) {
+    const span = max - min;
+    // Unit-span domains (typ. 0…1 pitch-norm Frequency): REPLACE to track source.
+    if (span <= 1.0001 && Math.abs(max) <= 1.0001 && min >= -1.0001) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Classify MOD sources into unit-band vs domain accumulators.
+ * Domain mods ADD to the Control/knob (offset) unless domainReplace (rare).
  * Same per-source rules as fold — used by efficient native set_param_mod.
  * @returns {{ unitAdd: number, domainAdd: number, domainReplace: boolean }}
  */
@@ -477,9 +508,10 @@ function nodeGraphParamModAccumulators(sources, metadata = {}) {
   let domainAdd = 0;
   let domainReplace = false;
   const list = Array.isArray(sources) ? sources : [sources];
-  // Dest "Use real mod values" / outputDomain: treat every MOD as domain REPLACE.
-  // Absolute params ignored; fold adds domainOffset separately.
+  // Dest "Use real mod values" / outputDomain: every MOD is domain-valued, but
+  // ADDS to the Control/knob (offset) — not a wipe. Replace-only is rare (below).
   const destDomain = metadata && metadata.outputDomain === true;
+  const replaceBase = nodeGraphParamDomainModReplacesBase(metadata);
   for (const raw of list) {
     let { value: mod, domain } = nodeGraphParamNormalizeModSource(raw);
     if (destDomain) domain = true;
@@ -487,14 +519,14 @@ function nodeGraphParamModAccumulators(sources, metadata = {}) {
       mod = Math.max(0, mod);
     }
     if (domain) {
-      domainReplace = true;
       domainAdd += mod;
+      if (replaceBase) domainReplace = true;
     } else if (Number.isFinite(range) && range > 0) {
       unitAdd += mod;
     } else {
-      // No domain range → treat leftover as domain replace so value still lands.
-      domainReplace = true;
+      // No domain range → still land as domain ADD (knob remains offset).
       domainAdd += mod;
+      if (replaceBase) domainReplace = true;
     }
   }
   return { unitAdd, domainAdd, domainReplace };
@@ -516,8 +548,8 @@ function nodeGraphParamFoldOrBase(base, sources, metadata = {}) {
 }
 
 function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
-  // "Use real mod values": ignore absolute base. Sent = domain mods + offset.
-  // Offset applies even with no mod wires. No slider curve on the offset path.
+  // "Use real mod values": Control/knob (+ domainOffset) is an OFFSET added to
+  // domain MOD sources. Offset applies even with no mod wires. No slider curve.
   if (metadata && metadata.outputDomain === true) {
     const domainOffset = nodeGraphParamDomainOffset(metadata);
     let domainAdd = 0;
@@ -527,7 +559,10 @@ function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
       domainAdd = Number(acc.domainAdd);
       if (!Number.isFinite(domainAdd)) domainAdd = 0;
     }
-    let result = domainAdd + domainOffset;
+    const baseN = Number(base);
+    const b = Number.isFinite(baseN) ? baseN : 0;
+    // effective = paramValue + domainModSum + domainOffset
+    let result = b + domainAdd + domainOffset;
     if (!Number.isFinite(result)) {
       return 0;
     }
@@ -544,16 +579,20 @@ function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
   const min = Number(metadata.min);
   const max = Number(metadata.max);
   const range = max - min;
+  const dAdd = Number(domainAdd);
+  const domainSum = Number.isFinite(dAdd) ? dAdd : 0;
   let result;
   if (domainReplace) {
-    // Domain-tagged source: REPLACE absolute base. Unit-band ignored.
-    result = domainAdd;
+    // Replace-only (unit-span pitch-norm / explicit): absolute = domain mods.
+    result = domainSum;
   } else {
+    // Domain / engineering-unit MOD: knob is an offset (ADD), then unit-band.
     result = b;
     if (Number.isFinite(range) && range > 0 && unitAdd !== 0) {
       const baseUnit = nodeGraphParamDomainToUnitLinear(b, metadata);
       result = nodeGraphParamUnitToDomainLinear(baseUnit + unitAdd, metadata);
     }
+    result = result + domainSum;
   }
   if (!Number.isFinite(result)) {
     return 0;
@@ -561,8 +600,12 @@ function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
   if (metadata.wraparound) {
     return nodeGraphParamApplyDomainBounds(result, metadata);
   }
-  // Domain replace: min/max are display zoom only — do not hard-clip the sent value.
+  // Domain replace-only: min/max are display zoom only — do not hard-clip.
   if (domainReplace) {
+    return result;
+  }
+  // Domain-ADD (engineering units): also skip hard-clip — min/max are zoom.
+  if (domainSum !== 0) {
     return result;
   }
   // Post-MOD clip to DOMAIN (default on) for unit-band path only.

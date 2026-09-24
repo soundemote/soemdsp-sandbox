@@ -875,8 +875,8 @@ NodeLiveAudioProcessor.prototype.readEfficientParamModSources = function readEff
       // PitchHz→norm-Frequency must not rely on raw-Hz ParamModEdge (clamped to 1).
       // Fall through to host conversion below.
       if (!(needsNormPitchLive && srcTypeLive === "pitchHz")) {
-        // Values stamp via ParamModEdge; still classify so domainReplace bit4 is
-        // pushed — otherwise |v|<=1 live samples unit-band add the knob.
+        // Values stamp via ParamModEdge; still classify domain so bit4
+        // domainValued is pushed — otherwise |v|<=1 live samples unit-band.
         const srcPort = String(m.sourcePort || "");
         const srcParamMeta = srcNodeLive?.paramMeta?.[srcPort] || {};
         const taggedDomain = srcParamMeta.outputDomain === true

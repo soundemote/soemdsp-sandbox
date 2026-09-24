@@ -217,6 +217,35 @@ NodeLiveAudioProcessor.prototype.createStereoFilterState = function createStereo
     return { left: createFn(), mono: createFn(), right: createFn() };
 };
 
+// Sample & Hold lane bundle (Efficient Live DSP is native graph; setPlan still
+// allocates these for destroy/clear bookkeeping after the JS evaluator retired).
+NodeLiveAudioProcessor.prototype.createSampleHoldState = function createSampleHoldState() {
+  return {
+    clockPhase: 0,
+    held: 0,
+    from: 0,
+    out: 0,
+    samplesInSegment: 0,
+    segmentSamples: 1,
+    lastIntervalSamples: 0,
+    samplesSinceFire: 0,
+    lastTrigger: 0,
+    pendingFireSamples: 0,
+    noise: typeof this.createNoiseGeneratorChannelState === "function"
+      ? this.createNoiseGeneratorChannelState()
+      : { seed: 1 },
+    nativeHandle: 0,
+  };
+};
+
+NodeLiveAudioProcessor.prototype.createStereoSampleHoldState = function createStereoSampleHoldState() {
+  return {
+    ext: this.createSampleHoldState(),
+    left: this.createSampleHoldState(),
+    right: this.createSampleHoldState(),
+  };
+};
+
 // Mono-only patches must not pay for three independent channel instances.
 // Always run Out; run Left/Right only when those jacks are wired.
 // Reuse one port object per nodeId — new {Out,Left,Right} every sample was GC fuel.

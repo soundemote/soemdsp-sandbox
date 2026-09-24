@@ -429,7 +429,7 @@ function nodeGraphPortIsReset(port) {
 }
 
 // App-wide policy: white wire == digital cable.
-//   • bitmasks (Scale, Play Keys, Arp Keys, …)
+//   • noteMask buses (Scale, Play Keys, Arp Keys, Chord Memory, …)
 //   • ƒ real-value jacks (Hz reports: Frequency, Df1/Df2, ƒ1/ƒ2) on inlets and outlets
 //   • Gate / Trigger / Reset (all modules — inlets and outlets)
 //   • anything listed in digitalInputs / digitalOutputs
@@ -438,9 +438,11 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
   if (typeof nodeGraphPortIsCodeSignal === "function" && nodeGraphPortIsCodeSignal(typeOrNode, port, io)) {
     return true;
   }
+  if (typeof nodeGraphPortIsNoteBus === "function" && nodeGraphPortIsNoteBus(port)) {
+    return true;
+  }
   if (
-    port === "Scale"
-    || nodeGraphPortIsFrequencyValue(port)
+    nodeGraphPortIsFrequencyValue(port)
     || nodeGraphPortIsGateOrTrigger(port)
     || nodeGraphPortIsReset(port)
   ) {

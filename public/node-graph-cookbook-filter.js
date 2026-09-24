@@ -316,10 +316,14 @@ function nodeGraphLadderFilterMagnitudeAt(params, frequency, sampleRate) {
  * Live display value for a filter param (domain units only — Hz, Q, dB, …).
  * Prefers the slider’s domainValue (mid-drag before patch commit), then patch
  * params. Metaparameters own min/max mapping; do not invent unit→domain math here.
- * Ghost parameter-source mods still apply when present.
+ * Parameter MOD cables fold in via ghost (same effectiveDomain audio hears).
+ * Face pumps already tick at Simulation FPS; returning live folded values here
+ * lets the cutoff marker track MOD every frame.
  */
 function nodeGraphFilterCurveLiveParam(node, key, fallback = 0) {
-  const nodeId = node?.id || "";
+  const nodeId = (node && typeof node === "object")
+    ? String(node.id || "")
+    : String(node || "");
   const rawMeta = typeof nodeGraphReadPatchParameterMetadata === "function"
     ? nodeGraphReadPatchParameterMetadata(node, key)
     : (node?.paramMeta?.[key] || {});
@@ -343,11 +347,23 @@ function nodeGraphFilterCurveLiveParam(node, key, fallback = 0) {
       base = fromPatch;
     }
   }
-  // Ghost signal is base + param-source mods in normalized space.
-  if (typeof nodeGraphParameterGhostSignal === "function"
-    && typeof nodeGraphNormalizedSignalToParameterValue === "function") {
+  // Ghost returns { signal, effectiveDomain } (folded base + param MOD).
+  // Prefer effectiveDomain — same domain value sent to DSP / written on
+  // slider.dataset.sentDomainValue. Legacy numeric ghost still supported.
+  if (typeof nodeGraphParameterGhostSignal === "function") {
     const ghost = nodeGraphParameterGhostSignal(nodeId, key);
-    if (ghost !== null && Number.isFinite(ghost)) {
+    if (ghost != null && typeof ghost === "object") {
+      const folded = Number(ghost.effectiveDomain);
+      if (Number.isFinite(folded)) {
+        return folded;
+      }
+      const unit = Number(ghost.signal);
+      if (Number.isFinite(unit)
+        && typeof nodeGraphNormalizedSignalToParameterValue === "function") {
+        return nodeGraphNormalizedSignalToParameterValue(unit, metadata);
+      }
+    } else if (Number.isFinite(ghost)
+      && typeof nodeGraphNormalizedSignalToParameterValue === "function") {
       return nodeGraphNormalizedSignalToParameterValue(ghost, metadata);
     }
   }
@@ -356,7 +372,6 @@ function nodeGraphFilterCurveLiveParam(node, key, fallback = 0) {
   }
   return base;
 }
-
 function nodeGraphIsCrossoverType(type) {
   return /^crossover[2-6]$/.test(String(type || ""));
 }
