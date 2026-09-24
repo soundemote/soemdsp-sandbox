@@ -8571,12 +8571,21 @@ static void process_pluck_envelope_3(Circuit& g, Node& node, int frames) {
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
     const double mono = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double input = trig + mono;
+    // Wired Amplitude is the amplitude (replace), not a unit-band add onto the
+    // knob. Knob default 1 + ADD + clamp made a 0…1 CV a no-op, so Recalc On
+    // Trig never sampled the wire.
+    double amp = control_audio(g, node.amplitude, f);
+    if (node.amplitude.liveModActive
+        && (node.amplitude.modFlags & (16u | 32u)) == 0
+        && node.amplitude.liveModDomainReplace == 0) {
+      amp = node.amplitude.liveModUnit;
+    }
     const double out = soemdsp_pluck_envelope_3_sample(
       node.nativeHandle,
       input,
       control_audio(g, node.timeDenominator, f),
       control_audio(g, node.width, f),
-      control_audio(g, node.amplitude, f),
+      amp,
       control_effective(node.mode),
       sr
     );

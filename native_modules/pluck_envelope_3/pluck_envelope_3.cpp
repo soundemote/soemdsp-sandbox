@@ -112,8 +112,14 @@ extern "C" double soemdsp_pluck_envelope_3_sample(
   const bool trigRise = !(s.lastTrig > 0.0) && trigHigh;
   s.lastTrig = trigHigh ? 1.0 : 0.0;
 
-  // Latch Attack/Decay/Amplitude on rising edge only when Recalc On Trig.
-  if (!latch || trigRise || !s.hasShot) {
+  // Recalc On: latch Attack/Decay/Amplitude only on rising Trigger.
+  // Recalc Off: knobs/CV always live. Do not pre-latch on first sample.
+  if (!latch) {
+    s.shotAttack = liveAtk;
+    s.shotDecay = liveDecay;
+    s.shotAmp = liveAmp;
+    s.hasShot = true;
+  } else if (trigRise) {
     s.shotAttack = liveAtk;
     s.shotDecay = liveDecay;
     s.shotAmp = liveAmp;
@@ -145,6 +151,6 @@ extern "C" int soemdsp_pluck_envelope_3_is_idle(int handle) {
   return (a < 1.0e-5) ? 1 : 0;
 }
 
-extern "C" int soemdsp_pluck_envelope_3_version() { return 10; }
+extern "C" int soemdsp_pluck_envelope_3_version() { return 11; }
 extern "C" const char* soemdsp_pluck_envelope_3_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_pluck_envelope_3_metadata_json_size() { return sizeof(kMetadataJson) - 1; }
