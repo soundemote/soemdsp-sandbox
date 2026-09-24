@@ -1198,8 +1198,8 @@ extern "C" double soemdsp_degree_phrase_phase(int handle);
 extern "C" int soemdsp_gravity_walker_create(unsigned int entropySeed);
 extern "C" void soemdsp_gravity_walker_destroy(int handle);
 extern "C" double soemdsp_gravity_walker_sample(
-  int handle, double clock, double reset, double gravityIn, double leapIn,
-  double leapCv, double octaves, double level, double scaleIn, double hasScale,
+  int handle, double clock, double reset, double gravityIn, double leap,
+  double octaves, double level, double scaleIn, double hasScale,
   double root, double scaleChoice
 );
 extern "C" double soemdsp_gravity_walker_gate(int handle);
@@ -9218,16 +9218,15 @@ static void process_arp(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Gravity Walker: Leap CV→Morph. shape=gravity, width=leap, mode=octaves, seed=scale.
+// Gravity Walker: shape=gravity, width=leap, mode=octaves, seed=scale.
 // Pitch→Mono, Gate→Left, Trigger→Right, Degree→Saw, f Hz→Ramp.
+// Leap is the width Control only — no twin Leap jack.
 static void process_gravity_walker(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool hasScale = mix_live_port(g, node, kPortMono, frames, g.mixMono);
   const bool hasRoot = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool hasLeap = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
-  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
     const double pitch = soemdsp_gravity_walker_sample(
@@ -9236,7 +9235,6 @@ static void process_gravity_walker(Circuit& g, Node& node, int frames) {
       hasReset ? g.mixReset[f] : 0.0,
       control_audio(g, node.shape, f),
       control_audio(g, node.width, f),
-      hasLeap ? g.mixMorph[f] : 0.0,
       control_effective(node.mode),
       control_audio(g, node.amplitude, f),
       hasScale ? g.mixMono[f] : 0.0,

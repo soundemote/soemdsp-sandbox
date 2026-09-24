@@ -500,6 +500,15 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 
 ---
 
+## 17. One control surface per value
+
+- Never expose an audio/CV **input jack** that is only a copy of a **parameter** the user can already modulate.
+- One control surface per value: a modulatable parameter, **or** a real signal input that is not the same thing as that knob.
+- Modulate the parameter instead of adding a twin CV jack (no additive “mod of knob” inlet, no attenuverter copy of the same value).
+- Keep genuine signal inputs that only share a word loosely — Scale/Root musical buses, Clock/Reset, audio In — when they are not duplicates of a knob.
+
+---
+
 ## Quick “should I?” checklist
 
 | Idea | Usually |
@@ -529,6 +538,7 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 | Dual `labelInsetPx` + `labelInset` for compatibility | **No** — one key, clean rename (§1 / §15) |
 | Wipe Control dirty-cache / re-push all knobs every `setParams` | **No** — stickiness (§0b); cold push only after compile/destroy |
 | Nested DSP coeff objects in instance pools that lose writes | **No** — flat fields on the instance; smoke “set once, process many” |
+| Twin CV jack that only copies a modulatable knob | **No** — modulate the parameter (§17) |
 
 ---
 
@@ -541,3 +551,4 @@ Add new rules here when the same class of mistake happens twice. Keep this file 
 - **2026-09-10 — Legacy display scrub:** Raster/Matrix chrome → `edgeSpacing`/`cornerRadius` 0…1 (no `screenPadding`/`rounding` %). Phosphor residual SSOT = `trail`/`ghost`/`burn`/`burnAmount` (no `decay` mirror, no burn-as-ghost). Dropped `sweepSeconds`, xyPad `scale`→puck, spectrogram overlap+1 shift. Yellow sidecar type/param aliases deleted. Display renderer id `"legacy"` → `"layoutOwned"`. Dead module-frame gapped-SVG path deleted (workspace/faces stay layout **px**; displays/canvases stay **0…1**).
 - **2026-09-10 — Paint never forces layout:** Music Player / fbmField / Instant Trace / curve·shape·harmonic faces stop remasuring every RAF. Shared `display-face-metrics.js`; scope screen rects from layout cache + pan/zoom math (not gBCR per pan sample).
 - **2026-09-10 — Music Player play + HUD:** Finite-rewriter comma bug set `samplePhaseSeek = (…+1, 1)` always `1` — seeks never bumped, Play looked dead. Fixed increment. HUD/canvas text: uniform min-edge font; buffer sized to canvas CSS box (no aspect stretch). Policy §16: workspace vs displays — WebGL preferred for visuals; DOM for Text Box / chrome (soft preference, not a hard ban).
+- **2026-09-24 — One control surface per value:** Gravity Walker exposed a Leap input that was only added into the Leap parameter (`leap + abs(leapCv) × 0.85`). Removed the jack; leap probability is the parameter alone. Do not add a twin CV inlet for a value that already has a modulatable parameter (§17).

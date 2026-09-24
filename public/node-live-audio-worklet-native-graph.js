@@ -1006,9 +1006,6 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   if (p === "select" && type === "chordPad") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
-  if (p === "leap" && type === "gravityWalker") {
-    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MORPH;
-  }
   // Amp Curve gold CV inlet.
   if (p === "env" && String(type || "").trim() === "ampCurve") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;

@@ -3,7 +3,8 @@
 // soemdsp-native-target: gravityWalker
 // soemdsp-native-kind: pitch
 //
-// Nearest-tone walk with leap CV. RNG: per-instance xorshift32.
+// Nearest-tone walk. Leap is the jump probability (the parameter only).
+// RNG: per-instance xorshift32.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -73,8 +74,7 @@ extern "C" double soemdsp_gravity_walker_sample(
   double clock,
   double reset,
   double gravityIn,
-  double leapIn,
-  double leapCv,
+  double leap,
   double octaves,
   double level,
   double scaleIn,
@@ -86,9 +86,7 @@ extern "C" double soemdsp_gravity_walker_sample(
   State& s = gPool[handle - 1];
 
   const double lvl = safe(level);
-  const double leapAmount = clamp(safe(leapIn), 0.0, 1.0);
-  const double leapCvAbs = clamp(dsp_fabs(safe(leapCv)), 0.0, 1.0);
-  const double leapProb = clamp(leapAmount + leapCvAbs * 0.85, 0.0, 1.0);
+  const double leapProb = clamp(safe(leap), 0.0, 1.0);
   const double gravity = clamp(safe(gravityIn), 0.0, 1.0);
   int oct = (int)(safe(octaves) + 0.5);
   if (oct < 0) oct = 0;

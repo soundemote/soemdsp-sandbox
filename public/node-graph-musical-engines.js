@@ -3,7 +3,7 @@
 //
 // Shared helpers + modules:
 //   degreeTuring   — mutating shift-register over scale degrees
-//   gravityWalker  — nearest-tone walk with leap CV / residual memory
+//   gravityWalker  — nearest-tone walk; Leap param is the jump chance
 //   degreePhrase   — 8-step degree phrase + rest + mutate corrosion
 //   noteGlide      — portamento on 0.1V/Oct
 //   noteTranspose  — semitone / octave offset on 0.1V/Oct
@@ -165,7 +165,7 @@ function nodeGraphDegreeTuringSample(state, options = {}) {
 }
 
 // ─── Gravity Walker ─────────────────────────────────────────────────────────
-// Cursor on degree line; each clock prefers small steps, leap CV / leap% jumps.
+// Cursor on degree line; each clock prefers small steps. Leap is the jump chance.
 
 function createNodeGraphGravityWalkerState() {
   return {
@@ -179,9 +179,7 @@ function createNodeGraphGravityWalkerState() {
 
 function nodeGraphGravityWalkerSample(state, options = {}) {
   const level = Number(options.level) ?? 1;
-  const leapAmount = Math.max(0, Math.min(1, Number(options.leap) ?? 0.15));
-  const leapCv = Math.max(0, Math.min(1, Math.abs(nodeGraphFiniteNumber(options.leapCv))));
-  const leapProb = Math.max(0, Math.min(1, leapAmount + leapCv * 0.85));
+  const leapProb = Math.max(0, Math.min(1, Number(options.leap) ?? 0.15));
   const gravity = Math.max(0, Math.min(1, Number(options.gravity) ?? 0.65));
   const octaves = Math.max(0, Math.min(4, Math.round(nodeGraphFiniteNumber(options.octaves, 1))));
   const mask = nodeGraphMusicalNormalizeMask(

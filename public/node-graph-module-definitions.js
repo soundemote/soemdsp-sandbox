@@ -3775,13 +3775,13 @@ const nodeGraphModuleDefinitions = (
       { key: "trace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "0.1V/Oct" } },
     ],
     defaultDisplayMode: "trace",
-    inputs: ["Clock", "Reset", "Scale", "Root", "Leap"],
+    inputs: ["Clock", "Reset", "Scale", "Root"],
     outputs: ["0.1V/Oct", "f", "Gate", "Trigger", "Degree"],
     outputLabels: { "0.1V/Oct": "0.1V", Trigger: "Trig" },
     outputAliases: { Pitch: "0.1V/Oct", Trig: "Trigger" },
     parameters: [
       { key: "gravity", label: "Gravity", defaultValue: "0.65", min: "0", mid: "0.5", max: "1", step: "0.01", tooltip: "Stickiness of step direction (higher = more inertia)." },
-      { key: "leap", label: "Leap", defaultValue: "0.15", min: "0", mid: "0.25", max: "1", step: "0.01", tooltip: "Base chance of a larger jump (added to Leap CV)." },
+      { key: "leap", label: "Leap", defaultValue: "0.15", min: "0", mid: "0.25", max: "1", step: "0.01", tooltip: "Chance of a larger jump." },
       { key: "octaves", label: "Octaves", defaultValue: "1", min: "0", mid: "1", max: "4", nonlinearSlider: false, step: "1" },
       { key: "level", label: "Level", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
       {

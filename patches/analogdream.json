@@ -1514,7 +1514,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0.01,
-          "tooltip": "Base chance of a larger jump (added to Leap CV).",
+          "tooltip": "Chance of a larger jump.",
           "modClamp": false,
           "hardClamp": false,
           "modMultiply": false,
