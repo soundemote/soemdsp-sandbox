@@ -1,3 +1,11 @@
+/** Canonicalize the retired normalized MIDI note outlet on patch load. */
+function normalizeNodeGraphKeyboardNoteOutputPort(type, port) {
+  const value = String(port || "").trim();
+  return (type === "keyboard" || type === "keyboardController") && value === "Note#/127"
+    ? "Note#"
+    : value;
+}
+
 function normalizeNodeGraphPatchInfo(info = {}) {
   const bank = Math.round(Number(info.bank));
   const program = Math.round(Number(info.program));
@@ -7,10 +15,38 @@ function normalizeNodeGraphPatchInfo(info = {}) {
     bankName: nodeGraphOneLineText(info.bankName),
     category: nodeGraphOneLineText(info.category),
     description: String(info.description ?? "").trim(),
+    emoji: nodeGraphOneLineText(info.emoji),
     name: nodeGraphOneLineText(info.name),
     program: Number.isFinite(program) ? Math.max(0, Math.min(127, program)) : 0,
     tags: nodeGraphOneLineText(info.tags),
   };
+}
+
+
+/** Last path segment of a patch slug/filename, without .json. */
+function nodeGraphPatchFileStem(pathOrSlug = "") {
+  return String(pathOrSlug || "")
+    .replace(/\\/g, "/")
+    .replace(/\.json$/i, "")
+    .split("/")
+    .filter(Boolean)
+    .pop() || "";
+}
+
+/** True when info.name is filled in (non-empty after trim). */
+function nodeGraphPatchNameIsFilled(name = "") {
+  return Boolean(String(name || "").trim());
+}
+
+/**
+ * Single source of truth for patch title display:
+ * filled info.name -> that name; otherwise file stem; else "Untitled".
+ */
+function nodeGraphPatchDisplayTitle(name = "", pathOrSlug = "") {
+  if (nodeGraphPatchNameIsFilled(name)) {
+    return String(name).trim();
+  }
+  return nodeGraphPatchFileStem(pathOrSlug) || "Untitled";
 }
 
 function normalizeNodeGraphPatchAudio(audio = {}) {

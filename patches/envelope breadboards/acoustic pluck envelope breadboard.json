@@ -123,7 +123,7 @@
       "destinationNode": "namedPortalIn-4",
       "destinationPort": "In",
       "sourceNode": "keyboard-1",
-      "sourcePort": "Note#/127",
+      "sourcePort": "Note#",
       "tracePoints": []
     },
     {
@@ -185,7 +185,7 @@
     "bankName": "",
     "category": "",
     "description": "Init — PolyBLEP into Output (same as patches/init.json)",
-    "name": "Init",
+    "name": "",
     "program": 0,
     "tags": "init,default"
   },

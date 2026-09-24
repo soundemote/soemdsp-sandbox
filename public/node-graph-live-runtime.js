@@ -1,4 +1,4 @@
-function setNodeGraphLiveProcessorError(message = "AudioWorklet processor error") {
+﻿function setNodeGraphLiveProcessorError(message = "AudioWorklet processor error") {
   nodeGraphClearGpuAdditivePrime();
   setNodeGraphLiveOutputMuted(true);
   nodeGraphMvp.live.runtime = null;
@@ -29,7 +29,7 @@ function normalizeNodeGraphVolume(value, fallback = 1) {
 }
 
 // Host Web Audio gain is MUTE ONLY. Loudness is the Output module's `volume`
-// param (applied inside the graph). Toolbar 🔊 is a mirror of that param —
+// param (applied inside the graph). Toolbar ðŸ”Š is a mirror of that param â€”
 // not a second volume stage (would double-attenuate).
 function nodeGraphLiveOutputTargetGain() {
   if (nodeGraphMvp.live.outputMuted) {
@@ -72,7 +72,7 @@ function setNodeGraphLiveOutputMuted(muted) {
   applyNodeGraphLiveOutputGain();
 }
 
-// ── Module level mirrors (toolbar 🔊 ↔ Input/Output module params) ────────
+// â”€â”€ Module level mirrors (toolbar ðŸ”Š â†” Input/Output module params) â”€â”€â”€â”€â”€â”€â”€â”€
 // Loudness lives in the graph (audioInput.amplitude, output.volume). Host gain is
 // mute-only for output and unity for input so we never double-apply.
 
@@ -124,7 +124,7 @@ function nodeGraphReadModuleParamLevel(node, paramKey, fallback) {
 
 /**
  * Write a 0..1 level onto a module param + its slider, keep a toolbar mirror.
- * lockKey: e.g. "_outputVolumeMirrorLock" — blocks recursive toolbar sync.
+ * lockKey: e.g. "_outputVolumeMirrorLock" â€” blocks recursive toolbar sync.
  */
 function nodeGraphWriteModuleParamLevel(node, paramKey, value, options = {}) {
   const level = normalizeNodeGraphVolume(value);
@@ -188,7 +188,7 @@ function getNodeGraphOutputModuleVolumeDb() {
   return Number.isFinite(fromParams) ? fromParams : fallback;
 }
 
-/** Toolbar 0…1 position for Output Volume (1 = 0 dB). */
+/** Toolbar 0â€¦1 position for Output Volume (1 = 0 dB). */
 function getNodeGraphOutputModuleVolume() {
   const db = getNodeGraphOutputModuleVolumeDb();
   const lin = typeof nodeGraphOutputVolumeDbToLin === "function"
@@ -280,7 +280,7 @@ function setNodeGraphAudioInputModuleLevel(value, options = {}) {
   if (nodeGraphMvp?.live) {
     nodeGraphMvp.live.inputVolume = level;
   }
-  // Host mic gain is unity — level is applied on the audioInput module only.
+  // Host mic gain is unity â€” level is applied on the audioInput module only.
   applyNodeGraphLiveInputHostGain();
   if (!options.fromToolbar && typeof syncNodeGraphVolumeSlider === "function") {
     syncNodeGraphVolumeSlider("nodeLiveInputVolume", "nodeLiveInputVolumeValue", level);
@@ -298,7 +298,7 @@ function setNodeGraphLiveInputVolume(value) {
   return setNodeGraphAudioInputModuleLevel(value, { fromToolbar: true, interaction: "drag" });
 }
 
-/** Pull toolbar 🔊 from the Output module (after patch load / module drag). */
+/** Pull toolbar ðŸ”Š from the Output module (after patch load / module drag). */
 function syncNodeGraphLiveOutputVolumeFromOutputModule() {
   if (nodeGraphMvp?._outputVolumeMirrorLock) {
     return getNodeGraphOutputModuleVolume();
@@ -317,7 +317,7 @@ function syncNodeGraphLiveOutputVolumeFromOutputModule() {
   return level;
 }
 
-/** Pull toolbar 🔊 from the Input module Amplitude (after patch load / drag). */
+/** Pull toolbar ðŸ”Š from the Input module Amplitude (after patch load / drag). */
 function syncNodeGraphLiveInputVolumeFromInputModule() {
   if (nodeGraphMvp?._inputVolumeMirrorLock) {
     return getNodeGraphAudioInputModuleLevel();
@@ -363,7 +363,7 @@ let nodeGraphLiveNativeModuleBytes = {};
 
 // On static hosts with no server behind the page (e.g. the sandbox embedded
 // as a static export), "/api/native-modules" doesn't exist. Fall back to a
-// pre-generated catalog shipped alongside index.html — same shape server.py
+// pre-generated catalog shipped alongside index.html â€” same shape server.py
 // returns, so nothing downstream needs to know which path was used.
 async function fetchNodeGraphLiveNativeModuleCatalogFallback() {
   try {
@@ -465,7 +465,7 @@ async function fetchNodeGraphLiveNativeModuleBytes(entry) {
 // priority boost below.
 const nodeGraphLiveNativeModuleTypeAliases = Object.freeze({
   triggerDivider: ["clockDivider"],
-  // One native module serves crossover2…6 (bandCount at create).
+  // One native module serves crossover2â€¦6 (bandCount at create).
   crossover2: ["crossover3", "crossover4", "crossover5", "crossover6"],
 });
 
@@ -512,21 +512,21 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 
 // Hands native-module wasm to the worklet.
 //
-// Load modes (Phase E — see docs/WASM_SLIM_LOAD.md):
-//   combined — one soemdsp_combined.wasm (all modules, one memory). Default
+// Load modes (Phase E â€” see docs/WASM_SLIM_LOAD.md):
+//   combined â€” one soemdsp_combined.wasm (all modules, one memory). Default
 //              for authoring so any module can be added without a re-fetch.
-//   slim     — only wasm for types on the current plan. Prefer for player /
+//   slim     â€” only wasm for types on the current plan. Prefer for player /
 //              embed / clapplayer (?wasmLoad=slim or embed-config).
 //
 // Site sync (scripts/sync_soundemote_site.ps1) ships ONLY the combined
 // binary, not per-module .wasm files. Slim without those files must fall
-// back to combined or native-only modules (APP_POLICY §2/§5) stay silent —
-// that was the release crossover silence on /patch/* (autostart → slim).
+// back to combined or native-only modules (APP_POLICY Â§2/Â§5) stay silent â€”
+// that was the release crossover silence on /patch/* (autostart â†’ slim).
 //
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=named-portal-11";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=vibrato-depth-env-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -710,7 +710,7 @@ async function sendNodeGraphLiveNativeModules(liveNode, plan = null) {
   }
 
   // Authoring default / slim fallback: ONE combined .wasm (all modules, one memory).
-  // Built by scripts/build_native_modules.ps1. On failure → lazy used-modules.
+  // Built by scripts/build_native_modules.ps1. On failure â†’ lazy used-modules.
   if (!liveNode.nodeGraphCombinedUnavailable && !sent.has("combined")) {
     const combinedBytes = await fetchNodeGraphLiveNativeModuleBytes({
       wasmUrl: nodeGraphLiveCombinedNativeModuleUrl,
@@ -1050,7 +1050,7 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
   const outputEnabled = Boolean(enabled);
 
   // Idempotent enable: re-arming while already live/starting used to bump
-  // outputToggleSerial, cancel the in-flight start, and flash green → red stop
+  // outputToggleSerial, cancel the in-flight start, and flash green â†’ red stop
   // even though audio came up (or a cancelled start tore the winner down).
   if (outputEnabled) {
     if (nodeGraphMvp.live.outputEnabled && nodeGraphMvp.live.node) {
@@ -1107,7 +1107,7 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
   nodeGraphMvp.live.outputToggleSerial = serial;
   // Stop does not change speed. Play always rearms: unpause if speed is 0 and
   // force Value LCD/LED paint even when speed is already non-zero (user may
-  // have unpaused before stop — pause→play→stop still poisons hold state).
+  // have unpaused before stop â€” pauseâ†’playâ†’stop still poisons hold state).
   if (nodeGraphMvp.live.node || nodeGraphMvp.live.context) {
     await stopNodeGraphLiveAudio();
   }
@@ -1129,8 +1129,8 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
 }
 
 /**
- * Transport Stop (⏹): clear both Input and Output arms and tear down the engine.
- * Pause must not call this — pause only zeros speed.
+ * Transport Stop (â¹): clear both Input and Output arms and tear down the engine.
+ * Pause must not call this â€” pause only zeros speed.
  */
 async function stopNodeGraphLiveEngineFully() {
   const serial = nodeGraphMvp.live.outputToggleSerial + 1;
@@ -1147,11 +1147,11 @@ async function stopNodeGraphLiveEngineFully() {
 
 /**
  * Full simulation restart: cold stop (wipe screens / tear down audio) then
- * start again. Does not require the user to stop first — transport ⏮ uses this.
+ * start again. Does not require the user to stop first â€” transport â® uses this.
  *
  * Important: do NOT route through setNodeGraphLiveOutputEnabled(false) then
  * (true). That bumps outputToggleSerial twice and can leave a start mid-flight
- * cancelled with status still "starting" and no worklet — Play then only
+ * cancelled with status still "starting" and no worklet â€” Play then only
  * toggles pause and the engine never comes back.
  */
 async function restartNodeGraphLiveSimulation() {
@@ -1227,9 +1227,9 @@ function nodeGraphLiveResumePlaySpeed() {
 /**
  * After a cold engine start, make Value LCD/LED + scopes live again.
  * Pause cancels RAF and freezes hold state; Stop wipes plates. Play must
- * both unpause transport AND rearm paint — especially pause→stop→play,
+ * both unpause transport AND rearm paint â€” especially pauseâ†’stopâ†’play,
  * where speed may already be non-zero (user unpaused before stop) so a
- * plain 0→1 edge never fires.
+ * plain 0â†’1 edge never fires.
  */
 function nodeGraphLiveRearmDisplaysAfterEngineStart() {
   if (!nodeGraphMvp?.live?.node) {
@@ -1251,7 +1251,7 @@ function nodeGraphLiveRearmDisplaysAfterEngineStart() {
     sendNodeGraphLiveSpeed();
   }
   // Cold start often already has speed > 0 (lastPlaySpeed / direct assign),
-  // so the 0→positive edge in setNodeGraphLiveSpeed never runs and Output
+  // so the 0â†’positive edge in setNodeGraphLiveSpeed never runs and Output
   // keeps a stamped pause banner. Always clear on rearm.
   if (typeof nodeGraphOutputPauseBannerClearStampFlags === "function") {
     nodeGraphOutputPauseBannerClearStampFlags();
@@ -1890,7 +1890,7 @@ function handleNodeGraphLiveWorkletMessage(event) {
         ev: Number(message.ev) || 0,
       };
       const lines = [
-        `want[${nodeGraphMvp._vmDebug.want || "—"}] keep[${nodeGraphMvp._vmDebug.keep || "—"}] hist[${nodeGraphMvp._vmDebug.hist || "—"}]`,
+        `want[${nodeGraphMvp._vmDebug.want || "â€”"}] keep[${nodeGraphMvp._vmDebug.keep || "â€”"}] hist[${nodeGraphMvp._vmDebug.hist || "â€”"}]`,
       ];
       if (nodeGraphMvp._vmDebug.clones) lines.push(`clones ${nodeGraphMvp._vmDebug.clones}`);
       if (nodeGraphMvp._vmDebug.pairs) lines.push(`pairs ${nodeGraphMvp._vmDebug.pairs}`);
@@ -2048,7 +2048,7 @@ function handleNodeGraphLiveWorkletMessage(event) {
     globalThis.nodeGraphPortalDebug = text;
     console.log("PORTAL_DEBUG\n" + text);
     if (typeof setNodeGraphLivePlanStatus === "function") {
-      setNodeGraphLivePlanStatus("PORTAL_DEBUG is in the console — copy that", "warn");
+      setNodeGraphLivePlanStatus("PORTAL_DEBUG is in the console â€” copy that", "warn");
     }
   } else if (message.type === "nativeGraphStatus") {
     setNodeGraphLiveEvidence("native-graph", message);
@@ -2120,7 +2120,7 @@ function handleNodeGraphLiveWorkletMessage(event) {
       patchFingerprint: message.patchFingerprint || nodeGraphPatchFingerprint(),
       sampleRate: message.sampleRate || nodeGraphMvp.live.context?.sampleRate || nodeGraphMvp.sampleRate,
     });
-    // After pause→stop→play, force-paint Value LCD/LED until rings + RAF catch up.
+    // After pauseâ†’stopâ†’play, force-paint Value LCD/LED until rings + RAF catch up.
     const rearmUntil = nodeGraphFiniteNumber(nodeGraphMvp.live.valueFaceRearmUntil);
     const nowMs = performance.now?.() || Date.now();
     if (
@@ -2307,7 +2307,7 @@ function nodeGraphLivePlanShapeSignature(plan = {}) {
     String(c?.destinationPort || ""),
   ]);
   connections.sort((a, b) => a.join("\0").localeCompare(b.join("\0")));
-  // Meta playmode / voice count change native voice-lane clones — must force
+  // Meta playmode / voice count change native voice-lane clones â€” must force
   // setPlan (setConnections/setParams alone never updated metamodule on worklet).
   const metaVoice = (Array.isArray(plan.nodes) ? plan.nodes : [])
     .filter((node) => String(node?.type || "") === "metamodule")
@@ -2319,7 +2319,7 @@ function nodeGraphLivePlanShapeSignature(plan = {}) {
   metaVoice.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
   return JSON.stringify({
     nodes: (Array.isArray(plan.nodes) ? plan.nodes : []).map((node) => [node.id, node.type]),
-    // Wires change native topology — must invalidate connection-only shortcut.
+    // Wires change native topology â€” must invalidate connection-only shortcut.
     connections,
     metaVoice,
     order: Array.isArray(plan.order) ? plan.order : [],
@@ -2485,7 +2485,7 @@ async function sendNodeGraphLivePlan() {
       nodeGraphSetLivePlanRunningStatus(plan);
     }
     nodeGraphMvp.live.planShapeSignature = planShapeSignature;
-    // Plan applied — never leave host gain muted from a prior error.
+    // Plan applied â€” never leave host gain muted from a prior error.
     setNodeGraphLiveOutputMuted(false);
     // Worklet may have been recreated; re-assert inside-Meta voice-0 preview.
     if (typeof nodeGraphFlushLiveMetaView === "function") {
@@ -2698,7 +2698,7 @@ function sendNodeGraphLiveMidiKeyboardHeldKeysBitmask() {
   }
 }
 
-/** User-latched Chord Memory slots + live play mask → worklet (Chord Memory OUT). */
+/** User-latched Chord Memory slots + live play mask â†’ worklet (Chord Memory OUT). */
 function sendNodeGraphLiveChordMemoryLatch(slotsByNode, playMaskByNode, momentaryMask) {
   if (!nodeGraphMvp?.live?.usesWorklet || !nodeGraphMvp.live.node?.port) return;
   const slots = slotsByNode && typeof slotsByNode === "object" ? slotsByNode : {};
@@ -2712,7 +2712,7 @@ function sendNodeGraphLiveChordMemoryLatch(slotsByNode, playMaskByNode, momentar
   });
 }
 
-/** Blue Play Keys bitmask (live MIDI notes) → worklet. */
+/** Blue Play Keys bitmask (live MIDI notes) â†’ worklet. */
 function sendNodeGraphLiveMidiPlayKeysBitmask() {
   const mask = nodeGraphMvp.midiKeyboardPlayMask instanceof Uint8Array
     ? new Uint8Array(nodeGraphMvp.midiKeyboardPlayMask)
@@ -2729,9 +2729,9 @@ function sendNodeGraphLiveMidiPlayKeysBitmask() {
 }
 
 /**
- * Polyphony velocity table (Uint8Array[128]) → worklet.
+ * Polyphony velocity table (Uint8Array[128]) â†’ worklet.
  * source: "midi" | "keyboard"
- * Legacy display path — Voices SSOT is VoiceManager note_on/off events.
+ * Legacy display path â€” Voices SSOT is VoiceManager note_on/off events.
  */
 function sendNodeGraphLivePolyphonyVelocities(source, velocities) {
   const key = String(source || "");
@@ -2758,7 +2758,7 @@ function sendNodeGraphLivePolyphonyVelocities(source, velocities) {
   }
 }
 
-/** VoiceManager note_on — Midi Note + Velocity (0..1). */
+/** VoiceManager note_on â€” Midi Note + Velocity (0..1). */
 function sendNodeGraphLiveVmNoteOn(note, velocity01 = 100 / 127) {
   const n = Math.max(0, Math.min(127, Math.round(Number(note))));
   let v = Number(velocity01);
@@ -2869,7 +2869,7 @@ function setNodeGraphGlobalSmoothingSeconds(seconds, options = {}) {
 
 // Log-space drag for Smooth Time: much finer near 0 (sample / sub-ms), still
 // reaches multi-second values without endless linear scrubbing.
-// Value ≈ exp(log(start + ε) + pixels · rate) − ε
+// Value â‰ˆ exp(log(start + Îµ) + pixels Â· rate) âˆ’ Îµ
 const nodeGraphGlobalSmoothingDragLogEps = 1e-4; // ~0.1 ms floor for log map
 const nodeGraphGlobalSmoothingDragLogRate = 0.012; // ~1 decade per ~192 px
 
@@ -2880,7 +2880,7 @@ function nodeGraphGlobalSmoothingDragMultiplier(event) {
   return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
 }
 
-/** @deprecated linear step — kept for any external callers; drag uses log map. */
+/** @deprecated linear step â€” kept for any external callers; drag uses log map. */
 function nodeGraphGlobalSmoothingDragStep(event) {
   const multiplier = nodeGraphGlobalSmoothingDragMultiplier(event);
   // Scale with current value so near-0 stays fine even if something still calls this.
@@ -2893,7 +2893,7 @@ function nodeGraphGlobalSmoothingSecondsFromDragDelta(startSeconds, pixelDelta, 
   const rate = nodeGraphGlobalSmoothingDragLogRate * nodeGraphGlobalSmoothingDragMultiplier(event);
   const start = Math.max(0, nodeGraphFiniteNumber(startSeconds));
   const next = Math.exp(Math.log(start + eps) + pixelDelta * rate) - eps;
-  // Snap tiny values to exact 0 so “off” is reachable without hunting.
+  // Snap tiny values to exact 0 so â€œoffâ€ is reachable without hunting.
   if (next < eps * 0.25) {
     return 0;
   }
@@ -3040,7 +3040,7 @@ function endNodeGraphGlobalSmoothingSecondsDrag(event) {
 }
 
 function scheduleNodeGraphLiveSync(mode = "plan") {
-  // No worklet yet — drop. Patch still holds the value for the next plan.
+  // No worklet yet â€” drop. Patch still holds the value for the next plan.
   if (!nodeGraphMvp.live.node) {
     return;
   }
@@ -3117,10 +3117,10 @@ async function stopNodeGraphLiveAudio() {
   nodeGraphMvp.live.usesWorklet = false;
   // Stop does NOT change simulation speed. Pause leaves speed at 0; Stop only
   // tears down the engine. Play/start restores via setNodeGraphLiveSpeed so
-  // Value LCD / Pitch Detector / scopes see a real 0 → resume edge.
-  // (Do not clear outputEnabled here — start path stops-then-restarts and
+  // Value LCD / Pitch Detector / scopes see a real 0 â†’ resume edge.
+  // (Do not clear outputEnabled here â€” start path stops-then-restarts and
   // still needs outputEnabled true after this teardown.)
-  // Next Play must force-paint value faces (pause→stop leaves them wiped).
+  // Next Play must force-paint value faces (pauseâ†’stop leaves them wiped).
   nodeGraphMvp.live.needsValueFaceRearm = true;
   nodeGraphMvp.live.valueFaceRearmUntil = 0;
   nodeGraphStopGpuAdditiveProducer();
@@ -3181,7 +3181,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Pure stdlib first so per-module worklet chunks can call nodeGraphWrap01 /
   // nodeGraphTrisaw / nodeGraphPitchedFrequency / nodeGraphAdvancePhase01.
   "./public/node-graph-semath.js?v=planck-1",
-  // Output-bus ear protector (must be in the worklet blob — main-thread only = passthrough clip).
+  // Output-bus ear protector (must be in the worklet blob â€” main-thread only = passthrough clip).
   "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=worklet-protect-1",
   "./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1",
   "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=knob-bias-out-1",
@@ -3197,7 +3197,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-core.js?v=no-macro-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
-  "./public/node-live-audio-worklet-smoother.js?v=domain-offset-1",
+  "./public/node-live-audio-worklet-smoother.js?v=hostcv-parammod-off-2",
   "./public/node-live-audio-worklet-param-map.js?v=domain-mod-1",
   "./public/node-live-audio-worklet-destroy.js?v=block-scope-1",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
@@ -3212,7 +3212,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=wt2d-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=portal-rewrite-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=hostcv-parammod-off-2",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=portal-rewrite-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",
@@ -3220,18 +3220,18 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-snapshot.js?v=meta-view-rewrite-1",
   "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=restore-fft-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
-  // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).
+  // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111â€“124).
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=slider-module-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=hostcv-parammod-off-2",
   "./public/node-live-audio-worklet-process.js?v=wt2d-1",
 ];
 
-// Legacy JS DSP evaluators + evaluateFrame — RETIRED. Never load on any product.
+// Legacy JS DSP evaluators + evaluateFrame â€” RETIRED. Never load on any product.
 // Kept as empty list so old references do not crash; do not reintroduce kernels.
 const nodeGraphLiveWorkletSourceFilesLegacy = [
-  // Retired: JS DSP evaluators must never load (APP_POLICY §0b / §2).
+  // Retired: JS DSP evaluators must never load (APP_POLICY Â§0b / Â§2).
 ];
 
 const nodeGraphLiveWorkletSourceFilesRegister = [
@@ -3261,7 +3261,7 @@ async function createNodeGraphLiveWorkletNode(context, plan = null) {
     const host = String(window.location?.hostname || "");
     const insecureHint = window.isSecureContext
       ? "AudioWorklet missing in this browser."
-      : `AudioWorklet needs a secure context (HTTPS or localhost). This page is http://${host || "…"} — open http://127.0.0.1:8080/ or https:// instead of a LAN/link-local IP.`;
+      : `AudioWorklet needs a secure context (HTTPS or localhost). This page is http://${host || "â€¦"} â€” open http://127.0.0.1:8080/ or https:// instead of a LAN/link-local IP.`;
     throw new Error(`AudioWorklet unavailable. ${insecureHint}`);
   }
   const efficient = typeof nodeGraphEfficientProductEnabled === "function"
@@ -3422,7 +3422,7 @@ async function syncNodeGraphLiveInputSource() {
 
 /** Abort an in-flight start cleanly so UI does not stick on "starting". */
 function nodeGraphLiveOutputAbortStart(reason = "stopped") {
-  // Never paint "stopped" over a live/newer session — a superseded start
+  // Never paint "stopped" over a live/newer session â€” a superseded start
   // used to re-render red stop after the winner had already gone green.
   if (nodeGraphMvp.live.node) {
     if (typeof renderNodeGraphLiveControls === "function") {
@@ -3436,7 +3436,7 @@ function nodeGraphLiveOutputAbortStart(reason = "stopped") {
   if (typeof setNodeGraphLiveStatus === "function") {
     setNodeGraphLiveStatus(reason === "error" ? "error" : "stopped");
   }
-  // Only disarm output when we truly have no engine — a superseding start
+  // Only disarm output when we truly have no engine â€” a superseding start
   // keeps outputEnabled true with a new serial.
   if (!nodeGraphMvp.live.node && !nodeGraphMvp.live.context) {
     // Leave outputEnabled alone if a newer serial still owns a start request;
@@ -3461,7 +3461,7 @@ async function nodeGraphLiveOutputDisposeCancelledStart(outputSerial, localConte
   const ownsLiveContext = localContext && nodeGraphMvp.live.context === localContext;
 
   if (superseded && !ownsLiveNode && !ownsLiveContext) {
-    // Newer start owns the world — only free our orphan locals.
+    // Newer start owns the world â€” only free our orphan locals.
     try {
       localNode?.disconnect?.();
     } catch (_error) {
@@ -3477,7 +3477,7 @@ async function nodeGraphLiveOutputDisposeCancelledStart(outputSerial, localConte
     return false;
   }
 
-  // We still own the live refs (or nothing is live) — full cold stop.
+  // We still own the live refs (or nothing is live) â€” full cold stop.
   if (typeof stopNodeGraphLiveAudio === "function") {
     await stopNodeGraphLiveAudio();
   }
@@ -3575,7 +3575,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     nodeGraphMvp.live.usesWorklet = usesWorklet;
     liveNode.connect(outputGain);
     outputGain.connect(context.destination);
-    // Fresh session is never muted — clear any sticky mute from a prior error.
+    // Fresh session is never muted â€” clear any sticky mute from a prior error.
     setNodeGraphLiveOutputMuted(false);
     // Mic is best-effort: a blocked/unavailable microphone must not abort the
     // engine. Input can stay armed with mic blocked; Output can still speak.
@@ -3632,7 +3632,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     // Play must never hand the worklet speed 0. Stop leaves pause (0) alone;
     // starting live audio is always "run". Always go through setNodeGraphLiveSpeed
     // (force) so a fresh worklet (boots at 0) receives setSpeed even when main
-    // already held lastPlaySpeed > 0 — never assign speedMultiplier directly.
+    // already held lastPlaySpeed > 0 â€” never assign speedMultiplier directly.
     {
       const resume = typeof nodeGraphLiveResumePlaySpeed === "function"
         ? nodeGraphLiveResumePlaySpeed()
@@ -3666,7 +3666,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     if (typeof setNodeGraphLiveStatus === "function") {
       setNodeGraphLiveStatus("running", "good");
     }
-    // Do not force outputEnabled — Input-only starts must leave Output grey/off.
+    // Do not force outputEnabled â€” Input-only starts must leave Output grey/off.
     setNodeGraphLiveOutputMuted(false);
     applyNodeGraphLiveOutputGain();
     // Arp latch must hit the worklet as soon as the port exists (patch load
@@ -3680,14 +3680,14 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     if (typeof nodeGraphChordMemorySyncLiveAudio === "function") {
       nodeGraphChordMemorySyncLiveAudio();
     }
-    // Pause→stop wipes faces and kills RAF; pause also freezes hold state.
+    // Pauseâ†’stop wipes faces and kills RAF; pause also freezes hold state.
     // Always rearm LCD/LED paint after a successful cold start.
     if (typeof nodeGraphLiveRearmDisplaysAfterEngineStart === "function") {
       nodeGraphLiveRearmDisplaysAfterEngineStart();
     } else {
       renderNodeGraphLiveControls(true);
     }
-    // One more frame after layout/status pills settle — guarantee Live chrome.
+    // One more frame after layout/status pills settle â€” guarantee Live chrome.
     window.requestAnimationFrame(() => {
       if (nodeGraphMvp.live.node && nodeGraphLiveEngineWanted()) {
         if (typeof nodeGraphLiveRearmDisplaysAfterEngineStart === "function") {
@@ -3757,7 +3757,7 @@ function nodeGraphLiveToggleKeepPlayingWhenUnfocused() {
   if (typeof setNodeInteractionHelp === "function") {
     setNodeInteractionHelp(
       next
-        ? "Keep playing when unfocused (▶▶)."
+        ? "Keep playing when unfocused (â–¶â–¶)."
         : "Pause when leaving tab.",
     );
   }
@@ -3782,7 +3782,7 @@ function nodeGraphApplyPageVisibilityAudioPolicy() {
         ? speed
         : (Number(live.lastPlaySpeed) > 0 ? Number(live.lastPlaySpeed) : 1))
       : 0;
-    // Pause transport only — do not suspend/tear down the AudioContext.
+    // Pause transport only â€” do not suspend/tear down the AudioContext.
     if (playing && typeof setNodeGraphLiveSpeed === "function") {
       setNodeGraphLiveSpeed(0, { force: true });
     }

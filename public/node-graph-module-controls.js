@@ -9,7 +9,7 @@
 // 3) Project Speed Limit: ONE runtime ceiling for pitch/f resolution and DSP
 //    Hz clamps. Not written into parameter min/max (those stay definition /
 //    user metaparam). No project minimum frequency (0 is allowed). Header +
-//    patch audio field; default 20000 (user-adjustable).
+//    patch audio field; default 22050 (user-adjustable).
 
 const nodeGraphModuleDefinitionCache = new Map();
 

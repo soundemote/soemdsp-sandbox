@@ -149,8 +149,8 @@
     "bank": 0,
     "bankName": "",
     "category": "filter",
-    "description": "Graph-driven Clean Flower Child using pitch-domain Ranges + pitchHz converters. masterPitch \u2212120\u2026105 \u2192 clock Hz; LPF1 pitch 90\u2026180; LPF2 pitch 80\u2026130 (FCF pitch law).",
-    "name": "FCF Clean breadboard",
+    "description": "Graph-driven Clean Flower Child using pitch-domain Ranges + pitchHz converters. masterPitch −120…105 → clock Hz; LPF1 pitch 90…180; LPF2 pitch 80…130 (FCF pitch law).",
+    "name": "",
     "program": 0,
     "tags": "flowerchild,breadboard,graph"
   },
@@ -319,7 +319,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "0\u20261 width/duty. 0.5 = center / 50%. Trisaw, Pulse, and Center Square (pulse grows from mid-cycle \u2014 not a stepped square). Morph MOD jack on the param row.",
+          "tooltip": "0…1 width/duty. 0.5 = center / 50%. Trisaw, Pulse, and Center Square (pulse grows from mid-cycle — not a stepped square). Morph MOD jack on the param row.",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -546,7 +546,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Rate in Hz. Slider 0\u20265000 Hz. Negative values reverse.",
+          "tooltip": "Rate in Hz. Slider 0…5000 Hz. Negative values reverse.",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -612,7 +612,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "0\u20261 width/duty. Square = leading-edge PWM. Trisaw = triangle warp. Center Square = pulse width growing left/right from mid-cycle.",
+          "tooltip": "0…1 width/duty. Square = leading-edge PWM. Trisaw = triangle warp. Center Square = pulse width growing left/right from mid-cycle.",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -648,7 +648,7 @@
           "smoothingSeconds": null,
           "smoothingType": "none",
           "step": 1,
-          "tooltip": "Bipolar = \u22121\u2026+1. Unipolar = 0\u20261 ((x+1)/2).",
+          "tooltip": "Bipolar = −1…+1. Unipolar = 0…1 ((x+1)/2).",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -785,7 +785,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Rate in Hz. Slider 0\u20265000 Hz. Negative values reverse.",
+          "tooltip": "Rate in Hz. Slider 0…5000 Hz. Negative values reverse.",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -818,7 +818,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Rate in Hz. Slider 0\u20265000 Hz. Negative values reverse.",
+          "tooltip": "Rate in Hz. Slider 0…5000 Hz. Negative values reverse.",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -988,7 +988,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Rate in Hz. Slider 0\u20265000 Hz. Negative values reverse.",
+          "tooltip": "Rate in Hz. Slider 0…5000 Hz. Negative values reverse.",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -1021,7 +1021,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Rate in Hz. Slider 0\u20265000 Hz. Negative values reverse.",
+          "tooltip": "Rate in Hz. Slider 0…5000 Hz. Negative values reverse.",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -1153,7 +1153,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Scale and invert. 0 = mute, +1 = unity, \u22121 = invert. Bipolar rational is finer around 0.",
+          "tooltip": "Scale and invert. 0 = mute, +1 = unity, −1 = invert. Bipolar rational is finer around 0.",
           "modClamp": false,
           "hardClamp": false,
           "modMultiply": false,
@@ -1282,7 +1282,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Speaker level (\u2212\u221e\u20260 dB). 0 dB is unity. Default \u22123 dB. Old patches that stored 0\u20261 linear Volume are converted on load. Type a dB value (or \u2212inf).",
+          "tooltip": "Speaker level (−∞…0 dB). 0 dB is unity. Default −3 dB. Old patches that stored 0…1 linear Volume are converted on load. Type a dB value (or −inf).",
           "modClamp": false,
           "hardClamp": false,
           "modMultiply": false,
@@ -1315,7 +1315,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Stereo balance after Mono is summed in. 0 = unchanged (Mono to both). \u22121 = left only. +1 = right only.",
+          "tooltip": "Stereo balance after Mono is summed in. 0 = unchanged (Mono to both). −1 = left only. +1 = right only.",
           "modClamp": false,
           "hardClamp": false,
           "modMultiply": false,
@@ -1620,7 +1620,7 @@
           "smoothingSeconds": null,
           "smoothingType": "none",
           "step": 1,
-          "tooltip": "Legacy. Bipolar with Min at 0 maps Bias to \u2212Max\u2026+Max.",
+          "tooltip": "Legacy. Bipolar with Min at 0 maps Bias to −Max…+Max.",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -1702,7 +1702,7 @@
           "smoothingSeconds": 1469,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Input value that maps to Out Low. Default \u22121 (bipolar). Wire unipolar spawn uses 0\u20261.",
+          "tooltip": "Input value that maps to Out Low. Default −1 (bipolar). Wire unipolar spawn uses 0…1.",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -1768,7 +1768,7 @@
           "smoothingSeconds": 1469,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Output at In Low. Module default \u221210 (bipolar). Wire spawn uses \u22121 or 0 for unit CV.",
+          "tooltip": "Output at In Low. Module default −10 (bipolar). Wire spawn uses −1 or 0 for unit CV.",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -1801,7 +1801,7 @@
           "smoothingSeconds": 1469,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Output at In High. Module default +10 (bipolar). Wire spawn uses +1 for unit CV; unipolar param default is 0\u202610.",
+          "tooltip": "Output at In High. Module default +10 (bipolar). Wire spawn uses +1 for unit CV; unipolar param default is 0…10.",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -1864,7 +1864,7 @@
         "titleHidden": false,
         "displayHeightGu": 2
       },
-      "alias": "Cutoff \u2192 Pitch"
+      "alias": "Cutoff → Pitch"
     },
     {
       "gx": -10,
@@ -2101,7 +2101,7 @@
           "smoothingSeconds": null,
           "smoothingType": "none",
           "step": 1,
-          "tooltip": "Legacy. Bipolar with Min at 0 maps Bias to \u2212Max\u2026+Max.",
+          "tooltip": "Legacy. Bipolar with Min at 0 maps Bias to −Max…+Max.",
           "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
@@ -2701,7 +2701,7 @@
         "tuning": 440
       },
       "paramMeta": {},
-      "alias": "Pitch \u2192 Clock Hz"
+      "alias": "Pitch → Clock Hz"
     },
     {
       "id": "rangeLpf1Pitch",
@@ -2746,7 +2746,7 @@
           "outputDomain": true
         }
       },
-      "alias": "Pitch \u2192 LPF1"
+      "alias": "Pitch → LPF1"
     },
     {
       "id": "p2fLpf1",
@@ -2758,7 +2758,7 @@
         "tuning": 440
       },
       "paramMeta": {},
-      "alias": "LPF1 Pitch \u2192 Hz"
+      "alias": "LPF1 Pitch → Hz"
     },
     {
       "id": "rangeLpf2Pitch",
@@ -2803,7 +2803,7 @@
           "outputDomain": true
         }
       },
-      "alias": "Pitch \u2192 LPF2"
+      "alias": "Pitch → LPF2"
     },
     {
       "id": "p2fLpf2",
@@ -2815,7 +2815,7 @@
         "tuning": 440
       },
       "paramMeta": {},
-      "alias": "LPF2 Pitch \u2192 Hz"
+      "alias": "LPF2 Pitch → Hz"
     }
   ],
   "requiredAssets": [],

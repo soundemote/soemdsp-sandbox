@@ -125,6 +125,9 @@ function syncNodeGraphSettingsView() {
   }
   setNodeGraphSettingsField("patchNameValue", info.name);
   setNodeGraphSettingsField("nodePatchDefaultsName", info.name);
+  if (typeof syncNodeGraphHeaderPatchTitle === "function") {
+    syncNodeGraphHeaderPatchTitle();
+  }
   setNodeGraphSettingsField("patchBankValue", info.bank);
   setNodeGraphSettingsField("nodePatchDefaultsBank", info.bank);
   setNodeGraphSettingsField("patchProgramValue", info.program);
@@ -135,6 +138,8 @@ function syncNodeGraphSettingsView() {
   setNodeGraphSettingsField("nodePatchDefaultsCategory", info.category);
   setNodeGraphSettingsField("patchAuthorValue", info.author);
   setNodeGraphSettingsField("nodePatchDefaultsAuthor", info.author);
+  setNodeGraphSettingsField("patchEmojiValue", info.emoji);
+  setNodeGraphSettingsField("nodePatchDefaultsEmoji", info.emoji);
   setNodeGraphSettingsField("patchTagsValue", info.tags);
   setNodeGraphSettingsField("nodePatchDefaultsTags", info.tags);
   setNodeGraphSettingsField("patchDescriptionValue", info.description);
@@ -170,6 +175,7 @@ function readNodeGraphSettingsView() {
     bankName: nodeGraphPatchInfoFieldValue("bankName", "nodePatchDefaultsBankName", "patchBankNameValue"),
     category: nodeGraphPatchInfoFieldValue("category", "nodePatchDefaultsCategory", "patchCategoryValue"),
     description: nodeGraphPatchInfoFieldValue("description", "nodePatchDefaultsDescription", "patchDescriptionValue"),
+    emoji: nodeGraphPatchInfoFieldValue("emoji", "nodePatchDefaultsEmoji", "patchEmojiValue"),
     name: nodeGraphPatchInfoFieldValue("name", "nodePatchDefaultsName", "patchNameValue"),
     program: nodeGraphPatchInfoFieldValue("program", "nodePatchDefaultsProgram", "patchProgramValue"),
     tags: nodeGraphPatchInfoFieldValue("tags", "nodePatchDefaultsTags", "patchTagsValue"),
@@ -264,6 +270,9 @@ function handleNodeGraphSettingsInput(event) {
     softDom: true,
     status: "patch settings synced",
   });
+  if (typeof syncNodeGraphHeaderPatchTitle === "function") {
+    syncNodeGraphHeaderPatchTitle();
+  }
   if (typeof drawNodeRenderedVisualOutput === "function") {
     drawNodeRenderedVisualOutput();
   }

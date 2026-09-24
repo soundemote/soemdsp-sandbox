@@ -4,249 +4,683 @@
   "base": "/soemdsp-sandbox/patches",
   "patches": [
     {
-      "slug": "alarm",
-      "label": "alarm",
-      "url": "/soemdsp-sandbox/patches/alarm.json"
+      "slug": "filter breadboards/superlove lp18 breadboard",
+      "label": "superlove lp18 breadboard",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/filter%20breadboards/superlove%20lp18%20breadboard.json",
+      "author": "Sandbox",
+      "tags": "filter,ladder,self-osc,breadboard",
+      "emoji": "",
+      "folder": "filter breadboards"
+    },
+    {
+      "slug": "filter breadboards/superlove lp24 breadboard",
+      "label": "superlove lp24 breadboard",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/filter%20breadboards/superlove%20lp24%20breadboard.json",
+      "author": "Sandbox",
+      "tags": "filter,ladder,self-osc,breadboard",
+      "emoji": "",
+      "folder": "filter breadboards"
+    },
+    {
+      "slug": "Alarm/AnalogComputer",
+      "label": "AnalogComputer",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/Alarm/AnalogComputer.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "Alarm"
+    },
+    {
+      "slug": "envelope breadboards/acoustic pluck envelope breadboard",
+      "label": "acoustic pluck envelope breadboard",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/envelope%20breadboards/acoustic%20pluck%20envelope%20breadboard.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": "",
+      "folder": "envelope breadboards"
     },
     {
       "slug": "analogcomputer",
       "label": "analogcomputer",
-      "url": "/soemdsp-sandbox/patches/analogcomputer.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/analogcomputer.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "analogdream",
       "label": "analogdream",
-      "url": "/soemdsp-sandbox/patches/analogdream.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/analogdream.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "analoghorror",
       "label": "analoghorror",
-      "url": "/soemdsp-sandbox/patches/analoghorror.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/analoghorror.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "arp",
       "label": "arp",
-      "url": "/soemdsp-sandbox/patches/arp.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/arp.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "callnow",
       "label": "callnow",
-      "url": "/soemdsp-sandbox/patches/callnow.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/callnow.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "chaosfly",
+      "label": "chaosfly",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/chaosfly.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "chaosfly lowfreq",
+      "label": "chaosfly lowfreq",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/chaosfly%20lowfreq.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "crossover",
       "label": "crossover",
-      "url": "/soemdsp-sandbox/patches/crossover.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/crossover.json",
+      "author": "",
+      "tags": "",
+      "emoji": ""
     },
     {
       "slug": "deathwhistle",
       "label": "deathwhistle",
-      "url": "/soemdsp-sandbox/patches/deathwhistle.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/deathwhistle.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "feedbackdetector",
       "label": "feedbackdetector",
-      "url": "/soemdsp-sandbox/patches/feedbackdetector.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/feedbackdetector.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "filteredsawtooth",
       "label": "filteredsawtooth",
-      "url": "/soemdsp-sandbox/patches/filteredsawtooth.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/filteredsawtooth.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "flowerchild",
       "label": "flowerchild",
-      "url": "/soemdsp-sandbox/patches/flowerchild.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/flowerchild.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "flowerchild-breadboard-clean",
+      "label": "flowerchild-breadboard-clean",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/flowerchild-breadboard-clean.json",
+      "author": "Sandbox",
+      "tags": "flowerchild,breadboard,graph",
+      "emoji": ""
     },
     {
       "slug": "flowerchildfilter",
       "label": "flowerchildfilter",
-      "url": "/soemdsp-sandbox/patches/flowerchildfilter.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/flowerchildfilter.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "init",
       "label": "init",
-      "url": "/soemdsp-sandbox/patches/init.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/init.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
+    },
+    {
+      "slug": "input-gain-output",
+      "label": "input-gain-output",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/input-gain-output.json",
+      "author": "Sandbox",
+      "tags": "filter,ladder,self-osc,breadboard",
+      "emoji": ""
+    },
+    {
+      "slug": "journeytothehypersaw",
+      "label": "journeytothehypersaw",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/journeytothehypersaw.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
+    },
+    {
+      "slug": "kick drum attempt",
+      "label": "kick drum attempt",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/kick%20drum%20attempt.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "kick drum attempt 2",
+      "label": "kick drum attempt 2",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/kick%20drum%20attempt%202.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "lcd",
       "label": "lcd",
-      "url": "/soemdsp-sandbox/patches/lcd.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/lcd.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "led",
       "label": "led",
-      "url": "/soemdsp-sandbox/patches/led.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/led.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "light kick variation",
+      "label": "light kick variation",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/light%20kick%20variation.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "linear env vactrol",
+      "label": "linear env vactrol",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/linear%20env%20vactrol.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
     },
     {
       "slug": "lpf",
       "label": "lpf",
-      "url": "/soemdsp-sandbox/patches/lpf.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/lpf.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "marker",
       "label": "marker",
-      "url": "/soemdsp-sandbox/patches/marker.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/marker.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "meditation",
       "label": "meditation",
-      "url": "/soemdsp-sandbox/patches/meditation.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/meditation.json",
+      "author": "",
+      "tags": "",
+      "emoji": ""
     },
     {
       "slug": "motm485",
       "label": "motm485",
-      "url": "/soemdsp-sandbox/patches/motm485.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/motm485.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "musicalplayer",
       "label": "musicalplayer",
-      "url": "/soemdsp-sandbox/patches/musicalplayer.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/musicalplayer.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "musicaltapeplayer",
       "label": "musicaltapeplayer",
-      "url": "/soemdsp-sandbox/patches/musicaltapeplayer.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/musicaltapeplayer.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "musicplayer",
       "label": "musicplayer",
-      "url": "/soemdsp-sandbox/patches/musicplayer.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/musicplayer.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "noisealarm",
       "label": "noisealarm",
-      "url": "/soemdsp-sandbox/patches/noisealarm.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/noisealarm.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "overdrive",
       "label": "overdrive",
-      "url": "/soemdsp-sandbox/patches/overdrive.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/overdrive.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "particle",
       "label": "particle",
-      "url": "/soemdsp-sandbox/patches/particle.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/particle.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "phone",
       "label": "phone",
-      "url": "/soemdsp-sandbox/patches/phone.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/phone.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "phonetone",
       "label": "phonetone",
-      "url": "/soemdsp-sandbox/patches/phonetone.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/phonetone.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "pixelgrid",
       "label": "pixelgrid",
-      "url": "/soemdsp-sandbox/patches/pixelgrid.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/pixelgrid.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "pluck envelope 1",
+      "label": "pluck envelope 1",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/pluck%20envelope%201.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
+    },
+    {
+      "slug": "pluck envelope 2",
+      "label": "pluck envelope 2",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/pluck%20envelope%202.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
+    },
+    {
+      "slug": "pluck envelope 2.0 circuit",
+      "label": "pluck envelope 2.0 circuit",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/pluck%20envelope%202.0%20circuit.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
+    },
+    {
+      "slug": "pluck envelope 3",
+      "label": "pluck envelope 3",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/pluck%20envelope%203.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
+    },
+    {
+      "slug": "pluck envelope 3 (with attack 2 just in case)",
+      "label": "pluck envelope 3 (with attack 2 just in case)",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/pluck%20envelope%203%20%28with%20attack%202%20just%20in%20case%29.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
+    },
+    {
+      "slug": "pluck envelope 3 (with attack)",
+      "label": "pluck envelope 3 (with attack)",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/pluck%20envelope%203%20%28with%20attack%29.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
+    },
+    {
+      "slug": "pluck envelope 4 (with min mute)",
+      "label": "pluck envelope 4 (with min mute)",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/pluck%20envelope%204%20%28with%20min%20mute%29.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
+    },
+    {
+      "slug": "plucky hypersupersaw",
+      "label": "plucky hypersupersaw",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/plucky%20hypersupersaw.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
     },
     {
       "slug": "prettyscope",
       "label": "prettyscope",
-      "url": "/soemdsp-sandbox/patches/prettyscope.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/prettyscope.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "raybouncer",
       "label": "raybouncer",
-      "url": "/soemdsp-sandbox/patches/raybouncer.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/raybouncer.json",
+      "author": "",
+      "tags": "",
+      "emoji": ""
     },
     {
       "slug": "resonator",
       "label": "resonator",
-      "url": "/soemdsp-sandbox/patches/resonator.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/resonator.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "reverb",
       "label": "reverb",
-      "url": "/soemdsp-sandbox/patches/reverb.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/reverb.json",
+      "author": "",
+      "tags": "",
+      "emoji": ""
     },
     {
       "slug": "reverbinput",
       "label": "reverbinput",
-      "url": "/soemdsp-sandbox/patches/reverbinput.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/reverbinput.json",
+      "author": "",
+      "tags": "",
+      "emoji": ""
     },
     {
       "slug": "rgb",
       "label": "rgb",
-      "url": "/soemdsp-sandbox/patches/rgb.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/rgb.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "ringtone",
       "label": "ringtone",
-      "url": "/soemdsp-sandbox/patches/ringtone.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/ringtone.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "robot",
       "label": "robot",
-      "url": "/soemdsp-sandbox/patches/robot.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/robot.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "rubberband",
       "label": "rubberband",
-      "url": "/soemdsp-sandbox/patches/rubberband.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/rubberband.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "sabrina realistic reverb",
+      "label": "sabrina realistic reverb",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/sabrina%20realistic%20reverb.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "sabrina witch rhythm",
+      "label": "sabrina witch rhythm",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/sabrina%20witch%20rhythm.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "sawtoothalarm",
       "label": "sawtoothalarm",
-      "url": "/soemdsp-sandbox/patches/sawtoothalarm.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/sawtoothalarm.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "scanlines",
       "label": "scanlines",
-      "url": "/soemdsp-sandbox/patches/scanlines.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/scanlines.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "shapedresonator",
       "label": "shapedresonator",
-      "url": "/soemdsp-sandbox/patches/shapedresonator.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/shapedresonator.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "sinc",
       "label": "sinc",
-      "url": "/soemdsp-sandbox/patches/sinc.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/sinc.json",
+      "author": "",
+      "tags": "",
+      "emoji": ""
+    },
+    {
+      "slug": "sine kick attempt",
+      "label": "sine kick attempt",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/sine%20kick%20attempt.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "sine kick attempt 2",
+      "label": "sine kick attempt 2",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/sine%20kick%20attempt%202.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
     },
     {
       "slug": "sinusoidalarm",
       "label": "sinusoidalarm",
-      "url": "/soemdsp-sandbox/patches/sinusoidalarm.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/sinusoidalarm.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "starwarsalarm",
       "label": "starwarsalarm",
-      "url": "/soemdsp-sandbox/patches/starwarsalarm.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/starwarsalarm.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "starwarsalarm2",
       "label": "starwarsalarm2",
-      "url": "/soemdsp-sandbox/patches/starwarsalarm2.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/starwarsalarm2.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
       "slug": "starwarsalarm3",
       "label": "starwarsalarm3",
-      "url": "/soemdsp-sandbox/patches/starwarsalarm3.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/starwarsalarm3.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
     },
     {
-      "slug": "superlove",
-      "label": "superlove",
-      "url": "/soemdsp-sandbox/patches/superlove.json"
+      "slug": "superlove hp6 breadboard",
+      "label": "superlove hp6 breadboard",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/superlove%20hp6%20breadboard.json",
+      "author": "Sandbox",
+      "tags": "filter,ladder,self-osc,breadboard",
+      "emoji": ""
+    },
+    {
+      "slug": "superlove lp18 breadboard",
+      "label": "superlove lp18 breadboard",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/superlove%20lp18%20breadboard.json",
+      "author": "Sandbox",
+      "tags": "filter,ladder,self-osc,breadboard",
+      "emoji": ""
+    },
+    {
+      "slug": "superlove lp24 breadboard",
+      "label": "superlove lp24 breadboard",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/superlove%20lp24%20breadboard.json",
+      "author": "Sandbox",
+      "tags": "filter,ladder,self-osc,breadboard",
+      "emoji": ""
+    },
+    {
+      "slug": "synthlead",
+      "label": "synthlead",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/synthlead.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
+    },
+    {
+      "slug": "synthlead2 make filters track better",
+      "label": "synthlead2 make filters track better",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/synthlead2%20make%20filters%20track%20better.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": ""
     },
     {
       "slug": "videoscope",
       "label": "videoscope",
-      "url": "/soemdsp-sandbox/patches/videoscope.json"
-    },
-    {
-      "slug": "flowerchild-breadboard-clean",
-      "label": "FCF Clean breadboard",
-      "url": "/soemdsp-sandbox/patches/flowerchild-breadboard-clean.json"
-    },
-    {
-      "slug": "self-osc-ladder",
-      "label": "Self-Osc Ladder",
-      "url": "/soemdsp-sandbox/patches/self-osc-ladder.json"
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/videoscope.json",
+      "author": "",
+      "tags": "",
+      "emoji": ""
     }
   ]
 }

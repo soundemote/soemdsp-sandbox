@@ -3197,8 +3197,8 @@ function renderNodeGraphMidiKeyboardSignal(signal = null) {
     midi: nextSignal ? nodeGraphMidiKeyboardFixedInteger(nextSignal.midi, 3) : nodeGraphMidiKeyboardFixedText("-", 3),
     octave: nodeGraphMidiKeyboardOctaveLabel(),
     double: nextSignal
-      ? nodeGraphMidiKeyboardFixedDecimal(nextSignal.midiNormalized, { decimalPlaces: 6, maxDigits: 7, width: 8 })
-      : nodeGraphMidiKeyboardFixedText("-", 8),
+      ? nodeGraphMidiKeyboardFixedInteger(nextSignal.midi, 3)
+      : nodeGraphMidiKeyboardFixedText("-", 3),
     tenthVoltPerOctave: nextSignal
       ? nodeGraphMidiKeyboardFixedDecimal(nextSignal.tenthVoltPerOctave, { decimalPlaces: 6, maxDigits: 7, width: 8 })
       : nodeGraphMidiKeyboardFixedText("-", 8),

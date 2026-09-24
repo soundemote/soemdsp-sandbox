@@ -203,7 +203,7 @@ if (Test-Path -LiteralPath $dstPatches) {
 }
 New-Item -ItemType Directory -Path $dstPatches | Out-Null
 Copy-Item -Path (Join-Path $srcPatches "*") -Destination $dstPatches -Recurse -Force
-$patchCount = @(Get-ChildItem -LiteralPath $dstPatches -Filter "*.json" -File).Count
+$patchCount = @(Get-ChildItem -LiteralPath $dstPatches -Filter "*.json" -File -Recurse).Count
 Write-Host "  patches\ ($patchCount json files)"
 if (!(Test-Path -LiteralPath (Join-Path $dstPatches "init.json"))) {
   throw "Release patches missing init.json"

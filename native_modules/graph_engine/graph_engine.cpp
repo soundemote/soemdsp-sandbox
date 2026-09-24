@@ -581,7 +581,10 @@ extern "C" double soemdsp_vibrato_generator_sample(
   double morph,
   double randomFreqMult,
   double randomAmpMult,
-  double seedParam
+  double seedParam,
+  double attackSec,
+  double releaseSec,
+  double gate
 );
 extern "C" double soemdsp_vibrato_generator_out(int handle);
 
@@ -3227,7 +3230,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpoPluckEnvelope) ? 0.02 // topLength s
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // attack
       : (typeId == kTypeVactrol) ? 0.0 // attack
-      : (typeId == kTypeLinearAttackRelease) ? 0.01 // attack
+      : (typeId == kTypeLinearAttackRelease || typeId == kTypeVibratoGenerator) ? 0.01 // attack
       : (typeId == kTypeDelayEffect) ? 0.18 // time s
       : (typeId == kTypeFlanger) ? 0.005 // delay s
       : (typeId == kTypeAudioPlayer || typeId == kTypeSamplePlayer) ? 0.0 // start phase
@@ -3254,6 +3257,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // hold
       : (typeId == kTypeVactrol) ? 0.1 // release
       : (typeId == kTypeLinearAttackRelease) ? 0.25 // release
+      : (typeId == kTypeVibratoGenerator) ? 0.1 // release (depth env)
       : (typeId == kTypeAudioPlayer || typeId == kTypeSamplePlayer) ? 1.0 // end phase
       : (typeId == kTypeSpeakerProtector2) ? 0.333 // holdSeconds
       : (typeId == kTypeRobinSupersaw) ? 0.0 // portaTimeMax s (0 = off)
@@ -4547,11 +4551,14 @@ static double resolve_osc_hz(
   Circuit& g, int frame, bool liveF, bool livePitch,
   Control& frequency, double referenceVoltage, double sr
 ) {
-  (void)liveF;
   (void)livePitch;
   (void)referenceVoltage;
-  double freq = control_audio(g, frequency, frame);
-  freq = apply_global_pitch(g, freq);
+  // Absolute-Hz jack (kPortF): prefer live mix over Frequency Control / ParamModEdge.
+  // Walker/Arp f outs also dual-wire here so melody is not stuck on the Hz knob.
+  double freq = liveF
+    ? clamp_hz_nyquist(g.mixF[frame], sr)
+    : control_audio(g, frequency, frame);
+  if (!liveF) freq = apply_global_pitch(g, freq);
   return clamp_hz_nyquist(freq, sr);
 }
 
@@ -9212,7 +9219,7 @@ static void process_arp(Circuit& g, Node& node, int frames) {
 }
 
 // Gravity Walker: Leap CV→Morph. shape=gravity, width=leap, mode=octaves, seed=scale.
-// Pitch→Mono, Gate→Left, Trigger→Right, Degree→Saw.
+// Pitch→Mono, Gate→Left, Trigger→Right, Degree→Saw, f Hz→Ramp.
 static void process_gravity_walker(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
@@ -9241,6 +9248,8 @@ static void process_gravity_walker(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = soemdsp_gravity_walker_gate(node.nativeHandle);
     node.buf[kPortRight][f] = soemdsp_gravity_walker_trigger(node.nativeHandle);
     node.buf[kPortSaw][f] = soemdsp_gravity_walker_degree(node.nativeHandle);
+    // f Hz → Ramp (arp-style A4=440 MIDI law; pitch is midi/120).
+    node.buf[kPortRamp][f] = 440.0 * dsp_exp(((pitch * 120.0 - 69.0) / 12.0) * 0.6931471805599453);
   }
 }
 
@@ -9438,11 +9447,16 @@ static void process_cheap_walk(Circuit& g, Node& node, int frames) {
 // Vibrato Generator (VibratoGenerator.hpp): cheap sine wavetable LFO.
 // frequency=speed, phaseParam=offset, amplitude=depth, shape=morph,
 // width=randomFreqMult, center=randomAmpMult, seed=seed.
+// Vibrato Generator: Reset on kPortReset; Gate on Mono (depth A/R).
+// timeNumerator=attack s, timeDenominator=release s (exp one-pole depthEnv).
+// Unpatched Gate -> always-on (gate=1, depthEnv stays/goes to 1).
 static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active;
+  const bool hasGate = mix_live_port(g, node, kPortMono, frames, g.mixMono);
+  const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active
+    || node.timeNumerator.active || node.timeDenominator.active;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
@@ -9453,6 +9467,8 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
       }
       node.lastReset = rv;
     }
+    // Unpatched Gate = always-on full depth (existing Amplitude-only patches).
+    const double gate = hasGate ? g.mixMono[f] : 1.0;
     const double y = soemdsp_vibrato_generator_sample(
       node.nativeHandle,
       control_audio(g, node.frequency, f),
@@ -9462,7 +9478,10 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
       control_audio(g, node.shape, f),
       control_audio(g, node.width, f),
       control_audio(g, node.center, f),
-      control_effective(node.seed)
+      control_effective(node.seed),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.timeDenominator, f),
+      gate
     );
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;

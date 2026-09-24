@@ -34,15 +34,22 @@ NodeLiveAudioProcessor.prototype.snapPendingControllerParams = function snapPend
       1,
       nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)),
     );
-    const samplesEncoded = typeof nodeGraphDspControllerSmoothingSamples === "function"
+    const mode = typeof nodeSmoothingModeNormalize === "function"
+      ? nodeSmoothingModeNormalize(meta.smoothingMode)
+      : (meta.smoothingMode === "off" ? "off" : (meta.smoothingMode || "internal"));
+    // Off ≡ Internal with samples 0 (do not force type none / dedicated snap meta).
+    let samplesEncoded = typeof nodeGraphDspControllerSmoothingSamples === "function"
       ? nodeGraphDspControllerSmoothingSamples(meta, node?.params, rate)
       : (Number(meta.smoothingSeconds) > 0 && Number(meta.smoothingSeconds) < 1
         ? Math.max(1, Math.round(Number(meta.smoothingSeconds) * rate))
         : Math.max(0, Math.round(Number(meta.smoothingSeconds) || 0)));
+    if (mode === "off" || mode === "blockSize") {
+      samplesEncoded = 0;
+    }
     const smootherMeta = {
       ...meta,
       smoothingSeconds: samplesEncoded,
-      smoothingMode: meta.smoothingMode || "internal",
+      smoothingMode: mode || "internal",
     };
     const smootherKey = `controller:${String(node.id)}:${String(controlKey)}`;
     let smoother = map.get(smootherKey);
@@ -99,14 +106,22 @@ NodeLiveAudioProcessor.prototype.controllerEfficientSmoothedValue = function con
   const smootherKey = `controller:${String(node?.id || "")}:${String(controlKey || "")}`;
 
   // Dual encoding: (0,1)=seconds, ≥1=sample counts. Pass sample counts into shared API.
-  const samplesEncoded = typeof nodeGraphDspControllerSmoothingSamples === "function"
+  // Off ≡ Internal with samples 0 — leftover Lin/seconds must not keep chase.
+  const mode = typeof nodeSmoothingModeNormalize === "function"
+    ? nodeSmoothingModeNormalize(meta.smoothingMode)
+    : (meta.smoothingMode === "off" ? "off" : (meta.smoothingMode || "internal"));
+  let samplesEncoded = typeof nodeGraphDspControllerSmoothingSamples === "function"
     ? nodeGraphDspControllerSmoothingSamples(meta, params, rate)
     : 0;
+  if (mode === "off" || mode === "blockSize") {
+    samplesEncoded = 0;
+  }
   const seconds = samplesEncoded > 0 ? samplesEncoded / rate : 0;
   const smootherMeta = {
     ...meta,
     smoothingSeconds: samplesEncoded,
-    smoothingMode: meta.smoothingMode || "internal",
+    // Prefer normalized mode; never coerce explicit off via || "internal".
+    smoothingMode: mode || "internal",
   };
 
   // Shared Bias smoother path (createSmoother / FilterAdvance).

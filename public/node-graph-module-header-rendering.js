@@ -28,6 +28,9 @@ function syncNodeGraphHeaderTimingWidgets() {
     syncNodeGraphGlobalSmoothingControl();
   }
   syncNodeGraphOversamplingReadouts();
+  if (typeof syncNodeGraphHeaderPatchTitle === "function") {
+    syncNodeGraphHeaderPatchTitle();
+  }
 }
 
 // Keeps every transport node's own "BPM" parameter mirrored to the patch-wide
@@ -363,7 +366,7 @@ function createNodeGraphHeaderSpeedPlaceholder() {
 // Project Speed Limit (Hz): live pitch/f + DSP ceiling only (not knob metaparam max).
 // No project minimum frequency (0 allowed). Default 22050; user-adjustable.
 // Same interaction as BPM / pitch ref: drag to tune, double-click to type.
-function createNodeGraphHeaderSpeedLimitField() {
+function createNodeGraphHeaderSpeedLimitField(options = {}) {
   const field = document.createElement("label");
   field.className = "node-header-timing-field node-header-scope-field";
   field.setAttribute("aria-label", "Project speed limit in Hertz");
@@ -375,6 +378,14 @@ function createNodeGraphHeaderSpeedLimitField() {
   caption.className = "node-header-timing-caption";
   caption.textContent = "Speed Limit";
   field.append(caption);
+  if (options.nameValue) {
+    field.classList.add("is-name-value");
+    const colon = document.createElement("span");
+    colon.className = "node-header-timing-colon";
+    colon.textContent = ":";
+    colon.setAttribute("aria-hidden", "true");
+    field.append(colon);
+  }
 
   const input = document.createElement("input");
   input.className = "node-header-timing-input";
@@ -482,6 +493,14 @@ function createNodeGraphHeaderScopeInput(id, label, value, options = {}) {
   caption.className = "node-header-timing-caption";
   caption.textContent = label;
   field.append(caption);
+  if (options.nameValue) {
+    field.classList.add("is-name-value");
+    const colon = document.createElement("span");
+    colon.className = "node-header-timing-colon";
+    colon.textContent = ":";
+    colon.setAttribute("aria-hidden", "true");
+    field.append(colon);
+  }
 
   const input = document.createElement("input");
   input.id = id;
@@ -579,6 +598,42 @@ function createNodeGraphHeaderRenderRangeInput(className, label, defaultValue, o
   return field;
 }
 
+function nodeGraphHeaderPatchTitleText() {
+  const name = typeof normalizeNodeGraphPatchInfo === "function"
+    ? normalizeNodeGraphPatchInfo(nodeGraphMvp?.patch?.info).name
+    : String(nodeGraphMvp?.patch?.info?.name || "").trim();
+  const pathOrSlug = nodeGraphMvp?.currentSavedPatchFilename
+    || nodeGraphMvp?.selectedSavedPatchFilename
+    || "";
+  if (typeof nodeGraphPatchDisplayTitle === "function") {
+    return nodeGraphPatchDisplayTitle(name, pathOrSlug);
+  }
+  return String(name || "").trim() || "Untitled";
+}
+
+function syncNodeGraphHeaderPatchTitle() {
+  const el = document.getElementById("nodeHeaderPatchTitle");
+  if (!el) {
+    return;
+  }
+  const next = nodeGraphHeaderPatchTitleText();
+  if (el.textContent !== next) {
+    el.textContent = next;
+  }
+  el.title = next;
+}
+
+function createNodeGraphHeaderPatchTitle() {
+  const el = document.createElement("div");
+  el.id = "nodeHeaderPatchTitle";
+  el.className = "node-header-patch-title";
+  el.setAttribute("aria-label", "Patch name");
+  const text = nodeGraphHeaderPatchTitleText();
+  el.textContent = text;
+  el.title = text;
+  return el;
+}
+
 function createNodeGraphHeaderTimingWidgets() {
   const group = document.createElement("div");
   group.className = "node-header-timing-widgets";
@@ -589,21 +644,8 @@ function createNodeGraphHeaderTimingWidgets() {
     createNodeGraphHeaderTimingInput("tempoBpm", "BPM", { max: 320 }),
     createNodeGraphHeaderTimingInput("timeSignatureNumerator", "Beats"),
     createNodeGraphHeaderTimingInput("timeSignatureDenominator", "Unit"),
-    createNodeGraphHeaderScopeInput(
-      "nodeMasterScopeFps",
-      "FPS",
-      normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60),
-      {
-        ariaLabel: "Display frames per second",
-        inputMode: "numeric",
-        max: 240,
-        min: 0,
-        scopeInput: "framesPerSecond",
-        step: 1,
-      },
-    ),
+    createNodeGraphHeaderPatchTitle(),
     createNodeGraphHeaderSpeedPlaceholder(),
-    createNodeGraphHeaderSpeedLimitField(),
     createNodeGraphHeaderSmoothingTimeField(),
     createNodeGraphHeaderRenderRangeInput("node-header-render-start-input", "Start", nodeGraphMvp.renderStartSeconds ?? 0, { ariaLabel: "Render start time in seconds", min: 0, max: 3599, tooltip: "Sets the Render Sample start point (seconds)" }),
     createNodeGraphHeaderRenderRangeInput("node-header-render-end-input", "End", nodeGraphMvp.renderEndSeconds ?? (nodeGraphMvp.seconds ?? 2), { ariaLabel: "Render end time in seconds", min: 0.05, max: 3600, tooltip: "Sets the Render Sample end point (seconds)" }),
@@ -729,6 +771,21 @@ function createNodeGraphCommandCenterTimingWidgets() {
     createNodeGraphHeaderTimingInput("tempoBpm", "BPM", { ...nv, max: 320 }),
     createNodeGraphHeaderTimingInput("timeSignatureNumerator", "Beats", nv),
     createNodeGraphHeaderTimingInput("timeSignatureDenominator", "Unit", nv),
+    createNodeGraphHeaderScopeInput(
+      "nodeMasterScopeFps",
+      "FPS",
+      normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60),
+      {
+        ...nv,
+        ariaLabel: "Display frames per second",
+        inputMode: "numeric",
+        max: 240,
+        min: 0,
+        scopeInput: "framesPerSecond",
+        step: 1,
+      },
+    ),
+    createNodeGraphHeaderSpeedLimitField(nv),
     createNodeGraphHeaderAudioInput("pitchReferenceHz", "Freq Ref", {
       ...nv,
       ariaLabel: "Pitch Reference Frequency in Hz (0.1V/Oct reference)",
@@ -747,7 +804,7 @@ function createNodeGraphCommandCenterTimingWidgets() {
     createNodeGraphPlanckReadout(),
     createNodeGraphOversamplingFactorField(),
     createNodeGraphSampleRateReadout("sample-rate", "Sample Rate"),
-    createNodeGraphSampleRateReadout("simulated-rate", "Simulated Rate"),
+    createNodeGraphSampleRateReadout("simulated-rate", "Simulated"),
   );
   return group;
 }
@@ -767,6 +824,8 @@ function renderNodeGraphCommandCenterTimingControls() {
     || (osSelect && osSelect.dataset.timingBound === "true")
     || !host.querySelector(".node-header-sample-rate-value")
     || !host.querySelector('.node-header-timing-input[data-audio-field="pitchOffsetOctaves"]')
+    || !host.querySelector("#nodeMasterScopeFps")
+    || !host.querySelector('[data-speed-limit="true"]')
   ) {
     host.replaceChildren(createNodeGraphCommandCenterTimingWidgets());
   }
@@ -775,20 +834,21 @@ function renderNodeGraphCommandCenterTimingControls() {
 }
 
 function renderNodeGraphPatchTimingControls() {
-  renderNodeGraphCommandCenterTimingControls();
   const host = document.getElementById("nodePatchTimingControls");
-  if (!host) {
-    syncNodeGraphHeaderTimingWidgets();
-    return;
+  if (host) {
+    // Rebuild top bar first so FPS / Speed Limit leave before Command Center claims those ids.
+    if (
+      !host.querySelector(".node-header-timing-widgets")
+      || !host.querySelector("#nodeHeaderGlobalSmoothingSeconds")
+      || !host.querySelector("#nodeHeaderPatchTitle")
+      || host.querySelector("#nodeMasterScopeFps")
+      || host.querySelector('[data-speed-limit="true"]')
+    ) {
+      host.replaceChildren(createNodeGraphHeaderTimingWidgets());
+    }
+    bindNodeGraphHeaderTimingWidgets(host);
   }
-  // Rebuild if missing the widget group or the Smooth Time field (added next to Speed Limit).
-  if (
-    !host.querySelector(".node-header-timing-widgets")
-    || !host.querySelector("#nodeHeaderGlobalSmoothingSeconds")
-  ) {
-    host.replaceChildren(createNodeGraphHeaderTimingWidgets());
-  }
-  bindNodeGraphHeaderTimingWidgets(host);
+  renderNodeGraphCommandCenterTimingControls();
   syncNodeGraphHeaderTimingWidgets();
   syncNodeGraphRenderRangeToUI();
   moveNodeGraphRenderRangeToDurationControl();

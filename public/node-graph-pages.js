@@ -1,5 +1,18 @@
-// Pages (📄) — list static soemdsp-sandbox/patches/*.json and load with confirm + undo.
+// Pages — list static soemdsp-sandbox/patches (root + one folder deep) and load with confirm + undo.
 const nodeGraphPagesPatchBase = "/soemdsp-sandbox/patches";
+
+/** Encode each path segment of a page-patch slug for /patches/{slug}.json URLs. */
+function nodeGraphPagesPatchFileUrl(slug, base = nodeGraphPagesPatchBase) {
+  const clean = String(slug || "").replace(/\.json$/i, "").replace(/^\/+|\/+$/g, "");
+  if (!clean) return "";
+  const parts = clean.split("/").filter(Boolean).map((part) => encodeURIComponent(part));
+  // One folder deep max.
+  if (parts.length > 2) {
+    return "";
+  }
+  return `${String(base).replace(/\/$/, "")}/${parts.join("/")}.json`;
+}
+
 
 function applyNodeGraphPagesPageSize(size = {}, panelArg = null) {
   const panel = panelArg || document.getElementById("nodePagesPage");
@@ -46,6 +59,9 @@ function setNodeGraphPagesPageOpen(open) {
     if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
       noteNodeGraphUnifiedWindowOpened("pages", panel);
     }
+    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp && !switching) {
+      nodeGraphMvp.pagesFolder = "";
+    }
     renderNodeGraphPagesList();
   }
 }
@@ -70,19 +86,60 @@ async function loadNodeGraphPagePatchCatalog() {
       return list
         .map((entry) => {
           if (typeof entry === "string") {
-            const slug = entry.replace(/\.json$/i, "");
-            return { slug, label: slug, url: `${base}/${slug}.json` };
+            const slug = entry.replace(/\.json$/i, "").replace(/^\/+|\/+$/g, "");
+            if (!slug || slug.split("/").length > 2) return null;
+            const folder = slug.includes("/") ? slug.split("/")[0] : "";
+            const label = slug.includes("/") ? slug.split("/").slice(1).join("/") : slug;
+            return {
+              slug,
+              label,
+              folder,
+              url: nodeGraphPagesPatchFileUrl(slug, base),
+            };
           }
-          const slug = String(entry?.slug || entry?.name || "").replace(/\.json$/i, "").trim();
-          if (!slug) return null;
+          const slug = String(entry?.slug || entry?.name || "")
+            .replace(/\.json$/i, "")
+            .replace(/^\/+|\/+$/g, "")
+            .trim();
+          if (!slug || slug.split("/").length > 2) return null;
+          const folder = String(entry?.folder || (slug.includes("/") ? slug.split("/")[0] : "")).trim();
+          const name = String(entry?.name || "").trim();
+          const stem = typeof nodeGraphPatchFileStem === "function"
+            ? nodeGraphPatchFileStem(slug)
+            : (slug.includes("/") ? slug.split("/").slice(1).join("/") : slug);
+          const label = typeof nodeGraphPatchDisplayTitle === "function"
+            ? nodeGraphPatchDisplayTitle(name, slug)
+            : (name || stem);
           return {
             slug,
-            label: String(entry?.label || slug),
-            url: String(entry?.url || `${base}/${slug}.json`),
+            label,
+            name,
+            folder,
+            url: String(entry?.url || nodeGraphPagesPatchFileUrl(slug, base)),
+            author: String(entry?.author || "").trim(),
+            tags: String(entry?.tags || "").trim(),
+            emoji: String(entry?.emoji || "").trim(),
           };
         })
         .filter(Boolean)
-        .sort((a, b) => a.label.localeCompare(b.label));
+        .sort((a, b) => {
+          const af = String(a.folder || "");
+          const bf = String(b.folder || "");
+          // filter* folders on top of everything, then other folders, then root.
+          const tier = (folder) => {
+            if (/^filter\b/i.test(folder)) return 0;
+            if (folder) return 1;
+            return 2;
+          };
+          const at = tier(af);
+          const bt = tier(bf);
+          if (at !== bt) return at - bt;
+          if (af !== bf) {
+            const folderCmp = af.localeCompare(bf);
+            if (folderCmp) return folderCmp;
+          }
+          return a.label.localeCompare(b.label);
+        });
     } catch (_error) {
       // try next catalog URL
     }
@@ -93,14 +150,23 @@ async function loadNodeGraphPagePatchCatalog() {
     if (typeof loadNodeGraphDemoPatchEntries === "function") {
       const entries = await loadNodeGraphDemoPatchEntries();
       return (Array.isArray(entries) ? entries : [])
-        .map((entry) => ({
-          slug: String(entry?.filename || entry?.name || "").replace(/\.json$/i, ""),
-          label: String(entry?.name || entry?.filename || "patch"),
-          url: entry?.filename
-            ? `/api/patches/file?name=${encodeURIComponent(entry.filename)}`
-            : "",
-          filename: entry?.filename || "",
-        }))
+        .map((entry) => {
+          const filename = entry?.filename || "";
+          const slug = String(filename || entry?.name || "").replace(/\.json$/i, "");
+          const name = String(entry?.name || "").trim();
+          const label = typeof nodeGraphPatchDisplayTitle === "function"
+            ? nodeGraphPatchDisplayTitle(name, filename || slug)
+            : (name || slug || "patch");
+          return {
+            slug,
+            label,
+            name,
+            url: filename
+              ? `/api/patches/file?name=${encodeURIComponent(filename)}`
+              : "",
+            filename,
+          };
+        })
         .filter((entry) => entry.slug && entry.url)
         .sort((a, b) => a.label.localeCompare(b.label));
     }
@@ -112,7 +178,7 @@ async function loadNodeGraphPagePatchCatalog() {
 
 async function fetchNodeGraphPagePatchScriptText(entry) {
   const url = entry?.url
-    || (entry?.slug ? `${nodeGraphPagesPatchBase}/${encodeURIComponent(entry.slug)}.json` : "");
+    || (entry?.slug ? nodeGraphPagesPatchFileUrl(entry.slug) : "");
   if (!url) {
     throw new Error("page patch has no URL");
   }
@@ -147,12 +213,17 @@ async function renderNodeGraphPagesList() {
   status.textContent = "loading pages…";
   body.append(status);
 
-  let catalog = [];
-  try {
-    catalog = await loadNodeGraphPagePatchCatalog();
-  } catch (error) {
-    status.textContent = error?.message || "failed to list pages";
-    return;
+  let catalog = Array.isArray(nodeGraphMvp?._pagesCatalog) ? nodeGraphMvp._pagesCatalog : null;
+  if (!catalog) {
+    try {
+      catalog = await loadNodeGraphPagePatchCatalog();
+      if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
+        nodeGraphMvp._pagesCatalog = catalog;
+      }
+    } catch (error) {
+      status.textContent = error?.message || "failed to list pages";
+      return;
+    }
   }
 
   body.replaceChildren();
@@ -164,23 +235,137 @@ async function renderNodeGraphPagesList() {
     return;
   }
 
-  for (const entry of catalog) {
+  const openFolder = String(nodeGraphMvp?.pagesFolder || "").trim();
+
+  const appendPatchButton = (entry) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "node-pages-entry scene-context-store-item";
     button.dataset.pageSlug = entry.slug;
     button.dataset.pageUrl = entry.url || "";
+    if (entry.folder) button.dataset.pageFolder = entry.folder;
     button.setAttribute("role", "option");
     button.title = `Load /${entry.slug}`;
+    const main = document.createElement("span");
+    main.className = "node-pages-entry-main";
     const title = document.createElement("span");
     title.className = "node-pages-entry-title";
-    title.textContent = entry.label || entry.slug;
-    const path = document.createElement("span");
-    path.className = "node-pages-entry-path";
-    path.textContent = `/${entry.slug}`;
-    button.append(title, path);
+    const emoji = String(entry.emoji || "").trim();
+    const customName = String(entry.name || "").trim();
+    const named = typeof nodeGraphPatchNameIsFilled === "function"
+      ? nodeGraphPatchNameIsFilled(customName)
+      : Boolean(customName);
+    const label = named
+      ? customName
+      : (typeof nodeGraphPatchFileStem === "function"
+        ? nodeGraphPatchFileStem(entry.slug || entry.label || "")
+        : (entry.label || entry.slug || ""));
+    title.textContent = (emoji ? `${emoji} ` : "") + label;
+    title.classList.toggle("is-custom-name", named);
+    main.append(title);
+    const author = String(entry.author || "").trim();
+    const tags = String(entry.tags || "").trim();
+    if (author || tags) {
+      const meta = document.createElement("span");
+      meta.className = "node-pages-entry-meta";
+      if (author) {
+        const authorEl = document.createElement("span");
+        authorEl.className = "node-pages-entry-author";
+        authorEl.textContent = author;
+        meta.append(authorEl);
+      }
+      if (tags) {
+        const tagsEl = document.createElement("span");
+        tagsEl.className = "node-pages-entry-tags";
+        tagsEl.textContent = tags;
+        meta.append(tagsEl);
+      }
+      main.append(meta);
+    }
+    button.append(main);
     button.addEventListener("click", (event) => handleNodeGraphPagePatchClick(event, entry));
     body.append(button);
+  };
+
+  if (openFolder) {
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "node-pages-back scene-context-store-item";
+    back.setAttribute("aria-label", "Back to all pages");
+    back.textContent = "← All pages";
+    back.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
+        nodeGraphMvp.pagesFolder = "";
+      }
+      renderNodeGraphPagesList();
+    });
+    body.append(back);
+
+    const heading = document.createElement("div");
+    heading.className = "node-pages-folder";
+    heading.textContent = openFolder;
+    heading.setAttribute("role", "presentation");
+    body.append(heading);
+
+    const inFolder = catalog.filter((entry) => String(entry.folder || "") === openFolder);
+    if (!inFolder.length) {
+      const empty = document.createElement("div");
+      empty.className = "node-pages-status";
+      empty.textContent = "no patches in this folder";
+      body.append(empty);
+      return;
+    }
+    for (const entry of inFolder) {
+      appendPatchButton(entry);
+    }
+    return;
+  }
+
+  // Root view: folder categories (filter* first), then top-level patches listed as today.
+  const folderNames = [];
+  const seen = new Set();
+  for (const entry of catalog) {
+    const folder = String(entry.folder || "").trim();
+    if (!folder || seen.has(folder)) continue;
+    seen.add(folder);
+    folderNames.push(folder);
+  }
+  folderNames.sort((a, b) => {
+    const at = /^filter\b/i.test(a) ? 0 : 1;
+    const bt = /^filter\b/i.test(b) ? 0 : 1;
+    if (at !== bt) return at - bt;
+    return a.localeCompare(b);
+  });
+
+  for (const folder of folderNames) {
+    const count = catalog.filter((entry) => String(entry.folder || "") === folder).length;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "node-pages-folder-card node-pages-entry";
+    button.dataset.pageFolder = folder;
+    button.title = `${folder}: open folder`;
+    button.setAttribute("aria-label", `Open ${folder} folder`);
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
+        nodeGraphMvp.pagesFolder = folder;
+      }
+      renderNodeGraphPagesList();
+    });
+    const title = document.createElement("span");
+    title.className = "node-pages-entry-title";
+    title.textContent = "📁 " + folder;
+    const countEl = document.createElement("span");
+    countEl.className = "node-pages-folder-count";
+    countEl.textContent = String(count);
+    button.append(title, countEl);
+    body.append(button);
+  }
+
+  const roots = catalog.filter((entry) => !entry.folder);
+  for (const entry of roots) {
+    appendPatchButton(entry);
   }
 }
 
@@ -211,8 +396,16 @@ async function handleNodeGraphPagePatchClick(event, entry) {
     }
     if (typeof commitNodeGraphScript === "function") {
       const ok = commitNodeGraphScript(cached);
-      if (ok && typeof setNodeGraphScriptStatus === "function") {
-        setNodeGraphScriptStatus(`loaded page /${entry.slug}`, true);
+      if (ok) {
+        if (typeof setNodeGraphCurrentSavedPatch === "function") {
+          setNodeGraphCurrentSavedPatch(`${entry.slug}.json`);
+        }
+        if (typeof syncNodeGraphHeaderPatchTitle === "function") {
+          syncNodeGraphHeaderPatchTitle();
+        }
+        if (typeof setNodeGraphScriptStatus === "function") {
+          setNodeGraphScriptStatus(`loaded page /${entry.slug}`, true);
+        }
       }
     }
     if (typeof flashNodeGraphDefaultButtonSaved === "function") {

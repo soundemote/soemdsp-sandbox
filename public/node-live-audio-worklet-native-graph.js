@@ -73,6 +73,11 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   flanger: 179,
   basicShape: 139,
   chordPad: 140,
+  noteGlide: 141,
+  noteTranspose: 142,
+  degreeTuring: 143,
+  degreePhrase: 144,
+  gravityWalker: 145,
   smoothGraph: 146,
   stepGraph: 147,
   phaseDisperse: 148,
@@ -807,6 +812,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "0.1v/oct" || p === "0.1v" || p === "v/oct" || p === "pitch") {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     }
+    if (t === "gravityWalker" && (p === "f" || p === "freq" || p === "frequency")) {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+    }
     if (p === "gate") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     if (p === "trigger" || p === "t") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
     if (p === "degree" || p === "phase" || p === "step") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
@@ -952,6 +960,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
         || tGateEnv === "attackDecay"
         || tGateEnv === "pluckEnvelope3"
         || tGateEnv === "samplePlayer"
+        || tGateEnv === "vibratoGenerator"
       )
     ) {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
@@ -1860,6 +1869,28 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
               continue;
             }
             liveParamModKeys.add(`${dstId}\0${paramKey}\0${srcId}\0${srcPort}`);
+            // Absolute-Hz outs (Walker/Arp f): also wire audio->kPortF so
+            // resolve_osc_hz(liveF) hears melody; ParamModEdge alone can leave
+            // Frequency stuck on the Hz knob when domainReplace fights.
+            {
+              const sp = srcPort.trim().toLowerCase();
+              const isFreqParam = paramKey === "frequency" || paramKey === "freq";
+              const isHzPort = sp === "f" || sp === "\u0192" || sp === "freq" || sp === "frequency";
+              if (
+                isFreqParam && isHzPort && idSet.has(srcId)
+                && typeof native.soemdsp_graph_connect === "function"
+              ) {
+                try {
+                  native.soemdsp_graph_connect(
+                    this.nativeGraphHandle,
+                    srcHash,
+                    srcPortId | 0,
+                    hashById.get(dstId),
+                    NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_F | 0,
+                  );
+                } catch (_e) { /* ignore */ }
+              }
+            }
           }
         });
       }
@@ -1876,6 +1907,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
       this.nativeGraphCompiled = true;
       this._nativeGraphNodeIds = new Set(desired.keys());
       this._nativeHostCvFeeders = hostFeeders;
+    if (typeof this.snapNativeHostCvFeederSmoothing === "function") {
+      this.snapNativeHostCvFeederSmoothing(native, hostFeeders);
+    }
       // Keep param cache warm for survivors; only force push for newly added.
       if (addedIds.length && this._nativeGraphParamCache && typeof this._nativeGraphParamCache === "object") {
         for (const id of addedIds) {
@@ -3341,9 +3375,15 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       if (cache[timeKey] == null) cache[timeKey] = -1;
       return;
     }
-    const timeSamples = this.nativeGraphSmoothTimeSamplesFromMeta?.(meta) || 0;
     const smoothMode = this.nativeGraphSmoothModeFromMeta?.(meta) ?? 0;
     const smoothType = this.nativeGraphSmoothTypeFromMeta?.(meta) ?? 0;
+    // Off ≡ Internal with samples 0: do not push leftover Lin seconds/samples.
+    // Native Off already resolves time to 0, but leftover cells fought debugging
+    // and older wasm builds that keyed chase off timeSamples alone.
+    let timeSamples = this.nativeGraphSmoothTimeSamplesFromMeta?.(meta) || 0;
+    if (smoothMode === 3) {
+      timeSamples = 0;
+    }
     if (forceAll || cache[modeKey] !== smoothMode) {
       cache[modeKey] = smoothMode;
       this.pushNativeGraphSmoothMode(native, hash, paramId, smoothMode);
@@ -3654,12 +3694,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "vibratoGenerator") {
       // frequency=speed, phase=offset, shape=morph, width=randomFreq, center=randomAmp.
+      // timeNumerator=attack, timeDenominator=release (exp depth envelope).
+      // Gate→Mono (unpatched = always-on full depth); Reset→kPortReset.
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 5));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0));
       push("randomFreq", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomFreq", 0));
       push("randomAmp", P.NATIVE_GRAPH_PARAM_CENTER, cont("randomAmp", 0));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("attack", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("attack", 0.01));
+      push("release", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("release", 0.1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -5998,6 +6042,23 @@ NodeLiveAudioProcessor.prototype.syncNativeAudioPlayerPcm = function syncNativeA
  */
 /** JS declares Portal →/← + title; C++ groups matching bus keys at compile. */
 /** Bias stand-in for a keyboard/knob port, shared by signal cables and param mods. */
+
+/** Force every host CV Bias Offset to Off / 0 samples / type none. */
+NodeLiveAudioProcessor.prototype.snapNativeHostCvFeederSmoothing = function snapNativeHostCvFeederSmoothing(
+  native = this.nativeGraph,
+  feeders = this._nativeHostCvFeeders,
+) {
+  if (!native || !this.nativeGraphHandle || !Array.isArray(feeders) || !feeders.length) return;
+  const attOffsetParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
+  for (let i = 0; i < feeders.length; i += 1) {
+    const feedHash = feeders[i]?.hash || feeders[i]?.feedHash;
+    if (!feedHash) continue;
+    this.pushNativeGraphSmoothType(native, feedHash, attOffsetParam, 3);
+    this.pushNativeGraphSmoothMode(native, feedHash, attOffsetParam, 3);
+    this.pushNativeGraphSmoothTime(native, feedHash, attOffsetParam, 0);
+  }
+};
+
 NodeLiveAudioProcessor.prototype.nativeHostCvFeederHash = function nativeHostCvFeederHash(srcId, srcPort) {
   const build = this._nativeHostFeederBuild;
   if (!build?.biasTypeId || !build.native || !this.nativeGraphHandle) return 0;
@@ -6014,6 +6075,14 @@ NodeLiveAudioProcessor.prototype.nativeHostCvFeederHash = function nativeHostCvF
     sourceNode: String(srcId),
     sourcePort: String(srcPort || ""),
   });
+  // ParamModEdge-only cables (Momentary Bias -> PolyBLEP amplitude) create the
+  // host Bias here — not via connectOne. Default Control is Internal with the
+  // shared default time, so quantum set_param still chased even when every
+  // Parameter Settings SOURCE and global time were Off. Match connectOne snap.
+  const attOffsetParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
+  this.pushNativeGraphSmoothType(build.native, feedHash, attOffsetParam, 3);
+  this.pushNativeGraphSmoothMode(build.native, feedHash, attOffsetParam, 3);
+  this.pushNativeGraphSmoothTime(build.native, feedHash, attOffsetParam, 0);
   return feedHash;
 };
 
@@ -6656,6 +6725,25 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
               return;
             }
             liveParamModKeys.add(`${dId}\0${paramKey}\0${sId}\0${srcPort}`);
+            {
+              const sp = srcPort.trim().toLowerCase();
+              const isFreqParam = paramKey === "frequency" || paramKey === "freq";
+              const isHzPort = sp === "f" || sp === "\u0192" || sp === "freq" || sp === "frequency";
+              if (
+                isFreqParam && isHzPort && idSet.has(sId)
+                && typeof native.soemdsp_graph_connect === "function"
+              ) {
+                try {
+                  native.soemdsp_graph_connect(
+                    this.nativeGraphHandle,
+                    srcHash,
+                    srcPortId | 0,
+                    this.fnv1aHash32(dId),
+                    NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_F | 0,
+                  );
+                } catch (_e) { /* ignore */ }
+              }
+            }
           };
           if (srcLane && dstLane && srcLane.metaId === dstLane.metaId) continue;
           addMod(srcId, dstId);
@@ -6674,6 +6762,9 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     this._nativeLiveParamModKeys = liveParamModKeys;
     this._nativePhaseModLiveKeys = liveParamModKeys;
     this._nativeHostCvFeeders = hostFeeders;
+    if (typeof this.snapNativeHostCvFeederSmoothing === "function") {
+      this.snapNativeHostCvFeederSmoothing(native, hostFeeders);
+    }
     const wiredIds = new Set();
     for (let ci = 0; ci < connections.length; ci += 1) {
       const c = connections[ci];
@@ -6984,6 +7075,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "audioPlayer") return ["Trigger"];
     if (type === "binaryClock") return ["Bit3", "Ramp"];
     if (type === "arp") return ["f", "ƒ", "Frequency", "Freq", "Ramp"];
+    if (type === "gravityWalker") return ["f", "Frequency", "Freq", "Ramp"];
     if (type === "reverbEffect" || type === "soemReverb") {
       return ["Dry R", "Dry Right"];
     }

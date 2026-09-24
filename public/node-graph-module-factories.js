@@ -766,7 +766,7 @@ function createNodeGraphKeyboardControllerBody(node = null) {
     ["gate", "Gate", "0"],
     ["gatePulse", "Trigger", "0"],
     ["octave", "Octave", "+0"],
-    ["double", "Note#/127", "-"],
+    ["double", "Note#", "-"],
     ["velocity01", "Velocity#/127", "-"],
     ["tenthVoltPerOctave", "0.1V/Oct", "-"],
     ["frequency", "Frequency", "-"],

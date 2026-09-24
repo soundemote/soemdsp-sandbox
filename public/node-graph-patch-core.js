@@ -830,6 +830,7 @@ function validateNodeGraphPatch(patch) {
       }
       throw new Error("connection references missing node");
     }
+    sourcePort = normalizeNodeGraphKeyboardNoteOutputPort(sourceType, sourcePort);
     sourcePort = nodeGraphCanonicalOutputPort(sourceType, sourcePort);
     if (!nodeGraphPatchNodeOutputPorts(nodeById.get(sourceNode)).includes(sourcePort)) {
       throw new Error(`connection source port invalid: ${sourceNode}.${sourcePort}`);
@@ -882,6 +883,7 @@ function validateNodeGraphPatch(patch) {
         }
         throw new Error("modulation references missing node");
       }
+      sourcePort = normalizeNodeGraphKeyboardNoteOutputPort(sourceType, sourcePort);
       sourcePort = nodeGraphCanonicalOutputPort(sourceType, sourcePort);
       if (!nodeGraphPatchNodeOutputPorts(nodeById.get(sourceNode)).includes(sourcePort)) {
         throw new Error(`modulation source port invalid: ${sourceNode}.${sourcePort}`);
@@ -932,6 +934,7 @@ function validateNodeGraphPatch(patch) {
       }
       throw new Error("graph connection references missing node");
     }
+    sourcePort = normalizeNodeGraphKeyboardNoteOutputPort(sourceType, sourcePort);
     sourcePort = nodeGraphCanonicalOutputPort(sourceType, sourcePort);
     if (!nodeGraphModuleIsGraphType(sourceType) || sourcePort !== "Out") {
       throw new Error(`graph connection source must be Graph.Out or Graph 2.Out: ${sourceNode}.${sourcePort}`);

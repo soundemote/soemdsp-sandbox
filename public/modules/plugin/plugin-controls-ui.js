@@ -132,10 +132,21 @@ function nodeGraphControllerFaceSmoothingSeconds(meta) {
   const mode = typeof nodeSmoothingModeNormalize === "function"
     ? nodeSmoothingModeNormalize(meta?.smoothingMode)
     : String(meta?.smoothingMode || "internal");
+  // Off ≡ Internal with samples 0.
   if (mode === "off" || mode === "blockSize") return 0;
-  const internal = typeof nodeGraphMetadataSmoothingSamplesToSeconds === "function"
-    ? nodeGraphMetadataSmoothingSamplesToSeconds(meta?.smoothingSeconds)
-    : 0;
+  const rate = nodeGraphControllerFaceSampleRate();
+  const raw = Number(meta?.smoothingSeconds);
+  // Dual encoding: (0,1)=seconds, ≥1=sample counts. Samples ≤ 1 = instant.
+  let internalSamples = 0;
+  if (Number.isFinite(raw) && raw > 0) {
+    internalSamples = (raw > 0 && raw < 1)
+      ? Math.max(1, Math.round(raw * rate))
+      : Math.max(0, Math.round(raw));
+  }
+  if (internalSamples <= 1) {
+    internalSamples = 0;
+  }
+  const internal = internalSamples > 0 ? internalSamples / rate : 0;
   const globalSeconds = Number(nodeGraphMvp?.live?.autoSmoothingSeconds);
   const globalSafe = Number.isFinite(globalSeconds) && globalSeconds > 0 ? globalSeconds : 0;
   if (mode === "global") return globalSafe;

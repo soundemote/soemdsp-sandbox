@@ -40,6 +40,7 @@ function nodeGraphPatchWithLiveHeaderInfo(patch = nodeGraphMvp.patch) {
     program,
     tags: field("tags", "nodePatchDefaultsTags", "patchTagsValue") || nextPatch.info?.tags,
     author: field("author", "nodePatchDefaultsAuthor", "patchAuthorValue") || nextPatch.info?.author,
+    emoji: field("emoji", "nodePatchDefaultsEmoji", "patchEmojiValue") || nextPatch.info?.emoji,
     category: field("category", "nodePatchDefaultsCategory", "patchCategoryValue") || nextPatch.info?.category,
   });
   return nextPatch;

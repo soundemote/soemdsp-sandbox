@@ -225,6 +225,10 @@ function nodeGraphGravityWalkerSample(state, options = {}) {
 
   return {
     "0.1V/Oct": nodeGraphMusicalPitchFromMidi(midi),
+    // Absolute Hz (A4=440), matches native Ramp / Arp f out.
+    f: (typeof nodeGraphMidiToHz === "function"
+      ? nodeGraphMidiToHz(midi)
+      : (440 * (2 ** ((Number(midi) - 69) / 12)))),
     Gate: (classes.length ? 1 : 0) * level,
     Trigger: trig * level,
     Degree: span > 1 ? state.degree / (span - 1) : 0,

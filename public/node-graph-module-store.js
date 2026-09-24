@@ -878,7 +878,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   vibratoGenerator: {
     category: "modulator",
-    description: "soemdsp VibratoGenerator — cheap sine-wavetable LFO with optional S&H random freq/amp. Shared core with Hypersaw per-saw vibrato.",
+    description: "soemdsp VibratoGenerator — cheap sine-wavetable LFO with optional S&H random freq/amp and Gate depth Attack/Release. Shared LFO core with Hypersaw (depth env is standalone-module only).",
     label: "Vibrato Generator",
     notes: ["modulator", "vibrato", "lfo", "sine wavetable", "native", "soemdsp"],
   },

@@ -260,6 +260,7 @@ const nodeGraphDefaultPatch = Object.freeze({
     pitchReferenceMidiNote: 69,
     pitchReferenceHz: 440,
     pitchOffsetOctaves: 0,
+    speedLimitHz: 22050,
   },
   bypassedNodes: [],
   cameras: [
@@ -280,6 +281,7 @@ const nodeGraphDefaultPatch = Object.freeze({
   info: {
     author: "",
     description: "Offline fallback — live Init is patches/init.json",
+    emoji: "",
     name: "Init",
     tags: "init,default",
   },
