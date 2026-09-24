@@ -11,6 +11,8 @@
 //   Lin: Out = x
 //   Exp: Out = 0 at x≤0, else 10^(k·(x−1))  (unity at 1, ~−100 dB near 0)
 
+#include <cstdint>
+
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
 namespace {
@@ -110,14 +112,14 @@ extern "C" void soemdsp_amp_curve_process_block(int handle, int frameCount) {
   }
 }
 
-extern "C" int soemdsp_amp_curve_block_input_ptr(int handle) {
+extern "C" intptr_t soemdsp_amp_curve_block_input_ptr(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0;
-  return reinterpret_cast<int>(gPool[handle - 1].blockIn);
+  return reinterpret_cast<intptr_t>(gPool[handle - 1].blockIn);
 }
 
-extern "C" int soemdsp_amp_curve_block_output_ptr(int handle) {
+extern "C" intptr_t soemdsp_amp_curve_block_output_ptr(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0;
-  return reinterpret_cast<int>(gPool[handle - 1].blockOut);
+  return reinterpret_cast<intptr_t>(gPool[handle - 1].blockOut);
 }
 
 extern "C" int soemdsp_amp_curve_max_block_frames() {

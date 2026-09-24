@@ -96,7 +96,7 @@ extern "C" double soemdsp_degree_turing_sample(
     ? musical_normalize_mask(scaleIn)
     : musical_preset_mask(scaleChoice);
   // Match JS: Number(options.root) || (60/120)
-  const double rootUse = (safe(root) != 0.0) ? safe(root) : (60.0 / 120.0);
+  const double rootUse = (safe(root) != 0.0) ? safe(root) : 60.0;
 
   int classes[12];
   const int classCount = musical_classes_from_root(mask, rootUse, classes, 12);

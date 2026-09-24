@@ -19,11 +19,11 @@ nodeGraphLiveModuleEvaluators.phoneTone = ({
   const freqOffset = readNodeGraphLiveEffectiveParam(runtime, node, "freqOffset", 0, frame, frames, frameValues);
   const pitchOffset = readNodeGraphLiveEffectiveParam(runtime, node, "pitchOffset", 0, frame, frames, frameValues);
   const referenceVoltage = typeof normalizeNodeGraphPatchAudio === "function" && nodeGraphMvp?.patch?.audio
-    ? normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote / 120
+    ? normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote
     : 0.4;
-  const hasPitch = typeof hasInput === "function" ? hasInput(nodeId, "0.1V/Oct") : false;
+  const hasPitch = typeof hasInput === "function" ? (hasInput(nodeId, "pitch") || hasInput(nodeId, "0.1V/Oct")) : false;
   const pitchCv = hasPitch
-    ? nodeGraphFiniteNumber(mixInput(nodeId, "0.1V/Oct"))
+    ? nodeGraphFiniteNumber((mixInput(nodeId, "pitch") ?? mixInput(nodeId, "0.1V/Oct")))
     : referenceVoltage;
   const pitchCvRatio = typeof nodeGraphPhoneTonePitchCvRatio === "function"
     ? nodeGraphPhoneTonePitchCvRatio(hasPitch, pitchCv, referenceVoltage)

@@ -359,7 +359,7 @@ const NODE_GRAPH_FREQUENCY_VALUE_GLYPH = "\u0192"; // ƒ
 
 /**
  * Hz-as-a-number jacks (Pitch Detector Frequency, MIDI ƒ…).
- * Not oscillator Frequency sliders, not 0.1V/Oct pitch CV.
+ * Not oscillator Frequency sliders, not pitch (♯/♭) pitch.
  */
 function nodeGraphPortIsFrequencyValue(port) {
   const key = String(port || "").trim();
@@ -428,12 +428,36 @@ function nodeGraphPortIsReset(port) {
     || lower === "phaserest";
 }
 
+
+/** True for pitch (♯/♭) ports — white digital cables app-wide (MIDI note number). */
+function nodeGraphPortIsPitch(port) {
+  const raw = String(port || "").trim();
+  if (!raw) return false;
+  if (raw === "pitch" || raw === "♯/♭") return true;
+  if (typeof normalizeNodeGraphPitchPortName === "function") {
+    if (normalizeNodeGraphPitchPortName(raw) === "pitch") return true;
+  }
+  // Aliases sometimes appear before module canonical resolve.
+  if (
+    raw === "Pitch"
+    || raw === "MIDI"
+    || raw === "Note#"
+    || raw === "Note#/127"
+    || raw === "NoteNumber"
+    || raw === "0.1V/Oct"
+    || raw === "0.1v/Oct"
+  ) {
+    return true;
+  }
+  return false;
+}
+
 // App-wide policy: white wire == digital cable.
 //   • noteMask buses (Scale, Play Keys, Arp Keys, Chord Memory, …)
 //   • ƒ real-value jacks (Hz reports: Frequency, Df1/Df2, ƒ1/ƒ2) on inlets and outlets
+//   • pitch (♯/♭) MIDI-note ports on inlets and outlets
 //   • Gate / Trigger / Reset (all modules — inlets and outlets)
 //   • anything listed in digitalInputs / digitalOutputs
-// 0.1V/Oct pitch CV stays analog (not white) — it is a smoothly-varying voltage.
 function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
   if (typeof nodeGraphPortIsCodeSignal === "function" && nodeGraphPortIsCodeSignal(typeOrNode, port, io)) {
     return true;
@@ -443,6 +467,7 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
   }
   if (
     nodeGraphPortIsFrequencyValue(port)
+    || nodeGraphPortIsPitch(port)
     || nodeGraphPortIsGateOrTrigger(port)
     || nodeGraphPortIsReset(port)
   ) {
@@ -462,7 +487,11 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
   } else if (io === "output" && typeof nodeGraphCanonicalOutputPort === "function") {
     canonical = nodeGraphCanonicalOutputPort(type, canonical) || canonical;
   }
-  if (nodeGraphPortIsGateOrTrigger(canonical) || nodeGraphPortIsReset(canonical)) {
+  if (
+    nodeGraphPortIsPitch(canonical)
+    || nodeGraphPortIsGateOrTrigger(canonical)
+    || nodeGraphPortIsReset(canonical)
+  ) {
     return true;
   }
   if (io !== "output" && definition.digitalInputs?.includes(port)) {

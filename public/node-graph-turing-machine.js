@@ -8,7 +8,7 @@ function createNodeGraphTuringMachineState() {
 }
 
 // Classic mutating shift-register. Optionally maps the register into a
-// Scale+Root degree → Pitch (0.1V/Oct) so Turing is a melodic engine, not
+// Scale+Root degree → Pitch (♯/♭) so Turing is a melodic engine, not
 // only bipolar noise + accidental scale mask bits.
 function nodeGraphTuringMachineSample(state, options = {}) {
   const clockHigh = Number(options.clock) > 0;

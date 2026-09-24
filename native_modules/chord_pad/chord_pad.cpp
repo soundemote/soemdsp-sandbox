@@ -3,7 +3,7 @@
 // soemdsp-native-target: chordPad
 // soemdsp-native-kind: pitch
 //
-// Diatonic triad → Scale (12-bit mask) + Root (0.1V/Oct) + Gate.
+// Diatonic triad → Scale (12-bit mask) + Root (pitch MIDI) + Gate.
 // Port of public/node-graph-chord-pad.js / chord-pad-worklet-evaluator.js.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
@@ -81,7 +81,7 @@ static int triad_mask(int quality) {
 extern "C" int soemdsp_chord_pad_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
-      gPool[i].lastRoot = 60.0 / 120.0;
+      gPool[i].lastRoot = 60.0;
       gPool[i].lastGate = 1.0;
       gPool[i].active = true;
       return i + 1;
@@ -102,7 +102,8 @@ extern "C" double soemdsp_chord_pad_sample(
   double key,
   double mode,
   double degree,
-  double level
+  double level,
+  double octaveOffset
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   State& s = gPool[handle - 1];
@@ -122,7 +123,10 @@ extern "C" double soemdsp_chord_pad_sample(
   if (!(gate * 0.0 == 0.0)) gate = 1.0;
   if (gate < 0.0) gate = 0.0;
   if (gate > 1.0) gate = 1.0;
-  s.lastRoot = (60.0 + (double)rootPc) / 120.0;
+  int octOff = (int)(safe(octaveOffset) + (safe(octaveOffset) >= 0.0 ? 0.5 : -0.5));
+  if (octOff < -4) octOff = -4;
+  if (octOff > 4) octOff = 4;
+  s.lastRoot = 60.0 + (double)(octOff * 12) + (double)rootPc;
   s.lastGate = gate;
   return (double)scale;
 }

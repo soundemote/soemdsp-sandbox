@@ -44,7 +44,7 @@ function nodeGraphChordSequencerBaseMask(quality) {
 }
 
 // Steps through a built-in diatonic chord progression on each Clock edge.
-// Scale = 12-bit pitch-class mask; Root = 0.1V/Oct.
+// Scale = 12-bit pitch-class mask; Root = pitch (♯/♭).
 // direction: 0 forward, 1 reverse, 2 ping-pong
 // key: transpose progression roots by pitch class
 function nodeGraphChordSequencerSample(state, options = {}) {

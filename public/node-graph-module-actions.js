@@ -1626,7 +1626,16 @@ function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = n
 
 function setNodeGraphKnobTextFromContext({ record = true } = {}) {
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
-  if (!sourceNode || sourceNode.type !== "knob") {
+  const type = sourceNode?.type;
+  if (
+    !sourceNode
+    || (
+      type !== "knob"
+      && type !== "pluginSlider"
+      && type !== "toggleButton"
+      && type !== "momentaryButton"
+    )
+  ) {
     return;
   }
   const input = document.getElementById("nodeSceneKnobTextInput");

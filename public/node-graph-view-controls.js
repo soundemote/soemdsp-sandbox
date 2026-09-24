@@ -3020,7 +3020,7 @@ function nodeGraphMidiKeyboardSignalFromPointer(event, surface, options = {}) {
 }
 
 /**
- * Scrub X/Y without retuning Frequency / Note# / 0.1V/Oct / Gate / etc.
+ * Scrub X/Y without retuning Frequency / ♯/♭ / Gate / etc.
  * Pitch CV commits only on pointerdown or hardware MIDI note-on.
  * Local face uses keyboardModuleSignal (not hardware midiKeyboardSignal).
  */

@@ -183,7 +183,7 @@ function createNodeGraphIoColumn(node, type, ports, io) {
     const codeSignal = typeof nodeGraphPortIsCodeSignal === "function"
       && nodeGraphPortIsCodeSignal(type, port, io);
     if (!coloredBus && (nodeGraphPortIsDigitalSignal(type, port, io) || codeSignal)) {
-      // White digital: Scale bitmasks, ƒ, Gate/Trigger, digitalInputs/Outputs.
+      // White digital: Scale bitmasks, ƒ, pitch (♯/♭), Gate/Trigger, digitalInputs/Outputs.
       row.dataset.digitalSignal = io;
     }
     column.append(row);
@@ -766,9 +766,8 @@ function createNodeGraphKeyboardControllerBody(node = null) {
     ["gate", "Gate", "0"],
     ["gatePulse", "Trigger", "0"],
     ["octave", "Octave", "+0"],
-    ["double", "Note#", "-"],
-    ["velocity01", "Velocity#/127", "-"],
-    ["tenthVoltPerOctave", "0.1V/Oct", "-"],
+    ["double", "♯/♭", "-"],
+    ["velocity01", "Velocity", "-"],
     ["frequency", "Frequency", "-"],
   ];
   for (const [key, labelText, valueText] of signals) {

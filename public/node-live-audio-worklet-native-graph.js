@@ -12,6 +12,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   pingPongDelay: 5,
   output: 6,
   attenuverter: 7,
+  attenumax: 187,
   range: 8,
   inv: 9,
   u2b: 10,
@@ -71,6 +72,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   highpass: 177,
   phaser: 178,
   flanger: 179,
+  chorus: 188,
   basicShape: 139,
   chordPad: 140,
   noteGlide: 141,
@@ -127,6 +129,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   hypersaw2: 158,
   fm: 169,
   pitchHz: 170,
+  pitchManager: 185,
   ampDb: 180,
   wavetableAdsr: 168,
   rasterRgb: 160,
@@ -161,6 +164,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   sinc: 48,
   bradley2a: 49,
   ellipsoid: 50,
+  ellipsoidOsc: 186,
   snowflake: 51,
   butterworth: 52,
   linkwitzRiley: 53,
@@ -354,6 +358,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   osc1Detune: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   osc2Detune: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
   sequenceOffset: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_LOW,
+  patternOffset: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_LOW,
   fm1: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_LOW,
   fm2: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_IN_HIGH,
   taps: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES,
@@ -433,6 +438,33 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "drive") return P.NATIVE_GRAPH_PARAM_GAIN_DB;
     if (k === "noise") return P.NATIVE_GRAPH_PARAM_MIX;
     if (k === "spread") return P.NATIVE_GRAPH_PARAM_WIDTH;
+  }
+  if (t === "vibratoGenerator") {
+    if (k === "sideMorph") return P.NATIVE_GRAPH_PARAM_MIX;
+  }
+  if (t === "chorus") {
+    if (k === "voices") return P.NATIVE_GRAPH_PARAM_STAGES;
+    if (k === "delay") return P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR;
+    if (k === "depth") return P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE;
+    if (k === "spread") return P.NATIVE_GRAPH_PARAM_WIDTH;
+    if (k === "sideMorph") return P.NATIVE_GRAPH_PARAM_CENTER;
+    if (k === "randomFreq") return P.NATIVE_GRAPH_PARAM_LFO_VARIATION;
+    if (k === "randomAmp") return P.NATIVE_GRAPH_PARAM_LEVEL;
+    if (k === "hpfFrequency") return P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY;
+    if (k === "lpfFrequency") return P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY;
+  }
+  if (t === "attenumax") {
+    if (k === "amplitude") return P.NATIVE_GRAPH_PARAM_AMPLITUDE;
+    if (k === "bias") return P.NATIVE_GRAPH_PARAM_ATT_OFFSET;
+  }
+  // Pitch Manager: do not use FM's octave→MODE map.
+  if (t === "pitchManager") {
+    if (k === "tuning") return P.NATIVE_GRAPH_PARAM_FREQUENCY;
+    if (k === "octave") return P.NATIVE_GRAPH_PARAM_STAGES;
+    if (k === "semitones") return P.NATIVE_GRAPH_PARAM_CENTER;
+    if (k === "cents") return P.NATIVE_GRAPH_PARAM_WIDTH;
+    if (k === "multiply") return P.NATIVE_GRAPH_PARAM_AMPLITUDE;
+    if (k === "add") return P.NATIVE_GRAPH_PARAM_ATT_OFFSET;
   }
   const id = (P.NATIVE_GRAPH_PARAM_KEY_IDS || {})[k];
   return Number.isFinite(id) ? id : undefined;
@@ -590,6 +622,12 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "bi y" || p === "y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
     if (p === "uni x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
     if (p === "uni y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+  }
+
+  if (t === "pitchManager") {
+    if (p === "inc") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "f" || p === "ƒ") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "pitch") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
   }
   if (t === "snowflake") {
     if (p === "x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
@@ -991,7 +1029,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   if (p === "arp keys" && type === "arp") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
-  if (p === "keys" && type === "gravityWalker") {
+  if ((p === "keys" || p === "arp keys" || p === "scale") && type === "gravityWalker") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
   if (p === "leap" && type === "gravityWalker") {
@@ -1499,15 +1537,27 @@ NodeLiveAudioProcessor.prototype.resolveNativeGraphThruSources = function resolv
 };
 
 /** Topology fingerprint — bypass-only changes must NOT rebuild natives. */
-NodeLiveAudioProcessor.prototype.nativeGraphTopologyKey = function nativeGraphTopologyKey() {
-  const audioTypes = NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS;
-  const nodeParts = [];
+NodeLiveAudioProcessor.prototype.nativeGraphMetaPlaymode = function nativeGraphMetaPlaymode(node) {
+  return typeof nodeGraphMetamodulePlaymode === "function"
+    ? nodeGraphMetamodulePlaymode(node)
+    : Math.round(Number(node?.metamodule?.playmode) || 4);
+};
+
+NodeLiveAudioProcessor.prototype.nativeGraphMetaKey = function nativeGraphMetaKey() {
+  const metaParts = [];
   for (const [id, node] of this.nodes) {
-    const type = String(node?.type || "");
-    if (!Object.prototype.hasOwnProperty.call(audioTypes, type)) continue;
-    nodeParts.push(`${id}\0${type}`);
+    if (String(node?.type || "") !== "metamodule") continue;
+    const pm = this.nativeGraphMetaPlaymode(node);
+    const vc = typeof nodeGraphMetamoduleVoiceCount === "function"
+      ? nodeGraphMetamoduleVoiceCount(node)
+      : Math.max(1, Math.min(32, Math.round(Number(node?.metamodule?.voices) || 10)));
+    metaParts.push(`${id}\0${pm}\0${vc}`);
   }
-  nodeParts.sort();
+  metaParts.sort();
+  return metaParts.join("|");
+};
+
+NodeLiveAudioProcessor.prototype.nativeGraphWireKey = function nativeGraphWireKey() {
   const connParts = [];
   const connections = Array.isArray(this._planConnections) ? this._planConnections : [];
   for (const c of connections) {
@@ -1519,8 +1569,6 @@ NodeLiveAudioProcessor.prototype.nativeGraphTopologyKey = function nativeGraphTo
     );
   }
   connParts.sort();
-  // Param MOD edges must invalidate compile too — otherwise Range→Morph added
-  // after first compile never becomes a ParamModEdge (audio stays dead).
   const modParts = [];
   if (this.modulationConnections && typeof this.modulationConnections.forEach === "function") {
     this.modulationConnections.forEach((mods, key) => {
@@ -1535,20 +1583,19 @@ NodeLiveAudioProcessor.prototype.nativeGraphTopologyKey = function nativeGraphTo
     });
   }
   modParts.sort();
-  // Meta voice lane count / playmode change must rebuild native clones.
-  const metaParts = [];
+  return `${connParts.join("|")}#${modParts.join("|")}`;
+};
+
+NodeLiveAudioProcessor.prototype.nativeGraphTopologyKey = function nativeGraphTopologyKey() {
+  const audioTypes = NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS;
+  const nodeParts = [];
   for (const [id, node] of this.nodes) {
-    if (String(node?.type || "") !== "metamodule") continue;
-    const pm = typeof nodeGraphMetamodulePlaymode === "function"
-      ? nodeGraphMetamodulePlaymode(node)
-      : Math.round(Number(node?.metamodule?.playmode) || 4);
-    const vc = typeof nodeGraphMetamoduleVoiceCount === "function"
-      ? nodeGraphMetamoduleVoiceCount(node)
-      : Math.max(1, Math.min(32, Math.round(Number(node?.metamodule?.voices) || 10)));
-    metaParts.push(`${id}\0${pm}\0${vc}`);
+    const type = String(node?.type || "");
+    if (!Object.prototype.hasOwnProperty.call(audioTypes, type)) continue;
+    nodeParts.push(`${id}\0${type}`);
   }
-  metaParts.sort();
-  return `${nodeParts.join("|")}#${connParts.join("|")}#${modParts.join("|")}#${metaParts.join("|")}#view:${String(this._metaViewId || "")}`;
+  nodeParts.sort();
+  return `${nodeParts.join("|")}#${this.nativeGraphWireKey()}#${this.nativeGraphMetaKey()}#view:${String(this._metaViewId || "")}`;
 };
 
 NodeLiveAudioProcessor.prototype.syncNativeGraphBypass = function syncNativeGraphBypass() {
@@ -1588,19 +1635,23 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlan = function syncNativeGr
     return true;
   }
   // Cold start or missing surgical APIs → full compile.
-  // Voices-mode Meta needs fixed osc lane clones (__v1…) that surgical sync
-  // does not create — always full-compile when any Meta is in Voices mode.
-  let needsMetaVoiceLanes = false;
-  for (const [, node] of this.nodes) {
-    if (String(node?.type || "") !== "metamodule") continue;
-    const pm = typeof nodeGraphMetamodulePlaymode === "function"
-      ? nodeGraphMetamodulePlaymode(node)
-      : Math.round(Number(node?.metamodule?.playmode) || 4);
-    const vc = typeof nodeGraphMetamoduleVoiceCount === "function"
-      ? nodeGraphMetamoduleVoiceCount(node)
-      : Math.max(1, Math.min(32, Math.round(Number(node?.metamodule?.voices) || 10)));
-    needsMetaVoiceLanes = true;
-    break;
+  // Voice-lane clones (__v1…) are only rebuilt when playmode/voice count
+  // changes, or a new node is placed inside a Voices-mode Metamodule.
+  // An unrelated unconnected spawn must not soemdsp_graph_clear.
+  const metaKey = this.nativeGraphMetaKey();
+  let needsMetaVoiceLanes = metaKey !== (this._nativeGraphMetaKey ?? metaKey);
+  if (!needsMetaVoiceLanes && this._nativeGraphNodeIds instanceof Set) {
+    for (const [id, node] of this.nodes) {
+      if (this._nativeGraphNodeIds.has(id)) continue;
+      const owner = String(node?.ownerMetamoduleId || "");
+      if (!owner) continue;
+      const meta = this.nodes.get(owner);
+      if (String(meta?.type || "") !== "metamodule") continue;
+      if (this.nativeGraphMetaPlaymode(meta) === 4) {
+        needsMetaVoiceLanes = true;
+        break;
+      }
+    }
   }
   const native = this.nativeGraph;
   const canSurgical = Boolean(
@@ -1616,6 +1667,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlan = function syncNativeGr
     : this.compileNativeGraphFromPlan();
   if (ok) {
     this._nativeGraphTopologyKey = key;
+    this._nativeGraphMetaKey = this.nativeGraphMetaKey();
+    this._nativeGraphWireKey = this.nativeGraphWireKey();
     this.syncNativeGraphBypass();
   } else {
     this._nativeGraphTopologyKey = "";
@@ -1682,6 +1735,35 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
         return false;
       }
 
+      // Unconnected spawn/remove: cables and mod edges did not change.
+      // add_node/remove_node already ran. Compile only so the new id is ordered.
+      const wireKey = this.nativeGraphWireKey();
+      if (wireKey === this._nativeGraphWireKey) {
+        const crcSpawn = native.soemdsp_graph_compile(this.nativeGraphHandle) | 0;
+        if (crcSpawn !== 0) {
+          this.postNativeGraphStatus("error", `spawn compile failed (${crcSpawn})`);
+          return false;
+        }
+        this.nativeGraphCompiled = true;
+        this._nativeGraphNodeIds = new Set(desired.keys());
+        if (addedIds.length && this._nativeGraphParamCache && typeof this._nativeGraphParamCache === "object") {
+          for (const id of addedIds) {
+            try {
+              delete this._nativeGraphParamCache[id];
+            } catch (_e) { /* ignore */ }
+          }
+        }
+        this._nativeGraphParamCacheCold = false;
+        if (typeof this.syncNativeGraphParams === "function") {
+          this.syncNativeGraphParams();
+        }
+        this.postNativeGraphStatus(
+          "ok",
+          `spawn nodes=${desired.size} added=${addedIds.length}`,
+        );
+        return true;
+      }
+
       // Drop prior host Bias + Scale noteMask feeders before rewiring.
       const dropFeeders = []
         .concat(Array.isArray(this._nativeHostCvFeeders) ? this._nativeHostCvFeeders : [])
@@ -1721,9 +1803,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
         }
 
 
-        // Scale = noteMask128 bus (Play/Arp/Chord Keys family). Fold in syncNativeScaleMasks.
-        if (String(dstPort || "") === "Scale" || String(srcPort || "") === "Scale") {
-          if (String(dstPort || "") !== "Scale") return true;
+        // Scale dest: 12-bit feeder (Pitch Quantizer / Turing / Degree).
+        // Scale SOURCE into Keys / Arp Keys is a real cable — do not drop it.
+        if (String(dstPort || "") === "Scale") {
           const scaleKey = `__scaleMask:${dstId}`;
           let scaleHash = hostFeederHashByKey.get(scaleKey);
           if (scaleHash) return true;
@@ -2198,6 +2280,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   lfoStyle: true,
   seed: true,
   sequenceOffset: true,
+  patternOffset: true,
   octaveOffset: true,
   octave: true,
   semitones: true,
@@ -2338,9 +2421,27 @@ NodeLiveAudioProcessor.prototype.mixNoteMask128 = function mixNoteMask128(nodeId
   const id = String(nodeId || "");
   const p = String(port || "");
   if (!id || !p) return mask;
-  const key = typeof this.inputKey === "function" ? this.inputKey(id, p) : `${id}.${p}`;
-  const conns = this.inputConnections?.get?.(key);
-  if (!conns || !conns.length) return mask;
+  const gather = (portName) => {
+    const k = typeof this.inputKey === "function" ? this.inputKey(id, portName) : `${id}.${portName}`;
+    const list = this.inputConnections?.get?.(k);
+    return Array.isArray(list) ? list : [];
+  };
+  const keyPorts = (p === "Keys" || p === "Arp Keys" || p === "Scale")
+    ? ["Keys", "Arp Keys", "Scale"]
+    : [p];
+  const conns = [];
+  const seen = new Set();
+  for (let pi = 0; pi < keyPorts.length; pi += 1) {
+    const list = gather(keyPorts[pi]);
+    for (let i = 0; i < list.length; i += 1) {
+      const c = list[i];
+      const k = `${c.sourceNode}.${c.sourcePort}->${c.destinationPort}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      conns.push(c);
+    }
+  }
+  if (!conns.length) return mask;
   const orIn = (src) => {
     if (!(src instanceof Uint8Array)) return;
     if (typeof noteMaskOr === "function") {
@@ -2357,15 +2458,22 @@ NodeLiveAudioProcessor.prototype.mixNoteMask128 = function mixNoteMask128(nodeId
     if (!out || typeof out !== "object") continue;
     const sp = String(conns[i].sourcePort || "");
     if (sp === "Play Keys" || sp === "Keys") orIn(out.playMask || out.keysMask || out.playKeysMask);
-    else if (sp === "Arp Keys") orIn(out.arpMask);
+    else if (sp === "Arp Keys") orIn(out.arpMask || out.scaleMask);
     else if (sp === "Chord Memory") orIn(out.chordMask || out.chordPlayMask);
     else if (sp === "Scale") {
       if (out.scaleMask instanceof Uint8Array) orIn(out.scaleMask);
-      else if (typeof noteMaskFromPitchClassBits === "function") {
+      else if (typeof noteMaskScaleOutFromNode === "function"
+        || typeof noteMaskFromPitchClassBits === "function") {
         const bits = typeof noteMaskResolveScaleBits === "function"
-          ? noteMaskResolveScaleBits(out.Scale)
-          : (Math.round(Number(out.Scale)) & 0xFFF);
-        if (bits) orIn(noteMaskFromPitchClassBits(bits));
+          ? noteMaskResolveScaleBits(out.Scale ?? out.scale ?? out.Mono)
+          : (Math.round(Number(out.Scale ?? out.Mono)) & 0xFFF);
+        if (!bits) continue;
+        const srcNode = this.nodes?.get?.(String(conns[i].sourceNode || ""));
+        if (typeof noteMaskScaleOutFromNode === "function") {
+          orIn(noteMaskScaleOutFromNode(srcNode, bits));
+        } else {
+          orIn(noteMaskFromPitchClassBits(bits));
+        }
       }
     }
   }
@@ -2446,7 +2554,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGravityWalkerNoteMasks = function syn
       handle = 0;
     }
     if (!(handle > 0)) continue;
-    const mask = this.mixNoteMask128(id, "Keys");
+    const mask = this.mixNoteMask128(id, "Arp Keys");
     const chunks = typeof noteMaskPackChunks === "function"
       ? noteMaskPackChunks(mask)
       : { c0: 0, c1: 0, c2: 0 };
@@ -3606,6 +3714,11 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 0));
       continue;
     }
+    if (type === "attenumax") {
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      push("bias", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("bias", 1));
+      continue;
+    }
     if (type === "ampCurve") {
       // mode=Lin/Exp only
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
@@ -3787,9 +3900,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       // frequency=speed, phase=offset, shape=morph, width=randomFreq, center=randomAmp.
       // timeNumerator=attack, timeDenominator=release (exp depth envelope).
       // Gate→Mono (unpatched = always-on full depth); Reset→kPortReset.
-      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 5));
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 3.5));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0));
+      push("sideMorph", P.NATIVE_GRAPH_PARAM_MIX, cont("sideMorph", 0));
       push("randomFreq", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomFreq", 0));
       push("randomAmp", P.NATIVE_GRAPH_PARAM_CENTER, cont("randomAmp", 0));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
@@ -3846,6 +3960,17 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0));
       push("antialias", P.NATIVE_GRAPH_PARAM_CENTER, disc("antialias", 1));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "ellipsoidOsc") {
+      // center=AA; shape=B; width=C scale; offset=A. Free-fn host phase.
+      push("antialias", P.NATIVE_GRAPH_PARAM_CENTER, disc("antialias", 1));
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 0));
+      push("shape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("shape", 0));
+      push("scale", P.NATIVE_GRAPH_PARAM_WIDTH, cont("scale", 1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -3929,6 +4054,23 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
+    if (type === "chorus") {
+      push("voices", P.NATIVE_GRAPH_PARAM_STAGES, disc("voices", 7));
+      push("delay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delay", 18));
+      push("depth", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("depth", 3));
+      push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.5));
+      push("spread", P.NATIVE_GRAPH_PARAM_WIDTH, cont("spread", 0.5));
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 3.5));
+      push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0));
+      push("sideMorph", P.NATIVE_GRAPH_PARAM_CENTER, cont("sideMorph", 0));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("randomFreq", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("randomFreq", 0));
+      push("randomAmp", P.NATIVE_GRAPH_PARAM_LEVEL, cont("randomAmp", 0));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("hpfFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("hpfFrequency", 200));
+      push("lpfFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("lpfFrequency", 8000));
+      continue;
+    }
     if (type === "bandpass" || type === "allpass" || type === "lowpass" || type === "highpass") {
       const q0 = type === "bandpass" ? 1 : 0.707;
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1000));
@@ -3949,11 +4091,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "chordPad") {
-      // mode=key, waveform=maj/min, stages=degree, amplitude=level.
+      // mode=key, waveform=maj/min, stages=degree, amplitude=level, width=octaves.
       push("key", P.NATIVE_GRAPH_PARAM_MODE, disc("key", 0));
       push("mode", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("mode", 0));
       push("degree", P.NATIVE_GRAPH_PARAM_STAGES, disc("degree", 0));
       push("level", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("level", 1));
+      push("octaves", P.NATIVE_GRAPH_PARAM_WIDTH, disc("octaves", 3));
+      push("octaveOffset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, disc("octaveOffset", 0));
       continue;
     }
     if (type === "noteGlide") {
@@ -3998,14 +4142,15 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "gravityWalker") {
-      // gravity->SHAPE, leap->WIDTH (+ Leap CV on PitchCv), octaves->MODE,
-      // steps->STAGES, seed->SEED, scaleOffset->ATT_OFFSET.
+      // gravity->SHAPE, leap->WIDTH, octaves->MODE,
+      // steps->STAGES, seed->SEED, scaleOffset->ATT_OFFSET, patternOffset->IN_LOW.
       push("gravity", P.NATIVE_GRAPH_PARAM_SHAPE, cont("gravity", 0.65));
       push("leap", P.NATIVE_GRAPH_PARAM_WIDTH, cont("leap", 0.15));
       push("octaves", P.NATIVE_GRAPH_PARAM_MODE, disc("octaves", 0));
       push("steps", P.NATIVE_GRAPH_PARAM_STAGES, disc("steps", 0));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
       push("scaleOffset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, disc("scaleOffset", 0));
+      push("patternOffset", P.NATIVE_GRAPH_PARAM_IN_LOW, disc("patternOffset", 0));
       continue;
     }
     if (type === "arp") {
@@ -4555,11 +4700,15 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "pitchQuantizer") {
       push("scaleMask", P.NATIVE_GRAPH_PARAM_SEED, disc("scaleMask", 2741));
+      push("octaves", P.NATIVE_GRAPH_PARAM_WIDTH, disc("octaves", 3));
+      push("octaveOffset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, disc("octaveOffset", 0));
       continue;
     }
     if (type === "turingMachine") {
       push("length", P.NATIVE_GRAPH_PARAM_STAGES, disc("length", 8));
       push("probability", P.NATIVE_GRAPH_PARAM_SHAPE, cont("probability", 0.25));
+      push("octaves", P.NATIVE_GRAPH_PARAM_MODE, disc("octaves", 3));
+      push("octaveOffset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, disc("octaveOffset", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -4972,6 +5121,15 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("tuning", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("tuning", 440));
       continue;
     }
+    if (type === "pitchManager") {
+      push("tuning", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("tuning", 440));
+      push("octave", P.NATIVE_GRAPH_PARAM_STAGES, disc("octave", 0));
+      push("semitones", P.NATIVE_GRAPH_PARAM_CENTER, disc("semitones", 0));
+      push("cents", P.NATIVE_GRAPH_PARAM_WIDTH, cont("cents", 0));
+      push("multiply", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("multiply", 1));
+      push("add", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("add", 0));
+      continue;
+    }
     if (type === "ampDb") {
       push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
       continue;
@@ -5178,8 +5336,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     if (type === "range") {
       push("inLow", P.NATIVE_GRAPH_PARAM_IN_LOW, cont("inLow", -1));
       push("inHigh", P.NATIVE_GRAPH_PARAM_IN_HIGH, cont("inHigh", 1));
-      push("outLow", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("outLow", -10));
-      push("outHigh", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("outHigh", 10));
+      push("outLow", P.NATIVE_GRAPH_PARAM_OUT_LOW, cont("outLow", 0));
+      push("outHigh", P.NATIVE_GRAPH_PARAM_OUT_HIGH, cont("outHigh", 1));
       continue;
     }
     // inv / u2b / b2u: no Control params
@@ -6409,7 +6567,8 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     const isOscPitchPort = (port) => {
       const p = String(port || "");
       return p === "f" || p === "Frequency" || p === "Freq"
-        || p === "0.1V/Oct" || p === "0.1v/Oct" || p === "Pitch" || p === "Inc.";
+        || p === "0.1V/Oct" || p === "0.1v/Oct" || p === "Pitch"
+        || p === "Increment" || p === "Inc" || p === "Inc.";
     };
     for (const [metaId, metaNode] of this.nodes) {
       if (String(metaNode?.type || "") !== "metamodule") continue;
@@ -6555,9 +6714,9 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         return true;
       }
 
-      // Scale = noteMask128 bus (Play/Arp/Chord Keys family). Fold in syncNativeScaleMasks.
-      if (String(dstPort || "") === "Scale" || String(srcPort || "") === "Scale") {
-        if (String(dstPort || "") !== "Scale") return true;
+      // Scale dest: 12-bit feeder (Pitch Quantizer / Turing / Degree).
+      // Scale SOURCE into Keys / Arp Keys is a real cable — do not drop it.
+      if (String(dstPort || "") === "Scale") {
         const scaleKey = `__scaleMask:${dstId}`;
         let scaleHash = hostFeederHashByKey.get(scaleKey);
         if (scaleHash) return true;
@@ -6919,6 +7078,8 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
 
     this.nativeGraphCompiled = true;
     this._nativeGraphTopologyKey = this.nativeGraphTopologyKey();
+    this._nativeGraphMetaKey = this.nativeGraphMetaKey();
+    this._nativeGraphWireKey = this.nativeGraphWireKey();
     this._nativeGraphNodeIds = new Set(nodes.map((n) => n.id));
     // New native handles — force PCM / curve re-upload.
     this._nativeAudioPlayerPcmCache = new Map();
@@ -7015,10 +7176,10 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
       type === "arp" || type === "degreeTuring" || type === "degreePhrase"
       || type === "gravityWalker"
     ) {
-      return ["0.1V/Oct", "0.1v/Oct", "Out", "Mono"];
+      return ["pitch", "♯/♭", "0.1V/Oct", "0.1v/Oct", "Out", "Mono"];
     }
     if (type === "pitchQuantizer") {
-      return ["0.1V/Oct", "0.1v/Oct", "Out", "Mono"];
+      return ["pitch", "♯/♭", "0.1V/Oct", "0.1v/Oct", "Out", "Mono"];
     }
     if (type === "vectorscopeTransform" || type === "rotate3dTo2d") return ["X"];
     // Lorenz/Chua/…: native X lives on MONO (see mapNativeGraphSrcPortId).
@@ -7035,6 +7196,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
       return ["Out", "Mono"];
     }
     if (type === "ellipsoid") return ["Bi X", "Out", "Mono"];
+
     if (type === "snowflake") return ["Out", "Mono"];
     if (type === "clock") return ["Digital Out", "Out", "Digital"];
     if (type === "randomClock") return ["Trigger"];
@@ -7043,6 +7205,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "harmonicSeries") return ["f", "Out", "Mono", "ƒ"];
     if (type === "fm") return ["f", "Out", "Mono", "ƒ"];
     if (type === "pitchHz") return ["Out", "Mono", "In"];
+    if (type === "pitchManager") return ["Inc"];
     if (type === "ampDb") return ["Out", "Mono", "In"];
     if (type === "lutCell") return ["Out"];
 
@@ -7052,7 +7215,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
       return ["Out X", "X", "Out", "Mono"];
     }
     if (type === "chordPad" || type === "chordSequencer") {
-      return ["Scale", "Out", "Mono"];
+      return ["Arp Keys", "Scale", "Out", "Mono"];
     }
     return ["Out", "Mono", "In"];
   }
@@ -7092,7 +7255,9 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
       return ["Left"];
     }
     if (type === "ellipsoid") return ["Bi X", "X"];
+    if (type === "ellipsoidOsc") return ["Left"];
     if (type === "snowflake") return ["X"];
+    if (type === "pitchManager") return ["f", "ƒ"];
     if (type === "clock") return ["Analog Out", "Analog"];
     if (type === "randomClock") return ["Gate"];
     if (type === "triggerCounter") return ["Count"];
@@ -7108,7 +7273,10 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "noiseGenerator" || type === "cheapWalk" || type === "randomWalk") {
       return ["Left", "Left Out"];
     }
-    if (type === "pitchQuantizer" || type === "turingMachine") {
+    if (type === "pitchQuantizer") {
+      return ["Scale", "Arp Keys", "Left"];
+    }
+    if (type === "turingMachine") {
       return ["Scale", "Left"];
     }
     if (type === "chordPad" || type === "chordSequencer") {
@@ -7147,6 +7315,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
       return ["Right"];
     }
     if (type === "ellipsoid") return ["Bi Y", "Y"];
+    if (type === "ellipsoidOsc") return ["Right"];
+    if (type === "pitchManager") return ["pitch"];
     if (type === "snowflake") return ["Y"];
     if (type === "clock") return ["T", "Pulse", "Trigger"];
     if (type === "transport") {
@@ -7353,13 +7523,20 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
         any = true;
       }
     }
-    // Scale jack is noteMask128 — expand legacy 12-bit Scale sample when present.
+    // Scale jack is noteMask128. Range from source Octaves + Octave Offset (C3 at 0).
     if (any && Object.prototype.hasOwnProperty.call(out, "Scale")
-      && typeof noteMaskFromPitchClassBits === "function") {
+      && (typeof noteMaskScaleOutFromNode === "function"
+        || typeof noteMaskFromPitchClassBits === "function")) {
       const bits = typeof noteMaskResolveScaleBits === "function"
         ? noteMaskResolveScaleBits(out.Scale)
         : (Math.round(Number(out.Scale)) & 0xFFF);
-      out.scaleMask = noteMaskFromPitchClassBits(bits);
+      const srcNode = this.nodes?.get?.(id);
+      out.scaleMask = typeof noteMaskScaleOutFromNode === "function"
+        ? noteMaskScaleOutFromNode(srcNode, bits)
+        : noteMaskFromPitchClassBits(bits);
+      if (type === "chordPad" || type === "pitchQuantizer") {
+        out.arpMask = out.scaleMask;
+      }
     }
     if (any) {
       this.nodeOutputs.set(id, out);

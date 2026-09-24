@@ -417,7 +417,7 @@ function rangeSelectedNodeGraphWires(mode = "bipolar") {
   const params = unipolar
     ? { inLow: 0, inHigh: 1, outLow: 0, outHigh: 1 }
     : { inLow: -1, inHigh: 1, outLow: -1, outHigh: 1 };
-  const outMeta = { min: -10, max: 10, mid: 0, bipolar: true, showSign: true, visible: true };
+  const rangeMeta = { min: -10, max: 10, mid: 0, bipolar: true, showSign: true, visible: true };
   for (const entry of snapshots) {
     const wire = entry.wire;
     if (!wire?.sourceNode || !wire?.destinationNode) {
@@ -446,8 +446,10 @@ function rangeSelectedNodeGraphWires(mode = "bipolar") {
       },
       params,
       paramMeta: {
-        outLow: { ...outMeta, def: params.outLow },
-        outHigh: { ...outMeta, def: params.outHigh },
+        inLow: { ...rangeMeta, def: params.inLow },
+        inHigh: { ...rangeMeta, def: params.inHigh },
+        outLow: { ...rangeMeta, def: params.outLow },
+        outHigh: { ...rangeMeta, def: params.outHigh },
       },
     });
     nodeGraphWireInsertClaimOwnership(rangeNode, patch);

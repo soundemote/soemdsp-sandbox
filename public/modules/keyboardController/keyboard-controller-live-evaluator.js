@@ -83,7 +83,7 @@ function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null)
       ? Number(signal.velocity)
       : (nodeGraphFiniteNumber(prev?.velocity01)),
   ));
-  // Gate is digital presence: any gate > 0 → 1 (not velocity). Velocity stays on Velo outs.
+  // Gate is digital presence: any gate > 0 → 1 (not velocity). Velocity stays on Velocity out.
   const gateOn = Number(signal?.gate) > 0;
   const gateAmp = gateOn ? 1 : 0;
   // Trigger pulse: same digital rule — any pulse > 0 → 1.
@@ -241,12 +241,8 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
     Trigger: triggerOut,
     KeyboardKey: cv.key,
     KeyboardNorm: cv.q,
-    "Note#": Math.max(0, Math.min(127, cv.midi)),
-    "Note#/127": Math.max(0, Math.min(127, cv.midi)),
-    "Velo#/127": cv.velocity01,
-    "Velocity#/127": cv.velocity01,
-    "0.1V/Oct": cv.midi / 120,
-    "0.1v/Oct": cv.midi / 120,
+    "pitch": cv.midi,
+    "Velocity": cv.velocity01,
     f: cv.frequency,
     Frequency: cv.frequency,
     X: cv.x,
@@ -282,11 +278,8 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({
     "Play Keys": playOut,
     Gate: cv.gateAmp,
     Trigger: cv.triggerAmp,
-    "Note#": Math.max(0, Math.min(127, cv.midi)),
-    "Note#/127": Math.max(0, Math.min(127, cv.midi)),
-    "Velocity#/127": cv.velocity01,
-    "0.1V/Oct": cv.midi / 120,
-    "0.1v/Oct": cv.midi / 120,
+    "pitch": cv.midi,
+    "Velocity": cv.velocity01,
     Frequency: cv.frequency,
     f: cv.frequency,
     X: cv.x,

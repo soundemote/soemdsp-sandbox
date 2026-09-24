@@ -100,8 +100,7 @@ function nodeGraphJackLastToken(value) {
 
 function nodeGraphPortIsNoteBus(port) {
   const key = String(port || "").trim();
-  // Scale shares the 128-key noteMask bus (Play / Arp / Chord Memory).
-  // Consumers fold lit notes via n%12 into pitch classes.
+  // Scale is a pitch-class bus (red). Play/Arp/Chord Memory are 128-key masks.
   return key === "Play Keys"
     || key === "Arp Keys"
     || key === "Keys"
@@ -202,9 +201,9 @@ function nodeGraphJackChannelCssColor(channel) {
  */
 function nodeGraphJackWireColor(type, port, io = "output") {
   const channel = nodeGraphJackChannel(type, port, io);
-  // Colored digital buses (Play Keys blue, Arp Keys gold, Chord Memory green)
-  // + Polyphony/Voices black.
-  if (channel === "blue" || channel === "gold" || channel === "green" || channel === "black") {
+  // Colored digital buses (Play Keys blue, Arp Keys gold, Chord Memory green,
+  // Scale red) + Polyphony/Voices black.
+  if (channel === "blue" || channel === "gold" || channel === "green" || channel === "black" || channel === "red") {
     return nodeGraphJackChannelCssColor(channel) || "";
   }
   if (nodeGraphJackSignalKind(type, port, io) === "digital") {
@@ -373,6 +372,9 @@ function nodeGraphJackChannel(type, port, io = "output") {
   if (key === "Chord Memory") {
     return "green";
   }
+  if (key === "Scale") {
+    return "red";
+  }
   const def = nodeGraphJackTypeDefinition(type);
   // Explicit module channels win before digitalâ†’white.
   const fromExplicit = nodeGraphJackExplicitChannel(def, key, io);
@@ -381,6 +383,7 @@ function nodeGraphJackChannel(type, port, io = "output") {
     || fromExplicit === "gold"
     || fromExplicit === "green"
     || fromExplicit === "black"
+    || fromExplicit === "red"
   ) {
     return fromExplicit;
   }

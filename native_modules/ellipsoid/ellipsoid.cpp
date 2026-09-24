@@ -46,11 +46,16 @@ static double sineToSquareCore(
   return out;
 }
 
-static double ellipsoidSampleLegacy(
+// soemdsp::oscillator::Ellipsoid::getEllipsoid (A=offset, B=shape, C=scale).
+// 1-D out = unit vector of (A+cos, C·sin) dotted with sincos(B·π).
+static double ellipsoidCore(
   double phaseRadians,
   double offset,
   double shape,
-  double scale
+  double scale,
+  double frequencyHz,
+  double sampleRate,
+  bool limitAa
 ) {
   const double sinPhase = dsp_sin(phaseRadians);
   const double cosPhase = dsp_cos(phaseRadians);
@@ -58,18 +63,33 @@ static double ellipsoidSampleLegacy(
   const double shapeSin = dsp_sin(shapeRadians);
   const double shapeCos = dsp_cos(shapeRadians);
   const double safeOffset = clamp(offset, -1.0, 1.0);
-  const double safeScale = scale < 0.0 ? 0.0 : scale;
-  const double ax = safeOffset + cosPhase;
-  const double ay = safeScale * sinPhase;
-  const double denom = __builtin_sqrt((ax * ax) + (ay * ay));
-  if (denom <= 1.0e-12) {
-    if (ax > 0.0) return 1.0;
-    if (ax < 0.0) return -1.0;
-    return 0.0;
+  double s = scale < 0.0 ? 0.0 : scale;
+  if (limitAa) {
+    const double scaleFloor = ellipseCMin(frequencyHz, sampleRate);
+    if (s < scaleFloor) s = scaleFloor;
   }
-  const double out = ((ax * shapeCos) + (ay * shapeSin)) / denom;
-  if (!(out * 0.0 == 0.0)) return 0.0;
-  return out;
+  const double ax = safeOffset + cosPhase;
+  const double ay = s * sinPhase;
+  const double denom = __builtin_sqrt((ax * ax) + (ay * ay));
+  double x;
+  if (denom <= 1.0e-12) {
+    if (ax > 0.0) x = 1.0;
+    else if (ax < 0.0) x = -1.0;
+    else x = 0.0;
+  } else {
+    x = ((ax * shapeCos) + (ay * shapeSin)) / denom;
+  }
+  if (!(x * 0.0 == 0.0)) return 0.0;
+  return x;
+}
+
+static double ellipsoidSampleLegacy(
+  double phaseRadians,
+  double offset,
+  double shape,
+  double scale
+) {
+  return ellipsoidCore(phaseRadians, offset, shape, scale, 0.0, 44100.0, false);
 }
 
 // Full ellipsoid; Limit floors scale by ω (same spirit as C floor).
@@ -82,12 +102,9 @@ static double ellipsoidSampleLimited(
   double sampleRate,
   bool limitAa
 ) {
-  double s = scale < 0.0 ? 0.0 : scale;
-  if (limitAa) {
-    const double scaleFloor = ellipseCMin(frequencyHz, sampleRate);
-    if (s < scaleFloor) s = scaleFloor;
-  }
-  return ellipsoidSampleLegacy(phaseRadians, offset, shape, s);
+  return ellipsoidCore(
+    phaseRadians, offset, shape, scale, frequencyHz, sampleRate, limitAa
+  );
 }
 
 static bool aaIsLimit(int antialias) {
@@ -153,6 +170,32 @@ extern "C" double soemdsp_ellipsoid_sample_aa(
   );
 }
 
+// Stereo / face: Left = getEllipsoid(phase), Right = getEllipsoid(phase − π/2)
+// (quadrature, same as RoundShape Bi X/Y — not the unit-vector perpendicular).
+extern "C" void soemdsp_ellipsoid_sample_pair(
+  double phase,
+  double offset,
+  double shape,
+  double scale,
+  double frequencyHz,
+  double sampleRate,
+  int antialias,
+  double* outX,
+  double* outY
+) {
+  const bool limitAa = aaIsLimit(antialias);
+  if (outX) {
+    *outX = ellipsoidCore(
+      phase, offset, shape, scale, frequencyHz, sampleRate, limitAa
+    );
+  }
+  if (outY) {
+    *outY = ellipsoidCore(
+      phase - kPi * 0.5, offset, shape, scale, frequencyHz, sampleRate, limitAa
+    );
+  }
+}
+
 extern "C" int soemdsp_ellipsoid_version() {
-  return 10; // Off | Limit steepness AA
+  return 12; // quadrature pair (Left/Right)
 }

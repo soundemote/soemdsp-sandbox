@@ -1439,9 +1439,11 @@ function nodeGraphDisplaySettingsFormValue(settings, key) {
     );
   }
   if (key === "historyHz") {
-    return settings.historyHz ?? (
-      Number(settings.historySeconds) > 0 ? 1 / Number(settings.historySeconds) : 4
-    );
+    if (settings.historyHz != null) return settings.historyHz;
+    const seconds = Number(settings.historySeconds);
+    if (seconds === 0) return 0;
+    if (seconds > 0) return 1 / seconds;
+    return 4;
   }
   if (key === "historyCycles") {
     return settings.historyCycles ?? 4;

@@ -414,7 +414,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         ? Number(signal.velocity)
         : num(prev.velocity01, 0),
     ));
-    // Gate / Trigger = digital presence (any > 0 → 1). Velocity stays on Velo outs.
+    // Gate / Trigger = digital presence (any > 0 → 1). Velocity stays on Velocity out.
     const gateAmp = num(signal.gate, 0) > 0 ? 1 : 0;
     const triggerAmp = (usePulse && pulseActive) || num(signal.gatePulse, 0) > 0 ? 1 : 0;
     const sourceFreq = Number(signal.frequency);
@@ -498,7 +498,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         playMask: outs.mask,
         Gate: silent ? 0 : outs.gate,
         Trigger: silent ? 0 : outs.trigger,
-        "0.1V/Oct": silent ? 0 : outs.pitch,
+        "pitch": silent ? 0 : outs.pitch,
         f: silent ? 0 : outs.freq,
         Frequency: silent ? 0 : outs.freq,
       });
@@ -630,11 +630,8 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       if (!isGrid) {
         outs.KeyboardKey = cv.key;
         outs.KeyboardNorm = cv.q;
-        outs["Note#/127"] = Math.max(0, Math.min(1, cv.midi / 127));
-        outs["Velo#/127"] = cv.velocity01;
-        outs["Velocity#/127"] = cv.velocity01;
-        outs["0.1V/Oct"] = cv.tenth;
-        outs["0.1v/Oct"] = cv.tenth;
+        outs["pitch"] = cv.midi;
+        outs.Velocity = cv.velocity01;
       }
       this.nodeOutputs.set(nid, outs);
     } else {
@@ -645,10 +642,8 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
           : null,
         Gate: cv.gateAmp,
         Trigger: cv.triggerAmp,
-        "Note#/127": Math.max(0, Math.min(1, cv.midi / 127)),
-        "Velocity#/127": cv.velocity01,
-        "0.1V/Oct": cv.tenth,
-        "0.1v/Oct": cv.tenth,
+        "pitch": cv.midi,
+        Velocity: cv.velocity01,
         Frequency: cv.frequency,
         f: cv.frequency,
         X: cv.x,

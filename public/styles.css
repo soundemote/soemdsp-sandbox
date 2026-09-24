@@ -15910,18 +15910,86 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   background: rgba(2, 4, 7, 0.92);
   color: rgba(243, 251, 251, 0.94);
   font-family: var(--node-header-title-font-family, "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace);
-  font-size: clamp(0.82rem, calc(var(--node-toolbar-row-height) * 0.34), 1.12rem);
+  font-size: clamp(0.72rem, calc(var(--node-toolbar-row-height) * 0.3), 1.02rem);
   font-weight: 700;
   letter-spacing: 0.01em;
-  line-height: 1.1;
+  line-height: 1.15;
   text-align: center;
   text-transform: none;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: default;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: text;
   user-select: none;
   -webkit-user-select: none;
+}
+.node-header-patch-title.is-fallback {
+  color: rgba(243, 251, 251, 0.55);
+  font-weight: 600;
+}
+.node-header-patch-title-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0.1rem 0.2rem;
+  border: 1px solid rgba(127, 199, 217, 0.45);
+  border-radius: 3px;
+  background: rgba(8, 12, 16, 0.96);
+  color: inherit;
+  font: inherit;
+  text-align: center;
+}
+.node-patch-name-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+.node-patch-name-dialog-card {
+  box-sizing: border-box;
+  width: min(28rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(127, 199, 217, 0.28);
+  border-radius: 8px;
+  background: #14181c;
+  color: rgba(243, 251, 251, 0.94);
+  font: 0.95rem/1.35 system-ui, sans-serif;
+}
+.node-patch-name-dialog-card p {
+  margin: 0;
+}
+.node-patch-name-dialog-card label {
+  display: grid;
+  gap: 0.3rem;
+}
+.node-patch-name-dialog-card input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgba(127, 199, 217, 0.35);
+  border-radius: 4px;
+  background: #0c1014;
+  color: inherit;
+  font: inherit;
+}
+.node-patch-name-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.node-patch-name-dialog-actions button {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid rgba(127, 199, 217, 0.35);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }
 
 .node-header-timing-row {

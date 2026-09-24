@@ -86,14 +86,10 @@ static const char kMetadataJson[] =
 
 static double fold_param(double base, double mod, double minV, double maxV) {
   const double range = maxV - minV;
-  double domainAdd = 0.0;
-  double unitAdd = 0.0;
-  if (mod > 1.0 || mod < -1.0) domainAdd = mod;
-  else unitAdd = mod;
-  double result = base + domainAdd;
-  if (range > 0.0 && unitAdd != 0.0) {
+  double result = base + mod;
+  if (range > 0.0 && mod != 0.0) {
     const double baseUnit = (base - minV) / range;
-    result = minV + (baseUnit + unitAdd) * range + domainAdd;
+    result = minV + (baseUnit + mod) * range;
   }
   return clamp(result, minV, maxV);
 }

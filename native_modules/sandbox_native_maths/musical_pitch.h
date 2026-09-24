@@ -1,4 +1,4 @@
-// Shared pitch-class / 0.1V/Oct helpers for musical CV natives.
+// Shared pitch-class / pitch (♯/♭ MIDI note) helpers for musical CV natives.
 // Port of public/node-graph-musical-engines.js + chord-pad rotate/triads.
 #pragma once
 
@@ -54,11 +54,12 @@ static inline int musical_classes_from_mask(int mask, int* classes, int maxClass
 }
 
 static inline double musical_midi_from_pitch(double pitch) {
-  return safe(pitch) * 120.0;
+  // Pitch cable is already MIDI note.
+  return safe(pitch);
 }
 
 static inline double musical_pitch_from_midi(double midi) {
-  return safe(midi) / 120.0;
+  return safe(midi);
 }
 
 /**

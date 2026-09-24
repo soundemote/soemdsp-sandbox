@@ -87,6 +87,29 @@ static int bit_set(double mask, int bit) {
   return ((int)(q - dsp_floor(q * 0.5) * 2.0)) & 1;
 }
 
+static void or_held_bit(double& chunk, int bit) {
+  if (bit < 0 || bit > 52) return;
+  if (bit_set(chunk, bit)) return;
+  double denom = 1.0;
+  for (int i = 0; i < bit; i++) denom *= 2.0;
+  chunk += denom;
+}
+
+// Chord Pad / Quantizer Scale is a 12-bit C…B mask. Light every octave.
+static void fill_from_pitch_class_bits(State& s, int bits) {
+  s.heldC0 = 0.0;
+  s.heldC1 = 0.0;
+  s.heldC2 = 0.0;
+  const int m = bits & 0xFFF;
+  if (!m) return;
+  for (int midi = 0; midi < kKeyCount; midi++) {
+    if ((m & (1 << (midi % 12))) == 0) continue;
+    if (midi >= 98) or_held_bit(s.heldC2, midi - 98);
+    else if (midi >= 49) or_held_bit(s.heldC1, midi - 49);
+    else or_held_bit(s.heldC0, midi);
+  }
+}
+
 static void demux_held_keys(State& s, double v) {
   const double x = safe(v);
   if (!(x * 0.0 == 0.0)) return;
@@ -94,6 +117,8 @@ static void demux_held_keys(State& s, double v) {
     s.heldC2 = x - kFlag2;
   } else if (x >= kFlag1) {
     s.heldC1 = x - kFlag1;
+  } else if (x >= 1.0 && x < 4096.0) {
+    fill_from_pitch_class_bits(s, (int)(x + 0.5));
   } else {
     s.heldC0 = x;
   }
@@ -171,6 +196,24 @@ static void apply_scale_offset(int* notes, int count, int offset) {
       notes[0] = clamp_midi(highest - 12);
     }
   }
+}
+
+
+static int clamp_pattern_offset(double v) {
+  int o = (int)(safe(v) + (safe(v) >= 0.0 ? 0.5 : -0.5));
+  if (o < 0) o = 0;
+  if (o > 127) o = 127;
+  return o;
+}
+
+// Rotate which pool step is heard (Arp sequenceOffset cousin). Walk cursor unchanged.
+static int wrapped_play_index(const State& s, int patternOffset) {
+  const int n = s.poolCount;
+  if (n <= 0) return 0;
+  int i = s.degree + patternOffset;
+  i %= n;
+  if (i < 0) i += n;
+  return i;
 }
 
 static void rebuild_pool(State& s, int octaves, int scaleOffset) {
@@ -273,6 +316,7 @@ extern "C" double soemdsp_gravity_walker_sample(
   double stepsIn,
   double seedIn,
   double scaleOffsetIn,
+  double patternOffsetIn,
   double keysIn,
   double hasKeys
 ) {
@@ -285,8 +329,10 @@ extern "C" double soemdsp_gravity_walker_sample(
   const int steps = clamp_int(stepsIn, 0, 128);
   const unsigned int seed = seed_u32(seedIn);
   const int scaleOffset = clamp_int(scaleOffsetIn, -24, 24);
+  const int patternOffset = clamp_pattern_offset(patternOffsetIn);
 
-  if (safe(hasKeys) > 0.5 && !s.hostMask) {
+  const bool hostEmpty = s.heldC0 == 0.0 && s.heldC1 == 0.0 && s.heldC2 == 0.0;
+  if (safe(hasKeys) > 0.5 && (!s.hostMask || hostEmpty)) {
     demux_held_keys(s, keysIn);
   }
   rebuild_pool(s, oct, scaleOffset);
@@ -314,9 +360,7 @@ extern "C" double soemdsp_gravity_walker_sample(
   s.clockWasHigh = clockHigh;
 
   if (s.poolCount > 0) {
-    int idx = s.degree;
-    if (idx < 0) idx = 0;
-    if (idx >= s.poolCount) idx = s.poolCount - 1;
+    const int idx = wrapped_play_index(s, patternOffset);
     s.lastMidi = (double)s.pool[idx];
     s.lastGate = 1.0;
     s.lastDegreeNorm = s.poolCount > 1
@@ -350,5 +394,5 @@ extern "C" double soemdsp_gravity_walker_degree(int handle) {
 }
 
 extern "C" int soemdsp_gravity_walker_version() {
-  return 2; // Keys noteMask128 + Octaves expand + Scale Offset + Steps/Seed
+  return 3; // + Pattern Offset (pool-index rotate; Arp sequenceOffset cousin)
 }

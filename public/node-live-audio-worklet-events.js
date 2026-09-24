@@ -99,7 +99,7 @@ NodeLiveAudioProcessor.prototype.readFInputHz = function readFInputHz(mixInput, 
 };
 
 /**
- * Wired ƒ = absolute Hz; else 0.1V/Oct pitches the Frequency / cutoff knob.
+ * Wired ƒ = absolute Hz; else pitch pitches the Frequency / cutoff knob.
  * Worklet twin of nodeGraphFrequencyHzFromKnobOrF.
  */
 NodeLiveAudioProcessor.prototype.frequencyHzFromKnobOrF = function frequencyHzFromKnobOrF(

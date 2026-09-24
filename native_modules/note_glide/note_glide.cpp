@@ -3,7 +3,7 @@
 // soemdsp-native-target: noteGlide
 // soemdsp-native-kind: pitch
 //
-// One-pole portamento on 0.1V/Oct. Port of nodeGraphNoteGlideSample.
+// One-pole portamento on pitch (MIDI note). Port of nodeGraphNoteGlideSample.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 

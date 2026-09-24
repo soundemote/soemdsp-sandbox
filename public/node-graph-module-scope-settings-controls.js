@@ -330,7 +330,7 @@ function nodeGraphTraceDisplayHistoryControlRange(key) {
   const maxZ = Number(typeof nodeGraphTraceDisplayMaxZoomSeconds !== "undefined"
     ? nodeGraphTraceDisplayMaxZoomSeconds
     : 10);
-  return { min: 0, max: Number.isFinite(maxZ) && maxZ > 0 ? maxZ : 10 };
+  return { min: 0, max: Number.isFinite(maxZ) ? maxZ : 10 };
 }
 
 /**

@@ -241,7 +241,7 @@
         "waveguide",
         "phaser",
         "flanger",
-        "chorus",
+
         "electroKick",
         "electroSnare",
         "electroHat",
@@ -265,7 +265,6 @@
         "clockDivider",
         "cookbookFilter",
         "curveOsc",
-        "ellipsoidOsc",
         "kickEnvelope",
         "nextPatch",
         "previousPatch",

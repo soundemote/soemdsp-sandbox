@@ -29,15 +29,17 @@
         },
       ],
       defaultDisplayMode: "face",
-      inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+      inputs: ["Reset", "pitch", "Increment", "f"],
       inputLabels: {
         Reset: "Reset",
-        "0.1V/Oct": "0.1V",
-        Increment: "Inc.",
+        "pitch": "♯/♭",
+        Increment: "Inc",
         f: "ƒ",
       },
       // Legacy In/Out patches: Out → X.
       inputAliases: {
+        "0.1V/Oct": "pitch",
+        "0.1v/Oct": "pitch",
         In: "f",
       },
       outputAliases: {
@@ -51,7 +53,7 @@
       },
       inputTooltips: {
         Reset: "Rising edge resets the outline phase.",
-        "0.1V/Oct": "Pitch CV (0.1 V/oct).",
+        "pitch": "Pitch (♯/♭) as MIDI note.",
         Increment: "Phase increment per sample (audio-rate FM / phase).",
         f: "Frequency CV (Hz) when wired; else Clock slider.",
       },

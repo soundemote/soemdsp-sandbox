@@ -43,7 +43,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   static ROBIN_SINUSOID_NATIVE_BLOCK_SIZE = 128;
 
   // RobinSupersaw generator block — same 128-sample quantum when pitch
-  // jacks are unconnected. A 0.1V/Oct or `f` jack falls back to
+  // jacks are unconnected. A pitch or `f` jack falls back to
   // soemdsp_robin_supersaw_sample (4 WASM hops per sample).
   static ROBIN_SUPERSAW_NATIVE_BLOCK_SIZE = 128;
 
@@ -116,7 +116,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.hostSampleRate = sampleRate;
     this.oversamplingRatio = 1;
     // Stay paused until the host posts setSpeed after setPlan + native preload.
-    // Starting at 1 let LFOs into 0.1V/Oct advance during WASM load so PolyBLEP
+    // Starting at 1 let LFOs into pitch advance during WASM load so PolyBLEP
     // pitch sounded randomly phased on every Stop→Play.
     this.speedMultiplier = 0;
     this.speedLimit = 20000;

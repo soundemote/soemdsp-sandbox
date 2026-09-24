@@ -143,13 +143,34 @@ function noteMaskPitchClassBits(mask) {
   return bits & 0xFFF;
 }
 
+/** DAW C3 / middle C. Octave Offset 0 on Scale out starts here. */
+const NOTE_MASK_C3_MIDI = 60;
+
 /** Expand 12-bit pitch-class mask to noteMask128 (all octaves of each class). */
 function noteMaskFromPitchClassBits(bits) {
+  return noteMaskFromPitchClassBitsRange(bits, 11, 0);
+}
+
+/**
+ * Light pitch classes in `octaves` stacked octaves starting at baseMidi (MIDI 0–127).
+ * octaves 1 = one octave of the chord at base; 2 = base and +12; etc.
+ */
+function noteMaskFromPitchClassBitsRange(bits, octaves, baseMidi) {
   const mask = noteMaskCreate();
   const b = (Math.round(Number(bits)) || 0) & 0xFFF;
   if (!b) return mask;
-  for (let i = 0; i < NOTE_MASK_MIDI_COUNT; i += 1) {
-    if (b & (1 << (i % 12))) mask[i] = 1;
+  let oct = Math.round(Number(octaves));
+  if (!Number.isFinite(oct) || oct < 1) oct = 1;
+  if (oct > 11) oct = 11;
+  let base = Math.round(Number(baseMidi));
+  if (!Number.isFinite(base)) base = 60;
+  const basePc = ((base % 12) + 12) % 12;
+  for (let o = 0; o < oct; o += 1) {
+    for (let pc = 0; pc < 12; pc += 1) {
+      if (!(b & (1 << pc))) continue;
+      const midi = base + o * 12 + ((pc - basePc + 12) % 12);
+      if (midi >= 0 && midi < NOTE_MASK_MIDI_COUNT) mask[midi] = 1;
+    }
   }
   return mask;
 }
@@ -158,6 +179,37 @@ function noteMaskFromPitchClassBits(bits) {
  * Scale bus SSOT: noteMask128, legacy 12-bit number, or anything falsy → 0..4095.
  * Packed note-mask transmits (FLAG1+) are not scale values.
  */
+function noteMaskChordPadRootPc(params) {
+  const p = params && typeof params === "object" ? params : {};
+  const keyPc = ((Math.round(Number(p.key)) % 12) + 12) % 12;
+  const deg = Math.max(0, Math.min(6, Math.round(Number(p.degree) || 0)));
+  const mode = Math.round(Number(p.mode) || 0) === 1 ? 1 : 0;
+  const off = mode === 1
+    ? [0, 2, 3, 5, 7, 8, 10][deg]
+    : [0, 2, 4, 5, 7, 9, 11][deg];
+  return (keyPc + off) % 12;
+}
+
+/**
+ * Scale-out policy: Octaves (1–8) stacked from C3 + Octave Offset + optional root PC.
+ * Chord Pad C major at offset 0 → C3 (MIDI 60).
+ */
+function noteMaskScaleOutFromNode(node, bits) {
+  const params = node?.params && typeof node.params === "object" ? node.params : {};
+  let oct = Math.round(Number(params.octaves));
+  if (!Number.isFinite(oct) || oct < 1) oct = 3;
+  if (oct > 8) oct = 8;
+  let off = Math.round(Number(params.octaveOffset));
+  if (!Number.isFinite(off)) off = 0;
+  if (off < -4) off = -4;
+  if (off > 4) off = 4;
+  const rootPc = String(node?.type || "") === "chordPad"
+    ? noteMaskChordPadRootPc(params)
+    : 0;
+  const baseMidi = NOTE_MASK_C3_MIDI + off * 12 + rootPc;
+  return noteMaskFromPitchClassBitsRange(bits, oct, baseMidi);
+}
+
 function noteMaskResolveScaleBits(value) {
   if (value instanceof Uint8Array) return noteMaskPitchClassBits(value);
   const n = Number(value);
@@ -219,6 +271,9 @@ if (typeof globalThis !== "undefined") {
   globalThis.noteMaskToMidiList = noteMaskToMidiList;
   globalThis.noteMaskPitchClassBits = noteMaskPitchClassBits;
   globalThis.noteMaskFromPitchClassBits = noteMaskFromPitchClassBits;
+  globalThis.noteMaskFromPitchClassBitsRange = noteMaskFromPitchClassBitsRange;
+  globalThis.NOTE_MASK_C3_MIDI = NOTE_MASK_C3_MIDI;
+  globalThis.noteMaskScaleOutFromNode = noteMaskScaleOutFromNode;
   globalThis.noteMaskResolveScaleBits = noteMaskResolveScaleBits;
   globalThis.polyphonyTableAddNoteMask = polyphonyTableAddNoteMask;
 }

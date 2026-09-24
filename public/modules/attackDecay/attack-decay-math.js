@@ -63,6 +63,7 @@ function nodeGraphAttackDecaySample(state, gate, params, sampleRate) {
   // Pure Gate + Off: continuous asymmetric one-pole follower (classic AR).
   const pureFollower = inputMode === 0 && cycle === 0;
   let target = 0;
+  let holdPeakSample = false;
 
   if (pureFollower) {
     target = gateOn ? 1 : 0;
@@ -94,6 +95,8 @@ function nodeGraphAttackDecaySample(state, gate, params, sampleRate) {
         if (attack <= 0) state.raw = 1;
         state.phase = "decay";
         target = 0;
+        // Both times at 0: this sample is the peak. Next sample hits the floor.
+        if (attack <= 0 && decay <= 0) holdPeakSample = true;
       }
     } else if (state.phase === "decay") {
       target = 0;
@@ -124,6 +127,13 @@ function nodeGraphAttackDecaySample(state, gate, params, sampleRate) {
       target = 0;
       state.raw = 0;
     }
+  }
+
+  if (holdPeakSample) {
+    state.raw = 1;
+    state.phase = "decay";
+    const y = (curve === 1 ? 1 : Math.pow(1, curve)) * level;
+    return Number.isFinite(y) ? y : 0;
   }
 
   const coef = target > state.raw

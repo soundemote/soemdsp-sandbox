@@ -114,7 +114,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "screenSpaceShader",
   "waveguide",
   "vocoder",
-  "chorus",
   "electroKick",
   "electroSnare",
   "electroHat",
@@ -136,7 +135,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "bode",
   "buttonEvents",
   "curveOsc",
-  "ellipsoidOsc",
   "kickEnvelope",
   "nextPatch",
   "previousPatch",
@@ -187,7 +185,9 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "samplePlayer",
   "phaser",
   "flanger",
+  "chorus",
   "vcvrackSuperloveFilter",
+  "ellipsoidOsc",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
@@ -212,7 +212,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   waveguide: "Full waveguide. Use Comb/Mode resonators for now.",
 
   vocoder: "Filter-bank vocoder. Parked until the analog-filter / bandpass-bank pass.",
-  chorus: "Multi-voice chorus. Parked until the space FX pass.",
+
   wallDelay: "Geometric room/wall delay. Parked until ray-room DSP lands.",
   electroKick: "Electro kick voice. Parked until the drum shelf ships.",
   electroSnare: "Electro snare voice. Parked until the drum shelf ships.",
@@ -574,10 +574,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["RoundShape", "getSineToSquare", "Uni X", "Uni Y", "Bi X", "Bi Y", "AA Off|Limit", "f", "native"],
   },
   ellipsoidOsc: {
-    category: "oscillator",
-    description: "Full parametric ellipsoid path for rich 2D-scope-friendly oscillators.",
+    category: "oms",
+    description: "soemdsp Ellipsoid::getEllipsoid — Offset/Shape/Scale stereo ellipse oscillator (Left/Right) with AA Off|Limit.",
     label: "Ellipsoid",
-    notes: ["ellipsoid", "offset", "shape", "scale", "AA Off|Limit", "X/Y", "native"],
+    notes: ["ellipsoid", "getEllipsoid", "offset", "shape", "scale", "AA Off|Limit", "stereo", "Left", "Right", "native", "oms"],
   },
   basicShape: {
     category: "modulator",
@@ -878,7 +878,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   vibratoGenerator: {
     category: "modulator",
-    description: "soemdsp VibratoGenerator — cheap sine-wavetable LFO with optional S&H random freq/amp and Gate depth Attack/Release. Shared LFO core with Hypersaw (depth env is standalone-module only).",
+    description: "Wavetable sine + AM Index (Top Morph) and sine→phase (Side Morph). f = Speed × (1 + sine × Top Morph).",
     label: "Vibrato Generator",
     notes: ["modulator", "vibrato", "lfo", "sine wavetable", "native", "soemdsp"],
   },
@@ -1118,11 +1118,24 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Attenuverter",
     notes: ["attenuverter", "scale", "invert", "offset", "utility", "native"],
   },
+  attenumax: {
+    category: "dynamics",
+    description: "AM Index: Out = Bias + In × Bias × Amplitude. Amplitude is a normalized index. Amp 0 still outputs Bias.",
+    label: "AM Index",
+    notes: ["am", "index", "amplitude", "bias", "modulator", "utility", "native"],
+  },
   range: {
     category: "utility",
     description: "Linear map from [In Low, In High] to [Out Low, Out High]. Default −1…+1 → −10…+10.",
     label: "Range",
     notes: ["range", "map", "scale", "remap", "utility", "dynamics", "native"],
+  },
+
+  pitchManager: {
+    category: "musical",
+    description: "MIDI offsets → Hz (Tuning) → Multiply/Add. Simultaneous Inc (Hz/sr), ƒ (Hz), and ♯/♭ thru.",
+    label: "Pitch Manager",
+    notes: ["pitch", "midi", "hz", "frequency", "increment", "tuning", "transpose", "musical", "♯/♭", "pitch manager"],
   },
   pitchHz: {
     category: "musical",
@@ -1799,9 +1812,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   chorus: {
     category: "space",
-    description: "Placeholder multi-voice chorus thickening.",
+    description: "Multi-voice interpolating delay. Shared vibrato with per-voice seeds. Wet chorus through 6 dB HP→LP, then Mix.",
     label: "Chorus",
-    notes: ["under construction", "chorus", "delay", "modulation", "space"],
+    notes: ["chorus", "delay", "vibrato", "modulation", "space", "multifx", "native"],
   },
   bode: {
     category: "space",
@@ -2916,6 +2929,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/attenuverter/attenuverter-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/attenuverter/attenuverter-math.js",
   },
+  attenumax: {
+    source: "public/modules/attenumax/attenumax-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/attenumax/attenumax-math.js",
+  },
   ampCurve: {
     source: "native_modules/amp_curve/amp_curve.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/amp_curve/amp_curve.cpp",
@@ -2923,6 +2940,11 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   range: {
     source: "native_modules/range/range.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/range/range.cpp",
+  },
+
+  pitchManager: {
+    source: "native_modules/graph_engine/graph_engine.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/graph_engine/graph_engine.cpp",
   },
   pitchHz: {
     source: "native_modules/graph_engine/graph_engine.cpp",

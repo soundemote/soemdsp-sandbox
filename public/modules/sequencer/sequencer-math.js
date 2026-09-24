@@ -347,7 +347,7 @@ function sequencerOutputsFromNotes(notes, phase, prevMask) {
     trigger,
     midi: highest,
     vel,
-    pitch: highest >= 0 ? highest / 120 : 0,
+    pitch: highest >= 0 ? highest : 0,
     freq,
   };
 }

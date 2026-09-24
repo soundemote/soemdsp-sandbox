@@ -249,7 +249,7 @@ static void capture_midi(State& s, int midi) {
   if (midi < 0) midi = 0;
   if (midi > 127) midi = 127;
   s.lastMidi = midi;
-  s.lastPitch = (double)midi / 120.0;
+  s.lastPitch = (double)midi;
   s.lastFreqHz = 440.0 * dsp_exp2(((double)midi - 69.0) / 12.0);
 }
 

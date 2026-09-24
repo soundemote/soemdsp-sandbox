@@ -3,6 +3,7 @@
 // soemdsp-native-target: reverbEffect
 // soemdsp-native-kind: effect
 
+#include <cstdint>
 #include <wasm_simd128.h>
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
@@ -694,31 +695,37 @@ extern "C" void soemdsp_sabrina_reverb_process_block(int handle, int frameCount,
     return;
   }
   const int safeFrameCount = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
+  // Plugin builds do not have real wasm SIMD. The SSE stand-in latched a
+  // constant. Scalar is the same algorithm the per-sample path uses.
+#if defined(__wasm_simd128__)
   if (useSimd) {
     sabrinaProcessBlockSimd(*state, state->blockInLeft, state->blockInRight, state->blockOutLeft, state->blockOutRight, safeFrameCount);
-  } else {
+  } else
+#endif
+  {
+    (void)useSimd;
     sabrinaProcessBlockScalar(*state, state->blockInLeft, state->blockInRight, state->blockOutLeft, state->blockOutRight, safeFrameCount);
   }
 }
 
-extern "C" int soemdsp_sabrina_reverb_block_input_left_ptr(int handle) {
+extern "C" intptr_t soemdsp_sabrina_reverb_block_input_left_ptr(int handle) {
   SabrinaState* state = stateForHandle(handle);
-  return state ? reinterpret_cast<int>(state->blockInLeft) : 0;
+  return state ? reinterpret_cast<intptr_t>(state->blockInLeft) : 0;
 }
 
-extern "C" int soemdsp_sabrina_reverb_block_input_right_ptr(int handle) {
+extern "C" intptr_t soemdsp_sabrina_reverb_block_input_right_ptr(int handle) {
   SabrinaState* state = stateForHandle(handle);
-  return state ? reinterpret_cast<int>(state->blockInRight) : 0;
+  return state ? reinterpret_cast<intptr_t>(state->blockInRight) : 0;
 }
 
-extern "C" int soemdsp_sabrina_reverb_block_output_left_ptr(int handle) {
+extern "C" intptr_t soemdsp_sabrina_reverb_block_output_left_ptr(int handle) {
   SabrinaState* state = stateForHandle(handle);
-  return state ? reinterpret_cast<int>(state->blockOutLeft) : 0;
+  return state ? reinterpret_cast<intptr_t>(state->blockOutLeft) : 0;
 }
 
-extern "C" int soemdsp_sabrina_reverb_block_output_right_ptr(int handle) {
+extern "C" intptr_t soemdsp_sabrina_reverb_block_output_right_ptr(int handle) {
   SabrinaState* state = stateForHandle(handle);
-  return state ? reinterpret_cast<int>(state->blockOutRight) : 0;
+  return state ? reinterpret_cast<intptr_t>(state->blockOutRight) : 0;
 }
 
 extern "C" int soemdsp_sabrina_reverb_max_block_frames() {

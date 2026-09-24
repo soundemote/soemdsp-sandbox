@@ -36,13 +36,13 @@ function nodeGraphMusicalClassesFromMask(mask) {
   return out;
 }
 
-/** MIDI note from 0.1V/Oct (semitone = pitch * 120). */
+/** MIDI note from ♯/♭ pitch cable (0–127). */
 function nodeGraphMusicalMidiFromPitch(pitch) {
-  return (nodeGraphFiniteNumber(pitch)) * 120;
+  return nodeGraphFiniteNumber(pitch);
 }
 
 function nodeGraphMusicalPitchFromMidi(midi) {
-  return (nodeGraphFiniteNumber(midi)) / 120;
+  return nodeGraphFiniteNumber(midi);
 }
 
 /**
@@ -315,12 +315,17 @@ function nodeGraphGravityWalkerSample(state, options = {}) {
     state._pendingWalk = { gravity, leapAmount };
   }
 
+  let patternOffset = Math.round(Number(options.patternOffset) || 0);
+  if (!Number.isFinite(patternOffset)) patternOffset = 0;
+  if (patternOffset < 0) patternOffset = 0;
+  if (patternOffset > 127) patternOffset = 127;
+
   let midi = state.lastMidi;
+  let playIdx = state.degree | 0;
   if (pool.length) {
-    let idx = state.degree | 0;
-    if (idx < 0) idx = 0;
-    if (idx >= pool.length) idx = pool.length - 1;
-    midi = pool[idx];
+    playIdx = ((state.degree | 0) + patternOffset) % pool.length;
+    if (playIdx < 0) playIdx += pool.length;
+    midi = pool[playIdx];
     state.lastMidi = midi;
   }
 
@@ -329,7 +334,6 @@ function nodeGraphGravityWalkerSample(state, options = {}) {
     state._pendingWalk = null;
   }
 
-  const span = Math.max(1, pool.length);
   return {
     "0.1V/Oct": nodeGraphMusicalPitchFromMidi(midi),
     f: (typeof nodeGraphMidiToHz === "function"
@@ -337,7 +341,7 @@ function nodeGraphGravityWalkerSample(state, options = {}) {
       : (440 * (2 ** ((Number(midi) - 69) / 12)))),
     Gate: pool.length ? 1 : 0,
     Trigger: trig,
-    Degree: pool.length > 1 ? (Math.max(0, Math.min(pool.length - 1, state.degree)) / (pool.length - 1)) : 0,
+    Degree: pool.length > 1 ? (playIdx / (pool.length - 1)) : 0,
   };
 }
 

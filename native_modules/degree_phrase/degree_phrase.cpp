@@ -105,7 +105,7 @@ extern "C" double soemdsp_degree_phrase_sample(
   const int mask = safe(hasScale) > 0.5
     ? musical_normalize_mask(scaleIn)
     : musical_preset_mask(scaleChoice);
-  const double rootUse = (safe(root) != 0.0) ? safe(root) : (60.0 / 120.0);
+  const double rootUse = (safe(root) != 0.0) ? safe(root) : 60.0;
 
   int classes[12];
   const int classCount = musical_classes_from_root(mask, rootUse, classes, 12);

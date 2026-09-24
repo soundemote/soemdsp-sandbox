@@ -3,6 +3,8 @@
 // soemdsp-native-target: polyBlep
 // soemdsp-native-kind: oscillator
 
+#include <cstdint>
+
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
 namespace {
@@ -362,10 +364,10 @@ extern "C" void soemdsp_polyblep_process_block(
   }
 }
 
-extern "C" int soemdsp_polyblep_block_out_ptr(int handle, int tapIndex) {
+extern "C" intptr_t soemdsp_polyblep_block_out_ptr(int handle, int tapIndex) {
   if (handle < 1 || handle > kMaxInstances) return 0;
   if (tapIndex < 0 || tapIndex >= kSlotCount) return 0;
-  return reinterpret_cast<int>(gPool[handle - 1].blockOut[tapIndex]);
+  return reinterpret_cast<intptr_t>(gPool[handle - 1].blockOut[tapIndex]);
 }
 
 extern "C" int soemdsp_polyblep_max_block_frames() {

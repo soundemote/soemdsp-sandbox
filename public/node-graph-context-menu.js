@@ -1571,7 +1571,12 @@ function configureNodeSceneContextMenu(mode) {
     aliasInput.title = nodeGraphTooltipText("actions.moduleAlias");
     const knobSelected = Boolean(
       targetNode
-      && (targetNode.type === "knob" || targetNode.type === "pluginSlider")
+      && (
+        targetNode.type === "knob"
+        || targetNode.type === "pluginSlider"
+        || targetNode.type === "toggleButton"
+        || targetNode.type === "momentaryButton"
+      )
       && !multiModuleMode,
     );
     selectedModule.classList.toggle("is-knob-settings", knobSelected);
@@ -1586,8 +1591,10 @@ function configureNodeSceneContextMenu(mode) {
           : "";
         knobTextInput.value = storedDisplay;
       }
-      knobTextInput.placeholder = targetNode.type === "pluginSlider" ? "Slider" : "Display";
-      knobTextInput.title = "Name on the knob face.";
+      knobTextInput.placeholder = knobSelected && typeof nodeGraphKnobModuleTitleForNode === "function"
+        ? (nodeGraphKnobModuleTitleForNode(targetNode) || "Display")
+        : "Display";
+      knobTextInput.title = "Name on the module face. Empty uses the module title.";
     }
     if (knobPluginIdentity) {
       knobPluginIdentity.hidden = !knobSelected;
@@ -1597,9 +1604,12 @@ function configureNodeSceneContextMenu(mode) {
     const pluginIdVal = knobSelected && (targetNode.pluginId === 0 || targetNode.pluginId)
       ? String(targetNode.pluginId)
       : "";
+    const displayFallback = knobSelected && typeof nodeGraphKnobResolvedDisplayNameForNode === "function"
+      ? nodeGraphKnobResolvedDisplayNameForNode(targetNode)
+      : "";
     const portalFallback = knobSelected && typeof nodeGraphKnobPortalNameForNode === "function"
       ? nodeGraphKnobPortalNameForNode(targetNode)
-      : "";
+      : displayFallback;
     if (knobPluginFolder) {
       knobPluginFolder.disabled = !knobSelected;
       if (document.activeElement !== knobPluginFolder) {
@@ -1611,7 +1621,8 @@ function configureNodeSceneContextMenu(mode) {
       if (document.activeElement !== knobPluginName) {
         knobPluginName.value = pluginNameVal;
       }
-      knobPluginName.placeholder = portalFallback || "Control";
+      knobPluginName.placeholder = displayFallback || portalFallback || "Control";
+      knobPluginName.title = "Plugin control name. Empty uses Display, then the module title.";
     }
     if (knobPluginId) {
       knobPluginId.disabled = !knobSelected;

@@ -137,6 +137,9 @@ function nodeGraphPluginButtonFaceLabelText(node) {
     : node;
   const s = nodeGraphPluginButtonDisplaySettingsForNode(patchNode);
   if (s.buttonShowLabel === false) return "";
+  if (typeof nodeGraphKnobResolvedDisplayNameForNode === "function") {
+    return nodeGraphKnobResolvedDisplayNameForNode(patchNode) || "";
+  }
   return s.labelText || "";
 }
 
@@ -217,7 +220,14 @@ function nodeGraphPluginButtonPaintFace(face, settings) {
     btn.style.fontSize = `${nodeGraphPluginButtonFitFontPx(btn, s.textScale, box)}px`;
   }
   if (label) {
-    const title = s.buttonShowLabel === false ? "" : (s.labelText || "");
+    const patchNode = typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(face.dataset.node)
+      : null;
+    const title = s.buttonShowLabel === false
+      ? ""
+      : (typeof nodeGraphKnobResolvedDisplayNameForNode === "function"
+        ? nodeGraphKnobResolvedDisplayNameForNode(patchNode)
+        : (s.labelText || ""));
     if (label.dataset.editing !== "true") {
       label.textContent = title;
     }

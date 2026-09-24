@@ -98,8 +98,8 @@ function nodeGraphPhoneToneOctaveRatio(pitchOffsetOctaves) {
 }
 
 /**
- * 0.1V/Oct ratio (1 when the jack is unconnected). Same law as oscillators:
- * 2^((cv − reference) / 0.1).
+ * pitch (♯/♭) ratio (1 when the jack is unconnected). Same law as oscillators:
+ * 2^((midi − referenceMidi) / 12).
  */
 function nodeGraphPhoneTonePitchCvRatio(hasPitchCv, pitchCv, referenceVoltage) {
   if (typeof nodeGraphParamResolveOscPitchHz === "function") {
@@ -117,8 +117,8 @@ function nodeGraphPhoneTonePitchCvRatio(hasPitchCv, pitchCv, referenceVoltage) {
   const cv = Number(pitchCv);
   const ref = Number(referenceVoltage);
   const pitch = Number.isFinite(cv) ? cv : 0;
-  const reference = Number.isFinite(ref) ? ref : 0;
-  const ratio = 2 ** ((pitch - reference) / 0.1);
+  const reference = Number.isFinite(ref) ? ref : 69;
+  const ratio = 2 ** ((pitch - reference) / 12);
   return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
 }
 
@@ -135,7 +135,7 @@ function nodeGraphPhoneToneClampHz(hz) {
   return n;
 }
 
-/** Table Hz → pitched Hz: * 2^pitchOffset * 0.1V ratio, then + Frequency Offset. */
+/** Table Hz → pitched Hz: * 2^pitchOffset * pitch ratio, then + Frequency Offset. */
 function nodeGraphPhoneTonePitchedHz(baseHz, pitchOffsetOctaves, freqOffsetHz, pitchCvRatio = 1) {
   const base = Number(baseHz);
   const table = Number.isFinite(base) ? base : 0;

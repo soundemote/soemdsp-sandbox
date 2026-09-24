@@ -19,7 +19,7 @@
 
 /* Scale jack driving the mask (e.g. Chord Pad) — keyboard is display-only. */
 .node-pitch-quantizer-face.scale-jacked {
-  border-color: rgba(177, 132, 255, 0.35);
+  border-color: rgba(242, 93, 93, 0.45);
 }
 
 .node-pitch-quantizer-face.scale-jacked .node-pitch-quantizer-key {
@@ -119,14 +119,14 @@
 }
 
 .node-pitch-quantizer-key-white.active {
-  color: #eaf8ff;
+  color: #fff4f2;
   background:
-    radial-gradient(circle at 50% 18%, rgba(213, 247, 255, 0.9), transparent 30%),
-    linear-gradient(180deg, #7edcff 0%, #1e85ff 74%, #0a3f9a 100%);
+    radial-gradient(circle at 50% 18%, rgba(255, 210, 205, 0.9), transparent 30%),
+    linear-gradient(180deg, #ff8a7a 0%, #e23b3b 74%, #7a1010 100%);
   box-shadow:
-    inset 0 0 0 1px rgba(207, 246, 255, 0.75),
-    inset 0 0 16px rgba(17, 102, 255, 0.4);
-  text-shadow: 0 0 6px rgba(234, 248, 255, 0.8);
+    inset 0 0 0 1px rgba(255, 210, 205, 0.75),
+    inset 0 0 16px rgba(226, 59, 59, 0.4);
+  text-shadow: 0 0 6px rgba(255, 244, 242, 0.8);
 }
 
 .node-pitch-quantizer-black-row {
@@ -155,15 +155,15 @@
 }
 
 .node-pitch-quantizer-key-black.active {
-  border-color: rgba(118, 215, 255, 0.9);
-  color: #eaf8ff;
+  border-color: rgba(255, 140, 130, 0.9);
+  color: #fff4f2;
   background:
-    radial-gradient(circle at 50% 18%, rgba(151, 230, 255, 0.65), transparent 32%),
-    linear-gradient(180deg, #236ec9 0%, #081a43 100%);
+    radial-gradient(circle at 50% 18%, rgba(255, 160, 150, 0.65), transparent 32%),
+    linear-gradient(180deg, #c42828 0%, #3a0808 100%);
   box-shadow:
-    inset 0 0 0 1px rgba(184, 239, 255, 0.7),
-    0 0 14px rgba(35, 162, 255, 0.55);
-  text-shadow: 0 0 6px rgba(234, 248, 255, 0.75);
+    inset 0 0 0 1px rgba(255, 190, 180, 0.7),
+    0 0 14px rgba(242, 93, 93, 0.55);
+  text-shadow: 0 0 6px rgba(255, 244, 242, 0.75);
 }
 
 .node-pitch-quantizer-key:focus-visible {

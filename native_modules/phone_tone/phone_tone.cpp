@@ -187,8 +187,8 @@ double pitchCvRatio(int hasPitchCv, double pitchCv, double referenceVoltage) {
     return 1.0;
   }
   const double cv = finiteValue(pitchCv) ? pitchCv : 0.0;
-  const double ref = finiteValue(referenceVoltage) ? referenceVoltage : 0.0;
-  const double ratio = dsp_exp2((cv - ref) / 0.1);
+  const double ref = finiteValue(referenceVoltage) ? referenceVoltage : 69.0;
+  const double ratio = dsp_exp2((cv - ref) / 12.0);
   return (finiteValue(ratio) && ratio > 0.0) ? ratio : 1.0;
 }
 

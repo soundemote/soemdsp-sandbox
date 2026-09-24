@@ -38,14 +38,14 @@ function createNodeGraphThumpEnvelopeState() {
 
 function nodeGraphThumpFoldParam(base, mod, minV, maxV) {
   const range = maxV - minV;
-  let domainAdd = 0;
-  let unitAdd = 0;
-  if (mod > 1 || mod < -1) domainAdd = mod;
-  else unitAdd = mod;
-  let result = base + domainAdd;
-  if (range > 0 && unitAdd !== 0) {
+  const m = Number(mod);
+  const add = Number.isFinite(m) ? m : 0;
+  let result = base;
+  if (range > 0 && add !== 0) {
     const baseUnit = (base - minV) / range;
-    result = minV + (baseUnit + unitAdd) * range + domainAdd;
+    result = minV + (baseUnit + add) * range;
+  } else {
+    result = base + add;
   }
   return Math.max(minV, Math.min(maxV, result));
 }

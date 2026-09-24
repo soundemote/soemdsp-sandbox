@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=JetBrains+Mono:wght@400;500;600;700&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=patch-name-1">
+  <link rel="stylesheet" href="./public/styles.css?v=patch-title-wrap-1">
   <link rel="stylesheet" href="./public/perform.css?v=perform-2">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=portal-thru-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
@@ -49,7 +49,7 @@
           href="https://github.com/soundemote/soemdsp-sandbox/discussions/categories/feature-requests"
           target="_blank"
           rel="noopener noreferrer">
-          <span aria-hidden="true">âœ¨</span>
+          <span aria-hidden="true">✨</span>
           <span>Request Feature</span>
         </a>
         <a
@@ -57,7 +57,7 @@
           href="https://github.com/soundemote/soemdsp-sandbox/issues/new"
           target="_blank"
           rel="noopener noreferrer">
-          <span aria-hidden="true">ðŸž</span>
+          <span aria-hidden="true">🐞</span>
           <span>Report Bug</span>
         </a>
         <div class="node-boot-menu-squares" role="group" aria-label="Contact">
@@ -66,7 +66,7 @@
             href="mailto:soundemote@gmail.com"
             title="soundemote@gmail.com"
             aria-label="Email soundemote@gmail.com">
-            <span class="node-boot-email-emoji" aria-hidden="true">âœ‰ï¸</span>
+            <span class="node-boot-email-emoji" aria-hidden="true">✉️</span>
           </a>
           <a
             class="node-boot-youtube-button"
@@ -94,7 +94,7 @@
         <span id="nodeBootLoadingBarFill" style="width: 0%;"></span>
       </div>
       <div class="node-boot-loading-meta">
-        <span class="node-boot-build-number">v{{SANDBOX_VERSION}} &nbsp;Â·&nbsp; build {{BUILD_NUMBER}} &nbsp;Â·&nbsp; {{BUILD_TOKEN}}</span>
+        <span class="node-boot-build-number">v{{SANDBOX_VERSION}} &nbsp;·&nbsp; build {{BUILD_NUMBER}} &nbsp;·&nbsp; {{BUILD_TOKEN}}</span>
         <span id="nodeBootSysinfo" class="node-boot-sysinfo" hidden></span>
       </div>
       <div id="nodeBootLoadingMessages" class="node-boot-loading-messages" aria-live="polite" hidden></div>
@@ -167,7 +167,7 @@
           aria-label="Folder path to search for missing samples">
         <button
           id="nodeMissingSampleAssetsLinkFolder"
-          type="button">ðŸ“‚ Link folder</button>
+          type="button">📂 Link folder</button>
         <small id="nodeMissingSampleAssetsLinkStatus" class="node-missing-sample-assets-status"></small>
       </div>
       <button
@@ -188,7 +188,7 @@
       <span class="node-sample-load-lock-kicker">Music Player</span>
       <strong id="nodeSampleLoadLockTitle" class="node-sample-load-lock-title">Loading audio</strong>
       <p id="nodeSampleLoadLockProgress" class="node-sample-load-lock-progress">0 / 0</p>
-      <p id="nodeSampleLoadLockDetail" class="node-sample-load-lock-detail">Decoding files into RAMâ€¦</p>
+      <p id="nodeSampleLoadLockDetail" class="node-sample-load-lock-detail">Decoding files into RAM…</p>
       <p id="nodeSampleLoadLockRam" class="node-sample-load-lock-ram">Decoded 0 KB / budget 0 KB</p>
       <button
         id="nodeSampleLoadLockClose"
@@ -200,7 +200,7 @@
     </div>
   </div>
   <script src="./public/boot-loading.js?v=boot-hero-1"></script>
-  <script src="./public/perform-boot.js?v=perform-2"></script>
+  <script src="./public/perform-boot.js?v=notes-1"></script>
   <main class="shell">
     <section class="status-strip" aria-label="Sandbox status">
       <div>
@@ -232,19 +232,19 @@
             id="nodeCommandCenterButton"
             type="button"
             aria-label="Launch / Command Center"
-            title="Launch Command Center"><span class="node-modular-view-icon" aria-hidden="true">ðŸš€</span></button>
+            title="Launch Command Center"><span class="node-modular-view-icon" aria-hidden="true">🚀</span></button>
           <button
             id="nodeSettingsViewButton"
             type="button"
             aria-label="Script page"
             aria-pressed="false"
-            title="Script page"><span class="node-modular-view-icon" aria-hidden="true">ðŸ“–</span></button>
+            title="Script page"><span class="node-modular-view-icon" aria-hidden="true">📖</span></button>
           <button
             id="nodeSettingsSaveScriptButton"
             type="button"
             aria-label="Save patch"
             data-tooltip-key="script.save"
-            title="Save patch"><span class="node-modular-view-icon" aria-hidden="true">ðŸ’¾</span></button>
+            title="Save patch"><span class="node-modular-view-icon" aria-hidden="true">💾</span></button>
           <button
             id="loadNodeGraphScriptButton"
             class="node-toolbar-stack-label"
@@ -274,19 +274,19 @@
             id="nodeModuleShopButton"
             type="button"
             aria-label="Module Browser"
-            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">ðŸŽ›ï¸</span></button>
+            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">🎛️</span></button>
           <button
             id="nodeModularInfiniteViewButton"
             type="button"
             aria-label="Computer view"
-            title="Computer view â€” infinite canvas, no crop or resize widget"
-            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">ðŸ’»</span></button>
+            title="Computer view — infinite canvas, no crop or resize widget"
+            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">💻</span></button>
           <button
             id="nodeModularWindowedViewButton"
             type="button"
             aria-label="Layout canvas"
-            title="Layout canvas â€” pinned displays (same as F)"
-            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">ðŸ“±</span></button>
+            title="Layout canvas — pinned displays (same as F)"
+            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">📱</span></button>
           <span
             id="nodeWorldPositionReadout"
             class="node-world-position-readout"
@@ -330,7 +330,7 @@
             type="button"
             aria-pressed="false"
             aria-label="Room light. Drag up to brighten, down to darken (displays stay lit)."
-            title="Room light Â· drag up brighter, down darker (displays stay lit)"
+            title="Room light · drag up brighter, down darker (displays stay lit)"
           ><span class="node-room-dimmer-fill" aria-hidden="true"></span><span class="node-room-dimmer-icons" aria-hidden="true"><img class="node-room-dimmer-icon node-room-dimmer-icon-on" src="./public/resources/icons/lightbulb-on.svg" alt="" draggable="false" width="24" height="35"><img class="node-room-dimmer-icon node-room-dimmer-icon-off" src="./public/resources/icons/lightbulb-off.svg" alt="" draggable="false" width="24" height="35"></span></button>
           <button
             id="nodeMagnifierZoomSlider"
@@ -343,10 +343,10 @@
             aria-valuenow="2"
             aria-label="Magnifying glass zoom"
             data-toolbar-fill-tip="Magnifying glass zoom"
-            title="Magnifying glass zoom Â· drag up/down">
+            title="Magnifying glass zoom · drag up/down">
             <span class="node-room-dimmer-fill" aria-hidden="true"></span>
-            <span class="node-room-dimmer-icons" aria-hidden="true"><span class="node-toolbar-fill-glyph">ðŸ”</span></span>
-            <span class="node-toolbar-fill-value" data-toolbar-fill-value>2.0Ã—</span>
+            <span class="node-room-dimmer-icons" aria-hidden="true"><span class="node-toolbar-fill-glyph">🔍</span></span>
+            <span class="node-toolbar-fill-value" data-toolbar-fill-value>2.0×</span>
           </button>
           <button
             id="nodeMagnifierSizeSlider"
@@ -359,9 +359,9 @@
             aria-valuenow="220"
             aria-label="Magnifying glass size"
             data-toolbar-fill-tip="Magnifying glass size"
-            title="Magnifying glass size Â· drag up/down">
+            title="Magnifying glass size · drag up/down">
             <span class="node-room-dimmer-fill" aria-hidden="true"></span>
-            <span class="node-room-dimmer-icons" aria-hidden="true"><span class="node-toolbar-fill-glyph">â—¯</span></span>
+            <span class="node-room-dimmer-icons" aria-hidden="true"><span class="node-toolbar-fill-glyph">◯</span></span>
             <span class="node-toolbar-fill-value" data-toolbar-fill-value>220px</span>
           </button>
           <button
@@ -375,9 +375,9 @@
             aria-valuenow="0"
             aria-label="Snake select mouse smoothing"
             data-toolbar-fill-tip="Mouse smoothing"
-            title="Mouse smoothing Â· drag up/down">
+            title="Mouse smoothing · drag up/down">
             <span class="node-room-dimmer-fill" aria-hidden="true"></span>
-            <span class="node-room-dimmer-icons" aria-hidden="true"><span class="node-toolbar-fill-glyph">ðŸ–±</span></span>
+            <span class="node-room-dimmer-icons" aria-hidden="true"><span class="node-toolbar-fill-glyph">🖱</span></span>
             <span class="node-toolbar-fill-value" data-toolbar-fill-value>0%</span>
           </button>
           </span>
@@ -401,7 +401,7 @@
             id="nodeBuildNumberReadout"
             class="node-build-number-readout"
             aria-label="Version v{{SANDBOX_VERSION}}, build {{BUILD_NUMBER}}, stamp {{BUILD_TOKEN}}"
-            title="Version v{{SANDBOX_VERSION}} Â· build {{BUILD_NUMBER}} Â· {{BUILD_TOKEN}}"
+            title="Version v{{SANDBOX_VERSION}} · build {{BUILD_NUMBER}} · {{BUILD_TOKEN}}"
             data-build-mode-value="{{BUILD_MODE}}">
             <span data-sandbox-version>v{{SANDBOX_VERSION}}</span>
             <span data-build-number-value>{{BUILD_NUMBER}}</span>
@@ -433,24 +433,24 @@
         <div id="nodeVisibilityUnifiedNavHost" class="node-unified-window-nav-host" aria-label="Floating window pages"></div>
         <div class="node-visibility-menu-list">
           <button id="nodeTooltipToggleButton" type="button" role="menuitem" aria-pressed="true" data-tooltip-mode="embedded">
-            <span class="node-tooltip-mode-label">ðŸ“Œ Tooltips docked</span>
+            <span class="node-tooltip-mode-label">📌 Tooltips docked</span>
             <kbd>T</kbd>
           </button>
           <button id="nodeAppChromeBarsToggleButton" type="button" role="menuitem" aria-pressed="true">
-            <span>ðŸªŸ App Bars</span>
+            <span>🪟 App Bars</span>
             <kbd>V</kbd>
           </button>
-          <button id="nodeGridToggleButton" type="button" role="menuitem" aria-pressed="false">â¬› Grid</button>
-          <button id="nodeGridLightToggleButton" type="button" role="menuitem" aria-pressed="true">ðŸ’¡ Grid Light</button>
-          <button id="nodeWireLengthsToggleButton" type="button" role="menuitem" aria-pressed="true">ðŸ§¬ Wire Lengths</button>
-          <button id="nodeWiresAboveModulesToggleButton" type="button" role="menuitem" aria-pressed="false">â¬› Wires Above Modules</button>
-          <button id="nodeModuleButtonsToggleButton" type="button" role="menuitem" aria-pressed="false">â¬› Module Buttons</button>
-          <button id="nodeOscilloscopeToggleButton" type="button" role="menuitem" aria-pressed="false">â¬› Displays</button>
-          <button id="nodeModuleInterfaceControlsToggleButton" type="button" role="menuitem" aria-pressed="true">ðŸ”¢ Control Surfaces</button>
-          <button id="nodeModuleSlidersToggleButton" type="button" role="menuitem" aria-pressed="true">ðŸ“Š Sliders</button>
-          <button id="nodeSliderAmountToggleButton" type="button" role="menuitem" aria-pressed="false">â¬› Amount Slider</button>
-          <button id="nodeSliderPositionToggleButton" type="button" role="menuitem" aria-pressed="true">â¬œ Position Slider</button>
-          <button id="nodeKeyboardDebugToggleButton" type="button" role="menuitem" aria-pressed="false"><span>â¬› Debug</span></button>
+          <button id="nodeGridToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Grid</button>
+          <button id="nodeGridLightToggleButton" type="button" role="menuitem" aria-pressed="true">💡 Grid Light</button>
+          <button id="nodeWireLengthsToggleButton" type="button" role="menuitem" aria-pressed="true">🧬 Wire Lengths</button>
+          <button id="nodeWiresAboveModulesToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Wires Above Modules</button>
+          <button id="nodeModuleButtonsToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Module Buttons</button>
+          <button id="nodeOscilloscopeToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Displays</button>
+          <button id="nodeModuleInterfaceControlsToggleButton" type="button" role="menuitem" aria-pressed="true">🔢 Control Surfaces</button>
+          <button id="nodeModuleSlidersToggleButton" type="button" role="menuitem" aria-pressed="true">📊 Sliders</button>
+          <button id="nodeSliderAmountToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Amount Slider</button>
+          <button id="nodeSliderPositionToggleButton" type="button" role="menuitem" aria-pressed="true">⬜ Position Slider</button>
+          <button id="nodeKeyboardDebugToggleButton" type="button" role="menuitem" aria-pressed="false"><span>⬛ Debug</span></button>
         </div>
         <button
           id="nodeVisibilityMenuResizeHandle"
@@ -487,7 +487,7 @@
           <div class="node-hotkeys-row"><kbd>V</kbd><span>Hide / show bars</span></div>
           <div class="node-hotkeys-row"><kbd>T</kbd><span>Stick transport (overrides V hide)</span></div>
           <div class="node-hotkeys-row"><kbd>D</kbd><span>Debug</span></div>
-          <div class="node-hotkeys-row"><kbd>F</kbd><span>Canvas: off â†’ perform â†’ edit layout â†’ off (same as ðŸ“±)</span></div>
+          <div class="node-hotkeys-row"><kbd>F</kbd><span>Canvas: off → perform → edit layout → off (same as 📱)</span></div>
           <div class="node-hotkeys-row"><kbd>Z</kbd><span>Center view on modules (selection, else all) at current zoom</span></div>
           <div class="node-hotkeys-row"><kbd>?</kbd><span>Command Center</span></div>
           <div class="node-hotkeys-row"><kbd>Space</kbd><span>Pause / play</span></div>
@@ -978,13 +978,13 @@
               href="https://github.com/soundemote/soemdsp-sandbox/discussions/categories/feature-requests"
               target="_blank"
               rel="noreferrer"
-              data-tooltip-key="settings.requestFeature"><span>âœ¨</span><span>Request Feature</span></a>
+              data-tooltip-key="settings.requestFeature"><span>✨</span><span>Request Feature</span></a>
             <a
               class="node-settings-link-action node-settings-bug-action"
               href="https://github.com/soundemote/soemdsp-sandbox/issues/new"
               target="_blank"
               rel="noreferrer"
-              data-tooltip-key="settings.reportBug"><span>ðŸž</span><span>Report Bug</span></a>
+              data-tooltip-key="settings.reportBug"><span>🐞</span><span>Report Bug</span></a>
             <button
               id="nodeCodeScreenViewButton"
               class="node-settings-disabled-action"
@@ -997,7 +997,7 @@
             <button
               id="nodeCheckAllModulesButton"
               type="button"
-              data-tooltip-key="settings.checkAllModules"><span>âœ“</span><span>Check</span></button>
+              data-tooltip-key="settings.checkAllModules"><span>✓</span><span>Check</span></button>
             <button
               id="makePluginButton"
               class="node-settings-disabled-action"
@@ -1245,8 +1245,8 @@
                 max="8"
                 step="1"
                 value="5"
-                title="Visual grid only. 1 = 1:1, 2 = 2Ã— squares, 3 = 4Ã—, 4 = 8Ã— (2^(nâˆ’1)). Snap stays 1gu.">
-              <output id="nodeUiDevGridDivisionMultiplyValue" for="nodeUiDevGridDivisionMultiply">16Ã—</output>
+                title="Visual grid only. 1 = 1:1, 2 = 2× squares, 3 = 4×, 4 = 8× (2^(n−1)). Snap stays 1gu.">
+              <output id="nodeUiDevGridDivisionMultiplyValue" for="nodeUiDevGridDivisionMultiply">16×</output>
             </div>
           </label>
           <label class="node-ui-dev-color-control">
@@ -1393,7 +1393,7 @@
                 max="8"
                 step="0.05"
                 value="1.25"
-                title="Crescent stroke width in world px â€” scales with zoom (not screen-fixed)">
+                title="Crescent stroke width in world px — scales with zoom (not screen-fixed)">
               <output id="nodeUiDevInletOutletStrokeThicknessValue" for="nodeUiDevInletOutletStrokeThickness">1.25px</output>
             </div>
           </label>
@@ -1515,7 +1515,7 @@
                 max="12"
                 step="0.05"
                 value="3.5"
-                title="Cable stroke width in world px â€” independent of inlet/outlet size">
+                title="Cable stroke width in world px — independent of inlet/outlet size">
               <output id="nodeUiDevWireThicknessValue" for="nodeUiDevWireThickness">3.5px</output>
             </div>
           </label>
@@ -1958,24 +1958,24 @@
           <div id="nodeSceneModuleVisibilityActionGroup" class="scene-context-visibility-stack" role="group" aria-label="Module visibility">
             <div class="scene-context-button-group scene-context-button-group-display-title" role="group" aria-label="Display, title, and control surface">
               <button id="nodeSceneToggleOscilloscope" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>â¬œ</span><span>Display</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Display</span></span>
               </button>
               <button id="nodeSceneToggleTitle" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>â¬œ</span><span>Title</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Title</span></span>
               </button>
               <button id="nodeSceneToggleInterfaceControls" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>â¬œ</span><span>Control surface</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Control surface</span></span>
               </button>
             </div>
             <div class="scene-context-button-group scene-context-button-group-3" role="group" aria-label="Chrome">
               <button id="nodeSceneToggleButtons" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>â¬œ</span><span>Buttons</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Buttons</span></span>
               </button>
               <button id="nodeSceneToggleIo" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>â¬œ</span><span>In/Out</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>In/Out</span></span>
               </button>
               <button id="nodeSceneToggleSliders" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>â¬œ</span><span>Sliders</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Sliders</span></span>
               </button>
             </div>
             <div class="scene-context-button-group scene-context-button-group-2" role="group" aria-label="Hide unused and collapse">
@@ -1986,7 +1986,7 @@
                 hidden
                 title="Hide unused inlets and outlets"
               >
-                <span class="scene-context-button-lines"><span>â¬œ</span><span>Hide unused</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Hide unused</span></span>
               </button>
               <button
                 id="nodeSceneToggleCollapsed"
@@ -1994,7 +1994,7 @@
                 role="menuitem"
                 hidden
               >
-                <span class="scene-context-button-lines"><span>â¬œ</span><span>Collapsed</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Collapsed</span></span>
               </button>
             </div>
             <div class="scene-context-button-group scene-context-button-group-1" role="group" aria-label="Disable module">
@@ -2038,11 +2038,11 @@
             </div>
             <div id="nodeSceneTimingControls" class="scene-context-timing-controls" role="group" aria-label="Patch timing"></div>
             <div class="scene-context-modular-view-controls" role="group" aria-label="Modular view">
-              <button id="nodeSceneToggleModularInfiniteView" class="scene-context-window-button" type="button" aria-label="Computer view" aria-pressed="false" title="Computer view â€” infinite canvas">
-                <span class="scene-context-window-button-icon" aria-hidden="true">ðŸ’»</span>
+              <button id="nodeSceneToggleModularInfiniteView" class="scene-context-window-button" type="button" aria-label="Computer view" aria-pressed="false" title="Computer view — infinite canvas">
+                <span class="scene-context-window-button-icon" aria-hidden="true">💻</span>
               </button>
-              <button id="nodeSceneToggleModularWindowedView" class="scene-context-window-button" type="button" aria-label="Layout canvas" aria-pressed="false" title="Layout canvas â€” pinned displays (same as F)">
-                <span class="scene-context-window-button-icon" aria-hidden="true">ðŸ“±</span>
+              <button id="nodeSceneToggleModularWindowedView" class="scene-context-window-button" type="button" aria-label="Layout canvas" aria-pressed="false" title="Layout canvas — pinned displays (same as F)">
+                <span class="scene-context-window-button-icon" aria-hidden="true">📱</span>
               </button>
               <button id="nodeSceneToggleModularOnlyView" class="scene-context-window-button" type="button" hidden aria-hidden="true" tabindex="-1"></button>
               <button id="nodeSceneToggleModularOnlyControls" class="scene-context-window-button" type="button" hidden aria-hidden="true" tabindex="-1"></button>
@@ -2052,11 +2052,11 @@
               id="nodeSceneTransportGroup"
               role="group"
               aria-label="Transport controls">
-              <button type="button" data-transport-action="restart" title="Restart simulation (full cold boot)" aria-label="Restart simulation">â®</button>
-              <button class="node-transport-stop is-stopped" type="button" data-transport-action="stop" title="Stopped (engine off)" aria-label="Stopped" data-transport-state="stopped">â¹</button>
-              <button class="node-transport-play" type="button" data-transport-action="play" title="Play" aria-label="Play" data-transport-play data-transport-state="stopped">â–¶</button>
-              <button type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">âº</button>
-              <button type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">â­</button>
+              <button type="button" data-transport-action="restart" title="Restart simulation (full cold boot)" aria-label="Restart simulation">⏮</button>
+              <button class="node-transport-stop is-stopped" type="button" data-transport-action="stop" title="Stopped (engine off)" aria-label="Stopped" data-transport-state="stopped">⏹</button>
+              <button class="node-transport-play" type="button" data-transport-action="play" title="Play" aria-label="Play" data-transport-play data-transport-state="stopped">▶</button>
+              <button type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">⏺</button>
+              <button type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">⏭</button>
             </div>
           </div>
         </div>
@@ -2248,7 +2248,7 @@
                 <input id="nodeSceneKnobFaceRotate1" type="checkbox">
                 <span>rotate</span>
               </label>
-              <p id="nodeSceneKnobFaceFileName1" class="node-knob-face-filename" title="">â€”</p>
+              <p id="nodeSceneKnobFaceFileName1" class="node-knob-face-filename" title="">—</p>
             </div>
             <div class="node-knob-face-layer-row" data-face-layer="image2">
               <button id="nodeSceneKnobFaceLoad2" type="button">load</button>
@@ -2257,7 +2257,7 @@
                 <input id="nodeSceneKnobFaceRotate2" type="checkbox">
                 <span>rotate</span>
               </label>
-              <p id="nodeSceneKnobFaceFileName2" class="node-knob-face-filename" title="">â€”</p>
+              <p id="nodeSceneKnobFaceFileName2" class="node-knob-face-filename" title="">—</p>
             </div>
             <div class="node-knob-face-layer-row" data-face-layer="image3">
               <button id="nodeSceneKnobFaceLoad3" type="button">load</button>
@@ -2266,7 +2266,7 @@
                 <input id="nodeSceneKnobFaceRotate3" type="checkbox">
                 <span>rotate</span>
               </label>
-              <p id="nodeSceneKnobFaceFileName3" class="node-knob-face-filename" title="">â€”</p>
+              <p id="nodeSceneKnobFaceFileName3" class="node-knob-face-filename" title="">—</p>
             </div>
             <div class="node-knob-face-layer-row" data-face-layer="image4">
               <button id="nodeSceneKnobFaceLoad4" type="button">load</button>
@@ -2275,7 +2275,7 @@
                 <input id="nodeSceneKnobFaceRotate4" type="checkbox">
                 <span>rotate</span>
               </label>
-              <p id="nodeSceneKnobFaceFileName4" class="node-knob-face-filename" title="">â€”</p>
+              <p id="nodeSceneKnobFaceFileName4" class="node-knob-face-filename" title="">—</p>
             </div>
             <div class="node-knob-face-layer-row" data-face-layer="image5">
               <button id="nodeSceneKnobFaceLoad5" type="button">load</button>
@@ -2284,7 +2284,7 @@
                 <input id="nodeSceneKnobFaceRotate5" type="checkbox">
                 <span>rotate</span>
               </label>
-              <p id="nodeSceneKnobFaceFileName5" class="node-knob-face-filename" title="">â€”</p>
+              <p id="nodeSceneKnobFaceFileName5" class="node-knob-face-filename" title="">—</p>
             </div>
             <div class="node-knob-face-layer-row" data-face-layer="image6">
               <button id="nodeSceneKnobFaceLoad6" type="button">load</button>
@@ -2293,11 +2293,11 @@
                 <input id="nodeSceneKnobFaceRotate6" type="checkbox">
                 <span>rotate</span>
               </label>
-              <p id="nodeSceneKnobFaceFileName6" class="node-knob-face-filename" title="">â€”</p>
+              <p id="nodeSceneKnobFaceFileName6" class="node-knob-face-filename" title="">—</p>
             </div>
             <div class="node-knob-face-shared-row">
               <label class="node-knob-face-num-field" title="Centered arc sweep (left and right open together)">
-                <span>span Â°</span>
+                <span>span °</span>
                 <input id="nodeSceneKnobFaceRotationDegrees" type="number" min="0" max="1440" step="1" value="270">
               </label>
             </div>
@@ -2326,7 +2326,7 @@
             autocomplete="off"
             spellcheck="false"
             maxlength="8"
-            placeholder="ðŸž">
+            placeholder="🐞">
         </label>
         <div id="nodeSceneTextBoxControls" class="scene-context-text-box-controls" hidden>
           <span>text box style</span>
@@ -2369,7 +2369,7 @@
           <span>Group into Metamodule</span>
         </button>
         <button id="nodeSceneDeleteModule" class="scene-context-danger" type="button" role="menuitem" hidden>
-          <span>ðŸ—‘ï¸ Delete</span>
+          <span>🗑️ Delete</span>
         </button>
         <button
           id="nodeSceneContextResizeHandle"
@@ -2412,7 +2412,7 @@
               aria-pressed="false"
               title="Lock patch: no select, move, add, or delete"
               aria-label="Unlock patch">
-              <span class="scene-context-window-button-label" aria-hidden="true">ðŸ”“</span>
+              <span class="scene-context-window-button-label" aria-hidden="true">🔓</span>
             </button>
             <button
               id="nodeSceneBroomBatch"
@@ -2508,7 +2508,7 @@
               autocomplete="off"
               spellcheck="false"
               data-patch-info-field="emoji"
-              placeholder="ðŸŽµ"
+              placeholder="🎵"
               aria-label="Associated emoji">
           </label>
           <label class="node-patch-defaults-field node-patch-defaults-field-wide">
@@ -2802,7 +2802,7 @@
             <span>(Off)</span>
           </button>
           <label class="node-volume-control node-live-input-volume" title="Input module amplitude (mirrored)">
-            <span aria-hidden="true">ðŸ”Š</span>
+            <span aria-hidden="true">🔊</span>
             <input
               id="nodeLiveInputVolume"
               type="range"
@@ -2814,7 +2814,7 @@
             <output id="nodeLiveInputVolumeValue" for="nodeLiveInputVolume">100%</output>
           </label>
           <label class="node-volume-control node-live-output-volume" title="Output module volume in dB (mirrored)">
-            <span aria-hidden="true">ðŸ”Š</span>
+            <span aria-hidden="true">🔊</span>
             <input
               id="nodeLiveOutputVolume"
               type="range"
@@ -2823,7 +2823,7 @@
               step="0.01"
               value="0.1"
               aria-label="Output module volume in decibels">
-            <output id="nodeLiveOutputVolumeValue" for="nodeLiveOutputVolume">âˆ’20 dB</output>
+            <output id="nodeLiveOutputVolumeValue" for="nodeLiveOutputVolume">−20 dB</output>
           </label>
           <button
             id="nodeLiveOutputButton"
@@ -2843,16 +2843,16 @@
           </button>
         </div>
         <div class="node-transport-group" id="nodeTransportGroup" aria-label="Transport controls">
-          <button id="nodeTransportPrev" type="button" data-transport-action="restart" title="Restart simulation (full cold boot)" aria-label="Restart simulation">â®</button>
-          <button id="nodeTransportStop" class="node-transport-stop is-stopped" type="button" data-transport-action="stop" title="Stopped (engine off)" aria-label="Stopped" data-transport-state="stopped">â¹</button>
-          <button id="nodeTransportPlay" class="node-transport-play" type="button" data-transport-action="play" data-transport-play title="Play" aria-label="Play" data-transport-state="stopped">â–¶</button>
-          <button id="nodeTransportPause" class="node-transport-pause" type="button" data-transport-action="pause" title="Pause" aria-label="Pause" data-transport-state="stopped">â¸</button>
-          <button id="nodeTransportRecord" type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">âº</button>
-          <button id="nodeTransportNext" type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">â­</button>
+          <button id="nodeTransportPrev" type="button" data-transport-action="restart" title="Restart simulation (full cold boot)" aria-label="Restart simulation">⏮</button>
+          <button id="nodeTransportStop" class="node-transport-stop is-stopped" type="button" data-transport-action="stop" title="Stopped (engine off)" aria-label="Stopped" data-transport-state="stopped">⏹</button>
+          <button id="nodeTransportPlay" class="node-transport-play" type="button" data-transport-action="play" data-transport-play title="Play" aria-label="Play" data-transport-state="stopped">▶</button>
+          <button id="nodeTransportPause" class="node-transport-pause" type="button" data-transport-action="pause" title="Pause" aria-label="Pause" data-transport-state="stopped">⏸</button>
+          <button id="nodeTransportRecord" type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">⏺</button>
+          <button id="nodeTransportNext" type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">⏭</button>
         </div>
         <div class="node-render-duration-control" id="nodeRenderDurationControl">
           <button id="nodeRenderButton" type="button"><span>Render</span><span>Sample</span></button>
-          <button id="nodeDownloadSampleButton" type="button" draggable="true" title="Download rendered sample. Drag onto the modular area to spawn a stereo Sample Player." aria-label="Download rendered sample"><span class="node-modular-view-icon" aria-hidden="true">â¬‡ï¸</span></button>
+          <button id="nodeDownloadSampleButton" type="button" draggable="true" title="Download rendered sample. Drag onto the modular area to spawn a stereo Sample Player." aria-label="Download rendered sample"><span class="node-modular-view-icon" aria-hidden="true">⬇️</span></button>
         </div>
         <div class="node-patch-audio-player-row">
           <!-- Hidden playback engine: everything that used to feed the native
@@ -2861,7 +2861,7 @@
                inspired by the Music Player module. -->
           <audio id="audioPlayer" preload="metadata"></audio>
           <div class="node-rendered-player empty" id="nodeRenderedPlayer" aria-label="Rendered sample player">
-            <button id="nodeRenderedPlayerPlay" class="node-transport-play" type="button" aria-label="Play rendered sample" aria-pressed="false" data-transport-state="stopped" disabled>â–¶</button>
+            <button id="nodeRenderedPlayerPlay" class="node-transport-play" type="button" aria-label="Play rendered sample" aria-pressed="false" data-transport-state="stopped" disabled>▶</button>
             <div class="node-rendered-player-wave" id="nodeRenderedPlayerWave" title="Click or drag to seek">
               <canvas id="nodeRenderedPlayerCanvas" aria-hidden="true"></canvas>
               <div class="node-rendered-player-playhead" id="nodeRenderedPlayerPlayhead" aria-hidden="true"></div>
@@ -2869,7 +2869,7 @@
             </div>
             <span class="node-rendered-player-time" id="nodeRenderedPlayerTime">0:00 / 0:00</span>
             <label class="node-volume-control" title="Rendered sample playback level">
-              <span aria-hidden="true">ðŸ”Š</span>
+              <span aria-hidden="true">🔊</span>
               <input
                 id="nodeRenderedPlayerVolume"
                 type="range"
@@ -3007,7 +3007,7 @@
                 <input id="metadataCurveSensitivityValue" type="text" inputmode="decimal" data-tooltip-key="parameterSettings.skewSensitivity" data-metadata-clamp-min="-1" data-metadata-clamp-max="1" aria-valuemin="-1" aria-valuemax="1">
                 <button type="button" data-metadata-step-target="metadataCurveSensitivityValue" data-metadata-step-direction="1" data-tooltip-key="parameterSettings.skewSensitivity">+</button>
               </span>
-              <span id="metadataCurveSensitivityHint" class="metadata-curve-sensitivity-hint">0 is linear | +1 fine near MIN | âˆ’1 fine near MAX</span>
+              <span id="metadataCurveSensitivityHint" class="metadata-curve-sensitivity-hint">0 is linear | +1 fine near MIN | −1 fine near MAX</span>
             </label>
           </div>
           <div class="metadata-section-title">Fields</div>
@@ -3040,25 +3040,25 @@
                 data-smoothing-mode="global"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingModeGlobal"
-                aria-label="Global smoothing">ðŸŒ</button>
+                aria-label="Global smoothing">🌍</button>
               <button
                 type="button"
                 data-smoothing-mode="internal"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingModeInternal"
-                aria-label="Internal smoothing">ðŸ™‚</button>
+                aria-label="Internal smoothing">🙂</button>
               <button
                 type="button"
                 data-smoothing-mode="internalGlobal"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingModeInternalGlobal"
-                aria-label="Internal plus global smoothing">ðŸ™‚ðŸŒ</button>
+                aria-label="Internal plus global smoothing">🙂🌍</button>
               <button
                 type="button"
                 data-smoothing-mode="off"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingModeOff"
-                aria-label="Smoothing off">âŒ</button>
+                aria-label="Smoothing off">❌</button>
             </div>
             <p id="metadataSmoothingModeStatus" class="metadata-smoothing-mode-status"></p>
           </div>
@@ -3070,7 +3070,7 @@
                 data-smoothing-type="linear"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingTypeLinear"
-                aria-label="L Linear smoothing â€” constant-rate lerp over the smoothing time">L</button>
+                aria-label="L Linear smoothing — constant-rate lerp over the smoothing time">L</button>
               <button
                 type="button"
                 data-smoothing-type="onePole"
@@ -3094,7 +3094,7 @@
                 data-smoothing-type="papoulis"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingTypePapoulis"
-                aria-label="Î  Papoulis - 3rd-order Optimum-L lowpass (can overshoot on steps)">Î </button>
+                aria-label="Π Papoulis - 3rd-order Optimum-L lowpass (can overshoot on steps)">Π</button>
             </div>
             <p id="metadataSmoothingTypeStatus" class="metadata-smoothing-mode-status"></p>
           </div>
@@ -3687,10 +3687,10 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-wires.js?v=named-portal-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-floating-windows.js?v=cc-shrink-ssot-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-unified-window.js?v=cc-stay-closed-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-emoji-page.js?v=emoji-glow-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-emoji-page.js?v=emoji-utf8-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-pages.js?v=patch-name-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-file-actions.js?v=patch-name-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-default-buttons.js?v=patch-save-refresh-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-default-buttons.js?v=emoji-utf8-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-cookbook-filter.js?v=filter-mod-face-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-papoulis-filter.js?v=mouse-smooth-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-phosphor-draw-sample.js?v=phosphor-draw-sample-1"></script>
@@ -3699,7 +3699,7 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-chrome.js?v=height-ssot-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/led/led-register.js?v=rename-value-led-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/lcdDot/lcd-dot-register.js?v=lcd-dot-drawer-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/modules/rgbShape/rgb-shape-register.js?v=clock-range-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/rgbShape/rgb-shape-register.js?v=inc-label-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/rgbPicture/rgb-picture-register.js?v=rgb-picture-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/imageBurn/image-burn-register.js?v=image-ghost-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/rgbFractal/rgb-fractal-register.js?v=soft-structure-1"></script>
@@ -3721,16 +3721,16 @@
   <script data-boot-defer type="text/plain" src="./public/modules/portal/portal-outlet-register.js?v=portal-mlr-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/simulationTime/simulation-time-register.js?v=sim-time-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/patch/patch-register.js?v=patch-buttons-on-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-module-definitions.js?v=startup-fix-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-module-definitions.js?v=chorus-nofb-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-efficient-product.js?v=named-portal-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-efficient-product.js?v=chorus-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-controls.js?v=topbar-title-7"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
   <!-- module-store moved after default-patch -->
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-sizing.js?v=layout-b-display-only-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-metadata-kinds.js?v=param-sens-hint-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1-cherry-knob-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-parameter-metadata.js?v=domain-offset-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-parameter-metadata.js?v=range-pm10-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-app-fonts.js?v=font-weight-shared-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-text-box-utils.js?v=textbox-vertical-simple-1"></script>
@@ -3745,8 +3745,8 @@
   <script data-boot-defer type="text/plain" src="./public/lib/visual/display-face-metrics.js?v=paint-layout-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-phosphor-waveform.js?v=wt2d-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=freq-ref-440-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=domain-mod-add-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-musical-engines.js?v=gravity-walker-keys-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=bipolar-rational-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-musical-engines.js?v=gravity-pattern-offset-2"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-phosphillator.js?v=phasor-stdlib-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-embed-config.js?v=embed-config-20260701"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-resources.js?v=embed-config-20260701"></script>
@@ -3776,9 +3776,9 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-camera-view.js?v=mag-trace-2"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-marquee-selection.js?v=mouse-smooth-17-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-node-dragging.js?v=display-no-module-drag-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-context-menu.js?v=slider-live-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-context-menu.js?v=ctrl-display-2"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-magnifier.js?v=mag-trace-2"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-module-actions.js?v=named-portal-2"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-module-actions.js?v=ctrl-display-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
   <script data-boot-defer type="text/plain" src="./public/lib/phosphor/phosphor-residual.js?v=trail-ssot-1"></script>
   <script data-boot-defer type="text/plain" src="./public/lib/phosphor/phosphor-energy-gl.js?v=trail-ssot-1"></script>
@@ -3804,7 +3804,7 @@
   <script data-boot-defer type="text/plain" src="./public/latch-button.js?v=css-size-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-settings-form.js?v=lcd-dot-drawer-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-settings-controls.js?v=lcd-dot-drawer-1"></script>
-  <!-- Display Settings peel: form-io â†’ field-edit â†’ apply â†’ window â†’ thin ui anchor -->
+  <!-- Display Settings peel: form-io → field-edit → apply → window → thin ui anchor -->
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-settings-form-io.js?v=btn-pin-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-settings-field-edit.js?v=slider-settings-roundtrip-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-scope-settings-apply.js?v=btn-pin-1"></script>
@@ -3889,7 +3889,7 @@
   <script data-boot-defer type="text/plain" src="./public/modules/portal/portal-live-evaluator.js?v=named-portal-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/portal/portal-settings.js?v=portal-lanes-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/portal/portal-ui.js?v=portal-thru-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-module-header-rendering.js?v=patch-name-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-module-header-rendering.js?v=patch-title-wrap-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-rendering.js?v=layout-b-display-only-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-frame.js?v=paint-layout-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-history.js?v=book-ui-script-1"></script>
@@ -3905,9 +3905,9 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-jack-chrome.js?v=gravity-walker-keys-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-port-types.js?v=ad-compat-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-slider-readout.js?v=btn-choice-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/modules/knob/knob-face.js?v=face-max-digits-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/knob/knob-face.js?v=ctrl-display-2"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/slider/slider-face.js?v=face-max-digits-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/modules/plugin/plugin-button-settings.js?v=btn-pad-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/plugin/plugin-button-settings.js?v=ctrl-display-2"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/plugin/plugin-controls-ui.js?v=btn-pin-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-slider-readout-controls.js?v=alt-no-dblclick-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-ghost-sliders.js?v=slider-module-1"></script>
@@ -3917,7 +3917,7 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-semath.js?v=planck-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/speakerProtector2/speaker-protector-2-math.js?v=planck-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-ear-protection.js?v=protect-banner-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-load-fault.js?v=patch-load-fault-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-load-fault.js?v=disconnect-invalid-wire-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-debug-console.js?v=no-ui-fade-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-diagnostics.js?v=uc-silence-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-rendered-audio.js?v=custom-player-20260723"></script>
@@ -3925,12 +3925,12 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-rendered-visual-output.js?v=beta-polish-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-rendered-output-canvases.js?v=beta-polish-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-execution-wires.js?v=external-graph-inputs-1780816800000"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-module-bypass.js?v=named-portal-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-execution-plan.js?v=portal-rewrite-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-module-bypass.js?v=ellipsoid-osc-3"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-execution-plan.js?v=attenumax-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-execution-summary.js?v=slider-unit-color-1780307400000"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-wire-actions.js?v=named-portal-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-wire-actions.js?v=range-pm10-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-wire-rendering.js?v=setup-sq-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-wire-rendering.js?v=trace-fwd-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-render-output.js?v=render-host-match-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-debug-copy.js?v=slider-unit-color-1780307400000"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-execution-debug-api.js?v=noise-generator-stereo-20260630"></script>
@@ -3952,17 +3952,17 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-evidence.js?v=no-js-fallback-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-control-rendering.js?v=play-lock-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-default-patch.js?v=topbar-title-7"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-module-store.js?v=named-portal-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-module-store.js?v=chorus-nofb-1"></script>
   <script data-boot-defer type="text/plain" src="./public/lib/polyphony-voices.js?v=gold-oct-1"></script>
   <script data-boot-defer type="text/plain" src="./public/lib/note-mask-128.js?v=gravity-walker-keys-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-keyboard-chord-memory.js?v=mask128-2"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-state.js?v=no-macro-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-patch-migrations.js?v=voices-mix-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-core.js?v=quantizer-unpatch-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-core.js?v=ctrl-display-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-plan-runtime.js?v=portal-rewrite-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-parameter-runtime.js?v=knob-norm-freq-2"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-oscillator-runtime.js?v=param-ssot-cleanup-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-oscillator-runtime.js?v=ellipsoid-osc-3"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-gpu-additive-backend.js?v=external-graph-inputs-1780816800000"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-jerobeam-spiral.js?v=node-graph-jerobeam-spiral-refactor-1780371000000"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-fractal-spiral.js?v=fractal-spiral-1-20260703"></script>
@@ -4036,6 +4036,7 @@
   <script data-boot-defer type="text/plain" src="./public/modules/bitConverter/bit-converter-math.js?v=bit-converter-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/robinSinusoid/robin-sinusoid-math.js?v=robin-sin-fm-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/phoneTone/phone-tone-math.js?v=tone-lr-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/pitchManager/pitch-manager-live-evaluator.js?v=pitch-mgr-sim-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/phoneTone/phone-tone-display.js?v=sim-fps-face-3"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/tSeries/t-series-math.js?v=t-mux-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/wallDelay/wall-delay-room-display.js?v=wall-delay-nudge-helper-20260718"></script>
@@ -4100,6 +4101,7 @@
 
   <script data-boot-defer type="text/plain" src="./public/modules/bias/bias-math.js?v=bias-io-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/attenuverter/attenuverter-math.js?v=attenuverter-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/attenumax/attenumax-math.js?v=am-index-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/range/range-math.js?v=range-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-os-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/clipperLimiter/clipper-limiter-math.js?v=clipper-order-1"></script>
@@ -4113,7 +4115,7 @@
   <script data-boot-defer type="text/plain" src="./public/modules/basicShape/basic-shape-display.js?v=disc-break-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/sineWavetable/sine-wavetable-display.js?v=sincos4-solo-square-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/ellipsoid/ellipsoid-settings.js?v=softwave-real-cycle-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/modules/ellipsoid/ellipsoid-display.js?v=sim-fps-face-3"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/ellipsoid/ellipsoid-display.js?v=ellipsoid-osc-3"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/additiveGraph/additive-graph-math.js?v=opt-80db-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/additiveGraph/additive-filter-curve-display.js?v=filter-scale-1"></script>
@@ -4123,7 +4125,7 @@
   <script data-boot-defer type="text/plain" src="./public/modules/harmonicLines/harmonic-lines-display.js?v=sim-fps-face-3"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/additiveGenerator/additive-waveform-display.js?v=sim-fps-face-3"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-live-runtime.js?v=scale-notemask-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-live-runtime.js?v=chorus-nofb-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-screen-solo.js?v=graph-face-strip-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-layout-canvas.js?v=knob-bias-cherry-4"></script>

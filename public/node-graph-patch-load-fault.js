@@ -56,7 +56,7 @@ function nodeGraphShowPatchLoadFault(options = {}) {
   if (title) {
     title.textContent = String(options.title || (
       nodeGraphPatchLoadFaultSoftRecovered
-        ? "Unknown modules removed"
+        ? "Patch loaded with removals"
         : "Failed to load patch"
     ));
   }
@@ -150,7 +150,7 @@ function nodeGraphClosePatchLoadFaultUi() {
           editor.value = text;
         }
         if (typeof setNodeGraphScriptStatus === "function") {
-          setNodeGraphScriptStatus("unknown modules removed; script reformatted", true);
+          setNodeGraphScriptStatus("patch cleaned; script reformatted", true);
         }
       }
     } catch (error) {

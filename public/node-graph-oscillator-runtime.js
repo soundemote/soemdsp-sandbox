@@ -257,45 +257,71 @@ function nodeGraphEllipsoidSineToSquareVector(phaseCycles, params = {}) {
   };
 }
 
-// Full multi-param getEllipsoid (phase radians). Limit: scale floor by f/sr.
-function nodeGraphEllipsoidSample(phase, offset = 0, shape = 0, scale = 1, frequencyHz = 0, sampleRate = 44100) {
+// soemdsp Ellipsoid::getEllipsoid (phase radians). Limit: scale floor by f/sr.
+function nodeGraphEllipsoidSample(phase, offset = 0, shape = 0, scale = 1, frequencyHz = 0, sampleRate = 44100, antialias = 1) {
   const phaseRadians = nodeGraphFiniteNumber(phase);
   const sinPhase = Math.sin(phaseRadians);
   const cosPhase = Math.cos(phaseRadians);
   const shapeRadians = (nodeGraphFiniteNumber(shape)) * Math.PI;
   const shapeSin = Math.sin(shapeRadians);
   const shapeCos = Math.cos(shapeRadians);
-  const safeOffset = nodeGraphFiniteNumber(offset);
+  const safeOffset = Math.max(-1, Math.min(1, nodeGraphFiniteNumber(offset)));
   let safeScale = Math.max(0, nodeGraphFiniteNumber(scale));
   const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const f = Math.max(0, nodeGraphFiniteNumber(frequencyHz));
-  const scaleFloor = Math.max(0, Math.min(1, (Math.PI * 2 * f) / sr));
-  if (safeScale < scaleFloor) safeScale = scaleFloor;
+  const limitAa = nodeGraphFiniteNumber(antialias, 1) >= 0.5;
+  if (limitAa) {
+    const scaleFloor = Math.max(0, Math.min(1, (Math.PI * 2 * f) / sr));
+    if (safeScale < scaleFloor) safeScale = scaleFloor;
+  }
   const ax = safeOffset + cosPhase;
   const ay = safeScale * sinPhase;
   const denominator = Math.sqrt((ax * ax) + (ay * ay));
+  let x;
   if (denominator <= 1e-12) {
-    return 0;
+    if (ax > 0) x = 1;
+    else if (ax < 0) x = -1;
+    else x = 0;
+  } else {
+    x = ((ax * shapeCos) + (ay * shapeSin)) / denominator;
   }
-  const out = ((ax * shapeCos) + (ay * shapeSin)) / denominator;
-  return Number.isFinite(out) ? out : 0;
+  return Number.isFinite(x) ? x : 0;
+}
+
+function nodeGraphEllipsoidPair(phase, offset = 0, shape = 0, scale = 1, frequencyHz = 0, sampleRate = 44100, antialias = 1) {
+  const x = nodeGraphEllipsoidSample(phase, offset, shape, scale, frequencyHz, sampleRate, antialias);
+  const y = nodeGraphEllipsoidSample(phase - Math.PI * 0.5, offset, shape, scale, frequencyHz, sampleRate, antialias);
+  return { x, y };
 }
 
 function nodeGraphEllipsoidVectorSample(phase, params = {}) {
   // Prefer sine→square when `morph` is provided (RoundShape path).
-  if (params && Object.prototype.hasOwnProperty.call(params, "morph") && params.scaleX == null) {
+  if (params && Object.prototype.hasOwnProperty.call(params, "morph") && params.scale == null && params.scaleX == null) {
     return nodeGraphEllipsoidSineToSquareVector(phase, params);
   }
   const level = Math.max(0, nodeGraphFiniteNumber(params.amplitude, nodeGraphFiniteNumber(params.level)));
   const frequencyHz = nodeGraphFiniteNumber(params.frequencyHz);
   const sampleRate = nodeGraphFiniteNumber(params.sampleRate, 44100);
-  const x = nodeGraphEllipsoidSample(phase, params.offsetX, params.shapeX, params.scaleX, frequencyHz, sampleRate) * level;
-  const y = nodeGraphEllipsoidSample(phase - Math.PI * 0.5, params.offsetY, params.shapeY, params.scaleY, frequencyHz, sampleRate) * level;
+  const antialias = Object.prototype.hasOwnProperty.call(params, "antialias")
+    ? params.antialias
+    : 1;
+  const offset = Object.prototype.hasOwnProperty.call(params, "offset")
+    ? params.offset
+    : params.offsetX;
+  const shape = Object.prototype.hasOwnProperty.call(params, "shape")
+    ? params.shape
+    : params.shapeX;
+  const scale = Object.prototype.hasOwnProperty.call(params, "scale")
+    ? params.scale
+    : params.scaleX;
+  const pair = nodeGraphEllipsoidPair(
+    phase, offset, shape, scale, frequencyHz, sampleRate, antialias
+  );
+  const x = pair.x * level;
+  const y = pair.y * level;
   return {
-    Out: x,
-    Mono: x,
-    Wave: x,
-    "Wave Out": x,
+    Left: x,
+    Right: y,
     X: x,
     Y: y,
   };

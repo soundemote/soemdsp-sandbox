@@ -18,7 +18,7 @@
 //               0..1 destinations (Superlove-style pitch-norm Frequency) so PitchHz
 //               can track cutoff. Unipolar clip when metadata.unipolarMod.
 //
-//   SIGNAL IN - named jacks (In, 0.1V/Oct, ...). Not MOD. Module evaluators.
+//   SIGNAL IN - named jacks (In, pitch/♯/♭, ...). Not MOD. Module evaluators.
 //
 // Native stamp mirrors this: bit4 = domain-valued (ADD to Control.out);
 // bit5 = replace-only (unit-span pitch-norm). outputDomain stamps domainOffset
@@ -66,7 +66,7 @@ function nodeGraphParamIsBipolar(metadata = {}) {
   return Number.isFinite(min) && min < 0 && Number.isFinite(max) && max > 0;
 }
 
-/** @deprecated Pitch exponential is 0.1V/Oct jack only — never param MOD. */
+/** @deprecated Pitch exponential is pitch (♯/♭) jack only — never param MOD. */
 function nodeGraphParamUsesPitchMod(_metadata = {}) {
   return false;
 }
@@ -174,6 +174,43 @@ function nodeGraphParamSkewExponent(metadata = {}) {
 }
 
 /**
+ * Throw 0…1 → normalized domain 0…1.
+ * Bipolar rational is symmetric about the center (more travel around 0 on a
+ * −1…1 range). Other curves keep the power-law skew.
+ */
+function nodeGraphParamNormalizedFromThrow(throw01, metadata = {}) {
+  const t = nodeGraphParamClamp(nodeGraphFiniteNumber(throw01), 0, 1);
+  const curve = typeof normalizeNodeSliderCurve === "function"
+    ? normalizeNodeSliderCurve(metadata.sliderCurve, metadata.nonlinearSlider)
+    : "";
+  if (
+    curve === "bipolarRational"
+    && typeof nodeSliderBipolarRationalValueFromTravel === "function"
+  ) {
+    return nodeSliderBipolarRationalValueFromTravel(t, metadata.curveAmount);
+  }
+  const exp = nodeGraphParamSkewExponent(metadata);
+  return nodeGraphParamClamp(t ** exp, 0, 1);
+}
+
+/** Inverse of nodeGraphParamNormalizedFromThrow. */
+function nodeGraphParamThrowFromNormalized(normalized01, metadata = {}) {
+  const n = nodeGraphParamClamp(nodeGraphFiniteNumber(normalized01), 0, 1);
+  const curve = typeof normalizeNodeSliderCurve === "function"
+    ? normalizeNodeSliderCurve(metadata.sliderCurve, metadata.nonlinearSlider)
+    : "";
+  if (
+    curve === "bipolarRational"
+    && typeof nodeSliderBipolarRationalTravelFromValue === "function"
+  ) {
+    return nodeSliderBipolarRationalTravelFromValue(n, metadata.curveAmount);
+  }
+  const exp = nodeGraphParamSkewExponent(metadata);
+  const inv = exp === 0 ? 1 : 1 / exp;
+  return nodeGraphParamClamp(n ** inv, 0, 1);
+}
+
+/**
  * Widget throw: 0 = bottom/left of the control, 1 = top/right.
  * Reverse swaps which domain end sits at the bottom. Skew is included.
  * Ghosts and jacks must NOT use this — they follow the stored value.
@@ -189,8 +226,7 @@ function nodeGraphParamControlPosition(value, metadata = {}) {
     ? nodeGraphParamWrap(nodeGraphFiniteNumber(value), min, max)
     : nodeGraphParamClamp(nodeGraphFiniteNumber(value), min, max);
   const normalizedValue = nodeGraphParamClamp((bounded - min) / range, 0, 1);
-  const exp = nodeGraphParamSkewExponent(metadata);
-  const unit = nodeGraphParamClamp(normalizedValue ** (1 / exp), 0, 1);
+  const unit = nodeGraphParamThrowFromNormalized(normalizedValue, metadata);
   return metadata.reverse === true ? (1 - unit) : unit;
 }
 
@@ -208,8 +244,7 @@ function nodeGraphParamDomainFromControlPosition(position, metadata = {}) {
   const normalizedSignal = meta.wraparound
     ? nodeGraphParamWrap(unitIn, 0, 1)
     : nodeGraphParamClamp(unitIn, 0, 1);
-  const exp = nodeGraphParamSkewExponent(meta);
-  const normalizedValue = normalizedSignal ** exp;
+  const normalizedValue = nodeGraphParamNormalizedFromThrow(normalizedSignal, meta);
   return nodeGraphParamApplyDomainBounds(min + range * normalizedValue, meta);
 }
 
@@ -228,8 +263,7 @@ function nodeGraphParamDomainToUnit(value, metadata = {}) {
     ? nodeGraphParamWrap(nodeGraphFiniteNumber(value), min, max)
     : nodeGraphParamClamp(nodeGraphFiniteNumber(value), min, max);
   const normalizedValue = nodeGraphParamClamp((bounded - min) / range, 0, 1);
-  const exp = nodeGraphParamSkewExponent(metadata);
-  return nodeGraphParamClamp(normalizedValue ** (1 / exp), 0, 1);
+  return nodeGraphParamThrowFromNormalized(normalizedValue, metadata);
 }
 
 /**
@@ -246,8 +280,7 @@ function nodeGraphParamUnitToDomain(unit, metadata = {}) {
   const normalizedSignal = meta.wraparound
     ? nodeGraphParamWrap(nodeGraphFiniteNumber(unit), 0, 1)
     : nodeGraphParamClamp(nodeGraphFiniteNumber(unit), 0, 1);
-  const exp = nodeGraphParamSkewExponent(meta);
-  const normalizedValue = normalizedSignal ** exp;
+  const normalizedValue = nodeGraphParamNormalizedFromThrow(normalizedSignal, meta);
   return nodeGraphParamApplyDomainBounds(min + range * normalizedValue, meta);
 }
 
@@ -314,8 +347,9 @@ function nodeGraphFiniteNumber(value, fallback = 0) {
 }
 
 /**
- * |mod| <= this -> unit CV across [min,max] (linear, no skew) unless tagged domain.
- * Tagged domain / |mod| above / dest outputDomain -> domain path (see file header).
+ * Unit mods are offsets inside the parameter range (clamped).
+ * Domain / real units only when the parameter or source is tagged
+ * (Use real mod values). Magnitude never switches the mode.
  */
 
 /**
@@ -367,8 +401,6 @@ function nodeGraphPitchHzSampleToNormPitchFrequency(srcNode, sample) {
   return nodeGraphHzToNormPitchFrequency(v);
 }
 
-const NODE_GRAPH_PARAM_MOD_UNIT_BAND = 1 + 1e-9;
-
 function nodeGraphIsControllerModSourceType(type) {
   const t = String(type || "");
   return t === "knob"
@@ -397,14 +429,8 @@ function nodeGraphNormPitchFrequencyModFromSource(dstType, paramKey, srcType, sr
     };
   }
   if (nodeGraphIsControllerModSourceType(srcType)) {
-    if (Math.abs(v) > NODE_GRAPH_PARAM_MOD_UNIT_BAND) {
-      return { value: nodeGraphHzToNormPitchFrequency(v), domain: true };
-    }
     const n = v < 0 ? 0 : (v > 1 ? 1 : v);
     return { value: n, domain: true };
-  }
-  if (Math.abs(v) > NODE_GRAPH_PARAM_MOD_UNIT_BAND) {
-    return { value: nodeGraphHzToNormPitchFrequency(v), domain: true };
   }
   return null;
 }
@@ -412,7 +438,8 @@ function nodeGraphNormPitchFrequencyModFromSource(dstType, paramKey, srcType, sr
 /**
  * Normalize one MOD source entry to { value, domain }.
  * Accepts a bare number or { value|mod|sample, domain|isDomain|outputDomain }.
- * Domain wins when tagged OR |value| > unit band (Range Out / engineering units).
+ * Domain only when the source is tagged (Use real mod values / outputDomain).
+ * A bare number is a unit offset. Crossing ±1 does not retag it.
  */
 function nodeGraphParamNormalizeModSource(raw) {
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
@@ -426,17 +453,11 @@ function nodeGraphParamNormalizeModSource(raw) {
       || raw.isDomain === true
       || raw.outputDomain === true;
     const v = Number.isFinite(value) ? value : 0;
-    return {
-      value: v,
-      domain: tagged || Math.abs(v) > NODE_GRAPH_PARAM_MOD_UNIT_BAND,
-    };
+    return { value: v, domain: tagged };
   }
   const v = Number(raw);
   const n = Number.isFinite(v) ? v : 0;
-  return {
-    value: n,
-    domain: Math.abs(n) > NODE_GRAPH_PARAM_MOD_UNIT_BAND,
-  };
+  return { value: n, domain: false };
 }
 
 /** Domain-mode offset (Use real mod values). Default 0. */
@@ -692,9 +713,9 @@ function nodeGraphPatchPitchOffsetRatio() {
 }
 
 /**
- * Wired ƒ / Freq = absolute Hz (cancels Frequency knob + 0.1V/Oct).
- * Else wired 0.1V/Oct (MIDI/120) pitches the Frequency knob vs patch
- * pitchReferenceMidiNote/120 (default 69 → 0.575). Else knobHz.
+ * Wired ƒ / Freq = absolute Hz (cancels Frequency knob + pitch).
+ * Else wired pitch (♯/♭ MIDI note) pitches the Frequency knob vs patch
+ * pitchReferenceMidiNote (default 69). Else knobHz.
  * Then × patch Pitch (−10…+10 oct). Same as WASM.
  */
 function nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId) {
@@ -704,26 +725,30 @@ function nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId) {
     const n = Number(jack);
     hz = Number.isFinite(n) ? n : 0;
   } else {
-    const hasPitch = typeof hasInput === "function" && hasInput(nodeId, "0.1V/Oct");
+    const hasPitch = typeof hasInput === "function" && (
+      hasInput(nodeId, "pitch") || hasInput(nodeId, "0.1V/Oct")
+    );
     if (hasPitch && typeof mixInput === "function") {
-      const referenceVoltage =
+      const referenceMidi =
         typeof normalizeNodeGraphPatchAudio === "function" && nodeGraphMvp?.patch?.audio
-          ? normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote / 120
-          : 69 / 120;
-      const pitchCv = nodeGraphFiniteNumber(mixInput(nodeId, "0.1V/Oct"));
+          ? normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote
+          : 69;
+      const pitchCv = nodeGraphFiniteNumber(
+        mixInput(nodeId, "pitch") ?? mixInput(nodeId, "0.1V/Oct"),
+      );
       if (typeof nodeGraphParamResolveOscPitchHz === "function") {
         hz = nodeGraphParamResolveOscPitchHz({
           baseHz: knobHz,
           hasPitchCv: true,
           pitchCv,
-          referenceVoltage,
+          referenceVoltage: referenceMidi,
           skipPatchPitchOffset: true,
         });
       } else if (typeof nodeGraphPitchedFrequency === "function") {
-        hz = nodeGraphPitchedFrequency(knobHz, pitchCv, referenceVoltage);
+        hz = nodeGraphPitchedFrequency(knobHz, pitchCv, referenceMidi);
       } else {
         const base = Number(knobHz);
-        hz = (Number.isFinite(base) ? base : 0) * (2 ** ((pitchCv - referenceVoltage) / 0.1));
+        hz = (Number.isFinite(base) ? base : 0) * (2 ** ((pitchCv - referenceMidi) / 12));
       }
     } else {
       const k = Number(knobHz);
@@ -735,9 +760,10 @@ function nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId) {
 }
 
 /**
- * Resolve osc pitch from domain frequency + optional 0.1V/Oct jack.
- * Wired ƒ / Freq is absolute Hz and wins over the Frequency knob + 0.1V/Oct.
+ * Resolve osc pitch from domain frequency + optional pitch (♯/♭) jack.
+ * Wired ƒ / Freq is absolute Hz and wins over the Frequency knob + pitch.
  * Through-zero: signed base Hz (negative reverses phase via bipolar Freq).
+ * referenceVoltage option is MIDI note (legacy name kept).
  */
 function nodeGraphParamResolveOscPitchHz(options = {}) {
   let hz;
@@ -754,7 +780,7 @@ function nodeGraphParamResolveOscPitchHz(options = {}) {
       const baseHz = Number.isFinite(rawBase) ? rawBase : 0;
       const pitchCv = options.pitchCv;
       const referenceVoltage = Number(options.referenceVoltage);
-      const ref = Number.isFinite(referenceVoltage) ? referenceVoltage : 0;
+      const ref = Number.isFinite(referenceVoltage) ? referenceVoltage : 69;
       const hasPitch = options.hasPitchCv === true;
       const cv = hasPitch ? pitchCv : ref;
       if (typeof nodeGraphPitchedFrequency === "function") {
@@ -764,7 +790,7 @@ function nodeGraphParamResolveOscPitchHz(options = {}) {
       } else {
         const c = Number(cv);
         const pitch = Number.isFinite(c) ? c : 0;
-        hz = baseHz * (2 ** ((pitch - ref) / 0.1));
+        hz = baseHz * (2 ** ((pitch - ref) / 12));
       }
     }
   }

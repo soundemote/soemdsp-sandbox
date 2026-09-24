@@ -3,7 +3,7 @@
 // soemdsp-native-target: noteTranspose
 // soemdsp-native-kind: pitch
 //
-// Stateless 0.1V/Oct offset: midiOut = midiIn + semis + oct*12.
+// Stateless pitch (MIDI note) offset: midiOut = midiIn + semis + oct*12.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 

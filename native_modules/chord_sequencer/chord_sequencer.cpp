@@ -24,7 +24,7 @@ struct ChordStep {
 
 // Six diatonic progressions in C, four chords each. Root Output anchors each
 // chord's root at MIDI 60 (middle C) + pitch class, so it's directly usable
-// as a 0.1V/Oct bass pitch without extra offset math downstream.
+// as a pitch (MIDI) bass without extra offset math downstream.
 static const ChordStep kProgressions[kProgressionCount][kStepsPerProgression] = {
   { {0, 0}, {7, 0}, {9, 1}, {5, 0} },   // I - V - vi - IV
   { {0, 0}, {5, 0}, {7, 0}, {0, 0} },   // I - IV - V - I
@@ -107,7 +107,7 @@ extern "C" double soemdsp_chord_sequencer_root(int handle, double progression) {
   const ChordSequencerState& s = gPool[handle - 1];
   const int prog = clamp_int((int)progression, 0, kProgressionCount - 1);
   const ChordStep& step = kProgressions[prog][s.stepIndex];
-  return (60.0 + step.root) / 120.0;
+  return 60.0 + (double)step.root;
 }
 
 extern "C" int soemdsp_chord_sequencer_step(int handle) {

@@ -43,13 +43,15 @@ function nodeGraphPitchQuantizerMaskFromChoice(choiceIndex) {
 }
 
 function nodeGraphPitchQuantizerNormalizeMask(raw) {
+  if (raw == null || raw === "") {
+    return nodeGraphPitchQuantizerScaleMasks[1];
+  }
   if (typeof noteMaskResolveScaleBits === "function") {
-    const bits = noteMaskResolveScaleBits(raw);
-    return bits || nodeGraphPitchQuantizerScaleMasks[1];
+    return noteMaskResolveScaleBits(raw);
   }
   const n = Math.round(Number(raw));
   if (!Number.isFinite(n)) {
-    return nodeGraphPitchQuantizerScaleMasks[1]; // Major
+    return nodeGraphPitchQuantizerScaleMasks[1];
   }
   return n & 0xFFF;
 }
@@ -71,14 +73,17 @@ function nodeGraphPitchQuantizerScaleJackConnected(nodeId) {
   if (typeof nodeGraphModuleScopeConnectionsTo !== "function") {
     return false;
   }
-  return (nodeGraphModuleScopeConnectionsTo(nodeId, "Scale") || []).length > 0;
+  const scale = nodeGraphModuleScopeConnectionsTo(nodeId, "Scale") || [];
+  const arp = nodeGraphModuleScopeConnectionsTo(nodeId, "Arp Keys") || [];
+  return scale.length + arp.length > 0;
 }
 
 
 /** OR Scale-jack cables into one 12-bit mask (noteMask128 fold / pad params). */
 function nodeGraphResolveScaleBitsFromConnections(nodeId) {
   if (typeof nodeGraphModuleScopeConnectionsTo !== "function") return 0;
-  const connections = nodeGraphModuleScopeConnectionsTo(nodeId, "Scale") || [];
+  const connections = (nodeGraphModuleScopeConnectionsTo(nodeId, "Scale") || [])
+    .concat(nodeGraphModuleScopeConnectionsTo(nodeId, "Arp Keys") || []);
   let bits = 0;
   const fold = (mask) => (typeof noteMaskPitchClassBits === "function" && mask instanceof Uint8Array
     ? noteMaskPitchClassBits(mask) : 0);
@@ -96,12 +101,12 @@ function nodeGraphResolveScaleBitsFromConnections(nodeId) {
       : null;
     if (!live || typeof live !== "object") continue;
     if (sp === "Play Keys") bits |= fold(live.playMask);
-    else if (sp === "Arp Keys") bits |= fold(live.arpMask);
+    else if (sp === "Arp Keys") bits |= fold(live.arpMask || live.scaleMask);
     else if (sp === "Chord Memory") bits |= fold(live.chordMask || live.chordPlayMask);
-    else if (sp === "Scale") {
-      bits |= fold(live.scaleMask);
-      if (!live.scaleMask && typeof noteMaskResolveScaleBits === "function") {
-        bits |= noteMaskResolveScaleBits(live.Scale);
+    else if (sp === "Scale" || sp === "Keys") {
+      bits |= fold(live.scaleMask || live.arpMask);
+      if (!live.scaleMask && !live.arpMask && typeof noteMaskResolveScaleBits === "function") {
+        bits |= noteMaskResolveScaleBits(live.Scale ?? live.Mono);
       }
     }
   }
@@ -117,7 +122,7 @@ function nodeGraphPitchQuantizerMaskForNode(node) {
     const bits = typeof nodeGraphResolveScaleBitsFromConnections === "function"
       ? nodeGraphResolveScaleBitsFromConnections(node.id)
       : 0;
-    if (bits) return nodeGraphPitchQuantizerNormalizeMask(bits);
+    return nodeGraphPitchQuantizerNormalizeMask(bits);
   }
   return nodeGraphPitchQuantizerKeyboardMask(node);
 }
@@ -143,9 +148,9 @@ function syncNodeGraphPitchQuantizersFedByChordPad(chordPadNodeId) {
   }
   const connections = nodeGraphMvp.patch?.connections || [];
   for (const connection of connections) {
-    if (connection.sourceNode !== id || connection.sourcePort !== "Scale") {
-      continue;
-    }
+    if (connection.sourceNode !== id) continue;
+    const sp = String(connection.sourcePort || "");
+    if (sp !== "Scale" && sp !== "Arp Keys") continue;
     if (typeof syncNodeGraphPitchQuantizerFace === "function") {
       syncNodeGraphPitchQuantizerFace(connection.destinationNode);
     }
@@ -168,7 +173,7 @@ function nodeGraphPitchQuantizerChoiceForMask(mask) {
   return preset >= 0 ? preset : nodeGraphPitchQuantizerCustomScaleChoice;
 }
 
-// Snaps a 0.1V/Oct pitch signal (semitone = pitch * 120) to the nearest
+// Snaps a pitch cable (MIDI note) to the nearest
 // active pitch class in a 12-bit scale mask. Empty mask holds the last
 // quantized output (hardware quantizer behavior).
 function nodeGraphPitchQuantizerSample(state, options = {}) {
@@ -179,13 +184,13 @@ function nodeGraphPitchQuantizerSample(state, options = {}) {
   const jack = typeof noteMaskResolveScaleBits === "function"
     ? noteMaskResolveScaleBits(options.scaleInput)
     : (Math.round(nodeGraphFiniteNumber(options.scaleInput)) & 0xFFF);
-  const mask = (options.hasScaleInput && jack !== 0) ? jack : keyboard;
+  const mask = options.hasScaleInput ? jack : keyboard;
 
   if (mask === 0) {
     return state.hasOutput ? state.lastOutput : pitch;
   }
 
-  const semitoneFloat = pitch * 120;
+  const semitoneFloat = pitch;
   const rounded = Math.round(semitoneFloat);
   let bestSemitone = rounded;
   let bestDistance = Infinity;
@@ -204,7 +209,7 @@ function nodeGraphPitchQuantizerSample(state, options = {}) {
     }
   }
 
-  const output = found ? bestSemitone / 120 : pitch;
+  const output = found ? bestSemitone : pitch;
   state.hasOutput = true;
   state.lastOutput = output;
   return output;

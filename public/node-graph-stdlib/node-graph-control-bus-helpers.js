@@ -321,8 +321,8 @@ function nodeGraphDspExternalStereoFrame(externalInput, frame, level) {
 }
 
 /**
- * Plugin / keyboard MIDI → Gate, MIDI, Velocity, 0.1V/Oct, Frequency.
- * 0.1V/Oct = midi/120 (not clamped to 1; MIDI 127 → 1.058). Frequency is A440.
+ * Plugin / keyboard MIDI → Gate, MIDI, Velocity, pitch (♯/♭), Frequency.
+ * pitch = MIDI note number. Frequency is A440.
  * signal: { gate, rawMidi|midi, velocity }
  */
 function nodeGraphDspMidiKeyboardPorts(signal, defaultNote) {
@@ -338,7 +338,7 @@ function nodeGraphDspMidiKeyboardPorts(signal, defaultNote) {
     Trigger: Number(sig.gatePulse) > 0 ? velocity : 0,
     MIDI: midi,
     Velocity: velocity,
-    "0.1V/Oct": midi / 120,
+    "pitch": midi,
     Frequency: nodeGraphDspMidiNoteToHz(midi),
   };
 }

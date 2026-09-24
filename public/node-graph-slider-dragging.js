@@ -220,6 +220,16 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
     nodeGraphMetamoduleSyncShellFromChild(patchNode, key, nodeGraphMvp.patch);
   }
 
+  if (
+    patchNode.type === "chordPad"
+    && (key === "key" || key === "mode" || key === "degree")
+    && typeof syncNodeGraphChordPadFace === "function"
+  ) {
+    syncNodeGraphChordPadFace(node);
+    if (typeof syncNodeGraphPitchQuantizersFedByChordPad === "function") {
+      syncNodeGraphPitchQuantizersFedByChordPad(node);
+    }
+  }
   // Value-only writes (mid-frame drag coalesce): domain is already on the
   // patch; skip graph-face / history / transport side effects until a full sync.
   if (options.skipGraphFace) {

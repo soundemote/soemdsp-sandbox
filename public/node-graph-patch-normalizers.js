@@ -1,9 +1,42 @@
-/** Canonicalize the retired normalized MIDI note outlet on patch load. */
+/** Canonicalize legacy keyboard pitch/velocity outlet names on patch load. */
 function normalizeNodeGraphKeyboardNoteOutputPort(type, port) {
   const value = String(port || "").trim();
-  return (type === "keyboard" || type === "keyboardController") && value === "Note#/127"
-    ? "Note#"
-    : value;
+  if (type !== "keyboard" && type !== "keyboardController") return value;
+  if (
+    value === "Note#/127"
+    || value === "Note#"
+    || value === "NoteNumber"
+    || value === "MIDI"
+    || value === "Pitch"
+    || value === "0.1V/Oct"
+    || value === "0.1v/Oct"
+  ) {
+    return "pitch";
+  }
+  if (
+    value === "Velo#/127"
+    || value === "Velocity#/127"
+    || value === "Velocity#"
+  ) {
+    return "Velocity";
+  }
+  return value;
+}
+
+/** Remap legacy app-wide pitch CV port names → canonical "pitch" (♯/♭). */
+function normalizeNodeGraphPitchPortName(port) {
+  const value = String(port || "").trim();
+  if (
+    value === "0.1V/Oct"
+    || value === "0.1v/Oct"
+    || value === "Note#"
+    || value === "Note#/127"
+    || value === "NoteNumber"
+    || value === "♯/♭"
+  ) {
+    return "pitch";
+  }
+  return value;
 }
 
 function normalizeNodeGraphPatchInfo(info = {}) {
@@ -51,11 +84,10 @@ function nodeGraphPatchDisplayTitle(name = "", pathOrSlug = "") {
 
 function normalizeNodeGraphPatchAudio(audio = {}) {
   const targetSampleRate = Number(audio?.targetSampleRate);
-  // Global 0.1V/Oct pitch reference.
-  //   0.1V/Oct cable = MIDI / 120  (+0.1 = +1 octave). 0.0 is MIDI 0,
-  //   1.0 is MIDI 120 — not a 0–1 knob and not MIDI/127.
+  // Global pitch (♯/♭) pitch reference.
+  //   Pitch cable = MIDI note number (69 = A4). Not midi/120 and not midi/127.
   //   pitchReferenceHz is the Hz sounded at pitchReferenceMidiNote when a
-  //   leftover 0.1V/Oct consumer converts CV → Hz. Keyboard ƒ is already
+  //   leftover pitch consumer converts MIDI → Hz. Keyboard ƒ is already
   //   concert A440 (independent of this). Missing fields default A4 @ 440;
   //   saved patches that store 100 Hz @ MIDI 48 keep those values.
   const pitchReferenceMidiNote = Number(audio?.pitchReferenceMidiNote);

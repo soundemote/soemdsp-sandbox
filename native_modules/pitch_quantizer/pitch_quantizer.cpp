@@ -15,8 +15,7 @@ struct PitchQuantizerState {
 
 static PitchQuantizerState gPool[kMaxInstances];
 
-// pitch is in this codebase's 0.1V/Oct convention: semitone = pitch * 120
-// (see "0.1V/Oct": midi / 120 in node-graph-live-frame-evaluator.js). scaleMask
+// pitch is MIDI note (♯/♭ cable). scaleMask
 // is a 12-bit mask, bit i set means pitch class i (0=C, 1=C#, ... 11=B) is a
 // member of the current scale. mask == 0 means "no notes held" -- holds the
 // last quantized output rather than snapping to anything, matching how
@@ -27,7 +26,7 @@ double quantizePitch(PitchQuantizerState& state, double pitch, int scaleMask) {
     return state.hasOutput ? state.lastOutput : pitch;
   }
 
-  const double semitoneFloat = pitch * 120.0;
+  const double semitoneFloat = pitch;
   double rounded = semitoneFloat < 0.0 ? semitoneFloat - 0.5 : semitoneFloat + 0.5;
   int rounded_int = (int)rounded;
   // Truncation toward zero after the +/-0.5 bias above gives round-half-away-
@@ -59,7 +58,7 @@ double quantizePitch(PitchQuantizerState& state, double pitch, int scaleMask) {
     }
   }
 
-  const double output = found ? (bestSemitone / 120.0) : pitch;
+  const double output = found ? bestSemitone : pitch;
   state.hasOutput = true;
   state.lastOutput = output;
   return output;

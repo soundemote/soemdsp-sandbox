@@ -5,7 +5,7 @@
 //   - on the main thread (index.html) before oscillator / Jerobeam modules
 //   - first in the AudioWorklet Blob assembly (nodeGraphLiveWorkletSourceFiles)
 //
-// Use these instead of re-copying wrap01 / trisaw / 0.1V/Oct pitch math into
+// Use these instead of re-copying wrap01 / trisaw / pitch (♯/♭) math into
 // every port module.
 
 /** Wrap any real into [0, 1). Matches native wrap01 / Jerobeam floor wrap. */
@@ -39,19 +39,18 @@ function nodeGraphTrisaw(phase, warp) {
 }
 
 /**
- * 0.1V/Oct pitch tracking: baseHz * 2^((cv - reference) / 0.1).
+ * pitch MIDI-note pitch tracking: baseHz * 2^((cv - reference) / 0.1).
  * CV is MIDI/120 (+0.1 = +1 octave). reference is pitchReferenceMidiNote/120
  * (default MIDI 69 → 0.575). Through-zero: baseHz may be negative.
  */
-function nodeGraphPitchedFrequency(baseHz, cv01Voct = 0, referenceVoltage = 0) {
+function nodeGraphPitchedFrequency(baseHz, pitchMidi = 0, referenceMidi = 69) {
   const base = Number(baseHz);
-  const safeBase = Number.isFinite(base) ? base : 0;
-  const cv = Number(cv01Voct);
-  const pitch = Number.isFinite(cv) ? cv : 0;
-  const ref = Number(referenceVoltage);
-  const reference = Number.isFinite(ref) ? ref : 0;
-  const ratio = 2 ** ((pitch - reference) / 0.1);
-  const out = safeBase * ratio;
+  if (!(base > 0) || !Number.isFinite(base)) return 0;
+  const midi = Number(pitchMidi);
+  const ref = Number(referenceMidi);
+  const m = Number.isFinite(midi) ? midi : 0;
+  const r = Number.isFinite(ref) ? ref : 69;
+  const out = base * (2 ** ((m - r) / 12));
   return Number.isFinite(out) ? out : 0;
 }
 
@@ -85,17 +84,17 @@ function nodeGraphAdvancePhase01(state, frequencyHz, sampleRate, reset = 0, rese
 
 /**
  * Convenience: pitch-track then advance. Same state shape as nodeGraphAdvancePhase01.
- * cv01Voct / referenceVoltage follow nodeGraphPitchedFrequency.
+ * pitchMidi / referenceMidi follow nodeGraphPitchedFrequency.
  */
 function nodeGraphAdvancePitchedPhase01(
   state,
   baseHz,
-  cv01Voct,
+  pitchMidi,
   sampleRate,
   reset = 0,
-  referenceVoltage = 0,
+  referenceMidi = 69,
   resetThreshold = 0.5,
 ) {
-  const pitched = nodeGraphPitchedFrequency(baseHz, cv01Voct, referenceVoltage);
+  const pitched = nodeGraphPitchedFrequency(baseHz, pitchMidi, referenceMidi);
   return nodeGraphAdvancePhase01(state, pitched, sampleRate, reset, resetThreshold);
 }

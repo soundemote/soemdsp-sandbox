@@ -42,7 +42,7 @@ function nodeGraphModuleScopeOfflineSourceFrequency(nodeId, nodeMap = nodeGraphM
   if (nodeGraphModuleScopeIsOscillatorType(node.type)) {
     const baseFrequency = Math.max(0, nodeGraphModuleScopeNodeParam(node, "frequency", 0));
     const pitchInput = clampNodeSliderValue(
-      nodeGraphModuleScopeConnectionsTo(node.id, "0.1V/Oct")
+      nodeGraphModuleScopeConnectionsTo(node.id, "pitch")
         .reduce((sum, connection) => sum + nodeGraphModuleScopeOfflineSignalSample(
           { nodeMap },
           connection.sourceNode,
@@ -90,7 +90,7 @@ function nodeGraphModuleScopeOfflineSignalSample(context, nodeId, localTime, sam
       : nodeGraphModuleScopeNodeParam(node, "waveform", 0);
     const baseFrequency = Math.max(0, nodeGraphModuleScopeNodeParam(node, "frequency", 0));
     const pitchInput = clampNodeSliderValue(
-      nodeGraphModuleScopeConnectionsTo(node.id, "0.1V/Oct")
+      nodeGraphModuleScopeConnectionsTo(node.id, "pitch")
         .reduce((sum, connection) => sum + nodeGraphModuleScopeOfflineSignalSample(
           context,
           connection.sourceNode,
@@ -129,7 +129,7 @@ function nodeGraphModuleScopeOfflineSignalSample(context, nodeId, localTime, sam
   if (nodeGraphModuleScopeIsAdditiveType(node.type)) {
     const baseFrequency = Math.max(0, nodeGraphModuleScopeNodeParam(node, "frequency", 0));
     const pitchInput = clampNodeSliderValue(
-      nodeGraphModuleScopeConnectionsTo(node.id, "0.1V/Oct")
+      nodeGraphModuleScopeConnectionsTo(node.id, "pitch")
         .reduce((sum, connection) => sum + nodeGraphModuleScopeOfflineSignalSample(
           context,
           connection.sourceNode,

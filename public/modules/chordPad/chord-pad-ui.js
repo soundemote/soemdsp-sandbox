@@ -68,7 +68,7 @@ function createNodeGraphChordPadFace(nodeId) {
 
   const hint = document.createElement("span");
   hint.className = "node-chord-pad-hint";
-  hint.textContent = "→ Scale";
+  hint.textContent = "→ Arp Keys";
 
   toolbar.append(keyField, modeField, hint);
 
@@ -134,14 +134,44 @@ function setNodeGraphChordPadParams(nodeId, patchParams, event, statusLabel = "c
     );
   }
   patchNode.params = next;
-  commitNodeGraphPatch(patch, { status: `chord pad ${statusLabel}` });
-  // Live-paint connected Pitch Quantizer keyboards from this Scale source.
+  commitNodeGraphPatch(patch, {
+    status: `chord pad ${statusLabel}`,
+    faceEdit: true,
+    liveParamsOnly: true,
+  });
+  if (typeof syncNodeGraphChordPadFace === "function") {
+    syncNodeGraphChordPadFace(nodeId);
+  }
+  syncNodeGraphChordPadInspector(nodeId);
   if (typeof syncNodeGraphPitchQuantizersFedByChordPad === "function") {
     syncNodeGraphPitchQuantizersFedByChordPad(nodeId);
   }
   event?.preventDefault?.();
   event?.stopPropagation?.();
   return true;
+}
+
+/** Face → inspector sliders (same two-way coupling as Knob Bias). */
+function syncNodeGraphChordPadInspector(nodeId) {
+  const module = document.querySelector(`.dsp-node[data-node="${CSS.escape(String(nodeId || ""))}"]`);
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!module || !patchNode) {
+    return;
+  }
+  const params = patchNode.params || {};
+  for (const key of ["key", "mode", "degree"]) {
+    const slider = module.querySelector(`input[data-param="${key}"]`);
+    if (!slider) continue;
+    const raw = params[key];
+    if (raw == null || raw === "") continue;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) continue;
+    slider.value = String(n);
+    slider.dataset.domainValue = String(n);
+    if (typeof syncNodeSliderReadout === "function") {
+      syncNodeSliderReadout(slider);
+    }
+  }
 }
 
 function syncNodeGraphChordPadFace(nodeId) {

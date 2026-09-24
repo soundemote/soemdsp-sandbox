@@ -781,15 +781,16 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       def = Number.isFinite(fallback.def) ? fallback.def : 0;
     }
   }
-  // Range Out: spawn domain is −10…+10 (was ±20000 / ±10000 / ±1000).
+  // Range In/Out: spawn domain is −10…+10 (was ±20000 leftover slider chrome).
   if (
     type === "range"
-    && (key === "outLow" || key === "outHigh")
+    && (key === "inLow" || key === "inHigh" || key === "outLow" || key === "outHigh")
     && Number.isFinite(fallback.min)
     && Number.isFinite(fallback.max)
     && fallback.min === -10
     && fallback.max === 10
-    && (min < -10 || max > 10)
+    && min === -20000
+    && max === 20000
   ) {
     min = -10;
     max = 10;

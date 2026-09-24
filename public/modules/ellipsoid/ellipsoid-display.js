@@ -144,15 +144,13 @@ function drawNodeGraphRoundShapeDisplay(section) {
 function nodeGraphRoundShapeEllipsoidOscPoint(phase01, node) {
   const phase = (nodeGraphFiniteNumber(phase01)) * Math.PI * 2;
   const params = {
-    amplitude: nodeGraphRoundShapeLiveParam(node, "amplitude", 1),
+    amplitude: 1,
+    antialias: nodeGraphRoundShapeLiveParam(node, "antialias", 1),
     frequencyHz: 0,
-    offsetX: nodeGraphRoundShapeLiveParam(node, "offsetX", 0),
-    offsetY: nodeGraphRoundShapeLiveParam(node, "offsetY", 0),
+    offset: nodeGraphRoundShapeLiveParam(node, "offset", 0),
     sampleRate: 44100,
-    scaleX: nodeGraphRoundShapeLiveParam(node, "scaleX", 1),
-    scaleY: nodeGraphRoundShapeLiveParam(node, "scaleY", 1),
-    shapeX: nodeGraphRoundShapeLiveParam(node, "shapeX", 0),
-    shapeY: nodeGraphRoundShapeLiveParam(node, "shapeY", 0),
+    scale: nodeGraphRoundShapeLiveParam(node, "scale", 1),
+    shape: nodeGraphRoundShapeLiveParam(node, "shape", 0),
   };
   if (typeof nodeGraphEllipsoidVectorSample === "function") {
     const v = nodeGraphEllipsoidVectorSample(phase, params);
@@ -227,12 +225,10 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
     shape.toFixed(4),
     low.toFixed(4),
     high.toFixed(4),
-    isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "offsetX", 0).toFixed(4) : "",
-    isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "offsetY", 0).toFixed(4) : "",
-    isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "shapeX", 0).toFixed(4) : "",
-    isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "shapeY", 0).toFixed(4) : "",
-    isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "scaleX", 1).toFixed(4) : "",
-    isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "scaleY", 1).toFixed(4) : "",
+    isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "offset", 0).toFixed(4) : "",
+    isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "shape", 0).toFixed(4) : "",
+    isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "scale", 1).toFixed(4) : "",
+    isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "antialias", 1).toFixed(0) : "",
     isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "amplitude", 1).toFixed(4) : "",
     strokeColor,
     plateBg,
@@ -465,24 +461,39 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
       py = p.y;
     }
   } else if (isEllipsoidOsc) {
-    const liveX = liveOut && Number.isFinite(Number(liveOut.X))
-      ? Number(liveOut.X)
-      : (typeof nodeGraphModuleScopeLatestOutputValue === "function"
-        ? nodeGraphModuleScopeLatestOutputValue(nodeId, "X", Number.NaN)
-        : Number.NaN);
-    const liveY = liveOut && Number.isFinite(Number(liveOut.Y))
-      ? Number(liveOut.Y)
-      : (typeof nodeGraphModuleScopeLatestOutputValue === "function"
-        ? nodeGraphModuleScopeLatestOutputValue(nodeId, "Y", Number.NaN)
-        : Number.NaN);
-    if (Number.isFinite(liveX) && Number.isFinite(liveY)) {
-      px = cx + liveX * viewScale;
-      py = cy - liveY * viewScale;
-    } else {
-      const start = nodeGraphRoundShapeEllipsoidOscPoint(0, node);
-      px = cx + start.x * viewScale;
-      py = cy - start.y * viewScale;
+    let phase = nodeGraphRoundShapeReadScopePort(nodeId, "__Phase");
+    if (!Number.isFinite(phase) && typeof nodeGraphMvp !== "undefined") {
+      const stored = nodeGraphMvp?.live?.runtime?.phases?.get?.(nodeId);
+      if (Number.isFinite(Number(stored))) {
+        const offset = nodeGraphFiniteNumber(nodeGraphRoundShapeLiveParam(node, "phase", 0));
+        phase = Number(stored) + offset;
+      }
     }
+    if (!Number.isFinite(phase) && nodeGraphRoundShapeLivePlaying()) {
+      const now = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
+      const freq = nodeGraphFiniteNumber(nodeGraphRoundShapeLiveParam(node, "frequency", 100));
+      const offset = nodeGraphFiniteNumber(nodeGraphRoundShapeLiveParam(node, "phase", 0));
+      const speed = Number(nodeGraphMvp?.live?.speedMultiplier);
+      const mul = Number.isFinite(speed) ? speed : 1;
+      if (Number.isFinite(section._roundShapeClock)) {
+        const dt = Math.max(0, Math.min(0.25, now - section._roundShapeClock));
+        let next = (nodeGraphFiniteNumber(section._roundShapePhase)) + freq * dt * mul;
+        next -= Math.floor(next);
+        section._roundShapePhase = next;
+        section._roundShapeClock = now;
+        phase = next;
+      } else {
+        section._roundShapeClock = now;
+        section._roundShapePhase = offset;
+        phase = offset;
+      }
+    }
+    const pt = nodeGraphRoundShapeEllipsoidOscPoint(
+      Number.isFinite(phase) ? phase : 0,
+      node,
+    );
+    px = cx + pt.x * viewScale;
+    py = cy - pt.y * viewScale;
   } else {
     const cursor = nodeGraphRoundShapeLiveCursor(nodeId, node, section);
     if (cursor && Number.isFinite(cursor.x) && Number.isFinite(cursor.y)) {

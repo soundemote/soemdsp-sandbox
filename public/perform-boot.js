@@ -93,6 +93,17 @@
     postToHost({ event: "gesture", pluginId: id, value: unit, phase: phase });
   }
 
+  global.soemdspPerformEmitNoteMask = function soemdspPerformEmitNoteMask(mask) {
+    if (typeof noteMaskPackChunks !== "function") return;
+    var chunks = noteMaskPackChunks(mask);
+    postToHost({
+      event: "notes",
+      c0: Number(chunks.c0) || 0,
+      c1: Number(chunks.c1) || 0,
+      c2: Number(chunks.c2) || 0,
+    });
+  };
+
   function emitReady() {
     if (readySent) return;
     readySent = true;

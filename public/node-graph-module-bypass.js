@@ -67,7 +67,8 @@ const NODE_GRAPH_BYPASS_OUT_ALIASES = Object.freeze({
   "Out X": ["X", "L", "Left", "In"],
   "Out Y": ["Y", "R", "Right", "In"],
   "Out Z": ["Z", "In"],
-  "0.1V/Oct": ["0.1V/Oct"],
+  "pitch": ["pitch"],
+  "0.1V/Oct": ["pitch"],
   // Mid/Side Encoder + Quadrature + limiter meter
   Mid: ["Mid", "Left", "L", "In", "Mono"],
   Side: ["Side", "Right", "R", "In", "Mono"],
@@ -136,6 +137,8 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   dsfOscillator: "silence",
   robinSupersaw: "silence",
   hypersaw2: "silence",
+  ellipsoid: "silence",
+  ellipsoidOsc: "silence",
   vibratoGenerator: "silence",
   wowAndFlutter: "silence",
   softpopOscillator: "silence",

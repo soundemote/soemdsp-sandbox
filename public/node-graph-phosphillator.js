@@ -337,7 +337,7 @@ function drawNodeGraphPhosphillatorDrawDisplay(section) {
 
 // Playback: open path + Jerobeam trisaw path index. Drawn points decode once
 // per patch change (cache keyed on the points array reference) into flat X/Y
-// arrays; each sample advances a 0..1 phase accumulator (0.1V/Oct → freq)
+// arrays; each sample advances a 0..1 phase accumulator (pitch → freq)
 // and maps phase through trisaw(sharpness) onto the open path [0 .. n-1].
 
 const nodeGraphPhosphillatorDecodedPathCache = new Map();
@@ -391,7 +391,7 @@ function createNodeGraphPhosphillatorPlaybackState() {
   return { lastReset: false, phase: 0 };
 }
 
-// cvInput: 0.1V/Oct via nodeGraphPitchedFrequency / nodeGraphAdvancePhase01.
+// cvInput: pitch via nodeGraphPitchedFrequency / nodeGraphAdvancePhase01.
 function nodeGraphPhosphillatorAdvancePhase(state, cvInput, frequency, reset, sampleRate) {
   return nodeGraphAdvancePitchedPhase01(state, frequency, cvInput, sampleRate, reset);
 }

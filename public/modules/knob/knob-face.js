@@ -31,33 +31,31 @@ function nodeGraphKnobTitleForNode(node) {
     : String(node?.alias || "").trim();
 }
 
+function nodeGraphKnobModuleTitleForNode(node) {
+  const alias = nodeGraphKnobTitleForNode(node);
+  if (alias) {
+    return alias;
+  }
+  if (typeof nodeGraphDefaultNodeTitle === "function") {
+    return String(nodeGraphDefaultNodeTitle(node?.type, node?.id) || "").trim();
+  }
+  return String(nodeGraphNodeLabels?.[node?.type] || node?.type || "").trim();
+}
+
+function nodeGraphKnobResolvedDisplayNameForNode(node) {
+  return nodeGraphKnobDisplayNameForNode(node) || nodeGraphKnobModuleTitleForNode(node);
+}
+
 function nodeGraphKnobPortalNameForNode(node) {
   const portal = String(node?.pluginName || "").trim();
   if (portal) {
     return portal;
   }
-  const display = nodeGraphKnobDisplayNameForNode(node);
-  if (display) {
-    return display;
-  }
-  return nodeGraphKnobTitleForNode(node) || "";
+  return nodeGraphKnobResolvedDisplayNameForNode(node);
 }
 
 function nodeGraphKnobFaceLabelTextForNode(node) {
-  if (node?.type === "pluginSlider" && typeof nodeGraphSliderFaceDisplaySettingsForNode === "function") {
-    const sliderText = nodeGraphKnobFaceNormalizeLabelText(
-      nodeGraphSliderFaceDisplaySettingsForNode(node)?.labelText,
-    );
-    if (sliderText) {
-      return sliderText;
-    }
-    return nodeGraphKnobTitleForNode(node) || String(nodeGraphNodeLabels?.pluginSlider || "Slider");
-  }
-  const text = nodeGraphKnobDisplayNameForNode(node);
-  if (text) {
-    return text;
-  }
-  return nodeGraphKnobTitleForNode(node) || String(nodeGraphNodeLabels?.knob || "Knob");
+  return nodeGraphKnobResolvedDisplayNameForNode(node);
 }
 
 function nodeGraphNextFreeKnobPortalIndex(used) {
@@ -78,7 +76,15 @@ function nodeGraphAssignKnobPortalIndexes(patch) {
   const used = new Set();
   let changed = false;
   for (const node of nodes) {
-    if (!node || (node.type !== "knob" && node.type !== "pluginSlider")) {
+    if (
+      !node
+      || (
+        node.type !== "knob"
+        && node.type !== "pluginSlider"
+        && node.type !== "toggleButton"
+        && node.type !== "momentaryButton"
+      )
+    ) {
       continue;
     }
     const raw = node.pluginId;
@@ -104,11 +110,28 @@ function nodeGraphAssignKnobPortalIndexes(patch) {
 }
 
 function nodeGraphKnobFaceApplyLabelTextToDom(nodeId, text) {
-  const shown = nodeGraphKnobFaceNormalizeLabelText(text) || String(nodeGraphNodeLabels?.knob || "Knob");
-  const face = document.querySelector(`.node-knob-face[data-node="${CSS.escape(String(nodeId || ""))}"]`);
-  const label = face?.querySelector?.("[data-knob-face-label]");
-  if (label && label.dataset.editing !== "true") {
-    label.textContent = shown;
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const shown = nodeGraphKnobFaceNormalizeLabelText(text)
+    || (typeof nodeGraphKnobResolvedDisplayNameForNode === "function"
+      ? nodeGraphKnobResolvedDisplayNameForNode(patchNode)
+      : "")
+    || nodeGraphKnobModuleTitleForNode(patchNode)
+    || String(nodeGraphNodeLabels?.[patchNode?.type] || "Knob");
+  const knobFace = document.querySelector(`.node-knob-face[data-node="${CSS.escape(String(nodeId || ""))}"]`);
+  const knobLabel = knobFace?.querySelector?.("[data-knob-face-label]");
+  if (knobLabel && knobLabel.dataset.editing !== "true") {
+    knobLabel.textContent = shown;
+  }
+  const btnFace = document.querySelector(
+    `.node-plugin-toggle-face[data-node="${CSS.escape(String(nodeId || ""))}"], .node-plugin-momentary-face[data-node="${CSS.escape(String(nodeId || ""))}"]`,
+  );
+  const btnLabel = btnFace?.querySelector?.("[data-plugin-btn-label]");
+  if (btnLabel && btnLabel.dataset.editing !== "true") {
+    btnLabel.textContent = shown;
+    btnLabel.hidden = !shown;
+  }
+  if (btnFace && typeof nodeGraphPluginButtonPaintFace === "function") {
+    nodeGraphPluginButtonPaintFace(btnFace, patchNode?.traceDisplaySettings);
   }
   const settingsInput = document.getElementById("nodeSceneKnobTextInput");
   if (settingsInput && document.activeElement !== settingsInput) {
@@ -125,6 +148,12 @@ function nodeGraphControllerFaceSettingsForNode(node) {
   if (node?.type === "pluginSlider" && typeof nodeGraphSliderFaceDisplaySettingsForNode === "function") {
     return nodeGraphSliderFaceDisplaySettingsForNode(node);
   }
+  if (
+    (node?.type === "toggleButton" || node?.type === "momentaryButton")
+    && typeof nodeGraphPluginButtonDisplaySettingsForNode === "function"
+  ) {
+    return nodeGraphPluginButtonDisplaySettingsForNode(node);
+  }
   return typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
     ? nodeGraphKnobFaceDisplaySettingsForNode(node)
     : {};
@@ -133,6 +162,12 @@ function nodeGraphControllerFaceSettingsForNode(node) {
 function nodeGraphControllerFaceNormalizeSettings(node, settings) {
   if (node?.type === "pluginSlider" && typeof normalizeNodeGraphSliderFaceDisplaySettings === "function") {
     return normalizeNodeGraphSliderFaceDisplaySettings(settings);
+  }
+  if (
+    (node?.type === "toggleButton" || node?.type === "momentaryButton")
+    && typeof normalizeNodeGraphPluginButtonDisplaySettings === "function"
+  ) {
+    return normalizeNodeGraphPluginButtonDisplaySettings(settings, node.type);
   }
   return typeof normalizeNodeGraphKnobFaceDisplaySettings === "function"
     ? normalizeNodeGraphKnobFaceDisplaySettings(settings)
@@ -173,7 +208,7 @@ function nodeGraphKnobFaceWriteLabelText(nodeId, rawText, { record = true } = {}
     return;
   }
   target.traceDisplaySettings = next;
-  commitNodeGraphPatch(patch, { status: target.type === "pluginSlider" ? "slider text changed" : "knob text changed" });
+  commitNodeGraphPatch(patch, { status: "display name changed" });
 }
 
 function beginNodeGraphKnobFaceLabelEdit(label, nodeId) {
@@ -1783,7 +1818,16 @@ function commitNodeGraphKnobPluginIdentity() {
     ? nodeGraphModuleActionTargetNodeId()
     : "";
   const { patch, targetNode } = nodeGraphKnobFacePatchTarget(moduleId);
-  if (!patch || !targetNode || (targetNode.type !== "knob" && targetNode.type !== "pluginSlider")) {
+  if (
+    !patch
+    || !targetNode
+    || (
+      targetNode.type !== "knob"
+      && targetNode.type !== "pluginSlider"
+      && targetNode.type !== "toggleButton"
+      && targetNode.type !== "momentaryButton"
+    )
+  ) {
     return;
   }
   const folderEl = document.getElementById("nodeSceneKnobPluginFolder");
@@ -1820,7 +1864,7 @@ function commitNodeGraphKnobPluginIdentity() {
     }
   }
   if (typeof commitNodeGraphPatch === "function") {
-    commitNodeGraphPatch(patch, { record: true, status: "knob plugin identity", softDom: true, markPending: false });
+    commitNodeGraphPatch(patch, { record: true, status: "plugin identity", softDom: true, markPending: false });
   }
 }
 

@@ -318,23 +318,6 @@ function validateNodeGraphPatch(patch) {
               && Object.hasOwn(rawParams, "shape")
               ? rawParams.shape
               : parameter.defaultValue)));
-      // Range: exact old defaults Out âˆ’10â€¦+10 peg Morph MOD (|v|>1 = domain-add).
-      // Rewrite only that pair (and matching In âˆ’1â€¦+1) to unit CV 0â€¦1.
-      // Intentional Hz maps (Out High 1000, etc.) are left alone.
-      if (type === "range") {
-        const oLo = Number(rawParams.outLow);
-        const oHi = Number(rawParams.outHigh);
-        if (oLo === -10 && oHi === 10) {
-          if (parameter.key === "outLow") value = 0;
-          if (parameter.key === "outHigh") value = 1;
-          const iLo = Number(rawParams.inLow);
-          const iHi = Number(rawParams.inHigh);
-          if (iLo === -1 && iHi === 1) {
-            if (parameter.key === "inLow") value = 0;
-            if (parameter.key === "inHigh") value = 1;
-          }
-        }
-      }
       // Pluck Envelope: Dampen (0=longâ€¦1=short) â†’ Decay (0=shortâ€¦1=long), inverted.
       if (
         type === "pluckEnvelope3"
@@ -552,10 +535,12 @@ function validateNodeGraphPatch(patch) {
       ...(normalizeNodeGraphPatchNodeAlias(node.alias)
         ? { alias: normalizeNodeGraphPatchNodeAlias(node.alias) }
         : {}),
-      ...(type === "knob" && String(node.pluginFolder || "").trim()
+      ...((type === "knob" || type === "pluginSlider" || type === "toggleButton" || type === "momentaryButton")
+        && String(node.pluginFolder || "").trim()
         ? { pluginFolder: String(node.pluginFolder).trim() }
         : {}),
-      ...(type === "knob" && String(node.pluginName || "").trim()
+      ...((type === "knob" || type === "pluginSlider" || type === "toggleButton" || type === "momentaryButton")
+        && String(node.pluginName || "").trim()
         ? { pluginName: String(node.pluginName).trim() }
         : {}),
       ...((type === "knob" || type === "pluginSlider" || type === "toggleButton" || type === "momentaryButton") && (() => {
@@ -831,16 +816,24 @@ function validateNodeGraphPatch(patch) {
       throw new Error("connection references missing node");
     }
     sourcePort = normalizeNodeGraphKeyboardNoteOutputPort(sourceType, sourcePort);
+    if (typeof normalizeNodeGraphPitchPortName === "function") {
+      sourcePort = normalizeNodeGraphPitchPortName(sourcePort);
+    }
     sourcePort = nodeGraphCanonicalOutputPort(sourceType, sourcePort);
     if (!nodeGraphPatchNodeOutputPorts(nodeById.get(sourceNode)).includes(sourcePort)) {
-      throw new Error(`connection source port invalid: ${sourceNode}.${sourcePort}`);
+      loadWarnings.push(`connection source port invalid: ${sourceNode}.${sourcePort}`);
+      return [];
     }
     if (destinationType === "output" && destinationPort === "In") {
       destinationPort = "Mono";
     }
+    if (typeof normalizeNodeGraphPitchPortName === "function") {
+      destinationPort = normalizeNodeGraphPitchPortName(destinationPort);
+    }
     destinationPort = nodeGraphCanonicalInputPort(destinationType, destinationPort);
     if (!nodeGraphPatchNodeInputPorts(nodeById.get(destinationNode)).includes(destinationPort)) {
-      throw new Error(`connection destination port invalid: ${destinationNode}.${destinationPort}`);
+      loadWarnings.push(`connection destination port invalid: ${destinationNode}.${destinationPort}`);
+      return [];
     }
     const key = `${sourceNode}.${sourcePort}->${destinationNode}.${destinationPort}`;
     if (connectionKeys.has(key)) {
@@ -884,13 +877,18 @@ function validateNodeGraphPatch(patch) {
         throw new Error("modulation references missing node");
       }
       sourcePort = normalizeNodeGraphKeyboardNoteOutputPort(sourceType, sourcePort);
+    if (typeof normalizeNodeGraphPitchPortName === "function") {
+      sourcePort = normalizeNodeGraphPitchPortName(sourcePort);
+    }
       sourcePort = nodeGraphCanonicalOutputPort(sourceType, sourcePort);
       if (!nodeGraphPatchNodeOutputPorts(nodeById.get(sourceNode)).includes(sourcePort)) {
-        throw new Error(`modulation source port invalid: ${sourceNode}.${sourcePort}`);
+        loadWarnings.push(`modulation source port invalid: ${sourceNode}.${sourcePort}`);
+        return [];
       }
       const destinationPatchNode = nodeById.get(destinationNode);
       if (!nodeGraphPatchNodeParameterDefinitions(destinationPatchNode).some((parameter) => parameter.key === destinationParam)) {
-        throw new Error(`modulation destination parameter invalid: ${destinationNode}.${destinationParam}`);
+        loadWarnings.push(`modulation destination parameter invalid: ${destinationNode}.${destinationParam}`);
+        return [];
       }
       const key = `${sourceNode}.${sourcePort}->${destinationNode}.${destinationParam}`;
       if (modulationKeys.has(key)) {
@@ -935,12 +933,17 @@ function validateNodeGraphPatch(patch) {
       throw new Error("graph connection references missing node");
     }
     sourcePort = normalizeNodeGraphKeyboardNoteOutputPort(sourceType, sourcePort);
+    if (typeof normalizeNodeGraphPitchPortName === "function") {
+      sourcePort = normalizeNodeGraphPitchPortName(sourcePort);
+    }
     sourcePort = nodeGraphCanonicalOutputPort(sourceType, sourcePort);
     if (!nodeGraphModuleIsGraphType(sourceType) || sourcePort !== "Out") {
-      throw new Error(`graph connection source must be Graph.Out or Graph 2.Out: ${sourceNode}.${sourcePort}`);
+      loadWarnings.push(`graph connection source invalid: ${sourceNode}.${sourcePort}`);
+      return [];
     }
     if (!nodeGraphModuleGraphInputs(destinationType).includes(destinationGraphInput)) {
-      throw new Error(`graph connection destination invalid: ${destinationNode}.${destinationGraphInput}`);
+      loadWarnings.push(`graph connection destination invalid: ${destinationNode}.${destinationGraphInput}`);
+      return [];
     }
     const key = `${sourceNode}.${sourcePort}->${destinationNode}.${destinationGraphInput}`;
     if (graphConnectionKeys.has(key)) {
@@ -1157,7 +1160,7 @@ function nodeGraphPatchThrowLoadFailure(sourceText, error) {
 
 /**
  * Load + validate a patch from JSON text. Hard-fails with line context for
- * parse / structural errors. Unknown module types are dropped (like delete)
+ * parse / structural errors. Unknown modules and invalid wires are dropped
  * and reported via the patch-load fault dialog; the cleaned patch is returned.
  */
 function loadNodeGraphPatchFromScript(text) {
@@ -1188,7 +1191,7 @@ function loadNodeGraphPatchFromScript(text) {
           prettyClean = source;
         }
       }
-      // Cite first unknown type line in the original pretty source when possible.
+      // Cite first unknown-type / invalid-port line in the original pretty source.
       let prettySource = source;
       try {
         prettySource = JSON.stringify(data, null, 2);
@@ -1197,23 +1200,45 @@ function loadNodeGraphPatchFromScript(text) {
       }
       const firstDetail = warnings[0] || "unknown node type";
       const typeMatch = firstDetail.match(/unknown node type\s+(\S+)/i);
-      const line = typeMatch
-        ? nodeGraphPatchFindLineNumber(prettySource, `"type": "${typeMatch[1]}"`)
+      const portMatch = firstDetail.match(
+        /(?:source port invalid|destination port invalid|destination parameter invalid|graph connection (?:source|destination) invalid):\s*([A-Za-z0-9_.:-]+)/i,
+      );
+      let line = 1;
+      if (typeMatch) {
+        line = nodeGraphPatchFindLineNumber(prettySource, `"type": "${typeMatch[1]}"`)
           || nodeGraphPatchFindLineNumber(prettySource, `"type":"${typeMatch[1]}"`)
-          || 1
-        : 1;
+          || 1;
+      } else if (portMatch) {
+        const nodeId = String(portMatch[1]).split(".")[0];
+        if (nodeId) {
+          line = nodeGraphPatchFindLineNumber(prettySource, `"id": "${nodeId}"`)
+            || nodeGraphPatchFindLineNumber(prettySource, `"id":"${nodeId}"`)
+            || 1;
+        }
+      }
+      const hasUnknown = warnings.some((w) => /unknown node type/i.test(w));
+      const hasWire = warnings.some((w) => /port invalid|parameter invalid|graph connection/i.test(w));
+      const footer = [
+        hasUnknown ? "Unknown modules were removed (as if deleted)." : "",
+        hasWire ? "Invalid wires were disconnected." : "",
+        "Close to keep the cleaned patch in the script editor.",
+      ].filter(Boolean).join(" ");
       const message = [
         nodeGraphPatchLoadFailureMessage(prettySource, line, firstDetail),
         ...(warnings.length > 1 ? warnings.slice(1) : []),
         "",
-        "Unknown modules were removed (as if deleted). Close to keep the cleaned patch in the script editor.",
+        footer,
       ].join("\n");
       if (typeof nodeGraphShowPatchLoadFault === "function") {
         try {
           nodeGraphShowPatchLoadFault({
             message,
             script: prettyClean,
-            title: "Unknown modules removed",
+            title: hasUnknown && hasWire
+              ? "Patch loaded with removals"
+              : hasUnknown
+                ? "Unknown modules removed"
+                : "Disconnected wires",
             softRecovered: true,
           });
         } catch (_error) {

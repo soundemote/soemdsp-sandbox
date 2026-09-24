@@ -8,10 +8,13 @@ When in doubt: prefer **honesty, one path, and delete over compatibility**.
 
 ### Pitch convention
 
-- **`0.1V/Oct` cable** = MIDI / 120. `+0.1` = +1 octave. `0.0` is MIDI 0; `1.0` is MIDI 120. Not a 0–1 knob and not MIDI/127 (`Note#/127`). MIDI 127 is `1.058` — do not clamp the cable to 1.
-- **Freq Ref** (`pitchReferenceHz`) + **Pitch Reference Note** (`pitchReferenceMidiNote`): Hz sounded at that MIDI note when a leftover 0.1V/Oct consumer converts CV → Hz. **Default A4 / MIDI 69 @ 440 Hz.** Saved patches that store 100 Hz @ 48 keep those values.
-- **Keyboard `ƒ`** is already concert A440 (`440 × 2^((midi−69)/12)`). Independent of Freq Ref. Wire Keyboard `ƒ` → osc `ƒ` for Hz; wire `0.1V/Oct` only into remaining pitch-CV utilities (quantizer, glide, transpose, Phone Tone).
-- Hz modules (oscs / most filters): Frequency knob and `ƒ` jack are **absolute Hz**. They do not track 0.1V/Oct.
+- **Pitch cable** port key `pitch`, jack stamp **`♯/♭`** (U+266F / U+002F / U+266D). Value is **MIDI note number** (e.g. `69` = A4). Not midi/120 and not midi/127. Do not clamp to 0–1. Jack chrome is **white digital** (same family as `ƒ` / Gate), not gold analog.
+- **Why ASCII key `pitch`:** C++/native wiring and many string maps are safer with ASCII port ids; the jack **shows** `♯/♭` via `inputLabels` / `outputLabels`. Legacy names (`0.1V/Oct`, `Note#`, `Note#/127`, …) remap through aliases + `normalizeNodeGraphPitchPortName` on load.
+- **Hz law:** `hz = tuning × 2^((midi − 69)/12)` (or `refHz × 2^((midi − refMidi)/12)` with patch Freq Ref). Same law as `pitchHz` / Keyboard `ƒ`.
+- **Freq Ref** (`pitchReferenceHz`) + **Pitch Reference Note** (`pitchReferenceMidiNote`): Hz sounded at that MIDI note when a leftover `pitch` consumer converts MIDI → Hz. **Default A4 / MIDI 69 @ 440 Hz.** Saved patches that store 100 Hz @ 48 keep those values.
+- **Keyboard `ƒ`** is concert A440 (`440 × 2^((midi−69)/12)`). Independent of Freq Ref. Wire Keyboard `ƒ` → osc `ƒ` for Hz; wire `♯/♭` into pitch utilities (quantizer, glide, transpose, Phone Tone, Pitch Manager).
+- **Keyboard `Velocity`:** gold outlet, 0…1 (`velocity01`). Legacy `Velo#/127` / `Velocity#/127` alias to `Velocity`.
+- Hz modules (oscs / most filters): Frequency knob and `ƒ` jack are **absolute Hz**. They do not track `pitch` unless a leftover consumer explicitly does.
 
 ---
 
@@ -108,8 +111,8 @@ Only these live-audio types exist in the efficient build:
 | `allpass` | EQ SVF allpass (fixed mode 6) |
 | `basicShape` | Naive multi-wave LFO (no AA) |
 | `chordPad` | Diatonic triad → Scale / Root / Gate |
-| `noteGlide` | One-pole portamento on 0.1V/Oct |
-| `noteTranspose` | Semitone / octave offset on 0.1V/Oct |
+| `noteGlide` | One-pole portamento on pitch (♯/♭) |
+| `noteTranspose` | Semitone / octave offset on pitch (♯/♭) |
 | `degreeTuring` | Shift-register degree sequencer |
 | `degreePhrase` | 8-step degree phrase + mutate |
 | `gravityWalker` | Inertia / leap degree walker |
@@ -229,7 +232,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
 - Dual JS+C++ audio paths are **not** the product. Convert the next type into the allowlist (native + catalog) — never reintroduce a JS twin to “make it work.”
 - **Smoother manager is audio/C++ only** on the efficient path. JS may write Control **targets** and **smoothing-time** into engine memory on change; JS must **not** own or step the smoother chase list. (Legacy `?product=full` JS smoothers are debt until removed.)
 - **Sample-accurate Control chase is mandatory for every continuous Control on a node during that node’s sample loop** — not opt-in per knob (Phase is not special; Volume is not special). Graph engine sample loops call **`control_frame(g, node, f)`** once per sample (stamp live MOD + chase all active continuous slots). Trailing `smoother_run` is catch-up only for Controls never heard that quantum. Do not reintroduce “remember to call control_audio on this one param” as the product contract.
-- **Sample-path entry is also mandatory** when any of: Control sink (`ParamModEdge`), live continuous SIGNAL IN (ƒ / 0.1V / Phase CV / Inc / …), or active Control chase. Dual-path natives use **`node_needs_sample_accurate_controls`**. Do not paper over with `stamp_live_param_mods(..., 0)` on a block path.
+- **Sample-path entry is also mandatory** when any of: Control sink (`ParamModEdge`), live continuous SIGNAL IN (ƒ / pitch / Phase CV / Inc / …), or active Control chase. Dual-path natives use **`node_needs_sample_accurate_controls`**. Do not paper over with `stamp_live_param_mods(..., 0)` on a block path.
 - **Intentional ZOH allowlist only:** Additive/Yellow morph (`zohOnlyTypes` + `morph_zoh_hold` for cyan Morph CV), discrete/enum params, cyan controller `set_param_mod`. Everything else Continuous+MOD is sample-accurate.
 - **CI:** `scripts/check_graph_engine_contracts.py` + ParamModEdge smokes in `build_native_modules.ps1` — regressions fail the build, not hearing tests.
 - **Parameter stickiness (non-negotiable):** when the host writes a Control **target**, that target (and any DSP coeffs derived from it inside a module) must **remain in effect until the host writes a new target**. Do not wipe / re-push / re-default every gesture frame. Do not store live coeffs where the next `set_params` / buffer grow silently zeroes them. “Works while dragging, reverts when released” = this contract is broken.
@@ -529,6 +532,7 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 | Dual `labelInsetPx` + `labelInset` for compatibility | **No** — one key, clean rename (§1 / §15) |
 | Wipe Control dirty-cache / re-push all knobs every `setParams` | **No** — stickiness (§0b); cold push only after compile/destroy |
 | Nested DSP coeff objects in instance pools that lose writes | **No** — flat fields on the instance; smoke “set once, process many” |
+| `x \|\| default` or `x > 0 ? x : magic` on a stored setting | **No** — 0 is a value (§18) |
 
 ---
 
@@ -543,11 +547,25 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 - Gravity Walker **Leap** input was an approved twin of the Leap param: removed; `leapProb` = clamp(leap param only).
 
 
+## 18. A stored 0 is a value
+
+**Do not treat 0, −1, or any other in-range number as “missing.”**
+
+- `x || default`, `x ?? default` used so that 0 falls through, and `x > 0 ? x : magic` are forbidden on settings, parameters, and modulation. They turn an exact 0 (or a hair past ±1) into a different mode.
+- **Missing or non-finite** (absent field, `NaN`) may use a default. **A stored 0 stays 0.**
+- **Clamps** are allowed: a control can have a minimum (wire thickness, tooltip height) or a maximum. The clamp is the range. It is not a second hidden default.
+- **Use real mod values** is the only switch that makes a cable a raw unit (Hz and the rest). Otherwise the cable is an offset inside the parameter range and is clamped there. Crossing ±1 does not retag it.
+- DSP may still refuse numbers that explode (Nyquist, speed limit). That clamp lives in the DSP, not in the settings reader.
+- Do not save a window whose width or height is 0. That is “no window,” not a setting of 0.
+
+---
+
 ## Amendments
 
 Add new rules here when the same class of mistake happens twice. Keep this file short and enforceable.
 
 - **2026-09-03 — Parameter stickiness:** A continuous knob must chase to the written target and **stay**. Two failures of the same class: (1) JS tied `forceAll` param sync to `planSerial` so every gesture frame wiped the dirty cache and re-stormed `set_param` / smooth / domain cells, fighting Control chase; (2) ping-pong feedback coeffs lived in nested structs whose writes did not survive across `set_params` / buffer setup, so the DSP ran pass-through until the next write (sounded correct only while dragging). Fix: cold force-push only after graph compile/destroy; store live coeffs as plain fields on the instance; build smoke must **set once then `process_block` many times** without rewriting params.
+- **2026-09-24 — Stored 0 is a value (§18).** Modulation used `|v| > 1` as a hidden “this is Hertz” switch, so −1 and −1.00001 took different paths. Settings did the same: history length 0 became 4 Hz, and a zoom-max of 0 became 10 s. Missing/NaN may still default. A number the user stored may not be replaced. Clamps stay clamps.
 - **2026-09-10 — Display length 0–1:** Face geometry mixed CSS px (`labelInsetPx`, `traceWidth`), percent (`cornerRadius` 0–100), and true 0–1 (`edgeSpacing`). Normalize all face lengths to **0…1 of min(faceW, faceH)** via `display-scale.js` (§15). No percent / CSS-px bridges, no soft `typeof` helper fallbacks, no dual keys.
 - **2026-09-10 — Legacy display scrub:** Raster/Matrix chrome → `edgeSpacing`/`cornerRadius` 0…1 (no `screenPadding`/`rounding` %). Phosphor residual SSOT = `trail`/`ghost`/`burn`/`burnAmount` (no `decay` mirror, no burn-as-ghost). Dropped `sweepSeconds`, xyPad `scale`→puck, spectrogram overlap+1 shift. Yellow sidecar type/param aliases deleted. Display renderer id `"legacy"` → `"layoutOwned"`. Dead module-frame gapped-SVG path deleted (workspace/faces stay layout **px**; displays/canvases stay **0…1**).
 - **2026-09-10 — Paint never forces layout:** Music Player / fbmField / Instant Trace / curve·shape·harmonic faces stop remasuring every RAF. Shared `display-face-metrics.js`; scope screen rects from layout cache + pan/zoom math (not gBCR per pan sample).
