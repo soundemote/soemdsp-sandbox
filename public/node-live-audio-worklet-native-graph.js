@@ -3478,12 +3478,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     const meta = metaEarly;
     let unitAdd = 0;
     let domainAdd = 0;
-    let domainReplace = false;
     if (hasModCables && typeof this.efficientParamModAccumulators === "function") {
       const acc = this.efficientParamModAccumulators(node, key);
       unitAdd = nodeGraphFiniteNumber(acc?.unitAdd);
       domainAdd = nodeGraphFiniteNumber(acc?.domainAdd);
-      domainReplace = acc?.domainReplace === true;
     }
     if (destDomain) {
       // Use real mod values: domain mods + domainOffset ADD to Control/knob.
@@ -3491,10 +3489,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
         ? nodeGraphParamDomainOffset(meta)
         : (Number.isFinite(Number(meta.domainOffset)) ? Number(meta.domainOffset) : 0);
       domainAdd += off;
-      // Do NOT force replace-only — knob/offset stays. bit4 domainValued set below.
       unitAdd = 0;
     }
-    const modToken = `${unitAdd}\0${domainAdd}\0${domainReplace ? 1 : 0}`;
+    const modToken = `${unitAdd}\0${domainAdd}`;
     if (forceAll || cache[modKey] !== modToken) {
       cache[modKey] = modToken;
       this.pushNativeGraphParamMod(native, hash, paramId, unitAdd, domainAdd);
@@ -3506,45 +3503,20 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     const max = Number(meta.max);
     let flags = 0;
     if (meta.wraparound) flags |= 1;
-    // Domain-valued (bit4): engineering-unit / outputDomain MOD path (ADD to knob).
-    // Replace-only (bit5): unit-span pitch-norm Frequency tracked by PitchHz.
-    const destDomainValued = destDomain || domainReplace
-      || (Number.isFinite(domainAdd) && domainAdd !== 0);
-    if (destDomainValued) {
-      flags |= 16; // domain-valued classify for |v|<=1 live samples
-      flags |= 8; // unbounded — min/max are zoom only
-    }
-    if (domainReplace) {
-      flags |= 32; // replace-only (wipe knob)
-    }
-    // App-wide default: clamp after MOD to DOMAIN. Explicit false → unbounded (bit3).
-    if (meta.modClamp === false) {
-      flags |= 8; // unbounded MOD past domain
-    } else if (!domainReplace) {
-      flags |= 2; // modClamp (default on) — unit-band only
+    // Real values (outputDomain): domain ADD, no clamp (bit4 + bit3).
+    // Unit-band 0…1: ADD then clamp to min/max (bit1). Never multiply/replace.
+    if (destDomain || (Number.isFinite(domainAdd) && domainAdd !== 0)) {
+      flags |= 16;
+      flags |= 8;
+    } else if (meta.modClamp === false) {
+      flags |= 8;
+    } else {
+      flags |= 2;
     }
     if (meta.hardClamp === true) flags |= 2;
     else {
       const c = String(meta.constraint || "").trim().toLowerCase();
       if (c === "cpu" || c === "gpu" || c === "ram" || c === "memory") flags |= 2;
-    }
-    // bit2: VCA-style amp — MOD is unipolar multiply (Amp Curve → Amp).
-    // Only when the param domain is a 0…1 gain (SinCos Amp). Makeup Volume
-    // knobs with max>1 (e.g. Chaosfly Volume 0…10) stay additive / plain gain.
-    // Explicit modMultiply:false / vca:false opts out (Softwave Amp = additive clamp).
-    const ampKey = String(key || "").toLowerCase();
-    const ampDomain01 = Number.isFinite(max) && max > 0 && max <= 1.0001
-      && Number.isFinite(min) && min >= -0.0001 && min < max;
-    const vcaOptOut = meta.modMultiply === false || meta.vca === false;
-    if (
-      !vcaOptOut
-      && (
-        meta.modMultiply === true
-        || meta.vca === true
-        || (ampDomain01 && (ampKey === "amp" || ampKey === "amplitude" || ampKey === "level"))
-      )
-    ) {
-      flags |= 4;
     }
     if (Number.isFinite(min) && Number.isFinite(max) && max > min) {
       const domainToken = `${min}\0${max}\0${flags}`;

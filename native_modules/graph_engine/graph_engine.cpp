@@ -1240,6 +1240,7 @@ extern "C" double soemdsp_degree_phrase_phase(int handle);
 extern "C" int soemdsp_gravity_walker_create(unsigned int entropySeed);
 extern "C" void soemdsp_gravity_walker_destroy(int handle);
 extern "C" void soemdsp_gravity_walker_set_chunks(int handle, double c0, double c1, double c2);
+extern "C" void soemdsp_gravity_walker_set_scale_span(int handle, int octaves, int baseMidi);
 extern "C" double soemdsp_gravity_walker_sample(
   int handle, double clock, double reset, double gravityIn, double leapIn,
   double octaves, double steps, double seed, double scaleOffset,
@@ -2593,16 +2594,15 @@ static inline void control_fold_wrap_state(Control& c) {
   c.stage2 = w;
 }
 
-// Match nodeGraphParamFoldModSources onto base=out (unit offset + domain add).
-// liveMod* = sample-accurate audio→param MOD (ParamModEdge), stamped each frame.
-// Unit mods clamp to the parameter range. Domain only when Use real mod values
-// is tagged (modFlags bit4/bit5). No magnitude detector. No Amp×CV special case.
+// Match nodeGraphParamFoldModSources: slider is an offset. MOD always ADDs.
+// Unit 0…1: add across [min,max], then clamp. Real values (bit4): add, no clamp.
+// Never multiply. Never replace.
 static inline double control_effective(const Control& c) {
   const double base = c.out;
   const double unitAdd = c.modUnit + c.liveModUnit;
   const double domainAdd = c.modDomain + c.liveModDomain;
   const bool anyMod = (unitAdd != 0.0) || (domainAdd != 0.0) || (c.liveModActive != 0)
-    || (c.modUnit != 0.0) || (c.modDomain != 0.0) || (c.liveModDomainReplace != 0)
+    || (c.modUnit != 0.0) || (c.modDomain != 0.0)
     || ((c.modFlags & 16u) != 0);
   if (!anyMod) {
     if (!c.snap) return base;
@@ -2614,22 +2614,10 @@ static inline double control_effective(const Control& c) {
   const bool haveRange = (minV == minV) && (maxV == maxV) && range > 0.0;
   const bool wrap = (c.modFlags & 1u) != 0;
   const bool modClamp = (c.modFlags & 2u) != 0;
-  // bit4 = Use real mod values. Domain ADDS unless bit5 replace-only.
-  // liveModDomainReplace marks a tagged domain sample — not a wipe.
-  const bool hostReplace = (c.modFlags & 32u) != 0; // bit5
-  const bool domainValued = ((c.modFlags & 16u) != 0) || hostReplace
-    || (c.liveModDomainReplace != 0) || (domainAdd != 0.0);
-  double result;
-  if (hostReplace) {
-    // Replace-only: absolute = domain mods (Superlove pitch-norm Frequency).
-    result = domainAdd;
-  } else if (haveRange && unitAdd != 0.0) {
-    // Unit-band on knob, then domain ADD as offset.
-    result = base; // overwritten in unit branch
-  } else {
-    result = base;
-  }
-  if (!hostReplace && haveRange && unitAdd != 0.0) {
+  const bool unbounded = (c.modFlags & 8u) != 0;
+  const bool realValues = ((c.modFlags & 16u) != 0) || (domainAdd != 0.0);
+  double result = base;
+  if (haveRange && unitAdd != 0.0) {
     double b = base;
     if (wrap) {
       double w = b - minV;
@@ -2644,22 +2632,13 @@ static inline double control_effective(const Control& c) {
       if (u < 0.0) u += 1.0;
     }
     result = minV + u * range;
-  } else if (!hostReplace && !haveRange && unitAdd != 0.0) {
-    // No domain yet — plain add. Do not invent 0…1+clamp (crushes Frequency).
+  } else if (!haveRange && unitAdd != 0.0) {
     result = base + unitAdd;
   }
-  if (!hostReplace) {
-    // Real-mod / engineering-unit: Control/knob + domain MOD sum.
-    result = result + domainAdd;
-  }
+  result = result + domainAdd;
   if (!(result == result)) result = 0.0;
-  // App-wide: after MOD, clip to DOMAIN when known (Knob 0…1, Amp 0…1, …).
-  // Wraparound still wraps. Explicit unbounded: host clears modClamp bit AND
-  // sets bit3 (kModFlagUnbounded = 8) — rare; default is clamp.
-  const bool unbounded = (c.modFlags & 8u) != 0;
-  // Domain-valued (ADD or replace-only): min/max are display zoom — no hard-clip.
-  if (domainValued) {
-    // no wrap/clamp
+  if (realValues) {
+    // Use real values: no min/max clamp.
   } else if (haveRange && wrap) {
     double w = result - minV;
     w = w - range * dsp_floor(w / range);
@@ -3714,11 +3693,9 @@ static void stamp_live_param_mods(Circuit& g, Node& node, int frame) {
     Control* c = control_for_param(node, e.paramId);
     if (!c) continue;
     c->liveModActive = 1; // even when v==0 (rest must stay at the offset)
-    // Use-real-mod (bit4/bit5) is the only domain path. Otherwise unit offset,
-    // clamped to the parameter range later. Magnitude never changes the mode.
-    if ((c->modFlags & (16u | 32u)) != 0) {
+    // Real values (bit4): domain ADD. Else unit 0…1 ADD. Never replace.
+    if ((c->modFlags & 16u) != 0) {
       c->liveModDomain += v;
-      c->liveModDomainReplace = 1;
     } else {
       c->liveModUnit += v;
     }
@@ -8571,21 +8548,12 @@ static void process_pluck_envelope_3(Circuit& g, Node& node, int frames) {
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
     const double mono = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double input = trig + mono;
-    // Wired Amplitude is the amplitude (replace), not a unit-band add onto the
-    // knob. Knob default 1 + ADD + clamp made a 0…1 CV a no-op, so Recalc On
-    // Trig never sampled the wire.
-    double amp = control_audio(g, node.amplitude, f);
-    if (node.amplitude.liveModActive
-        && (node.amplitude.modFlags & (16u | 32u)) == 0
-        && node.amplitude.liveModDomainReplace == 0) {
-      amp = node.amplitude.liveModUnit;
-    }
     const double out = soemdsp_pluck_envelope_3_sample(
       node.nativeHandle,
       input,
       control_audio(g, node.timeDenominator, f),
       control_audio(g, node.width, f),
-      amp,
+      control_audio(g, node.amplitude, f),
       control_effective(node.mode),
       sr
     );
@@ -9475,8 +9443,39 @@ static void process_arp(Circuit& g, Node& node, int frames) {
 // Gravity Walker: Keys noteMask128 (Mono), Clock->Trigger, Reset->Reset, Leap CV->PitchCv.
 // shape=gravity, width=leap, mode=octaves, stages=steps, seed=seed, offset=scaleOffset, inLow=patternOffset.
 // Pitch->Mono, Gate->Left, Trigger->Right, Degree->Saw, f Hz->Ramp.
+// Scale cable is a 12-bit mask. Span comes from the source (Pitch Quantizer
+// Octaves / Octave Offset), base C3. Default 3 octaves matches the sandbox.
+static void gravity_walker_scale_span(Circuit& g, const Node& node, int* octaves, int* baseMidi) {
+  *octaves = 3;
+  *baseMidi = 60;
+  for (int ci = 0; ci < g.connCount; ci++) {
+    const Conn& c = g.conns[ci];
+    if (!c.used || c.dstHash != node.idHash) continue;
+    if (clamp_dst_port(c.dstPort) != kPortMono) continue;
+    const int si = find_node(g, c.srcHash);
+    if (si < 0) continue;
+    const Node& src = g.nodes[si];
+    if (src.typeId != kTypePitchQuantizer && src.typeId != kTypeChordPad) continue;
+    const double octV = control_effective(src.width);
+    const double offV = control_effective(src.offset);
+    int oct = (int)(octV + (octV >= 0.0 ? 0.5 : -0.5));
+    int off = (int)(offV + (offV >= 0.0 ? 0.5 : -0.5));
+    if (oct < 1) oct = 3;
+    if (oct > 8) oct = 8;
+    if (off < -4) off = -4;
+    if (off > 4) off = 4;
+    *octaves = oct;
+    *baseMidi = 60 + off * 12;
+    return;
+  }
+}
+
 static void process_gravity_walker(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
+  int scaleOct = 3;
+  int scaleBase = 60;
+  gravity_walker_scale_span(g, node, &scaleOct, &scaleBase);
+  soemdsp_gravity_walker_set_scale_span(node.nativeHandle, scaleOct, scaleBase);
   const bool hasClock = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool hasKeys = mix_live_port(g, node, kPortMono, frames, g.mixMono);

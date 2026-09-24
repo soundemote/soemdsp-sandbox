@@ -14,15 +14,13 @@
 //               effective = paramValue + sum(domainMods) + domainOffset
 //               domainOffset (paramMeta, default 0) always applies, even with no
 //               MOD wires. Slider edits offset on +/-|max|, linear (no curve yet).
-//             * Replace-only exception: explicit metadata.domainReplace, or unit-span
-//               0..1 destinations (Superlove-style pitch-norm Frequency) so PitchHz
-//               can track cutoff. Unipolar clip when metadata.unipolarMod.
+//             * Slider is always an offset: MOD always ADDs. Never multiply,
+//               never replace. Unipolar clip when metadata.unipolarMod.
 //
 //   SIGNAL IN - named jacks (In, pitch/♯/♭, ...). Not MOD. Module evaluators.
 //
-// Native stamp mirrors this: bit4 = domain-valued (ADD to Control.out);
-// bit5 = replace-only (unit-span pitch-norm). outputDomain stamps domainOffset
-// into domainAdd. Yellow Graph / Range sources tag domain the same way.
+// Native stamp: bit4 = real values (domain ADD, no clamp). Unit-band 0…1
+// ADDs then clamps to min/max. No multiply. No replace.
 //
 /** @typedef {"domain"|"mod"|"signalIn"} NodeGraphParamSurface */
 
@@ -489,34 +487,15 @@ function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
 }
 
 /**
- * True when domain MOD should REPLACE the Control/knob (not add as offset).
- * Default for real-mod / engineering-unit / outputDomain is ADD (knob = offset).
- * Replace-only: explicit metadata.domainReplace, or unit-span 0…1 destinations
- * (Superlove-style pitch-norm Frequency tracked by PitchHz).
+ * Slider is always an offset. MOD always ADDs — never replace.
  */
-function nodeGraphParamDomainModReplacesBase(metadata = {}) {
-  if (metadata && metadata.domainReplace === true) {
-    return true;
-  }
-  // Real-mod mode: Control/knob is always an offset.
-  if (metadata && metadata.outputDomain === true) {
-    return false;
-  }
-  const min = Number(metadata && metadata.min);
-  const max = Number(metadata && metadata.max);
-  if (Number.isFinite(min) && Number.isFinite(max) && max > min) {
-    const span = max - min;
-    // Unit-span domains (typ. 0…1 pitch-norm Frequency): REPLACE to track source.
-    if (span <= 1.0001 && Math.abs(max) <= 1.0001 && min >= -1.0001) {
-      return true;
-    }
-  }
+function nodeGraphParamDomainModReplacesBase(_metadata = {}) {
   return false;
 }
 
 /**
  * Classify MOD sources into unit-band vs domain accumulators.
- * Domain mods ADD to the Control/knob (offset) unless domainReplace (rare).
+ * Domain mods ADD to the Control/knob (offset). Never replace.
  * Same per-source rules as fold — used by efficient native set_param_mod.
  * @returns {{ unitAdd: number, domainAdd: number, domainReplace: boolean }}
  */
@@ -527,30 +506,26 @@ function nodeGraphParamModAccumulators(sources, metadata = {}) {
   const clipNeg = metadata && metadata.unipolarMod === true;
   let unitAdd = 0;
   let domainAdd = 0;
-  let domainReplace = false;
   const list = Array.isArray(sources) ? sources : [sources];
-  // Dest "Use real mod values" / outputDomain: every MOD is domain-valued, but
-  // ADDS to the Control/knob (offset) — not a wipe. Replace-only is rare (below).
+  // Dest "Use real mod values" / outputDomain: every MOD is domain-valued ADD.
   const destDomain = metadata && metadata.outputDomain === true;
-  const replaceBase = nodeGraphParamDomainModReplacesBase(metadata);
   for (const raw of list) {
-    let { value: mod, domain } = nodeGraphParamNormalizeModSource(raw);
+    const src = nodeGraphParamNormalizeModSource(raw);
+    let mod = src.value;
+    let domain = src.domain;
     if (destDomain) domain = true;
     if (clipNeg) {
       mod = Math.max(0, mod);
     }
     if (domain) {
       domainAdd += mod;
-      if (replaceBase) domainReplace = true;
     } else if (Number.isFinite(range) && range > 0) {
       unitAdd += mod;
     } else {
-      // No domain range → still land as domain ADD (knob remains offset).
       domainAdd += mod;
-      if (replaceBase) domainReplace = true;
     }
   }
-  return { unitAdd, domainAdd, domainReplace };
+  return { unitAdd, domainAdd, domainReplace: false };
 }
 
 /**
@@ -596,40 +571,28 @@ function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
 
   const baseN = Number(base);
   const b = Number.isFinite(baseN) ? baseN : 0;
-  let { unitAdd, domainAdd, domainReplace } = nodeGraphParamModAccumulators(sources, metadata);
+  const { unitAdd, domainAdd } = nodeGraphParamModAccumulators(sources, metadata);
   const min = Number(metadata.min);
   const max = Number(metadata.max);
   const range = max - min;
   const dAdd = Number(domainAdd);
   const domainSum = Number.isFinite(dAdd) ? dAdd : 0;
-  let result;
-  if (domainReplace) {
-    // Replace-only (unit-span pitch-norm / explicit): absolute = domain mods.
-    result = domainSum;
-  } else {
-    // Domain / engineering-unit MOD: knob is an offset (ADD), then unit-band.
-    result = b;
-    if (Number.isFinite(range) && range > 0 && unitAdd !== 0) {
-      const baseUnit = nodeGraphParamDomainToUnitLinear(b, metadata);
-      result = nodeGraphParamUnitToDomainLinear(baseUnit + unitAdd, metadata);
-    }
-    result = result + domainSum;
+  let result = b;
+  if (Number.isFinite(range) && range > 0 && unitAdd !== 0) {
+    const baseUnit = nodeGraphParamDomainToUnitLinear(b, metadata);
+    result = nodeGraphParamUnitToDomainLinear(baseUnit + unitAdd, metadata);
   }
+  result = result + domainSum;
   if (!Number.isFinite(result)) {
     return 0;
   }
   if (metadata.wraparound) {
     return nodeGraphParamApplyDomainBounds(result, metadata);
   }
-  // Domain replace-only: min/max are display zoom only — do not hard-clip.
-  if (domainReplace) {
+  // Real values: no clamp. Unit-band 0…1: clamp to min/max.
+  if (domainSum !== 0 || (metadata && metadata.outputDomain === true)) {
     return result;
   }
-  // Domain-ADD (engineering units): also skip hard-clip — min/max are zoom.
-  if (domainSum !== 0) {
-    return result;
-  }
-  // Post-MOD clip to DOMAIN (default on) for unit-band path only.
   if (nodeGraphParamModClamp(metadata)) {
     const lo = Number(metadata.min);
     const hi = Number(metadata.max);

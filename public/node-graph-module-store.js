@@ -204,7 +204,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
 
   evolveField: "Field evolve visual. Parked until RGB/shader pass.",
   phosphillator: "Draw a path, play it as X/Y. Parked until the draw engine is ready.",
-  wavetable2d: "Multi-frame 2D table morph. Parked until wavetable playback exists.",
+  wavetable2d: "2D wavetable osc shell exists; hardcoded 4096×50 banks (Roundshape / Trisaw / Center pulse) still under construction.",
   wavetable3d: "Dual-axis table morph. Parked until wavetable playback exists.",
   formantFilter: "Vocal formant bank. Parked until the scientific-filter pass.",
   besselThomson: "Maximally flat group-delay filter. Parked until that filter lands.",
@@ -1349,9 +1349,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   wavetable2d: {
     category: "oscillator",
-    description: "PCM wavetable oscillator. Load a cycle; Morph reserved for multi-frame banks.",
+    description: "Wavetable oscillator (under construction). Hardcoded 4096×50 morph banks next.",
     label: "Wavetable 2D",
-    notes: ["wavetable", "oscillator", "morph", "sample", "pcm"],
+    notes: ["wavetable", "oscillator", "morph", "under construction"],
   },
   samplePlayer: {
     category: "sample",

@@ -37,6 +37,9 @@ struct State {
   double lastGate;
   double lastTrigger;
   double lastDegreeNorm;
+  // 12-bit Scale cable: C3 + this many octaves. Not every MIDI from 0.
+  int scaleOctaves;
+  int scaleBaseMidi;
 };
 
 static State gPool[kMaxInstances];
@@ -95,18 +98,34 @@ static void or_held_bit(double& chunk, int bit) {
   chunk += denom;
 }
 
-// Chord Pad / Quantizer Scale is a 12-bit C…B mask. Light every octave.
+// 12-bit Scale cable. Same span as noteMaskScaleOutFromNode: C3 + Octave Offset,
+// stacked `scaleOctaves` times. Lighting every MIDI from 0 puts the walk on ~8 Hz.
+static void or_midi(State& s, int midi) {
+  if (midi < 0 || midi > 127) return;
+  if (midi >= 98) or_held_bit(s.heldC2, midi - 98);
+  else if (midi >= 49) or_held_bit(s.heldC1, midi - 49);
+  else or_held_bit(s.heldC0, midi);
+}
+
 static void fill_from_pitch_class_bits(State& s, int bits) {
   s.heldC0 = 0.0;
   s.heldC1 = 0.0;
   s.heldC2 = 0.0;
   const int m = bits & 0xFFF;
   if (!m) return;
-  for (int midi = 0; midi < kKeyCount; midi++) {
-    if ((m & (1 << (midi % 12))) == 0) continue;
-    if (midi >= 98) or_held_bit(s.heldC2, midi - 98);
-    else if (midi >= 49) or_held_bit(s.heldC1, midi - 49);
-    else or_held_bit(s.heldC0, midi);
+  int oct = s.scaleOctaves;
+  if (oct < 1) oct = 3;
+  if (oct > 8) oct = 8;
+  int base = s.scaleBaseMidi;
+  if (base < 0) base = 0;
+  if (base > 127) base = 127;
+  const int basePc = ((base % 12) + 12) % 12;
+  for (int o = 0; o < oct; o++) {
+    for (int pc = 0; pc < 12; pc++) {
+      if ((m & (1 << pc)) == 0) continue;
+      const int midi = base + o * 12 + ((pc - basePc + 12) % 12);
+      or_midi(s, midi);
+    }
   }
 }
 
@@ -284,6 +303,8 @@ extern "C" int soemdsp_gravity_walker_create(unsigned int entropySeed) {
       s.lastGate = 0.0;
       s.lastTrigger = 0.0;
       s.lastDegreeNorm = 0.0;
+      s.scaleOctaves = 3;
+      s.scaleBaseMidi = 60;
       s.active = true;
       return i + 1;
     }
@@ -297,6 +318,19 @@ extern "C" void soemdsp_gravity_walker_destroy(int handle) {
 }
 
 /** Host->native note buses are block-rate. Push all 3 chunks atomically. */
+extern "C" void soemdsp_gravity_walker_set_scale_span(int handle, int octaves, int baseMidi) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  State& s = gPool[handle - 1];
+  int oct = octaves;
+  if (oct < 1) oct = 3;
+  if (oct > 8) oct = 8;
+  int base = baseMidi;
+  if (base < 0) base = 0;
+  if (base > 127) base = 127;
+  s.scaleOctaves = oct;
+  s.scaleBaseMidi = base;
+}
+
 extern "C" void soemdsp_gravity_walker_set_chunks(int handle, double c0, double c1, double c2) {
   if (handle < 1 || handle > kMaxInstances) return;
   State& s = gPool[handle - 1];
