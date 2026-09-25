@@ -319,6 +319,33 @@ function bindNodeUiDevModuleRoundness() {
   applyNodeModulePlateLook();
 }
 
+function syncNodeUiDevModuleTitlePadding() {
+  const input = document.getElementById("nodeUiDevModuleTitlePadding");
+  const out = document.getElementById("nodeUiDevModuleTitlePaddingValue");
+  const px = Math.max(0, Math.min(16, nodeGraphFiniteNumber(input?.value, 0)));
+  if (input && !input.matches(":active")) {
+    input.value = String(px);
+  }
+  if (out) {
+    out.textContent = `${px}px`;
+  }
+  document.getElementById("nodeGraphWorkspace")
+    ?.style.setProperty("--node-module-title-padding", `${px}px`);
+  if (typeof scheduleNodeGraphModuleTitleTextFit === "function") {
+    scheduleNodeGraphModuleTitleTextFit();
+  }
+}
+
+function bindNodeUiDevModuleTitlePadding() {
+  const input = document.getElementById("nodeUiDevModuleTitlePadding");
+  if (input && input.dataset.moduleTitlePaddingBound !== "true") {
+    input.dataset.moduleTitlePaddingBound = "true";
+    input.addEventListener("input", syncNodeUiDevModuleTitlePadding);
+    input.addEventListener("change", syncNodeUiDevModuleTitlePadding);
+  }
+  syncNodeUiDevModuleTitlePadding();
+}
+
 function bindNodeUiDevModuleIdleStroke() {
   for (const id of [
     "nodeUiDevModuleStrokeThickness",
@@ -804,6 +831,7 @@ function syncNodeUiDevSettingsHeaderControls() {
     syncNodeUiDevWiresFollowPortColors();
   }
   syncNodeUiDevModuleIdleStroke();
+  syncNodeUiDevModuleTitlePadding();
   syncNodeUiDevDimmerCutoutControls();
   syncNodeUiDevMagnifierRimControls();
   syncNodeUiDevPortSize();

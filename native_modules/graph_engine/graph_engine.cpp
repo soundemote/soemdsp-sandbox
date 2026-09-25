@@ -750,6 +750,26 @@ extern "C" int soemdsp_flanger_create();
 extern "C" void soemdsp_flanger_destroy(int handle);
 extern "C" int soemdsp_chorus_create();
 extern "C" void soemdsp_chorus_destroy(int handle);
+extern "C" int soemdsp_ensemble_create();
+extern "C" void soemdsp_ensemble_destroy(int handle);
+extern "C" void soemdsp_ensemble_sample(
+  int handle,
+  double inL,
+  double inR,
+  double voicesN,
+  double delayMs,
+  double depthMs,
+  double mix,
+  double spread,
+  double speedHz,
+  double mode,
+  double seedParam,
+  double hpHz,
+  double lpHz,
+  double sampleRate,
+  double* outL,
+  double* outR
+);
 extern "C" void soemdsp_chorus_sample(
   int handle,
   double inL,
@@ -1731,6 +1751,7 @@ static const int kTypeBandpass = 137;
 static const int kTypeAllpass = 138;
 static const int kTypeBasicShape = 139;
 static const int kTypeChordPad = 140;
+static const int kTypeXyPad = 186;
 static const int kTypeNoteGlide = 141;
 static const int kTypeNoteTranspose = 142;
 static const int kTypeDegreeTuring = 143;
@@ -1773,6 +1794,7 @@ static const int kTypeHighpass = 177; // EQ ZDF SVF Highpass (mode 1), slope 12�
 static const int kTypePhaser = 178; // Parallel ZDF bandpass bank (1–8 × 12–48 dB)
 static const int kTypeFlanger = 179; // Short interpolating delay comb + LFO
 static const int kTypeChorus = 188; // Multi-voice delay + shared vibrato + filtered FB
+static const int kTypeEnsemble = 189; // Chorus topology + SoEm Reverb RW/FBM delay mod
 
 static const int kPortMono = 0;
 static const int kPortLeft = 1;
@@ -2350,6 +2372,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_flanger_destroy(handle);
   } else if (kind == kTypeChorus) {
     soemdsp_chorus_destroy(handle);
+  } else if (kind == kTypeEnsemble) {
+    soemdsp_ensemble_destroy(handle);
   } else if (kind == kTypeActiveFilter) {
     soemdsp_active_filter_destroy(handle);
   } else if (kind == kTypePassiveFilter) {
@@ -2495,6 +2519,7 @@ static bool type_wants_mlr_native_handles(int typeId) {
     || typeId == kTypePhaser
     || typeId == kTypeFlanger
     || typeId == kTypeChorus
+    || typeId == kTypeEnsemble
     || typeId == kTypeActiveFilter
     || typeId == kTypePassiveFilter
     || typeId == kTypeTb303Filter
@@ -2775,6 +2800,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCheapWalk) ? 8.0 // rate Hz
       : (typeId == kTypeVibratoGenerator) ? 3.5 // vibrato speed Hz
       : (typeId == kTypeChorus) ? 3.5 // VG Speed
+      : (typeId == kTypeEnsemble) ? 0.4 // RW/FBM rate Hz
       : (typeId == kTypeWowAndFlutter) ? 1.0 // wow speed Hz (header default ~1/sr * sr)
       : (typeId == kTypeRandomWalk) ? 2.0
       : (typeId == kTypeSpiral || typeId == kTypeNyquistShannon) ? 440.0
@@ -2985,7 +3011,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePhaseDisperse) ? 32.0 // cascade depth
       : (typeId == kTypeCookbookFilter) ? 2.0 // RS-MET default stages
       : (typeId == kTypePhaser) ? 4.0 // bands
-      : (typeId == kTypeChorus) ? 7.0 // voices
+      : (typeId == kTypeChorus || typeId == kTypeEnsemble) ? 7.0 // voices
       : (typeId == kTypeBandpass || typeId == kTypeAllpass
           || typeId == kTypeLowpass || typeId == kTypeHighpass) ? 0.0 // slope 12 dB
       : (typeId == kTypeArp) ? 8.0 // steps
@@ -3078,7 +3104,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeWowAndFlutter) ? 0.01 // flutterJitter (header default)
       : (typeId == kTypeAdditiveOsc) ? 0.0 // harmonicPhaseMultiply
       : (typeId == kTypeAdditiveQuantizeFreq) ? 0.0 // random
-      : (typeId == kTypeChorus) ? 0.5 // Spread
+      : (typeId == kTypeChorus || typeId == kTypeEnsemble) ? 0.5 // Spread
       : (typeId == kTypeAdditivePan) ? 0.75 // AutoPan Width (odd/even fan)
       : (typeId == kTypeAdditiveBlaster) ? 0.58 // offset (PoC)
       : (typeId == kTypeBradley2a) ? 0.0 // freqOffset
@@ -3116,7 +3142,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.mix,
     (typeId == kTypeVcvrackSuperloveFilter) ? 0.0 // noise
-      : (typeId == kTypePhaser || typeId == kTypeFlanger || typeId == kTypeChorus) ? 0.5
+      : (typeId == kTypePhaser || typeId == kTypeFlanger || typeId == kTypeChorus || typeId == kTypeEnsemble) ? 0.5
       : (typeId == kTypeGraphicEq) ? 1.0
       :     (typeId == kTypeHypersaw2) ? 0.0 // jitterSpeedTiltSource Freq
       : (typeId == kTypePingPongDelay || typeId == kTypeDelayEffect) ? 0.35
@@ -3169,7 +3195,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.lfoAmplitude,
     (typeId == kTypePhaser) ? 0.5 // LFO depth octaves
       : (typeId == kTypeFlanger) ? 0.002 // LFO depth seconds
-      : (typeId == kTypeChorus) ? 3.0 // depth ms
+      : (typeId == kTypeChorus || typeId == kTypeEnsemble) ? 3.0 // depth ms
       : (typeId == kTypeHypersaw2) ? 0.0 // vibratoSpeedTilt
       : (typeId == kTypeRobinSupersaw) ? 0.0 // jitterDepth cents
       : (typeId == kTypeBradley2a) ? 0.0 // ampDepth
@@ -3209,7 +3235,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeFractalBrownianNoise || typeId == kTypeRandomWalk || typeId == kTypeCheapWalk) ? 1.0
       : (typeId == kTypeHypersaw2
           || typeId == kTypeVibratoGenerator || typeId == kTypeWowAndFlutter
-          || typeId == kTypeChorus) ? 1.0
+          || typeId == kTypeChorus || typeId == kTypeEnsemble) ? 1.0
       : (typeId == kTypeAdditiveQuantizeFreq || typeId == kTypeAdditiveQuantizePhase
           || typeId == kTypeAdditiveNoisyFreq || typeId == kTypeAdditiveNoisyPhase
           || typeId == kTypeAdditiveNoisyPan || typeId == kTypeAdditiveNoisyAmp) ? 1.0
@@ -3265,7 +3291,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLinearAttackRelease || typeId == kTypeVibratoGenerator) ? 0.01 // attack
       : (typeId == kTypeDelayEffect) ? 0.18 // time s
       : (typeId == kTypeFlanger) ? 0.005 // delay s
-      : (typeId == kTypeChorus) ? 18.0 // delay ms
+      : (typeId == kTypeChorus || typeId == kTypeEnsemble) ? 18.0 // delay ms
       : (typeId == kTypeAudioPlayer || typeId == kTypeSamplePlayer) ? 0.0 // start phase
       : (typeId == kTypeSpeakerProtector2) ? 0.008 // dropSeconds
       : (typeId == kTypeRobinSupersaw) ? 0.0 // portaTimeMin s
@@ -3367,7 +3393,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.hpfFrequency,
     (typeId == kTypeHypersaw2) ? 0.0 // jitterSpeedTilt
       : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 200.0 // lowCut
-      : (typeId == kTypeChorus) ? 200.0 // feedback HP
+      : (typeId == kTypeChorus || typeId == kTypeEnsemble) ? 200.0 // HP
       : (typeId == kTypeChaosfly) ? -2.0 // Highpass oct offset (gentler default)
       : (typeId == kTypeCrossover6) ? 10000.0
       : 20.0,
@@ -4194,6 +4220,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeAttackDecay) return soemdsp_attack_decay_create();
   if (typeId == kTypeBasicShape) return soemdsp_basic_shape_create();
   if (typeId == kTypeChordPad) return soemdsp_chord_pad_create();
+  if (typeId == kTypeXyPad) return 1;
   if (typeId == kTypeNoteGlide) return soemdsp_note_glide_create();
   if (typeId == kTypeNoteTranspose) return soemdsp_note_transpose_create();
   if (typeId == kTypeDegreeTuring) {
@@ -4226,6 +4253,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypePhaser) return soemdsp_phaser_create();
   if (typeId == kTypeFlanger) return soemdsp_flanger_create();
   if (typeId == kTypeChorus) return soemdsp_chorus_create();
+  if (typeId == kTypeEnsemble) return soemdsp_ensemble_create();
   if (typeId == kTypeEqFilter || typeId == kTypeBandpass || typeId == kTypeAllpass
       || typeId == kTypeLowpass || typeId == kTypeHighpass) {
     return soemdsp_eq_filter_create();
@@ -6184,7 +6212,8 @@ static void process_additive_linear_filter(Circuit& g, Node& node, int frames) {
     (float)control_effective(node.shape),
     (float)control_effective(node.phaseParam),
     resolve_yellow_fund_hz(g, node.idHash),
-    sr
+    sr,
+    (float)control_effective(node.waveform)
   );
 }
 
@@ -7590,6 +7619,55 @@ static void process_chorus(Circuit& g, Node& node, int frames) {
   }
 }
 
+static void process_ensemble(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  bool leftOutWired = false, rightOutWired = false;
+  for (int ci = 0; ci < g.connCount; ci++) {
+    if (!g.conns[ci].used) continue;
+    if (g.conns[ci].srcHash != node.idHash) continue;
+    const int sp = clamp_src_port(g.conns[ci].srcPort);
+    if (sp == kPortLeft) leftOutWired = true;
+    else if (sp == kPortRight) rightOutWired = true;
+  }
+  const bool stereoOut = leftOutWired || rightOutWired;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double inM = g.mixMono[f]
+      + ((!hasLeftIn && !hasRightIn) ? (g.mixLeft[f] + g.mixRight[f]) : 0.0);
+    const double inL = hasLeftIn ? (g.mixLeft[f] + g.mixMono[f]) : inM;
+    const double inR = hasRightIn ? (g.mixRight[f] + g.mixMono[f]) : inM;
+    double outL = 0.0;
+    double outR = 0.0;
+    soemdsp_ensemble_sample(
+      node.nativeHandle,
+      inL,
+      inR,
+      control_audio(g, node.stages, f),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.lfoAmplitude, f),
+      control_audio(g, node.mix, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.frequency, f),
+      control_effective(node.mode),
+      control_effective(node.seed),
+      control_audio(g, node.hpfFrequency, f),
+      control_audio(g, node.lpfFrequency, f),
+      sr,
+      &outL,
+      &outR
+    );
+    if (leftOutWired) node.buf[kPortLeft][f] = outL;
+    if (rightOutWired) node.buf[kPortRight][f] = outR;
+    if (monoOutWired || !stereoOut) {
+      node.buf[kPortMono][f] = 0.5 * (outL + outR);
+    }
+  }
+}
+
 // Graphic EQ: 30 peaking bands in absolute dB (param 300..329).
 // Legacy rangeChoice ABI arg is unused (pass 0).
 static void process_graphic_eq(Circuit& g, Node& node, int frames) {
@@ -8105,46 +8183,12 @@ static void process_norm_chaos_filter(
   }
 }
 
-// Always dual-instance stereo: independent L/R native states so chaos noise
-// diverges. Mono In folds into both; Mono Out = (L+R)/2 when needed.
+// Same MLR routing as yellowjacket / human / resonator: mono uses one
+// nativeHandle (no dual-sum chorus); L/R handles only when those inputs wire.
 static void process_flower_child_filter(Circuit& g, Node& node, int frames) {
-  if (node.nativeHandleL <= 0 || node.nativeHandleR <= 0) {
-    // Fallback: single-handle path if MLR pool failed.
-    process_norm_chaos_filter(
-      g, node, frames, true, nullptr, soemdsp_flower_child_filter_sample
-    );
-    return;
-  }
-  mix_node_inputs(g, node, frames);
-  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active;
-  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
-  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
-  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
-  for (int f = 0; f < frames; f++) {
-    control_frame(g, node, f);
-    double freq = norm_pitch_freq_from_control(control_audio(g, node.frequency, f));
-    const double reso = control_audio(g, node.resonance, f);
-    const double chaos = control_audio(g, node.shape, f);
-    double amp = control_audio(g, node.amplitude, f);
-    if (!(amp == amp)) amp = 1.0;
-    const double modeV = control_effective(node.mode);
-    const int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
-    const double monoIn = g.mixMono[f];
-    const double inL = g.mixLeft[f] + monoIn;
-    const double inR = g.mixRight[f] + monoIn;
-    const double outL = soemdsp_flower_child_filter_sample(
-      node.nativeHandleL, inL, freq, reso, chaos, mode, sr
-    ) * amp;
-    const double outR = soemdsp_flower_child_filter_sample(
-      node.nativeHandleR, inR, freq, reso, chaos, mode, sr
-    ) * amp;
-    node.buf[kPortLeft][f] = outL;
-    node.buf[kPortRight][f] = outR;
-    if (needMono) {
-      node.buf[kPortMono][f] = 0.5 * (outL + outR);
-    }
-  }
+  process_norm_chaos_filter(
+    g, node, frames, true, nullptr, soemdsp_flower_child_filter_sample
+  );
 }
 
 static void process_yellowjacket_filter(Circuit& g, Node& node, int frames) {
@@ -11529,6 +11573,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypePhaser
     || typeId == kTypeFlanger
     || typeId == kTypeChorus
+    || typeId == kTypeEnsemble
     || typeId == kTypeBasicShape
     || typeId == kTypeChordPad
     || typeId == kTypeNoteGlide
@@ -12717,6 +12762,18 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_chord_pad(g, node, frames);
       return;
     }
+    if (node.typeId == kTypeXyPad) {
+      for (int f = 0; f < frames; f++) {
+        control_frame(g, node, f);
+        const double x = control_audio(g, node.offset, f);
+        const double y = control_audio(g, node.mix, f);
+        const double gate = control_audio(g, node.mode, f);
+        node.buf[kPortMono][f] = x;
+        node.buf[kPortLeft][f] = y;
+        node.buf[kPortRight][f] = gate > 0.5 ? 1.0 : 0.0;
+      }
+      return;
+    }
     if (node.typeId == kTypeNoteGlide) {
       process_note_glide(g, node, frames);
       return;
@@ -12795,6 +12852,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
     }
     if (node.typeId == kTypeChorus) {
       process_chorus(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeEnsemble) {
+      process_ensemble(g, node, frames);
       return;
     }
     if (node.typeId == kTypeActiveFilter) {
@@ -13348,6 +13409,25 @@ extern "C" void soemdsp_graph_set_gravity_walker_chunks(int handle, double c0, d
   }
 }
 
+extern "C" void soemdsp_graph_set_node_note_chunks(int handle, unsigned int nodeHash, double c0, double c1, double c2) {
+  Circuit* g = get(handle);
+  if (!g || nodeHash == 0) {
+    soemdsp_graph_set_gravity_walker_chunks(handle, c0, c1, c2);
+    return;
+  }
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) {
+    soemdsp_graph_set_gravity_walker_chunks(handle, c0, c1, c2);
+    return;
+  }
+  Node& n = g->nodes[idx];
+  if (n.used && n.typeId == kTypeGravityWalker && n.nativeHandle > 0) {
+    soemdsp_gravity_walker_set_chunks(n.nativeHandle, c0, c1, c2);
+    return;
+  }
+  soemdsp_graph_set_gravity_walker_chunks(handle, c0, c1, c2);
+}
+
 extern "C" int soemdsp_graph_node_native_handle(int handle, unsigned int nodeHash) {
   Circuit* g = get(handle);
   if (!g) return 0;
@@ -13452,5 +13532,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 149; // sampleHold Ext+L/R independent + interpolate/phaseOffset
+  return 150; // flowerChildFilter mono = single nativeHandle (match norm chaos MLR)
 }

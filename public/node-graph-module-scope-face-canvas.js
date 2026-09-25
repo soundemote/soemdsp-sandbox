@@ -35,6 +35,7 @@ const NODE_GRAPH_FACE_TAPE_RENDERERS = new Set([
   "pulseDot",
   "lcdDot",
   "transportBpm",
+  "ensembleCloud",
 ]);
 
 // Persistent canvas cache — survives module DOM rebuilds. Keyed by nodeId.

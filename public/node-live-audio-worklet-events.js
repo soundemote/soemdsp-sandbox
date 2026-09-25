@@ -185,6 +185,10 @@ NodeLiveAudioProcessor.prototype.setBugButtonInteraction = function setBugButton
 };
 
 NodeLiveAudioProcessor.prototype.setConnections = function setConnections(plan, message = {}) {
+    // Live OS / engine-rate updates arrive on setConnections (plan shape unchanged).
+    if (typeof this.applyOversamplingFromMessage === "function") {
+      this.applyOversamplingFromMessage(message);
+    }
     this.patchFingerprint = message.patchFingerprint || plan?.patchFingerprint || this.patchFingerprint || "";
     this.planSerial = message.planSerial || this.planSerial || 0;
     this.sessionId = message.sessionId || this.sessionId || 0;

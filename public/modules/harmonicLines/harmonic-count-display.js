@@ -40,8 +40,21 @@ const ADDITIVE_NAMED_FACE = Object.freeze({
 function nodeGraphHarmonicCountReadH(nodeId, type) {
   if (type === "additiveGenerator") {
     const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-    const n = Number(node?.params?.harmonics ?? node?.parameters?.harmonics);
-    if (Number.isFinite(n) && n > 0) return n;
+    const stored = Number(node?.params?.harmonics ?? node?.parameters?.harmonics);
+    const base = Number.isFinite(stored) && stored > 0 ? stored : 0;
+    const meta = (typeof nodeGraphReadPatchParameterMetadata === "function"
+      ? nodeGraphReadPatchParameterMetadata(nodeId, "harmonics")
+      : node?.paramMeta?.harmonics) || {};
+    const ghost = typeof nodeGraphParameterGhostSignal === "function"
+      ? nodeGraphParameterGhostSignal(nodeId, "harmonics")
+      : null;
+    const ghostN = Number(ghost?.effectiveDomain);
+    if (Number.isFinite(ghostN) && ghostN > 0) return ghostN;
+    if (typeof nodeGraphParamFoldOrBase === "function" && base > 0) {
+      const folded = Number(nodeGraphParamFoldOrBase(base, [], meta));
+      if (Number.isFinite(folded) && folded > 0) return folded;
+    }
+    if (base > 0) return base;
   }
   const graph = typeof readNodeGraphDataInput === "function"
     ? readNodeGraphDataInput(nodeId, "Graph")

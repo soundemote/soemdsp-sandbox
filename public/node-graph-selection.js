@@ -682,27 +682,8 @@ function pruneNodeGraphSelectionAfterPatch() {
 function renderNodeGraphSelection() {
   const selectedNodeIds = nodeGraphSelectedNodeIds();
   syncNodeGraphSelectionCountReadout();
-  const frameDirty = [];
   for (const node of document.querySelectorAll(".dsp-node")) {
-    const wantSelected = selectedNodeIds.has(node.dataset.node);
-    const wasSelected = node.classList.contains("selected");
-    node.classList.toggle("selected", wantSelected);
-    // Selected stroke uses rounded path corners — rebuild when selection flips.
-    if (wasSelected !== wantSelected) {
-      frameDirty.push(node);
-    }
-  }
-  if (frameDirty.length) {
-    for (const node of frameDirty) {
-      delete node.dataset.moduleFrameFp;
-      // Synchronous rebuild so rounded selected stroke appears this frame
-      // (rAF schedule could be coalesced away under heavy UI work).
-      if (typeof updateNodeGraphModuleFrame === "function") {
-        updateNodeGraphModuleFrame(node);
-      } else if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
-        scheduleNodeGraphModuleFramesUpdate({ force: true, nodeElement: node });
-      }
-    }
+    node.classList.toggle("selected", selectedNodeIds.has(node.dataset.node));
   }
 
   const selectedWireKeys = new Set(

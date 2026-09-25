@@ -25,27 +25,55 @@ function createNodeGraphAdditiveFilterCurveDisplay(nodeId, type = "additiveLinea
   return section;
 }
 
+function nodeGraphAdditiveFilterCurveEffective(node, key, fallback) {
+  const num = typeof nodeGraphFiniteNumber === "function"
+    ? nodeGraphFiniteNumber
+    : (v, fb) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : (fb || 0);
+    };
+  const p = node?.params || node?.parameters || {};
+  const base = num(p[key], fallback);
+  const nodeId = node?.id;
+  const meta = (typeof nodeGraphReadPatchParameterMetadata === "function" && nodeId
+    ? nodeGraphReadPatchParameterMetadata(nodeId, key)
+    : node?.paramMeta?.[key]) || {};
+  const ghost = typeof nodeGraphParameterGhostSignal === "function" && nodeId
+    ? nodeGraphParameterGhostSignal(nodeId, key)
+    : null;
+  const ghostN = Number(ghost?.effectiveDomain);
+  if (Number.isFinite(ghostN)) return ghostN;
+  if (typeof nodeGraphParamFoldOrBase === "function") {
+    const folded = Number(nodeGraphParamFoldOrBase(base, [], meta));
+    if (Number.isFinite(folded)) return folded;
+  }
+  return base;
+}
+
 function nodeGraphAdditiveFilterCurveReadParams(nodeId, type) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  const p = node?.params || node?.parameters || {};
   const num = typeof nodeGraphFiniteNumber === "function"
     ? nodeGraphFiniteNumber
     : (v, fb) => {
       const n = Number(v);
       return Number.isFinite(n) ? n : fb;
     };
-  const filter = num(p.filter, 0);
-  const cutoffHz = num(p.cutoff, 2000);
+  const p = node?.params || node?.parameters || {};
   const isLinear = type === "additiveLinearFilter";
-  const slope = num(p.slope, isLinear ? 0.25 : 12);
-  const skew = num(p.skew, 0);
-  const resonance = type === "additiveLadderFilter" ? num(p.resonance, 0) : 0;
+  const filter = num(p.filter, 0);
+  const cutoffHz = nodeGraphAdditiveFilterCurveEffective(node, "cutoff", 2000);
+  const slope = nodeGraphAdditiveFilterCurveEffective(node, "slope", isLinear ? 0.25 : 12);
+  const skew = nodeGraphAdditiveFilterCurveEffective(node, "skew", 0);
+  const resonance = type === "additiveLadderFilter"
+    ? nodeGraphAdditiveFilterCurveEffective(node, "resonance", 0)
+    : 0;
+  const curveMode = isLinear ? Math.round(num(p.curve, 0)) : 0;
   const sr = Math.max(
     1,
     nodeGraphFiniteNumber(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.sampleRate : 0, nodeGraphFiniteNumber(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.sampleRate : 0, 44100)),
   );
   let curveKind = "butterworth";
-  if (isLinear) curveKind = "rational";
+  if (isLinear) curveKind = curveMode === 1 ? "bipolarRational" : "rational";
   else if (type === "additiveLadderFilter") curveKind = "ladder";
   return {
     mode: filter,
@@ -55,6 +83,7 @@ function nodeGraphAdditiveFilterCurveReadParams(nodeId, type) {
     resonance,
     sampleRate: sr,
     curveKind,
+    curveMode,
   };
 }
 
@@ -111,6 +140,7 @@ function drawNodeGraphAdditiveFilterCurveDisplay(section) {
         params.skew,
         params.sampleRate,
         samples,
+        params.curveMode,
       )
       : null);
   const ys = curve?.ys || null;
@@ -122,6 +152,7 @@ function drawNodeGraphAdditiveFilterCurveDisplay(section) {
     params.cutoffHz.toFixed(2),
     params.slope.toFixed(4),
     params.skew.toFixed(4),
+    Number(params.curveMode || 0),
     Number(params.resonance || 0).toFixed(4),
     params.sampleRate,
     w,

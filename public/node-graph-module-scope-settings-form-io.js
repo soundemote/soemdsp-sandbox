@@ -338,6 +338,9 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "scope2d") {
     return normalizeNodeGraphScope2dSettings(scope2dDefaults, scope2dDefaults);
   }
+  if (type === "scope1dTrace") {
+    return normalizeNodeGraphScope1dTraceSettings(nodeGraphScope1dTraceSettingsDefaults);
+  }
   if (type === "scope2dTrace") {
     const targetNode = !nodeGraphTraceDisplaySettingsEditingTraceDefaults()
       && !nodeGraphTraceDisplaySettingsEditingGlobal()
@@ -607,6 +610,9 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   if (type === "scope2d") {
     return normalizeNodeGraphScope2dSettings(settings);
   }
+  if (type === "scope1dTrace") {
+    return normalizeNodeGraphScope1dTraceSettings(settings);
+  }
   if (type === "scope2dTrace") {
     const node = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId());
     const typeDefaults = typeof nodeGraphScope2dTraceSettingsDefaultsForModuleType === "function"
@@ -795,6 +801,9 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
       ? nodeGraphScope2dSettingsDefaultsForModuleType(node?.type)
       : null;
     return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings, typeDefaults);
+  }
+  if (settingsSchema === "scope1dTrace") {
+    return normalizeNodeGraphScope1dTraceSettings(node.traceDisplaySettings);
   }
   if (settingsSchema === "scope2dTrace") {
     const typeDefaults = typeof nodeGraphScope2dTraceSettingsDefaultsForModuleType === "function"

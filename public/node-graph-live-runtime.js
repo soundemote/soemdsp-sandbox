@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=metronome-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=lin-curve-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3188,7 +3188,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/modules/portal/portal-lanes.js?v=portal-rename-4x2-1",
   "./public/modules/portal/portal-math.js?v=portal-lanes-1",
   "./public/modules/portal/portal-named.js?v=portal-rewrite-1",
-  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=mod-add-1",
+  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=choice-domain-1",
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
@@ -3202,22 +3202,22 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-destroy.js?v=block-scope-1",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
-  "./public/node-live-audio-worklet-dsp-state.js?v=sample-hold-stereo-1",
+  "./public/node-live-audio-worklet-dsp-state.js?v=live-os-1",
   "./public/lib/polyphony-voices.js?v=gold-oct-1",
   "./public/lib/note-mask-128.js?v=scale-octaves-1",
   "./public/node-graph-keyboard-chord-memory.js?v=mask128-2",
   "./public/modules/sequencer/sequencer-math.js?v=seq-23",
-  "./public/node-live-audio-worklet-events.js?v=named-portal-6",
+  "./public/node-live-audio-worklet-events.js?v=live-os-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=wt2d-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=metronome-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=lin-curve-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=portal-rewrite-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=live-os-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",
   "./public/node-live-audio-worklet-handle-message.js?v=no-macro-1",
-  "./public/node-live-audio-worklet-scope-snapshot.js?v=meta-view-rewrite-1",
+  "./public/node-live-audio-worklet-scope-snapshot.js?v=ensemble-cloud-1",
   "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=restore-fft-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111–124).

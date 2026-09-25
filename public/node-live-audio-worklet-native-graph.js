@@ -73,6 +73,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   phaser: 178,
   flanger: 179,
   chorus: 188,
+  ensemble: 189,
   basicShape: 139,
   chordPad: 140,
   noteGlide: 141,
@@ -454,6 +455,14 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "sideMorph") return P.NATIVE_GRAPH_PARAM_CENTER;
     if (k === "randomFreq") return P.NATIVE_GRAPH_PARAM_LFO_VARIATION;
     if (k === "randomAmp") return P.NATIVE_GRAPH_PARAM_LEVEL;
+    if (k === "hpfFrequency") return P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY;
+    if (k === "lpfFrequency") return P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY;
+  }
+  if (t === "ensemble") {
+    if (k === "voices") return P.NATIVE_GRAPH_PARAM_STAGES;
+    if (k === "delay") return P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR;
+    if (k === "depth") return P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE;
+    if (k === "spread") return P.NATIVE_GRAPH_PARAM_WIDTH;
     if (k === "hpfFrequency") return P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY;
     if (k === "lpfFrequency") return P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY;
   }
@@ -1365,6 +1374,21 @@ NodeLiveAudioProcessor.prototype.nativeGraphExportsReady = function nativeGraphE
     && n?.soemdsp_graph_node_native_handle
     && n?.soemdsp_graph_max_block_frames
   );
+};
+
+/** Push engine sample rate into the native graph (no recompile / clear). */
+NodeLiveAudioProcessor.prototype.applyNativeGraphSampleRate = function applyNativeGraphSampleRate() {
+  const native = this.nativeGraph;
+  const handle = this.nativeGraphHandle;
+  if (!native?.soemdsp_graph_set_sample_rate || !handle) return;
+  const rate = Math.max(
+    1,
+    nodeGraphFiniteNumber(
+      this.engineSampleRate,
+      nodeGraphFiniteNumber(this.hostSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)),
+    ),
+  );
+  native.soemdsp_graph_set_sample_rate(handle, rate);
 };
 
 /** Push patch Pitch (−10…+10 oct) into the native graph (no recompile needed). */
@@ -4053,6 +4077,19 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("lpfFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("lpfFrequency", 8000));
       continue;
     }
+    if (type === "ensemble") {
+      push("voices", P.NATIVE_GRAPH_PARAM_STAGES, disc("voices", 7));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      push("delay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delay", 18));
+      push("depth", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("depth", 3));
+      push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.5));
+      push("spread", P.NATIVE_GRAPH_PARAM_WIDTH, cont("spread", 0.5));
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 0.4));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("hpfFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("hpfFrequency", 200));
+      push("lpfFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("lpfFrequency", 8000));
+      continue;
+    }
     if (type === "bandpass" || type === "allpass" || type === "lowpass" || type === "highpass") {
       const q0 = type === "bandpass" ? 1 : 0.707;
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 1000));
@@ -5227,6 +5264,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("cutoff", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("cutoff", 2000));
       push("slope", P.NATIVE_GRAPH_PARAM_SHAPE, cont("slope", type === "additiveLinearFilter" ? 0.25 : 12));
       push("skew", P.NATIVE_GRAPH_PARAM_PHASE, cont("skew", 0));
+      if (type === "additiveLinearFilter") {
+        push("curve", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("curve", 0));
+      }
       continue;
     }
     if (type === "additiveLadderFilter") {
@@ -5466,6 +5506,72 @@ NodeLiveAudioProcessor.prototype.destroyWowAndFlutterNativeState =
  * Pull RobinSupersaw detune-face lines (X=±0.5oct map, pan RGB) into
  * robinSupersawStates for the scope → data-bus Phases relay (reuses hypersawBurn).
  */
+NodeLiveAudioProcessor.prototype.syncNativeEnsemblePublish =
+  function syncNativeEnsemblePublish() {
+    if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+      return;
+    }
+    const native = this.nativeGraph;
+    const handleFn = native?.soemdsp_graph_node_native_handle;
+    const countFn = native?.soemdsp_ensemble_voice_count;
+    const delayFn = native?.soemdsp_ensemble_voice_delay;
+    const panFn = native?.soemdsp_ensemble_voice_pan;
+    if (!handleFn || !countFn || !delayFn || !panFn) {
+      return;
+    }
+    if (!this.ensemblePublish) {
+      this.ensemblePublish = new Map();
+    }
+    const live = new Set();
+    for (const [id, node] of this.nodes || []) {
+      if (String(node?.type || "") !== "ensemble") {
+        continue;
+      }
+      live.add(id);
+      const hash = this.fnv1aHash32(id);
+      let handle = 0;
+      try {
+        handle = handleFn(this.nativeGraphHandle, hash) | 0;
+      } catch (_e) {
+        handle = 0;
+      }
+      if (!(handle > 0)) {
+        continue;
+      }
+      let n = 0;
+      try {
+        n = countFn(handle) | 0;
+      } catch (_e) {
+        n = 0;
+      }
+      if (n < 1) {
+        this.ensemblePublish.set(id, { delays: [], pans: [] });
+        continue;
+      }
+      if (n > 16) n = 16;
+      const delays = new Array(n);
+      const pans = new Array(n);
+      for (let i = 0; i < n; i += 1) {
+        try {
+          delays[i] = Number(delayFn(handle, i));
+        } catch (_e) {
+          delays[i] = 0.5;
+        }
+        try {
+          pans[i] = Number(panFn(handle, i));
+        } catch (_e) {
+          pans[i] = 0.5;
+        }
+      }
+      this.ensemblePublish.set(id, { delays, pans });
+    }
+    for (const id of [...this.ensemblePublish.keys()]) {
+      if (!live.has(id)) {
+        this.ensemblePublish.delete(id);
+      }
+    }
+  };
+
 NodeLiveAudioProcessor.prototype.syncNativeRobinSupersawPublish =
   function syncNativeRobinSupersawPublish() {
     if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {

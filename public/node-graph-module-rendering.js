@@ -843,7 +843,14 @@ function createNodeGraphModuleElement(type, node) {
     // Body (and any afterMount setup) already appended above -- chromeless
     // modules carry their own inline ports, no separate IO section.
   } else if (layout === "textBox") {
-    article.append(createNodeGraphTextBoxBody(node));
+    const textBoxUnderConstruction = type === "animatedTextBox"
+      && typeof nodeGraphModuleTypeIsUnderConstruction === "function"
+      && nodeGraphModuleTypeIsUnderConstruction(type);
+    article.append(
+      textBoxUnderConstruction && typeof createNodeGraphUnderConstructionFace === "function"
+        ? createNodeGraphUnderConstructionFace(node, type)
+        : createNodeGraphTextBoxBody(node),
+    );
   } else if (layout === "image") {
     article.append(createNodeGraphImageBody(node));
     appendNodeGraphModuleIoSection(

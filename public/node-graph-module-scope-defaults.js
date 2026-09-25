@@ -622,3 +622,37 @@ function nodeGraphScope2dTraceSettingsDefaultsForModuleType(type) {
 }
 
 
+const nodeGraphScope1dTraceSettingsDefaults = Object.freeze({
+  // Trace-family plate + woscope beam; sweep from 1D Phosphor.
+  background: nodeGraphScopePhosphorLookDefaults.background,
+  backgroundHue: nodeGraphScopePhosphorLookDefaults.backgroundHue,
+  backgroundBrightness: 0,
+  dot1Brightness: 0.5,
+  // Left / mono default red (stereo Meet-friendly with blue Right).
+  dot1Color: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(0)
+    : "#ff0000",
+  dot1Enabled: true,
+  dot1Size: nodeGraphScope2dTraceSettingsDefaults.dot1Size,
+  secondaryBrightness: 0.5,
+  secondaryColor: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(240)
+    : "#0000ff",
+  secondaryEnabled: true,
+  secondarySize: nodeGraphScope2dTraceSettingsDefaults.dot1Size,
+  ghost: typeof PhosphorResidual !== "undefined"
+    ? PhosphorResidual.DEFAULT_GHOST
+    : nodeGraphScopePhosphorLookDefaults.ghost,
+  trail: typeof PhosphorResidual !== "undefined"
+    ? PhosphorResidual.DEFAULT_TRAIL
+    : nodeGraphScopePhosphorLookDefaults.trail,
+  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
+  scale: nodeGraphScopePhosphorLookDefaults.scale,
+  skipDiscontinuities: true,
+  sourceSync: false,
+  sweepHz: 4,
+  sweepCycles: 4,
+});
+
+
+

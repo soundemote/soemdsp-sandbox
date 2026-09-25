@@ -128,6 +128,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "lufs",
   "osc",
   "additiveImage",
+  "animatedTextBox",
   // Efficient-shop gaps: defined modules that are not on the live-audio /
   // observer allowlist. Park them as UC cards so search does not silently omit them.
   // audioInput: intentionally not shop-listed in efficient mode (APP_POLICY §0b).
@@ -186,6 +187,7 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "phaser",
   "flanger",
   "chorus",
+  "ensemble",
   "vcvrackSuperloveFilter",
   "ellipsoidOsc",
 ]);
@@ -202,6 +204,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   pixelGrid: "Lo-fi pixel-grid looks. Parked until RGB face pass.",
   asciiscope: "XY character-grid phosphor. Parked; cannot spawn yet.",
 
+  animatedTextBox: "Wireable animated text plate. Parked until the text animation pass.",
   evolveField: "Field evolve visual. Parked until RGB/shader pass.",
   phosphillator: "Draw a path, play it as X/Y. Parked until the draw engine is ready.",
   wavetable2d: "2D wavetable osc shell exists; hardcoded 4096×50 banks (Roundshape / Trisaw / Center pulse) still under construction.",
@@ -455,9 +458,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   additiveLinearFilter: {
     category: "additive",
-    description: "Rational-curve spectral filter (LP/BP/HP). Cutoff Hz; Slope brickwall→gradual; Skew bends the skirt.",
+    description: "Rational / bipolar-rational spectral filter (LP/BP/HP). Slope = skirt width; Skew 0 is linear.",
     label: "Linear Filter",
-    notes: ["additive", "yellow graph", "filter", "rational", "skew", "LP", "BP", "HP"],
+    notes: ["additive", "yellow graph", "filter", "rational", "bipolar", "skew", "LP", "BP", "HP"],
   },
   additiveAnalogFilter: {
     category: "additive",
@@ -1816,6 +1819,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Chorus",
     notes: ["chorus", "delay", "vibrato", "modulation", "space", "multifx", "native"],
   },
+  ensemble: {
+    category: "space",
+    description: "Chorus delay bank with SoEm Reverb Random Walk or FBM instead of vibrato. Wet through 6 dB HP→LP, then Mix.",
+    label: "Ensemble",
+    notes: ["ensemble", "chorus", "delay", "random walk", "fbm", "modulation", "space", "native"],
+  },
   bode: {
     category: "space",
     description: "Frequency shift (not pitch shift)—metallic, inharmonic, bubbly spectra.",
@@ -2462,6 +2471,18 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "2D Phosphor (legacy)",
     notes: ["legacy", "migrates to scope2d", "hidden"],
   },
+  scope1dTrace: {
+    category: "oscilloscope",
+    description: "1D Trace mono—woscope Gaussian beam, sweep left→right, hard reset at the right edge (not Waterfall scroll).",
+    label: "1D Trace Mono",
+    notes: ["1D Trace", "woscope", "sweep", "reset", "sync", "waveform", "display testbed"],
+  },
+  scope1dTraceStereo: {
+    category: "oscilloscope",
+    description: "1D Trace stereo—Left/Right woscope beams on one shared sweep frame.",
+    label: "1D Trace Stereo",
+    notes: ["1D Trace", "stereo", "left", "right", "woscope", "sweep", "reset", "waveform", "display testbed"],
+  },
   scope2dTrace: {
     category: "oscilloscope",
     description: "Instant X/Y vector history without phosphor—crisp 2D traces.",
@@ -2521,8 +2542,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   animatedTextBox: {
     category: "text",
-    description: "Wireable title/text plate so messages can be driven by the patch.",
-    notes: ["data-plane ports", "port scripts", "wired label"],
+    description: "Under construction. Wireable title/text plate so messages can be driven by the patch.",
+    notes: ["under construction", "data-plane ports", "port scripts", "wired label"],
   },
   phoneTone: {
     category: "object",

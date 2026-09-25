@@ -611,38 +611,6 @@ function normalizeNodeGraphPatchMetadataAlias(alias) {
   return String(alias ?? "").trim().slice(0, 64);
 }
 
-/** Yellow Graph modules: param-out / readouts / DSP use DOMAIN (real units). */
-function nodeGraphModuleUsesYellowGraphDomainParamOut(type) {
-  const t = String(type || "");
-  if (
-    t === "additiveGenerator"
-    || t === "additiveLinearFilter"
-    || t === "additiveAnalogFilter"
-    || t === "additiveLadderFilter"
-    || t === "additiveBubble"
-    || t === "additiveFrequencySkew"
-    || t === "additiveQuantizeFreq"
-    || t === "additiveQuantizePhase"
-    || t === "additiveNoisyFreq"
-    || t === "additiveNoisyPhase"
-    || t === "additiveNoisyPan"
-    || t === "additiveNoisyAmp"
-    || t === "additiveImage"
-    || t === "additiveOut"
-  ) {
-    return true;
-  }
-  const def = typeof nodeGraphModuleDefinitions !== "undefined"
-    ? nodeGraphModuleDefinitions[t]
-    : null;
-  if (!def) {
-    return false;
-  }
-  const dataIns = Array.isArray(def.dataInputs) ? def.dataInputs : [];
-  const dataOuts = Array.isArray(def.dataOutputs) ? def.dataOutputs : [];
-  return dataIns.includes("Graph") || dataOuts.includes("Graph");
-}
-
 function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
   let parameter = nodeGraphModuleDefinitions[type]?.parameters?.find(
     (candidate) => candidate.key === key,
@@ -939,13 +907,17 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
   if (nodeGraphIsHardcodedIoVolumeParam(type, key)) {
     nodeGraphApplyHardcodedIoVolumeSmoothing(normalized);
   }
-  // Yellow Graph: param-out jacks emit DOMAIN (e.g. Phase Skew 0…1000), not 0…1.
-  if (nodeGraphModuleUsesYellowGraphDomainParamOut(type)) {
-    normalized.outputDomain = true;
-  } else if (Object.hasOwn(source, "outputDomain")) {
-    normalized.outputDomain = Boolean(source.outputDomain);
+  // Choice sliders are always 0…N. outputDomain is a per-param opt-in on the
+  // module definition (PWM, Phase Rotation, Hz, …). Stale paramMeta from the
+  // old Additive type-wide force must not keep Harmonics (etc.) as ±max offsets.
+  if (Array.isArray(normalized.choices) && normalized.choices.length > 0) {
+    normalized.outputDomain = false;
+  } else if (Boolean(fallback.outputDomain)) {
+    normalized.outputDomain = Object.hasOwn(source, "outputDomain")
+      ? Boolean(source.outputDomain)
+      : true;
   } else {
-    normalized.outputDomain = Boolean(fallback.outputDomain);
+    normalized.outputDomain = false;
   }
   // Domain-mode offset ("Use real mod values"): separate from absolute params[key].
   {

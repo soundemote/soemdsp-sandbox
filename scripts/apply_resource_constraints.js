@@ -40,6 +40,7 @@ const TAGS = [
   ["ladderFilter", "stages", "cpu"],
   ["phaser", "stages", "cpu"],
   ["chorus", "voices", "cpu"],
+  ["ensemble", "voices", "cpu"],
   // Analysis / spectral
   ["stftBlur", "fftSize", "cpu"],
   ["helmholtzPitch", "windowSize", "cpu"],

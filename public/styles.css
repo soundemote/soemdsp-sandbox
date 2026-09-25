@@ -7067,7 +7067,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
    * Module stroke zoom compensate (UIDEV “module strokes fixed”, default on):
    *   1/zoom → 1px stays 1 *screen* CSS px under workspace camera scale
    *   1      → stroke scales with zoom
-   * Applies to idle outline, selected inset stroke, and frame path width.
+   * Applies to idle and selected plate outline.
    * Do NOT also use vector-effect:non-scaling-stroke — that double-handles
    * scale and walks the ring off the edge under zoom.
    */
@@ -7151,6 +7151,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   --node-module-idle-stroke-width: 1px;
   --node-module-idle-stroke: rgb(255 255 255 / 0.5);
   --node-module-selected-stroke: rgb(226 168 109 / 1);
+  --node-module-title-padding: 0px;
   --node-module-drag-stroke: #e2a86d;
   --node-port-idle-fill: transparent;
   --node-port-idle-stroke: var(--node-port-idle-crescent-stroke);
@@ -13073,21 +13074,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 }
 
 .dsp-node.selected::before {
-  outline-color: transparent;
+  outline-color: var(--node-module-selected-stroke);
   filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.32));
-}
-
-.dsp-node.selected::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  /* Above faces (z:2) and the bypass wallpaper (z:40). Still inside the
-     isolated module so workspace overlay wires (z:3) stay above the plate. */
-  z-index: 45;
-  pointer-events: none;
-  border-radius: inherit;
-  corner-shape: inherit;
-  box-shadow: inset 0 0 0 calc(var(--node-module-idle-stroke-width, 1px) * var(--node-module-stroke-zoom-compensate, 1)) var(--node-module-selected-stroke);
 }
 
 .dsp-node.slider-widget-layout.knob-face-has-image,
@@ -13098,10 +13086,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 
 .dsp-node.slider-widget-layout.knob-face-has-image::before,
 .dsp-node.slider-widget-layout:has(.node-knob-face.has-image)::before,
-.dsp-node.slider-widget-layout[data-hide-module-frame="1"]::before,
-.dsp-node.slider-widget-layout.knob-face-has-image::after,
-.dsp-node.slider-widget-layout:has(.node-knob-face.has-image)::after,
-.dsp-node.slider-widget-layout[data-hide-module-frame="1"]::after {
+.dsp-node.slider-widget-layout[data-hide-module-frame="1"]::before {
   content: none;
 }
 
@@ -13116,14 +13101,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   /* Contain the OFF veil (z:40) so it cannot cover the workspace. */
   isolation: isolate;
   z-index: 2;
-}
-
-.dsp-node.bypassed:not(.selected)::after {
-  content: none;
-}
-
-.dsp-node.bypassed.selected::after {
-  z-index: 45;
 }
 
 /* Construction fill only. Selection ring + I/O sit above this wallpaper. */
@@ -15797,9 +15774,12 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   bottom: 0;
 }
 
-.dsp-node:has(> .node-text-box-body) {
-  overflow: hidden;
-  /* Under cables (#nodeWireSvg z:1) and under other modules (z:2). */
+.dsp-node:has(> .node-text-box-body),
+.dsp-node:has(> .node-module-under-construction) {
+  /* Stay under cables (z:1) and modules (z:2). Do not set overflow:hidden —
+     that clips the plate outline on ::before (idle and selected stroke).
+     Text clipping stays on .node-text-box-body. */
+  overflow: visible;
   z-index: 0;
 }
 
@@ -16385,7 +16365,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   width: 100%;
   flex: 1 1 auto;
   margin: 0;
-  padding: 0;
+  padding: var(--node-module-title-padding, 0px);
   overflow: hidden;
   overflow-wrap: normal;
   border: none;
@@ -25152,9 +25132,8 @@ code {
   line-height: 1;
   text-align: center;
   white-space: nowrap;
-  text-fit: grow;
-  transform: scale(var(--plugin-btn-text-scale, 1));
-  transform-origin: center center;
+  text-fit: none;
+  transform: none;
 }
 [data-plugin-button-display-settings-panel] [data-plugin-btn-text] {
   min-width: 0;

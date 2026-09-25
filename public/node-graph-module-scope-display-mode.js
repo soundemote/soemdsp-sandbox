@@ -228,6 +228,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "lineBurn",
     "scope2d",
     "scope2dTrace",
+    "scope1dTrace",
     "phosphorLight",
     "numberReadout",
     "xyPad",
@@ -236,6 +237,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "oscilloscopeBankBurn",
     // Hypersaw / Hypersaw2 / RobinSupersaw face — line thickness only.
     "hypersawBurn",
+    "ensembleCloud",
     "matrixFace",
     "matrixWaterfallFace",
     "matrixDisplayFace",

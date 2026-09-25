@@ -137,11 +137,15 @@ function createNodeGraphPitchQuantizerKeyButton(nodeId, pitchClass, label, mask,
 }
 
 function setNodeGraphPitchQuantizerMask(nodeId, mask, event, statusLabel = "scale") {
-  if (typeof nodeGraphScriptReadyForGraphAction === "function"
+  if (!globalThis.soemdspPerformMode
+    && typeof nodeGraphScriptReadyForGraphAction === "function"
     && !nodeGraphScriptReadyForGraphAction("pitch quantizer")) {
     return false;
   }
-  if (!nodeId || (typeof nodeGraphMvp !== "undefined" && !nodeGraphMvp.activeNodes?.has?.(nodeId))) {
+  if (!nodeId) return false;
+  if (!globalThis.soemdspPerformMode
+    && typeof nodeGraphMvp !== "undefined"
+    && !nodeGraphMvp.activeNodes?.has?.(nodeId)) {
     return false;
   }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
@@ -175,11 +179,15 @@ function setNodeGraphPitchQuantizerMask(nodeId, mask, event, statusLabel = "scal
 }
 
 function toggleNodeGraphPitchQuantizerKey(nodeId, pitchClass, event) {
-  if (typeof nodeGraphScriptReadyForGraphAction === "function"
+  if (!globalThis.soemdspPerformMode
+    && typeof nodeGraphScriptReadyForGraphAction === "function"
     && !nodeGraphScriptReadyForGraphAction("pitch quantizer")) {
     return false;
   }
-  if (!nodeId || (typeof nodeGraphMvp !== "undefined" && !nodeGraphMvp.activeNodes?.has?.(nodeId))) {
+  if (!nodeId) return false;
+  if (!globalThis.soemdspPerformMode
+    && typeof nodeGraphMvp !== "undefined"
+    && !nodeGraphMvp.activeNodes?.has?.(nodeId)) {
     return false;
   }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);

@@ -196,6 +196,20 @@ static inline float skew_rational(float t, float c) {
   return (cv + x) / den;
 }
 
+// Odd around 0.5. c=0 is identity (linear).
+static inline float skew_bipolar_rational(float t, float c) {
+  const float x = clamp_f(t, 0.0f, 1.0f);
+  const float u = x * 2.0f - 1.0f;
+  const float a = u < 0.0f ? -u : u;
+  const float r = skew_rational(a, c);
+  const float s = u < 0.0f ? -r : r;
+  return (s + 1.0f) * 0.5f;
+}
+
+static inline float linear_filter_shape(float t, float skew, int curveMode) {
+  return curveMode == 1 ? skew_bipolar_rational(t, skew) : skew_rational(t, skew);
+}
+
 // Exponential 0…1 map. c∈(−1…+1): + = slow start / fast end.
 static inline float skew_exp(float t, float c) {
   const float x = clamp_f(t, 0.0f, 1.0f);
@@ -260,25 +274,25 @@ static inline void waveform_partial(
     (float)(soemdsp_maths::dsp_sin(soemdsp_maths::kPi * (double)h * (double)pulseDuty) / (double)h);
 
   switch (wf) {
-    case 0: // Saw
+    case 0: // Saw — 1/n all harmonics, jump at cycle wrap (face shows a ramp)
       amplitude = 1.0f / (float)h;
-      phase = odd ? 0.5f : 0.0f;
+      phase = 0.0f;
       break;
-    case 1: // Square
+    case 1: // Square — odds only 1/n; 0.5 puts the edges in the middle of the cycle
       amplitude = odd ? (1.0f / (float)h) : 0.0f;
       phase = 0.5f;
       break;
-    case 2: // PulseCenter
+    case 2: // PulseCenter — PWM width, cosine-aligned (peak at cycle center)
       amplitude = pulseAmp;
       phase = 0.25f;
       break;
-    case 3: // PulseLeft
+    case 3: // PulseLeft — same width as Center, rising edge at cycle start
       amplitude = pulseAmp;
-      phase = (float)h * pulseDuty * 0.5f;
+      phase = (float)h * pulseDuty * 0.5f + 0.25f;
       break;
-    case 4: // PulseRight
+    case 4: // PulseRight — same width as Center, falling edge at cycle end
       amplitude = pulseAmp;
-      phase = 1.0f - ((float)h * pulseDuty * 0.5f);
+      phase = (float)h * (-pulseDuty * 0.5f) + 0.25f;
       break;
     case 5: // Tri
       amplitude = odd ? (1.0f / (float)(h * h)) : 0.0f;
@@ -739,13 +753,15 @@ static inline float filter_response_gain_hz(
 }
 
 // Linear Filter: rational-curve skirts. slope01 0=brickwall … 1=wide.
+// curveMode 0=Rational, 1=Bipolar Rational (skew 0 = linear ramp either way).
 static inline float filter_response_gain_rational(
-  float freqHz, int mode, float cutoffHz, float slope01, float skew
+  float freqHz, int mode, float cutoffHz, float slope01, float skew, int curveMode = 0
 ) {
   const float fc = cutoffHz > 0.0f ? cutoffHz : 0.0f;
   const float slope = clamp_f(slope01, 0.0f, 1.0f);
   const float f = freqHz > 0.0f ? freqHz : 0.0f;
   const float skewC = clamp_f(skew, -0.9999f, 0.9999f);
+  const int cm = curveMode == 1 ? 1 : 0;
   const float halfOct = slope <= 1e-6f ? 0.0f : (0.05f + slope * 5.0f);
 
   if (mode == 0) { // lp
@@ -754,7 +770,7 @@ static inline float filter_response_gain_rational(
     if (halfOct <= 0.0f) return f <= fc ? 1.0f : 0.0f;
     const float oct = (float)(soemdsp_maths::dsp_ln((double)(f / fc)) / 0.6931471805599453);
     const float t = clamp_f((oct + halfOct) / (2.0f * halfOct), 0.0f, 1.0f);
-    return 1.0f - skew_rational(t, skewC);
+    return 1.0f - linear_filter_shape(t, skewC, cm);
   }
   if (mode == 2) { // hp
     if (!(fc > 0.0f)) return 1.0f;
@@ -762,7 +778,7 @@ static inline float filter_response_gain_rational(
     if (halfOct <= 0.0f) return f >= fc ? 1.0f : 0.0f;
     const float oct = (float)(soemdsp_maths::dsp_ln((double)(f / fc)) / 0.6931471805599453);
     const float t = clamp_f((oct + halfOct) / (2.0f * halfOct), 0.0f, 1.0f);
-    return skew_rational(t, skewC);
+    return linear_filter_shape(t, skewC, cm);
   }
   // bp
   if (!(fc > 0.0f) || !(f > 0.0f)) return 0.0f;
@@ -773,7 +789,7 @@ static inline float filter_response_gain_rational(
   );
   if (a <= passOct) return 1.0f;
   if (a >= passOct + edgeOct) return 0.0f;
-  return skew_rational(1.0f - ((a - passOct) / edgeOct), skewC);
+  return linear_filter_shape(1.0f - ((a - passOct) / edgeOct), skewC, cm);
 }
 
 static inline float ladder_resonance_gain(
@@ -991,7 +1007,7 @@ inline void sync_walk_seeds_from_recipe(
 
 inline void apply_linear_filter(
   GraphPayload& g, float mode, float cutoffHz, float slope01, float skew,
-  float fundHz, float sampleRate
+  float fundHz, float sampleRate, float curveMode = 0.0f
 ) {
   (void)sampleRate;
   const int H = g.harmonics;
@@ -1001,11 +1017,13 @@ inline void apply_linear_filter(
   const float fc = (cutoffHz * 0.0f == 0.0f) ? cutoffHz : 0.0f;
   const float slope = (slope01 * 0.0f == 0.0f) ? slope01 : 0.25f;
   const float sk = (skew * 0.0f == 0.0f) ? skew : 0.0f;
+  int cm = (int)(curveMode + (curveMode >= 0.0f ? 0.5f : -0.5f));
+  if (cm != 1) cm = 0;
   for (int i = 0; i < H; i += 1) {
     float r = g.ratio[i];
     if (!(r * 0.0f == 0.0f)) r = 0.0f;
     const float partialHz = (r > 0.0f ? r : 0.0f) * f0;
-    scale_harmonic_amp(g, i, filter_response_gain_rational(partialHz, m, fc, slope, sk));
+    scale_harmonic_amp(g, i, filter_response_gain_rational(partialHz, m, fc, slope, sk, cm));
   }
 }
 

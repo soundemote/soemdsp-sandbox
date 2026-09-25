@@ -166,6 +166,48 @@ function applyNodeGraphPluginButtonDisplaySettingsToFace(node) {
   nodeGraphPluginButtonPaintFace(face, nodeGraphPluginButtonDisplaySettingsForNode(node));
 }
 
+function nodeGraphPluginButtonFitCaption(btn) {
+  const fit = btn?.querySelector?.(":scope > .btn-fit");
+  if (!fit || !btn.isConnected) return;
+  const text = String(fit.textContent || "").replace(/\s+/g, " ").trim();
+  const face = btn.closest(".node-plugin-toggle-face, .node-plugin-momentary-face");
+  const scaleRaw = Number(face?.style.getPropertyValue("--plugin-btn-text-scale"));
+  const textScale = Number.isFinite(scaleRaw) && scaleRaw > 0 ? scaleRaw : 1;
+  const style = getComputedStyle(btn);
+  const padX = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+  const padY = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+  const maxW = Math.max(1, btn.clientWidth - padX);
+  const maxH = Math.max(1, btn.clientHeight - padY);
+  if (!text || textScale <= 0) {
+    fit.style.fontSize = "1px";
+    return;
+  }
+  const canvas = nodeGraphPluginButtonFitCaption.canvas
+    || (nodeGraphPluginButtonFitCaption.canvas = document.createElement("canvas"));
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  const family = getComputedStyle(fit).fontFamily || "sans-serif";
+  const weight = "700";
+  context.font = `${weight} ${maxH}px ${family}`;
+  const probe = context.measureText(text);
+  const glyphH = Math.max(
+    1,
+    (probe.actualBoundingBoxAscent || 0) + (probe.actualBoundingBoxDescent || 0),
+  );
+  let size = maxH * (maxH / glyphH);
+  context.font = `${weight} ${size}px ${family}`;
+  const width = context.measureText(text).width;
+  if (width > maxW) size *= maxW / width;
+  fit.style.fontSize = `${Math.max(1, size * textScale)}px`;
+}
+
+function nodeGraphPluginButtonWatchCaption(btn) {
+  if (!btn || btn.dataset.pluginBtnCaptionWatch === "1") return;
+  btn.dataset.pluginBtnCaptionWatch = "1";
+  const observer = new ResizeObserver(() => nodeGraphPluginButtonFitCaption(btn));
+  observer.observe(btn);
+}
+
 function nodeGraphPluginButtonPaintFace(face, settings) {
   if (!face) return;
   const type = face.dataset.nodeType || "";
@@ -187,6 +229,8 @@ function nodeGraphPluginButtonPaintFace(face, settings) {
   nodeGraphPluginButtonClearPin(label);
   if (btn) {
     btn.style.setProperty("--plugin-btn-stroke", s.strokeColor);
+    nodeGraphPluginButtonWatchCaption(btn);
+    nodeGraphPluginButtonFitCaption(btn);
     btn.style.setProperty("--plugin-btn-inactive", s.inactiveColor);
     btn.style.setProperty("--plugin-btn-active", s.activeColor);
     btn.style.setProperty("--plugin-btn-hover", s.hoverColor);

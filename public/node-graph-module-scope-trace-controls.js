@@ -7,6 +7,7 @@ function nodeGraphDisplaySettingsIsVectorTraceFormType(type) {
     || key === "traceXyz"
     || key === "traceRgb"
     || key === "scope2dTrace"
+    || key === "scope1dTrace"
     || key === "gradientVectorscopeFace"
     || key === "value";
 }
@@ -101,6 +102,9 @@ function nodeGraphDisplaySettingsClipboardFamily(formType) {
   if (key === "trace" || key === "traceRgb" || key === "value") {
     return "trace1d";
   }
+  if (key === "scope1dTrace") {
+    return "scope1dTrace";
+  }
   if (key === "scope2dTrace" || key === "gradientVectorscopeFace" || key === "traceXyz") {
     return "trace2d";
   }
@@ -127,6 +131,9 @@ function nodeGraphDisplaySettingsClipboardFamilyLabel(family) {
   }
   if (family === "trace1d") {
     return "1D Waterfall";
+  }
+  if (family === "scope1dTrace") {
+    return "1D Trace";
   }
   if (family === "trace2d") {
     return "2D Instant Trace";
@@ -370,6 +377,25 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     colors: Object.freeze([]),
     // Skip at top. Packing row: Clear (no Sync — 2D has no sweep).
     toggles: Object.freeze(["skipDiscontinuities"]),
+    choices: Object.freeze([]),
+  }),
+  // 1D Trace: woscope beam + heart-monitor Sweep/Sync/Reset (not Waterfall scroll).
+  scope1dTrace: Object.freeze({
+    fields: Object.freeze([
+      "sweepHz",
+      "scale",
+      "backgroundBrightness",
+      "backgroundHue",
+      "dot1Size",
+      "secondarySize",
+      "pixelDensity",
+      "dot1Brightness",
+      "secondaryBrightness",
+      "ghost",
+      "trail",
+    ]),
+    colors: Object.freeze(["dot1Color", "secondaryColor"]),
+    toggles: Object.freeze(["skipDiscontinuities", "sourceSync"]),
     choices: Object.freeze([]),
   }),
   // 2D Trace = woscope XY beam. Ink is hue + plausible brightness.
@@ -1425,7 +1451,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Text scale",
     inputmode: "decimal",
     id: "nodeTraceDisplayButtonTextScale",
-    title: "Off/On text size. Not fitted yet.",
+    title: "Off/On text size. 1 = fit the button. Smaller shrinks.",
   }),
   labelPadding: Object.freeze({
     label: "Label pad",
@@ -2212,6 +2238,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   lineBurn: "Burn",
   scope2d: "2D",
   scope2dTrace: "Trace",
+  scope1dTrace: "1D Trace",
   traceXyz: "XYZ Trace",
   traceRgb: "1D Waterfall RGB",
   vectorRgbFace: "Vector RGB",

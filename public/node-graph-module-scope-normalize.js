@@ -296,6 +296,7 @@ function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
     "videoscopeBurn",
     "oscilloscopeBankBurn",
     "hypersawBurn",
+    "ensembleCloud",
     "rgbShapeFace",
     "rgbFractalFace",
     "evolveFieldFace",
@@ -1633,6 +1634,108 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
   };
 }
 
+
+
+
+function normalizeNodeGraphScope1dTraceSettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = typeof nodeGraphScope1dTraceSettingsDefaults !== "undefined"
+    ? nodeGraphScope1dTraceSettingsDefaults
+    : {};
+  const rawInk = source.dot1Color ?? source.color ?? defaults.dot1Color;
+  const inkHex = typeof normalizeNodeGraphTraceDisplayColor === "function"
+    ? normalizeNodeGraphTraceDisplayColor(rawInk, defaults.dot1Color)
+    : String(rawInk || "#ff0000");
+  const mappedInk = typeof nodeGraphHueBrightnessFromHex === "function"
+    ? nodeGraphHueBrightnessFromHex(inkHex, 0, defaults.dot1Brightness)
+    : { hue: 0, brightness: defaults.dot1Brightness };
+  const hueRaw = Number(source.dot1Hue);
+  const inkHue = Number.isFinite(hueRaw)
+    ? Math.max(0, Math.min(360, hueRaw))
+    : mappedInk.hue;
+  const inkHueHex = typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(inkHue)
+    : inkHex;
+  const inkBright = source.dot1Brightness != null || source.brightness != null
+    ? normalizeNodeGraphTraceDisplayBrightness(
+      source.dot1Brightness ?? source.brightness,
+      defaults.dot1Brightness,
+    )
+    : mappedInk.brightness;
+  const rawSec = source.secondaryColor ?? defaults.secondaryColor;
+  const secHex = typeof normalizeNodeGraphTraceDisplayColor === "function"
+    ? normalizeNodeGraphTraceDisplayColor(rawSec, defaults.secondaryColor)
+    : String(rawSec || "#0000ff");
+  const mappedSec = typeof nodeGraphHueBrightnessFromHex === "function"
+    ? nodeGraphHueBrightnessFromHex(secHex, 240, defaults.secondaryBrightness)
+    : { hue: 240, brightness: defaults.secondaryBrightness };
+  const secHueRaw = Number(source.secondaryHue);
+  const secHue = Number.isFinite(secHueRaw)
+    ? Math.max(0, Math.min(360, secHueRaw))
+    : mappedSec.hue;
+  const secHueHex = typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(secHue)
+    : secHex;
+  const secBright = source.secondaryBrightness != null
+    ? normalizeNodeGraphTraceDisplayBrightness(
+      source.secondaryBrightness,
+      defaults.secondaryBrightness,
+    )
+    : mappedSec.brightness;
+  const sweepDefaults = typeof nodeGraphLineBurnSettingsDefaults !== "undefined"
+    ? nodeGraphLineBurnSettingsDefaults
+    : { sweepHz: 4, sweepCycles: 4 };
+  return {
+    ...nodeGraphDisplaySettingsNormalizePlateLook(source, {
+      ...defaults,
+      backgroundBrightness: defaults.backgroundBrightness ?? 0,
+      backgroundHue: defaults.backgroundHue ?? 0,
+    }),
+    dot1Brightness: inkBright,
+    dot1Color: inkHueHex,
+    dot1Enabled: true,
+    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    secondaryBrightness: secBright,
+    secondaryColor: secHueHex,
+    secondaryEnabled: source.secondaryEnabled !== false,
+    secondarySize: normalizeNodeGraphTraceDisplayNumber(
+      source.secondarySize ?? source.dot1Size,
+      defaults.secondarySize ?? defaults.dot1Size,
+      0,
+      1,
+    ),
+    ghost: typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
+      ? PhosphorResidual.migrateGhost(source, defaults.ghost)
+      : normalizeNodeGraphTraceDisplayNumber(source.ghost, defaults.ghost, 0, 1),
+    trail: typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail)
+      : normalizeNodeGraphTraceDisplayNumber(source.trail, defaults.trail, 0, 1),
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      1,
+    ),
+    scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0.01, 100),
+    skipDiscontinuities: nodeGraphDisplaySettingsToggleIsOn(
+      source.skipDiscontinuities ?? defaults.skipDiscontinuities,
+    ),
+    sourceSync: nodeGraphDisplaySettingsToggleIsOn(
+      source.sourceSync ?? source.sync ?? defaults.sourceSync,
+    ),
+    ...normalizeNodeGraphLineBurnSweepPair(source, {
+      sweepHz: defaults.sweepHz ?? sweepDefaults.sweepHz,
+      sweepCycles: defaults.sweepCycles ?? sweepDefaults.sweepCycles,
+    }),
+  };
+}
+
+function nodeGraphScope1dTraceSettingsForNode(node) {
+  if (!node) {
+    return normalizeNodeGraphScope1dTraceSettings();
+  }
+  return normalizeNodeGraphScope1dTraceSettings(node.traceDisplaySettings);
+}
 
 function nodeGraphZeroDBurnSettingsForNode(node) {
   if (!node) {

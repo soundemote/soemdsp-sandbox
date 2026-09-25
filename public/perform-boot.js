@@ -93,11 +93,60 @@
     postToHost({ event: "gesture", pluginId: id, value: unit, phase: phase });
   }
 
+  var lastParams = new Map();
+
+  function copyParams(params) {
+    var out = {};
+    if (!params) return out;
+    var keys = Object.keys(params);
+    for (var i = 0; i < keys.length; i += 1) {
+      var v = params[keys[i]];
+      if (typeof v === "number" && Number.isFinite(v)) out[keys[i]] = v;
+    }
+    return out;
+  }
+
+  function snapshotParams() {
+    lastParams.clear();
+    var nodes = patchNodes();
+    for (var i = 0; i < nodes.length; i += 1) {
+      var n = nodes[i];
+      if (!n || !n.id) continue;
+      lastParams.set(String(n.id), copyParams(n.params));
+    }
+  }
+
+  global.soemdspPerformEmitDirtyParams = function soemdspPerformEmitDirtyParams() {
+    var nodes = patchNodes();
+    for (var i = 0; i < nodes.length; i += 1) {
+      var n = nodes[i];
+      if (!n || !n.id) continue;
+      var id = String(n.id);
+      var now = copyParams(n.params);
+      var prev = lastParams.get(id);
+      if (!prev) {
+        lastParams.set(id, now);
+        continue;
+      }
+      var keys = Object.keys(now);
+      for (var k = 0; k < keys.length; k += 1) {
+        var key = keys[k];
+        if (prev[key] !== now[key]) {
+          postToHost({ event: "param", nodeId: id, key: key, value: now[key] });
+        }
+      }
+      lastParams.set(id, now);
+    }
+  };
+
   global.soemdspPerformEmitNoteMask = function soemdspPerformEmitNoteMask(mask) {
     if (typeof noteMaskPackChunks !== "function") return;
     var chunks = noteMaskPackChunks(mask);
+    var el = document.querySelector(".dsp-node[data-node-type='keyboardController']");
+    var id = el && el.dataset ? String(el.dataset.node || "") : "";
     postToHost({
       event: "notes",
+      nodeId: id,
       c0: Number(chunks.c0) || 0,
       c1: Number(chunks.c1) || 0,
       c2: Number(chunks.c2) || 0,
@@ -289,6 +338,7 @@
       global.nodeGraphAssignKnobPortalIndexes(loaded);
     }
     global.commitNodeGraphPatch(loaded, { status: "perform loadPatch" });
+    snapshotParams();
     global.requestAnimationFrame(function () {
       global.requestAnimationFrame(function () {
         openPerformCanvas();

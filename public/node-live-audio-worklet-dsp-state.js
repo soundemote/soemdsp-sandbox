@@ -34,6 +34,39 @@ NodeLiveAudioProcessor.prototype.resetRaptEllipticDecimator = function resetRapt
     this.raptEllipticDecimatorRatio = this.oversamplingRatio;
 };
 
+/** Apply oversamplingFactor / engineSampleRate from a plan or connection message.
+ *  Updates JS process() ratio, resets Rapt-elliptic decimator on ratio change, and
+ *  pushes engine rate into the live native graph without clearing topology.
+ *  @returns {boolean} true when ratio or engine rate changed
+ */
+NodeLiveAudioProcessor.prototype.applyOversamplingFromMessage = function applyOversamplingFromMessage(message = {}) {
+    const prevRatio = this.oversamplingRatio;
+    const prevEngine = this.engineSampleRate;
+    if (Number.isFinite(Number(message.sampleRate)) && Number(message.sampleRate) > 0) {
+      this.hostSampleRate = Math.max(1, Number(message.sampleRate));
+    }
+    const rawFactor = Math.round(Number(
+      message.oversamplingFactor ?? message.oversamplingRatio ?? this.oversamplingRatio ?? 1,
+    ));
+    const factor = (rawFactor === 2 || rawFactor === 4) ? rawFactor : 1;
+    this.oversamplingRatio = factor;
+    this.oversamplingFactor = factor;
+    const engineFromMsg = Number(message.engineSampleRate);
+    const host = Math.max(1, nodeGraphFiniteNumber(this.hostSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
+    this.engineSampleRate = Number.isFinite(engineFromMsg) && engineFromMsg > 0
+      ? engineFromMsg
+      : host * factor;
+    if (this.raptEllipticDecimatorRatio !== this.oversamplingRatio) {
+      this.resetRaptEllipticDecimator();
+    }
+    const changed = prevRatio !== this.oversamplingRatio || prevEngine !== this.engineSampleRate;
+    if (changed && typeof this.applyNativeGraphSampleRate === "function") {
+      this.applyNativeGraphSampleRate();
+    }
+    return changed;
+};
+
+
 NodeLiveAudioProcessor.prototype.processRaptEllipticDecimatorSample = function processRaptEllipticDecimatorSample(input, states) {
     let y = nodeGraphFiniteNumber(input);
     for (let section = 0; section < nodeLiveRaptEllipticQuarterbandSos.length; section += 1) {

@@ -346,6 +346,7 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
             || selfPaint === "dot"
             || selfPaint === "value"
             || selfPaint === "lineBurn"
+            || selfPaint === "scope1dTrace"
             || slot?.type === "output"
            
           ) {
@@ -355,7 +356,7 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
             if (typeof paintNodeGraphTraceDisplayColdPlate === "function") {
               paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio);
             }
-          } else if (selfPaint === "scope2dTrace") {
+          } else if (selfPaint === "scope2dTrace" || selfPaint === "scope1dTrace") {
             // Vector 2D Trace has no energy FBO. Between Simulation FPS posts
             // (e.g. FPS 1) capture is empty — hold last pixels, do not wipe.
           } else {
@@ -400,6 +401,14 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
         } else if (["vectorDot", "pulseDot", "lcdDot"].includes(nodeGraphModuleDisplayRendererForSlot(slot))) {
           if (typeof drawNodeGraphVectorDotItem === "function") {
             drawNodeGraphVectorDotItem(null, {
+              buffer: null,
+              screenElement: slot.scopeElement,
+              slot,
+            }, pixelRatio);
+          }
+        } else if (nodeGraphModuleDisplayRendererForSlot(slot) === "ensembleCloud") {
+          if (typeof drawNodeGraphEnsembleCloudItem === "function") {
+            drawNodeGraphEnsembleCloudItem(null, {
               buffer: null,
               screenElement: slot.scopeElement,
               slot,

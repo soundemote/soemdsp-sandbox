@@ -258,6 +258,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
         if (isLinear) {
           additiveGraphApplyLinearFilter(
             out, num(p.filter, 0), cutoffHz, slope, eff(node, "skew", 0), fundHz, sr,
+            num(p.curve, 0),
           );
         } else if (isLadder) {
           additiveGraphApplyLadderFilter(

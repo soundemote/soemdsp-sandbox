@@ -450,7 +450,7 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 
 - Storage, slider readouts, effect math, and **parameter-out jacks** use **DOMAIN** (Hz, cycles, harmonic count, …) — **never** normalize to 0…1 for display or Graph-module communication.
 - Example: Growl **Phase Skew** is cycles **0…1000** (Hydrus); the value sent into DSP and out the cyan param jack is that number, not `skew/1000`.
-- Ordinary non-Graph modules may still emit unit 0…1 on param-out for Uni/Bi CV chaining (`nodeGraphParamDomainToModOutput`). Graph modules set `outputDomain: true` (auto for Additive / Graph types).
+- Ordinary params may still emit unit 0…1 on param-out for Uni/Bi CV chaining (`nodeGraphParamDomainToModOutput`). Continuous Additive rows that need real-unit MOD/param-out set `outputDomain: true` **on that parameter** (PWM, Phase Rotation, Hz, …). Choice rows never do — they are 0…N like every other choice slider.
 - **Smoothing:** same surfaces as every module (mouse travel unit 0…1 → DOMAIN target → existing L/1P/… kernels). Native Yellow path uses graph_engine Controls.
 
 ---

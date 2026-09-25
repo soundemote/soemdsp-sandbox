@@ -380,6 +380,12 @@ $modules = @(
     "soemdsp_chorus_version", "soemdsp_chorus_metadata_json",
     "soemdsp_chorus_metadata_json_size"
   ) }
+  @{ Name = "ensemble"; Simd = $false; Exports = @(
+    "soemdsp_ensemble_create", "soemdsp_ensemble_destroy", "soemdsp_ensemble_sample",
+    "soemdsp_ensemble_voice_count", "soemdsp_ensemble_voice_delay", "soemdsp_ensemble_voice_pan",
+    "soemdsp_ensemble_version", "soemdsp_ensemble_metadata_json",
+    "soemdsp_ensemble_metadata_json_size"
+  ) }
   @{ Name = "cookbook_filter"; Simd = $false; Exports = @(
     "soemdsp_cookbook_filter_create", "soemdsp_cookbook_filter_destroy",
     "soemdsp_cookbook_filter_sample",

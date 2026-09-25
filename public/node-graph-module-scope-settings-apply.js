@@ -44,6 +44,10 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.traceDisplaySettings = normalizeNodeGraphScope2dTraceSettings(settings, typeDefaults);
     return node.traceDisplaySettings;
   }
+  if (displayType === "scope1dTrace") {
+    node.traceDisplaySettings = normalizeNodeGraphScope1dTraceSettings(settings);
+    return node.traceDisplaySettings;
+  }
   // Must not fall through to Trace normalize: that drops decimals and expands
   // a full Trace schema onto the multimeter (can thrash draw/history/persist).
   if (displayType === "numberReadout") {
@@ -329,6 +333,7 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     displayType === "videoscopeBurn"
     || displayType === "oscilloscopeBankBurn"
     || displayType === "hypersawBurn"
+    || displayType === "ensembleCloud"
   ) {
     node.traceDisplaySettings = normalizeNodeGraphScope2dSettings(settings);
     return node.traceDisplaySettings;

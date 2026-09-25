@@ -10,7 +10,7 @@ Live and worklet both call it (no dual formulas).
 | **DOMAIN** | Knob/slider value in real units | Stored on the node; readout shows this (after smooth). **min/max are slider/unit-map guides**, not hard clips (unless wraparound, `constraint: cpu|gpu|ram`, or `hardClamp: true`). |
 | **MOD** | Param-row modulation CV | Bipolar unit **[−1, 1]** *or* DOMAIN REPLACE when tagged `outputDomain` / Range Out / `|mod| > 1`; see apply rules below |
 | **SIGNAL IN** | Named jacks (`In`, `0.1V/Oct`, …) | Module-specific; **not** the same as MOD |
-| **PARAM OUT** | Slider-row output jack | Default: DOMAIN→unit **0…1**. **Yellow Graph** modules (`outputDomain: true`): emit raw **DOMAIN** (Hz, cycles, …). |
+| **PARAM OUT** | Slider-row output jack | Default: DOMAIN→unit **0…1**. Params tagged `outputDomain: true` emit raw **DOMAIN** (Hz, cycles, …). Choice sliders are never tagged. |
 
 ## DOMAIN hard clamp policy
 

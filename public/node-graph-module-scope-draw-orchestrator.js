@@ -56,7 +56,11 @@ const nodeGraphModuleScopeCustomRenderers = {
   value: drawNodeGraphValueOscilloscopeItem,
   lineBurn: drawNodeGraphLineBurnOscilloscopeItem,
   hypersawBurn: drawNodeGraphHypersawBurnItem,
+  ensembleCloud: typeof drawNodeGraphEnsembleCloudItem === "function"
+    ? drawNodeGraphEnsembleCloudItem
+    : () => {},
   scope2dTrace: drawNodeGraphScope2dTraceItem,
+  scope1dTrace: drawNodeGraphScope1dTraceItem,
   scope2d: drawNodeGraphScope2dItem,
   numberReadout: drawNodeGraphNumberReadoutItem,
   customDisplay: drawNodeGraphCustomDisplayItem,

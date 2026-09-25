@@ -105,7 +105,8 @@ function drawNodeGraphAdditiveWaveformDisplay(section) {
       section._wave = new Float32Array(N);
     }
     if (typeof additiveGraphBakeWaveform === "function") {
-      additiveGraphBakeWaveform(graph, section._wave, 64);
+      const hCap = Math.min(256, Math.max(8, graph.ratio.length | 0));
+      additiveGraphBakeWaveform(graph, section._wave, hCap);
     }
     section._bakeKey = key;
   }

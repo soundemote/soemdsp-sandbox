@@ -204,6 +204,7 @@ async function bindNodeGraphUiDevSettingsEvents() {
   }
   bindNodeUiDevSliderFillColorControls();
   bindNodeUiDevModuleIdleStroke();
+  bindNodeUiDevModuleTitlePadding();
   if (typeof bindNodeUiDevModuleRoundness === "function") {
     bindNodeUiDevModuleRoundness();
   }

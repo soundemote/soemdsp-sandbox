@@ -108,6 +108,9 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
     if (typeof this.syncNativeRobinSupersawPublish === "function") {
       try { this.syncNativeRobinSupersawPublish(); } catch (_e) { /* keep prior publish */ }
     }
+    if (typeof this.syncNativeEnsemblePublish === "function") {
+      try { this.syncNativeEnsemblePublish(); } catch (_e) { /* keep prior publish */ }
+    }
     const dataPorts = [];
     if (this.hypersaw2States) {
       for (const [nodeId, state] of this.hypersaw2States) {
@@ -134,6 +137,16 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
         }
         if (Array.isArray(state?.lastVoicePans) && state.lastVoicePans.length) {
           dataPorts.push([nodeId, "Pans", state.lastVoicePans]);
+        }
+      }
+    }
+    if (this.ensemblePublish) {
+      for (const [nodeId, snap] of this.ensemblePublish) {
+        if (Array.isArray(snap?.delays)) {
+          dataPorts.push([nodeId, "Delays", snap.delays]);
+        }
+        if (Array.isArray(snap?.pans) && snap.pans.length) {
+          dataPorts.push([nodeId, "Pans", snap.pans]);
         }
       }
     }

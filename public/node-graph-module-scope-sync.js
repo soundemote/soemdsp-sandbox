@@ -569,7 +569,7 @@ function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycl
  * Stereo waterfall uses syncChannel (off/left/right/mono);
  * everything else uses sourceSync on/off (stored as mono/off).
  */
-const NODE_GRAPH_DISPLAY_1D_SYNC_FORM_TYPES = Object.freeze(["trace", "lineBurn", "dot"]);
+const NODE_GRAPH_DISPLAY_1D_SYNC_FORM_TYPES = Object.freeze(["trace", "lineBurn", "scope1dTrace", "dot"]);
 
 function nodeGraphDisplayFormTypeHas1dSync(formType) {
   return NODE_GRAPH_DISPLAY_1D_SYNC_FORM_TYPES.includes(String(formType || "").trim());
@@ -625,6 +625,9 @@ function nodeGraphNodeDisplaySyncSettings(node) {
   }
   if (schema === "lineBurn" && typeof nodeGraphLineBurnSettingsForNode === "function") {
     return nodeGraphLineBurnSettingsForNode(node);
+  }
+  if (schema === "scope1dTrace" && typeof nodeGraphScope1dTraceSettingsForNode === "function") {
+    return nodeGraphScope1dTraceSettingsForNode(node);
   }
   if (typeof nodeGraphTraceDisplaySettingsForNode === "function") {
     return nodeGraphTraceDisplaySettingsForNode(node);

@@ -340,6 +340,8 @@ function cloneNodeGraphTypedDisplaySettings(node) {
         : null;
       return { traceDisplaySettings: normalizeNodeGraphScope2dSettings(mapped, typeDefaults) };
     }
+    case "scope1dTrace":
+      return { traceDisplaySettings: normalizeNodeGraphScope1dTraceSettings(bag) };
     case "scope2dTrace": {
       const typeDefaults = typeof nodeGraphScope2dTraceSettingsDefaultsForModuleType === "function"
         ? nodeGraphScope2dTraceSettingsDefaultsForModuleType(node?.type)

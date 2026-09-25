@@ -105,6 +105,15 @@ const nodeUiDevSettingControls = Object.freeze([
   { defaultValue: 78, id: "nodeUiDevModuleLightSpread", key: "moduleLightSpread", max: 220, min: 40, type: "number" },
   { defaultValue: 8, id: "nodeUiDevModuleGridInset", key: "moduleGridInset", max: 20, min: 0, type: "number" },
   {
+    // World-space px (scales with workspace zoom), like module grid inset.
+    defaultValue: 0,
+    id: "nodeUiDevModuleTitlePadding",
+    key: "moduleTitlePadding",
+    max: 16,
+    min: 0,
+    type: "number",
+  },
+  {
     defaultValue: 52,
     exposeDefault: true,
     id: "nodeUiDevInletOutletSize",
@@ -341,6 +350,7 @@ const nodeUiDevSettingSections = Object.freeze([
       "nodeUiDevModuleStrokeAlpha",
       "nodeUiDevModuleSelectedStrokeColor",
       "nodeUiDevModuleSelectedStrokeAlpha",
+      "nodeUiDevModuleTitlePadding",
       "nodeUiDevModuleGridInset",
       "nodeUiDevViewModuleButtons",
       "nodeUiDevViewModuleOscilloscopes",
