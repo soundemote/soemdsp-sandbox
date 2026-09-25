@@ -454,7 +454,7 @@ function normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(value) {
 }
 
 /** Product default Simulation FPS when unset / non-finite. */
-const nodeGraphDefaultSimulationFps = 120;
+const nodeGraphDefaultSimulationFps = 60;
 
 function normalizeNodeGraphModuleScopeFramesPerSecond(value) {
   const number = Number(value);

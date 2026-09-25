@@ -88,6 +88,7 @@
       "destinationPort": "In",
       "sourceNode": "gravityWalker-1",
       "sourcePort": "Degree",
+      "wireType": "trace",
       "tracePoints": []
     },
     {
@@ -211,13 +212,20 @@
       "sourceNode": "knob-4",
       "sourcePort": "Bias",
       "tracePoints": []
+    },
+    {
+      "destinationNode": "transport-1",
+      "destinationParam": "timeDenominator",
+      "sourceNode": "pluginSlider-1",
+      "sourcePort": "Bias",
+      "tracePoints": []
     }
   ],
   "monitors": [],
   "nodes": [
     {
-      "gx": 22,
-      "gy": -6,
+      "gx": 32,
+      "gy": -3,
       "id": "output",
       "paramMeta": {
         "volume": {
@@ -333,8 +341,8 @@
       }
     },
     {
-      "gx": -14,
-      "gy": -15,
+      "gx": 10,
+      "gy": -6,
       "id": "polyBlep-1",
       "paramMeta": {
         "waveform": {
@@ -597,8 +605,8 @@
       }
     },
     {
-      "gx": 6,
-      "gy": -5,
+      "gx": 25,
+      "gy": -4,
       "id": "reverbEffect-1",
       "paramMeta": {
         "mix": {
@@ -937,11 +945,11 @@
         "brightness": 0.3591,
         "color": "#fcfdbf",
         "dot1Enabled": true,
-        "dot1Size": 0.035,
+        "dot1Size": 0.01,
         "secondaryBrightness": 0.95,
         "secondaryColor": "#0000ff",
         "secondaryEnabled": true,
-        "secondarySize": 0.035,
+        "secondarySize": 0.01,
         "secondaryLineThickness": 0,
         "tertiaryColor": "#00ff00",
         "cycles": 2,
@@ -950,17 +958,17 @@
         "dotBudget": 2048,
         "pixelDensity": 1,
         "padding": 0,
-        "scale": 0.6162,
+        "scale": 1,
         "skipDiscontinuities": true,
         "cmyMode": false,
         "sourceSync": false,
         "stereoBlend": "combine",
         "meetColor": "auto",
         "syncChannel": "off",
-        "historyHz": 0.2213760736739573,
+        "historyHz": 0.1,
         "historyCycles": 4.5172,
-        "historySeconds": 4.5172,
-        "zoomSeconds": 4.5172,
+        "historySeconds": 10,
+        "zoomSeconds": 10,
         "fade": 0,
         "xyzLayout": "stack"
       },
@@ -982,8 +990,8 @@
       }
     },
     {
-      "gx": -4,
-      "gy": -9,
+      "gx": 17,
+      "gy": -6,
       "id": "passiveFilter-1",
       "paramMeta": {
         "mode": {
@@ -1308,8 +1316,8 @@
       }
     },
     {
-      "gx": -36,
-      "gy": -15,
+      "gx": -21,
+      "gy": -13,
       "id": "transport-1",
       "paramMeta": {
         "bpm": {
@@ -1324,7 +1332,7 @@
           "max": 320,
           "maxDigits": 3,
           "mid": 160,
-          "min": 1,
+          "min": 0,
           "reverse": false,
           "nonlinearSlider": false,
           "sliderCurve": "linear",
@@ -1344,8 +1352,8 @@
           "wraparound": false,
           "visible": true,
           "linearSmoothing": true,
-          "outputDomain": true,
-          "domainOffset": 77
+          "outputDomain": false,
+          "domainOffset": 0
         },
         "pulseWidth": {
           "alias": "",
@@ -1366,7 +1374,7 @@
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
+          "smoothingSeconds": 1469,
           "smoothingType": "linear",
           "step": 0,
           "tooltip": "Gate high duty of each cycle (0..1). 0.5 = square. Affects Gate 0-1 / Gate -1+1.",
@@ -1379,7 +1387,7 @@
           "wraparound": false,
           "visible": true,
           "linearSmoothing": true,
-          "outputDomain": false,
+          "outputDomain": true,
           "domainOffset": 0
         },
         "timeNumerator": {
@@ -1429,14 +1437,14 @@
           "max": 64,
           "maxDigits": 2,
           "mid": 8,
-          "min": 1,
+          "min": 0,
           "reverse": false,
           "nonlinearSlider": false,
           "sliderCurve": "linear",
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "global",
-          "smoothingSeconds": null,
+          "smoothingSeconds": 1469,
           "smoothingType": "none",
           "step": 1,
           "tooltip": "Denominator of Numer/Denom × whole note. At Numer=1: Denom 4=¼, 8=⅛, 16=1/16, 32=1/32.",
@@ -1449,7 +1457,7 @@
           "wraparound": false,
           "visible": true,
           "linearSmoothing": false,
-          "outputDomain": false,
+          "outputDomain": true,
           "domainOffset": 0
         },
         "timingMode": {
@@ -1529,11 +1537,12 @@
       },
       "params": {
         "bpm": 79,
+        "beats": 4,
         "pulseWidth": 0.5,
-        "timeNumerator": 1,
-        "timeDenominator": 4,
+        "timeNumerator": 3,
+        "timeDenominator": 0,
         "timingMode": 0,
-        "amplitude": 0.32015674694168217
+        "amplitude": 0.603333570497812
       },
       "type": "transport",
       "transportSettings": {
@@ -1557,8 +1566,8 @@
       }
     },
     {
-      "gx": -28,
-      "gy": -5,
+      "gx": -13,
+      "gy": -2,
       "id": "gravityWalker-1",
       "paramMeta": {
         "gravity": {
@@ -1870,8 +1879,8 @@
       }
     },
     {
-      "gx": 6,
-      "gy": -7,
+      "gx": 24,
+      "gy": -6,
       "id": "textBox-1",
       "paramMeta": {},
       "params": {},
@@ -1910,8 +1919,8 @@
       }
     },
     {
-      "gx": -19,
-      "gy": 5,
+      "gx": -5,
+      "gy": 2,
       "id": "pluckEnvelope3-1",
       "paramMeta": {
         "recalculateOnTrigger": {
@@ -2085,8 +2094,8 @@
       }
     },
     {
-      "gx": -3,
-      "gy": 3,
+      "gx": 3,
+      "gy": 2,
       "id": "sampleHold-1",
       "paramMeta": {
         "interpolate": {
@@ -2273,14 +2282,14 @@
         }
       },
       "params": {
-        "interpolate": 0,
+        "interpolate": 2,
         "polarity": 1,
         "amplitude": 0.19930587172136413,
         "sampleFrequency": 0,
         "threshold": 0.13779978627917888
       },
       "type": "sampleHold",
-      "widthGu": 7,
+      "widthGu": 6,
       "traceDisplaySettings": {
         "backgroundHue": 0,
         "backgroundBrightness": 0,
@@ -2334,8 +2343,8 @@
       }
     },
     {
-      "gx": -21,
-      "gy": 17,
+      "gx": -13,
+      "gy": 12,
       "id": "knob-1",
       "paramMeta": {
         "offset": {
@@ -2413,7 +2422,7 @@
         }
       },
       "params": {
-        "offset": 1,
+        "offset": 0.9416763521082014,
         "displaySource": 0
       },
       "type": "knob",
@@ -2453,439 +2462,8 @@
       }
     },
     {
-      "gx": -28,
-      "gy": 8,
-      "id": "vibratoGenerator-1",
-      "paramMeta": {
-        "frequency": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 5,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "frequency",
-          "bipolar": false,
-          "max": 100,
-          "maxDigits": 5,
-          "mid": 5,
-          "min": 0,
-          "reverse": false,
-          "nonlinearSlider": true,
-          "sliderCurve": "skew",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "Vibrato LFO rate (cheap sine wavetable).",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "Hz",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false,
-          "domainOffset": 0
-        },
-        "morph": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 0,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "decimal",
-          "bipolar": false,
-          "max": 1,
-          "maxDigits": 3,
-          "mid": 0.5,
-          "min": 0,
-          "reverse": false,
-          "nonlinearSlider": false,
-          "sliderCurve": "linear",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
-          "smoothingType": "linear",
-          "step": 0.01,
-          "tooltip": "Reserved waveform morph (0 = sine wavetable).",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false,
-          "domainOffset": 0
-        },
-        "sideMorph": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0.9,
-          "def": 0,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "decimal",
-          "bipolar": false,
-          "max": 0.2,
-          "maxDigits": 3,
-          "mid": 0,
-          "min": 0,
-          "reverse": false,
-          "nonlinearSlider": true,
-          "sliderCurve": "edges",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "Adds sine × Side Morph to phase (cycles). 0 = no phase wobble. Breadboard: Sine → attenuverter → Phase.",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false,
-          "domainOffset": 0
-        },
-        "phase": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 0,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "phase",
-          "bipolar": false,
-          "max": 1,
-          "maxDigits": 3,
-          "mid": 0.5,
-          "min": 0,
-          "reverse": false,
-          "nonlinearSlider": false,
-          "sliderCurve": "linear",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
-          "smoothingType": "linear",
-          "step": 0.01,
-          "tooltip": "LFO phase offset (turns).",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "cycle",
-          "wraparound": true,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false,
-          "domainOffset": 0
-        },
-        "randomFreq": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 0,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "decimal",
-          "bipolar": false,
-          "max": 1,
-          "maxDigits": 3,
-          "mid": 0.5,
-          "min": 0,
-          "reverse": false,
-          "nonlinearSlider": false,
-          "sliderCurve": "linear",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "S&H random multiplier on LFO increment (VibratoGenerator randomFreqMult).",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false,
-          "domainOffset": 0
-        },
-        "randomAmp": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 0,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "decimal",
-          "bipolar": false,
-          "max": 1,
-          "maxDigits": 3,
-          "mid": 0.5,
-          "min": 0,
-          "reverse": false,
-          "nonlinearSlider": false,
-          "sliderCurve": "linear",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "S&H random multiplier on LFO amplitude (VibratoGenerator randomAmpMult).",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false,
-          "domainOffset": 0
-        },
-        "seed": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 1,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "seed",
-          "bipolar": false,
-          "max": 99999,
-          "maxDigits": 0,
-          "mid": 1,
-          "min": 0,
-          "reverse": false,
-          "nonlinearSlider": true,
-          "sliderCurve": "skew",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "global",
-          "smoothingSeconds": null,
-          "smoothingType": "none",
-          "step": 1,
-          "tooltip": "Seed for vibrato S&H randomizers.",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": false,
-          "outputDomain": false,
-          "domainOffset": 0
-        },
-        "attack": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 0.01,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "time",
-          "bipolar": false,
-          "max": 10,
-          "maxDigits": 5,
-          "mid": 0.1,
-          "min": 0,
-          "reverse": false,
-          "nonlinearSlider": true,
-          "sliderCurve": "skew",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "Exponential depth fade-in time when Gate goes high. 0 = instant snap. Unpatched Gate stays at full depth.",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "s",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false,
-          "domainOffset": 0
-        },
-        "release": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 0.1,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "time",
-          "bipolar": false,
-          "max": 10,
-          "maxDigits": 5,
-          "mid": 0.5,
-          "min": 0,
-          "reverse": false,
-          "nonlinearSlider": true,
-          "sliderCurve": "skew",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "Exponential depth fade-out time when Gate goes low. 0 = instant snap.",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "s",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false,
-          "domainOffset": 0
-        },
-        "amplitude": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 1,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "decimal",
-          "bipolar": false,
-          "max": 1,
-          "maxDigits": 3,
-          "mid": 0.5,
-          "min": 0,
-          "reverse": false,
-          "nonlinearSlider": false,
-          "sliderCurve": "linear",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "Output depth (−1…+1 × Amplitude × depthEnv).",
-          "modClamp": false,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false,
-          "domainOffset": 0
-        }
-      },
-      "params": {
-        "frequency": 5,
-        "morph": 0,
-        "sideMorph": 0,
-        "phase": 0,
-        "randomFreq": 0,
-        "randomAmp": 0,
-        "seed": 1,
-        "attack": 0,
-        "release": 0.1,
-        "amplitude": 0
-      },
-      "type": "vibratoGenerator",
-      "widthGu": 7,
-      "traceDisplaySettings": {
-        "backgroundHue": 0,
-        "backgroundBrightness": 0,
-        "background": "#ff0000",
-        "backgroundColor": "#ff0000",
-        "burn": 0,
-        "burnAmount": 1,
-        "residualSchema": 3,
-        "ghost": 0.25,
-        "trail": 0.3,
-        "dot1Brightness": 1,
-        "dot1Color": "#75ebff",
-        "dot1Enabled": true,
-        "dot1Size": 0.02,
-        "dotBudget": 2048,
-        "fullDotEconomy": false,
-        "dotsOnly": false,
-        "sourceSync": false,
-        "skipDiscontinuities": true,
-        "gradientStops": [
-          {
-            "t": 0,
-            "color": "#000000"
-          },
-          {
-            "t": 0.18,
-            "color": "#214247"
-          },
-          {
-            "t": 0.55,
-            "color": "#52a5b3"
-          },
-          {
-            "t": 1,
-            "color": "#75ebff"
-          }
-        ],
-        "lineThickness": 0.35,
-        "pixelDensity": 1,
-        "scale": 1,
-        "sweepHz": 4,
-        "sweepCycles": 4
-      },
-      "ui": {
-        "buttonsHidden": true,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": false,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": false,
-        "displayHeightGu": 2
-      }
-    },
-    {
-      "gx": -9,
-      "gy": 10,
+      "gx": 3,
+      "gy": 13,
       "id": "ampCurve-1",
       "paramMeta": {
         "mode": {
@@ -2951,8 +2529,8 @@
       }
     },
     {
-      "gx": -19,
-      "gy": 1,
+      "gx": -13,
+      "gy": -6,
       "id": "numberReadout-1",
       "paramMeta": {},
       "params": {},
@@ -3026,8 +2604,8 @@
       }
     },
     {
-      "gx": -39,
-      "gy": -1,
+      "gx": -23,
+      "gy": 0,
       "id": "pitchQuantizer-1",
       "paramMeta": {
         "scaleMask": {
@@ -3197,8 +2775,8 @@
       }
     },
     {
-      "gx": -11,
-      "gy": 15,
+      "gx": -5,
+      "gy": -3,
       "id": "attenuverter-1",
       "paramMeta": {
         "amplitude": {
@@ -3297,8 +2875,8 @@
       }
     },
     {
-      "gx": -20,
-      "gy": -14,
+      "gx": 3,
+      "gy": -8,
       "id": "pitchManager-1",
       "paramMeta": {
         "tuning": {
@@ -3540,8 +3118,8 @@
       }
     },
     {
-      "gx": -28,
-      "gy": -14,
+      "gx": -31,
+      "gy": 12,
       "id": "knob-2",
       "paramMeta": {
         "offset": {
@@ -3624,7 +3202,7 @@
       },
       "type": "knob",
       "pluginId": 2,
-      "widthGu": 5,
+      "widthGu": 6,
       "traceDisplaySettings": {
         "decimals": 2,
         "maxDigits": 2,
@@ -3659,8 +3237,8 @@
       }
     },
     {
-      "gx": -37,
-      "gy": 16,
+      "gx": -25,
+      "gy": 12,
       "id": "knob-3",
       "paramMeta": {
         "offset": {
@@ -3738,12 +3316,12 @@
         }
       },
       "params": {
-        "offset": 0.8391836397029924,
+        "offset": 0.8745823318072306,
         "displaySource": 0
       },
       "type": "knob",
       "pluginId": 0,
-      "widthGu": 5,
+      "widthGu": 6,
       "traceDisplaySettings": {
         "decimals": 2,
         "maxDigits": 2,
@@ -3778,8 +3356,8 @@
       }
     },
     {
-      "gx": 1,
-      "gy": 16,
+      "gx": -19,
+      "gy": 12,
       "id": "knob-4",
       "paramMeta": {
         "offset": {
@@ -3862,7 +3440,7 @@
       },
       "type": "knob",
       "pluginId": 5,
-      "widthGu": 5,
+      "widthGu": 6,
       "traceDisplaySettings": {
         "decimals": 2,
         "maxDigits": 2,
@@ -3895,6 +3473,114 @@
         "titleHidden": false,
         "displayHeightGu": 3
       }
+    },
+    {
+      "gx": -35,
+      "gy": -3,
+      "id": "pluginSlider-1",
+      "paramMeta": {
+        "offset": {
+          "alias": "",
+          "choices": [],
+          "curveAmount": 0,
+          "def": 1,
+          "displayChoices": false,
+          "divideChoicesVisibly": false,
+          "kind": "decimal",
+          "bipolar": false,
+          "max": 64,
+          "maxDigits": 3,
+          "mid": 8,
+          "min": 0,
+          "reverse": false,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "internal",
+          "smoothingSeconds": 0.0333,
+          "smoothingType": "linear",
+          "step": 0,
+          "tooltip": "Bias. The face edits this. Min, max, reverse, curve, and smooth time are Parameter Settings.",
+          "modClamp": true,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": true,
+          "outputDomain": true,
+          "domainOffset": 16.90309843574314
+        },
+        "displaySource": {
+          "alias": "",
+          "choices": [
+            "Mouse",
+            "Smoothed"
+          ],
+          "curveAmount": 0,
+          "def": 0,
+          "displayChoices": true,
+          "divideChoicesVisibly": true,
+          "kind": "decimal",
+          "bipolar": false,
+          "max": 1,
+          "maxDigits": 3,
+          "mid": 0,
+          "min": 0,
+          "reverse": false,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "global",
+          "smoothingSeconds": null,
+          "smoothingType": "none",
+          "step": 1,
+          "tooltip": "Mouse = pointer target. Smoothed = Bias after Parameter Settings smooth.",
+          "modClamp": true,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": false,
+          "outputDomain": false,
+          "domainOffset": 0
+        }
+      },
+      "params": {
+        "offset": 1,
+        "displaySource": 0
+      },
+      "type": "pluginSlider",
+      "alias": "timeDenominator",
+      "widthGu": 8,
+      "traceDisplaySettings": {
+        "labelText": "timeDenominator"
+      },
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": false,
+        "displayHeightGu": 2
+      },
+      "pluginId": 3
     }
   ],
   "requiredAssets": [],
@@ -3924,7 +3610,7 @@
     }
   ],
   "timing": {
-    "tempoBpm": 79,
+    "tempoBpm": 120,
     "timeSignatureDenominator": 4,
     "timeSignatureNumerator": 4
   },
@@ -3932,7 +3618,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 47,
-    "zoom": 0.5368205527437513,
+    "zoom": 0.7541942255251732,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,
@@ -3952,56 +3638,65 @@
           {
             "nodeId": "knob-1",
             "enabled": true,
-            "x": 0,
-            "y": 0.32554039874081847,
-            "w": 0.36,
-            "h": 0.32,
-            "z": 300
+            "x": 0.3307291666666667,
+            "y": 0.5731794333683108,
+            "w": 0.08,
+            "h": 0.1730954879328436,
+            "z": 1800
           },
           {
             "nodeId": "pitchQuantizer-1",
             "enabled": true,
             "x": 0.3353125,
-            "y": 0.6540398740818468,
-            "w": 0.36,
-            "h": 0.32,
-            "z": 501
+            "y": 0.7631689401888773,
+            "w": 0.36260416666666667,
+            "h": 0.21087093389296957,
+            "z": 601
           },
           {
             "nodeId": "numberReadout-1",
             "enabled": true,
-            "x": 0.64,
-            "y": 0,
-            "w": 0.36,
-            "h": 0.32,
-            "z": 402
+            "x": 0.3332291666666667,
+            "y": 0.45540398740818466,
+            "w": 0.3855208333333333,
+            "h": 0.11013641133263377,
+            "z": 1502
           },
           {
             "nodeId": "knob-4",
             "enabled": true,
-            "x": 0,
-            "y": 0,
-            "w": 0.36,
-            "h": 0.32,
-            "z": 103
+            "x": 0.42291666666666666,
+            "y": 0.5708289611752361,
+            "w": 0.08,
+            "h": 0.17729275970619102,
+            "z": 1703
           },
           {
             "nodeId": "knob-3",
             "enabled": true,
-            "x": 0.356875,
-            "y": 0,
-            "w": 0.36,
-            "h": 0.32,
-            "z": 204
+            "x": 0.6282291666666667,
+            "y": 0.5739769150052466,
+            "w": 0.08916666666666666,
+            "h": 0.18778593913955932,
+            "z": 1304
           },
           {
             "nodeId": "knob-2",
             "enabled": true,
-            "x": 0.35760416666666667,
-            "y": 0.3032948583420776,
-            "w": 0.36,
-            "h": 0.32,
-            "z": 205
+            "x": 0.5477083333333332,
+            "y": 0.5708709338929696,
+            "w": 0.08,
+            "h": 0.18149003147953832,
+            "z": 1605
+          },
+          {
+            "nodeId": "reverbEffect-1",
+            "enabled": true,
+            "x": 0.3380208333333333,
+            "y": 0.1335781741867786,
+            "w": 0.3808333333333333,
+            "h": 0.3252465897166842,
+            "z": 206
           }
         ]
       },

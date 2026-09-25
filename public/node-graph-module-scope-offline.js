@@ -829,8 +829,8 @@ function nodeGraphModuleScopeDotOscilloscopeLightBuffer(capturedBuffer = null) {
   return capturedBuffer;
 }
 
-// transport's BPM readout (displayType "transportBpm") is model-driven, not
-// buffer-driven -- it reads nodeGraphPatchTimingValue("tempoBpm") directly
+// Metronome BPM readout (displayType "transportBpm") is model-driven, not
+// buffer-driven -- it reads this node's params.bpm directly
 // and has no real audio-rate signal behind it at all ("bpm" isn't a wired
 // output port). Without this, nodeGraphModuleScopeDisplayBuffer() had no
 // branch for it, so it fell through to the generic else-clause and depended

@@ -4898,8 +4898,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
 }
 
 #nodePatchTimingControls {
-  flex: 6.5 1 0;
-  min-inline-size: clamp(300px, 39vw, 620px);
+  flex: 10 1 0;
+  min-inline-size: 0;
 }
 
 .node-scope-master-brightness-control {
@@ -13649,8 +13649,12 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   flex: 0 0 auto;
   line-height: 1;
   max-height: none;
-  /* Label size 0…1 × Dial size 0…1 × face cqmin (module plate / canvas tile). */
-  font-size: calc(var(--knob-label-size, 0.45) * var(--knob-dial-size, 1) * 100cqmin);
+  width: 100%;
+  font-size: 1px;
+  text-fit: grow;
+  white-space: nowrap;
+  transform: scale(var(--knob-label-size, 1));
+  transform-origin: center center;
   pointer-events: auto;
   cursor: text;
   user-select: text;
@@ -13663,28 +13667,32 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   left: auto;
   top: auto;
   bottom: auto;
-  transform: none;
+  transform: scale(var(--knob-label-size, 1));
   order: 0;
 }
 
 .dsp-node .node-knob-face[data-knob-label-position="mid"] .node-macro-knob-label,
 .dsp-node .node-knob-face[data-knob-label-position="mid"] > span:not(.node-macro-knob-dial) {
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
   top: 50%;
   bottom: auto;
   z-index: 3;
-  transform: translate(-50%, -50%);
+  transform: scale(var(--knob-label-size, 1));
+  transform-origin: center center;
 }
 
 .dsp-node .node-knob-face[data-knob-label-position="below"] .node-macro-knob-label,
 .dsp-node .node-knob-face[data-knob-label-position="below"] > span:not(.node-macro-knob-dial) {
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
   top: auto;
   bottom: 2px;
   z-index: 3;
-  transform: translateX(-50%);
+  transform: scale(var(--knob-label-size, 1));
+  transform-origin: center bottom;
 }
 
 .dsp-node .node-knob-face .node-macro-knob-dial > [data-knob-face-readout],
@@ -13694,8 +13702,13 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .node-layout-canvas-tile .node-knob-face .node-macro-knob-dial > .node-macro-knob-value,
 .node-screen-solo-stage .node-knob-face .node-macro-knob-dial > [data-knob-face-readout],
 .node-metamodule-canvas-stage .node-knob-face .node-macro-knob-dial > [data-knob-face-readout] {
-  /* Value size 0…1 × Dial size 0…1 × dial cqmin (same square as the arc). */
-  font-size: calc(var(--knob-value-size, 0.45) * var(--knob-dial-size, 1) * 100cqmin);
+  left: 0;
+  right: 0;
+  width: auto;
+  font-size: 1px;
+  text-fit: grow;
+  white-space: nowrap;
+  transform: scale(var(--knob-value-size, 1));
   line-height: 1;
 }
 
@@ -13710,7 +13723,10 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .dsp-node .node-knob-face:not([data-knob-look="slider"])[data-knob-value-position="above"] > .node-macro-knob-value {
   top: 2px;
   bottom: auto;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  transform: scale(var(--knob-value-size, 1));
+  transform-origin: center top;
 }
 
 .dsp-node .node-knob-face[data-knob-value-position="mid"] .node-macro-knob-dial > [data-knob-face-readout],
@@ -13718,7 +13734,10 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .dsp-node .node-knob-face:not([data-knob-look="slider"])[data-knob-value-position="mid"] > .node-macro-knob-value {
   top: 50%;
   bottom: auto;
-  transform: translate(-50%, -50%);
+  left: 0;
+  right: 0;
+  transform: scale(var(--knob-value-size, 1));
+  transform-origin: center center;
 }
 
 .dsp-node .node-knob-face[data-knob-value-position="below"] .node-macro-knob-dial > [data-knob-face-readout],
@@ -13726,7 +13745,10 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .dsp-node .node-knob-face:not([data-knob-look="slider"])[data-knob-value-position="below"] > .node-macro-knob-value {
   top: auto;
   bottom: 2px;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  transform: scale(var(--knob-value-size, 1));
+  transform-origin: center bottom;
 }
 
 .dsp-node .node-knob-face[data-knob-label-position="off"] .node-macro-knob-label {
@@ -15887,8 +15909,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .node-header-timing-widgets {
   box-sizing: border-box;
   display: grid;
-  /* Tap | BPM | Beats | Unit | Patch Title | Speed | Smooth Time (+ Start/End moved out) */
-  grid-template-columns: minmax(0, 0.74fr) repeat(3, minmax(0, 1fr)) minmax(0, 1.55fr) repeat(2, minmax(0, 1fr));
+  /* Beats | Unit | Patch name (leftover) | Speed | Smooth | Start | End */
+  grid-template-columns: auto auto minmax(10rem, 1fr) auto auto auto auto;
   min-width: 0;
   width: 100%;
   height: 100%;
@@ -16008,9 +16030,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 
 .node-patch-timing-controls {
   display: inline-flex;
-  flex: 1 1 46%;
+  flex: 10 1 0;
   align-items: stretch;
-  min-width: min(620px, 100%);
+  min-width: 0;
   min-height: 0;
   padding: 0;
 }
@@ -16020,6 +16042,10 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   border: 0;
   border-radius: 0;
   overflow: hidden;
+}
+
+.node-header-timing-widgets > .node-header-timing-field {
+  min-inline-size: 3.4rem;
 }
 
 .node-header-timing-field {
@@ -16352,7 +16378,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 }
 
 .node-header-title {
-  display: block;
   box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
@@ -16365,15 +16390,19 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   overflow-wrap: normal;
   border: none;
   background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(
     --node-header-title-font-family,
     "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace
   );
-  font-size: calc(var(--node-header-title-row-height) * 0.62);
+  font-size: 1px;
+  text-fit: none;
   font-weight: 400;
   color: var(--node-module-primary-text-color);
   letter-spacing: 0;
-  line-height: var(--node-header-title-row-height);
+  line-height: 1;
   text-align: center;
   text-overflow: clip;
   text-transform: none;
@@ -16386,6 +16415,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .node-header-title[data-title-editing="1"],
 .node-header-title[data-title-editing="1"]:focus,
 .node-header-title[data-title-editing="1"]:focus-visible {
+  font-size: calc(var(--node-header-title-row-height) * 0.62);
+  text-fit: none;
   user-select: text;
   -webkit-user-select: text;
   outline: none;
@@ -18113,7 +18144,7 @@ body.node-slider-dragging * {
   background: rgba(5, 9, 11, 0.62);
 }
 
-/* Metaparameter row: Save / Restore / Set Default / Restore Default. */
+/* Metaparameter row: Set Default / Restore Default / Make / Pin to canvas. */
 .metadata-field-actions {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -18123,6 +18154,49 @@ body.node-slider-dragging * {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   overflow: visible;
+}
+
+.metadata-make-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.metadata-make-wrap > button {
+  width: 100%;
+}
+
+.metadata-make-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 8;
+  display: grid;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  background: rgba(8, 12, 16, 0.98);
+}
+
+.metadata-make-menu[hidden] {
+  display: none;
+}
+
+.metadata-make-menu button {
+  width: 100%;
+  border-right: 0;
+  text-align: left;
+  padding: 0 0.55rem;
+}
+
+.metadata-pin-canvas-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: var(--metadata-control-row-height, 32px);
+  margin: 0;
+  padding: 0 0.35rem;
+  font-size: var(--metadata-button-size, 0.72rem);
+  white-space: nowrap;
 }
 
 /* Single action (Display Settings "Defaults") fills the full row width. */
@@ -25032,6 +25106,8 @@ code {
   overflow: hidden;
   pointer-events: auto;
   z-index: 2;
+  container-type: size;
+  container-name: pluginbtn;
 }
 .dsp-node .node-plugin-toggle-face canvas,
 .dsp-node .node-plugin-momentary-face canvas {
@@ -25040,12 +25116,45 @@ code {
 .node-plugin-button-label {
   position: absolute;
   z-index: 3;
+  left: 0;
+  right: 0;
+  margin: 0;
+  width: auto;
+  height: auto;
   pointer-events: none;
   color: var(--plugin-btn-text, #f4f7f8);
   font-weight: 700;
+  font-size: 1px;
   line-height: 1;
+  text-align: center;
+  text-fit: grow;
   white-space: nowrap;
   user-select: none;
+  transform: scale(var(--plugin-label-scale, 1));
+}
+[data-label-align="topleft"] > .node-plugin-button-label { top: calc(var(--plugin-label-pad, 0) * 100%); transform-origin: left top; }
+[data-label-align="top"] > .node-plugin-button-label { top: calc(var(--plugin-label-pad, 0) * 100%); transform-origin: center top; }
+[data-label-align="topright"] > .node-plugin-button-label { top: calc(var(--plugin-label-pad, 0) * 100%); transform-origin: right top; }
+[data-label-align="midleft"] > .node-plugin-button-label { top: 50%; transform-origin: left center; }
+[data-label-align="mid"] > .node-plugin-button-label { top: 50%; transform-origin: center center; }
+[data-label-align="midright"] > .node-plugin-button-label { top: 50%; transform-origin: right center; }
+[data-label-align="bottomleft"] > .node-plugin-button-label { bottom: calc(var(--plugin-label-pad, 0) * 100%); transform-origin: left bottom; }
+[data-label-align="bottom"] > .node-plugin-button-label { bottom: calc(var(--plugin-label-pad, 0) * 100%); transform-origin: center bottom; }
+[data-label-align="bottomright"] > .node-plugin-button-label { bottom: calc(var(--plugin-label-pad, 0) * 100%); transform-origin: right bottom; }
+.btn-fit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  font-size: 1px;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  text-fit: grow;
+  transform: scale(var(--plugin-btn-text-scale, 1));
+  transform-origin: center center;
 }
 [data-plugin-button-display-settings-panel] [data-plugin-btn-text] {
   min-width: 0;
@@ -25067,8 +25176,12 @@ code {
   justify-content: center;
   overflow: hidden;
   box-sizing: border-box;
-  width: calc(var(--plugin-btn-scale, 1) * 100%);
-  height: calc(var(--plugin-btn-scale, 1) * 100%);
+  left: calc(var(--plugin-btn-pad-left, 0) * 100%);
+  right: calc(var(--plugin-btn-pad-right, 0) * 100%);
+  top: calc(var(--plugin-btn-pad-top, 0) * 100%);
+  bottom: calc(var(--plugin-btn-pad-bottom, 0) * 100%);
+  width: auto;
+  height: auto;
   flex: 0 0 auto;
   min-width: 0;
   min-height: 0;
@@ -25076,12 +25189,11 @@ code {
   padding: 0;
   appearance: none;
   -webkit-appearance: none;
-  border: var(--plugin-btn-stroke-w, 1px) solid var(--plugin-btn-stroke, #5c5071);
-  border-radius: var(--plugin-btn-radius, 8px);
+  border: calc(var(--plugin-btn-stroke-scale, 0.06) * 8cqmin) solid var(--plugin-btn-stroke, #5c5071);
+  border-radius: 14cqmin;
   corner-shape: squircle;
   color: var(--plugin-btn-text, #f4f7f8);
   font-weight: 700;
-  font-size: 12px;
   line-height: 1;
   letter-spacing: 0;
   text-align: center;

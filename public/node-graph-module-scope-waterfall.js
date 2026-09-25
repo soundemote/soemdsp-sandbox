@@ -284,7 +284,9 @@ function nodeGraphWaterfallColumnPath(buffer, slot, columns, height, prevY, sett
     let maxV = -Infinity;
     let minI = rangeStart;
     let maxI = rangeStart;
-    for (let i = rangeStart; i < rangeEnd; i += 1) {
+    const spanN = rangeEnd - rangeStart;
+    const step = spanN > 48 ? Math.ceil(spanN / 48) : 1;
+    for (let i = rangeStart; i < rangeEnd; i += step) {
       const v = Number(live[i]);
       if (!Number.isFinite(v)) continue;
       if (v < minV) { minV = v; minI = i; }
@@ -864,12 +866,11 @@ function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampl
     // path length or freerun leaves black plate gaps between dabs.
     const pathLen = nodeGraphWaterfallPathLength(points);
     const spacing = Math.max(0.25, rad * 0.65 / Math.max(1 / 4000, density * 2));
-    const needDots = Math.ceil(pathLen / spacing) + points.length + 64;
-    const budget = Math.max(
-      4096,
-      Math.min(16384, nodeGraphFiniteNumber(settings.dotBudget, 1024)),
-      needDots,
-    );
+    const needDots = Math.ceil(pathLen / spacing) + points.length + 8;
+    // New columns only. The tape already holds scrolled pixels — do not
+    // restamp a multi-thousand-dot history every frame.
+    const cap = Math.max(16, Math.min(2048, Math.round(nodeGraphFiniteNumber(settings.dotBudget, 256))));
+    const budget = Math.max(8, Math.min(cap, needDots));
     TraceTape.stamp(tape, {
       pathPoints: points,
       radius: rad,
@@ -1155,9 +1156,6 @@ function nodeGraphWaterfallPaint(spec) {
       }
       st.frac = 0;
       nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
-      if (typeof paintNodeGraphOutputProtectOverlay === "function") {
-        paintNodeGraphOutputProtectOverlay(context, canvas, spec.density);
-      }
       remember();
       return true;
     }
@@ -1194,9 +1192,6 @@ function nodeGraphWaterfallPaint(spec) {
     { scrollPx: columns },
   );
   nodeGraphWaterfallFinishOutputInk(spec, context, canvas, columns);
-  if (typeof paintNodeGraphOutputProtectOverlay === "function") {
-    paintNodeGraphOutputProtectOverlay(context, canvas, spec.density);
-  }
   remember();
   return true;
 }

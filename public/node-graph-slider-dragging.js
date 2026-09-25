@@ -292,24 +292,7 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
     // here on every pointer sample â€” that was thrashing layout.
     return;
   }
-  // transport's "BPM" param mirrors the patch-wide tempo, not an independent
-  // per-node value -- committing it here writes patch.timing.tempoBpm too
-  // (via the same clone-then-commit path the header's own BPM field uses) so
-  // the change reaches the worklet's this.timing and every other transport
-  // node's own BPM slider, instead of only updating this one node's params.
-  if (patchNode.type === "transport" && key === "bpm") {
-    const nextPatch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-    nextPatch.timing = normalizeNodeGraphPatchTiming({
-      ...nextPatch.timing,
-      tempoBpm: patchNode.params.bpm,
-    });
-    syncNodeGraphTransportBpmParams(nextPatch, nextPatch.timing);
-    commitNodeGraphPatch(nextPatch, {
-      markPending: false,
-      status: "bpm synced",
-    });
-    return;
-  }
+
   syncNodeGraphScriptView(options.status || "parameter synced", true);
   renderNodeGraphExecutionPlanDebug();
   syncNodeGraphGhostSliders();
@@ -432,6 +415,15 @@ function commitNodeSliderDragValue(slider, status = "parameter changed") {
   markNodeGraphRenderPending();
   scheduleNodeGraphLiveParameterSync();
   scheduleNodeGraphModuleScopeDrawIfNeeded();
+}
+
+function nodeSliderCtrlClickDefaultValue(slider) {
+  const abs = Number(slider?.dataset?.paramDefault);
+  if (Number.isFinite(abs)) {
+    return abs;
+  }
+  const ui = Number(slider?.dataset?.default);
+  return Number.isFinite(ui) ? ui : NaN;
 }
 
 function setNodeSliderValue(slider, value, options = {}) {
@@ -748,8 +740,11 @@ function bindNodeGraphNativeSliderModifiers(input, defaultValue) {
     }
     // Ctrl/Cmd click = reset (same as module face sliders).
     if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
-      if (Number.isFinite(Number(input.dataset.default))) {
-        emit(clamp(Number(input.dataset.default)));
+      const reset = typeof nodeSliderCtrlClickDefaultValue === "function"
+        ? nodeSliderCtrlClickDefaultValue(input)
+        : Number(input.dataset.paramDefault ?? input.dataset.default);
+      if (Number.isFinite(reset)) {
+        emit(clamp(reset));
         event.preventDefault();
         event.stopPropagation();
       }
@@ -1322,7 +1317,10 @@ function endNodeSliderDrag(event) {
     drag.surface.releasePointerCapture(event.pointerId);
   }
   if (drag.resetToDefaultOnClick && !drag.moved) {
-    setNodeSliderValue(drag.slider, Number(drag.slider.dataset.default), { interaction: "drag" });
+    const reset = nodeSliderCtrlClickDefaultValue(drag.slider);
+    if (Number.isFinite(reset)) {
+      setNodeSliderValue(drag.slider, reset, { interaction: "drag" });
+    }
   }
   commitNodeSliderDragValue(
     drag.slider,

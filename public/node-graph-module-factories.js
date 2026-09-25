@@ -25,7 +25,10 @@ function createNodeGraphPort(node, type, port, io) {
     }
   }
   const portLabel = nodeGraphPatchNodePortDisplayLabel(node, type, port, io);
-  const label = `${nodeGraphNodeLabels[type]} ${io} port ${portLabel}`;
+  const spoken = (typeof nodeGraphGateTriggerPortSpokenName === "function"
+    && nodeGraphGateTriggerPortSpokenName(type, port))
+    || portLabel;
+  const label = `${nodeGraphNodeLabels[type]} ${io} port ${spoken}`;
   button.setAttribute("aria-label", label);
   const portTip = nodeGraphPortTooltipText(type, port, io);
   if (portTip) {
@@ -70,10 +73,22 @@ function nodeGraphPortTooltipText(type, port, io) {
 }
 
 function nodeGraphPortDisplayLabel(type, port, io) {
+  const glyph = typeof nodeGraphGateTriggerPortDisplayLabel === "function"
+    ? nodeGraphGateTriggerPortDisplayLabel(type, port)
+    : "";
+  if (glyph) {
+    return nodeGraphStereoJackDisplayLabel(glyph, type, port);
+  }
   const labels = io === "output"
     ? nodeGraphModuleDefinitions[type]?.outputLabels
     : nodeGraphModuleDefinitions[type]?.inputLabels;
   const raw = labels?.[port] || port;
+  const thru = typeof nodeGraphThruPairPortDisplayLabel === "function"
+    ? nodeGraphThruPairPortDisplayLabel(type, port, raw)
+    : "";
+  if (thru) {
+    return nodeGraphStereoJackDisplayLabel(thru, type, port);
+  }
   const freq = typeof nodeGraphFrequencyValuePortDisplayLabel === "function"
     ? nodeGraphFrequencyValuePortDisplayLabel(raw)
     : raw;
@@ -148,9 +163,12 @@ function createNodeGraphIoColumn(node, type, ports, io) {
     row.dataset.alias = nodeGraphLabel(node, port);
     const portLabel = nodeGraphPatchNodePortDisplayLabel(node, type, port, io);
     maxLabelChars = Math.max(maxLabelChars, String(portLabel || "").length);
+    const spoken = (typeof nodeGraphGateTriggerPortSpokenName === "function"
+      && nodeGraphGateTriggerPortSpokenName(type, port))
+      || portLabel;
     row.setAttribute(
       "aria-label",
-      `${nodeGraphNodeLabels[type]} ${io} port ${portLabel} interaction area`,
+      `${nodeGraphNodeLabels[type]} ${io} port ${spoken} interaction area`,
     );
     const portTip = nodeGraphPortTooltipText(type, port, io);
     if (portTip) {
@@ -845,13 +863,18 @@ function createNodeGraphParameter(node, type, parameter) {
   input.step = metadata?.step > 0 ? String(metadata.step) : "any";
   // Prefer live patch value (critical for Metamodule mx_* mirrors).
   const patchValue = patchNode?.params?.[parameter.key];
+  const patchDef = Number(patchNode?.paramMeta?.[parameter.key]?.def);
   const seedValue = (patchValue != null && Number.isFinite(Number(patchValue)))
     ? patchValue
-    : (metadata?.def ?? parameter.defaultValue);
+    : (Number.isFinite(patchDef) ? patchDef : (metadata?.def ?? parameter.defaultValue));
   input.value = String(seedValue);
   input.dataset.step = metadata?.step > 0 ? String(metadata.step) : "any";
   input.dataset.mid = String(metadata?.mid ?? parameter.mid);
-  input.dataset.default = String(metadata?.def ?? parameter.defaultValue);
+  const defValue = Number.isFinite(patchDef)
+    ? patchDef
+    : (metadata?.def ?? parameter.defaultValue);
+  input.dataset.paramDefault = String(defValue);
+  input.dataset.default = String(defValue);
   input.dataset.kind = metadata?.kind || "decimal";
   input.dataset.maxDigits = String(
     normalizeNodeGraphMetadataMaxDigits(metadata?.maxDigits, metadata?.kind),

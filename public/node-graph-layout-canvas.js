@@ -388,6 +388,8 @@ function beginNodeGraphLayoutCanvasStage(nodeIds, mode = "perform") {
       placeholder,
       nextSibling,
       savedLayout,
+      savedFaceDom: entry.savedFaceDom,
+      hostWasOscilloscopeHidden: entry.hostWasOscilloscopeHidden,
       sourceWidth: Math.max(1, entry.face.clientWidth || 1),
       sourceHeight: Math.max(1, entry.face.clientHeight || 1),
       tile,

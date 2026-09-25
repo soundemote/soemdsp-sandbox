@@ -1,5 +1,5 @@
-// Transport — pure math for offline/render (and worklet JS fallback).
-// Tempo from timing.tempoBpm / params.bpm.
+// Metronome — pure math for offline/render (and worklet JS fallback).
+// Tempo from this node's params.bpm.
 // Rate = Numer/Denom × whole note (same family as Ping Pong), with
 // Normal / Dotted / Triplet. pulseWidth = gate high duty (0..1).
 

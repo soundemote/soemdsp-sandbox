@@ -442,6 +442,10 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
   if (t === "vibratoGenerator") {
     if (k === "sideMorph") return P.NATIVE_GRAPH_PARAM_MIX;
   }
+  if (t === "transport") {
+    if (k === "beats") return P.NATIVE_GRAPH_PARAM_STAGES;
+    if (k === "bpm") return P.NATIVE_GRAPH_PARAM_TEMPO_BPM;
+  }
   if (t === "chorus") {
     if (k === "voices") return P.NATIVE_GRAPH_PARAM_STAGES;
     if (k === "delay") return P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR;
@@ -731,6 +735,12 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "f") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
     if (p === "beat f" || p === "beatf" || p === "beat ƒ") {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+    }
+    if (p === "click" || p === "click l" || p === "click left") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE;
+    }
+    if (p === "click r" || p === "click right") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_TRI;
     }
   }
   // MixStereo2/4 pair jacks (L1/R1 share Left/Right; L2–L4/R2–R3 on taps; R4 aux).
@@ -5302,6 +5312,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("timeNumerator", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("timeNumerator", 1));
       push("timeDenominator", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("timeDenominator", 4));
       push("timingMode", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("timingMode", 0));
+      push("beats", P.NATIVE_GRAPH_PARAM_STAGES, disc("beats", 4));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -7358,6 +7369,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Ramp"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_SQUARE) {
+    if (type === "transport") return ["Click", "Click L", "Click Left"];
     if (type === "fractalBrownianNoise") return ["Out Z Raw"];
     if (type === "phoneTone") return ["Analog Thru"];
     if (type === "comparator") return ["Change"];
@@ -7367,6 +7379,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Square"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_TRI) {
+    if (type === "transport") return ["Click R", "Click Right"];
     if (type === "phoneTone") return ["Digital Thru"];
     if (type === "comparator") return ["Steady"];
     if (type === "mixStereo4" || type === "mixStereo") return ["R3"];

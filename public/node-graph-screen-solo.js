@@ -646,14 +646,13 @@ function nodeGraphScreenSoloRestoreItem(item) {
   if (!face) {
     return;
   }
+  nodeGraphScreenSoloRestoreSubtree(item.savedFaceDom);
   face.classList.remove("node-screen-solo-face", "node-layout-canvas-face");
   face.removeAttribute("data-solo-fit");
-  face.style.removeProperty("--node-screen-solo-item-w");
-  face.style.removeProperty("--node-screen-solo-item-h");
-  // Shared face DOM: drop any canvas-measured size px before returning to plate.
-  face.style.removeProperty("--knob-cell");
-  face.style.removeProperty("--knob-face-min");
-  nodeGraphScreenSoloApplySavedFaceLayout(face, item.savedLayout);
+  if (item.hostWasOscilloscopeHidden) {
+    item.host?.classList.add("oscilloscope-hidden");
+  }
+  nodeGraphScreenSoloInvalidateFaceMeasure(face);
   nodeGraphScreenSoloInsertFace(item);
   if (item.placeholder?.isConnected) {
     item.placeholder.remove();
@@ -678,6 +677,61 @@ function nodeGraphScreenSoloRelayoutHost(host, nodeId) {
   applyNodeGraphModuleLayout(host, patch || undefined);
 }
 
+/**
+ * Canvas placement (tile x/y/w/h) and the workspace plate share one face DOM.
+ * Snapshot inline geometry before the tile stretches it. Restore on exit so
+ * canvas size cannot stick. 0–1 paint scale is unchanged — it remeasures
+ * whatever box the face is in.
+ */
+function nodeGraphScreenSoloSnapshotSubtree(root) {
+  if (!(root instanceof Element)) {
+    return [];
+  }
+  const list = [root, ...root.querySelectorAll("*")];
+  return list.map((el) => ({
+    el,
+    style: el.getAttribute("style"),
+    hidden: el.hidden === true || el.hasAttribute("hidden"),
+  }));
+}
+
+function nodeGraphScreenSoloRestoreSubtree(rows) {
+  if (!Array.isArray(rows)) {
+    return;
+  }
+  for (const row of rows) {
+    const el = row?.el;
+    if (!(el instanceof Element)) {
+      continue;
+    }
+    if (row.style == null) {
+      el.removeAttribute("style");
+    } else {
+      el.setAttribute("style", row.style);
+    }
+    if (row.hidden) {
+      el.hidden = true;
+    } else {
+      el.hidden = false;
+      el.removeAttribute("hidden");
+    }
+  }
+}
+
+function nodeGraphScreenSoloInvalidateFaceMeasure(face) {
+  if (!(face instanceof Element)) {
+    return;
+  }
+  face._filterCurveLaidOut = false;
+  face._filterCurveForceDraw = true;
+  face._roundShapeLaidOut = false;
+  face._roundShapeForceDraw = true;
+  face._basicShapeLaidOut = false;
+  face._basicShapeForceDraw = true;
+  face._sinCos4LaidOut = false;
+  face._sinCos4ForceDraw = true;
+}
+
 function nodeGraphScreenSoloCollectFaces(nodeIds) {
   const seen = new Set();
   const collected = [];
@@ -692,6 +746,9 @@ function nodeGraphScreenSoloCollectFaces(nodeIds) {
     if (found.face?.classList?.contains("node-module-display-placeholder")) {
       continue;
     }
+    // Snapshot before canvas/solo mutates shared face geometry.
+    found.savedFaceDom = nodeGraphScreenSoloSnapshotSubtree(found.face);
+    found.hostWasOscilloscopeHidden = Boolean(found.host?.classList?.contains("oscilloscope-hidden"));
     // Solo must show the face even if the module currently hides scopes / faces.
     found.host?.classList.remove("oscilloscope-hidden");
     found.face.hidden = false;
@@ -773,6 +830,8 @@ function beginNodeGraphScreenSoloGrid(nodeIds) {
       placeholder,
       nextSibling,
       savedLayout,
+      savedFaceDom: entry.savedFaceDom,
+      hostWasOscilloscopeHidden: entry.hostWasOscilloscopeHidden,
       sourceWidth,
       sourceHeight,
     });

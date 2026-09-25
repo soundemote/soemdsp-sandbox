@@ -394,11 +394,14 @@ extern "C" double soemdsp_transport_sample(
   double timingMode,
   double tempoBpm,
   double pulseWidth,
+  double beats,
   double sampleRate,
   double masterSample
 );
+extern "C" void soemdsp_transport_reset(int handle, double masterSample);
 extern "C" double soemdsp_transport_unipolar(int handle);
 extern "C" double soemdsp_transport_frequency(int handle);
+extern "C" double soemdsp_transport_click(int handle, double sampleRate);
 
 extern "C" int soemdsp_alias_sine_create();
 extern "C" void soemdsp_alias_sine_destroy(int handle);
@@ -2082,9 +2085,9 @@ struct Circuit {
   float sampleRate;
   double globalTimeSamples;
   // Processed sample index while Live is running (paused = frozen).
-  // Master Clock phase is derived from this so gates stay on the beat.
+  // Metronome phase is derived from this so gates stay on the beat.
   double masterSamples;
-  // Host project tempo. > 1 replaces the Master Clock BPM knob.
+  // Host project tempo (plugin). Metronome BPM is per-node; this is unused.
   double hostTempoBpm;
   // Patch-wide pitch transpose (octaves). Multiplies pitched Hz by 2^oct.
   double pitchOffsetOctaves;
@@ -2994,7 +2997,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLogSpiral) ? 4.0 // turns
       : (typeId == kTypeMushroom || typeId == kTypeKeplerBouwkamp
           || typeId == kTypeRadar || typeId == kTypeWirdoSpiral) ? 1.0
-      : (typeId == kTypeTransport) ? 0.0
+      : (typeId == kTypeTransport) ? 4.0 // Beats per bar (downbeat)
       : (typeId == kTypeAntisaw) ? 64.0
       : (typeId == kTypeArchimedes) ? 12.0
       : (typeId == kTypeAdditiveOsc || typeId == kTypeAdditiveGenerator) ? 32.0
@@ -10146,38 +10149,43 @@ static void process_phosphillator(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Master Clock / transport: tempo square locked to graph masterSamples.
-// Changing Numer/Denom/Sync/BPM re-grids onto the same playhead (not free-run).
-// Gate -1+1→Mono, Gate 0-1→Left, Trigger→Right (1-sample spike), f (Hz)→Saw,
-// beat f (BPM/60, one cycle per beat)→Ramp.
-// Trigger = rising edge of unipolar high (node.lastReset = wasHigh latch).
-// width = pulseWidth (gate duty). Rate = Numer/Denom × whole note × Sync.
+// Metronome: per-clock t0. phase = ((master − t0)/sr) × f(BPM, Numer, Denom).
+// Gate -1+1→Mono, Gate 0-1→Left, Trigger→Right, f→Saw, beat f→Ramp.
+// Click L/R → Square/Tri. Reset → kPortReset.
 static void process_transport(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const double amplitude = control_effective(node.amplitude);
-  const double timeNumerator = control_effective(node.timeNumerator);
-  const double timeDenominator = control_effective(node.timeDenominator);
-  const double timingMode = control_effective(node.timingMode);
-  const double knobBpm = control_effective(node.tempoBpm);
-  const double tempoBpm = g.hostTempoBpm > 1.0 ? g.hostTempoBpm : knobBpm;
-  const double pulseWidth = control_effective(node.width);
-  bool wasHigh = node.lastReset > 0.5;
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  if (!liveReset) node.lastReset = 0.0;
+  bool wasHigh = node.phase > 0.5; // reuse phase as wasHigh latch (0/1)
+  // lastReset is Reset-jack latch; keep wasHigh in node.phase for trigger edge.
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
+    const double now = g.masterSamples + (double)f;
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        soemdsp_transport_reset(node.nativeHandle, now);
+      }
+      node.lastReset = rv;
+    }
+    const double amplitude = control_audio(g, node.amplitude, f);
+    const double bpm = control_audio(g, node.tempoBpm, f);
     const double bipolar = soemdsp_transport_sample(
       node.nativeHandle,
       amplitude,
-      timeNumerator,
-      timeDenominator,
-      timingMode,
-      tempoBpm,
-      pulseWidth,
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.timingMode, f),
+      bpm,
+      control_audio(g, node.width, f),
+      control_audio(g, node.stages, f),
       sr,
-      g.masterSamples + (double)f
+      now
     );
     const double unipolar = soemdsp_transport_unipolar(node.nativeHandle);
     const double freqHz = soemdsp_transport_frequency(node.nativeHandle);
+    const double click = soemdsp_transport_click(node.nativeHandle, sr);
     const bool isHigh = unipolar > 0.0;
     const double trig = (isHigh && !wasHigh) ? amplitude : 0.0;
     wasHigh = isHigh;
@@ -10186,9 +10194,11 @@ static void process_transport(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = unipolar;
     node.buf[kPortRight][f] = trig;
     node.buf[kPortSaw][f] = freqHz;
-    node.buf[kPortRamp][f] = ((tempoBpm > 1.0) ? tempoBpm : 1.0) / 60.0;
+    node.buf[kPortRamp][f] = ((bpm > 1.0) ? bpm : 1.0) / 60.0;
+    node.buf[kPortSquare][f] = click;
+    node.buf[kPortTri][f] = click;
   }
-  node.lastReset = wasHigh ? 1.0 : 0.0;
+  node.phase = wasHigh ? 1.0 : 0.0;
 }
 
 // Pump Limiter: look-ahead + threshold/ratio GR. Sidechain on Morph bus when wired.

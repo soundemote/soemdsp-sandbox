@@ -51,33 +51,33 @@ function nodeGraphSliderFaceApplyPin(el, align, pad, scale, fallbackAlign) {
   set("right", "auto");
   set("bottom", "auto");
   set("margin", "0");
-  set("width", "max-content");
-  set("height", "1em");
+  set("width", "auto");
+  set("height", "auto");
   set("line-height", "1");
   set("white-space", "nowrap");
   set("overflow", "visible");
   set("z-index", "3");
-  set("font-size", `calc(${sc} * 100cqmin)`);
+  set("font-size", "1px");
+  set("text-fit", "grow");
+  set("--fit-scale", String(sc));
   const inset = `${(p * 100).toFixed(4)}%`;
-  if (a === "topleft") {
-    set("top", inset); set("left", inset); set("transform", "none");
-  } else if (a === "top") {
-    set("top", inset); set("left", "50%"); set("transform", "translateX(-50%)");
-  } else if (a === "topright") {
-    set("top", inset); set("right", inset); set("transform", "none");
-  } else if (a === "midleft") {
-    set("top", "50%"); set("left", inset); set("transform", "translateY(-50%)");
-  } else if (a === "mid") {
-    set("top", "50%"); set("left", "50%"); set("transform", "translate(-50%, -50%)");
-  } else if (a === "midright") {
-    set("top", "50%"); set("right", inset); set("transform", "translateY(-50%)");
-  } else if (a === "bottomleft") {
-    set("bottom", inset); set("left", inset); set("transform", "none");
-  } else if (a === "bottom") {
-    set("bottom", inset); set("left", "50%"); set("transform", "translateX(-50%)");
-  } else {
-    set("bottom", inset); set("right", inset); set("transform", "none");
-  }
+  const origin = {
+    topleft: "left top",
+    top: "center top",
+    topright: "right top",
+    midleft: "left center",
+    mid: "center center",
+    midright: "right center",
+    bottomleft: "left bottom",
+    bottom: "center bottom",
+  }[a] || "right bottom";
+  set("left", "0");
+  set("right", "0");
+  if (a.startsWith("top")) set("top", inset);
+  else if (a.startsWith("bottom")) set("bottom", inset);
+  else set("top", "50%");
+  set("transform-origin", origin);
+  set("transform", `scale(${sc})`);
 }
 
 function nodeGraphSliderFaceApplyStyle(face, settings) {
@@ -265,12 +265,12 @@ function buildNodeGraphSliderFaceDisplaySettingsHtml() {
     })
     : "";
   return `
+    <div class="metadata-section-title">Label</div>
+    <div class="metadata-field-section">${row(toggleRow, ["sliderShowLabel", "sliderLabelInside"])}${row(choiceRow, ["sliderLabelAlign"])}${row(fieldRow, ["sliderLabelPadding", "sliderLabelScale"])}</div>
     <div class="metadata-section-title">Bar</div>
     <div class="metadata-field-section">${row(fieldRow, ["sliderLength", "sliderHeight", "sliderPadding"])}</div>
     <div class="metadata-field-section">${row(choiceRow, ["sliderAlign"])}</div>
     <div class="metadata-field-section">${corners}</div>
-    <div class="metadata-section-title">Label</div>
-    <div class="metadata-field-section">${row(toggleRow, ["sliderShowLabel", "sliderLabelInside"])}${row(choiceRow, ["sliderLabelAlign"])}${row(fieldRow, ["sliderLabelPadding", "sliderLabelScale"])}</div>
     <div class="metadata-section-title">Number</div>
     <div class="metadata-field-section">${row(toggleRow, ["sliderShowNumber", "sliderNumberInside"])}${row(choiceRow, ["sliderNumberAlign"])}${row(fieldRow, ["maxDigits", "sliderNumberPadding", "sliderNumberScale"])}</div>
     <div class="metadata-section-title">Unit</div>

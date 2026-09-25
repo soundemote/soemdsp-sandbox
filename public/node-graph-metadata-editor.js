@@ -1637,6 +1637,12 @@ function fillNodeMetadataPopover(slider) {
   setNodeMetadataAdvancedScriptVisible(false);
   setNodeMetadataFieldsDirty(false);
   document.getElementById("metadataRestoreDefaultButton")?.classList.remove("armed");
+  const pinCanvas = document.getElementById("metadataPinToCanvasValue");
+  if (pinCanvas) {
+    const canvasOn = typeof nodeGraphLayoutCanvasMode === "function"
+      && nodeGraphLayoutCanvasMode() !== "off";
+    pinCanvas.checked = Boolean(canvasOn);
+  }
   setNodeMetadataPopoverBlankState(false);
 }
 
@@ -2399,10 +2405,34 @@ function bindNodeGraphMetadataPopoverEvents() {
     setCurrentDefaultButton.dataset.metadataSetCurrentDefaultBound = "true";
     setCurrentDefaultButton.addEventListener("click", confirmAndSetNodeMetadataCurrentValueAsDefault);
   }
-  const restoreFields = document.getElementById("metadataRestoreFieldsButton");
-  if (restoreFields && restoreFields.dataset.metadataRestoreFieldsBound !== "true") {
-    restoreFields.dataset.metadataRestoreFieldsBound = "true";
-    restoreFields.addEventListener("click", restoreNodeMetadataEditorFields);
+  const makeButton = document.getElementById("metadataMakeControllerButton");
+  const makeMenu = document.getElementById("metadataMakeControllerMenu");
+  if (makeButton && makeMenu && makeButton.dataset.metadataMakeBound !== "true") {
+    makeButton.dataset.metadataMakeBound = "true";
+    makeButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const open = makeMenu.hidden;
+      makeMenu.hidden = !open;
+      makeButton.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    makeMenu.addEventListener("click", (event) => {
+      const kind = event.target?.closest?.("[data-make-kind]")?.dataset?.makeKind;
+      if (!kind) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      makeMenu.hidden = true;
+      makeButton.setAttribute("aria-expanded", "false");
+      nodeGraphMakeControllerForOpenParameter(kind);
+    });
+    document.addEventListener("click", () => {
+      if (!makeMenu.hidden) {
+        makeMenu.hidden = true;
+        makeButton.setAttribute("aria-expanded", "false");
+      }
+    });
   }
   const advancedToggle = document.getElementById("metadataAdvancedToggle");
   if (advancedToggle && advancedToggle.dataset.metadataAdvancedBound !== "true") {
@@ -2422,8 +2452,8 @@ function bindNodeGraphMetadataPopoverEvents() {
   const scriptRefresh = document.getElementById("metadataScriptRefresh");
   if (scriptRefresh && scriptRefresh.dataset.metadataScriptRefreshBound !== "true") {
     scriptRefresh.dataset.metadataScriptRefreshBound = "true";
-    scriptRefresh.textContent = "Restore";
-    scriptRefresh.title = "Restore script text from the selected parameter's current metadata.";
+    scriptRefresh.textContent = "Reload script";
+    scriptRefresh.title = "Reload script text from the selected parameter's current metadata.";
     scriptRefresh.addEventListener("click", () => syncNodeMetadataScriptFromFields({ force: true }));
   }
   const scriptKindTemplate = document.getElementById("metadataScriptKindTemplate");
@@ -2735,17 +2765,164 @@ function applyNodeMetadataShowMetaparameterFromEditor(slider, patchNode) {
   }
 }
 
-function restoreNodeMetadataEditorFields() {
-  const slider = document.getElementById(nodeGraphMvp.metadataEditorTarget);
-  if (!slider) {
+function nodeGraphMakeControllerForOpenParameter(kind) {
+  const type = String(kind || "").trim();
+  if (
+    type !== "pluginSlider"
+    && type !== "knob"
+    && type !== "toggleButton"
+    && type !== "momentaryButton"
+  ) {
     return;
   }
-  const metadata = nodeSliderMetadata(slider);
-  writeNodeMetadataEditorValues(metadata);
-  setMetadataScriptSourceText(formatNodeMetadataScript(slider, metadata));
-  setNodeMetadataScriptDirty(false, "restored", false);
-  setNodeMetadataFieldsDirty(false);
-  document.getElementById("metadataRestoreDefaultButton").classList.remove("armed");
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Patch is locked.");
+    }
+    return;
+  }
+  const slider = document.getElementById(nodeGraphMvp.metadataEditorTarget);
+  const destEl = slider?.closest?.(".dsp-node");
+  const destId = String(destEl?.dataset?.node || "").trim();
+  const paramKey = String(slider?.dataset?.param || "").trim();
+  const dest = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(destId) : null;
+  if (!slider || !destId || !paramKey || !dest) {
+    return;
+  }
+  const live = nodeGraphMvp.patch;
+  if (!live || !Array.isArray(live.nodes)) {
+    return;
+  }
+  const meta = typeof nodeSliderMetadata === "function" ? nodeSliderMetadata(slider) : {};
+  const displayName = String(meta.label || paramKey || type).trim();
+  const destWidth = Number.isFinite(Number(dest.widthGu))
+    ? Number(dest.widthGu)
+    : (typeof nodeGraphDefaultModuleGridWidthUnits === "function"
+      ? nodeGraphDefaultModuleGridWidthUnits(dest.type)
+      : 6);
+  const destMeta = dest.paramMeta?.[paramKey] && typeof dest.paramMeta[paramKey] === "object"
+    ? dest.paramMeta[paramKey]
+    : {};
+  const currentValue = typeof nodeGraphReadNodeNumber === "function"
+    ? Number(nodeGraphReadNodeNumber(destId, paramKey))
+    : Number(dest.params?.[paramKey]);
+  let value = Number.isFinite(currentValue) ? currentValue : Number(meta.defaultValue);
+  if (typeof nodeGraphParamFoldOrBase === "function") {
+    const folded = Number(nodeGraphParamFoldOrBase(
+      Number.isFinite(value) ? value : 0,
+      [],
+      destMeta,
+    ));
+    if (Number.isFinite(folded)) {
+      value = folded;
+    }
+  }
+  const min = Number(meta.min ?? destMeta.min);
+  const max = Number(meta.max ?? destMeta.max);
+  const mid = Number(meta.mid ?? destMeta.mid);
+  const counts = typeof nextNodeGraphTypeCounts === "function"
+    ? nextNodeGraphTypeCounts(live.nodes)
+    : {};
+  counts[type] = (counts[type] || 0) + 1;
+  const id = `${type}-${counts[type]}`;
+  const newNode = createNodeGraphPatchNode(type, {
+    id,
+    gx: Number(dest.gx) + destWidth + 0.35,
+    gy: Number(dest.gy),
+    alias: displayName,
+  });
+  if (!newNode.params || typeof newNode.params !== "object") {
+    newNode.params = {};
+  }
+  if (!newNode.paramMeta || typeof newNode.paramMeta !== "object") {
+    newNode.paramMeta = {};
+  }
+  const biasMeta = {
+    ...(newNode.paramMeta.offset && typeof newNode.paramMeta.offset === "object"
+      ? newNode.paramMeta.offset
+      : {}),
+    outputDomain: true,
+    domainOffset: Number.isFinite(value) ? value : 0,
+  };
+  if (Number.isFinite(min)) biasMeta.min = min;
+  if (Number.isFinite(max)) biasMeta.max = max;
+  if (Number.isFinite(mid)) biasMeta.mid = mid;
+  if (Number.isFinite(value)) {
+    biasMeta.def = value;
+  }
+  newNode.params.offset = 0;
+  if (meta.reverse != null) biasMeta.reverse = Boolean(meta.reverse);
+  if (meta.bipolar != null) biasMeta.bipolar = Boolean(meta.bipolar);
+  if (meta.nonlinearSlider != null) biasMeta.nonlinearSlider = Boolean(meta.nonlinearSlider);
+  if (meta.sliderCurve != null) biasMeta.sliderCurve = meta.sliderCurve;
+  if (meta.curveAmount != null) biasMeta.curveAmount = meta.curveAmount;
+  if (meta.unit) biasMeta.unit = meta.unit;
+  newNode.paramMeta.offset = biasMeta;
+  if (!dest.params || typeof dest.params !== "object") {
+    dest.params = { ...(dest.params || {}) };
+  }
+  if (!dest.paramMeta || typeof dest.paramMeta !== "object") {
+    dest.paramMeta = { ...(dest.paramMeta || {}) };
+  }
+  dest.paramMeta[paramKey] = {
+    ...(dest.paramMeta[paramKey] && typeof dest.paramMeta[paramKey] === "object"
+      ? dest.paramMeta[paramKey]
+      : {}),
+    outputDomain: true,
+    domainOffset: 0,
+  };
+  dest.params[paramKey] = 0;
+  newNode.traceDisplaySettings = {
+    ...(newNode.traceDisplaySettings && typeof newNode.traceDisplaySettings === "object"
+      ? newNode.traceDisplaySettings
+      : {}),
+    labelText: displayName,
+  };
+  if (typeof nodeGraphMetamoduleClaimPlacedNode === "function") {
+    nodeGraphMetamoduleClaimPlacedNode(newNode, live);
+  }
+  const patch = {
+    ...live,
+    nodes: [...(live.nodes || []), newNode],
+    modulations: [
+      ...(Array.isArray(live.modulations) ? live.modulations : []),
+      {
+        sourceNode: id,
+        sourcePort: "Bias",
+        destinationNode: destId,
+        destinationParam: paramKey,
+      },
+    ],
+  };
+  const pin = Boolean(document.getElementById("metadataPinToCanvasValue")?.checked);
+  if (pin && typeof nodeGraphLayoutCanvasSetPinned === "function") {
+    nodeGraphLayoutCanvasSetPinned(id, true, {
+      patch,
+      persist: false,
+      refresh: false,
+    });
+  }
+  commitNodeGraphPatch(patch, {
+    status: `made ${displayName} ${type === "pluginSlider" ? "slider" : type === "knob" ? "knob" : type === "toggleButton" ? "toggle" : "momentary"}`,
+    topologyEdit: true,
+    paramSyncIds: [destId, id],
+  });
+  if (pin && typeof nodeGraphLayoutCanvasRefreshOpenStage === "function") {
+    nodeGraphLayoutCanvasRefreshOpenStage();
+  }
+  const destSlider = typeof nodeGraphSliderForParameter === "function"
+    ? nodeGraphSliderForParameter(destId, paramKey)
+    : null;
+  if (destSlider && typeof writeNodeMetadataEditorValues === "function") {
+    nodeGraphMvp.metadataEditorTarget = destSlider.id;
+    const nextMeta = typeof nodeGraphReadPatchParameterMetadata === "function"
+      ? nodeGraphReadPatchParameterMetadata(destId, paramKey)
+      : dest.paramMeta[paramKey];
+    writeNodeMetadataEditorValues(nextMeta || dest.paramMeta[paramKey]);
+    if (typeof populateNodeMetadataParameterPicker === "function") {
+      populateNodeMetadataParameterPicker(destSlider);
+    }
+  }
 }
 
 function applyNodeMetadataScriptEditor() {

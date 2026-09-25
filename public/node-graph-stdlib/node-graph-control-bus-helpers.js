@@ -56,6 +56,24 @@ function nodeGraphDspBiasFromIn(offset, inSample, rangeMin = null, rangeMax = nu
   return { Bias: value, Out: value, offset: off, value: off };
 }
 
+/** Controller Bias target: params[key] + domainOffset when Use real mod values. */
+function nodeGraphDspControllerBiasTarget(node, controlKey, fallback) {
+  const raw = Number(node?.params?.[controlKey]);
+  const base = Number.isFinite(raw) ? raw : fallback;
+  const meta = node?.paramMeta?.[controlKey] && typeof node.paramMeta[controlKey] === "object"
+    ? node.paramMeta[controlKey]
+    : {};
+  if (typeof nodeGraphParamFoldOrBase === "function") {
+    const folded = Number(nodeGraphParamFoldOrBase(base, [], meta));
+    return Number.isFinite(folded) ? folded : base;
+  }
+  if (meta.outputDomain === true) {
+    const off = Number(meta.domainOffset);
+    return base + (Number.isFinite(off) ? off : 0);
+  }
+  return base;
+}
+
 /** Knob Bias domain from Parameter Settings on `offset` (min/max). */
 function nodeGraphDspKnobOffsetDomain(node) {
   const meta = node?.paramMeta?.offset && typeof node.paramMeta.offset === "object"

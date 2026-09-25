@@ -258,7 +258,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "keypadFace",
     // Arp Keys: stroke/font hue + Music Player corners / padding.
     "arpKeysFace",
-    // Master Clock BPM face: optional beat lamp.
+    // Metronome BPM face: optional beat lamp.
     "transportBpm",
     // Music Player waveform / playlist look.
     "phosphorWaveform",

@@ -22,12 +22,19 @@ NodeLiveAudioProcessor.prototype.snapPendingControllerParams = function snapPend
   const keys = Array.isArray(node?._pendingSnapParams) ? node._pendingSnapParams : [];
   if (!keys.length) return;
   const type = String(node?.type || "");
-  if (type !== "knob" && type !== "toggleButton" && type !== "momentaryButton") {
+  if (
+    type !== "knob"
+    && type !== "pluginSlider"
+    && type !== "toggleButton"
+    && type !== "momentaryButton"
+  ) {
     return;
   }
   const map = this.ensureControllerParamSmoothers();
   for (const controlKey of keys) {
-    const raw = Number(node?.params?.[controlKey]);
+    const raw = typeof nodeGraphDspControllerBiasTarget === "function"
+      ? Number(nodeGraphDspControllerBiasTarget(node, controlKey, Number.NaN))
+      : Number(node?.params?.[controlKey]);
     if (!Number.isFinite(raw)) continue;
     const meta = { ...(node?.paramMeta?.[controlKey] || {}) };
     const rate = Math.max(
@@ -81,7 +88,9 @@ NodeLiveAudioProcessor.prototype.controllerEfficientSmoothedValue = function con
   fallback,
   frames,
 ) {
-  const raw = Number(node?.params?.[controlKey]);
+  const raw = typeof nodeGraphDspControllerBiasTarget === "function"
+    ? Number(nodeGraphDspControllerBiasTarget(node, controlKey, fallback))
+    : Number(node?.params?.[controlKey]);
   const target = Number.isFinite(raw) ? raw : fallback;
   const params = node?.params && typeof node.params === "object" ? node.params : {};
 

@@ -642,9 +642,6 @@ function nodeGraphTransportHandleAction(action) {
       if (typeof setNodeGraphLiveSpeed === "function") {
         setNodeGraphLiveSpeed(resume, { force: true });
       }
-      if (typeof nodeGraphOutputPauseBannerClearStampFlags === "function") {
-        nodeGraphOutputPauseBannerClearStampFlags();
-      }
       if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
         scheduleNodeGraphModuleScopeDraw({ force: true });
       }

@@ -2593,26 +2593,54 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   };
 
   // ── Present (Value LED) ──
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  context.save();
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.fillStyle = bg;
-  context.fillRect(left, top, width, height);
-
-  // Deposit plate: previous readings; each pixel's energy maps the Ghost Gradient.
-  if (depositActive && burnPlate?.width > 0) {
-    nodeGraphNumberReadoutPresentBurnPlate(context, burnPlate, gradientStops, peakHex);
-  }
-
-  // Max padding: one phosphor pixel of live light.
-  // Pitch DSEG "-" no-lock glyph is intentional ink (IsEmptyPlaceholder would skip it).
+  // Brightness is stamped into the decay plate. The face blits that plate.
+  // Do not clear the visible canvas and redraw every digit on top.
   const pitchNoLockGlyph = slot?.type === "helmholtzPitch"
     && typeof nodeGraphPitchDetectorZeroDisplay === "function"
     && String(valueText) === String(nodeGraphPitchDetectorZeroDisplay(pitchMode, decimals));
   const drawLiveDigits = alpha > 0.001
     && (pitchNoLockGlyph || !nodeGraphNumberReadoutIsEmptyPlaceholder(valueText));
-  if (layout.pixelPin) {
-    if (drawLiveDigits) {
+  if (burnCtx && burnPlate?.width > 0 && !frozen && drawLiveDigits) {
+    burnCtx.setTransform(1, 0, 0, 1, 0, 0);
+    burnCtx.save();
+    burnCtx.globalCompositeOperation = "source-over";
+    if (layout.pixelPin) {
+      nodeGraphNumberReadoutDrawPixelPin(
+        burnCtx,
+        layout,
+        left,
+        top,
+        width,
+        height,
+        rgb,
+        alpha,
+      );
+    } else if (digitFontSize > 0.25) {
+      nodeGraphNumberReadoutDrawDigits(burnCtx, {
+        text: valueText,
+        centerX: digitX,
+        centerY: digitY,
+        fontFamily: digitFontFamily,
+        fontSize: digitFontSize,
+        cellW,
+        rgb,
+        alpha,
+        softBlurPx: 0,
+        glow: 0,
+        plate: false,
+        composite: "source-over",
+      });
+    }
+    burnCtx.restore();
+  }
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "source-over";
+  context.fillStyle = bg;
+  context.fillRect(left, top, width, height);
+  if (burnPlate?.width > 0) {
+    context.drawImage(burnPlate, 0, 0);
+  } else if (drawLiveDigits) {
+    if (layout.pixelPin) {
       nodeGraphNumberReadoutDrawPixelPin(
         context,
         layout,
@@ -2623,25 +2651,25 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         rgb,
         alpha,
       );
+    } else if (digitFontSize > 0.25) {
+      nodeGraphNumberReadoutDrawDigits(context, {
+        text: valueText,
+        centerX: digitX,
+        centerY: digitY,
+        fontFamily: digitFontFamily,
+        fontSize: digitFontSize,
+        cellW,
+        rgb,
+        alpha,
+        softBlurPx: 0,
+        glow: 0,
+        plate: false,
+        composite: "source-over",
+      });
     }
-  } else if (digitFontSize > 0.25 && drawLiveDigits) {
-    nodeGraphNumberReadoutDrawDigits(context, {
-      text: valueText,
-      centerX: digitX,
-      centerY: digitY,
-      fontFamily: digitFontFamily,
-      fontSize: digitFontSize,
-      cellW,
-      rgb,
-      alpha,
-      softBlurPx: 0,
-      glow: 0,
-      plate: false,
-      composite: "source-over",
-    });
   }
 
-  if (hasUnit && labelHeight > 0.25 && digitFontSize > 0.25) {
+  if (!burnPlate && hasUnit && labelHeight > 0.25 && digitFontSize > 0.25) {
     const labelFontSize = nodeGraphNumberReadoutUnitFontSize(
       labelHeight,
       layout.contentW || width,
@@ -2658,8 +2686,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       top + padPxY + digitAreaHeight + labelHeight * 0.5,
     );
   }
-
-  context.restore();
 
   canvas._numberReadoutLastValueText = valueText;
   nodeGraphNumberReadoutRememberGoodValue(canvas, valueText);

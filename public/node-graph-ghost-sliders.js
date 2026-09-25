@@ -63,10 +63,12 @@ function nodeGraphGhostSliderControllerOutSample(nodeId, port) {
       : Number.NaN;
     return Number.isFinite(n) ? n : fallback;
   };
-  const domain = read("offset", 0);
   const patchNode = typeof nodeGraphPatchNode === "function"
     ? nodeGraphPatchNode(nodeId)
     : null;
+  const domain = typeof nodeGraphDspControllerBiasTarget === "function"
+    ? nodeGraphDspControllerBiasTarget(patchNode, "offset", read("offset", 0))
+    : read("offset", 0);
   if (type === "knob" || type === "pluginSlider") {
     const range = typeof nodeGraphDspKnobOffsetDomain === "function"
       ? nodeGraphDspKnobOffsetDomain(patchNode)

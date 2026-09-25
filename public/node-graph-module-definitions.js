@@ -40,7 +40,7 @@ const nodeGraphNodeLabels = Object.freeze({
   ellipsoidOsc: "Ellipsoid",
   basicShape: "BasicShape",
   clock: "Clock",
-  transport: "Master Clock",
+  transport: "Metronome",
   clockDivider: "Clock Divider",
   delayedTrigger: "Delayed Trigger",
   buttonEvents: "Button Events",
@@ -5697,7 +5697,7 @@ const nodeGraphModuleDefinitions = (
     outputLabels: {
       "Analog Out": "\u223F",
       "Digital Out": "\u25AE",
-      T: "T",
+      T: "\u238D",
     },
     outputs: ["Digital Out", "Analog Out", "T"],
     parameters: [
@@ -5753,9 +5753,10 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  // Master Clock: gates/triggers are derived from Live playhead, never a free phasor.
+  // Metronome: per-clock t0, playhead-locked phase. BPM is this node only.
   transport: {
     planRole: "source",
+    planFreeRun: true,
     displayModes: [
       { key: "transportBpm", renderer: "transportBpm", settingsSchema: "transportBpm", source: { value: "bpm" } },
     ],
@@ -5769,8 +5770,18 @@ const nodeGraphModuleDefinitions = (
       "f",
       "beat f",
     ],
+    digitalInputs: ["Reset"],
     displayType: "transportBpm",
-    inputs: [],
+    inputs: ["Reset"],
+    outputs: [
+      "Gate 0-1",
+      "Gate -1+1",
+      "Trigger",
+      "f",
+      "beat f",
+      "Click",
+      "Click R",
+    ],
     outputAliases: {
       "0..1": "Gate 0-1",
       "0â€¦1": "Gate 0-1",
@@ -5797,14 +5808,9 @@ const nodeGraphModuleDefinitions = (
       Trigger: "Trigger",
       f: "f",
       "beat f": "beat f",
+      Click: "Click",
+      "Click R": "Click R",
     },
-    outputs: [
-      "Gate 0-1",
-      "Gate -1+1",
-      "Trigger",
-      "f",
-      "beat f",
-    ],
     parameters: [
       {
         defaultValue: "120",
@@ -5816,7 +5822,7 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Tempo in beats per minute. Also writes the patch Master Clock BPM.",
+        tooltip: "This metronome's tempo (beats per minute). Modulatable. Independent of other metronomes.",
       },
       {
         defaultValue: "0.5",
@@ -5828,6 +5834,17 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip: "Gate high duty of each cycle (0..1). 0.5 = square. Affects Gate 0-1 / Gate -1+1.",
+      },
+      {
+        defaultValue: "4",
+        key: "beats",
+        label: "Beats",
+        linearSmoothing: false,
+        max: "16",
+        mid: "4",
+        min: "1",
+        step: "1",
+        tooltip: "Beats per bar for the click. Beat 1 = hi click (downbeat); other beats = lo click.",
       },
       {
         control: "number",
@@ -12952,10 +12969,10 @@ const nodeGraphModuleDefinitions = (
   hilbert: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
-    inputLabels: { In: "In" },
+    inputLabels: { In: "\u2192" },
     inputs: ["In"],
     outputAliases: { Mono: "Out" },
-    outputLabels: { Out: "Out" },
+    outputLabels: { Out: "\u2190" },
     outputs: ["Out"],
     parameters: [
       {

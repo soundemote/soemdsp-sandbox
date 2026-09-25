@@ -135,7 +135,7 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
     if (!context || !(canvas.width > 0) || !(canvas.height > 0)) {
       continue;
     }
-    // Master Clock (and similar) skip redraw when cache keys match — drop them
+    // Metronome (and similar) skip redraw when cache keys match — drop them
     // so the next paint restores BPM / gate after this plate fill.
     if (canvas._nodeGraphTransportBpmDigits !== undefined) {
       canvas._nodeGraphTransportBpmDigits = null;

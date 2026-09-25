@@ -227,6 +227,9 @@ function createNodeGraphToggleButtonFace(node, type) {
   btn.type = "button";
   btn.className = "node-plugin-toggle-button";
   btn.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} toggle`);
+  const btnText = document.createElement("span");
+  btnText.className = "btn-fit";
+  btn.append(btnText);
 
   const sync = () => {
     const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
@@ -246,7 +249,7 @@ function createNodeGraphToggleButtonFace(node, type) {
     const labels = typeof nodeGraphPluginButtonFaceLabels === "function"
       ? nodeGraphPluginButtonFaceLabels(patchNode || node)
       : { off: "Off", on: "On" };
-    btn.textContent = (on ? labels.on : labels.off) || "";
+    btnText.textContent = (on ? labels.on : labels.off) || "";
     face._pluginBtnPaintLook?.();
   };
 
@@ -300,6 +303,9 @@ function createNodeGraphMomentaryButtonFace(node, type) {
   btn.type = "button";
   btn.className = "node-plugin-momentary-button";
   btn.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} momentary`);
+  const btnText = document.createElement("span");
+  btnText.className = "btn-fit";
+  btn.append(btnText);
 
   const sync = () => {
     const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
@@ -318,7 +324,7 @@ function createNodeGraphMomentaryButtonFace(node, type) {
     const labels = typeof nodeGraphPluginButtonFaceLabels === "function"
       ? nodeGraphPluginButtonFaceLabels(patchNode || node)
       : { off: "Off", on: "On" };
-    btn.textContent = (down ? labels.on : labels.off) || "";
+    btnText.textContent = (down ? labels.on : labels.off) || "";
     face._pluginBtnPaintLook?.();
   };
 

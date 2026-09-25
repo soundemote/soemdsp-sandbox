@@ -1771,7 +1771,7 @@
     },
     {
       "name": "transport",
-      "label": "Master Clock",
+      "label": "Metronome",
       "targetType": "transport",
       "kind": "utility",
       "source": "native_modules/transport/transport.cpp",

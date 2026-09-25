@@ -6,9 +6,11 @@ const NODE_GRAPH_PLUGIN_BUTTON_TEXT_MAX = 48;
 
 const NODE_GRAPH_PLUGIN_BUTTON_SLIDER_FIELDS = Object.freeze([
   "strokeScale",
-  "buttonScale",
+  "buttonPadLeft",
+  "buttonPadRight",
+  "buttonPadTop",
+  "buttonPadBottom",
   "textScale",
-  "buttonPadding",
   "labelPadding",
   "labelScale",
 ]);
@@ -22,7 +24,6 @@ const NODE_GRAPH_PLUGIN_BUTTON_COLOR_FIELDS = Object.freeze([
 ]);
 
 const NODE_GRAPH_PLUGIN_BUTTON_CHOICE_FIELDS = Object.freeze([
-  "buttonAlign",
   "labelAlign",
 ]);
 
@@ -34,13 +35,14 @@ const NODE_GRAPH_PLUGIN_BUTTON_TEXT_FIELDS = Object.freeze([
 
 const NODE_GRAPH_PLUGIN_BUTTON_DISPLAY_DEFAULTS = Object.freeze({
   strokeScale: 0.06,
-  buttonScale: 1,
-  textScale: 0.72,
-  buttonPadding: 0,
-  buttonAlign: "mid",
+  buttonPadLeft: 0,
+  buttonPadRight: 0,
+  buttonPadTop: 0,
+  buttonPadBottom: 0,
+  textScale: 1,
   labelText: "",
   labelPadding: 0.035,
-  labelScale: 0.22,
+  labelScale: 1,
   labelAlign: "topleft",
   buttonShowLabel: true,
   offText: "Off",
@@ -100,10 +102,11 @@ function normalizeNodeGraphPluginButtonDisplaySettings(settings, type) {
   const fallbackOn = momentary ? "Gate" : d.onText;
   return {
     strokeScale: nodeGraphPluginButtonClamp01(src.strokeScale, d.strokeScale),
-    buttonScale: nodeGraphPluginButtonClamp01(src.buttonScale, d.buttonScale),
+    buttonPadLeft: nodeGraphPluginButtonClamp01(src.buttonPadLeft, d.buttonPadLeft),
+    buttonPadRight: nodeGraphPluginButtonClamp01(src.buttonPadRight, d.buttonPadRight),
+    buttonPadTop: nodeGraphPluginButtonClamp01(src.buttonPadTop, d.buttonPadTop),
+    buttonPadBottom: nodeGraphPluginButtonClamp01(src.buttonPadBottom, d.buttonPadBottom),
     textScale: nodeGraphPluginButtonClamp01(src.textScale, d.textScale),
-    buttonPadding: nodeGraphPluginButtonClamp01(src.buttonPadding, d.buttonPadding),
-    buttonAlign: nodeGraphPluginButtonNormalizeAlign(src.buttonAlign, d.buttonAlign),
     labelText: nodeGraphPluginButtonNormalizeText(src.labelText, d.labelText),
     labelPadding: nodeGraphPluginButtonClamp01(src.labelPadding, d.labelPadding),
     labelScale: nodeGraphPluginButtonClamp01(src.labelScale, d.labelScale),
@@ -143,39 +146,14 @@ function nodeGraphPluginButtonFaceLabelText(node) {
   return s.labelText || "";
 }
 
-function nodeGraphPluginButtonStrokePixels(strokeScale, boxPx) {
-  const t = nodeGraphPluginButtonClamp01(strokeScale, 0);
-  const max = Math.max(0, Number(boxPx) * 0.5);
-  return t * max;
-}
-
-function nodeGraphPluginButtonApplyBoxPin(el, align, pad01, widthPx, heightPx, faceW, faceH) {
-  if (!el) return;
-  const a = nodeGraphPluginButtonNormalizeAlign(align, "mid");
-  const w = Math.max(0, Number(widthPx) || 0);
-  const h = Math.max(0, Number(heightPx) || 0);
-  const p = Math.max(0, Math.min(1, Number(pad01) || 0));
-  const fw = Math.max(0, Number(faceW) || 0);
-  const fh = Math.max(0, Number(faceH) || 0);
-  const padX = p * fw;
-  const padY = p * fh;
-  let x = padX;
-  let y = padY;
-  if (a === "top" || a === "mid" || a === "bottom") x = (fw - w) * 0.5;
-  else if (a === "topright" || a === "midright" || a === "bottomright") x = fw - padX - w;
-  if (a === "midleft" || a === "mid" || a === "midright") y = (fh - h) * 0.5;
-  else if (a === "bottomleft" || a === "bottom" || a === "bottomright") y = fh - padY - h;
-  const set = (prop, value) => el.style.setProperty(prop, value, "important");
-  set("position", "absolute");
-  set("top", `${y}px`);
-  set("left", `${x}px`);
-  set("right", "auto");
-  set("bottom", "auto");
-  set("margin", "0");
-  set("transform", "none");
-  set("width", `${w}px`);
-  set("height", `${h}px`);
-  el.dataset.pinAnchor = a;
+function nodeGraphPluginButtonClearPin(el) {
+  if (!el?.style) return;
+  for (const prop of [
+    "position", "top", "left", "right", "bottom", "margin", "transform",
+    "width", "height", "font-size", "line-height",
+  ]) {
+    el.style.removeProperty(prop);
+  }
 }
 
 function applyNodeGraphPluginButtonDisplaySettingsToFace(node) {
@@ -194,30 +172,25 @@ function nodeGraphPluginButtonPaintFace(face, settings) {
   const s = normalizeNodeGraphPluginButtonDisplaySettings(settings, type);
   const btn = face.querySelector(".node-plugin-toggle-button, .node-plugin-momentary-button");
   const label = face.querySelector("[data-plugin-btn-label]");
-  face.style.setProperty("--plugin-btn-scale", String(s.buttonScale));
+  face.dataset.labelAlign = s.labelAlign;
+  face.style.setProperty("--plugin-btn-pad-left", String(s.buttonPadLeft));
+  face.style.setProperty("--plugin-btn-pad-right", String(s.buttonPadRight));
+  face.style.setProperty("--plugin-btn-pad-top", String(s.buttonPadTop));
+  face.style.setProperty("--plugin-btn-pad-bottom", String(s.buttonPadBottom));
+  face.style.setProperty("--plugin-btn-text-scale", String(s.textScale));
+  face.style.setProperty("--plugin-label-scale", String(s.labelScale));
+  face.style.setProperty("--plugin-label-pad", String(s.labelPadding));
+  face.style.setProperty("--plugin-btn-stroke-scale", String(s.strokeScale));
   face.style.setProperty("--plugin-btn-text", s.textColor);
   face.style.padding = "0";
-  const faceW = face.clientWidth || 0;
-  const faceH = face.clientHeight || 0;
-  const minSide = Math.min(faceW, faceH);
-  if (minSide > 0) {
-    face.style.setProperty("--knob-face-min", `${minSide.toFixed(2)}px`);
-  }
-  const boxW = faceW * s.buttonScale;
-  const boxH = faceH * s.buttonScale;
-  const box = Math.min(boxW, boxH);
+  nodeGraphPluginButtonClearPin(btn);
+  nodeGraphPluginButtonClearPin(label);
   if (btn) {
-    nodeGraphPluginButtonApplyBoxPin(btn, s.buttonAlign, s.buttonPadding, boxW, boxH, faceW, faceH);
-    const strokePx = nodeGraphPluginButtonStrokePixels(s.strokeScale, box || minSide);
     btn.style.setProperty("--plugin-btn-stroke", s.strokeColor);
-    btn.style.setProperty("--plugin-btn-stroke-w", `${strokePx}px`);
     btn.style.setProperty("--plugin-btn-inactive", s.inactiveColor);
     btn.style.setProperty("--plugin-btn-active", s.activeColor);
     btn.style.setProperty("--plugin-btn-hover", s.hoverColor);
     btn.style.setProperty("--plugin-btn-text", s.textColor);
-    const radius = Math.max(0, box * 0.12);
-    btn.style.setProperty("--plugin-btn-radius", `${radius}px`);
-    btn.style.fontSize = `${nodeGraphPluginButtonFitFontPx(btn, s.textScale, box)}px`;
   }
   if (label) {
     const patchNode = typeof nodeGraphPatchNode === "function"
@@ -233,45 +206,7 @@ function nodeGraphPluginButtonPaintFace(face, settings) {
     }
     label.hidden = !title;
     label.style.color = s.textColor;
-    if (typeof nodeGraphSliderFaceApplyPin === "function") {
-      nodeGraphSliderFaceApplyPin(label, s.labelAlign, s.labelPadding, s.labelScale, "topleft");
-    } else {
-      nodeGraphPluginButtonApplyBoxPin(label, s.labelAlign, s.labelPadding, 0, 0, faceW, faceH);
-      label.style.fontSize = `${s.labelScale * minSide}px`;
-      label.style.width = "max-content";
-      label.style.height = "1em";
-    }
   }
-}
-
-function nodeGraphPluginButtonMeasureScratch() {
-  if (!nodeGraphPluginButtonFitFontPx._ctx) {
-    const canvas = document.createElement("canvas");
-    nodeGraphPluginButtonFitFontPx._ctx = canvas.getContext("2d");
-  }
-  return nodeGraphPluginButtonFitFontPx._ctx;
-}
-
-/** Text scale 0 = 1px. 1 = the glyph box touches the inside of the button. */
-function nodeGraphPluginButtonFitFontPx(btn, textScale, boxPx) {
-  const t = nodeGraphPluginButtonClamp01(textScale, 0);
-  const minPx = 1;
-  const text = String(btn?.textContent || "").replace(/\s+/g, " ").trim();
-  const avail = Math.max(1, Number(boxPx) || Math.min(btn?.clientWidth || 1, btn?.clientHeight || 1));
-  if (!text || t <= 0) return minPx;
-  const ctx = nodeGraphPluginButtonMeasureScratch();
-  if (!ctx) return minPx + t * Math.max(0, avail - minPx);
-  const probe = 100;
-  ctx.font = `700 ${probe}px sans-serif`;
-  const m = ctx.measureText(text);
-  const glyphW = Math.max(1, m.width || 1);
-  const glyphH = Math.max(
-    1,
-    (Number.isFinite(m.actualBoundingBoxAscent) ? m.actualBoundingBoxAscent : probe * 0.8)
-    + (Number.isFinite(m.actualBoundingBoxDescent) ? m.actualBoundingBoxDescent : probe * 0.2),
-  );
-  const fit = Math.min(avail / glyphW, avail / glyphH) * probe;
-  return minPx + t * Math.max(0, fit - minPx);
 }
 
 function nodeGraphPluginButtonTextRowHtml(key, label, placeholder) {
@@ -304,12 +239,11 @@ function buildNodeGraphPluginButtonDisplaySettingsBodyHtml(formType) {
   const onPh = momentary ? "Gate" : "On";
   return `
     <div data-plugin-button-display-settings-panel>
-      <div class="metadata-section-title">Button</div>
-      <div class="metadata-field-section">${["strokeScale", "buttonScale", "textScale", "buttonPadding"].map(fieldRow).join("")}</div>
-      <div class="metadata-field-section">${choiceRow("buttonAlign")}</div>
-      <div class="metadata-field-section">${nodeGraphPluginButtonTextRowHtml("offText", "Off", offPh)}${nodeGraphPluginButtonTextRowHtml("onText", "On", onPh)}</div>
       <div class="metadata-section-title">Label</div>
       <div class="metadata-field-section">${toggleRow("buttonShowLabel")}${choiceRow("labelAlign")}${["labelPadding", "labelScale"].map(fieldRow).join("")}${nodeGraphPluginButtonTextRowHtml("labelText", "Label", "")}</div>
+      <div class="metadata-section-title">Button</div>
+      <div class="metadata-field-section">${["buttonPadLeft", "buttonPadRight", "buttonPadTop", "buttonPadBottom", "strokeScale", "textScale"].map(fieldRow).join("")}</div>
+      <div class="metadata-field-section">${nodeGraphPluginButtonTextRowHtml("offText", "Off", offPh)}${nodeGraphPluginButtonTextRowHtml("onText", "On", onPh)}</div>
       <div class="metadata-section-title">Colors</div>
       <div class="metadata-field-section">${["strokeColor", "activeColor", "inactiveColor", "hoverColor", "textColor"].map(colorRow).join("")}</div>
     </div>`;

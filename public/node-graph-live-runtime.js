@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=arp-keys-scale-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=metronome-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -1250,12 +1250,6 @@ function nodeGraphLiveRearmDisplaysAfterEngineStart() {
   } else if (typeof sendNodeGraphLiveSpeed === "function") {
     sendNodeGraphLiveSpeed();
   }
-  // Cold start often already has speed > 0 (lastPlaySpeed / direct assign),
-  // so the 0→positive edge in setNodeGraphLiveSpeed never runs and Output
-  // keeps a stamped pause banner. Always clear on rearm.
-  if (typeof nodeGraphOutputPauseBannerClearStampFlags === "function") {
-    nodeGraphOutputPauseBannerClearStampFlags();
-  }
   // Mark so the next few scope snapshots also force-paint value faces (rings
   // may still be empty on this call).
   nodeGraphMvp.live.needsValueFaceRearm = true;
@@ -1374,9 +1368,6 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
   } else if (clamped > 0) {
     if (typeof nodeGraphTraceDisplayPinWaterfallClocks === "function") {
       nodeGraphTraceDisplayPinWaterfallClocks();
-    }
-    if (typeof nodeGraphOutputPauseBannerClearStampFlags === "function") {
-      nodeGraphOutputPauseBannerClearStampFlags();
     }
     // Unpause / force rearm: Instant Trace can early-out on a stale draw
     // signature (black face, unchanged sample count). Force a full paint.
@@ -3193,7 +3184,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Output-bus ear protector (must be in the worklet blob — main-thread only = passthrough clip).
   "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=worklet-protect-1",
   "./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1",
-  "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=knob-bias-out-1",
+  "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=make-controller-5",
   "./public/modules/portal/portal-lanes.js?v=portal-rename-4x2-1",
   "./public/modules/portal/portal-math.js?v=portal-lanes-1",
   "./public/modules/portal/portal-named.js?v=portal-rewrite-1",
@@ -3221,7 +3212,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=wt2d-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=mod-add-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=metronome-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=portal-rewrite-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",
@@ -3233,7 +3224,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=domain-mod-add-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=make-controller-5",
   "./public/node-live-audio-worklet-process.js?v=wt2d-1",
 ];
 

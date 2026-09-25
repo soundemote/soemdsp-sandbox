@@ -1,8 +1,5 @@
-// Bespoke display renderer for the transport module (displayType
-// "transportBpm"). Unlike numberReadout (which shows whatever's wired into
-// its own "In" port) this reads the patch-wide tempo directly off
-// nodeGraphPatchTimingValue("tempoBpm") -- already synchronously available on
-// the main thread, so no worklet -> main-thread data relay is needed at all.
+// Bespoke display renderer for the Metronome module (displayType
+// "transportBpm"). Reads this node's params.bpm on the main thread.
 //
 // Phosphor/LCD look: digits use DSEG7 Classic from keshikan/DSEG
 // (https://github.com/keshikan/DSEG, SIL OFL 1.1 - public/fonts/DSEG7-Classic).
@@ -11,8 +8,7 @@
 // monospace below the digits - standard digital-clock layout.
 //
 // Beat lamp: optional LED on the face (Display Settings "Gate blink").
-// Off by default. When on, follows project tempo at one blink per beat
-// (1/1 with the beat). Independent of Numer/Denom/Sync.
+// Off by default. When on, follows this metronome's BPM at one blink per beat.
 
 let nodeGraphTransportBpmFontReady = false;
 document.fonts.load('700 40px "DSEG7 Classic"').then(() => {
@@ -39,7 +35,7 @@ function nodeGraphTransportSettingsForNode(node) {
 function buildNodeGraphTransportDisplaySettingsBodyHtml() {
   return `
     <div class="node-led-display-settings-panel" data-transport-display-settings-panel>
-      <label class="metadata-checkbox-label" data-trace-display-control-row title="Blink an LED on the Master Clock face once per project-tempo beat. Off by default.">
+      <label class="metadata-checkbox-label" data-trace-display-control-row title="Blink an LED on the Metronome face once per this node's beat. Off by default.">
         <input type="checkbox" data-transport-field="gateBlink" id="nodeTransportGateBlinkToggle">
         Gate blink
       </label>
@@ -89,11 +85,8 @@ function readNodeGraphTransportDisplaySettingsForm(root, current) {
   return normalizeNodeGraphTransportSettings(next);
 }
 
-function nodeGraphTransportBeatLampLevel01() {
-  const patchBpm = typeof nodeGraphPatchTimingValue === "function"
-    ? Number(nodeGraphPatchTimingValue("tempoBpm"))
-    : NaN;
-  const bpm = Math.max(1, Number.isFinite(patchBpm) && patchBpm > 0 ? patchBpm : 120);
+function nodeGraphTransportBeatLampLevel01(tempoBpm) {
+  const bpm = Math.max(1, Number.isFinite(tempoBpm) && tempoBpm > 0 ? tempoBpm : 120);
   const sampleRate = Math.max(
     1,
     nodeGraphFiniteNumber(
@@ -113,6 +106,36 @@ function nodeGraphTransportBeatLampLevel01() {
     : ((absoluteFrame / sampleRate) * (bpm / 60)) % 1;
   const wrapped = phase - Math.floor(phase);
   return wrapped < 0.5 ? 1 : 0;
+}
+
+function nodeGraphTransportFaceBpm(node) {
+  const nodeId = node?.id;
+  const meta = (typeof nodeGraphReadPatchParameterMetadata === "function" && nodeId
+    ? nodeGraphReadPatchParameterMetadata(nodeId, "bpm")
+    : node?.paramMeta?.bpm) || {};
+  const stored = Number(node?.params?.bpm);
+  const base = Number.isFinite(stored) ? stored : 120;
+  const ghost = typeof nodeGraphParameterGhostSignal === "function" && nodeId
+    ? nodeGraphParameterGhostSignal(nodeId, "bpm")
+    : null;
+  const ghostN = Number(ghost?.effectiveDomain);
+  if (Number.isFinite(ghostN)) {
+    return Math.max(1, Math.round(ghostN));
+  }
+  if (typeof nodeGraphParamFoldOrBase === "function") {
+    const folded = Number(nodeGraphParamFoldOrBase(base, [], meta));
+    if (Number.isFinite(folded)) {
+      return Math.max(1, Math.round(folded));
+    }
+  }
+  if (meta && meta.outputDomain === true) {
+    const off = Number(meta.domainOffset);
+    const sum = base + (Number.isFinite(off) ? off : 0);
+    if (Number.isFinite(sum)) {
+      return Math.max(1, Math.round(sum));
+    }
+  }
+  return Math.max(1, Math.round(base > 0 ? base : 120));
 }
 
 function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
@@ -135,22 +158,10 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
     : (typeof nodeGraphMvp !== "undefined"
       ? nodeGraphMvp?.patch?.nodes?.find?.((n) => n?.id === nodeId)
       : null);
-  // Prefer this module's BPM param; fall back to patch-wide tempo.
-  const nodeBpm = Number(node?.params?.bpm);
-  const patchBpm = typeof nodeGraphPatchTimingValue === "function"
-    ? Number(nodeGraphPatchTimingValue("tempoBpm"))
-    : NaN;
-  const bpm = Math.max(
-    1,
-    Math.round(
-      (Number.isFinite(nodeBpm) && nodeBpm > 0)
-        ? nodeBpm
-        : (Number.isFinite(patchBpm) && patchBpm > 0 ? patchBpm : 120),
-    ),
-  );
+  const bpm = nodeGraphTransportFaceBpm(node);
   const digits = String(bpm);
   const gateBlinkOn = nodeGraphTransportSettingsForNode(node).gateBlink === true;
-  const gate01 = gateBlinkOn ? nodeGraphTransportBeatLampLevel01() : 0;
+  const gate01 = gateBlinkOn ? nodeGraphTransportBeatLampLevel01(bpm) : 0;
   const gateLit = gate01 > 0.001 ? 1 : 0;
   const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen();
@@ -164,7 +175,7 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
   }
 
   // Always repaint. Scope wipe / plate fills clear pixels but used to leave
-  // stale cache keys, which made the Master Clock face stay blank forever.
+  // stale cache keys, which made the Metronome face stay blank forever.
   canvas._nodeGraphTransportBpmDigits = digits;
   canvas._nodeGraphTransportBpmFontReady = nodeGraphTransportBpmFontReady;
   canvas._nodeGraphTransportBpmWidth = canvas.width;
@@ -205,7 +216,7 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
   ctx.fillText("BPM", canvas.width * 0.5, digitAreaHeight + labelHeight * 0.5);
 
   if (gateBlinkOn) {
-    // Beat lamp — project tempo, one blink per beat (not Numer/Denom/Sync).
+    // Beat lamp — this metronome's BPM, one blink per beat.
     const lampR = Math.max(2, Math.min(canvas.width, canvas.height) * 0.07);
     const lampX = canvas.width - lampR * 1.6;
     const lampY = lampR * 1.4;

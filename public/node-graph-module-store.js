@@ -605,9 +605,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   transport: {
     category: "clock",
-    description: "On-the-beat gates locked to Live playhead. Lamp and beat f follow project tempo (one beat). Numer/Denom/Sync re-grid the clock outs; never free-runs.",
-    label: "Master Clock",
-    notes: ["master clock", "transport", "project BPM", "Numer/Denom", "Normal/Dotted/Triplet", "master time", "beat f"],
+    description: "Metronome: per-clock BPM, playhead-locked phase, Reset, hi/lo clicks. Two metronomes stay in sync only if reset together at the same BPM.",
+    label: "Metronome",
+    notes: ["metronome", "clock", "BPM", "reset", "click", "Numer/Denom", "gate", "trigger"],
   },
   clockDivider: {
     category: "clock",

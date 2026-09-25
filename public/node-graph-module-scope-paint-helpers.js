@@ -1697,6 +1697,8 @@ function nodeGraphTraceDisplayPrimaryLayer(settings, color) {
 const NODE_GRAPH_OUTPUT_PROTECT_BANNER = "♨️";
 const NODE_GRAPH_OUTPUT_PROTECT_FONT =
   '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif';
+const NODE_GRAPH_OUTPUT_PAUSE_FADE_MS = 1100;
+const NODE_GRAPH_OUTPUT_PROTECT_SOLID_MUTE = 0.98;
 
 function nodeGraphOutputProtectFaceSlot(slot) {
   const type = String(slot?.type || "");
@@ -1718,110 +1720,49 @@ function nodeGraphOutputTransportIsPaused() {
   return Number.isFinite(speed) && speed <= 0;
 }
 
-/** Dest-pixel ink (protect / pause). Lives on a layer that scrolls with Instant Trace. */
-const NODE_GRAPH_OUTPUT_INK_FADE_MS = 1100;
-const NODE_GRAPH_OUTPUT_PROTECT_REPRINT_MS = 400;
-let nodeGraphOutputInkHoldUntil = 0;
-
 function nodeGraphOutputInkNowMs() {
   return (typeof performance !== "undefined" && typeof performance.now === "function")
     ? performance.now()
     : Date.now();
 }
 
-function nodeGraphOutputInkArmFrames(extraMs = NODE_GRAPH_OUTPUT_INK_FADE_MS + 1400) {
-  const until = nodeGraphOutputInkNowMs() + Math.max(0, nodeGraphFiniteNumber(extraMs));
-  if (until > nodeGraphOutputInkHoldUntil) {
-    nodeGraphOutputInkHoldUntil = until;
-  }
-}
+let nodeGraphOutputMarksHoldUntil = 0;
+let nodeGraphOutputPauseHeld = false;
+let nodeGraphOutputPauseFadeUntil = 0;
 
 function nodeGraphOutputInkWantsFrames() {
   if ((nodeGraphFiniteNumber(globalThis.nodeGraphOutputProtectMute)) > 0.001) {
     return true;
   }
-  return nodeGraphOutputInkNowMs() < nodeGraphOutputInkHoldUntil;
+  if (nodeGraphOutputTransportIsPaused()) {
+    return true;
+  }
+  const now = nodeGraphOutputInkNowMs();
+  return now < nodeGraphOutputMarksHoldUntil || now < nodeGraphOutputPauseFadeUntil;
 }
 
-function nodeGraphOutputInkEnsure(canvas) {
-  if (!canvas || !(canvas.width > 0) || !(canvas.height > 0)) {
+function nodeGraphOutputBeginPauseFade() {
+  if (!nodeGraphOutputPauseHeld) {
+    return;
+  }
+  nodeGraphOutputPauseHeld = false;
+  const until = nodeGraphOutputInkNowMs() + NODE_GRAPH_OUTPUT_PAUSE_FADE_MS;
+  nodeGraphOutputPauseFadeUntil = until;
+  if (until > nodeGraphOutputMarksHoldUntil) {
+    nodeGraphOutputMarksHoldUntil = until;
+  }
+}
+
+function nodeGraphOutputHoldContext(canvas) {
+  const hold = canvas?._waterfallHold;
+  if (!hold || !(hold.width > 0) || !(hold.height > 0)) {
     return null;
   }
-  let layer = canvas._outputInkLayer;
-  if (!layer || layer.width !== canvas.width || layer.height !== canvas.height) {
-    const prev = layer;
-    layer = document.createElement("canvas");
-    layer.width = canvas.width;
-    layer.height = canvas.height;
-    const ctx = layer.getContext("2d");
-    if (!ctx) {
-      return null;
-    }
-    if (prev && prev.width > 0 && prev.height > 0) {
-      ctx.drawImage(prev, 0, 0);
-    }
-    canvas._outputInkLayer = layer;
-    canvas._outputInkCtx = ctx;
+  try {
+    return hold.getContext("2d");
+  } catch (_error) {
+    return null;
   }
-  return canvas._outputInkCtx
-    ? { layer: canvas._outputInkLayer, context: canvas._outputInkCtx }
-    : null;
-}
-
-function nodeGraphOutputInkScroll(canvas, dxPx) {
-  const dx = Math.round(nodeGraphFiniteNumber(dxPx));
-  if (!dx || !canvas?._outputInkLayer) {
-    return;
-  }
-  const ink = nodeGraphOutputInkEnsure(canvas);
-  if (!ink) {
-    return;
-  }
-  const { layer, context } = ink;
-  context.save();
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.globalCompositeOperation = "copy";
-  context.drawImage(layer, -dx, 0);
-  context.globalCompositeOperation = "source-over";
-  context.clearRect(dx > 0 ? layer.width - dx : 0, 0, Math.abs(dx), layer.height);
-  context.restore();
-}
-
-function nodeGraphOutputInkFade(canvas, dtMs) {
-  const ink = canvas?._outputInkLayer ? nodeGraphOutputInkEnsure(canvas) : null;
-  if (!ink) {
-    return;
-  }
-  const dt = Math.max(0, nodeGraphFiniteNumber(dtMs));
-  if (!(dt > 0)) {
-    return;
-  }
-  const amount = 1 - Math.exp(-dt / NODE_GRAPH_OUTPUT_INK_FADE_MS);
-  if (!(amount > 0.002)) {
-    return;
-  }
-  const { layer, context } = ink;
-  context.save();
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.globalCompositeOperation = "destination-out";
-  context.fillStyle = `rgba(0,0,0,${Math.min(1, amount).toFixed(4)})`;
-  context.fillRect(0, 0, layer.width, layer.height);
-  context.restore();
-}
-
-function nodeGraphOutputInkComposite(destCtx, canvas, alpha = 1) {
-  const layer = canvas?._outputInkLayer;
-  const a = Math.max(0, Math.min(1, nodeGraphFiniteNumber(alpha)));
-  if (!destCtx || !layer || !(a > 0.001)) {
-    return;
-  }
-  destCtx.save();
-  destCtx.setTransform(1, 0, 0, 1, 0, 0);
-  destCtx.globalCompositeOperation = "source-over";
-  destCtx.imageSmoothingEnabled = false;
-  destCtx.globalAlpha = a;
-  destCtx.drawImage(layer, 0, 0);
-  destCtx.restore();
 }
 
 function paintNodeGraphOutputFaceInk(context, canvas, text, options = {}) {
@@ -1883,16 +1824,20 @@ function paintNodeGraphOutputPauseBars(context, canvas, options = {}) {
   if (!context || !(canvas?.width > 0) || !(canvas?.height > 0)) {
     return false;
   }
+  const alpha = Math.max(0, Math.min(1, Number(options.alpha ?? 1)));
+  if (!(alpha > 0.001)) {
+    return false;
+  }
   const w = canvas.width;
   const h = canvas.height;
-  const fit = Math.max(8, Math.min(w, h) - Math.max(2, Math.round(Math.min(w, h) * 0.08)) * 2);
+  const side = Math.min(w, h);
+  const fit = Math.max(8, side - Math.max(2, Math.round(side * 0.08)) * 2);
   const barH = Math.max(8, Math.round(fit * 0.52));
   const barW = Math.max(3, Math.round(fit * 0.2));
   const gap = Math.max(2, Math.round(fit * 0.14));
   const totalW = barW * 2 + gap;
   const x0 = Math.round((w - totalW) * 0.5);
   const y0 = Math.round((h - barH) * 0.5);
-  const alpha = Math.max(0, Math.min(1, Number(options.alpha ?? 1)));
   const density = Number(options.density);
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
@@ -1915,133 +1860,71 @@ function paintNodeGraphOutputPauseBars(context, canvas, options = {}) {
   return true;
 }
 
-function nodeGraphOutputInkPrintPause(canvas, options = {}) {
-  const ink = nodeGraphOutputInkEnsure(canvas);
-  if (!ink) {
-    return false;
-  }
-  const ok = paintNodeGraphOutputPauseBars(ink.context, ink.layer, options);
-  if (ok) {
-    nodeGraphOutputInkArmFrames();
-  }
-  return ok;
-}
-
-function nodeGraphOutputInkPrintProtect(canvas, alpha, options = {}) {
-  const ink = nodeGraphOutputInkEnsure(canvas);
-  if (!ink) {
-    return false;
-  }
-  const ok = paintNodeGraphOutputFaceInk(ink.context, ink.layer, NODE_GRAPH_OUTPUT_PROTECT_BANNER, {
-    density: options.density,
+function nodeGraphOutputDrawProtect(context, canvas, alpha, density) {
+  return paintNodeGraphOutputFaceInk(context, canvas, NODE_GRAPH_OUTPUT_PROTECT_BANNER, {
+    density,
     alpha,
     fontFamily: NODE_GRAPH_OUTPUT_PROTECT_FONT,
     fill: "#ffffff",
   });
-  if (ok) {
-    nodeGraphOutputInkArmFrames();
-  }
-  return ok;
 }
 
-function nodeGraphOutputPausePlateEnsure(canvas) {
-  if (!canvas || !(canvas.width > 0) || !(canvas.height > 0)) {
-    return null;
-  }
-  let plate = canvas._outputPausePlate;
-  if (!plate || plate.width !== canvas.width || plate.height !== canvas.height) {
-    plate = document.createElement("canvas");
-    plate.width = canvas.width;
-    plate.height = canvas.height;
-    canvas._outputPausePlate = plate;
-    canvas._outputPausePlateReady = false;
-  }
-  return plate;
-}
-
-function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, options = {}) {
-  if (!nodeGraphOutputProtectFaceSlot(slot) || !canvas || !destCtx) {
+/** Solid = dest only. Fade = dest + hold so it scrolls with Instant Trace. */
+function nodeGraphOutputDrawMark(destCtx, canvas, kind, alpha, density, bake) {
+  const a = Math.max(0, Math.min(1, Number(alpha)));
+  if (!(a > 0.001) || !destCtx || !canvas) {
     return false;
   }
-  const now = nodeGraphOutputInkNowMs();
-  const last = Number(canvas._outputInkLastFadeMs);
-  const dt = Number.isFinite(last) ? Math.max(0, Math.min(80, now - last)) : 16;
-  canvas._outputInkLastFadeMs = now;
-  const scrollPx = Math.round(nodeGraphFiniteNumber(options.scrollPx));
-  const scrolled = options.scrolled === true || scrollPx > 0;
-  const paused = nodeGraphOutputTransportIsPaused();
-
-  if (paused) {
-    // Simulation off: one still stamp. No dest-out, no rAF.
-    if (!canvas._outputPauseBannerStamped) {
-      const plate = nodeGraphOutputPausePlateEnsure(canvas);
-      if (plate) {
-        const pctx = plate.getContext("2d");
-        if (pctx) {
-          pctx.setTransform(1, 0, 0, 1, 0, 0);
-          pctx.globalCompositeOperation = "copy";
-          pctx.drawImage(canvas, 0, 0);
-          canvas._outputPausePlateReady = true;
-        }
-      }
-      const ink = nodeGraphOutputInkEnsure(canvas);
-      if (ink) {
-        ink.context.save();
-        ink.context.setTransform(1, 0, 0, 1, 0, 0);
-        ink.context.clearRect(0, 0, ink.layer.width, ink.layer.height);
-        ink.context.restore();
-        paintNodeGraphOutputPauseBars(ink.context, ink.layer, { density, alpha: 1 });
-      }
-      paintNodeGraphOutputPauseBars(destCtx, canvas, { density, alpha: 1 });
-      canvas._outputPauseBannerStamped = true;
-      canvas._waterfallDestHistory = true;
+  const paint = (ctx, target) => {
+    if (kind === "pause") {
+      paintNodeGraphOutputPauseBars(ctx, target, { alpha: a, density });
+    } else {
+      nodeGraphOutputDrawProtect(ctx, target, a, density);
     }
-    return true;
+  };
+  paint(destCtx, canvas);
+  if (bake) {
+    const hold = canvas._waterfallHold;
+    const holdCtx = nodeGraphOutputHoldContext(canvas);
+    if (hold && holdCtx) {
+      paint(holdCtx, hold);
+    }
   }
-
-  // Play: dest is the tape. Previous dest pixels (last fade frame) already
-  // scrolled left. Stamp bars in place at falling alpha so the new frame is
-  // fainter and Instant Trace drifts the old frames leftward.
-  // If audio/scroll is dead (worklet still paused while UI says Live), still
-  // advance the fade on force or every ink frame so bars do not stick forever.
-  if (!Number.isFinite(Number(canvas._outputPauseFadeBorn))) {
-    canvas._outputPauseFadeBorn = now;
-  }
-  const born = Number(canvas._outputPauseFadeBorn);
-  const fadeAlpha = Math.max(0, 1 - (now - born) / NODE_GRAPH_OUTPUT_INK_FADE_MS);
-  if (fadeAlpha > 0.001 && (scrolled || options.force === true || options.fadeWithoutScroll === true)) {
-    paintNodeGraphOutputPauseBars(destCtx, canvas, { density, alpha: fadeAlpha });
-  }
-
-  const mute = Math.max(0, Math.min(1, nodeGraphFiniteNumber(globalThis.nodeGraphOutputProtectMute)));
-  const lastMute = nodeGraphFiniteNumber(canvas._outputProtectLastMute);
-  const falling = mute > 0.001 && mute < lastMute - 0.012;
-  canvas._outputProtectOverlayMute = (!falling && mute > 0.001) ? mute : 0;
-  // Print into dest tape only while mute is falling. Engaged = HUD overlay
-  // after dest is snapped (paintNodeGraphOutputProtectOverlay).
-  if (falling && (scrolled || options.force === true)) {
-    paintNodeGraphOutputFaceInk(destCtx, canvas, NODE_GRAPH_OUTPUT_PROTECT_BANNER, {
-      density,
-      alpha: mute,
-      fontFamily: NODE_GRAPH_OUTPUT_PROTECT_FONT,
-      fill: "#ffffff",
-    });
-  }
-  canvas._outputProtectLastMute = mute;
   return true;
 }
 
-function paintNodeGraphOutputProtectOverlay(destCtx, canvas, density) {
-  const mute = Math.max(0, Math.min(1, nodeGraphFiniteNumber(canvas?._outputProtectOverlayMute)));
-  if (!(mute > 0.001) || !destCtx || !canvas) {
+function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, _options = {}) {
+  if (!nodeGraphOutputProtectFaceSlot(slot) || !canvas || !destCtx) {
     return false;
   }
-  return paintNodeGraphOutputFaceInk(destCtx, canvas, NODE_GRAPH_OUTPUT_PROTECT_BANNER, {
-    density,
-    alpha: mute,
-    fontFamily: NODE_GRAPH_OUTPUT_PROTECT_FONT,
-    fill: "#ffffff",
-  });
+  void settings;
+  const now = nodeGraphOutputInkNowMs();
+  const paused = nodeGraphOutputTransportIsPaused();
+  if (paused) {
+    nodeGraphOutputPauseHeld = true;
+    nodeGraphOutputPauseFadeUntil = 0;
+    nodeGraphOutputDrawMark(destCtx, canvas, "pause", 1, density, false);
+  } else {
+    nodeGraphOutputBeginPauseFade();
+    if (nodeGraphOutputPauseFadeUntil > now) {
+      const fade = Math.max(0, Math.min(1, (nodeGraphOutputPauseFadeUntil - now) / NODE_GRAPH_OUTPUT_PAUSE_FADE_MS));
+      nodeGraphOutputDrawMark(destCtx, canvas, "pause", fade, density, true);
+    } else {
+      nodeGraphOutputPauseFadeUntil = 0;
+    }
+  }
+
+  const mute = Math.max(0, Math.min(1, nodeGraphFiniteNumber(globalThis.nodeGraphOutputProtectMute)));
+  if (mute >= NODE_GRAPH_OUTPUT_PROTECT_SOLID_MUTE) {
+    canvas._outputProtectWasSolid = true;
+    nodeGraphOutputDrawMark(destCtx, canvas, "protect", 1, density, false);
+  } else if (mute > 0.001 && canvas._outputProtectWasSolid) {
+    nodeGraphOutputDrawMark(destCtx, canvas, "protect", mute, density, true);
+  } else {
+    canvas._outputProtectWasSolid = false;
+  }
+  canvas._outputProtectLastMute = mute;
+  return true;
 }
 
 function paintNodeGraphOutputProtectBanner(context, canvas, settings = {}, options = {}) {
@@ -2055,7 +1938,7 @@ function paintNodeGraphOutputProtectBannerIfNeeded(context, canvas, slot, settin
 
 function paintNodeGraphOutputPauseBanner(context, canvas, settings = {}, options = {}) {
   void settings;
-  return nodeGraphOutputInkPrintPause(canvas, options);
+  return paintNodeGraphOutputInkFrame(context, canvas, { type: "output" }, settings, options.density, options);
 }
 
 function paintNodeGraphOutputPauseBannerIfNeeded(context, canvas, slot, settings, density, options = {}) {
@@ -2085,61 +1968,6 @@ function nodeGraphTraceDisplayPinWaterfallClocks(nowMs) {
         ":scope > canvas.node-module-scope-local-fallback-canvas",
       );
       pin(existing);
-    }
-  }
-}
-
-function nodeGraphOutputPauseBannerClearStampFlags() {
-  const clear = (canvas) => {
-    if (!canvas) {
-      return;
-    }
-    // Restore the pre-pause plate when present so pause bars do not stick on
-    // dest when Instant Trace is not scrolling (e.g. worklet still at speed 0).
-    if (canvas._outputPausePlateReady && canvas._outputPausePlate) {
-      try {
-        const ctx = canvas.getContext?.("2d");
-        if (ctx) {
-          ctx.save();
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.globalCompositeOperation = "copy";
-          ctx.drawImage(canvas._outputPausePlate, 0, 0);
-          ctx.restore();
-        }
-      } catch (_error) {
-        // Best-effort restore.
-      }
-    }
-    const ink = canvas._outputInkLayer;
-    if (ink) {
-      try {
-        const ictx = ink.getContext?.("2d") || canvas._outputInkCtx;
-        if (ictx) {
-          ictx.save();
-          ictx.setTransform(1, 0, 0, 1, 0, 0);
-          ictx.clearRect(0, 0, ink.width, ink.height);
-          ictx.restore();
-        }
-      } catch (_error) {
-        // Best-effort.
-      }
-    }
-    canvas._outputPauseBannerStamped = false;
-    canvas._outputPausePlateReady = false;
-    canvas._outputPauseFadeBorn = nodeGraphOutputInkNowMs();
-    canvas._outputInkLastFadeMs = canvas._outputPauseFadeBorn;
-  };
-  if (typeof nodeGraphModuleScopePersistentCanvases?.forEach === "function") {
-    nodeGraphModuleScopePersistentCanvases.forEach(clear);
-  }
-  if (typeof nodeGraphModuleScopeSlots === "function") {
-    for (const slot of nodeGraphModuleScopeSlots() || []) {
-      if (!nodeGraphOutputProtectFaceSlot(slot)) {
-        continue;
-      }
-      clear(typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
-        ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
-        : null);
     }
   }
 }

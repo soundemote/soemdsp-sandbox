@@ -356,6 +356,16 @@ function nodeGraphCssColor(property, fallback) {
 }
 
 const NODE_GRAPH_FREQUENCY_VALUE_GLYPH = "\u0192"; // ƒ
+/** Clock Digital Out — held high. App-wide Gate jack mark. */
+const NODE_GRAPH_GATE_GLYPH = "\u25AE"; // ▮
+/** Monostable pulse. App-wide Trigger jack mark. */
+const NODE_GRAPH_TRIGGER_GLYPH = "\u238D"; // ⎍
+/** App-wide Reset jack mark. */
+const NODE_GRAPH_RESET_GLYPH = "\u21BA"; // ↺
+/** Thru pair: In on a module that is only In + Out. */
+const NODE_GRAPH_IN_GLYPH = "\u2192"; // →
+/** Thru pair: Out on a module that is only In + Out. */
+const NODE_GRAPH_OUT_GLYPH = "\u2190"; // ←
 
 /**
  * Hz-as-a-number jacks (Pitch Detector Frequency, MIDI ƒ…).
@@ -403,17 +413,90 @@ function nodeGraphFrequencyValuePortDisplayLabel(port) {
   return key;
 }
 
-/** True for Gate / Trigger (and common aliases) — white digital cables app-wide. */
-function nodeGraphPortIsGateOrTrigger(port) {
+/** True for Gate (held high) and Clock Digital Out. */
+function nodeGraphPortIsGate(port, type) {
   const raw = String(port || "").trim();
   if (!raw) return false;
-  if (raw === "Gate" || raw === "Trigger") return true;
   const lower = raw.toLowerCase();
-  return lower === "gate"
-    || lower === "trigger"
-    || lower === "trig"
-    || lower === "gatepulse"
-    || lower === "gate pulse";
+  if (lower === "gate" || lower.startsWith("gate ")) return true;
+  if (lower === "gatepulse" || lower === "gate pulse") return true;
+  const kind = String(type || "").trim();
+  if (kind === "clock" && (raw === "Digital Out" || lower === "digital out")) {
+    return true;
+  }
+  return false;
+}
+
+/** True for Trigger / Trig / Pulse / Clock T. */
+function nodeGraphPortIsTrigger(port, type) {
+  const raw = String(port || "").trim();
+  if (!raw) return false;
+  if (raw === "T") return true;
+  const lower = raw.toLowerCase();
+  if (lower === "trigger" || lower === "trig" || lower === "pulse") return true;
+  if (lower.startsWith("trig ") || lower.startsWith("trigger ")) return true;
+  const kind = String(type || "").trim();
+  if (kind === "clock" && (lower === "t" || lower === "pulse")) {
+    return true;
+  }
+  return false;
+}
+
+function nodeGraphGateTriggerPortDisplayLabel(type, port) {
+  if (nodeGraphPortIsReset(port)) {
+    return NODE_GRAPH_RESET_GLYPH;
+  }
+  if (nodeGraphPortIsTrigger(port, type)) {
+    return NODE_GRAPH_TRIGGER_GLYPH;
+  }
+  if (nodeGraphPortIsGate(port, type)) {
+    return NODE_GRAPH_GATE_GLYPH;
+  }
+  return "";
+}
+
+function nodeGraphGateTriggerPortSpokenName(type, port) {
+  if (nodeGraphPortIsReset(port)) return "Reset";
+  if (nodeGraphPortIsTrigger(port, type)) return "Trigger";
+  if (nodeGraphPortIsGate(port, type)) return "Gate";
+  return "";
+}
+
+/** True when the module's signal IO is exactly In and Out (no L/R/extra jacks). */
+function nodeGraphModuleIsInOutThruPair(type) {
+  const def = typeof nodeGraphModuleDefinitions !== "undefined"
+    ? nodeGraphModuleDefinitions[type]
+    : null;
+  if (!def) {
+    return false;
+  }
+  if (typeof nodeGraphIsContainerShellType === "function" && nodeGraphIsContainerShellType(type)) {
+    return false;
+  }
+  const ins = Array.isArray(def.inputs) ? def.inputs : [];
+  const outs = Array.isArray(def.outputs) ? def.outputs : [];
+  return ins.length === 1 && ins[0] === "In" && outs.length === 1 && outs[0] === "Out";
+}
+
+/** → / ← when the only jacks are In and Out and the label is still the word In/Out. */
+function nodeGraphThruPairPortDisplayLabel(type, port, rawLabel) {
+  if (!nodeGraphModuleIsInOutThruPair(type)) {
+    return "";
+  }
+  const key = String(port || "").trim();
+  const raw = String(rawLabel || key).trim();
+  if (key === "In" && (raw === "In" || raw === key)) {
+    return NODE_GRAPH_IN_GLYPH;
+  }
+  if (key === "Out" && (raw === "Out" || raw === key)) {
+    return NODE_GRAPH_OUT_GLYPH;
+  }
+  return "";
+}
+
+/** True for Gate / Trigger (and common aliases) — white digital cables app-wide. */
+function nodeGraphPortIsGateOrTrigger(port, type) {
+  return nodeGraphPortIsGate(port, type) || nodeGraphPortIsTrigger(port, type);
 }
 
 /** True for Reset (and common aliases) — white digital cables app-wide. */
@@ -465,17 +548,17 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
   if (typeof nodeGraphPortIsNoteBus === "function" && nodeGraphPortIsNoteBus(port)) {
     return true;
   }
+  const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
+    ? typeOrNode
+    : nodeGraphPatchNodeType(typeOrNode);
   if (
     nodeGraphPortIsFrequencyValue(port)
     || nodeGraphPortIsPitch(port)
-    || nodeGraphPortIsGateOrTrigger(port)
+    || nodeGraphPortIsGateOrTrigger(port, type)
     || nodeGraphPortIsReset(port)
   ) {
     return true;
   }
-  const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
-    ? typeOrNode
-    : nodeGraphPatchNodeType(typeOrNode);
   const definition = nodeGraphModuleDefinitions[type];
   if (!definition) {
     return false;
@@ -489,7 +572,7 @@ function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
   }
   if (
     nodeGraphPortIsPitch(canonical)
-    || nodeGraphPortIsGateOrTrigger(canonical)
+    || nodeGraphPortIsGateOrTrigger(canonical, type)
     || nodeGraphPortIsReset(canonical)
   ) {
     return true;

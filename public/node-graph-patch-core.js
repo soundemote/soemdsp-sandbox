@@ -1680,15 +1680,15 @@ function applyNodeGraphPatchToDom(options = {}) {
       nodeGraphMetamoduleSeedExposedParamsFromChildren(patchNode);
     }
     const existing = nodeGraphNodeElement(patchNode.id);
-    const syncThis = skipExistingSync
-      ? !existing
-      : (paramSyncIds ? paramSyncIds.has(patchNode.id) : true);
+    const syncThis = paramSyncIds
+      ? paramSyncIds.has(patchNode.id)
+      : (skipExistingSync ? !existing : true);
     if (!existing) {
       liveControlsDomMutated = true;
     }
     const element = applyNodeGraphModuleElementFromPatch(patchNode, {
       paramSync: syncThis,
-      skipExistingChrome: Boolean(existing) && (skipExistingSync || (paramSyncIds && !syncThis)),
+      skipExistingChrome: Boolean(existing) && !syncThis,
     });
     if (element && typeof nodeGraphViewportCullObserve === "function") {
       nodeGraphViewportCullObserve(element);
