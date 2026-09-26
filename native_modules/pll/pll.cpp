@@ -42,28 +42,54 @@ static double pll_exp(double x) {
 }
 
 // ── VCO ────────────────────────────────────────────────────────────────────
-// Linear phase accumulator → 50% duty-cycle square wave output (-1 or +1)
+// Linear phase accumulator → 50% square. Naive ±1 drives PC / lock; VCO Out
+// is PolyBLEP (same residual as native_modules/polyblep).
+
+static double pll_wrap01(double t) {
+  t -= (double)(int)t;
+  if (t < 0.0) t += 1.0;
+  return t;
+}
+
+static double pll_polyblep(double phaseCycle, double dt) {
+  if (dt < 1.0e-6) dt = 1.0e-6;
+  if (dt > 0.5) dt = 0.5;
+  if (phaseCycle < dt) {
+    const double t = phaseCycle / dt;
+    return t + t - t * t - 1.0;
+  }
+  if (phaseCycle > 1.0 - dt) {
+    const double t = (phaseCycle - 1.0) / dt;
+    return t * t + t + t + 1.0;
+  }
+  return 0.0;
+}
 
 struct Vco {
   double phase;
   double sampleRate;
-  double out;
+  double out;      // naive ±1 for comparators / lock
   double prevOut;
+  double audio;    // PolyBLEP square for VCO Out
 
   void reset() {
     phase = 0.0;
     out = -1.0;
     prevOut = -1.0;
+    audio = -1.0;
   }
 
   double process(double freq) {
     prevOut = out;
-    const double inc = freq / sampleRate;
+    const double sr = sampleRate > 0.0 ? sampleRate : 44100.0;
+    double inc = freq / sr;
     phase += inc;
     while (phase >= 1.0) phase -= 1.0;
     while (phase < 0.0)  phase += 1.0;
     out = phase < 0.5 ? 1.0 : -1.0;
-    return out;
+    const double dt = inc < 0.0 ? -inc : inc;
+    audio = out + pll_polyblep(phase, dt) - pll_polyblep(pll_wrap01(phase + 0.5), dt);
+    return audio;
   }
 
   bool risingEdge() const {
@@ -218,27 +244,19 @@ struct LockDetector {
 };
 
 // ── VCO frequency from CV ──────────────────────────────────────────────────
-// cv: 0..1 → freqMin..freqMax (linear)
-// freqMax = baseMax * 20^(offset/10)  [matches A-196 spec table]
-//   at offset=0: ×1, offset=5: ×4.47, offset=10: ×20
+// cv 0..1: Frequency × 2^(Range × (cv − 0.5)), clamped 1 Hz … 0.49×sr.
 
-static double vcoFrequency(double cv, int range, double offset) {
-  double freqMin, baseMax;
-  if (range == 0) {         // low
-    freqMin = 2.0;
-    baseMax = 50.0;
-  } else if (range == 2) {  // high
-    freqMin = 100.0;
-    baseMax = 5000.0;
-  } else {                  // mid (default)
-    freqMin = 20.0;
-    baseMax = 500.0;
-  }
-  // 20^(offset/10) = exp(offset * ln(20)/10) = exp(offset * 0.29957…)
-  const double scale  = pll_exp(offset * 0.29957322735539909);
-  const double freqMax = baseMax * scale;
-  const double clampedCv = cv < 0.0 ? 0.0 : (cv > 1.0 ? 1.0 : cv);
-  return freqMin + (freqMax - freqMin) * clampedCv;
+static double vcoFrequency(double cv, double centerHz, double spanOct, double sr) {
+  if (!(centerHz == centerHz)) centerHz = 110.0;
+  if (centerHz < 0.0) centerHz = 0.0;
+  if (!(spanOct == spanOct) || spanOct < 0.05) spanOct = 0.05;
+  if (spanOct > 8.0) spanOct = 8.0;
+  const double u = cv < 0.0 ? 0.0 : (cv > 1.0 ? 1.0 : cv);
+  double f = centerHz * dsp_exp2(spanOct * (u - 0.5));
+  const double ny = (sr > 0.0 ? sr : 44100.0) * 0.49;
+  if (f < 0.0) f = 0.0;
+  if (f > ny) f = ny;
+  return f;
 }
 
 // ── PLL state ──────────────────────────────────────────────────────────────
@@ -259,33 +277,35 @@ struct PllState {
 
   // params
   double sampleRate;
-  int    range;   // 0=low 1=mid 2=high
-  double offset;  // 0..10
-  int    type;    // 0=PC1 1=PC2 2=PC3
-  double frequ;   // LPF cutoff Hz
+  double vcoHz;      // center frequency
+  double spanOct;    // Range, octaves around vcoHz
+  int    type;       // 0=XOR 1=RS 2=PFD
+  double smoothing;  // loop LPF Hz
 
   // outputs (written by process, read by getters)
   double vcoOut;
   double pcOut;
   double lpfOut;
   double lockedOut;
+  double runningHz;
 
   void init(double sr) {
     sampleRate = sr > 0.0 ? sr : 44100.0;
-    range  = 1;
-    offset = 5.0;
-    type   = 1;
-    frequ  = 10.0;
+    vcoHz = 110.0;
+    spanOct = 4.0;
+    type = 1;
+    smoothing = 10.0;
     vcoOut = 0.0;
     pcOut  = 0.0;
     lpfOut = 0.5;
     lockedOut = 0.0;
+    runningHz = 110.0;
     vco.sampleRate = sampleRate;
     vco.reset();
     pc2.reset();
     pc3.reset();
     lockDet.reset();
-    one_pole_lp_set(frequ, sampleRate, lpfA1, lpfB0);
+    one_pole_lp_set(smoothing, sampleRate, lpfA1, lpfB0);
     lpfBuf = 0.5; // start mid-range so VCO begins near centre frequency
   }
 };
@@ -311,7 +331,7 @@ static PllState* get(int handle) {
 
 // ── Public C API ───────────────────────────────────────────────────────────
 
-extern "C" int soemdsp_pll_version() { return 2; }
+extern "C" int soemdsp_pll_version() { return 5; }
 
 extern "C" int soemdsp_pll_create(double sampleRate) {
   ensurePool();
@@ -341,21 +361,21 @@ extern "C" void soemdsp_pll_reset(int handle, double sampleRate) {
 extern "C" void soemdsp_pll_set_params(
   int    handle,
   double sampleRate,
-  int    range,
-  double offset,
+  double vcoHz,
+  double spanOct,
   int    type,
-  double frequ
+  double smoothing
 ) {
   PllState* s = get(handle);
   if (!s) return;
   const double sr = sampleRate > 0.0 ? sampleRate : 44100.0;
   s->sampleRate     = sr;
   s->vco.sampleRate = sr;
-  s->range  = range  < 0 ? 0 : (range  > 2  ? 2  : range);
-  s->offset = offset < 0.0 ? 0.0 : (offset > 10.0 ? 10.0 : offset);
-  s->type   = type   < 0 ? 0 : (type   > 2  ? 2  : type);
-  s->frequ = frequ < 0.0 ? 0.0 : frequ;
-  one_pole_lp_set(s->frequ, sr, s->lpfA1, s->lpfB0);
+  s->vcoHz = vcoHz;
+  s->spanOct = spanOct;
+  s->type = type < 0 ? 0 : (type > 2 ? 2 : type);
+  s->smoothing = smoothing < 0.0 ? 0.0 : smoothing;
+  one_pole_lp_set(s->smoothing, sr, s->lpfA1, s->lpfB0);
 }
 
 // signalIn:    external audio signal to track (PC In 2), audio range -1..+1
@@ -377,18 +397,19 @@ extern "C" void soemdsp_pll_process(
     ? clamp(pll_finite(cvIn) ? cvIn : 0.0, 0.0, 1.0)
     : clamp(s->lpfOut, 0.0, 1.0);
 
-  // VCO
-  const double freq = vcoFrequency(cv, s->range, s->offset);
+  // VCO (audio is PolyBLEP; comparators use naive ±1)
+  const double freq = vcoFrequency(cv, s->vcoHz, s->spanOct, s->sampleRate);
+  s->runningHz = freq;
   s->vcoOut = s->vco.process(freq);
 
   // phase comparator
   double pc;
   if (s->type == 0) {
-    pc = pc1_process(sig, s->vcoOut);
+    pc = pc1_process(sig, s->vco.out);
   } else if (s->type == 1) {
-    pc = s->pc2.process(sig, s->vcoOut);
+    pc = s->pc2.process(sig, s->vco.out);
   } else {
-    pc = s->pc3.process(sig, s->vcoOut);
+    pc = s->pc3.process(sig, s->vco.out);
   }
   s->pcOut = pc;
 
@@ -397,7 +418,7 @@ extern "C" void soemdsp_pll_process(
 
   // lock detection (meaningful for PC2; show for PC3 as well)
   if (s->type != 0) {
-    s->lockDet.process(sig, s->vcoOut);
+    s->lockDet.process(sig, s->vco.out);
     s->lockedOut = s->lockDet.locked ? 1.0 : 0.0;
   } else {
     s->lockedOut = 0.0;
@@ -417,6 +438,11 @@ extern "C" double soemdsp_pll_pc_out(int handle) {
 extern "C" double soemdsp_pll_lpf_out(int handle) {
   const PllState* s = get(handle);
   return s ? s->lpfOut : 0.0;
+}
+
+extern "C" double soemdsp_pll_vco_hz(int handle) {
+  const PllState* s = get(handle);
+  return s ? s->runningHz : 0.0;
 }
 
 extern "C" double soemdsp_pll_locked(int handle) {

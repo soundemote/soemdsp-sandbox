@@ -111,7 +111,6 @@ function nodeGraphGhostSliderModSample(sourceNode, sourcePort, depth = 0) {
       ? nodeGraphPatchNodeType(nodeId)
       : "";
     let inPort = "In";
-    if (sourceType === "customDisplay") inPort = "In1";
     if (typeof nodeGraphModuleBypassPortMap === "function" && sourceType) {
       const map = nodeGraphModuleBypassPortMap(sourceType) || [];
       for (let i = 0; i < map.length; i += 1) {

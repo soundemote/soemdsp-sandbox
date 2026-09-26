@@ -1085,8 +1085,8 @@ function nodeGraphFilterCurveMeasureBox(section) {
 }
 
 const nodeGraphPhaserFaceDisplaySettingsDefaults = Object.freeze({
-  barThickness: 0.04,
-  curveThickness: 0.02,
+  barThickness: 4,
+  curveThickness: 2,
 });
 
 function normalizeNodeGraphPhaserFaceDisplaySettings(source) {
@@ -1095,10 +1095,10 @@ function normalizeNodeGraphPhaserFaceDisplaySettings(source) {
   const curve = Number(raw.curveThickness);
   return {
     barThickness: Number.isFinite(bar)
-      ? Math.max(0, Math.min(1, bar))
+      ? Math.max(0, Math.min(16, displayInkToPx(bar, nodeGraphPhaserFaceDisplaySettingsDefaults.barThickness)))
       : nodeGraphPhaserFaceDisplaySettingsDefaults.barThickness,
     curveThickness: Number.isFinite(curve)
-      ? Math.max(0, Math.min(1, curve))
+      ? Math.max(0, Math.min(16, displayInkToPx(curve, nodeGraphPhaserFaceDisplaySettingsDefaults.curveThickness)))
       : nodeGraphPhaserFaceDisplaySettingsDefaults.curveThickness,
   };
 }
@@ -1159,11 +1159,11 @@ function drawNodeGraphPhaserPeakMarks(context, view, box) {
   const q = Math.max(0.01, nodeGraphFiniteNumber(view?.q, 1));
   const cascade = Math.max(1, Math.min(4, Math.round(nodeGraphFiniteNumber(view?.slope)) + 1));
   const mid = 0.5 * (n - 1);
-  const minSide = displayFaceMinSide(width, height);
-  const barT = clampDisplayUnit01(view?.barThickness, 0.04);
-  const curveT = clampDisplayUnit01(view?.curveThickness, 0.02);
-  const barW = barT > 0 ? Math.max(1, displayScaleToPx(barT, minSide)) : 0;
-  const curveW = curveT > 0 ? Math.max(1, displayScaleToPx(curveT, minSide)) : 0;
+  const faceMin = displayFaceMinSide(width, height);
+  const barT = displayInkToPx(view?.barThickness, 4, faceMin);
+  const curveT = displayInkToPx(view?.curveThickness, 2, faceMin);
+  const barW = barT > 0 ? Math.max(0.5, barT) : 0;
+  const curveW = curveT > 0 ? Math.max(0.5, curveT) : 0;
   const leftOut = view?.leftOut === true;
   const rightOut = view?.rightOut === true;
   const stereoOut = leftOut || rightOut;
@@ -1329,15 +1329,15 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   const maxFreq = Math.max(minFreq * 2, Math.min(20000, sampleRate * 0.5));
   const minDb = -48;
   const maxDb = 18;
-  const minSide = displayFaceMinSide(width, height);
-  const strokeGrid = Math.max(1, displayScaleToPx(0.008, minSide));
-  const strokeCurve = Math.max(1, displayScaleToPx(0.012, minSide));
-  const strokeCutoff = Math.max(1, displayScaleToPx(0.008, minSide));
-  const fontPx = Math.max(8, displayScaleToPx(0.07, minSide));
-  const titlePx = Math.max(8, displayScaleToPx(0.078, minSide));
-  const labelGap = Math.max(2, displayScaleToPx(0.022, minSide));
-  const titlePad = Math.max(2, displayScaleToPx(0.045, minSide));
-  const staggerPx = displayScaleToPx(0.07, minSide);
+  const faceMin = displayFaceMinSide(width, height);
+  const strokeGrid = displayInkToPx(1, 1, faceMin);
+  const strokeCurve = displayInkToPx(1.5, 1.5, faceMin);
+  const strokeCutoff = displayInkToPx(1, 1, faceMin);
+  const fontPx = Math.max(8, displayInkToPx(11, 11, faceMin));
+  const titlePx = Math.max(8, displayInkToPx(12, 12, faceMin));
+  const labelGap = displayInkToPx(2, 2, faceMin);
+  const titlePad = displayInkToPx(4, 4, faceMin);
+  const staggerPx = displayInkToPx(12, 12, faceMin);
   section._filterCurveSignature = signature;
   section._filterCurveCssW = cssW;
   section._filterCurveCssH = cssH;

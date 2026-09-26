@@ -71,23 +71,12 @@ function nodeGraphFbmFieldGlHexToRgb01(hex, fallback = [0, 0, 0]) {
 
 function nodeGraphFbmFieldGlEnsure(canvas) {
   if (!canvas) return null;
+  const picture = typeof nodeGraphPictureDevice === "function" ? nodeGraphPictureDevice() : null;
   let state = nodeGraphFbmFieldGlStates.get(canvas);
-  if (state?.gl && !state.lost) return state;
-  if (state?.failed) return null;
+  if (state?.gl && !state.lost && !state.gl.isContextLost() && picture?.gl === state.gl) return state;
+  if (state?.gaveUp) return null;
 
-  let gl = null;
-  try {
-    gl = canvas.getContext("webgl", {
-      alpha: false,
-      antialias: false, // no MSAA smear
-      depth: false,
-      premultipliedAlpha: false,
-      preserveDrawingBuffer: false,
-      powerPreference: "high-performance",
-    }) || canvas.getContext("experimental-webgl", { alpha: false, antialias: false });
-  } catch (_) {
-    gl = null;
-  }
+  const gl = picture?.gl || null;
   if (!gl) {
     nodeGraphFbmFieldGlStates.set(canvas, { failed: true });
     return null;
@@ -108,6 +97,18 @@ function nodeGraphFbmFieldGlEnsure(canvas) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+    const colorTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, colorTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 4, 4, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    const colorFbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, colorFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, colorTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
     const paletteTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, paletteTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -124,6 +125,10 @@ function nodeGraphFbmFieldGlEnsure(canvas) {
       buf,
       aPos,
       fieldTex,
+      colorTex,
+      colorFbo,
+      colorW: 4,
+      colorH: 4,
       paletteTex,
       paletteKey: "",
       lost: false,
@@ -146,7 +151,7 @@ function nodeGraphFbmFieldGlEnsure(canvas) {
     return state;
   } catch (err) {
     console.warn("[Fractal Brownian Field] WebGL init failed", err);
-    nodeGraphFbmFieldGlStates.set(canvas, { failed: true });
+    nodeGraphFbmFieldGlStates.set(canvas, { failed: true, gaveUp: true });
     return null;
   }
 }
@@ -217,6 +222,13 @@ function nodeGraphFbmFieldGlPresent(canvas, monoGrid, gridW, gridH, options = {}
     pixels,
   );
 
+  if (state.colorW !== gridW || state.colorH !== gridH) {
+    state.colorW = gridW;
+    state.colorH = gridH;
+    gl.bindTexture(gl.TEXTURE_2D, state.colorTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gridW, gridH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, state.colorFbo);
   gl.viewport(0, 0, gridW, gridH);
   gl.disable(gl.DEPTH_TEST);
   gl.disable(gl.BLEND);
@@ -235,6 +247,13 @@ function nodeGraphFbmFieldGlPresent(canvas, monoGrid, gridW, gridH, options = {}
   gl.uniform3f(state.uniforms.uBackground, bg[0], bg[1], bg[2]);
 
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  if (options.nodeId && typeof nodeGraphPicturePublish === "function") {
+    nodeGraphPicturePublish(options.nodeId, state.colorTex, gridW, gridH);
+  }
+  if (typeof nodeGraphPicturePresent === "function") {
+    return nodeGraphPicturePresent(state.colorTex, gridW, gridH, canvas, canvas.width | 0, canvas.height | 0);
+  }
   return true;
 }
 
@@ -245,15 +264,12 @@ function nodeGraphFbmFieldGlClearBlack(canvas) {
     canvas.width = Math.max(1, canvas.width | 0, 1);
     canvas.height = Math.max(1, canvas.height | 0, 1);
   }
-  const state = nodeGraphFbmFieldGlEnsure(canvas);
-  if (!state?.gl || state.lost) return false;
-  const gl = state.gl;
-  const w = canvas.width | 0;
-  const h = canvas.height | 0;
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.viewport(0, 0, w, h);
-  gl.disable(gl.SCISSOR_TEST);
-  gl.clearColor(0, 0, 0, 1);
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return false;
+  const w = Math.max(1, canvas.width | 0);
+  const h = Math.max(1, canvas.height | 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, w, h);
   return true;
 }

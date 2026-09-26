@@ -83,11 +83,11 @@ function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null)
       ? Number(signal.velocity)
       : (nodeGraphFiniteNumber(prev?.velocity01)),
   ));
-  // Gate is digital presence: any gate > 0 → 1 (not velocity). Velocity stays on Velocity out.
+  // Gate/Trigger carry strike velocity while active (envelopes read Gate level as velocity).
+  // Digital presence alone would ignore velocity once Velocity out is removed.
   const gateOn = Number(signal?.gate) > 0;
-  const gateAmp = gateOn ? 1 : 0;
-  // Trigger pulse: same digital rule — any pulse > 0 → 1.
-  const triggerAmp = Number(signal?.gatePulse) > 0 ? 1 : 0;
+  const gateAmp = gateOn ? velocity01 : 0;
+  const triggerAmp = Number(signal?.gatePulse) > 0 ? velocity01 : 0;
   const sourceFreq = Number(signal?.frequency);
   const prevFreq = Number(prev?.frequency);
   const frequency = Math.max(0,
@@ -170,10 +170,9 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
   );
   runtime.keyboardCvHold.set(nodeId, cv);
 
-  const gateIn = nodeGraphKeyboardMixMax(nodeId, "Gate", ctx);
-  const triggerIn = nodeGraphKeyboardMixMax(nodeId, "Trigger", ctx);
-  const gateOut = Math.max(cv.gateAmp, gateIn);
-  const triggerOut = Math.max(cv.triggerAmp, triggerIn);
+  // Gate/Trigger are outputs only (no Gate/Trig INs on Keyboard).
+  const gateOut = cv.gateAmp;
+  const triggerOut = cv.triggerAmp;
 
   const arpLocal = nodeGraphKeyboardLocalArpTransmit(phase);
   const arpIn = nodeGraphKeyboardMixOrBits(nodeId, "Arp Keys", ctx, phase);
@@ -239,12 +238,9 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
     "Chord Memory": chordOut,
     Gate: gateOut,
     Trigger: triggerOut,
-    KeyboardKey: cv.key,
-    KeyboardNorm: cv.q,
+    KeyIndex: cv.key,
+    KeyNorm: cv.q,
     "pitch": cv.midi,
-    "Velocity": cv.velocity01,
-    f: cv.frequency,
-    Frequency: cv.frequency,
     X: cv.x,
     Y: cv.y,
   };

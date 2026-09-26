@@ -170,8 +170,8 @@ function drawNodeGraphAdditiveFilterCurveDisplay(section) {
   const minSide = displayFaceMinSide(w, h);
   const pad = Math.max(2, displayScaleToPx(0.02, minSide));
   const span = Math.max(1, w - pad * 2);
-  const strokeGrid = Math.max(1, displayScaleToPx(0.008, minSide));
-  const strokeCurve = Math.max(1, displayScaleToPx(0.012, minSide));
+  const strokeGrid = displayInkToPx(1, 1, minSide);
+  const strokeCurve = displayInkToPx(1.5, 1.5, minSide);
 
   ctx.strokeStyle = "rgba(255, 230, 0, 0.12)";
   ctx.lineWidth = strokeGrid;

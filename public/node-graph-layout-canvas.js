@@ -449,6 +449,9 @@ function beginNodeGraphLayoutCanvasStage(nodeIds, mode = "perform") {
       nodeGraphLayoutCanvasApplyTileRect(item.tile, item.rect, stage);
     }
     syncKnobFaceCells();
+    if (typeof nodeGraphPluginButtonRefitConnectedFaces === "function") {
+      nodeGraphPluginButtonRefitConnectedFaces();
+    }
     if (typeof installNodeGraphMidiKeyboardLayoutResizeObserver === "function") {
       installNodeGraphMidiKeyboardLayoutResizeObserver();
     }

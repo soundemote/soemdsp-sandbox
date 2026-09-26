@@ -854,7 +854,6 @@ displayType === "scope1dTrace" ||
     displayType === "oscilloscopeBankBurn" ||
     displayType === "spectrogramBurn" ||
     displayType === "phosphorLight" ||
-    displayType === "customDisplay" ||
     displayType === "matrixFace" ||
     displayType === "matrixWaterfallFace" ||
     displayType === "matrixDisplayFace" ||

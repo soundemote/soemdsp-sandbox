@@ -389,13 +389,6 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
       null;
   }
-  if (slot?.type === "customDisplay") {
-    const displayScript = normalizeNodeGraphCustomDisplay(nodeGraphModuleScopeNodeForSlot(slot)?.customDisplay);
-    const primaryPort = displayScript.inputs[0] || "In1";
-    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:${primaryPort}`) ||
-      nodeGraphModuleScopeConnectedSourceBuffer(nodeId, primaryPort) ||
-      new Float32Array([0]);
-  }
   const source = nodeGraphModuleDisplaySourceForSlot(slot);
   const sourcePort = String(source?.value || "").trim();
   if (sourcePort) {

@@ -2017,7 +2017,10 @@ function nodeGraphTraceDisplaySettingsForNode(node) {
     }
     return normalizeNodeGraphTraceDisplaySettings(local);
   }
-  return normalizeNodeGraphTraceDisplaySettings(node.traceDisplaySettings);
+  if (settingsSchema === "traceXyz") {
+    return normalizeNodeGraphTraceDisplaySettings(node.traceDisplaySettings);
+  }
+  return {};
 }
 
 

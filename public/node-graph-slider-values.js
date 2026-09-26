@@ -938,15 +938,12 @@ function setNodeSliderMetadata(slider, metadata) {
     clampNodeSliderValue(absDef, absMin, absMax),
   );
   const destDomain = metadata.outputDomain === true;
-  const offsetExtent = destDomain
-    ? (typeof nodeGraphParamDomainOffsetExtent === "function"
-      ? nodeGraphParamDomainOffsetExtent(metadata)
-      : (Number.isFinite(absMax) && Math.abs(absMax) > 0 ? Math.abs(absMax) : 1))
-    : 0;
-  const uiMin = destDomain ? -offsetExtent : absMin;
-  const uiMax = destDomain ? offsetExtent : absMax;
-  const uiMid = destDomain ? 0 : absMid;
-  const uiDef = destDomain ? 0 : absDef;
+  // outputDomain tags MOD/param-out in real units. The slider always spans
+  // the parameter min…max (not a ±max offset thumb).
+  const uiMin = absMin;
+  const uiMax = absMax;
+  const uiMid = absMid;
+  const uiDef = absDef;
   slider.min = String(uiMin);
   slider.max = String(uiMax);
   slider.dataset.mid = String(clampNodeSliderValue(uiMid, uiMin, uiMax));
@@ -975,16 +972,9 @@ function setNodeSliderMetadata(slider, metadata) {
   slider.dataset.smoothingSeconds = Number.isFinite(Number(metadata.smoothingSeconds)) && Number(metadata.smoothingSeconds) >= 0
     ? String(metadata.smoothingSeconds)
     : "";
-  // Domain-offset mode: linear only (no curve) for now.
-  if (destDomain) {
-    slider.dataset.sliderCurve = "linear";
-    slider.dataset.curveAmount = "0";
-    slider.dataset.nonlinearSlider = "false";
-  } else {
-    slider.dataset.sliderCurve = normalizeNodeSliderCurve(metadata.sliderCurve, metadata.nonlinearSlider);
-    slider.dataset.curveAmount = String(normalizeNodeSliderCurveAmount(metadata.curveAmount));
-    slider.dataset.nonlinearSlider = slider.dataset.sliderCurve === "linear" ? "false" : "true";
-  }
+  slider.dataset.sliderCurve = normalizeNodeSliderCurve(metadata.sliderCurve, metadata.nonlinearSlider);
+  slider.dataset.curveAmount = String(normalizeNodeSliderCurveAmount(metadata.curveAmount));
+  slider.dataset.nonlinearSlider = slider.dataset.sliderCurve === "linear" ? "false" : "true";
   slider.dataset.showSign = metadata.showSign ? "true" : "false";
   slider.dataset.removeTrailingZeros = metadata.removeTrailingZeros ? "true" : "false";
   slider.dataset.bipolar = metadata.bipolar ? "true" : "false";
@@ -1007,21 +997,11 @@ function setNodeSliderMetadata(slider, metadata) {
   if (Object.hasOwn(metadata, "visible")) {
     slider.dataset.visible = metadata.visible === false ? "false" : "true";
   }
-  // Domain mode: slider shows/edits domainOffset. Else prefer existing domainValue.
-  let domainSource;
-  if (destDomain) {
-    const off = Number(metadata.domainOffset);
-    domainSource = Number.isFinite(off) ? off : 0;
-  } else {
-    domainSource = Number.isFinite(Number(slider.dataset.domainValue))
-      ? Number(slider.dataset.domainValue)
-      : Number(slider.value);
-  }
+  const domainSource = Number.isFinite(Number(slider.dataset.domainValue))
+    ? Number(slider.dataset.domainValue)
+    : Number(slider.value);
   const domain = normalizeNodeSliderValue(slider, domainSource, uiMin, uiMax);
   slider.dataset.domainValue = String(domain);
-  if (destDomain) {
-    slider.dataset.domainOffset = String(domain);
-  }
   slider.value = String(
     typeof nodeSliderThumbDisplayValue === "function"
       ? nodeSliderThumbDisplayValue(slider, domain)

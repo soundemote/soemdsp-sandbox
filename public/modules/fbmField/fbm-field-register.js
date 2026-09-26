@@ -64,8 +64,11 @@ registerNodeGraphChromelessModule("fbmField", {
     inputAliases: { Reset: "In" },
     inputs: ["In"],
     inputLabels: { In: "→" },
-    outputs: ["X", "Y", "Z"],
-    outputLabels: { X: "X", Y: "Y", Z: "Z" },
+    outputs: ["X", "Y", "Z", "rgba"],
+    outputLabels: { X: "X", Y: "Y", Z: "Z", rgba: "📺" },
+    outputTooltips: {
+      rgba: "Field picture. Same shared picture context as Image Ghost.",
+    },
     parameters: [
       {
         choices: ["Scroll", "Volume"],

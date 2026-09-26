@@ -20,11 +20,17 @@ registerNodeGraphChromelessModule("imageBurn", {
       },
     ],
     defaultDisplayMode: "face",
-    inputs: ["In"],
+    inputs: ["In", "rgba"],
     digitalInputs: ["In"],
-    inputLabels: { In: "Brightness" },
-    outputs: ["Thru"],
-    outputLabels: { Thru: "←" },
+    inputLabels: { In: "Brightness", rgba: "📺" },
+    inputTooltips: {
+      rgba: "Picture in. Replaces the loaded file while connected. Same shared picture context.",
+    },
+    outputs: ["Thru", "rgba"],
+    outputLabels: { Thru: "←", rgba: "📺" },
+    outputTooltips: {
+      rgba: "Residual picture out, after Hang / Burn / Blur.",
+    },
     parameters: [
       {
         defaultValue: "1",

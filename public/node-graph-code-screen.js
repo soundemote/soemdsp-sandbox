@@ -12,19 +12,21 @@ const nodeGraphCodeScreenCodeBoxKinds = Object.freeze({
     property: "customDisplay",
     label: "Custom Display",
     kindLabelPlural: "custom displays",
-    normalize: (value) => normalizeNodeGraphCustomDisplay(value),
-    compileStatus: (value) => nodeGraphCustomDisplayCompileStatus(value),
+    normalize: (value) => {
+      const source = value && typeof value === "object" ? value : {};
+      return {
+        code: String(source.code || ""),
+        inputs: Array.isArray(source.inputs) ? source.inputs.map((port) => String(port || "")).filter(Boolean) : [],
+        outputs: [],
+      };
+    },
+    compileStatus: () => ({ ok: false, message: "custom display was removed" }),
     pruneConnections: (patch, nodeId, inputs) =>
       pruneNodeGraphConnectionsForCodeblockPortChange(patch, nodeId, inputs, []),
     contextHint: "Define function draw(api). api has ctx, width, height, inputs, time, frame, pixelRatio, helpers, and node.",
     emptyStateMessage: "No Custom Display modules exist in this patch yet. Custom Displays draw directly inside their module face from wired input buffers.",
     createLabel: "New Custom Display",
-    createFn: () => {
-      const nodeId = showNodeGraphModule("customDisplay", null, { status: "custom display added" });
-      if (nodeId) {
-        openNodeGraphCodeBoxWindowForNode(nodeId);
-      }
-    },
+    createFn: () => {},
   },
 });
 

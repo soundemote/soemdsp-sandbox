@@ -67,7 +67,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "value"
   )) {
     label = "\u26AA Size";
-    title = "Stroke diameter vs face min side. 0 = gone; 1 = full square. Goes sub-pixel as you approach 0.";
+    title = "Stroke diameter in CSS pixels at zoom 1. 0 = gone.";
   }
   if ((key === "dot1Brightness" || key === "secondaryBrightness") && (
     formType === "trace"
@@ -1683,6 +1683,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   }
   if (type === "limiterGainFace" && typeof buildNodeGraphLimiterGainDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphLimiterGainDisplaySettingsBodyHtml();
+  }
+  if (type === "harmonicLines" && typeof buildNodeGraphHarmonicLinesDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphHarmonicLinesDisplaySettingsBodyHtml();
   }
   if (type === "portalFace" && typeof buildNodeGraphPortalDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphPortalDisplaySettingsBodyHtml();

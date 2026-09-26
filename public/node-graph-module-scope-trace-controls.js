@@ -251,6 +251,12 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
 });
 
 const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
+  blank: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
   // 1D history plot (Output / Music Player). RGB stroke — no phosphor residual.
   // Fade is XYZ / vectorscope Instant Trace only (not 2D Trace).
   // Output stereo: Left = Size, Right = secondary Size/Bright.
@@ -787,6 +793,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "textScale",
       "labelPadding",
       "labelScale",
+      "rounding",
     ]),
     colors: Object.freeze(["strokeColor", "inactiveColor", "activeColor", "hoverColor", "textColor"]),
     toggles: Object.freeze(["buttonShowLabel"]),
@@ -802,6 +809,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "textScale",
       "labelPadding",
       "labelScale",
+      "rounding",
     ]),
     colors: Object.freeze(["strokeColor", "inactiveColor", "activeColor", "hoverColor", "textColor"]),
     toggles: Object.freeze(["buttonShowLabel"]),
@@ -919,13 +927,18 @@ function nodeGraphTraceDisplayActiveControlsForType(type = nodeGraphTraceDisplay
     }
     return spec;
   }
-  // Energy / *Burn faces → scope2d controls. Never default unknown types to
-  // "trace" (Output stereo page) — that leaked syncChannel/stereoBlend onto
-  // Videoscope and friends.
+  // Energy / *Burn faces → scope2d controls.
   if (key.endsWith("Burn") || key === "transportBpm" || key === "clock" || key === "phoneToneFace" || key === "harmonicSeriesFace" || key === "vectorRgbFace" || key === "rasterRgbFace" || key === "gradientVectorscopeFace") {
     return nodeGraphTraceDisplayActiveControlsByType.scope2d;
   }
-  return nodeGraphTraceDisplayActiveControlsByType.trace;
+  // Unknown form types: BLANK. Never Instant Trace (red plate + dead knobs).
+  return nodeGraphTraceDisplayActiveControlsByType.blank
+    || Object.freeze({
+      fields: Object.freeze([]),
+      colors: Object.freeze([]),
+      toggles: Object.freeze([]),
+      choices: Object.freeze([]),
+    });
 }
 
 function nodeGraphTraceDisplayActiveControlSet(kind, type = nodeGraphTraceDisplaySettingsFormType()) {
@@ -1475,7 +1488,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Rounding",
     inputmode: "decimal",
     id: "nodeTraceDisplayRounding",
-    title: "Button corner rounding percent (0 = square, 100 = full capsule/circle).",
+    title: "Corner radius 0…1 of half the button min-edge. 0 = square, 1 = full capsule/circle. Pairs with Pill or Squircle.",
   }),
   cornerRadius: Object.freeze({
     label: "Rounding",

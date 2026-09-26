@@ -88,7 +88,7 @@
       return 0;
     }
     const face = Math.max(1, nodeGraphFiniteNumber(options.faceMinSide, 1));
-    const size01 = clamp01(options.size, 0.035);
+    const size01 = displayInkToPx(options.size, 2);
     const blur = clamp01(options.blur, 0);
     const brightness = clamp01(options.brightness, 1);
     const color = options.color || "#ff3333";
@@ -115,7 +115,7 @@
     context.fillStyle = color;
     context.lineWidth = typeof global.TraceStroke?.diameterPx === "function"
       ? global.TraceStroke.diameterPx(face, size01)
-      : face * size01;
+      : size01;
     if (!(context.lineWidth > 0)) {
       context.restore();
       return 0;
@@ -157,7 +157,7 @@
       return 0;
     }
     const face = Math.max(1, nodeGraphFiniteNumber(options.faceMinSide, 1));
-    const size01 = clamp01(options.size, 0.06);
+    const size01 = displayInkToPx(options.size, 2);
     const blur = clamp01(options.blur, 0);
     const blend = normalizeBlend(options.blend, "source-over");
     const budget = Math.max(8, Math.round(nodeGraphFiniteNumber(options.dotBudget, 2048)));
@@ -178,7 +178,7 @@
       };
     const widthPx = typeof global.TraceStroke?.diameterPx === "function"
       ? global.TraceStroke.diameterPx(face, size01)
-      : face * size01;
+      : size01;
     if (!(widthPx > 0)) {
       return 0;
     }

@@ -435,6 +435,10 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "rate") return P.NATIVE_GRAPH_PARAM_LFO_RATE;
     if (k === "stereoSpread") return P.NATIVE_GRAPH_PARAM_CENTER;
   }
+  if (t === "pll") {
+    if (k === "smoothing") return P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY;
+    if (k === "range") return P.NATIVE_GRAPH_PARAM_MODE;
+  }
   if (t === "vcvrackSuperloveFilter") {
     if (k === "drive") return P.NATIVE_GRAPH_PARAM_GAIN_DB;
     if (k === "noise") return P.NATIVE_GRAPH_PARAM_MIX;
@@ -810,10 +814,13 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (t === "pll") {
     if (p === "vco out" || p === "vco") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     if (p === "pc out" || p === "pc") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
-    if (p === "lpf out" || p === "lfp out" || p === "lpf") {
+    if (p === "loop" || p === "lpf out" || p === "lfp out" || p === "lpf" || p === "pull") {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
     }
     if (p === "locked") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+    if (p === "f" || p === "ƒ" || p === "freq" || p === "frequency") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
+    }
   }
   if (t === "delayEffect" && (p === "wet" || p === "mix")) {
     return p === "wet"
@@ -1445,7 +1452,6 @@ NodeLiveAudioProcessor.prototype.nativeGraphObserverThruInPort = function native
   if (o === "rgba" || o === "📺") return null;
   // Analyzer Thru jack (spectrogram, customDisplay, …).
   if (o === "Thru" || o === "←") {
-    if (t === "customDisplay") return "In1";
     if (t === "traceDisplay") return "In";
     return "In";
   }
@@ -3518,11 +3524,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       domainAdd = nodeGraphFiniteNumber(acc?.domainAdd);
     }
     if (destDomain) {
-      // Use real mod values: domain mods + domainOffset ADD to Control/knob.
-      const off = typeof nodeGraphParamDomainOffset === "function"
-        ? nodeGraphParamDomainOffset(meta)
-        : (Number.isFinite(Number(meta.domainOffset)) ? Number(meta.domainOffset) : 0);
-      domainAdd += off;
+      // Cables add in real units. Knob value is params[key] (full min…max).
       unitAdd = 0;
     }
     const modToken = `${unitAdd}\0${domainAdd}`;
@@ -4623,10 +4625,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "pll") {
-      push("range", P.NATIVE_GRAPH_PARAM_MODE, disc("range", 1));
-      push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 5));
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 110));
+      push("range", P.NATIVE_GRAPH_PARAM_MODE, cont("range", 4));
       push("type", P.NATIVE_GRAPH_PARAM_STAGES, disc("type", 1));
-      push("frequ", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequ", 10));
+      push("smoothing", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("smoothing", 10));
       continue;
     }
     if (type === "lorenzAttractor") {
@@ -6940,6 +6942,12 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       if (!dst || !idSet.has(dst)) continue;
       const srcPort = String(c?.sourcePort || "");
       const dstPort = String(c?.destinationPort || "");
+      const srcType = String(this.nodes.get(src)?.type || "");
+      const dstType = String(this.nodes.get(dst)?.type || "");
+      const pictureType = srcType === "imageBurn" || srcType === "rgbFractal" || srcType === "fbmField"
+        || dstType === "imageBurn" || dstType === "rgbFractal" || dstType === "fbmField";
+      const tvPort = srcPort === "rgba" || srcPort === "📺" || dstPort === "rgba" || dstPort === "📺";
+      if (pictureType && tvPort) continue;
       const resolved = idSet.has(src)
         ? [{ sourceNode: src, sourcePort: srcPort }]
         : this.resolveNativeGraphThruSources(src, srcPort, idSet, 0);

@@ -207,7 +207,7 @@ static inline float skew_bipolar_rational(float t, float c) {
 }
 
 static inline float linear_filter_shape(float t, float skew, int curveMode) {
-  return curveMode == 1 ? skew_bipolar_rational(t, skew) : skew_rational(t, skew);
+  return curveMode == 1 ? skew_bipolar_rational(t, skew) : skew_rational(t, -skew);
 }
 
 // Exponential 0…1 map. c∈(−1…+1): + = slow start / fast end.
@@ -752,44 +752,56 @@ static inline float filter_response_gain_hz(
   return butterworth_mag(f, fc, order, 1);
 }
 
-// Linear Filter: rational-curve skirts. slope01 0=brickwall … 1=wide.
+// Linear Filter: rational-curve skirts. Slope −1…+1: |s| = width, sign reverses.
 // curveMode 0=Rational, 1=Bipolar Rational (skew 0 = linear ramp either way).
 static inline float filter_response_gain_rational(
   float freqHz, int mode, float cutoffHz, float slope01, float skew, int curveMode = 0
 ) {
   const float fc = cutoffHz > 0.0f ? cutoffHz : 0.0f;
-  const float slope = clamp_f(slope01, 0.0f, 1.0f);
+  const float slope = clamp_f(slope01, -1.0f, 1.0f);
+  const float mag = slope < 0.0f ? -slope : slope;
+  const bool reverse = slope < 0.0f;
   const float f = freqHz > 0.0f ? freqHz : 0.0f;
   const float skewC = clamp_f(skew, -0.9999f, 0.9999f);
   const int cm = curveMode == 1 ? 1 : 0;
-  const float halfOct = slope <= 1e-6f ? 0.0f : (0.05f + slope * 5.0f);
+  const float halfOct = mag <= 1e-6f ? 0.0f : (0.05f + mag * 5.0f);
 
   if (mode == 0) { // lp
-    if (!(fc > 0.0f)) return 0.0f;
-    if (!(f > 0.0f)) return 1.0f;
-    if (halfOct <= 0.0f) return f <= fc ? 1.0f : 0.0f;
+    if (!(fc > 0.0f)) return reverse ? 1.0f : 0.0f;
+    if (!(f > 0.0f)) return reverse ? 0.0f : 1.0f;
+    if (halfOct <= 0.0f) {
+      const float g = f <= fc ? 1.0f : 0.0f;
+      return reverse ? 1.0f - g : g;
+    }
     const float oct = (float)(soemdsp_maths::dsp_ln((double)(f / fc)) / 0.6931471805599453);
     const float t = clamp_f((oct + halfOct) / (2.0f * halfOct), 0.0f, 1.0f);
-    return 1.0f - linear_filter_shape(t, skewC, cm);
+    const float g = 1.0f - linear_filter_shape(t, skewC, cm);
+    return reverse ? 1.0f - g : g;
   }
   if (mode == 2) { // hp
-    if (!(fc > 0.0f)) return 1.0f;
-    if (!(f > 0.0f)) return 0.0f;
-    if (halfOct <= 0.0f) return f >= fc ? 1.0f : 0.0f;
+    if (!(fc > 0.0f)) return reverse ? 0.0f : 1.0f;
+    if (!(f > 0.0f)) return reverse ? 1.0f : 0.0f;
+    if (halfOct <= 0.0f) {
+      const float g = f >= fc ? 1.0f : 0.0f;
+      return reverse ? 1.0f - g : g;
+    }
     const float oct = (float)(soemdsp_maths::dsp_ln((double)(f / fc)) / 0.6931471805599453);
     const float t = clamp_f((oct + halfOct) / (2.0f * halfOct), 0.0f, 1.0f);
-    return linear_filter_shape(t, skewC, cm);
+    const float g = linear_filter_shape(t, skewC, cm);
+    return reverse ? 1.0f - g : g;
   }
   // bp
-  if (!(fc > 0.0f) || !(f > 0.0f)) return 0.0f;
+  if (!(fc > 0.0f) || !(f > 0.0f)) return reverse ? 1.0f : 0.0f;
   const float passOct = halfOct <= 0.0f ? 0.02f : (halfOct * 0.35f > 0.02f ? halfOct * 0.35f : 0.02f);
   const float edgeOct = halfOct <= 0.0f ? 0.01f : (halfOct * 0.65f > 0.02f ? halfOct * 0.65f : 0.02f);
   const float a = (float)soemdsp_maths::dsp_fabs(
     soemdsp_maths::dsp_ln((double)(f / fc)) / 0.6931471805599453
   );
-  if (a <= passOct) return 1.0f;
-  if (a >= passOct + edgeOct) return 0.0f;
-  return linear_filter_shape(1.0f - ((a - passOct) / edgeOct), skewC, cm);
+  float g;
+  if (a <= passOct) g = 1.0f;
+  else if (a >= passOct + edgeOct) g = 0.0f;
+  else g = linear_filter_shape(1.0f - ((a - passOct) / edgeOct), skewC, cm);
+  return reverse ? 1.0f - g : g;
 }
 
 static inline float ladder_resonance_gain(

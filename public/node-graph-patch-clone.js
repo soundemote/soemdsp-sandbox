@@ -387,6 +387,12 @@ function cloneNodeGraphTypedDisplaySettings(node) {
           ? normalizeNodeGraphTransportSettings(node.transportSettings)
           : (node.transportSettings || { gateBlink: false }),
       };
+    case "harmonicLines":
+      return {
+        harmonicLinesSettings: typeof normalizeNodeGraphHarmonicLinesSettings === "function"
+          ? normalizeNodeGraphHarmonicLinesSettings(node.harmonicLinesSettings)
+          : (node.harmonicLinesSettings || { lineWidth: 2 }),
+      };
     case "knobFace":
       return {
         traceDisplaySettings: typeof normalizeNodeGraphKnobFaceDisplaySettings === "function"
@@ -605,9 +611,6 @@ function cloneNodeGraphPatch(patch) {
               ? sequencerCloneClip(node.sequencer)
               : (node.sequencer && typeof node.sequencer === "object" ? { ...node.sequencer } : undefined),
           }
-          : {}),
-        ...(node.type === "customDisplay"
-          ? { customDisplay: normalizeNodeGraphCustomDisplay(node.customDisplay) }
           : {}),
         ...(node.type === "matrixWaterfall" && typeof normalizeNodeGraphMatrixWaterfall === "function"
           ? {

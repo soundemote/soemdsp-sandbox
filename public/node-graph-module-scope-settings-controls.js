@@ -404,6 +404,10 @@ function nodeGraphTraceDisplayClampUnit(value) {
   return clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
 }
 
+function nodeGraphTraceDisplayClampInkPx(value) {
+  return clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 32);
+}
+
 function nodeGraphTraceDisplayClampNonNegative(value) {
   return Math.max(0, nodeGraphFiniteNumber(value));
 }
@@ -536,7 +540,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
     return Math.max(0, Math.min(12, n));
   },
   dot1Brightness: nodeGraphTraceDisplayClampBrightness,
-  dot1Size: nodeGraphTraceDisplayClampUnit,
+  dot1Size: nodeGraphTraceDisplayClampInkPx,
   ghost: nodeGraphTraceDisplayClampUnit,
   historySeconds: nodeGraphTraceDisplayClampHistorySeconds,
   fade: nodeGraphTraceDisplayClampUnit,
@@ -550,7 +554,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   scale: nodeGraphTraceDisplayClampNonNegative,
   secondaryBrightness: nodeGraphTraceDisplayClampBrightness,
   secondaryLineThickness: nodeGraphTraceDisplayClampNonNegative,
-  secondarySize: nodeGraphTraceDisplayClampUnit,
+  secondarySize: nodeGraphTraceDisplayClampInkPx,
   sweepHz: (value) => (typeof nodeGraphTraceDisplayClampSweepHz === "function"
     ? nodeGraphTraceDisplayClampSweepHz(value, 4)
     : clampNodeSliderValue(nodeGraphFiniteNumber(value, 4), 0, 100)),
@@ -655,7 +659,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   }),
   vectorDot: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampUnit,
-    dot1Size: nodeGraphTraceDisplayClampUnit,
+    dot1Size: nodeGraphTraceDisplayClampInkPx,
     shapeParam: nodeGraphTraceDisplayClampUnit,
     dot1Brightness: nodeGraphTraceDisplayClampBrightness,
     backgroundBrightness: nodeGraphTraceDisplayClampUnit,
@@ -665,14 +669,14 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   }),
   pulseDot: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampUnit,
-    dot1Size: nodeGraphTraceDisplayClampUnit,
+    dot1Size: nodeGraphTraceDisplayClampInkPx,
     shapeParam: nodeGraphTraceDisplayClampUnit,
     dot1Brightness: nodeGraphTraceDisplayClampBrightness,
     backgroundBrightness: nodeGraphTraceDisplayClampUnit,
   }),
   lcdDot: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampUnit,
-    dot1Size: nodeGraphTraceDisplayClampUnit,
+    dot1Size: nodeGraphTraceDisplayClampInkPx,
     shapeParam: nodeGraphTraceDisplayClampUnit,
     dot1Brightness: nodeGraphTraceDisplayClampBrightness,
     backgroundBrightness: nodeGraphTraceDisplayClampUnit,
@@ -710,6 +714,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     textScale: nodeGraphTraceDisplayClampUnit,
     labelPadding: nodeGraphTraceDisplayClampUnit,
     labelScale: nodeGraphTraceDisplayClampUnit,
+    rounding: nodeGraphTraceDisplayClampUnit,
   }),
   momentaryButtonFace: Object.freeze({
     strokeScale: nodeGraphTraceDisplayClampUnit,
@@ -720,6 +725,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     textScale: nodeGraphTraceDisplayClampUnit,
     labelPadding: nodeGraphTraceDisplayClampUnit,
     labelScale: nodeGraphTraceDisplayClampUnit,
+    rounding: nodeGraphTraceDisplayClampUnit,
   }),
   pluginSliderFace: Object.freeze({
     sliderLength: nodeGraphTraceDisplayClampUnit,

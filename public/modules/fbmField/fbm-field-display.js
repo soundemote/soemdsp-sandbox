@@ -504,6 +504,7 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   const ok = nodeGraphFbmFieldGlPresent(canvas, grid.mono, grid.width, grid.height, {
     gradientStops: settings.gradientStops,
     background: settings.background,
+    nodeId,
   });
   if (ok) {
     if (face.dataset) face.dataset.lightStrength = "1";

@@ -172,6 +172,14 @@ body.node-boot-waiting .node-boot-loading-messages {
 body:not(.node-boot-waiting) .node-boot-start-button {
   display: none;
 }
+/* Start page only: treat the overlay as normal text. Body is user-select:none
+ * for the graph UI, which leaves a selected hero title stuck when you click
+ * empty chrome. */
+body.node-boot-waiting .node-boot-loading-screen {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 
 
 .node-boot-hero-title {
@@ -179,7 +187,10 @@ body:not(.node-boot-waiting) .node-boot-start-button {
   padding: 0;
   max-width: min(94vw, 42rem);
   color: rgba(243, 241, 236, 0.98);
-  font-family: "Big Shoulders", "Tenor Sans", system-ui, sans-serif;
+  font-family: var(
+    --node-header-title-font-family,
+    "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace
+  );
   font-size: clamp(2.4rem, 8vw, 4.6rem);
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -187,6 +198,8 @@ body:not(.node-boot-waiting) .node-boot-start-button {
   text-align: center;
   text-shadow: 0 0 28px rgba(127, 199, 217, 0.35);
   word-break: break-word;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 body:not(.node-boot-waiting) .node-boot-hero-title {
@@ -228,7 +241,7 @@ body:not(.node-boot-waiting) .node-boot-menu-links {
   letter-spacing: 0.04em;
   line-height: 1.1;
   text-decoration: none;
-  cursor: pointer;
+  cursor: default;
   box-shadow: 0 0 28px rgba(127, 199, 217, 0.18);
 }
 
@@ -261,7 +274,7 @@ body:not(.node-boot-waiting) .node-boot-menu-links {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 0.85rem;
+  gap: 1.5rem;
 }
 
 .node-boot-email-button,
@@ -279,7 +292,7 @@ body:not(.node-boot-waiting) .node-boot-menu-links {
   background: linear-gradient(180deg, rgba(127, 199, 217, 0.22), rgba(127, 199, 217, 0.08));
   color: rgba(243, 241, 236, 0.96);
   text-decoration: none;
-  cursor: pointer;
+  cursor: default;
   box-shadow: 0 0 28px rgba(127, 199, 217, 0.18);
 }
 
@@ -25169,8 +25182,8 @@ code {
   appearance: none;
   -webkit-appearance: none;
   border: calc(var(--plugin-btn-stroke-scale, 0.06) * 8cqmin) solid var(--plugin-btn-stroke, #5c5071);
-  border-radius: 14cqmin;
-  corner-shape: squircle;
+  border-radius: var(--plugin-btn-radius, 14cqmin);
+  corner-shape: var(--plugin-btn-corner-shape, squircle);
   color: var(--plugin-btn-text, #f4f7f8);
   font-weight: 700;
   line-height: 1;

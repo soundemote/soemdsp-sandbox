@@ -547,7 +547,6 @@ function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
   // "Use real mod values": Control/knob (+ domainOffset) is an OFFSET added to
   // domain MOD sources. Offset applies even with no mod wires. No slider curve.
   if (metadata && metadata.outputDomain === true) {
-    const domainOffset = nodeGraphParamDomainOffset(metadata);
     let domainAdd = 0;
     const list = Array.isArray(sources) ? sources : (sources == null ? [] : [sources]);
     if (list.length) {
@@ -557,8 +556,8 @@ function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
     }
     const baseN = Number(base);
     const b = Number.isFinite(baseN) ? baseN : 0;
-    // effective = paramValue + domainModSum + domainOffset
-    let result = b + domainAdd + domainOffset;
+    // Knob is the parameter. outputDomain only means cables add in real units.
+    let result = b + domainAdd;
     if (!Number.isFinite(result)) {
       return 0;
     }

@@ -13,7 +13,7 @@
  *   graphChunk — Additive Yellow Graph chunks (yellow)
  *   blockRate  — Additive cyan Parameter / once-per-quantum (cyan)
  *   setup      — setup param (purple square): automatable once/quantum, not realtime
- *   texture    — TV/RGBA video-style taps (📺) — reserved / not fully implemented
+ *   texture    — 📺 picture on the shared WebGL picture device (not audio)
  */
 const NODE_GRAPH_PORT_TYPES = Object.freeze({
   audio: "audio",

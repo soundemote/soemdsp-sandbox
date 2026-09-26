@@ -456,8 +456,10 @@ function nodeGraphImageBurnDrawGl(face, ctx, w, h, opts) {
     deposit: opts.deposit,
     accumulate: opts.accumulate,
     image: opts.img,
+    textureIn: opts.textureIn,
     imageSize: opts.imageSize,
     dataUrl: opts.dataUrl,
+    nodeId: opts.nodeId,
     paused: opts.paused,
   });
   return nodeGraphImageBurnGlPresentTo(face, ctx, w, h);
@@ -896,14 +898,18 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     && !imageReady,
   );
 
-  if (!settings.dataUrl) {
+  const textureIn = (slot?.nodeId && typeof nodeGraphPictureRead === "function")
+    ? nodeGraphPictureRead(slot.nodeId, "rgba")
+    : null;
+
+  if (!settings.dataUrl && !textureIn?.texture) {
     face._imageBurnSeenReady = false;
     face._imageBurnEnergyAbs = 0;
     nodeGraphImageBurnClearResidual(face);
   }
 
   // One-shot after load so hang gets pixels before In is wired.
-  if (imageReady && !face._imageBurnSeenReady) {
+  if ((imageReady || textureIn?.texture) && !face._imageBurnSeenReady) {
     face._imageBurnSeenReady = true;
     face._imageBurnSeedFrames = 12;
   }
@@ -929,17 +935,20 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     && nodeGraphModuleScopePaused();
 
   // Residual via GL; dry flash screened in 2D after (Brightness never hides burn).
+  const stampReady = imageReady || Boolean(textureIn?.texture);
   const usedGl = nodeGraphImageBurnDrawGl(face, ctx, w, h, {
     hang,
     burn,
     contrast,
     blur,
-    deposit: imageReady ? deposit : 0,
+    deposit: stampReady ? deposit : 0,
     accumulate,
     lit: imageReady ? lit : 0,
-    img: imageReady ? img : null,
+    img: textureIn?.texture ? null : (imageReady ? img : null),
+    textureIn: textureIn?.texture ? textureIn : null,
     imageSize: size,
     dataUrl: settings.dataUrl,
+    nodeId: slot.nodeId,
     paused,
   });
 

@@ -122,6 +122,19 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       );
     }
   }
+  if (type === "harmonicLines") {
+    if (typeof bindNodeGraphHarmonicLinesDisplaySettingsBody === "function") {
+      bindNodeGraphHarmonicLinesDisplaySettingsBody(host);
+    }
+    if (typeof syncNodeGraphHarmonicLinesDisplaySettingsControls === "function") {
+      syncNodeGraphHarmonicLinesDisplaySettingsControls(
+        host,
+        typeof nodeGraphHarmonicLinesSettingsForNode === "function"
+          ? nodeGraphHarmonicLinesSettingsForNode(node)
+          : { lineWidth: 2 },
+      );
+    }
+  }
   if (type === "portalFace") {
     if (typeof bindNodeGraphPortalDisplaySettingsBody === "function") {
       bindNodeGraphPortalDisplaySettingsBody(host);
@@ -379,7 +392,7 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "phaserFace") {
     return typeof normalizeNodeGraphPhaserFaceDisplaySettings === "function"
       ? normalizeNodeGraphPhaserFaceDisplaySettings()
-      : { barThickness: 0.04, curveThickness: 0.02 };
+      : { barThickness: 4, curveThickness: 2 };
   }
 if (type === "portalFace") {
     return { channel: 0 };
@@ -465,6 +478,11 @@ if (type === "portalFace") {
     return typeof normalizeNodeGraphTransportSettings === "function"
       ? normalizeNodeGraphTransportSettings()
       : { gateBlink: false };
+  }
+  if (type === "harmonicLines") {
+    return typeof normalizeNodeGraphHarmonicLinesSettings === "function"
+      ? normalizeNodeGraphHarmonicLinesSettings()
+      : { lineWidth: 2 };
   }
   if (type === "limiterGainFace") {
     return typeof normalizeNodeGraphLimiterGainFaceSettings === "function"
@@ -571,7 +589,10 @@ if (type === "portalFace") {
         ? normalizeNodeGraphAsciiscope(null)
         : { glyphTable: ".", message: "READY" });
   }
-  return normalizeNodeGraphTraceDisplaySettings(nodeGraphTraceDisplaySettingsDefaults);
+  if (type === "trace" || type === "traceRgb" || type === "traceXyz") {
+    return normalizeNodeGraphTraceDisplaySettings(nodeGraphTraceDisplaySettingsDefaults);
+  }
+  return {};
 }
 
 function nodeGraphDisplaySettingsDefaultValue(key) {
@@ -652,7 +673,7 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   if (type === "phaserFace") {
     return typeof normalizeNodeGraphPhaserFaceDisplaySettings === "function"
       ? normalizeNodeGraphPhaserFaceDisplaySettings(settings)
-      : { barThickness: 0.04, curveThickness: 0.02 };
+      : { barThickness: 4, curveThickness: 2 };
   }
 if (type === "portalFace") {
     return {
@@ -690,6 +711,11 @@ if (type === "portalFace") {
     return typeof normalizeNodeGraphArpKeysSettings === "function"
       ? normalizeNodeGraphArpKeysSettings(settings)
       : (settings || {});
+  }
+  if (type === "harmonicLines") {
+    return typeof normalizeNodeGraphHarmonicLinesSettings === "function"
+      ? normalizeNodeGraphHarmonicLinesSettings(settings)
+      : (settings || { lineWidth: 2 });
   }
   if (type === "limiterGainFace") {
     return typeof normalizeNodeGraphLimiterGainFaceSettings === "function"
@@ -842,7 +868,7 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   if (settingsSchema === "phaserFace") {
     return typeof normalizeNodeGraphPhaserFaceDisplaySettings === "function"
       ? normalizeNodeGraphPhaserFaceDisplaySettings(node?.traceDisplaySettings)
-      : { barThickness: 0.04, curveThickness: 0.02 };
+      : { barThickness: 4, curveThickness: 2 };
   }
 if (settingsSchema === "portalFace") {
     return typeof nodeGraphPortalDisplaySettingsForNode === "function"
@@ -897,6 +923,13 @@ if (settingsSchema === "portalFace") {
       : (typeof normalizeNodeGraphTransportSettings === "function"
         ? normalizeNodeGraphTransportSettings(node?.transportSettings)
         : (node?.transportSettings || { gateBlink: false }));
+  }
+  if (settingsSchema === "harmonicLines") {
+    return typeof nodeGraphHarmonicLinesSettingsForNode === "function"
+      ? nodeGraphHarmonicLinesSettingsForNode(node)
+      : (typeof normalizeNodeGraphHarmonicLinesSettings === "function"
+        ? normalizeNodeGraphHarmonicLinesSettings(node?.harmonicLinesSettings)
+        : (node?.harmonicLinesSettings || { lineWidth: 2 }));
   }
   if (settingsSchema === "limiterGainFace") {
     return typeof nodeGraphLimiterGainFaceSettingsForNode === "function"
@@ -1098,6 +1131,13 @@ function readNodeGraphTraceDisplaySettingsForm() {
     next.cornerShape = document.getElementById("nodePhosphorWaveformCornerSquareButton")?.classList.contains("active")
       ? "square"
       : "squircle";
+    return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
+  }
+  if (formType === "harmonicLines") {
+    const panel = root?.querySelector?.("[data-harmonic-lines-display-settings-panel]") || root;
+    const next = { ...current };
+    const input = panel?.querySelector?.(`[data-harmonic-lines-field="lineWidth"]`);
+    if (input) next.lineWidth = Number(input.value);
     return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
   }
   if (formType === "limiterGainFace") {
@@ -1501,6 +1541,13 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   if (formType === "phosphorWaveform") {
     if (typeof renderNodeGraphPhosphorWaveformSettingsWindow === "function") {
       renderNodeGraphPhosphorWaveformSettingsWindow();
+    }
+    return;
+  }
+  if (formType === "harmonicLines") {
+    const panel = root?.querySelector?.("[data-harmonic-lines-display-settings-panel]") || root;
+    if (typeof syncNodeGraphHarmonicLinesDisplaySettingsControls === "function") {
+      syncNodeGraphHarmonicLinesDisplaySettingsControls(panel, normalized);
     }
     return;
   }

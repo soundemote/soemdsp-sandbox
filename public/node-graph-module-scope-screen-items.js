@@ -696,55 +696,6 @@ document.fonts.load('700 40px "DSEG7 Classic"').then(() => {
 // nodeGraphNumberReadoutDrawDigits → node-graph-module-scope-number-readout.js
 // nodeGraphNumberReadoutDrawInnerShadow → node-graph-module-scope-number-readout.js
 // drawNodeGraphNumberReadoutItem → node-graph-module-scope-number-readout.js
-function nodeGraphCustomDisplayCanvasForSlot(slot) {
-  const screenElement = slot?.scopeElement;
-  if (!screenElement) {
-    return null;
-  }
-  let canvas = screenElement.querySelector(":scope > .node-custom-display-canvas");
-  if (!canvas) {
-    canvas = document.createElement("canvas");
-    canvas.className = "node-custom-display-canvas";
-    canvas.setAttribute("aria-hidden", "true");
-    screenElement.appendChild(canvas);
-  }
-  return canvas;
-}
-
-function syncNodeGraphCustomDisplayCanvas(canvas, screenElement, pixelRatio) {
-  if (!canvas || !screenElement) {
-    return false;
-  }
-  // Layout CSS size — not getBoundingClientRect (zoom would balloon the buffer).
-  const cssWidth = Math.max(1, screenElement.clientWidth || screenElement.offsetWidth || 1);
-  const cssHeight = Math.max(1, screenElement.clientHeight || screenElement.offsetHeight || 1);
-  const width = Math.max(1, Math.floor(cssWidth * pixelRatio));
-  const height = Math.max(1, Math.floor(cssHeight * pixelRatio));
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width;
-    canvas.height = height;
-  }
-  canvas.style.width = `${cssWidth}px`;
-  canvas.style.height = `${cssHeight}px`;
-  return true;
-}
-
-function nodeGraphCustomDisplayInputApi(node, displayScript, primaryBuffer) {
-  const inputs = {};
-  for (const port of displayScript.inputs || []) {
-    const buffer = nodeGraphModuleScopeState.buffers.get(`${node.id}:${port}`) ||
-      nodeGraphModuleScopeConnectedSourceBuffer(node.id, port) ||
-      (port === displayScript.inputs[0] ? primaryBuffer : null);
-    inputs[port] = {
-      buffer: buffer || new Float32Array(0),
-      latest: buffer?.length ? nodeGraphFiniteNumber(buffer[buffer.length - 1]) : 0,
-      length: buffer?.length || 0,
-    };
-  }
-  return inputs;
-}
-
-// drawNodeGraphCustomDisplayItem → node-graph-module-scope-draw-basic.js
 function nodeGraphDisplaySettingsAmplitudeScale(settings) {
   const s = Number(settings?.scale);
   return Number.isFinite(s) && s > 0 ? clampNodeSliderValue(s, 0.01, 100) : 1;

@@ -90,8 +90,8 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
   burn: 0,
   burnAmount: 1,
   residualSchema: 3,
-  // Size 0…1 linear diameter map — thin usable CRT line (not a fat sausage).
-  size: 0.02,
+  // Size: CSS px diameter @ zoom 1.
+  size: 2,
   // Stamp blur 0 hard … 1 soft (aesthetic; continuity comes from path packing).
   blur: 0.35,
   // Max phosphor stamps / frame (economy spreads when over).

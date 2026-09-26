@@ -142,6 +142,12 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
       : (settings || {});
     return node.traceDisplaySettings;
   }
+  if (displayType === "harmonicLines") {
+    node.harmonicLinesSettings = typeof normalizeNodeGraphHarmonicLinesSettings === "function"
+      ? normalizeNodeGraphHarmonicLinesSettings(settings)
+      : (settings || { lineWidth: 2 });
+    return node.harmonicLinesSettings;
+  }
   if (displayType === "textBoxFace") {
     const previous = typeof normalizeNodeGraphTextBoxLayout === "function"
       ? normalizeNodeGraphTextBoxLayout(node.layout)
@@ -333,7 +339,6 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     displayType === "videoscopeBurn"
     || displayType === "oscilloscopeBankBurn"
     || displayType === "hypersawBurn"
-    || displayType === "ensembleCloud"
   ) {
     node.traceDisplaySettings = normalizeNodeGraphScope2dSettings(settings);
     return node.traceDisplaySettings;
@@ -347,8 +352,11 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     syncNodeGraphSpectrogramDisplaySettingsToParams(node, node.traceDisplaySettings);
     return node.traceDisplaySettings;
   }
-  node.traceDisplaySettings = normalizeNodeGraphTraceDisplaySettings(settings);
-  return node.traceDisplaySettings;
+  if (displayType === "trace" || displayType === "traceRgb" || displayType === "traceXyz") {
+    node.traceDisplaySettings = normalizeNodeGraphTraceDisplaySettings(settings);
+    return node.traceDisplaySettings;
+  }
+  return null;
 }
 
 function nodeGraphPatchNodesList(patch = nodeGraphMvp?.patch) {
@@ -646,6 +654,9 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
   }
   if (schema === "transportBpm") {
     return nodeGraphCopyDisplaySettingsBag(node.transportSettings) || { gateBlink: false };
+  }
+  if (schema === "harmonicLines") {
+    return nodeGraphCopyDisplaySettingsBag(node.harmonicLinesSettings) || {};
   }
   if (schema === "matrixWaterfallFace") {
     return nodeGraphCopyDisplaySettingsBag(node.matrixWaterfall)

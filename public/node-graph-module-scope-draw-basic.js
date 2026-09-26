@@ -1029,62 +1029,6 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
   }
 }
 
-function drawNodeGraphCustomDisplayItem(renderer, item, pixelRatio) {
-  const slot = item?.slot;
-  const node = nodeGraphModuleScopeNodeForSlot(slot);
-  const screenElement = item?.screenElement || slot?.scopeElement;
-  if (!node || !screenElement) {
-    return;
-  }
-  // Music Player paints its own phosphor face. Running the custom-display
-  // compiler here every RAF is why spawning a player pegged CPU.
-  if (slot?.type === "audioPlayer" || node?.type === "audioPlayer") {
-    return;
-  }
-  renderNodeGraphModuleScopeAnalyzer(slot, item?.buffer || null);
-  const canvas = nodeGraphCustomDisplayCanvasForSlot(slot);
-  if (!canvas || !syncNodeGraphCustomDisplayCanvas(canvas, screenElement, pixelRatio)) {
-    return;
-  }
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return;
-  }
-  const displayScript = normalizeNodeGraphCustomDisplay(node.customDisplay);
-  const compiled = compiledNodeGraphCustomDisplayFunction(node);
-  if (!compiled?.fn) {
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.save();
-    context.fillStyle = "rgba(255, 126, 126, 0.9)";
-    context.font = `${Math.max(10, Math.min(18, canvas.height * 0.12))}px var(--node-mono-font, monospace)`;
-    context.fillText(compiled?.error || "compile error", 4 * pixelRatio, 16 * pixelRatio);
-    context.restore();
-    return;
-  }
-  try {
-    compiled.fn({
-      buffer: item?.buffer || new Float32Array(0),
-      canvas,
-      ctx: context,
-      frame: nodeGraphModuleScopeState.frames,
-      height: canvas.height,
-      inputs: nodeGraphCustomDisplayInputApi(node, displayScript, item?.buffer || null),
-      node,
-      pixelRatio,
-      time: (nodeGraphFiniteNumber(nodeGraphModuleScopeState.frames)) / 60,
-      width: canvas.width,
-    }, ...nodeGraphPortScriptHelperValues);
-  } catch (error) {
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.save();
-    context.fillStyle = "rgba(255, 126, 126, 0.9)";
-    context.font = `${Math.max(10, Math.min(18, canvas.height * 0.12))}px var(--node-mono-font, monospace)`;
-    context.fillText(error?.message || "runtime error", 4 * pixelRatio, 16 * pixelRatio);
-    context.restore();
-  }
-}
-
-
 function drawNodeGraphScopeCanvasSmoothPath(context, points) {
   let subpath = [];
   const flushSubpath = () => {

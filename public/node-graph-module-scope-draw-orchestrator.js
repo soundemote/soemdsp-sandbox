@@ -63,7 +63,7 @@ const nodeGraphModuleScopeCustomRenderers = {
   scope1dTrace: drawNodeGraphScope1dTraceItem,
   scope2d: drawNodeGraphScope2dItem,
   numberReadout: drawNodeGraphNumberReadoutItem,
-  customDisplay: drawNodeGraphCustomDisplayItem,
+  customDisplay: () => {},
   phosphorWaveform: () => {},
   selfPaintFace: drawNodeGraphSelfPaintFaceItem,
   matrixFace: drawNodeGraphSelfPaintFaceItem,

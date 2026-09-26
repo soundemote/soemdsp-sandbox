@@ -2831,7 +2831,7 @@ function nodeGraphAudioPlayerVideoscopePaintXy(context, width, height, channels,
     const unit = settings && Number.isFinite(Number(settings.traceWidth))
       ? Number(settings.traceWidth)
       : nodeGraphPhosphorWaveformDefaultSettings.traceWidth;
-    context.lineWidth = Math.max(0.5, displayScaleToPx(unit, faceMin));
+    context.lineWidth = Math.max(0.25, displayInkToPx(unit, 2, faceMin));
   }
   context.beginPath();
   let started = false;
@@ -2886,7 +2886,7 @@ function nodeGraphAudioPlayerVideoscopePaintLr(context, width, height, channels,
       const unit = settings && Number.isFinite(Number(settings.traceWidth))
         ? Number(settings.traceWidth)
         : nodeGraphPhosphorWaveformDefaultSettings.traceWidth;
-      context.lineWidth = Math.max(0.5, displayScaleToPx(unit, faceMin));
+      context.lineWidth = Math.max(0.25, displayInkToPx(unit, 2, faceMin));
     }
     context.beginPath();
     for (let x = 0; x < width; x += 1) {

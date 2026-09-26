@@ -351,8 +351,7 @@ function syncNodeSliderReadout(slider) {
   const labelText = readout.querySelector(".node-slider-readout-label");
   const valueText = readout.querySelector(".node-slider-readout-value");
   const unitText = readout.querySelector(".node-slider-readout-unit");
-  // Thumb + number track the editable domain (domainOffset when Use real mod).
-  // Ghost bar shows sent/effective; never let sentDomainValue move the thumb.
+  // Thumb + number track the parameter. Ghost bar shows sent/effective.
   const domainRaw = Number(slider.dataset?.domainValue);
   const displayValue = Number.isFinite(domainRaw) ? domainRaw : Number(slider.value);
   const position = nodeSliderTravelFromValue(slider, displayValue) * 100;

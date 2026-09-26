@@ -353,8 +353,11 @@ function nodeGraphRgbFractalGlEnsure(canvas) {
   if (!canvas) {
     return null;
   }
+  const picture = typeof nodeGraphPictureDevice === "function" ? nodeGraphPictureDevice() : null;
   let state = nodeGraphRgbFractalGlStates.get(canvas);
-  if (state?.gl && !state.lost && state.rev === NODE_GRAPH_RGB_FRACTAL_GL_REV) {
+  if (state?.gl && !state.lost && !state.gl.isContextLost()
+    && state.rev === NODE_GRAPH_RGB_FRACTAL_GL_REV
+    && picture?.gl === state.gl) {
     return state;
   }
   if (state?.failed && state.rev === NODE_GRAPH_RGB_FRACTAL_GL_REV) {
@@ -364,32 +367,9 @@ function nodeGraphRgbFractalGlEnsure(canvas) {
     nodeGraphRgbFractalGlStates.delete(canvas);
   }
 
-  let gl = null;
-  try {
-    gl = canvas.getContext("webgl", {
-      alpha: false,
-      antialias: false,
-      depth: false,
-      stencil: false,
-      premultipliedAlpha: false,
-      preserveDrawingBuffer: false,
-      powerPreference: "high-performance",
-    }) || canvas.getContext("experimental-webgl", {
-      alpha: false,
-      antialias: false,
-      depth: false,
-      stencil: false,
-      premultipliedAlpha: false,
-      preserveDrawingBuffer: false,
-    });
-  } catch (_) {
-    gl = null;
-  }
+  const gl = picture?.gl || null;
   if (!gl) {
-    nodeGraphRgbFractalGlStates.set(canvas, {
-      failed: true,
-      rev: NODE_GRAPH_RGB_FRACTAL_GL_REV,
-    });
+    nodeGraphRgbFractalGlStates.set(canvas, { failed: true });
     return null;
   }
 
@@ -630,13 +610,8 @@ function nodeGraphRgbFractalGlPaint(canvas, params) {
 
   gl.disable(gl.DEPTH_TEST);
   gl.disable(gl.BLEND);
-
-  if (useScreenBlur) {
-    nodeGraphRgbFractalGlEnsureSceneTarget(state, w, h);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, state.sceneFbo);
-  } else {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  }
+  nodeGraphRgbFractalGlEnsureSceneTarget(state, w, h);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, state.sceneFbo);
 
   gl.viewport(0, 0, w, h);
   gl.useProgram(state.program);
@@ -713,13 +688,19 @@ function nodeGraphRgbFractalGlPaint(canvas, params) {
     nodeGraphRgbFractalGlBlurPass(
       state, w, h,
       state.pingTex,
-      null,
+      state.sceneFbo,
       0, 1,
       sigma,
     );
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  if (params.nodeId && typeof nodeGraphPicturePublish === "function") {
+    nodeGraphPicturePublish(params.nodeId, state.sceneTex, w, h);
+  }
+  if (typeof nodeGraphPicturePresent === "function") {
+    nodeGraphPicturePresent(state.sceneTex, w, h, canvas, w, h);
+  }
   return true;
 }
 
@@ -729,11 +710,14 @@ function nodeGraphRgbFractalGlClearPlate(canvas, plateHex = "#000000") {
   if (!state?.gl || state.lost) {
     return false;
   }
-  const gl = state.gl;
   const rgb = nodeGraphRgbFractalGlHexToRgb01(plateHex);
-  gl.viewport(0, 0, canvas.width | 0, canvas.height | 0);
-  gl.clearColor(rgb[0], rgb[1], rgb[2], 1);
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return false;
+  const w = Math.max(1, canvas.width | 0);
+  const h = Math.max(1, canvas.height | 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = `rgb(${Math.round(rgb[0] * 255)}, ${Math.round(rgb[1] * 255)}, ${Math.round(rgb[2] * 255)})`;
+  ctx.fillRect(0, 0, w, h);
   return true;
 }
 

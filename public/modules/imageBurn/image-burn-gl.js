@@ -344,22 +344,9 @@
       return sharedDevice;
     }
     sharedDevice = null;
-    const canvas = document.createElement("canvas");
-    // Fixed size forever — resizing resets the entire GL context.
-    canvas.width = MAX_DIM;
-    canvas.height = MAX_DIM;
-    const attrs = {
-      alpha: true,
-      antialias: false,
-      depth: false,
-      stencil: false,
-      premultipliedAlpha: false,
-      preserveDrawingBuffer: true,
-    };
-    const gl = canvas.getContext("webgl2", attrs)
-      || canvas.getContext("webgl", attrs)
-      || canvas.getContext("experimental-webgl", attrs);
-    if (!gl) return null;
+    const picture = typeof nodeGraphPictureDevice === "function" ? nodeGraphPictureDevice() : null;
+    if (!picture?.gl) return null;
+    const { canvas, gl } = picture;
 
     const fadeProgram = linkProgram(gl, VERT, FADE_FRAG);
     const blurProgram = linkProgram(gl, VERT, BLUR_FRAG);
@@ -713,22 +700,33 @@
       });
     }
 
-    // 3) Deposit (Feedback >0 adds; ≤0 max-blends so brightness cannot stack)
-    if (deposit > 0 && img && uploadImage(renderer, img, options.dataUrl || img.src)) {
+    // 3) Deposit. A connected 📺 texture replaces the loaded file.
+    const texIn = options.textureIn;
+    const stampTex = texIn?.texture || null;
+    if (stampTex) {
+      renderer.imageNatW = Math.max(1, texIn.width | 0);
+      renderer.imageNatH = Math.max(1, texIn.height | 0);
+    }
+    if (deposit > 0 && (stampTex || (img && uploadImage(renderer, img, options.dataUrl || img.src)))) {
       const rect = imageRectUv(renderer, options.imageSize);
+      const imageTex = stampTex || renderer.imageTexture;
       drawPass(renderer, device.deposit, (g, p) => {
         g.disable(g.BLEND);
         g.activeTexture(g.TEXTURE0);
         g.bindTexture(g.TEXTURE_2D, renderer.read.texture);
         g.uniform1i(p.uResidual, 0);
         g.activeTexture(g.TEXTURE1);
-        g.bindTexture(g.TEXTURE_2D, renderer.imageTexture);
+        g.bindTexture(g.TEXTURE_2D, imageTex);
         g.uniform1i(p.uImage, 1);
         g.uniform4f(p.uRect, rect[0], rect[1], rect[2], rect[3]);
         g.uniform1f(p.uGain, deposit);
         g.uniform1f(p.uContrast, contrastAmt);
         g.uniform1f(p.uAccumulate, accumulate ? 1.0 : 0.0);
       });
+    }
+
+    if (options.nodeId && typeof nodeGraphPicturePublish === "function" && renderer.read?.texture) {
+      nodeGraphPicturePublish(options.nodeId, renderer.read.texture, renderer.width, renderer.height);
     }
 
     return true;

@@ -1025,11 +1025,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Code",
     notes: ["codeBox", "data-plane", "localText", "not DSP"],
   },
-  customDisplay: {
-    category: "oscilloscope",
-    description: "Draw a custom face with JS for patch-specific meters, art, or debug visuals.",
-    notes: ["custom draw", "JavaScript display", "visual sink"],
-  },
   smoothGraph: {
     category: "modulator",
     description: "Draw free dots; one global Curve (Linear/Catmull/Quadratic/Cubic) maps Input · LFO · Phasor.",
@@ -2026,7 +2021,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   pll: {
     category: "clock",
-    description: "Lock a VCO to an input (Doepfer-style PLL)—tracking tones and lock gates.",
+    description: "Lock a VCO to an input. Outs: VCO audio, ƒ (Hz), PC error, Loop (0–1 pull), Locked.",
     label: "PLL",
     notes: ["phase locked loop", "A-196", "vco", "frequency tracking"],
   },

@@ -22,10 +22,14 @@ registerNodeGraphChromelessModule("rgbFractal", {
     ],
     defaultDisplayMode: "face",
     inputs: [],
-    outputs: ["Hx", "Hy"],
+    outputs: ["Hx", "Hy", "rgba"],
     outputLabels: {
       Hx: "Hx",
       Hy: "Hy",
+      rgba: "📺",
+    },
+    outputTooltips: {
+      rgba: "Face picture. Same shared picture context as Image Ghost.",
     },
     // Order matches module face strip (top → bottom).
     parameters: [

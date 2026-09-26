@@ -184,9 +184,6 @@ function createNodeGraphPatchNode(type, options = {}) {
   if (defDisplay && typeof defDisplay === "object") {
     node.traceDisplaySettings = { ...defDisplay };
   }
-  if (resolvedType === "customDisplay") {
-    node.customDisplay = normalizeNodeGraphCustomDisplay(opts.customDisplay);
-  }
   if (resolvedType === "matrixWaterfall" && typeof normalizeNodeGraphMatrixWaterfall === "function") {
     node.matrixWaterfall = normalizeNodeGraphMatrixWaterfall(
       opts.matrixWaterfall || opts.matrixDisplay || opts.asciiscope,

@@ -50,7 +50,7 @@ function additiveGraphLinearFilterShape(t, skew, curveMode) {
   if (additiveGraphNormalizeLinearFilterCurveMode(curveMode) === 1) {
     return additiveGraphBipolarRationalCurve(x, c);
   }
-  return additiveGraphRationalCurve(x, c);
+  return additiveGraphRationalCurve(x, -c);
 }
 
 /** Exponential 0…1 map. c∈(−1…+1): + = slow start / fast end. */
@@ -1074,42 +1074,44 @@ function additiveGraphResolveFundamentalHz({
  */
 /**
  * Rational-curve spectral filter (Linear Filter module).
- * Cutoff Hz (LP @ 0 → silence). Slope 0…1 = brickwall → gradual (octaves).
- * Skew = rationalCurve bend on the skirt (−1…+1).
+ * Cutoff Hz (LP @ 0 → silence). Slope −1…+1: |s| = width, sign reverses pass/stop.
+ * Skew = rationalCurve bend (−1…+1). 0 = linear ramp.
  */
 function additiveGraphFilterResponseGainRational(freqHz, mode, cutoffHz, slope01, skew, curveMode = 0) {
   const m = additiveGraphNormalizeFilterMode(mode);
   const fc = Math.max(0, nodeGraphFiniteNumber(cutoffHz));
-  const slope = additiveGraphClamp(slope01, 0, 1);
+  const slope = additiveGraphClamp(slope01, -1, 1);
+  const mag = slope < 0 ? -slope : slope;
+  const reverse = slope < 0;
   const f = Math.max(0, nodeGraphFiniteNumber(freqHz));
   const shape = (t) => additiveGraphLinearFilterShape(t, skew, curveMode);
-  // half-width in octaves around fc (slope 0 → brickwall / tiny).
-  const halfOct = slope <= 1e-6 ? 0 : (0.05 + slope * 5);
+  const halfOct = mag <= 1e-6 ? 0 : (0.05 + mag * 5);
+  const apply = (g) => (reverse ? 1 - g : g);
 
   if (m === "lp") {
-    if (!(fc > 0)) return 0;
-    if (!(f > 0)) return 1;
-    if (halfOct <= 0) return f <= fc ? 1 : 0;
+    if (!(fc > 0)) return apply(0);
+    if (!(f > 0)) return apply(1);
+    if (halfOct <= 0) return apply(f <= fc ? 1 : 0);
     const oct = Math.log(f / fc) / Math.LN2;
     const t = additiveGraphClamp((oct + halfOct) / (2 * halfOct), 0, 1);
-    return 1 - shape(t);
+    return apply(1 - shape(t));
   }
   if (m === "hp") {
-    if (!(fc > 0)) return 1;
-    if (!(f > 0)) return 0;
-    if (halfOct <= 0) return f >= fc ? 1 : 0;
+    if (!(fc > 0)) return apply(1);
+    if (!(f > 0)) return apply(0);
+    if (halfOct <= 0) return apply(f >= fc ? 1 : 0);
     const oct = Math.log(f / fc) / Math.LN2;
     const t = additiveGraphClamp((oct + halfOct) / (2 * halfOct), 0, 1);
-    return shape(t);
+    return apply(shape(t));
   }
-  // bp — pass near fc; slope widens band + edges (mirrored rational skirts)
-  if (!(fc > 0) || !(f > 0)) return 0;
+  // bp — pass near fc; |slope| widens band + edges. Negative slope inverts (notch-like).
+  if (!(fc > 0) || !(f > 0)) return apply(0);
   const passOct = halfOct <= 0 ? 0.02 : Math.max(0.02, halfOct * 0.35);
   const edgeOct = halfOct <= 0 ? 0.01 : Math.max(0.02, halfOct * 0.65);
   const a = Math.abs(Math.log(f / fc) / Math.LN2);
-  if (a <= passOct) return 1;
-  if (a >= passOct + edgeOct) return 0;
-  return shape(1 - ((a - passOct) / edgeOct));
+  if (a <= passOct) return apply(1);
+  if (a >= passOct + edgeOct) return apply(0);
+  return apply(shape(1 - ((a - passOct) / edgeOct)));
 }
 
 /**

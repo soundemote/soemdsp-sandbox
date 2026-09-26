@@ -277,9 +277,6 @@ function nodeGraphAssertJackListsDisjoint(signalPorts, dataPorts, where) {
 
 function nodeGraphPatchNodeInputPorts(node) {
   const patchNode = typeof node === "string" ? nodeGraphPatchNode(node) : node;
-  if (patchNode?.type === "customDisplay") {
-    return normalizeNodeGraphCustomDisplay(patchNode.customDisplay).inputs;
-  }
   if (patchNode?.type === "canvas") {
     return normalizeNodeGraphCanvasScript(patchNode.canvasScript).inputs;
   }
@@ -308,9 +305,6 @@ function nodeGraphPatchNodeInputPorts(node) {
 
 function nodeGraphPatchNodeOutputPorts(node) {
   const patchNode = typeof node === "string" ? nodeGraphPatchNode(node) : node;
-  if (patchNode?.type === "customDisplay") {
-    return [];
-  }
   if (
     typeof nodeGraphIsContainerShellType === "function"
     && nodeGraphIsContainerShellType(patchNode?.type)

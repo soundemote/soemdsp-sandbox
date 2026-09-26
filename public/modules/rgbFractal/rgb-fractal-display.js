@@ -1001,12 +1001,12 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
     fold: 0,
     bands,
     domainWarp: 0,
+    nodeId: id,
   };
 
   let ok = false;
   if (glReady && typeof nodeGraphRgbFractalGlPaint === "function") {
     ok = nodeGraphRgbFractalGlPaint(canvas, paintParams);
-    // Canvas already has a WebGL context — never call getContext("2d") on it.
   } else {
     ok = paintNodeGraphRgbFractalFaceCpu(canvas, face, paintParams);
   }

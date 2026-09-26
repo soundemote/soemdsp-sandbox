@@ -234,7 +234,6 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPES = Object.freeze([
   "bloomGlow",
   "canvas",
   "chromaColor",
-  "customDisplay",
   "dotOscilloscope",
   "gradientVectorscope",
   "helmholtzPitch",

@@ -591,9 +591,6 @@ function validateNodeGraphPatch(patch) {
         ? sequencerCloneClip(node.sequencer)
         : (node.sequencer && typeof node.sequencer === "object" ? node.sequencer : undefined);
     }
-    if (type === "customDisplay") {
-      normalizedNode.customDisplay = normalizeNodeGraphCustomDisplay(node.customDisplay);
-    }
     if (type === "bugButton") {
       normalizedNode.bugButton = {
         glyph: normalizeNodeGraphBugButtonGlyph(node.bugButton?.glyph),
@@ -676,6 +673,11 @@ function validateNodeGraphPatch(patch) {
       normalizedNode.arpKeysSettings = typeof normalizeNodeGraphArpKeysSettings === "function"
         ? normalizeNodeGraphArpKeysSettings(node.arpKeysSettings)
         : node.arpKeysSettings;
+    }
+    if (type === "additiveOut" && Object.hasOwn(node, "harmonicLinesSettings")) {
+      normalizedNode.harmonicLinesSettings = typeof normalizeNodeGraphHarmonicLinesSettings === "function"
+        ? normalizeNodeGraphHarmonicLinesSettings(node.harmonicLinesSettings)
+        : node.harmonicLinesSettings;
     }
     // Remembered playhead (0..1) so Music Player restores position after refresh.
     if (type === "audioPlayer" && Object.hasOwn(node, "samplePhase")) {
@@ -1460,28 +1462,21 @@ function syncNodeGraphModuleParamElement(element, patchNode) {
     }
     const resolvedMeta = metaEntry || nodeGraphParameterDefinitionMetadata(parameter);
     setNodeSliderMetadata(input, resolvedMeta);
-    let value;
-    if (resolvedMeta && resolvedMeta.outputDomain === true) {
-      // Domain mode: slider shows domainOffset (default 0), not absolute params.
-      const off = Number(resolvedMeta.domainOffset);
-      value = Number.isFinite(off) ? off : 0;
-    } else {
-      value = patchNode.params?.[parameter.key];
-      if (
-        (value == null || !Number.isFinite(Number(value)))
-        && typeof nodeGraphIsContainerShellType === "function"
-        && nodeGraphIsContainerShellType(patchNode.type)
-        && String(parameter.key || "").startsWith("mx_")
-        && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
-      ) {
-        const target = nodeGraphMetamoduleResolveExposeTarget(patchNode, parameter.key);
-        if (target?.child) {
-          value = target.child.params?.[target.paramKey];
-        }
+    let value = patchNode.params?.[parameter.key];
+    if (
+      (value == null || !Number.isFinite(Number(value)))
+      && typeof nodeGraphIsContainerShellType === "function"
+      && nodeGraphIsContainerShellType(patchNode.type)
+      && String(parameter.key || "").startsWith("mx_")
+      && typeof nodeGraphMetamoduleResolveExposeTarget === "function"
+    ) {
+      const target = nodeGraphMetamoduleResolveExposeTarget(patchNode, parameter.key);
+      if (target?.child) {
+        value = target.child.params?.[target.paramKey];
       }
-      if (value == null || !Number.isFinite(Number(value))) {
-        value = nodeGraphParameterFallback(patchNode.type, parameter.key);
-      }
+    }
+    if (value == null || !Number.isFinite(Number(value))) {
+      value = nodeGraphParameterFallback(patchNode.type, parameter.key);
     }
     if (typeof applyNodeGraphInputUnboundedValue === "function") {
       applyNodeGraphInputUnboundedValue(input, value);
@@ -1491,9 +1486,6 @@ function syncNodeGraphModuleParamElement(element, patchNode) {
         input.dataset.domainValue = String(n);
       }
       input.value = String(value);
-    }
-    if (resolvedMeta && resolvedMeta.outputDomain === true) {
-      input.dataset.domainOffset = String(Number(value) || 0);
     }
     syncNodeSliderReadout(input);
   }

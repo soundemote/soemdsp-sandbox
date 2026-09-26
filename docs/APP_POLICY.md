@@ -464,21 +464,37 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 
 ---
 
-## 15. Display length scale (0–1 of face min-edge)
+## 15a. Instant Trace is never the default face or settings schema
 
-**Everything geometric on a module face / canvas is stored as 0…1 of `min(faceW, faceH)`.** No percent, rem, or absolute px in display settings.
+**Instant Trace (`displayType` / form type `"trace"`) is opt-in only.** Do not invent it.
 
-| Store | Resolve at draw |
-|-------|-----------------|
-| `unit01` in `[0, 1]` | `px = unit01 * min(width, height)` in the **same coordinate space** being drawn |
+- A module with no `displayType` is **`layoutOwned`**: no canvas, blank Display Settings.
+- A custom renderer (`ensembleCloud`, envelope curve, …) is **not** Instant Trace. Unknown form types use **blank** controls (empty fields). They must **not** fall through to `normalizeNodeGraphTraceDisplaySettings` (red plate, History, Blur, stereo…).
+- `HasLocalSettings` / settings-apply / form-io / `SettingsForNode` may write Instant Trace **only** when the module **declares** `displayType: "trace"` (or `traceRgb` / `traceXyz`).
+- The **global** Display Settings editor (no node selected) is Instant Trace on purpose — that is app-wide Output/osc defaults, not a module fallback.
 
-- **Uniform scale only for text.** Font size uses `min(faceW, faceH)` — never scale X from width and Y from height independently. No stretched glyphs.
-- **Canvas buffer aspect must match its CSS paint box.** Sizing the buffer from a different box than the element CSS stretches into non-uniformly stretches the bitmap (text looks elongated). Measure the canvas’s display box; do not stretch to fill a mismatched aspect.
-- **Helpers SSOT:** `public/lib/visual/display-scale.js` — `displayFaceMinSide`, `clampDisplayUnit01`, `displayScaleToPx`. Call them directly; do not re-implement `* minSide` or soft-`typeof` fallbacks.
-- **Defaults are 0…1 literals.** Do not author face lengths from CSS px / percent and convert. Do not keep `*Px` keys, percent aliases, or dual paths “just in case.”
-- **Do not** invent dual keys or silent unit migrations (see §1). Rename clean; old patches reset to default.
-- **Brightness / hue / fade** that are already 0…1 stay 0…1 (not lengths). **Time** stays seconds. **Counts** stay integers.
-- Friendlier authoring UI is a later step — storage stays 0…1.
+---
+
+## 15. Display length: everything on a face scales with the face
+
+When the user resizes a **display** (module face, canvas, solo), **every painted element scales**: strokes, hairlines, HUD type, markers, pads, radii, handles. A larger filter or equalizer face draws thicker curves and larger labels. Thin lines at every size is a bug.
+
+Two stored kinds. Both resolve against `min(faceW, faceH)` at draw.
+
+| Kind | Store | Resolve at draw |
+|------|--------|-----------------|
+| **Ink** (strokes, hairlines, HUD type) | CSS px authored at reference face min-edge (`DISPLAY_INK_REFERENCE_PX`, 96) | `displayInkToPx(setting, fallback, minSide)` → `setting * minSide / 96` after `setTransform(dpr)`. |
+| **Layout fraction** (pad, inset, radius, puck vs pad) | `0…1` of `min(faceW, faceH)` | `px = unit01 * min(width, height)` via `displayScaleToPx` |
+
+- **Canvas / solo:** the paint box grows **and** ink/fonts/markers grow with it.
+- **Workspace zoom:** CSS camera already scales the face bitmap. Do **not** also `× zoom` inside the canvas.
+- **dpr:** backing store only. Authored “1 px” is 1 CSS px **at the reference face size**.
+- **Never stretch glyphs by width≠height.** Uniform min-edge only.
+- **Canvas buffer aspect must match its CSS paint box.**
+- **Helpers:** `public/lib/visual/display-scale.js` — `displayInkToPx(px, fallback, faceMinSide)`, `displayFaceMinSide`, `clampDisplayUnit01`, `displayScaleToPx`.
+- **Defaults:** px literals for ink (`2`, `1.5`) meaning “looks like that at a ~96 px min-edge”; 0…1 literals for fractions. No `*Px` twin keys. No “if value < 1 treat as 0–1.”
+- **Normalize/settings:** clamp the authored number. Scale only at **paint**, where `width`/`height` exist.
+- **Brightness / hue / fade** stay 0…1. **Time** stays seconds. **Counts** stay integers.
 
 **Paint vs layout (display-type contract):** live face paint loops must **not** force layout (`clientWidth` / `getBoundingClientRect` / style writes that change geometry) every frame. ResizeObserver + settings apply own chrome and canvas backing size; paint reads a metrics cache. Visibility uses module `viewport-asleep` cull, not per-frame layout probes. Faces stay live during workspace pan/zoom (see ZOOM_PAN plan — no gesture freeze).
 
@@ -526,7 +542,9 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 | Reserve 8 s × N delay rings in BSS for empty slots | **No** — size to live delay (§2b) |
 | “Longer delay = more CPU” | **No** — same tap math (§2b) |
 | Always-visible resize grip on panels | **No** — hover / drag only (§14) |
-| Store face font / stroke / inset as CSS px or % | **No** — 0…1 of face min-edge (§15) |
+| Store ink (stroke / HUD font) as 0…1 of face min-edge | **No** — authored CSS px at the 96 px reference; scale at paint with min-edge (§15) |
+| Draw filter/EQ/scope strokes as a constant 1–1.5 px regardless of face size | **No** — ink scales with the display (§15) |
+| Store layout fraction (inset / radius / pad) as CSS px | **No** — 0…1 of face min-edge (§15) |
 | Stretch face text by width≠height | **No** — uniform min-edge only (§15) |
 | Stretch HTML as fake face pixels / force Text Box through WebGL | **No** — WebGL for most visuals; DOM for editable text (§16) |
 | Dual `labelInsetPx` + `labelInset` for compatibility | **No** — one key, clean rename (§1 / §15) |
@@ -566,7 +584,8 @@ Add new rules here when the same class of mistake happens twice. Keep this file 
 
 - **2026-09-03 — Parameter stickiness:** A continuous knob must chase to the written target and **stay**. Two failures of the same class: (1) JS tied `forceAll` param sync to `planSerial` so every gesture frame wiped the dirty cache and re-stormed `set_param` / smooth / domain cells, fighting Control chase; (2) ping-pong feedback coeffs lived in nested structs whose writes did not survive across `set_params` / buffer setup, so the DSP ran pass-through until the next write (sounded correct only while dragging). Fix: cold force-push only after graph compile/destroy; store live coeffs as plain fields on the instance; build smoke must **set once then `process_block` many times** without rewriting params.
 - **2026-09-24 — Stored 0 is a value (§18).** Modulation used `|v| > 1` as a hidden “this is Hertz” switch, so −1 and −1.00001 took different paths. Settings did the same: history length 0 became 4 Hz, and a zoom-max of 0 became 10 s. Missing/NaN may still default. A number the user stored may not be replaced. Clamps stay clamps.
-- **2026-09-10 — Display length 0–1:** Face geometry mixed CSS px (`labelInsetPx`, `traceWidth`), percent (`cornerRadius` 0–100), and true 0–1 (`edgeSpacing`). Normalize all face lengths to **0…1 of min(faceW, faceH)** via `display-scale.js` (§15). No percent / CSS-px bridges, no soft `typeof` helper fallbacks, no dual keys.
+- **2026-09-10 — Display length 0–1:** Face geometry mixed CSS px (`labelInsetPx`, `traceWidth`), percent (`cornerRadius` 0–100), and true 0–1 (`edgeSpacing`). Layout fractions stay **0…1 of min-edge**.
+- **2026-09-25 — Ink is authored px, scaled by face:** Strokes/HUD are CSS px at a 96 px reference min-edge, then `× min(faceW,faceH)/96` at paint. Constant CSS px (ignore face size) made filter/EQ curves hairline when the display grew. Workspace zoom still must not be multiplied into `lineWidth`. No patch migration.
 - **2026-09-10 — Legacy display scrub:** Raster/Matrix chrome → `edgeSpacing`/`cornerRadius` 0…1 (no `screenPadding`/`rounding` %). Phosphor residual SSOT = `trail`/`ghost`/`burn`/`burnAmount` (no `decay` mirror, no burn-as-ghost). Dropped `sweepSeconds`, xyPad `scale`→puck, spectrogram overlap+1 shift. Yellow sidecar type/param aliases deleted. Display renderer id `"legacy"` → `"layoutOwned"`. Dead module-frame gapped-SVG path deleted (workspace/faces stay layout **px**; displays/canvases stay **0…1**).
 - **2026-09-10 — Paint never forces layout:** Music Player / fbmField / Instant Trace / curve·shape·harmonic faces stop remasuring every RAF. Shared `display-face-metrics.js`; scope screen rects from layout cache + pan/zoom math (not gBCR per pan sample).
 - **2026-09-10 — Music Player play + HUD:** Finite-rewriter comma bug set `samplePhaseSeek = (…+1, 1)` always `1` — seeks never bumped, Play looked dead. Fixed increment. HUD/canvas text: uniform min-edge font; buffer sized to canvas CSS box (no aspect stretch). Policy §16: workspace vs displays — WebGL preferred for visuals; DOM for Text Box / chrome (soft preference, not a hard ban).

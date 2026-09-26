@@ -28,41 +28,19 @@ function syncNodeGraphPatchMetadataFromSlider(slider, options = {}) {
     key,
     liveMeta,
   );
-  // Use real mod values: slider edits domainOffset; keep absolute params[key].
-  // (Same rule as syncNodeGraphPatchParameterFromSlider â€” prevents offset thumb
-  // / missing patch.params from rewriting absolute min-path values, and keeps
-  // outputDomain+domainOffset in paramMeta so remount refreshes Â±max UI.)
-  if (nextMeta && nextMeta.outputDomain === true) {
-    const offRaw = Number(liveMeta.domainOffset);
-    const off = Number.isFinite(offRaw)
-      ? offRaw
-      : (Number.isFinite(Number(slider.dataset.domainValue))
-        ? Number(slider.dataset.domainValue)
-        : 0);
-    nextMeta = { ...nextMeta, domainOffset: off };
-    if (slider) {
-      slider.dataset.domainOffset = String(off);
-      slider.dataset.domainValue = String(off);
-    }
-    patchNode.paramMeta = {
-      ...(patchNode.paramMeta || {}),
-      [key]: nextMeta,
-    };
-  } else {
-    patchNode.paramMeta = {
-      ...(patchNode.paramMeta || {}),
-      [key]: nextMeta,
-    };
-    patchNode.params = {
-      ...(patchNode.params || {}),
-      [key]: normalizeNodeGraphPatchParameter(
-        patchNode.type,
-        key,
-        nodeGraphReadNodeNumber(node, key),
-        patchNode.paramMeta[key],
-      ),
-    };
-  }
+  patchNode.paramMeta = {
+    ...(patchNode.paramMeta || {}),
+    [key]: nextMeta,
+  };
+  patchNode.params = {
+    ...(patchNode.params || {}),
+    [key]: normalizeNodeGraphPatchParameter(
+      patchNode.type,
+      key,
+      nodeGraphReadNodeNumber(node, key),
+      patchNode.paramMeta[key],
+    ),
+  };
   if (
     typeof nodeGraphIsContainerShellType === "function"
     && nodeGraphIsContainerShellType(patchNode.type)
@@ -173,33 +151,19 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
     : (Number.isFinite(Number(slider?.dataset?.domainValue))
       ? Number(slider.dataset.domainValue)
       : nodeGraphReadNodeNumber(node, key));
-  // Use real mod values: slider edits domainOffset; keep absolute params[key].
-  if (nextMeta && nextMeta.outputDomain === true) {
-    const off = Number.isFinite(rawDomain) ? rawDomain : 0;
-    nextMeta = { ...nextMeta, domainOffset: off };
-    if (slider) {
-      slider.dataset.domainOffset = String(off);
-      slider.dataset.domainValue = String(off);
-    }
-    patchNode.paramMeta = {
-      ...(patchNode.paramMeta || {}),
-      [key]: nextMeta,
-    };
-  } else {
-    patchNode.paramMeta = {
-      ...(patchNode.paramMeta || {}),
-      [key]: nextMeta,
-    };
-    patchNode.params = {
-      ...(patchNode.params || {}),
-      [key]: normalizeNodeGraphPatchParameter(
-        patchNode.type,
-        key,
-        rawDomain,
-        patchNode.paramMeta[key],
-      ),
-    };
-  }
+  patchNode.paramMeta = {
+    ...(patchNode.paramMeta || {}),
+    [key]: nextMeta,
+  };
+  patchNode.params = {
+    ...(patchNode.params || {}),
+    [key]: normalizeNodeGraphPatchParameter(
+      patchNode.type,
+      key,
+      rawDomain,
+      patchNode.paramMeta[key],
+    ),
+  };
   // Metamodule "Show metaparameter": shell slider writes through to the child.
   if (
     typeof nodeGraphIsContainerShellType === "function"

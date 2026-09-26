@@ -657,14 +657,16 @@ function nodeGraphScreenSoloRestoreItem(item) {
   if (item.placeholder?.isConnected) {
     item.placeholder.remove();
   }
-  if (typeof nodeGraphKnobFaceSyncCellVar === "function") {
-    const host = face;
-    window.requestAnimationFrame(() => {
-      if (typeof nodeGraphKnobFaceSyncCellVar === "function") {
-        nodeGraphKnobFaceSyncCellVar(host);
-      }
-    });
-  }
+  const host = face;
+  window.requestAnimationFrame(() => {
+    if (typeof nodeGraphKnobFaceSyncCellVar === "function") {
+      nodeGraphKnobFaceSyncCellVar(host);
+    }
+    if (typeof nodeGraphPluginButtonFitCaption === "function") {
+      const btn = host.querySelector?.(".node-plugin-toggle-button, .node-plugin-momentary-button");
+      if (btn) nodeGraphPluginButtonFitCaption(btn);
+    }
+  });
 }
 
 function nodeGraphScreenSoloRelayoutHost(host, nodeId) {

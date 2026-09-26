@@ -423,9 +423,11 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         ? Number(signal.velocity)
         : num(prev.velocity01, 0),
     ));
-    // Gate / Trigger = digital presence (any > 0 → 1). Velocity stays on Velocity out.
-    const gateAmp = num(signal.gate, 0) > 0 ? 1 : 0;
-    const triggerAmp = (usePulse && pulseActive) || num(signal.gatePulse, 0) > 0 ? 1 : 0;
+    // Gate/Trigger carry strike velocity while active (envelopes read Gate level as velocity).
+    const gateOn = num(signal.gate, 0) > 0;
+    const gateAmp = gateOn ? velocity01 : 0;
+    const pulseOn = (usePulse && pulseActive) || num(signal.gatePulse, 0) > 0;
+    const triggerAmp = pulseOn ? velocity01 : 0;
     const sourceFreq = Number(signal.frequency);
     const frequency = Math.max(0,
       Number.isFinite(sourceFreq) && sourceFreq > 0
@@ -607,8 +609,8 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       : (this.midiKeyboardSignal || {});
     const cv = buildCv(signal, !isKeyboard || pulseActive, isKeyboard ? "keyboard" : "midi");
     if (isKeyboard) {
-      const gateOut = Math.max(cv.gateAmp, mixMax(nid, "Gate"));
-      const triggerOut = Math.max(cv.triggerAmp, mixMax(nid, "Trigger"));
+      const gateOut = cv.gateAmp;
+      const triggerOut = cv.triggerAmp;
       applyChordMemoryIn(nid);
       const playMask = buildKeyboardPlayMask(nid, cv, signal);
       const arpInMask = typeof this.mixNoteMask128 === "function"
@@ -631,16 +633,13 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         arpMask,
         Gate: gateOut,
         Trigger: triggerOut,
-        f: cv.frequency,
-        Frequency: cv.frequency,
         X: cv.x,
         Y: cv.y,
       };
       if (!isGrid) {
-        outs.KeyboardKey = cv.key;
-        outs.KeyboardNorm = cv.q;
+        outs.KeyIndex = cv.key;
+        outs.KeyNorm = cv.q;
         outs["pitch"] = cv.midi;
-        outs.Velocity = cv.velocity01;
       }
       this.nodeOutputs.set(nid, outs);
     } else {
@@ -669,8 +668,8 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     // Keep pulseActive so Trigger is not wiped when gatePulse was already
     // consumed into midiKeyboardGatePulseSamples by normalize.
     const cv = buildCv(signal, pulseActive, "keyboard");
-    const gateOut = Math.max(cv.gateAmp, mixMax(nid, "Gate"));
-    const triggerOut = Math.max(cv.triggerAmp, mixMax(nid, "Trigger"));
+    const gateOut = cv.gateAmp;
+    const triggerOut = cv.triggerAmp;
     applyChordMemoryIn(nid);
     const playMask2 = buildKeyboardPlayMask(nid, cv, signal);
     const arpInMask2 = typeof this.mixNoteMask128 === "function"

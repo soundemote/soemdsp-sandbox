@@ -2,6 +2,70 @@
 // X = log freq (shared Additive axis), color = phase, vertical center = balance:
 //   above center = Left amp, below center = Right amp (from pan[]).
 // WhiteNoise recipes (*Noise) animate locally each frame (display-only streams).
+// Stem width is authored CSS px at the 96 px reference, scaled by face min-edge at paint.
+
+const nodeGraphHarmonicLinesSettingsDefaults = Object.freeze({
+  lineWidth: 2,
+});
+
+function normalizeNodeGraphHarmonicLinesSettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const raw = Number(source.lineWidth);
+  const ink = typeof displayInkToPx === "function" ? displayInkToPx(raw, 2) : (Number.isFinite(raw) ? raw : 2);
+  return {
+    lineWidth: Math.max(0.5, Math.min(8, ink)),
+  };
+}
+
+function nodeGraphHarmonicLinesSettingsForNode(node) {
+  return normalizeNodeGraphHarmonicLinesSettings(node?.harmonicLinesSettings);
+}
+
+function buildNodeGraphHarmonicLinesDisplaySettingsBodyHtml() {
+  return `
+    <div class="node-led-display-settings-panel" data-harmonic-lines-display-settings-panel>
+      <label class="node-led-settings-row">
+        <span>Line width</span>
+        <input type="range" min="0.5" max="8" step="0.25" data-harmonic-lines-field="lineWidth" aria-label="Harmonic line width in pixels">
+        <span>px</span>
+      </label>
+    </div>`;
+}
+
+function syncNodeGraphHarmonicLinesDisplaySettingsControls(root, settings) {
+  if (!root || !settings) return;
+  const el = root.querySelector?.(`[data-harmonic-lines-field="lineWidth"]`);
+  if (el && document.activeElement !== el) {
+    el.value = String(settings.lineWidth);
+  }
+}
+
+function bindNodeGraphHarmonicLinesDisplaySettingsBody(host) {
+  if (!host || host.dataset.harmonicLinesSettingsBound === "true") {
+    return;
+  }
+  host.dataset.harmonicLinesSettingsBound = "true";
+  const apply = (persist) => {
+    if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+      markNodeGraphTraceDisplaySettingsDirty(["lineWidth"]);
+    }
+    if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
+      applyNodeGraphTraceDisplaySettingsForm({ persist, record: persist === "immediate" });
+    }
+  };
+  host.addEventListener("input", (event) => {
+    if (event.target?.closest?.("[data-harmonic-lines-field]")) apply("debounce");
+  });
+  host.addEventListener("change", (event) => {
+    if (event.target?.closest?.("[data-harmonic-lines-field]")) apply("immediate");
+  });
+  if (typeof bindNodeGraphNativeSliderModifiers === "function") {
+    const input = host.querySelector(`[data-harmonic-lines-field="lineWidth"]`);
+    if (input) {
+      bindNodeGraphNativeSliderModifiers(input, nodeGraphHarmonicLinesSettingsDefaults.lineWidth);
+    }
+  }
+}
 
 function createNodeGraphHarmonicLinesDisplay(nodeId, type = "additiveOut") {
   const id = nodeId && typeof nodeId === "object"
@@ -220,11 +284,18 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
   const maxH = h * 0.46;
   const pad = Math.max(2, w * 0.02);
   const span = Math.max(1, w - pad * 2);
-  const lineW = Math.max(1, Math.min(4, span / Math.max(48, H * 1.1)));
+  const faceMin = displayFaceMinSide(w, h);
+  const lineW = displayInkToPx(
+    typeof nodeGraphHarmonicLinesSettingsForNode === "function"
+      ? nodeGraphHarmonicLinesSettingsForNode(node).lineWidth
+      : 2,
+    2,
+    faceMin,
+  );
 
   // Dim mid line — Left above, Right below.
   ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
-  ctx.lineWidth = 1;
+  ctx.lineWidth = displayInkToPx(1, 1, faceMin);
   ctx.beginPath();
   ctx.moveTo(pad, midY);
   ctx.lineTo(pad + span, midY);

@@ -49,8 +49,8 @@
 
   function depositGain(brightness, size01 = 0) {
     const br = Math.max(0, nodeGraphFiniteNumber(brightness));
-    const s = clamp01(size01, 0);
-    return Math.max(0, br * DEPOSIT_SCALE * (1.12 - s * 0.42));
+    void size01;
+    return Math.max(0, br * DEPOSIT_SCALE);
   }
 
   function exposure() {
@@ -62,9 +62,7 @@
    * radius = half. Linear geometric size; Blur handles hard→soft.
    */
   function size01ToDiameterPx(faceMinSide, size01) {
-    const side = Math.max(1, nodeGraphFiniteNumber(faceMinSide, 1));
-    const t = clamp01(size01, 0.08);
-    return Math.max(0.7, side * t);
+    return Math.max(0, displayInkToPx(size01, 2, faceMinSide));
   }
 
   function size01ToRadiusPx(faceMinSide, size01) {
@@ -72,9 +70,7 @@
   }
 
   function radiusFromSize(faceMinSide, size01) {
-    const side = Math.max(1, nodeGraphFiniteNumber(faceMinSide, 1));
-    const t = clamp01(size01, 0.08);
-    return Math.max(0.35, side * t * 0.5);
+    return Math.max(0, displayInkToPx(size01, 2, faceMinSide) * 0.5);
   }
 
   function ensure(hostCanvas, width, height, key = "_phosphorEnergyGl") {
@@ -118,7 +114,7 @@
       return false;
     }
     const blur = normalizeBlur(options.blur, DEFAULT_BLUR);
-    const size01 = clamp01(options.size01, 0.08);
+    const size01 = displayInkToPx(options.size01, 2, options.faceMinSide || face.width || face.height);
     let brightness = Number(options.brightness);
     if (!Number.isFinite(brightness) || options.useDepositGain) {
       const raw = Number.isFinite(Number(options.dotBrightness))
@@ -179,7 +175,7 @@
       return false;
     }
     const blur = normalizeBlur(options.blur, 0.2);
-    const size01 = clamp01(options.size01, 0.035);
+    const size01 = displayInkToPx(options.size01, 2, options.faceMinSide || face.width || face.height);
     const radius = Number.isFinite(Number(options.radius))
       ? Math.max(0.35, Number(options.radius))
       : radiusFromSize(options.faceMinSide || face.width || 1, size01);

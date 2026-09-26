@@ -1094,7 +1094,7 @@ extern "C" int soemdsp_pll_create(double sampleRate);
 extern "C" void soemdsp_pll_destroy(int handle);
 extern "C" void soemdsp_pll_reset(int handle, double sampleRate);
 extern "C" void soemdsp_pll_set_params(
-  int handle, double sampleRate, int range, double offset, int type, double frequ
+  int handle, double sampleRate, double vcoHz, double spanOct, int type, double smoothing
 );
 extern "C" void soemdsp_pll_process(
   int handle, double signalIn, double cvIn, double cvConnected
@@ -1103,6 +1103,7 @@ extern "C" double soemdsp_pll_vco_out(int handle);
 extern "C" double soemdsp_pll_pc_out(int handle);
 extern "C" double soemdsp_pll_lpf_out(int handle);
 extern "C" double soemdsp_pll_locked(int handle);
+extern "C" double soemdsp_pll_vco_hz(int handle);
 
 extern "C" int soemdsp_lorenz_attractor_create();
 extern "C" void soemdsp_lorenz_attractor_destroy(int handle);
@@ -2790,7 +2791,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAntisaw) ? 110.0
       : (typeId == kTypeHarmonicSeries) ? 100.0
       : (typeId == kTypePluckEnvelope || typeId == kTypeExpoPluckEnvelope2) ? 15.0 // EnvelopeDamping Hz
-      : (typeId == kTypePll) ? 10.0 // LPF cutoff
+      : (typeId == kTypePll) ? 110.0 // VCO center Hz
       : (typeId == kTypeSoemReverb) ? 1000.0 // bandFrequency
       : (typeId == kTypeLorenzAttractor || typeId == kTypeChuaAttractor) ? 1.0 // speed
       : (typeId == kTypeChaosfly) ? 55.0 // master frequency Hz
@@ -2871,7 +2872,7 @@ static void init_node_defaults(Node& n, int typeId) {
       ? 0.0 // chaos/damping/pwm/bubble/freqSkew off
       : (typeId == kTypeAdditiveBlaster) ? 179.0 // quantization (PoC default)
       : (typeId == kTypeAdditiveDiffusor) ? 0.0 // skew (rational)
-      : (typeId == kTypeAdditiveLinearFilter) ? 0.25 // slope 0..1
+      : (typeId == kTypeAdditiveLinearFilter) ? 0.25 // slope −1…+1 (width + reverse)
       : (typeId == kTypeAdditiveAnalogFilter || typeId == kTypeAdditiveLadderFilter)
         ? 12.0 // slope dB/oct
       : (typeId == kTypeChaoticPhaseLockingFilter) ? 1.0 // chaos default
@@ -2991,8 +2992,9 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSamplePlayer) ? 0.0 // One-shot
       : (typeId == kTypeAdditiveOut) ? 0.0 // optimize Inaudible off
       : (typeId == kTypeAdditiveGenerator) ? 1.0 // HarmonicFade Smoothed
+      : (typeId == kTypePll) ? 4.0 // Range octaves
       : 1.0,
-    true
+    typeId != kTypePll
   );
   // Ladder stages default 4; robinSupersaw = voices; triggerDivider = division;
   // triggerCounter/stepSequencer = counts;
@@ -3377,7 +3379,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.lpfFrequency,
-    (typeId == kTypeAdditiveOsc) ? 20000.0 // dampingFilterFrequency
+    (typeId == kTypePll) ? 10.0 // Smoothing Hz
+      : (typeId == kTypeAdditiveOsc) ? 20000.0 // dampingFilterFrequency
       : (typeId == kTypeBradley2a) ? 2600.0 // interfFreq
       : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 1000.0 // highCut
       : (typeId == kTypeInertialFilter) ? 20.0 // release Hz
@@ -3403,7 +3406,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.offset,
     (typeId == kTypeHypersaw2) ? 20.0 // jitterFilter Hz at middle C
-      : (typeId == kTypePll) ? 5.0
+      : (typeId == kTypePll) ? 0.0
       : (typeId == kTypeRobinSupersaw) ? 0.126 // portamentoStyle (SoEm default)
       : (typeId == kTypeArp) ? 0.0 // octaveOffset
       : (typeId == kTypeChaosfly) ? 0.0 // Pitch oct transpose
@@ -8971,8 +8974,8 @@ static void process_soem_reverb(Circuit& g, Node& node, int frames) {
 }
 
 // PLL: Signal In→Mono, VCO CV In→Left (cvConnected if Left wired).
-// mode=range, offset=offset, stages=type, frequency=frequ.
-// VCO→Mono, PC→Left, LPF→Right, Locked→Saw.
+// frequency=VCO Hz, mode=Range octaves, stages=PC type, lpfFrequency=Smoothing.
+// VCO→Mono, PC→Left, Loop→Right, Locked→Saw, ƒ Hz→Ramp.
 static void process_pll(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -8989,10 +8992,10 @@ static void process_pll(Circuit& g, Node& node, int frames) {
   soemdsp_pll_set_params(
     node.nativeHandle,
     sr,
-    (int)(control_effective(node.mode) + 0.5),
-    control_effective(node.offset),
+    control_effective(node.frequency),
+    control_effective(node.mode),
     (int)(control_effective(node.stages) + 0.5),
-    control_effective(node.frequency)
+    control_effective(node.lpfFrequency)
   );
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
@@ -9006,6 +9009,7 @@ static void process_pll(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = soemdsp_pll_pc_out(node.nativeHandle);
     node.buf[kPortRight][f] = soemdsp_pll_lpf_out(node.nativeHandle);
     node.buf[kPortSaw][f] = soemdsp_pll_locked(node.nativeHandle);
+    node.buf[kPortRamp][f] = soemdsp_pll_vco_hz(node.nativeHandle);
   }
 }
 
