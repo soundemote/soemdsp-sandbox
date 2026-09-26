@@ -238,7 +238,6 @@
         "waveguide",
         "phaser",
         "flanger",
-
         "electroKick",
         "electroSnare",
         "electroHat",
@@ -280,6 +279,7 @@
         "wireConnect",
         "wireDisconnect"
       ]
-    }
+    },
+    "patchDirtyState": "untouched"
   }
 }

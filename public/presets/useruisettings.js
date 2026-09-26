@@ -22,7 +22,6 @@
     "gridDivisionMultiply": 5,
     "moduleLightSpread": 78,
     "moduleGridInset": 8,
-    "moduleTitlePadding": 0,
     "inletOutletSize": 52,
     "inletOutletStrokeThickness": 1.25,
     "inletOutletGap": 0,
@@ -92,7 +91,6 @@
     "gridDivisionMultiply": true,
     "moduleLightSpread": false,
     "moduleGridInset": false,
-    "moduleTitlePadding": false,
     "inletOutletSize": true,
     "inletOutletStrokeThickness": true,
     "inletOutletGap": true,
@@ -178,7 +176,7 @@
     "moduleScopeDotCore1Size": 2,
     "moduleScopeDotCore1Brightness": 0.23,
     "moduleScopeDotCore1Color": "#ffffff",
-    "moduleScopeFramesPerSecond": 240,
+    "moduleScopeFramesPerSecond": 60,
     "moduleScopePointBudget": 4096,
     "moduleScopeLineThickness": 1,
     "moduleScopeDiscontinuitySkipSamples": 1,
@@ -243,7 +241,6 @@
         "waveguide",
         "phaser",
         "flanger",
-
         "electroKick",
         "electroSnare",
         "electroHat",
@@ -265,8 +262,10 @@
         "bode",
         "buttonEvents",
         "clockDivider",
+        "codeblock",
         "cookbookFilter",
         "curveOsc",
+        "ellipsoidOsc",
         "kickEnvelope",
         "nextPatch",
         "previousPatch",
@@ -283,6 +282,7 @@
         "wireConnect",
         "wireDisconnect"
       ]
-    }
+    },
+    "patchDirtyState": "untouched"
   }
 });
