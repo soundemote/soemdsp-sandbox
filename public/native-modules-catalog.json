@@ -119,6 +119,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "attenumax",
+      "label": "AM Index",
+      "targetType": "attenumax",
+      "kind": "dynamics",
+      "source": "native_modules/attenumax/attenumax.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/attenumax/attenumax.cpp",
+      "localSourceUrl": "/native_modules/attenumax/attenumax.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/attenumax/attenumax.wasm",
+      "wasmUrl": "native_modules/attenumax/attenumax.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "attenuverter",
       "label": "Attenuverter",
       "targetType": "attenuverter",
@@ -353,6 +366,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "chorus",
+      "label": "Chorus",
+      "targetType": "chorus",
+      "kind": "effect",
+      "source": "native_modules/chorus/chorus.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/chorus/chorus.cpp",
+      "localSourceUrl": "/native_modules/chorus/chorus.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/chorus/chorus.wasm",
+      "wasmUrl": "native_modules/chorus/chorus.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "chua_attractor",
       "label": "Chua Attractor",
       "targetType": "chuaAttractor",
@@ -545,6 +571,19 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET",
       "wasm": "native_modules/elliptic/elliptic.wasm",
       "wasmUrl": "native_modules/elliptic/elliptic.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "ensemble",
+      "label": "Ensemble",
+      "targetType": "ensemble",
+      "kind": "effect",
+      "source": "native_modules/ensemble/ensemble.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/ensemble/ensemble.cpp",
+      "localSourceUrl": "/native_modules/ensemble/ensemble.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/ensemble/ensemble.wasm",
+      "wasmUrl": "native_modules/ensemble/ensemble.wasm",
       "wasmAvailable": true
     },
     {

@@ -1,0 +1,4 @@
+first half frequency: 220.0
+first half amplitude: 0.25
+second half frequency: 440.0
+second half amplitude: 0.5

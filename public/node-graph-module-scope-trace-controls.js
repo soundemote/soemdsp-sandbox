@@ -736,6 +736,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "maxDigits",
       "rotationDegrees",
       "dialSize",
+      "dialOffsetY",
       "valueSize",
       "innerRadius",
     ]),
@@ -1371,6 +1372,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "decimal",
     id: "nodeTraceDisplayKnobDialSize",
     title: "Knob graphic size 0…1. 1 = fill the entire display; 0 = disappear. Scales only the arc — not label or value.",
+  }),
+  dialOffsetY: Object.freeze({
+    label: "Knob Y offset",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayKnobDialOffsetY",
+    title: "Knob graphic vertical offset −1…1 face heights. Positive moves the graphic lower; label and value stay put.",
   }),
   labelSize: Object.freeze({
     label: "Label size",

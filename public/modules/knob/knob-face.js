@@ -823,6 +823,12 @@ function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
     : 1;
   face.style.setProperty("--knob-dial-size", String(dialSize));
 
+  // Positive Y offset moves only the graphic; label/value remain face pins.
+  const dialOffsetY = Number.isFinite(Number(s.dialOffsetY))
+    ? Math.max(-1, Math.min(1, Number(s.dialOffsetY)))
+    : 0;
+  face.style.setProperty("--knob-dial-offset-y", String(dialOffsetY));
+
   // Label / value size 0…1 of display min-edge — independent of knob size/pos.
   const labelSize = Number.isFinite(Number(s.labelSize))
     ? Math.max(0, Math.min(1, Number(s.labelSize)))

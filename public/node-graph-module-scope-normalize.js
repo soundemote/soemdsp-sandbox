@@ -1358,6 +1358,13 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
       0,
       1,
     ),
+    // Positive Y offset moves only the knob graphic down; label/value stay pinned.
+    dialOffsetY: normalizeNodeGraphTraceDisplayNumber(
+      source.dialOffsetY ?? source.knobOffsetY ?? source.offsetY,
+      defaults.dialOffsetY ?? 0,
+      -1,
+      1,
+    ),
     labelSize: normalizeNodeGraphTraceDisplayNumber(
       source.labelSize ?? source.titleSize,
       defaults.labelSize ?? 0.2,

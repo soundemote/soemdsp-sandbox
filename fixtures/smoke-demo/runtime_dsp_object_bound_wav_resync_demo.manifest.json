@@ -1,0 +1,126 @@
+{
+  "demo": "runtime_dsp_object_bound_wav_resync_demo",
+  "kind": "demo-local-bound-wav-resync-artifacts",
+  "allOk": true,
+  "runtimeApi": false,
+  "scheduler": false,
+  "audioEngine": false,
+  "parameterSetters": {
+    "frequency": true,
+    "amplitude": true
+  },
+  "sandboxHandoff": {
+    "contract": "soemdsp-demo-local-sandbox-handoff",
+    "contractVersion": 1,
+    "inspectionMode": "mouse-and-ears",
+    "callerOwnsProcessingOrder": true,
+    "callerOwnsDspObjects": true,
+    "circuitOwnsDspObjects": false,
+    "dspObjectsKnowCircuit": false,
+    "serializesPatch": false,
+    "ownsAudioEngine": false,
+    "ownsScheduler": false,
+    "entryPoint": "entry.txt",
+    "primaryAudioArtifact": "primary.wav"
+  },
+  "artifactLinks": [
+    {
+      "kind": "entry-point",
+      "path": "entry.txt"
+    },
+    {
+      "kind": "audio",
+      "path": "primary.wav"
+    },
+    {
+      "kind": "manifest",
+      "path": "runtime_dsp_object_bound_wav_resync_demo.manifest.json"
+    },
+    {
+      "kind": "text-summary",
+      "path": "summary.txt"
+    },
+    {
+      "kind": "wav-report",
+      "path": "wav-report.txt"
+    },
+    {
+      "kind": "phase-report",
+      "path": "phase-a-report.txt",
+      "phase": "phase-a"
+    },
+    {
+      "kind": "phase-report",
+      "path": "phase-b-report.txt",
+      "phase": "phase-b"
+    }
+  ],
+  "wav": {
+    "path": "primary.wav",
+    "frames": 17640,
+    "sampleRate": 44100,
+    "channels": 1,
+    "bitDepth": 16,
+    "dataBytes": 35280,
+    "fileBytes": 35324
+  },
+  "phases": [
+    {
+      "name": "phase-a",
+      "preflightOk": true,
+      "applyOk": true,
+      "processOk": true,
+      "samplesProcessed": 8820,
+      "startFrame": 0,
+      "endFrame": 8820
+    },
+    {
+      "name": "phase-b",
+      "preflightOk": true,
+      "applyOk": true,
+      "processOk": true,
+      "samplesProcessed": 8820,
+      "startFrame": 8820,
+      "endFrame": 17640
+    }
+  ],
+  "phaseAudioMeasurements": [
+    {
+      "name": "phase-a",
+      "measuredFrequency": 220.0,
+      "peak": 0.249977111117893,
+      "rms": 0.17676317973427802,
+      "dcOffset": -1.3720443274846039e-18
+    },
+    {
+      "name": "phase-b",
+      "measuredFrequency": 440.0,
+      "peak": 0.499984740745262,
+      "rms": 0.3535396858092002,
+      "dcOffset": 1.2430218104505012e-19
+    }
+  ],
+  "parameterResync": {
+    "frequency": {
+      "changed": true,
+      "first": 220.0,
+      "second": 440.0,
+      "phase-a": 220.0,
+      "phase-b": 440.0
+    },
+    "amplitude": {
+      "changed": true,
+      "first": 0.25,
+      "second": 0.5,
+      "phase-a": 0.25,
+      "phase-b": 0.5
+    },
+    "bias": {
+      "changed": false,
+      "first": 0.0,
+      "second": 0.0,
+      "phase-a": 0.0,
+      "phase-b": 0.0
+    }
+  }
+}

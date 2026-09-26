@@ -205,6 +205,7 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "innerShadowOffsetX",
     "innerShadowOffsetY",
     "dialSize",
+    "dialOffsetY",
     "labelSize",
     "valueSize",
     "innerRadius",
@@ -258,7 +259,7 @@ function nodeGraphTraceDisplayUnitDragField(key) {
 
 /** Drag/clamp range for unit-style fields (most are 0…1; shadow offset bipolar). */
 function nodeGraphTraceDisplayUnitDragRange(key) {
-  if (key === "innerShadowOffsetX" || key === "innerShadowOffsetY") {
+  if (key === "innerShadowOffsetX" || key === "innerShadowOffsetY" || key === "dialOffsetY") {
     return { min: -1, max: 1 };
   }
   // Image Burn Contrast: 0 = unchanged, 2 = max black crush (only this form uses it).
@@ -534,8 +535,9 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   innerShadowSharpness: nodeGraphTraceDisplayClampUnit,
   innerShadowOffsetX: nodeGraphTraceDisplayClampBipolarUnit,
   innerShadowOffsetY: nodeGraphTraceDisplayClampBipolarUnit,
-  // Knob dial / label / value size 0…1.
+  // Knob dial / label / value size 0…1; Y offset is bipolar face-height units.
   dialSize: nodeGraphTraceDisplayClampUnit,
+  dialOffsetY: nodeGraphTraceDisplayClampBipolarUnit,
   labelSize: nodeGraphTraceDisplayClampUnit,
   valueSize: nodeGraphTraceDisplayClampUnit,
   dotBudget: nodeGraphTraceDisplayClampDotBudget,
@@ -756,6 +758,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   }),
   knobFace: Object.freeze({
     dialSize: nodeGraphTraceDisplayClampUnit,
+    dialOffsetY: nodeGraphTraceDisplayClampBipolarUnit,
     labelSize: nodeGraphTraceDisplayClampUnit,
     valueSize: nodeGraphTraceDisplayClampUnit,
     innerRadius: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 0.95),

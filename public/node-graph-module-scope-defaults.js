@@ -442,6 +442,8 @@ const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   rotationDegrees: 270,
   // Knob graphic size 0…1 (1 = fill entire display; 0 = disappear). Arc only.
   dialSize: 1,
+  // Knob graphic vertical offset in face-height units; positive moves lower.
+  dialOffsetY: 0,
   // Label / value size 0…1 of display min-edge (independent of knob size/position).
   labelSize: 0.2,
   valueSize: 0.2,

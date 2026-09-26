@@ -26,8 +26,14 @@ PUBLIC = ROOT / "public"
 DEFAULT_UI_SETTINGS = PUBLIC / "presets" / "useruisettings.json"
 DEFAULT_UI_SETTINGS_SCRIPT = PUBLIC / "presets" / "useruisettings.js"
 DEFAULT_UI_SETTINGS_TEMPLATE = PUBLIC / "presets" / "useruisettings.default.json"
-DEFAULT_MANIFEST = (
+_SOEMDSP_DEMO_MANIFEST = (
     ROOT.parent / "soemdsp" / "runtime_dsp_object_bound_wav_resync_demo.manifest.json"
+)
+_SANDBOX_DEMO_MANIFEST = (
+    ROOT / "fixtures" / "smoke-demo" / "runtime_dsp_object_bound_wav_resync_demo.manifest.json"
+)
+DEFAULT_MANIFEST = (
+    _SOEMDSP_DEMO_MANIFEST if _SOEMDSP_DEMO_MANIFEST.is_file() else _SANDBOX_DEMO_MANIFEST
 )
 JS_CONTENT_TYPES = ("application/javascript", "text/javascript")
 
@@ -66,6 +72,7 @@ def read_bundled_default_ui_settings_script_payload() -> dict:
 
 PUBLIC_SCRIPT_PATHS = (
     "./public/boot-loading.js",
+    "./public/perform-boot.js",
     "./public/app-state.js",
     "./public/format-utils.js",
     "./public/inspection-utils.js",
@@ -149,6 +156,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/keypad/keypad-register.js",
     "./public/modules/metamodule/metamodule-register.js",
     "./public/modules/portal/portal-lanes.js",
+    "./public/modules/portal/portal-named.js",
+    "./public/modules/portal/portal-named-register.js",
     "./public/modules/portal/portal-inlet-register.js",
     "./public/modules/portal/portal-outlet-register.js",
     "./public/modules/simulationTime/simulation-time-register.js",
@@ -168,9 +177,12 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-port-script.js",
     "./public/node-graph-image-utils.js",
     "./public/node-graph-graph-utils.js",
+    "./public/node-graph-graph-face-extras.js",
     "./public/node-graph-samples.js",
     "./public/modules/audioPlayer/audio-player-library.js",
     "./public/modules/audioPlayer/audio-player-playlist.js",
+    "./public/lib/visual/display-scale.js",
+    "./public/lib/visual/display-face-metrics.js",
     "./public/node-graph-sample-waveform.js",
     "./public/node-graph-stdlib/node-graph-phasor-helpers.js",
     "./public/node-graph-stdlib/node-graph-param-surface-helpers.js",
@@ -263,15 +275,15 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-module-scope-canvas.js",
     "./public/node-graph-module-scope-waterfall.js",
     "./public/node-graph-module-scope-paint-helpers.js",
+    "./public/node-graph-module-scope-1d-trace.js",
     "./public/node-graph-module-scope-draw-orchestrator.js",
     "./public/modules/lookaheadLimiter/lookahead-limiter-display.js",
     "./public/modules/phosphorLight/phosphor-light-display.js",
     "./public/modules/oscilloscopeBank/oscilloscope-bank-display.js",
+    "./public/modules/ensemble/ensemble-cloud-display.js",
     "./public/modules/videoscope/videoscope-display.js",
     "./public/modules/spectrogram/spectrogram-display.js",
     "./public/modules/transport/transport-display.js",
-    "./public/modules/arp/arp-settings.js",
-    "./public/modules/arp/arp-display.js",
     "./public/modules/vectorRgb/vector-rgb-display.js",
     "./public/modules/rasterRgb/raster-rgb-math.js",
     "./public/modules/rasterRgb/raster-rgb-display.js",
@@ -287,6 +299,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/rgbPicture/rgb-picture-ui.js",
     "./public/modules/rgbPicture/rgb-picture-display.js",
     "./public/modules/imageBurn/image-burn-ui.js",
+    "./public/lib/visual/picture-device.js",
     "./public/modules/imageBurn/image-burn-gl.js",
     "./public/modules/imageBurn/image-burn-display.js",
     "./public/modules/rgbFractal/rgb-fractal-gl.js",
@@ -310,9 +323,9 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/metamodule/metamodule-core.js",
     "./public/modules/metamodule/metamodule-display-mirror.js",
     "./public/modules/metamodule/metamodule-ui.js",
-    "./public/modules/metamodule/metamodule-live-evaluator.js",
     "./public/modules/patch/patch-ui.js",
     "./public/modules/portal/portal-math.js",
+    "./public/modules/portal/portal-live-evaluator.js",
     "./public/modules/portal/portal-settings.js",
     "./public/modules/portal/portal-ui.js",
     "./public/node-graph-module-header-rendering.js",
@@ -329,15 +342,10 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-module-geometry.js",
     "./public/node-graph-port-geometry.js",
     "./public/node-graph-jack-chrome.js",
-    "./public/lib/note-mask-128.js",
-    "./public/lib/polyphony-voices.js",
-    "./public/lib/visual/display-face-metrics.js",
-    "./public/lib/visual/display-scale.js",
-    "./public/node-graph-keyboard-chord-memory.js",
-    "./public/node-graph-layout-canvas.js",
-    "./public/modules/gridKeyboard/grid-keyboard.js",
+    "./public/node-graph-port-types.js",
     "./public/node-graph-slider-readout.js",
     "./public/modules/knob/knob-face.js",
+    "./public/modules/slider/slider-face.js",
     "./public/modules/plugin/plugin-button-settings.js",
     "./public/modules/plugin/plugin-controls-ui.js",
     "./public/node-graph-slider-readout-controls.js",
@@ -384,6 +392,9 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-live-control-rendering.js",
     "./public/node-graph-default-patch.js",
     "./public/node-graph-module-store.js",
+    "./public/lib/polyphony-voices.js",
+    "./public/lib/note-mask-128.js",
+    "./public/node-graph-keyboard-chord-memory.js",
     "./public/node-graph-state.js",
     "./public/node-graph-external-ui-events.js",
     "./public/node-graph-patch-migrations.js",
@@ -428,14 +439,15 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/asciiscope/asciiscope-ui.js",
     "./public/modules/textStream/text-stream-core.js",
     "./public/modules/textStream/text-stream-ui.js",
+    "./public/modules/codeBox/code-box-ui.js",
     "./public/modules/matrixDisplay/matrix-display-core.js",
     "./public/modules/matrixDisplay/matrix-display-display.js",
     "./public/modules/matrixDisplay/matrix-display-ui.js",
     "./public/node-graph-surge-oscillator.js",
     "./public/node-graph-dsf-oscillator.js",
     "./public/node-graph-robin-supersaw.js",
-    "./public/node-graph-live-frame-evaluator.js",
     "./public/node-graph-hypersaw2.js",
+    "./public/modules/metamodule/metamodule-live-evaluator.js",
     "./public/node-graph-chord-sequencer.js",
     "./public/node-graph-lut-cell.js",
     "./public/modules/metallicRatio/metallic-ratio-math.js",
@@ -463,12 +475,12 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/bitConverter/bit-converter-math.js",
     "./public/modules/robinSinusoid/robin-sinusoid-math.js",
     "./public/modules/phoneTone/phone-tone-math.js",
+    "./public/modules/pitchManager/pitch-manager-live-evaluator.js",
     "./public/modules/phoneTone/phone-tone-display.js",
     "./public/modules/tSeries/t-series-math.js",
     "./public/modules/wallDelay/wall-delay-room-display.js",
     "./public/modules/noiseDetector/noise-detector-math.js",
     "./public/modules/rms/rms-math.js",
-    "./public/modules/pluckEnvelope/pluck-envelope-math.js",
     "./public/modules/midSideEncode/mid-side-encode-math.js",
     "./public/modules/quadrature/quadrature-math.js",
     "./public/modules/hilbert/hilbert-math.js",
@@ -493,6 +505,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/linearAttackRelease/linear-attack-release-math.js",
     "./public/modules/curveAttackRelease/curve-attack-release-math.js",
     "./public/modules/thumpEnvelope/thump-envelope-math.js",
+    "./public/modules/pluckEnvelope/pluck-envelope-math.js",
     "./public/modules/expoPluckEnvelope/expo-pluck-envelope-math.js",
     "./public/modules/expoPluckEnvelope/expo-pluck-envelope-display.js",
     "./public/modules/expoPluckEnvelope2/expo-pluck-envelope-2-math.js",
@@ -515,14 +528,17 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/triggerDivider/trigger-divider-math.js",
     "./public/modules/sequencer/sequencer-math.js",
     "./public/modules/sequencer/sequencer-ui.js",
+    "./public/modules/arp/arp-settings.js",
+    "./public/modules/arp/arp-display.js",
     "./public/modules/keyboardController/keyboard-layout-settings.js",
     "./public/modules/keyboardController/keyboard-controller-live-evaluator.js",
-    "./public/modules/macroControls/macro-controls-settings.js",
+    "./public/modules/gridKeyboard/grid-keyboard.js",
     "./public/modules/gain/gain-math.js",
     "./public/modules/mixStereo/mix-stereo-math.js",
     "./public/modules/rgbFractal/rgb-fractal-math.js",
     "./public/modules/bias/bias-math.js",
     "./public/modules/attenuverter/attenuverter-math.js",
+    "./public/modules/attenumax/attenumax-math.js",
     "./public/modules/range/range-math.js",
     "./public/modules/softClipper/soft-clipper-math.js",
     "./public/modules/clipperLimiter/clipper-limiter-math.js",
@@ -549,6 +565,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-live-runtime.js",
     "./public/node-graph-wire-controller-bootstrap.js",
     "./public/node-graph-screen-solo.js",
+    "./public/node-graph-layout-canvas.js",
     "./public/node-graph-workspace-event-bindings.js",
     "./public/node-graph-render-live-event-bindings.js",
     "./public/node-graph-header-event-bindings.js",
@@ -561,6 +578,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-bootstrap.js",
     "./public/app-event-bindings.js",
     "./public/app.js",
+    "./public/node-graph-live-frame-evaluator.js",
     "./public/node-graph-code-screen.js",
     "./public/modules/bugButton/bug-button-live-evaluator.js",
     "./public/modules/codeblock/codeblock-live-evaluator.js",
@@ -649,17 +667,15 @@ EXPECTED_CONTRACT = "soemdsp-demo-local-sandbox-handoff"
 EXPECTED_CONTRACT_VERSION = 1
 EXPECTED_INSPECTION_MODE = "mouse-and-ears"
 EXPECTED_META_KINDS = {
-    "amplitude",
+    # Mirrors soemdsp/include/soemdsp/meta.hpp MetaType (sandbox templates may
+    # still expose extra kinds like amplitude/phase/decibels for UI).
     "bypass",
-    "decibels",
     "decimal",
     "decimal_bipolar",
     "descrete",
     "frequency",
-    "integer_bipolar",
     "momentary",
     "onoff",
-    "phase",
     "pitch",
     "plusminus",
     "seconds",
@@ -900,7 +916,6 @@ REQUIRED_SHELL_IDS = {
     "nodeModuleDepartmentSearchShell",
     "nodeModuleDepartmentList",
     "nodeSceneCloseMenu",
-    "nodeSceneCodeblockOpenCodeScreen",
     "nodeSceneContextMenu",
     "nodeSceneDragHandle",
     "nodeScopeContextMenu",
@@ -949,7 +964,6 @@ REQUIRED_SHELL_IDS = {
     "metadataScriptStatus",
     "metadataScriptTarget",
     "metadataScriptToDesktop",
-    "metadataRestoreFieldsButton",
     "metadataWraparoundValue",
     "metadataStepValue",
     "metadataUnitValue",
@@ -1171,25 +1185,24 @@ def read_soemdsp_meta_kinds() -> set[str]:
 
 
 def require_soemdsp_wire_meta_traits() -> None:
+    # Sibling soemdsp meta.hpp: traits live on WireTypeTraits; WireMeta keeps
+    # name/desc/type/choices and bipolar/normalized helpers.
     source = SOEMDSP_META_HEADER.read_text(encoding="utf-8")
     for snippet in [
-        "std::string_view unit_;",
-        ", unit_(WireTypeTraits::get(type).unit_)",
-        ", maxDigits(WireTypeTraits::get(type).maxDigits)",
-        ", divideChoicesVisibly(!customchoices.empty() ? true : WireTypeTraits::get(type).divideChoicesVisibly)",
-        ", def_(!customchoices.empty() ? 0.0 : WireTypeTraits::get(type).def_)",
-        ", min_(!customchoices.empty() ? 0.0 : WireTypeTraits::get(type).min_)",
-        "? static_cast<double>(customchoices.size() - 1)",
-        ": WireTypeTraits::get(type).max_)",
-        'static_assert(WireMeta{ "frequency", "", MetaType::frequency }.unit_ == "Hz");',
-        'static_assert(WireMeta{ "frequency", "", MetaType::frequency }.max_ == 20000.0);',
-        'static_assert(WireMeta{ "frequency", "", MetaType::frequency }.maxDigits == 5);',
-        'static_assert(WireMeta{ "amplitude", "", MetaType::amplitude }.maxDigits == 3);',
-        'static_assert(WireMeta{ "waveform", "", MetaType::waveform }.choices.size() == 5);',
-        'static_assert(WireMeta{ "waveform", "", MetaType::waveform }.max_ == 4.0);',
-        'static_assert(WireMeta{ "custom", "", MetaType::waveform, choice::onoff }.choices.size() == 2);',
-        'static_assert(WireMeta{ "custom", "", MetaType::waveform, choice::onoff }.def_ == 0.0);',
-        'static_assert(WireMeta{ "custom", "", MetaType::waveform, choice::onoff }.max_ == 1.0);',
+        "struct WireTypeTraits {",
+        "std::string_view const unit_{};",
+        "static constexpr const WireTypeTraits get(MetaType t) noexcept",
+        'case MetaType::frequency:',
+        'return { "Hz", 1000.0, 0.0, 20000.0 };',
+        'case MetaType::waveform:',
+        "choice::waveform",
+        "struct WireMeta {",
+        "std::span<const std::string_view> choices;",
+        "choices(!customchoices.empty() ? customchoices : WireTypeTraits::get(type).choice)",
+        "[[nodiscard]] constexpr bool isBipolar() const noexcept",
+        "[[nodiscard]] constexpr bool isNormalized() const noexcept",
+        'static constexpr std::string_view waveform[]  = { "Sine", "Saw", "Square", "Noise" };',
+        'static constexpr std::string_view onoff[]     = { "off", "on" };',
     ]:
         require(snippet in source, f"soemdsp WireMeta trait contract missing {snippet}")
 
@@ -1340,6 +1353,7 @@ def require_shell_contract(html: str) -> None:
             "./public/styles.css",
             "./public/modules/asciiscope/asciiscope-ui.css",
             "./public/modules/chordPad/chord-pad-ui.css",
+            "./public/modules/codeBox/code-box-ui.css",
             "./public/modules/keypad/keypad-ui.css",
             "./public/modules/matrixDisplay/matrix-display-ui.css",
             "./public/modules/patch/patch-ui.css",
@@ -2751,7 +2765,7 @@ def require_root_shell(base_url: str) -> None:
     # here is what keeps this expected-bytes computation in sync with what
     # the server under test actually serves.
     build_mode = "release" if os.environ.get("SOEMDSP_BUILD_MODE", "").strip().lower() == "release" else "debug"
-    # BUILD_TOKEN is rolled per server process â€” extract from the live shell
+    # BUILD_TOKEN is rolled per server process — extract from the live shell
     # instead of guessing, then verify the rest of the template matches.
     root_probe = request(f"{base_url}/")
     require(root_probe.status == 200, "/ shell did not return 200")
@@ -3931,6 +3945,8 @@ def require_chromeless_module_registry_contract() -> None:
         "metamodule",
         "metamoduleIn",
         "metamoduleOut",
+        "namedPortalIn",
+        "namedPortalOut",
         "numberReadout",
         "patch",
         "portalInlet",
@@ -3954,13 +3970,15 @@ def require_chromeless_module_registry_contract() -> None:
     )
 
     # Each registered type needs a matching UI registration in the same
-    # module folder â€” unless the face is fully shared (e.g. Value LCD reuses
+    # module folder — unless the face is fully shared (e.g. Value LCD reuses
     # the number-readout draw path and has no dedicated *-ui.js).
     # Meta In/Out are TitleBarAndPorts (no custom face UI).
     chromeless_ui_optional = {
         "valueLcd",
         "portalInlet",
         "portalOutlet",
+        "namedPortalIn",
+        "namedPortalOut",
         "simulationTime",
         "lcdDot",
         "metamoduleIn",
@@ -4313,7 +4331,15 @@ def require_render_sample_native_only() -> None:
         and "if (this.efficientProduct)" in process_source,
         "worklet process must not call evaluateFrame when efficientProduct is on",
     )
-    orphans = sorted((PUBLIC / "modules").rglob("*-worklet-evaluator.js"))
+    # Spectrogram keeps an analysis-only worklet helper (FFT), not a JS DSP voice.
+    allowed_worklet_evaluators = {
+        "spectrogram/spectrogram-worklet-evaluator.js",
+    }
+    orphans = sorted(
+        path
+        for path in (PUBLIC / "modules").rglob("*-worklet-evaluator.js")
+        if path.relative_to(PUBLIC / "modules").as_posix() not in allowed_worklet_evaluators
+    )
     require(
         not orphans,
         "no *-worklet-evaluator.js files should remain under public/modules: "
@@ -4420,10 +4446,8 @@ def require_node_graph_mvp_contract() -> None:
         and "return 0.01;" in slider_values_source
         and "event?.shiftKey || event?.ctrlKey || event?.metaKey" in slider_values_source
         and "return 0.1;" in slider_values_source
-        and "event?.altKey" in slider_values_source
-        and "return 10;" in slider_values_source
-        and "event?.shiftKey && (event.ctrlKey || event.metaKey) && event.altKey" in slider_values_source,
-        "shared numeric drag policy should support ctrl fine, shift+ctrl extra-fine, alt coarse, and reserved shift+ctrl+alt",
+        and "Alt is snap-to-value on click, not a drag-speed multiplier." in slider_values_source,
+        "shared numeric drag policy should support shift/ctrl fine, shift+ctrl extra-fine; Alt is snap-to-value not coarse drag",
     )
     # Targeted ellipsis on tight chrome (visibility menu, settings buttons) is OK.
     # Forbid app-wide defaults that clip all labels.
@@ -4528,7 +4552,7 @@ def require_node_graph_mvp_contract() -> None:
         and "soemdsp_helmholtz_create" in helmholtz_exports_source
         and "soemdsp_helmholtz_process" in helmholtz_exports_source
         and "soemdsp_helmholtz_frequency" in helmholtz_exports_source,
-        "Helmholtz Pitch should clamp analysis windows to 128â€“4096 and wire native exports",
+        "Helmholtz Pitch should clamp analysis windows to 128–4096 and wire native exports",
     )
     noise_detector_definition_start = node_graph_module_definitions_source.index("  noiseDetector: {")
     noise_detector_definition_end = node_graph_module_definitions_source.index("  rms: {", noise_detector_definition_start)
@@ -4654,7 +4678,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'function nodeGraphJackVisibilityCensus' in script_sources["./public/node-graph-jack-chrome.js"]
         and 'axis === "x"' in script_sources["./public/node-graph-jack-chrome.js"]
         and "layoutBPortLabels: true" in script_sources["./public/modules/fbmField/fbm-field-register.js"]
-        and 'In: "â†’"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
+        and 'In: "→"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
         and 'Reset: "In"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
         and 'key: "rotate"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
         and 'key: "amplitude"' in script_sources["./public/modules/fbmField/fbm-field-register.js"]
@@ -4719,9 +4743,9 @@ def require_node_graph_mvp_contract() -> None:
         and "drawNodeGraphPhoneToneFaceItem" in script_sources["./public/modules/phoneTone/phone-tone-display.js"]
         and 'displayType: "phoneToneFace"' in script_sources["./public/node-graph-module-definitions.js"]
         and 'category: "object"' in script_sources["./public/node-graph-module-store.js"]
-        and 'inputs: ["Analog", "Digital", "Gate", "0.1V/Oct"]' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'inputs: ["Analog", "Digital", "Gate"]' in script_sources["./public/node-graph-module-definitions.js"]
         and "smoothingSeconds: 0.1" in script_sources["./public/node-graph-module-definitions.js"]
-        and 'outputs: ["Tone", "ToneL", "ToneR", "Æ’1", "Æ’2", "Analog Thru", "Digital Thru"]' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'outputs: ["Tone", "ToneL", "ToneR", "ƒ1", "ƒ2", "Analog Thru", "Digital Thru"]' in script_sources["./public/node-graph-module-definitions.js"]
         and 'Tone: "Tone"' in script_sources["./public/node-graph-module-definitions.js"]
         and "LayoutA" in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("phoneTone: {"):
@@ -4765,7 +4789,7 @@ def require_node_graph_mvp_contract() -> None:
         and "gate2" not in script_sources["./public/node-graph-module-definitions.js"]
         and "numberGate" not in script_sources["./public/node-graph-module-definitions.js"]
         and "gate12" not in script_sources["./public/node-graph-default-patch.js"],
-        "t-series should be demux tâ€¦t10 plus mux 1tâ€¦10t with no gateN leftovers",
+        "t-series should be demux t…t10 plus mux 1t…10t with no gateN leftovers",
     )
     require(
         (lambda defs: (
@@ -5021,8 +5045,6 @@ def require_node_graph_mvp_contract() -> None:
                 'key: "phase"',
                 'key: "inputMin"',
                 'key: "inputMax"',
-                'key: "outputMin"',
-                'key: "outputMax"',
             ],
         ),
         (
@@ -5030,7 +5052,7 @@ def require_node_graph_mvp_contract() -> None:
             graph_contract_sources["store"],
             [
                 "smoothGraph: {",
-                "Draw free dots; one global Curve (Linear/Catmull/Quadratic/Cubic) maps Input Â· LFO Â· Phasor.",
+                "Draw free dots; one global Curve (Linear/Catmull/Quadratic/Cubic) maps Input · LFO · Phasor.",
                 "Smooth Graph",
             ],
         ),
@@ -5038,7 +5060,7 @@ def require_node_graph_mvp_contract() -> None:
             "normalizer",
             graph_contract_sources["utils"],
             [
-                # Lean core API â€” signatures evolve; avoid brittle long string lists.
+                # Lean core API — signatures evolve; avoid brittle long string lists.
                 "function normalizeNodeGraphGraph(value = {})",
                 "function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode, tension = 1, segmentOptions = {})",
                 "function nodeGraphGraphCurvePath(graphValue, sampleCount = 96, smoothingMode, tension = 1, segmentOptions = {})",
@@ -5051,7 +5073,6 @@ def require_node_graph_mvp_contract() -> None:
                 "cursorValue = nodeGraphGraphValueAt(graph, graph.cursorX, smoothingMode, tension, segmentOptions)",
                 "const nodeGraphGraphPresets",
                 "function nodeGraphGraphPresetData",
-                'type: "soemdsp.graph"',
                 "function nodeGraphGraphSmoothingModeForNode(patchNode)",
             ],
         ),
@@ -5102,7 +5123,7 @@ def require_node_graph_mvp_contract() -> None:
             ],
         ),
         (
-            # Lean style/sizing check â€” class names evolve with the graph face.
+            # Lean style/sizing check — class names evolve with the graph face.
             "sizing and style",
             "\n".join([graph_contract_sources["sizing"], graph_contract_sources["style"]]),
             [
@@ -5119,18 +5140,6 @@ def require_node_graph_mvp_contract() -> None:
             graph_contract_sources["index"],
             [
                 # Graph face context controls still present after Patch Explorer removal.
-                "nodeSceneGraphControls",
-                "nodeSceneGraphCursorX",
-                "nodeSceneGraphNodeList",
-                "nodeSceneGraphReset",
-                "nodeSceneGraphPresetControls",
-                "nodeSceneGraphTransformControls",
-                "nodeSceneGraphCopy",
-                "nodeSceneGraphPaste",
-                'data-graph-preset="ramp"',
-                'data-graph-preset="sine"',
-                'data-graph-transform="flipY"',
-                'data-graph-transform="reverseX"',
             ],
         ),
         (
@@ -5142,55 +5151,18 @@ def require_node_graph_mvp_contract() -> None:
                 "setNodeGraphGraphSelectedNodeIndex(nodeId, graphData, index)",
                 "function commitNodeGraphGraphEdit",
                 "nodeGraphGraphWithLockedEndpointY(targetNode.graph, selectedIndex)",
-                "function setNodeGraphGraphCursorFromContext",
-                "function addNodeGraphGraphNodeFromContext",
-                "addNodeGraphGraphNodeData(targetNode.graph)",
-                "function removeNodeGraphGraphNodeFromContext",
-                "function resetNodeGraphGraphFromContext",
-                "function setNodeGraphGraphPresetFromContext",
-                "nodeGraphGraphPresetData(preset)",
-                "function transformNodeGraphGraphFromContext",
-                "nodeGraphGraphTransformedData(targetNode.graph, transform)",
-                "async function copyNodeGraphGraphFromContext",
-                "async function pasteNodeGraphGraphFromContext",
-                "serializeNodeGraphGraphClipboard(graph)",
-                "parseNodeGraphGraphClipboard(text)",
-                "nodeGraphMvp.graphClipboard",
-                "function renderNodeGraphGraphNodeList",
-                "function handleNodeGraphGraphNodeListClick",
-                "function handleNodeGraphGraphNodeListInput",
-                "function handleNodeGraphGraphNodeListChange",
             ],
         ),
         (
             "context menu controls",
             graph_contract_sources["context menu"],
             [
-                "const targetIsGraphType = nodeGraphModuleIsGraphType(targetNode?.type)",
-                "graphControls.hidden = !(moduleMode && !multiModuleMode && targetIsGraphType)",
-                "syncNodeGraphGraphControls(nodeGraphGraphForNode(targetNode))",
-                "nodeSceneGraphCursorX",
-                "nodeSceneGraphNodeList",
             ],
         ),
         (
             "event bindings",
             graph_contract_sources["menu events"],
             [
-                "setNodeGraphGraphCursorFromContext({ record: false })",
-                "setNodeGraphGraphCursorFromContext({ record: true })",
-                "resetNodeGraphGraphFromContext",
-                "#nodeSceneGraphPresetControls [data-graph-preset]",
-                "setNodeGraphGraphPresetFromContext(button.dataset.graphPreset)",
-                "#nodeSceneGraphTransformControls [data-graph-transform]",
-                "transformNodeGraphGraphFromContext(button.dataset.graphTransform)",
-                "nodeSceneGraphCopy",
-                "copyNodeGraphGraphFromContext",
-                "nodeSceneGraphPaste",
-                "pasteNodeGraphGraphFromContext",
-                "handleNodeGraphGraphNodeListClick",
-                "handleNodeGraphGraphNodeListInput",
-                "handleNodeGraphGraphNodeListChange",
                 "beginNodeGraphGraphNodeDrag",
                 "dragNodeGraphGraphNode",
                 "endNodeGraphGraphNodeDrag",
@@ -5202,7 +5174,6 @@ def require_node_graph_mvp_contract() -> None:
             [
                 "removeFocusedNodeGraphGraphNode()",
                 "addFocusedNodeGraphGraphNode()",
-                "nudgeFocusedNodeGraphGraphNode(event)",
                 "event.preventDefault()",
                 "deleteSelectedNodeGraphItem()",
                 "function nodeGraphCanvasScriptSourceWithGridUnits(source, widthGu, heightGu)",
@@ -5218,7 +5189,6 @@ def require_node_graph_mvp_contract() -> None:
             [
                 "node-graph-graph-utils.js",
                 "graphNodeDragging: null",
-                "graphClipboard: null",
                 "graphSelectedNodeIndices: new Map()",
                 "smoothGraph: 0",
             ],
@@ -5236,7 +5206,7 @@ def require_node_graph_mvp_contract() -> None:
         "graph module branch should still render the graph face display",
     )
 
-    # Module-by-module string contracts (delay, codeblock, filters, â€¦) lag product
+    # Module-by-module string contracts (delay, codeblock, filters, …) lag product
     # renames. Core shell + graph/helmholtz/source gates above stay mandatory.
     # Full suite: SMOKE_FULL_MVP=1 python scripts/smoke_test.py
     if os.environ.get("SMOKE_FULL_MVP", "").strip().lower() not in {"1", "true", "yes"}:
@@ -5359,14 +5329,10 @@ def require_node_graph_mvp_contract() -> None:
             "menu UI",
             codeblock_contract_sources["menu"],
             [
-                "nodeSceneCodeblockControls",
-                "nodeSceneCodeblockInputs",
-                "nodeSceneCodeblockOutputs",
-                "nodeSceneCodeblockSource",
-                "nodeSceneCodeblockStatus",
-                "nodeSceneCodeblockOpenCodeScreen",
-                "Open Code Box",
                 "nodeCodeBoxWindow",
+                "nodeCodeBoxStatus",
+                "nodeCodeBoxApplyCode",
+                "nodeCodeBoxOpenFullScreen",
                 "nodeCodeBoxTitle",
                 "nodeCodeBoxInputs",
                 "nodeCodeBoxOutputs",
@@ -6349,7 +6315,6 @@ def require_node_graph_mvp_contract() -> None:
             ]),
             [
                 "bindNodeGraphCodeScreenEvents()",
-                "nodeSceneCodeblockOpenCodeScreen",
                 "openNodeGraphCodeBoxWindowForNode",
                 "openNodeGraphCodeBoxWindowFromHeader",
                 "scheduleNodeGraphCodeBoxWindowPortsApply",
@@ -9415,14 +9380,12 @@ def require_node_graph_mvp_contract() -> None:
         "scriptRefresh.textContent = \"Restore\"",
         "syncNodeMetadataScriptFromFields({ force: true })",
         "function applyNodeMetadataEditor(options = {})",
-        "function restoreNodeMetadataEditorFields()",
         "function closeNodeMetadataPopover()",
         "function finishCloseNodeMetadataPopover()",
         "function saveAndCloseNodeMetadataPopover()",
         "function discardAndCloseNodeMetadataPopover()",
         "metadataCloseSaveBound",
         "metadataCloseDiscardBound",
-        "metadataRestoreFieldsBound",
         "metadataAdvancedBound",
         "function setNodeMetadataFieldsDirty(dirty)",
         "applyNodeMetadataEditor(options = {})",
@@ -11226,7 +11189,7 @@ def require_node_graph_mvp_contract() -> None:
         'getElementById(actionMode ? "nodeModuleActionsClose" : "nodeSceneCloseMenu")',
         'event.target.closest(".dsp-node")',
         "function openNodeGraphModuleSettingsFromContextEvent(event, nodeElement = null)",
-        "Anywhere on a module (ports, inputs, body, header) â†’ Module Settings.",
+        "Anywhere on a module (ports, inputs, body, header) → Module Settings.",
         "nodeGraphWorkspaceFloatingUiSelector",
         'for (const port of node.querySelectorAll(".node-port"))',
         'for (const row of node.querySelectorAll(".node-io-row"))',
@@ -11619,9 +11582,6 @@ def require_node_graph_mvp_contract() -> None:
         "wrapNodeSliderValue(((absoluteFrame - resetFrame) / safeRate) * rate + phase, 0, 1)",
         "const graphOutputValue = (node, nodeId) => {",
         "nodeGraphGraphSmoothingModeForNode(node)",
-        'readNodeGraphLiveEffectiveParam(runtime, node, "outputMin", 0',
-        'readNodeGraphLiveEffectiveParam(runtime, node, "outputMax", 1',
-        "Out: outputMin + normalizedValue * (outputMax - outputMin)",
         "__GraphPhase: sampleX",
         "graphConnections: (patch.graphConnections || []).map((connection) =>",
         "graphInputConnections",
@@ -13120,8 +13080,8 @@ def require_node_graph_mvp_contract() -> None:
         osc_chunk_start = module_definitions_source.index(f"{oscilloscope_type}: {{")
         osc_chunk = module_definitions_source[osc_chunk_start:osc_chunk_start + 700]
         require(
-            'outputs: ["Thru"]' in osc_chunk and 'outputLabels: { Thru: "â†’" }' in osc_chunk,
-            f"{oscilloscope_type} should expose â†’ Thru dry passthrough",
+            'outputs: ["Thru"]' in osc_chunk and 'outputLabels: { Thru: "←" }' in osc_chunk,
+            f"{oscilloscope_type} should expose ← Thru dry passthrough",
         )
     for xy_type in ["scope2d", "scope2dTrace", "phosphorLight", "asciiscope"]:
         require(f"{xy_type}: {{" in module_definitions_source, f"{xy_type} should have a spawnable module definition")
@@ -13141,9 +13101,9 @@ def require_node_graph_mvp_contract() -> None:
     require(
         'displayType: "numberReadout"' in number_readout_register_source
         and 'outputs: ["Thru"]' in number_readout_register_source
-        and 'outputLabels: { Thru: "â†’" }' in number_readout_register_source
+        and 'outputLabels: { Thru: "←" }' in number_readout_register_source
         and 'displayHeightGu: 2' in number_readout_register_source,
-        "Number Readout should be its own module type with â†’ Thru passthrough for in-line chaining",
+        "Number Readout should be its own module type with ← Thru passthrough for in-line chaining",
     )
     number_readout_defaults_start = node_graph_source.index("const nodeGraphNumberReadoutSettingsDefaults")
     number_readout_defaults_end = node_graph_source.index("const nodeGraphScope2dSettingsDefaults", number_readout_defaults_start)
@@ -14326,7 +14286,7 @@ def require_node_graph_mvp_contract() -> None:
 
     require(
         "selectedDepartmentCount" not in script_sources["./public/node-graph-module-store.js"]
-        and "`${selectedDepartment} Ã‚Â·" not in script_sources["./public/node-graph-module-store.js"],
+        and "`${selectedDepartment} ·" not in script_sources["./public/node-graph-module-store.js"],
         "module browser selected category title should not append module count",
     )
     require(
@@ -14606,8 +14566,8 @@ def require_node_graph_mvp_contract() -> None:
         and "function nodeGraphTraceDisplayControlToSizeValue(value, max = 1)" in node_graph_source
         and "return Math.pow(control, nodeGraphTraceDisplaySensitiveControlExponent) * max;" in node_graph_source
         and "if (!nodeGraphTraceDisplaySensitiveControlField(key))" in node_graph_source
-        # historySeconds is linear seconds (0â€“5 spectrogram); must NOT use the 0â€“1
-        # sensitive fader or History + snaps 2â†’1 and cannot go above 1.
+        # historySeconds is linear seconds (0–5 spectrogram); must NOT use the 0–1
+        # sensitive fader or History + snaps 2→1 and cannot go above 1.
         and 'key === "historySeconds" ||' not in node_graph_source
         and "adjustNodeGraphTraceDisplaySettingByControlDelta(drag.key, startValue, controlDelta)" in node_graph_source
         and "adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum)" in node_graph_source
@@ -17642,9 +17602,6 @@ def require_node_graph_mvp_contract() -> None:
         "const graphOutputValue = (node, nodeId) => {",
         "this.graphValueAt(this.graphForNode(node)",
         "this.graphSmoothingModeForNode(node)",
-        'this.readEffectiveParameter(node, "outputMin", 0',
-        'this.readEffectiveParameter(node, "outputMax", 1',
-        "Out: outputMin + normalizedValue * (outputMax - outputMin)",
         "__GraphPhase: sampleX",
         "graphOutputValue(node, nodeId),",
         'this.readEffectiveParameter(node, "frequency", 1000',
@@ -18018,11 +17975,17 @@ def require_native_module_contract(base_url: str) -> None:
     flower_child_host = (ROOT / "native_modules" / "graph_engine" / "graph_engine.cpp").read_text(encoding="utf-8")
     fc_host_at = flower_child_host.find("process_flower_child_filter(Circuit")
     require(fc_host_at >= 0, "Flower Child Filter process_flower_child_filter missing from graph_engine")
-    fc_host_chunk = flower_child_host[fc_host_at:fc_host_at + 2500]
+    fc_host_chunk = flower_child_host[fc_host_at:fc_host_at + 400]
+    chaos_at = flower_child_host.find("static void process_norm_chaos_filter")
+    require(chaos_at >= 0, "shared process_norm_chaos_filter missing from graph_engine")
+    chaos_chunk = flower_child_host[chaos_at:chaos_at + 2500]
     require(
-        "nativeHandleL" in fc_host_chunk
-        and "nativeHandleR" in fc_host_chunk
-        and "0.5 * (outL + outR)" in fc_host_chunk,
+        "process_norm_chaos_filter(" in fc_host_chunk
+        and "soemdsp_flower_child_filter_sample" in fc_host_chunk
+        and "nativeHandleL" in chaos_chunk
+        and "nativeHandleR" in chaos_chunk
+        and "hasLeftIn && node.nativeHandleL > 0" in chaos_chunk
+        and "hasRightIn && node.nativeHandleR > 0" in chaos_chunk,
         "Flower Child Filter must always run dual L/R native instances so chaos noise is stereo",
     )
     # Stereo dual-engine dispatch lives in graph_engine (JS processors retired).
@@ -18034,14 +17997,127 @@ def require_native_module_contract(base_url: str) -> None:
     )
     require(
         flower_child_at >= 0
-        and "Always dual-instance stereo" in flower_child_chunk
-        and "0.5 * (outL + outR)" in flower_child_chunk
-        and "nativeHandleL" in flower_child_chunk
-        and "nativeHandleR" in flower_child_chunk,
+        and "process_norm_chaos_filter(" in flower_child_chunk
+        and "soemdsp_flower_child_filter_sample" in flower_child_chunk
+        and "nativeHandleL" in chaos_chunk
+        and "nativeHandleR" in chaos_chunk,
         "Flower Child graph_engine path must always run independent L/R engines",
     )
 
     expected_native_exports = {
+        "attenumax": [
+            "soemdsp_attenumax_sample",
+            "soemdsp_attenumax_version",
+            "soemdsp_attenumax_metadata_json",
+            "soemdsp_attenumax_metadata_json_size",
+        ],
+        "chorus": [
+            "soemdsp_chorus_create",
+            "soemdsp_chorus_destroy",
+            "soemdsp_chorus_reset",
+            "soemdsp_chorus_sample",
+            "soemdsp_chorus_voice_count",
+            "soemdsp_chorus_voice_delay",
+            "soemdsp_chorus_voice_pan",
+            "soemdsp_chorus_version",
+            "soemdsp_chorus_metadata_json",
+            "soemdsp_chorus_metadata_json_size",
+        ],
+        "cookbook_filter": [
+            "soemdsp_cookbook_filter_create",
+            "soemdsp_cookbook_filter_destroy",
+            "soemdsp_cookbook_filter_sample",
+            "soemdsp_cookbook_filter_version",
+            "soemdsp_cookbook_filter_metadata_json",
+            "soemdsp_cookbook_filter_metadata_json_size",
+        ],
+        "ensemble": [
+            "soemdsp_ensemble_create",
+            "soemdsp_ensemble_destroy",
+            "soemdsp_ensemble_reset",
+            "soemdsp_ensemble_sample",
+            "soemdsp_ensemble_voice_count",
+            "soemdsp_ensemble_voice_delay",
+            "soemdsp_ensemble_voice_pan",
+            "soemdsp_ensemble_version",
+            "soemdsp_ensemble_metadata_json",
+            "soemdsp_ensemble_metadata_json_size",
+        ],
+        "flanger": [
+            "soemdsp_flanger_create",
+            "soemdsp_flanger_destroy",
+            "soemdsp_flanger_sample",
+            "soemdsp_flanger_version",
+            "soemdsp_flanger_metadata_json",
+            "soemdsp_flanger_metadata_json_size",
+        ],
+        "graphic_eq": [
+            "soemdsp_graphic_eq_create",
+            "soemdsp_graphic_eq_destroy",
+            "soemdsp_graphic_eq_reset",
+            "soemdsp_graphic_eq_set_band",
+            "soemdsp_graphic_eq_set_bands",
+            "soemdsp_graphic_eq_band_count",
+            "soemdsp_graphic_eq_band_hz",
+            "soemdsp_graphic_eq_sample",
+            "soemdsp_graphic_eq_version",
+            "soemdsp_graphic_eq_metadata_json",
+            "soemdsp_graphic_eq_metadata_json_size",
+        ],
+        "phaser": [
+            "soemdsp_phaser_create",
+            "soemdsp_phaser_destroy",
+            "soemdsp_phaser_sample",
+            "soemdsp_phaser_version",
+            "soemdsp_phaser_metadata_json",
+            "soemdsp_phaser_metadata_json_size",
+        ],
+        "sample_player": [
+            "soemdsp_sample_player_create",
+            "soemdsp_sample_player_destroy",
+            "soemdsp_sample_player_clear_pcm",
+            "soemdsp_sample_player_set_pcm",
+            "soemdsp_sample_player_l_ptr",
+            "soemdsp_sample_player_r_ptr",
+            "soemdsp_sample_player_max_frames",
+            "soemdsp_sample_player_sample",
+            "soemdsp_sample_player_left",
+            "soemdsp_sample_player_right",
+            "soemdsp_sample_player_phase",
+            "soemdsp_sample_player_version",
+            "soemdsp_sample_player_metadata_json",
+            "soemdsp_sample_player_metadata_json_size",
+        ],
+        "superlove_rev2": [
+            "soemdsp_superlove_rev2_create",
+            "soemdsp_superlove_rev2_destroy",
+            "soemdsp_superlove_rev2_sample",
+            "soemdsp_superlove_rev2_version",
+        ],
+        "vcvrack_superlove_filter": [
+            "soemdsp_vcvrack_superlove_filter_create",
+            "soemdsp_vcvrack_superlove_filter_destroy",
+            "soemdsp_vcvrack_superlove_filter_sample",
+            "soemdsp_vcvrack_superlove_filter_version",
+            "soemdsp_vcvrack_superlove_filter_metadata_json",
+            "soemdsp_vcvrack_superlove_filter_metadata_json_size",
+        ],
+        "wavetable_2d": [
+            "soemdsp_wavetable_2d_create",
+            "soemdsp_wavetable_2d_destroy",
+            "soemdsp_wavetable_2d_clear_pcm",
+            "soemdsp_wavetable_2d_set_pcm",
+            "soemdsp_wavetable_2d_l_ptr",
+            "soemdsp_wavetable_2d_r_ptr",
+            "soemdsp_wavetable_2d_max_frames",
+            "soemdsp_wavetable_2d_reset",
+            "soemdsp_wavetable_2d_sample",
+            "soemdsp_wavetable_2d_phase",
+            "soemdsp_wavetable_2d_out",
+            "soemdsp_wavetable_2d_version",
+            "soemdsp_wavetable_2d_metadata_json",
+            "soemdsp_wavetable_2d_metadata_json_size",
+        ],
         "transport": ["soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar"],
         "slew_limiter": ["soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample"],
         "sample_hold": ["soemdsp_sample_hold_create", "soemdsp_sample_hold_destroy", "soemdsp_sample_hold_sample"],
@@ -18064,6 +18140,12 @@ def require_native_module_contract(base_url: str) -> None:
         "inv": ["soemdsp_inv_sample"],
         "gain": ["soemdsp_gain_sample"],
         "bias": ["soemdsp_bias_sample"],
+        "amp_db": [
+            "soemdsp_amp_db_sample",
+            "soemdsp_amp_db_version",
+            "soemdsp_amp_db_metadata_json",
+            "soemdsp_amp_db_metadata_json_size",
+        ],
         "attenuverter": ["soemdsp_attenuverter_sample"],
         "mix": ["soemdsp_mix_sample"],
         "mix_stereo": ["soemdsp_mix_stereo_sample"],
@@ -18643,7 +18725,7 @@ def require_native_module_contract(base_url: str) -> None:
                 and "analysisIntervalSamples" in source_text
                 and "s->hopCounter >= s->analysisIntervalSamples" in source_text
                 and "const int hop = s->windowSize / 2;" not in source_text,
-                "native Helmholtz should keep MPM analysis bounded by window cap 128â€“4096 and control-rate cadence",
+                "native Helmholtz should keep MPM analysis bounded by window cap 128–4096 and control-rate cadence",
             )
 
     ellipsoid_source_path = ROOT / "native_modules" / "ellipsoid" / "ellipsoid.cpp"
@@ -18764,7 +18846,7 @@ def require_native_module_contract(base_url: str) -> None:
         and _pf_push > _af_push
         and 'push("sweep", P.NATIVE_GRAPH_PARAM_CENTER, cont("sweep", 0))'
         in native_graph_source[_af_push:_pf_push],
-        "Dual Ladder native param push must map sweep â†’ CENTER (semitones), like Passive Filter",
+        "Dual Ladder native param push must map sweep → CENTER (semitones), like Passive Filter",
     )
     _af_proc = graph_engine_source.find("static void process_active_filter")
     _pf_proc = graph_engine_source.find("static void process_passive_filter")

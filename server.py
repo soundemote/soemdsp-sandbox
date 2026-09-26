@@ -123,7 +123,9 @@ SUPPORTED_AUDIO_FILE_SUFFIXES = {
 }
 DEFAULT_SOEMDSP_ROOT = ROOT.parent / "soemdsp"
 DEFAULT_MANIFEST = (
-    DEFAULT_SOEMDSP_ROOT / "runtime_dsp_object_bound_wav_resync_demo.manifest.json"
+    (DEFAULT_SOEMDSP_ROOT / "runtime_dsp_object_bound_wav_resync_demo.manifest.json")
+    if (DEFAULT_SOEMDSP_ROOT / "runtime_dsp_object_bound_wav_resync_demo.manifest.json").is_file()
+    else (Path(__file__).resolve().parent / "fixtures" / "smoke-demo" / "runtime_dsp_object_bound_wav_resync_demo.manifest.json")
 )
 STATIC_MIME_TYPES = {
     ".css": "text/css",

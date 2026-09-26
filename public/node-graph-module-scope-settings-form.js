@@ -129,6 +129,10 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Knob size";
     title = "Knob graphic size 0…1. 1 = fill the entire display; 0 = disappear. Scales only the arc.";
   }
+  if (key === "dialOffsetY" && formType === "knobFace") {
+    label = "Knob Y offset";
+    title = "Knob graphic vertical offset −1…1 face heights. Positive moves the graphic lower; label and value stay put.";
+  }
   if (key === "labelSize" && formType === "knobFace") {
     label = "Label size";
     title = "Label size 0…1 of the display min-edge. Independent of knob size, position, and value size.";
