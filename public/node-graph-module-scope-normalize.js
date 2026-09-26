@@ -495,6 +495,19 @@ function nodeGraphXyPadDisplaySettingsForNode(node) {
   return normalizeNodeGraphXyPadDisplaySettings(node.traceDisplaySettings);
 }
 
+/** Authored stroke/dot diameter in CSS px at a 96px face. 0 = gone. Not 0…1. */
+function nodeGraphTraceDisplayNormalizeInkPx(value, fallback = 2) {
+  const n = Number(value);
+  const raw = Number.isFinite(n) ? n : Number(fallback);
+  if (typeof nodeGraphTraceDisplayClampInkPx === "function") {
+    return nodeGraphTraceDisplayClampInkPx(Number.isFinite(raw) ? raw : 0);
+  }
+  if (!Number.isFinite(raw)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(32, raw));
+}
+
 
 function normalizeNodeGraphTraceDisplayColor(value, fallback = nodeGraphTraceDisplaySettingsDefaults.color) {
   const color = String(value || "").trim();
@@ -769,23 +782,16 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
     ),
     color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
     dot1Enabled: true,
-    dot1Size: normalizeNodeGraphTraceDisplayNumber(
-      source.dot1Size,
-      defaults.dot1Size,
-      0,
-      1,
-    ),
+    dot1Size: nodeGraphTraceDisplayNormalizeInkPx(source.dot1Size, defaults.dot1Size),
     secondaryBrightness: normalizeNodeGraphTraceDisplayBrightness(
       source.secondaryBrightness,
       defaults.secondaryBrightness,
     ),
     secondaryColor: normalizeNodeGraphTraceDisplayColor(source.secondaryColor, defaults.secondaryColor),
     secondaryEnabled: source.secondaryEnabled !== false,
-    secondarySize: normalizeNodeGraphTraceDisplayNumber(
+    secondarySize: nodeGraphTraceDisplayNormalizeInkPx(
       source.secondarySize,
       defaults.secondarySize,
-      0,
-      1,
     ),
     secondaryLineThickness: typeof nodeGraphTraceDisplayClampStampBlur === "function"
       ? nodeGraphTraceDisplayClampStampBlur(
@@ -930,7 +936,7 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
     dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.color),
     trail: residual.trail,
     dot1Enabled: true,
-    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    dot1Size: nodeGraphTraceDisplayNormalizeInkPx(source.dot1Size, defaults.dot1Size),
     lineLength: normalizeNodeGraphTraceDisplayNumber(source.lineLength, defaults.lineLength, 0, 1),
     lineThickness: normalizeNodeGraphTraceDisplayNumber(source.lineThickness, defaults.lineThickness, 0, 1),
     pixelDensity: normalizeNodeGraphTraceDisplayNumber(
@@ -1621,7 +1627,7 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
     dot1Brightness: inkBright,
     dot1Color: inkHueHex,
     dot1Enabled: true,
-    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    dot1Size: nodeGraphTraceDisplayNormalizeInkPx(source.dot1Size, defaults.dot1Size),
     ghost: typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
       ? PhosphorResidual.migrateGhost(source, defaults.ghost)
       : normalizeNodeGraphTraceDisplayNumber(source.ghost, defaults.ghost, 0, 1),
@@ -1701,15 +1707,13 @@ function normalizeNodeGraphScope1dTraceSettings(settings = {}) {
     dot1Brightness: inkBright,
     dot1Color: inkHueHex,
     dot1Enabled: true,
-    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    dot1Size: nodeGraphTraceDisplayNormalizeInkPx(source.dot1Size, defaults.dot1Size),
     secondaryBrightness: secBright,
     secondaryColor: secHueHex,
     secondaryEnabled: source.secondaryEnabled !== false,
-    secondarySize: normalizeNodeGraphTraceDisplayNumber(
+    secondarySize: nodeGraphTraceDisplayNormalizeInkPx(
       source.secondarySize ?? source.dot1Size,
       defaults.secondarySize ?? defaults.dot1Size,
-      0,
-      1,
     ),
     ghost: typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
       ? PhosphorResidual.migrateGhost(source, defaults.ghost)
@@ -2009,10 +2013,15 @@ function nodeGraphTraceDisplaySettingsForNode(node) {
     const hasLocal = Boolean(local && typeof local === "object" && Object.keys(local).length);
     if (!hasLocal) {
       const seeded = nodeGraphGlobalTraceSettings();
+      const defDisp = typeof nodeGraphModuleDefinitions === "object"
+        && nodeGraphModuleDefinitions?.[node.type]?.defaultDisplaySettings;
+      const withDef = defDisp && typeof defDisp === "object"
+        ? { ...seeded, ...defDisp }
+        : seeded;
       // RGB waterfall defaults: hard pixels, full bright, additive guns.
       if (settingsSchema === "traceRgb") {
         return normalizeNodeGraphTraceDisplaySettings({
-          ...seeded,
+          ...withDef,
           lineThickness: 0,
           brightness: 0.95,
           dot1Brightness: 0.95,
@@ -2020,7 +2029,9 @@ function nodeGraphTraceDisplaySettingsForNode(node) {
           cmyMode: false,
         });
       }
-      return seeded;
+      return typeof normalizeNodeGraphTraceDisplaySettings === "function"
+        ? normalizeNodeGraphTraceDisplaySettings(withDef)
+        : withDef;
     }
     return normalizeNodeGraphTraceDisplaySettings(local);
   }

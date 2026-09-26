@@ -765,6 +765,12 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     valueSize: nodeGraphTraceDisplayClampUnit,
     innerRadius: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 0.95),
   }),
+  ensembleCloud: Object.freeze({
+    cloudSpeed: (value) => {
+      const n = Number(value);
+      return clampNodeSliderValue(Number.isFinite(n) ? n : 1, 0, 4);
+    },
+  }),
   hypersawBurn: Object.freeze({
     // Stem width as 0…1 of face width (1 = full screen). Allow true 0.
     lineThickness: (value) => {
@@ -773,9 +779,6 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     },
   }),
   xyPad: Object.freeze({
-    lineThickness: nodeGraphTraceDisplayClampStampBlur,
-  }),
-  scope2dTrace: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
   roundShapeFace: Object.freeze({
@@ -805,10 +808,31 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   sinCos4Face: Object.freeze({
     backgroundBrightness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1),
   }),
-  // 1D Waterfall / Output: blur 0 hard … 1 soft skirt (instant, no persistence).
+  // 1D Waterfall / Output: Size = CSS px stroke; Blur 0 hard … 1 soft skirt.
   trace: Object.freeze({
+    dot1Size: nodeGraphTraceDisplayClampInkPx,
+    secondarySize: nodeGraphTraceDisplayClampInkPx,
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
     secondaryLineThickness: nodeGraphTraceDisplayClampStampBlur,
+  }),
+  traceRgb: Object.freeze({
+    dot1Size: nodeGraphTraceDisplayClampInkPx,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur,
+  }),
+  traceXyz: Object.freeze({
+    dot1Size: nodeGraphTraceDisplayClampInkPx,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur,
+  }),
+  value: Object.freeze({
+    dot1Size: nodeGraphTraceDisplayClampInkPx,
+  }),
+  scope2dTrace: Object.freeze({
+    dot1Size: nodeGraphTraceDisplayClampInkPx,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur,
+  }),
+  scope1dTrace: Object.freeze({
+    dot1Size: nodeGraphTraceDisplayClampInkPx,
+    secondarySize: nodeGraphTraceDisplayClampInkPx,
   }),
 });
 

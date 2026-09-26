@@ -234,7 +234,8 @@ extern "C" void soemdsp_chorus_sample(
     st.lastN = n;
     const double panL = dsp_cos(t * kPi * 0.5);
     const double panR = dsp_sin(t * kPi * 0.5);
-    const double g = 1.0 / (double)n;
+    // 1/N left wet ~6 dB down vs dry (equal-power pan). Match dry at Mix 1.
+    const double g = 1.0 / (0.637 * (double)n);
     wetL += delayed * panL * g;
     wetR += delayed * panR * g;
   }
@@ -288,7 +289,7 @@ extern "C" double soemdsp_chorus_voice_pan(int handle, int index) {
 }
 
 extern "C" int soemdsp_chorus_version() {
-  return 6;
+  return 7;
 }
 
 extern "C" const char* soemdsp_chorus_metadata_json() {

@@ -126,8 +126,8 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   // Mono / primary stroke (Output Left). Pure red so Meet (red+blue) is green.
   color: "#ff0000",
   dot1Enabled: true,
-  // ~2–3 CSS px on typical faces (size 0 still floors at 1 device px).
-  dot1Size: 0.035,
+  // Stroke diameter: authored CSS px at a 96px face (APP_POLICY §15). 0 = gone.
+  dot1Size: 2,
   // Output stereo: combine (Meet) | lighter | screen | source-over | multiply | …
   stereoBlend: "combine",
   // Meet always auto from Left/Right (complement + soft screen lift).
@@ -135,7 +135,7 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   secondaryBrightness: 0.95,
   secondaryColor: "#0000ff",
   secondaryEnabled: true,
-  secondarySize: 0.035,
+  secondarySize: 2,
   secondaryLineThickness: 0,
   tertiaryColor: "#00ff00",
   cycles: 2,
@@ -255,8 +255,8 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   burnAmount: 1,
   residualSchema: 3,
   dot1Enabled: true,
-  // Stroke diameter: 0 = 1px, 1 = face square min side.
-  dot1Size: 0.04,
+  // Stroke diameter: authored CSS px at a 96px face. 0 = gone.
+  dot1Size: 2,
   lineLength: 1,
   // Edge soft (beam uBlur). Mild default = AA without a big glow; draw floors ~0.12.
   lineThickness: 0.18,

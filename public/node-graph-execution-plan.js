@@ -801,6 +801,27 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
       }
     }
   }
+  // Instant Trace faces that lock Sync to dry inputs need the feeding
+  // node's output ring even when that source face is hidden.
+  const inputSyncSources = new Set();
+  for (const node of graph.nodes) {
+    if (bypassedNodes.has(node.id) || !reachableNodes.has(node.id)) {
+      continue;
+    }
+    const spec = nodeGraphModuleDefinitions[node.type]?.syncTraceFromInputs;
+    if (!spec) {
+      continue;
+    }
+    const names = [spec.mono, spec.left, spec.right].filter(Boolean);
+    for (const port of names) {
+      const conns = graph.inputConnections.get(nodeGraphInputKey(node.id, port)) || [];
+      for (const connection of conns) {
+        if (connection?.sourceNode) {
+          inputSyncSources.add(String(connection.sourceNode));
+        }
+      }
+    }
+  }
   return graph.nodes
     .filter((node) =>
       reachableNodes.has(node.id) &&
@@ -813,6 +834,7 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
         nodeGraphModuleIsGraphType(node.type) ||
         modulationSources.has(String(node.id)) ||
         visualFeedSources.has(String(node.id)) ||
+        inputSyncSources.has(String(node.id)) ||
         (
           typeof nodeGraphChromelessModuleUsesSolidShell === "function"
           && nodeGraphChromelessModuleUsesSolidShell(node.type)

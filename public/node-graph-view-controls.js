@@ -3310,11 +3310,9 @@ function handleNodeGraphMidiKeyboardModeChange(event) {
   if (mode !== "hold") {
     nodeGraphMvp.midiKeyboardPointerHeldSignal = null;
   }
-  if (mode !== "chordMemory" && typeof nodeGraphChordMemoryEditClear === "function") {
-    nodeGraphChordMemoryEditClear();
+  if (mode !== "chordMemory" && typeof nodeGraphChordMemoryClearLatchedPreviews === "function") {
+    nodeGraphChordMemoryClearLatchedPreviews();
   }
-  // Latched chords survive mode changes. Do not ReleasePointerPlay / clear
-  // active slots here — that dropped the bookkeeping and left VoiceManager on.
   if (typeof nodeGraphChordMemoryPaintKeys === "function") {
     nodeGraphChordMemoryPaintKeys();
   }

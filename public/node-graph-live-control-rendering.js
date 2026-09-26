@@ -479,7 +479,7 @@ function renderNodeGraphSpeedReadout() {
 function renderNodeGraphSpeedLimitReadout() {
   const limit = typeof nodeGraphLiveSpeedLimitHz === "function"
     ? nodeGraphLiveSpeedLimitHz()
-    : Math.max(1, nodeGraphFiniteNumber(nodeGraphMvp?.live?.speedLimit, 20000));
+    : Math.max(1, nodeGraphFiniteNumber(nodeGraphMvp?.live?.speedLimit, 22050));
   const text = String(limit);
   for (const input of document.querySelectorAll("[data-speed-limit]")) {
     if (document.activeElement === input) {

@@ -305,9 +305,12 @@ function nodeGraphWaterfallColumnPath(buffer, slot, columns, height, prevY, sett
 
 function nodeGraphWaterfallSizePx(face, size01) {
   if (typeof TraceStroke !== "undefined" && typeof TraceStroke.diameterPx === "function") {
-    return Math.max(1, TraceStroke.diameterPx(face, size01));
+    return Math.max(0, TraceStroke.diameterPx(face, size01));
   }
-  return Math.max(1, Math.max(1, nodeGraphFiniteNumber(face, 1)) * Math.max(0, Math.min(1, nodeGraphFiniteNumber(size01))));
+  if (typeof faceInkPx === "function" && typeof clampAuthoredInkPx === "function") {
+    return Math.max(0, faceInkPx(clampAuthoredInkPx(size01, 0), face));
+  }
+  return Math.max(0, nodeGraphFiniteNumber(size01, 0));
 }
 
 function nodeGraphWaterfallGlRadius(faceMin, size01) {
@@ -502,7 +505,7 @@ function nodeGraphWaterfallPathLength(points) {
 }
 
 function nodeGraphWaterfallChannelList(spec, settings) {
-  const size = settings.dot1Size ?? 0.035;
+  const size = settings.dot1Size ?? 2;
   const enabled = settings.dot1Enabled !== false;
   const color = settings.color || settings.dot1Color || "#ff3333";
   const blur = nodeGraphWaterfallClamp01(settings.lineThickness, 0);
@@ -858,7 +861,10 @@ function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampl
     const last = raw[raw.length - 1];
     if (Number.isFinite(last?.y)) destCanvas[ch.lastYKey] = last.y;
     const points = nodeGraphWaterfallShiftPath(raw, x);
-    const rad = Math.max(0.5, nodeGraphWaterfallSizePx(face, ch.size) * 0.5);
+    const rad = Math.max(0, nodeGraphWaterfallSizePx(face, ch.size) * 0.5);
+    if (!(rad > 0)) {
+      continue;
+    }
     // Mono (1 ch) always stamps true color even if stereoBlend says combine/Meet.
     const inkColor = meet ? "#ffffff" : ch.color;
     const rgb = nodeGraphWaterfallColor01(inkColor);
@@ -897,6 +903,12 @@ function nodeGraphWaterfallSyncSource(spec) {
     ? nodeGraphTraceDisplaySyncChannel(spec?.settings)
     : "off";
   if (channel === "off") return null;
+  const inputSync = typeof nodeGraphModuleTraceInputSyncBuffer === "function"
+    ? nodeGraphModuleTraceInputSyncBuffer(spec?.slot?.nodeId, spec?.slot?.type)
+    : null;
+  if (inputSync?.length) {
+    return inputSync;
+  }
   const stereo = spec?.stereoBuffers;
   if (!stereo) return spec?.buffer || null;
   if (channel === "right") return stereo.right || stereo.left;
@@ -1033,7 +1045,8 @@ function nodeGraphWaterfallPaintNowLine(spec, context, canvas, settings, width, 
     const y = nodeGraphWaterfallLatestY(ch.buffer, spec.slot, settings, height);
     const tape = nodeGraphWaterfallEnsureTape(canvas, idx, width, height);
     if (!tape || !Number.isFinite(y)) continue;
-    const rad = Math.max(0.5, nodeGraphWaterfallSizePx(face, ch.size) * 0.5);
+    const rad = Math.max(0, nodeGraphWaterfallSizePx(face, ch.size) * 0.5);
+    if (!(rad > 0)) continue;
     const inkColor = meet ? "#ffffff" : ch.color;
     TraceTape.stamp(tape, {
       pathPoints: [{ x: x0, y }, { x: x1, y }],
@@ -1132,6 +1145,10 @@ function nodeGraphWaterfallPaint(spec) {
     if (measure.periodSamples > 1 && measure.visibleSamples > 0) {
       const visible = Math.min(live.length, Math.max(8, Math.round(measure.visibleSamples)));
       let sampleStart = Number(measure.edge);
+      if (syncBuffer && syncBuffer !== live && Number.isFinite(sampleStart)) {
+        const fromEnd = Math.max(0, (syncBuffer.length || 0) - sampleStart);
+        sampleStart = Math.max(0, live.length - fromEnd);
+      }
       if (!Number.isFinite(sampleStart) || sampleStart < 0) {
         sampleStart = Math.max(0, live.length - visible);
       }

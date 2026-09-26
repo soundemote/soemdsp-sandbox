@@ -201,6 +201,34 @@ function nodeGraphModuleScopeConnectedSourceBuffer(nodeId, port = "In") {
     null;
 }
 
+/** Instant Trace Sync source: dry In, or average of wired Left+Right inputs. */
+function nodeGraphModuleTraceInputSyncBuffer(nodeId, type) {
+  const id = String(nodeId || "");
+  const spec = (typeof nodeGraphModuleDefinitions === "object"
+    && nodeGraphModuleDefinitions?.[type]?.syncTraceFromInputs)
+    || null;
+  if (!id || !spec) {
+    return null;
+  }
+  const aligned = nodeGraphModuleScopeState.buffers.get(`${id}:__inSync`);
+  if (aligned?.length) {
+    return aligned;
+  }
+  const left = spec.left ? nodeGraphModuleScopeConnectedSourceBuffer(id, spec.left) : null;
+  const right = spec.right ? nodeGraphModuleScopeConnectedSourceBuffer(id, spec.right) : null;
+  const mono = spec.mono ? nodeGraphModuleScopeConnectedSourceBuffer(id, spec.mono) : null;
+  if (left?.length && right?.length && typeof nodeGraphTraceDisplayMonoSyncBuffer === "function") {
+    return nodeGraphTraceDisplayMonoSyncBuffer(left, right) || left;
+  }
+  if (left?.length) {
+    return left;
+  }
+  if (right?.length) {
+    return right;
+  }
+  return mono?.length ? mono : null;
+}
+
 function nodeGraphModuleScopeLatestOutputValue(nodeId, port, fallback = null) {
   const buffer = nodeGraphModuleScopeState.buffers.get(`${nodeId}:${port}`);
   if (!buffer?.length) {

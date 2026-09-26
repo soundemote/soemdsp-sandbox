@@ -534,6 +534,11 @@ if (type === "portalFace") {
       ? normalizeNodeGraphHypersawBurnSettings()
       : { lineThickness: 0.01, lineThicknessFace01: true };
   }
+  if (type === "ensembleCloud") {
+    return typeof normalizeNodeGraphEnsembleCloudSettings === "function"
+      ? normalizeNodeGraphEnsembleCloudSettings()
+      : { cloudSpeed: 1 };
+  }
   if (type === "spectrogramBurn") {
     return normalizeNodeGraphSpectrogramSettings(nodeGraphSpectrogramSettingsDefaults);
   }
@@ -759,6 +764,11 @@ if (type === "portalFace") {
     return typeof normalizeNodeGraphHypersawBurnSettings === "function"
       ? normalizeNodeGraphHypersawBurnSettings(settings)
       : (settings || { lineThickness: 0.01, lineThicknessFace01: true });
+  }
+  if (type === "ensembleCloud") {
+    return typeof normalizeNodeGraphEnsembleCloudSettings === "function"
+      ? normalizeNodeGraphEnsembleCloudSettings(settings)
+      : (settings || { cloudSpeed: 1 });
   }
   if (type === "rgbShapeFace") {
     return typeof normalizeNodeGraphRgbShapeSettings === "function"
@@ -1016,6 +1026,11 @@ if (settingsSchema === "portalFace") {
   }
   if (settingsSchema === "videoscopeBurn" || settingsSchema === "oscilloscopeBankBurn") {
     return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings);
+  }
+  if (settingsSchema === "ensembleCloud") {
+    return typeof normalizeNodeGraphEnsembleCloudSettings === "function"
+      ? normalizeNodeGraphEnsembleCloudSettings(node.traceDisplaySettings)
+      : (node.traceDisplaySettings || { cloudSpeed: 1 });
   }
   if (settingsSchema === "hypersawBurn") {
     return typeof nodeGraphHypersawBurnSettingsForNode === "function"

@@ -381,8 +381,7 @@ extern "C" double soemdsp_wavetable_2d_sample(
   int handle,
   double reset, double frequencyHz, double phaseOffset,
   double amplitude, double morph, double warp,
-  double start, double end, double pm, double increment,
-  double engineSampleRate
+  double increment, double engineSampleRate
 );
 extern "C" double soemdsp_wavetable_2d_phase(int handle);
 
@@ -2938,6 +2937,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLorenzAttractor) ? 28.0 // rho
       : (typeId == kTypeAdditiveBubble) ? 481.53 // unskew (settled default)
       : (typeId == kTypeAdditiveLadderFilter) ? 0.0 // resonance
+      : (typeId == kTypeWavetable2d) ? 0.0 // warp
       : 0.2,
     false
   );
@@ -10316,24 +10316,22 @@ static void process_pump_limiter(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Wavetable 2D — baked RectSine cycle. Params: morph(shape), frequency,
-// phaseParam, amplitude, warp(seed), start(timeNum), end(timeDen).
-// Reset → kPortReset. Increment → kPortIncrement. Phase is the param (no PM twin).
+// Wavetable 2D. Params: morph(shape), frequency, phaseParam, amplitude, warp(resonance).
+// Reset → kPortReset. Increment → kPortIncrement.
 static void process_wavetable_2d(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool takeSamplePath = node.frequency.active || node.phaseParam.active
-    || node.amplitude.active || node.shape.active
-    || node.seed.active || node.timeNumerator.active || node.timeDenominator.active;
+    || node.amplitude.active || node.shape.active || node.resonance.active;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
     if (takeSamplePath) {
       Control* chase[] = {
         &node.frequency, &node.phaseParam, &node.amplitude, &node.shape,
-        &node.seed, &node.timeNumerator, &node.timeDenominator
+        &node.resonance
       };
       for (unsigned ci = 0; ci < sizeof(chase) / sizeof(chase[0]); ci += 1) {
         Control* c = chase[ci];
@@ -10356,10 +10354,7 @@ static void process_wavetable_2d(Circuit& g, Node& node, int frames) {
       control_audio(g, node.phaseParam, f),
       control_audio(g, node.amplitude, f),
       control_audio(g, node.shape, f),
-      control_audio(g, node.seed, f),
-      control_audio(g, node.timeNumerator, f),
-      control_audio(g, node.timeDenominator, f),
-      0.0,
+      control_audio(g, node.resonance, f),
       inc,
       sr
     );

@@ -27,20 +27,56 @@ registerNodeGraphChromelessModuleUi("imageBurn", {
         viewDrag: false,
       });
     }
-    // Cold paint so the face is not an empty square before the first buffer.
-    const paint = () => {
-      const slot = typeof nodeGraphModuleScopeState !== "undefined"
-        ? nodeGraphModuleScopeState?.slots?.get?.(node)
-        : null;
-      if (typeof drawNodeGraphImageBurnFaceItem === "function") {
-        drawNodeGraphImageBurnFaceItem(null, {
-          buffer: null,
-          screenElement: body,
-          slot: slot || { nodeId: node, scopeElement: body, type },
-        }, Math.max(1, window.devicePixelRatio || 1));
-      }
-    };
-    requestAnimationFrame(paint);
-    requestAnimationFrame(() => requestAnimationFrame(paint));
+    if (typeof nodeGraphInstallDrawingFacePump === "function") {
+      body._imageBurnOwnsClock = true;
+      nodeGraphInstallDrawingFacePump(body, {
+        rafKey: "_imageBurnRaf",
+        forceKey: "_imageBurnForce",
+        clockKey: "imageBurn",
+        shouldAnimate: nodeGraphImageBurnShouldAnimate,
+        paintOnCreate: true,
+        paint(host) {
+          if (typeof drawNodeGraphImageBurnFaceItem !== "function") {
+            return;
+          }
+          const nodeId = host.dataset?.node || node;
+          const slot = typeof nodeGraphModuleScopeState !== "undefined"
+            ? nodeGraphModuleScopeState?.slots?.get?.(nodeId)
+            : null;
+          drawNodeGraphImageBurnFaceItem(null, {
+            fromFaceLoop: true,
+            screenElement: host,
+            slot: slot || { nodeId, scopeElement: host, type },
+          }, Math.max(1, window.devicePixelRatio || 1));
+        },
+      });
+    }
   },
 });
+
+function nodeGraphImageBurnShouldAnimate(face) {
+  if (typeof scopePaintIsVisualPaused === "function" && scopePaintIsVisualPaused()) {
+    return false;
+  }
+  const speed = Number(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.speedMultiplier : 1);
+  if (Number.isFinite(speed) && speed <= 0) {
+    return false;
+  }
+  const nodeId = face?.dataset?.node || "";
+  if (
+    typeof nodeGraphModuleIsViewportAsleep === "function"
+    && nodeGraphModuleIsViewportAsleep(face)
+  ) {
+    return false;
+  }
+  if (
+    nodeId
+    && typeof nodeGraphScreenSoloIsActive === "function"
+    && nodeGraphScreenSoloIsActive()
+    && typeof nodeGraphScreenSoloAllowsNode === "function"
+    && !nodeGraphScreenSoloAllowsNode(nodeId)
+  ) {
+    return false;
+  }
+  return true;
+}

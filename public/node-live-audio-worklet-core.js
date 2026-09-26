@@ -119,7 +119,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     // Starting at 1 let LFOs into pitch advance during WASM load so PolyBLEP
     // pitch sounded randomly phased on every Stop→Play.
     this.speedMultiplier = 0;
-    this.speedLimit = 20000;
+    this.speedLimit = 22050;
     this.raptEllipticDecimatorLeft = this.createRaptEllipticDecimatorState();
     this.raptEllipticDecimatorRight = this.createRaptEllipticDecimatorState();
     this.raptEllipticDecimatorRatio = 1;

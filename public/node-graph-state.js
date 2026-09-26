@@ -161,7 +161,7 @@ var nodeGraphMvp = {
     // Last non-zero transport speed (pause uses 0; stop restores this).
     lastPlaySpeed: 1,
     // Full-scale ceiling for universal oscillator `f` input (linear Hz 0..limit).
-    speedLimit: 20000,
+    speedLimit: 22050,
     planEvidence: null,
     activeNodeIds: new Set(),
     autoSmoothingSeconds: 0.5,

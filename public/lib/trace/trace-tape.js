@@ -566,10 +566,10 @@
       return 0;
     }
     const pathPoints = options.pathPoints;
-    const radius = Math.max(0.35, nodeGraphFiniteNumber(options.radius, 2));
+    const radius = Math.max(0, nodeGraphFiniteNumber(options.radius, 2));
     const blur = clamp01(options.blur, 0);
     const brightness = Math.max(0, Number(options.brightness) ?? 1);
-    if (brightness < 1e-6) {
+    if (brightness < 1e-6 || !(radius > 0)) {
       return 0;
     }
     const built = buildStampVertices(

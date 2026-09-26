@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=chorus-reset-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=chorus-wet-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -1431,7 +1431,7 @@ function sendNodeGraphLiveSpeedLimit() {
       type: "setSpeedLimit",
       speedLimit: typeof nodeGraphLiveSpeedLimitHz === "function"
         ? nodeGraphLiveSpeedLimitHz()
-        : (nodeGraphFiniteNumber(nodeGraphMvp.live.speedLimit, 20000)),
+        : (nodeGraphFiniteNumber(nodeGraphMvp.live.speedLimit, 22050)),
     });
   } catch (_error) {
     // Worklet may be disconnected.
@@ -3194,7 +3194,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=named-portal-1",
   "./public/node-graph-efficient-product.js?v=named-portal-1",
-  "./public/node-live-audio-worklet-core.js?v=no-macro-1",
+  "./public/node-live-audio-worklet-core.js?v=speed-22050-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
   "./public/node-live-audio-worklet-smoother.js?v=hostcv-parammod-off-2",
@@ -3207,12 +3207,12 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/lib/note-mask-128.js?v=scale-octaves-1",
   "./public/node-graph-keyboard-chord-memory.js?v=mask128-2",
   "./public/modules/sequencer/sequencer-math.js?v=seq-23",
-  "./public/node-live-audio-worklet-events.js?v=live-os-1",
+  "./public/node-live-audio-worklet-events.js?v=speed-22050-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=wt2d-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=ensemble-beta-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=speed-22050-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=live-os-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",

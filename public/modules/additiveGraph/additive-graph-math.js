@@ -754,7 +754,7 @@ function additiveGraphDisplayFreqAxis(sampleRate) {
   const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const xMaxHz = typeof nodeGraphProjectSpeedLimitHz === "function"
     ? Math.max(1, nodeGraphProjectSpeedLimitHz())
-    : Math.max(1, nodeGraphFiniteNumber(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.speedLimit : 0, 20000));
+    : Math.max(1, nodeGraphFiniteNumber(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.speedLimit : 0, 22050));
   const xMinHz = Math.min(20, xMaxHz * 0.5);
   const logXMin = Math.log(Math.max(1e-6, xMinHz));
   const logXSpan = Math.max(1e-9, Math.log(Math.max(xMinHz * 1.0001, xMaxHz)) - logXMin);

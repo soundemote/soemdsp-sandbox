@@ -1461,12 +1461,8 @@ function nodeGraphPhosphorWaveformClampWindow(state) {
 }
 
 /**
- * Continuous (sub-sample) view window for vector scroll.
- *
- * Older min/max *column* drawing needed pixel-locked scroll to stop rebin
- * shimmer. A straight vector path through sample points does not rebin — it
- * just translates — so we keep the window on continuous floats and let the
- * GPU/canvas antialias the stroke. Clamps to the file only.
+ * View window. Scroll is pixel-locked (see draw): history is a tape, not a
+ * full-path rebuild every frame.
  */
 function nodeGraphPhosphorWaveformContinuousView(idealStart, windowFrames, totalFrames) {
   const total = Math.max(1, Math.round(nodeGraphFiniteNumber(totalFrames, 1)));
@@ -2441,6 +2437,70 @@ function nodeGraphPhosphorWaveformBuildVectorPath(
   return o === points.length ? points : points.subarray(0, o);
 }
 
+function nodeGraphPhosphorWaveformEnsureTape(state, width, height) {
+  const w = Math.max(1, Math.round(width));
+  const h = Math.max(1, Math.round(height));
+  if (!state.waveTape || state.waveTape.width !== w || state.waveTape.height !== h) {
+    const tape = document.createElement("canvas");
+    tape.width = w;
+    tape.height = h;
+    state.waveTape = tape;
+    state.tapeCtx = tape.getContext("2d");
+    state.tapeStart = Number.NaN;
+    state.tapeSig = "";
+  }
+  return state.tapeCtx;
+}
+
+function nodeGraphPhosphorWaveformPaintEnvelopeColumns(
+  context,
+  samples,
+  viewStart,
+  spp,
+  x0,
+  x1,
+  height,
+  midY,
+  amplitude,
+  fillStyle,
+) {
+  if (!context || !samples?.length || !(spp > 0) || x1 <= x0) {
+    return;
+  }
+  const total = samples.length;
+  const maxScan = nodeGraphPhosphorWaveformMaxSamplesPerColumn;
+  context.fillStyle = fillStyle;
+  const xa = Math.max(0, Math.floor(x0));
+  const xb = Math.min(context.canvas.width, Math.ceil(x1));
+  for (let x = xa; x < xb; x += 1) {
+    const t0 = viewStart + x * spp;
+    const t1 = viewStart + (x + 1) * spp;
+    let i0 = Math.floor(t0);
+    let i1 = Math.ceil(t1);
+    if (i0 < 0) i0 = 0;
+    if (i1 > total) i1 = total;
+    if (i1 <= i0) {
+      continue;
+    }
+    let minV = Infinity;
+    let maxV = -Infinity;
+    const range = i1 - i0;
+    const stride = range > maxScan ? Math.max(1, Math.floor(range / maxScan)) : 1;
+    for (let i = i0; i < i1; i += stride) {
+      const v = samples[i];
+      if (v < minV) minV = v;
+      if (v > maxV) maxV = v;
+    }
+    if (!(minV <= maxV)) {
+      minV = 0;
+      maxV = 0;
+    }
+    const y0 = midY - maxV * amplitude;
+    const y1 = midY - minV * amplitude;
+    context.fillRect(x, y0, 1, Math.max(1, y1 - y0));
+  }
+}
+
 function nodeGraphPhosphorWaveformStrokeVectorPath(context, points) {
   const count = points.length;
   if (count < 2) {
@@ -2719,15 +2779,18 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     );
   if (!autoScrollPaused) {
     if (settings.scrollMode === "smooth") {
-      // Continuous float window — vector path translates smoothly (no pixel quantize).
       const idealStart = playheadFrame - windowFrames * scrollLineRatio;
       const view = nodeGraphPhosphorWaveformContinuousView(
         idealStart,
         windowFrames,
         entry.frames,
       );
-      state.startFrame = view.viewStart;
-      state.endFrame = view.viewEnd;
+      const spp = windowFrames / Math.max(1, width);
+      const alignedStart = spp > 0
+        ? Math.round(view.viewStart / spp) * spp
+        : view.viewStart;
+      state.startFrame = alignedStart;
+      state.endFrame = alignedStart + windowFrames;
     } else {
       // "snap": only jump when the playhead has left the current window, or
       // the Time Window/Scroll Position settings just changed -- lands the
@@ -2742,8 +2805,12 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
           windowFrames,
           entry.frames,
         );
-        state.startFrame = view.viewStart;
-        state.endFrame = view.viewEnd;
+        const spp = windowFrames / Math.max(1, width);
+        const alignedStart = spp > 0
+          ? Math.round(view.viewStart / spp) * spp
+          : view.viewStart;
+        state.startFrame = alignedStart;
+        state.endFrame = alignedStart + windowFrames;
       }
     }
   } else {
@@ -2776,6 +2843,58 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const pixelsPerFrame = width / viewSpan;
   const gridBrightness = Math.max(0, Math.min(1, nodeGraphFiniteNumber(settings.gridBrightness)));
   const showSampleGrid = gridBrightness > 0.001 && pixelsPerFrame >= 6 * pixelRatio;
+
+  const faceMinDevice = faceMinSide(width, height);
+  const samples = nodeGraphPhosphorWaveformEntrySamples(entry);
+  const spp = viewSpan / Math.max(1, width);
+  const tapeCtx = nodeGraphPhosphorWaveformEnsureTape(state, width, height);
+  const tapeSig = [
+    width, height, windowFrames, entry.frames, node?.sample?.id || "",
+    settings.hue, settings.lineBrightness, settings.backgroundHue,
+    settings.backgroundBrightness, settings.traceWidth,
+  ].join(":");
+  const fillStyle = nodeGraphPhosphorWaveformLineColor(settings, 85, 0.95);
+  const plate = circuitRunning
+    ? nodeGraphPhosphorWaveformBackgroundColor(settings)
+    : (entry ? "hsl(140, 20%, 4%)" : "#050805");
+  const paintStrip = (x0, x1, start) => {
+    tapeCtx.fillStyle = plate;
+    tapeCtx.fillRect(x0, 0, Math.max(0, x1 - x0), height);
+    nodeGraphPhosphorWaveformPaintEnvelopeColumns(
+      tapeCtx, samples, start, spp, x0, x1, height, midY, amplitude, fillStyle,
+    );
+  };
+  const rebuildTape = () => {
+    paintStrip(0, width, viewStart);
+    state.tapeStart = viewStart;
+    state.tapeSig = tapeSig;
+  };
+  if (!tapeCtx) {
+    rebuildTape();
+  } else if (state.tapeSig !== tapeSig || !Number.isFinite(state.tapeStart)) {
+    rebuildTape();
+  } else {
+    const dx = Math.round((viewStart - state.tapeStart) / spp);
+    if (dx === 0) {
+      // History unchanged — do not redraw.
+    } else if (Math.abs(dx) >= width) {
+      rebuildTape();
+    } else {
+      tapeCtx.save();
+      tapeCtx.setTransform(1, 0, 0, 1, 0, 0);
+      tapeCtx.imageSmoothingEnabled = false;
+      tapeCtx.globalCompositeOperation = "copy";
+      tapeCtx.drawImage(state.waveTape, -dx, 0);
+      tapeCtx.restore();
+      if (dx > 0) {
+        paintStrip(width - dx, width, viewStart);
+      } else {
+        paintStrip(0, -dx, viewStart);
+      }
+      state.tapeStart = viewStart;
+    }
+  }
+  context.drawImage(state.waveTape, 0, 0);
   if (showSampleGrid) {
     const gridHue = Number.isFinite(Number(settings.hue)) ? Number(settings.hue) : 140;
     context.strokeStyle = typeof nodeGraphHueBrightnessCss === "function"
@@ -2786,38 +2905,10 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     const firstFrame = Math.ceil(viewStart);
     const lastFrame = Math.floor(viewEnd);
     for (let frame = firstFrame; frame <= lastFrame; frame += 1) {
-      const x = frameToX(frame);
+      const x = Math.round(frameToX(frame)) + 0.5;
       context.moveTo(x, 0);
       context.lineTo(x, height);
     }
-    context.stroke();
-  }
-
-  // Vector trace: core width + half-pixel skirt (cheap AA on the pixel grid).
-  const faceMinDevice = faceMinSide(width, height);
-  const tracePx = Math.max(0.25, faceInkPx(clampAuthoredInkPx(settings.traceWidth, 2), faceMinDevice));
-  const skirtPx = tracePx + 0.5;
-  const vectorPoints = nodeGraphPhosphorWaveformBuildVectorPath(
-    nodeGraphPhosphorWaveformEntrySamples(entry),
-    viewStart,
-    viewEnd,
-    width,
-    midY,
-    amplitude,
-  );
-  if (nodeGraphPhosphorWaveformStrokeVectorPath(context, vectorPoints)) {
-    context.shadowBlur = 0;
-    context.lineCap = "butt";
-    context.lineJoin = "miter";
-    context.miterLimit = 2;
-    // Skirt first (slightly wider, softer).
-    context.strokeStyle = nodeGraphPhosphorWaveformLineColor(settings, 75, 0.4);
-    context.lineWidth = skirtPx;
-    context.stroke();
-    // Core on top.
-    nodeGraphPhosphorWaveformStrokeVectorPath(context, vectorPoints);
-    context.strokeStyle = nodeGraphPhosphorWaveformLineColor(settings, 85, 0.95);
-    context.lineWidth = tracePx;
     context.stroke();
   }
 
@@ -2875,7 +2966,9 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     && playheadFrame >= viewStart
     && playheadFrame <= viewEnd
   ) {
-    const x = frameToX(playheadFrame);
+    const x = (!autoScrollPaused && settings.scrollMode === "smooth")
+      ? Math.round(scrollLineRatio * width) + 0.5
+      : Math.round(frameToX(playheadFrame)) + 0.5;
     context.shadowBlur = 0;
     context.strokeStyle = "rgba(255, 255, 255, 0.9)";
     context.lineWidth = Math.max(0.5, scrollPx);

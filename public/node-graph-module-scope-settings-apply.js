@@ -352,6 +352,12 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     syncNodeGraphSpectrogramDisplaySettingsToParams(node, node.traceDisplaySettings);
     return node.traceDisplaySettings;
   }
+  if (displayType === "ensembleCloud") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphEnsembleCloudSettings === "function"
+      ? normalizeNodeGraphEnsembleCloudSettings(settings)
+      : { cloudSpeed: 1 };
+    return node.traceDisplaySettings;
+  }
   if (displayType === "trace" || displayType === "traceRgb" || displayType === "traceXyz") {
     node.traceDisplaySettings = normalizeNodeGraphTraceDisplaySettings(settings);
     return node.traceDisplaySettings;

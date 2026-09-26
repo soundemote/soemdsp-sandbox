@@ -1432,7 +1432,7 @@ NodeLiveAudioProcessor.prototype.applyNativeGraphSpeedLimit = function applyNati
     : Number(this.speedLimit);
   native.soemdsp_graph_set_speed_limit(
     handle,
-    Number.isFinite(hz) && hz > 0 ? hz : 20000,
+    Number.isFinite(hz) && hz > 0 ? hz : 22050,
   );
 };
 
@@ -5229,6 +5229,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      push("warp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("warp", 0));
       continue;
     }
     if (type === "additiveGenerator") {

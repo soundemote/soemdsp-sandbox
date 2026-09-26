@@ -73,7 +73,9 @@ function nodeGraphModuleScopeTraceEdgePaddingRatio(slot, rect) {
   if (settings.dot1Enabled !== false && settings.brightness > 0) {
     activePasses.push({
       blur: clampNodeSliderValue(settings.lineThickness, 0, 1),
-      size: clampNodeSliderValue(settings.dot1Size, 0, 1),
+      size: typeof nodeGraphTraceDisplayNormalizeInkPx === "function"
+        ? nodeGraphTraceDisplayNormalizeInkPx(settings.dot1Size, 2)
+        : Math.max(0, nodeGraphFiniteNumber(settings.dot1Size, 2)),
     });
   }
   const stereoTrace = typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
@@ -82,15 +84,19 @@ function nodeGraphModuleScopeTraceEdgePaddingRatio(slot, rect) {
   if (stereoTrace && settings.secondaryEnabled !== false && settings.secondaryBrightness > 0) {
     activePasses.push({
       blur: clampNodeSliderValue(settings.secondaryLineThickness, 0, 1),
-      size: clampNodeSliderValue(settings.secondarySize, 0, 1),
+      size: typeof nodeGraphTraceDisplayNormalizeInkPx === "function"
+        ? nodeGraphTraceDisplayNormalizeInkPx(settings.secondarySize, 2)
+        : Math.max(0, nodeGraphFiniteNumber(settings.secondarySize, 2)),
     });
   }
   // Match exp size map: diameter fraction = side^(t-1) ≈ size face occupancy.
   const faceSide = Math.max(1, nodeGraphFiniteNumber(rect?.height, nodeGraphFiniteNumber(rect?.width, 256)));
   const visualPadding = activePasses.reduce((largest, pass) => {
-    const diam = typeof nodeGraphScopeSize01ToDiameterPx === "function"
-      ? nodeGraphScopeSize01ToDiameterPx(faceSide, pass.size)
-      : Math.max(1, Math.pow(faceSide, clampNodeSliderValue(pass.size, 0, 1)));
+    const diam = typeof TraceStroke !== "undefined" && typeof TraceStroke.diameterPx === "function"
+      ? TraceStroke.diameterPx(faceSide, pass.size)
+      : (typeof faceInkPx === "function" && typeof clampAuthoredInkPx === "function"
+        ? faceInkPx(clampAuthoredInkPx(pass.size, 0), faceSide)
+        : Math.max(0, nodeGraphFiniteNumber(pass.size, 0)));
     const frac = diam / faceSide;
     const padding = frac * (0.22 + pass.blur * 0.16);
     return Math.max(largest, padding);

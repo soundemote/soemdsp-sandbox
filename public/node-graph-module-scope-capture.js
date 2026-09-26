@@ -609,6 +609,75 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
 }
 
 
+function captureNodeGraphLiveModuleScopeInputMix(runtime, nodeId, port) {
+  const id = String(nodeId || "");
+  const p = String(port || "");
+  if (!id || !p) {
+    return null;
+  }
+  const connections = Array.isArray(runtime?.connections)
+    ? runtime.connections.filter(
+      (c) => String(c?.destinationNode) === id && String(c?.destinationPort) === p,
+    )
+    : (typeof nodeGraphModuleScopeConnectionsTo === "function"
+      ? nodeGraphModuleScopeConnectionsTo(id, p)
+      : []);
+  if (!connections.length) {
+    return null;
+  }
+  let sum = 0;
+  let n = 0;
+  for (const connection of connections) {
+    const src = String(connection?.sourceNode || "");
+    const sport = String(connection?.sourcePort || "");
+    if (!src) {
+      continue;
+    }
+    const out = runtime?.nodeOutputs?.get?.(src);
+    const raw = out && typeof out === "object"
+      ? Number(out[sport] ?? out.Out ?? out.Wave ?? out.value)
+      : Number(out);
+    if (Number.isFinite(raw)) {
+      sum += raw;
+      n += 1;
+    }
+  }
+  return n > 0 ? sum : null;
+}
+
+function captureNodeGraphLiveModuleScopeInputSync(runtime, nodeId) {
+  const id = String(nodeId || "");
+  const node = runtime?.nodes?.get?.(id);
+  const type = String(node?.type || "");
+  const spec = (typeof nodeGraphModuleDefinitions === "object"
+    && nodeGraphModuleDefinitions?.[type]?.syncTraceFromInputs)
+    || null;
+  if (!id || !spec) {
+    return;
+  }
+  const left = spec.left ? captureNodeGraphLiveModuleScopeInputMix(runtime, id, spec.left) : null;
+  const right = spec.right ? captureNodeGraphLiveModuleScopeInputMix(runtime, id, spec.right) : null;
+  const mono = spec.mono ? captureNodeGraphLiveModuleScopeInputMix(runtime, id, spec.mono) : null;
+  let sample = null;
+  if (left != null || right != null) {
+    const a = left == null ? 0 : left;
+    const b = right == null ? 0 : right;
+    sample = (left != null && right != null) ? (a + b) * 0.5 : (a + b);
+    if (mono != null) {
+      sample += mono;
+    }
+  } else if (mono != null) {
+    sample = mono;
+  }
+  if (sample == null || !Number.isFinite(sample)) {
+    return;
+  }
+  const portId = `${id}:__inSync`;
+  const portSamples = runtime.scopeBuffers.get(portId) || [];
+  portSamples.push(nodeGraphModuleScopeScalarValue(sample));
+  runtime.scopeBuffers.set(portId, portSamples);
+}
+
 function captureNodeGraphLiveModuleScopeOutput(runtime, nodeId, output) {
   const id = String(nodeId || "");
   if (!id) {
@@ -663,6 +732,7 @@ function captureNodeGraphLiveModuleScopeFrame(runtime, sampleRate) {
       continue;
     }
     captureNodeGraphLiveModuleScopeOutput(runtime, nodeId, runtime.nodeOutputs.get(nodeId));
+    captureNodeGraphLiveModuleScopeInputSync(runtime, nodeId);
   }
   for (const sink of runtime.visualSinks || []) {
     const nodeId = String(sink?.nodeId || "");

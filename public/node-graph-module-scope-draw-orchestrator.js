@@ -479,8 +479,20 @@ function drawNodeGraphModuleScopes(options = {}) {
     }
     gl.enable(gl.SCISSOR_TEST);
     const brightness = nodeGraphModuleScopeTraceBrightness(slot, scopeSettings);
-    const lineThickness = nodeGraphModuleScopeTraceLineThickness(slot, scopeSettings);
     const zoomScale = nodeGraphModuleScopeStrokeZoomScale();
+    const authoredStrokePx = typeof nodeGraphTraceDisplayNormalizeInkPx === "function"
+      ? nodeGraphTraceDisplayNormalizeInkPx(scopeSettings?.dot1Size, 2)
+      : Math.max(0, nodeGraphFiniteNumber(scopeSettings?.dot1Size, 2));
+    const faceMin = Math.max(
+      1,
+      Math.min(
+        nodeGraphFiniteNumber(visibleScopeRect?.width, 96),
+        nodeGraphFiniteNumber(visibleScopeRect?.height, 96),
+      ),
+    );
+    const strokePx = typeof TraceStroke !== "undefined" && typeof TraceStroke.diameterPx === "function"
+      ? TraceStroke.diameterPx(faceMin, authoredStrokePx)
+      : authoredStrokePx * zoomScale;
     const blendMode = nodeGraphModuleScopeTraceBlendMode(slot);
     const heatmapMode = blendMode === "heatmap";
     const colors = heatmapMode
@@ -505,7 +517,7 @@ function drawNodeGraphModuleScopes(options = {}) {
           ? undefined
           : nodeGraphModuleScopeTraceDotSizeScale(colors.coreSize, nodeGraphModuleScopeDefaultDotCores.dot1.size),
         intensity: (heatmapMode ? 0.34 : 1.0) * brightness * coreBrightness,
-        thicknessPx: 1.25 * zoomScale,
+        thicknessPx: strokePx,
         visibleProgressRange,
         visibleRect: visibleScopeRect,
       });

@@ -851,6 +851,10 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
   if (!slot || !face) {
     return;
   }
+  // The face clock is the stepper. Scope paints would advance Hang twice.
+  if (face._imageBurnOwnsClock && item?.fromFaceLoop !== true && item?.force !== true) {
+    return;
+  }
   const canvas = nodeGraphImageBurnCanvasForSlot(slot);
   if (!canvas || !syncNodeGraphImageBurnCanvas(canvas, face, pixelRatio)) {
     return;
@@ -945,8 +949,10 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
   const deposit = fbInfo.deposit;
   const accumulate = Boolean(fbInfo.accumulate);
 
-  const paused = typeof nodeGraphModuleScopePaused === "function"
-    && nodeGraphModuleScopePaused();
+  // Transport pause only. A quiet patch must still fade Hang / Burn / Blur.
+  const speed = Number(nodeGraphMvp?.live?.speedMultiplier);
+  const paused = (typeof scopePaintIsVisualPaused === "function" && scopePaintIsVisualPaused())
+    || (Number.isFinite(speed) && speed <= 0);
 
   // Residual via GL; dry flash screened in 2D after (Brightness never hides burn).
   const stampReady = imageReady || Boolean(textureIn?.texture);

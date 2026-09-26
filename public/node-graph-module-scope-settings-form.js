@@ -37,6 +37,10 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
       ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods). Pass restarts on the next rising zero-crossing."
       : "Left→right passes per second (0.01–100). 0 = collapsed full-width burn.";
   }
+  if (key === "cloudSpeed" && formType === "ensembleCloud") {
+    label = "Speed";
+    title = "Waterfall scroll. 0 = freeze. 1 = default. Higher = faster.";
+  }
   if (key === "lineThickness" && formType === "hypersawBurn") {
     label = "Line thickness";
     title = "Phase-stem width as a fraction of face width: 0 = none, 1 = full screen. Sensitive near 0.";
@@ -732,11 +736,16 @@ function nodeGraphStampPreviewTraceInk(settings, side, kind = "trace") {
   const rgb = kind === "traceRgb" || String(side || "").startsWith("Gun");
   const instant = kind === "trace" || kind === "traceRgb" || kind === "traceXyz"
     || rgb || side === "L" || side === "X" || side === "Y" || side === "Z";
+  const sizeRaw = right
+    ? (settings.secondarySize ?? settings.dot1Size ?? settings.size)
+    : (settings.dot1Size ?? settings.size);
+  const size = instant && typeof nodeGraphTraceDisplayNormalizeInkPx === "function"
+    ? nodeGraphTraceDisplayNormalizeInkPx(sizeRaw, 2)
+    : (instant && typeof nodeGraphTraceDisplayClampInkPx === "function"
+      ? nodeGraphTraceDisplayClampInkPx(sizeRaw)
+      : nodeGraphStampPreviewUnit(sizeRaw, 0));
   return {
-    size: nodeGraphStampPreviewUnit(
-      right ? (settings.secondarySize ?? settings.dot1Size ?? settings.size) : (settings.dot1Size ?? settings.size),
-      0,
-    ),
+    size,
     color: nodeGraphStampPreviewTraceColor(settings, side, kind),
     blur: instant ? nodeGraphStampPreviewUnit(settings.lineThickness, 0) : 0,
     bright: rgb

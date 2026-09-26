@@ -717,7 +717,9 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
       }
     }
 
-    const size01 = finiteUnit(safeSettings.dot1Size, 0);
+    const size01 = typeof nodeGraphTraceDisplayNormalizeInkPx === "function"
+      ? nodeGraphTraceDisplayNormalizeInkPx(safeSettings.dot1Size, 2)
+      : Math.max(0, nodeGraphFiniteNumber(safeSettings.dot1Size, 2));
     if (!(size01 > 0)) {
       return;
     }

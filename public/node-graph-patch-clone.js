@@ -316,6 +316,12 @@ function cloneNodeGraphTypedDisplaySettings(node) {
       return { traceDisplaySettings: normalizeNodeGraphLineBurnSettings(bag) };
     case "value":
       return { traceDisplaySettings: normalizeNodeGraphValueOscilloscopeSettings(bag) };
+    case "ensembleCloud":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphEnsembleCloudSettings === "function"
+          ? normalizeNodeGraphEnsembleCloudSettings(bag)
+          : { cloudSpeed: 1 },
+      };
     case "hypersawBurn": {
       return {
         traceDisplaySettings: typeof normalizeNodeGraphHypersawBurnSettings === "function"

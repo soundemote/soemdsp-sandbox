@@ -257,6 +257,12 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  ensembleCloud: Object.freeze({
+    fields: Object.freeze(["cloudSpeed"]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
   // 1D history plot (Output / Music Player). RGB stroke — no phosphor residual.
   // Fade is XYZ / vectorscope Instant Trace only (not 2D Trace).
   // Output stereo: Left = Size, Right = secondary Size/Bright.
@@ -1313,6 +1319,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplaySweepCycles",
     title: "Sync On: cycles in view (smooth — e.g. 1.5 = 1½ periods). Pass restarts on the next rising zero-crossing.",
   }),
+  cloudSpeed: Object.freeze({
+    label: "Speed",
+    inputmode: "decimal",
+    id: "nodeEnsembleCloudSpeed",
+    title: "Waterfall scroll. 0 = freeze. 1 = default. Higher = faster.",
+  }),
   historyHz: Object.freeze({
     label: "History (Hz)",
     inputmode: "decimal",
@@ -1613,7 +1625,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Size",
     inputmode: "decimal",
     id: "nodeTraceDisplayDot1Size",
-    title: "Stroke/dot diameter vs face square min side. 0 = 1px (min), 1 = full square. Linear ratio.",
+    title: "Stroke diameter in CSS pixels at a 96px face. 0 = gone. Grows with the module.",
   }),
   shapeParam: Object.freeze({
     label: "Shape",

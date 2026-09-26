@@ -2,11 +2,16 @@
 // Ink sizes follow APP_POLICY §15 (faceInkPx vs face min-edge). Pixel
 // density only changes backing store, not authored CSS size.
 
-function nodeGraphEnsembleCloudSettings(_node) {
+function normalizeNodeGraphEnsembleCloudSettings(raw) {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const n = Number(src.cloudSpeed);
   return {
-    pixelDensity: 1,
-    background: "#000000",
+    cloudSpeed: Number.isFinite(n) ? Math.max(0, Math.min(4, n)) : 1,
   };
+}
+
+function nodeGraphEnsembleCloudSettings(node) {
+  return normalizeNodeGraphEnsembleCloudSettings(node?.traceDisplaySettings);
 }
 
 function drawNodeGraphEnsembleCloudItem(_renderer, item, pixelRatio) {
@@ -58,26 +63,32 @@ function drawNodeGraphEnsembleCloudItem(_renderer, item, pixelRatio) {
   const minSide = faceMinSide(cssW, cssH);
   const bufPerCss = w / cssW;
   const ink = (px) => Math.max(1, Math.round(faceInkPx(px, minSide) * bufPerCss));
-  const scrollPx = Math.max(1, ink(1.5));
+  const speed = Math.max(0, Number(settings.cloudSpeed));
+  let scrollPx = Math.round(ink(1.5) * speed);
+  if (speed > 0 && scrollPx < 1) {
+    scrollPx = 1;
+  }
   const sparkW = Math.max(2, ink(2));
-  const sparkH = Math.max(scrollPx, ink(2));
+  const sparkH = Math.max(1, scrollPx);
 
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.imageSmoothingEnabled = false;
-  context.globalCompositeOperation = "copy";
-  context.drawImage(canvas, 0, -scrollPx);
-  context.globalCompositeOperation = "source-over";
-  context.fillStyle = bgHex;
-  context.fillRect(0, h - scrollPx, w, scrollPx);
+  if (scrollPx > 0) {
+    context.globalCompositeOperation = "copy";
+    context.drawImage(canvas, 0, -scrollPx);
+    context.globalCompositeOperation = "source-over";
+    context.fillStyle = bgHex;
+    context.fillRect(0, h - scrollPx, w, scrollPx);
+  }
 
-  if (!Array.isArray(delays) || !delays.length) {
+  if (!Array.isArray(delays) || !delays.length || scrollPx <= 0) {
     context.restore();
     return;
   }
 
   context.globalCompositeOperation = "lighter";
-  const y = h - sparkH;
+  const y = h - scrollPx;
   const n = delays.length;
   for (let i = 0; i < n; i += 1) {
     const x01 = Math.max(0, Math.min(1, Number(delays[i]) || 0));

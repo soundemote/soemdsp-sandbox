@@ -823,7 +823,7 @@
       "ui": {
         "buttonsHidden": false,
         "buttonsForceShow": false,
-        "displayHeightOffsetGu": 2,
+        "displayHeightOffsetGu": 0,
         "displayModeKey": "",
         "ioHidden": false,
         "hideUnused": false,
@@ -834,7 +834,8 @@
         "oscilloscopeForceShow": false,
         "slidersHidden": false,
         "slidersForceShow": false,
-        "titleHidden": false
+        "titleHidden": false,
+        "displayHeightGu": 5
       },
       "chordMemory": {
         "slots": {
@@ -920,6 +921,7 @@
           ],
           "17": [
             29,
+            57,
             60,
             69
           ]
@@ -2447,7 +2449,7 @@
     },
     {
       "gx": -1,
-      "gy": 11,
+      "gy": 5,
       "id": "arp-1",
       "paramMeta": {
         "mode": {
@@ -2707,7 +2709,7 @@
     },
     {
       "gx": 8,
-      "gy": 12,
+      "gy": 5,
       "id": "softwaveOsc-1",
       "paramMeta": {
         "waveform": {
@@ -2788,8 +2790,8 @@
           "wraparound": false,
           "visible": true,
           "linearSmoothing": true,
-          "outputDomain": false,
-          "domainOffset": 0
+          "outputDomain": true,
+          "domainOffset": 847.5976690899638
         },
         "morph": {
           "alias": "",
@@ -2915,18 +2917,18 @@
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
+          "smoothingSeconds": 1469,
           "smoothingType": "linear",
           "step": 0.01,
           "tooltip": "",
-          "modClamp": true,
+          "modClamp": false,
           "hardClamp": false,
           "modMultiply": false,
           "vca": false,
           "constraint": "",
           "unit": "",
           "wraparound": false,
-          "visible": false,
+          "visible": true,
           "linearSmoothing": true,
           "outputDomain": false,
           "domainOffset": 0
@@ -2934,7 +2936,7 @@
       },
       "params": {
         "waveform": 4,
-        "frequency": 33.78633988617719,
+        "frequency": 0,
         "morph": 1,
         "phase": 0,
         "antialias": 0,
@@ -2966,7 +2968,7 @@
     },
     {
       "gx": -8,
-      "gy": 11,
+      "gy": 5,
       "id": "transport-1",
       "paramMeta": {
         "bpm": {
@@ -3715,7 +3717,7 @@
     },
     {
       "gx": 8,
-      "gy": 25,
+      "gy": 19,
       "id": "robinSinusoid-1",
       "paramMeta": {
         "frequency": {
@@ -3839,7 +3841,7 @@
         "brightness": 0.95,
         "color": "#ff0000",
         "dot1Enabled": true,
-        "dot1Size": 0.035,
+        "dot1Size": 0.711,
         "secondaryBrightness": 0.95,
         "secondaryColor": "#0000ff",
         "secondaryEnabled": true,
@@ -3852,7 +3854,7 @@
         "dotBudget": 1024,
         "pixelDensity": 1,
         "padding": 0,
-        "scale": 4.75,
+        "scale": 1,
         "skipDiscontinuities": false,
         "cmyMode": false,
         "sourceSync": false,
@@ -3886,14 +3888,14 @@
     },
     {
       "gx": -58,
-      "gy": 3,
+      "gy": 2,
       "id": "sequencer-1",
       "paramMeta": {},
       "params": {},
       "type": "sequencer",
       "widthGu": 36,
       "sequencer": {
-        "loopTicks": 1024,
+        "loopTicks": 2048,
         "snap": 128,
         "keysVisible": 24,
         "scrollMidi": 0,
@@ -3947,6 +3949,42 @@
             "midi": 12,
             "start": 0,
             "length": 128,
+            "vel": 100
+          },
+          {
+            "midi": 12,
+            "start": 1024,
+            "length": 128,
+            "vel": 100
+          },
+          {
+            "midi": 14,
+            "start": 1152,
+            "length": 128,
+            "vel": 100
+          },
+          {
+            "midi": 9,
+            "start": 1280,
+            "length": 128,
+            "vel": 100
+          },
+          {
+            "midi": 10,
+            "start": 1408,
+            "length": 128,
+            "vel": 100
+          },
+          {
+            "midi": 17,
+            "start": 1536,
+            "length": 128,
+            "vel": 100
+          },
+          {
+            "midi": 11,
+            "start": 1024,
+            "length": 640,
             "vel": 100
           }
         ]
@@ -4006,7 +4044,7 @@
     },
     {
       "gx": -22,
-      "gy": 11,
+      "gy": 5,
       "id": "knob-1",
       "paramMeta": {
         "offset": {
@@ -4084,7 +4122,7 @@
         }
       },
       "params": {
-        "offset": 0.032661372536940236,
+        "offset": 0.03811173344455239,
         "displaySource": 0
       },
       "type": "knob",
@@ -4135,7 +4173,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 48,
-    "zoom": 0.8446975325881941,
+    "zoom": 0.7541942255251732,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,

@@ -752,8 +752,22 @@ function createNodeGraphHeaderTimingWidgets() {
   group.setAttribute("aria-label", "Patch timing");
 
   group.append(
+    createNodeGraphHeaderTimingInput("tempoBpm", "BPM", { max: 320 }),
     createNodeGraphHeaderTimingInput("timeSignatureNumerator", "Beats"),
     createNodeGraphHeaderTimingInput("timeSignatureDenominator", "Unit"),
+    createNodeGraphHeaderScopeInput(
+      "nodeMasterScopeFps",
+      "FPS",
+      normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60),
+      {
+        ariaLabel: "Display frames per second",
+        inputMode: "numeric",
+        max: 240,
+        min: 0,
+        scopeInput: "framesPerSecond",
+        step: 1,
+      },
+    ),
     createNodeGraphHeaderPatchTitle(),
     createNodeGraphHeaderSpeedPlaceholder(),
     createNodeGraphHeaderSmoothingTimeField(),
@@ -880,20 +894,6 @@ function createNodeGraphCommandCenterTimingWidgets() {
   group.append(
     createNodeGraphHeaderTimingInput("timeSignatureNumerator", "Beats", nv),
     createNodeGraphHeaderTimingInput("timeSignatureDenominator", "Unit", nv),
-    createNodeGraphHeaderScopeInput(
-      "nodeMasterScopeFps",
-      "FPS",
-      normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60),
-      {
-        ...nv,
-        ariaLabel: "Display frames per second",
-        inputMode: "numeric",
-        max: 240,
-        min: 0,
-        scopeInput: "framesPerSecond",
-        step: 1,
-      },
-    ),
     createNodeGraphHeaderSpeedLimitField(nv),
     createNodeGraphHeaderAudioInput("pitchReferenceHz", "Freq Ref", {
       ...nv,
@@ -933,7 +933,7 @@ function renderNodeGraphCommandCenterTimingControls() {
     || (osSelect && osSelect.dataset.timingBound === "true")
     || !host.querySelector(".node-header-sample-rate-value")
     || !host.querySelector('.node-header-timing-input[data-audio-field="pitchOffsetOctaves"]')
-    || !host.querySelector("#nodeMasterScopeFps")
+    || host.querySelector("#nodeMasterScopeFps")
     || !host.querySelector('[data-speed-limit="true"]')
   ) {
     host.replaceChildren(createNodeGraphCommandCenterTimingWidgets());
@@ -945,12 +945,13 @@ function renderNodeGraphCommandCenterTimingControls() {
 function renderNodeGraphPatchTimingControls() {
   const host = document.getElementById("nodePatchTimingControls");
   if (host) {
-    // Rebuild top bar first so FPS / Speed Limit leave before Command Center claims those ids.
+    // Speed Limit stays in Command Center. FPS lives on this bar.
     if (
       !host.querySelector(".node-header-timing-widgets")
+      || !host.querySelector('[data-timing-field="tempoBpm"]')
+      || !host.querySelector("#nodeMasterScopeFps")
       || !host.querySelector("#nodeHeaderGlobalSmoothingSeconds")
       || !host.querySelector("#nodeHeaderPatchTitle")
-      || host.querySelector("#nodeMasterScopeFps")
       || host.querySelector('[data-speed-limit="true"]')
     ) {
       host.replaceChildren(createNodeGraphHeaderTimingWidgets());

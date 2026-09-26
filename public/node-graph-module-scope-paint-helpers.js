@@ -1408,11 +1408,15 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
     });
     return;
   }
-  const size = clampNodeSliderValue(layer.size, 0, 1);
+  const size = typeof nodeGraphTraceDisplayNormalizeInkPx === "function"
+    ? nodeGraphTraceDisplayNormalizeInkPx(layer.size, 2)
+    : Math.max(0, nodeGraphFiniteNumber(layer.size, 2));
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(layer.color));
-  const lineWidth = typeof nodeGraphScopeSize01ToDiameterPx === "function"
-    ? nodeGraphScopeSize01ToDiameterPx(face, size)
-    : Math.max(1, face * size);
+  const lineWidth = typeof TraceStroke !== "undefined" && typeof TraceStroke.diameterPx === "function"
+    ? TraceStroke.diameterPx(face, size)
+    : (typeof faceInkPx === "function" && typeof clampAuthoredInkPx === "function"
+      ? faceInkPx(clampAuthoredInkPx(size, 0), face)
+      : size);
   context.save();
   context.globalCompositeOperation = blend === "combine" ? "source-over" : blend;
   context.imageSmoothingEnabled = false;

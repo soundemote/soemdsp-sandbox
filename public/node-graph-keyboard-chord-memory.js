@@ -124,6 +124,23 @@ function nodeGraphChordMemoryEditClear() {
   host.chordMemoryEditSlot = null;
 }
 
+/** Ctrl+click previews: unlatch every slot so leaving Chord Memory does not leave notes stuck. */
+function nodeGraphChordMemoryClearLatchedPreviews() {
+  const map = nodeGraphChordMemoryEnsureLatchedMap();
+  for (const [nodeId, set] of [...map.entries()]) {
+    const slots = set instanceof Set ? [...set] : [];
+    for (const slot of slots) {
+      if (set instanceof Set) set.delete(slot);
+      nodeGraphChordMemoryActivateSlot(nodeId, slot, false);
+    }
+    map.delete(nodeId);
+  }
+  nodeGraphChordMemoryEditClear();
+  if (typeof nodeGraphChordMemoryPaintKeys === "function") {
+    nodeGraphChordMemoryPaintKeys();
+  }
+}
+
 function nodeGraphChordMemoryEditSet(nodeId, midi) {
   const host = nodeGraphChordMemoryHost();
   host.chordMemoryEditNodeId = String(nodeId || "").trim();

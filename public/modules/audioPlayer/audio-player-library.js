@@ -714,35 +714,79 @@ async function nodeGraphAudioPlayerLibraryLoadPlaylist(nodeId) {
 }
 
 function nodeGraphAudioPlayerLibraryPickAudioFileViaInput() {
-  return new Promise((resolve, reject) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.multiple = false;
-    input.accept = "audio/*,.wav,.wave,.mp3,.ogg,.oga,.opus,.flac,.m4a,.aac";
-    input.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none";
-    const finish = (file, error, cancelled = false) => {
-      try {
-        input.remove();
-      } catch (_error) {
-        // ignore
-      }
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve({ cancelled, file: file || null });
-    };
-    input.addEventListener("change", () => {
-      const picked = input.files?.[0] || null;
-      finish(picked, null, !picked);
-    }, { once: true });
-    input.addEventListener("cancel", () => finish(null, null, true), { once: true });
-    document.body.appendChild(input);
-    try {
-      input.click();
-    } catch (error) {
-      finish(null, error, false);
+  return nodeGraphAudioPlayerLibraryPickAudioFilesViaInput();
+}
+
+function nodeGraphAudioPlayerLibraryPickAudioFilesViaInput() {
+  const acceptList = [".wav", ".wave", ".mp3", ".ogg", ".oga", ".opus", ".flac", ".m4a", ".aac"];
+  const viaHandle = async () => {
+    if (typeof window.showOpenFilePicker !== "function") {
+      return null;
     }
+    try {
+      const startIn = typeof nodeGraphFilePickerStartIn === "function"
+        ? await nodeGraphFilePickerStartIn()
+        : undefined;
+      const handles = await window.showOpenFilePicker({
+        multiple: true,
+        ...(startIn ? { startIn } : {}),
+        types: [{
+          description: "Audio",
+          accept: { "audio/*": acceptList },
+        }],
+        excludeAcceptAllOption: false,
+      });
+      const files = [];
+      for (const handle of handles || []) {
+        try {
+          const file = await handle.getFile();
+          if (file) files.push(file);
+        } catch (_error) {
+          // skip unreadable
+        }
+      }
+      return { cancelled: !files.length && !(handles || []).length, files };
+    } catch (error) {
+      if (error && (error.name === "AbortError" || error.name === "NotAllowedError")) {
+        return { cancelled: true, files: [] };
+      }
+      throw error;
+    }
+  };
+  return viaHandle().then((picked) => {
+    if (picked) {
+      return picked;
+    }
+    return new Promise((resolve, reject) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.multiple = true;
+      input.accept = "audio/*,.wav,.wave,.mp3,.ogg,.oga,.opus,.flac,.m4a,.aac";
+      input.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none";
+      const finish = (files, error, cancelled = false) => {
+        try {
+          input.remove();
+        } catch (_error) {
+          // ignore
+        }
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve({ cancelled, files: Array.isArray(files) ? files : [] });
+      };
+      input.addEventListener("change", () => {
+        const picked = [...(input.files || [])];
+        finish(picked, null, !picked.length);
+      }, { once: true });
+      input.addEventListener("cancel", () => finish([], null, true), { once: true });
+      document.body.appendChild(input);
+      try {
+        input.click();
+      } catch (error) {
+        finish([], error, false);
+      }
+    });
   });
 }
 
@@ -792,15 +836,18 @@ async function nodeGraphAudioPlayerLibraryLoadFile(nodeId) {
       pathBox.value = typed;
     }
   } else {
-    const picked = await nodeGraphAudioPlayerLibraryPickAudioFileViaInput();
-    if (picked.cancelled || !picked.file) {
+    const picked = await nodeGraphAudioPlayerLibraryPickAudioFilesViaInput();
+    if (picked.cancelled || !(picked.files || []).length) {
       nodeGraphAudioPlayerLibraryReport(nodeId, "Load File cancelled");
       return null;
     }
-    if (!nodeGraphAudioPlayerLibraryFileMatchesFormats(picked.file.name, pl.formats)) {
+    const matched = (picked.files || []).filter((file) =>
+      nodeGraphAudioPlayerLibraryFileMatchesFormats(file.name, pl.formats),
+    );
+    if (!matched.length) {
       throw new Error("unsupported or filtered audio file");
     }
-    const cards = nodeGraphAudioPlayerLibraryRememberPickedFiles(nodeId, [picked.file]);
+    const cards = nodeGraphAudioPlayerLibraryRememberPickedFiles(nodeId, matched);
     if (!cards.length) {
       throw new Error("could not register picked file");
     }
@@ -810,16 +857,25 @@ async function nodeGraphAudioPlayerLibraryLoadFile(nodeId) {
       persist: true,
     });
     if (pathBox && document.activeElement !== pathBox) {
-      pathBox.value = `${picked.file.name} (browser)`;
-      pathBox.title = "Loaded from Browse — use Load File again to pick another";
+      const first = matched[0]?.name || "audio";
+      pathBox.value = matched.length === 1
+        ? `${first} (browser)`
+        : `${matched.length} files (browser)`;
+      pathBox.title = matched.length === 1
+        ? "Loaded from Load File — pick again to replace"
+        : `Loaded ${matched.length} files in picker order — pick again to replace`;
     }
   }
   const loaded = nodeGraphAudioPlayerPlaylistForNode(nodeId);
   if (typeof nodeGraphAudioPlayerPlaylistSetFace === "function") {
     nodeGraphAudioPlayerPlaylistSetFace(nodeId, "pl");
   }
+  const n = loaded?.items?.length || 0;
   const name = loaded?.items?.[0]?.name || "audio";
-  nodeGraphAudioPlayerLibraryReport(nodeId, `1 file loaded (${name})`);
+  nodeGraphAudioPlayerLibraryReport(
+    nodeId,
+    n <= 1 ? `1 file loaded (${name})` : `${n} files loaded (${name}…)`,
+  );
   const transport = typeof nodeGraphAudioPlayerTransportBase === "function"
     ? nodeGraphAudioPlayerTransportBase(nodeId)
     : 0;

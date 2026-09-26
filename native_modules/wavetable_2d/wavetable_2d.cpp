@@ -102,13 +102,6 @@ static void bake_bank() {
   gBankReady = 1;
 }
 
-static double clamp01(double x) {
-  if (!(x * 0.0 == 0.0)) return 0.0;
-  if (x < 0.0) return 0.0;
-  if (x > 1.0) return 1.0;
-  return x;
-}
-
 static double warp_phase(double t, double warp) {
   t = wrap01(t);
   double skew = safe(warp);
@@ -119,21 +112,6 @@ static double warp_phase(double t, double warp) {
   const double den = 2.0 * cv - skew + 1.0;
   if (dsp_fabs(den) < 1e-12) return t;
   return wrap01((cv + t) / den);
-}
-
-static double map_region(double t, double start, double end) {
-  t = wrap01(t);
-  const double a = clamp01(safe(start));
-  const double b = clamp01(safe(end));
-  const double span = b - a;
-  if (dsp_fabs(span) <= 1e-6) return t;
-  if (span > 0.0) return wrap01(a + t * span);
-  // Wrapped region a→1 then 0→b.
-  const double len = (1.0 - a) + b;
-  if (len <= 1e-6) return t;
-  const double u = t * len;
-  if (u < (1.0 - a)) return wrap01(a + u);
-  return wrap01(u - (1.0 - a));
 }
 
 static double sum_rect(double t, int Hmax, bool inv180) {
@@ -259,9 +237,6 @@ extern "C" double soemdsp_wavetable_2d_sample(
   double amplitude,
   double morph,
   double warp,
-  double start,
-  double end,
-  double pm,
   double increment,
   double engineSampleRate
 ) {
@@ -281,9 +256,8 @@ extern "C" double soemdsp_wavetable_2d_sample(
   const double inc = safe(increment);
   st.phase = wrap01(st.phase + freq / sr + inc);
 
-  double t = wrap01(st.phase + wrap01(safe(phaseOffset)) + safe(pm));
+  double t = wrap01(st.phase + wrap01(safe(phaseOffset)));
   t = warp_phase(t, warp);
-  t = map_region(t, start, end);
   const int Hmax = nyquist_harmonics(freq, inc, sr);
   double y = read_morphed(t, morph, Hmax);
 

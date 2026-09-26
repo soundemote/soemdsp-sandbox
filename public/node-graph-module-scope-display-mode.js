@@ -237,6 +237,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "oscilloscopeBankBurn",
     // Hypersaw / Hypersaw2 / RobinSupersaw face — line thickness only.
     "hypersawBurn",
+    "ensembleCloud",
     "matrixFace",
     "matrixWaterfallFace",
     "matrixDisplayFace",
