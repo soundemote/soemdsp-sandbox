@@ -296,7 +296,7 @@ function nodeGraphXyPadMixCv(nodeId, port) {
 
 /**
  * Latest Out X/Y in unit space, or null if scope has not captured the pad yet.
- * Live outs already include Phase+CV → Smoothing (Papoulis) ↔ lattice.
+ * Live outs already include Phase+CV → Papoulis ↔ lattice.
  */
 function nodeGraphXyPadLatestOutUnit(pad) {
   const nodeId = String(pad?.dataset?.node || "");
@@ -382,11 +382,11 @@ function nodeGraphXyPadPhosphorOutPathPoints(pad, width, height) {
  *
  * Same path as audio outs:
  *   sig = bipolar(Phase X/Y) + X/Y Input CV
- *   → Smoothing (Papoulis) ↔ lattice by Filter Order
+ *   → Papoulis ↔ lattice by Filter Order
  *   → Out X/Y  (and phosphor deposit)
  *
- * Prefer live Out samples (includes native Papoulis). Dry lattice-only fallback
- * only when the pad is not in the live schedule / audio is stopped.
+ * Prefer live Out samples (post-DSP, includes native Papoulis). Dry lattice-only
+ * fallback only when the pad is not in the live schedule / audio is stopped.
  */
 function nodeGraphXyPadPhosphorTargetUnit(pad) {
   const live = nodeGraphXyPadLatestOutUnit(pad);
@@ -782,7 +782,7 @@ function drawNodeGraphXyPad(pad, options = {}) {
   const puck = nodeGraphXyPadSnapUnit(pad, targetX, targetY);
   const px = puck.x * width;
   const py = (1 - puck.y) * height;
-  // Phosphor deposits from Out path (Phase+CV → Smoothing ↔ lattice).
+  // Phosphor deposits from Out path (Phase+CV → Papoulis ↔ lattice).
   const outPath = nodeGraphXyPadPhosphorOutPathPoints(pad, width, height);
   const phosphor = outPath
     ? {
@@ -1343,7 +1343,7 @@ function createNodeGraphXyPadBody(node, type) {
   return pad;
 }
 
-// Phosphor follows Out X/Y (Phase+CV → filter order). Redraw on every scope
+// Phosphor follows smoothed Out X/Y (Phase+CV → Papoulis ↔ order). Redraw on every scope
 // snapshot so Papoulis glide / CV motion paint even while the mouse is held still.
 addNodeGraphModuleScopeSnapshotListener(() => {
   for (const pad of document.querySelectorAll(".node-xy-pad")) {

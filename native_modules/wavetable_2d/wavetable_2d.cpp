@@ -4,8 +4,9 @@
 // soemdsp-native-kind: oscillator
 //
 // Morph (4 frames, wrap) × Warp (13 knots, no wrap). Each cell is the DFT of
-// a time-warped Additive cycle. Playback bilinear-lerps the four neighbors
-// then sums n = 1…Hmax with Hmax = floor(Nyquist / |f|). No live PD warp.
+// a time-warped Additive cycle, then IFFT'd into band-limited mips.
+// Playback bilinear-lerps four neighbor tables at the mip whose top partial
+// is ≤ Nyquist/|f|. O(1) per sample. No live PD warp.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -21,6 +22,10 @@ static const int kTableLen = 4096;
 static const int kSpecH = kTableLen / 2 - 1; // 2047
 static const int kFrameCount = 4;
 static const int kWarpCount = 13;
+static const int kMipCount = 12;
+static const int kMipH[kMipCount] = {
+  1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2047
+};
 
 static const double kWarpKnots[kWarpCount] = {
   -0.97, -0.87, -0.73, -0.66, -0.49, -0.19, 0.0,
@@ -29,15 +34,10 @@ static const double kWarpKnots[kWarpCount] = {
 
 struct State {
   bool active;
-  int mixReady;
   double phase;
   double lastReset;
   double lastOut;
   double lastPhase;
-  double lastMorph;
-  double lastWarp;
-  float mixCs[kSpecH];
-  float mixSn[kSpecH];
 };
 
 struct Cell {
@@ -47,9 +47,8 @@ struct Cell {
 
 static State gPool[kMaxInstances];
 static float gUnwarped[kFrameCount][kTableLen];
-static Cell gSpec[kFrameCount][kWarpCount];
+static float gMip[kFrameCount][kWarpCount][kMipCount][kTableLen];
 static int gBankReady = 0;
-static double gRectScale = 1.0;
 
 static const char kMetadataJson[] =
   "{"
@@ -148,6 +147,16 @@ static void fft_forward(float* re, float* im, int n) {
   }
 }
 
+static void fft_inverse(float* re, float* im, int n) {
+  for (int i = 0; i < n; i += 1) im[i] = -im[i];
+  fft_forward(re, im, n);
+  const double inv = 1.0 / (double)n;
+  for (int i = 0; i < n; i += 1) {
+    re[i] = (float)((double)re[i] * inv);
+    im[i] = (float)(-(double)im[i] * inv);
+  }
+}
+
 static void dft_store(const float* cycle, Cell* cell) {
   static float re[kTableLen];
   static float im[kTableLen];
@@ -158,10 +167,33 @@ static void dft_store(const float* cycle, Cell* cell) {
   fft_forward(re, im, kTableLen);
   const double scale = 2.0 / (double)kTableLen;
   for (int k = 1; k <= kSpecH; k += 1) {
-    // x ≈ Σ (cs sin(2π k t) + sn cos(2π k t))
     cell->cs[k - 1] = (float)(scale * -(double)im[k]);
     cell->sn[k - 1] = (float)(scale * (double)re[k]);
   }
+}
+
+static void ifft_mip(const Cell& cell, int H, float* tab) {
+  static float re[kTableLen];
+  static float im[kTableLen];
+  const int n = kTableLen;
+  int h = H;
+  if (h < 1) h = 1;
+  if (h > kSpecH) h = kSpecH;
+  for (int i = 0; i < n; i += 1) {
+    re[i] = 0.0f;
+    im[i] = 0.0f;
+  }
+  const double mag = 0.5 * (double)n;
+  for (int k = 1; k <= h; k += 1) {
+    const double R = (double)cell.sn[k - 1] * mag;
+    const double I = -(double)cell.cs[k - 1] * mag;
+    re[k] = (float)R;
+    im[k] = (float)I;
+    re[n - k] = (float)R;
+    im[n - k] = (float)(-I);
+  }
+  fft_inverse(re, im, n);
+  for (int i = 0; i < n; i += 1) tab[i] = re[i];
 }
 
 static void bake_unwarped() {
@@ -178,15 +210,9 @@ static void bake_unwarped() {
     sum += y;
   }
   const double mean = sum / (double)kTableLen;
-  double peak = 0.0;
   for (int i = 0; i < kTableLen; i += 1) {
-    const double v = (double)gUnwarped[0][i] - mean;
-    gUnwarped[0][i] = (float)v;
-    const double a = v < 0.0 ? -v : v;
-    if (a > peak) peak = a;
+    gUnwarped[0][i] = (float)((double)gUnwarped[0][i] - mean);
   }
-  gRectScale = peak > 1e-12 ? (1.0 / peak) : 1.0;
-  (void)gRectScale;
   peak_normalize(gUnwarped[0], kTableLen);
   for (int i = 0; i < kTableLen; i += 1) {
     const double t = (double)i / (double)kTableLen;
@@ -210,6 +236,7 @@ static void bake_bank() {
   if (gBankReady) return;
   bake_unwarped();
   static float cycle[kTableLen];
+  static Cell spec;
   for (int f = 0; f < kFrameCount; f += 1) {
     for (int w = 0; w < kWarpCount; w += 1) {
       const double knot = kWarpKnots[w];
@@ -219,7 +246,10 @@ static void bake_bank() {
       }
       dc_strip(cycle, kTableLen);
       peak_normalize(cycle, kTableLen);
-      dft_store(cycle, &gSpec[f][w]);
+      dft_store(cycle, &spec);
+      for (int m = 0; m < kMipCount; m += 1) {
+        ifft_mip(spec, kMipH[m], gMip[f][w][m]);
+      }
     }
   }
   gBankReady = 1;
@@ -236,7 +266,17 @@ static int nyquist_harmonics(double freqHz, double increment, double sr) {
   return H;
 }
 
-static void mix_spectra(double morph, double warp, float* cs, float* sn) {
+static int pick_mip(int Hmax) {
+  if (Hmax < 1) return -1;
+  int mip = 0;
+  for (int m = 0; m < kMipCount; m += 1) {
+    if (kMipH[m] <= Hmax) mip = m;
+    else break;
+  }
+  return mip;
+}
+
+static double read_morphed_mip(double t, double morph, double warp, int mip) {
   const double m = wrap01(safe(morph));
   double mpos = m * (double)kFrameCount;
   if (mpos >= (double)kFrameCount) mpos = 0.0;
@@ -259,34 +299,13 @@ static void mix_spectra(double morph, double warp, float* cs, float* sn) {
   if (wi1 > kWarpCount - 1) wi1 = kWarpCount - 1;
   const double wf = (wi0 == wi1) ? 0.0 : (wpos - (double)wi0);
 
-  const Cell& a = gSpec[mi0][wi0];
-  const Cell& b = gSpec[mi1][wi0];
-  const Cell& c = gSpec[mi0][wi1];
-  const Cell& d = gSpec[mi1][wi1];
-  const float omf = (float)(1.0 - mf);
-  const float owf = (float)(1.0 - wf);
-  const float fmf = (float)mf;
-  const float fwf = (float)wf;
-  for (int k = 0; k < kSpecH; k += 1) {
-    const float u0 = a.cs[k] * omf + b.cs[k] * fmf;
-    const float u1 = c.cs[k] * omf + d.cs[k] * fmf;
-    cs[k] = u0 * owf + u1 * fwf;
-    const float v0 = a.sn[k] * omf + b.sn[k] * fmf;
-    const float v1 = c.sn[k] * omf + d.sn[k] * fmf;
-    sn[k] = v0 * owf + v1 * fwf;
-  }
-}
-
-static double sum_mixed(double t, int Hmax, const float* cs, const float* sn) {
-  if (Hmax < 1) return 0.0;
-  double y = 0.0;
-  for (int n = 1; n <= Hmax; n += 1) {
-    double s = 0.0;
-    double c = 0.0;
-    dsp_sin_cos_turns((double)n * t, &s, &c);
-    y += (double)cs[n - 1] * s + (double)sn[n - 1] * c;
-  }
-  return y;
+  const double a = read_table(gMip[mi0][wi0][mip], t);
+  const double b = read_table(gMip[mi1][wi0][mip], t);
+  const double c = read_table(gMip[mi0][wi1][mip], t);
+  const double d = read_table(gMip[mi1][wi1][mip], t);
+  const double u0 = a + (b - a) * mf;
+  const double u1 = c + (d - c) * mf;
+  return u0 + (u1 - u0) * wf;
 }
 
 static State* slot(int handle) {
@@ -307,9 +326,6 @@ extern "C" int soemdsp_wavetable_2d_create() {
       s.lastReset = 0.0;
       s.lastOut = 0.0;
       s.lastPhase = 0.0;
-      s.lastMorph = 0.0;
-      s.lastWarp = 0.0;
-      s.mixReady = 0;
       s.active = true;
       return i + 1;
     }
@@ -383,14 +399,9 @@ extern "C" double soemdsp_wavetable_2d_sample(
   st.phase = wrap01(st.phase + freq / sr + inc);
 
   const double t = wrap01(st.phase + wrap01(safe(phaseOffset)));
-  if (!st.mixReady || st.lastMorph != morph || st.lastWarp != warp) {
-    mix_spectra(morph, warp, st.mixCs, st.mixSn);
-    st.lastMorph = morph;
-    st.lastWarp = warp;
-    st.mixReady = 1;
-  }
   const int Hmax = nyquist_harmonics(freq, inc, sr);
-  double y = sum_mixed(t, Hmax, st.mixCs, st.mixSn);
+  const int mip = pick_mip(Hmax);
+  double y = (mip < 0) ? 0.0 : read_morphed_mip(t, morph, warp, mip);
 
   double amp = safe(amplitude);
   if (amp < 0.0) amp = 0.0;
@@ -412,6 +423,6 @@ extern "C" double soemdsp_wavetable_2d_out(int handle) {
   return st ? st->lastOut : 0.0;
 }
 
-extern "C" int soemdsp_wavetable_2d_version() { return 3; }
+extern "C" int soemdsp_wavetable_2d_version() { return 4; }
 extern "C" const char* soemdsp_wavetable_2d_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_wavetable_2d_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

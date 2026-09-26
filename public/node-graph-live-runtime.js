@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=reverb-amp-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=xy-pad-live-outs-smooth-2";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3193,7 +3193,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=named-portal-1",
-  "./public/node-graph-efficient-product.js?v=named-portal-1",
+  "./public/node-graph-efficient-product.js?v=pd-inc-1",
   "./public/node-live-audio-worklet-core.js?v=speed-22050-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
@@ -3202,7 +3202,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-destroy.js?v=block-scope-1",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
-  "./public/node-live-audio-worklet-dsp-state.js?v=live-os-1",
+  "./public/node-live-audio-worklet-dsp-state.js?v=pd-inc-1",
   "./public/lib/polyphony-voices.js?v=gold-oct-1",
   "./public/lib/note-mask-128.js?v=scale-octaves-1",
   "./public/node-graph-keyboard-chord-memory.js?v=mask128-2",
@@ -3212,7 +3212,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=wt2d-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=reverb-amp-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=pd-inc-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=live-os-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",

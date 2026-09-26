@@ -147,13 +147,6 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "keyboard-1",
-      "destinationPort": "Chord Memory",
-      "sourceNode": "sequencer-1",
-      "sourcePort": "Play Keys",
-      "tracePoints": []
-    },
-    {
       "destinationNode": "pluckEnvelope3-2",
       "destinationPort": "Trigger",
       "sourceNode": "metamodule-1__voiceTrigger",
@@ -186,6 +179,13 @@
       "destinationPort": "Increment",
       "sourceNode": "metamodule-1__voiceFrequency",
       "sourcePort": "Increment",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "keyboard-1",
+      "destinationPort": "Chord Memory",
+      "sourceNode": "sequencer-1",
+      "sourcePort": "Play Keys",
       "tracePoints": []
     }
   ],
@@ -558,7 +558,15 @@
         "octave": 0,
         "semitones": 0,
         "cents": 0,
-        "frequency": 0
+        "frequency": 0,
+        "mx_hypersaw2_1__jitterDistance": 7.2804274163624605,
+        "mx_hypersaw2_1__jitterSpeed": 0.05922263870095852,
+        "mx_hypersaw2_1__waveform": 1,
+        "mx_hypersaw2_1__morph": 0.5,
+        "mx_hypersaw2_1__vibratoDistance": 0.32009038906022796,
+        "mx_hypersaw2_1__vibratoSpeed": 0.9787400493219194,
+        "mx_hypersaw2_1__vibratoPhaseVary": 0,
+        "mx_passiveFilter_2__sweep": -47.09021152531858
       },
       "type": "metamodule",
       "alias": "HYPERSAW",
@@ -711,7 +719,8 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1"
+      "ownerMetamoduleId": "metamodule-1",
+      "metamoduleDefaultStereoOut": true
     },
     {
       "gx": 14,
@@ -774,7 +783,8 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1"
+      "ownerMetamoduleId": "metamodule-1",
+      "metamoduleDefaultStereoOut": true
     },
     {
       "gx": -22,
@@ -1013,7 +1023,8 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1"
+      "ownerMetamoduleId": "metamodule-1",
+      "metamoduleVoicePortal": true
     },
     {
       "gx": -16,
@@ -1041,7 +1052,8 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1"
+      "ownerMetamoduleId": "metamodule-1",
+      "metamoduleVoicePortal": true
     },
     {
       "gx": -16,
@@ -1069,7 +1081,8 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1"
+      "ownerMetamoduleId": "metamodule-1",
+      "metamoduleVoicePortal": true
     },
     {
       "gx": -3,
@@ -1097,7 +1110,8 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1"
+      "ownerMetamoduleId": "metamodule-1",
+      "metamoduleVoicePortal": true
     },
     {
       "gx": -3,
@@ -2682,7 +2696,7 @@
       "arpKeysSettings": {
         "strokeColor": "#00ffbf",
         "strokeBrightness": 0.5,
-        "strokeThickness": 0.01,
+        "strokeThickness": 0.028657,
         "fontColor": "#00ffbf",
         "fontBrightness": 0.5,
         "cornerShape": "squircle",
@@ -3895,7 +3909,7 @@
       "type": "sequencer",
       "widthGu": 36,
       "sequencer": {
-        "loopTicks": 2048,
+        "loopTicks": 1024,
         "snap": 128,
         "keysVisible": 24,
         "scrollMidi": 0,
@@ -4173,7 +4187,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 48,
-    "zoom": 0.7541942255251732,
+    "zoom": 0.6012390190730015,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,

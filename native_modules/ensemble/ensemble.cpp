@@ -248,13 +248,6 @@ extern "C" void soemdsp_ensemble_sample(
   const double spd = maxd(0.0, safe(speedHz));
   const double jitter = spd * 0.25;
 
-  // Face X: center = 0 offset. Depth maps with a compressive curve so
-  // typical 3–8 ms already covers most of the plate; 20 ms still hits the edges.
-  double throw01 = 0.0;
-  if (dep > 0.0) {
-    const double u = mind(1.0, dep / 20.0);
-    throw01 = dsp_exp(0.28 * dsp_ln(u));
-  }
   double wetL = 0.0;
   double wetR = 0.0;
   for (int v = 0; v < n; v += 1) {
@@ -263,7 +256,7 @@ extern "C" void soemdsp_ensemble_sample(
     double y = 0.0;
     if (style == ModFbm) {
       voice.fbmTime += spd / sr;
-      y = fbmBipolar(voice.fbmTime + voiceOff * 8.0, voice.fbmSeed);
+      y = 0.5 * fbmBipolar(voice.fbmTime + voiceOff * 8.0, voice.fbmSeed);
     } else {
       y = runRandomWalk(voice, spd * (1.0 + voiceOff), jitter, sr);
     }
@@ -271,7 +264,13 @@ extern "C" void soemdsp_ensemble_sample(
     const double delayed = read_delay(voice, delaySamples);
     const double tFull = (n <= 1) ? 0.5 : ((double)v / (double)(n - 1));
     const double t = 0.5 + (tFull - 0.5) * spr;
-    st.lastDelay01[v] = clamp(0.5 + 0.5 * y * throw01, 0.0, 1.0);
+    // The FBM audio/modulation excursion is intentionally halved above. Keep
+    // that audio safety scaling out of the visual delay coordinate so FBM
+    // traces still use the full face width; Random Walk already spans [-1, 1].
+    const double visualY = style == ModFbm ? 2.0 * y : y;
+    st.lastDelay01[v] = (dep > 1.0e-12)
+      ? clamp(0.5 + 0.5 * visualY, 0.0, 1.0)
+      : 0.5;
     st.lastPan[v] = t;
     st.lastN = n;
     const double panL = dsp_cos(t * kPi * 0.5);
@@ -330,7 +329,7 @@ extern "C" double soemdsp_ensemble_voice_pan(int handle, int index) {
 }
 
 extern "C" int soemdsp_ensemble_version() {
-  return 8;
+  return 10;
 }
 
 extern "C" const char* soemdsp_ensemble_metadata_json() {

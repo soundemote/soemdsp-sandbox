@@ -1,3 +1,8 @@
+// createNodeGraphHelmholtzState: plan-runtime stub (DSP is native graph).
+function createNodeGraphHelmholtzState() {
+  return { nativeHandle: 0, nativeParamKey: "", nativeSampleRate: 0 };
+}
+
 // Pitch Detector face:
 //   • Frequency → Number Readout plate (Hz / 8ve MIDI # / M note name + cents)
 //   • Bottom row: unit toggle + Fid value (plain DOM, not digit layout)

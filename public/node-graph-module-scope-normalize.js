@@ -700,6 +700,7 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
       : Math.max(1, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 1024)))),
+    drawMode: String(source.drawMode || defaults.drawMode || "budget") === "length" ? "length" : "budget",
     // Shared packing toggles. Fall back to lineBurn defaults (Full Dot Economy ON
     // for c1091b42 fused CRT look). Explicit false stays off.
     // Packing toggles retired — always chord-pack continuous trails.
@@ -1565,6 +1566,7 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
       : Math.max(1, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 1024)))),
+    drawMode: String(source.drawMode || defaults.drawMode || "budget") === "length" ? "length" : "budget",
     // Full Dots / Dots only — shared phosphor packing (scope2d SSOT).
     // Accept bool true and common form/patch coercions (1 / "1" / "true" / "on").
     // Packing toggles retired — always chord-pack continuous trails.
@@ -1643,6 +1645,10 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
     skipDiscontinuities: nodeGraphDisplaySettingsToggleIsOn(
       source.skipDiscontinuities ?? defaults.skipDiscontinuities,
     ),
+    dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
+      ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
+      : Math.max(8, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 2048)))),
+    drawMode: String(source.drawMode || defaults.drawMode || "budget") === "length" ? "length" : "budget",
   };
 }
 
@@ -1737,6 +1743,10 @@ function normalizeNodeGraphScope1dTraceSettings(settings = {}) {
       sweepHz: defaults.sweepHz ?? sweepDefaults.sweepHz,
       sweepCycles: defaults.sweepCycles ?? sweepDefaults.sweepCycles,
     }),
+    dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
+      ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
+      : Math.max(8, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 2048)))),
+    drawMode: String(source.drawMode || defaults.drawMode || "budget") === "length" ? "length" : "budget",
   };
 }
 

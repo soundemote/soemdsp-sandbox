@@ -203,7 +203,7 @@ extern "C" void soemdsp_helmholtz_set_params(
   s->windowSize = w;
   s->analysisIntervalSamples = (int)(s->sampleRate / kAnalysisRateHz + 0.5);
   if (s->analysisIntervalSamples < 1) s->analysisIntervalSamples = 1;
-  s->threshold = clamp(threshold, 0.5, 0.999);
+  s->threshold = clamp(threshold, 0.0, 0.999);
 }
 
 extern "C" void soemdsp_helmholtz_process(int handle, double input) {

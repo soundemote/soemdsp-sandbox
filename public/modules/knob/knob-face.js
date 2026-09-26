@@ -442,60 +442,35 @@ function nodeGraphControllerFaceReadoutSettings(patchNode) {
     : {};
 }
 
-/** Fixed decimal places for the face readout (Display Settings → Num decimals). */
-function nodeGraphKnobFaceReadoutDecimals(patchNode) {
-  const settings = nodeGraphControllerFaceReadoutSettings(patchNode);
-  const n = Math.round(Number(settings?.decimals));
-  if (Number.isFinite(n)) {
-    return Math.max(0, Math.min(8, n));
-  }
-  return 2;
-}
-
-/** Total digit budget for the face number (Display Settings → Max digits). */
-function nodeGraphKnobFaceReadoutMaxDigits(patchNode) {
-  const settings = nodeGraphControllerFaceReadoutSettings(patchNode);
-  const n = Math.round(Number(settings?.maxDigits));
-  if (Number.isFinite(n)) {
-    return Math.max(0, Math.min(12, n));
-  }
-  return nodeGraphKnobFaceReadoutDecimals(patchNode);
-}
-
-/** Format live Bias for the face plate. Max digits is the accuracy ceiling. */
-function nodeGraphKnobFaceFormatReadout(value, patchNode, slider = null) {
+/**
+ * Format the face readout from the node's Bias parameter metadata.
+ * The body slider and both controller faces therefore share one formatter:
+ * maxDigits, kind, sign policy, trailing-zero policy, and choice labels all
+ * come directly from Bias instead of Display Settings.
+ */
+function nodeGraphKnobFaceFormatReadout(value, patchNode) {
   const number = Number(value);
   if (!Number.isFinite(number)) {
-    return "0";
+    return "";
   }
-  const decimals = nodeGraphKnobFaceReadoutDecimals(patchNode);
-  const maxDigits = nodeGraphKnobFaceReadoutMaxDigits(patchNode);
-  const showSign = typeof nodeSliderShouldShowSign === "function" && slider
-    ? nodeSliderShouldShowSign(slider)
-    : true;
-  const abs = Math.abs(number);
-  let absText;
-  if (typeof limit_decimals === "function") {
-    const plain = typeof nodeGraphNumberReadoutPlainDecimalSource === "function"
-      ? nodeGraphNumberReadoutPlainDecimalSource(abs)
-      : String(abs);
-    const minPlaces = Math.min(decimals, maxDigits);
-    const maxPlaces = Math.max(decimals, maxDigits);
-    const wholeDigits = String(Math.trunc(abs)).length;
-    const budget = Math.max(maxDigits, minPlaces + wholeDigits);
-    absText = limit_decimals(plain, budget, minPlaces, maxPlaces, false, false) || abs.toFixed(minPlaces);
-  } else {
-    absText = abs.toFixed(Math.min(decimals, maxDigits));
+  const metadata = nodeGraphKnobFaceOffsetMetadata(patchNode);
+  const choiceLabel = typeof nodeGraphPatchChoiceLabel === "function"
+    ? nodeGraphPatchChoiceLabel(metadata, number)
+    : null;
+  if (choiceLabel != null) {
+    return ` ${choiceLabel}`;
   }
-  if (showSign && number >= 0) {
-    return `+${absText}`;
+  if (typeof formatNodeSliderNumber === "function") {
+    return formatNodeSliderNumber(number, {
+      kind: metadata.kind,
+      maxDigits: metadata.maxDigits,
+      reserveSignSpace: true,
+      showSign: metadata.showSign,
+      removeTrailingZeros: metadata.removeTrailingZeros,
+    });
   }
-  if (number >= 0) {
-    return ` ${absText}`;
-  }
-  return `-${absText}`;
+  return String(number);
 }
-
 /**
  * Dial cell min side in px (unscaled). Kept for geometry probes only —
  * do not publish this onto the shared face root (module + layout-canvas

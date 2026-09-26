@@ -270,11 +270,20 @@ body:not(.node-boot-waiting) .node-boot-menu-links {
 }
 
 
+/* Bottom row: middle pair = full menu/rect column width; squares sit outside. */
 .node-boot-menu-bottom-row {
+  position: relative;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+/* Two half-rects together match one full rect above (100% of menu column). */
+.node-boot-menu-half-pair {
   display: flex;
   flex-direction: row;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
   gap: 1.5rem;
   width: 100%;
   box-sizing: border-box;
@@ -290,13 +299,24 @@ body:not(.node-boot-waiting) .node-boot-menu-links {
   letter-spacing: 0.02em;
 }
 
+/* Squares flank the half-pair outside the full-rect column edges. */
 .node-boot-menu-squares {
+  position: absolute;
+  top: 0;
+  bottom: 0;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
   gap: 1.5rem;
+}
+
+.node-boot-menu-squares-left {
+  right: calc(100% + 1.5rem);
+}
+
+.node-boot-menu-squares-right {
+  left: calc(100% + 1.5rem);
 }
 
 .node-boot-email-button,
@@ -340,6 +360,7 @@ body:not(.node-boot-waiting) .node-boot-menu-links {
 .node-boot-youtube-icon {
   width: 1.75rem;
   height: 1.75rem;
+  color: #FF0000;
 }
 
 .node-boot-loading-label {
@@ -1521,44 +1542,90 @@ button.scw-label:hover,
    absolute overlays of that cell (not flex siblings that re-split height).
    Author `display:flex` must NOT beat the HTML hidden attribute or both
    pages stay visible and slowly steal space from the waveform. */
-.node-phosphor-waveform-display {
+.node-sample-waveform-display {
   position: relative;
   display: block;
   min-height: 0;
   overflow: hidden;
-  --phosphor-hud-font: 600 11px/1 system-ui, sans-serif;
-  --phosphor-hud-font-sm: 600 10px/1 system-ui, sans-serif;
-  --phosphor-hud-color: hsla(140, 90%, 57%, 0.55);
-  --phosphor-hud-color-hot: hsla(140, 90%, 85%, 0.7);
-  --phosphor-hud-color-dim: hsla(140, 90%, 57%, 0.28);
+  --sample-waveform-hud-font: 600 11px/1 system-ui, sans-serif;
+  --sample-waveform-hud-font-sm: 600 10px/1 system-ui, sans-serif;
+  --sample-waveform-hud-color: hsla(140, 90%, 57%, 0.55);
+  --sample-waveform-hud-color-hot: hsla(140, 90%, 85%, 0.7);
+  --sample-waveform-hud-color-dim: hsla(140, 90%, 57%, 0.28);
   --node-music-player-pl-row-height: 1.35rem;
 }
-/* Wavetable 2D: main cycle above, morph-frame strip below. */
-.node-phosphor-waveform-display.has-wavetable-morph-strip {
+/* Music Player faces are often only a few hundred pixels wide. Keep the HUD
+   type inside its cells as the display shrinks, without changing the shared
+   sample/wavetable displays. */
+.node-sample-waveform-display[data-node-type="audioPlayer"] {
+  container-type: inline-size;
+  --sample-waveform-hud-font: 600 clamp(8px, 2.6cqi, 10px)/1 system-ui, sans-serif;
+  --sample-waveform-hud-font-sm: 600 clamp(7px, 2.3cqi, 9px)/1 system-ui, sans-serif;
+}
+/* Playlist rows get a small additional reduction so file names and numbers
+   have breathing room in the fixed row slots. */
+.node-sample-waveform-display[data-node-type="audioPlayer"] .node-music-player-pl-list .node-music-player-pl-row {
+  font-size: 0.9em;
+  /* Keep the reduced row text's descenders inside the flex slot. */
+  line-height: 1.2;
+}
+.node-sample-waveform-display[data-node-type="audioPlayer"] .node-music-player-pl-list.is-single .node-music-player-pl-row {
+  font-size: 1.1em;
+}
+/* Keep the now-playing label and face tabs clipped to their cells too. */
+.node-sample-waveform-display[data-node-type="audioPlayer"] .node-music-player-face-btn,
+.node-sample-waveform-display[data-node-type="audioPlayer"] .node-music-player-waveplay-song .node-music-player-pl-name,
+.node-sample-waveform-display[data-node-type="audioPlayer"] .node-music-player-page-btn {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Wavetable 2D: result / Morph preview (one cycle) / Warp boxes. */
+.node-sample-waveform-display.has-wavetable-morph-strip {
   display: flex;
   flex-direction: column;
 }
-.node-phosphor-waveform-display.has-wavetable-morph-strip .node-phosphor-waveform-canvas {
+.node-sample-waveform-display.has-wavetable-morph-strip .node-sample-waveform-canvas {
   flex: 1 1 auto;
   min-height: 0;
   position: relative;
   width: 100%;
   height: auto;
 }
-.node-wavetable-morph-strip {
+.node-wavetable-morph-preview {
+  flex: 0 0 56px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  border-top: 1px solid hsla(140, 40%, 40%, 0.25);
+  overflow: hidden;
+  cursor: ew-resize;
+}
+.node-wavetable-morph-preview-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.node-wavetable-warp-strip {
   flex: 0 0 auto;
   display: flex;
   flex-direction: row;
-  gap: 4px;
-  padding: 4px 6px 6px;
-  min-height: 36px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  gap: 3px;
+  padding: 3px 4px 4px;
   border-top: 1px solid hsla(140, 40%, 40%, 0.25);
-  overflow-x: auto;
+  overflow: hidden;
 }
-.node-wavetable-morph-slot {
-  flex: 0 0 48px;
-  width: 48px;
-  height: 32px;
+.node-wavetable-warp-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  height: 30px;
+  min-height: 0;
   padding: 0;
   margin: 0;
   border: 1px solid hsla(140, 50%, 45%, 0.35);
@@ -1567,11 +1634,11 @@ button.scw-label:hover,
   cursor: pointer;
   overflow: hidden;
 }
-.node-wavetable-morph-slot.is-selected {
+.node-wavetable-warp-slot.is-selected {
   border-color: hsla(140, 80%, 62%, 0.95);
   box-shadow: 0 0 0 1px hsla(140, 80%, 62%, 0.35);
 }
-.node-wavetable-morph-slot-canvas {
+.node-wavetable-warp-slot-canvas {
   display: block;
   width: 100%;
   height: 100%;
@@ -1579,14 +1646,14 @@ button.scw-label:hover,
 .node-music-player-face-bar {
   position: absolute;
   top: calc(
-    var(--phosphor-waveform-inset, 2px)
+    var(--sample-waveform-inset, 2px)
     + 1px
-    + var(--phosphor-waveform-label-inset, 0px)
+    + var(--sample-waveform-label-inset, 0px)
   );
   left: calc(
-    var(--phosphor-waveform-inset, 2px)
+    var(--sample-waveform-inset, 2px)
     + 1px
-    + var(--phosphor-waveform-label-inset, 0px)
+    + var(--sample-waveform-label-inset, 0px)
   );
   z-index: 6;
   display: flex;
@@ -1596,12 +1663,12 @@ button.scw-label:hover,
 .node-music-player-face-bar > * {
   pointer-events: auto;
 }
-.node-phosphor-waveform-display:not([data-music-player-face="wave"]) .node-music-player-face-bar {
+.node-sample-waveform-display:not([data-music-player-face="wave"]) .node-music-player-face-bar {
   display: none;
 }
 /* Zoom % is a drag control but must look like the canvas HUD ("No sample loaded"
    / speed label): 600 system-ui, phosphor line color, no button chrome. */
-.node-phosphor-waveform-zoom,
+.node-sample-waveform-zoom,
 .node-music-player-face-btn,
 .node-music-player-pl-row,
 .node-music-player-pl-ram {
@@ -1614,69 +1681,70 @@ button.scw-label:hover,
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  color: var(--phosphor-hud-color);
-  font: var(--phosphor-hud-font);
+  color: var(--sample-waveform-hud-color);
+  font: var(--sample-waveform-hud-font);
   letter-spacing: 0;
   text-transform: none;
   text-shadow: none;
   outline: none;
 }
-.node-phosphor-waveform-zoom {
+.node-sample-waveform-zoom {
   position: absolute;
   z-index: 6;
   top: calc(
-    var(--phosphor-waveform-inset, 2px)
+    var(--sample-waveform-inset, 2px)
     + 1px
-    + var(--phosphor-waveform-label-inset, 0px)
+    + var(--sample-waveform-label-inset, 0px)
   );
   right: calc(
-    var(--phosphor-waveform-inset, 2px)
+    var(--sample-waveform-inset, 2px)
     + 1px
-    + var(--phosphor-waveform-label-inset, 0px)
+    + var(--sample-waveform-label-inset, 0px)
   );
   left: auto;
   height: auto;
-  font: var(--phosphor-hud-font-sm);
-  color: var(--phosphor-hud-color);
+  font: var(--sample-waveform-hud-font-sm);
+  color: var(--sample-waveform-hud-color);
   cursor: ew-resize;
   user-select: none;
   -webkit-user-select: none;
 }
-.node-phosphor-waveform-zoom:hover,
-.node-phosphor-waveform-zoom:focus-visible,
-.node-phosphor-waveform-zoom.is-dragging {
+.node-sample-waveform-zoom:hover,
+.node-sample-waveform-zoom:focus-visible,
+.node-sample-waveform-zoom.is-dragging {
   outline: none;
   background: transparent;
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
 }
-.node-phosphor-waveform-display:not([data-music-player-face="wave"]):not([data-music-player-face="waveplay"]) .node-phosphor-waveform-zoom {
+.node-sample-waveform-display:not([data-music-player-face="wave"]):not([data-music-player-face="waveplay"]) .node-sample-waveform-zoom {
   display: none;
 }
 .node-music-player-face-btn {
   height: auto;
-  font: var(--phosphor-hud-font-sm);
-  color: var(--phosphor-hud-color);
+  font: var(--sample-waveform-hud-font-sm);
+  line-height: 1.2;
+  color: var(--sample-waveform-hud-color);
   cursor: var(--node-dot-cursor);
 }
 .node-music-player-face-btn:hover,
 .node-music-player-face-btn:focus-visible,
 .node-music-player-face-btn.is-active {
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
   background: transparent;
   outline: none;
 }
-/* Fill the display content box (inside --phosphor-waveform-inset padding).
+/* Fill the display content box (inside --sample-waveform-inset padding).
    Absolute children ignore parent padding, so match the inset explicitly —
    same box the canvas used when it was a flow child. */
 .node-music-player-page {
   position: absolute;
-  top: var(--phosphor-waveform-inset, 2px);
-  right: var(--phosphor-waveform-inset, 2px);
+  top: var(--sample-waveform-inset, 2px);
+  right: var(--sample-waveform-inset, 2px);
   bottom: calc(
-    var(--phosphor-waveform-inset, 2px)
+    var(--sample-waveform-inset, 2px)
     + var(--node-music-player-pl-row-height, 1.35rem)
   );
-  left: var(--phosphor-waveform-inset, 2px);
+  left: var(--sample-waveform-inset, 2px);
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -1686,16 +1754,16 @@ button.scw-label:hover,
 .node-music-player-page[hidden] {
   display: none !important;
 }
-.node-phosphor-waveform-display[data-music-player-face="wave"] .node-music-player-page-bar {
+.node-sample-waveform-display[data-music-player-face="wave"] .node-music-player-page-bar {
   display: none;
 }
-.node-phosphor-waveform-display[data-music-player-face="wave"] .node-music-player-page-wave {
-  bottom: var(--phosphor-waveform-inset, 2px);
+.node-sample-waveform-display[data-music-player-face="wave"] .node-music-player-page-wave {
+  bottom: var(--sample-waveform-inset, 2px);
 }
 .node-music-player-page-wave {
   z-index: 1;
 }
-.node-music-player-page-wave .node-phosphor-waveform-canvas {
+.node-music-player-page-wave .node-sample-waveform-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1720,8 +1788,8 @@ button.scw-label:hover,
   outline: none;
   box-shadow: none;
   background: #050805;
-  color: var(--phosphor-hud-color);
-  font: var(--phosphor-hud-font);
+  color: var(--sample-waveform-hud-color);
+  font: var(--sample-waveform-hud-font);
   overflow: hidden;
 }
 .node-music-player-page-waveplay {
@@ -1739,7 +1807,7 @@ button.scw-label:hover,
   min-height: 0;
   overflow: hidden;
 }
-.node-music-player-waveplay-wave .node-phosphor-waveform-canvas {
+.node-music-player-waveplay-wave .node-sample-waveform-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1762,11 +1830,11 @@ button.scw-label:hover,
   border: 0 !important;
   border-radius: 0;
   box-sizing: border-box;
-  box-shadow: inset 0 1px 0 var(--phosphor-hud-color-dim);
+  box-shadow: inset 0 1px 0 var(--sample-waveform-hud-color-dim);
   background: #050805;
-  color: var(--phosphor-hud-color);
-  font: var(--phosphor-hud-font);
-  line-height: 1;
+  color: var(--sample-waveform-hud-color);
+  font: var(--sample-waveform-hud-font);
+  line-height: 1.2;
   overflow: hidden;
 }
 .node-music-player-waveplay-song .node-music-player-pl-name {
@@ -1784,7 +1852,7 @@ button.scw-label:hover,
   background: transparent;
   color: inherit;
   font: inherit;
-  line-height: 1;
+  line-height: 1.2;
   text-align: left;
   cursor: var(--node-dot-cursor);
   overflow: hidden;
@@ -1793,7 +1861,7 @@ button.scw-label:hover,
 }
 .node-music-player-waveplay-song:hover,
 .node-music-player-waveplay-song:focus-visible {
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
   background: #050805;
   outline: none;
 }
@@ -1821,7 +1889,7 @@ button.scw-label:hover,
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  border-top: 1px solid var(--phosphor-hud-color-dim);
+  border-top: 1px solid var(--sample-waveform-hud-color-dim);
   background: #050805;
 }
 .node-music-player-page-btn {
@@ -1833,12 +1901,13 @@ button.scw-label:hover,
   margin: 0;
   padding: 0;
   border: 0 !important;
-  border-right: 1px solid var(--phosphor-hud-color-dim) !important;
+  border-right: 1px solid var(--sample-waveform-hud-color-dim) !important;
   border-radius: 0;
   background: transparent;
-  color: var(--phosphor-hud-color);
-  font: var(--phosphor-hud-font-sm);
-  line-height: 1;
+  color: var(--sample-waveform-hud-color);
+  font: var(--sample-waveform-hud-font-sm);
+  /* A unit line-height clips the lowercase p descender at small sizes. */
+  line-height: 1.2;
   outline: none;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1851,7 +1920,7 @@ button.scw-label:hover,
 .node-music-player-page-btn:hover,
 .node-music-player-page-btn:focus-visible,
 .node-music-player-page-btn.is-active {
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
   background: transparent;
   outline: none;
 }
@@ -1867,7 +1936,7 @@ button.scw-label:hover,
 .node-music-player-pl-transport-btn:hover,
 .node-music-player-pl-transport-btn:focus-visible,
 .node-music-player-pl-transport-btn.is-active {
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
   background: transparent;
   outline: none;
 }
@@ -1881,7 +1950,7 @@ button.scw-label:hover,
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  border-top: 1px solid var(--phosphor-hud-color-dim);
+  border-top: 1px solid var(--sample-waveform-hud-color-dim);
   background: #050805;
 }
 .node-music-player-pl-transport-btn {
@@ -1893,11 +1962,11 @@ button.scw-label:hover,
   margin: 0;
   padding: 0;
   border: 0 !important;
-  border-right: 1px solid var(--phosphor-hud-color-dim) !important;
+  border-right: 1px solid var(--sample-waveform-hud-color-dim) !important;
   border-radius: 0;
   background: transparent;
-  color: var(--phosphor-hud-color);
-  font: var(--phosphor-hud-font);
+  color: var(--sample-waveform-hud-color);
+  font: var(--sample-waveform-hud-font);
   line-height: 1;
   outline: none;
   cursor: var(--node-dot-cursor);
@@ -1908,7 +1977,7 @@ button.scw-label:hover,
 .node-music-player-pl-debug {
   display: none;
 }
-.node-phosphor-waveform-playlist-actions {
+.node-sample-waveform-playlist-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
@@ -1916,7 +1985,7 @@ button.scw-label:hover,
   padding: 0;
   margin: 0;
 }
-.node-phosphor-waveform-playlist-actions > button {
+.node-sample-waveform-playlist-actions > button {
   box-sizing: border-box;
   flex: 1 1 0;
   min-width: 0;
@@ -1964,12 +2033,12 @@ button.scw-label:hover,
 .node-music-player-pl-ram:hover,
 .node-music-player-pl-ram:focus-visible,
 .node-music-player-pl-ram[aria-pressed="true"] {
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
   background: transparent;
   outline: none;
 }
 .node-music-player-pl-ram.is-hog {
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
   background: transparent;
 }
 .node-music-player-page-playinfo .node-music-player-pl-ram-panel {
@@ -1987,8 +2056,8 @@ button.scw-label:hover,
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--phosphor-hud-color);
-  font: var(--phosphor-hud-font);
+  color: var(--sample-waveform-hud-color);
+  font: var(--sample-waveform-hud-font);
   overflow: hidden;
 }
 .node-music-player-pl-ram-panel[hidden] {
@@ -1999,18 +2068,18 @@ button.scw-label:hover,
   display: flex;
   align-items: center;
   gap: 6px;
-  font: var(--phosphor-hud-font-sm);
+  font: var(--sample-waveform-hud-font-sm);
   letter-spacing: 0;
   text-transform: none;
   opacity: 1;
-  color: var(--phosphor-hud-color);
+  color: var(--sample-waveform-hud-color);
 }
 .node-music-player-pl-ram-body {
   min-height: 0;
   overflow: auto;
-  font: var(--phosphor-hud-font-sm);
+  font: var(--sample-waveform-hud-font-sm);
   scrollbar-width: thin;
-  scrollbar-color: var(--phosphor-hud-color-dim) transparent;
+  scrollbar-color: var(--sample-waveform-hud-color-dim) transparent;
 }
 .node-music-player-pl-ram-body::-webkit-scrollbar {
   width: 6px;
@@ -2019,7 +2088,7 @@ button.scw-label:hover,
   background: transparent;
 }
 .node-music-player-pl-ram-body::-webkit-scrollbar-thumb {
-  background: var(--phosphor-hud-color-dim);
+  background: var(--sample-waveform-hud-color-dim);
   border-radius: 0;
 }
 .node-music-player-pl-ram-summary {
@@ -2027,7 +2096,7 @@ button.scw-label:hover,
   opacity: 1;
 }
 .node-music-player-pl-ram-summary .is-hog {
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
   font-weight: 600;
 }
 .node-music-player-pl-ram-table {
@@ -2038,7 +2107,7 @@ button.scw-label:hover,
 .node-music-player-pl-ram-table th,
 .node-music-player-pl-ram-table td {
   padding: 2px 4px;
-  border-bottom: 1px solid var(--phosphor-hud-color-dim);
+  border-bottom: 1px solid var(--sample-waveform-hud-color-dim);
   text-align: left;
   white-space: nowrap;
 }
@@ -2053,13 +2122,13 @@ button.scw-label:hover,
 }
 .node-music-player-pl-ram-table tr[data-active="true"] {
   background: transparent;
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
 }
 .node-music-player-pl-ram-table tr[data-playing="true"] {
-  background: var(--phosphor-hud-color-dim);
+  background: var(--sample-waveform-hud-color-dim);
 }
 .node-music-player-pl-ram-table tr.is-heavy {
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
 }
 .node-music-player-pl-ram-empty {
   opacity: 0.6;
@@ -2117,8 +2186,8 @@ button.scw-label:hover,
   align-items: center;
   justify-content: center;
   padding: 8px;
-  color: var(--phosphor-hud-color);
-  font: var(--phosphor-hud-font);
+  color: var(--sample-waveform-hud-color);
+  font: var(--sample-waveform-hud-font);
   text-align: center;
 }
 .node-music-player-pl-row.is-empty {
@@ -2127,26 +2196,26 @@ button.scw-label:hover,
   pointer-events: none;
 }
 .node-music-player-pl-row.is-back {
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
 }
 .node-music-player-pl-row:hover,
 .node-music-player-pl-row:focus-visible {
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
   border: 0 !important;
   outline: none;
   box-shadow: none;
 }
 .node-music-player-pl-row[data-active="true"] {
   background: transparent;
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
 }
 .node-music-player-pl-row[data-playing="true"] {
-  background: var(--phosphor-hud-color-dim);
+  background: var(--sample-waveform-hud-color-dim);
 }
 .node-music-player-pl-row.is-play-next,
 .node-music-player-pl-row[data-queue="next"] {
   background: hsla(140, 90%, 57%, 0.14);
-  color: var(--phosphor-hud-color-hot);
+  color: var(--sample-waveform-hud-color-hot);
 }
 .node-music-player-pl-row.is-played .node-music-player-pl-name,
 .node-music-player-pl-row[data-queue="played"] .node-music-player-pl-name {
@@ -6184,12 +6253,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   display: none;
 }
 
-.node-phosphor-waveform-settings-window {
+.node-sample-waveform-settings-window {
   display: none !important;
 }
 
 .node-settings-range-row,
-.node-phosphor-waveform-settings-row,
+.node-sample-waveform-settings-row,
 .node-led-settings-row {
   display: flex;
   align-items: center;
@@ -6199,7 +6268,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
 }
 
 .node-settings-range-row > span:first-child,
-.node-phosphor-waveform-settings-row > span:first-child,
+.node-sample-waveform-settings-row > span:first-child,
 .node-led-settings-row > span:first-child {
   flex: 1 1 auto;
   color: var(--muted);
@@ -6207,8 +6276,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
 
 /* Waveform settings hosts the Music Player path box and the sample-module
    📂 loader. Keep path box + folder button on one shared control height. */
-.node-phosphor-waveform-loader-slot,
-.node-phosphor-waveform-phase-slot {
+.node-sample-waveform-loader-slot,
+.node-sample-waveform-phase-slot {
   --node-sample-control-height: var(--ds-row-h, var(--metadata-control-row-height, 22px));
   --node-sample-control-line: rgba(0, 2, 4, 0.82);
   flex: 1 1 auto;
@@ -6218,20 +6287,20 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   align-items: center;
 }
 
-.node-phosphor-waveform-load-row {
+.node-sample-waveform-load-row {
   align-items: center;
   min-height: var(--ds-row-h, var(--metadata-control-row-height, 22px));
   padding-top: 0;
   padding-bottom: 0;
 }
 
-.node-phosphor-waveform-loader-slot .node-sample-path-loader {
+.node-sample-waveform-loader-slot .node-sample-path-loader {
   width: 100%;
   height: var(--node-sample-control-height);
   align-self: center;
 }
 
-.node-phosphor-waveform-settings-row.node-phosphor-waveform-playlist-actions {
+.node-sample-waveform-settings-row.node-sample-waveform-playlist-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
@@ -6240,11 +6309,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   margin: 0;
 }
 
-.node-phosphor-waveform-settings-row.node-phosphor-waveform-load-actions {
+.node-sample-waveform-settings-row.node-sample-waveform-load-actions {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.node-phosphor-waveform-settings-row.node-phosphor-waveform-playlist-actions > button {
+.node-sample-waveform-settings-row.node-sample-waveform-playlist-actions > button {
   box-sizing: border-box;
   min-width: 0;
   width: 100%;
@@ -6254,23 +6323,23 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   border-radius: 0;
 }
 
-.node-phosphor-waveform-history-reset {
+.node-sample-waveform-history-reset {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.node-phosphor-waveform-tune-row {
+.node-sample-waveform-tune-row {
   display: grid;
   grid-template-columns: minmax(7rem, 0.38fr) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
 }
 
-.node-phosphor-waveform-tune-row > span:first-child {
+.node-sample-waveform-tune-row > span:first-child {
   flex: 0 0 auto;
   min-width: 0;
 }
 
-.node-phosphor-waveform-control-widgets {
+.node-sample-waveform-control-widgets {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -6278,13 +6347,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   width: 100%;
 }
 
-.node-phosphor-waveform-control-widgets input[type="range"] {
+.node-sample-waveform-control-widgets input[type="range"] {
   flex: 1 1 auto;
   min-width: 0;
   width: auto;
 }
 
-.node-phosphor-waveform-control-widgets input[type="number"] {
+.node-sample-waveform-control-widgets input[type="number"] {
   flex: 0 0 auto;
   width: auto;
   min-width: 2.25em;
@@ -6293,15 +6362,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   text-align: left;
 }
 
-.node-phosphor-waveform-formats-row {
+.node-sample-waveform-formats-row {
   align-items: stretch;
 }
 
-.node-phosphor-waveform-formats-row .node-phosphor-waveform-format-checks {
+.node-sample-waveform-formats-row .node-sample-waveform-format-checks {
   flex: 1 1 auto;
 }
 
-.node-phosphor-waveform-format-checks {
+.node-sample-waveform-format-checks {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2px 10px;
@@ -6310,7 +6379,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   min-width: 0;
 }
 
-.node-phosphor-waveform-format-check {
+.node-sample-waveform-format-check {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -6319,13 +6388,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   letter-spacing: 0.04em;
 }
 
-.node-phosphor-waveform-loader-slot .node-sample-path-loader {
+.node-sample-waveform-loader-slot .node-sample-path-loader {
   width: 100%;
   min-width: 0;
 }
 
-.node-phosphor-waveform-loader-slot .node-sample-path-button,
-.node-phosphor-waveform-phase-slot .node-sample-copy-phase-button {
+.node-sample-waveform-loader-slot .node-sample-path-button,
+.node-sample-waveform-phase-slot .node-sample-copy-phase-button {
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -6333,30 +6402,30 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   font-size: calc(var(--node-sample-control-height) * 0.82);
 }
 
-.node-phosphor-waveform-phase-row > span:first-child {
+.node-sample-waveform-phase-row > span:first-child {
   flex: 0 0 auto;
 }
 
 /* Read-only until double-clicked (time window + px fields). */
-#nodePhosphorWaveformTimeWindowInput[readonly],
-#nodePhosphorWaveformLineWidthInput[readonly],
-#nodePhosphorWaveformTraceWidthInput[readonly],
-#nodePhosphorWaveformPlaylistVisibleCountInput[readonly] {
+#nodeSampleWaveformTimeWindowInput[readonly],
+#nodeSampleWaveformLineWidthInput[readonly],
+#nodeSampleWaveformTraceWidthInput[readonly],
+#nodeSampleWaveformPlaylistVisibleCountInput[readonly] {
   cursor: var(--node-dot-cursor);
   user-select: none;
   caret-color: transparent;
 }
 
-#nodePhosphorWaveformTimeWindowInput.editing,
-#nodePhosphorWaveformLineWidthInput.editing,
-#nodePhosphorWaveformTraceWidthInput.editing,
-#nodePhosphorWaveformPlaylistVisibleCountInput.editing {
+#nodeSampleWaveformTimeWindowInput.editing,
+#nodeSampleWaveformLineWidthInput.editing,
+#nodeSampleWaveformTraceWidthInput.editing,
+#nodeSampleWaveformPlaylistVisibleCountInput.editing {
   border-color: rgba(127, 199, 217, 0.52);
   cursor: text;
   caret-color: currentColor;
 }
 
-.node-phosphor-waveform-settings-row input[type="number"],
+.node-sample-waveform-settings-row input[type="number"],
 .node-led-settings-row input[type="number"] {
   width: 56px;
   padding: 3px 4px;
@@ -6373,8 +6442,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   appearance: textfield;
 }
 
-.node-phosphor-waveform-settings-row input[type="number"]:focus,
-.node-phosphor-waveform-settings-row input[type="number"]:focus-visible,
+.node-sample-waveform-settings-row input[type="number"]:focus,
+.node-sample-waveform-settings-row input[type="number"]:focus-visible,
 .node-led-settings-row input[type="number"]:focus,
 .node-led-settings-row input[type="number"]:focus-visible {
   outline: none;
@@ -6382,15 +6451,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   border-color: rgba(127, 199, 217, 0.52);
 }
 
-.node-phosphor-waveform-settings-row input[type="number"]::-webkit-outer-spin-button,
-.node-phosphor-waveform-settings-row input[type="number"]::-webkit-inner-spin-button,
+.node-sample-waveform-settings-row input[type="number"]::-webkit-outer-spin-button,
+.node-sample-waveform-settings-row input[type="number"]::-webkit-inner-spin-button,
 .node-led-settings-row input[type="number"]::-webkit-outer-spin-button,
 .node-led-settings-row input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-.node-phosphor-waveform-settings-row input[data-phosphor-number-drag] {
+.node-sample-waveform-settings-row input[data-phosphor-number-drag] {
   width: auto;
   min-width: 2.25em;
   padding: 3px 4px 3px 2px;
@@ -6399,20 +6468,20 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   user-select: none;
   -webkit-user-select: none;
 }
-.node-phosphor-waveform-settings-row input[data-phosphor-number-drag].editing {
+.node-sample-waveform-settings-row input[data-phosphor-number-drag].editing {
   cursor: text;
   user-select: text;
   -webkit-user-select: text;
 }
-.node-phosphor-waveform-settings-row input[type="number"].value-dragging,
+.node-sample-waveform-settings-row input[type="number"].value-dragging,
 .node-led-settings-row input[type="number"].value-dragging {
   border-color: rgba(127, 199, 217, 0.42);
   background: rgba(127, 199, 217, 0.08);
   cursor: var(--node-dot-cursor);
 }
 
-.node-phosphor-waveform-control-widgets > button,
-.node-phosphor-waveform-settings-row button,
+.node-sample-waveform-control-widgets > button,
+.node-sample-waveform-settings-row button,
 .node-led-settings-row button {
   padding: 3px 8px;
   border: 1px solid var(--line);
@@ -6422,7 +6491,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   font: inherit;
 }
 
-.node-phosphor-waveform-settings-row button.active,
+.node-sample-waveform-settings-row button.active,
 .node-led-settings-row button.active {
   border-color: rgba(90, 255, 150, 0.62);
   background: rgba(90, 255, 150, 0.16);
@@ -6441,7 +6510,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
 }
 
 .node-settings-range-row input[type="range"],
-.node-phosphor-waveform-settings-row input[type="range"],
+.node-sample-waveform-settings-row input[type="range"],
 .node-led-settings-row input[type="range"] {
   flex: 1 1 auto;
   min-width: 0;
@@ -6449,7 +6518,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   cursor: var(--node-slider-dot-cursor);
 }
 
-.node-phosphor-waveform-settings-row select,
+.node-sample-waveform-settings-row select,
 .node-led-settings-row select {
   flex: 1 1 auto;
   min-width: 0;
@@ -6542,8 +6611,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   border-top: 0;
 }
 
-.node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row.node-phosphor-waveform-tune-row,
-.node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel label.node-led-settings-row.node-phosphor-waveform-tune-row {
+.node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row.node-sample-waveform-tune-row,
+.node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel label.node-led-settings-row.node-sample-waveform-tune-row {
   display: grid !important;
   grid-template-columns: minmax(6.25rem, 0.34fr) minmax(0, 1fr) !important;
   grid-template-rows: auto !important;
@@ -6597,8 +6666,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
  * Square / Squircle: content-sized only (padding 3px 8px, font:inherit).
  * Defeat metadata button min-height:30px / padding:0 / font-size:0.72rem.
  */
-.node-trace-display-settings-popover .node-led-display-settings-panel .node-phosphor-waveform-control-widgets > button,
-.node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel .node-phosphor-waveform-control-widgets > button,
+.node-trace-display-settings-popover .node-led-display-settings-panel .node-sample-waveform-control-widgets > button,
+.node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel .node-sample-waveform-control-widgets > button,
 .node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row > button,
 .node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel .node-led-settings-row > button {
   box-sizing: border-box;
@@ -6630,8 +6699,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   color: rgba(180, 255, 210, 0.95);
 }
 
-.node-trace-display-settings-popover .node-phosphor-waveform-load-row,
-.node-trace-display-settings-popover .metadata-popover-grid .node-phosphor-waveform-load-row {
+.node-trace-display-settings-popover .node-sample-waveform-load-row,
+.node-trace-display-settings-popover .metadata-popover-grid .node-sample-waveform-load-row {
   display: flex !important;
   align-items: center !important;
   gap: 0;
@@ -6640,8 +6709,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   min-height: var(--ds-row-h, var(--metadata-control-row-height, 22px));
 }
 
-.node-trace-display-settings-popover .node-phosphor-waveform-playlist-actions,
-.node-trace-display-settings-popover .metadata-popover-grid .node-phosphor-waveform-playlist-actions {
+.node-trace-display-settings-popover .node-sample-waveform-playlist-actions,
+.node-trace-display-settings-popover .metadata-popover-grid .node-sample-waveform-playlist-actions {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
@@ -6650,18 +6719,18 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   margin: 0;
 }
 
-.node-trace-display-settings-popover .node-phosphor-waveform-load-actions,
-.node-trace-display-settings-popover .metadata-popover-grid .node-phosphor-waveform-load-actions {
+.node-trace-display-settings-popover .node-sample-waveform-load-actions,
+.node-trace-display-settings-popover .metadata-popover-grid .node-sample-waveform-load-actions {
   grid-template-columns: minmax(0, 1fr) !important;
 }
 
-.node-trace-display-settings-popover .node-phosphor-waveform-history-reset,
-.node-trace-display-settings-popover .metadata-popover-grid .node-phosphor-waveform-history-reset {
+.node-trace-display-settings-popover .node-sample-waveform-history-reset,
+.node-trace-display-settings-popover .metadata-popover-grid .node-sample-waveform-history-reset {
   grid-template-columns: minmax(0, 1fr) !important;
 }
 
-.node-trace-display-settings-popover .node-phosphor-waveform-playlist-actions > button,
-.node-trace-display-settings-popover .metadata-popover-grid .node-phosphor-waveform-playlist-actions > button {
+.node-trace-display-settings-popover .node-sample-waveform-playlist-actions > button,
+.node-trace-display-settings-popover .metadata-popover-grid .node-sample-waveform-playlist-actions > button {
   flex: 1 1 0 !important;
   width: 100% !important;
   max-width: none !important;
@@ -6673,14 +6742,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   border-radius: 0 !important;
 }
 
-.node-trace-display-settings-popover .node-phosphor-waveform-loader-slot,
-.node-trace-display-settings-popover .node-phosphor-waveform-loader-slot .node-sample-path-loader,
-.node-trace-display-settings-popover .node-phosphor-waveform-loader-slot .node-sample-path-input {
+.node-trace-display-settings-popover .node-sample-waveform-loader-slot,
+.node-trace-display-settings-popover .node-sample-waveform-loader-slot .node-sample-path-loader,
+.node-trace-display-settings-popover .node-sample-waveform-loader-slot .node-sample-path-input {
   min-width: 0 !important;
   min-inline-size: 0 !important;
 }
 
-.node-trace-display-settings-popover .node-phosphor-waveform-loader-slot .node-sample-path-button {
+.node-trace-display-settings-popover .node-sample-waveform-loader-slot .node-sample-path-button {
   flex: 0 0 auto !important;
   width: var(--node-sample-control-height) !important;
   min-width: var(--node-sample-control-height) !important;
@@ -12903,7 +12972,7 @@ body.node-screen-solo-active .node-screen-solo-face .node-music-player-waveplay-
 
 /* Music Player: pages are inset for the module dock. In F they must fill
    the stage (minus the one-row dock) or the wave sits in a short band. */
-body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-display .node-music-player-page {
+body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display .node-music-player-page {
   top: 0 !important;
   right: 0 !important;
   left: 0 !important;
@@ -13098,7 +13167,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .node-module-graph-display,
 .node-module-filter-curve-display,
 .node-filter-curve-display,
-.node-phosphor-waveform-display,
+.node-sample-waveform-display,
 .node-phosphillator-draw-display,
 .node-wall-room-display {
   pointer-events: auto;
@@ -13222,7 +13291,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .dsp-node.bypassed .node-pitch-detector-face,
 .dsp-node.bypassed .node-filter-curve-display,
 .dsp-node.bypassed .node-envelope-curve-display,
-.dsp-node.bypassed .node-phosphor-waveform-display,
+.dsp-node.bypassed .node-sample-waveform-display,
 .dsp-node.bypassed .node-phosphillator-draw-display,
 .dsp-node.bypassed .node-pulse-curve-display,
 .dsp-node.bypassed .node-wall-room-display,
@@ -13400,7 +13469,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
    writes the real plate insets (avoid rounding the screen's own box). */
 .dsp-node .node-module-scope-window,
 .dsp-node .node-module-face:not(.node-text-box-body):not(.node-filter-curve-display),
-.dsp-node .node-phosphor-waveform-display,
+.dsp-node .node-sample-waveform-display,
 
 /* Graph face wrapper: SVG plot + compact numeric strip underneath. */
 .node-module-graph-face {
@@ -14945,7 +15014,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 
 /* The waveform reads as its own sleek panel inset in the module: its own 1px
    phosphor-green border, then a pure-black gap out to the module edge.
-   --phosphor-waveform-inset is written per node from the draw path
+   --sample-waveform-inset is written per node from the draw path
    (applyNodeGraphPhosphorWaveformPanelShape) so the "Edge Spacing" setting
    resolves against the live cell size and is quantized to whole pixels.
    The gap used to be a box-shadow ring on a margin-inset panel, which meant
@@ -14956,14 +15025,14 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
    padding, and the border/radius/corner-shape live on the canvas inside it.
    Same measurements (inset on each side + a 1px border), but the revealed
    background is black at every corner shape. */
-.node-phosphor-waveform-display {
-  --phosphor-waveform-inset: 0px;
-  --phosphor-waveform-label-inset: 0px;
-  --phosphor-waveform-radius: 0px;
-  --phosphor-waveform-corner-shape: round;
-  /* Written per node from applyNodeGraphPhosphorWaveformPanelShape, tracking
+.node-sample-waveform-display {
+  --sample-waveform-inset: 0px;
+  --sample-waveform-label-inset: 0px;
+  --sample-waveform-radius: 0px;
+  --sample-waveform-corner-shape: round;
+  /* Written per node from applyNodeGraphSampleWaveformPanelShape, tracking
      the BG Hue setting. The fallback is the hue-140 default. */
-  --phosphor-waveform-border-color: hsl(140 100% 68% / 0.16);
+  --sample-waveform-border-color: hsl(140 100% 68% / 0.16);
   position: relative;
   /* Above .dsp-node::after plate mask (same contract as .node-module-scope-window). */
   z-index: 1;
@@ -14972,25 +15041,25 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   min-width: 0;
   height: 100%;
   min-height: 0;
-  padding: var(--phosphor-waveform-inset);
+  padding: var(--sample-waveform-inset);
   overflow: hidden;
   background: #000;
 }
 
-.node-phosphor-waveform-canvas {
+.node-sample-waveform-canvas {
   display: block;
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  border: 1px solid var(--phosphor-waveform-border-color);
-  border-radius: var(--phosphor-waveform-radius);
-  corner-shape: var(--phosphor-waveform-corner-shape);
+  border: 1px solid var(--sample-waveform-border-color);
+  border-radius: var(--sample-waveform-radius);
+  corner-shape: var(--sample-waveform-corner-shape);
   background: #000;
   cursor: var(--node-dot-cursor);
   touch-action: none;
 }
 
-.node-phosphor-waveform-canvas.dragging {
+.node-sample-waveform-canvas.dragging {
   cursor: var(--node-dot-cursor);
 }
 
@@ -15022,7 +15091,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
  * fixed GPU buffer, CSS pixelate on zoom. Asciiscope Sharp keeps auto inline.
  */
 .node-graph-workspace.pixelated-canvas-zoom .node-filter-curve-canvas,
-.node-graph-workspace.pixelated-canvas-zoom .node-phosphor-waveform-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-sample-waveform-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphillator-draw-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-xy-pad-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas,
@@ -15950,8 +16019,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .node-header-timing-widgets {
   box-sizing: border-box;
   display: grid;
-  /* Beats | Unit | Patch name (leftover) | Speed | Smooth | Start | End */
-  grid-template-columns: auto auto minmax(10rem, 1fr) auto auto auto auto;
+  /* Tap | BPM | Beats | Unit | FPS | Speed | Patch title | Smooth Time (+ Start/End moved out) */
+  /* Patch title takes the former Speed Limit column and a bit more for readable names. */
+  grid-template-columns: minmax(0, 0.74fr) repeat(5, minmax(0, 1fr)) minmax(10rem, 2fr) minmax(0, 1fr);
   min-width: 0;
   width: 100%;
   height: 100%;
@@ -16071,9 +16141,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 
 .node-patch-timing-controls {
   display: inline-flex;
-  flex: 10 1 0;
+  flex: 10 1 46%;
   align-items: stretch;
-  min-width: 0;
+  min-width: min(620px, 100%);
   min-height: 0;
   padding: 0;
 }

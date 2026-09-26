@@ -196,11 +196,6 @@ extern "C" void soemdsp_chorus_sample(
   const double ph = safe(phase);
   const double rf = safe(randomFreq);
   const double ra = clamp(safe(randomAmp), 0.0, 1.0);
-  double throw01 = 0.0;
-  if (dep > 0.0) {
-    const double u = mind(1.0, dep / 20.0);
-    throw01 = dsp_exp(0.28 * dsp_ln(u));
-  }
 
   for (int v = 0; v < n; v += 1) {
     Voice& voice = st.voices[v];
@@ -229,7 +224,9 @@ extern "C" void soemdsp_chorus_sample(
 
     double delaySamples = (dly + y * dep) * 0.001 * sr;
     const double delayed = read_delay(voice, delaySamples);
-    st.lastDelay01[v] = clamp(0.5 + 0.5 * y * throw01, 0.0, 1.0);
+    st.lastDelay01[v] = (dep > 1.0e-12)
+      ? clamp(0.5 + 0.5 * y, 0.0, 1.0)
+      : 0.5;
     st.lastPan[v] = t;
     st.lastN = n;
     const double panL = dsp_cos(t * kPi * 0.5);
@@ -289,7 +286,7 @@ extern "C" double soemdsp_chorus_voice_pan(int handle, int index) {
 }
 
 extern "C" int soemdsp_chorus_version() {
-  return 7;
+  return 8;
 }
 
 extern "C" const char* soemdsp_chorus_metadata_json() {

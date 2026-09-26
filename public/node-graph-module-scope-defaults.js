@@ -193,6 +193,8 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
+  // budget = solid line until the dots run out. length = dots across the full path.
+  drawMode: "budget",
   fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
   // false = pack stamps along chords between samples (continuous CRT line).
   dotsOnly: false,
@@ -230,6 +232,8 @@ const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
   // 0 = 1×1 pixel … 1 layout×dpr … 4 AA.
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
+  // budget = solid line until the dots run out. length = dots across the full path.
+  drawMode: "budget",
   fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
   sourceSync: false,
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
@@ -529,6 +533,8 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
+  // budget = solid line until the dots run out. length = dots across the full path.
+  drawMode: "budget",
   fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
   dotsOnly: false,
   sourceSync: false,
@@ -604,6 +610,7 @@ const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
   scale: nodeGraphScopePhosphorLookDefaults.scale,
   skipDiscontinuities: false,
   dotBudget: 2048,
+  drawMode: "budget",
 });
 
 /** Optional per-type 2D Trace defaults. */
@@ -654,6 +661,7 @@ const nodeGraphScope1dTraceSettingsDefaults = Object.freeze({
   sweepHz: 4,
   sweepCycles: 4,
   dotBudget: 2048,
+  drawMode: "budget",
 });
 
 

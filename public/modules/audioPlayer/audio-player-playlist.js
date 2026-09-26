@@ -1,5 +1,5 @@
 // Music Player faces — wave / waveplay / playlist / playinfo / XY / LR.
-// waveplay is the wave page plus one playlist-row song name (opens playlist).
+// waveplay is the wave page plus one playlist-row song name (replays current track).
 // playinfo is the decoded-buffer table. List UI + phase scrubber.
 
 function nodeGraphAudioPlayerPlaylistNormalizeCardList(raw, startIndex = 0) {
@@ -1194,7 +1194,7 @@ function nodeGraphAudioPlayerPlaylistBindWaveplayDblClick(page, nodeId) {
     event.stopPropagation();
     const id = String(nodeId || page.closest?.("[data-node]")?.dataset?.node || "");
     if (id) {
-      nodeGraphAudioPlayerPlaylistSetFace(id, "wave");
+      nodeGraphAudioPlayerPlaylistReplayCurrent(id);
     }
   });
 }
@@ -1212,14 +1212,14 @@ function nodeGraphAudioPlayerPlaylistCreateNowSong(nodeId) {
   name.className = "node-music-player-pl-name";
   name.dataset.musicPlayerNowSongName = "true";
   name.textContent = "No sample loaded";
-  name.title = "Open playlist";
-  name.setAttribute("aria-label", "Open playlist");
+  name.title = "Play current track";
+  name.setAttribute("aria-label", "Play current track");
   name.addEventListener("dblclick", (event) => {
     event.preventDefault();
     event.stopPropagation();
     const id = String(nodeId || row.closest?.("[data-node]")?.dataset?.node || "");
     if (id) {
-      nodeGraphAudioPlayerPlaylistSetFace(id, "wave");
+      nodeGraphAudioPlayerPlaylistReplayCurrent(id);
     }
   });
   name.addEventListener("click", (event) => {
@@ -1525,6 +1525,19 @@ function nodeGraphAudioPlayerPlaylistPlayingFrom(nodeId, pl) {
     ? pl.items.findIndex((item) => item.sampleId === sid)
     : pl.index;
   return playing >= 0 ? playing : pl.index;
+}
+
+/* Replaying a file from any face must retain the selected loop/play mode. */
+function nodeGraphAudioPlayerPlaylistReplayCurrent(nodeId) {
+  const pl = nodeGraphAudioPlayerPlaylistEnsureQueues(nodeGraphAudioPlayerPlaylistForNode(nodeId));
+  const index = nodeGraphAudioPlayerPlaylistPlayingFrom(nodeId, pl);
+  const result = nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, index, { autoplay: true });
+  if (result && typeof result.catch === "function") {
+    result.catch((error) => {
+      nodeGraphAudioPlayerLog("FAIL", String(error?.message || error || "play failed"), { nodeId });
+    });
+  }
+  return result;
 }
 
 function nodeGraphAudioPlayerPlaylistPlayNext(nodeId, options = {}) {
@@ -2484,11 +2497,8 @@ function nodeGraphAudioPlayerPlaylistActivateRow(nodeId, index, { play = false }
   if (!item) {
     return;
   }
-  const same = pl.playing && nodeGraphAudioPlayerPlaylistItemKey(item) === nodeGraphAudioPlayerPlaylistItemKey(pl.playing);
-  if (same && nodeGraphAudioPlayerPlaylistIsAudible(nodeId)) {
-    nodeGraphAudioPlayerPlaylistSetFace(nodeId, "waveplay");
-    return;
-  }
+  // Double-click means play now. PlayIndex applies the existing loop mode
+  // (off / one / all) and must not navigate away from the playlist face.
   nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, index, { autoplay: true });
 }
 

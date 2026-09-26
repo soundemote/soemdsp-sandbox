@@ -1,10 +1,11 @@
 // Shared XY pad signal math (UI + offline + worklet). Pure; no DOM.
 //
-// Audio / phosphor path (per axis):
+// Audio / phosphor path (per axis) — live path is native process_xy_pad:
 //   sig = bipolar(Phase) + Input CV
-//   → Filter Order: Papoulis then lattice, or lattice then Papoulis
-//   → Out (and the same sample feeds the phosphor drawer)
-// Papoulis is native wasm only (no JS filter).
+//   → Papoulis (cutoff from Smooth/papoulis via log 60→2 Hz; 0 = dry)
+//   → Filter Order: Smooth→Lattice or Lattice→Smooth
+//   → Out (scope/face phosphor reads these post-DSP outs, not raw pad coords)
+// Papoulis is native wasm only (no JS filter). UI Smoothing maps into that cutoff.
 
 /**
  * Center-based quantize level from the 0..1 amount.
@@ -58,7 +59,13 @@ function nodeGraphXyPadDspBipolarToUnit(bipolar) {
   return Math.max(0, Math.min(1, (b + 1) * 0.5));
 }
 
-/** 0 = off; (0..1] maps 60 Hz (light) → 2 Hz (heavy). */
+/**
+ * Smooth amount→Papoulis cutoff Hz (parity with xy_pad_papoulis_cutoff_hz).
+ * 0 = off / near-instant; (0..1] maps 60 Hz (light) → 2 Hz (heavy).
+ * Default 0.35 ≈ 18.25 Hz.
+ */
+const nodeGraphXyPadDspDefaultPapoulisCutoffHz = 18.25;
+
 function nodeGraphXyPadDspPapoulisCutoffHz(amount) {
   const a = Math.max(0, Math.min(1, nodeGraphFiniteNumber(amount)));
   if (a <= 1e-4) {

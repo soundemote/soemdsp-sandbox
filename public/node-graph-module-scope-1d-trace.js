@@ -418,7 +418,10 @@ function drawNodeGraphScope1dTraceItem(renderer, item, pixelRatio) {
   let drawn = 0;
   for (let i = 0; i < framed.channels.length; i += 1) {
     const role = channels[i]?.role || (i === 0 ? "primary" : "secondary");
-    drawn += nodeGraphScope1dTraceDrawLayer(context, framed.channels[i], settings, role);
+    const shaped = typeof nodeGraphTraceApplyDrawMode === "function"
+      ? nodeGraphTraceApplyDrawMode(framed.channels[i], settings)
+      : framed.channels[i];
+    drawn += nodeGraphScope1dTraceDrawLayer(context, shaped, settings, role);
   }
   if (drawn > 0 && typeof recordNodeGraphModuleScopeRenderMetrics === "function") {
     recordNodeGraphModuleScopeRenderMetrics(drawn, drawn);

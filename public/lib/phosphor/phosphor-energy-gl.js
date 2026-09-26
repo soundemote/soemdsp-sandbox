@@ -944,8 +944,31 @@
       return true;
     };
 
-    // Oldest→newest so even sparse coverage maps the whole shape.
-    outer: for (let p = 0; p < pieces.length; p += 1) {
+    const coverLength = options.coverLength === true && idealCount > stampCap;
+    if (coverLength) {
+      // Budget cannot fuse a solid line across the whole path. Skip samples
+      // and place one dot each so the shape still spans the full window.
+      const real = [];
+      for (let p = 0; p < pieces.length; p += 1) {
+        const pts = pieces[p];
+        for (let i = 0; i < pts.length; i += 1) {
+          real.push(pts[i]);
+        }
+      }
+      const stride = Math.max(1, Math.ceil(real.length / Math.max(1, stampCap)));
+      for (let i = 0; i < real.length; i += stride) {
+        pushStamp(real[i].x, real[i].y);
+      }
+      if (real.length > 1) {
+        const tail = real[real.length - 1];
+        pushStamp(tail.x, tail.y);
+      }
+      consumedPoints = totalReal;
+      truncated = false;
+    }
+
+    // Oldest→newest. Budget mode stops when the stamps run out.
+    if (!coverLength) outer: for (let p = 0; p < pieces.length; p += 1) {
       const pts = pieces[p];
       if (samplesOnly) {
         // Evenly skip samples when over Dot Budget (same spirit as fuse-over-budget).
@@ -1005,11 +1028,14 @@
         consumedPoints = realSeen;
       }
     }
+    // Both modes finish this window. Budget drops the unstamped tail.
+    // Length already placed dots across the whole path.
     buildDotVertices.lastStats = {
-      truncated: truncated || consumedPoints < totalReal,
-      consumedPoints,
+      truncated: false,
+      consumedPoints: totalReal,
       totalPoints: totalReal,
     };
+    void truncated;
     void pairCount;
 
     const vertices = [];
@@ -1553,6 +1579,7 @@
           dotsOnly: options.dotsOnly === true
             || options.verticesOnly === true
             || options.samplesOnly === true,
+          coverLength: options.coverLength === true,
         });
         renderer.lastPathStats = buildDotVertices.lastStats || null;
       }

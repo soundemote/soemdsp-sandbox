@@ -664,7 +664,11 @@ function cloneNodeGraphPatch(patch) {
           : {}),
         ...((node.type === "audioPlayer" || node.type === "samplePlayer" || node.type === "wavetable2d")
           && Object.hasOwn(node, "sampleWaveformSettings")
-          ? { sampleWaveformSettings: normalizeNodeGraphSampleWaveformSettings(node.sampleWaveformSettings) }
+          ? {
+            sampleWaveformSettings: typeof normalizeNodeGraphSampleWaveformSettings === "function"
+              ? normalizeNodeGraphSampleWaveformSettings(node.sampleWaveformSettings)
+              : (node.sampleWaveformSettings || {}),
+          }
           : {}),
         ...(node.type === "arp" && Object.hasOwn(node, "arpKeysSettings")
           ? {

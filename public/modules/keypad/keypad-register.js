@@ -7,7 +7,7 @@ registerNodeGraphChromelessModule("keypad", {
   definition: {
     chrome: "LayoutB",
     layoutBPortLabels: true,
-    planRole: "source",
+    planRole: "always",
     planFreeRun: true,
     customDisplayArea: true,
     defaultWidthGu: 6,

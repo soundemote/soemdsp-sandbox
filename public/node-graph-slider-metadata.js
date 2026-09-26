@@ -349,19 +349,20 @@ function parseNodeMetadataChoices(value) {
     .filter(Boolean);
 }
 
-function nodeSliderChoiceIndexFromValue(slider, value) {
-  const choices = parseNodeMetadataChoices(slider?.dataset?.choices || "");
+/** Domain value → choice index using param min/max/step (not raw value-as-index). */
+function nodeGraphPatchChoiceIndexFromValue(metadata, value) {
+  const choices = Array.isArray(metadata?.choices) ? metadata.choices : [];
   const n = choices.length;
   if (n <= 0) {
     return 0;
   }
-  const min = Number(slider?.min);
-  const max = Number(slider?.max);
+  const min = Number(metadata?.min);
+  const max = Number(metadata?.max);
   const v = Number(value);
   if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min || !Number.isFinite(v)) {
     return Math.max(0, Math.min(n - 1, Math.round(v)));
   }
-  const step = Number(slider?.dataset?.step);
+  const step = Number(metadata?.step);
   const integerChoices = Number.isFinite(step) && step > 0
     && Math.abs((max - min) / step + 1 - n) < 1e-6;
   if (integerChoices) {
@@ -369,6 +370,16 @@ function nodeSliderChoiceIndexFromValue(slider, value) {
   }
   const t = (v - min) / (max - min);
   return Math.max(0, Math.min(n - 1, Math.round(t * (n - 1))));
+}
+
+function nodeSliderChoiceIndexFromValue(slider, value) {
+  const choices = parseNodeMetadataChoices(slider?.dataset?.choices || "");
+  return nodeGraphPatchChoiceIndexFromValue({
+    choices,
+    min: Number(slider?.min),
+    max: Number(slider?.max),
+    step: Number(slider?.dataset?.step),
+  }, value);
 }
 
 function nodeSliderChoiceValueFromIndex(slider, index) {
@@ -416,7 +427,12 @@ function nodeGraphPatchChoiceLabel(metadata, value) {
   if (!metadata?.displayChoices || !metadata.choices?.length) {
     return null;
   }
-  const index = Math.round(Number(value));
+  // Map domain value → index via min/max/step. Do NOT treat the value as an
+  // array index: choices −1/0/+1 with min=-1 would clamp −1 to index 0 and
+  // also map 0 → index 0, so the face looked like −1 was ignored.
+  const index = typeof nodeGraphPatchChoiceIndexFromValue === "function"
+    ? nodeGraphPatchChoiceIndexFromValue(metadata, value)
+    : Math.round(Number(value));
   if (!Number.isFinite(index)) {
     return null;
   }

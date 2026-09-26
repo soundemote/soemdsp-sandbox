@@ -17,9 +17,9 @@ function syncNodeGraphPatchMetadataFromSlider(slider, options = {}) {
   if (!patchNode) {
     return;
   }
-  // Prefer explicit editor metadata when provided â€” face paint can rewrite
+  // Prefer explicit editor metadata when provided — face paint can rewrite
   // slider.dataset.paramMax from stale paramMeta between setNodeSliderMetadata
-  // and this sync, which used to snap Bias max back (e.g. 150 â†’ 130).
+  // and this sync, which used to snap Bias max back (e.g. 150 → 130).
   const liveMeta = (options.metadata && typeof options.metadata === "object")
     ? options.metadata
     : nodeSliderMetadata(slider);
@@ -253,7 +253,7 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
     }
     // Filter curve faces track cutoff live mid-drag via the readout flush
     // (and parameter-visual sync). Do not schedule a full multi-face redraw
-    // here on every pointer sample â€” that was thrashing layout.
+    // here on every pointer sample — that was thrashing layout.
     return;
   }
 
@@ -282,7 +282,13 @@ function updateNodeSliderCurrentValue(slider, rawValue) {
 
   const normalizedValue = String(rawValue).trim();
   const choiceIndex = nodeSliderChoiceIndexFromText(slider, normalizedValue);
-  const value = choiceIndex ?? parseNodeSliderMathExpression(normalizedValue);
+  // choiceIndex is an array index (0..n-1). Map it through min/max/step so
+  // typing the label "-1" writes domain -1, not index 0.
+  const value = choiceIndex != null
+    ? (typeof nodeSliderChoiceValueFromIndex === "function"
+      ? nodeSliderChoiceValueFromIndex(slider, choiceIndex)
+      : Number(slider.min) + choiceIndex)
+    : parseNodeSliderMathExpression(normalizedValue);
   if (!Number.isFinite(value)) {
     syncNodeSliderReadout(slider);
     return;
@@ -417,7 +423,7 @@ function setNodeSliderValue(slider, value, options = {}) {
   slider.value = String(thumb);
   // Frame-gate painted readout work during drag. The patch + live engine must
   // still see every domain write: flushNodeSliderReadoutUpdates only paints the
-  // thumb/readout â€” it does NOT write the patch. Skipping patch here made
+  // thumb/readout — it does NOT write the patch. Skipping patch here made
   // mid-frame moves vanish from audio and snap the value on the next touch.
   const alreadyPending = isDrag && nodeGraphMvp?._pendingReadoutUpdates?.has(slider);
   if (isDrag) {
@@ -459,7 +465,7 @@ function setNodeSliderValue(slider, value, options = {}) {
   }
   // Always schedule (coalesced) so the pending live flush sees the latest patch.
   scheduleNodeGraphLiveParameterSync();
-  // Module levels â†” bottom toolbar ðŸ”Š mirrors.
+  // Module levels ↔ bottom toolbar 🔊 mirrors.
   const nodeType = slider.closest?.(".dsp-node")?.dataset?.nodeType;
   const param = slider?.dataset?.param;
   if (
@@ -579,9 +585,9 @@ function nodeSliderKeyboardStep(slider, event) {
   return range * (event.shiftKey ? 0.1 : 0.01) * (event.ctrlKey || event.metaKey ? 0.1 : 1);
 }
 
-// â”€â”€ Plain <input type="range"/"number"> modifier parity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Plain <input type="range"/"number"> modifier parity ──────────────────
 //
-// Module face sliders are a custom widget (.node-slider-readout â†’ hidden
+// Module face sliders are a custom widget (.node-slider-readout → hidden
 // input). Native Display Settings ranges cannot reuse that surface, but they
 // MUST share the same modifier vocabulary:
 //
@@ -751,7 +757,7 @@ function bindNodeGraphNativeSliderModifiers(input, defaultValue) {
     if (event.pointerId !== undefined) {
       try { input.setPointerCapture(event.pointerId); } catch (_error) { /* ignore */ }
     }
-    // Own the drag â€” block browser thumb absolute jump.
+    // Own the drag — block browser thumb absolute jump.
     event.preventDefault();
     event.stopPropagation();
   });
@@ -864,7 +870,7 @@ function nodeGraphCircularKnobHitElement(host) {
   ) || host;
 }
 
-/** Visible knob circle in screen pixels â€” drag minâ†’max spans this, not the plate. */
+/** Visible knob circle in screen pixels — drag min→max spans this, not the plate. */
 function nodeSliderKnobDragMetrics(surface) {
   if (!surface?.classList?.contains("node-knob-face")) {
     return null;
@@ -923,7 +929,7 @@ function nodeSliderDragSurfaceFromEvent(event) {
   return event?.target?.closest?.(".node-slider-readout, .node-knob-face, .node-plugin-slider-face") || null;
 }
 
-/** Type-in edit for a surface (knob face â†’ face overlay; plugin face â†’ body readout). */
+/** Type-in edit for a surface (knob face → face overlay; plugin face → body readout). */
 function beginNodeSliderSurfaceEdit(surface) {
   if (!surface) {
     return;
@@ -1210,7 +1216,7 @@ function dragNodeSlider(event) {
   // Alt-click already snapped on pointerdown. Further motion (incl. alt-drag)
   // is relative chase so Parameter Settings smoothing runs again.
 
-  // Fine/coarse scale from modifier keys â€” live per-event.
+  // Fine/coarse scale from modifier keys — live per-event.
   // Re-anchor travel AND pointer origin when scale changes so releasing Shift
   // mid-drag does not apply the whole path at the new scale (RS-MET style).
   const currentFineScale = nodeSliderFineTuneScale(event);
@@ -1223,15 +1229,6 @@ function dragNodeSlider(event) {
 
   // Wrap pointer at screen edges to approximate infinite drag.
   wrapNodeSliderDragAtScreenEdge(drag, event);
-
-  if (
-    nodeSliderShouldDisplayChoices(drag.slider)
-    && nodeSliderShouldDivideChoicesVisibly(drag.slider)
-  ) {
-    setNodeChoiceSliderFromPointer(drag.slider, drag.surface, event.clientX, { interaction: "drag" });
-    event.preventDefault();
-    return;
-  }
 
   const visualTravelWidth = Math.max(1, drag.width * (nodeGraphFiniteNumber(drag.visualScale, 1)));
   // App-wide diagonal policy: right + up increase (see nodeGraphPointerDragTravelDelta).
@@ -1294,7 +1291,7 @@ function endNodeSliderDrag(event) {
   nodeGraphMvp.sliderDragging = null;
 }
 
-// â”€â”€ Deferred readout display (decouples value from display, C++ ParameterPrototype pattern) â”€â”€
+// ── Deferred readout display (decouples value from display, C++ ParameterPrototype pattern) ──
 // Moving the slider calls scheduleNodeSliderReadoutUpdate() which queues the display update.
 // The queue owns its animation frame so it also works without a visible scope.
 
@@ -1331,14 +1328,14 @@ function flushNodeSliderReadoutUpdates() {
   for (const nodeElement of touchedNodes) {
     syncNodeGraphParameterVisualsForNodeElement(nodeElement);
   }
-  // Metaparameterâ†’metaparameter ghosts: source/dest values are live on the
-  // inputs, but drag uses deferUi and skips the full sync path â€” refresh
+  // Metaparameter→metaparameter ghosts: source/dest values are live on the
+  // inputs, but drag uses deferUi and skips the full sync path — refresh
   // ghosts once per frame here so the ghost handle tracks while dragging.
   if (typeof syncNodeGraphGhostSliders === "function") {
     syncNodeGraphGhostSliders();
   }
   // Any param change can feed a filter curve (own cutoff or a modulator source
-  // that ghosts into another node's cutoff) â€” coalesce one redraw for all faces.
+  // that ghosts into another node's cutoff) — coalesce one redraw for all faces.
   if (typeof scheduleNodeGraphFilterCurveDraw === "function") {
     scheduleNodeGraphFilterCurveDraw();
   }

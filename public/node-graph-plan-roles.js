@@ -16,6 +16,35 @@ const NODE_GRAPH_PLAN_ROLES = Object.freeze({
 });
 
 /**
+ * Interactive CV / controller faces that stay compiled+processed while Live
+ * even with no cable path to Output (smoothing, phosphor, Value LCD, Bias publish).
+ * Heavy audio DSP remains Output-gated — keep this list short and explicit.
+ * Native mirror: graph_engine compile forces kTypeXyPad reachable when unwired.
+ */
+const NODE_GRAPH_LIVE_CONTROLLER_ALWAYS_REACHABLE_TYPES = Object.freeze([
+  "xyPad",
+  "keypad",
+  "knob",
+  "pluginSlider",
+  "toggleButton",
+  "momentaryButton",
+  "keyboard",
+  "keyboardController",
+  "gridKeyboard",
+  "pitchModWheel",
+]);
+
+const NODE_GRAPH_LIVE_CONTROLLER_ALWAYS_REACHABLE_TYPE_SET = new Set(
+  NODE_GRAPH_LIVE_CONTROLLER_ALWAYS_REACHABLE_TYPES,
+);
+
+/** True when Live must run this type even if it does not feed Output. */
+function nodeGraphModuleIsLiveControllerAlwaysReachable(type) {
+  return NODE_GRAPH_LIVE_CONTROLLER_ALWAYS_REACHABLE_TYPE_SET.has(String(type || "").trim());
+}
+
+
+/**
  * Resolve plan role for a module type.
  * @returns {NodeGraphPlanRole|""}
  */

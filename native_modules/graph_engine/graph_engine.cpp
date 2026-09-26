@@ -1108,6 +1108,17 @@ extern "C" double soemdsp_pll_lpf_out(int handle);
 extern "C" double soemdsp_pll_locked(int handle);
 extern "C" double soemdsp_pll_vco_hz(int handle);
 
+
+extern "C" int soemdsp_helmholtz_create(double sampleRate);
+extern "C" void soemdsp_helmholtz_destroy(int handle);
+extern "C" void soemdsp_helmholtz_set_params(
+  int handle, double sampleRate, int windowSize, double threshold
+);
+extern "C" void soemdsp_helmholtz_process(int handle, double input);
+extern "C" double soemdsp_helmholtz_frequency(int handle);
+extern "C" double soemdsp_helmholtz_fidelity(int handle);
+
+
 extern "C" int soemdsp_lorenz_attractor_create();
 extern "C" void soemdsp_lorenz_attractor_destroy(int handle);
 extern "C" void soemdsp_lorenz_attractor_sample(
@@ -1501,7 +1512,7 @@ extern "C" double soemdsp_crossover_band_l(int handle, int bandIndex);
 extern "C" double soemdsp_crossover_band_r(int handle, int bandIndex);
 extern "C" int soemdsp_crossover_band_count(int handle);
 
-// Param-chase Papoulis (Control smooth type Π).
+// Param-chase Papoulis (Control smooth type Î ).
 extern "C" int soemdsp_papoulis_filter_create();
 extern "C" void soemdsp_papoulis_filter_destroy(int handle);
 extern "C" void soemdsp_papoulis_filter_snap(int handle, double value);
@@ -1721,7 +1732,7 @@ static const int kTypeAudioPlayer = 110; // Music Player (PCM upload)
 static const int kTypeSamplePlayer = 174; // Gate-driven sample player (PCM upload)
 static const int kTypeWavetable2d = 180; // PCM wavetable oscillator
 static const int kTypeNamedPortalIn = 182; // wireless Portal →
-static const int kTypeNamedPortalOut = 184; // wireless Portal ←
+static const int kTypeNamedPortalOut = 184; // wireless Portal â†
 // Yellow Graph (Additive) — A1+A2 (see additive_yellow_graph.h)
 static const int kTypeAdditiveGenerator = 111;
 static const int kTypeAdditiveBubble = 112;
@@ -1755,7 +1766,8 @@ static const int kTypeBandpass = 137;
 static const int kTypeAllpass = 138;
 static const int kTypeBasicShape = 139;
 static const int kTypeChordPad = 140;
-static const int kTypeXyPad = 186;
+static const int kTypeXyPad = 190; // XY Pad (Papoulis/lattice); was 186 colliding with ellipsoidOsc
+static const int kTypeHelmholtzPitch = 191; // Pitch Detector (MPM) — Inc/Frequency/Fidelity/Gate/Detune
 static const int kTypeNoteGlide = 141;
 static const int kTypeNoteTranspose = 142;
 static const int kTypeDegreeTuring = 143;
@@ -1968,7 +1980,7 @@ struct Node {
   int typeId;
   bool used;
   bool bypassed; // dry/silence passthrough; DSP state kept (no recreate)
-  // Named Portal →/← : JS declares title; C++ groups matching bus keys.
+  // Named Portal â†’/â† : JS declares title; C++ groups matching bus keys.
   unsigned int namedPortalBus;
   unsigned char namedPortalKind; // 0 none, 1 in, 2 out
   // True if this node can reach an Output (audio or param-MOD ancestor).
@@ -2323,7 +2335,7 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_linkwitz_riley_destroy(handle);
   } else if (kind == kTypeBessel) {
     soemdsp_bessel_destroy(handle);
-  } else if (kind == kTypePapoulisFilter) {
+  } else if (kind == kTypePapoulisFilter || kind == kTypeXyPad) {
     soemdsp_papoulis_filter_destroy(handle);
   } else if (kind == kTypeSpeakerProtection) {
     soemdsp_speaker_protection_destroy(handle);
@@ -2434,6 +2446,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_soem_reverb_destroy(handle);
   } else if (kind == kTypePll) {
     soemdsp_pll_destroy(handle);
+  } else if (kind == kTypeHelmholtzPitch) {
+    soemdsp_helmholtz_destroy(handle);
   } else if (kind == kTypeLorenzAttractor) {
     soemdsp_lorenz_attractor_destroy(handle);
   } else if (kind == kTypeLogisticMap) {
@@ -2841,7 +2855,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.amplitude,
-    (typeId == kTypeAttenuverter) ? 0.5
+    (typeId == kTypeXyPad) ? 1.0 // X Amplitude
+      : (typeId == kTypeAttenuverter) ? 0.5
       : (typeId == kTypeAttenuMax) ? 1.0
       : (typeId == kTypePhoneTone) ? 0.5
       : (typeId == kTypeAdditiveOsc || typeId == kTypeHypersaw2
@@ -2859,7 +2874,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.shape,
-    (typeId == kTypeAdditivePan) ? 1.0 // AutoPan spread (turns across bank)
+    (typeId == kTypeXyPad) ? 0.35 // Smoothing (Papoulis amount)
+      : (typeId == kTypeAdditivePan) ? 1.0 // AutoPan spread (turns across bank)
       : (typeId == kTypePluckEnvelope || typeId == kTypeExpoPluckEnvelope2) ? -0.5 // EnvelopeCurve
       : (typeId == kTypeExpoPluckEnvelope) ? 0.0 // Attack Shape Log
       : (typeId == kTypeThumpEnvelope) ? 0.8062943900342834 // fallCurve (pluck envelope 2)
@@ -2889,7 +2905,7 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeBasicShape) ? 0.5 // morph/chaos
       : (typeId == kTypeSmoothGraph) ? 1.0 // tension
       : (typeId == kTypeExpAdsr || typeId == kTypeCurveAttackRelease) ? 0.0 // attackShape (bipolar; 0=linear)
-      : (typeId == kTypeAttackDecay) ? 1.0 // curve γ
+      : (typeId == kTypeAttackDecay) ? 1.0 // curve Î³
       : (typeId == kTypeLorenzAttractor) ? 10.0 // sigma
       : (typeId == kTypeLogisticMap) ? 3.9 // r
       : (typeId == kTypeHenonMap) ? 1.4 // a
@@ -3040,6 +3056,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeActiveFilter) ? 3.0 // feedbackCircuit Res+Clip
       : (typeId == kTypeCombResonator) ? 0.0 // invert Off
       : (typeId == kTypeSoemReverb) ? 10.0 // numDelays
+      : (typeId == kTypeHelmholtzPitch) ? 1024.0 // windowSize
       : (typeId == kTypePll) ? 1.0 // PC type RS Flip
       : (typeId == kTypeAdditiveDiffusor) ? 0.0 // quantize off
       : (typeId == kTypeFm) ? 0.0 // semitones
@@ -3079,6 +3096,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCrossover6) ? 300.0
       : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 0.0 // sweep st
       : (typeId == kTypeEllipsoid || typeId == kTypeEllipsoidOsc) ? 1.0 // AA Limit (0 Off / 1 Limit)
+      : (typeId == kTypeHelmholtzPitch) ? 0.93 // fidelity threshold
       : 0.0,
     // Robin detuneAlgorithm is discrete 0…5; RoundShape / Ellipsoid AA is discrete Off/Limit
     typeId == kTypeRobinSupersaw || typeId == kTypeEllipsoid || typeId == kTypeEllipsoidOsc
@@ -3142,12 +3160,14 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.oversample,
     (typeId == kTypeHypersaw2) ? 0.0 // jitterDistanceSource Wavelength
+      : (typeId == kTypeXyPad) ? 0.0 // pauseOnLift Off
       : 2.0, // softClipper / clipperLimiter antialias mode
     true
   );
   init_control(
     n.mix,
-    (typeId == kTypeVcvrackSuperloveFilter) ? 0.0 // noise
+    (typeId == kTypeXyPad) ? 0.5 // pad Y unit
+      : (typeId == kTypeVcvrackSuperloveFilter) ? 0.0 // noise
       : (typeId == kTypePhaser || typeId == kTypeFlanger || typeId == kTypeChorus || typeId == kTypeEnsemble) ? 0.5
       : (typeId == kTypeGraphicEq) ? 1.0
       :     (typeId == kTypeHypersaw2) ? 0.0 // jitterSpeedTiltSource Freq
@@ -3409,7 +3429,8 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.tempoBpm, 120.0, false);
   init_control(
     n.offset,
-    (typeId == kTypeHypersaw2) ? 20.0 // jitterFilter Hz at middle C
+    (typeId == kTypeXyPad) ? 0.5 // pad X unit
+      : (typeId == kTypeHypersaw2) ? 20.0 // jitterFilter Hz at middle C
       : (typeId == kTypePll) ? 0.0
       : (typeId == kTypeRobinSupersaw) ? 0.126 // portamentoStyle (SoEm default)
       : (typeId == kTypeArp) ? 0.0 // octaveOffset
@@ -4227,7 +4248,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeAttackDecay) return soemdsp_attack_decay_create();
   if (typeId == kTypeBasicShape) return soemdsp_basic_shape_create();
   if (typeId == kTypeChordPad) return soemdsp_chord_pad_create();
-  if (typeId == kTypeXyPad) return 1;
+  if (typeId == kTypeXyPad) return soemdsp_papoulis_filter_create();
   if (typeId == kTypeNoteGlide) return soemdsp_note_glide_create();
   if (typeId == kTypeNoteTranspose) return soemdsp_note_transpose_create();
   if (typeId == kTypeDegreeTuring) {
@@ -4300,6 +4321,10 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypePll) {
     const double sr = sampleRate < 1.0f ? 44100.0 : (double)sampleRate;
     return soemdsp_pll_create(sr);
+  }
+  if (typeId == kTypeHelmholtzPitch) {
+    const double sr = sampleRate < 1.0f ? 44100.0 : (double)sampleRate;
+    return soemdsp_helmholtz_create(sr);
   }
   if (typeId == kTypeLorenzAttractor) return soemdsp_lorenz_attractor_create();
   if (typeId == kTypeLogisticMap) return soemdsp_logistic_map_create();
@@ -7046,7 +7071,7 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
 }
 
 // Ellipsoid osc: soemdsp Ellipsoid::getEllipsoid (A=offset, B=shape, C=scale).
-// center=AA (0 Off, nonzero Limit scale floor by ω). Ports: Left=X, Right=Y.
+// center=AA (0 Off, nonzero Limit scale floor by Ï‰). Ports: Left=X, Right=Y.
 static void process_ellipsoid_osc(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
@@ -7628,6 +7653,9 @@ static void process_chorus(Circuit& g, Node& node, int frames) {
       &outL,
       &outR
     );
+    const double amp = control_audio(g, node.amplitude, f);
+    outL *= amp;
+    outR *= amp;
     if (leftOutWired) node.buf[kPortLeft][f] = outL;
     if (rightOutWired) node.buf[kPortRight][f] = outR;
     if (monoOutWired || !stereoOut) {
@@ -7686,6 +7714,9 @@ static void process_ensemble(Circuit& g, Node& node, int frames) {
       &outL,
       &outR
     );
+    const double amp = control_audio(g, node.amplitude, f);
+    outL *= amp;
+    outR *= amp;
     if (leftOutWired) node.buf[kPortLeft][f] = outL;
     if (rightOutWired) node.buf[kPortRight][f] = outR;
     if (monoOutWired || !stereoOut) {
@@ -9000,6 +9031,46 @@ static void process_soem_reverb(Circuit& g, Node& node, int frames) {
 // PLL: Signal In→Mono, VCO CV In→Left (cvConnected if Left wired).
 // frequency=VCO Hz, mode=Range octaves, stages=PC type, lpfFrequency=Smoothing.
 // VCO→Mono, PC→Left, Loop→Right, Locked→Saw, ƒ Hz→Ramp.
+
+// Pitch Detector (Helmholtz / McLeod NSDF): In→audio, outs:
+//   Mono=Inc (Hz/sr), Left=Frequency Hz, Right=Fidelity, Saw=Gate, Ramp=Detune.
+// stages=windowSize (128…4096), center=threshold (0…1).
+static double helmholtz_detune(double frequencyHz) {
+  if (!(frequencyHz > 0.0) || !(frequencyHz == frequencyHz)) return 0.0;
+  const double midi = 69.0 + 12.0 * (dsp_ln(frequencyHz / 440.0) * 1.4426950408889634);
+  if (!(midi == midi)) return 0.0;
+  const double nearest = (double)((int)(midi >= 0.0 ? (midi + 0.5) : (midi - 0.5)));
+  const double cents = (midi - nearest) * 100.0;
+  return cents / 50.0;
+}
+
+static void process_helmholtz_pitch(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  int windowSize = (int)(control_effective(node.stages) + 0.5);
+  if (windowSize < 128) windowSize = 128;
+  if (windowSize > 4096) windowSize = 4096;
+  double threshold = control_effective(node.center);
+  if (!(threshold == threshold)) threshold = 0.93;
+  if (threshold < 0.0) threshold = 0.0;
+  if (threshold > 1.0) threshold = 1.0;
+  soemdsp_helmholtz_set_params(node.nativeHandle, sr, windowSize, threshold);
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double x = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    soemdsp_helmholtz_process(node.nativeHandle, x);
+    const double hz = soemdsp_helmholtz_frequency(node.nativeHandle);
+    const double fid = soemdsp_helmholtz_fidelity(node.nativeHandle);
+    const double safeHz = (hz == hz && hz > 0.0) ? hz : 0.0;
+    node.buf[kPortMono][f] = safeHz / sr; // Inc
+    node.buf[kPortLeft][f] = safeHz; // Frequency
+    node.buf[kPortRight][f] = (fid == fid) ? fid : 0.0; // Fidelity
+    node.buf[kPortSaw][f] = safeHz > 0.0 ? 1.0 : 0.0; // Gate
+    node.buf[kPortRamp][f] = helmholtz_detune(safeHz); // Detune
+  }
+}
+
 static void process_pll(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -9337,6 +9408,159 @@ static void process_turing_machine(Circuit& g, Node& node, int frames) {
     node.buf[kPortMono][f] = cv;
     node.buf[kPortLeft][f] = soemdsp_turing_machine_scale(node.nativeHandle);
     node.buf[kPortRight][f] = soemdsp_turing_machine_gate(node.nativeHandle);
+  }
+}
+
+
+// XY Pad helpers (match public/modules/xyPad/xy-pad-dsp.js).
+static int xy_pad_quantize_levels(double quantize) {
+  double q = quantize;
+  if (!(q == q)) q = 0.0;
+  if (q < 0.0) q = 0.0;
+  if (q > 1.0) q = 1.0;
+  if (q <= 0.0) return 0;
+  int levels = (int)(q * 16.0 + 0.5);
+  if (levels < 1) levels = 1;
+  return levels;
+}
+
+static double xy_pad_quantize_unit(double value, double quantize) {
+  const int levels = xy_pad_quantize_levels(quantize);
+  double unit = value;
+  if (!(unit == unit)) unit = 0.5;
+  if (unit < 0.0) unit = 0.0;
+  if (unit > 1.0) unit = 1.0;
+  if (levels <= 0) return unit;
+  if (levels == 1) return 0.5;
+  const int halfSteps = levels - 1;
+  const double step = 0.5 / (double)halfSteps;
+  int k = (int)((unit - 0.5) / step + ((unit - 0.5) >= 0.0 ? 0.5 : -0.5));
+  if (k < -halfSteps) k = -halfSteps;
+  if (k > halfSteps) k = halfSteps;
+  return 0.5 + (double)k * step;
+}
+
+static double xy_pad_quantize_bipolar(double bipolar, double quantizeAmt) {
+  if (!(quantizeAmt == quantizeAmt) || quantizeAmt <= 0.0) return bipolar;
+  const double unit = xy_pad_quantize_unit((bipolar + 1.0) * 0.5, quantizeAmt);
+  return unit * 2.0 - 1.0;
+}
+
+// XY Pad Smooth (Control shape / UI papoulis) → Papoulis cutoff Hz.
+// Native DSP only (not Bias host-CV). Default amount 0.35 ≈ 18.25 Hz.
+// Map: 0 = dry/near-instant; (0..1] log 60 Hz (light) → 2 Hz (heavy).
+static double xy_pad_papoulis_cutoff_hz(double amount) {
+  double a = amount;
+  if (!(a == a)) a = 0.0;
+  if (a < 0.0) a = 0.0;
+  if (a > 1.0) a = 1.0;
+  if (a <= 1e-4) return 0.0;
+  const double logMin = dsp_ln(2.0);
+  const double logMax = dsp_ln(60.0);
+  return dsp_exp(logMax + a * (logMin - logMax));
+}
+
+static double xy_pad_process_axis(
+  double sig,
+  double cutoff,
+  int order,
+  double quantizeAmt,
+  int papHandle,
+  double sr
+) {
+  const bool smoothOn = cutoff > 0.0 && papHandle > 0;
+  if (smoothOn && quantizeAmt > 0.0) {
+    if (order == 0) {
+      // Smooth -> Lattice
+      const double filtered = soemdsp_papoulis_filter_sample(papHandle, sig, cutoff, sr);
+      return xy_pad_quantize_bipolar(filtered, quantizeAmt);
+    }
+    // Lattice -> Smooth
+    const double quantized = xy_pad_quantize_bipolar(sig, quantizeAmt);
+    return soemdsp_papoulis_filter_sample(papHandle, quantized, cutoff, sr);
+  }
+  if (smoothOn) {
+    return soemdsp_papoulis_filter_sample(papHandle, sig, cutoff, sr);
+  }
+  return xy_pad_quantize_bipolar(sig, quantizeAmt);
+}
+
+// XY Pad: bipolar(Phase)+CV -> Papoulis <-> lattice -> Out X/Y; Gate; Spike.
+// Controls: offset=x, mix=y, mode=gate, stages=filterOrder (Smooth↔Lattice character),
+// center=xQuantize, width=yQuantize, amplitude=xAmp, level=yAmp, oversample=pauseOnLift,
+// shape=Smoothing amount (papoulis UI) -> xy_pad_papoulis_cutoff_hz.
+// Ports: Mono=X, Left=Y, Right=Gate, Saw=Spike. Inputs X->Mono, Y->Left.
+// Face/phosphor reads Out X/Y (post-DSP buffers), not raw pad coords.
+static void process_xy_pad(Circuit& g, Node& node, int frames) {
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  if (node.nativeHandle <= 0) {
+    node.nativeHandle = soemdsp_papoulis_filter_create();
+    if (node.nativeHandle > 0) node.nativeKind = kTypeXyPad;
+  }
+  if (node.nativeHandleL <= 0) {
+    node.nativeHandleL = soemdsp_papoulis_filter_create();
+  }
+  const double pulseLen = sr * 0.02;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    double unitX = control_audio(g, node.offset, f);
+    double unitY = control_audio(g, node.mix, f);
+    if (!(unitX == unitX)) unitX = 0.5;
+    if (!(unitY == unitY)) unitY = 0.5;
+    if (unitX < 0.0) unitX = 0.0;
+    if (unitX > 1.0) unitX = 1.0;
+    if (unitY < 0.0) unitY = 0.0;
+    if (unitY > 1.0) unitY = 1.0;
+    const double gate = control_audio(g, node.mode, f) > 0.5 ? 1.0 : 0.0;
+    const bool pauseOnLift = control_effective(node.oversample) > 0.5;
+    double ampX = control_audio(g, node.amplitude, f);
+    double ampY = control_audio(g, node.level, f);
+    if (!(ampX == ampX)) ampX = 1.0;
+    if (!(ampY == ampY)) ampY = 1.0;
+
+    // Spike: rising edge of Gate (pointer down).
+    if (gate > 0.5 && node.hist[2] <= 0.5) {
+      node.phase = pulseLen;
+    }
+    node.hist[2] = gate;
+    double spike = 0.0;
+    if (node.phase > 0.0) {
+      spike = 1.0;
+      node.phase -= 1.0;
+      if (node.phase < 0.0) node.phase = 0.0;
+    }
+
+    if (pauseOnLift && gate < 1.0) {
+      node.buf[kPortMono][f] = node.hist[0] * ampX;
+      node.buf[kPortLeft][f] = node.hist[1] * ampY;
+      node.buf[kPortRight][f] = 0.0;
+      node.buf[kPortSaw][f] = spike;
+      continue;
+    }
+
+    // UI Smooth (shape) -> Papoulis cutoff via log map (0=dry, 60->2 Hz).
+    const double cutoff = xy_pad_papoulis_cutoff_hz(control_effective(node.shape));
+    const double stagesV = control_effective(node.stages);
+    int order = (int)(stagesV + (stagesV >= 0.0 ? 0.5 : -0.5));
+    if (order < 0) order = 0;
+    if (order > 1) order = 1;
+    const double qX = control_effective(node.center);
+    const double qY = control_effective(node.width);
+    const double sigX = (unitX * 2.0 - 1.0) + g.mixMono[f];
+    const double sigY = (unitY * 2.0 - 1.0) + g.mixLeft[f];
+    const double outX = xy_pad_process_axis(
+      sigX, cutoff, order, qX, node.nativeHandle, sr
+    );
+    const double outY = xy_pad_process_axis(
+      sigY, cutoff, order, qY, node.nativeHandleL, sr
+    );
+    node.hist[0] = outX;
+    node.hist[1] = outY;
+    node.buf[kPortMono][f] = outX * ampX;
+    node.buf[kPortLeft][f] = outY * ampY;
+    node.buf[kPortRight][f] = gate;
+    node.buf[kPortSaw][f] = spike;
   }
 }
 
@@ -10320,7 +10544,8 @@ static void process_pump_limiter(Circuit& g, Node& node, int frames) {
 }
 
 // Wavetable 2D. Params: morph(shape), frequency, phaseParam, amplitude, warp(resonance).
-// Warp is a baked Morph×Warp axis (13 knots), not live PD. Reset → kPortReset. Increment → kPortIncrement.
+// Warp is a baked Morph×Warp axis (13 knots). Playback is mipmapped table lookup
+// (Hmax picks the mip). Reset → kPortReset. Increment → kPortIncrement.
 static void process_wavetable_2d(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
@@ -11226,7 +11451,7 @@ static void process_portal_outlet(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Portal inlet: wired →/← thru mix; live mic bus not in graph_engine yet (silence addend).
+// Portal inlet: wired â†’/â† thru mix; live mic bus not in graph_engine yet (silence addend).
 static void process_portal_inlet(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   bool hasMonoIn = false, hasLeftIn = false, hasRightIn = false, monoOutWired = false;
@@ -11606,6 +11831,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeEnsemble
     || typeId == kTypeBasicShape
     || typeId == kTypeChordPad
+    || typeId == kTypeXyPad
     || typeId == kTypeNoteGlide
     || typeId == kTypeNoteTranspose
     || typeId == kTypeDegreeTuring
@@ -11651,6 +11877,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeDelayEffect
     || typeId == kTypeSoemReverb
     || typeId == kTypePll
+    || typeId == kTypeHelmholtzPitch
     || typeId == kTypeLorenzAttractor
     || typeId == kTypeLogisticMap
     || typeId == kTypeHenonMap
@@ -11714,6 +11941,15 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
       n.nativeHandleL = create_native_for_type(typeId, g->sampleRate);
       n.nativeHandleR = create_native_for_type(typeId, g->sampleRate);
       if (n.nativeHandleL <= 0 || n.nativeHandleR <= 0) {
+        destroy_node_native(n);
+        n.used = false;
+        return -5;
+      }
+    }
+    // XY Pad: second Papoulis instance for Y axis.
+    if (typeId == kTypeXyPad) {
+      n.nativeHandleL = soemdsp_papoulis_filter_create();
+      if (n.nativeHandleL <= 0) {
         destroy_node_native(n);
         n.used = false;
         return -5;
@@ -12220,7 +12456,7 @@ static int named_portal_index(Circuit& g, unsigned int hash) {
 }
 
 // Portals are not DSP. Compile rewrites
-//   src → Portal →  and  Portal ← → dst
+//   src â†’ Portal â†’  and  Portal â† â†’ dst
 // into src → dst, same as a drawn cable. Several Ins sum; several Outs fan out.
 static void splice_named_portals(Circuit& g) {
   int w = 0;
@@ -12430,9 +12666,12 @@ extern "C" int soemdsp_graph_compile(int handle) {
     }
   }
 
-  // Skip DSP for modules with no audio cable and no param-MOD (leftover
+    // Skip DSP for modules with no audio cable and no param-MOD (leftover
   // Hypersaw on the canvas). Any wire keeps the node live so scope-only
   // chains still run — do not require a path to Output.
+  // Interactive controllers (JS: NODE_GRAPH_LIVE_CONTROLLER_ALWAYS_REACHABLE_TYPES)
+  // also stay live when completely unwired so face DSP (XY Pad Papoulis /
+  // phosphor / Value LCD) keeps running while Live.
   for (int i = 0; i < g->nodeCount; i++) {
     g->nodes[i].reachable = (g->nodes[i].used && g->nodes[i].typeId == kTypeOutput);
   }
@@ -12449,6 +12688,13 @@ extern "C" int soemdsp_graph_compile(int handle) {
     const int s = find_node(*g, g->paramModEdges[i].srcHash);
     if (d >= 0) g->nodes[d].reachable = true;
     if (s >= 0) g->nodes[s].reachable = true;
+  }
+  for (int i = 0; i < g->nodeCount; i++) {
+    if (!g->nodes[i].used || g->nodes[i].reachable) continue;
+    // Native types that mirror the JS live-controller always-reachable list.
+    if (g->nodes[i].typeId == kTypeXyPad) {
+      g->nodes[i].reachable = true;
+    }
   }
   for (int i = 0; i < g->nodeCount; i++) g->nodes[i].hasParamMods = 0;
   for (int i = 0; i < g->paramModEdgeCount; i++) {
@@ -12793,15 +13039,7 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       return;
     }
     if (node.typeId == kTypeXyPad) {
-      for (int f = 0; f < frames; f++) {
-        control_frame(g, node, f);
-        const double x = control_audio(g, node.offset, f);
-        const double y = control_audio(g, node.mix, f);
-        const double gate = control_audio(g, node.mode, f);
-        node.buf[kPortMono][f] = x;
-        node.buf[kPortLeft][f] = y;
-        node.buf[kPortRight][f] = gate > 0.5 ? 1.0 : 0.0;
-      }
+      process_xy_pad(g, node, frames);
       return;
     }
     if (node.typeId == kTypeNoteGlide) {
@@ -12998,6 +13236,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
     }
     if (node.typeId == kTypePll) {
       process_pll(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeHelmholtzPitch) {
+      process_helmholtz_pitch(g, node, frames);
       return;
     }
     if (node.typeId == kTypeLorenzAttractor) {

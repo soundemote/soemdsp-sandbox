@@ -2579,6 +2579,50 @@ function buildNodeGraphScope2dEvenPathPoints(square, buffer, maxPoints, settings
  * Leading points that still fuse into a line under `budget` stamps.
  * The tail stays undrawn so the next frame can continue the wave.
  */
+/**
+ * Budget: solid prefix, stop when the stamps run out.
+ * Length: if that prefix is short, skip samples and return dots across the whole path.
+ */
+function nodeGraphTraceApplyDrawMode(points, settings) {
+  const src = Array.isArray(points) ? points : [];
+  if (src.length < 2) {
+    return src;
+  }
+  const budget = Math.max(8, Math.round(nodeGraphFiniteNumber(settings?.dotBudget, 2048)));
+  const step = Math.max(0.35, nodeGraphFiniteNumber(settings?.dot1Size, 2) * 0.2);
+  const fit = nodeGraphTraceFusePrefixCount(src, budget, step);
+  if (!fit.truncated) {
+    return src;
+  }
+  if (String(settings?.drawMode || "budget") !== "length") {
+    return src.slice(0, Math.max(1, fit.keep));
+  }
+  const real = [];
+  for (let i = 0; i < src.length; i += 1) {
+    const p = src[i];
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+      real.push(p);
+    }
+  }
+  if (real.length <= budget) {
+    return src;
+  }
+  const stride = Math.max(1, Math.ceil(real.length / budget));
+  const out = [];
+  for (let i = 0; i < real.length; i += stride) {
+    if (out.length) {
+      out.push(null);
+    }
+    out.push(real[i]);
+  }
+  const tail = real[real.length - 1];
+  if (tail && out[out.length - 1] !== tail) {
+    out.push(null);
+    out.push(tail);
+  }
+  return out;
+}
+
 function nodeGraphTraceFusePrefixCount(points, budget, stepPx) {
   const cap = Math.max(8, Math.floor(nodeGraphFiniteNumber(budget, 2048)));
   const step = Math.max(0.2, nodeGraphFiniteNumber(stepPx, 0.5));

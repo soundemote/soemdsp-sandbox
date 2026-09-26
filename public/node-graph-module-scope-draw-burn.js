@@ -734,6 +734,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       dotsOnly: false,
       samplesOnly: false,
       verticesOnly: false,
+      coverLength: String(settings?.drawMode || "budget") === "length",
     });
     void stepped;
     if (!frozen && Number.isFinite(endFrame)) {
@@ -1471,7 +1472,10 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
       snapshotNodeGraphScope2dTraceHold(canvas, item?.slot?.nodeId);
       return;
     }
-    drawNodeGraphScope2dTraceLayer(context, inkPoints, dotSpace, settings);
+    const shaped = typeof nodeGraphTraceApplyDrawMode === "function"
+      ? nodeGraphTraceApplyDrawMode(inkPoints, settings)
+      : inkPoints;
+    drawNodeGraphScope2dTraceLayer(context, shaped, dotSpace, settings);
     if (strokeable) {
       canvas._scope2dTraceLastPoints = inkPoints;
     }

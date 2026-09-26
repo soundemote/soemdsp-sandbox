@@ -452,3 +452,17 @@ NodeLiveAudioProcessor.prototype.normalizePatchTiming = function normalizePatchT
     };
 };
 
+
+
+/** Pitch Detector state stub (DSP is native graph type 191). */
+NodeLiveAudioProcessor.prototype.createHelmholtzState = function createHelmholtzState() {
+  return { nativeHandle: 0, nativeParamKey: "", nativeSampleRate: 0 };
+};
+
+NodeLiveAudioProcessor.prototype.destroyHelmholtzState = function destroyHelmholtzState(state) {
+  if (!state?.nativeHandle || !this.nativeHelmholtz?.soemdsp_helmholtz_destroy) return;
+  try {
+    this.nativeHelmholtz.soemdsp_helmholtz_destroy(state.nativeHandle);
+  } catch (_e) { /* ignore */ }
+  state.nativeHandle = 0;
+};

@@ -74,6 +74,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   flanger: 179,
   chorus: 188,
   ensemble: 189,
+  xyPad: 190,
+  helmholtzPitch: 191,
   basicShape: 139,
   chordPad: 140,
   noteGlide: 141,
@@ -465,6 +467,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "randomAmp") return P.NATIVE_GRAPH_PARAM_LEVEL;
     if (k === "hpfFrequency") return P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY;
     if (k === "lpfFrequency") return P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY;
+    if (k === "amplitude") return P.NATIVE_GRAPH_PARAM_AMPLITUDE;
   }
   if (t === "ensemble") {
     if (k === "voices") return P.NATIVE_GRAPH_PARAM_STAGES;
@@ -473,10 +476,24 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "spread") return P.NATIVE_GRAPH_PARAM_WIDTH;
     if (k === "hpfFrequency") return P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY;
     if (k === "lpfFrequency") return P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY;
+    if (k === "amplitude") return P.NATIVE_GRAPH_PARAM_AMPLITUDE;
   }
   if (t === "attenumax") {
     if (k === "amplitude") return P.NATIVE_GRAPH_PARAM_AMPLITUDE;
     if (k === "bias") return P.NATIVE_GRAPH_PARAM_ATT_OFFSET;
+  }
+  // XY Pad: UI x/y instant; papoulis/shape = Smooth amount → native Papoulis cutoff.
+  if (t === "xyPad") {
+    if (k === "x" || k === "xPhase") return P.NATIVE_GRAPH_PARAM_ATT_OFFSET;
+    if (k === "y" || k === "yPhase") return P.NATIVE_GRAPH_PARAM_MIX;
+    if (k === "gate") return P.NATIVE_GRAPH_PARAM_MODE;
+    if (k === "papoulis") return P.NATIVE_GRAPH_PARAM_SHAPE;
+    if (k === "filterOrder") return P.NATIVE_GRAPH_PARAM_STAGES;
+    if (k === "xQuantize") return P.NATIVE_GRAPH_PARAM_CENTER;
+    if (k === "yQuantize") return P.NATIVE_GRAPH_PARAM_WIDTH;
+    if (k === "xAmplitude") return P.NATIVE_GRAPH_PARAM_AMPLITUDE;
+    if (k === "yAmplitude") return P.NATIVE_GRAPH_PARAM_LEVEL;
+    if (k === "pauseOnLift") return P.NATIVE_GRAPH_PARAM_OVERSAMPLE;
   }
   // Pitch Manager: do not use FM's octave→MODE map.
   if (t === "pitchManager") {
@@ -486,6 +503,10 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "cents") return P.NATIVE_GRAPH_PARAM_WIDTH;
     if (k === "multiply") return P.NATIVE_GRAPH_PARAM_AMPLITUDE;
     if (k === "add") return P.NATIVE_GRAPH_PARAM_ATT_OFFSET;
+  }
+  if (t === "helmholtzPitch") {
+    if (k === "windowSize") return P.NATIVE_GRAPH_PARAM_STAGES;
+    if (k === "threshold") return P.NATIVE_GRAPH_PARAM_CENTER;
   }
   const id = (P.NATIVE_GRAPH_PARAM_KEY_IDS || {})[k];
   return Number.isFinite(id) ? id : undefined;
@@ -544,6 +565,13 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   const raw = String(port || "").trim();
   const p = raw.toLowerCase();
   const t = String(type || "").trim();
+  // XY Pad outs: X/Y bipolar, Gate hold, Spike pulse.
+  if (t === "xyPad") {
+    if (p === "x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "y") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    if (p === "gate" || p === "g") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+    if (p === "spike" || p === "t") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+  }
   // Mix2: Mix on Mono, Out1 on Left, Out2 on Right (not mix4 Out1=Mono numbering).
   if (t === "mix2") {
     if (p === "mix") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
@@ -649,6 +677,16 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "inc") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     if (p === "f" || p === "ƒ") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     if (p === "pitch") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
+  if (t === "helmholtzPitch") {
+    // Mono=Inc, Left=Frequency, Right=Fidelity, Saw=Gate, Ramp=Detune
+    if (p === "inc" || p === "increment") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "frequency" || p === "f" || p === "ƒ" || p === "freq") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    }
+    if (p === "fidelity" || p === "fid") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+    if (p === "gate" || p === "g") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+    if (p === "detune") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
   }
   if (t === "snowflake") {
     if (p === "x") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
@@ -1077,6 +1115,10 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   if (p === "select" && type === "chordPad") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
+  if (String(type || "").trim() === "xyPad") {
+    if (p === "x" || p === "x in") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "y" || p === "y in") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  }
   // Amp Curve gold CV inlet.
   if (p === "env" && String(type || "").trim() === "ampCurve") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
@@ -1119,6 +1161,11 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
     }
     if (p === "vco cv in" || p === "vco cv" || p === "cv") {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+    }
+  }
+  if (t === "helmholtzPitch") {
+    if (p === "in" || p === "mono" || p === "m" || p === "audio") {
+      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     }
   }
   // surgeOscillator Sync audio in (reuses Mono bus as destination-only).
@@ -4090,6 +4137,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
       push("hpfFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("hpfFrequency", 200));
       push("lpfFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("lpfFrequency", 8000));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "ensemble") {
@@ -4103,6 +4151,23 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
       push("hpfFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("hpfFrequency", 200));
       push("lpfFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("lpfFrequency", 8000));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "xyPad") {
+      // UI x/y instant → offset/mix; papoulis → shape (Papoulis amount);
+      // filterOrder → stages; x/yQuantize → center/width; x/yAmplitude → amp/level;
+      // pauseOnLift → oversample; gate → mode. Face phosphor reads Out X/Y.
+      push("x", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("x", 0.5));
+      push("y", P.NATIVE_GRAPH_PARAM_MIX, cont("y", 0.5));
+      push("gate", P.NATIVE_GRAPH_PARAM_MODE, cont("gate", 0));
+      push("papoulis", P.NATIVE_GRAPH_PARAM_SHAPE, cont("papoulis", 0.35));
+      push("filterOrder", P.NATIVE_GRAPH_PARAM_STAGES, disc("filterOrder", 0));
+      push("xQuantize", P.NATIVE_GRAPH_PARAM_CENTER, cont("xQuantize", 0));
+      push("yQuantize", P.NATIVE_GRAPH_PARAM_WIDTH, cont("yQuantize", 0));
+      push("xAmplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("xAmplitude", 1));
+      push("yAmplitude", P.NATIVE_GRAPH_PARAM_LEVEL, cont("yAmplitude", 1));
+      push("pauseOnLift", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, disc("pauseOnLift", 0));
       continue;
     }
     if (type === "bandpass" || type === "allpass" || type === "lowpass" || type === "highpass") {
@@ -5163,6 +5228,11 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("cents", P.NATIVE_GRAPH_PARAM_WIDTH, cont("cents", 0));
       push("multiply", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("multiply", 1));
       push("add", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("add", 0));
+      continue;
+    }
+    if (type === "helmholtzPitch") {
+      push("windowSize", P.NATIVE_GRAPH_PARAM_STAGES, disc("windowSize", 1024));
+      push("threshold", P.NATIVE_GRAPH_PARAM_CENTER, cont("threshold", 0.93));
       continue;
     }
     if (type === "ampDb") {
@@ -7330,6 +7400,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "fm") return ["f", "Out", "Mono", "ƒ"];
     if (type === "pitchHz") return ["Out", "Mono", "In"];
     if (type === "pitchManager") return ["Inc"];
+    if (type === "helmholtzPitch") return ["Inc"];
     if (type === "ampDb") return ["Out", "Mono", "In"];
     if (type === "lutCell") return ["Out"];
 
@@ -7341,6 +7412,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "chordPad" || type === "chordSequencer") {
       return ["Arp Keys", "Scale", "Out", "Mono"];
     }
+    if (type === "xyPad") return ["X", "Out", "Mono"];
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
@@ -7382,6 +7454,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "ellipsoidOsc") return ["Left"];
     if (type === "snowflake") return ["X"];
     if (type === "pitchManager") return ["f", "ƒ"];
+    if (type === "helmholtzPitch") return ["Frequency", "f", "ƒ", "freq"];
     if (type === "clock") return ["Analog Out", "Analog"];
     if (type === "randomClock") return ["Gate"];
     if (type === "triggerCounter") return ["Count"];
@@ -7406,9 +7479,11 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "chordPad" || type === "chordSequencer") {
       return ["Root", "Left"];
     }
+    if (type === "xyPad") return ["Y", "Left"];
     return ["Left"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RIGHT) {
+    if (type === "helmholtzPitch") return ["Fidelity", "fid"];
     if (type === "sampleHold") return ["Right"];
     if (type === "rasterRgb") return ["B"];
     if (type === "fractalBrownianNoise") {
@@ -7455,9 +7530,12 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "noiseGenerator" || type === "cheapWalk" || type === "randomWalk") {
       return ["Right", "Right Out"];
     }
+    if (type === "xyPad") return ["Gate", "G", "Right"];
     return ["Right"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_SAW) {
+    if (type === "helmholtzPitch") return ["Gate", "g"];
+    if (type === "xyPad") return ["Spike", "T", "Saw"];
     // t-series demux/mux: Saw bus holds combined Digital/Analog openness for Value Line.
     if (type === "t" || /^t([1-9]|10)$/.test(type) || /^([1-9]|10)t$/.test(type)) {
       return ["Open"];
@@ -7490,6 +7568,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Saw"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RAMP) {
+    if (type === "helmholtzPitch") return ["Detune"];
     if (type === "fractalBrownianNoise") return ["Out Y Raw"];
     if (type === "phoneTone") return ["ƒ2", "f2", "Df2"];
     if (type === "limiter") return ["Env"];

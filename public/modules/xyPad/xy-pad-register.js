@@ -3,7 +3,7 @@ registerNodeGraphChromelessModule("xyPad", {
   customDisplayArea: true,
   solidModule: true,
   definition: {
-    planRole: "source",
+    planRole: "always",
     displayHeightGu: 4,
     displayType: "xyPad",
     // LayoutB side-band labels (jack + short text; not labels-hidden).
@@ -25,7 +25,7 @@ registerNodeGraphChromelessModule("xyPad", {
       Spike: "T",
     },
     parameters: [
-      // Instant UI targets (no param smoother). Audio: mouse+CV → Papoulis ↔ lattice.
+      // Instant UI targets (no param smoother). Audio: mouse+CV -> Papoulis <-> lattice.
       {
         defaultValue: "0.5",
         hidden: true,
@@ -62,7 +62,8 @@ registerNodeGraphChromelessModule("xyPad", {
         nonlinearSlider: false,
         step: "any",
       },
-      // 0 = off; (0..1] = audio-rate smoothing (Papoulis) on the XY signal path.
+      // 0 = near-instant (dry); (0..1] = Papoulis amount on the XY audio path
+      // (native process_xy_pad; log map 60 Hz light → 2 Hz heavy).
       {
         defaultValue: "0.35",
         key: "papoulis",
@@ -73,11 +74,11 @@ registerNodeGraphChromelessModule("xyPad", {
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Audio-path smoothing on X/Y (with CV). 0 = off, 1 = heavy (low cutoff).",
+        tooltip: "Audio-path Papoulis glide on X/Y (with CV). 0 = near-instant, 1 = heavy (low cutoff).",
       },
-      // 0: input → smoothing → lattice | 1: input → lattice → smoothing
+      // 0: input -> smoothing -> lattice | 1: input -> lattice -> smoothing
       {
-        choices: ["Smooth → Lattice", "Lattice → Smooth"],
+        choices: ["Smooth -> Lattice", "Lattice -> Smooth"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -127,7 +128,7 @@ registerNodeGraphChromelessModule("xyPad", {
         showSign: true,
         sliderCurve: "bipolarRational",
         step: "any",
-        tooltip: "X output throw. 0 = mute, +1 = full, −1 = invert. Finer around 0.",
+        tooltip: "X output throw. 0 = mute, +1 = full, -1 = invert. Finer around 0.",
       },
       {
         curveAmount: "0.55",
@@ -141,7 +142,7 @@ registerNodeGraphChromelessModule("xyPad", {
         showSign: true,
         sliderCurve: "bipolarRational",
         step: "any",
-        tooltip: "Y output throw. 0 = mute, +1 = full, −1 = invert. Finer around 0.",
+        tooltip: "Y output throw. 0 = mute, +1 = full, -1 = invert. Finer around 0.",
       },
       {
         defaultValue: "0.5",
@@ -199,13 +200,13 @@ registerNodeGraphChromelessModule("xyPad", {
   },
   catalog: {
     category: "controller",
-    description: "XY pad: mouse + CV into audio path (smoothing on/off, lattice order). Separate invertible X/Y amplitudes, finer around 0. Bipolar outs, Gate/Spike. Puck UI-only; phosphor follows audio.",
+    description: "XY pad: mouse + CV into Papoulis <-> lattice (Smoothing amount). Separate invertible X/Y amplitudes, finer around 0. Bipolar outs, Gate/Spike. Puck UI-only; phosphor follows smoothed Out X/Y.",
     notes: [
       "solid custom module",
-      "XY bipolar −1…+1",
+      "XY bipolar -1...+1",
       "separate X/Y amplitude invert",
-      "audio smoothing on signal path",
-      "Filter Order: Smooth→Lattice or Lattice→Smooth",
+      "Smoothing: Papoulis glide amount (0 near-instant ... 1 heavy)",
+      "Filter Order: Smooth -> Lattice or Lattice -> Smooth",
       "Pause On Lift / Return To Center",
       "Gate hold + Spike pulse",
       "puck UI / phosphor audiovisual",

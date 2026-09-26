@@ -350,7 +350,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     colors: Object.freeze([]),
     // Skip at top; packing row: Sync | Clear (continuous packing always on)
     toggles: Object.freeze(["skipDiscontinuities", "sourceSync"]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["drawMode"]),
   }),
   // 0D Value: WebGL beam (no face bitmap / pixelDensity / residual).
   value: Object.freeze({
@@ -389,7 +389,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     colors: Object.freeze([]),
     // Skip at top. Packing row: Clear (no Sync — 2D has no sweep).
     toggles: Object.freeze(["skipDiscontinuities"]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["drawMode"]),
   }),
   // 1D Trace: woscope beam + heart-monitor Sweep/Sync/Reset (not Waterfall scroll).
   scope1dTrace: Object.freeze({
@@ -405,10 +405,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "secondaryBrightness",
       "ghost",
       "trail",
+      "dotBudget",
     ]),
     colors: Object.freeze(["dot1Color", "secondaryColor"]),
     toggles: Object.freeze(["skipDiscontinuities", "sourceSync"]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["drawMode"]),
   }),
   // 2D Trace = woscope XY beam. Ink is hue + plausible brightness.
   // No History (live samples only). Ghost/Trail dest fade is internal.
@@ -420,10 +421,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Size",
       "pixelDensity",
       "dot1Brightness",
+      "dotBudget",
     ]),
     colors: Object.freeze(["dot1Color"]),
     toggles: Object.freeze(["skipDiscontinuities"]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["drawMode"]),
   }),
   vectorRgbFace: Object.freeze({
     fields: Object.freeze([
@@ -649,7 +651,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ]),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["drawMode"]),
   }),
   // Same controls as scope2d — leftover formType="phosphorLight".
   phosphorLight: Object.freeze({
@@ -669,7 +671,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ])),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["drawMode"]),
   }),
   // Spectrogram: FFT + analysis choices. History / Min·Max Freq are module sliders.
   // Gradient separate.
@@ -698,7 +700,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ])),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["drawMode"]),
   }),
   oscilloscopeBankBurn: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
@@ -716,7 +718,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ])),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["drawMode"]),
   }),
   // Hypersaw / RobinSupersaw: stem thickness only (no full phosphor stack).
   hypersawBurn: Object.freeze({
@@ -1006,6 +1008,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "innerShadowOffsetY",
       "zoomSeconds",
       "historySeconds",
+      "cloudSpeed",
       "scale",
       "pixelDensity",
       "dotBudget",
@@ -2078,6 +2081,16 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     options: Object.freeze([
       Object.freeze({ value: "stop0", label: "Stop 0.00" }),
       Object.freeze({ value: "gradient", label: "Gradient" }),
+    ]),
+  }),
+  drawMode: Object.freeze({
+    label: "Draw",
+    aria: "How Dot Budget is spent",
+    id: "nodeTraceDisplayDrawMode",
+    title: "Budget spends the dots on a solid line and stops. Length skips samples and draws dots across the full path.",
+    options: Object.freeze([
+      Object.freeze({ value: "budget", label: "Budget" }),
+      Object.freeze({ value: "length", label: "Length" }),
     ]),
   }),
   polarity: Object.freeze({

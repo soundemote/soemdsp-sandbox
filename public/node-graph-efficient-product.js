@@ -221,6 +221,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "crossover4",
   "crossover5",
   "crossover6",
+  "helmholtzPitch",
   "output",
 ]);
 
@@ -236,7 +237,6 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPES = Object.freeze([
   "chromaColor",
   "dotOscilloscope",
   "gradientVectorscope",
-  "helmholtzPitch",
   "imageBurn",
   "lineBurnOscilloscope",
   "lufs",

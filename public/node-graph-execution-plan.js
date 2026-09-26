@@ -472,14 +472,13 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
     if (nodeGraphVisualSinkActiveInPlan(node, { bypassedNodes })) {
       markReachable(node.id);
     }
-    // Interactive LayoutB chromeless faces (bug button, XY pad, …) always
-    // evaluate for their on-screen UI — not only when wired into the speaker
-    // path. XY Pad needs this so Phase+CV still runs through smoothing and
-    // phosphor even when Out X/Y are unconnected.
+    // Interactive CV / controller faces (NODE_GRAPH_LIVE_CONTROLLER_ALWAYS_REACHABLE_TYPES):
+    // always evaluate while Live even with no path to Output — smoothing,
+    // phosphor, Value LCD, Bias publish. Heavy audio DSP stays Output-gated.
     if (
       !bypassedNodes.has(node.id) &&
-      typeof nodeGraphChromelessModuleUsesSolidShell === "function" &&
-      nodeGraphChromelessModuleUsesSolidShell(node.type)
+      typeof nodeGraphModuleIsLiveControllerAlwaysReachable === "function" &&
+      nodeGraphModuleIsLiveControllerAlwaysReachable(node.type)
     ) {
       markReachable(node.id);
     }

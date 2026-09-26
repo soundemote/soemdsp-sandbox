@@ -769,8 +769,8 @@ function createNodeGraphHeaderTimingWidgets() {
         step: 1,
       },
     ),
-    createNodeGraphHeaderPatchTitle(),
     createNodeGraphHeaderSpeedPlaceholder(),
+    createNodeGraphHeaderPatchTitle(),
     createNodeGraphHeaderSmoothingTimeField(),
     createNodeGraphHeaderRenderRangeInput("node-header-render-start-input", "Start", nodeGraphMvp.renderStartSeconds ?? 0, { ariaLabel: "Render start time in seconds", min: 0, max: 3599, tooltip: "Sets the Render Sample start point (seconds)" }),
     createNodeGraphHeaderRenderRangeInput("node-header-render-end-input", "End", nodeGraphMvp.renderEndSeconds ?? (nodeGraphMvp.seconds ?? 2), { ariaLabel: "Render end time in seconds", min: 0.05, max: 3600, tooltip: "Sets the Render Sample end point (seconds)" }),
@@ -946,7 +946,7 @@ function renderNodeGraphCommandCenterTimingControls() {
 function renderNodeGraphPatchTimingControls() {
   const host = document.getElementById("nodePatchTimingControls");
   if (host) {
-    // Speed Limit stays in Command Center. FPS lives on this bar.
+    // Speed Limit stays in Command Center (removed from top bar for patch title space). Keep Speed. FPS lives on this bar.
     if (
       !host.querySelector(".node-header-timing-widgets")
       || !host.querySelector(".node-header-tap-tempo-button")

@@ -2027,7 +2027,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   helmholtzPitch: {
     category: "multimeter",
-    description: "Track monophonic pitch: Hz, fidelity, and lock gate for analysis or follow.",
+    description: "Track monophonic pitch: Hz, Inc (cycles/sample), fidelity, detune, and lock gate.",
     label: "Pitch Detector",
     notes: ["pitch tracking", "pitch detector", "mcleod", "autocorrelation", "frequency follower", "gate"],
   },
