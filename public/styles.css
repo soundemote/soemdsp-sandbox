@@ -16363,6 +16363,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
   height: 100%;
   margin: 0;
   padding: 0 calc(var(--node-grid-size) * 0.1428571);
+  container-type: size;
   background:
     linear-gradient(180deg, rgba(2, 4, 7, 0.98), rgba(8, 10, 13, 0.92));
   border-start-start-radius: inherit;
@@ -16390,7 +16391,10 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
     --node-header-title-font-family,
     "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace
   );
-  font-size: 1px;
+  font-size: min(
+    calc(100cqh * 0.62),
+    calc(100cqw / max(var(--node-header-title-chars, 1), 1) / 0.62)
+  );
   text-fit: none;
   font-weight: 400;
   color: var(--node-module-primary-text-color);
@@ -16408,7 +16412,10 @@ body.node-screen-solo-active .node-screen-solo-face.node-phosphor-waveform-displ
 .node-header-title[data-title-editing="1"],
 .node-header-title[data-title-editing="1"]:focus,
 .node-header-title[data-title-editing="1"]:focus-visible {
-  font-size: calc(var(--node-header-title-row-height) * 0.62);
+  font-size: min(
+    calc(100cqh * 0.62),
+    calc(100cqw / max(var(--node-header-title-chars, 1), 1) / 0.62)
+  );
   text-fit: none;
   user-select: text;
   -webkit-user-select: text;

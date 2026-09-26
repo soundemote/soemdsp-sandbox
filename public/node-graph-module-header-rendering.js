@@ -1027,6 +1027,9 @@ function createNodeGraphModuleHeader(type, node, definition) {
   titleText.textContent = typeof nodeGraphPatchNodeTitle === "function"
     ? nodeGraphPatchNodeTitle(node)
     : (nodeGraphNodeLabels?.[type] || type);
+  if (typeof nodeGraphModuleTitleSyncChars === "function") {
+    nodeGraphModuleTitleSyncChars(titleText);
+  }
   nodeGraphApplyTooltip(titleText, "module.titleMove", {}, { title: false });
   titleText.addEventListener("pointerdown", (event) => {
     if (titleText.dataset.titleEditing === "1") {
@@ -1056,8 +1059,8 @@ function createNodeGraphModuleHeader(type, node, definition) {
     if (typeof syncNodeGraphModuleTitleEditPeers === "function") {
       syncNodeGraphModuleTitleEditPeers(titleText);
     }
-    if (typeof scheduleNodeGraphModuleTitleTextFit === "function") {
-      scheduleNodeGraphModuleTitleTextFit();
+    if (typeof nodeGraphModuleTitleSyncChars === "function") {
+      nodeGraphModuleTitleSyncChars(titleText);
     }
   });
   titleText.addEventListener("paste", (event) => {

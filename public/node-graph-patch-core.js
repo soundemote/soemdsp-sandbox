@@ -1365,7 +1365,9 @@ function syncNodeGraphModuleChromeElement(element, patchNode) {
     } else {
       titleText.textContent = chromeTitle;
     }
-    if (typeof scheduleNodeGraphModuleTitleTextFit === "function") {
+    if (typeof nodeGraphModuleTitleSyncChars === "function") {
+      nodeGraphModuleTitleSyncChars(titleText);
+    } else if (typeof scheduleNodeGraphModuleTitleTextFit === "function") {
       scheduleNodeGraphModuleTitleTextFit();
     }
   }
