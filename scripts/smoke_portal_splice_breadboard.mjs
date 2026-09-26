@@ -10,7 +10,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const patchPath = path.join(
   root,
   "patches",
-  "envelope breadboards",
+  "modulator breadboards",
   "acoustic pluck envelope breadboard.json",
 );
 const helperPath = path.join(root, "public", "modules", "portal", "portal-named.js");
@@ -37,7 +37,7 @@ const required = [
   ["keyboard-1", "Trigger", "curveAttackRelease-1", "Gate"],
   ["clock-1", "T", "curveAttackRelease-1", "Gate"],
   ["clock-1", "T", "polyBlep-1", "Reset"],
-  ["keyboard-1", "Note#/127", "inv-2", "In"],
+  ["keyboard-1", "Note#", "inv-2", "In"],
   ["keyboard-1", "f", "polyBlep-1", "frequency"],
   ["curveAttackRelease-1", "Out", "flowerChildFilter-2", "frequency"],
 ];
