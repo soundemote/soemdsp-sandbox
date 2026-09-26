@@ -126,16 +126,16 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     title = "Amplitude zoom on the face (1 = full-scale). Does not change the Display Settings preview dot.";
   }
   if (key === "dialSize" && formType === "knobFace") {
-    label = "Dial size";
-    title = "Dial ring size 0…1. 1 = fill available space. Only scales the arc — label and value stay put.";
+    label = "Knob size";
+    title = "Knob graphic size 0…1. 1 = fill the entire display; 0 = disappear. Scales only the arc.";
   }
   if (key === "labelSize" && formType === "knobFace") {
     label = "Label size";
-    title = "Title size 0…1 as a fraction of the knob square (min side of the dial × Dial size). 1 = one square. Independent of value size.";
+    title = "Label size 0…1 of the display min-edge. Independent of knob size, position, and value size.";
   }
   if (key === "valueSize" && formType === "knobFace") {
     label = "Value size";
-    title = "Readout size 0…1. Independent of knob size.";
+    title = "Number / unit size 0…1 of the display min-edge. Independent of knob size and position.";
   }
   if ((formType === "roundShapeFace" || formType === "basicShapeFace" || formType === "softwaveOscFace") && key === "lineThickness") {
     label = "Line thickness";

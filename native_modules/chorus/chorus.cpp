@@ -222,11 +222,12 @@ extern "C" void soemdsp_chorus_sample(
     const double t = (n <= 1) ? 0.5 : ((double)v / (double)(n - 1));
     y *= (1.0 - ra + ra * t);
 
+    // Audio applies Depth to the bipolar modulator; the cloud publishes the
+    // pre-Depth signal so face width is invariant to Depth (even at zero).
+    const double visualY = clamp(y, -1.0, 1.0);
     double delaySamples = (dly + y * dep) * 0.001 * sr;
     const double delayed = read_delay(voice, delaySamples);
-    st.lastDelay01[v] = (dep > 1.0e-12)
-      ? clamp(0.5 + 0.5 * y, 0.0, 1.0)
-      : 0.5;
+    st.lastDelay01[v] = clamp(0.5 + 0.5 * visualY, 0.0, 1.0);
     st.lastPan[v] = t;
     st.lastN = n;
     const double panL = dsp_cos(t * kPi * 0.5);

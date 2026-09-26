@@ -13726,164 +13726,144 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   user-select: none;
 }
 
-/* Knob module: same shared macro layout, fill plate; no global size-scale.
-   Must reassert display:flex — plain .node-knob-face { display:block } wins
-   over .node-macro-knob later in the sheet (same specificity), which collapses
-   the dial (min-height:0 + absolutely positioned arc/value). */
+/* Knob module: dial fills the display; label + value are independent pins
+   (top / mid / bottom). Knob size scales only the arc graphic. No flex coupling. */
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro.node-macro-knob,
 .node-knob-face.node-knob-module-macro.node-macro-knob {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 1px;
+  display: block;
+  position: relative;
   min-height: 0;
   height: 100%;
   width: 100%;
   padding: 0;
   box-sizing: border-box;
   transform: none;
-  transform-origin: center center;
   font: 700 0.68rem/1 "Cascadia Mono", Consolas, monospace;
   color: var(--muted);
   overflow: hidden;
-  /* Label cqmin uses this face box (module plate or canvas tile) — not JS px. */
+  /* cqmin for label/value/arc uses this face box — not JS px. */
   container-type: size;
 }
 
-.dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro .node-macro-knob-label,
-.node-knob-face.node-knob-module-macro .node-macro-knob-label {
-  flex: 0 0 auto;
+/* Label: display-relative size; absolute pin (does not shrink the dial). */
+.dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro:not(.is-slider-look) .node-macro-knob-label,
+.node-knob-face.node-knob-module-macro:not(.is-slider-look) .node-macro-knob-label,
+.dsp-node .node-knob-face:not([data-knob-look="slider"]):not(.is-slider-look) > .node-macro-knob-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  margin: 0;
+  padding: 0 2px;
+  width: auto;
+  max-width: 100%;
   line-height: 1;
-  max-height: none;
-  width: 100%;
-  font-size: 1px;
-  text-fit: grow;
+  text-align: center;
   white-space: nowrap;
-  transform: scale(var(--knob-label-size, 1));
-  transform-origin: center center;
+  overflow: hidden;
+  text-overflow: clip;
+  font-size: calc(var(--knob-label-size, 0.2) * 100cqmin);
+  text-fit: none;
+  transform: none;
   pointer-events: auto;
   cursor: text;
   user-select: text;
 }
 
-/* Per-knob title/value placement — must beat body[data-macro-knob-*] on the same classes. */
-.dsp-node .node-knob-face[data-knob-label-position="above"] .node-macro-knob-label,
-.dsp-node .node-knob-face[data-knob-label-position="above"] > span:not(.node-macro-knob-dial) {
-  position: relative;
-  left: auto;
-  top: auto;
-  bottom: auto;
-  transform: scale(var(--knob-label-size, 1));
-  order: 0;
-}
-
-.dsp-node .node-knob-face[data-knob-label-position="mid"] .node-macro-knob-label,
-.dsp-node .node-knob-face[data-knob-label-position="mid"] > span:not(.node-macro-knob-dial) {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  bottom: auto;
-  z-index: 3;
-  transform: scale(var(--knob-label-size, 1));
-  transform-origin: center center;
-}
-
-.dsp-node .node-knob-face[data-knob-label-position="below"] .node-macro-knob-label,
-.dsp-node .node-knob-face[data-knob-label-position="below"] > span:not(.node-macro-knob-dial) {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: auto;
-  bottom: 2px;
-  z-index: 3;
-  transform: scale(var(--knob-label-size, 1));
-  transform-origin: center bottom;
-}
-
-.dsp-node .node-knob-face .node-macro-knob-dial > [data-knob-face-readout],
-.dsp-node .node-knob-face .node-macro-knob-dial > .node-macro-knob-value,
-.dsp-node .node-knob-face:not([data-knob-look="slider"]) > .node-macro-knob-value,
-.node-layout-canvas-tile .node-knob-face .node-macro-knob-dial > [data-knob-face-readout],
-.node-layout-canvas-tile .node-knob-face .node-macro-knob-dial > .node-macro-knob-value,
-.node-screen-solo-stage .node-knob-face .node-macro-knob-dial > [data-knob-face-readout],
-.node-metamodule-canvas-stage .node-knob-face .node-macro-knob-dial > [data-knob-face-readout] {
-  left: 0;
-  right: 0;
-  width: auto;
-  font-size: 1px;
-  text-fit: grow;
-  white-space: nowrap;
-  transform: scale(var(--knob-value-size, 1));
-  line-height: 1;
-}
-
-.dsp-node .node-knob-face:not([data-knob-look="slider"]) > .node-macro-knob-value {
-  position: absolute;
-  left: 50%;
-  z-index: 3;
-}
-
-.dsp-node .node-knob-face[data-knob-value-position="above"] .node-macro-knob-dial > [data-knob-face-readout],
-.dsp-node .node-knob-face[data-knob-value-position="above"] .node-macro-knob-dial > .node-macro-knob-value,
-.dsp-node .node-knob-face:not([data-knob-look="slider"])[data-knob-value-position="above"] > .node-macro-knob-value {
+.dsp-node .node-knob-face[data-knob-label-position="top"] .node-macro-knob-label,
+.dsp-node .node-knob-face[data-knob-label-position="above"] .node-macro-knob-label {
   top: 2px;
   bottom: auto;
-  left: 0;
-  right: 0;
-  transform: scale(var(--knob-value-size, 1));
-  transform-origin: center top;
+  transform: none;
 }
 
-.dsp-node .node-knob-face[data-knob-value-position="mid"] .node-macro-knob-dial > [data-knob-face-readout],
-.dsp-node .node-knob-face[data-knob-value-position="mid"] .node-macro-knob-dial > .node-macro-knob-value,
-.dsp-node .node-knob-face:not([data-knob-look="slider"])[data-knob-value-position="mid"] > .node-macro-knob-value {
+.dsp-node .node-knob-face[data-knob-label-position="mid"] .node-macro-knob-label {
   top: 50%;
   bottom: auto;
-  left: 0;
-  right: 0;
-  transform: scale(var(--knob-value-size, 1));
-  transform-origin: center center;
+  transform: translateY(-50%);
 }
 
-.dsp-node .node-knob-face[data-knob-value-position="below"] .node-macro-knob-dial > [data-knob-face-readout],
-.dsp-node .node-knob-face[data-knob-value-position="below"] .node-macro-knob-dial > .node-macro-knob-value,
-.dsp-node .node-knob-face:not([data-knob-look="slider"])[data-knob-value-position="below"] > .node-macro-knob-value {
+.dsp-node .node-knob-face[data-knob-label-position="bottom"] .node-macro-knob-label,
+.dsp-node .node-knob-face[data-knob-label-position="below"] .node-macro-knob-label {
   top: auto;
   bottom: 2px;
-  left: 0;
-  right: 0;
-  transform: scale(var(--knob-value-size, 1));
-  transform-origin: center bottom;
+  transform: none;
 }
 
 .dsp-node .node-knob-face[data-knob-label-position="off"] .node-macro-knob-label {
   display: none !important;
 }
 
-.dsp-node .node-knob-face[data-knob-value-position="off"] .node-macro-knob-dial > [data-knob-face-readout],
-.dsp-node .node-knob-face[data-knob-value-position="off"] .node-macro-knob-dial > .node-macro-knob-value,
-.dsp-node .node-knob-face:not([data-knob-look="slider"])[data-knob-value-position="off"] > .node-macro-knob-value {
+/* Value / number: same pin model as label (face child; may overlap). */
+.dsp-node .node-knob-face:not([data-knob-look="slider"]) > .node-macro-knob-value,
+.dsp-node .node-knob-face:not([data-knob-look="slider"]) > [data-knob-face-readout],
+.node-layout-canvas-tile .node-knob-face:not([data-knob-look="slider"]) > [data-knob-face-readout],
+.node-screen-solo-stage .node-knob-face:not([data-knob-look="slider"]) > [data-knob-face-readout],
+.node-metamodule-canvas-stage .node-knob-face:not([data-knob-look="slider"]) > [data-knob-face-readout] {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  margin: 0;
+  padding: 0 2px;
+  width: auto;
+  max-width: 100%;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  color: var(--text);
+  font-size: calc(var(--knob-value-size, 0.2) * 100cqmin);
+  text-fit: none;
+  transform: none;
+  pointer-events: none;
+}
+
+.dsp-node .node-knob-face[data-knob-value-position="top"] > .node-macro-knob-value,
+.dsp-node .node-knob-face[data-knob-value-position="top"] > [data-knob-face-readout],
+.dsp-node .node-knob-face[data-knob-value-position="above"] > .node-macro-knob-value,
+.dsp-node .node-knob-face[data-knob-value-position="above"] > [data-knob-face-readout] {
+  top: 2px;
+  bottom: auto;
+  transform: none;
+}
+
+.dsp-node .node-knob-face[data-knob-value-position="mid"] > .node-macro-knob-value,
+.dsp-node .node-knob-face[data-knob-value-position="mid"] > [data-knob-face-readout] {
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+
+.dsp-node .node-knob-face[data-knob-value-position="bottom"] > .node-macro-knob-value,
+.dsp-node .node-knob-face[data-knob-value-position="bottom"] > [data-knob-face-readout],
+.dsp-node .node-knob-face[data-knob-value-position="below"] > .node-macro-knob-value,
+.dsp-node .node-knob-face[data-knob-value-position="below"] > [data-knob-face-readout] {
+  top: auto;
+  bottom: 2px;
+  transform: none;
+}
+
+.dsp-node .node-knob-face[data-knob-value-position="off"] > .node-macro-knob-value,
+.dsp-node .node-knob-face[data-knob-value-position="off"] > [data-knob-face-readout] {
   display: none !important;
 }
 
-.dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro .node-macro-knob-dial,
-.node-knob-face.node-knob-module-macro .node-macro-knob-dial {
-  flex: 1 1 auto;
-  align-self: stretch;
+/* Dial cell fills the entire display; knob size scales only the arc inside. */
+.dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro:not(.is-slider-look) .node-macro-knob-dial,
+.node-knob-face.node-knob-module-macro:not(.is-slider-look) .node-macro-knob-dial {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
   min-height: 0;
-  position: relative;
-  /* Size arc from dial cell so width-tall faces don't overflow height. */
+  flex: none;
   container-type: size;
   overflow: hidden;
 }
 
-/* Dial scales with face (not fixed 42px bank size).
-   Use container min side so the circle fits inside the dial (was width-only
-   and clipped the top on wide 5×3 faces). Soften drop-shadow bleed. */
-/* Knob module plate: dial Size 0…1 (--knob-dial-size) scales the arc.
-   Label/value use the same factor via CSS (× --knob-*-size × cell). No glow. */
+/* Knob size 0…1 (--knob-dial-size): arc only. Label/value ignore this. */
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro i,
 .node-knob-face.node-knob-module-macro i {
   width: min(100cqmin, 100%);

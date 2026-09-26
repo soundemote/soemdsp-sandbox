@@ -440,13 +440,13 @@ const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   arcTrack: "#3a3428",
   // Centered arc span (degrees Bias 0→1). Start is always −span/2 (no Offset).
   rotationDegrees: 270,
-  // Dial ring size 0…1 (1 = fill available dial cell; label/value unchanged).
+  // Knob graphic size 0…1 (1 = fill entire display; 0 = disappear). Arc only.
   dialSize: 1,
-  // Title / value size 0…1 = fraction of the knob square (same scale).
+  // Label / value size 0…1 of display min-edge (independent of knob size/position).
   labelSize: 0.2,
   valueSize: 0.2,
-  // Title / value vs the dial: above | mid | below.
-  labelPosition: "above",
+  // Label / value align on the display: off | top | mid | bottom (independent; may overlap).
+  labelPosition: "top",
   valuePosition: "mid",
   // Face name — independent of module alias / header title.
   labelText: "Knob",

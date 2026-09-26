@@ -520,7 +520,7 @@ function nodeGraphKnobFaceSyncCellVar(face) {
   }
 }
 
-/** Value/label sizes are CSS: size × dialSize × 100cqmin (face/dial container). */
+/** Value/label sizes are CSS: size × 100cqmin of the display face (not dial). */
 function nodeGraphKnobFaceFitReadout(_readout, face = null) {
   const host = face || _readout?.closest?.(".node-knob-face");
   nodeGraphKnobFaceSyncCellVar(host);
@@ -817,25 +817,36 @@ function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
   face.style.setProperty("--macro-arc-start-deg", `${start}deg`);
   face.style.setProperty("--macro-arc-span-deg", `${span}deg`);
 
-  // Dial Size 0…1: only the arc widget (1 = fill available dial cell).
-  const dialSize = Number.isFinite(Number(s.dialSize))
-    ? Math.max(0, Math.min(1, Number(s.dialSize)))
+  // Knob size 0…1: only the arc graphic (1 = fill display, 0 = gone).
+  const dialSize = Number.isFinite(Number(s.dialSize ?? s.knobSize))
+    ? Math.max(0, Math.min(1, Number(s.dialSize ?? s.knobSize)))
     : 1;
   face.style.setProperty("--knob-dial-size", String(dialSize));
 
+  // Label / value size 0…1 of display min-edge — independent of knob size/pos.
   const labelSize = Number.isFinite(Number(s.labelSize))
     ? Math.max(0, Math.min(1, Number(s.labelSize)))
-    : 0.45;
+    : 0.2;
   const valueSize = Number.isFinite(Number(s.valueSize))
     ? Math.max(0, Math.min(1, Number(s.valueSize)))
-    : 0.45;
+    : 0.2;
   face.style.setProperty("--knob-label-size", String(labelSize));
   face.style.setProperty("--knob-value-size", String(valueSize));
   nodeGraphKnobFaceSyncCellVar(face);
 
+  // Keep label + value as face pins (legacy DOM had value inside the dial).
+  const pinLabel = face.querySelector?.("[data-knob-face-label]");
+  const pinValue = face.querySelector?.("[data-knob-face-readout], .node-macro-knob-value");
+  if (pinLabel && pinLabel.parentElement !== face) {
+    face.append(pinLabel);
+  }
+  if (pinValue && pinValue.parentElement !== face) {
+    face.append(pinValue);
+  }
+
   const labelPos = typeof normalizeNodeGraphKnobFaceTextPosition === "function"
-    ? normalizeNodeGraphKnobFaceTextPosition(s.labelPosition, "above")
-    : (s.labelPosition || "above");
+    ? normalizeNodeGraphKnobFaceTextPosition(s.labelPosition, "top")
+    : (s.labelPosition || "top");
   const valuePos = typeof normalizeNodeGraphKnobFaceTextPosition === "function"
     ? normalizeNodeGraphKnobFaceTextPosition(s.valuePosition, "mid")
     : (s.valuePosition || "mid");
@@ -1205,7 +1216,7 @@ function nodeGraphKnobFaceSyncLightSource(face, hasImage = null) {
 
 /**
  * Build the LayoutB face DOM (called from factories).
- * Shared macro layout: title above dial · value centered in the circle.
+ * Dial fills the display; label + value pin independently (top/mid/bottom).
  * Image layers stay in the tree; when any art is loaded, macro dial hides.
  */
 function createNodeGraphKnobFace(node, type) {
@@ -1213,7 +1224,7 @@ function createNodeGraphKnobFace(node, type) {
   face.className = "node-knob-face node-module-scope-window node-knob-module-macro node-macro-knob";
   face.dataset.node = node;
   face.dataset.nodeType = type || "knob";
-  face.dataset.knobLabelPosition = "above";
+  face.dataset.knobLabelPosition = "top";
   face.dataset.knobValuePosition = "mid";
   face.dataset.sliderTarget = `node-${node}-offset`;
   face.dataset.lightStrength = "1";
@@ -1261,8 +1272,9 @@ function createNodeGraphKnobFace(node, type) {
   arc.dataset.macroKnobArc = "true";
   arc.setAttribute("aria-hidden", "true");
 
-  dial.append(readout, arc);
-  face.append(label, dial);
+  // Arc alone in the dial cell; label + value are face pins (may overlap).
+  dial.append(arc);
+  face.append(dial, label, readout);
   attachNodeGraphKnobFaceDrag(face);
   attachNodeGraphKnobFaceReadoutFit(face);
   renderNodeGraphKnobFace(face, node);

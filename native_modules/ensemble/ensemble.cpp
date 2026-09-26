@@ -256,21 +256,22 @@ extern "C" void soemdsp_ensemble_sample(
     double y = 0.0;
     if (style == ModFbm) {
       voice.fbmTime += spd / sr;
-      y = 0.5 * fbmBipolar(voice.fbmTime + voiceOff * 8.0, voice.fbmSeed);
+      // Full +/-1 pre-depth (same as tooltip: Walk/FBM is +/-1 x Depth).
+      y = fbmBipolar(voice.fbmTime + voiceOff * 8.0, voice.fbmSeed);
     } else {
-      y = runRandomWalk(voice, spd * (1.0 + voiceOff), jitter, sr);
+      // At default Speed, walk LPF peak is ~0.3 over a few seconds while FBM
+      // already reaches ~0.75. x2 aligns RW face/audio throw with FBM without
+      // attenuating FBM; clamp keeps Depth mapping inside +/-1.
+      y = clamp(2.0 * runRandomWalk(voice, spd * (1.0 + voiceOff), jitter, sr), -1.0, 1.0);
     }
+    // Audio applies Depth to the bipolar modulator; the cloud publishes the
+    // pre-Depth signal so face width is invariant to Depth (even at zero).
+    const double visualY = clamp(y, -1.0, 1.0);
     double delaySamples = (dly + y * dep) * 0.001 * sr;
     const double delayed = read_delay(voice, delaySamples);
     const double tFull = (n <= 1) ? 0.5 : ((double)v / (double)(n - 1));
     const double t = 0.5 + (tFull - 0.5) * spr;
-    // The FBM audio/modulation excursion is intentionally halved above. Keep
-    // that audio safety scaling out of the visual delay coordinate so FBM
-    // traces still use the full face width; Random Walk already spans [-1, 1].
-    const double visualY = style == ModFbm ? 2.0 * y : y;
-    st.lastDelay01[v] = (dep > 1.0e-12)
-      ? clamp(0.5 + 0.5 * visualY, 0.0, 1.0)
-      : 0.5;
+    st.lastDelay01[v] = clamp(0.5 + 0.5 * visualY, 0.0, 1.0);
     st.lastPan[v] = t;
     st.lastN = n;
     const double panL = dsp_cos(t * kPi * 0.5);
@@ -329,7 +330,7 @@ extern "C" double soemdsp_ensemble_voice_pan(int handle, int index) {
 }
 
 extern "C" int soemdsp_ensemble_version() {
-  return 10;
+  return 11;
 }
 
 extern "C" const char* soemdsp_ensemble_metadata_json() {

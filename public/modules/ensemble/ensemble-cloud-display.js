@@ -22,6 +22,15 @@ function drawNodeGraphEnsembleCloudItem(_renderer, item, pixelRatio) {
   const node = typeof nodeGraphModuleScopeNodeForSlot === "function"
     ? nodeGraphModuleScopeNodeForSlot(item.slot)
     : null;
+  // Cloud is a live visual: hold the last painted frame during transport pause.
+  // The shared compositor can still be force-invoked for layout/settings work.
+  if (typeof scopePaintIsFrozen === "function" && scopePaintIsFrozen()) {
+    return;
+  }
+  // Match the shared Simulation FPS policy when a forced compositor pass lands.
+  if (typeof nodeGraphSimFpsRate === "function" && !(nodeGraphSimFpsRate() > 0)) {
+    return;
+  }
   const settings = nodeGraphEnsembleCloudSettings(node);
   const canvas = typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
     ? nodeGraphModuleScopeLocalFallbackCanvas(item?.slot)
@@ -90,6 +99,8 @@ function drawNodeGraphEnsembleCloudItem(_renderer, item, pixelRatio) {
   }
 
   context.globalCompositeOperation = "lighter";
+  // Native Delays are delay01 = 0.5 + 0.5 * the pre-Depth bipolar signal.
+  // Keep the face independent of the audio Depth parameter.
   const y = h - scrollPx;
   const n = delays.length;
   for (let i = 0; i < n; i += 1) {

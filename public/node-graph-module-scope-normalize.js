@@ -1351,7 +1351,7 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
       1440,
       true,
     ),
-    // Dial ring size 0…1 (1 = fill dial cell; only scales the arc widget).
+    // Knob graphic size 0…1 (1 = fill display; only scales the arc widget).
     dialSize: normalizeNodeGraphTraceDisplayNumber(
       source.dialSize ?? source.knobSize ?? source.size,
       defaults.dialSize ?? 1,
@@ -1373,13 +1373,13 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
     labelPosition: normalizeNodeGraphKnobFaceTextPosition(
       source.showLabel === false || source.showLabel === "false"
         ? "off"
-        : (source.labelPosition ?? source.titlePosition),
-      defaults.labelPosition || "above",
+        : (source.labelPosition ?? source.titlePosition ?? source.labelAlign),
+      defaults.labelPosition || "top",
     ),
     valuePosition: normalizeNodeGraphKnobFaceTextPosition(
       source.showReadout === false || source.showReadout === "false"
         ? "off"
-        : (source.valuePosition ?? source.readoutPosition),
+        : (source.valuePosition ?? source.readoutPosition ?? source.unitAlign ?? source.numberAlign),
       defaults.valuePosition || "mid",
     ),
     // Arc ring hole 0…1 (maps to 1 − thickness of the conic mask).
@@ -1445,23 +1445,26 @@ function normalizeNodeGraphKnobPinAlign(value, fallback = "mid") {
   return nodeGraphKnobPinAligns.includes(fb) ? fb : "mid";
 }
 
-const nodeGraphKnobFaceTextPositions = Object.freeze(["off", "above", "mid", "below"]);
+const nodeGraphKnobFaceTextPositions = Object.freeze(["off", "top", "mid", "bottom"]);
 
 function normalizeNodeGraphKnobFaceTextPosition(value, fallback = "mid") {
   const raw = String(value || "").trim().toLowerCase();
-  if (raw === "top") {
-    return "above";
+  // Legacy above/below → top/bottom (toggle/unit-style align names).
+  if (raw === "above") {
+    return "top";
+  }
+  if (raw === "below") {
+    return "bottom";
   }
   if (raw === "middle" || raw === "center") {
     return "mid";
   }
-  if (raw === "bottom") {
-    return "below";
-  }
   if (nodeGraphKnobFaceTextPositions.includes(raw)) {
     return raw;
   }
-  const fb = String(fallback || "mid").trim().toLowerCase();
+  let fb = String(fallback || "mid").trim().toLowerCase();
+  if (fb === "above") fb = "top";
+  if (fb === "below") fb = "bottom";
   return nodeGraphKnobFaceTextPositions.includes(fb) ? fb : "mid";
 }
 

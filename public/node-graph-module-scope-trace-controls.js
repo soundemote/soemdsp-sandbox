@@ -727,9 +727,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
-  // Knob face: macro dial look + image layers + arc geometry (Display Settings only).
-  // Span is centered (no Offset) — left and right open together.
-  // dialSize 0…1 scales only the arc (1 = fill available space).
+  // Knob face: independent knob / label / value (toggle-style pins).
+  // dialSize 0…1 scales only the arc graphic (1 = fill display).
   knobFace: Object.freeze({
     fields: Object.freeze([
       "labelSize",
@@ -1368,22 +1367,22 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title: "Centered arc sweep across Bias 0…1 (0–1440°). Opens left and right together (gap stays opposite center). Default 270°.",
   }),
   dialSize: Object.freeze({
-    label: "Dial size",
+    label: "Knob size",
     inputmode: "decimal",
     id: "nodeTraceDisplayKnobDialSize",
-    title: "Dial ring size 0…1. 1 = fill available dial cell (no padding). Scales only the arc — label and value stay put.",
+    title: "Knob graphic size 0…1. 1 = fill the entire display; 0 = disappear. Scales only the arc — not label or value.",
   }),
   labelSize: Object.freeze({
     label: "Label size",
     inputmode: "decimal",
     id: "nodeTraceDisplayKnobLabelSize",
-    title: "Title size 0…1 as a fraction of the knob square (min side of the dial × Dial size). 1 = one square.",
+    title: "Label size 0…1 of the display min-edge. Independent of knob size and position.",
   }),
   valueSize: Object.freeze({
     label: "Value size",
     inputmode: "decimal",
     id: "nodeTraceDisplayKnobValueSize",
-    title: "Bias readout size 0…1 on the Knob face. Independent of knob size.",
+    title: "Number / unit size 0…1 of the display min-edge. Independent of knob size and position.",
   }),
   innerRadius: Object.freeze({
     label: "Inner radius",
@@ -2040,15 +2039,15 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     ]),
   }),
   labelPosition: Object.freeze({
-    label: "Title",
-    aria: "Title off, above, mid, or below knob",
+    label: "Label",
+    aria: "Label off, top, mid, or bottom on the display",
     id: "nodeTraceDisplayKnobLabelPosition",
-    title: "Title: off, or above / mid / below the knob.",
+    title: "Label align on the display: off, top, mid, or bottom. Independent of value; overlap is OK.",
     options: Object.freeze([
       Object.freeze({ value: "off", label: "Off" }),
-      Object.freeze({ value: "above", label: "Above" }),
+      Object.freeze({ value: "top", label: "Top" }),
       Object.freeze({ value: "mid", label: "Mid" }),
-      Object.freeze({ value: "below", label: "Below" }),
+      Object.freeze({ value: "bottom", label: "Bottom" }),
     ]),
   }),
   xyzLayout: Object.freeze({
@@ -2062,14 +2061,15 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     ]),
   }),
   valuePosition: Object.freeze({
-    aria: "Value off, above, mid, or below knob",
+    label: "Value",
+    aria: "Value off, top, mid, or bottom on the display",
     id: "nodeTraceDisplayKnobValuePosition",
-    title: "Value: off, or above / mid / below the knob.",
+    title: "Number / unit align on the display: off, top, mid, or bottom. Independent of label; overlap is OK.",
     options: Object.freeze([
       Object.freeze({ value: "off", label: "Off" }),
-      Object.freeze({ value: "above", label: "Above" }),
+      Object.freeze({ value: "top", label: "Top" }),
       Object.freeze({ value: "mid", label: "Mid" }),
-      Object.freeze({ value: "below", label: "Below" }),
+      Object.freeze({ value: "bottom", label: "Bottom" }),
     ]),
   }),
   // Soft Fractal: Stop 0.00 (solid gradient t=0) / Gradient (soft palette exterior).
