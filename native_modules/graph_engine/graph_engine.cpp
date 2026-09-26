@@ -83,7 +83,7 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   double timeNumerator, double timeDenominator, double timingMode,
   double offsetMs, double lfoAmpMs, double lfoStyle, double lfoRate, double lfoVariation,
   double saturate, double lpfFrequency, double hpfFrequency,
-  double tempoBpm, double sampleRate
+  double tempoBpm, double sampleRate, double pingPong
 );
 extern "C" double soemdsp_ping_pong_delay_sample(
   int handle, double inputL, double inputR,
@@ -91,7 +91,7 @@ extern "C" double soemdsp_ping_pong_delay_sample(
   double timeNumerator, double timeDenominator, double timingMode,
   double offsetMs, double lfoAmpMs, double lfoStyle, double lfoRate, double lfoVariation,
   double saturate, double lpfFrequency, double hpfFrequency,
-  double tempoBpm, double sampleRate
+  double tempoBpm, double sampleRate, double pingPong
 );
 extern "C" double soemdsp_ping_pong_delay_right(int handle);
 extern "C" double soemdsp_ping_pong_delay_mod_left(int handle);
@@ -5033,13 +5033,14 @@ static void process_reverb(Circuit& g, Node& node, int frames) {
   soemdsp_sabrina_reverb_process_block(node.nativeHandle, frames, 1);
 
   // Mix L/R = dry/wet blend from native block outs; Dry L/R = pre-FX input.
-  copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
-  copy_tap_to_buf(node.buf[kPortRight], outR, frames);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
+    const double amp = control_audio(g, node.amplitude, f);
+    node.buf[kPortLeft][f] = outL[f] * amp;
+    node.buf[kPortRight][f] = outR[f] * amp;
     node.buf[kPortDryL][f] = inL[f];
     node.buf[kPortDryR][f] = inR[f];
-    node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]);
+    node.buf[kPortMono][f] = 0.5 * (outL[f] + outR[f]) * amp;
   }
 }
 
@@ -5077,7 +5078,8 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
       control_audio(g, node.lpfFrequency, f),
       control_audio(g, node.hpfFrequency, f),
       control_audio(g, node.tempoBpm, f),
-      sr
+      sr,
+      control_effective(node.mode)
     );
     const double right = soemdsp_ping_pong_delay_right(node.nativeHandle);
     node.buf[kPortLeft][f] = left;
@@ -8984,8 +8986,9 @@ static void process_soem_reverb(Circuit& g, Node& node, int frames) {
     const double inL = mono + g.mixLeft[f];
     const double inR = mono + g.mixRight[f];
     soemdsp_soem_reverb_process(node.nativeHandle, inL, inR);
-    node.buf[kPortLeft][f] = soemdsp_soem_reverb_left(node.nativeHandle);
-    node.buf[kPortRight][f] = soemdsp_soem_reverb_right(node.nativeHandle);
+    const double amp = control_audio(g, node.level, f);
+    node.buf[kPortLeft][f] = soemdsp_soem_reverb_left(node.nativeHandle) * amp;
+    node.buf[kPortRight][f] = soemdsp_soem_reverb_right(node.nativeHandle) * amp;
     node.buf[kPortDryL][f] = soemdsp_soem_reverb_dry_left(node.nativeHandle);
     node.buf[kPortDryR][f] = soemdsp_soem_reverb_dry_right(node.nativeHandle);
     node.buf[kPortMono][f] =
@@ -10317,7 +10320,7 @@ static void process_pump_limiter(Circuit& g, Node& node, int frames) {
 }
 
 // Wavetable 2D. Params: morph(shape), frequency, phaseParam, amplitude, warp(resonance).
-// Reset → kPortReset. Increment → kPortIncrement.
+// Warp is a baked Morph×Warp axis (13 knots), not live PD. Reset → kPortReset. Increment → kPortIncrement.
 static void process_wavetable_2d(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;

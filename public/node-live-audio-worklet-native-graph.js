@@ -338,6 +338,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   phaseOffset: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PHASE,
   resonance: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_RESONANCE,
   mode: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
+  pingPong: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
   upTime: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_NUMERATOR,
   downTime: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR,
   bias: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET,
@@ -428,6 +429,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "jitterSpeed") return P.NATIVE_GRAPH_PARAM_LFO_RATE;
     if (k === "jitterFilter") return P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY;
     if (k === "jitterSteps") return P.NATIVE_GRAPH_PARAM_LFO_STYLE;
+  }
+  if (t === "soemReverb" && k === "amplitude") {
+    return P.NATIVE_GRAPH_PARAM_LEVEL;
   }
   if (t === "flanger") {
     if (k === "delay") return P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR;
@@ -3693,6 +3697,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("lfoBaseSpeed", P.NATIVE_GRAPH_PARAM_LFO_BASE_SPEED, cont("lfoBaseSpeed", 0.83));
       push("lfoVariation", P.NATIVE_GRAPH_PARAM_LFO_VARIATION, cont("lfoVariation", 0.001));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
     if (type === "pingPongDelay") {
@@ -3708,6 +3713,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("timeNumerator", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("timeNumerator", 1));
       push("timeDenominator", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("timeDenominator", 4));
       push("timingMode", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("timingMode", 0));
+      push("pingPong", P.NATIVE_GRAPH_PARAM_MODE, disc("pingPong", 1));
       push("offset", P.NATIVE_GRAPH_PARAM_OFFSET_MS, Number.isFinite(ppOffset) ? ppOffset : 0);
       push("lfoAmp", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, Number.isFinite(ppLfoAmp) ? ppLfoAmp : 25);
       push("lfoStyle", P.NATIVE_GRAPH_PARAM_LFO_STYLE, disc("lfoStyle", 0));
@@ -4629,6 +4635,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("bandStages", P.NATIVE_GRAPH_PARAM_CENTER, disc("bandStages", 2));
       push("duckLimit", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("duckLimit", 1));
       push("duckRelease", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("duckRelease", 0.04));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_LEVEL, cont("amplitude", 1));
       continue;
     }
     if (type === "pll") {

@@ -359,9 +359,12 @@ void main (void) {
       return 0;
     }
     const face = Math.max(1, Number(options.faceMinSide) || Math.min(width, height));
-    const size01 = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.size)));
+    // Size is authored CSS px at a 96px face, not a 0…1 fraction of the canvas.
+    const diameter = typeof faceInkPx === "function"
+      ? faceInkPx(options.size, face)
+      : Math.max(0, Number(options.size) || 0);
     const intensity = Math.max(0, Number(options.intensity ?? options.brightness ?? 1));
-    if (intensity <= 0 || size01 <= 0) {
+    if (intensity <= 0 || !(diameter > 0)) {
       return 0;
     }
     const packed = collectSegments(points);
@@ -382,7 +385,7 @@ void main (void) {
     if (canvas.height !== height) {
       canvas.height = height;
     }
-    const uSize = Math.max(0.5, size01 * face * 0.5);
+    const uSize = Math.max(0.05, diameter * 0.5);
     const color = parseColor(options.color, [1 / 32, 1, 1 / 32, 1]);
     const useLut = Array.isArray(options.gradientStops) && options.gradientStops.length >= 2
       || typeof options.sampleRgb === "function";

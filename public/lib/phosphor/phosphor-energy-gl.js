@@ -922,20 +922,18 @@
       }
     }
     idealCount = Math.max(1, idealCount);
-    // Full economy: pack toward the full maxDots budget along the path
-    // (solid hard trails). Floor step so a 1px twitch cannot dump 2k stamps.
-    // Over budget: widen evenly across the FULL path (beautiful skips).
+    // Keep fuse spacing. Do not thin the whole path into sparse dots.
+    // Over budget the walk stops; the caller leaves the rest for the next frame.
     let step = idealStep;
-    if (fullEconomy && totalLen > 1e-4) {
+    if (fullEconomy && totalLen > 1e-4 && idealCount <= maxDots) {
       const budgetStep = totalLen / Math.max(1, maxDots - Math.max(1, pieces.length));
-      // Dense floor (~0.28px / radius*0.12); spend budget when path is longer.
       step = Math.max(0.28, Math.min(denseStep, budgetStep));
     }
-    if (idealCount > maxDots && totalLen > 1e-4) {
-      step = Math.max(step, totalLen / Math.max(1, maxDots - Math.max(1, pieces.length)));
-    }
-    // Hard ceiling is always maxDots only — never a short idealCount cap.
     const stampCap = maxDots;
+    let consumedPoints = 0;
+    let realSeen = 0;
+    let truncated = false;
+    const totalReal = pieces.reduce((n, pts) => n + pts.length, 0);
 
     const stamps = [];
     const pushStamp = (x, y) => {
@@ -956,20 +954,28 @@
           : 1;
         for (let i = 0; i < pts.length; i += stride) {
           if (!pushStamp(pts[i].x, pts[i].y)) {
+            truncated = true;
             break outer;
           }
+          consumedPoints += 1;
         }
         continue;
       }
       if (pts.length === 1) {
+        realSeen += 1;
         if (!pushStamp(pts[0].x, pts[0].y)) {
+          truncated = true;
           break;
         }
+        consumedPoints = realSeen;
         continue;
       }
+      realSeen += 1;
       if (!pushStamp(pts[0].x, pts[0].y)) {
+        truncated = true;
         break;
       }
+      consumedPoints = realSeen;
       for (let i = 1; i < pts.length; i += 1) {
         const a = pts[i - 1];
         const b = pts[i];
@@ -977,17 +983,33 @@
         const dy = b.y - a.y;
         const dist = Math.hypot(dx, dy);
         if (dist < 1e-4) {
+          realSeen += 1;
+          consumedPoints = realSeen;
           continue;
         }
         const n = Math.max(1, Math.ceil(dist / step));
+        let placed = 0;
         for (let s = 1; s <= n; s += 1) {
           const t = s / n;
           if (!pushStamp(a.x + dx * t, a.y + dy * t)) {
+            truncated = true;
             break outer;
           }
+          placed += 1;
         }
+        if (placed < n) {
+          truncated = true;
+          break outer;
+        }
+        realSeen += 1;
+        consumedPoints = realSeen;
       }
     }
+    buildDotVertices.lastStats = {
+      truncated: truncated || consumedPoints < totalReal,
+      consumedPoints,
+      totalPoints: totalReal,
+    };
     void pairCount;
 
     const vertices = [];
@@ -1532,6 +1554,7 @@
             || options.verticesOnly === true
             || options.samplesOnly === true,
         });
+        renderer.lastPathStats = buildDotVertices.lastStats || null;
       }
     } else if (!Array.isArray(depositVertices) || depositVertices.length < 5) {
       depositVertices = buildBeamVertices(pathPoints);

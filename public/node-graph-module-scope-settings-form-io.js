@@ -72,15 +72,15 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       );
     }
   }
-  if (type === "phosphorWaveform") {
+  if (type === "sampleWaveform") {
     if (node?.id && typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
-      nodeGraphMvp.phosphorWaveformSettingsTargetNode = String(node.id);
+      nodeGraphMvp.sampleWaveformSettingsTargetNode = String(node.id);
     }
-    if (typeof bindNodeGraphPhosphorWaveformDisplaySettingsBody === "function") {
-      bindNodeGraphPhosphorWaveformDisplaySettingsBody(host);
+    if (typeof bindNodeGraphSampleWaveformDisplaySettingsBody === "function") {
+      bindNodeGraphSampleWaveformDisplaySettingsBody(host);
     }
-    if (typeof renderNodeGraphPhosphorWaveformSettingsWindow === "function") {
-      renderNodeGraphPhosphorWaveformSettingsWindow();
+    if (typeof renderNodeGraphSampleWaveformSettingsWindow === "function") {
+      renderNodeGraphSampleWaveformSettingsWindow();
     }
   }
   if (type === "arpKeysFace") {
@@ -460,11 +460,11 @@ if (type === "portalFace") {
         textWeight: 400,
       };
   }
-  if (type === "phosphorWaveform") {
-    return typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
-      ? normalizeNodeGraphPhosphorWaveformSettings()
-      : (typeof nodeGraphPhosphorWaveformDefaultSettings !== "undefined"
-        ? { ...nodeGraphPhosphorWaveformDefaultSettings }
+  if (type === "sampleWaveform") {
+    return typeof normalizeNodeGraphSampleWaveformSettings === "function"
+      ? normalizeNodeGraphSampleWaveformSettings()
+      : (typeof nodeGraphSampleWaveformDefaultSettings !== "undefined"
+        ? { ...nodeGraphSampleWaveformDefaultSettings }
         : {});
   }
   if (type === "arpKeysFace") {
@@ -537,7 +537,7 @@ if (type === "portalFace") {
   if (type === "ensembleCloud") {
     return typeof normalizeNodeGraphEnsembleCloudSettings === "function"
       ? normalizeNodeGraphEnsembleCloudSettings()
-      : { cloudSpeed: 1 };
+      : { cloudSpeed: 0.5 };
   }
   if (type === "spectrogramBurn") {
     return normalizeNodeGraphSpectrogramSettings(nodeGraphSpectrogramSettingsDefaults);
@@ -707,9 +707,9 @@ if (type === "portalFace") {
       ? normalizeNodeGraphKeypadLayout(settings)
       : (settings || {});
   }
-  if (type === "phosphorWaveform") {
-    return typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
-      ? normalizeNodeGraphPhosphorWaveformSettings(settings)
+  if (type === "sampleWaveform") {
+    return typeof normalizeNodeGraphSampleWaveformSettings === "function"
+      ? normalizeNodeGraphSampleWaveformSettings(settings)
       : (settings || {});
   }
   if (type === "arpKeysFace") {
@@ -913,12 +913,12 @@ if (settingsSchema === "portalFace") {
         ? normalizeNodeGraphKeypadLayout(node?.layout)
         : (node?.layout || {}));
   }
-  if (settingsSchema === "phosphorWaveform") {
-    return typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
-      ? nodeGraphPhosphorWaveformSettingsForNode(node?.id)
-      : (typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
-        ? normalizeNodeGraphPhosphorWaveformSettings(node?.phosphorWaveformSettings)
-        : (node?.phosphorWaveformSettings || {}));
+  if (settingsSchema === "sampleWaveform") {
+    return typeof nodeGraphSampleWaveformSettingsForNode === "function"
+      ? nodeGraphSampleWaveformSettingsForNode(node?.id)
+      : (typeof normalizeNodeGraphSampleWaveformSettings === "function"
+        ? normalizeNodeGraphSampleWaveformSettings(node?.sampleWaveformSettings)
+        : (node?.sampleWaveformSettings || {}));
   }
   if (settingsSchema === "arpKeysFace") {
     return typeof nodeGraphArpKeysSettingsForNode === "function"
@@ -1107,23 +1107,23 @@ function readNodeGraphTraceDisplaySettingsForm() {
     }
     return normalizeNodeGraphDisplaySettingsForFormType(current, formType);
   }
-  if (formType === "phosphorWaveform") {
+  if (formType === "sampleWaveform") {
     const next = { ...current };
     const numberIds = [
-      ["nodePhosphorWaveformTimeWindowInput", "timeWindowSeconds"],
-      ["nodePhosphorWaveformLineWidthInput", "scrollLineWidth"],
-      ["nodePhosphorWaveformTraceWidthInput", "traceWidth"],
-      ["nodePhosphorWaveformHueInput", "hue"],
-      ["nodePhosphorWaveformLineBrightnessInput", "lineBrightness"],
-      ["nodePhosphorWaveformGridBrightnessInput", "gridBrightness"],
-      ["nodePhosphorWaveformBackgroundHueInput", "backgroundHue"],
-      ["nodePhosphorWaveformBackgroundBrightnessInput", "backgroundBrightness"],
-      ["nodePhosphorWaveformCornerRadiusInput", "cornerRadius"],
-      ["nodePhosphorWaveformEdgeSpacingInput", "edgeSpacing"],
-      ["nodePhosphorWaveformLabelInsetInput", "labelInset"],
-      ["nodePhosphorWaveformFontSizeInput", "fontSize"],
-      ["nodePhosphorWaveformPlaylistFadeInput", "playlistFade"],
-      ["nodePhosphorWaveformPlaylistVisibleCountInput", "playlistVisibleCount"],
+      ["nodeSampleWaveformTimeWindowInput", "timeWindowSeconds"],
+      ["nodeSampleWaveformLineWidthInput", "scrollLineWidth"],
+      ["nodeSampleWaveformTraceWidthInput", "traceWidth"],
+      ["nodeSampleWaveformHueInput", "hue"],
+      ["nodeSampleWaveformLineBrightnessInput", "lineBrightness"],
+      ["nodeSampleWaveformGridBrightnessInput", "gridBrightness"],
+      ["nodeSampleWaveformBackgroundHueInput", "backgroundHue"],
+      ["nodeSampleWaveformBackgroundBrightnessInput", "backgroundBrightness"],
+      ["nodeSampleWaveformCornerRadiusInput", "cornerRadius"],
+      ["nodeSampleWaveformEdgeSpacingInput", "edgeSpacing"],
+      ["nodeSampleWaveformLabelInsetInput", "labelInset"],
+      ["nodeSampleWaveformFontSizeInput", "fontSize"],
+      ["nodeSampleWaveformPlaylistFadeInput", "playlistFade"],
+      ["nodeSampleWaveformPlaylistVisibleCountInput", "playlistVisibleCount"],
     ];
     for (const [id, key] of numberIds) {
       const input = document.getElementById(id);
@@ -1131,19 +1131,19 @@ function readNodeGraphTraceDisplaySettingsForm() {
         next[key] = Number(input.value);
       }
     }
-    if (document.getElementById("nodePhosphorWaveformScrollSnapButton")?.classList.contains("active")) {
+    if (document.getElementById("nodeSampleWaveformScrollSnapButton")?.classList.contains("active")) {
       next.scrollMode = "snap";
     } else {
       next.scrollMode = "smooth";
     }
-    if (document.getElementById("nodePhosphorWaveformPositionLeftButton")?.classList.contains("active")) {
+    if (document.getElementById("nodeSampleWaveformPositionLeftButton")?.classList.contains("active")) {
       next.scrollLinePosition = "left";
-    } else if (document.getElementById("nodePhosphorWaveformPositionRightButton")?.classList.contains("active")) {
+    } else if (document.getElementById("nodeSampleWaveformPositionRightButton")?.classList.contains("active")) {
       next.scrollLinePosition = "right";
     } else {
       next.scrollLinePosition = "mid";
     }
-    next.cornerShape = document.getElementById("nodePhosphorWaveformCornerSquareButton")?.classList.contains("active")
+    next.cornerShape = document.getElementById("nodeSampleWaveformCornerSquareButton")?.classList.contains("active")
       ? "square"
       : "squircle";
     return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
@@ -1553,9 +1553,9 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
     }
     return;
   }
-  if (formType === "phosphorWaveform") {
-    if (typeof renderNodeGraphPhosphorWaveformSettingsWindow === "function") {
-      renderNodeGraphPhosphorWaveformSettingsWindow();
+  if (formType === "sampleWaveform") {
+    if (typeof renderNodeGraphSampleWaveformSettingsWindow === "function") {
+      renderNodeGraphSampleWaveformSettingsWindow();
     }
     return;
   }

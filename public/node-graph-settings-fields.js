@@ -7,7 +7,7 @@ function setNodeGraphSettingsField(id, value) {
 
 /**
  * Shared settings-range row used by waveform / LED / wire actions.
- * Same chrome as `.node-phosphor-waveform-settings-row`.
+ * Same chrome as `.node-sample-waveform-settings-row`.
  *
  * @param {{
  *   id?: string,

@@ -1245,7 +1245,7 @@ function renderNodeGraphKeyboardDebugToggle() {
   if (typeof syncNodeGraphConstraintOverlayToggles === "function") {
     syncNodeGraphConstraintOverlayToggles({ persist: false });
   }
-  document.querySelectorAll(".node-phosphor-waveform-display[data-music-player-enhanced='1']").forEach((section) => {
+  document.querySelectorAll(".node-sample-waveform-display[data-music-player-enhanced='1']").forEach((section) => {
     const nodeId = section.dataset.node;
     if (nodeId && typeof nodeGraphAudioPlayerPlaylistRefreshRamDebug === "function") {
       nodeGraphAudioPlayerPlaylistRefreshRamDebug(nodeId);

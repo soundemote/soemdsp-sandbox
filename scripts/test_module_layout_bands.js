@@ -53,7 +53,7 @@ var sandbox = {
     },
     audioPlayer: {
       chrome: "LayoutA",
-      layout: "phosphorWaveform",
+      layout: "sampleWaveform",
       displayType: "trace",
       inputs: ["Reset"],
       outputs: ["Mono", "Left", "Right"],

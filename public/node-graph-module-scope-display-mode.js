@@ -263,7 +263,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     // Metronome BPM face: optional beat lamp.
     "transportBpm",
     // Music Player waveform / playlist look.
-    "phosphorWaveform",
+    "sampleWaveform",
     // Text Box look: mode, align, size, Sound Color Widgets.
     "textBoxFace",
     "portalFace",

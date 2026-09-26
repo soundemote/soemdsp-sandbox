@@ -171,7 +171,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-samples.js",
     "./public/modules/audioPlayer/audio-player-library.js",
     "./public/modules/audioPlayer/audio-player-playlist.js",
-    "./public/node-graph-phosphor-waveform.js",
+    "./public/node-graph-sample-waveform.js",
     "./public/node-graph-stdlib/node-graph-phasor-helpers.js",
     "./public/node-graph-stdlib/node-graph-param-surface-helpers.js",
     "./public/node-graph-musical-engines.js",
@@ -7425,7 +7425,7 @@ def require_node_graph_mvp_contract() -> None:
         "patch core": script_sources["./public/node-graph-patch-core.js"],
         "patch runtime": script_sources["./public/node-graph-patch-runtime.js"],
         "patch normalizers": script_sources["./public/node-graph-patch-normalizers.js"],
-        "phosphor waveform": script_sources["./public/node-graph-phosphor-waveform.js"],
+        "phosphor waveform": script_sources["./public/node-graph-sample-waveform.js"],
         "rendering": script_sources["./public/node-graph-module-rendering.js"],
         "resources": script_sources["./public/node-graph-resources.js"],
         "external ui events": script_sources["./public/node-graph-external-ui-events.js"],
@@ -7663,7 +7663,7 @@ def require_node_graph_mvp_contract() -> None:
             ],
         ),
         (
-            "phosphor waveform display",
+            "sample waveform display",
             "\n".join([
                 audio_player_contract_sources["patch normalizers"],
                 audio_player_contract_sources["definitions"],
@@ -7671,14 +7671,14 @@ def require_node_graph_mvp_contract() -> None:
                 audio_player_contract_sources["phosphor waveform"],
             ]),
             [
-                'audioPlayer: {\n    layout: "phosphorWaveform"',
-                'definition.layout === "phosphorWaveform"',
-                'phosphorWaveform: "phosphor-waveform-layout"',
-                "function createNodeGraphPhosphorWaveformDisplay",
-                "function drawNodeGraphPhosphorWaveformDisplay",
-                "function nodeGraphPhosphorWaveformSampleEntry",
-                "function nodeGraphPhosphorWaveformZoomAt",
-                "function nodeGraphPhosphorWaveformPanBy",
+                'layout: "sampleWaveform"',
+                'definition.layout === "sampleWaveform"',
+                'sampleWaveform: "sample-waveform-layout"',
+                "function createNodeGraphSampleWaveformDisplay",
+                "function drawNodeGraphSampleWaveformDisplay",
+                "function nodeGraphSampleWaveformSampleEntry",
+                "function nodeGraphSampleWaveformZoomAt",
+                "function nodeGraphSampleWaveformPanBy",
             ],
         ),
         (
@@ -15576,7 +15576,7 @@ def require_node_graph_mvp_contract() -> None:
         and "function syncNodeGraphRegisteredFloatingWindowSurfaces()" in floating_window_source
         and "Object.values(nodeGraphWorkspaceWindowElements)" in floating_window_source
         and 'markNodeGraphFloatingWindowSurface(element);' in workspace_window_source
-        and '"phosphorWaveformSettings"' in workspace_window_source
+        and '"sampleWaveformSettings"' in workspace_window_source
         and '"ledSettings"' in workspace_window_source
         and "syncNodeGraphRegisteredFloatingWindowSurfaces();" in view_controls_source,
         "all registered floating windows should share modular-only visibility policy",

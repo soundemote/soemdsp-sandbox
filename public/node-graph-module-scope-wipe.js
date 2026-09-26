@@ -68,7 +68,7 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
   const phosphorKeys = ["_phosphorEnergyGl", "_xyPadPhosphorEnergyGl"];
   const canvases = new Set();
   for (const canvas of document.querySelectorAll(
-    "canvas.node-module-scope-local-fallback-canvas, canvas.node-xy-pad-canvas, canvas.node-spectrogram-canvas, canvas.node-phosphor-waveform-canvas",
+    "canvas.node-module-scope-local-fallback-canvas, canvas.node-xy-pad-canvas, canvas.node-spectrogram-canvas, canvas.node-sample-waveform-canvas",
   )) {
     if (canvas instanceof HTMLCanvasElement) {
       canvases.add(canvas);

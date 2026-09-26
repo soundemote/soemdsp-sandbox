@@ -87,8 +87,8 @@ function buildNodeGraphArpKeysDisplaySettingsBodyHtml() {
       })
       : ""
   );
-  const corners = typeof buildNodeGraphPhosphorWaveformCornerChromeHtml === "function"
-    ? buildNodeGraphPhosphorWaveformCornerChromeHtml({
+  const corners = typeof buildNodeGraphSampleWaveformCornerChromeHtml === "function"
+    ? buildNodeGraphSampleWaveformCornerChromeHtml({
       squareId: "nodeArpKeysCornerSquareButton",
       squircleId: "nodeArpKeysCornerSquircleButton",
       radiusId: "nodeArpKeysCornerRadiusInput",
@@ -98,9 +98,9 @@ function buildNodeGraphArpKeysDisplaySettingsBodyHtml() {
   return `
     <div class="node-led-display-settings-panel" data-arp-keys-display-settings-panel>
       ${hueRow("Stroke", "strokeBrightness", "strokeColor", 165)}
-      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
+      <label class="node-led-settings-row node-sample-waveform-settings-row node-sample-waveform-tune-row">
         <span>Stroke thickness</span>
-        <span class="node-phosphor-waveform-control-widgets">
+        <span class="node-sample-waveform-control-widgets">
           <input id="nodeArpKeysStrokeThicknessInput" type="range" min="0" max="1" step="0.01" title="0 = 1px hairline. 1 = the short side of the face. Follows module size, canvas size, and zoom.">
         </span>
       </label>

@@ -328,6 +328,7 @@ struct PingPongDelayState {
   double liveLfoStyle;
   double liveLfoRate;
   double liveLfoVariation;
+  double livePingPong;
   double liveSampleRate;
   double lastModL;
   double lastModR;
@@ -481,6 +482,7 @@ extern "C" int soemdsp_ping_pong_delay_create() {
       s.liveOffsetMs = 0.0;
       s.liveLfoAmpMs = 0.0;
       s.liveAmplitude = 1.0;
+      s.livePingPong = 1.0;
       s.liveSampleRate = 44100.0;
       reset_delay_dsp(s);
       s.active = true;
@@ -624,11 +626,16 @@ static void process_one(PingPongDelayState& s, double inputL, double inputR) {
   const double readL = interpolate_linear(s.bufferL, s.bufferSize, readLRaw);
   const double readR = interpolate_linear(s.bufferR, s.bufferSize, readRRaw);
 
-  // Stereo inject + cross-feedback (do not sum L+R before the delay circuit).
+  // Off: parallel (same-side feedback). On: L gets dry + bounced R; R is
+  // bounce-only so identical L/R dry (Mono) still L→R→L instead of staying
+  // locked in stereo unison.
+  const bool pong = s.livePingPong >= 0.5;
+  const double fbInL = pong ? (dryL + readR * safeFeedback) : (dryL + readL * safeFeedback);
+  const double fbInR = pong ? (readL * safeFeedback) : (dryR + readR * safeFeedback);
   const double clippedL = soft_clip_run(
-    dryL + readR * safeFeedback, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
+    fbInL, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
   const double clippedR = soft_clip_run(
-    dryR + readL * safeFeedback, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
+    fbInR, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
   const double hpL = one_pole_hp_run(
     s.hpL_x0, s.hpL_y0, s.hpL_a1, s.hpL_b0, s.hpL_b1, clippedL);
   const double hpR = one_pole_hp_run(
@@ -663,7 +670,8 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   double lpfFrequency,
   double hpfFrequency,
   double tempoBpm,
-  double sampleRate
+  double sampleRate,
+  double pingPong
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   PingPongDelayState& s = gPool[handle - 1];
@@ -679,6 +687,7 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   s.liveLfoStyle = lfoStyle;
   s.liveLfoRate = safe(lfoRate);
   s.liveLfoVariation = lfoVariation;
+  s.livePingPong = pingPong;
   // Never allow broken SR (would make phase += hz/sr ≈ hz per sample → FM).
   s.liveSampleRate = (rate >= 1000.0 && rate <= 384000.0) ? rate : 44100.0;
   ensure_buffer_size(s, s.liveSampleRate);
@@ -705,13 +714,14 @@ extern "C" double soemdsp_ping_pong_delay_sample(
   double lpfFrequency,
   double hpfFrequency,
   double tempoBpm,
-  double sampleRate
+  double sampleRate,
+  double pingPong
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   soemdsp_ping_pong_delay_set_params(
     handle, feedback, mix, amplitude, timeNumerator, timeDenominator, timingMode,
     offsetMs, lfoAmpMs, lfoStyle, lfoRate, lfoVariation, saturate, lpfFrequency,
-    hpfFrequency, tempoBpm, sampleRate);
+    hpfFrequency, tempoBpm, sampleRate, pingPong);
   process_one(gPool[handle - 1], inputL, inputR);
   return gPool[handle - 1].outLeft;
 }

@@ -1240,10 +1240,10 @@ async function nodeGraphAudioPlayerLibraryPlayIndex(nodeId, index, { autoplay = 
     nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
   }
   const section = document.querySelector(
-    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId))}"]`,
+    `.node-sample-waveform-display[data-node="${CSS.escape(String(nodeId))}"]`,
   );
-  if (section && typeof nodeGraphPhosphorWaveformEnsureLoop === "function") {
-    nodeGraphPhosphorWaveformEnsureLoop(section);
+  if (section && typeof nodeGraphSampleWaveformEnsureLoop === "function") {
+    nodeGraphSampleWaveformEnsureLoop(section);
   }
   if (typeof setNodeInteractionHelp === "function") {
     setNodeInteractionHelp(`playing ${item.name}`);

@@ -296,7 +296,6 @@ function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
     "videoscopeBurn",
     "oscilloscopeBankBurn",
     "hypersawBurn",
-    "ensembleCloud",
     "rgbShapeFace",
     "rgbFractalFace",
     "evolveFieldFace",

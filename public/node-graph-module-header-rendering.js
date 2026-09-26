@@ -752,6 +752,7 @@ function createNodeGraphHeaderTimingWidgets() {
   group.setAttribute("aria-label", "Patch timing");
 
   group.append(
+    createNodeGraphTapTempoButton(),
     createNodeGraphHeaderTimingInput("tempoBpm", "BPM", { max: 320 }),
     createNodeGraphHeaderTimingInput("timeSignatureNumerator", "Beats"),
     createNodeGraphHeaderTimingInput("timeSignatureDenominator", "Unit"),
@@ -948,6 +949,7 @@ function renderNodeGraphPatchTimingControls() {
     // Speed Limit stays in Command Center. FPS lives on this bar.
     if (
       !host.querySelector(".node-header-timing-widgets")
+      || !host.querySelector(".node-header-tap-tempo-button")
       || !host.querySelector('[data-timing-field="tempoBpm"]')
       || !host.querySelector("#nodeMasterScopeFps")
       || !host.querySelector("#nodeHeaderGlobalSmoothingSeconds")

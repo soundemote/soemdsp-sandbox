@@ -11290,7 +11290,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     displayType: "ensembleCloud",
     displayModes: [
-      { key: "ensembleCloud", label: "Cloud", renderer: "ensembleCloud" },
+      { key: "ensembleCloud", label: "Cloud", renderer: "ensembleCloud", settingsSchema: "ensembleCloud" },
     ],
     defaultDisplayMode: "ensembleCloud",
     digitalInputs: ["Reset"],
@@ -11468,7 +11468,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     displayType: "ensembleCloud",
     displayModes: [
-      { key: "ensembleCloud", label: "Cloud", renderer: "ensembleCloud" },
+      { key: "ensembleCloud", label: "Cloud", renderer: "ensembleCloud", settingsSchema: "ensembleCloud" },
     ],
     defaultDisplayMode: "ensembleCloud",
     digitalInputs: ["Reset"],
@@ -12477,12 +12477,13 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", nonlinearSlider: false, step: "any", tooltip: "Dry/wet balance on the Mix outputs (not a wet-only path)." },
       { defaultValue: "0.35", key: "diffusionSize", label: "Size", max: "1", mid: "0.35", min: "0", nonlinearSlider: false, smoothingSeconds: 0.05, step: "any", tooltip: "Size of the diffusion network." },
       { defaultValue: "0.70", key: "diffusionAmount", label: "Diffusion", max: "0.98", mid: "0.70", min: "0", nonlinearSlider: false, step: "any", tooltip: "Strength of early diffusion." },
-      { defaultValue: "0.02", key: "delaySize", label: "Tape Memry", max: "1", mid: "0.02", min: "0", nonlinearSlider: false, smoothingSeconds: 0.05, step: "any", tooltip: "Main reverb delay length." },
+      { defaultValue: "0.02", key: "delaySize", label: "Tape Memory", max: "1", mid: "0.02", min: "0", nonlinearSlider: false, smoothingSeconds: 0.05, step: "any", tooltip: "Main reverb delay length." },
       { defaultValue: "0.70", key: "recycle", label: "Rec", max: "0.98", mid: "0.70", min: "0", nonlinearSlider: false, step: "any", tooltip: "Feedback amount for the reverb tail." },
       { defaultValue: "0.07", key: "lfoAmplitude", label: "Mod()Amp", max: "1", mid: "0.07", min: "0", nonlinearSlider: false, step: "any", tooltip: "Amount of delay modulation." },
       { defaultValue: "0.83", key: "lfoBaseSpeed", label: "Mod()Speed", max: "1", mid: "0.83", min: "0", nonlinearSlider: false, step: "any", tooltip: "Base speed of delay modulation." },
       { defaultValue: "0.001", key: "lfoVariation", label: "Mod()Vary", max: "1", mid: "0.001", min: "0", nonlinearSlider: false, step: "any", tooltip: "Randomized variation in delay modulation." },
       { control: "number", defaultValue: "0", key: "seed", label: "Seed", linearSmoothing: false, max: "99999", maxDigits: 0, mid: "1", min: "0", nonlinearSlider: false, step: "1", tooltip: "Randomizes the delay line pattern. Same seed always reproduces the same reverb character." },
+      nodeGraphOutputAmplitudeParam,
     ]
   },
   soemReverb: {
@@ -12630,7 +12631,7 @@ const nodeGraphModuleDefinitions = (
       { choices: ["PostDelay", "PreDelay", "Slapback"], defaultValue: "0", displayChoices: true, key: "echoMode", label: "Delay Mode", max: "2", min: "0", step: "1" },
       {
         choices: ["Off", "On"],
-        defaultValue: "0",
+        defaultValue: "1",
         displayChoices: true,
         divideChoicesVisibly: true,
         key: "pingPong",
@@ -12639,7 +12640,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         min: "0",
         step: "1",
-        tooltip: "Off = parallel echo L/R (same side). On = cross-feed delayed tails (Lâ†’Râ†’L bounce). Same echo base time on both sides."
+        tooltip: "On = L→R→L bounce (dry injects Left; Right is delayed Left). Off = parallel same-side echo."
       },
       { choices: ["Mod Off", "Mod On"], defaultValue: "1", displayChoices: true, key: "doModulateEcho", label: "Mod Echo", max: "1", min: "0", step: "1" },
       { defaultValue: "1", key: "saturate", label: "Saturate", max: "4", mid: "1", min: "0.01", step: "any" },
@@ -12652,6 +12653,7 @@ const nodeGraphModuleDefinitions = (
       { constraint: "cpu", defaultValue: "2", key: "bandStages", label: "Band Stages", max: "5", min: "0", step: "1" },
       { defaultValue: "1", key: "duckLimit", label: "Ducking", max: "1", mid: "1", min: "0.01", step: "any" },
       { defaultValue: "0.04", key: "duckRelease", label: "Duck Rel", max: "2", mid: "0.04", min: "0.001", step: "any", unit: "s" },
+      nodeGraphOutputAmplitudeParam,
     ]
   },
   pll: {
@@ -13736,16 +13738,16 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
     layoutBPortLabels: true,
-    layout: "phosphorWaveform",
+    layout: "sampleWaveform",
     defaultWidthGu: 13,
     defaultHeightGu: 18,
-    displayType: "phosphorWaveform",
+    displayType: "sampleWaveform",
     displayModes: [
       {
         key: "waveform",
         label: "Waveform",
-        renderer: "phosphorWaveform",
-        settingsSchema: "phosphorWaveform",
+        renderer: "sampleWaveform",
+        settingsSchema: "sampleWaveform",
       },
     ],
     defaultDisplayMode: "waveform",
@@ -13803,7 +13805,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         showSign: true,
         step: "any",
-        tooltip: "Phase distortion (−1…+1). 0 = linear scan. Rational map on the cycle index.",
+        tooltip: "Baked warp (−1…+1). 0 = linear. Negatives bunch the other side of the cycle. Maps across 13 Fourier frames (no live phase distortion).",
       },
       {
         defaultValue: "1",
@@ -13820,16 +13822,16 @@ const nodeGraphModuleDefinitions = (
   },
   samplePlayer: {
     planRole: "source",
-    layout: "phosphorWaveform",
+    layout: "sampleWaveform",
     defaultWidthGu: 13,
     defaultHeightGu: 16,
-    displayType: "phosphorWaveform",
+    displayType: "sampleWaveform",
     displayModes: [
       {
         key: "waveform",
         label: "Waveform",
-        renderer: "phosphorWaveform",
-        settingsSchema: "phosphorWaveform",
+        renderer: "sampleWaveform",
+        settingsSchema: "sampleWaveform",
       },
     ],
     defaultDisplayMode: "waveform",
@@ -13945,16 +13947,16 @@ const nodeGraphModuleDefinitions = (
   },
   audioPlayer: {
     planRole: "source",
-    layout: "phosphorWaveform",
+    layout: "sampleWaveform",
     defaultWidthGu: 13,
     defaultHeightGu: 21,
-    displayType: "phosphorWaveform",
+    displayType: "sampleWaveform",
     displayModes: [
       {
         key: "waveform",
         label: "Waveform",
-        renderer: "phosphorWaveform",
-        settingsSchema: "phosphorWaveform",
+        renderer: "sampleWaveform",
+        settingsSchema: "sampleWaveform",
       },
     ],
     defaultDisplayMode: "waveform",

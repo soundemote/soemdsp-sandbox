@@ -92,12 +92,6 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
   const autoSync = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
     ? nodeGraphDisplaySettingsToggleIsOn(settings?.sourceSync ?? settings?.sync)
     : Boolean(settings?.sourceSync);
-  const skipDisc = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
-    ? nodeGraphDisplaySettingsToggleIsOn(settings?.skipDiscontinuities ?? true)
-    : settings?.skipDiscontinuities !== false;
-  const discThreshold = typeof nodeGraphModuleScopeDiscontinuityThreshold === "number"
-    ? nodeGraphModuleScopeDiscontinuityThreshold
-    : 0.85;
   let signalWasHigh = canvas._lineBurnSignalWasHigh === true;
   const syncThreshold = Number.isFinite(Number(typeof nodeGraphLineBurnResetThreshold !== "undefined"
     ? nodeGraphLineBurnResetThreshold
@@ -149,7 +143,6 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
 
   const out = list.map(() => []);
   const hadPoint = list.map(() => false);
-  const prevSample = list.map(() => NaN);
   const starts = list.map((ch) => Math.max(0, ch.buffer.length - maxCount));
   const syncBuf = list[0].buffer;
   const syncStart = starts[0];
@@ -209,15 +202,6 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
         continue;
       }
       const sample = list[c].buffer[starts[c] + index];
-      if (
-        skipDisc
-        && hadPoint[c]
-        && Number.isFinite(prevSample[c])
-        && Math.abs(Number(sample) - prevSample[c]) > discThreshold
-      ) {
-        nodeGraphOneDimensionalBurnBreakPath(out[c]);
-        hadPoint[c] = false;
-      }
       const y = nodeGraphOneDimensionalBurnSampleToY(sample, height, settings);
       if (horizontalBurn) {
         if (hadPoint[c]) {
@@ -231,7 +215,6 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
         out[c].push({ x, y });
         hadPoint[c] = true;
       }
-      prevSample[c] = Number(sample);
     }
 
     if (!horizontalBurn) {

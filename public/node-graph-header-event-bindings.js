@@ -67,83 +67,83 @@ function bindNodeGraphHeaderControlEvents() {
     embedResize.addEventListener("pointerdown", beginNodeGraphTooltipEmbedResize);
   }
   // Move/up: registry pointer bridge
-  document.getElementById("nodePhosphorWaveformSettingsClose")?.addEventListener("click", closeNodeGraphPhosphorWaveformSettings);
+  document.getElementById("nodeSampleWaveformSettingsClose")?.addEventListener("click", closeNodeGraphSampleWaveformSettings);
   document
-    .getElementById("nodePhosphorWaveformSettingsDragHandle")
-    ?.addEventListener("pointerdown", beginNodeGraphPhosphorWaveformSettingsDrag);
+    .getElementById("nodeSampleWaveformSettingsDragHandle")
+    ?.addEventListener("pointerdown", beginNodeGraphSampleWaveformSettingsDrag);
   document
-    .getElementById("nodePhosphorWaveformSettingsHeading")
-    ?.addEventListener("pointerdown", beginNodeGraphPhosphorWaveformSettingsDrag);
-  if (typeof bindNodeGraphPhosphorWaveformTimeWindowEditing === "function") {
-    bindNodeGraphPhosphorWaveformTimeWindowEditing();
+    .getElementById("nodeSampleWaveformSettingsHeading")
+    ?.addEventListener("pointerdown", beginNodeGraphSampleWaveformSettingsDrag);
+  if (typeof bindNodeGraphSampleWaveformTimeWindowEditing === "function") {
+    bindNodeGraphSampleWaveformTimeWindowEditing();
   }
-  if (typeof bindNodeGraphPhosphorWaveformTimeWindowEditing === "function") {
-    bindNodeGraphPhosphorWaveformTimeWindowEditing();
+  if (typeof bindNodeGraphSampleWaveformTimeWindowEditing === "function") {
+    bindNodeGraphSampleWaveformTimeWindowEditing();
   }
-  if (typeof bindNodeGraphPhosphorWaveformSettingModifiers === "function") {
-    bindNodeGraphPhosphorWaveformSettingModifiers();
+  if (typeof bindNodeGraphSampleWaveformSettingModifiers === "function") {
+    bindNodeGraphSampleWaveformSettingModifiers();
   }
   // LED options: Command Center Display Settings only (no standalone window).
-  document.addEventListener("pointermove", dragNodeGraphPhosphorWaveformSettings);
-  document.addEventListener("pointerup", endNodeGraphPhosphorWaveformSettingsDrag);
-  document.addEventListener("pointercancel", endNodeGraphPhosphorWaveformSettingsDrag);
+  document.addEventListener("pointermove", dragNodeGraphSampleWaveformSettings);
+  document.addEventListener("pointerup", endNodeGraphSampleWaveformSettingsDrag);
+  document.addEventListener("pointercancel", endNodeGraphSampleWaveformSettingsDrag);
   document
-    .getElementById("nodePhosphorWaveformTimeWindowInput")
-    ?.addEventListener("change", handleNodeGraphPhosphorWaveformTimeWindowChange);
+    .getElementById("nodeSampleWaveformTimeWindowInput")
+    ?.addEventListener("change", handleNodeGraphSampleWaveformTimeWindowChange);
   document
-    .getElementById("nodePhosphorWaveformScrollSmoothButton")
-    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformScrollMode("smooth"));
+    .getElementById("nodeSampleWaveformScrollSmoothButton")
+    ?.addEventListener("click", () => setNodeGraphSampleWaveformScrollMode("smooth"));
   document
-    .getElementById("nodePhosphorWaveformScrollSnapButton")
-    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformScrollMode("snap"));
+    .getElementById("nodeSampleWaveformScrollSnapButton")
+    ?.addEventListener("click", () => setNodeGraphSampleWaveformScrollMode("snap"));
   document
-    .getElementById("nodePhosphorWaveformPositionLeftButton")
-    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformScrollLinePosition("left"));
+    .getElementById("nodeSampleWaveformPositionLeftButton")
+    ?.addEventListener("click", () => setNodeGraphSampleWaveformScrollLinePosition("left"));
   document
-    .getElementById("nodePhosphorWaveformPositionMidButton")
-    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformScrollLinePosition("mid"));
+    .getElementById("nodeSampleWaveformPositionMidButton")
+    ?.addEventListener("click", () => setNodeGraphSampleWaveformScrollLinePosition("mid"));
   document
-    .getElementById("nodePhosphorWaveformPositionRightButton")
-    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformScrollLinePosition("right"));
+    .getElementById("nodeSampleWaveformPositionRightButton")
+    ?.addEventListener("click", () => setNodeGraphSampleWaveformScrollLinePosition("right"));
   document
-    .getElementById("nodePhosphorWaveformLineWidthInput")
-    ?.addEventListener("change", handleNodeGraphPhosphorWaveformLineWidthChange);
+    .getElementById("nodeSampleWaveformLineWidthInput")
+    ?.addEventListener("change", handleNodeGraphSampleWaveformLineWidthChange);
   document
-    .getElementById("nodePhosphorWaveformTraceWidthInput")
-    ?.addEventListener("change", handleNodeGraphPhosphorWaveformTraceWidthChange);
+    .getElementById("nodeSampleWaveformTraceWidthInput")
+    ?.addEventListener("change", handleNodeGraphSampleWaveformTraceWidthChange);
   document
-    .getElementById("nodePhosphorWaveformTraceWidthInput")
-    ?.addEventListener("input", handleNodeGraphPhosphorWaveformTraceWidthChange);
+    .getElementById("nodeSampleWaveformTraceWidthInput")
+    ?.addEventListener("input", handleNodeGraphSampleWaveformTraceWidthChange);
   document
-    .getElementById("nodePhosphorWaveformHueInput")
-    ?.addEventListener("input", handleNodeGraphPhosphorWaveformHueChange);
+    .getElementById("nodeSampleWaveformHueInput")
+    ?.addEventListener("input", handleNodeGraphSampleWaveformHueChange);
   document
-    .getElementById("nodePhosphorWaveformLineBrightnessInput")
-    ?.addEventListener("input", handleNodeGraphPhosphorWaveformLineBrightnessChange);
+    .getElementById("nodeSampleWaveformLineBrightnessInput")
+    ?.addEventListener("input", handleNodeGraphSampleWaveformLineBrightnessChange);
   document
-    .getElementById("nodePhosphorWaveformGridBrightnessInput")
-    ?.addEventListener("input", handleNodeGraphPhosphorWaveformGridBrightnessChange);
+    .getElementById("nodeSampleWaveformGridBrightnessInput")
+    ?.addEventListener("input", handleNodeGraphSampleWaveformGridBrightnessChange);
   document
-    .getElementById("nodePhosphorWaveformBackgroundHueInput")
-    ?.addEventListener("input", handleNodeGraphPhosphorWaveformBackgroundHueChange);
+    .getElementById("nodeSampleWaveformBackgroundHueInput")
+    ?.addEventListener("input", handleNodeGraphSampleWaveformBackgroundHueChange);
   document
-    .getElementById("nodePhosphorWaveformBackgroundBrightnessInput")
-    ?.addEventListener("input", handleNodeGraphPhosphorWaveformBackgroundBrightnessChange);
+    .getElementById("nodeSampleWaveformBackgroundBrightnessInput")
+    ?.addEventListener("input", handleNodeGraphSampleWaveformBackgroundBrightnessChange);
   document
-    .getElementById("nodePhosphorWaveformCornerSquareButton")
-    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformCornerShape("square"));
+    .getElementById("nodeSampleWaveformCornerSquareButton")
+    ?.addEventListener("click", () => setNodeGraphSampleWaveformCornerShape("square"));
   document
-    .getElementById("nodePhosphorWaveformCornerSquircleButton")
-    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformCornerShape("squircle"));
+    .getElementById("nodeSampleWaveformCornerSquircleButton")
+    ?.addEventListener("click", () => setNodeGraphSampleWaveformCornerShape("squircle"));
   document
-    .getElementById("nodePhosphorWaveformCornerRadiusInput")
-    ?.addEventListener("input", handleNodeGraphPhosphorWaveformCornerRadiusChange);
+    .getElementById("nodeSampleWaveformCornerRadiusInput")
+    ?.addEventListener("input", handleNodeGraphSampleWaveformCornerRadiusChange);
   document
-    .getElementById("nodePhosphorWaveformEdgeSpacingInput")
-    ?.addEventListener("input", handleNodeGraphPhosphorWaveformEdgeSpacingChange);
+    .getElementById("nodeSampleWaveformEdgeSpacingInput")
+    ?.addEventListener("input", handleNodeGraphSampleWaveformEdgeSpacingChange);
   document
-    .getElementById("nodePhosphorWaveformLabelInsetInput")
-    ?.addEventListener("input", handleNodeGraphPhosphorWaveformLabelInsetChange);
+    .getElementById("nodeSampleWaveformLabelInsetInput")
+    ?.addEventListener("input", handleNodeGraphSampleWaveformLabelInsetChange);
   document.getElementById("nodeGridToggleButton").addEventListener("click", toggleNodeGraphGridVisibility);
   document.getElementById("nodeGridLightToggleButton")
     ?.addEventListener("click", toggleNodeGraphGridLightVisibility);

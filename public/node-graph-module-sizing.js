@@ -1302,7 +1302,7 @@ const NODE_GRAPH_PLATE_CLIP_SEL = [
   ".node-module-scope-window",
   ".node-module-face",
   ".node-filter-curve-display",
-  ".node-phosphor-waveform-display",
+  ".node-sample-waveform-display",
   ".node-module-graph-display",
   ".node-solid-module-custom-ui",
 ].join(", ");
@@ -1469,11 +1469,11 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
       // Music Player's waveform row is `minmax(scope, 1fr)` (styles.css), so it
       // swallows every spare pixel and the slider stack always ended up flush
       // with the module's bottom edge no matter how tall the module was. The
-      // matching cushion row in the phosphor-waveform grid template is what the
+      // matching cushion row in the sample-waveform grid template is what the
       // clearance actually lands in; this keeps the height math aware of it.
       { id: "cushion", heightGu: 1, visible: type === "audioPlayer" },
       // The waveform panel sits inside a 2px margin plus a 1px black ring on
-      // each side (.node-phosphor-waveform-display), so its grid row is 6px
+      // each side (.node-sample-waveform-display), so its grid row is 6px
       // taller than the canvas the scope-height setting asks for.
       { id: "waveformInset", heightGu: 6 / 28, visible: type === "audioPlayer" },
     ];

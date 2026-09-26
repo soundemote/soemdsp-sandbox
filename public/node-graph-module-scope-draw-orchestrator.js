@@ -64,7 +64,7 @@ const nodeGraphModuleScopeCustomRenderers = {
   scope2d: drawNodeGraphScope2dItem,
   numberReadout: drawNodeGraphNumberReadoutItem,
   customDisplay: () => {},
-  phosphorWaveform: () => {},
+  sampleWaveform: () => {},
   selfPaintFace: drawNodeGraphSelfPaintFaceItem,
   matrixFace: drawNodeGraphSelfPaintFaceItem,
   matrixWaterfallFace: drawNodeGraphSelfPaintFaceItem,

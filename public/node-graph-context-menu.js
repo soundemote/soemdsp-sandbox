@@ -2444,7 +2444,7 @@ function openNodeModuleActionMenu(event) {
   // Module shell binds contextmenu on the whole .dsp-node, which runs before
   // the document-level scene menu. Specialized display faces must claim the
   // event here (and stopPropagation) or Module Settings always wins.
-  if (typeof openNodePhosphorWaveformContextMenu === "function" && openNodePhosphorWaveformContextMenu(event)) {
+  if (typeof openNodeSampleWaveformContextMenu === "function" && openNodeSampleWaveformContextMenu(event)) {
     return;
   }
   if (typeof openNodeXyPadContextMenu === "function" && openNodeXyPadContextMenu(event)) {
@@ -2594,7 +2594,7 @@ function openNodeScopeContextMenu(event) {
       ".node-text-box-body",
       ".node-keypad-face",
       ".node-xy-pad",
-      ".node-phosphor-waveform-display",
+      ".node-sample-waveform-display",
       "[data-light-source='screen']",
       ".node-module-face",
     ].join(", "),
@@ -2637,8 +2637,8 @@ function openNodeScopeContextMenu(event) {
 
 // Right-click on the Music Player's waveform display opens Command Center
 // Display Settings (same seat as keypad / LED / scopes).
-function openNodePhosphorWaveformContextMenu(event) {
-  const display = event.target.closest?.(".node-phosphor-waveform-display");
+function openNodeSampleWaveformContextMenu(event) {
+  const display = event.target.closest?.(".node-sample-waveform-display");
   const nodeId = display?.dataset?.node || "";
   if (!nodeId || !nodeGraphPatchNode(nodeId)) {
     return false;
@@ -2648,8 +2648,8 @@ function openNodePhosphorWaveformContextMenu(event) {
   if (typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
     return true;
   }
-  if (typeof openNodeGraphPhosphorWaveformSettings === "function") {
-    return openNodeGraphPhosphorWaveformSettings(nodeId, event);
+  if (typeof openNodeGraphSampleWaveformSettings === "function") {
+    return openNodeGraphSampleWaveformSettings(nodeId, event);
   }
   return true;
 }
@@ -2660,7 +2660,7 @@ function openNodePhosphorWaveformContextMenu(event) {
 const nodeGraphWorkspaceFloatingUiSelector =
   "#nodeSceneContextMenu, #nodeParameterMetadataPopover, #nodeGlobalScopeMenu, " +
   "#nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeCanvasScriptDialog, " +
-  "#nodePhosphorWaveformSettingsWindow, #nodeModuleShopView, " +
+  "#nodeSampleWaveformSettingsWindow, #nodeModuleShopView, " +
   "#nodeTraceDisplaySettingsPopover, #nodeUserUiSettingsPanel, #nodeUiDevHelper, " +
   "#nodeVisibilityMenu, #nodePatchDefaultsPanel, " +
   "#nodeHotkeysPage, #nodeEmojiPage, " +
@@ -2757,7 +2757,7 @@ function openNodeSceneContextMenu(event) {
   if (openNodeScopeContextMenu(event)) {
     return;
   }
-  if (openNodePhosphorWaveformContextMenu(event)) {
+  if (openNodeSampleWaveformContextMenu(event)) {
     return;
   }
   if (typeof openNodeXyPadContextMenu === "function" && openNodeXyPadContextMenu(event)) {

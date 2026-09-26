@@ -447,14 +447,14 @@ function nodeGraphViewportCullWakePainters(element) {
     ) || []) {
       face._startFaceLoop?.();
     }
-    for (const face of root.querySelectorAll?.(".node-phosphor-waveform-display") || []) {
-      if (typeof nodeGraphPhosphorWaveformEnsureLoop === "function") {
-        nodeGraphPhosphorWaveformEnsureLoop(face);
+    for (const face of root.querySelectorAll?.(".node-sample-waveform-display") || []) {
+      if (typeof nodeGraphSampleWaveformEnsureLoop === "function") {
+        nodeGraphSampleWaveformEnsureLoop(face);
       }
     }
-    if (root.matches?.(".node-phosphor-waveform-display")
-      && typeof nodeGraphPhosphorWaveformEnsureLoop === "function") {
-      nodeGraphPhosphorWaveformEnsureLoop(root);
+    if (root.matches?.(".node-sample-waveform-display")
+      && typeof nodeGraphSampleWaveformEnsureLoop === "function") {
+      nodeGraphSampleWaveformEnsureLoop(root);
     }
     if (typeof nodeGraphScreenSoloWakeFace === "function") {
       nodeGraphScreenSoloWakeFace(root.matches?.(".node-module-face, .node-module-scope-window, .node-midi-keyboard-module, .node-arp-keys-face")
@@ -495,9 +495,9 @@ function nodeGraphViewportCullSleepPainters(element) {
       face._raf = 0;
     }
   }
-  for (const face of element.querySelectorAll(".node-phosphor-waveform-display")) {
-    if (typeof nodeGraphPhosphorWaveformStopLoop === "function") {
-      nodeGraphPhosphorWaveformStopLoop(face);
+  for (const face of element.querySelectorAll(".node-sample-waveform-display")) {
+    if (typeof nodeGraphSampleWaveformStopLoop === "function") {
+      nodeGraphSampleWaveformStopLoop(face);
     }
   }
   element.dispatchEvent(new CustomEvent("nodegraphviewport", {

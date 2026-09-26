@@ -425,14 +425,14 @@ function decayNodeGraphScope2dBurn(renderer, settings) {
 function nodeGraphScope2dBurnLayers(settings, dotSpace) {
   const layers = [];
   if (settings?.dot1Enabled !== false) {
-    // Linear diameter map: size * minSide, radius = half; size 0 → 1px (radius 0.5).
-    const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
+    // Authored CSS px at a 96px face. Do not clamp to 0…1 — that pegs every
+    // size ≥ 1 to the same radius.
     const side = Math.max(1, nodeGraphFiniteNumber(dotSpace, 1));
     const radius = typeof nodeGraphScopeSize01ToRadiusPx === "function"
-      ? nodeGraphScopeSize01ToRadiusPx(side, size01)
+      ? nodeGraphScopeSize01ToRadiusPx(side, settings.dot1Size)
       : (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.size01ToRadiusPx
-        ? PhosphorDrawer.size01ToRadiusPx(side, size01)
-        : Math.max(0.5, side * size01 * 0.5));
+        ? PhosphorDrawer.size01ToRadiusPx(side, settings.dot1Size)
+        : Math.max(0, (typeof faceInkPx === "function" ? faceInkPx(settings.dot1Size, side) : 0) * 0.5));
     layers.push({
       // Blur 0 hard disc … 1 full soft gaussian.
       blur: nodeGraphTraceDisplayClampStampBlur(settings.lineThickness),
@@ -671,9 +671,10 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   const height = canvas.height;
   const points = Array.isArray(pathPoints) ? pathPoints : [];
   const endFrame = Number(options.endFrame);
-  // Always absorb sample cursor when an endFrame is known (including freeze)
-  // so pause does not bank up stamps for a resume dump.
-  if (Number.isFinite(endFrame)) {
+  const startFrame = Number(options.startFrame);
+  // Freeze absorbs the whole cursor so resume does not dump a backlog.
+  // A live frame absorbs only what this budget actually stamped.
+  if (nodeGraphModuleScopePhosphorFrozen() && Number.isFinite(endFrame)) {
     absorbNodeGraphPhosphorDrawCursorOnCanvas(canvas, endFrame);
   }
 
@@ -704,10 +705,10 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     // Continuous CRT trail only: always pack stamps along chords between
     // samples (c1091b4 / 8bc05d90). Dots Only / Full Dot Economy are retired —
     // they produced beads or over-fat solid mush; ignore sticky patch flags.
-    const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
+    const sizeForGain = Math.max(0, Math.min(1, nodeGraphFiniteNumber(settings?.dot1Size) / 32));
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
       layer.brightness,
-      size01,
+      sizeForGain,
     );
     const stepped = nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       trail,
@@ -735,6 +736,20 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       verticesOnly: false,
     });
     void stepped;
+    if (!frozen && Number.isFinite(endFrame)) {
+      const stats = energyGl.lastPathStats;
+      let cursor = endFrame;
+      const total = Math.max(0, Math.floor(nodeGraphFiniteNumber(stats?.totalPoints)));
+      const consumed = Math.max(0, Math.floor(nodeGraphFiniteNumber(stats?.consumedPoints)));
+      if (stats?.truncated && total > 0 && Number.isFinite(startFrame) && endFrame > startFrame) {
+        const frac = Math.max(0, Math.min(1, consumed / total));
+        cursor = startFrame + (endFrame - startFrame) * frac;
+        if (cursor >= endFrame) {
+          cursor = endFrame;
+        }
+      }
+      absorbNodeGraphPhosphorDrawCursorOnCanvas(canvas, cursor);
+    }
     const stamps = Math.max(
       0,
       Math.floor(nodeGraphFiniteNumber(energyGl.lastDepositCount)),
@@ -804,17 +819,33 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
   // even-subsample across a long undrawn gap — that made high-speed Lorenz
   // look like a downsampled polyline of sparse chords.
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
-  const budget = nodeGraphScope2dMaxSamplesPerFrame(canvas);
+  const budget = Math.max(
+    64,
+    Math.min(8192, Math.round(Number(settings?.dotBudget) || nodeGraphScope2dMaxSamplesPerFrame(canvas) || 2048)),
+  );
   const rawStart = nodeGraphScope2dDrawStartIndex(canvas, buffer, count);
-  const drawStartIndex = typeof nodeGraphScope2dClampDrawStartIndex === "function"
-    ? nodeGraphScope2dClampDrawStartIndex(rawStart, count, budget)
-    : rawStart;
-  let pathPoints = drawStartIndex < count
-    ? buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, {
+  // Do not skip the middle of a long gap. Draw a fuse-spaced prefix and
+  // leave the rest undrawn for the next frame.
+  const buildCount = Math.min(Math.max(0, count - rawStart), budget * 2);
+  const indices = [];
+  for (let i = 0; i < buildCount; i += 1) {
+    indices.push(rawStart + i);
+  }
+  let pathPoints = indices.length
+    ? buildNodeGraphScope2dPathPoints(canvasSquare, buffer, 0, {
+      indices,
       interpolate: false,
       settings,
     })
     : [];
+  const bufStart = Number(buffer?.nodeGraphScopeStartFrame);
+  const bufEnd = Number(buffer?.nodeGraphScopeAbsoluteFrame);
+  const frameAt = (index) => {
+    if (!Number.isFinite(bufStart) || !Number.isFinite(bufEnd) || count <= 1) {
+      return bufEnd;
+    }
+    return bufStart + (Math.max(0, index) / count) * (bufEnd - bufStart);
+  };
   // Adjacent-frame bridge (soundemote.io): short residual gap only; one vertex.
   pathPoints = bridgeNodeGraphScope2dAdjacentFramePath(
     canvas,
@@ -826,7 +857,8 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
     ),
   );
   drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, {
-    endFrame: Number(buffer.nodeGraphScopeAbsoluteFrame),
+    startFrame: frameAt(rawStart),
+    endFrame: frameAt(rawStart + buildCount),
     parkedBeamHold: true,
   });
 }
@@ -1137,7 +1169,7 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
     }
     return;
   }
-  const size = clampNodeSliderValue(settings.dot1Size, 0, 1);
+  const size = nodeGraphFiniteNumber(settings.dot1Size, 2);
   const rgb01 = inkRgb || [1, 1, 1];
   if (!(rgb01[0] > 0 || rgb01[1] > 0 || rgb01[2] > 0)) {
     return;
@@ -1441,7 +1473,7 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
     }
     drawNodeGraphScope2dTraceLayer(context, inkPoints, dotSpace, settings);
     if (strokeable) {
-      canvas._scope2dTraceLastPoints = points;
+      canvas._scope2dTraceLastPoints = inkPoints;
     }
     snapshotNodeGraphScope2dTraceHold(canvas, item?.slot?.nodeId);
   } finally {

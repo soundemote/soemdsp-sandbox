@@ -1686,14 +1686,19 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   ) {
     return buildNodeGraphPluginButtonDisplaySettingsBodyHtml(type);
   }
-  if (type === "phosphorWaveform" && typeof buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml === "function") {
-    return buildNodeGraphPhosphorWaveformDisplaySettingsBodyHtml();
+  if (type === "sampleWaveform" && typeof buildNodeGraphSampleWaveformDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphSampleWaveformDisplaySettingsBodyHtml();
   }
   if (type === "arpKeysFace" && typeof buildNodeGraphArpKeysDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphArpKeysDisplaySettingsBodyHtml();
   }
   if (type === "transportBpm" && typeof buildNodeGraphTransportDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphTransportDisplaySettingsBodyHtml();
+  }
+  if (type === "ensembleCloud") {
+    return `<div class="metadata-field-section node-trace-display-trace-section">${
+      nodeGraphDisplaySettingsBuildStepperRowHtml("cloudSpeed", "ensembleCloud")
+    }</div>`;
   }
   if (type === "limiterGainFace" && typeof buildNodeGraphLimiterGainDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphLimiterGainDisplaySettingsBodyHtml();

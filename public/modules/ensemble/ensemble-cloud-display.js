@@ -6,7 +6,7 @@ function normalizeNodeGraphEnsembleCloudSettings(raw) {
   const src = raw && typeof raw === "object" ? raw : {};
   const n = Number(src.cloudSpeed);
   return {
-    cloudSpeed: Number.isFinite(n) ? Math.max(0, Math.min(4, n)) : 1,
+    cloudSpeed: Number.isFinite(n) ? Math.max(0, Math.min(4, n)) : 0.5,
   };
 }
 
@@ -64,10 +64,12 @@ function drawNodeGraphEnsembleCloudItem(_renderer, item, pixelRatio) {
   const bufPerCss = w / cssW;
   const ink = (px) => Math.max(1, Math.round(faceInkPx(px, minSide) * bufPerCss));
   const speed = Math.max(0, Number(settings.cloudSpeed));
-  let scrollPx = Math.round(ink(1.5) * speed);
-  if (speed > 0 && scrollPx < 1) {
-    scrollPx = 1;
-  }
+  const rate = ink(1.5) * speed;
+  let acc = Number(canvas._ensembleScrollAcc);
+  if (!Number.isFinite(acc)) acc = 0;
+  acc += rate;
+  const scrollPx = Math.floor(acc);
+  canvas._ensembleScrollAcc = acc - scrollPx;
   const sparkW = Math.max(2, ink(2));
   const sparkH = Math.max(1, scrollPx);
 

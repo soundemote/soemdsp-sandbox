@@ -603,6 +603,7 @@ const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   scale: nodeGraphScopePhosphorLookDefaults.scale,
   skipDiscontinuities: false,
+  dotBudget: 2048,
 });
 
 /** Optional per-type 2D Trace defaults. */
@@ -652,6 +653,7 @@ const nodeGraphScope1dTraceSettingsDefaults = Object.freeze({
   sourceSync: false,
   sweepHz: 4,
   sweepCycles: 4,
+  dotBudget: 2048,
 });
 
 

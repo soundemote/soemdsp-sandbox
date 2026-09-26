@@ -20,7 +20,7 @@ const nodeGraphWorkspaceWindowStateKeys = Object.freeze([
   "uiDev",
   "traceDisplaySettings",
   "tooltipWindow",
-  "phosphorWaveformSettings",
+  "sampleWaveformSettings",
   "emoji",
 ]);
 
@@ -37,7 +37,7 @@ const nodeGraphWorkspaceWindowElements = Object.freeze({
   uiDev: "nodeUiDevHelper",
   traceDisplaySettings: "nodeTraceDisplaySettingsPopover",
   tooltipWindow: "nodeTooltipWindow",
-  phosphorWaveformSettings: "nodePhosphorWaveformSettingsWindow",
+  sampleWaveformSettings: "nodeSampleWaveformSettingsWindow",
   emoji: "nodeEmojiPage",
 });
 

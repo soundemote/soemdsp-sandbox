@@ -269,11 +269,33 @@ body:not(.node-boot-waiting) .node-boot-menu-links {
   flex: 0 0 auto;
 }
 
+
+.node-boot-menu-bottom-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.node-boot-menu-rect.node-boot-menu-rect-half {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 0;
+  height: 4.25rem;
+  padding: 0 0.7rem;
+  font-size: clamp(0.78rem, 2.1vw, 1.05rem);
+  letter-spacing: 0.02em;
+}
+
 .node-boot-menu-squares {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   gap: 1.5rem;
 }
 

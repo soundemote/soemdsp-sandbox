@@ -438,14 +438,12 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
   let horizStride = 1;
   if (horizontalBurn) {
     const dotSpace = Math.max(1, Math.min(width, height));
-    const size01 = typeof clampNodeSliderValue === "function"
-      ? clampNodeSliderValue(nodeGraphFiniteNumber(settings?.dot1Size), 0, 1)
-      : Math.max(0, Math.min(1, nodeGraphFiniteNumber(settings?.dot1Size)));
-    let radius = Math.max(0.5, dotSpace * size01 * 0.5);
+    const authoredSize = nodeGraphFiniteNumber(settings?.dot1Size, 2);
+    let radius = Math.max(0.35, (typeof faceInkPx === "function" ? faceInkPx(authoredSize, dotSpace) : authoredSize) * 0.5);
     if (typeof nodeGraphScopeSize01ToRadiusPx === "function") {
-      radius = Math.max(0.35, nodeGraphScopeSize01ToRadiusPx(dotSpace, size01));
+      radius = Math.max(0.35, nodeGraphScopeSize01ToRadiusPx(dotSpace, authoredSize));
     } else if (typeof PhosphorDrawer !== "undefined" && typeof PhosphorDrawer.size01ToRadiusPx === "function") {
-      radius = Math.max(0.35, PhosphorDrawer.size01ToRadiusPx(dotSpace, size01));
+      radius = Math.max(0.35, PhosphorDrawer.size01ToRadiusPx(dotSpace, authoredSize));
     }
     const blurRaw = Number(settings?.lineThickness);
     const blur = typeof nodeGraphTraceDisplayClampStampBlur === "function"
@@ -1081,6 +1079,9 @@ function nodeGraphScopeSize01ToRadiusPx(faceMinSide, size01) {
     return TraceStroke.radiusPx(faceMinSide, size01);
   }
   const side = Math.max(1, nodeGraphFiniteNumber(faceMinSide, 1));
+  if (typeof faceInkPx === "function") {
+    return Math.max(0, faceInkPx(size01, side) * 0.5);
+  }
   const t = clampNodeSliderValue(Number(size01), 0, 1);
   return side * t * 0.5;
 }
@@ -1094,6 +1095,9 @@ function nodeGraphScopeSize01ToDiameterPx(faceMinSide, size01) {
     return TraceStroke.diameterPx(faceMinSide, size01);
   }
   const side = Math.max(1, nodeGraphFiniteNumber(faceMinSide, 1));
+  if (typeof faceInkPx === "function") {
+    return Math.max(0, faceInkPx(size01, side));
+  }
   const t = clampNodeSliderValue(Number(size01), 0, 1);
   return side * t;
 }
@@ -2571,6 +2575,36 @@ function buildNodeGraphScope2dEvenPathPoints(square, buffer, maxPoints, settings
  * start from the newest window so we never fall into a catch-up death spiral.
  * (Used by segment / incremental modes.)
  */
+/**
+ * Leading points that still fuse into a line under `budget` stamps.
+ * The tail stays undrawn so the next frame can continue the wave.
+ */
+function nodeGraphTraceFusePrefixCount(points, budget, stepPx) {
+  const cap = Math.max(8, Math.floor(nodeGraphFiniteNumber(budget, 2048)));
+  const step = Math.max(0.2, nodeGraphFiniteNumber(stepPx, 0.5));
+  const src = Array.isArray(points) ? points : [];
+  let stamps = 0;
+  let last = null;
+  let keep = 0;
+  for (let i = 0; i < src.length; i += 1) {
+    const p = src[i];
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+      last = null;
+      keep = i + 1;
+      continue;
+    }
+    const dist = last ? Math.hypot(p.x - last.x, p.y - last.y) : 0;
+    const add = !last ? 1 : (dist < 1e-4 ? 0 : Math.max(1, Math.ceil(dist / step)));
+    if (keep > 0 && stamps + add > cap) {
+      break;
+    }
+    stamps += add;
+    last = p;
+    keep = i + 1;
+  }
+  return { keep, truncated: keep < src.length };
+}
+
 function nodeGraphScope2dClampDrawStartIndex(startIndex, count, maxSamples) {
   const safeCount = Math.max(0, Math.floor(nodeGraphFiniteNumber(count)));
   const safeStart = Math.max(0, Math.min(safeCount, Math.floor(nodeGraphFiniteNumber(startIndex))));

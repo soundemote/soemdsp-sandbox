@@ -114,7 +114,7 @@ function nodeGraphEventTargetIsFloatingWindow(target) {
     "#nodeUserUiSettingsPanel",
     "#nodePatchDefaultsPanel",
     "#nodeUiDevHelper",
-    "#nodePhosphorWaveformSettingsWindow",
+    "#nodeSampleWaveformSettingsWindow",
     "#nodeCodeBoxWindow",
 
     ".node-canvas-script-dialog",
@@ -125,7 +125,7 @@ function nodeGraphEventTargetIsFloatingWindow(target) {
     ".node-module-shop-view",
     ".node-user-ui-settings-panel",
     ".node-ui-dev-helper",
-    ".node-phosphor-waveform-settings-window",
+    ".node-sample-waveform-settings-window",
   ].join(", "))) {
     return true;
   }

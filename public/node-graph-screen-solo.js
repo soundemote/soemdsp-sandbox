@@ -11,7 +11,7 @@ const NODE_GRAPH_SCREEN_SOLO_FACE_SEL = [
   ".node-phone-tone-display",
   ".node-harmonic-series-display",
   ".node-pulse-curve-display",
-  ".node-phosphor-waveform-display",
+  ".node-sample-waveform-display",
   ".node-wall-room-display",
   ".node-asciiscope-face",
   ".node-matrix-display-face",
@@ -347,13 +347,13 @@ function nodeGraphScreenSoloWakeFace(face) {
       installNodeGraphMidiKeyboardLayoutResizeObserver();
     }
   }
-  if (face.classList.contains("node-phosphor-waveform-display")
-    || face.querySelector?.(".node-phosphor-waveform-display")) {
-    const phosphor = face.classList.contains("node-phosphor-waveform-display")
+  if (face.classList.contains("node-sample-waveform-display")
+    || face.querySelector?.(".node-sample-waveform-display")) {
+    const phosphor = face.classList.contains("node-sample-waveform-display")
       ? face
-      : face.querySelector(".node-phosphor-waveform-display");
-    if (phosphor && typeof nodeGraphPhosphorWaveformEnsureLoop === "function") {
-      nodeGraphPhosphorWaveformEnsureLoop(phosphor);
+      : face.querySelector(".node-sample-waveform-display");
+    if (phosphor && typeof nodeGraphSampleWaveformEnsureLoop === "function") {
+      nodeGraphSampleWaveformEnsureLoop(phosphor);
     }
   }
   if (typeof requestNodeGraphModuleScopeRepaint === "function") {
@@ -395,7 +395,7 @@ function nodeGraphScreenSoloClearFitClasses() {
 
 function nodeGraphScreenSoloFacePrefersFill(face) {
   return Boolean(
-    face?.classList?.contains("node-phosphor-waveform-display")
+    face?.classList?.contains("node-sample-waveform-display")
     || face?.classList?.contains("node-module-scope-window"),
   );
 }

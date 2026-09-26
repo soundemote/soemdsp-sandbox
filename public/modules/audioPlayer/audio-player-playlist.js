@@ -555,10 +555,10 @@ function nodeGraphAudioPlayerWriteTransport(nodeId, mode, { record = false } = {
   nodeGraphAudioPlayerPlaylistSyncTransport(nodeId);
   if (next >= 3) {
     const section = document.querySelector(
-      `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId))}"]`,
+      `.node-sample-waveform-display[data-node="${CSS.escape(String(nodeId))}"]`,
     );
-    if (section && typeof nodeGraphPhosphorWaveformEnsureLoop === "function") {
-      nodeGraphPhosphorWaveformEnsureLoop(section);
+    if (section && typeof nodeGraphSampleWaveformEnsureLoop === "function") {
+      nodeGraphSampleWaveformEnsureLoop(section);
     }
   }
 }
@@ -1038,7 +1038,7 @@ function nodeGraphAudioPlayerPlaylistTransportAction(nodeId, action) {
 
 function nodeGraphAudioPlayerPlaylistSyncTransport(nodeId) {
   const section = document.querySelector(
-    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
+    `.node-sample-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
   );
   const bar = section?.querySelector?.("[data-music-player-transport]");
   if (!bar) {
@@ -1233,7 +1233,7 @@ function nodeGraphAudioPlayerPlaylistCreateNowSong(nodeId) {
 
 function nodeGraphAudioPlayerPlaylistSyncNowSong(nodeId) {
   const section = document.querySelector(
-    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
+    `.node-sample-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
   );
   const label = section?.querySelector?.("[data-music-player-now-song-name]");
   if (!label) {
@@ -1300,7 +1300,7 @@ function nodeGraphAudioPlayerPlaylistPlaceShared(section, nodeId, face) {
   const wavePage = section.querySelector("[data-music-player-page='wave']");
   const plPage = section.querySelector("[data-music-player-page='pl']");
   const waveHost = waveplayPage?.querySelector("[data-music-player-wave-host]");
-  const canvas = section.querySelector(".node-phosphor-waveform-canvas");
+  const canvas = section.querySelector(".node-sample-waveform-canvas");
   const ramPanel = section.querySelector("[data-music-player-ram-panel]");
   const list = section.querySelector("[data-music-player-list]");
   let transport = section.querySelector("[data-music-player-transport]");
@@ -1378,14 +1378,14 @@ function nodeGraphAudioPlayerPlaylistEnsureLayout(section, nodeId) {
     }
   }
   nodeGraphAudioPlayerPlaylistEnsureFaceBar(section, nodeId);
-  if (typeof nodeGraphPhosphorWaveformEnsureZoomControl === "function") {
-    nodeGraphPhosphorWaveformEnsureZoomControl(section);
+  if (typeof nodeGraphSampleWaveformEnsureZoomControl === "function") {
+    nodeGraphSampleWaveformEnsureZoomControl(section);
   }
 }
 
 function nodeGraphAudioPlayerPlaylistApplyFace(nodeId) {
   const section = document.querySelector(
-    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
+    `.node-sample-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
   );
   if (!section) {
     return;
@@ -1415,13 +1415,13 @@ function nodeGraphAudioPlayerPlaylistApplyFace(nodeId) {
     nodeGraphAudioPlayerPlaylistStopScrubLoop(nodeId);
   }
   // Face switch changes which page box owns the bitmap — resync layout cache.
-  if (typeof nodeGraphPhosphorWaveformSyncLayout === "function") {
-    nodeGraphPhosphorWaveformSyncLayout(section, { face });
+  if (typeof nodeGraphSampleWaveformSyncLayout === "function") {
+    nodeGraphSampleWaveformSyncLayout(section, { face });
   }
-  if (typeof nodeGraphPhosphorWaveformEnsureLoop === "function") {
-    nodeGraphPhosphorWaveformEnsureLoop(section);
-  } else if (typeof scheduleNodeGraphPhosphorWaveformFrame === "function") {
-    scheduleNodeGraphPhosphorWaveformFrame(section);
+  if (typeof nodeGraphSampleWaveformEnsureLoop === "function") {
+    nodeGraphSampleWaveformEnsureLoop(section);
+  } else if (typeof scheduleNodeGraphSampleWaveformFrame === "function") {
+    scheduleNodeGraphSampleWaveformFrame(section);
   }
 }
 
@@ -1849,7 +1849,7 @@ function nodeGraphAudioPlayerPlaylistOnRuntimeStatus(nodeId, reason = "", workle
 
 function nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId) {
   const section = document.querySelector(
-    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
+    `.node-sample-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
   );
   if (!section || !nodeGraphAudioPlayerFaceShowsPlaylist(section)) {
     return;
@@ -1879,7 +1879,7 @@ function nodeGraphAudioPlayerPlaylistStartScrubLoop(nodeId) {
   }
   const tick = () => {
     const section = document.querySelector(
-      `.node-phosphor-waveform-display[data-node="${CSS.escape(id)}"]`,
+      `.node-sample-waveform-display[data-node="${CSS.escape(id)}"]`,
     );
     if (!section || !nodeGraphAudioPlayerFaceShowsPlaylist(section)) {
       nodeGraphAudioPlayerPlaylistScrubLoops.delete(id);
@@ -2039,19 +2039,19 @@ function nodeGraphAudioPlayerPlaylistPaintWaveCanvas(canvas, {
   const midY = height * 0.5;
   const amplitude = midY * 0.9;
   const look = settings;
-  const stroke = typeof nodeGraphPhosphorWaveformLineColor === "function" && look
-    ? nodeGraphPhosphorWaveformLineColor(look, 82, 0.92)
+  const stroke = typeof nodeGraphSampleWaveformLineColor === "function" && look
+    ? nodeGraphSampleWaveformLineColor(look, 82, 0.92)
     : "rgba(120, 220, 180, 0.9)";
-  const fill = typeof nodeGraphPhosphorWaveformLineColor === "function" && look
-    ? nodeGraphPhosphorWaveformLineColor(look, 75, 0.28)
+  const fill = typeof nodeGraphSampleWaveformLineColor === "function" && look
+    ? nodeGraphSampleWaveformLineColor(look, 75, 0.28)
     : "rgba(80, 180, 140, 0.28)";
   let drew = false;
   if (
     live
-    && typeof nodeGraphPhosphorWaveformBuildVectorPath === "function"
-    && typeof nodeGraphPhosphorWaveformStrokeVectorPath === "function"
+    && typeof nodeGraphSampleWaveformBuildVectorPath === "function"
+    && typeof nodeGraphSampleWaveformStrokeVectorPath === "function"
   ) {
-    const points = nodeGraphPhosphorWaveformBuildVectorPath(
+    const points = nodeGraphSampleWaveformBuildVectorPath(
       samples,
       start,
       end,
@@ -2059,7 +2059,7 @@ function nodeGraphAudioPlayerPlaylistPaintWaveCanvas(canvas, {
       midY,
       amplitude,
     );
-    if (nodeGraphPhosphorWaveformStrokeVectorPath(context, points)) {
+    if (nodeGraphSampleWaveformStrokeVectorPath(context, points)) {
       context.strokeStyle = stroke;
       context.lineWidth = Math.max(1, pixelRatio);
       context.lineJoin = "miter";
@@ -2090,16 +2090,16 @@ function nodeGraphAudioPlayerPlaylistPaintWaveCanvas(canvas, {
 
 function nodeGraphAudioPlayerPlaylistPaintWaves(nodeId, { liveOnly = false } = {}) {
   const section = document.querySelector(
-    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
+    `.node-sample-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
   );
   if (!section || !nodeGraphAudioPlayerFaceShowsPlaylist(section)) {
     return;
   }
-  if (typeof applyNodeGraphPhosphorWaveformHudVars === "function") {
-    applyNodeGraphPhosphorWaveformHudVars(
+  if (typeof applyNodeGraphSampleWaveformHudVars === "function") {
+    applyNodeGraphSampleWaveformHudVars(
       section,
-      typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
-        ? nodeGraphPhosphorWaveformSettingsForNode(nodeId)
+      typeof nodeGraphSampleWaveformSettingsForNode === "function"
+        ? nodeGraphSampleWaveformSettingsForNode(nodeId)
         : null,
     );
   }
@@ -2107,29 +2107,29 @@ function nodeGraphAudioPlayerPlaylistPaintWaves(nodeId, { liveOnly = false } = {
   const playingId = normalizeNodeGraphSampleId
     ? normalizeNodeGraphSampleId(node?.sample?.id)
     : String(node?.sample?.id || "").trim();
-  const settings = typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
-    ? nodeGraphPhosphorWaveformSettingsForNode(nodeId)
+  const settings = typeof nodeGraphSampleWaveformSettingsForNode === "function"
+    ? nodeGraphSampleWaveformSettingsForNode(nodeId)
     : null;
-  const playingEntry = typeof nodeGraphPhosphorWaveformSampleEntry === "function"
-    ? nodeGraphPhosphorWaveformSampleEntry(nodeId)
+  const playingEntry = typeof nodeGraphSampleWaveformSampleEntry === "function"
+    ? nodeGraphSampleWaveformSampleEntry(nodeId)
     : null;
-  const view = playingEntry && typeof nodeGraphPhosphorWaveformViewState === "function"
-    ? nodeGraphPhosphorWaveformViewState(nodeId, playingEntry.frames, section)
+  const view = playingEntry && typeof nodeGraphSampleWaveformViewState === "function"
+    ? nodeGraphSampleWaveformViewState(nodeId, playingEntry.frames, section)
     : null;
   const phase = typeof nodeGraphSamplePhaseForNode === "function"
     ? nodeGraphSamplePhaseForNode(nodeId)
     : 0;
   const playheadFrame = playingEntry ? phase * playingEntry.frames : 0;
-  if (view && playingEntry && settings && typeof nodeGraphPhosphorWaveformContinuousView === "function") {
+  if (view && playingEntry && settings && typeof nodeGraphSampleWaveformContinuousView === "function") {
     const frames = Math.max(1, playingEntry.frames || 1);
     const rate = Math.max(1, nodeGraphFiniteNumber(playingEntry.sampleRate, 44100));
     const windowFrames = settings.timeWindowSeconds <= 0
       ? 1
       : Math.max(1, Math.min(frames, Math.round(settings.timeWindowSeconds * rate)));
-    const ratio = typeof nodeGraphPhosphorWaveformScrollLineRatio === "function"
-      ? nodeGraphPhosphorWaveformScrollLineRatio(settings)
+    const ratio = typeof nodeGraphSampleWaveformScrollLineRatio === "function"
+      ? nodeGraphSampleWaveformScrollLineRatio(settings)
       : 0.5;
-    const next = nodeGraphPhosphorWaveformContinuousView(
+    const next = nodeGraphSampleWaveformContinuousView(
       playheadFrame - windowFrames * ratio,
       windowFrames,
       frames,
@@ -2217,8 +2217,8 @@ function nodeGraphAudioPlayerPlaylistVisibleSlotCount(list) {
 
 function nodeGraphAudioPlayerPlaylistSlotCount(list, nodeId) {
   const id = nodeId || list?.closest?.("[data-node]")?.dataset?.node;
-  const settings = typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
-    ? nodeGraphPhosphorWaveformSettingsForNode(id)
+  const settings = typeof nodeGraphSampleWaveformSettingsForNode === "function"
+    ? nodeGraphSampleWaveformSettingsForNode(id)
     : null;
   const want = Math.round(Number(settings?.playlistVisibleCount));
   const items = typeof nodeGraphAudioPlayerPlaylistForNode === "function"
@@ -2352,8 +2352,8 @@ function nodeGraphAudioPlayerPlaylistPaintSlots(nodeId, list, { followPlaying = 
   start = nodeGraphAudioPlayerPlaylistClampViewStart(start, items.length, slotCount);
   list.dataset.plViewStart = String(start);
   const selected = Number.isInteger(pl.selectedIndex) ? pl.selectedIndex : pl.index;
-  const settings = typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
-    ? nodeGraphPhosphorWaveformSettingsForNode(nodeId)
+  const settings = typeof nodeGraphSampleWaveformSettingsForNode === "function"
+    ? nodeGraphSampleWaveformSettingsForNode(nodeId)
     : null;
   const fadeAmt = settings?.playlistFade;
   const rows = list.querySelectorAll(":scope > .node-music-player-pl-row");
@@ -2497,7 +2497,7 @@ function nodeGraphAudioPlayerPlaylistRefreshUi(nodeId) {
     nodeGraphAudioPlayerPlaylistEnsureCurrentSample(nodeId, { persist: false, refresh: false });
   }
   const section = document.querySelector(
-    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
+    `.node-sample-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
   );
   if (!section) {
     return;
@@ -2519,7 +2519,7 @@ function nodeGraphAudioPlayerPlaylistRefreshUi(nodeId) {
 
 function nodeGraphAudioPlayerPlaylistRefreshRamDebug(nodeId) {
   const section = document.querySelector(
-    `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
+    `.node-sample-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
   );
   if (!section) {
     return;
@@ -2734,8 +2734,8 @@ function nodeGraphAudioPlayerVideoscopeChannels(nodeId) {
 }
 
 function nodeGraphAudioPlayerVideoscopeWindow(nodeId, frames, sampleRate) {
-  const settings = typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
-    ? nodeGraphPhosphorWaveformSettingsForNode(nodeId)
+  const settings = typeof nodeGraphSampleWaveformSettingsForNode === "function"
+    ? nodeGraphSampleWaveformSettingsForNode(nodeId)
     : null;
   const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const seconds = Number(settings?.timeWindowSeconds);
@@ -2767,8 +2767,8 @@ function nodeGraphAudioPlayerVideoscopePaint(section) {
     return;
   }
   const nodeId = section.dataset.node || "";
-  const settings = typeof nodeGraphPhosphorWaveformSettingsForNode === "function"
-    ? nodeGraphPhosphorWaveformSettingsForNode(nodeId)
+  const settings = typeof nodeGraphSampleWaveformSettingsForNode === "function"
+    ? nodeGraphSampleWaveformSettingsForNode(nodeId)
     : null;
   const metrics = typeof nodeGraphMusicPlayerFaceMetrics === "function"
     ? nodeGraphMusicPlayerFaceMetrics(section, canvas, face)
@@ -2782,8 +2782,8 @@ function nodeGraphAudioPlayerVideoscopePaint(section) {
   const pixelRatio = metrics?.pixelRatio || Math.max(1, window.devicePixelRatio || 1);
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.clearRect(0, 0, width, height);
-  const bg = typeof nodeGraphPhosphorWaveformBackgroundColor === "function"
-    ? nodeGraphPhosphorWaveformBackgroundColor(settings)
+  const bg = typeof nodeGraphSampleWaveformBackgroundColor === "function"
+    ? nodeGraphSampleWaveformBackgroundColor(settings)
     : "#050805";
   context.fillStyle = bg;
   context.fillRect(0, 0, width, height);
@@ -2796,11 +2796,11 @@ function nodeGraphAudioPlayerVideoscopePaint(section) {
 }
 
 function nodeGraphAudioPlayerVideoscopePaintXy(context, width, height, channels, settings, nodeId) {
-  const axis = typeof nodeGraphPhosphorWaveformLineColor === "function"
-    ? nodeGraphPhosphorWaveformLineColor(settings, 57, 0.28)
+  const axis = typeof nodeGraphSampleWaveformLineColor === "function"
+    ? nodeGraphSampleWaveformLineColor(settings, 57, 0.28)
     : "rgba(80, 160, 130, 0.28)";
-  const ink = typeof nodeGraphPhosphorWaveformLineColor === "function"
-    ? nodeGraphPhosphorWaveformLineColor(settings, 82, 0.9)
+  const ink = typeof nodeGraphSampleWaveformLineColor === "function"
+    ? nodeGraphSampleWaveformLineColor(settings, 82, 0.9)
     : "rgba(180, 230, 200, 0.9)";
   context.strokeStyle = axis;
   context.lineWidth = 1;
@@ -2830,7 +2830,7 @@ function nodeGraphAudioPlayerVideoscopePaintXy(context, width, height, channels,
     const faceMin = faceMinSide(width, height);
     const unit = settings && Number.isFinite(Number(settings.traceWidth))
       ? Number(settings.traceWidth)
-      : nodeGraphPhosphorWaveformDefaultSettings.traceWidth;
+      : nodeGraphSampleWaveformDefaultSettings.traceWidth;
     context.lineWidth = Math.max(0.25, faceInkPx(clampAuthoredInkPx(unit, 2), faceMin));
   }
   context.beginPath();
@@ -2863,8 +2863,8 @@ function nodeGraphAudioPlayerVideoscopePaintXy(context, width, height, channels,
 
 function nodeGraphAudioPlayerVideoscopePaintLr(context, width, height, channels, settings, nodeId) {
   const mid = Math.round(height * 0.5);
-  const line = typeof nodeGraphPhosphorWaveformLineColor === "function"
-    ? nodeGraphPhosphorWaveformLineColor(settings, 57, 0.28)
+  const line = typeof nodeGraphSampleWaveformLineColor === "function"
+    ? nodeGraphSampleWaveformLineColor(settings, 57, 0.28)
     : "rgba(80, 160, 130, 0.28)";
   context.fillStyle = line;
   context.fillRect(0, mid, width, 1);
@@ -2885,7 +2885,7 @@ function nodeGraphAudioPlayerVideoscopePaintLr(context, width, height, channels,
       const faceMin = faceMinSide(width, height);
       const unit = settings && Number.isFinite(Number(settings.traceWidth))
         ? Number(settings.traceWidth)
-        : nodeGraphPhosphorWaveformDefaultSettings.traceWidth;
+        : nodeGraphSampleWaveformDefaultSettings.traceWidth;
       context.lineWidth = Math.max(0.25, faceInkPx(clampAuthoredInkPx(unit, 2), faceMin));
     }
     context.beginPath();
@@ -2940,7 +2940,7 @@ function nodeGraphAudioPlayerVideoscopePaintLr(context, width, height, channels,
 })();
 
 function nodeGraphAudioPlayerPlaylistMigrateOpenDisplays() {
-  document.querySelectorAll(".node-phosphor-waveform-display[data-music-player-enhanced='1']").forEach((section) => {
+  document.querySelectorAll(".node-sample-waveform-display[data-music-player-enhanced='1']").forEach((section) => {
     const nodeId = section.dataset.node;
     if (nodeId) {
       nodeGraphAudioPlayerPlaylistApplyFace(nodeId);

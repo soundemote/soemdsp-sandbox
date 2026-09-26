@@ -320,7 +320,7 @@ function cloneNodeGraphTypedDisplaySettings(node) {
       return {
         traceDisplaySettings: typeof normalizeNodeGraphEnsembleCloudSettings === "function"
           ? normalizeNodeGraphEnsembleCloudSettings(bag)
-          : { cloudSpeed: 1 },
+          : { cloudSpeed: 0.5 },
       };
     case "hypersawBurn": {
       return {
@@ -375,11 +375,11 @@ function cloneNodeGraphTypedDisplaySettings(node) {
           : merged,
       };
     }
-    case "phosphorWaveform":
+    case "sampleWaveform":
       return {
-        phosphorWaveformSettings: typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
-          ? normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings)
-          : (node.phosphorWaveformSettings || {}),
+        sampleWaveformSettings: typeof normalizeNodeGraphSampleWaveformSettings === "function"
+          ? normalizeNodeGraphSampleWaveformSettings(node.sampleWaveformSettings)
+          : (node.sampleWaveformSettings || {}),
       };
     case "arpKeysFace":
       return {
@@ -663,8 +663,8 @@ function cloneNodeGraphPatch(patch) {
           })()
           : {}),
         ...((node.type === "audioPlayer" || node.type === "samplePlayer" || node.type === "wavetable2d")
-          && Object.hasOwn(node, "phosphorWaveformSettings")
-          ? { phosphorWaveformSettings: normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings) }
+          && Object.hasOwn(node, "sampleWaveformSettings")
+          ? { sampleWaveformSettings: normalizeNodeGraphSampleWaveformSettings(node.sampleWaveformSettings) }
           : {}),
         ...(node.type === "arp" && Object.hasOwn(node, "arpKeysSettings")
           ? {

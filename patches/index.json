@@ -24,33 +24,74 @@
       "folder": "filter breadboards"
     },
     {
-      "slug": "Alarm/AnalogComputer",
-      "label": "AnalogComputer",
+      "slug": "Alarm/Analog Computer",
+      "label": "Analog Computer",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/Alarm/AnalogComputer.json",
-      "author": "",
-      "tags": "circle",
-      "emoji": "",
+      "url": "/soemdsp-sandbox/patches/Alarm/Analog%20Computer.json",
+      "author": "Soundemote",
+      "tags": "",
+      "emoji": "📺",
       "folder": "Alarm"
     },
     {
-      "slug": "envelope breadboards/acoustic pluck envelope breadboard",
+      "slug": "guitar pedals/clean",
+      "label": "clean",
+      "name": "ellipsoid",
+      "url": "/soemdsp-sandbox/patches/guitar%20pedals/clean.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "guitar pedals"
+    },
+    {
+      "slug": "guitar pedals/clean chorus",
+      "label": "clean chorus",
+      "name": "ellipsoid",
+      "url": "/soemdsp-sandbox/patches/guitar%20pedals/clean%20chorus.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "guitar pedals"
+    },
+    {
+      "slug": "guitar pedals/damaged chorus",
+      "label": "damaged chorus",
+      "name": "ellipsoid",
+      "url": "/soemdsp-sandbox/patches/guitar%20pedals/damaged%20chorus.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "guitar pedals"
+    },
+    {
+      "slug": "guitar pedals/dreamy delay",
+      "label": "dreamy delay",
+      "name": "ellipsoid",
+      "url": "/soemdsp-sandbox/patches/guitar%20pedals/dreamy%20delay.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "guitar pedals"
+    },
+    {
+      "slug": "modulator breadboards/acoustic pluck envelope breadboard",
       "label": "acoustic pluck envelope breadboard",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/envelope%20breadboards/acoustic%20pluck%20envelope%20breadboard.json",
+      "url": "/soemdsp-sandbox/patches/modulator%20breadboards/acoustic%20pluck%20envelope%20breadboard.json",
       "author": "",
       "tags": "init,default",
       "emoji": "",
-      "folder": "envelope breadboards"
+      "folder": "modulator breadboards"
     },
     {
-      "slug": "analogcomputer",
-      "label": "analogcomputer",
+      "slug": "modulator breadboards/vibrato generator acoustic waveform",
+      "label": "vibrato generator acoustic waveform",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/analogcomputer.json",
-      "author": "",
-      "tags": "circle",
-      "emoji": ""
+      "url": "/soemdsp-sandbox/patches/modulator%20breadboards/vibrato%20generator%20acoustic%20waveform.json",
+      "author": "Sandbox",
+      "tags": "filter,ladder,self-osc,breadboard",
+      "emoji": "",
+      "folder": "modulator breadboards"
     },
     {
       "slug": "analogdream",
@@ -642,15 +683,6 @@
       "label": "superlove lp18 breadboard",
       "name": "",
       "url": "/soemdsp-sandbox/patches/superlove%20lp18%20breadboard.json",
-      "author": "Sandbox",
-      "tags": "filter,ladder,self-osc,breadboard",
-      "emoji": ""
-    },
-    {
-      "slug": "superlove lp24 breadboard",
-      "label": "superlove lp24 breadboard",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/superlove%20lp24%20breadboard.json",
       "author": "Sandbox",
       "tags": "filter,ladder,self-osc,breadboard",
       "emoji": ""

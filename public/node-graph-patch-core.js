@@ -665,9 +665,9 @@ function validateNodeGraphPatch(patch) {
     }
     if (
       (type === "audioPlayer" || type === "samplePlayer" || type === "wavetable2d")
-      && Object.hasOwn(node, "phosphorWaveformSettings")
+      && Object.hasOwn(node, "sampleWaveformSettings")
     ) {
-      normalizedNode.phosphorWaveformSettings = normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings);
+      normalizedNode.sampleWaveformSettings = normalizeNodeGraphSampleWaveformSettings(node.sampleWaveformSettings);
     }
     if (type === "arp" && Object.hasOwn(node, "arpKeysSettings")) {
       normalizedNode.arpKeysSettings = typeof normalizeNodeGraphArpKeysSettings === "function"

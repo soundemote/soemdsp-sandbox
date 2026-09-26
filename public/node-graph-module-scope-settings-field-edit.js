@@ -296,9 +296,9 @@ function beginNodeGraphTraceDisplayFieldDrag(event) {
   // other Display Settings number fields (per-input binds die on remount).
   if (
     event.target?.closest?.("input[data-phosphor-number-drag]")
-    && typeof nodeGraphPhosphorWaveformBeginNumberDrag === "function"
+    && typeof nodeGraphSampleWaveformBeginNumberDrag === "function"
   ) {
-    nodeGraphPhosphorWaveformBeginNumberDrag(event);
+    nodeGraphSampleWaveformBeginNumberDrag(event);
     return;
   }
   const input = nodeGraphTraceDisplayFieldFromTarget(event.target);

@@ -456,7 +456,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     textStream: "text-stream-layout",
     patchCommand: "patch-command-layout",
     phosphillatorDraw: "phosphillator-draw-layout",
-    phosphorWaveform: "phosphor-waveform-layout",
+    sampleWaveform: "sample-waveform-layout",
     pitchModWheel: "pitch-mod-wheel-layout",
     screenSpaceShader: "screen-space-shader-layout",
     sliderWidget: "slider-widget-layout",
@@ -1420,7 +1420,7 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
-  } else if (definition.layout === "phosphorWaveform") {
+  } else if (definition.layout === "sampleWaveform") {
     if (typeof createNodeGraphSampleModuleBody === "function") {
       const sampleBody = createNodeGraphSampleModuleBody(node);
       if (sampleBody) {
@@ -1430,9 +1430,9 @@ function createNodeGraphModuleElement(type, node) {
     const mountWave = (typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
       : !patchNodeUi.oscilloscopeHidden)
-      && typeof createNodeGraphPhosphorWaveformDisplay === "function";
+      && typeof createNodeGraphSampleWaveformDisplay === "function";
     const waveFace = mountWave
-      ? createNodeGraphPhosphorWaveformDisplay(node, type)
+      ? createNodeGraphSampleWaveformDisplay(node, type)
       : null;
     if (chrome.portsBeside) {
       const wrap = waveFace || document.createElement("div");

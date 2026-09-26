@@ -115,14 +115,14 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     return node.layout;
   }
-  if (displayType === "phosphorWaveform") {
-    node.phosphorWaveformSettings = typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
-      ? normalizeNodeGraphPhosphorWaveformSettings(settings)
+  if (displayType === "sampleWaveform") {
+    node.sampleWaveformSettings = typeof normalizeNodeGraphSampleWaveformSettings === "function"
+      ? normalizeNodeGraphSampleWaveformSettings(settings)
       : (settings || {});
-    if (typeof applyNodeGraphPhosphorWaveformDisplaySettingsToFace === "function") {
-      applyNodeGraphPhosphorWaveformDisplaySettingsToFace(node);
+    if (typeof applyNodeGraphSampleWaveformDisplaySettingsToFace === "function") {
+      applyNodeGraphSampleWaveformDisplaySettingsToFace(node);
     }
-    return node.phosphorWaveformSettings;
+    return node.sampleWaveformSettings;
   }
   if (displayType === "arpKeysFace") {
     node.arpKeysSettings = typeof normalizeNodeGraphArpKeysSettings === "function"
@@ -355,7 +355,7 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
   if (displayType === "ensembleCloud") {
     node.traceDisplaySettings = typeof normalizeNodeGraphEnsembleCloudSettings === "function"
       ? normalizeNodeGraphEnsembleCloudSettings(settings)
-      : { cloudSpeed: 1 };
+      : { cloudSpeed: 0.5 };
     return node.traceDisplaySettings;
   }
   if (displayType === "trace" || displayType === "traceRgb" || displayType === "traceXyz") {
@@ -652,8 +652,8 @@ function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
   if (schema === "keypadFace" || schema === "textBoxFace") {
     return nodeGraphCopyDisplaySettingsBag(node.layout) || {};
   }
-  if (schema === "phosphorWaveform") {
-    return nodeGraphCopyDisplaySettingsBag(node.phosphorWaveformSettings) || {};
+  if (schema === "sampleWaveform") {
+    return nodeGraphCopyDisplaySettingsBag(node.sampleWaveformSettings) || {};
   }
   if (schema === "arpKeysFace") {
     return nodeGraphCopyDisplaySettingsBag(node.arpKeysSettings) || {};

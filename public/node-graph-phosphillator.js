@@ -322,10 +322,10 @@ function drawNodeGraphPhosphillatorDrawDisplay(section) {
   }
 
   // Pass defaults — placeholder used to omit settings and hit lineBrightness of undefined.
-  const settings = typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
-    ? normalizeNodeGraphPhosphorWaveformSettings({})
+  const settings = typeof normalizeNodeGraphSampleWaveformSettings === "function"
+    ? normalizeNodeGraphSampleWaveformSettings({})
     : undefined;
-  drawNodeGraphPhosphorWaveformPlaceholder(
+  drawNodeGraphSampleWaveformPlaceholder(
     context,
     width,
     height,

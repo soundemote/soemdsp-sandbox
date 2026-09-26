@@ -207,7 +207,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   animatedTextBox: "Wireable animated text plate. Parked until the text animation pass.",
   evolveField: "Field evolve visual. Parked until RGB/shader pass.",
   phosphillator: "Draw a path, play it as X/Y. Parked until the draw engine is ready.",
-  wavetable2d: "2D wavetable osc: baked RectSine cycle + warp/start/end.",
+  wavetable2d: "Morph (4 frames, wrap) × Warp (13 baked knots). Additive Nyquist.",
   wavetable3d: "Dual-axis table morph. Parked until wavetable playback exists.",
   formantFilter: "Vocal formant bank. Parked until the scientific-filter pass.",
   besselThomson: "Maximally flat group-delay filter. Parked until that filter lands.",
@@ -415,7 +415,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   wavetable2d: {
     category: "oscillator",
-    description: "Wavetable oscillator. Hardcoded Additive RectSine (4096). Morph unused until more frames.",
+    description: "Morph (RectSine → Sine → inv-RectSine 180° → Sine, wrap) × Warp (13 baked knots, both signs). Additive with Hmax at Nyquist.",
     label: "Wavetable 2D",
     notes: ["wavetable", "oscillator", "rectified sine", "warp", "phase"],
   },
@@ -1347,7 +1347,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   wavetable2d: {
     category: "oscillator",
-    description: "Wavetable oscillator. Hardcoded Additive RectSine (4096). Warp, Start, End, PM.",
+    description: "Morph (RectSine → Sine → inv-RectSine 180° → Sine, wrap) × Warp (13 baked knots). Additive Nyquist.",
     label: "Wavetable 2D",
     notes: ["wavetable", "oscillator", "rectified sine", "warp", "phase"],
   },

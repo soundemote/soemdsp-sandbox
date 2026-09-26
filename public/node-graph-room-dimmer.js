@@ -31,7 +31,7 @@
   const PUNCH_INSET_CSS = 1.25;
 
   const SCREEN_SELECTOR = [
-    "canvas.node-phosphor-waveform-canvas",
+    "canvas.node-sample-waveform-canvas",
     "canvas.node-module-scope-local-fallback-canvas",
     "canvas.node-xy-pad-canvas",
     "canvas.node-number-readout-canvas",
@@ -394,7 +394,7 @@ void main() {
    */
   function resolvePunchElement(el) {
     if (!el) return null;
-    if (el.matches?.("canvas.node-phosphor-waveform-canvas")) return el;
+    if (el.matches?.("canvas.node-sample-waveform-canvas")) return el;
     if (el.matches?.("canvas.node-raster-rgb-canvas")) return el;
     if (el.matches?.("canvas.node-module-scope-local-fallback-canvas")) return el;
     if (el.matches?.("canvas.node-xy-pad-canvas")) return el;
@@ -407,12 +407,12 @@ void main() {
 
     // Outer shells: only if no painted canvas is already the target.
     const painted = el.querySelector?.(
-      "canvas.node-raster-rgb-canvas, canvas.node-module-scope-local-fallback-canvas, canvas.node-phosphor-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, canvas.node-asciiscope-canvas, canvas.node-matrix-display-canvas, canvas.node-filter-curve-canvas, .node-keypad-face, .node-led-face",
+      "canvas.node-raster-rgb-canvas, canvas.node-module-scope-local-fallback-canvas, canvas.node-sample-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, canvas.node-asciiscope-canvas, canvas.node-matrix-display-canvas, canvas.node-filter-curve-canvas, .node-keypad-face, .node-led-face",
     );
     if (painted) return painted;
 
-    if (el.matches?.(".node-phosphor-waveform-display")) {
-      return el.querySelector?.("canvas.node-phosphor-waveform-canvas") || el;
+    if (el.matches?.(".node-sample-waveform-display")) {
+      return el.querySelector?.("canvas.node-sample-waveform-canvas") || el;
     }
     if (el.matches?.(".node-filter-curve-display")) {
       return el.querySelector?.("canvas.node-filter-curve-canvas") || el;
@@ -446,7 +446,7 @@ void main() {
     if (
       punchEl !== el
       && el.matches?.(
-        ".node-module-scope-window, .node-xy-pad, .node-number-readout-face, .node-knob-face, .node-ray-bouncer-face, .node-phosphor-waveform-display, .node-text-box-body, [data-light-source], .node-light-source",
+        ".node-module-scope-window, .node-xy-pad, .node-number-readout-face, .node-knob-face, .node-ray-bouncer-face, .node-sample-waveform-display, .node-text-box-body, [data-light-source], .node-light-source",
       )
     ) {
       // Still mark shell seen so generic selectors don't double-add.

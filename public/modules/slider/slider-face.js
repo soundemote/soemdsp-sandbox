@@ -256,8 +256,8 @@ function buildNodeGraphSliderFaceDisplaySettingsHtml() {
   const toggleRow = typeof nodeGraphDisplaySettingsBuildToggleRowHtml === "function"
     ? (key) => nodeGraphDisplaySettingsBuildToggleRowHtml(key)
     : () => "";
-  const corners = typeof buildNodeGraphPhosphorWaveformCornerChromeHtml === "function"
-    ? buildNodeGraphPhosphorWaveformCornerChromeHtml({
+  const corners = typeof buildNodeGraphSampleWaveformCornerChromeHtml === "function"
+    ? buildNodeGraphSampleWaveformCornerChromeHtml({
       squareId: "nodeKnobSliderCornerSquareButton",
       squircleId: "nodeKnobSliderCornerSquircleButton",
       radiusId: "nodeKnobSliderCornerRadiusInput",
