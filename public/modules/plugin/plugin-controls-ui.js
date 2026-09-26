@@ -250,8 +250,8 @@ function createNodeGraphToggleButtonFace(node, type) {
       ? nodeGraphPluginButtonFaceLabels(patchNode || node)
       : { off: "Off", on: "On" };
     btnText.textContent = (on ? labels.on : labels.off) || "";
-    if (typeof nodeGraphPluginButtonFitCaption === "function") {
-      nodeGraphPluginButtonFitCaption(btn);
+    if (typeof nodeGraphPluginButtonSyncCaptionChars === "function") {
+      nodeGraphPluginButtonSyncCaptionChars(btn);
     }
     face._pluginBtnPaintLook?.();
   };
@@ -328,8 +328,8 @@ function createNodeGraphMomentaryButtonFace(node, type) {
       ? nodeGraphPluginButtonFaceLabels(patchNode || node)
       : { off: "Off", on: "On" };
     btnText.textContent = (down ? labels.on : labels.off) || "";
-    if (typeof nodeGraphPluginButtonFitCaption === "function") {
-      nodeGraphPluginButtonFitCaption(btn);
+    if (typeof nodeGraphPluginButtonSyncCaptionChars === "function") {
+      nodeGraphPluginButtonSyncCaptionChars(btn);
     }
     face._pluginBtnPaintLook?.();
   };

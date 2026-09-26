@@ -1,5 +1,5 @@
 // Ensemble cloud: delay-ms on X, time waterfalls up, pan as red (L) / blue (R).
-// Ink sizes follow APP_POLICY §15 (displayInkToPx vs face min-edge). Pixel
+// Ink sizes follow APP_POLICY §15 (faceInkPx vs face min-edge). Pixel
 // density only changes backing store, not authored CSS size.
 
 function nodeGraphEnsembleCloudSettings(_node) {
@@ -55,16 +55,9 @@ function drawNodeGraphEnsembleCloudItem(_renderer, item, pixelRatio) {
     : null;
   const cssW = Math.max(1, Number(metrics?.cssW) || w);
   const cssH = Math.max(1, Number(metrics?.cssH) || h);
-  const minSide = typeof displayFaceMinSide === "function"
-    ? displayFaceMinSide(cssW, cssH)
-    : Math.min(cssW, cssH);
+  const minSide = faceMinSide(cssW, cssH);
   const bufPerCss = w / cssW;
-  const ink = (px) => {
-    const css = typeof displayInkToPx === "function"
-      ? displayInkToPx(px, px, minSide)
-      : px;
-    return Math.max(1, css * bufPerCss);
-  };
+  const ink = (px) => Math.max(1, faceInkPx(px, minSide) * bufPerCss);
   const scrollPx = Math.max(1, Math.round(ink(1.5)));
   const sparkW = Math.max(1, Math.round(ink(2)));
   const sparkH = Math.max(scrollPx, Math.round(ink(2)));

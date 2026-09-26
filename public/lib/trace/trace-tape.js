@@ -771,7 +771,7 @@
     if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.radiusFromSize) {
       return PhosphorDrawer.radiusFromSize(faceMinSide, size01);
     }
-    return Math.max(0, displayInkToPx(size01, 2, faceMinSide) * 0.5);
+    return Math.max(0, faceInkPx(clampAuthoredInkPx(size01, 2), faceMinSide) * 0.5);
   }
 
   global.TraceTape = {

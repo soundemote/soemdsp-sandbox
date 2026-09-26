@@ -25117,23 +25117,23 @@ code {
   pointer-events: none;
   color: var(--plugin-btn-text, #f4f7f8);
   font-weight: 700;
-  font-size: 1px;
+  font-size: calc(var(--plugin-label-font-px, 16) * 100cqmin / 96);
   line-height: 1;
   text-align: center;
-  text-fit: grow;
+  text-fit: none;
   white-space: nowrap;
   user-select: none;
-  transform: scale(var(--plugin-label-scale, 1));
+  transform: none;
 }
-[data-label-align="topleft"] > .node-plugin-button-label { top: calc(var(--plugin-label-pad, 0) * 100%); transform-origin: left top; }
-[data-label-align="top"] > .node-plugin-button-label { top: calc(var(--plugin-label-pad, 0) * 100%); transform-origin: center top; }
-[data-label-align="topright"] > .node-plugin-button-label { top: calc(var(--plugin-label-pad, 0) * 100%); transform-origin: right top; }
-[data-label-align="midleft"] > .node-plugin-button-label { top: 50%; transform-origin: left center; }
-[data-label-align="mid"] > .node-plugin-button-label { top: 50%; transform-origin: center center; }
-[data-label-align="midright"] > .node-plugin-button-label { top: 50%; transform-origin: right center; }
-[data-label-align="bottomleft"] > .node-plugin-button-label { bottom: calc(var(--plugin-label-pad, 0) * 100%); transform-origin: left bottom; }
-[data-label-align="bottom"] > .node-plugin-button-label { bottom: calc(var(--plugin-label-pad, 0) * 100%); transform-origin: center bottom; }
-[data-label-align="bottomright"] > .node-plugin-button-label { bottom: calc(var(--plugin-label-pad, 0) * 100%); transform-origin: right bottom; }
+[data-label-align="topleft"] > .node-plugin-button-label { top: calc(var(--plugin-label-pad, 0) * 100%); left: 0; right: auto; transform: none; }
+[data-label-align="top"] > .node-plugin-button-label { top: calc(var(--plugin-label-pad, 0) * 100%); text-align: center; transform: none; }
+[data-label-align="topright"] > .node-plugin-button-label { top: calc(var(--plugin-label-pad, 0) * 100%); left: auto; right: 0; text-align: right; transform: none; }
+[data-label-align="midleft"] > .node-plugin-button-label { top: 50%; left: 0; right: auto; transform: translateY(-50%); }
+[data-label-align="mid"] > .node-plugin-button-label { top: 50%; transform: translateY(-50%); }
+[data-label-align="midright"] > .node-plugin-button-label { top: 50%; left: auto; right: 0; text-align: right; transform: translateY(-50%); }
+[data-label-align="bottomleft"] > .node-plugin-button-label { bottom: calc(var(--plugin-label-pad, 0) * 100%); left: 0; right: auto; transform: none; }
+[data-label-align="bottom"] > .node-plugin-button-label { bottom: calc(var(--plugin-label-pad, 0) * 100%); transform: none; }
+[data-label-align="bottomright"] > .node-plugin-button-label { bottom: calc(var(--plugin-label-pad, 0) * 100%); left: auto; right: 0; text-align: right; transform: none; }
 .btn-fit {
   display: flex;
   align-items: center;
@@ -25141,7 +25141,7 @@ code {
   width: 100%;
   height: 100%;
   min-height: 0;
-  font-size: 1px;
+  font-size: calc(var(--plugin-btn-font-px, 72) * 100cqmin / 96);
   line-height: 1;
   text-align: center;
   white-space: nowrap;
@@ -25182,7 +25182,7 @@ code {
   appearance: none;
   -webkit-appearance: none;
   border: calc(var(--plugin-btn-stroke-scale, 0.06) * 8cqmin) solid var(--plugin-btn-stroke, #5c5071);
-  border-radius: var(--plugin-btn-radius, 14cqmin);
+  border-radius: calc(var(--plugin-btn-rounding, 0.18) * 50cqmin);
   corner-shape: var(--plugin-btn-corner-shape, squircle);
   color: var(--plugin-btn-text, #f4f7f8);
   font-weight: 700;

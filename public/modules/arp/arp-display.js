@@ -32,18 +32,9 @@ function nodeGraphArpAlign(x, dpr) {
   return Math.round(Number(x) * dpr) / dpr;
 }
 
-/** On-screen CSS scale of this canvas (workspace zoom, canvas tiles, meta face). */
-function nodeGraphArpCanvasScreenScale(canvas) {
-  const rect = canvas?.getBoundingClientRect?.();
-  const cw = Math.max(1, Number(canvas?.clientWidth) || 0);
-  const ch = Math.max(1, Number(canvas?.clientHeight) || 0);
-  if (!rect) {
-    return 1;
-  }
-  const sx = rect.width / cw;
-  const sy = rect.height / ch;
-  const s = Math.min(sx, sy);
-  return Number.isFinite(s) && s > 0 ? s : 1;
+/** Layout CSS scale only. Workspace zoom must not enlarge backing or stroke. */
+function nodeGraphArpCanvasScreenScale(_canvas) {
+  return 1;
 }
 
 /**
@@ -228,10 +219,9 @@ function createNodeGraphArpKeysDisplay(nodeId) {
     const { notes, play, projectOn } = faceState();
     const look = nodeGraphArpKeysLookForNodeId(nodeId);
     const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const rect = canvas.getBoundingClientRect();
     const screenScale = nodeGraphArpCanvasScreenScale(canvas);
-    const bw = Math.max(1, Math.round((rect.width > 0 ? rect.width : (canvas.clientWidth || 1)) * dpr));
-    const bh = Math.max(1, Math.round((rect.height > 0 ? rect.height : (canvas.clientHeight || 1)) * dpr));
+    const bw = Math.max(1, Math.round((canvas.clientWidth || 1) * dpr));
+    const bh = Math.max(1, Math.round((canvas.clientHeight || 1) * dpr));
     const lookSig = [
       look.strokeColor,
       look.strokeBrightness,

@@ -701,14 +701,14 @@ function drawNodeGraphXyPad(pad, options = {}) {
     layoutH = size.height;
     dpr = size.pixelRatio || Math.max(1, window.devicePixelRatio || 1);
   } else {
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width < 2 || rect.height < 2) {
+    const cw = Math.max(0, canvas.clientWidth || 0);
+    const ch = Math.max(0, canvas.clientHeight || 0);
+    if (cw < 2 || ch < 2) {
       return;
     }
-    const zoom = Math.max(0.01, typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1);
     dpr = Math.max(1, window.devicePixelRatio || 1);
-    layoutW = Math.round((rect.width / zoom) * dpr);
-    layoutH = Math.round((rect.height / zoom) * dpr);
+    layoutW = Math.round(cw * dpr);
+    layoutH = Math.round(ch * dpr);
   }
   // Pixel density 0–1 (same as 2D Phosphor): 0 → 1×1, 1 → layout×dpr.
   const densityRaw = typeof nodeGraphFacePlateDensity === "function"

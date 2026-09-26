@@ -475,25 +475,27 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 
 ---
 
-## 15. Display length: everything on a face scales with the face
+## 15. Display length: zoom pixelates; display size redraws
 
-When the user resizes a **display** (module face, canvas, solo), **every painted element scales**: strokes, hairlines, HUD type, markers, pads, radii, handles. A larger filter or equalizer face draws thicker curves and larger labels. Thin lines at every size is a bug.
+A **display** is one scaled object. Changing the face’s **layout CSS box** (plate, layout-canvas tile, screen solo) scales type, strokes, pads, radius, and GL/2d resolution together (`min(cssW, cssH)`).
 
-Two stored kinds. Both resolve against `min(faceW, faceH)` at draw.
+- **Workspace zoom is not a resize.** Zoom pixelates. Do **not** redraw phosphor / trace / waterfall / WebGL at a higher backing size because the user zoomed. Do **not** rewrite `font-size` on zoom.
+- **Display size change is not a zoom.** New CSS box → `syncFaceMetrics` → resize backing `css × dpr` → redraw.
+- **F-cycle reparent** is not a size change unless the layout CSS box changed. Do not write inline px from `clientWidth`.
+- **Measure:** layout box (`offsetWidth` / face metrics cache). Never `getBoundingClientRect` for draw scale.
+- **`minSide` is `metrics.cssW/cssH` (layout), never `canvas.width` (dpr) and never `rect.width` (zoom).**
 
-| Kind | Store | Resolve at draw |
-|------|--------|-----------------|
-| **Ink** (strokes, hairlines, HUD type) | CSS px authored at reference face min-edge (`DISPLAY_INK_REFERENCE_PX`, 96) | `displayInkToPx(setting, fallback, minSide)` → `setting * minSide / 96` after `setTransform(dpr)`. |
-| **Layout fraction** (pad, inset, radius, puck vs pad) | `0…1` of `min(faceW, faceH)` | `px = unit01 * min(width, height)` via `displayScaleToPx` |
+Two stored kinds:
 
-- **Canvas / solo:** the paint box grows **and** ink/fonts/markers grow with it.
-- **Workspace zoom:** CSS camera already scales the face bitmap. Do **not** also `× zoom` inside the canvas.
-- **dpr:** backing store only. Authored “1 px” is 1 CSS px **at the reference face size**.
-- **Never stretch glyphs by width≠height.** Uniform min-edge only.
-- **Canvas buffer aspect must match its CSS paint box.**
-- **Helpers:** `public/lib/visual/display-scale.js` — `displayInkToPx(px, fallback, faceMinSide)`, `displayFaceMinSide`, `clampDisplayUnit01`, `displayScaleToPx`.
-- **Defaults:** px literals for ink (`2`, `1.5`) meaning “looks like that at a ~96 px min-edge”; 0…1 literals for fractions. No `*Px` twin keys. No “if value < 1 treat as 0–1.”
-- **Normalize/settings:** clamp the authored number. Scale only at **paint**, where `width`/`height` exist.
+| Kind | Store | Paint |
+|------|--------|--------|
+| **Ink** | CSS px at `FACE_INK_REF_PX` (96) | `faceInkPx(setting, minSide)` → `setting * minSide / 96` after `setTransform(dpr)` |
+| **Layout fraction** | `0…1` of min-edge | `faceFracPx(unit01, minSide)` |
+
+- **Normalize/settings:** `clampAuthoredInkPx` — authored number, **no geometry**. Never pass `minSide` into normalize.
+- **DOM type/radius/stroke** that follow the face: container query units (`cqmin` / `cqh` / `cqw`). `textScale` multiplies `font-size`, not `transform`. JS may clear leftover inline sizes; it may not bake px.
+- **Helpers:** `public/lib/visual/display-scale.js` — `faceInkPx`, `faceFracPx`, `clampAuthoredInkPx`, `faceMinSide`, `clampDisplayUnit01`.
+- **Defaults:** px literals for ink (`2`, `1.5`) at a ~96 px min-edge; 0…1 for fractions. No `if value < 1 treat as 0–1.`
 - **Brightness / hue / fade** stay 0…1. **Time** stays seconds. **Counts** stay integers.
 
 **Paint vs layout (display-type contract):** live face paint loops must **not** force layout (`clientWidth` / `getBoundingClientRect` / style writes that change geometry) every frame. ResizeObserver + settings apply own chrome and canvas backing size; paint reads a metrics cache. Visibility uses module `viewport-asleep` cull, not per-frame layout probes. Faces stay live during workspace pan/zoom (see ZOOM_PAN plan — no gesture freeze).
@@ -542,8 +544,14 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 | Reserve 8 s × N delay rings in BSS for empty slots | **No** — size to live delay (§2b) |
 | “Longer delay = more CPU” | **No** — same tap math (§2b) |
 | Always-visible resize grip on panels | **No** — hover / drag only (§14) |
-| Store ink (stroke / HUD font) as 0…1 of face min-edge | **No** — authored CSS px at the 96 px reference; scale at paint with min-edge (§15) |
+| Resize WebGL / canvas buffer because workspace zoomed | **No** — zoom pixelates (§15) |
+| Store ink (stroke / HUD font) as 0…1 of face min-edge | **No** — px at 96; `faceInkPx` at paint (§15) |
 | Draw filter/EQ/scope strokes as a constant 1–1.5 px regardless of face size | **No** — ink scales with the display (§15) |
+| `clampAuthoredInkPx` with geometry / `faceInkPx` without `minSide` | **No** — store vs paint (§15) |
+| Pass `getBoundingClientRect().width` or `canvas.width` as `minSide` | **No** — layout `metrics.cssW/cssH` (§15) |
+| Inline `font-size` px from `clientWidth` (FitCaption) | **No** — container query units (§15) |
+| `transform: scale(textScale)` instead of larger font | **No** (§15) |
+| Publish tile-measured px vars onto shared face DOM | **No** (§15) |
 | Store layout fraction (inset / radius / pad) as CSS px | **No** — 0…1 of face min-edge (§15) |
 | Stretch face text by width≠height | **No** — uniform min-edge only (§15) |
 | Stretch HTML as fake face pixels / force Text Box through WebGL | **No** — WebGL for most visuals; DOM for editable text (§16) |

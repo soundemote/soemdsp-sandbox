@@ -88,7 +88,7 @@
       return 0;
     }
     const face = Math.max(1, nodeGraphFiniteNumber(options.faceMinSide, 1));
-    const size01 = displayInkToPx(options.size, 2);
+    const size01 = clampAuthoredInkPx(options.size, 2);
     const blur = clamp01(options.blur, 0);
     const brightness = clamp01(options.brightness, 1);
     const color = options.color || "#ff3333";
@@ -157,7 +157,7 @@
       return 0;
     }
     const face = Math.max(1, nodeGraphFiniteNumber(options.faceMinSide, 1));
-    const size01 = displayInkToPx(options.size, 2);
+    const size01 = clampAuthoredInkPx(options.size, 2);
     const blur = clamp01(options.blur, 0);
     const blend = normalizeBlend(options.blend, "source-over");
     const budget = Math.max(8, Math.round(nodeGraphFiniteNumber(options.dotBudget, 2048)));

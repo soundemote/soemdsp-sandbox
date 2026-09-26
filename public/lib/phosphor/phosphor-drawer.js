@@ -62,7 +62,7 @@
    * radius = half. Linear geometric size; Blur handles hard→soft.
    */
   function size01ToDiameterPx(faceMinSide, size01) {
-    return Math.max(0, displayInkToPx(size01, 2, faceMinSide));
+    return Math.max(0, faceInkPx(clampAuthoredInkPx(size01, 2), faceMinSide));
   }
 
   function size01ToRadiusPx(faceMinSide, size01) {
@@ -70,7 +70,7 @@
   }
 
   function radiusFromSize(faceMinSide, size01) {
-    return Math.max(0, displayInkToPx(size01, 2, faceMinSide) * 0.5);
+    return Math.max(0, faceInkPx(clampAuthoredInkPx(size01, 2), faceMinSide) * 0.5);
   }
 
   function ensure(hostCanvas, width, height, key = "_phosphorEnergyGl") {
@@ -114,7 +114,7 @@
       return false;
     }
     const blur = normalizeBlur(options.blur, DEFAULT_BLUR);
-    const size01 = displayInkToPx(options.size01, 2, options.faceMinSide || face.width || face.height);
+    const size01 = faceInkPx(clampAuthoredInkPx(options.size01, 2), options.faceMinSide || face.width || face.height);
     let brightness = Number(options.brightness);
     if (!Number.isFinite(brightness) || options.useDepositGain) {
       const raw = Number.isFinite(Number(options.dotBrightness))
@@ -175,7 +175,7 @@
       return false;
     }
     const blur = normalizeBlur(options.blur, 0.2);
-    const size01 = displayInkToPx(options.size01, 2, options.faceMinSide || face.width || face.height);
+    const size01 = faceInkPx(clampAuthoredInkPx(options.size01, 2), options.faceMinSide || face.width || face.height);
     const radius = Number.isFinite(Number(options.radius))
       ? Math.max(0.35, Number(options.radius))
       : radiusFromSize(options.faceMinSide || face.width || 1, size01);

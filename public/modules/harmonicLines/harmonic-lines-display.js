@@ -11,7 +11,7 @@ const nodeGraphHarmonicLinesSettingsDefaults = Object.freeze({
 function normalizeNodeGraphHarmonicLinesSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const raw = Number(source.lineWidth);
-  const ink = typeof displayInkToPx === "function" ? displayInkToPx(raw, 2) : (Number.isFinite(raw) ? raw : 2);
+  const ink = clampAuthoredInkPx(raw, 2);
   return {
     lineWidth: Math.max(0.5, Math.min(8, ink)),
   };
@@ -284,18 +284,17 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
   const maxH = h * 0.46;
   const pad = Math.max(2, w * 0.02);
   const span = Math.max(1, w - pad * 2);
-  const faceMin = displayFaceMinSide(w, h);
-  const lineW = displayInkToPx(
+  const faceMin = faceMinSide(w, h);
+  const lineW = faceInkPx(
     typeof nodeGraphHarmonicLinesSettingsForNode === "function"
       ? nodeGraphHarmonicLinesSettingsForNode(node).lineWidth
       : 2,
-    2,
     faceMin,
   );
 
   // Dim mid line — Left above, Right below.
   ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
-  ctx.lineWidth = displayInkToPx(1, 1, faceMin);
+  ctx.lineWidth = faceInkPx(1, faceMin);
   ctx.beginPath();
   ctx.moveTo(pad, midY);
   ctx.lineTo(pad + span, midY);

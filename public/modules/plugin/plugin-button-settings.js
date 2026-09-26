@@ -11,9 +11,9 @@ const NODE_GRAPH_PLUGIN_BUTTON_SLIDER_FIELDS = Object.freeze([
   "buttonPadRight",
   "buttonPadTop",
   "buttonPadBottom",
-  "textScale",
+  "fontSize",
   "labelPadding",
-  "labelScale",
+  "labelSize",
   "rounding",
 ]);
 
@@ -41,10 +41,10 @@ const NODE_GRAPH_PLUGIN_BUTTON_DISPLAY_DEFAULTS = Object.freeze({
   buttonPadRight: 0,
   buttonPadTop: 0,
   buttonPadBottom: 0,
-  textScale: 1,
+  fontSize: 72,
   labelText: "",
   labelPadding: 0.035,
-  labelScale: 1,
+  labelSize: 16,
   labelAlign: "topleft",
   buttonShowLabel: true,
   offText: "Off",
@@ -68,6 +68,13 @@ function nodeGraphPluginButtonClamp01(value, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.min(1, n));
+}
+
+function nodeGraphPluginButtonClampInkPx(value, fallback) {
+  const n = typeof clampAuthoredInkPx === "function"
+    ? clampAuthoredInkPx(value, fallback)
+    : (Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : fallback);
+  return Math.max(0, Math.min(256, n));
 }
 
 function nodeGraphPluginButtonNormalizeRounding(value, fallback) {
@@ -127,10 +134,10 @@ function normalizeNodeGraphPluginButtonDisplaySettings(settings, type) {
     buttonPadRight: nodeGraphPluginButtonClamp01(src.buttonPadRight, d.buttonPadRight),
     buttonPadTop: nodeGraphPluginButtonClamp01(src.buttonPadTop, d.buttonPadTop),
     buttonPadBottom: nodeGraphPluginButtonClamp01(src.buttonPadBottom, d.buttonPadBottom),
-    textScale: nodeGraphPluginButtonClamp01(src.textScale, d.textScale),
+    fontSize: nodeGraphPluginButtonClampInkPx(src.fontSize, d.fontSize),
     labelText: nodeGraphPluginButtonNormalizeText(src.labelText, d.labelText),
     labelPadding: nodeGraphPluginButtonClamp01(src.labelPadding, d.labelPadding),
-    labelScale: nodeGraphPluginButtonClamp01(src.labelScale, d.labelScale),
+    labelSize: nodeGraphPluginButtonClampInkPx(src.labelSize, d.labelSize),
     labelAlign: nodeGraphPluginButtonNormalizeAlign(src.labelAlign, d.labelAlign),
     buttonShowLabel: src.buttonShowLabel !== false,
     offText: nodeGraphPluginButtonNormalizeText(src.offText, fallbackOff),
@@ -189,89 +196,13 @@ function applyNodeGraphPluginButtonDisplaySettingsToFace(node) {
   nodeGraphPluginButtonPaintFace(face, nodeGraphPluginButtonDisplaySettingsForNode(node));
 }
 
-function nodeGraphPluginButtonFaceLayoutBox(face) {
-  if (!face) return { w: 0, h: 0 };
-  const w = Math.round(Number(face.offsetWidth || face.clientWidth) || 0);
-  const h = Math.round(Number(face.offsetHeight || face.clientHeight) || 0);
-  return { w, h };
-}
-
-function nodeGraphPluginButtonScheduleFitCaption(btn) {
-  if (!btn || btn._pluginBtnFitRetry) return;
-  const tries = (Number(btn._pluginBtnFitTries) || 0) + 1;
-  if (tries > 24) {
-    btn._pluginBtnFitTries = 0;
-    return;
-  }
-  btn._pluginBtnFitTries = tries;
-  btn._pluginBtnFitRetry = requestAnimationFrame(() => {
-    btn._pluginBtnFitRetry = 0;
-    nodeGraphPluginButtonFitCaption(btn);
-  });
-}
-
-function nodeGraphPluginButtonFitCaption(btn, options = {}) {
+function nodeGraphPluginButtonSyncCaptionChars(btn) {
   const fit = btn?.querySelector?.(":scope > .btn-fit");
-  if (!fit || !btn.isConnected) return;
-  const face = btn.closest(".node-plugin-toggle-face, .node-plugin-momentary-face");
-  const { w: faceW, h: faceH } = nodeGraphPluginButtonFaceLayoutBox(face);
-  // Face layout CSS box only. Zoom does not change offsetWidth.
-  // F-cycle reparent is 0×0 — do not write; retry after the box exists.
-  if (faceW < 8 || faceH < 8) {
-    nodeGraphPluginButtonScheduleFitCaption(btn);
-    return;
-  }
-  btn._pluginBtnFitTries = 0;
-  const padL = Math.max(0, Math.min(1, Number(face?.style.getPropertyValue("--plugin-btn-pad-left")) || 0));
-  const padR = Math.max(0, Math.min(1, Number(face?.style.getPropertyValue("--plugin-btn-pad-right")) || 0));
-  const padT = Math.max(0, Math.min(1, Number(face?.style.getPropertyValue("--plugin-btn-pad-top")) || 0));
-  const padB = Math.max(0, Math.min(1, Number(face?.style.getPropertyValue("--plugin-btn-pad-bottom")) || 0));
-  const maxW = Math.max(1, faceW * Math.max(0.05, 1 - padL - padR));
-  const maxH = Math.max(1, faceH * Math.max(0.05, 1 - padT - padB));
-  const text = String(fit.textContent || "").replace(/\s+/g, " ").trim();
-  const scaleRaw = Number(face?.style.getPropertyValue("--plugin-btn-text-scale"));
-  const textScale = Number.isFinite(scaleRaw) && scaleRaw > 0 ? scaleRaw : 1;
-  const key = `${faceW}x${faceH}|${text}|${textScale}|${padL},${padR},${padT},${padB}`;
-  if (options.force !== true && face && face._pluginBtnFitKey === key) return;
-  if (!text || textScale <= 0) {
-    fit.style.fontSize = "1px";
-    if (face) face._pluginBtnFitKey = key;
-    return;
-  }
-  const canvas = nodeGraphPluginButtonFitCaption.canvas
-    || (nodeGraphPluginButtonFitCaption.canvas = document.createElement("canvas"));
-  const context = canvas.getContext("2d");
-  if (!context) return;
-  const family = getComputedStyle(fit).fontFamily || "sans-serif";
-  const weight = "700";
-  context.font = `${weight} ${maxH}px ${family}`;
-  const probe = context.measureText(text);
-  const glyphH = Math.max(
-    1,
-    (probe.actualBoundingBoxAscent || 0) + (probe.actualBoundingBoxDescent || 0),
-  );
-  let size = maxH * (maxH / glyphH);
-  context.font = `${weight} ${size}px ${family}`;
-  const width = context.measureText(text).width;
-  if (width > maxW) size *= maxW / width;
-  fit.style.fontSize = `${Math.max(1, size * textScale)}px`;
-  if (face) face._pluginBtnFitKey = key;
-}
-
-function nodeGraphPluginButtonRefitConnectedFaces() {
-  document.querySelectorAll(".node-plugin-toggle-face, .node-plugin-momentary-face").forEach((face) => {
-    const btn = face.querySelector(".node-plugin-toggle-button, .node-plugin-momentary-button");
-    if (btn) nodeGraphPluginButtonFitCaption(btn);
-  });
-}
-
-function nodeGraphPluginButtonWatchCaption(btn) {
-  if (!btn) return;
-  const face = btn.closest(".node-plugin-toggle-face, .node-plugin-momentary-face") || btn;
-  if (face.dataset.pluginBtnCaptionWatch === "1") return;
-  face.dataset.pluginBtnCaptionWatch = "1";
-  const observer = new ResizeObserver(() => nodeGraphPluginButtonFitCaption(btn));
-  observer.observe(face);
+  const face = btn?.closest?.(".node-plugin-toggle-face, .node-plugin-momentary-face");
+  if (fit?.style) fit.style.removeProperty("font-size");
+  if (!face) return;
+  const text = String(fit?.textContent || "").replace(/\s+/g, " ").trim();
+  face.style.setProperty("--plugin-btn-chars", String(Math.max(1, text.length)));
 }
 
 function nodeGraphPluginButtonPaintFace(face, settings) {
@@ -286,27 +217,23 @@ function nodeGraphPluginButtonPaintFace(face, settings) {
   face.style.setProperty("--plugin-btn-pad-right", String(s.buttonPadRight));
   face.style.setProperty("--plugin-btn-pad-top", String(s.buttonPadTop));
   face.style.setProperty("--plugin-btn-pad-bottom", String(s.buttonPadBottom));
-  face.style.setProperty("--plugin-btn-text-scale", String(s.textScale));
-  face.style.setProperty("--plugin-label-scale", String(s.labelScale));
+  face.style.setProperty("--plugin-btn-font-px", String(s.fontSize));
+  face.style.setProperty("--plugin-label-font-px", String(s.labelSize));
   face.style.setProperty("--plugin-label-pad", String(s.labelPadding));
   face.style.setProperty("--plugin-btn-stroke-scale", String(s.strokeScale));
+  face.style.setProperty("--plugin-btn-rounding", String(s.rounding));
   face.style.setProperty("--plugin-btn-text", s.textColor);
   face.style.padding = "0";
   nodeGraphPluginButtonClearPin(btn);
   nodeGraphPluginButtonClearPin(label);
   if (btn) {
     btn.style.setProperty("--plugin-btn-stroke", s.strokeColor);
-    nodeGraphPluginButtonWatchCaption(btn);
-    nodeGraphPluginButtonFitCaption(btn, { force: true });
+    nodeGraphPluginButtonSyncCaptionChars(btn);
     btn.style.setProperty("--plugin-btn-inactive", s.inactiveColor);
     btn.style.setProperty("--plugin-btn-active", s.activeColor);
     btn.style.setProperty("--plugin-btn-hover", s.hoverColor);
     btn.style.setProperty("--plugin-btn-text", s.textColor);
-    const { w: faceW, h: faceH } = nodeGraphPluginButtonFaceLayoutBox(face);
-    if (faceW >= 8 && faceH >= 8) {
-      const radiusPx = Math.round(s.rounding * 0.5 * Math.min(faceW, faceH));
-      btn.style.setProperty("--plugin-btn-radius", `${radiusPx}px`);
-    }
+    btn.style.removeProperty("--plugin-btn-radius");
     btn.style.setProperty(
       "--plugin-btn-corner-shape",
       s.cornerShape === "pill" ? "round" : "squircle",
@@ -360,7 +287,7 @@ function buildNodeGraphPluginButtonDisplaySettingsBodyHtml(formType) {
   return `
     <div data-plugin-button-display-settings-panel>
       <div class="metadata-section-title">Label</div>
-      <div class="metadata-field-section">${toggleRow("buttonShowLabel")}${choiceRow("labelAlign")}${["labelPadding", "labelScale"].map(fieldRow).join("")}${nodeGraphPluginButtonTextRowHtml("labelText", "Label", "")}</div>
+      <div class="metadata-field-section">${toggleRow("buttonShowLabel")}${choiceRow("labelAlign")}${["labelPadding", "labelSize"].map(fieldRow).join("")}${nodeGraphPluginButtonTextRowHtml("labelText", "Label", "")}</div>
       <div class="metadata-section-title">Button</div>
       <div class="metadata-field-section">
         <div class="node-led-settings-row" role="group" aria-label="Button corner shape">
@@ -369,7 +296,7 @@ function buildNodeGraphPluginButtonDisplaySettingsBodyHtml(formType) {
           <button type="button" data-plugin-btn-corner="squircle" aria-pressed="true">Squircle</button>
         </div>
         ${fieldRow("rounding")}
-        ${["buttonPadLeft", "buttonPadRight", "buttonPadTop", "buttonPadBottom", "strokeScale", "textScale"].map(fieldRow).join("")}
+        ${["buttonPadLeft", "buttonPadRight", "buttonPadTop", "buttonPadBottom", "strokeScale", "fontSize"].map(fieldRow).join("")}
       </div>
       <div class="metadata-field-section">${nodeGraphPluginButtonTextRowHtml("offText", "Off", offPh)}${nodeGraphPluginButtonTextRowHtml("onText", "On", onPh)}</div>
       <div class="metadata-section-title">Colors</div>

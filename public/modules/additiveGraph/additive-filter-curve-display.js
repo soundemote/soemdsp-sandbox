@@ -167,11 +167,11 @@ function drawNodeGraphAdditiveFilterCurveDisplay(section) {
   ctx.fillRect(0, 0, w, h);
 
   // Same framing as Additive Out: pad + log-X cutoff marker.
-  const minSide = displayFaceMinSide(w, h);
-  const pad = Math.max(2, displayScaleToPx(0.02, minSide));
+  const minSide = faceMinSide(w, h);
+  const pad = Math.max(2, faceFracPx(0.02, minSide));
   const span = Math.max(1, w - pad * 2);
-  const strokeGrid = displayInkToPx(1, 1, minSide);
-  const strokeCurve = displayInkToPx(1.5, 1.5, minSide);
+  const strokeGrid = faceInkPx(1, minSide);
+  const strokeCurve = faceInkPx(1.5, minSide);
 
   ctx.strokeStyle = "rgba(255, 230, 0, 0.12)";
   ctx.lineWidth = strokeGrid;
@@ -185,7 +185,7 @@ function drawNodeGraphAdditiveFilterCurveDisplay(section) {
 
   if (!ys || !ys.length) return;
 
-  const padY = Math.max(2, displayScaleToPx(0.022, minSide));
+  const padY = Math.max(2, faceFracPx(0.022, minSide));
   ctx.strokeStyle = "#ffe600";
   ctx.lineWidth = strokeCurve;
   ctx.lineJoin = "round";

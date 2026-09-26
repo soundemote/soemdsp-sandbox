@@ -165,10 +165,23 @@ function nodeGraphTraceDisplayHistoryControlField(key) {
  * 0…1 unit sliders (Bright, Ghost Bright, Residual, …).
  * Linear drag — same pixel→value gain for all (no exp curve mismatch).
  */
+function nodeGraphPluginButtonInkPxField(key) {
+  if (key !== "fontSize" && key !== "labelSize") {
+    return false;
+  }
+  const type = typeof nodeGraphTraceDisplaySettingsFormType === "function"
+    ? nodeGraphTraceDisplaySettingsFormType()
+    : "";
+  return type === "toggleButtonFace" || type === "momentaryButtonFace";
+}
+
 function nodeGraphTraceDisplayUnitDragField(key) {
   // Image Burn Blur uses exp control-space (not linear unit drag).
   if (typeof nodeGraphTraceDisplayImageBurnBlurField === "function"
     && nodeGraphTraceDisplayImageBurnBlurField(key)) {
+    return false;
+  }
+  if (nodeGraphPluginButtonInkPxField(key)) {
     return false;
   }
   return [
@@ -209,9 +222,7 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "buttonPadRight",
     "buttonPadTop",
     "buttonPadBottom",
-    "textScale",
     "labelPadding",
-    "labelScale",
     "barThickness",
     "curveThickness",
     "buttonWidth",
@@ -711,9 +722,9 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     buttonPadRight: nodeGraphTraceDisplayClampUnit,
     buttonPadTop: nodeGraphTraceDisplayClampUnit,
     buttonPadBottom: nodeGraphTraceDisplayClampUnit,
-    textScale: nodeGraphTraceDisplayClampUnit,
+    fontSize: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 256),
     labelPadding: nodeGraphTraceDisplayClampUnit,
-    labelScale: nodeGraphTraceDisplayClampUnit,
+    labelSize: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 256),
     rounding: nodeGraphTraceDisplayClampUnit,
   }),
   momentaryButtonFace: Object.freeze({
@@ -722,9 +733,9 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     buttonPadRight: nodeGraphTraceDisplayClampUnit,
     buttonPadTop: nodeGraphTraceDisplayClampUnit,
     buttonPadBottom: nodeGraphTraceDisplayClampUnit,
-    textScale: nodeGraphTraceDisplayClampUnit,
+    fontSize: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 256),
     labelPadding: nodeGraphTraceDisplayClampUnit,
-    labelScale: nodeGraphTraceDisplayClampUnit,
+    labelSize: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 256),
     rounding: nodeGraphTraceDisplayClampUnit,
   }),
   pluginSliderFace: Object.freeze({

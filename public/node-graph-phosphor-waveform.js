@@ -118,10 +118,10 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
       ? source.scrollLinePosition
       : nodeGraphPhosphorWaveformDefaultSettings.scrollLinePosition,
     scrollLineWidth: Number.isFinite(scrollLineWidth)
-      ? Math.max(0, Math.min(16, displayInkToPx(scrollLineWidth, nodeGraphPhosphorWaveformDefaultSettings.scrollLineWidth)))
+      ? Math.max(0, Math.min(16, clampAuthoredInkPx(scrollLineWidth, nodeGraphPhosphorWaveformDefaultSettings.scrollLineWidth)))
       : nodeGraphPhosphorWaveformDefaultSettings.scrollLineWidth,
     traceWidth: Number.isFinite(traceWidth)
-      ? Math.max(0.25, Math.min(16, displayInkToPx(traceWidth, nodeGraphPhosphorWaveformDefaultSettings.traceWidth)))
+      ? Math.max(0.25, Math.min(16, clampAuthoredInkPx(traceWidth, nodeGraphPhosphorWaveformDefaultSettings.traceWidth)))
       : nodeGraphPhosphorWaveformDefaultSettings.traceWidth,
     hue: Number.isFinite(hue) ? ((hue % 360) + 360) % 360 : nodeGraphPhosphorWaveformDefaultSettings.hue,
     lineBrightness: Number.isFinite(lineBrightness)
@@ -147,7 +147,7 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
       ? clampDisplayUnit01(labelInset, nodeGraphPhosphorWaveformDefaultSettings.labelInset)
       : nodeGraphPhosphorWaveformDefaultSettings.labelInset,
     fontSize: Number.isFinite(fontSize)
-      ? Math.max(6, Math.min(48, displayInkToPx(fontSize, nodeGraphPhosphorWaveformDefaultSettings.fontSize)))
+      ? Math.max(6, Math.min(48, clampAuthoredInkPx(fontSize, nodeGraphPhosphorWaveformDefaultSettings.fontSize)))
       : nodeGraphPhosphorWaveformDefaultSettings.fontSize,
     playlistFade: Number.isFinite(playlistFade)
       ? Math.max(0, Math.min(1, playlistFade))
@@ -954,7 +954,7 @@ function applyNodeGraphPhosphorWaveformDisplaySettingsToFace(node) {
 function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, cellHeight, powered = true) {
   const outerWidth = cellWidth;
   const outerHeight = cellHeight;
-  const faceMin = displayFaceMinSide(outerWidth, outerHeight);
+  const faceMin = faceMinSide(outerWidth, outerHeight);
   const maxInset = Math.max(0, Math.floor(faceMin / 2));
   const inset = Math.round(settings.edgeSpacing * maxInset);
   const panelWidth = Math.max(0, outerWidth - inset * 2);
@@ -965,7 +965,7 @@ function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, 
   const borderColor = powered
     ? `hsl(${Math.round(settings.backgroundHue)} 100% 68% / 0.16)`
     : "transparent";
-  const labelInset = Math.round(displayScaleToPx(settings.labelInset, faceMin));
+  const labelInset = Math.round(faceFracPx(settings.labelInset, faceMin));
   const next = `${inset}|${radius}|${shape}|${borderColor}|${powered ? 1 : 0}|${labelInset}`;
   if (section.dataset.panelShape === next) {
     return false;
@@ -2307,11 +2307,11 @@ function applyNodeGraphPhosphorWaveformHudVars(section, settings) {
   // width/height independently (APP_POLICY §15 / §16).
   const cellW = Math.max(1, section.clientWidth || section.offsetWidth || 0);
   const cellH = Math.max(1, section.clientHeight || section.offsetHeight || 0);
-  const faceMin = displayFaceMinSide(cellW, cellH);
+  const faceMin = faceMinSide(cellW, cellH);
   const fontUnit = settings && Number.isFinite(Number(settings.fontSize))
     ? Number(settings.fontSize)
     : nodeGraphPhosphorWaveformDefaultSettings.fontSize;
-  const fontPx = Math.max(6, Math.round(displayInkToPx(fontUnit, 11, faceMin)));
+  const fontPx = Math.max(6, Math.round(faceInkPx(clampAuthoredInkPx(fontUnit, 11), faceMin)));
   const fontSmPx = Math.max(8, Math.round(fontPx * 0.9));
   section.style.setProperty("--phosphor-hud-font", `600 ${fontPx}px/1 system-ui, sans-serif`);
   section.style.setProperty("--phosphor-hud-font-sm", `600 ${fontSmPx}px/1 system-ui, sans-serif`);
@@ -2384,7 +2384,7 @@ function drawNodeGraphPhosphorWaveformPlaceholder(context, width, height, messag
   const fontUnit = settings && Number.isFinite(Number(settings.fontSize))
     ? Number(settings.fontSize)
     : nodeGraphPhosphorWaveformDefaultSettings.fontSize;
-  const fontPx = Math.max(1, Math.round(displayInkToPx(fontUnit, 11, displayFaceMinSide(width, height))));
+  const fontPx = Math.max(1, Math.round(faceInkPx(clampAuthoredInkPx(fontUnit, 11), faceMinSide(width, height))));
   context.fillStyle = nodeGraphPhosphorWaveformLineColor(settings, 57, 0.55);
   context.font = `600 ${fontPx}px system-ui, sans-serif`;
   context.textAlign = "center";
@@ -2624,8 +2624,8 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   }
 
   // Vector trace: core width + half-pixel skirt (cheap AA on the pixel grid).
-  const faceMinDevice = displayFaceMinSide(width, height);
-  const tracePx = Math.max(0.25, displayInkToPx(settings.traceWidth, 2, faceMinDevice));
+  const faceMinDevice = faceMinSide(width, height);
+  const tracePx = Math.max(0.25, faceInkPx(clampAuthoredInkPx(settings.traceWidth, 2), faceMinDevice));
   const skirtPx = tracePx + 0.5;
   const vectorPoints = nodeGraphPhosphorWaveformBuildVectorPath(
     nodeGraphPhosphorWaveformEntrySamples(entry),
@@ -2690,11 +2690,13 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
 
   // Playhead — scrollLineWidth CSS px @ zoom 1. 0 = hidden.
   // Offline: no playhead (static sample preview only).
-  const scrollPx = displayInkToPx(
-    Number.isFinite(Number(settings.scrollLineWidth))
-      ? settings.scrollLineWidth
-      : nodeGraphPhosphorWaveformDefaultSettings.scrollLineWidth,
-    2,
+  const scrollPx = faceInkPx(
+    clampAuthoredInkPx(
+      Number.isFinite(Number(settings.scrollLineWidth))
+        ? settings.scrollLineWidth
+        : nodeGraphPhosphorWaveformDefaultSettings.scrollLineWidth,
+      2,
+    ),
     faceMinDevice,
   );
   if (
@@ -2753,16 +2755,16 @@ function nodeGraphPhosphorWaveformPaintSpeedLabel(context, nodeId, node, width, 
     }
   }
   const speedLabel = `${speed.toFixed(3)}x`;
-  const faceMin = displayFaceMinSide(width, height);
+  const faceMin = faceMinSide(width, height);
   const fontUnit = settings && Number.isFinite(Number(settings.fontSize))
     ? Number(settings.fontSize)
     : nodeGraphPhosphorWaveformDefaultSettings.fontSize;
-  const fontPx = Math.max(1, Math.round(displayInkToPx(fontUnit, 11, faceMin)));
+  const fontPx = Math.max(1, Math.round(faceInkPx(clampAuthoredInkPx(fontUnit, 11), faceMin)));
   context.font = `600 ${fontPx}px system-ui, sans-serif`;
   const labelUnit = settings && Number.isFinite(Number(settings.labelInset))
     ? Number(settings.labelInset)
     : nodeGraphPhosphorWaveformDefaultSettings.labelInset;
-  const pad = displayScaleToPx(labelUnit, faceMin);
+  const pad = faceFracPx(labelUnit, faceMin);
   const x = Math.round(width - pad);
   const y = Math.round(height - pad);
   context.textAlign = "right";
