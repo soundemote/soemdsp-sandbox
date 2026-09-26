@@ -1,4 +1,4 @@
-// Image Ghost face: LayoutB cell + canvas; paint in image-burn-display.js.
+// Image Ghost face: Layout A, ports labeled under the picture. Paint in image-burn-display.js.
 
 function createNodeGraphImageBurnBody(node, type) {
   const face = document.createElement("div");

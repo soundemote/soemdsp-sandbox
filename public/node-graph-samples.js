@@ -1795,7 +1795,7 @@ function createNodeGraphSampleModuleBody(nodeOrId) {
   const patchNode = nodeGraphPatchNode(nodeId);
   // Music Player load/path/status live in Display Settings + the waveform.
   // A module-body status row stole face height for picker chatter.
-  if (patchNode?.type === "audioPlayer") {
+  if (patchNode?.type === "audioPlayer" || patchNode?.type === "wavetable2d") {
     return null;
   }
   const body = document.createElement("div");

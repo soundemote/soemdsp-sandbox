@@ -924,7 +924,7 @@ const nodeGraphModuleDefinitions = (
     // Æ’ absolute-Hz last among signal inlets. Morph is the parameter (+ MOD), not a jack.
     inputs: ["Reset", "Increment"],
     inputLabels: {
-      Increment: "Inc"},
+      Increment: "inc"},
     // Legacy Wave Out / Out â†’ Wave (outlet list already implies "out").
     outputAliases: {Out: "Wave",
       "Wave Out": "Wave",},
@@ -1019,7 +1019,7 @@ const nodeGraphModuleDefinitions = (
     ],
     inputs: ["Reset", "Increment"],
     inputLabels: {
-      Increment: "Inc"},
+      Increment: "inc"},
     outputAliases: {Out: "Wave",
       "Wave Out": "Wave",},
     outputChannels: {
@@ -1107,7 +1107,7 @@ const nodeGraphModuleDefinitions = (
     // Phase is the parameter (+ MOD) only â€” no Phase CV jack twin.
     inputs: ["Reset", "Increment"],
     inputLabels: {
-      Increment: "Inc",},
+      Increment: "inc",},
     outputs: ["A", "B", "C", "D"],
     parameters: [
       {
@@ -1187,7 +1187,7 @@ const nodeGraphModuleDefinitions = (
     displayType: "trace",
     inputs: ["Reset", "Increment"],
     inputLabels: {
-      Increment: "Inc",},
+      Increment: "inc",},
     outputs: ["sin", "cos"],
     outputLabels: {sin: "Sin",
       cos: "Cos",},
@@ -1251,8 +1251,8 @@ const nodeGraphModuleDefinitions = (
   archimedes: {
     planRole: "source",
     displayType: "trace",
-    inputs: ["Reset"],
-    inputLabels: {},
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
     outputs: ["Sine", "Cosine", "Pi", "Noise Below", "Noise Above"],
     parameters: [
       {
@@ -1301,8 +1301,8 @@ const nodeGraphModuleDefinitions = (
   },
   aliasSine: {
     planRole: "source",
-    inputs: [],
-    inputLabels: { },
+    inputs: ["Increment"],
+    inputLabels: { Increment: "inc" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
@@ -1314,8 +1314,8 @@ const nodeGraphModuleDefinitions = (
   robinSinusoid: {
     planRole: "source",
     displayType: "trace",
-    inputs: ["Reset"],
-    inputLabels: {Reset: "Reset"},
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
@@ -1482,7 +1482,8 @@ const nodeGraphModuleDefinitions = (
       { key: "additiveWaveform", renderer: "additiveWaveform" },
       { key: "harmonicCount", renderer: "harmonicCount" },
     ],
-    inputs: [],
+    inputs: ["Increment"],
+    inputLabels: { Increment: "inc" },
     outputs: [],
     dataOutputs: ["Graph"],
     parameters: [
@@ -2883,7 +2884,7 @@ const nodeGraphModuleDefinitions = (
     ],
     // Signal CV; Graph data inlet stacks above these (see nodeGraphPatchNodeInputPorts).
     inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "Inc"},
+    inputLabels: { Increment: "inc"},
     // Mono = unpanned sum; Left/Right use Graph pan[] (âˆ’1â€¦+1).
     outputs: ["Mono", "Left", "Right"],
     outputAliases: {Out: "Mono", L: "Left", R: "Right"},
@@ -2932,7 +2933,7 @@ const nodeGraphModuleDefinitions = (
     // Æ’ absolute-Hz last among signal inlets. Morph is the parameter (+ MOD), not a jack.
     inputs: ["Reset", "Increment"],
     inputLabels: {
-      Increment: "Inc"},
+      Increment: "inc"},
     // Morph is the parameter (+ MOD) only â€” no Morph CV jack twin.
     // Legacy Mono/X/Y/Out â†’ bipolar outs.
     outputAliases: {Mono: "Bi X",
@@ -3038,7 +3039,7 @@ const nodeGraphModuleDefinitions = (
     ],
     inputs: ["Reset", "Increment"],
     inputLabels: {
-      Increment: "Inc"},
+      Increment: "inc"},
     outputs: ["Left", "Right"],
     parameters: [
       {
@@ -3122,7 +3123,7 @@ const nodeGraphModuleDefinitions = (
     defaultDisplayMode: "face",
     inputs: ["Reset", "Increment"],
     inputLabels: {
-      Increment: "Inc",},
+      Increment: "inc",},
     outputAliases: {Out: "Wave",
       "Wave Out": "Wave",
       CenterSquare: "Center Square",},
@@ -3357,9 +3358,8 @@ const nodeGraphModuleDefinitions = (
   },
   antisaw: {
     planRole: "source",
-    inputAliases: { Freq: "f" },
-    inputLabels: { f: "Æ’" },
-    inputs: [],
+    inputs: ["Increment"],
+    inputLabels: { Increment: "inc" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
@@ -4028,8 +4028,8 @@ const nodeGraphModuleDefinitions = (
   },
   surgeOscillator: {
     planRole: "source",
-    inputs: ["Sync"],
-    inputLabels: {},
+    inputs: ["Increment", "Sync"],
+    inputLabels: { Increment: "inc" },
     // Multi-wave taps â†’ selected bus is Wave (not bare Out).
     outputAliases: {Out: "Wave",
       "Wave Out": "Wave",},
@@ -4081,8 +4081,8 @@ const nodeGraphModuleDefinitions = (
       showDot: true,
     },
     // Morph / Phase are parameters (+ MOD), not SIGNAL IN jacks.
-    inputs: ["Reset"],
-    inputLabels: {},
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
@@ -4135,19 +4135,18 @@ const nodeGraphModuleDefinitions = (
         wraparound: true
       },
       { key: "antialias", label: "AA", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      // Kept for DSP / MOD / patches; not shown on the module (level is always on).
-      // Additive + clamp (not VCA multiply): Amp=1 + Knob 0â€¦1 stays at 1; Amp=0 is true 0.
       {
+        defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        defaultValue: "1",
-        min: "0",
-        mid: "1",
         max: "1",
-        step: "0.01",
-        modClamp: true,
-        modMultiply: false,
-        hidden: true,
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        modClamp: false,
+        tooltip:
+          "Output level. Slider 0â€¦1 = full-scale bipolar wave. Min/max are guides only.",
       },
     ]
   },
@@ -4167,9 +4166,8 @@ const nodeGraphModuleDefinitions = (
       { key: "trace", label: "Out Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out" } },
     ],
     defaultDisplayMode: "xyBurn",
-    inputs: ["Reset"],
-    inputLabels: {
-      Reset: "Reset"},
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
     outputs: ["Out", "X", "Y"],
     parameters: [
       {
@@ -4286,9 +4284,8 @@ const nodeGraphModuleDefinitions = (
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
-    inputs: ["Reset"],
-    inputLabels: {
-      Reset: "Reset"},
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
     outputs: ["X", "Y"],
     parameters: [
       {
@@ -4382,7 +4379,8 @@ const nodeGraphModuleDefinitions = (
     // Morph / Phase / Amplitude are parameters (+ MOD) only â€” no twin CV jacks.
     // Frequency is Hz (Æ’ jack = absolute Hz). See MODULE_PATTERN_REFERENCE
     // "Three control surfaces".
-    inputs: [],
+    inputs: ["Increment"],
+    inputLabels: { Increment: "inc" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
@@ -4456,8 +4454,8 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Left", kind: "scalar" },
     ],
-    inputs: ["Reset"],
-    inputLabels: {},
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
     outputs: ["Mono", "Left", "Right"],
     parameters: [
       {
@@ -4652,8 +4650,8 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Left", kind: "scalar" },
     ],
-    inputs: ["Reset"],
-    inputLabels: {},
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
     outputs: ["Left", "Right"],
         parameters: [
       {
@@ -9000,8 +8998,8 @@ const nodeGraphModuleDefinitions = (
   },
   softpopOscillator: {
     planRole: "source",
-    inputs: ["Reset"],
-    inputLabels: {},
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
     outputs: ["Out", "Left", "Right"],
     outputLabels: {Out: "Mono"},
     parameters: [
@@ -9279,7 +9277,7 @@ const nodeGraphModuleDefinitions = (
     ],
     inputs: ["Reset", "Increment"],
     inputLabels: {
-      Increment: "Inc"},
+      Increment: "inc"},
     // Out = audio; f = instant Hz; Amp/Freq = 0..1 curves for driving other modules.
     outputs: ["Out", "f", "Amp", "Freq"],
     outputLabels: {Out: "Out",
@@ -9880,57 +9878,12 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  // Under construction: multi-frame wavetable oscillators (Oscillator shelf).
-  wavetable2d: {
-    planRole: "source",
-    planFreeRun: true,
-    displayType: "trace",
-    inputs: ["Freq", "Position"],
-    inputLabels: {},
-    outputs: ["Out"],
-    parameters: [
-      {
-        defaultValue: "100",
-        key: "freq",
-        kind: "frequency",
-        label: "Freq",
-        max: "20000",
-        mid: "440",
-        min: "0",
-        step: "any",
-        unit: "Hz",
-        tooltip: "Under construction â€” wavetable playback frequency."
-      },
-      {
-        defaultValue: "0",
-        key: "position",
-        label: "Position",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        tooltip: "Under construction â€” morph position across the 2D wavetable (frame / scan)."
-      },
-      {
-        defaultValue: "1",
-        key: "amp",
-        label: "Amplitude",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        tooltip: "Under construction â€” output level."
-      },
-    ]
-  },
   wavetable3d: {
     planRole: "source",
     planFreeRun: true,
     displayType: "trace",
-    inputs: ["Freq", "X", "Y"],
-    inputLabels: {},
+    inputs: ["Increment", "X", "Y"],
+    inputLabels: { Increment: "inc" },
     outputs: ["Out"],
     parameters: [
       {
@@ -10059,8 +10012,8 @@ const nodeGraphModuleDefinitions = (
     defaultDisplayMode: "xyBurn",
     // Reset / Æ’ â€” sample-accurate. Phase is the parameter (+ MOD) only.
     // Reset rising edge clears osc + filter state.
-    inputs: ["Reset"],
-    inputLabels: {Reset: "Reset",},
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
     outputs: ["Out", "X", "Y", "Z", "Left", "Right"],
     parameters: [
       {
@@ -11335,6 +11288,11 @@ const nodeGraphModuleDefinitions = (
   },
   chorus: {
     planRole: "processor",
+    displayType: "ensembleCloud",
+    displayModes: [
+      { key: "ensembleCloud", label: "Cloud", renderer: "ensembleCloud" },
+    ],
+    defaultDisplayMode: "ensembleCloud",
     inputs: ["Mono", "Left", "Right"],
     outputs: ["Mono", "Left", "Right"],
     parameters: [
@@ -11456,12 +11414,12 @@ const nodeGraphModuleDefinitions = (
       {
         defaultValue: "0",
         key: "randomAmp",
-        label: "Random Amp",
+        label: "Amp Spread",
         max: "1",
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Per-voice S&H on LFO amplitude.",
+        tooltip: "Evenly spread each voice's modulation depth. 0 = all at Depth. 1 = depths from 0 to Depth across voices.",
       },
       {
         defaultValue: "1",
@@ -11526,6 +11484,16 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Dry/wet.",
       },
       {
+        defaultValue: "0.5",
+        key: "spread",
+        label: "Pan Spread",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "any",
+        tooltip: "Stereo width only. 0 = all voices centered. 1 = voices panned L…R. Face color: red = L, blue = R. Does not change delay times.",
+      },
+      {
         constraint: "cpu",
         defaultValue: "7",
         key: "voices",
@@ -11566,22 +11534,12 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "3",
         key: "depth",
         label: "Depth",
-        max: "10",
+        max: "20",
         mid: "3",
         min: "0",
         step: "any",
         unit: "ms",
-        tooltip: "Modulator throw in milliseconds. Walk/FBM is ±1 × Depth.",
-      },
-      {
-        defaultValue: "0.5",
-        key: "spread",
-        label: "Spread",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        step: "any",
-        tooltip: "Decorrelate voices (walk rate / FBM time offset).",
+        tooltip: "Modulator throw in milliseconds. Walk/FBM is ±1 × Depth. Face: 0 at center, + right, − left. Typical depths already span most of the plate; 20 ms is the edge.",
       },
       {
         defaultValue: "0.4",
@@ -13771,7 +13729,12 @@ const nodeGraphModuleDefinitions = (
       },
     ],
     defaultDisplayMode: "waveform",
-    inputs: ["Reset"],
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
+    inputTooltips: {
+      Reset: "Rising edge zeros the phasor.",
+      Increment: "Phase increment add (cycles per sample).",
+    },
     outputLabels: { Out: "←" },
     outputs: ["Out"],
     parameters: [
@@ -13784,7 +13747,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.001",
         smoothingType: "papoulis",
-        tooltip: "Timbre frame position (multi-frame bank later). Unused while only one cycle is loaded.",
+        tooltip: "Morph: Rectified sine → Sine → inverted Rectified sine shifted 90° (opposite sine swing).",
       },
       {
         defaultValue: "100",
@@ -13796,7 +13759,6 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Oscillator rate in Hz. Loaded sample is one cycle.",
       },
       {
         defaultValue: "0",
@@ -13809,6 +13771,37 @@ const nodeGraphModuleDefinitions = (
         step: "0.01",
         unit: "cycle",
         wraparound: true,
+      },
+      {
+        defaultValue: "0",
+        key: "warp",
+        label: "Warp",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        showSign: true,
+        step: "any",
+        tooltip: "Phase distortion (−1…+1). 0 = linear read. Rational map on the cycle index.",
+      },
+      {
+        defaultValue: "0",
+        key: "start",
+        label: "Start",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "any",
+        tooltip: "Cycle region start (0…1). Maps the phasor into Start…End.",
+      },
+      {
+        defaultValue: "1",
+        key: "end",
+        label: "End",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "any",
+        tooltip: "Cycle region end (0…1). Equal to Start = full cycle.",
       },
       {
         defaultValue: "1",
@@ -13927,7 +13920,8 @@ const nodeGraphModuleDefinitions = (
   phosphillator: {
     planRole: "source",
     layout: "phosphillatorDraw",
-    inputs: ["Reset"],
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
     outputs: ["X", "Y"],
     parameters: [
       { defaultValue: "2", key: "frequency", kind: "frequency", label: "Frequency", max: "2000", maxDigits: 5, mid: "2", min: "0", step: "any", unit: "Hz" },
@@ -16619,14 +16613,8 @@ const nodeGraphModuleDefinitions = (
   sinc: {
     planRole: "processor",
     displayType: "trace",
-    inputs: ["Freq"],
-    inputAliases: {
-      freq: "Freq",
-      f: "Freq",
-      Frequency: "Freq",
-      F: "Freq",
-      "Æ’": "Freq",},
-    inputLabels: { Freq: "Æ’"},
+    inputs: ["Increment"],
+    inputLabels: { Increment: "inc" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [

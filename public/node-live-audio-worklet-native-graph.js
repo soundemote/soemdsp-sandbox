@@ -974,8 +974,8 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
 ) {
   const raw = String(port || "").trim();
   const p = raw.toLowerCase();
-  // Live absolute-Hz jack (must not fall through to Mono — would inject CV into audio).
-  if (p === "f" || p === "ƒ" || p === "freq" || p === "frequency") {
+  // ƒ jack only. Frequency is a parameter (slider + MOD add), never kPortF.
+  if (p === "f" || p === "ƒ") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_F;
   }
   if (p === "0.1v/oct" || p === "0.1v" || p === "v/oct" || p === "pitch") {
@@ -2081,7 +2081,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
   };
 
 /**
- * Voice Frequency/Gate/Trigger are not native nodes. Full compile and surgical
+ * Voice Inc/Gate/Trigger are not native nodes. Full compile and surgical
  * rewire both need Bias feeders into osc f / gate / trigger. Surgical used to
  * skip this (bypass of an unrelated module dropped pitch until Stop/Start).
  */
@@ -2751,7 +2751,7 @@ const META_VOICE_FACE_TYPES = {
 /**
  * Compile each Voices Meta as N sealed circuits.
  * Owned modules + cables + param-mods stay inside slot v.
- * Face knobs/inputs are shared. Voice Frequency/Gate/Trigger are per-slot
+ * Face knobs/inputs are shared. Voice Inc/Gate/Trigger are per-slot
  * feeders. Circuits mix only at Meta Out.
  */
 NodeLiveAudioProcessor.prototype.compileNativeMetaVoiceCircuits = function compileNativeMetaVoiceCircuits(ctx) {
@@ -3324,16 +3324,23 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
         const held = midi >= 0 && this._vmKeepNotes instanceof Set && this._vmKeepNotes.has(midi);
         const gateOn = sustaining && held;
         if (wantsHz) {
+          let hz = 0;
           if (sustaining && held) {
-            value = voiceHz(midi, metaNode);
-            lastHz.set(hzKey, value);
+            hz = voiceHz(midi, metaNode);
+            lastHz.set(hzKey, hz);
           } else if (sustaining || releasing) {
-            value = lastHz.has(hzKey)
+            hz = lastHz.has(hzKey)
               ? lastHz.get(hzKey)
               : (midi >= 0 ? voiceHz(midi, metaNode) : 0);
-            if (value > 0) lastHz.set(hzKey, value);
+            if (hz > 0) lastHz.set(hzKey, hz);
+          }
+          const dst = String(feed.dstPort || "").toLowerCase();
+          const asInc = dst === "increment" || dst === "inc" || dst === "inc.";
+          if (asInc) {
+            const sr = Number(this.sampleRate) > 1 ? Number(this.sampleRate) : 44100;
+            value = hz / sr;
           } else {
-            value = 0;
+            value = hz;
           }
         } else if (wantsGate || wantsTrig) {
           // Same dest (Ping Trigger) must not get Gate=1 then Trigger=0.
@@ -5515,10 +5522,7 @@ NodeLiveAudioProcessor.prototype.syncNativeEnsemblePublish =
     }
     const native = this.nativeGraph;
     const handleFn = native?.soemdsp_graph_node_native_handle;
-    const countFn = native?.soemdsp_ensemble_voice_count;
-    const delayFn = native?.soemdsp_ensemble_voice_delay;
-    const panFn = native?.soemdsp_ensemble_voice_pan;
-    if (!handleFn || !countFn || !delayFn || !panFn) {
+    if (!handleFn) {
       return;
     }
     if (!this.ensemblePublish) {
@@ -5526,7 +5530,22 @@ NodeLiveAudioProcessor.prototype.syncNativeEnsemblePublish =
     }
     const live = new Set();
     for (const [id, node] of this.nodes || []) {
-      if (String(node?.type || "") !== "ensemble") {
+      const kind = String(node?.type || "");
+      const ens = kind === "ensemble";
+      const cho = kind === "chorus";
+      if (!ens && !cho) {
+        continue;
+      }
+      const countFn = ens
+        ? native.soemdsp_ensemble_voice_count
+        : native.soemdsp_chorus_voice_count;
+      const delayFn = ens
+        ? native.soemdsp_ensemble_voice_delay
+        : native.soemdsp_chorus_voice_delay;
+      const panFn = ens
+        ? native.soemdsp_ensemble_voice_pan
+        : native.soemdsp_chorus_voice_pan;
+      if (!countFn || !delayFn || !panFn) {
         continue;
       }
       live.add(id);

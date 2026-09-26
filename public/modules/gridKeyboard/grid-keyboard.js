@@ -127,8 +127,6 @@ function createNodeGraphGridKeyboardBody(node = null) {
     ["frequency", "freq", "-"],
     ["pitch", "pitch", "-"],
     ["midi", "midi", "-"],
-    ["x", "x", "0.000"],
-    ["y", "y", "0.000"],
     ["velocity", "vel", "-"],
   ]) {
     const item = document.createElement("span");
@@ -186,8 +184,6 @@ function createNodeGraphGridKeyboardBody(node = null) {
     ["gatePulse", "Trigger", "0"],
     ["octave", "Octave", "+0"],
     ["frequency", "ƒ", "-"],
-    ["x", "X", "0.000"],
-    ["y", "Y", "0.000"],
   ]) {
     const item = document.createElement("span");
     item.append(document.createTextNode(`${labelText} `));

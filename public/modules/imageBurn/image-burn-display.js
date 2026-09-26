@@ -106,6 +106,40 @@ function nodeGraphImageBurnToPatch(settings) {
   };
 }
 
+/** Bright knob plus normal parameter modulation, clamped to the knob range. */
+function nodeGraphImageBurnEffectiveBrightness(nodeId) {
+  const base = nodeGraphImageBurnReadParam(nodeId, "brightness", 1);
+  const metadata = typeof nodeGraphReadPatchParameterMetadata === "function"
+    ? (nodeGraphReadPatchParameterMetadata(nodeId, "brightness") || { min: 0, max: 1 })
+    : { min: 0, max: 1 };
+  const id = String(nodeId || "");
+  const list = nodeGraphMvp?.patch?.modulations || [];
+  let mod = 0;
+  for (let i = 0; i < list.length; i += 1) {
+    const entry = list[i];
+    if (String(entry?.destinationNode || "") !== id) {
+      continue;
+    }
+    if (String(entry?.destinationParam || "") !== "brightness") {
+      continue;
+    }
+    const sample = typeof nodeGraphModuleScopeLatestOutputValue === "function"
+      ? Number(nodeGraphModuleScopeLatestOutputValue(entry.sourceNode, entry.sourcePort, 0))
+      : 0;
+    if (Number.isFinite(sample)) {
+      mod += sample;
+    }
+  }
+  const mixed = typeof nodeGraphApplyParameterModulation === "function"
+    ? nodeGraphApplyParameterModulation(base, mod, metadata)
+    : base + mod;
+  const n = Number(mixed);
+  if (!Number.isFinite(n)) {
+    return 0;
+  }
+  return n < 0 ? 0 : (n > 1 ? 1 : n);
+}
+
 function nodeGraphImageBurnReadParam(nodeId, key, fallback) {
   if (typeof nodeGraphReadNodeNumber === "function") {
     const n = nodeGraphReadNodeNumber(nodeId, key);
@@ -838,7 +872,7 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     nodeGraphImageBurnReadParam(nodeId, "size", 1),
     1,
   );
-  const brightness = Math.max(0, nodeGraphImageBurnReadParam(nodeId, "brightness", 1));
+
   const blacks = clampNodeGraphImageBurnContrast(
     nodeGraphImageBurnReadParam(nodeId, "blacks", 0),
     0,
@@ -848,7 +882,6 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
   const burn = Math.max(0, nodeGraphImageBurnReadParam(nodeId, "burn", 0.75));
   const blur = Math.max(0, nodeGraphImageBurnReadParam(nodeId, "blur", 0.45));
   const contrast = blacks;
-  const buffer = item?.buffer;
   const w = canvas.width;
   const h = canvas.height;
 
@@ -877,10 +910,6 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     () => nodeGraphImageBurnScheduleRepaint(slot),
   );
 
-  // This frame's buffered In peak × Brightness → dry; Feedback gates deposit.
-  const energy = nodeGraphImageBurnBufferedEnergy(face, buffer);
-  const energy01 = energy.dry;
-
   const imageFailed = Boolean(img?._imageBurnFailed);
   const imageReady = Boolean(
     settings.dataUrl
@@ -908,26 +937,11 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     nodeGraphImageBurnClearResidual(face);
   }
 
-  // One-shot after load so hang gets pixels before In is wired.
-  if ((imageReady || textureIn?.texture) && !face._imageBurnSeenReady) {
+  if (imageReady || textureIn?.texture) {
     face._imageBurnSeenReady = true;
-    face._imageBurnSeedFrames = 12;
   }
-  if (energy.peak > 0.04 || energy.deposit > 0.04) {
-    face._imageBurnSeedFrames = 0;
-  }
-  const seedLeft = Math.max(0, nodeGraphFiniteNumber(face._imageBurnSeedFrames));
-  if (seedLeft > 0) {
-    face._imageBurnSeedFrames = seedLeft - 1;
-  }
-  const lit = Math.max(energy01 * brightness, seedLeft > 0 ? brightness * 0.85 : 0);
-  let fbInfo = nodeGraphImageBurnFeedbackDeposit(lit, feedback);
-  if (seedLeft > 0) {
-    const seeded = nodeGraphImageBurnFeedbackDeposit(brightness * 0.85, feedback);
-    if (seeded.deposit > fbInfo.deposit) {
-      fbInfo = seeded;
-    }
-  }
+  const lit = nodeGraphImageBurnEffectiveBrightness(slot?.nodeId);
+  const fbInfo = nodeGraphImageBurnFeedbackDeposit(lit, feedback);
   const deposit = fbInfo.deposit;
   const accumulate = Boolean(fbInfo.accumulate);
 

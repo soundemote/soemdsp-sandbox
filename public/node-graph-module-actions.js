@@ -188,7 +188,7 @@ function showNodeGraphModule(node, point = null, options = {}) {
     if (typeof setNodeInteractionHelp === "function") {
       setNodeInteractionHelp(
         nodeGraphIsMetamoduleVoicePortalType?.(type)
-          ? "Open a Metamodule (double-click) to use Voice Frequency / Gate / Trigger."
+          ? "Open a Metamodule (double-click) to use Voice Inc / Gate / Trigger."
           : "Open a Metamodule (double-click) to place Metamodule In / Metamodule Out.",
       );
     }

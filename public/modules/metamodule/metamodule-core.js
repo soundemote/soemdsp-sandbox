@@ -1325,7 +1325,7 @@ function nodeGraphMetamoduleBoundsOfNodes(nodes) {
 }
 
 /**
- * Seed owned Voice Frequency / Gate / Trigger portals inside a Metamodule.
+ * Seed owned Voice Inc / Gate / Trigger portals inside a Metamodule.
  * Stable ids `${metaId}__voiceFrequency` etc. Non-deletable; not Root chrome.
  */
 function nodeGraphMetamoduleEnsureVoicePortals(metaId, patch = nodeGraphMvp?.patch) {
@@ -1353,7 +1353,7 @@ function nodeGraphMetamoduleEnsureVoicePortals(metaId, patch = nodeGraphMvp?.pat
           gx: spec.gx,
           gy: spec.gy,
           alias: spec.type === "voiceFrequency"
-            ? "Voice Frequency"
+            ? "Voice Inc"
             : (spec.type === "voiceGate"
               ? "Voice Gate"
               : (spec.type === "voiceIdle" ? "Voice Idle" : "Voice Trigger")),
@@ -1372,6 +1372,9 @@ function nodeGraphMetamoduleEnsureVoicePortals(metaId, patch = nodeGraphMvp?.pat
     }
     node.ownerMetamoduleId = id;
     node.metamoduleVoicePortal = true;
+    if (spec.type === "voiceFrequency" && String(node.alias || "") === "Voice Frequency") {
+      node.alias = "Voice Inc";
+    }
     if (nodeGraphMvp?.activeNodes instanceof Set) {
       nodeGraphMvp.activeNodes.add(portalId);
     }

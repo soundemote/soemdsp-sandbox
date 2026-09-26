@@ -11,7 +11,7 @@ nodeGraphLiveModuleEvaluators.metamoduleOut = ({ mixInput, nodeId }) => ({
 });
 
 // Live stubs — real Voice* CV is written by native per-lane Bias feeders.
-nodeGraphLiveModuleEvaluators.voiceFrequency = () => ({ Frequency: 0, Out: 0 });
+nodeGraphLiveModuleEvaluators.voiceFrequency = () => ({ Increment: 0, Frequency: 0, Out: 0 });
 nodeGraphLiveModuleEvaluators.voiceGate = () => ({ Gate: 0, Out: 0 });
 nodeGraphLiveModuleEvaluators.voiceIdle = () => ({ Idle: 0 });
 nodeGraphLiveModuleEvaluators.voiceTrigger = () => ({ Trigger: 0, Out: 0 });

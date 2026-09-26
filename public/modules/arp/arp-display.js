@@ -25,6 +25,7 @@ function nodeGraphArpKeysLookForNodeId(nodeId) {
     cornerShape: "squircle",
     cornerRadius: 0,
     edgeSpacing: 0.05,
+    strokeThickness: 0.01,
   };
 }
 
@@ -230,6 +231,7 @@ function createNodeGraphArpKeysDisplay(nodeId) {
       look.cornerShape,
       look.cornerRadius,
       look.edgeSpacing,
+      look.strokeThickness,
     ].join(":");
     const sig = `${bw}x${bh}:${screenScale.toFixed(4)}:${play}:${projectOn ? 1 : 0}:${notes.join(",")}:${lookSig}`;
     if (sig === lastSig && canvas.width === bw && canvas.height === bh) return;
@@ -261,12 +263,11 @@ function createNodeGraphArpKeysDisplay(nodeId) {
     const innerW = Math.max(0, x1 - x0);
     const innerH = Math.max(0, y1 - y0);
     const squircle = look.cornerShape === "squircle";
-    // Face-relative hairline: scales with canvas-tile size, not workspace zoom.
-    // Divide by screenScale so graph zoom keeps on-screen thickness; quantize after.
-    const strokeDev = Math.max(
-      1,
-      Math.round(Math.min(bw, bh) / (120 * Math.max(screenScale, 0.0001))),
-    );
+    // Fraction of the short side, in backing pixels. clientWidth already tracks
+    // the module and the canvas tile. Zoom is a CSS scale of that bitmap, so
+    // the stroke grows with the face instead of being a fixed screen pixel.
+    const thickness = Math.max(0, Math.min(1, Number(look.strokeThickness) || 0));
+    const strokeDev = Math.max(1, Math.round(thickness * Math.min(bw, bh)));
     const half = strokeDev * 0.5;
     const maxRadius = Math.max(0, Math.min(innerW, innerH) / 2);
     const radius = Math.round(look.cornerRadius * maxRadius);

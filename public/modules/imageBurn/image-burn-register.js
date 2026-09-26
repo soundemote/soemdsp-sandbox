@@ -1,12 +1,13 @@
-// Image Ghost — energy-driven residual image stamp (In brightness × Feedback deposit).
+// Image Ghost — residual stamp. Bright is the level; modulate that knob. 📺 is the picture.
 registerNodeGraphChromelessModule("imageBurn", {
   label: "Image Ghost",
-  solidModule: true,
+  solidModule: false,
   customDisplayArea: true,
   definition: {
+    chrome: "LayoutA",
     planRole: "monitor",
-    bufferedInputs: ["In"],
-    defaultWidthGu: 4,
+    bufferedInputs: [],
+    defaultWidthGu: 6,
     displayHeightGu: 4,
     displayType: "imageBurnFace",
     displayRenderer: "imageBurnFace",
@@ -16,18 +17,16 @@ registerNodeGraphChromelessModule("imageBurn", {
         label: "Face",
         renderer: "imageBurnFace",
         settingsSchema: "imageBurnFace",
-        source: { value: "In" },
       },
     ],
     defaultDisplayMode: "face",
-    inputs: ["In", "rgba"],
-    digitalInputs: ["In"],
-    inputLabels: { In: "Brightness", rgba: "📺" },
+    inputs: ["rgba"],
+    inputLabels: { rgba: "📺" },
     inputTooltips: {
       rgba: "Picture in. Replaces the loaded file while connected. Same shared picture context.",
     },
-    outputs: ["Thru", "rgba"],
-    outputLabels: { Thru: "←", rgba: "📺" },
+    outputs: ["rgba"],
+    outputLabels: { rgba: "📺" },
     outputTooltips: {
       rgba: "Residual picture out, after Hang / Burn / Blur.",
     },
@@ -52,7 +51,7 @@ registerNodeGraphChromelessModule("imageBurn", {
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Dry image gain on In energy (0…1). Independent of Feedback.",
+        tooltip: "Stamp level. 0 is dark, 1 is full. Modulation adds to this and stays inside 0…1.",
       },
       {
         defaultValue: "0",
@@ -120,18 +119,14 @@ registerNodeGraphChromelessModule("imageBurn", {
         tooltip: "Bloom recirculation on the residual. Fine near 0; high = soft glow.",
       },
     ],
-    visualInputs: [
-      { key: "imageBurn", label: "Brightness", port: "In" },
-    ],
     visualSink: true,
   },
   catalog: {
     category: "rgb",
     description:
-      "Load an image and print it into a dedicated Hang/Burn residual (Image Ghost). "
-      + "Params: Size, Bright, Blacks, Feedback, Hang, Burn, Blur. "
-      + "Feedback 0 max-blends lit into hang, >0 accumulates, <0 dimmer max-blend. "
-      + "Display Settings: image asset, background, Clear residual.",
+      "Load an image and print it into a Hang/Burn residual. "
+      + "Bright is the stamp level (modulate that knob). 📺 in replaces the file; 📺 out is the residual. "
+      + "Feedback 0 max-blends, >0 accumulates, <0 stamps dimmer.",
     notes: [
       "image ghost",
       "image burn",
@@ -143,7 +138,7 @@ registerNodeGraphChromelessModule("imageBurn", {
       "blacks",
       "burn",
       "blur",
-      "LayoutB",
+      "LayoutA",
     ],
   },
 });

@@ -10,6 +10,7 @@ const nodeGraphMidiKeyboardLayoutDefaults = Object.freeze({
   blackKeyHeight: 62,
   keyboardHeight: 112,
   keyLabels: "name",
+  hideKeyboardInfo: true,
 });
 
 function normalizeNodeGraphMidiKeyboardKeyLabels(value) {
@@ -30,6 +31,7 @@ function normalizeNodeGraphMidiKeyboardLayout(raw = {}) {
     blackKeyHeight: clamp(source.blackKeyHeight, 28, 82, nodeGraphMidiKeyboardLayoutDefaults.blackKeyHeight),
     keyboardHeight: clamp(source.keyboardHeight, 48, 220, nodeGraphMidiKeyboardLayoutDefaults.keyboardHeight),
     keyLabels: normalizeNodeGraphMidiKeyboardKeyLabels(source.keyLabels),
+    hideKeyboardInfo: source.hideKeyboardInfo === false ? false : true,
   };
 }
 
@@ -178,16 +180,17 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
       span.style.transform = "translateX(-50%)";
       span.style.width = `${widthPct}%`;
       span.style.removeProperty("margin-left");
-      if (blackH > 0) {
-        span.style.height = `${blackH}px`;
-        span.style.maxHeight = `${blackH}px`;
-      } else {
+      if (inModuleFace || !(blackH > 0)) {
         span.style.height = `${s.blackKeyHeight}%`;
         span.style.removeProperty("max-height");
+      } else {
+        span.style.height = `${blackH}px`;
+        span.style.maxHeight = `${blackH}px`;
       }
     });
     const module = surface.closest(".node-midi-keyboard-module");
     if (module) {
+      module.classList.toggle("show-keyboard-info", s.hideKeyboardInfo === false);
       if (inModuleFace) {
         module.style.setProperty("--midi-keyboard-piano-width", "100%");
         module.style.removeProperty("--midi-keyboard-piano-height");
@@ -196,6 +199,9 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
         module.style.setProperty("--midi-keyboard-piano-height", `${s.keyboardHeight}px`);
       }
     }
+  });
+  document.querySelectorAll(".node-grid-keyboard-module").forEach((module) => {
+    module.classList.toggle("show-keyboard-info", s.hideKeyboardInfo === false);
   });
   if (typeof renderNodeGraphMidiKeyboardKeyLabels === "function") {
     renderNodeGraphMidiKeyboardKeyLabels();
@@ -237,6 +243,10 @@ function buildNodeGraphKeyboardControllerFaceDisplaySettingsBodyHtml() {
     <div class="metadata-field-section" data-midi-keyboard-layout-settings>
       <div class="metadata-section-title">Keys</div>
       <label class="node-trace-display-line-burn-row">
+        <span>Hide keyboard info</span>
+        <input type="checkbox" data-midi-key-layout="hideKeyboardInfo"${s.hideKeyboardInfo ? " checked" : ""} aria-label="Hide keyboard info">
+      </label>
+      <label class="node-trace-display-line-burn-row">
         <span>Black width</span>
         <input type="range" min="4" max="28" step="1" data-midi-key-layout="blackKeyWidth" value="${s.blackKeyWidth}" aria-label="Black key width">
       </label>
@@ -265,7 +275,8 @@ function bindNodeGraphKeyboardControllerFaceDisplaySettingsBody(host) {
     for (const input of host.querySelectorAll("[data-midi-key-layout]")) {
       const key = input.getAttribute("data-midi-key-layout");
       if (key) {
-        next[key] = input.tagName === "SELECT" ? input.value : Number(input.value);
+        if (input.type === "checkbox") next[key] = input.checked;
+        else next[key] = input.tagName === "SELECT" ? input.value : Number(input.value);
       }
     }
     return next;

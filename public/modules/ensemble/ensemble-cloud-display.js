@@ -57,14 +57,14 @@ function drawNodeGraphEnsembleCloudItem(_renderer, item, pixelRatio) {
   const cssH = Math.max(1, Number(metrics?.cssH) || h);
   const minSide = faceMinSide(cssW, cssH);
   const bufPerCss = w / cssW;
-  const ink = (px) => Math.max(1, faceInkPx(px, minSide) * bufPerCss);
-  const scrollPx = Math.max(1, Math.round(ink(1.5)));
-  const sparkW = Math.max(1, Math.round(ink(2)));
-  const sparkH = Math.max(scrollPx, Math.round(ink(2)));
+  const ink = (px) => Math.max(1, Math.round(faceInkPx(px, minSide) * bufPerCss));
+  const scrollPx = Math.max(1, ink(1.5));
+  const sparkW = Math.max(2, ink(2));
+  const sparkH = Math.max(scrollPx, ink(2));
 
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
-  context.imageSmoothingEnabled = density >= 0.999;
+  context.imageSmoothingEnabled = false;
   context.globalCompositeOperation = "copy";
   context.drawImage(canvas, 0, -scrollPx);
   context.globalCompositeOperation = "source-over";

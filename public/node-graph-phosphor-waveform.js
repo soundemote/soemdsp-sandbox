@@ -1507,8 +1507,124 @@ function nodeGraphPhosphorWaveformEntrySamples(entry) {
   return nodeGraphPhosphorWaveformSamplesUsable(channel) ? channel : null;
 }
 
+function nodeGraphWavetable2dPaintMorphSlot(canvas, samples) {
+  if (!canvas) return;
+  const n = samples?.length || 0;
+  if (!n) return;
+  const cssW = Math.max(8, canvas.clientWidth || 40);
+  const cssH = Math.max(8, canvas.clientHeight || 28);
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  const mid = cssH * 0.5;
+  const amp = cssH * 0.42;
+  ctx.beginPath();
+  const cols = Math.max(8, Math.floor(cssW));
+  for (let x = 0; x < cols; x += 1) {
+    const i = Math.min(n - 1, Math.floor((x / Math.max(1, cols - 1)) * (n - 1)));
+    const y = mid - samples[i] * amp;
+    if (x === 0) ctx.moveTo(x + 0.5, y);
+    else ctx.lineTo(x + 0.5, y);
+  }
+  ctx.strokeStyle = "hsla(140, 80%, 62%, 0.95)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function nodeGraphWavetable2dPeakNormalize(buf) {
+  let peak = 0;
+  for (let i = 0; i < buf.length; i += 1) {
+    const a = buf[i] < 0 ? -buf[i] : buf[i];
+    if (a > peak) peak = a;
+  }
+  if (peak > 1e-12) {
+    const s = 1 / peak;
+    for (let i = 0; i < buf.length; i += 1) buf[i] *= s;
+  }
+}
+
+function nodeGraphWavetable2dEnsureFrames() {
+  if (nodeGraphWavetable2dEnsureFrames._frames) {
+    return nodeGraphWavetable2dEnsureFrames._frames;
+  }
+  const N = 4096;
+  const H = 2047;
+  const twoPi = Math.PI * 2;
+  const rect = new Float32Array(N);
+  let sum = 0;
+  for (let i = 0; i < N; i += 1) {
+    const t = i / N;
+    let y = 0;
+    for (let n = 1; n <= H; n += 1) {
+      y += (1 / (n * n)) * Math.sin(twoPi * (n * t + (n & 1 ? 0.25 : 0.75)));
+    }
+    rect[i] = y;
+    sum += y;
+  }
+  const mean = sum / N;
+  for (let i = 0; i < N; i += 1) rect[i] -= mean;
+  nodeGraphWavetable2dPeakNormalize(rect);
+  const sine = new Float32Array(N);
+  for (let i = 0; i < N; i += 1) {
+    sine[i] = Math.sin(twoPi * (i / N + 0.25));
+  }
+  nodeGraphWavetable2dPeakNormalize(sine);
+  const flip = new Float32Array(N);
+  const rot = N / 4;
+  for (let i = 0; i < N; i += 1) {
+    flip[i] = -rect[(i + rot) % N];
+  }
+  const frames = [rect, sine, flip];
+  nodeGraphWavetable2dEnsureFrames._frames = frames;
+  nodeGraphWavetable2dEnsureFrames._labels = ["Rectified sine", "Sine", "Inverted rectified sine (90°)"];
+  return frames;
+}
+
+function nodeGraphWavetable2dBlendDisplay(morph) {
+  const frames = nodeGraphWavetable2dEnsureFrames();
+  const N = frames[0].length;
+  const last = frames.length - 1;
+  const m = Math.max(0, Math.min(1, Number(morph) || 0));
+  const pos = m * last;
+  const i0 = Math.max(0, Math.min(last, Math.floor(pos)));
+  const i1 = Math.max(0, Math.min(last, i0 + 1));
+  const frac = pos - i0;
+  let blend = nodeGraphWavetable2dBlendDisplay._buf;
+  if (!blend || blend.length !== N) {
+    blend = new Float32Array(N);
+    nodeGraphWavetable2dBlendDisplay._buf = blend;
+  }
+  const a = frames[i0];
+  const b = frames[i1];
+  for (let i = 0; i < N; i += 1) {
+    blend[i] = a[i] + (b[i] - a[i]) * frac;
+  }
+  let entry = nodeGraphWavetable2dBlendDisplay._entry;
+  if (!entry) {
+    entry = {
+      frames: N,
+      sampleRate: 44100,
+      channels: 1,
+      samples: blend,
+      channelData: [blend],
+    };
+    nodeGraphWavetable2dBlendDisplay._entry = entry;
+  } else {
+    entry.samples = blend;
+    entry.channelData = [blend];
+  }
+  return entry;
+}
+
 function nodeGraphPhosphorWaveformSampleEntry(nodeId) {
   const node = nodeGraphPatchNode(nodeId);
+  if (node?.type === "wavetable2d") {
+    return nodeGraphWavetable2dBlendDisplay(node?.params?.morph);
+  }
   const sampleId = node?.sample?.id;
   let entry = sampleId ? nodeGraphMvp?.sampleBuffers?.get?.(sampleId) : null;
   let samples = nodeGraphPhosphorWaveformEntrySamples(entry);
@@ -2051,6 +2167,20 @@ function scheduleNodeGraphPhosphorWaveformFrame(section) {
     && nodeGraphPhosphorWaveformSectionOnScreen(section)
   ) {
     drawNodeGraphPhosphorWaveformDisplay(section);
+    if (section.dataset.nodeType === "wavetable2d") {
+      const node = typeof nodeGraphPatchNode === "function"
+        ? nodeGraphPatchNode(section.dataset.node)
+        : null;
+      const frames = typeof nodeGraphWavetable2dEnsureFrames === "function"
+        ? nodeGraphWavetable2dEnsureFrames()
+        : null;
+      const last = Math.max(1, (frames?.length || 3) - 1);
+      const morph = Math.max(0, Math.min(1, Number(node?.params?.morph) || 0));
+      const sel = Math.round(morph * last);
+      section.querySelectorAll(".node-wavetable-morph-slot").forEach((el) => {
+        el.classList.toggle("is-selected", Number(el.dataset.slot) === sel);
+      });
+    }
   }
   if (!keep) {
     section.dataset.phosphorRaf = "";
@@ -2117,19 +2247,43 @@ function createNodeGraphPhosphorWaveformDisplay(nodeId, type) {
       window.__nodeGraphAudioPlayerPlaylistWrapRuntime();
     }
   }
-  // Wavetable 2D: reserve a strip under the main cycle for future morph frames.
+  // Wavetable 2D: morph-frame strip. Slot 0 = baked RectSine (only frame for now).
   if (type === "wavetable2d") {
     section.classList.add("has-wavetable-morph-strip");
     const strip = document.createElement("div");
     strip.className = "node-wavetable-morph-strip";
     strip.setAttribute("aria-label", "Wavetable morph frames");
     strip.dataset.node = nodeId;
-    // Placeholder boxes — filled when multi-frame banks land.
-    for (let i = 0; i < 8; i += 1) {
-      const box = document.createElement("div");
-      box.className = "node-wavetable-morph-slot";
-      box.dataset.slot = String(i);
+    const frames = nodeGraphWavetable2dEnsureFrames();
+    const labels = nodeGraphWavetable2dEnsureFrames._labels || ["Rectified sine", "Sine", "Inverted rectified sine (90°)"];
+    const last = Math.max(1, frames.length - 1);
+    for (let s = 0; s < frames.length; s += 1) {
+      const box = document.createElement("button");
+      box.type = "button";
+      box.className = "node-wavetable-morph-slot" + (s === 0 ? " is-selected" : "");
+      box.dataset.slot = String(s);
+      box.title = labels[s] || `Frame ${s}`;
+      box.setAttribute("aria-label", labels[s] || `Frame ${s}`);
+      const mini = document.createElement("canvas");
+      mini.className = "node-wavetable-morph-slot-canvas";
+      box.append(mini);
+      box.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+        if (!node) return;
+        node.params = { ...(node.params || {}), morph: s / last };
+        strip.querySelectorAll(".node-wavetable-morph-slot").forEach((el) => {
+          el.classList.toggle("is-selected", el === box);
+        });
+        if (typeof scheduleNodeGraphLiveParameterSync === "function") {
+          scheduleNodeGraphLiveParameterSync();
+        }
+        if (typeof markNodeGraphRenderPending === "function") {
+          markNodeGraphRenderPending();
+        }
+      });
       strip.append(box);
+      requestAnimationFrame(() => nodeGraphWavetable2dPaintMorphSlot(mini, frames[s]));
     }
     section.append(strip);
   }

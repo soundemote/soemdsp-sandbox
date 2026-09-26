@@ -1427,19 +1427,33 @@ function createNodeGraphModuleElement(type, node) {
         article.append(sampleBody);
       }
     }
-    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+    const mountWave = (typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
       : !patchNodeUi.oscilloscopeHidden)
-      && typeof createNodeGraphPhosphorWaveformDisplay === "function") {
-      article.append(createNodeGraphPhosphorWaveformDisplay(node, type));
+      && typeof createNodeGraphPhosphorWaveformDisplay === "function";
+    const waveFace = mountWave
+      ? createNodeGraphPhosphorWaveformDisplay(node, type)
+      : null;
+    if (chrome.portsBeside) {
+      const wrap = waveFace || document.createElement("div");
+      if (!waveFace) {
+        wrap.className = "node-module-display-placeholder node-module-face";
+        wrap.hidden = true;
+        wrap.setAttribute("aria-hidden", "true");
+      }
+      article.append(createNodeGraphLayoutBShell(node, type, wrap, null, inputPorts, outputPorts));
+    } else {
+      if (waveFace) {
+        article.append(waveFace);
+      }
+      appendNodeGraphModuleIoSection(
+        article,
+        createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+        node,
+        inputPorts,
+        outputPorts,
+      );
     }
-    appendNodeGraphModuleIoSection(
-      article,
-      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
-      node,
-      inputPorts,
-      outputPorts,
-    );
   } else if (definition.layout === "pulseCurve") {
     if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)

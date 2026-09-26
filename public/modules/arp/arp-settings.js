@@ -12,6 +12,9 @@ function nodeGraphArpKeysHueHex(hueDeg, fallback = 165) {
 const NODE_GRAPH_ARP_KEYS_DISPLAY_DEFAULTS = Object.freeze({
   strokeColor: nodeGraphArpKeysHueHex(165),
   strokeBrightness: 0.5,
+  // Fraction of the face's short side. 0 is a 1px hairline. Grows with the
+  // module and the canvas tile; workspace zoom scales the bitmap with the face.
+  strokeThickness: 0.01,
   fontColor: nodeGraphArpKeysHueHex(165),
   fontBrightness: 0.5,
   // Music Player: "square" button is labeled Pill (CSS corner-shape: round).
@@ -48,6 +51,7 @@ function normalizeNodeGraphArpKeysSettings(settings) {
   return {
     strokeColor: nodeGraphArpKeysNormalizeColor(src.strokeColor, d.strokeColor),
     strokeBrightness: nodeGraphArpKeysClamp01(src.strokeBrightness, d.strokeBrightness),
+    strokeThickness: nodeGraphArpKeysClamp01(src.strokeThickness, d.strokeThickness),
     fontColor: nodeGraphArpKeysNormalizeColor(src.fontColor, d.fontColor),
     fontBrightness: nodeGraphArpKeysClamp01(src.fontBrightness, d.fontBrightness),
     cornerShape: shape === "square" ? "square" : "squircle",
@@ -94,6 +98,12 @@ function buildNodeGraphArpKeysDisplaySettingsBodyHtml() {
   return `
     <div class="node-led-display-settings-panel" data-arp-keys-display-settings-panel>
       ${hueRow("Stroke", "strokeBrightness", "strokeColor", 165)}
+      <label class="node-led-settings-row node-phosphor-waveform-settings-row node-phosphor-waveform-tune-row">
+        <span>Stroke thickness</span>
+        <span class="node-phosphor-waveform-control-widgets">
+          <input id="nodeArpKeysStrokeThicknessInput" type="range" min="0" max="1" step="0.01" title="0 = 1px hairline. 1 = the short side of the face. Follows module size, canvas size, and zoom.">
+        </span>
+      </label>
       ${hueRow("Font", "fontBrightness", "fontColor", 165)}
       ${corners}
     </div>`;
@@ -134,6 +144,11 @@ function syncNodeGraphArpKeysDisplaySettingsControls(root, settings) {
   if (spacing && document.activeElement !== spacing) {
     spacing.value = String(s.edgeSpacing);
   }
+  const thickness = root.querySelector?.("#nodeArpKeysStrokeThicknessInput")
+    || document.getElementById("nodeArpKeysStrokeThicknessInput");
+  if (thickness && document.activeElement !== thickness) {
+    thickness.value = String(s.strokeThickness);
+  }
   if (typeof syncNodeGraphHueTitleSteppers === "function") {
     syncNodeGraphHueTitleSteppers(root);
   }
@@ -153,12 +168,12 @@ function bindNodeGraphArpKeysDisplaySettingsBody(host) {
     }
   };
   host.addEventListener("input", (event) => {
-    if (event.target?.closest?.("[data-trace-display-field], #nodeArpKeysCornerRadiusInput, #nodeArpKeysEdgeSpacingInput")) {
+    if (event.target?.closest?.("[data-trace-display-field], #nodeArpKeysCornerRadiusInput, #nodeArpKeysEdgeSpacingInput, #nodeArpKeysStrokeThicknessInput")) {
       apply("none", false);
     }
   });
   host.addEventListener("change", (event) => {
-    if (event.target?.closest?.("[data-trace-display-field], [data-trace-display-color], #nodeArpKeysCornerRadiusInput, #nodeArpKeysEdgeSpacingInput")) {
+    if (event.target?.closest?.("[data-trace-display-field], [data-trace-display-color], #nodeArpKeysCornerRadiusInput, #nodeArpKeysEdgeSpacingInput, #nodeArpKeysStrokeThicknessInput")) {
       apply("immediate", true);
     }
   });
@@ -200,6 +215,11 @@ function readNodeGraphArpKeysDisplaySettingsForm(root, current) {
     || document.getElementById("nodeArpKeysEdgeSpacingInput");
   if (spacing) {
     next.edgeSpacing = Number(spacing.value);
+  }
+  const thickness = panel?.querySelector?.("#nodeArpKeysStrokeThicknessInput")
+    || document.getElementById("nodeArpKeysStrokeThicknessInput");
+  if (thickness) {
+    next.strokeThickness = Number(thickness.value);
   }
   const squareOn = panel?.querySelector?.("#nodeArpKeysCornerSquareButton")?.classList.contains("active")
     || document.getElementById("nodeArpKeysCornerSquareButton")?.classList.contains("active");

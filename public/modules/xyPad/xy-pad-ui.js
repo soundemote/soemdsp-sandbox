@@ -545,25 +545,25 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
         : 0
     );
   const residualSchema = Residual?.RESIDUAL_SCHEMA || 2;
-  const brightness01 = Math.max(0, nodeGraphFiniteNumber(options.brightness, 0.78));
-  const minSide = Math.max(1, Math.min(width, height));
-  // Full 0–1 size range (was capped at 0.2 — blocked large hard discs).
-  const size01 = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.size01, 0.07)));
+  const brightness01 = Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.brightness, 0.78)));
+  const cssMin = Math.max(1, nodeGraphFiniteNumber(options.faceMinSide, Math.min(width, height)));
+  const pxScale = Math.max(0.25, nodeGraphFiniteNumber(options.pxScale, 1));
+  // Authored CSS px at a 96px face. Do not clamp to 0…1 — that made the
+  // whole Size travel a hairline after ink px replaced the old fraction.
+  const authored = typeof clampAuthoredInkPx === "function"
+    ? clampAuthoredInkPx(options.size01, 2)
+    : Math.max(0, nodeGraphFiniteNumber(options.size01, 2));
   const blur = drawer?.normalizeBlur
     ? drawer.normalizeBlur(options.blur, 0)
     : Math.max(0, Math.min(1, nodeGraphFiniteNumber(options.blur)));
-  const radius = Math.max(
-    0.5,
-    Number(options.radius) || (drawer?.size01ToRadiusPx
-      ? drawer.size01ToRadiusPx(minSide, size01)
-      : (drawer?.radiusFromSize
-        ? drawer.radiusFromSize(minSide, size01)
-        : Math.max(0.5, Math.pow(minSide, size01) * 0.5))),
-  );
-  // Energy deposit from brightness only (decay fades residual).
-  const deposit = drawer?.depositGain
-    ? drawer.depositGain(brightness01, size01)
-    : brightness01 * 0.1 * (1.12 - size01 * 0.42);
+  const radiusCss = typeof faceInkPx === "function"
+    ? faceInkPx(authored, cssMin) * 0.5
+    : authored * cssMin / 96 * 0.5;
+  const radius = Math.max(0.5, Number(options.radius) || radiusCss * pxScale);
+  // One stamp per move, so Bright 1 is a full deposit. Do not use the
+  // scope's ×0.1 depositGain — that scale exists for paths that overlap
+  // every frame and would leave a single XY capsule dim.
+  const deposit = brightness01;
   const liveDeposit = Boolean(options.liveDeposit);
   let pathPoints = Array.isArray(options.pathPoints) ? options.pathPoints : null;
   // Beam segments need ≥2 points; a dwell stamp is a near-zero segment.
@@ -642,13 +642,6 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
       });
     }
   }
-  // Idle hold: do not step (no extra fade) — residual freezes until next drag.
-  // Still present once so a cleared 2d canvas can show the frozen residual;
-  // skip redundant present GPU work when energy is already idle-dark.
-  if (!liveDeposit && face.energyActive === false && face._xyPadPresentedIdle) {
-    return true;
-  }
-
   const exposure = drawer?.exposure
     ? drawer.exposure()
     : 2.9;
@@ -747,7 +740,7 @@ function drawNodeGraphXyPad(pad, options = {}) {
     || display.dot1Color
     || "#7fc7d9";
   // Face = phosphor of Out X/Y (same idea as wiring Out → scope2d) + vector UI.
-  const brightness = Math.max(0, nodeGraphFiniteNumber(display.dot1Brightness, 0.78));
+  const brightness = Math.max(0, Math.min(1, nodeGraphFiniteNumber(display.dot1Brightness, 0.78)));
   const ResidualUx = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const trailUx = ResidualUx && typeof ResidualUx.migrateTrail === "function"
     ? ResidualUx.migrateTrail(display, 0.65)
@@ -763,8 +756,10 @@ function drawNodeGraphXyPad(pad, options = {}) {
         : 0
     );
   const residualSchemaUx = ResidualUx?.RESIDUAL_SCHEMA || 2;
-  // Phosphor beam stamp size (unit face); not multiplied by a global scale.
-  const beamSize01 = Math.max(0.005, Math.min(1, nodeGraphFiniteNumber(display.dot1Size, 0.07)));
+  // Beam diameter: authored CSS px at a 96px face, then × this bitmap's px/CSS.
+  const beamAuthored = typeof clampAuthoredInkPx === "function"
+    ? clampAuthoredInkPx(display.dot1Size, 2)
+    : Math.max(0, nodeGraphFiniteNumber(display.dot1Size, 2));
   const blur = typeof nodeGraphTraceDisplayClampStampBlur === "function"
     ? nodeGraphTraceDisplayClampStampBlur(display.lineThickness)
     : Math.max(0, Math.min(1, nodeGraphFiniteNumber(display.lineThickness, 0.42)));
@@ -774,6 +769,10 @@ function drawNodeGraphXyPad(pad, options = {}) {
     Math.min(8192, Math.round(nodeGraphFiniteNumber(display.dotBudget, 2048))),
   );
   const fullDotEconomy = display.fullDotEconomy !== false;
+  const cssW = Math.max(1, nodeGraphFiniteNumber(size?.cssWidth, width / Math.max(1, dpr)));
+  const cssH = Math.max(1, nodeGraphFiniteNumber(size?.cssHeight, height / Math.max(1, dpr)));
+  const cssMin = Math.max(1, Math.min(cssW, cssH));
+  const pxScale = width / cssW;
   const minSide = Math.max(1, Math.min(width, height));
 
   // Positions first (no canvas writes) so a static frame can skip entirely.
@@ -804,7 +803,7 @@ function drawNodeGraphXyPad(pad, options = {}) {
   if (!dragging && !options.force) {
     const qX = nodeGraphXyPadParam(pad, "xQuantize", 0);
     const qY = nodeGraphXyPadParam(pad, "yQuantize", 0);
-    const fp = `${width}x${height}:${Math.round(px)},${Math.round(py)},${Math.round(trailX)},${Math.round(trailY)},${ghostConnected ? 1 : 0},${phosphor.fromOut ? 1 : 0}:${outPath?.points?.length || 0}:${beamSize01.toFixed(3)}:${puckSize01.toFixed(3)}:q${Number(qX).toFixed(3)},${Number(qY).toFixed(3)}`;
+    const fp = `${width}x${height}:${Math.round(px)},${Math.round(py)},${Math.round(trailX)},${Math.round(trailY)},${ghostConnected ? 1 : 0},${phosphor.fromOut ? 1 : 0}:${outPath?.points?.length || 0}:${beamAuthored.toFixed(2)}:${brightness.toFixed(3)}:${blur.toFixed(3)}:${puckSize01.toFixed(3)}:q${Number(qX).toFixed(3)},${Number(qY).toFixed(3)}`;
     if (pad._xyPadLastDrawFp === fp) {
       return;
     }
@@ -833,14 +832,16 @@ function drawNodeGraphXyPad(pad, options = {}) {
       || !Number.isFinite(last.x)
       || !Number.isFinite(last.y)
       || Math.hypot(trailX - last.x, trailY - last.y) > 0.35;
-    if (moved) {
-      pathPoints = last && Number.isFinite(last.x)
+    const sizeChanged = pad._xyPadBeamAuthored !== beamAuthored;
+    if (moved || sizeChanged) {
+      pathPoints = last && Number.isFinite(last.x) && moved
         ? [last, trailPoint]
-        : [trailPoint];
+        : [trailPoint, trailPoint];
       pad._xyPadTrailLast = trailPoint;
       liveDeposit = true;
     }
   }
+  pad._xyPadBeamAuthored = beamAuthored;
   nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, {
     liveDeposit,
     pathPoints,
@@ -854,7 +855,9 @@ function drawNodeGraphXyPad(pad, options = {}) {
     residualSchema: residualSchemaUx,
     brightness,
     blur,
-    size01: beamSize01,
+    size01: beamAuthored,
+    faceMinSide: cssMin,
+    pxScale,
     maxDots: dotBudget,
     fullDotEconomy,
     dpr,

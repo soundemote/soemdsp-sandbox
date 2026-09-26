@@ -380,7 +380,9 @@ extern "C" void soemdsp_wavetable_2d_reset(int handle);
 extern "C" double soemdsp_wavetable_2d_sample(
   int handle,
   double reset, double frequencyHz, double phaseOffset,
-  double amplitude, double morph, double engineSampleRate
+  double amplitude, double morph, double warp,
+  double start, double end, double pm, double increment,
+  double engineSampleRate
 );
 extern "C" double soemdsp_wavetable_2d_phase(int handle);
 
@@ -2773,7 +2775,7 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeAdditiveOsc || typeId == kTypeSurgeOscillator
           || typeId == kTypeSoftwaveOsc || typeId == kTypeDsfOscillator
           || typeId == kTypeHypersaw2 || typeId == kTypeSinc
-          || typeId == kTypeAdditiveOut) ? 100.0
+          || typeId == kTypeAdditiveOut || typeId == kTypeWavetable2d) ? 100.0
       : (typeId == kTypeAdditiveBubble) ? 1.0 // cutoff 0..1 (settled default)
       : (typeId == kTypeAdditiveLinearFilter || typeId == kTypeAdditiveAnalogFilter
           || typeId == kTypeAdditiveLadderFilter) ? 2000.0 // cutoff Hz
@@ -3242,8 +3244,8 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeAdditiveNoisyFreq || typeId == kTypeAdditiveNoisyPhase
           || typeId == kTypeAdditiveNoisyPan || typeId == kTypeAdditiveNoisyAmp) ? 1.0
       : 0.0,
-    // Music Player playlistScrub is continuous on this Control — do not snap.
-    (typeId == kTypeAudioPlayer) ? false : true
+    // Music Player playlistScrub / Wavetable warp are continuous on this Control.
+    (typeId == kTypeAudioPlayer || typeId == kTypeWavetable2d) ? false : true
   );
   init_control(
     n.feedback,
@@ -3294,7 +3296,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDelayEffect) ? 0.18 // time s
       : (typeId == kTypeFlanger) ? 0.005 // delay s
       : (typeId == kTypeChorus || typeId == kTypeEnsemble) ? 18.0 // delay ms
-      : (typeId == kTypeAudioPlayer || typeId == kTypeSamplePlayer) ? 0.0 // start phase
+      : (typeId == kTypeAudioPlayer || typeId == kTypeSamplePlayer || typeId == kTypeWavetable2d) ? 0.0 // start phase
       : (typeId == kTypeSpeakerProtector2) ? 0.008 // dropSeconds
       : (typeId == kTypeRobinSupersaw) ? 0.0 // portaTimeMin s
       : 1.0,
@@ -3319,7 +3321,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeVactrol) ? 0.1 // release
       : (typeId == kTypeLinearAttackRelease) ? 0.25 // release
       : (typeId == kTypeVibratoGenerator) ? 0.1 // release (depth env)
-      : (typeId == kTypeAudioPlayer || typeId == kTypeSamplePlayer) ? 1.0 // end phase
+      : (typeId == kTypeAudioPlayer || typeId == kTypeSamplePlayer || typeId == kTypeWavetable2d) ? 1.0 // end phase
       : (typeId == kTypeSpeakerProtector2) ? 0.333 // holdSeconds
       : (typeId == kTypeRobinSupersaw) ? 0.0 // portaTimeMax s (0 = off)
       : 4.0,
@@ -4611,19 +4613,16 @@ static double resolve_cutoff_hz(
   return freq;
 }
 
-// Oscillator / Chaosfly Hz: Frequency knob + patch Pitch. Pitch CV via Pitch↔Hz.
+// Oscillator Hz: Frequency Control only (slider + MOD add). No ƒ replace.
 static double resolve_osc_hz(
   Circuit& g, int frame, bool liveF, bool livePitch,
   Control& frequency, double referenceVoltage, double sr
 ) {
+  (void)liveF;
   (void)livePitch;
   (void)referenceVoltage;
-  // Absolute-Hz jack (kPortF): prefer live mix over Frequency Control / ParamModEdge.
-  // Walker/Arp f outs also dual-wire here so melody is not stuck on the Hz knob.
-  double freq = liveF
-    ? clamp_hz_nyquist(g.mixF[frame], sr)
-    : control_audio(g, frequency, frame);
-  if (!liveF) freq = apply_global_pitch(g, freq);
+  double freq = control_audio(g, frequency, frame);
+  freq = apply_global_pitch(g, freq);
   return clamp_hz_nyquist(freq, sr);
 }
 
@@ -10295,21 +10294,24 @@ static void process_pump_limiter(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Wavetable 2D — PCM cycle oscillator; host uploads via set_pcm + l_ptr.
-// Params: shape=morph (reserved), frequency=Hz, phaseParam=phase, amplitude.
-// Reset → kPortReset. Morph unused until multi-frame banks exist.
+// Wavetable 2D — baked RectSine cycle. Params: morph(shape), frequency,
+// phaseParam, amplitude, warp(seed), start(timeNum), end(timeDen).
+// Reset → kPortReset. Increment → kPortIncrement. Phase is the param (no PM twin).
 static void process_wavetable_2d(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool takeSamplePath = node.frequency.active || node.phaseParam.active
-    || node.amplitude.active || node.shape.active;
+    || node.amplitude.active || node.shape.active
+    || node.seed.active || node.timeNumerator.active || node.timeDenominator.active;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
     if (takeSamplePath) {
       Control* chase[] = {
-        &node.frequency, &node.phaseParam, &node.amplitude, &node.shape
+        &node.frequency, &node.phaseParam, &node.amplitude, &node.shape,
+        &node.seed, &node.timeNumerator, &node.timeDenominator
       };
       for (unsigned ci = 0; ci < sizeof(chase) / sizeof(chase[0]); ci += 1) {
         Control* c = chase[ci];
@@ -10324,6 +10326,7 @@ static void process_wavetable_2d(Circuit& g, Node& node, int frames) {
       }
       node.lastReset = reset;
     }
+    const double inc = liveInc ? g.mixIncrement[f] : 0.0;
     const double y = soemdsp_wavetable_2d_sample(
       node.nativeHandle,
       reset,
@@ -10331,6 +10334,11 @@ static void process_wavetable_2d(Circuit& g, Node& node, int frames) {
       control_audio(g, node.phaseParam, f),
       control_audio(g, node.amplitude, f),
       control_audio(g, node.shape, f),
+      control_audio(g, node.seed, f),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.timeDenominator, f),
+      0.0,
+      inc,
       sr
     );
     node.buf[kPortMono][f] = y;
@@ -10482,8 +10490,8 @@ static void process_metallic_ratio(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Harmonic Series: ƒ = base × mult(harmonic + offset); ƒ0 = base unchanged.
-// Wired ƒ cancels Frequency. Mono=ƒ, Left=ƒ0, Right fans ƒ.
+// Harmonic Series: Frequency Control × mult(harmonic + offset); ƒ0 = base.
+// Mono=harmonized, Left=base, Right=harmonized.
 static void process_harmonic_series(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool takeSamplePath = node_needs_sample_accurate_controls(g, node, liveF);
@@ -10982,9 +10990,7 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
     }
     const double amp = control_audio(g, node.amplitude, f);
     const double phase0 = control_audio(g, node.phaseParam, f) * kTwoPi;
-    const double freq = liveF
-      ? clamp_hz_nyquist(g.mixF[f], srD)
-      : clamp_hz_nyquist(control_audio(g, node.frequency, f), srD);
+    const double freq = clamp_hz_nyquist(control_audio(g, node.frequency, f), srD);
     const double y = soemdsp_robin_sinusoid_sample(
       node.nativeHandle, freq, amp, srD, phase0, resetGate
     );

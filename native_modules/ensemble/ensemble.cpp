@@ -235,27 +235,30 @@ extern "C" void soemdsp_ensemble_sample(
   const double spd = maxd(0.0, safe(speedHz));
   const double jitter = spd * 0.25;
 
+  // Face X: center = 0 offset. Depth maps with a compressive curve so
+  // typical 3–8 ms already covers most of the plate; 20 ms still hits the edges.
+  double throw01 = 0.0;
+  if (dep > 0.0) {
+    const double u = mind(1.0, dep / 20.0);
+    throw01 = dsp_exp(0.28 * dsp_ln(u));
+  }
   double wetL = 0.0;
   double wetR = 0.0;
   for (int v = 0; v < n; v += 1) {
     Voice& voice = st.voices[v];
-    const double spreadOff = (n <= 1) ? 0.0 : (spr * ((double)v / (double)n));
+    const double voiceOff = (n <= 1) ? 0.0 : ((double)v / (double)n);
     double y = 0.0;
     if (style == ModFbm) {
       voice.fbmTime += spd / sr;
-      y = fbmBipolar(voice.fbmTime + spreadOff * 8.0, voice.fbmSeed);
+      y = fbmBipolar(voice.fbmTime + voiceOff * 8.0, voice.fbmSeed);
     } else {
-      y = runRandomWalk(voice, spd * (1.0 + spreadOff), jitter, sr);
+      y = runRandomWalk(voice, spd * (1.0 + voiceOff), jitter, sr);
     }
     double delaySamples = (dly + y * dep) * 0.001 * sr;
     const double delayed = read_delay(voice, delaySamples);
-    const double t = (n <= 1) ? 0.5 : ((double)v / (double)(n - 1));
-    const double delayMsNow = dly + y * dep;
-    double minMs = dly - dep;
-    if (minMs < 0.0) minMs = 0.0;
-    double maxMs = dly + dep;
-    if (maxMs < minMs + 0.001) maxMs = minMs + 0.001;
-    st.lastDelay01[v] = clamp((delayMsNow - minMs) / (maxMs - minMs), 0.0, 1.0);
+    const double tFull = (n <= 1) ? 0.5 : ((double)v / (double)(n - 1));
+    const double t = 0.5 + (tFull - 0.5) * spr;
+    st.lastDelay01[v] = clamp(0.5 + 0.5 * y * throw01, 0.0, 1.0);
     st.lastPan[v] = t;
     st.lastN = n;
     const double panL = dsp_cos(t * kPi * 0.5);
@@ -313,7 +316,7 @@ extern "C" double soemdsp_ensemble_voice_pan(int handle, int index) {
 }
 
 extern "C" int soemdsp_ensemble_version() {
-  return 2;
+  return 6;
 }
 
 extern "C" const char* soemdsp_ensemble_metadata_json() {

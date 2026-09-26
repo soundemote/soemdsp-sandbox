@@ -58,6 +58,10 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Blur";
     title = "0 = Size as a hard line. Raise to fatten a soft halo outward. Lower returns to the thin sharp line.";
   }
+  if (key === "dot1Size" && formType === "xyPad") {
+    label = "Size";
+    title = "Beam diameter in CSS pixels at a 96px face. Grows with the module and the canvas tile. Zoom scales the bitmap; it does not change this number.";
+  }
   if ((key === "dot1Size" || key === "secondarySize") && (
     formType === "trace"
     || formType === "traceRgb"
@@ -79,6 +83,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "scope2d"
     || formType === "lineBurn"
     || formType === "phosphorLight"
+    || formType === "xyPad"
   )) {
     label = "\uD83D\uDCA1 Bright";
     title = formType === "scope2dTrace"

@@ -1534,12 +1534,25 @@ button.scw-label:hover,
   overflow-x: auto;
 }
 .node-wavetable-morph-slot {
-  flex: 0 0 40px;
-  width: 40px;
-  height: 28px;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
   border: 1px solid hsla(140, 50%, 45%, 0.35);
   border-radius: 3px;
   background: hsla(140, 30%, 12%, 0.55);
+  cursor: pointer;
+  overflow: hidden;
+}
+.node-wavetable-morph-slot.is-selected {
+  border-color: hsla(140, 80%, 62%, 0.95);
+  box-shadow: 0 0 0 1px hsla(140, 80%, 62%, 0.35);
+}
+.node-wavetable-morph-slot-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .node-music-player-face-bar {
   position: absolute;
@@ -3063,6 +3076,7 @@ body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-surfac
   min-width: 0;
 }
 
+.node-midi-keyboard-heading > .node-midi-keyboard-vel-range,
 .node-midi-keyboard-vel-range {
   display: inline-flex;
   flex: 0 0 auto;
@@ -3070,6 +3084,18 @@ body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-surfac
   align-items: center;
   gap: 8px 12px;
   min-width: 0;
+}
+
+.node-midi-keyboard-module:not(.show-keyboard-info) > .node-midi-keyboard-heading,
+.node-grid-keyboard-module:not(.show-keyboard-info) > .node-midi-keyboard-heading,
+.dsp-node.keyboard-layout > .node-midi-keyboard-module:not(.show-keyboard-info) > .node-midi-keyboard-heading,
+.node-layout-canvas-tile .node-midi-keyboard-module:not(.show-keyboard-info) > .node-midi-keyboard-heading {
+  display: none !important;
+}
+
+.node-midi-keyboard-module:not(.show-keyboard-info),
+.node-grid-keyboard-module:not(.show-keyboard-info) {
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .node-midi-keyboard-vel-field {

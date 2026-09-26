@@ -452,7 +452,14 @@ function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     dot1Enabled: true,
-    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    // Authored ink px at a 96px face (same as phosphor). Not a 0…1 fraction.
+    dot1Size: typeof nodeGraphTraceDisplayClampInkPx === "function"
+      ? nodeGraphTraceDisplayClampInkPx(
+        source.dot1Size != null && source.dot1Size !== ""
+          ? source.dot1Size
+          : defaults.dot1Size,
+      )
+      : normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 32),
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
       : Math.max(1, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 1024)))),

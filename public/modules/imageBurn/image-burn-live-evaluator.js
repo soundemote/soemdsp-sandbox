@@ -1,7 +1,5 @@
-// Image Ghost: In → Thru passthrough (face reads buffered In for energy).
+// Image Ghost has no audio jacks. Bright is a parameter; 📺 is a picture, not a sample.
 globalThis.nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators || {};
 var nodeGraphLiveModuleEvaluators = globalThis.nodeGraphLiveModuleEvaluators;
 
-nodeGraphLiveModuleEvaluators.imageBurn = ({ runtime, nodeId, mixInput }) => ({
-  Thru: nodeGraphSafeFilterNumber(mixInput(nodeId, "In"), runtime, nodeId, null, "imageBurn in"),
-});
+nodeGraphLiveModuleEvaluators.imageBurn = () => ({});

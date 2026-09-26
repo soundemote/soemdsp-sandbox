@@ -320,6 +320,15 @@ function nodeGraphTraceDisplaySensitiveControlMax(key) {
   if (key === "imageSize") {
     return 4;
   }
+  // XY beam size is authored ink px (0…32 at a 96px face), not a 0…1 fraction.
+  if (key === "dot1Size") {
+    const formType = typeof nodeGraphTraceDisplaySettingsFormType === "function"
+      ? nodeGraphTraceDisplaySettingsFormType()
+      : "";
+    if (formType === "xyPad") {
+      return 32;
+    }
+  }
   // Bright is 0…1 energy app-wide (1 = full tip / full deposit).
   return 1;
 }

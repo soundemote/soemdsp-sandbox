@@ -712,8 +712,6 @@ function createNodeGraphKeyboardControllerBody(node = null) {
     ["frequency", "freq", "-"],
     ["pitch", "pitch", "-"],
     ["midi", "midi", "-"],
-    ["x", "x", "0.000"],
-    ["y", "y", "0.000"],
     ["velocity", "vel", "-"],
   ]) {
     const item = document.createElement("span");

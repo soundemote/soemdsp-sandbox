@@ -87,7 +87,7 @@ registerNodeGraphChromelessModule("metamodule", {
         min: "-4",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Shared octave offset into Voice Frequency.",
+        tooltip: "Shared octave offset into Voice Inc.",
       },
       {
         defaultValue: "0",
@@ -98,7 +98,7 @@ registerNodeGraphChromelessModule("metamodule", {
         min: "-12",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Shared semitone offset into Voice Frequency.",
+        tooltip: "Shared semitone offset into Voice Inc.",
       },
       {
         defaultValue: "0",
@@ -109,7 +109,7 @@ registerNodeGraphChromelessModule("metamodule", {
         min: "-100",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Shared cents offset into Voice Frequency.",
+        tooltip: "Shared cents offset into Voice Inc.",
       },
       {
         defaultValue: "0",
@@ -126,14 +126,14 @@ registerNodeGraphChromelessModule("metamodule", {
   },
   catalog: {
     category: "portal",
-    description: "Voice container. Shell: Voices in (mix of Play Keys / Arp Keys / Chord Memory), Left/Right out. Inside: owned modules = a voice; plus per-voice Frequency/Gate/Trigger/Idle.",
+    description: "Voice container. Shell: Voices in (mix of Play Keys / Arp Keys / Chord Memory), Left/Right out. Inside: owned modules = a voice; plus per-voice Inc/Gate/Trigger/Idle. Wire Voice Inc → oscillator Inc.",
     notes: ["metamodule", "voice container", "voices", "polyphony", "voice manager", "container", "portal"],
   },
 });
 
 // Built-in per-voice buses on the Meta container (one signal per voice).
 registerNodeGraphChromelessModule("voiceFrequency", {
-  label: "Voice Frequency",
+  label: "Voice Inc",
   compactTile: false,
   definition: {
     chrome: "TitleBarAndPorts",
@@ -144,14 +144,22 @@ registerNodeGraphChromelessModule("voiceFrequency", {
     hasFace: false,
     defaultUi: { buttonsHidden: true },
     inputs: [],
-    outputs: ["Frequency"],
-    outputAliases: { Out: "Frequency", Freq: "Frequency", f: "Frequency" },
+    outputs: ["Increment"],
+    outputLabels: { Increment: "Inc" },
+    outputAliases: {
+      Out: "Increment",
+      Frequency: "Increment",
+      Freq: "Increment",
+      f: "Increment",
+      "ƒ": "Increment",
+      Inc: "Increment",
+    },
     parameters: [],
   },
   catalog: {
     category: "portal",
-    description: "Metamodule voice pitch CV (Hz). Place/seeded inside a Metamodule; wire to oscillator pitch.",
-    notes: ["metamodule", "voice", "frequency", "portal"],
+    description: "This voice's phase increment (cycles/sample). Wire to oscillator Inc. Same family as PolyBLEP Reset/Inc.",
+    notes: ["metamodule", "voice", "increment", "inc", "frequency", "portal"],
   },
 });
 

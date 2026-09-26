@@ -35,6 +35,9 @@ struct ChorusState {
   double lpL;
   double lpR;
   double lastSeed;
+  int lastN;
+  double lastDelay01[kMaxVoices];
+  double lastPan[kMaxVoices];
 };
 
 static ChorusState gPool[kMaxInstances];
@@ -90,8 +93,11 @@ extern "C" int soemdsp_chorus_create() {
       s.lpL = 0.0;
       s.lpR = 0.0;
       s.lastSeed = -1.0;
+      s.lastN = 0;
       for (int v = 0; v < kMaxVoices; v += 1) {
         clear_voice(s.voices[v], (unsigned int)(v + 1));
+        s.lastDelay01[v] = 0.5;
+        s.lastPan[v] = 0.5;
       }
       s.active = true;
       return i + 1;
@@ -172,7 +178,12 @@ extern "C" void soemdsp_chorus_sample(
   const double sm = safe(sideMorph);
   const double ph = safe(phase);
   const double rf = safe(randomFreq);
-  const double ra = safe(randomAmp);
+  const double ra = clamp(safe(randomAmp), 0.0, 1.0);
+  double throw01 = 0.0;
+  if (dep > 0.0) {
+    const double u = mind(1.0, dep / 20.0);
+    throw01 = dsp_exp(0.28 * dsp_ln(u));
+  }
 
   for (int v = 0; v < n; v += 1) {
     Voice& voice = st.voices[v];
@@ -196,12 +207,14 @@ extern "C" void soemdsp_chorus_sample(
     double y = dsp_sin_turns_lut(voice.phaseTurns + poUsed);
     voice.lastSine = y;
     voice.phaseTurns = wrap01(voice.phaseTurns + inc);
-    y *= (1.0 + voice.gen.heldAmp * ra);
+    const double t = (n <= 1) ? 0.5 : ((double)v / (double)(n - 1));
+    y *= (1.0 - ra + ra * t);
 
     double delaySamples = (dly + y * dep) * 0.001 * sr;
     const double delayed = read_delay(voice, delaySamples);
-
-    const double t = (n <= 1) ? 0.5 : ((double)v / (double)(n - 1));
+    st.lastDelay01[v] = clamp(0.5 + 0.5 * y * throw01, 0.0, 1.0);
+    st.lastPan[v] = t;
+    st.lastN = n;
     const double panL = dsp_cos(t * kPi * 0.5);
     const double panR = dsp_sin(t * kPi * 0.5);
     const double g = 1.0 / (double)n;
@@ -233,8 +246,32 @@ extern "C" void soemdsp_chorus_sample(
   if (outR) *outR = (1.0 - mixW) * xR + mixW * wetR;
 }
 
+extern "C" int soemdsp_chorus_voice_count(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0;
+  ChorusState& st = gPool[handle - 1];
+  if (!st.active) return 0;
+  int n = st.lastN;
+  if (n < 0) n = 0;
+  if (n > kMaxVoices) n = kMaxVoices;
+  return n;
+}
+
+extern "C" double soemdsp_chorus_voice_delay(int handle, int index) {
+  if (handle < 1 || handle > kMaxInstances) return 0.5;
+  ChorusState& st = gPool[handle - 1];
+  if (!st.active || index < 0 || index >= st.lastN) return 0.5;
+  return st.lastDelay01[index];
+}
+
+extern "C" double soemdsp_chorus_voice_pan(int handle, int index) {
+  if (handle < 1 || handle > kMaxInstances) return 0.5;
+  ChorusState& st = gPool[handle - 1];
+  if (!st.active || index < 0 || index >= st.lastN) return 0.5;
+  return st.lastPan[index];
+}
+
 extern "C" int soemdsp_chorus_version() {
-  return 4;
+  return 5;
 }
 
 extern "C" const char* soemdsp_chorus_metadata_json() {

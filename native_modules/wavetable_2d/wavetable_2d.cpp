@@ -3,12 +3,9 @@
 // soemdsp-native-target: wavetable2d
 // soemdsp-native-kind: oscillator
 //
-// PCM-backed wavetable oscillator. Host uploads mono (or L of stereo) via
-// set_pcm + l_ptr (same path as Sample Player). Entire buffer = one cycle for
-// now; Morph is reserved for multi-frame banks (no-op until frames exist).
-//
-// sample(reset, frequencyHz, phaseOffset, amplitude, morph, sampleRate)
-// → bipolar Out. Rising Reset edge zeros running phase.
+// Hardcoded 4096-sample cycle: Additive RectSine (1/n², odd 0.25 / even 0.75),
+// DC removed, peak-normalized. Cheap realtime: phase, warp, start/end, PM.
+// Morph is reserved (single frame).
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -20,30 +17,21 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 16;
-static const int kMaxFrames = 48000 * 60; // 1 min @ 48 kHz ceiling for a table
-static const size_t kWasmPage = 65536;
-static const int kMaxFreeNodes = 64;
-
-struct FreeNode {
-  FreeNode* next;
-  int floats;
-  float* data;
-};
+static const int kTableLen = 4096;
+static const int kTableHarmonics = kTableLen / 2 - 1; // 2047
+static const int kFrameCount = 3;
 
 struct State {
   bool active;
-  float* pcm;
-  int pcmFrames;
-  double phase;       // 0…1 running
+  double phase;
   double lastReset;
   double lastOut;
-  double lastPhase;   // reported for face playhead
+  double lastPhase;
 };
 
 static State gPool[kMaxInstances];
-static FreeNode gFreeNodes[kMaxFreeNodes];
-static int gFreeNodeUsed = 0;
-static FreeNode* gFreeList = nullptr;
+static float gBank[kFrameCount][kTableLen];
+static int gBankReady = 0;
 
 static const char kMetadataJson[] =
   "{"
@@ -53,87 +41,120 @@ static const char kMetadataJson[] =
     "\"kind\":\"oscillator\""
   "}";
 
-#if defined(__wasm__)
-static float* pcm_grow_alloc(int floats) {
-  if (floats < 1) return nullptr;
-  const size_t bytes = (size_t)floats * sizeof(float);
-  const size_t pages = (bytes + kWasmPage - 1) / kWasmPage;
-  if (pages < 1) return nullptr;
-  const size_t oldBytes = (size_t)__builtin_wasm_memory_size(0) * kWasmPage;
-  if (__builtin_wasm_memory_grow(0, pages) < 0) return nullptr;
-  float* data = (float*)oldBytes;
-  for (int i = 0; i < floats; i += 1) data[i] = 0.0f;
-  return data;
-}
-#else
-static float* pcm_grow_alloc(int floats) {
-  (void)floats;
-  return nullptr;
-}
-#endif
-
-static float* pcm_malloc(int floats) {
-  if (floats < 1) return nullptr;
-  FreeNode** cursor = &gFreeList;
-  while (*cursor) {
-    FreeNode* node = *cursor;
-    if (node->floats >= floats) {
-      *cursor = node->next;
-      float* data = node->data;
-      const int leftover = node->floats - floats;
-      if (leftover > 0 && gFreeNodeUsed < kMaxFreeNodes) {
-        FreeNode* rest = &gFreeNodes[gFreeNodeUsed++];
-        rest->next = gFreeList;
-        rest->floats = leftover;
-        rest->data = data + floats;
-        gFreeList = rest;
-      }
-      for (int i = 0; i < floats; i += 1) data[i] = 0.0f;
-      return data;
+static void peak_normalize(float* buf, int n) {
+  double peak = 0.0;
+  for (int i = 0; i < n; i += 1) {
+    const double a = buf[i] < 0.0f ? -(double)buf[i] : (double)buf[i];
+    if (a > peak) peak = a;
+  }
+  if (peak > 1e-12) {
+    const double s = 1.0 / peak;
+    for (int i = 0; i < n; i += 1) {
+      buf[i] = (float)((double)buf[i] * s);
     }
-    cursor = &node->next;
   }
-  return pcm_grow_alloc(floats);
 }
 
-static void pcm_free(float* data, int floats) {
-  if (!data || floats < 1) return;
-  if (gFreeNodeUsed >= kMaxFreeNodes) return;
-  FreeNode* node = &gFreeNodes[gFreeNodeUsed++];
-  node->next = gFreeList;
-  node->floats = floats;
-  node->data = data;
-  gFreeList = node;
-}
-
-static void pcm_release(State& st) {
-  if (st.pcm) {
-    pcm_free(st.pcm, st.pcmFrames);
+static void bake_bank() {
+  if (gBankReady) return;
+  double sum = 0.0;
+  for (int i = 0; i < kTableLen; i += 1) {
+    const double t = (double)i / (double)kTableLen;
+    double y = 0.0;
+    for (int n = 1; n <= kTableHarmonics; n += 1) {
+      const double amp = 1.0 / ((double)n * (double)n);
+      const double ph = (n & 1) ? 0.25 : 0.75;
+      y += amp * dsp_sin(kTwoPi * ((double)n * t + ph));
+    }
+    gBank[0][i] = (float)y;
+    sum += y;
   }
-  st.pcm = nullptr;
-  st.pcmFrames = 0;
+  const double mean = sum / (double)kTableLen;
+  for (int i = 0; i < kTableLen; i += 1) {
+    gBank[0][i] = (float)((double)gBank[0][i] - mean);
+  }
+  peak_normalize(gBank[0], kTableLen);
+  // Frame 1: sine, same fundamental phase as RectSine n=1 (0.25).
+  for (int i = 0; i < kTableLen; i += 1) {
+    const double t = (double)i / (double)kTableLen;
+    gBank[1][i] = (float)dsp_sin(kTwoPi * (t + 0.25));
+  }
+  peak_normalize(gBank[1], kTableLen);
+  // Frame 2: invert + 90° (N/4). 180°/time-reverse of this 2-hump cycle is
+  // palindromic. 90° puts the inverted point on the sine's opposite swing.
+  {
+    const int rot = kTableLen / 4;
+    for (int i = 0; i < kTableLen; i += 1) {
+      int j = i + rot;
+      if (j >= kTableLen) j -= kTableLen;
+      gBank[2][i] = -gBank[0][j];
+    }
+  }
+  gBankReady = 1;
 }
 
-static void playback_reset(State& st) {
-  st.phase = 0.0;
-  st.lastReset = 0.0;
-  st.lastOut = 0.0;
-  st.lastPhase = 0.0;
+static double clamp01(double x) {
+  if (!(x * 0.0 == 0.0)) return 0.0;
+  if (x < 0.0) return 0.0;
+  if (x > 1.0) return 1.0;
+  return x;
 }
 
-static double read_linear(const float* buf, int frames, double index) {
-  if (!buf || frames <= 1) return 0.0;
-  if (index < 0.0) index = 0.0;
-  const double maxIndex = (double)(frames - 1);
-  if (index > maxIndex) index = maxIndex;
-  const int i0 = (int)dsp_floor(index);
+static double warp_phase(double t, double warp) {
+  t = wrap01(t);
+  double skew = safe(warp);
+  if (skew > 0.9999) skew = 0.9999;
+  if (skew < -0.9999) skew = -0.9999;
+  if (skew == 0.0) return t;
+  const double cv = skew * t;
+  const double den = 2.0 * cv - skew + 1.0;
+  if (dsp_fabs(den) < 1e-12) return t;
+  return wrap01((cv + t) / den);
+}
+
+static double map_region(double t, double start, double end) {
+  t = wrap01(t);
+  const double a = clamp01(safe(start));
+  const double b = clamp01(safe(end));
+  const double span = b - a;
+  if (dsp_fabs(span) <= 1e-6) return t;
+  if (span > 0.0) return wrap01(a + t * span);
+  // Wrapped region a→1 then 0→b.
+  const double len = (1.0 - a) + b;
+  if (len <= 1e-6) return t;
+  const double u = t * len;
+  if (u < (1.0 - a)) return wrap01(a + u);
+  return wrap01(u - (1.0 - a));
+}
+
+static double read_cycle(const float* table, double t) {
+  t = wrap01(t);
+  const double idx = t * (double)kTableLen;
+  const double i0d = dsp_floor(idx);
+  int i0 = (int)i0d;
+  if (i0 < 0) i0 = 0;
+  i0 %= kTableLen;
   int i1 = i0 + 1;
-  if (i1 >= frames) i1 = frames - 1;
-  if (i0 < 0) return (double)buf[0];
-  const double t = index - (double)i0;
-  const double a = (double)buf[i0];
-  const double b = (double)buf[i1];
-  return a + (b - a) * t;
+  if (i1 >= kTableLen) i1 = 0;
+  const double frac = idx - i0d;
+  const double a = (double)table[i0];
+  const double b = (double)table[i1];
+  return a + (b - a) * frac;
+}
+
+static double read_morphed(double t, double morph) {
+  const double m = clamp01(safe(morph));
+  const double pos = m * (double)(kFrameCount - 1);
+  int i0 = (int)dsp_floor(pos);
+  if (i0 < 0) i0 = 0;
+  if (i0 > kFrameCount - 1) i0 = kFrameCount - 1;
+  int i1 = i0 + 1;
+  if (i1 > kFrameCount - 1) i1 = kFrameCount - 1;
+  const double frac = pos - (double)i0;
+  const double a = read_cycle(gBank[i0], t);
+  if (frac <= 1e-9 || i0 == i1) return a;
+  const double b = read_cycle(gBank[i1], t);
+  return a + (b - a) * frac;
 }
 
 static State* slot(int handle) {
@@ -146,12 +167,14 @@ static State* slot(int handle) {
 }  // namespace
 
 extern "C" int soemdsp_wavetable_2d_create() {
+  bake_bank();
   for (int i = 0; i < kMaxInstances; i += 1) {
     if (!gPool[i].active) {
       State& s = gPool[i];
-      s.pcm = nullptr;
-      s.pcmFrames = 0;
-      playback_reset(s);
+      s.phase = 0.0;
+      s.lastReset = 0.0;
+      s.lastOut = 0.0;
+      s.lastPhase = 0.0;
       s.active = true;
       return i + 1;
     }
@@ -161,46 +184,33 @@ extern "C" int soemdsp_wavetable_2d_create() {
 
 extern "C" void soemdsp_wavetable_2d_destroy(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
-  State& s = gPool[handle - 1];
-  pcm_release(s);
-  s.active = false;
+  gPool[handle - 1].active = false;
 }
 
 extern "C" void soemdsp_wavetable_2d_clear_pcm(int handle) {
-  State* st = slot(handle);
-  if (!st) return;
-  pcm_release(*st);
-  playback_reset(*st);
+  (void)handle;
 }
 
 extern "C" int soemdsp_wavetable_2d_set_pcm(int handle, int frames, double sampleRate, int channels) {
-  State* st = slot(handle);
-  if (!st) return 0;
+  (void)handle;
+  (void)frames;
   (void)sampleRate;
   (void)channels;
-  if (frames < 2 || frames > kMaxFrames) return 0;
-  pcm_release(*st);
-  playback_reset(*st);
-  float* data = pcm_malloc(frames);
-  if (!data) return 0;
-  st->pcm = data;
-  st->pcmFrames = frames;
   return 1;
 }
 
 extern "C" int soemdsp_wavetable_2d_l_ptr(int handle) {
-  State* st = slot(handle);
-  if (!st || !st->pcm) return 0;
-  return (int)(long long)st->pcm;
+  (void)handle;
+  if (!gBankReady) bake_bank();
+  return (int)(long long)gBank[0];
 }
 
-// Same ABI as sample/audio player for shared upload helpers (R unused).
 extern "C" int soemdsp_wavetable_2d_r_ptr(int handle) {
   return soemdsp_wavetable_2d_l_ptr(handle);
 }
 
 extern "C" int soemdsp_wavetable_2d_max_frames() {
-  return kMaxFrames;
+  return kTableLen;
 }
 
 extern "C" void soemdsp_wavetable_2d_reset(int handle) {
@@ -217,12 +227,17 @@ extern "C" double soemdsp_wavetable_2d_sample(
   double phaseOffset,
   double amplitude,
   double morph,
+  double warp,
+  double start,
+  double end,
+  double pm,
+  double increment,
   double engineSampleRate
 ) {
-  (void)morph; // reserved for multi-frame bank
   State* stPtr = slot(handle);
   if (!stPtr) return 0.0;
   State& st = *stPtr;
+  if (!gBankReady) bake_bank();
 
   const double rv = safe(reset);
   if (st.lastReset <= 0.0 && rv > 0.0) {
@@ -230,20 +245,14 @@ extern "C" double soemdsp_wavetable_2d_sample(
   }
   st.lastReset = rv;
 
-  if (!st.pcm || st.pcmFrames <= 1) {
-    st.lastOut = 0.0;
-    st.lastPhase = wrap01(st.phase);
-    return 0.0;
-  }
-
   const double sr = safe(engineSampleRate) > 1.0 ? safe(engineSampleRate) : 44100.0;
   const double freq = safe(frequencyHz);
-  st.phase = wrap01(st.phase + freq / sr);
+  st.phase = wrap01(st.phase + freq / sr + safe(increment));
 
-  const double off = wrap01(safe(phaseOffset));
-  const double readPhase = wrap01(st.phase + off);
-  const double index = readPhase * (double)(st.pcmFrames - 1);
-  double y = read_linear(st.pcm, st.pcmFrames, index);
+  double t = wrap01(st.phase + wrap01(safe(phaseOffset)) + safe(pm));
+  t = warp_phase(t, warp);
+  t = map_region(t, start, end);
+  double y = read_morphed(t, morph);
 
   double amp = safe(amplitude);
   if (amp < 0.0) amp = 0.0;
@@ -251,7 +260,7 @@ extern "C" double soemdsp_wavetable_2d_sample(
   y *= amp;
 
   st.lastOut = y;
-  st.lastPhase = readPhase;
+  st.lastPhase = t;
   return y;
 }
 
@@ -265,6 +274,6 @@ extern "C" double soemdsp_wavetable_2d_out(int handle) {
   return st ? st->lastOut : 0.0;
 }
 
-extern "C" int soemdsp_wavetable_2d_version() { return 1; }
+extern "C" int soemdsp_wavetable_2d_version() { return 2; }
 extern "C" const char* soemdsp_wavetable_2d_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_wavetable_2d_metadata_json_size() { return sizeof(kMetadataJson) - 1; }
