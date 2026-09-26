@@ -376,13 +376,13 @@ $modules = @(
     "soemdsp_flanger_metadata_json_size"
   ) }
   @{ Name = "chorus"; Simd = $false; Exports = @(
-    "soemdsp_chorus_create", "soemdsp_chorus_destroy", "soemdsp_chorus_sample",
+    "soemdsp_chorus_create", "soemdsp_chorus_destroy", "soemdsp_chorus_reset", "soemdsp_chorus_sample",
     "soemdsp_chorus_voice_count", "soemdsp_chorus_voice_delay", "soemdsp_chorus_voice_pan",
     "soemdsp_chorus_version", "soemdsp_chorus_metadata_json",
     "soemdsp_chorus_metadata_json_size"
   ) }
   @{ Name = "ensemble"; Simd = $false; Exports = @(
-    "soemdsp_ensemble_create", "soemdsp_ensemble_destroy", "soemdsp_ensemble_sample",
+    "soemdsp_ensemble_create", "soemdsp_ensemble_destroy", "soemdsp_ensemble_reset", "soemdsp_ensemble_sample",
     "soemdsp_ensemble_voice_count", "soemdsp_ensemble_voice_delay", "soemdsp_ensemble_voice_pan",
     "soemdsp_ensemble_version", "soemdsp_ensemble_metadata_json",
     "soemdsp_ensemble_metadata_json_size"

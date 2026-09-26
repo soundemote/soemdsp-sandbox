@@ -3,9 +3,8 @@
 // soemdsp-native-target: wavetable2d
 // soemdsp-native-kind: oscillator
 //
-// Hardcoded 4096-sample cycle: Additive RectSine (1/n², odd 0.25 / even 0.75),
-// DC removed, peak-normalized. Cheap realtime: phase, warp, start/end, PM.
-// Morph is reserved (single frame).
+// Additive RectSine / sine / invert-180 bank. Audio is summed at playback
+// with harmonics n·f ≥ Nyquist omitted. Tables are display-only.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -19,7 +18,7 @@ using namespace soemdsp_maths;
 static const int kMaxInstances = 16;
 static const int kTableLen = 4096;
 static const int kTableHarmonics = kTableLen / 2 - 1; // 2047
-static const int kFrameCount = 3;
+static const int kFrameCount = 4;
 
 struct State {
   bool active;
@@ -32,6 +31,7 @@ struct State {
 static State gPool[kMaxInstances];
 static float gBank[kFrameCount][kTableLen];
 static int gBankReady = 0;
+static double gRectScale = 1.0;
 
 static const char kMetadataJson[] =
   "{"
@@ -70,9 +70,14 @@ static void bake_bank() {
     sum += y;
   }
   const double mean = sum / (double)kTableLen;
+  double peak = 0.0;
   for (int i = 0; i < kTableLen; i += 1) {
-    gBank[0][i] = (float)((double)gBank[0][i] - mean);
+    const double v = (double)gBank[0][i] - mean;
+    gBank[0][i] = (float)v;
+    const double a = v < 0.0 ? -v : v;
+    if (a > peak) peak = a;
   }
+  gRectScale = peak > 1e-12 ? (1.0 / peak) : 1.0;
   peak_normalize(gBank[0], kTableLen);
   // Frame 1: sine, same fundamental phase as RectSine n=1 (0.25).
   for (int i = 0; i < kTableLen; i += 1) {
@@ -80,15 +85,19 @@ static void bake_bank() {
     gBank[1][i] = (float)dsp_sin(kTwoPi * (t + 0.25));
   }
   peak_normalize(gBank[1], kTableLen);
-  // Frame 2: invert + 90° (N/4). 180°/time-reverse of this 2-hump cycle is
-  // palindromic. 90° puts the inverted point on the sine's opposite swing.
+  // Frame 2: invert + 180° (N/2). RectSine has odd harmonics, so half-cycle
+  // is not palindromic — it maps the bottom-swing point onto the sine's top.
   {
-    const int rot = kTableLen / 4;
+    const int rot = kTableLen / 2;
     for (int i = 0; i < kTableLen; i += 1) {
       int j = i + rot;
       if (j >= kTableLen) j -= kTableLen;
       gBank[2][i] = -gBank[0][j];
     }
+  }
+  // Frame 3: sine again so Morph wraparound closes inv-rect → sine → rect.
+  for (int i = 0; i < kTableLen; i += 1) {
+    gBank[3][i] = gBank[1][i];
   }
   gBankReady = 1;
 }
@@ -127,33 +136,55 @@ static double map_region(double t, double start, double end) {
   return wrap01(u - (1.0 - a));
 }
 
-static double read_cycle(const float* table, double t) {
-  t = wrap01(t);
-  const double idx = t * (double)kTableLen;
-  const double i0d = dsp_floor(idx);
-  int i0 = (int)i0d;
-  if (i0 < 0) i0 = 0;
-  i0 %= kTableLen;
-  int i1 = i0 + 1;
-  if (i1 >= kTableLen) i1 = 0;
-  const double frac = idx - i0d;
-  const double a = (double)table[i0];
-  const double b = (double)table[i1];
-  return a + (b - a) * frac;
+static double sum_rect(double t, int Hmax, bool inv180) {
+  if (Hmax < 1) return 0.0;
+  double y = 0.0;
+  for (int n = 1; n <= Hmax; n += 1) {
+    double amp = 1.0 / ((double)n * (double)n);
+    double ph = (n & 1) ? 0.25 : 0.75;
+    if (inv180) {
+      amp = -amp;
+      ph += 0.5 * (double)n;
+    }
+    y += amp * dsp_sin(kTwoPi * ((double)n * t + ph));
+  }
+  return y * gRectScale;
 }
 
-static double read_morphed(double t, double morph) {
-  const double m = clamp01(safe(morph));
-  const double pos = m * (double)(kFrameCount - 1);
+static double sum_sine(double t, int Hmax) {
+  if (Hmax < 1) return 0.0;
+  return dsp_sin(kTwoPi * (t + 0.25));
+}
+
+static double sum_frame(int frame, double t, int Hmax) {
+  if (frame == 1 || frame == 3) return sum_sine(t, Hmax);
+  if (frame == 2) return sum_rect(t, Hmax, true);
+  return sum_rect(t, Hmax, false);
+}
+
+static int nyquist_harmonics(double freqHz, double increment, double sr) {
+  const double inst = freqHz + increment * sr;
+  const double af = inst < 0.0 ? -inst : inst;
+  if (!(af > 1e-9)) return kTableHarmonics;
+  const double ny = 0.5 * sr;
+  int H = (int)dsp_floor((ny * 0.999999) / af);
+  if (H < 0) H = 0;
+  if (H > kTableHarmonics) H = kTableHarmonics;
+  return H;
+}
+
+static double read_morphed(double t, double morph, int Hmax) {
+  const double m = wrap01(safe(morph));
+  double pos = m * (double)kFrameCount;
+  if (pos >= (double)kFrameCount) pos = 0.0;
   int i0 = (int)dsp_floor(pos);
   if (i0 < 0) i0 = 0;
-  if (i0 > kFrameCount - 1) i0 = kFrameCount - 1;
-  int i1 = i0 + 1;
-  if (i1 > kFrameCount - 1) i1 = kFrameCount - 1;
+  i0 %= kFrameCount;
+  const int i1 = (i0 + 1) % kFrameCount;
   const double frac = pos - (double)i0;
-  const double a = read_cycle(gBank[i0], t);
-  if (frac <= 1e-9 || i0 == i1) return a;
-  const double b = read_cycle(gBank[i1], t);
+  const double a = sum_frame(i0, t, Hmax);
+  if (frac <= 1e-9) return a;
+  const double b = sum_frame(i1, t, Hmax);
   return a + (b - a) * frac;
 }
 
@@ -247,12 +278,14 @@ extern "C" double soemdsp_wavetable_2d_sample(
 
   const double sr = safe(engineSampleRate) > 1.0 ? safe(engineSampleRate) : 44100.0;
   const double freq = safe(frequencyHz);
-  st.phase = wrap01(st.phase + freq / sr + safe(increment));
+  const double inc = safe(increment);
+  st.phase = wrap01(st.phase + freq / sr + inc);
 
   double t = wrap01(st.phase + wrap01(safe(phaseOffset)) + safe(pm));
   t = warp_phase(t, warp);
   t = map_region(t, start, end);
-  double y = read_morphed(t, morph);
+  const int Hmax = nyquist_harmonics(freq, inc, sr);
+  double y = read_morphed(t, morph, Hmax);
 
   double amp = safe(amplitude);
   if (amp < 0.0) amp = 0.0;

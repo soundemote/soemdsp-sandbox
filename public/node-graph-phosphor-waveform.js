@@ -1574,25 +1574,36 @@ function nodeGraphWavetable2dEnsureFrames() {
   }
   nodeGraphWavetable2dPeakNormalize(sine);
   const flip = new Float32Array(N);
-  const rot = N / 4;
+  const rot = N / 2;
   for (let i = 0; i < N; i += 1) {
     flip[i] = -rect[(i + rot) % N];
   }
-  const frames = [rect, sine, flip];
+  const sine2 = new Float32Array(N);
+  sine2.set(sine);
+  const frames = [rect, sine, flip, sine2];
   nodeGraphWavetable2dEnsureFrames._frames = frames;
-  nodeGraphWavetable2dEnsureFrames._labels = ["Rectified sine", "Sine", "Inverted rectified sine (90°)"];
+  nodeGraphWavetable2dEnsureFrames._labels = [
+    "Rectified sine",
+    "Sine",
+    "Inverted rectified sine (180°)",
+    "Sine",
+  ];
   return frames;
 }
 
 function nodeGraphWavetable2dBlendDisplay(morph) {
   const frames = nodeGraphWavetable2dEnsureFrames();
   const N = frames[0].length;
-  const last = frames.length - 1;
-  const m = Math.max(0, Math.min(1, Number(morph) || 0));
-  const pos = m * last;
-  const i0 = Math.max(0, Math.min(last, Math.floor(pos)));
-  const i1 = Math.max(0, Math.min(last, i0 + 1));
-  const frac = pos - i0;
+  const count = frames.length;
+  let m = Number(morph);
+  if (!Number.isFinite(m)) m = 0;
+  m -= Math.floor(m);
+  if (m < 0) m += 1;
+  let pos = m * count;
+  if (pos >= count) pos = 0;
+  const i0 = Math.floor(pos) % count;
+  const i1 = (i0 + 1) % count;
+  const frac = pos - Math.floor(pos);
   let blend = nodeGraphWavetable2dBlendDisplay._buf;
   if (!blend || blend.length !== N) {
     blend = new Float32Array(N);
@@ -2174,9 +2185,12 @@ function scheduleNodeGraphPhosphorWaveformFrame(section) {
       const frames = typeof nodeGraphWavetable2dEnsureFrames === "function"
         ? nodeGraphWavetable2dEnsureFrames()
         : null;
-      const last = Math.max(1, (frames?.length || 3) - 1);
-      const morph = Math.max(0, Math.min(1, Number(node?.params?.morph) || 0));
-      const sel = Math.round(morph * last);
+      const count = Math.max(1, frames?.length || 4);
+      let morph = Number(node?.params?.morph);
+      if (!Number.isFinite(morph)) morph = 0;
+      morph -= Math.floor(morph);
+      if (morph < 0) morph += 1;
+      const sel = Math.floor(morph * count + 1e-9) % count;
       section.querySelectorAll(".node-wavetable-morph-slot").forEach((el) => {
         el.classList.toggle("is-selected", Number(el.dataset.slot) === sel);
       });
@@ -2255,8 +2269,10 @@ function createNodeGraphPhosphorWaveformDisplay(nodeId, type) {
     strip.setAttribute("aria-label", "Wavetable morph frames");
     strip.dataset.node = nodeId;
     const frames = nodeGraphWavetable2dEnsureFrames();
-    const labels = nodeGraphWavetable2dEnsureFrames._labels || ["Rectified sine", "Sine", "Inverted rectified sine (90°)"];
-    const last = Math.max(1, frames.length - 1);
+    const labels = nodeGraphWavetable2dEnsureFrames._labels || [
+      "Rectified sine", "Sine", "Inverted rectified sine (180°)", "Sine",
+    ];
+    const count = Math.max(1, frames.length);
     for (let s = 0; s < frames.length; s += 1) {
       const box = document.createElement("button");
       box.type = "button";
@@ -2271,7 +2287,7 @@ function createNodeGraphPhosphorWaveformDisplay(nodeId, type) {
         event.stopPropagation();
         const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
         if (!node) return;
-        node.params = { ...(node.params || {}), morph: s / last };
+        node.params = { ...(node.params || {}), morph: s / count };
         strip.querySelectorAll(".node-wavetable-morph-slot").forEach((el) => {
           el.classList.toggle("is-selected", el === box);
         });

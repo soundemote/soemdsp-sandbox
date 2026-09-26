@@ -59,8 +59,7 @@ function nodeGraphRobinSinusoidSample(
   if (omega > Math.PI || omega < -Math.PI) {
     omega = ((omega + Math.PI) % twoPi + twoPi) % twoPi - Math.PI;
   }
-  const amp = Number(amplitude);
-  const safeAmp = Number.isFinite(amp) ? amp : 0;
+  void amplitude;
 
   if (reset || !state.primed) {
     nodeGraphRobinSinusoidPrime(state, omega, nodeGraphFiniteNumber(startPhaseRadians));
@@ -101,5 +100,5 @@ function nodeGraphRobinSinusoidSample(
 
   state.x = x1;
   state.y = y1;
-  return y1 * safeAmp;
+  return y1;
 }

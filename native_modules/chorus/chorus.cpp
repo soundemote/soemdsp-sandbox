@@ -111,6 +111,23 @@ extern "C" void soemdsp_chorus_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
+extern "C" void soemdsp_chorus_reset(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  ChorusState& s = gPool[handle - 1];
+  if (!s.active) return;
+  unsigned int base = (unsigned int)(s.lastSeed < 1.0 ? 1.0 : s.lastSeed);
+  if (base == 0u) base = 1u;
+  for (int v = 0; v < kMaxVoices; v += 1) {
+    Voice& voice = s.voices[v];
+    unsigned int sd = base + (unsigned int)v;
+    if (sd == 0u) sd = 1u;
+    vibrato_gen_seed(voice.gen, sd);
+    vibrato_gen_reset(voice.gen, 0.0);
+    voice.phaseTurns = 0.0;
+    voice.lastSine = 0.0;
+  }
+}
+
 extern "C" void soemdsp_chorus_sample(
   int handle,
   double inL,
@@ -271,7 +288,7 @@ extern "C" double soemdsp_chorus_voice_pan(int handle, int index) {
 }
 
 extern "C" int soemdsp_chorus_version() {
-  return 5;
+  return 6;
 }
 
 extern "C" const char* soemdsp_chorus_metadata_json() {

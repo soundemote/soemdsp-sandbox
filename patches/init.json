@@ -180,6 +180,13 @@
       "sourceNode": "keyboard-1",
       "sourcePort": "Play Keys",
       "tracePoints": []
+    },
+    {
+      "destinationNode": "hypersaw2-1",
+      "destinationPort": "Increment",
+      "sourceNode": "metamodule-1__voiceFrequency",
+      "sourcePort": "Increment",
+      "tracePoints": []
     }
   ],
   "format": {
@@ -231,13 +238,6 @@
       "destinationParam": "sweep",
       "sourceNode": "knob-1",
       "sourcePort": "Bias",
-      "tracePoints": []
-    },
-    {
-      "destinationNode": "hypersaw2-1",
-      "destinationParam": "frequency",
-      "sourceNode": "metamodule-1__voiceFrequency",
-      "sourcePort": "Frequency",
       "tracePoints": []
     },
     {
@@ -558,15 +558,7 @@
         "octave": 0,
         "semitones": 0,
         "cents": 0,
-        "frequency": 0,
-        "mx_hypersaw2_1__jitterDistance": 7.2804274163624605,
-        "mx_hypersaw2_1__jitterSpeed": 0.05922263870095852,
-        "mx_hypersaw2_1__waveform": 1,
-        "mx_hypersaw2_1__morph": 0.5,
-        "mx_hypersaw2_1__vibratoDistance": 0.32009038906022796,
-        "mx_hypersaw2_1__vibratoSpeed": 0.9787400493219194,
-        "mx_hypersaw2_1__vibratoPhaseVary": 0,
-        "mx_passiveFilter_2__sweep": -47.09021152531858
+        "frequency": 0
       },
       "type": "metamodule",
       "alias": "HYPERSAW",
@@ -719,8 +711,7 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleDefaultStereoOut": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
       "gx": 14,
@@ -783,8 +774,7 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleDefaultStereoOut": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
       "gx": -22,
@@ -1002,7 +992,7 @@
       "paramMeta": {},
       "params": {},
       "type": "voiceFrequency",
-      "alias": "Voice Frequency",
+      "alias": "Voice Inc",
       "widthGu": 4,
       "heightGu": 3,
       "ui": {
@@ -1021,8 +1011,7 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleVoicePortal": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
       "gx": -16,
@@ -1050,8 +1039,7 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleVoicePortal": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
       "gx": -16,
@@ -1079,8 +1067,7 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleVoicePortal": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
       "gx": -3,
@@ -1108,8 +1095,7 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleVoicePortal": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
       "gx": -3,
@@ -1807,7 +1793,7 @@
         "centerSide": 1,
         "waveform": 1,
         "morph": 0.5,
-        "frequency": 208.50994564272867,
+        "frequency": 0,
         "phase": 0,
         "phaseCollapse": 1,
         "randomizePhase": 2.970384733102537,
@@ -2694,6 +2680,7 @@
       "arpKeysSettings": {
         "strokeColor": "#00ffbf",
         "strokeBrightness": 0.5,
+        "strokeThickness": 0.01,
         "fontColor": "#00ffbf",
         "fontBrightness": 0.5,
         "cornerShape": "squircle",
@@ -2947,7 +2934,7 @@
       },
       "params": {
         "waveform": 4,
-        "frequency": 0,
+        "frequency": 33.78633988617719,
         "morph": 1,
         "phase": 0,
         "antialias": 0,
@@ -3728,7 +3715,7 @@
     },
     {
       "gx": 8,
-      "gy": 24,
+      "gy": 25,
       "id": "robinSinusoid-1",
       "paramMeta": {
         "frequency": {
@@ -4101,6 +4088,7 @@
         "displaySource": 0
       },
       "type": "knob",
+      "pluginId": 0,
       "widthGu": 14,
       "traceDisplaySettings": {
         "decimals": 2,
@@ -4133,8 +4121,7 @@
         "slidersForceShow": false,
         "titleHidden": true,
         "displayHeightGu": 12
-      },
-      "pluginId": 0
+      }
     }
   ],
   "requiredAssets": [],
@@ -4148,7 +4135,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 48,
-    "zoom": 0.6733877013617617,
+    "zoom": 0.8446975325881941,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,

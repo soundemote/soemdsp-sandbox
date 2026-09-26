@@ -906,12 +906,10 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
   // old Additive type-wide force must not keep Harmonics (etc.) as ±max offsets.
   if (Array.isArray(normalized.choices) && normalized.choices.length > 0) {
     normalized.outputDomain = false;
-  } else if (Boolean(fallback.outputDomain)) {
-    normalized.outputDomain = Object.hasOwn(source, "outputDomain")
-      ? Boolean(source.outputDomain)
-      : true;
+  } else if (Object.hasOwn(source, "outputDomain")) {
+    normalized.outputDomain = Boolean(source.outputDomain);
   } else {
-    normalized.outputDomain = false;
+    normalized.outputDomain = Boolean(fallback.outputDomain);
   }
   // Domain-mode offset ("Use real mod values"): separate from absolute params[key].
   {

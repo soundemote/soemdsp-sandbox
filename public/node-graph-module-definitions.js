@@ -11293,7 +11293,8 @@ const nodeGraphModuleDefinitions = (
       { key: "ensembleCloud", label: "Cloud", renderer: "ensembleCloud" },
     ],
     defaultDisplayMode: "ensembleCloud",
-    inputs: ["Mono", "Left", "Right"],
+    digitalInputs: ["Reset"],
+    inputs: ["Mono", "Left", "Right", "Reset"],
     outputs: ["Mono", "Left", "Right"],
     parameters: [
       {
@@ -11470,7 +11471,8 @@ const nodeGraphModuleDefinitions = (
       { key: "ensembleCloud", label: "Cloud", renderer: "ensembleCloud" },
     ],
     defaultDisplayMode: "ensembleCloud",
-    inputs: ["Mono", "Left", "Right"],
+    digitalInputs: ["Reset"],
+    inputs: ["Mono", "Left", "Right", "Reset"],
     outputs: ["Mono", "Left", "Right"],
     parameters: [
       {
@@ -13741,13 +13743,15 @@ const nodeGraphModuleDefinitions = (
       {
         defaultValue: "0",
         key: "morph",
+        kind: "phase",
         label: "Morph",
         max: "1",
         mid: "0.5",
         min: "0",
         step: "0.001",
+        wraparound: true,
         smoothingType: "papoulis",
-        tooltip: "Morph: Rectified sine → Sine → inverted Rectified sine shifted 90° (opposite sine swing).",
+        tooltip: "Wraparound morph: Rectified sine → Sine → inverted Rectified sine (180°) → Sine → …",
       },
       {
         defaultValue: "100",

@@ -752,8 +752,10 @@ extern "C" int soemdsp_flanger_create();
 extern "C" void soemdsp_flanger_destroy(int handle);
 extern "C" int soemdsp_chorus_create();
 extern "C" void soemdsp_chorus_destroy(int handle);
+extern "C" void soemdsp_chorus_reset(int handle);
 extern "C" int soemdsp_ensemble_create();
 extern "C" void soemdsp_ensemble_destroy(int handle);
+extern "C" void soemdsp_ensemble_reset(int handle);
 extern "C" void soemdsp_ensemble_sample(
   int handle,
   double inL,
@@ -6748,11 +6750,12 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double referenceVoltage = circuit_pitch_ref_v(g);
   if (!liveReset) node.lastReset = 0.0;
 
-  const bool takeSample = liveF || livePitch || liveReset
+  const bool takeSample = liveF || livePitch || liveInc || liveReset
     || node.hasParamMods
     || node_has_active_chase(node);
   if (!takeSample) {
@@ -6830,6 +6833,7 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
+    if (liveInc) freq += g.mixIncrement[f] * sr;
     const double phaseOff = control_audio(g, node.phaseParam, f);
     const double waveform = control_audio(g, node.waveform, f);
     const double distribute = control_audio(g, node.shape, f);
@@ -7583,8 +7587,17 @@ static void process_chorus(Circuit& g, Node& node, int frames) {
     else if (sp == kPortRight) rightOutWired = true;
   }
   const bool stereoOut = leftOutWired || rightOutWired;
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        soemdsp_chorus_reset(node.nativeHandle);
+      }
+      node.lastReset = rv;
+    }
     const double inM = g.mixMono[f]
       + ((!hasLeftIn && !hasRightIn) ? (g.mixLeft[f] + g.mixRight[f]) : 0.0);
     const double inL = hasLeftIn ? (g.mixLeft[f] + g.mixMono[f]) : inM;
@@ -7636,8 +7649,17 @@ static void process_ensemble(Circuit& g, Node& node, int frames) {
     else if (sp == kPortRight) rightOutWired = true;
   }
   const bool stereoOut = leftOutWired || rightOutWired;
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        soemdsp_ensemble_reset(node.nativeHandle);
+      }
+      node.lastReset = rv;
+    }
     const double inM = g.mixMono[f]
       + ((!hasLeftIn && !hasRightIn) ? (g.mixLeft[f] + g.mixRight[f]) : 0.0);
     const double inL = hasLeftIn ? (g.mixLeft[f] + g.mixMono[f]) : inM;
@@ -10962,15 +10984,15 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath =
-    node_needs_sample_accurate_controls(g, node, liveF || liveReset);
+    node_needs_sample_accurate_controls(g, node, liveF || liveInc || liveReset);
   if (!takeSamplePath) {
-    const double amp = control_effective(node.amplitude);
     const double phase0 = control_effective(node.phaseParam) * kTwoPi;
     const double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
     soemdsp_robin_sinusoid_process_block(
-      node.nativeHandle, freq, amp, srD, phase0, 0.0, frames
+      node.nativeHandle, freq, 1.0, srD, phase0, 0.0, frames
     );
     double* outPtr = ptr_from_export(soemdsp_robin_sinusoid_block_output_ptr(node.nativeHandle));
     if (!outPtr) return;
@@ -10988,11 +11010,11 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
       if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
       node.lastReset = rv;
     }
-    const double amp = control_audio(g, node.amplitude, f);
     const double phase0 = control_audio(g, node.phaseParam, f) * kTwoPi;
-    const double freq = clamp_hz_nyquist(control_audio(g, node.frequency, f), srD);
+    double freq = clamp_hz_nyquist(control_audio(g, node.frequency, f), srD);
+    if (liveInc) freq += g.mixIncrement[f] * srD;
     const double y = soemdsp_robin_sinusoid_sample(
-      node.nativeHandle, freq, amp, srD, phase0, resetGate
+      node.nativeHandle, freq, 1.0, srD, phase0, resetGate
     );
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
