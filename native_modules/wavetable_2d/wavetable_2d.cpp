@@ -287,8 +287,7 @@ static double read_morphed_mip(double t, double morph, double warp, int mip) {
   const double mf = mpos - (double)mi0;
 
   double w = safe(warp);
-  if (w < -1.0) w = -1.0;
-  if (w > 1.0) w = 1.0;
+  w = clamp11(w);
   double wpos = (w + 1.0) * 0.5 * (double)(kWarpCount - 1);
   if (wpos < 0.0) wpos = 0.0;
   if (wpos > (double)(kWarpCount - 1)) wpos = (double)(kWarpCount - 1);

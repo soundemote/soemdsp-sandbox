@@ -313,7 +313,7 @@ struct ModulatedDelay {
       : 0.0;
     const double randomMix = 1.0 - whiteNoiseMix;
     const double step = noise > 0.0 ? stepSize : -stepSize;
-    walkOut = clamp(walkOut + step, -1.0, 1.0);
+    walkOut = clamp11(walkOut + step);
     const double mixed = walkOut * randomMix + noise * whiteNoiseMix;
     const double w = mind(6.283185307179586 / rate, 0.000142475857) * maxd(0.0, walkFreqHz);
     const double a1 = dsp_exp(-w);

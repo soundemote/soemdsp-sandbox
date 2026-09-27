@@ -1612,6 +1612,7 @@ using soemdsp_maths::wrap01;
 using soemdsp_maths::kPlanck;
 using soemdsp_maths::safe;
 using soemdsp_maths::clamp;
+using soemdsp_maths::clamp11;
 
 static const int kMaxInstances = 4;
 // Meta Voices clones + per-lane Bias feeders (Voice Count×owned + shared).
@@ -4503,8 +4504,7 @@ static float db_to_lin(float db) {
 static void pan_gains(float pan, float* left, float* right) {
   float p = pan;
   if (!(p == p)) p = 0.0f;
-  if (p < -1.0f) p = -1.0f;
-  if (p > 1.0f) p = 1.0f;
+  p = (float)clamp11(p);
   const double halfPi = 1.5707963267948966;
   if (p <= 0.0f) {
     *left = 1.0f;
@@ -5271,8 +5271,7 @@ static void process_transistor_mux(Circuit& g, Node& node, int frames) {
     }
 
     double a = hasAnalog ? g.mixMorph[f] : 0.0;
-    if (a < -1.0) a = -1.0;
-    if (a > 1.0) a = 1.0;
+    a = clamp11(a);
     const double d = hasDigital ? g.mixTrigger[f] : 0.0;
 
     double addr = 0.0;

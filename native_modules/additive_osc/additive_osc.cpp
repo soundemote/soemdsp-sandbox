@@ -255,7 +255,7 @@ extern "C" double soemdsp_additive_osc_sample(
   if (norm <= 0.0) {
     return 0.0;
   }
-  return clamp((total / maxd(1.0, norm * 0.72)) * safeLevel, -1.0, 1.0);
+  return clamp11((total / maxd(1.0, norm * 0.72)) * safeLevel);
 }
 
 extern "C" int soemdsp_additive_osc_version() {

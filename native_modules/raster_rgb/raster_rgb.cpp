@@ -11,7 +11,11 @@
 
 namespace {
 
-using namespace soemdsp_maths;
+using soemdsp_maths::dsp_floor;
+using soemdsp_maths::dsp_exp;
+using soemdsp_maths::dsp_ln;
+using soemdsp_maths::dsp_fabs;
+using soemdsp_maths::clamp11;
 
 static const char kMetadataJson[] =
   "{"
@@ -136,7 +140,7 @@ extern "C" void soemdsp_raster_rgb_destroy(int handle) {
 static double as_video01(double x) {
   if (!(x * 0.0 == 0.0)) return 0.0;
   if (x < 0.0 || x > 1.0) {
-    const double c = x < -1.0 ? -1.0 : (x > 1.0 ? 1.0 : x);
+    const double c = clamp11(x);
     return 0.5 + 0.5 * c;
   }
   return clamp01(x);

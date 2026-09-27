@@ -208,7 +208,7 @@ extern "C" double soemdsp_pluck_envelope_sample(
   double autoRelMs = maxd(0.0, safe(autoReleaseTime));
   if (autoRelMs > 500.0) autoRelMs = 500.0;
   const double autoRelSec = autoRelMs * (1.0 / 1000.0);
-  const double curve = clamp(safe(envelopeCurve), -1.0, 1.0);
+  const double curve = clamp11(safe(envelopeCurve));
   const double dampHz = clamp(safe(envelopeDamping), 0.0, 100.0);
   const double vel = clamp(safe(velocity), 0.0, 1.0);
   const double lvl = clamp(safe(level), 0.0, 1.0);

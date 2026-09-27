@@ -129,7 +129,7 @@ static double applyColor(PiSpigotNoiseChannel& c, double white, int color) {
     return out;
   }
   if (color == 2) {
-    c.brown = clamp(c.brown + white * 0.05, -1.0, 1.0);
+    c.brown = clamp11(c.brown + white * 0.05);
     return c.brown;
   }
   if (color == 3) {
@@ -243,7 +243,7 @@ extern "C" void soemdsp_pi_spigot_noise_sample(int handle, double color, double 
   stepEquation(s);
   const int safeColor = clampi((int)(safe(color) + 0.5), 0, 4);
   const double sum = s.S * 2.0 - 1.0;
-  const double term = clamp(s.lastTerm * 0.25, -1.0, 1.0);
+  const double term = clamp11(s.lastTerm * 0.25);
   const double amp = safe(level);
   s.sumCh.lastOut = applySmoothing(s.sumCh, applyColor(s.sumCh, sum, safeColor), smoothing) * amp;
   s.termCh.lastOut = applySmoothing(s.termCh, applyColor(s.termCh, term, safeColor), smoothing) * amp;

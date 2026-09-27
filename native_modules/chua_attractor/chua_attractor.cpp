@@ -110,17 +110,17 @@ extern "C" void soemdsp_chua_attractor_sample(
 
 extern "C" double soemdsp_chua_attractor_x(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return clamp(gPool[handle - 1].x / 2.0, -1.0, 1.0);
+  return clamp11(gPool[handle - 1].x / 2.0);
 }
 
 extern "C" double soemdsp_chua_attractor_y(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return clamp(gPool[handle - 1].y / 0.5, -1.0, 1.0);
+  return clamp11(gPool[handle - 1].y / 0.5);
 }
 
 extern "C" double soemdsp_chua_attractor_z(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return clamp(gPool[handle - 1].z / 3.5, -1.0, 1.0);
+  return clamp11(gPool[handle - 1].z / 3.5);
 }
 
 extern "C" int soemdsp_chua_attractor_version() {

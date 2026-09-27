@@ -83,7 +83,7 @@ extern "C" double soemdsp_alias_sine_sample(
   // convert phase [0,1] to radians [0, 2*pi]
   double out = alias_sine_dsp_sin(s.phase * kTwoPi);
 
-  return clamp(out * safe(level), -1.0, 1.0);
+  return clamp11(out * safe(level));
 }
 
 extern "C" int soemdsp_alias_sine_version() {

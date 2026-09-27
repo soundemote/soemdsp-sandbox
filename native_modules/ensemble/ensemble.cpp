@@ -85,7 +85,7 @@ static double runRandomWalk(Voice& v, double freqHz, double jitterHz, double sr)
     : 0.0;
   const double randomMix = 1.0 - whiteNoiseMix;
   const double step = noise > 0.0 ? stepSize : -stepSize;
-  v.walkOut = clamp(v.walkOut + step, -1.0, 1.0);
+  v.walkOut = clamp11(v.walkOut + step);
   const double mixed = v.walkOut * randomMix + noise * whiteNoiseMix;
   const double w = mind(kTwoPi / rate, 0.000142475857) * maxd(0.0, freqHz);
   const double a1 = dsp_exp(-w);
@@ -262,11 +262,11 @@ extern "C" void soemdsp_ensemble_sample(
       // At default Speed, walk LPF peak is ~0.3 over a few seconds while FBM
       // already reaches ~0.75. x2 aligns RW face/audio throw with FBM without
       // attenuating FBM; clamp keeps Depth mapping inside +/-1.
-      y = clamp(2.0 * runRandomWalk(voice, spd * (1.0 + voiceOff), jitter, sr), -1.0, 1.0);
+      y = clamp11(2.0 * runRandomWalk(voice, spd * (1.0 + voiceOff), jitter, sr));
     }
     // Audio applies Depth to the bipolar modulator; the cloud publishes the
     // pre-Depth signal so face width is invariant to Depth (even at zero).
-    const double visualY = clamp(y, -1.0, 1.0);
+    const double visualY = clamp11(y);
     double delaySamples = (dly + y * dep) * 0.001 * sr;
     const double delayed = read_delay(voice, delaySamples);
     const double tFull = (n <= 1) ? 0.5 : ((double)v / (double)(n - 1));

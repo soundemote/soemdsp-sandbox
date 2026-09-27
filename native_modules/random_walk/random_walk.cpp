@@ -137,7 +137,7 @@ extern "C" double soemdsp_random_walk_sample(
     return one_pole_lowpass(s.lowpassOutput, noise, safeFrequency, rate) * safeLevel;
   }
   const double step = safeMethod == 3 ? (noise > 0.0 ? stepSize : -stepSize) : noise * stepSize;
-  s.out = clamp(s.out + step, -1.0, 1.0);
+  s.out = clamp11(s.out + step);
   const double mixed = s.out * randomMix + noise * whiteNoiseMix;
   return safe(one_pole_lowpass(s.lowpassOutput, mixed, safeFrequency, rate) * safeLevel);
 }

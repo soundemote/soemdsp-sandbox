@@ -95,7 +95,7 @@ static double channelSample(NoiseChan& chan, int mode, double mean, double devia
   }
   if (mode == 2) {
     const double dev = deviation < 0.001 ? 0.001 : deviation;
-    chan.brown = clamp(chan.brown + white * dev * 0.05, -1.0, 1.0);
+    chan.brown = clamp11(chan.brown + white * dev * 0.05);
     return mean + chan.brown;
   }
   if (mode == 3) {
@@ -288,8 +288,8 @@ static void channelSamplePairSimd(NoiseChan& chanL, NoiseChan& chanR, int mode, 
 // latency -- unlike Sabrina, which was deliberately kept native-only.
 static void noiseProcessBlockScalar(NoiseGenState& s, int mode, double mean, double deviation, double shape, double level, int frameCount) {
   for (int frame = 0; frame < frameCount; frame += 1) {
-    const double l = clamp(channelSample(s.left, mode, mean, deviation, shape), -1.0, 1.0) * level;
-    const double r = clamp(channelSample(s.right, mode, mean, deviation, shape), -1.0, 1.0) * level;
+    const double l = clamp11(channelSample(s.left, mode, mean, deviation, shape)) * level;
+    const double r = clamp11(channelSample(s.right, mode, mean, deviation, shape)) * level;
     s.blockOutLeft[frame] = l;
     s.blockOutRight[frame] = r;
   }
@@ -301,8 +301,8 @@ static void noiseProcessBlockSimd(NoiseGenState& s, int mode, double mean, doubl
   for (int frame = 0; frame < frameCount; frame += 1) {
     double l, r;
     channelSamplePairSimd(s.left, s.right, mode, mean, deviation, shape, l, r);
-    l = clamp(l, -1.0, 1.0) * level;
-    r = clamp(r, -1.0, 1.0) * level;
+    l = clamp11(l) * level;
+    r = clamp11(r) * level;
     s.blockOutLeft[frame] = l;
     s.blockOutRight[frame] = r;
   }
@@ -349,8 +349,8 @@ extern "C" void soemdsp_noise_generator_sample(
   const int safeMode = mode < 0 ? 0 : (mode > 4 ? 4 : mode);
   const double safeDev = deviation < 0.0 ? 0.0 : deviation;
   const double safeShape = clamp(shape, 0.0, 1.0);
-  s.lastLeft  = clamp(channelSample(s.left,  safeMode, mean, safeDev, safeShape), -1.0, 1.0) * level;
-  s.lastRight = clamp(channelSample(s.right, safeMode, mean, safeDev, safeShape), -1.0, 1.0) * level;
+  s.lastLeft  = clamp11(channelSample(s.left,  safeMode, mean, safeDev, safeShape)) * level;
+  s.lastRight = clamp11(channelSample(s.right, safeMode, mean, safeDev, safeShape)) * level;
 }
 
 extern "C" double soemdsp_noise_generator_left(int handle) {

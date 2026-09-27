@@ -199,7 +199,7 @@ extern "C" double soemdsp_comb_resonator_sample(
     y = x + sign * g * fb;
   }
 
-  y = clamp(safe(y), -1.0, 1.0);
+  y = clamp11(safe(y));
   if (y > -1e-30 && y < 1e-30) y = 0.0;
 
   // Feedback writes the clipped output so the loop cannot explode.

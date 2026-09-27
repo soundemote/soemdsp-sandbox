@@ -21,7 +21,7 @@ static const char kMetadataJson[] =
   "}";
 
 static void pan_gains(double pan, double* left, double* right) {
-  const double p = clamp(safe(pan), -1.0, 1.0);
+  const double p = clamp11(safe(pan));
   if (p <= 0.0) {
     *left = 1.0;
     *right = dsp_cos(-p * kHalfPi);

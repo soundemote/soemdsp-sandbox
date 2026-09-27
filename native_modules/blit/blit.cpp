@@ -36,6 +36,9 @@
 // before porting: flat, bounded amplitude and near-zero DC from 10Hz to
 // 20kHz, no blowups, no low-frequency beat.
 
+#include "../sandbox_native_maths/scalar_helpers.h"
+using soemdsp_maths::clamp11;
+
 namespace {
 
 constexpr double kPi = 3.1415926535897932384626433832795;
@@ -167,22 +170,22 @@ double oscillatorSample(BlitState& s, int slotIndex, double phase, double phaseI
 
   switch (waveform) {
     case 1:
-      return -clampD(sawARaw, -1.0, 1.0);
+      return -clamp11(sawARaw);
     case 2: {
-      return clampD(sawARaw - sawBRaw, -1.0, 1.0);
+      return clamp11(sawARaw - sawBRaw);
     }
     case 3: {
-      const double sqOut = clampD(sawARaw - sawBRaw, -1.0, 1.0);
+      const double sqOut = clamp11(sawARaw - sawBRaw);
       // Integrate with signed dt so reverse also reverses the triangle slope.
       const double signedDt = direction * dt;
       slot.triState += signedDt * kTriTrackGain * (sqOut - slot.triState);
-      return clampD(slot.triState, -1.0, 1.0);
+      return clamp11(slot.triState);
     }
     case 4:
       return sinApprox(phase);
     case 0:
     default:
-      return clampD(sawARaw, -1.0, 1.0);
+      return clamp11(sawARaw);
   }
 }
 

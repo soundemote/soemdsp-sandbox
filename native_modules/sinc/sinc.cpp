@@ -100,7 +100,7 @@ extern "C" double soemdsp_sinc_sample(
   double value = bl
     ? bandlimited_sinc(shifted, lobeCount, f, rate)
     : ideal_sinc(shifted, lobeCount);
-  return clamp(value, -1.0, 1.0);
+  return clamp11(value);
 }
 
 extern "C" int soemdsp_sinc_version() {

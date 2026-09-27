@@ -138,9 +138,9 @@ extern "C" void soemdsp_lorenz_attractor_sample(
   const double outY = (normalizedX * sinRotate + normalizedY * cosRotate) * finalScale;
   const double outZ = normalizedZ * finalScale;
 
-  s.outX = clamp(outX, -1.0, 1.0);
-  s.outY = clamp(outY, -1.0, 1.0);
-  s.outZ = clamp(outZ, -1.0, 1.0);
+  s.outX = clamp11(outX);
+  s.outY = clamp11(outY);
+  s.outZ = clamp11(outZ);
 }
 
 extern "C" double soemdsp_lorenz_attractor_x(int handle) {

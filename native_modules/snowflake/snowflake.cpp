@@ -375,7 +375,7 @@ extern "C" void soemdsp_snowflake_sample(
   s.phase = wrap01(s.phase + maxd(0.0, frequencyHz) / rate);
 
   // Direction −1 reverse … 0 bi … +1 forward → trisaw warp 0…1.
-  const double direction = clamp(safe(directionArg), -1.0, 1.0);
+  const double direction = clamp11(safe(directionArg));
   const double warp = (direction + 1.0) * 0.5;
   const double u = snowflake_trisaw(phase, warp);
 

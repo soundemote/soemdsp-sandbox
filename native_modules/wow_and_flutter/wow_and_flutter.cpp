@@ -79,7 +79,7 @@ static inline double flutter_fixed_steps(
     : 0.0;
   const double randomMix = 1.0 - whiteNoiseMix;
   const double step = noise > 0.0 ? stepSize : -stepSize;
-  s.flutterOut = clamp(s.flutterOut + step, -1.0, 1.0);
+  s.flutterOut = clamp11(s.flutterOut + step);
   const double mixed = s.flutterOut * randomMix + noise * whiteNoiseMix;
   return one_pole_lowpass(s.flutterLp, mixed, safeFrequency, rate);
 }

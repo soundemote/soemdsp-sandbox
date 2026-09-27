@@ -62,7 +62,7 @@ static double ellipsoidCore(
   const double shapeRadians = shape * kPi;
   const double shapeSin = dsp_sin(shapeRadians);
   const double shapeCos = dsp_cos(shapeRadians);
-  const double safeOffset = clamp(offset, -1.0, 1.0);
+  const double safeOffset = clamp11(offset);
   double s = scale < 0.0 ? 0.0 : scale;
   if (limitAa) {
     const double scaleFloor = ellipseCMin(frequencyHz, sampleRate);

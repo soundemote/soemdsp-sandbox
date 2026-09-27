@@ -162,20 +162,20 @@ static double lfo_run(
       : 0.0;
     double randomMix = 1.0 - whiteNoiseMix;
     double step = noise > 0.0 ? stepSize : -stepSize;
-    const double nextWalk = clamp((*walkOut) + step, -1.0, 1.0);
+    const double nextWalk = clamp11((*walkOut) + step);
     *walkOut = nextWalk;
     double mixed = nextWalk * randomMix + noise * whiteNoiseMix;
     double w = mind(6.283185307179586 / rate, 0.000142475857) * hz;
     double a1 = dsp_exp(-w);
     const double nextLpf = (1.0 - a1) * mixed + a1 * (*walkLpf);
     *walkLpf = nextLpf;
-    return clamp(nextLpf, -1.0, 1.0);
+    return clamp11(nextLpf);
   }
   if (style == LfoFbm) {
     double t = (*fbmTime) + hz / rate;
     *fbmTime = t;
     double uni = lfo_fbm_unipolar(t, seed);
-    return clamp(uni * 2.0 - 1.0, -1.0, 1.0);
+    return clamp11(uni * 2.0 - 1.0);
   }
   double p = (*phase) + hz / rate;
   p = p - dsp_floor(p);
@@ -602,8 +602,8 @@ static void process_one(PingPongDelayState& s, double inputL, double inputR) {
   const double delaySecL = ping_pong_delay_seconds(s.baseSeconds, offsetSec, lfoAmpSec, lfoL);
   const double delaySecR = ping_pong_delay_seconds(s.baseSeconds, offsetSec, lfoAmpSec, lfoR);
   // Gold outs: raw bipolar LFO (−1…+1), before Amp depth.
-  s.lastModL = clamp(lfoL, -1.0, 1.0);
-  s.lastModR = clamp(lfoR, -1.0, 1.0);
+  s.lastModL = clamp11(lfoL);
+  s.lastModR = clamp11(lfoR);
 
   // Grow failed / cold create: honest silence (no % 0).
   if (!s.bufferL || !s.bufferR || s.bufferSize < 2) {

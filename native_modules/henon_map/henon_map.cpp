@@ -60,12 +60,12 @@ extern "C" void soemdsp_henon_map_sample(
   const bool resetActive = reset > 0.0;
   const double safeRate = rate > 0.0 ? rate : 0.0;
   const double safeA = clamp(safe_bounded(a), 0.0, 2.0);
-  const double safeB = clamp(safe_bounded(b), -1.0, 1.0);
+  const double safeB = clamp11(safe_bounded(b));
   const double rateHz = sampleRate < 1.0 ? 1.0 : sampleRate;
 
   if (resetActive || !s.hasStarted) {
-    s.x = clamp(safe_bounded(seedX), -1.0, 1.0);
-    s.y = clamp(safe_bounded(seedY), -1.0, 1.0);
+    s.x = clamp11(safe_bounded(seedX));
+    s.y = clamp11(safe_bounded(seedY));
     s.phase = 0.0;
     s.hasStarted = true;
   }
@@ -92,12 +92,12 @@ extern "C" double soemdsp_henon_map_x(int handle) {
   // Classic a=1.4/b=0.3 attractor spans roughly x in [-1.5, 1.5]; normalize
   // to keep the common case near unity while still tolerating parameter
   // sweeps via the outer clamp.
-  return clamp(gPool[handle - 1].x / 1.5, -1.0, 1.0);
+  return clamp11(gPool[handle - 1].x / 1.5);
 }
 
 extern "C" double soemdsp_henon_map_y(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return clamp(gPool[handle - 1].y / 0.45, -1.0, 1.0);
+  return clamp11(gPool[handle - 1].y / 0.45);
 }
 
 extern "C" int soemdsp_henon_map_version() {

@@ -171,7 +171,7 @@ extern "C" double soemdsp_thump_envelope_sample(
 
   double snapDepth = ui_to_snap_depth(decaySnap);
   double bodyDepth = ui_to_body_depth(decayBody);
-  double fall = clamp(safe(fallCurve), -1.0, 1.0);
+  double fall = clamp11(safe(fallCurve));
   if (!(fall * 0.0 == 0.0)) fall = kDefaultFallCurve;
   double atk = maxd(0.0, safe(attack));
   double rel = maxd(0.0, safe(release));

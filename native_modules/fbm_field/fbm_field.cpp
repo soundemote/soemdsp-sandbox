@@ -222,10 +222,10 @@ static double fieldAt(
 
 // Contrast = expand/compress deviation from mid / zero.
 // Mono face: mid = 0.5 + (bipolar*0.5)*c  (same as scaling bipolar by c then → 0…1).
-// Audio:     bipolar_out = clamp(bipolar * c, -1…1)  — same expansion, stay bipolar.
+// Audio:     bipolar_out = clamp11(bipolar * c)  — same expansion, stay bipolar.
 static double applyContrastBipolar(double bipolar, double contrast) {
   const double c = contrast < 0.0 ? 0.0 : contrast;
-  return clamp(bipolar * c, -1.0, 1.0);
+  return clamp11(bipolar * c);
 }
 
 static double bipolarToMono(double bipolar, double contrast) {

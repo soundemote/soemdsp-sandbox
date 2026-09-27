@@ -3,7 +3,7 @@
 //
 // Canonical homes (nested, matching soemdsp):
 //   soemdsp::debug  -- safe / is_bad / is_nan  (see debug.h)
-//   soemdsp::math   -- clamp, clamp01, wrap01, floor/ceil, ...
+//   soemdsp::math   -- clamp, clamp01, clamp11, wrap01, floor/ceil, ...
 // Flat soemdsp_maths:: is a compatibility mirror for existing modules.
 #pragma once
 
@@ -18,6 +18,7 @@ constexpr double kPlanck = 1.0e-7;
 
 static inline double clamp(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
 static inline double clamp01(double x) { return clamp(x, 0.0, 1.0); }
+static inline double clamp11(double x) { return clamp(x, -1.0, 1.0); }
 static inline int clamp_int(int x, int lo, int hi) { return x < lo ? lo : (x > hi ? hi : x); }
 
 static inline double maxd(double a, double b) { return a > b ? a : b; }
@@ -88,6 +89,7 @@ using soemdsp::debug::safe;
 using soemdsp::math::kPlanck;
 using soemdsp::math::clamp;
 using soemdsp::math::clamp01;
+using soemdsp::math::clamp11;
 using soemdsp::math::clamp_int;
 using soemdsp::math::maxd;
 using soemdsp::math::mind;

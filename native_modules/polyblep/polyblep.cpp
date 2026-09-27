@@ -161,7 +161,7 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
         break;
       }
       double nextTriangle = (slot.triangleIntegrator + polyBlepSquare(phaseCycle, renderIncrement) * phaseDelta * 4.0) * 0.995;
-      nextTriangle = clamp(nextTriangle, -1.0, 1.0);
+      nextTriangle = clamp11(nextTriangle);
       slot.triangleIntegrator = nextTriangle;
       sample = nextTriangle;
       break;

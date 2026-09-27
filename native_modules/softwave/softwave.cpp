@@ -48,7 +48,7 @@ static double soft_tanh(double v) {
 
 // Rough acos for softwave shapes (arg clamped to [-1,1]).
 static double soft_acos(double x) {
-  double a = clamp(x, -1.0, 1.0);
+  double a = clamp11(x);
   // acos(x) ≈ π/2 - asin(x); asin series for |x|<=1
   // asin(x) = x + (1/2)(x^3)/3 + (1*3)/(2*4)(x^5)/5 + ...
   double x2 = a * a;
@@ -106,7 +106,7 @@ static double run_shape(double finalPhase, int shape, double sa, double mf, doub
     case 2: {
       const double a = soft_tanh(dsp_sin(p * kPi * 2.0) * sa * mf)
         * dsp_sin(wrap01(p + 0.25) * kPi * 2.0);
-      return soft_acos(clamp(a, -1.0, 1.0)) / (kPi * 0.5) - 1.0;
+      return soft_acos(clamp11(a)) / (kPi * 0.5) - 1.0;
     }
     case 3: {
       const double bow = parabol_sine(p);
@@ -119,7 +119,7 @@ static double run_shape(double finalPhase, int shape, double sa, double mf, doub
       const double t = clamp(mf, 0.0, 1.0);
       const double adjusted = 0.15 + (1.0 - 0.15) * t;
       const double scaling = soft_tanh((1.0 - (freq_to_pitch(frequencyHz) / 127.0)) * 9.0);
-      return soft_acos(clamp(dsp_sin(p * kPi * 2.0) * adjusted * scaling, -1.0, 1.0))
+      return soft_acos(clamp11(dsp_sin(p * kPi * 2.0) * adjusted * scaling))
         / kPi * 2.0 - 1.0;
     }
     case 6: {

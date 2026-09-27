@@ -224,7 +224,7 @@ extern "C" void soemdsp_chorus_sample(
 
     // Audio applies Depth to the bipolar modulator; the cloud publishes the
     // pre-Depth signal so face width is invariant to Depth (even at zero).
-    const double visualY = clamp(y, -1.0, 1.0);
+    const double visualY = clamp11(y);
     double delaySamples = (dly + y * dep) * 0.001 * sr;
     const double delayed = read_delay(voice, delaySamples);
     st.lastDelay01[v] = clamp(0.5 + 0.5 * visualY, 0.0, 1.0);

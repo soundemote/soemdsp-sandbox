@@ -84,7 +84,7 @@ double waveformSample(WaveformState& w, double phaseCycle, double phaseIncrement
       return polyBlepSquare(phaseCycle, phaseIncrement);
     case 2: {
       double next = (w.triangleIntegrator + polyBlepSquare(phaseCycle, phaseIncrement) * phaseIncrement * 4.0) * 0.995;
-      next = clamp(next, -1.0, 1.0);
+      next = clamp11(next);
       w.triangleIntegrator = next;
       return next;
     }

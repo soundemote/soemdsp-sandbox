@@ -69,7 +69,7 @@ static double normalize_shape(double shape) {
     const double t = (dsp_ln(100.0) - dsp_ln(r)) / (dsp_ln(100.0) - dsp_ln(1.0e-4));
     return clamp(t, 0.0, 1.0);
   }
-  return clamp(s, -1.0, 1.0);
+  return clamp11(s);
 }
 
 static double shape_skew(double shape) {

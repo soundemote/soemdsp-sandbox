@@ -124,7 +124,7 @@ double polyBlepTrapezoid(double t, double dt) {
   } else if (y > 1.0) {
     y = 2.0 - y;
   }
-  y = clamp(2.0 * y, -1.0, 1.0);
+  y = clamp11(2.0 * y);
 
   double t1 = wrap01(t + 0.125);
   double t2 = wrap01(t1 + 0.5);
@@ -211,8 +211,7 @@ static inline double hypersaw_walk(
     // Uniform bipolar |n| averages 1/2; ×2 so the same Speed Hz wanders like Fixed.
     j.out += noise * (stepSize + stepSize);
   }
-  if (j.out > 1.0) j.out = 1.0;
-  if (j.out < -1.0) j.out = -1.0;
+  j.out = clamp11(j.out);
 
   static const double kTauOver44100 = 0.000142475857;
   const double tauZSr = kTwoPi / sr;

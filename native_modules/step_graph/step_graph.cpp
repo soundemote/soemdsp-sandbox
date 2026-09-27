@@ -73,7 +73,7 @@ static void ensure_default_ramp(State& st) {
 // Contour domain is −1…+1. Continuous kernels soft-cap at ±(1 − kPlanck)
 // so rational / exp / log never hit exact ±1 (div0 / overflow).
 static double contour_soft_cap(double contour) {
-  const double c = clamp(safe(contour), -1.0, 1.0);
+  const double c = clamp11(safe(contour));
   const double softMax = 1.0 - kPlanck;
   if (c > softMax) return softMax;
   if (c < -softMax) return -softMax;
@@ -129,8 +129,8 @@ static double segment_value(
   const double dx = (double)right.x - (double)left.x;
   if (dsp_fabs(dx) < 1.0e-6) return 0.5 * ((double)left.y + (double)right.y);
   const double p = clamp((x - (double)left.x) / dx, 0.0, 1.0);
-  const double offset = clamp(safe(curveOffset), -1.0, 1.0);
-  const double contour = clamp(safe((double)right.c) + offset, -1.0, 1.0);
+  const double offset = clamp11(safe(curveOffset));
+  const double contour = clamp11(safe((double)right.c) + offset);
   // Global Shape param always wins (matches graphSegmentOptionsForNode).
   const int shape = globalShape;
 

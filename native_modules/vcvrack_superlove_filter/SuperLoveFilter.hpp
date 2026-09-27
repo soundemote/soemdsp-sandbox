@@ -108,7 +108,7 @@ static double hpBpResonanceMod(double reso) {
 }
 
 static double soft_acos(double x) {
-	double a = clampd(x, -1.0, 1.0);
+	double a = clamp11(x);
 	double x2 = a * a;
 	double series = a * (1.0 + x2 * (0.16666666666666666
 		+ x2 * (0.075
@@ -125,8 +125,8 @@ static double softwaveTri(double phaseCycles, double morph, double frequencyHz) 
 	const double t = clampd(morph, 0.0, 1.0);
 	const double s = dsp_sin(p * kTwoPi);
 	if (t <= 1.0e-12) return -s;
-	const double raw = soft_acos(clampd(s * t, -1.0, 1.0)) / kPi * 2.0 - 1.0;
-	const double peak = soft_acos(clampd(-t, -1.0, 1.0)) / kPi * 2.0 - 1.0;
+	const double raw = soft_acos(clamp11(s * t)) / kPi * 2.0 - 1.0;
+	const double peak = soft_acos(clamp11(-t)) / kPi * 2.0 - 1.0;
 	return peak > 1.0e-12 ? raw / peak : -s;
 }
 

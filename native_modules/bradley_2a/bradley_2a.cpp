@@ -161,7 +161,7 @@ extern "C" double soemdsp_bradley_2a_sample(
     sig += next_noise(s) * safe(impulseLevel);
   }
 
-  return clamp(sig * safe(level), -1.0, 1.0);
+  return clamp11(sig * safe(level));
 }
 
 extern "C" int soemdsp_bradley_2a_version() {

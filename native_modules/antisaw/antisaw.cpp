@@ -93,7 +93,7 @@ extern "C" double soemdsp_antisaw_sample(
   const double nyquist = rate * 0.5;
   const double f0 = maxd(0.0, safe(fundamental));
   const int N = (int)clamp(dsp_floor(safe(reflections) + 0.5), 1.0, (double)kMaxReflections);
-  const double safeTilt = clamp(safe(tilt), -1.0, 1.0);
+  const double safeTilt = clamp11(safe(tilt));
 
   double out = 0.0;
   for (int n = 1; n <= N; n++) {
@@ -119,7 +119,7 @@ extern "C" double soemdsp_antisaw_sample(
     }
   }
 
-  return clamp(out * safe(level), -1.0, 1.0);
+  return clamp11(out * safe(level));
 }
 
 extern "C" int soemdsp_antisaw_version() {

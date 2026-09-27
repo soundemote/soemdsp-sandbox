@@ -50,7 +50,7 @@ static double powPos(double base, double expv) {
 }
 
 static double acosUnit(double x) {
-  double v = clamp(x, -1.0, 1.0);
+  double v = clamp11(x);
   const double a = dsp_fabs(v);
   const double t = ((-0.0187293 * a + 0.0742610) * a - 0.2121144) * a + 1.5707288;
   const double s = t * dsp_exp(0.5 * dsp_ln(maxd(1e-30, 1.0 - a)));

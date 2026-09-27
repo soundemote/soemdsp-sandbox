@@ -48,7 +48,7 @@ double trisaw(double phase, double warp) {
 // asin via Newton refinement on sin (good enough for the fphas-mids reshape,
 // whose input is always in [-1, 1]).
 double dsp_asin(double x) {
-  x = clamp(x, -1.0, 1.0);
+  x = clamp11(x);
   double guess = x * (kHalfPi);  // initial guess, refined below
   for (int i = 0; i < 6; i++) {
     double s = dsp_sin(guess);

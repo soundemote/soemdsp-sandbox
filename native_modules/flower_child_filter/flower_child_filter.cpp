@@ -330,7 +330,7 @@ extern "C" double soemdsp_flower_child_filter_sample(
     const double graphValue = evalResonanceGraph(reso, reso, breakpoint, cappedTarget, -0.38);
     const double selfModAmp = jmap01(curveShape(graphValue, 0.4), 0.0368, 0.6333);
 
-    double inputSignal = clampd(-input, -1.0, 1.0) * 0.036;
+    double inputSignal = clamp11(-input) * 0.036;
     inputSignal += s.selfMod;
 
     const double mod = 1.4 * inputSignal;

@@ -7,12 +7,12 @@
 //
 // Canonical nested namespaces (matching soemdsp):
 //   soemdsp::debug  -- safe / is_bad / is_nan
-//   soemdsp::math   -- clamp, clamp01, wrap01, poly_blep, poly_blamp, ...
+//   soemdsp::math   -- clamp, clamp01, clamp11, wrap01, poly_blep, poly_blamp, ...
 // Flat soemdsp_maths:: remains a compatibility mirror for older modules.
 //
 // Topic files:
 //   debug.h             -- soemdsp::debug sanitize / bad-float checks
-//   scalar_helpers.h    -- soemdsp::math clamp/clamp01/wrap/floor + soemdsp_maths mirror
+//   scalar_helpers.h    -- soemdsp::math clamp/clamp01/clamp11/wrap/floor + soemdsp_maths mirror
 //   poly_blep.h         -- soemdsp::math::poly_blep / poly_blamp
 //   exp_log.h           -- general-purpose exp()/ln() + dB↔lin polyfills (no libm)
 //   phasor.h            -- unit-interval phase advance / Hz→increment

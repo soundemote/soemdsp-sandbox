@@ -264,7 +264,7 @@ static inline void waveform_partial(
 ) {
   const int h = harmonic < 1 ? 1 : harmonic;
   const bool odd = (h % 2) == 1;
-  const float m = clamp_f(pwm, -1.0f, 1.0f);
+  const float m = (float)soemdsp_maths::clamp11(pwm);
   float amplitude = 0.0f;
   float phase = 0.0f;
   const int wf = waveform;
@@ -383,7 +383,7 @@ inline void build_from_waveform(
   out.hasPhaseLerp = 0;
   out.hasRatioLerp = 0;
   out.hasPanLerp = 0;
-  const float m = clamp_f(pwm, -1.0f, 1.0f);
+  const float m = (float)soemdsp_maths::clamp11(pwm);
   const float rot = (phaseRotation * 0.0f == 0.0f) ? phaseRotation : 0.0f;
   for (int i = 0; i < H; i += 1) {
     float amp = 0.0f, ph = 0.0f, ratio = 0.0f;
@@ -758,7 +758,7 @@ static inline float filter_response_gain_rational(
   float freqHz, int mode, float cutoffHz, float slope01, float skew, int curveMode = 0
 ) {
   const float fc = cutoffHz > 0.0f ? cutoffHz : 0.0f;
-  const float slope = clamp_f(slope01, -1.0f, 1.0f);
+  const float slope = (float)soemdsp_maths::clamp11(slope01);
   const float mag = slope < 0.0f ? -slope : slope;
   const bool reverse = slope < 0.0f;
   const float f = freqHz > 0.0f ? freqHz : 0.0f;
