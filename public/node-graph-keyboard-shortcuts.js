@@ -365,6 +365,18 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
+  // G = toggle phone guide orientation in arrange (edit) mode only.
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "g") {
+    if (
+      typeof nodeGraphLayoutCanvasMode === "function"
+      && nodeGraphLayoutCanvasMode() === "edit"
+      && typeof toggleNodeGraphLayoutCanvasPhoneGuideOrientation === "function"
+    ) {
+      event.preventDefault();
+      toggleNodeGraphLayoutCanvasPhoneGuideOrientation();
+      return;
+    }
+  }
   // Space toggles simulation play/pause when not typing.
   // Text inputs are excluded above so module search and name fields can take spaces.
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.code === "Space") {

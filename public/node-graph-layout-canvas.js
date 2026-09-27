@@ -1,5 +1,6 @@
 // Layout canvas: pinned displays fullscreen (phone button + F).
-// F cycle: off → perform → edit → off.
+// F cycle: off → perform → edit (arrange) → off.
+// Arrange mode: thin white phone-aspect guides (9:19.5); G toggles vertical/horizontal.
 // Freeform x/y/w/h only — no auto-grid / auto-organize.
 // Root → patch.view.canvases.root; metamodule → byMetamodule[metaId].
 
@@ -267,6 +268,106 @@ function nodeGraphLayoutCanvasIsActive() {
   return nodeGraphLayoutCanvasMode() !== "off";
 }
 
+/** Portrait phone aspect (width/height). Modern ~9:19.5. */
+const NODE_GRAPH_LAYOUT_CANVAS_PHONE_ASPECT = 9 / 19.5;
+
+/** @returns {"vertical"|"horizontal"} */
+function nodeGraphLayoutCanvasPhoneGuideOrientation() {
+  const raw = String(nodeGraphMvp?.layoutCanvasPhoneGuideOrientation || "").trim().toLowerCase();
+  return raw === "horizontal" ? "horizontal" : "vertical";
+}
+
+function nodeGraphLayoutCanvasRemovePhoneGuides(stage) {
+  const root = stage instanceof HTMLElement
+    ? stage
+    : document.getElementById("nodeScreenSoloStage");
+  if (!(root instanceof HTMLElement)) {
+    return;
+  }
+  root.querySelectorAll(".node-layout-canvas-phone-guides").forEach((el) => el.remove());
+}
+
+/**
+ * Centered phone-aspect guide frame for arrange (edit) mode only.
+ * Vertical = portrait (9:19.5); horizontal = landscape (19.5:9). One at a time.
+ */
+function nodeGraphLayoutCanvasSyncPhoneGuides(stage) {
+  const root = stage instanceof HTMLElement
+    ? stage
+    : document.getElementById("nodeScreenSoloStage");
+  if (!(root instanceof HTMLElement)) {
+    return;
+  }
+  const edit = root.classList.contains("node-layout-canvas-stage")
+    && root.classList.contains("node-layout-canvas-edit");
+  let wrap = root.querySelector(":scope > .node-layout-canvas-phone-guides");
+  if (!edit) {
+    if (wrap) {
+      wrap.remove();
+    }
+    return;
+  }
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.className = "node-layout-canvas-phone-guides";
+    wrap.setAttribute("aria-hidden", "true");
+    const frame = document.createElement("div");
+    frame.className = "node-layout-canvas-phone-guide-frame";
+    wrap.append(frame);
+    root.append(wrap);
+  }
+  const orient = nodeGraphLayoutCanvasPhoneGuideOrientation();
+  wrap.dataset.orientation = orient;
+  wrap.classList.toggle("is-horizontal", orient === "horizontal");
+  wrap.classList.toggle("is-vertical", orient === "vertical");
+  const frame = wrap.querySelector(".node-layout-canvas-phone-guide-frame");
+  if (!(frame instanceof HTMLElement)) {
+    return;
+  }
+  const sw = Math.max(1, root.clientWidth || 1);
+  const sh = Math.max(1, root.clientHeight || 1);
+  const aspect = orient === "horizontal"
+    ? (1 / NODE_GRAPH_LAYOUT_CANVAS_PHONE_ASPECT)
+    : NODE_GRAPH_LAYOUT_CANVAS_PHONE_ASPECT;
+  let w;
+  let h;
+  if (sw / sh > aspect) {
+    h = sh;
+    w = h * aspect;
+  } else {
+    w = sw;
+    h = w / aspect;
+  }
+  frame.style.left = `${(sw - w) / 2}px`;
+  frame.style.top = `${(sh - h) / 2}px`;
+  frame.style.width = `${w}px`;
+  frame.style.height = `${h}px`;
+}
+
+function nodeGraphLayoutCanvasSetPhoneGuideOrientation(next, options = {}) {
+  const orient = next === "horizontal" ? "horizontal" : "vertical";
+  if (nodeGraphMvp && typeof nodeGraphMvp === "object") {
+    nodeGraphMvp.layoutCanvasPhoneGuideOrientation = orient;
+  }
+  nodeGraphLayoutCanvasSyncPhoneGuides();
+  if (options.silent !== true && typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      orient === "horizontal"
+        ? "Phone guides: horizontal (landscape 19.5:9). G = vertical."
+        : "Phone guides: vertical (portrait 9:19.5). G = horizontal.",
+    );
+  }
+  return orient;
+}
+
+function toggleNodeGraphLayoutCanvasPhoneGuideOrientation(options = {}) {
+  const cur = nodeGraphLayoutCanvasPhoneGuideOrientation();
+  return nodeGraphLayoutCanvasSetPhoneGuideOrientation(
+    cur === "vertical" ? "horizontal" : "vertical",
+    options,
+  );
+}
+
 function nodeGraphLayoutCanvasApplyTileRect(tile, rect, stage) {
   if (!(tile instanceof HTMLElement) || !(stage instanceof HTMLElement)) {
     return;
@@ -289,6 +390,7 @@ function nodeGraphLayoutCanvasClearStageChrome(stage) {
   if (!(stage instanceof HTMLElement)) {
     return;
   }
+  nodeGraphLayoutCanvasRemovePhoneGuides(stage);
   stage.classList.remove("node-layout-canvas-stage", "node-layout-canvas-edit");
   stage.querySelectorAll(".node-layout-canvas-tile").forEach((tile) => {
     const face = tile.querySelector(".node-screen-solo-face, .node-layout-canvas-face");
@@ -413,6 +515,7 @@ function beginNodeGraphLayoutCanvasStage(nodeIds, mode = "perform") {
   nodeGraphMvp.screenSoloNodeId = items[0].nodeId;
 
   document.body.classList.add("node-screen-solo-active", "node-layout-canvas-active");
+  document.body.classList.toggle("node-layout-canvas-edit", mode === "edit");
   stage.hidden = false;
   stage.classList.add("node-layout-canvas-stage");
   stage.classList.toggle("node-layout-canvas-edit", mode === "edit");
@@ -467,10 +570,14 @@ function beginNodeGraphLayoutCanvasStage(nodeIds, mode = "perform") {
   }
   window.requestAnimationFrame(() => {
     relayoutKeyboardFaces();
+    nodeGraphLayoutCanvasSyncPhoneGuides(stage);
     if (typeof nodeGraphScreenSoloRefreshPaint === "function") {
       nodeGraphScreenSoloRefreshPaint();
     }
-    window.requestAnimationFrame(relayoutKeyboardFaces);
+    window.requestAnimationFrame(() => {
+      relayoutKeyboardFaces();
+      nodeGraphLayoutCanvasSyncPhoneGuides(stage);
+    });
   });
   return true;
 }
@@ -512,17 +619,21 @@ function nodeGraphLayoutCanvasOpen(mode = "perform", options = {}) {
     stage.setAttribute(
       "aria-label",
       next === "edit"
-        ? "Layout canvas edit. Drag tiles to move, corners to resize. F exits edit, F again exits canvas."
-        : "Layout canvas. F enters edit mode, F again exits.",
+        ? "Layout canvas arrange. Drag tiles to move, corners to resize. Phone guides on; G toggles vertical/horizontal. F exits arrange, F again exits canvas."
+        : "Layout canvas. F enters arrange mode, F again exits.",
     );
+    nodeGraphLayoutCanvasSyncPhoneGuides(stage);
   }
   if (options.silent !== true && typeof setNodeInteractionHelp === "function") {
     const n = ids.length;
     const scope = nodeGraphLayoutCanvasActiveScopeId() ? "metamodule" : "root";
+    const guideHint = nodeGraphLayoutCanvasPhoneGuideOrientation() === "horizontal"
+      ? "guides horizontal"
+      : "guides vertical";
     setNodeInteractionHelp(
       next === "edit"
-        ? `Canvas edit (${scope}): move/resize ${n} display${n === 1 ? "" : "s"}. F exits edit.`
-        : `Canvas (${scope}): ${n} display${n === 1 ? "" : "s"}. F = edit layout.`,
+        ? `Canvas arrange (${scope}): move/resize ${n} display${n === 1 ? "" : "s"}; ${guideHint} (G). F exits arrange.`
+        : `Canvas (${scope}): ${n} display${n === 1 ? "" : "s"}. F = arrange layout.`,
     );
   }
   if (typeof renderNodeGraphModularViewModeButtons === "function") {
@@ -571,7 +682,8 @@ function nodeGraphLayoutCanvasStageIsLive() {
 }
 
 /**
- * Phone + F cycle: off → perform → edit → off.
+ * Phone + F cycle: off → perform → edit (arrange) → off.
+ * Arrange shows phone-aspect guides; G toggles vertical/horizontal.
  * No auto-organize; freeform rects only.
  */
 function toggleNodeGraphLayoutCanvasView(options = {}) {
@@ -722,6 +834,7 @@ function nodeGraphLayoutCanvasBindTileInteractions(stage) {
         h: tile.dataset.canvasH,
       }, stage);
     });
+    nodeGraphLayoutCanvasSyncPhoneGuides(stage);
   });
 }
 
@@ -743,7 +856,7 @@ function bindNodeGraphLayoutCanvasSettingsControl() {
     if (typeof setNodeInteractionHelp === "function") {
       setNodeInteractionHelp(
         input.checked
-          ? "Show in canvas on. F = canvas, F again = edit layout, F again = exit."
+          ? "Show in canvas on. F = canvas, F again = arrange (phone guides; G flips), F again = exit."
           : "Removed from canvas.",
       );
     }

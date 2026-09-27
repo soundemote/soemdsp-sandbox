@@ -351,10 +351,14 @@ function syncNodeSliderReadout(slider) {
   const labelText = readout.querySelector(".node-slider-readout-label");
   const valueText = readout.querySelector(".node-slider-readout-value");
   const unitText = readout.querySelector(".node-slider-readout-unit");
-  // Thumb + number track the parameter. Ghost bar shows sent/effective.
+  // Thumb tracks editable base (domainValue). When a modulation ghost is
+  // active, the in-slider number shows the modulated *target*
+  // (sentDomainValue / effectiveDomain) — not smoothed audio.
   const domainRaw = Number(slider.dataset?.domainValue);
-  const displayValue = Number.isFinite(domainRaw) ? domainRaw : Number(slider.value);
-  const position = nodeSliderTravelFromValue(slider, displayValue) * 100;
+  const baseValue = Number.isFinite(domainRaw) ? domainRaw : Number(slider.value);
+  const sentRaw = Number(slider.dataset?.sentDomainValue);
+  const displayValue = Number.isFinite(sentRaw) ? sentRaw : baseValue;
+  const position = nodeSliderTravelFromValue(slider, baseValue) * 100;
   let unit = (slider.dataset.unit || "").trim();
   let formattedValue = displayValue;
   let formattedKind = slider.dataset.kind;

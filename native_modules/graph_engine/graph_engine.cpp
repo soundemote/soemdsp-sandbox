@@ -180,6 +180,32 @@ extern "C" void soemdsp_robin_sinusoid_process_block(
 );
 extern "C" int soemdsp_robin_sinusoid_block_output_ptr(int handle);
 
+extern "C" int soemdsp_robin_oscillator_create();
+extern "C" void soemdsp_robin_oscillator_destroy(int handle);
+extern "C" void soemdsp_robin_oscillator_reset(int handle);
+extern "C" double soemdsp_robin_oscillator_sample(
+  int handle,
+  double frequencyHz,
+  double amplitude,
+  double sampleRate,
+  double startPhaseCycles,
+  double waveform,
+  double pulseWidth,
+  double reset
+);
+extern "C" void soemdsp_robin_oscillator_process_block(
+  int handle,
+  double frequencyHz,
+  double amplitude,
+  double sampleRate,
+  double startPhaseCycles,
+  double waveform,
+  double pulseWidth,
+  double reset,
+  int frameCount
+);
+extern "C" int soemdsp_robin_oscillator_block_output_ptr(int handle);
+
 extern "C" int soemdsp_robin_supersaw_create();
 extern "C" void soemdsp_robin_supersaw_destroy(int handle);
 extern "C" void soemdsp_robin_supersaw_reset(int handle);
@@ -1653,6 +1679,7 @@ static const int kTypeGain = 13;
 static const int kTypeNoiseGenerator = 14;
 static const int kTypeRobinSinusoid = 15;
 static const int kTypeRobinSupersaw = 16;
+static const int kTypeRobinOscillator = 74; // Robin Oscillator; id 24 left unused (Soft Clipper)
 static const int kTypeSlewLimiter = 17;
 static const int kTypeComparator = 18;
 static const int kTypeSampleDelay = 19;
@@ -2286,6 +2313,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_noise_generator_destroy(handle);
   } else if (kind == kTypeRobinSinusoid) {
     soemdsp_robin_sinusoid_destroy(handle);
+  } else if (kind == kTypeRobinOscillator) {
+    soemdsp_robin_oscillator_destroy(handle);
   } else if (kind == kTypeRobinSupersaw) {
     soemdsp_robin_supersaw_destroy(handle);
   } else if (kind == kTypeSlewLimiter) {
@@ -2800,6 +2829,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeInertialFilter) ? 20000.0 // attack Hz
       : (typeId == kTypeRobinSupersaw) ? 100.0
       : (typeId == kTypeRobinSinusoid) ? 440.0
+      : (typeId == kTypeRobinOscillator) ? 100.0
       : (typeId == kTypeSampleHold) ? 0.0
       : (typeId == kTypeClock || typeId == kTypeBinaryClock) ? 2.0
       : (typeId == kTypeArp) ? 8.0 // Internal Clock Hz
@@ -3179,6 +3209,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCrossover6) ? 1000.0
       : (typeId == kTypeTubeSaturation) ? 0.5 // Load
       : (typeId == kTypeSoftClipper) ? 0.5 // knee
+      : (typeId == kTypeRobinOscillator) ? 0.5 // pulseWidth
       : 2.0,
     false
   );
@@ -4231,6 +4262,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeRange) return soemdsp_range_create();
   if (typeId == kTypeNoiseGenerator) return soemdsp_noise_generator_create();
   if (typeId == kTypeRobinSinusoid) return soemdsp_robin_sinusoid_create();
+  if (typeId == kTypeRobinOscillator) return soemdsp_robin_oscillator_create();
   if (typeId == kTypeRobinSupersaw) return soemdsp_robin_supersaw_create();
   if (typeId == kTypeSlewLimiter) return soemdsp_slew_limiter_create();
   if (typeId == kTypeComparator) return soemdsp_comparator_create();
@@ -11363,6 +11395,58 @@ static void process_bias(Circuit& g, Node& node, int frames) {
   }
 }
 
+
+static void process_robin_oscillator(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  const double srD = (double)sr;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool takeSamplePath =
+    node_needs_sample_accurate_controls(g, node, liveF || liveInc || liveReset);
+  if (!takeSamplePath) {
+    const double phase0 = control_effective(node.phaseParam);
+    const double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
+    double amp = control_effective(node.amplitude);
+    if (!(amp == amp)) amp = 0.0;
+    const double waveV = control_effective(node.waveform);
+    const double pulseW = control_effective(node.width);
+    soemdsp_robin_oscillator_process_block(
+      node.nativeHandle, freq, amp, srD, phase0, waveV, pulseW, 0.0, frames
+    );
+    double* outPtr = ptr_from_export(soemdsp_robin_oscillator_block_output_ptr(node.nativeHandle));
+    if (!outPtr) return;
+    copy_tap_to_buf(node.buf[kPortMono], outPtr, frames);
+    copy_tap_to_buf(node.buf[kPortLeft], outPtr, frames);
+    copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
+    return;
+  }
+  if (!liveReset) node.lastReset = 0.0;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    double resetGate = 0.0;
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
+      node.lastReset = rv;
+    }
+    const double phase0 = control_audio(g, node.phaseParam, f);
+    double freq = clamp_hz_nyquist(control_audio(g, node.frequency, f), srD);
+    if (liveInc) freq += g.mixIncrement[f] * srD;
+    double amp = control_audio(g, node.amplitude, f);
+    if (!(amp == amp)) amp = 0.0;
+    const double waveV = control_effective(node.waveform);
+    const double pulseW = control_audio(g, node.width, f);
+    const double y = soemdsp_robin_oscillator_sample(
+      node.nativeHandle, freq, amp, srD, phase0, waveV, pulseW, resetGate
+    );
+    node.buf[kPortMono][f] = y;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+  }
+}
+
 static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
@@ -11682,6 +11766,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     node.typeId == kTypePolyBlep
     || node.typeId == kTypeNoiseGenerator
     || node.typeId == kTypeRobinSinusoid
+    || node.typeId == kTypeRobinOscillator
     || node.typeId == kTypeRobinSupersaw
     || node.typeId == kTypeClock
     || node.typeId == kTypeBinaryClock
@@ -11948,6 +12033,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeRange
     || typeId == kTypeNoiseGenerator
     || typeId == kTypeRobinSinusoid
+    || typeId == kTypeRobinOscillator
     || typeId == kTypeRobinSupersaw
     || typeId == kTypeSlewLimiter
     || typeId == kTypeComparator
@@ -12127,6 +12213,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
       soemdsp_polyblep_reset(n.nativeHandle);
     } else if (typeId == kTypeRobinSinusoid) {
       soemdsp_robin_sinusoid_reset(n.nativeHandle);
+    } else if (typeId == kTypeRobinOscillator) {
+      soemdsp_robin_oscillator_reset(n.nativeHandle);
     } else if (typeId == kTypeRobinSupersaw) {
       soemdsp_robin_supersaw_reset(n.nativeHandle);
     } else if (typeId == kTypeBlit) {
@@ -12969,6 +13057,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
     }
     if (node.typeId == kTypeRobinSinusoid) {
       process_robin_sinusoid(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeRobinOscillator) {
+      process_robin_oscillator(g, node, frames);
       return;
     }
     if (node.typeId == kTypeRobinSupersaw) {

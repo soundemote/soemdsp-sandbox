@@ -1,4 +1,4 @@
-﻿// Reuses the same in-app debug console channel as the graph-drag tracing
+// Reuses the same in-app debug console channel as the graph-drag tracing
 // (see node-graph-graph-utils.js) so slider-drag diagnostics show up in the
 // same debug panel. No-ops harmlessly if SE/dev mode isn't present.
 function nodeGraphSliderDebugTrace(msg, data) {

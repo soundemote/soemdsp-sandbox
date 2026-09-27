@@ -21,6 +21,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   gain: 13,
   noiseGenerator: 14,
   robinSinusoid: 15,
+  robinOscillator: 74,
   robinSupersaw: 16,
   slewLimiter: 17,
   comparator: 18,
@@ -358,6 +359,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   threshold: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
   knee: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   width: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
+  pulseWidth: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   oversample: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_OVERSAMPLE,
   mix: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MIX,
   feedback: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FEEDBACK,
@@ -3905,6 +3907,14 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("deviation", P.NATIVE_GRAPH_PARAM_WIDTH, cont("deviation", 0.5));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "robinOscillator") {
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("pulseWidth", P.NATIVE_GRAPH_PARAM_WIDTH, cont("pulseWidth", 0.5));
       continue;
     }
     if (type === "robinSinusoid") {

@@ -448,6 +448,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "RobinSinusoid",
     notes: ["RS-MET", "rosic", "recursive sine", "self-oscillating", "sinusoid"],
   },
+  robinOscillator: {
+    category: "oscillator",
+    description: "Cycle-dither AA multi-wave oscillator (RS-MET) with mid-cycle frequency warp.",
+    label: "Robin Oscillator",
+    notes: ["RS-MET", "cycle dither", "AA", "saw", "pulse", "mid-cycle warp"],
+  },
   // additiveOsc / gpuAdditiveOsc retired — Yellow Graph chain replaces them.
   additiveGenerator: {
     category: "additive",
@@ -2913,6 +2919,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   robinSinusoid: {
     source: "native_modules/robin_sinusoid/robin_sinusoid.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/robin_sinusoid/robin_sinusoid.cpp",
+  },
+  robinOscillator: {
+    source: "native_modules/robin_oscillator/robin_oscillator.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/robin_oscillator/robin_oscillator.cpp",
   },
   allpass: {
     source: "native_modules/eq_filter/eq_filter.cpp",

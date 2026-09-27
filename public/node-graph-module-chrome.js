@@ -1,6 +1,6 @@
 // Module chrome — one place every module uses for port placement.
 //
-//   LayoutA            — ports under the face (display + optional params)
+//   LayoutA            — ports above the face (display + optional params)
 //   LayoutB            — ports beside the face (display + optional params)
 //   MetamoduleLayout    — ports in a top strip; dedicated full-width face below
 //                        (I/O labels never shrink the display)
@@ -164,7 +164,7 @@ function nodeGraphModuleChromeLayoutForType(type) {
  *
  * Face content (scope, graph, filter curve, chromeless body, …) is still
  * definition.layout / customDisplayArea for A/B/Meta — chrome places ports
- * under (A), beside (B), top strip + face (Metamodule), or title+I/O only.
+ * above the face (A), beside (B), top strip + face (Metamodule), or title+I/O only.
  *
  * @param {Record<string, object>} entries
  * @returns {Readonly<Record<string, object>>}
@@ -255,8 +255,10 @@ function nodeGraphModuleChrome(type) {
     layout,
     portsBeside,
     portsAboveFace,
-    // InletOutletLayout stacks I/O under the title (not beside a face).
-    // MetamoduleLayout puts I/O above the face (not under).
+    // LayoutA: full-width I/O strip above the face (band order, not this flag).
+    // InletOutletLayout stacks I/O under the title (no face).
+    // MetamoduleLayout also puts I/O above the face (portsAboveFace) and
+    // reserves the IO track so labels cannot crush the display.
     portsUnder: !portsBeside && !portsAboveFace,
     // MetamoduleLayout still mounts an optional title bar (headerless path).
     headerless: portsAboveFace || nodeGraphModuleIsHeaderlessLayoutB(type),

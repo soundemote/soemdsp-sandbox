@@ -175,6 +175,7 @@ async function main() {
       + "    return {\n"
       + "      id: n.dataset.node, type: n.dataset.nodeType,\n"
       + "      ioHidden: n.classList.contains('io-hidden'),\n"
+      + "      unusedHidden: n.classList.contains('unused-hidden'),\n"
       + "      classes: n.className,\n"
       + "      node: {x:r.x,y:r.y,w:r.width,h:r.height},\n"
       + "      io: io ? {x:ir.x,y:ir.y,w:ir.width,h:ir.height,display:cs.display,visibility:cs.visibility,hidden:io.hidden} : null,\n"
@@ -183,7 +184,7 @@ async function main() {
       + "      portStroke: pcs?.getPropertyValue('--node-port-crescent-stroke') || '',\n"
       + "    };\n"
       + "  });\n"
-      + "  return { wsClass: ws?.className || '', hideUnused: ws?.classList.contains('patch-unused-ports-hidden'), nodes };\n"
+      + "  return { wsClass: ws?.className || '', hideUnusedGlobalRetired: ws?.classList.contains('patch-unused-ports-hidden'), hideUnusedModules: nodes.filter((n)=>n.unusedHidden).length, nodes };\n"
       + "})()");
     console.log("probe geo=" + JSON.stringify(geo, null, 2));
     var shot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true });

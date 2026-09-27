@@ -47,6 +47,7 @@ Only these live-audio types exist in the efficient build:
 |------|------|
 | `polyBlep` | Oscillator |
 | `robinSinusoid` | Recursive sine osc |
+| `robinOscillator` | Cycle-dither AA multi-wave osc (mid-cycle Hz warp) |
 | `robinSupersaw` | Detuned saw bank |
 | `noiseGenerator` | Noise source |
 | `ladderFilter` | Filter |
@@ -183,7 +184,7 @@ Canonical circuit:
 
 ```text
 polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
-(+ robinSinusoid / robinSupersaw / noiseGenerator;
+(+ robinSinusoid / robinOscillator / robinSupersaw / noiseGenerator;
    attenuverter / ampCurve / range / inv / ringMod / u2b / b2u / bias / gain / slewLimiter / comparator /
    sampleDelay / sampleHold / minMax / mix / mixStereo /
    midSideEncode / vectorscopeTransform / rotate3dTo2d /
@@ -614,6 +615,8 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 ## Amendments
 
 Add new rules here when the same class of mistake happens twice. Keep this file short and enforceable.
+
+- **2026-09-27 — LayoutA I/O above the face:** LayoutA module inlets and outlets sit in the band **above** the display / face (`header → io → face → params → lip`). Sample load controls stay under the face. Display off and Display Height 0 omit the face track; I/O stays under the header. **LayoutB** (ports beside the face) and **InletOutletLayout** (title + I/O, no face) are unchanged. Do not keep a second stack or a patch shim for the old face-then-I/O order. Contract: `docs/MODULE_LAYOUT_PLAN.md`.
 
 - **2026-09-27 — No legacy helpers (§1):** Patches may break after renames/schema changes. The Architect repairs them. Agents must not add legacy helpers, dual keys, rename bridges, or soft remaps to keep old saves working — that complexity causes more bugs than broken patches.
 

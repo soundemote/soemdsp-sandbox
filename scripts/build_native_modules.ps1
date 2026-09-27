@@ -112,6 +112,7 @@ $modules = @(
   @{ Name = "pitch_quantizer"; Simd = $false; Exports = @("soemdsp_pitch_quantizer_create", "soemdsp_pitch_quantizer_destroy", "soemdsp_pitch_quantizer_sample", "soemdsp_pitch_quantizer_version") }
   @{ Name = "surge_oscillator"; Simd = $false; Exports = @("soemdsp_surge_oscillator_create", "soemdsp_surge_oscillator_destroy", "soemdsp_surge_oscillator_reset", "soemdsp_surge_oscillator_sample", "soemdsp_surge_oscillator_out", "soemdsp_surge_oscillator_saw", "soemdsp_surge_oscillator_square", "soemdsp_surge_oscillator_tri", "soemdsp_surge_oscillator_sine", "soemdsp_surge_oscillator_synced", "soemdsp_surge_oscillator_internal_sync", "soemdsp_surge_oscillator_version") }
   @{ Name = "dsf_oscillator"; Simd = $false; Exports = @("soemdsp_dsf_oscillator_create", "soemdsp_dsf_oscillator_destroy", "soemdsp_dsf_oscillator_reset", "soemdsp_dsf_oscillator_sample", "soemdsp_dsf_oscillator_out", "soemdsp_dsf_oscillator_version") }
+  @{ Name = "robin_oscillator"; Simd = $false; Exports = @("soemdsp_robin_oscillator_create", "soemdsp_robin_oscillator_destroy", "soemdsp_robin_oscillator_reset", "soemdsp_robin_oscillator_sample", "soemdsp_robin_oscillator_process_block", "soemdsp_robin_oscillator_block_output_ptr", "soemdsp_robin_oscillator_max_block_frames", "soemdsp_robin_oscillator_version", "soemdsp_robin_oscillator_metadata_json", "soemdsp_robin_oscillator_metadata_json_size") }
   @{ Name = "robin_sinusoid"; Simd = $false; Exports = @("soemdsp_robin_sinusoid_create", "soemdsp_robin_sinusoid_destroy", "soemdsp_robin_sinusoid_reset", "soemdsp_robin_sinusoid_sample", "soemdsp_robin_sinusoid_process_block", "soemdsp_robin_sinusoid_block_output_ptr", "soemdsp_robin_sinusoid_max_block_frames", "soemdsp_robin_sinusoid_version", "soemdsp_robin_sinusoid_metadata_json", "soemdsp_robin_sinusoid_metadata_json_size") }
   @{ Name = "robin_supersaw"; Simd = $false; Exports = @("soemdsp_robin_supersaw_create", "soemdsp_robin_supersaw_destroy", "soemdsp_robin_supersaw_reset", "soemdsp_robin_supersaw_sample", "soemdsp_robin_supersaw_process_block", "soemdsp_robin_supersaw_block_output_left_ptr", "soemdsp_robin_supersaw_block_output_right_ptr", "soemdsp_robin_supersaw_block_output_mono_ptr", "soemdsp_robin_supersaw_max_block_frames", "soemdsp_robin_supersaw_left", "soemdsp_robin_supersaw_right", "soemdsp_robin_supersaw_mono", "soemdsp_robin_supersaw_voice_count", "soemdsp_robin_supersaw_voice_x", "soemdsp_robin_supersaw_voice_pan", "soemdsp_robin_supersaw_voice_amp", "soemdsp_robin_supersaw_version") }
   @{ Name = "henon_map"; Simd = $false; Exports = @("soemdsp_henon_map_create", "soemdsp_henon_map_destroy", "soemdsp_henon_map_sample", "soemdsp_henon_map_x", "soemdsp_henon_map_y", "soemdsp_henon_map_version") }
@@ -629,6 +630,10 @@ if ($node) {
   & $node.Source "$root\scripts\smoke_robin_sinusoid_param_mod.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: robin sinusoid ParamModEdge smoke FAILED"
+& $node.Source "$root\scripts\smoke_robin_oscillator_peak.mjs"
+if ($LASTEXITCODE -ne 0) {
+  throw "Combined build: robin_oscillator peak smoke FAILED"
+}
   }
   & $node.Source "$root\scripts\smoke_polyblep_self_mod.mjs"
   if ($LASTEXITCODE -ne 0) {

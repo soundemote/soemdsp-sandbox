@@ -173,7 +173,10 @@ function paintNodeGraphSliderFaceLive(face, nodeId, buffer = null) {
     const slider = document.getElementById(`node-${nodeId}-offset`);
     readout.hidden = !showReadout;
     if (showReadout && typeof nodeGraphKnobFaceFormatReadout === "function") {
-      readout.textContent = nodeGraphKnobFaceFormatReadout(value, patchNode, slider);
+      // Bar position uses base (value); number shows ghost target when present.
+      const sentRaw = Number(slider?.dataset?.sentDomainValue);
+      const numberValue = Number.isFinite(sentRaw) ? sentRaw : value;
+      readout.textContent = nodeGraphKnobFaceFormatReadout(numberValue, patchNode, slider);
     }
   }
   const unitEl = face.querySelector("[data-knob-face-unit]");

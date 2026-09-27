@@ -980,10 +980,13 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
   if (readout) {
     if (showReadout) {
       const slider = document.getElementById(`node-${nodeId}-offset`);
+      // Arc/position stays on base (value); number follows ghost target when set.
+      const sentRaw = Number(slider?.dataset?.sentDomainValue);
+      const numberValue = Number.isFinite(sentRaw) ? sentRaw : value;
       readout.hidden = false;
       readout.style.display = "";
       readout.setAttribute("aria-hidden", "false");
-      readout.textContent = nodeGraphKnobFaceFormatReadout(value, patchNode, slider);
+      readout.textContent = nodeGraphKnobFaceFormatReadout(numberValue, patchNode, slider);
       if (typeof nodeGraphKnobFaceFitReadout === "function") {
         nodeGraphKnobFaceFitReadout(readout, face);
       }
@@ -1485,14 +1488,17 @@ function syncNodeGraphKnobFaceFromSlider(slider) {
   }
   const readout = face.querySelector("[data-knob-face-readout]");
   const domainRaw = Number(slider.dataset?.domainValue);
-  const displayValue = Number.isFinite(domainRaw) ? domainRaw : Number(slider.value);
+  const baseValue = Number.isFinite(domainRaw) ? domainRaw : Number(slider.value);
+  const sentRaw = Number(slider.dataset?.sentDomainValue);
+  const numberValue = Number.isFinite(sentRaw) ? sentRaw : baseValue;
   const patchNode = typeof nodeGraphPatchNode === "function"
     ? nodeGraphPatchNode(nodeId)
     : null;
   if (readout && !readout.hidden) {
-    readout.textContent = nodeGraphKnobFaceFormatReadout(displayValue, patchNode, slider);
+    readout.textContent = nodeGraphKnobFaceFormatReadout(numberValue, patchNode, slider);
   }
-  const u = nodeGraphKnobFaceUnitFromValue(displayValue, patchNode);
+  // Control position / arc follows editable base, not modulated target.
+  const u = nodeGraphKnobFaceUnitFromValue(baseValue, patchNode);
   face.style.setProperty("--macro-value", String(u));
 }
 

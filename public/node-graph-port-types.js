@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Strict cable port types (SSOT).
  *
  * Jack lists stay inputs/outputs (+ dataInputs/dataOutputs for legacy data-plane

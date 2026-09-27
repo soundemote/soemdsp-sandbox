@@ -106,11 +106,18 @@ function nodeGraphPatchIsLocked(patch = nodeGraphMvp?.patch) {
   return Boolean(view?.locked);
 }
 
+/** True when every module has per-module ui.hideUnused (toolbar pressed state). */
 function nodeGraphPatchHidesUnusedPorts(patch = nodeGraphMvp?.patch) {
-  const view = typeof normalizeNodeGraphPatchView === "function"
-    ? normalizeNodeGraphPatchView(patch?.view)
-    : patch?.view;
-  return Boolean(view?.hideUnusedPorts);
+  const nodes = Array.isArray(patch?.nodes) ? patch.nodes : [];
+  if (!nodes.length) {
+    return false;
+  }
+  return nodes.every((node) => {
+    const ui = typeof normalizeNodeGraphPatchNodeUi === "function"
+      ? normalizeNodeGraphPatchNodeUi(node.ui, node.type)
+      : node?.ui;
+    return Boolean(ui?.hideUnused);
+  });
 }
 
 function commitNodeGraphPatchViewFlags(nextFlags = {}, status = "view updated") {
@@ -145,8 +152,8 @@ function syncNodeGraphReadyPanelChrome() {
   if (hideBtn) {
     hideBtn.setAttribute("aria-pressed", String(hideUnused));
     hideBtn.title = hideUnused
-      ? "Show unused inlets and outlets"
-      : "Hide unused inlets and outlets";
+      ? "Unused ports already hidden on all modules (disable per module in the scene menu)"
+      : "Hide unused inlets and outlets on every module";
   }
 }
 
@@ -155,12 +162,44 @@ function toggleNodeGraphPatchLocked() {
   commitNodeGraphPatchViewFlags({ locked: next }, next ? "patch locked" : "patch unlocked");
 }
 
+/**
+ * Toolbar "Hide Unused": batch-set each module's per-module ui.hideUnused to on.
+ * Not a global workspace overlay — individual modules can turn hideUnused off and it sticks.
+ * Also clears retired view.hideUnusedPorts if present.
+ */
 function toggleNodeGraphPatchHideUnusedPorts() {
-  const next = !nodeGraphPatchHidesUnusedPorts();
-  commitNodeGraphPatchViewFlags(
-    { hideUnusedPorts: next },
-    next ? "unused ports hidden" : "unused ports shown",
-  );
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const view = typeof normalizeNodeGraphPatchView === "function"
+    ? normalizeNodeGraphPatchView(patch.view)
+    : { ...(patch.view || {}) };
+  let changed = false;
+  if (view.hideUnusedPorts) {
+    view.hideUnusedPorts = false;
+    patch.view = view;
+    changed = true;
+  } else {
+    patch.view = view;
+  }
+  const nodeIds = [];
+  for (const targetNode of Array.isArray(patch.nodes) ? patch.nodes : []) {
+    nodeIds.push(targetNode.id);
+    const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
+    if (ui.hideUnused) {
+      continue;
+    }
+    ui.hideUnused = true;
+    applyNodeGraphPatchNodeUi(targetNode, ui);
+    changed = true;
+  }
+  if (changed) {
+    commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(nodeIds, {
+      status: "unused ports hidden on all modules",
+    }));
+  }
+  syncNodeGraphReadyPanelChrome();
+  if (typeof configureNodeSceneContextMenu === "function") {
+    configureNodeSceneContextMenu("module");
+  }
 }
 
 /** Grid offset between Portal IO In (drop) and paired Out. */
@@ -2815,6 +2854,7 @@ function toggleNodeGraphModuleHideUnusedFromContext() {
         : (changedCount > 1 ? "unused ports shown" : "unused ports shown"),
     }));
   }
+  syncNodeGraphReadyPanelChrome();
   configureNodeSceneContextMenu("module");
 }
 

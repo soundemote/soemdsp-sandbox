@@ -1,4 +1,4 @@
-﻿function nodeGraphBypassGlyph(bypassed) {
+function nodeGraphBypassGlyph(bypassed) {
   return "\u{1F5F2}";
 }
 

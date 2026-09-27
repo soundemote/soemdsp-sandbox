@@ -664,7 +664,7 @@ function nodeGraphJackElementVisibility(element) {
   const height = nodeGraphFiniteNumber(rect.height);
   const hiddenHost = Boolean(element.hidden || element.closest?.("[hidden]"));
   const ioHidden = Boolean(element.closest?.(".io-hidden"));
-  const unusedHost = Boolean(element.closest?.(".unused-hidden, .patch-unused-ports-hidden"));
+  const unusedHost = Boolean(element.closest?.(".unused-hidden"));
   const connected = Boolean(element.classList?.contains("connected-port"));
   const painted = display !== "none"
     && visibility !== "hidden"
@@ -752,7 +752,7 @@ function nodeGraphJackVisibilityCensus(root) {
     asleepSkipped: rows.filter((row) => row.viewportAsleep || row.skipped).length,
     ioHiddenModules: modules.filter((node) => node.classList.contains("io-hidden")).length,
     unusedHiddenModules: modules.filter((node) => node.classList.contains("unused-hidden")).length,
-    workspaceUnusedHidden: Boolean(workspace?.classList.contains("patch-unused-ports-hidden")),
+    workspaceUnusedHidden: false, // retired global overlay
     applyFn: typeof nodeGraphApplyJackChrome === "function",
     sample: painted.slice(0, 24),
     hidden: considered.filter((row) => !row.painted).slice(0, 16),

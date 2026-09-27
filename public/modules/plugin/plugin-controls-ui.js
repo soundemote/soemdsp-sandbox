@@ -1,4 +1,4 @@
-﻿// Toggle and momentary faces. Same Bias parameter as Knob.
+// Toggle and momentary faces. Same Bias parameter as Knob.
 // Toggle writes min or max. Momentary writes max while held, min on release.
 // The on-color follows the Bias smoother (same time and curve as the audio
 // parameter). There is no separate hover or CSS fade.

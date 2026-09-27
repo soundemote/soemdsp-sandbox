@@ -12734,7 +12734,8 @@ body.node-graph-magnifying-active .node-graph-workspace * {
 .node-graph-workspace.module-oscilloscopes-hidden
   .dsp-node:not(.oscilloscope-forced-visible)
   .node-module-face:not(.node-text-box-body),
-.dsp-node.oscilloscope-hidden .node-module-face:not(.node-text-box-body) {
+.dsp-node.oscilloscope-hidden .node-module-face:not(.node-text-box-body),
+.dsp-node.face-track-omitted .node-module-face:not(.node-text-box-body) {
   display: none !important;
 }
 
@@ -13065,6 +13066,30 @@ body.node-layout-canvas-active .node-layout-canvas-stage.node-layout-canvas-edit
   opacity: 0.95;
 }
 
+/* Arrange-mode phone guides: thin white portrait/landscape frame (one at a time). */
+.node-layout-canvas-phone-guides {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 100000;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.node-layout-canvas-stage.node-layout-canvas-edit > .node-layout-canvas-phone-guides,
+body.node-layout-canvas-active.node-layout-canvas-edit .node-layout-canvas-phone-guides {
+  display: block;
+}
+
+.node-layout-canvas-phone-guide-frame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
 .node-screen-solo-stage[hidden] {
   display: none !important;
 }
@@ -13184,8 +13209,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
      the real plate. */
   grid-template-columns: minmax(0, 1fr);
   justify-items: stretch;
-  /* LayoutA: reserve I/O strip height from --node-module-io-height-units so
-     multi-out modules (crossovers) never crush outlets into the param track. */
+  /* LayoutA: I/O band sits above the face. Reserve strip height from
+     --node-module-io-height-units so multi-out modules (crossovers) never
+     crush outlets into the face or param track. */
   --node-module-io-track-min: max(
     var(--node-io-section-min-height),
     calc(
@@ -13516,23 +13542,15 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   opacity: 1;
 }
 
-/* Hide unused: unconnected signal jacks (rows) + mute unused param ports. */
-.dsp-node.unused-hidden .node-io-row:not(:has(.connected-port)),
-.dsp-node.unused-hidden .node-io-row:not(:has(.node-port.connected-port)),
-.node-graph-workspace.patch-unused-ports-hidden .dsp-node .node-io-row:not(:has(.connected-port)),
-.node-graph-workspace.patch-unused-ports-hidden .dsp-node .node-io-row:not(:has(.node-port.connected-port)) {
+/* Hide unused: per-module .unused-hidden only (unconnected signal jacks). Parameter I/O stays visible.
+   Global .patch-unused-ports-hidden overlay retired — toolbar batches ui.hideUnused per module. */
+.dsp-node.unused-hidden .node-io-row:not(:has(.connected-port)):not(:has(.node-param-port)),
+.dsp-node.unused-hidden .node-io-row:not(:has(.node-port.connected-port)):not(:has(.node-param-port)) {
   display: none !important;
 }
 
-.dsp-node.unused-hidden .node-port:not(.connected-port),
-.node-graph-workspace.patch-unused-ports-hidden .dsp-node .node-port:not(.connected-port) {
+.dsp-node.unused-hidden .node-port:not(.node-param-port):not(.connected-port) {
   display: none !important;
-}
-
-.dsp-node.unused-hidden .node-param-port:not(.connected-port),
-.node-graph-workspace.patch-unused-ports-hidden .dsp-node .node-param-port:not(.connected-port) {
-  visibility: hidden;
-  pointer-events: none;
 }
 
 .node-graph-workspace.patch-locked .node-port,
@@ -13783,7 +13801,10 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   display: none !important;
 }
 
-/* LayoutA filter-curve article rows come from applyNodeGraphModuleLayout. */
+/* LayoutA article rows come from applyNodeGraphModuleLayout:
+   header → io → face → params → lip. Sample load controls stay under the face.
+   Display off / Display Height 0 omits the face track (face-track-omitted).
+   LayoutB (ports beside the face) and InletOutletLayout are not this stack. */
 
 /*
  * LayoutC — compact convenience thrus (Vectorscope Rotation, …):
@@ -16619,6 +16640,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 }
 
 /* Display hide is applyNodeGraphModuleLayout omitting the face band.
+   Sample / phosphor faces use the same LayoutA order: header → io → face.
    Do not zero --node-module-scope-height or rematch grid-row here. */
 
 .sample-module-layout .node-sample-module-body {

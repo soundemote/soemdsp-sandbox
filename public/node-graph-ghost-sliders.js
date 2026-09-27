@@ -307,6 +307,14 @@ function syncNodeGraphGhostSliders() {
       readout.classList.remove("has-ghost-slider");
       readout.style.removeProperty("--ghost-start");
       readout.style.removeProperty("--ghost-end");
+      const slider = document.getElementById(readout.dataset.sliderTarget)
+        || readout.closest("label")?.querySelector("input[data-param]");
+      if (slider) {
+        delete slider.dataset.sentDomainValue;
+        if (typeof syncNodeSliderReadout === "function") {
+          syncNodeSliderReadout(slider);
+        }
+      }
     }
     nodeGraphGhostSliderHadAny = false;
     return;
@@ -333,12 +341,18 @@ function syncNodeGraphGhostSliders() {
     if (ghostSignal === null) {
       readout.style.removeProperty("--ghost-start");
       readout.style.removeProperty("--ghost-end");
-      delete slider.dataset.sentDomainValue;
+      if (Object.hasOwn(slider.dataset, "sentDomainValue")) {
+        delete slider.dataset.sentDomainValue;
+        // Restore in-slider number to editable base (no ghost target).
+        if (typeof syncNodeSliderReadout === "function") {
+          syncNodeSliderReadout(slider);
+        }
+      }
       continue;
     }
     any = true;
-    // Keep sentDomainValue for diagnostics only. Do not rewrite the readout
-    // number or thumb — those stay on editable domainValue; ghost CSS shows sent.
+    // Thumb stays on editable domainValue; ghost CSS + in-slider number show
+    // the modulated *target* (effectiveDomain). Do not model smoothing.
     if (ghost && typeof ghost === "object" && Number.isFinite(Number(ghost.effectiveDomain))) {
       slider.dataset.sentDomainValue = String(ghost.effectiveDomain);
     }
@@ -349,6 +363,11 @@ function syncNodeGraphGhostSliders() {
     );
     readout.style.setProperty("--ghost-start", `${range.start}px`);
     readout.style.setProperty("--ghost-end", `${range.end}px`);
+    // Refresh numeric readout to sent/target (syncNodeSliderReadout prefers
+    // sentDomainValue for the number; thumb still uses base domainValue).
+    if (typeof syncNodeSliderReadout === "function") {
+      syncNodeSliderReadout(slider);
+    }
   }
   nodeGraphGhostSliderHadAny = any;
 }

@@ -3,8 +3,13 @@
 Status: implemented (apply path + CSS forest removed). §7 band-stack
 checks live in `scripts/test_module_layout_bands.js` (Output, Gain,
 Sample Player/Looper, Music Player, Kick Envelope, Active Filter,
-Smooth Graph / LayoutB, Vectorscope / LayoutC). Hide-display omits the
-face track. Human eyeball on the workspace still welcome.
+Smooth Graph / LayoutB, Vectorscope / LayoutC). Hide-display and
+Display Height 0 omit the face track.
+
+**LayoutA band order (current):** `header → io → face → params → lip`.
+Sample load controls stay under the face (`header → io → face → controls → params`).
+LayoutB (ports beside the face) and InletOutletLayout (title + I/O, no face)
+are unchanged. Human eyeball on the workspace still welcome.
 Do not land another CSS selector patch for B-036.
 Reopens **B-036** (hide display → sliders overlap the I/O / “out” section).
 The previous “fix” treated a **grid occupancy** bug as a height-math bug and
@@ -31,7 +36,7 @@ Chrome only changes **where I/O lives relative to the face**:
 
 | Chrome | Ports | Face | Params |
 | --- | --- | --- | --- |
-| **LayoutA** | Under the face | Own row | Under I/O |
+| **LayoutA** | Above the face | Own row under I/O | Under the face |
 | **LayoutB** | Beside the face (one **shell** band) | Shared with jacks | Under the shell |
 | **InletOutletLayout** (ex-**TitleBarAndPorts** / **LayoutC**) | Under the title | None | None |
 
@@ -47,7 +52,10 @@ is still auto-placed into it is how sliders land on the out column.
 
 ---
 
-## 2. How it is built today (two sources of truth)
+## 2. How it was built (historical — the overlap bug)
+
+Live LayoutA order is **header → io → face → params → lip** (see §1 and §4).
+The notes below describe the old face-then-I/O grid that caused B-036.
 
 ### 2.1 Height math (JS)
 
@@ -185,7 +193,7 @@ Rules:
    Specific faces keep their paint class (`node-filter-curve-display`)
    **in addition**, not instead.
 4. **LayoutA / B / C are three stack recipes**, not three CSS novels.
-   - A: `header? + face? + controls? + io? + params? + lip`
+   - A: `header? + io? + face? + controls? + params? + lip`
    - B: `header? + shell(face+io)? + params? + lip`
    - C: `header? + io + lip`
 5. **JS widget list and CSS tracks are the same array.**
@@ -304,10 +312,10 @@ For **Output**, **Gain** (or any LayoutA processor with sliders), **Sample
 Player**, **Sample Looper**, **Music Player**, **one envelope/filter with
 a curve face**, **one LayoutB**, **one LayoutC**:
 
-1. Display on: face, I/O, sliders stacked; no overlap; outer height
+1. Display on: I/O, face, sliders stacked (jacks above the display); no overlap; outer height
    matches computed outer; Module Settings shows Display Height (face gu) for face modules.
-2. Display off (local and global): face gone; I/O immediately under
-   header (or under sample controls); sliders under I/O; no overlap;
+2. Display off (local and global) or Display Height 0: face gone; I/O immediately under
+   the header; sliders under I/O; no overlap;
    outer height shrinks by the face gu.
 3. Display off + sliders off: only header + I/O (+ lip).
 4. Display off + I/O off: sliders under header.

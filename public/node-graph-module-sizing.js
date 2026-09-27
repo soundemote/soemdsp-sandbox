@@ -162,7 +162,7 @@ function nodeGraphLayoutCGridHeightUnits(type, ui = {}, heightGu = null) {
 
 /** Shared face/display-height limits for every type (min 0gu = Off). Do not raise per-layout. */
 function nodeGraphModuleDisplayHeightLimitsForType(_type = null) {
-  return nodeGraphModuleGuPolicy;
+  return nodeGraphModuleDisplayHeightLimits;
 }
 
 /**
@@ -779,7 +779,7 @@ const nodeGraphSolidModuleShellHeightGu = nodeGraphLayoutBShellHeightGu;
  *
  *   --node-module-display-height-units  face (LayoutA / Metamodule / LayoutB face)
  *   --node-module-shell-height-units    LayoutB shell track (= face when face on)
- *   --node-module-io-height-units       LayoutA under-face / Metamodule top IO (0 on LayoutB)
+ *   --node-module-io-height-units       LayoutA IO above the face / Metamodule top IO (0 on LayoutB)
  *   --node-grid-height-units            OUTER module (set by callers separately)
  */
 function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
@@ -993,25 +993,19 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
     }
   }
   let order = [...byId.keys()];
-  // Music Player: waveform sits directly under the header (no load/status strip).
-  if (type === "audioPlayer") {
-    order = order.filter((id) => id !== "face" && id !== "controls");
-    const headerAt = order.indexOf("header");
-    const insertAt = headerAt >= 0 ? headerAt + 1 : 0;
-    const extra = ["controls", "face"].filter((id) => byId.has(id));
-    order.splice(insertAt, 0, ...extra);
-  }
   const isLayoutB = typeof nodeGraphModuleUsesLayoutB === "function"
     && nodeGraphModuleUsesLayoutB(type);
-  if (
-    typeof nodeGraphModuleTypeIsUnderConstruction === "function"
-    && nodeGraphModuleTypeIsUnderConstruction(type)
-  ) {
+  // LayoutA (including sample / phosphor / Music Player faces):
+  // header → io → face → controls → params. I/O sits immediately above the
+  // face. Sample load controls stay under the face. No face (keyboard
+  // controller) keeps widget order. LayoutB returned above. InletOutletLayout
+  // has no face, so this does not move its title + I/O stack.
+  if (!isLayoutB) {
     const ioAt = order.indexOf("io");
     const faceAt = order.indexOf("face");
     if (ioAt > faceAt && faceAt >= 0) {
       order.splice(ioAt, 1);
-      order.splice(faceAt, 0, "io");
+      order.splice(order.indexOf("face"), 0, "io");
     }
   }
   const isLayoutC = typeof nodeGraphModuleUsesLayoutC === "function"
@@ -1208,6 +1202,13 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
   const visible = bands.filter((band) => (
     band.visible && (band.heightGu > 0 || band.grow || band.id === "lip")
   ));
+  // LayoutA / Metamodule omit the face track when Displays are off or Display
+  // Height is 0. The face node stays mounted (keyboard remount bug) but must
+  // not auto-place into the I/O or param track. LayoutB keeps its shell.
+  const faceBandVisible = visible.some((band) => band.id === "face");
+  const omitsFaceTrack = article.classList?.contains("chrome-layout-a")
+    || article.classList?.contains("chrome-layout-metamodule");
+  article.classList?.toggle("face-track-omitted", Boolean(omitsFaceTrack && !faceBandVisible));
   const stack = visible.map(nodeGraphModuleBandTrackCss).join(" ") || "minmax(0, 1fr)";
   article.classList.add("module-stack");
   article.style.setProperty("--node-module-stack-rows", stack);
@@ -1464,11 +1465,12 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
     ];
   }
   if (type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer" || type === "wavetable2d") {
+    // header → io → face → sample controls → params. I/O above the waveform.
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
+      { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "scope", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "interfaceControls", heightGu: nodeGraphModuleInterfaceControlsHeightGu(type, ui), visible: interfaceControlsVisible },
-      { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       // Music Player's waveform row is `minmax(scope, 1fr)` (styles.css), so it
       // swallows every spare pixel and the slider stack always ended up flush
@@ -1498,15 +1500,15 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   if (nodeGraphModuleDefinitions[type]?.layout === "image") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "image", heightGu: nodeGraphModuleLayout.moduleScopeHeightGu, visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "image", heightGu: nodeGraphModuleLayout.moduleScopeHeightGu, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "canvas") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "canvas", heightGu: nodeGraphModuleDefaultDisplayHeightUnits(type), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "canvas", heightGu: nodeGraphModuleDefaultDisplayHeightUnits(type), visible: true },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
@@ -1514,15 +1516,15 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   if (nodeGraphModuleDefinitions[type]?.layout === "visualScope") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "screen", heightGu: nodeGraphDefaultModuleGridWidthUnits(type), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "screen", heightGu: nodeGraphDefaultModuleGridWidthUnits(type), visible: displayVisible },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "traceDisplay") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "trace", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "trace", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
@@ -1563,23 +1565,23 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   if (nodeGraphModuleDefinitions[type]?.layout === "keyboard"
     || nodeGraphModuleDefinitions[type]?.layout === "gridKeyboard"
     || nodeGraphModuleDefinitions[type]?.layout === "sequencer") {
-    // Header | face (controls + piano/grid) | I/O.
+    // Header | I/O | face (controls + piano/grid).
     // Face height is freehand display gu so the piano can stretch vertically.
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
   // LayoutA custom display faces (BADVAL warning panel, …): same row stack as
-  // a normal scope module — header / display / IO / params / inset — so Height
+  // a normal scope module — header / IO / display / params / inset — so Height
   // resize follows LayoutA display-height policy.
   if (nodeGraphModuleDefinitions[type]?.layout === "badvalMonitor") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
@@ -1590,13 +1592,13 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
     || nodeGraphModuleDefinitions[type]?.layout === "roundShape"
     || nodeGraphModuleDefinitions[type]?.layout === "basicShape"
   ) {
-    // LayoutA stack: header | face (display gu) | IO under | params.
+    // LayoutA stack: header | IO above | face (display gu) | params.
     // Crossovers stay LayoutA so many band outs do not inflate the face height.
     // RoundShape / BasicShape reuse the same stack (cheap static face).
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
@@ -1606,8 +1608,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
     || nodeGraphModuleDefinitions[type]?.layout === "softClipperCurve") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
@@ -1616,8 +1618,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   if (nodeGraphModuleDefinitions[type]?.layout === "pitchQuantizer") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
@@ -1626,8 +1628,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   if (nodeGraphModuleDefinitions[type]?.layout === "asciiscope") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
@@ -1636,8 +1638,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   if (nodeGraphModuleDefinitions[type]?.layout === "wallRoomDisplay") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "room", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "room", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
@@ -1646,8 +1648,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   if (nodeGraphModuleDefinitions[type]?.layout === "pulseCurve") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
@@ -1655,9 +1657,9 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   }
   return [
     { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui, type), visible: true },
+    { id: "io", heightGu: ioHeightGu, visible: ioVisible },
     { id: "scope", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
     { id: "interfaceControls", heightGu: nodeGraphModuleInterfaceControlsHeightGu(type, ui), visible: interfaceControlsVisible },
-    { id: "io", heightGu: ioHeightGu, visible: ioVisible },
     // Pass ui so sliders-hidden / effective UI matches the outer height SSOT.
     { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, ui, node), visible: slidersVisible },
     { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },

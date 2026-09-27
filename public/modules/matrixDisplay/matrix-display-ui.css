@@ -124,21 +124,29 @@
   }
 }
 
-/* Module shell: header | face | io | params | inset (same track as Matrix rain). */
-.dsp-node.matrix-display-layout {
+/* Fallback stack before apply writes --node-module-stack-rows.
+   LayoutA: header | io | face | params | inset */
+.dsp-node.matrix-display-layout:not(.module-stack) {
   grid-template-rows:
     var(--node-header-height)
-    var(--node-module-scope-height)
     minmax(var(--node-io-section-min-height), auto)
+    var(--node-module-scope-height)
     auto
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
-.dsp-node.matrix-display-layout > .node-matrix-display-face {
+.dsp-node.matrix-display-layout:not(.module-stack) > .dsp-node-io-section {
   grid-row: 2;
+}
+
+.dsp-node.matrix-display-layout > .node-matrix-display-face {
   align-self: stretch;
   width: 100%;
   height: 100%;
   min-height: 0;
   pointer-events: auto;
+}
+
+.dsp-node.matrix-display-layout:not(.module-stack) > .node-matrix-display-face {
+  grid-row: 3;
 }

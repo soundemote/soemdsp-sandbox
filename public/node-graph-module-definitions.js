@@ -14,6 +14,7 @@ const nodeGraphNodeLabels = Object.freeze({
   sinCos: "SinCos",
   aliasSine: "Alias Sine",
   robinSinusoid: "RobinSinusoid",
+  robinOscillator: "RobinOscillator",
   phoneTone: "Phone Tone",
   additiveGenerator: "Additive Generator",
   additiveLinearFilter: "Linear Filter",
@@ -328,7 +329,7 @@ const nodeGraphTb303FilterModes = Object.freeze([
 //   outputs: [...]     → right IO-column jacks
 //
 // Chrome (port placement) is separate from face content:
-//   chrome: LayoutA | LayoutB  — ports under vs beside the face
+//   chrome: LayoutA | LayoutB  — ports above the face vs beside the face
 //   layout / customDisplayArea — what fills the face (scope, graph, BADVAL, …)
 // finalizeNodeGraphModuleDefinitionsChrome seals every entry with explicit chrome
 // (default LayoutA) so no type is left "unassigned".
@@ -1316,6 +1317,93 @@ const nodeGraphModuleDefinitions = (
     ]
   },
   // RS-MET rosic::SineOscillator — free-running 2nd-order recursive sine (no sin() per sample).
+  robinOscillator: {
+    planRole: "source",
+    displayType: "lineBurn",
+    defaultDisplaySettings: {
+      sourceSync: true,
+    },
+    displayModes: [
+      { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave" } },
+    ],
+    displaySignals: [
+      { key: "Wave", kind: "scalar" },
+    ],
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
+    outputAliases: { Out: "Wave", "Wave Out": "Wave" },
+    outputChannels: { Wave: "green" },
+    outputs: ["Wave"],
+    parameters: [
+      {
+        choices: ["Saw", "Ramp", "Square", "Triangle", "Sine", "Pulse"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "waveform",
+        kind: "waveform",
+        label: "Waveform",
+        linearSmoothing: false,
+        max: "5",
+        mid: "2",
+        min: "0",
+        step: "1",
+        tooltip: "Cycle-dither AA oscillator (RS-MET). Pulse uses Pulse Width."
+      },
+      {
+        defaultValue: "100",
+        key: "frequency",
+        kind: "frequency",
+        label: "Frequency",
+        max: "20000",
+        mid: "440",
+        min: "0",
+        smoothingMode: "internal",
+        smoothingSeconds: 0.0333,
+        smoothingType: "onePole",
+        step: "any",
+        unit: "Hz",
+        tooltip: "Absolute Hz. Mid-cycle Hz changes warp the remaining period (phase-continuous)."
+      },
+      {
+        defaultValue: "0",
+        hidden: true,
+        key: "phase",
+        kind: "phase",
+        label: "Start Phase",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "0.01",
+        unit: "cycle",
+        wraparound: true,
+        tooltip: "Phase used when Reset is triggered (or on first sample)."
+      },
+      {
+        defaultValue: "0.5",
+        key: "pulseWidth",
+        label: "Pulse Width",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "0.01",
+        tooltip: "Pulse duty (0...1). Threshold on the cycle phasor; does not break single-wrap AA."
+      },
+      {
+        defaultValue: "1",
+        key: "amplitude",
+        label: "Amplitude",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        modClamp: false,
+        tooltip: "Linear output level 0…1 (guides only; MOD may exceed)."
+      },
+    ]
+  },
+
   robinSinusoid: {
     planRole: "source",
     displayType: "trace",

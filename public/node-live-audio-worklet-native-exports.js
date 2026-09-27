@@ -1167,6 +1167,20 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+
+      if (name === "robin_oscillator" || targetType === "robinOscillator") {
+        this.nativeRobinOscillator = exports;
+        this.nativeRobinOscillatorReady = Boolean(
+          this.nativeRobinOscillator?.soemdsp_robin_oscillator_create &&
+          this.nativeRobinOscillator?.soemdsp_robin_oscillator_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "robin_oscillator",
+          status: this.nativeRobinOscillatorReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "robin_sinusoid" || targetType === "robinSinusoid") {
         if (this.robinSinusoidStates) {
           for (const state of this.robinSinusoidStates.values()) {

@@ -32,12 +32,22 @@ Keep this as a next-version cleanup, not a release blocker.
 
 ## Inlets / outlets above displays (app-wide)
 
-**Policy direction:** module **inlets and outlets sit above** the module's **display / face** area — app-wide, not per-module one-offs.
+**Implemented.** LayoutA (and sample / phosphor face stacks) use `header → io → face → params → lip`. Display off and Display Height 0 omit the face track; I/O stays under the header.
 
-Intent:
+Standing rule: `docs/APP_POLICY.md` (LayoutA I/O above the face). Band contract: `docs/MODULE_LAYOUT_PLAN.md`.
 
-- Jacks (inlets and outlets) are always in the band **above** scopes, LCDs, waterfalls, and other display faces.
-- Display chrome stays below the I/O band so patching and reading faces do not fight for the same vertical slot.
-- Apply as a layout / chrome rule across modules; do not invent per-face exceptions without an explicit exception in `docs/APP_POLICY.md`.
+LayoutB (ports beside the face) and InletOutletLayout (title + I/O, no face) are unchanged. Do not add a second layout or an old-patch shim for the previous face-then-I/O stack.
 
-Status: planning note only — not scheduled. When implemented, encode as an APP_POLICY layout rule and align `docs/MODULE_LAYOUT_PLAN.md` / module face shells.
+## Waterfall redesign (amp-per-frame bars)
+
+**Status:** seed only — details TBD; do not implement until Architect expands this.
+
+**Direction:** Make the 1D Waterfall face feel more like a classic waterfall and less like an expensive waveform/trace drawer. Drop (or stop relying on) heavy per-sample waveform ink. Instead, each display frame contributes **one cheap amplitude sample** drawn as a **single bar** (or equivalent column ink), then scroll history like a strip chart.
+
+**Why:** Current face (`public/node-graph-module-scope-waterfall.js`) is a strip chart with Sync Off/On, History Hz / Cycles, and **TraceTape WebGL discs** for waveform ink (min/max column envelopes, phase-lock path). That is waveform-shaped and costly. Architect wants amplitude-per-frame bars instead.
+
+**Out of scope until specified:** exact amp metric (peak / abs / RMS / dB), bar vs brightness column, Sync On fate, TraceTape retirement vs mode, Matrix Waterfall / phosphor drawers, and any tie-in to B-026 drawer rearm.
+
+**Related:** B-026 (Pause → Stop → Play leaves value faces / waterfall drawers dark) stays its own bug; this redesign does not claim that fix unless Architect says so later.
+
+**Primary file today:** `public/node-graph-module-scope-waterfall.js`
