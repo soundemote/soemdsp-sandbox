@@ -37,6 +37,7 @@
 // 20kHz, no blowups, no low-frequency beat.
 
 #include "../sandbox_native_maths/scalar_helpers.h"
+using soemdsp_maths::clamp;
 using soemdsp_maths::clamp11;
 
 namespace {
@@ -45,10 +46,6 @@ constexpr double kPi = 3.1415926535897932384626433832795;
 constexpr double kTwoPi = kPi * 2.0;
 constexpr double kHalfPi = kPi * 0.5;
 constexpr int kMaxInstances = 16;
-
-double clampD(double value, double lo, double hi) {
-  return value < lo ? lo : (value > hi ? hi : value);
-}
 
 // Single-shot modulo instead of iterative subtraction -- keeps full
 // precision regardless of how large the argument gets.
@@ -161,7 +158,7 @@ double oscillatorSample(BlitState& s, int slotIndex, double phase, double phaseI
   SlotState& slot = s.slots[slotIndex];
   if (!slot.initialized) initSlot(slot);
   const double phaseIncMag = phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement;
-  const double dt = clampD(phaseIncMag, 1.0e-6, 0.5);
+  const double dt = clamp(phaseIncMag, 1.0e-6, 0.5);
   const double periodSamples = 1.0 / dt;
   const double direction = phaseIncrement < 0.0 ? -1.0 : 1.0;
 

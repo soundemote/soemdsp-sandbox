@@ -39,10 +39,6 @@ static const double kLp18FinalBoost = 3.0;
 static const double kLp24FinalBoost = 2.0;
 static const double kHpFinalBoost = 2.0;
 
-static inline double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
 static inline double jmap01(double v, double outMin, double outMax) {
   return outMin + (outMax - outMin) * v;
 }
@@ -80,7 +76,7 @@ static double soft_acos(double x) {
 // (no m^4, no 0.37…0.61 chaos remap).
 static double softwaveTri(double phaseCycles, double morph, double frequencyHz) {
   const double p = wrap01(phaseCycles);
-  const double t = clampd(morph, 0.0, 1.0);
+  const double t = clamp(morph, 0.0, 1.0);
   const double s = dsp_sin(p * kTwoPi);
   if (t <= 1.0e-12) return -s;
   const double raw = soft_acos(clamp11(s * t)) / kPi * 2.0 - 1.0;
@@ -139,7 +135,7 @@ static double ladderTapStep(double y[5], double input, double a, int mode, int s
 
 static inline double ladderCoefficient(double cutoffHz, double sampleRate) {
   double rawWc = kTwoPi * cutoffHz / sampleRate;
-  double wc = clampd(rawWc, 1e-9, kPi * 0.98);
+  double wc = clamp(rawWc, 1e-9, kPi * 0.98);
   double s = dsp_sin_0_pi(wc);
   double c = dsp_cos_0_pi(wc);
   double t = dsp_tan_neg_halfquarter(0.25 * (wc - kPi));
@@ -203,13 +199,13 @@ extern "C" double soemdsp_superlove_rev2_sample(
   SuperLoveRev2State& s = gPool[handle - 1];
 
   const double safeRate = sampleRate < 1.0 ? 44100.0 : sampleRate;
-  const double freqNorm = clampd(frequency, 0.0, 1.0);
-  const double reso = clampd(resonance, 0.0, 1.0);
-  const double morph = clampd(morphAmount, 0.0, 1.0);
+  const double freqNorm = clamp(frequency, 0.0, 1.0);
+  const double reso = clamp(resonance, 0.0, 1.0);
+  const double morph = clamp(morphAmount, 0.0, 1.0);
   const double noiseAmp = (noiseAmount == noiseAmount) ? noiseAmount : 0.0;
   const double phase = (phaseBias == phaseBias) ? phaseBias : 0.0;
   const int safeMode = mode < 0 ? 0 : (mode > 3 ? 3 : mode);
-  const double cutoffHz = clampd(
+  const double cutoffHz = clamp(
     pitchToFreq(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate
   );
   const double noiseSample = (noiseAmp > 1.0e-12 || noiseAmp < -1.0e-12)

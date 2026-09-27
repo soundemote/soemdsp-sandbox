@@ -79,9 +79,6 @@ static const double kHpBpNoiseMax = 0.25;
 static const double kLpNoiseMax = 0.25;
 
 
-static inline double clampd(double v, double lo, double hi) {
-	return v < lo ? lo : (v > hi ? hi : v);
-}
 static inline double jmap01(double v, double outMin, double outMax) {
 	return outMin + (outMax - outMin) * v;
 }
@@ -122,7 +119,7 @@ static double soft_acos(double x) {
 static double softwaveTri(double phaseCycles, double morph, double frequencyHz) {
 	(void) frequencyHz;
 	const double p = wrap01(phaseCycles);
-	const double t = clampd(morph, 0.0, 1.0);
+	const double t = clamp(morph, 0.0, 1.0);
 	const double s = dsp_sin(p * kTwoPi);
 	if (t <= 1.0e-12) return -s;
 	const double raw = soft_acos(clamp11(s * t)) / kPi * 2.0 - 1.0;
@@ -180,7 +177,7 @@ static double ladderTapStep(double y[5], double input, double a, int mode, int s
 
 static inline double ladderCoefficient(double cutoffHz, double sampleRate) {
 	double rawWc = kTwoPi * cutoffHz / sampleRate;
-	double wc = clampd(rawWc, 1e-9, kPi * 0.98);
+	double wc = clamp(rawWc, 1e-9, kPi * 0.98);
 	double s = dsp_sin_0_pi(wc);
 	double c = dsp_cos_0_pi(wc);
 	double t = dsp_tan_neg_halfquarter(0.25 * (wc - kPi));
@@ -212,11 +209,11 @@ inline double processSample(
 ) {
 	using namespace detail;
 	const double safeRate = sampleRate < 1.0 ? 44100.0 : sampleRate;
-	const double freqNorm = clampd(frequency, 0.0, 1.0);
-	const double reso = clampd(resonance, 0.0, 1.0);
-	const double n01 = clampd((noise01 == noise01) ? noise01 : 0.0, 0.0, 1.0);
+	const double freqNorm = clamp(frequency, 0.0, 1.0);
+	const double reso = clamp(resonance, 0.0, 1.0);
+	const double n01 = clamp((noise01 == noise01) ? noise01 : 0.0, 0.0, 1.0);
 	const int safeMode = (int)mode;
-	const double cutoffHz = clampd(
+	const double cutoffHz = clamp(
 		pitchToFreq(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate
 	);
 

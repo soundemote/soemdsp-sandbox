@@ -31,10 +31,6 @@ static const char kMetadataJson[] =
     "\"kind\":\"filter\""
   "}";
 
-static inline double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
 }  // namespace
 
 extern "C" int soemdsp_vcvrack_superlove_filter_create() {
@@ -65,7 +61,7 @@ extern "C" double soemdsp_vcvrack_superlove_filter_sample(
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   Slot& slot = gPool[handle - 1];
-  const double driveGain = clampd(drive, 0.0, 4.0);
+  const double driveGain = soemdsp::math::clamp(drive, 0.0, 4.0);
   int safeMode = mode;
   if (safeMode < 0) safeMode = 0;
   if (safeMode > 3) safeMode = 3;

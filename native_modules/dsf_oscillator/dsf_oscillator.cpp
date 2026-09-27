@@ -78,10 +78,6 @@ namespace {
 
 using namespace soemdsp_maths;
 
-double clampD(double value, double lo, double hi) {
-  return value < lo ? lo : (value > hi ? hi : value);
-}
-
 // Single-shot range reduction (round to nearest multiple of 2*pi and
 // subtract) instead of a while-loop of repeated subtraction -- avoids
 // hundreds of sequential float subtractions (needed at N in the
@@ -165,7 +161,7 @@ double adaptiveRetention(double dt) {
 // verified numerically (Python) that this stays bounded across the full
 // Harmonics range before shipping.
 double pureSawEngMorphed(double t, int nMax, double harmonics) {
-  const double m = clampD(harmonics, 0.0, 1.0);
+  const double m = clamp(harmonics, 0.0, 1.0);
   const double target = 1.0 + m * static_cast<double>(nMax - 1);
   int lowN = static_cast<int>(target);
   if (lowN < 1) lowN = 1;
@@ -246,7 +242,7 @@ extern "C" void soemdsp_dsf_oscillator_sample(
   // Through-zero: signed frequency (dt may be negative).
   const double absFrequency = frequencyHz < 0.0 ? -frequencyHz : frequencyHz;
   const double safeAbsFrequency = absFrequency > 1.0e-6 ? absFrequency : 1.0e-6;
-  const double dt = clampD(frequencyHz / safeSampleRate, -0.5, 0.5);
+  const double dt = clamp(frequencyHz / safeSampleRate, -0.5, 0.5);
   const double phaseOffset = wrap01(phase);
 
   double sample;
@@ -274,10 +270,10 @@ extern "C" void soemdsp_dsf_oscillator_sample(
       // PWM's variable-duty shape.
       const double rawBlendSquare = rawSaw - pureSawEngMorphed(wrap01(renderT - 0.5), nMax, morph);
       s.blendSqAcc = s.blendSqAcc * retention + rawBlendSquare * dt;
-      const double b = clampD(blend, 0.0, 1.0);
+      const double b = clamp(blend, 0.0, 1.0);
       sample = s.sawAcc * (1.0 - b) + s.blendSqAcc * b;
     } else {
-      const double pw = clampD(pulseWidth, 0.01, 0.99);
+      const double pw = clamp(pulseWidth, 0.01, 0.99);
       const double rawShiftedSaw = pureSawEngMorphed(wrap01(renderT - pw), nMax, morph);
       const double rawSquare = rawSaw - rawShiftedSaw;
       s.sqAcc = s.sqAcc * retention + rawSquare * dt;
@@ -301,7 +297,7 @@ extern "C" void soemdsp_dsf_oscillator_sample(
         // keeps Trimorph's loudness roughly constant across the full PWM
         // range instead of collapsing to silence at the extremes.
         const double sinPw = sinApprox(kPi * pw);
-        const double compensation = 1.0 / clampD(sinPw < 0.0 ? -sinPw : sinPw, 0.05, 1.0);
+        const double compensation = 1.0 / clamp(sinPw < 0.0 ? -sinPw : sinPw, 0.05, 1.0);
         const double compensatedTri = s.triAcc * compensation;
         const double absTri = compensatedTri < 0.0 ? -compensatedTri : compensatedTri;
         s.triPeak = s.triPeak * 0.999 + absTri * 0.001;
@@ -313,7 +309,7 @@ extern "C" void soemdsp_dsf_oscillator_sample(
 
   const bool finite = sample * 0.0 == 0.0;
   if (!finite) sample = 0.0;
-  s.out = clampD(sample, -1.5, 1.5) * level;
+  s.out = clamp(sample, -1.5, 1.5) * level;
 }
 
 extern "C" double soemdsp_dsf_oscillator_out(int handle) {

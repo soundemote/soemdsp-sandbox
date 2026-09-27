@@ -47,10 +47,6 @@ static double dsp_ln(double x) {
   return (double)e * 0.6931471805599453 + 2.0 * series;
 }
 
-static inline double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
 static inline double jmap01(double v, double outMin, double outMax) {
   return outMin + (outMax - outMin) * v;
 }
@@ -103,7 +99,7 @@ static double ladderTapStep(double y[5], double input, double a, int mode, int s
 
 static inline double ladderCoefficient(double cutoffHz, double sampleRate) {
   double rawWc = kTwoPi * cutoffHz / sampleRate;
-  double wc = clampd(rawWc, 1e-9, kPi * 0.98);
+  double wc = clamp(rawWc, 1e-9, kPi * 0.98);
   double s = dsp_sin_0_pi(wc);
   double c = dsp_cos_0_pi(wc);
   double t = dsp_tan_neg_halfquarter(0.25 * (wc - kPi));
@@ -124,7 +120,7 @@ static double svfBellStep(SvfState* st, double input, double gainDb, double samp
   if (!(centerHz > 1.0)) centerHz = 1.0;
   const double Q = 1.0;
   const double A = dbToAmp(gainDb);
-  const double w = clampd(kTwoPi * centerHz / sampleRate, 1e-9, kPi * 0.98);
+  const double w = clamp(kTwoPi * centerHz / sampleRate, 1e-9, kPi * 0.98);
   const double r = 1.0 / (Q * A);
   const double g = dsp_tan_0_halfpi(0.5 * w);
   const double c = g + r;
@@ -189,9 +185,9 @@ extern "C" double soemdsp_human_filter_sample(
   HumanState& s = gPool[handle - 1];
 
   const double safeRate = sampleRate < 1.0 ? 44100.0 : sampleRate;
-  const double freqNorm = clampd(frequency, 0.0, 1.0);
-  const double reso = clampd(resonance, 0.0, 1.0);
-  const double chaos = clampd(chaosAmount, 0.0, 1.0);
+  const double freqNorm = clamp(frequency, 0.0, 1.0);
+  const double reso = clamp(resonance, 0.0, 1.0);
+  const double chaos = clamp(chaosAmount, 0.0, 1.0);
   const int safeMode = mode < 0 ? 0 : (mode > 2 ? 2 : mode);
 
   double maxPitch, resDropPoint, chaosMax;
@@ -219,7 +215,7 @@ extern "C" double soemdsp_human_filter_sample(
 
   const double gainDb = (chaos < chaosMax ? chaos : chaosMax) * 14.9;
 
-  double inputSignal = clampd(input, -2.0, 2.0);
+  double inputSignal = clamp(input, -2.0, 2.0);
   inputSignal = svfBellStep(&s.fbFilter, s.osc2Value + s.osc1ModSelf + inputSignal + s.lastOutValue, gainDb, safeRate, frequencyHz);
 
   const double fm1 = -2.2784975504539248 * inputSignal;

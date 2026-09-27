@@ -106,10 +106,6 @@ static const char kMetadataJson[] =
     "]"
   "}";
 
-static inline double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
 static inline double dsp_tanh(double x) {
   return 1.0 - 2.0 / (dsp_exp_narrow(2.0 * x) + 1.0);
 }
@@ -166,7 +162,7 @@ static double run_ladder(
   const double hz = cutoffHz < 0.0 ? 0.0 : (cutoffHz > maxFreq ? maxFreq : cutoffHz);
   const int st = stages < 1 ? 1 : (stages > 4 ? 4 : stages);
 
-  const double wc = clampd((2.0 * kPi * hz) / safeRate, 1e-9, kPi * 0.98);
+  const double wc = clamp((2.0 * kPi * hz) / safeRate, 1e-9, kPi * 0.98);
   const double sine = dsp_sin_0_pi(wc);
   const double cosine = dsp_cos_0_pi(wc);
   const double tangent = dsp_tan_neg_halfquarter(0.25 * (wc - kPi));
@@ -251,7 +247,7 @@ extern "C" double soemdsp_active_filter_sample(
   const bool useRes = (circuit == 1 || circuit == 3);
   const bool useClip = (circuit == 2 || circuit == 3);
   const bool useGainComp = gainCompensation != 0;
-  const double feedback = useRes ? clampd(resonance, 0.0, 1.0) : 0.0;
+  const double feedback = useRes ? clamp(resonance, 0.0, 1.0) : 0.0;
   const double sr = sampleRate < 1.0 ? 44100.0 : sampleRate;
 
   double x = safe(input);

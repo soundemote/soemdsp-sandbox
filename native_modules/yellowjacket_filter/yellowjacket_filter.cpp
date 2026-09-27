@@ -37,10 +37,6 @@ static inline double dsp_sqrt(double x) {
   return guess;
 }
 
-static inline double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
 static inline double jmap01(double v, double outMin, double outMax) {
   return outMin + (outMax - outMin) * v;
 }
@@ -81,7 +77,7 @@ static double waveEllipseFull(double phase, double A, double bSin, double bCos, 
 
 static inline double onePoleCoefficient(double cutoffHz, double sampleRate) {
   double rawWc = kTwoPi * cutoffHz / sampleRate;
-  double wc = clampd(rawWc, 1e-9, kPi * 0.98);
+  double wc = clamp(rawWc, 1e-9, kPi * 0.98);
   double s = dsp_sin_0_pi(wc);
   double c = dsp_cos_0_pi(wc);
   double t = dsp_tan_neg_halfquarter(0.25 * (wc - kPi));
@@ -141,9 +137,9 @@ extern "C" double soemdsp_yellowjacket_filter_sample(
   YellowjacketState& s = gPool[handle - 1];
 
   const double safeRate = sampleRate < 1.0 ? 44100.0 : sampleRate;
-  const double freqNorm = clampd(frequency, 0.0, 1.0);
-  const double reso = clampd(resonance, 0.0, 1.0);
-  const double chaos = clampd(chaosAmount, 0.0, 1.0);
+  const double freqNorm = clamp(frequency, 0.0, 1.0);
+  const double reso = clamp(resonance, 0.0, 1.0);
+  const double chaos = clamp(chaosAmount, 0.0, 1.0);
 
   double maxPitch, resDropPoint;
   if (safeRate <= 44100.0) { maxPitch = 87.7; resDropPoint = 0.77; }
@@ -164,7 +160,7 @@ extern "C" double soemdsp_yellowjacket_filter_sample(
 
   const double a = onePoleCoefficient(cutoffHz, safeRate);
 
-  double inputSignal = clampd(input * 4.0, -7.0, 7.0);
+  double inputSignal = clamp(input * 4.0, -7.0, 7.0);
   inputSignal = s.oscSelfMod + 1.04025 * inputSignal + s.lastOutValue;
 
   const double incAmt = (frequencyHz * 1.9400625 * inputSignal) / safeRate;

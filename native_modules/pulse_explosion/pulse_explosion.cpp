@@ -35,6 +35,9 @@
 // seed + same other parameters always produces the same pulse schedule --
 // this lets the UI display precompute the exact schedule that will play.
 
+#include "../sandbox_native_maths/scalar_helpers.h"
+using soemdsp_maths::clamp;
+
 namespace {
 
 static const int kMaxInstances = 16;
@@ -60,10 +63,6 @@ struct PulseExplosionState {
 };
 
 static PulseExplosionState gPool[kMaxInstances];
-
-static inline double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
 
 static inline double nextUniform01(unsigned int* state) {
   unsigned int x = *state;
@@ -111,7 +110,7 @@ static double raisedCosineEase(double x, double x1, double x2) {
   double span = x2 - x1;
   if (span > -1e-12 && span < 1e-12) return 0.5;
   double p = (x - x1) / span;
-  p = clampd(p, 0.0, 1.0);
+  p = clamp(p, 0.0, 1.0);
   return 1.0 - (0.5 + 0.5 * dsp_sin((p - 0.5) * kPi));
 }
 
@@ -122,7 +121,7 @@ static double pulseDensity(double t, double startTime, double centerTime, double
   double ease = (t < centerTime)
     ? raisedCosineEase(t, centerTime, startTime)
     : raisedCosineEase(t, centerTime, endTime);
-  return clampd(rationalCurve(ease, skew), 0.0, 1.0);
+  return clamp(rationalCurve(ease, skew), 0.0, 1.0);
 }
 
 // Deterministic 32-bit mix of a double seed value (murmur3-style finalizer
@@ -193,13 +192,13 @@ extern "C" double soemdsp_pulse_explosion_sample(
 
   const double safeRate = sampleRate < 1.0 ? 44100.0 : sampleRate;
   const double safeStart = startTime < 0.0 ? 0.0 : startTime;
-  double safeCenter = clampd(centerTime, safeStart, endTime > safeStart ? endTime : safeStart + 0.001);
+  double safeCenter = clamp(centerTime, safeStart, endTime > safeStart ? endTime : safeStart + 0.001);
   double safeEnd = endTime > safeStart ? endTime : safeStart + 0.001;
   if (safeCenter <= safeStart) safeCenter = safeStart + 1e-6;
   if (safeCenter >= safeEnd) safeCenter = safeEnd - 1e-6;
   // 0..1 spread -> -0.99..0.99 skew (measured: skew near -1 concentrates
   // tightly at centerTime, skew near +1 spreads widely toward the edges).
-  const double skew = -0.99 + 1.98 * clampd(timeSpread, 0.0, 1.0);
+  const double skew = -0.99 + 1.98 * clamp(timeSpread, 0.0, 1.0);
   const int safeCount = numberOfPulses < 1 ? 1 : (numberOfPulses > kMaxPulses ? kMaxPulses : numberOfPulses);
   const double lo = lowAmplitude < highAmplitude ? lowAmplitude : highAmplitude;
   const double hi = lowAmplitude < highAmplitude ? highAmplitude : lowAmplitude;

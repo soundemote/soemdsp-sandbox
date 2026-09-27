@@ -24,10 +24,6 @@ static inline double dsp_sqrt(double x) {
   return guess;
 }
 
-static inline double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
 static inline double jmap01(double v, double outMin, double outMax) {
   return outMin + (outMax - outMin) * v;
 }
@@ -79,7 +75,7 @@ static double ladderTapStep(double y[5], double input, double a, int mode, int s
 
 static inline double ladderCoefficient(double cutoffHz, double sampleRate) {
   double rawWc = kTwoPi * cutoffHz / sampleRate;
-  double wc = clampd(rawWc, 1e-9, kPi * 0.98);
+  double wc = clamp(rawWc, 1e-9, kPi * 0.98);
   double s = dsp_sin_0_pi(wc);
   double c = dsp_cos_0_pi(wc);
   double t = dsp_tan_neg_halfquarter(0.25 * (wc - kPi));
@@ -130,12 +126,12 @@ extern "C" double soemdsp_chaotic_phase_locking_filter_sample(
   ChaoticState& s = gPool[handle - 1];
 
   const double safeRate = sampleRate < 1.0 ? 44100.0 : sampleRate;
-  const double freqNorm = clampd(frequency, 0.0, 1.0);
-  const double reso = clampd(resonance, 0.0, 1.0);
-  const double chaos = clampd(chaosAmount, 0.0, 1.0);
+  const double freqNorm = clamp(frequency, 0.0, 1.0);
+  const double reso = clamp(resonance, 0.0, 1.0);
+  const double chaos = clamp(chaosAmount, 0.0, 1.0);
   const double phase = (phaseBias == phaseBias) ? phaseBias : 0.0;
 
-  const double cutoffHz = clampd(pitchToFreq(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
+  const double cutoffHz = clamp(pitchToFreq(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
   const double mod = evalExponentialGraph2(reso, 0.1, 20.0, -0.85);
   const double shape = 1.0 - chaos;
 

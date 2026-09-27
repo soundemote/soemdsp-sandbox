@@ -66,10 +66,6 @@ static inline double dsp_sqrt(double x) {
   return guess;
 }
 
-static inline double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
 static inline double jmap01(double v, double outMin, double outMax) {
   return outMin + (outMax - outMin) * v;
 }
@@ -81,7 +77,7 @@ static inline double jmapGeneral(double v, double srcMin, double srcMax, double 
 // rsOnePoleFilter LOWPASS_IIT (matched-Z-transform one-pole): a1=exp(-w),
 // b0=1-a1, y[n]=b0*x[n]+a1*y[n-1]. Exact, per soemdsp/filter/OnePoleFilter.hpp.
 static inline double onePoleIitCoefficient(double cutoffHz, double sampleRate) {
-  double w = clampd(kTwoPi * cutoffHz / sampleRate, 1e-9, kPi * 0.98);
+  double w = clamp(kTwoPi * cutoffHz / sampleRate, 1e-9, kPi * 0.98);
   return dsp_exp_narrow(-w);
 }
 
@@ -183,7 +179,7 @@ struct OnePoleStage {
 
 static inline double onePoleCoefficient(double cutoffHz, double sampleRate) {
   double rawWc = kTwoPi * cutoffHz / sampleRate;
-  double wc = clampd(rawWc, 1e-9, kPi * 0.98);
+  double wc = clamp(rawWc, 1e-9, kPi * 0.98);
   double s = dsp_sin_0_pi(wc);
   double c = dsp_cos_0_pi(wc);
   double t = dsp_tan_neg_halfquarter(0.25 * (wc - kPi));
@@ -258,9 +254,9 @@ extern "C" double soemdsp_flower_child_filter_sample(
   FlowerChildState& s = gPool[handle - 1];
 
   const double safeRate = sampleRate < 1.0 ? 44100.0 : sampleRate;
-  const double freqNorm = clampd(frequency, 0.0, 1.0);
-  const double reso = clampd(resonance, 0.0, 1.0);
-  const double chaos = clampd(chaosAmount, 0.0, 1.0);
+  const double freqNorm = clamp(frequency, 0.0, 1.0);
+  const double reso = clamp(resonance, 0.0, 1.0);
+  const double chaos = clamp(chaosAmount, 0.0, 1.0);
 
   if (mode == 2) {
     // Rev3
@@ -292,7 +288,7 @@ extern "C" double soemdsp_flower_child_filter_sample(
     const double noiseReduction = evalGraph(noiseGraph, 3, reso);
     const double chaosAmount4x = chaos * 4.0;
 
-    double in = s.rev3Feedback + clampd(-1.0 * input, -clipLevel, clipLevel);
+    double in = s.rev3Feedback + clamp(-1.0 * input, -clipLevel, clipLevel);
     const double f = masterFrequency * in * fmAmount;
     const double noiseTerm = masterFrequency * nextNoiseBipolar(&s.rngState) * chaosAmount4x * noiseReduction;
 
@@ -396,7 +392,7 @@ extern "C" double soemdsp_flower_child_filter_sample(
   }
 
   const double clampLimit = dirty ? 1.198 : 1.0;
-  double inputSignal = clampd(-input, -clampLimit, clampLimit);
+  double inputSignal = clamp(-input, -clampLimit, clampLimit);
 
   if (chaos > 0.0) {
     inputSignal += nextNoiseBipolar(&s.rngState) * chaos;
