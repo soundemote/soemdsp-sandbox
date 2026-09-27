@@ -40,14 +40,20 @@ LayoutB (ports beside the face) and InletOutletLayout (title + I/O, no face) are
 
 ## Waterfall redesign (amp-per-frame bars)
 
-**Status:** seed only — details TBD; do not implement until Architect expands this.
+**Status:** seed — direction locked below; more UI/look details TBD. Do not implement until Architect says go.
 
-**Direction:** Make the 1D Waterfall face feel more like a classic waterfall and less like an expensive waveform/trace drawer. Drop (or stop relying on) heavy per-sample waveform ink. Instead, each display frame contributes **one cheap amplitude sample** drawn as a **single bar** (or equivalent column ink), then scroll history like a strip chart.
+**Direction:** Make the 1D Waterfall face feel more like a classic waterfall and less like an expensive waveform/trace drawer. Drop heavy per-sample waveform ink (TraceTape discs / line traces). Each **display frame** draws **one cheap bar**, then scrolls history.
 
-**Why:** Current face (`public/node-graph-module-scope-waterfall.js`) is a strip chart with Sync Off/On, History Hz / Cycles, and **TraceTape WebGL discs** for waveform ink (min/max column envelopes, phase-lock path). That is waveform-shaped and costly. Architect wants amplitude-per-frame bars instead.
+**Locked so far (Architect 2026-09-27):**
 
-**Out of scope until specified:** exact amp metric (peak / abs / RMS / dB), bar vs brightness column, Sync On fate, TraceTape retirement vs mode, Matrix Waterfall / phosphor drawers, and any tie-in to B-026 drawer rearm.
+- **Bar metric = waveform peak-to-peak** for the interval since the last stamped bar: running **max − min**.
+- **Accumulate as samples arrive; paint only stamps.** As each new sample (or small block) lands, update running `min`/`max`. When the display paints, stamp **one bar** from the current accumulated P2P, then **reset** the accumulator for the next interval. Do **not** defer measurement until paint and then scan a giant undrawn backlog (that would balloon cost and P2P when frames are late).
+- **Display update is frame-based; accumulation is sample-driven.** Late paints mean a longer *interval* between bars (one wider time slice), not "hold megabytes and recompute later."
+- **Default mapping = straight amplitude** (linear peak-to-peak → bar). No dB / RMS default.
+- **Scaling is a display setting**, not baked into the default metric. Zoom / gain / range live in settings.
 
-**Related:** B-026 (Pause → Stop → Play leaves value faces / waterfall drawers dark) stays its own bug; this redesign does not claim that fix unless Architect says so later.
+**Still open:** bar look (height vs fill), History / scroll contract, Sync On fate, TraceTape retirement vs optional mode, Matrix Waterfall / phosphor drawers, B-026 tie-in.
+
+**Related:** B-026 stays its own bug unless Architect folds it in later.
 
 **Primary file today:** `public/node-graph-module-scope-waterfall.js`
