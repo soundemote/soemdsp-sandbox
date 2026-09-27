@@ -1,4 +1,4 @@
-﻿// soemdsp-native-module: sine_warp
+// soemdsp-native-module: sine_warp
 // soemdsp-native-label: SineWarp
 // soemdsp-native-target: sineWarp
 // soemdsp-native-kind: oscillator
@@ -30,7 +30,6 @@ static const char kMetadataJson[] =
   "}";
 
 constexpr int kMaxInstances = 64;
-static const double k1z3 = 1.0 / 3.0;
 static const double k4zPI = 4.0 / 3.141592653589793238;
 
 struct SineWarpState {
@@ -44,44 +43,13 @@ struct SineWarpState {
 
 static SineWarpState gPool[kMaxInstances];
 
-double clampD(double value, double lo, double hi) {
-  return value < lo ? lo : (value > hi ? hi : value);
-}
-
-// soemdsp::oscillator::PolyBLEP blep / blamp (quadratic / cubic) — match hypersaw2.
-double blepSoem(double t, double dt) {
-  if (!(dt > 0.0)) return 0.0;
-  const double d = dt;
-  if (t < d) {
-    const double u = t / d - 1.0;
-    return -(u * u);
-  }
-  if (t > 1.0 - d) {
-    const double u = (t - 1.0) / d + 1.0;
-    return u * u;
-  }
-  return 0.0;
-}
-
-double blampSoem(double t, double dt) {
-  if (!(dt > 0.0)) return 0.0;
-  const double d = dt;
-  if (t < d) {
-    const double u = t / d - 1.0;
-    return -k1z3 * u * u * u;
-  }
-  if (t > 1.0 - d) {
-    const double u = (t - 1.0) / d + 1.0;
-    return k1z3 * u * u * u;
-  }
-  return 0.0;
-}
+// soemdsp::math::poly_blep / poly_blamp.
 
 // wavetable2d warp_phase / project rational_curve01 (s clamped ±0.9999).
 static inline double warp_phase(double t, double warp) {
   t = wrap01(t);
   double s = warp;
-  if (!(s == s)) s = 0.0;
+  if (is_nan(s)) s = 0.0;
   if (s > 0.9999) s = 0.9999;
   if (s < -0.9999) s = -0.9999;
   if (s == 0.0) return t;
@@ -95,7 +63,7 @@ static inline double warp_phase(double t, double warp) {
 static inline double warp_prime(double t, double warp) {
   t = wrap01(t);
   double s = warp;
-  if (!(s == s)) s = 0.0;
+  if (is_nan(s)) s = 0.0;
   if (s > 0.9999) s = 0.9999;
   if (s < -0.9999) s = -0.9999;
   if (s == 0.0) return 1.0;
@@ -126,7 +94,7 @@ static inline double eval_wave(double carrierPhase, double warp, int mode, doubl
   double dt1 = wp * dt;
   if (!(dt1 > 0.0)) dt1 = 0.0;
   if (dt1 > 0.5) dt1 = 0.5;
-  y += kTwoPi * dt1 * blampSoem(t1, dt1);
+  y += kTwoPi * dt1 * poly_blamp(t1, dt1);
   return y;
 }
 
@@ -207,8 +175,8 @@ extern "C" double soemdsp_sine_warp_sample(
 
   // Ongoing Reset BLEP while syncT is within one cycle of the discontinuity.
   if (s.syncT >= 0.0) {
-    // blepSoem(0)=-1 → y becomes yNew + jump*(-1) = yBefore at the reset instant.
-    y += s.syncJump * blepSoem(s.syncT, dt > 1.0e-12 ? dt : 1.0e-12);
+    // poly_blep(0)=-1 → y becomes yNew + jump*(-1) = yBefore at the reset instant.
+    y += s.syncJump * poly_blep(s.syncT, dt > 1.0e-12 ? dt : 1.0e-12);
     s.syncT += dt;
     if (s.syncT >= 1.0 || !(dt > 0.0)) {
       s.syncT = -1.0;

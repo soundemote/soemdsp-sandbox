@@ -26,10 +26,6 @@ using namespace soemdsp_maths;
 constexpr int kMaxInstances = 32;
 constexpr int kMaxVoices = 64;
 
-double clampD(double value, double lo, double hi) {
-  return value < lo ? lo : (value > hi ? hi : value);
-}
-
 unsigned int xorshift32(unsigned int& state) {
   unsigned int x = state ? state : 0xA341316Cu;
   x ^= x << 13;
@@ -47,41 +43,12 @@ double randomBipolar(unsigned int& state) {
   return randomUnipolar(state) * 2.0 - 1.0;
 }
 
-// soemdsp::oscillator::PolyBLEP blep / blamp (quadratic / cubic).
-static const double k1z3 = 1.0 / 3.0;
 static const double k4zPI = 4.0 / 3.141592653589793238;
 
-double blepSoem(double t, double dt) {
-  // Frequency 0 Hz → dt=0; no invented floor (param domain owns the min).
-  if (!(dt > 0.0)) return 0.0;
-  const double d = dt;
-  if (t < d) {
-    const double u = t / d - 1.0;
-    return -(u * u);
-  }
-  if (t > 1.0 - d) {
-    const double u = (t - 1.0) / d + 1.0;
-    return u * u;
-  }
-  return 0.0;
-}
-
-double blampSoem(double t, double dt) {
-  if (!(dt > 0.0)) return 0.0;
-  const double d = dt;
-  if (t < d) {
-    const double u = t / d - 1.0;
-    return -k1z3 * u * u * u;
-  }
-  if (t > 1.0 - d) {
-    const double u = (t - 1.0) / d + 1.0;
-    return k1z3 * u * u * u;
-  }
-  return 0.0;
-}
+// soemdsp::math::poly_blep / poly_blamp.
 
 static inline double morphWidth01(double morph) {
-  double w = (morph == morph) ? morph : 0.5;
+  double w = (!is_nan(morph)) ? morph : 0.5;
   if (w < 0.0) w = 0.0;
   if (w > 1.0) w = 1.0;
   if (w < 1.0e-4) w = 1.0e-4;
@@ -103,20 +70,20 @@ double polyBlepTrisaw(double t, double dt, double morph) {
   } else {
     y /= pw;
   }
-  y += dt / (pw - pw * pw) * (blampSoem(t1, dt) - blampSoem(t2, dt));
+  y += dt / (pw - pw * pw) * (poly_blamp(t1, dt) - poly_blamp(t2, dt));
   return y;
 }
 
 double polyBlepSaw(double t, double dt) {
   double y = 1.0 - 2.0 * t;
-  y += blepSoem(t, dt);
+  y += poly_blep(t, dt);
   return y;
 }
 
 double polyBlepRamp(double t, double dt) {
   const double t1 = wrap01(t + 0.5);
   double y = t1 * 2.0 - 1.0;
-  y -= blepSoem(t1, dt);
+  y -= poly_blep(t1, dt);
   return y;
 }
 
@@ -125,7 +92,7 @@ double polyBlepPulse(double t, double dt, double morph) {
   const double t1 = wrap01(t + 1.0 - pw);
   double y = -2.0 * pw;
   if (t < pw) y += 2.0;
-  y += blepSoem(t, dt) - blepSoem(t1, dt);
+  y += poly_blep(t, dt) - poly_blep(t1, dt);
   return y;
 }
 
@@ -134,11 +101,11 @@ double polyBlepPulseCenter(double t, double dt, double morph) {
   double t1 = wrap01(t + 0.875 + 0.25 * (u - 0.5));
   double t2 = wrap01(t + 0.375 + 0.25 * (u - 0.5));
   double y = t1 < 0.5 ? 1.0 : -1.0;
-  y += blepSoem(t1, dt) - blepSoem(t2, dt);
+  y += poly_blep(t1, dt) - poly_blep(t2, dt);
   t1 = wrap01(t1 + 0.5 * (1.0 - u));
   t2 = wrap01(t2 + 0.5 * (1.0 - u));
   y += t1 < 0.5 ? 1.0 : -1.0;
-  y += blepSoem(t1, dt) - blepSoem(t2, dt);
+  y += poly_blep(t1, dt) - poly_blep(t2, dt);
   return 0.5 * y;
 }
 
@@ -146,7 +113,7 @@ double polyBlepRectSin(double t, double dt) {
   const double t1 = wrap01(t + 0.25);
   // 2·sin(π·t1) − 4/π  (soemdsp PolyBLEP::rectSinFull)
   double y = 2.0 * dsp_sin(kPi * t1) - k4zPI;
-  y += kTwoPi * dt * blampSoem(t1, dt);
+  y += kTwoPi * dt * poly_blamp(t1, dt);
   return y;
 }
 
@@ -157,15 +124,15 @@ double polyBlepTrapezoid(double t, double dt) {
   } else if (y > 1.0) {
     y = 2.0 - y;
   }
-  y = clampD(2.0 * y, -1.0, 1.0);
+  y = clamp(2.0 * y, -1.0, 1.0);
 
   double t1 = wrap01(t + 0.125);
   double t2 = wrap01(t1 + 0.5);
-  y += 4.0 * dt * (blampSoem(t1, dt) - blampSoem(t2, dt));
+  y += 4.0 * dt * (poly_blamp(t1, dt) - poly_blamp(t2, dt));
 
   t1 = wrap01(t + 0.375);
   t2 = wrap01(t1 + 0.5);
-  y += 4.0 * dt * (blampSoem(t1, dt) - blampSoem(t2, dt));
+  y += 4.0 * dt * (poly_blamp(t1, dt) - poly_blamp(t2, dt));
   return y;
 }
 
@@ -446,11 +413,11 @@ extern "C" void soemdsp_hypersaw2_sample(
   double jDistanceTarget = (jitterDistance == jitterDistance) ? jitterDistance : 0.0;
   if (jDistanceTarget < 0.0) jDistanceTarget = 0.0;
   const double jSpeed = (jitterSpeed == jitterSpeed && jitterSpeed > 0.0) ? jitterSpeed : 0.0;
-  const double cs = clampD(centerSide, 0.0, 1.0);
+  const double cs = clamp(centerSide, 0.0, 1.0);
   int wave = (int)(waveform + (waveform >= 0.0 ? 0.5 : -0.5));
   if (wave < 0) wave = 0;
   if (wave > 6) wave = 6;
-  const double morphAmt = (morph == morph) ? morph : 0.5;
+  const double morphAmt = (!is_nan(morph)) ? morph : 0.5;
   const double gain = (level == level) ? level : 0.0;
   const double phaseG = (phaseGlobal == phaseGlobal) ? phaseGlobal : 0.0;
 
@@ -558,8 +525,8 @@ extern "C" void soemdsp_hypersaw2_sample(
   if (!(left * 0.0 == 0.0)) left = 0.0;
   if (!(right * 0.0 == 0.0)) right = 0.0;
 
-  s.outLeft = clampD(left, -1.5, 1.5) * gain;
-  s.outRight = clampD(right, -1.5, 1.5) * gain;
+  s.outLeft = clamp(left, -1.5, 1.5) * gain;
+  s.outRight = clamp(right, -1.5, 1.5) * gain;
 }
 
 extern "C" double soemdsp_hypersaw2_left(int handle) {

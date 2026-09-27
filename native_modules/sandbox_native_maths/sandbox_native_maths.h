@@ -5,9 +5,15 @@
 // module #includes this file and gets its own inlined copies at compile
 // time. There is no .cpp/object file to build or link here.
 //
-// This is just an umbrella that pulls in the individual topic files below
-// (kept separate so each stays focused and easy to scan):
-//   scalar_helpers.h    -- safe/clamp/min/max/floor/ceil/hash, used by nearly everything
+// Canonical nested namespaces (matching soemdsp):
+//   soemdsp::debug  -- safe / is_bad / is_nan
+//   soemdsp::math   -- clamp, wrap01, poly_blep, poly_blamp, ...
+// Flat soemdsp_maths:: remains a compatibility mirror for older modules.
+//
+// Topic files:
+//   debug.h             -- soemdsp::debug sanitize / bad-float checks
+//   scalar_helpers.h    -- soemdsp::math clamp/wrap/floor + soemdsp_maths mirror
+//   poly_blep.h         -- soemdsp::math::poly_blep / poly_blamp
 //   exp_log.h           -- general-purpose exp()/ln() + dB↔lin polyfills (no libm)
 //   phasor.h            -- unit-interval phase advance / Hz→increment
 //   dynamics.h          -- one-pole coeff / step
@@ -23,7 +29,9 @@
 // own .cpp.
 #pragma once
 
+#include "debug.h"
 #include "scalar_helpers.h"
+#include "poly_blep.h"
 #include "exp_log.h"
 #include "phasor.h"
 #include "dynamics.h"

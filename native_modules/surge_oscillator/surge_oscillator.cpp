@@ -48,10 +48,6 @@ using namespace soemdsp_maths;
 
 constexpr int kMaxInstances = 16;
 
-double clampD(double value, double lo, double hi) {
-  return value < lo ? lo : (value > hi ? hi : value);
-}
-
 double wrapRadians(double value) {
   while (value > kPi) value -= kTwoPi;
   while (value < -kPi) value += kTwoPi;
@@ -64,17 +60,10 @@ double sinApprox(double value) {
   return x * (1.0 + x2 * (-1.0 / 6.0 + x2 * (1.0 / 120.0 + x2 * (-1.0 / 5040.0 + x2 * (1.0 / 362880.0)))));
 }
 
+// Shared soemdsp::math::poly_blep (same residual as legacy local formula).
 double polyBlep(double phaseCycle, double phaseIncrement) {
-  const double dt = clampD(phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement, 1.0e-6, 0.5);
-  if (phaseCycle < dt) {
-    const double t = phaseCycle / dt;
-    return t + t - t * t - 1.0;
-  }
-  if (phaseCycle > 1.0 - dt) {
-    const double t = (phaseCycle - 1.0) / dt;
-    return t * t + t + t + 1.0;
-  }
-  return 0.0;
+  const double dt = clamp(phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement, 1.0e-6, 0.5);
+  return poly_blep(phaseCycle, dt);
 }
 
 double polyBlepSquare(double phaseCycle, double phaseIncrement) {
@@ -95,7 +84,7 @@ double waveformSample(WaveformState& w, double phaseCycle, double phaseIncrement
       return polyBlepSquare(phaseCycle, phaseIncrement);
     case 2: {
       double next = (w.triangleIntegrator + polyBlepSquare(phaseCycle, phaseIncrement) * phaseIncrement * 4.0) * 0.995;
-      next = clampD(next, -1.0, 1.0);
+      next = clamp(next, -1.0, 1.0);
       w.triangleIntegrator = next;
       return next;
     }
@@ -182,13 +171,13 @@ extern "C" void soemdsp_surge_oscillator_sample(
   SurgeOscillatorState& s = gPool[handle - 1];
 
   const double safeSampleRate = sampleRate > 1.0 ? sampleRate : 48000.0;
-  const double increment = clampD(frequencyHz / safeSampleRate, -0.5, 0.5);
+  const double increment = clamp(frequencyHz / safeSampleRate, -0.5, 0.5);
   s.phaseIncrement = increment;
 
   s.phase = wrap01(s.phase + increment);
   s.syncedThisSample = false;
 
-  const double masterIncrement = clampD(syncFrequencyHz / safeSampleRate, -0.5, 0.5);
+  const double masterIncrement = clamp(syncFrequencyHz / safeSampleRate, -0.5, 0.5);
   s.masterPhase = wrap01(s.masterPhase + masterIncrement);
   s.internalSyncOut = sinApprox(s.masterPhase * kTwoPi);
 
@@ -196,7 +185,7 @@ extern "C" void soemdsp_surge_oscillator_sample(
 
   if (s.hasPrevSyncIn && s.prevSyncIn <= 0.0 && effectiveSyncIn > 0.0) {
     const double denom = effectiveSyncIn - s.prevSyncIn;
-    const double frac = denom > 1.0e-9 ? clampD(-s.prevSyncIn / denom, 0.0, 1.0) : 0.0;
+    const double frac = denom > 1.0e-9 ? clamp(-s.prevSyncIn / denom, 0.0, 1.0) : 0.0;
     // frac is "how far into this sample" the true zero-crossing happened;
     // (1 - frac) of the sample's phase increment has already elapsed since
     // the sync instant, so the new cycle starts that far in, not at exactly 0.

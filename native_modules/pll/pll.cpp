@@ -14,7 +14,7 @@ constexpr int kMaxInstances = 8;
 // ── helpers ────────────────────────────────────────────────────────────────
 
 static bool pll_finite(double v) {
-  return v == v && v > -1.0e15 && v < 1.0e15;
+  return !is_nan(v) && v > -1.0e15 && v < 1.0e15;
 }
 
 // exp() polyfill — not available in -nostdlib wasm32 build.
@@ -45,24 +45,10 @@ static double pll_exp(double x) {
 // Linear phase accumulator → 50% square. Naive ±1 drives PC / lock; VCO Out
 // is PolyBLEP (same residual as native_modules/polyblep).
 
-static double pll_wrap01(double t) {
-  t -= (double)(int)t;
-  if (t < 0.0) t += 1.0;
-  return t;
-}
-
+// Shared soemdsp::math::poly_blep; retain former [1e-6, 0.5] dt policy at the call.
 static double pll_polyblep(double phaseCycle, double dt) {
-  if (dt < 1.0e-6) dt = 1.0e-6;
-  if (dt > 0.5) dt = 0.5;
-  if (phaseCycle < dt) {
-    const double t = phaseCycle / dt;
-    return t + t - t * t - 1.0;
-  }
-  if (phaseCycle > 1.0 - dt) {
-    const double t = (phaseCycle - 1.0) / dt;
-    return t * t + t + t + 1.0;
-  }
-  return 0.0;
+  dt = clamp(dt, 1.0e-6, 0.5);
+  return poly_blep(phaseCycle, dt);
 }
 
 struct Vco {
@@ -88,7 +74,7 @@ struct Vco {
     while (phase < 0.0)  phase += 1.0;
     out = phase < 0.5 ? 1.0 : -1.0;
     const double dt = inc < 0.0 ? -inc : inc;
-    audio = out + pll_polyblep(phase, dt) - pll_polyblep(pll_wrap01(phase + 0.5), dt);
+    audio = out + pll_polyblep(phase, dt) - pll_polyblep(wrap01(phase + 0.5), dt);
     return audio;
   }
 

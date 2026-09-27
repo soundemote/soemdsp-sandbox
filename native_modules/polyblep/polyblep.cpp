@@ -18,7 +18,6 @@ constexpr int kMaxInstances = 64;
 // Waveform indices 0-5 stay stable for saved patches; 6-8 are PWM-family.
 constexpr int kSlotCount = 6;
 constexpr int kWaveformMax = 7;
-constexpr double k1z3 = 1.0 / 3.0;
 
 struct SlotState {
   double lastPhaseIncrement;
@@ -50,53 +49,17 @@ struct PolyBlepState {
 
 static PolyBlepState gPool[kMaxInstances];
 
-double clampD(double value, double lo, double hi) {
-  return value < lo ? lo : (value > hi ? hi : value);
-}
-
 // APP_POLICY sine SSOT: pure-tone sine from shared half-sine wavetable LUT.
 // (Old Taylor-about-zero on ±π clicked once per cycle.)
 
 // Legacy sandbox BLEP (kept for Saw / Ramp / Square continuity).
+// Shared soemdsp::math::poly_blep (same residual as legacy formula).
 double polyBlep(double phaseCycle, double phaseIncrement) {
-  const double dt = clampD(phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement, 1.0e-6, 0.5);
-  if (phaseCycle < dt) {
-    const double t = phaseCycle / dt;
-    return t + t - t * t - 1.0;
-  }
-  if (phaseCycle > 1.0 - dt) {
-    const double t = (phaseCycle - 1.0) / dt;
-    return t * t + t + t + 1.0;
-  }
-  return 0.0;
+  const double dt = clamp(phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement, 1.0e-6, 0.5);
+  return poly_blep(phaseCycle, dt);
 }
 
-// soemdsp::oscillator::PolyBLEP::blep / blamp (for Pulse / Center Square / Trisaw).
-double blepSoem(double t, double dt) {
-  const double d = clampD(dt < 0.0 ? -dt : dt, 1.0e-6, 0.5);
-  if (t < d) {
-    const double u = t / d - 1.0;
-    return -(u * u);
-  }
-  if (t > 1.0 - d) {
-    const double u = (t - 1.0) / d + 1.0;
-    return u * u;
-  }
-  return 0.0;
-}
-
-double blampSoem(double t, double dt) {
-  const double d = clampD(dt < 0.0 ? -dt : dt, 1.0e-6, 0.5);
-  if (t < d) {
-    const double u = t / d - 1.0;
-    return -k1z3 * u * u * u;
-  }
-  if (t > 1.0 - d) {
-    const double u = (t - 1.0) / d + 1.0;
-    return k1z3 * u * u * u;
-  }
-  return 0.0;
-}
+// soemdsp::math::poly_blep / poly_blamp (Pulse / Center Square / Trisaw).
 
 double polyBlepSquare(double phaseCycle, double phaseIncrement) {
   double value = phaseCycle < 0.5 ? 1.0 : -1.0;
@@ -108,7 +71,7 @@ double polyBlepSquare(double phaseCycle, double phaseIncrement) {
 // Morph is 0…1, used as width/duty directly (0.5 = center / triangle / 50%).
 // Keep off exact 0/1 only where the wave math divides by pw*(1-pw).
 static inline double morphWidth01(double morph) {
-  double w = (morph == morph) ? morph : 0.5;
+  double w = (!is_nan(morph)) ? morph : 0.5;
   if (w < 0.0) w = 0.0;
   if (w > 1.0) w = 1.0;
   if (w < 1.0e-4) w = 1.0e-4;
@@ -122,7 +85,7 @@ double polyBlepPulse(double t, double incrementAbs, double morph) {
   double t1 = wrap01(t + 1.0 - pw);
   double y = -2.0 * pw;
   if (t < pw) y += 2.0;
-  y += blepSoem(t, incrementAbs) - blepSoem(t1, incrementAbs);
+  y += poly_blep(t, incrementAbs) - poly_blep(t1, incrementAbs);
   return y;
 }
 
@@ -130,7 +93,7 @@ double polyBlepPulse(double t, double incrementAbs, double morph) {
 // Morph = width 0…1; edges grow left/right from 0.5.
 // Not soemdsp Pulse Center (two summed squares → stepped ±1/0 levels).
 double polyBlepCenterSquare(double t, double incrementAbs, double morph) {
-  double w = (morph == morph) ? morph : 0.5;
+  double w = (!is_nan(morph)) ? morph : 0.5;
   if (w < 0.0) w = 0.0;
   if (w > 1.0) w = 1.0;
   if (w <= 0.0) return -1.0;
@@ -140,7 +103,7 @@ double polyBlepCenterSquare(double t, double incrementAbs, double morph) {
   const double t0 = wrap01(t - shift);
   const double t1 = wrap01(t0 + 1.0 - w);
   double y = (t0 < w) ? 1.0 : -1.0;
-  y += blepSoem(t0, incrementAbs) - blepSoem(t1, incrementAbs);
+  y += poly_blep(t0, incrementAbs) - poly_blep(t1, incrementAbs);
   return y;
 }
 
@@ -159,7 +122,7 @@ double polyBlepTrisaw(double t, double incrementAbs, double morph) {
     y /= pw;
   }
 
-  y += incrementAbs / (pw - pw * pw) * (blampSoem(t1, incrementAbs) - blampSoem(t2, incrementAbs));
+  y += incrementAbs / (pw - pw * pw) * (poly_blamp(t1, incrementAbs) - poly_blamp(t2, incrementAbs));
   return y;
 }
 
@@ -198,7 +161,7 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
         break;
       }
       double nextTriangle = (slot.triangleIntegrator + polyBlepSquare(phaseCycle, renderIncrement) * phaseDelta * 4.0) * 0.995;
-      nextTriangle = clampD(nextTriangle, -1.0, 1.0);
+      nextTriangle = clamp(nextTriangle, -1.0, 1.0);
       slot.triangleIntegrator = nextTriangle;
       sample = nextTriangle;
       break;
@@ -265,7 +228,7 @@ static void render_taps(
   int tapMask
 ) {
   const int safeWaveform = waveform < 0 ? 0 : (waveform > kWaveformMax ? kWaveformMax : waveform);
-  const double safeMorph = (morph == morph) ? morph : 0.5;
+  const double safeMorph = (!is_nan(morph)) ? morph : 0.5;
   const int mask = tapMask == 0 ? kTapAll : tapMask;
   if (mask & kTapOut) {
     s.out = oscillatorSample(s.slots[0], phase, phaseIncrement, safeWaveform, safeMorph) * level;
