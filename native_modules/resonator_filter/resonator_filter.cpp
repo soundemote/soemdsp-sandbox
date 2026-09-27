@@ -30,12 +30,6 @@ static double dsp_ln(double x) {
   return (double)e * 0.6931471805599453 + 2.0 * series;
 }
 
-static inline double dsp_sqrt(double x) {
-  if (x <= 0.0) return 0.0;
-  double guess = x;
-  for (int i = 0; i < 24; i++) guess = 0.5 * (guess + x / guess);
-  return guess;
-}
 
 static inline double curveShape(double v, double tension) {
   double denom = 2.0 * tension * v - tension - 1.0;
@@ -61,7 +55,7 @@ static double evalGraph(const GraphNode* nodes, int count, double x) {
 static double waveEllipse(double phaseCycles, double ellipseC) {
   double sinX = dsp_sin(phaseCycles * kTwoPi);
   double cosX = dsp_cos(phaseCycles * kTwoPi);
-  double sqrtVal = dsp_sqrt(cosX * cosX + (ellipseC * sinX) * (ellipseC * sinX));
+  double sqrtVal = sqrt_newton(cosX * cosX + (ellipseC * sinX) * (ellipseC * sinX));
   if (sqrtVal < 1e-12) sqrtVal = 1e-12;
   return cosX / sqrtVal;
 }

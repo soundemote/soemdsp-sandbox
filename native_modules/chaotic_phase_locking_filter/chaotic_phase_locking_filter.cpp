@@ -17,12 +17,6 @@ using namespace soemdsp_maths;
 
 static const int kMaxInstances = 256;
 
-static inline double dsp_sqrt(double x) {
-  if (x <= 0.0) return 0.0;
-  double guess = x;
-  for (int i = 0; i < 24; i++) guess = 0.5 * (guess + x / guess);
-  return guess;
-}
 
 // 2-node EXPONENTIAL curve, built directly as a Graph (graph.h) instead of
 // hand-rolling the exponential segment formula.
@@ -37,7 +31,7 @@ static double evalExponentialGraph2(double x, double y0, double y1, double skew)
 static double waveEllipse(double phaseCycles, double ellipseC) {
   double sinX = dsp_sin(phaseCycles * kTwoPi);
   double cosX = dsp_cos(phaseCycles * kTwoPi);
-  double sqrtVal = dsp_sqrt(cosX * cosX + (ellipseC * sinX) * (ellipseC * sinX));
+  double sqrtVal = sqrt_newton(cosX * cosX + (ellipseC * sinX) * (ellipseC * sinX));
   if (sqrtVal < 1e-12) sqrtVal = 1e-12;
   return cosX / sqrtVal;
 }

@@ -8,7 +8,7 @@
 // Canonical nested namespaces (matching soemdsp):
 //   soemdsp::constant -- kPI/kTAU/kInvTAU/kInvPI/kPIz2/kPIz4/k4zPI/k1z*/kPHI/kPlanck/kTauOver44100 (+ compat aliases)
 //   soemdsp::debug    -- safe / is_bad / is_nan / default_if_zero / default_if_near_zero
-//   soemdsp::math     -- clamp/wrap/lerp/map*/morph_width01, midi_to_hz/hz_to_midi, pan_gains, soft_clip_*, one_pole_*, poly_blep/poly_blamp, rising_edge*/rational_curve*/expo_skew01/db_to_amp, ...
+//   soemdsp::math     -- clamp/wrap/lerp/map*/morph_width01/sqrt_newton/xorshift32, midi_to_hz/hz_to_midi, pan_gains, soft_clip_*, one_pole_*, poly_blep/poly_blamp, rising_edge*/rational_curve*/expo_skew01/db_to_amp, ...
 // Flat soemdsp_maths:: remains a compatibility mirror for older modules.
 //
 // Topic files:

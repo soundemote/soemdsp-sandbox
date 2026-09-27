@@ -20,12 +20,9 @@ struct VibratoGenState {
 };
 
 static inline unsigned int vib_xorshift(unsigned int& state) {
-  unsigned int x = state ? state : 0xA341316Cu;
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-  state = x;
-  return x;
+  // Preserve vib dead-zero seed (0xA341316C); core shift lives in soemdsp::math.
+  if (!state) state = 0xA341316Cu;
+  return soemdsp::math::xorshift32(state);
 }
 
 static inline double vib_random_bipolar(unsigned int& state) {

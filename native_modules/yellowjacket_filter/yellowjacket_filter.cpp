@@ -30,12 +30,6 @@ static double dsp_ln(double x) {
   return (double)e * 0.6931471805599453 + 2.0 * series;
 }
 
-static inline double dsp_sqrt(double x) {
-  if (x <= 0.0) return 0.0;
-  double guess = x;
-  for (int i = 0; i < 24; i++) guess = 0.5 * (guess + x / guess);
-  return guess;
-}
 
 // 2-node EXPONENTIAL curve, built directly as a Graph (graph.h) instead of
 // hand-rolling the exponential segment formula.
@@ -62,7 +56,7 @@ static double waveEllipseFull(double phase, double A, double bSin, double bCos, 
   double sinX = dsp_sin(phase * kTwoPi);
   double cosX = dsp_cos(phase * kTwoPi);
   double apc = A + cosX;
-  double sqrtVal = dsp_sqrt(apc * apc + (C * sinX) * (C * sinX));
+  double sqrtVal = sqrt_newton(apc * apc + (C * sinX) * (C * sinX));
   if (sqrtVal < 1e-12) sqrtVal = 1e-12;
   return (apc * bCos + (C * sinX) * bSin) / sqrtVal;
 }

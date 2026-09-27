@@ -33,17 +33,11 @@ using soemdsp_maths::wrap_radians;
 using soemdsp_maths::kPi;
 using soemdsp_maths::kTwoPi;
 using soemdsp_maths::kHalfPi;
+using soemdsp_maths::sqrt_newton;
 constexpr int kMaxInstances = 16;
 
 // ---- Local transcendental helpers (freestanding, no libm) ------------------
 double absD(double v) { return v < 0.0 ? -v : v; }
-
-double sqrtApprox(double v) {
-  if (v <= 0.0) return 0.0;
-  double guess = v;
-  for (int i = 0; i < 24; i++) guess = 0.5 * (guess + v / guess);
-  return guess;
-}
 
 double sinApprox(double x) {
   const double w = wrap_radians(x);
@@ -238,7 +232,7 @@ extern "C" void soemdsp_archimedes_set_phase(int handle, double phaseRadians) {
   ArchimedesState& s = gPool[handle - 1];
   const double xf = (double)s.x / 65536.0;
   const double yf = (double)s.y / 65536.0;
-  double amp = sqrtApprox(xf * xf + yf * yf);
+  double amp = sqrt_newton(xf * xf + yf * yf);
   if (amp < 0.0001) amp = 1.0;
   s.x = (int32_t)(amp * sinApprox(phaseRadians) * 65536.0);
   s.y = (int32_t)(amp * cosApprox(phaseRadians) * 65536.0);

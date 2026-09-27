@@ -52,14 +52,6 @@ struct State {
 
 static State gPool[kMaxInstances];
 
-static unsigned int xorshift32(unsigned int& state) {
-  unsigned int x = state;
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-  state = x ? x : 1u;
-  return state;
-}
 
 static int clamp_mode(double mode) {
   int m = (int)(safe(mode) + (safe(mode) >= 0.0 ? 0.5 : -0.5));

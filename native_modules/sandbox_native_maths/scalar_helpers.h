@@ -4,7 +4,7 @@
 // Canonical homes (nested, matching soemdsp):
 //   soemdsp::constant -- kPI / kTAU / kPIz2 / k1z3 / kPlanck (+ compat aliases; see constant.h)
 //   soemdsp::debug    -- safe / is_bad / is_nan / default_if_zero / default_if_near_zero  (see debug.h)
-//   soemdsp::math     -- clamp, clamp01, clamp11, wrap01, wrap01_frac, wrap01f, wrap11(_closed)/wrap_radians/wrap/floor/ceil, lerp, morph_width01, ...
+//   soemdsp::math     -- clamp, clamp01, clamp11, wrap01, wrap01_frac, wrap01f, wrap11(_closed)/wrap_radians/wrap/floor/ceil, lerp, morph_width01, sqrt_newton, xorshift32, ...
 // Flat soemdsp_maths:: is a compatibility mirror for existing modules.
 #pragma once
 
@@ -166,6 +166,26 @@ static inline double rational_curve(
 ) {
   return map01(rational_curve01(map(v, inMin, inMax, 0.0, 1.0), skew), outMin, outMax);
 }
+
+// Newton-Raphson sqrt, 24 iterations, guess=x. Non-positive -> 0.
+static inline double sqrt_newton(double x) {
+  if (x <= 0.0) return 0.0;
+  double guess = x;
+  for (int i = 0; i < 24; i++) guess = 0.5 * (guess + x / guess);
+  return guess;
+}
+
+// Marsaglia xorshift32 (13/17/5). Updates state in place; returns new state.
+// Nonzero seed stays nonzero. Callers that need a dead-zero guard seed at init.
+static inline unsigned xorshift32(unsigned& state) {
+  unsigned x = state;
+  x ^= x << 13;
+  x ^= x >> 17;
+  x ^= x << 5;
+  state = x;
+  return x;
+}
+
 }  // namespace soemdsp::math
 
 // ---------------------------------------------------------------------------
@@ -212,5 +232,8 @@ using soemdsp::math::map;
 using soemdsp::math::rational_curve01;
 using soemdsp::math::rational_curve11;
 using soemdsp::math::rational_curve;
+
+using soemdsp::math::sqrt_newton;
+using soemdsp::math::xorshift32;
 
 }  // namespace soemdsp_maths

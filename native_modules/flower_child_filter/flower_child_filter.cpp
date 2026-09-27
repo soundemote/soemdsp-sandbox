@@ -59,12 +59,6 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 256;
-static inline double dsp_sqrt(double x) {
-  if (x <= 0.0) return 0.0;
-  double guess = x;
-  for (int i = 0; i < 24; i++) guess = 0.5 * (guess + x / guess);
-  return guess;
-}
 
 static inline double jmapGeneral(double v, double srcMin, double srcMax, double dstMin, double dstMax) {
   return dstMin + (dstMax - dstMin) * (v - srcMin) / (srcMax - srcMin);
@@ -146,7 +140,7 @@ static inline double waveSine(double phase) {
 static inline double waveEllipse(double phase, double ellipseC) {
   double sinX = dsp_sin(phase * kTwoPi);
   double cosX = dsp_cos(phase * kTwoPi);
-  double sqrtVal = dsp_sqrt(cosX * cosX + (ellipseC * sinX) * (ellipseC * sinX));
+  double sqrtVal = sqrt_newton(cosX * cosX + (ellipseC * sinX) * (ellipseC * sinX));
   if (sqrtVal < 1e-12) sqrtVal = 1e-12;
   return cosX / sqrtVal;
 }

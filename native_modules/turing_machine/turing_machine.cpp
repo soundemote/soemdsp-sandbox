@@ -40,14 +40,6 @@ struct TuringMachineState {
 
 static TuringMachineState gPool[kMaxInstances];
 
-static unsigned int xorshift32(unsigned int& state) {
-  unsigned int x = state;
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-  state = x;
-  return x;
-}
 
 static double next_unit(unsigned int& state) {
   return (double)xorshift32(state) / 4294967295.0;
