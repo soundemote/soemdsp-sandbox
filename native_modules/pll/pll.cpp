@@ -91,7 +91,7 @@ static void one_pole_lp_set(double fc, double sr, double& a1, double& b0) {
   double f = fc < 0.0 ? 0.0 : fc;
   const double nyquist = rate * 0.49;
   if (f > nyquist) f = nyquist;
-  const double w = 6.283185307179586 * f / rate;
+  const double w = kTwoPi * f / rate;
   a1 = pll_exp(-w);
   b0 = 1.0 - a1;
 }

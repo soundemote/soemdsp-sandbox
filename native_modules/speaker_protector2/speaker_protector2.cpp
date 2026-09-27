@@ -49,8 +49,8 @@ static bool is_finite(double x) {
 static void hp_coeffs(double sampleRate, double frequencyHz, double* a1, double* b0, double* b1) {
   const double rate = sampleRate < 1.0 ? 44100.0 : sampleRate;
   const double frequencyValue = frequencyHz < 0.0 ? 0.0 : frequencyHz;
-  double w = ((2.0 * kPi) / rate);
-  if (w > 0.000142475857) w = 0.000142475857;
+  double w = kTwoPi / rate;
+  if (w > kTauOver44100) w = kTauOver44100;
   w *= frequencyValue;
   *a1 = dsp_exp(-w);
   *b0 = 0.5 * (1.0 + *a1);

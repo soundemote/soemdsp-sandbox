@@ -26,7 +26,6 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 16;
-static const double kQuarterPi = 0.78539816339744830962;
 static const double kInvTau = 0.15915494309189535;
 
 struct RadarState {

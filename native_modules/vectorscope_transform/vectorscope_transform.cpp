@@ -19,8 +19,6 @@ static const char kMetadataJson[] =
     "\"kind\":\"dynamics\""
   "}";
 
-static const double kInvSqrt2 = 0.7071067811865476;
-static const double kDegToRad = 0.017453292519943295;
 
 static void compute(double left, double right, double rotateDeg, double* x, double* y) {
   const double L = safe(left);

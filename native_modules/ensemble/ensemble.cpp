@@ -87,7 +87,7 @@ static double runRandomWalk(Voice& v, double freqHz, double jitterHz, double sr)
   const double step = noise > 0.0 ? stepSize : -stepSize;
   v.walkOut = clamp11(v.walkOut + step);
   const double mixed = v.walkOut * randomMix + noise * whiteNoiseMix;
-  const double w = mind(kTwoPi / rate, 0.000142475857) * maxd(0.0, freqHz);
+  const double w = mind(kTwoPi / rate, kTauOver44100) * maxd(0.0, freqHz);
   const double a1 = dsp_exp(-w);
   v.walkLpf = (1.0 - a1) * mixed + a1 * v.walkLpf;
   return v.walkLpf;

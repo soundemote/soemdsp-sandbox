@@ -43,7 +43,6 @@ struct RandomWalkState {
 
 static RandomWalkState gPool[kMaxInstances];
 
-const double PI = 3.14159265358979323846;
 
 // Numerical Recipes LCG, matching the JS Math.imul(1664525, seed)+1013904223
 // (mod 2^32) exactly -- unsigned 32-bit multiply/add wraps the same way.
@@ -64,7 +63,7 @@ static double rational_curve(double value, double skew) {
 
 static double one_pole_lowpass(double& outputBuffer, double input, double frequency, double rate) {
   double safeRate = maxd(1.0, rate);
-  double w = mind((PI * 2.0) / safeRate, 0.000142475857) * maxd(0.0, frequency);
+  double w = mind(kTwoPi / safeRate, kTauOver44100) * maxd(0.0, frequency);
   double a1 = dsp_exp(-w);
   double b0 = 1.0 - a1;
   outputBuffer = safe(b0 * input + a1 * outputBuffer);

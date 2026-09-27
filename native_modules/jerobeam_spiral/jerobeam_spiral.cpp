@@ -43,7 +43,6 @@ static const char kMetadataJson[] =
   "}";
 
 static const int kMaxInstances = 16;
-static const double kQuarterPi = 0.7853981633974483096;
 
 static inline double dsp_trunc(double x) {
   return (double)(long long)x;

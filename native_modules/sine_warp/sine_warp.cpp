@@ -30,7 +30,6 @@ static const char kMetadataJson[] =
   "}";
 
 constexpr int kMaxInstances = 64;
-static const double k4zPI = 4.0 / 3.141592653589793238;
 
 struct SineWarpState {
   bool active;

@@ -30,11 +30,11 @@ static double mono_sum(double left, double right, int mode) {
     const double mag = energy > 0.0 ? dsp_exp(0.5 * dsp_ln(energy)) : 0.0;
     return (sign < 0.0 ? -1.0 : 1.0) * mag;
   }
-  if (mode == 3) return (left + right) * 0.7071067811865476;
+  if (mode == 3) return (left + right) * kInvSqrt2;
   if (mode == 4) return dsp_fabs(left) >= dsp_fabs(right) ? left : right;
   if (mode == 5) return left;
   if (mode == 6) return right;
-  return (left + right) * 0.5; // Average (1) and unknown
+  return (left + right) * k1z2; // Average (1) and unknown
 }
 
 static void compute(

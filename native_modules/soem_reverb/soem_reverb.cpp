@@ -101,8 +101,8 @@ static void one_pole_hp_set(
   double f = maxd(0.0, safe(freqHz));
   const double nyquist = 0.5 * rate;
   if (f > nyquist) f = nyquist;
-  const double tauZ = 6.283185307179586 / rate;
-  double w = mind(tauZ, 0.000142475857) * f;
+  const double tauZ = kTwoPi / rate;
+  double w = mind(tauZ, kTauOver44100) * f;
   a1 = dsp_exp(-w);
   b0 = 0.5 * (1.0 + a1);
   b1 = -b0;
@@ -315,7 +315,7 @@ struct ModulatedDelay {
     const double step = noise > 0.0 ? stepSize : -stepSize;
     walkOut = clamp11(walkOut + step);
     const double mixed = walkOut * randomMix + noise * whiteNoiseMix;
-    const double w = mind(6.283185307179586 / rate, 0.000142475857) * maxd(0.0, walkFreqHz);
+    const double w = mind(kTwoPi / rate, kTauOver44100) * maxd(0.0, walkFreqHz);
     const double a1 = dsp_exp(-w);
     walkLpf = (1.0 - a1) * mixed + a1 * walkLpf;
     return walkLpf; // bipolar

@@ -253,7 +253,6 @@ static inline double pitch_jitter_walk(
   if (j.out > depth) j.out = depth;
   if (j.out < -depth) j.out = -depth;
 
-  static const double kTauOver44100 = 0.000142475857;
   const double tauZSr = kTwoPi / sr;
   const double wScale = tauZSr < kTauOver44100 ? tauZSr : kTauOver44100;
   double w = wScale * freq;

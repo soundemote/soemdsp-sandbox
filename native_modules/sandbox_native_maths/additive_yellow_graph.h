@@ -1296,7 +1296,7 @@ inline void apply_pan(
 
   const bool havePrev = lerpFrom && lerpFromLen == H;
   const float denom = H > 1 ? (float)(H - 1) : 1.0f;
-  const double twoPi = 6.283185307179586;
+  const double twoPi = soemdsp_maths::kTwoPi;
   for (int i = 0; i < H; i += 1) {
     const float norm = (float)i / denom;
     float side = ((i & 1) == 0) ? -1.0f : 1.0f;

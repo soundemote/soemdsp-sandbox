@@ -391,7 +391,7 @@ extern "C" int soemdsp_fbm_field_fill_grid(
   const double safeContrast = contrast < 0.0 ? 0.0 : contrast;
   const double safeBright = brightness < 0.0 ? 0.0 : brightness;
   const double span = 1.0 / safeZoom;
-  const double ang = rotate * 6.283185307179586;
+  const double ang = rotate * kTwoPi;
   const double cosR = soemdsp_maths::dsp_cos(ang);
   const double sinR = soemdsp_maths::dsp_sin(ang);
   const int mode = normalizeMotion(motion);

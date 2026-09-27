@@ -6,13 +6,13 @@
 // time. There is no .cpp/object file to build or link here.
 //
 // Canonical nested namespaces (matching soemdsp):
-//   soemdsp::constant -- kPI / kTAU / kPIz2 / k1z3 / kPlanck (+ compat kPi/kTwoPi/kHalfPi/kTau)
+//   soemdsp::constant -- kPI/kTAU/kPIz2/kPIz4/k4zPI/k1z*/kPHI/kPlanck/kTauOver44100 (+ compat aliases)
 //   soemdsp::debug    -- safe / is_bad / is_nan / default_if_zero / default_if_near_zero
 //   soemdsp::math     -- clamp, clamp01, clamp11, wrap01, wrap01_frac, wrap01f, wrap11, wrap11_closed, wrap_radians, wrap(lo,hi), poly_blep, poly_blamp, ...
 // Flat soemdsp_maths:: remains a compatibility mirror for older modules.
 //
 // Topic files:
-//   constant.h          -- soemdsp::constant trig/planck/reciprocals (+ soemdsp_maths mirror)
+//   constant.h          -- soemdsp::constant trig/phi/reciprocals/planck/kTauOver44100 (+ soemdsp_maths mirror)
 //   debug.h             -- soemdsp::debug sanitize / bad-float / default_if_zero / default_if_near_zero
 //   scalar_helpers.h    -- soemdsp::math clamp/wrap01/wrap01f/wrap11(_closed)/wrap_radians/wrap/floor + soemdsp_maths mirror
 //   poly_blep.h         -- soemdsp::math::poly_blep / poly_blamp

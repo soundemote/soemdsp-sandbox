@@ -1613,6 +1613,8 @@ using soemdsp_maths::wrap;
 using soemdsp_maths::kPlanck;
 using soemdsp_maths::kPi;
 using soemdsp_maths::kTwoPi;
+using soemdsp_maths::kTauOver44100;
+using soemdsp_maths::k1zLN2;
 using soemdsp_maths::safe;
 using soemdsp_maths::clamp;
 using soemdsp_maths::clamp11;
@@ -3881,7 +3883,7 @@ static void control_ensure_coeff(Control& c, Circuit& g) {
   // Match JS onePole / twoPole / threePole: frequencyHz = 1/seconds = sr/tSamples
   const double frequencyValue = sr / t;
   double wUnit = kTwoPi / sr;
-  if (wUnit > 0.000142475857) wUnit = 0.000142475857;
+  if (wUnit > kTauOver44100) wUnit = kTauOver44100;
   const double w = wUnit * frequencyValue;
   const double a1 = dsp_exp(-w);
   c.coeff = 1.0 - a1;
@@ -5424,7 +5426,7 @@ static void process_pitch_hz(Circuit& g, Node& node, int frames) {
     } else if (!(in > 0.0) || !(in == in)) {
       out = 0.0;
     } else {
-      out = 69.0 + 12.0 * (dsp_ln(in / tun) * 1.4426950408889634);
+      out = 69.0 + 12.0 * (dsp_ln(in / tun) * k1zLN2);
     }
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;

@@ -16,7 +16,6 @@ using namespace soemdsp_maths;
 
 static const int kMaxInstances = 32;
 static const double kTol = 1.0e-8;
-static const double kDegToRad = kPi / 180.0;
 static const double kInfDistance = 1.0e30;
 
 static inline double dsp_sqrt(double x) {

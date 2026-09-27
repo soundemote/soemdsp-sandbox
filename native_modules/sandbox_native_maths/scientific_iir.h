@@ -263,7 +263,7 @@ static inline void cascade_design(
   if (kind == kLinkwitzRiley && order <= 2) {
     const double sr = sampleRate < 1.0 ? 44100.0 : sampleRate;
     const double f = freqHz < 1e-6 ? 1e-6 : freqHz;
-    double w = (2.0 * 3.14159265358979323846 * f) / sr;
+    double w = (kTwoPi * f) / sr;
     if (w > 2.8) w = 2.8;
     const double a = dsp_exp_narrow(-w);
     c->n = 0;

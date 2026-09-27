@@ -69,7 +69,7 @@ static double one_pole_lp_coeff(double freqHz, double sr) {
   const double nyquist = 0.5 * rate;
   if (f > nyquist) f = nyquist;
   // a1 = exp(-2π f / sr); f=0 → 1 (hold/closed). Avoid silent pass-through if exp fails.
-  double w = 6.283185307179586 * f / rate;
+  double w = kTwoPi * f / rate;
   if (w > 80.0) w = 80.0;
   double a1 = dsp_exp(-w);
   if (!(a1 > 0.0) || a1 > 1.0) {
@@ -165,7 +165,7 @@ static double lfo_run(
     const double nextWalk = clamp11((*walkOut) + step);
     *walkOut = nextWalk;
     double mixed = nextWalk * randomMix + noise * whiteNoiseMix;
-    double w = mind(6.283185307179586 / rate, 0.000142475857) * hz;
+    double w = mind(kTwoPi / rate, kTauOver44100) * hz;
     double a1 = dsp_exp(-w);
     const double nextLpf = (1.0 - a1) * mixed + a1 * (*walkLpf);
     *walkLpf = nextLpf;

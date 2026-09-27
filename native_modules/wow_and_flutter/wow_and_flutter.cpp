@@ -51,7 +51,7 @@ static inline double rational_curve(double value, double skew) {
 
 static inline double one_pole_lowpass(double& outputBuffer, double input, double frequency, double rate) {
   double safeRate = maxd(1.0, rate);
-  double w = mind((kPi * 2.0) / safeRate, 0.000142475857) * maxd(0.0, frequency);
+  double w = mind(kTwoPi / safeRate, kTauOver44100) * maxd(0.0, frequency);
   double a1 = dsp_exp(-w);
   double b0 = 1.0 - a1;
   outputBuffer = safe(b0 * input + a1 * outputBuffer);

@@ -43,7 +43,6 @@ double randomBipolar(unsigned int& state) {
   return randomUnipolar(state) * 2.0 - 1.0;
 }
 
-static const double k4zPI = 4.0 / 3.141592653589793238;
 
 // soemdsp::math::poly_blep / poly_blamp.
 
@@ -213,7 +212,6 @@ static inline double hypersaw_walk(
   }
   j.out = clamp11(j.out);
 
-  static const double kTauOver44100 = 0.000142475857;
   const double tauZSr = kTwoPi / sr;
   const double wScale = tauZSr < kTauOver44100 ? tauZSr : kTauOver44100;
   double w = wScale * freq;
