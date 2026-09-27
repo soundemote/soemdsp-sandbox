@@ -2,8 +2,8 @@
 // dependency, used by nearly every native_modules/*.cpp.
 //
 // Canonical homes (nested, matching soemdsp):
-//   soemdsp::debug  -- safe / is_bad / is_nan / default_if_zero  (see debug.h)
-//   soemdsp::math   -- clamp, clamp01, clamp11, wrap01, floor/ceil, ...
+//   soemdsp::debug  -- safe / is_bad / is_nan / default_if_zero / default_if_near_zero  (see debug.h)
+//   soemdsp::math   -- clamp, clamp01, clamp11, wrap01, wrap11, wrap(lo,hi), floor/ceil, ...
 // Flat soemdsp_maths:: is a compatibility mirror for existing modules.
 #pragma once
 
@@ -48,6 +48,7 @@ static inline bool silent_planck(double x) {
 }
 
 // x - floor(x), wrapped into [0, 1).
+// Canonical unit-interval wrap; matches soemdsp::math::wrap(phase) style.
 static inline double wrap01(double value) {
   double f = value - dsp_floor(value);
   if (f < 0.0) f += 1.0;
@@ -58,6 +59,22 @@ static inline double wrap01(double value) {
 // Plain fractional part: x - floor(x), with no extra range-safety branches.
 static inline double wrap01_frac(double value) {
   return value - dsp_floor(value);
+}
+
+// Wrap into [-1, +1). Same half-open convention as wrap01's [0, 1).
+// Equivalent to 2*wrap01((value + 1)/2) - 1. Endpoint +1 maps to -1.
+static inline double wrap11(double value) {
+  return 2.0 * wrap01(0.5 * (value + 1.0)) - 1.0;
+}
+
+// Wrap into [lo, hi). Half-open, matching wrap01 / wrap11.
+// Inspired by soemdsp::math::wrap(phase) and wrap(phase, modulus), but with
+// explicit endpoints (soemdsp's 2-arg form is modulus-from-zero only).
+// Non-positive or non-finite span returns lo.
+static inline double wrap(double value, double lo, double hi) {
+  const double span = hi - lo;
+  if (!(span > 0.0)) return lo;
+  return lo + span * wrap01((value - lo) / span);
 }
 
 // NaN/Inf AND extreme-magnitude guard (blanks anything beyond +-1e300).
@@ -86,6 +103,7 @@ using soemdsp::debug::is_nan;
 using soemdsp::debug::is_bad;
 using soemdsp::debug::safe;
 using soemdsp::debug::default_if_zero;
+using soemdsp::debug::default_if_near_zero;
 
 using soemdsp::math::kPlanck;
 using soemdsp::math::clamp;
@@ -101,6 +119,8 @@ using soemdsp::math::near_planck;
 using soemdsp::math::silent_planck;
 using soemdsp::math::wrap01;
 using soemdsp::math::wrap01_frac;
+using soemdsp::math::wrap11;
+using soemdsp::math::wrap;
 using soemdsp::math::safe_bounded;
 using soemdsp::math::hash_bipolar;
 

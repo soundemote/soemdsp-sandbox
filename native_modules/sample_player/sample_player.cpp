@@ -366,8 +366,7 @@ extern "C" double soemdsp_sample_player_sample(
 
   const double nextPhase = boundedPhase + increment;
   if (mode == kModeLoop) {
-    const double normalizedNext = (nextPhase - startPhase) / span;
-    st.phase = startPhase + wrap01(normalizedNext) * span;
+    st.phase = wrap(nextPhase, startPhase, startPhase + span);
   } else if (speed >= 0.0 && nextPhase >= endPhase) {
     st.phase = endPhase;
     st.completed = true;

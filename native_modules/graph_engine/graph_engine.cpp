@@ -1609,6 +1609,7 @@ using soemdsp_maths::dsp_sin_cos_turns;
 using soemdsp_maths::dsp_floor;
 using soemdsp_maths::dsp_fabs;
 using soemdsp_maths::wrap01;
+using soemdsp_maths::wrap;
 using soemdsp_maths::kPlanck;
 using soemdsp_maths::safe;
 using soemdsp_maths::clamp;
@@ -2644,10 +2645,7 @@ static inline double control_shortest_unwrap(
 }
 
 static inline double control_wrap_value(double v, double minV, double range) {
-  double w = v - minV;
-  w = w - range * dsp_floor(w / range);
-  if (w < 0.0) w += range;
-  return minV + w;
+  return wrap(v, minV, minV + range);
 }
 
 // Fold unwrapped chase state back into the domain once settled (float hygiene).

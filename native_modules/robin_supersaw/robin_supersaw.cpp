@@ -127,13 +127,6 @@ void updateCycleLength(DitherVoiceState& v) {
 
 static void beginCycleFromPitch(DitherVoiceState& voice);
 
-double wrap01(double value) {
-  double x = value - floorD(value);
-  if (x < 0.0) x += 1.0;
-  if (x >= 1.0) x = 0.0;
-  return x;
-}
-
 // Base phasor advance + live Random Phase offset (voice.phaseRandom × amount).
 // Amount is not hard-clamped — param domain min/max are UI guides only.
 // Pitch jitter is applied as Hz only at cycle boundaries (AA-coherent).

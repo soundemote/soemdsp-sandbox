@@ -348,8 +348,7 @@ extern "C" double soemdsp_audio_player_sample(
     : clamp(st.phase, 0.0, 1.0);
   const double phaseWithOffset =
     basePhase + safe(phaseOffset) + safe(phaseSkip) + safe(playlistScrub);
-  const double boundedPhase =
-    startPhase + wrap01((phaseWithOffset - startPhase) / span) * span;
+  const double boundedPhase = wrap(phaseWithOffset, startPhase, startPhase + span);
 
   const double frameIndex = boundedPhase * (double)(st.pcmFrames - 1);
   const double leftS = read_linear(st.pcmL, st.pcmFrames, frameIndex);
@@ -365,7 +364,7 @@ extern "C" double soemdsp_audio_player_sample(
     if (transportLooping) {
       const double normalizedNext = (nextPhase - startPhase) / span;
       done = (normalizedNext < 0.0 || normalizedNext >= 1.0) ? 1.0 : 0.0;
-      st.phase = startPhase + wrap01((nextPhase - startPhase) / span) * span;
+      st.phase = wrap(nextPhase, startPhase, startPhase + span);
     } else if (speed >= 0.0 && nextPhase >= endPhase) {
       st.phase = endPhase;
       st.completed = true;

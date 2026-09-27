@@ -179,8 +179,7 @@ extern "C" void soemdsp_chaosfly_sample(
   if (lpHz > ny) lpHz = ny;
   if (hpHz > ny) hpHz = ny;
 
-  double pitchScale = apply_octave_offset(1.0, pitchOct);
-  if (!(pitchScale == pitchScale) || pitchScale < 1e-12) pitchScale = 1.0;
+  double pitchScale = default_if_near_zero(safe(apply_octave_offset(1.0, pitchOct)), 1.0, 1e-12);
 
   int mixMode = (int)(outputMode + (outputMode >= 0.0 ? 0.5 : -0.5));
   if (mixMode < 0) mixMode = 0;

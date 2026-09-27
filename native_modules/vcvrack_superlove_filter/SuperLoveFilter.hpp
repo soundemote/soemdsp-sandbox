@@ -85,12 +85,6 @@ static inline double jmap01(double v, double outMin, double outMax) {
 static inline double pitchToFreq(double pitch) {
 	return 440.0 * dsp_exp2((pitch - 69.0) / 12.0);
 }
-static inline double wrap01(double v) {
-	double x = v - dsp_floor(v);
-	if (x < 0.0) x += 1.0;
-	return x;
-}
-
 // HP/BP resonance curve is two fixed breakpoints. Build once — getValue is
 // identical to reconstructing the Graph every sample.
 static double hpBpResonanceMod(double reso) {

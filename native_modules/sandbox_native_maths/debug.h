@@ -21,4 +21,12 @@ static inline double default_if_zero(double value, double fallback) {
   return value == 0.0 ? fallback : value;
 }
 
+// |value| < eps -> fallback (near-zero / dirty-zero param defaults).
+// Strict < so a value exactly equal to eps is kept. eps is required -- call
+// sites must pick the tolerance explicitly (no silent library default).
+static inline double default_if_near_zero(double value, double fallback, double eps) {
+  const double a = value < 0.0 ? -value : value;
+  return a < eps ? fallback : value;
+}
+
 }  // namespace soemdsp::debug
