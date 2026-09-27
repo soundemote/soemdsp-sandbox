@@ -98,7 +98,7 @@ extern "C" double soemdsp_pumping_limiter_sample(
   }
   State& st = gPool[handle - 1];
   const double rate = sampleRate > 1.0 ? sampleRate : 44100.0;
-  const double inGain = db_to_lin(safe(inputGainDb));
+  const double inGain = db_to_amp(safe(inputGainDb));
   const double lIn = safe(left) * inGain;
   const double rIn = safe(right) * inGain;
 
@@ -129,7 +129,7 @@ extern "C" double soemdsp_pumping_limiter_sample(
   const double env = st.meanSquare > 0.0 ? dsp_exp(0.5 * dsp_ln(st.meanSquare)) : 0.0;
   st.env = env;
 
-  double thresh = db_to_lin(safe(thresholdDb));
+  double thresh = db_to_amp(safe(thresholdDb));
   if (thresh < 1e-6) thresh = 1e-6;
   double r = safe(ratio);
   if (!(r * 0.0 == 0.0) || r < 1.0) r = 8.0;

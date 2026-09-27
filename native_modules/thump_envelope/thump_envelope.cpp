@@ -167,7 +167,7 @@ extern "C" double soemdsp_thump_envelope_sample(
 
   const double safeGate = safe(gate);
   const bool latchMode = safe(updateOnTrigger) >= 0.5;
-  const bool rising = s.lastGate <= 0.0 && safeGate > 0.0;
+  const bool rising = rising_edge(safeGate, &s.lastGate, 0.0);
 
   double snapDepth = ui_to_snap_depth(decaySnap);
   double bodyDepth = ui_to_body_depth(decayBody);
@@ -206,7 +206,7 @@ extern "C" double soemdsp_thump_envelope_sample(
   } else {
     s.hasLatch = false;
   }
-  s.lastGate = safeGate;
+
 
   // Live env → ×kFbAmplitude → Range → Snap/Body. Sustain base always 1.0.
   const double delayed = s.fbDelay[s.fbIdx];

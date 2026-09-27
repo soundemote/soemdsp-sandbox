@@ -88,8 +88,7 @@ extern "C" double soemdsp_clock_sample(
   const double rateHz = maxd(1.0, safe(sampleRate));
 
   const bool resetHigh = safeReset > 0.0;
-  const bool resetRise = resetHigh && !s.resetWasHigh;
-  s.resetWasHigh = resetHigh;
+  const bool resetRise = rising_edge_bool(resetHigh, &s.resetWasHigh);
 
   // Rising Reset only (edge): treat as end-of-cycle Pulse, then restart.
   // Do NOT hold phase at 0 while Reset stays high — that freezes Digital in the

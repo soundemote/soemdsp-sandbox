@@ -132,7 +132,7 @@ static void calc_coeffs(CookbookState& s, int mode, double freq, double q, doubl
   double sine = 0.0, cosine = 0.0;
   dsp_sin_cos(omega, &sine, &cosine);
   const double alpha = sine / (2.0 * q);
-  const double A = db_to_lin(gainDb * 0.5); // 10^(dB/40), RS-MET pow(10, 0.025*gain)
+  const double A = db_to_amp(gainDb * 0.5); // 10^(dB/40), RS-MET pow(10, 0.025*gain)
 
   double a0 = 1.0 + alpha;
   double a1 = -2.0 * cosine;
@@ -173,7 +173,7 @@ static void calc_coeffs(CookbookState& s, int mode, double freq, double q, doubl
     b1 = -2.0 * cosine;
     b2 = 1.0 - alpha * A;
   } else if (mode == kLowShelf) {
-    const double beta = db_to_lin(gainDb * 0.25) / q; // sqrt(A)/q
+    const double beta = db_to_amp(gainDb * 0.25) / q; // sqrt(A)/q
     a0 = (A + 1.0) + (A - 1.0) * cosine + beta * sine;
     a1 = -2.0 * ((A - 1.0) + (A + 1.0) * cosine);
     a2 = (A + 1.0) + (A - 1.0) * cosine - beta * sine;
@@ -181,7 +181,7 @@ static void calc_coeffs(CookbookState& s, int mode, double freq, double q, doubl
     b1 = 2.0 * A * ((A - 1.0) - (A + 1.0) * cosine);
     b2 = A * ((A + 1.0) - (A - 1.0) * cosine - beta * sine);
   } else if (mode == kHighShelf) {
-    const double beta = db_to_lin(gainDb * 0.25) / q; // sqrt(A)/q
+    const double beta = db_to_amp(gainDb * 0.25) / q; // sqrt(A)/q
     a0 = (A + 1.0) - (A - 1.0) * cosine + beta * sine;
     a1 = 2.0 * ((A - 1.0) - (A + 1.0) * cosine);
     a2 = (A + 1.0) - (A - 1.0) * cosine - beta * sine;

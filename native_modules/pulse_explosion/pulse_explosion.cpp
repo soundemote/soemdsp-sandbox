@@ -11,7 +11,7 @@
 // sample; otherwise outputs 0.
 //
 // Density shape: the same rational tension curve used throughout this
-// project's filter work (rationalCurve(p, skew) = ((1+skew)*p) /
+// project's filter work (rational_curve01(p, skew) = ((1+skew)*p) /
 // (1-skew+2*skew*p)) applied to a raised-cosine ease
 // (1 - (0.5 + 0.5*sin(((x-x1)/(x2-x1) - 0.5)*pi))), which eases from 1 at
 // x1 down to 0 at x2. Calling that ease with (x1=centerTime, x2=startTime)
@@ -36,7 +36,10 @@
 // this lets the UI display precompute the exact schedule that will play.
 
 #include "../sandbox_native_maths/scalar_helpers.h"
+#include "../sandbox_native_maths/trigger.h"
 using soemdsp_maths::clamp;
+using soemdsp_maths::rational_curve01;
+using soemdsp_maths::rising_edge_bool;
 using soemdsp_maths::kPi;
 using soemdsp_maths::kTwoPi;
 using soemdsp_maths::kHalfPi;
@@ -97,13 +100,6 @@ static double dsp_sin(double x) {
   return sign * dsp_sin_0_halfpi(wrapped);
 }
 
-// Rational tension curve, 0->0, 1->1, skew in (-1, 1); skew=0 is linear.
-static inline double rationalCurve(double p, double skew) {
-  double denom = 1.0 - skew + 2.0 * skew * p;
-  if (denom > -1e-12 && denom < 1e-12) denom = denom >= 0.0 ? 1e-12 : -1e-12;
-  return ((1.0 + skew) * p) / denom;
-}
-
 // Raised-cosine ease: 1 at x=x1, 0 at x=x2, smooth in between. x1/x2 order
 // doesn't matter mathematically -- only which one is "1" vs "0".
 static double raisedCosineEase(double x, double x1, double x2) {
@@ -121,7 +117,7 @@ static double pulseDensity(double t, double startTime, double centerTime, double
   double ease = (t < centerTime)
     ? raisedCosineEase(t, centerTime, startTime)
     : raisedCosineEase(t, centerTime, endTime);
-  return clamp(rationalCurve(ease, skew), 0.0, 1.0);
+  return clamp(rational_curve01(ease, skew), 0.0, 1.0);
 }
 
 // Deterministic 32-bit mix of a double seed value (murmur3-style finalizer
@@ -204,7 +200,7 @@ extern "C" double soemdsp_pulse_explosion_sample(
   const double hi = lowAmplitude < highAmplitude ? highAmplitude : lowAmplitude;
 
   const bool high = trigger > 0.5;
-  if (high && !s.wasHigh) {
+  if (rising_edge_bool(high, &s.wasHigh)) {
     // Rising edge: schedule a fresh burst.
     s.pulseCount = 0;
     s.nextPulseIndex = 0;
@@ -236,7 +232,6 @@ extern "C" double soemdsp_pulse_explosion_sample(
       s.pulseCount++;
     }
   }
-  s.wasHigh = high;
 
   double output = 0.0;
   if (s.exploding) {

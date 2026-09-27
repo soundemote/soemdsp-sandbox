@@ -27,8 +27,8 @@ static const char kMetadataJson[] =
 
 extern "C" double soemdsp_amp_db_sample(double input, double mode) {
   const double in = safe(input);
-  if (safe(mode) >= 0.5) return lin_to_db(in);
-  return db_to_lin(in);
+  if (safe(mode) >= 0.5) return amp_to_db(in);
+  return db_to_amp(in);
 }
 
 extern "C" int soemdsp_amp_db_version() {

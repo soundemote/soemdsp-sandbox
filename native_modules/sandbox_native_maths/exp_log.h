@@ -49,19 +49,43 @@ static inline double dsp_ln(double x) {
   return 2.0*series + (double)e*LN2;
 }
 
-// Amplitude dB ↔ linear gain (20*log10). Floor ≤ −140 dB → 0.
-static inline double db_to_lin(double db) {
-  const double x = safe(db);
-  if (!(x * 0.0 == 0.0)) return 1.0;
-  if (x <= -140.0) return 0.0;
-  return dsp_exp(x * 0.11512925464970229); // ln(10)/20
-}
-
-static inline double lin_to_db(double lin) {
-  const double x = safe(lin);
-  if (!(x > 0.0)) return -120.0;
-  return dsp_ln(x) * 8.685889638065035; // 20/ln(10)
-}
-
 }  // namespace soemdsp_maths
 
+namespace soemdsp::math {
+
+// Amplitude dB <-> linear gain (20*log10). Floor <= -140 dB -> 0.
+// Renamed from db_to_lin / lin_to_db (amp naming matches signal gain).
+static inline double db_to_amp(double db) {
+  const double x = soemdsp::debug::safe(db);
+  if (!(x * 0.0 == 0.0)) return 1.0;
+  if (x <= -140.0) return 0.0;
+  return soemdsp_maths::dsp_exp(x * 0.11512925464970229); // ln(10)/20
+}
+
+static inline double amp_to_db(double amp) {
+  const double x = soemdsp::debug::safe(amp);
+  if (!(x > 0.0)) return -120.0;
+  return soemdsp_maths::dsp_ln(x) * 8.685889638065035; // 20/ln(10)
+}
+
+// Exponential skew on [0,1]: soemdsp::curve::Exponential style.
+// skew clamped to [-0.99, 0.99]; exact zero skew is identity (preserves
+// pluck_envelope; exp_adsr/curve_ar keep near-zero via shape_skew -1e-8).
+static inline double expo_skew01(double t01, double skew) {
+  const double t = clamp(t01, 0.0, 1.0);
+  const double s = clamp(skew, -0.99, 0.99);
+  if (s == 0.0) return t;
+  const double c = 0.5 * (s + 1.0);
+  const double a = 2.0 * soemdsp_maths::dsp_ln(maxd(1.0e-12, (1.0 - c) / maxd(1.0e-12, c)))
+                   * 0.4342944819032518; // log10
+  const double denom = 1.0 - soemdsp_maths::dsp_exp(a);
+  return denom == 0.0 ? t : (1.0 - soemdsp_maths::dsp_exp(t * a)) / denom;
+}
+
+}  // namespace soemdsp::math
+
+namespace soemdsp_maths {
+using soemdsp::math::db_to_amp;
+using soemdsp::math::amp_to_db;
+using soemdsp::math::expo_skew01;
+}  // namespace soemdsp_maths

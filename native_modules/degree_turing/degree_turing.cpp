@@ -102,21 +102,19 @@ extern "C" double soemdsp_degree_turing_sample(
   const int classCount = musical_classes_from_root(mask, rootUse, classes, 12);
 
   const bool resetHigh = safe(reset) > 0.0;
-  if (resetHigh && !s.resetWasHigh) {
+  if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {
     s.registerValue = 0xA5 & ((1 << lengthSteps) - 1);
   }
-  s.resetWasHigh = resetHigh;
 
   double trig = 0.0;
   const bool clockHigh = safe(clock) > 0.0;
-  if (clockHigh && !s.clockWasHigh) {
+  if (rising_edge_bool(clockHigh, &s.clockWasHigh)) {
     const int regMask = (1 << lengthSteps) - 1;
     const int topBit = (s.registerValue >> (lengthSteps - 1)) & 1;
     const int newBit = next_unit(s.rngState) < prob ? (1 - topBit) : topBit;
     s.registerValue = ((s.registerValue << 1) | newBit) & regMask;
     trig = 1.0;
   }
-  s.clockWasHigh = clockHigh;
 
   const int regMask = (1 << lengthSteps) - 1;
   const int reg = s.registerValue & regMask;

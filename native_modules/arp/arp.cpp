@@ -305,20 +305,19 @@ extern "C" double soemdsp_arp_sample(
   rebuild_notes(s);
 
   const bool resetHigh = safe(reset) > 0.0;
-  if (resetHigh && !s.resetWasHigh) {
+  if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {
     restart_pattern(s, mode, seed);
     s.phase = 0.0;
   }
-  s.resetWasHigh = resetHigh;
 
   double trigOut = 0.0;
   if (trigConnected) {
     const bool trigHigh = safe(trigger) > 0.0;
-    if (s.noteCount > 0 && trigHigh && !s.clockWasHigh) {
+    const bool clockRise = rising_edge_bool(trigHigh, &s.clockWasHigh);
+    if (s.noteCount > 0 && clockRise) {
       do_step(s, mode, steps, seed, octaveOffset, sequenceOffset);
       trigOut = 1.0;
     }
-    s.clockWasHigh = trigHigh;
   } else if (rate > 0.0) {
     // Free-run phasor when Trigger is unconnected. rateHz is Internal Clock
     // unless the host passes the f jack (cable present → internal ignored).

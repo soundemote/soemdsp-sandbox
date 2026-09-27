@@ -219,7 +219,7 @@ static void process_one(LadderState& s, double input) {
 
   const double safeIn = safe(input);
   double y0 = g * safeIn - k * s.y[4];
-  y0 = safe(y0 / (1.0 + y0 * y0));
+  y0 = soft_clip_rational(y0);
   const double ny1 = safe(y0      + a * (y0      - s.y[1]));
   const double ny2 = safe(ny1     + a * (ny1     - s.y[2]));
   const double ny3 = safe(ny2     + a * (ny2     - s.y[3]));

@@ -96,18 +96,16 @@ extern "C" double soemdsp_turing_machine_sample(
   const double safeProbability = clamp(safe(probability), 0.0, 1.0);
   const double safeLevel = safe(level);
 
-  if (resetHigh && !s.resetWasHigh) {
+  if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {
     s.registerValue = 0;
   }
-  s.resetWasHigh = resetHigh;
 
-  if (clockHigh && !s.clockWasHigh) {
+  if (rising_edge_bool(clockHigh, &s.clockWasHigh)) {
     const int mask = (1 << lengthSteps) - 1;
     const int topBit = (s.registerValue >> (lengthSteps - 1)) & 1;
     const int newBit = next_unit(s.rngState) < safeProbability ? (1 - topBit) : topBit;
     s.registerValue = ((s.registerValue << 1) | newBit) & mask;
   }
-  s.clockWasHigh = clockHigh;
 
   const int mask = (1 << lengthSteps) - 1;
   const double maxValue = mask > 0 ? (double)mask : 1.0;

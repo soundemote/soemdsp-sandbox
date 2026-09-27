@@ -43,12 +43,6 @@ static inline double next_bipolar(unsigned int& seed) {
   return next_unipolar(seed) * 2.0 - 1.0;
 }
 
-static inline double rational_curve(double value, double skew) {
-  double t = clamp(value, 0.0, 1.0);
-  double safeSkew = clamp(skew, -0.999, 0.999);
-  return ((1.0 + safeSkew) * t) / (1.0 - safeSkew + 2.0 * safeSkew * t);
-}
-
 static inline double one_pole_lowpass(double& outputBuffer, double input, double frequency, double rate) {
   double safeRate = maxd(1.0, rate);
   double w = mind(kTwoPi / safeRate, kTauOver44100) * maxd(0.0, frequency);
@@ -71,10 +65,10 @@ static inline double flutter_fixed_steps(
   const double noise = next_bipolar(s.flutterSeed);
   const double increment = clamp(safeFrequency / rate, 0.0, 1.0);
   const double jitterInc = clamp(safeJitter / rate, 0.0, 1.0);
-  const double stepSize = clamp(increment + rational_curve(jitterInc, 0.99), 0.0, 1.0);
+  const double stepSize = clamp(increment + rational_curve01(jitterInc, 0.99), 0.0, 1.0);
   const double averageIncrement = (jitterInc + increment) * 0.5;
   const double whiteNoiseMix = averageIncrement >= 0.9
-    ? rational_curve((averageIncrement - 0.9) / 0.1, -0.7)
+    ? rational_curve01((averageIncrement - 0.9) / 0.1, -0.7)
     : 0.0;
   const double randomMix = 1.0 - whiteNoiseMix;
   const double step = noise > 0.0 ? stepSize : -stepSize;

@@ -146,12 +146,6 @@ double hypersaw2WaveSample(int waveform, double phase, double dt, double morph) 
 // Distance = Drift Amp (phase depth). Speed = Drift Jitter (Hz, step size).
 // Filter = LPF cutoff in Hz (same at every pitch).
 
-static inline double rational_curve01(double value, double skew) {
-  double t = value < 0.0 ? 0.0 : (value > 1.0 ? 1.0 : value);
-  double s = skew < -0.999 ? -0.999 : (skew > 0.999 ? 0.999 : skew);
-  return ((1.0 + s) * t) / (1.0 - s + 2.0 * s * t);
-}
-
 struct JitterState {
   double out;       // raw bipolar walk accumulator
   double lpfOut;    // OnePoleLP (same as Hypersaw DriftWalkState)

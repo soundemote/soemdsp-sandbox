@@ -30,8 +30,8 @@ extern "C" double soemdsp_mid_side_encode_sample(
 ) {
   const double l = safe(left);
   const double r = safe(right);
-  const double mid = 0.5 * (l + r) * db_to_lin(midGainDb);
-  const double side = 0.5 * (l - r) * db_to_lin(sideGainDb);
+  const double mid = 0.5 * (l + r) * db_to_amp(midGainDb);
+  const double side = 0.5 * (l - r) * db_to_amp(sideGainDb);
   const int ch = (int)(safe(channel) + 0.5);
   return ch == 1 ? side : mid;
 }

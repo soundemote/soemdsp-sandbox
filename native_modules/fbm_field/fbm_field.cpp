@@ -313,10 +313,9 @@ extern "C" void soemdsp_fbm_field_sample(
   FbmFieldState& s = gPool[handle - 1];
 
   const bool resetHigh = reset > 0.5;
-  if (resetHigh && !s.resetWasHigh) {
+  if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {
     s.time = 0.0;
   }
-  s.resetWasHigh = resetHigh;
   s.hasStarted = true;
 
   const int safeSeed = clamp_int(seedInt, 0, 99999);

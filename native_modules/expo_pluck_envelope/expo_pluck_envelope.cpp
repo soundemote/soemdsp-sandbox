@@ -198,11 +198,10 @@ extern "C" double soemdsp_expo_pluck_envelope_sample(
 
   const double trig = (trigger == trigger) ? trigger : 0.0;
   const double gat = (gate == gate) ? gate : 0.0;
-  const bool trigRise = s.lastTrigger <= 0.0 && trig > 0.0;
-  const bool gateRise = s.lastGate <= 0.0 && gat > 0.0;
-  const bool gateFall = s.lastGate > 0.0 && gat <= 0.0;
-  s.lastTrigger = trig;
-  s.lastGate = gat;
+  const bool trigRise = rising_edge(trig, &s.lastTrigger, 0.0);
+  const double prevGate = s.lastGate;
+  const bool gateRise = rising_edge(gat, &s.lastGate, 0.0);
+  const bool gateFall = prevGate > 0.0 && gat <= 0.0;
 
   if (gateRise) {
     strike(s, 1, latch);

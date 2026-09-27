@@ -91,9 +91,10 @@ extern "C" double soemdsp_attack_decay_sample(
   if (cyc > 2) cyc = 2;
 
   const bool gateOn = safe(gate) > 0.5;
-  const bool rising = gateOn && !(s.lastGate > 0.5);
-  const bool falling = !gateOn && (s.lastGate > 0.5);
-  s.lastGate = gateOn ? 1.0 : 0.0;
+  const double gateVal = gateOn ? 1.0 : 0.0;
+  const double prevGate = s.lastGate;
+  const bool rising = rising_edge(gateVal, &s.lastGate, 0.5);
+  const bool falling = prevGate > 0.5 && gateVal <= 0.5;
 
   const bool pureFollower = (mode == 0 && cyc == 0);
   double target = 0.0;

@@ -45,12 +45,6 @@ static double pll_exp(double x) {
 // Linear phase accumulator → 50% square. Naive ±1 drives PC / lock; VCO Out
 // is PolyBLEP (same residual as native_modules/polyblep).
 
-// Shared soemdsp::math::poly_blep; retain former [1e-6, 0.5] dt policy at the call.
-static double pll_polyblep(double phaseCycle, double dt) {
-  dt = clamp(dt, 1.0e-6, 0.5);
-  return poly_blep(phaseCycle, dt);
-}
-
 struct Vco {
   double phase;
   double sampleRate;
@@ -74,7 +68,8 @@ struct Vco {
     while (phase < 0.0)  phase += 1.0;
     out = phase < 0.5 ? 1.0 : -1.0;
     const double dt = inc < 0.0 ? -inc : inc;
-    audio = out + pll_polyblep(phase, dt) - pll_polyblep(wrap01(phase + 0.5), dt);
+    const double dtBlep = clamp(dt, 1.0e-6, 0.5);
+    audio = out + poly_blep(phase, dtBlep) - poly_blep(wrap01(phase + 0.5), dtBlep);
     return audio;
   }
 

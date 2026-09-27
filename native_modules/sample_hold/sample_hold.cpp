@@ -136,7 +136,7 @@ extern "C" double soemdsp_sample_hold_sample(
     }
   }
 
-  const bool risingEdge = s.lastTrigger <= safeThreshold && safeTrigger > safeThreshold;
+  const bool risingEdge = rising_edge(safeTrigger, &s.lastTrigger, safeThreshold);
   bool fire = internalFire;
 
   if (risingEdge) {
@@ -185,7 +185,7 @@ extern "C" double soemdsp_sample_hold_sample(
     }
   }
 
-  s.lastTrigger = safeTrigger;
+
 
   double out;
   if (interp == 0) {

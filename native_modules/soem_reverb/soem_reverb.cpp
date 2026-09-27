@@ -248,12 +248,6 @@ static double fbmUnipolar(double time, int octaves, double persistence, double s
   return (total / maxValue) * 0.5 + 0.5;
 }
 
-static double rationalCurve01(double value, double skew) {
-  double t = clamp(value, 0.0, 1.0);
-  double safeSkew = clamp(skew, -0.999, 0.999);
-  return ((1.0 + safeSkew) * t) / (1.0 - safeSkew + 2.0 * safeSkew * t);
-}
-
 // --- ModulatedDelay (formulas from ModulatedDelay.cpp + LFO style switch) ---
 struct ModulatedDelay {
   float* buffer{nullptr};
@@ -309,10 +303,10 @@ struct ModulatedDelay {
     const double increment = clamp(walkFreqHz / rate, 0.0, 1.0);
     const double jitterInc = clamp(walkJitterHz / rate, 0.0, 1.0);
     // random_walk.cpp: stepSize = clamp(increment + rational_curve(jitterInc, 0.99), 0, 1)
-    const double stepSize = clamp(increment + rationalCurve01(jitterInc, 0.99), 0.0, 1.0);
+    const double stepSize = clamp(increment + rational_curve01(jitterInc, 0.99), 0.0, 1.0);
     const double averageIncrement = (jitterInc + increment) * 0.5;
     const double whiteNoiseMix = averageIncrement >= 0.9
-      ? rationalCurve01((averageIncrement - 0.9) / 0.1, -0.7)
+      ? rational_curve01((averageIncrement - 0.9) / 0.1, -0.7)
       : 0.0;
     const double randomMix = 1.0 - whiteNoiseMix;
     const double step = noise > 0.0 ? stepSize : -stepSize;

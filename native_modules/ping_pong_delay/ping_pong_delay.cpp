@@ -93,14 +93,6 @@ static double one_pole_hp_run(
   return y;
 }
 
-static double lfo_rational_curve01(double x, double k) {
-  double v = clamp(x, 0.0, 1.0);
-  double kk = clamp(k, -0.999, 0.999);
-  double denom = 2.0 * kk * v - kk - 1.0;
-  if (dsp_fabs(denom) < 1e-12) return v;
-  return (kk * v - v) / denom;
-}
-
 static double lfo_smooth_noise1d(double x, unsigned int s) {
   int left = (int)x;
   if (x < 0.0 && x != (double)left) left -= 1;
@@ -153,10 +145,10 @@ static double lfo_run(
     double noise = hash_bipolar((unsigned int)tick, seed);
     double increment = clamp(hz / rate, 0.0, 1.0);
     double jitterInc = clamp((hz * 0.37) / rate, 0.0, 1.0);
-    double stepSize = clamp(increment + lfo_rational_curve01(jitterInc, 0.99), 0.0, 1.0);
+    double stepSize = clamp(increment + rational_curve01(jitterInc, -(0.99)), 0.0, 1.0);
     double averageIncrement = (jitterInc + increment) * 0.5;
     double whiteNoiseMix = averageIncrement >= 0.9
-      ? lfo_rational_curve01((averageIncrement - 0.9) / 0.1, -0.7)
+      ? rational_curve01((averageIncrement - 0.9) / 0.1, -(-0.7))
       : 0.0;
     double randomMix = 1.0 - whiteNoiseMix;
     double step = noise > 0.0 ? stepSize : -stepSize;

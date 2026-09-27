@@ -130,7 +130,7 @@ extern "C" double soemdsp_degree_phrase_sample(
   }
 
   const bool resetHigh = safe(reset) > 0.0;
-  if (resetHigh && !s.resetWasHigh) {
+  if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {
     s.index = 0;
     for (int i = 0; i < 8; i++) {
       s.liveDegrees[i] = degrees[i];
@@ -138,7 +138,6 @@ extern "C" double soemdsp_degree_phrase_sample(
     }
     s.hasLive = true;
   }
-  s.resetWasHigh = resetHigh;
 
   if (!s.hasLive) {
     for (int i = 0; i < 8; i++) {
@@ -158,7 +157,7 @@ extern "C" double soemdsp_degree_phrase_sample(
   double trig = 0.0;
   double gate = 0.0;
   const bool clockHigh = safe(clock) > 0.0;
-  if (clockHigh && !s.clockWasHigh) {
+  if (rising_edge_bool(clockHigh, &s.clockWasHigh)) {
     if (next_unit(s.rngState) < mutate) {
       const int j = (int)(next_unit(s.rngState) * (double)steps);
       const int ji = j < 0 ? 0 : (j >= steps ? steps - 1 : j);
@@ -180,7 +179,6 @@ extern "C" double soemdsp_degree_phrase_sample(
     const int prev = (s.index - 1 + steps) % steps;
     gate = (!s.liveRests[prev] && classCount > 0) ? 1.0 : 0.0;
   }
-  s.clockWasHigh = clockHigh;
 
   s.lastGate = gate * lvl;
   s.lastTrigger = trig * lvl;

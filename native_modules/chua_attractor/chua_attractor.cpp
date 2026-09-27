@@ -70,10 +70,9 @@ extern "C" void soemdsp_chua_attractor_sample(
   ChuaState& s = gPool[handle - 1];
 
   const bool resetHigh = reset > 0.5;
-  if (resetHigh && !s.resetWasHigh) {
+  if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {
     resetChuaState(s);
   }
-  s.resetWasHigh = resetHigh;
 
   const double rate = sampleRate < 1.0 ? 1.0 : sampleRate;
   const double safeSpeed = speed > 0.0 ? speed : 0.0;

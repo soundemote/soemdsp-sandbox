@@ -320,9 +320,9 @@ extern "C" double soemdsp_sample_player_sample(
 
   const double gateV = safe(gate);
   const bool gateHigh = gateV > kGateOn;
-  const bool rising = st.lastGate <= kGateOn && gateHigh;
-  const bool falling = st.lastGate > kGateOn && !gateHigh;
-  st.lastGate = gateV;
+  const double prevGate = st.lastGate;
+  const bool rising = rising_edge(gateV, &st.lastGate, kGateOn);
+  const bool falling = prevGate > kGateOn && gateV <= kGateOn;
 
   if (rising) {
     st.velocity = gate_velocity(gateV);

@@ -372,14 +372,14 @@ extern "C" double soemdsp_gravity_walker_sample(
   rebuild_pool(s, oct, scaleOffset);
 
   const bool resetHigh = safe(reset) > 0.0;
-  if (resetHigh && !s.resetWasHigh) {
+  if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {
     restart_walk(s, seed);
   }
-  s.resetWasHigh = resetHigh;
 
   double trig = 0.0;
   const bool clockHigh = safe(clock) > 0.0;
-  if (clockHigh && !s.clockWasHigh && s.poolCount > 0) {
+  const bool clockRise = rising_edge_bool(clockHigh, &s.clockWasHigh);
+  if (clockRise && s.poolCount > 0) {
     // Arp-like: Steps wrap / Seed restart before sounding this clock.
     if (steps > 0 && s.clocksSinceRestart >= steps) {
       restart_walk(s, seed);
@@ -390,8 +390,7 @@ extern "C" double soemdsp_gravity_walker_sample(
     // (walk_step runs after we latch outputs below via degree read)
     // Defer walk until after latch:
   }
-  const bool didClock = clockHigh && !s.clockWasHigh && s.poolCount > 0 && trig > 0.0;
-  s.clockWasHigh = clockHigh;
+  const bool didClock = clockRise && s.poolCount > 0 && trig > 0.0;
 
   if (s.poolCount > 0) {
     const int idx = wrapped_play_index(s, patternOffset);

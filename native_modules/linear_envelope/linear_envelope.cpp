@@ -109,13 +109,15 @@ extern "C" double soemdsp_linear_envelope_sample(
   const double rate = sampleRate < 1.0 ? 1.0 : sampleRate;
   const double period = 1.0 / rate;
 
-  if (s.lastGate <= 0.0 && safeGate > 0.0) {
+  const double prevGate = s.lastGate;
+  const bool rising = rising_edge(safeGate, &s.lastGate, 0.0);
+  const bool falling = prevGate > 0.0 && safeGate <= 0.0;
+  if (rising) {
     trigger_attack(s, safeDelay, safeAttack, period);
-  } else if (s.lastGate > 0.0 && safeGate <= 0.0) {
+  } else if (falling) {
     s.stage = STAGE_RELEASE;
     s.releaseDecrement = s.out * period / maxd(safeRelease, period);
   }
-  s.lastGate = safeGate;
 
   const double attackIncrement = mind(period / maxd(safeAttack, period), 1.0);
   const double decayDecrement = (1.0 - safeSustain) * period / maxd(safeDecay, period);

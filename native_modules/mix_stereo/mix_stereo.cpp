@@ -28,7 +28,7 @@ static void compute(
   double amplitude,
   double* left, double* right
 ) {
-  const double master = db_to_lin(amplitude);
+  const double master = db_to_amp(amplitude);
   double L = 0.0;
   double R = 0.0;
   const double vols[4] = { vol1, vol2, vol3, vol4 };
@@ -36,7 +36,7 @@ static void compute(
   const double ls[4] = { l1, l2, l3, l4 };
   const double rs[4] = { r1, r2, r3, r4 };
   for (int i = 0; i < 4; i += 1) {
-    const double vol = db_to_lin(vols[i]) * master;
+    const double vol = db_to_amp(vols[i]) * master;
     double pl = 1.0, pr = 1.0;
     pan_gains(pans[i], &pl, &pr);
     L += safe(ls[i]) * vol * pl;

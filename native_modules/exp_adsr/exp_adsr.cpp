@@ -59,20 +59,6 @@ struct ExpAdsrState {
 
 static ExpAdsrState gPool[kMaxInstances];
 
-static inline double dsp_log10(double x) {
-  return dsp_ln(x) * 0.4342944819032518;
-}
-
-static double exponential_curve(double value, double skew) {
-  double safeValue = clamp(value, 0.0, 1.0);
-  double safeSkew = clamp(skew, -0.99, 0.99);
-  if (safeSkew == 0.0) safeSkew = -1.0e-8;
-  const double c = 0.5 * (safeSkew + 1.0);
-  const double a = 2.0 * dsp_log10((1.0 - c) / maxd(1.0e-12, c));
-  const double denom = 1.0 - dsp_exp(a);
-  return denom == 0.0 ? safeValue : (1.0 - dsp_exp(safeValue * a)) / denom;
-}
-
 static double normalize_shape_param(double shape) {
   const double s = safe(shape);
   if (s > 1.0) {
@@ -187,7 +173,7 @@ static bool advance_shaped(ExpAdsrState& s, double shape, double period) {
   }
   s.stageElapsed += period;
   const double t = mind(1.0, s.stageElapsed / s.stageDuration);
-  const double w = exponential_curve(t, shape_skew(shape));
+  const double w = expo_skew01(t, shape_skew(shape));
   s.out = s.stageStart + (s.stageEnd - s.stageStart) * w;
   return t >= 1.0;
 }
@@ -242,8 +228,9 @@ extern "C" double soemdsp_exp_adsr_sample(
   const double rate = sampleRate < 1.0 ? 1.0 : sampleRate;
   const double period = 1.0 / rate;
   const bool latch = safe(updateOnTrigger) >= 0.5;
-  const bool rising = s.lastGate <= 0.0 && safeGate > 0.0;
-  const bool falling = s.lastGate > 0.0 && safeGate <= 0.0;
+  const double prevGate = s.lastGate;
+  const bool rising = rising_edge(safeGate, &s.lastGate, 0.0);
+  const bool falling = prevGate > 0.0 && safeGate <= 0.0;
 
   // On: freeze knobs until next Gate rise. Off: always live (+ mid-stage retarget).
   if (!latch || rising || !s.hasShot) {
@@ -275,7 +262,6 @@ extern "C" double soemdsp_exp_adsr_sample(
       begin_stage(s, s.out, 0.0, p.release);
     }
   }
-  s.lastGate = safeGate;
 
   // Live mid-stage retarget when UpdateOnTrigger is Off.
   // Decay + live sustain MOD (Thump Body fb): if gate is already down and

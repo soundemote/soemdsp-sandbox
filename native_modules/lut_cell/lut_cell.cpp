@@ -70,10 +70,9 @@ extern "C" int soemdsp_lut_cell_sample(
   const int combinational = (table >> index) & 1;
 
   const bool clockHigh = clock > 0.0;
-  if (clockHigh && !s.clockWasHigh) {
+  if (rising_edge_bool(clockHigh, &s.clockWasHigh)) {
     s.registeredOut = combinational;
   }
-  s.clockWasHigh = clockHigh;
 
   return combinational;
 }

@@ -130,6 +130,42 @@ static inline double morph_width01(double morph, double eps = 1.0e-4) {
   return w;
 }
 
+
+// Linear map: unit [0,1] source -> [outMin, outMax]. NOT jmap (no JUCE name).
+static inline double map01(double v01, double outMin, double outMax) {
+  return outMin + (outMax - outMin) * v01;
+}
+
+// Bipolar [-1,1] source -> [outMin, outMax].
+static inline double map11(double v11, double outMin, double outMax) {
+  return outMin + (outMax - outMin) * ((v11 + 1.0) * 0.5);
+}
+
+// General linear map inMin..inMax -> outMin..outMax. Zero/non-finite span -> outMin.
+static inline double map(double v, double inMin, double inMax, double outMin, double outMax) {
+  const double span = inMax - inMin;
+  if (!(span > 0.0) && !(span < 0.0)) return outMin;
+  return outMin + (outMax - outMin) * ((v - inMin) / span);
+}
+
+// Rational tension curve on [0,1]: ((1+s)*t)/(1-s+2*s*t), skew clamped +-0.999.
+static inline double rational_curve01(double t01, double skew) {
+  const double t = clamp(t01, 0.0, 1.0);
+  const double s = clamp(skew, -0.999, 0.999);
+  return ((1.0 + s) * t) / (1.0 - s + 2.0 * s * t);
+}
+
+// Bipolar [-1,1] rational via unipolar map-through.
+static inline double rational_curve11(double v11, double skew) {
+  return 2.0 * rational_curve01((v11 + 1.0) * 0.5, skew) - 1.0;
+}
+
+// General: map v into [0,1] over in span, rational_curve01, map to out span.
+static inline double rational_curve(
+  double v, double inMin, double inMax, double outMin, double outMax, double skew
+) {
+  return map01(rational_curve01(map(v, inMin, inMax, 0.0, 1.0), skew), outMin, outMax);
+}
 }  // namespace soemdsp::math
 
 // ---------------------------------------------------------------------------
@@ -169,5 +205,12 @@ using soemdsp::math::lerp;
 static inline double morph_width01(double morph, double eps = 1.0e-4) {
   return soemdsp::math::morph_width01(morph, eps);
 }
+
+using soemdsp::math::map01;
+using soemdsp::math::map11;
+using soemdsp::math::map;
+using soemdsp::math::rational_curve01;
+using soemdsp::math::rational_curve11;
+using soemdsp::math::rational_curve;
 
 }  // namespace soemdsp_maths

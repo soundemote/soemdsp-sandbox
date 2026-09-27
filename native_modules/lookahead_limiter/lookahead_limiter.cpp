@@ -101,7 +101,7 @@ static void sync_controls(
   st.lastDipGain = dip;
   st.controlsValid = true;
 
-  st.ceiling = db_to_lin(ceilDb);
+  st.ceiling = db_to_amp(ceilDb);
   if (st.ceiling < 1e-6) st.ceiling = 1e-6;
   st.makeup = 1.0 / st.ceiling;
 

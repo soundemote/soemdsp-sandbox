@@ -48,20 +48,6 @@ static const char kMetadataJson[] =
     "\"kind\":\"envelope\""
   "}";
 
-static inline double dsp_log10(double x) {
-  return dsp_ln(x) * 0.4342944819032518;
-}
-
-static double exponential_curve(double value, double skew) {
-  double safeValue = clamp(value, 0.0, 1.0);
-  double safeSkew = clamp(skew, -0.99, 0.99);
-  if (safeSkew == 0.0) safeSkew = -1.0e-8;
-  const double c = 0.5 * (safeSkew + 1.0);
-  const double a = 2.0 * dsp_log10((1.0 - c) / maxd(1.0e-12, c));
-  const double denom = 1.0 - dsp_exp(a);
-  return denom == 0.0 ? safeValue : (1.0 - dsp_exp(safeValue * a)) / denom;
-}
-
 static double normalize_shape(double shape) {
   const double s = safe(shape);
   if (s > 1.0) {
@@ -114,7 +100,7 @@ static bool advance_shaped(State& s, double shape, double period) {
   }
   s.stageElapsed += period;
   const double t = mind(1.0, s.stageElapsed / s.stageDuration);
-  const double w = exponential_curve(t, shape_skew(shape));
+  const double w = expo_skew01(t, shape_skew(shape));
   s.out = s.stageStart + (s.stageEnd - s.stageStart) * w;
   return t >= 1.0;
 }
@@ -197,9 +183,10 @@ extern "C" double soemdsp_curve_attack_release_sample(
   if (mode > 1) mode = 1;
 
   const bool gateOn = safe(gate) > 0.5;
-  const bool rising = gateOn && !(s.lastGate > 0.5);
-  const bool falling = !gateOn && (s.lastGate > 0.5);
-  s.lastGate = gateOn ? 1.0 : 0.0;
+  const double gateVal = gateOn ? 1.0 : 0.0;
+  const double prevGate = s.lastGate;
+  const bool rising = rising_edge(gateVal, &s.lastGate, 0.5);
+  const bool falling = prevGate > 0.5 && gateVal <= 0.5;
 
   if (!latch || rising || !s.hasShot) {
     s.shot.attack = maxd(0.0, safe(attack));

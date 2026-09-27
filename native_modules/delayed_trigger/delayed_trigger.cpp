@@ -72,14 +72,14 @@ extern "C" double soemdsp_delayed_trigger_sample(
   const double safeLevel = safe(level);
   const double rate = maxd(1.0, safe(sampleRate));
 
-  if (s.lastReset <= safeThreshold && safeReset > safeThreshold) {
+  if (rising_edge(safeReset, &s.lastReset, safeThreshold)) {
     s.hasTriggered = true;
     s.remainingSamples = 0.0;
     s.running = false;
     s.waitSamples = 0.0;
   }
 
-  if (s.lastTrigger <= safeThreshold && safeTrigger > safeThreshold) {
+  if (rising_edge(safeTrigger, &s.lastTrigger, safeThreshold)) {
     s.hasTriggered = false;
     s.remainingSamples = 0.0;
     s.running = true;
@@ -96,8 +96,8 @@ extern "C" double soemdsp_delayed_trigger_sample(
     }
   }
 
-  s.lastTrigger = safeTrigger;
-  s.lastReset = safeReset;
+
+
 
   const double output = s.remainingSamples > 0.0 ? safeLevel : 0.0;
   s.remainingSamples = maxd(0.0, s.remainingSamples - 1.0);

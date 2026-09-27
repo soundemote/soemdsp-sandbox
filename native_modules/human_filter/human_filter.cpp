@@ -14,7 +14,7 @@
 // through a custom wrapper (setMode(BELL), setGain(...)) around RAPT's
 // rsStateVariableFilter that wasn't present in the accessible codebase --
 // only the raw ZDF state-variable filter (setupBell(omega, Q, A)) was
-// found. The gain parameter A is exact (dbToAmp of the chaos-derived dB
+// found. The gain parameter A is exact (db_to_amp of the chaos-derived dB
 // value), but the wrapper's default Q and center frequency for that bell
 // aren't recoverable, so a fixed, reasonable Q=1.0 and a 1kHz center
 // (a typical presence-shaping bell default) are used here, documented
@@ -47,14 +47,7 @@ static double dsp_ln(double x) {
   return (double)e * 0.6931471805599453 + 2.0 * series;
 }
 
-static inline double jmap01(double v, double outMin, double outMax) {
-  return outMin + (outMax - outMin) * v;
-}
 
-
-static inline double dbToAmp(double db) {
-  return dsp_exp2(db / 6.0205999132796239);  // 10^(db/20) = 2^(db/(20/log2(10)))
-}
 
 // Rev/mode shaping curves are literal soemdsp::utility::Graph node lists
 // (shape 1=RATIONAL, 2=EXPONENTIAL, else LINEAR, matching Graph::Shape's
@@ -85,7 +78,7 @@ static double ladderTapStep(double y[5], double input, double a, int mode, int s
     for (int i = 0; i <= stages; i++) c[i] = hp[stages - 1][i];
   }
   double y0 = input;
-  y0 = y0 / (1.0 + y0 * y0);
+  y0 = soft_clip_rational(y0);
   y[1] = y0 + a * (y0 - y[1]);
   y[2] = y[1] + a * (y[1] - y[2]);
   y[3] = y[2] + a * (y[2] - y[3]);
@@ -116,7 +109,7 @@ static double svfBellStep(SvfState* st, double input, double gainDb, double samp
   // (not a frozen 1 kHz guess). Q is still the documented 1.0 approximation.
   if (!(centerHz > 1.0)) centerHz = 1.0;
   const double Q = 1.0;
-  const double A = dbToAmp(gainDb);
+  const double A = db_to_amp(gainDb);
   const double w = clamp(kTwoPi * centerHz / sampleRate, 1e-9, kPi * 0.98);
   const double r = 1.0 / (Q * A);
   const double g = dsp_tan_0_halfpi(0.5 * w);
@@ -195,7 +188,7 @@ extern "C" double soemdsp_human_filter_sample(
   else if (safeRate <= 220500.0) { maxPitch = 137.0; resDropPoint = 1.0; chaosMax = 1.0; }
   else { maxPitch = 137.0; resDropPoint = 0.78; chaosMax = 1.0; }
 
-  const double pitch = jmap01(freqNorm, -0.38, 137.0);
+  const double pitch = map01(freqNorm, -0.38, 137.0);
   const double frequencyHz = midi_to_hz(pitch < maxPitch ? pitch : maxPitch);
 
   const GraphNode mod11Graph[2] = { {0.0, 2.92396, 0, 0}, {1.0, -1.7544, 0.785442, 1} };

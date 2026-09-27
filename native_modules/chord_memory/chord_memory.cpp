@@ -86,7 +86,7 @@ extern "C" double soemdsp_chord_memory_sample(
   const bool advanceHigh = safe(advance) > 0.0;
   const double safePitch = safe(pitch);
 
-  if (clearHigh && !s.clearWasHigh) {
+  if (rising_edge_bool(clearHigh, &s.clearWasHigh)) {
     for (int i = 0; i < 4; i++) {
       s.slots[i] = 0.0;
       s.slotsActive[i] = false;
@@ -94,14 +94,12 @@ extern "C" double soemdsp_chord_memory_sample(
     s.writeIndex = 0;
     s.arpIndex = 0;
   }
-  s.clearWasHigh = clearHigh;
 
-  if (latchHigh && !s.latchWasHigh) {
+  if (rising_edge_bool(latchHigh, &s.latchWasHigh)) {
     s.slots[s.writeIndex] = safePitch;
     s.slotsActive[s.writeIndex] = true;
     s.writeIndex = (s.writeIndex + 1) % 4;
   }
-  s.latchWasHigh = latchHigh;
 
   int activeIndices[4];
   int activeCount = 0;
@@ -112,7 +110,7 @@ extern "C" double soemdsp_chord_memory_sample(
     }
   }
 
-  if (advanceHigh && !s.advanceWasHigh && activeCount > 0) {
+  if (rising_edge_bool(advanceHigh, &s.advanceWasHigh) && activeCount > 0) {
     int currentPos = -1;
     for (int i = 0; i < activeCount; i++) {
       if (activeIndices[i] == s.arpIndex) {
@@ -123,7 +121,6 @@ extern "C" double soemdsp_chord_memory_sample(
     const int nextPos = currentPos == -1 ? 0 : (currentPos + 1) % activeCount;
     s.arpIndex = activeIndices[nextPos];
   }
-  s.advanceWasHigh = advanceHigh;
 
   const double arp = activeCount > 0 ? s.slots[s.arpIndex] : 0.0;
   const double gate = activeCount > 0 ? 1.0 : 0.0;

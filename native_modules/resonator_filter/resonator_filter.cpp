@@ -37,11 +37,6 @@ static inline double dsp_sqrt(double x) {
   return guess;
 }
 
-static inline double jmap01(double v, double outMin, double outMax) {
-  return outMin + (outMax - outMin) * v;
-}
-
-
 static inline double curveShape(double v, double tension) {
   double denom = 2.0 * tension * v - tension - 1.0;
   if (denom == 0.0) return v;
@@ -103,7 +98,7 @@ static double ladderTapStep(double y[5], double input, double a, int mode, int s
     for (int i = 0; i <= stages; i++) c[i] = hp[stages - 1][i];
   }
   double y0 = input;
-  y0 = y0 / (1.0 + y0 * y0);
+  y0 = soft_clip_rational(y0);
   y[1] = y0 + a * (y0 - y[1]);
   y[2] = y[1] + a * (y[1] - y[2]);
   y[3] = y[2] + a * (y[2] - y[3]);
@@ -190,17 +185,17 @@ extern "C" double soemdsp_resonator_filter_sample(
     else { maxFreqNorm = 0.955; resDropPoint = 0.92; }
 
     const double freqNormInUse = freqNorm < maxFreqNorm ? freqNorm : maxFreqNorm;
-    const double frequencyHz = midi_to_hz(jmap01(freqNormInUse, -72.96, 69.76));
-    const double cutoffHz = frequencyHz * jmap01(curveShape(freqNormInUse, -0.36), 0.248387, 0.0927813);
-    const double osc2Ratio = jmap01(freqNormInUse, 0.015625, 1.58);
+    const double frequencyHz = midi_to_hz(map01(freqNormInUse, -72.96, 69.76));
+    const double cutoffHz = frequencyHz * map01(curveShape(freqNormInUse, -0.36), 0.248387, 0.0927813);
+    const double osc2Ratio = map01(freqNormInUse, 0.015625, 1.58);
     const double osc1Ratio = osc2Ratio - 0.015625;
 
     const GraphNode resVfreqGraph[3] = {
       {0, reso, 0, 0}, {resDropPoint, reso, 0, 0}, {1, 0.15, 0.557, 1},
     };
     const double newResNorm = evalGraph(resVfreqGraph, 3, freqNorm);
-    const double freqModAmt = jmap01(newResNorm, 10.0, 484.43);
-    const double phaseModAmt = jmap01(chaos, 0.256, 0.166);
+    const double freqModAmt = map01(newResNorm, 10.0, 484.43);
+    const double phaseModAmt = map01(chaos, 0.256, 0.166);
 
     double inputSignal = inputAmplitude * input;
     inputSignal = s.osc2Value + s.osc1SelfMod + inputSignal;
@@ -243,7 +238,7 @@ extern "C" double soemdsp_resonator_filter_sample(
   } else {
     // Sawtooth resonator
     const double inputAmplitude = 2.0;
-    const double frequencyHz = midi_to_hz(jmap01(freqNorm, -50.0, 108.0));
+    const double frequencyHz = midi_to_hz(map01(freqNorm, -50.0, 108.0));
     const double cutoffHz = frequencyHz * 8.87718;
 
     const GraphNode mod21Graph[2] = { {0, -0.00105655, 0, 0}, {1, -2.52898, -0.99, 2} };

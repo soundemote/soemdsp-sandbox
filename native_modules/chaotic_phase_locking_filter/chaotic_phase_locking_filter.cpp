@@ -24,11 +24,6 @@ static inline double dsp_sqrt(double x) {
   return guess;
 }
 
-static inline double jmap01(double v, double outMin, double outMax) {
-  return outMin + (outMax - outMin) * v;
-}
-
-
 // 2-node EXPONENTIAL curve, built directly as a Graph (graph.h) instead of
 // hand-rolling the exponential segment formula.
 static double evalExponentialGraph2(double x, double y0, double y1, double skew) {
@@ -61,7 +56,7 @@ static double ladderTapStep(double y[5], double input, double a, int mode, int s
     for (int i = 0; i <= stages; i++) c[i] = hp[stages - 1][i];
   }
   double y0 = input;
-  y0 = y0 / (1.0 + y0 * y0);
+  y0 = soft_clip_rational(y0);
   y[1] = y0 + a * (y0 - y[1]);
   y[2] = y[1] + a * (y[1] - y[2]);
   y[3] = y[2] + a * (y[2] - y[3]);
@@ -128,7 +123,7 @@ extern "C" double soemdsp_chaotic_phase_locking_filter_sample(
   const double chaos = clamp(chaosAmount, 0.0, 1.0);
   const double phase = (phaseBias == phaseBias) ? phaseBias : 0.0;
 
-  const double cutoffHz = clamp(midi_to_hz(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
+  const double cutoffHz = clamp(midi_to_hz(map01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
   const double mod = evalExponentialGraph2(reso, 0.1, 20.0, -0.85);
   const double shape = 1.0 - chaos;
 

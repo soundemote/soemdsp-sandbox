@@ -66,10 +66,6 @@ static inline double dsp_sqrt(double x) {
   return guess;
 }
 
-static inline double jmap01(double v, double outMin, double outMax) {
-  return outMin + (outMax - outMin) * v;
-}
-
 static inline double jmapGeneral(double v, double srcMin, double srcMax, double dstMin, double dstMax) {
   return dstMin + (dstMax - dstMin) * (v - srcMin) / (srcMax - srcMin);
 }
@@ -187,7 +183,7 @@ static inline double onePoleCoefficient(double cutoffHz, double sampleRate) {
 
 static inline double onePoleStep(OnePoleStage* stage, double input, double a) {
   double y0 = input;
-  y0 = y0 / (1.0 + y0 * y0);
+  y0 = soft_clip_rational(y0);
   stage->y1 = y0 + a * (y0 - stage->y1);
   return stage->y1;
 }
@@ -257,7 +253,7 @@ extern "C" double soemdsp_flower_child_filter_sample(
 
   if (mode == 2) {
     // Rev3
-    const double masterPitch = jmap01(freqNorm, -120.0, 105.0);
+    const double masterPitch = map01(freqNorm, -120.0, 105.0);
     const double masterFrequency = midi_to_hz(masterPitch);
     const double fmAmount = midi_to_hz(-48.377);
     const double lpf1Cutoff = midi_to_hz(jmapGeneral(masterPitch, -120.0, 120.0, 90.0, 180.0));
@@ -307,7 +303,7 @@ extern "C" double soemdsp_flower_child_filter_sample(
   if (mode == 3) {
     // Downsampled (Rev1Downsampled)
     const double maxNormFreq3 = safeRate <= 44100.0 ? 0.928 : 1.0;
-    const double normalizedFreqInUse3 = jmap01(freqNorm < maxNormFreq3 ? freqNorm : maxNormFreq3, 3.0, 161.0);
+    const double normalizedFreqInUse3 = map01(freqNorm < maxNormFreq3 ? freqNorm : maxNormFreq3, 3.0, 161.0);
     const double frequencyHz3 = midi_to_hz(normalizedFreqInUse3);
     // FM/PM crossfade provably 0 here too (same node-domain-clamp argument
     // as modes 0/1 -- see the file header's exact-reproduction note).
@@ -321,7 +317,7 @@ extern "C" double soemdsp_flower_child_filter_sample(
     else { breakpoint = 0.879599; cap = 0.807018; }
     const double cappedTarget = reso < cap ? reso : cap;
     const double graphValue = evalResonanceGraph(reso, reso, breakpoint, cappedTarget, -0.38);
-    const double selfModAmp = jmap01(curveShape(graphValue, 0.4), 0.0368, 0.6333);
+    const double selfModAmp = map01(curveShape(graphValue, 0.4), 0.0368, 0.6333);
 
     double inputSignal = clamp11(-input) * 0.036;
     inputSignal += s.selfMod;
@@ -350,7 +346,7 @@ extern "C" double soemdsp_flower_child_filter_sample(
   const bool dirty = mode != 0;
 
   const double maxNormFreq = safeRate <= 44100.0 ? 0.928 : 1.0;
-  const double normalizedFreqInUse = jmap01(freqNorm < maxNormFreq ? freqNorm : maxNormFreq, 3.0, 161.0);
+  const double normalizedFreqInUse = map01(freqNorm < maxNormFreq ? freqNorm : maxNormFreq, 3.0, 161.0);
   const double frequencyHz = midi_to_hz(normalizedFreqInUse);
 
   // FM/PM crossfade is provably always 0 here -- see the exact-reproduction
@@ -382,10 +378,10 @@ extern "C" double soemdsp_flower_child_filter_sample(
   double ellipseC = -1.0;
   if (!dirty) {
     const double graphValue = evalResonanceGraph(reso, reso, breakpoint, cappedTarget, -0.38);
-    selfModAmp = jmap01(curveShape(graphValue, 0.4), 0.0368, 0.6333);
+    selfModAmp = map01(curveShape(graphValue, 0.4), 0.0368, 0.6333);
   } else {
     const double graphValue = evalResonanceGraph(freqNorm, reso, breakpoint, cappedTarget, -0.38);
-    ellipseC = jmap01(curveShape(graphValue, -0.6), -1.0, 0.00001);
+    ellipseC = map01(curveShape(graphValue, -0.6), -1.0, 0.00001);
   }
 
   const double clampLimit = dirty ? 1.198 : 1.0;

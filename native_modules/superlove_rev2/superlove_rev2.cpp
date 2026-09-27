@@ -39,11 +39,6 @@ static const double kLp18FinalBoost = 3.0;
 static const double kLp24FinalBoost = 2.0;
 static const double kHpFinalBoost = 2.0;
 
-static inline double jmap01(double v, double outMin, double outMax) {
-  return outMin + (outMax - outMin) * v;
-}
-
-
 struct GraphNode {
   double x, y, skew;
   int shape;
@@ -121,7 +116,7 @@ static double ladderTapStep(double y[5], double input, double a, int mode, int s
     for (int i = 0; i < 5; i++) c[i] = bp[stages - 1][i];
   }
   double y0 = input;
-  y0 = y0 / (1.0 + y0 * y0);
+  y0 = soft_clip_rational(y0);
   y[1] = y0 + a * (y0 - y[1]);
   y[2] = y[1] + a * (y[1] - y[2]);
   y[3] = y[2] + a * (y[2] - y[3]);
@@ -203,7 +198,7 @@ extern "C" double soemdsp_superlove_rev2_sample(
   const double phase = (phaseBias == phaseBias) ? phaseBias : 0.0;
   const int safeMode = mode < 0 ? 0 : (mode > 3 ? 3 : mode);
   const double cutoffHz = clamp(
-    midi_to_hz(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate
+    midi_to_hz(map01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate
   );
   const double noiseSample = (noiseAmp > 1.0e-12 || noiseAmp < -1.0e-12)
     ? nextNoiseBipolar(&s.rngState) * noiseAmp

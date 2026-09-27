@@ -66,21 +66,6 @@ struct State {
 
 static State gPool[kMaxInstances];
 
-static inline double dsp_log10(double x) {
-  return dsp_ln(x) * 0.4342944819032518;
-}
-
-// soemdsp::curve::Exponential (skew in [-0.99, 0.99]).
-static double exponential_curve(double value, double skew) {
-  double safeValue = clamp(value, 0.0, 1.0);
-  double safeSkew = clamp(skew, -0.99, 0.99);
-  if (safeSkew == 0.0) return safeValue;
-  const double c = 0.5 * (safeSkew + 1.0);
-  const double a = 2.0 * dsp_log10((1.0 - c) / c);
-  const double denom = 1.0 - dsp_exp(a);
-  return denom == 0.0 ? safeValue : (1.0 - dsp_exp(safeValue * a)) / denom;
-}
-
 static inline double velocity_peak(double velocity, double sensitivity) {
   const double vel = clamp(velocity, 0.0, 1.0);
   const double sens = clamp(sensitivity, 0.0, 1.0);
@@ -148,7 +133,7 @@ static double decay_feedback(
     if (dmc > 0.99) dmc = 0.99;
     if (dmc < -0.99) dmc = -0.99;
     if (dmc == 0.0) dmc = -1.0e-8;
-    const double shaped = exponential_curve(s.phasor, dmc);
+    const double shaped = expo_skew01(s.phasor, dmc);
     // map0to1(shaped, top, bottom) = top + shaped*(bottom-top)
     finalDecayMod = decaySlopeMid + decaySlopeTop + shaped * (decaySlopeBottom - decaySlopeTop);
   }
@@ -226,13 +211,13 @@ extern "C" double soemdsp_expo_pluck_envelope_2_sample(
   const double vel = clamp(safe(velocity), 0.0, 1.0);
   const double lvl = clamp(safe(level), 0.0, 1.0);
 
-  if (s.lastTrigger <= 0.0 && safeTrigger > 0.0) {
+  if (rising_edge(safeTrigger, &s.lastTrigger, 0.0)) {
     trigger_attack(s, att, vel, sens, rate);
   }
   if (s.lastRelease <= 0.0 && safeRelease > 0.0) {
     trigger_release(s, rate);
   }
-  s.lastTrigger = safeTrigger;
+
   s.lastRelease = safeRelease;
 
   // timeToIncrement(attack) = 1/(attack*sr)

@@ -82,15 +82,13 @@ extern "C" void soemdsp_chord_sequencer_sample(
   const bool clockHigh = clock > 0.0;
   const bool resetHigh = reset > 0.0;
 
-  if (resetHigh && !s.resetWasHigh) {
+  if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {
     s.stepIndex = 0;
   }
-  s.resetWasHigh = resetHigh;
 
-  if (clockHigh && !s.clockWasHigh) {
+  if (rising_edge_bool(clockHigh, &s.clockWasHigh)) {
     s.stepIndex = (s.stepIndex + 1) % kStepsPerProgression;
   }
-  s.clockWasHigh = clockHigh;
 }
 
 extern "C" int soemdsp_chord_sequencer_scale(int handle, double progression) {

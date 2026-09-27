@@ -51,9 +51,9 @@ static void compute(
   double* outR
 ) {
   const double m = safe(mono);
-  const double master = db_to_lin(masterDb);
-  const double leftLin = master * db_to_lin(leftDb);
-  const double rightLin = master * db_to_lin(rightDb);
+  const double master = db_to_amp(masterDb);
+  const double leftLin = master * db_to_amp(leftDb);
+  const double rightLin = master * db_to_amp(rightDb);
   const double off = safe(offset);
   *outL = (safe(left) + m) * leftLin + off;
   *outR = (safe(right) + m) * rightLin + off;

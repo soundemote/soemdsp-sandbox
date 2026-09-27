@@ -106,10 +106,6 @@ static void update_hp(TeeBeeState& s, double rate) {
 
 // Ladder soft-clip (same family as JS ladder / tb303 live path). Prevents
 // high resonance + drive from exploding the state and then staying silent.
-static inline double soft_clip(double x) {
-  return x / (1.0 + x * x);
-}
-
 static void reset_state(TeeBeeState& s) {
   s.y1 = s.y2 = s.y3 = s.y4 = 0.0;
   s.hpX = s.hpY = 0.0;
@@ -216,7 +212,7 @@ extern "C" double soemdsp_tb303_filter_sample(
   s.hpY = fbHp;
 
   // Soft-clip at ladder entry (high res + drive stability).
-  const double y0  = soft_clip(0.125 * driveFactor * safe(input) - fbHp);
+  const double y0  = soft_clip_rational(0.125 * driveFactor * safe(input) - fbHp);
   const double ny1 = safe(y0  + a1 * (y0  - s.y1));
   const double ny2 = safe(ny1 + a1 * (ny1 - s.y2));
   const double ny3 = safe(ny2 + a1 * (ny2 - s.y3));

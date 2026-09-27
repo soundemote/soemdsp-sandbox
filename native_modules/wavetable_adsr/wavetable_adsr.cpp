@@ -143,14 +143,15 @@ extern "C" double soemdsp_wavetable_adsr_sample(
   s.shape = shape;
 
   // Reset rising edge → idle (hard).
-  if (s.lastReset <= kGateOn && rIn > kGateOn) {
+  if (rising_edge(rIn, &s.lastReset, kGateOn)) {
     forceIdle(s);
   }
-  s.lastReset = rIn;
+
 
   const bool gateOn = gIn > kGateOn;
-  const bool gateRise = s.lastGate <= kGateOn && gateOn;
-  const bool gateFall = s.lastGate > kGateOn && !gateOn;
+  const double prevGate = s.lastGate;
+  const bool gateRise = rising_edge(gIn, &s.lastGate, kGateOn);
+  const bool gateFall = prevGate > kGateOn && gIn <= kGateOn;
 
   if (gateRise) {
     // Velocity = Gate amplitude at note-on (clamped).
@@ -177,7 +178,7 @@ extern "C" double soemdsp_wavetable_adsr_sample(
     s.segStart = s.out;
     s.segTarget = 0.0;
   }
-  s.lastGate = gIn;
+
 
   const double peak = s.velocity;
   const double susLevel = peak * sus;

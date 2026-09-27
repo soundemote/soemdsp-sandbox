@@ -59,12 +59,6 @@ static double onepole_coeff(double hz, double sr) {
   return one_pole_coeff_hz(f, sr);
 }
 
-static double rationalCurve01(double value, double skew) {
-  double t = clamp(value, 0.0, 1.0);
-  double safeSkew = clamp(skew, -0.999, 0.999);
-  return ((1.0 + safeSkew) * t) / (1.0 - safeSkew + 2.0 * safeSkew * t);
-}
-
 static double nextWalkNoise(Voice& v) {
   v.walkRng = v.walkRng * 1664525u + 1013904223u;
   return (double)v.walkRng / 4294967295.0 * 2.0 - 1.0;
@@ -75,10 +69,10 @@ static double runRandomWalk(Voice& v, double freqHz, double jitterHz, double sr)
   const double noise = nextWalkNoise(v);
   const double increment = clamp(freqHz / rate, 0.0, 1.0);
   const double jitterInc = clamp(jitterHz / rate, 0.0, 1.0);
-  const double stepSize = clamp(increment + rationalCurve01(jitterInc, 0.99), 0.0, 1.0);
+  const double stepSize = clamp(increment + rational_curve01(jitterInc, 0.99), 0.0, 1.0);
   const double averageIncrement = (jitterInc + increment) * 0.5;
   const double whiteNoiseMix = averageIncrement >= 0.9
-    ? rationalCurve01((averageIncrement - 0.9) / 0.1, -0.7)
+    ? rational_curve01((averageIncrement - 0.9) / 0.1, -0.7)
     : 0.0;
   const double randomMix = 1.0 - whiteNoiseMix;
   const double step = noise > 0.0 ? stepSize : -stepSize;

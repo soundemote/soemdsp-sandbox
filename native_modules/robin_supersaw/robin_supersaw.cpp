@@ -203,12 +203,6 @@ static inline void jitter_reset(DitherVoiceState& voice) {
   voice.lastJitterCents = 0.0;
 }
 
-static inline double rational_curve01(double value, double skew) {
-  double t = value < 0.0 ? 0.0 : (value > 1.0 ? 1.0 : value);
-  double s = skew < -0.999 ? -0.999 : (skew > 0.999 ? 0.999 : skew);
-  return ((1.0 + s) * t) / (1.0 - s + 2.0 * s * t);
-}
-
 // Speed = drunken step rate. Depth = ±cents clamp (how far it may wander).
 // Depth→0 freezes in place (no step, hold last) until Reset. Not a gain/offset.
 // fixedSteps: 1 = ±step, 0 = random bipolar (Hypersaw Random Steps).
@@ -270,29 +264,14 @@ static inline double pitch_jitter_walk(
   return j.frozenOut;
 }
 
-static double mapNtoN(double v, double in0, double in1, double out0, double out1) {
-  const double d = in1 - in0;
-  if (!(dsp_fabs(d) > 1.0e-30)) return out0;
-  return out0 + (out1 - out0) * ((v - in0) / d);
-}
-
-// soemdsp::curve::Rational{c}.get(p) on 0…1 (Graph.hpp / Supersaw portamento times).
-static double rational01(double p, double c) {
-  const double x = clamp(p, 0.0, 1.0);
-  const double skew = clamp(c, -0.9999, 0.9999);
-  const double den = 1.0 - skew + 2.0 * skew * x;
-  if (!(dsp_fabs(den) > 1.0e-12)) return x;
-  return ((1.0 + skew) * x) / den;
-}
-
 // Supersaw portamentoStyle → (lin/exp mode, Rational curve for per-voice times).
 static void portamentoStyleToModeAndCurve(double style, int* modeOut, double* curveOut) {
   const double s = clamp(safe(style), 0.0, 1.0);
   if (s < 0.5) {
-    *curveOut = mapNtoN(s, 0.0, 0.5, -1.0, 1.0);
+    *curveOut = map(s, 0.0, 0.5, -1.0, 1.0);
     *modeOut = 0; // Linear
   } else {
-    *curveOut = mapNtoN(s, 0.5, 1.0, 1.0, -1.0);
+    *curveOut = map(s, 0.5, 1.0, 1.0, -1.0);
     *modeOut = 1; // Exponential
   }
 }
@@ -325,7 +304,7 @@ void configureVoicePortamento(
   voice.portaMode = portaMode;
   // Supersaw: time = map(Rational{curve}.get(randUnit), Min, Max)
   const double u = clamp(voice.portaUnit, 0.0, 1.0);
-  const double uWarped = rational01(u, portaCurve);
+  const double uWarped = rational_curve01(u, portaCurve);
   const double timeSec = tMin + uWarped * (tMax - tMin);
   const double tSamples = timeSec * (sampleRate > 1.0 ? sampleRate : 48000.0);
   if (!(tSamples > 1.0) || !(dsp_fabs(voice.targetHz - voice.currentHz) > 1.0e-12)) {

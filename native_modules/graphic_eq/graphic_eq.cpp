@@ -79,7 +79,7 @@ static void design_peak(PeakBand* b, double freqHz, double gainDb, double q, dou
     b->lastDb = 0.0;
     return;
   }
-  const double A = db_to_lin(gainDb * 0.5); // 10^(dB/40)
+  const double A = db_to_amp(gainDb * 0.5); // 10^(dB/40)
   double w0 = kTwoPi * (freqHz / sr);
   if (w0 < 1.0e-6) w0 = 1.0e-6;
   if (w0 > kPi * 0.999) w0 = kPi * 0.999;

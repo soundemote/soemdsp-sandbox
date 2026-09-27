@@ -82,12 +82,12 @@ extern "C" double soemdsp_trigger_counter_sample(
   const double safeLevel = safe(level);
   const double rate = maxd(1.0, safe(sampleRate));
 
-  if (s.lastReset <= safeThreshold && safeReset > safeThreshold) {
+  if (rising_edge(safeReset, &s.lastReset, safeThreshold)) {
     s.count = 0.0;
     s.remainingSamples = 0.0;
   }
 
-  if (s.lastTrigger <= safeThreshold && safeTrigger > safeThreshold) {
+  if (rising_edge(safeTrigger, &s.lastTrigger, safeThreshold)) {
     s.count += safeIncrement;
     if (s.count >= safeCountMax) {
       s.count = safeCountMax > 0.0 ? fmod_nonneg(s.count, safeCountMax) : 0.0;
@@ -95,8 +95,8 @@ extern "C" double soemdsp_trigger_counter_sample(
     }
   }
 
-  s.lastTrigger = safeTrigger;
-  s.lastReset = safeReset;
+
+
 
   const double pulse = s.remainingSamples > 0.0 ? safeLevel : 0.0;
   s.remainingSamples = maxd(0.0, s.remainingSamples - 1.0);

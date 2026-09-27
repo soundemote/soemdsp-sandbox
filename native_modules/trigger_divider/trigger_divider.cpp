@@ -80,20 +80,20 @@ extern "C" double soemdsp_trigger_divider_sample(
   const double safeLevel = safe(level);
   const double rate = maxd(1.0, safe(sampleRate));
 
-  if (s.lastReset <= safeThreshold && safeReset > safeThreshold) {
+  if (rising_edge(safeReset, &s.lastReset, safeThreshold)) {
     s.count = 0;
     s.remainingSamples = 0.0;
   }
 
-  if (s.lastTrigger <= safeThreshold && safeTrigger > safeThreshold) {
+  if (rising_edge(safeTrigger, &s.lastTrigger, safeThreshold)) {
     s.count = (s.count + 1) % (int)divisionSteps;
     if (s.count == 0) {
       s.remainingSamples = maxd(1.0, dsp_floor(safePulseTime * rate + 0.5));
     }
   }
 
-  s.lastTrigger = safeTrigger;
-  s.lastReset = safeReset;
+
+
 
   const double output = s.remainingSamples > 0.0 ? safeLevel : 0.0;
   s.remainingSamples = maxd(0.0, s.remainingSamples - 1.0);
@@ -124,14 +124,14 @@ extern "C" double soemdsp_trigger_divider_sample_clock(
   const double safeLevel = safe(level);
   const double rate = maxd(1.0, safe(sampleRate));
 
-  if (s.lastReset <= safeThreshold && safeReset > safeThreshold) {
+  if (rising_edge(safeReset, &s.lastReset, safeThreshold)) {
     s.count = 0;
     s.remainingSamples = 0.0;
     s.samplesSinceEdge = 0.0;
     s.measuredPeriodSamples = 0.0;
   }
 
-  const bool rising = s.lastTrigger <= safeThreshold && safeClock > safeThreshold;
+  const bool rising = rising_edge(safeClock, &s.lastTrigger, safeThreshold);
   if (rising) {
     if (s.samplesSinceEdge > 0.0) {
       s.measuredPeriodSamples = s.samplesSinceEdge;
@@ -152,8 +152,8 @@ extern "C" double soemdsp_trigger_divider_sample_clock(
     s.samplesSinceEdge += 1.0;
   }
 
-  s.lastTrigger = safeClock;
-  s.lastReset = safeReset;
+
+
 
   const double output = s.remainingSamples > 0.0 ? safeLevel : 0.0;
   s.remainingSamples = maxd(0.0, s.remainingSamples - 1.0);

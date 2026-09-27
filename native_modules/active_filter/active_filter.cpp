@@ -185,7 +185,7 @@ static double run_ladder(
   const double xIn = safe(input);
   const double driven = useClip ? dsp_tanh(xIn * 2.0) : xIn;
   const double safeIn = safe(g * driven - k * core.y[4]);
-  double y0 = safeIn / (1.0 + safeIn * safeIn);
+  double y0 = soft_clip_rational(safeIn);
   const double ny1 = safe(y0 + a * (y0 - core.y[1]));
   const double ny2 = safe(ny1 + a * (ny1 - core.y[2]));
   const double ny3 = safe(ny2 + a * (ny2 - core.y[3]));

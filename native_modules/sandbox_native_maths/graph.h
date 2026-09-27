@@ -61,8 +61,8 @@ struct Graph {
     if (dsp_fabs(x2 - x1) < 1.1920929e-7) return 0.5 * (y1 + y2);
     const double p = (x - x1) / (x2 - x1);
     const double c = nodes[i + 1].c;
-    const double rational = ((1.0 + c) * p) / (1.0 - c + 2.0 * c * p);
-    return y1 + (y2 - y1) * rational;
+    // Shared rational_curve01 clamps skew +-0.999 (matches prior safe domain).
+    return y1 + (y2 - y1) * rational_curve01(p, c);
   }
 
   static double lin_vs_exp_formula_scaler(double p) {

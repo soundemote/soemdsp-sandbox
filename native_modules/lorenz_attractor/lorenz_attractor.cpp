@@ -98,10 +98,9 @@ extern "C" void soemdsp_lorenz_attractor_sample(
   LorenzState& s = gPool[handle - 1];
 
   const bool resetHigh = safe(reset) > 0.5;
-  if (resetHigh && !s.resetWasHigh) {
+  if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {
     reset_lorenz(s);
   }
-  s.resetWasHigh = resetHigh;
 
   const double rate = sampleRate < 1.0 ? 1.0 : sampleRate;
   const double safeSpeed = maxd(0.0, safe(speed));

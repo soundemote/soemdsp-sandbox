@@ -37,11 +37,6 @@ static inline double dsp_sqrt(double x) {
   return guess;
 }
 
-static inline double jmap01(double v, double outMin, double outMax) {
-  return outMin + (outMax - outMin) * v;
-}
-
-
 // 2-node EXPONENTIAL curve, built directly as a Graph (graph.h) instead of
 // hand-rolling the exponential segment formula.
 static double evalExponentialGraph2(double x, double y0, double y1, double skew) {
@@ -85,7 +80,7 @@ static inline double onePoleCoefficient(double cutoffHz, double sampleRate) {
 
 static inline double onePoleStep(double* y1, double input, double a) {
   double y0 = input;
-  y0 = y0 / (1.0 + y0 * y0);
+  y0 = soft_clip_rational(y0);
   *y1 = y0 + a * (y0 - *y1);
   return *y1;
 }
@@ -147,9 +142,9 @@ extern "C" double soemdsp_yellowjacket_filter_sample(
   else if (safeRate <= 264600.0) { maxPitch = 96.0; resDropPoint = 0.90; }
   else { maxPitch = 96.0; resDropPoint = 0.95; }
 
-  const double pitch = jmap01(freqNorm, -156.0, 96.0);
+  const double pitch = map01(freqNorm, -156.0, 96.0);
   const double frequencyHz = midi_to_hz(pitch < maxPitch ? pitch : maxPitch);
-  const double cutoffHz = frequencyHz * jmap01(chaos, 4.56415, 0.972007);
+  const double cutoffHz = frequencyHz * map01(chaos, 4.56415, 0.972007);
 
   const double newResNormalized = evalResVFreqGraph(freqNorm, reso, resDropPoint, 0.2, 0.57);
   const double ellipseC = evalExponentialGraph2(newResNormalized, 7.6024, 0.00001, 0.99);

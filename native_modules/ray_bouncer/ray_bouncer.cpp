@@ -337,14 +337,13 @@ extern "C" void soemdsp_ray_bouncer_sample(
   s.yToX = by;
   s.ellipse.setParameters(elSize, elRatio, elAngle, elCx, elCy);
 
-  if (resetHigh && !s.resetWasHigh) {
+  if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {
     bouncer_reset(s);
     s.hasStarted = true;
   } else if (!s.hasStarted) {
     bouncer_reset(s);
     s.hasStarted = true;
   }
-  s.resetWasHigh = resetHigh;
 
   // Keep velocity length aligned with current speed after param changes.
   const double vlen = dsp_sqrt(s.dx * s.dx + s.dy * s.dy);
