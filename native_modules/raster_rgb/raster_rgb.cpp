@@ -41,6 +41,8 @@ struct RasterRgbState {
 
 static RasterRgbState gPool[kMaxInstances];
 
+// Local: NaN/neg -> 0 via !(x > 0). Distinct from soemdsp::math::clamp01
+// (clamp(x,0,1)), which passes NaN through. Keep until NaN policy is decided.
 static double clamp01(double x) {
   if (!(x > 0.0)) return 0.0;
   if (x > 1.0) return 1.0;

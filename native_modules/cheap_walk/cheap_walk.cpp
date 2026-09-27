@@ -34,10 +34,6 @@ static inline unsigned int lcg_next(unsigned int& s) {
   return s;
 }
 
-static inline double clamp01(double v) {
-  return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);
-}
-
 static inline double step_lane(CheapWalkLane& lane, double step) {
   lcg_next(lane.seed);
   const double bipolar = (double)lane.seed / 4294967295.0 * 2.0 - 1.0;

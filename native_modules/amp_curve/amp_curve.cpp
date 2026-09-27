@@ -53,12 +53,6 @@ static const char kMetadataJson[] =
     "]"
   "}";
 
-static double clamp01(double x) {
-  if (x < 0.0) return 0.0;
-  if (x > 1.0) return 1.0;
-  return x;
-}
-
 static double shape(double input, double mode) {
   const double x = clamp01(safe(input));
   if (safe(mode) < 0.5) {
