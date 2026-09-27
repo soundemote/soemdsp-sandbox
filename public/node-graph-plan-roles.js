@@ -19,10 +19,11 @@ const NODE_GRAPH_PLAN_ROLES = Object.freeze({
  * Interactive CV / controller faces that stay compiled+processed while Live
  * even with no cable path to Output (smoothing, phosphor, Value LCD, Bias publish).
  * Heavy audio DSP remains Output-gated — keep this list short and explicit.
- * Native mirror: graph_engine compile forces kTypeXyPad reachable when unwired.
+ * Native mirror: graph_engine compile forces kTypeXyPad / kTypeTheremin reachable when unwired.
  */
 const NODE_GRAPH_LIVE_CONTROLLER_ALWAYS_REACHABLE_TYPES = Object.freeze([
   "xyPad",
+  "theremin",
   "keypad",
   "knob",
   "pluginSlider",
@@ -32,6 +33,8 @@ const NODE_GRAPH_LIVE_CONTROLLER_ALWAYS_REACHABLE_TYPES = Object.freeze([
   "keyboardController",
   "gridKeyboard",
   "pitchModWheel",
+  // Cheap host/project tempo dump — must run even when only feeding a readout.
+  "hostBpm",
 ]);
 
 const NODE_GRAPH_LIVE_CONTROLLER_ALWAYS_REACHABLE_TYPE_SET = new Set(

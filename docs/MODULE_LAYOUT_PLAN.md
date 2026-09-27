@@ -33,11 +33,13 @@ Chrome only changes **where I/O lives relative to the face**:
 | --- | --- | --- | --- |
 | **LayoutA** | Under the face | Own row | Under I/O |
 | **LayoutB** | Beside the face (one **shell** band) | Shared with jacks | Under the shell |
-| **TitleBarAndPorts** (ex-**LayoutC**) | Under the title | None | None |
+| **InletOutletLayout** (ex-**TitleBarAndPorts** / **LayoutC**) | Under the title | None | None |
 
-`LayoutC` remains a deprecated alias for `TitleBarAndPorts`. Use the new name in
-registers (Metamodule In/Out, portals). Do **not** fake this with `compactTile` + ports
-on a custom face — that fights Hide In/Out and title-only height.
+`TitleBarAndPorts` and `LayoutC` remain deprecated aliases for `InletOutletLayout`.
+Use the new name in registers (Named Portal In/Out, lane portals, Metamodule In/Out,
+voice jacks). Do **not** fake this with `compactTile` + ports on a custom face — that
+fights Hide In/Out and title-only height. Module Settings for this layout are Grid
+Width / Height + alias only (no show/hide visibility, disable, or save-to-default).
 
 Visibility flags (per-module and global) turn bands **off**. Off means the band
 must not occupy a grid track. Collapsing a track to `0px` while another child

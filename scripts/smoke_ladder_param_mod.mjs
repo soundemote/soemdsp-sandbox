@@ -64,7 +64,7 @@ function run(biasValue) {
   setParam(g, hOsc, PARAM_WAVE, 5);
   setParam(g, hOsc, PARAM_AMP, 1);
   setParam(g, hFilt, PARAM_FREQ, 800);
-  setDomain(g, hFilt, PARAM_FREQ, 20, 20000, 0);
+  setDomain(g, hFilt, PARAM_FREQ, 20, 20000, 16); // bit4 domainValued: Range emits Hz -> domain ADD
   setParam(g, hBias, PARAM_ATT, biasValue);
   setParam(g, hRange, PARAM_IN_LOW, 0);
   setParam(g, hRange, PARAM_IN_HIGH, 1);

@@ -91,7 +91,7 @@ function nodeGraphTransportBeatPhase01(absoluteFrame, sampleRate, tempoBpm) {
  * @param {number} absoluteFrame
  * @param {number} sampleRate
  * @param {number} tempoBpm
- * @returns {{ "Gate -1+1": number, "Gate 0-1": number, Trigger: number, f: number, "beat f": number }}
+ * @returns {{ "Gate 0-1": number, Trigger: number, f: number, "beat f": number }}
  */
 function nodeGraphTransportCore(params, absoluteFrame, sampleRate, tempoBpm) {
   const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
@@ -124,7 +124,6 @@ function nodeGraphTransportCore(params, absoluteFrame, sampleRate, tempoBpm) {
     }
   }
   return {
-    "Gate -1+1": high ? amplitude : -amplitude,
     "Gate 0-1": high ? amplitude : 0,
     Trigger: trigger,
     f: frequency,

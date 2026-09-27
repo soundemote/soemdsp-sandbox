@@ -441,15 +441,17 @@ const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   // Centered arc span (degrees Bias 0→1). Start is always −span/2 (no Offset).
   rotationDegrees: 270,
   // Knob graphic size 0…1 (1 = fill entire display; 0 = disappear). Arc only.
-  dialSize: 1,
+  dialSize: 0.84,
   // Knob graphic vertical offset in face-height units; positive moves lower.
-  dialOffsetY: 0,
+  dialOffsetY: 0.14,
   // Label / value size 0…1 of display min-edge (independent of knob size/position).
   labelSize: 0.2,
   valueSize: 0.2,
-  // Label / value align on the display: off | top | mid | bottom (independent; may overlap).
+  // Value vertical offset −1…1 face heights (edge inset for top/bottom; bipolar for mid/midknob).
+  valueOffsetY: 0,
+  // Label / value align: off | top | mid | midknob | bottom (independent; may overlap).
   labelPosition: "top",
-  valuePosition: "mid",
+  valuePosition: "midknob",
   // Face name — independent of module alias / header title.
   labelText: "Knob",
   // Hole size 0…1 (0 = solid disk, ~0.7 default, 1 = thin outer ring).

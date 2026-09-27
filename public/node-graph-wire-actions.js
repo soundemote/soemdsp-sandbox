@@ -841,7 +841,34 @@ function disconnectNodeGraphConnections(entries, options = {}) {
 
   const status = options.status
     || (removed === 1 ? "wire disconnected" : `${removed} wires disconnected`);
+  // Collect named portals before commit so chrome can drop inherited colors.
+  let namedPortalRefreshIds = [];
+  if (typeof nodeGraphNamedPortalIdsTouchedByWire === "function") {
+    const live = nodeGraphMvp?.patch;
+    if (signal.size && Array.isArray(live?.connections)) {
+      for (const index of signal) {
+        const c = live.connections[index];
+        if (!c) continue;
+        namedPortalRefreshIds.push(
+          ...nodeGraphNamedPortalIdsTouchedByWire(live, c.sourceNode, c.destinationNode),
+        );
+      }
+    }
+    if (modulation.size && Array.isArray(live?.modulations)) {
+      for (const index of modulation) {
+        const m = live.modulations[index];
+        if (!m) continue;
+        namedPortalRefreshIds.push(
+          ...nodeGraphNamedPortalIdsTouchedByWire(live, m.sourceNode, m.destinationNode),
+        );
+      }
+    }
+    namedPortalRefreshIds = [...new Set(namedPortalRefreshIds)];
+  }
   commitNodeGraphPatch(patch, { status, wireEdit: true });
+  if (namedPortalRefreshIds.length && typeof nodeGraphNamedPortalRefreshModules === "function") {
+    nodeGraphNamedPortalRefreshModules(namedPortalRefreshIds);
+  }
   if (typeof triggerNodeGraphWireDisconnectEvent === "function") {
     if (signal.size) {
       triggerNodeGraphWireDisconnectEvent("signal");
@@ -1644,6 +1671,10 @@ function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinat
     destinationPort,
     ...nextWireData,
   });
+  let namedPortalRefreshIds = typeof nodeGraphNamedPortalIdsTouchedByWire === "function"
+    ? nodeGraphNamedPortalIdsTouchedByWire(patch, sourceNode, destinationNode)
+    : [];
+  // Named portal titles stay user-driven; wire connect only refreshes jack chrome/color.
   let autoConnected = 0;
   // Apply stereo/RGB siblings discovered on shell names, rewritten to portals.
   for (const extra of pairExtras) {
@@ -1719,6 +1750,13 @@ function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinat
       nodeGraphMetamoduleRefreshShellFromBoundary(metaId);
     }
   }
+  if (
+    namedPortalRefreshIds
+    && namedPortalRefreshIds.length
+    && typeof nodeGraphNamedPortalRefreshModules === "function"
+  ) {
+    nodeGraphNamedPortalRefreshModules(namedPortalRefreshIds);
+  }
   if (typeof triggerNodeGraphWireConnectEvent === "function") {
     triggerNodeGraphWireConnectEvent("signal");
   }
@@ -1789,7 +1827,13 @@ function connectNodeGraphModulation(sourceNode, sourcePort, destinationNode, des
     destinationParam: destParam,
     ...nextWireData,
   });
+  let namedPortalRefreshIds = typeof nodeGraphNamedPortalIdsTouchedByWire === "function"
+    ? nodeGraphNamedPortalIdsTouchedByWire(patch, sourceNode, destNode)
+    : [];
   commitNodeGraphPatch(patch, { status: "modulation connected", wireEdit: true });
+  if (namedPortalRefreshIds.length && typeof nodeGraphNamedPortalRefreshModules === "function") {
+    nodeGraphNamedPortalRefreshModules(namedPortalRefreshIds);
+  }
   if (typeof triggerNodeGraphWireConnectEvent === "function") {
     triggerNodeGraphWireConnectEvent("modulation");
   }

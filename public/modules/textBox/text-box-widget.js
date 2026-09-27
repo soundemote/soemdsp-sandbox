@@ -27,7 +27,7 @@ function textBoxWidgetNormalizeVertical(value) {
   if (typeof normalizeNodeGraphTextBoxVerticalAlignPercent === "function") {
     return normalizeNodeGraphTextBoxVerticalAlignPercent(value);
   }
-  const numeric = Math.round(Number(value));
+  const numeric = Number(value);
   if (Number.isFinite(numeric)) {
     return Math.max(0, Math.min(100, numeric));
   }
@@ -58,6 +58,36 @@ function textBoxWidgetFontFamily(value) {
     return nodeGraphAppFontFamily(value, "cascadia-mono");
   }
   return "\"Cascadia Mono\", \"Cascadia Code\", Consolas, \"Courier New\", monospace";
+}
+
+function textBoxWidgetNormalizeBackgroundAlpha(value) {
+  if (typeof normalizeNodeGraphTextBoxBackgroundAlpha === "function") {
+    return normalizeNodeGraphTextBoxBackgroundAlpha(value);
+  }
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.78;
+}
+
+function textBoxWidgetBackgroundAlphaCss(value) {
+  const alpha = textBoxWidgetNormalizeBackgroundAlpha(value);
+  if (alpha === 0 || alpha === 1) return String(alpha);
+  // CSS number syntax is not uniformly tolerant of JS scientific notation.
+  // Keep sub-pixel alpha values in ordinary decimal notation (e.g. 1e-13
+  // becomes 0.0000000000001) so the declaration remains valid everywhere.
+  return alpha.toFixed(20).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function textBoxWidgetBackgroundPaint(value, alpha) {
+  const color = String(value || "").trim();
+  const match = color.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!match) {
+    return color;
+  }
+  const hex = match[1].length === 3
+    ? match[1].split("").map((part) => part + part).join("")
+    : match[1];
+  const channels = [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16));
+  return `rgba(${channels.join(", ")}, ${textBoxWidgetBackgroundAlphaCss(alpha)})`;
 }
 
 function textBoxWidgetReadText(field) {
@@ -163,6 +193,7 @@ function createTextBoxWidget(body, options = {}) {
       ? normalizeNodeGraphTextBoxLineHeight(options.lineHeight ?? options.lineSpacing ?? options.newlineSpacing)
       : 1.2,
     font: textBoxWidgetNormalizeFont(options.font),
+    backgroundAlpha: textBoxWidgetNormalizeBackgroundAlpha(options.backgroundAlpha),
     backgroundColor: String(options.backgroundColor || ""),
     textColor: String(options.textColor || ""),
   };
@@ -253,6 +284,9 @@ function createTextBoxWidget(body, options = {}) {
     }
     event.preventDefault();
     event.stopPropagation();
+    if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
+      ensureNodeGraphModuleSelectedForContext(nodeId);
+    }
     openNodeGraphTraceDisplaySettings(nodeId, event);
   });
   field.addEventListener("keydown", (event) => {
@@ -289,10 +323,22 @@ function createTextBoxWidget(body, options = {}) {
     field.style.setProperty("--node-text-box-font", textBoxWidgetFontFamily(layout.font));
     field.style.setProperty("--node-text-box-font-weight", String(layout.textWeight || 400));
     field.style.setProperty("--node-text-box-line-height", String(layout.lineHeight || 1.2));
-    if (layout.backgroundColor) {
-      body.style.setProperty("--node-text-box-bg", layout.backgroundColor);
-      field.style.setProperty("--node-text-box-bg", layout.backgroundColor);
-    }
+    const backgroundAlpha = textBoxWidgetNormalizeBackgroundAlpha(layout.backgroundAlpha);
+    const backgroundAlphaCss = textBoxWidgetBackgroundAlphaCss(backgroundAlpha);
+    const backgroundColor = String(layout.backgroundColor || "transparent");
+    const paintedBackground = textBoxWidgetBackgroundPaint(backgroundColor, backgroundAlpha);
+    body.style.setProperty("--node-text-box-bg", paintedBackground);
+    field.style.setProperty("--node-text-box-bg", paintedBackground);
+    body.style.setProperty("--node-text-box-bg-color", backgroundColor);
+    field.style.setProperty("--node-text-box-bg-color", backgroundColor);
+    body.style.setProperty("--node-text-box-bg-alpha", backgroundAlphaCss);
+    field.style.setProperty("--node-text-box-bg-alpha", backgroundAlphaCss);
+    // The module plate is a sibling/ancestor paint layer behind the face. Keep
+    // its inherited alpha in sync too, otherwise a near-zero face reveals the
+    // opaque grey plate (the exact-zero CSS escape is not enough).
+    const plate = body.closest?.(".dsp-node");
+    plate?.style.setProperty("--node-text-box-bg-alpha", backgroundAlphaCss);
+    body.dataset.textBoxBackgroundAlpha = backgroundAlphaCss;
     if (layout.textColor) {
       field.style.setProperty("--node-text-box-fg", layout.textColor);
     }
@@ -404,6 +450,9 @@ function createTextBoxWidget(body, options = {}) {
           : 1.2;
       }
       if (next.font != null) layout.font = textBoxWidgetNormalizeFont(next.font);
+      if (next.backgroundAlpha != null) {
+        layout.backgroundAlpha = textBoxWidgetNormalizeBackgroundAlpha(next.backgroundAlpha);
+      }
       if (next.backgroundColor != null) layout.backgroundColor = String(next.backgroundColor || "");
       if (next.textColor != null) layout.textColor = String(next.textColor || "");
       if (next.text != null) this.setText(next.text);

@@ -45,7 +45,7 @@ function view(ptr, n) {
   return new Float64Array(mem.buffer, ptr, n);
 }
 
-// 120 BPM, Numer/Denom 1/4 Normal → f = 2 Hz; bipolar/unipolar toggle; Trigger edges
+// 120 BPM, Numer/Denom 1/4 Normal → f = 2 Hz; Gate 0-1 only; Trigger edges
 {
   const g = create() | 0;
   setSr(g, 48000);
@@ -63,31 +63,29 @@ function view(ptr, n) {
   snap(g);
 
   let trigHits = 0;
-  let uniHigh = 0;
-  let biPos = 0;
-  let biNeg = 0;
+  let gateHigh = 0;
+  let gateNeg = 0;
   let fVal = 0;
   // ~1.07 s at 48 kHz → a few edges at 2 Hz.
   for (let q = 0; q < 400; q++) {
     process(g, 128);
-    const bi = view(portPtr(g, hT, PORT_MONO) | 0, 128);
-    const uni = view(portPtr(g, hT, PORT_LEFT) | 0, 128);
+    const gate = view(portPtr(g, hT, PORT_MONO) | 0, 128);
+    const gateLeft = view(portPtr(g, hT, PORT_LEFT) | 0, 128);
     const trig = view(portPtr(g, hT, PORT_RIGHT) | 0, 128);
     const freq = view(portPtr(g, hT, PORT_F) | 0, 128);
     fVal = freq[0];
     for (let i = 0; i < 128; i++) {
       if (trig[i] > 0.5) trigHits += 1;
-      if (uni[i] > 0.5) uniHigh += 1;
-      if (bi[i] > 0.5) biPos += 1;
-      if (bi[i] < -0.5) biNeg += 1;
+      if (gate[i] > 0.5) gateHigh += 1;
+      if (gate[i] < -0.5 || gateLeft[i] < -0.5) gateNeg += 1;
     }
   }
   if (Math.abs(fVal - 2) > 1e-6) throw new Error(`transport f=${fVal} expected 2 Hz @ 120 BPM 1/4`);
   if (!(trigHits >= 2)) throw new Error(`transport Trigger hits=${trigHits}`);
-  if (!(uniHigh > 100 && biPos > 100 && biNeg > 100)) {
-    throw new Error(`transport wave uni=${uniHigh} bi+=${biPos} bi-=${biNeg}`);
+  if (!(gateHigh > 100) || gateNeg !== 0) {
+    throw new Error(`transport Gate 0-1 high=${gateHigh} neg=${gateNeg}`);
   }
-  console.log(`transport ok f=${fVal} trig=${trigHits} uniHigh=${uniHigh}`);
+  console.log(`transport ok f=${fVal} trig=${trigHits} gateHigh=${gateHigh}`);
 }
 
 // Numer/Denom 1/8 Normal → f = 4 Hz at 120 BPM (eighth notes)

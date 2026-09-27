@@ -19,7 +19,6 @@
     "heightGu": 24
   },
   "audio": {
-    "speedLimitHz": 20000,
     "pitchReferenceHz": 100,
     "targetSampleRate": 44100,
     "pitchReferenceMidiNote": 48

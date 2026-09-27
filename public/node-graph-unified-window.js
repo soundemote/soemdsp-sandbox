@@ -856,28 +856,15 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
         // on the open form or remembered in workspace state. Blank only when
         // there is genuinely nothing to edit — never wipe a just-seeded form
         // because selection briefly looks empty during force-restore.
-        const fromActions = typeof nodeGraphModuleActionTargetNodeId === "function"
-          ? nodeGraphModuleActionTargetNodeId()
-          : "";
+        // Strict: only a selected module opens Display Settings details.
         const fromSelection = typeof nodeGraphTraceDisplaySettingsPrimaryFromSelection === "function"
           ? nodeGraphTraceDisplaySettingsPrimaryFromSelection()
-          : (typeof nodeGraphSingleSelectedNodeId === "function"
-            ? nodeGraphSingleSelectedNodeId()
-            : "");
-        const fromPinned = String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
-        const fromWorkspace = String(
-          nodeGraphMvp?.workspaceWindowStates?.traceDisplaySettings?.targetNode || "",
-        ).trim();
-        const nodeId = String(
-          options.nodeId
-          || fromActions
-          || fromSelection
-          || nodeGraphMvp.sceneContextTargetNode
-          || nodeGraphMvp.lastModuleActionTargetNode
-          || fromPinned
-          || fromWorkspace
-          || "",
-        ).trim();
+          : (typeof nodeGraphModuleActionTargetNodeId === "function"
+            ? nodeGraphModuleActionTargetNodeId()
+            : (typeof nodeGraphSingleSelectedNodeId === "function"
+              ? nodeGraphSingleSelectedNodeId()
+              : ""));
+        const nodeId = String(options.nodeId || fromSelection || "").trim();
         const node = nodeId && typeof nodeGraphPatchNode === "function"
           ? nodeGraphPatchNode(nodeId)
           : null;
@@ -1288,6 +1275,17 @@ function cycleNodeGraphCommandCenterPresentation(options = {}) {
 
 // ─── Blank inspector: pick a module from the patch ──────────────────────────
 
+function nodeGraphUnifiedInspectorModuleLabel(node) {
+  const moduleName = String(nodeGraphNodeLabels?.[node?.type] || node?.type || "").trim();
+  const displayName = typeof normalizeNodeGraphPatchNodeAlias === "function"
+    ? normalizeNodeGraphPatchNodeAlias(node?.alias)
+    : String(node?.alias ?? "").trim();
+  if (!displayName) {
+    return moduleName;
+  }
+  return moduleName ? `${displayName} (${moduleName})` : displayName;
+}
+
 function nodeGraphInspectorPatchModules(kind = "") {
   const nodes = Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes : [];
   const key = String(kind || "").trim();
@@ -1310,11 +1308,7 @@ function nodeGraphInspectorPatchModules(kind = "") {
     })
     .slice()
     .sort((left, right) => {
-      const titleOf = (node) => String(
-        typeof nodeGraphPatchNodeTitle === "function"
-          ? nodeGraphPatchNodeTitle(node)
-          : (node.alias || node.type || node.id),
-      );
+      const titleOf = (node) => nodeGraphUnifiedInspectorModuleLabel(node);
       return titleOf(left).localeCompare(titleOf(right), undefined, { sensitivity: "base" });
     });
 }
@@ -1347,21 +1341,12 @@ function fillNodeGraphUnifiedInspectorModuleList(host, {
     button.type = "button";
     button.className = "node-unified-inspector-module-item";
     button.dataset.node = node.id;
-    const title = typeof nodeGraphPatchNodeTitle === "function"
-      ? nodeGraphPatchNodeTitle(node)
-      : (node.alias || nodeGraphNodeLabels?.[node.type] || node.type);
-    const typeName = nodeGraphNodeLabels?.[node.type] || node.type;
-    button.setAttribute("aria-label", title);
+    const label = nodeGraphUnifiedInspectorModuleLabel(node);
+    button.setAttribute("aria-label", label);
     const name = document.createElement("span");
     name.className = "node-unified-inspector-module-name";
-    name.textContent = title;
+    name.textContent = label;
     button.append(name);
-    if (typeName && typeName !== title) {
-      const type = document.createElement("span");
-      type.className = "node-unified-inspector-module-type";
-      type.textContent = typeName;
-      button.append(type);
-    }
     button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -1665,6 +1650,9 @@ function openNodeGraphParameterSettingsFromContextEvent(event, nodeElement = nul
     const node = nodeElement || readout.closest?.(".dsp-node");
     const nodeId = String(node?.dataset?.node || "").trim();
     if (nodeId) {
+      if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
+        ensureNodeGraphModuleSelectedForContext(nodeId);
+      }
       nodeGraphMvp.sceneContextTargetNode = nodeId;
       nodeGraphMvp.lastModuleActionTargetNode = nodeId;
     }
@@ -1685,6 +1673,9 @@ function openNodeGraphParameterSettingsFromContextEvent(event, nodeElement = nul
   const node = nodeElement || slider.closest?.(".dsp-node");
   const nodeId = String(node?.dataset?.node || "").trim();
   if (nodeId) {
+    if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
+      ensureNodeGraphModuleSelectedForContext(nodeId);
+    }
     nodeGraphMvp.sceneContextTargetNode = nodeId;
     nodeGraphMvp.lastModuleActionTargetNode = nodeId;
   }

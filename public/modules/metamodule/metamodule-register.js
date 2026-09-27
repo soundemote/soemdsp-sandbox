@@ -1,10 +1,10 @@
 // Boundary thru portals (flat-graph safe â€” no mic bleed / speaker mix).
-// TitleBarAndPorts: title + In/Out jacks only (no face, no compactTile port hack).
+// InletOutletLayout: title + In/Out jacks only (no face, no compactTile port hack).
 registerNodeGraphChromelessModule("metamoduleIn", {
   label: "Metamodule In",
   compactTile: false,
   definition: {
-    chrome: "TitleBarAndPorts",
+    chrome: "InletOutletLayout",
     planRole: "processor",
     planFreeRun: true,
     // Spawn size only â€” user may still resize freely (no min clamp).
@@ -29,7 +29,7 @@ registerNodeGraphChromelessModule("metamoduleOut", {
   label: "Metamodule Out",
   compactTile: false,
   definition: {
-    chrome: "TitleBarAndPorts",
+    chrome: "InletOutletLayout",
     planRole: "processor",
     planFreeRun: true,
     // Spawn size only â€” user may still resize freely (no min clamp).
@@ -126,7 +126,7 @@ registerNodeGraphChromelessModule("metamodule", {
   },
   catalog: {
     category: "portal",
-    description: "Voice container. Shell: Voices in (mix of Play Keys / Arp Keys / Chord Memory), Left/Right out. Inside: owned modules = a voice; plus per-voice Inc/Gate/Trigger/Idle. Wire Voice Inc → oscillator Inc.",
+    description: "Voice container. Shell: Voices in (mix of Play Keys / Arp Keys / Chord Memory), Left/Right out. Inside: owned modules = a voice; plus per-voice Inc/Gate/Trigger/Idle. Wire Voice Inc → oscillator inc.",
     notes: ["metamodule", "voice container", "voices", "polyphony", "voice manager", "container", "portal"],
   },
 });
@@ -136,7 +136,7 @@ registerNodeGraphChromelessModule("voiceFrequency", {
   label: "Voice Inc",
   compactTile: false,
   definition: {
-    chrome: "TitleBarAndPorts",
+    chrome: "InletOutletLayout",
     planRole: "processor",
     planFreeRun: true,
     defaultWidthGu: 4,
@@ -145,7 +145,7 @@ registerNodeGraphChromelessModule("voiceFrequency", {
     defaultUi: { buttonsHidden: true },
     inputs: [],
     outputs: ["Increment"],
-    outputLabels: { Increment: "Inc" },
+    outputLabels: { Increment: "inc" },
     outputAliases: {
       Out: "Increment",
       Frequency: "Increment",
@@ -158,7 +158,7 @@ registerNodeGraphChromelessModule("voiceFrequency", {
   },
   catalog: {
     category: "portal",
-    description: "This voice's phase increment (cycles/sample). Wire to oscillator Inc. Same family as PolyBLEP Reset/Inc.",
+    description: "This voice's phase increment (cycles/sample). Wire to oscillator inc. Same family as PolyBLEP Reset/inc.",
     notes: ["metamodule", "voice", "increment", "inc", "frequency", "portal"],
   },
 });
@@ -167,7 +167,7 @@ registerNodeGraphChromelessModule("voiceGate", {
   label: "Voice Gate",
   compactTile: false,
   definition: {
-    chrome: "TitleBarAndPorts",
+    chrome: "InletOutletLayout",
     planRole: "processor",
     planFreeRun: true,
     defaultWidthGu: 4,
@@ -190,7 +190,7 @@ registerNodeGraphChromelessModule("voiceTrigger", {
   label: "Voice Trigger",
   compactTile: false,
   definition: {
-    chrome: "TitleBarAndPorts",
+    chrome: "InletOutletLayout",
     planRole: "processor",
     planFreeRun: true,
     defaultWidthGu: 4,
@@ -214,7 +214,7 @@ registerNodeGraphChromelessModule("voiceIdle", {
   label: "Voice Idle",
   compactTile: false,
   definition: {
-    chrome: "TitleBarAndPorts",
+    chrome: "InletOutletLayout",
     planRole: "monitor",
     planFreeRun: true,
     defaultWidthGu: 4,

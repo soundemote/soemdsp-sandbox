@@ -58,7 +58,7 @@ function run(biasValue) {
   connect(g, hBias, PORT_MONO, hRange, PORT_MONO);
   setParam(g, hOsc, PARAM_FREQ, 220);
   setParam(g, hOsc, PARAM_AMP, 1);
-  setDomain(g, hOsc, PARAM_AMP, 0, 1, 4); // VCA
+  setDomain(g, hOsc, PARAM_AMP, 0, 1, 16); // bit4 domainValued: Range emits amp -> domain ADD
   setParam(g, hBias, PARAM_ATT, biasValue);
   setParam(g, hRange, PARAM_IN_LOW, 0);
   setParam(g, hRange, PARAM_IN_HIGH, 1);

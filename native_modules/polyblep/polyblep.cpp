@@ -3,7 +3,7 @@
 // soemdsp-native-target: polyBlep
 // soemdsp-native-kind: oscillator
 
-#include <cstdint>
+#include <stdint.h>
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 

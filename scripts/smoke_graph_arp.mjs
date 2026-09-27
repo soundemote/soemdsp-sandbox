@@ -56,7 +56,7 @@ const CEG = 2 ** 24 + 2 ** 28 + 2 ** 31;
 
 const ver = version() | 0;
 if (ver < 108) {
-  throw new Error(`graph version ${ver} < 108 (arp Trigger/Internal Clock/ƒ)`);
+  throw new Error(`graph version ${ver} < 108 (arp Trigger/Internal Clock/inc)`);
 }
 
 function view(ptr, n) {
@@ -70,13 +70,14 @@ function peakOf(ptr, n) {
   return peak;
 }
 
-// sample(h, held, hasHeld, trig, hasTrig, reset, rate, mode, steps, seed, octaveOffset, sr)
+// sample(h, held, hasHeld, trig, hasTrig, reset, rate, mode, steps, seed, octaveOffset, sequenceOffset, sr)
 function tickExternal(h, mask, rising) {
+  // sample(..., octaveOffset, sequenceOffset, sampleRate)
   if (!rising) {
-    return arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 0, SR);
+    return arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 0, 0, SR);
   }
-  arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 0, SR);
-  return arpSample(h, mask, 1, 1, 1, 0, 0, 0, 8, 1, 0, SR);
+  arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 0, 0, SR);
+  return arpSample(h, mask, 1, 1, 1, 0, 0, 0, 8, 1, 0, 0, SR);
 }
 
 // --- Direct kernel: C0+E0+G0 up via external Trigger ---
@@ -87,7 +88,7 @@ function tickExternal(h, mask, rising) {
   const pitches = [];
   for (let i = 0; i < 6; i++) {
     const pitch = tickExternal(h, mask, true);
-    pitches.push(Math.round(pitch * 120));
+    pitches.push(Math.round(pitch));
     if (!(arpGate(h) > 0.5)) throw new Error("arp gate low while held");
     if (!(arpTrigger(h) > 0.5)) throw new Error("arp trigger missing on edge");
     if (!(arpFreq(h) > 20)) throw new Error("arp frequency missing");
@@ -107,12 +108,12 @@ function tickExternal(h, mask, rising) {
   const h = arpCreate() | 0;
   const mask = CEG;
   const tick = (rising) => {
-    if (!rising) return arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 1, SR);
-    arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 1, SR);
-    return arpSample(h, mask, 1, 1, 1, 0, 0, 0, 8, 1, 1, SR);
+    if (!rising) return arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 1, 0, SR);
+    arpSample(h, mask, 1, 0, 1, 0, 0, 0, 8, 1, 1, 0, SR);
+    return arpSample(h, mask, 1, 1, 1, 0, 0, 0, 8, 1, 1, 0, SR);
   };
   const pitches = [];
-  for (let i = 0; i < 3; i++) pitches.push(Math.round(tick(true) * 120));
+  for (let i = 0; i < 3; i++) pitches.push(Math.round(tick(true)));
   const expect = [36, 40, 43];
   for (let i = 0; i < expect.length; i++) {
     if (pitches[i] !== expect[i]) {
@@ -127,9 +128,9 @@ function tickExternal(h, mask, rising) {
 {
   const h = arpCreate() | 0;
   const high = 1;
-  arpSample(h, PHASE + high, 1, 0, 1, 0, 0, 0, 0, 1, 0, SR);
-  const pitch = arpSample(h, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, SR);
-  const midi = Math.round(pitch * 120);
+  arpSample(h, PHASE + high, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, SR);
+  const pitch = arpSample(h, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, SR);
+  const midi = Math.round(pitch);
   if (midi !== 49) throw new Error(`arp high-half midi=${midi} want 49`);
   arpDestroy(h);
   console.log("arp phase-bit demux ok");
@@ -143,9 +144,9 @@ function tickExternal(h, mask, rising) {
   let lastMidi = -1;
   let changes = 0;
   for (let i = 0; i < SR; i++) {
-    const pitch = arpSample(h, mask, 1, 0, 0, 0, 32, 0, 8, 1, 0, SR);
+    const pitch = arpSample(h, mask, 1, 0, 0, 0, 32, 0, 8, 1, 0, 0, SR);
     if (arpTrigger(h) > 0.5) sawTrig = true;
-    const midi = Math.round(pitch * 120);
+    const midi = Math.round(pitch);
     if (lastMidi >= 0 && midi !== lastMidi) changes += 1;
     lastMidi = midi;
   }
@@ -165,10 +166,10 @@ function tickExternal(h, mask, rising) {
   const trigAt = [];
   const midiAtTrig = [];
   for (let i = 0; i < period * 4 + 8; i++) {
-    const pitch = arpSample(h, mask, 1, 0, 0, 0, rate, 0, 0, 1, 0, SR);
+    const pitch = arpSample(h, mask, 1, 0, 0, 0, rate, 0, 0, 1, 0, 0, SR);
     if (arpTrigger(h) > 0.5) {
       trigAt.push(i);
-      midiAtTrig.push(Math.round(pitch * 120));
+      midiAtTrig.push(Math.round(pitch));
     }
   }
   if (trigAt[0] !== 0) {
@@ -220,23 +221,27 @@ function tickExternal(h, mask, rising) {
   let pitchPeak = 0;
   let gatePeak = 0;
   let trigPeak = 0;
-  let freqPeak = 0;
+  let incPeak = 0;
   for (let q = 0; q < 80; q++) {
     process(g, 128);
     pitchPeak = Math.max(pitchPeak, peakOf(portPtr(g, hArp, PORT_MONO) | 0, 128));
     gatePeak = Math.max(gatePeak, peakOf(portPtr(g, hArp, PORT_LEFT) | 0, 128));
     trigPeak = Math.max(trigPeak, peakOf(portPtr(g, hArp, PORT_RIGHT) | 0, 128));
-    freqPeak = Math.max(freqPeak, peakOf(portPtr(g, hArp, PORT_RAMP) | 0, 128));
+    incPeak = Math.max(incPeak, peakOf(portPtr(g, hArp, PORT_RAMP) | 0, 128));
   }
   destroy(g);
 
-  if (!(pitchPeak > 0.15 && pitchPeak < 0.4)) {
+  // Pitch out is MIDI note number (e.g. C0=24).
+  if (!(pitchPeak > 20 && pitchPeak < 40)) {
     throw new Error(`arp graph pitchPeak=${pitchPeak}`);
   }
   if (!(gatePeak > 0.5)) throw new Error(`arp graph gatePeak=${gatePeak}`);
   if (!(trigPeak > 0.5)) throw new Error(`arp graph trigPeak=${trigPeak}`);
-  if (!(freqPeak > 20)) throw new Error(`arp graph freqPeak=${freqPeak}`);
+  // Ramp = inc (cycles/sample). C0 (~32.7 Hz @ A4=440) / 48k ≈ 6.8e-4.
+  if (!(incPeak > 20 / SR && incPeak < 0.05)) {
+    throw new Error(`arp graph incPeak=${incPeak}`);
+  }
   console.log(
-    `ok arp type=${TYPE_ARP} version=${ver} pitch=${pitchPeak.toFixed(4)} gate=${gatePeak.toFixed(4)} trig=${trigPeak.toFixed(4)} f=${freqPeak.toFixed(2)}`,
+    `ok arp type=${TYPE_ARP} version=${ver} pitch=${pitchPeak.toFixed(4)} gate=${gatePeak.toFixed(4)} trig=${trigPeak.toFixed(4)} inc=${incPeak.toExponential(3)}`,
   );
 }

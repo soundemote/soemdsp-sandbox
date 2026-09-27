@@ -5,8 +5,7 @@
     "targetSampleRate": 44100,
     "pitchReferenceMidiNote": 48,
     "pitchReferenceHz": 100,
-    "pitchOffsetOctaves": 0,
-    "speedLimitHz": 20000
+    "pitchOffsetOctaves": 0
   },
   "bypassedNodes": [],
   "cameras": [

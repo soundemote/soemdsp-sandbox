@@ -230,7 +230,6 @@
         "formantFilter",
         "besselThomson",
         "massSpringDamper",
-        "theremin",
         "wavetable2d",
         "wavetable3d",
         "pixelGrid",

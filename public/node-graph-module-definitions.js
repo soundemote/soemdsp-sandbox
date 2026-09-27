@@ -40,6 +40,7 @@ const nodeGraphNodeLabels = Object.freeze({
   basicShape: "BasicShape",
   clock: "Clock",
   transport: "Metronome",
+  hostBpm: "Host BPM",
   clockDivider: "Clock Divider",
   delayedTrigger: "Delayed Trigger",
   buttonEvents: "Button Events",
@@ -103,6 +104,7 @@ const nodeGraphNodeLabels = Object.freeze({
   chordPad: "Chord Pad",
   surgeOscillator: "Surge Oscillator",
   softwaveOsc: "Softwave Oscillator",
+  sineWarp: "SineWarp",
   curveOsc: "Curve Oscillator",
   snowflake: "Snowflake",
   dsfOscillator: "DSF Oscillator",
@@ -147,7 +149,7 @@ const nodeGraphNodeLabels = Object.freeze({
   pluginSlider: "Slider",
   toggleButton: "Toggle",
   momentaryButton: "Momentary",
-  fm: "Pitch",
+  fm: "Freq Manager",
   pitchHz: "Pitch ↔ Hz",
   pitchManager: "Pitch Manager",
   ampDb: "Amp ↔ dB",
@@ -205,7 +207,6 @@ const nodeGraphNodeLabels = Object.freeze({
   electroHat: "ElectroHat",
   formantFilter: "Formant Filter",
   binaryClock: "Binary Clock",
-  theremin: "Theremin",
   osc: "Open Sound Control",
   wavetable2d: "Wavetable2D",
   wavetable3d: "Wavetable3D",
@@ -4150,6 +4151,94 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
+  // Live antialiased cousin of Wavetable2D rectified-sine + rational phasewarp.
+  sineWarp: {
+    planRole: "source",
+    displayType: "lineBurn",
+    defaultDisplaySettings: {
+      sourceSync: true,
+    },
+    displayModes: [
+      { key: "lineBurn", renderer: "lineBurn", source: { value: "Out" } },
+    ],
+    displaySignals: [
+      { key: "Out", kind: "scalar" },
+    ],
+    // Warp / Phase / Amplitude are parameters (+ MOD) only — no twin CV jacks.
+    inputs: ["Reset", "Increment"],
+    inputLabels: { Increment: "inc" },
+    inputTooltips: {
+      Reset: "Rising edge zeros the phasor; PolyBLEP smooths the output value jump.",
+      Increment: "Phase increment add (cycles per sample).",
+    },
+    outputAliases: { Wave: "Out", "Wave Out": "Out" },
+    outputChannels: { Out: "green" },
+    outputs: ["Out"],
+    parameters: [
+      {
+        choices: ["Sine", "Rect"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "mode",
+        label: "Mode",
+        linearSmoothing: false,
+        max: "1",
+        mid: "0",
+        min: "0",
+        step: "1",
+        tooltip: "Sine = clean LUT sine. Rect = Hypersaw2 rectified/clipping sine arch with warp-aware PolyBLAMP.",
+      },
+      {
+        defaultValue: "100",
+        key: "frequency",
+        kind: "frequency",
+        label: "Frequency",
+        max: "20000",
+        mid: "220",
+        min: "0",
+        step: "any",
+        unit: "Hz",
+        tooltip:
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD).",
+      },
+      {
+        defaultValue: "0",
+        key: "phase",
+        kind: "phase",
+        label: "Phase",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "0.01",
+        unit: "cycle",
+        wraparound: true,
+      },
+      {
+        defaultValue: "0",
+        key: "warp",
+        label: "Warp",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        showSign: true,
+        step: "any",
+        tooltip: "Bipolar rational phasewarp (−1…+1), same curve as Wavetable2D. 0 = linear. Asymmetry bunches one side of the cycle.",
+      },
+      {
+        defaultValue: "1",
+        key: "amplitude",
+        label: "Amplitude",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        modClamp: false,
+        tooltip: "Output level. Slider 0…1 = full-scale bipolar wave. Min/max are guides only.",
+      },
+    ],
+  },
   // Parametric 2D math curves → mono Out via Project; X/Y always available for scopes.
   curveOsc: {
     planRole: "source",
@@ -5752,6 +5841,21 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
+  // Host/project tempo dump. Out = raw BPM (120 = 120 beats/min), not Hz.
+  // Standalone: patch.timing.tempoBpm. Plugin: host tempo via set_host_transport.
+  hostBpm: {
+    planRole: "source",
+    planFreeRun: true,
+    defaultWidthGu: 4,
+    defaultUi: {
+      buttonsHidden: true,
+      oscilloscopeHidden: true,
+    },
+    outputs: ["Out"],
+    outputLabels: { Out: "BPM" },
+    parameters: [],
+  },
+
   // Metronome: per-clock t0, playhead-locked phase. BPM is this node only.
   transport: {
     planRole: "source",
@@ -5764,7 +5868,6 @@ const nodeGraphModuleDefinitions = (
     ],
     digitalOutputs: [
       "Gate 0-1",
-      "Gate -1+1",
       "Trigger",
       "f",
       "beat f",
@@ -5774,7 +5877,6 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Reset"],
     outputs: [
       "Gate 0-1",
-      "Gate -1+1",
       "Trigger",
       "f",
       "beat f",
@@ -5785,9 +5887,11 @@ const nodeGraphModuleDefinitions = (
       "0..1": "Gate 0-1",
       "0…1": "Gate 0-1",
       "Gate Uni": "Gate 0-1",
-      "-1..1": "Gate -1+1",
-      "-1…1": "Gate -1+1",
-      "Gate Bi": "Gate -1+1",
+      // Legacy bipolar twin → kept Gate 0-1
+      "-1..1": "Gate 0-1",
+      "-1…1": "Gate 0-1",
+      "Gate Bi": "Gate 0-1",
+      "Gate -1+1": "Gate 0-1",
       // Legacy multi-flavor trigger names → single Trigger
       "Trigger Sample": "Trigger",
       "Trigger Smooth": "Trigger",
@@ -5803,7 +5907,6 @@ const nodeGraphModuleDefinitions = (
     },
     outputLabels: {
       "Gate 0-1": "Gate 0-1",
-      "Gate -1+1": "Gate -1+1",
       Trigger: "Trigger",
       f: "f",
       "beat f": "beat f",
@@ -5832,7 +5935,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.01",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Gate high duty of each cycle (0..1). 0.5 = square. Affects Gate 0-1 / Gate -1+1.",
+        tooltip: "Gate high duty of each cycle (0..1). 0.5 = square. Affects Gate 0-1.",
       },
       {
         defaultValue: "4",
@@ -6720,12 +6823,12 @@ const nodeGraphModuleDefinitions = (
       buttonsHidden: true,
       oscilloscopeHidden: true,
     },
-    inputs: ["f"],
-    inputAliases: { In: "f", Mono: "f" },
-    inputLabels: { f: "ƒ" },
-    outputs: ["f"],
-    outputAliases: { Out: "f", Mono: "f" },
-    outputLabels: { f: "ƒ" },
+    inputs: ["f", "inc"],
+    inputAliases: { In: "f", Mono: "f", Increment: "inc", Inc: "inc" },
+    inputLabels: { f: "ƒ", inc: "inc" },
+    outputs: ["f", "inc"],
+    outputAliases: { Out: "f", Mono: "f", Inc: "inc", Increment: "inc" },
+    outputLabels: { f: "ƒ", inc: "inc" },
     parameters: [
       {
         defaultValue: "0",
@@ -6862,8 +6965,9 @@ const nodeGraphModuleDefinitions = (
       MIDI: "pitch",
     },
     inputLabels: { "pitch": "♯/♭" },
-    outputs: ["Inc", "f", "pitch"],
-    outputLabels: { f: "ƒ", pitch: "♯/♭" },
+    outputs: ["pitch", "f", "inc"],
+    outputAliases: { Inc: "inc", Increment: "inc" },
+    outputLabels: { pitch: "♯/♭", f: "ƒ", inc: "inc" },
     parameters: [
       {
         defaultValue: "440",
@@ -6920,7 +7024,7 @@ const nodeGraphModuleDefinitions = (
         modClamp: false,
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Hz-domain multiply after Pitch→Hz. Applies to ƒ and Inc, not the ♯/♭ thru.",
+        tooltip: "Hz-domain multiply after Pitch→Hz. Applies to ƒ and inc, not the ♯/♭ thru.",
       },
       {
         defaultValue: "0",
@@ -6934,7 +7038,7 @@ const nodeGraphModuleDefinitions = (
         showSign: true,
         step: "any",
         unit: "Hz",
-        tooltip: "Hz-domain offset after Multiply. Applies to ƒ and Inc, not the ♯/♭ thru.",
+        tooltip: "Hz-domain offset after Multiply. Applies to ƒ and inc, not the ♯/♭ thru.",
       },
     ],
   },
@@ -9768,63 +9872,6 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  // Under construction: space-controlled controller (Controller shelf).
-  theremin: {
-    planRole: "source",
-    planFreeRun: true,
-    displayType: "lineBurn",
-    displayModes: [
-      { key: "lineBurn", renderer: "lineBurn", source: { value: "Out" } },
-    ],
-    displaySignals: [
-      { key: "Out", kind: "scalar" },
-    ],
-    // Planned: proximity / hand CV in; audio + pitch/volume CV out.
-    inputs: ["X", "Y", "Gate"],
-    inputLabels: {
-      X: "X",
-      Y: "Y",
-      Gate: "Gate"
-    },
-    outputs: ["Out", "Pitch", "Volume"],
-    parameters: [
-      {
-        defaultValue: "440",
-        key: "frequency",
-        kind: "frequency",
-        label: "Frequency",
-        max: "20000",
-        maxDigits: 5,
-        mid: "440",
-        min: "0",
-        step: "any",
-        unit: "Hz",
-        tooltip: "Under construction — base pitch / center of the theremin range."
-      },
-      {
-        defaultValue: "1",
-        key: "range",
-        label: "Range",
-        max: "4",
-        mid: "1",
-        min: "0.1",
-        step: "any",
-        unit: "oct",
-        tooltip: "Under construction — playable pitch span in octaves."
-      },
-      {
-        defaultValue: "0.8",
-        key: "volume",
-        label: "Volume",
-        max: "1",
-        mid: "0.8",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        tooltip: "Under construction — output level (later driven by proximity / Y)."
-      },
-    ]
-  },
   // Under construction: Open Sound Control bridge (Controller shelf).
   // Type id stays `osc` (Open Sound Control) — not an audio oscillator.
   osc: {
@@ -10345,11 +10392,11 @@ const nodeGraphModuleDefinitions = (
         source: { value: "pitch" },
       },
     ],
-    displayHeightGu: 5,
-    defaultWidthGu: 18,
+    displayHeightGu: 2,
+    defaultWidthGu: 6,
     displaySignals: [
       { key: "pitch", kind: "scalar" },
-      { key: "f", kind: "scalar" },
+      { key: "inc", kind: "scalar" },
     ],
     digitalInputs: ["Arp Keys"],
     digitalOutputs: ["Play Keys", "Step"],
@@ -10358,12 +10405,19 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { "Arp Keys": "Arp Keys", Trigger: "Trig" },
     inputAliases: { Clock: "Trigger", Trig: "Trigger" },
     outputChannels: { "Play Keys": "blue" },
-    outputs: ["Play Keys", "pitch", "f", "Gate", "Trigger", "Step"],
-    outputLabels: { "Play Keys": "Play Keys", "pitch": "♯/♭", Trigger: "Trig" },
+    // Pitch-family order: sharp/flat then inc (legacy f cables remap via aliases).
+    outputs: ["Play Keys", "pitch", "inc", "Gate", "Trigger", "Step"],
+    outputLabels: { "Play Keys": "Play Keys", "pitch": "♯/♭", inc: "inc", Trigger: "Trig" },
     outputAliases: {
       Pitch: "pitch",
       "0.1V/Oct": "pitch",
       "0.1v/Oct": "pitch",
+      f: "inc",
+      "ƒ": "inc",
+      Frequency: "inc",
+      Freq: "inc",
+      Inc: "inc",
+      Increment: "inc",
       Trig: "Trigger",
       Polyphony: "Play Keys",
       Monophony: "Play Keys",
@@ -10437,7 +10491,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         unit: "oct",
-        tooltip: "Transpose arpeggiated pitch by whole octaves (−4…+4). Applied to ♯/♭ and ƒ outs."
+        tooltip: "Transpose arpeggiated pitch by whole octaves (−4…+4). Applied to ♯/♭ and inc outs."
       },
       {
         defaultValue: "0",
@@ -12739,10 +12793,10 @@ const nodeGraphModuleDefinitions = (
     ],
     displaySignals: [
       { key: "Frequency", kind: "scalar" },
+      { key: "inc", kind: "scalar" },
       { key: "Fidelity", kind: "scalar" },
       { key: "Gate", kind: "scalar" },
       { key: "Detune", kind: "scalar" },
-      { key: "Inc", kind: "scalar" },
     ],
     inputs: ["In"],
     // Like badvalMonitor: an analysis/monitor tool should keep running and
@@ -12750,15 +12804,16 @@ const nodeGraphModuleDefinitions = (
     // even if nothing downstream routes to Output -- that's the whole point
     // of a meter you read directly off the node.
     monitorSink: true,
-    outputs: ["Frequency", "Fidelity", "Gate", "Detune", "Inc"],
-    outputAliases: { f: "Frequency", freq: "Frequency", g: "Gate", fid: "Fidelity", inc: "Inc", Increment: "Inc" },
-    outputLabels: { Frequency: "f", Fidelity: "Fid", Gate: "Gate", Detune: "Detune", Inc: "inc" },
+    // Pitch-family order: f (Frequency) then inc.
+    outputs: ["Frequency", "inc", "Fidelity", "Gate", "Detune"],
+    outputAliases: { f: "Frequency", freq: "Frequency", g: "Gate", fid: "Fidelity", Inc: "inc", Increment: "inc" },
+    outputLabels: { Frequency: "f", inc: "inc", Fidelity: "Fid", Gate: "Gate", Detune: "Detune" },
     outputTooltips: {
       Frequency: "Detected fundamental in Hz (0 when unlocked).",
       Fidelity: "NSDF peak clarity 0…1.",
       Gate: "1 while locked (Frequency > 0), else 0.",
       Detune: "Cents vs nearest ET pitch, mapped −1…+1 (±50¢).",
-      Inc: "Phase increment (cycles per sample) = Frequency / sampleRate. Wire to osc Increment.",
+      inc: "Phase increment (cycles per sample) = Frequency / sampleRate. Wire to osc Increment.",
     },
     parameters: [
       {
@@ -13623,13 +13678,14 @@ const nodeGraphModuleDefinitions = (
       Velocity: "Velocity",
       Frequency: "ƒ",
     },
+    // Pitch-family: sharp/flat then f (Frequency). No inc on MIDI controller.
     outputs: [
       "Play Keys",
       "Gate",
       "Trigger",
       "pitch",
-      "Velocity",
       "Frequency",
+      "Velocity",
       "X",
       "Y",
     ],
@@ -13678,6 +13734,8 @@ const nodeGraphModuleDefinitions = (
       // Legacy renames (patch cables remap via nodeGraphCanonicalOutputPort)
       KeyboardKey: "KeyIndex",
       KeyboardNorm: "KeyNorm",
+      Inc: "inc",
+      Increment: "inc",
     },
     outputLabels: {
       "Play Keys": "Play Keys",
@@ -13686,18 +13744,20 @@ const nodeGraphModuleDefinitions = (
       KeyIndex: "KeyIndex",
       KeyNorm: "KeyNorm",
       "pitch": "♯/♭",
+      inc: "inc"
     },
     inputLabels: {
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
       "Chord Memory": "Chord Memory",
     },
-    // Order: masks, then pitch (after Chord Memory), then Gate/Trig (velocity-scaled), key CVs, XY
+    // Order: masks, then pitch-family (sharp/flat then inc), then Gate/Trig, key CVs, XY
     outputs: [
       "Play Keys",
       "Arp Keys",
       "Chord Memory",
       "pitch",
+      "inc",
       "Gate",
       "Trigger",
       "KeyIndex",

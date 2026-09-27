@@ -1729,23 +1729,21 @@ function nodeGraphMetaparametersTargetNodeId(options = {}) {
   if (fromOptions && typeof nodeGraphPatchNode === "function" && nodeGraphPatchNode(fromOptions)) {
     return fromOptions;
   }
+  // Strict: selected modules only (primary = action target = selection index 0).
   if (typeof nodeGraphModuleActionTargetNodeId === "function") {
     const fromActions = String(nodeGraphModuleActionTargetNodeId() || "").trim();
     if (fromActions) {
       return fromActions;
     }
   }
-  if (typeof nodeGraphSingleSelectedNodeId === "function") {
-    const fromSelection = String(nodeGraphSingleSelectedNodeId() || "").trim();
-    if (fromSelection) {
-      return fromSelection;
+  if (typeof nodeGraphSelectedNodeIdsInOrder === "function") {
+    const ordered = nodeGraphSelectedNodeIdsInOrder();
+    const primary = ordered.length ? String(ordered[0] || "").trim() : "";
+    if (primary && typeof nodeGraphPatchNode === "function" && nodeGraphPatchNode(primary)) {
+      return primary;
     }
   }
-  return String(
-    nodeGraphMvp?.sceneContextTargetNode
-    || nodeGraphMvp?.lastModuleActionTargetNode
-    || "",
-  ).trim();
+  return "";
 }
 
 function presentNodeMetadataPopoverWindow(event = {}) {

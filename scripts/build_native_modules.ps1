@@ -41,6 +41,7 @@ $modules = @(
     "soemdsp_graph_set_pitch_reference",
     "soemdsp_graph_set_named_portal",
     "soemdsp_graph_set_speed_limit",
+    "soemdsp_graph_set_host_transport",
     "soemdsp_graph_add_node", "soemdsp_graph_connect", "soemdsp_graph_set_param",
     "soemdsp_graph_set_param_mod", "soemdsp_graph_set_param_domain",
     "soemdsp_graph_clear_param_mod_edges", "soemdsp_graph_add_param_mod_edge",
@@ -170,6 +171,7 @@ $modules = @(
   @{ Name = "antisaw"; Simd = $false; Exports = @("soemdsp_antisaw_create", "soemdsp_antisaw_destroy", "soemdsp_antisaw_sample", "soemdsp_antisaw_version", "soemdsp_antisaw_metadata_json", "soemdsp_antisaw_metadata_json_size") }
   @{ Name = "sinc"; Simd = $false; Exports = @("soemdsp_sinc_create", "soemdsp_sinc_destroy", "soemdsp_sinc_sample", "soemdsp_sinc_version", "soemdsp_sinc_metadata_json", "soemdsp_sinc_metadata_json_size") }
   @{ Name = "softwave"; Simd = $false; Exports = @("soemdsp_softwave_create", "soemdsp_softwave_destroy", "soemdsp_softwave_reset", "soemdsp_softwave_sample", "soemdsp_softwave_version", "soemdsp_softwave_metadata_json", "soemdsp_softwave_metadata_json_size") }
+  @{ Name = "sine_warp"; Simd = $false; Exports = @("soemdsp_sine_warp_create", "soemdsp_sine_warp_destroy", "soemdsp_sine_warp_reset", "soemdsp_sine_warp_sample", "soemdsp_sine_warp_out", "soemdsp_sine_warp_version", "soemdsp_sine_warp_metadata_json", "soemdsp_sine_warp_metadata_json_size") }
   @{ Name = "soem_reverb"; Simd = $false; Exports = @(
     "soemdsp_soem_reverb_create", "soemdsp_soem_reverb_destroy", "soemdsp_soem_reverb_reset",
     "soemdsp_soem_reverb_set_params", "soemdsp_soem_reverb_process",

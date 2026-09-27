@@ -1065,6 +1065,23 @@ function createNodeGraphModuleHeader(type, node, definition) {
     if (typeof nodeGraphModuleTitleSyncChars === "function") {
       nodeGraphModuleTitleSyncChars(titleText);
     }
+    // Named portals: jack I/O label tracks the title while editing.
+    const nodeId = String(titleText.dataset.node || "");
+    const patchNode = nodeId && typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(nodeId)
+      : null;
+    if (
+      patchNode
+      && typeof nodeGraphIsNamedPortalType === "function"
+      && nodeGraphIsNamedPortalType(patchNode.type)
+      && typeof syncNodeGraphModulePortLabels === "function"
+    ) {
+      const moduleEl = titleText.closest?.(".dsp-node");
+      if (moduleEl) {
+        const live = { ...patchNode, alias: clean };
+        syncNodeGraphModulePortLabels(moduleEl, live);
+      }
+    }
   });
   titleText.addEventListener("paste", (event) => {
     if (titleText.dataset.titleEditing !== "1") {

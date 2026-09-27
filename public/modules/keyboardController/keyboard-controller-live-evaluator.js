@@ -243,6 +243,7 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
     "pitch": cv.midi,
     X: cv.x,
     Y: cv.y,
+    inc: cv.increment,
   };
 };
 

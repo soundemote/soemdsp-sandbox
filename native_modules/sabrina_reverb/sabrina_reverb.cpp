@@ -3,7 +3,7 @@
 // soemdsp-native-target: reverbEffect
 // soemdsp-native-kind: effect
 
-#include <cstdint>
+#include <stdint.h>
 #include <wasm_simd128.h>
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"

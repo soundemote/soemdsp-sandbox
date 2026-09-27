@@ -1,5 +1,7 @@
 // Named wireless Portal In / Portal Out. Title (alias) is the bus name.
-// Gold mono. Each owner is its own universe (root vs each Metamodule).
+// Jack I/O labels use that same title. Jack/wire color follows the cable into Portal In;
+// Portal Out mirrors matched In for title and color. Each owner is its own universe
+// (root vs each Metamodule).
 
 function nodeGraphIsNamedPortalInType(type) {
   return String(type || "") === "namedPortalIn";
@@ -22,6 +24,144 @@ function nodeGraphNamedPortalBusKey(node) {
 
 function nodeGraphNamedPortalUniverse(node) {
   return String(node?.ownerMetamoduleId || "").trim();
+}
+
+function nodeGraphNamedPortalNodeFromPatch(nodeId, patch = null) {
+  const id = String(nodeId || "");
+  if (!id) return null;
+  if (patch && Array.isArray(patch.nodes)) {
+    return patch.nodes.find((node) => node && String(node.id) === id) || null;
+  }
+  if (typeof nodeGraphPatchNode === "function") {
+    return nodeGraphPatchNode(id);
+  }
+  const live = typeof nodeGraphMvp === "object" ? nodeGraphMvp?.patch : null;
+  if (live && Array.isArray(live.nodes)) {
+    return live.nodes.find((node) => node && String(node.id) === id) || null;
+  }
+  return null;
+}
+
+/** Direct cable source that paints a Portal In (or the In behind a Portal Out). */
+function nodeGraphNamedPortalColorSource(nodeId, patch = null) {
+  const live = patch || (typeof nodeGraphMvp === "object" ? nodeGraphMvp?.patch : null);
+  const node = nodeGraphNamedPortalNodeFromPatch(nodeId, live);
+  if (!node || !nodeGraphIsNamedPortalType(node.type)) {
+    return null;
+  }
+  const connections = Array.isArray(live?.connections) ? live.connections : [];
+  const incomingSource = (portalInId) => {
+    for (let i = 0; i < connections.length; i += 1) {
+      const c = connections[i];
+      if (!c || String(c.destinationNode || "") !== String(portalInId)) continue;
+      const src = String(c.sourceNode || "");
+      const port = String(c.sourcePort || "");
+      if (!src || !port) continue;
+      return { nodeId: src, port, io: "output" };
+    }
+    return null;
+  };
+  if (nodeGraphIsNamedPortalInType(node.type)) {
+    return incomingSource(node.id);
+  }
+  const key = nodeGraphNamedPortalBusKey(node);
+  const universe = nodeGraphNamedPortalUniverse(node);
+  if (!key) return null;
+  const nodes = Array.isArray(live?.nodes) ? live.nodes : [];
+  for (let i = 0; i < nodes.length; i += 1) {
+    const other = nodes[i];
+    if (
+      !other
+      || other.bypassed
+      || !nodeGraphIsNamedPortalInType(other.type)
+      || nodeGraphNamedPortalUniverse(other) !== universe
+      || nodeGraphNamedPortalBusKey(other) !== key
+    ) {
+      continue;
+    }
+    const src = incomingSource(other.id);
+    if (src) return src;
+  }
+  return null;
+}
+
+/**
+ * Rename every named portal on the same bus (universe + prior key) to nextAlias.
+ * Returns changed node ids.
+ */
+function nodeGraphNamedPortalSyncBusAlias(patch, fromNodeId, nextAlias) {
+  if (!patch || !Array.isArray(patch.nodes)) return [];
+  const from = nodeGraphNamedPortalNodeFromPatch(fromNodeId, patch);
+  if (!from || !nodeGraphIsNamedPortalType(from.type)) return [];
+  const oldKey = nodeGraphNamedPortalBusKey(from);
+  const universe = nodeGraphNamedPortalUniverse(from);
+  const next = typeof normalizeNodeGraphPatchNodeAlias === "function"
+    ? normalizeNodeGraphPatchNodeAlias(nextAlias)
+    : String(nextAlias || "").trim();
+  if (!next || !oldKey) return [];
+  const changed = [];
+  for (let i = 0; i < patch.nodes.length; i += 1) {
+    const node = patch.nodes[i];
+    if (!node || !nodeGraphIsNamedPortalType(node.type)) continue;
+    if (nodeGraphNamedPortalUniverse(node) !== universe) continue;
+    if (nodeGraphNamedPortalBusKey(node) !== oldKey) continue;
+    if (String(node.alias || "") === next) continue;
+    node.alias = next;
+    changed.push(String(node.id));
+  }
+  return changed;
+}
+
+/**
+ * @deprecated Title is user-driven (module alias); wiring no longer renames the bus
+ * from the source outlet. Kept as no-op shim for any stale callers.
+ */
+function nodeGraphNamedPortalSyncAliasFromSource(_patch, _portalInId, _sourceNodeId, _sourcePort) {
+  return [];
+}
+
+/** @deprecated Destination-inlet naming was never used. No-op shim. */
+function nodeGraphNamedPortalSyncAliasFromDestination(_patch, _portalOutId, _destNodeId, _destPort) {
+  return [];
+}
+
+/** Re-apply jack chrome + header title after wire edits (wireEdit skips full DOM). */
+function nodeGraphNamedPortalRefreshModules(nodeIds) {
+  const ids = [...new Set((Array.isArray(nodeIds) ? nodeIds : []).map((id) => String(id || "")).filter(Boolean))];
+  if (!ids.length) return;
+  for (let i = 0; i < ids.length; i += 1) {
+    const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(ids[i]) : null;
+    if (!node || !nodeGraphIsNamedPortalType(node.type)) continue;
+    if (typeof applyNodeGraphModuleElementFromPatch === "function") {
+      applyNodeGraphModuleElementFromPatch(node);
+    }
+  }
+}
+
+/** All named portal ids that may need chrome refresh after a wire change. */
+function nodeGraphNamedPortalIdsTouchedByWire(patch, sourceNode, destinationNode) {
+  const live = patch || (typeof nodeGraphMvp === "object" ? nodeGraphMvp?.patch : null);
+  const ids = new Set();
+  const consider = (nodeId) => {
+    const node = nodeGraphNamedPortalNodeFromPatch(nodeId, live);
+    if (!node || !nodeGraphIsNamedPortalType(node.type)) return;
+    const key = nodeGraphNamedPortalBusKey(node);
+    const universe = nodeGraphNamedPortalUniverse(node);
+    const nodes = Array.isArray(live?.nodes) ? live.nodes : [];
+    for (let i = 0; i < nodes.length; i += 1) {
+      const other = nodes[i];
+      if (!other || !nodeGraphIsNamedPortalType(other.type)) continue;
+      if (nodeGraphNamedPortalUniverse(other) !== universe) continue;
+      if (key && nodeGraphNamedPortalBusKey(other) === key) {
+        ids.add(String(other.id));
+      } else if (String(other.id) === String(node.id)) {
+        ids.add(String(other.id));
+      }
+    }
+  };
+  consider(sourceNode);
+  consider(destinationNode);
+  return [...ids];
 }
 
 function nodeGraphNamedPortalPairs(nodes) {

@@ -1614,6 +1614,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "sine_warp",
+      "label": "SineWarp",
+      "targetType": "sineWarp",
+      "kind": "oscillator",
+      "source": "native_modules/sine_warp/sine_warp.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/sine_warp/sine_warp.cpp",
+      "localSourceUrl": "/native_modules/sine_warp/sine_warp.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/sine_warp/sine_warp.wasm",
+      "wasmUrl": "native_modules/sine_warp/sine_warp.wasm",
+      "wasmAvailable": false
+    },
+    {
       "name": "sine_wavetable",
       "label": "SinCos",
       "targetType": "sineWavetable",

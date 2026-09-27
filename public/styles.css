@@ -141,7 +141,8 @@ body.node-boot-fading .shell {
   align-items: center;
   justify-content: center;
   gap: 1.6rem;
-  padding: 5vh 5vw;
+  /* Slim side padding so soundemote.io/{patch} can use near-full viewport width. */
+  padding: 5vh clamp(0.4rem, 1vw, 1rem);
   width: 100%;
   height: 100%;
   box-sizing: border-box;
@@ -185,19 +186,27 @@ body.node-boot-waiting .node-boot-loading-screen {
 .node-boot-hero-title {
   margin: 0 0 0.35rem;
   padding: 0;
-  max-width: min(94vw, 42rem);
+  /* Stretch across the panel (not max-content): leftover constraint after
+   * max-width:100% was glyph size (~4.6rem) + 5vw side padding eating ~10%
+   * of the viewport. Prefer one line on typical desktop. */
+  align-self: stretch;
+  max-width: none;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   color: rgba(243, 241, 236, 0.98);
   font-family: var(
     --node-header-title-font-family,
     "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace
   );
-  font-size: clamp(2.4rem, 8vw, 4.6rem);
+  font-size: clamp(1.55rem, 3.6vw, 2.95rem);
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.008em;
   line-height: 1.05;
   text-align: center;
   text-shadow: 0 0 28px rgba(127, 199, 217, 0.35);
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
   user-select: text;
   -webkit-user-select: text;
 }
@@ -2972,6 +2981,12 @@ html.soemdsp-hide-ui.body.node-patch-load-fault-open #nodePatchLoadFault {
   box-shadow: none;
 }
 
+/* Graph module wall: header controls may spill left into the chrome instead of wrapping. */
+.dsp-node.keyboard-layout > .node-midi-keyboard-module.node-module-face {
+  overflow-x: visible;
+  overflow-y: hidden;
+}
+
 /* Solo-stage rules set position:relative on every face; keyboard on a canvas
    tile must still fill the tile and keep a real piano row. */
 body.node-screen-solo-active .node-layout-canvas-tile > .node-screen-solo-face.node-midi-keyboard-module,
@@ -2984,6 +2999,18 @@ body.node-screen-solo-active .node-layout-canvas-tile > .node-screen-solo-face.n
   width: 100% !important;
   height: 100% !important;
   min-height: 0 !important;
+}
+
+/* Hide-info (default): heading is display:none, so a two-row auto+1fr grid puts the
+   only piano child in the auto track. With height:100%/min-height:0 the piano collapses
+   to 0 while the empty 1fr track eats the tile. Force a single fr row instead. */
+body.node-screen-solo-active .node-layout-canvas-tile > .node-screen-solo-face.node-midi-keyboard-module:not(.show-keyboard-info),
+.node-layout-canvas-tile > .node-midi-keyboard-module.node-module-face:not(.show-keyboard-info),
+.node-metamodule-canvas-stage .node-layout-canvas-tile > .node-midi-keyboard-module:not(.show-keyboard-info),
+.dsp-node.keyboard-layout > .node-midi-keyboard-module.node-module-face:not(.show-keyboard-info),
+.node-screen-solo-stage .node-midi-keyboard-module.node-module-face:not(.show-keyboard-info),
+.node-metamodule-canvas-stage .node-midi-keyboard-module.node-module-face:not(.show-keyboard-info) {
+  grid-template-rows: minmax(48px, 1fr) !important;
 }
 
 body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-heading,
@@ -3024,19 +3051,23 @@ body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-surfac
 .node-screen-solo-stage .node-midi-keyboard-module .node-midi-keyboard-heading,
 .node-metamodule-canvas-stage .node-midi-keyboard-module .node-midi-keyboard-heading {
   display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
   min-width: 0;
-  max-width: 100%;
+  max-width: none;
   padding: 2px 2px 0;
   gap: 4px;
+  overflow: visible;
 }
 
 .dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls,
 .node-layout-canvas-tile .node-midi-keyboard-module .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls,
 .node-screen-solo-stage .node-midi-keyboard-module .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls,
 .node-metamodule-canvas-stage .node-midi-keyboard-module .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-start;
   gap: 4px;
+  overflow: visible;
 }
 
 .dsp-node.keyboard-layout > .node-midi-keyboard-module .node-midi-keyboard-performance,
@@ -3132,12 +3163,12 @@ body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-surfac
 .node-midi-keyboard-heading {
   display: flex;
   flex: 0 0 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-start;
   gap: 8px 12px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .node-midi-keyboard-heading > div {
@@ -3160,21 +3191,27 @@ body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-surfac
 .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls {
   display: flex;
   flex: 1 1 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-start;
   gap: 4px;
   min-width: 0;
+  overflow: visible;
 }
 
 .node-midi-keyboard-heading > .node-midi-keyboard-vel-range,
 .node-midi-keyboard-vel-range {
   display: inline-flex;
   flex: 0 0 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px 12px;
   min-width: 0;
+}
+
+.node-midi-keyboard-midi-controls > .node-midi-keyboard-vel-field {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .node-midi-keyboard-module:not(.show-keyboard-info) > .node-midi-keyboard-heading,
@@ -3187,6 +3224,14 @@ body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-surfac
 .node-midi-keyboard-module:not(.show-keyboard-info),
 .node-grid-keyboard-module:not(.show-keyboard-info) {
   grid-template-rows: minmax(0, 1fr);
+}
+
+/* Face hosts (graph + canvas): hide-info must win over the shared auto+1fr face grid. */
+.dsp-node.keyboard-layout > .node-midi-keyboard-module.node-module-face:not(.show-keyboard-info),
+.node-layout-canvas-tile > .node-midi-keyboard-module.node-module-face:not(.show-keyboard-info),
+.node-screen-solo-stage .node-midi-keyboard-module.node-module-face:not(.show-keyboard-info),
+.node-metamodule-canvas-stage .node-midi-keyboard-module.node-module-face:not(.show-keyboard-info) {
+  grid-template-rows: minmax(48px, 1fr) !important;
 }
 
 .node-midi-keyboard-vel-field {
@@ -6464,9 +6509,23 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   min-width: 2.25em;
   padding: 3px 4px 3px 2px;
   text-align: left;
-  cursor: ew-resize;
+  cursor: var(--node-dot-cursor);
   user-select: none;
   -webkit-user-select: none;
+}
+.node-led-settings-row input[data-unit-stepper-drag][readonly],
+.node-led-settings-row input[data-textbox-field][data-unit-stepper-drag][readonly] {
+  cursor: var(--node-dot-cursor);
+  user-select: none;
+  -webkit-user-select: none;
+  caret-color: transparent;
+}
+.node-led-settings-row input[data-unit-stepper-drag]:not([readonly]):focus,
+.node-led-settings-row input[data-unit-stepper-drag].editing {
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+  caret-color: currentColor;
 }
 .node-sample-waveform-settings-row input[data-phosphor-number-drag].editing {
   cursor: text;
@@ -6787,6 +6846,103 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
 .node-trace-display-settings-popover[data-display-settings-type="keypadFace"] .node-led-display-settings-panel {
   background: transparent;
   color: inherit;
+}
+
+/* Text Box Display Settings: label | controls two-column grid.
+   Scoped to [data-textbox-display-settings-panel] only - does not change LED/keypad rows. */
+.node-trace-display-settings-popover [data-textbox-display-settings-panel] .node-led-settings-row.textbox-display-settings-row,
+.node-trace-display-settings-popover .metadata-popover-grid [data-textbox-display-settings-panel] label.node-led-settings-row.textbox-display-settings-row {
+  display: grid !important;
+  grid-template-columns: 8.75rem minmax(0, 1fr) !important;
+  grid-template-rows: auto !important;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 0;
+  justify-items: stretch;
+}
+
+.node-trace-display-settings-popover [data-textbox-display-settings-panel] .textbox-display-settings-row > span:first-child,
+.node-trace-display-settings-popover .metadata-popover-grid [data-textbox-display-settings-panel] label.textbox-display-settings-row > span:first-child {
+  flex: 0 0 auto;
+  grid-column: 1;
+  justify-self: start;
+  width: auto;
+  max-width: 100%;
+  min-width: 0 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-trace-display-settings-popover [data-textbox-display-settings-panel] .textbox-display-controls {
+  grid-column: 2;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Mode / Align buttons sit in the controls column (not direct row children). */
+.node-trace-display-settings-popover [data-textbox-display-settings-panel] .textbox-display-controls > button,
+.node-trace-display-settings-popover .metadata-popover-grid [data-textbox-display-settings-panel] .textbox-display-controls > button {
+  box-sizing: border-box;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none;
+  min-width: min-content !important;
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0;
+  padding: 2px 6px !important;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font: inherit !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  letter-spacing: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.node-trace-display-settings-popover [data-textbox-display-settings-panel] .textbox-display-controls > button.active,
+.node-trace-display-settings-popover .metadata-popover-grid [data-textbox-display-settings-panel] .textbox-display-controls > button.active {
+  border-color: rgba(90, 255, 150, 0.62);
+  background: rgba(90, 255, 150, 0.16);
+  color: rgba(180, 255, 210, 0.95);
+}
+
+.node-trace-display-settings-popover [data-textbox-display-settings-panel] .textbox-display-controls input[type="range"] {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+}
+
+.node-trace-display-settings-popover [data-textbox-display-settings-panel] .textbox-display-controls select {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+}
+
+.node-trace-display-settings-popover [data-textbox-display-settings-panel] .textbox-display-controls input[type="number"] {
+  flex: 0 0 auto;
+  width: 56px;
+  margin: 0;
+}
+
+.node-trace-display-settings-popover [data-textbox-display-settings-panel] .textbox-display-controls > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 /* Tips window uses shared .scene-context-resize-handle (SE corner). */
@@ -7302,6 +7458,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   --node-jack-red: #f25d5d;
   --node-jack-green: #3ddc84;
   --node-jack-blue: #4d8dff;
+  /* Arp Keys / digital gold — brighter than analog #e2a86d (piano .held). */
+  --node-jack-gold: #f0b84a;
   --node-jack-purple: #c44dff;
   /* CMYK additive non-realtime plane (distinct from gold analog #e2a86d). */
   --node-jack-cyan: #00e5ff;     /* C — Parameter / block-rate ZOH in/out */
@@ -13611,7 +13769,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
  * No display face, no param stack. Port rows 1fr so small modules still have
  * tall hit bands for L/R / X/Y.
  */
-/* TitleBarAndPorts (canonical) + chrome-layout-c (deprecated alias for LayoutC). */
+/* InletOutletLayout (canonical) + title-bar-and-ports / layout-c deprecated aliases. */
+.dsp-node.chrome-layout-inlet-outlet > .dsp-node-io-section,
 .dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section,
 .dsp-node.chrome-layout-c > .dsp-node-io-section {
   min-height: 0;
@@ -13626,6 +13785,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   overflow: hidden;
 }
 
+.dsp-node.chrome-layout-inlet-outlet > .dsp-node-io-section .node-io-column,
 .dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section .node-io-column,
 .dsp-node.chrome-layout-c > .dsp-node-io-section .node-io-column {
   height: 100%;
@@ -13638,6 +13798,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   overflow: hidden;
 }
 
+.dsp-node.chrome-layout-inlet-outlet > .dsp-node-io-section .node-io-row,
 .dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section .node-io-row,
 .dsp-node.chrome-layout-c > .dsp-node-io-section .node-io-row {
   min-height: var(--node-signal-port-height);
@@ -13647,6 +13808,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   overflow: hidden;
 }
 
+.dsp-node.chrome-layout-inlet-outlet > .dsp-node-body,
 .dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-body,
 .dsp-node.chrome-layout-c > .dsp-node-body {
   display: none !important;
@@ -13837,7 +13999,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 .node-metamodule-canvas-stage .node-knob-face[data-knob-value-position="top"] > [data-knob-face-readout],
 .node-metamodule-canvas-stage .node-knob-face[data-knob-value-position="above"] > .node-macro-knob-value,
 .node-metamodule-canvas-stage .node-knob-face[data-knob-value-position="above"] > [data-knob-face-readout] {
-  top: 2px;
+  /* Value Y offset: positive moves down from the top edge. */
+  top: calc(2px + var(--knob-value-offset-y, 0) * 100%);
   bottom: auto;
   transform: none;
 }
@@ -13850,7 +14013,22 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 .node-screen-solo-stage .node-knob-face[data-knob-value-position="mid"] > [data-knob-face-readout],
 .node-metamodule-canvas-stage .node-knob-face[data-knob-value-position="mid"] > .node-macro-knob-value,
 .node-metamodule-canvas-stage .node-knob-face[data-knob-value-position="mid"] > [data-knob-face-readout] {
-  top: 50%;
+  /* Face mid + Value Y offset (positive = down). Distinct from midknob (dial center). */
+  top: calc(50% + var(--knob-value-offset-y, 0) * 100%);
+  bottom: auto;
+  transform: translateY(-50%);
+}
+
+/* Mid knob: center of the dial/arc circle (tracks dialOffsetY), plus Value Y offset. */
+.dsp-node .node-knob-face[data-knob-value-position="midknob"] > .node-macro-knob-value,
+.dsp-node .node-knob-face[data-knob-value-position="midknob"] > [data-knob-face-readout],
+.node-layout-canvas-tile .node-knob-face[data-knob-value-position="midknob"] > .node-macro-knob-value,
+.node-layout-canvas-tile .node-knob-face[data-knob-value-position="midknob"] > [data-knob-face-readout],
+.node-screen-solo-stage .node-knob-face[data-knob-value-position="midknob"] > .node-macro-knob-value,
+.node-screen-solo-stage .node-knob-face[data-knob-value-position="midknob"] > [data-knob-face-readout],
+.node-metamodule-canvas-stage .node-knob-face[data-knob-value-position="midknob"] > .node-macro-knob-value,
+.node-metamodule-canvas-stage .node-knob-face[data-knob-value-position="midknob"] > [data-knob-face-readout] {
+  top: calc(50% + var(--knob-dial-offset-y, 0) * 100cqmin + var(--knob-value-offset-y, 0) * 100%);
   bottom: auto;
   transform: translateY(-50%);
 }
@@ -13871,8 +14049,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 .node-metamodule-canvas-stage .node-knob-face[data-knob-value-position="bottom"] > [data-knob-face-readout],
 .node-metamodule-canvas-stage .node-knob-face[data-knob-value-position="below"] > .node-macro-knob-value,
 .node-metamodule-canvas-stage .node-knob-face[data-knob-value-position="below"] > [data-knob-face-readout] {
+  /* Value Y offset: positive lifts the readout off the bottom edge. */
   top: auto;
-  bottom: 2px;
+  bottom: calc(2px + var(--knob-value-offset-y, 0) * 100%);
   transform: none;
 }
 
@@ -13908,8 +14087,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   max-height: 100%;
   height: auto;
   aspect-ratio: 1 / 1;
-  top: calc(50% + var(--knob-dial-offset-y, 0) * 100%);
-  transform: translate(-50%, -50%) scale(var(--knob-dial-size, 1));
+  /* Keep the arc centered, then translate it independently of its size. */
+  top: 50%;
+  transform: translate(-50%, calc(-50% + var(--knob-dial-offset-y, 0) * 100%)) scale(var(--knob-dial-size, 1));
   transform-origin: center center;
   filter: none;
   outline: none;
@@ -15942,11 +16122,38 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   overflow: hidden;
   contain: paint;
   padding: 0;
+  /* Keep the rgba fallback for browsers without color-mix; the widget also
+     writes --node-text-box-bg directly for the same paint path. */
   background: var(--node-text-box-bg, rgba(2, 4, 7, 0.78));
+  background-color: color-mix(
+    in srgb,
+    var(--node-text-box-bg-color, #020407)
+      calc(var(--node-text-box-bg-alpha, 0.78) * 100%),
+    transparent
+  );
 }
 
 .node-text-box-body[hidden] {
   display: grid !important;
+}
+
+/* Alpha zero must reveal the workspace, not the module plate underneath. */
+/* The plate is a separate paint layer behind the face. Use the same continuous
+   alpha there so values close to zero cannot expose an opaque grey plate. */
+.dsp-node:has(> .node-text-box-body)::before {
+  /* Fallback uses the stock plate color; color-mix below preserves themed fills. */
+  background: rgba(23, 26, 31, var(--node-text-box-bg-alpha, 0.78));
+  background: color-mix(
+    in srgb,
+    var(--node-module-fill, #171a1f)
+      calc(var(--node-text-box-bg-alpha, 0.78) * 100%),
+    transparent
+  );
+}
+
+.node-text-box-body[data-text-box-background-alpha="0"] {
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .node-text-box-input {
@@ -16204,7 +16411,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 .node-header-timing-field[data-header-number-drag="true"]:not(.node-header-render-range-field),
 .node-header-smoothing-field,
 .node-header-speed-placeholder {
-  cursor: ew-resize;
+  /* Same app + cursor as Command Center scrub numbers -- no L/R / ew-resize icon. */
+  cursor: var(--node-dot-cursor);
   user-select: none;
 }
 
@@ -16214,7 +16422,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 .node-header-smoothing-field .node-header-timing-input,
 .node-header-speed-placeholder .node-header-timing-caption,
 .node-header-speed-placeholder .node-header-timing-input {
-  cursor: ew-resize;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-header-timing-field.value-dragging {
@@ -16317,7 +16525,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 .node-header-timing-input[data-global-smoothing-seconds][readonly],
 .node-header-timing-input[data-speed-readout][readonly],
 .node-header-timing-input[data-global-scope-input][readonly] {
-  cursor: ew-resize;
+  cursor: var(--node-dot-cursor);
   user-select: none;
   -webkit-user-select: none;
   caret-color: transparent;
@@ -16678,7 +16886,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   justify-self: start;
 }
 
+.dsp-node.chrome-layout-inlet-outlet > .dsp-node-io-section.io-outputs-only,
 .dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section.io-outputs-only,
+.dsp-node.chrome-layout-inlet-outlet > .dsp-node-io-section.io-inputs-only,
 .dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section.io-inputs-only,
 .dsp-node.chrome-layout-c > .dsp-node-io-section.io-outputs-only,
 .dsp-node.chrome-layout-c > .dsp-node-io-section.io-inputs-only {
@@ -16822,14 +17032,14 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 .node-io-row[data-digital-signal][data-jack-channel="gold"] .node-port,
 .dsp-node .node-port[data-jack-channel="gold"],
 .dsp-node .node-io-row[data-jack-channel="gold"] .node-port {
-  --node-digital-fill: var(--node-output-fill, #e2a86d);
-  --node-output-fill: var(--node-output-fill, #e2a86d);
-  --node-output-stroke: var(--node-output-fill, #e2a86d);
-  --node-input-fill: var(--node-output-fill, #e2a86d);
-  --node-input-stroke: var(--node-output-fill, #e2a86d);
+  --node-digital-fill: var(--node-jack-gold, #f0b84a);
+  --node-output-fill: var(--node-jack-gold, #f0b84a);
+  --node-output-stroke: var(--node-jack-gold, #f0b84a);
+  --node-input-fill: var(--node-jack-gold, #f0b84a);
+  --node-input-stroke: var(--node-jack-gold, #f0b84a);
   --node-port-crescent-stroke: color-mix(
     in srgb,
-    var(--node-output-fill, #e2a86d) var(--node-port-paint-brightness),
+    var(--node-jack-gold, #f0b84a) var(--node-port-paint-brightness),
     transparent
   );
 }

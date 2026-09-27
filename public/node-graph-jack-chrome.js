@@ -151,11 +151,11 @@ function nodeGraphJackChannelCssColor(channel) {
       ? nodeGraphCssColor("--node-jack-blue", "#4d8dff")
       : "#4d8dff";
   }
-  // Keyboard Arp Keys â€” same gold as piano `.held` / default analog fill.
+  // Arp Keys digital gold — brighter than analog #e2a86d (matches piano `.held`).
   if (channel === "gold") {
     return typeof nodeGraphCssColor === "function"
-      ? nodeGraphCssColor("--node-output-fill", "#e2a86d")
-      : "#e2a86d";
+      ? nodeGraphCssColor("--node-jack-gold", "#f0b84a")
+      : "#f0b84a";
   }
   if (channel === "purple") {
     return typeof nodeGraphCssColor === "function"
@@ -495,34 +495,67 @@ function nodeGraphApplyJackChrome(element, type, port, io = "output") {
     return "";
   }
   const direction = io || element.dataset?.io || "output";
-  const channel = nodeGraphJackChannel(type, port, direction);
+  let channel = nodeGraphJackChannel(type, port, direction);
+  let digital = typeof nodeGraphPortIsDigitalSignal === "function"
+    && nodeGraphPortIsDigitalSignal(type, port, direction);
+  // Named portals: paint from the cable into Portal In (Out mirrors that In).
+  const nodeId = String(element?.dataset?.node || "").trim();
+  if (
+    nodeId
+    && typeof nodeGraphIsNamedPortalType === "function"
+    && nodeGraphIsNamedPortalType(type)
+    && typeof nodeGraphNamedPortalColorSource === "function"
+  ) {
+    const colorSrc = nodeGraphNamedPortalColorSource(nodeId);
+    if (colorSrc) {
+      const srcNode = typeof nodeGraphPatchNode === "function"
+        ? nodeGraphPatchNode(colorSrc.nodeId)
+        : null;
+      const srcType = srcNode?.type || "";
+      const inherited = nodeGraphJackChannel(srcType, colorSrc.port, "output");
+      const srcDigital = typeof nodeGraphPortIsDigitalSignal === "function"
+        && nodeGraphPortIsDigitalSignal(srcType, colorSrc.port, "output");
+      if (inherited) {
+        channel = inherited;
+      } else if (srcDigital) {
+        channel = "";
+      }
+      digital = Boolean(srcDigital);
+    }
+  }
   element.classList.remove("node-outlet-mono", "node-outlet-left", "node-outlet-right");
   delete element.dataset.outletChannel;
-  if (channel) {
-    element.dataset.jackChannel = channel;
-    // Keep channel on the jack itself so CSS/port paint don't miss row-only marks.
-    const jack = element.classList?.contains("node-port")
-      ? element
-      : element.querySelector?.(".node-port:not(.node-param-port)");
-    if (jack) {
-      jack.dataset.jackChannel = channel;
-    }
-  } else {
-    delete element.dataset.jackChannel;
-  }
-  const jackEl = element.classList?.contains("node-port")
+  const jack = element.classList?.contains("node-port")
     ? element
     : element.querySelector?.(".node-port:not(.node-param-port)");
-  if (jackEl) {
+  const row = element.classList?.contains("node-io-row")
+    ? element
+    : element.closest?.(".node-io-row");
+  if (channel) {
+    element.dataset.jackChannel = channel;
+    if (jack) jack.dataset.jackChannel = channel;
+    if (row) row.dataset.jackChannel = channel;
+  } else {
+    delete element.dataset.jackChannel;
+    if (jack) delete jack.dataset.jackChannel;
+    if (row && row !== element) delete row.dataset.jackChannel;
+  }
+  if (digital) {
+    if (row) row.dataset.digitalSignal = direction;
+    if (jack) jack.dataset.digitalSignal = direction;
+  } else {
+    if (row) delete row.dataset.digitalSignal;
+    if (jack) delete jack.dataset.digitalSignal;
+  }
+  if (jack) {
     const square = (
       (typeof nodeGraphPortIsNoteBus === "function" && nodeGraphPortIsNoteBus(port))
       || (typeof nodeGraphPortIsCodeSignal === "function" && nodeGraphPortIsCodeSignal(type, port, io))
     );
-    jackEl.classList.toggle("node-port-square", square);
+    jack.classList.toggle("node-port-square", square);
   }
   return channel;
 }
-
 function nodeGraphApplyOutletChannelMark(element, type, port) {
   return nodeGraphApplyJackChrome(element, type, port, element?.dataset?.io || "output");
 }

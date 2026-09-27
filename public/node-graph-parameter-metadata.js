@@ -885,7 +885,7 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
   }
   // XY pad mouse/phase targets are instant UI only (audio path owns Papoulis).
   if (
-    type === "xyPad"
+    (type === "xyPad" || type === "theremin")
     && (
       (typeof nodeGraphXyPadDspIsUnsmoothedParamKey === "function"
         && nodeGraphXyPadDspIsUnsmoothedParamKey(key))

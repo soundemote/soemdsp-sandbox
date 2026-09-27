@@ -11,7 +11,7 @@
 //   Lin: Out = x
 //   Exp: Out = 0 at x≤0, else 10^(k·(x−1))  (unity at 1, ~−100 dB near 0)
 
-#include <cstdint>
+#include <stdint.h>
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 

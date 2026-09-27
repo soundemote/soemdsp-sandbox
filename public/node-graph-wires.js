@@ -1321,6 +1321,25 @@
       if (!port) {
         return;
       }
+      // Ctrl/Cmd+click on a jack toggles the owning module in the selection
+      // (same additive multi-select as module body). Never starts a wire.
+      if (event.ctrlKey || event.metaKey) {
+        const hitboxElement = port.closest?.(".node-io-row") || port;
+        const endpoint = helpers.endpointFromElement(hitboxElement);
+        if (
+          endpoint?.node
+          && helpers.pointInEndpointHitbox(endpoint, event.clientX, event.clientY, hitboxElement)
+          && typeof toggleNodeGraphNodeSelection === "function"
+        ) {
+          if (state.portConnectionMode) {
+            cancelPortConnectionMode();
+          }
+          toggleNodeGraphNodeSelection(endpoint.node, true);
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+      }
       const detail = nodeGraphFiniteNumber(event.detail, 1);
       if (handlePortClickFromElement(port, event.clientX, event.clientY, detail)) {
         event.preventDefault();
@@ -1373,6 +1392,13 @@
       // Only start a wire when the pointer is actually near the jack —
       // otherwise solid-module edge rows must not steal module select/drag.
       if (!helpers.pointInEndpointHitbox(endpoint, event.clientX, event.clientY, hitboxElement)) {
+        return;
+      }
+
+      // Ctrl/Cmd+click toggles the module in the selection (handled on click).
+      // Do not arm a wire drag or selected-wire move from this gesture.
+      if (event.ctrlKey || event.metaKey) {
+        event.stopPropagation();
         return;
       }
 

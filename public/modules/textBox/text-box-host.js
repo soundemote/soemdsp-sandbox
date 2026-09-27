@@ -91,6 +91,7 @@ function nodeGraphTextBoxHostEnsureWidget(body, nodeId, layout, { editable = tru
       textWeight: layout.textWeight,
       lineHeight: layout.lineHeight,
       font: layout.font,
+      backgroundAlpha: layout.backgroundAlpha,
       backgroundColor: layout.backgroundColor,
       textColor: layout.textColor,
       editable,
@@ -144,6 +145,7 @@ function nodeGraphTextBoxHostSync(element, patchNode) {
     textWeight: layout.textWeight,
     lineHeight: layout.lineHeight,
     font: layout.font,
+    backgroundAlpha: layout.backgroundAlpha,
     backgroundColor: layout.backgroundColor,
     textColor: layout.textColor,
   });
@@ -226,11 +228,16 @@ function nodeGraphTextBoxSettingsWindowIsOpen() {
 function nodeGraphTextBoxEnsureSettingsOpen(nodeId, event = null) {
   const menu = document.getElementById("nodeModuleActionsWindow");
   const alreadyOpen = Boolean(menu && !menu.hidden);
-  const current = String(nodeGraphMvp?.sceneContextTargetNode || nodeGraphMvp?.lastModuleActionTargetNode || "");
+  const current = typeof nodeGraphModuleActionTargetNodeId === "function"
+    ? String(nodeGraphModuleActionTargetNodeId() || "")
+    : String(nodeGraphMvp?.sceneContextTargetNode || nodeGraphMvp?.lastModuleActionTargetNode || "");
   if (alreadyOpen && current === String(nodeId || "")) {
     return;
   }
   if (alreadyOpen) {
+    if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
+      ensureNodeGraphModuleSelectedForContext(nodeId);
+    }
     if (nodeGraphMvp) {
       nodeGraphMvp.sceneContextTargetNode = nodeId;
       nodeGraphMvp.lastModuleActionTargetNode = nodeId;

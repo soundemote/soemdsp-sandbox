@@ -829,6 +829,12 @@ function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
     : 0;
   face.style.setProperty("--knob-dial-offset-y", String(dialOffsetY));
 
+  // Value Y offset −1…1 face heights (CSS pins interpret per valuePosition).
+  const valueOffsetY = Number.isFinite(Number(s.valueOffsetY))
+    ? Math.max(-1, Math.min(1, Number(s.valueOffsetY)))
+    : 0;
+  face.style.setProperty("--knob-value-offset-y", String(valueOffsetY));
+
   // Label / value size 0…1 of display min-edge — independent of knob size/pos.
   const labelSize = Number.isFinite(Number(s.labelSize))
     ? Math.max(0, Math.min(1, Number(s.labelSize)))
@@ -1141,14 +1147,31 @@ function beginNodeGraphKnobFaceValueEdit(face, event = null) {
     if (!finished) finish(true);
   });
 
-  // Overlay on dial so canvas tiles and module plates share one path.
-  const wrap = dial;
-  wrap.style.position = wrap.style.position || "relative";
+  // Overlay on face so edit tracks valuePosition + valueOffsetY (canvas + module).
+  const wrap = face;
+  const valuePos = String(face.dataset.knobValuePosition || "mid").trim().toLowerCase();
+  const vOff = Number.parseFloat(face.style.getPropertyValue("--knob-value-offset-y")) || 0;
+  const dOff = Number.parseFloat(face.style.getPropertyValue("--knob-dial-offset-y")) || 0;
   input.style.position = "absolute";
   input.style.left = "50%";
-  input.style.top = "50%";
-  input.style.transform = "translate(-50%, -50%)";
+  input.style.right = "auto";
+  input.style.bottom = "auto";
   input.style.zIndex = "20";
+  if (valuePos === "top" || valuePos === "above") {
+    input.style.top = `calc(2px + ${vOff} * 100%)`;
+    input.style.transform = "translateX(-50%)";
+  } else if (valuePos === "bottom" || valuePos === "below") {
+    input.style.top = "auto";
+    input.style.bottom = `calc(2px + ${vOff} * 100%)`;
+    input.style.transform = "translateX(-50%)";
+  } else if (valuePos === "midknob") {
+    input.style.top = `calc(50% + ${dOff} * 100cqmin + ${vOff} * 100%)`;
+    input.style.transform = "translate(-50%, -50%)";
+  } else {
+    // mid (face center) and fallback
+    input.style.top = `calc(50% + ${vOff} * 100%)`;
+    input.style.transform = "translate(-50%, -50%)";
+  }
   wrap.append(input);
   document.addEventListener("pointerdown", closeOutside, true);
   input.focus();
@@ -1951,6 +1974,9 @@ function openNodeKnobFaceContextMenu(event) {
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
+  if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
+    ensureNodeGraphModuleSelectedForContext(nodeId);
+  }
   if (nodeGraphMvp) {
     nodeGraphMvp.sceneContextTargetNode = nodeId;
     nodeGraphMvp.lastModuleActionTargetNode = nodeId;

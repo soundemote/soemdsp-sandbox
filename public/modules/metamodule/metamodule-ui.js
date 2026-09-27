@@ -1,4 +1,4 @@
-// Metamodule shell face. Meta In/Out use TitleBarAndPorts — no custom face.
+// Metamodule shell face. Meta In/Out use InletOutletLayout — no custom face.
 // Pinned child displays (layout canvas / Show in canvas) live on this face
 // when viewing Root. See metamodule-display-mirror.js.
 

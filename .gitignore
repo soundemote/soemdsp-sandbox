@@ -39,3 +39,7 @@ _to_delete/
 # Graphify local analysis output
 graphify-out/
 
+
+# Local Visual Studio / CMake IDE tree (generate_vs_project.bat)
+build_vs/
+CMakeUserPresets.json

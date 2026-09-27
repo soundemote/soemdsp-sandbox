@@ -658,12 +658,15 @@ function createNodeGraphModuleElement(type, node) {
       cssLayoutClass: "chrome-layout-a",
     };
   article.dataset.chromeLayout = chrome.layout;
-  const isTitleBarAndPorts = Boolean(chrome.titleIoOnly)
+  const isInletOutletLayout = Boolean(chrome.titleIoOnly)
+    || chrome.layout === "InletOutletLayout"
     || chrome.layout === "TitleBarAndPorts"
     || chrome.layout === "LayoutC"
+    || chrome.layout === (NodeGraphModuleChromeLayout?.InletOutletLayout)
     || chrome.layout === (NodeGraphModuleChromeLayout?.TitleBarAndPorts)
     || chrome.layout === (NodeGraphModuleChromeLayout?.LayoutC);
-  const isLayoutC = isTitleBarAndPorts; // deprecated alias for local branches
+  const isTitleBarAndPorts = isInletOutletLayout; // deprecated alias for local branches
+  const isLayoutC = isInletOutletLayout; // deprecated alias for local branches
   const isMetamoduleLayout = Boolean(chrome.portsAboveFace)
     || chrome.layout === "MetamoduleLayout"
     || chrome.layout === (NodeGraphModuleChromeLayout?.MetamoduleLayout);
@@ -673,8 +676,9 @@ function createNodeGraphModuleElement(type, node) {
   );
   article.classList.toggle("chrome-layout-b", Boolean(chrome.portsBeside && !isMetamoduleLayout));
   article.classList.toggle("chrome-layout-metamodule", isMetamoduleLayout);
-  article.classList.toggle("chrome-layout-title-bar-and-ports", isTitleBarAndPorts);
-  article.classList.toggle("chrome-layout-c", isTitleBarAndPorts); // deprecated CSS alias
+  article.classList.toggle("chrome-layout-inlet-outlet", isInletOutletLayout);
+  article.classList.toggle("chrome-layout-title-bar-and-ports", isInletOutletLayout); // deprecated CSS alias
+  article.classList.toggle("chrome-layout-c", isInletOutletLayout); // deprecated CSS alias
   // Headerless LayoutB: shell + params + 1gu bottom clearance.
   // MetamoduleLayout uses chrome-layout-metamodule (not LayoutB solid shell).
   article.classList.toggle(
@@ -733,7 +737,7 @@ function createNodeGraphModuleElement(type, node) {
     ? nodeGraphChromelessModuleRegistrations.get(layout)
     : null;
   if (chromelessRegistration) {
-    // TitleBarAndPorts: title + standard IO section only — never a face / compactTile ports.
+    // InletOutletLayout: title + standard IO section only — never a face / compactTile ports.
     if (isTitleBarAndPorts) {
       if (!patchNodeUi.titleHidden) {
         article.append(createNodeGraphModuleHeader(type, node, definition));
@@ -1469,7 +1473,7 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (isTitleBarAndPorts) {
-    // TitleBarAndPorts (ex-LayoutC): title + I/O only. No face, no param rows.
+    // InletOutletLayout: title + I/O only. No face, no param rows.
     // UC: jacks + labels sit above the construction plate.
     appendNodeGraphModuleIoSection(
       article,

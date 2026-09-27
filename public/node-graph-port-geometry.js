@@ -793,6 +793,20 @@ function nodeGraphPortWireColor(node, port, io) {
       return nodeGraphPortWireColor(proxy.nodeId, proxy.port, proxy.io);
     }
   }
+  // Named portals: cable color follows the wire into Portal In (Out mirrors In).
+  if (
+    typeof nodeGraphIsNamedPortalType === "function"
+    && typeof nodeGraphNamedPortalColorSource === "function"
+    && typeof nodeGraphPatchNodeType === "function"
+    && nodeGraphIsNamedPortalType(nodeGraphPatchNodeType(node))
+  ) {
+    const colorSrc = nodeGraphNamedPortalColorSource(
+      typeof node === "string" ? node : node?.id,
+    );
+    if (colorSrc) {
+      return nodeGraphPortWireColor(colorSrc.nodeId, colorSrc.port, colorSrc.io || "output");
+    }
+  }
   const canonicalPort = nodeGraphCanonicalPortForNode(node, port, io);
   const type = nodeGraphPatchNodeType(node);
   // Jack channel color first (Polyphony/black, Play/blue, Arp/gold, RGB, …).

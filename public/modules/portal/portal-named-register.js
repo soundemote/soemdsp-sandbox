@@ -1,9 +1,11 @@
 // Wireless named buses. Title (alias) matches In ↔ Out. Default title "A".
+// Jack I/O labels use that title. Jack color follows the cable into Portal In;
+// Portal Out mirrors the matched In for title and color.
 registerNodeGraphChromelessModule("namedPortalIn", {
   label: "Portal \u2192",
   compactTile: false,
   definition: {
-    chrome: "TitleBarAndPorts",
+    chrome: "InletOutletLayout",
     planRole: "processor",
     planFreeRun: true,
     defaultWidthGu: 4,
@@ -20,7 +22,7 @@ registerNodeGraphChromelessModule("namedPortalIn", {
   },
   catalog: {
     category: "portal",
-    description: "Wireless send (\u2192). Matching Portal \u2190 titles in the same patch (root or this Metamodule) receive the sum. Gold mono. Does not cross a Metamodule shell.",
+    description: "Wireless send (\u2192). Matching Portal \u2190 titles in the same patch (root or this Metamodule) receive the sum. Jack label is the portal title; jack color follows the incoming cable. Matched Portal \u2190 mirrors title and color. Does not cross a Metamodule shell.",
     notes: [
       "portal",
       "portal in",
@@ -28,7 +30,6 @@ registerNodeGraphChromelessModule("namedPortalIn", {
       "send",
       "bus",
       "named",
-      "gold",
     ],
   },
 });
@@ -37,7 +38,7 @@ registerNodeGraphChromelessModule("namedPortalOut", {
   label: "Portal \u2190",
   compactTile: false,
   definition: {
-    chrome: "TitleBarAndPorts",
+    chrome: "InletOutletLayout",
     planRole: "source",
     planFreeRun: true,
     defaultWidthGu: 4,
@@ -54,7 +55,7 @@ registerNodeGraphChromelessModule("namedPortalOut", {
   },
   catalog: {
     category: "portal",
-    description: "Wireless return (\u2190). Plays the sum of every Portal \u2192 with the same title in this patch (root or this Metamodule). Gold mono. Does not cross a Metamodule shell.",
+    description: "Wireless return (\u2190). Plays the sum of every Portal \u2192 with the same title in this patch (root or this Metamodule). Jack label is the portal title (matches the bus peer In); jack color follows that In. Does not cross a Metamodule shell.",
     notes: [
       "portal",
       "portal out",
@@ -62,7 +63,6 @@ registerNodeGraphChromelessModule("namedPortalOut", {
       "return",
       "bus",
       "named",
-      "gold",
     ],
   },
 });

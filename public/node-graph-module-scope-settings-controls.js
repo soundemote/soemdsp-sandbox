@@ -208,6 +208,7 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "dialOffsetY",
     "labelSize",
     "valueSize",
+    "valueOffsetY",
     "innerRadius",
     "sliderLength",
     "sliderHeight",
@@ -259,7 +260,7 @@ function nodeGraphTraceDisplayUnitDragField(key) {
 
 /** Drag/clamp range for unit-style fields (most are 0…1; shadow offset bipolar). */
 function nodeGraphTraceDisplayUnitDragRange(key) {
-  if (key === "innerShadowOffsetX" || key === "innerShadowOffsetY" || key === "dialOffsetY") {
+  if (key === "innerShadowOffsetX" || key === "innerShadowOffsetY" || key === "dialOffsetY" || key === "valueOffsetY") {
     return { min: -1, max: 1 };
   }
   // Image Burn Contrast: 0 = unchanged, 2 = max black crush (only this form uses it).
@@ -540,6 +541,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   dialOffsetY: nodeGraphTraceDisplayClampBipolarUnit,
   labelSize: nodeGraphTraceDisplayClampUnit,
   valueSize: nodeGraphTraceDisplayClampUnit,
+  valueOffsetY: nodeGraphTraceDisplayClampBipolarUnit,
   dotBudget: nodeGraphTraceDisplayClampDotBudget,
   digits: (value) => {
     const n = Math.round(Number(value));
@@ -761,6 +763,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     dialOffsetY: nodeGraphTraceDisplayClampBipolarUnit,
     labelSize: nodeGraphTraceDisplayClampUnit,
     valueSize: nodeGraphTraceDisplayClampUnit,
+    valueOffsetY: nodeGraphTraceDisplayClampBipolarUnit,
     innerRadius: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 0.95),
   }),
   ensembleCloud: Object.freeze({

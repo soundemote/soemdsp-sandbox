@@ -528,6 +528,21 @@ extern "C" double soemdsp_softwave_sample(
   double antialias
 );
 
+extern "C" int soemdsp_sine_warp_create();
+extern "C" void soemdsp_sine_warp_destroy(int handle);
+extern "C" void soemdsp_sine_warp_reset(int handle);
+extern "C" double soemdsp_sine_warp_sample(
+  int handle,
+  double frequencyHz,
+  double sampleRate,
+  double phaseOffset,
+  double warp,
+  double mode,
+  double amplitude,
+  double reset,
+  double increment
+);
+
 extern "C" int soemdsp_dsf_oscillator_create();
 extern "C" void soemdsp_dsf_oscillator_destroy(int handle);
 extern "C" void soemdsp_dsf_oscillator_reset(int handle);
@@ -1732,7 +1747,7 @@ static const int kTypeAudioPlayer = 110; // Music Player (PCM upload)
 static const int kTypeSamplePlayer = 174; // Gate-driven sample player (PCM upload)
 static const int kTypeWavetable2d = 180; // PCM wavetable oscillator
 static const int kTypeNamedPortalIn = 182; // wireless Portal →
-static const int kTypeNamedPortalOut = 184; // wireless Portal â†
+static const int kTypeNamedPortalOut = 184; // wireless Portal ←
 // Yellow Graph (Additive) — A1+A2 (see additive_yellow_graph.h)
 static const int kTypeAdditiveGenerator = 111;
 static const int kTypeAdditiveBubble = 112;
@@ -1767,7 +1782,10 @@ static const int kTypeAllpass = 138;
 static const int kTypeBasicShape = 139;
 static const int kTypeChordPad = 140;
 static const int kTypeXyPad = 190; // XY Pad (Papoulis/lattice); was 186 colliding with ellipsoidOsc
-static const int kTypeHelmholtzPitch = 191; // Pitch Detector (MPM) — Inc/Frequency/Fidelity/Gate/Detune
+static const int kTypeHelmholtzPitch = 191; // Pitch Detector (MPM) — inc/Frequency/Fidelity/Gate/Detune
+static const int kTypeHostBpm = 192; // Host/project BPM dump (Circuit::hostTempoBpm)
+static const int kTypeSineWarp = 193; // live warped rectSin / sine + PolyBLAMP
+static const int kTypeTheremin = 194; // XY pad pitch/volume Softwave theremin
 static const int kTypeNoteGlide = 141;
 static const int kTypeNoteTranspose = 142;
 static const int kTypeDegreeTuring = 143;
@@ -1797,9 +1815,9 @@ static const int kTypePluckEnvelope3 = 165;
 static const int kTypeCurveAttackRelease = 166;
 static const int kTypeThumpEnvelope = 167;
 static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smoothstep)
-static const int kTypeFm = 169; // ƒ mixer / pitch scale (oct/st/cents × Multiply + Add)
+static const int kTypeFm = 169; // Freq Manager: ƒ(+inc) mix × pitch scale + Add; outs ƒ + inc
 static const int kTypePitchHz = 170; // Pitch ↔ Hz (MIDI-ish pitch law, A4 = tuning)
-static const int kTypePitchManager = 185; // Pitch Manager (MIDI offsets → Hz → Pitch/F/Inc)
+static const int kTypePitchManager = 185; // Pitch Manager (MIDI offsets → Hz → Pitch/F/inc)
 static const int kTypeAmpDb = 180; // Amp ↔ dB (20·log10 voltage gain, 0 dB = 1)
 static const int kTypeGraphicEq = 171; // ISO 1/3-octave graphic EQ (30 peaking bands)
 static const int kTypeSuperloveRev2 = 172; // Softwave-Tri LP + classic HP/BP
@@ -1980,7 +1998,7 @@ struct Node {
   int typeId;
   bool used;
   bool bypassed; // dry/silence passthrough; DSP state kept (no recreate)
-  // Named Portal â†’/â† : JS declares title; C++ groups matching bus keys.
+  // Named Portal →/← : JS declares title; C++ groups matching bus keys.
   unsigned int namedPortalBus;
   unsigned char namedPortalKind; // 0 none, 1 in, 2 out
   // True if this node can reach an Output (audio or param-MOD ancestor).
@@ -2319,6 +2337,10 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_surge_oscillator_destroy(handle);
   } else if (kind == kTypeSoftwaveOsc) {
     soemdsp_softwave_destroy(handle);
+  } else if (kind == kTypeTheremin) {
+    soemdsp_softwave_destroy(handle);
+  } else if (kind == kTypeSineWarp) {
+    soemdsp_sine_warp_destroy(handle);
   } else if (kind == kTypeDsfOscillator) {
     soemdsp_dsf_oscillator_destroy(handle);
   } else if (kind == kTypeHypersaw2) {
@@ -2785,10 +2807,11 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeArp) ? 8.0 // Internal Clock Hz
       : (typeId == kTypeAliasSine) ? 0.1 // normFreq (0→sr)
       : (typeId == kTypePhoneTone) ? 0.0 // freqOffset Hz
+      : (typeId == kTypeTheremin) ? 440.0
       : (typeId == kTypeBlit || typeId == kTypeSineWavetable || typeId == kTypeSinCos
           || typeId == kTypeArchimedes
           || typeId == kTypeAdditiveOsc || typeId == kTypeSurgeOscillator
-          || typeId == kTypeSoftwaveOsc || typeId == kTypeDsfOscillator
+          || typeId == kTypeSoftwaveOsc || typeId == kTypeSineWarp || typeId == kTypeDsfOscillator
           || typeId == kTypeHypersaw2 || typeId == kTypeSinc
           || typeId == kTypeAdditiveOut || typeId == kTypeWavetable2d) ? 100.0
       : (typeId == kTypeAdditiveBubble) ? 1.0 // cutoff 0..1 (settled default)
@@ -2959,7 +2982,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.mode,
-    (typeId == kTypeNoiseGenerator
+    (typeId == kTypeSineWarp) ? 1.0 // Mode Rect (clip)
+      : (typeId == kTypeNoiseGenerator
       || typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
       || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic
       || typeId == kTypePassiveFilter
@@ -4233,6 +4257,8 @@ static int create_native_for_type(int typeId, float sampleRate) {
   // kTypeAdditiveOsc / Yellow Graph 111–124: free-fn, no instance
   if (typeId == kTypeSurgeOscillator) return soemdsp_surge_oscillator_create();
   if (typeId == kTypeSoftwaveOsc) return soemdsp_softwave_create();
+  if (typeId == kTypeTheremin) return soemdsp_softwave_create();
+  if (typeId == kTypeSineWarp) return soemdsp_sine_warp_create();
   if (typeId == kTypeDsfOscillator) return soemdsp_dsf_oscillator_create();
   if (typeId == kTypeHypersaw2) return soemdsp_hypersaw2_create();
   if (typeId == kTypeSinc) return soemdsp_sinc_create();
@@ -5486,21 +5512,31 @@ static void process_amp_db(Circuit& g, Node& node, int frames) {
 }
 
 static void process_fm(Circuit& g, Node& node, int frames) {
+  // Freq Manager (type fm): mix ƒ (+ optional inc×sr) → × Multiply × 2^(oct+st/12+cents/1200) + Add.
+  // Outs: Mono=ƒ (Hz), Left=inc (Hz/sr). Right mirrors ƒ for legacy fans.
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
-  const bool takeSamplePath = node_needs_sample_accurate_controls(g, node, liveF);
-  if (!liveF && !takeSamplePath) {
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
+  const double sr = (g.sampleRate > 1.0) ? (double)g.sampleRate : 44100.0;
+  const bool takeSamplePath = node_needs_sample_accurate_controls(g, node, liveF || liveInc);
+
+  auto write_outs = [&](int f, double hz) {
+    if (!(hz == hz)) hz = 0.0;
+    node.buf[kPortMono][f] = hz;
+    node.buf[kPortLeft][f] = hz / sr;
+    node.buf[kPortRight][f] = hz;
+  };
+
+  if (!liveF && !liveInc && !takeSamplePath) {
     const double oct = control_effective(node.mode);
     const double st = control_effective(node.stages);
     const double cents = control_effective(node.center);
     const double mul = control_effective(node.amplitude);
     const double add = control_effective(node.offset);
     const double ratio = dsp_exp((oct + st / 12.0 + cents / 1200.0) * 0.6931471805599453);
-    const double hz = (0.0 * mul * ratio) + add;
-    for (int f = 0; f < frames; f++) {
-      node.buf[kPortMono][f] = hz;
-      node.buf[kPortLeft][f] = hz;
-      node.buf[kPortRight][f] = hz;
-    }
+    const double m = (mul == mul) ? mul : 1.0;
+    const double a = (add == add) ? add : 0.0;
+    const double hz = (0.0 * m * ratio) + a;
+    for (int f = 0; f < frames; f++) write_outs(f, hz);
     return;
   }
   for (int f = 0; f < frames; f++) {
@@ -5510,12 +5546,18 @@ static void process_fm(Circuit& g, Node& node, int frames) {
     const double cents = control_audio(g, node.center, f);
     const double mul = control_audio(g, node.amplitude, f);
     const double add = control_audio(g, node.offset, f);
-    const double base = /*ƒ retired*/ 0.0;
+    double base = liveF ? g.mixF[f] : 0.0;
+    if (!(base == base)) base = 0.0;
     const double ratio = dsp_exp((oct + st / 12.0 + cents / 1200.0) * 0.6931471805599453);
-    const double hz = base * mul * ratio + add;
-    node.buf[kPortMono][f] = hz;
-    node.buf[kPortLeft][f] = hz;
-    node.buf[kPortRight][f] = hz;
+    const double m = (mul == mul) ? mul : 1.0;
+    const double a = (add == add) ? add : 0.0;
+    double hz = base * m * ratio + a;
+    // inc in = cycles/sample add (same family as osc Increment) → Hz, after pitch scale.
+    if (liveInc) {
+      const double inc = g.mixIncrement[f];
+      if (inc == inc) hz += inc * sr;
+    }
+    write_outs(f, hz);
   }
 }
 
@@ -6723,6 +6765,41 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
     const double waveV = control_effective(node.waveform);
     const double y = soemdsp_softwave_sample(
       node.nativeHandle, freq, sr, waveV, morph, phaseOff, level, antialias
+    );
+    node.buf[kPortMono][f] = y;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+  }
+}
+
+// SineWarp: live rational phasewarp + rectSin PolyBLAMP (or clean sine).
+// mode=Sine|Rect, resonance=warp, phaseParam=phase, amplitude=level.
+// Reset / Increment signal jacks; Warp/Phase/Amp are params (+ MOD) only.
+static void process_sine_warp(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double referenceVoltage = circuit_pitch_ref_v(g);
+  if (!liveReset) node.lastReset = 0.0;
+
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    double freq = resolve_osc_hz(
+      g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
+    );
+    const double phaseOff = control_audio(g, node.phaseParam, f);
+    const double warp = control_audio(g, node.resonance, f);
+    const double mode = control_effective(node.mode);
+    double level = control_audio(g, node.amplitude, f);
+    if (!(level == level)) level = 1.0;
+    const double reset = liveReset ? g.mixReset[f] : 0.0;
+    if (liveReset) node.lastReset = reset;
+    const double inc = liveInc ? g.mixIncrement[f] : 0.0;
+    const double y = soemdsp_sine_warp_sample(
+      node.nativeHandle, freq, sr, phaseOff, warp, mode, level, reset, inc
     );
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
@@ -9412,6 +9489,85 @@ static void process_turing_machine(Circuit& g, Node& node, int frames) {
 }
 
 
+
+// Theremin: Softwave voice. Pad X→pitch (±range oct around Frequency), Y→amp×Volume.
+// Controls: frequency, width=range, level=volume, waveform, shape=morph, phaseParam=phase,
+// offset=x, mix=y, oversample=pauseOnLift. Ports: Reset/Inc in; Wave→Mono/L/R.
+static void process_theremin(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  if (!liveReset) node.lastReset = 0.0;
+
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    if (liveReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) {
+        soemdsp_softwave_reset(node.nativeHandle);
+      }
+      node.lastReset = rv;
+    }
+
+    double unitX = control_audio(g, node.offset, f);
+    double unitY = control_audio(g, node.mix, f);
+    if (!(unitX == unitX)) unitX = 0.5;
+    if (!(unitY == unitY)) unitY = 0.8;
+    if (unitX < 0.0) unitX = 0.0;
+    if (unitX > 1.0) unitX = 1.0;
+    if (unitY < 0.0) unitY = 0.0;
+    if (unitY > 1.0) unitY = 1.0;
+
+    const bool pauseOnLift = control_effective(node.oversample) > 0.5;
+    const double gate = control_audio(g, node.mode, f) > 0.5 ? 1.0 : 0.0;
+    if (pauseOnLift && gate < 0.5) {
+      // Freeze last Wave sample (hist[0]).
+      const double held = node.hist[0];
+      node.buf[kPortMono][f] = held;
+      node.buf[kPortLeft][f] = held;
+      node.buf[kPortRight][f] = held;
+      continue;
+    }
+
+    double centerHz = control_audio(g, node.frequency, f);
+    if (!(centerHz == centerHz)) centerHz = 440.0;
+    double rangeOct = control_audio(g, node.width, f);
+    if (!(rangeOct == rangeOct) || rangeOct < 0.01) rangeOct = 1.0;
+    // X=0 → −range/2 oct; X=1 → +range/2 oct around center.
+    const double oct = (unitX - 0.5) * rangeOct;
+    double hz = centerHz * soemdsp_maths::dsp_exp2(oct);
+    if (liveInc) hz += g.mixIncrement[f] * sr;
+    // Soft clamp to ±Nyquist-ish (softwave accepts thru-zero).
+    const double ny = sr * 0.5;
+    if (hz > ny) hz = ny;
+    if (hz < -ny) hz = -ny;
+
+    double volume = control_audio(g, node.level, f);
+    if (!(volume == volume)) volume = 0.8;
+    if (volume < 0.0) volume = 0.0;
+    if (volume > 1.0) volume = 1.0;
+    double level = unitY * volume;
+    if (level < 0.0) level = 0.0;
+    if (level > 1.0) level = 1.0;
+
+    double morph = control_audio(g, node.shape, f);
+    if (!(morph == morph)) morph = 0.35;
+    if (morph < 0.0) morph = 0.0;
+    if (morph > 1.0) morph = 1.0;
+    const double phaseOff = control_audio(g, node.phaseParam, f);
+    const double waveV = control_effective(node.waveform);
+
+    const double y = soemdsp_softwave_sample(
+      node.nativeHandle, hz, sr, waveV, morph, phaseOff, level, 0.0
+    );
+    node.hist[0] = y;
+    node.buf[kPortMono][f] = y;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+  }
+}
+
 // XY Pad helpers (match public/modules/xyPad/xy-pad-dsp.js).
 static int xy_pad_quantize_levels(double quantize) {
   double q = quantize;
@@ -9697,11 +9853,12 @@ static void process_degree_phrase(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Arp: Arp Keys->Mono, Trigger->Trigger, Reset->Reset, f->F (external rate Hz).
+// Arp: Arp Keys->Mono, Trigger->Trigger, Reset->Reset, f->F (external rate Hz);
+// outs: pitch->Mono, Gate->Left, Trigger->Right, Step->Saw, inc(Hz/sr)->Ramp.
 // frequency=Internal Clock Hz (ignored when f is wired), mode=mode, stages=steps,
 // seed=seed, offset=octaveOffset (−4…+4).
 // Clock priority: Trigger edges > f jack rate > Internal Clock knob.
-// 0.1V/Oct→Mono, Gate→Left, Trigger→Right, Step→Saw, f Hz→Ramp.
+// 0.1V/Oct→Mono, Gate→Left, Trigger→Right, Step→Saw, inc (Hz/sr)→Ramp.
 static void process_arp(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasHeld = mix_live_port(g, node, kPortMono, frames, g.mixMono);
@@ -9735,7 +9892,8 @@ static void process_arp(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = soemdsp_arp_gate(node.nativeHandle);
     node.buf[kPortRight][f] = soemdsp_arp_trigger(node.nativeHandle);
     node.buf[kPortSaw][f] = soemdsp_arp_step(node.nativeHandle);
-    node.buf[kPortRamp][f] = soemdsp_arp_frequency(node.nativeHandle);
+    // Ramp = inc (cycles/sample). Kernel still stores Hz; divide here.
+    node.buf[kPortRamp][f] = soemdsp_arp_frequency(node.nativeHandle) / sr;
   }
 }
 
@@ -10447,6 +10605,18 @@ static void process_phosphillator(Circuit& g, Node& node, int frames) {
 
 // Metronome: per-clock t0. phase = ((master − t0)/sr) × f(BPM, Numer, Denom).
 // Gate -1+1→Mono, Gate 0-1→Left, Trigger→Right, f→Saw, beat f→Ramp.
+
+// Host/project BPM dump. Cable units = raw BPM (120.0 = 120 beats/min), not Hz.
+// Live value is Circuit::hostTempoBpm (soemdsp_graph_set_host_transport).
+static void process_host_bpm(Circuit& g, Node& node, int frames) {
+  const double bpm = g.hostTempoBpm;
+  for (int f = 0; f < frames; f++) {
+    node.buf[kPortMono][f] = bpm;
+    node.buf[kPortLeft][f] = bpm;
+    node.buf[kPortRight][f] = bpm;
+  }
+}
+
 // Click L/R → Square/Tri. Reset → kPortReset.
 static void process_transport(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
@@ -10467,7 +10637,7 @@ static void process_transport(Circuit& g, Node& node, int frames) {
     }
     const double amplitude = control_audio(g, node.amplitude, f);
     const double bpm = control_audio(g, node.tempoBpm, f);
-    const double bipolar = soemdsp_transport_sample(
+    (void)soemdsp_transport_sample(
       node.nativeHandle,
       amplitude,
       control_audio(g, node.timeNumerator, f),
@@ -10479,6 +10649,7 @@ static void process_transport(Circuit& g, Node& node, int frames) {
       sr,
       now
     );
+    // Keep Gate 0-1 only (bipolar Gate -1+1 twin removed).
     const double unipolar = soemdsp_transport_unipolar(node.nativeHandle);
     const double freqHz = soemdsp_transport_frequency(node.nativeHandle);
     const double click = soemdsp_transport_click(node.nativeHandle, sr);
@@ -10486,8 +10657,8 @@ static void process_transport(Circuit& g, Node& node, int frames) {
     const double trig = (isHigh && !wasHigh) ? amplitude : 0.0;
     wasHigh = isHigh;
 
-    node.buf[kPortMono][f] = bipolar;
-    node.buf[kPortLeft][f] = unipolar;
+    node.buf[kPortMono][f] = unipolar;
+    node.buf[kPortLeft][f] = unipolar; // legacy Left = Gate Uni → same 0…1
     node.buf[kPortRight][f] = trig;
     node.buf[kPortSaw][f] = freqHz;
     node.buf[kPortRamp][f] = ((bpm > 1.0) ? bpm : 1.0) / 60.0;
@@ -11214,8 +11385,10 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
   if (!takeSamplePath) {
     const double phase0 = control_effective(node.phaseParam) * kTwoPi;
     const double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
+    double amp = control_effective(node.amplitude);
+    if (!(amp == amp)) amp = 0.0;
     soemdsp_robin_sinusoid_process_block(
-      node.nativeHandle, freq, 1.0, srD, phase0, 0.0, frames
+      node.nativeHandle, freq, amp, srD, phase0, 0.0, frames
     );
     double* outPtr = ptr_from_export(soemdsp_robin_sinusoid_block_output_ptr(node.nativeHandle));
     if (!outPtr) return;
@@ -11236,8 +11409,10 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
     const double phase0 = control_audio(g, node.phaseParam, f) * kTwoPi;
     double freq = clamp_hz_nyquist(control_audio(g, node.frequency, f), srD);
     if (liveInc) freq += g.mixIncrement[f] * srD;
+    double amp = control_audio(g, node.amplitude, f);
+    if (!(amp == amp)) amp = 0.0;
     const double y = soemdsp_robin_sinusoid_sample(
-      node.nativeHandle, freq, 1.0, srD, phase0, resetGate
+      node.nativeHandle, freq, amp, srD, phase0, resetGate
     );
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
@@ -11451,7 +11626,7 @@ static void process_portal_outlet(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Portal inlet: wired â†’/â† thru mix; live mic bus not in graph_engine yet (silence addend).
+// Portal inlet: wired →/← thru mix; live mic bus not in graph_engine yet (silence addend).
 static void process_portal_inlet(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   bool hasMonoIn = false, hasLeftIn = false, hasRightIn = false, monoOutWired = false;
@@ -11538,6 +11713,8 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeAdditiveOut
     || node.typeId == kTypeSurgeOscillator
     || node.typeId == kTypeSoftwaveOsc
+    || node.typeId == kTypeSineWarp
+    || node.typeId == kTypeTheremin
     || node.typeId == kTypeDsfOscillator
     || node.typeId == kTypeHypersaw2
     || node.typeId == kTypeSinc
@@ -11809,6 +11986,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeArchimedes
     || typeId == kTypeSurgeOscillator
     || typeId == kTypeSoftwaveOsc
+    || typeId == kTypeSineWarp
+    || typeId == kTypeTheremin
     || typeId == kTypeDsfOscillator
     || typeId == kTypeHypersaw2
     || typeId == kTypeSinc
@@ -11972,6 +12151,10 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
       soemdsp_dsf_oscillator_reset(n.nativeHandle);
     } else if (typeId == kTypeHypersaw2) {
       soemdsp_hypersaw2_reset(n.nativeHandle);
+    } else if (typeId == kTypeSineWarp) {
+      soemdsp_sine_warp_reset(n.nativeHandle);
+    } else if (typeId == kTypeTheremin || typeId == kTypeSoftwaveOsc) {
+      soemdsp_softwave_reset(n.nativeHandle);
     } else if (typeId == kTypePhosphillator) {
       n.lastReset = -1.0; // seed default circle path on first process
     }
@@ -12456,7 +12639,7 @@ static int named_portal_index(Circuit& g, unsigned int hash) {
 }
 
 // Portals are not DSP. Compile rewrites
-//   src â†’ Portal â†’  and  Portal â† â†’ dst
+//   src → Portal →  and  Portal ← → dst
 // into src → dst, same as a drawn cable. Several Ins sum; several Outs fan out.
 static void splice_named_portals(Circuit& g) {
   int w = 0;
@@ -12691,8 +12874,10 @@ extern "C" int soemdsp_graph_compile(int handle) {
   }
   for (int i = 0; i < g->nodeCount; i++) {
     if (!g->nodes[i].used || g->nodes[i].reachable) continue;
-    // Native types that mirror the JS live-controller always-reachable list.
-    if (g->nodes[i].typeId == kTypeXyPad) {
+    // Native types that mirror JS always-reachable (controllers + Host BPM dump).
+    if (g->nodes[i].typeId == kTypeXyPad
+        || g->nodes[i].typeId == kTypeTheremin
+        || g->nodes[i].typeId == kTypeHostBpm) {
       g->nodes[i].reachable = true;
     }
   }
@@ -12914,6 +13099,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_wavetable_2d(g, node, frames);
       return;
     }
+    if (node.typeId == kTypeHostBpm) {
+      process_host_bpm(g, node, frames);
+      return;
+    }
     if (node.typeId == kTypeTransport) {
       process_transport(g, node, frames);
       return;
@@ -12956,6 +13145,14 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
     }
     if (node.typeId == kTypeSoftwaveOsc) {
       process_softwave_osc(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeTheremin) {
+      process_theremin(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeSineWarp) {
+      process_sine_warp(g, node, frames);
       return;
     }
     if (node.typeId == kTypeDsfOscillator) {
@@ -13804,5 +14001,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 150; // flowerChildFilter mono = single nativeHandle (match norm chaos MLR)
+  return 151; // arp Ramp out = inc (Hz/sr); legacy f cables remap in JS
 }

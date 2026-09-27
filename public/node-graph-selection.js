@@ -248,19 +248,40 @@ function nodeGraphSingleSelectedNodeId(selection = nodeGraphMvp.selected) {
 }
 
 function nodeGraphModuleActionTargetNodeId() {
-  const contextNode = nodeGraphMvp.sceneContextTargetNode;
-  if (contextNode && nodeGraphPatchNode(contextNode)) {
-    return contextNode;
-  }
-  const selectedNode = nodeGraphSingleSelectedNodeId();
-  if (selectedNode && nodeGraphPatchNode(selectedNode)) {
-    return selectedNode;
-  }
-  const lastNode = nodeGraphMvp.lastModuleActionTargetNode;
-  if (lastNode && nodeGraphPatchNode(lastNode)) {
-    return lastNode;
+  // Settings / Command Center target = primary selection only (index 0).
+  // Never fall back to hover/context/last unselected modules.
+  const ordered = typeof nodeGraphSelectedNodeIdsInOrder === "function"
+    ? nodeGraphSelectedNodeIdsInOrder()
+    : [...nodeGraphSelectedNodeIds()];
+  const primary = ordered.length ? String(ordered[0] || "").trim() : "";
+  if (primary && nodeGraphPatchNode(primary)) {
+    return primary;
   }
   return null;
+}
+
+/**
+ * Right-click / context open: ensure the hit module is selected before
+ * Command Center / Module Settings / Display Settings bind to it.
+ * Already-selected modules keep the current multi-select; otherwise sole-select.
+ */
+function ensureNodeGraphModuleSelectedForContext(nodeId) {
+  const id = String(nodeId || "").trim();
+  if (!id || !nodeGraphMvp.activeNodes.has(id)) {
+    return false;
+  }
+  const ordered = typeof nodeGraphSelectedNodeIdsInOrder === "function"
+    ? nodeGraphSelectedNodeIdsInOrder()
+    : [...nodeGraphSelectedNodeIds()];
+  if (ordered.includes(id)) {
+    return true;
+  }
+  if (typeof setNodeGraphNodeSelection === "function") {
+    setNodeGraphNodeSelection([id]);
+  } else {
+    setNodeGraphSelection({ type: "node", id });
+  }
+  return true;
 }
 
 function nodeGraphSelectionDisplaySyncKey() {
@@ -284,8 +305,7 @@ function syncNodeGraphModuleActionTargetFromSelection() {
   const displayChanged = syncKey !== nodeGraphMvp._displayChangeSyncKey;
   nodeGraphMvp._displayChangeSyncKey = syncKey;
   // Wire redraw also calls renderNodeGraphSelection. Only retarget the
-  // inspector when the actual selection changed — right-click pins a
-  // context module without becoming the selection.
+  // inspector when the actual selection changed.
   if (!displayChanged) {
     return;
   }
@@ -305,10 +325,13 @@ function syncNodeGraphModuleActionTargetFromSelection() {
     }
     return;
   }
-  const selectedNode = nodeGraphSingleSelectedNodeId();
-  if (selectedNode && nodeGraphPatchNode(selectedNode)) {
-    nodeGraphMvp.sceneContextTargetNode = selectedNode;
-    nodeGraphMvp.lastModuleActionTargetNode = selectedNode;
+  const ordered = typeof nodeGraphSelectedNodeIdsInOrder === "function"
+    ? nodeGraphSelectedNodeIdsInOrder()
+    : [...nodeGraphSelectedNodeIds()];
+  const primary = ordered.length ? String(ordered[0] || "").trim() : "";
+  if (primary && nodeGraphPatchNode(primary)) {
+    nodeGraphMvp.sceneContextTargetNode = primary;
+    nodeGraphMvp.lastModuleActionTargetNode = primary;
     nodeGraphMvp.sceneContextTargetWire = null;
   } else {
     nodeGraphMvp.sceneContextTargetNode = null;
@@ -326,8 +349,8 @@ function syncNodeGraphModuleActionTargetFromSelection() {
 function syncNodeGraphSharedInspectorTargetFromSelection() {
   // Display Settings: follow single- or multi-select of display modules.
   // Uses schema-matched multi cohort when several faces share a form type.
-  // When selection is cleared / non-display only, KEEP the pinned target so
-  // gradient / color edits in the open window are not wiped mid-interaction.
+  // When selection is cleared / non-display only, blank the form (strict:
+  // never keep editing an unselected module).
   if (nodeGraphMvp.sharedInspectorActive === "traceDisplaySettings") {
     const popover = document.getElementById("nodeTraceDisplaySettingsPopover");
     if (popover && !popover.hidden) {

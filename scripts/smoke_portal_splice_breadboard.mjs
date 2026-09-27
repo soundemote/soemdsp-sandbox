@@ -32,13 +32,13 @@ const edge = (list, src, srcPort, dst, dstPort) => list.some((c) =>
   && c.destinationNode === dst
   && (c.destinationPort === dstPort || c.destinationParam === dstPort));
 
+// Required = post-splice equivalents of the breadboard's real portal buses
+// (Trigger, Pitch, Envelope) plus the pitchManager→osc cable that replaced
+// the old keyboard `f` → polyBlep.frequency wire. No clock / Note# / Reset.
 const required = [
-  ["keyboard-1", "Trigger", "polyBlep-1", "Reset"],
   ["keyboard-1", "Trigger", "curveAttackRelease-1", "Gate"],
-  ["clock-1", "T", "curveAttackRelease-1", "Gate"],
-  ["clock-1", "T", "polyBlep-1", "Reset"],
-  ["keyboard-1", "Note#", "inv-2", "In"],
-  ["keyboard-1", "f", "polyBlep-1", "frequency"],
+  ["keyboard-1", "pitch", "pitchManager-1", "pitch"],
+  ["pitchManager-1", "inc", "polyBlep-1", "Increment"],
   ["curveAttackRelease-1", "Out", "flowerChildFilter-2", "frequency"],
 ];
 

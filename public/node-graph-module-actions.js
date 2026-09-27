@@ -846,10 +846,11 @@ function handleNodeGraphModuleStoreKeydown(event) {
 }
 
 function nodeGraphModuleActionTargetNodeIds() {
-  const targetNodeId = nodeGraphModuleActionTargetNodeId();
-  const selectedIds = [...nodeGraphSelectedNodeIds()].filter((id) => nodeGraphPatchNode(id));
-  const ids = selectedIds.length ? selectedIds : targetNodeId ? [targetNodeId] : [];
-  return [...new Set(ids)].filter((id) => nodeGraphPatchNode(id));
+  // Multi-edit applies to the live selection only — never an unselected context pin.
+  const ordered = typeof nodeGraphSelectedNodeIdsInOrder === "function"
+    ? nodeGraphSelectedNodeIdsInOrder()
+    : [...nodeGraphSelectedNodeIds()];
+  return ordered.filter((id) => nodeGraphPatchNode(id));
 }
 
 function nodeGraphDeepCloneModuleField(value) {
@@ -1565,6 +1566,7 @@ function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = n
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const alias = normalizeNodeGraphPatchNodeAlias(value);
   let changed = 0;
+  const portalBusSeeds = [];
   for (const id of ids) {
     const targetNode = patch.nodes.find((node) => node.id === id);
     if (!targetNode) {
@@ -1575,12 +1577,28 @@ function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = n
     if (prev === next && Boolean(targetNode.alias) === Boolean(alias)) {
       continue;
     }
+    if (
+      typeof nodeGraphIsNamedPortalType === "function"
+      && nodeGraphIsNamedPortalType(targetNode.type)
+      && prev
+      && next
+      && prev.toLowerCase() !== next.toLowerCase()
+    ) {
+      portalBusSeeds.push({ id: String(targetNode.id), oldAlias: prev });
+    }
     if (alias) {
       targetNode.alias = alias;
     } else {
       delete targetNode.alias;
     }
     changed += 1;
+  }
+  for (const seed of portalBusSeeds) {
+    const node = patch.nodes.find((n) => n && String(n.id) === seed.id);
+    if (!node || typeof nodeGraphNamedPortalSyncBusAlias !== "function") continue;
+    // Peers still hold oldAlias; temporarily restore seed key then sync whole bus.
+    node.alias = seed.oldAlias;
+    nodeGraphNamedPortalSyncBusAlias(patch, seed.id, alias);
   }
   if (!changed) {
     return;
@@ -1686,6 +1704,15 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
         headerTitle.textContent = display;
       }
     }
+    // Named portals: jack I/O label follows the title live.
+    if (
+      moduleEl
+      && typeof nodeGraphIsNamedPortalType === "function"
+      && nodeGraphIsNamedPortalType(sourceNode.type)
+      && typeof syncNodeGraphModulePortLabels === "function"
+    ) {
+      syncNodeGraphModulePortLabels(moduleEl, sourceNode);
+    }
     return;
   }
 
@@ -1694,10 +1721,22 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
   if (!targetNode) {
     return;
   }
+  const prevAlias = normalizeNodeGraphPatchNodeAlias(targetNode.alias) || "";
   if (alias) {
     targetNode.alias = alias;
   } else {
     delete targetNode.alias;
+  }
+  if (
+    typeof nodeGraphIsNamedPortalType === "function"
+    && nodeGraphIsNamedPortalType(targetNode.type)
+    && prevAlias
+    && alias
+    && prevAlias.toLowerCase() !== alias.toLowerCase()
+    && typeof nodeGraphNamedPortalSyncBusAlias === "function"
+  ) {
+    targetNode.alias = prevAlias;
+    nodeGraphNamedPortalSyncBusAlias(patch, targetNode.id, alias);
   }
   const ownerMetaId = (
     typeof nodeGraphIsMetamoduleBoundaryType === "function"

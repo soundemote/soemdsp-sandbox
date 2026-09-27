@@ -688,7 +688,18 @@ function syncOpenNodeGraphTraceDisplaySettingsToSelection() {
   }
   const primaryId = nodeGraphTraceDisplaySettingsPrimaryFromSelection();
   if (!primaryId) {
-    // Empty / non-display selection: keep pinned form (don't wipe mid-edit).
+    // Nothing selected (or no display-capable selection): do not keep editing
+    // an unselected module — show the blank picker instead.
+    const pinned = String(nodeGraphMvp.traceDisplaySettingsTargetNode || "").trim();
+    if (!pinned || pinned === "__globalTraceSettings") {
+      nodeGraphMvp.traceDisplaySettingsFollowedSelectionKey = followKey;
+      return false;
+    }
+    if (typeof openBlankNodeGraphTraceDisplaySettings === "function") {
+      openBlankNodeGraphTraceDisplaySettings({});
+      nodeGraphMvp.traceDisplaySettingsFollowedSelectionKey = followKey;
+      return true;
+    }
     return false;
   }
   const changed = syncOpenNodeGraphTraceDisplaySettingsToNode(primaryId);
@@ -898,8 +909,8 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
     return false;
   }
   // Every module opens Display Settings (blank body if no face schema).
-  // Do not change graph selection. Pin the form to this face; follow-key is
-  // the current selection so wire redraws do not steal the inspector.
+  // Callers should select the module first (ensureNodeGraphModuleSelectedForContext).
+  // Follow-key tracks selection so the open form stays in sync.
   // Multi-select: if every selected module shares this display schema, edit all.
   const multiTargetIds = nodeGraphTraceDisplaySettingsResolveMultiTargetIds(node.id);
   const multiKey = multiTargetIds.join(",");

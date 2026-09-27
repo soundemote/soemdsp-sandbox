@@ -101,11 +101,26 @@ function nodeGraphPatchNodePortDisplayLabel(node, type, port, io) {
   if (alias) {
     return nodeGraphStereoJackDisplayLabel(alias, type, port);
   }
+  const resolvedType = type || patchNode?.type;
+  // Named portals: jack label is the module title/alias (bus name).
+  if (
+    typeof nodeGraphIsNamedPortalType === "function"
+    && nodeGraphIsNamedPortalType(resolvedType)
+  ) {
+    const title = typeof normalizeNodeGraphPatchNodeAlias === "function"
+      ? normalizeNodeGraphPatchNodeAlias(patchNode?.alias)
+      : String(patchNode?.alias || "").trim();
+    if (title) {
+      return title;
+    }
+    const defAlias = nodeGraphModuleDefinitions?.[resolvedType]?.defaultAlias;
+    return String(defAlias || "A").trim() || "A";
+  }
   // Metamodule shell: dynamic boundary names are the label (Left / ƒ / Poly).
   // Keep full Left/Right words — LayoutB stereo compaction would shrink to L/R.
   if (
     typeof nodeGraphIsContainerShellType === "function"
-    && nodeGraphIsContainerShellType(type || patchNode?.type)
+    && nodeGraphIsContainerShellType(resolvedType)
   ) {
     const raw = String(port || "").trim();
     return typeof nodeGraphFrequencyValuePortDisplayLabel === "function"
@@ -122,6 +137,7 @@ function nodeGraphPatchNodePortDisplayLabel(node, type, port, io) {
  * commit paths prefer domainValue over the HTML range thumb), and sets the
  * thumb to an in-range display value when domain exceeds min/max.
  */
+
 function applyNodeGraphInputUnboundedValue(input, value) {
   if (!input?.dataset) {
     return;
@@ -299,6 +315,7 @@ function syncNodeGraphModulePortLabels(element, patchNode) {
   if (!element || !patchNode) {
     return;
   }
+  const maxByIo = { input: 1, output: 1 };
   for (const row of element.querySelectorAll(".node-io-row")) {
     const io = row.dataset.io;
     const port = row.dataset.port;
@@ -314,6 +331,7 @@ function syncNodeGraphModulePortLabels(element, patchNode) {
         label.textContent = portLabel;
       }
     }
+    maxByIo[io] = Math.max(maxByIo[io], String(portLabel || "").length);
     row.setAttribute(
       "aria-label",
       `${nodeGraphNodeLabels[patchNode.type]} ${io} port ${portLabel} interaction area`,
@@ -322,6 +340,12 @@ function syncNodeGraphModulePortLabels(element, patchNode) {
     if (button) {
       button.setAttribute("aria-label", `${nodeGraphNodeLabels[patchNode.type]} ${io} port ${portLabel}`);
     }
+  }
+  for (const io of ["input", "output"]) {
+    const column = element.querySelector(`.node-io-column.${io}`);
+    if (!column) continue;
+    column.style.setProperty("--node-io-label-min-ch", String(maxByIo[io]));
+    column.dataset.maxLabelChars = String(maxByIo[io]);
   }
 }
 
@@ -722,39 +746,37 @@ function createNodeGraphKeyboardControllerBody(node = null) {
     item.append(value);
     liveReadouts.append(item);
   }
-  const velRow = document.createElement("div");
-  velRow.className = "node-midi-keyboard-vel-range";
-  velRow.setAttribute("aria-label", "Pointer velocity range");
   const velMinLabel = document.createElement("label");
   velMinLabel.className = "node-midi-keyboard-vel-field";
   const velMinCaption = document.createElement("span");
-  velMinCaption.textContent = "Vel Min";
+  velMinCaption.textContent = "Min Vel";
   const velMinInput = document.createElement("input");
   velMinInput.type = "number";
   velMinInput.min = "0";
   velMinInput.max = "127";
   velMinInput.step = "1";
   velMinInput.dataset.midiKeyboardVelMin = "true";
-  velMinInput.setAttribute("aria-label", "Velocity minimum 0 to 127");
+  velMinInput.setAttribute("aria-label", "Minimum velocity 0 to 127");
   velMinInput.value = "127";
   velMinLabel.append(velMinCaption, velMinInput);
   const velMaxLabel = document.createElement("label");
   velMaxLabel.className = "node-midi-keyboard-vel-field";
   const velMaxCaption = document.createElement("span");
-  velMaxCaption.textContent = "Vel Max";
+  velMaxCaption.textContent = "Max Vel";
   const velMaxInput = document.createElement("input");
   velMaxInput.type = "number";
   velMaxInput.min = "0";
   velMaxInput.max = "127";
   velMaxInput.step = "1";
   velMaxInput.dataset.midiKeyboardVelMax = "true";
-  velMaxInput.setAttribute("aria-label", "Velocity maximum 0 to 127");
+  velMaxInput.setAttribute("aria-label", "Maximum velocity 0 to 127");
   velMaxInput.value = "127";
   velMaxLabel.append(velMaxCaption, velMaxInput);
-  velRow.append(velMinLabel, velMaxLabel);
 
-  controls.append(modeLabel, octave, keyCount, liveReadouts);
-  heading.append(controls, velRow);
+  // Same row as Mode / octave / key-count: Mode, Min Vel, Max Vel, then -/+.
+  // Overflow clips into the left module wall (CSS nowrap + overflow visible).
+  controls.append(modeLabel, velMinLabel, velMaxLabel, octave, keyCount, liveReadouts);
+  heading.append(controls);
 
   const performance = document.createElement("div");
   performance.className = "node-midi-keyboard-performance";

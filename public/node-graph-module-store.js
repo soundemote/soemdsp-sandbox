@@ -104,7 +104,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "formantFilter",
   "besselThomson",
   "massSpringDamper",
-  "theremin",
   "wavetable3d",
   "pixelGrid",
   "chromaColor",
@@ -208,6 +207,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   evolveField: "Field evolve visual. Parked until RGB/shader pass.",
   phosphillator: "Draw a path, play it as X/Y. Parked until the draw engine is ready.",
   wavetable2d: "Morph (4 frames, wrap) × Warp (13 baked knots). Additive Nyquist.",
+  sineWarp: "Live rational phasewarp + rectSin PolyBLAMP (or clean sine). Reset→PolyBLEP.",
   wavetable3d: "Dual-axis table morph. Parked until wavetable playback exists.",
   formantFilter: "Vocal formant bank. Parked until the scientific-filter pass.",
   besselThomson: "Maximally flat group-delay filter. Parked until that filter lands.",
@@ -226,7 +226,6 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   gravity: "Few-body Newtonian orbits on phosphor. First Doppler puzzle piece. Parked — write pairwise + leapfrog ourselves.",
   ePiano: "GM electric piano. Parked until sample/MIDI voices exist.",
   percussion: "GM channel-10 kit. Parked until sample/MIDI voices exist.",
-  theremin: "Proximity pitch/volume. Parked on Object until that controller lands.",
   additiveImage: "Image→partials. Parked until image analysis ships.",
   audioInput: "Live mic/line in. Parked until host capture is wired.",
   shootingStarTail: "Shooting-star trail events. Parked until that game trigger lands.",
@@ -612,6 +611,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Metronome",
     notes: ["metronome", "clock", "BPM", "reset", "click", "Numer/Denom", "gate", "trigger"],
   },
+  hostBpm: {
+    category: "clock",
+    label: "Host BPM",
+    description: "Dump project BPM (standalone) or host BPM (CLAP/VST). Cable = raw BPM number (120 = 120 beats/min), not Hz.",
+    notes: ["host bpm", "project bpm", "tempo", "clock", "native"],
+  },
   clockDivider: {
     category: "clock",
     description: "Slow a clock down for subdivisions—half-time gates, bar pulses, lazy LFOs.",
@@ -848,6 +853,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Soft-shaped multi-wave voice when you want warm morphing waves, not a distortion box. Face draws one cycle from Waveform / Morph / Phase.",
     label: "Softwave Oscillator",
     notes: ["softwave", "tube", "tanh", "morph", "analog waves", "walter", "face"],
+  },
+  sineWarp: {
+    category: "oscillator",
+    description: "Live antialiased warped sine — rational phasewarp + rectified/clipping sine (PolyBLAMP) or clean sine. Hard Reset uses PolyBLEP on the value jump.",
+    label: "SineWarp",
+    notes: ["oscillator", "polyblamp", "polyblep", "phasewarp", "rectified sine", "native", "antialiasing"],
   },
   curveOsc: {
     category: "oscillator",
@@ -1131,7 +1142,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
 
   pitchManager: {
     category: "musical",
-    description: "MIDI offsets → Hz (Tuning) → Multiply/Add. Simultaneous Inc (Hz/sr), ƒ (Hz), and ♯/♭ thru.",
+    description: "MIDI offsets → Hz (Tuning) → Multiply/Add. Simultaneous inc (Hz/sr), ƒ (Hz), and ♯/♭ thru.",
     label: "Pitch Manager",
     notes: ["pitch", "midi", "hz", "frequency", "increment", "tuning", "transpose", "musical", "♯/♭", "pitch manager"],
   },
@@ -1150,9 +1161,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
 
   fm: {
     category: "musical",
-    description: "Mix ƒ cables, then × Multiply × 2^(Octave+Semitones/12+Cents/1200) + Add. Frequency CV / pitch utility.",
-    label: "Pitch",
-    notes: ["pitch", "fm", "frequency", "ƒ", "multiply", "octave", "semitone", "cents", "musical", "utility"],
+    description: "Mix ƒ cables + optional inc (cycles/sample→Hz), then × Multiply × 2^(Octave+Semitones/12+Cents/1200) + Add. Outs: ƒ (Hz) and inc (Hz/sr).",
+    label: "Freq Manager",
+    notes: ["freq manager", "pitch", "fm", "frequency", "ƒ", "inc", "increment", "multiply", "octave", "semitone", "cents", "musical", "utility"],
   },
   u2b: {
     category: "dynamics",
@@ -1331,7 +1342,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "controller",
     description: "Local piano. Holds Play Keys / Arp Keys / Chord Memory on this module. Mix those buses into Meta Voices. Not MIDI — wire a MIDI module into Play Keys for a device.",
     label: "Keyboard",
-    notes: ["keyboard", "piano", "play keys", "arp keys", "chord memory", "controller", "performance", "gate", "trigger", "velocity", "note"],
+    notes: ["keyboard", "piano", "play keys", "arp keys", "chord memory", "controller", "performance", "gate", "trigger", "velocity", "note", "inc", "increment"],
   },
   gridKeyboard: {
     category: "controller",
@@ -1689,12 +1700,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Percussion (10)",
     notes: ["under construction", "sample", "percussion", "drums", "GM", "channel 10", "midi", "soundfont"],
   },
-  theremin: {
-    category: "object",
-    description: "Placeholder space-controlled pitch/volume controller.",
-    label: "Theremin",
-    notes: ["under construction", "theremin", "object", "proximity", "pitch", "performance"],
-  },
   // --- Analog Filter: character / named circuits ---
   yellowjacketFilter: {
     category: "analogFilter",
@@ -2027,7 +2032,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   helmholtzPitch: {
     category: "multimeter",
-    description: "Track monophonic pitch: Hz, Inc (cycles/sample), fidelity, detune, and lock gate.",
+    description: "Track monophonic pitch: Hz, inc (cycles/sample), fidelity, detune, and lock gate.",
     label: "Pitch Detector",
     notes: ["pitch tracking", "pitch detector", "mcleod", "autocorrelation", "frequency follower", "gate"],
   },
@@ -3590,6 +3595,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/softwaveOsc/softwave-osc-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/softwaveOsc/softwave-osc-math.js",
   },
+  sineWarp: {
+    source: "native_modules/sine_warp/sine_warp.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/sine_warp/sine_warp.cpp",
+  },
   speakerProtection: {
     source: "public/modules/speakerProtection/speaker-protection-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/speakerProtection/speaker-protection-worklet-evaluator.js",
@@ -3650,6 +3659,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/torus/torus-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/torus/torus-worklet-evaluator.js",
   },
+  hostBpm: {
+    source: "native_modules/graph_engine/graph_engine.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/graph_engine/graph_engine.cpp",
+  },
   transport: {
     source: "public/modules/transport/transport-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/transport/transport-math.js",
@@ -3693,6 +3706,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   xyPad: {
     source: "public/modules/xyPad/xy-pad-dsp.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/xyPad/xy-pad-dsp.js",
+  },
+  theremin: {
+    source: "public/modules/theremin/theremin-register.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/theremin/theremin-register.js",
   },
   yellowjacketFilter: {
     source: "public/modules/yellowjacketFilter/yellowjacket-filter-worklet-evaluator.js",

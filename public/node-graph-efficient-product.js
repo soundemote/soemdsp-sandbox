@@ -22,6 +22,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "toggleButton",
   "momentaryButton",
   "xyPad",
+  "theremin",
   "keypad",
   "phoneTone",
   // Singleton live Input — unique, undeleteable, shop-visible (APP_POLICY).
@@ -71,6 +72,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "wavetable2d",
   "sequencer",
   "transport",
+  "hostBpm",
   "aliasSine",
   "blit",
   "sineWavetable",

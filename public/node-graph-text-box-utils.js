@@ -51,7 +51,7 @@ const nodeGraphTextBoxVerticalAlignLimits = Object.freeze({
 
 /** Old bipolar −100…+100 (0 = center) → new 0…100 center-point. */
 function nodeGraphTextBoxMigrateBipolarVerticalPercent(value) {
-  const bipolar = Math.round(Number(value));
+  const bipolar = Number(value);
   if (!Number.isFinite(bipolar)) {
     return nodeGraphTextBoxVerticalAlignLimits.defaultPercent;
   }
@@ -59,7 +59,7 @@ function nodeGraphTextBoxMigrateBipolarVerticalPercent(value) {
     nodeGraphTextBoxVerticalAlignLimits.minPercent,
     Math.min(
       nodeGraphTextBoxVerticalAlignLimits.maxPercent,
-      Math.round((bipolar + 100) / 2),
+      ((bipolar + 100) / 2),
     ),
   );
 }
@@ -75,7 +75,7 @@ function normalizeNodeGraphTextBoxVerticalAlignPercent(value, options = {}) {
   if (align === "center" || align === "middle") {
     return nodeGraphTextBoxVerticalAlignLimits.defaultPercent;
   }
-  const numeric = Math.round(Number(value));
+  const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
     return nodeGraphTextBoxVerticalAlignLimits.defaultPercent;
   }
@@ -105,6 +105,32 @@ function normalizeNodeGraphTextBoxTextSizePercent(value) {
 }
 
 const NODE_GRAPH_TEXT_BOX_DEFAULT_BACKGROUND = "#020407";
+// Keep the existing face look while allowing the background to become transparent.
+const NODE_GRAPH_TEXT_BOX_DEFAULT_BACKGROUND_ALPHA = 0.78;
+const nodeGraphTextBoxBackgroundAlphaLimits = Object.freeze({
+  max: 1,
+  min: 0,
+  step: 0.01,
+});
+
+function normalizeNodeGraphTextBoxBackgroundAlpha(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return NODE_GRAPH_TEXT_BOX_DEFAULT_BACKGROUND_ALPHA;
+  }
+  // Keep the typed field, slider, face, and saved layout on the same .01
+  // step. Clamp after stepping so over-range text (for example 1.006) still
+  // resolves to the legal endpoint instead of leaking extra precision.
+  const stepped = Number(
+    (Math.round(n / nodeGraphTextBoxBackgroundAlphaLimits.step)
+      * nodeGraphTextBoxBackgroundAlphaLimits.step).toFixed(2),
+  );
+  return Math.max(
+    nodeGraphTextBoxBackgroundAlphaLimits.min,
+    Math.min(nodeGraphTextBoxBackgroundAlphaLimits.max, stepped),
+  );
+}
+
 const NODE_GRAPH_TEXT_BOX_DEFAULT_TEXT_COLOR = "#f3f1ec";
 /** Match the previous hardcoded Cascadia Mono face (app font catalog id). */
 const NODE_GRAPH_TEXT_BOX_DEFAULT_FONT = "cascadia-mono";
@@ -170,6 +196,9 @@ function normalizeNodeGraphTextBoxLayout(layout = {}) {
     ? nodeGraphAppNormalizeFont(source.font, NODE_GRAPH_TEXT_BOX_DEFAULT_FONT)
     : String(source.font || NODE_GRAPH_TEXT_BOX_DEFAULT_FONT).trim().toLowerCase() || NODE_GRAPH_TEXT_BOX_DEFAULT_FONT;
   return {
+    backgroundAlpha: normalizeNodeGraphTextBoxBackgroundAlpha(
+      source.backgroundAlpha,
+    ),
     backgroundColor: nodeGraphTextBoxNormalizeHex(
       source.backgroundColor,
       NODE_GRAPH_TEXT_BOX_DEFAULT_BACKGROUND,

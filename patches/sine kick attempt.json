@@ -3,8 +3,7 @@
   "audio": {
     "targetSampleRate": 44100,
     "pitchReferenceMidiNote": 48,
-    "pitchReferenceHz": 100,
-    "speedLimitHz": 20000
+    "pitchReferenceHz": 100
   },
   "bypassedNodes": [
     "polyBlep-1"

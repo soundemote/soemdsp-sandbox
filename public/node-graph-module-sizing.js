@@ -116,7 +116,7 @@ function nodeGraphModuleHeightLimitsForType(_type) {
 }
 
 /**
- * TitleBarAndPorts (ex-LayoutC): title + I/O only.
+ * InletOutletLayout (ex-TitleBarAndPorts / LayoutC): title + I/O only.
  * Content height = header + port-row strip (max(in,out) rows), snapped up to
  * whole gu. No face, no params. Never use a hand-set defaultHeightGu —
  * content is the SSOT. When ioHidden, height collapses to header only.
@@ -145,7 +145,7 @@ function nodeGraphLayoutCMinContentHeightGu(type, ui = {}) {
 }
 
 /**
- * TitleBarAndPorts outer height. Spawn (null heightGu) = content min.
+ * InletOutletLayout outer height. Spawn (null heightGu) = content min.
  * Manual heightGu may grow above content, never shrink below it.
  */
 function nodeGraphTitleBarAndPortsGridHeightUnits(type, ui = {}, heightGu = null) {
@@ -311,7 +311,7 @@ function nodeGraphModuleSizingCapabilities(type) {
   const normalizedType = String(type || "").trim();
   const definition = nodeGraphModuleDefinitions[normalizedType];
   const layout = definition?.layout;
-  // LayoutC: freehand heightGu (bounds = module shell); no display-height face.
+  // InletOutletLayout: freehand heightGu (bounds = module shell); no display-height face.
   if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(normalizedType)) {
     return Object.freeze({
       width: Boolean(definition),
@@ -1026,7 +1026,7 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
       face.grow = true;
     }
   }
-  // TitleBarAndPorts: I/O may absorb leftover height when the user grows the
+  // InletOutletLayout: I/O may absorb leftover height when the user grows the
   // module, but must never shrink below content (that clipped jacks over the
   // bottom plate). No separate lip — lip+grow IO fought for the same pixels
   // when outer height == header+io content min.
@@ -1116,7 +1116,7 @@ function nodeGraphModuleBandTrackCss(band) {
     }
     return "var(--node-module-bottom-gap-track, minmax(2px, 1fr))";
   }
-  // TitleBarAndPorts / any growing IO strip: floor at content height so
+  // InletOutletLayout / any growing IO strip: floor at content height so
   // minmax(0, 1fr) cannot crush jacks (ports were painting over the bottom).
   if (band.id === "io" && band.grow && band.heightGu > 0) {
     return `minmax(calc(var(--node-grid-height) * ${band.heightGu}), 1fr)`;
@@ -1452,7 +1452,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
       nodeGraphModuleLayout.ioSectionMinHeightGu || 0.5,
       nodeGraphModuleIoSectionHeightGu(type, node) || 0,
     );
-  // LayoutC: title + I/O only (no face, no params).
+  // InletOutletLayout: title + I/O only (no face, no params).
   if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui, type), visible: true },

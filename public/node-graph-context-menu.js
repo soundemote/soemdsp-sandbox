@@ -1286,6 +1286,11 @@ function configureNodeSceneContextMenu(mode) {
   const targetSupportsTextBoxHeight = targetSizingCapabilities.moduleHeight === "textBox";
   const targetSupportsModuleHeight = ["custom", "textBox"].includes(targetSizingCapabilities.moduleHeight);
   const targetSupportsDisplayHeight = targetSizingCapabilities.displayHeight;
+  const nodeGraphTypeIsInletOutlet = (type) => (
+    typeof nodeGraphModuleUsesInletOutletLayout === "function"
+    && nodeGraphModuleUsesInletOutletLayout(type)
+  );
+  const targetIsInletOutlet = Boolean(targetNode && nodeGraphTypeIsInletOutlet(targetNode.type));
   const targetNodeDisabled = targetNode
     ? targetNode.id === "output"
       ? !Boolean(nodeGraphMvp.live.outputEnabled)
@@ -1374,7 +1379,7 @@ function configureNodeSceneContextMenu(mode) {
     pasteSettingsButton.hidden = !moduleMode || multiModuleMode;
   }
   if (setDefaultButton) {
-    setDefaultButton.hidden = !moduleMode || multiModuleMode;
+    setDefaultButton.hidden = !moduleMode || multiModuleMode || targetIsInletOutlet;
   }
   // Multi-select: visibility + enable + size (not copy/paste/default settings).
   const multiCanButtons = multiModuleMode && selectedNodes.length > 0;
@@ -1402,8 +1407,14 @@ function configureNodeSceneContextMenu(mode) {
   const multiCanWidth = multiModuleMode && selectedNodes.some((node) =>
     nodeGraphModuleSizingCapabilities(node.type).width,
   );
+  // InletOutletLayout = grid W/H + jack only; omit visibility / disable / save-default chrome.
+  const showInletOutletVisibilityChrome = moduleMode && (
+    multiModuleMode
+      ? selectedNodes.some((node) => !nodeGraphTypeIsInletOutlet(node.type))
+      : !targetIsInletOutlet
+  );
   if (moduleVisibilitySection) {
-    moduleVisibilitySection.hidden = !moduleMode;
+    moduleVisibilitySection.hidden = !moduleMode || !showInletOutletVisibilityChrome;
   }
   if (moduleVisibilityActionGroup) {
     // Stack stays visible with the section; individual buttons still gate per capability.
@@ -1469,7 +1480,7 @@ function configureNodeSceneContextMenu(mode) {
   }
   // Disable lives under Visibility → Hide unused (multi-select aware).
   if (toggleModuleEnabledButton) {
-    toggleModuleEnabledButton.hidden = !moduleMode;
+    toggleModuleEnabledButton.hidden = !moduleMode || !showInletOutletVisibilityChrome;
     if (!moduleMode) {
       toggleModuleEnabledButton.disabled = true;
       const label = toggleModuleEnabledButton.querySelector(".scene-context-window-button-label")
@@ -1487,7 +1498,7 @@ function configureNodeSceneContextMenu(mode) {
   if (nativeLibButton) {
     nativeLibButton.hidden = !nativeLibEntry;
   }
-  toggleButtonsButton.hidden = !moduleMode || (multiModuleMode && !multiCanButtons);
+  toggleButtonsButton.hidden = !showInletOutletVisibilityChrome || (multiModuleMode && !multiCanButtons);
   toggleOscilloscopeButton.hidden = !(
     moduleMode && (
       multiModuleMode
@@ -1509,14 +1520,14 @@ function configureNodeSceneContextMenu(mode) {
         : nodeGraphModuleTypeHasHideableSliders(targetNode?.type)
     )
   );
-  toggleIoButton.hidden = !moduleMode || (multiModuleMode && !multiCanButtons);
+  toggleIoButton.hidden = !showInletOutletVisibilityChrome || (multiModuleMode && !multiCanButtons);
   if (toggleHideUnusedButton) {
-    toggleHideUnusedButton.hidden = !moduleMode || (multiModuleMode && !selectedNodes.length);
+    toggleHideUnusedButton.hidden = !showInletOutletVisibilityChrome || (multiModuleMode && !selectedNodes.length);
   }
   if (toggleCollapsedButton) {
-    toggleCollapsedButton.hidden = !moduleMode || (multiModuleMode && !selectedNodes.length);
+    toggleCollapsedButton.hidden = !showInletOutletVisibilityChrome || (multiModuleMode && !selectedNodes.length);
   }
-  toggleTitleButton.hidden = !moduleMode || (multiModuleMode && !multiCanButtons);
+  toggleTitleButton.hidden = !showInletOutletVisibilityChrome || (multiModuleMode && !multiCanButtons);
   imageControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "image");
   // Image layers / span / offset / readout live in Display Settings, not Module Settings.
   if (knobFaceControls) {
@@ -2379,9 +2390,9 @@ function openNodeGraphModuleSettingsFromContextEvent(event, nodeElement = null) 
   event?.preventDefault?.();
   event?.stopPropagation?.();
   event?.stopImmediatePropagation?.();
-  // Pin Module Settings to this module without changing graph selection.
-  if (typeof nodeGraphSelectionDisplaySyncKey === "function") {
-    nodeGraphMvp._displayChangeSyncKey = nodeGraphSelectionDisplaySyncKey();
+  // Right-click selects first so Command Center / Settings only bind selected modules.
+  if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
+    ensureNodeGraphModuleSelectedForContext(nodeId);
   }
   nodeGraphMvp.sceneContextPoint = null;
   if (typeof closeNodeScopeContextMenu === "function") {
@@ -2485,19 +2496,22 @@ function openNodeXyPadContextMenu(event) {
     // Solid custom-ui wrapper (padding around the canvas) still counts.
     const solidFace = target.closest?.(".node-solid-module-custom-ui");
     const solidNode = solidFace?.closest?.(".dsp-node");
-    if (!solidFace || solidNode?.dataset?.nodeType !== "xyPad") {
+    if (!solidFace || (solidNode?.dataset?.nodeType !== "xyPad" && solidNode?.dataset?.nodeType !== "theremin")) {
       return false;
     }
   }
   const nodeEl = (face || target).closest?.(".dsp-node");
   const nodeId = String(nodeEl?.dataset?.node || face?.dataset?.node || "").trim();
   const patchNode = nodeId ? nodeGraphPatchNode(nodeId) : null;
-  if (!patchNode || patchNode.type !== "xyPad") {
+  if (!patchNode || (patchNode.type !== "xyPad" && patchNode.type !== "theremin")) {
     return false;
   }
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
+  if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
+    ensureNodeGraphModuleSelectedForContext(nodeId);
+  }
   // Prefer phosphor Display Settings (color / background / reset canvas).
   if (typeof openNodeGraphTraceDisplaySettings === "function") {
     nodeGraphMvp.sceneContextTargetNode = nodeId;
@@ -2539,6 +2553,9 @@ function openNodeRoundShapeContextMenu(event) {
   event.preventDefault?.();
   event.stopPropagation?.();
   event.stopImmediatePropagation?.();
+  if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
+    ensureNodeGraphModuleSelectedForContext(nodeId);
+  }
   if (typeof closeNodeSceneContextMenu === "function") {
     closeNodeSceneContextMenu();
   }
@@ -2616,6 +2633,9 @@ function openNodeScopeContextMenu(event) {
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
+  if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
+    ensureNodeGraphModuleSelectedForContext(nodeId);
+  }
   if (typeof closeNodeSceneContextMenu === "function") {
     closeNodeSceneContextMenu();
   }
@@ -2645,6 +2665,9 @@ function openNodeSampleWaveformContextMenu(event) {
   }
   event.preventDefault();
   event.stopPropagation();
+  if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
+    ensureNodeGraphModuleSelectedForContext(nodeId);
+  }
   if (typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
     return true;
   }

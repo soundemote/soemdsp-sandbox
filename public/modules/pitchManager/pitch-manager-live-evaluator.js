@@ -1,4 +1,4 @@
-/** Pitch Manager — MIDI offsets → one Pitch→Hz, Inc = Hz/sr, pitch thru. */
+/** Pitch Manager — MIDI offsets → one Pitch→Hz, inc = Hz/sr, pitch thru. */
 nodeGraphLiveModuleEvaluators.pitchManager = ({
   runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate,
 }) => {
@@ -15,7 +15,7 @@ nodeGraphLiveModuleEvaluators.pitchManager = ({
   const tuningRaw = read("tuning", 440);
   const planck = typeof nodeGraphPlanck === "function" ? nodeGraphPlanck() : 1e-7;
   if (!(tuningRaw > planck)) {
-    return { Inc: 0, f: 0, pitch: 0 };
+    return { pitch: 0, f: 0, inc: 0 };
   }
   const tuning = tuningRaw;
   const octave = read("octave", 0);
@@ -40,5 +40,5 @@ nodeGraphLiveModuleEvaluators.pitchManager = ({
   hz = hz * (Number.isFinite(multiply) ? multiply : 1) + (Number.isFinite(add) ? add : 0);
   if (!(hz === hz)) hz = 0;
   const sr = Number(sampleRate) > 1 ? Number(sampleRate) : 44100;
-  return { Inc: hz / sr, f: hz, pitch: midi };
+  return { pitch: midi, f: hz, inc: hz / sr };
 };

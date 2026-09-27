@@ -1360,7 +1360,7 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
     ),
     // Positive Y offset moves only the knob graphic down; label/value stay pinned.
     dialOffsetY: normalizeNodeGraphTraceDisplayNumber(
-      source.dialOffsetY ?? source.knobOffsetY ?? source.offsetY,
+      source.dialOffsetY ?? source.dialY ?? source.knobY ?? source.knobOffsetY ?? source.offsetY,
       defaults.dialOffsetY ?? 0,
       -1,
       1,
@@ -1375,6 +1375,13 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
       source.valueSize ?? source.readoutSize,
       defaults.valueSize ?? 0.2,
       0,
+      1,
+    ),
+    // Positive Y: top→down, bottom→lift off edge, mid/midknob→down from center/dial.
+    valueOffsetY: normalizeNodeGraphTraceDisplayNumber(
+      source.valueOffsetY ?? source.readoutOffsetY ?? source.valueY ?? source.numberOffsetY,
+      defaults.valueOffsetY ?? 0,
+      -1,
       1,
     ),
     labelPosition: normalizeNodeGraphKnobFaceTextPosition(
@@ -1452,16 +1459,28 @@ function normalizeNodeGraphKnobPinAlign(value, fallback = "mid") {
   return nodeGraphKnobPinAligns.includes(fb) ? fb : "mid";
 }
 
-const nodeGraphKnobFaceTextPositions = Object.freeze(["off", "top", "mid", "bottom"]);
+const nodeGraphKnobFaceTextPositions = Object.freeze(["off", "top", "mid", "midknob", "bottom"]);
 
 function normalizeNodeGraphKnobFaceTextPosition(value, fallback = "mid") {
   const raw = String(value || "").trim().toLowerCase();
+  const compact = raw.replace(/[\s_-]+/g, "");
   // Legacy above/below → top/bottom (toggle/unit-style align names).
   if (raw === "above") {
     return "top";
   }
   if (raw === "below") {
     return "bottom";
+  }
+  // Mid knob = center of the dial/arc circle (tracks dialOffsetY), not face mid.
+  if (
+    compact === "midknob"
+    || compact === "knobmid"
+    || compact === "dialmid"
+    || compact === "dialcenter"
+    || compact === "knobcenter"
+    || compact === "arccenter"
+  ) {
+    return "midknob";
   }
   if (raw === "middle" || raw === "center") {
     return "mid";
@@ -1472,6 +1491,14 @@ function normalizeNodeGraphKnobFaceTextPosition(value, fallback = "mid") {
   let fb = String(fallback || "mid").trim().toLowerCase();
   if (fb === "above") fb = "top";
   if (fb === "below") fb = "bottom";
+  const fbCompact = fb.replace(/[\s_-]+/g, "");
+  if (
+    fbCompact === "midknob"
+    || fbCompact === "knobmid"
+    || fbCompact === "dialmid"
+  ) {
+    return "midknob";
+  }
   return nodeGraphKnobFaceTextPositions.includes(fb) ? fb : "mid";
 }
 

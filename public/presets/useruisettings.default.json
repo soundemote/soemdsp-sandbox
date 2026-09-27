@@ -225,7 +225,6 @@
         "besselThomson",
         "massSpringDamper",
         "binaryClock",
-        "theremin",
         "wavetable2d",
         "wavetable3d",
         "pixelGrid",
@@ -236,7 +235,6 @@
         "waveguide",
         "phaser",
         "flanger",
-
         "electroKick",
         "electroSnare",
         "electroHat",

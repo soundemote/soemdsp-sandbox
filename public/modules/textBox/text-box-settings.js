@@ -1,5 +1,8 @@
 // Text Box look lives in the shared Display Settings popover.
-// Numeric rows reuse the Waveform / LED range sliders (.node-led-settings-row).
+// Range rows reuse Waveform / LED (.node-led-settings-row).
+// Layout: two-column grid (label | controls) scoped to this panel only.
+// Background alpha reuses the app-wide scrub number (data-unit-stepper-drag),
+// same interaction family as top-bar BPM and Display Settings unit fields.
 // Colors use Sound Color Widgets. Titles live inside the widget (Bg / Text).
 
 const NODE_GRAPH_TEXT_BOX_DISPLAY_SLIDER_FIELDS = Object.freeze([
@@ -7,6 +10,11 @@ const NODE_GRAPH_TEXT_BOX_DISPLAY_SLIDER_FIELDS = Object.freeze([
   "textWeight",
   "lineHeight",
   "verticalAlignPercent",
+]);
+
+/** Scrubbable editable numbers -- same data-unit-stepper-drag family as BPM-style 0..1 fields. */
+const NODE_GRAPH_TEXT_BOX_DISPLAY_SCRUB_FIELDS = Object.freeze([
+  "backgroundAlpha",
 ]);
 
 function nodeGraphTextBoxDisplaySettingsForNode(node) {
@@ -23,11 +31,25 @@ function nodeGraphTextBoxDisplaySliderDefaults() {
       textWeight: typeof NODE_GRAPH_TEXT_BOX_DEFAULT_TEXT_WEIGHT === "number"
         ? NODE_GRAPH_TEXT_BOX_DEFAULT_TEXT_WEIGHT
         : 400,
+      backgroundAlpha: typeof NODE_GRAPH_TEXT_BOX_DEFAULT_BACKGROUND_ALPHA === "number"
+        ? NODE_GRAPH_TEXT_BOX_DEFAULT_BACKGROUND_ALPHA
+        : 0.78,
       lineHeight: typeof NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT === "number"
         ? NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT
         : 1.2,
       verticalAlignPercent: 50,
     };
+}
+
+function nodeGraphTextBoxFormatBackgroundAlpha(value) {
+  if (typeof normalizeNodeGraphTextBoxBackgroundAlpha === "function") {
+    return String(normalizeNodeGraphTextBoxBackgroundAlpha(value));
+  }
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return "0.78";
+  }
+  return String(Math.max(0, Math.min(1, Number((Math.round(n * 100) / 100).toFixed(2)))));
 }
 
 function buildNodeGraphTextBoxDisplaySettingsBodyHtml() {
@@ -37,44 +59,80 @@ function buildNodeGraphTextBoxDisplaySettingsBodyHtml() {
   const fontOptions = typeof nodeGraphAppFontOptionsHtml === "function"
     ? nodeGraphAppFontOptionsHtml()
     : "";
+  // Inline Boldness (same as nodeGraphAppFontWeightSettingsRowHtml) so we can
+  // wrap the range in .textbox-display-controls for the two-column grid.
+  const boldnessRow = `
+      <label class="node-led-settings-row textbox-display-settings-row">
+        <span>Boldness</span>
+        <div class="textbox-display-controls">
+          <input type="range" min="100" max="900" step="100" data-textbox-field="textWeight" aria-label="Font weight 100–900">
+        </div>
+      </label>`;
   return `
     <div class="node-led-display-settings-panel" data-textbox-display-settings-panel>
-      <div class="node-led-settings-row" role="group" aria-label="Text mode">
+      <div class="node-led-settings-row textbox-display-settings-row" role="group" aria-label="Text mode">
         <span>Mode</span>
-        <button type="button" data-textbox-mode="singleLine" aria-pressed="true">Single</button>
-        <button type="button" data-textbox-mode="multiline" aria-pressed="false">Multi</button>
+        <div class="textbox-display-controls">
+          <button type="button" data-textbox-mode="singleLine" aria-pressed="true">Single</button>
+          <button type="button" data-textbox-mode="multiline" aria-pressed="false">Multi</button>
+        </div>
       </div>
-      <div class="node-led-settings-row" role="group" aria-label="Horizontal align">
+      <div class="node-led-settings-row textbox-display-settings-row" role="group" aria-label="Horizontal align">
         <span>Align</span>
-        <button type="button" data-textbox-align="left" aria-pressed="false">Left</button>
-        <button type="button" data-textbox-align="center" aria-pressed="true">Center</button>
-        <button type="button" data-textbox-align="right" aria-pressed="false">Right</button>
+        <div class="textbox-display-controls">
+          <button type="button" data-textbox-align="left" aria-pressed="false">Left</button>
+          <button type="button" data-textbox-align="center" aria-pressed="true">Center</button>
+          <button type="button" data-textbox-align="right" aria-pressed="false">Right</button>
+        </div>
       </div>
-      <label class="node-led-settings-row" data-trace-display-choice-row="font">
+      <label class="node-led-settings-row textbox-display-settings-row" data-trace-display-choice-row="font">
         <span>Font</span>
-        <select data-trace-display-choice="font" data-textbox-font aria-label="Text box font">
-          ${fontOptions}
-        </select>
+        <div class="textbox-display-controls">
+          <select data-trace-display-choice="font" data-textbox-font aria-label="Text box font">
+            ${fontOptions}
+          </select>
+        </div>
       </label>
-      <label class="node-led-settings-row">
+      <label class="node-led-settings-row textbox-display-settings-row">
         <span>Vertical</span>
-        <input type="range" min="0" max="100" step="1" data-textbox-field="verticalAlignPercent" aria-label="Vertical position: 0 up, 50 natural, 100 down (±2 face heights)">
-        <span>%</span>
+        <div class="textbox-display-controls">
+          <input type="range" min="0" max="100" step="any" data-textbox-field="verticalAlignPercent" aria-label="Vertical position: 0 up, 50 natural, 100 down (±2 face heights)">
+          <span>%</span>
+        </div>
       </label>
-      <label class="node-led-settings-row">
+      <label class="node-led-settings-row textbox-display-settings-row">
         <span>Size</span>
-        <input type="range" min="50" max="1000" step="10" data-textbox-field="textSizePercent" aria-label="Text size 50–1000 percent">
-        <span>%</span>
+        <div class="textbox-display-controls">
+          <input type="range" min="50" max="1000" step="10" data-textbox-field="textSizePercent" aria-label="Text size 50–1000 percent">
+          <span>%</span>
+        </div>
       </label>
-      ${typeof nodeGraphAppFontWeightSettingsRowHtml === "function"
-        ? nodeGraphAppFontWeightSettingsRowHtml("data-textbox-field")
-        : `<label class="node-led-settings-row">
-        <span>Boldness</span>
-        <input type="range" min="100" max="900" step="100" data-textbox-field="textWeight" aria-label="Font weight 100–900">
-      </label>`}
-      <label class="node-led-settings-row">
+      ${boldnessRow}
+      <label class="node-led-settings-row textbox-display-settings-row">
         <span>Line height</span>
-        <input type="range" min="0.5" max="3" step="0.05" data-textbox-field="lineHeight" aria-label="Newline vertical spacing 0.5–3">
+        <div class="textbox-display-controls">
+          <input type="range" min="0.5" max="3" step="0.05" data-textbox-field="lineHeight" aria-label="Newline vertical spacing 0.5–3">
+        </div>
+      </label>
+      <label class="node-led-settings-row textbox-display-settings-row">
+        <span>Background alpha</span>
+        <div class="textbox-display-controls">
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.01"
+            inputmode="decimal"
+            data-textbox-field="backgroundAlpha"
+            data-unit-stepper-drag="true"
+            data-unit-min="0"
+            data-unit-max="1"
+            readonly
+            autocomplete="off"
+            aria-label="Background alpha"
+            title="Drag to adjust · double-click to type"
+          >
+        </div>
       </label>
       ${colorRow("backgroundColor", "textBoxFace")}
       ${colorRow("textColor", "textBoxFace")}
@@ -86,9 +144,24 @@ function syncNodeGraphTextBoxDisplaySettingsControls(root, settings) {
     return;
   }
   for (const key of NODE_GRAPH_TEXT_BOX_DISPLAY_SLIDER_FIELDS) {
+    const value = String(settings[key] ?? "");
     const el = root.querySelector?.(`[data-textbox-field="${key}"]`);
     if (el && document.activeElement !== el) {
-      el.value = String(settings[key] ?? "");
+      el.value = value;
+    }
+  }
+  for (const key of NODE_GRAPH_TEXT_BOX_DISPLAY_SCRUB_FIELDS) {
+    const value = key === "backgroundAlpha"
+      ? nodeGraphTextBoxFormatBackgroundAlpha(settings[key])
+      : String(settings[key] ?? "");
+    const el = root.querySelector?.(`[data-textbox-field="${key}"]`);
+    if (el && document.activeElement !== el && !el.classList.contains("editing")) {
+      el.value = value;
+    }
+    if (el) {
+      // Live current value as help -- not a useless 0..1 range hint.
+      el.title = value + " (drag to adjust, double-click to type)";
+      el.setAttribute("aria-valuetext", value);
     }
   }
   const mode = settings.textMode === "multiline" ? "multiline" : "singleLine";
@@ -133,8 +206,14 @@ function bindNodeGraphTextBoxDisplaySettingsBody(host) {
     }
   });
   host.addEventListener("change", (event) => {
+    const field = event.target?.closest?.("[data-textbox-field]");
+    if (field?.getAttribute("data-textbox-field") === "backgroundAlpha") {
+      // Number inputs accept out-of-range / over-precise text while editing;
+      // commit the same 0.01-stepped value that the face and patch store use.
+      field.value = nodeGraphTextBoxFormatBackgroundAlpha(field.value);
+    }
     if (
-      event.target?.closest?.("[data-textbox-field]")
+      field
       || event.target?.closest?.(`[data-trace-display-choice="font"], [data-textbox-font]`)
     ) {
       apply("immediate", true);
@@ -165,11 +244,47 @@ function bindNodeGraphTextBoxDisplaySettingsBody(host) {
       apply("immediate", true);
     }
   });
+  // Scrub number: drag via app-wide data-unit-stepper-drag; dblclick to type (BPM-style).
+  host.addEventListener("dblclick", (event) => {
+    const input = event.target?.closest?.("input[data-textbox-field][data-unit-stepper-drag]");
+    if (!input || !host.contains(input)) {
+      return;
+    }
+    input.readOnly = false;
+    input.classList.add("editing");
+    input.focus();
+    input.select();
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+  host.addEventListener("focusout", (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.hasAttribute("data-unit-stepper-drag")) {
+      return;
+    }
+    if (input.getAttribute("data-textbox-field") === "backgroundAlpha") {
+      input.value = nodeGraphTextBoxFormatBackgroundAlpha(input.value);
+    }
+    input.readOnly = true;
+    input.classList.remove("editing");
+  }, true);
+  host.addEventListener("keydown", (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.hasAttribute("data-unit-stepper-drag")) {
+      return;
+    }
+    if (event.key === "Enter" || event.key === "Escape") {
+      event.preventDefault();
+      input.blur();
+    }
+  }, true);
+
   const defaults = nodeGraphTextBoxDisplaySliderDefaults();
   if (typeof bindNodeGraphNativeSliderModifiers === "function") {
     for (const key of NODE_GRAPH_TEXT_BOX_DISPLAY_SLIDER_FIELDS) {
       const input = host.querySelector(`[data-textbox-field="${key}"]`);
-      if (input) {
+      // Range sliders only -- scrub numbers use unit-stepper-drag, not native-range modifiers.
+      if (input && input.type === "range") {
         bindNodeGraphNativeSliderModifiers(input, defaults[key]);
       }
     }

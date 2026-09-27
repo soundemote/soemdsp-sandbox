@@ -447,6 +447,17 @@ function handleNodeGraphKeydown(event) {
     selectAllNodeGraphModules();
     return;
   }
+  // Native clipboard (Ctrl/Cmd+C/X/V) must win in text fields -- including Sound
+  // Color Widget hex (.scw-hex / Bg text). Otherwise module-copy preventDefault
+  // steals the browser clipboard update when a module is selected.
+  if (
+    (event.ctrlKey || event.metaKey)
+    && !event.altKey
+    && ["c", "x", "v"].includes(event.key.toLowerCase())
+    && nodeGraphEventTargetIsTextEditable(event.target)
+  ) {
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
     if (copySelectedNodeGraphModule()) {
       event.preventDefault();

@@ -141,6 +141,10 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Value size";
     title = "Number / unit size 0…1 of the display min-edge. Independent of knob size and position.";
   }
+  if (key === "valueOffsetY" && formType === "knobFace") {
+    label = "Value Y offset";
+    title = "Value vertical offset −1…1 face heights. Top: positive moves down. Bottom: positive lifts off the edge. Mid / Mid knob: positive moves down from face mid or dial center.";
+  }
   if ((formType === "roundShapeFace" || formType === "basicShapeFace" || formType === "softwaveOscFace") && key === "lineThickness") {
     label = "Line thickness";
     title = formType === "roundShapeFace"

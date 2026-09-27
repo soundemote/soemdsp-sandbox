@@ -33,7 +33,7 @@
       inputLabels: {
         Reset: "Reset",
         "pitch": "♯/♭",
-        Increment: "Inc",
+        Increment: "inc",
         f: "ƒ",
       },
       // Legacy In/Out patches: Out → X.

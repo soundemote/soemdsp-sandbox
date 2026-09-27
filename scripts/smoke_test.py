@@ -10921,6 +10921,8 @@ def require_node_graph_mvp_contract() -> None:
         "function selectAllNodeGraphModules()",
         "setNodeGraphNodeSelection(nodeGraphMvp.patch.nodes.map((node) => node.id))",
         "function toggleNodeGraphNodeSelection(id, additive = false)",
+        # Ctrl/Cmd+click on inlet/outlet toggles module selection; does not start a wire.
+        "toggleNodeGraphNodeSelection(endpoint.node, true)",
         "const additiveSelection = event.ctrlKey || event.metaKey || event.shiftKey",
         "function nodeGraphSelectionHelpText()",
         "function composeNodeInteractionHelpText(text = \"\")",
