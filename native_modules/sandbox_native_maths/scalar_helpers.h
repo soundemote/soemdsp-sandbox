@@ -3,7 +3,7 @@
 //
 // Canonical homes (nested, matching soemdsp):
 //   soemdsp::debug  -- safe / is_bad / is_nan / default_if_zero / default_if_near_zero  (see debug.h)
-//   soemdsp::math   -- clamp, clamp01, clamp11, wrap01, wrap11, wrap(lo,hi), floor/ceil, ...
+//   soemdsp::math   -- clamp, clamp01, clamp11, wrap01, wrap01_frac, wrap01f, wrap11, wrap11_closed, wrap_radians, wrap(lo,hi), floor/ceil, ...
 // Flat soemdsp_maths:: is a compatibility mirror for existing modules.
 #pragma once
 
@@ -67,6 +67,31 @@ static inline double wrap11(double value) {
   return 2.0 * wrap01(0.5 * (value + 1.0)) - 1.0;
 }
 
+// Wrap into closed [-1, +1]. Exact +/-1 stay; outside uses wrap11.
+static inline double wrap11_closed(double value) {
+  if (value >= -1.0 && value <= 1.0) return value;
+  return wrap11(value);
+}
+
+// Float unit-interval wrap (promoted from additive_yellow_graph local).
+static inline float wrap01f(float value) {
+  return (float)wrap01((double)value);
+}
+
+// Radians wrap into [-period/2, +period/2] via nearest multiple (blit/dsf).
+// Default period 2*pi -> [-pi, +pi]. Pass pi for blit half-cycle phase.
+static inline double wrap_radians(double value, double period) {
+  if (!(period > 0.0)) return 0.0;
+  const double turns = value / period;
+  const double n = dsp_floor(turns + 0.5);
+  return value - n * period;
+}
+
+static inline double wrap_radians(double value) {
+  constexpr double kTwoPi = 6.283185307179586476925286766559;
+  return wrap_radians(value, kTwoPi);
+}
+
 // Wrap into [lo, hi). Half-open, matching wrap01 / wrap11.
 // Inspired by soemdsp::math::wrap(phase) and wrap(phase, modulus), but with
 // explicit endpoints (soemdsp's 2-arg form is modulus-from-zero only).
@@ -119,7 +144,10 @@ using soemdsp::math::near_planck;
 using soemdsp::math::silent_planck;
 using soemdsp::math::wrap01;
 using soemdsp::math::wrap01_frac;
+using soemdsp::math::wrap01f;
 using soemdsp::math::wrap11;
+using soemdsp::math::wrap11_closed;
+using soemdsp::math::wrap_radians;
 using soemdsp::math::wrap;
 using soemdsp::math::safe_bounded;
 using soemdsp::math::hash_bipolar;

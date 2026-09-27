@@ -178,9 +178,7 @@ inline void graph_copy(GraphPayload& dst, const GraphPayload& src) {
 
 // --- internal helpers (header-local) ---
 
-static inline float wrap01f(float v) {
-  return (float)soemdsp_maths::wrap01((double)v);
-}
+using soemdsp_maths::wrap01f;
 
 static inline float clamp_f(float v, float lo, float hi) {
   return (float)soemdsp_maths::clamp((double)v, (double)lo, (double)hi);

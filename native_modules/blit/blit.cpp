@@ -39,6 +39,7 @@
 #include "../sandbox_native_maths/scalar_helpers.h"
 using soemdsp_maths::clamp;
 using soemdsp_maths::clamp11;
+using soemdsp_maths::wrap_radians;
 
 namespace {
 
@@ -47,19 +48,9 @@ constexpr double kTwoPi = kPi * 2.0;
 constexpr double kHalfPi = kPi * 0.5;
 constexpr int kMaxInstances = 16;
 
-// Single-shot modulo instead of iterative subtraction -- keeps full
-// precision regardless of how large the argument gets.
-double wrapRadiansGeneric(double value, double period) {
-  const double turns = value / period;
-  const double n = __builtin_floor(turns + 0.5);
-  return value - n * period;
-}
-
-double wrapRadians(double value) { return wrapRadiansGeneric(value, kTwoPi); }
-
 // Taylor series through x^17, Horner-evaluated (~2e-8 worst-case error).
 double sinApprox(double value) {
-  const double x = wrapRadians(value);
+  const double x = wrap_radians(value);
   const double x2 = x * x;
   double acc = 1.0 / 355687428096000.0;       // 1/17!
   acc = -1.0 / 1307674368000.0 + x2 * acc;    // -1/15!
@@ -112,7 +103,7 @@ struct BlitSaw {
 
     const double dir = direction < 0.0 ? -1.0 : 1.0;
     phase += dir * (kPi / p);
-    phase = wrapRadiansGeneric(phase, kPi);
+    phase = wrap_radians(phase, kPi);
 
     return tmp;
   }

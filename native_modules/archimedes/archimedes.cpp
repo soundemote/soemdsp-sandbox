@@ -25,7 +25,11 @@ typedef long long int64_t;
 // Freestanding wasm32: no standard library, no imports. All transcendental
 // helpers used by the phase-control API are implemented locally.
 
+#include "../sandbox_native_maths/scalar_helpers.h"
+
 namespace {
+
+using soemdsp_maths::wrap_radians;
 
 constexpr double kPi = 3.1415926535897932384626433832795;
 constexpr double kTwoPi = kPi * 2.0;
@@ -42,14 +46,8 @@ double sqrtApprox(double v) {
   return guess;
 }
 
-double wrapRadians(double x) {
-  while (x > kPi) x -= kTwoPi;
-  while (x < -kPi) x += kTwoPi;
-  return x;
-}
-
 double sinApprox(double x) {
-  const double w = wrapRadians(x);
+  const double w = wrap_radians(x);
   const double x2 = w * w;
   return w * (1.0 + x2 * (-1.0 / 6.0 + x2 * (1.0 / 120.0 +
          x2 * (-1.0 / 5040.0 + x2 * (1.0 / 362880.0)))));

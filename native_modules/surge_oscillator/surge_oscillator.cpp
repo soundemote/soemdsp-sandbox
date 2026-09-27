@@ -48,14 +48,8 @@ using namespace soemdsp_maths;
 
 constexpr int kMaxInstances = 16;
 
-double wrapRadians(double value) {
-  while (value > kPi) value -= kTwoPi;
-  while (value < -kPi) value += kTwoPi;
-  return value;
-}
-
 double sinApprox(double value) {
-  const double x = wrapRadians(value);
+  const double x = wrap_radians(value);
   const double x2 = x * x;
   return x * (1.0 + x2 * (-1.0 / 6.0 + x2 * (1.0 / 120.0 + x2 * (-1.0 / 5040.0 + x2 * (1.0 / 362880.0)))));
 }

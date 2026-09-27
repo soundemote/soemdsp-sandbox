@@ -78,19 +78,6 @@ namespace {
 
 using namespace soemdsp_maths;
 
-// Single-shot range reduction (round to nearest multiple of 2*pi and
-// subtract) instead of a while-loop of repeated subtraction -- avoids
-// hundreds of sequential float subtractions (needed at N in the
-// thousands, i.e. very low frequencies) that could otherwise accumulate
-// rounding error. Verified numerically (Python) this matches the
-// while-loop version to ~6e-11 -- not itself the source of the low-
-// frequency bug below, but a more robust way to reduce a huge argument
-// in one step rather than many.
-double wrapRadians(double value) {
-  const double twoPi = kPi * 2.0;
-  return value - twoPi * __builtin_floor(value / twoPi + 0.5);
-}
-
 // A truncated-at-x^12 Taylor series (7 terms) has ~2e-5 absolute error
 // near x=pi. That was fine for the previous fixed-retention (0.999,
 // ~1000-sample memory, gain ~1000) integrator, but the new frequency-
@@ -103,7 +90,7 @@ double wrapRadians(double value) {
 // artifact. Extended to a 10-term series (error ~5e-10) to give enough
 // headroom for the higher gain the adaptive retention now requires.
 double sinApprox(double value) {
-  const double x = wrapRadians(value);
+  const double x = wrap_radians(value);
   const double x2 = x * x;
   double result = -1.0 / 121645100408832000.0;
   result = 1.0 / 355687428096000.0 + x2 * result;
