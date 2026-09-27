@@ -37,13 +37,15 @@
 
 #include "../sandbox_native_maths/scalar_helpers.h"
 using soemdsp_maths::clamp;
+using soemdsp_maths::kPi;
+using soemdsp_maths::kTwoPi;
+using soemdsp_maths::kHalfPi;
 
 namespace {
 
 static const int kMaxInstances = 16;
 static const int kMaxPulses = 128;
 static const int kMaxRejectionAttempts = 200;
-static const double kPi = 3.141592653589793238;
 
 struct ScheduledPulse {
   double time;
@@ -83,8 +85,6 @@ static double dsp_sin_0_halfpi(double x) {
 // Full-range sin via quadrant folding, argument in radians, no domain
 // restriction (matches this project's established dsp_sin pattern).
 static double dsp_sin(double x) {
-  const double kTwoPi = 6.283185307179586476;
-  const double kHalfPi = 1.5707963267948966192;
   double xi = (double)(long long)(x / kTwoPi);
   if (x / kTwoPi < xi) xi -= 1.0;
   double wrapped = x - kTwoPi * xi;

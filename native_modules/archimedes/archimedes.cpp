@@ -30,10 +30,9 @@ typedef long long int64_t;
 namespace {
 
 using soemdsp_maths::wrap_radians;
-
-constexpr double kPi = 3.1415926535897932384626433832795;
-constexpr double kTwoPi = kPi * 2.0;
-constexpr double kHalfPi = kPi * 0.5;
+using soemdsp_maths::kPi;
+using soemdsp_maths::kTwoPi;
+using soemdsp_maths::kHalfPi;
 constexpr int kMaxInstances = 16;
 
 // ---- Local transcendental helpers (freestanding, no libm) ------------------

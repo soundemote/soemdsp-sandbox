@@ -19,10 +19,6 @@ union DoubleBits {
   unsigned long long u;
 };
 
-static const double kPi     = 3.141592653589793238;
-static const double kTwoPi  = 6.283185307179586476;
-static const double kHalfPi = 1.5707963267948966192;
-
 static inline double poly_sin_0_halfpi(double x) {
   const double x2 = x * x;
   return x * (1.0 + x2 * (-1.6666666666666667e-1 + x2 * (8.3333333333333329e-3 + x2 * (-1.9841269841269841e-4 + x2 * (2.7557319223985888e-6 + x2 * (-2.5052108385441720e-8 + x2 * 1.6059043836821614e-10))))));

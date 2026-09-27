@@ -15,7 +15,6 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 64;
-static const double kPi = 3.14159265358979323846;
 
 struct WowAndFlutterState {
   bool active;

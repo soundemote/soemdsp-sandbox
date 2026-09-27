@@ -15,7 +15,6 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 16;
-static const double kTau = 6.28318530717958647692;
 struct WirdoSpiralState {
   bool active;
   double phase;

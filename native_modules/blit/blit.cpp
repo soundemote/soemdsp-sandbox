@@ -40,12 +40,12 @@
 using soemdsp_maths::clamp;
 using soemdsp_maths::clamp11;
 using soemdsp_maths::wrap_radians;
+using soemdsp_maths::kPi;
+using soemdsp_maths::kTwoPi;
+using soemdsp_maths::kHalfPi;
 
 namespace {
 
-constexpr double kPi = 3.1415926535897932384626433832795;
-constexpr double kTwoPi = kPi * 2.0;
-constexpr double kHalfPi = kPi * 0.5;
 constexpr int kMaxInstances = 16;
 
 // Taylor series through x^17, Horner-evaluated (~2e-8 worst-case error).

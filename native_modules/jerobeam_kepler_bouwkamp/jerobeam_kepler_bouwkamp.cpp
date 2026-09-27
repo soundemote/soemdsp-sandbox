@@ -19,7 +19,6 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 16;
-static const double kTau = 6.28318530717958647692;
 struct KeplerBouwkampState {
   bool active;
   double phase;  // radians, 0..2*pi (matches the reference's own domain)

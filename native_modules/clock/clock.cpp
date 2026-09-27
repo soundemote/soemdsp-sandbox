@@ -14,7 +14,6 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 32;
-static const double kPiLocal = 3.141592653589793238;
 
 struct ClockState {
   bool active;
@@ -38,10 +37,10 @@ static double clock_analog_whip_sample(double phase, double level) {
   const double attack = 1.0 - pow_nonneg(1.0 - mind(1.0, p / 0.035), 4.0);
   const double release = pow_nonneg(maxd(0.0, 1.0 - p), 1.85);
   const double snapEnvelope = attack * release;
-  const double sweepTurns = (3.15 * (1.0 - dsp_exp(-4.2 * p)) / (1.0 - dsp_exp(-4.2))) + (0.18 * dsp_sin(kPiLocal * p));
-  const double liquidBend = 0.075 * dsp_sin(kPiLocal * 2.0 * p) * pow_nonneg(maxd(0.0, 1.0 - p), 1.2);
-  const double body = dsp_sin((sweepTurns + liquidBend) * kPiLocal * 2.0);
-  const double sheen = dsp_sin((sweepTurns * 2.02 + 0.17) * kPiLocal * 2.0) * 0.16 * pow_nonneg(maxd(0.0, 1.0 - p), 2.8);
+  const double sweepTurns = (3.15 * (1.0 - dsp_exp(-4.2 * p)) / (1.0 - dsp_exp(-4.2))) + (0.18 * dsp_sin(kPi * p));
+  const double liquidBend = 0.075 * dsp_sin(kPi * 2.0 * p) * pow_nonneg(maxd(0.0, 1.0 - p), 1.2);
+  const double body = dsp_sin((sweepTurns + liquidBend) * kPi * 2.0);
+  const double sheen = dsp_sin((sweepTurns * 2.02 + 0.17) * kPi * 2.0) * 0.16 * pow_nonneg(maxd(0.0, 1.0 - p), 2.8);
   return (body + sheen) * snapEnvelope * level;
 }
 

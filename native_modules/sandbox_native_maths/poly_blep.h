@@ -4,12 +4,9 @@
 // Freestanding: no libm.
 #pragma once
 
+#include "constant.h"
+
 namespace soemdsp::math {
-
-namespace detail {
-constexpr double k1z3 = 1.0 / 3.0;
-}
-
 // Quadratic PolyBLEP residual around a unit-interval discontinuity.
 // dt <= 0 (e.g. 0 Hz): no correction -- callers own any floor/clamp policy.
 static inline double poly_blep(double t, double dt) {
@@ -30,11 +27,11 @@ static inline double poly_blamp(double t, double dt) {
   if (!(dt > 0.0)) return 0.0;
   if (t < dt) {
     const double u = t / dt - 1.0;
-    return -detail::k1z3 * u * u * u;
+    return -soemdsp::constant::k1z3 * u * u * u;
   }
   if (t > 1.0 - dt) {
     const double u = (t - 1.0) / dt + 1.0;
-    return detail::k1z3 * u * u * u;
+    return soemdsp::constant::k1z3 * u * u * u;
   }
   return 0.0;
 }

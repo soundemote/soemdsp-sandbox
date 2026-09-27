@@ -1611,6 +1611,8 @@ using soemdsp_maths::dsp_fabs;
 using soemdsp_maths::wrap01;
 using soemdsp_maths::wrap;
 using soemdsp_maths::kPlanck;
+using soemdsp_maths::kPi;
+using soemdsp_maths::kTwoPi;
 using soemdsp_maths::safe;
 using soemdsp_maths::clamp;
 using soemdsp_maths::clamp11;
@@ -1948,8 +1950,6 @@ static const int kTapSquare = 8;
 static const int kTapTri = 16;
 static const int kTapSine = 32;
 
-static const double kTwoPi = 6.28318530717958647692;
-static const double kPi = 3.14159265358979323846;
 
 static const unsigned char kSmoothModeInternal = 0;
 static const unsigned char kSmoothModeGlobal = 1;

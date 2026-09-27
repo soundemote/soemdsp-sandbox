@@ -2,19 +2,16 @@
 // dependency, used by nearly every native_modules/*.cpp.
 //
 // Canonical homes (nested, matching soemdsp):
-//   soemdsp::debug  -- safe / is_bad / is_nan / default_if_zero / default_if_near_zero  (see debug.h)
-//   soemdsp::math   -- clamp, clamp01, clamp11, wrap01, wrap01_frac, wrap01f, wrap11, wrap11_closed, wrap_radians, wrap(lo,hi), floor/ceil, ...
+//   soemdsp::constant -- kPI / kTAU / kPIz2 / k1z3 / kPlanck (+ compat aliases; see constant.h)
+//   soemdsp::debug    -- safe / is_bad / is_nan / default_if_zero / default_if_near_zero  (see debug.h)
+//   soemdsp::math     -- clamp, clamp01, clamp11, wrap01, wrap01_frac, wrap01f, wrap11(_closed)/wrap_radians/wrap/floor/ceil, ...
 // Flat soemdsp_maths:: is a compatibility mirror for existing modules.
 #pragma once
 
 #include "debug.h"
+#include "constant.h"
 
 namespace soemdsp::math {
-
-// Universe floor — same number as public/node-graph-semath.js NODE_GRAPH_PLANCK.
-// Silence, idle, dirty-near, envelope rest. Not a divide-by-zero guard for
-// frequency/scale/period (those keep their own positive floors).
-constexpr double kPlanck = 1.0e-7;
 
 static inline double clamp(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
 static inline double clamp01(double x) { return clamp(x, 0.0, 1.0); }
@@ -40,11 +37,11 @@ static inline double dsp_ceil(double x) {
 static inline double dsp_fabs(double x) { return x < 0.0 ? -x : x; }
 
 static inline bool near_planck(double a, double b) {
-  return dsp_fabs(a - b) < kPlanck;
+  return dsp_fabs(a - b) < soemdsp::constant::kPlanck;
 }
 
 static inline bool silent_planck(double x) {
-  return dsp_fabs(x) < kPlanck;
+  return dsp_fabs(x) < soemdsp::constant::kPlanck;
 }
 
 // x - floor(x), wrapped into [0, 1).
@@ -88,8 +85,7 @@ static inline double wrap_radians(double value, double period) {
 }
 
 static inline double wrap_radians(double value) {
-  constexpr double kTwoPi = 6.283185307179586476925286766559;
-  return wrap_radians(value, kTwoPi);
+  return wrap_radians(value, soemdsp::constant::kTAU);
 }
 
 // Wrap into [lo, hi). Half-open, matching wrap01 / wrap11.
@@ -130,7 +126,6 @@ using soemdsp::debug::safe;
 using soemdsp::debug::default_if_zero;
 using soemdsp::debug::default_if_near_zero;
 
-using soemdsp::math::kPlanck;
 using soemdsp::math::clamp;
 using soemdsp::math::clamp01;
 using soemdsp::math::clamp11;
