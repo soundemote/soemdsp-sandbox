@@ -5,6 +5,7 @@
 
 #include "scalar_helpers.h"
 #include "analog_filter_trig.h"
+#include "midi_hz.h"
 
 namespace soemdsp_maths {
 
@@ -133,7 +134,7 @@ static inline double polyphony_voice_hz(
   double freqOffset
 ) {
   if (midi < 0 || midi > 127) return 0.0;
-  const double base = 440.0 * dsp_exp2((double)(midi - 69) / 12.0);
+  const double base = midi_to_hz((double)midi);
   const double ratio = dsp_exp2(safe(octave) + safe(semitones) / 12.0 + safe(cents) / 1200.0);
   return base * ratio + safe(freqOffset);
 }

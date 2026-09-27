@@ -36,18 +36,10 @@ static const char kMetadataJson[] =
   "}";
 
 
-static void coeffs(double center, double width, double* scaleX, double* shiftX, double* scaleY, double* shiftY) {
-  const double safeWidth = dsp_fabs(width) > 1.0e-6 ? dsp_fabs(width) : 2.0;
-  *scaleX = 2.0 / safeWidth;
-  *shiftX = -1.0 - ((*scaleX) * (center - 0.5 * safeWidth));
-  *scaleY = 1.0 / (*scaleX);
-  *shiftY = -(*shiftX) * (*scaleY);
-}
-
 static double shaped(double input, double center, double width) {
   double scaleX, shiftX, scaleY, shiftY;
-  coeffs(center, width, &scaleX, &shiftX, &scaleY, &shiftY);
-  return shiftY + scaleY * tanh_approx(scaleX * input + shiftX);
+  soft_clip_coeffs(center, width, &scaleX, &shiftX, &scaleY, &shiftY);
+  return soft_clip_apply(input, scaleX, shiftX, scaleY, shiftY);
 }
 
 static double softclip_aa(Channel* c, double input, double center, double width, double antialias) {
@@ -58,7 +50,7 @@ static double softclip_aa(Channel* c, double input, double center, double width,
   c->n += 1;
   const double x = input + aa * 0.0005 * hash_bipolar(c->n, 0x51edu);
   double scaleX, shiftX, scaleY, shiftY;
-  coeffs(center, width, &scaleX, &shiftX, &scaleY, &shiftY);
+  soft_clip_coeffs(center, width, &scaleX, &shiftX, &scaleY, &shiftY);
   const double u = scaleX * x + shiftX;
   const double Fu = tanh_antideriv(u);
   const double du = u - c->u1;

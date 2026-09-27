@@ -250,7 +250,7 @@ static void capture_midi(State& s, int midi) {
   if (midi > 127) midi = 127;
   s.lastMidi = midi;
   s.lastPitch = (double)midi;
-  s.lastFreqHz = 440.0 * dsp_exp2(((double)midi - 69.0) / 12.0);
+  s.lastFreqHz = midi_to_hz((double)midi);
 }
 
 static void capture_note(State& s, int playIndex, int steps, int octaveOffset) {

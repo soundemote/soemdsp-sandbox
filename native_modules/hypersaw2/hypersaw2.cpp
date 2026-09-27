@@ -46,19 +46,11 @@ double randomBipolar(unsigned int& state) {
 
 // soemdsp::math::poly_blep / poly_blamp.
 
-static inline double morphWidth01(double morph) {
-  double w = (!is_nan(morph)) ? morph : 0.5;
-  if (w < 0.0) w = 0.0;
-  if (w > 1.0) w = 1.0;
-  if (w < 1.0e-4) w = 1.0e-4;
-  if (w > 1.0 - 1.0e-4) w = 1.0 - 1.0e-4;
-  return w;
-}
 
 // Waveform indices (UI order):
 // 0 Trisaw, 1 Saw, 2 Pulse Center, 3 Ramp, 4 Pulse, 5 RectifiedSin, 6 Trapezoid
 double polyBlepTrisaw(double t, double dt, double morph) {
-  const double pw = morphWidth01(morph);
+  const double pw = morph_width01(morph);
   const double t1 = wrap01(t + 0.5 * pw);
   const double t2 = wrap01(t + 1.0 - 0.5 * pw);
   double y = t * 2.0;
@@ -87,7 +79,7 @@ double polyBlepRamp(double t, double dt) {
 }
 
 double polyBlepPulse(double t, double dt, double morph) {
-  const double pw = morphWidth01(morph);
+  const double pw = morph_width01(morph);
   const double t1 = wrap01(t + 1.0 - pw);
   double y = -2.0 * pw;
   if (t < pw) y += 2.0;
@@ -96,7 +88,7 @@ double polyBlepPulse(double t, double dt, double morph) {
 }
 
 double polyBlepPulseCenter(double t, double dt, double morph) {
-  const double u = morphWidth01(morph);
+  const double u = morph_width01(morph);
   double t1 = wrap01(t + 0.875 + 0.25 * (u - 0.5));
   double t2 = wrap01(t + 0.375 + 0.25 * (u - 0.5));
   double y = t1 < 0.5 ? 1.0 : -1.0;

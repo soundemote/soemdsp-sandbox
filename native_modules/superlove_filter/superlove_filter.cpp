@@ -34,9 +34,6 @@ static inline double jmap01(double v, double outMin, double outMax) {
   return outMin + (outMax - outMin) * v;
 }
 
-static inline double pitchToFreq(double pitch) {
-  return 440.0 * dsp_exp2((pitch - 69.0) / 12.0);
-}
 
 // soemdsp's standalone curve() tension function (distinct from
 // curve::Rational). 0->0, 1->1, tension 0 is linear.
@@ -187,7 +184,7 @@ extern "C" double soemdsp_superlove_filter_sample(
     const GraphNode resonanceGraph[2] = { {0, 0, 0, 0}, {1, -2.7175, -0.85, 2} };
     const GraphNode noiseGraph[3] = { {0, 0.00, 0, 0}, {0.75, 0.05, -0.7, 2}, {1, 0.10, 0.6, 2} };
 
-    const double cutoffHz = clamp(pitchToFreq(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
+    const double cutoffHz = clamp(midi_to_hz(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
     const double mod = evalGraph(resonanceGraph, 2, reso);
     const double noiseAmp = evalGraph(noiseGraph, 3, chaos);
     const double shape = chaos;
@@ -223,7 +220,7 @@ extern "C" double soemdsp_superlove_filter_sample(
     const double lpA = ladderCoefficient(lpCutoff, safeRate);
     double fb = ladderTapStep(s.filterY, oscValue * 0.1, lpA, 1, 1);
 
-    const double cutoffHz = clamp(pitchToFreq(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
+    const double cutoffHz = clamp(midi_to_hz(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
     const double hpA = ladderCoefficient(cutoffHz, safeRate);
     fb = ladderTapStep(s.dcY, fb, hpA, 2, 1);
     fb *= 10.0;
@@ -239,7 +236,7 @@ extern "C" double soemdsp_superlove_filter_sample(
     s.feedbackSignal = mod * s.feedbackSignal + input;
     double oscValue = -waveTrisaw(s.feedbackSignal + 0.75, shape);
 
-    const double cutoffHz = clamp(pitchToFreq(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
+    const double cutoffHz = clamp(midi_to_hz(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
     const double a = ladderCoefficient(cutoffHz, safeRate);
     double fb = ladderTapStep(s.filterY, oscValue * 0.1, a, 3, 1);
     fb *= 10.0;

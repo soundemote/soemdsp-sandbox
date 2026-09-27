@@ -4502,17 +4502,10 @@ static float db_to_lin(float db) {
 }
 
 static void pan_gains(float pan, float* left, float* right) {
-  float p = pan;
-  if (!(p == p)) p = 0.0f;
-  p = (float)clamp11(p);
-  const double halfPi = 1.5707963267948966;
-  if (p <= 0.0f) {
-    *left = 1.0f;
-    *right = (float)dsp_cos((double)(-p) * halfPi);
-  } else {
-    *left = (float)dsp_cos((double)p * halfPi);
-    *right = 1.0f;
-  }
+  double L = 1.0, R = 1.0;
+  soemdsp_maths::pan_gains((double)pan, &L, &R);
+  *left = (float)L;
+  *right = (float)R;
 }
 
 static void mix_node_inputs(Circuit& g, const Node& node, int frames) {

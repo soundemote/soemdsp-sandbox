@@ -51,9 +51,6 @@ static inline double jmap01(double v, double outMin, double outMax) {
   return outMin + (outMax - outMin) * v;
 }
 
-static inline double pitchToFreq(double pitch) {
-  return 440.0 * dsp_exp2((pitch - 69.0) / 12.0);
-}
 
 static inline double dbToAmp(double db) {
   return dsp_exp2(db / 6.0205999132796239);  // 10^(db/20) = 2^(db/(20/log2(10)))
@@ -199,7 +196,7 @@ extern "C" double soemdsp_human_filter_sample(
   else { maxPitch = 137.0; resDropPoint = 0.78; chaosMax = 1.0; }
 
   const double pitch = jmap01(freqNorm, -0.38, 137.0);
-  const double frequencyHz = pitchToFreq(pitch < maxPitch ? pitch : maxPitch);
+  const double frequencyHz = midi_to_hz(pitch < maxPitch ? pitch : maxPitch);
 
   const GraphNode mod11Graph[2] = { {0.0, 2.92396, 0, 0}, {1.0, -1.7544, 0.785442, 1} };
   double mod11;

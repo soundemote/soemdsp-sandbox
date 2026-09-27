@@ -138,9 +138,6 @@ static double evalGraph(const GraphNode* nodes, int count, double x) {
   return g.getValue(x);
 }
 
-static inline double pitchToFreq(double pitch) {
-  return 440.0 * dsp_exp2((pitch - 69.0) / 12.0);
-}
 
 // waveshape::sine -- phase is unipolar [0,1)
 static inline double waveSine(double phase) {
@@ -261,10 +258,10 @@ extern "C" double soemdsp_flower_child_filter_sample(
   if (mode == 2) {
     // Rev3
     const double masterPitch = jmap01(freqNorm, -120.0, 105.0);
-    const double masterFrequency = pitchToFreq(masterPitch);
-    const double fmAmount = pitchToFreq(-48.377);
-    const double lpf1Cutoff = pitchToFreq(jmapGeneral(masterPitch, -120.0, 120.0, 90.0, 180.0));
-    const double lpf2Cutoff = pitchToFreq(jmapGeneral(masterPitch, -120.0, 120.0, 80.0, 130.0));
+    const double masterFrequency = midi_to_hz(masterPitch);
+    const double fmAmount = midi_to_hz(-48.377);
+    const double lpf1Cutoff = midi_to_hz(jmapGeneral(masterPitch, -120.0, 120.0, 90.0, 180.0));
+    const double lpf2Cutoff = midi_to_hz(jmapGeneral(masterPitch, -120.0, 120.0, 80.0, 130.0));
     const double lpf1A = onePoleIitCoefficient(lpf1Cutoff, safeRate);
     const double lpf2A = onePoleIitCoefficient(lpf2Cutoff, safeRate);
 
@@ -311,7 +308,7 @@ extern "C" double soemdsp_flower_child_filter_sample(
     // Downsampled (Rev1Downsampled)
     const double maxNormFreq3 = safeRate <= 44100.0 ? 0.928 : 1.0;
     const double normalizedFreqInUse3 = jmap01(freqNorm < maxNormFreq3 ? freqNorm : maxNormFreq3, 3.0, 161.0);
-    const double frequencyHz3 = pitchToFreq(normalizedFreqInUse3);
+    const double frequencyHz3 = midi_to_hz(normalizedFreqInUse3);
     // FM/PM crossfade provably 0 here too (same node-domain-clamp argument
     // as modes 0/1 -- see the file header's exact-reproduction note).
 
@@ -354,7 +351,7 @@ extern "C" double soemdsp_flower_child_filter_sample(
 
   const double maxNormFreq = safeRate <= 44100.0 ? 0.928 : 1.0;
   const double normalizedFreqInUse = jmap01(freqNorm < maxNormFreq ? freqNorm : maxNormFreq, 3.0, 161.0);
-  const double frequencyHz = pitchToFreq(normalizedFreqInUse);
+  const double frequencyHz = midi_to_hz(normalizedFreqInUse);
 
   // FM/PM crossfade is provably always 0 here -- see the exact-reproduction
   // note above. cos(0)=1, sin(0)=0, so this collapses to pure FM feedback:

@@ -46,18 +46,18 @@ struct State {
 
 static State gPool[kMaxInstances];
 
-static void coeffs(double center, double width, double* scaleX, double* shiftX, double* scaleY, double* shiftY);
+// soft_clip_coeffs / soft_clip_apply from soemdsp::math
 
 static void sync_clip_coeffs(State& s, double center, double width) {
   if (s.coeffsValid && center == s.lastCenter && width == s.lastWidth) return;
-  coeffs(center, width, &s.scaleX, &s.shiftX, &s.scaleY, &s.shiftY);
+  soft_clip_coeffs(center, width, &s.scaleX, &s.shiftX, &s.scaleY, &s.shiftY);
   s.lastCenter = center;
   s.lastWidth = width;
   s.coeffsValid = true;
 }
 
 static double shaped_cached(const State& s, double input) {
-  return s.shiftY + s.scaleY * tanh_approx(s.scaleX * input + s.shiftX);
+  return soft_clip_apply(input, s.scaleX, s.shiftX, s.scaleY, s.shiftY);
 }
 
 static const char kMetadataJson[] =
@@ -94,23 +94,6 @@ static const char kMetadataJson[] =
     "]"
   "}";
 
-static double shaped(double input, double center, double width) {
-  const double safeWidth = dsp_fabs(width) > 1.0e-6 ? dsp_fabs(width) : 2.0;
-  const double scaleX = 2.0 / safeWidth;
-  const double shiftX = -1.0 - (scaleX * (center - 0.5 * safeWidth));
-  const double scaleY = 1.0 / scaleX;
-  const double shiftY = -shiftX * scaleY;
-  return shiftY + scaleY * tanh_approx(scaleX * input + shiftX);
-}
-
-static void coeffs(double center, double width, double* scaleX, double* shiftX, double* scaleY, double* shiftY) {
-  const double safeWidth = dsp_fabs(width) > 1.0e-6 ? dsp_fabs(width) : 2.0;
-  *scaleX = 2.0 / safeWidth;
-  *shiftX = -1.0 - ((*scaleX) * (center - 0.5 * safeWidth));
-  *scaleY = 1.0 / (*scaleX);
-  *shiftY = -(*shiftX) * (*scaleY);
-}
-
 }  // namespace
 
 extern "C" double soemdsp_soft_clipper_sample(
@@ -118,7 +101,9 @@ extern "C" double soemdsp_soft_clipper_sample(
   double center,
   double width
 ) {
-  return shaped(input, center, width);
+  double sx, shx, sy, shy;
+  soft_clip_coeffs(center, width, &sx, &shx, &sy, &shy);
+  return soft_clip_apply(input, sx, shx, sy, shy);
 }
 
 extern "C" int soemdsp_soft_clipper_create() {
@@ -181,6 +166,12 @@ static double process_aa_one(State& s, Channel& c, double input, double antialia
   return y + aa * (adaaY - y);
 }
 
+static double shaped_once(double input, double center, double width) {
+  double sx, shx, sy, shy;
+  soft_clip_coeffs(center, width, &sx, &shx, &sy, &shy);
+  return soft_clip_apply(input, sx, shx, sy, shy);
+}
+
 extern "C" double soemdsp_soft_clipper_sample_aa(
   int handle,
   int channel,
@@ -189,9 +180,9 @@ extern "C" double soemdsp_soft_clipper_sample_aa(
   double width,
   double antialias
 ) {
-  if (handle < 1 || handle > kMaxInstances) return shaped(input, center, width);
+  if (handle < 1 || handle > kMaxInstances) return shaped_once(input, center, width);
   State& s = gPool[handle - 1];
-  if (!s.active) return shaped(input, center, width);
+  if (!s.active) return shaped_once(input, center, width);
   int ch = channel;
   if (ch < 0) ch = 0;
   if (ch > 2) ch = 2;

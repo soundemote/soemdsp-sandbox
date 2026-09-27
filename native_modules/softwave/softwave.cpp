@@ -73,10 +73,6 @@ static double parabol_sine(double x) {
   return (1.0 - a) * (1.0 - a * 0.202);
 }
 
-static double freq_to_pitch(double frequencyHz) {
-  const double f = frequencyHz > 1.0e-12 ? frequencyHz : 1.0e-12;
-  return 69.0 + 12.0 * (dsp_ln(f / 440.0) / 0.6931471805599453);  // / ln(2)
-}
 
 static double sine_amp(double frequencyHz, double sampleRate) {
   const double f = frequencyHz > 1.0 ? frequencyHz : 1.0;
@@ -118,7 +114,7 @@ static double run_shape(double finalPhase, int shape, double sa, double mf, doub
     case 5: {
       const double t = clamp(mf, 0.0, 1.0);
       const double adjusted = 0.15 + (1.0 - 0.15) * t;
-      const double scaling = soft_tanh((1.0 - (freq_to_pitch(frequencyHz) / 127.0)) * 9.0);
+      const double scaling = soft_tanh((1.0 - (hz_to_midi(frequencyHz) / 127.0)) * 9.0);
       return soft_acos(clamp11(dsp_sin(p * kPi * 2.0) * adjusted * scaling))
         / kPi * 2.0 - 1.0;
     }

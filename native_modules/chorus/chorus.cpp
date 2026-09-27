@@ -64,10 +64,7 @@ static double onepole_coeff(double hz, double sr) {
   if (f < 0.0) f = 0.0;
   const double ny = sr * 0.45;
   if (f > ny) f = ny;
-  const double c = 1.0 - dsp_exp(-kTwoPi * f / sr);
-  if (c < 0.0) return 0.0;
-  if (c > 1.0) return 1.0;
-  return c;
+  return one_pole_coeff_hz(f, sr);
 }
 
 static double read_delay(const Voice& v, double delaySamples) {

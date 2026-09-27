@@ -49,33 +49,13 @@ static double trisaw(double phase, double warp) {
     : (1.0 - wrapped) / (1.0 - safeWarp);
 }
 
-// log2(x) via IEEE-754 exponent extraction + atanh-series on the mantissa.
-// Only used for Tone Mod: Freq modes.
-static double dsp_log2(double x) {
-  if (x <= 0.0) return -1024.0;
-  union { double d; unsigned long long u; } c;
-  c.d = x;
-  const int exponent = (int)((c.u >> 52) & 0x7FFULL) - 1023;
-  c.u = (c.u & 0x000FFFFFFFFFFFFFULL) | 0x3FF0000000000000ULL;
-  const double m = c.d;  // [1, 2)
-  const double y = (m - 1.0) / (m + 1.0);
-  const double y2 = y * y;
-  const double series = y * (1.0 + y2 * (1.0 / 3.0 + y2 * (1.0 / 5.0 + y2 * (1.0 / 7.0 + y2 * (1.0 / 9.0)))));
-  const double kInvLn2 = 1.4426950408889634074;
-  return (double)exponent + 2.0 * series * kInvLn2;
-}
-
-// soemdsp::convert::freq_to_pitch(freq) = 12*log2(freq/440) + 69
-static double dsp_freq_to_pitch(double freq) {
-  return 12.0 * dsp_log2(freq / 440.0) + 69.0;
-}
-
+// Tone Mod Freq modes: Hz -> MIDI (via soemdsp::math::hz_to_midi), then -48.
 static double tone_freq_to_pitch_cached(NyquistShannonState& s, double userFreqA) {
   const double absFreq = dsp_fabs(userFreqA);
   if (s.hasCachedFreqToPitch && s.cachedFreqA == absFreq) {
     return s.cachedFreqToPitch;
   }
-  const double value = dsp_freq_to_pitch(absFreq) - 48.0;
+  const double value = hz_to_midi(absFreq) - 48.0;
   s.cachedFreqA = absFreq;
   s.cachedFreqToPitch = value;
   s.hasCachedFreqToPitch = true;

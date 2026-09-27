@@ -76,10 +76,8 @@ static void soft_clip_set(
 ) {
   double thr = maxd(0.01, saturate);
   double width = maxd(1e-6, thr * 2.0);
-  scaleX = 2.0 / width;
-  shiftX = -1.0 - (scaleX * (0.0 - 0.5 * width));
-  scaleY = 1.0 / scaleX;
-  shiftY = -shiftX * scaleY;
+  // center=0 affine coeffs; apply stays local (exact tanh, not tanh_approx).
+  soft_clip_coeffs(0.0, width, &scaleX, &shiftX, &scaleY, &shiftY);
 }
 
 static double soft_clip_run(

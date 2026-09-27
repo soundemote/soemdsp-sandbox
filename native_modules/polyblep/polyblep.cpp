@@ -70,18 +70,10 @@ double polyBlepSquare(double phaseCycle, double phaseIncrement) {
 
 // Morph is 0…1, used as width/duty directly (0.5 = center / triangle / 50%).
 // Keep off exact 0/1 only where the wave math divides by pw*(1-pw).
-static inline double morphWidth01(double morph) {
-  double w = (!is_nan(morph)) ? morph : 0.5;
-  if (w < 0.0) w = 0.0;
-  if (w > 1.0) w = 1.0;
-  if (w < 1.0e-4) w = 1.0e-4;
-  if (w > 1.0 - 1.0e-4) w = 1.0 - 1.0e-4;
-  return w;
-}
 
 // Left-aligned PWM pulse (soemdsp PolyBLEP::pulse).
 double polyBlepPulse(double t, double incrementAbs, double morph) {
-  const double pw = morphWidth01(morph);
+  const double pw = morph_width01(morph);
   double t1 = wrap01(t + 1.0 - pw);
   double y = -2.0 * pw;
   if (t < pw) y += 2.0;
@@ -109,7 +101,7 @@ double polyBlepCenterSquare(double t, double incrementAbs, double morph) {
 
 // Bandlimited trisaw (soemdsp PolyBLEP::trisaw). Morph = pw.
 double polyBlepTrisaw(double t, double incrementAbs, double morph) {
-  const double pw = morphWidth01(morph);
+  const double pw = morph_width01(morph);
   double t1 = wrap01(t + 0.5 * pw);
   double t2 = wrap01(t + 1.0 - 0.5 * pw);
 
@@ -135,7 +127,7 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
   const double absInc = renderIncrement < 0.0 ? -renderIncrement : renderIncrement;
   const double phaseCycle = wrap01(phase / kTwoPi);
   // Morph 0…1 = width/duty for Trisaw / Center Square / Pulse. Others ignore it.
-  const double m = morphWidth01(morph);
+  const double m = morph_width01(morph);
   double sample = 0.0;
   // Order matches UI choices:
   // 0 Trisaw, 1 Saw, 2 Ramp, 3 Square, 4 Triangle, 5 Sine,

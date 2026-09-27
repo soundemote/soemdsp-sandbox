@@ -28,9 +28,6 @@ static inline double jmap01(double v, double outMin, double outMax) {
   return outMin + (outMax - outMin) * v;
 }
 
-static inline double pitchToFreq(double pitch) {
-  return 440.0 * dsp_exp2((pitch - 69.0) / 12.0);
-}
 
 // 2-node EXPONENTIAL curve, built directly as a Graph (graph.h) instead of
 // hand-rolling the exponential segment formula.
@@ -131,7 +128,7 @@ extern "C" double soemdsp_chaotic_phase_locking_filter_sample(
   const double chaos = clamp(chaosAmount, 0.0, 1.0);
   const double phase = (phaseBias == phaseBias) ? phaseBias : 0.0;
 
-  const double cutoffHz = clamp(pitchToFreq(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
+  const double cutoffHz = clamp(midi_to_hz(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate);
   const double mod = evalExponentialGraph2(reso, 0.1, 20.0, -0.85);
   const double shape = 1.0 - chaos;
 

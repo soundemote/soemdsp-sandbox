@@ -20,16 +20,7 @@ static const char kMetadataJson[] =
     "\"kind\":\"dynamics\""
   "}";
 
-static void pan_gains(double pan, double* left, double* right) {
-  const double p = clamp11(safe(pan));
-  if (p <= 0.0) {
-    *left = 1.0;
-    *right = dsp_cos(-p * kHalfPi);
-    return;
-  }
-  *left = dsp_cos(p * kHalfPi);
-  *right = 1.0;
-}
+// pan_gains from soemdsp::math
 
 static void compute(
   double l1, double r1, double l2, double r2, double l3, double r3, double l4, double r4,

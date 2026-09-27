@@ -43,9 +43,6 @@ static inline double jmap01(double v, double outMin, double outMax) {
   return outMin + (outMax - outMin) * v;
 }
 
-static inline double pitchToFreq(double pitch) {
-  return 440.0 * dsp_exp2((pitch - 69.0) / 12.0);
-}
 
 struct GraphNode {
   double x, y, skew;
@@ -206,7 +203,7 @@ extern "C" double soemdsp_superlove_rev2_sample(
   const double phase = (phaseBias == phaseBias) ? phaseBias : 0.0;
   const int safeMode = mode < 0 ? 0 : (mode > 3 ? 3 : mode);
   const double cutoffHz = clamp(
-    pitchToFreq(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate
+    midi_to_hz(jmap01(freqNorm, -12.0, 135.0)), 0.0, 0.5 * safeRate
   );
   const double noiseSample = (noiseAmp > 1.0e-12 || noiseAmp < -1.0e-12)
     ? nextNoiseBipolar(&s.rngState) * noiseAmp

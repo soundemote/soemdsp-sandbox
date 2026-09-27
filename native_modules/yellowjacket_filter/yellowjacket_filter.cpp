@@ -41,9 +41,6 @@ static inline double jmap01(double v, double outMin, double outMax) {
   return outMin + (outMax - outMin) * v;
 }
 
-static inline double pitchToFreq(double pitch) {
-  return 440.0 * dsp_exp2((pitch - 69.0) / 12.0);
-}
 
 // 2-node EXPONENTIAL curve, built directly as a Graph (graph.h) instead of
 // hand-rolling the exponential segment formula.
@@ -151,7 +148,7 @@ extern "C" double soemdsp_yellowjacket_filter_sample(
   else { maxPitch = 96.0; resDropPoint = 0.95; }
 
   const double pitch = jmap01(freqNorm, -156.0, 96.0);
-  const double frequencyHz = pitchToFreq(pitch < maxPitch ? pitch : maxPitch);
+  const double frequencyHz = midi_to_hz(pitch < maxPitch ? pitch : maxPitch);
   const double cutoffHz = frequencyHz * jmap01(chaos, 4.56415, 0.972007);
 
   const double newResNormalized = evalResVFreqGraph(freqNorm, reso, resDropPoint, 0.2, 0.57);

@@ -4,7 +4,7 @@
 // Canonical homes (nested, matching soemdsp):
 //   soemdsp::constant -- kPI / kTAU / kPIz2 / k1z3 / kPlanck (+ compat aliases; see constant.h)
 //   soemdsp::debug    -- safe / is_bad / is_nan / default_if_zero / default_if_near_zero  (see debug.h)
-//   soemdsp::math     -- clamp, clamp01, clamp11, wrap01, wrap01_frac, wrap01f, wrap11(_closed)/wrap_radians/wrap/floor/ceil, ...
+//   soemdsp::math     -- clamp, clamp01, clamp11, wrap01, wrap01_frac, wrap01f, wrap11(_closed)/wrap_radians/wrap/floor/ceil, lerp, morph_width01, ...
 // Flat soemdsp_maths:: is a compatibility mirror for existing modules.
 #pragma once
 
@@ -113,6 +113,23 @@ static inline double hash_bipolar(unsigned int index, unsigned int seed) {
   return ((double)value / 4294967295.0) * 2.0 - 1.0;
 }
 
+// Linear interpolate: a + t*(b-a).
+static inline double lerp(double a, double b, double t) {
+  return a + t * (b - a);
+}
+
+// Morph / PWM width in (0,1): NaN→0.5, clamp [0,1], squeeze to [eps, 1-eps].
+// Matches hypersaw2 / polyblep morphWidth01 (default eps = 1e-4).
+static inline double morph_width01(double morph, double eps = 1.0e-4) {
+  double w = soemdsp::debug::is_nan(morph) ? 0.5 : morph;
+  if (w < 0.0) w = 0.0;
+  if (w > 1.0) w = 1.0;
+  const double e = (eps > 0.0) ? eps : 1.0e-4;
+  if (w < e) w = e;
+  if (w > 1.0 - e) w = 1.0 - e;
+  return w;
+}
+
 }  // namespace soemdsp::math
 
 // ---------------------------------------------------------------------------
@@ -146,5 +163,11 @@ using soemdsp::math::wrap_radians;
 using soemdsp::math::wrap;
 using soemdsp::math::safe_bounded;
 using soemdsp::math::hash_bipolar;
+using soemdsp::math::lerp;
+
+// using-declaration drops default args — keep eps default for modules.
+static inline double morph_width01(double morph, double eps = 1.0e-4) {
+  return soemdsp::math::morph_width01(morph, eps);
+}
 
 }  // namespace soemdsp_maths

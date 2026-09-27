@@ -13,7 +13,7 @@ namespace {
 using namespace soemdsp_maths;
 constexpr int kDelayCount = 14;
 constexpr int kDiffusionCount = 12;
-constexpr int kMaxInstances = 2;
+constexpr int kMaxInstances = 4;
 constexpr int kMaxDelaySamples = 192000;
 // Internal per-sample ramp time for delay-line geometry (offset/LFO speed).
 // This runs independent of whatever smoothing the JS caller applies, so a
@@ -40,9 +40,6 @@ double parabol(double value) {
   return 4.0 * fit * (1.0 - __builtin_fabs(fit));
 }
 
-double smoothStep(double current, double target, double alpha) {
-  return current + (target - current) * alpha;
-}
 
 // nostdlib build has no libm to link against, so exp() isn't available --
 // range-reduce by halving then a short Taylor series, which is plenty
@@ -449,11 +446,11 @@ bool sabrinaIdleFromPorts(SabrinaState& state, double inL, double inR) {
 
 void advanceSabrinaSmoothing(SabrinaState& state) {
   if (sabrinaSmoothingNeedsWork(state)) {
-    state.smoothedDiffusionSize = smoothStep(state.smoothedDiffusionSize, state.diffusionSize, state.paramSmoothAlpha);
-    state.smoothedDelaySize = smoothStep(state.smoothedDelaySize, state.delaySize, state.paramSmoothAlpha);
-    state.smoothedLfoAmplitude = smoothStep(state.smoothedLfoAmplitude, state.lfoAmplitude, state.paramSmoothAlpha);
-    state.smoothedLfoBaseSpeed = smoothStep(state.smoothedLfoBaseSpeed, state.lfoBaseSpeed, state.paramSmoothAlpha);
-    state.smoothedLfoVariation = smoothStep(state.smoothedLfoVariation, state.lfoVariation, state.paramSmoothAlpha);
+    state.smoothedDiffusionSize = lerp(state.smoothedDiffusionSize, state.diffusionSize, state.paramSmoothAlpha);
+    state.smoothedDelaySize = lerp(state.smoothedDelaySize, state.delaySize, state.paramSmoothAlpha);
+    state.smoothedLfoAmplitude = lerp(state.smoothedLfoAmplitude, state.lfoAmplitude, state.paramSmoothAlpha);
+    state.smoothedLfoBaseSpeed = lerp(state.smoothedLfoBaseSpeed, state.lfoBaseSpeed, state.paramSmoothAlpha);
+    state.smoothedLfoVariation = lerp(state.smoothedLfoVariation, state.lfoVariation, state.paramSmoothAlpha);
     applyDelayGeometry(state);
   }
   applyLiveDiffusionAmount(state);
