@@ -117,6 +117,10 @@ var sandbox = {
       parameters: [],
     },
   },
+  nodeGraphFiniteNumber: function (value, fallback) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : (fallback === undefined ? 0 : fallback);
+  },
   nodeGraphGrid: { heightPx: 28, sizePx: 28, widthPx: 28 },
   nodeGraphModuleLayout: {
     bodyRowGapGu: 0,
@@ -140,6 +144,19 @@ function load(rel) {
 load("node-graph-module-chrome.js");
 load("node-graph-patch-clone.js");
 load("node-graph-module-sizing.js");
+// patch-clone's function declaration replaces the pre-load stub. Restore a
+// test double that passes ui through and applies workspace Displays-off.
+sandbox.nodeGraphEffectivePatchNodeUi = function (ui) {
+  const base = ui || {};
+  const globalScopes = sandbox.nodeGraphMvp.moduleOscilloscopesVisible !== false;
+  let oscilloscopeHidden = Boolean(base.oscilloscopeHidden);
+  if (base.oscilloscopeForceShow) {
+    oscilloscopeHidden = false;
+  } else if (!globalScopes) {
+    oscilloscopeHidden = true;
+  }
+  return { ...base, oscilloscopeHidden };
+};
 var nodeGraphModuleLayoutBands = sandbox.nodeGraphModuleLayoutBands;
 var nodeGraphModuleHasFace = sandbox.nodeGraphModuleHasFace;
 
@@ -157,6 +174,19 @@ function bands(type, ui) {
 
 function contentIds(type, ui) {
   return ids(bands(type, ui)).filter((id) => id !== "lip");
+}
+
+/** Top edge of a visible band in gu, from the stack order (0 = article top). */
+function bandTop(type, ui, id) {
+  let y = 0;
+  const list = bands(type, ui).filter((b) => b.visible && (b.heightGu > 0 || b.grow || b.id === "lip"));
+  for (let i = 0; i < list.length; i += 1) {
+    if (list[i].id === id) {
+      return y;
+    }
+    y += Math.max(0, list[i].heightGu);
+  }
+  return null;
 }
 
 function hasFace(type) {
@@ -223,8 +253,18 @@ cases.forEach(function (c) {
   }
   if (c.face && hasFace(c.type)) {
     assert(shown.indexOf("face") >= 0, c.type + " display on: has face " + shown);
-    assert(shown.indexOf("face") < shown.indexOf("io") || shown.indexOf("io") < 0,
-      c.type + " face before io " + shown);
+    if (shown.indexOf("io") >= 0) {
+      assert(shown.indexOf("io") < shown.indexOf("face"),
+        c.type + " io above face " + shown);
+      const ioEdge = bandTop(c.type, {}, "io");
+      const faceEdge = bandTop(c.type, {}, "face");
+      assert(ioEdge != null && faceEdge != null && ioEdge < faceEdge,
+        c.type + " io top edge above face top edge " + ioEdge + " vs " + faceEdge + " " + shown);
+    }
+    if (c.controls && shown.indexOf("controls") >= 0) {
+      assert(shown.indexOf("face") < shown.indexOf("controls"),
+        c.type + " sample controls stay under the face " + shown);
+    }
   }
   if (c.io) {
     assert(shown.indexOf("io") >= 0, c.type + " display on: has io");
@@ -240,16 +280,14 @@ cases.forEach(function (c) {
   var off = contentIds(c.type, { oscilloscopeHidden: true });
   assert(off.indexOf("face") < 0, c.type + " display off: no face " + off);
   assert(off[0] === "header", c.type + " display off: header first");
-  if (c.controls) {
-    assert(off.indexOf("controls") > off.indexOf("header"), c.type + " display off: controls under header");
+  if (c.controls && off.indexOf("controls") >= 0) {
+    assert(off.indexOf("controls") > off.indexOf("header"), c.type + " display off: controls remain under header");
   }
   if (c.io) {
     assert(off.indexOf("io") >= 0, c.type + " display off: io remains");
-    var afterHeader = off[1];
-    if (c.controls) {
-      assert(afterHeader === "controls" || afterHeader === "io", c.type + " display off stack " + off);
-    } else {
-      assert(afterHeader === "io", c.type + " display off: io under header " + off);
+    assert(off[1] === "io", c.type + " display off: io under header, no face track " + off);
+    if (c.controls && off.indexOf("controls") >= 0) {
+      assert(off.indexOf("io") < off.indexOf("controls"), c.type + " display off: io above sample controls " + off);
     }
   }
   if (c.sliders && off.indexOf("io") >= 0) {
@@ -271,6 +309,16 @@ cases.forEach(function (c) {
   if (c.sliders) {
     assert(noIo.indexOf("params") >= 0, c.type + " no io: params remain " + noIo);
     assert(noIo.indexOf("params") > noIo.indexOf("header"), c.type + " no io: params under header");
+  }
+
+  // Display Height 0 omits the face track; I/O stays under the header.
+  if (c.face && hasFace(c.type)) {
+    var heightOff = contentIds(c.type, { displayHeightGu: 0 });
+    assert(heightOff.indexOf("face") < 0, c.type + " display height 0: no face " + heightOff);
+    assert(heightOff[0] === "header", c.type + " display height 0: header first " + heightOff);
+    if (c.io) {
+      assert(heightOff[1] === "io", c.type + " display height 0: io under header " + heightOff);
+    }
   }
 
   // Display on + sliders off + I/O off: face grows; no leftover lip track.
@@ -300,13 +348,31 @@ assert(
   "output height floor is 1gu",
 );
 assert(
-  sandbox.nodeGraphModuleDisplayHeightLimitsForType("audioPlayer").minGu === 1,
-  "screen/face floor is 1gu",
+  sandbox.nodeGraphModuleDisplayHeightLimitsForType("audioPlayer").minGu === 0,
+  "display height 0 is Off (face track omitted)",
 );
 assert(
   sandbox.nodeGraphModuleMinOuterHeightGu("audioPlayer", {}) === 1,
   "music player outer floor is 1gu",
 );
+// Workspace Displays-off: same omission as per-module hide. LayoutB shell stays.
+sandbox.nodeGraphMvp.moduleOscilloscopesVisible = false;
+var workspaceOff = contentIds("output", {});
+assert(workspaceOff.indexOf("face") < 0, "workspace displays off: output has no face " + workspaceOff);
+assert(workspaceOff[0] === "header" && workspaceOff[1] === "io",
+  "workspace displays off: output io under header " + workspaceOff);
+var workspaceSample = contentIds("audioPlayer", {});
+assert(workspaceSample.indexOf("face") < 0, "workspace displays off: music player has no face " + workspaceSample);
+assert(workspaceSample[1] === "io", "workspace displays off: music player io under header " + workspaceSample);
+var workspaceB = contentIds("smoothGraph", {});
+assert(workspaceB.indexOf("shell") >= 0, "workspace displays off: LayoutB keeps shell " + workspaceB);
+assert(workspaceB.indexOf("io") < 0, "workspace displays off: LayoutB has no under-face io");
+var workspaceC = contentIds("vectorscopeTransform", {});
+assert(workspaceC.indexOf("face") < 0, "workspace displays off: InletOutletLayout still has no face");
+assert(workspaceC.indexOf("header") === 0 && workspaceC.indexOf("io") > 0,
+  "workspace displays off: InletOutletLayout stays header then io " + workspaceC);
+sandbox.nodeGraphMvp.moduleOscilloscopesVisible = true;
+
 var textBoxShown = contentIds("textBox", {});
 assert(textBoxShown.indexOf("header") === 0, "text box starts with header");
 assert(textBoxShown.indexOf("face") >= 0, "text box body is the face track " + textBoxShown);

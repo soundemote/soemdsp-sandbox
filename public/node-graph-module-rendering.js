@@ -568,7 +568,7 @@ function syncNodeGraphLayoutBNoParamsClass(element, type, ui = null) {
   element.classList.toggle("layout-b-no-params", rows <= 0);
 }
 
-/** LayoutA I/O strip: ports under the face. */
+/** LayoutA I/O strip: ports above the face (.dsp-node-io-section). */
 function createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, options = {}) {
   const ioSection = document.createElement("div");
   ioSection.className = options.className || "dsp-node-io-section";
@@ -781,9 +781,9 @@ function createNodeGraphModuleElement(type, node) {
       chromelessBody.hidden = true;
       chromelessBody.setAttribute("aria-hidden", "true");
     }
-    // MetamoduleLayout → shared LayoutA IO chrome ABOVE a dedicated face band.
-    // Do not invent a third jack/label dialect (flush + app-wide label type).
-    // LayoutB → beside. LayoutA → face then ports under.
+    // MetamoduleLayout and LayoutA share one jack dialect (.dsp-node-io-section).
+    // LayoutA band order is header → io → face (apply places the strip).
+    // LayoutB → ports beside the face. Do not invent a second IO path.
     if (chrome.portsAboveFace) {
       appendNodeGraphModuleIoSection(
         article,

@@ -615,6 +615,8 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 
 Add new rules here when the same class of mistake happens twice. Keep this file short and enforceable.
 
+- **2026-09-27 — LayoutA I/O above the face:** LayoutA module inlets and outlets sit in the band **above** the display / face (`header → io → face → params → lip`). Sample load controls stay under the face. Display off and Display Height 0 omit the face track; I/O stays under the header. **LayoutB** (ports beside the face) and **InletOutletLayout** (title + I/O, no face) are unchanged. Do not keep a second stack or a patch shim for the old face-then-I/O order. Contract: `docs/MODULE_LAYOUT_PLAN.md`.
+
 - **2026-09-27 — No legacy helpers (§1):** Patches may break after renames/schema changes. The Architect repairs them. Agents must not add legacy helpers, dual keys, rename bridges, or soft remaps to keep old saves working — that complexity causes more bugs than broken patches.
 
 - **2026-09-27 — Shared library maths (§19):** Prefer `sandbox_native_maths` over duplicated equations/behaviors across modules. Changes to that library need Architect (Argi) approval first.

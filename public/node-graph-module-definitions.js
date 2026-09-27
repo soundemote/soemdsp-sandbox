@@ -328,7 +328,7 @@ const nodeGraphTb303FilterModes = Object.freeze([
 //   outputs: [...]     → right IO-column jacks
 //
 // Chrome (port placement) is separate from face content:
-//   chrome: LayoutA | LayoutB  — ports under vs beside the face
+//   chrome: LayoutA | LayoutB  — ports above the face vs beside the face
 //   layout / customDisplayArea — what fills the face (scope, graph, BADVAL, …)
 // finalizeNodeGraphModuleDefinitionsChrome seals every entry with explicit chrome
 // (default LayoutA) so no type is left "unassigned".

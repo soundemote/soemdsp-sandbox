@@ -90,10 +90,12 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
     titleHidden,
   };
   // Absolute face height (spawn/resize). Preferred over offset-from-type-default.
-  if (Number.isFinite(absoluteFace) && absoluteFace > 0) {
+  // 0 is Off (omit the face track). A stored 0 must not fall through to the
+  // type default — that brought the face back and let it share a row with I/O.
+  if (Number.isFinite(absoluteFace) && absoluteFace >= 0) {
     normalized.displayHeightGu = type
       ? normalizeNodeGraphModuleDisplayHeightUnits(absoluteFace, type)
-      : Math.max(1, Math.round(absoluteFace));
+      : Math.max(0, Math.round(absoluteFace));
   }
   return normalized;
 }

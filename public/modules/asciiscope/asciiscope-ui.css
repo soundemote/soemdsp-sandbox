@@ -164,26 +164,30 @@
   color: rgba(180, 255, 210, 0.95);
 }
 
-/* Fallback stack only if apply-layout has not written --node-module-stack-rows. */
+/* Fallback stack only if apply-layout has not written --node-module-stack-rows.
+   LayoutA: header | io | face | params | lip. No reserved 0px face hole. */
 .dsp-node.asciiscope-layout:not(.module-stack),
 .dsp-node.matrix-waterfall-layout:not(.module-stack),
 .dsp-node.matrix-plate-layout:not(.module-stack) {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows:
     var(--node-header-height)
-    var(--node-module-scope-height)
     minmax(var(--node-io-section-min-height), auto)
+    var(--node-module-scope-height)
     auto
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
-.dsp-node.matrix-waterfall-layout:not(.module-stack) {
-  grid-template-rows:
-    var(--node-header-height)
-    var(--node-module-scope-height)
-    0
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+.dsp-node.asciiscope-layout:not(.module-stack) > .dsp-node-io-section,
+.dsp-node.matrix-waterfall-layout:not(.module-stack) > .dsp-node-io-section,
+.dsp-node.matrix-plate-layout:not(.module-stack) > .dsp-node-io-section {
+  grid-row: 2;
+}
+
+.dsp-node.asciiscope-layout:not(.module-stack) > .node-asciiscope-face,
+.dsp-node.matrix-waterfall-layout:not(.module-stack) > .node-asciiscope-face,
+.dsp-node.matrix-plate-layout:not(.module-stack) > .node-asciiscope-face {
+  grid-row: 3;
 }
 
 .dsp-node.asciiscope-layout > .node-asciiscope-face,

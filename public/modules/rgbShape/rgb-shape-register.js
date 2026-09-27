@@ -1,5 +1,5 @@
 // RGB Shape — gradient-filled silhouette on the face + X/Y outline audio.
-// Chromeless LayoutA: face then labeled I/O under (same strip style as RoundShape / BasicShape).
+// Chromeless LayoutA: labeled I/O above the face (same strip as RoundShape / BasicShape).
 (function registerRgbShapeModule() {
   const shapeChoices = typeof RgbShapeMath !== "undefined" && typeof RgbShapeMath.shapeChoices === "function"
     ? RgbShapeMath.shapeChoices()
@@ -10,7 +10,7 @@
 
   registerNodeGraphChromelessModule("rgbShape", {
     label: "Shape",
-    // No solidModule → LayoutA (ports under face with visible labels).
+    // No solidModule → LayoutA (ports above the face, visible labels).
     customDisplayArea: true,
     definition: {
       planRole: "source",

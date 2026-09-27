@@ -32,12 +32,8 @@ Keep this as a next-version cleanup, not a release blocker.
 
 ## Inlets / outlets above displays (app-wide)
 
-**Policy direction:** module **inlets and outlets sit above** the module's **display / face** area — app-wide, not per-module one-offs.
+**Implemented.** LayoutA (and sample / phosphor face stacks) use `header → io → face → params → lip`. Display off and Display Height 0 omit the face track; I/O stays under the header.
 
-Intent:
+Standing rule: `docs/APP_POLICY.md` (LayoutA I/O above the face). Band contract: `docs/MODULE_LAYOUT_PLAN.md`.
 
-- Jacks (inlets and outlets) are always in the band **above** scopes, LCDs, waterfalls, and other display faces.
-- Display chrome stays below the I/O band so patching and reading faces do not fight for the same vertical slot.
-- Apply as a layout / chrome rule across modules; do not invent per-face exceptions without an explicit exception in `docs/APP_POLICY.md`.
-
-Status: planning note only — not scheduled. When implemented, encode as an APP_POLICY layout rule and align `docs/MODULE_LAYOUT_PLAN.md` / module face shells.
+LayoutB (ports beside the face) and InletOutletLayout (title + I/O, no face) are unchanged. Do not add a second layout or an old-patch shim for the previous face-then-I/O stack.
