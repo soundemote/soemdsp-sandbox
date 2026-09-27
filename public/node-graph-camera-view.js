@@ -148,9 +148,17 @@ function nodeGraphCameraCloneWireSvg(liveSvg) {
   clone.style.pointerEvents = "none";
   clone.style.width = "100%";
   clone.style.height = "100%";
-  const viewBox = liveSvg.getAttribute("viewBox");
-  if (viewBox) {
-    clone.setAttribute("viewBox", viewBox);
+  clone.style.overflow = "visible";
+  // Preview world is pan=0 zoom=1: wire paths are world coords, so viewBox is
+  // the layout box — not the live screen-space camera frustum.
+  const graphRect = typeof nodeGraphGraphRect === "function" ? nodeGraphGraphRect() : null;
+  if (graphRect && graphRect.width > 0 && graphRect.height > 0) {
+    clone.setAttribute("viewBox", `0 0 ${graphRect.width} ${graphRect.height}`);
+  } else {
+    const viewBox = liveSvg.getAttribute("viewBox");
+    if (viewBox) {
+      clone.setAttribute("viewBox", viewBox);
+    }
   }
   const rect = liveSvg.getBoundingClientRect();
   if (rect.width > 0 && rect.height > 0) {
@@ -319,20 +327,21 @@ function createNodeGraphCameraWorldClone(source, wireSvg) {
   clone.querySelector("#nodeWireSvg, .node-wire-svg")?.remove();
   clone.querySelector("#nodeWireEndpointSvg, .node-wire-endpoint-svg")?.remove();
   const zoomSurface = clone.querySelector("#nodeGraphZoomSurface, .node-graph-zoom-surface") || clone;
+  const worldLayer = clone.querySelector("#nodeGraphWorldLayer, .node-graph-world-layer") || zoomSurface;
   if (wireSvg) {
-    zoomSurface.prepend(wireSvg);
+    worldLayer.prepend(wireSvg);
   }
   // Cap layer above modules (same order as live graph).
   const endpointSvg = nodeGraphCameraCloneWireSvg(document.getElementById("nodeWireEndpointSvg"));
   if (endpointSvg) {
     endpointSvg.classList.add("node-wire-endpoint-svg");
-    const nodes = zoomSurface.querySelector(".node-graph-nodes");
+    const nodes = worldLayer.querySelector(".node-graph-nodes");
     if (nodes?.nextSibling) {
-      zoomSurface.insertBefore(endpointSvg, nodes.nextSibling);
+      worldLayer.insertBefore(endpointSvg, nodes.nextSibling);
     } else if (nodes) {
       nodes.after(endpointSvg);
     } else {
-      zoomSurface.append(endpointSvg);
+      worldLayer.append(endpointSvg);
     }
   }
   copyNodeGraphCameraWorldCanvases(source, clone);

@@ -1,9 +1,9 @@
 // Viewport (zoom/pan) performance: light CSS every event, heavy chrome
 // (wires / heatmap / scopes) coalesced to rAF; full fidelity + settings
 // persist after the gesture settles.
-// Camera is compositor translate3d+scale (not CSS zoom). Mid-gesture cull
-// keeps off-screen modules asleep so zoomed pan does not composite a
-// growing trail of awake nodes. Scopes on visible modules keep drawing.
+// Camera: world-layer translate3d+scale; wire SVGs are screen-space
+// (camera viewBox on workspace siblings — not CSS-scaled). Mid-gesture
+// cull keeps off-screen modules asleep. Scopes on visible modules keep drawing.
 
 const nodeGraphViewportPerf = {
   heavyRaf: 0,
@@ -43,14 +43,35 @@ function markNodeGraphViewportGesture(kind = "gesture") {
   if (!workspace) {
     return;
   }
+  const wasGesturing = workspace.classList.contains("viewport-gesturing");
   workspace.classList.add("viewport-gesturing");
+  // Gesture start: seed workspace layout metrics once (left/top/size) so wheel
+  // zoom anchors avoid getBoundingClientRect every tick. ResizeObserver + settle
+  // invalidate; mid-gesture samples reuse the cache.
+  if (!wasGesturing) {
+    if (typeof nodeGraphMvp === "object" && nodeGraphMvp && !nodeGraphMvp._workspaceLayoutMetrics) {
+      if (typeof nodeGraphWorkspaceLayoutMetrics === "function") {
+        nodeGraphWorkspaceLayoutMetrics(workspace);
+      }
+    }
+    // Cancel any pending mid-gesture heatmap phase; settle restores full chrome.
+    if (nodeGraphViewportPerf.gestureHeatmapRaf) {
+      window.cancelAnimationFrame(nodeGraphViewportPerf.gestureHeatmapRaf);
+      nodeGraphViewportPerf.gestureHeatmapRaf = 0;
+    }
+  }
   // Hide wires + inlets/outlets + connection dots while zooming (not pan).
-  if (
-    nodeGraphViewportGestureIsZoom(kind)
+  const zooming = nodeGraphViewportGestureIsZoom(kind)
     || nodeGraphMvp?.smoothZoomDragging
-    || nodeGraphMvp?.workspacePinchZooming
-  ) {
+    || nodeGraphMvp?.workspacePinchZooming;
+  if (zooming) {
+    const wasZooming = workspace.classList.contains("viewport-zooming");
     workspace.classList.add("viewport-zooming");
+    // Freeze stroke-zoom-compensate once per zoom gesture so outline widths
+    // do not cascade on every --node-graph-zoom tick (costly at 10–20×).
+    if (!wasZooming) {
+      freezeNodeGraphViewportStrokeCompensate(workspace);
+    }
   }
   // Pan / drag-zoom: lights + wires stay frozen until pointerup (no settle timer
   // mid-drag). Wheel has no mouse-up, so only wheel schedules a settle.
@@ -61,6 +82,30 @@ function markNodeGraphViewportGesture(kind = "gesture") {
       + nodeGraphViewportPerf.wheelHoldMs;
     scheduleNodeGraphViewportSettle();
   }
+}
+
+/** Snapshot 1/zoom into a frozen CSS var; viewport-zooming uses it mid-gesture. */
+function freezeNodeGraphViewportStrokeCompensate(workspace) {
+  const el = workspace || document.getElementById("nodeGraphWorkspace");
+  if (!el?.style) {
+    return;
+  }
+  if (el.style.getPropertyValue("--node-module-stroke-zoom-compensate-frozen")) {
+    return;
+  }
+  const z = typeof nodeGraphZoom === "function"
+    ? nodeGraphZoom()
+    : (nodeGraphMvp?.zoom || 1);
+  const compensate = 1 / Math.max(0.0001, Number(z) || 1);
+  el.style.setProperty("--node-module-stroke-zoom-compensate-frozen", String(compensate));
+}
+
+function unfreezeNodeGraphViewportStrokeCompensate(workspace) {
+  const el = workspace || document.getElementById("nodeGraphWorkspace");
+  if (!el?.style) {
+    return;
+  }
+  el.style.removeProperty("--node-module-stroke-zoom-compensate-frozen");
 }
 
 /**
@@ -102,6 +147,7 @@ function clearNodeGraphViewportGestureClass() {
     return;
   }
   workspace.classList.remove("viewport-gesturing", "viewport-zooming");
+  unfreezeNodeGraphViewportStrokeCompensate(workspace);
   if (typeof invalidateNodeGraphWorkspaceLayoutMetrics === "function") {
     invalidateNodeGraphWorkspaceLayoutMetrics();
   }
@@ -150,13 +196,21 @@ function applyNodeGraphViewportCssLight(options = {}) {
     workspace.style.setProperty("--node-graph-pan-y", `${originOffset.y}px`);
     workspace.dataset.panX = String(pan.x);
     workspace.dataset.panY = String(pan.y);
-    // Scope screen-items convert layout→screen from this (no gBCR on paint).
+    // Scope screen-items convert layout->screen from this (no gBCR on paint).
     if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
       nodeGraphMvp._cameraScreenOrigin = {
         x: nodeGraphFiniteNumber(originOffset.x),
         y: nodeGraphFiniteNumber(originOffset.y),
       };
     }
+  }
+  // Screen-space wires: cheap viewBox update keeps cables glued during pan
+  // without rebuilding paths (paths stay in world coords).
+  if (
+    (options.zoom !== false || options.pan !== false)
+    && typeof syncNodeGraphWireSvgViewBox === "function"
+  ) {
+    syncNodeGraphWireSvgViewBox();
   }
   if (options.zoomButtons !== false && options.zoom !== false) {
     const zoomOutButton = document.getElementById("nodeZoomOutButton");
@@ -197,11 +251,9 @@ function applyNodeGraphViewportCssLight(options = {}) {
   }
   if (!gesturing && typeof updateNodeGraphGridHeatmap === "function") {
     updateNodeGraphGridHeatmap({ lite: true });
-  } else if (gesturing && typeof updateNodeGraphGridHeatmap === "function") {
-    // Coalesce grid phase to one rAF — sync style writes every pointermove
-    // were keeping the zoomed layer dirty while panning.
-    scheduleNodeGraphViewportGestureHeatmapPhase();
   }
+  // Mid-gesture: skip heatmap phase updates (esp. costly at high zoom).
+  // Settle / pointer-up restores via flushNodeGraphViewportHeavyChrome.
   // Cull must keep running while zoomed-in pan: otherwise modules that leave
   // the view stay awake (display:block) and the composited layer keeps growing
   // → "I'm zoomed in and pan is laggy for no reason." Use cached sizes only.
@@ -308,6 +360,7 @@ function scheduleNodeGraphViewportSettle() {
   nodeGraphViewportPerf.settleTimer = window.setTimeout(() => {
     nodeGraphViewportPerf.settleTimer = 0;
     nodeGraphViewportPerf.wheelActiveUntil = 0;
+    // Drops viewport-zooming + unfreezes stroke compensate; then full chrome.
     clearNodeGraphViewportGestureClass();
     flushNodeGraphViewportHeavyChrome({ full: true });
     // Persist after settle so wheel doesn't thrash localStorage.
@@ -526,7 +579,7 @@ function nodeGraphViewportCullWakeAll(surface) {
   const root = surface
     || (typeof nodeGraphZoomSurface === "function"
       ? nodeGraphZoomSurface()
-      : document.getElementById("nodeGraphZoomSurface"))
+      : document.getElementById("nodeGraphWorldLayer") || document.getElementById("nodeGraphZoomSurface"))
     || document.getElementById("nodeGraphWorkspace");
   if (!root) {
     return;
@@ -540,7 +593,7 @@ function nodeGraphViewportCullRefresh(options = {}) {
   const workspace = document.getElementById("nodeGraphWorkspace");
   const surface = typeof nodeGraphZoomSurface === "function"
     ? nodeGraphZoomSurface()
-    : document.getElementById("nodeGraphZoomSurface");
+    : document.getElementById("nodeGraphWorldLayer") || document.getElementById("nodeGraphZoomSurface");
   if (!workspace || !surface) {
     return;
   }

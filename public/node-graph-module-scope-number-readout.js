@@ -59,10 +59,14 @@ function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
  * After a cold engine start (esp. pause→stop→play), drop freeze-hold state so
  * Value LCD/LED paint live samples again instead of early-outing as "still paused".
  */
-function nodeGraphNumberReadoutRearmAllFacesAfterLiveStart() {
+function nodeGraphNumberReadoutRearmAllFacesAfterLiveStart(options = {}) {
   if (typeof document === "undefined") {
     return;
   }
+  // hard=true: cold start after Stop (drop held reading). Soft (default): plain
+  // unpause keeps lastGoodValueText so pause residual hold is not wiped.
+  const hard = options === true
+    || (options && typeof options === "object" && options.hard === true);
   for (const canvas of document.querySelectorAll("canvas.node-number-readout-canvas")) {
     if (!(canvas instanceof HTMLCanvasElement)) {
       continue;
@@ -75,7 +79,54 @@ function nodeGraphNumberReadoutRearmAllFacesAfterLiveStart() {
     canvas._nodeGraphNumberReadoutText = null;
     canvas._nodeGraphNumberReadoutSettingsSig = null;
     canvas._numberReadoutLastValueText = "";
-    canvas._numberReadoutLastGoodValueText = "";
+    if (hard) {
+      canvas._numberReadoutLastGoodValueText = "";
+    }
+    // Stop wipe / empty-ring races can leave canvas lightStrength at 0 while the
+    // face still expects a room-dimmer hole. Re-open punches even if paint cannot
+    // run yet (no slots / stale buffers).
+    const face = canvas.parentElement;
+    const isLcd = (typeof nodeGraphNumberReadoutIsLcdFaceElement === "function"
+      && nodeGraphNumberReadoutIsLcdFaceElement(face))
+      || String(face?.dataset?.valueFaceStyle || "").toLowerCase() === "lcd";
+    if (isLcd && typeof nodeGraphNumberReadoutApplyLcdLightCutout === "function") {
+      nodeGraphNumberReadoutApplyLcdLightCutout(face, canvas);
+    } else {
+      const s = "1";
+      for (const el of [face, canvas].filter(Boolean)) {
+        el.classList?.add?.("node-light-source");
+        if (el.dataset) {
+          el.dataset.lightSource = "screen";
+          el.dataset.lightStrength = s;
+        }
+        if (typeof setNodeGraphLightStrength === "function") {
+          setNodeGraphLightStrength(el, 1);
+        }
+      }
+    }
+  }
+  // Pitch Detector outer body is also a light source (not only the LCD plate).
+  for (const face of document.querySelectorAll(".node-pitch-detector-face, .node-pitch-detector-lcd")) {
+    if (!(face instanceof HTMLElement)) continue;
+    if (typeof nodeGraphNumberReadoutApplyLcdLightCutout === "function"
+      && (face.classList?.contains("node-pitch-detector-lcd")
+        || face.classList?.contains("node-value-lcd-face"))) {
+      nodeGraphNumberReadoutApplyLcdLightCutout(face, face.querySelector?.(":scope > .node-number-readout-canvas"));
+    } else if (typeof setNodeGraphLightStrength === "function") {
+      face.classList?.add?.("node-light-source");
+      if (face.dataset) {
+        face.dataset.lightSource = "screen";
+        face.dataset.lightStrength = "1";
+      }
+      setNodeGraphLightStrength(face, 1);
+    }
+  }
+  if (typeof scheduleNodeGraphRoomDimmerDraw === "function") {
+    try {
+      scheduleNodeGraphRoomDimmerDraw();
+    } catch (_error) {
+      // Best-effort.
+    }
   }
 }
 
@@ -157,13 +208,15 @@ function paintNodeGraphValueFacesNow(pixelRatio = window.devicePixelRatio || 1) 
         if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
           nodeGraphModuleScopeMarkScreenLit(face, s);
         }
-        if (canvas?.dataset) {
-          canvas.dataset.lightSource = "screen";
-          canvas.dataset.lightStrength = String(s);
-        }
-        if (face?.dataset) {
-          face.dataset.lightSource = "screen";
-          face.dataset.lightStrength = String(s);
+        for (const el of [face, canvas].filter(Boolean)) {
+          el.classList?.add?.("node-light-source");
+          if (el.dataset) {
+            el.dataset.lightSource = "screen";
+            el.dataset.lightStrength = String(s);
+          }
+          if (typeof setNodeGraphLightStrength === "function") {
+            setNodeGraphLightStrength(el, s);
+          }
         }
         painted += 1;
       }
@@ -821,7 +874,7 @@ function wipeNodeGraphNumberReadoutScreensToColdBoot() {
     return;
   }
   for (const face of document.querySelectorAll(
-    ".node-number-readout-face, .dsp-node.number-readout-layout .node-module-scope-window, .dsp-node.value-lcd-layout .node-module-scope-window, .node-value-lcd-face, .node-pitch-detector-lcd",
+    ".node-number-readout-face, .dsp-node.number-readout-layout .node-module-scope-window, .dsp-node.value-lcd-layout .node-module-scope-window, .node-value-lcd-face, .node-value-led-face, .node-pitch-detector-lcd",
   )) {
     let canvas = face.querySelector?.(":scope > .node-number-readout-canvas")
       || face.querySelector?.(".node-number-readout-canvas");
@@ -2213,6 +2266,11 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     const textChanged = canvas._nodeGraphNumberReadoutText == null
       || canvas._nodeGraphNumberReadoutText !== text;
     if (!textChanged && !styleChanged) {
+      // Still refresh the room-dimmer punch — pause→stop→play can leave the
+      // canvas at strength 0 while the digit cache already matches.
+      if (typeof nodeGraphNumberReadoutApplyLcdLightCutout === "function") {
+        nodeGraphNumberReadoutApplyLcdLightCutout(screenElement, canvas);
+      }
       return;
     }
     // High-quality glyph AA at the on-screen pixel grid.
@@ -2514,6 +2572,26 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const depositActive = hangOn && depositEnergy > 0.008;
   // Hanging deposits need continuous present (no static Ghost floor).
   const needsContinuous = !frozen && depositActive;
+  // Room dimmer punches the canvas (not only the face). Set BOTH + notify the
+  // dimmer before any early-out — pause→stop→play can leave canvas at strength 0
+  // while the digit cache already matches; dataset-only writes never schedule a
+  // veil redraw, so faces stayed dark under the room dimmer.
+  const punchN = Math.max(0.001, nodeGraphFiniteNumber(bright));
+  const punch = punchN.toFixed(3);
+  const punchTargets = [canvas, canvas?.parentElement, screenElement].filter(Boolean);
+  for (const el of punchTargets) {
+    el.classList?.add?.("node-light-source");
+    if (el.dataset) {
+      el.dataset.lightSource = "screen";
+      el.dataset.lightStrength = punch;
+    }
+    if (el === canvas?.parentElement || el === screenElement) {
+      if (el.dataset) el.dataset.valueFaceStyle = "led";
+    }
+    if (typeof setNodeGraphLightStrength === "function") {
+      setNodeGraphLightStrength(el, punchN);
+    }
+  }
   if (!textChanged && !styleChanged && !needsContinuous) {
     return;
   }
@@ -2522,22 +2600,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const rgb = nodeGraphNumberReadoutLightRgb(settings);
   const bg = nodeGraphFacePlateBackground(settings);
   const alpha = 1;
-  // Room dimmer punches the canvas (not only the face). Always set both —
-  // stop wipe used to leave canvas at strength 0 and veil painted digits.
-  const punch = Math.max(0.001, nodeGraphFiniteNumber(bright)).toFixed(3);
-  if (canvas?.dataset) {
-    canvas.dataset.lightSource = "screen";
-    canvas.dataset.lightStrength = punch;
-  }
-  if (canvas?.parentElement?.dataset) {
-    canvas.parentElement.dataset.lightSource = "screen";
-    canvas.parentElement.dataset.lightStrength = punch;
-    canvas.parentElement.dataset.valueFaceStyle = "led";
-  }
-  if (screenElement?.dataset) {
-    screenElement.dataset.lightSource = "screen";
-    screenElement.dataset.lightStrength = punch;
-  }
 
   context.setTransform(1, 0, 0, 1, 0, 0);
   const largeUnit = hasUnit && String(unit || "").trim().toLowerCase() === "hz";

@@ -2,26 +2,37 @@
 // Nested soemdsp::math (tanh_approx, soft_clip_*); soemdsp_maths mirror.
 #pragma once
 
-#include "exp_log.h"
 #include "scalar_helpers.h"
 
 namespace soemdsp::math {
 
-// Pade tanh used by soft_clipper / clipper_limiter / soft_clip_apply.
+// sqrt(1+x*x) without libm. Seed with max(1,|x|) so Newton converges in a
+// few steps (seeding with 1+x*x itself stalls near |x| and under-saturates).
+static inline double hypot1(double x) {
+  const double ax = dsp_fabs(x);
+  const double s = 1.0 + x * x;
+  double r = ax < 1.0 ? 1.0 : ax;
+  for (int i = 0; i < 6; i++) {
+    r = 0.5 * (r + s / r);
+  }
+  return r;
+}
+
+// Saturating soft-clip used by soft_clipper / clipper_limiter / soft_clip_apply.
+// f(x) = x / sqrt(1+x*x): odd, smooth, |f|->1 as |x|->inf (unlike the old
+// Pade x*(27+x*x)/(27+9*x*x) which grew like x/9 and exploded under drive).
 static inline double tanh_approx(double value) {
   const double x = value;
-  const double x2 = x * x;
-  const double denominator = 27.0 + 9.0 * x2;
-  return (denominator <= 0.0) ? 0.0 : (x * (27.0 + x2)) / denominator;
+  const double r = hypot1(x);
+  return (r <= 0.0) ? 0.0 : (x / r);
 }
 
-// ∫ tanh_approx = x²/18 + (4/3) ln(x²+3)
+// Exact antiderivative of tanh_approx: d/dx sqrt(1+x*x) = x/sqrt(1+x*x).
 static inline double tanh_antideriv(double value) {
-  const double x = value;
-  return (x * x) / 18.0 + (4.0 / 3.0) * soemdsp_maths::dsp_ln(x * x + 3.0);
+  return hypot1(value);
 }
 
-// Ladder / analog-filter stability clip: x / (1 + x²).
+// Ladder / analog-filter stability clip: x / (1 + x*x).
 static inline double soft_clip_rational(double x) {
   const double v = soemdsp::debug::safe(x);
   return v / (1.0 + v * v);

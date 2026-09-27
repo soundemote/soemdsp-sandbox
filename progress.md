@@ -12,6 +12,7 @@ Branch: `master` @ `4d25266` **SPEED LIMIT FIX** (and later hygiene if present).
 - Build native modules after editing `native_modules/*.cpp`.
 - Do not run destructive commands, force pushes, production deploys, or database resets.
 - When editing sandbox source, restore `public/presets/useruisettings.json` and `useruisettings.js` from commit `4639c84` before running smoke tests (the test's UI settings update contract writes them back dirty).
+- Never put JavaScript on the audio path: no JS DSP evaluators, no restoring `create*State` / worklet-evaluator twins for allowlisted natives. Fix `setPlan` / native GraphEngine instead. Missing native = silence or refuse — never stubs.
 
 ## Bugs
 
@@ -79,10 +80,9 @@ graphify update . --force   # no LLM; AST re-extract
 
 ## Backlog Ideas
 
+- [ ] Inlets/outlets above displays, app-wide (`docs/FUTURE_PLANNING.md`)
 - [ ] **Sabrina instance handles** — multi-instance (`docs/INSTANCE_HANDLE_PATTERN.md`)
 - [ ] Lo-Fi Pitch Shift component-first (`docs/LOFI_PITCH_SHIFT_PLAN.md`)
-- [ ] Trace pathfinding (orthogonal routing)
-- [ ] Visual outputs back into sound
 
 ## Notes
 

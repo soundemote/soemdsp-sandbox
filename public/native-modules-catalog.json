@@ -392,19 +392,6 @@
       "wasmAvailable": true
     },
     {
-      "name": "clipper_limiter",
-      "label": "Clipper Limiter",
-      "targetType": "clipperLimiter",
-      "kind": "dynamics",
-      "source": "native_modules/clipper_limiter/clipper_limiter.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/clipper_limiter/clipper_limiter.cpp",
-      "localSourceUrl": "/native_modules/clipper_limiter/clipper_limiter.cpp",
-      "libUrl": "",
-      "wasm": "native_modules/clipper_limiter/clipper_limiter.wasm",
-      "wasmUrl": "native_modules/clipper_limiter/clipper_limiter.wasm",
-      "wasmAvailable": true
-    },
-    {
       "name": "clock",
       "label": "Clock",
       "targetType": "clock",
@@ -454,6 +441,19 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET",
       "wasm": "native_modules/cookbook_filter/cookbook_filter.wasm",
       "wasmUrl": "native_modules/cookbook_filter/cookbook_filter.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "crossfade",
+      "label": "Crossfade4",
+      "targetType": "crossfade4",
+      "kind": "dynamics",
+      "source": "native_modules/crossfade/crossfade.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossfade/crossfade.cpp",
+      "localSourceUrl": "/native_modules/crossfade/crossfade.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/crossfade/crossfade.wasm",
+      "wasmUrl": "native_modules/crossfade/crossfade.wasm",
       "wasmAvailable": true
     },
     {
@@ -1497,6 +1497,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "ring_mod",
+      "label": "RingMod",
+      "targetType": "ringMod",
+      "kind": "dynamics",
+      "source": "native_modules/ring_mod/ring_mod.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/ring_mod/ring_mod.cpp",
+      "localSourceUrl": "/native_modules/ring_mod/ring_mod.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/ring_mod/ring_mod.wasm",
+      "wasmUrl": "native_modules/ring_mod/ring_mod.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "robin_sinusoid",
       "label": "RobinSinusoid",
       "targetType": "robinSinusoid",
@@ -1624,7 +1637,7 @@
       "libUrl": "",
       "wasm": "native_modules/sine_warp/sine_warp.wasm",
       "wasmUrl": "native_modules/sine_warp/sine_warp.wasm",
-      "wasmAvailable": false
+      "wasmAvailable": true
     },
     {
       "name": "sine_wavetable",
@@ -1858,6 +1871,19 @@
       "libUrl": "",
       "wasm": "native_modules/trigger_divider/trigger_divider.wasm",
       "wasmUrl": "native_modules/trigger_divider/trigger_divider.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "tube_saturation",
+      "label": "Tube Saturation",
+      "targetType": "tubeSaturation",
+      "kind": "dynamics",
+      "source": "native_modules/tube_saturation/tube_saturation.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/tube_saturation/tube_saturation.cpp",
+      "localSourceUrl": "/native_modules/tube_saturation/tube_saturation.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/tube_saturation/tube_saturation.wasm",
+      "wasmUrl": "native_modules/tube_saturation/tube_saturation.wasm",
       "wasmAvailable": true
     },
     {

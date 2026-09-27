@@ -22,7 +22,7 @@
 //   phasor.h            -- unit-interval phase advance / Hz→increment
 //   dynamics.h          -- one_pole_coeff / one_pole_coeff_hz / one_pole_step
 //   trigger.h           -- rising/falling/change edges
-//   nonlinearity.h      -- Pade tanh + soft_clip_coeffs/apply + ladder soft-clip
+//   nonlinearity.h      -- saturating soft-clip tanh_approx + soft_clip_* + ladder clip
 //   graph.h             -- breakpoint X/Y graph (ported from soemdsp::utility::Graph)
 //   analog_filter_trig.h -- sin/cos/2^x + turns-domain / joint fast trig
 //   scientific_iir.h     -- classical IIR cascade (Butterworth/LR/Bessel/Cheby/Elliptic)

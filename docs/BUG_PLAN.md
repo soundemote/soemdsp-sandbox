@@ -76,7 +76,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-023 | see | fixed | Spectrogram columns peak-normalized |
 | B-024 | see | fixed | Room dimmer hard-caps 48 punches |
 | B-025 | see | fixed | Playlist RAM table innerHTML XSS |
-| B-026 | see | wip | Pause → stop → play leaves value faces dark |
+| B-026 | see | open | Pause → Stop → Play: waterfall drawers fail (LED values OK) |
 | B-027 | hear | fixed | Header Speed 2.0 slows the patch |
 | B-028 | hear | open | Chebyshev / Elliptic / high-order BP are RBJ stand-ins |
 | B-029 | hear | fixed | Offline/Render JS twins ≠ live native (~60 types) |
@@ -96,6 +96,17 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-043 | hear | fixed | Control chase not sample-accurate by default (Output Volume repro) |
 | B-044 | hear | fixed | PolyBLEP Sine clicks once per cycle (Taylor ±π) |
 | B-045 | hear | fixed | Self-mod (outlet→own param) silent — buf zeroed before stamp |
+| B-046 | see | fixed | Shell doctype missing leading < → literal !doctype html> after start menu |
+| B-047 | hear | fixed | Arp Inc Out broken after f→inc remap (Hz/sr on ƒ cables; face Ramp unpublished) |
+| B-048 | see | open | Module settings enable/disable control does not mirror module button |
+| B-049 | hear | fixed | Softwave ignored Increment (Arp.inc OK on polyBlep only) |
+| B-050 | see | open | Workspace zoom past ~10× stutters badly |
+| B-051 | see | open | Softwave oscillator display needs unrelated EQ Frequency refresh |
+| B-052 | see | fixed | Portal Out rename to ChordKeys skips outlet color/shape |
+| B-053 | see | fixed | Catalog Portal In/Out replaced by linked Portal IO |
+| B-054 | see | open | Output display keeps pause emoji after Stop/Play |
+| B-055 | see | open | Text Box covers wires (UI z-order) |
+| B-056 | see | open | Default filter drawer pollutes basic displays / Softclipper display jitters |
 
 ---
 
@@ -107,6 +118,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 
 - 2026-09-10: Desktop patch `zipper noise on volume knob of output module.json` — Output Volume zipper while dragging. Promoted → **B-043**.
 - 2026-09-10: Desktop `repeating clicks from a sinewave.json` — PolyBLEP Sine @ 4 Hz clicks once/cycle. Promoted → **B-044**.
+- 2026-09-27: User — zooming in past 10 stutters the app horribly. Promoted → **B-050** (`docs/B-050_ZOOM_PAST_10_STUTTER.md`).
 
 ---
 
@@ -479,6 +491,115 @@ ative_modules/polyblep/polyblep.cpp; sandbox_native_maths/analog_filter_trig.h; 
 - What: ParamModEdge stamped from node.buf after process_block zeroed buf → self-mod always 0. Early JS kept prior output.
 - Fix: Unified Edge (Port|Control sinks); per-channel z^-1 hist; stamp/mix read hist for self/unprocessed sources; update hist after write. Smoke: scripts/smoke_polyblep_self_mod.mjs.
 
+### B-046 — Shell doctype missing leading < (literal !doctype html> after start menu)
+- Status: fixed
+- Severity: see
+- Source: user
+- Files: public/index.html; public/perform.html
+- What: Both shells started with !doctype html> (leading < stripped). Browser treated it as a text node; after start-menu dismiss / boot overlay hide, raw !doctype html> showed at top of workspace.
+- Repro: Start app → START SANDBOX → look at top of workspace for !doctype / html garbage.
+- Fix: Restored <!doctype html> on line 1 of both shells. No JS/audio-path change.
+
+### B-047 — Arp Inc Out not working (f→inc remap / face Ramp unpublished)
+- Status: fixed
+- Severity: hear
+- Source: user 2026-09-27 (“inc out of arp not working”)
+- Files: `native_modules/graph_engine/graph_engine.cpp` (`process_arp`); `public/node-live-audio-worklet-native-graph.js`; `public/node-graph-module-definitions.js` (`arp`); `scripts/smoke_graph_arp.mjs`; cache-bust `?v=arp-inc-2`
+- What: Pitch-family rename put **Hz/sr** on Ramp and aliased legacy **`f` → `inc`**. Cables / publish names for ƒ then carried cycles/sample into Hz jacks. Face scope rings only published Mono/Left/Right, so **`inc` on Ramp** never reached Value LED / waterfall — same class as B-033.
+- Repro: Arp with Arp Keys + Internal Clock. Wire **inc → osc Increment**. Wire **ƒ → osc ƒ**. Scope / Value on `inc`.
+- Fix shape: Publish **both** pitch-family outs — Square=`f` (Hz), Ramp=`inc` (Hz/sr). Stop aliasing `f`→`inc`. Graph version **152**.
+- Fixed (2026-09-27): as above. Rebuild combined WASM.
+
+### B-049 — Softwave ignores Increment (Arp.inc silent vs polyBlep)
+- Status: fixed
+- Severity: hear
+- Source: user 2026-09-27 (“Arp still does not send inc to Softwave oscillator”, patches/init.json)
+- Files: `native_modules/graph_engine/graph_engine.cpp` (`process_softwave_osc`); `patches/init.json`; `scripts/_smoke_arp_inc_to_osc.mjs`
+- What: Softwave UI declared `inputs: [Reset, Increment]` and Arp published Ramp=`inc`, but `process_softwave_osc` never mixed `kPortIncrement`. Init patch drove Softwave via `Arp.f → frequency` MOD instead of `Arp.inc → Increment`.
+- Fix shape: `if (liveInc) freq += mixIncrement[f] * sr` in `process_softwave_osc`. Graph version **153**.
+- Fixed (2026-09-27): as above.
+
+### B-048 — Module settings enable/disable control does not mirror module button
+- Status: open
+- Severity: see
+- Source: user
+- Files: to investigate
+- What: The module settings enable/disable control does not mirror the module button: it does not turn red when disabled, does not match the button background, and does not glow like the module enable/disable button.
+- Repro: Disable a module and compare its module settings control with the module button (and repeat in the other direction).
+- Fix shape: Make both controls share the same disabled state and background/glow styling. Docs only for this report; do not fix the UI here.
+
+### B-050 — Workspace zoom past ~10× stutters badly
+- Status: open
+- Severity: see
+- Source: user 2026-09-27
+- Doc: `docs/B-050_ZOOM_PAST_10_STUTTER.md` (attempt log; prior camera/pan work documented)
+- Files: graph camera / zoom / pan path (see doc)
+- What: Zooming the workspace past about 10× makes the app stutter badly (frame rate collapses). Zoom max remains 100; cliff around 10×.
+- Repro: Load a non-trivial patch; wheel-zoom past ~10×; pan or keep zooming.
+- Fix shape: See `docs/B-050_ZOOM_PAST_10_STUTTER.md`. Do not “fix” by only lowering zoom max. No audio/DSP changes.
+
+### B-051 - Softwave oscillator display needs unrelated EQ Frequency refresh
+- Status: open
+- Severity: see
+- Source: user 2026-09-27
+- Related: B-026 and B-054 (audit for shared display invalidation/rearm infrastructure; separate symptoms unless the same root is confirmed)
+- Doc: `docs/B-051_SOFTWAVE_DISPLAY_REFRESH.md`
+- Files: display invalidation/frame-refresh scheduler; Softwave oscillator face/display path; scope/face/waterfall render paths; EQ filter Frequency update path (to investigate)
+- What: The Softwave oscillator display/UI does not live-update on its own and only refreshes when the user moves Frequency on an EQ filter. The EQ control appears to be an unrelated invalidation trigger, suggesting a broader display refresh bug rather than a Softwave-only rendering problem.
+- Hypothesis: Softwave Morph is modulated via RobinSinusoid, but the display update path may ignore that modulation until an unrelated edit such as EQ Frequency invalidates it.
+- Repro: Show a Softwave oscillator display in a live patch and observe it while the signal or displayed state changes. Then move the EQ filter Frequency control; the Softwave display/UI refreshes. Repeat with other live-update displays and note which scopes, faces, or waterfalls also require an unrelated UI action.
+- Fix shape: Find the authoritative display invalidation/frame tick and make live displays update from current audio/state without an unrelated parameter edit. Audit scopes, faces, and waterfalls together; verify EQ Frequency is not acting as an accidental global refresh. Check B-026/B-054 flows for shared invalidation/rearm regressions, but close this live-refresh symptom independently.
+
+### B-052 — Portal Out rename to ChordKeys skips outlet color/shape
+- Status: fixed
+- Severity: see
+- Source: user 2026-09-27
+- Files: `public/modules/portal/portal-named.js`; `public/node-graph-jack-chrome.js`; `public/node-graph-module-actions.js`
+- What: Renaming a named portal (e.g. outlet Title → `ChordKeys`) updated the patch bus name but the jack stayed default gold/round instead of adopting Chord Keys / Chord Memory green + square.
+- Repro: Place Portal IO (or Out). Rename Title to `ChordKeys`. Jack color/shape wrong until a Chord Memory cable painted it.
+- Root cause: Jack chrome for named portals only inherited color from the cable into Portal In (or locked `wirelessRole` for square). Title was never looked up against the existing outlet name→color/shape tables (`Play Keys` / `Arp Keys` / `Chord Memory` / `Scale` / …). Rename also did not re-stamp jack chrome (ports are not recreated when alias changes).
+- Fix shape: `nodeGraphNamedPortalBusPaintFromAlias` maps Title → canonical port name; SyncBusAlias / ApplyAliasPaint set `wirelessRole`; `nodeGraphApplyJackChrome` prefers alias paint; `nodeGraphNamedPortalRefreshModules` re-applies jack chrome after rename.
+- Fixed (2026-09-27): as above. Cache-bust `?v=portal-io-1`.
+
+### B-053 — Catalog: separate Portal In/Out → single Portal IO pair
+- Status: fixed
+- Severity: see
+- Source: user 2026-09-27
+- Files: `public/modules/portal/portal-named-register.js`; `public/node-graph-module-actions.js`; `public/node-graph-efficient-product.js`
+- What: Shop listed Portal → and Portal ← separately; user wants one **Portal IO** that drops a linked In+Out. Renaming either half should sync the peer Title (already via SyncBusAlias) and color/shape (B-052).
+- Fix shape: Catalog `portalIo` expands to `namedPortalIn` + `namedPortalOut` (same Title). Hide separate In/Out from shop (`catalog.hidden`); types stay loadable for old patches. Ghost drag moves the pair with a fixed grid offset.
+- Fixed (2026-09-27): as above.
+
+### B-054 — Output display keeps pause emoji after Stop/Play
+- Status: open
+- Severity: see
+- Source: user 2026-09-27
+- Related: B-026 (same Pause/Stop/Play display-rearm family; separate Output UI chrome symptom)
+- Doc: `docs/B-054_OUTPUT_DISPLAY_PAUSE_EMOJI.md`
+- Files: Output display status/glyph rendering path and transport lifecycle/rearm path (to investigate)
+- What: Pressing Pause and/or Stop can leave a pause emoji (`⏸`) stuck on the Output display; subsequent Play does not restore the normal live display state. This is separate from B-026's waterfall drawer dark/idle symptom, though the stop/play rearm root may be shared.
+- Repro: Show an Output display; play; press Pause then Play, and Stop then Play (also test Pause → Stop → Play). Observe whether the Output display retains `⏸` instead of returning to its live state.
+- Fix shape: Derive the Output glyph from authoritative live/display state and update it on every Pause/Stop/Play transition. Full Stop and subsequent Play must rearm the Output display without leaving stale pause chrome. Verify alongside B-026, but close independently.
+### B-055 — Text Box covers wires
+- Status: open
+- Severity: see
+- Source: user
+- Related: B-032 if the same Text Box layout/z-order root is confirmed
+- Files: Text Box rendering and workspace wire z-order path (to investigate)
+- What: Text Box faces render over wires, obscuring cables that pass behind them.
+- Repro: Place or route wires behind a Text Box and observe that the Text Box covers them.
+- Fix shape: Correct the UI layering/z-order so wires remain visible as intended. Docs only; no code fix here.
+
+
+### B-056 - Default filter drawer pollutes basic displays / Softclipper display jitters
+- Status: open
+- Severity: see
+- Source: user 2026-09-27
+- Doc: `docs/B-056_FILTER_DRAWER_DISPLAY_POLLUTION.md`
+- Files: default filter drawer/display selection and basic-display routing; Softclipper display/render path (to investigate)
+- What: The default filter drawer appears to pollute basic displays. Softclipper jitters between an unused filter display and its intended display instead of keeping the intended display stable.
+- Repro: Open a basic display containing or associated with Softclipper while the default filter drawer is present/unused. Observe the display selection; Softclipper alternates or jitters between the unused filter display and its intended display.
+- Fix shape: Ensure an unused/default filter drawer cannot claim or overwrite a basic display. Make display ownership/selection deterministic so Softclipper stays on its intended display. Docs only; no code fix in this report.
 ## Fixed
 
 <!-- move B-xxx here with a one-line note -->

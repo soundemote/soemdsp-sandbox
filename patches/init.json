@@ -5,7 +5,8 @@
     "targetSampleRate": 44100,
     "pitchReferenceMidiNote": 69,
     "pitchReferenceHz": 440,
-    "pitchOffsetOctaves": 0
+    "pitchOffsetOctaves": 0,
+    "speedLimitHz": 22050
   },
   "bypassedNodes": [],
   "cameras": [
@@ -153,27 +154,6 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "metamodule-1",
-      "destinationPort": "Voices",
-      "sourceNode": "keyboard-1",
-      "sourcePort": "Chord Memory",
-      "tracePoints": []
-    },
-    {
-      "destinationNode": "arp-1",
-      "destinationPort": "Arp Keys",
-      "sourceNode": "keyboard-1",
-      "sourcePort": "Chord Memory",
-      "tracePoints": []
-    },
-    {
-      "destinationNode": "metamodule-1",
-      "destinationPort": "Voices",
-      "sourceNode": "keyboard-1",
-      "sourcePort": "Play Keys",
-      "tracePoints": []
-    },
-    {
       "destinationNode": "hypersaw2-1",
       "destinationPort": "Increment",
       "sourceNode": "metamodule-1__voiceFrequency",
@@ -185,6 +165,69 @@
       "destinationPort": "Chord Memory",
       "sourceNode": "sequencer-1",
       "sourcePort": "Play Keys",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "softwaveOsc-1",
+      "destinationPort": "Increment",
+      "sourceNode": "arp-1",
+      "sourcePort": "inc",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "namedPortalIn-1",
+      "destinationPort": "In",
+      "sourceNode": "keyboard-1",
+      "sourcePort": "Chord Memory",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "arp-1",
+      "destinationPort": "Arp Keys",
+      "sourceNode": "namedPortalOut-1",
+      "sourcePort": "Out",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "metamodule-1",
+      "destinationPort": "Voices",
+      "sourceNode": "namedPortalOut-2",
+      "sourcePort": "Out",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "namedPortalIn-2",
+      "destinationPort": "In",
+      "sourceNode": "keyboard-1",
+      "sourcePort": "Play Keys",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "metamodule-1",
+      "destinationPort": "Voices",
+      "sourceNode": "namedPortalOut-3",
+      "sourcePort": "Out",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "namedPortalIn-3",
+      "destinationPort": "In",
+      "sourceNode": "knob-1",
+      "sourcePort": "Bias",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "traceDisplayStereo-1",
+      "destinationPort": "Left",
+      "sourceNode": "mixStereo2-1",
+      "sourcePort": "Left",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "traceDisplayStereo-1",
+      "destinationPort": "Right",
+      "sourceNode": "mixStereo2-1",
+      "sourcePort": "Right",
       "tracePoints": []
     }
   ],
@@ -235,23 +278,16 @@
     {
       "destinationNode": "passiveFilter-2",
       "destinationParam": "sweep",
-      "sourceNode": "knob-1",
-      "sourcePort": "Bias",
-      "tracePoints": []
-    },
-    {
-      "destinationNode": "softwaveOsc-1",
-      "destinationParam": "frequency",
-      "sourceNode": "arp-1",
-      "sourcePort": "f",
+      "sourceNode": "namedPortalOut-4",
+      "sourcePort": "Out",
       "tracePoints": []
     }
   ],
   "monitors": [],
   "nodes": [
     {
-      "gx": 42,
-      "gy": 4,
+      "gx": 36,
+      "gy": -4,
       "id": "output",
       "paramMeta": {
         "volume": {
@@ -364,11 +400,27 @@
         "zoomSeconds": 0.25,
         "fade": 0,
         "xyzLayout": "stack"
+      },
+      "ui": {
+        "buttonsHidden": false,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": true,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": false
       }
     },
     {
-      "gx": 15,
-      "gy": -4,
+      "gx": -21,
+      "gy": -7,
       "id": "textBox-1",
       "paramMeta": {},
       "params": {},
@@ -377,6 +429,7 @@
       "widthGu": 32,
       "heightGu": 8,
       "layout": {
+        "backgroundAlpha": 0.78,
         "backgroundColor": "#020407",
         "font": "cascadia-mono",
         "horizontalAlign": "center",
@@ -408,8 +461,8 @@
       }
     },
     {
-      "gx": 15,
-      "gy": 4,
+      "gx": 11,
+      "gy": -17,
       "id": "metamodule-1",
       "paramMeta": {
         "octave": {
@@ -786,8 +839,8 @@
       "metamoduleDefaultStereoOut": true
     },
     {
-      "gx": -22,
-      "gy": -7,
+      "gx": -62,
+      "gy": -8,
       "id": "keyboard-1",
       "paramMeta": {},
       "params": {},
@@ -831,7 +884,7 @@
       },
       "ui": {
         "buttonsHidden": false,
-        "buttonsForceShow": false,
+        "buttonsForceShow": true,
         "displayHeightOffsetGu": 0,
         "displayModeKey": "",
         "ioHidden": false,
@@ -938,8 +991,8 @@
       }
     },
     {
-      "gx": -30,
-      "gy": -7,
+      "gx": -71,
+      "gy": -14,
       "id": "keyboardController-1",
       "paramMeta": {},
       "params": {},
@@ -2461,8 +2514,8 @@
       "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -1,
-      "gy": 5,
+      "gx": -6,
+      "gy": 3,
       "id": "arp-1",
       "paramMeta": {
         "mode": {
@@ -2958,7 +3011,25 @@
       "type": "softwaveOsc",
       "widthGu": 7,
       "traceDisplaySettings": {
+        "lineHue": 165,
+        "lineBrightness": 0.5,
         "lineThickness": 3,
+        "lineBlur": 0,
+        "dotHue": 165,
+        "dotBrightness": 1,
+        "dotThickness": 5,
+        "backgroundHue": 200,
+        "backgroundBrightness": 0.03,
+        "pixelDensity": 1,
+        "strokeColor": "#00ffbf",
+        "color": "#00ffbf",
+        "dot1Color": "#00ffbf",
+        "dotColor": "#00ffbf",
+        "backgroundColor": "#00aaff",
+        "background": "#00aaff",
+        "strokePaint": "rgb(0 255 191)",
+        "dotPaint": "rgb(255 255 255)",
+        "backgroundPaint": "rgb(0 21 32)",
         "showDot": false
       },
       "ui": {
@@ -2980,8 +3051,8 @@
       }
     },
     {
-      "gx": -8,
-      "gy": 5,
+      "gx": -13,
+      "gy": 10,
       "id": "transport-1",
       "paramMeta": {
         "bpm": {
@@ -3267,8 +3338,8 @@
       }
     },
     {
-      "gx": 35,
-      "gy": 4,
+      "gx": 27,
+      "gy": -5,
       "id": "mixStereo2-1",
       "paramMeta": {
         "volume1": {
@@ -3501,7 +3572,7 @@
         "interfaceControlsHidden": false,
         "interfaceControlsForceShow": false,
         "movementLocked": false,
-        "oscilloscopeHidden": false,
+        "oscilloscopeHidden": true,
         "oscilloscopeForceShow": false,
         "slidersHidden": false,
         "slidersForceShow": false,
@@ -3510,8 +3581,8 @@
       }
     },
     {
-      "gx": 27,
-      "gy": 8,
+      "gx": 15,
+      "gy": 5,
       "id": "eqFilter-2",
       "paramMeta": {
         "mode": {
@@ -3729,8 +3800,8 @@
       }
     },
     {
-      "gx": 8,
-      "gy": 19,
+      "gx": 3,
+      "gy": 12,
       "id": "robinSinusoid-1",
       "paramMeta": {
         "frequency": {
@@ -3845,7 +3916,7 @@
         "phase": 0
       },
       "type": "robinSinusoid",
-      "widthGu": 7,
+      "widthGu": 5,
       "traceDisplaySettings": {
         "backgroundHue": 0,
         "backgroundBrightness": 0,
@@ -3854,7 +3925,7 @@
         "brightness": 0.95,
         "color": "#ff0000",
         "dot1Enabled": true,
-        "dot1Size": 0.711,
+        "dot1Size": 2.3315,
         "secondaryBrightness": 0.95,
         "secondaryColor": "#0000ff",
         "secondaryEnabled": true,
@@ -3896,12 +3967,12 @@
         "slidersHidden": false,
         "slidersForceShow": false,
         "titleHidden": false,
-        "displayHeightGu": 2
+        "displayHeightGu": 1
       }
     },
     {
-      "gx": -58,
-      "gy": 2,
+      "gx": -99,
+      "gy": -5,
       "id": "sequencer-1",
       "paramMeta": {},
       "params": {},
@@ -4056,8 +4127,8 @@
       }
     },
     {
-      "gx": -22,
-      "gy": 5,
+      "gx": -29,
+      "gy": 6,
       "id": "knob-1",
       "paramMeta": {
         "offset": {
@@ -4135,7 +4206,7 @@
         }
       },
       "params": {
-        "offset": 0.03811173344455239,
+        "offset": 0.055985823118891886,
         "displaySource": 0
       },
       "type": "knob",
@@ -4148,11 +4219,13 @@
         "arcFill": "#f1b84b",
         "arcTrack": "#3a3428",
         "rotationDegrees": 270,
-        "dialSize": 0.9182,
-        "labelSize": 0.9501,
-        "valueSize": 0.3409,
-        "labelPosition": "above",
-        "valuePosition": "mid",
+        "dialSize": 0.7273,
+        "dialOffsetY": 0.1945,
+        "labelSize": 0.2819,
+        "valueSize": 0.1454,
+        "valueOffsetY": 0,
+        "labelPosition": "top",
+        "valuePosition": "midknob",
         "innerRadius": 0.5591,
         "labelText": "Cutoff"
       },
@@ -4172,6 +4245,256 @@
         "slidersForceShow": false,
         "titleHidden": true,
         "displayHeightGu": 12
+      }
+    },
+    {
+      "gx": -25,
+      "gy": 1,
+      "id": "namedPortalIn-1",
+      "paramMeta": {},
+      "params": {},
+      "type": "namedPortalIn",
+      "alias": "ChordKeys",
+      "widthGu": 4,
+      "heightGu": 1,
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": true
+      }
+    },
+    {
+      "gx": -10,
+      "gy": 9,
+      "id": "namedPortalOut-1",
+      "paramMeta": {},
+      "params": {},
+      "type": "namedPortalOut",
+      "alias": "ChordKeys",
+      "widthGu": 4,
+      "heightGu": 1,
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": true
+      }
+    },
+    {
+      "gx": 6,
+      "gy": -15,
+      "id": "namedPortalOut-2",
+      "paramMeta": {},
+      "params": {},
+      "type": "namedPortalOut",
+      "alias": "Chord_Keys",
+      "widthGu": 4,
+      "heightGu": 1,
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": true
+      }
+    },
+    {
+      "gx": -25,
+      "gy": 0,
+      "id": "namedPortalIn-2",
+      "paramMeta": {},
+      "params": {},
+      "type": "namedPortalIn",
+      "alias": "PlayKeys",
+      "widthGu": 4,
+      "heightGu": 1,
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": true
+      }
+    },
+    {
+      "gx": 6,
+      "gy": -17,
+      "id": "namedPortalOut-3",
+      "paramMeta": {},
+      "params": {},
+      "type": "namedPortalOut",
+      "alias": "PlayKeys",
+      "widthGu": 4,
+      "heightGu": 1,
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": true
+      }
+    },
+    {
+      "gx": -15,
+      "gy": 6,
+      "id": "namedPortalIn-3",
+      "paramMeta": {},
+      "params": {},
+      "type": "namedPortalIn",
+      "alias": "Cutoff",
+      "widthGu": 3,
+      "heightGu": 1,
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": true
+      }
+    },
+    {
+      "gx": 7,
+      "gy": 3,
+      "id": "namedPortalOut-4",
+      "paramMeta": {},
+      "params": {},
+      "type": "namedPortalOut",
+      "alias": "KnobBias",
+      "widthGu": 4,
+      "heightGu": 1,
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": true
+      }
+    },
+    {
+      "gx": 34,
+      "gy": -11,
+      "id": "traceDisplayStereo-1",
+      "paramMeta": {},
+      "params": {},
+      "type": "traceDisplayStereo",
+      "widthGu": 7,
+      "traceDisplaySettings": {
+        "backgroundHue": 0,
+        "backgroundBrightness": 0,
+        "background": "#ff0000",
+        "backgroundColor": "#ff0000",
+        "brightness": 0.95,
+        "color": "#ff0000",
+        "dot1Enabled": true,
+        "dot1Size": 2,
+        "secondaryBrightness": 0.95,
+        "secondaryColor": "#0000ff",
+        "secondaryEnabled": true,
+        "secondarySize": 2,
+        "secondaryLineThickness": 0,
+        "tertiaryColor": "#00ff00",
+        "cycles": 2,
+        "lineThickness": 0.15,
+        "stampDensity": 0.5,
+        "dotBudget": 1024,
+        "pixelDensity": 1,
+        "padding": 0,
+        "scale": 1,
+        "skipDiscontinuities": false,
+        "cmyMode": false,
+        "sourceSync": false,
+        "stereoBlend": "combine",
+        "meetColor": "auto",
+        "syncChannel": "off",
+        "historyHz": 4,
+        "historyCycles": 4,
+        "historySeconds": 0.25,
+        "zoomSeconds": 0.25,
+        "fade": 0,
+        "xyzLayout": "stack"
+      },
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": false,
+        "displayHeightGu": 2
       }
     }
   ],
@@ -4207,11 +4530,11 @@
           {
             "nodeId": "arp-1",
             "enabled": true,
-            "x": 0.3734375000000001,
-            "y": 0.3578174186778594,
-            "w": 0.3723958333333333,
-            "h": 0.3997481636935993,
-            "z": 2100
+            "x": 0.3796875,
+            "y": 0.37460650577124877,
+            "w": 0.3182291666666666,
+            "h": 0.3934522560335783,
+            "z": 2900
           },
           {
             "nodeId": "sequencer-1",
@@ -4225,11 +4548,11 @@
           {
             "nodeId": "knob-1",
             "enabled": true,
-            "x": 0.3910416666666667,
-            "y": 0.08184679958027283,
-            "w": 0.10374999999999998,
-            "h": 0.2822245540398741,
-            "z": 2002
+            "x": 0,
+            "y": 0,
+            "w": 0.533125,
+            "h": 0.37351521511017843,
+            "z": 3002
           },
           {
             "nodeId": "keyboard-1",
@@ -4243,11 +4566,29 @@
           {
             "nodeId": "robinSinusoid-1",
             "enabled": true,
-            "x": 0.7426041666666666,
-            "y": 0.38455403987408177,
-            "w": 0.25739583333333327,
-            "h": 0.39135362014690456,
-            "z": 704
+            "x": 0.6957291666666667,
+            "y": 0.37301154249737667,
+            "w": 0.09958333333333329,
+            "h": 0.38820566631689407,
+            "z": 1204
+          },
+          {
+            "nodeId": "traceDisplayStereo-1",
+            "enabled": true,
+            "x": 0.53375,
+            "y": 0.0013641133263378805,
+            "w": 0.46625000000000005,
+            "h": 0.3714165792235048,
+            "z": 606
+          },
+          {
+            "nodeId": "softwaveOsc-1",
+            "enabled": true,
+            "x": 0.7978125,
+            "y": 0.37282266526757596,
+            "w": 0.20218749999999996,
+            "h": 0.3903043022035677,
+            "z": 806
           }
         ]
       },

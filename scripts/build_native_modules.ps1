@@ -24,13 +24,18 @@ $modules = @(
   @{ Name = "helmholtz"; Simd = $false; Exports = @("soemdsp_helmholtz_version", "soemdsp_helmholtz_create", "soemdsp_helmholtz_destroy", "soemdsp_helmholtz_set_params", "soemdsp_helmholtz_process", "soemdsp_helmholtz_frequency", "soemdsp_helmholtz_fidelity") }
   @{ Name = "noise_generator"; Simd = $true; Exports = @("soemdsp_noise_generator_create", "soemdsp_noise_generator_destroy", "soemdsp_noise_generator_sample", "soemdsp_noise_generator_left", "soemdsp_noise_generator_right", "soemdsp_noise_generator_version", "soemdsp_noise_generator_process_block", "soemdsp_noise_generator_block_output_left_ptr", "soemdsp_noise_generator_block_output_right_ptr", "soemdsp_noise_generator_max_block_frames") }
   @{ Name = "soft_clipper"; Simd = $false; Exports = @(
-    "soemdsp_soft_clipper_sample", "soemdsp_soft_clipper_sample_aa",
+    "soemdsp_soft_clipper_sample",
     "soemdsp_soft_clipper_create", "soemdsp_soft_clipper_destroy",
     "soemdsp_soft_clipper_set_params", "soemdsp_soft_clipper_process_block",
     "soemdsp_soft_clipper_block_input_ptr", "soemdsp_soft_clipper_block_output_ptr",
     "soemdsp_soft_clipper_max_block_frames",
     "soemdsp_soft_clipper_version", "soemdsp_soft_clipper_metadata_json",
     "soemdsp_soft_clipper_metadata_json_size"
+  ) }
+  @{ Name = "tube_saturation"; Simd = $false; Exports = @(
+    "soemdsp_tube_saturation_sample",
+    "soemdsp_tube_saturation_version", "soemdsp_tube_saturation_metadata_json",
+    "soemdsp_tube_saturation_metadata_json_size"
   ) }
   @{ Name = "graph_engine"; Simd = $false; Exports = @(
     "soemdsp_graph_create", "soemdsp_graph_destroy", "soemdsp_graph_clear",
@@ -167,6 +172,8 @@ $modules = @(
   @{ Name = "b2u"; Simd = $false; Exports = @("soemdsp_b2u_sample", "soemdsp_b2u_version", "soemdsp_b2u_metadata_json", "soemdsp_b2u_metadata_json_size") }
   @{ Name = "amp_db"; Simd = $false; Exports = @("soemdsp_amp_db_sample", "soemdsp_amp_db_version", "soemdsp_amp_db_metadata_json", "soemdsp_amp_db_metadata_json_size") }
   @{ Name = "inv"; Simd = $false; Exports = @("soemdsp_inv_sample", "soemdsp_inv_version", "soemdsp_inv_metadata_json", "soemdsp_inv_metadata_json_size") }
+  @{ Name = "ring_mod"; Simd = $false; Exports = @("soemdsp_ring_mod_sample", "soemdsp_ring_mod_version", "soemdsp_ring_mod_metadata_json", "soemdsp_ring_mod_metadata_json_size") }
+  @{ Name = "crossfade"; Simd = $false; Exports = @("soemdsp_crossfade_sample", "soemdsp_crossfade_version", "soemdsp_crossfade_metadata_json", "soemdsp_crossfade_metadata_json_size") }
   @{ Name = "bradley_2a"; Simd = $false; Exports = @("soemdsp_bradley_2a_create", "soemdsp_bradley_2a_destroy", "soemdsp_bradley_2a_sample", "soemdsp_bradley_2a_version", "soemdsp_bradley_2a_metadata_json", "soemdsp_bradley_2a_metadata_json_size") }
   @{ Name = "antisaw"; Simd = $false; Exports = @("soemdsp_antisaw_create", "soemdsp_antisaw_destroy", "soemdsp_antisaw_sample", "soemdsp_antisaw_version", "soemdsp_antisaw_metadata_json", "soemdsp_antisaw_metadata_json_size") }
   @{ Name = "sinc"; Simd = $false; Exports = @("soemdsp_sinc_create", "soemdsp_sinc_destroy", "soemdsp_sinc_sample", "soemdsp_sinc_version", "soemdsp_sinc_metadata_json", "soemdsp_sinc_metadata_json_size") }
@@ -365,7 +372,6 @@ $modules = @(
   @{ Name = "mid_side_encode"; Simd = $false; Exports = @("soemdsp_mid_side_encode_sample", "soemdsp_mid_side_encode_version", "soemdsp_mid_side_encode_metadata_json", "soemdsp_mid_side_encode_metadata_json_size") }
   @{ Name = "vectorscope_transform"; Simd = $false; Exports = @("soemdsp_vectorscope_transform_sample", "soemdsp_vectorscope_transform_version", "soemdsp_vectorscope_transform_metadata_json", "soemdsp_vectorscope_transform_metadata_json_size") }
   @{ Name = "rotate_3d_to_2d"; Simd = $false; Exports = @("soemdsp_rotate_3d_to_2d_sample", "soemdsp_rotate_3d_to_2d_version", "soemdsp_rotate_3d_to_2d_metadata_json", "soemdsp_rotate_3d_to_2d_metadata_json_size") }
-  @{ Name = "clipper_limiter"; Simd = $false; Exports = @("soemdsp_clipper_limiter_create", "soemdsp_clipper_limiter_destroy", "soemdsp_clipper_limiter_sample", "soemdsp_clipper_limiter_version", "soemdsp_clipper_limiter_metadata_json", "soemdsp_clipper_limiter_metadata_json_size") }
   @{ Name = "eq_filter"; Simd = $false; Exports = @("soemdsp_eq_filter_create", "soemdsp_eq_filter_destroy", "soemdsp_eq_filter_sample", "soemdsp_eq_filter_version", "soemdsp_eq_filter_metadata_json", "soemdsp_eq_filter_metadata_json_size") }
   @{ Name = "phaser"; Simd = $false; Exports = @(
     "soemdsp_phaser_create", "soemdsp_phaser_destroy", "soemdsp_phaser_sample",
@@ -461,8 +467,12 @@ foreach ($module in $modules) {
   # sat right at that cap and instantiation OOM'd. 768 pages (48MB) covers
   # the largest module (ping_pong_delay, 752 initial pages).
   # graph_engine holds Meta Voices clones (larger static Node pool).
+  # Heavy delay/reverb pools (seconds * 192 kHz * N instances) need more than
+  # the 48MB default; live audio still loads only the combined binary (512MB).
   if ($module.Name -eq "graph_engine") {
     $clangArgs += "-Wl,--max-memory=134217728"
+  } elseif ($module.Name -in @("soem_reverb", "delay_effect", "sabrina_reverb", "sample_delay", "ping_pong_delay", "lookahead_limiter", "wall_delay")) {
+    $clangArgs += "-Wl,--max-memory=268435456"
   } else {
     $clangArgs += "-Wl,--max-memory=50331648"
   }

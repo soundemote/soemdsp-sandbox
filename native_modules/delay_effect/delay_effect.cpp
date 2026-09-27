@@ -41,7 +41,7 @@ static const char kMetadataJson[] =
     "]"
   "}";
 
-static const int kMaxInstances = 4;
+static const int kMaxInstances = 8;
 static const double kMaxDelaySeconds = 4.25;
 // 4.25s @ 192kHz -- comfortably above any realistic Web Audio sample rate.
 static const int kMaxDelaySamples = 816002;

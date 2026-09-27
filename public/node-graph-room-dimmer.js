@@ -980,6 +980,10 @@ void main() {
   function setLightStrength(el, strength) {
     if (!el) return;
     el.dataset.lightStrength = String(clamp01(strength));
+    // Strength changes must reopen veil holes immediately (pause→stop→play).
+    if (state.dim > 0.0005) {
+      scheduleDraw();
+    }
   }
 
   window.setNodeGraphRoomDim = setDim;

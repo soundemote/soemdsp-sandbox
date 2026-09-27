@@ -2,6 +2,38 @@
   return "\u{1F5F2}";
 }
 
+/**
+ * Shared enable/disable (bypass) control look + pressed state.
+ * Module header buttons and Module Settings use the same button chrome.
+ */
+function syncNodeGraphBypassButtonElement(button, options = {}) {
+  if (!button) {
+    return;
+  }
+  const bypassed = Boolean(options.bypassed);
+  const pressed = bypassed ? "true" : "false";
+  const glyph = typeof nodeGraphBypassGlyph === "function"
+    ? nodeGraphBypassGlyph(bypassed)
+    : "\u{1F5F2}";
+  if (options.disabled != null) {
+    button.disabled = Boolean(options.disabled);
+  }
+  if (options.hidden != null) {
+    button.hidden = Boolean(options.hidden);
+  }
+  button.classList.add("node-bypass-button");
+  button.setAttribute("aria-pressed", pressed);
+  if (button.textContent !== glyph) {
+    button.textContent = glyph;
+  }
+  if (options.title != null) {
+    button.title = String(options.title);
+  }
+  if (options.ariaLabel != null) {
+    button.setAttribute("aria-label", String(options.ariaLabel));
+  }
+}
+
 function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
   let parameter = nodeGraphModuleDefinitions[type]?.parameters?.find(
     (candidate) => candidate.key === key,
@@ -1424,8 +1456,7 @@ function syncNodeGraphModuleChromeElement(element, patchNode) {
   element.classList.toggle("bypassed", bypassed);
   const bypassButton = element.querySelector(".node-bypass-button");
   if (bypassButton) {
-    bypassButton.setAttribute("aria-pressed", bypassed ? "true" : "false");
-    bypassButton.textContent = nodeGraphBypassGlyph(bypassed);
+    syncNodeGraphBypassButtonElement(bypassButton, { bypassed });
     nodeGraphApplyTooltip(
       bypassButton,
       patchNode.id === "output"

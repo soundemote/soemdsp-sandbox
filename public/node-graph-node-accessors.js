@@ -15,7 +15,9 @@ function nodeGraphNodeType(node) {
 }
 
 function nodeGraphNodeDisplayName(node) {
-  return nodeGraphPatchNodeTitle(node);
+  return typeof nodeGraphPatchNodeEffectiveDisplay === "function"
+    ? nodeGraphPatchNodeEffectiveDisplay(node)
+    : nodeGraphPatchNodeTitle(node);
 }
 
 function nodeGraphReadNodeNumber(node, key) {

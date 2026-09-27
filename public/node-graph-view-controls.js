@@ -3711,7 +3711,8 @@ function renderNodeGraphMidiKeyboardInputControls() {
 function renderNodeGraphMidiListenChannelControl() {
   const channel = nodeGraphMidiListenChannel();
   document.querySelectorAll("[data-midi-listen-channel-value]").forEach((value) => {
-    value.textContent = String(channel);
+    // 0 = listen on all MIDI channels (not a channel number).
+    value.textContent = channel <= 0 ? "All" : String(channel);
   });
   document.querySelectorAll("[data-midi-listen-channel-down]").forEach((down) => {
     down.disabled = channel <= 0;

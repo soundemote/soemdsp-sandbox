@@ -7,7 +7,10 @@ function applyNodeGraphPan(options = {}) {
     rememberNodeGraphWorkspaceCameraBox(workspace);
   }
   // Light CSS pan every sample; heavy chrome coalesced during gestures.
-  if (typeof applyNodeGraphViewportCssLight === "function") {
+  // skipCss: caller already wrote pan/zoom vars (e.g. setNodeGraphZoom merge).
+  if (options.skipCss) {
+    // CSS already applied.
+  } else if (typeof applyNodeGraphViewportCssLight === "function") {
     applyNodeGraphViewportCssLight({ zoom: false, pan: true, zoomButtons: false });
   } else {
     const pan = nodeGraphMvp.pan || { x: 0, y: 0 };

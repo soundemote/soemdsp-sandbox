@@ -150,6 +150,9 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/xyPad/xy-pad-dsp.js",
     "./public/modules/xyPad/xy-pad-register.js",
     "./public/modules/numberReadout/number-readout-register.js",
+    "./public/modules/theremin/theremin-register.js",
+    "./public/modules/theremin/theremin-ui.js",
+    "./public/modules/crossfade/crossfade-math.js",
     "./public/modules/valueLcd/value-lcd-register.js",
     "./public/modules/rayBouncer/ray-bouncer-register.js",
     "./public/modules/stepGrid/step-grid-register.js",
@@ -540,8 +543,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/attenuverter/attenuverter-math.js",
     "./public/modules/attenumax/attenumax-math.js",
     "./public/modules/range/range-math.js",
-    "./public/modules/softClipper/soft-clipper-math.js",
-    "./public/modules/clipperLimiter/clipper-limiter-math.js",
     "./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js",
     "./public/modules/vectorscopeTransform/vectorscope-transform-math.js",
     "./public/modules/speedColorInertia/speed-color-inertia-math.js",
@@ -3957,6 +3958,7 @@ def require_chromeless_module_registry_contract() -> None:
         "rgbShape",
         "simulationTime",
         "stepGrid",
+        "theremin",
         "valueLcd",
         "voiceFrequency",
         "voiceGate",
@@ -4346,6 +4348,53 @@ def require_render_sample_native_only() -> None:
         + ", ".join(str(path.relative_to(PUBLIC)) for path in orphans[:12]),
     )
 
+    # --- APP_POLICY hard bans: no JS on the audio path ---
+    set_plan = (PUBLIC / "node-live-audio-worklet-set-plan.js").read_text(encoding="utf-8")
+    dsp_state = (PUBLIC / "node-live-audio-worklet-dsp-state.js").read_text(encoding="utf-8")
+    frame_eval = (PUBLIC / "node-graph-live-frame-evaluator.js").read_text(encoding="utf-8")
+    require(
+        re.search(r"this\.create\w+State\s*\(", set_plan) is None,
+        "setPlan must not call create*State (native GraphEngine owns DSP; DELETE THE DOOR)",
+    )
+    require(
+        "continue;" in set_plan and "DELETE THE DOOR" in set_plan,
+        "setPlan must continue past JS create*State door (DELETE THE DOOR)",
+    )
+    require(
+        "createFractalBrownianNoiseState" not in dsp_state
+        and "createFbmFieldState" not in dsp_state,
+        "do not restore FBM create*State stubs in dsp-state (native only)",
+    )
+    require(
+        "Retired: always silence" in frame_eval
+        and "return { left: 0, right: 0 };" in frame_eval,
+        "evaluateNodeGraphPlanFrame must stay a silence stub (no real JS DSP)",
+    )
+    require(
+        "efficientProduct requires processNativeGraphQuantum" in process_source
+        and "JS evaluateFrame audio path removed" in process_source
+        and "throw new Error" in process_source,
+        "efficient process() must hard-fail unless processNativeGraphQuantum runs audio",
+    )
+    eff_marker = "const nodeGraphLiveWorkletSourceFilesEfficient = ["
+    eff_start = live_runtime.find(eff_marker)
+    require(eff_start >= 0, "efficient worklet source list missing")
+    eff_end = live_runtime.find("];", eff_start)
+    require(eff_end >= 0, "efficient worklet source list not closed")
+    eff_block = live_runtime[eff_start:eff_end]
+    banned_blob = [
+        line.strip()
+        for line in eff_block.splitlines()
+        if "worklet-evaluator" in line
+        and "spectrogram-worklet-evaluator" not in line
+        and not line.strip().startswith("//")
+    ]
+    require(
+        not banned_blob,
+        "efficient worklet blob must not load JS DSP evaluator files: "
+        + ", ".join(banned_blob[:8]),
+    )
+
 
 def require_xy_pad_interaction_contract() -> None:
     script_sources = read_public_script_sources()
@@ -4724,7 +4773,7 @@ def require_node_graph_mvp_contract() -> None:
         'displayType: "textBoxFace"' in script_sources["./public/node-graph-module-definitions.js"]
         and 'settingsSchema: "textBoxFace"' in script_sources["./public/node-graph-module-definitions.js"]
         and "function buildNodeGraphTextBoxDisplaySettingsBodyHtml" in script_sources["./public/modules/textBox/text-box-settings.js"]
-        and 'class="node-led-settings-row"' in script_sources["./public/modules/textBox/text-box-settings.js"]
+        and "node-led-settings-row" in script_sources["./public/modules/textBox/text-box-settings.js"]
         and 'type="range"' in script_sources["./public/modules/textBox/text-box-settings.js"]
         and 'colorRow("backgroundColor", "textBoxFace")' in script_sources["./public/modules/textBox/text-box-settings.js"]
         and 'colorRow("textColor", "textBoxFace")' in script_sources["./public/modules/textBox/text-box-settings.js"]
@@ -12905,25 +12954,27 @@ def require_node_graph_mvp_contract() -> None:
     require(
         'inputs: ["In", "Left", "Right"]' in soft_clipper_definition
         and 'outputs: ["Out", "Left", "Right"]' in soft_clipper_definition
-        and 'key: "center"' in soft_clipper_definition
-        and 'key: "width"' in soft_clipper_definition
-        and 'defaultValue: "2"' in soft_clipper_definition,
-        "Soft Clipper should expose stereo Mono/Left/Right ports plus Center and Width controls",
+        and 'key: "drive"' in soft_clipper_definition
+        and 'key: "threshold"' in soft_clipper_definition
+        and 'key: "knee"' in soft_clipper_definition
+        and 'key: "amplitude"' in soft_clipper_definition
+        and 'layout: "softClipperCurve"' in soft_clipper_definition
+        and 'key: "center"' not in soft_clipper_definition
+        and 'key: "oversample"' not in soft_clipper_definition
+        and 'key: "gainDb"' not in soft_clipper_definition,
+        "Soft Clipper should expose Mono/Left/Right plus Drive/Threshold/Knee/Amplitude only",
     )
-    require("clipperLimiter: \"Clipper Limiter\"" in module_definitions_source, "Clipper Limiter label should be registered")
-    require("clipperLimiter: {" in module_store_source, "Clipper Limiter should be listed in the module browser type registry")
     require(
-        'key: "minDb"' in module_definitions_source
-        and 'key: "maxDb"' in module_definitions_source
-        and 'key: "gainDb"' in module_definitions_source
-        and "nodeGraphClipperLimiterSample" in "\n".join(script_sources.values())
-        and "nodeGraphSoftClipperSample(excess, 0, 2 * span)" in "\n".join(script_sources.values()),
-        "Clipper Limiter should map Min/Max dB onto the original Soft Clipper tanh",
+        "clipperLimiter" not in module_definitions_source
+        and "clipperLimiter" not in module_store_source
+        and "clipper_limiter" not in module_store_source,
+        "Clipper Limiter must be fully deleted (no label, store, or native source)",
     )
     require(
         'softClipper: {' in module_store_source
         and 'label: "Soft Clipper"' in module_store_source
-        and "Native soft clipper with center bias" in module_store_source,
+        and "Drive / Threshold / Knee" in module_store_source
+        and 'source: "native_modules/soft_clipper/soft_clipper.cpp"' in module_store_source,
         "Soft Clipper should be an implemented native-backed Dynamics module",
     )
     require("reverbEffect: {" in module_store_source, "Sabrina Reverb should be listed in the module browser type registry")
@@ -13958,27 +14009,26 @@ def require_node_graph_mvp_contract() -> None:
     require("timing: normalizeNodeGraphPatchTiming(patch.timing)" in execution_plan_source, "compiled live plan should carry patch timing")
     require("function nodeGraphTransportSample" in node_graph_source and "nodeGraphLiveModuleEvaluators.transport = (" in node_graph_source, "browser fallback should evaluate Transport")
     require(
-        "function nodeGraphSoftClipperSample(input, center = 0, width = 2)" in node_graph_source
-        and "const scaleX = 2 / safeWidth" in node_graph_source
-        and "Math.tanh(scaleX * (Number(input) || 0) + shiftX)" in node_graph_source
-        and "nodeGraphLiveModuleEvaluators.softClipper = (" in node_graph_source
-        and "Left: nodeGraphSoftClipperSample(mixInput(nodeId, \"Left\") + softClipperMono, softClipperCenter, softClipperWidth)" in node_graph_source
-        and "Right: nodeGraphSoftClipperSample(mixInput(nodeId, \"Right\") + softClipperMono, softClipperCenter, softClipperWidth)" in node_graph_source,
-        "browser fallback should retain a stereo Soft Clipper evaluator for non-worklet fallback",
+        'source: "native_modules/soft_clipper/soft_clipper.cpp"' in module_store_source
+        and "tanh_approx" in (ROOT / "native_modules" / "sandbox_native_maths" / "nonlinearity.h").read_text(encoding="utf-8")
+        and "hypot1" in (ROOT / "native_modules" / "sandbox_native_maths" / "nonlinearity.h").read_text(encoding="utf-8"),
+        "Soft Clipper is native-only (soemdsp::math saturating soft-clip); JS math twin removed",
     )
     require("timing: normalizeNodeGraphPatchTiming(plan.timing)" in live_plan_runtime_source, "fallback runtime should retain plan timing")
     require("return this.transportSample(" in worklet_source and "transport: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {" in worklet_source, "AudioWorklet should evaluate Transport")
     require("this.transportStates.get(nodeId) || this.createTransportState()" in worklet_source, "AudioWorklet Transport should keep persistent per-node state instead of recomputing phase from the per-callback frame index")
     require(
-        "nativeSoftClipperSample(input, center = 0, width = 2)" in worklet_source
-        and 'name === "soft_clipper" || targetType === "softClipper"' in worklet_source
+        'name === "soft_clipper" || targetType === "softClipper"' in worklet_source
         and "this.nativeSoftClipper?.soemdsp_soft_clipper_sample" in worklet_source
-        and "softClipper: (node, nodeId, frame, frames, frameValues, mixInput) => {" in worklet_source
-        and "Out: this.nativeSoftClipperSample(softClipperMono, softClipperCenter, softClipperWidth)" in worklet_source
-        and "Left: this.nativeSoftClipperSample(mixInput(nodeId, \"Left\") + softClipperMono, softClipperCenter, softClipperWidth)" in worklet_source
-        and "Right: this.nativeSoftClipperSample(mixInput(nodeId, \"Right\") + softClipperMono, softClipperCenter, softClipperWidth)" in worklet_source
-        and "softClipperSample(input, center = 0, width = 2)" not in worklet_source,
-        "AudioWorklet should evaluate stereo Soft Clipper through native wasm instead of the old JS DSP branch",
+        and "this.nativeSoftClipper?.soemdsp_soft_clipper_set_params" in worklet_source
+        and "this.nativeSoftClipper?.soemdsp_soft_clipper_process_block" in worklet_source
+        and "soemdsp_soft_clipper_sample_aa" not in worklet_source
+        and "softClipperSample(" not in worklet_source
+        and 'softClipper: 3' in (ROOT / "public" / "node-live-audio-worklet-native-graph.js").read_text(encoding="utf-8")
+        and 'push("drive"' in (ROOT / "public" / "node-live-audio-worklet-native-graph.js").read_text(encoding="utf-8")
+        and 'push("threshold"' in (ROOT / "public" / "node-live-audio-worklet-native-graph.js").read_text(encoding="utf-8")
+        and "clipperLimiter" not in (ROOT / "public" / "node-live-audio-worklet-native-graph.js").read_text(encoding="utf-8"),
+        "Soft Clipper is graph-native Drive/Threshold/Knee/Amplitude; Clipper Limiter and ADAA sample_aa path are gone",
     )
     require('"reverbEffect"' in execution_plan_source, "execution plan should treat Sabrina Reverb as a supported passthrough processor")
     require(
@@ -18033,6 +18083,12 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_cookbook_filter_metadata_json",
             "soemdsp_cookbook_filter_metadata_json_size",
         ],
+        "crossfade": [
+            "soemdsp_crossfade_sample",
+            "soemdsp_crossfade_version",
+            "soemdsp_crossfade_metadata_json",
+            "soemdsp_crossfade_metadata_json_size",
+        ],
         "ensemble": [
             "soemdsp_ensemble_create",
             "soemdsp_ensemble_destroy",
@@ -18154,7 +18210,6 @@ def require_native_module_contract(base_url: str) -> None:
         "mid_side_encode": ["soemdsp_mid_side_encode_sample"],
         "vectorscope_transform": ["soemdsp_vectorscope_transform_sample"],
         "rotate_3d_to_2d": ["soemdsp_rotate_3d_to_2d_sample"],
-        "clipper_limiter": ["soemdsp_clipper_limiter_create", "soemdsp_clipper_limiter_destroy", "soemdsp_clipper_limiter_sample"],
         "eq_filter": ["soemdsp_eq_filter_create", "soemdsp_eq_filter_destroy", "soemdsp_eq_filter_sample"],
         "inertial_filter": ["soemdsp_inertial_filter_create", "soemdsp_inertial_filter_destroy", "soemdsp_inertial_filter_sample"],
         "lookahead_limiter": [
@@ -18249,6 +18304,16 @@ def require_native_module_contract(base_url: str) -> None:
         "lorenz_attractor": ["soemdsp_lorenz_attractor_create", "soemdsp_lorenz_attractor_destroy", "soemdsp_lorenz_attractor_sample", "soemdsp_lorenz_attractor_x", "soemdsp_lorenz_attractor_y", "soemdsp_lorenz_attractor_z"],
         "bradley_2a": ["soemdsp_bradley_2a_create", "soemdsp_bradley_2a_destroy", "soemdsp_bradley_2a_sample"],
         "antisaw": ["soemdsp_antisaw_create", "soemdsp_antisaw_destroy", "soemdsp_antisaw_sample"],
+        "sine_warp": [
+            "soemdsp_sine_warp_create",
+            "soemdsp_sine_warp_destroy",
+            "soemdsp_sine_warp_reset",
+            "soemdsp_sine_warp_sample",
+            "soemdsp_sine_warp_out",
+            "soemdsp_sine_warp_version",
+            "soemdsp_sine_warp_metadata_json",
+            "soemdsp_sine_warp_metadata_json_size",
+        ],
         "sine_wavetable": [
             "soemdsp_sine_wavetable_create",
             "soemdsp_sine_wavetable_destroy",
@@ -18444,6 +18509,12 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_dsf_oscillator_create",
             "soemdsp_dsf_oscillator_destroy",
             "soemdsp_dsf_oscillator_sample",
+        ],
+        "ring_mod": [
+            "soemdsp_ring_mod_sample",
+            "soemdsp_ring_mod_version",
+            "soemdsp_ring_mod_metadata_json",
+            "soemdsp_ring_mod_metadata_json_size",
         ],
         "robin_sinusoid": [
             "soemdsp_robin_sinusoid_create",

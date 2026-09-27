@@ -281,6 +281,7 @@ function nodeGraphModuleTypeHasCustomDisplayArea(type) {
     || layout === "roundShape"
     || layout === "basicShape"
     || layout === "envelopeCurve"
+    || layout === "softClipperCurve"
     || layout === "pulseCurve"
     || layout === "wallRoomDisplay";
 }
@@ -496,6 +497,9 @@ function nodeGraphDefaultModuleGridWidthUnits(type) {
     return 8;
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "envelopeCurve") {
+    return 8;
+  }
+  if (nodeGraphModuleDefinitions[type]?.layout === "softClipperCurve") {
     return 8;
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "pitchQuantizer") {
@@ -1598,7 +1602,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
-  if (nodeGraphModuleDefinitions[type]?.layout === "envelopeCurve") {
+  if (nodeGraphModuleDefinitions[type]?.layout === "envelopeCurve"
+    || nodeGraphModuleDefinitions[type]?.layout === "softClipperCurve") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },

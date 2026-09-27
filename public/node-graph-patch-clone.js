@@ -256,6 +256,8 @@ function nodeGraphDefaultNodeTitle(type, id) {
  * Same resolution as nodeGraphPatchNodeTitle for ordinary modules.
  */
 function nodeGraphModuleChromeTitle(node) {
+  // Chrome / rename identity = Title (alias). Visible Display override is separate
+  // (faces, portal jack labels) via nodeGraphPatchNodeEffectiveDisplay.
   if (typeof nodeGraphPatchNodeTitle === "function") {
     return nodeGraphPatchNodeTitle(node);
   }
@@ -276,6 +278,63 @@ function nodeGraphPatchNodeTitle(node) {
     return nodeGraphNodeLabels[nodeGraphNodeType(node)] || String(node || "");
   }
   return normalizeNodeGraphPatchNodeAlias(patchNode.alias) || nodeGraphDefaultNodeTitle(patchNode.type, patchNode.id);
+}
+
+
+/** Max length for Module Settings Display override (same as knob face label). */
+const NODE_GRAPH_MODULE_DISPLAY_TEXT_MAX = 48;
+
+/**
+ * Policy B — Display follows Title until the user sets Display.
+ * Normalize a stored Display override (empty ⇒ unset ⇒ follow title).
+ */
+function normalizeNodeGraphPatchNodeDisplay(value) {
+  if (typeof nodeGraphKnobFaceNormalizeLabelText === "function") {
+    return nodeGraphKnobFaceNormalizeLabelText(value);
+  }
+  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, NODE_GRAPH_MODULE_DISPLAY_TEXT_MAX);
+}
+
+/** Types that store Display in face settings labelText (not node.display). */
+function nodeGraphModuleUsesFaceLabelDisplay(type) {
+  return type === "knob"
+    || type === "pluginSlider"
+    || type === "toggleButton"
+    || type === "momentaryButton";
+}
+
+/**
+ * Stored Display override only (may be ""). Empty means follow title — never a blank label.
+ * Knobs/buttons: face labelText. Everyone else: node.display.
+ */
+function nodeGraphPatchNodeDisplayOverride(node) {
+  const patchNode = typeof node === "string"
+    ? (typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null)
+    : node;
+  if (!patchNode || typeof patchNode !== "object") {
+    return "";
+  }
+  if (nodeGraphModuleUsesFaceLabelDisplay(patchNode.type)) {
+    if (typeof nodeGraphKnobDisplayNameForNode === "function") {
+      return nodeGraphKnobDisplayNameForNode(patchNode);
+    }
+    return "";
+  }
+  return normalizeNodeGraphPatchNodeDisplay(patchNode.display);
+}
+
+/**
+ * Effective display label app-wide: non-empty Display override, else module title.
+ * Clearing Display snaps back to title (no blank labels).
+ */
+function nodeGraphPatchNodeEffectiveDisplay(node) {
+  const override = nodeGraphPatchNodeDisplayOverride(node);
+  if (override) {
+    return override;
+  }
+  return typeof nodeGraphPatchNodeTitle === "function"
+    ? nodeGraphPatchNodeTitle(node)
+    : "";
 }
 
 function cloneNodeGraphTypedDisplaySettings(node) {
@@ -573,8 +632,16 @@ function cloneNodeGraphPatch(patch) {
       }
       return {
         ...node,
-        ...(normalizeNodeGraphPatchNodeAlias(node.alias)
-          ? { alias: normalizeNodeGraphPatchNodeAlias(node.alias) }
+        ...((() => {
+          const isPortal = typeof nodeGraphIsNamedPortalType === "function"
+            && nodeGraphIsNamedPortalType(node.type);
+          const alias = isPortal && typeof normalizeNodeGraphNamedPortalAlias === "function"
+            ? normalizeNodeGraphNamedPortalAlias(node.alias)
+            : normalizeNodeGraphPatchNodeAlias(node.alias);
+          return alias ? { alias } : {};
+        })()),
+        ...(normalizeNodeGraphPatchNodeDisplay(node.display)
+          ? { display: normalizeNodeGraphPatchNodeDisplay(node.display) }
           : {}),
         ...(nodeGraphModuleDefinitions[node.type]?.layout === "textBox"
           ? { layout: normalizeNodeGraphTextBoxLayout(node.layout) }

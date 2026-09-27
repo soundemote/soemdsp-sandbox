@@ -777,6 +777,144 @@ function ampCurveSelectedNodeGraphWires() {
   return newIds.length;
 }
 
+/**
+ * Replace each selected signal/modulation wire with Named Portal In + Out.
+ * Bus title = source module title + outlet label (one-shot; later connects do not rename).
+ * Source → Portal In, Portal Out → destination. SyncBusAlias keeps In/Out peers matched.
+ */
+function portalSelectedNodeGraphWires() {
+  const snapshots = nodeGraphSelectedWireSnapshots().filter((entry) => entry.kind !== "graph");
+  if (!snapshots.length) {
+    return 0;
+  }
+
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const drop = new Set(snapshots.map((entry) => nodeGraphAttenuateWireIdentity(entry.kind, entry.wire)));
+  patch.connections = (patch.connections || []).filter(
+    (wire) => !drop.has(nodeGraphAttenuateWireIdentity("signal", wire)),
+  );
+  patch.modulations = (patch.modulations || []).filter(
+    (wire) => !drop.has(nodeGraphAttenuateWireIdentity("modulation", wire)),
+  );
+
+  const counts = typeof nextNodeGraphTypeCounts === "function"
+    ? nextNodeGraphTypeCounts(patch.nodes)
+    : {};
+  const pairSlots = new Map();
+  const newIds = [];
+  for (const entry of snapshots) {
+    const wire = entry.wire;
+    if (!wire?.sourceNode || !wire?.destinationNode) {
+      continue;
+    }
+    if (!patch.nodes.some((node) => node.id === wire.sourceNode)
+      || !patch.nodes.some((node) => node.id === wire.destinationNode)) {
+      continue;
+    }
+    const pairKey = `${wire.sourceNode}→${wire.destinationNode}`;
+    const slot = pairSlots.get(pairKey) || 0;
+    pairSlots.set(pairKey, slot + 1);
+    counts.namedPortalIn = (counts.namedPortalIn || 0) + 1;
+    counts.namedPortalOut = (counts.namedPortalOut || 0) + 1;
+    const inId = `namedPortalIn-${counts.namedPortalIn}`;
+    const outId = `namedPortalOut-${counts.namedPortalOut}`;
+    const points = typeof nodeGraphNamedPortalInsertGridPoints === "function"
+      ? nodeGraphNamedPortalInsertGridPoints(patch, wire.sourceNode, wire.destinationNode, slot)
+      : {
+        in: nodeGraphAttenuateInsertGridPoint(patch, wire.sourceNode, wire.destinationNode, slot),
+        out: nodeGraphAttenuateInsertGridPoint(patch, wire.sourceNode, wire.destinationNode, slot + 1),
+      };
+    const alias = typeof nodeGraphNamedPortalAliasFromSourceOutlet === "function"
+      ? nodeGraphNamedPortalAliasFromSourceOutlet(patch, wire.sourceNode, wire.sourcePort)
+      : "A";
+    const portalUi = { buttonsHidden: true, titleHidden: false };
+    // Unique seed so SyncBusAlias only renames this fresh In/Out pair (not an existing "A" bus).
+    const seedAlias = `__portal_splice_${counts.namedPortalIn}`;
+    const inNode = createNodeGraphPatchNode("namedPortalIn", {
+      id: inId,
+      gx: points.in.gx,
+      gy: points.in.gy,
+      alias: seedAlias,
+      ui: portalUi,
+    });
+    const outNode = createNodeGraphPatchNode("namedPortalOut", {
+      id: outId,
+      gx: points.out.gx,
+      gy: points.out.gy,
+      alias: seedAlias,
+      ui: portalUi,
+    });
+    nodeGraphWireInsertClaimOwnership(inNode, patch);
+    nodeGraphWireInsertClaimOwnership(outNode, patch);
+    patch.nodes.push(inNode, outNode);
+    if (typeof nodeGraphNamedPortalSyncBusAlias === "function") {
+      nodeGraphNamedPortalSyncBusAlias(patch, inId, alias);
+    } else {
+      inNode.alias = alias;
+      outNode.alias = alias;
+    }
+    newIds.push(inId, outId);
+    const extras = nodeGraphWireOptionalPatchFields(wire);
+    patch.connections.push({
+      sourceNode: wire.sourceNode,
+      sourcePort: wire.sourcePort,
+      destinationNode: inId,
+      destinationPort: "In",
+      ...extras,
+    });
+    if (entry.kind === "modulation") {
+      patch.modulations.push({
+        sourceNode: outId,
+        sourcePort: "Out",
+        destinationNode: wire.destinationNode,
+        destinationParam: wire.destinationParam,
+        ...extras,
+      });
+    } else {
+      patch.connections.push({
+        sourceNode: outId,
+        sourcePort: "Out",
+        destinationNode: wire.destinationNode,
+        destinationPort: wire.destinationPort,
+        ...extras,
+      });
+    }
+    // First cable on the fresh bus locks wirelessRole (Keys/Scale/noteMask family, etc.).
+    if (typeof nodeGraphNamedPortalApplyConnectWirelessRole === "function") {
+      nodeGraphNamedPortalApplyConnectWirelessRole(
+        patch,
+        wire.sourceNode,
+        wire.sourcePort,
+        inId,
+        "In",
+      );
+      if (entry.kind !== "modulation") {
+        nodeGraphNamedPortalApplyConnectWirelessRole(
+          patch,
+          outId,
+          "Out",
+          wire.destinationNode,
+          wire.destinationPort,
+        );
+      }
+    }
+  }
+  if (!newIds.length) {
+    return 0;
+  }
+  const pairCount = newIds.length / 2;
+  commitNodeGraphPatch(patch, {
+    status: pairCount === 1 ? "portal inserted" : `${pairCount} portals inserted`,
+  });
+  if (typeof setNodeGraphNodeSelection === "function") {
+    setNodeGraphNodeSelection(newIds);
+  }
+  if (typeof configureNodeSceneContextMenu === "function") {
+    configureNodeSceneContextMenu("module");
+  }
+  return pairCount;
+}
+
 function disconnectNodeGraphConnection(index, kind = "signal") {
   disconnectNodeGraphConnections([{ kind, index }]);
 }
@@ -864,6 +1002,14 @@ function disconnectNodeGraphConnections(entries, options = {}) {
       }
     }
     namedPortalRefreshIds = [...new Set(namedPortalRefreshIds)];
+  }
+  if (
+    namedPortalRefreshIds.length
+    && typeof nodeGraphNamedPortalReconcileBusWirelessRole === "function"
+  ) {
+    for (const portalId of namedPortalRefreshIds) {
+      nodeGraphNamedPortalReconcileBusWirelessRole(patch, portalId);
+    }
   }
   commitNodeGraphPatch(patch, { status, wireEdit: true });
   if (namedPortalRefreshIds.length && typeof nodeGraphNamedPortalRefreshModules === "function") {
@@ -1671,10 +1817,19 @@ function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinat
     destinationPort,
     ...nextWireData,
   });
+  if (typeof nodeGraphNamedPortalApplyConnectWirelessRole === "function") {
+    nodeGraphNamedPortalApplyConnectWirelessRole(
+      patch,
+      sourceNode,
+      sourcePort,
+      destinationNode,
+      destinationPort,
+    );
+  }
   let namedPortalRefreshIds = typeof nodeGraphNamedPortalIdsTouchedByWire === "function"
     ? nodeGraphNamedPortalIdsTouchedByWire(patch, sourceNode, destinationNode)
     : [];
-  // Named portal titles stay user-driven; wire connect only refreshes jack chrome/color.
+  // Named portal titles stay user-driven; wire connect only refreshes jack chrome/color/role.
   let autoConnected = 0;
   // Apply stereo/RGB siblings discovered on shell names, rewritten to portals.
   for (const extra of pairExtras) {

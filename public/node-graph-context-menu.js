@@ -1407,14 +1407,21 @@ function configureNodeSceneContextMenu(mode) {
   const multiCanWidth = multiModuleMode && selectedNodes.some((node) =>
     nodeGraphModuleSizingCapabilities(node.type).width,
   );
-  // InletOutletLayout = grid W/H + jack only; omit visibility / disable / save-default chrome.
-  const showInletOutletVisibilityChrome = moduleMode && (
+  // InletOutletLayout: keep stripped chrome (buttons / collapsed / unused / in-out /
+  // disable / save-to-default) but restore show/hide Title. Full visibility chrome
+  // only when at least one selected module is not InletOutletLayout.
+  const showFullVisibilityChrome = moduleMode && (
     multiModuleMode
       ? selectedNodes.some((node) => !nodeGraphTypeIsInletOutlet(node.type))
       : !targetIsInletOutlet
   );
+  const showTitleVisibilityChrome = moduleMode && (
+    multiModuleMode ? selectedNodes.length > 0 : Boolean(targetNode)
+  );
+  // Back-compat alias used by remaining gates below.
+  const showInletOutletVisibilityChrome = showFullVisibilityChrome;
   if (moduleVisibilitySection) {
-    moduleVisibilitySection.hidden = !moduleMode || !showInletOutletVisibilityChrome;
+    moduleVisibilitySection.hidden = !moduleMode || !(showFullVisibilityChrome || showTitleVisibilityChrome);
   }
   if (moduleVisibilityActionGroup) {
     // Stack stays visible with the section; individual buttons still gate per capability.
@@ -1479,17 +1486,24 @@ function configureNodeSceneContextMenu(mode) {
     metamoduleVoiceControls.hidden = !showMetaVoice;
   }
   // Disable lives under Visibility → Hide unused (multi-select aware).
+  // Same .node-bypass-button control as the module header row (InletOutlet still omits).
   if (toggleModuleEnabledButton) {
-    toggleModuleEnabledButton.hidden = !moduleMode || !showInletOutletVisibilityChrome;
-    if (!moduleMode) {
-      toggleModuleEnabledButton.disabled = true;
-      const label = toggleModuleEnabledButton.querySelector(".scene-context-window-button-label")
-        || toggleModuleEnabledButton.querySelector("span");
-      if (label) {
-        label.textContent = "Disable module";
+    const showDisable = Boolean(moduleMode && showInletOutletVisibilityChrome);
+    if (typeof syncNodeGraphBypassButtonElement === "function") {
+      syncNodeGraphBypassButtonElement(toggleModuleEnabledButton, {
+        bypassed: false,
+        disabled: true,
+        hidden: !showDisable,
+        title: "Select one or more modules to disable or enable.",
+        ariaLabel: "Disable module",
+      });
+    } else {
+      toggleModuleEnabledButton.hidden = !showDisable;
+      if (!moduleMode) {
+        toggleModuleEnabledButton.disabled = true;
+        toggleModuleEnabledButton.setAttribute("aria-pressed", "false");
+        toggleModuleEnabledButton.title = "Select one or more modules to disable or enable.";
       }
-      toggleModuleEnabledButton.setAttribute("aria-pressed", "false");
-      toggleModuleEnabledButton.title = "Select one or more modules to disable or enable.";
     }
   }
   if (nativeCodeGroup) {
@@ -1527,7 +1541,7 @@ function configureNodeSceneContextMenu(mode) {
   if (toggleCollapsedButton) {
     toggleCollapsedButton.hidden = !showInletOutletVisibilityChrome || (multiModuleMode && !selectedNodes.length);
   }
-  toggleTitleButton.hidden = !showInletOutletVisibilityChrome || (multiModuleMode && !multiCanButtons);
+  toggleTitleButton.hidden = !showTitleVisibilityChrome || (multiModuleMode && !selectedNodes.length);
   imageControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "image");
   // Image layers / span / offset / readout live in Display Settings, not Module Settings.
   if (knobFaceControls) {
@@ -1576,10 +1590,25 @@ function configureNodeSceneContextMenu(mode) {
         ? normalizeNodeGraphPatchNodeAlias(targetNode.alias) || nodeGraphDefaultNodeTitle(targetNode.type, targetNode.id)
         : "";
     }
+    const portalTitleSelected = Boolean(
+      targetNode
+      && !multiModuleMode
+      && typeof nodeGraphIsNamedPortalType === "function"
+      && nodeGraphIsNamedPortalType(targetNode.type),
+    );
     aliasInput.placeholder = targetNode && !multiModuleMode
-      ? nodeGraphDefaultNodeTitle(targetNode.type, targetNode.id)
+      ? (portalTitleSelected
+        ? (nodeGraphModuleDefinitions?.[targetNode.type]?.defaultAlias || "A")
+        : nodeGraphDefaultNodeTitle(targetNode.type, targetNode.id))
       : "module title";
-    aliasInput.title = nodeGraphTooltipText("actions.moduleAlias");
+    if (portalTitleSelected) {
+      aliasInput.pattern = "[A-Za-z_][A-Za-z0-9_]*";
+      aliasInput.title = "Portal bus name (same as Title). C++ identifier: letters, digits, underscore; must start with a letter or _.";
+      aliasInput.setAttribute("spellcheck", "false");
+    } else {
+      aliasInput.removeAttribute("pattern");
+      aliasInput.title = nodeGraphTooltipText("actions.moduleAlias");
+    }
     const knobSelected = Boolean(
       targetNode
       && (
@@ -1591,21 +1620,42 @@ function configureNodeSceneContextMenu(mode) {
       && !multiModuleMode,
     );
     selectedModule.classList.toggle("is-knob-settings", knobSelected);
+    // Policy B: Display field app-wide (override; empty follows Title). Knobs keep face labelText.
+    const showDisplayField = Boolean(targetNode && !multiModuleMode);
+    const aliasLabel = document.getElementById("nodeSceneAliasLabel");
+    if (aliasLabel) {
+      aliasLabel.hidden = !showDisplayField || knobSelected;
+    }
+    if (aliasControl) {
+      aliasControl.classList.toggle("node-knob-settings-field", Boolean(showDisplayField && !knobSelected));
+    }
     if (knobTextControl) {
-      knobTextControl.hidden = !knobSelected;
+      knobTextControl.hidden = !showDisplayField;
     }
     if (knobTextInput) {
-      knobTextInput.disabled = !knobSelected;
+      knobTextInput.disabled = !showDisplayField;
       if (document.activeElement !== knobTextInput) {
-        const storedDisplay = knobSelected && typeof nodeGraphKnobDisplayNameForNode === "function"
-          ? nodeGraphKnobDisplayNameForNode(targetNode)
-          : "";
+        let storedDisplay = "";
+        if (showDisplayField && targetNode) {
+          if (typeof nodeGraphPatchNodeDisplayOverride === "function") {
+            storedDisplay = nodeGraphPatchNodeDisplayOverride(targetNode);
+          } else if (knobSelected && typeof nodeGraphKnobDisplayNameForNode === "function") {
+            storedDisplay = nodeGraphKnobDisplayNameForNode(targetNode);
+          }
+        }
         knobTextInput.value = storedDisplay;
       }
-      knobTextInput.placeholder = knobSelected && typeof nodeGraphKnobModuleTitleForNode === "function"
-        ? (nodeGraphKnobModuleTitleForNode(targetNode) || "Display")
+      const titlePlaceholder = targetNode
+        ? (typeof nodeGraphPatchNodeTitle === "function"
+          ? nodeGraphPatchNodeTitle(targetNode)
+          : (typeof nodeGraphDefaultNodeTitle === "function"
+            ? nodeGraphDefaultNodeTitle(targetNode.type, targetNode.id)
+            : "Display"))
         : "Display";
-      knobTextInput.title = "Name on the module face. Empty uses the module title.";
+      knobTextInput.placeholder = titlePlaceholder || "Display";
+      knobTextInput.title = knobSelected
+        ? "Name on the module face. Empty uses the module title."
+        : "Visible label (portal jack / IO). Empty follows Title.";
     }
     if (knobPluginIdentity) {
       knobPluginIdentity.hidden = !knobSelected;
@@ -1870,27 +1920,30 @@ function configureNodeSceneContextMenu(mode) {
     });
     const multiAllDisabled = multiModuleMode && selectedNodes.length > 0 && !multiAnyEnabled;
     if (toggleModuleEnabledButton) {
-      toggleModuleEnabledButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
-      const enabledLabel = toggleModuleEnabledButton.querySelector(".scene-context-window-button-label")
-        || toggleModuleEnabledButton.querySelector("span");
-      if (enabledLabel) {
-        enabledLabel.textContent = multiModuleMode
-          ? (multiAllDisabled ? "Enable modules" : "Disable modules")
-          : (targetNodeDisabled ? "Enable module" : "Disable module");
-      }
-      toggleModuleEnabledButton.setAttribute(
-        "aria-pressed",
-        multiModuleMode
-          ? (multiAllDisabled ? "true" : "false")
-          : (targetNodeDisabled ? "true" : "false"),
-      );
-      toggleModuleEnabledButton.title = multiModuleMode
+      const bypassed = multiModuleMode ? multiAllDisabled : targetNodeDisabled;
+      const title = multiModuleMode
         ? (multiAllDisabled
           ? `Enable ${selectedNodeIds.size} selected modules.`
           : `Disable ${selectedNodeIds.size} selected modules.`)
         : (targetNodeDisabled
           ? "Enable this module."
           : "Disable this module.");
+      const ariaLabel = multiModuleMode
+        ? (multiAllDisabled ? "Enable modules" : "Disable modules")
+        : (targetNodeDisabled ? "Enable module" : "Disable module");
+      if (typeof syncNodeGraphBypassButtonElement === "function") {
+        syncNodeGraphBypassButtonElement(toggleModuleEnabledButton, {
+          bypassed,
+          disabled: multiModuleMode ? !selectedNodes.length : !targetNode,
+          title,
+          ariaLabel,
+        });
+      } else {
+        toggleModuleEnabledButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
+        toggleModuleEnabledButton.setAttribute("aria-pressed", bypassed ? "true" : "false");
+        toggleModuleEnabledButton.title = title;
+        toggleModuleEnabledButton.setAttribute("aria-label", ariaLabel);
+      }
     }
     if (nativeCodeButton) {
       nativeCodeButton.disabled = !nativeCodeEntry;
@@ -2261,6 +2314,11 @@ function configureNodeSceneContextMenu(mode) {
       slewButton.disabled = !canAttenuateWires;
       slewButton.title = "Up/Down Slew: insert mono gold In→Out rate limiter on each selected wire.";
     }
+    const portalButton = document.getElementById("nodeSceneWirePortal");
+    if (portalButton) {
+      portalButton.disabled = !canAttenuateWires;
+      portalButton.title = "Portal: replace each selected wire with Named Portal In + Out named from the source module title and outlet.";
+    }
     deleteButton.disabled = !canDelete;
     deleteButton.title = canDelete
       ? nodeGraphTooltipText("actions.deleteWire")
@@ -2329,6 +2387,10 @@ function configureNodeSceneContextMenu(mode) {
     const idleSlew = document.getElementById("nodeSceneWireSlew");
     if (idleSlew) {
       idleSlew.disabled = true;
+    }
+    const idlePortal = document.getElementById("nodeSceneWirePortal");
+    if (idlePortal) {
+      idlePortal.disabled = true;
     }
     copyButton.disabled = true;
     copyButton.title = nodeGraphTooltipText("actions.copyUnavailableModule");

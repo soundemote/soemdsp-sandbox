@@ -1,4 +1,4 @@
-// Headless Batch 5: clipperLimiter through graph_engine.
+// Headless: softClipper through graph_engine (Drive/Threshold/Knee/Amplitude).
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -30,15 +30,15 @@ const portPtr = must("soemdsp_graph_node_port_ptr");
 const version = must("soemdsp_graph_version");
 
 const TYPE_POLY = 1;
-const TYPE_CLIP = 24;
+const TYPE_SOFT = 3;
 const TYPE_OUT = 6;
 const PORT_MONO = 0;
 const PARAM_FREQ = 10;
 const PARAM_AMP = 12;
-const PARAM_GAIN_DB = 90;
-const PARAM_IN_LOW = 80;
-const PARAM_IN_HIGH = 81;
-const PARAM_OVERSAMPLE = 32;
+const PARAM_DRIVE = 90;      // gainDb slot → Drive linear
+const PARAM_THRESHOLD = 30;  // center slot
+const PARAM_KNEE = 31;       // width slot
+const PARAM_OUT_AMP = 12;    // amplitude — shared id with osc amp; set on clip node
 
 function view(ptr, n) {
   return new Float64Array(mem.buffer, ptr, n);
@@ -56,7 +56,7 @@ function peakOf(g, hash, frames = 128, quanta = 30) {
   return peak;
 }
 
-// clipperLimiter: hot osc + gain should not explode past ~1
+// softClipper: hot osc + drive should not explode past ~1
 {
   const g = create() | 0;
   setSr(g, 48000);
@@ -64,22 +64,21 @@ function peakOf(g, hash, frames = 128, quanta = 30) {
   const hClip = 0x4102 >>> 0;
   const hOut = 0x4103 >>> 0;
   if ((add(g, hOsc, TYPE_POLY) | 0) !== 0) throw new Error("clip add osc");
-  if ((add(g, hClip, TYPE_CLIP) | 0) !== 0) throw new Error("clip add");
+  if ((add(g, hClip, TYPE_SOFT) | 0) !== 0) throw new Error("clip add");
   if ((add(g, hOut, TYPE_OUT) | 0) !== 0) throw new Error("clip add out");
   if ((connect(g, hOsc, PORT_MONO, hClip, PORT_MONO) | 0) !== 0) throw new Error("clip conn");
   if ((connect(g, hClip, PORT_MONO, hOut, PORT_MONO) | 0) !== 0) throw new Error("clip out");
   setParam(g, hOsc, PARAM_FREQ, 220);
   setParam(g, hOsc, PARAM_AMP, 1);
-  setParam(g, hClip, PARAM_GAIN_DB, 24);
-  setParam(g, hClip, PARAM_IN_LOW, -12);
-  setParam(g, hClip, PARAM_IN_HIGH, 0);
-  setParam(g, hClip, PARAM_OVERSAMPLE, 2);
+  setParam(g, hClip, PARAM_DRIVE, 8);
+  setParam(g, hClip, PARAM_THRESHOLD, 0.5);
+  setParam(g, hClip, PARAM_KNEE, 0.5);
+  setParam(g, hClip, PARAM_OUT_AMP, 1);
   if ((compile(g) | 0) !== 0) throw new Error("clip compile");
   snap(g);
   const peak = peakOf(g, hClip);
-  // Soft knee can overshoot ~1 slightly; must still crush +24 dB drive (not ~16).
-  if (!(peak > 0.3 && peak < 3.0)) throw new Error(`clipperLimiter peak=${peak}`);
-  console.log(`clipperLimiter ok peak=${peak.toFixed(3)}`);
+  if (!(peak > 0.3 && peak < 1.25)) throw new Error(`softClipper peak=${peak}`);
+  console.log(`softClipper ok peak=${peak.toFixed(3)}`);
 }
 
 if ((version() | 0) < 28) throw new Error(`graph version ${version()} expected >= 28`);

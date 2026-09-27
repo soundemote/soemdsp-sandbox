@@ -7655,6 +7655,14 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   cursor: var(--node-dot-cursor);
 }
 
+/* Mid-zoom: use frozen stroke compensate (JS sets --node-module-stroke-
+   zoom-compensate-frozen at gesture start). Live --node-graph-zoom ticks
+   must not restyle every module outline (costly at 10-20x). Settle drops
+   viewport-zooming + the frozen var so the live 1/zoom calc resumes. */
+.node-graph-workspace.viewport-zooming {
+  --node-module-stroke-zoom-compensate: var(--node-module-stroke-zoom-compensate-frozen, 1);
+}
+
 /* Hide cables, jack inlets/outlets, and connection dots while zooming.
    Modules stay. visibility so settle unhides (class drop). */
 .node-graph-workspace.viewport-zooming #nodeWireSvg,
@@ -12487,9 +12495,20 @@ body.node-graph-magnifying-active .node-graph-workspace * {
   width: 100%;
   height: 100%;
   background: transparent;
-  /* 1× layout + GPU scale. Off-screen modules are display:none so the
-     layer AABB is only what's on screen — CSS zoom rasterized those at
-     zoom× pixels and pan died. */
+  /* Host stays scale(1). Camera pan/zoom lives on .node-graph-world-layer
+     so full-bleed wire SVGs (workspace siblings) are never CSS-scaled. */
+  transform: none;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Modules + origin + selection chrome: world coords under compositor camera. */
+.node-graph-world-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
   transform-origin: 0 0;
   transform: translate3d(
     var(--node-graph-pan-x),
@@ -12741,10 +12760,12 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-wire-svg {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  /* Behind .node-graph-zoom-surface (z:1) so cables sit under modules.
+     Screen-space: viewBox is the camera frustum; clip to the viewport. */
+  z-index: 0;
   width: 100%;
   height: 100%;
-  overflow: visible;
+  overflow: hidden;
   /* Full-bleed SVG must not steal clicks from text boxes underneath.
      Hit targets stay on .node-wire-hit-path (pointer-events: stroke). */
   pointer-events: none;
@@ -12755,10 +12776,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-wire-endpoint-svg {
   position: absolute;
   inset: 0;
+  /* Above zoom-surface modules; screen-space camera viewBox like #nodeWireSvg. */
   z-index: 3;
   width: 100%;
   height: 100%;
-  overflow: visible;
+  overflow: hidden;
   pointer-events: none;
 }
 
@@ -22146,43 +22168,29 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   }
 }
 
-/* Disable module — full-width row under Visibility → Hide unused. */
-#nodeSceneContextMenu .scene-context-disable-modules-button,
-.node-scene-context-menu .scene-context-disable-modules-button {
+/* Disable module — same .node-bypass-button chrome as module header row. */
+#nodeSceneContextMenu .scene-context-module-bypass-button,
+.node-scene-context-menu .scene-context-module-bypass-button {
   display: flex;
   width: 100%;
   box-sizing: border-box;
   align-items: center;
   justify-content: center;
-  min-height: var(--node-floating-window-button-height, 1.85rem);
+  min-height: calc(var(--node-floating-window-button-height, 1.85rem) + 0.15rem);
+  height: calc(var(--node-floating-window-button-height, 1.85rem) + 0.15rem);
   margin: 0;
-  padding: 0 8px;
+  padding: 0;
   border: 0;
   border-radius: 0;
-  text-align: center;
+  /* Match module header bypass cell sizing for the joystick glyph. */
+  --node-header-height: calc(var(--node-floating-window-button-height, 1.85rem) + 0.15rem);
+  container-type: size;
 }
 
-.scene-context-visibility-stack .scene-context-disable-modules-button {
-  min-height: calc(var(--node-floating-window-button-height, 1.85rem) + 0.15rem);
-  font-weight: 650;
-}
-
-#nodeSceneContextMenu .scene-context-disable-modules-button .scene-context-window-button-label,
-.node-scene-context-menu .scene-context-disable-modules-button .scene-context-window-button-label {
-  justify-items: center;
-  text-align: center;
-  width: 100%;
-}
-
-#nodeSceneContextMenu .scene-context-disable-modules-button:disabled,
-.node-scene-context-menu .scene-context-disable-modules-button:disabled {
+#nodeSceneContextMenu .scene-context-module-bypass-button:disabled,
+.node-scene-context-menu .scene-context-module-bypass-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-#nodeSceneContextMenu .scene-context-disable-modules-button[aria-pressed="true"],
-.node-scene-context-menu .scene-context-disable-modules-button[aria-pressed="true"] {
-  background: color-mix(in srgb, rgba(226, 168, 109, 0.16) 70%, transparent);
 }
 
 .scene-context-patch-actions {

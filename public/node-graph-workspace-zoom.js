@@ -5,7 +5,10 @@ function applyNodeGraphZoom(options = {}) {
   }
   // Light path every call: CSS zoom + chrome. Heavy work (wires/scopes) is
   // rAF-coalesced during gestures — see node-graph-viewport-perf.js.
-  if (typeof applyNodeGraphViewportCssLight === "function") {
+  // skipCss: caller already wrote zoom/pan vars (e.g. setNodeGraphZoom merge).
+  if (options.skipCss) {
+    // CSS already applied.
+  } else if (typeof applyNodeGraphViewportCssLight === "function") {
     // World readout depends on pan/zoom; keep it live. Bulk slider flushes
     // are deferred with scopes until settle (not done here).
     applyNodeGraphViewportCssLight({ zoom: true, pan: false, readouts: true });
@@ -73,7 +76,23 @@ function applyNodeGraphZoom(options = {}) {
 
 function setNodeGraphZoom(nextZoom, anchor = null) {
   const workspace = document.getElementById("nodeGraphWorkspace");
-  const workspaceRect = workspace?.getBoundingClientRect();
+  // Prefer layout-metrics cache for the whole wheel/zoom gesture (gBCR once,
+  // not every tick). Invalidated on resize / settle; seeded at gesture start.
+  let workspaceRect = null;
+  if (workspace && typeof nodeGraphWorkspaceLayoutMetrics === "function") {
+    const box = nodeGraphWorkspaceLayoutMetrics(workspace);
+    if (box && Number.isFinite(box.left) && Number.isFinite(box.top)) {
+      workspaceRect = {
+        left: box.left,
+        top: box.top,
+        width: Math.max(0, nodeGraphFiniteNumber(box.width)),
+        height: Math.max(0, nodeGraphFiniteNumber(box.height)),
+      };
+    }
+  }
+  if (!workspaceRect && workspace?.getBoundingClientRect) {
+    workspaceRect = workspace.getBoundingClientRect();
+  }
   const oldZoom = nodeGraphZoom();
   const oldPan = nodeGraphMvp.pan || { x: 0, y: 0 };
   const oldOrigin = workspace ? nodeGraphRenderedOriginOffset(oldPan, workspace) : oldPan;
@@ -109,10 +128,42 @@ function setNodeGraphZoom(nextZoom, anchor = null) {
     x: nodeGraphFiniteNumber(nextPan.x),
     y: nodeGraphFiniteNumber(nextPan.y),
   };
-  // One light CSS pass for zoom+pan (pan via skipHeavy), then single coalesced heavy chrome.
-  applyNodeGraphZoom({ gestureKind: "wheel", layout: false });
-  applyNodeGraphPan({ gesture: true, skipHeavy: true });
-  // Persist is scheduled by viewport settle (not every wheel tick).
+  // Mark gesture first so metrics cache + mid-gesture skips engage, then one
+  // CSS var write for zoom+pan (avoid applyZoom+applyPan duplicate light path).
+  if (typeof markNodeGraphViewportGesture === "function") {
+    markNodeGraphViewportGesture("wheel");
+  }
+  if (typeof applyNodeGraphViewportCssLight === "function") {
+    applyNodeGraphViewportCssLight({ zoom: true, pan: true, readouts: false });
+  } else {
+    // Legacy: no shared light helper — separate writes (still skip heavy).
+    applyNodeGraphZoom({ gestureKind: "wheel", layout: false, skipHeavy: true, skipCss: true });
+    applyNodeGraphPan({ gesture: true, skipHeavy: true, skipCss: true });
+    if (workspace) {
+      const z = nodeGraphZoom();
+      workspace.style.setProperty("--node-graph-zoom", String(z));
+      workspace.dataset.zoom = z.toFixed(2);
+      workspace.classList.toggle("pixelated-canvas-zoom", z > 1);
+      const pan = nodeGraphMvp.pan || { x: 0, y: 0 };
+      const originOffset = typeof nodeGraphRenderedOriginOffset === "function"
+        ? nodeGraphRenderedOriginOffset(pan, workspace)
+        : pan;
+      workspace.style.setProperty("--node-graph-pan-x", `${originOffset.x}px`);
+      workspace.style.setProperty("--node-graph-pan-y", `${originOffset.y}px`);
+      workspace.dataset.panX = String(pan.x);
+      workspace.dataset.panY = String(pan.y);
+    }
+  }
+  if (
+    typeof renderNodeGraphMarqueeSelection === "function"
+    && (nodeGraphMvp?.marqueeSelection || nodeGraphMvp?.hitTrailKeptStrokes?.length)
+  ) {
+    renderNodeGraphMarqueeSelection();
+  }
+  if (typeof syncNodeGraphWorkspaceResizeHandlePosition === "function") {
+    syncNodeGraphWorkspaceResizeHandlePosition();
+  }
+  // Persist + heavy chrome on viewport settle (not every wheel tick).
 }
 
 function clampNodeGraphZoom(value) {

@@ -2,7 +2,7 @@
 static double gDry = 0;
 extern "C" int soemdsp_soem_reverb_create(double sampleRate) { (void)sampleRate; return 1; }
 extern "C" void soemdsp_soem_reverb_destroy(int h) { (void)h; }
-extern "C" void soemdsp_soem_reverb_reset(int h) { (void)h; }
+extern "C" void soemdsp_soem_reverb_reset(int h, double sampleRate) { (void)h; (void)sampleRate; }
 extern "C" void soemdsp_soem_reverb_set_params(int h, double,double,double,double,double,double,double,double,double,double,double,double,double,double,double,double,double,double,double,double,double,double,double) { (void)h; }
 extern "C" void soemdsp_soem_reverb_process(int h, double inL, double inR) { (void)h; gDry = inL; }
 extern "C" double soemdsp_soem_reverb_left(int h) { (void)h; return gDry; }

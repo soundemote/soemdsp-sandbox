@@ -414,20 +414,28 @@ function nodeGraphRenderedOriginOffset(
   };
 }
 
-function nodeGraphZoomSurface() {
+function nodeGraphZoomSurfaceHost() {
   return document.getElementById("nodeGraphZoomSurface");
 }
 
-// Same rounding bug as the one fixed below for nodeGraphZoomSurfaceClientScale,
-// just showing up in a second place: this used to return offsetWidth/
-// offsetHeight (rounded to integer CSS pixels), which drawNodeGraphWires
-// feeds straight into the wire SVG's viewBox. Since the SVG is itself a
-// descendant of the zoomed surface, its rendered box is sub-pixel precise,
-// but the viewBox denominator was an integer -- so viewBox-to-rendered scale
-// drifted from the true zoom (measured ~0.22 out of 8 at zoom 8x), which
-// visibly desynced wires from their ports as zoom changed. Deriving the
-// local size from the precise getBoundingClientRect() divided by the true
-// zoom keeps the ratio exact.
+/** Camera-scaled world root (modules / origin). Wire SVGs are workspace siblings. */
+function nodeGraphWorldLayer() {
+  return document.getElementById("nodeGraphWorldLayer")
+    || nodeGraphZoomSurfaceHost();
+}
+
+/**
+ * Coordinate + query root for module/port geometry = world layer under the
+ * compositor camera. Prefer this over the unscaled zoom-surface host.
+ */
+function nodeGraphZoomSurface() {
+  return nodeGraphWorldLayer();
+}
+
+/**
+ * World-space size of the camera root's layout box (pre-scale). Used for
+ * module clamp / legacy callers. Wire SVGs use nodeGraphWireCameraViewBox().
+ */
 function nodeGraphGraphRect() {
   const surface = nodeGraphZoomSurface();
   const graphElement = surface || document.getElementById("nodeGraphWorkspace");
@@ -442,7 +450,40 @@ function nodeGraphGraphRect() {
   };
 }
 
-// Camera scale is nodeGraphZoom() (compositor transform scale). Do not
+/**
+ * Screen-space wire SVG viewBox = world rectangle currently visible in the
+ * workspace. SVG is viewport-sized (scale 1); mapping world->screen is the camera.
+ */
+function nodeGraphWireCameraViewBox(workspace = document.getElementById("nodeGraphWorkspace")) {
+  const host = workspace || document.getElementById("nodeGraphWorkspace");
+  const zoom = Math.max(0.0001, nodeGraphZoom());
+  let width = 0;
+  let height = 0;
+  if (typeof nodeGraphWorkspaceLayoutMetrics === "function" && host) {
+    const box = nodeGraphWorkspaceLayoutMetrics(host);
+    width = Math.max(0, nodeGraphFiniteNumber(box?.width));
+    height = Math.max(0, nodeGraphFiniteNumber(box?.height));
+  }
+  if (!(width > 0) || !(height > 0)) {
+    const rect = host?.getBoundingClientRect?.();
+    width = Math.max(0, rect?.width || 0);
+    height = Math.max(0, rect?.height || 0);
+  }
+  const pan = (typeof nodeGraphMvp === "object" && nodeGraphMvp?.pan) || { x: 0, y: 0 };
+  const origin = typeof nodeGraphRenderedOriginOffset === "function"
+    ? nodeGraphRenderedOriginOffset(pan, host)
+    : { x: 0, y: 0 };
+  const ox = nodeGraphFiniteNumber(origin?.x);
+  const oy = nodeGraphFiniteNumber(origin?.y);
+  return {
+    x: -ox / zoom,
+    y: -oy / zoom,
+    width: width / zoom,
+    height: height / zoom,
+  };
+}
+
+// Camera scale is nodeGraphZoom() (world-layer compositor transform). Do not
 // reverse-engineer from getBoundingClientRect / offsetWidth.
 function nodeGraphZoomSurfaceClientScale(surface = nodeGraphZoomSurface()) {
   const zoom = Math.max(0.0001, nodeGraphZoom());

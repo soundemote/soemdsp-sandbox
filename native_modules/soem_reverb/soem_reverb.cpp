@@ -19,9 +19,13 @@ using namespace soemdsp_maths;
 
 // Memory: float buffers live in a flat pool (not inside the state struct) so
 // scalar IO fields stay at stable low offsets and we never stack-copy state.
-constexpr int kMaxInstances = 1;
+constexpr int kMaxInstances = 4;
 constexpr int kMaxDelays = 12;
-constexpr int kMaxDelaySamples = 48000; // 1 s @ 48 kHz
+// Echo/Diffuse max = 1 s. Size like delay_effect: seconds * design rate (192 kHz).
+// Engine rate can be host*oversampling; bufferSize uses live sampleRate up to this cap.
+constexpr double kMaxDelaySeconds = 1.0;
+constexpr double kMaxDesignRateHz = 192000.0;
+constexpr int kMaxDelaySamples = 192002; // ceil(192k * 1s) + 2
 // Per instance: L delays + R delays + echo L + echo R
 constexpr int kLinesPerInstance = kMaxDelays * 2 + 2;
 
@@ -276,7 +280,8 @@ struct ModulatedDelay {
   void bind(float* storage) { buffer = storage; }
   void clear() {
     if (!buffer) return;
-    for (int i = 0; i < kMaxDelaySamples; i++) buffer[i] = 0.0f;
+    const int n = bufferSize > 0 ? bufferSize : kMaxDelaySamples;
+    for (int i = 0; i < n; i++) buffer[i] = 0.0f;
     bufferPos = 0;
   }
   void reset(double seedBipolar) {
@@ -705,16 +710,32 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
   s.fbR *= s.recycle;
 }
 
+
+static int required_delay_samples(double sampleRate) {
+  const double rate = sampleRate > 1.0 ? sampleRate : 44100.0;
+  int n = (int)(rate * kMaxDelaySeconds + 2.0);
+  if (n < 2) n = 2;
+  if (n > kMaxDelaySamples) n = kMaxDelaySamples;
+  return n;
+}
+
+static void applyBufferCapacity(SoEmReverbState& s) {
+  const int n = required_delay_samples(s.sampleRate);
+  s.echoL.bufferSize = n;
+  s.echoR.bufferSize = n;
+  for (int i = 0; i < kMaxDelays; i++) {
+    s.delaysL[i].bufferSize = n;
+    s.delaysR[i].bufferSize = n;
+  }
+}
+
 static void fullReset(SoEmReverbState& s) {
   s.fbL = s.fbR = 0;
   s.wetL = s.wetR = s.dryL = s.dryR = s.outL = s.outR = 0;
+  applyBufferCapacity(s);
   s.echoL.clear();
   s.echoR.clear();
-  s.echoL.bufferSize = kMaxDelaySamples;
-  s.echoR.bufferSize = kMaxDelaySamples;
   for (int i = 0; i < kMaxDelays; i++) {
-    s.delaysL[i].bufferSize = kMaxDelaySamples;
-    s.delaysR[i].bufferSize = kMaxDelaySamples;
     s.delaysL[i].clear();
     s.delaysR[i].clear();
   }
@@ -793,9 +814,13 @@ extern "C" void soemdsp_soem_reverb_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
-extern "C" void soemdsp_soem_reverb_reset(int handle) {
+extern "C" void soemdsp_soem_reverb_reset(int handle, double sampleRate) {
   if (handle < 1 || handle > kMaxInstances) return;
-  fullReset(gPool[handle - 1]);
+  SoEmReverbState& s = gPool[handle - 1];
+  if (sampleRate > 1.0) s.sampleRate = sampleRate;
+  s.silence.sampleRateChanged(s.sampleRate);
+  s.duck.setRelease(s.duck.releaseSeconds > 0.0 ? s.duck.releaseSeconds : 0.04, s.sampleRate);
+  fullReset(s);
 }
 
 // Mirrors soemdsp::delay::Reverb::syncControlParams — only run the *Changed

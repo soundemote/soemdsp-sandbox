@@ -3,7 +3,7 @@ function nodeInteractionHelpText(target) {
     return "";
   }
   const helpTarget = target.closest(
-    "[data-interaction-help], [data-tooltip-key], button, input, textarea, select, .node-slider-readout, .node-port, .node-io-row, .node-param-port, .node-wire-hit-path, .node-wire-path, .node-execution-order-badge, .node-execution-order li[data-node], .dsp-node, #nodeGraphZoomSurface, #nodeGraphWorkspace",
+    "[data-interaction-help], [data-tooltip-key], button, input, textarea, select, .node-slider-readout, .node-port, .node-io-row, .node-param-port, .node-wire-hit-path, .node-wire-path, .node-execution-order-badge, .node-execution-order li[data-node], .dsp-node, #nodeGraphZoomSurface, #nodeGraphWorldLayer, #nodeGraphWorkspace",
   );
   if (!helpTarget) {
     return "";
@@ -50,7 +50,7 @@ function nodeInteractionMouseHint(element) {
     return tooltipText;
   }
   const alias = element.dataset.alias || "";
-  if (element.id === "nodeGraphWorkspace" || element.id === "nodeGraphZoomSurface") {
+  if (element.id === "nodeGraphWorkspace" || element.id === "nodeGraphZoomSurface" || element.id === "nodeGraphWorldLayer") {
     return nodeGraphTooltipText("workspace.pan");
   }
   if (element.classList.contains("node-drag-handle")) {

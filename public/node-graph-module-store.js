@@ -1094,6 +1094,24 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "MixStereo2",
     notes: ["mixer", "stereo", "pan", "volume", "2-channel", "utility", "native"],
   },
+  crossfade2: {
+    category: "dynamics",
+    description: "Two stereo pairs → Left/Right. Crossfade 0…1 blends adjacent pairs.",
+    label: "Crossfade2",
+    notes: ["crossfade", "xfade", "stereo", "mixer", "utility", "native", "1t"],
+  },
+  crossfade3: {
+    category: "dynamics",
+    description: "Three stereo pairs → Left/Right. Crossfade 0…2 blends adjacent pairs.",
+    label: "Crossfade3",
+    notes: ["crossfade", "xfade", "stereo", "mixer", "utility", "native", "2t"],
+  },
+  crossfade4: {
+    category: "dynamics",
+    description: "Four stereo pairs → Left/Right. Crossfade 0…3 blends adjacent pairs.",
+    label: "Crossfade4",
+    notes: ["crossfade", "xfade", "stereo", "mixer", "utility", "native", "3t"],
+  },
   // Legacy id for MixStereo4.
   mixStereo: {
     category: "dynamics",
@@ -1183,17 +1201,23 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Inv",
     notes: ["invert", "negate", "flip", "phase invert", "utility"],
   },
+  ringMod: {
+    category: "dynamics",
+    description: "True ring modulation — four-quadrant Carrier × Mod multiply (bipolar×bipolar, no DC bias / balanced AM).",
+    label: "RingMod",
+    notes: ["ring mod", "ringmod", "multiply", "balanced am", "four quadrant", "carrier", "modulator", "dynamics", "utility", "native"],
+  },
+  tubeSaturation: {
+    category: "dynamics",
+    description: "First-order Koren-style tube saturation — Drive/Bias/Load/Mix with precomputed load-line tables (no same-sample feedback).",
+    label: "Tube Saturation",
+    notes: ["tube", "saturation", "koren", "load line", "drive", "bias", "triode", "dynamics", "native"],
+  },
   softClipper: {
     category: "dynamics",
-    description: "Gentle saturation/limiting when peaks need taming without hard digital clip.",
+    description: "Drive / Threshold / Knee / Amplitude soft-knee saturator (memoryless tanh). Face shows the transfer transition and knee.",
     label: "Soft Clipper",
-    notes: ["soft clipping", "tanh", "gain", "ADAA", "dynamics"],
-  },
-  clipperLimiter: {
-    category: "dynamics",
-    description: "Drive with Gain, then Soft Clip last: below Min dB is dry; Min→Max is the shared Soft Clipper tanh knee (wider span = more gradual).",
-    label: "Clipper Limiter",
-    notes: ["soft clip", "limiter", "dB", "tanh", "ADAA", "dynamics", "native"],
+    notes: ["soft clipping", "tanh", "drive", "threshold", "knee", "dynamics", "native"],
   },
   rotate3dTo2d: {
     category: "dynamics",
@@ -2988,6 +3012,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "native_modules/inv/inv.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/inv/inv.cpp",
   },
+  ringMod: {
+    source: "native_modules/ring_mod/ring_mod.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/ring_mod/ring_mod.cpp",
+  },
   bitConverter: {
     source: "public/modules/bitConverter/bit-converter-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/bitConverter/bit-converter-math.js",
@@ -3187,6 +3215,18 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   mixStereo2: {
     source: "public/modules/mixStereo/mix-stereo-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/mixStereo/mix-stereo-math.js",
+  },
+  crossfade2: {
+    source: "native_modules/crossfade/crossfade.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossfade/crossfade.cpp",
+  },
+  crossfade3: {
+    source: "native_modules/crossfade/crossfade.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossfade/crossfade.cpp",
+  },
+  crossfade4: {
+    source: "native_modules/crossfade/crossfade.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossfade/crossfade.cpp",
   },
   mixStereo: {
     source: "public/modules/mixStereo/mix-stereo-math.js",
@@ -3579,13 +3619,13 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/soemReverb/soem-reverb-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/soemReverb/soem-reverb-worklet-evaluator.js",
   },
-  softClipper: {
-    source: "public/modules/softClipper/soft-clipper-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/softClipper/soft-clipper-math.js",
+  tubeSaturation: {
+    source: "public/modules/tubeSaturation/tube-saturation-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/tubeSaturation/tube-saturation-math.js",
   },
-  clipperLimiter: {
-    source: "public/modules/clipperLimiter/clipper-limiter-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/clipperLimiter/clipper-limiter-math.js",
+  softClipper: {
+    source: "native_modules/soft_clipper/soft_clipper.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/soft_clipper/soft_clipper.cpp",
   },
   softpopOscillator: {
     source: "public/modules/softpopOscillator/softpop-oscillator-math.js",

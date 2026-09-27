@@ -114,6 +114,56 @@ function drawNodeGraphModuleScopeTypedItem(renderer, item, pixelRatio) {
   return false;
 }
 
+
+/**
+ * Re-open room-dimmer punches on every visible scope face after Stop wipe.
+ * Stop sets data-light-strength=0 on Trace/Output/etc.; Value LCD/LED rearm
+ * alone left those screens veiled until the first full buffer draw.
+ * Does not touch empty Knob plates (image-only light) beyond knob sync.
+ */
+function nodeGraphModuleScopeRearmScreenLightsAfterLiveStart() {
+  if (typeof nodeGraphVisibleModuleScopeSlots !== "function") {
+    return;
+  }
+  for (const slot of nodeGraphVisibleModuleScopeSlots()) {
+    const face = slot?.scopeElement;
+    if (!face) {
+      continue;
+    }
+    if (face.classList?.contains("node-knob-face")) {
+      if (typeof nodeGraphKnobFaceSyncLightSource === "function") {
+        nodeGraphKnobFaceSyncLightSource(face);
+      } else if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+        nodeGraphModuleScopeMarkScreenLit(
+          face,
+          face.classList.contains("has-image") ? 1 : 0,
+        );
+      }
+      continue;
+    }
+    if (typeof nodeGraphNumberReadoutIsLcdFaceElement === "function"
+      && nodeGraphNumberReadoutIsLcdFaceElement(face)) {
+      const lcdS = typeof nodeGraphLcdDisplayLightStrength === "number"
+        ? nodeGraphLcdDisplayLightStrength
+        : 2 / 3;
+      if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+        nodeGraphModuleScopeMarkScreenLit(face, lcdS);
+      }
+      continue;
+    }
+    if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+      nodeGraphModuleScopeMarkScreenLit(face, 1);
+    }
+  }
+  if (typeof scheduleNodeGraphRoomDimmerDraw === "function") {
+    try {
+      scheduleNodeGraphRoomDimmerDraw();
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
+}
+
 /** Room dimmer: mark a painted screen face as a light rect (full hole = 1). */
 function nodeGraphModuleScopeMarkScreenLit(screenElement, strength = 1) {
   if (!screenElement?.dataset) {
@@ -285,8 +335,9 @@ function drawNodeGraphModuleScopes(options = {}) {
   if (!canvas || !workspace || !nodeGraphModuleScopeBuffersCurrent()) {
     markNodeGraphModuleScopeDebugSkip(!canvas ? "no-canvas" : !workspace ? "no-workspace" : "stale-buffers");
     // Pause→stop→play: rings may be empty for a few frames while the worklet
-    // arms. Still repaint Value LCD/LED/lamp faces so they do not stay wiped
-    // black under the room dimmer until a full shared-canvas pass succeeds.
+    // arms. Still repaint Value LCD/LED/lamp faces AND reopen room-dimmer punches
+    // on every visible scope window — Stop zeros lightStrength on Trace/Output
+    // canvases; waiting for a full shared-canvas pass left those screens veiled.
     if (typeof paintNodeGraphValueFacesNow === "function") {
       try {
         paintNodeGraphValueFacesNow(window.devicePixelRatio || 1);
@@ -299,6 +350,37 @@ function drawNodeGraphModuleScopes(options = {}) {
         paintNodeGraphRasterRgbFacesNow(window.devicePixelRatio || 1);
       } catch (_error) {
         // Best-effort.
+      }
+    }
+    if (typeof nodeGraphModuleScopeRearmScreenLightsAfterLiveStart === "function") {
+      try {
+        nodeGraphModuleScopeRearmScreenLightsAfterLiveStart();
+      } catch (_error) {
+        // Best-effort.
+      }
+    } else if (typeof nodeGraphVisibleModuleScopeSlots === "function"
+      && typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+      for (const slot of nodeGraphVisibleModuleScopeSlots()) {
+        const face = slot?.scopeElement;
+        if (!face) continue;
+        if (face.classList?.contains("node-knob-face")) {
+          if (typeof nodeGraphKnobFaceSyncLightSource === "function") {
+            nodeGraphKnobFaceSyncLightSource(face);
+          }
+          continue;
+        }
+        if (typeof nodeGraphNumberReadoutIsLcdFaceElement === "function"
+          && nodeGraphNumberReadoutIsLcdFaceElement(face)) {
+          const lcdS = typeof nodeGraphLcdDisplayLightStrength === "number"
+            ? nodeGraphLcdDisplayLightStrength
+            : 2 / 3;
+          nodeGraphModuleScopeMarkScreenLit(face, lcdS);
+          continue;
+        }
+        nodeGraphModuleScopeMarkScreenLit(face, 1);
+      }
+      if (typeof scheduleNodeGraphRoomDimmerDraw === "function") {
+        try { scheduleNodeGraphRoomDimmerDraw(); } catch (_e) { /* ignore */ }
       }
     }
     // Live but capture/layout not ready yet — keep ticking until rings exist.

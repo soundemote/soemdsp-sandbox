@@ -707,8 +707,13 @@ function drawNodeGraphWires(options = {}) {
   const feedbackSets = nodeGraphFeedbackIdentitySets(plan);
   const activeNodeIds = nodeGraphActiveNodeIds(plan);
 
-  const graphRect = nodeGraphGraphRect();
-  const viewBox = `0 0 ${graphRect.width} ${graphRect.height}`;
+  const cam = typeof nodeGraphWireCameraViewBox === "function"
+    ? nodeGraphWireCameraViewBox()
+    : null;
+  const graphRect = cam || nodeGraphGraphRect();
+  const viewBox = cam
+    ? `${cam.x} ${cam.y} ${cam.width} ${cam.height}`
+    : `0 0 ${graphRect.width} ${graphRect.height}`;
   svg.setAttribute("viewBox", viewBox);
   svg.replaceChildren();
   const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
@@ -841,11 +846,18 @@ function drawNodeGraphWires(options = {}) {
 
 function syncNodeGraphWireSvgViewBox() {
   const svg = document.getElementById("nodeWireSvg");
-  if (!svg || typeof nodeGraphGraphRect !== "function") {
+  if (!svg) {
     return;
   }
-  const graphRect = nodeGraphGraphRect();
-  const viewBox = `0 0 ${graphRect.width} ${graphRect.height}`;
+  const cam = typeof nodeGraphWireCameraViewBox === "function"
+    ? nodeGraphWireCameraViewBox()
+    : (typeof nodeGraphGraphRect === "function" ? nodeGraphGraphRect() : null);
+  if (!cam) {
+    return;
+  }
+  const viewBox = Number.isFinite(cam.x)
+    ? `${cam.x} ${cam.y} ${cam.width} ${cam.height}`
+    : `0 0 ${cam.width} ${cam.height}`;
   if (svg.getAttribute("viewBox") !== viewBox) {
     svg.setAttribute("viewBox", viewBox);
   }

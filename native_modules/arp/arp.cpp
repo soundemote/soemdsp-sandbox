@@ -403,5 +403,5 @@ extern "C" int soemdsp_arp_play_midi(int handle) {
 }
 
 extern "C" int soemdsp_arp_version() {
-  return 9; // graph Ramp publishes inc=Hz/sr (kernel frequency() still Hz)
+  return 10; // graph: Square=f Hz, Ramp=inc Hz/sr (kernel frequency() still Hz)
 }

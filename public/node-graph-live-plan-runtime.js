@@ -178,9 +178,15 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
         params,
         type: node.type,
       };
-      const portalTitle = typeof normalizeNodeGraphPatchNodeAlias === "function"
-        ? normalizeNodeGraphPatchNodeAlias(node.alias)
-        : String(node.alias || "").trim();
+      const portalTitle = (
+        typeof nodeGraphIsNamedPortalType === "function"
+        && nodeGraphIsNamedPortalType(node.type)
+        && typeof normalizeNodeGraphNamedPortalAlias === "function"
+      )
+        ? normalizeNodeGraphNamedPortalAlias(node.alias)
+        : (typeof normalizeNodeGraphPatchNodeAlias === "function"
+          ? normalizeNodeGraphPatchNodeAlias(node.alias)
+          : String(node.alias || "").trim());
       if (portalTitle) {
         runtimeNode.alias = portalTitle;
         runtimeNode.portalTitle = portalTitle;
@@ -282,9 +288,15 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
         params,
         type: node.type,
       };
-      const portalTitle = typeof normalizeNodeGraphPatchNodeAlias === "function"
-        ? normalizeNodeGraphPatchNodeAlias(node.alias)
-        : String(node.alias || "").trim();
+      const portalTitle = (
+        typeof nodeGraphIsNamedPortalType === "function"
+        && nodeGraphIsNamedPortalType(node.type)
+        && typeof normalizeNodeGraphNamedPortalAlias === "function"
+      )
+        ? normalizeNodeGraphNamedPortalAlias(node.alias)
+        : (typeof normalizeNodeGraphPatchNodeAlias === "function"
+          ? normalizeNodeGraphPatchNodeAlias(node.alias)
+          : String(node.alias || "").trim());
       if (portalTitle) {
         runtimeNode.alias = portalTitle;
         runtimeNode.portalTitle = portalTitle;
@@ -453,7 +465,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const speedColorInertiaStates = new Map();
   const inertialFilterStates = new Map();
   const softClipperStates = new Map();
-  const clipperLimiterStates = new Map();
   const speakerProtector2States = new Map();
   const tiltFilterStates = new Map();
   const eqFilterStates = new Map();
@@ -741,9 +752,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     if (node.type === "softClipper" && typeof createNodeGraphSoftClipperState === "function") {
       softClipperStates.set(node.id, createNodeGraphSoftClipperState());
     }
-    if (node.type === "clipperLimiter" && typeof createNodeGraphSoftClipperState === "function") {
-      clipperLimiterStates.set(node.id, createNodeGraphSoftClipperState());
-    }
     if (node.type === "speakerProtector2" && typeof createNodeGraphSpeakerProtector2State === "function") {
       speakerProtector2States.set(node.id, createNodeGraphSpeakerProtector2State());
     }
@@ -891,12 +899,8 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     if (node.type === "antisaw") {
       antisawStates.set(node.id, createNodeGraphAntisawState());
     }
-    if (node.type === "fractalBrownianNoise") {
-      fractalBrownianNoiseStates.set(node.id, createNodeGraphFractalBrownianNoiseState());
-    }
-    if (node.type === "fbmField") {
-      fbmFieldStates.set(node.id, createNodeGraphFbmFieldState());
-    }
+    // fractalBrownianNoise / fbmField: no main-thread JS audio state.
+    // Motion DSP is native graph type 87; Field face uses fbm-field.js wasm.
     if (node.type === "rgbFractal") {
       const kept = previousRgbFractalStates?.get(node.id);
       rgbFractalStates.set(
@@ -1015,7 +1019,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     speedColorInertiaStates,
     inertialFilterStates,
     softClipperStates,
-    clipperLimiterStates,
     speakerProtector2States,
     tiltFilterStates,
     eqFilterStates,
@@ -1259,9 +1262,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.softClipperStates) {
     runtime.softClipperStates = new Map();
-  }
-  if (!runtime.clipperLimiterStates) {
-    runtime.clipperLimiterStates = new Map();
   }
   if (!runtime.speakerProtector2States) {
     runtime.speakerProtector2States = new Map();
@@ -1731,13 +1731,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       runtime.softClipperStates.set(node.id, createNodeGraphSoftClipperState());
     }
     if (
-      node.type === "clipperLimiter"
-      && typeof createNodeGraphSoftClipperState === "function"
-      && !runtime.clipperLimiterStates.has(node.id)
-    ) {
-      runtime.clipperLimiterStates.set(node.id, createNodeGraphSoftClipperState());
-    }
-    if (
       node.type === "speakerProtector2"
       && typeof createNodeGraphSpeakerProtector2State === "function"
       && !runtime.speakerProtector2States.has(node.id)
@@ -1895,12 +1888,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     if (node.type === "antisaw" && !runtime.antisawStates.has(node.id)) {
       runtime.antisawStates.set(node.id, createNodeGraphAntisawState());
     }
-    if (node.type === "fractalBrownianNoise" && !runtime.fractalBrownianNoiseStates.has(node.id)) {
-      runtime.fractalBrownianNoiseStates.set(node.id, createNodeGraphFractalBrownianNoiseState());
-    }
-    if (node.type === "fbmField" && !runtime.fbmFieldStates.has(node.id)) {
-      runtime.fbmFieldStates.set(node.id, createNodeGraphFbmFieldState());
-    }
+    // fractalBrownianNoise / fbmField: skip retired JS audio state bags.
     if (!runtime.rgbFractalStates) {
       runtime.rgbFractalStates = new Map();
     }
@@ -2341,13 +2329,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     for (const id of [...runtime.softClipperStates.keys()]) {
       if (!nodeIds.has(id)) {
         runtime.softClipperStates.delete(id);
-      }
-    }
-  }
-  if (runtime.clipperLimiterStates) {
-    for (const id of [...runtime.clipperLimiterStates.keys()]) {
-      if (!nodeIds.has(id)) {
-        runtime.clipperLimiterStates.delete(id);
       }
     }
   }

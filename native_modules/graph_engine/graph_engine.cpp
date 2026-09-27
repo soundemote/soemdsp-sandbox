@@ -53,11 +53,14 @@ extern "C" int soemdsp_ladder_filter_block_output_ptr(int handle);
 extern "C" int soemdsp_soft_clipper_create();
 extern "C" void soemdsp_soft_clipper_destroy(int handle);
 extern "C" void soemdsp_soft_clipper_set_params(
-  int handle, double center, double width, double antialias, int oversampleMode
+  int handle, double drive, double threshold, double knee, double amplitude
 );
 extern "C" void soemdsp_soft_clipper_process_block(int handle, int channel, int frameCount);
 extern "C" int soemdsp_soft_clipper_block_input_ptr(int handle, int channel);
 extern "C" int soemdsp_soft_clipper_block_output_ptr(int handle, int channel);
+extern "C" double soemdsp_tube_saturation_sample(
+  double input, double drive, double bias, double load, double mix, double amplitude
+);
 
 extern "C" int soemdsp_sabrina_reverb_create(double sampleRate);
 extern "C" void soemdsp_sabrina_reverb_destroy(int handle);
@@ -253,11 +256,6 @@ extern "C" double soemdsp_mix_stereo_sample(
   double amplitude
 );
 
-extern "C" int soemdsp_clipper_limiter_create();
-extern "C" void soemdsp_clipper_limiter_destroy(int handle);
-extern "C" double soemdsp_clipper_limiter_sample(
-  int handle, int channel, double input, double minDb, double maxDb, double gainDb, double antialias
-);
 
 extern "C" double soemdsp_mid_side_encode_sample(
   double channel, double left, double right, double midGainDb, double sideGainDb
@@ -1089,7 +1087,7 @@ extern "C" double soemdsp_delay_effect_wet(int handle);
 
 extern "C" int soemdsp_soem_reverb_create(double sampleRate);
 extern "C" void soemdsp_soem_reverb_destroy(int handle);
-extern "C" void soemdsp_soem_reverb_reset(int handle);
+extern "C" void soemdsp_soem_reverb_reset(int handle, double sampleRate);
 extern "C" void soemdsp_soem_reverb_set_params(
   int handle,
   double mix, double volume, double echoTime, double recycle, double numDelays,
@@ -1640,6 +1638,7 @@ static const int kTypeUnknown = 0;
 static const int kTypePolyBlep = 1;
 static const int kTypeLadderFilter = 2;
 static const int kTypeSoftClipper = 3;
+static const int kTypeTubeSaturation = 197; // Tube Saturation (Koren load-line)
 static const int kTypeReverbEffect = 4;
 static const int kTypePingPongDelay = 5;
 static const int kTypeOutput = 6;
@@ -1662,7 +1661,7 @@ static const int kTypeMinMax = 21;
 static const int kTypeMix = 22;
 static const int kTypeMix2 = 47;
 static const int kTypeMixStereo = 23;
-static const int kTypeClipperLimiter = 24;
+// clipperLimiter deleted (was type 24). Id reserved unused.
 static const int kTypeMidSideEncode = 25;
 static const int kTypeVectorscopeTransform = 26;
 static const int kTypeRotate3dTo2d = 27;
@@ -1896,9 +1895,9 @@ static const int kParamPhase = 14;       // polyBlep phase offset (radians fract
 static const int kParamResonance = 20;   // ladder
 static const int kParamMode = 21;        // ladder
 static const int kParamStages = 22;      // ladder
-static const int kParamCenter = 30;      // softClipper; Dual Ladder / Passive sweep st
-static const int kParamWidth = 31;       // softClipper
-static const int kParamOversample = 32;  // softClipper
+static const int kParamCenter = 30;      // softClipper threshold; Dual Ladder / Passive sweep st
+static const int kParamWidth = 31;       // softClipper knee
+static const int kParamOversample = 32;  // (unused by Soft Clipper redesign)
 static const int kParamMix = 40;               // reverb / pingPong
 static const int kParamDiffusionSize = 41;     // reverb
 static const int kParamDiffusionAmount = 42;   // reverb
@@ -2299,8 +2298,6 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_sample_hold_destroy(handle);
   } else if (kind == kTypeMinMax) {
     soemdsp_min_max_destroy(handle);
-  } else if (kind == kTypeClipperLimiter) {
-    soemdsp_clipper_limiter_destroy(handle);
   } else if (kind == kTypeClock) {
     soemdsp_clock_destroy(handle);
   } else if (kind == kTypeTriggerDivider) {
@@ -3122,11 +3119,12 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 0.0 // sweep st
       : (typeId == kTypeEllipsoid || typeId == kTypeEllipsoidOsc) ? 1.0 // AA Limit (0 Off / 1 Limit)
       : (typeId == kTypeHelmholtzPitch) ? 0.93 // fidelity threshold
+      : (typeId == kTypeSoftClipper) ? 1.0 // threshold
       : 0.0,
     // Robin detuneAlgorithm is discrete 0…5; RoundShape / Ellipsoid AA is discrete Off/Limit
     typeId == kTypeRobinSupersaw || typeId == kTypeEllipsoid || typeId == kTypeEllipsoidOsc
   );
-  // Soft-clipper width default 2; noise = deviation; supersaw = detune;
+  // Soft-clipper knee default 0.5; noise = deviation; supersaw = detune;
   // triggerCounter = increment; archimedes = dither bits;
   // surge = syncFrequency; dsf = pulseWidth; hypersaw2 = random;
   // bradley2a = freqOffset; snowflake = angle°.
@@ -3179,6 +3177,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCrossover4) ? 5000.0
       : (typeId == kTypeCrossover5) ? 2000.0
       : (typeId == kTypeCrossover6) ? 1000.0
+      : (typeId == kTypeTubeSaturation) ? 0.5 // Load
+      : (typeId == kTypeSoftClipper) ? 0.5 // knee
       : 2.0,
     false
   );
@@ -3186,12 +3186,13 @@ static void init_node_defaults(Node& n, int typeId) {
     n.oversample,
     (typeId == kTypeHypersaw2) ? 0.0 // jitterDistanceSource Wavelength
       : (typeId == kTypeXyPad) ? 0.0 // pauseOnLift Off
-      : 2.0, // softClipper / clipperLimiter antialias mode
+      : 2.0, // legacy oversample slot (unused by Soft Clipper redesign)
     true
   );
   init_control(
     n.mix,
     (typeId == kTypeXyPad) ? 0.5 // pad Y unit
+      : (typeId == kTypeTubeSaturation) ? 1.0 // Mix
       : (typeId == kTypeVcvrackSuperloveFilter) ? 0.0 // noise
       : (typeId == kTypePhaser || typeId == kTypeFlanger || typeId == kTypeChorus || typeId == kTypeEnsemble) ? 0.5
       : (typeId == kTypeGraphicEq) ? 1.0
@@ -3473,7 +3474,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDegreePhrase) ? 0.0 // rest1
       : (typeId == kTypeArp) ? 0.0 // sequenceOffset
       : (typeId == kTypeRange) ? -1.0 // bipolar In default; wire unipolar spawn uses 0…1
-      : (typeId == kTypeClipperLimiter) ? -12.0 : 0.0,
+      : 0.0,
     (typeId == kTypeDegreePhrase || typeId == kTypeArp)
   );
   init_control(
@@ -3481,7 +3482,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypePulseExplosion) ? 1.0 // highAmplitude
       : (typeId == kTypeAdditiveFrequencySkew) ? 1.0 // highStretch
       : (typeId == kTypeDegreePhrase) ? 0.0 // rest2
-      : (typeId == kTypeRange) ? 1.0 : (typeId == kTypeClipperLimiter) ? 0.0 : 1.0,
+      : (typeId == kTypeRange) ? 1.0 : 1.0,
     (typeId == kTypeDegreePhrase)
   );
   init_control(
@@ -3500,6 +3501,8 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.gainDb,
     (typeId == kTypeVcvrackSuperloveFilter) ? 0.5 // drive 0…4
+      : (typeId == kTypeTubeSaturation) ? 0.5 // Drive 0..4
+      : (typeId == kTypeSoftClipper) ? 1.0 // Drive linear
       : (typeId == kTypeLookaheadLimiter) ? -1.0 // ceiling dB
       : (typeId == kTypePumpLimiter) ? 0.0 // inputGain dB
       : 0.0,
@@ -4234,7 +4237,6 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeSampleDelay) return soemdsp_sample_delay_create();
   if (typeId == kTypeSampleHold) return soemdsp_sample_hold_create();
   if (typeId == kTypeMinMax) return soemdsp_min_max_create();
-  if (typeId == kTypeClipperLimiter) return soemdsp_clipper_limiter_create();
   if (typeId == kTypeClock) return soemdsp_clock_create();
   if (typeId == kTypeTriggerDivider) return soemdsp_trigger_divider_create();
   if (typeId == kTypeDelayedTrigger) return soemdsp_delayed_trigger_create();
@@ -4909,7 +4911,7 @@ static void process_ladder(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Shared M/L/R cable probe (softClipper / clipperLimiter).
+// Shared M/L/R cable probe (softClipper).
 static void probe_mlr_cables(
   Circuit& g, const Node& node, bool* hasMonoIn, bool* hasLeftIn, bool* hasRightIn, bool* monoOutWired
 ) {
@@ -4933,63 +4935,19 @@ static void probe_mlr_cables(
   }
 }
 
-// clipperLimiter: per-channel sample (native ch 0/1/2). SoftClipper-style wiring.
-static void process_clipper_limiter(Circuit& g, Node& node, int frames) {
-  if (node.nativeHandle <= 0) return;
-  mix_node_inputs(g, node, frames);
-  const double minDb = control_effective(node.inLow);
-  const double maxDb = control_effective(node.inHigh);
-  const double gainDb = control_effective(node.gainDb);
-  const double osV = control_effective(node.oversample);
-  int os = (int)(osV + (osV >= 0.0 ? 0.5 : -0.5));
-  if (os < 0) os = 0;
-  if (os > 2) os = 2;
-  const double aa = os > 0 ? 1.0 : 0.0;
-
-  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
-  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
-  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
-
-  for (int f = 0; f < frames; f++) {
-    control_frame(g, node, f);
-    if (needMono) {
-      double in = g.mixMono[f];
-      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
-      const double out = soemdsp_clipper_limiter_sample(
-        node.nativeHandle, 0, in, minDb, maxDb, gainDb, aa
-      );
-      node.buf[kPortMono][f] = out;
-      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
-      if (!hasRightIn) node.buf[kPortRight][f] = out;
-    }
-    if (hasLeftIn) {
-      node.buf[kPortLeft][f] = soemdsp_clipper_limiter_sample(
-        node.nativeHandle, 1, g.mixLeft[f] + g.mixMono[f], minDb, maxDb, gainDb, aa
-      );
-    }
-    if (hasRightIn) {
-      node.buf[kPortRight][f] = soemdsp_clipper_limiter_sample(
-        node.nativeHandle, 2, g.mixRight[f] + g.mixMono[f], minDb, maxDb, gainDb, aa
-      );
-    }
-  }
-}
-
+// Soft Clipper: Drive/Threshold/Knee/Amplitude (linear). Memoryless soft-knee.
 static void process_soft_clipper(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
-  double center = control_effective(node.center);
-  if (!(center == center)) center = 0.0;
-  double width = control_effective(node.width);
-  // Width 0 is valid (hardest knee) — only replace non-finite.
-  if (!(width == width)) width = 2.0;
-  const double drive = (double)db_to_lin((float)control_effective(node.gainDb));
-  const double osV = control_effective(node.oversample);
-  int os = (int)(osV + (osV >= 0.0 ? 0.5 : -0.5));
-  if (os < 0) os = 0;
-  if (os > 2) os = 2;
-  const double aa = os > 0 ? 1.0 : 0.0;
-  soemdsp_soft_clipper_set_params(node.nativeHandle, center, width, aa, os);
+  double drive = control_effective(node.gainDb);
+  if (!(drive == drive) || drive < 0.0) drive = 0.0;
+  double threshold = control_effective(node.center);
+  if (!(threshold == threshold)) threshold = 1.0;
+  double knee = control_effective(node.width);
+  if (!(knee == knee)) knee = 0.5;
+  double amplitude = control_effective(node.amplitude);
+  if (!(amplitude == amplitude)) amplitude = 1.0;
+  soemdsp_soft_clipper_set_params(node.nativeHandle, drive, threshold, knee, amplitude);
 
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
@@ -5007,7 +4965,7 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
       if (!hasLeftIn && !hasRightIn) {
         in += g.mixLeft[f] + g.mixRight[f];
       }
-      in0[f] = in * drive;
+      in0[f] = in;
     }
     soemdsp_soft_clipper_process_block(node.nativeHandle, 0, frames);
     copy_tap_to_buf(node.buf[kPortMono], out0, frames);
@@ -5019,7 +4977,7 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
     if (in1 && out1) {
       for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
-        in1[f] = (g.mixLeft[f] + g.mixMono[f]) * drive;
+        in1[f] = g.mixLeft[f] + g.mixMono[f];
       }
       soemdsp_soft_clipper_process_block(node.nativeHandle, 1, frames);
       copy_tap_to_buf(node.buf[kPortLeft], out1, frames);
@@ -5034,13 +4992,48 @@ static void process_soft_clipper(Circuit& g, Node& node, int frames) {
     if (in2 && out2) {
       for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
-        in2[f] = (g.mixRight[f] + g.mixMono[f]) * drive;
+        in2[f] = g.mixRight[f] + g.mixMono[f];
       }
       soemdsp_soft_clipper_process_block(node.nativeHandle, 2, frames);
       copy_tap_to_buf(node.buf[kPortRight], out2, frames);
     }
   } else if (out0) {
     copy_tap_to_buf(node.buf[kPortRight], out0, frames);
+  }
+}
+
+
+static void process_tube_saturation(Circuit& g, Node& node, int frames) {
+  mix_node_inputs(g, node, frames);
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
+
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double drive = control_audio(g, node.gainDb, f);
+    const double bias = control_audio(g, node.offset, f);
+    const double load = control_audio(g, node.width, f);
+    const double mix = control_audio(g, node.mix, f);
+    const double amp = control_audio(g, node.amplitude, f);
+    if (needMono) {
+      double in = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
+      const double out = soemdsp_tube_saturation_sample(in, drive, bias, load, mix, amp);
+      node.buf[kPortMono][f] = out;
+      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
+      if (!hasRightIn) node.buf[kPortRight][f] = out;
+    }
+    if (hasLeftIn) {
+      node.buf[kPortLeft][f] = soemdsp_tube_saturation_sample(
+        g.mixLeft[f] + g.mixMono[f], drive, bias, load, mix, amp
+      );
+    }
+    if (hasRightIn) {
+      node.buf[kPortRight][f] = soemdsp_tube_saturation_sample(
+        g.mixRight[f] + g.mixMono[f], drive, bias, load, mix, amp
+      );
+    }
   }
 }
 
@@ -6722,11 +6715,13 @@ static void process_surge_oscillator(Circuit& g, Node& node, int frames) {
 
 // Softwave: shape=morph, center=antialias, amplitude=level, phaseParam=phase.
 // No Morph/Phase/Amp SIGNAL IN — those are parameters (+ sample-accurate MOD).
+// Reset / Increment SIGNAL IN (Increment = cycles/sample add; same as Theremin).
 static void process_softwave_osc(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = circuit_pitch_ref_v(g);
@@ -6744,6 +6739,7 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
+    if (liveInc) freq += g.mixIncrement[f] * sr;
     double morph = control_audio(g, node.shape, f);
     if (!(morph == morph)) morph = 0.5;
     if (morph < 0.0) morph = 0.0;
@@ -9846,11 +9842,11 @@ static void process_degree_phrase(Circuit& g, Node& node, int frames) {
 }
 
 // Arp: Arp Keys->Mono, Trigger->Trigger, Reset->Reset, f->F (external rate Hz);
-// outs: pitch->Mono, Gate->Left, Trigger->Right, Step->Saw, inc(Hz/sr)->Ramp.
+// outs: pitch->Mono, Gate->Left, Trigger->Right, Step->Saw, f Hz->Square, inc(Hz/sr)->Ramp.
 // frequency=Internal Clock Hz (ignored when f is wired), mode=mode, stages=steps,
 // seed=seed, offset=octaveOffset (−4…+4).
 // Clock priority: Trigger edges > f jack rate > Internal Clock knob.
-// 0.1V/Oct→Mono, Gate→Left, Trigger→Right, Step→Saw, inc (Hz/sr)→Ramp.
+// 0.1V/Oct→Mono, Gate→Left, Trigger→Right, Step→Saw, f Hz→Square, inc (Hz/sr)→Ramp.
 static void process_arp(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const bool hasHeld = mix_live_port(g, node, kPortMono, frames, g.mixMono);
@@ -9884,8 +9880,10 @@ static void process_arp(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = soemdsp_arp_gate(node.nativeHandle);
     node.buf[kPortRight][f] = soemdsp_arp_trigger(node.nativeHandle);
     node.buf[kPortSaw][f] = soemdsp_arp_step(node.nativeHandle);
-    // Ramp = inc (cycles/sample). Kernel still stores Hz; divide here.
-    node.buf[kPortRamp][f] = soemdsp_arp_frequency(node.nativeHandle) / sr;
+    // Square = f (Hz). Ramp = inc (cycles/sample). Kernel stores Hz.
+    const double hz = soemdsp_arp_frequency(node.nativeHandle);
+    node.buf[kPortSquare][f] = hz;
+    node.buf[kPortRamp][f] = hz / sr;
   }
 }
 
@@ -11911,7 +11909,7 @@ extern "C" void soemdsp_graph_set_sample_rate(int handle, float sampleRate) {
     } else if (n.nativeKind == kTypePingPongDelay) {
       soemdsp_ping_pong_delay_reset(n.nativeHandle);
     } else if (n.nativeKind == kTypeSoemReverb) {
-      soemdsp_soem_reverb_reset(n.nativeHandle);
+      soemdsp_soem_reverb_reset(n.nativeHandle, (double)sampleRate);
     } else if (n.nativeKind == kTypePll) {
       soemdsp_pll_reset(n.nativeHandle, (double)sampleRate);
     }
@@ -11956,7 +11954,6 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeSampleDelay
     || typeId == kTypeSampleHold
     || typeId == kTypeMinMax
-    || typeId == kTypeClipperLimiter
     || typeId == kTypeClock
     || typeId == kTypeTriggerDivider
     || typeId == kTypeDelayedTrigger
@@ -13018,8 +13015,8 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_soft_clipper(g, node, frames);
       return;
     }
-    if (node.typeId == kTypeClipperLimiter) {
-      process_clipper_limiter(g, node, frames);
+    if (node.typeId == kTypeTubeSaturation) {
+      process_tube_saturation(g, node, frames);
       return;
     }
     if (node.typeId == kTypeMidSideEncode) {
@@ -13993,5 +13990,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 151; // arp Ramp out = inc (Hz/sr); legacy f cables remap in JS
+  return 153; // softwaveOsc listens to Increment (cycles/sample add; arp.inc path)
 }

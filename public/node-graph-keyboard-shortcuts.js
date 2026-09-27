@@ -501,8 +501,13 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  // ? (Shift+/ on US) → open Command Center.
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key === "?") {
+  // ` (Backquote) and ? (Shift+/ on US) → open Command Center.
+  if (
+    !event.ctrlKey
+    && !event.metaKey
+    && !event.altKey
+    && (event.key === "`" || event.key === "?")
+  ) {
     event.preventDefault();
     if (typeof openNodeGraphUnifiedWindowPage === "function") {
       openNodeGraphUnifiedWindowPage("commandCenter");

@@ -20,7 +20,7 @@ namespace {
 
 using namespace soemdsp_maths;
 
-static const int kMaxInstances = 8;
+static const int kMaxInstances = 16;
 // 4.0s @ 192 kHz — covers host 48 kHz × 4× oversampling with headroom.
 static const double kMaxDelaySeconds = 4.0;
 static const int kMaxDelaySamples = 768000;

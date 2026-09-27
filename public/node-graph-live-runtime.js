@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=arp-inc-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=softwave-inc-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -1255,7 +1255,8 @@ function nodeGraphLiveRearmDisplaysAfterEngineStart() {
   nodeGraphMvp.live.needsValueFaceRearm = true;
   nodeGraphMvp.live.valueFaceRearmUntil = (performance.now?.() || Date.now()) + 2500;
   if (typeof nodeGraphNumberReadoutRearmAllFacesAfterLiveStart === "function") {
-    nodeGraphNumberReadoutRearmAllFacesAfterLiveStart();
+    // hard: drop held reading after Stop wipe; soft unpause keeps it.
+    nodeGraphNumberReadoutRearmAllFacesAfterLiveStart({ hard: true });
   }
   if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
     try {
@@ -1275,8 +1276,24 @@ function nodeGraphLiveRearmDisplaysAfterEngineStart() {
       // Best-effort.
     }
   }
+  // Stop wipe zeros Trace/Output lightStrength; Value-face rearm alone left
+  // those screens veiled until the first full buffer draw. Re-open punches now.
+  if (typeof nodeGraphModuleScopeRearmScreenLightsAfterLiveStart === "function") {
+    try {
+      nodeGraphModuleScopeRearmScreenLightsAfterLiveStart();
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
   if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
     scheduleNodeGraphModuleScopeDraw({ force: true });
+  }
+  if (typeof scheduleNodeGraphRoomDimmerDraw === "function") {
+    try {
+      scheduleNodeGraphRoomDimmerDraw();
+    } catch (_error) {
+      // Best-effort.
+    }
   }
   if (typeof renderNodeGraphLiveControls === "function") {
     renderNodeGraphLiveControls(true);
@@ -1372,7 +1389,18 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
     // Unpause / force rearm: Instant Trace can early-out on a stale draw
     // signature (black face, unchanged sample count). Force a full paint.
     if (typeof nodeGraphNumberReadoutRearmAllFacesAfterLiveStart === "function") {
-      nodeGraphNumberReadoutRearmAllFacesAfterLiveStart();
+      // After Stop wipe, needsValueFaceRearm is sticky — hard-drop held digits.
+      // Plain pause→play keeps soft rearm so residual hold survives.
+      const hardAfterStop = nodeGraphMvp?.live?.needsValueFaceRearm === true;
+      nodeGraphNumberReadoutRearmAllFacesAfterLiveStart(hardAfterStop ? { hard: true } : undefined);
+    }
+    if (nodeGraphMvp?.live?.needsValueFaceRearm === true
+      && typeof nodeGraphModuleScopeRearmScreenLightsAfterLiveStart === "function") {
+      try {
+        nodeGraphModuleScopeRearmScreenLightsAfterLiveStart();
+      } catch (_error) {
+        // Best-effort.
+      }
     }
     if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
       try {
@@ -3193,7 +3221,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=named-portal-1",
-  "./public/node-graph-efficient-product.js?v=arp-inc-1",
+  "./public/node-graph-efficient-product.js?v=arp-inc-2",
   "./public/node-live-audio-worklet-core.js?v=speed-22050-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
@@ -3212,7 +3240,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=wt2d-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=arp-inc-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=crossfade-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=live-os-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",

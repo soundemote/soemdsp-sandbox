@@ -58,6 +58,33 @@ function nodeGraphResolvePortType(typeOrNode, port, io = null) {
   if (!name) {
     return NODE_GRAPH_PORT_TYPES.audio;
   }
+
+  // Named portals: locked wirelessRole, or null if unlocked (first cable decides).
+  if (typeof nodeGraphIsNamedPortalType === "function") {
+    let portalNode = null;
+    if (typeOrNode && typeof typeOrNode === "object" && nodeGraphIsNamedPortalType(typeOrNode.type)) {
+      portalNode = typeOrNode;
+    } else if (typeof typeOrNode === "string") {
+      const knownType = typeof nodeGraphModuleDefinitions === "object"
+        && Object.prototype.hasOwnProperty.call(nodeGraphModuleDefinitions, typeOrNode);
+      if (knownType && nodeGraphIsNamedPortalType(typeOrNode)) {
+        return null;
+      }
+      if (!knownType && typeof nodeGraphPatchNode === "function") {
+        const live = nodeGraphPatchNode(typeOrNode);
+        if (live && nodeGraphIsNamedPortalType(live.type)) {
+          portalNode = live;
+        }
+      }
+    }
+    if (portalNode) {
+      if (typeof nodeGraphNamedPortalWirelessRole === "function") {
+        return nodeGraphNamedPortalWirelessRole(portalNode);
+      }
+      return nodeGraphNormalizePortType(portalNode.wirelessRole);
+    }
+  }
+
   const definition = nodeGraphModuleDefinitionForPortType(typeOrNode);
   const explicit = definition?.portTypes && nodeGraphNormalizePortType(definition.portTypes[name]);
   if (explicit) {
@@ -123,6 +150,10 @@ function nodeGraphParameterIsSetup(parameter) {
  *   audio/digital → setup (Knob/OSC sampled once per quantum)
  */
 function nodeGraphPortTypesCompatible(typeA, typeB) {
+  // null/empty = unlocked / untyped (named portal before first cable, MOD dest).
+  if (typeA == null || typeA === "" || typeB == null || typeB === "") {
+    return true;
+  }
   const a = nodeGraphNormalizePortType(typeA) || NODE_GRAPH_PORT_TYPES.audio;
   const b = nodeGraphNormalizePortType(typeB) || NODE_GRAPH_PORT_TYPES.audio;
   if (a === b) {

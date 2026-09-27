@@ -1,7 +1,13 @@
 // Named wireless Portal In / Portal Out. Title (alias) is the bus name.
-// Jack I/O labels use that same title. Jack/wire color follows the cable into Portal In;
-// Portal Out mirrors matched In for title and color. Each owner is its own universe
-// (root vs each Metamodule).
+// Optional wirelessRole (port kind: noteMask / audio / …) locks on first cable;
+// Portal Out re-publishes that kind. Jack I/O labels use effective Display
+// (follows Title until overridden). Jack/wire color follows the cable into
+// Portal In; Out mirrors matched In for title/bus, color, and role.
+// Well-known bus Titles (PlayKeys / ArpKeys / ChordKeys / Scale / …) also
+// paint from the same name→color/shape tables as those outlets — rename
+// adopts look even with no cable yet. Catalog entry **Portal IO** drops a
+// linked In+Out pair (same Title); separate In/Out types stay loadable.
+// Each owner is its own universe (root vs each Metamodule).
 
 function nodeGraphIsNamedPortalInType(type) {
   return String(type || "") === "namedPortalIn";
@@ -15,10 +21,91 @@ function nodeGraphIsNamedPortalType(type) {
   return nodeGraphIsNamedPortalInType(type) || nodeGraphIsNamedPortalOutType(type);
 }
 
+function nodeGraphIsPortalIoCatalogType(type) {
+  return String(type || "") === "portalIo";
+}
+
+/**
+ * Well-known note-bus Titles → canonical outlet port name (jack-chrome tables).
+ * Keys are lowercase identifier forms with underscores stripped (ChordKeys,
+ * Chord_Keys, "Chord Keys" all → chordkeys).
+ */
+const NODE_GRAPH_NAMED_PORTAL_BUS_PAINT = Object.freeze([
+  { keys: Object.freeze(["playkeys"]), port: "Play Keys", role: "noteMask" },
+  { keys: Object.freeze(["arpkeys", "keys"]), port: "Arp Keys", role: "noteMask" },
+  { keys: Object.freeze(["chordkeys", "chordmemory"]), port: "Chord Memory", role: "noteMask" },
+  { keys: Object.freeze(["scale"]), port: "Scale", role: "noteMask" },
+  { keys: Object.freeze(["polyphony"]), port: "Polyphony", role: "noteMask" },
+  { keys: Object.freeze(["monophony"]), port: "Monophony", role: "noteMask" },
+  { keys: Object.freeze(["voices"]), port: "Voices", role: "noteMask" },
+]);
+
+function nodeGraphNamedPortalBusPaintKey(alias) {
+  const normalized = typeof normalizeNodeGraphNamedPortalAlias === "function"
+    ? normalizeNodeGraphNamedPortalAlias(alias, "")
+    : String(alias || "").trim();
+  return String(normalized || "").trim().toLowerCase().replace(/_/g, "");
+}
+
+/**
+ * Resolve name→color/shape paint for a portal Title. Returns
+ * { port, role } using the same port names as nodeGraphJackChannel /
+ * nodeGraphPortIsNoteBus, or null when the Title is not a known bus.
+ */
+function nodeGraphNamedPortalBusPaintFromAlias(alias) {
+  const key = nodeGraphNamedPortalBusPaintKey(alias);
+  if (!key) return null;
+  for (let i = 0; i < NODE_GRAPH_NAMED_PORTAL_BUS_PAINT.length; i += 1) {
+    const entry = NODE_GRAPH_NAMED_PORTAL_BUS_PAINT[i];
+    if (entry.keys.includes(key)) {
+      return { port: entry.port, role: entry.role };
+    }
+  }
+  return null;
+}
+
+/** Apply well-known Title paint (wirelessRole) onto the bus of nodeId. */
+function nodeGraphNamedPortalApplyAliasPaint(patch, nodeId) {
+  if (!patch || !Array.isArray(patch.nodes)) return [];
+  const node = nodeGraphNamedPortalNodeFromPatch(nodeId, patch);
+  if (!node || !nodeGraphIsNamedPortalType(node.type)) return [];
+  const paint = nodeGraphNamedPortalBusPaintFromAlias(node.alias);
+  if (!paint?.role) return [];
+  return nodeGraphNamedPortalSyncBusWirelessRole(patch, nodeId, paint.role);
+}
+
+
+/**
+ * Portal Title / bus name: C++ identifier [A-Za-z_][A-Za-z0-9_]*.
+ * Display stays free-form (comment / jack override). Empty stays empty.
+ */
+function normalizeNodeGraphNamedPortalAlias(value, fallback = "A") {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return "";
+  }
+  const fb = fallback == null ? "A" : String(fallback);
+  let s = raw.replace(/[^A-Za-z0-9_]+/g, "_").replace(/_+/g, "_");
+  // Keep leading _; C++ allows _name. Drop trailing _ from punct collapse only.
+  s = s.replace(/_+$/g, "");
+  if (!s || /^_+$/.test(s)) {
+    return fb;
+  }
+  if (/^[0-9]/.test(s)) {
+    s = `_${s}`;
+  }
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(s)) {
+    return fb;
+  }
+  return s.slice(0, 64) || fb;
+}
+
 function nodeGraphNamedPortalBusKey(node) {
-  const raw = typeof normalizeNodeGraphPatchNodeAlias === "function"
-    ? normalizeNodeGraphPatchNodeAlias(node?.alias)
-    : String(node?.alias || "").trim();
+  const raw = typeof normalizeNodeGraphNamedPortalAlias === "function"
+    ? normalizeNodeGraphNamedPortalAlias(node?.alias)
+    : (typeof normalizeNodeGraphPatchNodeAlias === "function"
+      ? normalizeNodeGraphPatchNodeAlias(node?.alias)
+      : String(node?.alias || "").trim());
   return String(raw || "").trim().toLowerCase();
 }
 
@@ -95,9 +182,12 @@ function nodeGraphNamedPortalSyncBusAlias(patch, fromNodeId, nextAlias) {
   if (!from || !nodeGraphIsNamedPortalType(from.type)) return [];
   const oldKey = nodeGraphNamedPortalBusKey(from);
   const universe = nodeGraphNamedPortalUniverse(from);
-  const next = typeof normalizeNodeGraphPatchNodeAlias === "function"
-    ? normalizeNodeGraphPatchNodeAlias(nextAlias)
-    : String(nextAlias || "").trim();
+  const seedRole = from.wirelessRole;
+  const next = typeof normalizeNodeGraphNamedPortalAlias === "function"
+    ? normalizeNodeGraphNamedPortalAlias(nextAlias)
+    : (typeof normalizeNodeGraphPatchNodeAlias === "function"
+      ? normalizeNodeGraphPatchNodeAlias(nextAlias)
+      : String(nextAlias || "").trim());
   if (!next || !oldKey) return [];
   const changed = [];
   for (let i = 0; i < patch.nodes.length; i += 1) {
@@ -109,9 +199,270 @@ function nodeGraphNamedPortalSyncBusAlias(patch, fromNodeId, nextAlias) {
     node.alias = next;
     changed.push(String(node.id));
   }
+  // Prefer well-known Title → noteMask (ChordKeys, PlayKeys, …). Else keep
+  // prior bus role. Do not clear on rename to an unknown Title.
+  const paint = typeof nodeGraphNamedPortalBusPaintFromAlias === "function"
+    ? nodeGraphNamedPortalBusPaintFromAlias(next)
+    : null;
+  const roleToApply = (paint && paint.role) ? paint.role : seedRole;
+  if (roleToApply != null && roleToApply !== "" && typeof nodeGraphNamedPortalSyncBusWirelessRole === "function") {
+    nodeGraphNamedPortalSyncBusWirelessRole(patch, fromNodeId, roleToApply);
+  } else if (roleToApply != null && roleToApply !== "") {
+    const nextKey = String(next).trim().toLowerCase();
+    for (let i = 0; i < patch.nodes.length; i += 1) {
+      const node = patch.nodes[i];
+      if (!node || !nodeGraphIsNamedPortalType(node.type)) continue;
+      if (nodeGraphNamedPortalUniverse(node) !== universe) continue;
+      if (nodeGraphNamedPortalBusKey(node) !== nextKey) continue;
+      node.wirelessRole = roleToApply;
+    }
+  }
   return changed;
 }
 
+/**
+ * Optional bus port kind (audio / noteMask / digital / …). Null = unlocked;
+ * first compatible cable locks the whole bus (In + Out peers).
+ */
+function nodeGraphNamedPortalWirelessRole(node) {
+  if (!node || !nodeGraphIsNamedPortalType(node.type)) {
+    return null;
+  }
+  if (typeof nodeGraphNormalizePortType === "function") {
+    return nodeGraphNormalizePortType(node.wirelessRole);
+  }
+  const raw = String(node.wirelessRole || "").trim();
+  return raw || null;
+}
+
+/**
+ * Write wirelessRole onto every named portal on the same bus (universe + key).
+ * Pass null/empty to clear. Returns changed node ids.
+ */
+function nodeGraphNamedPortalSyncBusWirelessRole(patch, fromNodeId, nextRole) {
+  if (!patch || !Array.isArray(patch.nodes)) return [];
+  const from = nodeGraphNamedPortalNodeFromPatch(fromNodeId, patch);
+  if (!from || !nodeGraphIsNamedPortalType(from.type)) return [];
+  const key = nodeGraphNamedPortalBusKey(from);
+  const universe = nodeGraphNamedPortalUniverse(from);
+  if (!key) return [];
+  const role = typeof nodeGraphNormalizePortType === "function"
+    ? nodeGraphNormalizePortType(nextRole)
+    : (String(nextRole || "").trim() || null);
+  const changed = [];
+  for (let i = 0; i < patch.nodes.length; i += 1) {
+    const node = patch.nodes[i];
+    if (!node || !nodeGraphIsNamedPortalType(node.type)) continue;
+    if (nodeGraphNamedPortalUniverse(node) !== universe) continue;
+    if (nodeGraphNamedPortalBusKey(node) !== key) continue;
+    const prev = nodeGraphNamedPortalWirelessRole(node);
+    if (role) {
+      if (prev === role && String(node.wirelessRole || "") === role) continue;
+      node.wirelessRole = role;
+    } else {
+      if (node.wirelessRole == null || node.wirelessRole === "") continue;
+      delete node.wirelessRole;
+    }
+    changed.push(String(node.id));
+  }
+  return changed;
+}
+
+/**
+ * Lock bus role on first write. No-op when already locked (never overwrite).
+ * Returns changed node ids.
+ */
+function nodeGraphNamedPortalLockWirelessRole(patch, portalNodeId, kind) {
+  const role = typeof nodeGraphNormalizePortType === "function"
+    ? nodeGraphNormalizePortType(kind)
+    : (String(kind || "").trim() || null);
+  if (!role) return [];
+  const node = nodeGraphNamedPortalNodeFromPatch(portalNodeId, patch);
+  if (!node || !nodeGraphIsNamedPortalType(node.type)) return [];
+  if (nodeGraphNamedPortalWirelessRole(node)) return [];
+  return nodeGraphNamedPortalSyncBusWirelessRole(patch, portalNodeId, role);
+}
+
+/**
+ * Resolve the write kind for a cable endpoint (port type). Named portals use
+ * their locked wirelessRole; unlocked portals yield null.
+ */
+function nodeGraphNamedPortalEndpointWriteKind(patch, nodeId, port, io) {
+  const node = nodeGraphNamedPortalNodeFromPatch(nodeId, patch)
+    || (Array.isArray(patch?.nodes)
+      ? patch.nodes.find((n) => n && String(n.id) === String(nodeId || ""))
+      : null);
+  if (node && nodeGraphIsNamedPortalType(node.type)) {
+    return nodeGraphNamedPortalWirelessRole(node);
+  }
+  if (typeof nodeGraphResolvePortType === "function") {
+    const resolved = nodeGraphResolvePortType(node || nodeId, port, io);
+    if (resolved == null || resolved === "") return null;
+    return typeof nodeGraphNormalizePortType === "function"
+      ? nodeGraphNormalizePortType(resolved)
+      : resolved;
+  }
+  if (typeof nodeGraphPortIsNoteBus === "function" && nodeGraphPortIsNoteBus(port)) {
+    return "noteMask";
+  }
+  return "audio";
+}
+
+/**
+ * After a signal wire touches a named portal, lock the bus from the first
+ * write kind (source into Portal In, or destination of Portal Out).
+ * Returns changed portal node ids.
+ */
+function nodeGraphNamedPortalApplyConnectWirelessRole(patch, sourceNodeId, sourcePort, destNodeId, destPort) {
+  if (!patch || !Array.isArray(patch.nodes)) return [];
+  const changed = [];
+  const dest = nodeGraphNamedPortalNodeFromPatch(destNodeId, patch)
+    || patch.nodes.find((n) => n && String(n.id) === String(destNodeId || ""));
+  const src = nodeGraphNamedPortalNodeFromPatch(sourceNodeId, patch)
+    || patch.nodes.find((n) => n && String(n.id) === String(sourceNodeId || ""));
+  if (dest && nodeGraphIsNamedPortalInType(dest.type)) {
+    const kind = nodeGraphNamedPortalEndpointWriteKind(patch, sourceNodeId, sourcePort, "output");
+    if (kind) {
+      changed.push(...nodeGraphNamedPortalLockWirelessRole(patch, dest.id, kind));
+    }
+  }
+  if (src && nodeGraphIsNamedPortalOutType(src.type)) {
+    const kind = nodeGraphNamedPortalEndpointWriteKind(patch, destNodeId, destPort, "input");
+    if (kind) {
+      changed.push(...nodeGraphNamedPortalLockWirelessRole(patch, src.id, kind));
+    }
+  }
+  return [...new Set(changed)];
+}
+
+/**
+ * Drop wirelessRole when the bus has no cables (In sources or Out sinks).
+ * Sticky while any bus edge remains.
+ */
+function nodeGraphNamedPortalReconcileBusWirelessRole(patch, portalNodeId) {
+  if (!patch || !Array.isArray(patch.nodes)) return [];
+  const seed = nodeGraphNamedPortalNodeFromPatch(portalNodeId, patch);
+  if (!seed || !nodeGraphIsNamedPortalType(seed.type)) return [];
+  const key = nodeGraphNamedPortalBusKey(seed);
+  const universe = nodeGraphNamedPortalUniverse(seed);
+  if (!key) return [];
+  const peers = [];
+  for (let i = 0; i < patch.nodes.length; i += 1) {
+    const node = patch.nodes[i];
+    if (!node || !nodeGraphIsNamedPortalType(node.type)) continue;
+    if (nodeGraphNamedPortalUniverse(node) !== universe) continue;
+    if (nodeGraphNamedPortalBusKey(node) !== key) continue;
+    peers.push(node);
+  }
+  const peerIds = new Set(peers.map((n) => String(n.id)));
+  const connections = Array.isArray(patch.connections) ? patch.connections : [];
+  let hasEdge = false;
+  for (let i = 0; i < connections.length; i += 1) {
+    const c = connections[i];
+    if (!c) continue;
+    if (peerIds.has(String(c.destinationNode || "")) || peerIds.has(String(c.sourceNode || ""))) {
+      hasEdge = true;
+      break;
+    }
+  }
+  if (!hasEdge) {
+    const mods = Array.isArray(patch.modulations) ? patch.modulations : [];
+    for (let i = 0; i < mods.length; i += 1) {
+      const m = mods[i];
+      if (!m) continue;
+      if (peerIds.has(String(m.sourceNode || ""))) {
+        hasEdge = true;
+        break;
+      }
+    }
+  }
+  if (hasEdge) return [];
+  return nodeGraphNamedPortalSyncBusWirelessRole(patch, seed.id, null);
+}
+
+/**
+ * Initial Portal In/Out bus title when splicing a wire: source module title + outlet label
+ * (e.g. "Keyboard \u266f/\u266d"). One-shot for insert only — later connects do not rename.
+ */
+function nodeGraphNamedPortalAliasFromSourceOutlet(patch, sourceNodeId, sourcePort) {
+  const src = nodeGraphNamedPortalNodeFromPatch(sourceNodeId, patch)
+    || (Array.isArray(patch?.nodes)
+      ? patch.nodes.find((node) => node && String(node.id) === String(sourceNodeId || ""))
+      : null);
+  const port = String(sourcePort || "").trim();
+  const sanitize = (value, fallback = "") => {
+    if (typeof normalizeNodeGraphNamedPortalAlias === "function") {
+      // Pass fallback through (including "") so symbolic labels can wipe cleanly.
+      return normalizeNodeGraphNamedPortalAlias(value, fallback);
+    }
+    if (typeof normalizeNodeGraphPatchNodeAlias === "function") {
+      return normalizeNodeGraphPatchNodeAlias(value) || fallback;
+    }
+    return String(value || "").trim().slice(0, 64) || fallback;
+  };
+  let title = "";
+  if (src) {
+    if (typeof nodeGraphPatchNodeTitle === "function") {
+      title = String(nodeGraphPatchNodeTitle(src) || "").trim();
+    } else if (typeof normalizeNodeGraphPatchNodeAlias === "function") {
+      title = String(normalizeNodeGraphPatchNodeAlias(src.alias) || "").trim();
+    } else {
+      title = String(src.alias || "").trim();
+    }
+    if (!title) {
+      title = String(src.type || "").trim();
+    }
+  }
+  let outlet = "";
+  if (typeof nodeGraphPatchNodePortDisplayLabel === "function" && src) {
+    outlet = String(nodeGraphPatchNodePortDisplayLabel(src, src.type, port, "output") || "").trim();
+  } else {
+    outlet = port;
+  }
+  // Prefer sanitized display label; if symbols wipe it (e.g. ♯/♭), keep the port id.
+  let titleId = sanitize(title, "");
+  let outletId = sanitize(outlet, "");
+  if (!outletId) {
+    outletId = sanitize(port, "");
+  }
+  if (!titleId && !outletId) {
+    return "A";
+  }
+  if (titleId && outletId) {
+    return sanitize(`${titleId}_${outletId}`, "A") || "A";
+  }
+  return titleId || outletId || "A";
+}
+
+/**
+ * Grid points for a Portal In / Out pair along a wire (In toward source, Out toward dest).
+ */
+function nodeGraphNamedPortalInsertGridPoints(patch, sourceId, destinationId, slot) {
+  const nodes = Array.isArray(patch?.nodes) ? patch.nodes : [];
+  const source = nodes.find((node) => node && node.id === sourceId);
+  const destination = nodes.find((node) => node && node.id === destinationId);
+  const num = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const sgx = num(source?.gx);
+  const sgy = num(source?.gy);
+  const dgx = num(destination?.gx);
+  const dgy = num(destination?.gy);
+  const off = Number(slot || 0);
+  const inPoint = {
+    gx: Math.round((sgx * 2 + dgx) / 3),
+    gy: Math.round((sgy * 2 + dgy) / 3) + off,
+  };
+  const outPoint = {
+    gx: Math.round((sgx + dgx * 2) / 3),
+    gy: Math.round((sgy + dgy * 2) / 3) + off,
+  };
+  if (outPoint.gx === inPoint.gx && outPoint.gy === inPoint.gy) {
+    outPoint.gx += 4;
+  }
+  return { in: inPoint, out: outPoint };
+}
 /**
  * @deprecated Title is user-driven (module alias); wiring no longer renames the bus
  * from the source outlet. Kept as no-op shim for any stale callers.
@@ -125,7 +476,7 @@ function nodeGraphNamedPortalSyncAliasFromDestination(_patch, _portalOutId, _des
   return [];
 }
 
-/** Re-apply jack chrome + header title after wire edits (wireEdit skips full DOM). */
+/** Re-apply jack chrome + header title after wire edits / Title rename. */
 function nodeGraphNamedPortalRefreshModules(nodeIds) {
   const ids = [...new Set((Array.isArray(nodeIds) ? nodeIds : []).map((id) => String(id || "")).filter(Boolean))];
   if (!ids.length) return;
@@ -134,6 +485,25 @@ function nodeGraphNamedPortalRefreshModules(nodeIds) {
     if (!node || !nodeGraphIsNamedPortalType(node.type)) continue;
     if (typeof applyNodeGraphModuleElementFromPatch === "function") {
       applyNodeGraphModuleElementFromPatch(node);
+    }
+    // Alias paint / wirelessRole change does not alter port signature, so the
+    // module element is reused without recreating jacks — re-stamp chrome.
+    const el = typeof nodeGraphNodeElement === "function"
+      ? nodeGraphNodeElement(node.id)
+      : (typeof document !== "undefined"
+        ? document.querySelector(`.dsp-node[data-node="${CSS.escape(String(node.id))}"]`)
+        : null);
+    if (!el || typeof nodeGraphApplyJackChrome !== "function") continue;
+    const ports = el.querySelectorAll(".node-port:not(.node-param-port), .node-io-row[data-port]");
+    for (let p = 0; p < ports.length; p += 1) {
+      const row = ports[p];
+      const port = String(row.dataset?.port || "");
+      const io = String(row.dataset?.io || (nodeGraphIsNamedPortalOutType(node.type) ? "output" : "input"));
+      if (!port) continue;
+      const target = row.classList?.contains("node-io-row")
+        ? row
+        : (row.closest?.(".node-io-row") || row);
+      nodeGraphApplyJackChrome(target, node.type, port, io);
     }
   }
 }

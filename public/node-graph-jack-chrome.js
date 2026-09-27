@@ -499,28 +499,73 @@ function nodeGraphApplyJackChrome(element, type, port, io = "output") {
   let digital = typeof nodeGraphPortIsDigitalSignal === "function"
     && nodeGraphPortIsDigitalSignal(type, port, direction);
   // Named portals: paint from the cable into Portal In (Out mirrors that In).
+  // Locked wirelessRole also drives digital/square when no cable yet.
   const nodeId = String(element?.dataset?.node || "").trim();
+  let portalWirelessRole = null;
+  let portalColorSrcPort = null;
   if (
     nodeId
     && typeof nodeGraphIsNamedPortalType === "function"
     && nodeGraphIsNamedPortalType(type)
-    && typeof nodeGraphNamedPortalColorSource === "function"
   ) {
-    const colorSrc = nodeGraphNamedPortalColorSource(nodeId);
-    if (colorSrc) {
-      const srcNode = typeof nodeGraphPatchNode === "function"
-        ? nodeGraphPatchNode(colorSrc.nodeId)
-        : null;
-      const srcType = srcNode?.type || "";
-      const inherited = nodeGraphJackChannel(srcType, colorSrc.port, "output");
-      const srcDigital = typeof nodeGraphPortIsDigitalSignal === "function"
-        && nodeGraphPortIsDigitalSignal(srcType, colorSrc.port, "output");
-      if (inherited) {
-        channel = inherited;
-      } else if (srcDigital) {
-        channel = "";
+    const portalNode = typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(nodeId)
+      : null;
+    if (typeof nodeGraphNamedPortalWirelessRole === "function") {
+      portalWirelessRole = nodeGraphNamedPortalWirelessRole(portalNode);
+    } else if (portalNode) {
+      portalWirelessRole = String(portalNode.wirelessRole || "").trim() || null;
+    }
+    // Well-known Title (ChordKeys / PlayKeys / …) reuses outlet name→color/shape
+    // tables — same look as choosing that named portal / splicing from that jack.
+    let portalAliasPaintPort = null;
+    if (
+      portalNode
+      && typeof nodeGraphNamedPortalBusPaintFromAlias === "function"
+    ) {
+      const paint = nodeGraphNamedPortalBusPaintFromAlias(portalNode.alias);
+      if (paint?.port) {
+        portalAliasPaintPort = paint.port;
+        const fromAlias = nodeGraphJackChannel(type, paint.port, "output");
+        if (fromAlias) {
+          channel = fromAlias;
+        }
+        if (paint.role === "noteMask" || paint.role === "digital" || paint.role === "code") {
+          digital = true;
+          if (!portalWirelessRole && paint.role) {
+            portalWirelessRole = paint.role;
+          }
+        }
       }
-      digital = Boolean(srcDigital);
+    }
+    if (!portalAliasPaintPort && typeof nodeGraphNamedPortalColorSource === "function") {
+      const colorSrc = nodeGraphNamedPortalColorSource(nodeId);
+      if (colorSrc) {
+        portalColorSrcPort = colorSrc.port;
+        const srcNode = typeof nodeGraphPatchNode === "function"
+          ? nodeGraphPatchNode(colorSrc.nodeId)
+          : null;
+        const srcType = srcNode?.type || "";
+        const inherited = nodeGraphJackChannel(srcType, colorSrc.port, "output");
+        const srcDigital = typeof nodeGraphPortIsDigitalSignal === "function"
+          && nodeGraphPortIsDigitalSignal(srcType, colorSrc.port, "output");
+        if (inherited) {
+          channel = inherited;
+        } else if (srcDigital) {
+          channel = "";
+        }
+        digital = Boolean(srcDigital);
+      }
+    }
+    if (!digital && (
+      portalWirelessRole === "noteMask"
+      || portalWirelessRole === "digital"
+      || portalWirelessRole === "code"
+    )) {
+      digital = true;
+    }
+    if (portalAliasPaintPort) {
+      portalColorSrcPort = portalAliasPaintPort;
     }
   }
   element.classList.remove("node-outlet-mono", "node-outlet-left", "node-outlet-right");
@@ -550,6 +595,10 @@ function nodeGraphApplyJackChrome(element, type, port, io = "output") {
   if (jack) {
     const square = (
       (typeof nodeGraphPortIsNoteBus === "function" && nodeGraphPortIsNoteBus(port))
+      || (typeof nodeGraphPortIsNoteBus === "function" && portalColorSrcPort
+        && nodeGraphPortIsNoteBus(portalColorSrcPort))
+      || portalWirelessRole === "noteMask"
+      || portalWirelessRole === "code"
       || (typeof nodeGraphPortIsCodeSignal === "function" && nodeGraphPortIsCodeSignal(type, port, io))
     );
     jack.classList.toggle("node-port-square", square);

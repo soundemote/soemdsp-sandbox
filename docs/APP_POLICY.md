@@ -50,13 +50,15 @@ Only these live-audio types exist in the efficient build:
 | `robinSupersaw` | Detuned saw bank |
 | `noiseGenerator` | Noise source |
 | `ladderFilter` | Filter |
-| `softClipper` | Dynamics |
+| `softClipper` | Soft-knee saturator (Drive/Threshold/Knee/Amplitude) |
+| `tubeSaturation` | Tube saturation (Koren load-line) |
 | `reverbEffect` | Sabrina reverb |
 | `pingPongDelay` | Delay |
 | `attenuverter` | Scale / invert / offset |
 | `ampCurve` | Lin/Exp CV shaper for Amplitude params (classic VCA response) |
 | `range` | Linear range map |
 | `inv` | Invert (`−in`) |
+| `ringMod` | True ring mod (Carrier × Mod, bipolar×bipolar) |
 | `u2b` | Unipolar → bipolar |
 | `b2u` | Bipolar → unipolar |
 | `bias` | DC offset (`in + offset`) |
@@ -68,7 +70,6 @@ Only these live-audio types exist in the efficient build:
 | `minMax` | 4-in Max/Min selector |
 | `mix` | 4-channel mix (volumes/bias/bleeds) |
 | `mixStereo` | Stereo pair mixer (true L/R) |
-| `clipperLimiter` | Soft-knee clipper (M/L/R channels) |
 | `midSideEncode` | L/R → Mid/Side matrix |
 | `vectorscopeTransform` | L/R → X/Y vectorscope axes |
 | `rotate3dTo2d` | X/Y/Z rotate → X/Y project |
@@ -183,8 +184,8 @@ Canonical circuit:
 ```text
 polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay → output
 (+ robinSinusoid / robinSupersaw / noiseGenerator;
-   attenuverter / ampCurve / range / inv / u2b / b2u / bias / gain / slewLimiter / comparator /
-   sampleDelay / sampleHold / minMax / mix / mixStereo / clipperLimiter /
+   attenuverter / ampCurve / range / inv / ringMod / u2b / b2u / bias / gain / slewLimiter / comparator /
+   sampleDelay / sampleHold / minMax / mix / mixStereo /
    midSideEncode / vectorscopeTransform / rotate3dTo2d /
    clock / binaryClock / triggerDivider / clockDivider / delayedTrigger / randomClock / triggerCounter /
    metallicRatio / lutCell / lookaheadLimiter / limiter / sequencer / transport /
@@ -215,7 +216,7 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
    as utilities)
 ```
 
-**Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` and chromeless **Input/Output** lane modules (`portalInlet*` / `portalOutlet*`) may remain — each lane shows → in and ← thru jacks; outlets also thru-mix into the speaker bus. **Portal → / Portal ←** (`namedPortalIn` / `namedPortalOut`) are not DSP nodes. Compile rewrites them into ordinary cables: every In of a title fans to every Out of that title, same as drawing the wire. Same title stays inside one universe (root, or one Metamodule, per voice replica) and never crosses a Metamodule shell. A cable that would close a portal loop is refused with the wire-break animation. Container shells: **`group`** = simple one-level boxing (Amplitude only); **`metamodule`** = **voice container** (**Voices** in + Left/Right out; shared Octave/Semitones/Cents/Frequency face params). **Playmode** (Mono / Legato / Voices — no Off; default **Voices**) and **Voice Count** (default **10**) live on `node.metamodule` (**Module Settings only** — not face sliders, not modulatable). No shell Gate inlet.
+**Also allowed (non-DSP):** scope / monitor faces that **only read** engine buffers. Layout chrome such as `textBox` and chromeless **Input/Output** lane modules (`portalInlet*` / `portalOutlet*`) may remain — each lane shows → in and ← thru jacks; outlets also thru-mix into the speaker bus. **Portal IO** (shop) places a linked **Portal → / Portal ←** pair (`namedPortalIn` / `namedPortalOut`, same Title); separate In/Out stay loadable. They are not DSP nodes. Compile rewrites them into ordinary cables: every In of a title fans to every Out of that title, same as drawing the wire. Same title stays inside one universe (root, or one Metamodule, per voice replica) and never crosses a Metamodule shell. A cable that would close a portal loop is refused with the wire-break animation. Container shells: **`group`** = simple one-level boxing (Amplitude only); **`metamodule`** = **voice container** (**Voices** in + Left/Right out; shared Octave/Semitones/Cents/Frequency face params). **Playmode** (Mono / Legato / Voices — no Off; default **Voices**) and **Voice Count** (default **10**) live on `node.metamodule` (**Module Settings only** — not face sliders, not modulatable). No shell Gate inlet.
 
 **Voice definition:** a voice is the set of modules **owned by** the Metamodule, excluding shell portals. That set is replicated × Voice Count (no Hypersaw/ADSR special-case). The container also exposes **built-in per-voice buses** — **Voice Inc**, **Voice Gate**, **Voice Trigger**, **Voice Idle** — one instance of each signal **per voice**. Voice Inc is **phase increment** (cycles/sample); wire to oscillator **inc**. Voice Trigger wires to oscillator **Reset**. Gate / Trigger / inc are properties of that voice, not of note-steal policy. A voice does not “steal for itself.”
 
@@ -247,15 +248,19 @@ polyBlep → ladderFilter → softClipper → reverbEffect → pingPongDelay →
 
 ---
 
-## 1. No patch backwards compatibility (pre–feature-complete)
+## 1. No legacy helpers — patches break, Architect repairs
+
+**No legacy code helpers for old patches. Ever (while pre–feature-complete).** Agents must not “help” saved patches keep working.
 
 While the product is not feature-complete:
 
-- **Do not** add rename bridges, dual param keys, migration layers, or “read `level` if `brightness` missing” shims.
-- **Do not** keep dead aliases so old saved patches keep working after intentional renames.
-- Renames are **clean**: one key, one label, one code path. Old patches may reset that knob to default — acceptable.
+- **Patches may break.** That is intended. Broken patches are repaired by the **Architect (Argi)** — not by adding compatibility code.
+- **Do not** add legacy helpers, rename bridges, dual param keys, dual port ids, migration layers, fallback readers (“read `level` if `brightness` missing”), or dead aliases so old saves keep loading.
+- **Do not** invent soft recovery, silent remaps, or “just in case” shims when a rename or schema change lands. One key, one label, one code path.
+- Prefer **fail loud** (missing param → default / missing module → refuse / unknown key ignored as absent) over hidden translation. Complexity from legacy paths causes more bugs than broken patches.
+- Renames are **clean**. Old patches that no longer match are expected to fail until the Architect fixes them.
 
-When feature-complete (or when explicitly chosen later): introduce migrations deliberately (versioned patch format), not ad-hoc fallbacks.
+When feature-complete (or when the Architect explicitly chooses later): introduce migrations only as a deliberate, versioned patch format — never as ad-hoc helpers landed by agents.
 
 ---
 
@@ -527,7 +532,9 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 
 | Idea | Usually |
 |------|---------|
-| Keep old param key so last week’s patch works | **No** (pre-feature-complete) |
+| Keep old param key so last week's patch works | **No** — break the patch; Architect repairs (§1) |
+| Add a legacy helper / rename bridge / dual key so an old patch still loads | **No** — no legacy helpers (§1) |
+| Soft-remap or silently alias a deleted port / param | **No** — fail loud; Architect repairs (§1) |
 | JS noise if WASM not ready | **No** — silence / black |
 | CPU full-face fractal every frame | **No** — GPU / native grid |
 | Face noise ≠ jack kernel | **No** — WISIWIH |
@@ -561,6 +568,8 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 | Wipe Control dirty-cache / re-push all knobs every `setParams` | **No** — stickiness (§0b); cold push only after compile/destroy |
 | Nested DSP coeff objects in instance pools that lose writes | **No** — flat fields on the instance; smoke “set once, process many” |
 | `x \|\| default` or `x > 0 ? x : magic` on a stored setting | **No** — 0 is a value (§18) |
+| Copy the same helper into a second module `.cpp` | **No** — use / extend `sandbox_native_maths` (§19) |
+| Edit `sandbox_native_maths` without Architect OK | **No** — propose first (§19) |
 
 ---
 
@@ -589,9 +598,28 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 
 ---
 
+
+## 19. Shared library maths — do not copy kernels
+
+**Use `native_modules/sandbox_native_maths` for shared equations and behaviors.** Do not paste the same helper, formula, or kernel into multiple module `.cpp` files when a library function already exists or belongs there.
+
+- Prefer `#include` + call into `soemdsp::math` / topic headers (`scalar_helpers`, `poly_blep`, `midi_hz`, `exp_log`, `phasor`, `dynamics`, `trigger`, `nonlinearity`, `analog_filter_trig`, …) over local clones of clamp/wrap/lerp, soft-clip, one-pole, polyBLEP, MIDI↔Hz, and the rest.
+- Module-specific DSP stays in that module’s `.cpp`. Shared math that appears (or will appear) in more than one place belongs in the library — once — not as copy-paste twins that can drift.
+- Sine / LUT defaults still follow §2 (Sine SSOT). This section is the broader “one library, no forks” rule for all shared maths.
+
+### Architect gate on `sandbox_native_maths`
+
+**Edits and additions under `native_modules/sandbox_native_maths/` require prior approval from the Architect (Argi).** Agents and contributors must not add helpers, change signatures, or refactor topic headers without that sign-off. Propose the change (what, why, which callers) and wait for yes before touching the library.
+
 ## Amendments
 
 Add new rules here when the same class of mistake happens twice. Keep this file short and enforceable.
+
+- **2026-09-27 — No legacy helpers (§1):** Patches may break after renames/schema changes. The Architect repairs them. Agents must not add legacy helpers, dual keys, rename bridges, or soft remaps to keep old saves working — that complexity causes more bugs than broken patches.
+
+- **2026-09-27 — Shared library maths (§19):** Prefer `sandbox_native_maths` over duplicated equations/behaviors across modules. Changes to that library need Architect (Argi) approval first.
+
+- **2026-09-27 — Display follows Title (Policy B):** Module Settings **Display** is an optional override. Empty/unset Display ⇒ effective display = module **Title** (alias / default). Non-empty Display ⇒ that text. Clearing Display snaps back to Title (no blank labels). Shared helpers: `normalizeNodeGraphPatchNodeDisplay`, `nodeGraphPatchNodeDisplayOverride`, `nodeGraphPatchNodeEffectiveDisplay` in `node-graph-patch-clone.js`. `nodeGraphNodeDisplayName` uses effective display. Module chrome **Title** bar stays on Title (alias) for rename. Named portals: jack/IO label = effective display; **SyncBusAlias** / **wirelessRole** / color inheritance stay on Title. InletOutletLayout Module Settings keep Title + Display; restore show/hide Title; leave buttons / collapsed / unused / in-out / disable / save-to-default stripped.
 
 - **2026-09-03 — Parameter stickiness:** A continuous knob must chase to the written target and **stay**. Two failures of the same class: (1) JS tied `forceAll` param sync to `planSerial` so every gesture frame wiped the dirty cache and re-stormed `set_param` / smooth / domain cells, fighting Control chase; (2) ping-pong feedback coeffs lived in nested structs whose writes did not survive across `set_params` / buffer setup, so the DSP ran pass-through until the next write (sounded correct only while dragging). Fix: cold force-push only after graph compile/destroy; store live coeffs as plain fields on the instance; build smoke must **set once then `process_block` many times** without rewriting params.
 - **2026-09-24 — Stored 0 is a value (§18).** Modulation used `|v| > 1` as a hidden “this is Hertz” switch, so −1 and −1.00001 took different paths. Settings did the same: history length 0 became 4 Hz, and a zoom-max of 0 became 10 s. Missing/NaN may still default. A number the user stored may not be replaced. Clamps stay clamps.

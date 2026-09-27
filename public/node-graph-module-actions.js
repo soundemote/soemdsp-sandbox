@@ -163,8 +163,113 @@ function toggleNodeGraphPatchHideUnusedPorts() {
   );
 }
 
+/** Grid offset between Portal IO In (drop) and paired Out. */
+const NODE_GRAPH_PORTAL_IO_PAIR_OFFSET_GU = { gx: 5, gy: 0 };
+
+/**
+ * Catalog **Portal IO**: place linked namedPortalIn + namedPortalOut (same Title).
+ * Returns the In node id (primary for ghost drag); Out id is on placement.pairNodeIds.
+ */
+function showNodeGraphPortalIoPair(point = null, options = {}) {
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Patch is locked.");
+    }
+    return "";
+  }
+  const live = nodeGraphMvp.patch;
+  const counts = typeof nextNodeGraphTypeCounts === "function"
+    ? nextNodeGraphTypeCounts(live.nodes)
+    : {};
+  counts.namedPortalIn = (counts.namedPortalIn || 0) + 1;
+  counts.namedPortalOut = (counts.namedPortalOut || 0) + 1;
+  const inId = `namedPortalIn-${counts.namedPortalIn}`;
+  const outId = `namedPortalOut-${counts.namedPortalOut}`;
+  const gridPoint = point
+    ? (typeof nodeGraphPixelToGrid === "function" ? nodeGraphPixelToGrid(point) : point)
+    : (typeof defaultNodeGraphModuleGridPoint === "function"
+      ? defaultNodeGraphModuleGridPoint("namedPortalIn")
+      : { gx: 8, gy: 8 });
+  const off = NODE_GRAPH_PORTAL_IO_PAIR_OFFSET_GU;
+  const portalUi = { buttonsHidden: true, titleHidden: false };
+  // Unique seed so SyncBusAlias only ties this fresh pair (not an existing "A" bus),
+  // then normalize both to defaultAlias "A" (or paint-aware Title later on rename).
+  const seedAlias = `__portal_io_${counts.namedPortalIn}`;
+  const inNode = createNodeGraphPatchNode("namedPortalIn", {
+    id: inId,
+    gx: gridPoint.gx,
+    gy: gridPoint.gy,
+    alias: seedAlias,
+    ui: portalUi,
+  });
+  const outNode = createNodeGraphPatchNode("namedPortalOut", {
+    id: outId,
+    gx: Number(gridPoint.gx) + Number(off.gx || 0),
+    gy: Number(gridPoint.gy) + Number(off.gy || 0),
+    alias: seedAlias,
+    ui: portalUi,
+  });
+  if (typeof nodeGraphMetamoduleClaimPlacedNode === "function") {
+    nodeGraphMetamoduleClaimPlacedNode(inNode, live);
+    nodeGraphMetamoduleClaimPlacedNode(outNode, live);
+  }
+  const patch = {
+    ...live,
+    nodes: [
+      ...(live.nodes || []),
+      inNode,
+      outNode,
+    ],
+  };
+  const defaultAlias = (
+    typeof nodeGraphModuleDefinitions === "object"
+    && nodeGraphModuleDefinitions?.namedPortalIn?.defaultAlias
+  ) || "A";
+  if (typeof nodeGraphNamedPortalSyncBusAlias === "function") {
+    nodeGraphNamedPortalSyncBusAlias(patch, inId, defaultAlias);
+  } else {
+    inNode.alias = defaultAlias;
+    outNode.alias = defaultAlias;
+  }
+  const commitAdd = () => {
+    commitNodeGraphPatch(patch, {
+      status: options.status || "portal IO added",
+      topologyEdit: true,
+      record: options.record,
+      autosaveWorkingPatch: options.autosaveWorkingPatch,
+      skipLivePlan: options.skipLivePlan,
+      deferUiPanels: options.deferUiPanels !== false,
+    });
+  };
+  // Stash before commit so beginPlacement / shop select can read pair ids.
+  if (nodeGraphMvp) {
+    nodeGraphMvp._pendingPortalIoPair = {
+      inId,
+      outId,
+      offsetGu: { ...off },
+    };
+  }
+  if (options.record !== false) {
+    if (typeof noteNodeGraphHeavyHistoryAction === "function") {
+      noteNodeGraphHeavyHistoryAction("add");
+    }
+    if (typeof runNodeGraphHistoryAfterGlow === "function") {
+      runNodeGraphHistoryAfterGlow("last", commitAdd);
+      return inId;
+    }
+  }
+  commitAdd();
+  return inId;
+}
+
 function showNodeGraphModule(node, point = null, options = {}) {
   const type = node;
+  if (
+    (typeof nodeGraphIsPortalIoCatalogType === "function" && nodeGraphIsPortalIoCatalogType(type))
+    || type === "portalIo"
+  ) {
+    return showNodeGraphPortalIoPair(point, options);
+  }
   if (!Object.hasOwn(nodeGraphModuleDefinitions, type)) {
     return "";
   }
@@ -356,7 +461,13 @@ function addNodeGraphModuleFromShop(button) {
     : nodeGraphMvp.sceneContextPoint;
   const nodeId = showNodeGraphModule(type, point, { status: "module added" });
   if (nodeId) {
-    setNodeGraphNodeSelection([nodeId]);
+    const pendingPair = nodeGraphMvp?._pendingPortalIoPair;
+    if (pendingPair && pendingPair.inId === nodeId) {
+      setNodeGraphNodeSelection([pendingPair.inId, pendingPair.outId]);
+      nodeGraphMvp._pendingPortalIoPair = null;
+    } else {
+      setNodeGraphNodeSelection([nodeId]);
+    }
   }
   nodeGraphMvp.sceneContextPoint = null;
 }
@@ -461,14 +572,25 @@ function cancelNodeGraphModulePlacement(status = "module placement cancelled") {
     return true;
   }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  patch.nodes = patch.nodes.filter((node) => node.id !== placement.nodeId);
+  const dropIds = new Set(
+    [placement.nodeId, ...(Array.isArray(placement.pairNodeIds) ? placement.pairNodeIds : [])]
+      .map((id) => String(id || ""))
+      .filter(Boolean),
+  );
+  for (const pairId of dropIds) {
+    const el = nodeGraphNodeElement(pairId);
+    el?.classList.remove("placing", "dragging");
+  }
+  patch.nodes = patch.nodes.filter((node) => !dropIds.has(String(node.id)));
   patch.connections = patch.connections.filter((connection) =>
-    connection.sourceNode !== placement.nodeId && connection.destinationNode !== placement.nodeId
+    !dropIds.has(String(connection.sourceNode || ""))
+    && !dropIds.has(String(connection.destinationNode || ""))
   );
   patch.modulations = patch.modulations.filter((modulation) =>
-    modulation.sourceNode !== placement.nodeId && modulation.destinationNode !== placement.nodeId
+    !dropIds.has(String(modulation.sourceNode || ""))
+    && !dropIds.has(String(modulation.destinationNode || ""))
   );
-  patch.bypassedNodes = (patch.bypassedNodes || []).filter((nodeId) => nodeId !== placement.nodeId);
+  patch.bypassedNodes = (patch.bypassedNodes || []).filter((nodeId) => !dropIds.has(String(nodeId)));
   nodeGraphMvp.modulePlacement = null;
   // Ghost was never history/autosave/live-plan committed — keep cancel light too.
   commitNodeGraphPatch(patch, {
@@ -505,6 +627,20 @@ function applyNodeGraphPendingModuleCursor(cursorPoint) {
   }
   const point = nodeGraphModulePlacementPixelFromCursor(cursorPoint, element);
   positionNodeGraphNode(element, point, { clamp: false, snap: false });
+  if (Array.isArray(placement.pairNodeIds) && placement.pairNodeIds.length > 1) {
+    const outId = placement.pairNodeIds.find((id) => String(id) !== String(placement.nodeId))
+      || placement.pairNodeIds[1];
+    const outEl = nodeGraphNodeElement(outId);
+    if (outEl) {
+      const off = placement.pairOffsetGu || NODE_GRAPH_PORTAL_IO_PAIR_OFFSET_GU;
+      const gu = typeof nodeGraphGridWidth === "function" ? nodeGraphGridWidth() : 16;
+      const gv = typeof nodeGraphGridHeight === "function" ? nodeGraphGridHeight() : 16;
+      positionNodeGraphNode(outEl, {
+        x: point.x + Number(off.gx || 0) * gu,
+        y: point.y + Number(off.gy || 0) * gv,
+      }, { clamp: false, snap: false });
+    }
+  }
   placement.cursorPoint = cursorPoint;
   placement.point = point;
   syncNodeGraphPlacementSnapGhost(element, placement.overWorkspace !== false);
@@ -553,14 +689,20 @@ function beginNodeGraphModulePlacement(type, point = null, options = {}) {
     }
     return "";
   }
-  if (!type || !Object.hasOwn(nodeGraphModuleDefinitions, type)) {
+  const isPortalIo = (
+    (typeof nodeGraphIsPortalIoCatalogType === "function" && nodeGraphIsPortalIoCatalogType(type))
+    || type === "portalIo"
+  );
+  if (!type || (!isPortalIo && !Object.hasOwn(nodeGraphModuleDefinitions, type))) {
     return "";
   }
   if (nodeGraphMvp.modulePlacement?.nodeId) {
     cancelNodeGraphModulePlacement();
   }
 
-  const cursorPoint = point || nodeGraphGridToPixel(defaultNodeGraphModuleGridPoint(type));
+  const cursorPoint = point || nodeGraphGridToPixel(
+    defaultNodeGraphModuleGridPoint(isPortalIo ? "namedPortalIn" : type),
+  );
   const overWorkspace = options.overWorkspace !== false;
   const existingUnique = typeof nodeGraphModuleTypeIsUniqueInPatch === "function"
     && nodeGraphModuleTypeIsUniqueInPatch(type)
@@ -595,16 +737,31 @@ function beginNodeGraphModulePlacement(type, point = null, options = {}) {
   }
 
   const element = nodeGraphNodeElement(id);
+  const pendingPair = nodeGraphMvp._pendingPortalIoPair;
+  const pairNodeIds = (
+    pendingPair && pendingPair.inId === id
+      ? [pendingPair.inId, pendingPair.outId]
+      : null
+  );
+  if (pendingPair && pendingPair.inId === id) {
+    nodeGraphMvp._pendingPortalIoPair = null;
+  }
+  const outEl = pairNodeIds
+    ? nodeGraphNodeElement(pairNodeIds[1])
+    : null;
   nodeGraphMvp.modulePlacement = {
     cursorPoint,
     nodeId: id,
+    pairNodeIds,
+    pairOffsetGu: pendingPair?.offsetGu || null,
     overWorkspace,
     point: cursorPoint,
     pointerId: null,
     type,
   };
   element?.classList.add("placing", "dragging");
-  setNodeGraphNodeSelection([id]);
+  outEl?.classList.add("placing", "dragging");
+  setNodeGraphNodeSelection(pairNodeIds || [id]);
   positionNodeGraphPendingModuleAtCursor(cursorPoint);
   return id;
 }
@@ -705,16 +862,37 @@ function finishNodeGraphModulePlacementAtCurrentPosition(status = "module placed
     patchNode.gx = gridPoint.gx;
     patchNode.gy = gridPoint.gy;
   }
+  const pairIds = Array.isArray(placement.pairNodeIds) ? placement.pairNodeIds : [];
+  for (const pairId of pairIds) {
+    if (String(pairId) === String(placement.nodeId)) continue;
+    const pairEl = nodeGraphNodeElement(pairId);
+    pairEl?.classList.remove("placing", "dragging");
+    const pairPatch = typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(pairId)
+      : nodeGraphMvp.patch?.nodes?.find((candidate) => candidate.id === pairId);
+    if (pairEl && pairPatch) {
+      const px = Number.parseFloat(pairEl.style.getPropertyValue("--node-x")) || 0;
+      const py = Number.parseFloat(pairEl.style.getPropertyValue("--node-y")) || 0;
+      const pg = nodeGraphPixelToGrid({ x: px, y: py });
+      pairPatch.gx = pg.gx;
+      pairPatch.gy = pg.gy;
+    }
+  }
+  const selectAfter = pairIds.length ? [...pairIds] : [placement.nodeId];
   nodeGraphMvp.modulePlacement = null;
   const commitDrop = () => {
     // Position is already on the DOM. Ghost create skipped live plan — start it now.
     commitNodeGraphPatch(nodeGraphMvp.patch, {
-      status,
+      status: pairIds.length > 1 ? "portal IO placed" : status,
       layoutEdit: true,
       skipValidate: true,
       livePlan: true,
     });
-    clearNodeGraphSelection();
+    if (typeof setNodeGraphNodeSelection === "function") {
+      setNodeGraphNodeSelection(selectAfter);
+    } else {
+      clearNodeGraphSelection();
+    }
   };
   if (typeof noteNodeGraphHeavyHistoryAction === "function") {
     noteNodeGraphHeavyHistoryAction("add");
@@ -1564,15 +1742,26 @@ function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = n
     return;
   }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const alias = normalizeNodeGraphPatchNodeAlias(value);
   let changed = 0;
   const portalBusSeeds = [];
+  const aliasForNode = (node, raw) => {
+    if (
+      node
+      && typeof nodeGraphIsNamedPortalType === "function"
+      && nodeGraphIsNamedPortalType(node.type)
+      && typeof normalizeNodeGraphNamedPortalAlias === "function"
+    ) {
+      return normalizeNodeGraphNamedPortalAlias(raw);
+    }
+    return normalizeNodeGraphPatchNodeAlias(raw);
+  };
   for (const id of ids) {
     const targetNode = patch.nodes.find((node) => node.id === id);
     if (!targetNode) {
       continue;
     }
-    const prev = normalizeNodeGraphPatchNodeAlias(targetNode.alias) || "";
+    const alias = aliasForNode(targetNode, value);
+    const prev = aliasForNode(targetNode, targetNode.alias) || "";
     const next = alias || "";
     if (prev === next && Boolean(targetNode.alias) === Boolean(alias)) {
       continue;
@@ -1584,7 +1773,7 @@ function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = n
       && next
       && prev.toLowerCase() !== next.toLowerCase()
     ) {
-      portalBusSeeds.push({ id: String(targetNode.id), oldAlias: prev });
+      portalBusSeeds.push({ id: String(targetNode.id), oldAlias: prev, nextAlias: alias });
     }
     if (alias) {
       targetNode.alias = alias;
@@ -1598,7 +1787,21 @@ function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = n
     if (!node || typeof nodeGraphNamedPortalSyncBusAlias !== "function") continue;
     // Peers still hold oldAlias; temporarily restore seed key then sync whole bus.
     node.alias = seed.oldAlias;
-    nodeGraphNamedPortalSyncBusAlias(patch, seed.id, alias);
+    nodeGraphNamedPortalSyncBusAlias(patch, seed.id, seed.nextAlias);
+  }
+  // Title paint (ChordKeys → noteMask/green) even when SyncBusAlias did not run
+  // (e.g. empty prior Title). SyncBusAlias path already applies paint.
+  if (typeof nodeGraphNamedPortalApplyAliasPaint === "function") {
+    for (const id of ids) {
+      const node = patch.nodes.find((n) => n && String(n.id) === String(id));
+      if (
+        node
+        && typeof nodeGraphIsNamedPortalType === "function"
+        && nodeGraphIsNamedPortalType(node.type)
+      ) {
+        nodeGraphNamedPortalApplyAliasPaint(patch, id);
+      }
+    }
   }
   if (!changed) {
     return;
@@ -1630,11 +1833,32 @@ function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = n
       nodeGraphMetamoduleSyncBoundaryShellPorts(metaId, patch);
     }
   }
+  const anyAlias = Boolean(String(value ?? "").trim());
   commitNodeGraphPatch(patch, {
     status: changed > 1
-      ? (alias ? "module titles changed" : "module titles cleared")
-      : (alias ? "module title changed" : "module title cleared"),
+      ? (anyAlias ? "module titles changed" : "module titles cleared")
+      : (anyAlias ? "module title changed" : "module title cleared"),
   });
+  if (portalBusSeeds.length && typeof nodeGraphNamedPortalRefreshModules === "function") {
+    const refreshIds = [];
+    for (const seed of portalBusSeeds) {
+      refreshIds.push(seed.id);
+      const livePatch = nodeGraphMvp?.patch;
+      const key = String(seed.nextAlias || "").trim().toLowerCase();
+      const universe = (() => {
+        const n = livePatch?.nodes?.find((node) => node && String(node.id) === seed.id);
+        return String(n?.ownerMetamoduleId || "").trim();
+      })();
+      for (const node of (livePatch?.nodes || [])) {
+        if (!node || typeof nodeGraphIsNamedPortalType !== "function") continue;
+        if (!nodeGraphIsNamedPortalType(node.type)) continue;
+        if (String(node.ownerMetamoduleId || "").trim() !== universe) continue;
+        if (String(node.alias || "").trim().toLowerCase() !== key) continue;
+        refreshIds.push(String(node.id));
+      }
+    }
+    nodeGraphNamedPortalRefreshModules(refreshIds);
+  }
   for (const metaId of ownerMetaIds) {
     if (typeof nodeGraphMetamoduleRemountShell === "function") {
       nodeGraphMetamoduleRemountShell(metaId);
@@ -1642,24 +1866,81 @@ function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = n
   }
 }
 
-function setNodeGraphKnobTextFromContext({ record = true } = {}) {
+function setNodeGraphModuleDisplayFromContext({ record = true } = {}) {
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
-  const type = sourceNode?.type;
-  if (
-    !sourceNode
-    || (
-      type !== "knob"
-      && type !== "pluginSlider"
-      && type !== "toggleButton"
-      && type !== "momentaryButton"
-    )
-  ) {
+  if (!sourceNode) {
     return;
   }
   const input = document.getElementById("nodeSceneKnobTextInput");
-  if (typeof nodeGraphKnobFaceWriteLabelText === "function") {
-    nodeGraphKnobFaceWriteLabelText(sourceNode.id, input?.value, { record });
+  const type = sourceNode.type;
+  if (
+    typeof nodeGraphModuleUsesFaceLabelDisplay === "function"
+      ? nodeGraphModuleUsesFaceLabelDisplay(type)
+      : (type === "knob" || type === "pluginSlider" || type === "toggleButton" || type === "momentaryButton")
+  ) {
+    if (typeof nodeGraphKnobFaceWriteLabelText === "function") {
+      nodeGraphKnobFaceWriteLabelText(sourceNode.id, input?.value, { record });
+    }
+    return;
   }
+
+  const display = typeof normalizeNodeGraphPatchNodeDisplay === "function"
+    ? normalizeNodeGraphPatchNodeDisplay(input?.value)
+    : String(input?.value ?? "").replace(/\s+/g, " ").trim().slice(0, 48);
+  const hadFocus = Boolean(input && document.activeElement === input);
+  const selectionStart = input?.selectionStart ?? null;
+  const selectionEnd = input?.selectionEnd ?? selectionStart;
+
+  if (!record) {
+    if (display) {
+      sourceNode.display = display;
+    } else {
+      delete sourceNode.display;
+    }
+    if (nodeGraphMvp) {
+      nodeGraphMvp.patchDirtyState = "edited";
+    }
+    const moduleEl = document.querySelector(`.dsp-node[data-node="${CSS.escape(sourceNode.id)}"]`);
+    // Title bar stays on Title; portal jack labels follow effective Display.
+    if (
+      moduleEl
+      && typeof nodeGraphIsNamedPortalType === "function"
+      && nodeGraphIsNamedPortalType(sourceNode.type)
+      && typeof syncNodeGraphModulePortLabels === "function"
+    ) {
+      syncNodeGraphModulePortLabels(moduleEl, sourceNode);
+    }
+    return;
+  }
+
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
+  if (!targetNode) {
+    return;
+  }
+  if (display) {
+    targetNode.display = display;
+  } else {
+    delete targetNode.display;
+  }
+  commitNodeGraphPatch(patch, {
+    record,
+    status: display ? "module display changed" : "module display cleared",
+  });
+  if (hadFocus && input?.isConnected) {
+    input.focus({ preventScroll: true });
+    if (selectionStart !== null && typeof input.setSelectionRange === "function") {
+      try {
+        input.setSelectionRange(selectionStart, selectionEnd ?? selectionStart);
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
+function setNodeGraphKnobTextFromContext({ record = true } = {}) {
+  setNodeGraphModuleDisplayFromContext({ record });
 }
 
 function setNodeGraphKnobPluginIdentityFromContext() {
@@ -1679,7 +1960,14 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
   const hadFocus = Boolean(input && document.activeElement === input);
   const selectionStart = input?.selectionStart ?? null;
   const selectionEnd = input?.selectionEnd ?? selectionStart;
-  const alias = normalizeNodeGraphPatchNodeAlias(input?.value);
+  const aliasRaw = input?.value;
+  const alias = (
+    typeof nodeGraphIsNamedPortalType === "function"
+    && nodeGraphIsNamedPortalType(sourceNode.type)
+    && typeof normalizeNodeGraphNamedPortalAlias === "function"
+  )
+    ? normalizeNodeGraphNamedPortalAlias(aliasRaw)
+    : normalizeNodeGraphPatchNodeAlias(aliasRaw);
 
   // Live typing (input event, record:false): mutate the live patch + soft-update
   // alias consumers (header title, Knob face) without a full commit
@@ -1693,7 +1981,7 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
     if (nodeGraphMvp) {
       nodeGraphMvp.patchDirtyState = "edited";
     }
-    // Header title tracks alias live while Module Settings is open.
+    // Header title tracks Title (alias) live while Module Settings is open.
     const moduleEl = document.querySelector(`.dsp-node[data-node="${CSS.escape(sourceNode.id)}"]`);
     const headerTitle = moduleEl?.querySelector?.(".node-header-title");
     if (headerTitle && document.activeElement !== headerTitle) {
@@ -1704,7 +1992,7 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
         headerTitle.textContent = display;
       }
     }
-    // Named portals: jack I/O label follows the title live.
+    // Named portals: jack I/O label = effective Display (live).
     if (
       moduleEl
       && typeof nodeGraphIsNamedPortalType === "function"
@@ -1721,7 +2009,13 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
   if (!targetNode) {
     return;
   }
-  const prevAlias = normalizeNodeGraphPatchNodeAlias(targetNode.alias) || "";
+  const prevAlias = (
+    typeof nodeGraphIsNamedPortalType === "function"
+    && nodeGraphIsNamedPortalType(targetNode.type)
+    && typeof normalizeNodeGraphNamedPortalAlias === "function"
+  )
+    ? (normalizeNodeGraphNamedPortalAlias(targetNode.alias) || "")
+    : (normalizeNodeGraphPatchNodeAlias(targetNode.alias) || "");
   if (alias) {
     targetNode.alias = alias;
   } else {
@@ -1737,6 +2031,12 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
   ) {
     targetNode.alias = prevAlias;
     nodeGraphNamedPortalSyncBusAlias(patch, targetNode.id, alias);
+  } else if (
+    typeof nodeGraphIsNamedPortalType === "function"
+    && nodeGraphIsNamedPortalType(targetNode.type)
+    && typeof nodeGraphNamedPortalApplyAliasPaint === "function"
+  ) {
+    nodeGraphNamedPortalApplyAliasPaint(patch, targetNode.id);
   }
   const ownerMetaId = (
     typeof nodeGraphIsMetamoduleBoundaryType === "function"
@@ -1750,6 +2050,24 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
     record,
     status: alias ? "module alias changed" : "module alias cleared",
   });
+  if (
+    typeof nodeGraphIsNamedPortalType === "function"
+    && nodeGraphIsNamedPortalType(targetNode.type)
+    && typeof nodeGraphNamedPortalRefreshModules === "function"
+  ) {
+    const live = nodeGraphMvp?.patch;
+    const key = String(alias || "").trim().toLowerCase();
+    const universe = String(targetNode.ownerMetamoduleId || "").trim();
+    const refreshIds = [String(targetNode.id)];
+    for (const node of (live?.nodes || [])) {
+      if (!node || !nodeGraphIsNamedPortalType(node.type)) continue;
+      if (String(node.ownerMetamoduleId || "").trim() !== universe) continue;
+      if (String(node.alias || "").trim().toLowerCase() !== key) continue;
+      refreshIds.push(String(node.id));
+    }
+    nodeGraphNamedPortalRefreshModules(refreshIds);
+  }
+
   if (ownerMetaId && typeof nodeGraphMetamoduleRemountShell === "function") {
     nodeGraphMetamoduleRemountShell(ownerMetaId);
   }

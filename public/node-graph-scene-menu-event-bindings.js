@@ -114,6 +114,11 @@ function bindNodeGraphSceneMenuEvents() {
       slewSelectedNodeGraphWires();
     }
   });
+  bindNodeGraphSceneElementEvent("nodeSceneWirePortal", "click", () => {
+    if (typeof portalSelectedNodeGraphWires === "function") {
+      portalSelectedNodeGraphWires();
+    }
+  });
   bindNodeGraphSceneElementEvent("nodeSceneCopyModule", "click", copyNodeGraphModuleFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneCopyModuleSettings", "click", copyNodeGraphModuleSettingsFromContext);
   bindNodeGraphSceneElementEvent("nodeScenePasteModuleSettings", "click", pasteNodeGraphModuleSettingsFromContext);

@@ -1,8 +1,12 @@
 /**
- * Perform mode (Step 1): layout-canvas perform page for the plugin host.
- * No AudioWorklet. Controllers with pluginId 0-31 emit gestures (no Bias write).
- * setSlot paints faces; ignored while that pluginId has an open gesture.
- * Activate via /perform.html or index.html?mode=perform
+ * Perform / cellphone canvas boot.
+ *
+ * Plugin-host perform: /perform.html or index.html?mode=perform
+ *   Auto-starts, layout-canvas only, no AudioWorklet (host drives audio).
+ *
+ * Phone canvas (soundemote.io): same start menu, then canvas-only after START.
+ *   Live audio stays enabled. Detection: touch + coarse pointer / phone UA.
+ *   Desktop preview: ?mobile=1 or ?phone=1. Force full workspace: ?desktop=1.
  */
 (function soemdspPerformBoot(global) {
   "use strict";
@@ -10,13 +14,24 @@
   var PROTOCOL_TYPE = "soemdsp-perform";
   var PROTOCOL_V = 1;
   var BODY_CLASS = "node-perform-mode";
-  var CACHE_TAG = "perform-1";
+  var CACHE_TAG = "mobile-canvas-1";
   var CONTROLLER_TYPES = {
     knob: true,
     pluginSlider: true,
     toggleButton: true,
     momentaryButton: true,
   };
+
+  function queryFlag(name) {
+    try {
+      var raw = String(new URLSearchParams(global.location.search).get(name) || "")
+        .trim()
+        .toLowerCase();
+      return raw === "1" || raw === "true" || raw === "yes";
+    } catch (_e) {
+      return false;
+    }
+  }
 
   function isPerformPath() {
     try {
@@ -31,11 +46,150 @@
     }
   }
 
-  if (!isPerformPath()) {
+  /** Phones only (not tablets). Query overrides win. */
+  function isMobilePhoneClient() {
+    if (queryFlag("desktop")) return false;
+    if (queryFlag("mobile") || queryFlag("phone")) return true;
+    try {
+      var ua = String((global.navigator && global.navigator.userAgent) || "");
+      if (/iPad|Tablet|PlayBook|Silk/i.test(ua)) return false;
+      if (/Android/i.test(ua) && !/Mobile/i.test(ua)) return false;
+      if (/Android.+Mobile|iPhone|iPod|Windows Phone|BlackBerry|IEMobile|Opera Mini|webOS/i.test(ua)) {
+        return true;
+      }
+    } catch (_e) { /* ignore */ }
+    try {
+      var mq = global.matchMedia
+        ? function (q) { return Boolean(global.matchMedia(q).matches); }
+        : function () { return false; };
+      var coarse = mq("(pointer: coarse)");
+      var fine = mq("(pointer: fine)");
+      var noHover = mq("(hover: none)");
+      var touchPoints = Number(global.navigator && global.navigator.maxTouchPoints) || 0;
+      var width = Math.min(
+        Number(global.screen && global.screen.width) || 9999,
+        Number(global.innerWidth) || 9999
+      );
+      if (coarse && noHover && !fine && width <= 920) return true;
+      if (touchPoints > 1 && noHover && width <= 820) return true;
+    } catch (_e) { /* ignore */ }
+    return false;
+  }
+
+  function ensureBodyClassEarly() {
+    document.documentElement.classList.add(BODY_CLASS);
+    if (document.body) document.body.classList.add(BODY_CLASS);
+  }
+
+  function ensurePerformCssEarly() {
+    if (document.getElementById("soemdspPerformCss")) return;
+    var link = document.createElement("link");
+    link.id = "soemdspPerformCss";
+    link.rel = "stylesheet";
+    link.href = "./public/perform.css?v=" + CACHE_TAG;
+    (document.head || document.documentElement).appendChild(link);
+  }
+
+  function openMobilePerformCanvas() {
+    ensureBodyClassEarly();
+    ensurePerformCssEarly();
+    var opened = false;
+    if (typeof global.nodeGraphLayoutCanvasOpen === "function") {
+      opened = Boolean(global.nodeGraphLayoutCanvasOpen("perform", { silent: true }));
+    }
+    document.body.classList.remove("node-layout-canvas-edit");
+    var stage = document.getElementById("nodeScreenSoloStage");
+    if (stage) stage.classList.remove("node-layout-canvas-edit");
+    return opened;
+  }
+
+  /**
+   * Phone path: keep identical start menu; after START show patch canvas only.
+   * Does not set soemdspPerformMode (that path disables AudioWorklet for the plugin host).
+   */
+  function bootMobileCanvas() {
     global.soemdspPerformMode = false;
+    global.soemdspMobileCanvasMode = true;
+
+    function onUserStart() {
+      // Apply perform chrome only after START so the start menu stays identical.
+      ensureBodyClassEarly();
+      ensurePerformCssEarly();
+    }
+
+    var origBegin = global.beginNodeBootLoadSequence;
+    if (typeof origBegin === "function" && !origBegin._soemdspMobileWrapped) {
+      function wrappedBegin() {
+        onUserStart();
+        return origBegin.apply(this, arguments);
+      }
+      wrappedBegin._soemdspMobileWrapped = true;
+      global.beginNodeBootLoadSequence = wrappedBegin;
+    }
+
+    var startBtn = document.getElementById("nodeBootStartButton");
+    if (startBtn && startBtn.dataset.soemdspMobileBound !== "1") {
+      startBtn.dataset.soemdspMobileBound = "1";
+      startBtn.addEventListener("click", onUserStart);
+    }
+
+    function lockPerformOnlyToggle() {
+      var original = global.nodeGraphLayoutCanvasOpen;
+      if (typeof original === "function" && !original._soemdspMobileWrapped) {
+        function wrappedOpen(mode, options) {
+          return original.call(this, mode === "edit" ? "perform" : mode, options);
+        }
+        wrappedOpen._soemdspMobileWrapped = true;
+        global.nodeGraphLayoutCanvasOpen = wrappedOpen;
+      }
+      var toggle = global.toggleNodeGraphLayoutCanvasView;
+      if (typeof toggle === "function" && !toggle._soemdspMobileWrapped) {
+        function wrappedToggle() {
+          return openMobilePerformCanvas();
+        }
+        wrappedToggle._soemdspMobileWrapped = true;
+        global.toggleNodeGraphLayoutCanvasView = wrappedToggle;
+      }
+    }
+
+    function afterInterfaceReady() {
+      onUserStart();
+      lockPerformOnlyToggle();
+      openMobilePerformCanvas();
+      // Patch / pins can settle after first paint.
+      [120, 450, 1100].forEach(function (ms) {
+        global.setTimeout(openMobilePerformCanvas, ms);
+      });
+    }
+
+    if (
+      document.documentElement.dataset.nodeSandboxInterfaceReady === "true"
+      || global.nodeSandboxInterfaceReady === true
+    ) {
+      afterInterfaceReady();
+      return;
+    }
+    global.addEventListener("nodeSandboxInterfaceReady", afterInterfaceReady, {
+      once: true,
+    });
+  }
+
+  var pluginPerform = isPerformPath();
+  var mobileCanvas = !pluginPerform && isMobilePhoneClient();
+
+  if (!pluginPerform && !mobileCanvas) {
+    global.soemdspPerformMode = false;
+    global.soemdspMobileCanvasMode = false;
     return;
   }
+
+  if (mobileCanvas) {
+    bootMobileCanvas();
+    return;
+  }
+
   global.soemdspPerformMode = true;
+  global.soemdspMobileCanvasMode = false;
 
   var openGestures = new Set();
   var slotValues = new Map();

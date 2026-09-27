@@ -175,8 +175,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativeVectorscopeTransformReady = false;
     this.nativeRotate3dTo2d = null;
     this.nativeRotate3dTo2dReady = false;
-    this.nativeClipperLimiter = null;
-    this.nativeClipperLimiterReady = false;
     this.nativeEqFilter = null;
     this.nativeEqFilterReady = false;
     this.nativeInertialFilter = null;

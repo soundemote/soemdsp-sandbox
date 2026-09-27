@@ -3,9 +3,13 @@
 // soemdsp-native-target: softClipper
 // soemdsp-native-kind: dynamics
 //
-// Memoryless tanh-shaped clip + optional first-order ADAA (antialias 0..1)
-// and Softwave-style bipolar dither. Matches public/modules/softClipper/soft-clipper-math.js.
-// 0 = tanh only (no history). 1 = ADAA only. (0,1) = both, then mix.
+// Memoryless saturating soft-knee. Params (linear, no dB):
+//   Drive - input push into the curve
+//   Threshold - 0...1 amplitude where limiting starts (dry below)
+//   Knee - 0...1 how gradual the thr->ceiling transition is
+//   Amplitude - 0...1 output scale after shaping
+// Shape uses soemdsp::math::soft_clip_coeffs / soft_clip_apply / tanh_approx.
+// No ADAA, dither, oversample, or Gain-dB paths.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -16,48 +20,91 @@ using namespace soemdsp_maths;
 static const int kMaxInstances = 32;
 static const int kChannels = 3; // 0 mono, 1 left, 2 right
 static const int kMaxBlockFrames = 128;
-
-struct Channel {
-  double u1;
-  double F1;
-  unsigned int n;
-  double x1;
-  bool hasX;
-};
+static const double kKneeEps = 1.0e-4;
 
 struct State {
   bool active;
-  Channel ch[kChannels];
-  // CONTROL: center/width → cached coeffs (Live: antialias, audio in)
   bool coeffsValid;
-  double lastCenter;
-  double lastWidth;
+  double lastThreshold;
+  double lastKnee;
   double scaleX;
   double shiftX;
   double scaleY;
   double shiftY;
-  double liveCenter;
-  double liveWidth;
-  double liveAntialias;
-  int liveOsMode; // 0 = shaped only, 1 = ADAA, 2 = 2× ADAA average
+  double span;
+  double liveDrive;
+  double liveThreshold;
+  double liveKnee;
+  double liveAmplitude;
   double blockIn[kChannels][kMaxBlockFrames];
   double blockOut[kChannels][kMaxBlockFrames];
 };
 
 static State gPool[kMaxInstances];
 
-// soft_clip_coeffs / soft_clip_apply from soemdsp::math
-
-static void sync_clip_coeffs(State& s, double center, double width) {
-  if (s.coeffsValid && center == s.lastCenter && width == s.lastWidth) return;
-  soft_clip_coeffs(center, width, &s.scaleX, &s.shiftX, &s.scaleY, &s.shiftY);
-  s.lastCenter = center;
-  s.lastWidth = width;
+// Remap Threshold/Knee -> soft_clip_coeffs width, then rescale so ceiling stays
+// at thr + (1-thr) = 1 (when thr < 1). Knee->0 is hard clip at threshold.
+static void sync_knee_coeffs(State& s, double threshold, double knee) {
+  if (s.coeffsValid && threshold == s.lastThreshold && knee == s.lastKnee) return;
+  double thr = threshold;
+  if (!(thr * 0.0 == 0.0) || thr < 0.0) thr = 0.0;
+  if (thr > 1.0) thr = 1.0;
+  double kn = knee;
+  if (!(kn * 0.0 == 0.0) || kn < 0.0) kn = 0.0;
+  if (kn > 1.0) kn = 1.0;
+  const double headroom = 1.0 - thr;
+  const double span = headroom > 1.0e-6 ? headroom : 1.0e-6;
+  const double knSafe = kn < kKneeEps ? kKneeEps : kn;
+  const double width = 2.0 * span * knSafe;
+  soft_clip_coeffs(0.0, width, &s.scaleX, &s.shiftX, &s.scaleY, &s.shiftY);
+  s.span = span;
+  s.lastThreshold = thr;
+  s.lastKnee = kn;
   s.coeffsValid = true;
 }
 
-static double shaped_cached(const State& s, double input) {
-  return soft_clip_apply(input, s.scaleX, s.shiftX, s.scaleY, s.shiftY);
+static double shape_one(State& s, double input) {
+  double drive = s.liveDrive;
+  if (!(drive * 0.0 == 0.0) || drive < 0.0) drive = 0.0;
+  double thr = s.liveThreshold;
+  if (!(thr * 0.0 == 0.0) || thr < 0.0) thr = 0.0;
+  if (thr > 1.0) thr = 1.0;
+  double kn = s.liveKnee;
+  if (!(kn * 0.0 == 0.0) || kn < 0.0) kn = 0.0;
+  if (kn > 1.0) kn = 1.0;
+  double amp = s.liveAmplitude;
+  if (!(amp * 0.0 == 0.0) || amp < 0.0) amp = 0.0;
+  if (amp > 1.0) amp = 1.0;
+
+  const double x = safe(input) * drive;
+  const double ax = dsp_fabs(x);
+  const double sign = x < 0.0 ? -1.0 : 1.0;
+
+  if (ax <= thr) {
+    return amp * x;
+  }
+  if (kn <= kKneeEps) {
+    return amp * sign * thr;
+  }
+
+  sync_knee_coeffs(s, thr, kn);
+  const double excess = ax - thr;
+  const double y = soft_clip_apply(excess, s.scaleX, s.shiftX, s.scaleY, s.shiftY);
+  const double sy = s.scaleY;
+  const double shaped = (sy > 1.0e-12) ? (y * (s.span / sy)) : 0.0;
+  return amp * sign * (thr + shaped);
+}
+
+static double shape_stateless(double input, double drive, double threshold, double knee, double amplitude) {
+  State tmp;
+  tmp.coeffsValid = false;
+  tmp.lastThreshold = -1.0;
+  tmp.lastKnee = -1.0;
+  tmp.liveDrive = drive;
+  tmp.liveThreshold = threshold;
+  tmp.liveKnee = knee;
+  tmp.liveAmplitude = amplitude;
+  return shape_one(tmp, input);
 }
 
 static const char kMetadataJson[] =
@@ -70,26 +117,32 @@ static const char kMetadataJson[] =
     "\"outputs\":[\"Mono\",\"Left\",\"Right\"],"
     "\"parameters\":["
       "{"
-        "\"key\":\"center\","
-        "\"label\":\"Center\","
-        "\"defaultValue\":0,"
-        "\"min\":-1,\"mid\":0,\"max\":1,\"step\":\"any\","
-        "\"tooltip\":\"Moves the soft clipping curve left or right before shaping.\""
+        "\"key\":\"drive\","
+        "\"label\":\"Drive\","
+        "\"defaultValue\":1,"
+        "\"min\":0,\"mid\":1,\"max\":8,\"step\":\"any\","
+        "\"tooltip\":\"Input push into the soft-knee curve.\""
       "},"
       "{"
-        "\"key\":\"width\","
-        "\"label\":\"Width\","
-        "\"defaultValue\":2,"
-        "\"min\":0.0001,\"mid\":2,\"max\":8,\"step\":\"any\","
-        "\"skew\":\"mid skew\","
-        "\"tooltip\":\"Sets the width of the smooth tanh transition before the signal saturates.\""
-      "},"
-      "{"
-        "\"key\":\"antialias\","
-        "\"label\":\"Antialias\","
+        "\"key\":\"threshold\","
+        "\"label\":\"Threshold\","
         "\"defaultValue\":1,"
         "\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\","
-        "\"tooltip\":\"First-order ADAA plus a tiny Softwave-style dither. 0 = original clip. 1 = full AA.\""
+        "\"tooltip\":\"Amplitude (0...1) where limiting starts. Below this the driven signal is unchanged.\""
+      "},"
+      "{"
+        "\"key\":\"knee\","
+        "\"label\":\"Knee\","
+        "\"defaultValue\":0.5,"
+        "\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\","
+        "\"tooltip\":\"How gradual the transition from Threshold toward full scale is. 0 = hard at Threshold.\""
+      "},"
+      "{"
+        "\"key\":\"amplitude\","
+        "\"label\":\"Amplitude\","
+        "\"defaultValue\":1,"
+        "\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\","
+        "\"tooltip\":\"Output scale after shaping.\""
       "}"
     "]"
   "}";
@@ -98,32 +151,30 @@ static const char kMetadataJson[] =
 
 extern "C" double soemdsp_soft_clipper_sample(
   double input,
-  double center,
-  double width
+  double drive,
+  double threshold,
+  double knee,
+  double amplitude
 ) {
-  double sx, shx, sy, shy;
-  soft_clip_coeffs(center, width, &sx, &shx, &sy, &shy);
-  return soft_clip_apply(input, sx, shx, sy, shy);
+  return shape_stateless(input, drive, threshold, knee, amplitude);
 }
 
 extern "C" int soemdsp_soft_clipper_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       State& s = gPool[i];
-      for (int c = 0; c < kChannels; c++) {
-        s.ch[c].u1 = 0.0;
-        s.ch[c].F1 = tanh_antideriv(0.0);
-        s.ch[c].n = 0;
-        s.ch[c].x1 = 0.0;
-        s.ch[c].hasX = false;
-      }
       s.coeffsValid = false;
-      s.lastCenter = 0.0;
-      s.lastWidth = 2.0;
-      s.liveCenter = 0.0;
-      s.liveWidth = 2.0;
-      s.liveAntialias = 1.0;
-      s.liveOsMode = 2;
+      s.lastThreshold = -1.0;
+      s.lastKnee = -1.0;
+      s.liveDrive = 1.0;
+      s.liveThreshold = 1.0;
+      s.liveKnee = 0.5;
+      s.liveAmplitude = 1.0;
+      s.span = 1.0;
+      s.scaleX = 1.0;
+      s.shiftX = 0.0;
+      s.scaleY = 1.0;
+      s.shiftY = 0.0;
       s.active = true;
       return i + 1;
     }
@@ -136,80 +187,31 @@ extern "C" void soemdsp_soft_clipper_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
-static double process_aa_one(State& s, Channel& c, double input, double antialias) {
-  double aa = antialias;
-  if (!(aa * 0.0 == 0.0) || aa < 0.0) aa = 0.0;
-  if (aa > 1.0) aa = 1.0;
-
-  if (aa <= 0.0) {
-    return shaped_cached(s, input);
-  }
-
-  c.n += 1;
-  const double x = input + aa * 0.0005 * hash_bipolar(c.n, 0x51edu);
-  const double u = s.scaleX * x + s.shiftX;
-  const double Fu = tanh_antideriv(u);
-  const double du = u - c.u1;
-  double adaaF;
-  if (du > -1.0e-5 && du < 1.0e-5) {
-    adaaF = tanh_approx((u + c.u1) * 0.5);
-  } else {
-    adaaF = (Fu - c.F1) / du;
-  }
-  c.u1 = u;
-  c.F1 = Fu;
-  const double adaaY = s.shiftY + s.scaleY * adaaF;
-  if (aa >= 1.0) {
-    return adaaY;
-  }
-  const double y = s.shiftY + s.scaleY * tanh_approx(u);
-  return y + aa * (adaaY - y);
-}
-
-static double shaped_once(double input, double center, double width) {
-  double sx, shx, sy, shy;
-  soft_clip_coeffs(center, width, &sx, &shx, &sy, &shy);
-  return soft_clip_apply(input, sx, shx, sy, shy);
-}
-
-extern "C" double soemdsp_soft_clipper_sample_aa(
-  int handle,
-  int channel,
-  double input,
-  double center,
-  double width,
-  double antialias
-) {
-  if (handle < 1 || handle > kMaxInstances) return shaped_once(input, center, width);
-  State& s = gPool[handle - 1];
-  if (!s.active) return shaped_once(input, center, width);
-  int ch = channel;
-  if (ch < 0) ch = 0;
-  if (ch > 2) ch = 2;
-  sync_clip_coeffs(s, center, width);
-  return process_aa_one(s, s.ch[ch], input, antialias);
-}
-
 extern "C" void soemdsp_soft_clipper_set_params(
   int handle,
-  double center,
-  double width,
-  double antialias,
-  int oversampleMode
+  double drive,
+  double threshold,
+  double knee,
+  double amplitude
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   State& s = gPool[handle - 1];
-  sync_clip_coeffs(s, center, width);
-  s.liveCenter = center;
-  s.liveWidth = width;
-  double aa = antialias;
-  if (!(aa * 0.0 == 0.0) || aa < 0.0) aa = 0.0;
-  if (aa > 1.0) aa = 1.0;
-  s.liveAntialias = aa;
-  int os = oversampleMode;
-  if (os < 0) os = 0;
-  if (os > 2) os = 2;
-  s.liveOsMode = os;
+  double d = drive;
+  if (!(d * 0.0 == 0.0) || d < 0.0) d = 0.0;
+  double thr = threshold;
+  if (!(thr * 0.0 == 0.0) || thr < 0.0) thr = 0.0;
+  if (thr > 1.0) thr = 1.0;
+  double kn = knee;
+  if (!(kn * 0.0 == 0.0) || kn < 0.0) kn = 0.0;
+  if (kn > 1.0) kn = 1.0;
+  double amp = amplitude;
+  if (!(amp * 0.0 == 0.0) || amp < 0.0) amp = 0.0;
+  if (amp > 1.0) amp = 1.0;
+  s.liveDrive = d;
+  s.liveThreshold = thr;
+  s.liveKnee = kn;
+  s.liveAmplitude = amp;
+  sync_knee_coeffs(s, thr, kn);
 }
 
 extern "C" void soemdsp_soft_clipper_process_block(int handle, int channel, int frameCount) {
@@ -219,31 +221,10 @@ extern "C" void soemdsp_soft_clipper_process_block(int handle, int channel, int 
   int ch = channel;
   if (ch < 0) ch = 0;
   if (ch > 2) ch = 2;
-  Channel& c = s.ch[ch];
   const int n = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
-  sync_clip_coeffs(s, s.liveCenter, s.liveWidth);
-  const int os = s.liveOsMode;
-  const double aa = s.liveAntialias;
+  sync_knee_coeffs(s, s.liveThreshold, s.liveKnee);
   for (int i = 0; i < n; i += 1) {
-    const double x = s.blockIn[ch][i];
-    double y;
-    if (os <= 0) {
-      y = shaped_cached(s, x);
-      c.x1 = x;
-      c.hasX = true;
-    } else if (os == 1) {
-      y = process_aa_one(s, c, x, aa);
-      c.x1 = x;
-      c.hasX = true;
-    } else {
-      const double mid = c.hasX ? (c.x1 + x) * 0.5 : x;
-      const double y0 = process_aa_one(s, c, mid, aa);
-      const double y1 = process_aa_one(s, c, x, aa);
-      c.x1 = x;
-      c.hasX = true;
-      y = (y0 + y1) * 0.5;
-    }
-    s.blockOut[ch][i] = y;
+    s.blockOut[ch][i] = shape_one(s, s.blockIn[ch][i]);
   }
 }
 
@@ -263,6 +244,6 @@ extern "C" int soemdsp_soft_clipper_max_block_frames() {
   return kMaxBlockFrames;
 }
 
-extern "C" int soemdsp_soft_clipper_version() { return 4; }
+extern "C" int soemdsp_soft_clipper_version() { return 5; }
 extern "C" const char* soemdsp_soft_clipper_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_soft_clipper_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

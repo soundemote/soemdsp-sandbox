@@ -11,6 +11,10 @@ const helperPath = path.join(root, "public", "modules", "portal", "portal-named.
 
 const sandbox = {
   normalizeNodeGraphPatchNodeAlias: (a) => String(a ?? "").trim().slice(0, 64),
+  nodeGraphPatchNodeTitle: (node) => {
+    const a = String(node?.alias ?? "").trim();
+    return a || String(node?.type || "");
+  },
   nodeGraphPatchNodePortDisplayLabel: (_node, type, port, io) => {
     if (io === "output" && type === "keyboard" && port === "pitch") return "\u266f/\u266d";
     if (io === "output" && type === "keyboard" && port === "Trigger") return "Trigger";
@@ -28,6 +32,8 @@ const {
   nodeGraphNamedPortalSyncBusAlias,
   nodeGraphNamedPortalIdsTouchedByWire,
   nodeGraphSpliceNamedPortalCables,
+  nodeGraphNamedPortalAliasFromSourceOutlet,
+  nodeGraphNamedPortalInsertGridPoints,
 } = sandbox;
 
 function assert(cond, msg) {
@@ -94,4 +100,18 @@ const registerSrc = fs.readFileSync(
 assert(registerSrc.includes('chrome: "InletOutletLayout"'), "named portals must use InletOutletLayout");
 assert(!registerSrc.includes('chrome: "TitleBarAndPorts"'), "named portals must not use TitleBarAndPorts");
 
-console.log("ok: named portal color + title-driven bus (no source-outlet rename)");
+assert(typeof nodeGraphNamedPortalAliasFromSourceOutlet === "function", "alias helper missing");
+const spliceTitle = nodeGraphNamedPortalAliasFromSourceOutlet(patch, "keyboard-1", "pitch");
+assert(spliceTitle === "Keyboard_pitch", `splice title ${JSON.stringify(spliceTitle)}`);
+const points = nodeGraphNamedPortalInsertGridPoints(
+  { nodes: [
+    { id: "keyboard-1", gx: 0, gy: 0 },
+    { id: "filt-1", gx: 12, gy: 6 },
+  ]},
+  "keyboard-1",
+  "filt-1",
+  0,
+);
+assert(points.in.gx < points.out.gx || points.in.gy !== points.out.gy, `grid ${JSON.stringify(points)}`);
+
+console.log("ok: named portal color + title-driven bus + splice alias (no source-outlet rename)");

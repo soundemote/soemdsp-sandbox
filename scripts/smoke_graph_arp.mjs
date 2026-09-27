@@ -44,6 +44,7 @@ const PORT_MONO = 0;
 const PORT_LEFT = 1;
 const PORT_RIGHT = 2;
 const PORT_RAMP = 4;
+const PORT_SQUARE = 5;
 const PARAM_MODE = 21;
 const PARAM_STAGES = 22;
 const PARAM_SEED = 48;
@@ -55,8 +56,8 @@ const SR = 48000;
 const CEG = 2 ** 24 + 2 ** 28 + 2 ** 31;
 
 const ver = version() | 0;
-if (ver < 108) {
-  throw new Error(`graph version ${ver} < 108 (arp Trigger/Internal Clock/inc)`);
+if (ver < 152) {
+  throw new Error(`graph version ${ver} < 152 (arp f Hz + inc Hz/sr)`);
 }
 
 function view(ptr, n) {
@@ -221,12 +222,14 @@ function tickExternal(h, mask, rising) {
   let pitchPeak = 0;
   let gatePeak = 0;
   let trigPeak = 0;
+  let fPeak = 0;
   let incPeak = 0;
   for (let q = 0; q < 80; q++) {
     process(g, 128);
     pitchPeak = Math.max(pitchPeak, peakOf(portPtr(g, hArp, PORT_MONO) | 0, 128));
     gatePeak = Math.max(gatePeak, peakOf(portPtr(g, hArp, PORT_LEFT) | 0, 128));
     trigPeak = Math.max(trigPeak, peakOf(portPtr(g, hArp, PORT_RIGHT) | 0, 128));
+    fPeak = Math.max(fPeak, peakOf(portPtr(g, hArp, PORT_SQUARE) | 0, 128));
     incPeak = Math.max(incPeak, peakOf(portPtr(g, hArp, PORT_RAMP) | 0, 128));
   }
   destroy(g);
@@ -237,11 +240,17 @@ function tickExternal(h, mask, rising) {
   }
   if (!(gatePeak > 0.5)) throw new Error(`arp graph gatePeak=${gatePeak}`);
   if (!(trigPeak > 0.5)) throw new Error(`arp graph trigPeak=${trigPeak}`);
-  // Ramp = inc (cycles/sample). C0 (~32.7 Hz @ A4=440) / 48k ≈ 6.8e-4.
+  // Square = f (Hz). C0 ~32.7 Hz @ A4=440; allow up through G0 ~49 Hz.
+  if (!(fPeak > 20 && fPeak < 80)) {
+    throw new Error(`arp graph fPeak=${fPeak}`);
+  }
+  // Ramp = inc (cycles/sample) = f/sr.
   if (!(incPeak > 20 / SR && incPeak < 0.05)) {
     throw new Error(`arp graph incPeak=${incPeak}`);
   }
+  if (Math.abs(incPeak - fPeak / SR) > 1e-9) {
+    throw new Error(`arp graph inc!=f/sr inc=${incPeak} f=${fPeak}`);
+  }
   console.log(
-    `ok arp type=${TYPE_ARP} version=${ver} pitch=${pitchPeak.toFixed(4)} gate=${gatePeak.toFixed(4)} trig=${trigPeak.toFixed(4)} inc=${incPeak.toExponential(3)}`,
-  );
-}
+    `ok arp type=${TYPE_ARP} version=${ver} pitch=${pitchPeak.toFixed(4)} gate=${gatePeak.toFixed(4)} trig=${trigPeak.toFixed(4)} f=${fPeak.toFixed(4)} inc=${incPeak.toExponential(3)}`,
+  );}

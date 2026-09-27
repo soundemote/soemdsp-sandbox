@@ -102,11 +102,19 @@ function nodeGraphPatchNodePortDisplayLabel(node, type, port, io) {
     return nodeGraphStereoJackDisplayLabel(alias, type, port);
   }
   const resolvedType = type || patchNode?.type;
-  // Named portals: jack label is the module title/alias (bus name).
+  // Named portals: jack/IO label = effective Display (follows Title until override).
+  // Bus identity stays on Title/alias (SyncBusAlias / wirelessRole unchanged).
+  // Empty alias falls back to defaultAlias ("A"), not the catalog type label.
   if (
     typeof nodeGraphIsNamedPortalType === "function"
     && nodeGraphIsNamedPortalType(resolvedType)
   ) {
+    const override = typeof nodeGraphPatchNodeDisplayOverride === "function"
+      ? String(nodeGraphPatchNodeDisplayOverride(patchNode) || "").trim()
+      : "";
+    if (override) {
+      return override;
+    }
     const title = typeof normalizeNodeGraphPatchNodeAlias === "function"
       ? normalizeNodeGraphPatchNodeAlias(patchNode?.alias)
       : String(patchNode?.alias || "").trim();
@@ -671,13 +679,13 @@ function createNodeGraphMidiListenControls() {
   const channelLabel = document.createElement("span");
   channelLabel.textContent = "Channel";
   const channel = createNodeGraphPlusMinusControl({
-    ariaLabel: "MIDI listen channel",
+    ariaLabel: "MIDI listen channel (All or 1-16)",
     downKey: "midiListenChannelDown",
     valueKey: "midiListenChannelValue",
     upKey: "midiListenChannelUp",
     downAria: "MIDI channel down",
     upAria: "MIDI channel up",
-    valueText: "0",
+    valueText: "All",
   });
   channelRow.append(channelLabel, channel);
   host.append(inputRow, channelRow);

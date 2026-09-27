@@ -1246,6 +1246,20 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
+  } else if (definition.layout === "softClipperCurve") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphSoftClipperCurveDisplay === "function") {
+      article.append(createNodeGraphSoftClipperCurveDisplay(node, type));
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "envelopeCurve") {
     if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
