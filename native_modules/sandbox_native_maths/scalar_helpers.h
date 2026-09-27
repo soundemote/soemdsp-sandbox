@@ -2,7 +2,7 @@
 // dependency, used by nearly every native_modules/*.cpp.
 //
 // Canonical homes (nested, matching soemdsp):
-//   soemdsp::debug  -- safe / is_bad / is_nan  (see debug.h)
+//   soemdsp::debug  -- safe / is_bad / is_nan / default_if_zero  (see debug.h)
 //   soemdsp::math   -- clamp, clamp01, clamp11, wrap01, floor/ceil, ...
 // Flat soemdsp_maths:: is a compatibility mirror for existing modules.
 #pragma once
@@ -85,6 +85,7 @@ namespace soemdsp_maths {
 using soemdsp::debug::is_nan;
 using soemdsp::debug::is_bad;
 using soemdsp::debug::safe;
+using soemdsp::debug::default_if_zero;
 
 using soemdsp::math::kPlanck;
 using soemdsp::math::clamp;

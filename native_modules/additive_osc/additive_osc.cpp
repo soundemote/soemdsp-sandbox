@@ -226,7 +226,7 @@ extern "C" double soemdsp_additive_osc_sample(
   const double safeHarmonicPhaseMultiply = clamp(safe(harmonicPhaseMultiply), 0.0, 4.0);
   const double safeLevel = clamp(safe(level), 0.0, 1.0);
   const double nyquist = maxd(1.0, rate * 0.5);
-  const double safeDampingFilterFrequency = clamp(safe(dampingFilterFrequency) != 0.0 ? safe(dampingFilterFrequency) : 20000.0, 1.0, nyquist);
+  const double safeDampingFilterFrequency = clamp(default_if_zero(safe(dampingFilterFrequency), 20000.0), 1.0, nyquist);
 
   const double absFrequency = absd(safeFrequency);
   const int harmonicLimit = (int)maxd(1.0, mind((double)maxHarmonics, dsp_floor(mind(20000.0, rate * 0.45) / maxd(1.0, absFrequency))));

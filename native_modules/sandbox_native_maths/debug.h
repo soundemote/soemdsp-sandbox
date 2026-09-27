@@ -15,4 +15,10 @@ static inline bool is_bad(double x) { return !(x * 0.0 == 0.0); }
 // NaN/Inf sanitize matching JS nodeGraphSafeFilterNumber-style helpers.
 static inline double safe(double x) { return is_bad(x) ? 0.0 : x; }
 
+// Exact-zero -> fallback (missing / unset param defaults).
+// Header-only inline: MSVC may not stop inside the body; break on call sites.
+static inline double default_if_zero(double value, double fallback) {
+  return value == 0.0 ? fallback : value;
+}
+
 }  // namespace soemdsp::debug

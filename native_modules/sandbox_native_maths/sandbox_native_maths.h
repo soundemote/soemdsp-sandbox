@@ -6,12 +6,12 @@
 // time. There is no .cpp/object file to build or link here.
 //
 // Canonical nested namespaces (matching soemdsp):
-//   soemdsp::debug  -- safe / is_bad / is_nan
+//   soemdsp::debug  -- safe / is_bad / is_nan / default_if_zero
 //   soemdsp::math   -- clamp, clamp01, clamp11, wrap01, poly_blep, poly_blamp, ...
 // Flat soemdsp_maths:: remains a compatibility mirror for older modules.
 //
 // Topic files:
-//   debug.h             -- soemdsp::debug sanitize / bad-float checks
+//   debug.h             -- soemdsp::debug sanitize / bad-float / default_if_zero
 //   scalar_helpers.h    -- soemdsp::math clamp/clamp01/clamp11/wrap/floor + soemdsp_maths mirror
 //   poly_blep.h         -- soemdsp::math::poly_blep / poly_blamp
 //   exp_log.h           -- general-purpose exp()/ln() + dB↔lin polyfills (no libm)

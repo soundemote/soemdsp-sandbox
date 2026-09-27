@@ -157,7 +157,7 @@ extern "C" void soemdsp_jbtorus_sample(
   const double sdens = quantizeSubDensity >= 0.5
     ? __builtin_floor(pow2Dense * subdensity) * kTau
     : pow2Dense * subdensity * kTau;
-  const double div = size == 0.0 ? 1.0 : (1.0 / size);
+  const double div = 1.0 / default_if_zero(size, 1.0);
   const double volCorrect = 1.0 / (1.0 + size + size * div);
   const double zdepthZ2 = zDepth / 2.0;
   const double dank = __builtin_trunc(darkIntensity) * 2.0 + 1.0;

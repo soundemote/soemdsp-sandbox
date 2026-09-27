@@ -97,7 +97,7 @@ extern "C" void soemdsp_jbmushroom_sample(
   MushroomState& s = gPool[handle - 1];
 
   const double safeRate = sampleRate < 1.0 ? 1.0 : sampleRate;
-  const double nom = numMushrooms < -5.0 ? -5.0 : (numMushrooms > 5.0 ? 5.0 : (numMushrooms == 0.0 ? 1.0 : __builtin_trunc(numMushrooms)));
+  const double nom = numMushrooms < -5.0 ? -5.0 : (numMushrooms > 5.0 ? 5.0 : __builtin_trunc(default_if_zero(numMushrooms, 1.0)));
   const double phasorFreq = nom < 0.0 ? (frequency / nom * 0.5) : (frequency * 0.5);
   const double safeSharp = sharp * 0.5 + 0.5;
   const double safeSpread = spread * 4.0;
