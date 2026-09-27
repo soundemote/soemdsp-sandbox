@@ -26,7 +26,6 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 16;
-static const double kInvTau = 0.15915494309189535;
 
 struct RadarState {
   bool active;
@@ -313,7 +312,7 @@ extern "C" void soemdsp_jbradar_sample(
     waveX, waveY, waveZ
   );
 
-  const double depth = (1.0 - zDepth) * (1.0 - dsp_abs(waveZ) * kInvTau) + zDepth * dsp_pow(zDepth * 9.0 + 1.0, waveZ);
+  const double depth = (1.0 - zDepth) * (1.0 - dsp_abs(waveZ) * kInvTAU) + zDepth * dsp_pow(zDepth * 9.0 + 1.0, waveZ);
   const double f001 = (depth * (1.0 - inner) + inner) / ((1.0 - size) + size * ration);
   s.outX = waveX * f001;
   s.outY = waveY * f001 + yFixForZoom;

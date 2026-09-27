@@ -3,7 +3,8 @@
 // Canonical home matching soemdsp::constant in include/soemdsp/semath.hpp:
 //   soemdsp::constant  -- kPI, kTAU, kPIz2, kPIz4, k4zPI, k1z3, kPHI, ...
 // Sandbox-only: kPlanck (universe floor; same as public/node-graph-semath.js),
-//               kTauOver44100 (one-pole w clamp at 44.1 kHz).
+//               kTauOver44100 (one-pole w clamp at 44.1 kHz),
+//               kInvTAU / kInvPI (clear 1/tau and 1/pi spellings).
 // Compat aliases: kPi / kTwoPi / kHalfPi / kTau / kQuarterPi / kDegToRad / kInvSqrt2.
 // Flat soemdsp_maths:: mirrors every spelling for existing modules.
 //
@@ -21,7 +22,8 @@ constexpr double kPIz4       = +0.7853981633974483096; // acos(0)/2 = pi/4
 constexpr double k2zPI       = +0.6366197723675813430; // 2/pi
 constexpr double k4zPI       = +1.2732395447351626862; // 4/pi
 constexpr double kTAU        = +6.2831853071795864769; // 2*pi
-constexpr double k1zTAU      = +0.3183098861837906715; // 1/pi  (semath spelling; value is 1/pi)
+constexpr double kInvTAU     = 1.0 / kTAU;             // 1/tau ≈ 0.1591549…
+constexpr double kInvPI      = 1.0 / kPI;              // 1/pi  ≈ 0.3183098…
 constexpr double ksin_PIx1p5 = -1.0000000000000000000; // sin(pi*1.5)
 constexpr double kcos_PIx1p5 = -0.0000000000000000000; // cos(pi*1.5)
 constexpr double k1zLN2      = +1.4426950408889634074; // 1/ln(2)
@@ -76,7 +78,8 @@ using soemdsp::constant::kPIz4;
 using soemdsp::constant::k2zPI;
 using soemdsp::constant::k4zPI;
 using soemdsp::constant::kTAU;
-using soemdsp::constant::k1zTAU;
+using soemdsp::constant::kInvTAU;
+using soemdsp::constant::kInvPI;
 using soemdsp::constant::ksin_PIx1p5;
 using soemdsp::constant::kcos_PIx1p5;
 using soemdsp::constant::k1zLN2;

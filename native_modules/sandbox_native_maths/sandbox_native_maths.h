@@ -6,7 +6,7 @@
 // time. There is no .cpp/object file to build or link here.
 //
 // Canonical nested namespaces (matching soemdsp):
-//   soemdsp::constant -- kPI/kTAU/kPIz2/kPIz4/k4zPI/k1z*/kPHI/kPlanck/kTauOver44100 (+ compat aliases)
+//   soemdsp::constant -- kPI/kTAU/kInvTAU/kInvPI/kPIz2/kPIz4/k4zPI/k1z*/kPHI/kPlanck/kTauOver44100 (+ compat aliases)
 //   soemdsp::debug    -- safe / is_bad / is_nan / default_if_zero / default_if_near_zero
 //   soemdsp::math     -- clamp, clamp01, clamp11, wrap01, wrap01_frac, wrap01f, wrap11, wrap11_closed, wrap_radians, wrap(lo,hi), poly_blep, poly_blamp, ...
 // Flat soemdsp_maths:: remains a compatibility mirror for older modules.
