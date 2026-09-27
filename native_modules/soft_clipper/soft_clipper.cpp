@@ -11,7 +11,7 @@
 // Shape uses soemdsp::math::soft_clip_coeffs / soft_clip_apply / tanh_approx.
 // No ADAA, dither, oversample, or Gain-dB paths.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

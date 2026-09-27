@@ -36,7 +36,7 @@
 // before porting: flat, bounded amplitude and near-zero DC from 10Hz to
 // 20kHz, no blowups, no low-frequency beat.
 
-#include "../sandbox_native_maths/scalar_helpers.h"
+#include <soemdsp/math/scalar_helpers.h>
 using soemdsp_maths::clamp;
 using soemdsp_maths::clamp11;
 using soemdsp_maths::wrap_radians;

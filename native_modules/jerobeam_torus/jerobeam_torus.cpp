@@ -11,7 +11,7 @@
 // always ramp at Phasor's default 1.0 Hz baseline in addition to their
 // user-controlled phase offset -- replicated here exactly.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

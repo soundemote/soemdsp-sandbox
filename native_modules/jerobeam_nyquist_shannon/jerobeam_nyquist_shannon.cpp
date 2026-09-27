@@ -14,7 +14,7 @@
 // wavetable; skip log2 pitch and tone smoother work when the active tone
 // mode does not need them; clamp Rate so stair math cannot /0.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

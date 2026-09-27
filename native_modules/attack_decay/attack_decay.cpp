@@ -5,7 +5,7 @@
 //
 // Port of public/modules/attackDecay/attack-decay-math.js (exact).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -5,7 +5,7 @@
 //
 // Matches public/modules/gain/gain-math.js nodeGraphGainFrameDb.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

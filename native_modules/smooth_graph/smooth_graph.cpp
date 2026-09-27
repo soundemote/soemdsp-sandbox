@@ -3,12 +3,12 @@
 // soemdsp-native-target: smoothGraph
 // soemdsp-native-kind: modulator
 //
-// Curve evaluator for Smooth Graph (NOT sandbox_native_maths/graph.h).
+// Curve evaluator for Smooth Graph (NOT soemdsp/utility/graph.h).
 // Ports graphValueAt / guide-tension bezier / Lagrange from
 // node-live-audio-worklet-graph.js. Drive (Input/LFO/Phasor) lives in
 // graph_engine process_smooth_graph.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -8,7 +8,7 @@
 // inside a cycle, retarget the remaining samples so phase stays continuous
 // and there is still exactly one wrap. Dither re-roll only at wrap.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

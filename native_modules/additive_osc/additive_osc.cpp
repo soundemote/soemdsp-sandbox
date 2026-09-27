@@ -10,7 +10,7 @@
 // curve editor and stay JS-only -- the worklet falls back to the JS
 // implementation whenever either graph input is actually connected).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

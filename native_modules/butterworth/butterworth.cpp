@@ -5,9 +5,9 @@
 // soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
 //
 // Classical Butterworth multipole (maximally flat passband). Shared cascade
-// in sandbox_native_maths/scientific_iir.h (RBJ SOS, freestanding).
+// in soemdsp/filter/scientific_iir.h (RBJ SOS, freestanding).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -7,7 +7,7 @@
 // nodeGraphPumpingLimiterFrame — look-ahead delay + threshold/ratio GR,
 // optional sidechain detect, Env out. No hard ceiling / no autogain.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

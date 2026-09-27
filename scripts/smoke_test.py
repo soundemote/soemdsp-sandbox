@@ -14010,8 +14010,8 @@ def require_node_graph_mvp_contract() -> None:
     require("function nodeGraphTransportSample" in node_graph_source and "nodeGraphLiveModuleEvaluators.transport = (" in node_graph_source, "browser fallback should evaluate Transport")
     require(
         'source: "native_modules/soft_clipper/soft_clipper.cpp"' in module_store_source
-        and "tanh_approx" in (ROOT / "native_modules" / "sandbox_native_maths" / "nonlinearity.h").read_text(encoding="utf-8")
-        and "hypot1" in (ROOT / "native_modules" / "sandbox_native_maths" / "nonlinearity.h").read_text(encoding="utf-8"),
+        and "tanh_approx" in (ROOT / "library" / "include" / "soemdsp" / "nonlinearity" / "nonlinearity.h").read_text(encoding="utf-8")
+        and "hypot1" in (ROOT / "library" / "include" / "soemdsp" / "nonlinearity" / "nonlinearity.h").read_text(encoding="utf-8"),
         "Soft Clipper is native-only (soemdsp::math saturating soft-clip); JS math twin removed",
     )
     require("timing: normalizeNodeGraphPatchTiming(plan.timing)" in live_plan_runtime_source, "fallback runtime should retain plan timing")

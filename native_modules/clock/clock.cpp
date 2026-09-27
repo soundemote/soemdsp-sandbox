@@ -7,7 +7,7 @@
 // finished, then restart phase and keep advancing (do not freeze while Reset
 // stays high — that stretched the first Digital gate).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

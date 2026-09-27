@@ -6,7 +6,7 @@
 //
 // Bessel (Thomson) multipole — maximally flat group delay / linear phase-ish.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

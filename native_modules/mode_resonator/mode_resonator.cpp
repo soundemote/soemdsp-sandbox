@@ -6,7 +6,7 @@
 // Complex 2-pole ring: y[n] = 2 r cos(ω) y[n-1] − r² y[n-2] + g x[n]
 // Matches public/modules/modeResonator/mode-resonator-math.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

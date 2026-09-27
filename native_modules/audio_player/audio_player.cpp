@@ -11,7 +11,7 @@
 // (5 is play-once at this kernel; playlist wrap is host-side).
 // Readout is linear interpolation (antialias kept on the ABI only).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 #include <stddef.h>
 #include <stdint.h>

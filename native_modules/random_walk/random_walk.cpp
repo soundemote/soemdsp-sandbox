@@ -10,7 +10,7 @@
 // the LCG noise source, random-walk integration, rational-curve step
 // shaping, and the one-pole lowpass smoothing stage.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

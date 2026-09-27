@@ -7,7 +7,7 @@
 // rgba is Rec.709 luma of the processed RGB. Mirrors
 // public/modules/rasterRgb/raster-rgb-math.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -7,7 +7,7 @@
 // snap-reset on rising Trigger). Trigger is an instant gate: same slew law as
 // Gate — high → attack toward peak, low → release toward 0.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

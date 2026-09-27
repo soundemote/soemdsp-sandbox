@@ -12,7 +12,7 @@
 //
 // Cutoffs real Hz (0 = frozen). Resonance 0…1 when resonance path enabled.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

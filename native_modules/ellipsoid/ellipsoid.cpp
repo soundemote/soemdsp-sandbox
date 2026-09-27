@@ -7,7 +7,7 @@
 //   Limit floors C by ω=2πf/sr (edge slope ≲ 1 sample). Off honors shape as-is.
 // soemdsp_ellipsoid_sample — full multi-param ellipsoid oscillator (same AA).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -8,7 +8,7 @@
 // count. Shared by triggerDivider (fixed pulseTime) and clockDivider
 // (pulseTime = duty × division × measured Clock period).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

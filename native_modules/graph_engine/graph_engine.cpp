@@ -11,10 +11,10 @@
 
 #include <stdint.h>
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
-#include "../sandbox_native_maths/exp_log.h"
-#include "../sandbox_native_maths/analog_filter_trig.h"
-#include "../sandbox_native_maths/scalar_helpers.h"
+#include <soemdsp/soemdsp.hpp>
+#include <soemdsp/math/exp_log.h>
+#include <soemdsp/math/analog_filter_trig.h>
+#include <soemdsp/math/scalar_helpers.h>
 
 // Combined wasm resolves these; standalone graph_engine.wasm links with
 // --allow-undefined (stubs unused — product loads soemdsp_combined.wasm).

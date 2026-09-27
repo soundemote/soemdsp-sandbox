@@ -1,4 +1,4 @@
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 static double gDry = 0;
 extern "C" int soemdsp_soem_reverb_create(double sampleRate) { (void)sampleRate; return 1; }
 extern "C" void soemdsp_soem_reverb_destroy(int h) { (void)h; }

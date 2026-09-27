@@ -2,7 +2,7 @@
 // Port of public/node-graph-musical-engines.js + chord-pad rotate/triads.
 #pragma once
 
-#include "scalar_helpers.h"
+#include <soemdsp/math/scalar_helpers.h>
 
 namespace soemdsp_maths {
 

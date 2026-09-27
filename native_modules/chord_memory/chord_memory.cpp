@@ -13,7 +13,7 @@
 // codebase's established pattern for native modules with more than one
 // output (compare soemdsp_comparator_inv_gate, etc.).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

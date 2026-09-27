@@ -22,18 +22,20 @@ option(SOEMDSP_MSVC_COMPAT
   ON)
 
 set(SOEMDSP_NATIVE_ROOT "${CMAKE_SOURCE_DIR}/native_modules")
-set(SOEMDSP_MATHS_DIR "${SOEMDSP_NATIVE_ROOT}/sandbox_native_maths")
+set(SOEMDSP_LIBRARY_INCLUDE "${CMAKE_SOURCE_DIR}/library/include")
+set(SOEMDSP_MATHS_DIR "${SOEMDSP_LIBRARY_INCLUDE}/soemdsp")
 set(SOEMDSP_MSVC_COMPAT_DIR "${CMAKE_SOURCE_DIR}/cmake/msvc_compat")
 
 # ---------------------------------------------------------------------------
 # Header-only shared maths (browsing + include path for every module)
 # ---------------------------------------------------------------------------
-file(GLOB SOEMDSP_MATHS_HEADERS CONFIGURE_DEPENDS
+file(GLOB_RECURSE SOEMDSP_MATHS_HEADERS CONFIGURE_DEPENDS
   "${SOEMDSP_MATHS_DIR}/*.h"
+  "${SOEMDSP_MATHS_DIR}/*.hpp"
 )
 add_library(sandbox_native_maths INTERFACE)
 target_include_directories(sandbox_native_maths INTERFACE
-  "${SOEMDSP_NATIVE_ROOT}"
+  "${SOEMDSP_LIBRARY_INCLUDE}"
 )
 
 # Header-only INTERFACE libs do not always get a .vcxproj in the VS generator.
@@ -46,10 +48,10 @@ if(EXISTS "${SOEMDSP_NATIVE_ROOT}/fmd_original/FlowerChildFilterCore.h")
 endif()
 add_custom_target(sandbox_native_maths_headers
   SOURCES ${_maths_browse_sources}
-  COMMENT "Browse sandbox_native_maths headers (header-only library)"
+  COMMENT "Browse library/include/soemdsp headers (header-only library)"
 )
 set_target_properties(sandbox_native_maths_headers PROPERTIES FOLDER "native_modules")
-source_group(TREE "${SOEMDSP_MATHS_DIR}" PREFIX "sandbox_native_maths" FILES ${SOEMDSP_MATHS_HEADERS})
+source_group(TREE "${SOEMDSP_MATHS_DIR}" PREFIX "soemdsp" FILES ${SOEMDSP_MATHS_HEADERS})
 
 # ---------------------------------------------------------------------------
 # MSVC / IDE compatibility (stubs only — not for shipping WASM)
@@ -72,7 +74,7 @@ endif()
 
 # ---------------------------------------------------------------------------
 # One STATIC lib per native module (Name/Name.cpp)
-# Skips: sandbox_native_maths (headers), combined (link artifacts), dirs
+# Skips: combined (link artifacts), dirs
 # without a matching .cpp (e.g. fmd_original).
 # ---------------------------------------------------------------------------
 set(SOEMDSP_MODULE_TARGETS "")
@@ -86,8 +88,7 @@ foreach(_dir IN LISTS SOEMDSP_MODULE_DIRS)
   endif()
   get_filename_component(_name "${_dir}" NAME)
 
-  if(_name STREQUAL "sandbox_native_maths"
-      OR _name STREQUAL "combined"
+  if(_name STREQUAL "combined"
       OR _name STREQUAL "fmd_original")
     continue()
   endif()
@@ -153,7 +154,7 @@ file(WRITE "${_vs_readme}"
 
 What this is
   CMake → Visual Studio project covering native_modules/*.cpp plus
-  sandbox_native_maths headers for browsing / IntelliSense / MSVC compile.
+  library/include/soemdsp headers for browsing / IntelliSense / MSVC compile.
 
 What this is NOT
   The production audio toolchain. Live WASM is built by:

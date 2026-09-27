@@ -8,7 +8,7 @@
 // Jerobeam port here was modeled after). Emits X/Y/Z motion plus a
 // stereo-rendered left/right pair.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

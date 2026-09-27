@@ -15,7 +15,7 @@
 // Hex / bits / T latch only when k finishes this n (plus a short tail).
 // As n grows the verse lengthens: 4*(n+tail) samples per hex digit.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -6,7 +6,7 @@
 // Per-clock playhead lock: phase = ((master − t0) / sr) × f(BPM, Numer, Denom).
 // Reset sets t0 = now. BPM is this node only. Hardcoded hi/lo clicks.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 #include "click_hi_pcm.h"
 #include "click_lo_pcm.h"

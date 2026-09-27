@@ -11,7 +11,7 @@
 // when that integer changes -- same "precomputed key, passed as a plain
 // int" split as sample_hold's noise fallback.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

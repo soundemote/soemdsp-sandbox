@@ -9,7 +9,7 @@
 // each produces chaotic variations on its namesake waveform, growling and
 // grinding at extremes or soft and bubbly/fuzzy/howling depending on mode.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

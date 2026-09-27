@@ -12,8 +12,8 @@
 // rolling their own curve segment math.
 #pragma once
 
-#include "scalar_helpers.h"
-#include "exp_log.h"
+#include <soemdsp/math/scalar_helpers.h>
+#include <soemdsp/math/exp_log.h>
 
 namespace soemdsp_maths {
 

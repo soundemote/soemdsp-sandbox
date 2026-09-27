@@ -6,7 +6,7 @@
 // 4-section I/Q allpass pair + 1-sample I delay. Dual nets (side + mid).
 // Matches public/modules/quadrature/quadrature-math.js. Not Bode FIR Hilbert.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

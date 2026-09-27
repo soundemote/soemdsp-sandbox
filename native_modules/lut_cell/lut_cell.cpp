@@ -10,7 +10,7 @@
 // bit i of truthTable is the cell's output for input combination i, where
 // input combination is (D<<3 | C<<2 | B<<1 | A).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

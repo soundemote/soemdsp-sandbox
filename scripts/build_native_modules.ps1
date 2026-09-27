@@ -454,6 +454,7 @@ foreach ($module in $modules) {
   # explicitly): wasm SIMD has been baseline in every browser since 2021,
   # and the flag lets clang autovectorize ordinary scalar DSP loops.
   $clangArgs = @("--target=wasm32", "-O3", "-msimd128", "-nostdlib", "-fno-exceptions", "-fno-rtti")
+  $clangArgs += "-I$root\library\include"
   $clangArgs += "-Wl,--no-entry"
   foreach ($export in $module.Exports) {
     $clangArgs += "-Wl,--export=$export"
@@ -524,6 +525,7 @@ foreach ($module in $modules) {
   # at link time -- the modules share a lot of structurally identical helper
   # math (clamps, interpolators, smoothers) that LTO merges and inlines.
   $compileArgs = @("--target=wasm32", "-O3", "-msimd128", "-flto", "-nostdlib", "-fno-exceptions", "-fno-rtti")
+  $compileArgs += "-I$root\library\include"
   $obj = "$objDir\$($module.Name).o"
   $compileArgs += @("-c", "$root\native_modules\$($module.Name)\$($module.Name).cpp", "-o", $obj)
   & $clang @compileArgs

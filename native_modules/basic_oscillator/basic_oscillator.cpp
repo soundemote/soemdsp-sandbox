@@ -15,7 +15,7 @@
 // virtual instance to match, rather than this module tracking six ports
 // per handle itself.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

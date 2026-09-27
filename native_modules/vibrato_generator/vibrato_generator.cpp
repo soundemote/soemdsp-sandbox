@@ -8,7 +8,7 @@
 // f = Speed * (1 + lastSine * Top Morph).
 // Shared vibrato_gen_* header still drives Hypersaw LFOs.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

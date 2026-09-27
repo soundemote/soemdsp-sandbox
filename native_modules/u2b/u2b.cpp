@@ -5,7 +5,7 @@
 //
 // Unipolar 0…1 → bipolar −1…1: out = 2·in − 1.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

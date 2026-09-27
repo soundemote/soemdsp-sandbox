@@ -7,7 +7,7 @@
 // 0 dB = 1. Floor matches exp_log.h (≤ −140 dB → 0; non-positive lin → −120 dB).
 // Mode 0: dB→Amp. Mode 1: Amp→dB.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

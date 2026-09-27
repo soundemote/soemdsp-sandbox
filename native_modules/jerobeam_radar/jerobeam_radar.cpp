@@ -19,7 +19,7 @@
 // through the polar radius/angle terms, consistent with the existing
 // dsp_pow approximation tradeoff used elsewhere in this module set.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

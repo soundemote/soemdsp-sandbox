@@ -35,8 +35,8 @@
 // seed + same other parameters always produces the same pulse schedule --
 // this lets the UI display precompute the exact schedule that will play.
 
-#include "../sandbox_native_maths/scalar_helpers.h"
-#include "../sandbox_native_maths/trigger.h"
+#include <soemdsp/math/scalar_helpers.h>
+#include <soemdsp/trigger/trigger.h>
 using soemdsp_maths::clamp;
 using soemdsp_maths::rational_curve01;
 using soemdsp_maths::rising_edge_bool;

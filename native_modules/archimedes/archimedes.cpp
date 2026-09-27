@@ -25,7 +25,7 @@ typedef long long int64_t;
 // Freestanding wasm32: no standard library, no imports. All transcendental
 // helpers used by the phase-control API are implemented locally.
 
-#include "../sandbox_native_maths/scalar_helpers.h"
+#include <soemdsp/math/scalar_helpers.h>
 
 namespace {
 

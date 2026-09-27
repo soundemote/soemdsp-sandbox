@@ -7,7 +7,7 @@
 // pulseTime-length pulse. A new trigger while already waiting/pulsing
 // restarts the wait from scratch. Reset cancels any pending wait/pulse.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

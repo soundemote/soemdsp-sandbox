@@ -7,7 +7,7 @@
 // Wire: 3 self-describing chunks (2^49 / 2^50 flags), same as Arp.
 // Pool: held MIDI -> expand by Octaves -> Scale Offset rotate -> walk.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

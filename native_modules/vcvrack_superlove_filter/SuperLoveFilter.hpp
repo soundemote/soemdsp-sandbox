@@ -4,7 +4,7 @@
 // Chaos is fixed at 0 (no Chaos control on the VCV panel).
 // Modes: LP18 / LP24 / HP6 / BP6. Panel left→right: LP18, LP24, HP, BP.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace fmd {
 namespace super_love {

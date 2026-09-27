@@ -1,4 +1,4 @@
-﻿// soemdsp-native-module: ring_mod
+// soemdsp-native-module: ring_mod
 // soemdsp-native-label: RingMod
 // soemdsp-native-target: ringMod
 // soemdsp-native-kind: dynamics
@@ -7,7 +7,7 @@
 // out = carrier * mod — no DC bias, so carrier/modulator originals are rejected
 // (balanced AM / diode-ring style).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

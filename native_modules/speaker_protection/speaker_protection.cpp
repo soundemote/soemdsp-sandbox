@@ -7,7 +7,7 @@
 // Matches public/modules/speakerProtection/speaker-protection-worklet-evaluator.js.
 // Stateless sample API; create/destroy exist for graph_engine handle convention.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

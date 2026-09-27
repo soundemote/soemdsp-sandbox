@@ -52,7 +52,7 @@
 //   and its oscillator's phase resampled through a sample-and-hold before
 //   waveshaping, aliasing it deliberately for a fuzzy/grungy character.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -12,7 +12,7 @@
 // apparent unit mismatch in the source, replicated here exactly rather than
 // "fixed", since this is a faithful port.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

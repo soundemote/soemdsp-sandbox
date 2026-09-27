@@ -280,11 +280,11 @@ This app is a **C++ DSP engine with a JS interface** (§0). JS authors and obser
 
 ### Sine SSOT (wavetable)
 
-- **Default pure-tone sine** in oscillators / LFOs / taps must come from the **shared half-sine wavetable** (`dsp_sin_turns_lut` / `dsp_sin_cos_lut` in `sandbox_native_maths`, same LUT Additive / Vibrato / SinCos use). Do **not** invent a per-module Taylor-about-zero on wrapped ±π (that clicks once per cycle).
+- **Default pure-tone sine** in oscillators / LFOs / taps must come from the **shared half-sine wavetable** (`dsp_sin_turns_lut` / `dsp_sin_cos_lut` in `library/include/soemdsp`, same LUT Additive / Vibrato / SinCos use). Do **not** invent a per-module Taylor-about-zero on wrapped ±π (that clicks once per cycle).
 - **SinCos** and **SinCos4** expose **all** available sin methods as an explicit Method control: **Wavetable** (default), **Polynomial** (joint quadrant poly), **std::sin** (platform/`__builtin_sin`), **Taylor** (quadrant-folded Taylor — must be continuous at cycle wrap; never evaluate raw Taylor at ±π).
 - **Exceptions** (documented, not silent forks):
   - **RobinSinusoid** — iterative / recurrence sine (special case).
-  - Modules that need sin/cos as **kernel math** (BLIT sinc, DSF, filter coeff helpers) may use shared `dsp_sin` / `dsp_sin_cos` polys — still from `sandbox_native_maths`, not a private clicking approx.
+  - Modules that need sin/cos as **kernel math** (BLIT sinc, DSF, filter coeff helpers) may use shared `dsp_sin` / `dsp_sin_cos` polys — still from `library/include/soemdsp`, not a private clicking approx.
   - A module may ship wavetable **plus** other Method choices (SinCos / SinCos4); product default remains wavetable.
 
 ---
@@ -569,8 +569,8 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 | Wipe Control dirty-cache / re-push all knobs every `setParams` | **No** — stickiness (§0b); cold push only after compile/destroy |
 | Nested DSP coeff objects in instance pools that lose writes | **No** — flat fields on the instance; smoke “set once, process many” |
 | `x \|\| default` or `x > 0 ? x : magic` on a stored setting | **No** — 0 is a value (§18) |
-| Copy the same helper into a second module `.cpp` | **No** — use / extend `sandbox_native_maths` (§19) |
-| Edit `sandbox_native_maths` without Architect OK | **No** — propose first (§19) |
+| Copy the same helper into a second module `.cpp` | **No** — use / extend `library/include/soemdsp` (§19) |
+| Edit `library/include/soemdsp` without Architect OK | **No** — propose first (§19) |
 
 ---
 
@@ -602,15 +602,15 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 
 ## 19. Shared library maths — do not copy kernels
 
-**Use `native_modules/sandbox_native_maths` for shared equations and behaviors.** Do not paste the same helper, formula, or kernel into multiple module `.cpp` files when a library function already exists or belongs there.
+**Use `library/include/soemdsp` for shared equations and behaviors.** Do not paste the same helper, formula, or kernel into multiple module `.cpp` files when a library function already exists or belongs there.
 
 - Prefer `#include` + call into `soemdsp::math` / topic headers (`scalar_helpers`, `poly_blep`, `midi_hz`, `exp_log`, `phasor`, `dynamics`, `trigger`, `nonlinearity`, `analog_filter_trig`, …) over local clones of clamp/wrap/lerp, soft-clip, one-pole, polyBLEP, MIDI↔Hz, and the rest.
 - Module-specific DSP stays in that module’s `.cpp`. Shared math that appears (or will appear) in more than one place belongs in the library — once — not as copy-paste twins that can drift.
 - Sine / LUT defaults still follow §2 (Sine SSOT). This section is the broader “one library, no forks” rule for all shared maths.
 
-### Architect gate on `sandbox_native_maths`
+### Architect gate on `library/include/soemdsp`
 
-**Edits and additions under `native_modules/sandbox_native_maths/` require prior approval from the Architect (Argi).** Agents and contributors must not add helpers, change signatures, or refactor topic headers without that sign-off. Propose the change (what, why, which callers) and wait for yes before touching the library.
+**Edits and additions under `library/include/soemdsp/` require prior approval from the Architect (Argi).** Agents and contributors must not add helpers, change signatures, or refactor topic headers without that sign-off. Propose the change (what, why, which callers) and wait for yes before touching the library.
 
 ## Amendments
 
@@ -620,7 +620,7 @@ Add new rules here when the same class of mistake happens twice. Keep this file 
 
 - **2026-09-27 — No legacy helpers (§1):** Patches may break after renames/schema changes. The Architect repairs them. Agents must not add legacy helpers, dual keys, rename bridges, or soft remaps to keep old saves working — that complexity causes more bugs than broken patches.
 
-- **2026-09-27 — Shared library maths (§19):** Prefer `sandbox_native_maths` over duplicated equations/behaviors across modules. Changes to that library need Architect (Argi) approval first.
+- **2026-09-27 — Shared library maths (§19):** Prefer `library/include/soemdsp` over duplicated equations/behaviors across modules. Changes to that library need Architect (Argi) approval first.
 
 - **2026-09-27 — Display follows Title (Policy B):** Module Settings **Display** is an optional override. Empty/unset Display ⇒ effective display = module **Title** (alias / default). Non-empty Display ⇒ that text. Clearing Display snaps back to Title (no blank labels). Shared helpers: `normalizeNodeGraphPatchNodeDisplay`, `nodeGraphPatchNodeDisplayOverride`, `nodeGraphPatchNodeEffectiveDisplay` in `node-graph-patch-clone.js`. `nodeGraphNodeDisplayName` uses effective display. Module chrome **Title** bar stays on Title (alias) for rename. Named portals: jack/IO label = effective display; **SyncBusAlias** / **wirelessRole** / color inheritance stay on Title. InletOutletLayout Module Settings keep Title + Display; restore show/hide Title; leave buttons / collapsed / unused / in-out / disable / save-to-default stripped.
 

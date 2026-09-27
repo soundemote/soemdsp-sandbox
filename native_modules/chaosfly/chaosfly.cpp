@@ -4,7 +4,7 @@
 // soemdsp-native-kind: chaos
 // Dual sine FM chaos (JSFX Elan's Chaos Generator). Wavetable sine + passive 1-poles.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

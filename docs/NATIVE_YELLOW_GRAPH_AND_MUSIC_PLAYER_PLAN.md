@@ -51,7 +51,7 @@ Parked (not this cut): sample-accurate Additive mod packets (`docs/ADDITIVE_SAMP
 | Bubble **or** one filter | `additiveBubble` *or* Linear/Analog/Ladder | `ApplyGrowl` / filter apply |
 | Out | `additiveOut` | `additiveGraphSumSample` |
 
-Shared C++ header under `native_modules/sandbox_native_maths/` (port from `additive-graph-math.js`), folded into `graph_engine` build (not three separate wasm modules).
+Shared C++ header under `library/include/soemdsp/` (port from `additive-graph-math.js`), folded into `graph_engine` build (not three separate wasm modules).
 
 Host: `NATIVE_GRAPH_TYPE_IDS`, param sync, Graph wire compile; **gate sidecar** so native-backed nodes skip JS DSP.
 

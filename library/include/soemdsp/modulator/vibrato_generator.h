@@ -3,9 +3,9 @@
 // Shared by the Vibrato Generator module and Hypersaw per-saw LFOs.
 #pragma once
 
-#include "analog_filter_trig.h"
-#include "phasor.h"
-#include "scalar_helpers.h"
+#include <soemdsp/math/analog_filter_trig.h>
+#include <soemdsp/math/phasor.h>
+#include <soemdsp/math/scalar_helpers.h>
 
 namespace soemdsp_vibrato {
 

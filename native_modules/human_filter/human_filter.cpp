@@ -20,7 +20,7 @@
 // (a typical presence-shaping bell default) are used here, documented
 // rather than silently guessed as exact.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

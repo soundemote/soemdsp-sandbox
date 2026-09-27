@@ -6,7 +6,7 @@
 // ISO 1/3-octave graphic EQ: cascade of peaking biquads (RBJ Cookbook).
 // Band gains are absolute decibels (±12 dB UI default; hard clamp ±24).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

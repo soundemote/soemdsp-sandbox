@@ -18,7 +18,7 @@
 // trisaw sharpness morph: 0 = reverse saw, 0.5 = triangle (forward then
 // reverse), 1 = forward saw. Version is 2 for this semantics.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

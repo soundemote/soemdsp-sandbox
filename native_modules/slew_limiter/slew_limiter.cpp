@@ -9,7 +9,7 @@
 // Up/Down Shape: 0 Lin / 1 Log / 2 Exp / 3 Smooth. Bias added before slew.
 // First sample snaps to target.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

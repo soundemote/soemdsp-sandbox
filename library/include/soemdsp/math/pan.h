@@ -2,7 +2,7 @@
 // Nested soemdsp::math::pan_gains. Matches mix_stereo + graph_engine.
 #pragma once
 
-#include "analog_filter_trig.h"
+#include <soemdsp/math/analog_filter_trig.h>
 
 namespace soemdsp::math {
 

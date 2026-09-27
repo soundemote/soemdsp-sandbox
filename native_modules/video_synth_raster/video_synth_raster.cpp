@@ -13,7 +13,7 @@
 // This is a standalone proof, not wired into the node graph or the live
 // AudioWorklet -- see the demo HTML page for how it's actually driven.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

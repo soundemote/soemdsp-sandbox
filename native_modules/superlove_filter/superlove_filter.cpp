@@ -9,7 +9,7 @@
 // stably self-oscillating design (Japan's answer to the Flower Child
 // filter wars, per the original help text).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

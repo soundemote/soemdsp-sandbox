@@ -6,7 +6,7 @@
 // Shaped Attack–Release (same bipolar curves as Curve ADSR).
 // Gate follow or Trigger one-shot. UpdateOnTrigger latches knobs on rise.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

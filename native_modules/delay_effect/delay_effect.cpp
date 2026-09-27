@@ -15,7 +15,7 @@
 // string hash, not per-sample DSP -- same call as randomWalk's seed key,
 // computed once JS-side and passed in as a plain integer.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

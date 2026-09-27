@@ -7,7 +7,7 @@
 // Gate mutes when connected and low. Robin recursive sines:
 // Tone = low+high, ToneL = low, ToneR = high. Matches phone-tone-math.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

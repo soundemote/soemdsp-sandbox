@@ -9,7 +9,7 @@
 // and fires a pulseTime-length Pulse output. Count reports the running
 // total normalized to [0,1] of countMax. Reset zeroes everything.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

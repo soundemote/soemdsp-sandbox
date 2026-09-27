@@ -6,7 +6,7 @@
 //
 // Linkwitz-Riley: two cascaded Butterworth of half-order (classic LR crossovers).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

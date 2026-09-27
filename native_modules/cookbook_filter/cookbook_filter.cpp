@@ -9,7 +9,7 @@
 // Original: originalcode/rosic_CookbookFilter.h
 // Live path: getSampleDirect1() only (lattice choice removed).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

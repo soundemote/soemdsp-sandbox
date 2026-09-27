@@ -15,7 +15,7 @@
 // UpdateOnTrigger latches knob depths / times on Gate rise — not the
 // feedback-computed decay/sustain (those must stay live for Body/Snap).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 extern "C" int soemdsp_exp_adsr_create();
 extern "C" void soemdsp_exp_adsr_destroy(int handle);

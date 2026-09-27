@@ -6,7 +6,7 @@
 // Roll-your-own optical-lag envelope (soemdsp::modulator::Vactrol style):
 // Light in → attack/release one-pole → gamma curve → dark-current floor.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

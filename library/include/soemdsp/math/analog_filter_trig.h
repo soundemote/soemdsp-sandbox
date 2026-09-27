@@ -10,7 +10,7 @@
 // independently derived the same polynomial approach.
 #pragma once
 
-#include "scalar_helpers.h"
+#include <soemdsp/math/scalar_helpers.h>
 
 namespace soemdsp_maths {
 

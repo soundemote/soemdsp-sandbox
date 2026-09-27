@@ -16,7 +16,7 @@
 // per input, and only the bits that are set participate in the comparison.
 // With no inputs connected, both outputs are 0.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

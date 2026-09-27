@@ -8,8 +8,8 @@
 // Flat soemdsp_maths:: is a compatibility mirror for existing modules.
 #pragma once
 
-#include "debug.h"
-#include "constant.h"
+#include <soemdsp/debug/debug.h>
+#include <soemdsp/constant/constant.h>
 
 namespace soemdsp::math {
 

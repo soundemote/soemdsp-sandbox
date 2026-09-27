@@ -6,7 +6,7 @@
 // Cascaded real 1-poles (no Q). Slope 0..3 → 1..4 poles. Stagger spreads poles.
 // Sweep shifts cutoffs in semitones. Gain Comp scales stack to −3 dB at label fc.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

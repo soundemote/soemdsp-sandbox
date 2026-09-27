@@ -9,7 +9,7 @@
 // phasor) whose ellipse waveshape parameter is driven by the chaos
 // control, producing phase-locked chaotic textures.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

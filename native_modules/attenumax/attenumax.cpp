@@ -6,7 +6,7 @@
 // Out = Bias + In * Bias * Amplitude.
 // Amplitude is a normalized index (1 = full). Amp 0 → Out = Bias. No clamp.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

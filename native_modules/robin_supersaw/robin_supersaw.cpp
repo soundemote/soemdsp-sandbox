@@ -8,7 +8,7 @@
 // like Hypersaw (last voice scaled by fractional part). Hard voice cap 128;
 // UI typically exposes ≤32. voices=1 renders one bank copied to L/R (true mono).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

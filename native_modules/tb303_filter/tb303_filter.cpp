@@ -11,7 +11,7 @@
 //   - 0.125 input scale / 8.0 output scale (303 gain staging)
 //   - 15 output taps: LP/HP/BP at 6/12/18/24 dB per octave
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 
@@ -94,7 +94,7 @@ struct TeeBeeState {
 static TeeBeeState gPool[kMaxInstances];
 
 // sin/cos/tan over [0, pi] and dsp_exp_squaring now live in
-// sandbox_native_maths.h (this file's copies were byte-for-byte identical
+// soemdsp/soemdsp.hpp (this file's copies were byte-for-byte identical
 // modulo the poly_sin/poly_sin_0_halfpi and dsp_tan_neg/dsp_tan_neg_halfquarter
 // naming).
 

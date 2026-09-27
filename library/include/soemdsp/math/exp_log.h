@@ -8,7 +8,7 @@
 // tradeoffs, not just a faster version of the same function).
 #pragma once
 
-#include "scalar_helpers.h"
+#include <soemdsp/math/scalar_helpers.h>
 
 namespace soemdsp_maths {
 

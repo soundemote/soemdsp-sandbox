@@ -1,5 +1,5 @@
 // Polyphony voice table — Midi Note + Velocity (status = velocity > 0).
-// Mirrors native_modules/sandbox_native_maths/polyphony_voices.h
+// Mirrors library/include/soemdsp/musical/polyphony_voices.h
 // Full MIDI 0..127. No Play/Arp bitmasks / phase-mux on this bus.
 
 const POLYPHONY_NOTE_COUNT = 128;

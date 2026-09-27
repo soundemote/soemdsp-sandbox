@@ -9,7 +9,7 @@
 //   2 = std::sin — platform / __builtin_sin+cos
 //   3 = Taylor — quadrant-folded Taylor (continuous at wrap; no ±π click)
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

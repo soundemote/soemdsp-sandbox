@@ -14,7 +14,7 @@
 // Delay of 0 (and any 0…1 fractional tap) mixes the current input on Delayed.
 // Write first, then read. Speaker protection owns unsafe levels — no min-delay floor.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

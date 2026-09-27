@@ -6,7 +6,7 @@
 // Diatonic triad → Scale (12-bit mask) + Root (pitch MIDI) + Gate.
 // Port of public/node-graph-chord-pad.js / chord-pad-worklet-evaluator.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

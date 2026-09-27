@@ -7,7 +7,7 @@
 // (What I See Is What I Hear). Motion modes only change how domainTime enters
 // the field — not a second visual noise path.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

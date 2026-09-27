@@ -40,7 +40,7 @@
 // audio would. Patching something into Sync still overrides it -- the
 // internal oscillator is a convenience default, not a second mandatory step.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

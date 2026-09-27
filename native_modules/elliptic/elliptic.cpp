@@ -7,7 +7,7 @@
 // Elliptic (Cauer) multipole — sharpest transition for a given order.
 // Freestanding SOS approximation of RS-MET PrototypeDesigner elliptic.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

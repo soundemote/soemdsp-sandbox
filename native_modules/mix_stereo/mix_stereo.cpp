@@ -6,7 +6,7 @@
 // Shared by MixStereo4 / MixStereo2 (pairs 3–4 silenced on the face).
 // Matches public/modules/mixStereo/mix-stereo-math.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

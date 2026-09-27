@@ -6,7 +6,7 @@
 // RS-MET-style fractal pattern synthesis: L-system rewrite + turtle polyline,
 // walked at audio rate into X/Y. Port of public/modules/snowflake/snowflake-math.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

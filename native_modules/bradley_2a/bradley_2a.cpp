@@ -15,7 +15,7 @@
 //   out = (1 + (g-1)H) * D[ (1 + Ja*sin(ampLfo)) * sin(car + phaseJit + shift + Ph*H) + Ai*sin(interf) ] + Ii*noise*H
 // with H = hit gate, D[x] = x + h2 x^2 + h3 x^3.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

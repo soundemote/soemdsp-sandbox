@@ -6,7 +6,7 @@
 // Monophonic pitch detector using the McLeod Pitch Method: NSDF over a
 // sliding window, peak picking, and parabolic interpolation.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

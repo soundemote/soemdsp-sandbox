@@ -10,7 +10,7 @@
 // reference header but never actually called in getSampleFrame(), so it's
 // not part of this port either.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

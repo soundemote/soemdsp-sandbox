@@ -9,7 +9,7 @@
 // N-way uses exactly N-1 LR splits (RS-MET CrossOverNWay style).
 // Serves crossover2…crossover6 (bandCount chosen at create).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

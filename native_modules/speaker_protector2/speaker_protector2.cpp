@@ -6,7 +6,7 @@
 // Stereo-linked slew VCA + 1 kHz HP trip. Never clips or knees.
 // Matches public/modules/speakerProtector2/speaker-protector-2-math.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

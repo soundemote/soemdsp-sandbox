@@ -14,7 +14,7 @@
 // Recalculate On Trig defaults ON — latch Frequency/Damping/Decay/Attack at
 // Trigger/Gate so mid-flight knob moves do not warp the current shot.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

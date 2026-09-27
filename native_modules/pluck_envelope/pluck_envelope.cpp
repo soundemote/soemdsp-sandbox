@@ -7,7 +7,7 @@
 //   VelocitySensitivity, Attack, DecaySlopeTop/Mid/Bottom,
 //   Sustain, Release, AutoReleaseTime, EnvelopeCurve, EnvelopeDamping
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

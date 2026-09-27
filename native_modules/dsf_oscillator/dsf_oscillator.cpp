@@ -72,7 +72,7 @@
 // every waveform's shape and DC symmetry consistent from 20 Hz to
 // 18 kHz, where the fixed-retention version was measurably distorted.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

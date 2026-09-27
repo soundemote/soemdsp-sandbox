@@ -72,7 +72,7 @@ echo  Open:
 echo    start "" "%BUILD_DIR%\soemdsp.sln"
 echo.
 echo  Targets of interest:
-echo    - sandbox_native_maths_headers  (maths .h browsing)
+echo    - sandbox_native_maths_headers  (library/include/soemdsp browsing)
 echo    - ^<module_name^>         (one STATIC lib per native_modules/*/ )
 echo    - soemdsp_all_modules    (build every module lib)
 echo    - soemdsp_vs_readme      (caveats text in the solution)

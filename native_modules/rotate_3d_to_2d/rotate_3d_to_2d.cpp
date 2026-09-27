@@ -5,7 +5,7 @@
 //
 // Matches public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

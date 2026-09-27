@@ -4,7 +4,7 @@
 // Freestanding: no libm.
 #pragma once
 
-#include "constant.h"
+#include <soemdsp/constant/constant.h>
 
 namespace soemdsp::math {
 // Quadratic PolyBLEP residual around a unit-interval discontinuity.

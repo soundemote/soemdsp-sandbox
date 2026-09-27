@@ -3,11 +3,11 @@
 // soemdsp-native-target: stepGraph
 // soemdsp-native-kind: modulator
 //
-// Per-segment curve evaluator for Step Graph (NOT sandbox_native_maths/graph.h).
+// Per-segment curve evaluator for Step Graph (NOT soemdsp/utility/graph.h).
 // Ports graphSegmentValue shapes from node-live-audio-worklet-graph.js.
 // Drive (Input/LFO/Phasor) lives in graph_engine process_step_graph.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

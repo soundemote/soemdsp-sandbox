@@ -6,7 +6,7 @@
 // Short interpolating delay + dry mix + LFO on delay time + feedback.
 // Comb notches at n/delay. Reset zeros LFO only.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

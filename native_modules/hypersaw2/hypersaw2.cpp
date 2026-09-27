@@ -17,7 +17,7 @@
 // Rising Reset re-zeros master + re-rolls seeds.
 // Display: soemdsp_hypersaw2_voice_phase → wrap01(center + walk + vib + randomize).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

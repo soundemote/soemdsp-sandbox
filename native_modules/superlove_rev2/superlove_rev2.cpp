@@ -7,7 +7,7 @@
 // (patches/superlove lp18|lp24 breadboard.json). HP6/BP6 are identical
 // copies of superlove_filter (original SuperLove_HP6 / SuperLove_BP6).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

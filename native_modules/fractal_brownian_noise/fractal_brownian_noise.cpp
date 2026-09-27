@@ -5,7 +5,7 @@
 
 #include <wasm_simd128.h>
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

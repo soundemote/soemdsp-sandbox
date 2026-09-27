@@ -3,7 +3,7 @@
 // soemdsp-native-target: pll
 // soemdsp-native-kind: effect
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

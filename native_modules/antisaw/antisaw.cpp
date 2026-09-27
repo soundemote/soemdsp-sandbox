@@ -18,7 +18,7 @@
 // fundamental (no smoothing/caching) -- the fold's sensitivity to f0 is
 // exactly the aliasing character this module exists to expose.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

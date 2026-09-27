@@ -8,7 +8,7 @@
 // Playback bilinear-lerps four neighbor tables at the mip whose top partial
 // is ≤ Nyquist/|f|. O(1) per sample. No live PD warp.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 #include <stddef.h>
 #include <stdint.h>

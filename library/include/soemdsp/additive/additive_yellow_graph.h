@@ -8,10 +8,10 @@
 #ifndef ADDITIVE_YELLOW_GRAPH_H
 #define ADDITIVE_YELLOW_GRAPH_H
 
-#include "scalar_helpers.h"
-#include "exp_log.h"
-#include "analog_filter_trig.h"
-#include "nonlinearity.h"
+#include <soemdsp/math/scalar_helpers.h>
+#include <soemdsp/math/exp_log.h>
+#include <soemdsp/math/analog_filter_trig.h>
+#include <soemdsp/nonlinearity/nonlinearity.h>
 
 namespace soemdsp_yellow_graph {
 

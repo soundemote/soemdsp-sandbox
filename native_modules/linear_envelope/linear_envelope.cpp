@@ -3,7 +3,7 @@
 // soemdsp-native-target: linearEnvelope
 // soemdsp-native-kind: envelope
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

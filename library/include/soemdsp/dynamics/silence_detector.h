@@ -2,7 +2,7 @@
 // abs(in) above threshold resets; ~holdSeconds of continuous quiet → idle.
 #pragma once
 
-#include "scalar_helpers.h"
+#include <soemdsp/math/scalar_helpers.h>
 
 namespace soemdsp_maths {
 

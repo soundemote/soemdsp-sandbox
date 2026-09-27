@@ -6,7 +6,7 @@
 // Port of DistortionOscillator / Softwave multi-shape morphing oscillator
 // previously pure-JS in softwave-osc-worklet-evaluator.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

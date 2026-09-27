@@ -6,7 +6,7 @@
 // Feedback/feedforward comb with Thiran fractional delay.
 // Matches public/modules/combResonator/comb-resonator-math.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

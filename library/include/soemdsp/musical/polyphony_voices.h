@@ -3,9 +3,9 @@
 // Header-only; mirrored by public/lib/polyphony-voices.js for the worklet path.
 #pragma once
 
-#include "scalar_helpers.h"
-#include "analog_filter_trig.h"
-#include "midi_hz.h"
+#include <soemdsp/math/scalar_helpers.h>
+#include <soemdsp/math/analog_filter_trig.h>
+#include <soemdsp/math/midi_hz.h>
 
 namespace soemdsp_maths {
 

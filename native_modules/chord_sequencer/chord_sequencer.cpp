@@ -3,7 +3,7 @@
 // soemdsp-native-target: chordSequencer
 // soemdsp-native-kind: pitch
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

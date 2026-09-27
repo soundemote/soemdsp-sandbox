@@ -4,7 +4,7 @@
 // modeled self-oscillating filter family: chaoticPhaseLockingFilter,
 // humanFilter, resonatorFilter, activeFilter, superloveFilter,
 // yellowjacketFilter. This is the JS counterpart of
-// native_modules/sandbox_native_maths/analog_filter_trig.h -- same
+// library/include/soemdsp/math/analog_filter_trig.h -- same
 // duplication problem (each module independently derived the same
 // polynomial approach), same fix (one shared home instead of N copies).
 

@@ -8,7 +8,7 @@
 // a particle launched inside an ellipse, reflecting off the tangent at each
 // hit. Outputs X/Y position for phosphor scope and stereo/audio use.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

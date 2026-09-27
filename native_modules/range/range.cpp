@@ -6,7 +6,7 @@
 // Linear map: in [inLow, inHigh] → out [outLow, outHigh].
 // Out = outLow + (in - inLow) / (inHigh - inLow) * (outHigh - outLow).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

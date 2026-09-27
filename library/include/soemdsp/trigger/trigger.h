@@ -2,7 +2,7 @@
 // Nested soemdsp::math; soemdsp_maths mirror.
 #pragma once
 
-#include "scalar_helpers.h"
+#include <soemdsp/math/scalar_helpers.h>
 
 namespace soemdsp::math {
 

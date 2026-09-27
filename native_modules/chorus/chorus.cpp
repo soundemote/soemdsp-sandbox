@@ -7,8 +7,8 @@
 // (wavetable sine, Top Morph AM, Side Morph phase, different seeds).
 // Wet chorus → 6 dB HP → 6 dB LP, then Mix with dry. No delay feedback.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
-#include "../sandbox_native_maths/vibrato_generator.h"
+#include <soemdsp/soemdsp.hpp>
+#include <soemdsp/modulator/vibrato_generator.h>
 
 namespace {
 

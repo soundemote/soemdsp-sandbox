@@ -8,7 +8,7 @@
 // phasors (main + splash) drive a cross-shaped spiral with an optional
 // "splash" wobble layered on top.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

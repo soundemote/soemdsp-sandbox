@@ -4,8 +4,8 @@
 // Credit: design formulas aligned with classical DSP / RS-MET EngineersFilter family.
 #pragma once
 
-#include "scalar_helpers.h"
-#include "analog_filter_trig.h"
+#include <soemdsp/math/scalar_helpers.h>
+#include <soemdsp/math/analog_filter_trig.h>
 
 namespace soemdsp_maths {
 namespace scientific_iir {

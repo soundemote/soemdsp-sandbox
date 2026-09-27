@@ -7,7 +7,7 @@
 // Free-running recursive sine: unit phasor rotated by ω = 2πf/sr.
 // Same algorithm as public/modules/robinSinusoid/robin-sinusoid-math.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

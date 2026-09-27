@@ -9,7 +9,7 @@
 // See public/node-graph-log-spiral.js for the derivation this is a direct
 // port of.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -7,7 +7,7 @@
 // harmonic count clamped under Nyquist. Ideal mode = textbook sin(x)/x
 // (aliases as an oscillator). Matches node-graph-stdlib/node-graph-sinc-kernel.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -11,7 +11,7 @@
 // Plugin wrapper (oversampling, ear protector) is not reproduced; ducking
 // is a simplified peak follower so wet gain still tracks input.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -6,7 +6,7 @@
 // Chorus topology (multi-voice interpolating delay, wet HP→LP, Mix) with
 // SoEm Reverb delay modulators: Random Walk or FBM. No vibrato generator.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

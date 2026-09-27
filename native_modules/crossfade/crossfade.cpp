@@ -7,7 +7,7 @@
 // Adjacent stereo-pair linear blend by Crossfade address 0..(N-1).
 // Matches public/modules/crossfade/crossfade-math.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

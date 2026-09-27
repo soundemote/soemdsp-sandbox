@@ -12,7 +12,7 @@
 // vs offset 0: 0 and 1 fire together, 0.5 is halfway. Interpolate 0/1/2 =
 // Off / Linear / Smoothstep glide over the clock period.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

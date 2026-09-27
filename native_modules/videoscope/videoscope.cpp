@@ -12,7 +12,7 @@
 // (and burst catch-up after UI stalls / plan sync) cannot overwrite the
 // displayed window until the next re-trigger.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

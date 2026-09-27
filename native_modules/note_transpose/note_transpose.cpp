@@ -5,7 +5,7 @@
 //
 // Stateless pitch (MIDI note) offset: midiOut = midiIn + semis + oct*12.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

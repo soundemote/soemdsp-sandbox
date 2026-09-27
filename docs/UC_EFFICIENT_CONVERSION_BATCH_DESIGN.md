@@ -232,7 +232,7 @@ Shared pitch-class helpers live in `public/node-graph-musical-engines.js` and `p
 | `gravityWalker` | Stateful nearest-class walk + leap residual |
 | `chordPad` | **Degree-triad → Scale/Root/Gate.** Outputs: `Scale` = 12-bit pitch-class bitmask (integer on the audio bus, rotate maj/min/dim triad by key+degree), `Root` = `(60 + rootPc) / 120`, `Gate` = clamped `level`. Input: `Select` (degree override). Params: `key`, `mode` (maj/min), `degree`, `level`. **Not** a multi-slot pitch latch — do **not** copy `chord_memory` Note1–4/Arp layout. Cousin only at “musical CV / scale mask” level (closer to pitch-quantizer / scale helpers). |
 
-Extract shared C++ helpers (mask→classes, midi↔0.1V, degree→midi, 12-bit rotate) into `sandbox_native_maths/musical_pitch.h` in **PR8a only** so parallel musical PRs do not duplicate helpers.
+Extract shared C++ helpers (mask→classes, midi↔0.1V, degree→midi, 12-bit rotate) into `library/include/soemdsp/musical/musical_pitch.h` in **PR8a only** so parallel musical PRs do not duplicate helpers.
 
 RNG: `degreeTuring` / phrase mutate currently use `Math.random()` in JS — native must use a seeded per-instance PRNG (pattern: `turing_machine` / `random_walk`) for determinism in smokes.
 
@@ -246,7 +246,7 @@ RNG: `degreeTuring` / phrase mutate currently use `Math.random()` in JS — nati
   - Face editing stays JS (`node-graph-graph-utils.js`); efficient audio must not call `nodeGraphLiveModuleEvaluators.smoothGraph`.
   - **JS audio reference (must port):** `normalizeSmoothGraphSmoothingMode`, `graphValueAt`, and segment options in `public/node-live-audio-worklet-graph.js` (~513 lines), plus face/normalize limits in `public/node-graph-graph-utils.js`. Smooth modes: `linear` / `catmull` / `quadratic` / `cubic` (legacy six-label collapse already in JS). Step Graph: per-segment shapes (`linear`, `rational`, `exponential`, `log`, `smoothstep`, `hold`) + curve offset.
   - **Point cap:** JS refuses adds at **`graph.nodes.length >= 32`** (`node-graph-graph-utils.js`). Native must enforce the same **max 32 points**.
-  - **Do not reuse `native_modules/sandbox_native_maths/graph.h`.** That header is a **different** breakpoint curve (LINEAR / RATIONAL / EXPONENTIAL only, `kMaxNodes = 32`) for analog-filter-family nonlinearities — not Smooth Graph catmull/quadratic/cubic and not Step Graph’s full segment set. Reusing it would ship wrong semantics.
+  - **Do not reuse `library/include/soemdsp/utility/graph.h`.** That header is a **different** breakpoint curve (LINEAR / RATIONAL / EXPONENTIAL only, `kMaxNodes = 32`) for analog-filter-family nonlinearities — not Smooth Graph catmull/quadratic/cubic and not Step Graph’s full segment set. Reusing it would ship wrong semantics.
 
 Recommended split: **PR9a** native curve evaluator + `smoothGraph` LFO-only subset (**allowlist off**); **PR9b** Step Graph shapes + mapper/phasor parity + **allowlist both** once smoke passes (**A5b** resolved — no early `smoothGraph`-only allowlist).
 
@@ -304,7 +304,7 @@ sequenceDiagram
 ### New / extended graph bindings
 
 - New `kType*` constants and `NATIVE_GRAPH_TYPE_IDS` entries (table above).
-- **Graph curve upload** (for `smoothGraph`/`stepGraph` only): new exports, e.g. `soemdsp_graph_node_set_curve(handle, nodeId, ptr, bytes)` or module-local `soemdsp_smooth_graph_set_points(...)`. Exact shape TBD in Graph PRs; must be sample-accurate safe (copy on compile or double-buffer). Cap ≤32 points. Implement against `graphValueAt` / `normalizeSmoothGraphSmoothingMode` — **not** `sandbox_native_maths/graph.h`.
+- **Graph curve upload** (for `smoothGraph`/`stepGraph` only): new exports, e.g. `soemdsp_graph_node_set_curve(handle, nodeId, ptr, bytes)` or module-local `soemdsp_smooth_graph_set_points(...)`. Exact shape TBD in Graph PRs; must be sample-accurate safe (copy on compile or double-buffer). Cap ≤32 points. Implement against `graphValueAt` / `normalizeSmoothGraphSmoothingMode` — **not** `library/include/soemdsp/utility/graph.h`.
 
 ### Param ID strategy
 
@@ -450,7 +450,7 @@ Staged order matches **PR Plan** below (protection and papoulis first → musica
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| `smoothGraph`/`stepGraph` complexity (curve upload, modes, Step vs Smooth) | **High** | Multi-PR; allowlist last (A5b); parity vs `graphValueAt` / `normalizeSmoothGraphSmoothingMode`; **never** reuse `sandbox_native_maths/graph.h` |
+| `smoothGraph`/`stepGraph` complexity (curve upload, modes, Step vs Smooth) | **High** | Multi-PR; allowlist last (A5b); parity vs `graphValueAt` / `normalizeSmoothGraphSmoothingMode`; **never** reuse `library/include/soemdsp/utility/graph.h` |
 | `graph_engine.cpp` / param-constant merge conflicts | Medium | Serialize type **and** param (`200–299`) allocation; small ordered PRs; dual-file sync |
 | Musical RNG / scale helper drift vs JS | Medium | Shared tests: feed known clocks/masks; compare MIDI/pitch within epsilon |
 | `phaseDisperse` CPU at 64 stages | Medium | Cap default stages; smoke at max; document |
@@ -468,7 +468,7 @@ Staged order matches **PR Plan** below (protection and papoulis first → musica
 4. **SKIP** `arp`, `binaryClock`, `besselThomson` for this batch; do not touch `bessel` (54).
 5. **Shared musical pitch helpers** land only in **PR8a** (`musical_pitch.h`); seeded PRNG for stochastic musical modules. **`chordPad` is Scale/Root/Gate (bitmask triad helper), not chord_memory poly outs.**
 6. **`hilbert` shares `quadrature` kernel**; Hilbert Pair implements the full In/Mid/Side → I/Q/MidI/SideQ contract (dual nets; `SideQ = Q`); mono Hilbert is In→Out with `shift` ∈ {+90,−90,0}.
-7. **`smoothGraph` / `stepGraph` are multi-PR** and stay off the efficient allowlist until PR9b audio parity smokes pass (**A5b** — product owner resolved); port `graphValueAt` semantics; **do not reuse `sandbox_native_maths/graph.h`**; max **32** points; Yellow Graph **111–127** remain unrelated.
+7. **`smoothGraph` / `stepGraph` are multi-PR** and stay off the efficient allowlist until PR9b audio parity smokes pass (**A5b** — product owner resolved); port `graphValueAt` semantics; **do not reuse `library/include/soemdsp/utility/graph.h`**; max **32** points; Yellow Graph **111–127** remain unrelated.
 8. **Policy hard cutover stands:** no JS audio twin on the efficient path; face math JS may remain for UI.
 9. **Batch by shared kernels** (EQ wrappers together, musical **8a→8c**, Hilbert pair together, graphs last) for independently mergeable PRs.
 10. **Bump `soemdsp_graph_version`** when process dispatch gains types so smokes can assert a floor.
@@ -503,7 +503,7 @@ Staged order matches **PR Plan** below (protection and papoulis first → musica
 - `public/modules/musicalEngines/`, `public/node-graph-musical-engines.js`
 - `public/modules/quadrature/quadrature-math.js`, `quadrature-live-evaluator.js` — In+Side / Mid contract
 - `public/node-graph-graph-utils.js` (max 32 nodes), `public/node-live-audio-worklet-graph.js` (`graphValueAt`, `normalizeSmoothGraphSmoothingMode`)
-- `native_modules/sandbox_native_maths/graph.h` — **analog-filter breakpoint curve only; not for smoothGraph/stepGraph**
+- `library/include/soemdsp/utility/graph.h` — **analog-filter breakpoint curve only; not for smoothGraph/stepGraph**
 - `public/modules/scientificIir/scientific-iir-worklet-evaluator.js` — bandpass/allpass → EQ modes 4/6
 - `scripts/build_native_modules.ps1`, `scripts/smoke_graph_*.mjs`
 
@@ -562,7 +562,7 @@ Staged order matches **PR Plan** below (protection and papoulis first → musica
 ### PR8a — Musical helpers + `noteTranspose` + `noteGlide` + `chordPad` (**required first musical PR**)
 
 - **Title:** Native musical pitch helpers + transpose/glide/chordPad
-- **Files/components:** `sandbox_native_maths/musical_pitch.h` (**owned here only**); `native_modules/chord_pad/`, `note_glide/`, `note_transpose/`; graph types **144, 145, 146** (`chordPad`, `noteGlide`, `noteTranspose`); host; allowlist; store; smoke (Scale bitmask / Root / Gate for chordPad)
+- **Files/components:** `library/include/soemdsp/musical/musical_pitch.h` (**owned here only**); `native_modules/chord_pad/`, `note_glide/`, `note_transpose/`; graph types **144, 145, 146** (`chordPad`, `noteGlide`, `noteTranspose`); host; allowlist; store; smoke (Scale bitmask / Root / Gate for chordPad)
 - **Dependencies:** none (kernels); must merge before 8b/8c so helpers are not duplicated
 - **Description:** Land shared mask/midi/degree/rotate helpers once. Allocate contiguous IDs **144–146** per the type table (merge-order block). Do **not** also claim 147–149 here. `chordPad` is the simple Scale/Root/Gate triad helper. `noteGlide` mirrors slew-on-pitch.
 

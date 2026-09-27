@@ -2,9 +2,9 @@
 // Nested soemdsp::math::midi_to_hz / hz_to_midi.
 #pragma once
 
-#include "constant.h"
-#include "exp_log.h"
-#include "analog_filter_trig.h"
+#include <soemdsp/constant/constant.h>
+#include <soemdsp/math/exp_log.h>
+#include <soemdsp/math/analog_filter_trig.h>
 
 namespace soemdsp::math {
 

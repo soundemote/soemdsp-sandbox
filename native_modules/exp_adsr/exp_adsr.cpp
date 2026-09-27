@@ -6,7 +6,7 @@
 // UpdateOnTrigger On: latch knobs on Gate rise.
 // Off: knobs/mods apply live, including mid-stage time/target retarget.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

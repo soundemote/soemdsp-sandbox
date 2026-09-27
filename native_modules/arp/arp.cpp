@@ -6,7 +6,7 @@
 // Clocked arpeggiator over "Arp Keys" 128-MIDI mask (gold latch bus).
 // Wire: 3 self-describing chunks (2^49 / 2^50 flags). Notes are MIDI 0..127.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

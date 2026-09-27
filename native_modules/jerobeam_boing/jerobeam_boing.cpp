@@ -10,7 +10,7 @@
 // each sample by a "z darkness" feedback term derived from the previous
 // sample's Z.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

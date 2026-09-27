@@ -191,7 +191,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Status: open
 - Severity: hear
 - Source: hunt-2026-08-12
-- Files: `native_modules/sandbox_native_maths/scientific_iir.h` ~244, 273, 307; `public/modules/scientificIir/scientific-iir-math.js` ~193
+- Files: `library/include/soemdsp/filter/scientific_iir.h` ~244, 273, 307; `public/modules/scientificIir/scientific-iir-math.js` ~193
 - What: Redesign always writes `z1 = z2 = 0`. Smoothed/modulated Frequency has no memory — filter is a gain until the knob stops.
 - Repro: Butterworth (or LR / Bessel / Cheby / Elliptic) Frequency sweep or modulate. Clicks, thin, no resonance until parked.
 - Fix shape: Preserve z on coeff-only updates (crossover `remap_cascade` pattern). Zero only on kind/mode/order change.
@@ -200,7 +200,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Status: open
 - Severity: hear
 - Source: hunt-2026-08-12
-- Files: `native_modules/sandbox_native_maths/scientific_iir.h` 263–266
+- Files: `library/include/soemdsp/filter/scientific_iir.h` 263–266
 - What: `half = order/2` then `if (half < 2) half = 2` → two 2nd-order BW = 24 dB/oct. Tooltip says two Butterworth of order/2. Crossover already has a correct LR2 one-pole path.
 - Repro: Linkwitz-Riley Order 2 vs Crossover LR2; or sum complementary pair.
 - Fix shape: Order 2 → complementary one-poles. Dual-biquad only for 4 and 8.
@@ -371,7 +371,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Status: open
 - Severity: likely
 - Source: hunt-2026-08-12
-- Files: `native_modules/sandbox_native_maths/scientific_iir.h` ~180–240
+- Files: `library/include/soemdsp/filter/scientific_iir.h` ~180–240
 - What: Cheby = Butterworth Q × made-up epsilon. Elliptic comment admits a stand-in. BP/BR replace every section Q with `1/bandwidthOct` (same peak stacked).
 - Repro: Ripple / Order on Cheby or Elliptic; raise BP order.
 - Fix shape: Real analog prototype → bilinear, **or** rename tooltips to “RBJ cascade (Cheby/elliptic-ish Q)”.
@@ -388,7 +388,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Status: open
 - Severity: likely
 - Source: hunt-2026-08-12
-- Files: `native_modules/sandbox_native_maths/scalar_helpers.h` 18–21
+- Files: `library/include/soemdsp/math/scalar_helpers.h` 18–21
 - What: `(double)(long long)x` is undefined for `|x| ≥ 2⁶³`. Used by wrap01, sin/cos reduce, delay index, S&H.
 - Repro: Exploded chaotic state / huge phase / `sampleFrequency >> sr`.
 - Fix shape: If `|x| ≥ 2^53` return `x` (already integral in double); else safe floor. Reject non-finite.
@@ -480,7 +480,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Source: user (Desktop 
 epeating clicks from a sinewave.json)
 - Files: 
-ative_modules/polyblep/polyblep.cpp; sandbox_native_maths/analog_filter_trig.h; SinCos method expansion in sine_wavetable.cpp
+ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_trig.h; SinCos method expansion in sine_wavetable.cpp
 - What: Sine used Taylor-about-zero on phase wrapped to ±π. sinApprox(π)≠0 → jump ~0.014 each wrap → clicks at f0.
 - Fix: PolyBLEP Sine = shared half-sine wavetable LUT (APP_POLICY sine SSOT). Taylor Method on SinCos is quadrant-folded (continuous). Smoke: scripts/smoke_polyblep_sine_wrap.mjs.
 

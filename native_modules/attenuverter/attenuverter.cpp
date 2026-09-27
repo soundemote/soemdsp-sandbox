@@ -6,7 +6,7 @@
 // Out = In * amplitude + offset. Wire options "Attenuate" / "Attenuvert"
 // are the same module with different paramMeta presets.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

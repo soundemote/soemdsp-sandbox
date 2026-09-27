@@ -15,7 +15,7 @@
 //
 // Velocity is latched on each rising edge (clamp 0…1) and scales L/R/Mono.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 #include <stddef.h>
 #include <stdint.h>

@@ -10,7 +10,7 @@
 // - Reset: rising edge → idle
 // - isIdle when Off
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -3,7 +3,7 @@
 // or a normalized frequency that already equals that ratio).
 #pragma once
 
-#include "scalar_helpers.h"
+#include <soemdsp/math/scalar_helpers.h>
 
 namespace soemdsp_maths {
 

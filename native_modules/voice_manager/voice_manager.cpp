@@ -6,7 +6,7 @@
 // Freestanding port of soemdsp VoiceManager polyphony/monophony core
 // (include/soemdsp/plugin/VoiceManager.hpp). No STL — fixed pools for wasm.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

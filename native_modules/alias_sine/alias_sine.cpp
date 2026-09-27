@@ -7,7 +7,7 @@
 // 0 = DC, 1 = samplerate. Wraps naturally at Nyquist, demonstrating
 // aliasing as a pure design choice. frequency = normFreq * sampleRate.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

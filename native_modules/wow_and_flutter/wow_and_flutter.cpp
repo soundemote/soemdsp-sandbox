@@ -8,7 +8,7 @@
 // Wow = cheap sine wavetable (dsp_sin_turns_lut).
 // Flutter = FlexibleRandomWalk fixed_steps (same spirit as random_walk method 3).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

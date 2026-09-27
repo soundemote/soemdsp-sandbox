@@ -8,7 +8,7 @@
 // each 1–4 identical 12 dB copies (slope 12/24/36/48). Mix + feedback + LFO.
 // Reset jack zeros LFO phase only (filter memory stays).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -9,7 +9,7 @@
 // then holding flat for holdSamples once it stops rising, then falling by
 // a fixed 1/decaySamples step (never undershooting past the target).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

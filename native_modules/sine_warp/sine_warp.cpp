@@ -7,7 +7,7 @@
 // bipolar rational-curve warp, Hypersaw2 polyBlepRectSin arch, warp-aware PolyBLAMP,
 // optional hard Reset → PolyBLEP on the output value jump. No wavetable bake.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

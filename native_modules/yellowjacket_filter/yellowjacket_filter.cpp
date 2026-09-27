@@ -9,7 +9,7 @@
 // original Yellowjacket_BP -- grindy, heavily overdriven, easily produces
 // square-wave-like output at most resonance settings.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

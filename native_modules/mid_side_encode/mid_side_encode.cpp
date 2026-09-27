@@ -5,7 +5,7 @@
 //
 // Matches public/modules/midSideEncode/mid-side-encode-math.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

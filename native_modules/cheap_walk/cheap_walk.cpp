@@ -6,7 +6,7 @@
 // Reflecting bipolar random walk: LCG step + bounce at ±1.
 // Stereo: independent L/R walks from one Seed control (R seed = L seed ^ 0x9E3779B9).
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

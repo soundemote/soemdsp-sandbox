@@ -9,7 +9,7 @@
 // recomputed when cutoffHz or sampleRate actually change (cached
 // otherwise), matching the JS reference's dirty-check.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

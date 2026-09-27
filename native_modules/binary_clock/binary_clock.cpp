@@ -8,7 +8,7 @@
 // Gate: half-period high in free-run; 1-sample pulse on external clock advance.
 // Out = count / 2^bits (unipolar). Bit_i = exact 0/1 digital.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

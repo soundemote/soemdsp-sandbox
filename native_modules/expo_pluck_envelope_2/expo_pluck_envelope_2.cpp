@@ -15,7 +15,7 @@
 //   EnvelopeCurve → decayModCurve_
 //   EnvelopeDamping → decayModFrequency_ (Hz phasor for Top→Bottom morph)
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

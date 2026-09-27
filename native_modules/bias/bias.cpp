@@ -5,7 +5,7 @@
 //
 // Matches public/modules/bias/bias-math.js.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

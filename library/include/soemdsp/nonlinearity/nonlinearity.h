@@ -2,7 +2,7 @@
 // Nested soemdsp::math (tanh_approx, soft_clip_*); soemdsp_maths mirror.
 #pragma once
 
-#include "scalar_helpers.h"
+#include <soemdsp/math/scalar_helpers.h>
 
 namespace soemdsp::math {
 

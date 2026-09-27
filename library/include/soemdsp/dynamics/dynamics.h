@@ -3,9 +3,9 @@
 // Nested soemdsp::math; soemdsp_maths mirror.
 #pragma once
 
-#include "scalar_helpers.h"
-#include "exp_log.h"
-#include "constant.h"
+#include <soemdsp/math/scalar_helpers.h>
+#include <soemdsp/math/exp_log.h>
+#include <soemdsp/constant/constant.h>
 
 namespace soemdsp::math {
 

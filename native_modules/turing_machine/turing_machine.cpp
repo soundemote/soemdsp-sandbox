@@ -20,7 +20,7 @@
 // of making every instance's sequence deterministically reproducible.
 // Reset/clock/mask/CV/Scale/Gate logic is otherwise an exact port.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 

@@ -12,7 +12,7 @@
 // fractions (matching how they're fed into the phase-domain rotate math),
 // since the header's own setters pass them through unconverted.
 
-#include "../sandbox_native_maths/sandbox_native_maths.h"
+#include <soemdsp/soemdsp.hpp>
 
 namespace {
 
