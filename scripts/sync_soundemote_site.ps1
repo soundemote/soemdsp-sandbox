@@ -119,7 +119,7 @@ $indexHtml = [regex]::Replace($indexHtml, '<script\b[^>]*>\s*</script>\s*', {
   return $tag
 })
 [System.IO.File]::WriteAllText((Join-Path $dst "index.html"), $indexHtml, (New-Object System.Text.UTF8Encoding($false)))
-Write-Host "  index.html (v$sandboxVersion, build $buildNumber, mode $buildMode -- placeholders filled; omitted $omitCount debug script tags)"
+Write-Host "  index.html (version $sandboxVersion, build $buildNumber, mode $buildMode -- placeholders filled; omitted $omitCount debug script tags)"
 Copy-Item -LiteralPath (Join-Path $srcPublic "native-modules-catalog.json") -Destination (Join-Path $dst "native-modules-catalog.json") -Force
 
 # --- native_modules/: mirror ONLY the combined binary, not the ~78 individual

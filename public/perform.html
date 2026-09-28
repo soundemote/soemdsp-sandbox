@@ -115,7 +115,7 @@
         <span id="nodeBootLoadingBarFill" style="width: 0%;"></span>
       </div>
       <div class="node-boot-loading-meta">
-        <span class="node-boot-build-number">v{{SANDBOX_VERSION}} &nbsp;·&nbsp; build {{BUILD_NUMBER}} &nbsp;·&nbsp; {{BUILD_TOKEN}}</span>
+        <span class="node-boot-build-number">{{SANDBOX_VERSION}} &nbsp;·&nbsp; build {{BUILD_NUMBER}} &nbsp;·&nbsp; {{BUILD_TOKEN}}</span>
         <span id="nodeBootSysinfo" class="node-boot-sysinfo" hidden></span>
       </div>
       <div id="nodeBootLoadingMessages" class="node-boot-loading-messages" aria-live="polite" hidden></div>
@@ -421,10 +421,10 @@
           <span
             id="nodeBuildNumberReadout"
             class="node-build-number-readout"
-            aria-label="Version v{{SANDBOX_VERSION}}, build {{BUILD_NUMBER}}, stamp {{BUILD_TOKEN}}"
-            title="Version v{{SANDBOX_VERSION}} · build {{BUILD_NUMBER}} · {{BUILD_TOKEN}}"
+            aria-label="Version {{SANDBOX_VERSION}}, build {{BUILD_NUMBER}}, stamp {{BUILD_TOKEN}}"
+            title="Version {{SANDBOX_VERSION}} · build {{BUILD_NUMBER}} · {{BUILD_TOKEN}}"
             data-build-mode-value="{{BUILD_MODE}}">
-            <span data-sandbox-version>v{{SANDBOX_VERSION}}</span>
+            <span data-sandbox-version>{{SANDBOX_VERSION}}</span>
             <span data-build-number-value>{{BUILD_NUMBER}}</span>
             <span data-build-token-value>{{BUILD_TOKEN}}</span>
           </span>

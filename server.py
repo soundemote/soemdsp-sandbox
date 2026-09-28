@@ -1716,7 +1716,7 @@ def main() -> None:
     token = roll_build_token(force=True)
     print(f"build mode: {BUILD_MODE}")
     print(f"build token: {token}  (re-rolls on server start or source change)")
-    print(f"version: v{SANDBOX_VERSION} · {BUILD_NUMBER}")
+    print(f"version: {SANDBOX_VERSION} · {BUILD_NUMBER}")
 
     server = ThreadingHTTPServer((args.host, args.port), SandboxServer)
     ensure_user_ui_settings_files()
