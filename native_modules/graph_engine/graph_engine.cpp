@@ -69,7 +69,7 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
   int handle,
   double mix, double diffusionSize, double diffusionAmount, double delaySize,
   double recycle, double lfoAmplitude, double lfoBaseSpeed, double lfoVariation,
-  double seed, double send
+  double seed
 );
 extern "C" void soemdsp_sabrina_reverb_process_block(int handle, int frameCount, int useSimd);
 extern "C" intptr_t soemdsp_sabrina_reverb_block_input_left_ptr(int handle);
@@ -82,7 +82,7 @@ extern "C" void soemdsp_ping_pong_delay_destroy(int handle);
 extern "C" void soemdsp_ping_pong_delay_reset(int handle);
 extern "C" void soemdsp_ping_pong_delay_set_params(
   int handle,
-  double feedback, double mix, double amplitude, double send,
+  double feedback, double mix, double amplitude,
   double timeNumerator, double timeDenominator, double timingMode,
   double offsetMs, double lfoAmpMs, double lfoStyle, double lfoRate, double lfoVariation,
   double saturate, double lpfFrequency, double hpfFrequency,
@@ -90,7 +90,7 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
 );
 extern "C" double soemdsp_ping_pong_delay_sample(
   int handle, double inputL, double inputR,
-  double feedback, double mix, double amplitude, double send,
+  double feedback, double mix, double amplitude,
   double timeNumerator, double timeDenominator, double timingMode,
   double offsetMs, double lfoAmpMs, double lfoStyle, double lfoRate, double lfoVariation,
   double saturate, double lpfFrequency, double hpfFrequency,
@@ -1108,7 +1108,7 @@ extern "C" double soemdsp_vactrol_envelope_sample(
 extern "C" int soemdsp_delay_effect_create();
 extern "C" void soemdsp_delay_effect_destroy(int handle);
 extern "C" void soemdsp_delay_effect_sample(
-  int handle, double input, double send, double time, double feedback, double mix,
+  int handle, double input, double time, double feedback, double mix,
   double level, double modAmount, double modRate, double modVariation,
   double mode, unsigned int seed, double sampleRate
 );
@@ -1120,7 +1120,7 @@ extern "C" void soemdsp_soem_reverb_destroy(int handle);
 extern "C" void soemdsp_soem_reverb_reset(int handle, double sampleRate);
 extern "C" void soemdsp_soem_reverb_set_params(
   int handle,
-  double mix, double send, double echoTime, double recycle, double numDelays,
+  double mix, double echoTime, double recycle, double numDelays,
   double diffusionSize, double diffusionAmount, double seed, double lfoAmp,
   double lfoFrequency, double lfoVariation, double lfoStyle, double echoMode,
   double pingPong, double doModulateEcho, double saturate, double lpfFrequency,
@@ -1951,7 +1951,7 @@ static const int kParamSaturate = 58;          // pingPong
 static const int kParamLpfFrequency = 59;      // pingPong
 static const int kParamHpfFrequency = 60;      // pingPong
 static const int kParamTempoBpm = 61;          // pingPong
-static const int kParamTapOffsetMs = 62;       // Send 0-1 amp (reverb/delay FX)
+static const int kParamTapOffsetMs = 62;       // unused (was Send; kept for Control id stability)
 static const int kParamAttAmplitude = 70;      // attenuverter
 static const int kParamAttOffset = 71;         // attenuverter
 static const int kParamNamedPortalBus = 201;   // uint32 bus key as double
@@ -2078,7 +2078,7 @@ struct Node {
   Control timeDenominator;
   Control timingMode;
   Control offsetMs;
-  Control tapOffsetMs; // Send 0-1 amp into effect (reverb/delay FX)
+  Control tapOffsetMs; // unused (was Send)
   Control lfoStyle;
   Control lfoRate;
   Control saturate;
@@ -3438,7 +3438,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : 0.0,
     false
   );
-  init_control(n.tapOffsetMs, 1.0, false); // Send 0-1 (effect input amp)
+  init_control(n.tapOffsetMs, 1.0, false); // unused (was Send)
   init_control(
     n.lfoStyle,
     (typeId == kTypeHypersaw2) ? 1.0 // vibratoDistanceSource Division
@@ -5090,8 +5090,7 @@ static void process_reverb(Circuit& g, Node& node, int frames) {
     control_effective(node.lfoAmplitude),
     control_effective(node.lfoBaseSpeed),
     control_effective(node.lfoVariation),
-    control_effective(node.seed),
-    control_effective(node.tapOffsetMs) // Send
+    control_effective(node.seed)
   );
 
   double* inL = ptr_from_export(soemdsp_sabrina_reverb_block_input_left_ptr(node.nativeHandle));
@@ -5143,7 +5142,6 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
       control_audio(g, node.feedback, f),
       control_audio(g, node.mix, f),
       control_audio(g, node.level, f),
-      control_audio(g, node.tapOffsetMs, f), // Send
       control_audio(g, node.timeNumerator, f),
       control_audio(g, node.timeDenominator, f),
       control_effective(node.timingMode),
@@ -9059,7 +9057,6 @@ static void process_delay_effect(Circuit& g, Node& node, int frames) {
     soemdsp_delay_effect_sample(
       node.nativeHandle,
       in,
-      control_audio(g, node.tapOffsetMs, f), // Send
       control_audio(g, node.timeNumerator, f),
       control_audio(g, node.feedback, f),
       control_audio(g, node.mix, f),
@@ -9081,19 +9078,19 @@ static void process_delay_effect(Circuit& g, Node& node, int frames) {
 }
 
 // SoEmReverb (distinct from sabrina reverbEffect).
-// mix, amplitude=send (0-1 into effect), delaySize=echoTime, recycle, stages=numDelays,
+// mix, delaySize=echoTime, recycle, stages=numDelays,
 // diffusionSize/Amount, seed, lfoAmplitude=lfoAmp, lfoBaseSpeed=lfoFrequency,
 // lfoVariation, lfoStyle, mode=echoMode, timingMode=pingPong,
 // waveform=doModulateEcho, saturate, lpf/hpf, frequency=bandFrequency,
 // gainDb=bandDecibels, resonance=bandQ, width=lpfStages, center=bandStages,
-// feedback=duckLimit, offsetMs=duckRelease.
+// feedback=duckLimit, offsetMs=duckRelease. level=Mix Amplitude (post).
+// Send removed — effect path takes full input.
 static void process_soem_reverb(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   soemdsp_soem_reverb_set_params(
     node.nativeHandle,
     control_effective(node.mix),
-    control_effective(node.amplitude),
     control_effective(node.delaySize),
     control_effective(node.recycle),
     control_effective(node.stages),

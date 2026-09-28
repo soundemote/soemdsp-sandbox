@@ -1021,7 +1021,7 @@ function nodeGraphModuleResourceConstraintsForType(type) {
   const display = String(def?.displayType || "");
   if (
     def?.visualSink
-    || display === "trace"
+    || display === "waterfall"
     || display === "scope2d"
     || display === "scope2dTrace"
     || display === "scope1dTrace"
@@ -1036,7 +1036,7 @@ function nodeGraphModuleResourceConstraintsForType(type) {
     || display === "oscilloscopeBankBurn"
     || display === "vectorRgbFace"
     || display === "gradientVectorscopeFace"
-    || display === "traceXyz"
+    || display === "waterfallXyz"
     || display === "phosphorLight"
     || display.endsWith("Burn")
   ) {

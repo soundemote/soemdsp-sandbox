@@ -35,7 +35,7 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "traceDisplay-1",
+      "destinationNode": "waterfall-1",
       "destinationPort": "In",
       "sourceNode": "lorenzAttractor-1",
       "sourcePort": "Z",
@@ -409,10 +409,10 @@
     {
       "gx": 8,
       "gy": 4,
-      "id": "traceDisplay-1",
+      "id": "waterfall-1",
       "paramMeta": {},
       "params": {},
-      "type": "traceDisplay"
+      "type": "waterfall"
     },
     {
       "gx": -19,

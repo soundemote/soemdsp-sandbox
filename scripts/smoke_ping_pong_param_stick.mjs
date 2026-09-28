@@ -32,7 +32,6 @@ function wetRmsAfterSetOnce(lpfHz) {
     0.95, // feedback
     1.0, // mix wet
     1.0, // amp
-    1.0, // send
     1,
     64, // short delay
     0,

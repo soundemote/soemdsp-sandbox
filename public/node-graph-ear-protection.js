@@ -67,8 +67,8 @@ function nodeGraphSyncOutputProtectOverlay(muteAmount = globalThis.nodeGraphOutp
     node.classList.toggle("node-ear-protection-engaged", visible);
   });
   document.body?.classList.toggle("node-ear-protection-engaged", visible);
-  if (typeof nodeGraphModuleScopeState?.traceDisplayDrawCache?.clear === "function") {
-    nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
+  if (typeof nodeGraphModuleScopeState?.waterfallDrawCache?.clear === "function") {
+    nodeGraphModuleScopeState.waterfallDrawCache.clear();
   }
   if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
     scheduleNodeGraphModuleScopeDraw({ force: true });

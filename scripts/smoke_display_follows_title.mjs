@@ -24,7 +24,7 @@ const sandbox = {
   nodeGraphIsNamedPortalType: (type) => type === "namedPortalIn" || type === "namedPortalOut",
   nodeGraphKnobFaceNormalizeLabelText: (v) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 48),
   nodeGraphKnobDisplayNameForNode: (node) => {
-    const t = String(node?.traceDisplaySettings?.labelText ?? "").trim();
+    const t = String(node?.__KEEP_waterfallSettings__?.labelText ?? "").trim();
     return t;
   },
   console,
@@ -90,10 +90,10 @@ const knob = {
   id: "k1",
   type: "knob",
   alias: "Drive",
-  traceDisplaySettings: { labelText: "" },
+  __KEEP_waterfallSettings__: { labelText: "" },
 };
 assert(nodeGraphPatchNodeEffectiveDisplay(knob) === "Drive", "knob follows title");
-knob.traceDisplaySettings.labelText = "Amount";
+knob.__KEEP_waterfallSettings__.labelText = "Amount";
 assert(nodeGraphPatchNodeDisplayOverride(knob) === "Amount", "knob override");
 assert(nodeGraphPatchNodeEffectiveDisplay(knob) === "Amount", "knob effective");
 

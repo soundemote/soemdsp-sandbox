@@ -122,6 +122,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-069 | see | open | Canvas mode omits displays that are not in view |
 | B-070 | hear | fixed | CallNow keypad/PhoneTone silent (Gate OK; keypad host CV) |
 | B-071 | see | fixed | Canvas-mode Text Box does not scale with the tile (WYSIWIS) |
+| B-072 | see | fixed | PolyBLEP phosphor Size reverts after closing Display Settings |
 
 ---
 
@@ -142,6 +143,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - 2026-09-28: User - if the display is not in view, it will not appear in canvas mode. Promoted -> **B-069** (`docs/B-069_CANVAS_MODE_OFFSCREEN_DISPLAY_MISSING.md`).
 - 2026-09-28: User - CallNow: keyboard/keypad not sending clicks, PhoneTone not sending tones; Gate button works. Promoted -> **B-070** (`docs/B-070_CALLNOW_KEYPAD_PHONETONE_SILENT.md`).
 - 2026-09-28: User - Text Box in canvas mode is not taking scaling into account. Promoted -> **B-071** (`docs/B-071_CANVAS_TEXT_BOX_SCALING.md`); separate from B-068 knob/slider cqmin path.
+- 2026-09-28: User - PolyBLEP display phosphor Size does not stick after closing Display Settings. Promoted -> **B-072** (`docs/B-072_POLYBLEP_PHOSPHOR_DOT_SIZE_PERSIST.md`).
 
 ---
 
@@ -466,7 +468,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - Files: `public/node-graph-module-definitions.js` `robinSinusoid` (no `displayType`); `public/node-graph-patch-clone.js` `cloneNodeGraphTypedDisplaySettings`; `public/node-graph-module-scope-normalize.js` `historySeconds`
 - What: History / sweep length on RobinSinusoid’s scope does not survive save/load. Type has no `displayType`; history lives on `traceDisplaySettings.historySeconds`. Clone/validate can drop or reset it if the schema path does not treat the default osc face as `trace`/`scope2d`.
 - Repro: Set RobinSinusoid Display Settings → History. Save, reload. History back to default.
-- Fix shape: Give RobinSinusoid an explicit display schema, or persist default-osc `traceDisplaySettings` the same way as `displayType: "trace"`. Verify other no-displayType oscs (same hole).
+- Fix shape: Give RobinSinusoid an explicit display schema, or persist default-osc `traceDisplaySettings` the same way as `displayType: "waterfall"`. Verify other no-displayType oscs (same hole).
 
 ### B-036 — Hide display: sliders and I/O overlap (app-wide)
 - Status: verify (apply path landed; `scripts/test_module_layout_bands.js` covers §7 stacks; confirm once on the workspace before closing)
@@ -798,6 +800,29 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Root cause: Text Box uses its own grid-size font formula; it never joined the face `cqmin` scale pipeline knobs use. Not the same leak as B-068.
 - Fix: Capture plate source-min + source-font-px before reparent; canvas-scoped CSS `source-font-px * font-scale * 100cqmin / source-min`; clear on restore. UI only.
 
+### B-072 — PolyBLEP phosphor Size reverts after closing Display Settings
+- Status: fixed (code; needs Live UI verify)
+- Severity: see
+- Source: user 2026-09-28
+- Related: DISPLAY_SCALE_REWRITE / APP_POLICY §15 (ink px @ 96); XY Pad already ink-px normalize
+- Doc: `docs/B-072_POLYBLEP_PHOSPHOR_DOT_SIZE_PERSIST.md`
+- Files: `public/node-graph-module-scope-normalize.js`; `public/node-graph-module-scope-settings-form.js`
+- What: PolyBLEP (lineBurn) Display Settings Size looks editable while open, then snaps back on close/reopen.
+- Repro: PolyBLEP → Display Settings → set Size > 1 (e.g. 5) → close → reopen. Size was pegged to 1.
+- Root cause: `normalizeNodeGraphLineBurnSettings` (also zeroD / scope2d) clamped `dot1Size` to 0…1 while UI/paint use authored CSS px @ 96. Every Size ≥ 1 stored as 1.
+- Fix: Persist phosphor Size via `nodeGraphTraceDisplayNormalizeInkPx` (0…32). UI-only; no audio path.
+
+### B-073 - Parameter label left padding vs number (sign column)
+- Status: fixed (code; needs Live UI verify)
+- Severity: see
+- Source: user 2026-09-28
+- Related: commit `44f69817` (Align slider labels with value sign column); B-061 (slider readout formatting)
+- Doc: `docs/B-073_PARAM_LABEL_SIGN_COLUMN_PADDING.md`
+- Files: `public/styles.css`
+- What: Parameter labels/names sit ~1ch right of the number (readout/value).
+- Repro: Stacked label-over-value slider readout; compare left edges especially for negative or showSign `+` values.
+- Root cause: `.reserves-sign-column .node-slider-readout-label { padding-left: 1ch }` indented labels while values already reserve the sign column in the formatted string.
+- Fix: Remove the label `padding-left: 1ch` rule. CSS only; no audio path.
 
 ## Fixed
 
@@ -810,6 +835,8 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - **B-063** — Robin Oscillator Morph ParamModEdge targets WIDTH (was SHAPE; Softwave-correct default left Morph CV silent).
 - **B-070** — CallNow keypad host CV: restore `setKeypadInteraction` + sidecar Analog publish; load keypad-math in efficient worklet blob.
 - **B-071** — Canvas Text Box type scales with tile via source-min cqmin (plate grid-size formula unchanged).
+- **B-072** — PolyBLEP/lineBurn (and scope2d/zeroD) phosphor Size persists as ink px @ 96 (was 0…1 clamp).
+- **B-073** - Parameter label `padding-left: 1ch` (sign-column align) removed so names line up with readout values.
 
 ---
 

@@ -9,7 +9,7 @@ function nodeGraphTraceDisplayNumberDragMultiplier(event) {
 }
 
 function setNodeGraphTraceDisplayZoomEditActive(active) {
-  nodeGraphMvp.traceDisplayZoomEditActive = Boolean(active);
+  nodeGraphMvp.waterfallZoomEditActive = Boolean(active);
 }
 
 
@@ -72,7 +72,7 @@ function commitNodeGraphTraceDisplayFieldEdit(input) {
   }
   setNodeGraphTraceDisplayFieldEditing(input, false);
   if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
-    markNodeGraphTraceDisplaySettingsDirty(input.dataset?.traceDisplayField || input.getAttribute("data-trace-display-field"));
+    markNodeGraphTraceDisplaySettingsDirty(input.dataset?.waterfallField || input.getAttribute("data-trace-display-field"));
   }
   const stored = applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
   if (input.dataset.traceDisplayField === "zoomSeconds") {
@@ -184,7 +184,7 @@ function beginNodeGraphUnitStepperDrag(event) {
   if (event.button > 0 || event.detail > 1) {
     return;
   }
-  if (nodeGraphMvp?.traceDisplayFieldDragging || nodeGraphMvp?.unitStepperDragging) {
+  if (nodeGraphMvp?.waterfallFieldDragging || nodeGraphMvp?.unitStepperDragging) {
     return;
   }
   const input = nodeGraphUnitStepperDragInputFromTarget(event.target);
@@ -319,7 +319,7 @@ function beginNodeGraphTraceDisplayFieldDrag(event) {
     && nodeGraphTraceDisplayUnitDragField(key);
   const integerPixelDrag = typeof nodeGraphTraceDisplayIntegerPixelDragField === "function"
     && nodeGraphTraceDisplayIntegerPixelDragField(key);
-  nodeGraphMvp.traceDisplayFieldDragging = {
+  nodeGraphMvp.waterfallFieldDragging = {
     input,
     key,
     pointerId: event.pointerId ?? null,
@@ -342,7 +342,7 @@ function beginNodeGraphTraceDisplayFieldDrag(event) {
 }
 
 function dragNodeGraphTraceDisplayField(event) {
-  const drag = nodeGraphMvp.traceDisplayFieldDragging;
+  const drag = nodeGraphMvp.waterfallFieldDragging;
   if (
     !drag ||
     (drag.pointerId !== null && event.pointerId !== undefined && drag.pointerId !== event.pointerId)
@@ -380,8 +380,8 @@ function dragNodeGraphTraceDisplayField(event) {
     && nodeGraphTraceDisplaySizeControlField(drag.key)
     && !drag.unitDrag;
   const blurDrag = (
-    (typeof nodeGraphTraceDisplayInstantTraceBlurField === "function"
-      && nodeGraphTraceDisplayInstantTraceBlurField(drag.key))
+    (typeof nodeGraphWaterfallBlurField === "function"
+      && nodeGraphWaterfallBlurField(drag.key))
     || (typeof nodeGraphTraceDisplayImageBurnBlurField === "function"
       && nodeGraphTraceDisplayImageBurnBlurField(drag.key))
   ) && !drag.unitDrag;
@@ -423,7 +423,7 @@ function dragNodeGraphTraceDisplayField(event) {
 }
 
 function endNodeGraphTraceDisplayFieldDrag(event) {
-  const drag = nodeGraphMvp.traceDisplayFieldDragging;
+  const drag = nodeGraphMvp.waterfallFieldDragging;
   if (
     !drag ||
     (drag.pointerId !== null && event.pointerId !== undefined && drag.pointerId !== event.pointerId)
@@ -453,7 +453,7 @@ function endNodeGraphTraceDisplayFieldDrag(event) {
     markNodeGraphTraceDisplaySettingsDirty(drag.key);
   }
   applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
-  nodeGraphMvp.traceDisplayFieldDragging = null;
+  nodeGraphMvp.waterfallFieldDragging = null;
   event.preventDefault();
   event.stopPropagation();
 }
@@ -503,8 +503,8 @@ function stepNodeGraphTraceDisplaySetting(event) {
       adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum),
     );
   } else if (
-    (typeof nodeGraphTraceDisplayInstantTraceBlurField === "function"
-      && nodeGraphTraceDisplayInstantTraceBlurField(key))
+    (typeof nodeGraphWaterfallBlurField === "function"
+      && nodeGraphWaterfallBlurField(key))
     || (typeof nodeGraphTraceDisplayImageBurnBlurField === "function"
       && nodeGraphTraceDisplayImageBurnBlurField(key))
   ) {
@@ -575,7 +575,7 @@ function toggleNodeGraphTraceDisplaySettingRow(event) {
     latch.dataset.traceDisplayToggleOwned = "1";
     if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
       markNodeGraphTraceDisplaySettingsDirty(
-        latch.getAttribute("data-trace-display-toggle") || latch.dataset?.traceDisplayToggle,
+        latch.getAttribute("data-trace-display-toggle") || latch.dataset?.waterfallToggle,
       );
     }
     applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
@@ -623,7 +623,7 @@ function toggleNodeGraphTraceDisplaySettingRow(event) {
   input.dataset.traceDisplayToggleOwned = "1";
   if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
     markNodeGraphTraceDisplaySettingsDirty(
-      input.getAttribute("data-trace-display-toggle") || input.dataset?.traceDisplayToggle,
+      input.getAttribute("data-trace-display-toggle") || input.dataset?.waterfallToggle,
     );
   }
   applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
@@ -637,7 +637,7 @@ function suppressNodeGraphTraceDisplaySettingRowClick(event) {
   if (event.target.closest?.("[data-latch-button]")) {
     // Still prevent double-activate from label-like wrapping (none expected).
     const latch = event.target.closest("[data-latch-button]");
-    if (latch?.dataset?.traceDisplayToggleOwned === "1") {
+    if (latch?.dataset?.waterfallToggleOwned === "1") {
       event.preventDefault();
       event.stopPropagation();
     }

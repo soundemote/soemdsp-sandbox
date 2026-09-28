@@ -510,14 +510,14 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
       }
     }
 
-    // Instant Trace skips redraw when the sample signature is unchanged. Clear
+    // Instant Waterfall skips redraw when the sample signature is unchanged. Clear
     // blacks the face without new samples — without busting this cache, unpause
     // after Clear-while-paused early-outs as "unchanged" until Stop+Play.
     if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
       try {
-        nodeGraphModuleScopeState.traceDisplayDrawCache?.delete?.(id);
-        nodeGraphModuleScopeState.traceDisplayScratch?.delete?.(id);
-        nodeGraphModuleScopeState.traceDisplaySyncLocks?.delete?.(id);
+        nodeGraphModuleScopeState.waterfallDrawCache?.delete?.(id);
+        nodeGraphModuleScopeState.waterfallScratch?.delete?.(id);
+        nodeGraphModuleScopeState.waterfallSyncLocks?.delete?.(id);
       } catch (_error) {
         // Best-effort.
       }
@@ -568,9 +568,9 @@ function clearNodeGraphModuleScopeBuffers(options = {}) {
   }
   if (!preserveBuffers) {
     nodeGraphModuleScopeState.buffers.clear();
-    nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
-    nodeGraphModuleScopeState.traceDisplayScratch.clear();
-    nodeGraphModuleScopeState.traceDisplaySyncLocks.clear();
+    nodeGraphModuleScopeState.waterfallDrawCache.clear();
+    nodeGraphModuleScopeState.waterfallScratch.clear();
+    nodeGraphModuleScopeState.waterfallSyncLocks.clear();
     nodeGraphModuleScopeState.lightDisplayStates.clear();
     nodeGraphModuleScopeState.frames = 0;
     nodeGraphModuleScopeState.monitorFingerprint = "";
@@ -608,9 +608,9 @@ function clearNodeGraphRenderedModuleScopeBuffers() {
     && !nodeGraphModuleScopePaused()
   ) {
     nodeGraphModuleScopeState.buffers.clear();
-    nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
-    nodeGraphModuleScopeState.traceDisplayScratch.clear();
-    nodeGraphModuleScopeState.traceDisplaySyncLocks.clear();
+    nodeGraphModuleScopeState.waterfallDrawCache.clear();
+    nodeGraphModuleScopeState.waterfallScratch.clear();
+    nodeGraphModuleScopeState.waterfallSyncLocks.clear();
     nodeGraphModuleScopeState.frames = 0;
     nodeGraphModuleScopeState.monitorFingerprint = "";
     nodeGraphModuleScopeState.mode = "model";

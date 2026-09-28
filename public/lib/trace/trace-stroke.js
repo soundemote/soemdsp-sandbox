@@ -80,7 +80,7 @@
       return 0;
     }
     let pieces = 0;
-    // Instant Trace is a polyline. Quadratic smoothing bows low-frequency
+    // Instant Waterfall is a polyline. Quadratic smoothing bows low-frequency
     // 1D/stereo traces into blobs; never use the phosphor smooth-path helper.
     let drawing = false;
     let segmentStart = -1;

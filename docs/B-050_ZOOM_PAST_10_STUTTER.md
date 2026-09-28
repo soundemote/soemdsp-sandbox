@@ -21,7 +21,7 @@ Repro:
 ## Product intent
 
 - High zoom must stay interactive (pointer tracking usable), including past 10× when the product allows up to 100×.
-- **Do not** freeze phosphor / Instant Trace / other live faces during graph zoom or pan (policy from the 2026-08-20 plan — still in force).
+- **Do not** freeze phosphor / Instant Waterfall / other live faces during graph zoom or pan (policy from the 2026-08-20 plan — still in force).
 - **Do not** “fix” this by lowering `nodeGraphZoomLimits.max` alone.
 - Audio / DSP must not change.
 

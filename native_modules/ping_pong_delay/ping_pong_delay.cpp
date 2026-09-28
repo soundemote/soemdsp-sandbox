@@ -313,7 +313,6 @@ struct PingPongDelayState {
   double liveFeedback;
   double liveMix;
   double liveAmplitude;
-  double liveSend;
   double liveOffsetMs;   // bipolar timing trim (ms) on both taps
   double liveLfoAmpMs;   // LFO depth (ms)
   double liveLfoStyle;
@@ -473,7 +472,6 @@ extern "C" int soemdsp_ping_pong_delay_create() {
       s.liveOffsetMs = 0.0;
       s.liveLfoAmpMs = 0.0;
       s.liveAmplitude = 1.0;
-      s.liveSend = 1.0;
       s.livePingPong = 1.0;
       s.liveSampleRate = 44100.0;
       reset_delay_dsp(s);
@@ -565,9 +563,8 @@ static void process_one(PingPongDelayState& s, double inputL, double inputR) {
   const double rate = maxd(1.0, s.liveSampleRate);
   const double dryL = safe(inputL);
   const double dryR = safe(inputR);
-  const double safeSend = clamp(safe(s.liveSend), 0.0, 1.0);
-  const double effectL = dryL * safeSend;
-  const double effectR = dryR * safeSend;
+  const double effectL = dryL;
+  const double effectR = dryR;
   const double safeFeedback = safe(s.liveFeedback);
   const double safeMix = clamp(safe(s.liveMix), 0.0, 1.0);
   const double safeAmp = clamp(safe(s.liveAmplitude), 0.0, 2.0);
@@ -653,7 +650,6 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   double feedback,
   double mix,
   double amplitude,
-  double send,
   double timeNumerator,
   double timeDenominator,
   double timingMode,
@@ -678,7 +674,6 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   s.liveFeedback = feedback;
   s.liveMix = mix;
   s.liveAmplitude = amplitude;
-  s.liveSend = clamp(safe(send), 0.0, 1.0);
   s.liveOffsetMs = offsetMs;
   s.liveLfoAmpMs = safe(lfoAmpMs);
   s.liveLfoStyle = lfoStyle;
@@ -699,7 +694,6 @@ extern "C" double soemdsp_ping_pong_delay_sample(
   double feedback,
   double mix,
   double amplitude,
-  double send,
   double timeNumerator,
   double timeDenominator,
   double timingMode,
@@ -717,7 +711,7 @@ extern "C" double soemdsp_ping_pong_delay_sample(
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   soemdsp_ping_pong_delay_set_params(
-    handle, feedback, mix, amplitude, send, timeNumerator, timeDenominator, timingMode,
+    handle, feedback, mix, amplitude, timeNumerator, timeDenominator, timingMode,
     offsetMs, lfoAmpMs, lfoStyle, lfoRate, lfoVariation, saturate, lpfFrequency,
     hpfFrequency, tempoBpm, sampleRate, pingPong);
   process_one(gPool[handle - 1], inputL, inputR);
@@ -811,5 +805,5 @@ extern "C" int soemdsp_ping_pong_delay_memory_generation() {
 }
 
 extern "C" int soemdsp_ping_pong_delay_version() {
-  return 16; // Send 0-1 amp into delay path
+  return 17; // Send removed; effect path takes full input
 }

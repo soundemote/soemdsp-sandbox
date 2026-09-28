@@ -2,8 +2,8 @@
 // Load after scopes.js (+ geometry). Extract-only.
 
 function nodeGraphTraceDisplayScratchForSlot(slot, requiredFloats) {
-  const nodeId = String(slot?.nodeId || "traceDisplay");
-  const scratch = nodeGraphModuleScopeState.traceDisplayScratch;
+  const nodeId = String(slot?.nodeId || "waterfall");
+  const scratch = nodeGraphModuleScopeState.waterfallScratch;
   let entry = scratch.get(nodeId);
   const required = Math.max(0, Math.floor(nodeGraphFiniteNumber(requiredFloats)));
   if (!entry || entry.vertices.length < required) {

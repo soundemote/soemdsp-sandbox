@@ -38,7 +38,6 @@ static const char kMetadataJson[] =
     "\"inputs\":[\"Left\",\"Right\",\"Mono\"],"
     "\"outputs\":[\"Dry L\",\"Dry R\",\"Wet L\",\"Wet R\"],"
     "\"parameters\":["
-      "{\"key\":\"send\",\"label\":\"Send\",\"defaultValue\":1,\"min\":0,\"max\":1,\"step\":\"any\"},"
       "{\"key\":\"mix\",\"label\":\"Mix\",\"defaultValue\":0.43,\"min\":0,\"max\":1,\"step\":\"any\"},"
       "{\"key\":\"echoTime\",\"label\":\"Echo Time\",\"defaultValue\":0.35,\"min\":0.0001,\"max\":1,\"step\":\"any\",\"unit\":\"s\"},"
       "{\"key\":\"recycle\",\"label\":\"Recycle\",\"defaultValue\":0.5,\"min\":0,\"max\":2,\"step\":\"any\"},"
@@ -426,7 +425,6 @@ struct SoEmReverbState {
   double outL{0}, outR{0};
   double feedbackCompensation{1.0};
   double mix{0.43};
-  double send{1.0};
   double echoTime{0.35};
   double recycle{0.5};
   double diffusionSize{0.35};
@@ -599,7 +597,7 @@ static void feedbackFilter(SoEmReverbState& s, bool reverseStereo) {
 
 static void dryWet(SoEmReverbState& s, double inL, double inR) {
   // Volume removed (was overall amp on dry+wet; redundant with Mix Amplitude).
-  // Send scales input into the network at inject sites; dry stays full-level.
+  // Effect path takes full input (send removed; former send==1).
   const double dryGain = (1.0 - s.mix);
   const double wetGain = s.mix;
   s.dryL = inL * dryGain;
@@ -642,8 +640,8 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
   case PostDelay: {
     double dL = 0.0, dR = 0.0;
     runEchoPair(s.fbL, s.fbR, dL, dR);
-    s.fbL = inL * s.send + dL;
-    s.fbR = inR * s.send + dR;
+    s.fbL = inL + dL;
+    s.fbR = inR + dR;
     for (int i = 0; i < s.numDelays; ++i) {
       s.fbL = s.delaysL[i].runDiffuse(s.fbL, liveFeedback, liveLfoAmp);
       s.fbR = s.delaysR[i].runDiffuse(s.fbR, liveFeedback, liveLfoAmp);
@@ -661,10 +659,10 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
   case PreDelay: {
     feedbackFilter(s, false);
     s.fbL = soft_clip_run(
-      inL * s.send + s.fbL, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
+      inL + s.fbL, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
     ) * s.feedbackCompensation;
     s.fbR = soft_clip_run(
-      inR * s.send + s.fbR, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
+      inR + s.fbR, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
     ) * s.feedbackCompensation;
     for (int i = 0; i < s.numDelays; ++i) {
       s.fbL = s.delaysL[i].runDiffuse(s.fbL, liveFeedback, liveLfoAmp);
@@ -683,8 +681,8 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
     s.fbL = dL;
     s.fbR = dR;
     double invN = s.numDelays > 0 ? 1.0 / (double)s.numDelays : 1.0;
-    double L = inL * s.send * invN;
-    double R = inR * s.send * invN;
+    double L = inL * invN;
+    double R = inR * invN;
     for (int i = 0; i < s.numDelays; ++i) {
       s.fbL = s.delaysL[i].runDiffuse(L + s.fbL, liveFeedback, liveLfoAmp);
       s.fbR = s.delaysR[i].runDiffuse(R + s.fbR, liveFeedback, liveLfoAmp);
@@ -771,7 +769,6 @@ extern "C" int soemdsp_soem_reverb_create(double sampleRate) {
       s.active = true;
       s.sampleRate = sampleRate > 1.0 ? sampleRate : 44100.0;
       s.mix = 0.43;
-      s.send = 1.0;
       s.echoTime = 0.35;
       s.recycle = 0.5;
       s.diffusionSize = 0.35;
@@ -820,12 +817,11 @@ extern "C" void soemdsp_soem_reverb_reset(int handle, double sampleRate) {
 }
 
 // Mirrors soemdsp::delay::Reverb::syncControlParams — only run the *Changed
-// work owned by each field. Live reads (mix/send/recycle/echoMode/pingPong)
+// work owned by each field. Live reads (mix/recycle/echoMode/pingPong)
 // never rebuild delay geometry or filter coeffs.
 extern "C" void soemdsp_soem_reverb_set_params(
   int handle,
   double mix,
-  double send,
   double echoTime,
   double recycle,
   double numDelays,
@@ -860,7 +856,6 @@ extern "C" void soemdsp_soem_reverb_set_params(
 
   // Live Wire-style params: assign only (paramMeta / host is SSOT — no product-range clamps).
   s.mix = safe(mix);
-  s.send = clamp(safe(send), 0.0, 1.0);
   s.recycle = safe(recycle);
   s.echoMode = (int)dsp_floor(echoMode + 0.5);
   s.pingPong = (int)dsp_floor(pingPong + 0.5) != 0 ? 1 : 0;
@@ -892,7 +887,7 @@ extern "C" void soemdsp_soem_reverb_set_params(
   const double nextDuckRelease = maxd(0.001, safe(duckRelease));
 
   // Match soemdsp::delay::Reverb *Changed split (SoEmReverbModule wiring):
-  // Live Wire (no *Changed): mix, send, recycle, diffusionAmount, lfoAmp, echoMode, pingPong
+  // Live Wire (no *Changed): mix, recycle, diffusionAmount, lfoAmp, echoMode, pingPong
   // *Changed: echoTime, diffusionSize, seed, numDelays, lfoFrequency, lfoVariation,
   //           doModulateEcho, saturate, filters
   const bool seedChanged = nextSeed != s.seed;

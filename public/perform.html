@@ -4187,17 +4187,6 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-bootstrap.js?v=b055-annotation-mount-1"></script>
   <script data-boot-defer type="text/plain" src="./public/app-event-bindings.js?v=app-event-bindings-refactor-1780361400000"></script>
   <script data-boot-defer type="text/plain" src="./public/app.js?v=loading-steps-1"></script>
-  <script>
-    // Keep live links on published hosts; use the local Vite preview only for local sandbox runs.
-    (() => {
-      const localHosts = new Set(["localhost", "127.0.0.1"]);
-      if (!localHosts.has(window.location.hostname)) return;
-
-      const localSiteBase = `http://${window.location.hostname}:8080/?site=`;
-      document.querySelectorAll("[data-site-preview]").forEach((link) => {
-        link.href = `${localSiteBase}${link.dataset.sitePreview}`;
-      });
-    })();
-  </script>
+  <script src="./public/site-preview-local.js?v=site-preview-local-1"></script>
 </body>
 </html>

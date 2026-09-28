@@ -358,8 +358,8 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
       : { cloudSpeed: 0.5 };
     return node.traceDisplaySettings;
   }
-  if (displayType === "trace" || displayType === "traceRgb" || displayType === "traceXyz") {
-    node.traceDisplaySettings = normalizeNodeGraphTraceDisplaySettings(settings);
+  if (displayType === "waterfall" || displayType === "waterfallRgb" || displayType === "waterfallXyz") {
+    node.traceDisplaySettings = normalizeNodeGraphWaterfallSettings(settings);
     return node.traceDisplaySettings;
   }
   return null;
@@ -684,14 +684,14 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   const isDirty = forceAll || (dirtyKeys && dirtyKeys.size > 0);
 
   // Selection-follow / reopen commits without edits must not rewrite targets.
-  if (!isDirty && !nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
+  if (!isDirty && !nodeGraphWaterfallSettingsEditingDefaults()) {
     return null;
   }
   // Never read an unseeded / remounting form into the patch (empty → 0 wipe).
   if (
     typeof nodeGraphTraceDisplaySettingsFormIsSeeded === "function"
     && !nodeGraphTraceDisplaySettingsFormIsSeeded()
-    && !nodeGraphTraceDisplaySettingsEditingTraceDefaults()
+    && !nodeGraphWaterfallSettingsEditingDefaults()
   ) {
     clearNodeGraphTraceDisplaySettingsDirty();
     return null;
@@ -699,8 +699,8 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   const settings = readNodeGraphTraceDisplaySettingsForm();
   let storedSettings = null;
 
-  if (nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
-    storedSettings = normalizeNodeGraphTraceDisplaySettings(settings);
+  if (nodeGraphWaterfallSettingsEditingDefaults()) {
+    storedSettings = normalizeNodeGraphWaterfallSettings(settings);
     nodeGraphMvp.traceSettings = storedSettings;
   } else {
     // Multi-adjust: same display schema across selection → write targets.
@@ -815,7 +815,7 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
     refreshNodeGraphKnobFaces();
   }
   // Face cosmetics for every multi-adjust target (LED / RGB / FBM …).
-  if (!nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
+  if (!nodeGraphWaterfallSettingsEditingDefaults()) {
     const targetIds = typeof nodeGraphTraceDisplaySettingsActiveTargetIds === "function"
       ? nodeGraphTraceDisplaySettingsActiveTargetIds()
       : [nodeGraphTraceDisplaySettingsTargetNodeId()].filter(Boolean);
@@ -1068,7 +1068,7 @@ function setNodeGraphTraceDisplaySettingsDefaults() {
     ? nodeGraphPatchNode(primaryId)
     : null;
   // Prefer the open module's face schema so an empty/stale formType still
-  // resolves to lineBurn (PolyBLEP / Instant Trace / etc.).
+  // resolves to lineBurn (PolyBLEP / Instant Waterfall / etc.).
   const schema = (primaryNode
     && typeof nodeGraphModuleDisplaySettingsSchemaForNode === "function"
     && nodeGraphModuleDisplaySettingsSchemaForNode(primaryNode))
@@ -1088,10 +1088,10 @@ function setNodeGraphTraceDisplaySettingsDefaults() {
     Object.assign(merged, defDisp);
   }
 
-  if (typeof nodeGraphTraceDisplaySettingsEditingTraceDefaults === "function"
-    && nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
-    nodeGraphMvp.traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
-      ? normalizeNodeGraphTraceDisplaySettings(merged)
+  if (typeof nodeGraphWaterfallSettingsEditingDefaults === "function"
+    && nodeGraphWaterfallSettingsEditingDefaults()) {
+    nodeGraphMvp.traceSettings = typeof normalizeNodeGraphWaterfallSettings === "function"
+      ? normalizeNodeGraphWaterfallSettings(merged)
       : merged;
   }
 
@@ -1123,26 +1123,26 @@ function nodeGraphTraceDisplaySettingsDirtyKeysFromEvent(event) {
   const field = t.closest?.("[data-trace-display-field]")
     || (t.matches?.("[data-trace-display-field]") ? t : null);
   if (field) {
-    return [field.getAttribute("data-trace-display-field") || field.dataset?.traceDisplayField].filter(Boolean);
+    return [field.getAttribute("data-trace-display-field") || field.dataset?.waterfallField].filter(Boolean);
   }
   const color = t.closest?.("[data-trace-display-color]")
     || (t.matches?.("[data-trace-display-color]") ? t : null);
   if (color) {
-    return [color.getAttribute("data-trace-display-color") || color.dataset?.traceDisplayColor].filter(Boolean);
+    return [color.getAttribute("data-trace-display-color") || color.dataset?.waterfallColor].filter(Boolean);
   }
   const toggle = t.closest?.("[data-trace-display-toggle]")
     || (t.matches?.("[data-trace-display-toggle]") ? t : null);
   if (toggle) {
-    return [toggle.getAttribute("data-trace-display-toggle") || toggle.dataset?.traceDisplayToggle].filter(Boolean);
+    return [toggle.getAttribute("data-trace-display-toggle") || toggle.dataset?.waterfallToggle].filter(Boolean);
   }
   const choice = t.closest?.("[data-trace-display-choice]")
     || (t.matches?.("[data-trace-display-choice]") ? t : null);
   if (choice) {
-    return [choice.getAttribute("data-trace-display-choice") || choice.dataset?.traceDisplayChoice].filter(Boolean);
+    return [choice.getAttribute("data-trace-display-choice") || choice.dataset?.waterfallChoice].filter(Boolean);
   }
   const latch = t.closest?.("[data-latch-button][data-trace-display-toggle]");
   if (latch) {
-    return [latch.getAttribute("data-trace-display-toggle") || latch.dataset?.traceDisplayToggle].filter(Boolean);
+    return [latch.getAttribute("data-trace-display-toggle") || latch.dataset?.waterfallToggle].filter(Boolean);
   }
   // Gradient editor / hue title / unknown control — treat as full form dirty.
   if (t.closest?.("[data-shared-gradient-editor], [data-hue-title-stepper], .node-shared-gradient-editor")) {
@@ -1165,7 +1165,7 @@ function updateNodeGraphTraceDisplaySettingsLive(event) {
   ) {
     if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
       markNodeGraphTraceDisplaySettingsDirty(
-        field.dataset?.traceDisplayField
+        field.dataset?.waterfallField
         || field.getAttribute("data-trace-display-field"),
       );
     }
@@ -1183,7 +1183,7 @@ function commitNodeGraphTraceDisplaySettingsChange(event) {
   // undoing Full Dots when the label also fires a native change).
   const toggle = event?.target?.closest?.("[data-trace-display-toggle], [data-latch-button]")
     || (event?.target?.matches?.("[data-trace-display-toggle]") ? event.target : null);
-  if (toggle?.dataset?.traceDisplayToggleOwned === "1") {
+  if (toggle?.dataset?.waterfallToggleOwned === "1") {
     return;
   }
   // Latch buttons apply on pointerdown — ignore stray change/input from them.

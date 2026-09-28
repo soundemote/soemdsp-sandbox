@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=send-amp-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=send-gone-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -1260,7 +1260,7 @@ function nodeGraphLiveRearmDisplaysAfterEngineStart() {
   }
   if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
     try {
-      nodeGraphModuleScopeState.traceDisplayDrawCache?.clear?.();
+      nodeGraphModuleScopeState.waterfallDrawCache?.clear?.();
     } catch (_error) {
       // Best-effort.
     }
@@ -1371,10 +1371,10 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
       }
       absorbNodeGraphModuleScopePhosphorDrawCursors();
     }
-    // Freeze Instant Trace wall-clock so resume does not jump History.
+    // Freeze Instant Waterfall wall-clock so resume does not jump History.
     // Stamp pause bars into Output dest now; they waterfall away after play.
-    if (typeof nodeGraphTraceDisplayPinWaterfallClocks === "function") {
-      nodeGraphTraceDisplayPinWaterfallClocks();
+    if (typeof nodeGraphWaterfallPinClocks === "function") {
+      nodeGraphWaterfallPinClocks();
     }
     if (typeof stampNodeGraphOutputPauseBanners === "function") {
       stampNodeGraphOutputPauseBanners();
@@ -1383,10 +1383,10 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
       holdNodeGraphScope2dTraceFaces();
     }
   } else if (clamped > 0) {
-    if (typeof nodeGraphTraceDisplayPinWaterfallClocks === "function") {
-      nodeGraphTraceDisplayPinWaterfallClocks();
+    if (typeof nodeGraphWaterfallPinClocks === "function") {
+      nodeGraphWaterfallPinClocks();
     }
-    // Unpause / force rearm: Instant Trace can early-out on a stale draw
+    // Unpause / force rearm: Instant Waterfall can early-out on a stale draw
     // signature (black face, unchanged sample count). Force a full paint.
     if (typeof nodeGraphNumberReadoutRearmAllFacesAfterLiveStart === "function") {
       // After Stop wipe, needsValueFaceRearm is sticky — hard-drop held digits.
@@ -1404,7 +1404,7 @@ function setNodeGraphLiveSpeed(speed, options = {}) {
     }
     if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
       try {
-        nodeGraphModuleScopeState.traceDisplayDrawCache?.clear?.();
+        nodeGraphModuleScopeState.waterfallDrawCache?.clear?.();
       } catch (_error) {
         // Best-effort.
       }
@@ -3243,7 +3243,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=sample-hold-uni-display-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=send-amp-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=send-gone-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=live-os-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",

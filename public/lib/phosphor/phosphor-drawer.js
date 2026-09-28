@@ -153,7 +153,7 @@
   }
 
   /**
-   * Waterfall / Instant Trace tape: no Ghost, Trail, or Burn.
+   * Waterfall / Instant Waterfall tape: no Ghost, Trail, or Burn.
    * Optional scroll (pixels left), then additive gaussian stamps along a path.
    */
   function stepTape(face, options = {}) {

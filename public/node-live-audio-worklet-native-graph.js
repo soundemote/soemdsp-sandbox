@@ -341,7 +341,6 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   amplitude: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE,
   amp: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE,
   level: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LEVEL,
-  send: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TAP_OFFSET_MS,
   shape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   upShape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   downShape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
@@ -453,7 +452,6 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "jitterSteps") return P.NATIVE_GRAPH_PARAM_LFO_STYLE;
   }
   if (t === "soemReverb") {
-    if (k === "send") return P.NATIVE_GRAPH_PARAM_AMPLITUDE;
     if (k === "amplitude") return P.NATIVE_GRAPH_PARAM_LEVEL;
   }
   if (t === "flanger") {
@@ -1591,7 +1589,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphObserverThruInPort = function native
   if (o === "rgba" || o === "📺") return null;
   // Analyzer Thru jack (spectrogram, customDisplay, …).
   if (o === "Thru" || o === "←") {
-    if (t === "traceDisplay") return "In";
+    if (t === "waterfall") return "In";
     return "In";
   }
   if (typeof nodeGraphModuleIsEfficientProductObserverType === "function"
@@ -3915,7 +3913,6 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "reverbEffect") {
-      push("send", P.NATIVE_GRAPH_PARAM_TAP_OFFSET_MS, cont("send", 1));
       push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.43));
       push("diffusionSize", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("diffusionSize", 0.35));
       push("diffusionAmount", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("diffusionAmount", 0.7));
@@ -3935,7 +3932,6 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       const ppOffset = Number(node?.params?.offset);
       const ppLfoAmp = Number(node?.params?.lfoAmp);
       const ppLfoRate = Number(node?.params?.lfoRate);
-      push("send", P.NATIVE_GRAPH_PARAM_TAP_OFFSET_MS, cont("send", 1));
       push("feedback", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("feedback", 0.35));
       push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.35));
       push("amplitude", P.NATIVE_GRAPH_PARAM_LEVEL, Number.isFinite(ppAmp) ? ppAmp : 1);
@@ -4866,7 +4862,6 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "delayEffect") {
       // Native parabolic mod only; JS modStyle/interp stay UI-side.
-      push("send", P.NATIVE_GRAPH_PARAM_TAP_OFFSET_MS, cont("send", 1));
       push("time", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("time", 0.18));
       push("feedback", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("feedback", 0.25));
       push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.35));
@@ -4891,7 +4886,6 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
         echoTime = (num / den) * (240 / safeBpm) * mult + offsetSec;
         if (!Number.isFinite(echoTime)) echoTime = 0.35;
       }
-      push("send", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("send", 1));
       push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.43));
       push("echoTime", P.NATIVE_GRAPH_PARAM_DELAY_SIZE, echoTime);
       push("recycle", P.NATIVE_GRAPH_PARAM_RECYCLE, cont("recycle", 0.5));
@@ -8268,7 +8262,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       writeSampleRate: engineRate / stride,
     };
     const sinkType = String(sink.type || this.nodes.get(sink.nodeId)?.type || "");
-    // Output Instant Trace: post-Volume/Pan ear-protected speakers — not the
+    // Output Instant Waterfall: post-Volume/Pan ear-protected speakers — not the
     // pre-gain wires into Mono/Left/Right (Volume would otherwise be invisible).
     if (sinkType === "output" && protectedLeft) {
       for (let frame = 0; frame < frames; frame += stride) {

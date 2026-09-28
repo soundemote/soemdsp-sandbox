@@ -1,6 +1,6 @@
 // Module face canvas SSOT — tape vs burn.
 //
-// Instant Trace / Output pause use mode "tape" (never dispose/recreate).
+// Instant Waterfall / Output pause use mode "tape" (never dispose/recreate).
 // Energy / line / hypersaw / videoscope burn use mode "burn" (versioned recreate).
 // Peek never allocates. Do not name this "fallback" — the face canvas is primary.
 //
@@ -22,12 +22,12 @@ const NODE_GRAPH_FACE_BURN_RENDERERS = new Set([
   "oscilloscopeBankBurn",
 ]);
 
-/** Tape / Instant Trace style faces — never burn-recreate. */
+/** Tape / Instant Waterfall style faces — never burn-recreate. */
 const NODE_GRAPH_FACE_TAPE_RENDERERS = new Set([
   "scope2dTrace",
-  "trace",
-  "traceRgb",
-  "traceXyz",
+  "waterfall",
+  "waterfallRgb",
+  "waterfallXyz",
   "value",
   "numberReadout",
   "vectorDot",

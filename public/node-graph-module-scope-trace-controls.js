@@ -3,9 +3,9 @@
 
 function nodeGraphDisplaySettingsIsVectorTraceFormType(type) {
   const key = String(type || "").trim();
-  return key === "trace"
-    || key === "traceXyz"
-    || key === "traceRgb"
+  return key === "waterfall"
+    || key === "waterfallXyz"
+    || key === "waterfallRgb"
     || key === "scope2dTrace"
     || key === "scope1dTrace"
     || key === "gradientVectorscopeFace"
@@ -36,7 +36,7 @@ const nodeGraphDisplaySettingsSharedStackOrder = Object.freeze([
   "pixelDensity",
 ]);
 
-/** Instant Trace stack (subset of the shared order + 2D fade). */
+/** Instant Waterfall stack (subset of the shared order + 2D fade). */
 const nodeGraphInstantTraceDisplayFieldOrder = Object.freeze([
   "scale",
   "historyHz",
@@ -53,7 +53,7 @@ const nodeGraphInstantTraceDisplayFieldOrder = Object.freeze([
   "fade",
 ]);
 
-/** Instant Trace Right / secondary: Size → Blur → Bright. */
+/** Instant Waterfall Right / secondary: Size → Blur → Bright. */
 const nodeGraphTraceDisplaySecondaryInkFieldOrder = Object.freeze([
   "secondarySize",
   "secondaryLineThickness",
@@ -99,13 +99,13 @@ function nodeGraphDisplaySettingsClipboardFamily(formType) {
   if (!key) {
     return "";
   }
-  if (key === "trace" || key === "traceRgb" || key === "value") {
+  if (key === "waterfall" || key === "waterfallRgb" || key === "value") {
     return "trace1d";
   }
   if (key === "scope1dTrace") {
     return "scope1dTrace";
   }
-  if (key === "scope2dTrace" || key === "gradientVectorscopeFace" || key === "traceXyz") {
+  if (key === "scope2dTrace" || key === "gradientVectorscopeFace" || key === "waterfallXyz") {
     return "trace2d";
   }
   if (key === "lineBurn" || key === "oscilloscopeBankBurn") {
@@ -136,7 +136,7 @@ function nodeGraphDisplaySettingsClipboardFamilyLabel(family) {
     return "1D Trace";
   }
   if (family === "trace2d") {
-    return "2D Instant Trace";
+    return "2D Instant Waterfall";
   }
   return "";
 }
@@ -264,10 +264,10 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   // 1D history plot (Output / Music Player). RGB stroke — no phosphor residual.
-  // Fade is XYZ / vectorscope Instant Trace only (not 2D Trace).
+  // Fade is XYZ / vectorscope Instant Waterfall only (not 2D Trace).
   // Output stereo: Left = Size, Right = secondary Size/Bright.
-  // Instant Trace waterfalls: shared stamp path (Size + Blur + Dot density).
-  trace: Object.freeze({
+  // Instant Waterfall waterfalls: shared stamp path (Size + Blur + Dot density).
+  waterfall: Object.freeze({
     fields: Object.freeze([
       "scale",
       "historyHz",
@@ -461,7 +461,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["rotate90"]),
     choices: Object.freeze([]),
   }),
-  traceXyz: Object.freeze({
+  waterfallXyz: Object.freeze({
     fields: Object.freeze([
       "scale",
       "historyHz",
@@ -479,7 +479,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze(["stereoBlend", "xyzLayout"]),
   }),
   // 1D Waterfall RGB — Size / Blur / Dot density / Bright; RGB Add or CMY Multiply.
-  traceRgb: Object.freeze({
+  waterfallRgb: Object.freeze({
     fields: Object.freeze([
       "scale",
       "historyHz",
@@ -682,7 +682,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze(["fftSize", "window", "overlap", "freqOverlap", "freqScale"]),
   }),
   // Videoscope / bank / hypersaw: mono energy phosphor (same knobs as 2D Phosphor).
-  // MUST NOT fall through to "trace" — that is Output's Left/Right page.
+  // MUST NOT fall through to "waterfall" — that is Output's Left/Right page.
   // Videoscope Bright lives on the module face param — not in Display Settings.
   videoscopeBurn: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
@@ -940,7 +940,7 @@ function nodeGraphTraceDisplayActiveControlsForType(type = nodeGraphTraceDisplay
   if (key.endsWith("Burn") || key === "transportBpm" || key === "clock" || key === "phoneToneFace" || key === "harmonicSeriesFace" || key === "vectorRgbFace" || key === "rasterRgbFace" || key === "gradientVectorscopeFace") {
     return nodeGraphTraceDisplayActiveControlsByType.scope2d;
   }
-  // Unknown form types: BLANK. Never Instant Trace (red plate + dead knobs).
+  // Unknown form types: BLANK. Never Instant Waterfall (red plate + dead knobs).
   return nodeGraphTraceDisplayActiveControlsByType.blank
     || Object.freeze({
       fields: Object.freeze([]),
@@ -983,7 +983,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     toggles: Object.freeze(["secondaryEnabled"]),
     choices: Object.freeze([]),
   }),
-  trace: Object.freeze({
+  waterfall: Object.freeze({
     // Residual + framing. Ghost once only (was listed twice → double "Ghost" rows).
     // Phosphor residual order: Ghost → Trail → Scale → Pixel density → Dot Budget.
     // Stamp size/blur/bright live only under the Dot/Stamp section.
@@ -2288,14 +2288,14 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
 });
 
 const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
-  trace: "Trace",
+  waterfall: "Waterfall",
   value: "Value",
   lineBurn: "Burn",
   scope2d: "2D",
   scope2dTrace: "Trace",
   scope1dTrace: "1D Trace",
-  traceXyz: "XYZ Trace",
-  traceRgb: "1D Waterfall RGB",
+  waterfallXyz: "1D Waterfall XYZ",
+  waterfallRgb: "1D Waterfall RGB",
   vectorRgbFace: "Vector RGB",
   rasterRgbFace: "Pixel Grid",
   gradientVectorscopeFace: "Vectorscope",
@@ -2336,7 +2336,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
 });
 
 const nodeGraphDisplaySettingsSectionOrder = Object.freeze([
-  "trace",
+  "waterfall",
   "value",
   "dot1",
   "secondary",
@@ -2344,11 +2344,11 @@ const nodeGraphDisplaySettingsSectionOrder = Object.freeze([
   "caps",
 ]);
 
-// Instant Trace: Size → Blur → Bright first (Left then Right), then History / Scale.
+// Instant Waterfall: Size → Blur → Bright first (Left then Right), then History / Scale.
 const nodeGraphTraceDisplaySettingsSectionOrder = Object.freeze([
   "dot1",
   "secondary",
-  "trace",
+  "waterfall",
   "value",
   "gradient",
   "caps",
@@ -2358,7 +2358,7 @@ const nodeGraphTraceDisplaySettingsSectionOrder = Object.freeze([
 // Yields: Bright → Size → Blur → Ghost → Trail → Scale → Pixel density → Dot Budget
 const nodeGraphPhosphorDisplaySettingsSectionOrder = Object.freeze([
   "dot1",
-  "trace",
+  "waterfall",
   "value",
   "secondary",
   "gradient",

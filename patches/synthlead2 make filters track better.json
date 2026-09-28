@@ -89,14 +89,14 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "traceDisplayStereo-1",
+      "destinationNode": "waterfallStereo-1",
       "destinationPort": "Right",
       "sourceNode": "attenuverter-5",
       "sourcePort": "Out",
       "tracePoints": []
     },
     {
-      "destinationNode": "traceDisplayStereo-1",
+      "destinationNode": "waterfallStereo-1",
       "destinationPort": "Left",
       "sourceNode": "polyBlep-6",
       "sourcePort": "Wave",
@@ -1535,10 +1535,10 @@
     {
       "gx": -11,
       "gy": -70,
-      "id": "traceDisplayStereo-1",
+      "id": "waterfallStereo-1",
       "paramMeta": {},
       "params": {},
-      "type": "traceDisplayStereo",
+      "type": "waterfallStereo",
       "alias": "Triangle vs Feedback",
       "widthGu": 12,
       "traceDisplaySettings": {

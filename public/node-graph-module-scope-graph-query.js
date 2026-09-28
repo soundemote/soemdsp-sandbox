@@ -201,7 +201,7 @@ function nodeGraphModuleScopeConnectedSourceBuffer(nodeId, port = "In") {
     null;
 }
 
-/** Instant Trace Sync source: dry In, or average of wired Left+Right inputs. */
+/** Instant Waterfall Sync source: dry In, or average of wired Left+Right inputs. */
 function nodeGraphModuleTraceInputSyncBuffer(nodeId, type) {
   const id = String(nodeId || "");
   const spec = (typeof nodeGraphModuleDefinitions === "object"

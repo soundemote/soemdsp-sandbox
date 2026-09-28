@@ -800,7 +800,7 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
       }
     }
   }
-  // Instant Trace faces that lock Sync to dry inputs need the feeding
+  // Instant Waterfall faces that lock Sync to dry inputs need the feeding
   // node's output ring even when that source face is hidden.
   const inputSyncSources = new Set();
   for (const node of graph.nodes) {
@@ -858,13 +858,13 @@ const NODE_GRAPH_VISUAL_LATEST_WRITE_HZ = 60;
 
 function nodeGraphVisualDisplayNeedsWaveformRing(node) {
   // Use the renderer the face actually paints with. Modules that omit
-  // displayType still fall back to Instant Trace ("trace") — treating them
+  // displayType still fall back to Instant Waterfall ("waterfall") — treating them
   // as LCD (60 Hz) is what made Gain a dotted "custom oscilloscope".
   const displayType = typeof nodeGraphModuleDisplayRendererForNode === "function"
     ? String(nodeGraphModuleDisplayRendererForNode(node) || "")
     : String(nodeGraphModuleDefinitions[node?.type]?.displayType || node?.displayType || "");
   return (
-    displayType === "trace" ||
+    displayType === "waterfall" ||
     displayType === "scope2d" ||
     displayType === "scope2dTrace" ||
 displayType === "scope1dTrace" ||
@@ -886,8 +886,8 @@ displayType === "scope1dTrace" ||
     displayType === "rasterRgbFace" ||
     displayType === "vectorRgbFace" ||
     displayType === "gradientVectorscopeFace" ||
-    displayType === "traceRgb" ||
-    displayType === "traceXyz"
+    displayType === "waterfallRgb" ||
+    displayType === "waterfallXyz"
   );
 }
 

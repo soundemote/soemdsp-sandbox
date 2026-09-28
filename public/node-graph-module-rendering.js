@@ -461,7 +461,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     pitchDetector: "pitch-detector-layout",
     speakerProtection: "speaker-protection-layout",
     textBox: "text-box-layout",
-    traceDisplay: "trace-display-layout",
+    scopeFace: "scope-face-layout",
     visualScope: "visual-scope-layout",
     wallRoomDisplay: "wall-room-display-layout",
     ...nodeGraphChromelessModuleLayoutClassEntries(),
@@ -895,7 +895,7 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
-  } else if (layout === "traceDisplay") {
+  } else if (layout === "scopeFace") {
     const scopeSection = createNodeGraphModuleScopeSection(node, type);
     scopeSection.classList.add("node-module-trace-display-window");
     article.append(scopeSection);

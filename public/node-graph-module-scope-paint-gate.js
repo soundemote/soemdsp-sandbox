@@ -51,7 +51,7 @@ function nodeGraphDisplaysFrozen() {
 /**
  * Drawing faces (basicShape, roundShape, filter curves, …) may animate from
  * transport alone — Live Output is not required. Not for realtime field
- * drawers (FBM field) or phosphor / Instant Trace.
+ * drawers (FBM field) or phosphor / Instant Waterfall.
  */
 function scopePaintIsDrawingLive() {
   if (scopePaintIsVisualPaused()) {
@@ -61,7 +61,7 @@ function scopePaintIsDrawingLive() {
 }
 
 /**
- * Heavy realtime screens (phosphor, Instant Trace / strip traces, FBM field).
+ * Heavy realtime screens (phosphor, Instant Waterfall / strip traces, FBM field).
  * Need Live Output so the sample / domain stream is actually pumping.
  */
 function scopePaintIsRealtimeSampleLive() {
@@ -247,7 +247,7 @@ function scopePaintNotifyFaceLoops() {
 }
 
 /**
- * Phosphor residual hold: no new deposits / no Instant Trace rewrite.
+ * Phosphor residual hold: no new deposits / no Instant Waterfall rewrite.
  * Intentional pause only — never "AudioContext suspended" or missing circuit flag.
  *
  * Full Stop (no live worklet node) is NOT freeze. Stop must cold-boot LCD/LED
@@ -277,7 +277,7 @@ function scopePaintIsPaused() {
 }
 
 /**
- * Full compositor draw (phosphor deposits + Instant Trace / sample faces).
+ * Full compositor draw (phosphor deposits + Instant Waterfall / sample faces).
  * Requires Live Output. force=true still allowed for Clear / Settings plates.
  */
 function scopePaintShouldFullDraw(force = false) {
@@ -313,7 +313,7 @@ function scopePaintShouldKeepLoop() {
 }
 
 /**
- * Instant Trace signature skip: never while realtime sample stream is live.
+ * Instant Waterfall signature skip: never while realtime sample stream is live.
  * When idle / Live Output off, callers may cache static frames.
  */
 function scopePaintShouldSkipUnchangedTrace() {

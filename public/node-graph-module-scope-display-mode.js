@@ -5,14 +5,14 @@
  * Settings schema for a display renderer.
  * Only faces that actually have Display Settings fields get a schema.
  * Unknown renderers (clock, transportBpm, …) return "" —
- * NEVER Instant Trace / phosphor.
+ * NEVER Instant Waterfall / phosphor.
  */
 function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
   const r = String(renderer || "").trim();
   if (!r || r === "layoutOwned" || r === "blank" || r === "none") {
     return "";
   }
-  if (r === "traceRgb" || r === "traceXyz") {
+  if (r === "waterfallRgb" || r === "waterfallXyz") {
     return r;
   }
   if (typeof nodeGraphModuleDisplayTypeHasLocalSettings === "function") {
@@ -76,7 +76,7 @@ function normalizeNodeGraphDisplayMode(mode, type = "", index = 0) {
   const raw = mode && typeof mode === "object" ? mode : {};
   const rawRenderer = raw.renderer === "ledLamp"
     ? "vectorDot"
-    : (raw.renderer === "traceXyz" ? "trace" : raw.renderer);
+    : (raw.renderer === "waterfallXyz" || raw.renderer === "waterfallRgb" ? "waterfall" : raw.renderer);
   const renderer = nodeGraphDisplayModeRenderers.includes(rawRenderer)
     ? rawRenderer
     : nodeGraphModuleDeclaredDisplayTypeForType(type);
@@ -121,7 +121,7 @@ function nodeGraphModuleImplicitDisplayModeForType(type) {
   if (renderer === "layoutOwned") {
     return null;
   }
-  // Instant Trace only when the type declares it (displayType / visualScope).
+  // Instant Waterfall only when the type declares it (displayType / visualScope).
   // Custom layouts (envelopeCurve / filterCurve) never reach here (layoutOwned).
   return normalizeNodeGraphDisplayMode({
     key: renderer,
@@ -179,8 +179,8 @@ function nodeGraphModuleDisplayRendererForNode(node) {
 
 /**
  * Display Settings form schema for a node.
- * Mode.settingsSchema wins (including ""). Instant Trace only when the
- * module declares displayType "trace". Custom layout faces
+ * Mode.settingsSchema wins (including ""). Instant Waterfall only when the
+ * module declares displayType "waterfall". Custom layout faces
  * (envelopeCurve / filterCurve → layoutOwned) have no mode → blank settings.
  */
 function nodeGraphModuleDisplaySettingsSchemaForNode(node) {
@@ -218,8 +218,9 @@ function nodeGraphModuleDisplaySettingsSchemaForSlot(slot) {
 
 function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
   return [
-    "trace",
-    "traceRgb",
+    "waterfall",
+    "waterfallRgb",
+    "waterfallXyz",
     "dot",
     "vectorDot",
     "pulseDot",

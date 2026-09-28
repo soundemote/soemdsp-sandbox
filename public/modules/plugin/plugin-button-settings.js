@@ -318,7 +318,7 @@ function syncNodeGraphPluginButtonDisplaySettingsControls(root, settings) {
       || root.querySelector?.(`[data-plugin-btn-field="${key}"]`);
     if (el && document.activeElement !== el) {
       el.value = format(s[key]);
-      if (el.dataset?.traceDisplayField) el.readOnly = true;
+      if (el.dataset?.waterfallField) el.readOnly = true;
     }
   }
   for (const key of NODE_GRAPH_PLUGIN_BUTTON_CHOICE_FIELDS) {

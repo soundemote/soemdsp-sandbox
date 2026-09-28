@@ -543,6 +543,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/attenuverter/attenuverter-math.js",
     "./public/modules/attenumax/attenumax-math.js",
     "./public/modules/range/range-math.js",
+    "./public/modules/softClipper/soft-clipper-display.js",
+    "./public/modules/tubeSaturation/tube-saturation-math.js",
     "./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js",
     "./public/modules/vectorscopeTransform/vectorscope-transform-math.js",
     "./public/modules/speedColorInertia/speed-color-inertia-math.js",
@@ -579,6 +581,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-bootstrap.js",
     "./public/app-event-bindings.js",
     "./public/app.js",
+    "./public/site-preview-local.js",
     "./public/node-graph-live-frame-evaluator.js",
     "./public/node-graph-code-screen.js",
     "./public/modules/bugButton/bug-button-live-evaluator.js",
@@ -3951,6 +3954,7 @@ def require_chromeless_module_registry_contract() -> None:
         "numberReadout",
         "patch",
         "portalInlet",
+        "portalIo",
         "portalOutlet",
         "rayBouncer",
         "rgbFractal",
@@ -3978,6 +3982,7 @@ def require_chromeless_module_registry_contract() -> None:
     chromeless_ui_optional = {
         "valueLcd",
         "portalInlet",
+        "portalIo",
         "portalOutlet",
         "namedPortalIn",
         "namedPortalOut",
@@ -4655,7 +4660,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'outputs: ["RMS A", "RMS D", "Gate"]' in rms_definition_source
         and 'digitalOutputs: ["RMS D", "Gate"]' in rms_definition_source
         and 'source: { value: "RMS A" }' in rms_definition_source
-        and "xyzTracePorts" not in rms_definition_source
+        and "xyzWaterfallPorts" not in rms_definition_source
         and "rmsDbGuides: true" in rms_definition_source
         and 'key: "ballistics"' not in node_graph_module_definitions_source
         and 'key: "refDb"' not in node_graph_module_definitions_source
@@ -4896,23 +4901,23 @@ def require_node_graph_mvp_contract() -> None:
         and "function nodeGraphRasterRgbGradeChannel01" in script_sources["./public/modules/rasterRgb/raster-rgb-math.js"]
         and 'bipolar: true' in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
-            script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
+            script_sources["./public/node-graph-module-definitions.js"].index("waterfallXyz: {")
         ]
         and 'key: "width"' in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
-            script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
+            script_sources["./public/node-graph-module-definitions.js"].index("waterfallXyz: {")
         ]
         and 'key: "height"' in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
-            script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
+            script_sources["./public/node-graph-module-definitions.js"].index("waterfallXyz: {")
         ]
         and "maxDigits: 2" in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
-            script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
+            script_sources["./public/node-graph-module-definitions.js"].index("waterfallXyz: {")
         ]
         and 'step: "any"' in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("rasterRgb: {"):
-            script_sources["./public/node-graph-module-definitions.js"].index("traceXyz: {")
+            script_sources["./public/node-graph-module-definitions.js"].index("waterfallXyz: {")
         ]
         and "nodeGraphRasterRgbBufferDim" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
         and "nodeGraphRasterRgbGridSize" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
@@ -8061,7 +8066,7 @@ def require_node_graph_mvp_contract() -> None:
         "visualOscilloscope: \"Display\"",
         "sandboxVisuals: {",
         'bufferedInputs: ["Shake", "X", "Y", "Dim", "Red", "Green", "Blue", "Scope Off", "Pause"]',
-        'displayType: "trace"',
+        'displayType: "waterfall"',
         'inputs: ["Shake", "X", "Y", "Dim", "Red", "Green", "Blue", "Scope Off", "Pause", "Trace Image"]',
         "inputAliases: {",
         '"Screen Shake": "Shake"',
@@ -8108,7 +8113,7 @@ def require_node_graph_mvp_contract() -> None:
         'label: "Glow"',
         "rgbaHsla: {",
         'bufferedInputs: ["Red", "Green", "Blue", "Hue", "Saturation", "Lightness", "HSL Mix", "Alpha"]',
-        'displayType: "trace"',
+        'displayType: "waterfall"',
         'inputs: ["Red", "Green", "Blue", "Hue", "Saturation", "Lightness", "HSL Mix", "Alpha"]',
         '"Screen Alpha": "Alpha"',
         'key: "hslMix"',
@@ -8208,19 +8213,19 @@ def require_node_graph_mvp_contract() -> None:
         'key: "visualOscilloscopeY"',
         'label: "Y"',
         'port: "Y"',
-        'traceDisplay: "1D Waterfall"',
-        '"traceDisplay"',
-        "traceDisplay: {",
+        'waterfall: "1D Waterfall"',
+        '"waterfall"',
+        "waterfall: {",
         'bufferedInputs: ["In"]',
-        'layout: "traceDisplay"',
-        'key: "traceDisplay"',
+        'layout: "scopeFace"',
+        'key: "waterfall"',
         "drawNodeGraphTraceDisplayItem",
-        'displayType: "trace"',
+        'displayType: "waterfall"',
         "function nodeGraphModuleDisplayTypeForSlot(slot)",
         "function nodeGraphModuleDisplayRendererForSlot(slot)",
-        'nodeGraphModuleDisplayRendererForSlot(slot) === "trace"',
+        'nodeGraphModuleDisplayRendererForSlot(slot) === "waterfall"',
         "nodeGraphTraceDisplaySettingsDefaults",
-        "normalizeNodeGraphTraceDisplaySettings",
+        "normalizeNodeGraphWaterfallSettings",
         "nodeGraphTraceDisplaySettingsForSlot",
         "function nodeGraphModuleDisplayTypeHasLocalSettings(displayType)",
         "function nodeGraphNodeHasLocalDisplaySettings(node)",
@@ -8244,7 +8249,7 @@ def require_node_graph_mvp_contract() -> None:
         'if (displayType === "scope2d")',
         "traceDisplaySettings: normalizeNodeGraphScope2dSettings(migrate(node.traceDisplaySettings, false))",
         "...cloneNodeGraphTypedDisplaySettings(node)",
-        'renderer === "trace") {\n    buffer = prepareNodeGraphTraceDisplayBuffer(\n      capturedBuffer,\n      nodeGraphTraceDisplaySettingsForSlot(slot),\n    );',
+        'renderer === "waterfall") {\n    buffer = prepareNodeGraphTraceDisplayBuffer(\n      capturedBuffer,\n      nodeGraphTraceDisplaySettingsForSlot(slot),\n    );',
         '"traceDisplaySettings"',
         'traceDisplaySettings: "nodeTraceDisplaySettingsPopover"',
         "const nodeGraphSharedInspectorWindowKeys = Object.freeze([",
@@ -9149,7 +9154,7 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphPatchNodeGridWidthUnits(node)",
         "function nodeGraphPatchNodeGridHeightUnits(node)",
         "function nodeGraphModuleHeightWidgetUnits(type, ui = {})",
-        'nodeGraphModuleDefinitions[type]?.layout === "traceDisplay"',
+        'nodeGraphModuleDefinitions[type]?.layout === "waterfall"',
         '{ id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true }',
         "const nodeGraphModuleDisplayHeightLimits",
         "minGu: 1",
@@ -12213,9 +12218,9 @@ def require_node_graph_mvp_contract() -> None:
         "const x = new Float32Array(frames)",
         "const y = new Float32Array(frames)",
         "nodeGraphScopeXy: true",
-        "function nodeGraphModuleScopeXyTraceFrameCount(length)",
+        "function nodeGraphModuleScopeXyWaterfallFrameCount(length)",
         "return safeLength",
-        "function nodeGraphModuleScopeCapturedXyTraceFrameCount(slot, length)",
+        "function nodeGraphModuleScopeCapturedXyWaterfallFrameCount(slot, length)",
         'slot?.type === "audioPlayer"',
         "Math.min(frames, 256)",
         "function nodeGraphModuleScopeCapturedCurrentLightTarget(capturedBuffer)",
@@ -13074,7 +13079,7 @@ def require_node_graph_mvp_contract() -> None:
     require('t10: {' in module_store_source and 'label: "t10"' in module_store_source, "t10 should live in Digital")
     require('"3t": {' in module_store_source and 'label: "3t"' in module_store_source, "3t mux should live in Digital")
     require('"10t": {' in module_store_source and 'label: "10t"' in module_store_source, "10t mux should live in Digital")
-    require('traceDisplay: {' in module_store_source, "Trace Display should author as Oscilloscope before display-category normalization")
+    require('waterfall: {' in module_store_source, "1D Waterfall should author as Oscilloscope before display-category normalization")
     require("dotOscilloscope: {" in module_store_source and 'label: "0D Burn"' in module_store_source, "0D Burn oscilloscope should exist")
     require("valueOscilloscope: {" in module_store_source and 'label: "0D Value"' in module_store_source, "0D Value oscilloscope should exist")
     require("lineBurnOscilloscope: {" in module_store_source and 'label: "1D Burn Dot"' in module_store_source, "1D Burn Dot oscilloscope should exist")
@@ -13149,7 +13154,7 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphNativeModuleRefIsUnderConstruction(message)" in script_sources["./public/node-graph-live-runtime.js"],
         "Under-construction modules must not load native stubs or report module-diagnostics errors",
     )
-    for oscilloscope_type in ["dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "traceDisplay"]:
+    for oscilloscope_type in ["dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "waterfall"]:
         require(f"{oscilloscope_type}: {{" in module_definitions_source, f"{oscilloscope_type} should have a spawnable module definition")
         osc_chunk_start = module_definitions_source.index(f"{oscilloscope_type}: {{")
         osc_chunk = module_definitions_source[osc_chunk_start:osc_chunk_start + 700]
@@ -13234,7 +13239,7 @@ def require_node_graph_mvp_contract() -> None:
         "Number Readout must read only real captured input, never an offline model-guess buffer",
     )
     require(
-        '["traceDisplay", "dotOscilloscope", "valueOscilloscope", "numberReadout", "lineBurnOscilloscope"].includes(slot?.type)' in node_graph_source
+        '["waterfall", "dotOscilloscope", "valueOscilloscope", "numberReadout", "lineBurnOscilloscope"].includes(slot?.type)' in node_graph_source
         and "function nodeGraphNumberReadoutUnitForSlot(slot)" in node_graph_source
         and 'sourceNode?.type === "helmholtzPitch" && connection.sourcePort === "Frequency"' in node_graph_source
         and 'const text = unit ? `${valueText} ${unit}` : valueText;' in node_graph_source,
@@ -13294,9 +13299,9 @@ def require_node_graph_mvp_contract() -> None:
         "Number Readout should have its own renderer dispatch entry",
     )
     require(
-        'if (nodeGraphModuleDefinitions?.[type]) {\n    return "trace";\n  }' in node_graph_source
+        'if (nodeGraphModuleDefinitions?.[type]) {\n    return "waterfall";\n  }' in node_graph_source
         and 'nodeGraphModuleDisplayRendererForNode(node) !== "layoutOwned"' in script_sources["./public/node-graph-execution-plan.js"],
-        "Known modules without specialized displays should default to 1D Trace capture",
+        "Known modules without specialized displays should default to Instant Waterfall capture",
     )
     require(
         "function nodeGraphModuleDisplaySignalsForType(type)" in node_graph_source
@@ -13381,7 +13386,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'displaySignals:' in module_definitions_source
         and 'key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "Out X Raw", y: "Out Y Raw" }' in module_definitions_source
         and 'key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "Out X Raw", y: "Out Y Raw" }' in module_definitions_source
-        and 'key: "zTrace", label: "Z Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out Z Raw" }' in module_definitions_source,
+        and 'key: "zWaterfall", label: "Z Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Out Z Raw" }' in module_definitions_source,
         "Fractal Brownian Motion should declare explicit display modes for the pre-level Out X/Y/Z Raw signals",
     )
     require(
@@ -13408,7 +13413,7 @@ def require_node_graph_mvp_contract() -> None:
         "2D Trace should dispatch to its own renderer instead of 2D Burn",
     )
     trace_display_definition = module_definitions_source[
-        module_definitions_source.index("traceDisplay: {"):
+        module_definitions_source.index("waterfall: {"):
         module_definitions_source.index("dotOscilloscope: {")
     ]
     require(
@@ -13982,7 +13987,7 @@ def require_node_graph_mvp_contract() -> None:
         "oscilloscope testbed displays should measure captured wire buffers without offline fallback",
     )
     require(
-        '["traceDisplay", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope"].includes(slot.type)' in node_graph_source
+        '["waterfall", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope"].includes(slot.type)' in node_graph_source
         and '["scope2d", "scope2dTrace"].includes(renderer)' in node_graph_source
         and 'outputs.includes("X") && outputs.includes("Y")' in node_graph_source
         and 'nodeGraphModuleScopeConnectionsTo(slot.nodeId, "Y").length > 0' in node_graph_source,
@@ -14383,9 +14388,9 @@ def require_node_graph_mvp_contract() -> None:
         node_graph_source.index("function prepareNodeGraphTraceDisplayBuffer")
     ]
     require(
-        'nodeGraphModuleDisplaySettingsSchemaForSlot(slot) === "trace"' in trace_slot_settings_source
+        'nodeGraphModuleDisplaySettingsSchemaForSlot(slot) === "waterfall"' in trace_slot_settings_source
         and "return nodeGraphGlobalTraceSettings();" in trace_slot_settings_source
-        and 'slot?.type !== "traceDisplay"' not in trace_slot_settings_source,
+        and 'slot?.type !== "waterfall"' not in trace_slot_settings_source,
         "All trace displays should share global Trace Settings until local overrides are deliberately restored",
     )
     trace_buffer_view_source = node_graph_source[
@@ -14401,19 +14406,19 @@ def require_node_graph_mvp_contract() -> None:
         node_graph_source.index("function nodeGraphModuleScopeBufferSegmentPoints")
     ]
     require(
-        'nodeGraphModuleDisplayRendererForSlot(slot) === "trace"' in trace_buffer_view_source
-        and 'nodeGraphModuleDisplayRendererForSlot(slot) === "trace"' in trace_webgl_source
-        and 'nodeGraphModuleDisplayRendererForSlot(slot) === "trace"' in trace_segment_source
-        and 'slot?.type === "traceDisplay"' not in trace_buffer_view_source
-        and 'slot?.type === "traceDisplay"' not in trace_webgl_source
-        and 'slot?.type === "traceDisplay"' not in trace_segment_source
+        'nodeGraphModuleDisplayRendererForSlot(slot) === "waterfall"' in trace_buffer_view_source
+        and 'nodeGraphModuleDisplayRendererForSlot(slot) === "waterfall"' in trace_webgl_source
+        and 'nodeGraphModuleDisplayRendererForSlot(slot) === "waterfall"' in trace_segment_source
+        and 'slot?.type === "waterfall"' not in trace_buffer_view_source
+        and 'slot?.type === "waterfall"' not in trace_webgl_source
+        and 'slot?.type === "waterfall"' not in trace_segment_source
         and "const availableSamples = nodeGraphScopeAvailableSampleCount(buffer)" in trace_buffer_view_source
         and "const validStart = availableSamples > 0" in trace_buffer_view_source
         and "nodeGraphTraceDisplayHistorySampleCount(buffer, settings)" in trace_buffer_view_source
         and "visibleSamples = Math.min(validSamples, historySamples)" in trace_buffer_view_source
         and "validEnd - historySamples" in trace_buffer_view_source
         and "triggeredStart !== null && triggeredStart >= validStart" in trace_buffer_view_source
-        and 'slot?.type !== "traceDisplay"' not in trace_segment_source,
+        and 'slot?.type !== "waterfall"' not in trace_segment_source,
         "Typed trace displays should use the same recent-tail buffer view and WebGL trace renderer as 1D Trace",
     )
     require(
@@ -14467,8 +14472,8 @@ def require_node_graph_mvp_contract() -> None:
     require(
         "function nodeGraphTraceDisplaySettingsEditingTraceDefaults()" in node_graph_source
         and "if (nodeGraphTraceDisplaySettingsEditingGlobal()) {" in node_graph_source
-        and 'nodeGraphModuleDisplaySettingsSchemaForNode(node) === "trace"' in node_graph_source
-        and "nodeGraphMvp.traceSettings = normalizeNodeGraphTraceDisplaySettings(settings)" in node_graph_source
+        and 'nodeGraphModuleDisplaySettingsSchemaForNode(node) === "waterfall"' in node_graph_source
+        and "nodeGraphMvp.traceSettings = normalizeNodeGraphWaterfallSettings(settings)" in node_graph_source
         and "nodeGraphTraceDisplayCurrentSettingsForFormType()" in module_trace_settings_open_source,
         "Trace display settings form should edit the global trace defaults used by all trace displays",
     )
@@ -14546,7 +14551,7 @@ def require_node_graph_mvp_contract() -> None:
         and "global.TraceWaveform = {" in node_graph_source
         and "return TraceWaveform.buildPoints({" in node_graph_source
         and "Math.floor(options.forceStart)" not in node_graph_source,
-        "Instant Trace waveform drawer should exist and keep fractional stereo starts",
+        "Instant Waterfall waveform drawer should exist and keep fractional stereo starts",
     )
     visual_sink_capacity_source = execution_plan_source[
         execution_plan_source.index("function nodeGraphVisualSinkBufferSampleLimit(node)"):
@@ -15082,7 +15087,7 @@ def require_node_graph_mvp_contract() -> None:
     )
 
     require(
-        'output: {\n    displayType: "trace"' in module_definitions_source
+        'output: {\n    displayType: "waterfall"' in module_definitions_source
         and "function nodeGraphModuleScopeOfflineOutputAnalyzerBuffer(slot)" not in node_graph_source
         and "function nodeGraphModuleScopeShouldPreferOfflineOutputAnalyzer(slot, buffer)" not in node_graph_source
         and "function nodeGraphModuleScopeCapturedOutputAnalyzerBuffer(slot, capturedBuffer = null)" not in node_graph_source
@@ -16223,8 +16228,8 @@ def require_node_graph_mvp_contract() -> None:
         ".node-module-scope-canvas",
         ".node-graph-workspace.module-scopes-enabled .node-module-scope-canvas",
         ".node-graph-workspace.module-oscilloscopes-hidden",
-        ".node-graph-workspace.module-oscilloscopes-hidden\n  .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout) {\n  --node-module-scope-height: 0px;",
-        ".node-graph-workspace.module-oscilloscopes-hidden\n  .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout)\n  .node-module-scope-window",
+        ".node-graph-workspace.module-oscilloscopes-hidden\n  .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.scope-face-layout) {\n  --node-module-scope-height: 0px;",
+        ".node-graph-workspace.module-oscilloscopes-hidden\n  .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.scope-face-layout)\n  .node-module-scope-window",
         ".node-canvas-layers",
         ".node-canvas-layer",
         "--node-canvas-layer-x",
@@ -16495,14 +16500,14 @@ def require_node_graph_mvp_contract() -> None:
         ".dsp-node-body",
         "align-content: start;",
         "grid-auto-rows: var(--node-body-row-height)",
-        ".node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout)",
+        ".node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.scope-face-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout)",
         "grid-template-rows:\n    var(--node-header-height)\n    var(--node-module-scope-height)\n    minmax(var(--node-io-section-min-height), auto)\n    auto\n    auto;",
         ".dsp-node.sample-module-layout.oscilloscope-hidden",
         "--node-module-scope-height: 0px",
         ".dsp-node.sample-module-layout,\n.dsp-node.sample-module-layout.oscilloscope-hidden",
         "grid-template-rows:\n    var(--node-header-height)\n    var(--node-module-scope-height)\n    var(--node-module-interface-controls-height)\n    minmax(var(--node-io-section-min-height), auto)\n    auto;",
         "align-content: start;",
-        ".node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout)::after",
+        ".node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.scope-face-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout)::after",
         "grid-auto-rows: var(--node-body-row-height)",
         "gap: var(--node-body-row-gap)",
         ".dsp-node-io-section",
@@ -16539,7 +16544,7 @@ def require_node_graph_mvp_contract() -> None:
         ".scene-context-alias-control input",
         ".dsp-node.buttons-hidden",
         ".dsp-node.oscilloscope-hidden",
-        ".dsp-node.oscilloscope-hidden:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout) .node-module-scope-window",
+        ".dsp-node.oscilloscope-hidden:not(.canvas-node-layout):not(.visual-scope-layout):not(.scope-face-layout) .node-module-scope-window",
         ".node-graph-workspace.module-buttons-hidden .dsp-node .node-header-actions",
         ".node-graph-workspace.module-sliders-hidden .node-parameter-row",
         ".dsp-node.sliders-hidden .dsp-node-body",
@@ -18537,6 +18542,18 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_ring_mod_metadata_json",
             "soemdsp_ring_mod_metadata_json_size",
         ],
+        "robin_oscillator": [
+            "soemdsp_robin_oscillator_create",
+            "soemdsp_robin_oscillator_destroy",
+            "soemdsp_robin_oscillator_reset",
+            "soemdsp_robin_oscillator_sample",
+            "soemdsp_robin_oscillator_process_block",
+            "soemdsp_robin_oscillator_block_output_ptr",
+            "soemdsp_robin_oscillator_max_block_frames",
+            "soemdsp_robin_oscillator_version",
+            "soemdsp_robin_oscillator_metadata_json",
+            "soemdsp_robin_oscillator_metadata_json_size",
+        ],
         "robin_sinusoid": [
             "soemdsp_robin_sinusoid_create",
             "soemdsp_robin_sinusoid_destroy",
@@ -18568,6 +18585,12 @@ def require_native_module_contract(base_url: str) -> None:
         "sabrina_reverb": ["soemdsp_sabrina_reverb_create", "soemdsp_sabrina_reverb_destroy", "soemdsp_sabrina_reverb_process"],
         "shooting_star_explosion": ["soemdsp_shooting_star_explosion_power", "soemdsp_shooting_star_explosion_metadata_json"],
         "soft_clipper": ["soemdsp_soft_clipper_sample"],
+        "tube_saturation": [
+            "soemdsp_tube_saturation_sample",
+            "soemdsp_tube_saturation_version",
+            "soemdsp_tube_saturation_metadata_json",
+            "soemdsp_tube_saturation_metadata_json_size",
+        ],
         "tb303_filter": [
             "soemdsp_tb303_filter_create",
             "soemdsp_tb303_filter_destroy",
@@ -18861,8 +18884,10 @@ def require_native_module_contract(base_url: str) -> None:
     require("extern \"C\" const char* soemdsp_soft_clipper_metadata_json()" in soft_clipper_source, "native Soft Clipper metadata export missing")
     require('"inputs":["Mono","Left","Right"]' in soft_clipper_metadata_text, "native Soft Clipper metadata should declare stereo inputs")
     require('"outputs":["Mono","Left","Right"]' in soft_clipper_metadata_text, "native Soft Clipper metadata should declare stereo outputs")
-    require('"key":"center"' in soft_clipper_metadata_text and '"tooltip":"Moves the soft clipping curve' in soft_clipper_metadata_text, "native Soft Clipper center tooltip metadata missing")
-    require('"key":"width"' in soft_clipper_metadata_text and '"tooltip":"Sets the width' in soft_clipper_metadata_text, "native Soft Clipper width tooltip metadata missing")
+    require('"key":"drive"' in soft_clipper_metadata_text and '"tooltip":"Input push into the soft-knee curve.' in soft_clipper_metadata_text, "native Soft Clipper drive tooltip metadata missing")
+    require('"key":"threshold"' in soft_clipper_metadata_text and '"tooltip":"Amplitude (0...1) where limiting starts.' in soft_clipper_metadata_text, "native Soft Clipper threshold tooltip metadata missing")
+    require('"key":"knee"' in soft_clipper_metadata_text and '"tooltip":"How gradual the transition from Threshold' in soft_clipper_metadata_text, "native Soft Clipper knee tooltip metadata missing")
+    require('"key":"amplitude"' in soft_clipper_metadata_text and '"tooltip":"Output scale after shaping.' in soft_clipper_metadata_text, "native Soft Clipper amplitude tooltip metadata missing")
     ladder_source_path = ROOT / "native_modules" / "ladder_filter" / "ladder_filter.cpp"
     ladder_source = ladder_source_path.read_text(encoding="utf-8")
     ladder_metadata_text = ladder_source.replace('\\"', '"')

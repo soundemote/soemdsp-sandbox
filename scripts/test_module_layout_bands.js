@@ -27,7 +27,7 @@ var sandbox = {
   nodeGraphModuleDefinitions: {
     output: {
       chrome: "LayoutA",
-      displayType: "trace",
+      displayType: "waterfall",
       inputs: ["Mono", "Left", "Right"],
       parameters: [{ key: "volume" }],
     },
@@ -39,14 +39,14 @@ var sandbox = {
     },
     samplePlayer: {
       chrome: "LayoutA",
-      displayType: "trace",
+      displayType: "waterfall",
       inputs: ["Trigger"],
       outputs: ["Out", "Left", "Right"],
       parameters: [{ key: "level" }, { key: "pitch" }],
     },
     sampleLooper: {
       chrome: "LayoutA",
-      displayType: "trace",
+      displayType: "waterfall",
       inputs: ["Gate"],
       outputs: ["Out", "Left", "Right"],
       parameters: [{ key: "level" }, { key: "pitch" }],
@@ -54,7 +54,7 @@ var sandbox = {
     audioPlayer: {
       chrome: "LayoutA",
       layout: "sampleWaveform",
-      displayType: "trace",
+      displayType: "waterfall",
       inputs: ["Reset"],
       outputs: ["Mono", "Left", "Right"],
       parameters: [{ key: "amplitude" }, { key: "speed" }],

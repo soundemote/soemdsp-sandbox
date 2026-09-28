@@ -380,12 +380,12 @@ function drawNodeGraphScope1dTraceItem(renderer, item, pixelRatio) {
   }
 
   const type = String(slot?.type || node?.type || "");
-  const stereoPorts = typeof nodeGraphModuleStereoTracePorts === "function"
-    ? nodeGraphModuleStereoTracePorts(type)
+  const stereoPorts = typeof nodeGraphModuleStereoWaterfallPorts === "function"
+    ? nodeGraphModuleStereoWaterfallPorts(type)
     : null;
   let channels = [];
-  if (stereoPorts && typeof nodeGraphStereoTraceBuffers === "function") {
-    const stereo = nodeGraphStereoTraceBuffers(nodeId, type);
+  if (stereoPorts && typeof nodeGraphStereoWaterfallBuffers === "function") {
+    const stereo = nodeGraphStereoWaterfallBuffers(nodeId, type);
     if (stereo?.left?.length) {
       channels.push({
         buffer: stereo.left,

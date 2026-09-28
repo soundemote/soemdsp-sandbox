@@ -2352,13 +2352,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Display",
     notes: ["multi-mode", "2D Trace", "2D Phosphor", "1D Waterfall", "1D Phosphor", "visual sink"],
   },
-  traceDisplay: {
+  waterfall: {
     category: "oscilloscope",
     description: "1D waterfall tape—pen on the right, history scrolls left.",
     label: "1D Waterfall",
     notes: ["1D Waterfall", "waterfall", "waveform", "display testbed"],
   },
-  traceDisplayStereo: {
+  waterfallStereo: {
     category: "oscilloscope",
     description: "Stereo 1D waterfall—Left/Right colors, same dest tape as Mono.",
     label: "1D Waterfall Stereo",
@@ -2373,10 +2373,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "display testbed",
     ],
   },
-  traceDisplayXyz: {
+  waterfallXyz: {
     hidden: true,
     category: "oscilloscope",
-    description: "Retired alias. Use 1D Waterfall XYZ (traceXyz).",
+    description: "Retired alias. Use 1D Waterfall XYZ (waterfallXyz).",
     label: "1D Waterfall XYZ",
     notes: ["retired"],
   },
@@ -2537,13 +2537,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Gradient Vectorscope",
     notes: ["vectorscope", "gradient", "xy trace", "90", "oscilloscope"],
   },
-  traceXyz: {
+  waterfallXyz: {
     category: "oscilloscope",
     description: "XYZ 1D waterfall—X red, Y blue, Z green on the same dest tape as Mono.",
     label: "1D Waterfall XYZ",
     notes: ["1D Waterfall", "xyz", "X", "Y", "Z", "waveform", "display testbed"],
   },
-  traceRgb: {
+  waterfallRgb: {
     category: "oscilloscope",
     description: "1D waterfall with fixed R/G/B guns. Blur 0 = hard pixels; 1 = soft smoothstep. Bright scales ink.",
     label: "1D Waterfall RGB",

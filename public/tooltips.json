@@ -173,9 +173,9 @@
     "metamoduleVoiceCount": "how many parallel voice copies of the Meta's owned subgraph (1–32) | Module Settings only | changing recompiles the Meta voice graph | default 10"
   },
   "traceDisplaySettings": {
-    "save": "save these Trace Display drawing settings to this module",
-    "restore": "restore the last saved Trace Display drawing settings",
-    "defaults": "reset the Trace Display drawing settings to factory defaults",
+    "save": "save these Waterfall drawing settings to this module",
+    "restore": "restore the last saved Waterfall drawing settings",
+    "defaults": "reset the Waterfall drawing settings to factory defaults",
     "closeSave": "save changes and close Trace Display settings",
     "closeDiscard": "discard changes and close Trace Display settings",
     "cycles": "legacy Trace Display cycle setting",

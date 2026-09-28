@@ -342,7 +342,7 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
           } else if (selfPaint === "rasterRgbFace" || slot?.type === "rasterRgb") {
             // Pixel Grid paints after the Simulation FPS gate — not on collect.
           } else if (
-            selfPaint === "trace"
+            selfPaint === "waterfall"
             || selfPaint === "dot"
             || selfPaint === "value"
             || selfPaint === "lineBurn"
@@ -497,7 +497,7 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
 }
 
 function nodeGraphModuleScopeTraceDisplayFrameUnchanged(visibleItems) {
-  // Paint gate: never skip Instant Trace while live (see paint-gate.js).
+  // Paint gate: never skip Instant Waterfall while live (see paint-gate.js).
   if (typeof scopePaintShouldSkipUnchangedTrace === "function") {
     if (!scopePaintShouldSkipUnchangedTrace()) {
       return false;
@@ -513,7 +513,7 @@ function nodeGraphModuleScopeTraceDisplayFrameUnchanged(visibleItems) {
   let traceCount = 0;
   for (const item of visibleItems) {
     const slot = item?.slot;
-    if (nodeGraphModuleDisplayRendererForSlot(slot) !== "trace") {
+    if (nodeGraphModuleDisplayRendererForSlot(slot) !== "waterfall") {
       return false;
     }
     traceCount += 1;

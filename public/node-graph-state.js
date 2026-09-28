@@ -254,7 +254,7 @@ var nodeGraphMvp = {
   moduleScopeLineThickness: 1,
   moduleScopeDiscontinuitySkipSamples: 1,
   moduleScopeSettings: {},
-  traceSettings: normalizeNodeGraphTraceDisplaySettings(),
+  traceSettings: normalizeNodeGraphWaterfallSettings(),
   dimmerCutoutMouseEnabled: false,
   dimmerMouseSize: 56,
   dimmerMouseSoftness: 25,

@@ -93,7 +93,6 @@ struct SabrinaState {
   double idleClock;
   double idleIncrement;
   double mix;
-  double send;
   double diffusionSize;
   double diffusionAmount;
   double delaySize;
@@ -477,8 +476,8 @@ void sabrinaProcessBlockScalar(SabrinaState& state, const double* leftIn, const 
       continue;
     }
     advanceSabrinaSmoothing(state);
-    const double effectLeft = dryLeft * state.send;
-    const double effectRight = dryRight * state.send;
+    const double effectLeft = dryLeft;
+    const double effectRight = dryRight;
     const double preLeft = delaySample(state.delays[12], state.ch1);
     const double preRight = delaySample(state.delays[13], state.ch0);
     double left = effectLeft + preLeft * state.recycle;
@@ -514,8 +513,8 @@ void sabrinaProcessBlockSimd(SabrinaState& state, const double* leftIn, const do
       continue;
     }
     advanceSabrinaSmoothing(state);
-    const double effectLeft = dryLeft * state.send;
-    const double effectRight = dryRight * state.send;
+    const double effectLeft = dryLeft;
+    const double effectRight = dryRight;
     double preLeft, preRight;
     delaySamplePairSimd(state.delays[12], state.delays[13], state.ch1, state.ch0, preLeft, preRight);
     double left = effectLeft + preLeft * state.recycle;
@@ -550,7 +549,6 @@ void resetState(SabrinaState& state, double sampleRate) {
   state.idleClock = 0.0;
   state.idleIncrement = 1.0 / state.sampleRate;
   state.mix = 0.43;
-  state.send = 1.0;
   state.diffusionSize = 0.35;
   state.diffusionAmount = 0.70;
   state.delaySize = 0.02;
@@ -617,8 +615,7 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
   double lfoAmplitude,
   double lfoBaseSpeed,
   double lfoVariation,
-  double seed,
-  double send
+  double seed
 ) {
   SabrinaState* state = stateForHandle(handle);
   if (!state) {
@@ -635,7 +632,6 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
 
   // LIVE — assign only (read in process / drywet).
   assignIf(state->mix, clamp(mix, 0.0, 1.0));
-  assignIf(state->send, clamp(send, 0.0, 1.0));
   assignIf(state->recycle, clamp(recycle, 0.0, 0.98));
   assignIf(state->diffusionAmount, clamp(diffusionAmount, 0.0, 0.98));
 
@@ -668,8 +664,8 @@ extern "C" void soemdsp_sabrina_reverb_process(int handle, double leftInput, dou
   // only happens via ch0/ch1 persisted from the *previous* call), so both
   // chains are processed together, one SIMD lane per channel, instead of
   // two full sequential passes.
-  const double effectLeft = dryLeft * state->send;
-  const double effectRight = dryRight * state->send;
+  const double effectLeft = dryLeft;
+  const double effectRight = dryRight;
   double preLeft, preRight;
   delaySamplePairSimd(state->delays[12], state->delays[13], state->ch1, state->ch0, preLeft, preRight);
   double left = effectLeft + preLeft * state->recycle;

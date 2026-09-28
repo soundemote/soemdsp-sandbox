@@ -70,13 +70,13 @@ const nodeGraphModuleScopeState = {
   // nothing else references it.
   scope2dBurnRenderers: new WeakMap(),
   slots: new Map(),
-  traceDisplayDrawCache: new Map(),
-  traceDisplayScratch: new Map(),
+  waterfallDrawCache: new Map(),
+  waterfallScratch: new Map(),
   // Per-display + per-trigger-buffer auto-trigger locks (phase EMA, miss
   // timeout). Keys include nodeId, port, sync channel, and buffer object ids
   // so multi-signal Sync never shares one lock (that froze traces). See
   // nodeGraphTraceDisplaySyncLockKey / StabilizedSyncStart.
-  traceDisplaySyncLocks: new Map(),
+  waterfallSyncLocks: new Map(),
   /** @type {Map<string, Float32Array>} */
   monoSyncScratch: new Map(),
   bufferObjectIdSerial: 0,

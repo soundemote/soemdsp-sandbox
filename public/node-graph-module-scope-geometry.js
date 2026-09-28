@@ -42,7 +42,7 @@ function nodeGraphModuleScopeDiscontinuitySkipSamplesForSlot(slot, buffer) {
   if (buffer?.nodeGraphScopeDisableDiscontinuitySkip === true) {
     return 0;
   }
-  if (nodeGraphModuleDisplayRendererForSlot(slot) === "trace") {
+  if (nodeGraphModuleDisplayRendererForSlot(slot) === "waterfall") {
     const enabled = buffer?.nodeGraphScopeSkipDiscontinuities
       ?? nodeGraphTraceDisplaySettingsForSlot(slot).skipDiscontinuities;
     return enabled ? nodeGraphModuleScopeDiscontinuityFixedSkipCount : 0;
@@ -65,7 +65,7 @@ function nodeGraphModuleScopeDiscontinuitySkipSamplesForPoints(points) {
 }
 
 function nodeGraphModuleScopeTraceEdgePaddingRatio(slot, rect) {
-  if (nodeGraphModuleDisplayRendererForSlot(slot) !== "trace") {
+  if (nodeGraphModuleDisplayRendererForSlot(slot) !== "waterfall") {
     return 0.08;
   }
   const settings = nodeGraphTraceDisplaySettingsForSlot(slot);
@@ -78,8 +78,8 @@ function nodeGraphModuleScopeTraceEdgePaddingRatio(slot, rect) {
         : Math.max(0, nodeGraphFiniteNumber(settings.dot1Size, 2)),
     });
   }
-  const stereoTrace = typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
-    ? nodeGraphModuleUsesStereoTraceDisplay(slot?.type)
+  const stereoTrace = typeof nodeGraphModuleUsesStereoWaterfall === "function"
+    ? nodeGraphModuleUsesStereoWaterfall(slot?.type)
     : slot?.type === "output";
   if (stereoTrace && settings.secondaryEnabled !== false && settings.secondaryBrightness > 0) {
     activePasses.push({
@@ -106,7 +106,7 @@ function nodeGraphModuleScopeTraceEdgePaddingRatio(slot, rect) {
 }
 
 function nodeGraphModuleScopeTraceHalfHeightRatio(slot, buffer, rect = null) {
-  if (nodeGraphModuleDisplayRendererForSlot(slot) !== "trace") {
+  if (nodeGraphModuleDisplayRendererForSlot(slot) !== "waterfall") {
     return 0.42;
   }
   return clampNodeSliderValue(0.5 - nodeGraphModuleScopeTraceEdgePaddingRatio(slot, rect), 0.24, 0.5);
@@ -138,14 +138,14 @@ function nodeGraphModuleScopeBufferSegmentPoints(
   if (drawSpan <= 0.001) {
     return points;
   }
-  const traceDisplayMode = nodeGraphModuleDisplayRendererForSlot(slot) === "trace";
-  const timing = traceDisplayMode ? options.traceTiming : null;
+  const waterfallMode = nodeGraphModuleDisplayRendererForSlot(slot) === "waterfall";
+  const timing = waterfallMode ? options.traceTiming : null;
   const bufferViewStartMs = timing ? nodeGraphModuleScopeNowMs() : 0;
   const view = nodeGraphModuleScopeBufferView(buffer, slot);
   if (timing) {
     timing.bufferViewMs += Math.max(0, nodeGraphModuleScopeNowMs() - bufferViewStartMs);
   }
-  if (traceDisplayMode && view.end <= view.start) {
+  if (waterfallMode && view.end <= view.start) {
     return points;
   }
   const visibleSamples = Math.max(1, view.end - view.start);

@@ -36,7 +36,7 @@ function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
   canvas._nodeGraphNumberReadoutPaintAt = 0;
   canvas._numberReadoutEnergyMask = null;
   canvas._nodeGraphNumberReadoutFrozenHoldSig = null;
-  // Pause absorb stamps these; if they survive Stop wipe, Instant Trace /
+  // Pause absorb stamps these; if they survive Stop wipe, Instant Waterfall /
   // burn cursors can believe the new session is already fully drawn.
   canvas._nodeGraphScope2dLastDrawnFrame = undefined;
   canvas._nodeGraphOneDimensionalBurnLastDrawnFrame = undefined;

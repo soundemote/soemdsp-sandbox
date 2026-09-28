@@ -579,7 +579,7 @@
         "developer": true,
         "home": false
       },
-      "traceDisplay": {
+      "waterfall": {
         "developer": true,
         "home": false
       },

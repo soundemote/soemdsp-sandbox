@@ -62,7 +62,7 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
   if (!input) {
     return 0.1;
   }
-  const key = input.dataset?.traceDisplayField;
+  const key = input.dataset?.waterfallField;
   if (["cycles", "decimals", "maxDigits", "textSizePx"].includes(key)) {
     return 1;
   }
@@ -99,9 +99,9 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
     && key !== "capSize") {
     return 0.04;
   }
-  // Instant Trace Blur: control-space step (exp map) — fine near a hard line.
-  if (typeof nodeGraphTraceDisplayInstantTraceBlurField === "function"
-    && nodeGraphTraceDisplayInstantTraceBlurField(key)) {
+  // Instant Waterfall Blur: control-space step (exp map) — fine near a hard line.
+  if (typeof nodeGraphWaterfallBlurField === "function"
+    && nodeGraphWaterfallBlurField(key)) {
     return 0.03;
   }
   // Image Burn Blur: exp map — micro soften (~0.004) needs fine steps near 0.
@@ -128,8 +128,8 @@ function nodeGraphTraceDisplaySizeControlField(key) {
   return ["dot1Size", "secondarySize", "capSize", "imageSize"].includes(key);
 }
 
-/** Instant Trace Blur (not phosphor stamp blur). */
-function nodeGraphTraceDisplayInstantTraceBlurField(key) {
+/** Instant Waterfall Blur (not phosphor stamp blur). */
+function nodeGraphWaterfallBlurField(key) {
   if (key !== "lineThickness" && key !== "secondaryLineThickness") {
     return false;
   }
@@ -296,15 +296,15 @@ const nodeGraphTraceDisplayUnitDragPixels = 220;
  */
 const nodeGraphTraceDisplaySizeDragPixels = 520;
 
-/** Instant Trace Blur: longer travel than Bright (visual halo is hot near 0). */
+/** Instant Waterfall Blur: longer travel than Bright (visual halo is hot near 0). */
 const nodeGraphTraceDisplayBlurDragPixels = 640;
 
 function nodeGraphTraceDisplaySensitiveControlField(key) {
   // Brightness / residual are linear unit drags — not size-style exp maps.
-  // Exp remains for stamp size, Instant Trace blur, Image Burn blur, pixel density, history.
+  // Exp remains for stamp size, Instant Waterfall blur, Image Burn blur, pixel density, history.
   return nodeGraphTraceDisplaySizeControlField(key) ||
     nodeGraphTraceDisplayHistoryControlField(key) ||
-    nodeGraphTraceDisplayInstantTraceBlurField(key) ||
+    nodeGraphWaterfallBlurField(key) ||
     nodeGraphTraceDisplayImageBurnBlurField(key) ||
     key === "pixelDensity";
 }
@@ -810,17 +810,17 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     backgroundBrightness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1),
   }),
   // 1D Waterfall / Output: Size = CSS px stroke; Blur 0 hard … 1 soft skirt.
-  trace: Object.freeze({
+  waterfall: Object.freeze({
     dot1Size: nodeGraphTraceDisplayClampInkPx,
     secondarySize: nodeGraphTraceDisplayClampInkPx,
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
     secondaryLineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
-  traceRgb: Object.freeze({
+  waterfallRgb: Object.freeze({
     dot1Size: nodeGraphTraceDisplayClampInkPx,
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
-  traceXyz: Object.freeze({
+  waterfallXyz: Object.freeze({
     dot1Size: nodeGraphTraceDisplayClampInkPx,
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),

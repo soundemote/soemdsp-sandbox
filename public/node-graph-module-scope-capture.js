@@ -74,8 +74,8 @@ function finishNodeGraphRenderedScopeCapture(capture) {
     return;
   }
   nodeGraphModuleScopeState.buffers = capture.buffers;
-  nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
-  nodeGraphModuleScopeState.traceDisplayScratch.clear();
+  nodeGraphModuleScopeState.waterfallDrawCache.clear();
+  nodeGraphModuleScopeState.waterfallScratch.clear();
   nodeGraphModuleScopeState.frames = capture.frames;
   nodeGraphModuleScopeState.monitorFingerprint = capture.monitorFingerprint;
   nodeGraphModuleScopeState.mode = "rendered";
@@ -137,9 +137,9 @@ function beginNodeGraphLiveModuleScopeCapture(plan = {}, options = {}) {
   }
   if (!topologyUnchanged) {
     // Topology (which nodes are captured) actually changed — drop draw caches.
-    nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
-    nodeGraphModuleScopeState.traceDisplayScratch.clear();
-    nodeGraphModuleScopeState.traceDisplaySyncLocks.clear();
+    nodeGraphModuleScopeState.waterfallDrawCache.clear();
+    nodeGraphModuleScopeState.waterfallScratch.clear();
+    nodeGraphModuleScopeState.waterfallSyncLocks.clear();
   }
   nodeGraphModuleScopeState.buffers = nextBuffers;
   nodeGraphModuleScopeState.frames = frameCapacity;
@@ -287,11 +287,11 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
   }
   const renderer = nodeGraphModuleDisplayRendererForSlot(slot);
   if (
-    typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
-    && nodeGraphModuleUsesStereoTraceDisplay(slot?.type)
+    typeof nodeGraphModuleUsesStereoWaterfall === "function"
+    && nodeGraphModuleUsesStereoWaterfall(slot?.type)
   ) {
-    const ports = typeof nodeGraphModuleStereoTracePorts === "function"
-      ? nodeGraphModuleStereoTracePorts(slot.type)
+    const ports = typeof nodeGraphModuleStereoWaterfallPorts === "function"
+      ? nodeGraphModuleStereoWaterfallPorts(slot.type)
       : { left: "Left", right: "Right" };
     const pick = (key) => {
       const buf = nodeGraphModuleScopeState.buffers.get(key);
@@ -334,10 +334,10 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
     // window — Ghost/Trail fade the face. Phosphor burn also uses new samples.
     return nodeGraphModuleScopeCapturedScope2dBuffer(slot, captureOpts);
   }
-  if (typeof nodeGraphModuleUsesXyzTraceDisplay === "function"
-    && nodeGraphModuleUsesXyzTraceDisplay(slot?.type)) {
-    const ports = typeof nodeGraphModuleXyzTracePorts === "function"
-      ? nodeGraphModuleXyzTracePorts(slot.type)
+  if (typeof nodeGraphModuleUsesXyzWaterfall === "function"
+    && nodeGraphModuleUsesXyzWaterfall(slot?.type)) {
+    const ports = typeof nodeGraphModuleXyzWaterfallPorts === "function"
+      ? nodeGraphModuleXyzWaterfallPorts(slot.type)
       : { X: "X", Y: "Y", Z: "Z" };
     const pick = (key) => {
       const buf = nodeGraphModuleScopeState.buffers.get(key);
@@ -354,8 +354,8 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       || pick(`${nodeId}:RMS Avg A`)
       || pick(nodeId);
   }
-  if (typeof nodeGraphModuleUsesRgbTraceDisplay === "function"
-    && nodeGraphModuleUsesRgbTraceDisplay(slot?.type)) {
+  if (typeof nodeGraphModuleUsesRgbWaterfall === "function"
+    && nodeGraphModuleUsesRgbWaterfall(slot?.type)) {
     const pick = (key) => {
       const buf = nodeGraphModuleScopeState.buffers.get(key);
       return buf && buf.length > 0 ? buf : null;
@@ -374,7 +374,7 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       return nodeGraphModuleScopeState.buffers.get(`${nodeId}:Open`) || null;
     }
   }
-  if (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "numberReadout", "valueLcd", "lineBurnOscilloscope", "scope1dTrace", "led", "vectorDot", "lcdDot"].includes(slot?.type)) {
+  if (["waterfall", "dotOscilloscope", "valueOscilloscope", "numberReadout", "valueLcd", "lineBurnOscilloscope", "scope1dTrace", "led", "vectorDot", "lcdDot"].includes(slot?.type)) {
     const source = typeof nodeGraphModuleDisplaySourceForSlot === "function"
       ? nodeGraphModuleDisplaySourceForSlot(slot)
       : null;
@@ -396,7 +396,7 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       null;
   }
   // Multi-mode Display (visualOscilloscope): mono modes feed from In.
-  if (slot?.type === "visualOscilloscope" && (renderer === "trace" || renderer === "dot")) {
+  if (slot?.type === "visualOscilloscope" && (renderer === "waterfall" || renderer === "dot")) {
     return nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
       null;
@@ -435,14 +435,14 @@ function nodeGraphModuleScopeClockCapturedLightTarget(slot, capturedBuffer) {
 }
 
 
-function nodeGraphModuleScopeXyTraceFrameCount(length) {
+function nodeGraphModuleScopeXyWaterfallFrameCount(length) {
   const safeLength = Math.max(2, Math.floor(nodeGraphFiniteNumber(length)));
   return safeLength;
 }
 
 
-function nodeGraphModuleScopeCapturedXyTraceFrameCount(slot, length) {
-  const frames = nodeGraphModuleScopeXyTraceFrameCount(length);
+function nodeGraphModuleScopeCapturedXyWaterfallFrameCount(slot, length) {
+  const frames = nodeGraphModuleScopeXyWaterfallFrameCount(length);
   return slot?.type === "audioPlayer"
     ? Math.min(frames, 256)
     : frames;
@@ -564,7 +564,7 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   const xTotal = Math.max(0, Math.floor(nodeGraphFiniteNumber(xBuffer.nodeGraphScopeTotalSampleCount)));
   const yTotal = Math.max(0, Math.floor(nodeGraphFiniteNumber(yBuffer.nodeGraphScopeTotalSampleCount)));
   const absoluteFrame = Math.min(xTotal, yTotal);
-  // Peek only — Instant Trace must not hit burn recreate via capture.
+  // Peek only — Instant Waterfall must not hit burn recreate via capture.
   const canvas = typeof peekNodeGraphModuleScopeFaceCanvas === "function"
     ? peekNodeGraphModuleScopeFaceCanvas(slot)
     : (typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"

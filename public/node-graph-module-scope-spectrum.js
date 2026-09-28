@@ -157,12 +157,12 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
     renderer === "vectorRgbFace"
     || renderer === "rasterRgbFace"
     || renderer === "gradientVectorscopeFace"
-    || renderer === "traceXyz"
+    || renderer === "waterfallXyz"
     || slot?.type === "vectorRgb"
     || slot?.type === "rasterRgb"
     || slot?.type === "gradientVectorscope"
-    || slot?.type === "traceXyz"
-    || slot?.type === "traceRgb"
+    || slot?.type === "waterfallXyz"
+    || slot?.type === "waterfallRgb"
   ) {
     buffer = { length: 1 };
   } else if (renderer === "dot") {
@@ -172,7 +172,7 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
       capturedBuffer,
       nodeGraphLineBurnSettingsForNode(nodeGraphModuleScopeNodeForSlot(slot)),
     );
-  } else if (renderer === "trace") {
+  } else if (renderer === "waterfall") {
     buffer = prepareNodeGraphTraceDisplayBuffer(
       capturedBuffer,
       nodeGraphTraceDisplaySettingsForSlot(slot),

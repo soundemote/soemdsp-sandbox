@@ -33,7 +33,7 @@
         "titleHidden": false,
         "buttonsHidden": true,
         "slidersHidden": true,
-        "displayModeKey": "trace",
+        "displayModeKey": "waterfall",
         "movementLocked": false,
         "oscilloscopeHidden": false,
         "displayHeightOffsetGu": 3,

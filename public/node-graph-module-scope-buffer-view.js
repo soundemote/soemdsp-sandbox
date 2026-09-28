@@ -47,7 +47,7 @@ function nodeGraphTraceDisplaySyncLockKey(slot, syncChannel, displayBuffer, trig
 
 function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
   const settings = nodeGraphTraceDisplaySettingsForSlot(slot);
-  const zoomEditActive = Boolean(nodeGraphMvp?.traceDisplayZoomEditActive);
+  const zoomEditActive = Boolean(nodeGraphMvp?.waterfallZoomEditActive);
   const syncChannel = options.syncChannel || nodeGraphTraceDisplaySyncChannel(settings);
   const forceOff = options.forceSyncOff === true || syncChannel === "off";
   const syncSourceBuffer = options.syncBuffer || buffer;
@@ -85,16 +85,16 @@ function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
       syncSourceBuffer,
       options,
     );
-    let lock = nodeGraphModuleScopeState.traceDisplaySyncLocks.get(lockKey);
+    let lock = nodeGraphModuleScopeState.waterfallSyncLocks.get(lockKey);
     if (!lock) {
       lock = {};
-      nodeGraphModuleScopeState.traceDisplaySyncLocks.set(lockKey, lock);
+      nodeGraphModuleScopeState.waterfallSyncLocks.set(lockKey, lock);
     }
     // If the trigger buffer object changed, drop stale phase (prevents freeze).
     const triggerId = nodeGraphScopeBufferObjectId(syncSourceBuffer);
     if (lock.triggerId && lock.triggerId !== triggerId) {
       lock = {};
-      nodeGraphModuleScopeState.traceDisplaySyncLocks.set(lockKey, lock);
+      nodeGraphModuleScopeState.waterfallSyncLocks.set(lockKey, lock);
     }
     lock.triggerId = triggerId;
     const triggeredStart = nodeGraphTraceDisplayStabilizedSyncStart(
@@ -117,7 +117,7 @@ function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
   const scale = Number.isFinite(ampScale) && ampScale > 0
     ? clampNodeSliderValue(ampScale, 0.01, 100)
     : 1;
-  // Limiter Gain is 0…1 (unity at top). Map onto Instant Trace ±1.
+  // Limiter Gain is 0…1 (unity at top). Map onto Instant Waterfall ±1.
   const end = forceOff || syncChannel === "off"
     ? validEnd
     : Math.min(validEnd, start + visibleSamples);
@@ -183,7 +183,7 @@ function nodeGraphTraceDisplayStereoBufferViews(leftBuffer, rightBuffer, slot) {
 
 function nodeGraphModuleScopeBufferView(buffer, slot) {
   const settings = nodeGraphModuleScopeEffectiveSettingForSlot(slot);
-  if (nodeGraphModuleDisplayRendererForSlot(slot) === "trace") {
+  if (nodeGraphModuleDisplayRendererForSlot(slot) === "waterfall") {
     return nodeGraphTraceDisplayBufferView(buffer, slot);
   }
   if (buffer?.nodeGraphScopeUseFullWindow) {

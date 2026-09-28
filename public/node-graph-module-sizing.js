@@ -173,7 +173,7 @@ function nodeGraphModuleDisplayHeightLimitsForType(_type = null) {
  *
  * Opt-in: a face exists only when the type declares one (displayType,
  * displayModes, custom display area, or a layout that owns a face row).
- * LayoutA DSP with no declaration has no canvas. Instant Trace is not a
+ * LayoutA DSP with no declaration has no canvas. Instant Waterfall is not a
  * fallback. Hide still applies via DisplayVisibleForUi when HasFace.
  */
 function nodeGraphModuleHasFace(type) {
@@ -216,7 +216,7 @@ function nodeGraphModuleHasFace(type) {
   if (definition.displayType || (Array.isArray(definition.displayModes) && definition.displayModes.length)) {
     return true;
   }
-  if (layout === "visualScope" || layout === "traceDisplay") {
+  if (layout === "visualScope" || layout === "scopeFace") {
     return true;
   }
   return false;
@@ -923,7 +923,7 @@ function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
 const NODE_GRAPH_MODULE_WIDGET_BAND_ID = Object.freeze({
   header: "header",
   scope: "face",
-  trace: "face",
+  waterfall: "face",
   curve: "face",
   room: "face",
   face: "face",
@@ -1409,7 +1409,7 @@ const NODE_GRAPH_PLATE_CLIP_SEL = [
  * the plate uses border-radius + corner-shape, and .dsp-node stays
  * overflow:visible so half-jacks can hang off the sides.
  * clip-path inset with negative offsets is the plate rounded-rect in the
- * face's local box — so a mid-stack Instant Trace only loses the pizza
+ * face's local box — so a mid-stack Instant Waterfall only loses the pizza
  * slices that poke through the corners, not its length/height.
  */
 function applyNodeGraphModulePlateClip(article) {
@@ -1615,7 +1615,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
       { id: "screen", heightGu: nodeGraphDefaultModuleGridWidthUnits(type), visible: displayVisible },
     ];
   }
-  if (nodeGraphModuleDefinitions[type]?.layout === "traceDisplay") {
+  if (nodeGraphModuleDefinitions[type]?.layout === "scopeFace") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },

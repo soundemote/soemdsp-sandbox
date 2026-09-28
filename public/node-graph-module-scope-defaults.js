@@ -114,8 +114,8 @@ const nodeGraphScopeCyanGradientStops = Object.freeze([
 ]);
 
 
-const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
-  // Instant Trace is a VECTOR stroke, not phosphor energy — do NOT inherit the
+const nodeGraphWaterfallSettingsDefaults = Object.freeze({
+  // Instant Waterfall is a VECTOR stroke, not phosphor energy — do NOT inherit the
   // phosphor look brightness (0.08) / size (0.02). Those made Output Meet
   // strokes nearly invisible so only the plate color seemed to work.
   background: "#ff0000",
@@ -186,7 +186,7 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   trail: nodeGraphScopePhosphorLookDefaults.trail,
   scale: nodeGraphScopePhosphorLookDefaults.scale,
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
-  // Cyan scope LUT (shared with scope2d) — not Instant Trace red.
+  // Cyan scope LUT (shared with scope2d) — not Instant Waterfall red.
   dot1Color: "#75ebff",
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
@@ -199,7 +199,7 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   // false = pack stamps along chords between samples (continuous CRT line).
   dotsOnly: false,
   // Rising-edge auto-trigger on In (snaps pen left). Off unless the user
-  // turns Sync on — same default as Instant Trace / other 1D faces.
+  // turns Sync on — same default as Instant Waterfall / other 1D faces.
   sourceSync: false,
   // Saw / square / pulse wrap jumps look like ink spikes without this.
   skipDiscontinuities: true,

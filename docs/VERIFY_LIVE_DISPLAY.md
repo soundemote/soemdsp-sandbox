@@ -2,7 +2,7 @@
 
 Hard-refresh (`Ctrl+F5`) before this. Debug: 🐞 → **LIVE** (or `SE.liveDisplay()`).
 
-## 1. Output Instant Trace (SinCos → Output)
+## 1. Output Instant Waterfall (SinCos → Output)
 
 1. Empty patch. Spawn **SinCos**. Wire **Sin** → Output **Mono**.
 2. Play. Output face must show a moving sine (not a black plate).

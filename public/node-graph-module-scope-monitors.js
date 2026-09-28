@@ -97,7 +97,7 @@ function nodeGraphLiveModuleScopeFrameCapacity(options = {}) {
     : 60;
   const visualFrameWindow = fps > 0 ? Math.ceil(sampleRate / Math.max(1, fps)) : 0;
   const traceHistoryWindow = Math.ceil(sampleRate * nodeGraphTraceDisplayMaxZoomSeconds);
-  // Instant Trace / phosphor history: never drop below 1s of samples when
+  // Instant Waterfall / phosphor history: never drop below 1s of samples when
   // Simulation FPS is 1 (paint once a second, still keep a second of ring).
   const oneSecondWindow = Math.ceil(sampleRate * 1);
   return Math.max(

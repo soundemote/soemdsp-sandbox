@@ -33,7 +33,6 @@ function setParams(h, diffusionAmount) {
     0.83,
     0.001,
     0,
-    1.0, // send
   );
 }
 

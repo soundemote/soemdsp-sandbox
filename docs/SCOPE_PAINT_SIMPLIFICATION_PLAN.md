@@ -29,7 +29,7 @@ AST tools only see the ends of that pipe. **Policy for “are we live?” was du
 | Engine paused (speed 0) | canvas, phosphor, orchestrator, lifecycle |
 | Circuit running / AudioContext | canvas, orchestrator, waveform, wipe |
 | Keep RAF alive | orchestrator keepAlive, keepDrawing, heartbeat |
-| Skip Instant Trace paint | screen-items signature + metrics cache |
+| Skip Instant Waterfall paint | screen-items signature + metrics cache |
 | Force paint on sample post | buffer-io (soft schedule only, until fixed) |
 | Freeze residual (hold face) | phosphorFrozen === paused (too broad) |
 

@@ -472,14 +472,16 @@ List cyan Parameter ports on the definition as `blockRateInputs` / `blockRateOut
 
 ---
 
-## 15a. Instant Trace is never the default face or settings schema
+## 15a. Instant Waterfall is never the default face or settings schema
 
-**Instant Trace (`displayType` / form type `"trace"`) is opt-in only.** Do not invent it.
+**Instant Waterfall (`displayType` / form type `"waterfall"`, also `"waterfallRgb"` / `"waterfallXyz"`) is opt-in only.** Do not invent it.
+
+**1D Trace is separate:** modules `scope1dTrace` / `scope1dTraceStereo` use `displayType: "scope1dTrace"` (heart-monitor sweep via TraceWoscope / TraceStroke). That is **not** Instant Waterfall and must not share the waterfall settings schema.
 
 - A module with no `displayType` is **`layoutOwned`**: no canvas, blank Display Settings.
-- A custom renderer (`ensembleCloud`, envelope curve, …) is **not** Instant Trace. Unknown form types use **blank** controls (empty fields). They must **not** fall through to `normalizeNodeGraphTraceDisplaySettings` (red plate, History, Blur, stereo…).
-- `HasLocalSettings` / settings-apply / form-io / `SettingsForNode` may write Instant Trace **only** when the module **declares** `displayType: "trace"` (or `traceRgb` / `traceXyz`).
-- The **global** Display Settings editor (no node selected) is Instant Trace on purpose — that is app-wide Output/osc defaults, not a module fallback.
+- A custom renderer (`ensembleCloud`, envelope curve, …) is **not** Instant Waterfall. Unknown form types use **blank** controls (empty fields). They must **not** fall through to `normalizeNodeGraphWaterfallSettings` (red plate, History, Blur, stereo…).
+- `HasLocalSettings` / settings-apply / form-io / `SettingsForNode` may write Instant Waterfall **only** when the module **declares** `displayType: "waterfall"` (or `waterfallRgb` / `waterfallXyz`).
+- The **global** Display Settings editor (no node selected) is Instant Waterfall on purpose — that is app-wide Output/osc defaults, not a module fallback.
 
 ---
 
@@ -508,9 +510,9 @@ Two stored kinds:
 
 **Paint vs layout (display-type contract):** live face paint loops must **not** force layout (`clientWidth` / `getBoundingClientRect` / style writes that change geometry) every frame. ResizeObserver + settings apply own chrome and canvas backing size; paint reads a metrics cache. Visibility uses module `viewport-asleep` cull, not per-frame layout probes. Faces stay live during workspace pan/zoom (see ZOOM_PAN plan — no gesture freeze).
 
-Helpers: `public/lib/visual/display-face-metrics.js` (`ensureFaceMetrics` / `syncFaceMetrics`); Music Player phosphor layout cache; Instant Trace screen items use **layout-space face boxes + camera math** (pan must not remasure). Workspace CSS size: `nodeGraphWorkspaceCssSize` (ResizeObserver).
+Helpers: `public/lib/visual/display-face-metrics.js` (`ensureFaceMetrics` / `syncFaceMetrics`); Music Player phosphor layout cache; Instant Waterfall screen items use **layout-space face boxes + camera math** (pan must not remasure). Workspace CSS size: `nodeGraphWorkspaceCssSize` (ResizeObserver).
 
-First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / curves / Harmonic / additive faces, asciiscope / imageBurn / matrix.
+First consumers: Music Player, fbmField, Instant Waterfall compositor, RoundShape / curves / Harmonic / additive faces, asciiscope / imageBurn / matrix.
 
 ---
 
@@ -519,9 +521,9 @@ First consumers: Music Player, fbmField, Instant Trace compositor, RoundShape / 
 | Layer | Owns | Prefer not to |
 |-------|------|----------------|
 | **Workspace** | Module shells, ports, wires, pan/zoom camera, DOM chrome, Display Settings windows | Paint DSP/visual face content with CSS text hacks |
-| **Displays** | Face visual content (waveform, Instant Trace, FBM, curves, …) | Drive workspace layout; fake face pixels with stretched HTML overlays |
+| **Displays** | Face visual content (waveform, Instant Waterfall, FBM, curves, …) | Drive workspace layout; fake face pixels with stretched HTML overlays |
 
-**Preference, not a hard ban:** use **WebGL for most visual faces** (waveforms, Instant Trace, fields, curves, knob graphics). Use **DOM where the job is real editable text** (Text Box / `contenteditable`) or chrome beside the face (playlist, transport, Display Settings).
+**Preference, not a hard ban:** use **WebGL for most visual faces** (waveforms, Instant Waterfall, fields, curves, knob graphics). Use **DOM where the job is real editable text** (Text Box / `contenteditable`) or chrome beside the face (playlist, transport, Display Settings).
 
 - Do **not** stretch face glyphs with CSS `transform: scale(sx, sy)` or non-uniform buffer/CSS aspect.
 - Do **not** force Text Box through WebGL (IME, caret, selection, a11y).
@@ -629,5 +631,5 @@ Add new rules here when the same class of mistake happens twice. Keep this file 
 - **2026-09-10 — Display length 0–1:** Face geometry mixed CSS px (`labelInsetPx`, `traceWidth`), percent (`cornerRadius` 0–100), and true 0–1 (`edgeSpacing`). Layout fractions stay **0…1 of min-edge**.
 - **2026-09-25 — Ink is authored px, scaled by face:** Strokes/HUD are CSS px at a 96 px reference min-edge, then `× min(faceW,faceH)/96` at paint. Constant CSS px (ignore face size) made filter/EQ curves hairline when the display grew. Workspace zoom still must not be multiplied into `lineWidth`. No patch migration.
 - **2026-09-10 — Legacy display scrub:** Raster/Matrix chrome → `edgeSpacing`/`cornerRadius` 0…1 (no `screenPadding`/`rounding` %). Phosphor residual SSOT = `trail`/`ghost`/`burn`/`burnAmount` (no `decay` mirror, no burn-as-ghost). Dropped `sweepSeconds`, xyPad `scale`→puck, spectrogram overlap+1 shift. Yellow sidecar type/param aliases deleted. Display renderer id `"legacy"` → `"layoutOwned"`. Dead module-frame gapped-SVG path deleted (workspace/faces stay layout **px**; displays/canvases stay **0…1**).
-- **2026-09-10 — Paint never forces layout:** Music Player / fbmField / Instant Trace / curve·shape·harmonic faces stop remasuring every RAF. Shared `display-face-metrics.js`; scope screen rects from layout cache + pan/zoom math (not gBCR per pan sample).
+- **2026-09-10 — Paint never forces layout:** Music Player / fbmField / Instant Waterfall / curve·shape·harmonic faces stop remasuring every RAF. Shared `display-face-metrics.js`; scope screen rects from layout cache + pan/zoom math (not gBCR per pan sample).
 - **2026-09-10 — Music Player play + HUD:** Finite-rewriter comma bug set `samplePhaseSeek = (…+1, 1)` always `1` — seeks never bumped, Play looked dead. Fixed increment. HUD/canvas text: uniform min-edge font; buffer sized to canvas CSS box (no aspect stretch). Policy §16: workspace vs displays — WebGL preferred for visuals; DOM for Text Box / chrome (soft preference, not a hard ban).

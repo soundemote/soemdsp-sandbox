@@ -43,7 +43,7 @@ Repro:
 
 - `public/node-graph-module-scope-waterfall.js` — waterfall face drawer
 - `public/node-graph-module-scope-buffer-view.js` — buffer / waterfall view (`?v=waterfall-1`)
-- `public/lib/phosphor/phosphor-drawer.js` — waterfall / Instant Trace tape helpers
+- `public/lib/phosphor/phosphor-drawer.js` — waterfall / Instant Waterfall tape helpers
 - `public/node-graph-live-runtime.js` — live start / cold rearm / transport
 - `public/node-graph-module-scope-draw-orchestrator.js` — wipe / screen-light rearm helpers
 - `public/node-graph-module-scope-wipe.js` — Stop wipe

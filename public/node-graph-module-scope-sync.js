@@ -318,8 +318,8 @@ function nodeGraphModuleScopeVisibleSamples(buffer, settings, cycleEstimate) {
 }
 
 function nodeGraphTraceDisplayHistorySampleCount(buffer, settings, options = {}) {
-  const safeSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
-    ? normalizeNodeGraphTraceDisplaySettings(settings)
+  const safeSettings = typeof normalizeNodeGraphWaterfallSettings === "function"
+    ? normalizeNodeGraphWaterfallSettings(settings)
     : (settings || {});
   const sampleRate = typeof nodeGraphScopeSampleRate === "function"
     ? nodeGraphScopeSampleRate(buffer)
@@ -336,7 +336,7 @@ function nodeGraphTraceDisplayHistorySampleCount(buffer, settings, options = {})
     const cycles = typeof nodeGraphTraceDisplayClampHistoryCycles === "function"
       ? nodeGraphTraceDisplayClampHistoryCycles(
         safeSettings.historyCycles,
-        nodeGraphTraceDisplaySettingsDefaults?.historyCycles ?? 4,
+        nodeGraphWaterfallSettingsDefaults?.historyCycles ?? 4,
       )
       : Math.max(0.05, nodeGraphFiniteNumber(safeSettings.historyCycles, 4));
     const period = Number(options.periodSamples);
@@ -349,7 +349,7 @@ function nodeGraphTraceDisplayHistorySampleCount(buffer, settings, options = {})
   const historyHz = typeof nodeGraphTraceDisplayClampHistoryHz === "function"
     ? nodeGraphTraceDisplayClampHistoryHz(
       safeSettings.historyHz,
-      nodeGraphTraceDisplaySettingsDefaults?.historyHz ?? 4,
+      nodeGraphWaterfallSettingsDefaults?.historyHz ?? 4,
     )
     : Math.max(0, nodeGraphFiniteNumber(safeSettings.historyHz, 4));
   if (!(historyHz > 0)) {
@@ -443,7 +443,7 @@ function nodeGraphWaterfallNewestEdgeAbs(syncBuffer) {
  *  4) Brief phase-hold if edges are missing this frame
  *  5) Auto freerun (return null) after a short timeout so the display never freezes
  *
- * `lock` is per-display-node (see traceDisplaySyncLocks) so multiple scopes
+ * `lock` is per-display-node (see waterfallSyncLocks) so multiple scopes
  * watching one source do not clobber each other.
  */
 function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycleEstimate, visibleSamples, validStart, validEnd) {
@@ -569,7 +569,7 @@ function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycl
  * Stereo waterfall uses syncChannel (off/left/right/mono);
  * everything else uses sourceSync on/off (stored as mono/off).
  */
-const NODE_GRAPH_DISPLAY_1D_SYNC_FORM_TYPES = Object.freeze(["trace", "lineBurn", "scope1dTrace", "dot"]);
+const NODE_GRAPH_DISPLAY_1D_SYNC_FORM_TYPES = Object.freeze(["waterfall", "lineBurn", "scope1dTrace", "dot"]);
 
 function nodeGraphDisplayFormTypeHas1dSync(formType) {
   return NODE_GRAPH_DISPLAY_1D_SYNC_FORM_TYPES.includes(String(formType || "").trim());
@@ -577,7 +577,7 @@ function nodeGraphDisplayFormTypeHas1dSync(formType) {
 
 /**
  * Resolve sync mode: "off" | "left" | "right" | "mono".
- * SSOT for Instant Trace window lock and 1D phosphor auto-trigger.
+ * SSOT for Instant Waterfall window lock and 1D phosphor auto-trigger.
  * Legacy: sourceSync / settings.sync true → mono; false → off.
  */
 function nodeGraphTraceDisplaySyncChannel(settings) {
@@ -646,7 +646,7 @@ function nodeGraphToggleNodeDisplaySync(nodeId) {
   }
   const schema = typeof nodeGraphModuleDisplaySettingsSchemaForNode === "function"
     ? nodeGraphModuleDisplaySettingsSchemaForNode(node)
-    : "trace";
+    : "waterfall";
   const current = nodeGraphNodeDisplaySyncSettings(node);
   const next = nodeGraphDisplayApplySyncEnabled(current, !nodeGraphDisplaySyncIsOn(current));
   if (typeof assignNodeGraphTypedDisplaySettingsToNode === "function") {

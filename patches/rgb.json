@@ -32,21 +32,21 @@
   },
   "connections": [
     {
-      "destinationNode": "traceRgb-1",
+      "destinationNode": "waterfallRgb-1",
       "destinationPort": "R",
       "sourceNode": "sineWavetable-2",
       "sourcePort": "A",
       "tracePoints": []
     },
     {
-      "destinationNode": "traceRgb-1",
+      "destinationNode": "waterfallRgb-1",
       "destinationPort": "G",
       "sourceNode": "sineWavetable-2",
       "sourcePort": "B",
       "tracePoints": []
     },
     {
-      "destinationNode": "traceRgb-1",
+      "destinationNode": "waterfallRgb-1",
       "destinationPort": "B",
       "sourceNode": "sineWavetable-2",
       "sourcePort": "C",
@@ -836,10 +836,10 @@
     {
       "gx": -2,
       "gy": -14,
-      "id": "traceRgb-1",
+      "id": "waterfallRgb-1",
       "paramMeta": {},
       "params": {},
-      "type": "traceRgb",
+      "type": "waterfallRgb",
       "alias": "1D Vectorscope RGB",
       "widthGu": 11,
       "traceDisplaySettings": {

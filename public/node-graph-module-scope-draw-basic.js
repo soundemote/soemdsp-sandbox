@@ -26,7 +26,7 @@ function drawNodeGraphModuleScopeBufferWebGl(renderer, rect, buffer, pixelRatio,
     fixedDotSizePx || (traceThicknessPx * dotSizeScale),
   );
   const safeDotThicknessPx = Math.min(512, dotThicknessPx * pixelRatio);
-  if (nodeGraphModuleDisplayRendererForSlot(slot) === "trace" && !buffer?.nodeGraphScopeXy && !buffer?.nodeGraphScopeSpectrum) {
+  if (nodeGraphModuleDisplayRendererForSlot(slot) === "waterfall" && !buffer?.nodeGraphScopeXy && !buffer?.nodeGraphScopeSpectrum) {
     const traceGeometry = buildNodeGraphTraceDisplayVertices(buffer, rect, canvas, pixelRatio, slot, options);
     if (!traceGeometry) {
       return;

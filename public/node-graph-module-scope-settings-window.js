@@ -11,7 +11,7 @@ function nodeGraphTraceDisplaySettingsElement() {
   popover.id = "nodeTraceDisplaySettingsPopover";
   popover.className = "node-parameter-metadata-popover node-trace-display-settings-popover";
   popover.hidden = true;
-  popover.setAttribute("aria-label", "Trace Display drawing settings");
+  popover.setAttribute("aria-label", "Waterfall drawing settings");
   // Shell only: schema body is mounted per open (schema-exclusive controls).
   popover.innerHTML = `
     <div class="scene-context-heading">
@@ -51,7 +51,7 @@ function nodeGraphTraceDisplaySettingsElement() {
     <div
       id="nodeTraceDisplaySettingsCornerDrag"
       class="scene-context-resize-handle"
-      aria-label="Resize Trace Display drawing settings"
+      aria-label="Resize Waterfall drawing settings"
       role="button"
       tabindex="0"></div>`;
   (document.querySelector(".node-wiring-panel") || document.body).append(popover);
@@ -371,7 +371,7 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
       : "")
     : "";
   // Never fall back to phosphor/trace for modules without a schema — blank body.
-  // Global defaults editor (node null) still uses plain Trace.
+  // Global defaults editor (node null) still uses Instant Waterfall.
   const hasLocal = Boolean(
     settingsSchema
     && typeof nodeGraphModuleDisplayTypeHasLocalSettings === "function"
@@ -379,7 +379,7 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
   );
   const formType = node
     ? (hasLocal ? settingsSchema : "blank")
-    : (settingsSchema || "trace");
+    : (settingsSchema || "waterfall");
   // Schema-exclusive body: rebuild when form type or primary node changes
   // (LCD↔LED / module A→B). Multi-select cohort only updates dataset + form write.
   const nodeId = node?.id ? String(node.id) : "";

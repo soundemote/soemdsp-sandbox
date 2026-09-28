@@ -347,7 +347,7 @@ function cloneNodeGraphTypedDisplaySettings(node) {
   const migrate = typeof migrateNodeGraphLegacyDot2Settings === "function"
     ? migrateNodeGraphLegacyDot2Settings
     : (settings) => settings;
-  const bag = migrate(node?.traceDisplaySettings, displayType === "trace" && isOutput);
+  const bag = migrate(node?.traceDisplaySettings, displayType === "waterfall" && isOutput);
   switch (displayType) {
     case "dot":
       return { zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(migrate(node.zeroDBurnSettings, false)) };
@@ -588,10 +588,10 @@ function cloneNodeGraphTypedDisplaySettings(node) {
             : (settings || {})),
       };
     }
-    case "trace":
-    case "traceXyz":
-    case "traceRgb":
-      return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(bag) };
+    case "waterfall":
+    case "waterfallXyz":
+    case "waterfallRgb":
+      return { traceDisplaySettings: normalizeNodeGraphWaterfallSettings(bag) };
     default:
       if (node?.traceDisplaySettings && typeof node.traceDisplaySettings === "object") {
         return { traceDisplaySettings: { ...node.traceDisplaySettings } };

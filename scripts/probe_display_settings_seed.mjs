@@ -106,7 +106,7 @@ await page.evaluate((nodeId) => {
     delete pop.dataset.displaySettingsTargetNode;
     delete pop.dataset.displaySettingsType;
   }
-  window.nodeGraphMvp.traceDisplaySettingsTargetNode = null;
+  window.nodeGraphMvp.__KEEP_waterfallSettings__TargetNode = null;
   window.nodeGraphMvp.sceneContextTargetNode = nodeId;
   window.openNodeGraphTraceDisplaySettings(nodeId, { clientX: 500, clientY: 300 });
 }, pick.nodeId);

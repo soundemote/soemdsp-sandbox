@@ -48,7 +48,7 @@ function drawNodeGraphKnobFaceItem(_renderer, item, _pixelRatio) {
 }
 
 const nodeGraphModuleScopeCustomRenderers = {
-  trace: drawNodeGraphTraceDisplayItem,
+  waterfall: drawNodeGraphTraceDisplayItem,
   dot: drawNodeGraphVectorDotItem,
   vectorDot: drawNodeGraphVectorDotItem,
   pulseDot: drawNodeGraphVectorDotItem,
@@ -253,7 +253,7 @@ function paintNodeGraphModuleScopeColdPlatesOnly(pixelRatio = window.devicePixel
       continue;
     }
     if (
-      renderer !== "trace"
+      renderer !== "waterfall"
       && renderer !== "dot"
       && renderer !== "value"
       && renderer !== "lineBurn"
@@ -409,7 +409,7 @@ function drawNodeGraphModuleScopes(options = {}) {
   }
   setNodeGraphModuleScopeDebugPhase("ready");
   // Cached workspace CSS size (ResizeObserver) — no getBoundingClientRect on
-  // the steady Instant Trace path (APP_POLICY §15 paint vs layout).
+  // the steady Instant Waterfall path (APP_POLICY §15 paint vs layout).
   const workspaceSize = typeof nodeGraphWorkspaceCssSize === "function"
     ? nodeGraphWorkspaceCssSize(workspace)
     : {
@@ -496,7 +496,7 @@ function drawNodeGraphModuleScopes(options = {}) {
     nodeGraphModuleScopeMarkScreenLit(face, 1);
   }
   flushNodeSliderReadoutUpdates();
-  // Instant Trace skip only when paint gate says idle (never while live).
+  // Instant Waterfall skip only when paint gate says idle (never while live).
   const allowTraceSkip = typeof scopePaintShouldSkipUnchangedTrace === "function"
     ? scopePaintShouldSkipUnchangedTrace()
     : scopePaused;

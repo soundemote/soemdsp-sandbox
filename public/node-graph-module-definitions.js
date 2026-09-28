@@ -276,9 +276,9 @@ const nodeGraphNodeLabels = Object.freeze({
   image: "Image",
   canvas: "Canvas",
   visualOscilloscope: "Display",
-  traceDisplay: "1D Waterfall",
-  traceDisplayStereo: "1D Waterfall Stereo",
-  traceDisplayXyz: "1D Waterfall XYZ",
+  waterfall: "1D Waterfall",
+  waterfallStereo: "1D Waterfall Stereo",
+  waterfallXyz: "1D Waterfall XYZ",
   oscilloscopeBank: "Oscilloscope Bank (retired)",
   videoscope: "Videoscope",
   asciiscope: "Asciiscope",
@@ -296,8 +296,7 @@ const nodeGraphNodeLabels = Object.freeze({
   vectorRgb: "Vector RGB",
   rasterRgb: "Pixel Grid",
   gradientVectorscope: "Gradient Vectorscope",
-  traceXyz: "1D Waterfall XYZ",
-  traceRgb: "1D Waterfall RGB",
+  waterfallRgb: "1D Waterfall RGB",
   phosphorLight: "2D Phosphor",
   speakerProtection: "Speaker Protection",
   speakerProtector2: "Speaker Protector 2.0",
@@ -1102,10 +1101,10 @@ const nodeGraphModuleDefinitions = (
         source: { value: "A" },
       },
       {
-        key: "aTrace",
-        label: "A Trace",
-        renderer: "trace",
-        settingsSchema: "trace",
+        key: "aWaterfall",
+        label: "A Waterfall",
+        renderer: "waterfall",
+        settingsSchema: "waterfall",
         source: { value: "A" },
       },
     ],
@@ -1190,7 +1189,7 @@ const nodeGraphModuleDefinitions = (
   },
   sinCos: {
     planRole: "source",
-    displayType: "trace",
+    displayType: "waterfall",
     inputs: ["Reset", "Increment"],
     inputLabels: {
       Increment: "inc",},
@@ -1256,7 +1255,7 @@ const nodeGraphModuleDefinitions = (
   },
   archimedes: {
     planRole: "source",
-    displayType: "trace",
+    displayType: "waterfall",
     inputs: ["Reset", "Increment"],
     inputLabels: { Increment: "inc" },
     outputs: ["Sine", "Cosine", "Pi", "Noise Below", "Noise Above"],
@@ -1432,12 +1431,12 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     // Display sources pre-level "Out Raw" (Saw tap) so Amplitude only affects
     // wired/audio Out — same pattern as fractalBrownianNoise Out X/Y/Z Raw.
-    displayType: "trace",
+    displayType: "waterfall",
     displaySignals: [
       { key: "Out Raw", label: "Out", kind: "scalar" },
     ],
     displayModes: [
-      { key: "trace", renderer: "trace", source: { value: "Out Raw" } },
+      { key: "waterfall", renderer: "waterfall", source: { value: "Out Raw" } },
     ],
     inputs: ["Reset", "Increment"],
     inputLabels: { Increment: "inc" },
@@ -3157,7 +3156,7 @@ const nodeGraphModuleDefinitions = (
       },
     ],
     defaultDisplayMode: "face",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     displaySignals: [
       { key: "Left", kind: "scalar" },
       { key: "Right", kind: "scalar" },
@@ -3463,14 +3462,14 @@ const nodeGraphModuleDefinitions = (
   },
   logisticMap: {
     planRole: "source",
-    displayType: "trace",
+    displayType: "waterfall",
     displaySignals: [
       { key: "Out", kind: "scalar" },
     ],
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace", source: { value: "Out" } },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Out" } },
     ],
-    defaultDisplayMode: "trace",
+    defaultDisplayMode: "waterfall",
     inputs: ["Reset"],
     outputs: ["Out"],
     parameters: [
@@ -3832,16 +3831,16 @@ const nodeGraphModuleDefinitions = (
   },
   turingMachine: {
     planRole: "source",
-    displayType: "trace",
+    displayType: "waterfall",
     displaySignals: [
       { key: "CV", kind: "scalar" },
       { key: "Pitch", kind: "scalar" },
     ],
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace", source: { value: "CV" } },
-      { key: "pitchTrace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "Pitch" } },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "CV" } },
+      { key: "pitchWaterfall", label: "Pitch", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Pitch" } },
     ],
-    defaultDisplayMode: "trace",
+    defaultDisplayMode: "waterfall",
     digitalInputs: ["Scale"],
     digitalOutputs: ["Scale"],
     inputChannels: { Scale: "red" },
@@ -3930,14 +3929,14 @@ const nodeGraphModuleDefinitions = (
   degreeTuring: {
     planRole: "processor",
     planFreeRun: true,
-    displayType: "trace",
+    displayType: "waterfall",
     displaySignals: [
       { key: "pitch", kind: "scalar" },
     ],
     displayModes: [
-      { key: "trace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "pitch" } },
+      { key: "waterfall", label: "Pitch", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "pitch" } },
     ],
-    defaultDisplayMode: "trace",
+    defaultDisplayMode: "waterfall",
     digitalInputs: ["Scale"],
     inputChannels: { Scale: "red" },
     inputs: ["Clock", "Reset", "Scale", "Root"],
@@ -4019,14 +4018,14 @@ const nodeGraphModuleDefinitions = (
   degreePhrase: {
     planRole: "processor",
     planFreeRun: true,
-    displayType: "trace",
+    displayType: "waterfall",
     displaySignals: [
       { key: "pitch", kind: "scalar" },
     ],
     displayModes: [
-      { key: "trace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "pitch" } },
+      { key: "waterfall", label: "Pitch", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "pitch" } },
     ],
-    defaultDisplayMode: "trace",
+    defaultDisplayMode: "waterfall",
     digitalInputs: ["Scale"],
     inputChannels: { Scale: "red" },
     inputs: ["Clock", "Reset", "Scale", "Root"],
@@ -4384,7 +4383,7 @@ const nodeGraphModuleDefinitions = (
     displayModes: [
       { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
-      { key: "trace", label: "Out Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out" } },
+      { key: "waterfall", label: "Out Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Out" } },
     ],
     defaultDisplayMode: "xyBurn",
     inputs: ["Reset", "Increment"],
@@ -5168,11 +5167,11 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     planFreeRun: true,
     // Waterfall amp-per-frame bars (reference consumer for the redesign).
-    displayType: "trace",
+    displayType: "waterfall",
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace", source: { value: "Wave" } },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Wave" } },
     ],
-    defaultDisplayMode: "trace",
+    defaultDisplayMode: "waterfall",
     displaySignals: [
       { key: "Wave", kind: "scalar" },
     ],
@@ -5496,13 +5495,13 @@ const nodeGraphModuleDefinitions = (
   },
   noiseGenerator: {
     planRole: "source",
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    defaultDisplayMode: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     displaySignals: [
       { key: "Left", kind: "scalar" },
       { key: "Right", kind: "scalar" },
@@ -5584,13 +5583,13 @@ const nodeGraphModuleDefinitions = (
   },
   cheapWalk: {
     planRole: "source",
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    defaultDisplayMode: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     displaySignals: [
       { key: "Left", kind: "scalar" },
       { key: "Right", kind: "scalar" },
@@ -5637,13 +5636,13 @@ const nodeGraphModuleDefinitions = (
   },
   randomWalk: {
     planRole: "source",
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    defaultDisplayMode: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     displaySignals: [
       { key: "Left", kind: "scalar" },
       { key: "Right", kind: "scalar" },
@@ -5728,9 +5727,9 @@ const nodeGraphModuleDefinitions = (
     ],
     displayModes: [
       { key: "xyBurn", label: "Sum/Term", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "Left", y: "Right" } },
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    stereoTracePorts: { left: "Left", right: "Right" },
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     outputs: ["Left", "Right", "Hex", "N", "T", "B3", "B2", "B1", "B0"],
     outputAliases: { "Left Out": "Left", "Right Out": "Right" },
     outputLabels: {
@@ -5826,9 +5825,9 @@ const nodeGraphModuleDefinitions = (
     displayModes: [
       { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "Out X Raw", y: "Out Y Raw" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "Out X Raw", y: "Out Y Raw" } },
-      { key: "xTrace", label: "X Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out X Raw" } },
-      { key: "yTrace", label: "Y Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out Y Raw" } },
-      { key: "zTrace", label: "Z Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out Z Raw" } },
+      { key: "xWaterfall", label: "X Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Out X Raw" } },
+      { key: "yWaterfall", label: "Y Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Out Y Raw" } },
+      { key: "zWaterfall", label: "Z Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Out Z Raw" } },
     ],
     defaultDisplayMode: "xyBurn",
     inputs: ["Reset"],
@@ -6407,13 +6406,13 @@ const nodeGraphModuleDefinitions = (
   "10t": nodeGraphTSeriesMuxModuleDefinition(10),
   gain: {
     planRole: "processor",
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    defaultDisplayMode: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -6494,13 +6493,13 @@ const nodeGraphModuleDefinitions = (
   // Shop-hidden legacy alias of gain (same surface).
   gainBias: {
     planRole: "processor",
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    defaultDisplayMode: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -6620,8 +6619,8 @@ const nodeGraphModuleDefinitions = (
   },
   mixStereo4: {
     planRole: "processor",
-    displayType: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    displayType: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     inputs: ["L1", "R1", "L2", "R2", "L3", "R3", "L4", "R4"],
     inputLabels: {
       L1: "L1", R1: "R1", L2: "L2", R2: "R2",
@@ -6768,8 +6767,8 @@ const nodeGraphModuleDefinitions = (
   },
   mixStereo2: {
     planRole: "processor",
-    displayType: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    displayType: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     inputs: ["L1", "R1", "L2", "R2"],
     inputLabels: { L1: "L1", R1: "R1", L2: "L2", R2: "R2" },
     outputs: ["Left", "Right"],
@@ -6856,8 +6855,8 @@ const nodeGraphModuleDefinitions = (
   // Legacy type id → MixStereo4 (load alias until patches re-save).
   mixStereo: {
     planRole: "processor",
-    displayType: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    displayType: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     inputs: ["L1", "R1", "L2", "R2", "L3", "R3", "L4", "R4"],
     inputLabels: {
       L1: "L1", R1: "R1", L2: "L2", R2: "R2",
@@ -7237,8 +7236,8 @@ const nodeGraphModuleDefinitions = (
   crossfade2: {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutA,
-    displayType: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    displayType: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     inputs: ["L1", "R1", "L2", "R2"],
     inputLabels: { L1: "L1", R1: "R1", L2: "L2", R2: "R2" },
     outputs: ["Left", "Right"],
@@ -7266,8 +7265,8 @@ const nodeGraphModuleDefinitions = (
   crossfade3: {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutA,
-    displayType: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    displayType: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     inputs: ["L1", "R1", "L2", "R2", "L3", "R3"],
     inputLabels: { L1: "L1", R1: "R1", L2: "L2", R2: "R2", L3: "L3", R3: "R3" },
     outputs: ["Left", "Right"],
@@ -7295,8 +7294,8 @@ const nodeGraphModuleDefinitions = (
   crossfade4: {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutA,
-    displayType: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    displayType: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     inputs: ["L1", "R1", "L2", "R2", "L3", "R3", "L4", "R4"],
     inputLabels: { L1: "L1", R1: "R1", L2: "L2", R2: "R2", L3: "L3", R3: "R3", L4: "L4", R4: "R4" },
     outputs: ["Left", "Right"],
@@ -10159,7 +10158,7 @@ const nodeGraphModuleDefinitions = (
   wavetable3d: {
     planRole: "source",
     planFreeRun: true,
-    displayType: "trace",
+    displayType: "waterfall",
     inputs: ["Increment", "X", "Y"],
     inputLabels: { Increment: "inc" },
     outputs: ["Out"],
@@ -10223,9 +10222,9 @@ const nodeGraphModuleDefinitions = (
   flexGrid: {
     planRole: "source",
     planFreeRun: true,
-    displayType: "trace",
+    displayType: "waterfall",
     displayModes: [
-      { key: "trace", renderer: "trace", source: { value: "Out" } },
+      { key: "waterfall", renderer: "waterfall", source: { value: "Out" } },
     ],
     displaySignals: [
       { key: "Out", kind: "scalar" },
@@ -10559,9 +10558,9 @@ const nodeGraphModuleDefinitions = (
   drummer: {
     planRole: "source",
     planFreeRun: true,
-    displayType: "trace",
+    displayType: "waterfall",
     displayModes: [
-      { key: "trace", renderer: "trace", source: { value: "Out" } },
+      { key: "waterfall", renderer: "waterfall", source: { value: "Out" } },
     ],
     displaySignals: [
       { key: "Out", kind: "scalar" },
@@ -10751,9 +10750,9 @@ const nodeGraphModuleDefinitions = (
   ePiano: {
     planRole: "source",
     planFreeRun: true,
-    displayType: "trace",
+    displayType: "waterfall",
     displayModes: [
-      { key: "trace", renderer: "trace", source: { value: "Out" } },
+      { key: "waterfall", renderer: "waterfall", source: { value: "Out" } },
     ],
     displaySignals: [
       { key: "Out", kind: "scalar" },
@@ -10790,9 +10789,9 @@ const nodeGraphModuleDefinitions = (
   percussion: {
     planRole: "source",
     planFreeRun: true,
-    displayType: "trace",
+    displayType: "waterfall",
     displayModes: [
-      { key: "trace", renderer: "trace", source: { value: "Out" } },
+      { key: "waterfall", renderer: "waterfall", source: { value: "Out" } },
     ],
     displaySignals: [
       { key: "Out", kind: "scalar" },
@@ -11036,9 +11035,9 @@ const nodeGraphModuleDefinitions = (
   },
   vcvrackSuperloveFilter: {
     planRole: "processor",
-    displayType: "trace",
+    displayType: "waterfall",
     displayModes: [
-      { key: "trace", renderer: "trace", source: { value: "Out" } },
+      { key: "waterfall", renderer: "waterfall", source: { value: "Out" } },
     ],
     displaySignals: [
       { key: "Out", kind: "scalar" },
@@ -12185,19 +12184,19 @@ const nodeGraphModuleDefinitions = (
   },
   flowerChildFilter: {
     planRole: "processor",
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
+    defaultDisplayMode: "waterfall",
     defaultDisplaySettings: {
       sourceSync: true,
       syncChannel: "mono",
     },
     // Face draws Out/Left/Right; Sync locks to the dry input (In, or L+R sum).
     syncTraceFromInputs: { mono: "In", left: "Left", right: "Right" },
-    stereoTracePorts: { left: "Left", right: "Right" },
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     displaySignals: [
       { key: "Out", kind: "scalar" },
       { key: "Left", kind: "scalar" },
@@ -12405,7 +12404,6 @@ const nodeGraphModuleDefinitions = (
     outputLabels: { "Mix L": "Mix L", "Mix R": "Mix R" },
     outputs: ["Mix L", "Mix R"],
     parameters: [
-      { defaultValue: "1", key: "send", label: "Send", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any", tooltip: "Scales input into the delay line. Dry path stays full level." },
       { defaultValue: "0.18", key: "time", kind: "time", label: "Time", max: "4", maxDigits: 5, mid: "0.18", min: "0.001", step: "any", unit: "s" },
       {
         defaultValue: "0.25",
@@ -12470,13 +12468,13 @@ const nodeGraphModuleDefinitions = (
   // Ping Pong: Mix L/R = audio; LFO L/R = gold CV (raw bipolar LFO before Amp).
   pingPongDelay: {
     planRole: "processor",
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "LFO L", right: "LFO R" },
+    defaultDisplayMode: "waterfall",
+    stereoWaterfallPorts: { left: "LFO L", right: "LFO R" },
     inputAliases: { In: "Mono" },
     inputLabels: { Mono: "Mono", Left: "Left", Right: "Right" },
     inputs: ["Mono", "Left", "Right"],
@@ -12492,7 +12490,6 @@ const nodeGraphModuleDefinitions = (
       "LFO R": "LFO R",
     },
     parameters: [
-      { defaultValue: "1", key: "send", label: "Send", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any", tooltip: "Scales input into the delay line. Dry path stays full level." },
       {
         choices: ["Linear"],
         defaultValue: "0",
@@ -12728,9 +12725,13 @@ const nodeGraphModuleDefinitions = (
   reverbEffect: {
     planRole: "processor",
     planFreeRun: true,
-    displayType: "trace",
+    displayType: "waterfall",
+    displayModes: [
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
+    ],
+    defaultDisplayMode: "waterfall",
     // Dry = pure input; Mix = dry/wet blend (no wet-only jacks).
-    stereoTracePorts: { left: "Mix L", right: "Mix R" },
+    stereoWaterfallPorts: { left: "Mix L", right: "Mix R" },
     inputAliases: { In: "Mono" },
     inputs: ["Mono", "Left", "Right"],
     inputLabels: { Mono: "Mono", Left: "Left", Right: "Right" },
@@ -12762,7 +12763,6 @@ const nodeGraphModuleDefinitions = (
       "Mix R": "Mix R",
     },
     parameters: [
-      { defaultValue: "1", key: "send", label: "Send", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any", tooltip: "Scales input into the reverb network. Dry path stays full level." },
       { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", nonlinearSlider: false, step: "any", tooltip: "Dry/wet balance on the Mix outputs (not a wet-only path)." },
       { defaultValue: "0.35", key: "diffusionSize", label: "Size", max: "1", mid: "0.35", min: "0", nonlinearSlider: false, smoothingSeconds: 0.05, step: "any", tooltip: "Size of the diffusion network." },
       { defaultValue: "0.70", key: "diffusionAmount", label: "Diffusion", max: "0.98", mid: "0.70", min: "0", nonlinearSlider: false, step: "any", tooltip: "Strength of early diffusion." },
@@ -12779,13 +12779,13 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     planFreeRun: true,
     // Same stereo Trace face as Output (L/R colors, syncChannel, stereoBlend).
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Mix L", right: "Mix R" },
+    defaultDisplayMode: "waterfall",
+    stereoWaterfallPorts: { left: "Mix L", right: "Mix R" },
     inputs: ["Mono", "Left", "Right"],
     // Dry = pure input; Mix = full dry/wet blend (no wet-only jacks).
     outputAliases: {
@@ -12818,7 +12818,6 @@ const nodeGraphModuleDefinitions = (
       "Mix R": "Mix R",
     },
     parameters: [
-      { defaultValue: "1", key: "send", label: "Send", max: "1", mid: "1", min: "0", step: "any", tooltip: "Scales input into the reverb network. Dry path stays full level. Mix Amplitude unchanged." },
       { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", step: "any", tooltip: "Dry/wet balance on the Mix outputs." },
       {
         choices: ["Off", "On"],
@@ -12954,12 +12953,12 @@ const nodeGraphModuleDefinitions = (
       { key: "VCO/PC", kind: "xy" },
     ],
     displayModes: [
-      { key: "vcoTrace", label: "VCO Trace", renderer: "trace", settingsSchema: "trace", source: { value: "VCO Out" } },
-      { key: "pcTrace", label: "PC Trace", renderer: "trace", settingsSchema: "trace", source: { value: "PC Out" } },
-      { key: "loopTrace", label: "Loop Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Loop" } },
+      { key: "vcoWaterfall", label: "VCO Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "VCO Out" } },
+      { key: "pcWaterfall", label: "PC Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "PC Out" } },
+      { key: "loopWaterfall", label: "Loop Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Loop" } },
       { key: "vcoPcBurn", label: "VCO/PC Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "VCO Out", y: "PC Out" } },
     ],
-    defaultDisplayMode: "vcoTrace",
+    defaultDisplayMode: "vcoWaterfall",
     inputs: ["Signal In", "VCO CV In"],
     outputs: ["VCO Out", "ƒ", "PC Out", "Loop", "Locked"],
     outputAliases: { "LFP Out": "Loop", "LPF Out": "Loop", f: "ƒ" },
@@ -13076,7 +13075,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     planFreeRun: true,
     monitorSink: true,
-    displayType: "trace",
+    displayType: "waterfall",
     displaySignals: [
       { key: "Fidelity", kind: "scalar" },
       { key: "Gate", kind: "scalar" },
@@ -13110,18 +13109,18 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     planFreeRun: true,
     monitorSink: true,
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
       {
-        key: "trace",
+        key: "waterfall",
         label: "Waterfall",
-        renderer: "trace",
-        settingsSchema: "trace",
+        renderer: "waterfall",
+        settingsSchema: "waterfall",
         source: { value: "RMS A" },
       },
     ],
-    defaultDisplayMode: "trace",
+    defaultDisplayMode: "waterfall",
     displaySignals: [
       { key: "RMS A", kind: "scalar" },
       { key: "RMS D", kind: "scalar" },
@@ -13164,18 +13163,18 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     planFreeRun: true,
     monitorSink: true,
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
       {
-        key: "trace",
+        key: "waterfall",
         label: "Waterfall",
-        renderer: "trace",
-        settingsSchema: "trace",
+        renderer: "waterfall",
+        settingsSchema: "waterfall",
         source: { value: "RMS A" },
       },
     ],
-    defaultDisplayMode: "trace",
+    defaultDisplayMode: "waterfall",
     displaySignals: [
       { key: "RMS A", kind: "scalar" },
       { key: "RMS D", kind: "scalar" },
@@ -13229,12 +13228,12 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     planFreeRun: true,
     monitorSink: true,
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
+    defaultDisplayMode: "waterfall",
     digitalOutputs: ["Gate"],
     inputAliases: { In: "Mono", L: "Left", R: "Right", M: "Mono" },
     inputLabels: { Left: "Left", Mono: "Mono", Right: "Right" },
@@ -13447,14 +13446,14 @@ const nodeGraphModuleDefinitions = (
   lookaheadLimiter: {
     planRole: "processor",
     displayHeightGu: 3,
-    displayType: "trace",
+    displayType: "waterfall",
     defaultDisplayMode: "gain",
     displayModes: [
       {
         key: "gain",
         label: "Gain",
-        renderer: "trace",
-        settingsSchema: "trace",
+        renderer: "waterfall",
+        settingsSchema: "waterfall",
         source: { value: "Gain" },
       },
     ],
@@ -13582,7 +13581,7 @@ const nodeGraphModuleDefinitions = (
   limiter: {
     planRole: "processor",
     displayHeightGu: 3,
-    displayType: "trace",
+    displayType: "waterfall",
     // Sole face: Gain is 1 at rest (top of the bipolar trace) and falls
     // toward 0 while limiting, so the line dips from the top.
     defaultDisplayMode: "gain",
@@ -13590,8 +13589,8 @@ const nodeGraphModuleDefinitions = (
       {
         key: "gain",
         label: "Gain",
-        renderer: "trace",
-        settingsSchema: "trace",
+        renderer: "waterfall",
+        settingsSchema: "waterfall",
         source: { value: "Gain" },
       },
     ],
@@ -13785,13 +13784,13 @@ const nodeGraphModuleDefinitions = (
     // pre-level Saw/Ramp). Audio Left/Right remain polarity+Amplitude scaled
     // for MOD/ghosts (deliberate WISIWIH exception; same Raw pattern as
     // robinSinusoid / fBm).
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Left Raw", right: "Right Raw" },
+    defaultDisplayMode: "waterfall",
+    stereoWaterfallPorts: { left: "Left Raw", right: "Right Raw" },
     displaySignals: [
       { key: "Left Raw", kind: "scalar" },
       { key: "Right Raw", kind: "scalar" },
@@ -14206,13 +14205,13 @@ const nodeGraphModuleDefinitions = (
   },
   sampleLooper: {
     planRole: "processor",
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    defaultDisplayMode: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     inputs: ["Gate", "Reset", "Pitch", "Start", "End", "Loop Start", "Loop End"],
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono", Left: "Left", Right: "Right" },
@@ -15411,7 +15410,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     planFreeRun: true,
     layout: "envelopeCurve",
-    // No Instant Trace displayType — custom envelope curve face (blank Display Settings).
+    // No Instant Waterfall displayType — custom envelope curve face (blank Display Settings).
     digitalOutputs: ["isIdle"],
     inputs: ["Trigger"],
     inputAliases: { Gate: "Trigger", In: "Trigger", Trig: "Trigger" },
@@ -15489,7 +15488,7 @@ const nodeGraphModuleDefinitions = (
   sandboxVisuals: {
     planRole: "monitor",
     bufferedInputs: ["Shake", "X", "Y", "Dim", "Red", "Green", "Blue", "Scope Off", "Pause"],
-    displayType: "trace",
+    displayType: "waterfall",
     inputs: ["Shake", "X", "Y", "Dim", "Red", "Green", "Blue", "Scope Off", "Pause", "Trace Image"],
     inputAliases: {"Screen Shake": "Shake",
       "Screen Dim": "Dim",
@@ -15575,7 +15574,7 @@ const nodeGraphModuleDefinitions = (
   rgbaHsla: {
     planRole: "monitor",
     bufferedInputs: ["Red", "Green", "Blue", "Hue", "Saturation", "Lightness", "HSL Mix", "Alpha"],
-    displayType: "trace",
+    displayType: "waterfall",
     inputs: ["Red", "Green", "Blue", "Hue", "Saturation", "Lightness", "HSL Mix", "Alpha"],
     inputAliases: {
       R: "Red",
@@ -15666,10 +15665,10 @@ const nodeGraphModuleDefinitions = (
         source: { x: "X", y: "Y" }
       },
       {
-        key: "monoTrace",
+        key: "monoWaterfall",
         label: "1D Waterfall",
-        renderer: "trace",
-        settingsSchema: "trace",
+        renderer: "waterfall",
+        settingsSchema: "waterfall",
         source: { value: "In" }
       },
       {
@@ -15694,65 +15693,45 @@ const nodeGraphModuleDefinitions = (
     ],
     visualSink: true
   },
-  traceDisplay: {
+  waterfall: {
     planRole: "monitor",
     bufferedInputs: ["In"],
-    displayType: "trace",
+    displayType: "waterfall",
     inputs: ["In"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     // Dry passthrough so the face can sit in-line (In → face + Thru).
     outputs: ["Thru"],
     outputLabels: { Thru: "←" },
     parameters: [],
     visualInputs: [
-      { key: "traceDisplay", label: "In", port: "In" },
+      { key: "waterfall", label: "In", port: "In" },
     ],
     visualSink: true
   },
   // Same stereo waterfall face as Output (L/R colors, Meet in the pen, sync).
-  traceDisplayStereo: {
+  waterfallStereo: {
     planRole: "monitor",
     bufferedInputs: ["Left", "Right"],
-    displayType: "trace",
+    displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    defaultDisplayMode: "waterfall",
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     inputAliases: { L: "Left", R: "Right", Mono: "Left" },
     inputs: ["Left", "Right"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     // Dry L/R thrus so the face can sit in-line on a stereo path.
     outputs: ["Left", "Right"],
     parameters: [],
     visualInputs: [
-      { key: "traceDisplayStereoLeft", label: "Left", port: "Left" },
-      { key: "traceDisplayStereoRight", label: "Right", port: "Right" },
+      { key: "waterfallStereoLeft", label: "Left", port: "Left" },
+      { key: "waterfallStereoRight", label: "Right", port: "Right" },
     ],
     visualSink: true
   },
-  traceDisplayXyz: {
-    planRole: "monitor",
-    bufferedInputs: ["X", "Y", "Z"],
-    displayType: "trace",
-    spectrumCompanion: false,
-    displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
-    ],
-    defaultDisplayMode: "trace",
-    xyzTracePorts: { X: "X", Y: "Y", Z: "Z" },
-    inputs: ["X", "Y", "Z"],
-    layout: "traceDisplay",
-    outputs: ["X", "Y", "Z"],
-    parameters: [],
-    visualInputs: [
-      { key: "traceDisplayXyzX", label: "X", port: "X" },
-      { key: "traceDisplayXyzY", label: "Y", port: "Y" },
-      { key: "traceDisplayXyzZ", label: "Z", port: "Z" },
-    ],
-    visualSink: true
-  },
+
   vectorDot: {
     planRole: "monitor",
     bufferedInputs: ["In"],
@@ -15763,7 +15742,7 @@ const nodeGraphModuleDefinitions = (
       { key: "lcdDot", label: "LCD Dot", renderer: "lcdDot", settingsSchema: "lcdDot", source: { value: "In" } },
     ],
     inputs: ["In"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     outputs: ["Thru"],
     outputLabels: { Thru: "←" },
     parameters: [],
@@ -15782,7 +15761,7 @@ const nodeGraphModuleDefinitions = (
       { key: "lcdDot", label: "LCD Dot", renderer: "lcdDot", settingsSchema: "lcdDot", source: { value: "In" } },
     ],
     inputs: ["In"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     // Dry passthrough so the face can sit in-line (In → face + Thru).
     outputs: ["Thru"],
     outputLabels: { Thru: "←" },
@@ -15796,7 +15775,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "monitor",
     displayType: "oscilloscopeBankBurn",
     dataInputs: ["Phases", "Amplitudes", "Pans"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     outputs: [],
     parameters: [],
     visualSink: true
@@ -15806,7 +15785,7 @@ const nodeGraphModuleDefinitions = (
     bufferedInputs: ["A", "B"],
     displayType: "videoscopeBurn",
     inputs: ["A", "B"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     // Dry passthrough of primary channel A so the face can sit in-line.
     outputs: ["Thru"],
     outputLabels: { Thru: "←" },
@@ -15884,7 +15863,7 @@ const nodeGraphModuleDefinitions = (
     bufferedInputs: ["In"],
     displayType: "spectrogramBurn",
     inputs: ["In"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     // Dry passthrough so the analyzer can sit in-line (In → face + Thru).
     // 📺 / rgba is reserved for a later video tap (silence until then).
     outputs: ["Thru", "rgba"],
@@ -16393,7 +16372,7 @@ const nodeGraphModuleDefinitions = (
     displayHeightGu: 5,
     displayType: "value",
     inputs: ["In"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     // Dry passthrough so the face can sit in-line (In → face + Thru).
     outputs: ["Thru"],
     outputLabels: { Thru: "←" },
@@ -16413,7 +16392,7 @@ const nodeGraphModuleDefinitions = (
       sourceSync: true,
     },
     inputs: ["In", "Reset"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     // Dry passthrough so the face can sit in-line (In → face + Thru).
     outputs: ["Thru"],
     outputLabels: { Thru: "←" },
@@ -16430,7 +16409,7 @@ const nodeGraphModuleDefinitions = (
     displayHeightGu: 5,
     displayType: "scope2d",
     inputs: ["X", "Y"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     // Dry X/Y thrus so the face can sit in-line on XY patches.
     outputs: ["X", "Y"],
     parameters: [],
@@ -16448,7 +16427,7 @@ const nodeGraphModuleDefinitions = (
     displayHeightGu: 5,
     displayType: "scope2d",
     inputs: ["X", "Y"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     // Dry X/Y thrus so the face can sit in-line on XY patches.
     outputs: ["X", "Y"],
     parameters: [],
@@ -16464,7 +16443,7 @@ const nodeGraphModuleDefinitions = (
     displayHeightGu: 5,
     displayType: "scope2dTrace",
     inputs: ["X", "Y"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     // Dry X/Y thrus so the face can sit in-line on XY patches.
     outputs: ["X", "Y"],
     parameters: [],
@@ -16480,7 +16459,7 @@ const nodeGraphModuleDefinitions = (
     bufferedInputs: ["In", "Reset"],
     displayType: "scope1dTrace",
     inputs: ["In", "Reset"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     outputs: ["Thru"],
     outputLabels: { Thru: "←" },
     parameters: [],
@@ -16500,10 +16479,10 @@ const nodeGraphModuleDefinitions = (
       { key: "scope1dTrace", label: "1D Trace", renderer: "scope1dTrace", settingsSchema: "scope1dTrace" },
     ],
     defaultDisplayMode: "scope1dTrace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     inputAliases: { L: "Left", R: "Right", Mono: "Left" },
     inputs: ["Left", "Right", "Reset"],
-    layout: "traceDisplay",
+    layout: "scopeFace",
     outputs: ["Left", "Right"],
     parameters: [],
     visualInputs: [
@@ -16529,7 +16508,7 @@ const nodeGraphModuleDefinitions = (
     ],
     inputs: ["X", "Y", "R", "G", "B", "Blank"],
     inputLabels: { X: "X", Y: "Y", R: "R", G: "G", B: "B", Blank: "Blk" },
-    layout: "traceDisplay",
+    layout: "scopeFace",
     // Dry same-name thru (X→X … B→B) so the face can sit in-line. Efficient
     // Live resolves these past the observer at native compile time.
     outputs: ["X", "Y", "R", "G", "B"],
@@ -16560,7 +16539,7 @@ const nodeGraphModuleDefinitions = (
     ],
     inputs: ["R", "G", "B"],
     inputLabels: { R: "R", G: "G", B: "B" },
-    layout: "traceDisplay",
+    layout: "scopeFace",
     outputs: ["R", "G", "B", "rgba"],
     outputLabels: { R: "R", G: "G", B: "B", rgba: "📺" },
     parameters: [
@@ -16688,50 +16667,50 @@ const nodeGraphModuleDefinitions = (
     ],
     visualSink: true,
   },
-  traceXyz: {
+  waterfallXyz: {
     planRole: "monitor",
     bufferedInputs: ["X", "Y", "Z"],
-    displayType: "trace",
+    displayType: "waterfallXyz",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfallXyz" },
     ],
-    defaultDisplayMode: "trace",
-    xyzTracePorts: { X: "X", Y: "Y", Z: "Z" },
+    defaultDisplayMode: "waterfall",
+    xyzWaterfallPorts: { X: "X", Y: "Y", Z: "Z" },
     inputs: ["X", "Y", "Z"],
     inputLabels: { X: "X", Y: "Y", Z: "Z" },
-    layout: "traceDisplay",
+    layout: "scopeFace",
     outputs: ["X", "Y", "Z"],
     outputLabels: { X: "X", Y: "Y", Z: "Z" },
     parameters: [],
     visualInputs: [
-      { key: "traceXyzX", label: "X", port: "X" },
-      { key: "traceXyzY", label: "Y", port: "Y" },
-      { key: "traceXyzZ", label: "Z", port: "Z" },
+      { key: "waterfallXyzX", label: "X", port: "X" },
+      { key: "waterfallXyzY", label: "Y", port: "Y" },
+      { key: "waterfallXyzZ", label: "Z", port: "Z" },
     ],
     visualSink: true,
   },
   // 1D Waterfall RGB — fixed R/G/B guns, blur 0…1 + Bright. RGB category.
-  traceRgb: {
+  waterfallRgb: {
     planRole: "monitor",
     bufferedInputs: ["R", "G", "B"],
-    displayType: "trace",
+    displayType: "waterfallRgb",
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "traceRgb" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfallRgb" },
     ],
-    defaultDisplayMode: "trace",
-    rgbTracePorts: { R: "R", G: "G", B: "B" },
+    defaultDisplayMode: "waterfall",
+    rgbWaterfallPorts: { R: "R", G: "G", B: "B" },
     inputs: ["R", "G", "B"],
     inputLabels: { R: "R", G: "G", B: "B" },
-    layout: "traceDisplay",
+    layout: "scopeFace",
     outputs: ["R", "G", "B"],
     outputLabels: { R: "R", G: "G", B: "B" },
     parameters: [],
     visualInputs: [
-      { key: "traceRgbR", label: "R", port: "R" },
-      { key: "traceRgbG", label: "G", port: "G" },
-      { key: "traceRgbB", label: "B", port: "B" },
+      { key: "waterfallRgbR", label: "R", port: "R" },
+      { key: "waterfallRgbG", label: "G", port: "G" },
+      { key: "waterfallRgbB", label: "B", port: "B" },
     ],
     visualSink: true,
   },
@@ -16751,7 +16730,7 @@ const nodeGraphModuleDefinitions = (
     ],
     inputs: ["X", "Y"],
     inputLabels: { X: "X", Y: "Y" },
-    layout: "traceDisplay",
+    layout: "scopeFace",
     outputs: ["X", "Y"],
     outputLabels: { X: "X", Y: "Y" },
     parameters: [],
@@ -16869,9 +16848,9 @@ const nodeGraphModuleDefinitions = (
   },
   output: {
     planRole: "sink",
-    displayType: "trace",
+    displayType: "waterfall",
     uniqueInPatch: true,
-    // Capture Mono/Left/Right for stereo Trace (scope rings). Instant Trace is
+    // Capture Mono/Left/Right for stereo Trace (scope rings). Instant Waterfall is
     // fed from the post-Volume/Pan bus so the face shows Volume's effect (not
     // the pre-gain wires). Without visualSink the face stayed blank.
     visualSink: true,
@@ -16883,11 +16862,11 @@ const nodeGraphModuleDefinitions = (
     // Single fixed face — no Trace/Spectrum Mode dropdown in Display Settings.
     spectrumCompanion: false,
     displayModes: [
-      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
-    defaultDisplayMode: "trace",
+    defaultDisplayMode: "waterfall",
     bufferedInputs: ["Mono", "Left", "Right"],
-    stereoTracePorts: { left: "Left", right: "Right" },
+    stereoWaterfallPorts: { left: "Left", right: "Right" },
     inputs: ["Mono", "Left", "Right"],
     inputLabels: { Mono: "Mono", Left: "Left", Right: "Right" },
     outputAliases: { Out: "Mono", M: "Mono", L: "Left", R: "Right" },
@@ -16928,7 +16907,7 @@ const nodeGraphModuleDefinitions = (
   },
   sinc: {
     planRole: "processor",
-    displayType: "trace",
+    displayType: "waterfall",
     inputs: ["Increment"],
     inputLabels: { Increment: "inc" },
     outputChannels: { Out: "green" },
@@ -17066,14 +17045,14 @@ function nodeGraphPatchNodeBufferedInputs(node) {
       ? normalizeNodeGraphScreenSpaceShader(node.screenSpaceShader).bufferedInputs
     : [];
   const extra = [];
-  const stereo = typeof nodeGraphModuleStereoTracePorts === "function"
-    ? nodeGraphModuleStereoTracePorts(node?.type)
+  const stereo = typeof nodeGraphModuleStereoWaterfallPorts === "function"
+    ? nodeGraphModuleStereoWaterfallPorts(node?.type)
     : null;
   if (stereo) {
     extra.push(stereo.left, stereo.right);
   }
-  const xyz = typeof nodeGraphModuleXyzTracePorts === "function"
-    ? nodeGraphModuleXyzTracePorts(node?.type)
+  const xyz = typeof nodeGraphModuleXyzWaterfallPorts === "function"
+    ? nodeGraphModuleXyzWaterfallPorts(node?.type)
     : null;
   if (xyz) {
     extra.push(xyz.X, xyz.Y, xyz.Z);

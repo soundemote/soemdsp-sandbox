@@ -44,7 +44,7 @@ LayoutB (ports beside the face) and InletOutletLayout (title + I/O, no face) are
 
 **Done:**
 - `public/node-graph-module-scope-waterfall.js` — all Waterfall scopes use peak-to-peak bars (running min/max → one bar per History paint → reset). No backlog scan; no dual TraceTape shim.
-- Vibrato Generator face set to trace/Waterfall as reference consumer.
+- Vibrato Generator face set to waterfall (was misnamed Instant Trace) as reference consumer.
 - Preserved: color, blend/Meet/CMY, Size/Blur/density, scale, History Hz, Sync/Cycles, now-line, hold, stereo/XYZ/RGB.
 
 **Backup:** `_wip/node-graph-module-scope-waterfall.js.bak`

@@ -58,19 +58,19 @@ function nodeGraphVisualThemeColors(theme = "cyan-violet") {
       return {
         glow: "rgba(247, 183, 88, 0.18)",
         point: "rgba(247, 183, 88, 0.72)",
-        trace: "#f7b758",
+        waterfall: "#f7b758",
       };
     case "signal-green":
       return {
         glow: "rgba(113, 212, 155, 0.16)",
         point: "rgba(113, 212, 155, 0.72)",
-        trace: "#71d49b",
+        waterfall: "#71d49b",
       };
     default:
       return {
         glow: "rgba(177, 132, 255, 0.14)",
         point: "rgba(127, 199, 217, 0.72)",
-        trace: "#7fc7d9",
+        waterfall: "#7fc7d9",
       };
   }
 }

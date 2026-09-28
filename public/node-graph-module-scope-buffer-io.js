@@ -164,9 +164,9 @@ function pushNodeGraphLiveModuleScopeSamples(nodeId, values, metadata = null) {
       buffer.nodeGraphScopeSampleStride = sampleStride;
     }
   }
-  // Scope-ring posts (Output Instant Trace) often omit absoluteFrame. Drive a
+  // Scope-ring posts (Output Instant Waterfall) often omit absoluteFrame. Drive a
   // monotonic cursor from totalSampleCount so 1D Phosphor undrawn-window and
-  // Instant Trace never stall on a missing/stale abs frame.
+  // Instant Waterfall never stall on a missing/stale abs frame.
   const totalSamples = Math.max(0, Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeTotalSampleCount)));
   if (totalSamples > 0) {
     const prevAbs = Number(buffer.nodeGraphScopeAbsoluteFrame);
@@ -177,11 +177,11 @@ function pushNodeGraphLiveModuleScopeSamples(nodeId, values, metadata = null) {
   }
   nodeGraphModuleScopeState.versionSerial = (nodeGraphFiniteNumber(nodeGraphModuleScopeState.versionSerial)) + 1;
   buffer.nodeGraphScopeVersion = nodeGraphModuleScopeState.versionSerial;
-  // Invalidate Instant Trace draw cache for this node so the next RAF paints
+  // Invalidate Instant Waterfall draw cache for this node so the next RAF paints
   // new ring samples (Output stereo keys are "id:Left" / "id:Right").
   const baseId = id.includes(":") ? id.split(":")[0] : id;
-  if (baseId && nodeGraphModuleScopeState.traceDisplayDrawCache) {
-    nodeGraphModuleScopeState.traceDisplayDrawCache.delete(baseId);
+  if (baseId && nodeGraphModuleScopeState.waterfallDrawCache) {
+    nodeGraphModuleScopeState.waterfallDrawCache.delete(baseId);
   }
 }
 

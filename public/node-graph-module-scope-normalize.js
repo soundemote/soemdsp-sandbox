@@ -24,7 +24,7 @@ function nodeGraphDisplaySettingsNormalizePlateLook(source = {}, defaults = {}) 
     ? Number(defs.backgroundBrightness)
     : 0;
   const rawHex = src.background ?? src.backgroundColor ?? defs.background;
-  // Plate fallback is black — Instant Trace red must not leak into phosphor faces.
+  // Plate fallback is black — Instant Waterfall red must not leak into phosphor faces.
   const hex = typeof normalizeNodeGraphTraceDisplayColor === "function"
     ? normalizeNodeGraphTraceDisplayColor(rawHex, defs.background || "#000000")
     : String(rawHex || "#000000");
@@ -508,7 +508,7 @@ function nodeGraphTraceDisplayNormalizeInkPx(value, fallback = 2) {
 }
 
 
-function normalizeNodeGraphTraceDisplayColor(value, fallback = nodeGraphTraceDisplaySettingsDefaults.color) {
+function normalizeNodeGraphTraceDisplayColor(value, fallback = nodeGraphWaterfallSettingsDefaults.color) {
   const color = String(value || "").trim();
   if (/^#[0-9a-f]{6}$/i.test(color)) {
     return color.toLowerCase();
@@ -695,7 +695,9 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     // Always on — hide the display if you don't want the pen.
     dot1Enabled: true,
-    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    // Authored CSS px at a 96px face (APP_POLICY §15). Not a 0…1 fraction —
+    // clamping to 0…1 pegged every Size ≥ 1 to the same stamp (B-072).
+    dot1Size: nodeGraphTraceDisplayNormalizeInkPx(source.dot1Size, defaults.dot1Size),
     // Dot Budget + Full Dot Economy persist (toggle was dropped before).
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
@@ -754,7 +756,9 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     dot1Enabled: true,
-    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    // Authored CSS px at a 96px face (APP_POLICY §15). Not a 0…1 fraction —
+    // clamping to 0…1 pegged every Size ≥ 1 to the same stamp (B-072).
+    dot1Size: nodeGraphTraceDisplayNormalizeInkPx(source.dot1Size, defaults.dot1Size),
     gradientStops,
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
       source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
@@ -769,9 +773,9 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
 }
 
 
-function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
+function normalizeNodeGraphWaterfallSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
-  const defaults = nodeGraphTraceDisplaySettingsDefaults;
+  const defaults = nodeGraphWaterfallSettingsDefaults;
   const legacyWindowMs = source.windowMs === undefined ? undefined : Number(source.windowMs) / 1000;
   const zoomSeconds = source.zoomSeconds ?? source.windowSeconds ?? legacyWindowMs;
   return {
@@ -1599,7 +1603,9 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     dot1Enabled: true,
-    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    // Authored CSS px at a 96px face (APP_POLICY §15). Not a 0…1 fraction —
+    // clamping to 0…1 pegged every Size ≥ 1 to the same stamp (B-072).
+    dot1Size: nodeGraphTraceDisplayNormalizeInkPx(source.dot1Size, defaults.dot1Size),
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
       : Math.max(1, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 1024)))),
@@ -2045,14 +2051,14 @@ function nodeGraphMigrateLimiterGainFaceToTraceSettings(source = {}) {
 
 function nodeGraphTraceDisplaySettingsForNode(node) {
   if (!node) {
-    return normalizeNodeGraphTraceDisplaySettings();
+    return normalizeNodeGraphWaterfallSettings();
   }
   const settingsSchema = nodeGraphModuleDisplaySettingsSchemaForNode(node);
   if (settingsSchema === "value") {
     return normalizeNodeGraphValueOscilloscopeSettings(node.traceDisplaySettings);
   }
-  // Instant Trace: seed from the global bucket until this module is edited.
-  if (settingsSchema === "trace" || settingsSchema === "traceRgb") {
+  // Instant Waterfall: seed from the global bucket until this module is edited.
+  if (settingsSchema === "waterfall" || settingsSchema === "waterfallRgb") {
     const local = (node.type === "lookaheadLimiter" || node.type === "limiter")
       ? nodeGraphMigrateLimiterGainFaceToTraceSettings(node.traceDisplaySettings)
       : node.traceDisplaySettings;
@@ -2065,8 +2071,8 @@ function nodeGraphTraceDisplaySettingsForNode(node) {
         ? { ...seeded, ...defDisp }
         : seeded;
       // RGB waterfall defaults: hard pixels, full bright, additive guns.
-      if (settingsSchema === "traceRgb") {
-        return normalizeNodeGraphTraceDisplaySettings({
+      if (settingsSchema === "waterfallRgb") {
+        return normalizeNodeGraphWaterfallSettings({
           ...withDef,
           lineThickness: 0,
           brightness: 0.95,
@@ -2075,14 +2081,14 @@ function nodeGraphTraceDisplaySettingsForNode(node) {
           cmyMode: false,
         });
       }
-      return typeof normalizeNodeGraphTraceDisplaySettings === "function"
-        ? normalizeNodeGraphTraceDisplaySettings(withDef)
+      return typeof normalizeNodeGraphWaterfallSettings === "function"
+        ? normalizeNodeGraphWaterfallSettings(withDef)
         : withDef;
     }
-    return normalizeNodeGraphTraceDisplaySettings(local);
+    return normalizeNodeGraphWaterfallSettings(local);
   }
-  if (settingsSchema === "traceXyz") {
-    return normalizeNodeGraphTraceDisplaySettings(node.traceDisplaySettings);
+  if (settingsSchema === "waterfallXyz") {
+    return normalizeNodeGraphWaterfallSettings(node.traceDisplaySettings);
   }
   return {};
 }
@@ -2214,7 +2220,7 @@ function nodeGraphScope2dTraceSettingsForNode(node) {
 
 
 function nodeGraphGlobalTraceSettings() {
-  return normalizeNodeGraphTraceDisplaySettings(nodeGraphMvp?.traceSettings);
+  return normalizeNodeGraphWaterfallSettings(nodeGraphMvp?.traceSettings);
 }
 
 
@@ -2223,14 +2229,14 @@ function nodeGraphTraceDisplaySettingsEditingGlobal() {
 }
 
 
-function nodeGraphTraceDisplaySettingsEditingTraceDefaults() {
+function nodeGraphWaterfallSettingsEditingDefaults() {
   if (nodeGraphTraceDisplaySettingsEditingGlobal()) {
     return true;
   }
   const node = nodeGraphPatchNode(nodeGraphMvp?.traceDisplaySettingsTargetNode);
-  // Instant Trace is per-module. Only the explicit Global page writes
+  // Instant Waterfall is per-module. Only the explicit Global page writes
   // nodeGraphMvp.traceSettings (a seed for unedited faces).
-  if (nodeGraphModuleDisplaySettingsSchemaForNode(node) !== "trace") {
+  if (nodeGraphModuleDisplaySettingsSchemaForNode(node) !== "waterfall") {
     return false;
   }
   if (typeof nodeGraphModuleKeepsPerNodeTraceDisplaySettings === "function") {

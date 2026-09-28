@@ -66,7 +66,7 @@ NodeLiveAudioProcessor.prototype.compileScopeCapture = function compileScopeCapt
     for (let i = 0; i < captureNodeIds.length; i += 1) {
       const nodeId = captureNodeIds[i];
       const captureType = String(this.nodes.get(nodeId)?.type || "");
-      // Output Instant Trace uses visual-sink L/R rings (post-Volume bus), not
+      // Output Instant Waterfall uses visual-sink L/R rings (post-Volume bus), not
       // aggregate nodeOutputs — see writeOutputVisualSinkSample.
       if (captureType === "output") {
         continue;
@@ -161,7 +161,7 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
         sourceSampleRate: engineRate,
         writeSampleRate: engineRate / visualStride,
       };
-      // Output Instant Trace must show post-Volume/Pan bus (what Volume does),
+      // Output Instant Waterfall must show post-Volume/Pan bus (what Volume does),
       // not the pre-gain wires into Mono/Left/Right.
       const sinkType = String(sink.type || this.nodes.get(sink.nodeId)?.type || "");
       if (sinkType === "output") {
@@ -211,7 +211,7 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
     }
 };
 
-/** Write Output Instant Trace rings from post-Volume L/R (and Mono). */
+/** Write Output Instant Waterfall rings from post-Volume L/R (and Mono). */
 NodeLiveAudioProcessor.prototype.writeOutputVisualSinkSample = function writeOutputVisualSinkSample(
   sink,
   mono,

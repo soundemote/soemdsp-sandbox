@@ -10,8 +10,8 @@
 
 Two related issues, both in scope:
 
-1. **Graph zoom pan ~1 fps** — after zooming in, panning is unusable. Happens even when the view is only text and inlets/outlets (no phosphor, no Instant Trace). User suspects the magnifying glass; that may or may not be the cause.
-2. **Magnifying glass should freeze every display** — while the glass is held, freeze phosphor, Instant Trace, **and** cheap vector faces (RoundShape and everything else). Intent: a cheap “look at the current frame” interaction, not a second live graph.
+1. **Graph zoom pan ~1 fps** — after zooming in, panning is unusable. Happens even when the view is only text and inlets/outlets (no phosphor, no Instant Waterfall). User suspects the magnifying glass; that may or may not be the cause.
+2. **Magnifying glass should freeze every display** — while the glass is held, freeze phosphor, Instant Waterfall, **and** cheap vector faces (RoundShape and everything else). Intent: a cheap “look at the current frame” interaction, not a second live graph.
 
 Audio / DSP must not change. Visualization freeze only.
 
@@ -74,8 +74,8 @@ Contributing (not mutually exclusive):
 ## Policy
 
 1. **Graph zoom pan must stay interactive** at high zoom on a text/outlet view. Target: pan follows the pointer (not 1 fps).
-2. **Do not freeze displays during graph zoom or pan.** Phosphor, Instant Trace, RoundShape, and every other face stay live while the user zooms/pans. Gesture freeze is **rejected**.
-3. **While the magnifying glass is active, freeze all displays** — phosphor, Instant Trace, residual, RoundShape, LCD, LED, filter curves, XY pads, number readouts, RGB/FBM faces, anything that has a draw loop. Snapshot = last painted frame. Audio keeps running.
+2. **Do not freeze displays during graph zoom or pan.** Phosphor, Instant Waterfall, RoundShape, and every other face stay live while the user zooms/pans. Gesture freeze is **rejected**.
+3. **While the magnifying glass is active, freeze all displays** — phosphor, Instant Waterfall, residual, RoundShape, LCD, LED, filter curves, XY pads, number readouts, RGB/FBM faces, anything that has a draw loop. Snapshot = last painted frame. Audio keeps running.
 4. Vector faces freeze **because** the glass is a “current frame” look, not because they are expensive. That freeze is **glass-only**.
 5. Freeze **ends** when the glass ends. Do not leave residual-hold stuck (same rule as Full Stop vs pause in paint-gate). Zoom/pan must not enter that hold.
 6. Magnifier must not `cloneNode` a live, still-animating graph. Prefer a frozen bitmap / already-frozen DOM.
@@ -131,7 +131,7 @@ End glass: unfreeze; next live tick resumes (no force-repaint storm; normal FPS 
 | Drawer | Hold |
 |--------|------|
 | Phosphor energy-GL | no new deposits; residual stays |
-| Instant Trace | no rewrite; last strokes stay |
+| Instant Waterfall | no rewrite; last strokes stay |
 | RoundShape | cancel playhead RAF; last canvas bitmap |
 | LCD / LED / number / filter / XY / RGB / FBM / etc. | skip draw unless `force` |
 | Wires / heatmap | unchanged except existing gesture rules (glass is not a pan) |

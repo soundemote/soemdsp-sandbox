@@ -70,13 +70,13 @@ function nodeGraphTraceDisplayDrawSignature(slot, item, buffer, settings) {
   let stereoSig = "";
   if (
     nodeId
-    && typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
-    && nodeGraphModuleUsesStereoTraceDisplay(slot?.type)
+    && typeof nodeGraphModuleUsesStereoWaterfall === "function"
+    && nodeGraphModuleUsesStereoWaterfall(slot?.type)
     && typeof nodeGraphModuleScopeState !== "undefined"
     && nodeGraphModuleScopeState?.buffers
   ) {
-    const ports = typeof nodeGraphModuleStereoTracePorts === "function"
-      ? nodeGraphModuleStereoTracePorts(slot?.type)
+    const ports = typeof nodeGraphModuleStereoWaterfallPorts === "function"
+      ? nodeGraphModuleStereoWaterfallPorts(slot?.type)
       : { left: "Left", right: "Right" };
     const left = ports ? nodeGraphModuleScopeState.buffers.get(`${nodeId}:${ports.left}`) : null;
     const right = ports ? nodeGraphModuleScopeState.buffers.get(`${nodeId}:${ports.right}`) : null;
@@ -130,7 +130,7 @@ function nodeGraphTraceDisplaySignatureUnchanged(slot, item, buffer, settings) {
     return false;
   }
   const signature = nodeGraphTraceDisplayDrawSignature(slot, item, buffer, settings);
-  return nodeGraphModuleScopeState.traceDisplayDrawCache.get(nodeId) === signature;
+  return nodeGraphModuleScopeState.waterfallDrawCache.get(nodeId) === signature;
 }
 
 function rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings) {
@@ -138,7 +138,7 @@ function rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings) {
   if (!nodeId) {
     return;
   }
-  nodeGraphModuleScopeState.traceDisplayDrawCache.set(
+  nodeGraphModuleScopeState.waterfallDrawCache.set(
     nodeId,
     nodeGraphTraceDisplayDrawSignature(slot, item, buffer, settings),
   );
@@ -150,7 +150,7 @@ function finishNodeGraphTraceDisplayTiming(timing) {
   }
   timing.totalMs = Math.max(0, nodeGraphModuleScopeNowMs() - timing.frameStartMs);
   const debug = nodeGraphModuleScopeDebugState();
-  debug.traceDisplayTiming = {
+  debug.waterfallTiming = {
     bufferViewMs: Number(timing.bufferViewMs.toFixed(3)),
     drawArraysMs: Number(timing.drawArraysMs.toFixed(3)),
     glBufferDataMs: Number(timing.glBufferDataMs.toFixed(3)),
@@ -163,9 +163,9 @@ function finishNodeGraphTraceDisplayTiming(timing) {
     vertices: timing.vertices,
   };
   const now = nodeGraphModuleScopeNowMs();
-  if (typeof console !== "undefined" && now - (nodeGraphFiniteNumber(debug.traceDisplayTimingLastLogMs)) > 500) {
-    debug.traceDisplayTimingLastLogMs = now;
-    console.table([debug.traceDisplayTiming]);
+  if (typeof console !== "undefined" && now - (nodeGraphFiniteNumber(debug.waterfallTimingLastLogMs)) > 500) {
+    debug.waterfallTimingLastLogMs = now;
+    console.table([debug.waterfallTiming]);
   }
 }
 
@@ -377,7 +377,7 @@ function syncNodeGraphScopeGpuDebugDisplay() {
   debug.lastHeartbeatMs = now;
   const error = debug.lastError ? ` err:${debug.lastError}` : "";
   const slotSummary = (Array.isArray(debug.scopeSlots) ? debug.scopeSlots : [])
-    .filter((slot) => ["scope2d", "scope2dTrace", "traceDisplay", "lineBurnOscilloscope", "dotOscilloscope", "valueOscilloscope"].includes(slot?.type))
+    .filter((slot) => ["scope2d", "scope2dTrace", "waterfall", "lineBurnOscilloscope", "dotOscilloscope", "valueOscilloscope"].includes(slot?.type))
     .map((slot) => {
       const id = String(slot.nodeId || slot.type || "?").replace(/Oscilloscope|Display/g, "");
       const length = Math.max(0, Math.floor(nodeGraphFiniteNumber(slot.bufferLength)));

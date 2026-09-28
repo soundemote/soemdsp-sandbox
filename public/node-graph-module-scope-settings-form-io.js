@@ -237,13 +237,13 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
   popover.dataset.displaySettingsTargetNode = node?.id ? String(node.id) : "";
   popover.dataset.displaySettingsBodyType = type;
   // Stereo Trace Left/Right aria on color hosts (Output, SoEmReverb, …).
-  const isStereoTraceNode = typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
-    ? nodeGraphModuleUsesStereoTraceDisplay(node?.type)
+  const isStereoWaterfallNode = typeof nodeGraphModuleUsesStereoWaterfall === "function"
+    ? nodeGraphModuleUsesStereoWaterfall(node?.type)
     : node?.type === "output";
-  const isXyzTraceNode = typeof nodeGraphModuleUsesXyzTraceDisplay === "function"
-    ? nodeGraphModuleUsesXyzTraceDisplay(node?.type)
+  const isXyzWaterfallNode = typeof nodeGraphModuleUsesXyzWaterfall === "function"
+    ? nodeGraphModuleUsesXyzWaterfall(node?.type)
     : false;
-  if (isXyzTraceNode && type === "trace") {
+  if (isXyzWaterfallNode && type === "waterfall") {
     const xHost = host.querySelector(`[data-trace-display-color-widget="dot1Color"]`);
     if (xHost) {
       xHost.setAttribute("aria-label", "X color");
@@ -256,7 +256,7 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
     if (zHost) {
       zHost.setAttribute("aria-label", "Z color");
     }
-  } else if (isStereoTraceNode && type === "trace") {
+  } else if (isStereoWaterfallNode && type === "waterfall") {
     const leftColorHost = host.querySelector(`[data-trace-display-color-widget="dot1Color"]`);
     if (leftColorHost) {
       leftColorHost.setAttribute("aria-label", "Left color");
@@ -355,7 +355,7 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
     return normalizeNodeGraphScope1dTraceSettings(nodeGraphScope1dTraceSettingsDefaults);
   }
   if (type === "scope2dTrace") {
-    const targetNode = !nodeGraphTraceDisplaySettingsEditingTraceDefaults()
+    const targetNode = !nodeGraphWaterfallSettingsEditingDefaults()
       && !nodeGraphTraceDisplaySettingsEditingGlobal()
       ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())
       : null;
@@ -595,8 +595,8 @@ if (type === "portalFace") {
         ? normalizeNodeGraphAsciiscope(null)
         : { glyphTable: ".", message: "READY" });
   }
-  if (type === "trace" || type === "traceRgb" || type === "traceXyz") {
-    return normalizeNodeGraphTraceDisplaySettings(nodeGraphTraceDisplaySettingsDefaults);
+  if (type === "waterfall" || type === "waterfallRgb" || type === "waterfallXyz") {
+    return normalizeNodeGraphWaterfallSettings(nodeGraphWaterfallSettingsDefaults);
   }
   return {};
 }
@@ -808,14 +808,14 @@ if (type === "portalFace") {
         ? normalizeNodeGraphAsciiscope(settings)
         : settings || {});
   }
-  if (type === "trace" || type === "traceRgb" || type === "traceXyz" || type === "lineBurn") {
-    return normalizeNodeGraphTraceDisplaySettings(settings);
+  if (type === "waterfall" || type === "waterfallRgb" || type === "waterfallXyz" || type === "lineBurn") {
+    return normalizeNodeGraphWaterfallSettings(settings);
   }
   return {};
 }
 
 function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTraceDisplaySettingsFormType()) {
-  if (nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
+  if (nodeGraphWaterfallSettingsEditingDefaults()) {
     return nodeGraphGlobalTraceSettings();
   }
   const node = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId());
@@ -1040,7 +1040,7 @@ if (settingsSchema === "portalFace") {
         ? normalizeNodeGraphHypersawBurnSettings(node?.traceDisplaySettings)
         : (node?.traceDisplaySettings || { lineThickness: 0.01, lineThicknessFace01: true }));
   }
-  if (settingsSchema === "trace" || settingsSchema === "traceXyz" || settingsSchema === "traceRgb") {
+  if (settingsSchema === "waterfall" || settingsSchema === "waterfallXyz" || settingsSchema === "waterfallRgb") {
     return nodeGraphTraceDisplaySettingsForNode(node);
   }
   if (settingsSchema === "gradientVectorscopeFace") {
@@ -2106,8 +2106,8 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
   const nodeType = typeof nodeGraphPatchNode === "function"
     ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
     : null;
-  const isXyz = typeof nodeGraphModuleUsesXyzTraceDisplay === "function"
-    && nodeGraphModuleUsesXyzTraceDisplay(nodeType);
+  const isXyz = typeof nodeGraphModuleUsesXyzWaterfall === "function"
+    && nodeGraphModuleUsesXyzWaterfall(nodeType);
   if (field === "tertiaryColor") {
     return "Z";
   }
@@ -2159,13 +2159,13 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     const nodeTypeInner = typeof nodeGraphPatchNode === "function"
       ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
       : null;
-    const isXyzDot = typeof nodeGraphModuleUsesXyzTraceDisplay === "function"
-      && nodeGraphModuleUsesXyzTraceDisplay(nodeTypeInner);
+    const isXyzDot = typeof nodeGraphModuleUsesXyzWaterfall === "function"
+      && nodeGraphModuleUsesXyzWaterfall(nodeTypeInner);
     if (isXyzDot) {
       return "X";
     }
-    const isStereo = typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
-      ? nodeGraphModuleUsesStereoTraceDisplay(nodeTypeInner)
+    const isStereo = typeof nodeGraphModuleUsesStereoWaterfall === "function"
+      ? nodeGraphModuleUsesStereoWaterfall(nodeTypeInner)
       : nodeTypeInner === "output";
     return isStereo ? "Left" : "";
   }

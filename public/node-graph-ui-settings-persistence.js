@@ -847,8 +847,8 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const moduleScopeDiscontinuitySkipSamples = normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
     view.moduleScopeDiscontinuitySkipSamples ?? nodeGraphMvp.moduleScopeDiscontinuitySkipSamples ?? 1,
   );
-  const traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
-    ? normalizeNodeGraphTraceDisplaySettings(
+  const traceSettings = typeof normalizeNodeGraphWaterfallSettings === "function"
+    ? normalizeNodeGraphWaterfallSettings(
       typeof migrateNodeGraphLegacyDot2Settings === "function"
         ? migrateNodeGraphLegacyDot2Settings(view.traceSettings ?? nodeGraphMvp.traceSettings, false)
         : (view.traceSettings ?? nodeGraphMvp.traceSettings),
@@ -1368,8 +1368,8 @@ function normalizeNodeGraphUserSession(payload = {}) {
           ?? nodeGraphMvp.moduleScopeFramesPerSecond
           ?? 60,
       )))),
-    traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
-      ? normalizeNodeGraphTraceDisplaySettings(
+    traceSettings: typeof normalizeNodeGraphWaterfallSettings === "function"
+      ? normalizeNodeGraphWaterfallSettings(
         payload.traceSettings ?? view.traceSettings ?? nodeGraphMvp.traceSettings,
       )
       : (payload.traceSettings ?? view.traceSettings ?? nodeGraphMvp.traceSettings ?? null),
@@ -1455,8 +1455,8 @@ function readNodeGraphUserSessionFromState() {
     moduleScopeFramesPerSecond: typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
       ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 120))
       : Math.max(0, Math.min(240, Math.round(Number(nodeGraphMvp.moduleScopeFramesPerSecond) || (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 120)))),
-    traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
-      ? normalizeNodeGraphTraceDisplaySettings(nodeGraphMvp.traceSettings)
+    traceSettings: typeof normalizeNodeGraphWaterfallSettings === "function"
+      ? normalizeNodeGraphWaterfallSettings(nodeGraphMvp.traceSettings)
       : nodeGraphMvp.traceSettings,
     ...readNodeGraphSessionSelectionFromState(),
   };
@@ -1574,8 +1574,8 @@ function applyNodeGraphUserSession(session, options = {}) {
     }
   }
   if (normalized.traceSettings != null) {
-    nodeGraphMvp.traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
-      ? normalizeNodeGraphTraceDisplaySettings(normalized.traceSettings)
+    nodeGraphMvp.traceSettings = typeof normalizeNodeGraphWaterfallSettings === "function"
+      ? normalizeNodeGraphWaterfallSettings(normalized.traceSettings)
       : normalized.traceSettings;
   }
   nodeGraphMvp.sessionSelection = {
@@ -1795,8 +1795,8 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.moduleScopeDiscontinuitySkipSamples = normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
     normalized.view.moduleScopeDiscontinuitySkipSamples,
   );
-  nodeGraphMvp.traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
-    ? normalizeNodeGraphTraceDisplaySettings(normalized.view.traceSettings)
+  nodeGraphMvp.traceSettings = typeof normalizeNodeGraphWaterfallSettings === "function"
+    ? normalizeNodeGraphWaterfallSettings(normalized.view.traceSettings)
     : normalized.view.traceSettings;
   nodeGraphMvp.sliderLayout = normalizeNodeGraphSliderLayout(normalized.view.sliderLayout);
   nodeGraphMvp.sliderAmountVisible = Boolean(normalized.view.sliderAmountVisible);

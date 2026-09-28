@@ -56,7 +56,7 @@ function nodeGraphModuleScopeCircuitRunning() {
   const live = nodeGraphMvp?.live || {};
   const contextState = String(live.context?.state || "");
   // Prefer engine transport over AudioContext.state alone — "suspended" can
-  // lag a resume and used to freeze Instant Trace (only force paints from
+  // lag a resume and used to freeze Instant Waterfall (only force paints from
   // Display Settings / Unpause advanced the face).
   const speed = Number(live.speedMultiplier);
   if (Number.isFinite(speed) && speed > 0 && live.node && live.outputEnabled) {
@@ -138,7 +138,7 @@ function nodeGraphModuleScopeFaceBackingSize(screenElement, requestedPixelRatio 
     return null;
   }
   // Resize-only face metrics (APP_POLICY §15). Never gBCR; never remasure
-  // every Instant Trace paint — pan must not force layout.
+  // every Instant Waterfall paint — pan must not force layout.
   const metrics = typeof ensureFaceMetrics === "function"
     ? ensureFaceMetrics(screenElement, { observe: true })
     : null;

@@ -149,7 +149,7 @@ function nodeGraphLimiterGainFaceLineCss(settings) {
 }
 
 function drawNodeGraphLimiterGainFaceItem(renderer, item, pixelRatio) {
-  // Instant Trace owns the Limiter Gain face (scroll strip, not remesh).
+  // Instant Waterfall owns the Limiter Gain face (scroll strip, not remesh).
   if (typeof drawNodeGraphTraceDisplayItem === "function") {
     drawNodeGraphTraceDisplayItem(renderer, item, pixelRatio);
     return;

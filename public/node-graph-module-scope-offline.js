@@ -366,12 +366,12 @@ function nodeGraphModuleScopeOscillatorPhasor(slot, frequency, cycles, modelTime
 // nodeGraphModuleScopeCapturedGateLightTarget → node-graph-module-scope-capture.js
 // nodeGraphModuleScopeCapturedPulseLightTarget → node-graph-module-scope-capture.js
 // nodeGraphModuleScopeCapturedBufferForSlot → node-graph-module-scope-capture.js
-// secondary* is read only when a "trace"-schema node is Output's stereo
+// secondary* is read only when a "waterfall"-schema node is Output's stereo
 // display (drawNodeGraphTraceDisplayCanvasItem) -- Output shares this same
 // formType with plain single-value Trace nodes (both declare
-// displayType/renderer "trace"), so the field exists here for all of them,
+// displayType/renderer "waterfall"), so the field exists here for all of them,
 // but a non-Output trace node's draw path never reads it.
-// nodeGraphTraceDisplaySettingsDefaults → node-graph-module-scope-defaults.js
+// nodeGraphWaterfallSettingsDefaults → node-graph-module-scope-defaults.js
 // 1D Phosphor = heart-monitor energy trail: sweepHz = left→right passes/sec.
 // Y = sample. Optional rising-edge Reset snaps to the left.
 // nodeGraphLineBurnSettingsDefaults → node-graph-module-scope-defaults.js
@@ -444,7 +444,7 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 // normalizeNodeGraphLineBurnSweepPair → node-graph-module-scope-normalize.js
 // normalizeNodeGraphLineBurnSettings → node-graph-module-scope-normalize.js
 // normalizeNodeGraphZeroDBurnSettings → node-graph-module-scope-normalize.js
-// normalizeNodeGraphTraceDisplaySettings → node-graph-module-scope-normalize.js
+// normalizeNodeGraphWaterfallSettings → node-graph-module-scope-normalize.js
 // normalizeNodeGraphValueOscilloscopeSettings → node-graph-module-scope-normalize.js
 /**
  * Sample multi-stop gradient at energy t ∈ [0,1] → canvas RGB bytes.
@@ -464,8 +464,8 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 // nodeGraphScope2dTraceSettingsForNode → node-graph-module-scope-normalize.js
 // nodeGraphGlobalTraceSettings → node-graph-module-scope-normalize.js
 // nodeGraphTraceDisplaySettingsEditingGlobal → node-graph-module-scope-normalize.js
-// nodeGraphTraceDisplaySettingsEditingTraceDefaults → node-graph-module-scope-normalize.js
-const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "vectorDot", "pulseDot", "lcdDot", "value", "lineBurn", "hypersawBurn", "ensembleCloud", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "scope1dTrace", "phosphorLight", "sampleWaveform", "numberReadout", "xyPad", "customDisplay", "spectrum", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace", "knobFace", "pluginSliderFace", "toggleButtonFace", "momentaryButtonFace", "rgbShapeFace", "rgbPictureFace", "imageBurnFace", "rgbFractalFace", "evolveFieldFace", "fbmFieldFace", "speedColorInertiaFace", "patchFace", "keypadFace", "keyboardControllerFace", "textBoxFace", "phoneToneFace", "harmonicSeriesFace", "vectorRgbFace", "rasterRgbFace", "gradientVectorscopeFace", "traceXyz", "portalFace", "roundShapeFace", "basicShapeFace", "softwaveOscFace", "sinCos4Face", "limiterGainFace", "arpKeysFace"]);
+// nodeGraphWaterfallSettingsEditingDefaults → node-graph-module-scope-normalize.js
+const nodeGraphDisplayModeRenderers = Object.freeze(["waterfall", "waterfallRgb", "clock", "dot", "vectorDot", "pulseDot", "lcdDot", "value", "lineBurn", "hypersawBurn", "ensembleCloud", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "scope1dTrace", "phosphorLight", "sampleWaveform", "numberReadout", "xyPad", "customDisplay", "spectrum", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace", "knobFace", "pluginSliderFace", "toggleButtonFace", "momentaryButtonFace", "rgbShapeFace", "rgbPictureFace", "imageBurnFace", "rgbFractalFace", "evolveFieldFace", "fbmFieldFace", "speedColorInertiaFace", "patchFace", "keypadFace", "keyboardControllerFace", "textBoxFace", "phoneToneFace", "harmonicSeriesFace", "vectorRgbFace", "rasterRgbFace", "gradientVectorscopeFace", "waterfallXyz", "portalFace", "roundShapeFace", "basicShapeFace", "softwaveOscFace", "sinCos4Face", "limiterGainFace", "arpKeysFace"]);
 const nodeGraphDisplayModeSignalKinds = Object.freeze(["scalar", "xy", "buffer"]);
 
 // nodeGraphDisplayModeSettingsSchemaForRenderer → node-graph-module-scope-display-mode.js
@@ -512,16 +512,16 @@ function nodeGraphModuleDisplayRendererForSlot(slot) {
  * - Known phosphor/trace/etc. displayType → that renderer (+ its settings).
  * - Any other declared face (registered creators, custom layout)
  *   → layoutOwned (blank Display Settings unless the mode sets a schema).
- * - visualScope / traceDisplay layout → Instant Trace (declared shell).
- * - LayoutA DSP with no declaration → no canvas. Do not invent Instant Trace.
+ * - visualScope / waterfall layout → Instant Waterfall (declared shell).
+ * - LayoutA DSP with no declaration → no canvas. Do not invent Instant Waterfall.
  */
 function nodeGraphModuleDeclaredDisplayTypeForType(type) {
   const def = nodeGraphModuleDefinitions?.[type];
   let declared = def?.displayType;
   if (declared === "ledLamp") {
     declared = "vectorDot";
-  } else if (declared === "traceXyz") {
-    declared = "trace";
+  } else if (declared === "waterfallXyz" || declared === "waterfallRgb") {
+    declared = "waterfall";
   }
   const declaredStr = String(declared || "").trim();
   if (declaredStr && nodeGraphDisplayModeRenderers.includes(declaredStr)) {
@@ -535,8 +535,8 @@ function nodeGraphModuleDeclaredDisplayTypeForType(type) {
     return "layoutOwned";
   }
   const layout = String(def?.layout || "").trim();
-  if (layout === "visualScope" || layout === "traceDisplay") {
-    return "trace";
+  if (layout === "visualScope" || layout === "scopeFace") {
+    return "waterfall";
   }
   return "layoutOwned";
 }
@@ -550,7 +550,7 @@ function nodeGraphModuleDisplayTypeForSlot(slot) {
 }
 
 function nodeGraphModuleScopeSlotUsesWiredInputs(slot) {
-  return ["traceDisplay", "traceDisplayStereo", "traceDisplayXyz", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "scope2d", "scope2dTrace", "phosphorLight", "visualOscilloscope", "numberReadout", "valueLcd", "led", "vectorDot", "lcdDot", "imageBurn", "rgbPicture", "vectorRgb", "rasterRgb", "gradientVectorscope", "traceXyz", "traceRgb"].includes(slot?.type);
+  return ["waterfall", "waterfallStereo", "waterfallXyz", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "scope2d", "scope2dTrace", "phosphorLight", "visualOscilloscope", "numberReadout", "valueLcd", "led", "vectorDot", "lcdDot", "imageBurn", "rgbPicture", "vectorRgb", "rasterRgb", "gradientVectorscope", "waterfallXyz", "waterfallRgb"].includes(slot?.type);
 }
 
 function nodeGraphModuleDisplaySourceForSlot(slot) {
@@ -643,11 +643,11 @@ if (typeof window !== "undefined") {
 // nodeGraphNodeHasLocalDisplaySettings → node-graph-module-scope-display-mode.js
 // nodeGraphNodeCanOpenDisplaySettings → node-graph-module-scope-display-mode.js
 // nodeGraphTraceDisplaySettingsForSlot → node-graph-module-scope-display-mode.js
-function prepareNodeGraphTraceDisplayBuffer(buffer, settings = nodeGraphTraceDisplaySettingsDefaults) {
+function prepareNodeGraphTraceDisplayBuffer(buffer, settings = nodeGraphWaterfallSettingsDefaults) {
   if (!buffer?.length) {
     return buffer;
   }
-  const traceSettings = normalizeNodeGraphTraceDisplaySettings(settings);
+  const traceSettings = normalizeNodeGraphWaterfallSettings(settings);
   buffer.nodeGraphScopeDrawFullWindow = true;
   buffer.nodeGraphScopeDrawProgress = 1;
   buffer.nodeGraphScopeDrawStartProgress = 0;
@@ -911,8 +911,8 @@ function nodeGraphModuleScopeOfflineGainAnalyzerBuffer(slot) {
   return buffer;
 }
 
-// nodeGraphModuleScopeXyTraceFrameCount → node-graph-module-scope-capture.js
-// nodeGraphModuleScopeCapturedXyTraceFrameCount → node-graph-module-scope-capture.js
+// nodeGraphModuleScopeXyWaterfallFrameCount → node-graph-module-scope-capture.js
+// nodeGraphModuleScopeCapturedXyWaterfallFrameCount → node-graph-module-scope-capture.js
 function nodeGraphModuleScopeOutputInputConnections(nodeId) {
   return {
     Mono: nodeGraphModuleScopeConnectionsTo(nodeId, "Mono"),

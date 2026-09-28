@@ -51,7 +51,7 @@ function drawSignalPlot() {
     context.strokeStyle = signalPlotRegionColor(regionIndex);
     context.fillStyle = signalPlotRegionColor(regionIndex);
     context.lineWidth = Math.max(1, pixelRatio);
-    if (state.signalPlotMode === "trace") {
+    if (state.signalPlotMode === "waterfall") {
       context.beginPath();
     }
     let started = false;
@@ -72,7 +72,7 @@ function drawSignalPlot() {
       }
     }
 
-    if (state.signalPlotMode === "trace") {
+    if (state.signalPlotMode === "waterfall") {
       context.stroke();
     }
   }

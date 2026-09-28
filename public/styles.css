@@ -17954,9 +17954,9 @@ body.node-slider-dragging * {
   white-space: nowrap;
 }
 
-.node-slider-readout.reserves-sign-column .node-slider-readout-label {
-  padding-left: 1ch;
-}
+/* B-073: do not pad labels for the value sign column. Values already reserve
+   space in the formatted string (reserveSignSpace / leading + or minus); extra
+   label padding-left: 1ch shifted names right of the number. */
 
 .node-slider-readout-value {
   position: relative;
@@ -19796,7 +19796,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   color: color-mix(in srgb, var(--accent) 88%, white 12%);
 }
 
-/* Stereo Instant Trace: one Size/Blur/Bright label, two steppers under L | R. */
+/* Stereo Instant Waterfall: one Size/Blur/Bright label, two steppers under L | R. */
 .node-trace-display-lr-row {
   display: grid;
   grid-template-columns: var(--ds-label-col) minmax(0, 1fr);

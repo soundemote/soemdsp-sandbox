@@ -1,6 +1,6 @@
-// Time-stable waveform path for Instant Trace.
+// Time-stable waveform path for Instant Waterfall.
 //
-// Instant Trace used to sample a uniform i/(n-1) lattice and remap it
+// Instant Waterfall used to sample a uniform i/(n-1) lattice and remap it
 // 0..width every frame. Rounding the window and changing n made the
 // stroke hop (the "rounding error" jitter). A real drawer:
 //   • pins x to sample index: x = (i - viewStart) / span * width

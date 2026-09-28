@@ -1510,6 +1510,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "robin_oscillator",
+      "label": "RobinOscillator",
+      "targetType": "robinOscillator",
+      "kind": "oscillator",
+      "source": "native_modules/robin_oscillator/robin_oscillator.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/robin_oscillator/robin_oscillator.cpp",
+      "localSourceUrl": "/native_modules/robin_oscillator/robin_oscillator.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/robin_oscillator/robin_oscillator.wasm",
+      "wasmUrl": "native_modules/robin_oscillator/robin_oscillator.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "robin_sinusoid",
       "label": "RobinSinusoid",
       "targetType": "robinSinusoid",
@@ -1520,19 +1533,6 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/generators/rosic_SineOscillator.h",
       "wasm": "native_modules/robin_sinusoid/robin_sinusoid.wasm",
       "wasmUrl": "native_modules/robin_sinusoid/robin_sinusoid.wasm",
-      "wasmAvailable": true
-    },
-    {
-      "name": "robin_oscillator",
-      "label": "RobinOscillator",
-      "targetType": "robinOscillator",
-      "kind": "oscillator",
-      "source": "native_modules/robin_oscillator/robin_oscillator.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/robin_oscillator/robin_oscillator.cpp",
-      "localSourceUrl": "/native_modules/robin_oscillator/robin_oscillator.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
-      "wasm": "native_modules/robin_oscillator/robin_oscillator.wasm",
-      "wasmUrl": "native_modules/robin_oscillator/robin_oscillator.wasm",
       "wasmAvailable": true
     },
     {

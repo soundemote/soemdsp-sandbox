@@ -31,7 +31,6 @@ function wetRmsAfterSetOnce(saturate) {
   e.soemdsp_soem_reverb_set_params(
     h,
     1.0, // mix wet
-    1.0, // send
     0.03,
     0.9,
     2,

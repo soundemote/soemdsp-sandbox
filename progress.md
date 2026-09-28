@@ -1,6 +1,21 @@
+
+## 2026-09-28 — 1D Trace ≠ 1D Waterfall rename (local, uncommitted)
+
+- Architect correction: Instant Trace / `displayType: "trace"` / module types `traceDisplay*` were **1D Waterfall** (TraceTape strip-chart), not heart-monitor 1D Trace.
+- Renamed waterfall identity to `waterfall` / `waterfallStereo` / `waterfallXyz` / `waterfallRgb`; `displayType` / renderer / settingsSchema `waterfall` (plus `waterfallRgb` / `waterfallXyz` where specialized).
+- True 1D Trace remains `scope1dTrace` / `scope1dTraceStereo`.
+- Shared face layout id `traceDisplay` → `scopeFace` (CSS class `scope-face-layout`).
+- No commit/push; no legacy remap for old `"trace"` as waterfall.
 ﻿# Progress Ã¢â‚¬â€ soemdsp-sandbox
 
 
+
+### Waterfall rename finished locally (no commit)
+
+- Identity complete: module ids `waterfall*`, `displayType`/`renderer`/`settingsSchema` `waterfall` (+ rgb/xyz), mode keys `*Waterfall` where they were Instant-Trace strip modes.
+- Shared Display Settings chrome left as `nodeGraphTraceDisplay*` / `traceDisplaySettings`.
+- 1D Trace (`scope1dTrace`) untouched. Layout `scopeFace`.
+- Send removal on Sabrina/SoEm/Delay/PingPong preserved (no `key: "send"`).
 
 ## 2026-09-27
 - **B-061 fixed** â€” small slider readout stripped scientific exponents (`String(n)` â†’ `limit_decimals` mantissa-only). Plain-decimal expand in `node-graph-slider-metadata.js`.
@@ -59,8 +74,8 @@ graphify update . --force   # no LLM; AST re-extract
 
 ### NORMALIZING DISPLAY SETTINGS UX (2026-09-10)
 - Every module opens Display Settings (blank + Show in canvas if no face schema)
-- Stop inventing Instant Trace settings for custom layout faces (envelopeCurve / filterCurve)
-- Instant Trace monitors (Flower Child, Ã¢â‚¬Â¦) keep Instant Trace face + Instant Trace settings
+- Stop inventing Instant Waterfall settings for custom layout faces (envelopeCurve / filterCurve)
+- Instant Waterfall monitors (Flower Child, Ã¢â‚¬Â¦) keep Instant Waterfall face + Instant Waterfall settings
 - Right-click on display faces Ã¢â€ â€™ Display Settings (not Module Settings)
 - Layout canvas Phase 1: Show in canvas + phone/F; condensed phone frame removed
 - Commits: `4f6d8c93` Ã¢â‚¬Â¦ `b60b747e`

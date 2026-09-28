@@ -28,15 +28,15 @@
   });
 
   // Mono / primary In → Thru
-  nodeGraphLiveModuleEvaluators.traceDisplay = thruFrom("In", "traceDisplay in");
-  nodeGraphLiveModuleEvaluators.traceDisplayStereo = stereoThru(
-    "traceDisplayStereo left",
-    "traceDisplayStereo right",
+  nodeGraphLiveModuleEvaluators.waterfall = thruFrom("In", "waterfall in");
+  nodeGraphLiveModuleEvaluators.waterfallStereo = stereoThru(
+    "waterfallStereo left",
+    "waterfallStereo right",
   );
-  nodeGraphLiveModuleEvaluators.traceDisplayXyz = ({ runtime, nodeId, mixInput }) => ({
-    X: nodeGraphSafeFilterNumber(mixInput(nodeId, "X"), runtime, nodeId, null, "traceDisplayXyz X"),
-    Y: nodeGraphSafeFilterNumber(mixInput(nodeId, "Y"), runtime, nodeId, null, "traceDisplayXyz Y"),
-    Z: nodeGraphSafeFilterNumber(mixInput(nodeId, "Z"), runtime, nodeId, null, "traceDisplayXyz Z"),
+  nodeGraphLiveModuleEvaluators.waterfallXyz = ({ runtime, nodeId, mixInput }) => ({
+    X: nodeGraphSafeFilterNumber(mixInput(nodeId, "X"), runtime, nodeId, null, "waterfallXyz X"),
+    Y: nodeGraphSafeFilterNumber(mixInput(nodeId, "Y"), runtime, nodeId, null, "waterfallXyz Y"),
+    Z: nodeGraphSafeFilterNumber(mixInput(nodeId, "Z"), runtime, nodeId, null, "waterfallXyz Z"),
   });
   nodeGraphLiveModuleEvaluators.vectorDot = thruFrom("In", "vectorDot in");
   nodeGraphLiveModuleEvaluators.lcdDot = thruFrom("In", "lcdDot in");
@@ -54,15 +54,15 @@
   nodeGraphLiveModuleEvaluators.scope2dTrace = xyThru("scope2dTrace X", "scope2dTrace Y");
   nodeGraphLiveModuleEvaluators.visualOscilloscope = xyThru("visualOscilloscope X", "visualOscilloscope Y");
   nodeGraphLiveModuleEvaluators.gradientVectorscope = xyThru("gradientVectorscope X", "gradientVectorscope Y");
-  nodeGraphLiveModuleEvaluators.traceXyz = ({ runtime, nodeId, mixInput }) => ({
-    X: nodeGraphSafeFilterNumber(mixInput(nodeId, "X"), runtime, nodeId, null, "traceXyz X"),
-    Y: nodeGraphSafeFilterNumber(mixInput(nodeId, "Y"), runtime, nodeId, null, "traceXyz Y"),
-    Z: nodeGraphSafeFilterNumber(mixInput(nodeId, "Z"), runtime, nodeId, null, "traceXyz Z"),
+  nodeGraphLiveModuleEvaluators.waterfallXyz = ({ runtime, nodeId, mixInput }) => ({
+    X: nodeGraphSafeFilterNumber(mixInput(nodeId, "X"), runtime, nodeId, null, "waterfallXyz X"),
+    Y: nodeGraphSafeFilterNumber(mixInput(nodeId, "Y"), runtime, nodeId, null, "waterfallXyz Y"),
+    Z: nodeGraphSafeFilterNumber(mixInput(nodeId, "Z"), runtime, nodeId, null, "waterfallXyz Z"),
   });
-  nodeGraphLiveModuleEvaluators.traceRgb = ({ runtime, nodeId, mixInput }) => ({
-    R: nodeGraphSafeFilterNumber(mixInput(nodeId, "R"), runtime, nodeId, null, "traceRgb R"),
-    G: nodeGraphSafeFilterNumber(mixInput(nodeId, "G"), runtime, nodeId, null, "traceRgb G"),
-    B: nodeGraphSafeFilterNumber(mixInput(nodeId, "B"), runtime, nodeId, null, "traceRgb B"),
+  nodeGraphLiveModuleEvaluators.waterfallRgb = ({ runtime, nodeId, mixInput }) => ({
+    R: nodeGraphSafeFilterNumber(mixInput(nodeId, "R"), runtime, nodeId, null, "waterfallRgb R"),
+    G: nodeGraphSafeFilterNumber(mixInput(nodeId, "G"), runtime, nodeId, null, "waterfallRgb G"),
+    B: nodeGraphSafeFilterNumber(mixInput(nodeId, "B"), runtime, nodeId, null, "waterfallRgb B"),
   });
   nodeGraphLiveModuleEvaluators.vectorRgb = ({ runtime, nodeId, mixInput }) => ({
     X: nodeGraphSafeFilterNumber(mixInput(nodeId, "X"), runtime, nodeId, null, "vectorRgb X"),

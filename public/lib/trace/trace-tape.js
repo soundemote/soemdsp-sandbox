@@ -1,5 +1,5 @@
 // RGB stamp tape — phosphor-stamp geometry, no Ghost / Trail / Burn / LUT.
-// Instant Trace waterfall: scroll left, additive RGB dabs, blit to the face.
+// Instant Waterfall: scroll left, additive RGB dabs, blit to the face.
 // Stereo blends in the same buffer (lighter / additive), not a gradient.
 
 (function initTraceTape(global) {

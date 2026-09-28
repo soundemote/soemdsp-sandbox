@@ -1,4 +1,4 @@
-// Portal cables in the acoustic pluck breadboard must compile to the same
+// Portal cables in the pluck envelope breadboard must compile to the same
 // edges as the direct wires already in that patch.
 // node scripts/smoke_portal_splice_breadboard.mjs
 import fs from "fs";
@@ -11,7 +11,7 @@ const patchPath = path.join(
   root,
   "patches",
   "modulator breadboards",
-  "acoustic pluck envelope breadboard.json",
+  "pluck envelope.json",
 );
 const helperPath = path.join(root, "public", "modules", "portal", "portal-named.js");
 
@@ -33,12 +33,10 @@ const edge = (list, src, srcPort, dst, dstPort) => list.some((c) =>
   && (c.destinationPort === dstPort || c.destinationParam === dstPort));
 
 // Required = post-splice equivalents of the breadboard's real portal buses
-// (Trigger, Pitch, Envelope) plus the pitchManager→osc cable that replaced
-// the old keyboard `f` → polyBlep.frequency wire. No clock / Note# / Reset.
+// (Trigger, Envelope, inc). No clock / Note# / Reset / pitchManager.
 const required = [
   ["keyboard-1", "Trigger", "curveAttackRelease-1", "Gate"],
-  ["keyboard-1", "pitch", "pitchManager-1", "pitch"],
-  ["pitchManager-1", "inc", "polyBlep-1", "Increment"],
+  ["keyboard-1", "inc", "polyBlep-1", "Increment"],
   ["curveAttackRelease-1", "Out", "flowerChildFilter-2", "frequency"],
 ];
 

@@ -3,7 +3,7 @@
 
 function createNodeGraphRayBouncerBody(node, type) {
   // Prefer the shared scope section factory so display modes / settings / burn
-  // stay identical to the classic traceDisplay shell — only chrome changes.
+  // stay identical to the classic waterfall shell — only chrome changes.
   if (typeof createNodeGraphModuleScopeSection === "function") {
     const section = createNodeGraphModuleScopeSection(node, type);
     section.classList.add("node-ray-bouncer-face", "node-solid-module-custom-ui");

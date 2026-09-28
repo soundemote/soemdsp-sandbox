@@ -61,7 +61,7 @@ Unconfusing that is worth more than splitting another 3k-line file.
 ## Phase 0 — Inventory (cheap, do first)
 
 - [x] List every `persistNodeGraphUserSession` / `saveNodeGraphWorkingPatchToUserSettings` / `scheduleNodeUiDevSettingsAutosave` caller. Mark which snapshot they intend (live vs working vs UI defaults).
-- [x] List Display Settings **form type** vs **displayType** vs **settingsSchema** vs **renderer** for phosphor / Instant Trace / limiter / matrix. One table in this doc or `docs/ARCHITECTURE.md`.
+- [x] List Display Settings **form type** vs **displayType** vs **settingsSchema** vs **renderer** for phosphor / Instant Waterfall / limiter / matrix. One table in this doc or `docs/ARCHITECTURE.md`.
 - [x] Grep leftover shims: `public/node-graph-phosphor-energy-gl.js`, `node-graph-phosphor-gaussian-drawer.js`, `phosphor-draw-sample.js`, `phosphorLight` aliases, `limiterGainFace` vs `trace`.
 - [x] Grep `@deprecated` no-ops in Display Settings (`changeNodeGraphTraceDisplayMode`, display-mode keys). Count call sites; delete if zero. *(Do not delete in Phase 0.)*
 
@@ -124,16 +124,16 @@ All of these mean “the graph the user is editing,” not UI defaults:
 | `view-controls.js` FPS | Dual-write with session |
 | `settings-apply.js` Display Settings persist | Dual-write global `traceSettings` (Phase 1.3) |
 
-### Display Settings vocabulary (phosphor / Instant Trace / limiter / matrix)
+### Display Settings vocabulary (phosphor / Instant Waterfall / limiter / matrix)
 
 Form type = `nodeGraphModuleDisplaySettingsSchemaForNode` = selected mode `settingsSchema` (or renderer). Body mounts on `dataset.displaySettingsType`. One face per module: extra `displayModes` entries are ignored (`nodeGraphModuleDisplayModesForType` keeps `defaultDisplayMode` or first).
 
 | Face (user name) | Module `displayType` | Mode `renderer` | `settingsSchema` / form type | Patch bag | Paint |
 |------------------|----------------------|-----------------|------------------------------|-----------|--------|
 | **2D Phosphor** | `scope2d` | `scope2d` | `scope2d` | `traceDisplaySettings` (scope2d normalize) | Phosphor energy-GL / drawer |
-| **Instant Trace** (XY) | `scope2dTrace` | `scope2dTrace` | `scope2dTrace` | `traceDisplaySettings` | Instant Trace stroke (not phosphor stamp) |
+| **Instant Waterfall** (XY) | `scope2dTrace` | `scope2dTrace` | `scope2dTrace` | `traceDisplaySettings` | Instant Waterfall stroke (not phosphor stamp) |
 | Oscillator default XY | `scope2d` | first mode `scope2d` (`xyBurn`) | `scope2d` | same | Phosphor; `xyTrace` mode is **not** selected |
-| **1D Instant Trace** | `trace` | `trace` | `trace` | `traceDisplaySettings` | Instant Trace |
+| **1D Instant Waterfall** | `trace` | `trace` | `trace` | `traceDisplaySettings` | Instant Waterfall |
 | **Limiter Gain** | **`trace`** (`lookaheadLimiter`) | `trace` (`gain`) | **`trace`** | `traceDisplaySettings` | **Mismatch:** form-io/apply/clone/custom renderer still know `limiterGainFace`; HTML helper still tags `limiterGainFace`; `display-mode.js` lists it; face self-registers `limiterGainFace` |
 | **Matrix Waterfall** | `matrixWaterfallFace` | implicit same | `matrixWaterfallFace` | `matrixWaterfall` | matrix rain |
 | **Matrix Display** | `matrixDisplayFace` | implicit same | `matrixDisplayFace` | `matrixDisplay` | info/serial plate |
@@ -183,7 +183,7 @@ Phase 4.1: delete the **zero-caller** trio after smoke_test strings are updated.
 | 1.2 | ~~Document boot order in `ARCHITECTURE.md` (10 lines).~~ | docs | None |
 | 1.3 | ~~Stop dual-writing global `traceSettings` into the UI-settings blob unless that blob is the SSOT. Pick **session**.~~ | persistence, settings-apply | Medium — Clear Startup / bundled preset |
 | 1.4 | ~~Window restore must not `remember(..., targetNode: "")` during boot before nodes exist (that can persist a blank Display Settings target).~~ | settings-window.js | Medium |
-| 1.5 | ~~`cloneNodeGraphTypedDisplaySettings`: one switch per `settingsSchema`; add missing schemas in the same list as assign/form-io (lineBurn, limiter, matrix residual if any). No `Object.hasOwn` traps that drop first-time bags incorrectly.~~ | `patch-clone.js`, `settings-apply.js`, `settings-form-io.js` | Medium — round-trip a phosphor + Instant Trace node |
+| 1.5 | ~~`cloneNodeGraphTypedDisplaySettings`: one switch per `settingsSchema`; add missing schemas in the same list as assign/form-io (lineBurn, limiter, matrix residual if any). No `Object.hasOwn` traps that drop first-time bags incorrectly.~~ | `patch-clone.js`, `settings-apply.js`, `settings-form-io.js` | Medium — round-trip a phosphor + Instant Waterfall node |
 
 **Verify:** change Bright/Ghost/Blur, select a module, refresh. Panel, knobs, selection, window page match.
 
@@ -191,17 +191,17 @@ Phase 4.1: delete the **zero-caller** trio after smoke_test strings are updated.
 
 ## Phase 2 — Display Settings vocabulary
 
-**Pain:** Phosphor preview was named Instant Trace. `lineThickness` is Blur on phosphor and Instant Trace. `phosphorLight` is a legacy alias of `scope2d`. Limiter Gain is Instant Trace but leftover `limiterGainFace` paths remain.
+**Pain:** Phosphor preview was named Instant Waterfall. `lineThickness` is Blur on phosphor and Instant Waterfall. `phosphorLight` is a legacy alias of `scope2d`. Limiter Gain is Instant Waterfall but leftover `limiterGainFace` paths remain.
 
 | ID | Win | Notes |
 |----|-----|--------|
 | 2.1 | Rename **internal** stamp-preview symbols to `stampPreview` (`syncNodeGraphStampPreview`, `data-stamp-preview`). Keep one deprecated alias if callers are wide. | form.js, form-io, apply |
 | 2.2 | One function: `displaySettingsSchemaForNode(node)` used by clone, assign, form read/write, preview kind. Delete parallel `displayType` fall-throughs where they disagree. | display-mode.js is already close |
 | 2.3 | Stamp preview stays: **native splat → nearest-neighbor plate**. Do not reintroduce “fit disc to plate” radius math. | already landed; protect in review |
-| 2.4 | `lineThickness` clamp: phosphor + Instant Trace both 0…1 linear unit drag (Blur). RoundShape / LED keep their own meaning. | settings-controls.js |
-| 2.5 | Delete or fold `limiterGainFace` if limiter is `displayType: "trace"` everywhere (clone, form-io, assign, HTML). | grep `limiterGainFace` |
+| 2.4 | `lineThickness` clamp: phosphor + Instant Waterfall both 0…1 linear unit drag (Blur). RoundShape / LED keep their own meaning. | settings-controls.js |
+| 2.5 | Delete or fold `limiterGainFace` if limiter is `displayType: "waterfall"` everywhere (clone, form-io, assign, HTML). | grep `limiterGainFace` |
 
-**Verify:** PolyBLEP Display Settings: Blur 0→0.5 stays; Size down pixelates the preview; limiter still Instant Trace.
+**Verify:** PolyBLEP Display Settings: Blur 0→0.5 stays; Size down pixelates the preview; limiter still Instant Waterfall.
 
 ---
 

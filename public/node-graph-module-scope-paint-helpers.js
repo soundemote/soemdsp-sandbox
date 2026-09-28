@@ -1435,48 +1435,48 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
   context.restore();
 }
 
-// Stereo Trace (Output / modules with stereoTracePorts):
+// Stereo Trace (Output / modules with stereoWaterfallPorts):
 // L/R colors + blend modes. Meet (combine): m=min(L,R);
 // pixel=(L-m)·C_L+(R-m)·C_R+m·C_meet (complement → red+blue→green).
 
 /** @returns {{ left: string, right: string } | null} */
-function nodeGraphModuleStereoTracePorts(type) {
+function nodeGraphModuleStereoWaterfallPorts(type) {
   const t = String(type || "").trim();
   if (!t) return null;
   const def = typeof nodeGraphModuleDefinitions === "object"
     ? nodeGraphModuleDefinitions[t]
     : null;
-  const ports = def?.stereoTracePorts;
+  const ports = def?.stereoWaterfallPorts;
   if (ports && ports.left != null && ports.right != null) {
     return { left: String(ports.left), right: String(ports.right) };
   }
   return null;
 }
 
-function nodeGraphModuleUsesStereoTraceDisplay(type) {
-  return Boolean(nodeGraphModuleStereoTracePorts(type));
+function nodeGraphModuleUsesStereoWaterfall(type) {
+  return Boolean(nodeGraphModuleStereoWaterfallPorts(type));
 }
 
-function nodeGraphModuleXyzTracePorts(type) {
+function nodeGraphModuleXyzWaterfallPorts(type) {
   const t = String(type || "").trim();
   if (!t) return null;
   const def = typeof nodeGraphModuleDefinitions === "object"
     ? nodeGraphModuleDefinitions[t]
     : null;
-  const ports = def?.xyzTracePorts;
+  const ports = def?.xyzWaterfallPorts;
   if (ports && ports.X != null && ports.Y != null && ports.Z != null) {
     return { X: String(ports.X), Y: String(ports.Y), Z: String(ports.Z) };
   }
   return null;
 }
 
-function nodeGraphModuleUsesXyzTraceDisplay(type) {
-  return Boolean(nodeGraphModuleXyzTracePorts(type));
+function nodeGraphModuleUsesXyzWaterfall(type) {
+  return Boolean(nodeGraphModuleXyzWaterfallPorts(type));
 }
 
-function nodeGraphXyzTraceBuffers(nodeId, type) {
+function nodeGraphXyzWaterfallBuffers(nodeId, type) {
   const id = String(nodeId || "");
-  const ports = nodeGraphModuleXyzTracePorts(type);
+  const ports = nodeGraphModuleXyzWaterfallPorts(type);
   if (!id || !ports || typeof nodeGraphModuleScopeState !== "object") {
     return null;
   }
@@ -1489,26 +1489,26 @@ function nodeGraphXyzTraceBuffers(nodeId, type) {
   return { X, Y, Z };
 }
 
-function nodeGraphModuleRgbTracePorts(type) {
+function nodeGraphModuleRgbWaterfallPorts(type) {
   const t = String(type || "").trim();
   if (!t) return null;
   const def = typeof nodeGraphModuleDefinitions === "object"
     ? nodeGraphModuleDefinitions[t]
     : null;
-  const ports = def?.rgbTracePorts;
+  const ports = def?.rgbWaterfallPorts;
   if (ports && ports.R != null && ports.G != null && ports.B != null) {
     return { R: String(ports.R), G: String(ports.G), B: String(ports.B) };
   }
   return null;
 }
 
-function nodeGraphModuleUsesRgbTraceDisplay(type) {
-  return Boolean(nodeGraphModuleRgbTracePorts(type));
+function nodeGraphModuleUsesRgbWaterfall(type) {
+  return Boolean(nodeGraphModuleRgbWaterfallPorts(type));
 }
 
-function nodeGraphRgbTraceBuffers(nodeId, type) {
+function nodeGraphRgbWaterfallBuffers(nodeId, type) {
   const id = String(nodeId || "");
-  const ports = nodeGraphModuleRgbTracePorts(type);
+  const ports = nodeGraphModuleRgbWaterfallPorts(type);
   if (!id || !ports || typeof nodeGraphModuleScopeState !== "object") {
     return null;
   }
@@ -1523,7 +1523,7 @@ function nodeGraphRgbTraceBuffers(nodeId, type) {
 
 /** True when L or R jack is actually wired (audio cable or MOD).
  *  Face probes like "Left Raw" are not jacks — also check the base name
- *  ("Left") so stereoTracePorts Raw rings still count as wired when the
+ *  ("Left") so stereoWaterfallPorts Raw rings still count as wired when the
  *  real Left/Right outlets feed audio or parameter MOD.
  */
 function nodeGraphStereoTracePortWired(nodeId, port) {
@@ -1560,7 +1560,7 @@ function nodeGraphStereoTracePortWired(nodeId, port) {
 /** True when L or R jack is actually wired. Unwired L/R rings are silence. */
 function nodeGraphStereoTraceLrWired(nodeId, type) {
   const id = String(nodeId || "");
-  const ports = nodeGraphModuleStereoTracePorts(type);
+  const ports = nodeGraphModuleStereoWaterfallPorts(type);
   if (!id || !ports) {
     return false;
   }
@@ -1569,7 +1569,7 @@ function nodeGraphStereoTraceLrWired(nodeId, type) {
 }
 
 /**
- * Instant Trace look (history, colors, sync) is per module/display.
+ * Instant Waterfall look (history, colors, sync) is per module/display.
  * The global Trace bucket is only a seed for modules that have never been
  * customized — editing one Sample & Hold must not rewrite every other 1D
  * Trace face.
@@ -1581,9 +1581,9 @@ function nodeGraphModuleKeepsPerNodeTraceDisplaySettings(type) {
   return Boolean(String(type || "").trim());
 }
 
-function nodeGraphStereoTraceBuffers(nodeId, type) {
+function nodeGraphStereoWaterfallBuffers(nodeId, type) {
   const id = String(nodeId || "");
-  const ports = nodeGraphModuleStereoTracePorts(type);
+  const ports = nodeGraphModuleStereoWaterfallPorts(type);
   if (!id || !ports) {
     return null;
   }
@@ -1593,7 +1593,7 @@ function nodeGraphStereoTraceBuffers(nodeId, type) {
   }
   // Same rings as 1D Stereo Trace: this node's visual L/R only.
   // Do not fall back to the wired source's capture buffer — that clock/rate
-  // mix is what made Output Instant Trace blob between 0 and the signal.
+  // mix is what made Output Instant Waterfall blob between 0 and the signal.
   // Only include channels whose jack is wired (Left-only / Right-only / both).
   const leftWired = nodeGraphStereoTracePortWired(id, ports.left);
   const rightWired = nodeGraphStereoTracePortWired(id, ports.right);
@@ -1609,13 +1609,13 @@ function nodeGraphStereoTraceBuffers(nodeId, type) {
   return { left, right };
 }
 
-/** @deprecated Prefer nodeGraphStereoTraceBuffers(nodeId, type). */
+/** @deprecated Prefer nodeGraphStereoWaterfallBuffers(nodeId, type). */
 function nodeGraphOutputStereoTraceBuffers(nodeId) {
-  return nodeGraphStereoTraceBuffers(nodeId, "output");
+  return nodeGraphStereoWaterfallBuffers(nodeId, "output");
 }
 
 /**
- * Stereo Instant Trace (traceDisplayStereo SSOT). Meet = red+blue→green.
+ * Stereo Instant Waterfall (waterfallStereo SSOT). Meet = red+blue→green.
  */
 function paintNodeGraphTraceDisplayStereoStrokes(
   context,
@@ -1708,7 +1708,7 @@ function paintNodeGraphTraceDisplayStereoStrokes(
   return leftPts.length + rightPts.length;
 }
 
-function nodeGraphTraceDisplayPrimaryLayer(settings, color) {
+function nodeGraphWaterfallPrimaryLayer(settings, color) {
   return {
     enabled: settings.dot1Enabled,
     size: settings.dot1Size,
@@ -1899,7 +1899,7 @@ function nodeGraphOutputDrawProtect(context, canvas, alpha, density) {
   });
 }
 
-/** Solid = dest only. Fade = dest + hold so it scrolls with Instant Trace. */
+/** Solid = dest only. Fade = dest + hold so it scrolls with Instant Waterfall. */
 function nodeGraphOutputDrawMark(destCtx, canvas, kind, alpha, density, bake) {
   const a = Math.max(0, Math.min(1, Number(alpha)));
   if (!(a > 0.001) || !destCtx || !canvas) {
@@ -1975,7 +1975,7 @@ function paintNodeGraphOutputPauseBannerIfNeeded(context, canvas, slot, settings
   return paintNodeGraphOutputInkFrame(context, canvas, slot, settings, density, options);
 }
 
-function nodeGraphTraceDisplayPinWaterfallClocks(nowMs) {
+function nodeGraphWaterfallPinClocks(nowMs) {
   const now = Number.isFinite(Number(nowMs))
     ? Number(nowMs)
     : ((typeof performance !== "undefined" && typeof performance.now === "function")
@@ -2059,8 +2059,8 @@ function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePix
       && nodeGraphModuleScopePhosphorFrozen());
   const settings = typeof nodeGraphTraceDisplaySettingsForSlot === "function"
     ? nodeGraphTraceDisplaySettingsForSlot(slot)
-    : (typeof nodeGraphTraceDisplaySettingsDefaults !== "undefined"
-      ? nodeGraphTraceDisplaySettingsDefaults
+    : (typeof nodeGraphWaterfallSettingsDefaults !== "undefined"
+      ? nodeGraphWaterfallSettingsDefaults
       : {});
   const canvas = typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
     ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
@@ -2218,7 +2218,7 @@ function nodeGraphTraceWaterfallUndrawnWindow(canvas, buffer) {
   };
 }
 
-function nodeGraphTraceDisplayPaintWaterfall(spec) {
+function nodeGraphPaintWaterfallFace(spec) {
   return typeof nodeGraphWaterfallPaint === "function"
     ? nodeGraphWaterfallPaint(spec)
     : false;
@@ -2344,14 +2344,14 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   }
   const bg = nodeGraphFacePlateBackground(settings);
   nodeGraphFacePlateApplyCss(screenElement, bg);
-  const stereoBuffers = nodeGraphModuleUsesStereoTraceDisplay(slot?.type)
-    ? nodeGraphStereoTraceBuffers(slot.nodeId, slot.type)
+  const stereoBuffers = nodeGraphModuleUsesStereoWaterfall(slot?.type)
+    ? nodeGraphStereoWaterfallBuffers(slot.nodeId, slot.type)
     : null;
-  const rgbBuffers = (!stereoBuffers && nodeGraphModuleUsesRgbTraceDisplay(slot?.type))
-    ? nodeGraphRgbTraceBuffers(slot.nodeId, slot.type)
+  const rgbBuffers = (!stereoBuffers && nodeGraphModuleUsesRgbWaterfall(slot?.type))
+    ? nodeGraphRgbWaterfallBuffers(slot.nodeId, slot.type)
     : null;
-  const xyzBuffers = (!stereoBuffers && !rgbBuffers && nodeGraphModuleUsesXyzTraceDisplay(slot?.type))
-    ? nodeGraphXyzTraceBuffers(slot.nodeId, slot.type)
+  const xyzBuffers = (!stereoBuffers && !rgbBuffers && nodeGraphModuleUsesXyzWaterfall(slot?.type))
+    ? nodeGraphXyzWaterfallBuffers(slot.nodeId, slot.type)
     : null;
   const painted = nodeGraphWaterfallPaint({
     item,

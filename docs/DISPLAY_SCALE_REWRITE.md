@@ -23,7 +23,7 @@ This rewrite defines **one face-size contract** for DOM, canvas2d, and WebGL:
 - **No sticky inline lengths** derived from a transient box. DOM type / radius / stroke that must follow the face uses **container query units** (`cqmin` / `cqh` / `cqw`), same family as knobs and keypad.
 - Authored lengths have **one numeric kind per role**. **Paint** resolves ink with a live layout `minSide` (`metrics.cssW`/`cssH`, never `canvas.width` / never `rect.width`). **Settings normalize** clamps the authored number and **must not** call the paint resolver. Treating `value < 1` as a fraction is unrepresentable.
 
-Phosphor, Instant Trace, and waterfall already follow zoom-pixelates. This plan **does not tour those drawers to “fix scaling.”** First-class consumers: toggle/momentary captions, filter/EQ strokes, then remaining DOM faces.
+Phosphor, Instant Waterfall, and waterfall already follow zoom-pixelates. This plan **does not tour those drawers to “fix scaling.”** First-class consumers: toggle/momentary captions, filter/EQ strokes, then remaining DOM faces.
 
 ---
 
@@ -70,7 +70,7 @@ Correct diagnosis: sticky writers + dual APIs. Wrong architecture: more gates, r
 
 ### Non-Goals
 
-- Touring phosphor, Instant Trace, waterfall, Music Player drawers to change zoom behavior (already CSS camera).
+- Touring phosphor, Instant Waterfall, waterfall, Music Player drawers to change zoom behavior (already CSS camera).
 - Migrating all Canvas2D faces to WebGL (still §16 preference, out of this rewrite).
 - Perfect CSS `text-fit` for every script; Latin / ASCII plugin captions are the contract.
 - Changing workspace pan/zoom camera math (`node-graph-camera-view.js`).
@@ -86,7 +86,7 @@ Correct diagnosis: sticky writers + dual APIs. Wrong architecture: more gates, r
 
 3. **Authored ink is representation B: CSS px at reference min-edge 96.** Defended: existing Display Settings already store `1.5`, `2`, `11`; defaults in §15; filter/EQ already look right when `displayInkToPx(..., faceMin)` is used. Representation A (0…1 of min-edge) is **only** for compositional box fractions (pad left/right as % of width). **No third system.** No `if (x < 1) treat as fraction`. Phosphor `size01` is renamed in API comments to ink-at-96 (value stays numeric; name stops lying).
 
-4. **Two functions, two jobs.** `clampAuthoredInkPx(authored)` (or two-arg `displayInkToPx` until PR6) for **normalize/store only**. `faceInkPx(authored, minSide)` for **paint only**; `minSide` required. Do **not** change two-arg `displayInkToPx` semantics in PR1 (that zeros phaser stored thickness, harmonic `lineWidth`, and Instant Trace vector size). Grep allowlist: two-arg only in `normalize*` / settings clamp, never in `draw`/`paint`.
+4. **Two functions, two jobs.** `clampAuthoredInkPx(authored)` (or two-arg `displayInkToPx` until PR6) for **normalize/store only**. `faceInkPx(authored, minSide)` for **paint only**; `minSide` required. Do **not** change two-arg `displayInkToPx` semantics in PR1 (that zeros phaser stored thickness, harmonic `lineWidth`, and Instant Waterfall vector size). Grep allowlist: two-arg only in `normalize*` / settings clamp, never in `draw`/`paint`.
 
 5. **DOM lengths that follow the face are CSS container units, never inline px.** Pattern: knobs (`cqmin`), keypad (`calc(var(--node-keypad-text-size) * min(100cqw, 100cqh))`), latch-button (CSS-owned font; JS only **clears** leftover inline size). Plugin captions move to this family. `textScale` multiplies the `font-size` expression.
 
