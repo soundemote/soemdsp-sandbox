@@ -336,6 +336,20 @@ extern "C" double soemdsp_arp_sample(
     s.clockWasHigh = trigConnected ? (safe(trigger) > 0.0) : false;
   }
 
+  // Face override wins even if the held pool is briefly empty (chunk race).
+  if (s.overrideMidi >= 0) {
+    const bool changed = s.overridePrevMidi != s.overrideMidi;
+    capture_midi(s, s.overrideMidi);
+    s.overridePrevMidi = s.overrideMidi;
+    s.lastGate = 1.0;
+    s.lastTrigger = changed ? 1.0 : 0.0;
+    return s.lastPitch;
+  }
+  if (s.overridePrevMidi >= 0) {
+    s.overridePrevMidi = -1;
+    // Fall through: resume sequenced note / empty handling below.
+  }
+
   if (s.noteCount <= 0) {
     s.lastGate = 0.0;
     s.lastTrigger = 0.0;
@@ -345,15 +359,6 @@ extern "C" double soemdsp_arp_sample(
 
   s.lastGate = 1.0;
   s.lastTrigger = trigOut;
-  if (s.overrideMidi >= 0) {
-    const bool changed = s.overridePrevMidi != s.overrideMidi;
-    capture_midi(s, s.overrideMidi);
-    s.overridePrevMidi = s.overrideMidi;
-    s.lastTrigger = changed ? 1.0 : 0.0;
-  } else if (s.overridePrevMidi >= 0) {
-    s.overridePrevMidi = -1;
-    s.lastTrigger = 1.0;
-  }
   return s.lastPitch;
 }
 
@@ -394,5 +399,5 @@ extern "C" int soemdsp_arp_play_midi(int handle) {
 }
 
 extern "C" int soemdsp_arp_version() {
-  return 10; // graph: Square=f Hz, Ramp=inc Hz/sr (kernel frequency() still Hz)
+  return 11; // face override applies even when noteCount==0
 }

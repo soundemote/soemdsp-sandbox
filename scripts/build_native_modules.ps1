@@ -260,6 +260,7 @@ $modules = @(
     "soemdsp_gravity_walker_set_chunks",
     "soemdsp_gravity_walker_sample", "soemdsp_gravity_walker_gate",
     "soemdsp_gravity_walker_trigger", "soemdsp_gravity_walker_degree",
+    "soemdsp_gravity_walker_set_override_midi",
     "soemdsp_gravity_walker_version"
   ) },
   @{ Name = "smooth_graph"; Simd = $false; Exports = @(

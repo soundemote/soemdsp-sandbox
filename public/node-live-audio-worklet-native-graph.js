@@ -2729,7 +2729,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGravityWalkerNoteMasks = function syn
       ? noteMaskPackChunks(mask)
       : { c0: 0, c1: 0, c2: 0 };
     native.soemdsp_gravity_walker_set_chunks(handle, chunks.c0 || 0, chunks.c1 || 0, chunks.c2 || 0);
-
+    if (typeof native.soemdsp_gravity_walker_set_override_midi === "function") {
+      const over = this._arpOverrideByNode?.get?.(String(id));
+      native.soemdsp_gravity_walker_set_override_midi(
+        handle,
+        Number.isFinite(Number(over)) ? (over | 0) : -1,
+      );
+    }
   }
 };
 

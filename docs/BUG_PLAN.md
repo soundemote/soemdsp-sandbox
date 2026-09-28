@@ -119,6 +119,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-066 | see | open | Multi-select Portal settings hides Title and locks Display |
 | B-067 | see | open | Bottom lip can leave less than 2 px clearance |
 | B-068 | see | open | Canvas-mode slider/knob/text display scaling is not WYSIWYG |
+| B-069 | see | open | Canvas mode omits displays that are not in view |
 
 ---
 
@@ -136,6 +137,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - 2026-09-28: User - selecting two portals makes Title disappear and Display uneditable, preventing multi-select title/display changes. Promoted -> **B-066** (`docs/B-066_PORTAL_MULTISELECT_TITLE_DISPLAY.md`).
 - 2026-09-28: User - bottom lip must keep at least 2 px clearance from the last element; otherwise lower the lip by 1 GU. Promoted -> **B-067** (`docs/B-067_BOTTOM_LIP_CLEARANCE.md`).
 - 2026-09-28: User - slider display and knob do not scale properly in canvas mode; slider-associated text can be positioned/scaled outside the module; WYSIWYG ("what I see is what is scaled") is not held for slider/knob display. Promoted -> **B-068** (`docs/B-068_CANVAS_SLIDER_KNOB_SCALING.md`).
+- 2026-09-28: User - if the display is not in view, it will not appear in canvas mode. Promoted -> **B-069** (`docs/B-069_CANVAS_MODE_OFFSCREEN_DISPLAY_MISSING.md`).
 
 ---
 
@@ -755,6 +757,18 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Repro: Enter canvas mode with slider/knob content, change the canvas scale, and compare the slider display, knob, and associated text with the surrounding scaled canvas. They do not scale consistently with the visible canvas content; in some cases the text ends up outside the module.
 - Expected: Slider display, knob, and associated text scale consistently with the rest of the rendered canvas; visible WYSIWYG geometry remains aligned at each canvas scale, with the text inside the module bounds.
 - Fix shape: Audit the authoritative canvas transform and slider/knob/text CSS-pixel/canvas-unit conversion and text anchoring; apply the canvas scale exactly once and keep the rendered bounds aligned inside the module. Docs only; no code fix in this report.
+
+### B-069 - Canvas mode omits displays that are not in view
+- Status: open
+- Severity: see
+- Source: user 2026-09-28
+- Related: B-068 (canvas-mode slider/knob/text display scaling; shared canvas display path may be involved)
+- Doc: `docs/B-069_CANVAS_MODE_OFFSCREEN_DISPLAY_MISSING.md`
+- Files: canvas-mode display capture/rendering and viewport visibility/culling path (to investigate)
+- What: A display that is not currently in view does not appear when the workspace is shown in canvas mode. Canvas-mode output appears to depend on current viewport visibility instead of including the configured display.
+- Repro: Place a module with a display outside the current viewport, or pan/zoom so the display is not in view; enter or refresh canvas mode and observe that the display is missing. Bring the display into view and compare the canvas-mode result.
+- Expected: Canvas mode should include configured displays consistently, regardless of whether the display happened to be in the current viewport when canvas mode was entered or refreshed.
+- Fix shape: Audit canvas-mode display collection, viewport culling, and lazy-render/visibility gating. Do not drop an off-screen display from the canvas-mode result merely because it was not visible at capture time. Cross-check B-068 for shared transform/display handling. Docs only; no code fix in this report.
 
 ## Fixed
 

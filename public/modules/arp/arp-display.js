@@ -119,10 +119,14 @@ function nodeGraphArpKeysAddCornerRectPath(ctx, x, y, w, h, radius, squircle) {
   ctx.closePath();
 }
 
-function createNodeGraphArpKeysDisplay(nodeId) {
+function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
+  const nodeId = nodeIdOrEl && typeof nodeIdOrEl === "object"
+    ? String(nodeIdOrEl.dataset?.node || nodeIdOrEl.id || "")
+    : String(nodeIdOrEl || "");
   const section = document.createElement("div");
   section.className = "node-module-scope-window node-arp-keys-face";
   section.dataset.arpNode = nodeId;
+  section.dataset.node = nodeId;
   const canvas = document.createElement("canvas");
   canvas.className = "node-arp-keys-canvas";
   section.append(canvas);
@@ -171,8 +175,13 @@ function createNodeGraphArpKeysDisplay(nodeId) {
   }
 
   function sendOverride(midi) {
-    if (typeof sendNodeGraphArpOverride === "function") {
-      sendNodeGraphArpOverride(nodeId, midi);
+    const send = (typeof sendNodeGraphArpOverride === "function")
+      ? sendNodeGraphArpOverride
+      : (typeof globalThis !== "undefined" && typeof globalThis.sendNodeGraphArpOverride === "function"
+        ? globalThis.sendNodeGraphArpOverride
+        : null);
+    if (typeof send === "function") {
+      send(nodeId, midi);
     }
   }
 

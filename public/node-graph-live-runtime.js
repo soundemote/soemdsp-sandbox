@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=sh-ghost-left-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=arp-override-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -1879,6 +1879,9 @@ function sendNodeGraphArpOverride(nodeId, midi) {
       midi: Number.isFinite(Number(midi)) ? (Number(midi) | 0) : -1,
     });
   } catch (_e) { /* worklet disconnected */ }
+}
+if (typeof globalThis !== "undefined") {
+  globalThis.sendNodeGraphArpOverride = sendNodeGraphArpOverride;
 }
 
 function handleNodeGraphLiveWorkletMessage(event) {
@@ -3240,11 +3243,11 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=sample-hold-uni-display-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=sample-hold-uni-display-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=arp-override-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=live-os-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=no-macro-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=arp-override-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=ensemble-cloud-1",
   "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=restore-fft-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",

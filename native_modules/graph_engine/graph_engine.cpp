@@ -1328,6 +1328,7 @@ extern "C" double soemdsp_gravity_walker_sample(
 extern "C" double soemdsp_gravity_walker_gate(int handle);
 extern "C" double soemdsp_gravity_walker_trigger(int handle);
 extern "C" double soemdsp_gravity_walker_degree(int handle);
+extern "C" void soemdsp_gravity_walker_set_override_midi(int handle, int midi);
 
 extern "C" int soemdsp_fbm_create();
 extern "C" void soemdsp_fbm_destroy(int handle);

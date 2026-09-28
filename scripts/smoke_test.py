@@ -18659,6 +18659,7 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_gravity_walker_gate",
             "soemdsp_gravity_walker_trigger",
             "soemdsp_gravity_walker_degree",
+            "soemdsp_gravity_walker_set_override_midi",
             "soemdsp_gravity_walker_version",
         ],
         "harmonic_series": [

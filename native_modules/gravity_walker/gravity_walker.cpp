@@ -40,6 +40,9 @@ struct State {
   // 12-bit Scale cable: C3 + this many octaves. Not every MIDI from 0.
   int scaleOctaves;
   int scaleBaseMidi;
+  // Face click override (shared arpKeysFace). -1 = off.
+  int overrideMidi;
+  int overridePrevMidi;
 };
 
 static State gPool[kMaxInstances];
@@ -297,6 +300,8 @@ extern "C" int soemdsp_gravity_walker_create(unsigned int entropySeed) {
       s.lastDegreeNorm = 0.0;
       s.scaleOctaves = 3;
       s.scaleBaseMidi = 60;
+      s.overrideMidi = -1;
+      s.overridePrevMidi = -1;
       s.active = true;
       return i + 1;
     }
@@ -400,7 +405,30 @@ extern "C" double soemdsp_gravity_walker_sample(
   if (didClock) {
     walk_step(s, gravity, leapAmount);
   }
+
+  // Face click force-note (same contract as Arp override).
+  if (s.overrideMidi >= 0) {
+    const bool changed = s.overridePrevMidi != s.overrideMidi;
+    s.lastMidi = (double)s.overrideMidi;
+    s.lastGate = 1.0;
+    s.lastTrigger = changed ? 1.0 : 0.0;
+    s.overridePrevMidi = s.overrideMidi;
+  } else if (s.overridePrevMidi >= 0) {
+    s.overridePrevMidi = -1;
+    s.lastTrigger = 1.0;
+  }
   return musical_pitch_from_midi(s.lastMidi);
+}
+
+extern "C" void soemdsp_gravity_walker_set_override_midi(int handle, int midi) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  State& s = gPool[handle - 1];
+  if (midi < 0) {
+    s.overrideMidi = -1;
+    return;
+  }
+  if (midi > 127) midi = 127;
+  s.overrideMidi = midi;
 }
 
 extern "C" double soemdsp_gravity_walker_gate(int handle) {
@@ -419,5 +447,5 @@ extern "C" double soemdsp_gravity_walker_degree(int handle) {
 }
 
 extern "C" int soemdsp_gravity_walker_version() {
-  return 3; // + Pattern Offset (pool-index rotate; Arp sequenceOffset cousin)
+  return 4; // face override midi (shared arpKeysFace)
 }
