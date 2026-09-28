@@ -571,12 +571,20 @@ function nodeGraphPatchExportPayload() {
 }
 
 const nodeGraphFilePickerWellKnown = Object.freeze(["desktop", "documents", "downloads"]);
+// File System Access accepts well-known roots or handles, not an app-relative
+// path such as ./patches. This id lets the browser remember the patches folder
+// independently, while Documents is the first-run fallback for this repo.
+const nodeGraphFilePickerId = "soemdsp-sandbox-patches";
+const nodeGraphFilePickerDefaultStartIn = "documents";
 
 function normalizeNodeGraphFilePickerState(raw = null) {
   const source = raw && typeof raw === "object" ? raw : {};
-  const startIn = String(source.startIn || "desktop").toLowerCase();
+  const requestedStartIn = String(source.startIn || nodeGraphFilePickerDefaultStartIn).toLowerCase();
+  // "desktop" was the old implicit default; migrate it so existing sessions
+  // also get the project-friendly first-run location.
+  const startIn = requestedStartIn === "desktop" ? nodeGraphFilePickerDefaultStartIn : requestedStartIn;
   return {
-    startIn: nodeGraphFilePickerWellKnown.includes(startIn) ? startIn : "desktop",
+    startIn: nodeGraphFilePickerWellKnown.includes(startIn) ? startIn : nodeGraphFilePickerDefaultStartIn,
     lastSettingsName: String(source.lastSettingsName || "useruisettings.json").slice(0, 180) || "useruisettings.json",
     lastPatchName: String(source.lastPatchName || "").slice(0, 180),
   };
@@ -685,7 +693,7 @@ async function nodeGraphFilePickerStartIn({ allowHandle = true } = {}) {
       }
     }
   }
-  return nodeGraphFilePickerState().startIn || "desktop";
+  return nodeGraphFilePickerState().startIn || nodeGraphFilePickerDefaultStartIn;
 }
 
 /** Persist the folder (not the file) so later Save opens there without an edit prompt. */
@@ -726,6 +734,7 @@ async function nodeGraphSaveTextFileWithNativeDialog({
   if (typeof window.showSaveFilePicker === "function") {
     try {
       const handle = await window.showSaveFilePicker({
+        id: nodeGraphFilePickerId,
         suggestedName: name,
         startIn: await nodeGraphFilePickerStartIn({ allowHandle: true }),
         types: [{ description, accept }],
@@ -755,6 +764,7 @@ async function nodeGraphOpenTextFileWithNativeDialog({
   if (typeof window.showOpenFilePicker === "function") {
     try {
       const [handle] = await window.showOpenFilePicker({
+        id: nodeGraphFilePickerId,
         multiple: false,
         startIn: await nodeGraphFilePickerStartIn(),
         types: [{ description, accept }],

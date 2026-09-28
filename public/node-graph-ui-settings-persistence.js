@@ -1324,7 +1324,7 @@ function normalizeNodeGraphUserSession(payload = {}) {
     savedPatchGridColumns,
     filePicker: typeof normalizeNodeGraphFilePickerState === "function"
       ? normalizeNodeGraphFilePickerState(payload.filePicker ?? view.filePicker ?? nodeGraphMvp?.filePicker)
-      : (payload.filePicker ?? view.filePicker ?? nodeGraphMvp?.filePicker ?? { startIn: "desktop" }),
+      : (payload.filePicker ?? view.filePicker ?? nodeGraphMvp?.filePicker ?? { startIn: "documents" }),
     viewMode: normalizeNodeGraphPersistedViewMode(
       payload.viewMode ?? view.viewMode ?? nodeGraphMvp?.viewMode,
     ),
@@ -1548,7 +1548,7 @@ function applyNodeGraphUserSession(session, options = {}) {
   }
   nodeGraphMvp.filePicker = typeof normalizeNodeGraphFilePickerState === "function"
     ? normalizeNodeGraphFilePickerState(normalized.filePicker)
-    : (normalized.filePicker || { startIn: "desktop" });
+    : (normalized.filePicker || { startIn: "documents" });
   nodeGraphMvp.currentSavedPatchFilename = String(normalized.currentSavedPatchFilename || "");
   nodeGraphMvp.patchDirtyState = ["saved", "edited", "untouched"].includes(normalized.patchDirtyState)
     ? normalized.patchDirtyState

@@ -141,12 +141,10 @@ function attachNodeGraphNodeEvents(node) {
       continue;
     }
     port.addEventListener("pointerdown", nodeGraphWireInteractions.handlePortPointerDown);
-    port.addEventListener("pointerdown", toggleNodeGraphMonitorFromPortEvent, true);
     port.addEventListener("click", nodeGraphWireInteractions.handlePortClick);
   }
   for (const port of node.querySelectorAll(".node-param-port.modulation-input")) {
     port.addEventListener("pointerdown", nodeGraphWireInteractions.handlePortPointerDown);
-    port.addEventListener("pointerdown", toggleNodeGraphMonitorFromPortEvent, true);
     port.addEventListener("click", nodeGraphWireInteractions.handlePortClick);
   }
   for (const port of node.querySelectorAll(".node-param-port.graph-input")) {
@@ -155,7 +153,6 @@ function attachNodeGraphNodeEvents(node) {
   }
   for (const row of node.querySelectorAll(".node-io-row")) {
     row.addEventListener("pointerdown", nodeGraphWireInteractions.handlePortPointerDown);
-    row.addEventListener("pointerdown", toggleNodeGraphMonitorFromPortEvent, true);
     row.addEventListener("click", nodeGraphWireInteractions.handlePortClick);
   }
   for (const slider of node.querySelectorAll('input[type="range"]')) {

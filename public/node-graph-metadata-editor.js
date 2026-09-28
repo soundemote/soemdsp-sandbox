@@ -1510,7 +1510,7 @@ function writeNodeMetadataEditorValues(metadata) {
   syncNodeMetadataChoiceToggleAvailability();
 }
 
-/** Show-metaparameter toggle: only for params of modules owned by a Metamodule. */
+/** Show-metaparameter toggle: owned-child params, plus LIMITED mx_* shell mirror. */
 function syncNodeMetadataShowMetaparameterToggle() {
   const label = document.getElementById("metadataShowMetaparameterLabel");
   const input = document.getElementById("metadataShowMetaparameterValue");
@@ -1521,6 +1521,31 @@ function syncNodeMetadataShowMetaparameterToggle() {
   const patchNode = nodeId && typeof nodeGraphPatchNode === "function"
     ? nodeGraphPatchNode(nodeId)
     : null;
+
+  // LIMITED mirror: outer mx_* on the metamodule shell -> inner expose target.
+  // Checkbox reflects whether that inner child param is exposed (not mx_* visibility).
+  if (
+    patchNode
+    && paramKey
+    && typeof nodeGraphMetamoduleResolveShellShowMetaparameterTarget === "function"
+  ) {
+    const shellTarget = nodeGraphMetamoduleResolveShellShowMetaparameterTarget(
+      patchNode,
+      paramKey,
+    );
+    if (shellTarget?.childId && shellTarget?.paramKey) {
+      label.hidden = false;
+      input.disabled = false;
+      input.checked = typeof nodeGraphMetamoduleIsParamExposed === "function"
+        && nodeGraphMetamoduleIsParamExposed(
+          patchNode,
+          shellTarget.childId,
+          shellTarget.paramKey,
+        );
+      return;
+    }
+  }
+
   const ownerId = String(patchNode?.ownerMetamoduleId || "").trim();
   const owner = ownerId && typeof nodeGraphPatchNode === "function"
     ? nodeGraphPatchNode(ownerId)
@@ -2735,17 +2760,57 @@ function applyNodeMetadataShowMetaparameterFromEditor(slider, patchNode) {
   const input = document.getElementById("metadataShowMetaparameterValue");
   const label = document.getElementById("metadataShowMetaparameterLabel");
   if (!input || label?.hidden || !patchNode) return;
-  const ownerId = String(patchNode.ownerMetamoduleId || "").trim();
-  if (!ownerId || typeof nodeGraphMetamoduleSetParamExposed !== "function") return;
   const paramKey = String(slider?.dataset?.param || "").trim();
-  if (!paramKey) return;
+  if (!paramKey || typeof nodeGraphMetamoduleSetParamExposed !== "function") return;
+
   const patch = typeof cloneNodeGraphPatch === "function"
     ? cloneNodeGraphPatch(nodeGraphMvp.patch)
     : nodeGraphMvp.patch;
+  const want = Boolean(input.checked);
+
+  // LIMITED shell mirror: right-click mx_* on the shell toggles the INNER expose
+  // (childId|paramKey). Never write paramVisibility under the mx_* key.
+  const shellTarget = typeof nodeGraphMetamoduleResolveShellShowMetaparameterTarget === "function"
+    ? nodeGraphMetamoduleResolveShellShowMetaparameterTarget(patchNode, paramKey, patch)
+    : null;
+  if (shellTarget?.childId && shellTarget?.paramKey) {
+    const metaId = String(patchNode.id || "").trim();
+    const meta = patch.nodes?.find((n) => n?.id === metaId) || patchNode;
+    if (!metaId || !meta) return;
+    const before = typeof nodeGraphMetamoduleIsParamExposed === "function"
+      && nodeGraphMetamoduleIsParamExposed(meta, shellTarget.childId, shellTarget.paramKey);
+    if (want === before) return;
+    nodeGraphMetamoduleSetParamExposed(
+      meta,
+      shellTarget.childId,
+      shellTarget.paramKey,
+      want,
+    );
+    if (typeof commitNodeGraphPatch === "function") {
+      commitNodeGraphPatch(patch, {
+        status: want ? "metaparameter shown on Metamodule" : "metaparameter hidden on Metamodule",
+        topologyEdit: true,
+      });
+    } else {
+      nodeGraphMvp.patch = patch;
+    }
+    if (typeof nodeGraphMetamoduleRemountShellParameters === "function") {
+      nodeGraphMetamoduleRemountShellParameters(metaId);
+    }
+    // Unexpose removes the mx_* slider - close/retarget so editor is not left on a ghost.
+    if (!want) {
+      nodeGraphMetadataRetargetAfterShellUnexpose(metaId, paramKey);
+    }
+    return;
+  }
+
+  const ownerId = String(patchNode.ownerMetamoduleId || "").trim();
+  if (!ownerId) return;
   const meta = patch.nodes?.find((n) => n?.id === ownerId);
   const child = patch.nodes?.find((n) => n?.id === patchNode.id);
   if (!meta || !child) return;
-  const want = Boolean(input.checked);
+  // Guard: never treat a synthetic mx_* key as the visibility paramKey.
+  if (paramKey.startsWith("mx_")) return;
   const before = typeof nodeGraphMetamoduleIsParamExposed === "function"
     && nodeGraphMetamoduleIsParamExposed(meta, child.id, paramKey);
   if (want === before) return;
@@ -2760,6 +2825,51 @@ function applyNodeMetadataShowMetaparameterFromEditor(slider, patchNode) {
   }
   if (typeof nodeGraphMetamoduleRemountShellParameters === "function") {
     nodeGraphMetamoduleRemountShellParameters(ownerId);
+  }
+}
+
+/** After shell unexpose remount, retarget editor off the removed mx_* slider. */
+function nodeGraphMetadataRetargetAfterShellUnexpose(metaId, removedSynthKey) {
+  const id = String(metaId || "").trim();
+  const removed = String(removedSynthKey || "").trim();
+  const current = document.getElementById(nodeGraphMvp?.metadataEditorTarget);
+  const currentParam = String(current?.dataset?.param || "").trim();
+  const onRemoved = !current
+    || currentParam === removed
+    || (removed && currentParam.startsWith("mx_") && currentParam === removed);
+  if (!onRemoved && current) {
+    // Still a live slider - refresh picker/checkbox against remounted shell.
+    if (typeof fillNodeMetadataPopover === "function") {
+      fillNodeMetadataPopover(current);
+    } else if (typeof syncNodeMetadataShowMetaparameterToggle === "function") {
+      syncNodeMetadataShowMetaparameterToggle();
+    }
+    return;
+  }
+  const shellEl = id
+    ? document.querySelector(`.dsp-node[data-node="${CSS.escape(id)}"]`)
+    : null;
+  const next = shellEl
+    ? [...shellEl.querySelectorAll("input[data-param]")].find((el) => {
+      const row = el.closest(".node-parameter-row");
+      return el && !row?.hidden && String(el.dataset.param || "") !== removed;
+    })
+    : null;
+  if (next?.id) {
+    nodeGraphMvp.metadataEditorTarget = next.id;
+    if (typeof fillNodeMetadataPopover === "function") {
+      fillNodeMetadataPopover(next);
+    }
+    return;
+  }
+  const meta = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+  if (typeof showNodeMetadataNoParametersContent === "function") {
+    showNodeMetadataNoParametersContent(meta || { id, type: "metamodule" });
+  } else {
+    nodeGraphMvp.metadataEditorTarget = null;
+    if (typeof setNodeMetadataPopoverBlankState === "function") {
+      setNodeMetadataPopoverBlankState(true, "Right-click on a slider");
+    }
   }
 }
 

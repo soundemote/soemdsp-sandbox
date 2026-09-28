@@ -682,8 +682,51 @@ function nodeGraphModuleSliderBodyHeightGu(type, ui = null, node = null) {
   );
 }
 
-function nodeGraphModuleIoRowCount(type, node = null) {
-  // Metamodule shell jacks are dynamic (Poly/Amp + boundary) — count live ports.
+/**
+ * Signal/data ports currently wired on a node (for hide-unused IO height).
+ * Matches CSS `.unused-hidden` which keeps rows with `.connected-port`.
+ */
+function nodeGraphModuleConnectedSignalPortSets(node) {
+  const patchNode = typeof node === "string" && typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(node)
+    : node;
+  const id = String(patchNode?.id || "").trim();
+  const inputs = new Set();
+  const outputs = new Set();
+  if (!id) {
+    return { inputs, outputs };
+  }
+  const patch = (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.patch)
+    || null;
+  if (!patch) {
+    return { inputs, outputs };
+  }
+  for (const connection of patch.connections || []) {
+    if (connection?.sourceNode === id && connection?.sourcePort != null) {
+      outputs.add(String(connection.sourcePort));
+    }
+    if (connection?.destinationNode === id && connection?.destinationPort != null) {
+      inputs.add(String(connection.destinationPort));
+    }
+  }
+  // Outlet used as a modulation source still counts as a connected IO jack.
+  for (const modulation of patch.modulations || []) {
+    if (modulation?.sourceNode === id && modulation?.sourcePort != null) {
+      outputs.add(String(modulation.sourcePort));
+    }
+  }
+  for (const graph of patch.graphConnections || []) {
+    if (graph?.sourceNode === id && graph?.sourcePort != null) {
+      outputs.add(String(graph.sourcePort));
+    }
+    if (graph?.destinationNode === id && (graph?.graphInput != null || graph?.destinationPort != null)) {
+      inputs.add(String(graph.graphInput || graph.destinationPort));
+    }
+  }
+  return { inputs, outputs };
+}
+
+function nodeGraphModuleIoPortLists(type, node = null) {
   if (
     typeof nodeGraphIsContainerShellType === "function"
     && nodeGraphIsContainerShellType(type)
@@ -691,16 +734,58 @@ function nodeGraphModuleIoRowCount(type, node = null) {
     && typeof nodeGraphMetamoduleShellPorts === "function"
   ) {
     const shell = nodeGraphMetamoduleShellPorts(node);
-    const inputs = Array.isArray(shell?.inputs) ? shell.inputs.length : 0;
-    const outputs = Array.isArray(shell?.outputs) ? shell.outputs.length : 0;
-    return Math.max(inputs, outputs, 1);
+    return {
+      inputs: Array.isArray(shell?.inputs) ? shell.inputs.map(String) : [],
+      outputs: Array.isArray(shell?.outputs) ? shell.outputs.map(String) : [],
+    };
+  }
+  if (node && typeof nodeGraphPatchNodeInputPorts === "function"
+    && typeof nodeGraphPatchNodeOutputPorts === "function") {
+    const parameterKeys = new Set(
+      (typeof nodeGraphPatchNodeParameterDefinitions === "function"
+        ? nodeGraphPatchNodeParameterDefinitions(node)
+        : (nodeGraphModuleDefinitions[type]?.parameters || [])
+      ).map((parameter) => parameter.key),
+    );
+    const inputs = nodeGraphPatchNodeInputPorts(node).map(String);
+    const outputs = nodeGraphPatchNodeOutputPorts(node)
+      .map(String)
+      .filter((port) => !parameterKeys.has(port));
+    return { inputs, outputs };
   }
   const definition = nodeGraphModuleDefinitions[type];
-  // Match LayoutA jack columns: signal + data ports. Parameter keys are
-  // slider-row mod ports, not extra I/O rows — do not count them here.
-  const inputs = (definition?.inputs?.length || 0) + (definition?.dataInputs?.length || 0);
-  const outputs = (definition?.outputs?.length || 0) + (definition?.dataOutputs?.length || 0);
-  return Math.max(inputs, outputs, 1);
+  return {
+    inputs: [
+      ...(definition?.dataInputs || []),
+      ...(definition?.inputs || []),
+    ].map(String),
+    outputs: [
+      ...(definition?.outputs || []),
+      ...(definition?.dataOutputs || []),
+    ].map(String),
+  };
+}
+
+function nodeGraphModuleIoRowCount(type, node = null) {
+  const { inputs, outputs } = nodeGraphModuleIoPortLists(type, node);
+  const fullRows = Math.max(inputs.length, outputs.length, 1);
+  const patchNode = node && typeof node === "object" ? node : null;
+  const hideUnused = Boolean(
+    patchNode
+    && (
+      typeof normalizeNodeGraphPatchNodeUi === "function"
+        ? normalizeNodeGraphPatchNodeUi(patchNode.ui, type)
+        : patchNode.ui
+    )?.hideUnused,
+  );
+  if (!hideUnused || !patchNode?.id) {
+    return fullRows;
+  }
+  // B-057: only rows that survive `.unused-hidden` (have a connected jack).
+  const connected = nodeGraphModuleConnectedSignalPortSets(patchNode);
+  const visibleInputs = inputs.filter((port) => connected.inputs.has(port)).length;
+  const visibleOutputs = outputs.filter((port) => connected.outputs.has(port)).length;
+  return Math.max(visibleInputs, visibleOutputs, 0);
 }
 
 function nodeGraphModuleTypeHasIoPorts(type) {
@@ -722,6 +807,10 @@ function nodeGraphModuleIoSectionHeightGu(type, node = null) {
     return 0;
   }
   const rows = nodeGraphModuleIoRowCount(type, node);
+  // Hide-unused with no remaining jacks: collapse the IO track (B-057).
+  if (rows <= 0) {
+    return 0;
+  }
   const rowHeight = rows * nodeGraphModuleLayout.ioRowHeightGu;
   const gapHeight = Math.max(0, rows - 1) * nodeGraphModuleLayout.ioRowGapGu;
   return Math.max(
@@ -1264,8 +1353,11 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
       child.hidden = false;
     } else if (id === "io" && child.classList.contains("dsp-node-io-section")) {
       const ioHidden = article.classList.contains("io-hidden");
-      child.hidden = ioHidden;
-      if (!ioHidden) {
+      // B-057: hide-unused can omit the IO band (0 connected rows) — do not
+      // park the strip on the face/lip track.
+      const ioBandOmitted = !visible.some((band) => band.id === "io");
+      child.hidden = ioHidden || ioBandOmitted;
+      if (!child.hidden) {
         child.style.gridRow = String(Math.max(2, lastContentIndex + 1));
       }
     } else if (child.classList.contains("node-text-box-body")) {
@@ -1451,12 +1543,15 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   const displayVisible = nodeGraphModuleDisplayVisibleForUi(type, ui);
   const interfaceControlsVisible = nodeGraphModuleInterfaceControlsVisibleForUi(type, ui);
   const ioVisible = !normalizedUi.ioHidden && nodeGraphModuleTypeHasIoPorts(type);
-  const ioHeightGu = normalizedUi.ioHidden
+  const rawIoHeightGu = normalizedUi.ioHidden
     ? nodeGraphModuleHiddenIoSectionHeightGu(type)
-    : Math.max(
-      nodeGraphModuleLayout.ioSectionMinHeightGu || 0.5,
-      nodeGraphModuleIoSectionHeightGu(type, node) || 0,
-    );
+    : (nodeGraphModuleIoSectionHeightGu(type, node) || 0);
+  // Hide-unused may collapse to 0 rows — do not re-floor to ioSectionMin (B-057).
+  const ioHeightGu = normalizedUi.ioHidden
+    ? rawIoHeightGu
+    : (rawIoHeightGu > 0
+      ? Math.max(nodeGraphModuleLayout.ioSectionMinHeightGu || 0.5, rawIoHeightGu)
+      : 0);
   // InletOutletLayout: title + I/O only (no face, no params).
   if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
     return [

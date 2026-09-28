@@ -23,6 +23,12 @@ const NODE_GRAPH_ARP_KEYS_DISPLAY_DEFAULTS = Object.freeze({
   edgeSpacing: 0.05,
 });
 
+const NODE_GRAPH_GRAVITY_WALKER_DISPLAY_DEFAULTS = Object.freeze({
+  ...NODE_GRAPH_ARP_KEYS_DISPLAY_DEFAULTS,
+  strokeColor: "#ff0000",
+  fontColor: "#ff0000",
+});
+
 const NODE_GRAPH_ARP_KEYS_HUE_PAIRS = Object.freeze([
   ["strokeBrightness", "strokeColor"],
   ["fontBrightness", "fontColor"],
@@ -44,8 +50,8 @@ function nodeGraphArpKeysNormalizeColor(value, fallbackHex) {
   return fallbackHex;
 }
 
-function normalizeNodeGraphArpKeysSettings(settings) {
-  const d = NODE_GRAPH_ARP_KEYS_DISPLAY_DEFAULTS;
+function normalizeNodeGraphArpKeysSettings(settings, defaults = NODE_GRAPH_ARP_KEYS_DISPLAY_DEFAULTS) {
+  const d = defaults;
   const src = settings && typeof settings === "object" ? settings : {};
   const shape = String(src.cornerShape || "").trim().toLowerCase();
   return {
@@ -61,7 +67,10 @@ function normalizeNodeGraphArpKeysSettings(settings) {
 }
 
 function nodeGraphArpKeysSettingsForNode(node) {
-  return normalizeNodeGraphArpKeysSettings(node?.arpKeysSettings);
+  const defaults = node?.type === "gravityWalker"
+    ? NODE_GRAPH_GRAVITY_WALKER_DISPLAY_DEFAULTS
+    : NODE_GRAPH_ARP_KEYS_DISPLAY_DEFAULTS;
+  return normalizeNodeGraphArpKeysSettings(node?.arpKeysSettings, defaults);
 }
 
 function nodeGraphArpKeysHueCss(colorHex, brightness, alpha = 1, fallbackHue = 165) {

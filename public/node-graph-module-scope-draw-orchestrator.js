@@ -691,16 +691,26 @@ function scheduleNodeGraphModuleScopeDrawAfterSimClock() {
   // Setting FPS to 120 forced remainingMs ~8.3ms into the rAF path (smooth).
   // For fps >= 60, never use setTimeout: it cannot beat the display cadence.
   const vsyncMs = 1000 / 60;
+  // Run the draw on THIS callback. scheduleNodeGraphModuleScopeDraw() always
+  // nests another requestAnimationFrame, so rAF-wait -> scheduleDraw -> rAF
+  // skipped an extra refresh and felt like exact half Simulation FPS (60->30,
+  // 120->60) whenever the fps-gate deferred.
+  const runWhenDue = () => {
+    if (nodeGraphModuleScopeState.drawFrame || nodeGraphModuleScopeState.drawBusy) {
+      return;
+    }
+    runNodeGraphModuleScopeDrawFrame("sim-clock-wait", {});
+  };
   if (fps >= 60 || remainingMs <= vsyncMs + 1) {
     nodeGraphModuleScopeState.drawWaitRaf = window.requestAnimationFrame(() => {
       nodeGraphModuleScopeState.drawWaitRaf = 0;
-      scheduleNodeGraphModuleScopeDraw();
+      runWhenDue();
     });
     return;
   }
   nodeGraphModuleScopeState.drawWaitTimer = window.setTimeout(() => {
     nodeGraphModuleScopeState.drawWaitTimer = 0;
-    scheduleNodeGraphModuleScopeDraw();
+    runWhenDue();
   }, remainingMs);
 }
 

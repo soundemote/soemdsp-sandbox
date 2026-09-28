@@ -793,9 +793,6 @@ function drawNodeGraphWires(options = {}) {
     nodeGraphDrawGraphWire(svg, graphConnection, index, context);
   }
 
-  if (!lite && typeof syncNodeGraphMonitorIndicators === "function") {
-    syncNodeGraphMonitorIndicators();
-  }
 
   if (nodeGraphMvp.portConnectionMode) {
     const mode = nodeGraphMvp.portConnectionMode;

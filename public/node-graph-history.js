@@ -99,7 +99,6 @@ function nodeGraphHistoryRestKey(patch) {
     cameras: patch?.cameras,
     codeScreen: patch?.codeScreen,
     grid: patch?.grid,
-    monitors: patch?.monitors,
     samples: sampleIds,
     timing: patch?.timing,
     uiItems: patch?.uiItems,

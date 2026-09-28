@@ -105,8 +105,20 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-052 | see | fixed | Portal Out rename to ChordKeys skips outlet color/shape |
 | B-053 | see | fixed | Catalog Portal In/Out replaced by linked Portal IO |
 | B-054 | see | open | Output display keeps pause emoji after Stop/Play |
-| B-055 | see | open | Text Box covers wires (UI z-order) |
+| B-055 | see | fixed | Text Box covers wires (UI z-order) |
 | B-056 | see | open | Default filter drawer pollutes basic displays / Softclipper display jitters |
+| B-057 | see | fixed | Hide unused leaves oversized bottom lip |
+| B-058 | hear | open | Voice parameter modulation misses active and idle voice updates |
+| B-059 | see | removed | Alt+click jack scope-monitor feature deleted (was pip, not orphan wire) |
+| B-060 | hear | open | Pulse Explosion does not modulate PolyBLEP amplitude (likely no output) |
+| B-061 | see | fixed | Small slider values show mantissa (8.0357) — scientific exponent stripped |
+| B-062 | hear | open | Non-audio UI changes restart audio engine |
+| B-063 | hear | fixed | Robin Oscillator Morph MOD silent (ParamModEdge → WIDTH, not SHAPE) |
+| B-064 | see | open | Text Box background overflows outline when title is hidden |
+| B-065 | see | open | Multi-wire portal action creates duplicate portals instead of one Portal In / multiple Portal Outs |
+| B-066 | see | open | Multi-select Portal settings hides Title and locks Display |
+| B-067 | see | open | Bottom lip can leave less than 2 px clearance |
+| B-068 | see | open | Canvas-mode slider/knob/text display scaling is not WYSIWYG |
 
 ---
 
@@ -119,6 +131,11 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - 2026-09-10: Desktop patch `zipper noise on volume knob of output module.json` — Output Volume zipper while dragging. Promoted → **B-043**.
 - 2026-09-10: Desktop `repeating clicks from a sinewave.json` — PolyBLEP Sine @ 4 Hz clicks once/cycle. Promoted → **B-044**.
 - 2026-09-27: User — zooming in past 10 stutters the app horribly. Promoted → **B-050** (`docs/B-050_ZOOM_PAST_10_STUTTER.md`).
+- 2026-09-28: User - Text Box: hiding the title causes the background to overflow the module outline/border. Promoted -> **B-064** (`docs/B-064_TEXT_BOX_HIDDEN_TITLE_BACKGROUND_OVERFLOW.md`).
+- 2026-09-28: User - making a portal on multiple wires creates multiple portals for the same signal instead of one Portal In and multiple Portal Outs. Promoted -> **B-065** (`docs/B-065_PORTAL_MULTIWIRE_DUPLICATES.md`).
+- 2026-09-28: User - selecting two portals makes Title disappear and Display uneditable, preventing multi-select title/display changes. Promoted -> **B-066** (`docs/B-066_PORTAL_MULTISELECT_TITLE_DISPLAY.md`).
+- 2026-09-28: User - bottom lip must keep at least 2 px clearance from the last element; otherwise lower the lip by 1 GU. Promoted -> **B-067** (`docs/B-067_BOTTOM_LIP_CLEARANCE.md`).
+- 2026-09-28: User - slider display and knob do not scale properly in canvas mode; slider-associated text can be positioned/scaled outside the module; WYSIWYG ("what I see is what is scaled") is not held for slider/knob display. Promoted -> **B-068** (`docs/B-068_CANVAS_SLIDER_KNOB_SCALING.md`).
 
 ---
 
@@ -542,7 +559,7 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Status: open
 - Severity: see
 - Source: user 2026-09-27
-- Related: B-026 and B-054 (audit for shared display invalidation/rearm infrastructure; separate symptoms unless the same root is confirmed)
+- Related: B-026 and B-054 (audit for shared display invalidation/rearm infrastructure; separate symptoms unless the same root is confirmed); **B-063** covers Robin Oscillator *audible* Morph MOD wiring (WIDTH vs SHAPE) — not this Softwave display issue
 - Doc: `docs/B-051_SOFTWAVE_DISPLAY_REFRESH.md`
 - Files: display invalidation/frame-refresh scheduler; Softwave oscillator face/display path; scope/face/waterfall render paths; EQ filter Frequency update path (to investigate)
 - What: The Softwave oscillator display/UI does not live-update on its own and only refreshes when the user moves Frequency on an EQ filter. The EQ control appears to be an unrelated invalidation trigger, suggesting a broader display refresh bug rather than a Softwave-only rendering problem.
@@ -581,14 +598,16 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Repro: Show an Output display; play; press Pause then Play, and Stop then Play (also test Pause → Stop → Play). Observe whether the Output display retains `⏸` instead of returning to its live state.
 - Fix shape: Derive the Output glyph from authoritative live/display state and update it on every Pause/Stop/Play transition. Full Stop and subsequent Play must rearm the Output display without leaving stale pause chrome. Verify alongside B-026, but close independently.
 ### B-055 — Text Box covers wires
-- Status: open
+- Status: fixed
 - Severity: see
 - Source: user
 - Related: B-032 if the same Text Box layout/z-order root is confirmed
-- Files: Text Box rendering and workspace wire z-order path (to investigate)
+- Files: `public/index.html` / `public/perform.html` (`#nodeGraphAnnotationNodes`); `public/styles.css`; `public/node-graph-node-accessors.js`; `public/node-graph-patch-core.js`; `public/node-graph-camera-view.js`
 - What: Text Box faces render over wires, obscuring cables that pass behind them.
 - Repro: Place or route wires behind a Text Box and observe that the Text Box covers them.
-- Fix shape: Correct the UI layering/z-order so wires remain visible as intended. Docs only; no code fix here.
+- Root cause: `#nodeWireSvg` is a workspace sibling *behind* `#nodeGraphZoomSurface`. Text Boxes lived inside the zoom surface, so lowering their `z-index` could not put them under cables.
+- Fix: Mount Text Boxes in `#nodeGraphAnnotationNodes` (annotation world layer before `#nodeWireSvg`, same pan/zoom CSS vars). Cables paint above annotations; normal modules stay above cables.
+- Fixed (2026-09-27): as above.
 
 
 ### B-056 - Default filter drawer pollutes basic displays / Softclipper display jitters
@@ -600,9 +619,152 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - What: The default filter drawer appears to pollute basic displays. Softclipper jitters between an unused filter display and its intended display instead of keeping the intended display stable.
 - Repro: Open a basic display containing or associated with Softclipper while the default filter drawer is present/unused. Observe the display selection; Softclipper alternates or jitters between the unused filter display and its intended display.
 - Fix shape: Ensure an unused/default filter drawer cannot claim or overwrite a basic display. Make display ownership/selection deterministic so Softclipper stays on its intended display. Docs only; no code fix in this report.
+
+### B-057 — Hide unused leaves oversized bottom lip
+- Status: fixed
+- Severity: see
+- Source: user 2026-09-27
+- Related: B-036 (shared module layout/band recomputation path; separate hide-unused symptom unless the same root is confirmed)
+- Doc: `docs/B-057_HIDE_UNUSED_BOTTOM_LIP.md`
+- Files: `public/node-graph-module-sizing.js` (`nodeGraphModuleIoRowCount` / IO height); `public/node-graph-patch-core.js` (chrome layout reapply + wireEdit refresh)
+- What: Enabling Hide unused does not recalculate the module's bottom lip after unused controls or I/O are removed. For example, Keyboard can retain a large bottom lip when Hide unused is on and only a few I/O remain, wasting vertical space.
+- Repro: Show a Keyboard module with unused controls or I/O; enable Hide unused so only a few I/O remain; observe that the module keeps a large bottom lip instead of shrinking to the visible content.
+- Root cause: IO band/outer height always used the full definition port count. CSS hid unused rows, but the grid track and `--node-grid-height-units` kept the old tall strip; chrome sync also skipped `applyNodeGraphModuleLayout`.
+- Fix: Count only connected signal ports when `ui.hideUnused`; collapse IO height to 0 when none remain; re-apply layout bands on chrome sync; refresh hide-unused modules after wire edits. Smoke: `scripts/test_b057_hide_unused_io_height.js`.
+- Fixed (2026-09-27): as above.
+
+### B-058 — Voice parameter modulation misses active and idle voice updates
+- Status: open
+- Severity: hear
+- Source: user 2026-09-27
+- Doc: `docs/B-058_VOICE_PARAMETER_MODULATION_DIRTY_VOICES.md`
+- Files: voice allocation/dirty-state tracking; parameter-modulation propagation; voice play/sustain/release update paths (to investigate)
+- What: Voices do not respond correctly to parameter modulation. Likely the voice dirty system is not used consistently: available (idle) voices should be marked dirty and refreshed when next played, while sustaining and releasing voices should receive modulation immediately instead of waiting for retrigger.
+- Repro: In a polyphonic patch, modulate a voice parameter while voices are idle, sustaining, and releasing. Check whether an idle voice uses the changed value when played and whether sustaining/releasing voices change immediately; note any voice that remains on the old value until retrigger.
+- Expected behavior: Mark available voices dirty for their next play/update, and apply current modulation immediately to voices that are sustaining or releasing.
+- Fix shape: Trace the voice dirty-state lifecycle and route parameter modulation through it: dirty idle voices for the next allocation/play, and update sustaining/releasing voices immediately. Keep voice state consistent across allocation, sustain, and release. Docs only; no code fix in this report.
+
+### B-059 — Alt+click jack "orphan" dot is the scope-monitor pip
+- Status: **removed** (feature deleted 2026-09-27; not wontfix)
+- Severity: see
+- Source: user 2026-09-27 (corrected: Alt+click jack, not abandoned wire drag)
+- Doc: `docs/B-059_ABANDONED_WIRE_DRAG_ORPHAN_DOT.md`
+- Files (former): `public/node-graph-module-scope-monitors.js` (toggle/sync removed; capture helpers kept); `public/node-graph-module-rendering.js`; `public/styles.css` (`.monitored-port` removed); patch clone/core/serialize/runtime/history (no `patch.monitors`)
+- What was: Lone cyan jack pip from **Alt+click** scope-monitor toggle (`patch.monitors` + `.monitored-port`).
+- Resolution: Feature fully removed. Alt+click on jack does nothing special. Old `monitors` fields ignored on load and omitted on save. Scope faces still use default capture endpoints (not jack UI).
+
+### B-060 — Pulse Explosion does not modulate PolyBLEP amplitude
+- Status: open
+- Severity: hear
+- Source: user 2026-09-27
+- Doc: `docs/B-060_PULSE_EXPLOSION_POLYBLEP_AMPLITUDE.md`
+- Files: Pulse Explosion signal/output path; PolyBLEP amplitude input and modulation propagation (to investigate)
+- What: Pulse Explosion does not appear to modulate PolyBLEP amplitude. Most likely Pulse Explosion is not outputting a signal, so the amplitude modulation cable has no effect. This is an initial user report and hypothesis, not a confirmed root cause.
+- Repro: Place Pulse Explosion and PolyBLEP, connect the Pulse Explosion output to PolyBLEP amplitude, and run the patch. Observe whether the PolyBLEP amplitude changes; independently check whether Pulse Explosion emits any non-zero signal under ordinary settings.
+- Fix shape: Trace Pulse Explosion generation and output first, then verify the cable/port type and PolyBLEP amplitude-modulation path. Restore a valid source signal if Pulse Explosion is silent, and confirm the modulation reaches PolyBLEP. Docs only; no code fix in this report.
+### B-061 — Small slider readout strips scientific exponent
+- Status: fixed
+- Severity: see
+- Source: user 2026-09-27
+- Doc: `docs/B-061_SLIDER_SCIENTIFIC_NOTATION_READOUT.md`
+- Files: `public/node-graph-slider-metadata.js` (`nodeSliderPlainDecimalSource`, `limit_decimals`, `formatNodeSliderNumber`); `public/node-graph-module-scope-number-readout.js` (delegates to shared helper)
+- What: When slider values are very small (|n| < 1e-6), the face/readout shows the mantissa only (e.g. `8.0357`) instead of the true magnitude (e.g. `0.00000080357`).
+- Repro: Set a slider domain value below 1e-6 (or any value whose `String(n)` is scientific). Observe the slider value face / compact readout.
+- Root cause: **Yes — exponent.** `formatNodeSliderNumber` passed `String(number)` into `limit_decimals`, which only regex-parses `whole.fraction`. For `"8.0357e-7"` the `e-7` is ignored, leaving `"8.0357"`. (Value LED/LCD already had a plain-decimal helper; slider faces did not.)
+- Fix: Add `nodeSliderPlainDecimalSource` (expand via `toLocaleString` / `toFixed`), expand scientific input at the top of `limit_decimals`, and route `formatNodeSliderNumber` through the helper. Smoke: `scripts/test_b061_slider_sci_notation.js`.
+- Fixed (2026-09-27): as above.
+
+### B-062 - Non-audio UI changes restart audio engine
+- Status: open
+- Severity: hear
+- Source: user 2026-09-27 (inert module copy); user 2026-09-28 (Text Box deletion)
+- Doc: `docs/B-062_COPY_MODULE_RESTARTS_AUDIO_ENGINE.md`
+- Files: module copy/delete actions; `public/node-graph-patch-core.js` (`commitNodeGraphPatch`); `public/node-graph-live-runtime.js` (live-plan sync/restart path)
+- What: Copying an unconnected, inert module or deleting a Text Box restarts the audio engine. These non-audio changes should not interrupt or restart running audio.
+- Repro: Run a patch with live audio; copy a module and leave the new copy unconnected/inert, or delete a Text Box. Observe the audio-engine restart or interruption. Compare with a change that connects the copy or otherwise changes the active audio graph.
+- Fix shape: Distinguish inert, unconnected copies and non-audio UI edits from live-topology or side-effecting changes. Do not restart the audio engine for an inert copy or Text Box deletion; use no live sync or a non-restarting incremental update when safe. Preserve required updates for modules that connect, publish, consume, or otherwise affect live execution. Docs only; no code fix in this report.
+
+### B-063 — Robin Oscillator Morph MOD silent (ParamModEdge → wrong Control)
+- Status: fixed
+- Severity: hear
+- Source: user 2026-09-27 (`analoghorror.json`)
+- Doc: `docs/B-063_ROBIN_OSCILLATOR_MORPH_PARAM_MOD.md`
+- Files: `public/node-live-audio-worklet-native-graph.js` (`mapNativeGraphParamId`); smoke `scripts/test_b063_robin_morph_param_mod.js`
+- What: Robin Morph MOD cable had no audible effect. ParamModEdge targeted SHAPE (Softwave default) while Robin DSP / knob push use WIDTH.
+- Related: B-051 is Softwave *display* refresh (see); not a duplicate of this hear wiring bug.
+- Repro: Load `patches/demo patches/analoghorror.json`; switch Robin to Trisaw Center/Pulse/Analog Square (saved Ramp ignores Morph); Morph from passiveFilter-2 should change timbre (was stuck at knob).
+- Root cause: `mapNativeGraphParamId` morph → SHAPE for robinOscillator; process_robin_oscillator reads `node.width`.
+- Fix: `robinOscillator` + `morph` → `NATIVE_GRAPH_PARAM_WIDTH`.
+- Fixed (2026-09-27): as above. Smoke OK.
+
+### B-064 - Text Box background overflows outline when title is hidden
+- Status: open
+- Severity: see
+- Source: user 2026-09-28
+- Related: B-032 (Text Box resize/text clipping; verify shared title/content-height geometry); B-055 (Text Box wire z-order, fixed; separate layering symptom unless the same host/layout path is implicated)
+- Doc: `docs/B-064_TEXT_BOX_HIDDEN_TITLE_BACKGROUND_OVERFLOW.md`
+- Files: Text Box title visibility, background/face clipping, and module outline/border geometry (to investigate)
+- What: Hiding the Text Box title causes its background to extend beyond the module outline/border.
+- Repro: Add or open a Text Box, hide its title, and observe the background at the module edges. Compare the same Text Box with the title visible.
+- Fix shape: Keep the Text Box background clipped to the module outer bounds in both title states; recompute the content/face geometry when the title track is removed. Verify against B-032 resize/text clipping and B-055 wire layering. Docs only; no code fix in this report.
+
+### B-065 - Multi-wire portal action creates duplicate portals instead of one Portal In / multiple Portal Outs
+- Status: open
+- Severity: see
+- Source: user 2026-09-28
+- Related: Portal IO; B-052 (Portal Out rename to ChordKeys); B-053 (Catalog Portal In/Out replaced by linked Portal IO)
+- Doc: `docs/B-065_PORTAL_MULTIWIRE_DUPLICATES.md`
+- Files: multi-wire portal creation action; Portal In/Portal Out identity and signal-grouping logic (to investigate)
+- What: Making a portal on multiple wires creates multiple portals for the same signal instead of one shared Portal In and multiple Portal Outs.
+- Repro: Use one signal with multiple wires/targets, invoke the action to make a portal on multiple wires, and observe that the same signal receives multiple portal instances.
+- Expected: The action creates one Portal In for the shared signal and the required Portal Outs for its destinations, without duplicating the source portal per wire.
+- Fix shape: Group selected wires by signal, reuse the shared Portal In, and create only the necessary Portal Outs. Preserve distinct portal groups for unrelated signals. Docs only; no code fix in this report.
+
+### B-066 — Multi-select Portal settings hides Title and locks Display
+- Status: open
+- Severity: see
+- Source: user 2026-09-28
+- Related: Portal IO; B-052 (Portal Out rename to ChordKeys); B-065 (multi-wire portal action creates duplicate portals)
+- Doc: `docs/B-066_PORTAL_MULTISELECT_TITLE_DISPLAY.md`
+- Files: multi-selection module settings/editor; Portal IO and named-portal Title/Display field handling (to investigate)
+- What: Selecting two or more portals to change Title and Display makes the Title control disappear and leaves Display uneditable, preventing the intended multi-selection edit.
+- Repro: Select two Portal IO/named portal modules, open their module settings/editor, and observe that Title is absent and Display is not editable. Compare with single-portal selection.
+- Expected: Multi-selection should not hide Title or make Display uneditable merely because multiple compatible portal modules are selected; the intended batch edit should remain available.
+- Fix shape: Trace multi-selection field visibility/editability for Portal IO and named portals, preserve compatible Title/Display controls, and represent mixed values without silently removing the controls. Recheck alias propagation and jack appearance with B-052 and portal identity/grouping behavior with B-065. Docs only; no code fix in this report.
+
+### B-067 - Bottom lip leaves less than 2 px clearance
+- Status: open
+- Severity: see
+- Source: user 2026-09-28
+- Related: B-057 (hide-unused bottom-lip recalculation); B-064 (hidden-title module geometry / Text Box background overflow)
+- Doc: `docs/B-067_BOTTOM_LIP_CLEARANCE.md`
+- Files: bottom-lip/module layout geometry (to investigate)
+- What: The bottom-lip calculation can leave less than 2 px between the last visible element and the bottom lip. The error appears related to whether the module title is hidden: title-hidden layout may produce a different last-element/bottom-lip relationship than title-visible layout.
+- Repro: Use a module/layout state where the last visible control or I/O is close to the bottom lip; measure the rendered gap with the title visible, then hide the title and repeat without otherwise changing the content or sizing. Observe cases below 2 px, especially in the title-hidden state.
+- Expected: Keep at least 2 px of clearance in both title states. If the calculation cannot meet that minimum, place the bottom lip 1 GU lower.
+- Fix shape: Audit rendered/pixel geometry across title-visible/title-hidden, hide-unused, and zoom/scaling paths; enforce the 2 px minimum and lower the lip by 1 GU when needed. Cross-check B-064's hidden-title geometry/background-overflow findings, and recheck B-057 so the correction does not restore an oversized unused lip. Docs only; no code fix in this report.
+
+### B-068 — Canvas-mode slider/knob/text display scaling is not WYSIWYG
+- Status: open
+- Severity: see
+- Source: user 2026-09-28
+- Related: B-050 (workspace zoom/stutter; separate scaling symptom unless a shared canvas path is confirmed)
+- Doc: `docs/B-068_CANVAS_SLIDER_KNOB_SCALING.md`
+- Files: canvas-mode scaling/transform and slider/knob/text rendering geometry (to investigate)
+- What: The slider display does not scale properly in canvas mode, the knob also does not scale properly, and slider-associated text can be positioned or scaled so badly that it ends up outside the module. **WYSIWYG — "what I see is what is scaled" — is not being held true in canvas mode for slider/knob display or its text.**
+- Repro: Enter canvas mode with slider/knob content, change the canvas scale, and compare the slider display, knob, and associated text with the surrounding scaled canvas. They do not scale consistently with the visible canvas content; in some cases the text ends up outside the module.
+- Expected: Slider display, knob, and associated text scale consistently with the rest of the rendered canvas; visible WYSIWYG geometry remains aligned at each canvas scale, with the text inside the module bounds.
+- Fix shape: Audit the authoritative canvas transform and slider/knob/text CSS-pixel/canvas-unit conversion and text anchoring; apply the canvas scale exactly once and keep the rendered bounds aligned inside the module. Docs only; no code fix in this report.
+
 ## Fixed
 
 <!-- move B-xxx here with a one-line note -->
+
+- **B-055** — Text Boxes mount under `#nodeWireSvg` via `#nodeGraphAnnotationNodes` so cables paint above annotations.
+- **B-057** — Hide unused recomputes IO/outer height from connected ports; layout bands re-applied on chrome/wire edits.
+- **B-059** — Alt+click jack scope-monitor feature **removed** (deleted, not wontfix). See section above / `docs/B-059_ABANDONED_WIRE_DRAG_ORPHAN_DOT.md`.
+- **B-061** — Slider / LED number faces expand scientific notation before `limit_decimals` so small values keep their magnitude.
+- **B-063** — Robin Oscillator Morph ParamModEdge targets WIDTH (was SHAPE; Softwave-correct default left Morph CV silent).
 
 ---
 

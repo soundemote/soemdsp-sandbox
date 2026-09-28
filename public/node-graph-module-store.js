@@ -372,9 +372,9 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
 const nodeGraphModuleStoreCatalog = Object.freeze({
   polyBlep: {
     category: "oscillator",
-    description: "Clean multi-wave oscillator when you want saw/square/tri/sine without harsh aliasing.",
+    description: "Clean multi-wave oscillator when you want saw/square/tri/sine without harsh aliasing. Analog Square = same-direction peaks; Trisaw Center = opposing peaks toward a saw (zeros at 0 / 0.5).",
     label: "PolyBLEP",
-    notes: ["anti-aliasing", "polyblep", "realtime oscillator"],
+    notes: ["anti-aliasing", "polyblep", "analog square", "trisaw center", "realtime oscillator"],
   },
   blit: {
     category: "oscillator",
@@ -450,9 +450,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   robinOscillator: {
     category: "oscillator",
-    description: "Cycle-dither AA multi-wave oscillator (RS-MET) with mid-cycle frequency warp.",
+    description: "Cycle-dither AA multi-wave oscillator (RS-MET). Update chooses On cycle / Warp remaining / Snap remaining. Morph is universal (Pulse width / Trisaw Center opposing peaks / Analog Square same-direction peaks).",
     label: "Robin Oscillator",
-    notes: ["RS-MET", "cycle dither", "AA", "saw", "pulse", "mid-cycle warp"],
+    notes: ["RS-MET", "cycle dither", "AA", "saw", "trisaw center", "analog square", "pulse", "morph", "freqUpdate", "mid-cycle warp"],
   },
   // additiveOsc / gpuAdditiveOsc retired — Yellow Graph chain replaces them.
   additiveGenerator: {
@@ -2355,7 +2355,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   traceDisplay: {
     category: "oscilloscope",
     description: "1D waterfall tape—pen on the right, history scrolls left.",
-    label: "1D Waterfall Mono",
+    label: "1D Waterfall",
     notes: ["1D Waterfall", "waterfall", "waveform", "display testbed"],
   },
   traceDisplayStereo: {
@@ -2504,7 +2504,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   scope1dTrace: {
     category: "oscilloscope",
     description: "1D Trace mono—woscope Gaussian beam, sweep left→right, hard reset at the right edge (not Waterfall scroll).",
-    label: "1D Trace Mono",
+    label: "1D Trace",
     notes: ["1D Trace", "woscope", "sweep", "reset", "sync", "waveform", "display testbed"],
   },
   scope1dTraceStereo: {

@@ -1,36 +1,9 @@
-// Scope monitor endpoints / toggles / fingerprints (Phase D).
-// Load after scopes.js. Extract-only.
+// Scope capture endpoints / fingerprints (Phase D).
+// Load after scopes.js. Jack Alt+click monitor UI removed 2026-09-27.
+// Internal "monitors" here are default capture endpoints for scope faces, not patch.monitors.
 
 function nodeGraphMonitorEndpointKey(endpoint) {
   return `${endpoint?.node || ""}.${endpoint?.io || ""}.${endpoint?.port || endpoint?.param || ""}`;
-}
-
-function nodeGraphMonitorEndpointFromElement(element) {
-  if (!element) {
-    return null;
-  }
-  if (element.classList?.contains("node-io-row")) {
-    return {
-      io: String(element.dataset.io || ""),
-      node: String(element.dataset.node || ""),
-      port: String(element.dataset.port || ""),
-    };
-  }
-  if (element.classList?.contains("modulation-input")) {
-    return {
-      io: "modulation",
-      node: String(element.dataset.node || ""),
-      port: String(element.dataset.param || element.dataset.port || ""),
-    };
-  }
-  if (element.classList?.contains("node-port")) {
-    return {
-      io: String(element.dataset.io || ""),
-      node: String(element.dataset.node || ""),
-      port: String(element.dataset.port || ""),
-    };
-  }
-  return null;
 }
 
 function nodeGraphMonitorEndpointIsValid(endpoint, nodes = []) {
@@ -51,6 +24,7 @@ function nodeGraphMonitorEndpointIsValid(endpoint, nodes = []) {
   return false;
 }
 
+/** Normalize a list of scope-capture endpoints (defaults / internal). Not patch persistence. */
 function normalizeNodeGraphPatchMonitors(monitors = [], patch = nodeGraphMvp?.patch) {
   const nodes = Array.isArray(patch?.nodes) ? patch.nodes : [];
   const normalized = [];
@@ -74,64 +48,6 @@ function normalizeNodeGraphPatchMonitors(monitors = [], patch = nodeGraphMvp?.pa
   return normalized;
 }
 
-function nodeGraphMonitorPortSelector(endpoint) {
-  if (endpoint?.io === "modulation") {
-    return nodeGraphModulationPortSelector(endpoint.node, endpoint.port);
-  }
-  return nodeGraphPortSelector(endpoint.node, endpoint.port, endpoint.io);
-}
-
-function syncNodeGraphMonitorIndicators(patch = nodeGraphMvp?.patch) {
-  const workspace = nodeGraphZoomSurface?.();
-  if (!workspace || !patch) {
-    return;
-  }
-  const monitors = normalizeNodeGraphPatchMonitors(patch.monitors, patch);
-  nodeGraphModuleScopeState.monitors = monitors;
-  for (const port of workspace.querySelectorAll(".node-port, .node-param-port")) {
-    port.classList.remove("monitored-port");
-    port.removeAttribute("data-monitor-state");
-  }
-  for (const monitor of monitors) {
-    const element = workspace.querySelector(nodeGraphMonitorPortSelector(monitor));
-    element?.classList.add("monitored-port");
-    element?.setAttribute("data-monitor-state", "active");
-  }
-  scheduleNodeGraphModuleScopeDraw();
-}
-
-function toggleNodeGraphMonitorForPort(port) {
-  const endpoint = nodeGraphMonitorEndpointFromElement(port);
-  if (!endpoint || !nodeGraphMonitorEndpointIsValid(endpoint, nodeGraphMvp.patch.nodes)) {
-    return false;
-  }
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const monitors = normalizeNodeGraphPatchMonitors(patch.monitors, patch);
-  const key = nodeGraphMonitorEndpointKey(endpoint);
-  const nextMonitors = monitors.filter((monitor) => nodeGraphMonitorEndpointKey(monitor) !== key);
-  const enabled = nextMonitors.length === monitors.length;
-  if (enabled) {
-    nextMonitors.push(endpoint);
-  }
-  patch.monitors = nextMonitors;
-  commitNodeGraphPatch(patch, {
-    status: enabled ? "monitor added" : "monitor removed",
-  });
-  return true;
-}
-
-function toggleNodeGraphMonitorFromPortEvent(event) {
-  if (event.button !== 0 || !event.altKey || event.ctrlKey || event.metaKey) {
-    return;
-  }
-  if (toggleNodeGraphMonitorForPort(event.currentTarget)) {
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation?.();
-  }
-}
-
-// beginNodeGraphRenderedScopeCapture → node-graph-module-scope-capture.js
 function nodeGraphRenderedScopeMonitorValue(
   monitor,
   runtime,
@@ -174,8 +90,6 @@ function nodeGraphRenderedScopeMonitorValue(
   return 0;
 }
 
-// captureNodeGraphRenderedScopeFrame → node-graph-module-scope-capture.js
-// finishNodeGraphRenderedScopeCapture → node-graph-module-scope-capture.js
 function nodeGraphLiveModuleScopeFrameCapacity(options = {}) {
   const sampleRate = Math.max(1, nodeGraphFiniteNumber(nodeGraphModuleScopeState.sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
   const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
@@ -203,7 +117,6 @@ function nodeGraphLiveModuleScopeFingerprint(plan = {}) {
   return ids.map((id) => String(id || "")).filter(Boolean).sort().join("|");
 }
 
-// beginNodeGraphLiveModuleScopeCapture → node-graph-module-scope-capture.js
 function updateNodeGraphLiveModuleScopeFingerprint(patchFingerprint = nodeGraphPatchFingerprint()) {
   if (nodeGraphModuleScopeState.mode !== "live") {
     return;
@@ -214,4 +127,3 @@ function updateNodeGraphLiveModuleScopeFingerprint(patchFingerprint = nodeGraphP
   }
   nodeGraphModuleScopeState.patchFingerprint = fingerprint;
 }
-

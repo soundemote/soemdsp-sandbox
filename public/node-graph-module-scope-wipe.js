@@ -628,4 +628,4 @@ function clearNodeGraphRenderedModuleScopeBuffers() {
   clearNodeGraphModuleScopeBuffers();
 }
 
-// Scope monitors → node-graph-module-scope-monitors.js
+// Scope capture helpers → node-graph-module-scope-monitors.js

@@ -217,7 +217,7 @@ var nodeGraphMvp = {
   constraintGuideVisible: false,
   constraintToggles: { cpu: false, ram: false, gpu: false },
   // Docked tips band (on/off). No floating tips window.
-  filePicker: { startIn: "desktop", lastSettingsName: "useruisettings.json", lastPatchName: "" },
+  filePicker: { startIn: "documents", lastSettingsName: "useruisettings.json", lastPatchName: "" },
   tooltipEmbedded: true,
   // Embedded tips band height (px). User-draggable between tips and modular view.
   tooltipEmbedHeight: 46,

@@ -4,7 +4,7 @@
 // Canonical homes (nested, matching soemdsp):
 //   soemdsp::constant -- kPI / kTAU / kPIz2 / k1z3 / kPlanck (+ compat aliases; see constant.h)
 //   soemdsp::debug    -- safe / is_bad / is_nan / default_if_zero / default_if_near_zero  (see debug.h)
-//   soemdsp::math     -- clamp, clamp01, clamp11, wrap01, wrap01_frac, wrap01f, wrap11(_closed)/wrap_radians/wrap/floor/ceil, lerp, morph_width01, sqrt_newton, xorshift32, ...
+//   soemdsp::math     -- clamp, clamp01, clamp11, wrap01, wrap01_frac, wrap01f, wrap11(_closed)/wrap_radians/wrap/floor/ceil, lerp, morph_width01, naive_trisaw, naive_trisaw_center, naive_analog_square, sqrt_newton, xorshift32, ...
 // Flat soemdsp_maths:: is a compatibility mirror for existing modules.
 #pragma once
 
@@ -118,7 +118,7 @@ static inline double lerp(double a, double b, double t) {
   return a + t * (b - a);
 }
 
-// Morph / PWM width in (0,1): NaN→0.5, clamp [0,1], squeeze to [eps, 1-eps].
+// Morph / PWM width in (0,1): NaNâ†’0.5, clamp [0,1], squeeze to [eps, 1-eps].
 // Matches hypersaw2 / polyblep morphWidth01 (default eps = 1e-4).
 static inline double morph_width01(double morph, double eps = 1.0e-4) {
   double w = soemdsp::debug::is_nan(morph) ? 0.5 : morph;
@@ -130,6 +130,58 @@ static inline double morph_width01(double morph, double eps = 1.0e-4) {
   return w;
 }
 
+// Naive peak-shift trisaw (hypersaw2 / polyBlepTrisaw geometry without blep).
+// phase01 in turns; Morph moves the peak left/right via morph_width01.
+// pwâ‰ˆ0.5 â‰ˆ triangle; extremes approach a saw-like peak at an edge.
+static inline double naive_trisaw(double phase01, double morph) {
+  const double t = wrap01(phase01);
+  const double pw = morph_width01(morph);
+  double y = t * 2.0;
+  if (y >= 2.0 - pw) {
+    y = (y - 2.0) / pw;
+  } else if (y >= pw) {
+    y = 1.0 - (y - pw) / (1.0 - pw);
+  } else {
+    y /= pw;
+  }
+  return y;
+}
+
+// Naive zero-crossing trisaw center with opposing peak slide (saw morph).
+// Zeros fixed at phase 0 and 0.5. Morph 0.5 -> bipolar triangle (peaks 0.25 / 0.75).
+// Morph toward 0 or 1 slides peaks in opposite directions (pos toward wrap, neg toward mid
+// or vice versa) so the continuous limit is a single-discontinuity saw  -  Morph 0 and 1 are
+// spectral mirrors (both bright); 0.5 is dullest. Not half-wave copy (that moved both peaks
+// the same way and produced dual mid spikes at extremes).
+static inline double naive_trisaw_center(double phase01, double morph) {
+  const double t = wrap01(phase01);
+  const double w = morph_width01(morph);
+  const double local = (t < 0.5) ? (t * 2.0) : ((t - 0.5) * 2.0);
+  const double sgn = (t < 0.5) ? 1.0 : -1.0;
+  // First half peak fraction w; second half (1-w)  -  opposing motion within each half.
+  const double wLoc = (t < 0.5) ? w : (1.0 - w);
+  double y;
+  if (local < wLoc) y = local / wLoc;
+  else y = (1.0 - local) / (1.0 - wLoc);
+  return sgn * y;
+}
+
+// Naive Analog Square: half-wave SAME-direction peaks (dual-edge / square-ish family).
+// Zeros fixed at phase 0 and 0.5. Morph 0.5 -> bipolar triangle (peaks 0.25 / 0.75).
+// Morph toward 0 or 1 slides BOTH peaks the same way (pos and neg lean together) so
+// extremes are dual mid-leaning spikes / square-ish — not opposing saws.
+// Peaks at 0.5*w and 0.5+0.5*w. Contrast naive_trisaw_center (opposing peaks).
+static inline double naive_analog_square(double phase01, double morph) {
+  const double t = wrap01(phase01);
+  const double w = morph_width01(morph);
+  const double local = (t < 0.5) ? (t * 2.0) : ((t - 0.5) * 2.0);
+  const double sgn = (t < 0.5) ? 1.0 : -1.0;
+  // SAME w in both halves — peaks lean the same direction.
+  double y;
+  if (local < w) y = local / w;
+  else y = (1.0 - local) / (1.0 - w);
+  return sgn * y;
+}
 
 // Linear map: unit [0,1] source -> [outMin, outMax]. NOT jmap (no JUCE name).
 static inline double map01(double v01, double outMin, double outMax) {
@@ -221,10 +273,14 @@ using soemdsp::math::safe_bounded;
 using soemdsp::math::hash_bipolar;
 using soemdsp::math::lerp;
 
-// using-declaration drops default args — keep eps default for modules.
+// using-declaration drops default args â€” keep eps default for modules.
 static inline double morph_width01(double morph, double eps = 1.0e-4) {
   return soemdsp::math::morph_width01(morph, eps);
 }
+
+using soemdsp::math::naive_trisaw;
+using soemdsp::math::naive_trisaw_center;
+using soemdsp::math::naive_analog_square;
 
 using soemdsp::math::map01;
 using soemdsp::math::map11;

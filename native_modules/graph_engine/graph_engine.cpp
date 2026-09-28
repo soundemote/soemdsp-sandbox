@@ -190,7 +190,8 @@ extern "C" double soemdsp_robin_oscillator_sample(
   double sampleRate,
   double startPhaseCycles,
   double waveform,
-  double pulseWidth,
+  double morph,
+  double freqUpdate,
   double reset
 );
 extern "C" void soemdsp_robin_oscillator_process_block(
@@ -200,7 +201,8 @@ extern "C" void soemdsp_robin_oscillator_process_block(
   double sampleRate,
   double startPhaseCycles,
   double waveform,
-  double pulseWidth,
+  double morph,
+  double freqUpdate,
   double reset,
   int frameCount
 );
@@ -1779,7 +1781,7 @@ static const int kTypeAudioPlayer = 110; // Music Player (PCM upload)
 static const int kTypeSamplePlayer = 174; // Gate-driven sample player (PCM upload)
 static const int kTypeWavetable2d = 180; // PCM wavetable oscillator
 static const int kTypeNamedPortalIn = 182; // wireless Portal →
-static const int kTypeNamedPortalOut = 184; // wireless Portal ←
+static const int kTypeNamedPortalOut = 184; // wireless Portal â†
 // Yellow Graph (Additive) — A1+A2 (see additive_yellow_graph.h)
 static const int kTypeAdditiveGenerator = 111;
 static const int kTypeAdditiveBubble = 112;
@@ -1848,9 +1850,9 @@ static const int kTypeCurveAttackRelease = 166;
 static const int kTypeThumpEnvelope = 167;
 static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smoothstep)
 static const int kTypeFm = 169; // Freq Manager: ƒ(+inc) mix × pitch scale + Add; outs ƒ + inc
-static const int kTypePitchHz = 170; // Pitch ↔ Hz (MIDI-ish pitch law, A4 = tuning)
+static const int kTypePitchHz = 170; // Pitch â†” Hz (MIDI-ish pitch law, A4 = tuning)
 static const int kTypePitchManager = 185; // Pitch Manager (MIDI offsets → Hz → Pitch/F/inc)
-static const int kTypeAmpDb = 180; // Amp ↔ dB (20·log10 voltage gain, 0 dB = 1)
+static const int kTypeAmpDb = 180; // Amp â†” dB (20Â·log10 voltage gain, 0 dB = 1)
 static const int kTypeGraphicEq = 171; // ISO 1/3-octave graphic EQ (30 peaking bands)
 static const int kTypeSuperloveRev2 = 172; // Softwave-Tri LP + classic HP/BP
 static const int kTypeCookbookFilter = 173; // RS-MET rosic::CookbookFilter (RBJ cascade)
@@ -1889,7 +1891,7 @@ static const int kPortDelayDelayed = 0;
 static const int kPortDelayThru = 3;
 // Live SIGNAL IN ports — not audio output channels (not stored in Node.buf).
 static const int kPortF = 16;          // absolute Hz (ƒ)
-static const int kPortPitchCv = 17;    // pitch (♯/♭ MIDI note)
+static const int kPortPitchCv = 17;    // pitch (â™¯/â™­ MIDI note)
 static const int kPortIncrement = 18;  // phase increment add (cycles/sample)
 static const int kPortReset = 19;      // reset gate
 static const int kPortTrigger = 20;    // sampleHold Trigger (not an audio bus)
@@ -1918,7 +1920,7 @@ static const int kParamGraphicEqBand0 = 300; // graphicEq band dB 300..329 (not 
 static const int kParamWaveform = 11;    // polyBlep
 static const int kParamAmplitude = 12;   // polyBlep level
 static const int kParamShape = 13;       // polyBlep morph
-static const int kParamPhase = 14;       // polyBlep phase offset (radians fraction→applied as 2π*)
+static const int kParamPhase = 14;       // polyBlep phase offset (radians fraction→applied as 2Ï€*)
 static const int kParamResonance = 20;   // ladder
 static const int kParamMode = 21;        // ladder
 static const int kParamStages = 22;      // ladder
@@ -2000,7 +2002,7 @@ struct Control {
   double target;
   double timeSamples; // internal cell; <=0 → default seconds*sr when resolving
   double out; // smoothed knob only (never includes MOD)
-  double modUnit; // unit-band MOD accumulator (|mod|≤1 sources), applied after out
+  double modUnit; // unit-band MOD accumulator (|mod|â‰¤1 sources), applied after out
   double modDomain; // absolute DOMAIN MOD accumulator (|mod|>1 sources)
   double liveModUnit; // per-sample audio MOD (ParamModEdge), cleared+stamped each frame
   double liveModDomain;
@@ -2028,7 +2030,7 @@ struct Node {
   int typeId;
   bool used;
   bool bypassed; // dry/silence passthrough; DSP state kept (no recreate)
-  // Named Portal →/← : JS declares title; C++ groups matching bus keys.
+  // Named Portal →/â† : JS declares title; C++ groups matching bus keys.
   unsigned int namedPortalBus;
   unsigned char namedPortalKind; // 0 none, 1 in, 2 out
   // True if this node can reach an Output (audio or param-MOD ancestor).
@@ -3010,7 +3012,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.mode,
-    (typeId == kTypeSineWarp) ? 1.0 // Mode Rect (clip)
+    (typeId == kTypeRobinOscillator) ? 1.0 // freqUpdate: Warp remaining
+      : (typeId == kTypeSineWarp) ? 1.0 // Mode Rect (clip)
       : (typeId == kTypeNoiseGenerator
       || typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
       || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic
@@ -3052,7 +3055,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSmoothGraph || typeId == kTypeStepGraph) ? 0.0 // Input mode
       : (typeId == kTypeArp) ? 0.0 // up
       : (typeId == kTypeAmpCurve) ? 1.0 // Exp (classic VCA CV)
-      : (typeId == kTypeHilbert) ? 0.0 // +90°
+      : (typeId == kTypeHilbert) ? 0.0 // +90Â°
       : (typeId == kTypeRandomWalk) ? 3.0 // Fixed Steps
       : (typeId == kTypeFm) ? 0.0 // octave
       : (typeId == kTypePitchHz || typeId == kTypeAmpDb || typeId == kTypePitchManager) ? 0.0 // choice/mode
@@ -3157,7 +3160,7 @@ static void init_node_defaults(Node& n, int typeId) {
   // Soft-clipper knee default 0.5; noise = deviation; supersaw = detune;
   // triggerCounter = increment; archimedes = dither bits;
   // surge = syncFrequency; dsf = pulseWidth; hypersaw2 = random;
-  // bradley2a = freqOffset; snowflake = angle°.
+  // bradley2a = freqOffset; snowflake = angleÂ°.
   init_control(
     n.width,
     (typeId == kTypeVcvrackSuperloveFilter) ? 0.0 // spread
@@ -3168,7 +3171,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeThumpEnvelope) ? 0.0 // decaySnap 0…1 (0=patch short)
       : (typeId == kTypePluckEnvelope3) ? 0.5 // decay (0=short … 1=long)
       : (typeId == kTypeTransport) ? 0.5 // pulseWidth gate duty
-      : (typeId == kTypeRobinSupersaw) ? 30.0 // detuneCents (no hard 100¢ cap)
+      : (typeId == kTypeRobinSupersaw) ? 30.0 // detuneCents (no hard 100Â¢ cap)
       : (typeId == kTypeTriggerCounter) ? 1.0
       : (typeId == kTypePumpLimiter) ? 8.0 // ratio
       : (typeId == kTypeMetallicRatio) ? 1.0 // index n
@@ -3186,7 +3189,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAdditiveBlaster) ? 0.58 // offset (PoC)
       : (typeId == kTypeBradley2a) ? 0.0 // freqOffset
       : (typeId == kTypeEllipsoidOsc) ? 1.0 // scale C
-      : (typeId == kTypeSnowflake) ? 60.0 // angle°
+      : (typeId == kTypeSnowflake) ? 60.0 // angleÂ°
       : (typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
           || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic)
         ? 1.0 // bandwidth octaves
@@ -3209,7 +3212,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCrossover6) ? 1000.0
       : (typeId == kTypeTubeSaturation) ? 0.5 // Load
       : (typeId == kTypeSoftClipper) ? 0.5 // knee
-      : (typeId == kTypeRobinOscillator) ? 0.5 // pulseWidth
+      : (typeId == kTypeRobinOscillator) ? 0.5 // morph (WIDTH slot)
       : 2.0,
     false
   );
@@ -4094,7 +4097,7 @@ static void control_step(Control& c, Circuit& g) {
     return;
   }
   if (c.type == kSmoothTypeThreePole) {
-    // 3× real one-pole: steeper than 2P, never overshoots (unlike Π).
+    // 3× real one-pole: steeper than 2P, never overshoots (unlike Î ).
     c.stage1 += c.coeff * (c.target - c.stage1);
     c.stage2 += c.coeff * (c.stage1 - c.stage2);
     c.out += c.coeff * (c.stage2 - c.out);
@@ -4241,7 +4244,7 @@ static void smoother_clean(Circuit& g) {
   g.toSmoothCount = w;
 }
 
-// Reduce radians to (-π, π] with one floor — no open while spin.
+// Reduce radians to (-Ï€, Ï€] with one floor — no open while spin.
 static double wrap_phase_pi(double x) {
   if (!(x * 0.0 == 0.0)) return 0.0;
   return x - kTwoPi * dsp_floor(x / kTwoPi + 0.5);
@@ -4677,7 +4680,7 @@ static double apply_sweep_hz(double hz, double sweepSemis) {
   return out;
 }
 
-// Filter / resonator cutoff: Frequency knob (Hz), domain REPLACE from Pitch↔Hz.
+// Filter / resonator cutoff: Frequency knob (Hz), domain REPLACE from Pitchâ†”Hz.
 // pitch tracking + frequency-ref retired on Hz modules.
 static double resolve_cutoff_hz(
   Circuit& g, int frame, bool liveF, bool livePitch,
@@ -4740,7 +4743,7 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   const double waveV = control_effective(node.waveform);
   int waveform = (int)(waveV + (waveV >= 0.0 ? 0.5 : -0.5));
   if (waveform < 0) waveform = 0;
-  if (waveform > 8) waveform = 8;
+  if (waveform > 9) waveform = 9;
 
   if (!audioRatePitch) {
     double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
@@ -5426,9 +5429,9 @@ static void process_b2u(Circuit& g, Node& node, int frames) {
 // fM: mix all ƒ cables, then × Multiply × 2^(oct+st/12+cents/1200) + Add.
 // mode=octave (snap), stages=semitones (snap), center=cents, amplitude=multiply, offset=add.
 
-// Pitch ↔ Hz: In is pitch (mode 0) or Hz (mode 1). tuning = A4 reference (MIDI 69).
+// Pitch â†” Hz: In is pitch (mode 0) or Hz (mode 1). tuning = A4 reference (MIDI 69).
 // pitchToFreq: tuning * 2^((pitch - 69) / 12)
-// freqToPitch: 69 + 12 * log2(hz / tuning); non-finite/≤0 → 0
+// freqToPitch: 69 + 12 * log2(hz / tuning); non-finite/â‰¤0 → 0
 static void process_pitch_hz(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
@@ -5513,8 +5516,8 @@ static void process_pitch_manager(Circuit& g, Node& node, int frames) {
 
 
 
-// Amp ↔ dB: In is dB (mode 0) or linear amplitude (mode 1). 0 dB = 1.
-// dBToAmp: 10^(dB/20). ampToDb: 20·log10(amp); non-positive → −120.
+// Amp â†” dB: In is dB (mode 0) or linear amplitude (mode 1). 0 dB = 1.
+// dBToAmp: 10^(dB/20). ampToDb: 20Â·log10(amp); non-positive → −120.
 static void process_amp_db(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   for (int f = 0; f < frames; f++) {
@@ -5710,7 +5713,7 @@ static void process_trigger_divider(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Clock divider (type 29, timingMode≥0.5): Clock→Trigger port + Reset;
+// Clock divider (type 29, timingModeâ‰¥0.5): Clock→Trigger port + Reset;
 // duty×division×measured Clock period → pulse (same kernel as triggerDivider).
 static void process_clock_divider(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
@@ -5876,7 +5879,7 @@ static void sin_cos4_from_pair(
   } else if (m == 3) {
     *a = sn; *b = -sn; *c = 0.0; *d = 0.0;
   } else if (m == 4) {
-    const double k = 0.8660254037844386; // √3/2
+    const double k = 0.8660254037844386; // âˆš3/2
     *a = sn;
     *b = sn * -0.5 + cn * k;
     *c = sn * -0.5 - cn * k;
@@ -6220,7 +6223,7 @@ static void process_additive_bubble(Circuit& g, Node& node, int frames) {
   soemdsp_yellow_graph::apply_bubble(
     node.yellowGraph,
     (float)control_effective(node.phaseParam), // phaseSkew
-    curveAmt,                   // Bubble ± Invert → log curve
+    curveAmt,                   // Bubble Â± Invert → log curve
     (float)control_effective(node.frequency),  // cutoff 0..1
     (float)control_effective(node.resonance),  // unskew
     hadPhase ? prevPhase : nullptr,
@@ -7131,7 +7134,7 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
-    // RoundShape allows negative Hz (reverse); resolve_osc_hz clamps ±Nyquist.
+    // RoundShape allows negative Hz (reverse); resolve_osc_hz clamps Â±Nyquist.
     double phaseInc = dir * (freq / sr);
     if (liveInc) phaseInc += g.mixIncrement[f];
 
@@ -7168,7 +7171,7 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
 }
 
 // Ellipsoid osc: soemdsp Ellipsoid::getEllipsoid (A=offset, B=shape, C=scale).
-// center=AA (0 Off, nonzero Limit scale floor by Ï‰). Ports: Left=X, Right=Y.
+// center=AA (0 Off, nonzero Limit scale floor by Ãâ€°). Ports: Left=X, Right=Y.
 static void process_ellipsoid_osc(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
@@ -7230,7 +7233,7 @@ static void process_ellipsoid_osc(Circuit& g, Node& node, int frames) {
 }
 
 // Snowflake: stereo X/Y path walk. mode=pattern, stages=iterations,
-// width=angle°, shape=direction, center=spin, phaseParam=phase.
+// width=angleÂ°, shape=direction, center=spin, phaseParam=phase.
 static void process_snowflake(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
@@ -7907,7 +7910,7 @@ static void process_cookbook_filter(Circuit& g, Node& node, int frames) {
 }
 
 
-// pinch 0..1 → Q ≈ 0.35…~18 (matches phase-disperse-math.js).
+// pinch 0..1 → Q â‰ˆ 0.35…~18 (matches phase-disperse-math.js).
 static double phase_disperse_pinch_to_q(double pinch) {
   const double p = clamp(safe(pinch), 0.0, 1.0);
   return 0.35 * dsp_exp(p * 3.912023005428146); // ln(50)
@@ -9510,7 +9513,7 @@ static void process_turing_machine(Circuit& g, Node& node, int frames) {
 
 
 
-// Theremin: Softwave voice. Pad X→pitch (±range oct around Frequency), Y→amp×Volume.
+// Theremin: Softwave voice. Pad X→pitch (Â±range oct around Frequency), Y→amp×Volume.
 // Controls: frequency, width=range, level=volume, waveform, shape=morph, phaseParam=phase,
 // offset=x, mix=y, oversample=pauseOnLift. Ports: Reset/Inc in; Wave→Mono/L/R.
 static void process_theremin(Circuit& g, Node& node, int frames) {
@@ -9558,7 +9561,7 @@ static void process_theremin(Circuit& g, Node& node, int frames) {
     const double oct = (unitX - 0.5) * rangeOct;
     double hz = centerHz * soemdsp_maths::dsp_exp2(oct);
     if (liveInc) hz += g.mixIncrement[f] * sr;
-    // Soft clamp to ±Nyquist-ish (softwave accepts thru-zero).
+    // Soft clamp to Â±Nyquist-ish (softwave accepts thru-zero).
     const double ny = sr * 0.5;
     if (hz > ny) hz = ny;
     if (hz < -ny) hz = -ny;
@@ -9623,7 +9626,7 @@ static double xy_pad_quantize_bipolar(double bipolar, double quantizeAmt) {
 }
 
 // XY Pad Smooth (Control shape / UI papoulis) → Papoulis cutoff Hz.
-// Native DSP only (not Bias host-CV). Default amount 0.35 ≈ 18.25 Hz.
+// Native DSP only (not Bias host-CV). Default amount 0.35 â‰ˆ 18.25 Hz.
 // Map: 0 = dry/near-instant; (0..1] log 60 Hz (light) → 2 Hz (heavy).
 static double xy_pad_papoulis_cutoff_hz(double amount) {
   double a = amount;
@@ -9662,7 +9665,7 @@ static double xy_pad_process_axis(
 }
 
 // XY Pad: bipolar(Phase)+CV -> Papoulis <-> lattice -> Out X/Y; Gate; Spike.
-// Controls: offset=x, mix=y, mode=gate, stages=filterOrder (Smooth↔Lattice character),
+// Controls: offset=x, mix=y, mode=gate, stages=filterOrder (Smoothâ†”Lattice character),
 // center=xQuantize, width=yQuantize, amplitude=xAmp, level=yAmp, oversample=pauseOnLift,
 // shape=Smoothing amount (papoulis UI) -> xy_pad_papoulis_cutoff_hz.
 // Ports: Mono=X, Left=Y, Right=Gate, Saw=Spike. Inputs X->Mono, Y->Left.
@@ -10217,8 +10220,7 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
       control_audio(g, node.timeDenominator, f),
       gate
     );
-    node.buf[kPortLeft][f] = y;
-    node.buf[kPortRight][f] = y;
+    node.buf[kPortMono][f] = y; // Wave (mono) — no stereo twin
   }
 }
 
@@ -10824,7 +10826,7 @@ static void process_sample_player(Circuit& g, Node& node, int frames) {
 }
 
 // Music Player — PCM-backed; host uploads via set_pcm + l_ptr/r_ptr.
-// Params: mode=transport, frequency≈speed, timeNum/Den=start/end,
+// Params: mode=transport, frequencyâ‰ˆspeed, timeNum/Den=start/end,
 // amplitude, phaseParam=phaseOffset, shape=phase skip, seed=playlistScrub,
 // stages=antialias, level unused.
 static void process_audio_player(Circuit& g, Node& node, int frames) {
@@ -10833,7 +10835,7 @@ static void process_audio_player(Circuit& g, Node& node, int frames) {
   const bool hasSpeed = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool hasPhase = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  // Sample-accurate Internal glides for ◀◀▶▶ / Scratch / playlist scrub.
+  // Sample-accurate Internal glides for â—€â—€â–¶â–¶ / Scratch / playlist scrub.
   const bool takeSamplePath = node.phaseParam.active || node.shape.active
     || node.seed.active || node.frequency.active || node.amplitude.active
     || node.timeNumerator.active || node.timeDenominator.active;
@@ -11091,7 +11093,7 @@ static void process_mid_side_encode(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Vectorscope: L/R → X/Y after classic 45° + Rotate (degrees).
+// Vectorscope: L/R → X/Y after classic 45Â° + Rotate (degrees).
 static void process_vectorscope_transform(Circuit& g, Node& node, int frames) {
   double left[kMaxBlockFrames];
   double right[kMaxBlockFrames];
@@ -11260,8 +11262,12 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
     const double phaseOffset = control_audio(g, node.phaseParam, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
+    // Native always bipolar + unit Amplitude. Audio outs get polarity remap + Amplitude;
+    // Saw/Ramp stay bipolar pre-level probes so the face fills full height in Unipolar
+    // (y_display == bipolar hold == 2*u-1). Same spirit as Amplitude-not-on-display /
+    // robinSinusoid Out Raw / fBm Out * Raw.
     // Ext: always hasIn so unwired Ext holds 0 (not noise).
-    const double ext = soemdsp_sample_hold_sample(
+    const double extRaw = soemdsp_sample_hold_sample(
       node.nativeHandle,
       hasExtIn ? in : 0.0,
       trig,
@@ -11270,12 +11276,12 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
       sr,
       1,
       seedExt,
-      amplitude,
-      polarityMode,
+      1.0,
+      0.0, // bipolar probe; polarity applied below on audio only
       interpolate,
       0.0
     );
-    const double left = soemdsp_sample_hold_sample(
+    const double leftRaw = soemdsp_sample_hold_sample(
       hL,
       0.0,
       trig,
@@ -11284,12 +11290,12 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
       sr,
       0,
       seedL,
-      amplitude,
-      polarityMode,
+      1.0,
+      0.0,
       interpolate,
       0.0
     );
-    const double right = soemdsp_sample_hold_sample(
+    const double rightRaw = soemdsp_sample_hold_sample(
       hR,
       0.0,
       trig,
@@ -11298,19 +11304,23 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
       sr,
       0,
       seedR,
-      amplitude,
-      polarityMode,
+      1.0,
+      0.0,
       interpolate,
       phaseOffset
     );
-    node.buf[kPortMono][f] = ext;
-    node.buf[kPortLeft][f] = left;
-    node.buf[kPortRight][f] = right;
+    const bool uni = polarityMode >= 0.5;
+    const double extAudio = uni ? (extRaw + 1.0) * 0.5 : extRaw;
+    const double leftAudio = uni ? (leftRaw + 1.0) * 0.5 : leftRaw;
+    const double rightAudio = uni ? (rightRaw + 1.0) * 0.5 : rightRaw;
+    node.buf[kPortSaw][f] = leftRaw;
+    node.buf[kPortRamp][f] = rightRaw;
+    node.buf[kPortMono][f] = extAudio * amplitude;
+    node.buf[kPortLeft][f] = leftAudio * amplitude;
+    node.buf[kPortRight][f] = rightAudio * amplitude;
   }
 }
 
-// Mono sample delay: fold Mono+L+R → ring → Delayed (fan M/L/R) + Thru (tap 3).
-// Native is mono-per-handle with a fixed ring — do not invent stereo rings.
 static void process_sample_delay(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -11411,9 +11421,10 @@ static void process_robin_oscillator(Circuit& g, Node& node, int frames) {
     double amp = control_effective(node.amplitude);
     if (!(amp == amp)) amp = 0.0;
     const double waveV = control_effective(node.waveform);
-    const double pulseW = control_effective(node.width);
+    const double morphV = control_effective(node.width);
+    const double freqUp = control_effective(node.mode);
     soemdsp_robin_oscillator_process_block(
-      node.nativeHandle, freq, amp, srD, phase0, waveV, pulseW, 0.0, frames
+      node.nativeHandle, freq, amp, srD, phase0, waveV, morphV, freqUp, 0.0, frames
     );
     double* outPtr = ptr_from_export(soemdsp_robin_oscillator_block_output_ptr(node.nativeHandle));
     if (!outPtr) return;
@@ -11437,9 +11448,10 @@ static void process_robin_oscillator(Circuit& g, Node& node, int frames) {
     double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 0.0;
     const double waveV = control_effective(node.waveform);
-    const double pulseW = control_audio(g, node.width, f);
+    const double morphV = control_audio(g, node.width, f);
+    const double freqUp = control_effective(node.mode);
     const double y = soemdsp_robin_oscillator_sample(
-      node.nativeHandle, freq, amp, srD, phase0, waveV, pulseW, resetGate
+      node.nativeHandle, freq, amp, srD, phase0, waveV, morphV, freqUp, resetGate
     );
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
@@ -11456,19 +11468,26 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath =
     node_needs_sample_accurate_controls(g, node, liveF || liveInc || liveReset);
+  // Unit-amplitude sine, then:
+  //   kPortSaw  = pre-level probe for the face (display ignores Amplitude)
+  //   Mono/L/R  = unit * Amplitude (audio / wired Out)
   if (!takeSamplePath) {
     const double phase0 = control_effective(node.phaseParam) * kTwoPi;
     const double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
     double amp = control_effective(node.amplitude);
     if (!(amp == amp)) amp = 0.0;
     soemdsp_robin_sinusoid_process_block(
-      node.nativeHandle, freq, amp, srD, phase0, 0.0, frames
+      node.nativeHandle, freq, 1.0, srD, phase0, 0.0, frames
     );
     double* outPtr = ptr_from_export(soemdsp_robin_sinusoid_block_output_ptr(node.nativeHandle));
     if (!outPtr) return;
-    copy_tap_to_buf(node.buf[kPortMono], outPtr, frames);
-    copy_tap_to_buf(node.buf[kPortLeft], outPtr, frames);
-    copy_tap_to_buf(node.buf[kPortRight], outPtr, frames);
+    copy_tap_to_buf(node.buf[kPortSaw], outPtr, frames);
+    for (int f = 0; f < frames; f++) {
+      const double y = outPtr[f] * amp;
+      node.buf[kPortMono][f] = y;
+      node.buf[kPortLeft][f] = y;
+      node.buf[kPortRight][f] = y;
+    }
     return;
   }
   if (!liveReset) node.lastReset = 0.0;
@@ -11485,9 +11504,11 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
     if (liveInc) freq += g.mixIncrement[f] * srD;
     double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 0.0;
-    const double y = soemdsp_robin_sinusoid_sample(
-      node.nativeHandle, freq, amp, srD, phase0, resetGate
+    const double yUnit = soemdsp_robin_sinusoid_sample(
+      node.nativeHandle, freq, 1.0, srD, phase0, resetGate
     );
+    node.buf[kPortSaw][f] = yUnit;
+    const double y = yUnit * amp;
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
     node.buf[kPortRight][f] = y;
@@ -11700,7 +11721,7 @@ static void process_portal_outlet(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Portal inlet: wired →/← thru mix; live mic bus not in graph_engine yet (silence addend).
+// Portal inlet: wired →/â† thru mix; live mic bus not in graph_engine yet (silence addend).
 static void process_portal_inlet(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   bool hasMonoIn = false, hasLeftIn = false, hasRightIn = false, monoOutWired = false;
@@ -12716,7 +12737,7 @@ static int named_portal_index(Circuit& g, unsigned int hash) {
 }
 
 // Portals are not DSP. Compile rewrites
-//   src → Portal →  and  Portal ← → dst
+//   src → Portal →  and  Portal â† → dst
 // into src → dst, same as a drawn cable. Several Ins sum; several Outs fan out.
 static void splice_named_portals(Circuit& g) {
   int w = 0;
@@ -13128,7 +13149,7 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       return;
     }
     if (node.typeId == kTypeTriggerDivider) {
-      // timingMode≥0.5 → clockDivider (duty/period); else triggerDivider.
+      // timingModeâ‰¥0.5 → clockDivider (duty/period); else triggerDivider.
       if (control_effective(node.timingMode) >= 0.5) {
         process_clock_divider(g, node, frames);
       } else {
@@ -14082,5 +14103,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 153; // softwaveOsc listens to Increment (cycles/sample add; arp.inc path)
+  return 154; // sampleHold face: bipolar Saw/Ramp; Unipolar audio-only remap
 }

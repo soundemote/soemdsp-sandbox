@@ -621,7 +621,6 @@ function cloneNodeGraphPatch(patch) {
       ...modulation,
       tracePoints: normalizeNodeGraphTracePoints(modulation.tracePoints),
     })),
-    monitors: normalizeNodeGraphPatchMonitors(patch.monitors, patch),
     nodes: (patch.nodes || []).map((rawNode) => {
       const node = typeof migrateNodeGraphPhosphorLightToScope2d === "function"
         ? migrateNodeGraphPhosphorLightToScope2d(rawNode)

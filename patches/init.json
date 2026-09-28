@@ -189,27 +189,6 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "metamodule-1",
-      "destinationPort": "Voices",
-      "sourceNode": "namedPortalOut-2",
-      "sourcePort": "Out",
-      "tracePoints": []
-    },
-    {
-      "destinationNode": "namedPortalIn-2",
-      "destinationPort": "In",
-      "sourceNode": "keyboard-1",
-      "sourcePort": "Play Keys",
-      "tracePoints": []
-    },
-    {
-      "destinationNode": "metamodule-1",
-      "destinationPort": "Voices",
-      "sourceNode": "namedPortalOut-3",
-      "sourcePort": "Out",
-      "tracePoints": []
-    },
-    {
       "destinationNode": "namedPortalIn-3",
       "destinationPort": "In",
       "sourceNode": "knob-1",
@@ -217,17 +196,24 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "traceDisplayStereo-1",
-      "destinationPort": "Left",
-      "sourceNode": "mixStereo2-1",
-      "sourcePort": "Left",
+      "destinationNode": "namedPortalIn-4",
+      "destinationPort": "In",
+      "sourceNode": "knob-2",
+      "sourcePort": "Bias",
       "tracePoints": []
     },
     {
-      "destinationNode": "traceDisplayStereo-1",
-      "destinationPort": "Right",
-      "sourceNode": "mixStereo2-1",
-      "sourcePort": "Right",
+      "destinationNode": "metamodule-1",
+      "destinationPort": "Voices",
+      "sourceNode": "keyboard-1",
+      "sourcePort": "Play Keys",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "metamodule-1",
+      "destinationPort": "Voices",
+      "sourceNode": "keyboard-1",
+      "sourcePort": "Chord Memory",
       "tracePoints": []
     }
   ],
@@ -278,16 +264,22 @@
     {
       "destinationNode": "passiveFilter-2",
       "destinationParam": "sweep",
-      "sourceNode": "namedPortalOut-4",
+      "sourceNode": "namedPortalOut-5",
+      "sourcePort": "Out",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "hypersaw2-1",
+      "destinationParam": "jitterDistance",
+      "sourceNode": "namedPortalOut-6",
       "sourcePort": "Out",
       "tracePoints": []
     }
   ],
-  "monitors": [],
   "nodes": [
     {
-      "gx": 36,
-      "gy": -4,
+      "gx": 26,
+      "gy": -10,
       "id": "output",
       "paramMeta": {
         "volume": {
@@ -400,34 +392,18 @@
         "zoomSeconds": 0.25,
         "fade": 0,
         "xyzLayout": "stack"
-      },
-      "ui": {
-        "buttonsHidden": false,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": true,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": false
       }
     },
     {
-      "gx": -21,
-      "gy": -7,
+      "gx": -32,
+      "gy": -20,
       "id": "textBox-1",
       "paramMeta": {},
       "params": {},
       "type": "textBox",
       "alias": "The Journey Starts Here",
-      "widthGu": 32,
-      "heightGu": 8,
+      "widthGu": 39,
+      "heightGu": 7,
       "layout": {
         "backgroundAlpha": 0.78,
         "backgroundColor": "#020407",
@@ -436,12 +412,12 @@
         "kind": "textBox",
         "text": "Journey to the Hypersaw\n|\\ /\\ /|",
         "textColor": "#f3f1ec",
-        "textSizePercent": 639,
+        "textSizePercent": 533,
         "textWeight": 400,
         "lineHeight": 1.2,
         "textMode": "multiline",
         "verticalAlignSchema": 2,
-        "verticalAlignPercent": 51
+        "verticalAlignPercent": 49.476432
       },
       "ui": {
         "buttonsHidden": true,
@@ -461,8 +437,8 @@
       }
     },
     {
-      "gx": 11,
-      "gy": -17,
+      "gx": 7,
+      "gy": -13,
       "id": "metamodule-1",
       "paramMeta": {
         "octave": {
@@ -484,7 +460,7 @@
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
+          "smoothingSeconds": 1469,
           "smoothingType": "linear",
           "step": 1,
           "tooltip": "Shared octave offset into Voice Frequency.",
@@ -495,7 +471,7 @@
           "constraint": "",
           "unit": "",
           "wraparound": false,
-          "visible": true,
+          "visible": false,
           "linearSmoothing": true,
           "outputDomain": false,
           "domainOffset": 0
@@ -519,7 +495,7 @@
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
+          "smoothingSeconds": 1469,
           "smoothingType": "linear",
           "step": 1,
           "tooltip": "Shared semitone offset into Voice Frequency.",
@@ -530,7 +506,7 @@
           "constraint": "",
           "unit": "",
           "wraparound": false,
-          "visible": true,
+          "visible": false,
           "linearSmoothing": true,
           "outputDomain": false,
           "domainOffset": 0
@@ -554,7 +530,7 @@
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
+          "smoothingSeconds": 1469,
           "smoothingType": "linear",
           "step": 1,
           "tooltip": "Shared cents offset into Voice Frequency.",
@@ -565,7 +541,7 @@
           "constraint": "",
           "unit": "",
           "wraparound": false,
-          "visible": true,
+          "visible": false,
           "linearSmoothing": true,
           "outputDomain": false,
           "domainOffset": 0
@@ -589,7 +565,7 @@
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
+          "smoothingSeconds": 1469,
           "smoothingType": "linear",
           "step": 0.1,
           "tooltip": "Shared Hz offset after octave/semitone/cents (param domain).",
@@ -600,7 +576,7 @@
           "constraint": "",
           "unit": "",
           "wraparound": false,
-          "visible": true,
+          "visible": false,
           "linearSmoothing": true,
           "outputDomain": false,
           "domainOffset": 0
@@ -610,15 +586,7 @@
         "octave": 0,
         "semitones": 0,
         "cents": 0,
-        "frequency": 0,
-        "mx_hypersaw2_1__jitterDistance": 7.2804274163624605,
-        "mx_hypersaw2_1__jitterSpeed": 0.05922263870095852,
-        "mx_hypersaw2_1__waveform": 1,
-        "mx_hypersaw2_1__morph": 0.5,
-        "mx_hypersaw2_1__vibratoDistance": 0.32009038906022796,
-        "mx_hypersaw2_1__vibratoSpeed": 0.9787400493219194,
-        "mx_hypersaw2_1__vibratoPhaseVary": 0,
-        "mx_passiveFilter_2__sweep": -47.09021152531858
+        "frequency": 0
       },
       "type": "metamodule",
       "alias": "HYPERSAW",
@@ -661,7 +629,7 @@
       "ui": {
         "buttonsHidden": false,
         "buttonsForceShow": false,
-        "displayHeightOffsetGu": 3,
+        "displayHeightOffsetGu": 0,
         "displayModeKey": "",
         "ioHidden": false,
         "hideUnused": false,
@@ -672,7 +640,8 @@
         "oscilloscopeForceShow": false,
         "slidersHidden": false,
         "slidersForceShow": false,
-        "titleHidden": false
+        "titleHidden": false,
+        "displayHeightGu": 6
       },
       "metamodule": {
         "boundary": [
@@ -696,13 +665,7 @@
         "displays": [],
         "paramVisibility": {
           "hypersaw2-1|jitterDistance": true,
-          "hypersaw2-1|jitterSpeed": true,
           "hypersaw2-1|jitterTilt": true,
-          "hypersaw2-1|waveform": true,
-          "hypersaw2-1|morph": true,
-          "hypersaw2-1|vibratoDistance": true,
-          "hypersaw2-1|vibratoSpeed": true,
-          "hypersaw2-1|vibratoPhaseVary": true,
           "hypersaw2-1|jitterSpeedRef": true,
           "passiveFilter-2|sweep": true
         },
@@ -771,8 +734,7 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleDefaultStereoOut": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
       "gx": 14,
@@ -835,18 +797,17 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleDefaultStereoOut": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -62,
-      "gy": -8,
+      "gx": -32,
+      "gy": -13,
       "id": "keyboard-1",
       "paramMeta": {},
       "params": {},
       "type": "keyboard",
       "alias": "Keyboard & Chord Memory",
-      "widthGu": 37,
+      "widthGu": 39,
       "traceDisplaySettings": {
         "backgroundHue": 0,
         "backgroundBrightness": 0,
@@ -884,11 +845,11 @@
       },
       "ui": {
         "buttonsHidden": false,
-        "buttonsForceShow": true,
+        "buttonsForceShow": false,
         "displayHeightOffsetGu": 0,
         "displayModeKey": "",
         "ioHidden": false,
-        "hideUnused": false,
+        "hideUnused": true,
         "interfaceControlsHidden": false,
         "interfaceControlsForceShow": false,
         "movementLocked": false,
@@ -897,7 +858,7 @@
         "slidersHidden": false,
         "slidersForceShow": false,
         "titleHidden": false,
-        "displayHeightGu": 5
+        "displayHeightGu": 8
       },
       "chordMemory": {
         "slots": {
@@ -991,12 +952,13 @@
       }
     },
     {
-      "gx": -71,
-      "gy": -14,
+      "gx": -39,
+      "gy": -19,
       "id": "keyboardController-1",
       "paramMeta": {},
       "params": {},
       "type": "keyboardController",
+      "widthGu": 7,
       "traceDisplaySettings": {
         "backgroundHue": 0,
         "backgroundBrightness": 0,
@@ -1075,8 +1037,7 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleVoicePortal": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
       "gx": -16,
@@ -1104,8 +1065,7 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleVoicePortal": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
       "gx": -16,
@@ -1133,8 +1093,7 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleVoicePortal": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
       "gx": -3,
@@ -1162,8 +1121,7 @@
         "slidersForceShow": false,
         "titleHidden": false
       },
-      "ownerMetamoduleId": "metamodule-1",
-      "metamoduleVoicePortal": true
+      "ownerMetamoduleId": "metamodule-1"
     },
     {
       "gx": -3,
@@ -1470,13 +1428,13 @@
           "divideChoicesVisibly": false,
           "kind": "decimal",
           "bipolar": false,
-          "max": 100,
+          "max": 7.28,
           "maxDigits": 3,
-          "mid": 10,
-          "min": 0,
+          "mid": 7.28,
+          "min": 1,
           "reverse": false,
-          "nonlinearSlider": true,
-          "sliderCurve": "custom",
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "internal",
@@ -1865,10 +1823,10 @@
         "phase": 0,
         "phaseCollapse": 1,
         "randomizePhase": 2.970384733102537,
-        "jitterDistance": 7.2804274163624605,
+        "jitterDistance": 1,
         "vibratoDistance": 0.32009038906022796,
         "jitterSpeed": 0.05922263870095852,
-        "vibratoSpeed": 0.9787400493219194,
+        "vibratoSpeed": 0.9787,
         "jitterSteps": 0,
         "jitterFilter": 35.397278317453484,
         "jitterDistanceTiltSource": 0,
@@ -2514,8 +2472,8 @@
       "ownerMetamoduleId": "metamodule-1"
     },
     {
-      "gx": -6,
-      "gy": 3,
+      "gx": -10,
+      "gy": -2,
       "id": "arp-1",
       "paramMeta": {
         "mode": {
@@ -2748,7 +2706,7 @@
       "arpKeysSettings": {
         "strokeColor": "#00ffbf",
         "strokeBrightness": 0.5,
-        "strokeThickness": 0.028657,
+        "strokeThickness": 0.017463,
         "fontColor": "#00ffbf",
         "fontBrightness": 0.5,
         "cornerShape": "squircle",
@@ -2774,8 +2732,8 @@
       }
     },
     {
-      "gx": 8,
-      "gy": 5,
+      "gx": 4,
+      "gy": -2,
       "id": "softwaveOsc-1",
       "paramMeta": {
         "waveform": {
@@ -3002,7 +2960,7 @@
       },
       "params": {
         "waveform": 4,
-        "frequency": 0,
+        "frequency": 3.477592057602134e-9,
         "morph": 1,
         "phase": 0,
         "antialias": 0,
@@ -3051,8 +3009,8 @@
       }
     },
     {
-      "gx": -13,
-      "gy": 10,
+      "gx": -17,
+      "gy": -1,
       "id": "transport-1",
       "paramMeta": {
         "bpm": {
@@ -3338,8 +3296,8 @@
       }
     },
     {
-      "gx": 27,
-      "gy": -5,
+      "gx": 19,
+      "gy": -10,
       "id": "mixStereo2-1",
       "paramMeta": {
         "volume1": {
@@ -3581,8 +3539,8 @@
       }
     },
     {
-      "gx": 15,
-      "gy": 5,
+      "gx": 11,
+      "gy": -2,
       "id": "eqFilter-2",
       "paramMeta": {
         "mode": {
@@ -3800,8 +3758,8 @@
       }
     },
     {
-      "gx": 3,
-      "gy": 12,
+      "gx": -1,
+      "gy": 2,
       "id": "robinSinusoid-1",
       "paramMeta": {
         "frequency": {
@@ -3958,7 +3916,7 @@
         "displayHeightOffsetGu": 0,
         "displayModeKey": "",
         "ioHidden": false,
-        "hideUnused": false,
+        "hideUnused": true,
         "interfaceControlsHidden": false,
         "interfaceControlsForceShow": false,
         "movementLocked": false,
@@ -3967,17 +3925,17 @@
         "slidersHidden": false,
         "slidersForceShow": false,
         "titleHidden": false,
-        "displayHeightGu": 1
+        "displayHeightGu": 2
       }
     },
     {
-      "gx": -99,
-      "gy": -5,
+      "gx": -67,
+      "gy": -10,
       "id": "sequencer-1",
       "paramMeta": {},
       "params": {},
       "type": "sequencer",
-      "widthGu": 36,
+      "widthGu": 35,
       "sequencer": {
         "loopTicks": 1024,
         "snap": 128,
@@ -4127,8 +4085,8 @@
       }
     },
     {
-      "gx": -29,
-      "gy": 6,
+      "gx": -32,
+      "gy": -2,
       "id": "knob-1",
       "paramMeta": {
         "offset": {
@@ -4206,12 +4164,12 @@
         }
       },
       "params": {
-        "offset": 0.055985823118891886,
+        "offset": 0.036743344496757396,
         "displaySource": 0
       },
       "type": "knob",
       "pluginId": 0,
-      "widthGu": 14,
+      "widthGu": 7,
       "traceDisplaySettings": {
         "decimals": 2,
         "maxDigits": 2,
@@ -4226,7 +4184,7 @@
         "valueOffsetY": 0,
         "labelPosition": "top",
         "valuePosition": "midknob",
-        "innerRadius": 0.5591,
+        "innerRadius": 0.7273,
         "labelText": "Cutoff"
       },
       "ui": {
@@ -4244,12 +4202,12 @@
         "slidersHidden": true,
         "slidersForceShow": false,
         "titleHidden": true,
-        "displayHeightGu": 12
+        "displayHeightGu": 6
       }
     },
     {
-      "gx": -25,
-      "gy": 1,
+      "gx": 7,
+      "gy": -14,
       "id": "namedPortalIn-1",
       "paramMeta": {},
       "params": {},
@@ -4275,13 +4233,40 @@
       }
     },
     {
-      "gx": -10,
-      "gy": 9,
+      "gx": -15,
+      "gy": -2,
       "id": "namedPortalOut-1",
       "paramMeta": {},
       "params": {},
       "type": "namedPortalOut",
       "alias": "ChordKeys",
+      "widthGu": 5,
+      "heightGu": 1,
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": true
+      }
+    },
+    {
+      "gx": -29,
+      "gy": 4,
+      "id": "namedPortalIn-3",
+      "paramMeta": {},
+      "params": {},
+      "type": "namedPortalIn",
+      "alias": "Cutoff",
       "widthGu": 4,
       "heightGu": 1,
       "ui": {
@@ -4302,13 +4287,13 @@
       }
     },
     {
-      "gx": 6,
-      "gy": -15,
-      "id": "namedPortalOut-2",
+      "gx": 11,
+      "gy": -14,
+      "id": "namedPortalOut-5",
       "paramMeta": {},
       "params": {},
       "type": "namedPortalOut",
-      "alias": "Chord_Keys",
+      "alias": "Cutoff",
       "widthGu": 4,
       "heightGu": 1,
       "ui": {
@@ -4330,156 +4315,137 @@
     },
     {
       "gx": -25,
-      "gy": 0,
-      "id": "namedPortalIn-2",
-      "paramMeta": {},
-      "params": {},
-      "type": "namedPortalIn",
-      "alias": "PlayKeys",
-      "widthGu": 4,
-      "heightGu": 1,
-      "ui": {
-        "buttonsHidden": true,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": false,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": true
-      }
-    },
-    {
-      "gx": 6,
-      "gy": -17,
-      "id": "namedPortalOut-3",
-      "paramMeta": {},
-      "params": {},
-      "type": "namedPortalOut",
-      "alias": "PlayKeys",
-      "widthGu": 4,
-      "heightGu": 1,
-      "ui": {
-        "buttonsHidden": true,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": false,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": true
-      }
-    },
-    {
-      "gx": -15,
-      "gy": 6,
-      "id": "namedPortalIn-3",
-      "paramMeta": {},
-      "params": {},
-      "type": "namedPortalIn",
-      "alias": "Cutoff",
-      "widthGu": 3,
-      "heightGu": 1,
-      "ui": {
-        "buttonsHidden": true,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": false,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": true
-      }
-    },
-    {
-      "gx": 7,
-      "gy": 3,
-      "id": "namedPortalOut-4",
-      "paramMeta": {},
-      "params": {},
-      "type": "namedPortalOut",
-      "alias": "KnobBias",
-      "widthGu": 4,
-      "heightGu": 1,
-      "ui": {
-        "buttonsHidden": true,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": false,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": true
-      }
-    },
-    {
-      "gx": 34,
-      "gy": -11,
-      "id": "traceDisplayStereo-1",
-      "paramMeta": {},
-      "params": {},
-      "type": "traceDisplayStereo",
-      "widthGu": 7,
+      "gy": -2,
+      "id": "knob-2",
+      "paramMeta": {
+        "offset": {
+          "alias": "",
+          "choices": [],
+          "curveAmount": 0,
+          "def": 0.5,
+          "displayChoices": false,
+          "divideChoicesVisibly": false,
+          "kind": "decimal",
+          "bipolar": false,
+          "max": 1,
+          "maxDigits": 3,
+          "mid": 0.5,
+          "min": 0,
+          "reverse": false,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "internal",
+          "smoothingSeconds": 44100,
+          "smoothingType": "linear",
+          "step": 0,
+          "tooltip": "",
+          "modClamp": true,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": false,
+          "linearSmoothing": true,
+          "outputDomain": false,
+          "domainOffset": 0
+        },
+        "displaySource": {
+          "alias": "",
+          "choices": [
+            "Mouse",
+            "Smoothed"
+          ],
+          "curveAmount": 0,
+          "def": 0,
+          "displayChoices": true,
+          "divideChoicesVisibly": true,
+          "kind": "decimal",
+          "bipolar": false,
+          "max": 1,
+          "maxDigits": 3,
+          "mid": 0,
+          "min": 0,
+          "reverse": false,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "global",
+          "smoothingSeconds": null,
+          "smoothingType": "none",
+          "step": 1,
+          "tooltip": "Mouse = target the pointer set. Smoothed = actual output chasing that target.",
+          "modClamp": true,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": false,
+          "outputDomain": false,
+          "domainOffset": 0
+        }
+      },
+      "params": {
+        "offset": 1,
+        "displaySource": 0
+      },
+      "type": "knob",
+      "alias": "Modulation",
+      "pluginId": 1,
+      "widthGu": 8,
       "traceDisplaySettings": {
-        "backgroundHue": 0,
-        "backgroundBrightness": 0,
-        "background": "#ff0000",
-        "backgroundColor": "#ff0000",
-        "brightness": 0.95,
-        "color": "#ff0000",
-        "dot1Enabled": true,
-        "dot1Size": 2,
-        "secondaryBrightness": 0.95,
-        "secondaryColor": "#0000ff",
-        "secondaryEnabled": true,
-        "secondarySize": 2,
-        "secondaryLineThickness": 0,
-        "tertiaryColor": "#00ff00",
-        "cycles": 2,
-        "lineThickness": 0.15,
-        "stampDensity": 0.5,
-        "dotBudget": 1024,
-        "pixelDensity": 1,
-        "padding": 0,
-        "scale": 1,
-        "skipDiscontinuities": false,
-        "cmyMode": false,
-        "sourceSync": false,
-        "stereoBlend": "combine",
-        "meetColor": "auto",
-        "syncChannel": "off",
-        "historyHz": 4,
-        "historyCycles": 4,
-        "historySeconds": 0.25,
-        "zoomSeconds": 0.25,
-        "fade": 0,
-        "xyzLayout": "stack"
+        "decimals": 2,
+        "maxDigits": 2,
+        "background": "#000000",
+        "arcFill": "#f1b84b",
+        "arcTrack": "#3a3428",
+        "rotationDegrees": 270,
+        "dialSize": 0.7273,
+        "dialOffsetY": 0.1945,
+        "labelSize": 0.1546,
+        "valueSize": 0.1454,
+        "valueOffsetY": 0,
+        "labelPosition": "top",
+        "valuePosition": "midknob",
+        "innerRadius": 0.7273,
+        "labelText": ""
       },
       "ui": {
+        "buttonsHidden": false,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": true,
+        "slidersForceShow": false,
+        "titleHidden": true,
+        "displayHeightGu": 6
+      }
+    },
+    {
+      "gx": -22,
+      "gy": 4,
+      "id": "namedPortalIn-4",
+      "paramMeta": {},
+      "params": {},
+      "type": "namedPortalIn",
+      "alias": "Modulation",
+      "widthGu": 5,
+      "heightGu": 1,
+      "ui": {
         "buttonsHidden": true,
         "buttonsForceShow": false,
         "displayHeightOffsetGu": 0,
@@ -4493,8 +4459,34 @@
         "oscilloscopeForceShow": false,
         "slidersHidden": false,
         "slidersForceShow": false,
-        "titleHidden": false,
-        "displayHeightGu": 2
+        "titleHidden": true
+      }
+    },
+    {
+      "gx": 10,
+      "gy": -15,
+      "id": "namedPortalOut-6",
+      "paramMeta": {},
+      "params": {},
+      "type": "namedPortalOut",
+      "alias": "Modulation",
+      "widthGu": 5,
+      "heightGu": 1,
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": true
       }
     }
   ],
@@ -4509,7 +4501,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 48,
-    "zoom": 0.6012390190730015,
+    "zoom": 0.5368205527437513,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,
@@ -4540,19 +4532,19 @@
             "nodeId": "sequencer-1",
             "enabled": true,
             "x": 0,
-            "y": 0.37460650577124877,
-            "w": 0.37395833333333317,
+            "y": 0,
+            "w": 0.38281249999999983,
             "h": 0.375613850996852,
-            "z": 2701
+            "z": 3001
           },
           {
             "nodeId": "knob-1",
             "enabled": true,
-            "x": 0,
-            "y": 0,
-            "w": 0.533125,
-            "h": 0.37351521511017843,
-            "z": 3002
+            "x": 0.22395833333333337,
+            "y": 0.6264428121720882,
+            "w": 0.08,
+            "h": 0.13427072402938092,
+            "z": 3902
           },
           {
             "nodeId": "keyboard-1",
@@ -4573,15 +4565,6 @@
             "z": 1204
           },
           {
-            "nodeId": "traceDisplayStereo-1",
-            "enabled": true,
-            "x": 0.53375,
-            "y": 0.0013641133263378805,
-            "w": 0.46625000000000005,
-            "h": 0.3714165792235048,
-            "z": 606
-          },
-          {
             "nodeId": "softwaveOsc-1",
             "enabled": true,
             "x": 0.7978125,
@@ -4589,6 +4572,24 @@
             "w": 0.20218749999999996,
             "h": 0.3903043022035677,
             "z": 806
+          },
+          {
+            "nodeId": "output",
+            "enabled": true,
+            "x": 0.5655208333333334,
+            "y": 0,
+            "w": 0.43447916666666664,
+            "h": 0.3703672612801679,
+            "z": 306
+          },
+          {
+            "nodeId": "knob-2",
+            "enabled": true,
+            "x": 0.3072916666666667,
+            "y": 0.6222455403987408,
+            "w": 0.08135416666666667,
+            "h": 0.14371458551941238,
+            "z": 407
           }
         ]
       },

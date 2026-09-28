@@ -3,7 +3,7 @@
 **Status:** open  
 **Severity:** see  
 **Source:** user 2026-09-27  
-**Related:** B-026 and B-054 - possible shared display invalidation/rearm family, not duplicates unless the same root is confirmed.
+**Related:** B-026 and B-054 - possible shared display invalidation/rearm family, not duplicates unless the same root is confirmed. **B-063** (fixed) is Robin Oscillator *audible* Morph MOD ParamModEdge WIDTH vs SHAPE — not this Softwave display symptom.
 
 ## User symptom
 
@@ -40,3 +40,5 @@ Use a live Softwave patch and confirm its display updates without touching EQ Fr
 ## Current hypothesis
 
 Softwave **Morph** is modulated via **RobinSinusoid**. The working hypothesis is that the display update path does not account for that modulation when deciding whether to refresh, so the display remains stale until an unrelated edit such as moving EQ **Frequency** forces a refresh.
+
+Audible Robin Morph MOD silence under the Softwave-default SHAPE ParamModEdge map is tracked separately as **B-063** (fixed); do not close B-051 from that wiring fix alone.

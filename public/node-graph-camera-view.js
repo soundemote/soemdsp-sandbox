@@ -327,7 +327,10 @@ function createNodeGraphCameraWorldClone(source, wireSvg) {
   clone.querySelector("#nodeWireSvg, .node-wire-svg")?.remove();
   clone.querySelector("#nodeWireEndpointSvg, .node-wire-endpoint-svg")?.remove();
   const zoomSurface = clone.querySelector("#nodeGraphZoomSurface, .node-graph-zoom-surface") || clone;
-  const worldLayer = clone.querySelector("#nodeGraphWorldLayer, .node-graph-world-layer") || zoomSurface;
+  // Prefer the module world layer — annotation layer also uses .node-graph-world-layer (B-055).
+  const worldLayer = clone.querySelector("#nodeGraphWorldLayer")
+    || clone.querySelector(".node-graph-world-layer:not(.node-graph-annotation-world-layer)")
+    || zoomSurface;
   if (wireSvg) {
     worldLayer.prepend(wireSvg);
   }

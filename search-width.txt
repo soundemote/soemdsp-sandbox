@@ -1,0 +1,1720 @@
+﻿docs\ADDING_HARDCODED_SANDBOX_MODULE.md:149:const workletNode = await createNodeGraphLiveWorkletNode(offlineCtx);
+scripts\build_native_modules.ps1:77:  @{ Name = "fbm_field"; Simd = $false; Exports = @("soemdsp_fbm_field_create", "soemdsp_fbm_field_destroy", "soemdsp_fbm_field_reset", "soemdsp_fbm_field_sample", "soemdsp_fbm_field_eval_at", "soemdsp_fbm_field_fill_grid", "soemdsp_fbm_field_grid_ptr", "soemdsp_fbm_field_grid_width", "soemdsp_fbm_field_grid_height", "soemdsp_fbm_field_grid_max_width", "soemdsp_fbm_field_grid_max_height", "soemdsp_fbm_field_x", "soemdsp_fbm_field_y", "soemdsp_fbm_field_z", "soemdsp_fbm_field_x_raw", "soemdsp_fbm_field_y_raw", "soemdsp_fbm_field_z_raw", "soemdsp_fbm_field_domain_time", "soemdsp_fbm_field_version") }
+docs\CODE_CLEANUP_PASS_PLAN.md:66:| 3.1 | `createNodeGraphSliderWidgetBody` is a thin deprecated alias; leave definition for compat, ensure primary call sites use `createNodeGraphKnobFace` (already do) | None |
+docs\BUG_PLAN.md:435:- Files: `public/index.html` Visibility menu; `public/node-graph-view-controls.js`; `public/node-graph-ui-settings-persistence.js`; `public/node-graph-patch-normalizers.js` `normalizeNodeGraphPatchView` (only `widthGu` / `heightGu` / `zoom`)
+docs\DISPLAY_SCALE_REWRITE.md:16:Module **displays** (faces, canvases, layout-canvas tiles, screen solo) currently mix three length stories: (1) CSS camera zoom, (2) layout CSS box of the face, (3) sticky inline `font-size` / radius px measured from `clientWidth`. Agents keep ΓÇ£fixingΓÇ¥ the wrong layer ΓÇö resizing WebGL buffers on zoom, freezing `lineWidth` at 1.5 CSS px, or retrying FitCaption after F-cycle reparent. Policy ┬º15 recently oscillated between ΓÇ£ink is CSS px, do not ├ù min(face)ΓÇ¥ and `displayInkToPx(minSide/96)` at paint.
+docs\DISPLAY_SCALE_REWRITE.md:87:3. **Authored ink is representation B: CSS px at reference min-edge 96.** Defended: existing Display Settings already store `1.5`, `2`, `11`; defaults in ┬º15; filter/EQ already look right when `displayInkToPx(..., faceMin)` is used. Representation A (0ΓÇª1 of min-edge) is **only** for compositional box fractions (pad left/right as % of width). **No third system.** No `if (x < 1) treat as fraction`. Phosphor `size01` is renamed in API comments to ink-at-96 (value stays numeric; name stops lying).
+docs\OSC_MODULE_NON_UI_REFERENCE.md:29:- `public/node-graph-default-patch.js` ΓÇö `createNodeGraphPatchNode(...)`
+docs\OSC_MODULE_NON_UI_REFERENCE.md:153:function createNodeGraphPatchNode(type, options = {}) {
+docs\MODULE_PATTERN_REFERENCE.md:235:// In the moduleΓÇÖs *-display.js (after createNodeGraphΓÇªDisplay is defined)
+docs\MODULE_PATTERN_REFERENCE.md:236:registerNodeGraphModuleFaceCreator("harmonicSeriesFace", createNodeGraphHarmonicSeriesDisplay);
+docs\MODULE_LAYOUT_PLAN.md:24:fixed outer box (`--node-grid-width-units` ├ù `--node-grid-height-units`).
+docs\MODULE_LAYOUT_PLAN.md:123:`public/node-graph-module-rendering.js` `createNodeGraphModuleElement`
+docs\MODULE_LAYOUT_PLAN.md:274:  (`createNodeGraphModuleElement` / IO append / face factories).
+docs\UC_EFFICIENT_CONVERSION_BATCH_DESIGN.md:207:- Work: add `kTypePapoulisFilter`, create/destroy on node lifecycle, `process_*` with MLR if stereo face requires it, host ID + param sync (cutoff), allowlist, UC retire, smoke.
+docs\UC_EFFICIENT_CONVERSION_BATCH_DESIGN.md:257:- **`quadrature` then `hilbert`:** shared `native_modules/quadrature/` kernel (published I/Q pole radii + 1-sample I delay). Two independent nets per Hilbert Pair instance (`side` + `mid`), matching `createNodeGraphQuadratureState()`.
+docs\UC_EFFICIENT_CONVERSION_BATCH_DESIGN.md:518:- **Description:** Wire create/destroy/process for Papoulis as an audio node (separate from Control smoother handles); allowlist + retire from UC; smoke cutoffΓåÆaudible lowpass behavior.
+docs\SMOOTH_STEP_GRAPH_AND_KNOB_OVERHAUL_PLAN.md:37:- Side list editor: `renderNodeGraphGraphNodeList` in `public/node-graph-module-actions.js` builds rows with **`createNodeGraphGraphRowNumberInput` ΓåÆ bare `<input type="number">`**. No Sound Color steppers, no shared drag-number widget, no metadata-style controls.
+docs\SMOOTH_STEP_GRAPH_AND_KNOB_OVERHAUL_PLAN.md:198:| Graph list UI | `public/node-graph-module-actions.js` (`createNodeGraphGraphRowNumberInput`, `renderNodeGraphGraphNodeList`) |
+native_modules\graph_engine\graph_engine.cpp:13951:// created at add_node time (0 if missing / free-fn type).
+native_modules\fbm_field\fbm_field.cpp:381:  int w = width < 1 ? 1 : (width > kMaxGridW ? kMaxGridW : width);
+native_modules\fbm_field\fbm_field.cpp:430:extern "C" int soemdsp_fbm_field_grid_width() {
+native_modules\fbm_field\fbm_field.cpp:438:extern "C" int soemdsp_fbm_field_grid_max_width() {
+scripts\smoke_wire_portal_menu_insert.mjs:53:// Simulate insert (mirrors portalSelectedNodeGraphWires without DOM/createNode).
+scripts\test_jack_chrome.js:379:var column = sandbox.createNodeGraphIoColumn("n1", "output", ["Mono", "Left", "Right"], "input");
+scripts\test_jack_chrome.js:397:var rgbCol = sandbox.createNodeGraphIoColumn("rgb", "rasterRgb", ["R", "G", "B"], "output");
+scripts\test_jack_chrome.js:449:var setupMod = sandbox.createNodeParameterModulationPort("n1", "cookbookFilter", {
+scripts\test_jack_chrome.js:457:var qMod = sandbox.createNodeParameterModulationPort("n1", "cookbookFilter", {
+scripts\test_noise_detector.js:11:  var state = createNodeGraphNoiseDetectorState();
+scripts\test_kick_envelope.js:28:var state = createNodeGraphKickEnvelopeState();
+scripts\test_kick_envelope.js:51:var muted = createNodeGraphKickEnvelopeState();
+scripts\test_phone_tone.js:19:var state = createNodeGraphPhoneToneState();
+scripts\test_keypad.js:27:var idle = nodeGraphKeypadSample(createNodeGraphKeypadState(), { offset: 0 });
+scripts\test_keypad.js:29:var state = createNodeGraphKeypadState();
+scripts\test_keypad.js:83:assert(defaults.buttonWidth === 0.94, "default width");
+scripts\test_module_layout_bands.js:124:  nodeGraphGrid: { heightPx: 28, sizePx: 28, widthPx: 28 },
+scripts\test_module_layout_bands.js:343:  sandbox.nodeGraphModuleWidthLimitsForType("keyboardController").minGu === 1,
+scripts\test_sine_kick.js:20:var sine = createNodeGraphSineKickState();
+scripts\test_sine_kick.js:35:var sq = createNodeGraphSineKickState();
+scripts\test_sine_kick.js:49:var muted = createNodeGraphSineKickState();
+scripts\test_speaker_protector_2.js:55:  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
+scripts\test_speaker_protector_2.js:66:  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
+scripts\test_speaker_protector_2.js:80:  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
+scripts\test_speaker_protector_2.js:99:  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
+scripts\test_speaker_protector_2.js:112:  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
+scripts\test_speaker_protector_2.js:130:  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
+scripts\test_speaker_protector_2.js:144:  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
+scripts\test_speaker_protector_2.js:158:  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
+scripts\test_speaker_protector_2.js:187:  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
+scripts\smoke_test.py:4057:        "function createNodeGraphLedFace" not in factories_source,
+scripts\smoke_test.py:4058:        "createNodeGraphLedFace should live in public/modules/led/led-ui.js, not node-graph-module-factories.js",
+scripts\smoke_test.py:4172:        'defaultWidthGu: 4',
+scripts\smoke_test.py:4241:        "createNodeGraphBugButtonInputRail" not in ui_source
+scripts\smoke_test.py:4538:        and "oscResetStates.set(node.id, createNodeGraphOscResetState())" in live_plan_runtime_source
+scripts\smoke_test.py:4681:        and "defaultWidthGu: 13" in node_graph_module_definitions_source
+scripts\smoke_test.py:4846:            and "defaultWidthGu: 5" in defs[
+scripts\smoke_test.py:5158:                "const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, \"input\")",
+scripts\smoke_test.py:5159:                "const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, \"output\")",
+scripts\smoke_test.py:5228:                "function nodeGraphCanvasScriptSourceWithGridUnits(source, widthGu, heightGu)",
+scripts\smoke_test.py:5231:                "delete patchNode.widthGu;",
+scripts\smoke_test.py:6091:                "function createNodeGraphCodeScreenDebugCodeblock",
+scripts\smoke_test.py:6189:                "function createNodeGraphCodeScreenLookupResult",
+scripts\smoke_test.py:6229:                "function createNodeGraphCodeScreenLookupHeading",
+scripts\smoke_test.py:6512:        "Grid Unit Width PX",
+scripts\smoke_test.py:7348:        '"display-only text | edit content from this module\'s actions menu | text clips to box height, scales down to fit width | mouse wheel zooms the modular view"',
+scripts\smoke_test.py:7660:                "createNodeGraphSampleModuleBody",
+scripts\smoke_test.py:7691:                "function createNodeGraphSampleWaveformDisplay",
+scripts\smoke_test.py:7814:        'createNodeGraphPatchNode("audioPlayer", { id: "audioPlayer-1"',
+scripts\smoke_test.py:7815:        'createNodeGraphPatchNode("output", { id: "output"',
+scripts\smoke_test.py:7829:        "createNodeGraphKeyboardControllerBody",
+scripts\smoke_test.py:7830:        "createNodeGraphMacroControlsBody",
+scripts\smoke_test.py:7831:        "createNodeGraphPitchModWheelBody",
+scripts\smoke_test.py:7832:        "createNodeGraphSpeakerProtectionBody",
+scripts\smoke_test.py:7857:        "view: { widthGu: 20, heightGu: 20, zoom: 1 }",
+scripts\smoke_test.py:8157:        "gridWidthGu: grid.widthGu",
+scripts\smoke_test.py:8295:        "function createNodeGraphImageBody(nodeId)",
+scripts\smoke_test.py:8379:        "function createNodeGraphTapTempoButton()",
+scripts\smoke_test.py:8383:        "createNodeGraphTapTempoButton(),",
+scripts\smoke_test.py:8395:        "const nodeGraphWireInteractions = window.createNodeGraphWireInteractionController({",
+scripts\smoke_test.py:8397:        "function createNodeGraphWireInteractionController(deps)",
+scripts\smoke_test.py:8424:        "const distance = Math.max(nodeGraphGridWidth(), nodeGraphGridHeight()) * 0.75",
+scripts\smoke_test.py:8464:        "function createNodeSliderReadout(slider)",
+scripts\smoke_test.py:8532:        "function nodeGraphGridWidth()",
+scripts\smoke_test.py:8570:        "view: { widthGu: 20, heightGu: 20, zoom: 1 }",
+scripts\smoke_test.py:8580:        "function createNodeGraphPatchNode(type, options = {})",
+scripts\smoke_test.py:8581:        "node.widthGu = normalizeNodeGraphModuleWidthUnits(type, opts.widthGu)",
+scripts\smoke_test.py:8586:        "patch.nodes.push(createNodeGraphPatchNode(type",
+scripts\smoke_test.py:8602:        "nodeScriptGridWidthPxValue",
+scripts\smoke_test.py:8613:        "Math.floor(maxWidthPx / Math.max(1, nodeGraphGridWidth()))",
+scripts\smoke_test.py:8614:        "Math.max(limits.minWidthGu, Math.floor(maxWidthPx / Math.max(1, nodeGraphGridWidth())))",
+scripts\smoke_test.py:8615:        "Math.max(limits.minWidthGu, Math.min(maxSize.widthGu",
+scripts\smoke_test.py:8622:        "minWidthGu: 4",
+scripts\smoke_test.py:8624:        "const visibleView = view.widthGu > 0 && view.heightGu > 0",
+scripts\smoke_test.py:8640:        "const visibleSize = clampNodeGraphWorkspaceGridSizeToViewport({ widthGu, heightGu }, workspace)",
+scripts\smoke_test.py:8643:        "const requestedWidthGu",
+scripts\smoke_test.py:8645:        "const { widthGu, heightGu } = clampNodeGraphWorkspaceGridSizeToViewport({",
+scripts\smoke_test.py:8647:        "const resizeGridWidth = nodeGraphGridWidth()",
+scripts\smoke_test.py:8649:        "nodeGraphWorkspaceResizeSteps.widthGu",
+scripts\smoke_test.py:8687:        "snapPan(unsnappedPan.x, nodeGraphGridWidth())",
+scripts\smoke_test.py:8705:        "snapNodeGraphPanValueToGrid(nextX, nodeGraphGridWidth(), nodeGraphZoom(), { halfGrid: true })",
+scripts\smoke_test.py:8732:        "view.widthGu must be 0 or at least",
+scripts\smoke_test.py:9008:        "function createNodeParameterModulationPort(node, type, parameter)",
+scripts\smoke_test.py:9009:        "function createNodeParameterOutputPort(node, type, parameter)",
+scripts\smoke_test.py:9010:        "function createNodeGraphIoColumn(node, type, ports, io)",
+scripts\smoke_test.py:9034:        "function createNodeGraphModuleElement(type, node)",
+scripts\smoke_test.py:9035:        "function createNodeGraphTextBoxBody(node)",
+scripts\smoke_test.py:9120:        "function nodeGraphModuleGridWidthUnits(type)",
+scripts\smoke_test.py:9121:        "const nodeGraphModuleWidthLimits",
+scripts\smoke_test.py:9123:        "function normalizeNodeGraphModuleWidthUnits(type, widthGu)",
+scripts\smoke_test.py:9128:        "function nodeGraphPatchNodeGridWidthUnits(node)",
+scripts\smoke_test.py:9171:        "function createNodeGraphSliderWidgetBody(node, type)",
+scripts\smoke_test.py:9200:        "adjustNodeGraphModuleWidthFromContext",
+scripts\smoke_test.py:9209:        "--node-grid-width-units",
+scripts\smoke_test.py:9251:        "function createNodeGraphParameterSmoother(initialValue",
+scripts\smoke_test.py:9459:        "nodeGraphUnifiedWindowDefaultSize.width",
+scripts\smoke_test.py:9526:        "function createNodeGraphEarProtector(sampleRate = nodeGraphMvp.sampleRate",
+scripts\smoke_test.py:9690:        "function createNodeGraphPatchCommandState()",
+scripts\smoke_test.py:9786:        "createNodeGraphModuleDepartmentButton(department, departmentEntries)",
+scripts\smoke_test.py:10212:        "function createNodeGraphLorenzAttractorState()",
+scripts\smoke_test.py:10221:        "function createNodeGraphLowpassState()",
+scripts\smoke_test.py:10222:        "function createNodeGraphOscResetState()",
+scripts\smoke_test.py:10223:        "function createNodeGraphThumpEnvelopeState()",
+scripts\smoke_test.py:10224:        "function createNodeGraphClockState()",
+scripts\smoke_test.py:10225:        "function createNodeGraphDelayedTriggerState()",
+scripts\smoke_test.py:10226:        "function createNodeGraphSampleHoldState()",
+scripts\smoke_test.py:10227:        "function createNodeGraphStepSequencerState()",
+scripts\smoke_test.py:10228:        "function createNodeGraphTriggerCounterState()",
+scripts\smoke_test.py:10229:        "function createNodeGraphTriggerDividerState()",
+scripts\smoke_test.py:10230:        "function createNodeGraphExpAdsrState()",
+scripts\smoke_test.py:10231:        "function createNodeGraphLinearEnvelopeState()",
+scripts\smoke_test.py:10232:        "function createNodeGraphPluckEnvelopeState()",
+scripts\smoke_test.py:10233:        "function createNodeGraphFlowerChildEnvelopeFollowerState()",
+scripts\smoke_test.py:10234:        "function createNodeGraphNoiseGeneratorState()",
+scripts\smoke_test.py:10235:        "function createNodeGraphRandomWalkState()",
+scripts\smoke_test.py:10236:        "function createNodeGraphFractalBrownianNoiseState()",
+scripts\smoke_test.py:10271:        "function createNodeGraphRandomClockState()",
+scripts\smoke_test.py:10383:        "function createNodeGraphVisualControlState()",
+scripts\smoke_test.py:10385:        "const visualControlState = createNodeGraphVisualControlState()",
+scripts\smoke_test.py:10400:        "const earProtector = createNodeGraphEarProtector(engineSampleRate)",
+scripts\smoke_test.py:10486:        'createNodeGraphHeaderRenderRangeInput("node-header-render-start-input", "Start"',
+scripts\smoke_test.py:10487:        'createNodeGraphHeaderRenderRangeInput("node-header-render-end-input", "End"',
+scripts\smoke_test.py:10500:        "function createNodeGraphLiveRuntime(plan)",
+scripts\smoke_test.py:10525:        "function createNodeGraphOscResetState()",
+scripts\smoke_test.py:10815:        "createScriptProcessor(nodeGraphAudioBlockSize, 2, 2)",
+scripts\smoke_test.py:10899:        "function createNodeGraphHeaderTimingWidgets()",
+scripts\smoke_test.py:10900:        "function createNodeGraphHeaderSpeedPlaceholder()",
+scripts\smoke_test.py:10942:        "function createNodeGraphLiveWorkletNode(context, plan = null)",
+scripts\smoke_test.py:10947:        "function createNodeGraphLiveScriptProcessorNode(context, plan)",
+scripts\smoke_test.py:11041:        "function createNodeGraphSettingsRangeRow(",
+scripts\smoke_test.py:11044:        "function createNodeGraphIoProxySection(node",
+scripts\smoke_test.py:11095:        "const distance = Math.max(nodeGraphGridWidth(), nodeGraphGridHeight()) * 0.75",
+scripts\smoke_test.py:11107:        "function createGradient(svg, id, from, to, stopClass = \"node-wire-gradient-stop\", colors = null)",
+scripts\smoke_test.py:11470:        "createNodeUserUiSettingsModuleSlidersControl",
+scripts\smoke_test.py:11477:        "function createNodeUserUiSettingsSliderLayoutControl()",
+scripts\smoke_test.py:11629:        "createNodeGraphGraphLfoState()",
+scripts\smoke_test.py:11799:        "function createNodeGraphUtilityCameraForElement(id, element, options = {})",
+scripts\smoke_test.py:11816:        "createNodeGraphUtilityCameraForElement(nodeGraphShaderScriptUtilityCameraId(node?.id)",
+scripts\smoke_test.py:11937:        "function createNodeGraphCanvasBody(nodeId)",
+scripts\smoke_test.py:11967:        "const canvasBody = createNodeGraphCanvasBody(node)",
+scripts\smoke_test.py:11997:        "function createNodeGraphShaderProgram(gl, fragmentSource)",
+scripts\smoke_test.py:12334:        "function nodeGraphModuleScopeRenderedSampleWidth(rect, zoomScale = nodeGraphModuleScopeZoomScale())",
+scripts\smoke_test.py:12463:        "const sampleWidth = nodeGraphModuleScopeRenderedSampleWidth(metricRect)",
+scripts\smoke_test.py:12493:        "sampleWidth: nodeGraphModuleScopeUnzoomedLength(drawRect.width, zoomScale)",
+scripts\smoke_test.py:12509:        "function createNodeGraphModuleScopeWebGlRenderer(canvas)",
+scripts\smoke_test.py:12645:        "function createNodeGraphModuleScopeSection(node, type)",
+scripts\smoke_test.py:12651:        "if (!patchNodeUi.oscilloscopeHidden) {\n      article.append(createNodeGraphFilterCurveDisplay(node, type));\n    }",
+scripts\smoke_test.py:12653:        "createNodeGraphFilterCurveDisplay(node, type)",
+scripts\smoke_test.py:12832:        'createNodeGraphPatchNode("output", { id: "output"',
+scripts\smoke_test.py:12842:        "widthGu" not in default_output_source
+scripts\smoke_test.py:12844:        and "widthGu" not in default_output_node
+scripts\smoke_test.py:12940:        and "Object.hasOwn(parameter, \"spawnValue\")" in script_sources["./public/node-graph-parameter-metadata.js"]
+scripts\smoke_test.py:13016:        "nodeGraphUnifiedWindowDefaultSize.width" in module_store_source
+scripts\smoke_test.py:13018:        "Module Browser fresh default width should follow unified seat (380px)",
+scripts\smoke_test.py:14019:    require("this.transportStates.get(nodeId) || this.createTransportState()" in worklet_source, "AudioWorklet Transport should keep persistent per-node state instead of recomputing phase from the per-callback frame index")
+scripts\smoke_test.py:14041:        and "createNodeGraphSabrinaReverbState()" in node_graph_source
+scripts\smoke_test.py:14064:    require("function createNodeGraphCommandCenterTimingWidgets" in header_rendering_source, "Command Center timing widgets should reuse header timing inputs")
+scripts\smoke_test.py:14074:        "function createNodeGraphModuleStorePreview(entry)",
+scripts\smoke_test.py:14099:        "function createNodeGraphModuleHomeBody",
+scripts\smoke_test.py:14100:        "function createNodeGraphModuleShopBody",
+scripts\smoke_test.py:14535:        node_graph_source.index("function createNodeGraphVisualInputBuffer"):
+scripts\smoke_test.py:14786:        "function createNodeGraphLedFace(node, type)",
+scripts\smoke_test.py:14788:        "face.append(createNodeGraphPort(node, type, \"In\", \"input\"))",
+scripts\smoke_test.py:14823:        "width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2))",
+scripts\smoke_test.py:14944:    fps_header_end = header_scope_source.index("createNodeGraphHeaderSpeedPlaceholder()", fps_header_start)
+scripts\smoke_test.py:14977:    timing_input_start = header_scope_source.index("function createNodeGraphHeaderTimingInput")
+scripts\smoke_test.py:14978:    timing_input_end = header_scope_source.index("function createNodeGraphTapTempoButton", timing_input_start)
+scripts\smoke_test.py:15032:        "actionRow.append(createNodeGraphHeaderTimingWidgets())" not in node_graph_source,
+scripts\smoke_test.py:15338:                'const hasCustomWidth = sizingCapabilities.width && Object.hasOwn(node, "widthGu");',
+scripts\smoke_test.py:15393:        "module sizing capabilities should declare width, module height, display height, and keyboard height support",
+scripts\smoke_test.py:15421:        "module width, module height, display height, and Text Box height should share the 60 GU ceiling",
+scripts\smoke_test.py:15444:        and "function resizeNodeGraphWidthAdjustableModuleOnGrid(patchNode, delta)" in keyboard_shortcuts_source
+scripts\smoke_test.py:15466:        "drag.startWidthGu + Math.round((event.clientX - drag.startClientX) / resizeGridWidth) * 2" not in workspace_view_source
+scripts\smoke_test.py:15674:        and "function createNodeGraphHeaderAudioInput(key, label, options = {})" in header_scope_source
+scripts\smoke_test.py:15676:        and 'createNodeGraphHeaderAudioInput("pitchReferenceHz", "Freq Ref", {' in header_scope_source
+scripts\smoke_test.py:16171:        "--node-grid-width: 28px",
+scripts\smoke_test.py:16183:        "min-width: calc(var(--node-grid-width) * 4)",
+scripts\smoke_test.py:16253:        "calc(var(--node-grid-width) * var(--node-graph-zoom))",
+scripts\smoke_test.py:16298:        "--node-grid-width-units",
+scripts\smoke_test.py:16302:        "var(--node-module-shop-min-width, var(--node-unified-window-min-width, 24px))",
+scripts\smoke_test.py:16303:        "var(--node-module-shop-width, var(--node-unified-window-default-width, 380px))",
+scripts\smoke_test.py:16304:        "var(--node-module-shop-max-width, var(--node-unified-window-max-width, 980px))",
+scripts\smoke_test.py:16490:        "minmax(0, min(50%, calc(var(--node-grid-width) * 2)))",
+scripts\smoke_test.py:16566:        "grid-template-columns: var(--node-port-column-width) minmax(0, 1fr) var(--node-port-column-width)",
+scripts\smoke_test.py:16861:        "width: min(var(--node-scene-context-width, var(--node-unified-window-default-width, 380px)), calc(100vw - 4px))",
+scripts\smoke_test.py:16866:        "var(--node-module-actions-min-width, var(--node-unified-window-min-width, 24px))",
+scripts\smoke_test.py:16867:        "var(--node-module-actions-width, var(--node-unified-window-default-width, 380px))",
+scripts\smoke_test.py:16868:        "var(--node-module-actions-max-width, var(--node-unified-window-max-width, 980px))",
+scripts\smoke_test.py:16870:        "min-width: var(--node-module-actions-min-width, var(--node-unified-window-min-width, 24px))",
+scripts\smoke_test.py:16871:        "max-width: min(var(--node-module-actions-max-width, var(--node-unified-window-max-width, 980px)), calc(100vw - 4px))",
+scripts\smoke_test.py:16971:        "var(--metadata-popover-width, var(--node-unified-window-default-width, 380px))",
+scripts\smoke_test.py:17157:        "Never adopt a click-spawned rect as the seat" in script_sources["./public/node-graph-unified-window.js"]
+native_modules\logistic_map\logistic_map-live-evaluator.js:5:  const state = runtime.logisticMapStates.get(nodeId) || createNodeGraphLogisticMapState();
+public\node-graph-bradley-2a.js:37:function createNodeGraphBradley2AState() {
+public\node-graph-henon-map.js:21:function createNodeGraphHenonMapState() {
+public\node-graph-henon-map.js:39:  const state = options.state || createNodeGraphHenonMapState();
+public\node-graph-code-screen.js:596:    // spawns a real node per planned module (showNodeGraphModule assigns
+public\node-graph-antisaw.js:35:function createNodeGraphAntisawState() {
+public\node-graph-grid-utils.js:5:function nodeGraphGridWidth() {
+public\node-graph-grid-utils.js:6:  return normalizeNodeGraphPatchGrid(nodeGraphMvp.patch?.grid).widthPx;
+public\node-graph-grid-utils.js:51:    : { minWidthGu: 1, minHeightGu: 1 };
+public\node-graph-grid-utils.js:56:    widthGu: Math.max(limits.minWidthGu, Math.floor(maxWidthPx / Math.max(1, nodeGraphGridWidth()))),
+public\node-graph-grid-utils.js:64:    : { minWidthGu: 1, minHeightGu: 1 };
+public\node-graph-grid-utils.js:67:    widthGu: Math.max(limits.minWidthGu, Math.min(maxSize.widthGu, Math.round(nodeGraphFiniteNumber(size.widthGu)))),
+public\node-graph-grid-utils.js:105:    x: point.gx * nodeGraphGridWidth() + offset,
+public\node-graph-grid-utils.js:122:    gx: roundNodeGraphGridCoordinate((point.x - offset) / nodeGraphGridWidth(), options),
+public\node-graph-code-screen-render.js:103:function createNodeGraphCodeScreenButton(section) {
+public\node-graph-code-screen-render.js:125:  list.replaceChildren(...nodeGraphCodeScreenSections.map(createNodeGraphCodeScreenButton));
+native_modules\combined\obj\exports.rsp:180:--export=soemdsp_fbm_field_grid_width
+native_modules\combined\obj\exports.rsp:182:--export=soemdsp_fbm_field_grid_max_width
+public\node-graph-graph-utils.js:1029:function createNodeGraphGraphSvgElement(name, attributes = {}) {
+public\node-graph-graph-utils.js:1233:  const svg = createNodeGraphGraphSvgElement("svg", {
+public\node-graph-graph-utils.js:1242:    const stepGroup = createNodeGraphGraphSvgElement("g", {
+public\node-graph-graph-utils.js:1248:      stepGroup.append(createNodeGraphGraphSvgElement("line", {
+public\node-graph-graph-utils.js:1258:  svg.append(createNodeGraphGraphSvgElement("line", {
+public\node-graph-graph-utils.js:1265:  svg.append(createNodeGraphGraphSvgElement("line", {
+public\node-graph-graph-utils.js:1273:  svg.append(createNodeGraphGraphSvgElement("line", {
+public\node-graph-graph-utils.js:1285:  svg.append(createNodeGraphGraphSvgElement("line", {
+public\node-graph-graph-utils.js:1294:  svg.append(createNodeGraphGraphSvgElement("path", {
+public\node-graph-graph-utils.js:1298:  svg.append(createNodeGraphGraphSvgElement("path", {
+public\node-graph-graph-utils.js:1314:      svg.append(createNodeGraphGraphSvgElement("ellipse", {
+public\node-graph-graph-utils.js:1326:    svg.append(createNodeGraphGraphSvgElement("ellipse", {
+public\node-graph-graph-utils.js:1334:    svg.append(createNodeGraphGraphSvgElement("ellipse", {
+public\node-graph-graph-utils.js:1638:// handler. applyNodeGraphPatchToDom() can remove+recreate a node's whole DOM
+public\node-graph-code-screen-lookup.js:40:function createNodeGraphCodeScreenLookupResult(item) {
+public\node-graph-code-screen-lookup.js:93:function createNodeGraphCodeScreenLookupHeading(label, detail = "") {
+public\node-graph-code-screen-lookup.js:168:      results.append(createNodeGraphCodeScreenLookupHeading("Recent Helpers", "Helpers you inserted in this Code Screen session."));
+public\node-graph-code-screen-lookup.js:170:        results.append(createNodeGraphCodeScreenLookupResult(item));
+public\node-graph-code-screen-lookup.js:178:      results.append(createNodeGraphCodeScreenLookupHeading(shelfLabel, shelfDetail));
+public\node-graph-code-screen-lookup.js:181:      results.append(createNodeGraphCodeScreenLookupResult(item));
+public\node-graph-code-screen-lookup.js:186:    results.append(createNodeGraphCodeScreenLookupHeading("No Matches", "Try a namespace like ui. or save selected editor code as a snippet."));
+public\node-graph-code-screen-lookup.js:192:    results.append(createNodeGraphCodeScreenLookupHeading("Helpers", `${helperItems.length} matches`));
+public\node-graph-code-screen-lookup.js:194:      results.append(createNodeGraphCodeScreenLookupResult(item));
+public\node-graph-code-screen-lookup.js:198:    results.append(createNodeGraphCodeScreenLookupHeading("Snippets", `${snippetItems.length} saved matches`));
+public\node-graph-code-screen-lookup.js:200:      results.append(createNodeGraphCodeScreenLookupResult(item));
+public\index.html:1281:            <span>patch grid unit width (px / gu)</span>
+public\index.html:1284:                id="nodeUiDevPatchGridWidthPx"
+public\index.html:1291:              <output id="nodeUiDevPatchGridWidthPxValue" for="nodeUiDevPatchGridWidthPx">28px</output>
+public\index.html:2179:          <button id="nodeSceneWidthDecrease" type="button" aria-label="Decrease module width">-</button>
+public\index.html:2180:          <button id="nodeSceneWidthIncrease" type="button" aria-label="Increase module width">+</button>
+public\index.html:2879:          <button id="nodeDownloadSampleButton" type="button" draggable="true" title="Download rendered sample. Drag onto the modular area to spawn a stereo Sample Player." aria-label="Download rendered sample"><span class="node-modular-view-icon" aria-hidden="true">Γ¼ç∩╕Å</span></button>
+public\node-graph-floating-windows.js:56: * pixel ceiling. Optional defaults.maxWidth/maxHeight only apply when smaller
+public\node-graph-floating-windows.js:61:  const minWidth = Math.max(1, nodeGraphFiniteNumber(defaults.minWidth, 160));
+public\node-graph-floating-windows.js:63:  const configuredMaxWidth = Number(defaults.maxWidth);
+public\node-graph-floating-windows.js:77:    Math.min(maxWidth, nodeGraphFiniteNumber(source.width, nodeGraphFiniteNumber(defaults.width, minWidth))),
+public\node-graph-floating-windows.js:112:  const minWidth = Math.max(1, nodeGraphFiniteNumber(defaults.minWidth, 96));
+public\node-graph-floating-windows.js:138:    : defaults.maxWidth;
+public\node-graph-floating-windows.js:143:    ["min-width", defaults.minWidth],
+public\node-graph-floating-windows.js:264:      defaults: typeof nodeSceneContextWindowDefaultSize !== "undefined" ? nodeSceneContextWindowDefaultSize : { minWidth: 24, minHeight: 160 },
+public\node-graph-floating-windows.js:269:      defaults: typeof nodeModuleActionsWindowDefaultSize !== "undefined" ? nodeModuleActionsWindowDefaultSize : { minWidth: 24, minHeight: 120 },
+public\node-graph-floating-windows.js:274:      defaults: typeof nodeGraphModuleShopWindowDefaultSize !== "undefined" ? nodeGraphModuleShopWindowDefaultSize : { minWidth: 96, minHeight: 120 },
+public\node-graph-floating-windows.js:279:      defaults: { minWidth: 140, minHeight: 220 },
+public\node-graph-floating-windows.js:286:      defaults: { minWidth: 140, minHeight: 120 },
+public\node-graph-chua-attractor.js:22:function createNodeGraphChuaAttractorState() {
+public\node-graph-chua-attractor.js:40:  const state = options.state || createNodeGraphChuaAttractorState();
+public\node-graph-fbm-field.js:81:function createNodeGraphFbmFieldState() {
+public\node-graph-fbm-field.js:99:  const state = options.state || createNodeGraphFbmFieldState();
+public\node-graph-fbm-field.js:152:  const maxW = wasm.soemdsp_fbm_field_grid_max_width?.() || 256;
+public\node-graph-fbm-field.js:175:  const gw = wasm.soemdsp_fbm_field_grid_width();
+public\modules\activeFilter\active-filter-math.js:160:    if (!state.hp) state.hp = createNodeGraphActiveFilterState();
+public\modules\activeFilter\active-filter-math.js:161:    if (!state.lp) state.lp = createNodeGraphActiveFilterState();
+public\modules\activeFilter\active-filter-math.js:182:function createNodeGraphActiveFilterState() {
+public\modules\activeFilter\active-filter-math.js:186:function createNodeGraphStereoActiveFilterState() {
+public\modules\activeFilter\active-filter-math.js:188:    left: createNodeGraphActiveFilterState(),
+public\modules\activeFilter\active-filter-math.js:189:    mono: createNodeGraphActiveFilterState(),
+public\modules\activeFilter\active-filter-math.js:190:    right: createNodeGraphActiveFilterState(),
+public\node-graph-chord-sequencer.js:23:function createNodeGraphChordSequencerState() {
+public\node-graph-external-ui-events.js:123:    const gridWidth = typeof nodeGraphGridWidth === "function" ? nodeGraphGridWidth() : 20;
+public\node-graph-external-ui-events.js:127:      x != null ? -x * gridWidth * safeZoom : currentPan.x,
+public\modules\additiveBlaster\additive-blaster-display.js:5:function createNodeGraphAdditiveBlasterDisplay(nodeId, type = "additiveBlaster") {
+public\modules\additiveGenerator\additive-waveform-display.js:4:function createNodeGraphAdditiveWaveformDisplay(nodeId, type = "additiveGenerator") {
+public\node-graph-chord-memory.js:1:function createNodeGraphChordMemoryState() {
+public\node-graph-camera-view.js:29:    : typeof nodeGraphGridWidth === "function"
+public\node-graph-camera-view.js:30:      ? nodeGraphGridWidth()
+public\node-graph-camera-view.js:314:function createNodeGraphCameraWorldClone(source, wireSvg) {
+public\node-graph-camera-view.js:380:  const clone = createNodeGraphCameraWorldClone(workspace, wireSvg);
+public\node-graph-camera-view.js:415:function createNodeGraphUtilityCameraForElement(id, element, options = {}) {
+public\modules\attackDecay\attack-decay-math.js:16:function createNodeGraphAttackDecayState() {
+public\modules\attackDecay\attack-decay-math.js:29: * @param {ReturnType<typeof createNodeGraphAttackDecayState>} state
+public\modules\attackDecay\attack-decay-math.js:172:  const state = createNodeGraphAttackDecayState();
+public\modules\attackDecay\attack-decay-display.js:5:function createNodeGraphEnvelopeCurveDisplay(nodeId, type) {
+public\node-graph-default-patch.js:31:function createNodeGraphPatchNode(type, options = {}) {
+public\node-graph-default-patch.js:130:  if (Object.hasOwn(opts, "widthGu")) {
+public\node-graph-default-patch.js:131:    node.widthGu = normalizeNodeGraphModuleWidthUnits(resolvedType, opts.widthGu);
+public\node-graph-default-patch.js:132:  } else if (typeof nodeGraphDefaultModuleGridWidthUnits === "function") {
+public\node-graph-default-patch.js:134:    node.widthGu = nodeGraphDefaultModuleGridWidthUnits(resolvedType);
+public\node-graph-default-patch.js:136:    const defW = Number(nodeGraphModuleDefinitions[resolvedType]?.defaultWidthGu);
+public\node-graph-default-patch.js:138:      node.widthGu = normalizeNodeGraphModuleWidthUnits(resolvedType, defW);
+public\node-graph-default-patch.js:233:    ...createNodeGraphPatchNode("output", { id: "output", gx: 5, gy: -9 }),
+public\node-graph-default-patch.js:237:    ...createNodeGraphPatchNode("polyBlep", { id: "polyBlep-1", gx: -2, gy: -9 }),
+public\node-graph-default-patch.js:307:  view: { widthGu: 48, heightGu: 24, zoom: 1 },
+public\modules\badvalMonitor\badval-monitor-ui.js:68:function createNodeGraphBadvalMonitorBody(node) {
+public\modules\audioPlayer\audio-player-playlist.js:961:function nodeGraphAudioPlayerPlaylistCreateTransport(nodeId) {
+public\modules\audioPlayer\audio-player-playlist.js:1168:      page.append(nodeGraphAudioPlayerPlaylistCreateNowSong(section.dataset?.node || ""));
+public\modules\audioPlayer\audio-player-playlist.js:1181:  page.append(nodeGraphAudioPlayerPlaylistCreateNowSong(section.dataset?.node || ""));
+public\modules\audioPlayer\audio-player-playlist.js:1206:function nodeGraphAudioPlayerPlaylistCreateNowSong(nodeId) {
+public\modules\audioPlayer\audio-player-playlist.js:1308:    transport = nodeGraphAudioPlayerPlaylistCreateTransport(nodeId);
+public\modules\audioPlayer\audio-player-playlist.js:1376:        plPage.append(nodeGraphAudioPlayerPlaylistCreateTransport(nodeId));
+public\modules\audioPlayer\audio-player-playlist.js:2714:  waveplayPage.append(nodeGraphAudioPlayerPlaylistCreateNowSong(nodeId));
+public\modules\audioPlayer\audio-player-playlist.js:2716:  plPage.append(nodeGraphAudioPlayerPlaylistCreateTransport(nodeId));
+public\modules\audioPlayer\audio-player-playlist.js:2843:      : nodeGraphSampleWaveformDefaultSettings.traceWidth;
+public\modules\audioPlayer\audio-player-playlist.js:2898:        : nodeGraphSampleWaveformDefaultSettings.traceWidth;
+public\node-graph-ear-protection.js:5:function createNodeGraphEarProtector(sampleRate = nodeGraphMvp?.sampleRate, options = {}) {
+public\node-graph-ear-protection.js:7:  const state = typeof createNodeGraphSpeakerProtector2State === "function"
+public\node-graph-ear-protection.js:8:    ? createNodeGraphSpeakerProtector2State(rate)
+public\node-graph-dsf-oscillator.js:24:function createNodeGraphDsfOscillatorState() {
+public\modules\basicShape\basic-shape-display.js:4:function createNodeGraphBasicShapeDisplay(nodeId, type = "basicShape") {
+public\node-graph-cookbook-filter.js:18:function createNodeGraphCookbookFilterState() {
+public\node-graph-cookbook-filter.js:989:function createNodeGraphFilterCurveDisplay(nodeId, type) {
+public\node-graph-cookbook-filter.js:1353:    context.lineWidth = strokeGrid;
+public\modules\chaosfly\chaosfly-math.js:44:function createNodeGraphChaosflyState() {
+public\modules\chaosfly\chaosfly-math.js:119:  const s = state && typeof state === "object" ? state : createNodeGraphChaosflyState();
+public\node-graph-lut-cell.js:11:function createNodeGraphLutCellState() {
+public\modules\chordPad\chord-pad-ui.js:3:function createNodeGraphChordPadFace(nodeId) {
+public\modules\chordPad\chord-pad-ui.js:28:  keyField.append(document.createTextNode("Key"));
+public\modules\chordPad\chord-pad-ui.js:51:  modeField.append(document.createTextNode("Mode"));
+public\modules\cheapWalk\cheap-walk-math.js:6:function createNodeGraphCheapWalkLane(seed = 1) {
+public\modules\cheapWalk\cheap-walk-math.js:13:function createNodeGraphCheapWalkState(seed = 1) {
+public\modules\cheapWalk\cheap-walk-math.js:18:    left: createNodeGraphCheapWalkLane(s),
+public\modules\cheapWalk\cheap-walk-math.js:19:    right: createNodeGraphCheapWalkLane(rightSeed),
+public\modules\cheapWalk\cheap-walk-math.js:41:    const base = createNodeGraphCheapWalkState(seedParam);
+public\node-graph-lorenz-attractor.js:22:function createNodeGraphLorenzAttractorState() {
+public\node-graph-lorenz-attractor.js:40:  const state = options.state || createNodeGraphLorenzAttractorState();
+public\modules\asciiscope\asciiscope-ui.js:4:function matrixCreateFaceShell(node, options = {}) {
+public\modules\asciiscope\asciiscope-ui.js:64:function createNodeGraphMatrixWaterfallFace(node) {
+public\modules\asciiscope\asciiscope-ui.js:65:  return matrixCreateFaceShell(node, {
+public\modules\asciiscope\asciiscope-ui.js:73:function createNodeGraphMatrixPlateFace(node) {
+public\modules\asciiscope\asciiscope-ui.js:74:  return matrixCreateFaceShell(node, {
+public\modules\asciiscope\asciiscope-ui.js:82:function createNodeGraphAsciiscopeFace(node) {
+public\modules\asciiscope\asciiscope-ui.js:85:    return createNodeGraphMatrixWaterfallFace(node);
+public\modules\asciiscope\asciiscope-ui.js:87:  return createNodeGraphMatrixPlateFace(node);
+public\modules\bugButton\bug-button-ui.js:40:function createNodeGraphBugButtonFace(node, type) {
+public\modules\bugButton\bug-button-ui.js:131:  createBody: createNodeGraphBugButtonFace,
+public\node-graph-context-menu.js:46:  width: nodeGraphUnifiedWindowDefaultSize.width,
+public\node-graph-context-menu.js:50:  minWidth: nodeGraphUnifiedWindowDefaultSize.minWidth,
+public\node-graph-context-menu.js:51:  maxWidth: nodeGraphUnifiedWindowDefaultSize.maxWidth,
+public\node-graph-context-menu.js:56:  width: nodeGraphUnifiedWindowDefaultSize.width,
+public\node-graph-context-menu.js:58:  minWidth: nodeGraphUnifiedWindowDefaultSize.minWidth,
+public\node-graph-context-menu.js:59:  maxWidth: nodeGraphUnifiedWindowDefaultSize.maxWidth,
+public\node-graph-context-menu.js:199:    menu.style.setProperty("--node-module-actions-max-width", `${normalized._maxWidth}px`);
+public\node-graph-context-menu.js:1276:  const widthGu = targetNode ? nodeGraphPatchNodeGridWidthUnits(targetNode) : 0;
+public\node-graph-context-menu.js:1278:    ? nodeGraphModuleWidthLimitsForType(targetNode.type)
+public\node-graph-context-menu.js:1279:    : nodeGraphModuleWidthLimits;
+public\node-graph-context-menu.js:1408:    nodeGraphModuleSizingCapabilities(node.type).width,
+public\node-graph-context-menu.js:1564:    resetNodeGraphModuleSettingsSizeRow(widthControls, widthDecrease, widthIncrease, widthValue);
+public\node-graph-context-menu.js:1742:        .filter((node) => nodeGraphModuleSizingCapabilities(node.type).width)
+public\node-graph-context-menu.js:1743:        .map((node) => nodeGraphPatchNodeGridWidthUnits(node))
+public\node-graph-context-menu.js:1748:      if (!nodeGraphModuleSizingCapabilities(node.type).width) {
+public\node-graph-context-menu.js:1751:      const current = nodeGraphPatchNodeGridWidthUnits(node);
+public\node-graph-context-menu.js:1752:      const limits = nodeGraphModuleWidthLimitsForType(node.type);
+public\node-graph-context-menu.js:1756:      if (!nodeGraphModuleSizingCapabilities(node.type).width) {
+public\node-graph-context-menu.js:1759:      const current = nodeGraphPatchNodeGridWidthUnits(node);
+public\node-graph-context-menu.js:1760:      const limits = nodeGraphModuleWidthLimitsForType(node.type);
+public\node-graph-context-menu.js:1768:      hidden: !moduleMode || (multiModuleMode && !multiCanWidth),
+public\node-graph-context-menu.js:1771:        : `${widthGu} gu`,
+public\node-graph-context-menu.js:1774:        : !targetNode || !targetSupportsWidth || widthGu <= widthLimits.minGu,
+public\node-graph-context-menu.js:1777:        : !targetNode || !targetSupportsWidth || widthGu >= widthLimits.maxGu,
+public\node-graph-context-menu.js:2328:    resetNodeGraphModuleSettingsSizeRow(widthControls, widthDecrease, widthIncrease, widthValue);
+public\node-graph-context-menu.js:2399:    resetNodeGraphModuleSettingsSizeRow(widthControls, widthDecrease, widthIncrease, widthValue);
+public\node-graph-logistic-map.js:22:function createNodeGraphLogisticMapState() {
+public\node-graph-logistic-map.js:40:  const state = options.state || createNodeGraphLogisticMapState();
+public\modules\bugButton\bug-button-register.js:31:    defaultWidthGu: 4,
+public\node-graph-jerobeam-wirdo-spiral.js:1:function createNodeGraphWirdoSpiralState() {
+public\node-graph-jerobeam-wirdo-spiral.js:19:  const state = options.state || createNodeGraphWirdoSpiralState();
+public\node-graph-jerobeam-torus.js:1:function createNodeGraphTorusState() {
+public\node-graph-jerobeam-torus.js:58:  const state = options.state || createNodeGraphTorusState();
+public\modules\bode\bode-math.js:36:function createNodeGraphBodeState() {
+public\node-graph-jerobeam-radar.js:1:function createNodeGraphRadarState() {
+public\node-graph-jerobeam-radar.js:125:  const state = options.state || createNodeGraphRadarState();
+public\modules\asciiscope\asciiscope-display.js:1205:    params.spawn = Math.max(0, nodeGraphFiniteNumber(matrixReadPortLast(nodeId, "Spawn")));
+public\modules\curveAttackRelease\curve-attack-release-math.js:4:function createNodeGraphCurveAttackReleaseState() {
+public\modules\curveOsc\curve-osc-math.js:10:function createNodeGraphCurveOscState() {
+public\modules\curveOsc\curve-osc-math.js:159:  const st = state || createNodeGraphCurveOscState();
+public\modules\curveOsc\curve-osc-math.js:194:  globalThis.createNodeGraphCurveOscState = createNodeGraphCurveOscState;
+public\node-graph-jerobeam-nyquist-shannon.js:1:function createNodeGraphNyquistShannonState() {
+public\node-graph-jerobeam-nyquist-shannon.js:46:  const state = options.state || createNodeGraphNyquistShannonState();
+public\modules\ellipsoid\ellipsoid-display.js:5:function createNodeGraphRoundShapeDisplay(nodeId, type = "ellipsoid") {
+public\node-graph-jerobeam-mushroom.js:1:function createNodeGraphMushroomState() {
+public\node-graph-jerobeam-mushroom.js:19:  const state = options.state || createNodeGraphMushroomState();
+public\node-graph-live-runtime.js:2498:      nodeGraphMvp.live.runtime = createNodeGraphLiveRuntime(plan, nodeGraphMvp.live.runtime);
+public\node-graph-live-runtime.js:3287:async function createNodeGraphLiveWorkletNode(context, plan = null) {
+public\node-graph-live-runtime.js:3342:function createNodeGraphLiveScriptProcessorNode(_context, _plan) {
+public\node-graph-live-runtime.js:3581:      liveNode = await createNodeGraphLiveWorkletNode(context, plan);
+public\modules\codeBox\code-box-ui.js:233:function createNodeGraphCodeBoxFace(nodeId) {
+public\modules\comparator\comparator-math.js:3:function createNodeGraphComparatorState() {
+public\node-graph-jerobeam-kepler-bouwkamp.js:1:function createNodeGraphKeplerBouwkampState() {
+public\node-graph-jerobeam-kepler-bouwkamp.js:28:  const state = options.state || createNodeGraphKeplerBouwkampState();
+public\modules\chuaAttractor\chua-attractor-math.js:4:function createNodeGraphChuaAttractorJsState() {
+public\node-graph-jerobeam-boing.js:1:function createNodeGraphBoingState() {
+public\node-graph-jerobeam-boing.js:62:  const state = options.state || createNodeGraphBoingState();
+public\modules\clock\clock-math.js:3:function createNodeGraphClockState() {
+public\node-graph-live-plan-runtime.js:402:function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
+public\node-graph-live-plan-runtime.js:545:  const visualControlState = createNodeGraphVisualControlState();
+public\node-graph-live-plan-runtime.js:549:      oscResetStates.set(node.id, createNodeGraphOscResetState());
+public\node-graph-live-plan-runtime.js:565:      lorenzAttractorStates.set(node.id, createNodeGraphLorenzAttractorState());
+public\node-graph-live-plan-runtime.js:568:      logisticMapStates.set(node.id, createNodeGraphLogisticMapState());
+public\node-graph-live-plan-runtime.js:571:      henonMapStates.set(node.id, createNodeGraphHenonMapState());
+public\node-graph-live-plan-runtime.js:574:      rayBouncerStates.set(node.id, createNodeGraphRayBouncerState());
+public\node-graph-live-plan-runtime.js:577:      chuaAttractorStates.set(node.id, createNodeGraphChuaAttractorState());
+public\node-graph-live-plan-runtime.js:580:      wirdoSpiralStates.set(node.id, createNodeGraphWirdoSpiralState());
+public\node-graph-live-plan-runtime.js:583:      blubbStates.set(node.id, createNodeGraphBlubbState());
+public\node-graph-live-plan-runtime.js:586:      mushroomStates.set(node.id, createNodeGraphMushroomState());
+public\node-graph-live-plan-runtime.js:589:      boingStates.set(node.id, createNodeGraphBoingState());
+public\node-graph-live-plan-runtime.js:592:      torusStates.set(node.id, createNodeGraphTorusState());
+public\node-graph-live-plan-runtime.js:595:      keplerBouwkampStates.set(node.id, createNodeGraphKeplerBouwkampState());
+public\node-graph-live-plan-runtime.js:598:      nyquistShannonStates.set(node.id, createNodeGraphNyquistShannonState());
+public\node-graph-live-plan-runtime.js:601:      radarStates.set(node.id, createNodeGraphRadarState());
+public\node-graph-live-plan-runtime.js:604:      chordMemoryStates.set(node.id, createNodeGraphChordMemoryState());
+public\node-graph-live-plan-runtime.js:607:      turingMachineStates.set(node.id, createNodeGraphTuringMachineState());
+public\node-graph-live-plan-runtime.js:610:      pitchQuantizerStates.set(node.id, createNodeGraphPitchQuantizerState());
+public\node-graph-live-plan-runtime.js:613:      surgeOscillatorStates.set(node.id, createNodeGraphSurgeOscillatorState());
+public\node-graph-live-plan-runtime.js:616:      softwaveOscStates.set(node.id, createNodeGraphSoftwaveOscillatorState());
+public\node-graph-live-plan-runtime.js:618:    if (node.type === "curveOsc" && typeof createNodeGraphCurveOscState === "function") {
+public\node-graph-live-plan-runtime.js:619:      curveOscStates.set(node.id, createNodeGraphCurveOscState());
+public\node-graph-live-plan-runtime.js:621:    if (node.type === "snowflake" && typeof createNodeGraphSnowflakeState === "function") {
+public\node-graph-live-plan-runtime.js:622:      snowflakeStates.set(node.id, createNodeGraphSnowflakeState());
+public\node-graph-live-plan-runtime.js:624:    if (node.type === "textStream" && typeof createNodeGraphTextStreamState === "function") {
+public\node-graph-live-plan-runtime.js:625:      textStreamStates.set(node.id, createNodeGraphTextStreamState());
+public\node-graph-live-plan-runtime.js:627:    if (node.type === "degreeTuring" && typeof createNodeGraphDegreeTuringState === "function") {
+public\node-graph-live-plan-runtime.js:628:      degreeTuringStates.set(node.id, createNodeGraphDegreeTuringState());
+public\node-graph-live-plan-runtime.js:630:    if (node.type === "gravityWalker" && typeof createNodeGraphGravityWalkerState === "function") {
+public\node-graph-live-plan-runtime.js:631:      gravityWalkerStates.set(node.id, createNodeGraphGravityWalkerState());
+public\node-graph-live-plan-runtime.js:633:    if (node.type === "degreePhrase" && typeof createNodeGraphDegreePhraseState === "function") {
+public\node-graph-live-plan-runtime.js:634:      degreePhraseStates.set(node.id, createNodeGraphDegreePhraseState());
+public\node-graph-live-plan-runtime.js:636:    if (node.type === "noteGlide" && typeof createNodeGraphNoteGlideState === "function") {
+public\node-graph-live-plan-runtime.js:637:      noteGlideStates.set(node.id, createNodeGraphNoteGlideState());
+public\node-graph-live-plan-runtime.js:640:      dsfOscillatorStates.set(node.id, createNodeGraphDsfOscillatorState());
+public\node-graph-live-plan-runtime.js:643:      robinSupersawStates.set(node.id, createNodeGraphRobinSupersawState());
+public\node-graph-live-plan-runtime.js:646:      hypersaw2States.set(node.id, createNodeGraphHypersaw2State());
+public\node-graph-live-plan-runtime.js:649:      chordSequencerStates.set(node.id, createNodeGraphChordSequencerState());
+public\node-graph-live-plan-runtime.js:652:      lutCellStates.set(node.id, createNodeGraphLutCellState());
+public\node-graph-live-plan-runtime.js:655:      passiveFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphPassiveFilterState));
+public\node-graph-live-plan-runtime.js:658:      papoulisFilterStates.set(node.id, createNodeGraphPapoulisFilterState());
+public\node-graph-live-plan-runtime.js:661:      phosphillatorPlaybackStates.set(node.id, createNodeGraphPhosphillatorPlaybackState());
+public\node-graph-live-plan-runtime.js:664:      cookbookFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphCookbookFilterState));
+public\node-graph-live-plan-runtime.js:667:      ladderFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphLadderFilterState));
+public\node-graph-live-plan-runtime.js:670:      flowerChildFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphFlowerChildFilterState));
+public\node-graph-live-plan-runtime.js:675:        typeof createNodeGraphStereoActiveFilterState === "function"
+public\node-graph-live-plan-runtime.js:676:          ? createNodeGraphStereoActiveFilterState()
+public\node-graph-live-plan-runtime.js:677:          : createNodeGraphStereoFilterState(createNodeGraphActiveFilterState),
+public\node-graph-live-plan-runtime.js:682:      map.set(node.id, createNodeGraphStereoScientificIirState());
+public\node-graph-live-plan-runtime.js:687:        typeof createNodeGraphStereoEqFilterState === "function"
+public\node-graph-live-plan-runtime.js:688:          ? createNodeGraphStereoEqFilterState()
+public\node-graph-live-plan-runtime.js:689:          : createNodeGraphStereoFilterState(createNodeGraphEqFilterState),
+public\node-graph-live-plan-runtime.js:695:        typeof createNodeGraphStereoEqFilterState === "function"
+public\node-graph-live-plan-runtime.js:696:          ? createNodeGraphStereoEqFilterState()
+public\node-graph-live-plan-runtime.js:697:          : createNodeGraphStereoFilterState(createNodeGraphEqFilterState),
+public\node-graph-live-plan-runtime.js:703:        typeof createNodeGraphSoftpopOscillatorState === "function"
+public\node-graph-live-plan-runtime.js:704:          ? createNodeGraphSoftpopOscillatorState()
+public\node-graph-live-plan-runtime.js:711:        typeof createNodeGraphSinepulseState === "function"
+public\node-graph-live-plan-runtime.js:712:          ? createNodeGraphSinepulseState()
+public\node-graph-live-plan-runtime.js:717:      yellowjacketFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphYellowjacketFilterState));
+public\node-graph-live-plan-runtime.js:720:      superloveFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphSuperloveFilterState));
+public\node-graph-live-plan-runtime.js:723:      chaoticPhaseLockingFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphChaoticPhaseLockingFilterState));
+public\node-graph-live-plan-runtime.js:726:      resonatorFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphResonatorFilterState));
+public\node-graph-live-plan-runtime.js:729:      humanFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphHumanFilterState));
+public\node-graph-live-plan-runtime.js:732:      pulseExplosionStates.set(node.id, createNodeGraphPulseExplosionState());
+public\node-graph-live-plan-runtime.js:735:      comparatorStates.set(node.id, createNodeGraphComparatorState());
+public\node-graph-live-plan-runtime.js:737:    if (node.type === "noiseDetector" && typeof createNodeGraphNoiseDetectorState === "function") {
+public\node-graph-live-plan-runtime.js:738:      noiseDetectorStates.set(node.id, createNodeGraphNoiseDetectorState());
+public\node-graph-live-plan-runtime.js:742:      && typeof createNodeGraphRmsState === "function"
+public\node-graph-live-plan-runtime.js:744:      rmsStates.set(node.id, createNodeGraphRmsState());
+public\node-graph-live-plan-runtime.js:747:      speedColorInertiaStates.set(node.id, createNodeGraphSpeedColorInertiaState());
+public\node-graph-live-plan-runtime.js:750:      inertialFilterStates.set(node.id, createNodeGraphStereoInertialFilterState());
+public\node-graph-live-plan-runtime.js:752:    if (node.type === "softClipper" && typeof createNodeGraphSoftClipperState === "function") {
+public\node-graph-live-plan-runtime.js:753:      softClipperStates.set(node.id, createNodeGraphSoftClipperState());
+public\node-graph-live-plan-runtime.js:755:    if (node.type === "speakerProtector2" && typeof createNodeGraphSpeakerProtector2State === "function") {
+public\node-graph-live-plan-runtime.js:756:      speakerProtector2States.set(node.id, createNodeGraphSpeakerProtector2State());
+public\node-graph-live-plan-runtime.js:759:      tiltFilterStates.set(node.id, createNodeGraphStereoTiltFilterState());
+public\node-graph-live-plan-runtime.js:762:      eqFilterStates.set(node.id, createNodeGraphStereoEqFilterState());
+public\node-graph-live-plan-runtime.js:765:      sampleDelayStates.set(node.id, createNodeGraphSampleDelayState());
+public\node-graph-live-plan-runtime.js:768:      aliasSineStates.set(node.id, createNodeGraphAliasSineState());
+public\node-graph-live-plan-runtime.js:770:    if (node.type === "robinSinusoid" && typeof createNodeGraphRobinSinusoidState === "function") {
+public\node-graph-live-plan-runtime.js:771:      robinSinusoidStates.set(node.id, createNodeGraphRobinSinusoidState());
+public\node-graph-live-plan-runtime.js:773:    if (node.type === "phoneTone" && typeof createNodeGraphPhoneToneState === "function") {
+public\node-graph-live-plan-runtime.js:774:      phoneToneStates.set(node.id, createNodeGraphPhoneToneState());
+public\node-graph-live-plan-runtime.js:777:      tb303FilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphTb303FilterState));
+public\node-graph-live-plan-runtime.js:780:      clockStates.set(node.id, createNodeGraphClockState());
+public\node-graph-live-plan-runtime.js:783:      graphLfoStates.set(node.id, createNodeGraphGraphLfoState());
+public\node-graph-live-plan-runtime.js:786:      clockDividerStates.set(node.id, createNodeGraphTriggerDividerState());
+public\node-graph-live-plan-runtime.js:789:      delayedTriggerStates.set(node.id, createNodeGraphDelayedTriggerState());
+public\node-graph-live-plan-runtime.js:794:        typeof createNodeGraphStereoDelayEffectState === "function"
+public\node-graph-live-plan-runtime.js:795:          ? createNodeGraphStereoDelayEffectState()
+public\node-graph-live-plan-runtime.js:796:          : createNodeGraphDelayEffectState(),
+public\node-graph-live-plan-runtime.js:800:      wallDelayStates.set(node.id, createNodeGraphWallDelayState());
+public\node-graph-live-plan-runtime.js:803:      reverbEffectStates.set(node.id, createNodeGraphSabrinaReverbState());
+public\node-graph-live-plan-runtime.js:806:      pllStates.set(node.id, createNodeGraphPllState());
+public\node-graph-live-plan-runtime.js:809:      helmholtzStates.set(node.id, createNodeGraphHelmholtzState());
+public\node-graph-live-plan-runtime.js:812:      randomClockStates.set(node.id, createNodeGraphRandomClockState());
+public\node-graph-live-plan-runtime.js:815:      sampleHoldStates.set(node.id, createNodeGraphStereoSampleHoldState());
+public\node-graph-live-plan-runtime.js:818:      samplePlaybackStates.set(node.id, createNodeGraphSamplePlaybackState());
+public\node-graph-live-plan-runtime.js:821:      patchCommandStates.set(node.id, createNodeGraphPatchCommandState());
+public\node-graph-live-plan-runtime.js:827:        typeof createNodeGraphSlewLimiterState === "function"
+public\node-graph-live-plan-runtime.js:828:          ? createNodeGraphSlewLimiterState()
+public\node-graph-live-plan-runtime.js:833:      expAdsrStates.set(node.id, createNodeGraphExpAdsrState());
+public\node-graph-live-plan-runtime.js:838:        typeof createNodeGraphAttackDecayState === "function"
+public\node-graph-live-plan-runtime.js:839:          ? createNodeGraphAttackDecayState()
+public\node-graph-live-plan-runtime.js:844:      linearEnvelopeStates.set(node.id, createNodeGraphLinearEnvelopeState());
+public\node-graph-live-plan-runtime.js:849:        typeof createNodeGraphLinearAttackReleaseState === "function"
+public\node-graph-live-plan-runtime.js:850:          ? createNodeGraphLinearAttackReleaseState()
+public\node-graph-live-plan-runtime.js:857:        typeof createNodeGraphCurveAttackReleaseState === "function"
+public\node-graph-live-plan-runtime.js:858:          ? createNodeGraphCurveAttackReleaseState()
+public\node-graph-live-plan-runtime.js:865:        typeof createNodeGraphThumpEnvelopeState === "function"
+public\node-graph-live-plan-runtime.js:866:          ? createNodeGraphThumpEnvelopeState()
+public\node-graph-live-plan-runtime.js:873:        typeof createNodeGraphPluckEnvelope3State === "function"
+public\node-graph-live-plan-runtime.js:874:          ? createNodeGraphPluckEnvelope3State()
+public\node-graph-live-plan-runtime.js:888:      noiseGeneratorStates.set(node.id, createNodeGraphNoiseGeneratorState());
+public\node-graph-live-plan-runtime.js:891:      randomWalkStates.set(node.id, createNodeGraphRandomWalkState());
+public\node-graph-live-plan-runtime.js:894:      piSpigotNoiseStates.set(node.id, createNodeGraphPiSpigotNoiseState());
+public\node-graph-live-plan-runtime.js:897:      bradley2AStates.set(node.id, createNodeGraphBradley2AState());
+public\node-graph-live-plan-runtime.js:900:      antisawStates.set(node.id, createNodeGraphAntisawState());
+public\node-graph-live-plan-runtime.js:909:          || (typeof createNodeGraphRgbFractalState === "function"
+public\node-graph-live-plan-runtime.js:910:            ? createNodeGraphRgbFractalState()
+public\node-graph-live-plan-runtime.js:911:            : (typeof createNodeGraphRgbFractalAudioState === "function"
+public\node-graph-live-plan-runtime.js:912:              ? createNodeGraphRgbFractalAudioState()
+public\node-graph-live-plan-runtime.js:917:      flowerChildEnvelopeFollowerStates.set(node.id, createNodeGraphFlowerChildEnvelopeFollowerState());
+public\node-graph-live-plan-runtime.js:922:        typeof createNodeGraphPluckEnvelopeState === "function"
+public\node-graph-live-plan-runtime.js:923:          ? createNodeGraphPluckEnvelopeState()
+public\node-graph-live-plan-runtime.js:946:        typeof createNodeGraphVactrolEnvelopeState === "function"
+public\node-graph-live-plan-runtime.js:947:          ? createNodeGraphVactrolEnvelopeState()
+public\node-graph-live-plan-runtime.js:953:      triggerCounterStates.set(node.id, createNodeGraphTriggerCounterState());
+public\node-graph-live-plan-runtime.js:956:      triggerDividerStates.set(node.id, createNodeGraphTriggerDividerState());
+public\node-graph-live-plan-runtime.js:961:        createNodeGraphParameterSmoother(value, node.paramMeta?.[key]),
+public\node-graph-live-plan-runtime.js:1506:      runtime.oscResetStates.set(node.id, createNodeGraphOscResetState());
+public\node-graph-live-plan-runtime.js:1524:      runtime.lorenzAttractorStates.set(node.id, createNodeGraphLorenzAttractorState());
+public\node-graph-live-plan-runtime.js:1527:      runtime.logisticMapStates.set(node.id, createNodeGraphLogisticMapState());
+public\node-graph-live-plan-runtime.js:1530:      runtime.henonMapStates.set(node.id, createNodeGraphHenonMapState());
+public\node-graph-live-plan-runtime.js:1533:      runtime.rayBouncerStates.set(node.id, createNodeGraphRayBouncerState());
+public\node-graph-live-plan-runtime.js:1536:      runtime.chuaAttractorStates.set(node.id, createNodeGraphChuaAttractorState());
+public\node-graph-live-plan-runtime.js:1539:      runtime.wirdoSpiralStates.set(node.id, createNodeGraphWirdoSpiralState());
+public\node-graph-live-plan-runtime.js:1542:      runtime.blubbStates.set(node.id, createNodeGraphBlubbState());
+public\node-graph-live-plan-runtime.js:1545:      runtime.mushroomStates.set(node.id, createNodeGraphMushroomState());
+public\node-graph-live-plan-runtime.js:1548:      runtime.boingStates.set(node.id, createNodeGraphBoingState());
+public\node-graph-live-plan-runtime.js:1551:      runtime.torusStates.set(node.id, createNodeGraphTorusState());
+public\node-graph-live-plan-runtime.js:1554:      runtime.keplerBouwkampStates.set(node.id, createNodeGraphKeplerBouwkampState());
+public\node-graph-live-plan-runtime.js:1557:      runtime.nyquistShannonStates.set(node.id, createNodeGraphNyquistShannonState());
+public\node-graph-live-plan-runtime.js:1560:      runtime.radarStates.set(node.id, createNodeGraphRadarState());
+public\node-graph-live-plan-runtime.js:1563:      runtime.chordMemoryStates.set(node.id, createNodeGraphChordMemoryState());
+public\node-graph-live-plan-runtime.js:1566:      runtime.turingMachineStates.set(node.id, createNodeGraphTuringMachineState());
+public\node-graph-live-plan-runtime.js:1569:      runtime.pitchQuantizerStates.set(node.id, createNodeGraphPitchQuantizerState());
+public\node-graph-live-plan-runtime.js:1572:      runtime.surgeOscillatorStates.set(node.id, createNodeGraphSurgeOscillatorState());
+public\node-graph-live-plan-runtime.js:1575:      runtime.softwaveOscStates.set(node.id, createNodeGraphSoftwaveOscillatorState());
+public\node-graph-live-plan-runtime.js:1577:    if (node.type === "curveOsc" && !runtime.curveOscStates.has(node.id) && typeof createNodeGraphCurveOscState === "function") {
+public\node-graph-live-plan-runtime.js:1578:      runtime.curveOscStates.set(node.id, createNodeGraphCurveOscState());
+public\node-graph-live-plan-runtime.js:1580:    if (node.type === "snowflake" && !runtime.snowflakeStates.has(node.id) && typeof createNodeGraphSnowflakeState === "function") {
+public\node-graph-live-plan-runtime.js:1581:      runtime.snowflakeStates.set(node.id, createNodeGraphSnowflakeState());
+public\node-graph-live-plan-runtime.js:1583:    if (node.type === "textStream" && !runtime.textStreamStates.has(node.id) && typeof createNodeGraphTextStreamState === "function") {
+public\node-graph-live-plan-runtime.js:1584:      runtime.textStreamStates.set(node.id, createNodeGraphTextStreamState());
+public\node-graph-live-plan-runtime.js:1586:    if (node.type === "degreeTuring" && !runtime.degreeTuringStates.has(node.id) && typeof createNodeGraphDegreeTuringState === "function") {
+public\node-graph-live-plan-runtime.js:1587:      runtime.degreeTuringStates.set(node.id, createNodeGraphDegreeTuringState());
+public\node-graph-live-plan-runtime.js:1589:    if (node.type === "gravityWalker" && !runtime.gravityWalkerStates.has(node.id) && typeof createNodeGraphGravityWalkerState === "function") {
+public\node-graph-live-plan-runtime.js:1590:      runtime.gravityWalkerStates.set(node.id, createNodeGraphGravityWalkerState());
+public\node-graph-live-plan-runtime.js:1592:    if (node.type === "degreePhrase" && !runtime.degreePhraseStates.has(node.id) && typeof createNodeGraphDegreePhraseState === "function") {
+public\node-graph-live-plan-runtime.js:1593:      runtime.degreePhraseStates.set(node.id, createNodeGraphDegreePhraseState());
+public\node-graph-live-plan-runtime.js:1595:    if (node.type === "noteGlide" && !runtime.noteGlideStates.has(node.id) && typeof createNodeGraphNoteGlideState === "function") {
+public\node-graph-live-plan-runtime.js:1596:      runtime.noteGlideStates.set(node.id, createNodeGraphNoteGlideState());
+public\node-graph-live-plan-runtime.js:1599:      runtime.dsfOscillatorStates.set(node.id, createNodeGraphDsfOscillatorState());
+public\node-graph-live-plan-runtime.js:1602:      runtime.robinSupersawStates.set(node.id, createNodeGraphRobinSupersawState());
+public\node-graph-live-plan-runtime.js:1605:      runtime.hypersaw2States.set(node.id, createNodeGraphHypersaw2State());
+public\node-graph-live-plan-runtime.js:1608:      runtime.chordSequencerStates.set(node.id, createNodeGraphChordSequencerState());
+public\node-graph-live-plan-runtime.js:1611:      runtime.lutCellStates.set(node.id, createNodeGraphLutCellState());
+public\node-graph-live-plan-runtime.js:1614:      runtime.passiveFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphPassiveFilterState));
+public\node-graph-live-plan-runtime.js:1617:      runtime.papoulisFilterStates.set(node.id, createNodeGraphPapoulisFilterState());
+public\node-graph-live-plan-runtime.js:1620:      runtime.phosphillatorPlaybackStates.set(node.id, createNodeGraphPhosphillatorPlaybackState());
+public\node-graph-live-plan-runtime.js:1623:      runtime.cookbookFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphCookbookFilterState));
+public\node-graph-live-plan-runtime.js:1626:      runtime.ladderFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphLadderFilterState));
+public\node-graph-live-plan-runtime.js:1629:      runtime.flowerChildFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphFlowerChildFilterState));
+public\node-graph-live-plan-runtime.js:1634:        typeof createNodeGraphStereoActiveFilterState === "function"
+public\node-graph-live-plan-runtime.js:1635:          ? createNodeGraphStereoActiveFilterState()
+public\node-graph-live-plan-runtime.js:1636:          : createNodeGraphStereoFilterState(createNodeGraphActiveFilterState),
+public\node-graph-live-plan-runtime.js:1643:        runtime[mapName].set(node.id, createNodeGraphStereoScientificIirState());
+public\node-graph-live-plan-runtime.js:1650:        typeof createNodeGraphStereoEqFilterState === "function"
+public\node-graph-live-plan-runtime.js:1651:          ? createNodeGraphStereoEqFilterState()
+public\node-graph-live-plan-runtime.js:1652:          : createNodeGraphStereoFilterState(createNodeGraphEqFilterState),
+public\node-graph-live-plan-runtime.js:1659:        typeof createNodeGraphStereoEqFilterState === "function"
+public\node-graph-live-plan-runtime.js:1660:          ? createNodeGraphStereoEqFilterState()
+public\node-graph-live-plan-runtime.js:1661:          : createNodeGraphStereoFilterState(createNodeGraphEqFilterState),
+public\node-graph-live-plan-runtime.js:1668:        typeof createNodeGraphSoftpopOscillatorState === "function"
+public\node-graph-live-plan-runtime.js:1669:          ? createNodeGraphSoftpopOscillatorState()
+public\node-graph-live-plan-runtime.js:1677:        typeof createNodeGraphSinepulseState === "function"
+public\node-graph-live-plan-runtime.js:1678:          ? createNodeGraphSinepulseState()
+public\node-graph-live-plan-runtime.js:1683:      runtime.yellowjacketFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphYellowjacketFilterState));
+public\node-graph-live-plan-runtime.js:1686:      runtime.superloveFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphSuperloveFilterState));
+public\node-graph-live-plan-runtime.js:1689:      runtime.chaoticPhaseLockingFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphChaoticPhaseLockingFilterState));
+public\node-graph-live-plan-runtime.js:1692:      runtime.resonatorFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphResonatorFilterState));
+public\node-graph-live-plan-runtime.js:1695:      runtime.humanFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphHumanFilterState));
+public\node-graph-live-plan-runtime.js:1698:      runtime.tb303FilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphTb303FilterState));
+public\node-graph-live-plan-runtime.js:1701:      runtime.pulseExplosionStates.set(node.id, createNodeGraphPulseExplosionState());
+public\node-graph-live-plan-runtime.js:1704:      runtime.comparatorStates.set(node.id, createNodeGraphComparatorState());
+public\node-graph-live-plan-runtime.js:1708:      && typeof createNodeGraphNoiseDetectorState === "function"
+public\node-graph-live-plan-runtime.js:1711:      runtime.noiseDetectorStates.set(node.id, createNodeGraphNoiseDetectorState());
+public\node-graph-live-plan-runtime.js:1715:      && typeof createNodeGraphRmsState === "function"
+public\node-graph-live-plan-runtime.js:1718:      runtime.rmsStates.set(node.id, createNodeGraphRmsState());
+public\node-graph-live-plan-runtime.js:1721:      runtime.speedColorInertiaStates.set(node.id, createNodeGraphSpeedColorInertiaState());
+public\node-graph-live-plan-runtime.js:1724:      runtime.inertialFilterStates.set(node.id, createNodeGraphStereoInertialFilterState());
+public\node-graph-live-plan-runtime.js:1728:      && typeof createNodeGraphSoftClipperState === "function"
+public\node-graph-live-plan-runtime.js:1731:      runtime.softClipperStates.set(node.id, createNodeGraphSoftClipperState());
+public\node-graph-live-plan-runtime.js:1735:      && typeof createNodeGraphSpeakerProtector2State === "function"
+public\node-graph-live-plan-runtime.js:1738:      runtime.speakerProtector2States.set(node.id, createNodeGraphSpeakerProtector2State());
+public\node-graph-live-plan-runtime.js:1741:      runtime.tiltFilterStates.set(node.id, createNodeGraphStereoTiltFilterState());
+public\node-graph-live-plan-runtime.js:1744:      runtime.eqFilterStates.set(node.id, createNodeGraphStereoEqFilterState());
+public\node-graph-live-plan-runtime.js:1747:      runtime.sampleDelayStates.set(node.id, createNodeGraphSampleDelayState());
+public\node-graph-live-plan-runtime.js:1750:      runtime.aliasSineStates.set(node.id, createNodeGraphAliasSineState());
+public\node-graph-live-plan-runtime.js:1754:      && typeof createNodeGraphRobinSinusoidState === "function"
+public\node-graph-live-plan-runtime.js:1757:      runtime.robinSinusoidStates.set(node.id, createNodeGraphRobinSinusoidState());
+public\node-graph-live-plan-runtime.js:1761:      && typeof createNodeGraphPhoneToneState === "function"
+public\node-graph-live-plan-runtime.js:1764:      runtime.phoneToneStates.set(node.id, createNodeGraphPhoneToneState());
+public\node-graph-live-plan-runtime.js:1767:      runtime.clockStates.set(node.id, createNodeGraphClockState());
+public\node-graph-live-plan-runtime.js:1770:      runtime.graphLfoStates.set(node.id, createNodeGraphGraphLfoState());
+public\node-graph-live-plan-runtime.js:1773:      runtime.clockDividerStates.set(node.id, createNodeGraphTriggerDividerState());
+public\node-graph-live-plan-runtime.js:1776:      runtime.delayedTriggerStates.set(node.id, createNodeGraphDelayedTriggerState());
+public\node-graph-live-plan-runtime.js:1781:        typeof createNodeGraphStereoDelayEffectState === "function"
+public\node-graph-live-plan-runtime.js:1782:          ? createNodeGraphStereoDelayEffectState()
+public\node-graph-live-plan-runtime.js:1783:          : createNodeGraphDelayEffectState(),
+public\node-graph-live-plan-runtime.js:1787:      runtime.wallDelayStates.set(node.id, createNodeGraphWallDelayState());
+public\node-graph-live-plan-runtime.js:1790:      runtime.reverbEffectStates.set(node.id, createNodeGraphSabrinaReverbState());
+public\node-graph-live-plan-runtime.js:1793:      runtime.soemReverbStates.set(node.id, createNodeGraphSoemReverbState());
+public\node-graph-live-plan-runtime.js:1796:      runtime.pllStates.set(node.id, createNodeGraphPllState());
+public\node-graph-live-plan-runtime.js:1799:      runtime.helmholtzStates.set(node.id, createNodeGraphHelmholtzState());
+public\node-graph-live-plan-runtime.js:1802:      runtime.randomClockStates.set(node.id, createNodeGraphRandomClockState());
+public\node-graph-live-plan-runtime.js:1805:      runtime.sampleHoldStates.set(node.id, createNodeGraphStereoSampleHoldState());
+public\node-graph-live-plan-runtime.js:1808:      runtime.samplePlaybackStates.set(node.id, createNodeGraphSamplePlaybackState());
+public\node-graph-live-plan-runtime.js:1811:      runtime.patchCommandStates.set(node.id, createNodeGraphPatchCommandState());
+public\node-graph-live-plan-runtime.js:1816:        typeof createNodeGraphSlewLimiterState === "function"
+public\node-graph-live-plan-runtime.js:1817:          ? createNodeGraphSlewLimiterState()
+public\node-graph-live-plan-runtime.js:1822:      runtime.expAdsrStates.set(node.id, createNodeGraphExpAdsrState());
+public\node-graph-live-plan-runtime.js:1827:        typeof createNodeGraphAttackDecayState === "function"
+public\node-graph-live-plan-runtime.js:1828:          ? createNodeGraphAttackDecayState()
+public\node-graph-live-plan-runtime.js:1833:      runtime.linearEnvelopeStates.set(node.id, createNodeGraphLinearEnvelopeState());
+public\node-graph-live-plan-runtime.js:1838:        typeof createNodeGraphLinearAttackReleaseState === "function"
+public\node-graph-live-plan-runtime.js:1839:          ? createNodeGraphLinearAttackReleaseState()
+public\node-graph-live-plan-runtime.js:1846:        typeof createNodeGraphCurveAttackReleaseState === "function"
+public\node-graph-live-plan-runtime.js:1847:          ? createNodeGraphCurveAttackReleaseState()
+public\node-graph-live-plan-runtime.js:1854:        typeof createNodeGraphThumpEnvelopeState === "function"
+public\node-graph-live-plan-runtime.js:1855:          ? createNodeGraphThumpEnvelopeState()
+public\node-graph-live-plan-runtime.js:1862:        typeof createNodeGraphPluckEnvelope3State === "function"
+public\node-graph-live-plan-runtime.js:1863:          ? createNodeGraphPluckEnvelope3State()
+public\node-graph-live-plan-runtime.js:1877:      runtime.noiseGeneratorStates.set(node.id, createNodeGraphNoiseGeneratorState());
+public\node-graph-live-plan-runtime.js:1880:      runtime.randomWalkStates.set(node.id, createNodeGraphRandomWalkState());
+public\node-graph-live-plan-runtime.js:1883:      runtime.piSpigotNoiseStates.set(node.id, createNodeGraphPiSpigotNoiseState());
+public\node-graph-live-plan-runtime.js:1886:      runtime.bradley2AStates.set(node.id, createNodeGraphBradley2AState());
+public\node-graph-live-plan-runtime.js:1889:      runtime.antisawStates.set(node.id, createNodeGraphAntisawState());
+public\node-graph-live-plan-runtime.js:1898:        typeof createNodeGraphRgbFractalState === "function"
+public\node-graph-live-plan-runtime.js:1899:          ? createNodeGraphRgbFractalState()
+public\node-graph-live-plan-runtime.js:1900:          : (typeof createNodeGraphRgbFractalAudioState === "function"
+public\node-graph-live-plan-runtime.js:1901:            ? createNodeGraphRgbFractalAudioState()
+public\node-graph-live-plan-runtime.js:1909:      runtime.flowerChildEnvelopeFollowerStates.set(node.id, createNodeGraphFlowerChildEnvelopeFollowerState());
+public\node-graph-live-plan-runtime.js:1914:        typeof createNodeGraphPluckEnvelopeState === "function"
+public\node-graph-live-plan-runtime.js:1915:          ? createNodeGraphPluckEnvelopeState()
+public\node-graph-live-plan-runtime.js:1938:        typeof createNodeGraphVactrolEnvelopeState === "function"
+public\node-graph-live-plan-runtime.js:1939:          ? createNodeGraphVactrolEnvelopeState()
+public\node-graph-live-plan-runtime.js:1944:      runtime.triggerDividerStates.set(node.id, createNodeGraphTriggerDividerState());
+public\node-graph-live-plan-runtime.js:1948:      runtime.triggerCounterStates.set(node.id, createNodeGraphTriggerCounterState());
+public\node-graph-live-plan-runtime.js:1956:          createNodeGraphParameterSmoother(value, metadata),
+public\node-graph-live-plan-runtime.js:2612:          createNodeGraphParameterSmoother(value, metadata),
+public\node-graph-jerobeam-blubb.js:1:function createNodeGraphBlubbState() {
+public\node-graph-jerobeam-blubb.js:21:  const state = options.state || createNodeGraphBlubbState();
+public\modules\delayedTrigger\delayed-trigger-math.js:3:function createNodeGraphDelayedTriggerState() {
+public\modules\crossover\crossover-math.js:112:function createNodeGraphCrossoverSplitState() {
+public\modules\crossover\crossover-math.js:296:function createNodeGraphCrossoverChannelState(bandCount) {
+public\modules\crossover\crossover-math.js:302:    splits.push(createNodeGraphCrossoverSplitState());
+public\modules\crossover\crossover-math.js:307:      comps[p][i] = i > p ? createNodeGraphCrossoverSplitState() : null;
+public\modules\crossover\crossover-math.js:320:function createNodeGraphCrossoverStereoState(bandCount) {
+public\modules\crossover\crossover-math.js:327:    left: createNodeGraphCrossoverChannelState(n),
+public\modules\crossover\crossover-math.js:328:    right: createNodeGraphCrossoverChannelState(n),
+public\modules\crossover\crossover-math.js:456:    Object.assign(state, createNodeGraphCrossoverStereoState(n));
+public\node-graph-keyboard-shortcuts.js:178:function nodeGraphCanvasScriptSourceWithGridUnits(source, widthGu, heightGu) {
+public\node-graph-keyboard-shortcuts.js:179:  const nextWidthGu = normalizeNodeGraphModuleWidthUnits("canvas", widthGu);
+public\node-graph-keyboard-shortcuts.js:181:  const gridLine = `canvas.grid(${nextWidthGu}, ${nextHeightGu});`;
+public\node-graph-keyboard-shortcuts.js:195:  const currentWidthGu = nodeGraphPatchNodeGridWidthUnits(patchNode);
+public\node-graph-keyboard-shortcuts.js:197:  const nextWidthGu = normalizeNodeGraphModuleWidthUnits("canvas", currentWidthGu + delta);
+public\node-graph-keyboard-shortcuts.js:198:  if (nextWidthGu === currentWidthGu) {
+public\node-graph-keyboard-shortcuts.js:201:  const source = nodeGraphCanvasScriptSourceWithGridUnits(canvasScript.source, nextWidthGu, currentHeightGu);
+public\node-graph-keyboard-shortcuts.js:203:  delete patchNode.widthGu;
+public\node-graph-keyboard-shortcuts.js:223:function resizeNodeGraphWidthAdjustableModuleOnGrid(patchNode, delta) {
+public\node-graph-keyboard-shortcuts.js:231:  const currentWidthGu = nodeGraphPatchNodeGridWidthUnits(patchNode);
+public\node-graph-keyboard-shortcuts.js:232:  const nextWidthGu = normalizeNodeGraphModuleWidthUnits(patchNode.type, currentWidthGu + delta);
+public\node-graph-keyboard-shortcuts.js:233:  if (nextWidthGu === currentWidthGu) {
+public\node-graph-keyboard-shortcuts.js:237:  patchNode.widthGu = nextWidthGu;
+public\node-graph-keyboard-shortcuts.js:264:      if (resizeNodeGraphWidthAdjustableModuleOnGrid(patchNode, delta)) {
+public\node-graph-keyboard-shortcuts.js:277:  const status = axis === "height" ? "module height changed" : "module width changed";
+public\modules\combResonator\comb-resonator-math.js:16:function createNodeGraphCombResonatorState() {
+public\modules\eqFilter\eq-filter-math.js:48:function createNodeGraphEqFilterState() {
+public\modules\eqFilter\eq-filter-math.js:68:function createNodeGraphStereoEqFilterState() {
+public\modules\eqFilter\eq-filter-math.js:70:    left: createNodeGraphEqFilterState(),
+public\modules\eqFilter\eq-filter-math.js:71:    mono: createNodeGraphEqFilterState(),
+public\modules\eqFilter\eq-filter-math.js:72:    right: createNodeGraphEqFilterState(),
+public\modules\eqFilter\eq-filter-math.js:215: * @param {ReturnType<typeof createNodeGraphEqFilterState>} state
+public\modules\eqFilter\eq-filter-math.js:295:  const scratch = createNodeGraphEqFilterState();
+public\modules\arp\arp-display.js:122:function createNodeGraphArpKeysDisplay(nodeId) {
+public\modules\arp\arp-display.js:388:  registerNodeGraphModuleFaceCreator("arpKeysFace", createNodeGraphArpKeysDisplay);
+public\modules\evolveField\evolve-field-ui.js:4:function createNodeGraphEvolveFieldBody(node, type) {
+public\modules\evolveField\evolve-field-ui.js:48:  createBody: createNodeGraphEvolveFieldBody,
+public\modules\fbmField\fbm-field-ui.js:3:function createNodeGraphFbmFieldBody(node, type) {
+public\modules\fbmField\fbm-field-ui.js:199:  createBody: createNodeGraphFbmFieldBody,
+public\modules\fbmField\fbm-field-display.js:113:  if (canvas.width !== gridW || canvas.height !== gridH) {
+public\modules\fbmField\fbm-field-display.js:114:    canvas.width = gridW;
+public\modules\fbmField\fbm-field-display.js:136:    || wasm?.soemdsp_fbm_field_grid_max_width?.()
+public\modules\fbmField\fbm-field-display.js:463:  const maxW = wasm?.soemdsp_fbm_field_grid_max_width?.() || 512;
+public\modules\fbmField\fbm-field-display.js:473:    width: gridW,
+public\modules\fbmField\fbm-field-display.js:492:  if (!grid?.mono || grid.width !== gridW || grid.height !== gridH) {
+public\modules\fbmField\fbm-field-display.js:504:  const ok = nodeGraphFbmFieldGlPresent(canvas, grid.mono, grid.width, grid.height, {
+public\node-graph-image-utils.js:178:function createNodeGraphImageBody(nodeId) {
+public\node-graph-image-utils.js:427:function createNodeGraphCanvasBody(nodeId) {
+public\modules\expAdsr\exp-adsr-math.js:37:function createNodeGraphExpAdsrState() {
+public\modules\fbmField\fbm-field-gl.js:187: * Present WASM mono grid 1:1 onto canvas. canvas.width/height MUST equal gridW/gridH.
+public\modules\fbmField\fbm-field-gl.js:196:  if ((canvas.width | 0) !== (gridW | 0) || (canvas.height | 0) !== (gridH | 0)) {
+public\modules\fbmField\fbm-field-gl.js:197:    canvas.width = gridW;
+public\modules\fbmField\fbm-field-gl.js:255:    return nodeGraphPicturePresent(state.colorTex, gridW, gridH, canvas, canvas.width | 0, canvas.height | 0);
+public\modules\evolveField\evolve-field-register.js:16:    defaultWidthGu: 5,
+public\modules\fbmField\fbm-field-register.js:9:    defaultWidthGu: 5,
+public\modules\additiveGrowl\additive-bubble-display.js:4:function createNodeGraphAdditiveBubbleDisplay(nodeId, type = "additiveBubble") {
+public\node-graph-module-scope-geometry.js:161:  const sampleWidth = nodeGraphModuleScopeRenderedSampleWidth(metricRect);
+public\node-graph-module-scope-geometry.js:332:      sampleWidth: nodeGraphModuleScopeUnzoomedLength(visibleDrawRect.width, zoomScale),
+public\modules\expoPluckEnvelope2\expo-pluck-envelope-2-display.js:3:function createNodeGraphExpoPluckEnvelope2Display(nodeId, type = "expoPluckEnvelope2") {
+public\modules\expoPluckEnvelope\expo-pluck-envelope-display.js:4:function createNodeGraphExpoPluckEnvelopeDisplay(nodeId, type = "expoPluckEnvelope") {
+public\node-graph-hypersaw2.js:24:function createNodeGraphHypersaw2State() {
+public\node-graph-module-factories.js:11:function createNodeGraphPort(node, type, port, io) {
+public\node-graph-module-factories.js:171:function createNodeGraphIoColumn(node, type, ports, io) {
+public\node-graph-module-factories.js:211:      row.append(createNodeGraphPort(node, type, port, io), label);
+public\node-graph-module-factories.js:213:      row.append(label, createNodeGraphPort(node, type, port, io));
+public\node-graph-module-factories.js:240:function createNodeGraphIoProxyPort(node, io) {
+public\node-graph-module-factories.js:250:function createNodeGraphIoProxySection(node, inputPorts = [], outputPorts = []) {
+public\node-graph-module-factories.js:258:    proxy.append(createNodeGraphIoProxyPort(node, "input"));
+public\node-graph-module-factories.js:266:    proxy.append(createNodeGraphIoProxyPort(node, "output"));
+public\node-graph-module-factories.js:279:function createNodeParameterModulationPort(node, type, parameter) {
+public\node-graph-module-factories.js:301:function createNodeParameterOutputPort(node, type, parameter) {
+public\node-graph-module-factories.js:360:function createNodeGraphInputPort(node, type, graphInput) {
+public\node-graph-module-factories.js:373:function createNodeGraphInputSection(node, type) {
+public\node-graph-module-factories.js:392:    row.append(createNodeGraphInputPort(node, type, graphInput), label);
+public\node-graph-module-factories.js:398:function createNodeGraphAudioInputStatusFace(node, type) {
+public\node-graph-module-factories.js:422:function createNodeGraphUnderConstructionFace(node, type) {
+public\node-graph-module-factories.js:435:function createNodeGraphModuleScopeSection(node, type) {
+public\node-graph-module-factories.js:463:// createNodeGraphLedFace moved to public/modules/led/led-ui.js.
+public\node-graph-module-factories.js:465:// createNodeGraphKnobFace is defined in
+public\node-graph-module-factories.js:468:/** @deprecated use createNodeGraphKnobFace */
+public\node-graph-module-factories.js:469:function createNodeGraphSliderWidgetBody(node, type) {
+public\node-graph-module-factories.js:470:  return typeof createNodeGraphKnobFace === "function"
+public\node-graph-module-factories.js:471:    ? createNodeGraphKnobFace(node, type)
+public\node-graph-module-factories.js:475:// Step Grid's UI (createNodeGraphStepGridBody, toggleNodeGraphStepGridStep)
+public\node-graph-module-factories.js:480:function createNodeGraphPatchCommandBody(node) {
+public\node-graph-module-factories.js:494:function createNodeGraphSpeakerProtectionBody(node) {
+public\node-graph-module-factories.js:538:function createNodeGraphScreenSpaceShaderBody(node) {
+public\node-graph-module-factories.js:583:function createNodeGraphPerformanceWheel(spec) {
+public\node-graph-module-factories.js:603:function createNodeGraphPitchModWheelBody(node = null) {
+public\node-graph-module-factories.js:614:    bank.append(createNodeGraphPerformanceWheel(spec));
+public\node-graph-module-factories.js:620:function createNodeGraphMidiModeControl() {
+public\node-graph-module-factories.js:644:function createNodeGraphPlusMinusControl(spec) {
+public\node-graph-module-factories.js:665:function createNodeGraphMidiListenControls() {
+public\node-graph-module-factories.js:681:  const channel = createNodeGraphPlusMinusControl({
+public\node-graph-module-factories.js:695:function createNodeGraphMidiModuleBody(node = null) {
+public\node-graph-module-factories.js:703:  section.append(createNodeGraphMidiListenControls());
+public\node-graph-module-factories.js:708:// (createNodeGraphMidiModuleBody). MIDI is a separate unique inlet.
+public\node-graph-module-factories.js:709:function createNodeGraphKeyboardControllerBody(node = null) {
+public\node-graph-module-factories.js:721:  const modeLabel = createNodeGraphMidiModeControl();
+public\node-graph-module-factories.js:722:  const octave = createNodeGraphPlusMinusControl({
+public\node-graph-module-factories.js:731:  const keyCount = createNodeGraphPlusMinusControl({
+public\node-graph-module-factories.js:750:    item.append(document.createTextNode(`${labelText} `));
+public\node-graph-module-factories.js:821:    item.append(document.createTextNode(`${labelText} `));
+public\node-graph-module-factories.js:847:function createNodeGraphParameter(node, type, parameter) {
+public\node-graph-module-factories.js:867:    row.append(createNodeParameterModulationPort(node, type, parameter));
+public\node-graph-module-factories.js:941:    row.append(createNodeParameterOutputPort(node, type, parameter));
+public\modules\passiveFilter\passive-filter-math.js:74:function createNodeGraphPassiveFilterState() {
+public\modules\passiveFilter\passive-filter-math.js:83:  const next = state && typeof state === "object" ? state : createNodeGraphPassiveFilterState();
+public\modules\linearAttackRelease\linear-attack-release-math.js:5:function createNodeGraphLinearAttackReleaseState() {
+public\modules\linearAttackRelease\linear-attack-release-math.js:16: * @param {ReturnType<typeof createNodeGraphLinearAttackReleaseState>} state
+public\node-graph-module-scope-draw-burn.js:70:function createNodeGraphScope2dBurnTexture(gl, width, height, format = {}) {
+public\node-graph-module-scope-draw-burn.js:92:function createNodeGraphScope2dBurnFramebuffer(gl, texture) {
+public\node-graph-module-scope-draw-burn.js:100:function createNodeGraphScope2dBurnSurface(gl, width, height) {
+public\node-graph-module-scope-draw-burn.js:102:    const texture = createNodeGraphScope2dBurnTexture(gl, width, height, format);
+public\node-graph-module-scope-draw-burn.js:103:    const framebuffer = createNodeGraphScope2dBurnFramebuffer(gl, texture);
+public\node-graph-module-scope-draw-burn.js:115:  const texture = createNodeGraphScope2dBurnTexture(gl, width, height);
+public\node-graph-module-scope-draw-burn.js:118:    framebuffer: createNodeGraphScope2dBurnFramebuffer(gl, texture),
+public\node-graph-module-scope-draw-burn.js:137:function createNodeGraphScope2dBurnRenderer(canvas) {
+public\node-graph-module-scope-draw-burn.js:160:  const decayProgram = createNodeGraphModuleScopeProgram(gl, quadVertexSource, `
+public\node-graph-module-scope-draw-burn.js:178:  const compositeProgram = createNodeGraphModuleScopeProgram(gl, quadVertexSource, `
+public\node-graph-module-scope-draw-burn.js:191:  const copyProgram = createNodeGraphModuleScopeProgram(gl, quadVertexSource, `
+public\node-graph-module-scope-draw-burn.js:199:  const beamProgram = createNodeGraphModuleScopeProgram(gl, `
+public\node-graph-module-scope-draw-burn.js:324:  const renderer = createNodeGraphScope2dBurnRenderer(canvas);
+public\node-graph-module-scope-draw-burn.js:344:  const nextReadSurface = createNodeGraphScope2dBurnSurface(gl, safeWidth, safeHeight);
+public\node-graph-module-scope-draw-burn.js:345:  const nextWriteSurface = createNodeGraphScope2dBurnSurface(gl, safeWidth, safeHeight);
+public\modules\sinepulse\sinepulse-math.js:45:function createNodeGraphSinepulseState() {
+public\modules\noiseDetector\noise-detector-math.js:8:function createNodeGraphNoiseDetectorState() {
+public\modules\imageBurn\image-burn-ui.js:3:function createNodeGraphImageBurnBody(node, type) {
+public\modules\imageBurn\image-burn-ui.js:20:  createBody: createNodeGraphImageBurnBody,
+public\modules\xyPad\xy-pad-ui.js:1140:function createNodeGraphXyPadBody(node, type) {
+public\modules\xyPad\xy-pad-ui.js:1355:  createBody: createNodeGraphXyPadBody,
+public\modules\harmonicSeries\harmonic-series-display.js:82:function createNodeGraphHarmonicSeriesDisplay(nodeId, type = "harmonicSeries") {
+public\modules\harmonicSeries\harmonic-series-display.js:210:  registerNodeGraphModuleFaceCreator("harmonicSeriesFace", createNodeGraphHarmonicSeriesDisplay);
+public\modules\additiveGraph\additive-mod-control.js:53:        : (typeof createNodeGraphExpAdsrState === "function"
+public\modules\additiveGraph\additive-mod-control.js:54:          ? createNodeGraphExpAdsrState()
+public\modules\additiveGraph\additive-mod-control.js:114:        : (typeof createNodeGraphPluckEnvelopeState === "function"
+public\modules\additiveGraph\additive-mod-control.js:115:          ? createNodeGraphPluckEnvelopeState()
+public\node-graph-module-definitions.js:524:    defaultWidthGu: last >= 10 ? 5 : last >= 1 ? 4 : 3,
+public\node-graph-module-definitions.js:554:    defaultWidthGu: last >= 10 ? 5 : last >= 6 ? 4 : 3,
+public\node-graph-module-definitions.js:580:    defaultWidthGu: 3,
+public\node-graph-module-definitions.js:1463:    defaultWidthGu: 6,
+public\node-graph-module-definitions.js:1573:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:1669:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:1753:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:1823:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:1893:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:1973:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:2040:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:2112:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:2169:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:2240:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:2310:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:2421:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:2491:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:2561:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:2621:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:2760:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:2792:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:2974:    defaultWidthGu: 10,
+public\node-graph-module-definitions.js:3833:    defaultWidthGu: 10,
+public\node-graph-module-definitions.js:4038:    defaultWidthGu: 14,
+public\node-graph-module-definitions.js:5395:    defaultWidthGu: 5,
+public\node-graph-module-definitions.js:5941:    defaultWidthGu: 4,
+public\node-graph-module-definitions.js:6236:    defaultWidthGu: 36,
+public\node-graph-module-definitions.js:6912:    defaultWidthGu: 4,
+public\node-graph-module-definitions.js:6988:    defaultWidthGu: 3,
+public\node-graph-module-definitions.js:7003:    defaultWidthGu: 4,
+public\node-graph-module-definitions.js:7044:    defaultWidthGu: 6,
+public\node-graph-module-definitions.js:7141:    defaultWidthGu: 4,
+public\node-graph-module-definitions.js:7170:    defaultWidthGu: 3,
+public\node-graph-module-definitions.js:7183:    defaultWidthGu: 4,
+public\node-graph-module-definitions.js:7204:    defaultWidthGu: 3,
+public\node-graph-module-definitions.js:7233:    defaultWidthGu: 3,
+public\node-graph-module-definitions.js:7262:    defaultWidthGu: 3,
+public\node-graph-module-definitions.js:7284:    defaultWidthGu: 4,
+public\node-graph-module-definitions.js:7304:    defaultWidthGu: 4,
+public\node-graph-module-definitions.js:7369:    defaultWidthGu: 5,
+public\node-graph-module-definitions.js:7485:    defaultWidthGu: 4,
+public\node-graph-module-definitions.js:7633:    defaultWidthGu: 4,
+public\node-graph-module-definitions.js:7733:    defaultWidthGu: 5,
+public\node-graph-module-definitions.js:7760:    defaultWidthGu: 8,
+public\node-graph-module-definitions.js:7783:    defaultWidthGu: 3,
+public\node-graph-module-definitions.js:7806:    defaultWidthGu: 5,
+public\node-graph-module-definitions.js:9387:    defaultWidthGu: 5,
+public\node-graph-module-definitions.js:9486:    defaultWidthGu: 5,
+public\node-graph-module-definitions.js:10585:    defaultWidthGu: 6,
+public\node-graph-module-definitions.js:12682:      { defaultValue: "1", key: "roomWidth", label: "Width", max: "2", mid: "1", min: "0.2", nonlinearSlider: false, step: "any", tooltip: "Room proportion along X/Z (the floor footprint), relative to Scale. Applies to all room presets, not just Squircle." },
+public\node-graph-module-definitions.js:12684:      { defaultValue: "4", key: "roomScale", label: "Scale", max: "20", mid: "4", min: "0.5", nonlinearSlider: false, step: "any", unit: "m", tooltip: "Real-world size in meters: Width/Height are proportions (1.0 = default), multiplied by this to get the actual center-to-wall distance in meters that the delay taps' timing is computed from (distance / speed of sound)." },
+public\node-graph-module-definitions.js:12685:      { defaultValue: "0.3", key: "roomRoundness", label: "Roundness", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any", tooltip: "0 = perfect ellipsoid (sphere at Width=Height), 1 = a box (cube at Width=Height). Superellipsoid blend, |x/a|^n+|y/b|^n+|z/c|^n=1, only affects the Squircle preset." },
+public\node-graph-module-definitions.js:13920:    defaultWidthGu: 36,
+public\node-graph-module-definitions.js:13983:    defaultWidthGu: 40,
+public\node-graph-module-definitions.js:14013:    defaultWidthGu: 13,
+public\node-graph-module-definitions.js:14097:    defaultWidthGu: 13,
+public\node-graph-module-definitions.js:14222:    defaultWidthGu: 13,
+public\node-graph-module-definitions.js:15934:    defaultWidthGu: 12,
+public\node-graph-module-definitions.js:16082:    defaultWidthGu: 12,
+public\node-graph-module-definitions.js:16199:    defaultWidthGu: 14,
+public\node-graph-module-definitions.js:16214:    defaultWidthGu: 12,
+public\node-graph-module-definitions.js:16257:    defaultWidthGu: 14,
+public\node-graph-module-definitions.js:16569:        tooltip: "Pixels advanced per audio sample (fractional OK). 1 = sample clock. 0.5 = one pixel every two samples (slower). 1.5 / 8 / ΓÇª stamp each sample across more pixels (faster). Default 8 Γëê sampleRate├ù8/(Width├ùHeight) full frames/sec.",
+public\modules\led\led-ui.js:3:function createNodeGraphLedFace(node, type) {
+public\modules\led\led-ui.js:14:  createBody: createNodeGraphLedFace,
+public\modules\noiseDetector\noise-detector-live-evaluator.js:15:  const state = runtime.noiseDetectorStates.get(nodeId) || createNodeGraphNoiseDetectorState();
+public\modules\metamodule\metamodule-ui.js:5:function createNodeGraphMetamoduleFace(nodeId, type) {
+public\modules\metamodule\metamodule-ui.js:33:  createBody: createNodeGraphMetamoduleFace,
+public\modules\imageBurn\image-burn-register.js:10:    defaultWidthGu: 6,
+public\modules\numberReadout\number-readout-ui.js:4:function createNodeGraphNumberReadoutBody(node, type) {
+public\modules\numberReadout\number-readout-ui.js:46:  createBody: createNodeGraphNumberReadoutBody,
+public\modules\numberReadout\number-readout-ui.js:51:  createBody: createNodeGraphNumberReadoutBody,
+public\modules\additiveGraph\additive-filter-curve-display.js:4:function createNodeGraphAdditiveFilterCurveDisplay(nodeId, type = "additiveLinearFilter") {
+public\modules\additiveGraph\additive-filter-curve-display.js:177:  ctx.lineWidth = strokeGrid;
+public\modules\sineKick\sine-kick-math.js:56:function createNodeGraphSineKickState() {
+public\modules\harmonicLines\harmonic-lines-display.js:65:      bindNodeGraphNativeSliderModifiers(input, nodeGraphHarmonicLinesSettingsDefaults.lineWidth);
+public\modules\harmonicLines\harmonic-lines-display.js:70:function createNodeGraphHarmonicLinesDisplay(nodeId, type = "additiveOut") {
+public\node-graph-module-scope-canvas.js:168:        const widthGu = Number.parseFloat(style.getPropertyValue("--node-grid-width-units") || "");
+public\node-graph-module-scope-canvas.js:169:        if (Number.isFinite(widthGu) && widthGu > 0) {
+public\node-graph-module-scope-canvas.js:170:          const gw = Number.parseFloat(style.getPropertyValue("--node-grid-width") || style.getPropertyValue("--node-grid-size") || "");
+public\node-graph-module-scope-canvas.js:174:          cssWidth = Math.max(1, widthGu * cell - pad);
+public\modules\waveguide\waveguide-math.js:7:function createNodeGraphWaveguideState() {
+public\modules\numberReadout\number-readout-register.js:12:    defaultWidthGu: 7,
+public\modules\led\led-register.js:15:    defaultWidthGu: 2,
+public\modules\metamodule\metamodule-register.js:11:    defaultWidthGu: 4,
+public\modules\metamodule\metamodule-register.js:36:    defaultWidthGu: 4,
+public\modules\metamodule\metamodule-register.js:67:    defaultWidthGu: 4,
+public\modules\metamodule\metamodule-register.js:142:    defaultWidthGu: 4,
+public\modules\metamodule\metamodule-register.js:173:    defaultWidthGu: 4,
+public\modules\metamodule\metamodule-register.js:196:    defaultWidthGu: 4,
+public\modules\metamodule\metamodule-register.js:220:    defaultWidthGu: 4,
+public\modules\metamodule\metamodule-register.js:248:    defaultWidthGu: 4,
+public\node-graph-module-chrome.js:5://   MetamoduleLayout    ΓÇö ports in a top strip; dedicated full-width face below
+public\modules\modeResonator\mode-resonator-math.js:10:function createNodeGraphModeResonatorState() {
+public\video-synth-poc.html:102:    statusEl.textContent = `ready ΓÇö module version ${exports.soemdsp_video_synth_raster_version()}, handle ${handle}, ${width}x${height}`;
+public\modules\hilbert\hilbert-math.js:4:function createNodeGraphHilbertState() {
+public\node-graph-module-scope-buffer-view.js:335:function nodeGraphModuleScopeRenderedSampleWidth(rect, zoomScale = nodeGraphModuleScopeZoomScale()) {
+public\modules\harmonicLines\harmonic-count-display.js:3:function createNodeGraphHarmonicCountDisplay(nodeId, type = "additiveGenerator") {
+public\node-graph-module-scope-buffer-io.js:245:function createNodeGraphVisualInputBuffer(capacity = nodeGraphBufferedInputSampleLimit) {
+public\node-graph-module-scope-buffer-io.js:263:    const next = createNodeGraphVisualInputBuffer(safeCapacity);
+public\node-graph-module-actions.js:19:  patch.nodes.push(createNodeGraphPatchNode("audioInput", {
+public\node-graph-module-actions.js:40:  patch.nodes.push(createNodeGraphPatchNode("keyboardController", {
+public\node-graph-module-actions.js:70:    right: node.gx + nodeGraphPatchNodeGridWidthUnits(node),
+public\node-graph-module-actions.js:237:  const inNode = createNodeGraphPatchNode("namedPortalIn", {
+public\node-graph-module-actions.js:244:  const outNode = createNodeGraphPatchNode("namedPortalOut", {
+public\node-graph-module-actions.js:395:  const newNode = createNodeGraphPatchNode(type, {
+public\node-graph-module-actions.js:648:  const width = element?.offsetWidth || nodeGraphGridWidth() * 6;
+public\node-graph-module-actions.js:675:      const gu = typeof nodeGraphGridWidth === "function" ? nodeGraphGridWidth() : 16;
+public\node-graph-module-actions.js:846:function spawnNodeGraphModuleStorePlacementIfDragged(event) {
+public\node-graph-module-actions.js:960:    spawnNodeGraphModuleStorePlacementIfDragged(event);
+public\node-graph-module-actions.js:1090:  // widthGu was omitted because it matched the type default.
+public\node-graph-module-actions.js:1091:  if (typeof nodeGraphPatchNodeGridWidthUnits === "function") {
+public\node-graph-module-actions.js:1092:    options.widthGu = nodeGraphPatchNodeGridWidthUnits(sourceNode);
+public\node-graph-module-actions.js:1093:  } else if (Object.hasOwn(sourceNode, "widthGu")) {
+public\node-graph-module-actions.js:1094:    options.widthGu = sourceNode.widthGu;
+public\node-graph-module-actions.js:1155:  // Seed through createNodeGraphPatchNode for normalization, then overlay every
+public\node-graph-module-actions.js:1158:  const created = createNodeGraphPatchNode(sourceNode.type, {
+public\node-graph-module-actions.js:1174:    created[key] = nodeGraphDeepCloneModuleField(sourceNode[key]);
+public\node-graph-module-actions.js:1179:  created.type = sourceNode.type;
+public\node-graph-module-actions.js:1180:  if (Number.isFinite(Number(sizingOptions.widthGu))) {
+public\node-graph-module-actions.js:1181:    created.widthGu = sizingOptions.widthGu;
+public\node-graph-module-actions.js:1187:    Object.assign(created, cloneNodeGraphTypedDisplaySettings(sourceNode));
+public\node-graph-module-actions.js:1211:  "widthGu",
+public\node-graph-module-actions.js:1237:// Re-runs the settings through createNodeGraphPatchNode so every field gets
+public\node-graph-module-actions.js:1238:// the same normalization/validation a freshly-created node would get.
+public\node-graph-module-actions.js:1240:  const merged = createNodeGraphPatchNode(targetNode.type, {
+public\node-graph-module-actions.js:1262:    ? nodeGraphUnifiedWindowDefaultSize.width
+public\node-graph-module-actions.js:1268:    ? nodeGraphUnifiedWindowDefaultSize.minWidth
+public\node-graph-module-actions.js:1273:    ? nodeGraphUnifiedWindowDefaultSize.maxWidth
+public\node-graph-module-actions.js:1290:      width: nodeGraphFiniteNumber(size?.width, nodeGraphPatchDefaultsWindowDefaultSize.width),
+public\node-graph-module-actions.js:1502:function adjustNodeGraphModuleWidthFromContext(delta) {
+public\node-graph-module-actions.js:1514:    const currentWidthGu = nodeGraphPatchNodeGridWidthUnits(targetNode);
+public\node-graph-module-actions.js:1515:    const nextWidthGu = normalizeNodeGraphModuleWidthUnits(targetNode.type, currentWidthGu + delta);
+public\node-graph-module-actions.js:1516:    if (nextWidthGu === currentWidthGu) {
+public\node-graph-module-actions.js:1521:    targetNode.widthGu = nextWidthGu;
+public\node-graph-module-actions.js:1526:      status: changedCount > 1 ? "module widths changed" : "module width changed",
+public\node-graph-module-actions.js:1613:    // Always persist height (same reason as widthGu).
+public\node-graph-module-actions.js:1768:// (see createNodeGraphModuleHeader) to node.alias -- same normalize/commit
+public\modules\wallDelay\wall-delay-room-display.js:270:function createNodeGraphWallRoomDisplay(nodeId, type) {
+public\modules\metamodule\metamodule-core.js:1182:    const node = typeof createNodeGraphPatchNode === "function"
+public\modules\metamodule\metamodule-core.js:1183:      ? createNodeGraphPatchNode(type, {
+public\modules\metamodule\metamodule-core.js:1350:      node = typeof createNodeGraphPatchNode === "function"
+public\modules\metamodule\metamodule-core.js:1351:        ? createNodeGraphPatchNode(spec.type, {
+public\modules\metamodule\metamodule-core.js:1425:        portal = typeof createNodeGraphPatchNode === "function"
+public\modules\metamodule\metamodule-core.js:1426:          ? createNodeGraphPatchNode("metamoduleOut", {
+public\modules\metamodule\metamodule-core.js:1532:  const metaNode = typeof createNodeGraphPatchNode === "function"
+public\modules\metamodule\metamodule-core.js:1533:    ? createNodeGraphPatchNode(NODE_GRAPH_METAMODULE_TYPE, {
+public\modules\metamodule\metamodule-core.js:1640:  const groupNode = typeof createNodeGraphPatchNode === "function"
+public\modules\metamodule\metamodule-core.js:1641:    ? createNodeGraphPatchNode(NODE_GRAPH_GROUP_TYPE, {
+public\modules\simulationTime\simulation-time-register.js:9:    defaultWidthGu: 7,
+public\modules\henonMap\henon-map-math.js:4:function createNodeGraphHenonMapJsState() {
+public\modules\noiseGenerator\noise-generator-math.js:2:// Depends on seeded-rng helpers: createNodeGraphNoiseGeneratorChannelState,
+public\modules\noiseGenerator\noise-generator-math.js:5:function createNodeGraphNoiseGeneratorState() {
+public\modules\noiseGenerator\noise-generator-math.js:7:    left: createNodeGraphNoiseGeneratorChannelState(),
+public\modules\noiseGenerator\noise-generator-math.js:8:    right: createNodeGraphNoiseGeneratorChannelState(),
+public\modules\gridKeyboard\grid-keyboard.js:98:function createNodeGraphGridKeyboardBody(node = null) {
+public\modules\gridKeyboard\grid-keyboard.js:109:  const modeLabel = typeof createNodeGraphMidiModeControl === "function"
+public\modules\gridKeyboard\grid-keyboard.js:110:    ? createNodeGraphMidiModeControl()
+public\modules\gridKeyboard\grid-keyboard.js:112:  const octave = typeof createNodeGraphPlusMinusControl === "function"
+public\modules\gridKeyboard\grid-keyboard.js:113:    ? createNodeGraphPlusMinusControl({
+public\modules\gridKeyboard\grid-keyboard.js:133:    item.append(document.createTextNode(`${labelText} `));
+public\modules\gridKeyboard\grid-keyboard.js:189:    item.append(document.createTextNode(`${labelText} `));
+public\modules\gridKeyboard\grid-keyboard.js:407:  globalThis.createNodeGraphGridKeyboardBody = createNodeGraphGridKeyboardBody;
+public\modules\lcdDot\lcd-dot-register.js:9:    defaultWidthGu: 2,
+public\tooltips.json:140:    "textBoxEdit": "display-only text | edit content from this module's actions menu | text clips to box height, scales down to fit width | mouse wheel zooms the modular view",
+public\tooltips.json:274:    "widthDecrease": "decrease this module width by one grid unit",
+public\tooltips.json:275:    "widthIncrease": "increase this module width by one grid unit",
+public\node-graph-module-rendering.js:1:/** displayType ΓåÆ createFace(nodeId, type) for LayoutA custom faces (Phone Tone, Harmonic Series, ΓÇª). */
+public\node-graph-module-rendering.js:16:  const create = key ? nodeGraphModuleFaceCreatorsByDisplayType[key] : null;
+public\node-graph-module-rendering.js:22:    article.append(create(node, type));
+public\node-graph-module-rendering.js:162:    createNodeSliderReadout(slider);
+public\node-graph-module-rendering.js:290:  if (slider && typeof createNodeSliderReadout === "function") {
+public\node-graph-module-rendering.js:291:    createNodeSliderReadout(slider);
+public\node-graph-module-rendering.js:482:  const proxy = createNodeGraphIoProxySection(node, inputPorts, outputPorts);
+public\node-graph-module-rendering.js:489:/** Empty LayoutB IO column ΓÇö zero width (display expands). Kept for grid structure. */
+public\node-graph-module-rendering.js:490:function createNodeGraphLayoutBIoColumnPlaceholder(io) {
+public\node-graph-module-rendering.js:498:function createNodeGraphLayoutBShell(node, type, customBody, registration, inputPorts, outputPorts) {
+public\node-graph-module-rendering.js:507:  const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input")
+public\node-graph-module-rendering.js:508:    || createNodeGraphLayoutBIoColumnPlaceholder("input");
+public\node-graph-module-rendering.js:509:  const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output")
+public\node-graph-module-rendering.js:510:    || createNodeGraphLayoutBIoColumnPlaceholder("output");
+public\node-graph-module-rendering.js:572:function createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, options = {}) {
+public\node-graph-module-rendering.js:578:  const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
+public\node-graph-module-rendering.js:579:  const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
+public\node-graph-module-rendering.js:629:function createNodeGraphModuleElement(type, node) {
+public\node-graph-module-rendering.js:638:  const widthGu = nodeGraphPatchNodeGridWidthUnits(patchNode);
+public\node-graph-module-rendering.js:691:  article.dataset.gridWidthGu = String(widthGu);
+public\node-graph-module-rendering.js:693:  article.style.setProperty("--node-grid-width-units", String(widthGu));
+public\node-graph-module-rendering.js:743:        article.append(createNodeGraphModuleHeader(type, node, definition));
+public\node-graph-module-rendering.js:747:        createNodeGraphLayoutAIoSection(
+public\node-graph-module-rendering.js:761:      article.append(createNodeGraphModuleHeader(type, node, definition));
+public\node-graph-module-rendering.js:765:      article.append(createNodeGraphModuleHeader(type, node, definition));
+public\node-graph-module-rendering.js:777:      ? chromelessRegistration.createBody(node, type)
+public\node-graph-module-rendering.js:790:        createNodeGraphLayoutAIoSection(
+public\node-graph-module-rendering.js:804:        createNodeGraphLayoutBShell(node, type, chromelessBody, chromelessRegistration, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:813:          createNodeGraphLayoutAIoSection(
+public\node-graph-module-rendering.js:833:      article.append(createNodeGraphModuleHeader(type, node, definition));
+public\node-graph-module-rendering.js:836:    article.append(createNodeGraphModuleHeader(type, node, definition));
+public\node-graph-module-rendering.js:854:      textBoxUnderConstruction && typeof createNodeGraphUnderConstructionFace === "function"
+public\node-graph-module-rendering.js:855:        ? createNodeGraphUnderConstructionFace(node, type)
+public\node-graph-module-rendering.js:856:        : createNodeGraphTextBoxBody(node),
+public\node-graph-module-rendering.js:859:    article.append(createNodeGraphImageBody(node));
+public\node-graph-module-rendering.js:862:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, { outputsOnly: true }),
+public\node-graph-module-rendering.js:868:    article.append(createNodeGraphScreenSpaceShaderBody(node));
+public\node-graph-module-rendering.js:871:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, { inputsOnly: true }),
+public\node-graph-module-rendering.js:877:    const canvasBody = createNodeGraphCanvasBody(node);
+public\node-graph-module-rendering.js:884:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:890:    const scopeSection = createNodeGraphModuleScopeSection(node, type);
+public\node-graph-module-rendering.js:896:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:902:    const scopeSection = createNodeGraphModuleScopeSection(node, type);
+public\node-graph-module-rendering.js:910:      createNodeGraphLayoutAIoSection(
+public\node-graph-module-rendering.js:944:    const graphShell = createNodeGraphLayoutBShell(node, type, graphFace, null, inputPorts, outputPorts);
+public\node-graph-module-rendering.js:950:    if (type === "toggleButton" && typeof createNodeGraphToggleButtonFace === "function") {
+public\node-graph-module-rendering.js:951:      face = createNodeGraphToggleButtonFace(node, type);
+public\node-graph-module-rendering.js:952:    } else if (type === "momentaryButton" && typeof createNodeGraphMomentaryButtonFace === "function") {
+public\node-graph-module-rendering.js:953:      face = createNodeGraphMomentaryButtonFace(node, type);
+public\node-graph-module-rendering.js:954:    } else if (type === "pluginSlider" && typeof createNodeGraphPluginSliderFace === "function") {
+public\node-graph-module-rendering.js:955:      face = createNodeGraphPluginSliderFace(node, type);
+public\node-graph-module-rendering.js:956:    } else if (typeof createNodeGraphKnobFace === "function") {
+public\node-graph-module-rendering.js:957:      face = createNodeGraphKnobFace(node, type);
+public\node-graph-module-rendering.js:959:      face = createNodeGraphSliderWidgetBody(node, type);
+public\node-graph-module-rendering.js:965:    const shell = createNodeGraphLayoutBShell(node, type, face, null, inputPorts, outputPorts);
+public\node-graph-module-rendering.js:990:      article.append(createNodeGraphMidiModuleBody(node));
+public\node-graph-module-rendering.js:992:      article.append(createNodeGraphKeyboardControllerBody(node));
+public\node-graph-module-rendering.js:994:      article.append(createNodeGraphGridKeyboardBody(node));
+public\node-graph-module-rendering.js:996:      article.append(createNodeGraphSequencerBody(node));
+public\node-graph-module-rendering.js:998:      article.append(createNodeGraphPitchModWheelBody(node));
+public\node-graph-module-rendering.js:1002:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1008:    article.append(createNodeGraphPatchCommandBody(node));
+public\node-graph-module-rendering.js:1011:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, { inputsOnly: true }),
+public\node-graph-module-rendering.js:1017:    article.append(createNodeGraphSpeakerProtectionBody(node));
+public\node-graph-module-rendering.js:1020:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1029:      && typeof createNodeGraphBadvalMonitorBody === "function") {
+public\node-graph-module-rendering.js:1030:      article.append(createNodeGraphBadvalMonitorBody(node));
+public\node-graph-module-rendering.js:1034:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1043:      const pitchFace = typeof createNodeGraphPitchDetectorBody === "function"
+public\node-graph-module-rendering.js:1044:        ? createNodeGraphPitchDetectorBody(node)
+public\node-graph-module-rendering.js:1055:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1065:      && typeof createNodeGraphFilterCurveDisplay === "function") {
+public\node-graph-module-rendering.js:1066:      const curve = createNodeGraphFilterCurveDisplay(node, type);
+public\node-graph-module-rendering.js:1071:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1079:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1088:      && typeof createNodeGraphBasicShapeDisplay === "function") {
+public\node-graph-module-rendering.js:1089:      article.append(createNodeGraphBasicShapeDisplay(node, type));
+public\node-graph-module-rendering.js:1093:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1102:      && typeof createNodeGraphSoftwaveOscDisplay === "function") {
+public\node-graph-module-rendering.js:1103:      article.append(createNodeGraphSoftwaveOscDisplay(node, type));
+public\node-graph-module-rendering.js:1107:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1116:      && typeof createNodeGraphSinCos4Display === "function") {
+public\node-graph-module-rendering.js:1117:      article.append(createNodeGraphSinCos4Display(node, type));
+public\node-graph-module-rendering.js:1121:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1131:      && typeof createNodeGraphRoundShapeDisplay === "function") {
+public\node-graph-module-rendering.js:1132:      article.append(createNodeGraphRoundShapeDisplay(node, type));
+public\node-graph-module-rendering.js:1136:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1145:      && typeof createNodeGraphAdditiveWaveformDisplay === "function") {
+public\node-graph-module-rendering.js:1146:      const face = createNodeGraphAdditiveWaveformDisplay(node, type);
+public\node-graph-module-rendering.js:1154:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1163:      && typeof createNodeGraphHarmonicCountDisplay === "function") {
+public\node-graph-module-rendering.js:1164:      const face = createNodeGraphHarmonicCountDisplay(node, type);
+public\node-graph-module-rendering.js:1172:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1181:      && typeof createNodeGraphAdditiveBlasterDisplay === "function") {
+public\node-graph-module-rendering.js:1182:      const face = createNodeGraphAdditiveBlasterDisplay(node, type);
+public\node-graph-module-rendering.js:1190:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1199:      && typeof createNodeGraphAdditiveBubbleDisplay === "function") {
+public\node-graph-module-rendering.js:1200:      const face = createNodeGraphAdditiveBubbleDisplay(node, type);
+public\node-graph-module-rendering.js:1208:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1217:      && typeof createNodeGraphAdditiveFilterCurveDisplay === "function") {
+public\node-graph-module-rendering.js:1218:      const face = createNodeGraphAdditiveFilterCurveDisplay(node, type);
+public\node-graph-module-rendering.js:1226:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1235:      && typeof createNodeGraphHarmonicLinesDisplay === "function") {
+public\node-graph-module-rendering.js:1236:      const face = createNodeGraphHarmonicLinesDisplay(node, type);
+public\node-graph-module-rendering.js:1244:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1253:      && typeof createNodeGraphSoftClipperCurveDisplay === "function") {
+public\node-graph-module-rendering.js:1254:      article.append(createNodeGraphSoftClipperCurveDisplay(node, type));
+public\node-graph-module-rendering.js:1258:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1269:        && typeof createNodeGraphExpoPluckEnvelopeDisplay === "function"
+public\node-graph-module-rendering.js:1271:        article.append(createNodeGraphExpoPluckEnvelopeDisplay(node, type));
+public\node-graph-module-rendering.js:1274:        && typeof createNodeGraphExpoPluckEnvelope2Display === "function"
+public\node-graph-module-rendering.js:1276:        article.append(createNodeGraphExpoPluckEnvelope2Display(node, type));
+public\node-graph-module-rendering.js:1277:      } else if (typeof createNodeGraphEnvelopeCurveDisplay === "function") {
+public\node-graph-module-rendering.js:1278:        article.append(createNodeGraphEnvelopeCurveDisplay(node, type));
+public\node-graph-module-rendering.js:1283:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1292:      && typeof createNodeGraphPitchQuantizerFace === "function") {
+public\node-graph-module-rendering.js:1293:      article.append(createNodeGraphPitchQuantizerFace(node));
+public\node-graph-module-rendering.js:1297:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1306:      && typeof createNodeGraphChordPadFace === "function") {
+public\node-graph-module-rendering.js:1307:      article.append(createNodeGraphChordPadFace(node));
+public\node-graph-module-rendering.js:1311:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1317:    const rainFace = typeof createNodeGraphMatrixWaterfallFace === "function"
+public\node-graph-module-rendering.js:1318:      ? createNodeGraphMatrixWaterfallFace(node)
+public\node-graph-module-rendering.js:1319:      : (typeof createNodeGraphAsciiscopeFace === "function"
+public\node-graph-module-rendering.js:1320:        ? createNodeGraphAsciiscopeFace(node)
+public\node-graph-module-rendering.js:1333:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1340:    const plateFace = typeof createNodeGraphMatrixPlateFace === "function"
+public\node-graph-module-rendering.js:1341:      ? createNodeGraphMatrixPlateFace(node)
+public\node-graph-module-rendering.js:1342:      : (typeof createNodeGraphAsciiscopeFace === "function"
+public\node-graph-module-rendering.js:1343:        ? createNodeGraphAsciiscopeFace(node)
+public\node-graph-module-rendering.js:1355:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1361:    const matrixFace = typeof createNodeGraphMatrixDisplayFace === "function"
+public\node-graph-module-rendering.js:1362:      ? createNodeGraphMatrixDisplayFace(node)
+public\node-graph-module-rendering.js:1374:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1383:      && typeof createNodeGraphCodeBoxFace === "function") {
+public\node-graph-module-rendering.js:1384:      const codeFace = createNodeGraphCodeBoxFace(node);
+public\node-graph-module-rendering.js:1391:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1400:      && typeof createNodeGraphTextStreamFace === "function") {
+public\node-graph-module-rendering.js:1401:      const textFace = createNodeGraphTextStreamFace(node);
+public\node-graph-module-rendering.js:1408:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1417:      && typeof createNodeGraphWallRoomDisplay === "function") {
+public\node-graph-module-rendering.js:1418:      article.append(createNodeGraphWallRoomDisplay(node, type));
+public\node-graph-module-rendering.js:1422:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1431:      && typeof createNodeGraphPhosphillatorDrawDisplay === "function") {
+public\node-graph-module-rendering.js:1432:      article.append(createNodeGraphPhosphillatorDrawDisplay(node, type));
+public\node-graph-module-rendering.js:1436:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1442:    if (typeof createNodeGraphSampleModuleBody === "function") {
+public\node-graph-module-rendering.js:1443:      const sampleBody = createNodeGraphSampleModuleBody(node);
+public\node-graph-module-rendering.js:1451:      && typeof createNodeGraphSampleWaveformDisplay === "function";
+public\node-graph-module-rendering.js:1453:      ? createNodeGraphSampleWaveformDisplay(node, type)
+public\node-graph-module-rendering.js:1462:      article.append(createNodeGraphLayoutBShell(node, type, wrap, null, inputPorts, outputPorts));
+public\node-graph-module-rendering.js:1469:        createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1479:      && typeof createNodeGraphPulseCurveDisplay === "function") {
+public\node-graph-module-rendering.js:1480:      article.append(createNodeGraphPulseCurveDisplay(node, type));
+public\node-graph-module-rendering.js:1484:      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1494:      createNodeGraphLayoutAIoSection(
+public\node-graph-module-rendering.js:1508:      && typeof createNodeGraphUnderConstructionFace === "function"
+public\node-graph-module-rendering.js:1510:      article.append(createNodeGraphUnderConstructionFace(node, type));
+public\node-graph-module-rendering.js:1516:    const face = mountFace && typeof createNodeGraphModuleScopeSection === "function"
+public\node-graph-module-rendering.js:1517:      ? createNodeGraphModuleScopeSection(node, type)
+public\node-graph-module-rendering.js:1524:    article.append(createNodeGraphLayoutBShell(node, type, face, null, inputPorts, outputPorts));
+public\node-graph-module-rendering.js:1537:        createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+public\node-graph-module-rendering.js:1542:      if (typeof createNodeGraphUnderConstructionFace === "function") {
+public\node-graph-module-rendering.js:1543:        article.append(createNodeGraphUnderConstructionFace(node, type));
+public\node-graph-module-rendering.js:1551:      const statusFace = typeof createNodeGraphAudioInputStatusFace === "function"
+public\node-graph-module-rendering.js:1552:        ? createNodeGraphAudioInputStatusFace(node, type)
+public\node-graph-module-rendering.js:1560:      scopeSection = createNodeGraphModuleScopeSection(node, type);
+public\node-graph-module-rendering.js:1563:    if ((type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer" || type === "wavetable2d") && typeof createNodeGraphSampleModuleBody === "function") {
+public\node-graph-module-rendering.js:1564:      const sampleBody = createNodeGraphSampleModuleBody(node);
+public\node-graph-module-rendering.js:1575:        createNodeGraphLayoutAIoSection(
+public\node-graph-module-rendering.js:1609:    const graphInputSection = createNodeGraphInputSection(node, type);
+public\node-graph-module-rendering.js:1615:      body.append(createNodeGraphParameter(node, type, parameter));
+public\modules\helmholtzPitch\helmholtz-pitch-ui.js:1:// createNodeGraphHelmholtzState: plan-runtime stub (DSP is native graph).
+public\modules\helmholtzPitch\helmholtz-pitch-ui.js:2:function createNodeGraphHelmholtzState() {
+public\modules\helmholtzPitch\helmholtz-pitch-ui.js:282:function createNodeGraphPitchDetectorBody(nodeId) {
+public\node-graph-metadata-editor.js:72:    ? nodeGraphUnifiedWindowDefaultSize.width
+public\node-graph-metadata-editor.js:78:    ? nodeGraphUnifiedWindowDefaultSize.minWidth
+public\node-graph-metadata-editor.js:83:    ? nodeGraphUnifiedWindowDefaultSize.maxWidth
+public\node-graph-metadata-editor.js:99:  const width = Math.max(mins.minWidth, Math.round(nodeGraphFiniteNumber(source.width, nodeMetadataPopoverDefaultSize.width)));
+public\node-graph-metadata-editor.js:2012:        : nodeMetadataReplacementX(displayRect || moduleActionsRect, popover, event.clientX ?? window.innerWidth * 0.5),
+public\node-graph-metadata-editor.js:2906:  const destWidth = Number.isFinite(Number(dest.widthGu))
+public\node-graph-metadata-editor.js:2907:    ? Number(dest.widthGu)
+public\node-graph-metadata-editor.js:2908:    : (typeof nodeGraphDefaultModuleGridWidthUnits === "function"
+public\node-graph-metadata-editor.js:2909:      ? nodeGraphDefaultModuleGridWidthUnits(dest.type)
+public\node-graph-metadata-editor.js:2936:  const newNode = createNodeGraphPatchNode(type, {
+public\modules\randomWalk\random-walk-math.js:3:function createNodeGraphLowpassState() {
+public\modules\randomWalk\random-walk-math.js:7:function createNodeGraphRandomWalkState() {
+public\modules\randomWalk\random-walk-math.js:9:    lowpass: createNodeGraphLowpassState(),
+public\modules\sequencer\sequencer-ui.js:119:function createNodeGraphSequencerBody(node) {
+public\modules\lcdDot\lcd-dot-display.js:3:function createNodeGraphLcdDotBody(node, type) {
+public\modules\lcdDot\lcd-dot-display.js:4:  const face = typeof createNodeGraphModuleScopeSection === "function"
+public\modules\lcdDot\lcd-dot-display.js:5:    ? createNodeGraphModuleScopeSection(node, type)
+public\modules\lcdDot\lcd-dot-display.js:47:  createBody: createNodeGraphLcdDotBody,
+public\modules\matrixDisplay\matrix-display-ui.js:4:function createNodeGraphMatrixDisplayFace(node) {
+public\modules\rms\rms-math.js:25:function createNodeGraphRmsChannelState() {
+public\modules\rms\rms-math.js:34:function createNodeGraphRmsState() {
+public\modules\rms\rms-math.js:36:    mono: createNodeGraphRmsChannelState(),
+public\modules\rms\rms-math.js:37:    left: createNodeGraphRmsChannelState(),
+public\modules\rms\rms-math.js:38:    right: createNodeGraphRmsChannelState(),
+public\modules\rms\rms-math.js:39:    avg: createNodeGraphRmsChannelState(),
+public\modules\keypad\keypad-ui.js:139:    grid.style.width = `${metrics.width}px`;
+public\modules\keypad\keypad-ui.js:142:    grid.style.width = "100%";
+public\modules\keypad\keypad-ui.js:237:      typeof createNodeGraphKeypadState === "function"
+public\modules\keypad\keypad-ui.js:238:        ? createNodeGraphKeypadState()
+public\modules\keypad\keypad-ui.js:400:function createNodeGraphKeypadBody(node) {
+public\modules\keypad\keypad-ui.js:632:  createBody: createNodeGraphKeypadBody,
+public\modules\valueLcd\value-lcd-register.js:11:    defaultWidthGu: 7,
+public\modules\keyboardController\keyboard-layout-settings.js:29:    whiteKeyWidth: clamp(source.whiteKeyWidth, 6, 40, nodeGraphMidiKeyboardLayoutDefaults.whiteKeyWidth),
+public\modules\keyboardController\keyboard-layout-settings.js:30:    blackKeyWidth: clamp(source.blackKeyWidth, 4, 28, nodeGraphMidiKeyboardLayoutDefaults.blackKeyWidth),
+public\modules\keyboardController\keyboard-layout-settings.js:195:        module.style.setProperty("--midi-keyboard-piano-width", "100%");
+public\modules\keyboardController\keyboard-layout-settings.js:198:        module.style.setProperty("--midi-keyboard-piano-width", `${pianoW}px`);
+public\modules\keyboardController\keyboard-layout-settings.js:240:  // Module size is Width/Height in Module Settings (and Shift+arrows).
+public\styles.css:1176:  --node-unified-window-default-width: 380px;
+public\styles.css:1511:/* Read-only until double-clicked (see createNodeGraphSampleModuleBody). */
+public\styles.css:2374:  width: var(--node-command-center-dock-width, var(--node-unified-window-default-width, 380px));
+public\styles.css:3810:  /* cqi font scaling for note labels under tight module widths */
+public\styles.css:5739:  width: var(--node-user-ui-settings-width, min(var(--node-unified-window-default-width, 380px), calc(100vw - 32px)));
+public\styles.css:7311:  --node-grid-width: 28px;
+public\styles.css:7361:  --node-module-frame-stroke-width: calc(1px * var(--node-module-stroke-zoom-compensate, 1));
+public\styles.css:7437:  --node-module-idle-stroke-width: 1px;
+public\styles.css:7496:  min-width: calc(var(--node-grid-width) * 4);
+public\styles.css:10678:    var(--node-module-shop-min-width, var(--node-unified-window-min-width, 24px)),
+public\styles.css:10679:    var(--node-module-shop-width, var(--node-unified-window-default-width, 380px)),
+public\styles.css:10680:    min(var(--node-module-shop-max-width, var(--node-unified-window-max-width, 980px)), calc(100vw - 28px))
+public\styles.css:10687:  min-width: var(--node-module-shop-min-width, var(--node-unified-window-min-width, 24px));
+public\styles.css:10689:  max-width: min(var(--node-module-shop-max-width, 980px), calc(100vw - 4px));
+public\styles.css:11808:  width: var(--node-ui-dev-helper-width, min(var(--node-unified-window-default-width, 380px), calc(100vw - 36px)));
+public\styles.css:12660:      calc(var(--node-grid-width) * var(--node-graph-zoom) * var(--node-grid-visual-scale, 2))
+public\styles.css:13230:  width: calc((var(--node-grid-width) * var(--node-grid-width-units, 7)) - (var(--node-module-grid-inset) * 2));
+public\styles.css:13231:  min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 7)) - (var(--node-module-grid-inset) * 2));
+public\styles.css:13232:  max-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 7)) - (var(--node-module-grid-inset) * 2));
+public\styles.css:13265:  outline: calc(var(--node-module-idle-stroke-width, 1px) * var(--node-module-stroke-zoom-compensate, 1)) solid var(--node-module-idle-stroke, rgb(255 255 255 / 0.5));
+public\styles.css:13573:  --node-grid-width-units: 6;
+public\styles.css:14542:  width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
+public\styles.css:14543:  min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
+public\styles.css:15006:  width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
+public\styles.css:15007:  min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
+public\styles.css:15930:  grid-template-columns: var(--node-port-column-width) minmax(0, 1fr);
+public\styles.css:16846:    calc(var(--node-grid-width) * 1.5),
+public\styles.css:16850:    calc(var(--node-grid-width) * 1.5),
+public\styles.css:17633:  grid-template-columns: var(--node-port-column-width) minmax(0, 1fr) var(--node-port-column-width);
+public\styles.css:18132:  grid-template-columns: minmax(0, 1fr) minmax(var(--node-slider-unit-width), auto);
+public\styles.css:18185:  width: var(--metadata-popover-width, var(--node-unified-window-default-width, 380px));
+public\styles.css:18542:/* Parameter popover only: keep actions on one full-width row of the flat grid. */
+public\styles.css:18592:/* Single action (Display Settings "Defaults") fills the full row width. */
+public\styles.css:18836:/* Full-width rows inside the flat grid when a lone control needs the line. */
+public\styles.css:20604:  width: min(var(--node-scene-context-width, var(--node-unified-window-default-width, 380px)), calc(100vw - 4px));
+public\styles.css:20750:    var(--node-module-actions-min-width, var(--node-unified-window-min-width, 24px)),
+public\styles.css:20751:    var(--node-module-actions-width, var(--node-unified-window-default-width, 380px)),
+public\styles.css:20752:    min(var(--node-module-actions-max-width, var(--node-unified-window-max-width, 980px)), calc(100vw - 28px))
+public\styles.css:20755:  min-width: var(--node-module-actions-min-width, var(--node-unified-window-min-width, 24px));
+public\styles.css:20756:  max-width: min(var(--node-module-actions-max-width, var(--node-unified-window-max-width, 980px)), calc(100vw - 4px));
+public\styles.css:20963:.node-module-actions-window .scene-context-width-controls {
+public\styles.css:20973:.node-module-actions-window .scene-context-width-controls button {
+public\styles.css:20981:.node-module-actions-window .scene-context-width-controls span,
+public\styles.css:20982:.node-module-actions-window .scene-context-width-controls output {
+public\styles.css:20995:.node-module-actions-window .scene-context-width-controls .scene-context-gu-label {
+public\modules\keypad\keypad-register.js:13:    defaultWidthGu: 6,
+public\node-graph-module-header-rendering.js:159:    // Render Sample Start/End: own handlers in createNodeGraphHeaderRenderRangeInput
+public\node-graph-module-header-rendering.js:210:function createNodeGraphHeaderTimingInput(key, label, options = {}) {
+public\node-graph-module-header-rendering.js:248:function createNodeGraphHeaderAudioInput(key, label, options = {}) {
+public\node-graph-module-header-rendering.js:295:function createNodeGraphTapTempoButton() {
+public\node-graph-module-header-rendering.js:316:function createNodeGraphHeaderSpeedPlaceholder() {
+public\node-graph-module-header-rendering.js:352:function createNodeGraphHeaderSpeedLimitField(options = {}) {
+public\node-graph-module-header-rendering.js:407:function createNodeGraphHeaderSmoothingTimeField() {
+public\node-graph-module-header-rendering.js:459:function createNodeGraphHeaderScopeInput(id, label, value, options = {}) {
+public\node-graph-module-header-rendering.js:546:function createNodeGraphHeaderRenderRangeInput(className, label, defaultValue, options = {}) {
+public\node-graph-module-header-rendering.js:725:function createNodeGraphHeaderPatchTitle() {
+public\node-graph-module-header-rendering.js:749:function createNodeGraphHeaderTimingWidgets() {
+public\node-graph-module-header-rendering.js:755:    createNodeGraphTapTempoButton(),
+public\node-graph-module-header-rendering.js:756:    createNodeGraphHeaderTimingInput("tempoBpm", "BPM", { max: 320 }),
+public\node-graph-module-header-rendering.js:757:    createNodeGraphHeaderTimingInput("timeSignatureNumerator", "Beats"),
+public\node-graph-module-header-rendering.js:758:    createNodeGraphHeaderTimingInput("timeSignatureDenominator", "Unit"),
+public\node-graph-module-header-rendering.js:759:    createNodeGraphHeaderScopeInput(
+public\node-graph-module-header-rendering.js:772:    createNodeGraphHeaderSpeedPlaceholder(),
+public\node-graph-module-header-rendering.js:773:    createNodeGraphHeaderPatchTitle(),
+public\node-graph-module-header-rendering.js:774:    createNodeGraphHeaderSmoothingTimeField(),
+public\node-graph-module-header-rendering.js:775:    createNodeGraphHeaderRenderRangeInput("node-header-render-start-input", "Start", nodeGraphMvp.renderStartSeconds ?? 0, { ariaLabel: "Render start time in seconds", min: 0, max: 3599, tooltip: "Sets the Render Sample start point (seconds)" }),
+public\node-graph-module-header-rendering.js:776:    createNodeGraphHeaderRenderRangeInput("node-header-render-end-input", "End", nodeGraphMvp.renderEndSeconds ?? (nodeGraphMvp.seconds ?? 2), { ariaLabel: "Render end time in seconds", min: 0.05, max: 3600, tooltip: "Sets the Render Sample end point (seconds)" }),
+public\node-graph-module-header-rendering.js:821:function createNodeGraphOversamplingFactorField() {
+public\node-graph-module-header-rendering.js:852:function createNodeGraphSampleRateReadout(kind, label) {
+public\node-graph-module-header-rendering.js:872:function createNodeGraphPlanckReadout() {
+public\node-graph-module-header-rendering.js:890:function createNodeGraphCommandCenterTimingWidgets() {
+public\node-graph-module-header-rendering.js:896:    createNodeGraphHeaderTimingInput("timeSignatureNumerator", "Beats", nv),
+public\node-graph-module-header-rendering.js:897:    createNodeGraphHeaderTimingInput("timeSignatureDenominator", "Unit", nv),
+public\node-graph-module-header-rendering.js:898:    createNodeGraphHeaderSpeedLimitField(nv),
+public\node-graph-module-header-rendering.js:899:    createNodeGraphHeaderAudioInput("pitchReferenceHz", "Freq Ref", {
+public\node-graph-module-header-rendering.js:906:    createNodeGraphHeaderAudioInput("pitchOffsetOctaves", "Pitch", {
+public\node-graph-module-header-rendering.js:914:    createNodeGraphPlanckReadout(),
+public\node-graph-module-header-rendering.js:915:    createNodeGraphOversamplingFactorField(),
+public\node-graph-module-header-rendering.js:916:    createNodeGraphSampleRateReadout("sample-rate", "Sample Rate"),
+public\node-graph-module-header-rendering.js:917:    createNodeGraphSampleRateReadout("simulated-rate", "Simulated"),
+public\node-graph-module-header-rendering.js:940:    host.replaceChildren(createNodeGraphCommandCenterTimingWidgets());
+public\node-graph-module-header-rendering.js:959:      host.replaceChildren(createNodeGraphHeaderTimingWidgets());
+public\node-graph-module-header-rendering.js:1015:function createNodeGraphModuleHeader(type, node, definition) {
+public\modules\rms\rms-live-evaluator.js:28:  const state = runtime.rmsStates.get(nodeId) || createNodeGraphRmsState();
+public\modules\rms\rms-live-evaluator.js:51:  const state = runtime.rmsStates.get(nodeId) || createNodeGraphRmsState();
+public\node-graph-marquee-selection.js:340:  if (!drag || typeof createNodeGraphMouseSmoothState !== "function") {
+public\node-graph-marquee-selection.js:344:    drag.mouseSmooth = createNodeGraphMouseSmoothState(point.x, point.y);
+public\node-graph-marquee-selection.js:990:  const mouseSmooth = typeof createNodeGraphMouseSmoothState === "function"
+public\node-graph-marquee-selection.js:991:    ? createNodeGraphMouseSmoothState(point.x, point.y)
+public\modules\randomClock\random-clock-math.js:3:function createNodeGraphRandomClockState() {
+public\modules\knob\knob-face.js:1254:function createNodeGraphKnobFace(node, type) {
+public\modules\scientificIir\scientific-iir-math.js:20:function createNodeGraphScientificIirState() {
+public\modules\scientificIir\scientific-iir-math.js:34:function createNodeGraphStereoScientificIirState() {
+public\modules\scientificIir\scientific-iir-math.js:36:    left: createNodeGraphScientificIirState(),
+public\modules\scientificIir\scientific-iir-math.js:37:    mono: createNodeGraphScientificIirState(),
+public\modules\scientificIir\scientific-iir-math.js:38:    right: createNodeGraphScientificIirState(),
+public\modules\lorenzAttractor\lorenz-attractor-math.js:4:function createNodeGraphLorenzAttractorJsState() {
+public\modules\kickEnvelope\kick-envelope-math.js:37:function createNodeGraphKickEnvelopeState() {
+public\modules\inertialFilter\inertial-filter-math.js:11:function createNodeGraphInertialFilterState() {
+public\modules\inertialFilter\inertial-filter-math.js:18:function createNodeGraphStereoInertialFilterState() {
+public\modules\inertialFilter\inertial-filter-math.js:20:    left: createNodeGraphInertialFilterState(),
+public\modules\inertialFilter\inertial-filter-math.js:21:    mono: createNodeGraphInertialFilterState(),
+public\modules\inertialFilter\inertial-filter-math.js:22:    right: createNodeGraphInertialFilterState(),
+public\modules\keypad\keypad-math.js:150:function createNodeGraphKeypadState() {
+public\modules\keypad\keypad-math.js:224:function nodeGraphKeypadClampUnit(value, fallback = NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.buttonWidth) {
+public\modules\keypad\keypad-math.js:231:  return nodeGraphKeypadClampUnit(value, NODE_GRAPH_KEYPAD_LAYOUT_DEFAULTS.buttonWidth);
+public\modules\triggerDivider\trigger-divider-math.js:2:// clockDivider offline path shares createNodeGraphTriggerDividerState via stdlib
+public\modules\triggerDivider\trigger-divider-math.js:5:function createNodeGraphTriggerDividerState() {
+public\node-graph-node-dragging.js:222:    x: Math.max(1, nodeGraphGridWidth() / 2),
+public\node-graph-robin-supersaw.js:53:function createNodeGraphRobinSupersawState() {
+public\modules\quadrature\quadrature-math.js:84:function createNodeGraphQuadratureState() {
+public\modules\sampleHold\sample-hold-math.js:5:function createNodeGraphSampleHoldState() {
+public\modules\sampleHold\sample-hold-math.js:17:    noise: typeof createNodeGraphNoiseGeneratorChannelState === "function"
+public\modules\sampleHold\sample-hold-math.js:18:      ? createNodeGraphNoiseGeneratorChannelState()
+public\modules\sampleHold\sample-hold-math.js:23:function createNodeGraphStereoSampleHoldState() {
+public\modules\sampleHold\sample-hold-math.js:25:    ext: createNodeGraphSampleHoldState(),
+public\modules\sampleHold\sample-hold-math.js:26:    left: createNodeGraphSampleHoldState(),
+public\modules\sampleHold\sample-hold-math.js:27:    right: createNodeGraphSampleHoldState(),
+public\modules\logisticMap\logistic-map-math.js:5:function createNodeGraphLogisticMapJsState() {
+public\modules\linearEnvelope\linear-envelope-math.js:4:function createNodeGraphLinearEnvelopeState() {
+public\modules\rgbShape\rgb-shape-ui.js:4:function createNodeGraphRgbShapeBody(node, type) {
+public\modules\rgbShape\rgb-shape-ui.js:50:  createBody: createNodeGraphRgbShapeBody,
+public\modules\lookaheadLimiter\lookahead-limiter-math.js:11:function createNodeGraphLookaheadLimiterState() {
+public\modules\lookaheadLimiter\lookahead-limiter-math.js:225:function createNodeGraphPumpingLimiterState() {
+public\modules\lookaheadLimiter\lookahead-limiter-math.js:226:  const state = createNodeGraphLookaheadLimiterState();
+public\modules\keypad\keypad-live-evaluator.js:12:  const state = runtime.keypadStates.get(nodeId) || createNodeGraphKeypadState();
+public\modules\rgbShape\rgb-shape-register.js:19:      defaultWidthGu: 8,
+public\node-graph-musical-engines.js:121:function createNodeGraphDegreeTuringState() {
+public\node-graph-musical-engines.js:177:function createNodeGraphGravityWalkerState() {
+public\node-graph-musical-engines.js:352:function createNodeGraphDegreePhraseState() {
+public\node-graph-musical-engines.js:446:function createNodeGraphNoteGlideState() {
+public\node-graph-musical-engines.js:470:function createNodeGraphNoteTransposeState() {
+public\modules\triggerCounter\trigger-counter-math.js:3:function createNodeGraphTriggerCounterState() {
+public\node-graph-rendered-audio.js:27:  nodeGraphMvp.renderedAudioUrl = URL.createObjectURL(renderedNodeGraphWavBlob(nodeGraphMvp.rendered));
+public\node-graph-module-store.js:4116:    ? nodeGraphUnifiedWindowDefaultSize.width
+public\node-graph-module-store.js:4122:    ? nodeGraphUnifiedWindowDefaultSize.minWidth
+public\node-graph-module-store.js:4127:    ? nodeGraphUnifiedWindowDefaultSize.maxWidth
+public\node-graph-module-store.js:4147:      nodeGraphModuleShopWindowDefaultSize.minWidth,
+public\node-graph-module-store.js:4149:        nodeGraphModuleShopWindowDefaultSize.maxWidth,
+public\node-graph-module-store.js:4150:        Math.round(nodeGraphFiniteNumber(source.width, nodeGraphModuleShopWindowDefaultSize.width)),
+public\node-graph-module-store.js:4181:      panel.style.setProperty("--node-module-shop-width", `${stored.width}px`);
+public\node-graph-module-store.js:4194:      panel.style.setProperty("--node-module-shop-max-width", `${normalized._maxWidth}px`);
+public\node-graph-module-store.js:4311:    if (typeof createNodeGraphModuleStoreButton === "function") {
+public\node-graph-module-store.js:4312:      results.append(createNodeGraphModuleStoreButton(entry));
+public\node-graph-module-store.js:4330:  // Prefer definition outputs ΓÇö createNodeGraphPatchNode loads later in boot.
+public\node-graph-module-store.js:4331:  if (typeof createNodeGraphPatchNode === "function") {
+public\node-graph-module-store.js:4332:    return nodeGraphPatchNodeOutputPorts(createNodeGraphPatchNode(type, { id: "demo" })).length > 0;
+public\node-graph-module-store.js:4343:  const outputPorts = nodeGraphPatchNodeOutputPorts(createNodeGraphPatchNode(type, { id: "demo" }));
+public\node-graph-module-store.js:4346:    createNodeGraphPatchNode(type, { gx: 3, gy: 5, id: "demo" }),
+public\node-graph-module-store.js:4347:    createNodeGraphPatchNode("output", { gx: 16, gy: 5, id: "output" }),
+public\node-graph-module-store.js:4385:    view: { widthGu: 22, heightGu: 13 },
+public\node-graph-module-store.js:4457:function createNodeGraphModuleStoreButton(entry) {
+public\node-graph-module-store.js:4511:function createNodeGraphModuleDepartmentButton(departmentId, entries) {
+public\node-graph-module-store.js:4539:function createNodeGraphModuleStoreVisualGroupHeader(groupLabel) {
+public\node-graph-module-store.js:4553:  target.append(createNodeGraphModuleStoreVisualGroupHeader(groupLabel));
+public\node-graph-module-store.js:4555:    target.append(createNodeGraphModuleDepartmentButton(department, entries));
+public\node-graph-module-store.js:4625:    homeShelf.append(createNodeGraphModuleStoreButton(entry));
+public\node-graph-module-store.js:4631:      available.append(createNodeGraphModuleStoreButton(entry));
+public\node-graph-module-store.js:4635:      available.append(createNodeGraphModuleDepartmentButton(department, departmentEntries));
+public\modules\sampleDelay\sample-delay-math.js:4:function createNodeGraphSampleDelayState() {
+public\modules\phaseDisperse\phase-disperse-math.js:8:function createNodeGraphPhaseDisperseState() {
+public\node-graph-render-output.js:276:    if (!Offline || typeof createNodeGraphLiveWorkletNode !== "function") {
+public\node-graph-render-output.js:280:    const workletNode = await createNodeGraphLiveWorkletNode(offlineCtx, plan);
+public\node-graph-render-output.js:338:    const earProtector = createNodeGraphEarProtector(engineSampleRate);
+public\modules\patch\patch-ui.js:117:function createNodeGraphPatchFace(node, type) {
+public\modules\patch\patch-ui.js:167:  createBody: createNodeGraphPatchFace,
+public\modules\pluckEnvelope\pluck-envelope-math.js:59:function createNodeGraphPluckEnvelopeState() {
+public\modules\phoneTone\phone-tone-math.js:67:function createNodeGraphPhoneToneVoice() {
+public\modules\phoneTone\phone-tone-math.js:68:  const make = typeof createNodeGraphRobinSinusoidState === "function"
+public\modules\phoneTone\phone-tone-math.js:69:    ? createNodeGraphRobinSinusoidState
+public\modules\phoneTone\phone-tone-math.js:74:function createNodeGraphPhoneToneState() {
+public\modules\phoneTone\phone-tone-math.js:76:    analog: createNodeGraphPhoneToneVoice(),
+public\modules\phoneTone\phone-tone-math.js:77:    digital: createNodeGraphPhoneToneVoice(),
+public\modules\rgbPicture\rgb-picture-ui.js:3:function createNodeGraphRgbPictureBody(node, type) {
+public\modules\rgbPicture\rgb-picture-ui.js:20:  createBody: createNodeGraphRgbPictureBody,
+public\modules\portal\portal-lanes.js:161:    defaultWidthGu: 4,
+public\node-graph-render-live-event-bindings.js:43:async function spawnNodeGraphSamplePlayerFromRendered(clientX, clientY) {
+public\node-graph-render-live-event-bindings.js:148:    spawnNodeGraphSamplePlayerFromRendered(event.clientX, event.clientY);
+public\modules\phoneTone\phone-tone-live-evaluator.js:14:    || (typeof createNodeGraphPhoneToneState === "function"
+public\modules\phoneTone\phone-tone-live-evaluator.js:15:      ? createNodeGraphPhoneToneState()
+public\node-graph-module-sizing.js:55:const nodeGraphModuleWidthLimits = nodeGraphModuleGuPolicy;
+public\node-graph-module-sizing.js:106:function nodeGraphLayoutAMinWidthGuFromIoLabels(_type) {
+public\node-graph-module-sizing.js:107:  return nodeGraphModuleWidthLimits.minGu;
+public\node-graph-module-sizing.js:110:function nodeGraphModuleWidthLimitsForType(_type) {
+public\node-graph-module-sizing.js:463:    widthGu: Number.isFinite(Number(script.gridWidthGu)) ? Number(script.gridWidthGu) : null,
+public\node-graph-module-sizing.js:467:function nodeGraphDefaultModuleGridWidthUnits(type) {
+public\node-graph-module-sizing.js:468:  const declaredWidthGu = Number(nodeGraphModuleDefinitions[type]?.defaultWidthGu);
+public\node-graph-module-sizing.js:469:  if (Number.isFinite(declaredWidthGu)) {
+public\node-graph-module-sizing.js:470:    const limits = nodeGraphModuleWidthLimitsForType(type);
+public\node-graph-module-sizing.js:471:    return Math.max(limits.minGu, Math.round(declaredWidthGu));
+public\node-graph-module-sizing.js:480:    // grows/shrinks within (see createNodeGraphStepGridBody).
+public\node-graph-module-sizing.js:518:    return Math.max(8, nodeGraphLayoutAMinWidthGuFromIoLabels(type) || 8);
+public\node-graph-module-sizing.js:521:    return Math.max(8, nodeGraphLayoutAMinWidthGuFromIoLabels(type) || 8);
+public\node-graph-module-sizing.js:524:  const layoutAMin = nodeGraphLayoutAMinWidthGuFromIoLabels(type);
+public\node-graph-module-sizing.js:528:function normalizeNodeGraphModuleWidthUnits(type, widthGu) {
+public\node-graph-module-sizing.js:529:  const fallback = nodeGraphDefaultModuleGridWidthUnits(type);
+public\node-graph-module-sizing.js:530:  const limits = nodeGraphModuleWidthLimitsForType(type);
+public\node-graph-module-sizing.js:531:  const value = Math.round(Number(widthGu));
+public\node-graph-module-sizing.js:537:function nodeGraphModuleGridWidthUnits(type) {
+public\node-graph-module-sizing.js:538:  return nodeGraphDefaultModuleGridWidthUnits(type);
+public\node-graph-module-sizing.js:541:function nodeGraphPatchNodeGridWidthUnits(node) {
+public\node-graph-module-sizing.js:543:  if (scriptGrid?.widthGu) {
+public\node-graph-module-sizing.js:544:    return normalizeNodeGraphModuleWidthUnits(node?.type, scriptGrid.widthGu);
+public\node-graph-module-sizing.js:546:  return normalizeNodeGraphModuleWidthUnits(node?.type, node?.widthGu);
+public\node-graph-module-sizing.js:1520:      { id: "screen", heightGu: nodeGraphDefaultModuleGridWidthUnits(type), visible: displayVisible },
+public\modules\plugin\plugin-controls-ui.js:215:function createNodeGraphToggleButtonFace(node, type) {
+public\modules\plugin\plugin-controls-ui.js:294:function createNodeGraphMomentaryButtonFace(node, type) {
+public\modules\rgbPicture\rgb-picture-register.js:9:    defaultWidthGu: 4,
+public\modules\patch\patch-register.js:10:    defaultWidthGu: 10,
+public\modules\pluckEnvelope3\pluck-envelope-3-math.js:7:function createNodeGraphPluckEnvelope3State() {
+public\modules\pluckEnvelope3\pluck-envelope-3-math.js:105:  const state = createNodeGraphPluckEnvelope3State();
+public\node-graph-ray-bouncer.js:26:function createNodeGraphRayBouncerState() {
+public\node-graph-ray-bouncer.js:46:  const state = options.state || createNodeGraphRayBouncerState();
+public\modules\portal\portal-ui.js:2:// no custom face / createBody path (jacks live in .dsp-node-io-section).
+public\modules\pitchQuantizer\pitch-quantizer-ui.js:5:function createNodeGraphPitchQuantizerFace(node) {
+public\modules\pitchQuantizer\pitch-quantizer-ui.js:65:    whiteRow.append(createNodeGraphPitchQuantizerKeyButton(node, pc, names[pc], mask, false));
+public\modules\pitchQuantizer\pitch-quantizer-ui.js:85:    const btn = createNodeGraphPitchQuantizerKeyButton(node, key.pitchClass, names[key.pitchClass], mask, true);
+public\modules\pitchQuantizer\pitch-quantizer-ui.js:109:function createNodeGraphPitchQuantizerKeyButton(nodeId, pitchClass, label, mask, isBlack) {
+public\modules\phoneTone\phone-tone-display.js:91:function createNodeGraphPhoneToneDisplay(nodeId, type = "phoneTone") {
+public\modules\phoneTone\phone-tone-display.js:227:  registerNodeGraphModuleFaceCreator("phoneToneFace", createNodeGraphPhoneToneDisplay);
+public\node-graph-module-scopes.js:62:  // canvas (old one .remove()'d, a new one created) whenever a node's scope
+public\node-graph-pulse-explosion-display.js:7:function createNodeGraphPulseCurveDisplay(nodeId, type) {
+public\modules\rasterRgb\raster-rgb-display.js:694:  const bufW = grid.bufferWidth || 0;
+public\modules\rasterRgb\raster-rgb-display.js:696:  const sizeKey = `${cw}x${ch}|${grid.width}x${grid.height}|${bufW}x${bufH}`;
+public\modules\rasterRgb\raster-rgb-display.js:720:  if (!(grid.width > 0) || !(grid.height > 0) || !(bufW > 0) || !(bufH > 0)) {
+public\modules\rasterRgb\raster-rgb-display.js:727:    state = nodeGraphRasterRgbState(nodeId, bufW, bufH, grid.width, grid.height);
+public\modules\rasterRgb\raster-rgb-display.js:737:  const logicalW = Math.max(1e-9, nodeGraphFiniteNumber(state.logicalWidth, grid.width) || state.width);
+public\modules\rasterRgb\raster-rgb-display.js:820:  const gradeKey = `${grade.invert}|${grade.contrast}|${grade.brightness}|${grade.hue}|${grade.blur}|${grade.glow}|${grid.width}x${grid.height}|${bufW}x${bufH}|${wired ? captured.length : 0}`;
+public\modules\rasterRgb\raster-rgb-display.js:842:      const scale = Math.min(cw / grid.width, ch / grid.height);
+public\modules\rasterRgb\raster-rgb-display.js:843:      dw = Math.max(1, Math.floor(grid.width * scale));
+public\modules\rasterRgb\raster-rgb-display.js:880:    grid: `${grid.width}x${grid.height}`,
+public\modules\portal\portal-named-register.js:14:    defaultWidthGu: 4,
+public\modules\portal\portal-named-register.js:48:    defaultWidthGu: 4,
+public\modules\portal\portal-named-register.js:84:    defaultWidthGu: 4,
+public\modules\tiltFilter\tilt-filter-math.js:20:function createNodeGraphTiltFilterState() {
+public\modules\tiltFilter\tilt-filter-math.js:31:function createNodeGraphStereoTiltFilterState() {
+public\modules\tiltFilter\tilt-filter-math.js:33:    left: createNodeGraphTiltFilterState(),
+public\modules\tiltFilter\tilt-filter-math.js:34:    mono: createNodeGraphTiltFilterState(),
+public\modules\tiltFilter\tilt-filter-math.js:35:    right: createNodeGraphTiltFilterState(),
+public\modules\rayBouncer\ray-bouncer-ui.js:4:function createNodeGraphRayBouncerBody(node, type) {
+public\modules\rayBouncer\ray-bouncer-ui.js:7:  if (typeof createNodeGraphModuleScopeSection === "function") {
+public\modules\rayBouncer\ray-bouncer-ui.js:8:    const section = createNodeGraphModuleScopeSection(node, type);
+public\modules\rayBouncer\ray-bouncer-ui.js:22:  createBody: createNodeGraphRayBouncerBody,
+public\modules\rayBouncer\ray-bouncer-register.js:11:    defaultWidthGu: 8,
+public\modules\robinSinusoid\robin-sinusoid-math.js:11:function createNodeGraphRobinSinusoidState() {
+public\modules\rgbFractal\rgb-fractal-ui.js:3:function createNodeGraphRgbFractalBody(node, type) {
+public\modules\rgbFractal\rgb-fractal-ui.js:91:  createBody: createNodeGraphRgbFractalBody,
+public\modules\rgbFractal\rgb-fractal-math.js:43:function createNodeGraphRgbFractalAudioState() {
+public\modules\rgbFractal\rgb-fractal-register.js:11:    defaultWidthGu: 5,
+public\node-graph-module-scope-webgl.js:4:function createNodeGraphModuleScopeShader(gl, type, source) {
+public\node-graph-module-scope-webgl.js:16:function createNodeGraphModuleScopeProgram(gl, vertexSource, fragmentSource) {
+public\node-graph-module-scope-webgl.js:17:  const vertexShader = createNodeGraphModuleScopeShader(gl, gl.VERTEX_SHADER, vertexSource);
+public\node-graph-module-scope-webgl.js:18:  const fragmentShader = createNodeGraphModuleScopeShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+public\node-graph-module-scope-webgl.js:36:function createNodeGraphModuleScopeWebGlRenderer(canvas) {
+public\node-graph-module-scope-webgl.js:52:  const colorProgram = createNodeGraphModuleScopeProgram(gl, `
+public\node-graph-module-scope-webgl.js:64:  const beamProgram = createNodeGraphModuleScopeProgram(gl, `
+public\node-graph-module-scope-webgl.js:170:  const renderer = createNodeGraphModuleScopeWebGlRenderer(canvas);
+public\node-graph-pitch-quantizer.js:33:function createNodeGraphPitchQuantizerState() {
+public\modules\softpopOscillator\softpop-oscillator-math.js:22:function createNodeGraphSoftpopNoiseChannel() {
+public\modules\softpopOscillator\softpop-oscillator-math.js:23:  if (typeof createNodeGraphNoiseGeneratorChannelState === "function") {
+public\modules\softpopOscillator\softpop-oscillator-math.js:24:    return createNodeGraphNoiseGeneratorChannelState();
+public\modules\softpopOscillator\softpop-oscillator-math.js:29:function createNodeGraphSoftpopChannelState() {
+public\modules\softpopOscillator\softpop-oscillator-math.js:31:    noise: createNodeGraphSoftpopNoiseChannel(),
+public\modules\softpopOscillator\softpop-oscillator-math.js:32:    filter: typeof createNodeGraphEqFilterState === "function"
+public\modules\softpopOscillator\softpop-oscillator-math.js:33:      ? createNodeGraphEqFilterState()
+public\modules\softpopOscillator\softpop-oscillator-math.js:38:function createNodeGraphSoftpopOscillatorState() {
+public\modules\softpopOscillator\softpop-oscillator-math.js:40:    left: createNodeGraphSoftpopChannelState(),
+public\modules\softpopOscillator\softpop-oscillator-math.js:41:    right: createNodeGraphSoftpopChannelState(),
+public\modules\softpopOscillator\softpop-oscillator-math.js:79:  if (typeof createNodeGraphEqFilterState === "function") {
+public\modules\softpopOscillator\softpop-oscillator-math.js:80:    state.left.filter = createNodeGraphEqFilterState();
+public\modules\softpopOscillator\softpop-oscillator-math.js:81:    state.right.filter = createNodeGraphEqFilterState();
+public\modules\softpopOscillator\softpop-oscillator-math.js:99:    const fresh = createNodeGraphSoftpopOscillatorState();
+public\modules\thumpEnvelope\thump-envelope-math.js:17:function createNodeGraphThumpEnvelopeState() {
+public\modules\thumpEnvelope\thump-envelope-math.js:19:    typeof createNodeGraphExpAdsrState === "function"
+public\modules\thumpEnvelope\thump-envelope-math.js:20:      ? createNodeGraphExpAdsrState()
+public\modules\thumpEnvelope\thump-envelope-math.js:71:  if (!state.adsr && typeof createNodeGraphExpAdsrState === "function") {
+public\modules\thumpEnvelope\thump-envelope-math.js:72:    state.adsr = createNodeGraphExpAdsrState();
+public\modules\thumpEnvelope\thump-envelope-math.js:180:  const state = createNodeGraphThumpEnvelopeState();
+public\modules\speedColorInertia\speed-color-inertia-math.js:12:function createNodeGraphSpeedColorInertiaState() {
+public\modules\speedColorInertia\speed-color-inertia-math.js:16:    sat: typeof createNodeGraphInertialFilterState === "function"
+public\modules\speedColorInertia\speed-color-inertia-math.js:17:      ? createNodeGraphInertialFilterState()
+public\modules\stftBlur\stft-blur-math.js:79:function createNodeGraphStftBlurState(fftSize) {
+public\modules\stepGrid\step-grid.css:6:  width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
+public\modules\stepGrid\step-grid.css:7:  min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
+public\modules\speakerProtector2\speaker-protector-2-math.js:32:function createNodeGraphSpeakerProtector2State(sampleRate = 44100) {
+public\modules\speakerProtector2\speaker-protector-2-math.js:51:    return createNodeGraphSpeakerProtector2State(rate);
+public\modules\textStream\text-stream-ui.js:3:function createNodeGraphTextStreamFace(nodeId) {
+public\modules\theremin\theremin-ui.js:4:  createBody(node, type) {
+public\modules\theremin\theremin-ui.js:5:    if (typeof createNodeGraphXyPadBody !== "function") {
+public\modules\theremin\theremin-ui.js:13:    const pad = createNodeGraphXyPadBody(node, type || "theremin");
+public\modules\textStream\text-stream-core.js:28:function createNodeGraphTextStreamState() {
+public\modules\stepGrid\step-grid-ui.js:75:// body, same pattern as createNodeGraphLedFace's single input port, just
+public\modules\stepGrid\step-grid-ui.js:78:function createNodeGraphStepGridBody(node) {
+public\modules\stepGrid\step-grid-ui.js:90:  inputColumn.append(createNodeGraphPort(node, type, "Trigger", "input"));
+public\modules\stepGrid\step-grid-ui.js:91:  inputColumn.append(createNodeGraphPort(node, type, "Reset", "input"));
+public\modules\stepGrid\step-grid-ui.js:145:  outputColumn.append(createNodeGraphPort(node, type, "Gate", "output"));
+public\modules\stepGrid\step-grid-ui.js:146:  outputColumn.append(createNodeGraphPort(node, type, "Step", "output"));
+public\modules\stepGrid\step-grid-ui.js:153:  createBody: createNodeGraphStepGridBody,
+public\node-graph-module-scope-paint-helpers.js:785:// createNodeGraphScope2dBurnTexture ΓåÆ node-graph-module-scope-draw-burn.js
+public\node-graph-module-scope-paint-helpers.js:786:// createNodeGraphScope2dBurnFramebuffer ΓåÆ node-graph-module-scope-draw-burn.js
+public\node-graph-module-scope-paint-helpers.js:787:// createNodeGraphScope2dBurnSurface ΓåÆ node-graph-module-scope-draw-burn.js
+public\node-graph-module-scope-paint-helpers.js:789:// createNodeGraphScope2dBurnRenderer ΓåÆ node-graph-module-scope-draw-burn.js
+public\node-graph-phosphillator.js:21:function createNodeGraphPhosphillatorCaptureState() {
+public\node-graph-phosphillator.js:23:    mouseSmooth: typeof createNodeGraphMouseSmoothState === "function"
+public\node-graph-phosphillator.js:24:      ? createNodeGraphMouseSmoothState(0, 0)
+public\node-graph-phosphillator.js:41:  const state = createNodeGraphPhosphillatorCaptureState();
+public\node-graph-phosphillator.js:237:function createNodeGraphPhosphillatorDrawDisplay(nodeId, type) {
+public\node-graph-phosphillator.js:390:function createNodeGraphPhosphillatorPlaybackState() {
+public\node-graph-module-scope-trace-controls.js:1772:    title: "Keep raster cells square. When Width and Height match, a non-square face letterboxes instead of stretching. Off: stretch the grid to fill the face.",
+public\node-graph-module-scope-screen-items.js:480:          sampleWidth: nodeGraphModuleScopeUnzoomedLength(drawRect.width, zoomScale),
+public\modules\softClipper\soft-clipper-display.js:4:function createNodeGraphSoftClipperCurveDisplay(nodeId, type) {
+public\node-graph-module-scope-normalize.js:2188:    // Map through /16 so old default 1px Γëê 0.06, old max 16 ΓåÆ 1 (full width).
+public\modules\softwaveOsc\softwave-osc-display.js:4:function createNodeGraphSoftwaveOscDisplay(nodeId, type = "softwaveOsc") {
+public\node-graph-module-scope-spectrum.js:195:    ? nodeGraphUnifiedWindowDefaultSize.maxWidth
+public\node-graph-module-scope-spectrum.js:203:    ? nodeGraphUnifiedWindowDefaultSize.minWidth
+public\node-graph-module-scope-spectrum.js:208:    ? nodeGraphUnifiedWindowDefaultSize.width
+public\node-graph-patch-normalizers.js:170:  const width = Number(grid?.widthPx);
+public\node-graph-patch-normalizers.js:458:    widthGu: normalizeGridUnit(match?.[1]),
+public\node-graph-patch-normalizers.js:768:    gridWidthGu: grid.widthGu,
+public\node-graph-patch-normalizers.js:797:    gridWidthGu: model.gridWidthGu,
+public\node-graph-patch-normalizers.js:865:    nodeGraphDefaultCameraResolution.width,
+public\node-graph-patch-normalizers.js:874:    : nodeGraphDefaultCameraFrame.width;
+public\node-graph-patch-normalizers.js:929:  minWidthGu: 4,
+public\node-graph-patch-normalizers.js:1002:  const widthGu = Math.round(Number(view?.widthGu));
+public\node-graph-patch-normalizers.js:1030:    widthGu: Number.isFinite(widthGu)
+public\node-graph-patch-normalizers.js:1031:      ? Math.max(0, widthGu)
+public\node-graph-patch-core.js:184:  if (!Number.isFinite(grid.widthPx) || grid.widthPx <= 0) {
+public\node-graph-patch-core.js:185:    throw new Error("grid.widthPx must be a positive number");
+public\node-graph-patch-core.js:269:    const hasCustomWidth = sizingCapabilities.width && Object.hasOwn(node, "widthGu");
+public\node-graph-patch-core.js:270:    const widthGu = hasCustomWidth ? normalizeNodeGraphModuleWidthUnits(type, node.widthGu) : null;
+public\node-graph-patch-core.js:271:    if (hasCustomWidth && !Number.isFinite(Number(node.widthGu))) {
+public\node-graph-patch-core.js:272:      throw new Error(`node ${id} widthGu invalid`);
+public\node-graph-patch-core.js:587:      ...(hasCustomWidth ? { widthGu } : {}),
+public\node-graph-patch-core.js:1008:  if (view.widthGu && view.widthGu < nodeGraphWorkspaceViewLimits.minWidthGu) {
+public\node-graph-patch-core.js:1009:    throw new Error(`view.widthGu must be 0 or at least ${nodeGraphWorkspaceViewLimits.minWidthGu}`);
+public\node-graph-patch-core.js:1371:  element.style.setProperty("--node-grid-width-units", String(nodeGraphPatchNodeGridWidthUnits(patchNode)));
+public\node-graph-patch-core.js:1384:  element.dataset.gridWidthGu = String(nodeGraphPatchNodeGridWidthUnits(patchNode));
+public\node-graph-patch-core.js:1580:    element = createNodeGraphModuleElement(patchNode.type, patchNode.id);
+public\node-graph-uidev-event-bindings.js:128:  document.getElementById("nodeUiDevPatchGridWidthPx")?.addEventListener("input", applyPatchGrid);
+public\node-graph-uidev-event-bindings.js:129:  document.getElementById("nodeUiDevPatchGridWidthPx")?.addEventListener("change", commitPatchGrid);
+public\node-graph-ui-settings-panels.js:3:    ? nodeGraphUnifiedWindowDefaultSize.width
+public\node-graph-ui-settings-panels.js:9:    ? nodeGraphUnifiedWindowDefaultSize.minWidth
+public\node-graph-ui-settings-panels.js:14:    ? nodeGraphUnifiedWindowDefaultSize.maxWidth
+public\node-graph-ui-settings-panels.js:26:    ? nodeGraphUnifiedWindowDefaultSize.width
+public\node-graph-ui-settings-panels.js:32:    ? nodeGraphUnifiedWindowDefaultSize.minWidth
+public\node-graph-ui-settings-panels.js:35:    ? nodeGraphUnifiedWindowDefaultSize.maxWidth
+public\node-graph-slider-readout-controls.js:155:function createNodeSliderReadout(slider) {
+public\node-graph-text-box-rendering.js:3:function createNodeGraphTextBoxBody(node) {
+public\node-graph-settings-view.js:199:    widthPx: nodeGraphSyncedFieldValue(["nodeUiDevPatchGridWidthPx"]),
+public\node-graph-settings-view.js:213:  const w = document.getElementById("nodeUiDevPatchGridWidthPx");
+public\node-graph-settings-view.js:215:  const wOut = document.getElementById("nodeUiDevPatchGridWidthPxValue");
+public\node-graph-settings-view.js:218:    w.value = String(grid.widthPx);
+public\node-graph-settings-view.js:224:    wOut.textContent = `${grid.widthPx}px`;
+public\node-graph-settings-view.js:235:  const widthPx = Number(document.getElementById("nodeUiDevPatchGridWidthPx")?.value);
+public\node-graph-papoulis-filter.js:100:function createNodeGraphMouseSmoothState(initialX = 0, initialY = 0) {
+public\node-graph-papoulis-filter.js:120:    return createNodeGraphMouseSmoothState(x, y);
+public\node-graph-papoulis-filter.js:166:// createNodeGraphXState()/nodeGraphXSample() naming convention used by
+public\node-graph-papoulis-filter.js:170:function createNodeGraphPapoulisFilterState() {
+public\node-graph-settings-fields.js:26:function createNodeGraphSettingsRangeRow(options = {}) {
+public\node-graph-settings-fields.js:67:  const built = createNodeGraphSettingsRangeRow(options);
+public\modules\snowflake\snowflake-math.js:66:function createNodeGraphSnowflakeState() {
+public\modules\snowflake\snowflake-math.js:260:  const st = state || createNodeGraphSnowflakeState();
+public\modules\snowflake\snowflake-math.js:321:  globalThis.createNodeGraphSnowflakeState = createNodeGraphSnowflakeState;
+public\node-live-audio-worklet-native-graph.js:1919:          `spawn nodes=${desired.size} added=${addedIds.length}`,
+public\node-graph-scene-menu-event-bindings.js:241:  bindNodeGraphSceneElementEvent("nodeSceneWidthDecrease", "click", () => adjustNodeGraphModuleWidthFromContext(-1));
+public\node-graph-scene-menu-event-bindings.js:242:  bindNodeGraphSceneElementEvent("nodeSceneWidthIncrease", "click", () => adjustNodeGraphModuleWidthFromContext(1));
+public\node-graph-surge-oscillator.js:9:function createNodeGraphSurgeOscillatorState() {
+public\node-graph-softwave-oscillator.js:50:function createNodeGraphSoftwaveOscillatorState() {
+public\node-graph-softwave-oscillator.js:76:  const st = state || createNodeGraphSoftwaveOscillatorState();
+public\node-graph-ui-settings-definitions.js:336:      "nodeUiDevPatchGridWidthPx",
+public\node-graph-ui-settings-sync.js:279:  workspace?.style.setProperty("--node-module-idle-stroke-width", `${thicknessPx}px`);
+public\node-graph-samples.js:1566:function createNodeGraphSamplePhaseReadout(nodeId) {
+public\node-graph-samples.js:1597:function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
+public\node-graph-samples.js:1793:function createNodeGraphSampleModuleBody(nodeOrId) {
+public\node-graph-samples.js:1810:  const { fileInput: input, pathShell } = createNodeGraphSamplePathLoader(nodeId);
+public\node-graph-turing-machine.js:1:function createNodeGraphTuringMachineState() {
+public\node-graph-slider-values.js:257:function createNodeGraphParameterSmoother(initialValue, metadata = {}) {
+public\node-graph-sample-waveform.js:121:      ? Math.max(0, Math.min(16, clampAuthoredInkPx(scrollLineWidth, nodeGraphSampleWaveformDefaultSettings.scrollLineWidth)))
+public\node-graph-sample-waveform.js:122:      : nodeGraphSampleWaveformDefaultSettings.scrollLineWidth,
+public\node-graph-sample-waveform.js:124:      ? Math.max(0.25, Math.min(16, clampAuthoredInkPx(traceWidth, nodeGraphSampleWaveformDefaultSettings.traceWidth)))
+public\node-graph-sample-waveform.js:125:      : nodeGraphSampleWaveformDefaultSettings.traceWidth,
+public\node-graph-sample-waveform.js:237:  if (!slot || typeof createNodeGraphSamplePathLoader !== "function") {
+public\node-graph-sample-waveform.js:245:  const loader = createNodeGraphSamplePathLoader(nodeId, { instance: "waveform-settings" });
+public\node-graph-sample-waveform.js:280:        label.append(box, document.createTextNode(fmt.label));
+public\node-graph-sample-waveform.js:338:  if (!slot || typeof createNodeGraphSamplePhaseReadout !== "function") {
+public\node-graph-sample-waveform.js:350:  const { phase } = createNodeGraphSamplePhaseReadout(nodeId);
+public\node-graph-sample-waveform.js:2420:function createNodeGraphSampleWaveformDisplay(nodeId, type) {
+public\node-graph-sample-waveform.js:3174:        : nodeGraphSampleWaveformDefaultSettings.scrollLineWidth,
+public\modules\slider\slider-face.js:197:function createNodeGraphPluginSliderFace(node, type) {
+public\node-live-audio-worklet-dsp-state.js:6:    const state = typeof createNodeGraphSpeakerProtector2State === "function"
+public\node-live-audio-worklet-dsp-state.js:7:      ? createNodeGraphSpeakerProtector2State(safeRate)
+public\node-graph-stdlib\node-graph-shared-dsp-helpers.js:11:function createNodeGraphTriggerDividerState() {
+public\node-graph-stdlib\node-graph-shared-dsp-helpers.js:44:function createNodeGraphOscResetState() {
+public\node-graph-stdlib\node-graph-shared-dsp-helpers.js:103:function createNodeGraphNoiseGeneratorChannelState() {
+public\node-graph-stdlib\node-graph-shared-dsp-helpers.js:124:function createNodeGraphStereoFilterState(createFn) {
+public\node-graph-stdlib\node-graph-shared-dsp-helpers.js:214:function createNodeGraphGraphLfoState() {
+public\node-graph-stdlib\node-graph-visual-control-helpers.js:16:function createNodeGraphVisualControlState() {
+public\node-graph-stdlib\node-graph-visual-control-helpers.js:65:  const visualState = createNodeGraphVisualControlState();
+public\node-graph-stdlib\node-graph-visual-control-helpers.js:72:    runtime.visualControls = createNodeGraphVisualControlState().controls;
+public\node-graph-workspace-zoom.js:435:    x: snapNodeGraphPanValueToGrid(pan.x, nodeGraphGridWidth(), 1),
+public\node-graph-wires.js:2:  function createNodeGraphWireHelpers(deps) {
+public\node-graph-wires.js:251:    function createGradient(svg, id, from, to, stopClass = "node-wire-gradient-stop", colors = null) {
+public\node-graph-wires.js:766:  function createNodeGraphWireInteractionController(deps) {
+public\node-graph-wires.js:1610:  window.createNodeGraphWireHelpers = createNodeGraphWireHelpers;
+public\node-graph-wires.js:1611:  window.createNodeGraphWireInteractionController = createNodeGraphWireInteractionController;
+public\node-graph-user-ui-settings-controls.js:12:function createNodeUserUiSettingsMirrorControl(definition) {
+public\node-graph-user-ui-settings-controls.js:125:function createNodeUserUiSettingsViewCheckbox({ key, label, getValue, setValue, id }) {
+public\node-graph-user-ui-settings-controls.js:153:function createNodeUserUiSettingsViewControl() {
+public\node-graph-user-ui-settings-controls.js:154:  return createNodeUserUiSettingsViewCheckbox({
+public\node-graph-user-ui-settings-controls.js:166:function createNodeUserUiSettingsGridLightControl() {
+public\node-graph-user-ui-settings-controls.js:167:  return createNodeUserUiSettingsViewCheckbox({
+public\node-graph-user-ui-settings-controls.js:179:function createNodeUserUiSettingsWireLengthsControl() {
+public\node-graph-user-ui-settings-controls.js:180:  return createNodeUserUiSettingsViewCheckbox({
+public\node-graph-user-ui-settings-controls.js:192:function createNodeUserUiSettingsWiresAboveControl() {
+public\node-graph-user-ui-settings-controls.js:193:  return createNodeUserUiSettingsViewCheckbox({
+public\node-graph-user-ui-settings-controls.js:205:function createNodeUserUiSettingsKeyboardDebugControl() {
+public\node-graph-user-ui-settings-controls.js:206:  return createNodeUserUiSettingsViewCheckbox({
+public\node-graph-user-ui-settings-controls.js:218:function createNodeUserUiSettingsSliderAmountControl() {
+public\node-graph-user-ui-settings-controls.js:219:  return createNodeUserUiSettingsViewCheckbox({
+public\node-graph-user-ui-settings-controls.js:231:function createNodeUserUiSettingsSliderPositionControl() {
+public\node-graph-user-ui-settings-controls.js:232:  return createNodeUserUiSettingsViewCheckbox({
+public\node-graph-user-ui-settings-controls.js:244:function createNodeUserUiSettingsModuleButtonsControl() {
+public\node-graph-user-ui-settings-controls.js:245:  return createNodeUserUiSettingsViewCheckbox({
+public\node-graph-user-ui-settings-controls.js:257:function createNodeUserUiSettingsModuleOscilloscopeControl() {
+public\node-graph-user-ui-settings-controls.js:258:  return createNodeUserUiSettingsViewCheckbox({
+public\node-graph-user-ui-settings-controls.js:273:function createNodeUserUiSettingsModuleInterfaceControlsControl() {
+public\node-graph-user-ui-settings-controls.js:274:  return createNodeUserUiSettingsViewCheckbox({
+public\node-graph-user-ui-settings-controls.js:287:function createNodeUserUiSettingsModuleSlidersControl() {
+public\node-graph-user-ui-settings-controls.js:288:  return createNodeUserUiSettingsViewCheckbox({
+public\node-graph-user-ui-settings-controls.js:300:function createNodeUserUiSettingsSliderLayoutControl() {
+public\node-graph-user-ui-settings-controls.js:315:function createNodeUserUiSettingsSection(title, controls) {
+public\node-graph-user-ui-settings-controls.js:347:      .map((definition) => createNodeUserUiSettingsMirrorControl(definition));
+public\node-graph-user-ui-settings-controls.js:348:    sections.push(createNodeUserUiSettingsSection(section.title, controls));
+public\node-graph-user-ui-settings-controls.js:370:    maybe(createNodeUserUiSettingsViewControl),
+public\node-graph-user-ui-settings-controls.js:371:    maybe(createNodeUserUiSettingsGridLightControl),
+public\node-graph-user-ui-settings-controls.js:372:    maybe(createNodeUserUiSettingsWireLengthsControl),
+public\node-graph-user-ui-settings-controls.js:373:    maybe(createNodeUserUiSettingsWiresAboveControl),
+public\node-graph-user-ui-settings-controls.js:374:    maybe(createNodeUserUiSettingsModuleButtonsControl),
+public\node-graph-user-ui-settings-controls.js:375:    maybe(createNodeUserUiSettingsModuleOscilloscopeControl),
+public\node-graph-user-ui-settings-controls.js:376:    maybe(createNodeUserUiSettingsModuleInterfaceControlsControl),
+public\node-graph-user-ui-settings-controls.js:377:    maybe(createNodeUserUiSettingsModuleSlidersControl),
+public\node-graph-user-ui-settings-controls.js:378:    maybe(createNodeUserUiSettingsSliderAmountControl),
+public\node-graph-user-ui-settings-controls.js:379:    maybe(createNodeUserUiSettingsSliderPositionControl),
+public\node-graph-user-ui-settings-controls.js:380:    maybe(createNodeUserUiSettingsSliderLayoutControl),
+public\node-graph-user-ui-settings-controls.js:381:    maybe(createNodeUserUiSettingsKeyboardDebugControl),
+public\node-graph-wire-controller-bootstrap.js:3:const nodeGraphWireHelpers = window.createNodeGraphWireHelpers({
+public\node-graph-wire-controller-bootstrap.js:24:const nodeGraphWireInteractions = window.createNodeGraphWireInteractionController({
+public\node-graph-wire-actions.js:297:    const attenNode = createNodeGraphPatchNode("attenuverter", {
+public\node-graph-wire-actions.js:437:    const rangeNode = createNodeGraphPatchNode("range", {
+public\node-graph-wire-actions.js:537:    const polarityNode = createNodeGraphPatchNode(kind, {
+public\node-graph-wire-actions.js:631:    const slewNode = createNodeGraphPatchNode("slewLimiter", {
+public\node-graph-wire-actions.js:725:    const ampCurveNode = createNodeGraphPatchNode("ampCurve", {
+public\node-graph-wire-actions.js:833:    const inNode = createNodeGraphPatchNode("namedPortalIn", {
+public\node-graph-wire-actions.js:840:    const outNode = createNodeGraphPatchNode("namedPortalOut", {
+public\node-graph-unified-window.js:145:// resized ΓåÆ this width. Per-page *DefaultSize objects must copy width/max
+public\node-graph-unified-window.js:193:    width: nodeGraphFiniteNumber(size.width, nodeGraphFiniteNumber(nodeGraphMvp?.unifiedWindowSize?.width, nodeGraphFiniteNumber(rect?.width, defaults.width)))
+public\node-graph-unified-window.js:236:    "--node-unified-window-default-width",
+public\node-graph-unified-window.js:237:    `${nodeGraphUnifiedWindowDefaultSize.width}px`,
+public\node-graph-unified-window.js:245:    `${nodeGraphUnifiedWindowDefaultSize.maxWidth}px`,
+public\node-graph-unified-window.js:1083:  const defaultWidth = typeof nodeGraphUnifiedWindowDefaultSize !== "undefined"
+public\node-graph-unified-window.js:1084:    ? nodeGraphUnifiedWindowDefaultSize.width
+public\node-graph-unified-window.js:1088:    : Math.round(Math.min(limits.max, Number.isFinite(fallback) ? fallback : defaultWidth));
+public\node-graph-wire-rendering.js:43:  return Math.max(nodeGraphGridWidth(), nodeGraphGridHeight()) * 0.75;
+public\node-graph-wire-rendering.js:77:  const grid = Math.max(1, Number(typeof nodeGraphGridWidth === "function" ? nodeGraphGridWidth() : 28) || 28);
+public\node-graph-workspace-view.js:109:  const worldX = -((nodeGraphFiniteNumber(pan.x)) / zoom) / nodeGraphGridWidth();
+public\node-graph-workspace-view.js:112:    Object.assign(document.createElement("span"), { textContent: `X ${nodeGraphWorldPositionLabel(worldX)}` }),
+public\node-graph-workspace-view.js:113:    Object.assign(document.createElement("span"), { textContent: `Y ${nodeGraphWorldPositionLabel(worldY)}` }),
+public\node-graph-workspace-view.js:136:  // widthGu/heightGu of 0 means ΓÇ£auto / fill viewportΓÇ¥ ΓÇö not a real readout
+public\node-graph-workspace-view.js:147:  let widthGu = pickGu(
+public\node-graph-workspace-view.js:148:    size?.widthGu,
+public\node-graph-workspace-view.js:149:    view?.widthGu,
+public\node-graph-workspace-view.js:150:    workspace?.dataset?.widthGu,
+public\node-graph-workspace-view.js:157:  if (!(widthGu > 0) || !(heightGu > 0)) {
+public\node-graph-workspace-view.js:162:    if (!(widthGu > 0)) {
+public\node-graph-workspace-view.js:163:      widthGu = pickGu(measured?.widthGu);
+public\node-graph-workspace-view.js:169:  widthGu = Math.max(0, widthGu);
+public\node-graph-workspace-view.js:172:    Object.assign(document.createElement("span"), { textContent: `W ${widthGu}` }),
+public\node-graph-workspace-view.js:177:    `Modular view size width ${widthGu} grid units, height ${heightGu} grid units.`,
+public\node-graph-workspace-view.js:180:    if (widthGu > 0) workspace.dataset.widthGu = String(widthGu);
+public\node-graph-workspace-view.js:448:  const renderedGridWidth = nodeGraphGridWidth() * zoom;
+public\node-graph-workspace-view.js:459:    renderedGridWidth,
+public\node-graph-workspace-view.js:460:    nodeGraphWorkspaceViewLimits.minWidthGu,
+public\node-graph-workspace-view.js:544:    x: snapPan(unsnappedPan.x, nodeGraphGridWidth()),
+public\node-graph-workspace-view.js:588:    widthGu: Math.max(
+public\node-graph-workspace-view.js:589:      nodeGraphWorkspaceViewLimits.minWidthGu,
+public\node-graph-workspace-view.js:590:      Math.round(contentWidth / nodeGraphGridWidth()),
+public\node-graph-workspace-view.js:596:  widthGu: 2,
+public\node-graph-workspace-view.js:605:function setNodeGraphWorkspacePreviewSize(widthGu, heightGu) {
+public\node-graph-workspace-view.js:607:  const visibleSize = clampNodeGraphWorkspaceGridSizeToViewport({ widthGu, heightGu }, workspace);
+public\node-graph-workspace-view.js:612:    nodeGraphWorkspaceWidthCss(visibleSize.widthGu * nodeGraphGridWidth()),
+public\node-graph-workspace-view.js:615:  workspace.dataset.widthGu = String(visibleSize.widthGu);
+public\node-graph-workspace-view.js:641:    startWidthGu: startSize.widthGu,
+public\node-graph-workspace-view.js:642:    widthGu: startSize.widthGu,
+public\node-graph-workspace-view.js:655:  const resizeGridWidth = nodeGraphGridWidth();
+public\node-graph-workspace-view.js:657:  const requestedWidthGu = Math.max(
+public\node-graph-workspace-view.js:658:    nodeGraphWorkspaceViewLimits.minWidthGu,
+public\node-graph-workspace-view.js:659:    drag.startWidthGu + nodeGraphWorkspaceResizeDeltaGu(
+public\node-graph-workspace-view.js:661:      resizeGridWidth,
+public\node-graph-workspace-view.js:662:      nodeGraphWorkspaceResizeSteps.widthGu,
+public\node-graph-workspace-view.js:673:  const { widthGu, heightGu } = clampNodeGraphWorkspaceGridSizeToViewport({
+public\node-graph-workspace-view.js:675:    widthGu: requestedWidthGu,
+public\node-graph-workspace-view.js:677:  if (widthGu === drag.widthGu && heightGu === drag.heightGu) {
+public\node-graph-workspace-view.js:680:  drag.widthGu = widthGu;
+public\node-graph-workspace-view.js:682:  setNodeGraphWorkspacePreviewSize(widthGu, heightGu);
+public\node-graph-workspace-view.js:696:  if (drag.widthGu === drag.startWidthGu && drag.heightGu === drag.startHeightGu) {
+public\node-graph-workspace-view.js:704:    widthGu: Math.max(nodeGraphWorkspaceViewLimits.minWidthGu, drag.widthGu),
+public\node-graph-workspace-view.js:938:      ? snapNodeGraphPanValueToGrid(nextX, nodeGraphGridWidth(), nodeGraphZoom(), { halfGrid: true })
+public\node-graph-workspace-geometry.js:18:  workspace.style.setProperty("--node-grid-width", `${nodeGraphGridWidth()}px`);
+public\node-graph-workspace-geometry.js:25:  const visibleView = view.widthGu > 0 && view.heightGu > 0
+public\node-graph-workspace-geometry.js:29:    && visibleView.widthGu > 0
+public\node-graph-workspace-geometry.js:32:    ? nodeGraphWorkspaceWidthCss(visibleView.widthGu * nodeGraphGridWidth())
+public\node-graph-workspace-geometry.js:44:  if (visibleView.widthGu > 0 && visibleView.heightGu > 0) {
+public\node-graph-workspace-geometry.js:45:    workspace.dataset.widthGu = String(visibleView.widthGu);
+public\node-graph-workspace-geometry.js:49:    workspace.dataset.widthGu = String(measured.widthGu);
+public\node-graph-workspace-geometry.js:52:    workspace.dataset.widthGu = String(visibleView.widthGu);
+public\node-graph-workspace-geometry.js:583:    width: nodeGraphGridWidth() * z * visualScale,
+public\node-graph-workspace-geometry.js:646:  const phaseX = nodeGraphGridBackgroundPhase(origin.x, cell.width);
+public\node-graph-workspace-geometry.js:691:    const baseX = Math.max(nodeGraphGridWidth() * 5, (bounds.right - bounds.left) * 1.18) * zoom;
+public\node-graph-workspace-geometry.js:728:    const radius = Math.max(nodeGraphGridWidth(), nodeGraphGridHeight()) * (3 + 10.5 * mouseSpread) * zoom;
+public\node-graph-view-controls.js:1885:// rows createNodeGraphKeyboardControllerBody leaves behind) and again on
+public\node-graph-view-controls.js:3776:  const spawnedMidi = typeof ensureNodeGraphMidiModule === "function"
+public\node-graph-view-controls.js:4151:  // createNodeGraphKeyboardControllerBody) and re-renders every surface
+public\modules\sineWavetable\sine-wavetable-display.js:6:function createNodeGraphSinCos4Display(nodeId, type = "sineWavetable") {
+public\perform.html:1282:            <span>patch grid unit width (px / gu)</span>
+public\perform.html:1285:                id="nodeUiDevPatchGridWidthPx"
+public\perform.html:1292:              <output id="nodeUiDevPatchGridWidthPxValue" for="nodeUiDevPatchGridWidthPx">28px</output>
+public\perform.html:2178:          <button id="nodeSceneWidthDecrease" type="button" aria-label="Decrease module width">-</button>
+public\perform.html:2179:          <button id="nodeSceneWidthIncrease" type="button" aria-label="Increase module width">+</button>
+public\perform.html:2878:          <button id="nodeDownloadSampleButton" type="button" draggable="true" title="Download rendered sample. Drag onto the modular area to spawn a stereo Sample Player." aria-label="Download rendered sample"><span class="node-modular-view-icon" aria-hidden="true">Γ¼ç∩╕Å</span></button>
+public\presets\default.json:411:    "widthGu": 48,

@@ -1040,10 +1040,6 @@ function validateNodeGraphPatch(patch) {
     info: normalizeNodeGraphPatchInfo(patch.info),
     modularOnlyControlsVisible: Boolean(patch.modularOnlyControlsVisible),
     modulations: metaHygiene.modulations,
-    monitors: normalizeNodeGraphPatchMonitors(patch.monitors, {
-      ...patch,
-      nodes: metaHygiene.nodes,
-    }),
     nodes: metaHygiene.nodes,
     requiredAssets: typeof nodeGraphRequiredAssetsForPatch === "function"
       ? nodeGraphRequiredAssetsForPatch({
@@ -1466,6 +1462,10 @@ function syncNodeGraphModuleChromeElement(element, patchNode) {
       { title: false },
     );
   }
+  // Hide-unused / Displays / etc. change band heights — refresh stack rows (B-057).
+  if (typeof applyNodeGraphModuleLayout === "function") {
+    applyNodeGraphModuleLayout(element, patchNode);
+  }
 }
 
 function syncNodeGraphModuleParamElement(element, patchNode) {
@@ -1555,7 +1555,9 @@ function syncNodeGraphModuleParamElement(element, patchNode) {
 }
 
 function applyNodeGraphModuleElementFromPatch(patchNode, options = {}) {
-  const container = document.getElementById("nodeGraphNodes");
+  const container = typeof nodeGraphModuleMountContainer === "function"
+    ? nodeGraphModuleMountContainer(patchNode?.type)
+    : document.getElementById("nodeGraphNodes");
   if (!container || !patchNode) {
     return null;
   }
@@ -1575,6 +1577,10 @@ function applyNodeGraphModuleElementFromPatch(patchNode, options = {}) {
     element = null;
   } else if (element) {
     reusedUnchanged = true;
+    // B-055: move Text Box between annotation / module hosts if type host changed.
+    if (element.parentElement !== container) {
+      container.append(element);
+    }
   }
   if (!element) {
     element = createNodeGraphModuleElement(patchNode.type, patchNode.id);
@@ -1666,8 +1672,10 @@ function applyNodeGraphPatchToDom(options = {}) {
       endNodeGraphScreenSolo({ silent: true });
     }
   }
-  const container = document.getElementById("nodeGraphNodes");
-  if (!container) {
+  const containers = typeof nodeGraphModuleMountContainers === "function"
+    ? nodeGraphModuleMountContainers()
+    : [document.getElementById("nodeGraphNodes")].filter(Boolean);
+  if (!containers.length) {
     return;
   }
   const skipExistingSync = Boolean(options.skipExistingSync);
@@ -1685,10 +1693,12 @@ function applyNodeGraphPatchToDom(options = {}) {
   }
 
   let liveControlsDomMutated = false;
-  for (const element of [...container.querySelectorAll(".dsp-node")]) {
-    if (!nodeGraphPatchNode(element.dataset.node)) {
-      element.remove();
-      liveControlsDomMutated = true;
+  for (const container of containers) {
+    for (const element of [...container.querySelectorAll(".dsp-node")]) {
+      if (!nodeGraphPatchNode(element.dataset.node)) {
+        element.remove();
+        liveControlsDomMutated = true;
+      }
     }
   }
 
@@ -1852,6 +1862,18 @@ function commitNodeGraphPatch(patch, options = {}) {
     if (typeof syncNodeGraphAllPitchQuantizerFaces === "function") {
       syncNodeGraphAllPitchQuantizerFaces();
     }
+    // B-057: hide-unused IO height follows connected ports — refresh those modules.
+    const hideUnusedIds = (nodeGraphMvp.patch?.nodes || [])
+      .filter((node) => {
+        const ui = typeof normalizeNodeGraphPatchNodeUi === "function"
+          ? normalizeNodeGraphPatchNodeUi(node.ui, node.type)
+          : node.ui;
+        return Boolean(ui?.hideUnused);
+      })
+      .map((node) => node.id);
+    if (hideUnusedIds.length && typeof applyNodeGraphChromeNodesToDom === "function") {
+      applyNodeGraphChromeNodesToDom(hideUnusedIds);
+    }
   } else if (!isWireEdit && !isSoftDom) {
     applyNodeGraphPatchToDom({
       skipExistingSync: isTopologyEdit,
@@ -1860,7 +1882,6 @@ function commitNodeGraphPatch(patch, options = {}) {
     if (!isTopologyEdit && typeof applyNodeGraphZoom === "function") {
       applyNodeGraphZoom();
     }
-    syncNodeGraphMonitorIndicators();
     pruneNodeGraphSelectionAfterPatch();
   }
   // Positions / face cosmetics / chrome size do not change offline render output.

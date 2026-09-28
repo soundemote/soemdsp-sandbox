@@ -2,8 +2,8 @@
 // Load after phosphor, before scopes.js.
 
 function nodeGraphModuleScopeCaptureMonitors(patch = nodeGraphMvp?.patch) {
-  const monitors = normalizeNodeGraphPatchMonitors(patch?.monitors, patch);
-  return monitors.length ? monitors : nodeGraphDefaultModuleScopeMonitors(patch);
+  // Jack Alt+click patch.monitors removed — always capture default face endpoints.
+  return nodeGraphDefaultModuleScopeMonitors(patch);
 }
 
 
@@ -297,6 +297,18 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       const buf = nodeGraphModuleScopeState.buffers.get(key);
       return buf && buf.length > 0 ? buf : null;
     };
+    // Raw face probes (e.g. sampleHold Left Raw): always prefer those rings so
+    // Amplitude/Polarity on audio Left/Right never shrink the waterfall. Cable
+    // ghosts keep looking up exact Left/Right — never this face pick.
+    const leftName = String(ports?.left || "");
+    const rightName = String(ports?.right || "");
+    const preferRawProbes = leftName.endsWith(" Raw") || rightName.endsWith(" Raw");
+    if (preferRawProbes) {
+      return pick(`${nodeId}:${ports?.left}`)
+        || pick(`${nodeId}:${ports?.right}`)
+        || pick(`${nodeId}:Mono`)
+        || pick(nodeId);
+    }
     const lrWired = typeof nodeGraphStereoTraceLrWired === "function"
       ? nodeGraphStereoTraceLrWired(nodeId, slot.type)
       : true;

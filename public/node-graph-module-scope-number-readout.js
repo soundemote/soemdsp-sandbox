@@ -1051,6 +1051,10 @@ function nodeGraphNumberReadoutSafeDigits(digits) {
  * limit_decimals only parses whole.fraction — "1e-7" would become "1".
  */
 function nodeGraphNumberReadoutPlainDecimalSource(value) {
+  // Prefer shared helper from slider-metadata (same B-061 expansion).
+  if (typeof nodeSliderPlainDecimalSource === "function") {
+    return nodeSliderPlainDecimalSource(value);
+  }
   const n = Number(value);
   if (!Number.isFinite(n)) {
     return "0";

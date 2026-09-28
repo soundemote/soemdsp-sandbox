@@ -10,6 +10,33 @@ function nodeGraphNodeElement(node) {
   return document.querySelector(nodeGraphNodeSelector(node));
 }
 
+
+/** Text Box (and under-construction plates) mount under #nodeWireSvg (B-055). */
+function nodeGraphModuleIsAnnotationType(type) {
+  const layout = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions?.[type]?.layout
+    : null;
+  return layout === "textBox";
+}
+
+function nodeGraphModuleMountContainer(type) {
+  if (nodeGraphModuleIsAnnotationType(type)) {
+    return document.getElementById("nodeGraphAnnotationNodes")
+      || document.getElementById("nodeGraphNodes");
+  }
+  return document.getElementById("nodeGraphNodes");
+}
+
+function nodeGraphModuleMountContainers() {
+  const primary = document.getElementById("nodeGraphNodes");
+  const annotation = document.getElementById("nodeGraphAnnotationNodes");
+  const list = [];
+  if (primary) list.push(primary);
+  if (annotation && annotation !== primary) list.push(annotation);
+  return list;
+}
+
+
 function nodeGraphNodeType(node) {
   return nodeGraphNodeElement(node)?.dataset.nodeType || nodeGraphPatchNodeType(node);
 }

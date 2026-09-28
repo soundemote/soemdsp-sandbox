@@ -99,13 +99,6 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "namedPortalIn-4",
-      "destinationPort": "In",
-      "sourceNode": "keyboard-1",
-      "sourcePort": "pitch",
-      "tracePoints": []
-    },
-    {
       "destinationNode": "inv-2",
       "destinationPort": "In",
       "sourceNode": "namedPortalOut-4",
@@ -200,7 +193,6 @@
       "tracePoints": []
     }
   ],
-  "monitors": [],
   "nodes": [
     {
       "gx": 31,
@@ -321,7 +313,7 @@
       }
     },
     {
-      "gx": 23,
+      "gx": 24,
       "gy": 27,
       "id": "flowerChildFilter-2",
       "paramMeta": {
@@ -568,7 +560,7 @@
       }
     },
     {
-      "gx": 12,
+      "gx": 13,
       "gy": 27,
       "id": "polyBlep-1",
       "paramMeta": {
@@ -1447,7 +1439,7 @@
     },
     {
       "gx": 9,
-      "gy": -9,
+      "gy": -3,
       "id": "keyboard-1",
       "paramMeta": {},
       "params": {},
@@ -1495,7 +1487,7 @@
         "displayHeightOffsetGu": 0,
         "displayModeKey": "",
         "ioHidden": false,
-        "hideUnused": false,
+        "hideUnused": true,
         "interfaceControlsHidden": false,
         "interfaceControlsForceShow": false,
         "movementLocked": false,
@@ -2113,7 +2105,7 @@
     },
     {
       "gx": 39,
-      "gy": 1,
+      "gy": 0,
       "id": "namedPortalIn-1",
       "paramMeta": {},
       "params": {},
@@ -2147,33 +2139,6 @@
       "type": "namedPortalOut",
       "alias": "Trigger",
       "widthGu": 4,
-      "heightGu": 1,
-      "ui": {
-        "buttonsHidden": true,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": false,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": true
-      }
-    },
-    {
-      "gx": 39,
-      "gy": -1,
-      "id": "namedPortalIn-4",
-      "paramMeta": {},
-      "params": {},
-      "type": "namedPortalIn",
-      "alias": "Pitch",
-      "widthGu": 3,
       "heightGu": 1,
       "ui": {
         "buttonsHidden": true,
@@ -2247,7 +2212,7 @@
       }
     },
     {
-      "gx": 19,
+      "gx": 20,
       "gy": 33,
       "id": "namedPortalOut-5",
       "paramMeta": {},
@@ -2317,7 +2282,7 @@
     },
     {
       "gx": 39,
-      "gy": 0,
+      "gy": -1,
       "id": "namedPortalIn-6",
       "paramMeta": {},
       "params": {},
@@ -2343,8 +2308,8 @@
       }
     },
     {
-      "gx": 8,
-      "gy": 30,
+      "gx": 10,
+      "gy": 29,
       "id": "namedPortalOut-7",
       "paramMeta": {},
       "params": {},
@@ -2381,7 +2346,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 48,
-    "zoom": 0.7971938775510213,
+    "zoom": 0.635518078404832,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,

@@ -53,10 +53,6 @@ function syncNodeGraphRuntimeFromPatch() {
     ...modulation,
     tracePoints: normalizeNodeGraphTracePoints(modulation.tracePoints),
   }));
-  nodeGraphMvp.monitors = normalizeNodeGraphPatchMonitors(
-    nodeGraphMvp.patch.monitors,
-    nodeGraphMvp.patch,
-  );
   nodeGraphMvp.nodeTypeCounts = nextNodeGraphTypeCounts();
   if (typeof setNodeGraphModularOnlyControlsVisible === "function") {
     setNodeGraphModularOnlyControlsVisible(Boolean(nodeGraphMvp.patch.modularOnlyControlsVisible));

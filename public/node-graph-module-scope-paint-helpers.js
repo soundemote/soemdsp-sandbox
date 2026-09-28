@@ -1521,18 +1521,40 @@ function nodeGraphRgbTraceBuffers(nodeId, type) {
   return { R, G, B };
 }
 
-/** True when L or R jack is actually wired (input sink or output source). */
+/** True when L or R jack is actually wired (audio cable or MOD).
+ *  Face probes like "Left Raw" are not jacks — also check the base name
+ *  ("Left") so stereoTracePorts Raw rings still count as wired when the
+ *  real Left/Right outlets feed audio or parameter MOD.
+ */
 function nodeGraphStereoTracePortWired(nodeId, port) {
   const id = String(nodeId || "");
   const p = String(port || "");
   if (!id || !p) return false;
-  const to = typeof nodeGraphModuleScopeConnectionsTo === "function"
-    ? nodeGraphModuleScopeConnectionsTo(id, p).length > 0
-    : false;
-  const fr = typeof nodeGraphModuleScopeConnectionsFrom === "function"
-    ? nodeGraphModuleScopeConnectionsFrom(id, p).length > 0
-    : false;
-  return to || fr;
+  const candidates = [p];
+  if (p.endsWith(" Raw")) {
+    const base = p.slice(0, -4).trim();
+    if (base) candidates.push(base);
+  }
+  for (let ci = 0; ci < candidates.length; ci += 1) {
+    const name = candidates[ci];
+    const to = typeof nodeGraphModuleScopeConnectionsTo === "function"
+      ? nodeGraphModuleScopeConnectionsTo(id, name).length > 0
+      : false;
+    const fr = typeof nodeGraphModuleScopeConnectionsFrom === "function"
+      ? nodeGraphModuleScopeConnectionsFrom(id, name).length > 0
+      : false;
+    if (to || fr) return true;
+    const mods = nodeGraphMvp?.patch?.modulations;
+    if (Array.isArray(mods)) {
+      for (let i = 0; i < mods.length; i += 1) {
+        const m = mods[i];
+        if (String(m?.sourceNode || "") === id && String(m?.sourcePort || "") === name) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
 }
 
 /** True when L or R jack is actually wired. Unwired L/R rings are silence. */

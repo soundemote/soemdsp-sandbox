@@ -276,7 +276,7 @@ const nodeGraphNodeLabels = Object.freeze({
   image: "Image",
   canvas: "Canvas",
   visualOscilloscope: "Display",
-  traceDisplay: "1D Waterfall Mono",
+  traceDisplay: "1D Waterfall",
   traceDisplayStereo: "1D Waterfall Stereo",
   traceDisplayXyz: "1D Waterfall XYZ",
   oscilloscopeBank: "Oscilloscope Bank (retired)",
@@ -290,7 +290,7 @@ const nodeGraphNodeLabels = Object.freeze({
   lineBurnOscilloscope: "1D Phosphor",
   scope2d: "2D Phosphor",
   scope2dTrace: "2D Trace",
-  scope1dTrace: "1D Trace Mono",
+  scope1dTrace: "1D Trace",
   scope1dTraceStereo: "1D Trace Stereo",
   vectorDot: "LED Dot",
   vectorRgb: "Vector RGB",
@@ -941,7 +941,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Wave", "Saw", "Ramp", "Square", "Tri", "Sine"],
     parameters: [
       {
-        choices: ["Trisaw", "Saw", "Ramp", "Square", "Triangle", "Sine", "Center Square", "Pulse"],
+        choices: ["Trisaw", "Saw", "Ramp", "Square", "Triangle", "Sine", "Center Square", "Pulse", "Analog Square", "Trisaw Center"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -949,7 +949,7 @@ const nodeGraphModuleDefinitions = (
         kind: "waveform",
         label: "Waveform",
         linearSmoothing: false,
-        max: "7",
+        max: "9",
         mid: "3",
         min: "0",
         step: "1"
@@ -995,7 +995,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "bipolarRational",
         step: "0",
-        tooltip: "0…1 width/duty. 0.5 = center / 50%. Trisaw, Pulse, and Center Square (pulse grows from mid-cycle — not a stepped square). Morph MOD jack on the param row."
+        tooltip: "0…1 width/duty. 0.5 = center / 50%. Affects Trisaw, Analog Square (same-direction peaks), Trisaw Center (opposing peaks toward saw), Pulse, and Center Square (pulse grows from mid-cycle — not a stepped square). Morph MOD jack on the param row."
       },
       {
         defaultValue: "1",
@@ -1320,8 +1320,16 @@ const nodeGraphModuleDefinitions = (
   robinOscillator: {
     planRole: "source",
     displayType: "lineBurn",
+    // Classic CRT phosphor LUT: BLACK → RED → WHITE (spawn / Defaults only).
     defaultDisplaySettings: {
       sourceSync: true,
+      background: "#000000",
+      dot1Color: "#ffffff",
+      gradientStops: [
+        { t: 0, color: "#000000" },
+        { t: 0.5, color: "#ff0000" },
+        { t: 1, color: "#ffffff" },
+      ],
     },
     displayModes: [
       { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave" } },
@@ -1336,7 +1344,22 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Wave"],
     parameters: [
       {
-        choices: ["Saw", "Ramp", "Square", "Triangle", "Sine", "Pulse"],
+        choices: ["On cycle", "Warp remaining", "Snap remaining"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "freqUpdate",
+        kind: "choice",
+        label: "Update",
+        linearSmoothing: false,
+        max: "2",
+        mid: "1",
+        min: "0",
+        step: "1",
+        tooltip: "When ƒ changes mid-cycle: On cycle waits for wrap; Warp remaining keeps dither offset; Snap remaining re-dithers the remaining length."
+      },
+      {
+        choices: ["Saw", "Ramp", "Square", "Trisaw Center", "Sine", "Pulse", "Analog Square"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -1344,11 +1367,11 @@ const nodeGraphModuleDefinitions = (
         kind: "waveform",
         label: "Waveform",
         linearSmoothing: false,
-        max: "5",
+        max: "6",
         mid: "2",
         min: "0",
         step: "1",
-        tooltip: "Cycle-dither AA oscillator (RS-MET). Pulse uses Pulse Width."
+        tooltip: "Cycle-dither AA oscillator (RS-MET). Saw = edge then down; Ramp = up then edge. Morph: Pulse = duty; Trisaw Center = opposing peaks toward saw; Analog Square = same-direction peaks (zeros at 0 / 0.5)."
       },
       {
         defaultValue: "100",
@@ -1381,13 +1404,13 @@ const nodeGraphModuleDefinitions = (
       },
       {
         defaultValue: "0.5",
-        key: "pulseWidth",
-        label: "Pulse Width",
+        key: "morph",
+        label: "Morph",
         max: "1",
         mid: "0.5",
         min: "0",
         step: "0.01",
-        tooltip: "Pulse duty (0...1). Threshold on the cycle phasor; does not break single-wrap AA."
+        tooltip: "Universal morph 0...1 (always Morph). Pulse = duty/width; Trisaw Center = opposing peaks lean triangle into a saw (zeros at 0 / 0.5; Morph 0/1 bright mirrors, 0.5 dullest); Analog Square = same-direction peaks (dual-edge / square-ish at extremes); other shapes ignore for now."
       },
       {
         defaultValue: "1",
@@ -1400,13 +1423,22 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         modClamp: false,
         tooltip: "Linear output level 0…1 (guides only; MOD may exceed)."
-      },
+      }
+
     ]
   },
 
   robinSinusoid: {
     planRole: "source",
+    // Display sources pre-level "Out Raw" (Saw tap) so Amplitude only affects
+    // wired/audio Out — same pattern as fractalBrownianNoise Out X/Y/Z Raw.
     displayType: "trace",
+    displaySignals: [
+      { key: "Out Raw", label: "Out", kind: "scalar" },
+    ],
+    displayModes: [
+      { key: "trace", renderer: "trace", source: { value: "Out Raw" } },
+    ],
     inputs: ["Reset", "Increment"],
     inputLabels: { Increment: "inc" },
     outputChannels: { Out: "green" },
@@ -3937,15 +3969,23 @@ const nodeGraphModuleDefinitions = (
   gravityWalker: {
     planRole: "processor",
     planFreeRun: true,
-    displayType: "trace",
+    displayType: "arpKeysFace",
+    displayModes: [
+      {
+        key: "face",
+        label: "Arp Keys",
+        renderer: "arpKeysFace",
+        settingsSchema: "arpKeysFace",
+        source: { value: "pitch" },
+      },
+    ],
+    defaultDisplayMode: "face",
+    displayHeightGu: 2,
+    defaultWidthGu: 6,
     displaySignals: [
       { key: "pitch", kind: "scalar" },
       { key: "f", kind: "scalar" },
     ],
-    displayModes: [
-      { key: "trace", label: "Pitch", renderer: "trace", settingsSchema: "trace", source: { value: "pitch" } },
-    ],
-    defaultDisplayMode: "trace",
     digitalInputs: ["Arp Keys"],
     inputs: ["Clock", "Reset", "Arp Keys"],
     inputChannels: { "Arp Keys": "gold" },
@@ -5129,14 +5169,14 @@ const nodeGraphModuleDefinitions = (
     planFreeRun: true,
     displayType: "lineBurn",
     displayModes: [
-      { key: "lineBurn", renderer: "lineBurn", source: { value: "Left" } },
+      { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave" } },
     ],
     displaySignals: [
-      { key: "Left", kind: "scalar" },
-      { key: "Right", kind: "scalar" },
+      { key: "Wave", kind: "scalar" },
     ],
     inputs: ["Gate", "Reset"],
-    outputs: ["Left", "Right"],
+    outputChannels: { Wave: "green" },
+    outputs: ["Wave"],
     parameters: [
       {
         key: "frequency",
@@ -7482,7 +7522,7 @@ const nodeGraphModuleDefinitions = (
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
     outputs: ["Out", "Left", "Right"],
-    defaultWidthGu: 4,
+    defaultWidthGu: 6,
     defaultHeightGu: 5,
     defaultUi: {
       buttonsHidden: true,
@@ -13747,17 +13787,20 @@ const nodeGraphModuleDefinitions = (
   },
   sampleHold: {
     planRole: "processor",
-    // Stereo trace of the internal noise holds (Left / Right).
+    // Stereo trace of internal noise holds via Left Raw / Right Raw (bipolar
+    // pre-level Saw/Ramp). Audio Left/Right remain polarity+Amplitude scaled
+    // for MOD/ghosts (deliberate WISIWIH exception; same Raw pattern as
+    // robinSinusoid / fBm).
     displayType: "trace",
     spectrumCompanion: false,
     displayModes: [
       { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Left", right: "Right" },
+    stereoTracePorts: { left: "Left Raw", right: "Right Raw" },
     displaySignals: [
-      { key: "Left", kind: "scalar" },
-      { key: "Right", kind: "scalar" },
+      { key: "Left Raw", kind: "scalar" },
+      { key: "Right Raw", kind: "scalar" },
     ],
     // Ext In → Ext Out (external hold). Left/Right = internal noise holds.
     // Same Clock / Sample Freq fires all three lanes together.
@@ -13804,17 +13847,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "1",
         tooltip:
-          "Bipolar = −1…1 (raw hold / noise). Unipolar = 0…1 remap for MOD into unipolar params (Frequency, etc.) without a B2U.",
-      },
-      {
-        defaultValue: "1",
-        key: "amplitude",
-        label: "Amplitude",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        step: "any",
-        tooltip: "Scale Ext Out (and L/R). 0 = mute, 1 = full. Use instead of an external attenuverter for MOD depth.",
+          "Bipolar = −1…1 (raw hold / noise). Unipolar = 0…1 on audio outs for MOD into unipolar params (Sweep, Frequency, etc.) without a B2U. Face/waterfall reads Left Raw / Right Raw (bipolar full height; ignores Polarity), same spirit as Amplitude.",
       },
       {
         defaultValue: "0",
@@ -13837,6 +13870,16 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
+      },
+      {
+        defaultValue: "1",
+        key: "amplitude",
+        label: "Amplitude",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "any",
+        tooltip: "Scale Ext Out (and L/R audio). Face Left Raw / Right Raw always show full hold. 0 = mute, 1 = full. Use instead of an external attenuverter for MOD depth.",
       },
     ],
   },
@@ -16371,6 +16414,10 @@ const nodeGraphModuleDefinitions = (
     planRole: "monitor",
     bufferedInputs: ["In", "Reset"],
     displayType: "lineBurn",
+    // Spawn 1D Phosphor with source-triggered sweep synchronization enabled.
+    defaultDisplaySettings: {
+      sourceSync: true,
+    },
     inputs: ["In", "Reset"],
     layout: "traceDisplay",
     // Dry passthrough so the face can sit in-line (In → face + Thru).
@@ -16433,7 +16480,7 @@ const nodeGraphModuleDefinitions = (
     ],
     visualSink: true
   },
-  // 1D Trace Mono — woscope beam, sweep phase on X, amplitude on Y, edge hard-reset.
+  // 1D Trace — woscope beam, sweep phase on X, amplitude on Y, edge hard-reset.
   scope1dTrace: {
     planRole: "monitor",
     bufferedInputs: ["In", "Reset"],

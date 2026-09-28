@@ -7,7 +7,43 @@ const nodeSliderNumberFormatSmokeCases = Object.freeze([
   { value: -0.123456, maxDigits: 5, expected: "-0.1235" },
   { value: 0.123456, maxDigits: 5, showSign: true, expected: "+0.1235" },
   { value: 0.123456, maxDigits: 5, reserveSignSpace: true, expected: " 0.1235" },
+  // |n| < 1e-6 → String(n) is scientific ("8.0357e-7"). Without plain-decimal
+  // expansion, limit_decimals truncates at "e" and shows the mantissa ("8.0357").
+  { value: 8.0357e-7, maxDigits: 12, removeTrailingZeros: true, expected: "0.00000080357" },
+  { value: 1e-7, maxDigits: 12, removeTrailingZeros: true, expected: "0.0000001" },
+  { value: -8.0357e-7, maxDigits: 12, removeTrailingZeros: true, expected: "-0.00000080357" },
 ]);
+
+/**
+ * Plain decimal string for limit_decimals (never scientific notation).
+ * JS String(n) uses "8.0357e-7" when |n| < 1e-6 (or |n| >= 1e21); limit_decimals
+ * only parses whole.fraction, so the exponent would be dropped ("8.0357").
+ */
+function nodeSliderPlainDecimalSource(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return String(value ?? "").trim() || "0";
+  }
+  if (n === 0) {
+    return Object.is(n, -0) ? "-0" : "0";
+  }
+  const raw = String(n);
+  if (!/[eE]/.test(raw)) {
+    return raw;
+  }
+  try {
+    return n.toLocaleString("en-US", {
+      useGrouping: false,
+      maximumFractionDigits: 20,
+    });
+  } catch {
+    try {
+      return n.toFixed(20).replace(/0+$/, "").replace(/\.$/, "") || "0";
+    } catch {
+      return "0";
+    }
+  }
+}
 
 function limit_decimals(
   value,
@@ -17,7 +53,14 @@ function limit_decimals(
   removeTrailingZeros = true,
   allowExtraDecimalForLeadingZero = false,
 ) {
-  const source = String(value ?? "").trimStart();
+  let source = String(value ?? "").trimStart();
+  // Expand scientific notation before whole.fraction parse (B-061).
+  if (/[eE]/.test(source)) {
+    const expanded = nodeSliderPlainDecimalSource(source);
+    if (expanded) {
+      source = expanded;
+    }
+  }
   const signMatch = source.match(/^[+-]/);
   const sign = signMatch ? signMatch[0] : "";
   const unsigned = sign ? source.slice(1) : source;
@@ -114,7 +157,13 @@ function formatNodeSliderNumber(value, options = {}) {
   }
   const maxDigits = normalizeNodeGraphMetadataMaxDigits(options.maxDigits, options.kind);
   const text = Number.isFinite(number)
-    ? limit_decimals(String(number), maxDigits, maxDigits, maxDigits, Boolean(options.removeTrailingZeros))
+    ? limit_decimals(
+      nodeSliderPlainDecimalSource(number),
+      maxDigits,
+      maxDigits,
+      maxDigits,
+      Boolean(options.removeTrailingZeros),
+    )
     : "";
   if (options.showSign && number >= 0) {
     return `+${text}`;

@@ -1,5 +1,9 @@
-﻿# Progress â€” soemdsp-sandbox
+# Progress â€” soemdsp-sandbox
 
+
+
+## 2026-09-27
+- **B-061 fixed** — small slider readout stripped scientific exponents (`String(n)` → `limit_decimals` mantissa-only). Plain-decimal expand in `node-graph-slider-metadata.js`.
 Branch: `master` @ `4d25266` **SPEED LIMIT FIX** (and later hygiene if present).
 
 ## Agent Rules
@@ -79,6 +83,11 @@ graphify update . --force   # no LLM; AST re-extract
 - [x] `graphify-out/` gitignored (local analysis only)
 
 ## Backlog Ideas
+- Delay with exposed feedback path — insert arbitrary modules in the loop (seed in `docs/FUTURE_PLANNING.md`).
+- Dimensional parameter prototyping — different settings across frequency/pitch (seed in ``docs/FUTURE_PLANNING.md``).
+- Circuits on a keyboard — play circuits like a sample library (seed in ``docs/FUTURE_PLANNING.md``).
+- Keytracking / pitch-tracking modulation UI (seed in ``docs/FUTURE_PLANNING.md``).
+- True metamodule parameter mirror: outer `mx_*` edits/menus target inner child (one conceptual param); nested parent-unexpose vs grandparent-expose stays explicit (seed in `docs/FUTURE_PLANNING.md`). Website limited checkbox mirror ships first.
 - Waterfall redesign: amp-per-frame bars instead of expensive waveform TraceTape ink (seed in `docs/FUTURE_PLANNING.md`; details later).
 
 - [ ] Inlets/outlets above displays, app-wide (`docs/FUTURE_PLANNING.md`)

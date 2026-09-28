@@ -17,7 +17,6 @@ const nodeGraphModuleScopeState = {
   liveFrameCapacity: 16384,
   monitorFingerprint: "",
   modelFrameTimes: new Map(),
-  monitors: [],
   mode: "",
   clockPhasors: new Map(),
   oscillatorPhasors: new Map(),

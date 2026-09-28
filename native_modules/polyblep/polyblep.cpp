@@ -15,9 +15,9 @@ using namespace soemdsp_maths;
 constexpr int kMaxInstances = 64;
 // Slot 0 is the currently-selected waveform (driven by the Waveform
 // parameter); slots 1-5 are the always-on Saw/Ramp/Square/Tri/Sine taps.
-// Waveform indices 0-5 stay stable for saved patches; 6-8 are PWM-family.
+// Waveform indices 0-5 stay stable for saved patches; 6-9 are PWM/center-family.
 constexpr int kSlotCount = 6;
-constexpr int kWaveformMax = 7;
+constexpr int kWaveformMax = 9;
 
 struct SlotState {
   double lastPhaseIncrement;
@@ -50,7 +50,7 @@ struct PolyBlepState {
 static PolyBlepState gPool[kMaxInstances];
 
 // APP_POLICY sine SSOT: pure-tone sine from shared half-sine wavetable LUT.
-// (Old Taylor-about-zero on ±π clicked once per cycle.)
+// (Old Taylor-about-zero on Â±Ï€ clicked once per cycle.)
 
 // Legacy sandbox BLEP (kept for Saw / Ramp / Square continuity).
 // Shared soemdsp::math::poly_blep (same residual as legacy formula).
@@ -68,7 +68,7 @@ double polyBlepSquare(double phaseCycle, double phaseIncrement) {
   return value;
 }
 
-// Morph is 0…1, used as width/duty directly (0.5 = center / triangle / 50%).
+// Morph is 0â€¦1, used as width/duty directly (0.5 = center / triangle / 50%).
 // Keep off exact 0/1 only where the wave math divides by pw*(1-pw).
 
 // Left-aligned PWM pulse (soemdsp PolyBLEP::pulse).
@@ -81,9 +81,9 @@ double polyBlepPulse(double t, double incrementAbs, double morph) {
   return y;
 }
 
-// Center Square: bipolar ±1 pulse centered at mid-cycle (Basic Shape).
-// Morph = width 0…1; edges grow left/right from 0.5.
-// Not soemdsp Pulse Center (two summed squares → stepped ±1/0 levels).
+// Center Square: bipolar Â±1 pulse centered at mid-cycle (Basic Shape).
+// Morph = width 0â€¦1; edges grow left/right from 0.5.
+// Not soemdsp Pulse Center (two summed squares â†’ stepped Â±1/0 levels).
 double polyBlepCenterSquare(double t, double incrementAbs, double morph) {
   double w = (!is_nan(morph)) ? morph : 0.5;
   if (w < 0.0) w = 0.0;
@@ -118,6 +118,50 @@ double polyBlepTrisaw(double t, double incrementAbs, double morph) {
   return y;
 }
 
+// Bandlimited Analog Square: zeros at 0 / 0.5; SAME-direction peak slide.
+// Naive body = soemdsp::math::naive_analog_square. Peaks at 0.5*w and 0.5+0.5*w.
+// Same-direction corners leave slope jumps at wrap / mid when w != 0.5, so restore
+// zero blamps (skew = 1-2w) alongside the peak blamps.
+double polyBlepAnalogSquare(double t, double incrementAbs, double morph) {
+  const double w = morph_width01(morph);
+  const double dt = incrementAbs;
+  double y = naive_analog_square(t, morph);
+
+  const double tPeakPos = 0.5 * w;
+  const double tPeakNeg = 0.5 + 0.5 * w;
+  const double tPos = wrap01(t - tPeakPos);
+  const double tNeg = wrap01(t - tPeakNeg);
+  const double tMid = wrap01(t - 0.5);
+  // Gain family matches trisaw: dt / (w - w*w). Peaks +/-1; zeros * (1-2w).
+  const double invWw = 1.0 / (w - w * w);
+  const double skew = 1.0 - 2.0 * w;
+  y += dt * invWw * (
+    poly_blamp(tNeg, dt) - poly_blamp(tPos, dt)
+    + skew * (poly_blamp(t, dt) - poly_blamp(tMid, dt))
+  );
+  return y;
+}
+
+// Bandlimited Trisaw Center: zeros fixed at 0 / 0.5; opposing peak slide (saw morph).
+// Naive body = soemdsp::math::naive_trisaw_center. poly_blamp at both peaks only --
+// under opposing geometry zeros stay slope-continuous (no mid/wrap blamps).
+double polyBlepTrisawCenter(double t, double incrementAbs, double morph) {
+  const double w = morph_width01(morph);
+  const double dt = incrementAbs;
+  double y = naive_trisaw_center(t, morph);
+
+  // Opposing peaks: tPeakPos = 0.5*w, tPeakNeg = 1.0 - 0.5*w.
+  const double tPeakPos = 0.5 * w;
+  const double tPeakNeg = 1.0 - 0.5 * w;
+  const double tPos = wrap01(t - tPeakPos);
+  const double tNeg = wrap01(t - tPeakNeg);
+  // Slope deltas: pos -2/(w(1-w)), neg +2/(w(1-w)). Same gain family as trisaw:
+  //   y += dt / (w - w*w) * (blamp(neg) - blamp(pos))
+  const double invWw = 1.0 / (w - w * w);
+  y += dt * invWw * (poly_blamp(tNeg, dt) - poly_blamp(tPos, dt));
+  return y;
+}
+
 double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, int waveform, double morph) {
   const double phaseDelta = phaseIncrement;
   const double absDelta = phaseDelta < 0.0 ? -phaseDelta : phaseDelta;
@@ -126,12 +170,12 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
   const double renderIncrement = phaseStopped ? 1.0e-6 : phaseDelta;
   const double absInc = renderIncrement < 0.0 ? -renderIncrement : renderIncrement;
   const double phaseCycle = wrap01(phase / kTwoPi);
-  // Morph 0…1 = width/duty for Trisaw / Center Square / Pulse. Others ignore it.
+  // Morph 0..1 = width/duty for Trisaw / Analog Square / Trisaw Center / Center Square / Pulse. Others ignore it.
   const double m = morph_width01(morph);
   double sample = 0.0;
   // Order matches UI choices:
   // 0 Trisaw, 1 Saw, 2 Ramp, 3 Square, 4 Triangle, 5 Sine,
-  // 6 Center Square, 7 Pulse
+  // 6 Center Square, 7 Pulse, 8 Analog Square, 9 Trisaw Center
   switch (waveform) {
     case 0:
       sample = polyBlepTrisaw(phaseCycle, absInc, m);
@@ -166,6 +210,12 @@ double oscillatorSample(SlotState& slot, double phase, double phaseIncrement, in
       break;
     case 7:
       sample = polyBlepPulse(phaseCycle, absInc, m);
+      break;
+    case 8:
+      sample = polyBlepAnalogSquare(phaseCycle, absInc, m);
+      break;
+    case 9:
+      sample = polyBlepTrisawCenter(phaseCycle, absInc, m);
       break;
     default:
       sample = polyBlepTrisaw(phaseCycle, absInc, m);
@@ -281,7 +331,7 @@ extern "C" void soemdsp_polyblep_sample_masked(
 }
 
 // One WASM crossing per quantum. phase/phaseIncrement in same units as sample()
-// (phase radians, increment cycles/sample). Advances phase by 2π·inc each frame.
+// (phase radians, increment cycles/sample). Advances phase by 2Ï€Â·inc each frame.
 extern "C" void soemdsp_polyblep_process_block(
   int handle,
   int frameCount,
@@ -296,7 +346,7 @@ extern "C" void soemdsp_polyblep_process_block(
   PolyBlepState& s = gPool[handle - 1];
   const int n = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
   const int mask = tapMask == 0 ? kTapAll : tapMask;
-  // Cap |phaseInc| at Nyquist (0.5 cycles/sample) — unbounded Control Hz
+  // Cap |phaseInc| at Nyquist (0.5 cycles/sample) â€” unbounded Control Hz
   // must not spin open while-wraps on the audio thread.
   double inc = phaseIncrement;
   if (!(inc == inc)) inc = 0.0;
@@ -314,7 +364,7 @@ extern "C" void soemdsp_polyblep_process_block(
     s.blockOut[4][i] = s.tri;
     s.blockOut[5][i] = s.sine;
     phase += phaseStep;
-    // Bounded reduce to (-π, π] via floor (no open while).
+    // Bounded reduce to (-Ï€, Ï€] via floor (no open while).
     phase = phase - kTwoPi * dsp_floor(phase / kTwoPi + 0.5);
   }
 }
@@ -360,5 +410,5 @@ extern "C" double soemdsp_polyblep_sine(int handle) {
 }
 
 extern "C" int soemdsp_polyblep_version() {
-  return 8; // Sine tap = shared half-sine wavetable LUT (no ±π Taylor click)
+  return 8; // Sine tap = shared half-sine wavetable LUT (no Â±Ï€ Taylor click)
 }

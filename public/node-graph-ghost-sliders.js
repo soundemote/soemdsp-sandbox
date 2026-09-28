@@ -10,7 +10,10 @@ function nodeGraphNormalizedParameterSignalBounds(signal, metadata = {}) {
     : clampNodeSliderValue(nodeGraphFiniteNumber(signal), 0, 1);
 }
 
-/** Last posted scope sample for `nodeId:port` only — never fall back to Out. */
+/** Last posted scope sample for exact `nodeId:port` only.
+ *  Cable ghosts must use the jack name (Left/Right/Out) — never a face Raw
+ *  probe sibling and never Out/face aggregate remaps.
+ */
 function nodeGraphGhostSliderScopeSample(nodeId, port) {
   const id = String(nodeId || "").trim();
   const name = String(port || "").trim();
@@ -21,8 +24,14 @@ function nodeGraphGhostSliderScopeSample(nodeId, port) {
   if (!buffer?.length) {
     return null;
   }
-  const sample = Number(buffer[buffer.length - 1]);
-  return Number.isFinite(sample) ? sample : null;
+  // Prefer the newest finite sample (same spirit as LatestOutputValue).
+  for (let index = buffer.length - 1; index >= 0; index -= 1) {
+    const sample = Number(buffer[index]);
+    if (Number.isFinite(sample)) {
+      return sample;
+    }
+  }
+  return null;
 }
 
 /**
@@ -144,13 +153,8 @@ function nodeGraphGhostSliderModSample(sourceNode, sourcePort, depth = 0) {
   }
   if (!nodeGraphParameterOutputPort(sourceType, port)) {
     // Audio/CV with no posted frame yet — skip rather than invent a value.
-    const loose = nodeGraphModuleScopeState?.buffers?.get?.(nodeId);
-    if (loose?.length) {
-      const sample = Number(loose[loose.length - 1]);
-      if (Number.isFinite(sample)) {
-        return sample;
-      }
-    }
+    // Do not fall back to nodeId / face aggregate (would sample Ext Out or a
+    // Raw face probe when Left/Right rings are briefly empty).
     return null;
   }
   const sourceSlider = nodeGraphSliderForParameter(nodeId, port);

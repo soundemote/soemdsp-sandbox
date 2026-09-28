@@ -246,27 +246,31 @@ function nodeGraphRepairMetamoduleOwnership(patch = nodeGraphMvp?.patch) {
  * empty until the user pans/zooms (which runs scheduleNodeGraphViewportCullRefresh).
  */
 function nodeGraphSyncMetamoduleVisibilityToDom() {
-  const container = document.getElementById("nodeGraphNodes");
-  if (!container) return false;
+  const containers = typeof nodeGraphModuleMountContainers === "function"
+    ? nodeGraphModuleMountContainers()
+    : [document.getElementById("nodeGraphNodes")].filter(Boolean);
+  if (!containers.length) return false;
   let changed = false;
   const newlyShown = [];
-  for (const element of container.querySelectorAll(".dsp-node")) {
-    const id = String(element.dataset.node || "");
-    const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
-    if (!patchNode) continue;
-    const shouldShow = typeof nodeGraphModuleShouldBeVisible === "function"
-      ? nodeGraphModuleShouldBeVisible(patchNode)
-      : true;
-    const wasHidden = Boolean(element.hidden);
-    if (wasHidden === shouldShow) {
-      element.hidden = !shouldShow;
-      changed = true;
-    }
-    if (shouldShow) {
-      newlyShown.push(element);
-      // Sync position/size chrome so ports exist for wire hit-testing.
-      if (typeof syncNodeGraphModuleChromeElement === "function") {
-        syncNodeGraphModuleChromeElement(element, patchNode);
+  for (const container of containers) {
+    for (const element of container.querySelectorAll(".dsp-node")) {
+      const id = String(element.dataset.node || "");
+      const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+      if (!patchNode) continue;
+      const shouldShow = typeof nodeGraphModuleShouldBeVisible === "function"
+        ? nodeGraphModuleShouldBeVisible(patchNode)
+        : true;
+      const wasHidden = Boolean(element.hidden);
+      if (wasHidden === shouldShow) {
+        element.hidden = !shouldShow;
+        changed = true;
+      }
+      if (shouldShow) {
+        newlyShown.push(element);
+        // Sync position/size chrome so ports exist for wire hit-testing.
+        if (typeof syncNodeGraphModuleChromeElement === "function") {
+          syncNodeGraphModuleChromeElement(element, patchNode);
+        }
       }
     }
   }
@@ -2074,6 +2078,35 @@ function nodeGraphMetamoduleResolveExposeTarget(metaNode, synthKey, patch = node
   const hit = defs.find((p) => nodeGraphMetamoduleSanitizeExposeToken(p.key) === parsed.paramToken);
   if (hit) paramKey = hit.key;
   return { childId: child.id, paramKey, child, synthKey: parsed.synthKey };
+}
+
+/**
+ * LIMITED Show-on-metamodule mirror: outer mx_* shell param -> inner {childId, paramKey}.
+ * Prefers the same mapping ExposedParameterDefinitions attaches as metaExpose;
+ * falls back to ResolveExposeTarget. Does not mirror full paramMeta/menus.
+ */
+function nodeGraphMetamoduleResolveShellShowMetaparameterTarget(metaNode, synthKey, patch = nodeGraphMvp?.patch) {
+  if (!metaNode || typeof nodeGraphIsContainerShellType !== "function") return null;
+  if (!nodeGraphIsContainerShellType(metaNode.type)) return null;
+  const key = String(synthKey || "").trim();
+  if (!key.startsWith("mx_")) return null;
+
+  // Same childId/paramKey that ExposedParameterDefinitions stores on def.metaExpose.
+  const entries = typeof nodeGraphMetamoduleListExposedParamEntries === "function"
+    ? nodeGraphMetamoduleListExposedParamEntries(metaNode, patch)
+    : [];
+  const hit = entries.find((e) => e && e.synthKey === key);
+  if (hit?.childId && hit?.paramKey) {
+    return {
+      childId: hit.childId,
+      paramKey: hit.paramKey,
+      synthKey: key,
+      child: hit.child || null,
+    };
+  }
+
+  // Fallback parse/resolve (e.g. visibility briefly out of sync with a mounted slider).
+  return nodeGraphMetamoduleResolveExposeTarget(metaNode, key, patch);
 }
 
 function nodeGraphMetamoduleIsParamExposed(metaNode, childId, paramKey) {

@@ -320,6 +320,20 @@ function syncNodeGraphScopeGpuMetricsDisplay() {
   if (fpsElement) {
     fpsElement.textContent = Number.isFinite(fps) && fps > 0 ? String(Math.round(Math.min(999, fps))) : "--";
   }
+  // Tiny verification aid on the header Simulation FPS field (no extra HUD).
+  const fpsInput = document.getElementById("nodeMasterScopeFps");
+  if (fpsInput) {
+    const setFps = typeof nodeGraphSimulationDisplayFps === "function"
+      ? nodeGraphSimulationDisplayFps()
+      : (typeof nodeGraphSimFpsRate === "function" ? nodeGraphSimFpsRate() : 0);
+    if (Number.isFinite(fps) && fps > 0) {
+      fpsInput.title = `Simulation FPS ${setFps}. Measured display ~${Math.round(Math.min(999, fps))} Hz.`;
+      fpsInput.dataset.measuredHz = String(Math.round(Math.min(999, fps)));
+    } else {
+      fpsInput.title = `Simulation FPS ${setFps}. Measured display — waiting for paints.`;
+      delete fpsInput.dataset.measuredHz;
+    }
+  }
   if (pointsElement) {
     pointsElement.textContent = points > 9999
       ? `${Math.round(points / 1000)}k`

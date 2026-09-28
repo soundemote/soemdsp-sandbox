@@ -83,7 +83,6 @@ function serializeNodeGraphPatch(patch = nodeGraphMvp.patch, options = {}) {
     info: normalizeNodeGraphPatchInfo(patch.info),
     modularOnlyControlsVisible: Boolean(patch.modularOnlyControlsVisible),
     modulations: patch.modulations || [],
-    monitors: normalizeNodeGraphPatchMonitors(patch.monitors, patch),
     nodes: nodesOut,
     requiredAssets: typeof nodeGraphRequiredAssetsForPatch === "function"
       ? nodeGraphRequiredAssetsForPatch(patch)

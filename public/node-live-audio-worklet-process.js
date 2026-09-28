@@ -139,6 +139,15 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
     if (usedNativeGraph) {
       this.scopeCounter = (nodeGraphFiniteNumber(this.scopeCounter)) + frames;
       const displayFps = Number(this.displayFps);
+      // Counters below advance by host frames each quantum. Pace them against
+      // the host AudioContext rate (wall clock), not effectiveRate (engine =
+      // host*oversampling, optionally /speed). Using effectiveRate under-posted
+      // by exactly the OS factor — with OS*4 and audioStressed*4 that felt like
+      // ~4fps at Simulation FPS 60 and ~15fps at 240.
+      const hostRateForDisplay = Math.max(
+        1,
+        nodeGraphFiniteNumber(this.hostSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)),
+      );
       if (displayFps > 0) {
         this.scopeSnapshotCounter = (nodeGraphFiniteNumber(this.scopeSnapshotCounter)) + frames;
         // Never fully starve scope posts when stressed — that freezes every face
@@ -146,7 +155,7 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         // Stressed: post at ~1/4 display rate instead of skipping entirely.
         const snapshotEvery = Math.max(
           1,
-          Math.floor(effectiveRate / displayFps) * (audioStressed ? 4 : 1),
+          Math.floor(hostRateForDisplay / displayFps) * (audioStressed ? 4 : 1),
         );
         if (this.scopeSnapshotCounter >= snapshotEvery) {
           this.scopeSnapshotCounter = 0;
@@ -154,7 +163,7 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         }
       }
       this.visualControlCounter = (nodeGraphFiniteNumber(this.visualControlCounter)) + frames;
-      const visualEvery = Math.max(1, Math.floor(effectiveRate / 30) * (audioStressed ? 4 : 1));
+      const visualEvery = Math.max(1, Math.floor(hostRateForDisplay / 30) * (audioStressed ? 4 : 1));
       if (this.visualControlCounter >= visualEvery) {
         this.visualControlCounter = 0;
         this.postVisualControls?.();

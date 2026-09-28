@@ -348,6 +348,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   phaseOffset: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PHASE,
   resonance: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_RESONANCE,
   mode: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
+  freqUpdate: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
   pingPong: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
   upTime: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_NUMERATOR,
   downTime: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR,
@@ -426,7 +427,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
 
 /**
  * Param key → native Control id for ParamModEdge compile.
- * Softwave Morph is SHAPE; Hypersaw Morph is FEEDBACK; Spiral Morph is PHASE.
+ * Softwave Morph is SHAPE; Robin Oscillator Morph is WIDTH; Hypersaw Morph is FEEDBACK;
+ * Spiral Morph is PHASE.
  */
 NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraphParamId(
   type,
@@ -438,6 +440,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
   if (k === "morph") {
     if (t === "hypersaw2") return P.NATIVE_GRAPH_PARAM_FEEDBACK;
     if (t === "spiral") return P.NATIVE_GRAPH_PARAM_PHASE;
+    // Robin Oscillator: morph Control is WIDTH (see pushControls + process_robin_oscillator).
+    // Default SHAPE was Softwave-correct but left ParamModEdge morph silent on Robin (B-063).
+    if (t === "robinOscillator") return P.NATIVE_GRAPH_PARAM_WIDTH;
     return P.NATIVE_GRAPH_PARAM_SHAPE;
   }
   // Robin vs Hypersaw share jitter* names on different Control slots.
@@ -980,6 +985,14 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
     }
     if (p === "step") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+  }
+  if (t === "robinSinusoid") {
+    if (p === "out raw") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+    if (p === "out") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  }
+  if (t === "sampleHold") {
+    if (p === "left raw") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
+    if (p === "right raw") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
   }
   if (t === "fractalBrownianNoise") {
     if (p === "out x raw") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
@@ -2716,6 +2729,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGravityWalkerNoteMasks = function syn
       ? noteMaskPackChunks(mask)
       : { c0: 0, c1: 0, c2: 0 };
     native.soemdsp_gravity_walker_set_chunks(handle, chunks.c0 || 0, chunks.c1 || 0, chunks.c2 || 0);
+
   }
 };
 
@@ -2728,6 +2742,7 @@ NodeLiveAudioProcessor.prototype.syncNativeArpFacesAndMonophony = function syncN
   if (!this._arpPolyTables) this._arpPolyTables = new Map();
   if (!this._arpFaceFp) this._arpFaceFp = new Map();
   const live = new Set();
+  const gravityLive = new Set();
   for (const [id, node] of this.nodes) {
     if (String(node?.type || "") !== "arp") continue;
     const nid = String(id);
@@ -2798,9 +2813,81 @@ NodeLiveAudioProcessor.prototype.syncNativeArpFacesAndMonophony = function syncN
       } catch (_e) { /* ignore */ }
     }
   }
+
+  // Gravity Walker uses the same piano-key face, but its displayed pool is
+  // the expanded/voicing-rotated Keys pool and its playhead is the current
+  // MIDI pitch published by the native node.
+  for (const [id, node] of this.nodes) {
+    if (String(node?.type || "") !== "gravityWalker") continue;
+    const nid = String(id);
+    gravityLive.add(nid);
+    const mask = this.mixNoteMask128(nid, "Arp Keys");
+    const held = [];
+    if (mask instanceof Uint8Array) {
+      for (let midi = 0; midi < 128; midi += 1) {
+        if (mask[midi]) held.push(midi);
+      }
+    }
+    const octaves = Math.max(0, Math.min(4, Math.round(Number(node?.params?.octaves) || 0)));
+    const notes = [];
+    for (let i = 0; i < held.length; i += 1) {
+      for (let octave = 0; octave <= octaves; octave += 1) {
+        const midi = held[i] + octave * 12;
+        if (midi >= 0 && midi <= 127) notes.push(midi);
+      }
+    }
+    notes.sort((a, b) => a - b);
+    const uniqueNotes = [];
+    for (let i = 0; i < notes.length; i += 1) {
+      if (uniqueNotes[uniqueNotes.length - 1] !== notes[i]) uniqueNotes.push(notes[i]);
+    }
+    const scaleOffset = Math.max(-24, Math.min(24, Math.round(Number(node?.params?.scaleOffset) || 0)));
+    const offsetSteps = Math.abs(scaleOffset);
+    for (let step = 0; step < offsetSteps && uniqueNotes.length; step += 1) {
+      if (scaleOffset > 0) {
+        const lowest = uniqueNotes.shift();
+        uniqueNotes.push(Math.max(0, Math.min(127, lowest + 12)));
+      } else {
+        const highest = uniqueNotes[uniqueNotes.length - 1];
+        uniqueNotes.unshift(Math.max(0, Math.min(127, highest - 12)));
+      }
+    }
+    const out = this.nodeOutputs.get(nid);
+    const gate = Number(out?.Gate ?? out?.Left) > 0 ? 1 : 0;
+    const pitch = Number(out?.pitch);
+    let play = -1;
+    if (gate && Number.isFinite(pitch) && uniqueNotes.length) {
+      let bestDistance = Infinity;
+      for (let i = 0; i < uniqueNotes.length; i += 1) {
+        const distance = Math.abs(uniqueNotes[i] - pitch);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          play = uniqueNotes[i];
+        }
+      }
+    }
+    let fp = `${play}:${gate}:`;
+    for (let i = 0; i < uniqueNotes.length; i += 1) fp += `${uniqueNotes[i]},`;
+    if (fp !== this._arpFaceFp.get(nid)) {
+      this._arpFaceFp.set(nid, fp);
+      try {
+        this.port.postMessage({
+          type: "arpFace",
+          nodeId: nid,
+          notes: uniqueNotes,
+          play: gate ? play : -1,
+        });
+      } catch (_e) { /* ignore */ }
+    }
+  }
+
   for (const id of [...this._arpPolyTables.keys()]) {
     if (!live.has(id)) {
       this._arpPolyTables.delete(id);
+    }
+  }
+  for (const id of [...this._arpFaceFp.keys()]) {
+    if (!live.has(id) && !gravityLive.has(id)) {
       this._arpFaceFp.delete(id);
     }
   }
@@ -3914,7 +4001,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
-      push("pulseWidth", P.NATIVE_GRAPH_PARAM_WIDTH, cont("pulseWidth", 0.5));
+      push("morph", P.NATIVE_GRAPH_PARAM_WIDTH, cont("morph", 0.5));
+      push("freqUpdate", P.NATIVE_GRAPH_PARAM_MODE, disc("freqUpdate", 1));
       continue;
     }
     if (type === "robinSinusoid") {
@@ -5184,7 +5272,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "sampleHold") {
       // center=threshold, frequency=sampleFrequency, amplitude=Amplitude,
-      // mode=polarity (0 bipolar / 1 unipolar), shape=interpolate,
+      // mode=polarity (0 bipolar / 1 unipolar) — audio outs only; face Left Raw/Right Raw stay bipolar. shape=interpolate,
       // phase=phaseOffset (Right lane); noise seed = node id hash in C++.
       push("threshold", P.NATIVE_GRAPH_PARAM_CENTER, cont("threshold", 0));
       push("sampleFrequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("sampleFrequency", 0));
@@ -7651,6 +7739,9 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
       return ["Open"];
     }
     if (type === "rasterRgb") return ["rgba", "📺"];
+    if (type === "robinSinusoid") return ["Out Raw"];
+    // Pre-level Left hold for face rings (distinct from audio Left).
+    if (type === "sampleHold") return ["Left Raw"];
     if (type === "fractalBrownianNoise") return ["Out X Raw"];
     if (type === "phoneTone") return ["ƒ1", "f1", "Df1"];
     if (type === "sineWavetable") return ["D"];
@@ -7679,6 +7770,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
   }
   if (portId === P.NATIVE_GRAPH_PORT_RAMP) {
     if (type === "helmholtzPitch") return ["Detune"];
+    // Pre-level Right hold for face rings (distinct from audio Right).
+    if (type === "sampleHold") return ["Right Raw"];
     if (type === "fractalBrownianNoise") return ["Out Y Raw"];
     if (type === "phoneTone") return ["ƒ2", "f2", "Df2"];
     if (type === "limiter") return ["Env"];
@@ -7981,7 +8074,11 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       // Chaosfly X/Y live on Saw/Ramp (always stereo image, not mono-collapsed).
       // PolyBLEP/BLIT: publish shape taps so a Sine-only (etc.) cable can feed
       // the face. Unused taps stay silent in DSP via polyblep_tap_mask.
-      const ports = type === "basicShape" || type === "sineWavetable" || type === "sinCos"
+      // sampleHold: publish audio Mono/Left/Right (polarity+amp) for jacks/ghosts,
+      // plus bipolar pre-level Saw/Ramp as Left Raw / Right Raw for full-swing waterfall.
+      const ports = type === "sampleHold"
+        ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW, P.NATIVE_GRAPH_PORT_RAMP)
+        : (type === "basicShape" || type === "sineWavetable" || type === "sinCos"
         || type === "smoothGraph" || type === "stepGraph"
         ? facePorts.concat(P.NATIVE_GRAPH_PORT_PHASE01)
         : (type === "polyBlep" || type === "blit"
@@ -7992,7 +8089,9 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
             P.NATIVE_GRAPH_PORT_TRI,
             P.NATIVE_GRAPH_PORT_SINE,
           )
-          : (type === "fractalBrownianNoise" || type === "chaosfly" || type === "arp"
+          : (type === "robinSinusoid"
+            ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW)
+            : (type === "fractalBrownianNoise" || type === "chaosfly" || type === "arp"
             ? facePorts.concat(
               P.NATIVE_GRAPH_PORT_SAW,
               P.NATIVE_GRAPH_PORT_RAMP,
@@ -8005,7 +8104,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
                 // t-series: Saw bus = Open (gate openness for Value Line).
                 : (type === "t" || /^t([1-9]|10)$/.test(type)
                   ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW)
-                  : facePorts)))));
+                  : facePorts)))))));
       const bindings = [];
       for (let pi = 0; pi < ports.length; pi += 1) {
         const portId = ports[pi];
