@@ -196,13 +196,6 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "namedPortalIn-4",
-      "destinationPort": "In",
-      "sourceNode": "knob-2",
-      "sourcePort": "Bias",
-      "tracePoints": []
-    },
-    {
       "destinationNode": "metamodule-1",
       "destinationPort": "Voices",
       "sourceNode": "keyboard-1",
@@ -587,7 +580,7 @@
         "semitones": 0,
         "cents": 0,
         "frequency": 0,
-        "mx_hypersaw2_1__jitterDistance": 1,
+        "mx_hypersaw2_1__jitterDistance": 6,
         "mx_passiveFilter_2__sweep": -47.09021152531858
       },
       "type": "metamodule",
@@ -1831,7 +1824,7 @@
         "phase": 0,
         "phaseCollapse": 1,
         "randomizePhase": 2.970384733102537,
-        "jitterDistance": 1,
+        "jitterDistance": 6,
         "vibratoDistance": 0.32009038906022796,
         "jitterSpeed": 0.05922263870095852,
         "vibratoSpeed": 0.9787,
@@ -4172,7 +4165,7 @@
         }
       },
       "params": {
-        "offset": 0.036743344496757396,
+        "offset": 0.055985823118891886,
         "displaySource": 0
       },
       "type": "knob",
@@ -4423,7 +4416,7 @@
         "labelPosition": "top",
         "valuePosition": "midknob",
         "innerRadius": 0.7273,
-        "labelText": ""
+        "labelText": "Modulation🐞"
       },
       "ui": {
         "buttonsHidden": false,
@@ -4477,7 +4470,7 @@
       "paramMeta": {},
       "params": {},
       "type": "namedPortalOut",
-      "alias": "Modulation",
+      "alias": "ModulatModulation_on",
       "widthGu": 5,
       "heightGu": 1,
       "ui": {
@@ -4509,7 +4502,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 48,
-    "zoom": 0.5368205527437513,
+    "zoom": 0.6733877013617617,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,

@@ -118,6 +118,26 @@ static inline double lerp(double a, double b, double t) {
   return a + t * (b - a);
 }
 
+// Hermite smoothstep on [0,1] (clamp then 3t^2-2t^3).
+static inline double smoothstep01(double t) {
+  const double x = clamp01(t);
+  return x * x * (3.0 - 2.0 * x);
+}
+
+// Quadratic ease-in (Slow Start): t^2.
+static inline double ease_in_quad01(double t) {
+  const double x = clamp01(t);
+  return x * x;
+}
+
+// Quadratic ease-out (Slow End): 1-(1-t)^2.
+static inline double ease_out_quad01(double t) {
+  const double x = clamp01(t);
+  const double u = 1.0 - x;
+  return 1.0 - u * u;
+}
+
+
 // Morph / PWM width in (0,1): NaNâ†’0.5, clamp [0,1], squeeze to [eps, 1-eps].
 // Matches hypersaw2 / polyblep morphWidth01 (default eps = 1e-4).
 static inline double morph_width01(double morph, double eps = 1.0e-4) {
@@ -272,6 +292,9 @@ using soemdsp::math::wrap;
 using soemdsp::math::safe_bounded;
 using soemdsp::math::hash_bipolar;
 using soemdsp::math::lerp;
+using soemdsp::math::smoothstep01;
+using soemdsp::math::ease_in_quad01;
+using soemdsp::math::ease_out_quad01;
 
 // using-declaration drops default args â€” keep eps default for modules.
 static inline double morph_width01(double morph, double eps = 1.0e-4) {

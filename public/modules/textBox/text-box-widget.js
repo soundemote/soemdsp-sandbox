@@ -484,3 +484,45 @@ function createTextBoxWidget(body, options = {}) {
     },
   };
 }
+
+
+// B-071: layout-canvas / screen-solo / metamodule WYSIWIS type scale.
+// Capture plate metrics once before layout-canvas / screen-solo / metamodule
+// reparent. Canvas CSS then scales type with 100cqmin / source-min so glyphs
+// track the tile the same way knob cqmin does (DISPLAY_SCALE_REWRITE / B-071).
+function nodeGraphTextBoxCaptureCanvasScaleSource(face, box = null) {
+  if (!(face instanceof Element) || !face.classList.contains("node-text-box-body")) {
+    return false;
+  }
+  const fromBox = box && Number.isFinite(Number(box.width)) && Number.isFinite(Number(box.height));
+  const w = Math.max(1, fromBox ? Number(box.width) : (face.clientWidth || face.offsetWidth || 1));
+  const h = Math.max(1, fromBox ? Number(box.height) : (face.clientHeight || face.offsetHeight || 1));
+  const sourceMin = Math.max(1, Math.min(w, h));
+  let gridPx = 28;
+  const workspace = typeof document !== "undefined"
+    ? document.getElementById("nodeGraphWorkspace")
+    : null;
+  if (workspace) {
+    const raw = window.getComputedStyle(workspace).getPropertyValue("--node-grid-size").trim();
+    const n = Number.parseFloat(raw);
+    if (Number.isFinite(n) && n > 0) {
+      gridPx = n;
+    }
+  } else if (typeof nodeGraphGridSize === "function") {
+    const n = Number(nodeGraphGridSize());
+    if (Number.isFinite(n) && n > 0) {
+      gridPx = n;
+    }
+  }
+  face.style.setProperty("--node-text-box-source-min", String(sourceMin));
+  face.style.setProperty("--node-text-box-source-font-px", `${(gridPx * 0.36).toFixed(4)}px`);
+  return true;
+}
+
+function nodeGraphTextBoxClearCanvasScaleSource(face) {
+  if (!(face instanceof Element)) {
+    return;
+  }
+  face.style.removeProperty("--node-text-box-source-min");
+  face.style.removeProperty("--node-text-box-source-font-px");
+}

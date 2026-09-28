@@ -209,6 +209,9 @@ function nodeGraphMetamoduleBuildFaceTile(entry, collected, index, stage) {
   if (!found.face.dataset.node) found.face.dataset.node = found.id;
   found.host?.classList.add("node-screen-solo-host");
   found.face.classList.add("node-screen-solo-face", "node-layout-canvas-face", "node-metamodule-canvas-face");
+  if (typeof nodeGraphTextBoxCaptureCanvasScaleSource === "function") {
+    nodeGraphTextBoxCaptureCanvasScaleSource(found.face);
+  }
 
   const tile = document.createElement("div");
   tile.className = "node-layout-canvas-tile";
@@ -230,6 +233,8 @@ function nodeGraphMetamoduleBuildFaceTile(entry, collected, index, stage) {
     placeholder,
     nextSibling,
     savedLayout,
+    savedFaceDom: found.savedFaceDom,
+    hostWasOscilloscopeHidden: found.hostWasOscilloscopeHidden,
     tile,
     rect,
   };

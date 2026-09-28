@@ -4,7 +4,7 @@ Report ID: B-068
 Status: open  
 Severity: see  
 Source: user 2026-09-28  
-Related: B-050 (workspace zoom/stutter; separate scaling symptom unless a shared canvas path is confirmed)
+Related: B-050 (workspace zoom/stutter; separate scaling symptom unless a shared canvas path is confirmed); B-071 (Text Box canvas tile scale — separate paint path, fixed)
 
 ## User symptom
 

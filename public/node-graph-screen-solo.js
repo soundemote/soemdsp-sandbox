@@ -647,6 +647,9 @@ function nodeGraphScreenSoloRestoreItem(item) {
     return;
   }
   nodeGraphScreenSoloRestoreSubtree(item.savedFaceDom);
+  if (typeof nodeGraphTextBoxClearCanvasScaleSource === "function") {
+    nodeGraphTextBoxClearCanvasScaleSource(face);
+  }
   face.classList.remove("node-screen-solo-face", "node-layout-canvas-face");
   face.removeAttribute("data-solo-fit");
   if (item.hostWasOscilloscopeHidden) {
@@ -814,6 +817,9 @@ function beginNodeGraphScreenSoloGrid(nodeIds) {
     entry.face.classList.add("node-screen-solo-face");
     let sourceWidth = Math.max(1, sourceBox.width || entry.face.clientWidth || 1);
     let sourceHeight = Math.max(1, sourceBox.height || entry.face.clientHeight || 1);
+    if (typeof nodeGraphTextBoxCaptureCanvasScaleSource === "function") {
+      nodeGraphTextBoxCaptureCanvasScaleSource(entry.face, sourceBox);
+    }
     // SinCos4 (and round orbit faces) author a centered unit square. Preserve a
     // square contain aspect so F fit uses the full cell instead of the short
     // filter-curve band (which looked top-aligned with empty space below).

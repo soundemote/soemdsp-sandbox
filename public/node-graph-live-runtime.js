@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=arp-override-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=send-amp-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3243,7 +3243,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=sample-hold-uni-display-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=arp-override-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=send-amp-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=live-os-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",
@@ -3255,7 +3255,9 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",
 
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=kb-io-cleanup-1",
+  // Keypad slot math (host CV controller — used by sidecar publish + setKeypadInteraction).
+  "./public/modules/keypad/keypad-math.js?v=keypad-hostcv-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=keypad-hostcv-1",
   "./public/node-live-audio-worklet-process.js?v=host-rate-display-2",
 ];
 

@@ -4395,6 +4395,24 @@ def require_render_sample_native_only() -> None:
         + ", ".join(banned_blob[:8]),
     )
 
+    require(
+        "keypad/keypad-math.js" in eff_block,
+        "efficient worklet blob must load keypad-math for host CV publish",
+    )
+    require(
+        "controller-efficient-sidecar.js" in eff_block,
+        "efficient worklet blob must load controller-efficient-sidecar",
+    )
+    sidecar_src = (PUBLIC / "modules/_shared/controller-efficient-sidecar.js").read_text(encoding="utf-8")
+    require(
+        "setKeypadInteraction" in sidecar_src,
+        "controller sidecar must define setKeypadInteraction (CallNow keypad host CV)",
+    )
+    require(
+        'type === "keypad"' in sidecar_src,
+        "controller sidecar must publish keypad Analog/Digital/Gate",
+    )
+
 
 def require_xy_pad_interaction_contract() -> None:
     script_sources = read_public_script_sources()

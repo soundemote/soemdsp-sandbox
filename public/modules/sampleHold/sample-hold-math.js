@@ -1,6 +1,8 @@
 // Sample & Hold — hold / clock / optional glide between holds (main-thread JS).
 // Noise fallback when a channel In is unwired uses shared seeded noise helpers.
 // phaseOffset (cycles mod 1) desyncs this lane vs offset 0 (Right uses it).
+// Interpolate: 0 Linear, 1 Smoothstep, 2 Slow End, 3 Slow Start.
+// Smoothing: factor of clock period; <=0 → 1 sample (instant).
 
 function createNodeGraphSampleHoldState() {
   return {
@@ -28,19 +30,40 @@ function createNodeGraphStereoSampleHoldState() {
   };
 }
 
-/** 0 Off, 1 Linear, 2 Smoothstep */
+/** 0 Linear, 1 Smoothstep, 2 Slow End, 3 Slow Start */
 function nodeGraphSampleHoldNormalizeInterpolate(mode) {
   const n = Math.round(Number(mode));
-  if (n === 1 || n === 2) return n;
+  if (n >= 0 && n <= 3) return n;
   const s = String(mode ?? "").trim().toLowerCase();
-  if (s === "1" || s === "linear" || s === "lin") return 1;
-  if (s === "2" || s === "smoothstep" || s === "smooth") return 2;
+  if (s === "1" || s === "linear" || s === "lin") return 0;
+  if (s === "2" || s === "smoothstep" || s === "smooth") return 1;
+  if (s === "3" || s === "slow end" || s === "slowend" || s === "easeout") return 2;
+  if (s === "4" || s === "slow start" || s === "slowstart" || s === "easein") return 3;
   return 0;
 }
 
 function nodeGraphSampleHoldSmoothstep(t) {
   const x = t <= 0 ? 0 : t >= 1 ? 1 : t;
   return x * x * (3 - 2 * x);
+}
+
+function nodeGraphSampleHoldEaseOutQuad(t) {
+  const x = t <= 0 ? 0 : t >= 1 ? 1 : t;
+  const u = 1 - x;
+  return 1 - u * u;
+}
+
+function nodeGraphSampleHoldEaseInQuad(t) {
+  const x = t <= 0 ? 0 : t >= 1 ? 1 : t;
+  return x * x;
+}
+
+function nodeGraphSampleHoldApplyInterpolate(interp, t) {
+  if (interp === 1) return nodeGraphSampleHoldSmoothstep(t);
+  if (interp === 2) return nodeGraphSampleHoldEaseOutQuad(t);
+  if (interp === 3) return nodeGraphSampleHoldEaseInQuad(t);
+  const x = t <= 0 ? 0 : t >= 1 ? 1 : t;
+  return x;
 }
 
 function nodeGraphSampleHoldWrap01(x) {
@@ -66,6 +89,7 @@ function nodeGraphSampleHoldCore(
   seedKey = "sampleHold",
   interpolate = 0,
   phaseOffset = 0,
+  smoothing = 0,
 ) {
   if (typeof nodeGraphResetSeededState === "function") {
     nodeGraphResetSeededState(state.noise, seedKey, 0, "sampleHoldNoise");
@@ -81,6 +105,8 @@ function nodeGraphSampleHoldCore(
   const safeRate = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const interp = nodeGraphSampleHoldNormalizeInterpolate(interpolate);
   const offset = nodeGraphSampleHoldWrap01(phaseOffset);
+  const smooth = nodeGraphFiniteNumber(smoothing);
+  const instant = !(smooth > 0);
 
   let internalFire = false;
   if (safeFreq > 0) {
@@ -135,14 +161,16 @@ function nodeGraphSampleHoldCore(
     const interval = Math.max(1, nodeGraphFiniteNumber(state.samplesSinceFire, 1));
     state.lastIntervalSamples = interval;
     state.samplesSinceFire = 0;
-    let seg = safeFreq > 0
-      ? Math.max(1, Math.round(safeRate / safeFreq))
+    const period = safeFreq > 0
+      ? Math.max(1, safeRate / safeFreq)
       : Math.max(1, nodeGraphFiniteNumber(state.lastIntervalSamples, 1));
+    let seg = instant ? 1 : (period * smooth);
+    if (seg < 1) seg = 1;
     state.segmentSamples = seg;
     state.samplesInSegment = 0;
     state.from = nodeGraphFiniteNumber(state.out);
     state.held = safeInput;
-    if (interp === 0) {
+    if (instant) {
       state.out = safeInput;
       state.from = safeInput;
     }
@@ -150,7 +178,7 @@ function nodeGraphSampleHoldCore(
 
   state.lastTrigger = safeClock;
 
-  if (interp === 0) {
+  if (instant) {
     state.out = nodeGraphFiniteNumber(state.held);
     return state.out;
   }
@@ -159,7 +187,7 @@ function nodeGraphSampleHoldCore(
   const seg = Math.max(1, nodeGraphFiniteNumber(state.segmentSamples, 1));
   let t = state.samplesInSegment / seg;
   if (t > 1) t = 1;
-  if (interp === 2) t = nodeGraphSampleHoldSmoothstep(t);
+  t = nodeGraphSampleHoldApplyInterpolate(interp, t);
   const from = nodeGraphFiniteNumber(state.from);
   const to = nodeGraphFiniteNumber(state.held);
   state.out = from + (to - from) * t;

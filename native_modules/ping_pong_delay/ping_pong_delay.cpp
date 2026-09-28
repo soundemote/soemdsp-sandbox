@@ -313,6 +313,7 @@ struct PingPongDelayState {
   double liveFeedback;
   double liveMix;
   double liveAmplitude;
+  double liveSend;
   double liveOffsetMs;   // bipolar timing trim (ms) on both taps
   double liveLfoAmpMs;   // LFO depth (ms)
   double liveLfoStyle;
@@ -472,6 +473,7 @@ extern "C" int soemdsp_ping_pong_delay_create() {
       s.liveOffsetMs = 0.0;
       s.liveLfoAmpMs = 0.0;
       s.liveAmplitude = 1.0;
+      s.liveSend = 1.0;
       s.livePingPong = 1.0;
       s.liveSampleRate = 44100.0;
       reset_delay_dsp(s);
@@ -563,6 +565,9 @@ static void process_one(PingPongDelayState& s, double inputL, double inputR) {
   const double rate = maxd(1.0, s.liveSampleRate);
   const double dryL = safe(inputL);
   const double dryR = safe(inputR);
+  const double safeSend = clamp(safe(s.liveSend), 0.0, 1.0);
+  const double effectL = dryL * safeSend;
+  const double effectR = dryR * safeSend;
   const double safeFeedback = safe(s.liveFeedback);
   const double safeMix = clamp(safe(s.liveMix), 0.0, 1.0);
   const double safeAmp = clamp(safe(s.liveAmplitude), 0.0, 2.0);
@@ -620,8 +625,8 @@ static void process_one(PingPongDelayState& s, double inputL, double inputR) {
   // bounce-only so identical L/R dry (Mono) still L→R→L instead of staying
   // locked in stereo unison.
   const bool pong = s.livePingPong >= 0.5;
-  const double fbInL = pong ? (dryL + readR * safeFeedback) : (dryL + readL * safeFeedback);
-  const double fbInR = pong ? (readL * safeFeedback) : (dryR + readR * safeFeedback);
+  const double fbInL = pong ? (effectL + readR * safeFeedback) : (effectL + readL * safeFeedback);
+  const double fbInR = pong ? (readL * safeFeedback) : (effectR + readR * safeFeedback);
   const double clippedL = soft_clip_run(
     fbInL, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
   const double clippedR = soft_clip_run(
@@ -648,6 +653,7 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   double feedback,
   double mix,
   double amplitude,
+  double send,
   double timeNumerator,
   double timeDenominator,
   double timingMode,
@@ -672,6 +678,7 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
   s.liveFeedback = feedback;
   s.liveMix = mix;
   s.liveAmplitude = amplitude;
+  s.liveSend = clamp(safe(send), 0.0, 1.0);
   s.liveOffsetMs = offsetMs;
   s.liveLfoAmpMs = safe(lfoAmpMs);
   s.liveLfoStyle = lfoStyle;
@@ -692,6 +699,7 @@ extern "C" double soemdsp_ping_pong_delay_sample(
   double feedback,
   double mix,
   double amplitude,
+  double send,
   double timeNumerator,
   double timeDenominator,
   double timingMode,
@@ -709,7 +717,7 @@ extern "C" double soemdsp_ping_pong_delay_sample(
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   soemdsp_ping_pong_delay_set_params(
-    handle, feedback, mix, amplitude, timeNumerator, timeDenominator, timingMode,
+    handle, feedback, mix, amplitude, send, timeNumerator, timeDenominator, timingMode,
     offsetMs, lfoAmpMs, lfoStyle, lfoRate, lfoVariation, saturate, lpfFrequency,
     hpfFrequency, tempoBpm, sampleRate, pingPong);
   process_one(gPool[handle - 1], inputL, inputR);
@@ -803,5 +811,5 @@ extern "C" int soemdsp_ping_pong_delay_memory_generation() {
 }
 
 extern "C" int soemdsp_ping_pong_delay_version() {
-  return 15; // free-fn LFO helpers; no JS twin; Amp default 25 ms
+  return 16; // Send 0-1 amp into delay path
 }

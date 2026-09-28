@@ -7,6 +7,7 @@
 // (Top Morph) and sine→phase (Side Morph).
 // f = Speed * (1 + lastSine * Top Morph).
 // Shared vibrato_gen_* header still drives Hypersaw LFOs.
+// Depth envelope: Gate rise → Delay → Attack to 1; Gate low → Release to 0.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -24,7 +25,9 @@ struct VibratoModuleState {
   double lastSine;
   double out;
   double lastSeed;
-  double depthEnv;  // exponential depth fade 0…1 (standalone module only)
+  double depthEnv;     // exponential depth fade 0…1 (standalone module only)
+  double delayRemain;  // seconds left in Delay stage (0 = attack/release path)
+  double lastGate;     // rising-edge latch for Delay arm
 };
 
 static VibratoModuleState gPool[kMaxInstances];
@@ -57,7 +60,9 @@ extern "C" int soemdsp_vibrato_generator_create() {
       s.lastSine = 0.0;
       s.lastSeed = 1.0;
       s.out = 0.0;
-      s.depthEnv = 1.0;  // unpatched Gate = full depth
+      s.depthEnv = 1.0;   // unpatched Gate = full depth
+      s.delayRemain = 0.0;
+      s.lastGate = 1.0;   // no Delay arm until a real Gate rise
       return i + 1;
     }
   }
@@ -76,7 +81,7 @@ extern "C" void soemdsp_vibrato_generator_reset(int handle, double phaseOffset) 
   s.phaseTurns = wrap01(safe(phaseOffset));
   s.lastSine = 0.0;
   s.out = 0.0;
-  // Keep depthEnv — Reset is phase only, not depth envelope.
+  // Keep depthEnv / delayRemain — Reset is phase only, not depth envelope.
 }
 
 extern "C" double soemdsp_vibrato_generator_sample(
@@ -90,6 +95,7 @@ extern "C" double soemdsp_vibrato_generator_sample(
   double randomFreqMult,
   double randomAmpMult,
   double seedParam,
+  double delaySec,
   double attackSec,
   double releaseSec,
   double gate
@@ -130,12 +136,29 @@ extern "C" double soemdsp_vibrato_generator_sample(
   s.phaseTurns = wrap01(s.phaseTurns + inc);
   y *= (1.0 + s.gen.heldAmp * ra);
 
-  // Exponential depth envelope: Gate high → attack to 1, low → release to 0.
+  // Depth envelope: Gate rise → wait Delay → Attack to 1; Gate low → Release to 0.
   // Host passes gate=1 when Gate is unpatched (always-on / full depth).
-  const double target = (gate > 0.5) ? 1.0 : 0.0;
-  const double tau = (target > 0.5) ? attackSec : releaseSec;
-  const double coeff = depth_env_coeff(tau, sr);
-  s.depthEnv += (target - s.depthEnv) * coeff;
+  const bool gateHigh = gate > 0.5;
+  const bool rising = gateHigh && !(s.lastGate > 0.5);
+  s.lastGate = gate;
+  if (!gateHigh) {
+    s.delayRemain = 0.0;
+    const double coeff = depth_env_coeff(releaseSec, sr);
+    s.depthEnv += (0.0 - s.depthEnv) * coeff;
+  } else {
+    if (rising) {
+      const double d = safe(delaySec);
+      s.delayRemain = (d > 0.0 && (d * 0.0 == 0.0)) ? d : 0.0;
+    }
+    if (s.delayRemain > 0.0) {
+      s.delayRemain -= 1.0 / sr;
+      if (s.delayRemain < 0.0) s.delayRemain = 0.0;
+      // Hold depthEnv during Delay (no Attack yet).
+    } else {
+      const double coeff = depth_env_coeff(attackSec, sr);
+      s.depthEnv += (1.0 - s.depthEnv) * coeff;
+    }
+  }
   if (s.depthEnv < 0.0) s.depthEnv = 0.0;
   if (s.depthEnv > 1.0) s.depthEnv = 1.0;
 
@@ -150,5 +173,5 @@ extern "C" double soemdsp_vibrato_generator_out(int handle) {
 }
 
 extern "C" int soemdsp_vibrato_generator_version() {
-  return 5;
+  return 6;
 }

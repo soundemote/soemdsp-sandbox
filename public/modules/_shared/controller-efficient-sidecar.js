@@ -1,4 +1,4 @@
-// Efficient Live: publish Bias/Out for face controllers (not in native graph).
+// Efficient Live: publish Bias/Out / keypad Analog for face controllers (not in native graph).
 // Must run before syncNativeGraphParams / Additive sidecar so MOD folds work.
 
 /**
@@ -9,6 +9,37 @@
  * Bias meta may store seconds (0,1) or sample counts (≥1). Normalize to sample
  * counts before create/update — never treat sample counts as seconds.
  */
+
+// Keypad is a host CV controller (not a native opcode). Interaction state lives
+// on the worklet; processControllerEfficientSidecar publishes Analog/Digital/…
+// into nodeOutputs for Bias feeders. Not a JS DSP evaluator — UI→CV only.
+NodeLiveAudioProcessor.prototype.createKeypadState = function createKeypadState() {
+  return typeof createNodeGraphKeypadState === "function"
+    ? createNodeGraphKeypadState()
+    : { down: 0, latched: 0, needsRestore: true, pointerSlot: null };
+};
+
+NodeLiveAudioProcessor.prototype.setKeypadInteraction = function setKeypadInteraction(message = {}) {
+  const nodeId = String(message.nodeId || "");
+  if (!nodeId) return;
+  if (!(this.keypadStates instanceof Map)) this.keypadStates = new Map();
+  const state = this.keypadStates.get(nodeId) || this.createKeypadState();
+  state.needsRestore = false;
+  if (message.down !== undefined) state.down = message.down ? 1 : 0;
+  if (message.latched !== undefined) state.latched = message.latched ? 1 : 0;
+  if (Object.prototype.hasOwnProperty.call(message, "pointerSlot")) {
+    if (message.pointerSlot == null || message.pointerSlot === "") {
+      state.pointerSlot = null;
+    } else if (typeof nodeGraphKeypadWrap === "function") {
+      state.pointerSlot = nodeGraphKeypadWrap(message.pointerSlot);
+    } else {
+      const n = Math.round(Number(message.pointerSlot));
+      state.pointerSlot = Number.isFinite(n) ? n : null;
+    }
+  }
+  this.keypadStates.set(nodeId, state);
+};
+
 NodeLiveAudioProcessor.prototype.ensureControllerParamSmoothers = function ensureControllerParamSmoothers() {
   if (!this.controllerParamSmoothers) {
     this.controllerParamSmoothers = new Map();
@@ -732,6 +763,38 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         this.nodeOutputs.set(nid, btnOut);
         if (typeof this.captureModuleScopeOutput === "function") {
           this.captureModuleScopeOutput(nid, btnOut);
+        }
+        continue;
+      }
+
+
+      if (type === "keypad") {
+        if (!(this.keypadStates instanceof Map)) this.keypadStates = new Map();
+        const state = this.keypadStates.get(nid) || this.createKeypadState();
+        this.keypadStates.set(nid, state);
+        const hasPort = (port) => {
+          const key = typeof this.inputKey === "function"
+            ? this.inputKey(nid, port)
+            : `${nid}.${port}`;
+          const conns = this.inputConnections?.get?.(key);
+          return Boolean(conns && conns.length);
+        };
+        const mode = num(p.mode, 0);
+        const offset = num(p.offset, 0);
+        const sample = typeof nodeGraphKeypadSample === "function"
+          ? nodeGraphKeypadSample(state, {
+              analog: mixIn(nid, "Analog"),
+              digital: mixIn(nid, "Digital"),
+              hasAnalog: hasPort("Analog"),
+              hasDigital: hasPort("Digital"),
+              mode,
+              offset,
+              slot: p.slot,
+            })
+          : { Analog: 0, Digital: 0, Gate: 0, Index: 0, X: 0, Y: 0 };
+        this.nodeOutputs.set(nid, sample);
+        if (typeof this.captureModuleScopeOutput === "function") {
+          this.captureModuleScopeOutput(nid, sample);
         }
         continue;
       }

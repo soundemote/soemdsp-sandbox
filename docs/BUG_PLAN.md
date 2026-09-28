@@ -120,6 +120,8 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-067 | see | open | Bottom lip can leave less than 2 px clearance |
 | B-068 | see | open | Canvas-mode slider/knob/text display scaling is not WYSIWYG |
 | B-069 | see | open | Canvas mode omits displays that are not in view |
+| B-070 | hear | fixed | CallNow keypad/PhoneTone silent (Gate OK; keypad host CV) |
+| B-071 | see | fixed | Canvas-mode Text Box does not scale with the tile (WYSIWIS) |
 
 ---
 
@@ -138,6 +140,8 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - 2026-09-28: User - bottom lip must keep at least 2 px clearance from the last element; otherwise lower the lip by 1 GU. Promoted -> **B-067** (`docs/B-067_BOTTOM_LIP_CLEARANCE.md`).
 - 2026-09-28: User - slider display and knob do not scale properly in canvas mode; slider-associated text can be positioned/scaled outside the module; WYSIWYG ("what I see is what is scaled") is not held for slider/knob display. Promoted -> **B-068** (`docs/B-068_CANVAS_SLIDER_KNOB_SCALING.md`).
 - 2026-09-28: User - if the display is not in view, it will not appear in canvas mode. Promoted -> **B-069** (`docs/B-069_CANVAS_MODE_OFFSCREEN_DISPLAY_MISSING.md`).
+- 2026-09-28: User - CallNow: keyboard/keypad not sending clicks, PhoneTone not sending tones; Gate button works. Promoted -> **B-070** (`docs/B-070_CALLNOW_KEYPAD_PHONETONE_SILENT.md`).
+- 2026-09-28: User - Text Box in canvas mode is not taking scaling into account. Promoted -> **B-071** (`docs/B-071_CANVAS_TEXT_BOX_SCALING.md`); separate from B-068 knob/slider cqmin path.
 
 ---
 
@@ -750,7 +754,7 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Status: open
 - Severity: see
 - Source: user 2026-09-28
-- Related: B-050 (workspace zoom/stutter; separate scaling symptom unless a shared canvas path is confirmed)
+- Related: B-050 (workspace zoom/stutter; separate scaling symptom unless a shared canvas path is confirmed); **B-071** (Text Box canvas scale — own grid-size paint path, fixed separately)
 - Doc: `docs/B-068_CANVAS_SLIDER_KNOB_SCALING.md`
 - Files: canvas-mode scaling/transform and slider/knob/text rendering geometry (to investigate)
 - What: The slider display does not scale properly in canvas mode, the knob also does not scale properly, and slider-associated text can be positioned or scaled so badly that it ends up outside the module. **WYSIWYG — "what I see is what is scaled" — is not being held true in canvas mode for slider/knob display or its text.**
@@ -770,6 +774,31 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Expected: Canvas mode should include configured displays consistently, regardless of whether the display happened to be in the current viewport when canvas mode was entered or refreshed.
 - Fix shape: Audit canvas-mode display collection, viewport culling, and lazy-render/visibility gating. Do not drop an off-screen display from the canvas-mode result merely because it was not visible at capture time. Cross-check B-068 for shared transform/display handling. Docs only; no code fix in this report.
 
+
+### B-070 — CallNow keypad / PhoneTone silent (Gate still works)
+- Status: fixed (code; needs Live UI verify)
+- Severity: hear
+- Source: user 2026-09-28
+- Related: `patches/callnow.json`; keypad host CV; Phone Tone; portal outlet speaker sum; controller efficient sidecar
+- Doc: `docs/B-070_CALLNOW_KEYPAD_PHONETONE_SILENT.md`
+- Files: `public/modules/_shared/controller-efficient-sidecar.js`; `public/node-graph-live-runtime.js`; `scripts/smoke_test.py`
+- What: Keypad Analog never reached Phone Tone on efficient Live. Gate (momentaryButton Bias) still published. Keypad interaction handler was deleted with JS evaluator twins; sidecar never republished keypad CV; keypad-math was missing from the worklet blob.
+- Repro: Load CallNow, Play, press CALL🐞NOW (works), press keypad keys (no DTMF).
+- Fix shape: Restore worklet `setKeypadInteraction` + publish keypad in `processControllerEfficientSidecar`; load `keypad-math.js` in efficient worklet blob. Not a JS DSP evaluator restore.
+
+### B-071 — Canvas-mode Text Box does not scale with the tile (WYSIWIS)
+- Status: fixed (code; needs Live UI verify)
+- Severity: see
+- Source: user 2026-09-28
+- Related: B-068 (canvas slider/knob scaling — shared stage, different paint path); B-064 / B-055 (Text Box layout/layer)
+- Doc: `docs/B-071_CANVAS_TEXT_BOX_SCALING.md`
+- Files: `public/modules/textBox/text-box-widget.js`; `public/styles.css`; `public/node-graph-layout-canvas.js`; `public/node-graph-screen-solo.js`; `public/modules/metamodule/metamodule-display-mirror.js`
+- What: Text Box glyphs ignore canvas tile scale; body fills the tile but type stays at plate `--node-grid-size` absolute size.
+- Repro: Show in canvas on a Text Box → F canvas → resize tile. Text does not scale with the tile (unlike knob/slider cqmin faces).
+- Root cause: Text Box uses its own grid-size font formula; it never joined the face `cqmin` scale pipeline knobs use. Not the same leak as B-068.
+- Fix: Capture plate source-min + source-font-px before reparent; canvas-scoped CSS `source-font-px * font-scale * 100cqmin / source-min`; clear on restore. UI only.
+
+
 ## Fixed
 
 <!-- move B-xxx here with a one-line note -->
@@ -779,6 +808,8 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - **B-059** — Alt+click jack scope-monitor feature **removed** (deleted, not wontfix). See section above / `docs/B-059_ABANDONED_WIRE_DRAG_ORPHAN_DOT.md`.
 - **B-061** — Slider / LED number faces expand scientific notation before `limit_decimals` so small values keep their magnitude.
 - **B-063** — Robin Oscillator Morph ParamModEdge targets WIDTH (was SHAPE; Softwave-correct default left Morph CV silent).
+- **B-070** — CallNow keypad host CV: restore `setKeypadInteraction` + sidecar Analog publish; load keypad-math in efficient worklet blob.
+- **B-071** — Canvas Text Box type scales with tile via source-min cqmin (plate grid-size formula unchanged).
 
 ---
 

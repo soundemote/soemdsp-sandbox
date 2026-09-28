@@ -1,9 +1,9 @@
-# Progress â€” soemdsp-sandbox
+﻿# Progress Ã¢â‚¬â€ soemdsp-sandbox
 
 
 
 ## 2026-09-27
-- **B-061 fixed** — small slider readout stripped scientific exponents (`String(n)` → `limit_decimals` mantissa-only). Plain-decimal expand in `node-graph-slider-metadata.js`.
+- **B-061 fixed** â€” small slider readout stripped scientific exponents (`String(n)` â†’ `limit_decimals` mantissa-only). Plain-decimal expand in `node-graph-slider-metadata.js`.
 Branch: `master` @ `4d25266` **SPEED LIMIT FIX** (and later hygiene if present).
 
 ## Agent Rules
@@ -16,11 +16,11 @@ Branch: `master` @ `4d25266` **SPEED LIMIT FIX** (and later hygiene if present).
 - Build native modules after editing `native_modules/*.cpp`.
 - Do not run destructive commands, force pushes, production deploys, or database resets.
 - When editing sandbox source, restore `public/presets/useruisettings.json` and `useruisettings.js` from commit `4639c84` before running smoke tests (the test's UI settings update contract writes them back dirty).
-- Never put JavaScript on the audio path: no JS DSP evaluators, no restoring `create*State` / worklet-evaluator twins for allowlisted natives. Fix `setPlan` / native GraphEngine instead. Missing native = silence or refuse â€” never stubs.
+- Never put JavaScript on the audio path: no JS DSP evaluators, no restoring `create*State` / worklet-evaluator twins for allowlisted natives. Fix `setPlan` / native GraphEngine instead. Missing native = silence or refuse Ã¢â‚¬â€ never stubs.
 
 ## Bugs
 
-Plan: **`docs/BUG_PLAN.md`** â€” numbered inventory (B-001â€¦). User reports go in that fileâ€™s Inbox; do not start a second list.
+Plan: **`docs/BUG_PLAN.md`** Ã¢â‚¬â€ numbered inventory (B-001Ã¢â‚¬Â¦). User reports go in that fileÃ¢â‚¬â„¢s Inbox; do not start a second list.
 
 ## Graphify
 
@@ -28,18 +28,18 @@ Plan: **`docs/GRAPHIFY_WINS_PLAN.md`** (primary work queue).
 
 ```text
 graphify update . --force   # no LLM; AST re-extract
-# â†’ graphify-out/GRAPH_REPORT.md  (gitignored)
+# Ã¢â€ â€™ graphify-out/GRAPH_REPORT.md  (gitignored)
 ```
 
 ### Parked (0.5.0 RGB)
 
-- [ ] **Slider buffered modulation** â€” destination slider paints the real `readEffectiveParameter` buffer (occupancy + caret). Plan: `docs/SLIDER_BUFFERED_MODULATION_PLAN.md`. Do not start unless asked.
+- [ ] **Slider buffered modulation** Ã¢â‚¬â€ destination slider paints the real `readEffectiveParameter` buffer (occupancy + caret). Plan: `docs/SLIDER_BUFFERED_MODULATION_PLAN.md`. Do not start unless asked.
 
 ### Where we are
-- **Track 1** Code Screen peel â€” **complete enough**: Box, Lookup, Registry, Workspace, Render (main shell ~1.8k events + script APIs)
+- **Track 1** Code Screen peel Ã¢â‚¬â€ **complete enough**: Box, Lookup, Registry, Workspace, Render (main shell ~1.8k events + script APIs)
 - Scopes / Display Settings peels done; event-binder god-nodes stay fat
-- **Dead CSS** â€” CORE_REDUCTION Phase C (opportunistic)
-- **Product backlog** â€” `docs/FUTURE_PLANNING.md`
+- **Dead CSS** Ã¢â‚¬â€ CORE_REDUCTION Phase C (opportunistic)
+- **Product backlog** Ã¢â‚¬â€ `docs/FUTURE_PLANNING.md`
 
 ## Completed (selected)
 
@@ -49,7 +49,7 @@ graphify update . --force   # no LLM; AST re-extract
 - Unified edges Port|Control + 1-sample / histBuf feedback (self-mod + cycle FM)
 - Sine SSOT wavetable; PolyBLEP sine click fixed; JS DSP twins retired
 - Contracts: `check_graph_engine_contracts.py` + ParamMod/self-mod/cycle smokes in native build
-- Tip commits: `e03ee57c` â€¦ `b6412277`
+- Tip commits: `e03ee57c` Ã¢â‚¬Â¦ `b6412277`
 
 ### MODULE DELETE DOES NOT (should not) RESET AUDIO ENGINE (2026-09-10)
 - Deleting any module (even unconnected) used `soemdsp_graph_clear` and recreated every native instance
@@ -60,15 +60,15 @@ graphify update . --force   # no LLM; AST re-extract
 ### NORMALIZING DISPLAY SETTINGS UX (2026-09-10)
 - Every module opens Display Settings (blank + Show in canvas if no face schema)
 - Stop inventing Instant Trace settings for custom layout faces (envelopeCurve / filterCurve)
-- Instant Trace monitors (Flower Child, â€¦) keep Instant Trace face + Instant Trace settings
-- Right-click on display faces â†’ Display Settings (not Module Settings)
+- Instant Trace monitors (Flower Child, Ã¢â‚¬Â¦) keep Instant Trace face + Instant Trace settings
+- Right-click on display faces Ã¢â€ â€™ Display Settings (not Module Settings)
 - Layout canvas Phase 1: Show in canvas + phone/F; condensed phone frame removed
-- Commits: `4f6d8c93` â€¦ `b60b747e`
+- Commits: `4f6d8c93` Ã¢â‚¬Â¦ `b60b747e`
 
 
 
-- [x] **CLAP host extracted** â€” https://github.com/soundemote/soemdsp-sandbox-claphost
-- [x] **Code cleanup pass plan** â€” `docs/CODE_CLEANUP_PASS_PLAN.md`
+- [x] **CLAP host extracted** Ã¢â‚¬â€ https://github.com/soundemote/soemdsp-sandbox-claphost
+- [x] **Code cleanup pass plan** Ã¢â‚¬â€ `docs/CODE_CLEANUP_PASS_PLAN.md`
 - [x] **Core reduction** Phase A/B (floating window registry, Code Screen satellite)
 - [x] **Soft Fractal** WebGL face, blur, pan, params, resource-agnostic pixelated app zoom
 - [x] Graphify re-index after Soft Fractal land
@@ -83,15 +83,15 @@ graphify update . --force   # no LLM; AST re-extract
 - [x] `graphify-out/` gitignored (local analysis only)
 
 ## Backlog Ideas
-- Delay with exposed feedback path — insert arbitrary modules in the loop (seed in `docs/FUTURE_PLANNING.md`).
-- Dimensional parameter prototyping — different settings across frequency/pitch (seed in ``docs/FUTURE_PLANNING.md``).
-- Circuits on a keyboard — play circuits like a sample library (seed in ``docs/FUTURE_PLANNING.md``).
+- Delay with exposed feedback path â€” insert arbitrary modules in the loop (seed in `docs/FUTURE_PLANNING.md`).
+- Dimensional parameter prototyping â€” different settings across frequency/pitch (seed in ``docs/FUTURE_PLANNING.md``).
+- Circuits on a keyboard â€” play circuits like a sample library (seed in ``docs/FUTURE_PLANNING.md``).
 - Keytracking / pitch-tracking modulation UI (seed in ``docs/FUTURE_PLANNING.md``).
 - True metamodule parameter mirror: outer `mx_*` edits/menus target inner child (one conceptual param); nested parent-unexpose vs grandparent-expose stays explicit (seed in `docs/FUTURE_PLANNING.md`). Website limited checkbox mirror ships first.
-- Waterfall redesign: amp-per-frame bars instead of expensive waveform TraceTape ink (seed in `docs/FUTURE_PLANNING.md`; details later).
+- Waterfall redesign (P2P bars): **implemented** on ArchIV — visual glance after reload (`docs/FUTURE_PLANNING.md`).
 
 - [ ] Inlets/outlets above displays, app-wide (`docs/FUTURE_PLANNING.md`)
-- [ ] **Sabrina instance handles** â€” multi-instance (`docs/INSTANCE_HANDLE_PATTERN.md`)
+- [ ] **Sabrina instance handles** Ã¢â‚¬â€ multi-instance (`docs/INSTANCE_HANDLE_PATTERN.md`)
 - [ ] Lo-Fi Pitch Shift component-first (`docs/LOFI_PITCH_SHIFT_PLAN.md`)
 
 ## Notes

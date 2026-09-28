@@ -1,6 +1,6 @@
-// Stickiness: set saturate (soft-clip latch) ONCE, then process many samples
+﻿// Stickiness: set saturate (soft-clip latch) ONCE, then process many samples
 // without rewriting params. Narrow vs wide must stay different (APP_POLICY).
-// Soft-clip runs on the feedback path before wet in PreDelay — audible in wet.
+// Soft-clip runs on the feedback path before wet in PreDelay â€” audible in wet.
 // (Feedback LPF is applied after the wet tap in PostDelay, so it is a poor
 // acoustic probe here; saturate covers the same flattened-latch contract.)
 // Run: node scripts/smoke_soem_reverb_param_stick.mjs
@@ -31,7 +31,7 @@ function wetRmsAfterSetOnce(saturate) {
   e.soemdsp_soem_reverb_set_params(
     h,
     1.0, // mix wet
-    1.0, // volume
+    1.0, // send
     0.03,
     0.9,
     2,
@@ -42,7 +42,7 @@ function wetRmsAfterSetOnce(saturate) {
     0.5,
     0,
     0,
-    1, // PreDelay — clip(in+fb) before diffuse/echo/wet
+    1, // PreDelay â€” clip(in+fb) before diffuse/echo/wet
     0,
     0,
     saturate,
@@ -85,7 +85,7 @@ if (!(narrowRms > 1e-8)) {
 }
 if (!(ratio > 1.8)) {
   console.error(
-    "FAIL: set-once reverb saturate did not stick — wide/narrow ratio too small:",
+    "FAIL: set-once reverb saturate did not stick â€” wide/narrow ratio too small:",
     ratio,
   );
   process.exit(1);

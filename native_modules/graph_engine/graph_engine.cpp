@@ -69,7 +69,7 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
   int handle,
   double mix, double diffusionSize, double diffusionAmount, double delaySize,
   double recycle, double lfoAmplitude, double lfoBaseSpeed, double lfoVariation,
-  double seed
+  double seed, double send
 );
 extern "C" void soemdsp_sabrina_reverb_process_block(int handle, int frameCount, int useSimd);
 extern "C" intptr_t soemdsp_sabrina_reverb_block_input_left_ptr(int handle);
@@ -82,7 +82,7 @@ extern "C" void soemdsp_ping_pong_delay_destroy(int handle);
 extern "C" void soemdsp_ping_pong_delay_reset(int handle);
 extern "C" void soemdsp_ping_pong_delay_set_params(
   int handle,
-  double feedback, double mix, double amplitude,
+  double feedback, double mix, double amplitude, double send,
   double timeNumerator, double timeDenominator, double timingMode,
   double offsetMs, double lfoAmpMs, double lfoStyle, double lfoRate, double lfoVariation,
   double saturate, double lpfFrequency, double hpfFrequency,
@@ -90,7 +90,7 @@ extern "C" void soemdsp_ping_pong_delay_set_params(
 );
 extern "C" double soemdsp_ping_pong_delay_sample(
   int handle, double inputL, double inputR,
-  double feedback, double mix, double amplitude,
+  double feedback, double mix, double amplitude, double send,
   double timeNumerator, double timeDenominator, double timingMode,
   double offsetMs, double lfoAmpMs, double lfoStyle, double lfoRate, double lfoVariation,
   double saturate, double lpfFrequency, double hpfFrequency,
@@ -258,7 +258,8 @@ extern "C" double soemdsp_sample_hold_sample(
   int handle, double input, double trigger, double threshold,
   double sampleFrequency, double sampleRate, int hasInConnected, int seed,
   double amplitude, double polarityMode,
-  double interpolateMode, double phaseOffset
+  double interpolateMode, double phaseOffset,
+  double smoothingFactor
 );
 
 extern "C" int soemdsp_min_max_create();
@@ -633,6 +634,7 @@ extern "C" double soemdsp_vibrato_generator_sample(
   double randomFreqMult,
   double randomAmpMult,
   double seedParam,
+  double delaySec,
   double attackSec,
   double releaseSec,
   double gate
@@ -1106,7 +1108,7 @@ extern "C" double soemdsp_vactrol_envelope_sample(
 extern "C" int soemdsp_delay_effect_create();
 extern "C" void soemdsp_delay_effect_destroy(int handle);
 extern "C" void soemdsp_delay_effect_sample(
-  int handle, double input, double time, double feedback, double mix,
+  int handle, double input, double send, double time, double feedback, double mix,
   double level, double modAmount, double modRate, double modVariation,
   double mode, unsigned int seed, double sampleRate
 );
@@ -1118,7 +1120,7 @@ extern "C" void soemdsp_soem_reverb_destroy(int handle);
 extern "C" void soemdsp_soem_reverb_reset(int handle, double sampleRate);
 extern "C" void soemdsp_soem_reverb_set_params(
   int handle,
-  double mix, double volume, double echoTime, double recycle, double numDelays,
+  double mix, double send, double echoTime, double recycle, double numDelays,
   double diffusionSize, double diffusionAmount, double seed, double lfoAmp,
   double lfoFrequency, double lfoVariation, double lfoStyle, double echoMode,
   double pingPong, double doModulateEcho, double saturate, double lpfFrequency,
@@ -1949,7 +1951,7 @@ static const int kParamSaturate = 58;          // pingPong
 static const int kParamLpfFrequency = 59;      // pingPong
 static const int kParamHpfFrequency = 60;      // pingPong
 static const int kParamTempoBpm = 61;          // pingPong
-static const int kParamTapOffsetMs = 62;       // unused (kept for id stability)
+static const int kParamTapOffsetMs = 62;       // Send 0-1 amp (reverb/delay FX)
 static const int kParamAttAmplitude = 70;      // attenuverter
 static const int kParamAttOffset = 71;         // attenuverter
 static const int kParamNamedPortalBus = 201;   // uint32 bus key as double
@@ -2076,7 +2078,7 @@ struct Node {
   Control timeDenominator;
   Control timingMode;
   Control offsetMs;
-  Control tapOffsetMs; // pingPong static R-tap skew (ms)
+  Control tapOffsetMs; // Send 0-1 amp into effect (reverb/delay FX)
   Control lfoStyle;
   Control lfoRate;
   Control saturate;
@@ -2980,7 +2982,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePhosphillator) ? 0.5 // sharpness
       : (typeId == kTypeAudioPlayer) ? 0.0 // Scratch
       : (typeId == kTypeStepGraph) ? 0.0 // curveOffset (CENTER used; shape unused)
-      : (typeId == kTypeSampleHold) ? 0.0 // interpolate Off
+      : (typeId == kTypeSampleHold) ? 0.0 // interpolate Linear
       : 0.5,
     (typeId == kTypeSlewLimiter || typeId == kTypeSineWavetable || typeId == kTypeSinCos)
   );
@@ -3226,7 +3228,8 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.mix,
-    (typeId == kTypeXyPad) ? 0.5 // pad Y unit
+    (typeId == kTypeSampleHold) ? 0.0 // Smoothing (clock-period factor; <=0 instant)
+      : (typeId == kTypeXyPad) ? 0.5 // pad Y unit
       : (typeId == kTypeTubeSaturation) ? 1.0 // Mix
       : (typeId == kTypeVcvrackSuperloveFilter) ? 0.0 // noise
       : (typeId == kTypePhaser || typeId == kTypeFlanger || typeId == kTypeChorus || typeId == kTypeEnsemble) ? 0.5
@@ -3435,7 +3438,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : 0.0,
     false
   );
-  init_control(n.tapOffsetMs, 0.0, false); // pingPong Offset (R skew ms)
+  init_control(n.tapOffsetMs, 1.0, false); // Send 0-1 (effect input amp)
   init_control(
     n.lfoStyle,
     (typeId == kTypeHypersaw2) ? 1.0 // vibratoDistanceSource Division
@@ -5087,7 +5090,8 @@ static void process_reverb(Circuit& g, Node& node, int frames) {
     control_effective(node.lfoAmplitude),
     control_effective(node.lfoBaseSpeed),
     control_effective(node.lfoVariation),
-    control_effective(node.seed)
+    control_effective(node.seed),
+    control_effective(node.tapOffsetMs) // Send
   );
 
   double* inL = ptr_from_export(soemdsp_sabrina_reverb_block_input_left_ptr(node.nativeHandle));
@@ -5139,6 +5143,7 @@ static void process_ping_pong(Circuit& g, Node& node, int frames) {
       control_audio(g, node.feedback, f),
       control_audio(g, node.mix, f),
       control_audio(g, node.level, f),
+      control_audio(g, node.tapOffsetMs, f), // Send
       control_audio(g, node.timeNumerator, f),
       control_audio(g, node.timeDenominator, f),
       control_effective(node.timingMode),
@@ -9054,6 +9059,7 @@ static void process_delay_effect(Circuit& g, Node& node, int frames) {
     soemdsp_delay_effect_sample(
       node.nativeHandle,
       in,
+      control_audio(g, node.tapOffsetMs, f), // Send
       control_audio(g, node.timeNumerator, f),
       control_audio(g, node.feedback, f),
       control_audio(g, node.mix, f),
@@ -9075,7 +9081,7 @@ static void process_delay_effect(Circuit& g, Node& node, int frames) {
 }
 
 // SoEmReverb (distinct from sabrina reverbEffect).
-// mix, amplitude=volume, delaySize=echoTime, recycle, stages=numDelays,
+// mix, amplitude=send (0-1 into effect), delaySize=echoTime, recycle, stages=numDelays,
 // diffusionSize/Amount, seed, lfoAmplitude=lfoAmp, lfoBaseSpeed=lfoFrequency,
 // lfoVariation, lfoStyle, mode=echoMode, timingMode=pingPong,
 // waveform=doModulateEcho, saturate, lpf/hpf, frequency=bandFrequency,
@@ -10184,8 +10190,9 @@ static void process_cheap_walk(Circuit& g, Node& node, int frames) {
 // Vibrato Generator: wavetable sine + AM Index. f = Speed*(1+sine*Top Morph).
 // frequency=speed, phaseParam=offset, amplitude=depth, shape=morph,
 // width=randomFreqMult, center=randomAmpMult, seed=seed.
-// Vibrato Generator: Reset on kPortReset; Gate on Mono (depth A/R).
-// timeNumerator=attack s, timeDenominator=release s (exp one-pole depthEnv).
+// Vibrato Generator: Reset on kPortReset; Gate on Mono (depth Delay/A/R).
+// timeNumerator=delay s, timeDenominator=attack s, offsetMs=release s
+// (exp one-pole depthEnv; Delay arms on Gate rise).
 // Unpatched Gate -> always-on (gate=1, depthEnv stays/goes to 1).
 static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
@@ -10193,7 +10200,7 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool hasGate = mix_live_port(g, node, kPortMono, frames, g.mixMono);
   const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active
-    || node.timeNumerator.active || node.timeDenominator.active;
+    || node.timeNumerator.active || node.timeDenominator.active || node.offsetMs.active;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
@@ -10219,6 +10226,7 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
       control_effective(node.seed),
       control_audio(g, node.timeNumerator, f),
       control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.offsetMs, f),
       gate
     );
     node.buf[kPortMono][f] = y; // Wave (mono) — no stereo twin
@@ -11261,6 +11269,7 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
     const double polarityMode = control_audio(g, node.mode, f);
     const double interpolate = control_audio(g, node.shape, f);
     const double phaseOffset = control_audio(g, node.phaseParam, f);
+    const double smoothing = control_audio(g, node.mix, f);
     const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
     // Native always bipolar + unit Amplitude. Audio outs get polarity remap + Amplitude;
@@ -11280,7 +11289,8 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
       1.0,
       0.0, // bipolar probe; polarity applied below on audio only
       interpolate,
-      0.0
+      0.0,
+      smoothing
     );
     const double leftRaw = soemdsp_sample_hold_sample(
       hL,
@@ -11294,7 +11304,8 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
       1.0,
       0.0,
       interpolate,
-      0.0
+      0.0,
+      smoothing
     );
     const double rightRaw = soemdsp_sample_hold_sample(
       hR,
@@ -11308,7 +11319,8 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
       1.0,
       0.0,
       interpolate,
-      phaseOffset
+      phaseOffset,
+      smoothing
     );
     const bool uni = polarityMode >= 0.5;
     const double extAudio = uni ? (extRaw + 1.0) * 0.5 : extRaw;
@@ -14104,5 +14116,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 154; // sampleHold face: bipolar Saw/Ramp; Unipolar audio-only remap
+  return 155; // sampleHold Smoothing factor + Slow End/Start interpolate
 }

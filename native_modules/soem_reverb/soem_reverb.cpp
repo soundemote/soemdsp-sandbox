@@ -38,8 +38,8 @@ static const char kMetadataJson[] =
     "\"inputs\":[\"Left\",\"Right\",\"Mono\"],"
     "\"outputs\":[\"Dry L\",\"Dry R\",\"Wet L\",\"Wet R\"],"
     "\"parameters\":["
+      "{\"key\":\"send\",\"label\":\"Send\",\"defaultValue\":1,\"min\":0,\"max\":1,\"step\":\"any\"},"
       "{\"key\":\"mix\",\"label\":\"Mix\",\"defaultValue\":0.43,\"min\":0,\"max\":1,\"step\":\"any\"},"
-      "{\"key\":\"volume\",\"label\":\"Volume\",\"defaultValue\":1,\"min\":0,\"max\":4,\"step\":\"any\"},"
       "{\"key\":\"echoTime\",\"label\":\"Echo Time\",\"defaultValue\":0.35,\"min\":0.0001,\"max\":1,\"step\":\"any\",\"unit\":\"s\"},"
       "{\"key\":\"recycle\",\"label\":\"Recycle\",\"defaultValue\":0.5,\"min\":0,\"max\":2,\"step\":\"any\"},"
       "{\"key\":\"numDelays\",\"label\":\"Num Delays\",\"defaultValue\":10,\"min\":0,\"max\":12,\"step\":1},"
@@ -426,7 +426,7 @@ struct SoEmReverbState {
   double outL{0}, outR{0};
   double feedbackCompensation{1.0};
   double mix{0.43};
-  double volume{1.0};
+  double send{1.0};
   double echoTime{0.35};
   double recycle{0.5};
   double diffusionSize{0.35};
@@ -598,8 +598,10 @@ static void feedbackFilter(SoEmReverbState& s, bool reverseStereo) {
 }
 
 static void dryWet(SoEmReverbState& s, double inL, double inR) {
-  const double dryGain = (1.0 - s.mix) * s.volume;
-  const double wetGain = s.mix * s.volume;
+  // Volume removed (was overall amp on dry+wet; redundant with Mix Amplitude).
+  // Send scales input into the network at inject sites; dry stays full-level.
+  const double dryGain = (1.0 - s.mix);
+  const double wetGain = s.mix;
   s.dryL = inL * dryGain;
   s.dryR = inR * dryGain;
   s.wetL = multi_biquad_run(s.peakL, s.bandStages, s.fbL * wetGain);
@@ -640,8 +642,8 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
   case PostDelay: {
     double dL = 0.0, dR = 0.0;
     runEchoPair(s.fbL, s.fbR, dL, dR);
-    s.fbL = inL + dL;
-    s.fbR = inR + dR;
+    s.fbL = inL * s.send + dL;
+    s.fbR = inR * s.send + dR;
     for (int i = 0; i < s.numDelays; ++i) {
       s.fbL = s.delaysL[i].runDiffuse(s.fbL, liveFeedback, liveLfoAmp);
       s.fbR = s.delaysR[i].runDiffuse(s.fbR, liveFeedback, liveLfoAmp);
@@ -659,10 +661,10 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
   case PreDelay: {
     feedbackFilter(s, false);
     s.fbL = soft_clip_run(
-      inL + s.fbL, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
+      inL * s.send + s.fbL, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
     ) * s.feedbackCompensation;
     s.fbR = soft_clip_run(
-      inR + s.fbR, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
+      inR * s.send + s.fbR, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY
     ) * s.feedbackCompensation;
     for (int i = 0; i < s.numDelays; ++i) {
       s.fbL = s.delaysL[i].runDiffuse(s.fbL, liveFeedback, liveLfoAmp);
@@ -681,8 +683,8 @@ static void runWithIdleDetection(SoEmReverbState& s, double inL, double inR) {
     s.fbL = dL;
     s.fbR = dR;
     double invN = s.numDelays > 0 ? 1.0 / (double)s.numDelays : 1.0;
-    double L = inL * invN;
-    double R = inR * invN;
+    double L = inL * s.send * invN;
+    double R = inR * s.send * invN;
     for (int i = 0; i < s.numDelays; ++i) {
       s.fbL = s.delaysL[i].runDiffuse(L + s.fbL, liveFeedback, liveLfoAmp);
       s.fbR = s.delaysR[i].runDiffuse(R + s.fbR, liveFeedback, liveLfoAmp);
@@ -769,7 +771,7 @@ extern "C" int soemdsp_soem_reverb_create(double sampleRate) {
       s.active = true;
       s.sampleRate = sampleRate > 1.0 ? sampleRate : 44100.0;
       s.mix = 0.43;
-      s.volume = 1.0;
+      s.send = 1.0;
       s.echoTime = 0.35;
       s.recycle = 0.5;
       s.diffusionSize = 0.35;
@@ -818,12 +820,12 @@ extern "C" void soemdsp_soem_reverb_reset(int handle, double sampleRate) {
 }
 
 // Mirrors soemdsp::delay::Reverb::syncControlParams — only run the *Changed
-// work owned by each field. Live reads (mix/volume/recycle/echoMode/pingPong)
+// work owned by each field. Live reads (mix/send/recycle/echoMode/pingPong)
 // never rebuild delay geometry or filter coeffs.
 extern "C" void soemdsp_soem_reverb_set_params(
   int handle,
   double mix,
-  double volume,
+  double send,
   double echoTime,
   double recycle,
   double numDelays,
@@ -858,7 +860,7 @@ extern "C" void soemdsp_soem_reverb_set_params(
 
   // Live Wire-style params: assign only (paramMeta / host is SSOT — no product-range clamps).
   s.mix = safe(mix);
-  s.volume = safe(volume);
+  s.send = clamp(safe(send), 0.0, 1.0);
   s.recycle = safe(recycle);
   s.echoMode = (int)dsp_floor(echoMode + 0.5);
   s.pingPong = (int)dsp_floor(pingPong + 0.5) != 0 ? 1 : 0;
@@ -890,7 +892,7 @@ extern "C" void soemdsp_soem_reverb_set_params(
   const double nextDuckRelease = maxd(0.001, safe(duckRelease));
 
   // Match soemdsp::delay::Reverb *Changed split (SoEmReverbModule wiring):
-  // Live Wire (no *Changed): mix, volume, recycle, diffusionAmount, lfoAmp, echoMode, pingPong
+  // Live Wire (no *Changed): mix, send, recycle, diffusionAmount, lfoAmp, echoMode, pingPong
   // *Changed: echoTime, diffusionSize, seed, numDelays, lfoFrequency, lfoVariation,
   //           doModulateEcho, saturate, filters
   const bool seedChanged = nextSeed != s.seed;
@@ -1021,7 +1023,7 @@ extern "C" int soemdsp_soem_reverb_is_idle(int handle) {
   return s.silence.isSilent ? 1 : 0;
 }
 
-extern "C" int soemdsp_soem_reverb_version() { return 3; }
+extern "C" int soemdsp_soem_reverb_version() { return 4; }
 extern "C" const char* soemdsp_soem_reverb_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_soem_reverb_metadata_json_size() {
   return (int)(sizeof(kMetadataJson) - 1);

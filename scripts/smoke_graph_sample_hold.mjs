@@ -93,7 +93,7 @@ for (let q = 0; q < 40; q++) {
   }
 }
 
-if ((version() | 0) < 154) throw new Error(`graph version ${version()} expected >= 154`);
+if ((version() | 0) < 155) throw new Error(`graph version ${version()} expected >= 155`);
 if (!(peakL > 0.05)) throw new Error(`Left noise latch peak too low: ${peakL}`);
 if (!(peakExt < 1e-9)) throw new Error(`unwired Ext should hold 0, peakExt=${peakExt}`);
 if (!(changes > 5)) throw new Error(`expected several latch changes, got ${changes}`);

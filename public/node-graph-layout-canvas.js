@@ -457,6 +457,10 @@ function beginNodeGraphLayoutCanvasStage(nodeIds, mode = "perform") {
     }
     entry.host?.classList.add("node-screen-solo-host");
     entry.face.classList.add("node-screen-solo-face", "node-layout-canvas-face");
+    // B-071: plate metrics before reparent — tile stretch must not redefine source-min.
+    if (typeof nodeGraphTextBoxCaptureCanvasScaleSource === "function") {
+      nodeGraphTextBoxCaptureCanvasScaleSource(entry.face);
+    }
 
     const tile = document.createElement("div");
     tile.className = "node-layout-canvas-tile";

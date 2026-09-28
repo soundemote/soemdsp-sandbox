@@ -9,8 +9,10 @@
 // (same LCG as noise_generator). Graph engine runs three handles per node:
 // Ext (external hold), Left + Right (independent internal noise).
 // phaseOffset (cycles, mod 1) desyncs that lane's Sample Freq / Clock fires
-// vs offset 0: 0 and 1 fire together, 0.5 is halfway. Interpolate 0/1/2 =
-// Off / Linear / Smoothstep glide over the clock period.
+// vs offset 0: 0 and 1 fire together, 0.5 is halfway.
+// Interpolate 0..3 = Linear / Smoothstep / Slow End / Slow Start.
+// Smoothing = glide duration as a factor of clock period (unclamped):
+//   <=0 -> 1 sample (instant); 1 -> one clock period; 2 -> slower than clock.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -47,9 +49,12 @@ static double next_bipolar(unsigned int& seed) {
   return (double)lcg_next(seed) / (double)0xffffffffU * 2.0 - 1.0;
 }
 
-static double smoothstep01(double t) {
-  const double x = t <= 0.0 ? 0.0 : (t >= 1.0 ? 1.0 : t);
-  return x * x * (3.0 - 2.0 * x);
+static double apply_interpolate(int interp, double t) {
+  // 0 Linear, 1 Smoothstep, 2 Slow End (ease-out), 3 Slow Start (ease-in)
+  if (interp == 1) return smoothstep01(t);
+  if (interp == 2) return ease_out_quad01(t);
+  if (interp == 3) return ease_in_quad01(t);
+  return clamp01(t);
 }
 
 }  // namespace
@@ -94,7 +99,8 @@ extern "C" double soemdsp_sample_hold_sample(
   double amplitude,
   double polarityMode,
   double interpolateMode,
-  double phaseOffset
+  double phaseOffset,
+  double smoothingFactor
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   SampleHoldState& s = gPool[handle - 1];
@@ -114,8 +120,11 @@ extern "C" double soemdsp_sample_hold_sample(
   const bool unipolar = polarityMode >= 0.5;
   int interp = (int)(safe(interpolateMode) + (safe(interpolateMode) >= 0.0 ? 0.5 : -0.5));
   if (interp < 0) interp = 0;
-  if (interp > 2) interp = 2;
+  if (interp > 3) interp = 3;
   const double offset = wrap01(safe(phaseOffset));
+  // Factor of clock period; <=0 -> one sample (instant). Unclamped above 0.
+  const double smooth = safe(smoothingFactor);
+  const bool instant = !(smooth > 0.0);
 
   bool internalFire = false;
   if (safeFreq > 0.0) {
@@ -126,7 +135,7 @@ extern "C" double soemdsp_sample_hold_sample(
       s.clockPhase -= dsp_floor(s.clockPhase);
       wrapped = true;
     }
-    // Fire when free-running phase crosses `offset` (0/1 ≡ wrap).
+    // Fire when free-running phase crosses `offset` (0/1 == wrap).
     if (offset <= 1.0e-12 || offset >= 1.0 - 1.0e-12) {
       internalFire = wrapped;
     } else if (wrapped) {
@@ -140,7 +149,7 @@ extern "C" double soemdsp_sample_hold_sample(
   bool fire = internalFire;
 
   if (risingEdge) {
-    // Ext/Left (offset≈0) fire with Clock; Right delays by offset·period.
+    // Ext/Left (offset~0) fire with Clock; Right delays by offset*period.
     if (offset <= 1.0e-12 || offset >= 1.0 - 1.0e-12) {
       fire = true;
       s.pendingFireSamples = 0;
@@ -172,23 +181,24 @@ extern "C" double soemdsp_sample_hold_sample(
     const double interval = maxd(1.0, safe(s.samplesSinceFire));
     s.lastIntervalSamples = interval;
     s.samplesSinceFire = 0.0;
-    const double seg = safeFreq > 0.0
-      ? maxd(1.0, (double)((int)(safeRate / safeFreq + 0.5)))
+    const double period = safeFreq > 0.0
+      ? maxd(1.0, safeRate / safeFreq)
       : maxd(1.0, safe(s.lastIntervalSamples));
+    // segmentSamples = period * smoothing; <=0 -> 1 sample (instant).
+    double seg = instant ? 1.0 : (period * smooth);
+    if (seg < 1.0) seg = 1.0;
     s.segmentSamples = seg;
     s.samplesInSegment = 0.0;
     s.from = safe(s.out);
     s.held = safeInput;
-    if (interp == 0) {
+    if (instant) {
       s.out = safeInput;
       s.from = safeInput;
     }
   }
 
-
-
   double out;
-  if (interp == 0) {
+  if (instant) {
     s.out = safe(s.held);
     out = s.out;
   } else {
@@ -196,8 +206,8 @@ extern "C" double soemdsp_sample_hold_sample(
     const double seg = maxd(1.0, safe(s.segmentSamples));
     double t = s.samplesInSegment / seg;
     if (t > 1.0) t = 1.0;
-    if (interp == 2) t = smoothstep01(t);
-    out = safe(s.from) + (safe(s.held) - safe(s.from)) * t;
+    t = apply_interpolate(interp, t);
+    out = lerp(safe(s.from), safe(s.held), t);
     s.out = out;
   }
 
@@ -206,5 +216,5 @@ extern "C" double soemdsp_sample_hold_sample(
 }
 
 extern "C" int soemdsp_sample_hold_version() {
-  return 3; // interpolate + phaseOffset; glide state
+  return 4; // smoothing factor + Slow End/Start; Off replaced by smoothing<=0
 }

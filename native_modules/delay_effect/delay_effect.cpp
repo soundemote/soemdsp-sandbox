@@ -30,6 +30,7 @@ static const char kMetadataJson[] =
     "\"inputs\":[\"In\"],"
     "\"outputs\":[\"Out\",\"Wet\"],"
     "\"parameters\":["
+      "{\"key\":\"send\",\"label\":\"Send\",\"defaultValue\":1,\"min\":0,\"max\":1,\"step\":\"any\"},"
       "{\"key\":\"time\",\"label\":\"Time\",\"kind\":\"time\",\"defaultValue\":0.35,\"min\":0.001,\"mid\":0.5,\"max\":4.25,\"step\":\"any\",\"unit\":\"s\"},"
       "{\"key\":\"feedback\",\"label\":\"Feedback\",\"defaultValue\":0.4,\"min\":0,\"mid\":0.5,\"max\":2,\"step\":\"any\"},"
       "{\"key\":\"mix\",\"label\":\"Mix\",\"defaultValue\":0.35,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
@@ -100,6 +101,7 @@ extern "C" void soemdsp_delay_effect_destroy(int handle) {
 extern "C" void soemdsp_delay_effect_sample(
   int    handle,
   double input,
+  double send,
   double time,
   double feedback,
   double mix,
@@ -122,6 +124,8 @@ extern "C" void soemdsp_delay_effect_sample(
   }
 
   const double dry = safe(input);
+  const double send_ = clamp(safe(send), 0.0, 1.0);
+  const double effectIn = dry * send_;
   const double time_ = clamp(safe(time), 0.001, kMaxDelaySeconds);
   // No hardcoded 0.95 ceiling — parameter min/max own the range.
   const double feedback_ = safe(feedback);
@@ -156,9 +160,9 @@ extern "C" void soemdsp_delay_effect_sample(
   const double interpMix = readPositionRaw - dsp_floor(readPositionRaw);
   const double wetRead = (double)s.buffer[before] * (1.0 - interpMix) + (double)s.buffer[after] * interpMix;
 
-  const double write = modeInvert ? ((0.0 - dry) - wetRead * feedback_) : (dry + wetRead * feedback_);
+  const double write = modeInvert ? ((0.0 - effectIn) - wetRead * feedback_) : (effectIn + wetRead * feedback_);
   s.buffer[s.position] = (float)clamp(write, -8.0, 8.0);
-  s.wet = modeInvert ? (dry * feedback_ - wetRead * (1.0 - feedback_ * feedback_)) : wetRead;
+  s.wet = modeInvert ? (effectIn * feedback_ - wetRead * (1.0 - feedback_ * feedback_)) : wetRead;
 
   s.outOut = (dry * (1.0 - mix_) + s.wet * mix_) * level_;
   s.outWet = s.wet * level_;
@@ -175,7 +179,7 @@ extern "C" double soemdsp_delay_effect_wet(int handle) {
 }
 
 extern "C" int soemdsp_delay_effect_version() {
-  return 4; // no isIdle (reverbs + ADSR only)
+  return 5; // Send 0-1 amp into delay path
 }
 
 extern "C" const char* soemdsp_delay_effect_metadata_json() {

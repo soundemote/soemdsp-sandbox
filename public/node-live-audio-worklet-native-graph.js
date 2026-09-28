@@ -341,6 +341,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   amplitude: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE,
   amp: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE,
   level: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LEVEL,
+  send: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TAP_OFFSET_MS,
   shape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   upShape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   downShape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
@@ -451,8 +452,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "jitterFilter") return P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY;
     if (k === "jitterSteps") return P.NATIVE_GRAPH_PARAM_LFO_STYLE;
   }
-  if (t === "soemReverb" && k === "amplitude") {
-    return P.NATIVE_GRAPH_PARAM_LEVEL;
+  if (t === "soemReverb") {
+    if (k === "send") return P.NATIVE_GRAPH_PARAM_AMPLITUDE;
+    if (k === "amplitude") return P.NATIVE_GRAPH_PARAM_LEVEL;
   }
   if (t === "flanger") {
     if (k === "delay") return P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR;
@@ -464,6 +466,14 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "smoothing") return P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY;
     if (k === "range") return P.NATIVE_GRAPH_PARAM_MODE;
   }
+  if (t === "sampleHold") {
+    if (k === "smoothing") return P.NATIVE_GRAPH_PARAM_MIX;
+    if (k === "interpolate") return P.NATIVE_GRAPH_PARAM_SHAPE;
+    if (k === "polarity") return P.NATIVE_GRAPH_PARAM_MODE;
+    if (k === "sampleFrequency") return P.NATIVE_GRAPH_PARAM_FREQUENCY;
+    if (k === "threshold") return P.NATIVE_GRAPH_PARAM_CENTER;
+    if (k === "phaseOffset") return P.NATIVE_GRAPH_PARAM_PHASE;
+  }
   if (t === "vcvrackSuperloveFilter") {
     if (k === "drive") return P.NATIVE_GRAPH_PARAM_GAIN_DB;
     if (k === "noise") return P.NATIVE_GRAPH_PARAM_MIX;
@@ -471,6 +481,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
   }
   if (t === "vibratoGenerator") {
     if (k === "sideMorph") return P.NATIVE_GRAPH_PARAM_MIX;
+    if (k === "delay") return P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR;
+    if (k === "attack") return P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR;
+    if (k === "release") return P.NATIVE_GRAPH_PARAM_OFFSET_MS;
   }
   if (t === "transport") {
     if (k === "beats") return P.NATIVE_GRAPH_PARAM_STAGES;
@@ -3902,6 +3915,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "reverbEffect") {
+      push("send", P.NATIVE_GRAPH_PARAM_TAP_OFFSET_MS, cont("send", 1));
       push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.43));
       push("diffusionSize", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("diffusionSize", 0.35));
       push("diffusionAmount", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("diffusionAmount", 0.7));
@@ -3921,6 +3935,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       const ppOffset = Number(node?.params?.offset);
       const ppLfoAmp = Number(node?.params?.lfoAmp);
       const ppLfoRate = Number(node?.params?.lfoRate);
+      push("send", P.NATIVE_GRAPH_PARAM_TAP_OFFSET_MS, cont("send", 1));
       push("feedback", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("feedback", 0.35));
       push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.35));
       push("amplitude", P.NATIVE_GRAPH_PARAM_LEVEL, Number.isFinite(ppAmp) ? ppAmp : 1);
@@ -4151,7 +4166,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "vibratoGenerator") {
       // frequency=speed, phase=offset, shape=morph, width=randomFreq, center=randomAmp.
-      // timeNumerator=attack, timeDenominator=release (exp depth envelope).
+      // timeNumerator=delay, timeDenominator=attack, offsetMs=release (exp depth env).
       // Gate→Mono (unpatched = always-on full depth); Reset→kPortReset.
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 3.5));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
@@ -4160,8 +4175,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("randomFreq", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomFreq", 0));
       push("randomAmp", P.NATIVE_GRAPH_PARAM_CENTER, cont("randomAmp", 0));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
-      push("attack", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("attack", 0.01));
-      push("release", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("release", 0.1));
+      push("delay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delay", 0.5));
+      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.6));
+      push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 2.1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -4849,7 +4865,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "delayEffect") {
-      // Native parabolic mod only; JS modStyle/interp/inLevel stay UI-side.
+      // Native parabolic mod only; JS modStyle/interp stay UI-side.
+      push("send", P.NATIVE_GRAPH_PARAM_TAP_OFFSET_MS, cont("send", 1));
       push("time", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("time", 0.18));
       push("feedback", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("feedback", 0.25));
       push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.35));
@@ -4874,8 +4891,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
         echoTime = (num / den) * (240 / safeBpm) * mult + offsetSec;
         if (!Number.isFinite(echoTime)) echoTime = 0.35;
       }
+      push("send", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("send", 1));
       push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 0.43));
-      push("volume", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("volume", 1));
       push("echoTime", P.NATIVE_GRAPH_PARAM_DELAY_SIZE, echoTime);
       push("recycle", P.NATIVE_GRAPH_PARAM_RECYCLE, cont("recycle", 0.5));
       push("numDelays", P.NATIVE_GRAPH_PARAM_STAGES, disc("numDelays", 10));
@@ -5278,13 +5295,15 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "sampleHold") {
       // center=threshold, frequency=sampleFrequency, amplitude=Amplitude,
-      // mode=polarity (0 bipolar / 1 unipolar) — audio outs only; face Left Raw/Right Raw stay bipolar. shape=interpolate,
-      // phase=phaseOffset (Right lane); noise seed = node id hash in C++.
+      // mode=polarity (0 bipolar / 1 unipolar) — audio outs only; face Left Raw/Right Raw stay bipolar.
+      // shape=interpolate (0 Linear / 1 Smoothstep / 2 Slow End / 3 Slow Start),
+      // mix=smoothing (clock-period factor; <=0 instant), phase=phaseOffset (Right lane).
       push("threshold", P.NATIVE_GRAPH_PARAM_CENTER, cont("threshold", 0));
       push("sampleFrequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("sampleFrequency", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       push("polarity", P.NATIVE_GRAPH_PARAM_MODE, disc("polarity", 0));
       push("interpolate", P.NATIVE_GRAPH_PARAM_SHAPE, disc("interpolate", 0));
+      push("smoothing", P.NATIVE_GRAPH_PARAM_MIX, cont("smoothing", 0));
       push("phaseOffset", P.NATIVE_GRAPH_PARAM_PHASE, cont("phaseOffset", 0));
       continue;
     }

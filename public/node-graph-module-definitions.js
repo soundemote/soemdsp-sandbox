@@ -5167,10 +5167,12 @@ const nodeGraphModuleDefinitions = (
   vibratoGenerator: {
     planRole: "source",
     planFreeRun: true,
-    displayType: "lineBurn",
+    // Waterfall amp-per-frame bars (reference consumer for the redesign).
+    displayType: "trace",
     displayModes: [
-      { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave" } },
+      { key: "trace", label: "Waterfall", renderer: "trace", settingsSchema: "trace", source: { value: "Wave" } },
     ],
+    defaultDisplayMode: "trace",
     displaySignals: [
       { key: "Wave", kind: "scalar" },
     ],
@@ -12403,6 +12405,7 @@ const nodeGraphModuleDefinitions = (
     outputLabels: { "Mix L": "Mix L", "Mix R": "Mix R" },
     outputs: ["Mix L", "Mix R"],
     parameters: [
+      { defaultValue: "1", key: "send", label: "Send", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any", tooltip: "Scales input into the delay line. Dry path stays full level." },
       { defaultValue: "0.18", key: "time", kind: "time", label: "Time", max: "4", maxDigits: 5, mid: "0.18", min: "0.001", step: "any", unit: "s" },
       {
         defaultValue: "0.25",
@@ -12453,17 +12456,6 @@ const nodeGraphModuleDefinitions = (
       },
       {
         defaultValue: "1",
-        key: "inLevel",
-        label: "InLevel",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        tooltip: "Gain into the delay (before the delay line / feedback loop)."
-      },
-      {
-        defaultValue: "1",
         key: "outLevel",
         label: "OutLevel",
         max: "1",
@@ -12500,6 +12492,7 @@ const nodeGraphModuleDefinitions = (
       "LFO R": "LFO R",
     },
     parameters: [
+      { defaultValue: "1", key: "send", label: "Send", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any", tooltip: "Scales input into the delay line. Dry path stays full level." },
       {
         choices: ["Linear"],
         defaultValue: "0",
@@ -12769,6 +12762,7 @@ const nodeGraphModuleDefinitions = (
       "Mix R": "Mix R",
     },
     parameters: [
+      { defaultValue: "1", key: "send", label: "Send", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any", tooltip: "Scales input into the reverb network. Dry path stays full level." },
       { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", nonlinearSlider: false, step: "any", tooltip: "Dry/wet balance on the Mix outputs (not a wet-only path)." },
       { defaultValue: "0.35", key: "diffusionSize", label: "Size", max: "1", mid: "0.35", min: "0", nonlinearSlider: false, smoothingSeconds: 0.05, step: "any", tooltip: "Size of the diffusion network." },
       { defaultValue: "0.70", key: "diffusionAmount", label: "Diffusion", max: "0.98", mid: "0.70", min: "0", nonlinearSlider: false, step: "any", tooltip: "Strength of early diffusion." },
@@ -12824,8 +12818,8 @@ const nodeGraphModuleDefinitions = (
       "Mix R": "Mix R",
     },
     parameters: [
+      { defaultValue: "1", key: "send", label: "Send", max: "1", mid: "1", min: "0", step: "any", tooltip: "Scales input into the reverb network. Dry path stays full level. Mix Amplitude unchanged." },
       { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", step: "any", tooltip: "Dry/wet balance on the Mix outputs." },
-      { defaultValue: "1", key: "volume", label: "Volume", max: "4", mid: "1", min: "0", step: "any" },
       {
         choices: ["Off", "On"],
         defaultValue: "0",

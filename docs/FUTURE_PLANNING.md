@@ -40,23 +40,14 @@ LayoutB (ports beside the face) and InletOutletLayout (title + I/O, no face) are
 
 ## Waterfall redesign (amp-per-frame bars)
 
-**Status:** seed â€” direction locked below; more UI/look details TBD. Do not implement until Architect says go.
+**Status:** **Implemented** on ArchIV (Website & UI, 2026-09-28, local, no PR). Needs Architect visual glance after reload.
 
-**Direction:** Make the 1D Waterfall face feel more like a classic waterfall and less like an expensive waveform/trace drawer. Drop heavy per-sample waveform ink (TraceTape discs / line traces). Each **display frame** draws **one cheap bar**, then scrolls history.
+**Done:**
+- `public/node-graph-module-scope-waterfall.js` — all Waterfall scopes use peak-to-peak bars (running min/max → one bar per History paint → reset). No backlog scan; no dual TraceTape shim.
+- Vibrato Generator face set to trace/Waterfall as reference consumer.
+- Preserved: color, blend/Meet/CMY, Size/Blur/density, scale, History Hz, Sync/Cycles, now-line, hold, stereo/XYZ/RGB.
 
-**Locked so far (Architect 2026-09-27):**
-
-- **Bar metric = waveform peak-to-peak** for the interval since the last stamped bar: running **max âˆ’ min**.
-- **Accumulate as samples arrive; paint only stamps.** As each new sample (or small block) lands, update running `min`/`max`. When the display paints, stamp **one bar** from the current accumulated P2P, then **reset** the accumulator for the next interval. Do **not** defer measurement until paint and then scan a giant undrawn backlog (that would balloon cost and P2P when frames are late).
-- **Display update is frame-based; accumulation is sample-driven.** Late paints mean a longer *interval* between bars (one wider time slice), not "hold megabytes and recompute later."
-- **Default mapping = straight amplitude** (linear peak-to-peak â†’ bar). No dB / RMS default.
-- **Scaling is a display setting**, not baked into the default metric. Zoom / gain / range live in settings.
-
-**Still open:** bar look (height vs fill), History / scroll contract, Sync On fate, TraceTape retirement vs optional mode, Matrix Waterfall / phosphor drawers, B-026 tie-in.
-
-**Related:** B-026 stays its own bug unless Architect folds it in later.
-
-**Primary file today:** `public/node-graph-module-scope-waterfall.js`
+**Backup:** `_wip/node-graph-module-scope-waterfall.js.bak`
 
 ## True metamodule parameter mirror
 

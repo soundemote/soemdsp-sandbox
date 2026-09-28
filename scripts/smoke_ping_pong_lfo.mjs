@@ -38,6 +38,7 @@ e.soemdsp_ping_pong_delay_set_params(
   0.35, // feedback
   1.0, // mix (wet only — easier to hear/see delay motion)
   1.0, // amplitude
+    1.0, // send
   1, // numer
   4, // denom
   0, // timing normal
@@ -83,7 +84,7 @@ const modBlock2First = modL[0];
 let sampleMods = [];
 for (let i = 0; i < 256; i++) {
   e.soemdsp_ping_pong_delay_sample(
-    h, 0, 0, 0.35, 1, 1, 1, 4, 0, 0, 25, 0, 1, 0.25, 1, 8000, 20, 120, sr,
+    h, 0, 0, 0.35, 1, 1, 1, 1, 4, 0, 0, 25, 0, 1, 0.25, 1, 8000, 20, 120, sr,
   );
   sampleMods.push(e.soemdsp_ping_pong_delay_mod_left(h));
 }
@@ -131,7 +132,7 @@ if (!Number.isFinite(outBlock0Peak)) {
 
 // Amp=0 must still advance gold LFO, but delay stays at base (mod outs move).
 e.soemdsp_ping_pong_delay_set_params(
-  h, 0.35, 1, 1, 1, 4, 0, 0, 0 /* amp */, 0, 2.0 /* rate */, 0, 1, 8000, 20, 120, sr,
+  h, 0.35, 1, 1, 1 /* send */, 1, 4, 0, 0, 0 /* lfoAmp */, 0, 2.0 /* rate */, 0, 1, 8000, 20, 120, sr,
 );
 input.fill(0);
 e.soemdsp_ping_pong_delay_process_block(h, frames);

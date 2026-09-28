@@ -93,6 +93,7 @@ struct SabrinaState {
   double idleClock;
   double idleIncrement;
   double mix;
+  double send;
   double diffusionSize;
   double diffusionAmount;
   double delaySize;
@@ -476,10 +477,12 @@ void sabrinaProcessBlockScalar(SabrinaState& state, const double* leftIn, const 
       continue;
     }
     advanceSabrinaSmoothing(state);
+    const double effectLeft = dryLeft * state.send;
+    const double effectRight = dryRight * state.send;
     const double preLeft = delaySample(state.delays[12], state.ch1);
     const double preRight = delaySample(state.delays[13], state.ch0);
-    double left = dryLeft + preLeft * state.recycle;
-    double right = dryRight + preRight * state.recycle;
+    double left = effectLeft + preLeft * state.recycle;
+    double right = effectRight + preRight * state.recycle;
     for (int index = 0; index < 6; index += 1) {
       const double outLeft = diffuseSample(state.delays[index * 2], left);
       const double outRight = diffuseSample(state.delays[index * 2 + 1], right);
@@ -511,10 +514,12 @@ void sabrinaProcessBlockSimd(SabrinaState& state, const double* leftIn, const do
       continue;
     }
     advanceSabrinaSmoothing(state);
+    const double effectLeft = dryLeft * state.send;
+    const double effectRight = dryRight * state.send;
     double preLeft, preRight;
     delaySamplePairSimd(state.delays[12], state.delays[13], state.ch1, state.ch0, preLeft, preRight);
-    double left = dryLeft + preLeft * state.recycle;
-    double right = dryRight + preRight * state.recycle;
+    double left = effectLeft + preLeft * state.recycle;
+    double right = effectRight + preRight * state.recycle;
     for (int index = 0; index < 6; index += 1) {
       double outLeft, outRight;
       diffuseSamplePairSimd(state.delays[index * 2], state.delays[index * 2 + 1], left, right, outLeft, outRight);
@@ -545,6 +550,7 @@ void resetState(SabrinaState& state, double sampleRate) {
   state.idleClock = 0.0;
   state.idleIncrement = 1.0 / state.sampleRate;
   state.mix = 0.43;
+  state.send = 1.0;
   state.diffusionSize = 0.35;
   state.diffusionAmount = 0.70;
   state.delaySize = 0.02;
@@ -611,7 +617,8 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
   double lfoAmplitude,
   double lfoBaseSpeed,
   double lfoVariation,
-  double seed
+  double seed,
+  double send
 ) {
   SabrinaState* state = stateForHandle(handle);
   if (!state) {
@@ -628,6 +635,7 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
 
   // LIVE — assign only (read in process / drywet).
   assignIf(state->mix, clamp(mix, 0.0, 1.0));
+  assignIf(state->send, clamp(send, 0.0, 1.0));
   assignIf(state->recycle, clamp(recycle, 0.0, 0.98));
   assignIf(state->diffusionAmount, clamp(diffusionAmount, 0.0, 0.98));
 
@@ -660,10 +668,12 @@ extern "C" void soemdsp_sabrina_reverb_process(int handle, double leftInput, dou
   // only happens via ch0/ch1 persisted from the *previous* call), so both
   // chains are processed together, one SIMD lane per channel, instead of
   // two full sequential passes.
+  const double effectLeft = dryLeft * state->send;
+  const double effectRight = dryRight * state->send;
   double preLeft, preRight;
   delaySamplePairSimd(state->delays[12], state->delays[13], state->ch1, state->ch0, preLeft, preRight);
-  double left = dryLeft + preLeft * state->recycle;
-  double right = dryRight + preRight * state->recycle;
+  double left = effectLeft + preLeft * state->recycle;
+  double right = effectRight + preRight * state->recycle;
   for (int index = 0; index < 6; index += 1) {
     double outLeft, outRight;
     diffuseSamplePairSimd(state->delays[index * 2], state->delays[index * 2 + 1], left, right, outLeft, outRight);
@@ -760,5 +770,5 @@ extern "C" int soemdsp_sabrina_reverb_is_idle(int handle) {
 }
 
 extern "C" int soemdsp_sabrina_reverb_version() {
-  return 3;
+  return 4;
 }
