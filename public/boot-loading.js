@@ -495,3 +495,113 @@ if (!nodeGraphBootIsRelease()) {
 if (window.nodeSandboxInterfaceReady && document.body.dataset.nodeBootStarted === "1") {
   finishNodeBootLoading();
 }
+
+/** Query flag helper for boot / mode deep-links. */
+function nodeBootQueryFlag(name) {
+  try {
+    const raw = String(new URLSearchParams(window.location.search || "").get(name) || "")
+      .trim()
+      .toLowerCase();
+    return raw === "1" || raw === "true" || raw === "yes";
+  } catch (_error) {
+    return false;
+  }
+}
+
+/**
+ * Locked URL mode scheme (query `mode=`):
+ *   perform        -> light perform (handled by perform-boot.js)
+ *   circuitbuilder -> normal modular workspace (skip start menu)
+ *   canvas         -> modular workspace already in layout-canvas (F once; not perform.css)
+ */
+function nodeBootResolveMode() {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const mode = String(params.get("mode") || "").trim().toLowerCase();
+    if (mode === "perform" || mode === "circuitbuilder" || mode === "canvas") return mode;
+    // Legacy / alias flags
+    if (nodeBootQueryFlag("layoutCanvas") || nodeBootQueryFlag("canvas")) return "canvas";
+    const layoutRaw = String(params.get("layoutCanvas") || "").trim().toLowerCase();
+    if (layoutRaw === "perform") return "canvas";
+    if (nodeBootQueryFlag("boot")) return "circuitbuilder";
+    return "";
+  } catch (_error) {
+    return "";
+  }
+}
+
+/** Open layout-canvas perform stage (same as pressing F once). Not light perform.css. */
+function nodeBootWantsLayoutCanvas() {
+  return nodeBootResolveMode() === "canvas";
+}
+
+/** Skip start menu and load into modular / canvas / perform workspace. */
+function nodeBootWantsAutoStart() {
+  try {
+    const mode = nodeBootResolveMode();
+    if (mode === "circuitbuilder" || mode === "canvas" || mode === "perform") return true;
+    if (nodeBootQueryFlag("boot")) return true;
+    // Embeds that only set pagePatch (not home init) still boot into workspace.
+    const pagePatch = String(
+      new URLSearchParams(window.location.search || "").get("pagePatch") || "",
+    ).trim().toLowerCase();
+    if (pagePatch && pagePatch !== "init") return true;
+    return false;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function nodeBootMaybeAutoStart() {
+  if (!nodeBootWantsAutoStart()) return;
+  if (document.body?.dataset?.nodeBootStarted === "1") return;
+  const start = () => {
+    ensureNodeBootSecureContextBanner();
+    beginNodeBootLoadSequence();
+  };
+  // Defer so perform-boot.js (loaded next) can wrap beginNodeBootLoadSequence
+  // before we fire (phones / mode=perform).
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => window.setTimeout(start, 0), { once: true });
+  } else {
+    window.setTimeout(start, 0);
+  }
+}
+
+/**
+ * After interface-ready, open layout-canvas via the normal F API.
+ * Does not enable perform-boot light chrome, so F still cycles off -> perform -> edit.
+ */
+function nodeBootOpenLayoutCanvas() {
+  if (typeof window.nodeGraphLayoutCanvasOpen !== "function") {
+    return false;
+  }
+  try {
+    return Boolean(window.nodeGraphLayoutCanvasOpen("perform", { silent: true }));
+  } catch (error) {
+    console.warn("Unable to open layout canvas after boot", error);
+    return false;
+  }
+}
+
+function nodeBootMaybeOpenLayoutCanvas() {
+  if (!nodeBootWantsLayoutCanvas()) return;
+  const open = () => {
+    nodeBootOpenLayoutCanvas();
+    for (const ms of [120, 450, 1100]) {
+      window.setTimeout(nodeBootOpenLayoutCanvas, ms);
+    }
+  };
+  if (
+    document.documentElement.dataset.nodeSandboxInterfaceReady === "true"
+    || window.nodeSandboxInterfaceReady === true
+  ) {
+    open();
+  } else {
+    window.addEventListener("nodeSandboxInterfaceReady", open, { once: true });
+  }
+}
+
+nodeBootMaybeAutoStart();
+nodeBootMaybeOpenLayoutCanvas();
+
