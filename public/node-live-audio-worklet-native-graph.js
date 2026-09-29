@@ -4210,7 +4210,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     if (type === "vibratoGenerator") {
       // frequency=speed, phase=offset, shape=morph, width=randomFreq, center=randomAmp.
       // timeNumerator=delay, timeDenominator=attack, offsetMs=release (exp depth env).
-      // Gate→Mono (unpatched = always-on full depth); Reset→kPortReset.
+      // Gate→Mono. No cable: module skips to sustain. Reset→kPortReset.
+      // Fallbacks match the module parameter defaults (not one-off times).
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 3.5));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0));
@@ -4218,9 +4219,11 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("randomFreq", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomFreq", 0));
       push("randomAmp", P.NATIVE_GRAPH_PARAM_CENTER, cont("randomAmp", 0));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
-      push("delay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delay", 0.5));
-      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.6));
-      push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 2.1));
+      // mode: 0 Delay Start (default), 1 Delay All.
+      push("delayTrigger", P.NATIVE_GRAPH_PARAM_MODE, disc("delayTrigger", 0));
+      push("delay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delay", 0));
+      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.01));
+      push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }

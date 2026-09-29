@@ -34,7 +34,6 @@ function nodeGraphLiveTransportUiState() {
     ? nodeGraphLiveEngineWanted()
     : (inputOn || outputOn);
   const engineUp = nodeGraphLiveEngineIsUp();
-  const contextUp = Boolean(nodeGraphMvp?.live?.context);
   const speed = Number(nodeGraphMvp?.live?.speedMultiplier ?? 1);
   const paused = Number.isFinite(speed) && speed <= 0;
 
@@ -43,7 +42,14 @@ function nodeGraphLiveTransportUiState() {
   // worklet is connected — that was the green-flash → red-stop + silence bug
   // when plan errors muted host gain without tearing down.
   // Engine may be Input-only (outputOn false) — still "playing"/"paused".
-  if (engineUp || (contextUp && engineWanted)) {
+  // A context object that is only suspended/closed is not a running engine.
+  // Painting play from (context && wanted) left a green ▶ on silence until
+  // Stop tore it down and Play ran resume inside a click.
+  if (engineUp) {
+    const audioState = nodeGraphMvp?.live?.context?.state;
+    if (audioState && audioState !== "running") {
+      return "stopped";
+    }
     return paused ? "paused" : "playing";
   }
 
@@ -626,6 +632,26 @@ function nodeGraphTransportHandleAction(action) {
     // Never re-call enable while already starting — that bumps
     // outputToggleSerial and cancels the in-flight start (green flash → red).
     const hasEngine = Boolean(nodeGraphMvp.live.node);
+    const audioCtx = nodeGraphMvp.live.context;
+    if (hasEngine && audioCtx && audioCtx.state === "suspended" && typeof audioCtx.resume === "function") {
+      Promise.resolve(audioCtx.resume()).then(() => {
+        if (audioCtx.state === "running") {
+          const resume = typeof nodeGraphLiveResumePlaySpeed === "function"
+            ? nodeGraphLiveResumePlaySpeed()
+            : 1;
+          if (typeof setNodeGraphLiveSpeed === "function") {
+            setNodeGraphLiveSpeed(resume, { force: true });
+          }
+          if (typeof setNodeGraphLiveStatus === "function") {
+            setNodeGraphLiveStatus("running", "good");
+          }
+        }
+        renderNodeGraphLiveControls();
+      }).catch(() => {
+        renderNodeGraphLiveControls();
+      });
+      return;
+    }
     const transportState = typeof nodeGraphLiveTransportUiState === "function"
       ? nodeGraphLiveTransportUiState()
       : (hasEngine ? "playing" : "stopped");

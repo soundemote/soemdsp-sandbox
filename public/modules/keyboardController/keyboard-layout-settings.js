@@ -50,6 +50,9 @@ function setNodeGraphMidiKeyboardLayout(next, options = {}) {
   if (options.persist !== false && typeof saveNodeGraphMidiKeyboardMemory === "function") {
     saveNodeGraphMidiKeyboardMemory();
   }
+  if (options.skipPatch !== true && typeof persistNodeGraphKeyboardModuleSettingsToPatch === "function") {
+    persistNodeGraphKeyboardModuleSettingsToPatch();
+  }
 }
 
 function nodeGraphMidiKeyboardLayoutHostWidth(surface) {

@@ -106,20 +106,6 @@ function nodeGraphPatchIsLocked(patch = nodeGraphMvp?.patch) {
   return Boolean(view?.locked);
 }
 
-/** True when every module has per-module ui.hideUnused (toolbar pressed state). */
-function nodeGraphPatchHidesUnusedPorts(patch = nodeGraphMvp?.patch) {
-  const nodes = Array.isArray(patch?.nodes) ? patch.nodes : [];
-  if (!nodes.length) {
-    return false;
-  }
-  return nodes.every((node) => {
-    const ui = typeof normalizeNodeGraphPatchNodeUi === "function"
-      ? normalizeNodeGraphPatchNodeUi(node.ui, node.type)
-      : node?.ui;
-    return Boolean(ui?.hideUnused);
-  });
-}
-
 function commitNodeGraphPatchViewFlags(nextFlags = {}, status = "view updated") {
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const view = typeof normalizeNodeGraphPatchView === "function"
@@ -135,7 +121,6 @@ function commitNodeGraphPatchViewFlags(nextFlags = {}, status = "view updated") 
 
 function syncNodeGraphReadyPanelChrome() {
   const locked = nodeGraphPatchIsLocked();
-  const hideUnused = nodeGraphPatchHidesUnusedPorts();
   const lockBtn = document.getElementById("nodePatchLockButton");
   if (lockBtn) {
     lockBtn.setAttribute("aria-pressed", String(locked));
@@ -148,13 +133,23 @@ function syncNodeGraphReadyPanelChrome() {
       label.textContent = locked ? "🔒" : "🔓";
     }
   }
-  const hideBtn = document.getElementById("nodePatchHideUnusedButton");
-  if (hideBtn) {
-    hideBtn.setAttribute("aria-pressed", String(hideUnused));
-    hideBtn.title = hideUnused
-      ? "Unused ports already hidden on all modules (disable per module in the scene menu)"
-      : "Hide unused inlets and outlets on every module";
+  syncNodeGraphReadyWiresButton();
+}
+
+function syncNodeGraphReadyWiresButton() {
+  const wiresBtn = document.getElementById("nodePatchWiresButton");
+  if (!wiresBtn) {
+    return;
   }
+  const visible = nodeGraphMvp?.wireLengthsVisible !== false;
+  const label = wiresBtn.querySelector(".scene-context-window-button-label");
+  const action = visible ? "Hide Wires" : "Show Wires";
+  if (label) {
+    label.textContent = action;
+  }
+  wiresBtn.setAttribute("aria-pressed", String(visible));
+  wiresBtn.title = visible ? "Hide patch wires" : "Show patch wires";
+  wiresBtn.setAttribute("aria-label", visible ? "Hide patch wires" : "Show patch wires");
 }
 
 function toggleNodeGraphPatchLocked() {
@@ -163,24 +158,13 @@ function toggleNodeGraphPatchLocked() {
 }
 
 /**
- * Toolbar "Hide Unused": batch-set each module's per-module ui.hideUnused to on.
- * Not a global workspace overlay — individual modules can turn hideUnused off and it sticks.
- * Also clears retired view.hideUnusedPorts if present.
+ * Ready-page "Hide Unused": one-shot. Turns on each module's own ui.hideUnused.
+ * Undo is that module's scene-menu hide-unused control, not a combined global flip.
  */
-function toggleNodeGraphPatchHideUnusedPorts() {
+function hideNodeGraphUnusedPortsOnAllModules() {
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const view = typeof normalizeNodeGraphPatchView === "function"
-    ? normalizeNodeGraphPatchView(patch.view)
-    : { ...(patch.view || {}) };
-  let changed = false;
-  if (view.hideUnusedPorts) {
-    view.hideUnusedPorts = false;
-    patch.view = view;
-    changed = true;
-  } else {
-    patch.view = view;
-  }
   const nodeIds = [];
+  let changed = false;
   for (const targetNode of Array.isArray(patch.nodes) ? patch.nodes : []) {
     nodeIds.push(targetNode.id);
     const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
@@ -196,9 +180,15 @@ function toggleNodeGraphPatchHideUnusedPorts() {
       status: "unused ports hidden on all modules",
     }));
   }
-  syncNodeGraphReadyPanelChrome();
   if (typeof configureNodeSceneContextMenu === "function") {
     configureNodeSceneContextMenu("module");
+  }
+}
+
+/** Ready-page wires control. Same flag as Visibility -> Wire Lengths. */
+function toggleNodeGraphPatchWiresFromReady() {
+  if (typeof toggleNodeGraphWireLengthsVisibility === "function") {
+    toggleNodeGraphWireLengthsVisibility();
   }
 }
 

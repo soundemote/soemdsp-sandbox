@@ -421,8 +421,7 @@
     "sliderAmountVisible": false,
     "sliderPositionVisible": true,
     "tooltipEmbedded": true,
-    "locked": false,
-    "hideUnusedPorts": false
+    "locked": false
   },
   "visual": {
     "background": {

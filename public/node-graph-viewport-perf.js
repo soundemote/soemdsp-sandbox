@@ -575,18 +575,50 @@ function nodeGraphViewportCullBootOrLayoutUnsafe() {
   return false;
 }
 
-function nodeGraphViewportCullWakeAll(surface) {
-  const root = surface
+/** Module world layer plus Text Box hosts (#nodeGraphAnnotationNodes).
+ *  Those nodes sit outside the zoom surface. A cull that only walks the
+ *  module world layer never clears viewport-asleep, and display:none
+ *  stops IntersectionObserver from firing again. */
+function nodeGraphViewportCullModuleRoots(surface) {
+  const roots = [];
+  const seen = new Set();
+  const add = (root) => {
+    if (!root || seen.has(root)) {
+      return;
+    }
+    seen.add(root);
+    roots.push(root);
+  };
+  add(surface
     || (typeof nodeGraphZoomSurface === "function"
       ? nodeGraphZoomSurface()
       : document.getElementById("nodeGraphWorldLayer") || document.getElementById("nodeGraphZoomSurface"))
-    || document.getElementById("nodeGraphWorkspace");
-  if (!root) {
-    return;
+    || document.getElementById("nodeGraphWorkspace"));
+  add(document.getElementById("nodeGraphAnnotationNodes"));
+  return roots;
+}
+
+function nodeGraphViewportCullForEachNode(surface, selector, visit) {
+  const seen = new Set();
+  for (const root of nodeGraphViewportCullModuleRoots(surface)) {
+    for (const element of root.querySelectorAll(selector)) {
+      if (seen.has(element)) {
+        continue;
+      }
+      seen.add(element);
+      visit(element);
+    }
   }
-  for (const element of root.querySelectorAll(".dsp-node.viewport-asleep, .dsp-node:not(.removed)")) {
-    nodeGraphViewportCullApply(element, true);
-  }
+}
+
+function nodeGraphViewportCullWakeAll(surface) {
+  nodeGraphViewportCullForEachNode(
+    surface,
+    ".dsp-node.viewport-asleep, .dsp-node:not(.removed)",
+    (element) => {
+      nodeGraphViewportCullApply(element, true);
+    },
+  );
 }
 
 function nodeGraphViewportCullRefresh(options = {}) {
@@ -627,7 +659,7 @@ function nodeGraphViewportCullRefresh(options = {}) {
     ? nodeGraphSelectedNodeIds()
     : new Set();
   const cacheSizesOnly = Boolean(options.cacheSizesOnly);
-  for (const element of surface.querySelectorAll(".dsp-node:not(.removed)")) {
+  nodeGraphViewportCullForEachNode(surface, ".dsp-node:not(.removed)", (element) => {
     const id = String(element.dataset?.node || "");
     let width = 0;
     let height = 0;
@@ -649,7 +681,7 @@ function nodeGraphViewportCullRefresh(options = {}) {
       && y < worldBottom
       && (y + height) > worldTop;
     nodeGraphViewportCullApply(element, intersecting || (id && selected.has(id)));
-  }
+  });
 }
 
 function scheduleNodeGraphViewportGestureHeatmapPhase() {
@@ -842,6 +874,13 @@ function ensureNodeGraphViewportModuleCull() {
         ? entry.target
         : entry.target?.closest?.(".dsp-node");
       if (node) {
+        // Text Boxes: a false non-intersect (camera still at 0, nodes at
+        // negative gx) sets display:none and this observer never retries.
+        // Geometric refresh owns sleep/wake for the annotation host.
+        const annotations = document.getElementById("nodeGraphAnnotationNodes");
+        if (annotations?.contains(node) && !entry.isIntersecting) {
+          continue;
+        }
         nodeGraphViewportCullApply(node, entry.isIntersecting);
       }
     }

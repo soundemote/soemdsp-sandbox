@@ -122,6 +122,14 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Pixel density";
     title = "1 = native face buffer. Below 1 = chunky lo-fi grid (nearest-neighbor).";
   }
+  if (key === "barThickness" && (
+    formType === "waterfall"
+    || formType === "waterfallRgb"
+    || formType === "waterfallXyz"
+  )) {
+    label = "Bar thickness";
+    title = "Width of each filled column. 1 = full column. 0 = the bar disappears. In between, that fraction of the column, centered.";
+  }
   if (key === "scale" && (
     formType === "waterfall"
     || formType === "waterfallRgb"
@@ -1375,6 +1383,8 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     "historyCycles",
     "historySeconds",
     "zoomSeconds",
+    "detail",
+    "barThickness",
     "sweepHz",
     "sweepCycles",
     "backgroundBrightness",
@@ -1425,6 +1435,8 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     pushStackField("historySeconds");
     pushStackField("zoomSeconds");
   }
+  pushStackField("detail");
+  pushStackField("barThickness");
   pushStackField("backgroundBrightness");
   pushStackField("backgroundHue");
   const inkPrimary = orderedPrimary.filter((key) => !stackHead.has(key));

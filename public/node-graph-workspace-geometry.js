@@ -59,8 +59,6 @@ function applyNodeGraphWorkspaceView() {
     syncNodeGraphWorkspaceResizeHandlePosition();
   }
   workspace.classList.toggle("patch-locked", Boolean(view.locked));
-  // Retired global overlay: hide-unused is per-module ui.hideUnused only.
-  workspace.classList.remove("patch-unused-ports-hidden");
   if (typeof syncNodeGraphReadyPanelChrome === "function") {
     syncNodeGraphReadyPanelChrome();
   }

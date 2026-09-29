@@ -115,3 +115,34 @@ LayoutB (ports beside the face) and InletOutletLayout (title + I/O, no face) are
 **Status:** standing policy in `docs/APP_POLICY.md` (Choice / enum persistence). Follow-up work: audit and migrate any remaining **index-based** saved choices so reordering options cannot break patches.
 
 **Direction:** All discrete UI choices store stable names/keys; no index-as-identity. One-shot migrations only when Architect asks — no dual-key shims (§1).
+
+## AcidSequencer
+
+**Status:** seed only — not yet implemented; do not implement until Architect expands this.
+
+**Direction:** A new sequencer like the existing **Sequencer** module (`sequencer`: transport-locked piano roll; outputs Play Keys, Gate, Trigger, pitch, and f). AcidSequencer is its own module, not a change to that piano roll. Each step has four modifiers above a piano grid of 13 notes, C to C (chromatic, 13 pitches).
+
+The four modifiers per step:
+
+- **Gate** — a gate output. Gate is on, off, or tie. Tie means the next step's gate is held so the envelope does not retrigger.
+- **Accent** — a trigger output. Accent means send a trigger.
+- **Slide** — a pitch output.
+- **Octave** — part of the pitch output. Octave is the offset per step.
+
+**Layout:** each row is Gate, Accent, Slide, Octave. A left arrow and a right arrow pan/rotate the sequence: every step adopts the properties of the neighboring step (left or right) depending on which arrow is clicked. This is rotating the step data, not a separate viewport.
+
+**Parameters:**
+
+- bpm (not free running)
+- step length
+- Gate height
+- Accent height
+- Slide time
+
+## VU meter
+
+**Status:** seed only — details TBD; do not implement until Architect expands this.
+
+**Direction:** A VU meter. Architect named it on 2026-09-29. Behavior, face, ports, and what it reads are not specified yet.
+
+**Still open:** module vs a display on an existing face, needle vs bar, mono/stereo, ballistics, scale, and the signal it measures.

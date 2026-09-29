@@ -5877,6 +5877,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
+.node-patch-defaults-actions #nodePatchWiresButton {
+  grid-column: 1 / -1;
+}
+
 .node-patch-defaults-actions .scene-context-window-button {
   width: auto;
   min-width: 0;
@@ -13557,8 +13561,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   opacity: 1;
 }
 
-/* Hide unused: per-module .unused-hidden only (unconnected signal jacks). Parameter I/O stays visible.
-   Global .patch-unused-ports-hidden overlay retired — toolbar batches ui.hideUnused per module. */
+/* Hide unused: per-module .unused-hidden only (unconnected signal jacks). Parameter I/O stays visible. */
 .dsp-node.unused-hidden .node-io-row:not(:has(.connected-port)):not(:has(.node-param-port)),
 .dsp-node.unused-hidden .node-io-row:not(:has(.node-port.connected-port)):not(:has(.node-param-port)) {
   display: none !important;

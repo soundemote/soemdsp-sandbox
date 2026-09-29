@@ -35,10 +35,11 @@ nodeGraphLiveModuleEvaluators.pitchManager = ({
         : Number(mixInput(nodeId, "pitch") || 0)) || 0;
     }
   }
-  const midi = midiIn + octave * 12 + semitones + cents / 100;
-  let hz = tuning * (2 ** ((midi - 69) / 12));
+  // No-cable base is explicitly zero; controls add to it.
+  const pitch = 0 + midiIn + octave * 12 + semitones + cents / 100;
+  let hz = tuning * (2 ** ((pitch - 69) / 12));
   hz = hz * (Number.isFinite(multiply) ? multiply : 1) + (Number.isFinite(add) ? add : 0);
   if (!(hz === hz)) hz = 0;
   const sr = Number(sampleRate) > 1 ? Number(sampleRate) : 44100;
-  return { pitch: midi, f: hz, inc: hz / sr };
+  return { pitch, f: hz, inc: hz / sr };
 };

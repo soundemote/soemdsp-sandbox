@@ -637,7 +637,9 @@ extern "C" double soemdsp_vibrato_generator_sample(
   double delaySec,
   double attackSec,
   double releaseSec,
-  double gate
+  double gate,
+  double gatePresent,
+  double delayTriggerMode
 );
 extern "C" double soemdsp_vibrato_generator_out(int handle);
 extern "C" double soemdsp_vibrato_generator_shape(int handle);
@@ -1866,7 +1868,7 @@ static const int kTypeAcousticPluck = 198;
 static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smoothstep)
 static const int kTypeFm = 169; // Freq Manager: ƒ(+inc) mix × pitch scale + Add; outs ƒ + inc
 static const int kTypePitchHz = 170; // Pitch â†” Hz (MIDI-ish pitch law, A4 = tuning)
-static const int kTypePitchManager = 185; // Pitch Manager (MIDI offsets → Hz → Pitch/F/inc)
+static const int kTypePitchManager = 185; // Pitch Manager (zero-based pitch -> Hz -> Pitch/f/inc)
 static const int kTypeAmpDb = 180; // Amp â†” dB (20Â·log10 voltage gain, 0 dB = 1)
 static const int kTypeGraphicEq = 171; // ISO 1/3-octave graphic EQ (30 peaking bands)
 static const int kTypeSuperloveRev2 = 172; // Softwave-Tri LP + classic HP/BP
@@ -5486,9 +5488,23 @@ static void process_pitch_hz(Circuit& g, Node& node, int frames) {
   }
 }
 
+static inline double pitch_manager_sum(double inputPitch, double octave, double semitones, double cents) {
+  // Pitch Manager's unconnected base is deliberately zero: params are offsets
+  // from zero, not from a hidden MIDI note.
+  double pitch = 0.0 + inputPitch + octave * 12.0 + semitones + cents / 100.0;
+  return (pitch == pitch) ? pitch : 0.0;
+}
+
+static inline double pitch_manager_to_hz(double pitch, double tuning) {
+  // Reuse the canonical soemdsp pitch conversion, while honoring this
+  // module's configurable A4 reference.
+  const double hz = (tuning / soemdsp::constant::kA440) * soemdsp::math::midi_to_hz(pitch);
+  return (hz == hz) ? hz : 0.0;
+}
+
 static void process_pitch_manager(Circuit& g, Node& node, int frames) {
-  // One Pitch→Hz, then Inc = Hz/sr. Pitch jack is MIDI thru (after offsets).
-  // Ports: Mono=Inc, Left=ƒ, Right=pitch.
+  // One Pitch -> Hz, then Inc = Hz/sr. Pitch jack is the zero-based pitch value.
+  // Ports: Mono=inc, Left=f, Right=pitch.
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveMono = mix_live_port(g, node, kPortMono, frames, g.mixMono);
   const double sr = (g.sampleRate > 1.0) ? g.sampleRate : 44100.0;
@@ -5496,10 +5512,10 @@ static void process_pitch_manager(Circuit& g, Node& node, int frames) {
     g, node, livePitch || liveMono
   );
 
-  auto write_outs = [&](int f, double midi, double hz) {
+  auto write_outs = [&](int f, double pitch, double hz) {
     node.buf[kPortMono][f] = hz / sr;
     node.buf[kPortLeft][f] = hz;
-    node.buf[kPortRight][f] = midi;
+    node.buf[kPortRight][f] = pitch;
   };
 
   if (!livePitch && !liveMono && !takeSamplePath) {
@@ -5513,11 +5529,11 @@ static void process_pitch_manager(Circuit& g, Node& node, int frames) {
     const double cents = control_effective(node.width);
     const double mul = control_effective(node.amplitude);
     const double add = control_effective(node.offset);
-    const double midi = oct * 12.0 + st + cents / 100.0;
-    double hz = tuning * dsp_exp(((midi - 69.0) / 12.0) * 0.6931471805599453);
+    const double pitch = pitch_manager_sum(0.0, oct, st, cents);
+    double hz = pitch_manager_to_hz(pitch, tuning);
     hz = hz * ((mul == mul) ? mul : 1.0) + ((add == add) ? add : 0.0);
     if (!(hz == hz)) hz = 0.0;
-    for (int f = 0; f < frames; f++) write_outs(f, midi, hz);
+    for (int f = 0; f < frames; f++) write_outs(f, pitch, hz);
     return;
   }
 
@@ -5537,14 +5553,13 @@ static void process_pitch_manager(Circuit& g, Node& node, int frames) {
     if (livePitch) midiIn = g.mixPitch[f];
     else if (liveMono) midiIn = g.mixMono[f];
     if (!(midiIn == midiIn)) midiIn = 0.0;
-    const double midi = midiIn + oct * 12.0 + st + cents / 100.0;
-    double hz = tuning * dsp_exp(((midi - 69.0) / 12.0) * 0.6931471805599453);
+    const double pitch = pitch_manager_sum(midiIn, oct, st, cents);
+    double hz = pitch_manager_to_hz(pitch, tuning);
     hz = hz * ((mul == mul) ? mul : 1.0) + ((add == add) ? add : 0.0);
     if (!(hz == hz)) hz = 0.0;
-    write_outs(f, midi, hz);
+    write_outs(f, pitch, hz);
   }
 }
-
 
 
 // Amp â†” dB: In is dB (mode 0) or linear amplitude (mode 1). 0 dB = 1.
@@ -10254,8 +10269,9 @@ static void process_cheap_walk(Circuit& g, Node& node, int frames) {
 // width=randomFreqMult, center=randomAmpMult, seed=seed.
 // Vibrato Generator: Reset on kPortReset; Gate on Mono (depth Delay/A/R).
 // timeNumerator=delay s, timeDenominator=attack s, offsetMs=release s
+// mode=delayTrigger (0 Delay Start, >=0.5 Delay All).
 // (exp one-pole depthEnv; Delay arms on Gate rise).
-// Unpatched Gate -> always-on (gate=1, depthEnv stays/goes to 1).
+// Unpatched Gate (no cable) -> gatePresent=0, module skips to sustain (no Attack).
 static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
@@ -10273,8 +10289,8 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
       }
       node.lastReset = rv;
     }
-    // Unpatched Gate = always-on full depth (existing Amplitude-only patches).
-    const double gate = hasGate ? g.mixMono[f] : 1.0;
+    // No Gate cable: gatePresent=0. Do not fake gate=1 (that would run Attack).
+    const double gate = hasGate ? g.mixMono[f] : 0.0;
     const double audio = soemdsp_vibrato_generator_sample(
       node.nativeHandle,
       control_audio(g, node.frequency, f),
@@ -10289,7 +10305,9 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
       control_audio(g, node.timeNumerator, f),
       control_audio(g, node.timeDenominator, f),
       control_audio(g, node.offsetMs, f),
-      gate
+      gate,
+      hasGate ? 1.0 : 0.0,
+      control_effective(node.mode)
     );
     // Wave/audio is y * amp * depthEnv. Face tap is y * depthEnv (no amp).
     node.buf[kPortMono][f] = audio;

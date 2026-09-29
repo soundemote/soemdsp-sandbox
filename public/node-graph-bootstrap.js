@@ -1,3 +1,49 @@
+function nodeGraphResponseIsJson(response) {
+  const type = String(response?.headers?.get("content-type") || "").toLowerCase();
+  return type.includes("json");
+}
+
+/** Encode each path segment. A slash in the slug is a folder, not part of the filename. */
+function nodeGraphPagePatchFileUrls(slug) {
+  const clean = String(slug || "").replace(/\.json$/i, "").replace(/^\/+|\/+$/g, "");
+  const parts = clean.split("/").filter(Boolean).map((part) => encodeURIComponent(part));
+  if (!parts.length || parts.length > 2) return [];
+  const encoded = parts.join("/") + ".json";
+  return [
+    "/soemdsp-sandbox/patches/" + encoded,
+    "./patches/" + encoded,
+  ];
+}
+
+/**
+ * Page route /{slug} -> patches/index.json url.
+ * Exact catalog slug wins. A single filename stem (demo patches/tubesaturation
+ * for /tubesaturation) is the file itself, not a second name.
+ */
+async function nodeGraphResolvePagePatchUrls(slug) {
+  const want = String(slug || "").trim().toLowerCase().replace(/\.json$/i, "").replace(/^\/+|\/+$/g, "");
+  const urls = [];
+  const push = (url) => {
+    const value = String(url || "").trim();
+    if (value && !urls.includes(value)) urls.push(value);
+  };
+  try {
+    const res = await fetch("/soemdsp-sandbox/patches/index.json", { cache: "no-store" });
+    if (res.ok && nodeGraphResponseIsJson(res)) {
+      const data = await res.json();
+      const patches = Array.isArray(data?.patches) ? data.patches : [];
+      const exact = patches.find((entry) => String(entry?.slug || "").trim().toLowerCase() === want);
+      const stemHits = patches.filter((entry) => String(entry?.slug || "").split("/").pop().trim().toLowerCase() === want);
+      const hit = exact || (stemHits.length === 1 ? stemHits[0] : null);
+      if (hit?.url) push(hit.url);
+    }
+  } catch (_error) {
+    // Catalog optional; direct path is tried below.
+  }
+  nodeGraphPagePatchFileUrls(want).forEach(push);
+  return urls;
+}
+
 async function initNodeGraphMvp() {
   setNodeSandboxStartupProgress(10, "loading tooltips");
   if (typeof installNodeGraphDebugApi === "function") {
@@ -27,7 +73,7 @@ async function initNodeGraphMvp() {
   if (!workingUsable) {
     nodeGraphMvp.workingPatch = null;
   }
-  // URL ?pagePatch=slug loads /soemdsp-sandbox/patches/{slug}.json and wins
+  // URL ?pagePatch=slug loads the catalog URL (patches/index.json) and wins
   // over workingPatch so page routes never stick on a stale session graph.
   const pagePatchSlug = String(
     new URLSearchParams(window.location.search).get("pagePatch") || "",
@@ -35,14 +81,12 @@ async function initNodeGraphMvp() {
   let pagePatchLoaded = false;
   if (pagePatchSlug) {
     try {
-      const pagePatchUrls = [
-        `/soemdsp-sandbox/patches/${encodeURIComponent(pagePatchSlug)}.json`,
-        `./patches/${encodeURIComponent(pagePatchSlug)}.json`,
-      ];
+      const pagePatchUrls = await nodeGraphResolvePagePatchUrls(pagePatchSlug);
       let loaded = null;
       for (const url of pagePatchUrls) {
         const response = await fetch(`${url}?v=${Date.now()}`, { cache: "no-store" });
-        if (!response.ok) continue;
+        // SPA hosts return index.html with HTTP 200 for a missing patch.
+        if (!response.ok || !nodeGraphResponseIsJson(response)) continue;
         const data = await response.json();
         loaded = typeof nodeGraphPatchFromShareProjectData === "function"
           ? nodeGraphPatchFromShareProjectData(

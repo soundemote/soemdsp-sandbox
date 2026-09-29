@@ -362,6 +362,19 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.traceDisplaySettings = normalizeNodeGraphWaterfallSettings(settings);
     return node.traceDisplaySettings;
   }
+  if (displayType === "keyboardControllerFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphKeyboardControllerFaceSettings === "function"
+      ? normalizeNodeGraphKeyboardControllerFaceSettings(settings)
+      : (settings && typeof settings === "object" ? { ...settings } : {});
+    if (
+      typeof nodeGraphKeyboardModuleSettingsPersisting !== "undefined"
+      && !nodeGraphKeyboardModuleSettingsPersisting
+      && typeof applyNodeGraphKeyboardModuleSettingsBag === "function"
+    ) {
+      applyNodeGraphKeyboardModuleSettingsBag(node.traceDisplaySettings);
+    }
+    return node.traceDisplaySettings;
+  }
   return null;
 }
 
@@ -798,6 +811,7 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
         || k === "sweepHz"
         || k === "sweepCycles"
         || k === "pixelDensity"
+        || k === "detail"
         || k === "scale";
     });
   if (typeof paintNodeGraphModuleScopeColdPlatesOnly === "function" && !inkOnly) {

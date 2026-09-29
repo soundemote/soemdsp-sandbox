@@ -609,6 +609,11 @@ if (type === "portalFace") {
   if (type === "waterfall" || type === "waterfallRgb" || type === "waterfallXyz") {
     return normalizeNodeGraphWaterfallSettings(nodeGraphWaterfallSettingsDefaults);
   }
+  if (type === "keyboardControllerFace") {
+    return typeof nodeGraphKeyboardModuleSettingsSnapshot === "function"
+      ? nodeGraphKeyboardModuleSettingsSnapshot()
+      : {};
+  }
   return {};
 }
 
@@ -821,6 +826,11 @@ if (type === "portalFace") {
   }
   if (type === "waterfall" || type === "waterfallRgb" || type === "waterfallXyz" || type === "lineBurn") {
     return normalizeNodeGraphWaterfallSettings(settings);
+  }
+  if (type === "keyboardControllerFace") {
+    return typeof normalizeNodeGraphKeyboardControllerFaceSettings === "function"
+      ? normalizeNodeGraphKeyboardControllerFaceSettings(settings)
+      : (settings && typeof settings === "object" ? settings : {});
   }
   return {};
 }
@@ -1266,6 +1276,20 @@ function readNodeGraphTraceDisplaySettingsForm() {
       return readNodeGraphMatrixFaceDisplaySettingsForm(root, current);
     }
     return normalizeNodeGraphDisplaySettingsForFormType(current, formType);
+  }
+  if (formType === "keyboardControllerFace") {
+    const next = typeof nodeGraphKeyboardModuleSettingsSnapshot === "function"
+      ? { ...nodeGraphKeyboardModuleSettingsSnapshot() }
+      : { ...(current && typeof current === "object" ? current : {}) };
+    const host = root?.querySelector?.("[data-midi-keyboard-layout-settings]") || root;
+    host?.querySelectorAll?.("[data-midi-key-layout]")?.forEach((input) => {
+      const key = input.getAttribute("data-midi-key-layout");
+      if (!key) return;
+      if (input.type === "checkbox") next[key] = input.checked;
+      else if (input.tagName === "SELECT") next[key] = input.value;
+      else next[key] = Number(input.value);
+    });
+    return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
   }
   const next = { ...current };
   const activeFields = nodeGraphTraceDisplayActiveControlSet("fields", formType);

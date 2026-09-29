@@ -158,6 +158,12 @@ const nodeGraphWaterfallSettingsDefaults = Object.freeze({
   historyCycles: 4,
   // Alias of historySeconds for older capture paths.
   zoomSeconds: 0.25,
+  // Column start rate vs layout pixels. 1 = one bar per layout pixel.
+  // Higher starts the next bar sooner (more columns). Lower holds a longer
+  // min/max stretch (fewer columns). Not bar thickness.
+  detail: 1,
+  // Filled-bar width inside the column. 1 = full column. 0 = gone.
+  barThickness: 1,
   // XYZ: stack all three on one plot, or split the face into three bands.
   xyzLayout: "stack",
 });

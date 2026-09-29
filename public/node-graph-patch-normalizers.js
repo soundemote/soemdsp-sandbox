@@ -1043,8 +1043,6 @@ function normalizeNodeGraphPatchView(view = {}) {
     sliderPositionVisible: flag("sliderPositionVisible", true),
     tooltipEmbedded: flag("tooltipEmbedded", true),
     locked: flag("locked", false),
-    // Retired global overlay; toolbar batches per-module ui.hideUnused. Always false so it cannot override.
-    hideUnusedPorts: false,
     ...(moduleScopeFramesPerSecond != null ? { moduleScopeFramesPerSecond } : {}),
     ...(hasPins || (canvases && Object.hasOwn(source, "canvases"))
       ? { canvases: canvases || { root: { elements: [] }, byMetamodule: {} } }

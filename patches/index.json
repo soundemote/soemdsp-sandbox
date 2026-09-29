@@ -34,6 +34,66 @@
       "folder": "Alarm"
     },
     {
+      "slug": "demo patches/analogdream",
+      "label": "analogdream",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/demo%20patches/analogdream.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "demo patches"
+    },
+    {
+      "slug": "demo patches/analoghorror",
+      "label": "analoghorror",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/demo%20patches/analoghorror.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "demo patches"
+    },
+    {
+      "slug": "demo patches/journey to the hypersaw",
+      "label": "journey to the hypersaw",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/demo%20patches/journey%20to%20the%20hypersaw.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": "",
+      "folder": "demo patches"
+    },
+    {
+      "slug": "demo patches/tubesaturation",
+      "label": "tubesaturation",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/demo%20patches/tubesaturation.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "demo patches"
+    },
+    {
+      "slug": "foley/CALLNOW",
+      "label": "CALLNOW",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/foley/CALLNOW.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "foley"
+    },
+    {
+      "slug": "guitar pedals/chorus vs ensemble",
+      "label": "chorus vs ensemble",
+      "name": "ellipsoid",
+      "url": "/soemdsp-sandbox/patches/guitar%20pedals/chorus%20vs%20ensemble.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "guitar pedals"
+    },
+    {
       "slug": "guitar pedals/clean",
       "label": "clean",
       "name": "ellipsoid",
@@ -74,20 +134,30 @@
       "folder": "guitar pedals"
     },
     {
-      "slug": "modulator breadboards/acoustic pluck envelope breadboard",
-      "label": "acoustic pluck envelope breadboard",
+      "slug": "guitar pedals/guitar controlled synth",
+      "label": "guitar controlled synth",
+      "name": "ellipsoid",
+      "url": "/soemdsp-sandbox/patches/guitar%20pedals/guitar%20controlled%20synth.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "guitar pedals"
+    },
+    {
+      "slug": "modulator breadboards/pluck envelope",
+      "label": "pluck envelope",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/modulator%20breadboards/acoustic%20pluck%20envelope%20breadboard.json",
+      "url": "/soemdsp-sandbox/patches/modulator%20breadboards/pluck%20envelope.json",
       "author": "",
       "tags": "init,default",
       "emoji": "",
       "folder": "modulator breadboards"
     },
     {
-      "slug": "modulator breadboards/vibrato generator acoustic waveform",
-      "label": "vibrato generator acoustic waveform",
+      "slug": "modulator breadboards/vibrato generator",
+      "label": "vibrato generator",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/modulator%20breadboards/vibrato%20generator%20acoustic%20waveform.json",
+      "url": "/soemdsp-sandbox/patches/modulator%20breadboards/vibrato%20generator.json",
       "author": "Sandbox",
       "tags": "filter,ladder,self-osc,breadboard",
       "emoji": "",
@@ -107,15 +177,6 @@
       "label": "analoghorror",
       "name": "",
       "url": "/soemdsp-sandbox/patches/analoghorror.json",
-      "author": "",
-      "tags": "circle",
-      "emoji": ""
-    },
-    {
-      "slug": "arp",
-      "label": "arp",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/arp.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
@@ -216,7 +277,7 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/init.json",
       "author": "",
-      "tags": "init,default",
+      "tags": "circle",
       "emoji": ""
     },
     {

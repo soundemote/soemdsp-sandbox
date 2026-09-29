@@ -125,7 +125,8 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneSetModuleSettingsAsDefault", "click", setNodeGraphModuleSettingsAsDefaultFromButton);
   bindNodeGraphSceneElementEvent("nodeSceneBroomBatch", "click", applyNodeGraphPatchDefaultsFromCurrentSelection);
   bindNodeGraphSceneElementEvent("nodePatchLockButton", "click", toggleNodeGraphPatchLocked);
-  bindNodeGraphSceneElementEvent("nodePatchHideUnusedButton", "click", toggleNodeGraphPatchHideUnusedPorts);
+  bindNodeGraphSceneElementEvent("nodePatchHideUnusedButton", "click", hideNodeGraphUnusedPortsOnAllModules);
+  bindNodeGraphSceneElementEvent("nodePatchWiresButton", "click", toggleNodeGraphPatchWiresFromReady);
   bindNodeGraphSceneElementEvent("nodePatchDefaultsClose", "click", () => {
     if (typeof closeNodeGraphUnifiedWindowPage === "function") {
       closeNodeGraphUnifiedWindowPage("patchDefaults");

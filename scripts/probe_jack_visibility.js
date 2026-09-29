@@ -184,7 +184,7 @@ async function main() {
       + "      portStroke: pcs?.getPropertyValue('--node-port-crescent-stroke') || '',\n"
       + "    };\n"
       + "  });\n"
-      + "  return { wsClass: ws?.className || '', hideUnusedGlobalRetired: ws?.classList.contains('patch-unused-ports-hidden'), hideUnusedModules: nodes.filter((n)=>n.unusedHidden).length, nodes };\n"
+      + "  return { wsClass: ws?.className || '', hideUnusedModules: nodes.filter((n)=>n.unusedHidden).length, nodes };\n"
       + "})()");
     console.log("probe geo=" + JSON.stringify(geo, null, 2));
     var shot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true });

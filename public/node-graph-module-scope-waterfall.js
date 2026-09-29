@@ -1,5 +1,8 @@
 // 1D Waterfall — classic strip chart (mono / stereo / XYZ / RGB).
 // Contract: solid filled peak-to-peak vertical rects (min..max Y per column bin).
+// Each bar fillRects its full column. Detail changes how soon the next column
+// starts. When there are fewer columns than device pixels, that pitch is the
+// separation (not a 1px shrink, not blur, not stretch).
 // New columns stamp on the RIGHT; history scrolls LEFT. Never redraw the whole
 // face — only scroll existing pixels and fillRect new column(s) on the right.
 // History (seconds) = freerun window across the face (0 / below eps = PAUSE, keep hold).
@@ -462,12 +465,12 @@ function nodeGraphWaterfallColumnBars(buffer, slot, columns, height, settings, s
     if (!has || !(minV <= maxV)) {
       continue;
     }
-    // Vibrato is usually slow: one layout column holds a one-sided lobe.
-    // Fill from rest (0) to the accumulated peaks so the bar is the
-    // excursion (0..1 or 0..-1), not a 1px speck at the sample. Fast
-    // peaks still come from min/max of every sample in the column.
-    // Other modules keep the raw min..max sample range.
-    if (slot?.type === "vibratoGenerator") {
+    // One-sided bins (slow vibrato, or a short Output slice that never
+    // crosses rest) would otherwise collapse to a 1px speck. Fill from
+    // rest (0) to the accumulated peaks so the bar is the excursion.
+    // Bins that already span both sides keep raw min..max. RMS dB faces
+    // stay on their own scale (0 linear is not the meter floor).
+    if (amp?.mode !== "rmsDb") {
       if (minV > 0) minV = 0;
       if (maxV < 0) maxV = 0;
     }
@@ -941,13 +944,56 @@ function nodeGraphWaterfallBarFillStyle(color, bright01) {
   return "rgba(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + "," + a + ")";
 }
 
+/**
+ * Integer device-pixel span for one column. Body stays filled peak-to-peak.
+ * fillW is the full column (left of this column through left of the next).
+ * A 1 device-px column stays 1px. Wider columns are not shrunk by a gutter.
+ */
+function nodeGraphWaterfallBarDeviceSpan(x0, columnIndex, pitch) {
+  const col = nodeGraphFiniteNumber(columnIndex);
+  const step = Math.max(1e-6, nodeGraphFiniteNumber(pitch, 1));
+  const left = Math.floor(nodeGraphFiniteNumber(x0) + col * step);
+  const right = Math.floor(nodeGraphFiniteNumber(x0) + (col + 1) * step);
+  const span = Math.max(1, right - left);
+  return { x: left, fillW: span };
+}
+
 /** Stamp solid filled peak-to-peak column rects. No polyline, no Blur, no Stretch. */
-function nodeGraphWaterfallStampFilledBars(holdCtx, bars, x0, color, bright01, composite, barPx = 1) {
+function nodeGraphWaterfallBarThickness(settings) {
+  const n = Number(settings?.barThickness);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(0, Math.min(1, n));
+}
+
+/**
+ * Horizontal ink inside a column. 1 = full device span (current look).
+ * 0 = nothing. In between, that fraction of the column, centered.
+ */
+function nodeGraphWaterfallBarInkRect(span, thickness01) {
+  if (!span || !(span.fillW > 0) || !Number.isFinite(span.x)) {
+    return null;
+  }
+  const t = Number(thickness01);
+  const thick = Number.isFinite(t) ? Math.max(0, Math.min(1, t)) : 1;
+  if (!(thick > 0)) {
+    return null;
+  }
+  if (thick >= 0.999) {
+    return { x: span.x, w: span.fillW };
+  }
+  const w = span.fillW * thick;
+  if (!(w > 0)) {
+    return null;
+  }
+  return { x: span.x + (span.fillW - w) * 0.5, w };
+}
+
+function nodeGraphWaterfallStampFilledBars(holdCtx, bars, x0, color, bright01, composite, barPx = 1, thickness01 = 1) {
   if (!holdCtx || !Array.isArray(bars) || !bars.length) {
     return;
   }
   const ox = nodeGraphFiniteNumber(x0);
-  const w = Math.max(1, nodeGraphFiniteNumber(barPx, 1));
+  const pitch = Math.max(1e-6, nodeGraphFiniteNumber(barPx, 1));
   const fill = nodeGraphWaterfallBarFillStyle(color, bright01);
   holdCtx.save();
   holdCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -959,15 +1005,19 @@ function nodeGraphWaterfallStampFilledBars(holdCtx, bars, x0, color, bright01, c
   for (let i = 0; i < bars.length; i += 1) {
     const b = bars[i];
     if (!b) continue;
-    const x = ox + nodeGraphFiniteNumber(b.x) * w;
     const y0 = nodeGraphFiniteNumber(b.y0);
     const y1 = nodeGraphFiniteNumber(b.y1);
-    if (!Number.isFinite(x) || !Number.isFinite(y0) || !Number.isFinite(y1)) {
+    if (!Number.isFinite(y0) || !Number.isFinite(y1)) {
+      continue;
+    }
+    const span = nodeGraphWaterfallBarDeviceSpan(ox, b.x, pitch);
+    const ink = nodeGraphWaterfallBarInkRect(span, thickness01);
+    if (!ink) {
       continue;
     }
     const top = Math.min(y0, y1);
     const h = Math.max(1, Math.abs(y1 - y0));
-    holdCtx.fillRect(x, top, w, h);
+    holdCtx.fillRect(ink.x, top, ink.w, h);
   }
   holdCtx.shadowBlur = 0;
   holdCtx.restore();
@@ -1067,6 +1117,7 @@ function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampl
       : stampComposite;
     nodeGraphWaterfallStampFilledBars(
       holdCtx, bars, x, ch.color, ch.bright ?? 1, layerComposite, barPx,
+      nodeGraphWaterfallBarThickness(settings),
     );
   }
 
@@ -1244,10 +1295,20 @@ function nodeGraphWaterfallPaintNowLine(spec, context, canvas, settings, width, 
 /**
  * History column count from the circuit-builder face, not from a fixed
  * frame sample and not from device pixels.
- * columns = round(layoutCssWidth * pixelDensity). pixelDensity is the
+ * base = round(layoutCssWidth * pixelDensity). pixelDensity is the
  * module-face plate density (0..1) that sizes the layout canvas.
- * barPx = backingStoreWidth / columns (one bar per layout pixel).
+ * Detail (default 1) scales that: columns = max(1, round(base * detail)).
+ * Higher detail = new bar sooner. barPx = backingStoreWidth / columns.
+ * The bar fillRects that column times barThickness (1 = full, 0 = none).
  */
+function nodeGraphWaterfallDetail(settings) {
+  const raw = Number(settings?.detail);
+  const detail = Number.isFinite(raw) ? raw : 1;
+  const lo = typeof NODE_GRAPH_WATERFALL_DETAIL_MIN === "number" ? NODE_GRAPH_WATERFALL_DETAIL_MIN : 0;
+  const hi = typeof NODE_GRAPH_WATERFALL_DETAIL_MAX === "number" ? NODE_GRAPH_WATERFALL_DETAIL_MAX : 4;
+  return Math.max(lo, Math.min(hi, detail));
+}
+
 function nodeGraphWaterfallLayoutColumns(spec, canvas, settings) {
   const density = typeof nodeGraphFacePlateDensity === "function"
     ? nodeGraphFacePlateDensity(settings, nodeGraphFiniteNumber(spec?.density, 1))
@@ -1268,9 +1329,11 @@ function nodeGraphWaterfallLayoutColumns(spec, canvas, settings) {
     cssW = backing / (dpr * den);
   }
   cssW = Math.max(1, cssW);
-  const columns = Math.max(1, Math.round(cssW * density));
+  const baseColumns = Math.max(1, Math.round(cssW * density));
+  const detail = nodeGraphWaterfallDetail(settings);
+  const columns = Math.max(1, Math.round(baseColumns * detail));
   const barPx = backing / columns;
-  return { columns, barPx, density, cssW };
+  return { columns, barPx, density, cssW, detail };
 }
 
 function nodeGraphWaterfallPaint(spec) {

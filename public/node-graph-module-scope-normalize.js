@@ -621,6 +621,10 @@ function nodeGraphTraceDisplayClampHistoryCycles(value, fallback = 4) {
 
 /** Instant Waterfall only: History (seconds). 0 / below eps = pause. */
 const NODE_GRAPH_WATERFALL_HISTORY_SEC_EPS = 1e-12;
+// Detail multiplies layout-pixel columns. 1 = current one-bar-per-layout-pixel.
+// 0 collapses to a single column. 4 = four bars per layout pixel.
+const NODE_GRAPH_WATERFALL_DETAIL_MIN = 0;
+const NODE_GRAPH_WATERFALL_DETAIL_MAX = 4;
 function nodeGraphWaterfallClampHistorySeconds(value, fallback = 0.25) {
   const n = Number(value);
   const maxSec = typeof nodeGraphTraceDisplayMaxZoomSeconds === "number"
@@ -900,6 +904,18 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
       return defaults.syncChannel || "off";
     })(),
     ...normalizeNodeGraphWaterfallHistory(source, defaults),
+    detail: normalizeNodeGraphTraceDisplayNumber(
+      source.detail,
+      defaults.detail ?? 1,
+      NODE_GRAPH_WATERFALL_DETAIL_MIN,
+      NODE_GRAPH_WATERFALL_DETAIL_MAX,
+    ),
+    barThickness: normalizeNodeGraphTraceDisplayNumber(
+      source.barThickness,
+      defaults.barThickness ?? 1,
+      0,
+      1,
+    ),
     // Mirror Bright for form field key (Display Settings edits dot1Brightness).
     dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.dot1Brightness ?? source.brightness,

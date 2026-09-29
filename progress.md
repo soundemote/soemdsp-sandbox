@@ -191,6 +191,8 @@ graphify update . --force   # no LLM; AST re-extract
 - [x] `graphify-out/` gitignored (local analysis only)
 
 ## Backlog Ideas
+- VU meter — seed only, behavior not specified yet (docs/FUTURE_PLANNING.md).
+- AcidSequencer — like Sequencer, per-step Gate / Accent / Slide / Octave on a 13-note C-to-C grid (seed in `docs/FUTURE_PLANNING.md`).
 - Name-based choice persistence â€” audit/migrate index-based saves (`docs/APP_POLICY.md` + `docs/FUTURE_PLANNING.md`).
 - Delay with exposed feedback path ÃƒÂ¢Ã¢Â‚Â¬Ã¢Â€Â insert arbitrary modules in the loop (seed in `docs/FUTURE_PLANNING.md`).
 - Dimensional parameter prototyping ÃƒÂ¢Ã¢Â‚Â¬Ã¢Â€Â different settings across frequency/pitch (seed in ``docs/FUTURE_PLANNING.md``).

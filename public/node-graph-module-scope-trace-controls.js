@@ -53,11 +53,13 @@ const nodeGraphInstantTraceDisplayFieldOrder = Object.freeze([
   "fade",
 ]);
 
-// Instant Waterfall: History / Scale / Amp law / Bright / Blur (waterfall-first).
-// Dropped Trace Size / Persist / Bloom / Detail / stamp-density from the Instant Waterfall form.
+// Instant Waterfall: History / Detail / Bright / Blur.
+// Detail is column start rate (shared skew). Persist / Bloom / stamp-density stay off.
 const nodeGraphInstantWaterfallDisplayFieldOrder = Object.freeze([
   "scale",
   "historySeconds",
+  "detail",
+  "barThickness",
   "backgroundBrightness",
   "backgroundHue",
   "dot1Brightness",
@@ -281,6 +283,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   waterfall: Object.freeze({
     fields: Object.freeze([
       "historySeconds",
+      "detail",
+      "barThickness",
       "backgroundBrightness",
       "backgroundHue",
       "dot1Brightness",
@@ -472,6 +476,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   waterfallXyz: Object.freeze({
     fields: Object.freeze([
       "historySeconds",
+      "detail",
+      "barThickness",
       "backgroundBrightness",
       "backgroundHue",
       "dot1Brightness",
@@ -485,6 +491,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   waterfallRgb: Object.freeze({
     fields: Object.freeze([
       "historySeconds",
+      "detail",
+      "barThickness",
       "backgroundBrightness",
       "backgroundHue",
       "dot1Brightness",
@@ -910,10 +918,17 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   keyboardControllerFace: Object.freeze({
-    fields: Object.freeze([]),
+    fields: Object.freeze([
+      "keyCount",
+      "octave",
+      "velMin",
+      "velMax",
+      "blackKeyWidth",
+      "blackKeyHeight",
+    ]),
     colors: Object.freeze([]),
-    toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    toggles: Object.freeze(["hideKeyboardInfo"]),
+    choices: Object.freeze(["mode", "keyLabels"]),
   }),
 });
 
@@ -1010,6 +1025,8 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "innerShadowOffsetY",
       "zoomSeconds",
       "historySeconds",
+      "detail",
+      "barThickness",
       "cloudSpeed",
       "scale",
       "pixelDensity",
@@ -1273,6 +1290,17 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     sliderCurve: "custom",
     curveAmount: -1,
     title: "Instant Waterfall Sync Off: seconds of history across the face. Longer = slower scroll. Drag is skewed so short windows have more travel and the top of the range approaches slowly. 0 = pause. Sync On uses Cycles instead.",
+  }),
+  detail: Object.freeze({
+    label: "Detail",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayWaterfallDetail",
+    // Same custom skew as History. Not a private drag mapper.
+    // 0..4, default 1 = one bar per layout pixel. Exponent 4 keeps travel near coarser slices.
+    nonlinearSlider: true,
+    sliderCurve: "custom",
+    curveAmount: -1,
+    title: "How often a new bar starts. 1 = one bar per layout pixel. Higher starts the next bar sooner (more columns, finer min/max slices). Lower holds each bar across a longer stretch (fewer columns, chunkier fills). The bar still fills its column. Not thickness. 0 = one column. 4 = four bars per layout pixel.",
   }),
   fftSize: Object.freeze({
     label: "FFT size",
