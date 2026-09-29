@@ -14,18 +14,18 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Span °";
     title = "Centered arc sweep across Bias 0…1 (degrees). Opens left and right together; gap stays opposite center.";
   }
-  if ((key === "historyHz" || key === "historyCycles" || key === "zoomSeconds" || key === "historySeconds") && (
+  if ((key === "historySeconds" || key === "historyCycles" || key === "zoomSeconds" || key === "historyHz") && (
     formType === "waterfall"
     || formType === "waterfallRgb"
+    || formType === "waterfallXyz"
   )) {
     const syncOn = options.syncOn === true || key === "historyCycles";
-    label = syncOn ? "Cycles" : "History (Hz)";
+    label = syncOn ? "Cycles" : "History (seconds)";
     title = syncOn
       ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods), stretched across the full face. Rising zero-crossing locks phase."
-      : "History window rate in Hz (seconds = 1/Hz). Higher = shorter / faster scroll. 0 = freeze / now-line.";
+      : "History window duration in seconds across the face. Longer = slower scroll. 0 = pause (freeze plate).";
   } else if ((key === "historyHz" || key === "historyCycles" || key === "zoomSeconds" || key === "historySeconds") && (
-    formType === "waterfallXyz"
-    || formType === "gradientVectorscopeFace"
+    formType === "gradientVectorscopeFace"
   )) {
     label = key === "historyCycles" ? "Cycles" : "History (Hz)";
     title = "Live history window (Hz when free-run; Cycles when synced).";
@@ -50,7 +50,8 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "waterfallXyz"
   )) {
     label = "Blur";
-    title = "0 = hard pixel disc at Size (no AA). 1 = smoothstep from center to that same edge (Size does not grow).";
+    title = "Soft vertical skirt on filled Instant Waterfall columns. 0 = hard 1px bar; 1 = soft tips above/below the peak-to-peak core.";
+  } else if (false) {
   } else if (key === "stampDensity" && (
     formType === "waterfall"
     || formType === "waterfallRgb"
@@ -81,7 +82,9 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "dot"
   )) {
     label = "\u26AA Size";
-    title = "Phosphor / stroke diameter in CSS pixels at a 96px face (zoom 1). 0 = gone.";
+    title = formType === "scope1dTrace"
+      ? "Beam thickness in CSS pixels at a 96px face (TraceWoscope uSize). 0 = gone. Binds like Bright -> intensity."
+      : "Phosphor / stroke diameter in CSS pixels at a 96px face (zoom 1). 0 = gone.";
   }
   if ((key === "dot1Brightness" || key === "secondaryBrightness") && (
     formType === "waterfall"
@@ -118,10 +121,6 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   )) {
     label = "Pixel density";
     title = "1 = native face buffer. Below 1 = chunky lo-fi grid (nearest-neighbor).";
-  }
-  if (key === "fade" && formType === "waterfallXyz") {
-    label = "Fade";
-    title = "Fade the stroke along history. 0 = even ink. 1 = oldest gone, newest full. Does not change the preview dot.";
   }
   if (key === "scale" && (
     formType === "waterfall"
@@ -1142,8 +1141,8 @@ function syncNodeGraphLineBurnSweepLabel(root, settings = {}) {
 }
 
 /**
- * History (Hz) ↔ Cycles when Waterfall Sync is toggled.
- * Retargets the stepper to historyHz or historyCycles so both values stay stored.
+ * History (seconds) ↔ Cycles when Instant Waterfall Sync is toggled.
+ * Retargets the stepper to historySeconds or historyCycles so both values stay stored.
  */
 function syncNodeGraphWaterfallHistoryLabel(root, settings = {}) {
   const host = root?.querySelector?.(
@@ -1155,9 +1154,9 @@ function syncNodeGraphWaterfallHistoryLabel(root, settings = {}) {
     return;
   }
   const titleSpan = host.querySelector("[data-trace-display-history-label]");
-  const field = host.querySelector(`[data-trace-display-field="historyHz"]`)
+  const field = host.querySelector(`[data-trace-display-field="historySeconds"]`)
     || host.querySelector(`[data-trace-display-field="historyCycles"]`)
-    || host.querySelector(`[data-trace-display-field="historySeconds"]`)
+    || host.querySelector(`[data-trace-display-field="historyHz"]`)
     || host.querySelector(`[data-trace-display-field="zoomSeconds"]`);
   if (!titleSpan && !field) {
     return;
@@ -1167,11 +1166,11 @@ function syncNodeGraphWaterfallHistoryLabel(root, settings = {}) {
     : (typeof nodeGraphDisplaySettingsToggleIsOn === "function"
       ? nodeGraphDisplaySettingsToggleIsOn(settings?.sourceSync ?? settings?.sync)
       : Boolean(settings?.sourceSync));
-  const key = syncOn ? "historyCycles" : "historyHz";
-  const label = syncOn ? "Cycles" : "History (Hz)";
+  const key = syncOn ? "historyCycles" : "historySeconds";
+  const label = syncOn ? "Cycles" : "History (seconds)";
   const title = syncOn
     ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods), stretched across the full face. Rising zero-crossing locks phase."
-    : "History window rate in Hz (seconds = 1/Hz). Higher = shorter / faster scroll.";
+    : "History window duration in seconds across the face. Longer = slower scroll. 0 = pause.";
   if (titleSpan) {
     titleSpan.textContent = label;
   }
@@ -1311,12 +1310,17 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     : false;
   const allow = typeof allowKey === "function" ? allowKey : () => true;
   const fieldList = [...activeFields].filter((key) => allow("fields", key));
-  const primaryOrder = typeof nodeGraphInstantTraceDisplayFieldOrder !== "undefined"
-    ? nodeGraphInstantTraceDisplayFieldOrder
-    : ["scale", "historySeconds", "zoomSeconds", "backgroundBrightness", "backgroundHue", "dot1Size", "lineThickness", "dot1Brightness", "dotBudget", "pixelDensity"];
-  const secondaryOrder = typeof nodeGraphTraceDisplaySecondaryInkFieldOrder !== "undefined"
-    ? nodeGraphTraceDisplaySecondaryInkFieldOrder
-    : ["secondarySize", "secondaryLineThickness", "secondaryBrightness"];
+  const isInstantWaterfall = type === "waterfall" || type === "waterfallRgb" || type === "waterfallXyz";
+  const primaryOrder = isInstantWaterfall && typeof nodeGraphInstantWaterfallDisplayFieldOrder !== "undefined"
+    ? nodeGraphInstantWaterfallDisplayFieldOrder
+    : (typeof nodeGraphInstantTraceDisplayFieldOrder !== "undefined"
+      ? nodeGraphInstantTraceDisplayFieldOrder
+      : ["scale", "historySeconds", "zoomSeconds", "backgroundBrightness", "backgroundHue", "dot1Size", "lineThickness", "dot1Brightness", "dotBudget", "pixelDensity"]);
+  const secondaryOrder = isInstantWaterfall
+    ? ["secondaryBrightness"]
+    : (typeof nodeGraphTraceDisplaySecondaryInkFieldOrder !== "undefined"
+      ? nodeGraphTraceDisplaySecondaryInkFieldOrder
+      : ["secondarySize", "secondaryLineThickness", "secondaryBrightness"]);
   const primarySet = new Set(primaryOrder);
   const secondarySet = new Set(secondaryOrder);
   const capSet = new Set(["capSize", "capLength", "capPadding"]);
@@ -1406,10 +1410,14 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml("stereoBlend"));
     usedChoices.add("stereoBlend");
   }
-  // Active History dial: Hz when free-run, cycles when Sync on.
-  if (orderedPrimary.includes("historyHz") || orderedPrimary.includes("historyCycles")) {
+  // Active History dial: seconds when free-run, cycles when Sync on (Instant Waterfall).
+  if (orderedPrimary.includes("historySeconds") || orderedPrimary.includes("historyCycles")
+    || orderedPrimary.includes("historyHz")) {
+    const freeRunKey = orderedPrimary.includes("historySeconds") || !orderedPrimary.includes("historyHz")
+      ? "historySeconds"
+      : "historyHz";
     rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(
-      syncOnForStack ? "historyCycles" : "historyHz",
+      syncOnForStack ? "historyCycles" : freeRunKey,
       type,
       { syncOn: syncOnForStack },
     ));
@@ -1769,8 +1777,6 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         || key === "secondaryLineThickness"
         || key === "secondaryEnabled"
         || key === "syncChannel"
-        // Waterfall XYZ ignores Bright — hard ink only.
-        || key === "dot1Brightness"
       ) {
         return false;
       }

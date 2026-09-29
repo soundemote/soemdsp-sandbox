@@ -677,6 +677,9 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
   }
   if (node.type === "passiveFilter") {
     const mode = Math.round(nodeGraphFiniteNumber(v.mode));
+    if (mode === 0) {
+      return 1;
+    }
     const stages = typeof nodeGraphPassiveFilterStageCount === "function"
       ? nodeGraphPassiveFilterStageCount(v.slope)
       : 1;
@@ -690,13 +693,14 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
         : [nodeGraphFiniteNumber(fc)]
     );
     let mag = 1;
-    if (mode === 1 || mode === 2) {
+    // Mode: 0 Bypass / 1 LP / 2 BP / 3 HP
+    if (mode === 2 || mode === 3) {
       const hpHz = stackHz(v.lowFrequency, "hp");
       for (let i = 0; i < hpHz.length; i += 1) {
         mag *= nodeGraphOnePoleHighpassMagnitudeAt(hpHz[i], frequency, sampleRate);
       }
     }
-    if (mode === 1 || mode === 0) {
+    if (mode === 2 || mode === 1) {
       const lpHz = stackHz(v.highFrequency, "lp");
       for (let i = 0; i < lpHz.length; i += 1) {
         mag *= nodeGraphOnePoleLowpassMagnitudeAt(lpHz[i], frequency, sampleRate);
@@ -796,11 +800,14 @@ function nodeGraphFilterCurveCutoffFrequencies(node, view = null) {
   }
   if (node.type === "passiveFilter") {
     const mode = Math.round(nodeGraphFiniteNumber(v.mode));
-    if (mode === 2) {
+    if (mode === 0) {
+      return [];
+    }
+    if (mode === 3) {
       return [nodeGraphFilterCurveFiniteHz(v.lowFrequency, 0)]
         .filter((x) => Number.isFinite(x) && x >= 0);
     }
-    if (mode === 0) {
+    if (mode === 1) {
       return [nodeGraphFilterCurveFiniteHz(v.highFrequency, 0)]
         .filter((x) => Number.isFinite(x) && x >= 0);
     }
@@ -855,11 +862,15 @@ function nodeGraphFilterCurveLabel(node) {
   }
   if (node.type === "passiveFilter") {
     const mode = Math.round(nodeGraphFiniteNumber(node.params?.mode));
+    if (mode === 0) {
+      return "Bypass";
+    }
     const stages = typeof nodeGraphPassiveFilterStageCount === "function"
       ? nodeGraphPassiveFilterStageCount(node.params?.slope)
       : 1;
     const db = stages * 6;
-    return mode === 1 ? `BP${db}` : mode === 2 ? `HP${db}` : `LP${db}`;
+    // Mode: 1 LP / 2 BP / 3 HP → LP6/BP6/HP6 etc.
+    return mode === 2 ? `BP${db}` : mode === 3 ? `HP${db}` : `LP${db}`;
   }
   if (node.type === "ladderFilter") {
     return nodeGraphLadderFilterModes[Math.round(nodeGraphFiniteNumber(node.params?.mode))] || "Ladder";

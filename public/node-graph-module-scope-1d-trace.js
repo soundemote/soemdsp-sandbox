@@ -14,6 +14,28 @@ function nodeGraphScope1dTraceIsSlot(slot) {
 
 
 function nodeGraphScope1dTraceInkRgb01(settings = {}, role = "primary") {
+  // Gradient owns color when Display Settings gradientStops are present:
+  // flat tip / TraceStroke fallback samples LUT peak (t=1). Bright stays
+  // TraceWoscope intensity only — not black→white in the RGB.
+  const stops = settings?.gradientStops;
+  if (Array.isArray(stops) && stops.length >= 2
+    && typeof nodeGraphSampleGradientStopsRgb === "function") {
+    const peak = stops[stops.length - 1]?.color
+      || settings?.dot1Color
+      || settings?.color
+      || "#ffb020";
+    const rgb = nodeGraphSampleGradientStopsRgb(stops, 1, peak);
+    const r = Number(rgb?.[0]);
+    const g = Number(rgb?.[1]);
+    const b = Number(rgb?.[2]);
+    if ([r, g, b].every(Number.isFinite)) {
+      return [
+        Math.max(0, Math.min(1, r > 1 ? r / 255 : r)),
+        Math.max(0, Math.min(1, g > 1 ? g / 255 : g)),
+        Math.max(0, Math.min(1, b > 1 ? b / 255 : b)),
+      ];
+    }
+  }
   const isSecondary = role === "secondary" || role === "right";
   const colorKey = isSecondary
     ? (settings?.secondaryColor ?? settings?.dot1Color)
@@ -21,8 +43,6 @@ function nodeGraphScope1dTraceInkRgb01(settings = {}, role = "primary") {
   const hue = typeof nodeGraphHueDegFromHex === "function"
     ? nodeGraphHueDegFromHex(colorKey)
     : (isSecondary ? 240 : 0);
-  // Hue at mid brightness (full saturated hue). Brightness is TraceWoscope
-  // intensity / phosphor-style deposit — not black→white in the RGB.
   if (typeof nodeGraphHueBrightnessRgb01 === "function") {
     return nodeGraphHueBrightnessRgb01(hue, 0.5);
   }
@@ -40,6 +60,30 @@ function nodeGraphScope1dTraceBrightness01(settings = {}, role = "primary") {
     return 1;
   }
   return Math.max(0, bright);
+}
+
+
+/** Size authored CSS px @ 96 for TraceWoscope beam diameter (uSize via faceInkPx). */
+function nodeGraphScope1dTraceSizePx(settings = {}, role = "primary") {
+  const isSecondary = role === "secondary" || role === "right";
+  const raw = isSecondary
+    ? (settings?.secondarySize ?? settings?.dot1Size ?? settings?.size)
+    : (settings?.dot1Size ?? settings?.size);
+  const defaults = typeof nodeGraphScope1dTraceSettingsDefaults !== "undefined"
+    ? nodeGraphScope1dTraceSettingsDefaults
+    : null;
+  const fallback = isSecondary
+    ? (defaults?.secondarySize ?? defaults?.dot1Size ?? 2)
+    : (defaults?.dot1Size ?? 2);
+  if (typeof nodeGraphTraceDisplayNormalizeInkPx === "function") {
+    return nodeGraphTraceDisplayNormalizeInkPx(raw, fallback);
+  }
+  const n = Number(raw);
+  if (Number.isFinite(n)) {
+    return Math.max(0, Math.min(32, n));
+  }
+  const fb = Number(fallback);
+  return Number.isFinite(fb) ? Math.max(0, Math.min(32, fb)) : 2;
 }
 
 /**
@@ -234,17 +278,21 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
         hadPoint[c] = false;
       }
       const y = nodeGraphOneDimensionalBurnSampleToY(sample, height, settings);
+      const amp = typeof nodeGraphDisplaySettingsAmplitudeScale === "function"
+        ? nodeGraphDisplaySettingsAmplitudeScale(settings)
+        : 1;
+      const energyT = Math.max(0, Math.min(1, Math.abs(nodeGraphFiniteNumber(sample) * amp)));
       if (horizontalBurn) {
         if (hadPoint[c]) {
           nodeGraphOneDimensionalBurnBreakPath(out[c]);
         }
-        out[c].push({ x: 0, y });
-        out[c].push({ x: width, y });
+        out[c].push({ x: 0, y, t: energyT });
+        out[c].push({ x: width, y, t: energyT });
         nodeGraphOneDimensionalBurnBreakPath(out[c]);
         hadPoint[c] = false;
         prevSample[c] = Number(sample);
       } else {
-        out[c].push({ x, y });
+        out[c].push({ x, y, t: energyT });
         hadPoint[c] = true;
         prevSample[c] = Number(sample);
       }
@@ -287,11 +335,10 @@ function nodeGraphScope1dTraceDrawLayer(context, points, settings, role = "prima
   if (!context || !Array.isArray(points) || !points.length) {
     return 0;
   }
-  const size = role === "secondary" || role === "right"
-    ? (settings?.secondarySize ?? settings?.dot1Size)
-    : settings?.dot1Size;
+  // Size SSOT (like Bright -> intensity): authored CSS px @ 96 -> TraceWoscope uSize.
+  const size = nodeGraphScope1dTraceSizePx(settings, role);
   const inkRgb = nodeGraphScope1dTraceInkRgb01(settings, role);
-  // Phosphor-style Bright → WebGL beam intensity (TraceWoscope uIntensity).
+  // Phosphor-style Bright -> WebGL beam intensity (TraceWoscope uIntensity).
   const brightness = nodeGraphScope1dTraceBrightness01(settings, role);
   const faceMinSide = Math.max(1, Math.min(context.canvas.width, context.canvas.height));
   if (typeof TraceWoscope !== "undefined" && typeof TraceWoscope.draw === "function") {
@@ -300,8 +347,10 @@ function nodeGraphScope1dTraceDrawLayer(context, points, settings, role = "prima
       color: inkRgb,
       faceMinSide,
       brightness,
+      intensity: brightness,
     };
-    // Optional shared colormap LUT (Tube Saturation defaults to crt-amber).
+    // Display Settings gradientStops → TraceWoscope beam LUT (energy t on points).
+    // 2D Trace deliberately does NOT take this path (additive solid hue blend).
     if (Array.isArray(settings?.gradientStops) && settings.gradientStops.length >= 2) {
       woscopeOpts.gradientStops = settings.gradientStops;
       if (typeof nodeGraphSampleGradientStopsRgb === "function") {

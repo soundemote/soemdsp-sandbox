@@ -75,7 +75,7 @@ const FILTERS = [
     name: "passiveFilter",
     typeId: 59,
     setup(g, h) {
-      setParam(g, h, PARAM_MODE, 0); // LP
+      setParam(g, h, PARAM_MODE, 1); // LP (0 Bypass / 1 LP / 2 BP / 3 HP)
       setParam(g, h, PARAM_HPF, 200);
       setParam(g, h, PARAM_LPF, 2000);
     },

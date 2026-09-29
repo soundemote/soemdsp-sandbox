@@ -23,7 +23,7 @@ function nodeGraphPassiveFilterStaggerRatio(stagger) {
 
 /**
  * Apply absolute-Hz center (ƒ jack / pitched base) to HPF/LPF knobs.
- * Mode 0 LP → LPF = center. Mode 2 HP → HPF = center. Mode 1 BP → geo-mean scale.
+ * Mode 0 Bypass → unchanged. Mode 1 LP → LPF = center. Mode 3 HP → HPF = center. Mode 2 BP → geo-mean scale.
  */
 function nodeGraphPassiveFilterApplyCenter(mode, lowFrequency, highFrequency, centerFrequency) {
   let low = Math.max(0, nodeGraphFiniteNumber(lowFrequency));
@@ -37,9 +37,12 @@ function nodeGraphPassiveFilterApplyCenter(mode, lowFrequency, highFrequency, ce
   }
   const safeMode = Math.round(Number(mode)) || 0;
   if (safeMode === 0) {
+    return { lowFrequency: low, highFrequency: high };
+  }
+  if (safeMode === 1) {
     return { lowFrequency: low, highFrequency: centerHz };
   }
-  if (safeMode === 2) {
+  if (safeMode === 3) {
     return { lowFrequency: centerHz, highFrequency: high };
   }
   if (low > 0 && high > 0) {
@@ -286,13 +289,16 @@ function nodeGraphPassiveFilterPrepare(
   }
   let hpHz = null;
   let lpHz = null;
-  // BP = HP then LP in series. Do not sort cutoffs — HPF > LPF collapses the band.
-  if (safeMode === 1) {
-    hpHz = nodeGraphPassiveFilterStackFrequencies(lo, stages, k, comp, "hp");
-    lpHz = nodeGraphPassiveFilterStackFrequencies(hi, stages, k, comp, "lp");
+  // Mode: 0 Bypass / 1 LP / 2 BP / 3 HP. BP = HP then LP; do not sort cutoffs.
+  if (safeMode === 0) {
+    // dry — no poles
   } else if (safeMode === 2) {
     hpHz = nodeGraphPassiveFilterStackFrequencies(lo, stages, k, comp, "hp");
+    lpHz = nodeGraphPassiveFilterStackFrequencies(hi, stages, k, comp, "lp");
+  } else if (safeMode === 3) {
+    hpHz = nodeGraphPassiveFilterStackFrequencies(lo, stages, k, comp, "hp");
   } else {
+    // mode 1 LP
     lpHz = nodeGraphPassiveFilterStackFrequencies(hi, stages, k, comp, "lp");
   }
   const coeff = { safeMode, hpHz, lpHz };
@@ -304,11 +310,14 @@ function nodeGraphPassiveFilterPrepare(
 function nodeGraphPassiveFilterProcess(state, input, coeff, sampleRate, runtime, nodeId) {
   const next = nodeGraphEnsurePassiveFilterState(state);
   const spec = coeff || {};
-  if (spec.safeMode === 1 && spec.hpHz && spec.lpHz) {
+  if (spec.safeMode === 0) {
+    return input;
+  }
+  if (spec.safeMode === 2 && spec.hpHz && spec.lpHz) {
     const hp = nodeGraphPassiveFilterCascade(next.hp, input, spec.hpHz, "hp", sampleRate, runtime, nodeId);
     return nodeGraphPassiveFilterCascade(next.lp, hp, spec.lpHz, "lp", sampleRate, runtime, nodeId);
   }
-  if (spec.safeMode === 2 && spec.hpHz) {
+  if (spec.safeMode === 3 && spec.hpHz) {
     return nodeGraphPassiveFilterCascade(next.hp, input, spec.hpHz, "hp", sampleRate, runtime, nodeId);
   }
   if (spec.lpHz) {

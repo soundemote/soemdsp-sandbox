@@ -142,7 +142,8 @@
     const x = fin(input);
     const wet = tubeWet(x, drive, bias, load);
     const m = clamp(fin(mix, 1), 0, 1);
-    const amp = clamp(fin(amplitude, 1), 0, 1);
+    // Amplitude: 0..1 preference only — do not hard-clamp (matches native; see tube_saturation.cpp).
+    const amp = fin(amplitude, 1);
     return (x * (1 - m) + wet * m) * amp;
   }
 

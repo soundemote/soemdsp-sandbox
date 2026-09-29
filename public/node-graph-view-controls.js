@@ -471,7 +471,14 @@ function nodeGraphSimulationDisplayFps() {
 
 function normalizeNodeGraphModuleScopePointBudget(value) {
   const number = Number(value);
-  return Number.isFinite(number) ? clampNodeSliderValue(Math.round(number), 1, 65536) : 4096;
+  if (!Number.isFinite(number)) {
+    return 4096;
+  }
+  const rounded = Math.round(number);
+  if (typeof clampNodeSliderValue === "function") {
+    return clampNodeSliderValue(rounded, 1, 65536);
+  }
+  return Math.max(1, Math.min(65536, rounded));
 }
 
 function normalizeNodeGraphModuleScopeBackgroundColor(value) {

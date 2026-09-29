@@ -542,6 +542,8 @@ function drawNodeGraphModuleScopes(options = {}) {
       console.error("node graph typed module scope draw failed", {
         displayType: nodeGraphModuleDisplayRendererForSlot(slot),
         error,
+        message: error && (error.message || String(error)),
+        stack: error && error.stack,
         nodeId: slot?.nodeId,
         type: slot?.type,
       });

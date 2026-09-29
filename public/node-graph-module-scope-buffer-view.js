@@ -69,7 +69,7 @@ function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
     })
     : nodeGraphTraceDisplayVisibleSamples(buffer, settings);
   const visibleSamples = Math.min(validSamples, historySamples);
-  // Freerun: span is History (Hz) → 1/Hz seconds (start may be < 0). Mapping
+  // Freerun: span is History (seconds) across the face (start may be < 0). Mapping
   // only the samples we have across the full width is the "zoom out while
   // the ring fills" effect. Right-align so new ink walks left at constant spp.
   let start = forceOff || syncChannel === "off"

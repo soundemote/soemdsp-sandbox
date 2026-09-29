@@ -407,8 +407,14 @@ function cloneNodeGraphTypedDisplaySettings(node) {
         : null;
       return { traceDisplaySettings: normalizeNodeGraphScope2dSettings(mapped, typeDefaults) };
     }
-    case "scope1dTrace":
-      return { traceDisplaySettings: normalizeNodeGraphScope1dTraceSettings(bag) };
+    case "scope1dTrace": {
+      const typeDefaults = typeof nodeGraphModuleDefinitions === "object"
+        && nodeGraphModuleDefinitions?.[node?.type]?.defaultDisplaySettings;
+      const merged = typeDefaults && typeof typeDefaults === "object"
+        ? { ...typeDefaults, ...(bag || {}) }
+        : bag;
+      return { traceDisplaySettings: normalizeNodeGraphScope1dTraceSettings(merged || {}) };
+    }
     case "scope2dTrace": {
       const typeDefaults = typeof nodeGraphScope2dTraceSettingsDefaultsForModuleType === "function"
         ? nodeGraphScope2dTraceSettingsDefaultsForModuleType(node?.type)

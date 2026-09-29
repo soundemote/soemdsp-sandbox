@@ -154,7 +154,10 @@ static double process_one(
   const double x = safe(input);
   const double wet = tube_wet(x, drive, bias, load);
   const double m = clamp01(safe(mix));
-  const double amp = clamp01(safe(amplitude));
+  // Amplitude: 0..1 is DOMAIN preference / slider guide (nodeGraphOutputAmplitudeParam +
+  // modClamp at host). Do not hard-clamp here — that fights typed/past-unity makeup gain.
+  // safe() keeps NaN/Inf out; range is the param's job.
+  const double amp = safe(amplitude);
   return (x * (1.0 - m) + wet * m) * amp;
 }
 

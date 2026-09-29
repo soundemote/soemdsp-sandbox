@@ -647,16 +647,34 @@ function prepareNodeGraphTraceDisplayBuffer(buffer, settings = nodeGraphWaterfal
   if (!buffer?.length) {
     return buffer;
   }
-  const traceSettings = normalizeNodeGraphWaterfallSettings(settings);
+  // Paint hot path: only needs skipDiscontinuities. Do NOT call
+  // normalizeNodeGraphWaterfallSettings here — that pulls ClampInkPx →
+  // clampNodeSliderValue and threw ReferenceError while Instant Waterfall
+  // painted before slider-values.js finished loading (console error:{}).
+  const bag = settings && typeof settings === "object" ? settings : {};
+  const rawSkip = bag.skipDiscontinuities;
+  const skip = rawSkip === true || rawSkip === 1 || rawSkip === "1" || rawSkip === "true"
+    ? true
+    : (rawSkip === false || rawSkip === 0 || rawSkip === "0" || rawSkip === "false"
+      ? false
+      : (typeof nodeGraphWaterfallSettingsDefaults !== "undefined"
+        && nodeGraphWaterfallSettingsDefaults?.skipDiscontinuities === true));
   buffer.nodeGraphScopeDrawFullWindow = true;
   buffer.nodeGraphScopeDrawProgress = 1;
   buffer.nodeGraphScopeDrawStartProgress = 0;
   buffer.nodeGraphScopeDrawWrap = false;
   buffer.nodeGraphScopeHoldPoint = false;
-  buffer.nodeGraphScopeSkipDiscontinuities = traceSettings.skipDiscontinuities;
+  buffer.nodeGraphScopeSkipDiscontinuities = skip;
   buffer.nodeGraphScopeTracePadding = 0;
   buffer.nodeGraphScopeMinPointSpacingPx = 0.5;
-  buffer.nodeGraphScopeVisualPointLimit = nodeGraphTraceDisplayRenderPointBudget();
+  // Point budget normalize uses clampNodeSliderValue (loads later). Safe default
+  // during early Instant Waterfall frames so paint never throws ReferenceError.
+  buffer.nodeGraphScopeVisualPointLimit = (typeof clampNodeSliderValue === "function"
+    && typeof nodeGraphTraceDisplayRenderPointBudget === "function")
+    ? nodeGraphTraceDisplayRenderPointBudget()
+    : (typeof nodeGraphTraceDisplayRenderPointBudgetDefault === "number"
+      ? nodeGraphTraceDisplayRenderPointBudgetDefault
+      : 4096);
   buffer.nodeGraphScopeUseFullWindow = true;
   return buffer;
 }

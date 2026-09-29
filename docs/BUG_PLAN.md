@@ -130,10 +130,16 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-078 | see | fixed | Trace/Phosphor/Waterfall scopeFace faces hidden (band id trace vs face-track-omitted) |
 | B-079 | see | fixed | Choices range clamp keeps full catalog labels/dividers (no subset remap) |
 | B-080 | see | fixed | Choice segment text ellipsizes before full track width |
+| B-081 | see | fixed | scope1dTrace Size / Vibrato thickness not bound to TraceWoscope; Scale <1 shrunk Y |
+| B-082 | hear | fixed | Unit-band param MOD must clamp to paramMeta [min,max] (Gate+Toggle > Amp max) |
+| B-083 | see | fixed | Tube Sat TraceWoscope face blank (demo Bright=0) |
+| B-084 | see | fixed | scope1dTrace Display Settings gradient not feeding TraceWoscope LUT |
 
 ---
 
 ## Inbox (unnumbered user reports)
+- 2026-09-28: Tube Sat TraceWoscope face blank (demo Bright=0) — fixed → **B-083** (docs/B-083_TUBE_SAT_TRACE_FACE_BLANK.md).
+- 2026-09-28: Tube Sat / scope1dTrace TraceWoscope not applying Display Settings gradient (2D Trace stays solid) — fixed → **B-084** (docs/B-084_SCOPE1DTRACE_GRADIENT_LUT.md).
 
 Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 
@@ -154,6 +160,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - 2026-09-28: User - Keyboard not sending out Inc. Promoted -> **B-077** (`docs/B-077_KEYBOARD_INC_HOST_CV_MISSING.md`).
 - 2026-09-28: User - Choices range clamp (PolyBLEP Waveform 4–5) does not remap choice set. Promoted → **B-079** (`docs/B-079_CHOICES_RANGE_CLAMP_SUBSET.md`).
 - 2026-09-28: User - Choices parameter (Tube Saturation context): choice divide/segment text ellipsizes too early / does not use full slider width. Promoted → **B-080** (`docs/B-080_CHOICE_SEGMENT_TEXT_FULLWIDTH.md`).
+- 2026-09-28: User - Parameter modulation must clamp to param max/min (Keyboard Gate + Toggle into PolyBLEP Amplitude). Promoted -> **B-082** (`docs/B-082_PARAM_MOD_CLAMP_MIN_MAX.md`).
 
 ---
 
@@ -925,10 +932,50 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Fix: `.displays-choices` + collapse empty unit (`display: none`, `column-gap: 0`); value `width: 100%` of track. Smoke `test_b080_choice_label_fullwidth.js`.
 
 
+### B-081 — scope1dTrace Size / Vibrato thickness + full-height Y
+- Status: fixed (code; needs Live UI verify)
+- Severity: see
+- Source: user 2026-09-28 (Vibrato Generator; all scope1dTrace faces)
+- Related: B-072; Bright to TraceWoscope intensity polish; Instant Waterfall Size drop
+- Doc: docs/B-081_SCOPE1DTRACE_SIZE_THICKNESS.md
+- Files: public/node-graph-module-definitions.js; public/node-graph-module-scope-1d-trace.js; public/node-graph-module-scope-metrics.js; public/node-graph-module-scope-settings-form.js; public/index.html
+- What: Vibrato could not set trace thickness; Size must drive TraceWoscope like Bright; Scale <1 must not shrink Y.
+- Repro: Vibrato Display Settings Size; Scale 0.5 vs 2.
+- Root cause: Vibrato on waterfall (no Size); 1dTrace Size lacked Bright-style SSOT helper; Y used amp Scale <1.
+- Fix: Vibrato to scope1dTrace; nodeGraphScope1dTraceSizePx to TraceWoscope; Y clamps Scale floor to 1; signature + tip; cache-bust b081-1dtrace-size-1.
+
+
+
+
+### B-084 — scope1dTrace Display Settings gradient → TraceWoscope LUT
+
+- Status: **fixed** (2026-09-28, local, no push)
+- Severity: see
+- Source: user 2026-09-28 (Tube Sat / scope1dTrace; 2D Trace must stay non-gradient)
+- Related: B-083; FEATURE_TUBE_SAT_CRT_AMBER; B-081
+- Doc: docs/B-084_SCOPE1DTRACE_GRADIENT_LUT.md
+- What: 1D TraceWoscope ignored meaningful LUT mapping from Display Settings gradientStops; Color swatches conflicted with Gradient-owns-color.
+- Fix: energy t on 1D points; ink from gradient peak; scope1dTrace colors:[]; 2D Trace untouched; cache-bust b084-1dtrace-grad-1.
+
+### B-082 — Unit-band param MOD must clamp to paramMeta [min,max]
+- Status: fixed
+- Severity: hear
+- Source: user 2026-09-28
+- Doc: `docs/B-082_PARAM_MOD_CLAMP_MIN_MAX.md`
+- Files: `native_modules/graph_engine/graph_engine.cpp` (v156); `public/node-live-audio-worklet-native-graph.js`; `public/node-graph-stdlib/node-graph-param-surface-helpers.js`; `public/node-graph-live-parameter-runtime.js`; PolyBLEP Amp meta
+- What: Keyboard Gate + Toggle both ON into PolyBLEP Amplitude exceeded Amp max (usually 1).
+- Repro: Amp MOD from Gate + Toggle; hold key + Toggle ON -> level past full-scale.
+- Root cause: Host packed `modClamp:false` as unbounded; native `control_effective` skipped [min,max] clamp for unit-band.
+- Fix: Unit-band SSOT always clamps in `control_effective`; host always sets bit1 for unit-band; helpers ignore legacy `modClamp:false`. Domain-valued MOD unchanged. Smoke `scripts/smoke_b082_amp_mod_clamp.mjs`. No JS DSP. Local, no push.
+
 ## Fixed
+
+- **B-084** — scope1dTrace Display Settings gradientStops feed TraceWoscope energy LUT; 2D Trace stays solid (b084-1dtrace-grad-1).
+- **B-082** — Unit-band param MOD clamps to paramMeta [min,max] (`control_effective` SSOT; Gate+Toggle <= Amp max).
 
 <!-- move B-xxx here with a one-line note -->
 
+- **B-081** — scope1dTrace Size to TraceWoscope thickness SSOT; Vibrato on 1D Trace; Scale <1 no longer shrinks Y (b081-1dtrace-size-1).
 - **B-055** — Text Boxes mount under `#nodeWireSvg` via `#nodeGraphAnnotationNodes` so cables paint above annotations.
 - **B-057** — Hide unused recomputes IO/outer height from connected ports; layout bands re-applied on chrome/wire edits.
 - **B-059** — Alt+click jack scope-monitor feature **removed** (deleted, not wontfix). See section above / `docs/B-059_ABANDONED_WIRE_DRAG_ORPHAN_DOT.md`.

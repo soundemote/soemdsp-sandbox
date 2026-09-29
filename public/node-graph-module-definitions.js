@@ -1001,16 +1001,15 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        // Slider guide 0…1 (full-scale wave). Domain is not hard-clamped —
-        // type larger values or use MOD if you want overdrive / CV gain.
+        // Slider guide 0…1 (full-scale wave). DOMAIN typing may exceed; unit-band MOD clamps (B-082).
         max: "1",
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: true,
         tooltip:
-          "Output level. Slider 0…1 = full-scale bipolar wave. Min/max are guides only — type large values for gain past unity (domain not hard-clamped)."
+          "Output level. Slider 0…1 = full-scale bipolar wave. Post-MOD stays in min…max (Gate+Toggle cannot boost past Amp max)."
       },
     ]
   },
@@ -5167,7 +5166,8 @@ const nodeGraphModuleDefinitions = (
   vibratoGenerator: {
     planRole: "source",
     planFreeRun: true,
-    // Waterfall amp-per-frame bars (reference consumer for the redesign).
+    // Instant Waterfall reference consumer (Blur only; full-face waveform, no amplitude law).
+    // B-081 had parked this on scope1dTrace for Size; restore waterfall with Wave source.
     displayType: "waterfall",
     displayModes: [
       { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Wave" } },
@@ -7519,6 +7519,9 @@ const nodeGraphModuleDefinitions = (
   tubeSaturation: {
     planRole: "processor",
     // 1D Trace = TraceWoscope beam (not lineBurn / 1D Phosphor).
+    // LayoutA default mounts the scope face (same pattern as PolyBLEP/Limiter —
+    // no layout:"scopeFace"). displayHeightGu stamps spawn face size.
+    displayHeightGu: 2,
     displayType: "scope1dTrace",
     displayModes: [
       {
@@ -7913,18 +7916,20 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out", "Left", "Right"],
     parameters: [
       {
-        choices: ["LP", "BP", "HP"],
-        defaultValue: "0",
+        choices: ["Bypass", "LP", "BP", "HP"],
+        // 1 = LP (first usable mode after Bypass)
+        defaultValue: "1",
         displayChoices: true,
+        divideChoicesVisibly: true,
         key: "mode",
         label: "Mode",
         linearSmoothing: false,
-        max: "2",
-        mid: "1",
+        max: "3",
+        mid: "1.5",
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Real-pole stacks. LP / HP use LPF / HPF. BP is HP→LP in series (no cutoff swap — HPF above LPF collapses the band)."
+        tooltip: "Real-pole stacks. Bypass = dry. LP / HP use LPF / HPF. BP is HP→LP in series (no cutoff swap — HPF above LPF collapses the band)."
       },
       {
         choices: ["6", "12", "18", "24"],
@@ -12422,6 +12427,18 @@ const nodeGraphModuleDefinitions = (
   },
   delayEffect: {
     planRole: "processor",
+    // Instant Waterfall (Blur only; full-face waveform, no amplitude law) — stereo Mix Out.
+    displayType: "waterfall",
+    spectrumCompanion: false,
+    displayModes: [
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
+    ],
+    defaultDisplayMode: "waterfall",
+    stereoWaterfallPorts: { left: "Mix L", right: "Mix R" },
+    displaySignals: [
+      { key: "Mix L", kind: "scalar" },
+      { key: "Mix R", kind: "scalar" },
+    ],
     // Stereo Mix L/R — mono folds via Left in (or wire Mono→Left).
     inputAliases: { In: "Left", Mono: "Left" },
     inputLabels: { Left: "Left", Right: "Right" },
@@ -12505,13 +12522,18 @@ const nodeGraphModuleDefinitions = (
   // Ping Pong: Mix L/R = audio; LFO L/R = gold CV (raw bipolar LFO before Amp).
   pingPongDelay: {
     planRole: "processor",
+    // Instant Waterfall (Blur only; full-face waveform, no amplitude law) — stereo Mix Out (not LFO CV).
     displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
       { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
     defaultDisplayMode: "waterfall",
-    stereoWaterfallPorts: { left: "LFO L", right: "LFO R" },
+    stereoWaterfallPorts: { left: "Mix L", right: "Mix R" },
+    displaySignals: [
+      { key: "Mix L", kind: "scalar" },
+      { key: "Mix R", kind: "scalar" },
+    ],
     inputAliases: { In: "Mono" },
     inputLabels: { Mono: "Mono", Left: "Left", Right: "Right" },
     inputs: ["Mono", "Left", "Right"],
@@ -12762,13 +12784,19 @@ const nodeGraphModuleDefinitions = (
   reverbEffect: {
     planRole: "processor",
     planFreeRun: true,
+    // Instant Waterfall (Blur only; full-face waveform, no amplitude law) — stereo Mix Out.
     displayType: "waterfall",
+    spectrumCompanion: false,
     displayModes: [
       { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
     ],
     defaultDisplayMode: "waterfall",
     // Dry = pure input; Mix = dry/wet blend (no wet-only jacks).
     stereoWaterfallPorts: { left: "Mix L", right: "Mix R" },
+    displaySignals: [
+      { key: "Mix L", kind: "scalar" },
+      { key: "Mix R", kind: "scalar" },
+    ],
     inputAliases: { In: "Mono" },
     inputs: ["Mono", "Left", "Right"],
     inputLabels: { Mono: "Mono", Left: "Left", Right: "Right" },
@@ -12815,7 +12843,7 @@ const nodeGraphModuleDefinitions = (
   soemReverb: {
     planRole: "processor",
     planFreeRun: true,
-    // Same stereo Trace face as Output (L/R colors, syncChannel, stereoBlend).
+    // Instant Waterfall (Blur only; full-face waveform, no amplitude law) — stereo Mix Out.
     displayType: "waterfall",
     spectrumCompanion: false,
     displayModes: [
@@ -12823,6 +12851,10 @@ const nodeGraphModuleDefinitions = (
     ],
     defaultDisplayMode: "waterfall",
     stereoWaterfallPorts: { left: "Mix L", right: "Mix R" },
+    displaySignals: [
+      { key: "Mix L", kind: "scalar" },
+      { key: "Mix R", kind: "scalar" },
+    ],
     inputs: ["Mono", "Left", "Right"],
     // Dry = pure input; Mix = full dry/wet blend (no wet-only jacks).
     outputAliases: {

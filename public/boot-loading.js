@@ -12,6 +12,21 @@ if (typeof globalThis.nodeGraphFiniteNumber !== "function") {
   };
 }
 
+// Slider clamp — SSOT later in node-graph-slider-values.js. Early stub so Instant
+// Waterfall paint / settings normalize cannot throw ReferenceError during the
+// deferred-script race (boot watchdog can reveal UI before slider-values loads).
+if (typeof globalThis.clampNodeSliderValue !== "function") {
+  globalThis.clampNodeSliderValue = function clampNodeSliderValue(value, min, max) {
+    const n = Number(value);
+    const lo = Number(min);
+    const hi = Number(max);
+    const v = Number.isFinite(n) ? n : 0;
+    const a = Number.isFinite(lo) ? lo : 0;
+    const b = Number.isFinite(hi) ? hi : 1;
+    return Math.max(a, Math.min(b, v));
+  };
+}
+
 window.nodeGraphMvp = window.nodeGraphMvp || {
   zoom: 1,
   pan: { x: 0, y: 0 },

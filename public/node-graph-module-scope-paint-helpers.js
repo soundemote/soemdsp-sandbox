@@ -2254,7 +2254,7 @@ function nodeGraphPaintRmsDbGuideOverlay(context, canvas, slot = null) {
   const width = Math.max(1, canvas.width);
   const height = Math.max(1, canvas.height);
   const midY = height * 0.5;
-  const halfHeight = height * 0.42;
+  const halfHeight = height * 0.5;
   const labelPad = Math.max(4, Math.round(width * 0.02));
   const fontPx = Math.max(9, Math.min(13, Math.round(height * 0.045)));
   const minLabelGap = fontPx * 1.15;
@@ -2353,6 +2353,9 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const xyzBuffers = (!stereoBuffers && !rgbBuffers && nodeGraphModuleUsesXyzWaterfall(slot?.type))
     ? nodeGraphXyzWaterfallBuffers(slot.nodeId, slot.type)
     : null;
+  if (typeof nodeGraphWaterfallPaint !== "function") {
+    return false;
+  }
   const painted = nodeGraphWaterfallPaint({
     item,
     slot,

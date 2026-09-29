@@ -99,7 +99,7 @@ function setupActiveBp(g, h) {
 }
 
 function setupPassiveBp(g, h) {
-  setParam(g, h, PARAM_MODE, 1); // BP
+  setParam(g, h, PARAM_MODE, 2); // BP (0 Bypass / 1 LP / 2 BP / 3 HP)
   setParam(g, h, PARAM_HPF, 350);
   setParam(g, h, PARAM_LPF, 450);
   setParam(g, h, PARAM_STAGES, 3); // 24 dB

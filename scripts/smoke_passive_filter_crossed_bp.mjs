@@ -21,7 +21,7 @@ const sample = must("soemdsp_passive_filter_sample_ex");
 const version = must("soemdsp_passive_filter_version");
 
 const SR = 44100;
-const MODE_BP = 1;
+const MODE_BP = 2; // Bias Mode: 0 Bypass / 1 LP / 2 BP / 3 HP
 const N = 4096;
 const TONE_HZ = 800;
 
@@ -42,7 +42,7 @@ function rmsFor(hpf, lpf, slope = 3) {
 }
 
 const ver = version() | 0;
-if (ver < 3) throw new Error(`passive_filter version ${ver} < 3 (need no-sort BP)`);
+if (ver < 4) throw new Error(`passive_filter version ${ver} < 4 (need Bypass + shifted modes)`);
 
 const openBand = rmsFor(200, 2000); // HPF < tone < LPF
 const crossed = rmsFor(2000, 200); // HPF > LPF — should crush

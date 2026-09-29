@@ -614,58 +614,55 @@ function normalizeNodeGraphLineBurnSweepPair(source, defaults = nodeGraphLineBur
   };
 }
 
-/** Sync-off History: window rate in Hz (seconds = 1/Hz). 0 = freeze / now-line. */
-function nodeGraphTraceDisplayClampHistoryHz(value, fallback = 4) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
-    const fb = Number(fallback);
-    return Number.isFinite(fb) ? Math.max(0, fb) : 4;
-  }
-  if (n <= 0) {
-    return 0;
-  }
-  // Soft upper only — no seconds floor. Phosphor Sweep has its own 0 = burn.
-  return Math.min(100, n);
-}
-
-/** Sync-on History: cycles in view. */
+/** Sync-on History: cycles in view (Instant Waterfall Cycles dial). */
 function nodeGraphTraceDisplayClampHistoryCycles(value, fallback = 4) {
   return nodeGraphTraceDisplayClampSweepCycles(value, fallback);
 }
 
+/** Instant Waterfall only: History (seconds). 0 / below eps = pause. */
+const NODE_GRAPH_WATERFALL_HISTORY_SEC_EPS = 1e-12;
+function nodeGraphWaterfallClampHistorySeconds(value, fallback = 0.25) {
+  const n = Number(value);
+  const maxSec = typeof nodeGraphTraceDisplayMaxZoomSeconds === "number"
+    ? nodeGraphTraceDisplayMaxZoomSeconds
+    : 10;
+  if (!Number.isFinite(n)) {
+    const fb = Number(fallback);
+    return Number.isFinite(fb) ? Math.max(0, Math.min(maxSec, fb)) : 0.25;
+  }
+  if (!(n > NODE_GRAPH_WATERFALL_HISTORY_SEC_EPS)) {
+    return 0;
+  }
+  return Math.min(maxSec, n);
+}
+
 /**
- * Resolve History Hz + Cycles as separate dials.
- * Legacy historySeconds / zoomSeconds → Hz = 1/s; cycles seeded from the same number.
+ * Instant Waterfall History (seconds) + Cycles — isolated from phosphor / scope1dTrace.
+ * One-shot load migration: if historySeconds missing, convert legacy historyHz once.
+ * Does not keep Hz as a live dual-path or write historyHz back.
  */
-function normalizeNodeGraphTraceHistoryPair(source, defaults = {}) {
-  const defHz = Number(defaults?.historyHz);
+function normalizeNodeGraphWaterfallHistory(source, defaults = {}) {
+  const defSec = Number(defaults?.historySeconds);
   const defCycles = Number(defaults?.historyCycles);
-  const legacySec = Number(source?.historySeconds ?? source?.zoomSeconds);
-  let hz = Number(source?.historyHz);
+  let sec = Number(source?.historySeconds ?? source?.zoomSeconds);
   let cycles = Number(source?.historyCycles);
-  if (!Number.isFinite(hz)) {
-    if (Number.isFinite(legacySec) && legacySec > 0) {
-      hz = 1 / legacySec;
+  if (!Number.isFinite(sec)) {
+    const legacyHz = Number(source?.historyHz);
+    if (Number.isFinite(legacyHz)) {
+      sec = legacyHz > 0 ? 1 / legacyHz : 0;
     } else {
-      hz = Number.isFinite(defHz) ? defHz : 4;
+      sec = Number.isFinite(defSec) ? defSec : 0.25;
     }
   }
   if (!Number.isFinite(cycles)) {
-    if (Number.isFinite(legacySec) && legacySec > 0) {
-      cycles = legacySec;
-    } else {
-      cycles = Number.isFinite(defCycles) ? defCycles : 4;
-    }
+    cycles = Number.isFinite(defCycles) ? defCycles : 4;
   }
-  const historyHz = nodeGraphTraceDisplayClampHistoryHz(hz, defHz);
+  const historySeconds = nodeGraphWaterfallClampHistorySeconds(sec, defSec);
   const historyCycles = nodeGraphTraceDisplayClampHistoryCycles(cycles, defCycles);
   return {
-    historyHz,
+    historySeconds,
     historyCycles,
-    // Derived for capture / older callers that still read seconds.
-    // 0 Hz → 0 s (waterfall now-line / freeze), not a fake 0.25 s window.
-    historySeconds: historyHz > 0 ? 1 / historyHz : 0,
-    zoomSeconds: historyHz > 0 ? 1 / historyHz : 0,
+    zoomSeconds: historySeconds,
   };
 }
 
@@ -902,8 +899,21 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
       }
       return defaults.syncChannel || "off";
     })(),
-    ...normalizeNodeGraphTraceHistoryPair(source, defaults),
-    fade: normalizeNodeGraphTraceDisplayNumber(source.fade, defaults.fade ?? 0, 0, 1),
+    ...normalizeNodeGraphWaterfallHistory(source, defaults),
+    // Mirror Bright for form field key (Display Settings edits dot1Brightness).
+    dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
+      source.dot1Brightness ?? source.brightness,
+      defaults.brightness,
+    ),
+    // Explicit blur alias (UI Blur); lineThickness remains the stored soft-skirt amount.
+    blur: typeof nodeGraphTraceDisplayClampStampBlur === "function"
+      ? nodeGraphTraceDisplayClampStampBlur(source.blur ?? source.lineThickness ?? defaults.blur ?? defaults.lineThickness)
+      : normalizeNodeGraphTraceDisplayNumber(
+        source.blur ?? source.lineThickness,
+        defaults.blur ?? defaults.lineThickness ?? 0.15,
+        0,
+        1,
+      ),
     xyzLayout: String(source.xyzLayout || defaults.xyzLayout || "stack").toLowerCase() === "separate"
       ? "separate"
       : "stack",
@@ -1807,7 +1817,17 @@ function nodeGraphScope1dTraceSettingsForNode(node) {
   if (!node) {
     return normalizeNodeGraphScope1dTraceSettings();
   }
-  return normalizeNodeGraphScope1dTraceSettings(node.traceDisplaySettings);
+  // Module defaultDisplaySettings (Tube Sat crt-amber / Bright) seed under the
+  // saved bag so existing nodes pick up type ink without wiping user edits.
+  const defDisp = typeof nodeGraphModuleDefinitions === "object"
+    && nodeGraphModuleDefinitions?.[node.type]?.defaultDisplaySettings;
+  const bag = node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+    ? node.traceDisplaySettings
+    : null;
+  const merged = defDisp && typeof defDisp === "object"
+    ? { ...defDisp, ...(bag || {}) }
+    : bag;
+  return normalizeNodeGraphScope1dTraceSettings(merged || {});
 }
 
 function nodeGraphZeroDBurnSettingsForNode(node) {

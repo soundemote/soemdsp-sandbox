@@ -2751,13 +2751,17 @@ static inline double control_effective(const Control& c) {
   result = result + domainAdd;
   if (!(result == result)) result = 0.0;
   if (realValues) {
-    // Use real values: no min/max clamp.
+    // Domain-valued MOD (bit4 / domainAdd): no min/max clamp.
   } else if (haveRange && wrap) {
     double w = result - minV;
     w = w - range * dsp_floor(w / range);
     if (w < 0.0) w += range;
     result = minV + w;
-  } else if (haveRange && (modClamp || !unbounded)) {
+  } else if (haveRange) {
+    // Unit-band SSOT (B-082): always clamp post-MOD into paramMeta [min,max].
+    // Ignore legacy unbounded / modClamp:false so Gate+Toggle cannot exceed Amp max.
+    (void)modClamp;
+    (void)unbounded;
     if (result < minV) result = minV;
     if (result > maxV) result = maxV;
   }
@@ -8137,7 +8141,7 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
 }
 
 // Passive: hpfFrequency=HPF, lpfFrequency=LPF. Live ƒ centers the active cut(s).
-// Mode 0 LP / 1 BP / 2 HP (matches JS + native sample()).
+// Mode 0 Bypass / 1 LP / 2 BP / 3 HP (matches JS + native sample()).
 static void process_passive_filter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -8152,7 +8156,7 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
   const double modeV = control_effective(node.mode);
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   if (mode < 0) mode = 0;
-  if (mode > 2) mode = 2;
+  if (mode > 3) mode = 3;
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
@@ -8169,10 +8173,10 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
     if (!(hi == hi)) hi = 1000.0;
     double center = 0.0;
     bool haveCenter = false;
-    if (livePitch) {
+    if (livePitch && mode != 0) {
       double base = 0.0;
-      if (mode == 0) base = hi;
-      else if (mode == 2) base = lo;
+      if (mode == 1) base = hi;
+      else if (mode == 3) base = lo;
       else if (lo > 0.0 && hi > 0.0) base = dsp_exp(0.5 * dsp_ln(lo * hi));
       else if (hi > 0.0) base = hi;
       else base = lo;
@@ -8182,10 +8186,10 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
       }
     }
     if (haveCenter) center = apply_global_pitch(g, center);
-    if (haveCenter && center > 0.0) {
-      if (mode == 0) {
+    if (haveCenter && center > 0.0 && mode != 0) {
+      if (mode == 1) {
         hi = center;
-      } else if (mode == 2) {
+      } else if (mode == 3) {
         lo = center;
       } else if (lo > 0.0 && hi > 0.0) {
         const double geo = dsp_exp(0.5 * dsp_ln(lo * hi));
@@ -12550,7 +12554,7 @@ extern "C" int soemdsp_graph_set_param_domain(
   if (!c) return 0;
   c->domainMin = (min == min) ? (double)min : 0.0;
   c->domainMax = (max == max) ? (double)max : 0.0;
-  // bit0 wrap, bit1 modClamp, bit2 VCA amp multiply, bit3 unbounded (modClamp:false)
+  // bit0 wrap, bit1 modClamp (unit-band SSOT always clamps), bit2 VCA, bit3 unbounded (legacy; ignored for unit-band)
   c->modFlags = (unsigned char)(flags & 63); // bit4 domainValued, bit5 replaceOnly
   return 0;
 }
@@ -14178,5 +14182,5 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 155; // sampleHold Smoothing factor + Slow End/Start interpolate
+  return 156; // B-082 unit-band MOD always clamps to domain min/max
 }

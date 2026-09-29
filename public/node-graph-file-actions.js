@@ -1,14 +1,43 @@
-function nodeGraphPatchFileName() {
-  const info = normalizeNodeGraphPatchInfo(nodeGraphMvp.patch.info);
-  const baseName = info.name || "soemdsp-patch";
-  const tagName = info.tags && info.tags !== "tags"
-    ? `-${info.tags}`
-    : "";
-  const safeName = `${baseName}${tagName}`
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return `${safeName || "soemdsp-patch"}.json`;
+/** Strip FS-unsafe chars; ensure a single .json suffix for save dialogs. */
+function nodeGraphSanitizeSuggestedPatchFileName(name = "") {
+  let stem = String(name || "").trim().replace(/\.json$/i, "");
+  stem = stem
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, "-")
+    .replace(/[\s.]+$/g, "")
+    .replace(/^\.+/, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 180);
+  return `${stem || "soemdsp-patch"}.json`;
+}
+
+/**
+ * Suggested save filename = patch name + .json (unsafe chars sanitized).
+ * Prefers live header / supplied patch; falls back to lastPatchName, then default.
+ */
+function nodeGraphPatchFileName(patch = null) {
+  let rawName = "";
+  if (patch && typeof patch === "object") {
+    const info = typeof normalizeNodeGraphPatchInfo === "function"
+      ? normalizeNodeGraphPatchInfo(patch.info || patch)
+      : (patch.info || patch);
+    rawName = String(info?.name || "").trim();
+  }
+  if (!rawName && typeof nodeGraphPatchInfoFieldValue === "function") {
+    rawName = String(
+      nodeGraphPatchInfoFieldValue("name", "nodePatchDefaultsName", "patchNameValue") || "",
+    ).trim();
+  }
+  if (!rawName && nodeGraphMvp?.patch?.info) {
+    const info = typeof normalizeNodeGraphPatchInfo === "function"
+      ? normalizeNodeGraphPatchInfo(nodeGraphMvp.patch.info)
+      : nodeGraphMvp.patch.info;
+    rawName = String(info?.name || "").trim();
+  }
+  if (!rawName && typeof nodeGraphFilePickerState === "function") {
+    rawName = String(nodeGraphFilePickerState().lastPatchName || "").trim();
+  }
+  return nodeGraphSanitizeSuggestedPatchFileName(rawName || "soemdsp-patch");
 }
 
 function nodeGraphPatchWithLiveHeaderInfo(patch = nodeGraphMvp.patch) {
@@ -565,7 +594,7 @@ function nodeGraphPatchExportPayload() {
     ? serializeNodeGraphPatch(patchToSave)
     : JSON.stringify(patchToSave, null, 2);
   const filename = typeof nodeGraphPatchFileName === "function"
-    ? nodeGraphPatchFileName()
+    ? nodeGraphPatchFileName(patchToSave)
     : "soemdsp-patch.json";
   return { text: patchText, filename, patch: patchToSave };
 }
@@ -711,8 +740,8 @@ async function nodeGraphFilePickerRememberLocation(handle) {
   await nodeGraphFilePickerPutHandle(toStore);
 }
 
-function nodeGraphDownloadTextFile(text, filename) {
-  const blob = new Blob([`${text}`], { type: "application/json;charset=utf-8" });
+function nodeGraphDownloadTextFile(filename, text, type = "application/json;charset=utf-8") {
+  const blob = new Blob([`${text}`], { type });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -752,7 +781,7 @@ async function nodeGraphSaveTextFileWithNativeDialog({
       throw error;
     }
   }
-  nodeGraphDownloadTextFile(text, name);
+  nodeGraphDownloadTextFile(name, text);
   return { ok: true, name, cancelled: false, downloaded: true };
 }
 
@@ -819,7 +848,7 @@ async function nodeGraphOpenTextFileWithNativeDialog({
  * (location is usually Downloads; path cannot be forced to Desktop).
  */
 function nodeGraphDownloadPatchTextFile(text, filename) {
-  nodeGraphDownloadTextFile(text, filename || "soemdsp-patch.json");
+  nodeGraphDownloadTextFile(filename || "soemdsp-patch.json", text);
 }
 
 /**
@@ -1088,18 +1117,6 @@ async function copyNodeGraphShareLinkToClipboard(event) {
   } catch (error) {
     setNodeGraphScriptStatus(`share link failed: ${error?.message || error}`, false);
   }
-}
-
-function nodeGraphDownloadTextFile(filename, text, type = "application/json") {
-  const blob = new Blob([text], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function nodeGraphPreviewClipboardPatchText(text) {

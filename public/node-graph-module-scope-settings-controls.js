@@ -188,7 +188,6 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "dot1Brightness",
     "secondaryBrightness",
     "brightness",
-    "fade",
     "ghostBrightness",
     "residual",
     "ghost",
@@ -418,11 +417,19 @@ function adjustNodeGraphTraceDisplaySettingByControlDelta(key, startValue, delta
   );
 }
 function nodeGraphTraceDisplayClampUnit(value) {
-  return clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
+  const n = nodeGraphFiniteNumber(value);
+  if (typeof clampNodeSliderValue === "function") {
+    return clampNodeSliderValue(n, 0, 1);
+  }
+  return Math.max(0, Math.min(1, n));
 }
 
 function nodeGraphTraceDisplayClampInkPx(value) {
-  return clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 32);
+  const n = nodeGraphFiniteNumber(value);
+  if (typeof clampNodeSliderValue === "function") {
+    return clampNodeSliderValue(n, 0, 32);
+  }
+  return Math.max(0, Math.min(32, n));
 }
 
 function nodeGraphTraceDisplayClampNonNegative(value) {
@@ -561,8 +568,9 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   dot1Brightness: nodeGraphTraceDisplayClampBrightness,
   dot1Size: nodeGraphTraceDisplayClampInkPx,
   ghost: nodeGraphTraceDisplayClampUnit,
-  historySeconds: nodeGraphTraceDisplayClampHistorySeconds,
-  fade: nodeGraphTraceDisplayClampUnit,
+  historySeconds: (value) => (typeof nodeGraphWaterfallClampHistorySeconds === "function"
+    ? nodeGraphWaterfallClampHistorySeconds(value, 0.25)
+    : nodeGraphTraceDisplayClampHistorySeconds(value)),
   lineLength: nodeGraphTraceDisplayClampUnit,
   lineThickness: nodeGraphTraceDisplayClampNonNegative,
   lineBlur: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 8),
@@ -580,9 +588,13 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   sweepCycles: (value) => (typeof nodeGraphTraceDisplayClampSweepCycles === "function"
     ? nodeGraphTraceDisplayClampSweepCycles(value, 4)
     : clampNodeSliderValue(nodeGraphFiniteNumber(value, 4), 0.05, 100)),
-  historyHz: (value) => (typeof nodeGraphTraceDisplayClampHistoryHz === "function"
-    ? nodeGraphTraceDisplayClampHistoryHz(value, 4)
-    : Math.max(0, Math.min(100, nodeGraphFiniteNumber(value, 4)))),
+  historyHz: (value) => {
+    // Non-waterfall faces only. Instant Waterfall uses historySeconds.
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 4;
+    if (!(n > 0)) return 0;
+    return Math.min(100, n);
+  },
   historyCycles: (value) => (typeof nodeGraphTraceDisplayClampHistoryCycles === "function"
     ? nodeGraphTraceDisplayClampHistoryCycles(value, 4)
     : clampNodeSliderValue(nodeGraphFiniteNumber(value, 4), 0.05, 100)),
@@ -809,20 +821,27 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   sinCos4Face: Object.freeze({
     backgroundBrightness: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1),
   }),
-  // 1D Waterfall / Output: Size = CSS px stroke; Blur 0 hard … 1 soft skirt.
+  // Instant Waterfall: Blur/Bright (filled bars); Size legacy only. Persist/Bloom/Detail removed.
   waterfall: Object.freeze({
     dot1Size: nodeGraphTraceDisplayClampInkPx,
     secondarySize: nodeGraphTraceDisplayClampInkPx,
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
     secondaryLineThickness: nodeGraphTraceDisplayClampStampBlur,
+    brightness: nodeGraphTraceDisplayClampBrightness,
+    dot1Brightness: nodeGraphTraceDisplayClampBrightness,
+    secondaryBrightness: nodeGraphTraceDisplayClampBrightness,
   }),
   waterfallRgb: Object.freeze({
     dot1Size: nodeGraphTraceDisplayClampInkPx,
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
+    brightness: nodeGraphTraceDisplayClampBrightness,
+    dot1Brightness: nodeGraphTraceDisplayClampBrightness,
   }),
   waterfallXyz: Object.freeze({
     dot1Size: nodeGraphTraceDisplayClampInkPx,
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
+    brightness: nodeGraphTraceDisplayClampBrightness,
+    dot1Brightness: nodeGraphTraceDisplayClampBrightness,
   }),
   value: Object.freeze({
     dot1Size: nodeGraphTraceDisplayClampInkPx,

@@ -343,19 +343,19 @@ function nodeGraphTraceDisplayHistorySampleCount(buffer, settings, options = {})
     if (Number.isFinite(period) && period >= 2) {
       return Math.max(1, Math.round(period * cycles));
     }
-    // No period lock yet — fall back to free-run Hz window so the face isn't empty.
+    // No period lock yet — fall back to free-run History (seconds) so the face isn't empty.
   }
-  // Sync off: History (Hz) → window seconds = 1/Hz.
-  const historyHz = typeof nodeGraphTraceDisplayClampHistoryHz === "function"
-    ? nodeGraphTraceDisplayClampHistoryHz(
-      safeSettings.historyHz,
-      nodeGraphWaterfallSettingsDefaults?.historyHz ?? 4,
+  // Sync off: Instant Waterfall History (seconds) window.
+  const historySeconds = typeof nodeGraphWaterfallClampHistorySeconds === "function"
+    ? nodeGraphWaterfallClampHistorySeconds(
+      safeSettings.historySeconds,
+      nodeGraphWaterfallSettingsDefaults?.historySeconds ?? 0.25,
     )
-    : Math.max(0, nodeGraphFiniteNumber(safeSettings.historyHz, 4));
-  if (!(historyHz > 0)) {
+    : Math.max(0, nodeGraphFiniteNumber(safeSettings.historySeconds, 0.25));
+  if (!(historySeconds > 0)) {
     return Math.max(1, buffer?.length || 1);
   }
-  return Math.max(1, Math.round(sr / historyHz));
+  return Math.max(1, Math.round(sr * historySeconds));
 }
 
 function nodeGraphTraceDisplayVisibleSamples(buffer, settings) {

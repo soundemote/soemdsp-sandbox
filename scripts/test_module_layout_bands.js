@@ -459,3 +459,43 @@ console.log("ok module layout bands §7");
   }
   console.log("ok: scopeFace Trace/Phosphor/Waterfall face bands visible");
 })();
+
+// --- Tube Saturation processor face (LayoutA + scope1dTrace, no layout:scopeFace) ---
+(function testTubeSatFaceBand() {
+  sandbox.nodeGraphModuleDefinitions.tubeSaturation = {
+    chrome: "LayoutA",
+    planRole: "processor",
+    displayType: "scope1dTrace",
+    displayHeightGu: 2,
+    displayModes: [
+      { key: "scope1dTrace", label: "1D Trace", renderer: "scope1dTrace", settingsSchema: "scope1dTrace", source: { value: "Out" } },
+    ],
+    defaultDisplayMode: "scope1dTrace",
+    defaultDisplaySettings: { dot1Brightness: 1, background: "#050200" },
+    inputs: ["In", "Left", "Right"],
+    outputs: ["Out", "Left", "Right"],
+    defaultUi: { buttonsHidden: true },
+    parameters: [{ key: "drive" }, { key: "bias" }, { key: "load" }, { key: "amplitude" }],
+  };
+  assert(nodeGraphModuleHasFace("tubeSaturation"), "tubeSat hasFace");
+  var tsBands = bands("tubeSaturation", {});
+  var face = tsBands.find(function (b) {
+    return sandbox.nodeGraphModuleCanonicalBandId(b.id) === "face";
+  });
+  if (!face || !face.visible || !(face.heightGu > 0)) {
+    console.error("FAIL: tubeSaturation missing visible face band", tsBands);
+    process.exitCode = 1;
+    return;
+  }
+  var hidden = bands("tubeSaturation", { oscilloscopeHidden: true });
+  var faceOff = hidden.find(function (b) {
+    return sandbox.nodeGraphModuleCanonicalBandId(b.id) === "face";
+  });
+  if (faceOff && faceOff.visible && faceOff.heightGu > 0) {
+    console.error("FAIL: tubeSaturation hide-display should omit face", hidden);
+    process.exitCode = 1;
+    return;
+  }
+  console.log("ok: tubeSaturation LayoutA face band visible; hide-display omits it");
+})();
+

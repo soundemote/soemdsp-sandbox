@@ -45,3 +45,11 @@ Photorealistic P3-style CRT amber (deep glass → bias glow → body amber → y
 3. Display Settings schema is **`scope1dTrace`** (1D Trace controls).
 4. Shared colormap list includes **`crt-amber`** for any gradient face.
 5. PolyBLEP still `lineBurn` (phosphor) — unchanged.
+
+## Follow-up (2026-09-28)
+
+Demo patch had shipped with dot1Brightness: 0 (TraceWoscope draws nothing). Fixed in docs/B-083_TUBE_SAT_TRACE_FACE_BLANK.md + demo settings restore + scope1dTrace defaultDisplaySettings merge.
+
+## Follow-up (2026-09-28) — B-084 gradient LUT
+
+Display Settings gradientStops now feed TraceWoscope via per-point energy 	 = |sample| and peak ink sampling. 1D Trace Color swatches removed (Gradient owns color). **2D Trace unchanged** (additive solid hue). See docs/B-084_SCOPE1DTRACE_GRADIENT_LUT.md.

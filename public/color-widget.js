@@ -1050,7 +1050,8 @@ export class SoundColorWidget {
       const trackW = Math.max(1, track?.usable || 120);
       const fine = this.drag.fine || event.shiftKey ? 0.15 : 1;
       const dx = (event.clientX - this.drag.startX) * fine;
-      const deltaDeg = -(dx / trackW) * 360;
+      const travel = dx / trackW;
+      const deltaDeg = -travel * 360;
       this.hueOrigin = wrapHueDeg(this.drag.startHueOrigin + deltaDeg);
       this.applyHueFromSampleAndOrigin(true);
     }

@@ -165,11 +165,8 @@ function nodeGraphApplyParameterModulation(base, modulationSignal, metadata = {}
   if (!Number.isFinite(result)) {
     return 0;
   }
-  // App-wide default: clip post-MOD to DOMAIN. Explicit modClamp:false opts out.
-  let shouldClamp = true;
-  if (Object.hasOwn(metadata, "modClamp")) {
-    shouldClamp = Boolean(metadata.modClamp);
-  }
+  // B-082 SSOT: unit-band post-MOD always clips to DOMAIN min/max.
+  const shouldClamp = true;
   if (!shouldClamp) return result;
   if (metadata.wraparound) {
     return nodeGraphApplyParameterBounds(result, metadata);

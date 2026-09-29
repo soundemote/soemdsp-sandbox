@@ -3816,11 +3816,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     let flags = 0;
     if (meta.wraparound) flags |= 1;
     // Real values (outputDomain): domain ADD, no clamp (bit4 + bit3).
-    // Unit-band 0…1: ADD then clamp to min/max (bit1). Never multiply/replace.
+    // Unit-band SSOT (B-082): ADD then always clamp to min/max (bit1).
+    // Legacy modClamp:false no longer sets unbounded for unit-band MOD.
     if (destDomain || (Number.isFinite(domainAdd) && domainAdd !== 0)) {
       flags |= 16;
-      flags |= 8;
-    } else if (meta.modClamp === false) {
       flags |= 8;
     } else {
       flags |= 2;
@@ -4658,7 +4657,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "passiveFilter") {
       // stages=slope 0..3, width=stagger, center=sweep st, shape=gainComp.
-      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 0));
+      // Mode default 1 = LP (0 = Bypass).
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
       push("slope", P.NATIVE_GRAPH_PARAM_STAGES, disc("slope", 0));
       push("stagger", P.NATIVE_GRAPH_PARAM_WIDTH, cont("stagger", 1));
       push("lowFrequency", P.NATIVE_GRAPH_PARAM_HPF_FREQUENCY, cont("lowFrequency", 200));

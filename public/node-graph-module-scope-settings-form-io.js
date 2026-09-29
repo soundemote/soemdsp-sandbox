@@ -352,7 +352,19 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
     return normalizeNodeGraphScope2dSettings(scope2dDefaults, scope2dDefaults);
   }
   if (type === "scope1dTrace") {
-    return normalizeNodeGraphScope1dTraceSettings(nodeGraphScope1dTraceSettingsDefaults);
+    const targetNode = !nodeGraphWaterfallSettingsEditingDefaults()
+      && !nodeGraphTraceDisplaySettingsEditingGlobal()
+      && typeof nodeGraphPatchNode === "function"
+      && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+      ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())
+      : null;
+    const typeDefaults = targetNode?.type
+      && typeof nodeGraphModuleDefinitions !== "undefined"
+      && nodeGraphModuleDefinitions[targetNode.type]?.defaultDisplaySettings;
+    const seeded = typeDefaults && typeof typeDefaults === "object"
+      ? { ...nodeGraphScope1dTraceSettingsDefaults, ...typeDefaults }
+      : nodeGraphScope1dTraceSettingsDefaults;
+    return normalizeNodeGraphScope1dTraceSettings(seeded);
   }
   if (type === "scope2dTrace") {
     const targetNode = !nodeGraphWaterfallSettingsEditingDefaults()
@@ -489,9 +501,8 @@ if (type === "portalFace") {
       ? normalizeNodeGraphLimiterGainFaceSettings()
       : {
         backgroundColor: "#020407",
-        historyHz: 4,
-        historyCycles: 4,
         historySeconds: 0.25,
+        historyCycles: 4,
         hue: 42,
         lineBrightness: 0.5,
         lineThickness: 2,
@@ -1264,7 +1275,7 @@ function readNodeGraphTraceDisplaySettingsForm() {
   // Sync retargets History/Sweep to *Cycles in the live DOM while schema still
   // lists *Hz — always include whichever key is actually on the dial.
   const fieldKeysToRead = new Set(activeFields);
-  for (const liveKey of ["historyHz", "historyCycles", "sweepHz", "sweepCycles"]) {
+  for (const liveKey of ["historySeconds", "historyCycles", "historyHz", "sweepHz", "sweepCycles"]) {
     if (root?.querySelector?.(`[data-trace-display-field="${liveKey}"]`)) {
       fieldKeysToRead.add(liveKey);
     }
@@ -1316,13 +1327,16 @@ function readNodeGraphTraceDisplaySettingsForm() {
       if (key === "historySeconds") {
         next.zoomSeconds = sanitizedValue;
       }
-      if (key === "historyHz") {
+      if (key === "historyHz"
+        && formType !== "waterfall"
+        && formType !== "waterfallRgb"
+        && formType !== "waterfallXyz") {
+        // Non-waterfall only — Instant Waterfall stores History as seconds directly.
         const hz = Number(sanitizedValue);
         if (Number.isFinite(hz) && hz > 0) {
           next.historySeconds = String(1 / hz);
           next.zoomSeconds = String(1 / hz);
         } else if (Number.isFinite(hz) && hz <= 0) {
-          // 0 Hz = freeze / now-line (not a leftover seconds window).
           next.historySeconds = "0";
           next.zoomSeconds = "0";
         }
@@ -1494,20 +1508,14 @@ function nodeGraphDisplaySettingsFormValue(settings, key) {
     return nodeGraphTraceDisplaySyncChannel(settings);
   }
   if (key === "zoomSeconds") {
-    return settings.zoomSeconds ?? settings.historySeconds ?? (
-      Number(settings.historyHz) > 0 ? 1 / Number(settings.historyHz) : undefined
-    );
+    return settings.zoomSeconds ?? settings.historySeconds;
   }
   if (key === "historySeconds") {
-    return settings.historySeconds ?? settings.zoomSeconds ?? (
-      Number(settings.historyHz) > 0 ? 1 / Number(settings.historyHz) : undefined
-    );
+    return settings.historySeconds ?? settings.zoomSeconds;
   }
   if (key === "historyHz") {
+    // Non-waterfall faces only (e.g. gradientVectorscope). Instant Waterfall uses historySeconds.
     if (settings.historyHz != null) return settings.historyHz;
-    const seconds = Number(settings.historySeconds);
-    if (seconds === 0) return 0;
-    if (seconds > 0) return 1 / seconds;
     return 4;
   }
   if (key === "historyCycles") {
@@ -1654,11 +1662,12 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", formType);
   const activeToggles = nodeGraphTraceDisplayActiveControlSet("toggles", formType);
   const activeChoices = nodeGraphTraceDisplayActiveControlSet("choices", formType);
-  // Sync retargets History/Sweep to *Cycles in the live DOM; activeFields only
-  // lists *Hz. Include both so Cycles stays seeded + readOnly (drag/type).
+  // Sync retargets History/Sweep to *Cycles in the live DOM; activeFields lists
+  // the free-run dial. Include both so Cycles stays seeded + readOnly (drag/type).
   const fieldKeysToWrite = new Set(activeFields);
-  if (activeFields.has("historyHz") || activeFields.has("historyCycles")) {
-    fieldKeysToWrite.add("historyHz");
+  if (activeFields.has("historySeconds") || activeFields.has("historyCycles") || activeFields.has("historyHz")) {
+    if (activeFields.has("historySeconds")) fieldKeysToWrite.add("historySeconds");
+    if (activeFields.has("historyHz")) fieldKeysToWrite.add("historyHz");
     fieldKeysToWrite.add("historyCycles");
   }
   if (activeFields.has("sweepHz") || activeFields.has("sweepCycles")) {
@@ -1946,13 +1955,13 @@ function nodeGraphTraceDisplayColorWidgetModuleUrl() {
   }
   const script = document.querySelector('script[src*="node-graph-module-scopes.js"]');
   if (script?.src) {
-    return new URL("color-widget.js?v=no-ui-fade-1", script.src).href;
+    return new URL("color-widget.js?v=wf-no-stretch-1", script.src).href;
   }
   // Fallbacks: site root /public/, then document-relative public/
   try {
-    return new URL("/public/color-widget.js?v=no-ui-fade-1", window.location.origin).href;
+    return new URL("/public/color-widget.js?v=wf-no-stretch-1", window.location.origin).href;
   } catch {
-    return new URL("public/color-widget.js?v=no-ui-fade-1", window.location.href).href;
+    return new URL("public/color-widget.js?v=wf-no-stretch-1", window.location.href).href;
   }
 }
 

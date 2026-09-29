@@ -38,6 +38,21 @@ Standing rule: `docs/APP_POLICY.md` (LayoutA I/O above the face). Band contract:
 
 LayoutB (ports beside the face) and InletOutletLayout (title + I/O, no face) are unchanged. Do not add a second layout or an old-patch shim for the previous face-then-I/O stack.
 
+
+## Instant Waterfall Display Settings (premium look + amp law)
+
+**Status:** **Implemented** on ArchIV (Website & UI, 2026-09-28, local, no PR). Display/UI only — **no JS audio DSP**.
+
+**Scope:** Instant Waterfall schemas only (`waterfall` / `waterfallRgb` / `waterfallXyz`). Does **not** change `scope1dTrace`.
+
+**Done:**
+- Premium Instant Waterfall controls: **Blur** (soft vertical skirt on filled bars) + **Bright** for mono/stereo/XYZ/RGB. **Persist / Bloom / Detail removed** (2026-09-28).
+- Display Settings waterfall-first (History / Scale / Amp law / Bright / Blur). Dropped Trace Size / Persist / Bloom / Detail / stamp-density from the Instant Waterfall form.
+- Visual amplitude compression for painted height only: Amp law **Linear / Sqrt / Log / mu-law** (`ampLaw`). Scales face energy, not audio.
+- Wired via `normalizeNodeGraphWaterfallSettings` + Canvas2D hold paint (same Bright path as existing ink). Defaults / cache-bust updated.
+
+**Files:** `node-graph-module-scope-defaults.js`, `…-normalize.js`, `…-waterfall.js`, `…-trace-controls.js`, `…-settings-form.js`, `…-settings-controls.js`, `…-metrics.js`, `index.html`.
+
 ## Waterfall redesign (amp-per-frame bars)
 
 **Status:** **Implemented** on ArchIV (Website & UI, 2026-09-28, local, no PR). Filled-bar strip contract 2026-09-28.
@@ -94,3 +109,9 @@ LayoutB (ports beside the face) and InletOutletLayout (title + I/O, no face) are
 **Direction:** A delay module that exposes a **feedback output** (and matching return) so the user can insert arbitrary modules into the feedback path — filters, distortion, pitch tools, etc. — instead of a closed internal feedback loop only.
 
 **Still open:** wet/dry and time controls vs feedback jacks, mono/stereo, max delay, anti-howl / clip behavior, relation to existing delay / ping-pong modules.
+
+## Name-based choice persistence
+
+**Status:** standing policy in `docs/APP_POLICY.md` (Choice / enum persistence). Follow-up work: audit and migrate any remaining **index-based** saved choices so reordering options cannot break patches.
+
+**Direction:** All discrete UI choices store stable names/keys; no index-as-identity. One-shot migrations only when Architect asks — no dual-key shims (§1).
