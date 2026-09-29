@@ -1,6 +1,6 @@
 function bindNodeGraphHeaderControlEvents() {
   if (window.__TAURI_INTERNALS__ || window.__TAURI__ || window.__SOEMDSP_TAURI__) {
-    document.getElementById("nodeDonateFiveButton")?.setAttribute("hidden", "");
+    document.getElementById("nodeDownloadAppButton")?.setAttribute("hidden", "");
   }
   bindNodeGraphEarProtectionFaultUi();
   const sharePatchButton = document.getElementById("sharePatchCommunityButton");

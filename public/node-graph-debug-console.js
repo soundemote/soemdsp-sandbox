@@ -585,7 +585,7 @@
     btn.addEventListener("click", () => showPanel(els.panel?.classList.contains("se-open") ? false : true));
     els.btn = btn;
     els.badge = btn.querySelector("[data-se-badge]");
-    const anchor = document.getElementById("nodeDonateFiveButton");
+    const anchor = document.getElementById("nodeDownloadAppButton");
     if (anchor && anchor.parentNode) anchor.insertAdjacentElement("afterend", btn);
     else (document.querySelector(".node-history-controls") || document.body).appendChild(btn);
   }
