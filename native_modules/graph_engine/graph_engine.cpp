@@ -640,6 +640,7 @@ extern "C" double soemdsp_vibrato_generator_sample(
   double gate
 );
 extern "C" double soemdsp_vibrato_generator_out(int handle);
+extern "C" double soemdsp_vibrato_generator_shape(int handle);
 
 extern "C" int soemdsp_wow_and_flutter_create();
 extern "C" void soemdsp_wow_and_flutter_destroy(int handle);
@@ -10274,7 +10275,7 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
     }
     // Unpatched Gate = always-on full depth (existing Amplitude-only patches).
     const double gate = hasGate ? g.mixMono[f] : 1.0;
-    const double y = soemdsp_vibrato_generator_sample(
+    const double audio = soemdsp_vibrato_generator_sample(
       node.nativeHandle,
       control_audio(g, node.frequency, f),
       sr,
@@ -10290,7 +10291,9 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
       control_audio(g, node.offsetMs, f),
       gate
     );
-    node.buf[kPortMono][f] = y; // Wave (mono) — no stereo twin
+    // Wave/audio is y * amp * depthEnv. Face tap is y * depthEnv (no amp).
+    node.buf[kPortMono][f] = audio;
+    node.buf[kPortSaw][f] = soemdsp_vibrato_generator_shape(node.nativeHandle);
   }
 }
 

@@ -24,6 +24,7 @@ struct VibratoModuleState {
   double phaseTurns;
   double lastSine;
   double out;
+  double shape;        // y * depthEnv, before Amplitude (display only)
   double lastSeed;
   double depthEnv;     // exponential depth fade 0…1 (standalone module only)
   double delayRemain;  // seconds left in Delay stage (0 = attack/release path)
@@ -81,6 +82,7 @@ extern "C" void soemdsp_vibrato_generator_reset(int handle, double phaseOffset) 
   s.phaseTurns = wrap01(safe(phaseOffset));
   s.lastSine = 0.0;
   s.out = 0.0;
+  s.shape = 0.0;
   // Keep depthEnv / delayRemain — Reset is phase only, not depth envelope.
 }
 
@@ -163,8 +165,15 @@ extern "C" double soemdsp_vibrato_generator_sample(
   if (s.depthEnv > 1.0) s.depthEnv = 1.0;
 
   const double amp = safe(amplitude);
-  s.out = y * amp * s.depthEnv;
+  // shape is the vibrato before the Amplitude knob. Wave/audio stays shape * amp.
+  s.shape = y * s.depthEnv;
+  s.out = s.shape * amp;
   return s.out;
+}
+
+extern "C" double soemdsp_vibrato_generator_shape(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0.0;
+  return gPool[handle - 1].shape;
 }
 
 extern "C" double soemdsp_vibrato_generator_out(int handle) {
@@ -173,5 +182,5 @@ extern "C" double soemdsp_vibrato_generator_out(int handle) {
 }
 
 extern "C" int soemdsp_vibrato_generator_version() {
-  return 6;
+  return 7;
 }

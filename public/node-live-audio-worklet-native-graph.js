@@ -7691,6 +7691,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     }
     if (type === "xyPad") return ["X", "Out", "Mono"];
     if (type === "theremin") return ["Wave", "Out", "Mono"];
+    if (type === "vibratoGenerator") return ["Wave", "Out", "Mono"];
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
@@ -7821,6 +7822,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     }
     if (type === "rasterRgb") return ["rgba", "📺"];
     if (type === "robinSinusoid") return ["Out Raw"];
+    if (type === "vibratoGenerator") return ["Wave Raw"];
     // Pre-level Left hold for face rings (distinct from audio Left).
     if (type === "sampleHold") return ["Left Raw"];
     if (type === "fractalBrownianNoise") return ["Out X Raw"];
@@ -8157,35 +8159,43 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       // the face. Unused taps stay silent in DSP via polyblep_tap_mask.
       // sampleHold: publish audio Mono/Left/Right (polarity+amp) for jacks/ghosts,
       // plus bipolar pre-level Saw/Ramp as Left Raw / Right Raw for full-swing waterfall.
-      const ports = type === "sampleHold"
-        ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW, P.NATIVE_GRAPH_PORT_RAMP)
-        : (type === "basicShape" || type === "sineWavetable" || type === "sinCos"
+      let ports;
+      if (type === "vibratoGenerator") {
+        // Saw = y * depthEnv for the face. Mono/Wave stays y * amp * depthEnv.
+        ports = facePorts.concat(P.NATIVE_GRAPH_PORT_SAW);
+      } else if (type === "sampleHold") {
+        ports = facePorts.concat(P.NATIVE_GRAPH_PORT_SAW, P.NATIVE_GRAPH_PORT_RAMP);
+      } else if (
+        type === "basicShape" || type === "sineWavetable" || type === "sinCos"
         || type === "smoothGraph" || type === "stepGraph"
-        ? facePorts.concat(P.NATIVE_GRAPH_PORT_PHASE01)
-        : (type === "polyBlep" || type === "blit"
-          ? facePorts.concat(
-            P.NATIVE_GRAPH_PORT_SAW,
-            P.NATIVE_GRAPH_PORT_RAMP,
-            P.NATIVE_GRAPH_PORT_SQUARE,
-            P.NATIVE_GRAPH_PORT_TRI,
-            P.NATIVE_GRAPH_PORT_SINE,
-          )
-          : (type === "robinSinusoid"
-            ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW)
-            : (type === "fractalBrownianNoise" || type === "chaosfly" || type === "arp"
-            ? facePorts.concat(
-              P.NATIVE_GRAPH_PORT_SAW,
-              P.NATIVE_GRAPH_PORT_RAMP,
-              P.NATIVE_GRAPH_PORT_SQUARE,
-            )
-            : (type === "limiter"
-              ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW, P.NATIVE_GRAPH_PORT_RAMP)
-              : (type === "lookaheadLimiter"
-                ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW)
-                // t-series: Saw bus = Open (gate openness for Value Line).
-                : (type === "t" || /^t([2-9]|1[01])$/.test(type)
-                  ? facePorts.concat(P.NATIVE_GRAPH_PORT_SAW)
-                  : facePorts)))))));
+      ) {
+        ports = facePorts.concat(P.NATIVE_GRAPH_PORT_PHASE01);
+      } else if (type === "polyBlep" || type === "blit") {
+        ports = facePorts.concat(
+          P.NATIVE_GRAPH_PORT_SAW,
+          P.NATIVE_GRAPH_PORT_RAMP,
+          P.NATIVE_GRAPH_PORT_SQUARE,
+          P.NATIVE_GRAPH_PORT_TRI,
+          P.NATIVE_GRAPH_PORT_SINE,
+        );
+      } else if (type === "robinSinusoid") {
+        ports = facePorts.concat(P.NATIVE_GRAPH_PORT_SAW);
+      } else if (type === "fractalBrownianNoise" || type === "chaosfly" || type === "arp") {
+        ports = facePorts.concat(
+          P.NATIVE_GRAPH_PORT_SAW,
+          P.NATIVE_GRAPH_PORT_RAMP,
+          P.NATIVE_GRAPH_PORT_SQUARE,
+        );
+      } else if (type === "limiter") {
+        ports = facePorts.concat(P.NATIVE_GRAPH_PORT_SAW, P.NATIVE_GRAPH_PORT_RAMP);
+      } else if (type === "lookaheadLimiter") {
+        ports = facePorts.concat(P.NATIVE_GRAPH_PORT_SAW);
+      } else if (type === "t" || /^t([2-9]|1[01])$/.test(type)) {
+        // t-series: Saw bus = Open (gate openness for Value Line).
+        ports = facePorts.concat(P.NATIVE_GRAPH_PORT_SAW);
+      } else {
+        ports = facePorts;
+      }
       const bindings = [];
       for (let pi = 0; pi < ports.length; pi += 1) {
         const portId = ports[pi];

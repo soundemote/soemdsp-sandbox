@@ -5166,15 +5166,14 @@ const nodeGraphModuleDefinitions = (
   vibratoGenerator: {
     planRole: "source",
     planFreeRun: true,
-    // Instant Waterfall reference consumer (Blur only; full-face waveform, no amplitude law).
-    // B-081 had parked this on scope1dTrace for Size; restore waterfall with Wave source.
+    // Face reads Wave Raw = y * depthEnv (before Amplitude). Wave jack stays y * amp * depthEnv.
     displayType: "waterfall",
     displayModes: [
-      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Wave" } },
+      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Wave Raw" } },
     ],
     defaultDisplayMode: "waterfall",
     displaySignals: [
-      { key: "Wave", kind: "scalar" },
+      { key: "Wave Raw", label: "Wave", kind: "scalar" },
     ],
     inputs: ["Gate", "Reset"],
     outputChannels: { Wave: "green" },

@@ -78,8 +78,18 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
   if (key === "fftSize") {
     return 1; // stepped via table in stepNodeGraphTraceDisplaySetting
   }
-  // History (s): control-space step (exp map) — fine near short windows.
-  if (key === "historySeconds" || key === "zoomSeconds") {
+  // History (s): control-space step on the existing skew/exp map.
+  // Live rows use data-trace-display-field. dataset.waterfallField is unset,
+  // so this branch never ran and History used magnitude quanta (0.1 / 1 / 10)
+  // inside 0..1 control space. A few pixels then covered the whole window.
+  // Trace-field lookup is History-only so hue / blur / other keys stay as they are.
+  const historyKey = input.dataset?.traceDisplayField
+    || input.getAttribute?.("data-trace-display-field")
+    || "";
+  if (
+    key === "historySeconds" || key === "zoomSeconds"
+    || historyKey === "historySeconds" || historyKey === "zoomSeconds"
+  ) {
     return 0.025;
   }
   // Fixed sub-unit fields that are not magnitude-stepped.
@@ -310,8 +320,44 @@ function nodeGraphTraceDisplaySensitiveControlField(key) {
 
 /** Exp curve for stamp size — higher = more of the travel near small sizes. */
 const nodeGraphTraceDisplaySensitiveControlExponent = 3;
-/** History: stronger exp so most useful short windows sit near control 0. */
+/** History fallback when the field has no parameter skew. Higher = more travel near 0. */
 const nodeGraphTraceDisplayHistoryControlExponent = 3.5;
+
+/**
+ * History control-space exponent.
+ * Field meta sliderCurve/curveAmount uses the parameter skew law (same as
+ * long-range knobs). Still the existing t^exp seconds map — not a second mapper.
+ * Exponent > 1 keeps 0 at pause and slows the approach to max.
+ */
+function nodeGraphTraceDisplayHistoryCurveExponent(key) {
+  const meta = (typeof nodeGraphDisplaySettingsFieldMeta !== "undefined" && nodeGraphDisplaySettingsFieldMeta)
+    ? nodeGraphDisplaySettingsFieldMeta[key]
+    : null;
+  const curve = String(meta?.sliderCurve || "").trim().toLowerCase();
+  // custom skew: curveAmount -1..+1 -> power via the shared sensitivity law.
+  // -1 = exponent 4 (fine near 0, slow at max). Do not use the skew-from-mid
+  // fallback: History has no mid, and that path returns exponent 1 (linear).
+  if (curve === "custom" || curve === "sens" || curve === "sensitivity") {
+    const amount = typeof normalizeNodeSliderCurveAmount === "function"
+      ? normalizeNodeSliderCurveAmount(meta.curveAmount)
+      : Math.max(-1, Math.min(1, Number(meta.curveAmount) || 0));
+    if (typeof nodeSliderSkewExponentFromSensitivity === "function") {
+      const exp = Number(nodeSliderSkewExponentFromSensitivity(amount));
+      if (Number.isFinite(exp) && exp > 0) {
+        return exp;
+      }
+    }
+  }
+  if (meta && (meta.sliderCurve || meta.nonlinearSlider === true)
+    && typeof nodeGraphParamSkewExponent === "function") {
+    const exp = Number(nodeGraphParamSkewExponent(meta));
+    if (Number.isFinite(exp) && exp > 1) {
+      return exp;
+    }
+  }
+  return nodeGraphTraceDisplayHistoryControlExponent;
+}
+
 
 function nodeGraphTraceDisplaySensitiveControlMax(key) {
   if (key === "pixelDensity") {
@@ -355,11 +401,11 @@ function nodeGraphTraceDisplayHistoryControlRange(key) {
  * Map stored seconds → 0…1 control. Exponential so short windows have fine drag.
  * min≤0: t = (s/max)^(1/exp); min>0: t = log(s/min)/log(max/min).
  */
-function nodeGraphTraceDisplaySecondsToControlValue(seconds, min, max) {
+function nodeGraphTraceDisplaySecondsToControlValue(seconds, min, max, key = "") {
   const lo = Math.max(0, nodeGraphFiniteNumber(min));
   const hi = Math.max(lo + 1e-9, nodeGraphFiniteNumber(max, 10));
   const s = clampNodeSliderValue(nodeGraphFiniteNumber(seconds), lo, hi);
-  const exp = nodeGraphTraceDisplayHistoryControlExponent;
+  const exp = nodeGraphTraceDisplayHistoryCurveExponent(key);
   if (lo <= 0) {
     if (s <= 0) {
       return 0;
@@ -370,11 +416,11 @@ function nodeGraphTraceDisplaySecondsToControlValue(seconds, min, max) {
 }
 
 /** Map 0…1 control → stored seconds (inverse of SecondsToControl). */
-function nodeGraphTraceDisplayControlToSecondsValue(control, min, max) {
+function nodeGraphTraceDisplayControlToSecondsValue(control, min, max, key = "") {
   const t = clampNodeSliderValue(nodeGraphFiniteNumber(control), 0, 1);
   const lo = Math.max(0, nodeGraphFiniteNumber(min));
   const hi = Math.max(lo + 1e-9, nodeGraphFiniteNumber(max, 10));
-  const exp = nodeGraphTraceDisplayHistoryControlExponent;
+  const exp = nodeGraphTraceDisplayHistoryCurveExponent(key);
   if (lo <= 0) {
     return Math.pow(t, exp) * hi;
   }
@@ -398,9 +444,10 @@ function adjustNodeGraphTraceDisplaySettingByControlDelta(key, startValue, delta
   if (nodeGraphTraceDisplayHistoryControlField(key)) {
     const { min, max } = nodeGraphTraceDisplayHistoryControlRange(key);
     return nodeGraphTraceDisplayControlToSecondsValue(
-      nodeGraphTraceDisplaySecondsToControlValue(startValue, min, max) + delta,
+      nodeGraphTraceDisplaySecondsToControlValue(startValue, min, max, key) + delta,
       min,
       max,
+      key,
     );
   }
   // Linear 0…1 unit fields (Bright / Ghost Bright / Residual share one gain).

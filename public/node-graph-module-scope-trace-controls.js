@@ -1267,7 +1267,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "History (seconds)",
     inputmode: "decimal",
     id: "nodeTraceDisplayHistorySeconds",
-    title: "Instant Waterfall Sync Off: seconds of history across the face. Longer = slower scroll. 0 = pause. Sync On uses Cycles instead.",
+    // Parameter custom skew. curveAmount -1 => exponent 4 (finest toward min).
+    // Live drag: seconds = max * t^4. Most travel stays near 0; max is the slow end. 0 pauses.
+    nonlinearSlider: true,
+    sliderCurve: "custom",
+    curveAmount: -1,
+    title: "Instant Waterfall Sync Off: seconds of history across the face. Longer = slower scroll. Drag is skewed so short windows have more travel and the top of the range approaches slowly. 0 = pause. Sync On uses Cycles instead.",
   }),
   fftSize: Object.freeze({
     label: "FFT size",

@@ -559,6 +559,11 @@ function nodeGraphModuleDisplaySourceForSlot(slot) {
   if (!node) {
     return modeSource;
   }
+  // Vibrato face is Wave Raw (y * depthEnv). Do not follow the Wave jack
+  // (that outlet is post-amp and goes blank at Amplitude 0).
+  if (node.type === "vibratoGenerator") {
+    return modeSource;
+  }
   const outputs = typeof nodeGraphPatchNodeOutputPorts === "function"
     ? nodeGraphPatchNodeOutputPorts(node)
     : [];
