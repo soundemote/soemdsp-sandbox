@@ -434,6 +434,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
   }
   const layoutClasses = {
     filterCurve: "filter-curve-layout",
+    softClipperCurve: "filter-curve-layout",
     envelopeCurve: "filter-curve-layout",
     roundShape: "filter-curve-layout",
     basicShape: "filter-curve-layout",

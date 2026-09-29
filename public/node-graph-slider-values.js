@@ -957,6 +957,15 @@ function setNodeSliderMetadata(slider, metadata) {
   slider.dataset.unit = metadata.unit ?? "";
   slider.dataset.tooltip = metadata.tooltip ?? "";
   slider.dataset.choices = formatNodeMetadataChoices(metadata.choices || []);
+  // B-079: domain value of choices[0] for range-filtered subset remapping.
+  {
+    const origin = Number(metadata.choiceOriginMin);
+    if (Number.isFinite(origin)) {
+      slider.dataset.choiceOriginMin = String(origin);
+    } else if (slider.dataset.choiceOriginMin != null) {
+      delete slider.dataset.choiceOriginMin;
+    }
+  }
   // Independent flags (labels vs separators) — never mirror one onto the other.
   slider.dataset.displayChoices = metadata.displayChoices ? "true" : "false";
   slider.dataset.divideChoicesVisibly = metadata.divideChoicesVisibly ? "true" : "false";

@@ -35,6 +35,7 @@ const NODE_GRAPH_NAMED_PORTAL_BUS_PAINT = Object.freeze([
   { keys: Object.freeze(["arpkeys", "keys"]), port: "Arp Keys", role: "noteMask" },
   { keys: Object.freeze(["chordkeys", "chordmemory"]), port: "Chord Memory", role: "noteMask" },
   { keys: Object.freeze(["scale"]), port: "Scale", role: "noteMask" },
+  { keys: Object.freeze(["kt", "keytrack"]), port: "KT", role: "noteMask" },
   { keys: Object.freeze(["polyphony"]), port: "Polyphony", role: "noteMask" },
   { keys: Object.freeze(["monophony"]), port: "Monophony", role: "noteMask" },
   { keys: Object.freeze(["voices"]), port: "Voices", role: "noteMask" },

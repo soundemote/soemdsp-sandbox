@@ -824,7 +824,29 @@ function nodeGraphLayoutCanvasBindTileInteractions(stage) {
   });
 
   window.addEventListener("resize", () => {
-    if (nodeGraphLayoutCanvasMode() === "off") {
+    // Defer: F11 browser fullscreen often only fires resize (no fullscreenchange).
+    nodeGraphLayoutCanvasHandleViewportChange({ rebuild: false, defer: true });
+  });
+}
+
+/**
+ * Viewport changed (window resize or browser F11 fullscreen).
+ * Light path re-applies freeform tile rects; rebuild path matches F-cycle recycle
+ * (nodeGraphLayoutCanvasRefreshOpenStage) so enter/exit fullscreen does not leave
+ * a shuffled canvas (B-076).
+ */
+function nodeGraphLayoutCanvasHandleViewportChange(options = {}) {
+  if (nodeGraphLayoutCanvasMode() === "off") {
+    return;
+  }
+  const rebuild = options.rebuild === true;
+  const run = () => {
+    if (rebuild) {
+      nodeGraphLayoutCanvasRefreshOpenStage();
+      return;
+    }
+    const stage = document.getElementById("nodeScreenSoloStage");
+    if (!(stage instanceof HTMLElement)) {
       return;
     }
     const tiles = stage.querySelectorAll(".node-layout-canvas-tile");
@@ -839,7 +861,22 @@ function nodeGraphLayoutCanvasBindTileInteractions(stage) {
       }, stage);
     });
     nodeGraphLayoutCanvasSyncPhoneGuides(stage);
-  });
+    if (typeof nodeGraphScreenSoloRefreshPaint === "function") {
+      nodeGraphScreenSoloRefreshPaint();
+    }
+  };
+  if (options.defer) {
+    // F11: wait until the browser has applied the new viewport size.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(run);
+    });
+    return;
+  }
+  run();
+}
+
+function handleNodeGraphLayoutCanvasFullscreenChange() {
+  nodeGraphLayoutCanvasHandleViewportChange({ rebuild: true, defer: true });
 }
 
 function bindNodeGraphLayoutCanvasSettingsControl() {
@@ -872,6 +909,8 @@ function bindNodeGraphLayoutCanvasEvents() {
     return;
   }
   document.documentElement.dataset.layoutCanvasBound = "true";
+  document.addEventListener("fullscreenchange", handleNodeGraphLayoutCanvasFullscreenChange);
+  document.addEventListener("webkitfullscreenchange", handleNodeGraphLayoutCanvasFullscreenChange);
   bindNodeGraphLayoutCanvasSettingsControl();
   document.addEventListener("nodegraph-selection-changed", () => {
     syncNodeGraphLayoutCanvasSettingsControl();

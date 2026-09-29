@@ -13,37 +13,37 @@ function assert(cond, msg) {
 }
 
 assert(nodeGraphTSeriesLastIndexForType("t") === 0, "t last 0");
-assert(nodeGraphTSeriesLastIndexForType("t1") === 1, "t1 last 1");
-assert(nodeGraphTSeriesLastIndexForType("t10") === 10, "t10 last 10");
-assert(nodeGraphTSeriesLastIndexForType("3t") === 3, "3t last 3");
-assert(nodeGraphTSeriesLastIndexForType("10t") === 10, "10t last 10");
+assert(nodeGraphTSeriesLastIndexForType("t2") === 1, "t2 last 1");
+assert(nodeGraphTSeriesLastIndexForType("t11") === 10, "t11 last 10");
+assert(nodeGraphTSeriesLastIndexForType("4t") === 3, "4t last 3");
+assert(nodeGraphTSeriesLastIndexForType("11t") === 10, "11t last 10");
 assert(nodeGraphTSeriesType(0) === "t", "0 -> t");
-assert(nodeGraphTSeriesType(2) === "t2", "2 -> t2");
-assert(nodeGraphTSeriesMuxType(3) === "3t", "mux 3 -> 3t");
-assert(nodeGraphTSeriesIsMuxType("3t") === true, "3t is mux");
-assert(nodeGraphTSeriesIsMuxType("t3") === false, "t3 is demux");
+assert(nodeGraphTSeriesType(2) === "t3", "2 -> t3");
+assert(nodeGraphTSeriesMuxType(3) === "4t", "mux 3 -> 4t");
+assert(nodeGraphTSeriesIsMuxType("4t") === true, "4t is mux");
+assert(nodeGraphTSeriesIsMuxType("t4") === false, "t4 is demux");
 
-var idle = nodeGraphTSeriesSample({ type: "t10" });
+var idle = nodeGraphTSeriesSample({ type: "t11" });
 assert(idle["0"] === 0 && idle["10"] === 0, "unconnected silent");
 
-var analogZero = nodeGraphTSeriesSample({ analog: 0, hasAnalog: true, type: "t10" });
+var analogZero = nodeGraphTSeriesSample({ analog: 0, hasAnalog: true, type: "t11" });
 assert(analogZero["0"] === 1 && analogZero["1"] === 0, "analog 0 -> out 0");
 
 var analogMid = nodeGraphTSeriesSample({ analog: 0.5, hasAnalog: true, lastIndex: 2 });
-assert(Math.abs(analogMid["1"] - 1) < 1e-9, "t2 analog 0.5 -> path 1");
-assert(analogMid["0"] === 0 && analogMid["2"] === 0, "t2 analog 0.5 neighbors off");
+assert(Math.abs(analogMid["1"] - 1) < 1e-9, "t3 analog 0.5 -> path 1");
+assert(analogMid["0"] === 0 && analogMid["2"] === 0, "t3 analog 0.5 neighbors off");
 
 var analogBlend = nodeGraphTSeriesSample({ analog: 0.25, hasAnalog: true, lastIndex: 2 });
-assert(Math.abs(analogBlend["0"] - 0.5) < 1e-9, "t2 analog 0.25 half on 0");
-assert(Math.abs(analogBlend["1"] - 0.5) < 1e-9, "t2 analog 0.25 half on 1");
+assert(Math.abs(analogBlend["0"] - 0.5) < 1e-9, "t3 analog 0.25 half on 0");
+assert(Math.abs(analogBlend["1"] - 0.5) < 1e-9, "t3 analog 0.25 half on 1");
 
-var analogLast = nodeGraphTSeriesSample({ analog: 1, hasAnalog: true, type: "t10" });
+var analogLast = nodeGraphTSeriesSample({ analog: 1, hasAnalog: true, type: "t11" });
 assert(analogLast["10"] === 1, "analog 1 -> out 10");
 
-var digitalZero = nodeGraphTSeriesSample({ digital: 0, hasDigital: true, type: "t10" });
+var digitalZero = nodeGraphTSeriesSample({ digital: 0, hasDigital: true, type: "t11" });
 assert(digitalZero["0"] === 1, "digital 0 -> out 0");
 
-var digitalFive = nodeGraphTSeriesSample({ digital: 5, hasDigital: true, type: "t10" });
+var digitalFive = nodeGraphTSeriesSample({ digital: 5, hasDigital: true, type: "t11" });
 assert(digitalFive["5"] === 1 && digitalFive["0"] === 0, "digital 5 -> out 5");
 
 var digitalOob = nodeGraphTSeriesSample({ digital: 20, hasDigital: true, lastIndex: 2 });
@@ -71,16 +71,16 @@ assert(loneOn["0"] === 1, "t digital >0 sends");
 var loneTiny = nodeGraphTSeriesSample({ digital: 0.01, hasDigital: true, type: "t" });
 assert(loneTiny["0"] === 1, "t digital any >0 sends");
 
-// --- mux 3t ---
+// --- mux 4t (3 lastIndex / 4 paths) ---
 var inputs = [10, 20, 30, 40];
 var muxD = nodeGraphTSeriesMuxSample({
-  type: "3t",
+  type: "4t",
   lastIndex: 3,
   inputs: inputs,
   digital: 1,
   hasDigital: true,
 });
-assert(muxD.Out === 20, "3t D=1 -> in1");
+assert(muxD.Out === 20, "4t D=1 -> in1");
 
 var muxAonly = nodeGraphTSeriesMuxSample({
   lastIndex: 3,
@@ -88,7 +88,7 @@ var muxAonly = nodeGraphTSeriesMuxSample({
   analog: 1,
   hasAnalog: true,
 });
-assert(muxAonly.Out === 40, "3t A-only +1 -> last");
+assert(muxAonly.Out === 40, "4t A-only +1 -> last");
 
 var muxAneg = nodeGraphTSeriesMuxSample({
   lastIndex: 3,
@@ -96,7 +96,7 @@ var muxAneg = nodeGraphTSeriesMuxSample({
   analog: -1,
   hasAnalog: true,
 });
-assert(muxAneg.Out === 10, "3t A-only -1 -> first");
+assert(muxAneg.Out === 10, "4t A-only -1 -> first");
 
 var muxBoth = nodeGraphTSeriesMuxSample({
   lastIndex: 3,
@@ -106,7 +106,7 @@ var muxBoth = nodeGraphTSeriesMuxSample({
   analog: 0.5,
   hasAnalog: true,
 });
-assert(Math.abs(muxBoth.Out - 30) < 1e-9, "3t D=1 A=0.5 -> exactly in2");
+assert(Math.abs(muxBoth.Out - 30) < 1e-9, "4t D=1 A=0.5 -> exactly in2");
 
 var muxLow = nodeGraphTSeriesMuxSample({
   lastIndex: 3,
@@ -116,7 +116,7 @@ var muxLow = nodeGraphTSeriesMuxSample({
   analog: -0.5,
   hasAnalog: true,
 });
-assert(Math.abs(muxLow.Out - 15) < 1e-9, "3t D=1 A=-0.5 -> halfway 0|1");
+assert(Math.abs(muxLow.Out - 15) < 1e-9, "4t D=1 A=-0.5 -> halfway 0|1");
 
 var muxD0A05 = nodeGraphTSeriesMuxSample({
   lastIndex: 3,
@@ -126,7 +126,7 @@ var muxD0A05 = nodeGraphTSeriesMuxSample({
   analog: 0.5,
   hasAnalog: true,
 });
-assert(Math.abs(muxD0A05.Out - 25) < 1e-9, "3t D=0 A=0.5 -> halfway 1|2");
+assert(Math.abs(muxD0A05.Out - 25) < 1e-9, "4t D=0 A=0.5 -> halfway 1|2");
 
 var muxIdle = nodeGraphTSeriesMuxSample({ lastIndex: 3, inputs: inputs });
 assert(muxIdle.Out === 0, "mux unconnected silent");

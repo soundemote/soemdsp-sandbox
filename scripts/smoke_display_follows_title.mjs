@@ -110,6 +110,29 @@ assert(html.includes("scene-context-module-bypass-button"), "settings disable is
 assert(html.includes('id="nodeSceneToggleModuleEnabled"'), "settings disable control id");
 assert(ctx.includes("syncNodeGraphBypassButtonElement"), "settings syncs shared bypass button");
 assert(ctx.includes("showInletOutletVisibilityChrome"), "InletOutlet still gates disable");
-assert(html.includes("settings-bypass-portal-ident-1"), "cache token");
+assert(html.includes("b048-bypass-ssot-1"), "cache token");
 
-console.log("ok: display-follows-title (Policy B) + portal jack effective display + hide-title restore");
+// B-048: bypass chrome SSOT on wiring panel (settings + face share vars).
+const styles = fs.readFileSync(path.join(root, "public", "styles.css"), "utf8");
+assert(styles.includes(".node-wiring-panel"), "wiring panel rule");
+assert(
+  /\.node-wiring-panel\s*\{[\s\S]*?--node-bypass-off-bg:\s*#000000/.test(styles),
+  "B-048: black off-bg default on wiring panel",
+);
+assert(
+  /\.node-wiring-panel\s*\{[\s\S]*?--node-bypass-on-bg:\s*#5c1818/.test(styles),
+  "B-048: red on-bg default on wiring panel",
+);
+assert(
+  styles.includes("background: var(--node-bypass-off-bg, #000000)"),
+  "B-048: bypass button off-bg fallback",
+);
+assert(
+  styles.includes('scene-context-module-bypass-button[aria-pressed="true"]'),
+  "B-048: settings pressed red rule",
+);
+const sync = fs.readFileSync(path.join(root, "public", "node-graph-ui-settings-sync.js"), "utf8");
+assert(sync.includes('getElementById("nodeWiringPanel")'), "B-048: sync writes bypass vars to wiring panel");
+assert(sync.includes("--node-bypass-off-bg"), "B-048: sync sets off-bg");
+
+console.log("ok: display-follows-title (Policy B) + portal jack effective display + hide-title restore + B-048 bypass SSOT");

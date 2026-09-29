@@ -134,6 +134,15 @@ function noteMaskOrTransmit(values, phase) {
   return noteMaskTransmit(acc, phase);
 }
 
+/** Key-track CV for note-mask consumers: highest active MIDI key, 0..127 -> 0..1. */
+function noteMaskKeyTrackUnit(mask) {
+  const m = noteMaskEnsure(mask);
+  for (let midi = NOTE_MASK_MIDI_COUNT - 1; midi >= 0; midi -= 1) {
+    if (m[midi]) return midi / (NOTE_MASK_MIDI_COUNT - 1);
+  }
+  return 0;
+}
+
 function noteMaskPitchClassBits(mask) {
   const m = noteMaskEnsure(mask);
   let bits = 0;
@@ -270,6 +279,7 @@ if (typeof globalThis !== "undefined") {
   globalThis.noteMaskOrTransmit = noteMaskOrTransmit;
   globalThis.noteMaskToMidiList = noteMaskToMidiList;
   globalThis.noteMaskPitchClassBits = noteMaskPitchClassBits;
+  globalThis.noteMaskKeyTrackUnit = noteMaskKeyTrackUnit;
   globalThis.noteMaskFromPitchClassBits = noteMaskFromPitchClassBits;
   globalThis.noteMaskFromPitchClassBitsRange = noteMaskFromPitchClassBitsRange;
   globalThis.NOTE_MASK_C3_MIDI = NOTE_MASK_C3_MIDI;

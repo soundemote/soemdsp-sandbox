@@ -2306,6 +2306,13 @@ button.scw-label:hover,
   --node-toolbar-button-bg-alpha: 1;
   --node-tooltip-text-size: 64px; /* max font for tip fit-to-box (not a fixed size) */
   --node-min-grid-brightness-alpha: 0;
+  /* B-048: bypass chrome SSOT for module face + Module Settings (sibling under panel). */
+  --node-bypass-icon-size-ratio: 0.36;
+  --node-bypass-icon-glow-spread-ratio: 0.4;
+  --node-bypass-icon-glow-color: #f25d5d;
+  --node-bypass-icon-on-color: #f7b758;
+  --node-bypass-on-bg: #5c1818;
+  --node-bypass-off-bg: #000000;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -7482,12 +7489,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   /* Parameter slider outs match parameter/mod inlet purple (not mono green). */
   --node-param-output-fill: var(--node-mod-input-fill);
   --node-param-output-stroke: var(--node-mod-input-stroke);
-  --node-bypass-icon-size-ratio: 0.36;
-  --node-bypass-icon-glow-spread-ratio: 0.4;
-  --node-bypass-icon-glow-color: #f25d5d;
-  --node-bypass-icon-on-color: #f7b758;
-  --node-bypass-on-bg: rgba(92, 24, 24, 0.48);
-  --node-bypass-off-bg: transparent;
+  /* --node-bypass-* SSOT lives on .node-wiring-panel (B-048). */
   --node-move-symbol-size-ratio: 0.6;
   position: relative;
   /* Full-bleed plate between top toolbar and bottom public controls. */
@@ -13820,48 +13822,22 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
    LayoutB (ports beside the face) and InletOutletLayout are not this stack. */
 
 /*
- * LayoutC — compact convenience thrus (Vectorscope Rotation, …):
- *   title | I/O (fills remaining height) | optional bottom lip
- * No display face, no param stack. Port rows 1fr so small modules still have
- * tall hit bands for L/R / X/Y.
+ * InletOutletLayout (canonical; title-bar-and-ports / layout-c = aliases):
+ *   header | I/O (content-sized jack rows) | lip
+ * No display face, no param stack. Jack packing SSOT = shared .node-io-column /
+ * .node-io-row (same flush spacing as LayoutA). Do not 1fr-stretch rows (B-074).
+ * Leftover outer height is the lip band, not stretched jack gaps.
  */
-/* InletOutletLayout (canonical) + title-bar-and-ports / layout-c deprecated aliases. */
 .dsp-node.chrome-layout-inlet-outlet > .dsp-node-io-section,
 .dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section,
 .dsp-node.chrome-layout-c > .dsp-node-io-section {
   min-height: 0;
-  height: 100%;
-  max-height: 100%;
-  align-self: stretch;
+  align-self: start;
   box-sizing: border-box;
-  /* Two equal columns for in / out; full height for hit targets. */
+  /* Equal in/out columns; row packing inherits shared .node-io-column. */
   grid-template-columns: minmax(0, 1fr) minmax(0, 0) minmax(0, 1fr);
-  align-items: stretch;
-  /* Keep jack tips inside the module plate (was painting over the bottom). */
-  overflow: hidden;
-}
-
-.dsp-node.chrome-layout-inlet-outlet > .dsp-node-io-section .node-io-column,
-.dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section .node-io-column,
-.dsp-node.chrome-layout-c > .dsp-node-io-section .node-io-column {
-  height: 100%;
-  min-height: 0;
-  max-height: 100%;
-  align-content: stretch;
-  /* Equal-height jack bands — easy hits even at 3×3 gu. */
-  grid-auto-rows: minmax(var(--node-signal-port-height), 1fr);
-  gap: 0;
-  overflow: hidden;
-}
-
-.dsp-node.chrome-layout-inlet-outlet > .dsp-node-io-section .node-io-row,
-.dsp-node.chrome-layout-title-bar-and-ports > .dsp-node-io-section .node-io-row,
-.dsp-node.chrome-layout-c > .dsp-node-io-section .node-io-row {
-  min-height: var(--node-signal-port-height);
-  height: 100%;
-  max-height: 100%;
-  box-sizing: border-box;
-  overflow: hidden;
+  align-items: start;
+  overflow: visible;
 }
 
 .dsp-node.chrome-layout-inlet-outlet > .dsp-node-body,
@@ -13869,6 +13845,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 .dsp-node.chrome-layout-c > .dsp-node-body {
   display: none !important;
 }
+
 
 /* Knob shell height follows shared LayoutB shell units. */
 .dsp-node.slider-widget-layout .node-knob-shell {
@@ -16986,7 +16963,11 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
 
 .node-io-column {
   display: grid;
+  /* SSOT jack packing for LayoutA + InletOutletLayout (B-074). LayoutB shell
+     columns mirror this: flush rows at signal-port height, gap from --node-io-gap.
+     Do not 1fr-stretch rows — that drifted portal / Output Left Right spacing. */
   align-content: start;
+  grid-auto-rows: minmax(var(--node-signal-port-height), auto);
   gap: var(--node-io-gap);
   min-width: 0;
   overflow: visible;
@@ -17558,9 +17539,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
   position: relative;
   overflow: hidden;
   padding: 0;
-  background: var(--node-bypass-off-bg);
+  background: var(--node-bypass-off-bg, #000000);
   color: transparent;
-  font-size: calc(var(--node-header-height) * var(--node-bypass-icon-size-ratio) * 0.34);
+  font-size: calc(var(--node-header-height) * var(--node-bypass-icon-size-ratio, 0.36) * 0.34);
 }
 
 .node-bypass-button::before {
@@ -17571,12 +17552,12 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
   align-items: center;
   justify-content: center;
   color: rgba(160, 167, 176, 0.48);
-  font-size: calc(var(--node-bypass-icon-size-ratio) * 100cqh);
+  font-size: calc(var(--node-bypass-icon-size-ratio, 0.36) * 100cqh);
   line-height: 1;
 }
 
 .node-bypass-button[aria-pressed="true"] {
-  background: var(--node-bypass-on-bg);
+  background: var(--node-bypass-on-bg, #5c1818);
   color: transparent;
 }
 
@@ -17597,15 +17578,15 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
 
 .node-bypass-button[aria-pressed="true"]::before {
   content: "\1F5F2";
-  color: var(--node-bypass-icon-on-color);
-  font-size: calc(var(--node-bypass-icon-size-ratio) * 100cqh);
+  color: var(--node-bypass-icon-on-color, #f7b758);
+  font-size: calc(var(--node-bypass-icon-size-ratio, 0.36) * 100cqh);
   text-shadow:
-    0 0 calc(100cqh * var(--node-bypass-icon-glow-spread-ratio) * 0.18) color-mix(in srgb, var(--node-bypass-icon-glow-color) 72%, transparent),
-    0 0 calc(100cqh * var(--node-bypass-icon-glow-spread-ratio) * 0.42) color-mix(in srgb, var(--node-bypass-icon-glow-color) 46%, transparent);
+    0 0 calc(100cqh * var(--node-bypass-icon-glow-spread-ratio, 0.4) * 0.18) color-mix(in srgb, var(--node-bypass-icon-glow-color, #f25d5d) 72%, transparent),
+    0 0 calc(100cqh * var(--node-bypass-icon-glow-spread-ratio, 0.4) * 0.42) color-mix(in srgb, var(--node-bypass-icon-glow-color, #f25d5d) 46%, transparent);
 }
 
 .dsp-node.bypassed:not(.connected) .node-bypass-button[aria-pressed="true"] {
-  background: var(--node-bypass-on-bg);
+  background: var(--node-bypass-on-bg, #5c1818);
   color: transparent;
 }
 
@@ -17988,6 +17969,36 @@ body.node-slider-dragging * {
 
 .node-slider-readout-unit.is-empty {
   visibility: hidden;
+}
+
+/* B-080: Choice divide/segment labels use the full track width before ellipsis.
+   Empty unit still reserved min-width: 2.5em + column-gap, so names like
+   "Analog Square" / "Trisaw Center" truncated early on choices-divided sliders.
+   Collapse to one column so a spanning label cannot keep the auto unit track alive. */
+.node-slider-readout.displays-choices:has(> .node-slider-readout-unit.is-empty) {
+  column-gap: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+.node-slider-readout.displays-choices .node-slider-readout-unit.is-empty {
+  display: none;
+  min-width: 0;
+  width: 0;
+  max-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  overflow: hidden;
+}
+.node-slider-readout.displays-choices:has(> .node-slider-readout-unit.is-empty) > .node-slider-readout-value {
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+/* value-outside / label-value-slider still need label|value side-by-side. */
+.node-graph-workspace[data-slider-layout="value-outside"] .node-slider-readout.displays-choices:has(> .node-slider-readout-unit.is-empty),
+.node-graph-workspace[data-slider-layout="label-value-slider"] .node-slider-readout.displays-choices:has(> .node-slider-readout-unit.is-empty) {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .node-graph-workspace[data-slider-layout="label-value-slider"] .node-slider-readout-label {
@@ -22223,7 +22234,9 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   }
 }
 
-/* Disable module — same .node-bypass-button chrome as module header row. */
+/* B-048: Module Settings disable — same .node-bypass-button SSOT as module face.
+   Vars inherit from .node-wiring-panel (not workspace-only). Explicit bg so menu
+   button rules cannot wipe black / red chrome. */
 #nodeSceneContextMenu .scene-context-module-bypass-button,
 .node-scene-context-menu .scene-context-module-bypass-button {
   display: flex;
@@ -22240,6 +22253,14 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   /* Match module header bypass cell sizing for the joystick glyph. */
   --node-header-height: calc(var(--node-floating-window-button-height, 1.85rem) + 0.15rem);
   container-type: size;
+  background: var(--node-bypass-off-bg, #000000);
+  color: transparent;
+}
+
+#nodeSceneContextMenu .scene-context-module-bypass-button[aria-pressed="true"],
+.node-scene-context-menu .scene-context-module-bypass-button[aria-pressed="true"] {
+  background: var(--node-bypass-on-bg, #5c1818);
+  color: transparent;
 }
 
 #nodeSceneContextMenu .scene-context-module-bypass-button:disabled,

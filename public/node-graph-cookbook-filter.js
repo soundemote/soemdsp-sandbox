@@ -973,6 +973,7 @@ function nodeGraphFilterCurveIsPersistentScreen(el) {
     || cls?.contains("node-basic-shape-display")
     || cls?.contains("node-sincos4-display")
     || cls?.contains("node-pulse-curve-display")
+    || cls?.contains("node-soft-clipper-curve-display")
   ) {
     return true;
   }
@@ -983,6 +984,7 @@ function nodeGraphFilterCurveIsPersistentScreen(el) {
     || el.closest?.(".node-basic-shape-display")
     || el.closest?.(".node-sincos4-display")
     || el.closest?.(".node-pulse-curve-display")
+    || el.closest?.(".node-soft-clipper-curve-display")
   );
 }
 
@@ -992,6 +994,14 @@ function createNodeGraphFilterCurveDisplay(nodeId, type) {
     : String(nodeId || "");
   const section = document.createElement("section");
   section.className = "node-filter-curve-display node-light-source";
+  // Structural ownership: only faces marked filterCurve are painted by the
+  // filter drawer (lib/visual/filter-curve-face.js). Plate class alone is not enough.
+  if (typeof markFilterCurveOwnedFace === "function") {
+    markFilterCurveOwnedFace(section);
+  } else {
+    section.dataset.faceKind = "filterCurve";
+    section.setAttribute("data-face-kind", "filterCurve");
+  }
   section.dataset.node = id;
   section.dataset.nodeType = type;
   section.dataset.lightSource = "screen";
@@ -1476,66 +1486,21 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
 }
 
 function drawNodeGraphFilterCurveDisplays() {
-  document.querySelectorAll(".node-filter-curve-display").forEach((section) => {
-    // RoundShape / BasicShape / SinCos4 reuse the filter-curve plate class but
-    // own drawers. Calling the generic filter-curve painter on them flashes a
-    // second UI (especially visible when scrubbing Mode on SinCos4).
-    if (section.classList.contains("node-round-shape-display")) {
-      if (typeof drawNodeGraphRoundShapeDisplay === "function") {
-        drawNodeGraphRoundShapeDisplay(section);
-      }
-      return;
-    }
-    if (section.classList.contains("node-basic-shape-display")) {
-      if (typeof drawNodeGraphBasicShapeDisplay === "function") {
-        drawNodeGraphBasicShapeDisplay(section);
-      }
-      return;
-    }
-    if (section.classList.contains("node-softwave-osc-display")) {
-      if (typeof drawNodeGraphSoftwaveOscDisplay === "function") {
-        drawNodeGraphSoftwaveOscDisplay(section);
-      }
-      return;
-    }
-    if (section.classList.contains("node-expo-pluck-display")) {
-      if (typeof drawNodeGraphExpoPluckEnvelopeDisplay === "function") {
-        drawNodeGraphExpoPluckEnvelopeDisplay(section);
-      }
-      return;
-    }
-    if (section.classList.contains("node-expo-pluck2-display")) {
-      if (typeof drawNodeGraphExpoPluckEnvelope2Display === "function") {
-        drawNodeGraphExpoPluckEnvelope2Display(section);
-      }
-      return;
-    }
-    if (section.classList.contains("node-sincos4-display")) {
-      if (typeof drawNodeGraphSinCos4Display === "function") {
-        drawNodeGraphSinCos4Display(section);
-      }
-      return;
-    }
-    if (section.classList.contains("node-envelope-curve-display")) {
-      if (typeof drawNodeGraphEnvelopeCurveDisplay === "function") {
-        drawNodeGraphEnvelopeCurveDisplay(section);
-      }
-      return;
-    }
-    if (section.classList.contains("node-phone-tone-display")) {
-      if (typeof drawNodeGraphPhoneToneFaceItem === "function") {
-        drawNodeGraphPhoneToneFaceItem(section);
-      }
-      return;
-    }
-    if (section.classList.contains("node-harmonic-series-display")) {
-      if (typeof drawNodeGraphHarmonicSeriesFaceItem === "function") {
-        drawNodeGraphHarmonicSeriesFaceItem(section);
-      }
-      return;
-    }
-    drawNodeGraphFilterCurveDisplay(section);
-  });
+  // Ownership SSOT (lib/visual/filter-curve-face.js): paint only faces marked
+  // data-face-kind=filterCurve. Softclipper / BasicShape / envelopes / etc. may
+  // share the plate class for layout CSS but are never filter-drawer targets.
+  const paintOwned = typeof forEachFilterCurveOwnedFace === "function"
+    ? forEachFilterCurveOwnedFace
+    : null;
+  if (paintOwned) {
+    paintOwned((section) => {
+      drawNodeGraphFilterCurveDisplay(section);
+    });
+  } else {
+    document.querySelectorAll('.node-filter-curve-display[data-face-kind="filterCurve"]').forEach((section) => {
+      drawNodeGraphFilterCurveDisplay(section);
+    });
+  }
   if (typeof drawNodeGraphPulseCurveDisplay === "function") {
     document.querySelectorAll(".node-pulse-curve-display").forEach(drawNodeGraphPulseCurveDisplay);
   }
@@ -1545,32 +1510,26 @@ function drawNodeGraphFilterCurveDisplays() {
 }
 
 function scheduleNodeGraphFilterCurveDraw() {
+  // Prefer shared lib scheduler (owned faces only). Fallback keeps the same rule.
+  if (typeof scheduleFilterCurveOwnedDraw === "function") {
+    scheduleFilterCurveOwnedDraw({
+      paintOwned: drawNodeGraphFilterCurveDisplay,
+      afterOwned: () => {
+        if (typeof drawNodeGraphPulseCurveDisplay === "function") {
+          document.querySelectorAll(".node-pulse-curve-display").forEach(drawNodeGraphPulseCurveDisplay);
+        }
+        if (typeof drawNodeGraphWallRoomDisplay === "function") {
+          document.querySelectorAll(".node-wall-room-display").forEach(drawNodeGraphWallRoomDisplay);
+        }
+      },
+    });
+    return;
+  }
   if (nodeGraphMvp.filterCurveDrawFrame) {
     return;
   }
   nodeGraphMvp.filterCurveDrawFrame = window.requestAnimationFrame(() => {
     nodeGraphMvp.filterCurveDrawFrame = 0;
-    // UI event path (slider drag, layout, wipe): paint this frame, ungated.
-    // Live modulation keeps moving via per-face Simulation FPS loops.
-    for (const section of document.querySelectorAll(".node-filter-curve-display")) {
-      if (
-        section.classList.contains("node-round-shape-display")
-        || section.classList.contains("node-envelope-curve-display")
-        || section.classList.contains("node-expo-pluck-display")
-        || section.classList.contains("node-expo-pluck2-display")
-        || section.classList.contains("node-phone-tone-display")
-        || section.classList.contains("node-harmonic-series-display")
-        || section.classList.contains("node-basic-shape-display")
-        || section.classList.contains("node-softwave-osc-display")
-        || section.classList.contains("node-sincos4-display")
-      ) {
-        continue;
-      }
-      section._filterCurveForceDraw = true;
-      if (typeof section._startFaceLoop === "function") {
-        section._startFaceLoop();
-      }
-    }
     drawNodeGraphFilterCurveDisplays();
   });
 }

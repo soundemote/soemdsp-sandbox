@@ -2,6 +2,19 @@
   "ok": true,
   "modules": [
     {
+      "name": "acoustic_pluck",
+      "label": "Acoustic Pluck",
+      "targetType": "acousticPluck",
+      "kind": "envelope",
+      "source": "native_modules/acoustic_pluck/acoustic_pluck.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/acoustic_pluck/acoustic_pluck.cpp",
+      "localSourceUrl": "/native_modules/acoustic_pluck/acoustic_pluck.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/acoustic_pluck/acoustic_pluck.wasm",
+      "wasmUrl": "native_modules/acoustic_pluck/acoustic_pluck.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "active_filter",
       "label": "Dual Ladder Filter",
       "targetType": "activeFilter",

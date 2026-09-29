@@ -83,12 +83,13 @@ function nodeGraphDisplaySettingsNormalizePlateLook(source = {}, defaults = {}) 
  */
 function normalizeNodeGraphPhosphorResidualAxes(source = {}, defaults = {}) {
   const src = source && typeof source === "object" ? source : {};
-  const defaultTrail = Number.isFinite(Number(defaults.trail))
-    ? Number(defaults.trail)
-    : 0.88;
-  const defaultGhost = Number.isFinite(Number(defaults.ghost))
-    ? Number(defaults.ghost)
-    : 0.45;
+  const MathH = typeof SoemMath !== "undefined" ? SoemMath : null;
+  const defaultTrail = MathH && typeof MathH.finiteOr === "function"
+    ? MathH.finiteOr(defaults.trail, 0.88)
+    : (Number.isFinite(Number(defaults.trail)) ? Number(defaults.trail) : 0.88);
+  const defaultGhost = MathH && typeof MathH.finiteOr === "function"
+    ? MathH.finiteOr(defaults.ghost, 0.45)
+    : (Number.isFinite(Number(defaults.ghost)) ? Number(defaults.ghost) : 0.45);
   const defaultBurn = Number.isFinite(Number(defaults.burn))
     && Number(defaults.residualSchema) >= 2
     ? Number(defaults.burn)
@@ -292,6 +293,7 @@ function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
     "xyPad",
     "dot",
     "lineBurn",
+    "scope1dTrace",
     "numberReadout",
     "videoscopeBurn",
     "oscilloscopeBankBurn",
@@ -1722,7 +1724,7 @@ function normalizeNodeGraphScope1dTraceSettings(settings = {}) {
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
     )
-    : mappedInk.brightness;
+    : (defaults.dot1Brightness ?? mappedInk.brightness);
   const rawSec = source.secondaryColor ?? defaults.secondaryColor;
   const secHex = typeof normalizeNodeGraphTraceDisplayColor === "function"
     ? normalizeNodeGraphTraceDisplayColor(rawSec, defaults.secondaryColor)
@@ -1742,7 +1744,7 @@ function normalizeNodeGraphScope1dTraceSettings(settings = {}) {
       source.secondaryBrightness,
       defaults.secondaryBrightness,
     )
-    : mappedSec.brightness;
+    : (defaults.secondaryBrightness ?? mappedSec.brightness);
   const sweepDefaults = typeof nodeGraphLineBurnSettingsDefaults !== "undefined"
     ? nodeGraphLineBurnSettingsDefaults
     : { sweepHz: 4, sweepCycles: 4 };
@@ -1779,6 +1781,14 @@ function normalizeNodeGraphScope1dTraceSettings(settings = {}) {
     skipDiscontinuities: nodeGraphDisplaySettingsToggleIsOn(
       source.skipDiscontinuities ?? defaults.skipDiscontinuities,
     ),
+    gradientStops: ((Array.isArray(source.gradientStops) && source.gradientStops.length >= 2)
+      || (Array.isArray(source.gradient) && source.gradient.length >= 2))
+      ? (typeof nodeGraphPhosphorGradientStopsFromSettings === "function"
+        ? nodeGraphPhosphorGradientStopsFromSettings(source, inkHueHex)
+        : (source.gradientStops || source.gradient))
+      : (Array.isArray(defaults.gradientStops) && defaults.gradientStops.length >= 2
+        ? defaults.gradientStops.map((s) => ({ t: s.t, color: s.color }))
+        : undefined),
     sourceSync: nodeGraphDisplaySettingsToggleIsOn(
       source.sourceSync ?? source.sync ?? defaults.sourceSync,
     ),
@@ -2151,9 +2161,18 @@ function nodeGraphNumberReadoutSettingsForNode(node) {
       : {}),
     faceStyle: nodeGraphNumberReadoutFaceStyleForNode(node),
   };
-  // Old Pitch Detector LED packs stored unlitSegments 0 (no LCD ghost).
-  if (String(node.type || "") === "helmholtzPitch" && !(Number(packed.unlitSegments) > 0)) {
-    packed.unlitSegments = defaults.unlitSegments ?? 0.28;
+  // LCD Ghost (unlitSegments) is a live user display knob.
+  // Never rewrite 0->default on every normalize (that made Ghost invisible at 0
+  // and forced ~0.28). Absent/undefined/null get the Pitch Detector default
+  // once; explicit 0 stays 0. See SoemMath policy (defaultIfZero is NOT for
+  // live knobs). No residualSchema-style marker for this field -- absent-only.
+  if (String(node.type || "") === "helmholtzPitch" && packed.unlitSegments == null) {
+    const MathH = typeof SoemMath !== "undefined" ? SoemMath : null;
+    packed.unlitSegments = MathH && typeof MathH.finiteOr === "function"
+      ? MathH.finiteOr(defaults.unlitSegments, 0.28)
+      : (Number.isFinite(Number(defaults.unlitSegments))
+          ? Number(defaults.unlitSegments)
+          : 0.28);
   }
   return normalizeNodeGraphNumberReadoutSettings(packed, defaults);
 }

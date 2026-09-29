@@ -387,7 +387,18 @@ function syncNodeSliderReadout(slider) {
       formattedKind = "";
     }
   }
-  const choices = parseNodeMetadataChoices(slider.dataset.choices || "");
+  // B-079: dividers / choiceCount follow the range-filtered subset, not the full catalog.
+  const catalogChoices = parseNodeMetadataChoices(slider.dataset.choices || "");
+  const originRaw = Number(slider.dataset.choiceOriginMin);
+  const choices = typeof nodeGraphResolveChoiceSet === "function"
+    ? nodeGraphResolveChoiceSet({
+      choices: catalogChoices,
+      min: Number(slider.min),
+      max: Number(slider.max),
+      step: Number(slider.dataset.step),
+      choiceOriginMin: Number.isFinite(originRaw) ? originRaw : undefined,
+    }).choices
+    : catalogChoices;
   const usesChoices = nodeSliderShouldDisplayChoices(slider) && choices.length > 0;
   const dividesChoices = usesChoices && nodeSliderShouldDivideChoicesVisibly(slider);
   const usesNumericReadout = !choiceLabel;
@@ -415,6 +426,8 @@ function syncNodeSliderReadout(slider) {
   readout.dataset.unit = unit;
   readout.dataset.choiceCount = usesChoices ? String(choices.length) : "0";
   readout.classList.toggle("choices-divided", dividesChoices);
+  // B-080: let choice labels claim full track width when unit column is empty.
+  readout.classList.toggle("displays-choices", usesChoices);
   readout.classList.toggle("reserves-sign-column", usesNumericReadout || usesChoices);
   readout.removeAttribute("title");
   if (dividesChoices) {

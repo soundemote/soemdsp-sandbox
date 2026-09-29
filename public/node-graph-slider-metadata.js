@@ -398,20 +398,73 @@ function parseNodeMetadataChoices(value) {
     .filter(Boolean);
 }
 
+/**
+ * B-079: When min/max clamp a discrete choices param to a contiguous subrange,
+ * remap UI labels/dividers onto that subset (even division over filtered count).
+ * Domain values stay absolute (e.g. waveform 4/5); choiceOriginMin is the domain
+ * value of choices[0] from the full catalog (definition min).
+ */
+function nodeGraphResolveChoiceSet(metadata = {}) {
+  const all = Array.isArray(metadata?.choices) ? metadata.choices : [];
+  const nAll = all.length;
+  const min = Number(metadata?.min);
+  const max = Number(metadata?.max);
+  const step = Number(metadata?.step);
+  let origin = Number(metadata?.choiceOriginMin);
+  if (nAll <= 0) {
+    return { choices: all, min, max, step, origin: Number.isFinite(origin) ? origin : min };
+  }
+  if (!Number.isFinite(step) || step <= 0 || !Number.isFinite(min) || !Number.isFinite(max) || max < min) {
+    return { choices: all, min, max, step, origin: Number.isFinite(origin) ? origin : min };
+  }
+  const span = Math.round((max - min) / step) + 1;
+  if (!(span >= 1 && span < nAll)) {
+    if (!Number.isFinite(origin) && Math.abs(span - nAll) < 1e-6) {
+      origin = min;
+    }
+    if (!Number.isFinite(origin)) {
+      origin = 0;
+    }
+    return { choices: all, min, max, step, origin, startIndex: 0 };
+  }
+  if (!Number.isFinite(origin)) {
+    const last = (nAll - 1) * step;
+    if (min >= -1e-9 && max <= last + 1e-9) {
+      origin = 0;
+    } else {
+      origin = min;
+    }
+  }
+  let startIndex = Math.round((min - origin) / step);
+  startIndex = Math.max(0, Math.min(nAll - span, startIndex));
+  return {
+    choices: all.slice(startIndex, startIndex + span),
+    min,
+    max,
+    step,
+    origin,
+    startIndex,
+  };
+}
+
 /** Domain value → choice index using param min/max/step (not raw value-as-index). */
 function nodeGraphPatchChoiceIndexFromValue(metadata, value) {
-  const choices = Array.isArray(metadata?.choices) ? metadata.choices : [];
+  const resolved = nodeGraphResolveChoiceSet(metadata);
+  const choices = resolved.choices;
   const n = choices.length;
   if (n <= 0) {
     return 0;
   }
-  const min = Number(metadata?.min);
-  const max = Number(metadata?.max);
+  const min = Number(resolved.min);
+  const max = Number(resolved.max);
   const v = Number(value);
-  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min || !Number.isFinite(v)) {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max < min || !Number.isFinite(v)) {
     return Math.max(0, Math.min(n - 1, Math.round(v)));
   }
-  const step = Number(metadata?.step);
+  if (max <= min) {
+    return 0;
+  }
+  const step = Number(resolved.step);
   const integerChoices = Number.isFinite(step) && step > 0
     && Math.abs((max - min) / step + 1 - n) < 1e-6;
   if (integerChoices) {
@@ -423,19 +476,29 @@ function nodeGraphPatchChoiceIndexFromValue(metadata, value) {
 
 function nodeSliderChoiceIndexFromValue(slider, value) {
   const choices = parseNodeMetadataChoices(slider?.dataset?.choices || "");
+  const originRaw = Number(slider?.dataset?.choiceOriginMin);
   return nodeGraphPatchChoiceIndexFromValue({
     choices,
     min: Number(slider?.min),
     max: Number(slider?.max),
     step: Number(slider?.dataset?.step),
+    choiceOriginMin: Number.isFinite(originRaw) ? originRaw : undefined,
   }, value);
 }
 
 function nodeSliderChoiceValueFromIndex(slider, index) {
   const choices = parseNodeMetadataChoices(slider?.dataset?.choices || "");
-  const n = choices.length;
-  const min = Number(slider?.min);
-  const max = Number(slider?.max);
+  const originRaw = Number(slider?.dataset?.choiceOriginMin);
+  const resolved = nodeGraphResolveChoiceSet({
+    choices,
+    min: Number(slider?.min),
+    max: Number(slider?.max),
+    step: Number(slider?.dataset?.step),
+    choiceOriginMin: Number.isFinite(originRaw) ? originRaw : undefined,
+  });
+  const n = resolved.choices.length;
+  const min = Number(resolved.min);
+  const max = Number(resolved.max);
   const i = Math.max(0, Math.min(Math.max(0, n - 1), Math.round(Number(index))));
   if (!Number.isFinite(min)) {
     return i;
@@ -443,7 +506,7 @@ function nodeSliderChoiceValueFromIndex(slider, index) {
   if (n <= 1 || !Number.isFinite(max) || max <= min) {
     return min;
   }
-  const step = Number(slider?.dataset?.step);
+  const step = Number(resolved.step);
   const integerChoices = Number.isFinite(step) && step > 0
     && Math.abs((max - min) / step + 1 - n) < 1e-6;
   if (integerChoices) {
@@ -461,6 +524,10 @@ function nodeSliderChoiceLabel(slider) {
   if (!metadata.displayChoices || !metadata.choices.length) {
     return null;
   }
+  const resolved = nodeGraphResolveChoiceSet(metadata);
+  if (!resolved.choices.length) {
+    return null;
+  }
 
   const index = typeof nodeSliderChoiceIndexFromValue === "function"
     ? nodeSliderChoiceIndexFromValue(slider, slider.value)
@@ -469,7 +536,7 @@ function nodeSliderChoiceLabel(slider) {
     return null;
   }
 
-  return metadata.choices[Math.max(0, Math.min(metadata.choices.length - 1, index))] ?? null;
+  return resolved.choices[Math.max(0, Math.min(resolved.choices.length - 1, index))] ?? null;
 }
 
 function nodeGraphPatchChoiceLabel(metadata, value) {
@@ -479,13 +546,18 @@ function nodeGraphPatchChoiceLabel(metadata, value) {
   // Map domain value → index via min/max/step. Do NOT treat the value as an
   // array index: choices −1/0/+1 with min=-1 would clamp −1 to index 0 and
   // also map 0 → index 0, so the face looked like −1 was ignored.
+  // B-079: index is into the range-filtered subset, not the full catalog.
+  const resolved = nodeGraphResolveChoiceSet(metadata);
+  if (!resolved.choices.length) {
+    return null;
+  }
   const index = typeof nodeGraphPatchChoiceIndexFromValue === "function"
     ? nodeGraphPatchChoiceIndexFromValue(metadata, value)
     : Math.round(Number(value));
   if (!Number.isFinite(index)) {
     return null;
   }
-  return metadata.choices[Math.max(0, Math.min(metadata.choices.length - 1, index))] ?? null;
+  return resolved.choices[Math.max(0, Math.min(resolved.choices.length - 1, index))] ?? null;
 }
 
 function nodeSliderChoiceIndexFromText(slider, value) {
@@ -493,19 +565,22 @@ function nodeSliderChoiceIndexFromText(slider, value) {
   if (!metadata.displayChoices || !metadata.choices.length) {
     return null;
   }
+  // B-079: type-in resolves against the range-filtered subset only.
+  const resolved = nodeGraphResolveChoiceSet(metadata);
+  const activeChoices = resolved.choices.length ? resolved.choices : metadata.choices;
 
   const normalized = String(value).trim().toLowerCase();
   if (!normalized) {
     return null;
   }
-  const exactIndex = metadata.choices.findIndex(
+  const exactIndex = activeChoices.findIndex(
     (choice) => choice.toLowerCase() === normalized,
   );
   if (exactIndex >= 0) {
     return exactIndex;
   }
 
-  const prefixMatches = metadata.choices
+  const prefixMatches = activeChoices
     .map((choice, index) => ({ choice: choice.toLowerCase(), index }))
     .filter((choice) => choice.choice.startsWith(normalized));
   return prefixMatches.length === 1 ? prefixMatches[0].index : null;
@@ -547,6 +622,10 @@ function nodeSliderMetadata(slider) {
   return {
     alias: slider.dataset.alias ?? "",
     choices: parseNodeMetadataChoices(slider.dataset.choices || ""),
+    choiceOriginMin: (() => {
+      const n = Number(slider.dataset.choiceOriginMin);
+      return Number.isFinite(n) ? n : undefined;
+    })(),
     curveAmount: nodeSliderCurveAmount(slider),
     cur,
     def,

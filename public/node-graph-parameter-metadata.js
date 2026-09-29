@@ -456,8 +456,11 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
     // Legacy checkbox: false meant instant snaps, not linear ramps.
     smoothingType = "none";
   }
+  const definedChoices = normalizeNodeGraphMetadataChoices(parameter.choices || []);
   const defined = {
-    choices: normalizeNodeGraphMetadataChoices(parameter.choices || []),
+    choices: definedChoices,
+    // B-079: full-catalog origin (domain of choices[0]) survives later min/max clamps.
+    choiceOriginMin: definedChoices.length ? safeMin : undefined,
     control: String(parameter.control || "").trim() === "number" ? "number" : "",
     curveAmount: normalizeNodeSliderCurveAmount(parameter.curveAmount),
     def: clampNodeSliderValue(Number.isFinite(def) ? def : safeMin, safeMin, safeMax),
@@ -765,11 +768,39 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       Object.hasOwn(source, "choices") ? source.choices : fallback.choices,
       fallback.choices,
     );
+  // B-079: preserve catalog origin across range clamps (definition min when absent).
+  let choiceOriginMin;
+  {
+    const fromSource = Number(source.choiceOriginMin);
+    const fromFallback = Number(fallback.choiceOriginMin);
+    const fromFallbackMin = Number(fallback.min);
+    if (Number.isFinite(fromSource)) {
+      choiceOriginMin = fromSource;
+    } else if (Number.isFinite(fromFallback)) {
+      choiceOriginMin = fromFallback;
+    } else if (choices.length && Number.isFinite(fromFallbackMin)) {
+      choiceOriginMin = fromFallbackMin;
+    }
+    // Fresh full-span catalog: origin tracks current min.
+    const stepN = Number(Object.hasOwn(source, "step") ? source.step : fallback.step);
+    const minN = Number(min);
+    const maxN = Number(max);
+    if (
+      choices.length
+      && Number.isFinite(stepN) && stepN > 0
+      && Number.isFinite(minN) && Number.isFinite(maxN)
+      && Math.abs((maxN - minN) / stepN + 1 - choices.length) < 1e-6
+      && !Number.isFinite(fromSource)
+    ) {
+      choiceOriginMin = minN;
+    }
+  }
   const normalized = {
     alias: normalizeNodeGraphPatchMetadataAlias(
       Object.hasOwn(metadata || {}, "alias") ? metadata.alias : fallback.alias,
     ),
     choices,
+    choiceOriginMin,
     curveAmount: normalizeNodeSliderCurveAmount(
       Object.hasOwn(source, "curveAmount") ? source.curveAmount : fallback.curveAmount,
       fallback.curveAmount,

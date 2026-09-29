@@ -1,26 +1,28 @@
 // t-series: transistor-switched paths.
-//   t / tN  → demux: In → outs 0…N   Digital = one-hot; Analog = 0…1 address
-//   Nt      → mux:   ins 0…N + A/D → Out
+//   t / tN  → demux: In → outs 0…(N-1)   Digital = one-hot; Analog = 0…1 address
+//   Nt      → mux:   ins 0…(N-1) + A/D → Out
 //     D only = discrete index
 //     A only = −1…+1 full-range crossfade
-//     both   = D is base; A −1…0 sweeps 0…D, A 0…+1 sweeps D…N
+//     both   = D is base; A −1…0 sweeps 0…D, A 0…+1 sweeps D…(N-1)
+// Name digit = path count (lastIndex + 1). Plain `t` = 1 path (lastIndex 0).
+// Numbered family starts at 2 (t2 / 2t = 2 paths).
 
 const NODE_GRAPH_T_SERIES_TYPES = Object.freeze([
-  "t", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10",
+  "t", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11",
 ]);
 
 const NODE_GRAPH_T_SERIES_MUX_TYPES = Object.freeze([
-  "1t", "2t", "3t", "4t", "5t", "6t", "7t", "8t", "9t", "10t",
+  "2t", "3t", "4t", "5t", "6t", "7t", "8t", "9t", "10t", "11t",
 ]);
 
 function nodeGraphTSeriesType(lastIndex) {
   const last = Math.max(0, Math.min(10, Math.round(nodeGraphFiniteNumber(lastIndex))));
-  return last === 0 ? "t" : `t${last}`;
+  return last === 0 ? "t" : `t${last + 1}`;
 }
 
 function nodeGraphTSeriesMuxType(lastIndex) {
   const last = Math.max(1, Math.min(10, Math.round(nodeGraphFiniteNumber(lastIndex))));
-  return `${last}t`;
+  return `${last + 1}t`;
 }
 
 function nodeGraphTSeriesLastIndexForType(type) {
@@ -30,19 +32,20 @@ function nodeGraphTSeriesLastIndexForType(type) {
   }
   if (key.charAt(0) === "t") {
     const n = Number(key.slice(1));
-    if (Number.isInteger(n) && n >= 1 && n <= 10) {
-      return n;
+    // t2…t11 → lastIndex 1…10 (name digit = path count)
+    if (Number.isInteger(n) && n >= 2 && n <= 11) {
+      return n - 1;
     }
   }
-  const mux = key.match(/^([1-9]|10)t$/);
+  const mux = key.match(/^([2-9]|1[01])t$/);
   if (mux) {
-    return Number(mux[1]);
+    return Number(mux[1]) - 1;
   }
   return 0;
 }
 
 function nodeGraphTSeriesIsMuxType(type) {
-  return /^([1-9]|10)t$/.test(String(type || ""));
+  return /^([2-9]|1[01])t$/.test(String(type || ""));
 }
 
 function nodeGraphTSeriesClamp(v, lo, hi) {

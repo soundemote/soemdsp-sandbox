@@ -43,6 +43,11 @@
   nodeGraphLiveModuleEvaluators.imageBurn = thruFrom("In", "imageBurn in");
   nodeGraphLiveModuleEvaluators.valueOscilloscope = thruFrom("In", "valueOscilloscope in");
   nodeGraphLiveModuleEvaluators.lineBurnOscilloscope = thruFrom("In", "lineBurnOscilloscope in");
+  nodeGraphLiveModuleEvaluators.scope1dTrace = thruFrom("In", "scope1dTrace in");
+  nodeGraphLiveModuleEvaluators.scope1dTraceStereo = stereoThru(
+    "scope1dTraceStereo left",
+    "scope1dTraceStereo right",
+  );
   nodeGraphLiveModuleEvaluators.matrixDisplay = thruFrom("In", "matrixDisplay in");
   nodeGraphLiveModuleEvaluators.numberReadout = thruFrom("In", "numberReadout in");
   nodeGraphLiveModuleEvaluators.customDisplay = thruFrom("In1", "customDisplay in");

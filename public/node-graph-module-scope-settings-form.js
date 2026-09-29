@@ -71,6 +71,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "waterfallRgb"
     || formType === "waterfallXyz"
     || formType === "scope2dTrace"
+    || formType === "scope1dTrace"
     || formType === "gradientVectorscopeFace"
     || formType === "value"
     || formType === "lineBurn"
@@ -87,6 +88,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "waterfallRgb"
     || formType === "waterfallXyz"
     || formType === "scope2dTrace"
+    || formType === "scope1dTrace"
     || formType === "gradientVectorscopeFace"
     || formType === "value"
     || formType === "scope2d"
@@ -95,7 +97,9 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "xyPad"
   )) {
     label = "\uD83D\uDCA1 Bright";
-    title = formType === "scope2dTrace"
+    title = formType === "scope1dTrace"
+      ? "Beam brightness 0…1 (1 = full TraceWoscope intensity). Gradient owns color; Bright is deposit energy."
+      : formType === "scope2dTrace"
       ? "Beam brightness 0…1 (black → full hue at 0.5 → white). Drag the Trace title to change hue."
       : formType === "waterfall" || formType === "waterfallRgb" || formType === "waterfallXyz" || formType === "gradientVectorscopeFace" || formType === "value"
       ? "Ink light 0…1 (1 = full)."

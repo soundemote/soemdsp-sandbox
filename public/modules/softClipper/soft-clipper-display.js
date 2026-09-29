@@ -6,7 +6,15 @@ function createNodeGraphSoftClipperCurveDisplay(nodeId, type) {
     ? String(nodeId.dataset?.node || nodeId.id || "")
     : String(nodeId || "");
   const section = document.createElement("section");
-  section.className = "node-filter-curve-display node-soft-clipper-curve-display";
+  // Plate class for layout CSS only -- never claim filterCurve ownership.
+  // Filter drawer paints data-face-kind=filterCurve exclusively (B-056).
+  section.className = "node-filter-curve-display node-soft-clipper-curve-display node-module-face";
+  if (typeof markCurveFacePlate === "function") {
+    markCurveFacePlate(section, "softClipperCurve");
+  } else {
+    section.dataset.faceKind = "softClipperCurve";
+    section.setAttribute("data-face-kind", "softClipperCurve");
+  }
   section.dataset.node = id;
   section.dataset.nodeType = type || "softClipper";
   section.dataset.parameterVisual = "true";
@@ -48,10 +56,10 @@ function nodeGraphSoftClipperLiveParam(node, key, fallback = 0) {
 
 // Display twin of soft_clipper.cpp shape_one (params only -- not audio DSP).
 function nodeGraphSoftClipperTransferY(x, drive, threshold, knee, amplitude) {
-  const d = Math.max(0, Number.isFinite(drive) ? drive : 1);
-  let thr = Number.isFinite(threshold) ? threshold : 1;
+  const d = Math.max(0, Number.isFinite(drive) ? drive : 0.5);
+  let thr = Number.isFinite(threshold) ? threshold : 0;
   thr = thr < 0 ? 0 : thr > 1 ? 1 : thr;
-  let kn = Number.isFinite(knee) ? knee : 0.5;
+  let kn = Number.isFinite(knee) ? knee : 1;
   kn = kn < 0 ? 0 : kn > 1 ? 1 : kn;
   let amp = Number.isFinite(amplitude) ? amplitude : 1;
   amp = amp < 0 ? 0 : amp > 1 ? 1 : amp;
@@ -102,9 +110,9 @@ function drawNodeGraphSoftClipperCurveDisplayInner(section) {
   const { context, cssHeight: height, cssWidth: width, pixelRatio } = metrics;
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 
-  const drive = nodeGraphSoftClipperLiveParam(node, "drive", 1);
-  const threshold = nodeGraphSoftClipperLiveParam(node, "threshold", 1);
-  const knee = nodeGraphSoftClipperLiveParam(node, "knee", 0.5);
+  const drive = nodeGraphSoftClipperLiveParam(node, "drive", 0.5);
+  const threshold = nodeGraphSoftClipperLiveParam(node, "threshold", 0);
+  const knee = nodeGraphSoftClipperLiveParam(node, "knee", 1);
   const amplitude = nodeGraphSoftClipperLiveParam(node, "amplitude", 1);
   const signature = `${drive}|${threshold}|${knee}|${amplitude}|${width}|${height}`;
   if (

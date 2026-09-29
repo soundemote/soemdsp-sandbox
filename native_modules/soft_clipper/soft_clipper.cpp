@@ -119,21 +119,21 @@ static const char kMetadataJson[] =
       "{"
         "\"key\":\"drive\","
         "\"label\":\"Drive\","
-        "\"defaultValue\":1,"
+        "\"defaultValue\":0.5,"
         "\"min\":0,\"mid\":1,\"max\":8,\"step\":\"any\","
         "\"tooltip\":\"Input push into the soft-knee curve.\""
       "},"
       "{"
         "\"key\":\"threshold\","
         "\"label\":\"Threshold\","
-        "\"defaultValue\":1,"
+        "\"defaultValue\":0,"
         "\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\","
         "\"tooltip\":\"Amplitude (0...1) where limiting starts. Below this the driven signal is unchanged.\""
       "},"
       "{"
         "\"key\":\"knee\","
         "\"label\":\"Knee\","
-        "\"defaultValue\":0.5,"
+        "\"defaultValue\":1,"
         "\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\","
         "\"tooltip\":\"How gradual the transition from Threshold toward full scale is. 0 = hard at Threshold.\""
       "},"
@@ -166,9 +166,9 @@ extern "C" int soemdsp_soft_clipper_create() {
       s.coeffsValid = false;
       s.lastThreshold = -1.0;
       s.lastKnee = -1.0;
-      s.liveDrive = 1.0;
-      s.liveThreshold = 1.0;
-      s.liveKnee = 0.5;
+      s.liveDrive = 0.5;
+      s.liveThreshold = 0.0;
+      s.liveKnee = 1.0;
       s.liveAmplitude = 1.0;
       s.span = 1.0;
       s.scaleX = 1.0;

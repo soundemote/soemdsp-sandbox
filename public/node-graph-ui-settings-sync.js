@@ -1061,24 +1061,18 @@ function syncNodeUiDevSettingsHeaderControls() {
   document
     .getElementById("nodeWiringPanel")
     ?.classList.toggle("choice-slider-debug", choiceSlideDebugBoxesInput.checked);
-  document
-    .getElementById("nodeGraphWorkspace")
-    ?.style.setProperty("--node-bypass-icon-size-ratio", String(bypassIconSizePercent / 100));
-  document
-    .getElementById("nodeGraphWorkspace")
-    ?.style.setProperty("--node-bypass-icon-glow-spread-ratio", String(bypassIconGlowSpreadPercent / 100));
-  document
-    .getElementById("nodeGraphWorkspace")
-    ?.style.setProperty("--node-bypass-icon-glow-color", bypassIconGlowColor);
-  document
-    .getElementById("nodeGraphWorkspace")
-    ?.style.setProperty("--node-bypass-icon-on-color", bypassIconOnColor);
-  document
-    .getElementById("nodeGraphWorkspace")
-    ?.style.setProperty("--node-bypass-on-bg", bypassOnBackgroundColor);
-  document
-    .getElementById("nodeGraphWorkspace")
-    ?.style.setProperty("--node-bypass-off-bg", bypassOffBackgroundColor);
+  // B-048: Apply bypass chrome vars on #nodeWiringPanel so Module Settings
+  // (sibling of workspace) inherits the same black/red/glow SSOT as module face.
+  {
+    const bypassChromeHost = document.getElementById("nodeWiringPanel")
+      || document.getElementById("nodeGraphWorkspace");
+    bypassChromeHost?.style.setProperty("--node-bypass-icon-size-ratio", String(bypassIconSizePercent / 100));
+    bypassChromeHost?.style.setProperty("--node-bypass-icon-glow-spread-ratio", String(bypassIconGlowSpreadPercent / 100));
+    bypassChromeHost?.style.setProperty("--node-bypass-icon-glow-color", bypassIconGlowColor);
+    bypassChromeHost?.style.setProperty("--node-bypass-icon-on-color", bypassIconOnColor);
+    bypassChromeHost?.style.setProperty("--node-bypass-on-bg", bypassOnBackgroundColor);
+    bypassChromeHost?.style.setProperty("--node-bypass-off-bg", bypassOffBackgroundColor);
+  }
   tooltipTextSizeValue.textContent = `${tooltipTextSizePx}px`;
   minimumGridBrightnessValue.textContent = `${minimumGridBrightnessPercent}%`;
   moduleLightSpreadValue.textContent = `${moduleLightSpreadPercent}%`;

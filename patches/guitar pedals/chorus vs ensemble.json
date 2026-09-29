@@ -3511,7 +3511,7 @@
       "id": "2t-1",
       "paramMeta": {},
       "params": {},
-      "type": "2t",
+      "type": "3t",
       "widthGu": 3,
       "traceDisplaySettings": {
         "backgroundHue": 240,
@@ -3562,7 +3562,7 @@
       "id": "2t-2",
       "paramMeta": {},
       "params": {},
-      "type": "2t",
+      "type": "3t",
       "widthGu": 3,
       "traceDisplaySettings": {
         "backgroundHue": 240,

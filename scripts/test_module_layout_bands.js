@@ -116,6 +116,12 @@ var sandbox = {
       outputs: [],
       parameters: [],
     },
+    portalOutletLeftRight: {
+      chrome: "InletOutletLayout",
+      inputs: ["Left", "Right"],
+      outputs: ["Left", "Right"],
+      parameters: [],
+    },
   },
   nodeGraphFiniteNumber: function (value, fallback) {
     const n = Number(value);
@@ -377,4 +383,79 @@ var textBoxShown = contentIds("textBox", {});
 assert(textBoxShown.indexOf("header") === 0, "text box starts with header");
 assert(textBoxShown.indexOf("face") >= 0, "text box body is the face track " + textBoxShown);
 
+
+// B-074: InletOutletLayout packs jacks like LayoutA (lip leftover, no io.grow).
+sandbox.nodeGraphModuleUsesLayoutC = function (type) {
+  var chrome = sandbox.nodeGraphModuleDefinitions?.[type]?.chrome;
+  return chrome === "LayoutC" || chrome === "InletOutletLayout" || chrome === "TitleBarAndPorts";
+};
+var portalBands = bands("portalOutletLeftRight", {});
+var portalIo = portalBands.find(function (b) { return b.id === "io"; });
+assert(portalIo && portalIo.visible && !portalIo.grow, "B-074 InletOutlet io is content-sized (no grow)");
+var portalIds = ids(portalBands);
+assert(portalIds.indexOf("lip") >= 0, "B-074 InletOutlet has lip for leftover " + portalIds);
+assert(portalIds.indexOf("header") === 0 && portalIds.indexOf("io") === 1, "B-074 InletOutlet header→io→lip " + portalIds);
+
 console.log("ok module layout bands §7");
+
+// --- scopeFace Trace/Phosphor/Waterfall faces must not get face-track-omitted ---
+// Regression: waterfall rename replaced NODE_GRAPH_MODULE_WIDGET_BAND_ID.trace
+// with waterfall while scopeFace still emitted band id "trace" ? faces hidden.
+(function testScopeFaceBandIsFace() {
+  sandbox.nodeGraphModuleDefinitions.lineBurnOscilloscope = {
+    chrome: "LayoutA",
+    layout: "scopeFace",
+    displayType: "lineBurn",
+    inputs: ["In"],
+    outputs: ["Thru"],
+    parameters: [],
+  };
+  sandbox.nodeGraphModuleDefinitions.scope1dTrace = {
+    chrome: "LayoutA",
+    layout: "scopeFace",
+    displayType: "scope1dTrace",
+    inputs: ["In"],
+    outputs: ["Thru"],
+    parameters: [],
+  };
+  sandbox.nodeGraphModuleDefinitions.waterfall = {
+    chrome: "LayoutA",
+    layout: "scopeFace",
+    displayType: "waterfall",
+    inputs: ["In"],
+    outputs: ["Thru"],
+    parameters: [],
+  };
+  for (const type of ["lineBurnOscilloscope", "scope1dTrace", "waterfall", "scope2d"]) {
+    if (!sandbox.nodeGraphModuleDefinitions[type]) {
+      sandbox.nodeGraphModuleDefinitions[type] = {
+        chrome: "LayoutA",
+        layout: "scopeFace",
+        displayType: type === "scope2d" ? "scope2d" : "lineBurn",
+        inputs: ["X", "Y"],
+        outputs: ["X", "Y"],
+        parameters: [],
+        displayHeightGu: 5,
+      };
+    }
+    const bands = sandbox.nodeGraphModuleLayoutBands(type, {}, { type: type, ui: {} });
+    const face = bands.find((b) => sandbox.nodeGraphModuleCanonicalBandId(b.id) === "face");
+    if (!face || !face.visible) {
+      console.error("FAIL: scopeFace " + type + " missing visible face band", bands.map((b) => b.id));
+      process.exitCode = 1;
+      return;
+    }
+    if (face.id !== "face" && face.id !== "trace" && face.id !== "waterfall" && face.id !== "scope") {
+      console.error("FAIL: scopeFace " + type + " unexpected face band id", face.id);
+      process.exitCode = 1;
+      return;
+    }
+  }
+  // Canonical map must keep trace?face (rename must not drop it).
+  if (sandbox.nodeGraphModuleCanonicalBandId("trace") !== "face") {
+    console.error("FAIL: canonical trace must map to face");
+    process.exitCode = 1;
+    return;
+  }
+  console.log("ok: scopeFace Trace/Phosphor/Waterfall face bands visible");
+})();

@@ -18,18 +18,28 @@ function nodeGraphScope1dTraceInkRgb01(settings = {}, role = "primary") {
   const colorKey = isSecondary
     ? (settings?.secondaryColor ?? settings?.dot1Color)
     : (settings?.dot1Color ?? settings?.color);
-  const brightKey = isSecondary
-    ? (settings?.secondaryBrightness ?? settings?.dot1Brightness ?? settings?.brightness)
-    : (settings?.dot1Brightness ?? settings?.brightness);
   const hue = typeof nodeGraphHueDegFromHex === "function"
     ? nodeGraphHueDegFromHex(colorKey)
     : (isSecondary ? 240 : 0);
-  const bright = Number(brightKey);
-  const amount = Number.isFinite(bright) ? bright : 0.5;
+  // Hue at mid brightness (full saturated hue). Brightness is TraceWoscope
+  // intensity / phosphor-style deposit — not black→white in the RGB.
   if (typeof nodeGraphHueBrightnessRgb01 === "function") {
-    return nodeGraphHueBrightnessRgb01(hue, amount);
+    return nodeGraphHueBrightnessRgb01(hue, 0.5);
   }
   return isSecondary ? [0, 0, 1] : [1, 0, 0];
+}
+
+/** Bright 0…1 for TraceWoscope intensity (1 = full), matching phosphor deposit. */
+function nodeGraphScope1dTraceBrightness01(settings = {}, role = "primary") {
+  const isSecondary = role === "secondary" || role === "right";
+  const brightKey = isSecondary
+    ? (settings?.secondaryBrightness ?? settings?.dot1Brightness ?? settings?.brightness)
+    : (settings?.dot1Brightness ?? settings?.brightness);
+  const bright = Number(brightKey);
+  if (!Number.isFinite(bright)) {
+    return 1;
+  }
+  return Math.max(0, bright);
 }
 
 /**
@@ -92,6 +102,14 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
   const autoSync = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
     ? nodeGraphDisplaySettingsToggleIsOn(settings?.sourceSync ?? settings?.sync)
     : Boolean(settings?.sourceSync);
+  // Mirror 1D Phosphor (lineBurn): lift pen on large |Δsample| so wrap/jump
+  // edges do not draw vertical strokes. Threshold SSOT = module scope constant.
+  const skipDisc = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
+    ? nodeGraphDisplaySettingsToggleIsOn(settings?.skipDiscontinuities ?? true)
+    : (settings?.skipDiscontinuities !== false);
+  const discThreshold = typeof nodeGraphModuleScopeDiscontinuityThreshold === "number"
+    ? nodeGraphModuleScopeDiscontinuityThreshold
+    : 0.85;
   let signalWasHigh = canvas._lineBurnSignalWasHigh === true;
   const syncThreshold = Number.isFinite(Number(typeof nodeGraphLineBurnResetThreshold !== "undefined"
     ? nodeGraphLineBurnResetThreshold
@@ -143,6 +161,7 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
 
   const out = list.map(() => []);
   const hadPoint = list.map(() => false);
+  const prevSample = list.map(() => NaN);
   const starts = list.map((ch) => Math.max(0, ch.buffer.length - maxCount));
   const syncBuf = list[0].buffer;
   const syncStart = starts[0];
@@ -168,6 +187,7 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
           nodeGraphOneDimensionalBurnBreakPath(out[c]);
         }
         hadPoint[c] = false;
+        prevSample[c] = NaN;
       }
       retuneSyncPeriodFromGap();
       phasor = 0;
@@ -181,6 +201,7 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
             nodeGraphOneDimensionalBurnBreakPath(out[c]);
           }
           hadPoint[c] = false;
+          prevSample[c] = NaN;
         }
         phasor = 0;
         syncAwaitingRestart = false;
@@ -202,6 +223,16 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
         continue;
       }
       const sample = list[c].buffer[starts[c] + index];
+      // Same as nodeGraphOneDimensionalBurnFramePoints: break stroke on large jumps.
+      if (
+        skipDisc
+        && hadPoint[c]
+        && Number.isFinite(prevSample[c])
+        && Math.abs(Number(sample) - prevSample[c]) > discThreshold
+      ) {
+        nodeGraphOneDimensionalBurnBreakPath(out[c]);
+        hadPoint[c] = false;
+      }
       const y = nodeGraphOneDimensionalBurnSampleToY(sample, height, settings);
       if (horizontalBurn) {
         if (hadPoint[c]) {
@@ -211,9 +242,11 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
         out[c].push({ x: width, y });
         nodeGraphOneDimensionalBurnBreakPath(out[c]);
         hadPoint[c] = false;
+        prevSample[c] = Number(sample);
       } else {
         out[c].push({ x, y });
         hadPoint[c] = true;
+        prevSample[c] = Number(sample);
       }
     }
 
@@ -225,6 +258,7 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
             nodeGraphOneDimensionalBurnBreakPath(out[c]);
           }
           hadPoint[c] = false;
+          prevSample[c] = NaN;
         }
         if (autoSync && syncPeriodSamples >= 2) {
           phasor = 1;
@@ -257,13 +291,31 @@ function nodeGraphScope1dTraceDrawLayer(context, points, settings, role = "prima
     ? (settings?.secondarySize ?? settings?.dot1Size)
     : settings?.dot1Size;
   const inkRgb = nodeGraphScope1dTraceInkRgb01(settings, role);
+  // Phosphor-style Bright → WebGL beam intensity (TraceWoscope uIntensity).
+  const brightness = nodeGraphScope1dTraceBrightness01(settings, role);
   const faceMinSide = Math.max(1, Math.min(context.canvas.width, context.canvas.height));
   if (typeof TraceWoscope !== "undefined" && typeof TraceWoscope.draw === "function") {
-    const count = TraceWoscope.draw(context, points, {
+    const woscopeOpts = {
       size,
       color: inkRgb,
       faceMinSide,
-    });
+      brightness,
+    };
+    // Optional shared colormap LUT (Tube Saturation defaults to crt-amber).
+    if (Array.isArray(settings?.gradientStops) && settings.gradientStops.length >= 2) {
+      woscopeOpts.gradientStops = settings.gradientStops;
+      if (typeof nodeGraphSampleGradientStopsRgb === "function") {
+        const peak = settings.gradientStops[settings.gradientStops.length - 1]?.color
+          || settings?.dot1Color
+          || "#ffb020";
+        woscopeOpts.sampleRgb = (t) => nodeGraphSampleGradientStopsRgb(
+          settings.gradientStops,
+          t,
+          peak,
+        );
+      }
+    }
+    const count = TraceWoscope.draw(context, points, woscopeOpts);
     if (count > 0) {
       return count;
     }
@@ -276,7 +328,7 @@ function nodeGraphScope1dTraceDrawLayer(context, points, settings, role = "prima
     return TraceStroke.draw(context, points, {
       size,
       blur: 0,
-      brightness: 1,
+      brightness,
       color: inkHex,
       faceMinSide,
       composite: "lighter",

@@ -3235,7 +3235,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
   "./public/node-live-audio-worklet-dsp-state.js?v=pd-inc-1",
   "./public/lib/polyphony-voices.js?v=gold-oct-1",
-  "./public/lib/note-mask-128.js?v=scale-octaves-1",
+  "./public/lib/note-mask-128.js?v=key-track-1",
   "./public/node-graph-keyboard-chord-memory.js?v=mask128-2",
   "./public/modules/sequencer/sequencer-math.js?v=seq-23",
   "./public/node-live-audio-worklet-events.js?v=speed-22050-1",
@@ -3243,7 +3243,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=sample-hold-uni-display-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=send-gone-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=acoustic-pluck-kt-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=live-os-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",
@@ -3257,7 +3257,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
   // Keypad slot math (host CV controller — used by sidecar publish + setKeypadInteraction).
   "./public/modules/keypad/keypad-math.js?v=keypad-hostcv-1",
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=keypad-hostcv-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=keyboard-inc-1",
   "./public/node-live-audio-worklet-process.js?v=host-rate-display-2",
 ];
 

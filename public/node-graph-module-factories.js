@@ -911,6 +911,14 @@ function createNodeGraphParameter(node, type, parameter) {
   input.dataset.tooltip = metadata?.tooltip ?? parameter.tooltip ?? "";
   input.displayTransform = typeof parameter.displayTransform === "function" ? parameter.displayTransform : null;
   input.dataset.choices = formatNodeMetadataChoices(metadata?.choices || parameter.choices || []);
+  {
+    const origin = Number(
+      metadata?.choiceOriginMin != null ? metadata.choiceOriginMin : parameter?.min,
+    );
+    if (Number.isFinite(origin) && (metadata?.choices || parameter.choices || []).length) {
+      input.dataset.choiceOriginMin = String(origin);
+    }
+  }
   input.dataset.control = metadata?.control || "";
   input.dataset.displayChoices = metadata?.displayChoices ? "true" : "false";
   input.dataset.divideChoicesVisibly = metadata?.divideChoicesVisibly ? "true" : "false";

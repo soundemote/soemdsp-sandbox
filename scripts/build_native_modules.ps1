@@ -133,6 +133,7 @@ $modules = @(
   @{ Name = "linear_attack_release"; Simd = $false; Exports = @("soemdsp_linear_attack_release_create", "soemdsp_linear_attack_release_destroy", "soemdsp_linear_attack_release_sample", "soemdsp_linear_attack_release_version", "soemdsp_linear_attack_release_metadata_json", "soemdsp_linear_attack_release_metadata_json_size") }
   @{ Name = "curve_attack_release"; Simd = $false; Exports = @("soemdsp_curve_attack_release_create", "soemdsp_curve_attack_release_destroy", "soemdsp_curve_attack_release_sample", "soemdsp_curve_attack_release_version", "soemdsp_curve_attack_release_metadata_json", "soemdsp_curve_attack_release_metadata_json_size") }
   @{ Name = "thump_envelope"; Simd = $false; Exports = @("soemdsp_thump_envelope_create", "soemdsp_thump_envelope_destroy", "soemdsp_thump_envelope_sample", "soemdsp_thump_envelope_version", "soemdsp_thump_envelope_metadata_json", "soemdsp_thump_envelope_metadata_json_size") }
+  @{ Name = "acoustic_pluck"; Simd = $false; Exports = @("soemdsp_acoustic_pluck_create", "soemdsp_acoustic_pluck_destroy", "soemdsp_acoustic_pluck_sample", "soemdsp_acoustic_pluck_version", "soemdsp_acoustic_pluck_metadata_json", "soemdsp_acoustic_pluck_metadata_json_size") }
   @{ Name = "pluck_envelope"; Simd = $false; Exports = @("soemdsp_pluck_envelope_create", "soemdsp_pluck_envelope_destroy", "soemdsp_pluck_envelope_sample", "soemdsp_pluck_envelope_version", "soemdsp_pluck_envelope_metadata_json", "soemdsp_pluck_envelope_metadata_json_size") }
   @{ Name = "expo_pluck_envelope"; Simd = $false; Exports = @("soemdsp_expo_pluck_envelope_create", "soemdsp_expo_pluck_envelope_destroy", "soemdsp_expo_pluck_envelope_reset", "soemdsp_expo_pluck_envelope_sample", "soemdsp_expo_pluck_envelope_out", "soemdsp_expo_pluck_envelope_version", "soemdsp_expo_pluck_envelope_metadata_json", "soemdsp_expo_pluck_envelope_metadata_json_size") }
   @{ Name = "expo_pluck_envelope_2"; Simd = $false; Exports = @("soemdsp_expo_pluck_envelope_2_create", "soemdsp_expo_pluck_envelope_2_destroy", "soemdsp_expo_pluck_envelope_2_reset", "soemdsp_expo_pluck_envelope_2_sample", "soemdsp_expo_pluck_envelope_2_out", "soemdsp_expo_pluck_envelope_2_version", "soemdsp_expo_pluck_envelope_2_metadata_json", "soemdsp_expo_pluck_envelope_2_metadata_json_size") }
@@ -480,7 +481,7 @@ foreach ($module in $modules) {
     $clangArgs += "-Wl,--max-memory=50331648"
   }
   # graph_engine / thump_envelope call other natives (resolved in combined link).
-  if ($module.Name -eq "graph_engine" -or $module.Name -eq "thump_envelope") {
+  if ($module.Name -eq "graph_engine" -or $module.Name -eq "thump_envelope" -or $module.Name -eq "acoustic_pluck") {
     $clangArgs += "-Wl,--allow-undefined"
   }
   $clangArgs += "-o"

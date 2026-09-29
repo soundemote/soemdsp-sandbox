@@ -66,7 +66,7 @@ assert(cloneSrc.includes("normalizeNodeGraphPatchNodeDisplay"), "display helper 
 assert(!cloneSrc.includes("normalizeNodeGraphNamedPortalAlias(node.display)"), "display not portal-sanitized");
 
 const html = fs.readFileSync(path.join(root, "public", "index.html"), "utf8");
-assert(html.includes("settings-bypass-portal-ident-1"), "cache token");
+assert(html.includes("b048-bypass-ssot-1"), "cache token");
 assert(html.includes("scene-context-module-bypass-button"), "mirrored bypass in settings");
 
 console.log("ok: portal C++ ident + splice sanitize + SyncBusAlias + settings bypass mirror token");

@@ -96,7 +96,7 @@ function syncNodeMetadataMidVisibility() {
       ? "0 is linear | +1 fine near CENTER | −1 fine near EDGE"
       : curveValue === "edges"
       ? "0 is mild | +1 fine near EDGE | −1 fine near CENTER"
-      : "0 is linear | +1 fine near MIN | −1 fine near MAX";
+      : "-1 sensitive near MIN | +1 sensitive near MAX";
   }
   if (checkbox) {
     checkbox.checked = Boolean(nonlinear);

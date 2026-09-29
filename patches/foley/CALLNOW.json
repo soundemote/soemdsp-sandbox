@@ -407,7 +407,7 @@
           "bipolar": false,
           "max": 1,
           "maxDigits": 3,
-          "mid": 1,
+          "mid": 0.5,
           "min": 0,
           "reverse": false,
           "nonlinearSlider": false,
@@ -854,6 +854,7 @@
       },
       "type": "momentaryButton",
       "alias": "CALL🐞NOW",
+      "pluginId": 0,
       "widthGu": 7,
       "traceDisplaySettings": {
         "strokeScale": 0.06,
@@ -866,9 +867,9 @@
         "labelPadding": 0.035,
         "labelSize": 16,
         "labelAlign": "topleft",
-        "buttonShowLabel": true,
-        "offText": "Gate",
-        "onText": "Gate",
+        "buttonShowLabel": false,
+        "offText": "☎",
+        "onText": "📞",
         "strokeColor": "#5c5071",
         "inactiveColor": "#1a2228",
         "activeColor": "#2f8f86",
@@ -892,8 +893,7 @@
         "slidersHidden": false,
         "slidersForceShow": false,
         "titleHidden": false
-      },
-      "pluginId": 0
+      }
     },
     {
       "gx": -7,
@@ -1260,6 +1260,47 @@
         "slidersForceShow": false,
         "titleHidden": false
       }
+    },
+    {
+      "gx": -7,
+      "gy": -14,
+      "id": "textBox-1",
+      "paramMeta": {},
+      "params": {},
+      "type": "textBox",
+      "widthGu": 7,
+      "heightGu": 2,
+      "layout": {
+        "backgroundAlpha": 0.78,
+        "backgroundColor": "#020407",
+        "font": "cascadia-mono",
+        "horizontalAlign": "center",
+        "kind": "textBox",
+        "text": "C-A-L-L = 2-2-5-5\nN-O-W = 6-6-9",
+        "textColor": "#f3f1ec",
+        "textSizePercent": 153,
+        "textWeight": 400,
+        "lineHeight": 1.2,
+        "textMode": "multiline",
+        "verticalAlignSchema": 2,
+        "verticalAlignPercent": 50
+      },
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": true
+      }
     }
   ],
   "requiredAssets": [],
@@ -1297,7 +1338,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 47,
-    "zoom": 1.0595885848786308,
+    "zoom": 1.0595885848786322,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,
@@ -1308,12 +1349,23 @@
     "moduleSlidersVisible": true,
     "sliderAmountVisible": false,
     "sliderPositionVisible": true,
-    "tooltipEmbedded": true,
+    "tooltipEmbedded": false,
     "locked": false,
     "hideUnusedPorts": false,
+    "moduleScopeFramesPerSecond": 120,
     "canvases": {
       "root": {
-        "elements": []
+        "elements": [
+          {
+            "nodeId": "textBox-1",
+            "enabled": true,
+            "x": 0.08,
+            "y": 0.08,
+            "w": 0.36,
+            "h": 0.32,
+            "z": 0
+          }
+        ]
       },
       "byMetamodule": {}
     }

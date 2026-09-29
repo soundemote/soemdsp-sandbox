@@ -42,7 +42,9 @@ Chrome only changes **where I/O lives relative to the face**:
 
 `TitleBarAndPorts` and `LayoutC` remain deprecated aliases for `InletOutletLayout`.
 Use the new name in registers (Named Portal In/Out, lane portals, Metamodule In/Out,
-voice jacks). Do **not** fake this with `compactTile` + ports on a custom face — that
+voice jacks). Jack row packing is the shared `.node-io-column` SSOT (flush at
+`--node-signal-port-height`, gap `--node-io-gap`) — same as LayoutA; do not
+1fr-stretch InletOutlet jack rows (B-074). Do **not** fake this with `compactTile` + ports on a custom face — that
 fights Hide In/Out and title-only height. Module Settings for this layout are Grid
 Width / Height + alias only (no show/hide visibility, disable, or save-to-default).
 

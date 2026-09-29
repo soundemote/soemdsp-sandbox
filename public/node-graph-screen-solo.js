@@ -500,6 +500,11 @@ function nodeGraphScreenSoloPlaceItems(items, plan) {
 
 function applyNodeGraphScreenSoloFit(mode) {
   const session = nodeGraphScreenSoloSession();
+  // Freeform layout canvas must not be forced into solo grid fit (B-076).
+  if (session?.layoutCanvas
+    || (typeof nodeGraphLayoutCanvasIsActive === "function" && nodeGraphLayoutCanvasIsActive())) {
+    return;
+  }
   const items = nodeGraphScreenSoloItems();
   if (!items.length) {
     return;
@@ -562,9 +567,17 @@ function applyNodeGraphScreenSoloGrid() {
 }
 
 function handleNodeGraphScreenSoloResize() {
-  if (nodeGraphScreenSoloIsActive()) {
-    applyNodeGraphScreenSoloFit(nodeGraphScreenSoloSession().fit || "contain");
+  if (!nodeGraphScreenSoloIsActive()) {
+    return;
   }
+  // Layout canvas owns freeform tiles (session.fit ""). Classic solo fit would
+  // grid-shuffle them on window resize / F11 (B-076). Canvas has its own handler.
+  const session = nodeGraphScreenSoloSession();
+  if (session?.layoutCanvas
+    || (typeof nodeGraphLayoutCanvasIsActive === "function" && nodeGraphLayoutCanvasIsActive())) {
+    return;
+  }
+  applyNodeGraphScreenSoloFit(session.fit || "contain");
 }
 
 /** Capture pre-solo inline grid placement (LayoutA bands use inline grid-row). */

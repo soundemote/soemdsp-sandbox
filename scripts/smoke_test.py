@@ -4417,6 +4417,14 @@ def require_render_sample_native_only() -> None:
         'type === "keypad"' in sidecar_src,
         "controller sidecar must publish keypad Analog/Digital/Gate",
     )
+    require(
+        "outs.inc = cv.increment" in sidecar_src,
+        "controller sidecar must publish Keyboard Inc (Hz/sr) host CV",
+    )
+    require(
+        "outs2.inc = cv.increment" in sidecar_src,
+        "controller sidecar pass2 must keep Keyboard Inc publish",
+    )
 
 
 def require_xy_pad_interaction_contract() -> None:
@@ -4834,23 +4842,23 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         "t: nodeGraphTSeriesSingleModuleDefinition()" in script_sources["./public/node-graph-module-definitions.js"]
-        and "t1: nodeGraphTSeriesModuleDefinition(1)" in script_sources["./public/node-graph-module-definitions.js"]
-        and "t10: nodeGraphTSeriesModuleDefinition(10)" in script_sources["./public/node-graph-module-definitions.js"]
-        and '"3t": nodeGraphTSeriesMuxModuleDefinition(3)' in script_sources["./public/node-graph-module-definitions.js"]
-        and '"10t": nodeGraphTSeriesMuxModuleDefinition(10)' in script_sources["./public/node-graph-module-definitions.js"]
+        and "t2: nodeGraphTSeriesModuleDefinition(1)" in script_sources["./public/node-graph-module-definitions.js"]
+        and "t11: nodeGraphTSeriesModuleDefinition(10)" in script_sources["./public/node-graph-module-definitions.js"]
+        and '"4t": nodeGraphTSeriesMuxModuleDefinition(3)' in script_sources["./public/node-graph-module-definitions.js"]
+        and '"11t": nodeGraphTSeriesMuxModuleDefinition(10)' in script_sources["./public/node-graph-module-definitions.js"]
         and 't: "t"' in script_sources["./public/node-graph-module-definitions.js"]
         and 't2: "t2"' in script_sources["./public/node-graph-module-definitions.js"]
-        and 't10: "t10"' in script_sources["./public/node-graph-module-definitions.js"]
-        and '"3t": "3t"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 't11: "t11"' in script_sources["./public/node-graph-module-definitions.js"]
+        and '"4t": "4t"' in script_sources["./public/node-graph-module-definitions.js"]
         and 'displayType: "value"' in script_sources["./public/node-graph-module-definitions.js"][
             script_sources["./public/node-graph-module-definitions.js"].index("function nodeGraphTSeriesModuleDefinition"):
             script_sources["./public/node-graph-module-definitions.js"].index("const nodeGraphModuleDefinitions")
         ]
         and 'label: "t"' in script_sources["./public/node-graph-module-store.js"]
         and 'label: "t2"' in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "t10"' in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "3t"' in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "10t"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "t11"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "4t"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "11t"' in script_sources["./public/node-graph-module-store.js"]
         and 'category: "digital"' in script_sources["./public/node-graph-module-store.js"]
         and 'inputs: ["In", "Analog", "Digital"]' in script_sources["./public/node-graph-module-definitions.js"]
         and "digitalInputs: [\"Digital\"]" in script_sources["./public/node-graph-module-definitions.js"]
@@ -4861,7 +4869,7 @@ def require_node_graph_mvp_contract() -> None:
         and "gate2" not in script_sources["./public/node-graph-module-definitions.js"]
         and "numberGate" not in script_sources["./public/node-graph-module-definitions.js"]
         and "gate12" not in script_sources["./public/node-graph-default-patch.js"],
-        "t-series should be demux t…t10 plus mux 1t…10t with no gateN leftovers",
+        "t-series should be demux t + t2…t11 plus mux 2t…11t with no gateN leftovers",
     )
     require(
         (lambda defs: (
@@ -13076,7 +13084,7 @@ def require_node_graph_mvp_contract() -> None:
     require('bitConverter: {' in module_store_source and 'label: "BitConverter"' in module_store_source, "BitConverter should live in Digital")
     require('t: {' in module_store_source and 'label: "t"' in module_store_source, "t should live in Digital")
     require('t2: {' in module_store_source and 'label: "t2"' in module_store_source, "t2 should live in Digital")
-    require('t10: {' in module_store_source and 'label: "t10"' in module_store_source, "t10 should live in Digital")
+    require('t11: {' in module_store_source and 'label: "t11"' in module_store_source, "t11 should live in Digital")
     require('"3t": {' in module_store_source and 'label: "3t"' in module_store_source, "3t mux should live in Digital")
     require('"10t": {' in module_store_source and 'label: "10t"' in module_store_source, "10t mux should live in Digital")
     require('waterfall: {' in module_store_source, "1D Waterfall should author as Oscilloscope before display-category normalization")

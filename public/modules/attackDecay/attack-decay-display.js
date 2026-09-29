@@ -179,6 +179,28 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
     };
   }
 
+  if (type === "acousticPluck" && typeof nodeGraphAcousticPluckPreviewCurve === "function") {
+    const attack = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "attack", 0));
+    const release = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "release", 0.11715292599242004));
+    const attackShape = nodeGraphEnvelopeCurveLiveParam(node, "attackShape", -0.07);
+    const releaseShape = nodeGraphEnvelopeCurveLiveParam(node, "releaseShape", 1);
+    const feedback = nodeGraphEnvelopeCurveLiveParam(node, "feedback", 0.6804373070396221);
+    const bias = nodeGraphEnvelopeCurveLiveParam(node, "bias", 0.9435542410230598);
+    const amplitude = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "amplitude", 1));
+    const preview = nodeGraphAcousticPluckPreviewCurve({
+      attack, release, attackShape, releaseShape, feedback, bias, amplitude,
+    }, pts);
+    return {
+      points: preview.points,
+      total: preview.total,
+      guideT: preview.guideT,
+      ampView: preview.ampView,
+      leftLabel: "A",
+      rightLabel: "R",
+      signature: { type, attack, release, attackShape, releaseShape, feedback, bias, amplitude },
+    };
+  }
+
   if (type === "thumpEnvelope" && typeof nodeGraphThumpEnvelopePreviewCurve === "function") {
     const attack = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "attack", 0));
     const release = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "release", 12.824772066678985));

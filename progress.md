@@ -1,3 +1,41 @@
+## 2026-09-28 - B-079 Choices range clamp subset remap (local, uncommitted)
+
+- User: Limiting choices param range (PolyBLEP Waveform 4-5 Tri/Sine) left full-catalog dividers/labels.
+- Cause: Discrete choice index required span===choices.length; clamp fell through to proportional map over full list; dividers used full catalog length.
+- Fix: nodeGraphResolveChoiceSet + choiceOriginMin; index/label/type-in/dividers use filtered subset; persist origin in paramMeta/slider/factories/editor. Cache-bust b079-choice-range-1.
+- Verify: node scripts/test_b079_choice_range_remap.js (+ test_knob_choice_neg.js). Doc docs/B-079_CHOICES_RANGE_CLAMP_SUBSET.md. No push.
+
+
+## 2026-09-28 � Trace/Phosphor faces lost after waterfall rename (local, uncommitted)
+
+- Cause: WIP waterfall rename replaced `NODE_GRAPH_MODULE_WIDGET_BAND_ID.trace ? face` with `waterfall ? face`, but `scopeFace` layout still emitted band id `"trace"`. LayoutA `faceBandVisible` only checked `band.id === "face"`, so Trace / Phosphor / Instant Waterfall monitors got `face-track-omitted` ? CSS `display:none` on the face.
+- Not displayType/settingsSchema stripping; defs still had `displayType` + `layout: "scopeFace"`.
+- Fix: scopeFace band id `"face"`; restore `trace: "face"` alias; canonical `faceBandVisible`. Also register `scope1dTrace` / stereo thrus + WiredInputs.
+- Verify: `node scripts/test_module_layout_bands.js`. No push.
+
+## 2026-09-28 — Acoustic Pluck native module (local, uncommitted)
+
+- Baked `patches/modulator breadboards/pluck envelope.json` feedback AR into native **Acoustic Pluck** (`acousticPluck` / opcode 198).
+- Algorithm: Curve AR + env→invert→atten(Feedback,Bias)→Amp Curve Exp→unit-MOD Release (128-sample fb delay). Demo keyboard/PolyBLEP/filter/portals/orphan KT attack path discarded.
+- Files: `native_modules/acoustic_pluck/`, defs/store/efficient allowlist, graph_engine + combined wasm, face PreviewCurve, smoke `scripts/smoke_graph_acoustic_pluck.mjs`.
+- Breadboard patch left intact (portal-splice smoke still green). No commit/push.
+
+
+
+## 2026-09-28 — Tube Sat 1D Trace + crt-amber (local, uncommitted)
+
+- Restored Tube Saturation face as **scope1dTrace** (TraceWoscope), not lineBurn phosphor / not curve canvas.
+- New shared colormap `crt-amber` / kind `crtAmber`; Tube Sat `defaultDisplaySettings.gradientStops` seeds it.
+- Docs: `docs/FEATURE_TUBE_SAT_CRT_AMBER.md`. No PR/push.
+
+## 2026-09-28 — B-077 Keyboard Inc host CV (local, uncommitted)
+
+- User: Keyboard not sending out Inc.
+- Cause: efficient sidecar `buildCv` computed `increment` but never published `outs.inc` (retired keyboard live evaluator did). Same host-CV class as B-070 keypad, different port.
+- Fix: publish `outs.inc = cv.increment` Pass 1 + Pass 2 for `keyboard`; cache-bust `keyboard-inc-1`. No JS DSP evaluator restore.
+- Docs: `docs/B-077_KEYBOARD_INC_HOST_CV_MISSING.md`; BUG_PLAN inventory/inbox/detail.
+- No PR/push.
+
 
 ## 2026-09-28 — 1D Trace ≠ 1D Waterfall rename (local, uncommitted)
 

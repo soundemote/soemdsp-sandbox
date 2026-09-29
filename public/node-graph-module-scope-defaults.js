@@ -639,14 +639,15 @@ const nodeGraphScope1dTraceSettingsDefaults = Object.freeze({
   background: nodeGraphScopePhosphorLookDefaults.background,
   backgroundHue: nodeGraphScopePhosphorLookDefaults.backgroundHue,
   backgroundBrightness: 0,
-  dot1Brightness: 0.5,
+  // Phosphor-style Bright → TraceWoscope intensity (1 = full).
+  dot1Brightness: 1,
   // Left / mono default red (stereo Meet-friendly with blue Right).
   dot1Color: typeof nodeGraphHueUnitHex === "function"
     ? nodeGraphHueUnitHex(0)
     : "#ff0000",
   dot1Enabled: true,
   dot1Size: nodeGraphScope2dTraceSettingsDefaults.dot1Size,
-  secondaryBrightness: 0.5,
+  secondaryBrightness: 1,
   secondaryColor: typeof nodeGraphHueUnitHex === "function"
     ? nodeGraphHueUnitHex(240)
     : "#0000ff",
@@ -661,9 +662,12 @@ const nodeGraphScope1dTraceSettingsDefaults = Object.freeze({
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   scale: nodeGraphScopePhosphorLookDefaults.scale,
   skipDiscontinuities: true,
-  sourceSync: false,
+  // Rising-edge auto-trigger on In — ON for new 1D Trace modules (Tube Sat too).
+  sourceSync: true,
   sweepHz: 4,
   sweepCycles: 4,
+  // Shared colormap LUT (energy along stroke → color). Tube Sat overrides crt-amber.
+  gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
   dotBudget: 2048,
   drawMode: "budget",
 });

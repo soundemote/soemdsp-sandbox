@@ -100,7 +100,7 @@ function nodeGraphJackLastToken(value) {
 
 function nodeGraphPortIsNoteBus(port) {
   const key = String(port || "").trim();
-  // Scale is a pitch-class bus (red). Play/Arp/Chord Memory are 128-key masks.
+  // Scale is a pitch-class bus (red). Play/Arp/Chord Memory/KT are 128-key masks.
   return key === "Play Keys"
     || key === "Arp Keys"
     || key === "Keys"
@@ -108,7 +108,8 @@ function nodeGraphPortIsNoteBus(port) {
     || key === "Polyphony"
     || key === "Monophony"
     || key === "Voices"
-    || key === "Scale";
+    || key === "Scale"
+    || key === "KT";
 }
 
 function nodeGraphJackSignalKind(type, port, io = null) {

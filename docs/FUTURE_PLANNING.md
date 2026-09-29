@@ -40,14 +40,12 @@ LayoutB (ports beside the face) and InletOutletLayout (title + I/O, no face) are
 
 ## Waterfall redesign (amp-per-frame bars)
 
-**Status:** **Implemented** on ArchIV (Website & UI, 2026-09-28, local, no PR). Needs Architect visual glance after reload.
+**Status:** **Implemented** on ArchIV (Website & UI, 2026-09-28, local, no PR). Filled-bar strip contract 2026-09-28.
 
 **Done:**
-- `public/node-graph-module-scope-waterfall.js` — all Waterfall scopes use peak-to-peak bars (running min/max → one bar per History paint → reset). No backlog scan; no dual TraceTape shim.
+- `public/node-graph-module-scope-waterfall.js` — classic waterfall: **solid filled** peak-to-peak column rects (`fillRect` min..max Y), stamp on the **right**, history **scrolls left** on a Canvas2D hold plate. **No full-face redraw** (Sync no longer ClearTapes+rebuild). Freerun fractional `barAcc` seeds column 0.
 - Vibrato Generator face set to waterfall (was misnamed Instant Trace) as reference consumer.
-- Preserved: color, blend/Meet/CMY, Size/Blur/density, scale, History Hz, Sync/Cycles, now-line, hold, stereo/XYZ/RGB.
-
-**Backup:** `_wip/node-graph-module-scope-waterfall.js.bak`
+- Preserved: color, blend (Add/Multiply; Meet≈lighter on filled bars), scale, History Hz, now-line, hold, stereo/XYZ/RGB.
 
 ## True metamodule parameter mirror
 

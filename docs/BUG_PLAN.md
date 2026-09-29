@@ -98,7 +98,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-045 | hear | fixed | Self-mod (outlet→own param) silent — buf zeroed before stamp |
 | B-046 | see | fixed | Shell doctype missing leading < → literal !doctype html> after start menu |
 | B-047 | hear | fixed | Arp Inc Out broken after f→inc remap (Hz/sr on ƒ cables; face Ramp unpublished) |
-| B-048 | see | open | Module settings enable/disable control does not mirror module button |
+| B-048 | see | fixed | Module settings enable/disable control does not mirror module button |
 | B-049 | hear | fixed | Softwave ignored Increment (Arp.inc OK on polyBlep only) |
 | B-050 | see | open | Workspace zoom past ~10× stutters badly |
 | B-051 | see | open | Softwave oscillator display needs unrelated EQ Frequency refresh |
@@ -106,7 +106,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-053 | see | fixed | Catalog Portal In/Out replaced by linked Portal IO |
 | B-054 | see | open | Output display keeps pause emoji after Stop/Play |
 | B-055 | see | fixed | Text Box covers wires (UI z-order) |
-| B-056 | see | open | Default filter drawer pollutes basic displays / Softclipper display jitters |
+| B-056 | see | fixed | Default filter drawer pollutes basic displays / Softclipper display jitters |
 | B-057 | see | fixed | Hide unused leaves oversized bottom lip |
 | B-058 | hear | open | Voice parameter modulation misses active and idle voice updates |
 | B-059 | see | removed | Alt+click jack scope-monitor feature deleted (was pip, not orphan wire) |
@@ -123,6 +123,13 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-070 | hear | fixed | CallNow keypad/PhoneTone silent (Gate OK; keypad host CV) |
 | B-071 | see | fixed | Canvas-mode Text Box does not scale with the tile (WYSIWIS) |
 | B-072 | see | fixed | PolyBLEP phosphor Size reverts after closing Display Settings |
+| B-073 | see | fixed | Parameter label left padding vs number (sign column) |
+| B-075 | see | open | Pitch Mod Wheel face has no pitch/mod-wheel UI or display control |
+| B-076 | see | fixed | F11 fullscreen shuffles the canvas; F F F recycles the view |
+| B-077 | hear | fixed | Keyboard Inc outlet silent (host CV missing after evaluator retirement) |
+| B-078 | see | fixed | Trace/Phosphor/Waterfall scopeFace faces hidden (band id trace vs face-track-omitted) |
+| B-079 | see | fixed | Choices range clamp keeps full catalog labels/dividers (no subset remap) |
+| B-080 | see | fixed | Choice segment text ellipsizes before full track width |
 
 ---
 
@@ -144,6 +151,9 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - 2026-09-28: User - CallNow: keyboard/keypad not sending clicks, PhoneTone not sending tones; Gate button works. Promoted -> **B-070** (`docs/B-070_CALLNOW_KEYPAD_PHONETONE_SILENT.md`).
 - 2026-09-28: User - Text Box in canvas mode is not taking scaling into account. Promoted -> **B-071** (`docs/B-071_CANVAS_TEXT_BOX_SCALING.md`); separate from B-068 knob/slider cqmin path.
 - 2026-09-28: User - PolyBLEP display phosphor Size does not stick after closing Display Settings. Promoted -> **B-072** (`docs/B-072_POLYBLEP_PHOSPHOR_DOT_SIZE_PERSIST.md`).
+- 2026-09-28: User - Keyboard not sending out Inc. Promoted -> **B-077** (`docs/B-077_KEYBOARD_INC_HOST_CV_MISSING.md`).
+- 2026-09-28: User - Choices range clamp (PolyBLEP Waveform 4–5) does not remap choice set. Promoted → **B-079** (`docs/B-079_CHOICES_RANGE_CLAMP_SUBSET.md`).
+- 2026-09-28: User - Choices parameter (Tube Saturation context): choice divide/segment text ellipsizes too early / does not use full slider width. Promoted → **B-080** (`docs/B-080_CHOICE_SEGMENT_TEXT_FULLWIDTH.md`).
 
 ---
 
@@ -545,13 +555,16 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Fixed (2026-09-27): as above.
 
 ### B-048 — Module settings enable/disable control does not mirror module button
-- Status: open
+- Status: fixed (code; needs Live UI verify)
 - Severity: see
 - Source: user
-- Files: to investigate
+- Doc: `docs/B-048_MODULE_SETTINGS_BYPASS_SSOT.md`
+- Files: `public/styles.css`; `public/node-graph-ui-settings-sync.js`; `public/node-graph-patch-core.js` (`syncNodeGraphBypassButtonElement`); `public/node-graph-context-menu.js`
 - What: The module settings enable/disable control does not mirror the module button: it does not turn red when disabled, does not match the button background, and does not glow like the module enable/disable button.
 - Repro: Disable a module and compare its module settings control with the module button (and repeat in the other direction).
-- Fix shape: Make both controls share the same disabled state and background/glow styling. Docs only for this report; do not fix the UI here.
+- Root cause: `--node-bypass-*` paint tokens lived only on `#nodeGraphWorkspace`; Module Settings is a sibling under `#nodeWiringPanel`, so off-bg/on-bg/icon-size were undefined → no black plate, no red pressed, glyph vanished.
+- Fix: Hoist bypass CSS vars to `.node-wiring-panel` / `#nodeWiringPanel` (face + settings SSOT); UIDEV defaults `#000000` / `#5c1818`; explicit settings button backgrounds. UI only.
+- Fixed (2026-09-28): as above.
 
 ### B-050 — Workspace zoom past ~10× stutters badly
 - Status: open
@@ -619,14 +632,16 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 
 
 ### B-056 - Default filter drawer pollutes basic displays / Softclipper display jitters
-- Status: open
+- Status: **fixed** (2026-09-28)
 - Severity: see
 - Source: user 2026-09-27
 - Doc: `docs/B-056_FILTER_DRAWER_DISPLAY_POLLUTION.md`
-- Files: default filter drawer/display selection and basic-display routing; Softclipper display/render path (to investigate)
-- What: The default filter drawer appears to pollute basic displays. Softclipper jitters between an unused filter display and its intended display instead of keeping the intended display stable.
-- Repro: Open a basic display containing or associated with Softclipper while the default filter drawer is present/unused. Observe the display selection; Softclipper alternates or jitters between the unused filter display and its intended display.
-- Fix shape: Ensure an unused/default filter drawer cannot claim or overwrite a basic display. Make display ownership/selection deterministic so Softclipper stays on its intended display. Docs only; no code fix in this report.
+- Files: `public/lib/visual/filter-curve-face.js` (ownership SSOT); `public/node-graph-cookbook-filter.js` (mark owned + owned-only paint/sync); `public/modules/softClipper/soft-clipper-display.js` (plate + `softClipperCurve` kind, never filter-owned); `public/node-graph-module-rendering.js` (softClipperCurve layout class); `public/index.html` (lib script); `scripts/test_b056_filter_curve_face_ownership.js`
+- What: Softclipper jittered between unused filter magnitude face and its transfer curve because it reused `.node-filter-curve-display` and the filter drawer selected every plate class (exclusion-list anti-pattern; Softclipper omitted).
+- Root cause: Filter paint/sync ownership was CSS-class based with ad-hoc exclusions instead of an explicit face-kind SSOT.
+- Fix: Lib `FilterCurveFace` marks true filters `data-face-kind=filterCurve`; Softclipper is plate-only `softClipperCurve`; drawer paints owned faces only. Display/UI only.
+- Smoke: `node scripts/test_b056_filter_curve_face_ownership.js`
+- Fixed (2026-09-28): as above.
 
 ### B-057 — Hide unused leaves oversized bottom lip
 - Status: fixed
@@ -824,6 +839,92 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Root cause: `.reserves-sign-column .node-slider-readout-label { padding-left: 1ch }` indented labels while values already reserve the sign column in the formatted string.
 - Fix: Remove the label `padding-left: 1ch` rule. CSS only; no audio path.
 
+
+### B-074 - Input / Output / Portal jack spacing drifted from shared SSOT
+- Status: fixed (code; needs Live UI verify)
+- Severity: see
+- Source: user 2026-09-28
+- Related: MODULE_LAYOUT_PLAN (InletOutletLayout); LayoutB flush-jack rule; B-057
+- Doc: `docs/B-074_IO_PORTAL_JACK_SPACING_SSOT.md`
+- Files: `public/styles.css`; `public/node-graph-module-sizing.js`; `public/modules/portal/portal-named-register.js`; `public/modules/portal/portal-lanes.js`; `public/modules/portal/portal-ui.css`; `public/modules/metamodule/metamodule-register.js`
+- What: Output Left Right / Output Mono Left Right / Input * / Portal IO (and Meta In/Out / voice jacks) inlet/outlet rows did not match LayoutA jack spacing.
+- Repro: Place Output Left Right (or Input Mono Left Right / Portal IO) beside Gain; compare vertical jack pitch - stretched/uneven on InletOutlet modules.
+- Root cause: InletOutletLayout private CSS `1fr`-stretched jack rows + `io.grow` (no lip) + pinned `defaultHeightGu` leftover height.
+- Fix: Point InletOutlet at shared `.node-io-column` packing SSOT; lip absorbs leftover; drop private stretch CSS and defaultHeightGu. UI only.
+
+### B-075 - Pitch Mod Wheel face has no pitch/mod-wheel UI or display control
+- Status: open
+- Severity: see
+- Source: user 2026-09-28
+- Related: catalog name "Pitch Mod Wheel"; pitch/mod wheel custom face and display-visibility controls
+- Doc: `docs/B-075_PITCH_MOD_WHEEL_FACE_MISSING.md`
+- Files: `public/node-graph-module-store.js`; `public/node-graph-module-definitions.js`; `public/node-graph-module-factories.js`; `public/node-graph-module-rendering.js`; referenced `public/modules/pitchModWheel/pitch-mod-wheel-live-evaluator.js` (not present in the working tree)
+- What: After dragging out the Pitch Mod Wheel module, the module does not show pitch wheel or mod wheel controls, has no display, and offers no button/control to show the display.
+- Repro: Drag the catalog's Pitch Mod Wheel module onto the workspace and inspect the module face and its display controls.
+- Expected: The dropped module should show its Pitch and Mod wheel UI, provide its display/face, and expose the normal control to show the display when it is hidden.
+- Fix shape: Trace the Pitch Mod Wheel catalog-to-definition-to-custom-face/rendering path and display-visibility control wiring. Restore the intended face and display control without changing DSP behavior. Docs only; no code fix in this report.
+
+### B-076 — F11 fullscreen shuffles the canvas; F F F recycles the view
+- Status: fixed
+- Severity: see
+- Source: user 2026-09-28
+- Related: layout-canvas F-cycle (off→perform→edit→off); B-050 (workspace zoom, separate)
+- Doc: `docs/B-076_F11_FULLSCREEN_CANVAS_SHUFFLE.md`
+- Files: `public/node-graph-screen-solo.js` (`handleNodeGraphScreenSoloResize`, `applyNodeGraphScreenSoloFit`); `public/node-graph-layout-canvas.js` (`nodeGraphLayoutCanvasHandleViewportChange`, `fullscreenchange` → `RefreshOpenStage`)
+- What: Pressing F11 to enter fullscreen shuffled the layout-canvas tiles. While still fullscreen, pressing `F` three times recycled the view and reset/corrected the arrangement.
+- Repro: Arrange a canvas (F perform), press F11, observe shuffle. Press `F`, `F`, `F` while remaining fullscreen; the view resets/corrects.
+- Root cause: Layout canvas shares the screen-solo stage with `session.fit ""` and freeform absolute tiles. Window resize (F11) still ran `handleNodeGraphScreenSoloResize` → `applyNodeGraphScreenSoloFit(fit || "contain")`, which forced the classic solo grid/contain layout over the freeform canvas. F-cycle recycle reopened via `nodeGraphLayoutCanvasRefreshOpenStage` and repaired it.
+- Fix: Skip solo fit when layout canvas is active; on `fullscreenchange` deferred-rebuild with `nodeGraphLayoutCanvasRefreshOpenStage` (same as F recycle); deferred light tile re-apply on resize for browsers where F11 only fires resize.
+- Fixed (2026-09-28): as above. UI/layout only; no audio/JS audio-path changes.
+
+### B-077 — Keyboard Inc outlet not publishing (host CV)
+- Status: fixed (code; needs Live UI verify)
+- Severity: hear
+- Source: user 2026-09-28
+- Related: B-070 keypad host CV; B-047/B-049 Arp/Softwave Inc; controller efficient sidecar
+- Doc: `docs/B-077_KEYBOARD_INC_HOST_CV_MISSING.md`
+- Files: `public/modules/_shared/controller-efficient-sidecar.js`; `public/node-graph-live-runtime.js`; `scripts/smoke_test.py`
+- What: Keyboard `inc` (Hz/sr) never reached native Increment on efficient Live. Sidecar `buildCv` computed increment but Pass 1/2 never published `outs.inc` (retired evaluator did). Same class as B-070 missing host publish; not a port-name/wiring bug.
+- Repro: Keyboard.inc → osc Increment; Play; press key — silent / no phase advance from Inc.
+- Fix shape: Publish `outs.inc = cv.increment` for Keyboard in efficient sidecar; Pass 2 refresh; cache-bust `keyboard-inc-1`. Not a JS DSP evaluator restore.
+
+
+### B-078 - Trace / Phosphor / Instant Waterfall faces hidden after waterfall rename
+
+- Status: **fixed**
+- Severity: see
+- Doc: `docs/B-078_SCOPEFACE_TRACE_BAND_HIDDEN.md`
+- What: Catalog Trace / Phosphor (and Instant Waterfall) monitors spawned with no visible face.
+- Root cause: Waterfall rename replaced band alias `trace?face` with `waterfall?face` while `scopeFace` still used band id `"trace"`. LayoutA marked `face-track-omitted`; CSS hid `.node-module-face`.
+- Fix: `scopeFace` band id `"face"`; restore `trace: "face"`; canonical `faceBandVisible`. Thrus / WiredInputs for `scope1dTrace*`.
+- Verify: `node scripts/test_module_layout_bands.js`.
+
+### B-079 — Choices range clamp does not remap UI subset
+- Status: fixed (code; needs Live UI verify)
+- Severity: see
+- Source: user 2026-09-28
+- Related: choice index/label mapping; PolyBLEP Waveform metaparam range
+- Doc: `docs/B-079_CHOICES_RANGE_CLAMP_SUBSET.md`
+- Files: `public/node-graph-slider-metadata.js`; `public/node-graph-slider-readout.js`; `public/node-graph-slider-values.js`; `public/node-graph-parameter-metadata.js`; `public/node-graph-metadata-editor.js`; `public/node-graph-module-factories.js`; `public/index.html`; `scripts/test_b079_choice_range_remap.js`
+- What: Clamping a choices param min/max (e.g. Waveform 4–5) left full-catalog labels/dividers (~9 segments); ends mapped as full-list proportional indices.
+- Repro: PolyBLEP Waveform metaparam Min=4 Max=5; observe dividers/labels vs Triangle/Sine.
+- Root cause: Discrete index path required span===choices.length; clamp failed that check and used t*(n-1) over the full list. Dividers used full dataset.choices length.
+- Fix: `nodeGraphResolveChoiceSet` slices catalog by range + `choiceOriginMin`; index/label/dividers use subset. Persist origin from definition. Smoke `test_b079_choice_range_remap.js`.
+
+
+### B-080 — Choice segment text ellipsizes before full track width
+- Status: fixed (code; needs Live UI verify)
+- Severity: see
+- Source: user 2026-09-28 (Tube Saturation / choices-divided context)
+- Related: empty unit column width; B-073; B-079
+- Doc: `docs/B-080_CHOICE_SEGMENT_TEXT_FULLWIDTH.md`
+- Files: `public/styles.css`; `public/node-graph-slider-readout.js`; `public/index.html`; `scripts/test_b080_choice_label_fullwidth.js`
+- What: Choice divide/segment labels ellipsized early instead of using full slider track width.
+- Repro: Choices-divided param with a long label (e.g. Analog Square); observe early `...` and empty space where unit column reserved width.
+- Root cause: `.node-slider-readout-unit.is-empty` only `visibility: hidden` while keeping `min-width: 2.5em` + `column-gap: 7px`.
+- Fix: `.displays-choices` + collapse empty unit (`display: none`, `column-gap: 0`); value `width: 100%` of track. Smoke `test_b080_choice_label_fullwidth.js`.
+
+
 ## Fixed
 
 <!-- move B-xxx here with a one-line note -->
@@ -837,6 +938,11 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - **B-071** — Canvas Text Box type scales with tile via source-min cqmin (plate grid-size formula unchanged).
 - **B-072** — PolyBLEP/lineBurn (and scope2d/zeroD) phosphor Size persists as ink px @ 96 (was 0…1 clamp).
 - **B-073** - Parameter label `padding-left: 1ch` (sign-column align) removed so names line up with readout values.
+- **B-074** — InletOutlet Input/Output/Portal jack packing unified onto shared `.node-io-column` SSOT (no 1fr stretch).
+- **B-077** — Keyboard Inc host CV: publish `outs.inc = cv.increment` in efficient sidecar (Pass 1+2); cache-bust `keyboard-inc-1`.
+- **B-079** — Choices range clamp remaps labels/dividers to filtered subset via `nodeGraphResolveChoiceSet` + `choiceOriginMin`.
+- **B-080** — Choice segment labels use full track width (collapse empty unit column; cache-bust `b080-choice-fullwidth-1`).
+- **B-048** — Module Settings bypass control shares wiring-panel --node-bypass-* SSOT with module face (black/red/glow).
 
 ---
 

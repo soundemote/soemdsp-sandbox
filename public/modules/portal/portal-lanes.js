@@ -155,6 +155,7 @@ function nodeGraphPortalLaneDefinition(kind, spec) {
   }
   return {
     // InletOutletLayout: title + I/O only. Height from content calc.
+    // Jack packing = shared .node-io-column SSOT (B-074); no private spacing.
     chrome: "InletOutletLayout",
     planRole: isInlet ? "source" : "sink",
     planFreeRun: true,

@@ -671,6 +671,8 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         outs.KeyIndex = cv.key;
         outs.KeyNorm = cv.q;
         outs["pitch"] = cv.midi;
+        // Pitch-family: Hz/sr for osc Increment (same as retired keyboard live evaluator).
+        outs.inc = cv.increment;
       }
       this.nodeOutputs.set(nid, outs);
     } else {
@@ -713,7 +715,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const chordPlayMask2 = typeof nodeGraphChordMemoryLiveMaskForNode === "function"
       ? nodeGraphChordMemoryLiveMaskForNode(nid)
       : null;
-    this.nodeOutputs.set(nid, {
+    const outs2 = {
       ...prev,
       "Play Keys": maskBusy(playMask2),
       "Arp Keys": maskBusy(arpMask2),
@@ -724,7 +726,15 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       arpMask: arpMask2,
       Gate: gateOut,
       Trigger: triggerOut,
-    });
+    };
+    // Keep pitch-family outs current after IN remix (grid has no inc jack).
+    if (String(node?.type || "") === "keyboard") {
+      outs2.KeyIndex = cv.key;
+      outs2.KeyNorm = cv.q;
+      outs2["pitch"] = cv.midi;
+      outs2.inc = cv.increment;
+    }
+    this.nodeOutputs.set(nid, outs2);
   }
 
   if (pulseActive) {

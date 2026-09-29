@@ -499,7 +499,8 @@ function nodeGraphDefaultModuleGridWidthUnits(type) {
   if (nodeGraphModuleDefinitions[type]?.layout === "envelopeCurve") {
     return 8;
   }
-  if (nodeGraphModuleDefinitions[type]?.layout === "softClipperCurve") {
+  if (nodeGraphModuleDefinitions[type]?.layout === "softClipperCurve"
+) {
     return 8;
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "pitchQuantizer") {
@@ -923,6 +924,8 @@ function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
 const NODE_GRAPH_MODULE_WIDGET_BAND_ID = Object.freeze({
   header: "header",
   scope: "face",
+  // Alias: pre-rename scopeFace band id was "trace". Keep so old stacks / callers still resolve.
+  trace: "face",
   waterfall: "face",
   curve: "face",
   room: "face",
@@ -1097,8 +1100,6 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
       order.splice(order.indexOf("face"), 0, "io");
     }
   }
-  const isLayoutC = typeof nodeGraphModuleUsesLayoutC === "function"
-    && nodeGraphModuleUsesLayoutC(type);
   const layout = nodeGraphModuleDefinitions[type]?.layout;
   const paramsVisible = Boolean(byId.get("params")?.visible);
   const ioVisible = Boolean(byId.get("io")?.visible);
@@ -1113,16 +1114,8 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
       face.grow = true;
     }
   }
-  // InletOutletLayout: I/O may absorb leftover height when the user grows the
-  // module, but must never shrink below content (that clipped jacks over the
-  // bottom plate). No separate lip — lip+grow IO fought for the same pixels
-  // when outer height == header+io content min.
-  if (isLayoutC) {
-    const io = bands.find((band) => band.id === "io");
-    if (io?.visible) {
-      io.grow = true;
-    }
-  }
+  // InletOutletLayout (LayoutC): IO hugs jack rows like LayoutA (B-074).
+  // Leftover outer height belongs to the lip — never 1fr-stretch jack gaps.
   if (isLayoutB && !paramsVisible) {
     const shell = bands.find((band) => band.id === "shell");
     if (shell?.visible) {
@@ -1132,9 +1125,9 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
   // Leftover plate under last chrome is a lip (same fill as the article).
   // The article box / stroke is the module area — do not grow sliders into
   // the bottom radius (that clipped the last row).
+  // InletOutletLayout uses the same lip (not a growing IO strip).
   const wantsLip = layout !== "led"
     && layout !== "textBox"
-    && !isLayoutC
     && !(isLayoutB && !paramsVisible)
     && !displayOwnsPlate;
   if (wantsLip) {
@@ -1202,11 +1195,6 @@ function nodeGraphModuleBandTrackCss(band) {
       return `minmax(calc(var(--node-grid-height) * ${band.heightGu}), 1fr)`;
     }
     return "var(--node-module-bottom-gap-track, minmax(2px, 1fr))";
-  }
-  // InletOutletLayout / any growing IO strip: floor at content height so
-  // minmax(0, 1fr) cannot crush jacks (ports were painting over the bottom).
-  if (band.id === "io" && band.grow && band.heightGu > 0) {
-    return `minmax(calc(var(--node-grid-height) * ${band.heightGu}), 1fr)`;
   }
   if (band.grow) {
     return "minmax(0, 1fr)";
@@ -1294,7 +1282,12 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
   // LayoutA / Metamodule omit the face track when Displays are off or Display
   // Height is 0. The face node stays mounted (keyboard remount bug) but must
   // not auto-place into the I/O or param track. LayoutB keeps its shell.
-  const faceBandVisible = visible.some((band) => band.id === "face");
+  const faceBandVisible = visible.some((band) => {
+    const bandId = typeof nodeGraphModuleCanonicalBandId === "function"
+      ? nodeGraphModuleCanonicalBandId(band.id)
+      : band.id;
+    return bandId === "face";
+  });
   const omitsFaceTrack = article.classList?.contains("chrome-layout-a")
     || article.classList?.contains("chrome-layout-metamodule");
   article.classList?.toggle("face-track-omitted", Boolean(omitsFaceTrack && !faceBandVisible));
@@ -1619,7 +1612,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "trace", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
+      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, null, node), visible: slidersVisible },
       /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },

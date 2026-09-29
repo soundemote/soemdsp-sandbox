@@ -71,6 +71,19 @@
     { t: 1, color: "#ffffff" },
   ]);
 
+  // Photorealistic P3-style CRT amber phosphor (Tube Saturation face default).
+  // Nonlinear energy: deep glass floor, warm bias glow, body amber, yellow peak, soft bloom tip.
+  const DEFAULT_CRT_AMBER_STOPS = Object.freeze([
+    { t: 0, color: "#050200" },
+    { t: 0.08, color: "#1a0a00" },
+    { t: 0.22, color: "#4a1c00" },
+    { t: 0.42, color: "#8a3a00" },
+    { t: 0.62, color: "#d07008" },
+    { t: 0.78, color: "#ffb020" },
+    { t: 0.9, color: "#ffe08a" },
+    { t: 1, color: "#fff6d8" },
+  ]);
+
   // Black/white channel presets only (no hue/RGB ramps). Labels are lowercase.
   const PRESETS_BW = Object.freeze([
     {
@@ -278,6 +291,22 @@
       id: "amber",
       label: "amber",
       colors: ["#000000", "#3a2000", "#c07010", "#ffc040"],
+    },
+    {
+      // Photorealistic P3 CRT amber (Tube Saturation default). Not flat CSS orange.
+      id: "crt-amber",
+      label: "crt amber",
+      colors: [
+        "#050200",
+        "#1a0a00",
+        "#4a1c00",
+        "#8a3a00",
+        "#d07008",
+        "#ffb020",
+        "#ffe08a",
+        "#fff6d8",
+      ],
+      stops: DEFAULT_CRT_AMBER_STOPS,
     },
     {
       id: "green",
@@ -1309,6 +1338,12 @@
       defaultStops: "phosphor",
       hint: "Select a stop · presets · live audition on the burn trail",
     }),
+    // 1D Trace / TraceWoscope: same shared colormap LUT path as phosphor.
+    scope1dTrace: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Select a stop · presets · live audition on the 1D Trace beam",
+    }),
     // Videoscope / bank / hypersaw: mono energy phosphor (same LUT as scope2d).
     // Required so usesDisplayGradient(formType) is true and the host mounts.
     videoscopeBurn: Object.freeze({
@@ -1404,6 +1439,9 @@
     }
     if (kind === "fbmField") {
       return DEFAULT_FBM_FIELD_STOPS.map((s) => ({ t: s.t, color: s.color }));
+    }
+    if (kind === "crtAmber" || kind === "crt-amber") {
+      return DEFAULT_CRT_AMBER_STOPS.map((s) => ({ t: s.t, color: s.color }));
     }
     // phosphor / color energy faces (including numberReadout LCD)
     return DEFAULT_PHOSPHOR_STOPS.map((s) => ({ t: s.t, color: s.color }));
@@ -1616,6 +1654,7 @@
   global.SPECTROGRAM_DEFAULT_GRADIENT_STOPS = DEFAULT_STOPS;
   global.PHOSPHOR_DEFAULT_GRADIENT_STOPS = DEFAULT_PHOSPHOR_STOPS;
   global.MATRIX_DEFAULT_GRADIENT_STOPS = DEFAULT_MATRIX_STOPS;
+  global.CRT_AMBER_DEFAULT_GRADIENT_STOPS = DEFAULT_CRT_AMBER_STOPS;
   global.SHARED_GRADIENT_PRESETS = PRESETS;
   global.SPECTROGRAM_GRADIENT_PRESETS = PRESETS;
   global.PHOSPHOR_GRADIENT_PRESETS = PRESETS;

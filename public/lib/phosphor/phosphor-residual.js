@@ -17,6 +17,10 @@
   const DEFAULT_GHOST = 0.25;
 
   function clamp01(value, fallback = 0) {
+    // Prefer shared SoemMath policy when the UI math lib is loaded.
+    if (typeof SoemMath !== "undefined" && typeof SoemMath.clamp01 === "function") {
+      return SoemMath.clamp01(value, fallback);
+    }
     const n = Number(value);
     if (!Number.isFinite(n)) {
       return Math.max(0, Math.min(1, nodeGraphFiniteNumber(fallback)));
