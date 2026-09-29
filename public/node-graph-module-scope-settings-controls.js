@@ -384,7 +384,7 @@ function nodeGraphTraceDisplayHistoryControlRange(key) {
   // Waterfall Detail shares History's control-space skew (field meta), not a private mapper.
   if (key === "detail") {
     const lo = typeof NODE_GRAPH_WATERFALL_DETAIL_MIN === "number" ? NODE_GRAPH_WATERFALL_DETAIL_MIN : 0;
-    const hi = typeof NODE_GRAPH_WATERFALL_DETAIL_MAX === "number" ? NODE_GRAPH_WATERFALL_DETAIL_MAX : 4;
+    const hi = typeof NODE_GRAPH_WATERFALL_DETAIL_MAX === "number" ? NODE_GRAPH_WATERFALL_DETAIL_MAX : 1;
     return { min: lo, max: hi };
   }
   // Hz dials: Hz domain (0 allowed = freeze). Never reuse the seconds 0…10 range.
@@ -669,7 +669,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   detail: (value) => {
     const n = Number(value);
     const lo = typeof NODE_GRAPH_WATERFALL_DETAIL_MIN === "number" ? NODE_GRAPH_WATERFALL_DETAIL_MIN : 0;
-    const hi = typeof NODE_GRAPH_WATERFALL_DETAIL_MAX === "number" ? NODE_GRAPH_WATERFALL_DETAIL_MAX : 4;
+    const hi = typeof NODE_GRAPH_WATERFALL_DETAIL_MAX === "number" ? NODE_GRAPH_WATERFALL_DETAIL_MAX : 1;
     if (!Number.isFinite(n)) return 1;
     return clampNodeSliderValue(n, lo, hi);
   },

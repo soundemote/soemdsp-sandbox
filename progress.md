@@ -1,3 +1,8 @@
+## 2026-09-29 - Instant Waterfall Detail max 1 (local, uncommitted)
+
+- User: cap waterfall Detail (detail) max at 1. Range 0..1, default stays 1. Clamp stored values >1 down to 1. waterfall, waterfallRgb, waterfallXyz. Cache-bust wf-detail-max1.
+- Fix: NODE_GRAPH_WATERFALL_DETAIL_MAX 4 to 1. Shared normalizeNodeGraphWaterfallSettings clamps on load/apply for all three schemas; slider range, drag clamp, and paint fallback match. Default remains 1. No commit.
+
 ## 2026-09-28 - Instant Waterfall: paint crash + drop Persist/Bloom/Detail (local, uncommitted)
 
 - User: typed scope draw failed displayType waterfall (vibratoGenerator / output) — empty error {}; also REMOVE Persist/Bloom/Detail, KEEP+FIX Blur (not scope1dTrace).
@@ -199,6 +204,7 @@ graphify update . --force   # no LLM; AST re-extract
 - Circuits on a keyboard ÃƒÂ¢Ã¢Â‚Â¬Ã¢Â€Â play circuits like a sample library (seed in ``docs/FUTURE_PLANNING.md``).
 - Keytracking / pitch-tracking modulation UI (seed in ``docs/FUTURE_PLANNING.md``).
 - True metamodule parameter mirror: outer `mx_*` edits/menus target inner child (one conceptual param); nested parent-unexpose vs grandparent-expose stays explicit (seed in `docs/FUTURE_PLANNING.md`). Website limited checkbox mirror ships first.
+- Remove Sync from waterfall scopes (incompatible; decision in `docs/FUTURE_PLANNING.md`, not done in code).
 - Waterfall redesign (P2P bars): **implemented** on ArchIV Ã¢Â€Â” visual glance after reload (`docs/FUTURE_PLANNING.md`).
 
 - [ ] Inlets/outlets above displays, app-wide (`docs/FUTURE_PLANNING.md`)

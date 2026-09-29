@@ -127,6 +127,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "osc",
   "additiveImage",
   "animatedTextBox",
+  "acidSequencer",
   // Efficient-shop gaps: defined modules that are not on the live-audio /
   // observer allowlist. Park them as UC cards so search does not silently omit them.
   // audioInput: intentionally not shop-listed in efficient mode (APP_POLICY §0b).
@@ -233,6 +234,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   osc: "Open Sound Control (UDP ↔ CV). Parked on Controller until network send/receive lands.",
   metallicRatio: "Metallic-mean Ratio CV (golden/silver/…). Useful for detune, delay ratios, and spacing — parked until the modulator shelf polish pass.",
   additiveImage: "Image → Yellow Graph harmonics. Parked until the Additive image analysis pass.",
+  acidSequencer: "Implemented locally, but under construction and untested. Parked until Argi tests the native face and transport behavior.",
 });
 
 // Unified module department definitions — single source of truth for
@@ -797,6 +799,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Ins 0…10 + A/D → Out. D discrete; A −1…+1 around D.",
     label: "11t",
     notes: ["transistor", "11t", "mux"],
+  },
+  acidSequencer: {
+    category: "musical",
+    description: "TB-303-style step sequencer. Gate, Accent, Slide, Octave, and a C-C piano. Local BPM, transport start/stop.",
+    label: "Acid Sequencer",
+    notes: ["acid", "303", "slide", "accent", "gate", "tie"],
   },
   sequencer: {
     category: "musical",

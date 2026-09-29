@@ -62,6 +62,8 @@ LayoutB (ports beside the face) and InletOutletLayout (title + I/O, no face) are
 - Vibrato Generator face set to waterfall (was misnamed Instant Trace) as reference consumer.
 - Preserved: color, blend (Add/Multiply; Meet≈lighter on filled bars), scale, History Hz, now-line, hold, stereo/XYZ/RGB.
 
+**Decision (2026-09-29):** Remove Sync from waterfall scopes. It is fundamentally incompatible with them. No Sync control, Sync Off/On, or cycle-lock on these scopes. Planning record only; code not changed here.
+
 ## True metamodule parameter mirror
 
 **Status:** planned follow-up — not now. Website is shipping a **limited** mirror first (outer Show-on-metamodule checkbox resolves via `metaExpose` to the inner expose target). This item is the later **true** mirror.
@@ -118,26 +120,26 @@ LayoutB (ports beside the face) and InletOutletLayout (title + I/O, no face) are
 
 ## AcidSequencer
 
-**Status:** seed only — not yet implemented; do not implement until Architect expands this.
+**Status:** implemented locally, not tested by Argi, and not complete. Do **not** mark complete until Argi has tested a build.
 
-**Direction:** A new sequencer like the existing **Sequencer** module (`sequencer`: transport-locked piano roll; outputs Play Keys, Gate, Trigger, pitch, and f). AcidSequencer is its own module, not a change to that piano roll. Each step has four modifiers above a piano grid of 13 notes, C to C (chromatic, 13 pitches).
+Primary note:
 
-The four modifiers per step:
+```text
+docs/ACID_SEQUENCER_PLAN.md
+```
 
-- **Gate** — a gate output. Gate is on, off, or tie. Tie means the next step's gate is held so the envelope does not retrigger.
-- **Accent** — a trigger output. Accent means send a trigger.
-- **Slide** — a pitch output.
-- **Octave** — part of the pitch output. Octave is the offset per step.
+**Direction:** Own module (`acidSequencer`), not a change to **Sequencer** (`sequencer` piano roll). TB-303-style step sequencer: 13-note C–C piano grid with four per-step modifiers above it. Native C++/WASM DSP only; face/UI in JS; no JS DSP twin; no shims.
 
-**Layout:** each row is Gate, Accent, Slide, Octave. A left arrow and a right arrow pan/rotate the sequence: every step adopts the properties of the neighboring step (left or right) depending on which arrow is clicked. This is rotating the step data, not a separate viewport.
+**Locked (Argi):**
 
-**Parameters:**
+- **Step length** (active step count) **1–32**, default **16**.
+- Per-step modifiers: **Gate** (on / off / tie), **Accent** (Trigger), **Slide**, **Octave** (−1 / 0 / +1).
+- **Tie does not hold pitch.** Tie = Gate stays high / no envelope retrigger across the boundary. Pitch may still change (piano note and/or Octave); Slide still applies when flagged.
+- Params: local **bpm** (1-320, default 120), step length, Gate height 0-1, Accent height 0-1, Slide time (default 0.06 s), **semitone offset** integer -48..+48 default 0. Per-step Octave stays.
+- **Left/right** rotate all 32 stored steps (wrap), not a viewport.
+- Base grid **C2-C3** (MIDI 36-48). Outs **Gate, Trigger, pitch, f, inc**. No Clock/Reset jacks. One step = one 16th, transport start/stop. Accent = 1 ms trigger when Gate is on or tie. Slide = linear glide to the next step. Gate off holds pitch and kills Accent.
 
-- bpm (not free running)
-- step length
-- Gate height
-- Accent height
-- Slide time
+**Still open:** Argi has not tested the build. Do not mark this item complete.
 
 ## VU meter
 

@@ -6,7 +6,7 @@
 // New columns stamp on the RIGHT; history scrolls LEFT. Never redraw the whole
 // face — only scroll existing pixels and fillRect new column(s) on the right.
 // History (seconds) = freerun window across the face (0 / below eps = PAUSE, keep hold).
-// Sync On uses the same incremental scroll+stamp path (no full-face rebuild).
+// No source sync. A zero-crossing lock fights the scroll+stamp strip.
 // Canvas2D hold plate. Instant Waterfall only — no Hz dual-path.
 
 function nodeGraphWaterfallNowMs() {
@@ -43,152 +43,61 @@ function nodeGraphWaterfallHistorySeconds(settings) {
   return 0.25;
 }
 
-/** Sync-on cycles in view (not historySeconds — that bug made Cycles feel broken). */
-function nodeGraphWaterfallHistoryCycles(settings) {
-  const n = Number(settings?.historyCycles);
-  if (Number.isFinite(n) && n > 0) {
-    return Math.max(0.05, Math.min(100, n));
-  }
-  return 4;
-}
-
 /** True when History (seconds) is 0 / below eps — display must pause, not invent a window. */
 function nodeGraphWaterfallHistoryIsFrozen(settings) {
   return !(nodeGraphWaterfallHistorySeconds(settings) > NODE_GRAPH_WATERFALL_HISTORY_SEC_EPS);
 }
 
-/** @deprecated Use nodeGraphWaterfallHistoryIsFrozen — 0 s pauses; it does not wipe to a now-line. */
-function nodeGraphWaterfallIsNowLine(settings) {
-  return nodeGraphWaterfallHistoryIsFrozen(settings);
+/** Planck amplitude. Same constant as nodeGraphPlanck / NODE_GRAPH_PLANCK. */
+function nodeGraphWaterfallPlanck() {
+  if (typeof nodeGraphPlanck === "function") {
+    const n = Number(nodeGraphPlanck());
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  const n = typeof NODE_GRAPH_PLANCK === "number" ? Number(NODE_GRAPH_PLANCK) : NaN;
+  if (Number.isFinite(n) && n >= 0) return n;
+  return 1e-7;
 }
 
-function nodeGraphWaterfallSyncIsOn(settings) {
-  return typeof nodeGraphTraceDisplaySyncChannel === "function"
-    ? nodeGraphTraceDisplaySyncChannel(settings) !== "off"
-    : false;
-}
-
-/** Trimmed-mean period from rising-edge gaps (rejects octave jumps). */
-function nodeGraphWaterfallRefinePeriodSamples(edges) {
-  if (!Array.isArray(edges) || edges.length < 2) {
-    return 0;
-  }
-  const gaps = [];
-  for (let i = 1; i < edges.length; i += 1) {
-    const gap = edges[i] - edges[i - 1];
-    if (gap >= 2) {
-      gaps.push(gap);
-    }
-  }
-  if (!gaps.length) {
-    return 0;
-  }
-  gaps.sort((a, b) => a - b);
-  const median = gaps[Math.floor(gaps.length / 2)];
-  let sum = 0;
-  let count = 0;
-  for (const gap of gaps) {
-    if (gap > median * 0.82 && gap < median * 1.18) {
-      sum += gap;
-      count += 1;
-    }
-  }
-  const period = count > 0 ? sum / count : median;
-  return period > 1 ? period : 0;
+/** Display option. Off by default. History at 0 still pauses on its own. */
+function nodeGraphWaterfallPauseOnSilence(settings) {
+  return settings?.pauseOnSilence === true;
 }
 
 /**
- * Measure period from the buffer (rising ZCs only — no module frequency hints).
- * History (when Sync On) is cycles-in-view (smooth), not a time budget that
- * packs more cycles as frequency rises — zoom stretches that window full-width.
+ * Raw linear extent never leaves rest. Checked before dB mapping, so a real
+ * negative-dB RMS reading is not silence. At or below Planck is no excursion.
  */
-function nodeGraphWaterfallMeasureSync(syncBuffer, state, historyCycles = 0, sampleRate = 0) {
-  const empty = { periodSamples: 0, edge: Number.NaN, cycles: 0, visibleSamples: 0 };
-  if (!syncBuffer?.length || typeof nodeGraphModuleScopeCollectSyncTriggers !== "function") {
-    return empty;
-  }
-  const source = typeof nodeGraphModuleScopeSyncBuffer === "function"
-    ? (nodeGraphModuleScopeSyncBuffer(syncBuffer) || syncBuffer)
-    : syncBuffer;
-  if (!source?.length) {
-    return empty;
-  }
-  const hz = sampleRate > 0 ? sampleRate : nodeGraphWaterfallVisualHz(source);
-  const cyclesRaw = Number(historyCycles);
-  const cycles = Number.isFinite(cyclesRaw) && cyclesRaw > 0
-    ? Math.max(0.05, Math.min(100, cyclesRaw))
-    : 2;
-  // Search enough ring for several periods of the current cycle zoom.
-  const searchSpan = Math.min(
-    source.length,
-    Math.max(8192, Math.ceil(cycles * 512) + 4096),
-  );
-  const searchStart = Math.max(0, source.length - searchSpan);
-  const triggers = nodeGraphModuleScopeCollectSyncTriggers(
-    source,
-    searchStart,
-    source.length,
-    0,
-    null,
-  );
-  const edges = Array.isArray(triggers?.edges) ? triggers.edges : [];
-  let periodSamples = nodeGraphWaterfallRefinePeriodSamples(edges);
-  if (!(periodSamples > 1)) {
-    periodSamples = nodeGraphFiniteNumber(triggers?.periodSamples);
-  }
-  if (periodSamples > 1 && state) {
-    const prev = Number(state.periodEma);
-    if (Number.isFinite(prev) && prev > 1) {
-      const ratio = periodSamples / prev;
-      state.periodEma = (ratio < 0.7 || ratio > 1.4)
-        ? periodSamples
-        : (prev * 0.55 + periodSamples * 0.45);
-    } else {
-      state.periodEma = periodSamples;
-    }
-    periodSamples = state.periodEma;
-  } else if (!(periodSamples > 1)) {
-    const prev = Number(state?.periodEma);
-    if (Number.isFinite(prev) && prev > 1) {
-      periodSamples = prev;
-    } else {
-      return empty;
+function nodeGraphWaterfallExtentIsSilent(minV, maxV) {
+  const lo = Number(minV);
+  const hi = Number(maxV);
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return true;
+  return Math.max(Math.abs(lo), Math.abs(hi)) <= nodeGraphWaterfallPlanck();
+}
+
+/** Undrawn window is silence on every enabled channel (linear amplitude). */
+function nodeGraphWaterfallIncomingIsSilent(spec, settings, window) {
+  const planck = nodeGraphWaterfallPlanck();
+  const channels = nodeGraphWaterfallChannelList(spec, settings)
+    .filter((ch) => ch.enabled !== false);
+  const count = Math.max(0, Math.floor(nodeGraphFiniteNumber(window?.count)));
+  if (!channels.length) return true;
+  for (let i = 0; i < channels.length; i += 1) {
+    const buf = nodeGraphWaterfallPrepare(channels[i].buffer, settings) || channels[i].buffer;
+    const end = buf?.length || 0;
+    const start = count > 0 ? Math.max(0, end - count) : end;
+    if (!buf || end <= start) continue;
+    for (let s = start; s < end; s += 1) {
+      const v = Number(buf[s]);
+      if (Number.isFinite(v) && Math.abs(v) > planck) return false;
     }
   }
-  // Fixed cycle zoom × measured period → sample window (stretched to full face).
-  const visible = Math.max(8, Math.min(source.length, Math.round(cycles * periodSamples)));
-  let edge = Number.NaN;
-  for (let i = edges.length - 1; i >= 0; i -= 1) {
-    const at = Number(edges[i]);
-    if (Number.isFinite(at) && at >= 0 && at + visible <= source.length) {
-      edge = at;
-      break;
-    }
-  }
-  if (!Number.isFinite(edge) && edges.length) {
-    const idealStart = Math.max(0, source.length - visible);
-    let best = Number.NaN;
-    let bestDist = Infinity;
-    for (let i = edges.length - 1; i >= 0; i -= 1) {
-      const at = Number(edges[i]);
-      if (!Number.isFinite(at) || at > idealStart) {
-        continue;
-      }
-      const dist = idealStart - at;
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = at;
-      }
-      if (dist <= periodSamples) {
-        break;
-      }
-    }
-    edge = Number.isFinite(best) ? best : Number(edges[edges.length - 1]);
-  }
-  if (!Number.isFinite(edge)) {
-    edge = Math.max(0, source.length - visible);
-  }
-  return { periodSamples, edge, cycles, visibleSamples: visible };
+  return true;
+}
+
+/** @deprecated Use nodeGraphWaterfallHistoryIsFrozen — 0 s pauses; it does not wipe to a now-line. */
+function nodeGraphWaterfallIsNowLine(settings) {
+  return nodeGraphWaterfallHistoryIsFrozen(settings);
 }
 
 /** Bipolar +/-1 reaches the face edges. No vertical inset. RMS dB guides use the same full span. */
@@ -395,6 +304,23 @@ function nodeGraphWaterfallBarPoints(x, y0, y1) {
 }
 
 /**
+ * Sample-unit column extents for a filled bar.
+ * One-sided columns expand to rest (0) so Output does not collapse to a 1px speck.
+ * Vibrato peaks that already span both sides stay raw min..max.
+ * RMS dB faces keep their own scale (linear 0 is not the meter floor).
+ * @returns {{ min:number, max:number }}
+ */
+function nodeGraphWaterfallExcursionBar(minV, maxV, amp) {
+  let min = Number(minV);
+  let max = Number(maxV);
+  if (!(amp && amp.mode === "rmsDb")) {
+    if (min > 0) min = 0;
+    if (max < 0) max = 0;
+  }
+  return { min, max };
+}
+
+/**
  * Peak-to-peak filled-bar specs per pixel column across [start, end).
  * Each entry is a solid vertical rect in face Y (min sample .. max sample).
  * seedAcc (optional): merge freerun fractional-column remainder into column 0.
@@ -465,15 +391,16 @@ function nodeGraphWaterfallColumnBars(buffer, slot, columns, height, settings, s
     if (!has || !(minV <= maxV)) {
       continue;
     }
-    // One-sided bins (slow vibrato, or a short Output slice that never
-    // crosses rest) would otherwise collapse to a 1px speck. Fill from
-    // rest (0) to the accumulated peaks so the bar is the excursion.
-    // Bins that already span both sides keep raw min..max. RMS dB faces
-    // stay on their own scale (0 linear is not the meter floor).
-    if (amp?.mode !== "rmsDb") {
-      if (minV > 0) minV = 0;
-      if (maxV < 0) maxV = 0;
+    // Exact rest (and Planck-silent) used to map to mid-face, then the <1px
+    // pad fillRect'd a 1px hairline. Skip the column. RMS dB stays on its
+    // scale: only this linear silence is dropped, not a negative dB reading.
+    if (nodeGraphWaterfallExtentIsSilent(minV, maxV)) {
+      continue;
     }
+    // Shared excursion: one-sided -> rest (0); both sides stay raw min..max.
+    const excursion = nodeGraphWaterfallExcursionBar(minV, maxV, amp);
+    minV = excursion.min;
+    maxV = excursion.max;
     const yMin = nodeGraphWaterfallY(minV, amp.gain, amp.offset, midY, halfHeight, amp);
     const yMax = nodeGraphWaterfallY(maxV, amp.gain, amp.offset, midY, halfHeight, amp);
     if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) {
@@ -1026,7 +953,7 @@ function nodeGraphWaterfallStampFilledBars(holdCtx, bars, x0, color, bright01, c
 /**
  * Classic strip ink: scroll history left, stamp filled P2P bars on the right.
  * Never rebuilds the whole face — only scrollPx + new columns.
- * Freerun seeds options.barAcc into column 0; Sync uses the same path.
+ * Freerun seeds options.barAcc into column 0.
  */
 function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampleStart, sampleEnd, options) {
   const width = destCanvas.width;
@@ -1125,26 +1052,6 @@ function nodeGraphWaterfallInk(destCtx, destCanvas, spec, x0, columns, bg, sampl
   return n;
 }
 
-function nodeGraphWaterfallSyncSource(spec) {
-  const channel = typeof nodeGraphTraceDisplaySyncChannel === "function"
-    ? nodeGraphTraceDisplaySyncChannel(spec?.settings)
-    : "off";
-  if (channel === "off") return null;
-  const inputSync = typeof nodeGraphModuleTraceInputSyncBuffer === "function"
-    ? nodeGraphModuleTraceInputSyncBuffer(spec?.slot?.nodeId, spec?.slot?.type)
-    : null;
-  if (inputSync?.length) {
-    return inputSync;
-  }
-  const stereo = spec?.stereoBuffers;
-  if (!stereo) return spec?.buffer || null;
-  if (channel === "right") return stereo.right || stereo.left;
-  if (channel === "mono" && typeof nodeGraphTraceDisplayMonoSyncBuffer === "function") {
-    return nodeGraphTraceDisplayMonoSyncBuffer(stereo.left, stereo.right) || stereo.left;
-  }
-  return stereo.left || stereo.right;
-}
-
 function nodeGraphWaterfallAbandonTape(canvas) {
   if (!canvas) return;
   if (canvas._waterfall) {
@@ -1171,16 +1078,14 @@ function nodeGraphWaterfallAbandonTape(canvas) {
   }
 }
 
-function nodeGraphWaterfallState(canvas, width, height, syncOn, nowLine, bg, context, blendMode) {
+function nodeGraphWaterfallState(canvas, width, height, nowLine, bg, context, blendMode) {
   const st = canvas._waterfall || (canvas._waterfall = {
     started: false,
     lastMs: Number.NaN,
     frac: 0,
     lastAbs: Number.NaN,
-    syncOn: false,
     nowLine: false,
     blend: "",
-    periodEma: Number.NaN,
     lastW: 0,
     lastH: 0,
     barAcc: Object.create(null),
@@ -1191,7 +1096,7 @@ function nodeGraphWaterfallState(canvas, width, height, syncOn, nowLine, bg, con
   canvas._traceScroll = st;
   const blend = String(blendMode || "");
   const resized = Math.abs((st.lastW || 0) - width) > 2 || Math.abs((st.lastH || 0) - height) > 2;
-  const modeChanged = st.syncOn !== syncOn || st.nowLine !== nowLine || st.blend !== blend;
+  const modeChanged = st.nowLine !== nowLine || st.blend !== blend;
   if (!st.started || modeChanged) {
     if (typeof nodeGraphFacePlateFillCanvas === "function") {
       nodeGraphFacePlateFillCanvas(context, canvas, bg);
@@ -1202,10 +1107,8 @@ function nodeGraphWaterfallState(canvas, width, height, syncOn, nowLine, bg, con
     st.lastAbs = Number.NaN;
     st.lastW = width;
     st.lastH = height;
-    st.syncOn = Boolean(syncOn);
     st.nowLine = nowLine;
     st.blend = blend;
-    st.periodEma = Number.NaN;
     st.barAcc = Object.create(null);
     delete canvas._waterfallLastY;
     delete canvas._waterfallLastLeftY;
@@ -1297,15 +1200,15 @@ function nodeGraphWaterfallPaintNowLine(spec, context, canvas, settings, width, 
  * frame sample and not from device pixels.
  * base = round(layoutCssWidth * pixelDensity). pixelDensity is the
  * module-face plate density (0..1) that sizes the layout canvas.
- * Detail (default 1) scales that: columns = max(1, round(base * detail)).
- * Higher detail = new bar sooner. barPx = backingStoreWidth / columns.
+ * Detail (0..1, default 1) scales that: columns = max(1, round(base * detail)).
+ * 1 = one bar per layout pixel (max). barPx = backingStoreWidth / columns.
  * The bar fillRects that column times barThickness (1 = full, 0 = none).
  */
 function nodeGraphWaterfallDetail(settings) {
   const raw = Number(settings?.detail);
   const detail = Number.isFinite(raw) ? raw : 1;
   const lo = typeof NODE_GRAPH_WATERFALL_DETAIL_MIN === "number" ? NODE_GRAPH_WATERFALL_DETAIL_MIN : 0;
-  const hi = typeof NODE_GRAPH_WATERFALL_DETAIL_MAX === "number" ? NODE_GRAPH_WATERFALL_DETAIL_MAX : 4;
+  const hi = typeof NODE_GRAPH_WATERFALL_DETAIL_MAX === "number" ? NODE_GRAPH_WATERFALL_DETAIL_MAX : 1;
   return Math.max(lo, Math.min(hi, detail));
 }
 
@@ -1360,10 +1263,9 @@ function nodeGraphWaterfallPaint(spec) {
 
   // 0 / below eps History (seconds) = PAUSE (keep hold). Never wipe to a now-line or invent a window.
   const historyFrozen = nodeGraphWaterfallHistoryIsFrozen(settings);
-  const syncOn = !historyFrozen && nodeGraphWaterfallSyncIsOn(settings);
   const blendMode = nodeGraphWaterfallBlendMode(settings, { rgbGuns: Boolean(spec?.rgbBuffers) });
   const st = nodeGraphWaterfallState(
-    canvas, width, height, syncOn, false, spec.bg, context, blendMode,
+    canvas, width, height, false, spec.bg, context, blendMode,
   );
   const writeSpec = {
     slot: spec.slot,
@@ -1400,10 +1302,20 @@ function nodeGraphWaterfallPaint(spec) {
     remember();
     return true;
   }
+  // Pause on silence: keep the hold. No scroll, no new columns.
+  // Eat the silent window so it does not burst-scroll when sound returns.
+  if (nodeGraphWaterfallPauseOnSilence(settings)
+    && nodeGraphWaterfallIncomingIsSilent(writeSpec, settings, window)) {
+    if (Number.isFinite(window.absEnd) && window.count > 0) {
+      st.lastAbs = window.absEnd;
+    }
+    nodeGraphWaterfallPresentHold(context, canvas, spec.bg);
+    nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
+    remember();
+    return true;
+  }
   const hz = nodeGraphWaterfallVisualHz(live);
 
-  // Sync On uses the same incremental scroll+stamp path as freerun (no full-face
-  // rebuild). Period/Cycles measurement is retained for state but does not wipe ink.
   // Time bucket = history / layout-pixel columns (face CSS width * pixel density).
   // Not canvas.width (device px) and not one sample per animation frame.
   const faceCols = nodeGraphWaterfallLayoutColumns(spec, canvas, settings);

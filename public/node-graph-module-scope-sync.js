@@ -565,11 +565,11 @@ function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycl
 }
 
 /**
- * 1D Waterfall + 1D Phosphor share one Sync feature.
- * Stereo waterfall uses syncChannel (off/left/right/mono);
- * everything else uses sourceSync on/off (stored as mono/off).
+ * 1D Phosphor + 1D Trace Sync. Instant Waterfall does not sync
+ * (scroll+stamp history is time, not a zero-crossing lock).
+ * sourceSync on/off is stored as syncChannel mono/off.
  */
-const NODE_GRAPH_DISPLAY_1D_SYNC_FORM_TYPES = Object.freeze(["waterfall", "lineBurn", "scope1dTrace", "dot"]);
+const NODE_GRAPH_DISPLAY_1D_SYNC_FORM_TYPES = Object.freeze(["lineBurn", "scope1dTrace", "dot"]);
 
 function nodeGraphDisplayFormTypeHas1dSync(formType) {
   return NODE_GRAPH_DISPLAY_1D_SYNC_FORM_TYPES.includes(String(formType || "").trim());

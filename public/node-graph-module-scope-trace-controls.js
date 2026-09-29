@@ -292,8 +292,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "secondaryBrightness",
     ]),
     colors: Object.freeze(["dot1Color", "secondaryColor", "tertiaryColor", "backgroundColor"]),
-    toggles: Object.freeze(["skipDiscontinuities", "sourceSync"]),
-    choices: Object.freeze(["stereoBlend", "syncChannel"]),
+    toggles: Object.freeze(["skipDiscontinuities", "pauseOnSilence"]),
+    choices: Object.freeze(["stereoBlend"]),
   }),
   // Phosphor energy faces: color via shared Gradient editor (not single swatches).
   // Field order = nodeGraphPhosphorDisplayFieldOrder (Bright…residual…Burn ⨉…Dot Budget).
@@ -484,7 +484,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "lineThickness",
     ]),
     colors: Object.freeze(["backgroundColor"]),
-    toggles: Object.freeze([]),
+    toggles: Object.freeze(["pauseOnSilence"]),
     choices: Object.freeze(["stereoBlend", "xyzLayout"]),
   }),
   // 1D Waterfall RGB — Size / Blur / Dot density / Bright; RGB Add or CMY Multiply.
@@ -499,7 +499,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "lineThickness",
     ]),
     colors: Object.freeze(["backgroundColor"]),
-    toggles: Object.freeze(["cmyMode", "skipDiscontinuities", "sourceSync"]),
+    toggles: Object.freeze(["cmyMode", "skipDiscontinuities", "pauseOnSilence"]),
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
@@ -1289,18 +1289,18 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     nonlinearSlider: true,
     sliderCurve: "custom",
     curveAmount: -1,
-    title: "Instant Waterfall Sync Off: seconds of history across the face. Longer = slower scroll. Drag is skewed so short windows have more travel and the top of the range approaches slowly. 0 = pause. Sync On uses Cycles instead.",
+    title: "Seconds of history across the Instant Waterfall face. Longer = slower scroll. Drag is skewed so short windows have more travel and the top of the range approaches slowly. 0 = pause.",
   }),
   detail: Object.freeze({
     label: "Detail",
     inputmode: "decimal",
     id: "nodeTraceDisplayWaterfallDetail",
     // Same custom skew as History. Not a private drag mapper.
-    // 0..4, default 1 = one bar per layout pixel. Exponent 4 keeps travel near coarser slices.
+    // 0..1, default 1 = one bar per layout pixel (max). Exponent 4 keeps travel near coarser slices.
     nonlinearSlider: true,
     sliderCurve: "custom",
     curveAmount: -1,
-    title: "How often a new bar starts. 1 = one bar per layout pixel. Higher starts the next bar sooner (more columns, finer min/max slices). Lower holds each bar across a longer stretch (fewer columns, chunkier fills). The bar still fills its column. Not thickness. 0 = one column. 4 = four bars per layout pixel.",
+    title: "How often a new bar starts. 1 = one bar per layout pixel (cap). Lower holds each bar across a longer stretch (fewer columns, chunkier fills). The bar still fills its column. Not thickness. 0 = one column.",
   }),
   fftSize: Object.freeze({
     label: "FFT size",
@@ -1724,7 +1724,7 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     label: "Sync",
     id: "nodeTraceDisplaySourceSync",
     title:
-      "1D Waterfall: Off = History (seconds) scroll window. On = Cycles in view (smooth), stretched full-width to a rising zero-crossing. 1D Phosphor: Sync Off = Sweep (Hz); Sync On = Sweep (c) cycles in view, restart each pass on a rising zero-crossing; Reset jack still snaps.",
+      "1D Phosphor / 1D Trace: Sync Off = Sweep (Hz). Sync On = Sweep (c) cycles in view, restart each pass on a rising zero-crossing. Reset jack still snaps. Not used on Instant Waterfall.",
   }),
   showDot: Object.freeze({
     label: "Show Dot",
@@ -1736,6 +1736,12 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     id: "nodeTraceDisplayCmyMode",
     title:
       "Off = RGB additive guns (overlaps → white). On = CMY multiply guns on white (overlaps → black). R→Cyan, G→Magenta, B→Yellow.",
+  }),
+  pauseOnSilence: Object.freeze({
+    label: "Pause on silence",
+    id: "nodeTraceDisplayPauseOnSilence",
+    title:
+      "While on, Instant Waterfall stops scrolling when every enabled channel is at or below Planck amplitude. Off (default) keeps scrolling. History at 0 still pauses either way.",
   }),
   skipDiscontinuities: Object.freeze({
     label: "Skip Discontinuity",

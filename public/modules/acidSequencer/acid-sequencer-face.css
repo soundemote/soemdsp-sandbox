@@ -1,0 +1,96 @@
+.acid-seq-face {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 6px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid rgba(243, 241, 236, 0.12);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(120, 220, 160, 0.08), transparent 42%),
+    #080a0c;
+  color: #f3f1ec;
+  font: 700 0.62rem/1 "Cascadia Mono", Consolas, monospace;
+}
+
+.acid-seq-rotate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.acid-seq-rotate-label {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(243, 241, 236, 0.55);
+}
+
+.acid-seq-arrow {
+  width: 1.8rem;
+  height: 1.3rem;
+  border: 1px solid rgba(243, 241, 236, 0.2);
+  border-radius: 4px;
+  background: #12161a;
+  color: #f3f1ec;
+  cursor: pointer;
+}
+
+.acid-seq-grid {
+  display: grid;
+  gap: 2px;
+  min-height: 0;
+  overflow: auto;
+  align-content: start;
+}
+
+.acid-seq-label {
+  display: flex;
+  align-items: center;
+  color: rgba(243, 241, 236, 0.55);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.acid-seq-note {
+  justify-content: flex-end;
+  padding-right: 4px;
+}
+
+.acid-seq-cell,
+.acid-seq-key {
+  min-height: 0.95rem;
+  border: 1px solid rgba(243, 241, 236, 0.12);
+  border-radius: 2px;
+  background: #12161a;
+  color: #f3f1ec;
+  padding: 0;
+  cursor: pointer;
+}
+
+.acid-seq-key.is-black {
+  background: #1c2430;
+}
+
+.acid-seq-cell.is-on,
+.acid-seq-key.is-on {
+  background: #d7ffe8;
+  color: #08110c;
+  border-color: #d7ffe8;
+}
+
+.acid-seq-cell.is-tie {
+  background: #9ad7ff;
+  color: #081018;
+  border-color: #9ad7ff;
+}
+
+.acid-seq-cell.is-playhead,
+.acid-seq-key.is-playhead {
+  outline: 1px solid #f3f1ec;
+  outline-offset: -1px;
+}

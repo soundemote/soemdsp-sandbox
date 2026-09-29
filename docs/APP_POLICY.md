@@ -39,6 +39,8 @@ Concrete rules for the current codebase follow in Â§0b / Â§2 / Â§2b / Â§
 
 The **efficient product** surface is the shippable MVEP build. Flag: `nodeGraphMvp.efficientProduct` (**default ON**). Escape hatch for full catalog: `?product=full`.
 
+`acidSequencer` is implemented locally but remains **under construction, untested, and not a finished shop module** for this release. Keep it off the efficient-product allowlist; the module remains defined for WIP testing.
+
 ### Live-audio allowlist (SSOT)
 
 Only these live-audio types exist in the efficient build:

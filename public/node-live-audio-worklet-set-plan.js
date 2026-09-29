@@ -155,6 +155,7 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
         ? node._pendingSnapParams.slice()
         : null,
       sequencer: node.sequencer && typeof node.sequencer === "object" ? node.sequencer : null,
+      acidSequencer: node.acidSequencer && typeof node.acidSequencer === "object" ? node.acidSequencer : null,
       chordMemory: node.chordMemory && typeof node.chordMemory === "object" ? node.chordMemory : null,
       sample: node.sample || null,
       samplePhase: Number.isFinite(Number(node.samplePhase)) ? Number(node.samplePhase) : null,

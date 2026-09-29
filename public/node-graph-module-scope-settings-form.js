@@ -14,16 +14,13 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Span °";
     title = "Centered arc sweep across Bias 0…1 (degrees). Opens left and right together; gap stays opposite center.";
   }
-  if ((key === "historySeconds" || key === "historyCycles" || key === "zoomSeconds" || key === "historyHz") && (
+  if ((key === "historySeconds" || key === "zoomSeconds" || key === "historyHz") && (
     formType === "waterfall"
     || formType === "waterfallRgb"
     || formType === "waterfallXyz"
   )) {
-    const syncOn = options.syncOn === true || key === "historyCycles";
-    label = syncOn ? "Cycles" : "History (seconds)";
-    title = syncOn
-      ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods), stretched across the full face. Rising zero-crossing locks phase."
-      : "History window duration in seconds across the face. Longer = slower scroll. 0 = pause (freeze plate).";
+    label = "History (seconds)";
+    title = "History window duration in seconds across the face. Longer = slower scroll. 0 = pause (freeze plate).";
   } else if ((key === "historyHz" || key === "historyCycles" || key === "zoomSeconds" || key === "historySeconds") && (
     formType === "gradientVectorscopeFace"
   )) {
@@ -1149,8 +1146,8 @@ function syncNodeGraphLineBurnSweepLabel(root, settings = {}) {
 }
 
 /**
- * History (seconds) ↔ Cycles when Instant Waterfall Sync is toggled.
- * Retargets the stepper to historySeconds or historyCycles so both values stay stored.
+ * Instant Waterfall History stays seconds. Sync/Cycles retarget is gone.
+ * If an open form still points at historyCycles, pin it back to historySeconds.
  */
 function syncNodeGraphWaterfallHistoryLabel(root, settings = {}) {
   const host = root?.querySelector?.(
@@ -1169,16 +1166,9 @@ function syncNodeGraphWaterfallHistoryLabel(root, settings = {}) {
   if (!titleSpan && !field) {
     return;
   }
-  const syncOn = typeof nodeGraphTraceDisplaySyncChannel === "function"
-    ? nodeGraphTraceDisplaySyncChannel(settings) !== "off"
-    : (typeof nodeGraphDisplaySettingsToggleIsOn === "function"
-      ? nodeGraphDisplaySettingsToggleIsOn(settings?.sourceSync ?? settings?.sync)
-      : Boolean(settings?.sourceSync));
-  const key = syncOn ? "historyCycles" : "historySeconds";
-  const label = syncOn ? "Cycles" : "History (seconds)";
-  const title = syncOn
-    ? "Cycles in view (smooth — e.g. 1.5 = 1½ periods), stretched across the full face. Rising zero-crossing locks phase."
-    : "History window duration in seconds across the face. Longer = slower scroll. 0 = pause.";
+  const key = "historySeconds";
+  const label = "History (seconds)";
+  const title = "History window duration in seconds across the face. Longer = slower scroll. 0 = pause.";
   if (titleSpan) {
     titleSpan.textContent = label;
   }
@@ -1370,9 +1360,10 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     // Always break discontinuity edges in the drawer — no UI toggle.
     usedToggles.add("skipDiscontinuities");
   }
-  if (stereoInk && choiceKeys.includes("syncChannel")) {
-    rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml("syncChannel"));
-    usedChoices.add("syncChannel");
+  if (isInstantWaterfall) {
+    // Scroll+stamp history cannot lock to a zero-crossing. No Sync control.
+    if (choiceKeys.includes("syncChannel")) usedChoices.add("syncChannel");
+    if (toggleKeys.includes("sourceSync")) usedToggles.add("sourceSync");
   } else if (toggleKeys.includes("sourceSync")) {
     rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("sourceSync"));
     usedToggles.add("sourceSync");
@@ -1390,13 +1381,15 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     "backgroundBrightness",
     "backgroundHue",
   ]);
-  const syncOnForStack = typeof nodeGraphTraceDisplaySyncChannel === "function"
-    ? nodeGraphTraceDisplaySyncChannel(
-      typeof nodeGraphTraceDisplaySettingsForNode === "function"
-        ? nodeGraphTraceDisplaySettingsForNode(node)
-        : null,
-    ) !== "off"
-    : false;
+  const syncOnForStack = isInstantWaterfall
+    ? false
+    : (typeof nodeGraphTraceDisplaySyncChannel === "function"
+      ? nodeGraphTraceDisplaySyncChannel(
+        typeof nodeGraphTraceDisplaySettingsForNode === "function"
+          ? nodeGraphTraceDisplaySettingsForNode(node)
+          : null,
+      ) !== "off"
+      : false);
   const pushStackField = (key) => {
     if (!orderedPrimary.includes(key)) {
       return;
@@ -1420,16 +1413,16 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml("stereoBlend"));
     usedChoices.add("stereoBlend");
   }
-  // Active History dial: seconds when free-run, cycles when Sync on (Instant Waterfall).
+  // Instant Waterfall: History (seconds) only. Other faces may still swap to Cycles.
   if (orderedPrimary.includes("historySeconds") || orderedPrimary.includes("historyCycles")
     || orderedPrimary.includes("historyHz")) {
     const freeRunKey = orderedPrimary.includes("historySeconds") || !orderedPrimary.includes("historyHz")
       ? "historySeconds"
       : "historyHz";
     rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(
-      syncOnForStack ? "historyCycles" : freeRunKey,
+      (!isInstantWaterfall && syncOnForStack) ? "historyCycles" : freeRunKey,
       type,
-      { syncOn: syncOnForStack },
+      { syncOn: !isInstantWaterfall && syncOnForStack },
     ));
   } else {
     pushStackField("historySeconds");
@@ -1437,6 +1430,10 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   }
   pushStackField("detail");
   pushStackField("barThickness");
+  if (isInstantWaterfall && toggleKeys.includes("pauseOnSilence")) {
+    rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("pauseOnSilence"));
+    usedToggles.add("pauseOnSilence");
+  }
   pushStackField("backgroundBrightness");
   pushStackField("backgroundHue");
   const inkPrimary = orderedPrimary.filter((key) => !stackHead.has(key));
@@ -1781,6 +1778,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   const allowKey = (kind, key) => {
     if (type !== "waterfall") {
       return true;
+    }
+    if (key === "sourceSync" || key === "syncChannel") {
+      return false;
     }
     if (isXyzWaterfallNode) {
       if (

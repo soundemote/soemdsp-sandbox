@@ -78,6 +78,7 @@ const nodeGraphNodeLabels = Object.freeze({
   "9t": "9t",
   "10t": "10t",
   "11t": "11t",
+  acidSequencer: "Acid Sequencer",
   sequencer: "Sequencer",
   spiral: "Spiral",
   fractalSpiral: "Fractal Spiral",
@@ -6310,6 +6311,30 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.01", key: "pulseTime", kind: "time", label: "Pulse", max: "1", maxDigits: 5, mid: "0.01", min: "0", step: "any", unit: "s" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
     ]
+  },
+  acidSequencer: {
+    planRole: "source",
+    planFreeRun: true,
+    customDisplayArea: true,
+    layout: "acidSequencer",
+    defaultWidthGu: 24,
+    displayHeightGu: 14,
+    digitalOutputs: ["Gate", "Trigger", "pitch", "f", "inc"],
+    inputs: [],
+    outputs: ["Gate", "Trigger", "pitch", "f", "inc"],
+    outputLabels: {
+      pitch: "\u266f/\u266d",
+      f: "\u0192",
+      inc: "inc",
+    },
+    parameters: [
+      { defaultValue: "120", key: "bpm", label: "BPM", max: "320", maxDigits: 3, mid: "120", min: "1", nonlinearSlider: false, step: "1", tooltip: "Local tempo. Each step is a 16th note. Clocked to transport start/stop." },
+      { defaultValue: "16", key: "stepLength", label: "Steps", linearSmoothing: false, max: "32", mid: "16", min: "1", nonlinearSlider: false, step: "1", tooltip: "Active step count (1-32). Stored steps outside this length are kept." },
+      { defaultValue: "1", key: "gateHeight", label: "Gate Height", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any", tooltip: "Gate level while a step is on or tied." },
+      { defaultValue: "1", key: "accentHeight", label: "Accent Height", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any", tooltip: "Trigger level for a 1 ms accent pulse." },
+      { defaultValue: "0.06", key: "slideTime", kind: "time", label: "Slide Time", max: "2", maxDigits: 4, mid: "0.06", min: "0", step: "any", unit: "s", tooltip: "Linear glide toward the next step pitch when that step's Slide is on. 0 = instant." },
+      { defaultValue: "0", key: "semitoneOffset", label: "Semitone Offset", linearSmoothing: false, max: "48", mid: "0", min: "-48", nonlinearSlider: false, showSign: true, step: "1", unit: "st", tooltip: "Integer semitone shift of every pitch out. Use this to pick another root or jump octaves." },
+    ],
   },
   sequencer: {
     planRole: "source",

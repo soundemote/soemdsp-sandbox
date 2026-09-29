@@ -1865,6 +1865,7 @@ static const int kTypePluckEnvelope3 = 165;
 static const int kTypeCurveAttackRelease = 166;
 static const int kTypeThumpEnvelope = 167;
 static const int kTypeAcousticPluck = 198;
+static const int kTypeAcidSequencer = 199; // TB-303-style step sequencer
 static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smoothstep)
 static const int kTypeFm = 169; // Freq Manager: ƒ(+inc) mix × pitch scale + Add; outs ƒ + inc
 static const int kTypePitchHz = 170; // Pitch â†” Hz (MIDI-ish pitch law, A4 = tuning)
@@ -1969,6 +1970,7 @@ static const int kParamTapOffsetMs = 62;       // unused (was Send; kept for Con
 static const int kParamAttAmplitude = 70;      // attenuverter
 static const int kParamAttOffset = 71;         // attenuverter
 static const int kParamNamedPortalBus = 201;   // uint32 bus key as double
+static const int kParamAcidStep0 = 420;  // acidSequencer packed steps 420..451
 static const int kParamInLow = 80;             // range
 static const int kParamInHigh = 81;            // range
 static const int kParamOutLow = 82;            // range
@@ -2142,6 +2144,16 @@ struct Node {
   unsigned char processedThisSample;
   // Compile-time SCC id for multi-node feedback (-1 = not in a group).
   int fbGroupId;
+  // Acid Sequencer pattern + transport latch (not a native pool).
+  unsigned int acidPack[32];
+  int acidLastStep;
+  int acidTrigLeft;
+  int acidSlideLeft;
+  int acidSlideTotal;
+  double acidPitch;
+  double acidSlideFrom;
+  double acidSlideTo;
+  unsigned char acidHasPitch;
 };
 
 enum SinkKind : unsigned char { kSinkPort = 0, kSinkControl = 1 };
@@ -2825,6 +2837,15 @@ static void init_node_defaults(Node& n, int typeId) {
   n.nativeHandleL = 0;
   n.nativeHandleR = 0;
   n.nativeKind = 0;
+  n.acidLastStep = -1;
+  n.acidTrigLeft = 0;
+  n.acidSlideLeft = 0;
+  n.acidSlideTotal = 0;
+  n.acidPitch = 36.0;
+  n.acidSlideFrom = 36.0;
+  n.acidSlideTo = 36.0;
+  n.acidHasPitch = 0;
+  for (int acidI = 0; acidI < 32; acidI++) n.acidPack[acidI] = 0u;
   init_control(n.volumeDb, (typeId == kTypeMixStereo) ? 0.0 : -3.0, false);
   init_control(
     n.pan,
@@ -3140,6 +3161,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePll) ? 1.0 // PC type RS Flip
       : (typeId == kTypeAdditiveDiffusor) ? 0.0 // quantize off
       : (typeId == kTypeFm) ? 0.0 // semitones
+      : (typeId == kTypeAcidSequencer) ? 16.0 // step length
       : 4.0,
     // Generator Harmonics + Hypersaw2/RobinSupersaw voices stay continuous for Decimal trailing amp.
     (typeId != kTypeAdditiveGenerator && typeId != kTypeHypersaw2
@@ -3182,6 +3204,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : 0.0,
     // Robin detuneAlgorithm is discrete 0…5; RoundShape / Ellipsoid AA is discrete Off/Limit
     typeId == kTypeRobinSupersaw || typeId == kTypeEllipsoid || typeId == kTypeEllipsoidOsc
+    || typeId == kTypeAcidSequencer // semitone offset
   );
   // Soft-clipper knee default 0.5; noise = deviation; supersaw = detune;
   // triggerCounter = increment; archimedes = dither bits;
@@ -3410,6 +3433,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAudioPlayer || typeId == kTypeSamplePlayer || typeId == kTypeWavetable2d) ? 0.0 // start phase
       : (typeId == kTypeSpeakerProtector2) ? 0.008 // dropSeconds
       : (typeId == kTypeRobinSupersaw) ? 0.0 // portaTimeMin s
+      : (typeId == kTypeAcidSequencer) ? 0.06 // slide time s
       : 1.0,
     false
   );
@@ -12080,10 +12104,157 @@ extern "C" void soemdsp_graph_set_speed_limit(int handle, double hz) {
   g->speedLimitHz = hz;
 }
 
+// Acid Sequencer: transport-locked 16ths at local BPM. Pattern packs are
+static const int kAcidSteps = 32;
+static const double kAcidBaseMidi = 36.0; // C2
+static const double kAcidAccentSeconds = 0.001;
+
+static int acid_clamp_int(int v, int lo, int hi) {
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
+}
+
+static double acid_clamp_double(double v, double lo, double hi) {
+  if (!(v == v)) return lo;
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
+}
+
+static void acid_reset_transport_latch(Node& n) {
+  n.acidLastStep = -1;
+  n.acidTrigLeft = 0;
+  n.acidSlideLeft = 0;
+}
+
+static int acid_octave_from_pack(unsigned int pack) {
+  const unsigned int code = (pack >> 8) & 3u;
+  if (code == 1u) return 1;
+  if (code == 2u) return -1;
+  return 0;
+}
+
+// Grid + per-step octave only. Global semitone offset is added at the output.
+static double acid_step_midi(const Node& n, int index) {
+  const unsigned int pack = n.acidPack[index];
+  const int pitch = acid_clamp_int((int)(pack & 15u), 0, 12);
+  const int oct = acid_octave_from_pack(pack);
+  return kAcidBaseMidi + (double)pitch + 12.0 * (double)oct;
+}
+
+static void process_acid_sequencer(Circuit& g, Node& node, int frames) {
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  int prev = node.acidLastStep;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    double bpm = control_audio(g, node.tempoBpm, f);
+    bpm = acid_clamp_double(bpm, 1.0, 320.0);
+    int len = (int)(control_audio(g, node.stages, f) + 0.5);
+    len = acid_clamp_int(len, 1, kAcidSteps);
+    double gateH = acid_clamp_double(control_audio(g, node.amplitude, f), 0.0, 1.0);
+    double accentH = acid_clamp_double(control_audio(g, node.level, f), 0.0, 1.0);
+    double slideSec = control_audio(g, node.timeNumerator, f);
+    if (!(slideSec == slideSec) || slideSec < 0.0) slideSec = 0.0;
+    const double semiRaw = control_audio(g, node.center, f);
+    int semi = (int)(semiRaw + (semiRaw >= 0.0 ? 0.5 : -0.5));
+    semi = acid_clamp_int(semi, -48, 48);
+
+    double stepSamples = sr * 15.0 / bpm;
+    if (!(stepSamples > 1.0)) stepSamples = 1.0;
+    double pos = g.masterSamples + (double)f;
+    if (!(pos >= 0.0)) pos = 0.0;
+    int stepAbs = (int)dsp_floor(pos / stepSamples);
+    if (stepAbs < 0) stepAbs = 0;
+    const int idx = stepAbs % len;
+
+    if (idx != prev) {
+      const unsigned int pack = node.acidPack[idx];
+      const int gateMode = acid_clamp_int((int)((pack >> 4) & 3u), 0, 2);
+      const bool sounding = gateMode == 1 || gateMode == 2;
+      const bool accent = ((pack >> 6) & 1u) != 0;
+      const bool slide = ((pack >> 7) & 1u) != 0;
+      if (!sounding) {
+        node.acidTrigLeft = 0;
+        node.acidSlideLeft = 0;
+      } else {
+        const int next = (idx + 1) % len;
+        const double selfMidi = acid_step_midi(node, idx);
+        const double nextMidi = acid_step_midi(node, next);
+        if (slide) {
+          node.acidSlideFrom = node.acidHasPitch ? node.acidPitch : selfMidi;
+          node.acidSlideTo = nextMidi;
+          if (!(slideSec > 0.0)) {
+            node.acidPitch = nextMidi;
+            node.acidSlideLeft = 0;
+            node.acidSlideTotal = 0;
+          } else {
+            int total = (int)(slideSec * sr + 0.5);
+            if (total < 1) total = 1;
+            node.acidSlideTotal = total;
+            node.acidSlideLeft = total;
+            node.acidPitch = node.acidSlideFrom;
+          }
+        } else {
+          node.acidPitch = selfMidi;
+          node.acidSlideLeft = 0;
+          node.acidSlideTotal = 0;
+        }
+        node.acidHasPitch = 1;
+        if (accent) {
+          int pulse = (int)(kAcidAccentSeconds * sr + 0.5);
+          if (pulse < 1) pulse = 1;
+          node.acidTrigLeft = pulse;
+        } else {
+          node.acidTrigLeft = 0;
+        }
+      }
+      prev = idx;
+    }
+
+    if (node.acidSlideLeft > 0 && node.acidSlideTotal > 0) {
+      const int done = node.acidSlideTotal - node.acidSlideLeft;
+      double u = (double)done / (double)node.acidSlideTotal;
+      if (u < 0.0) u = 0.0;
+      if (u > 1.0) u = 1.0;
+      node.acidPitch = node.acidSlideFrom + (node.acidSlideTo - node.acidSlideFrom) * u;
+      node.acidSlideLeft -= 1;
+      if (node.acidSlideLeft <= 0) node.acidPitch = node.acidSlideTo;
+    }
+
+    const unsigned int nowPack = node.acidPack[idx];
+    const int nowGate = acid_clamp_int((int)((nowPack >> 4) & 3u), 0, 2);
+    const bool nowSounding = nowGate == 1 || nowGate == 2;
+    const double gate = nowSounding ? gateH : 0.0;
+    double trig = 0.0;
+    if (node.acidTrigLeft > 0 && nowSounding) {
+      trig = accentH;
+      node.acidTrigLeft -= 1;
+    } else if (!nowSounding) {
+      node.acidTrigLeft = 0;
+    }
+    const double midi = node.acidPitch + (double)semi;
+    const double hz = soemdsp::math::midi_to_hz(midi);
+    const double inc = (sr > 0.0) ? (hz / sr) : 0.0;
+    node.buf[kPortMono][f] = gate;
+    node.buf[kPortLeft][f] = trig;
+    node.buf[kPortRight][f] = midi;
+    node.buf[kPortSaw][f] = hz;
+    node.buf[kPortRamp][f] = inc;
+    node.buf[kPortPhase01][f] = (double)idx;
+  }
+  node.acidLastStep = prev;
+}
+
 extern "C" int soemdsp_graph_rewind_master(int handle) {
   Circuit* g = get(handle);
   if (!g) return -1;
   g->masterSamples = 0.0;
+  for (int i = 0; i < g->nodeCount; i++) {
+    if (g->nodes[i].used && g->nodes[i].typeId == kTypeAcidSequencer) {
+      acid_reset_transport_latch(g->nodes[i]);
+    }
+  }
   return 0;
 }
 
@@ -12479,6 +12650,16 @@ extern "C" int soemdsp_graph_set_param(int handle, unsigned int nodeHash, int pa
     const double k = value < 0.0 ? 0.0 : value;
     n.namedPortalBus = (unsigned int)k;
     n.namedPortalKind = (n.typeId == kTypeNamedPortalIn) ? 1 : 2;
+    return 0;
+  }
+  if (n.typeId == kTypeAcidSequencer
+      && paramId >= kParamAcidStep0
+      && paramId < kParamAcidStep0 + 32) {
+    const int step = paramId - kParamAcidStep0;
+    double packed = value;
+    if (packed < 0.0) packed = 0.0;
+    if (packed > 65535.0) packed = 65535.0;
+    n.acidPack[step] = (unsigned int)(packed + 0.5);
     return 0;
   }
   if (n.typeId == kTypeGraphicEq
@@ -13089,6 +13270,10 @@ extern "C" int soemdsp_graph_compile(int handle) {
 }
 
 static void dispatch_process_node(Circuit& g, Node& node, int frames) {
+    if (node.typeId == kTypeAcidSequencer) {
+      process_acid_sequencer(g, node, frames);
+      return;
+    }
     // Yellow Graph: handle before generic bypass so Graph copy-thru / clear works.
     if (node.typeId == kTypeAdditiveGenerator) {
       process_additive_generator(g, node, frames);

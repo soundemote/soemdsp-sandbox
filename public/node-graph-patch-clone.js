@@ -702,6 +702,15 @@ function cloneNodeGraphPatch(patch) {
               : (node.sequencer && typeof node.sequencer === "object" ? { ...node.sequencer } : undefined),
           }
           : {}),
+        ...(node.type === "acidSequencer"
+          ? {
+            acidSequencer: {
+              steps: Array.isArray(node.acidSequencer && node.acidSequencer.steps)
+                ? node.acidSequencer.steps.map((step) => (step && typeof step === "object" ? { ...step } : step))
+                : [],
+            },
+          }
+          : {}),
         ...(node.type === "matrixWaterfall" && typeof normalizeNodeGraphMatrixWaterfall === "function"
           ? {
             matrixWaterfall: normalizeNodeGraphMatrixWaterfall(

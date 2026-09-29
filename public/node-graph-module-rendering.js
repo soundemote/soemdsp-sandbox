@@ -447,6 +447,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     gridKeyboard: "grid-keyboard-layout",
     pitchQuantizer: "pitch-quantizer-layout",
     chordPad: "chord-pad-layout",
+    acidSequencer: "acid-sequencer-layout",
     asciiscope: "asciiscope-layout",
     matrixDisplay: "matrix-display-layout",
     matrixWaterfall: "matrix-waterfall-layout",
@@ -1289,6 +1290,20 @@ function createNodeGraphModuleElement(type, node) {
       : !patchNodeUi.oscilloscopeHidden)
       && typeof createNodeGraphPitchQuantizerFace === "function") {
       article.append(createNodeGraphPitchQuantizerFace(node));
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
+  } else if (definition.layout === "acidSequencer") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphAcidSequencerFace === "function") {
+      article.append(createNodeGraphAcidSequencerFace(node));
     }
     appendNodeGraphModuleIoSection(
       article,

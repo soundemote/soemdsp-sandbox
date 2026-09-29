@@ -621,10 +621,10 @@ function nodeGraphTraceDisplayClampHistoryCycles(value, fallback = 4) {
 
 /** Instant Waterfall only: History (seconds). 0 / below eps = pause. */
 const NODE_GRAPH_WATERFALL_HISTORY_SEC_EPS = 1e-12;
-// Detail multiplies layout-pixel columns. 1 = current one-bar-per-layout-pixel.
-// 0 collapses to a single column. 4 = four bars per layout pixel.
+// Detail multiplies layout-pixel columns. 1 = one bar per layout pixel (cap).
+// 0 collapses to a single column. Above 1 is not a waterfall mode.
 const NODE_GRAPH_WATERFALL_DETAIL_MIN = 0;
-const NODE_GRAPH_WATERFALL_DETAIL_MAX = 4;
+const NODE_GRAPH_WATERFALL_DETAIL_MAX = 1;
 function nodeGraphWaterfallClampHistorySeconds(value, fallback = 0.25) {
   const n = Number(value);
   const maxSec = typeof nodeGraphTraceDisplayMaxZoomSeconds === "number"
@@ -862,24 +862,9 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
       }
       return false;
     })(),
-    // Default OFF (matches defaults.sourceSync). Never use `!== false` here —
-    // that treated missing settings as Sync-on and let multi-scope locks thrash.
-    sourceSync: (function normalizeSourceSync() {
-      if (source.sourceSync === false || source.sourceSync === 0 || source.sourceSync === "false") {
-        return false;
-      }
-      if (source.sourceSync === true || source.sourceSync === 1 || source.sourceSync === "true") {
-        return true;
-      }
-      const ch = String(source.syncChannel || "").toLowerCase().trim();
-      if (ch === "left" || ch === "right" || ch === "mono") {
-        return true;
-      }
-      if (ch === "off") {
-        return false;
-      }
-      return defaults.sourceSync === true;
-    })(),
+    // Instant Waterfall has no sync. A rising-edge lock is incompatible with
+    // the History (seconds) scroll+stamp strip. Ignore saved sourceSync.
+    sourceSync: false,
     stereoBlend: (function () {
       const raw = String(source.stereoBlend || defaults.stereoBlend || "combine").toLowerCase().trim();
       const ok = typeof TraceStroke !== "undefined" && Array.isArray(TraceStroke.STEREO_BLEND_MODES)
@@ -889,20 +874,9 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
     })(),
     // Always auto — derived from Left/Right via meetColorFromPair (no manual meet).
     meetColor: "auto",
-    syncChannel: (function normalizeSyncChannel() {
-      const raw = String(source.syncChannel || "").toLowerCase().trim();
-      if (raw === "left" || raw === "right" || raw === "mono" || raw === "off") {
-        return raw;
-      }
-      // Legacy boolean: true → mono (single-channel trigger), false → off.
-      if (source.sourceSync === false || source.sourceSync === 0 || source.sourceSync === "false") {
-        return "off";
-      }
-      if (source.sourceSync === true || source.sourceSync === 1 || source.sourceSync === "true") {
-        return "mono";
-      }
-      return defaults.syncChannel || "off";
-    })(),
+    // Waterfall-only channel select. Forced off with sourceSync (see above).
+    // 1D Trace still stores its own syncChannel via its normalize path.
+    syncChannel: "off",
     ...normalizeNodeGraphWaterfallHistory(source, defaults),
     detail: normalizeNodeGraphTraceDisplayNumber(
       source.detail,
@@ -916,6 +890,12 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
       0,
       1,
     ),
+    pauseOnSilence: (() => {
+      const raw = source.pauseOnSilence;
+      if (raw === true || raw === 1 || raw === "1" || raw === "true") return true;
+      if (raw === false || raw === 0 || raw === "0" || raw === "false") return false;
+      return defaults.pauseOnSilence === true;
+    })(),
     // Mirror Bright for form field key (Display Settings edits dot1Brightness).
     dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.dot1Brightness ?? source.brightness,

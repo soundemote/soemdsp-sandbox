@@ -250,6 +250,12 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
           ? sequencerCloneClip(node.sequencer)
           : (node.sequencer || null);
       }
+      if (node.type === "acidSequencer") {
+        const steps = Array.isArray(node.acidSequencer && node.acidSequencer.steps)
+          ? node.acidSequencer.steps.map((step) => (step && typeof step === "object" ? { ...step } : step))
+          : [];
+        runtimeNode.acidSequencer = { steps };
+      }
       if ((node.type === "keyboard" || node.type === "gridKeyboard") && node.chordMemory) {
         runtimeNode.chordMemory = typeof nodeGraphChordMemoryNormalizeSlots === "function"
           ? { slots: nodeGraphChordMemoryNormalizeSlots(node.chordMemory) }
@@ -357,6 +363,12 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
         runtimeNode.sequencer = typeof sequencerCloneClip === "function"
           ? sequencerCloneClip(node.sequencer)
           : (node.sequencer || null);
+      }
+      if (node.type === "acidSequencer") {
+        const steps = Array.isArray(node.acidSequencer && node.acidSequencer.steps)
+          ? node.acidSequencer.steps.map((step) => (step && typeof step === "object" ? { ...step } : step))
+          : [];
+        runtimeNode.acidSequencer = { steps };
       }
       if ((node.type === "keyboard" || node.type === "gridKeyboard") && node.chordMemory) {
         runtimeNode.chordMemory = typeof nodeGraphChordMemoryNormalizeSlots === "function"

@@ -134,6 +134,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-082 | hear | fixed | Unit-band param MOD must clamp to paramMeta [min,max] (Gate+Toggle > Amp max) |
 | B-083 | see | fixed | Tube Sat TraceWoscope face blank (demo Bright=0) |
 | B-084 | see | fixed | scope1dTrace Display Settings gradient not feeding TraceWoscope LUT |
+| B-085 | see | open | Multi-select Display Settings copies unedited settings |
 
 ---
 
@@ -161,6 +162,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - 2026-09-28: User - Choices range clamp (PolyBLEP Waveform 4–5) does not remap choice set. Promoted → **B-079** (`docs/B-079_CHOICES_RANGE_CLAMP_SUBSET.md`).
 - 2026-09-28: User - Choices parameter (Tube Saturation context): choice divide/segment text ellipsizes too early / does not use full slider width. Promoted → **B-080** (`docs/B-080_CHOICE_SEGMENT_TEXT_FULLWIDTH.md`).
 - 2026-09-28: User - Parameter modulation must clamp to param max/min (Keyboard Gate + Toggle into PolyBLEP Amplitude). Promoted -> **B-082** (`docs/B-082_PARAM_MOD_CLAMP_MIN_MAX.md`).
+- 2026-09-29: User - selecting multiple displays and changing one setting (example: Show in canvas) also copies the edited module's other, unchanged settings onto the rest of the selection. Promoted -> **B-085** (`docs/B-085_MULTISELECT_DISPLAY_SETTINGS_COPY.md`).
 
 ---
 
@@ -967,6 +969,19 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Repro: Amp MOD from Gate + Toggle; hold key + Toggle ON -> level past full-scale.
 - Root cause: Host packed `modClamp:false` as unbounded; native `control_effective` skipped [min,max] clamp for unit-band.
 - Fix: Unit-band SSOT always clamps in `control_effective`; host always sets bit1 for unit-band; helpers ignore legacy `modClamp:false`. Domain-valued MOD unchanged. Smoke `scripts/smoke_b082_amp_mod_clamp.mjs`. No JS DSP. Local, no push.
+
+
+### B-085 — Multi-select Display Settings copies unedited settings
+- Status: open
+- Severity: see
+- Source: user 2026-09-29
+- Related: B-066 (multi-select Portal Title/Display hidden or locked; different symptom)
+- Doc: `docs/B-085_MULTISELECT_DISPLAY_SETTINGS_COPY.md`
+- Files: `public/node-graph-module-scope-settings-apply.js` (`nodeGraphTraceDisplaySettingsDirtyKeysFromEvent`, `nodeGraphMergeDisplaySettingsDirty`, `applyNodeGraphTraceDisplaySettingsForm`); `public/node-graph-module-scope-settings-window.js` (Show in canvas, `#nodeLayoutCanvasShowInCanvas`)
+- What: Selecting multiple displays and changing one setting (example: Show in canvas) also writes the edited module's other display settings onto every selected module. Modules that were not edited pick up unchanged settings from the edited module, so multi-select loses per-module settings.
+- Repro: Select two or more display modules whose display settings differ. Open Display Settings for the selection and change only Show in canvas (or one other control). The other selected modules take on settings from the edited module that were not touched.
+- Expected: Only the setting the user edited is applied to all selected modules. Every other setting stays as it was on each module.
+- Fix shape: The code that decides which settings to apply to all selected modules is wrong. `nodeGraphTraceDisplaySettingsDirtyKeysFromEvent` returns `["*"]` for controls that are not tagged `data-trace-display-*` — Show in canvas is one of those — and `applyNodeGraphTraceDisplaySettingsForm` then skips `nodeGraphMergeDisplaySettingsDirty` and writes the whole primary form. Record and apply only the edited setting. Docs only; no code fix in this report.
 
 ## Fixed
 
