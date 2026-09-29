@@ -943,33 +943,18 @@ function normalizeNodeGraphPatchViewZoom(value) {
 /** Layout canvas pins: Show in canvas (root + per-metamodule buckets). */
 function normalizeNodeGraphPatchViewCanvases(canvases) {
   const src = canvases && typeof canvases === "object" ? canvases : {};
-  const clamp01 = (n, fallback = 0) => {
-    const v = Number(n);
-    if (!Number.isFinite(v)) return fallback;
-    return Math.max(0, Math.min(1, v));
-  };
   const normalizeElement = (raw, index = 0) => {
     if (!raw || typeof raw !== "object") return null;
     const nodeId = String(raw.nodeId || "").trim();
     if (!nodeId) return null;
-    const i = Math.max(0, Math.round(Number(index) || 0));
-    let w = Math.max(0.08, clamp01(raw.w, 0.36));
-    let h = Math.max(0.08, clamp01(raw.h, 0.32));
-    let x = clamp01(raw.x, 0.08 + (i % 5) * 0.02);
-    let y = clamp01(raw.y, 0.08 + (i % 5) * 0.02);
-    if (x + w > 1) x = Math.max(0, 1 - w);
-    if (y + h > 1) y = Math.max(0, 1 - h);
-    const z = Number.isFinite(Number(raw.z)) ? Math.round(Number(raw.z)) : i;
+    const rect = SoemMath.normalizeCanvasTileRect(raw, index);
     return {
       nodeId,
       enabled: raw.enabled !== false,
-      x,
-      y,
-      w,
-      h,
-      z,
+      ...rect,
     };
   };
+
   const normalizeBucket = (bucket) => {
     const els = Array.isArray(bucket?.elements) ? bucket.elements : [];
     const seen = new Set();

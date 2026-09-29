@@ -41,22 +41,7 @@ static SoftwaveState gPool[kMaxInstances];
 static double soft_tanh(double v) {
   if (v > 5.0) return 1.0;
   if (v < -5.0) return -1.0;
-  // tanh(x) = (e^{2x}-1)/(e^{2x}+1)
-  const double e2 = dsp_exp(2.0 * v);
-  return (e2 - 1.0) / (e2 + 1.0);
-}
-
-// Rough acos for softwave shapes (arg clamped to [-1,1]).
-static double soft_acos(double x) {
-  double a = clamp11(x);
-  // acos(x) ≈ π/2 - asin(x); asin series for |x|<=1
-  // asin(x) = x + (1/2)(x^3)/3 + (1*3)/(2*4)(x^5)/5 + ...
-  double x2 = a * a;
-  double series = a * (1.0 + x2 * (0.16666666666666666
-    + x2 * (0.075
-    + x2 * (0.044642857142857144
-    + x2 * 0.030381944444444444))));
-  return kHalfPi - series;
+  return tanh_exact(v);
 }
 
 static double soft_log10(double x) {

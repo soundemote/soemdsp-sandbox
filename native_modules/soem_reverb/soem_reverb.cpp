@@ -216,37 +216,6 @@ static float gDelayPool[kMaxInstances][kLinesPerInstance][kMaxDelaySamples];
 // were commented alternatives). 0=Parabol, 1=Random Walk, 2=FBM.
 enum LfoStyle { LfoParabol = 0, LfoRandomWalk = 1, LfoFbm = 2 };
 
-// 1D value-noise FBM (same idea as sandbox fractal_brownian_noise / original
-// FractalBrownianMotion with stb_perlin — freestanding hash instead of stb).
-static double smoothNoise1d(double x, unsigned int seed) {
-  int left = (int)x;
-  if (x < 0.0 && x != (double)left) left -= 1;
-  const double frac = x - (double)left;
-  const double smooth = frac * frac * (3.0 - 2.0 * frac);
-  const double a = hash_bipolar((unsigned int)left, seed);
-  const double b = hash_bipolar((unsigned int)(left + 1), seed);
-  return a + (b - a) * smooth;
-}
-
-static double fbmUnipolar(double time, int octaves, double persistence, double scale, unsigned int seed) {
-  double total = 0.0;
-  double amplitude = 1.0;
-  double freq = 1.0;
-  double maxValue = 0.0;
-  int n = octaves < 1 ? 1 : (octaves > 8 ? 8 : octaves);
-  double pers = clamp(persistence, 0.0, 0.999);
-  double sc = maxd(0.01, scale);
-  for (int i = 0; i < n; i++) {
-    total += smoothNoise1d(time * sc * freq, seed + (unsigned int)(i * 1013)) * amplitude;
-    maxValue += amplitude;
-    amplitude *= pers;
-    freq *= 2.0;
-  }
-  if (maxValue <= 0.0) return 0.5;
-  // bipolar total/max → unipolar
-  return (total / maxValue) * 0.5 + 0.5;
-}
-
 // --- ModulatedDelay (formulas from ModulatedDelay.cpp + LFO style switch) ---
 struct ModulatedDelay {
   float* buffer{nullptr};
@@ -330,7 +299,7 @@ struct ModulatedDelay {
     if (lfoStyle == LfoFbm) {
       // Free-running time (original: lfoPhase_ += lfoInc_ then FBM(time,...))
       lfoPhase += lfoInc;
-      double uni = fbmUnipolar(lfoPhase, 4, fbmPersistence, 1.0, fbmSeed);
+      double uni = fbm1d(lfoPhase, 4, fbmPersistence, 1.0, fbmSeed);
       return ampMap * uni;
     }
     // Parabol::sample then to_unipolar, * lfoAmp

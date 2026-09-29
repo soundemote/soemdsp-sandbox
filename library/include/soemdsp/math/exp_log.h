@@ -82,10 +82,21 @@ static inline double expo_skew01(double t01, double skew) {
   return denom == 0.0 ? t : (1.0 - soemdsp_maths::dsp_exp(t * a)) / denom;
 }
 
+
+// Positive-base power: exp(exponent * ln(base)). base must be > 0.
+// Non-finite base or exponent, or base <= 0, returns 0. exponent == 1 returns base.
+static inline double pow_pos(double base, double exponent) {
+  if (!(base * 0.0 == 0.0) || base <= 0.0) return 0.0;
+  if (!(exponent * 0.0 == 0.0)) return 0.0;
+  if (exponent == 1.0) return base;
+  return soemdsp_maths::dsp_exp(exponent * soemdsp_maths::dsp_ln(base));
+}
+
 }  // namespace soemdsp::math
 
 namespace soemdsp_maths {
 using soemdsp::math::db_to_amp;
 using soemdsp::math::amp_to_db;
 using soemdsp::math::expo_skew01;
+using soemdsp::math::pow_pos;
 }  // namespace soemdsp_maths

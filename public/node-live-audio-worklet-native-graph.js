@@ -2561,6 +2561,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   vibratoDistanceTiltSource: true,
   jitterSteps: true,
   phaseCollapse: true,
+  delayMode: true,
   stepLength: true,
   semitoneOffset: true,
 });
@@ -4239,8 +4240,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("randomFreq", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomFreq", 0));
       push("randomAmp", P.NATIVE_GRAPH_PARAM_CENTER, cont("randomAmp", 0));
       push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
-      // mode: 0 Delay Start (default), 1 Delay All.
-      push("delayTrigger", P.NATIVE_GRAPH_PARAM_MODE, disc("delayTrigger", 0));
+      // mode stable ids: 0 start (default), 1 startEnd, 2 gate.
+      push("delayMode", P.NATIVE_GRAPH_PARAM_MODE, disc("delayMode", 0));
       push("delay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delay", 0));
       push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.01));
       push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.1));
@@ -4350,7 +4351,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       // drop/hold/rise seconds on reused time Control slots.
       push("dropSeconds", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("dropSeconds", 0.008));
       push("holdSeconds", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("holdSeconds", 0.333));
-      push("riseSeconds", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("riseSeconds", 0.75));
+      push("riseSeconds", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("riseSeconds", 0.375));
       continue;
     }
     if (type === "attackDecay") {

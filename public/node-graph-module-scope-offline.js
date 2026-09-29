@@ -559,17 +559,16 @@ function nodeGraphModuleDisplaySourceForSlot(slot) {
   if (!node) {
     return modeSource;
   }
-  // Vibrato face is Wave Raw (y * depthEnv). Do not follow the Wave jack
-  // (that outlet is post-amp and goes blank at Amplitude 0).
-  if (node.type === "vibratoGenerator") {
-    return modeSource;
-  }
   const outputs = typeof nodeGraphPatchNodeOutputPorts === "function"
     ? nodeGraphPatchNodeOutputPorts(node)
     : [];
-  // PolyBLEP / BLIT / Surge: face follows the live outlet (Wave preferred).
+  // Copy the declared display source. Wave-jack follow only refines a
+  // declaration that is itself Wave / Wave Out (PolyBLEP / BLIT / Surge).
+  const declared = String(modeSource?.value || "").trim();
+  const followWaveJack = !declared || declared === "Wave" || declared === "Wave Out";
   if (
-    typeof nodeGraphOscillatorSelectedOutputPort === "function"
+    followWaveJack
+    && typeof nodeGraphOscillatorSelectedOutputPort === "function"
     && (outputs.includes("Wave") || outputs.includes("Wave Out"))
   ) {
     const port = nodeGraphOscillatorSelectedOutputPort(node);

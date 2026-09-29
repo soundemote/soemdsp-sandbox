@@ -84,32 +84,6 @@ static double runRandomWalk(Voice& v, double freqHz, double jitterHz, double sr)
   return v.walkLpf;
 }
 
-static double smoothNoise1d(double x, unsigned int seed) {
-  int left = (int)x;
-  if (x < 0.0 && x != (double)left) left -= 1;
-  const double frac = x - (double)left;
-  const double smooth = frac * frac * (3.0 - 2.0 * frac);
-  const double a = hash_bipolar((unsigned int)left, seed);
-  const double b = hash_bipolar((unsigned int)(left + 1), seed);
-  return a + (b - a) * smooth;
-}
-
-static double fbmBipolar(double time, unsigned int seed) {
-  double total = 0.0;
-  double amplitude = 1.0;
-  double freq = 1.0;
-  double maxValue = 0.0;
-  const double pers = 0.5;
-  for (int i = 0; i < 4; i += 1) {
-    total += smoothNoise1d(time * freq, seed + (unsigned int)(i * 1013)) * amplitude;
-    maxValue += amplitude;
-    amplitude *= pers;
-    freq *= 2.0;
-  }
-  if (maxValue <= 0.0) return 0.0;
-  return total / maxValue;
-}
-
 static void seed_voice(Voice& v, unsigned int seed) {
   unsigned int sd = seed ? seed : 1u;
   v.walkRng = sd;
@@ -248,7 +222,7 @@ extern "C" void soemdsp_ensemble_sample(
     if (style == ModFbm) {
       voice.fbmTime += spd / sr;
       // Full +/-1 pre-depth (same as tooltip: Walk/FBM is +/-1 x Depth).
-      y = fbmBipolar(voice.fbmTime + voiceOff * 8.0, voice.fbmSeed);
+      y = fbm1d(voice.fbmTime + voiceOff * 8.0, 4, 0.5, 1.0, voice.fbmSeed) * 2.0 - 1.0;
     } else {
       // At default Speed, walk LPF peak is ~0.3 over a few seconds while FBM
       // already reaches ~0.75. x2 aligns RW face/audio throw with FBM without

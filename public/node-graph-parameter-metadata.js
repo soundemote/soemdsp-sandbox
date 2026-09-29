@@ -91,6 +91,14 @@ function nodeGraphDefaultParamsForType(type) {
     : nodeGraphModuleDefinitions[type];
   for (const parameter of definition?.parameters || []) {
     // spawnValue = first instance only. defaultValue stays paramMeta.def (reset).
+    const choiceKeys = typeof nodeGraphParameterChoiceKeys === "function"
+      ? nodeGraphParameterChoiceKeys(type, parameter.key)
+      : null;
+    if (choiceKeys) {
+      const defKey = String(parameter.defaultValue ?? "").trim();
+      params[parameter.key] = choiceKeys.includes(defKey) ? defKey : choiceKeys[0];
+      continue;
+    }
     const value = Object.hasOwn(parameter, "spawnValue")
       ? Number(parameter.spawnValue)
       : Number(parameter.defaultValue);

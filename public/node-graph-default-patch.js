@@ -46,6 +46,13 @@ function createNodeGraphPatchNode(type, options = {}) {
       if (!Object.hasOwn(paramsOverride, key)) {
         continue;
       }
+      const choiceKeys = typeof nodeGraphParameterChoiceKeys === "function"
+        ? nodeGraphParameterChoiceKeys(resolvedType, key)
+        : null;
+      if (choiceKeys && choiceKeys.includes(String(paramsOverride[key] ?? "").trim())) {
+        node.params[key] = String(paramsOverride[key]).trim();
+        continue;
+      }
       const value = Number(paramsOverride[key]);
       if (Number.isFinite(value)) {
         node.params[key] = value;

@@ -64,6 +64,16 @@ function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
   if (!parameter) {
     return null;
   }
+  // Choice keys persist by name. A numeric index is not a key and is not remapped.
+  const choiceKeys = Array.isArray(parameter.choiceKeys)
+    ? parameter.choiceKeys.map((choiceKey) => String(choiceKey).trim()).filter(Boolean)
+    : [];
+  if (choiceKeys.length) {
+    const raw = String(value ?? "").trim();
+    if (choiceKeys.includes(raw)) return raw;
+    const defKey = String(parameter.defaultValue ?? "").trim();
+    return choiceKeys.includes(defKey) ? defKey : choiceKeys[0];
+  }
   const number = Number(value);
   const fallback = Number(metadata?.def ?? parameter?.defaultValue);
   const candidate = Number.isFinite(number)
@@ -1498,6 +1508,10 @@ function syncNodeGraphModuleParamElement(element, patchNode) {
     const resolvedMeta = metaEntry || nodeGraphParameterDefinitionMetadata(parameter);
     setNodeSliderMetadata(input, resolvedMeta);
     let value = patchNode.params?.[parameter.key];
+    if (typeof nodeGraphParameterChoiceKeys === "function"
+      && nodeGraphParameterChoiceKeys(patchNode.type, parameter.key)) {
+      value = nodeGraphChoiceSliderValueForKey(patchNode.type, parameter.key, value);
+    }
     if (
       (value == null || !Number.isFinite(Number(value)))
       && typeof nodeGraphIsContainerShellType === "function"

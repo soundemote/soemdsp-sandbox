@@ -3,6 +3,7 @@
 #pragma once
 
 #include <soemdsp/math/scalar_helpers.h>
+#include <soemdsp/math/exp_log.h>
 
 namespace soemdsp::math {
 
@@ -56,10 +57,34 @@ static inline double soft_clip_apply(double x, double sx, double shx, double sy,
   return shy + sy * tanh_approx(sx * x + shx);
 }
 
+
+// exp-formula tanh: (e^{2x}-1)/(e^{2x}+1) via general dsp_exp.
+// Not tanh_approx. No input rail — softwave keeps its +/-5 guard at the call.
+// active_filter's dsp_tanh stays on dsp_exp_narrow (different exp, no rail).
+static inline double tanh_exact(double x) {
+  const double e2 = soemdsp_maths::dsp_exp(2.0 * x);
+  return (e2 - 1.0) / (e2 + 1.0);
+}
+
+// asin series through x^7, then pi/2 - asin. Argument clamped to [-1, 1].
+// Coefficients match softwave / superlove. Not std::acos.
+// The bipolar map (acos/pi*2 - 1) stays at the call site.
+static inline double soft_acos(double x) {
+  const double a = clamp11(x);
+  const double x2 = a * a;
+  const double series = a * (1.0 + x2 * (0.16666666666666666
+    + x2 * (0.075
+    + x2 * (0.044642857142857144
+    + x2 * 0.030381944444444444))));
+  return soemdsp::constant::kHalfPi - series;
+}
+
 }  // namespace soemdsp::math
 
 namespace soemdsp_maths {
 using soemdsp::math::tanh_approx;
+using soemdsp::math::tanh_exact;
+using soemdsp::math::soft_acos;
 using soemdsp::math::tanh_antideriv;
 using soemdsp::math::soft_clip_rational;
 using soemdsp::math::soft_clip_coeffs;

@@ -18,10 +18,9 @@ const NODE_GRAPH_GAIN_MONO_SUM = Object.freeze({
 
 function nodeGraphGainDbToLin(db) {
   const x = Number(db);
-  if (!Number.isFinite(x) || x <= NODE_GRAPH_GAIN_DB_FLOOR) {
-    return 0;
-  }
-  return 10 ** (x / 20);
+  // Non-finite mutes. SoemMath.dbToAmp maps non-finite to 1 (C++ safe -> exp(0)).
+  if (!Number.isFinite(x)) return 0;
+  return SoemMath.dbToAmp(x);
 }
 
 function nodeGraphOutputVolumeDbToLin(db) {

@@ -17,6 +17,7 @@
 #include <soemdsp/constant/constant.h>
 #include <soemdsp/debug/debug.h>
 #include <soemdsp/math/scalar_helpers.h>
+#include <soemdsp/math/noise.h>
 #include <soemdsp/math/poly_blep.h>
 #include <soemdsp/math/midi_hz.h>
 #include <soemdsp/math/exp_log.h>

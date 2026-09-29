@@ -93,31 +93,6 @@ static double one_pole_hp_run(
   return y;
 }
 
-static double lfo_smooth_noise1d(double x, unsigned int s) {
-  int left = (int)x;
-  if (x < 0.0 && x != (double)left) left -= 1;
-  double frac = x - (double)left;
-  double smooth = frac * frac * (3.0 - 2.0 * frac);
-  double a = hash_bipolar((unsigned int)left, s);
-  double b = hash_bipolar((unsigned int)(left + 1), s);
-  return a + (b - a) * smooth;
-}
-
-static double lfo_fbm_unipolar(double time, unsigned int s) {
-  double total = 0.0;
-  double amplitude = 1.0;
-  double freq = 1.0;
-  double maxValue = 0.0;
-  for (int i = 0; i < 4; i++) {
-    total += lfo_smooth_noise1d(time * freq, s + (unsigned int)(i * 1013)) * amplitude;
-    maxValue += amplitude;
-    amplitude *= 0.5;
-    freq *= 2.0;
-  }
-  if (maxValue <= 0.0) return 0.5;
-  return (total / maxValue) * 0.5 + 0.5;
-}
-
 static double lfo_parabol_bipolar(double phase01) {
   double fit = phase01 * 2.0;
   fit = fit - 2.0 * dsp_floor(fit * 0.5);
@@ -164,7 +139,7 @@ static double lfo_run(
   if (style == LfoFbm) {
     double t = (*fbmTime) + hz / rate;
     *fbmTime = t;
-    double uni = lfo_fbm_unipolar(t, seed);
+    double uni = fbm1d(t, 4, 0.5, 1.0, seed);
     return clamp11(uni * 2.0 - 1.0);
   }
   double p = (*phase) + hz / rate;

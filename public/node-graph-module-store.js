@@ -99,6 +99,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "metallicRatio",
   "shootingStarTail",
   "wallDelay",
+  "doppler",
   "evolveField",
   "asciiscope",
   "formantFilter",
@@ -218,6 +219,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   vocoder: "Filter-bank vocoder. Parked until the analog-filter / bandpass-bank pass.",
 
   wallDelay: "Geometric room/wall delay. Parked until ray-room DSP lands.",
+  doppler: "parked Doppler (pitch only while delay time is moving)",
   electroKick: "Electro kick voice. Parked until the drum shelf ships.",
   electroSnare: "Electro snare voice. Parked until the drum shelf ships.",
   electroHat: "Electro hat voice. Parked until the drum shelf ships.",
@@ -2049,6 +2051,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Placeholder geometric room/wall delay from superellipsoid rays.",
     label: "Wall Delay",
     notes: ["under construction", "wall geometry", "binaural", "wall verb"],
+  },
+  doppler: {
+    category: "space",
+    description: "parked Doppler (pitch only while delay time is moving)",
+    label: "Doppler",
+    notes: ["under construction", "parked", "pitch only", "moving delay time"],
   },
   reverbEffect: {
     category: "space",

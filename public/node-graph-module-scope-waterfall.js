@@ -75,24 +75,51 @@ function nodeGraphWaterfallExtentIsSilent(minV, maxV) {
   return Math.max(Math.abs(lo), Math.abs(hi)) <= nodeGraphWaterfallPlanck();
 }
 
-/** Undrawn window is silence on every enabled channel (linear amplitude). */
-function nodeGraphWaterfallIncomingIsSilent(spec, settings, window) {
-  const planck = nodeGraphWaterfallPlanck();
-  const channels = nodeGraphWaterfallChannelList(spec, settings)
-    .filter((ch) => ch.enabled !== false);
-  const count = Math.max(0, Math.floor(nodeGraphFiniteNumber(window?.count)));
-  if (!channels.length) return true;
-  for (let i = 0; i < channels.length; i += 1) {
-    const buf = nodeGraphWaterfallPrepare(channels[i].buffer, settings) || channels[i].buffer;
-    const end = buf?.length || 0;
-    const start = count > 0 ? Math.max(0, end - count) : end;
-    if (!buf || end <= start) continue;
-    for (let s = start; s < end; s += 1) {
-      const v = Number(buf[s]);
-      if (Number.isFinite(v) && Math.abs(v) > planck) return false;
-    }
+/** True when buf's newest count samples include a linear amp above Planck. */
+function nodeGraphWaterfallTailIsLoud(buffer, count, planck) {
+  const end = buffer?.length || 0;
+  const n = Math.max(0, Math.floor(count));
+  if (!end || !(n > 0)) return false;
+  const start = Math.max(0, end - n);
+  for (let s = start; s < end; s += 1) {
+    const v = Number(buffer[s]);
+    if (Number.isFinite(v) && Math.abs(v) > planck) return true;
   }
-  return true;
+  return false;
+}
+
+/**
+ * Undrawn window is silence on every enabled channel that actually has samples.
+ * Empty, missing, or disabled channels are not silence: Output's unwired side,
+ * a zero-length ring, or a channel that is not enabled must not latch the hold.
+ * The face buffer is included so a loud mono or Wave Raw tail is not ignored
+ * because another enabled channel is an empty or quiet ring.
+ * Nothing new (count 0) is not silence, so a cursor that has not moved is not eaten.
+ */
+function nodeGraphWaterfallIncomingIsSilent(spec, settings, window, liveBuffer) {
+  const planck = nodeGraphWaterfallPlanck();
+  const count = Math.max(0, Math.floor(nodeGraphFiniteNumber(window?.count)));
+  if (!(count > 0)) return false;
+  const channels = nodeGraphWaterfallChannelList(spec, settings)
+    .filter((ch) => ch.enabled !== false && ch.buffer && (ch.buffer.length || 0) > 0);
+  const buffers = [];
+  const seen = new Set();
+  const push = (buf) => {
+    if (!buf || !(buf.length > 0) || seen.has(buf)) return;
+    seen.add(buf);
+    buffers.push(buf);
+  };
+  for (let i = 0; i < channels.length; i += 1) push(channels[i].buffer);
+  push(liveBuffer);
+  push(spec?.buffer);
+  if (!buffers.length) return false;
+  let examined = false;
+  for (let i = 0; i < buffers.length; i += 1) {
+    const buf = nodeGraphWaterfallPrepare(buffers[i], settings) || buffers[i];
+    if (nodeGraphWaterfallTailIsLoud(buf, count, planck)) return false;
+    if ((buf?.length || 0) > 0) examined = true;
+  }
+  return examined;
 }
 
 /** @deprecated Use nodeGraphWaterfallHistoryIsFrozen — 0 s pauses; it does not wipe to a now-line. */
@@ -142,10 +169,6 @@ function nodeGraphWaterfallAmp(buffer, slot) {
   const def = typeof nodeGraphModuleDefinitions === "object"
     ? nodeGraphModuleDefinitions[slot?.type]
     : null;
-  // Vibrato face ring is already y * depthEnv (pre Amplitude). Gain stays 1.
-  if (slot?.type === "vibratoGenerator") {
-    return { gain: 1, offset: 0 };
-  }
   if (def?.rmsDbGuides) {
     if (typeof nodeGraphRmsFaceRangeFromSlot === "function") {
       return nodeGraphRmsFaceRangeFromSlot(slot);
@@ -181,13 +204,18 @@ function nodeGraphWaterfallUndrawn(buffer, lastAbs) {
   if (!end) return { count: 0, absEnd: Number.NaN, start: 0, end: 0 };
   const absEnd = nodeGraphWaterfallAbsEnd(buffer);
   const recent = Math.max(0, Math.floor(nodeGraphFiniteNumber(buffer.nodeGraphScopeRecentSampleCount)));
+  const recentN = recent > 0 ? Math.min(end, recent) : Math.min(end, 1);
   if (Number.isFinite(absEnd) && absEnd > 0 && Number.isFinite(lastAbs) && lastAbs > 0) {
+    // Cursor ahead of this ring (pause/stop rewind, or a new session).
+    // count 0 here left the plate looking paused after Play even though samples exist.
+    if (lastAbs > absEnd) {
+      return { count: recentN, absEnd, start: Math.max(0, end - recentN), end };
+    }
     if (lastAbs >= absEnd) return { count: 0, absEnd, start: end, end };
     const undrawn = Math.min(end, Math.max(0, Math.floor(absEnd - lastAbs)));
     return { count: undrawn, absEnd, start: Math.max(0, end - undrawn), end };
   }
-  const n = recent > 0 ? Math.min(end, recent) : Math.min(end, 1);
-  return { count: n, absEnd, start: Math.max(0, end - n), end };
+  return { count: recentN, absEnd, start: Math.max(0, end - recentN), end };
 }
 
 function nodeGraphWaterfallLatestY(buffer, slot, settings, height) {
@@ -1282,6 +1310,16 @@ function nodeGraphWaterfallPaint(spec) {
   };
 
   const frozen = typeof scopePaintIsFrozen === "function" && scopePaintIsFrozen();
+  // Transport pause holds the plate. The first playing frame drops the cursor:
+  // leaving lastAbs glued at the pre-pause absolute frame made the undrawn
+  // count stay 0 after Play, so Output and Vibrato looked stuck in pause.
+  // History-at-0 is not a transport hold and must not clear the cursor.
+  if (frozen) st.transportHeld = true;
+  if (!frozen && st.transportHeld) {
+    st.transportHeld = false;
+    st.lastAbs = Number.NaN;
+    st.frac = 0;
+  }
   const window = nodeGraphWaterfallUndrawn(live, st.lastAbs);
   if (!Number.isFinite(st.lastAbs) && Number.isFinite(window.absEnd) && window.count > 0) {
     st.lastAbs = Math.max(0, window.absEnd - window.count);
@@ -1305,7 +1343,7 @@ function nodeGraphWaterfallPaint(spec) {
   // Pause on silence: keep the hold. No scroll, no new columns.
   // Eat the silent window so it does not burst-scroll when sound returns.
   if (nodeGraphWaterfallPauseOnSilence(settings)
-    && nodeGraphWaterfallIncomingIsSilent(writeSpec, settings, window)) {
+    && nodeGraphWaterfallIncomingIsSilent(writeSpec, settings, window, live)) {
     if (Number.isFinite(window.absEnd) && window.count > 0) {
       st.lastAbs = window.absEnd;
     }

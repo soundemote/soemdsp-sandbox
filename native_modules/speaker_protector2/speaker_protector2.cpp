@@ -17,7 +17,7 @@ static const double kHpHz = 1000.0;
 static const double kThreshold = 1.9952623149688795; // 10^(6/20)
 static const double kDropDefault = 0.008;
 static const double kHoldDefault = 0.333;
-static const double kRiseDefault = 0.75;
+static const double kRiseDefault = 0.375;
 static const double kPlanck = 1.0e-7;
 
 enum Mode {

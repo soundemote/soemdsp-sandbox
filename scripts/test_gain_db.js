@@ -5,6 +5,12 @@ const vm = require("vm");
 const root = path.join(__dirname, "..");
 const sandbox = { console };
 vm.createContext(sandbox);
+sandbox.globalThis = sandbox;
+vm.runInContext(fs.readFileSync(path.join(root, "public/lib/math/soem-math.js"), "utf8"), sandbox);
+vm.runInContext(
+  "function nodeGraphFiniteNumber(value, fallback = 0) { const n = Number(value); return Number.isFinite(n) ? n : fallback; }",
+  sandbox,
+);
 vm.runInContext(fs.readFileSync(path.join(root, "public/modules/gain/gain-math.js"), "utf8"), sandbox);
 vm.runInContext(fs.readFileSync(path.join(root, "public/modules/bias/bias-math.js"), "utf8"), sandbox);
 vm.runInContext(fs.readFileSync(path.join(root, "public/modules/_shared/output-amplitude.js"), "utf8"), sandbox);

@@ -151,6 +151,17 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
     : (Number.isFinite(Number(slider?.dataset?.domainValue))
       ? Number(slider.dataset.domainValue)
       : nodeGraphReadNodeNumber(node, key));
+  // UI index is transient. Persist the choice key, not the index.
+  const choiceKeys = typeof nodeGraphParameterChoiceKeys === "function"
+    ? nodeGraphParameterChoiceKeys(patchNode.type, key)
+    : null;
+  let storedDomain = rawDomain;
+  if (choiceKeys) {
+    const index = typeof nodeSliderChoiceIndexFromValue === "function"
+      ? nodeSliderChoiceIndexFromValue(slider, rawDomain)
+      : 0;
+    storedDomain = choiceKeys[index] || choiceKeys[0];
+  }
   patchNode.paramMeta = {
     ...(patchNode.paramMeta || {}),
     [key]: nextMeta,
@@ -160,7 +171,7 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
     [key]: normalizeNodeGraphPatchParameter(
       patchNode.type,
       key,
-      rawDomain,
+      storedDomain,
       patchNode.paramMeta[key],
     ),
   };

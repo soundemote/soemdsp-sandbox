@@ -62,11 +62,62 @@
     return Math.max(0, Math.min(1, n));
   }
 
+
+  /**
+   * Unit-square canvas tile. Missing/non-finite x/y/w/h use defaults.
+   * Explicit 0 stays 0 (no minimum-size floor). Finite z is rounded;
+   * missing z uses index.
+   * Defaults: 0.36 x 0.32, stagger 0.08+(index%5)*0.02.
+   * x/y pulled back so x+w and y+h stay <= 1.
+   */
+  function normalizeCanvasTileRect(raw, index = 0) {
+    const i = Math.max(0, Math.round(Number(index) || 0));
+    const stagger = 0.08 + (i % 5) * 0.02;
+    const src = raw && typeof raw === "object" ? raw : {};
+    let w = clamp01(src.w, 0.36);
+    let h = clamp01(src.h, 0.32);
+    let x = clamp01(src.x, stagger);
+    let y = clamp01(src.y, stagger);
+    if (x + w > 1) {
+      x = Math.max(0, 1 - w);
+    }
+    if (y + h > 1) {
+      y = Math.max(0, 1 - h);
+    }
+    const zNum = Number(src.z);
+    const z = Number.isFinite(zNum) ? Math.round(zNum) : i;
+    return { x, y, w, h, z };
+  }
+
+  /**
+   * Amplitude dB -> linear gain. Mirrors soemdsp::math::db_to_amp.
+   * Non-finite -> 1. db <= -140 -> 0. Else 10^(db/20).
+   */
+  function dbToAmp(db) {
+    const x = Number(db);
+    if (!Number.isFinite(x)) return 1;
+    if (x <= -140) return 0;
+    return 10 ** (x / 20);
+  }
+
+  /**
+   * Linear amplitude -> dB. Mirrors soemdsp::math::amp_to_db.
+   * Non-finite or amp <= 0 -> -120. Else 20*log10(amp). No extra epsilon.
+   */
+  function ampToDb(amp) {
+    const x = Number(amp);
+    if (!Number.isFinite(x) || !(x > 0)) return -120;
+    return 20 * Math.log10(x);
+  }
+
   global.SoemMath = {
     finiteOr,
     defaultIfZero,
     defaultIfNearZero,
     clamp01,
+    normalizeCanvasTileRect,
+    dbToAmp,
+    ampToDb,
   };
 })(typeof globalThis !== "undefined" ? globalThis : window);
 

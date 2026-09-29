@@ -196,6 +196,7 @@ graphify update . --force   # no LLM; AST re-extract
 - [x] `graphify-out/` gitignored (local analysis only)
 
 ## Backlog Ideas
+- Varispeed Delay — plan only (`docs/VARISPEED_DELAY_PLAN.md`). Doppler is a separate parked Space card.
 - VU meter — seed only, behavior not specified yet (docs/FUTURE_PLANNING.md).
 - AcidSequencer — like Sequencer, per-step Gate / Accent / Slide / Octave on a 13-note C-to-C grid (seed in `docs/FUTURE_PLANNING.md`).
 - Name-based choice persistence â€” audit/migrate index-based saves (`docs/APP_POLICY.md` + `docs/FUTURE_PLANNING.md`).

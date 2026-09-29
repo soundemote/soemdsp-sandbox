@@ -229,6 +229,7 @@ const nodeGraphNodeLabels = Object.freeze({
   delayEffect: "Delay",
   pingPongDelay: "Ping Pong Delay",
   wallDelay: "Wall Delay",
+  doppler: "Doppler",
   reverbEffect: "Sabrina Reverb",
   soemReverb: "SoEmReverb",
   pll: "PLL",
@@ -5283,19 +5284,21 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Seed for vibrato S&H randomizers.",
       },
       {
-        choices: ["Delay Start", "Delay All"],
-        defaultValue: "0",
+        choices: ["Start", "StartEnd", "Gate"],
+        choiceKeys: ["start", "startEnd", "gate"],
+        choiceIds: [0, 1, 2],
+        defaultValue: "start",
         displayChoices: true,
         divideChoicesVisibly: true,
-        key: "delayTrigger",
-        label: "Delay Trigger",
+        key: "delayMode",
+        label: "Delay Mode",
         linearSmoothing: false,
-        max: "1",
+        max: "2",
         mid: "0",
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Delay Start: wait Delay only when not already releasing (a gate during release goes straight to Attack). Delay All: wait Delay on every gate rise, including during release.",
+        tooltip: "Start: delay Attack unless depth is already releasing (a gate during release goes straight to Attack). Gate close starts Release immediately. StartEnd: same attack rule, and also delay Release when the gate closes. Gate: delay the entire gate, including gate-off; Attack and Release follow that delayed gate.",
       },
       {
         defaultValue: "0",
@@ -12825,6 +12828,13 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
+  // Under construction: Doppler card only (Space shelf). No DSP or runtime implementation.
+  doppler: {
+    planRole: "processor",
+    inputs: [],
+    outputs: [],
+    parameters: [],
+  },
   wallDelay: {
     planRole: "processor",
     layout: "wallRoomDisplay",
@@ -17063,11 +17073,11 @@ const nodeGraphModuleDefinitions = (
         tooltip: "How long to stay muted after the last danger sample."
       },
       {
-        defaultValue: "0.75",
+        defaultValue: "0.375",
         key: "riseSeconds",
         label: "Rise",
         max: "4",
-        mid: "0.75",
+        mid: "0.375",
         min: "0",
         nonlinearSlider: false,
         step: "any",

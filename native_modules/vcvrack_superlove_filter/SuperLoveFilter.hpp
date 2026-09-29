@@ -98,16 +98,6 @@ static double hpBpResonanceMod(double reso) {
 	return g.getValue(reso);
 }
 
-static double soft_acos(double x) {
-	double a = clamp11(x);
-	double x2 = a * a;
-	double series = a * (1.0 + x2 * (0.16666666666666666
-		+ x2 * (0.075
-		+ x2 * (0.044642857142857144
-		+ x2 * 0.030381944444444444))));
-	return kHalfPi - series;
-}
-
 // Softwave Tri with the phasor stopped (freq 0): Morph is the knob 0…1, not m^4,
 // and not the running-oscillator pitch softness. Same as Superlove Rev2 / breadboard.
 static double softwaveTri(double phaseCycles, double morph, double frequencyHz) {

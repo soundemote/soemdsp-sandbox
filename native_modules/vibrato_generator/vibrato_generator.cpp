@@ -8,7 +8,10 @@
 // f = Speed * (1 + lastSine * Top Morph).
 // Shared vibrato_gen_* header still drives Hypersaw LFOs.
 // Depth envelope: no Gate cable → sustain (skip Attack). Gate rise → Delay → Attack to 1; Gate low → Release to 0.
-// Delay Trigger: Delay Start skips Delay during release; Delay All delays every gate rise.
+// Delay Mode (stable ids, not choice indexes): 0 start, 1 startEnd, 2 gate. Unknown id -> start.
+// start: delay attack unless already releasing; gate-off releases immediately.
+// startEnd: start, and also delay gate-off / release.
+// gate: delay the whole gate, including gate-off. Attack/Release follow that delayed gate.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -32,6 +35,12 @@ struct VibratoModuleState {
   double lastGate;     // rising-edge latch for Delay arm
   bool gateWasPresent; // false until a Gate cable is actually plugged
   bool releasing;      // true while Gate is low and depth is still falling
+  int delayMode;       // stable id: 0 start, 1 startEnd, 2 gate
+  double releaseDelayRemain; // StartEnd: seconds left before release begins
+  bool delayedGate;    // Gate: gate level after the edge delay
+  int gateEdgeCount;
+  double gateEdgeRemain[48];
+  unsigned char gateEdgeHigh[48];
 };
 
 static VibratoModuleState gPool[kMaxInstances];
@@ -42,12 +51,65 @@ static inline unsigned int seed_u(double seedParam) {
   return s;
 }
 
+static const int kGateEdgeCap = 48;
+static const int kDelayModeStart = 0;
+static const int kDelayModeStartEnd = 1;
+static const int kDelayModeGate = 2;
+
+// Stable id. Not a list index. Anything other than startEnd/gate is Start.
+static inline int delay_mode_id(double modeParam) {
+  if (!(modeParam == modeParam)) return kDelayModeStart;
+  const int id = (int)soemdsp::math::dsp_floor(modeParam + 0.5);
+  if (id == kDelayModeStartEnd || id == kDelayModeGate) return id;
+  return kDelayModeStart;
+}
+
+static inline double finite_delay_seconds(double seconds) {
+  const double d = soemdsp::debug::safe(seconds);
+  if (!(d > 0.0)) return 0.0;
+  return d;
+}
+
 // One-pole coeff toward target; seconds<=0 snaps (coeff=1).
 static inline double depth_env_coeff(double seconds, double sampleRate) {
   if (!(seconds * 0.0 == 0.0) || seconds <= 0.0) return 1.0;
   const double rate = sampleRate < 1.0 ? 1.0 : sampleRate;
-  const double samples = maxd(1.0, seconds * rate);
-  return 1.0 - dsp_exp(-1.0 / samples);
+  const double samples = soemdsp::math::maxd(1.0, seconds * rate);
+  return 1.0 - soemdsp_maths::dsp_exp(-1.0 / samples);
+}
+
+static inline void gate_delay_clear(VibratoModuleState& s) {
+  s.gateEdgeCount = 0;
+  s.delayedGate = false;
+}
+
+static inline void gate_delay_push(VibratoModuleState& s, double delaySec, bool high) {
+  if (s.gateEdgeCount >= kGateEdgeCap) {
+    for (int i = 1; i < s.gateEdgeCount; ++i) {
+      s.gateEdgeRemain[i - 1] = s.gateEdgeRemain[i];
+      s.gateEdgeHigh[i - 1] = s.gateEdgeHigh[i];
+    }
+    s.gateEdgeCount -= 1;
+  }
+  const int n = s.gateEdgeCount;
+  s.gateEdgeRemain[n] = finite_delay_seconds(delaySec);
+  s.gateEdgeHigh[n] = high ? 1u : 0u;
+  s.gateEdgeCount = n + 1;
+}
+
+static inline void gate_delay_tick(VibratoModuleState& s, double dt) {
+  int w = 0;
+  for (int i = 0; i < s.gateEdgeCount; ++i) {
+    const double remain = s.gateEdgeRemain[i] - dt;
+    if (remain <= 0.0) {
+      s.delayedGate = s.gateEdgeHigh[i] != 0u;
+    } else {
+      s.gateEdgeRemain[w] = remain;
+      s.gateEdgeHigh[w] = s.gateEdgeHigh[i];
+      w += 1;
+    }
+  }
+  s.gateEdgeCount = w;
 }
 
 }  // namespace
@@ -108,7 +170,7 @@ extern "C" double soemdsp_vibrato_generator_sample(
   double releaseSec,
   double gate,
   double gatePresent,
-  double delayTriggerMode
+  double delayMode
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   VibratoModuleState& s = gPool[handle - 1];
@@ -147,56 +209,98 @@ extern "C" double soemdsp_vibrato_generator_sample(
   s.phaseTurns = wrap01(s.phaseTurns + inc);
   y *= (1.0 + s.gen.heldAmp * ra);
 
-  // Depth envelope: Gate rise → wait Delay → Attack to 1; Gate low → Release to 0.
-  // No Gate cable: skip to sustain immediately. Do not run Attack.
+  // Depth envelope. No Gate cable: sustain immediately (do not run Attack).
   // gatePresent is the host cable check (mix_live_port on the Gate inlet), not the gate level.
+  // Delay Mode ids are stable (start / startEnd / gate), not choice-list indexes.
   const bool cable = gatePresent > 0.5;
-  // delayTriggerMode < 0.5: Delay Start (default). >= 0.5: Delay All.
-  const bool delayAll = delayTriggerMode >= 0.5;
+  const int mode = delay_mode_id(delayMode);
+  const double dt = 1.0 / sr;
   if (!cable) {
     s.depthEnv = 1.0;
     s.delayRemain = 0.0;
+    s.releaseDelayRemain = 0.0;
     s.lastGate = 0.0;
     s.gateWasPresent = false;
     s.releasing = false;
+    s.delayMode = mode;
+    gate_delay_clear(s);
   } else {
     if (!s.gateWasPresent) {
       // Cable just appeared (including the first block). Do not inherit the unpatched sustain skip.
       s.depthEnv = 0.0;
       s.delayRemain = 0.0;
+      s.releaseDelayRemain = 0.0;
       s.lastGate = 0.0;
       s.gateWasPresent = true;
       s.releasing = false;
+      gate_delay_clear(s);
     }
-    const bool gateHigh = gate > 0.5;
-    const bool rising = gateHigh && !(s.lastGate > 0.5);
-    s.lastGate = gate;
-    if (!gateHigh) {
+    if (mode != s.delayMode) {
+      s.delayMode = mode;
       s.delayRemain = 0.0;
-      const double coeff = depth_env_coeff(releaseSec, sr);
-      s.depthEnv += (0.0 - s.depthEnv) * coeff;
-      // Release stage only while depth is still falling. Snap-to-zero ends it
-      // so the next gate from silence delays again (Delay Start).
-      if (s.depthEnv <= 1.0e-5) {
-        s.depthEnv = 0.0;
-        s.releasing = false;
-      } else {
-        s.releasing = true;
+      s.releaseDelayRemain = 0.0;
+      s.lastGate = 0.0;
+      gate_delay_clear(s);
+    }
+    const bool rawHigh = gate > 0.5;
+    const bool wasHigh = s.lastGate > 0.5;
+    const bool rawRising = rawHigh && !wasHigh;
+    const bool rawFalling = !rawHigh && wasHigh;
+    s.lastGate = gate;
+
+    bool envHigh = rawHigh;
+    bool envRising = rawRising;
+    bool envFalling = rawFalling;
+    if (mode == kDelayModeGate) {
+      if (rawRising) gate_delay_push(s, delaySec, true);
+      if (rawFalling) gate_delay_push(s, delaySec, false);
+      const bool prevDelayed = s.delayedGate;
+      gate_delay_tick(s, dt);
+      envHigh = s.delayedGate;
+      envRising = envHigh && !prevDelayed;
+      envFalling = !envHigh && prevDelayed;
+      s.delayRemain = 0.0;
+      s.releaseDelayRemain = 0.0;
+    }
+
+    if (!envHigh) {
+      s.delayRemain = 0.0;
+      if (mode == kDelayModeStartEnd && envFalling) {
+        s.releaseDelayRemain = finite_delay_seconds(delaySec);
+      }
+      if (mode == kDelayModeStartEnd && s.releaseDelayRemain > 0.0) {
+        s.releaseDelayRemain -= dt;
+        if (s.releaseDelayRemain < 0.0) s.releaseDelayRemain = 0.0;
+        // Hold depth until the delayed gate-off. Not release mode yet.
+      }
+      if (!(mode == kDelayModeStartEnd && s.releaseDelayRemain > 0.0)) {
+        s.releaseDelayRemain = 0.0;
+        const double coeff = depth_env_coeff(releaseSec, sr);
+        s.depthEnv += (0.0 - s.depthEnv) * coeff;
+        // Release stage only while depth is still falling. Snap-to-zero ends it
+        // so the next gate from silence delays again (Start / StartEnd).
+        if (s.depthEnv <= 1.0e-5) {
+          s.depthEnv = 0.0;
+          s.releasing = false;
+        } else {
+          s.releasing = true;
+        }
       }
     } else {
-      if (rising) {
-        // Delay Start skips Delay when a gate arrives during release.
-        const bool skipDelay = !delayAll && s.releasing;
+      s.releaseDelayRemain = 0.0;
+      if (envRising) {
+        // Start and StartEnd: skip the attack delay when already releasing.
+        // Gate already delayed the rising edge, so attack starts now.
+        const bool skipDelay = mode != kDelayModeGate && s.releasing;
         s.releasing = false;
-        if (skipDelay) {
+        if (mode == kDelayModeGate || skipDelay) {
           s.delayRemain = 0.0;
         } else {
-          const double d = safe(delaySec);
-          s.delayRemain = (d > 0.0 && (d * 0.0 == 0.0)) ? d : 0.0;
+          s.delayRemain = finite_delay_seconds(delaySec);
         }
       }
       if (s.delayRemain > 0.0) {
-        s.delayRemain -= 1.0 / sr;
+        s.delayRemain -= dt;
         if (s.delayRemain < 0.0) s.delayRemain = 0.0;
         // Hold depthEnv during Delay (no Attack yet).
       } else {
@@ -205,8 +309,7 @@ extern "C" double soemdsp_vibrato_generator_sample(
       }
     }
   }
-  if (s.depthEnv < 0.0) s.depthEnv = 0.0;
-  if (s.depthEnv > 1.0) s.depthEnv = 1.0;
+  s.depthEnv = soemdsp::math::clamp01(s.depthEnv);
 
   const double amp = safe(amplitude);
   // shape is the vibrato before the Amplitude knob. Wave/audio stays shape * amp.
@@ -226,5 +329,5 @@ extern "C" double soemdsp_vibrato_generator_out(int handle) {
 }
 
 extern "C" int soemdsp_vibrato_generator_version() {
-  return 9;
+  return 10;
 }

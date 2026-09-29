@@ -639,7 +639,7 @@ extern "C" double soemdsp_vibrato_generator_sample(
   double releaseSec,
   double gate,
   double gatePresent,
-  double delayTriggerMode
+  double delayMode
 );
 extern "C" double soemdsp_vibrato_generator_out(int handle);
 extern "C" double soemdsp_vibrato_generator_shape(int handle);
@@ -3486,7 +3486,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAcousticPluck) ? 0.11715292599242004 // release s (breadboard)
       : (typeId == kTypePluckEnvelope || typeId == kTypeExpoPluckEnvelope2) ? 0.0 // AutoReleaseTime
       : (typeId == kTypeSoemReverb) ? 0.04 // duckRelease
-      : (typeId == kTypeSpeakerProtector2) ? 0.75 // riseSeconds
+      : (typeId == kTypeSpeakerProtector2) ? 0.375 // riseSeconds
       : 0.0,
     false
   );
@@ -10293,7 +10293,7 @@ static void process_cheap_walk(Circuit& g, Node& node, int frames) {
 // width=randomFreqMult, center=randomAmpMult, seed=seed.
 // Vibrato Generator: Reset on kPortReset; Gate on Mono (depth Delay/A/R).
 // timeNumerator=delay s, timeDenominator=attack s, offsetMs=release s
-// mode=delayTrigger (0 Delay Start, >=0.5 Delay All).
+// mode=delayMode stable id (0 start, 1 startEnd, 2 gate; else start).
 // (exp one-pole depthEnv; Delay arms on Gate rise).
 // Unpatched Gate (no cable) -> gatePresent=0, module skips to sustain (no Attack).
 static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
@@ -14208,7 +14208,7 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
         sr,
         0.008,
         0.333,
-        0.75,
+        0.375,
         &l,
         &r,
         &m

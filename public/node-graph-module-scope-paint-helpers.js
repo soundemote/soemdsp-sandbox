@@ -1622,7 +1622,7 @@ function nodeGraphOutputStereoTraceBuffers(nodeId) {
 const NODE_GRAPH_OUTPUT_PROTECT_BANNER = "♨️";
 const NODE_GRAPH_OUTPUT_PROTECT_FONT =
   '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif';
-const NODE_GRAPH_OUTPUT_PAUSE_FADE_MS = 1100;
+const NODE_GRAPH_OUTPUT_PAUSE_FADE_MS = 550;
 const NODE_GRAPH_OUTPUT_PROTECT_SOLID_MUTE = 0.98;
 
 function nodeGraphOutputProtectFaceSlot(slot) {

@@ -165,10 +165,19 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
       const params = {};
       const paramMeta = {};
       for (const parameter of definition.parameters || []) {
+        if (typeof nodeGraphParameterChoiceKeys === "function"
+          && nodeGraphParameterChoiceKeys(node.type, parameter.key)) {
+          params[parameter.key] = nodeGraphChoiceIdForKey(
+            node.type,
+            parameter.key,
+            node.params?.[parameter.key],
+          );
+        } else {
         const value = nodeGraphReadPatchParameterValue(node, parameter.key);
         params[parameter.key] = Number.isFinite(value)
           ? value
           : nodeGraphParameterFallback(node.type, parameter.key);
+        }
         paramMeta[parameter.key] = nodeGraphReadPatchParameterMetadata(node, parameter.key);
       }
       nodeGraphInjectSpectrogramWorkletParams(node, params);
@@ -277,10 +286,19 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
       const params = {};
       const paramMeta = {};
       for (const parameter of definition.parameters || []) {
+        if (typeof nodeGraphParameterChoiceKeys === "function"
+          && nodeGraphParameterChoiceKeys(node.type, parameter.key)) {
+          params[parameter.key] = nodeGraphChoiceIdForKey(
+            node.type,
+            parameter.key,
+            node.params?.[parameter.key],
+          );
+        } else {
         const value = Number(node.params?.[parameter.key]);
         params[parameter.key] = Number.isFinite(value)
           ? value
           : nodeGraphParameterFallback(node.type, parameter.key);
+        }
         paramMeta[parameter.key] = normalizeNodeGraphPatchParameterMetadata(
           node.type,
           parameter.key,

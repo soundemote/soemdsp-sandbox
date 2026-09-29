@@ -13020,8 +13020,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   position: absolute;
   box-sizing: border-box;
   overflow: hidden;
-  min-width: 48px;
-  min-height: 48px;
 }
 
 .node-layout-canvas-tile .node-layout-canvas-face,

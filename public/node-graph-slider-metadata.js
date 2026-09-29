@@ -391,6 +391,56 @@ function formatNodeMetadataStep(value) {
   return Number.isFinite(Number(value)) ? formatNodeSliderCompactNumber(Math.max(0, Number(value))) : "0";
 }
 
+
+function nodeGraphParameterByKey(type, key) {
+  const definition = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions?.[type]
+    : null;
+  return (definition?.parameters || []).find((parameter) => parameter && parameter.key === key) || null;
+}
+
+/** Parallel choiceKeys on a module parameter. Null when this param persists by number. */
+function nodeGraphParameterChoiceKeys(type, key) {
+  const keys = nodeGraphParameterByKey(type, key)?.choiceKeys;
+  if (!Array.isArray(keys) || !keys.length) return null;
+  const out = keys.map((choiceKey) => String(choiceKey).trim()).filter(Boolean);
+  return out.length ? out : null;
+}
+
+function nodeGraphChoiceDefaultKey(type, key) {
+  const keys = nodeGraphParameterChoiceKeys(type, key);
+  if (!keys) return null;
+  const def = String(nodeGraphParameterByKey(type, key)?.defaultValue ?? "").trim();
+  return keys.includes(def) ? def : keys[0];
+}
+
+/** DSP id for a persisted choice key. Unknown keys use the default key, never a numeric index. */
+function nodeGraphChoiceIdForKey(type, paramKey, choiceKey) {
+  const keys = nodeGraphParameterChoiceKeys(type, paramKey);
+  if (!keys) return null;
+  let index = keys.indexOf(String(choiceKey ?? "").trim());
+  if (index < 0) index = keys.indexOf(nodeGraphChoiceDefaultKey(type, paramKey));
+  if (index < 0) index = 0;
+  const ids = nodeGraphParameterByKey(type, paramKey)?.choiceIds;
+  if (Array.isArray(ids) && Number.isFinite(Number(ids[index]))) return Number(ids[index]);
+  return index;
+}
+
+/** Transient slider domain for a persisted choice key. */
+function nodeGraphChoiceSliderValueForKey(type, paramKey, choiceKey) {
+  const parameter = nodeGraphParameterByKey(type, paramKey);
+  const keys = nodeGraphParameterChoiceKeys(type, paramKey);
+  if (!parameter || !keys) return null;
+  let index = keys.indexOf(String(choiceKey ?? "").trim());
+  if (index < 0) index = keys.indexOf(nodeGraphChoiceDefaultKey(type, paramKey));
+  if (index < 0) index = 0;
+  const min = Number(parameter.min);
+  const step = Number(parameter.step);
+  const origin = Number.isFinite(min) ? min : 0;
+  const stride = Number.isFinite(step) && step > 0 ? step : 1;
+  return origin + index * stride;
+}
+
 function parseNodeMetadataChoices(value) {
   return String(value)
     .split(",")

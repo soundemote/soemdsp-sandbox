@@ -156,39 +156,8 @@ function nodeGraphLayoutCanvasIsPinned(nodeId, patch = nodeGraphMvp?.patch) {
   );
 }
 
-function nodeGraphLayoutCanvasClamp01(n, fallback = 0) {
-  const v = Number(n);
-  if (!Number.isFinite(v)) {
-    return fallback;
-  }
-  return Math.max(0, Math.min(1, v));
-}
-
 function nodeGraphLayoutCanvasNormalizeRect(raw, index = 0) {
-  const i = Math.max(0, Math.round(Number(index) || 0));
-  // Default: center-ish tile — NOT an auto-grid of all pins.
-  const base = {
-    x: 0.08 + (i % 5) * 0.02,
-    y: 0.08 + (i % 5) * 0.02,
-    w: 0.36,
-    h: 0.32,
-    z: i,
-  };
-  const src = raw && typeof raw === "object" ? raw : {};
-  let w = nodeGraphLayoutCanvasClamp01(src.w, base.w);
-  let h = nodeGraphLayoutCanvasClamp01(src.h, base.h);
-  w = Math.max(0.08, w);
-  h = Math.max(0.08, h);
-  let x = nodeGraphLayoutCanvasClamp01(src.x, base.x);
-  let y = nodeGraphLayoutCanvasClamp01(src.y, base.y);
-  if (x + w > 1) {
-    x = Math.max(0, 1 - w);
-  }
-  if (y + h > 1) {
-    y = Math.max(0, 1 - h);
-  }
-  const z = Number.isFinite(Number(src.z)) ? Math.round(Number(src.z)) : base.z;
-  return { x, y, w, h, z };
+  return SoemMath.normalizeCanvasTileRect(raw, index);
 }
 
 function nodeGraphLayoutCanvasElementForNode(nodeId, patch = nodeGraphMvp?.patch) {

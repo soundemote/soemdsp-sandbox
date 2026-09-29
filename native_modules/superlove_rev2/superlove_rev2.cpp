@@ -52,17 +52,6 @@ static double evalGraph(const GraphNode* nodes, int count, double x) {
   return g.getValue(x);
 }
 
-// Softwave helpers (from softwave.cpp) — Tri shape only for Rev2 LP.
-static double soft_acos(double x) {
-  double a = clamp11(x);
-  double x2 = a * a;
-  double series = a * (1.0 + x2 * (0.16666666666666666
-    + x2 * (0.075
-    + x2 * (0.044642857142857144
-    + x2 * 0.030381944444444444))));
-  return kHalfPi - series;
-}
-
 // Softwave waveform 5 = Tri, frequency held at 0 (phasor stopped → waveshaper).
 // Morph is 0…1 linear — same number as the Softwave Oscillator Morph knob
 // (no m^4, no 0.37…0.61 chaos remap).

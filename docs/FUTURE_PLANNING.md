@@ -148,3 +148,15 @@ docs/ACID_SEQUENCER_PLAN.md
 **Direction:** A VU meter. Architect named it on 2026-09-29. Behavior, face, ports, and what it reads are not specified yet.
 
 **Still open:** module vs a display on an existing face, needle vs bar, mono/stereo, ballistics, scale, and the signal it measures.
+
+## Varispeed Delay
+
+**Status:** plan in `docs/VARISPEED_DELAY_PLAN.md`. Do not build until Architect says so.
+
+**Direction:** Stereo live-buffer pitch by read-head speed, not by moving delay time. Locked params: Memory (seconds), Mix, Speed (0.5, -2 to +2), Filter Slope (1 to 4), LPF, HPF, Saturation, Amplitude. Chain is HPF then LPF then saturation then Amplitude. Waterfall is pre-Amplitude. Playhead running out is silence, no click avoidance. Do not implement yet. Doppler is a separate parked Space card, not this DSP.
+
+## Doppler
+
+**Status:** under-construction module in Space. No DSP. Not Varispeed.
+
+**Direction:** A parked card so the name exists. Moving delay-time pitch only. Do not implement the varispeed read head here.

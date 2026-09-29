@@ -33,13 +33,6 @@ static double coefficient(double seconds, double sampleRate) {
   return 1.0 - dsp_exp(-1.0 / samples);
 }
 
-static double dsp_pow_pos(double base, double exp) {
-  if (!(base * 0.0 == 0.0) || base <= 0.0) return 0.0;
-  if (!(exp * 0.0 == 0.0)) return 0.0;
-  if (exp == 1.0) return base;
-  return dsp_exp(exp * dsp_ln(base));
-}
-
 }  // namespace
 
 extern "C" int soemdsp_attack_decay_create() {
@@ -162,7 +155,7 @@ extern "C" double soemdsp_attack_decay_sample(
   if (s.raw > 1.0 - 1.0e-12 && target >= 1.0) s.raw = 1.0;
 
   const double clamped = s.raw < 0.0 ? 0.0 : (s.raw > 1.0 ? 1.0 : s.raw);
-  const double shaped = safeCurve == 1.0 ? clamped : dsp_pow_pos(clamped, safeCurve);
+  const double shaped = safeCurve == 1.0 ? clamped : pow_pos(clamped, safeCurve);
   const double y = shaped * level;
   return (y * 0.0 == 0.0) ? y : 0.0;
 }

@@ -8,10 +8,9 @@ function nodeGraphMixStereoDbToLin(db) {
     return nodeGraphGainDbToLin(db);
   }
   const x = Number(db);
-  if (!Number.isFinite(x) || x <= -140) {
-    return 0;
-  }
-  return 10 ** (x / 20);
+  // Same non-finite mute as Gain. Floor and 10^(dB/20) are SoemMath.dbToAmp.
+  if (!Number.isFinite(x)) return 0;
+  return SoemMath.dbToAmp(x);
 }
 
 function nodeGraphMixStereoPanGains(pan) {
