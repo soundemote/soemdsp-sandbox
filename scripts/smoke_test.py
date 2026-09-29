@@ -186,6 +186,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/audioPlayer/audio-player-playlist.js",
     "./public/lib/visual/display-scale.js",
     "./public/lib/visual/display-face-metrics.js",
+    "./public/lib/visual/filter-curve-face.js",
     "./public/node-graph-sample-waveform.js",
     "./public/node-graph-stdlib/node-graph-phasor-helpers.js",
     "./public/node-graph-stdlib/node-graph-param-surface-helpers.js",
@@ -508,6 +509,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/linearAttackRelease/linear-attack-release-math.js",
     "./public/modules/curveAttackRelease/curve-attack-release-math.js",
     "./public/modules/thumpEnvelope/thump-envelope-math.js",
+    "./public/modules/acousticPluck/acoustic-pluck-math.js",
     "./public/modules/pluckEnvelope/pluck-envelope-math.js",
     "./public/modules/expoPluckEnvelope/expo-pluck-envelope-math.js",
     "./public/modules/expoPluckEnvelope/expo-pluck-envelope-display.js",
@@ -18091,6 +18093,14 @@ def require_native_module_contract(base_url: str) -> None:
     )
 
     expected_native_exports = {
+        "acoustic_pluck": [
+            "soemdsp_acoustic_pluck_create",
+            "soemdsp_acoustic_pluck_destroy",
+            "soemdsp_acoustic_pluck_sample",
+            "soemdsp_acoustic_pluck_version",
+            "soemdsp_acoustic_pluck_metadata_json",
+            "soemdsp_acoustic_pluck_metadata_json_size",
+        ],
         "attenumax": [
             "soemdsp_attenumax_sample",
             "soemdsp_attenumax_version",

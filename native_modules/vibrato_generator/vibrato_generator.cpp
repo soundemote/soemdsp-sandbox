@@ -79,7 +79,8 @@ extern "C" void soemdsp_vibrato_generator_reset(int handle, double phaseOffset) 
   if (handle < 1 || handle > kMaxInstances) return;
   VibratoModuleState& s = gPool[handle - 1];
   vibrato_gen_reset(s.gen, phaseOffset);
-  s.phaseTurns = wrap01(safe(phaseOffset));
+  // Free-running phase only. Heard phase is phaseTurns + phase knob.
+  s.phaseTurns = 0.0;
   s.lastSine = 0.0;
   s.out = 0.0;
   s.shape = 0.0;
@@ -110,15 +111,16 @@ extern "C" double soemdsp_vibrato_generator_sample(
     vibrato_gen_reset(s.gen, phaseOffset);
     s.lastSeed = seedParam;
   }
-  const double po = safe(phaseOffset);
-  if (!(po == s.gen.lastPhaseOffset)) {
-    s.phaseTurns = wrap01(s.phaseTurns + (po - s.gen.lastPhaseOffset));
-    s.gen.lastPhaseOffset = po;
-  }
+  // Phase knob is a render offset only, same as PolyBLEP
+  // (renderPhase = freePhase + phaseParam). Do not also integrate it into
+  // phaseTurns — that doubled the knob vs the breadboard and put Side Morph
+  // on the wrong carrier.
   const double rf = safe(randomFreqMult);
   const double ra = safe(randomAmpMult);
   const double speed = safe(frequencyHz) * (1.0 + s.gen.heldFreq * rf);
   const double freq = speed * (1.0 + s.lastSine * safe(morph));
+  // Breadboard: Sine -> attenuverter (gain = Side Morph) -> Phase.
+  // One-sample delay, absolute cycles, not an increment.
   const double poUsed = safe(phaseOffset) + s.lastSine * safe(sideMorph);
   double inc = hz_to_increment(freq, sr);
   if (inc > 0.5) inc = 0.5;
@@ -182,5 +184,5 @@ extern "C" double soemdsp_vibrato_generator_out(int handle) {
 }
 
 extern "C" int soemdsp_vibrato_generator_version() {
-  return 7;
+  return 8;
 }
