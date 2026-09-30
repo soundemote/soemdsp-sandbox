@@ -89,6 +89,7 @@ function nodeGraphSoftwaveOscillatorSample(state, options = {}) {
     nodeGraphFiniteNumber(options.phase),
     Number.isFinite(Number(options.level)) ? Number(options.level) : 1,
     Math.max(0, nodeGraphFiniteNumber(options.antialias)),
+    0,
   );
   return { Out: Number.isFinite(out) ? out : 0 };
 }

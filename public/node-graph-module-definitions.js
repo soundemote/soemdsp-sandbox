@@ -1191,7 +1191,23 @@ const nodeGraphModuleDefinitions = (
   },
   sinCos: {
     planRole: "source",
-    displayType: "waterfall",
+    // Cheap 1D one-cycle sine/cosine + one phase dot per drawn line (BasicShape family).
+    // Not waterfall. Line visibility is patch wires, not audio-thread usage.
+    layout: "sinCos",
+    chrome: "LayoutA",
+    customDisplayArea: true,
+    displayType: "sinCosFace",
+    displayHeightGu: 4,
+    spectrumCompanion: false,
+    displayModes: [
+      {
+        key: "face",
+        label: "Face",
+        renderer: "sinCosFace",
+        settingsSchema: "",
+      },
+    ],
+    defaultDisplayMode: "face",
     inputs: ["Reset", "Increment"],
     inputLabels: {
       Increment: "inc",},
@@ -1357,7 +1373,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "When ƒ changes mid-cycle: On cycle waits for wrap; Warp remaining keeps dither offset; Snap remaining re-dithers the remaining length."
+        tooltip: "When ƒ combined increment (Frequency/sampleRate + inc) changes mid-cycle: On cycle waits for wrap; Warp remaining keeps dither offset; Snap remaining re-dithers the remaining length."
       },
       {
         choices: ["Saw", "Ramp", "Square", "Trisaw Center", "Sine", "Pulse", "Analog Square"],
@@ -1387,7 +1403,7 @@ const nodeGraphModuleDefinitions = (
         smoothingType: "onePole",
         step: "any",
         unit: "Hz",
-        tooltip: "Absolute Hz. Mid-cycle Hz changes warp the remaining period (phase-continuous)."
+        tooltip: "Absolute Hz. Converted to cycles/sample and added to inc before cycle-dither. Update chooses how a mid-cycle increment change warps the remaining period (phase-continuous)."
       },
       {
         defaultValue: "0",
@@ -5192,9 +5208,12 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Wave Raw", label: "Wave", kind: "scalar" },
     ],
-    inputs: ["Gate", "Reset"],
-    outputChannels: { Wave: "green" },
-    outputs: ["Wave"],
+    digitalInputs: ["isIdle"],
+    digitalOutputs: ["isIdle"],
+    inputs: ["Gate", "isIdle", "Reset"],
+    outputChannels: { Wave: "green", isIdle: "black" },
+    outputLabels: { isIdle: "isIdle" },
+    outputs: ["Wave", "isIdle"],
     parameters: [
       {
         key: "frequency",
@@ -5337,7 +5356,55 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Exponential depth fade-out time when Gate goes low. 0 = instant snap.",
+        tooltip: "Depth release time when Gate goes low and the isIdle input is not true. 0 = instant snap.",
+      },
+      {
+        defaultValue: "0.1",
+        key: "isIdleRelease",
+        kind: "time",
+        label: "IsIdleRelease",
+        max: "10",
+        maxDigits: 5,
+        mid: "0.5",
+        min: "0",
+        step: "any",
+        unit: "s",
+        tooltip: "Release time used instead of Release while the isIdle input is true (a cable is plugged and that signal's amplitude is at or below Planck). No cable: this param does nothing. 0 = instant snap.",
+      },
+      {
+        choices: ["Log", "Lin", "Exp"],
+        choiceKeys: ["log", "lin", "exp"],
+        choiceIds: [0, 1, 2],
+        defaultValue: "exp",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        hidden: true,
+        key: "attackShape",
+        label: "Attack Shape",
+        linearSmoothing: false,
+        max: "2",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Attack curve: Log starts slow and finishes fast; Lin rises linearly; Exp keeps the existing exponential rise. Hidden — enable from the parameter visibility menu.",
+      },
+      {
+        choices: ["Log", "Lin", "Exp"],
+        choiceKeys: ["log", "lin", "exp"],
+        choiceIds: [0, 1, 2],
+        defaultValue: "exp",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "releaseShape",
+        label: "Release Shape",
+        linearSmoothing: false,
+        max: "2",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Release curve: Log starts slow and finishes fast; Lin falls linearly; Exp keeps the existing exponential fall.",
       },
       {
         key: "amplitude",

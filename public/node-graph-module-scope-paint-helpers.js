@@ -656,17 +656,23 @@ const nodeGraphScope2dBurnRendererVersion = "energy-mono-lut-soft-beam-1";
 /** Default face plate — pure black (no teal/CRT tint in the plate color). */
 const nodeGraphFacePlateDefaultBackground = "#000000";
 
-/** 2D Trace beam RGB 0…1 from unit hue hex + plausible brightness. */
+/** Flat fallback: gradient at Bright. The beam is brightness, then LUT. */
 function nodeGraphScope2dTraceInkRgb01(settings = {}) {
-  const hue = typeof nodeGraphHueDegFromHex === "function"
-    ? nodeGraphHueDegFromHex(settings?.dot1Color ?? settings?.color)
-    : 60;
   const bright = Number(settings?.dot1Brightness ?? settings?.brightness);
-  const amount = Number.isFinite(bright) ? bright : 0.5;
-  if (typeof nodeGraphHueBrightnessRgb01 === "function") {
-    return nodeGraphHueBrightnessRgb01(hue, amount);
+  const t = Number.isFinite(bright) ? Math.max(0, Math.min(1, bright)) : 1;
+  const stops = typeof nodeGraphPhosphorGradientStopsFromSettings === "function"
+    ? nodeGraphPhosphorGradientStopsFromSettings(settings, "#ffffff")
+    : settings?.gradientStops;
+  if (typeof nodeGraphSampleGradientStopsRgb === "function") {
+    const rgb = nodeGraphSampleGradientStopsRgb(stops, t, "#ffffff");
+    const r = Number(rgb?.[0]);
+    const g = Number(rgb?.[1]);
+    const b = Number(rgb?.[2]);
+    if ([r, g, b].every(Number.isFinite)) {
+      return [r / 255, g / 255, b / 255];
+    }
   }
-  return [1, 1, 1];
+  return [t, t, t];
 }
 
 function nodeGraphScope2dTraceInkHex(settings = {}) {
@@ -1921,8 +1927,19 @@ function stampNodeGraphOutputPauseBanners(options = {}) {
       tagNodeGraphModuleScopeFaceCanvas(canvas, "tape");
     }
     let context = null;
+    const wfFace = typeof nodeGraphModuleDisplayRendererForSlot === "function"
+      && nodeGraphModuleDisplayRendererForSlot(slot) === "waterfall";
     try {
-      context = canvas.getContext("2d");
+      if (wfFace && typeof nodeGraphWaterfallInkOverlay === "function") {
+        const overlay = nodeGraphWaterfallInkOverlay(canvas);
+        context = overlay && overlay.getContext("2d");
+        if (context) {
+          context.setTransform(1, 0, 0, 1, 0, 0);
+          context.clearRect(0, 0, overlay.width, overlay.height);
+        }
+      } else {
+        context = canvas.getContext("2d");
+      }
     } catch (_error) {
       context = null;
     }
@@ -1960,6 +1977,10 @@ function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePix
   const canvas = typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
     ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
     : null;
+  if (canvas && typeof nodeGraphModuleDisplayRendererForSlot === "function"
+    && nodeGraphModuleDisplayRendererForSlot(slot) === "waterfall") {
+    canvas._wfUseWebGL = true;
+  }
   const density = typeof nodeGraphFacePlateDensity === "function"
     ? nodeGraphFacePlateDensity(settings, 1)
     : 1;
@@ -1974,6 +1995,27 @@ function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePix
   }
   if (!syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio, density)) {
     return false;
+  }
+  const wfRenderer = typeof nodeGraphModuleDisplayRendererForSlot === "function"
+    ? nodeGraphModuleDisplayRendererForSlot(slot)
+    : "";
+  if (wfRenderer === "waterfall" && typeof nodeGraphWaterfallGlCold === "function") {
+    const wfBg = typeof nodeGraphFacePlateBackground === "function"
+      ? nodeGraphFacePlateBackground(settings)
+      : "#000000";
+    if (typeof nodeGraphFacePlateApplyCss === "function") {
+      nodeGraphFacePlateApplyCss(screenElement, wfBg);
+    }
+    canvas.classList.add("node-module-scope-vector-trace");
+    canvas._wfBlur = Number(settings?.faceBlur) || 0;
+    nodeGraphWaterfallGlCold(canvas, wfBg);
+    if (typeof nodeGraphWaterfallFinishOutputInk === "function") {
+      nodeGraphWaterfallFinishOutputInk({ canvas, slot, settings, density }, null, canvas, 0);
+    }
+    if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+      nodeGraphModuleScopeMarkScreenLit(screenElement, 1);
+    }
+    return true;
   }
   const context = canvas.getContext("2d");
   if (!context) {
@@ -2218,6 +2260,7 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   }
   const settings = nodeGraphTraceDisplaySettingsForSlot(slot);
   const canvas = nodeGraphModuleScopeLocalFallbackCanvas(slot);
+  if (canvas) canvas._wfUseWebGL = true;
   const density = nodeGraphFacePlateDensity(settings, 1);
   if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(
     canvas,
@@ -2228,15 +2271,11 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     return false;
   }
   canvas.classList.add("node-module-scope-vector-trace");
-  canvas.style.imageRendering = density < 0.999 ? "pixelated" : "";
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return false;
-  }
-  context.imageSmoothingEnabled = density >= 0.999;
-  if ("imageSmoothingQuality" in context && density >= 0.999) {
-    context.imageSmoothingQuality = "high";
-  }
+  const faceBlur = Number(settings?.faceBlur);
+  canvas.style.imageRendering = (Number.isFinite(faceBlur) && faceBlur > 0.001) || density >= 0.999
+    ? "auto"
+    : "pixelated";
+  const context = null;
   const bg = nodeGraphFacePlateBackground(settings);
   nodeGraphFacePlateApplyCss(screenElement, bg);
   const stereoBuffers = nodeGraphModuleUsesStereoWaterfall(slot?.type)
@@ -2268,7 +2307,9 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     ? nodeGraphModuleDefinitions[slot?.type]
     : null;
   if (painted && def?.rmsDbGuides) {
-    nodeGraphPaintRmsDbGuideOverlay(context, canvas, slot);
+    const ink = canvas._wfInkOverlay;
+    const inkCtx = ink && ink.getContext("2d");
+    if (inkCtx) nodeGraphPaintRmsDbGuideOverlay(inkCtx, ink, slot);
   }
   return painted;
 }

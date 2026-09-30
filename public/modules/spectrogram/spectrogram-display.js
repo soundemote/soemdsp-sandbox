@@ -152,6 +152,26 @@ function spectrogramLutRgbForStops(stops) {
   return rgb;
 }
 
+
+/** Opaque gradient sample. Brightness is 0..1, then LUT. Alpha stays 1. Not rgb * brightness. */
+function spectrogramCssAtBrightness(lutRgb, brightness01) {
+  const raw = Number(brightness01);
+  const u = Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : 0;
+  const li = Math.min(255, Math.max(0, Math.floor(u * 255 + 1e-6)));
+  const idx = li * 3;
+  const r = lutRgb && lutRgb.length > idx ? lutRgb[idx] : 0;
+  const g = lutRgb && lutRgb.length > idx + 1 ? lutRgb[idx + 1] : 0;
+  const b = lutRgb && lutRgb.length > idx + 2 ? lutRgb[idx + 2] : 0;
+  return "rgb(" + r + "," + g + "," + b + ")";
+}
+
+function spectrogramFillBrightness(ctx, lutRgb, brightness01, x, y, w, h) {
+  if (!ctx || !(w > 0) || !(h > 0)) return;
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = spectrogramCssAtBrightness(lutRgb, brightness01);
+  ctx.fillRect(x, y, w, h);
+}
+
 function spectrogramHopMeta(settings, node) {
   const fftMeta = typeof nodeGraphDataBus !== "undefined"
     ? nodeGraphDataBus.get(nodeGraphDataBusKey(String(node?.id || ""), "FftSize"))
@@ -298,8 +318,6 @@ function spectrogramCreateState(faceW, faceH) {
   if (ctx) {
     ctx.imageSmoothingEnabled = false;
     if ("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality = "low";
-    ctx.fillStyle = "#000000";
-    ctx.fillRect(0, 0, w, h);
   }
   return {
     faceW: w,
@@ -319,6 +337,10 @@ function spectrogramCreateState(faceW, faceH) {
     historyHz: 4,
     historyCycles: 4,
     historySeconds: 0.25,
+    plateReady: false,
+    lutRgb: null,
+    // Absolute frame already consumed for pause-on-silence (same cursor as waterfall).
+    lastAbs: Number.NaN,
   };
 }
 
@@ -342,11 +364,14 @@ function spectrogramResizePreserve(st, faceW, faceH) {
   next.scrollDebtSec = Math.max(0, nodeGraphFiniteNumber(st.scrollDebtSec, nodeGraphFiniteNumber(st.scrollDebt)));
   next.lastHop = st.lastHop;
   next.lastHistorySerial = st.lastHistorySerial;
+  next.lastAbs = st.lastAbs;
   next.paintFreqScale = st.paintFreqScale;
   next.paintSampleRate = st.paintSampleRate;
   next.paintMinFreq = st.paintMinFreq;
   next.paintMaxFreq = st.paintMaxFreq;
   next.historySeconds = st.historySeconds;
+  next.plateReady = true;
+  next.lutRgb = st.lutRgb || null;
   next.pendingValid = Boolean(st.pendingValid);
   if (st.pendingValid && st.pendingMags?.length) {
     // Bilinear-ish vertical remap of pending column (sample neighbors).
@@ -491,8 +516,7 @@ function spectrogramScrollPaintPixels(st, nPixels, lutRgb, brightness, contrast)
 
   // Integer scroll of permanent ink (nearest-neighbor only).
   if (n >= w) {
-    sctx.fillStyle = "#000000";
-    sctx.fillRect(0, 0, w, h);
+    spectrogramFillBrightness(sctx, lutRgb, 0, 0, 0, w, h);
   } else {
     sctx.globalCompositeOperation = "copy";
     sctx.imageSmoothingEnabled = false;
@@ -500,10 +524,9 @@ function spectrogramScrollPaintPixels(st, nPixels, lutRgb, brightness, contrast)
     sctx.globalCompositeOperation = "source-over";
   }
 
-  // 0 brightness: scroll history, deposit nothing (black strip).
+  // Brightness 0: scroll history, deposit the gradient at brightness 0.
   if (!Number.isFinite(bright) || bright === 0) {
-    sctx.fillStyle = "#000000";
-    sctx.fillRect(Math.max(0, w - n), 0, Math.min(n, w), h);
+    spectrogramFillBrightness(sctx, lutRgb, 0, Math.max(0, w - n), 0, Math.min(n, w), h);
     st.pendingValid = false;
     st.pendingMags.fill(0);
     return;
@@ -514,10 +537,9 @@ function spectrogramScrollPaintPixels(st, nPixels, lutRgb, brightness, contrast)
     const x = w - n + p;
     if (x < 0 || x >= w) continue;
     for (let y = 0; y < h; y += 1) {
-      const t = spectrogramGrade01(nodeGraphFiniteNumber(st.pendingMags[y]), cont, bright);
-      const li = Math.min(255, Math.max(0, Math.floor(t * 255 + 1e-6)));
-      const idx = li * 3;
-      sctx.fillStyle = `rgb(${lutRgb[idx]},${lutRgb[idx + 1]},${lutRgb[idx + 2]})`;
+      const bright01 = spectrogramGrade01(nodeGraphFiniteNumber(st.pendingMags[y]), cont, bright);
+      sctx.globalAlpha = 1;
+      sctx.fillStyle = spectrogramCssAtBrightness(lutRgb, bright01);
       sctx.fillRect(x, y, 1, 1);
     }
   }
@@ -588,11 +610,11 @@ function spectrogramIngestHop(
   }
 }
 
-function spectrogramPresent(ctx, st, faceW, faceH, bg) {
+function spectrogramPresent(ctx, st, faceW, faceH, lutRgb) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalCompositeOperation = "source-over";
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, faceW, faceH);
+  // Empty plate is brightness 0 through the same LUT. Opaque. Not a fill color.
+  spectrogramFillBrightness(ctx, lutRgb, 0, 0, 0, faceW, faceH);
   if (!st?.canvas || faceW < 1 || faceH < 1) return;
   const srcW = Math.max(1, st.faceW | 0);
   const srcH = Math.max(1, st.faceH | 0);
@@ -643,7 +665,7 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
     Math.min(SPECTROGRAM_MAX_HISTORY_SECONDS, nodeGraphFiniteNumber(settings.historySeconds, 2)),
   );
 
-  const plateBg = "#000000";
+  const plateBg = spectrogramCssAtBrightness(lutRgb, 0);
   if (typeof nodeGraphFacePlateApplyCss === "function") {
     nodeGraphFacePlateApplyCss(screenElement, plateBg);
   }
@@ -659,6 +681,11 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
   const { hopSize, sampleRate, hopSerial, batchColumns } = spectrogramHopMeta(settings, node);
   const buf = spectrogramBufferSizeForFace(nodeId, faceW, faceH, screenElement);
   const st = spectrogramEnsureState(nodeId, buf.w, buf.h, historySeconds);
+  st.lutRgb = lutRgb;
+  if (!st.plateReady && st.ctx) {
+    spectrogramFillBrightness(st.ctx, lutRgb, 0, 0, 0, st.faceW, st.faceH);
+    st.plateReady = true;
+  }
 
   // Ink uses settings at paint time; already-drawn pixels stay as-is.
   st.paintFreqScale = freqScaleIdx;
@@ -669,26 +696,69 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
   const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen();
 
+  // Same silence rule as Instant Waterfall: linear amp at or below
+  // nodeGraphWaterfallPlanck() (nodeGraphPlanck / NODE_GRAPH_PLANCK) does not scroll.
+  // Eat the silent window so it does not burst-scroll when sound returns.
+  const liveIn = nodeGraphModuleScopeState?.buffers?.get?.(`${nodeId}:In`) || null;
+  if (!Number.isFinite(st.lastAbs) && typeof nodeGraphWaterfallUndrawn === "function") {
+    const seed = nodeGraphWaterfallUndrawn(liveIn, st.lastAbs);
+    if (Number.isFinite(seed.absEnd) && seed.count > 0) {
+      st.lastAbs = Math.max(0, seed.absEnd - seed.count);
+    }
+  }
+  const undrawn = typeof nodeGraphWaterfallUndrawn === "function"
+    ? nodeGraphWaterfallUndrawn(liveIn, st.lastAbs)
+    : { count: 0, absEnd: Number.NaN };
+  const silentHold = typeof nodeGraphWaterfallIncomingIsSilent === "function"
+    && nodeGraphWaterfallIncomingIsSilent(
+      { buffer: liveIn, slot: item?.slot },
+      settings,
+      undrawn,
+      liveIn,
+    );
+
   // Live hops only — permanent ink. (History rebuild / full recolor dropped.)
   if (!frozen && hopSerial > 0 && hopSerial !== st.lastHop) {
-    const bins = spectrumBins > 0
-      ? spectrumBins
-      : (spectrumBatch instanceof Float32Array && batchColumns > 0
-        ? Math.floor(spectrumBatch.length / batchColumns)
-        : 0);
-
-    if (
-      spectrumBatch instanceof Float32Array
-      && batchColumns > 0
-      && bins > 0
-      && spectrumBatch.length >= batchColumns * bins
-    ) {
-      for (let c = 0; c < batchColumns; c += 1) {
-        const col = spectrumBatch.subarray(c * bins, (c + 1) * bins);
+    if (silentHold) {
+      if (Number.isFinite(undrawn.absEnd) && undrawn.count > 0) {
+        st.lastAbs = undrawn.absEnd;
+      }
+      st.lastHop = hopSerial;
+    } else {
+      const bins = spectrumBins > 0
+        ? spectrumBins
+        : (spectrumBatch instanceof Float32Array && batchColumns > 0
+          ? Math.floor(spectrumBatch.length / batchColumns)
+          : 0);
+      let ingested = false;
+      if (
+        spectrumBatch instanceof Float32Array
+        && batchColumns > 0
+        && bins > 0
+        && spectrumBatch.length >= batchColumns * bins
+      ) {
+        for (let c = 0; c < batchColumns; c += 1) {
+          const col = spectrumBatch.subarray(c * bins, (c + 1) * bins);
+          spectrogramIngestHop(
+            st,
+            col,
+            bins,
+            hopSize,
+            sampleRate,
+            freqScaleIdx,
+            lutRgb,
+            brightness,
+            minFreqHz,
+            maxFreqHz,
+            contrast,
+          );
+        }
+        ingested = true;
+      } else if (spectrumBins > 0 && spectrum) {
         spectrogramIngestHop(
           st,
-          col,
-          bins,
+          spectrum,
+          spectrumBins,
           hopSize,
           sampleRate,
           freqScaleIdx,
@@ -698,27 +768,18 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
           maxFreqHz,
           contrast,
         );
+        ingested = true;
       }
-      st.lastHop = hopSerial;
-    } else if (spectrumBins > 0 && spectrum) {
-      spectrogramIngestHop(
-        st,
-        spectrum,
-        spectrumBins,
-        hopSize,
-        sampleRate,
-        freqScaleIdx,
-        lutRgb,
-        brightness,
-        minFreqHz,
-        maxFreqHz,
-        contrast,
-      );
-      st.lastHop = hopSerial;
+      if (ingested) {
+        st.lastHop = hopSerial;
+        if (Number.isFinite(undrawn.absEnd) && undrawn.count > 0) {
+          st.lastAbs = undrawn.absEnd;
+        }
+      }
     }
   }
 
-  spectrogramPresent(ctx, st, faceW, faceH, plateBg);
+  spectrogramPresent(ctx, st, faceW, faceH, lutRgb);
 }
 
 /** Drop waterfall history so engine stop returns faces to a cold empty plate. */
@@ -730,8 +791,9 @@ function clearNodeGraphSpectrogramHistory() {
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.globalCompositeOperation = "source-over";
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(0, 0, st.canvas.width, st.canvas.height);
+        if (st.lutRgb) {
+          spectrogramFillBrightness(ctx, st.lutRgb, 0, 0, 0, st.canvas.width, st.canvas.height);
+        }
         ctx.restore();
       }
       if (st?.pendingMags?.fill) {
@@ -760,8 +822,9 @@ function clearNodeGraphSpectrogramHistoryForNode(nodeId) {
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = "#000000";
-      ctx.fillRect(0, 0, st.canvas.width, st.canvas.height);
+      if (st.lutRgb) {
+        spectrogramFillBrightness(ctx, st.lutRgb, 0, 0, 0, st.canvas.width, st.canvas.height);
+      }
       ctx.restore();
     }
     if (st.pendingMags?.fill) {

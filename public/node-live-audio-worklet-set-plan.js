@@ -237,6 +237,13 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       continue;
     }
 
+    // Spectrogram FFT is face analysis, not a DSP voice. The loop above must
+    // not call create*State. This map is what posts Spectrum; without it the
+    // face never receives a signal (audio keeps running).
+    if (typeof this.syncSpectrogramDisplayAnalysis === "function") {
+      this.syncSpectrogramDisplayAnalysis(ids, sessionRestarted);
+    }
+
     // Efficient: drop any leftover JS smoother state (C++ owns the chase).
     if (efficientProduct && this.smoothers?.size) {
       this.smoothers.clear();

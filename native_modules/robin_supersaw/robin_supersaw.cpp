@@ -92,6 +92,8 @@ struct DitherVoiceState {
   double centsOffset;
   // Fixed until Reset: scaled live by Random Phase as a phase offset.
   double phaseRandom;
+  // Raw Inc jack, cycles/sample, accumulated beside the Hz phase slope.
+  double incPhase;
   // Portamento (Supersaw-style glide of voice Hz toward target).
   double targetHz;
   double currentHz;
@@ -130,11 +132,14 @@ static void beginCycleFromPitch(DitherVoiceState& voice);
 // Base phasor advance + live Random Phase offset (voice.phaseRandom × amount).
 // Amount is not hard-clamped — param domain min/max are UI guides only.
 // Pitch jitter is applied as Hz only at cycle boundaries (AA-coherent).
-double getSamplePhasor(DitherVoiceState& v, double randomPhaseAmount) {
-  const double base = v.phaseSlope * v.sampleCount;
+double getSamplePhasor(DitherVoiceState& v, double randomPhaseAmount, double incrementCycles) {
+  const double inc = (incrementCycles == incrementCycles) ? incrementCycles : 0.0;
+  const double base = v.phaseSlope * v.sampleCount + v.incPhase;
   const double amount = safe(randomPhaseAmount);
   const double p = wrap01(base + v.phaseRandom * amount);
   v.sampleCount += 1.0;
+  v.incPhase += inc;
+  v.incPhase -= floorD(v.incPhase);
   if (v.sampleCount >= v.lenNow) {
     v.sampleCount = 0.0;
     beginCycleFromPitch(v);
@@ -642,7 +647,8 @@ double sumPreparedVoiceBank(
   double jitterSpeedHz,
   double jitterDepthCents,
   double jitterFilterHz,
-  int jitterFixedSteps
+  int jitterFixedSteps,
+  double incrementCycles
 ) {
   double sum = 0.0;
   double norm = 0.0;
@@ -651,7 +657,7 @@ double sumPreparedVoiceBank(
       bank[i], safeSampleRate, portaOn, jitterSpeedHz, jitterDepthCents, jitterFilterHz,
       jitterFixedSteps
     );
-    double saw = sawFromPhasor(getSamplePhasor(bank[i], randomPhaseAmount));
+    double saw = sawFromPhasor(getSamplePhasor(bank[i], randomPhaseAmount, incrementCycles));
     double amp = 1.0;
     if (lastFrac > 0.0 && i == voiceCount - 1) amp = lastFrac;
     sum += saw * amp;
@@ -695,6 +701,7 @@ void seedBank(DitherVoiceState* bank, int instanceIndex, int channelSalt) {
     voice.sampleCount = 0.0;
     voice.centsOffset = 0.0;
     voice.phaseRandom = randomUnit(voice.rngState);
+    voice.incPhase = 0.0;
     voice.targetHz = 0.0;
     voice.currentHz = 0.0;
     voice.portaUnit = randomUnit(voice.rngState);
@@ -790,6 +797,7 @@ void mixAlternatingBank(
   double jitterDepthCents,
   double jitterFilterHz,
   int jitterFixedSteps,
+  double incrementCycles,
   double* outL,
   double* outR
 ) {
@@ -802,7 +810,7 @@ void mixAlternatingBank(
       bank[i], safeSampleRate, portaOn, jitterSpeedHz, jitterDepthCents, jitterFilterHz,
       jitterFixedSteps
     );
-    double saw = sawFromPhasor(getSamplePhasor(bank[i], randomPhaseAmount));
+    double saw = sawFromPhasor(getSamplePhasor(bank[i], randomPhaseAmount, incrementCycles));
     double amp = 1.0;
     if (lastFrac > 0.0 && i == voiceCount - 1) amp = lastFrac;
     const double pan = alternatingPan(i, voiceCount);
@@ -836,6 +844,8 @@ void resetBanks(RobinSupersawState& s) {
     }
     s.left[v].sampleCount = 0.0;
     s.right[v].sampleCount = 0.0;
+    s.left[v].incPhase = 0.0;
+    s.right[v].incPhase = 0.0;
     rerollPhaseRandom(s.left[v]);
     rerollPhaseRandom(s.right[v]);
     s.left[v].portaUnit = randomUnit(s.left[v].rngState);
@@ -897,6 +907,7 @@ extern "C" void soemdsp_robin_supersaw_process_block(
   double detuneTilt,
   double maxVoiceHz,
   double resetGate,
+  double incrementCycles,
   int frameCount
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
@@ -966,16 +977,16 @@ extern "C" void soemdsp_robin_supersaw_process_block(
       // Dual channel: N voices per side, independent dither.
       left = sumPreparedVoiceBank(
         s.left, voiceCount, lastFrac, safeRandomPhase, safeSampleRate, portaOn,
-        jitSpeed, jitDepth, jitFilter, jitFixed
+        jitSpeed, jitDepth, jitFilter, jitFixed, incrementCycles
       );
       right = sumPreparedVoiceBank(
         s.right, voiceCount, lastFrac, safeRandomPhase, safeSampleRate, portaOn,
-        jitSpeed, jitDepth, jitFilter, jitFixed
+        jitSpeed, jitDepth, jitFilter, jitFixed, incrementCycles
       );
     } else {
       mixAlternatingBank(
         s.left, voiceCount, lastFrac, safeRandomPhase, safeSampleRate, portaOn,
-        jitSpeed, jitDepth, jitFilter, jitFixed, &left, &right
+        jitSpeed, jitDepth, jitFilter, jitFixed, incrementCycles, &left, &right
       );
     }
     if (!(left * 0.0 == 0.0)) left = 0.0;
@@ -1019,7 +1030,7 @@ extern "C" void soemdsp_robin_supersaw_sample(
     handle, frequencyHz, sampleRate, detuneCents, voicesExact, level, phaseSpread,
     stereoMode, detuneAlgorithm, portaTimeMin, portaTimeMax, portamentoStyle,
     jitterSpeed, jitterDepth, jitterFilter, jitterSteps, detuneTilt, maxVoiceHz,
-    resetGate, 1
+    resetGate, 0.0, 1
   );
 }
 

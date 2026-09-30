@@ -434,19 +434,6 @@ function nodeGraphXyPadPhosphorTargetUnit(pad) {
 // Host canvas is the pad face; residual lives in the WebGL energy FBO.
 const nodeGraphXyPadPhosphorKey = "_xyPadPhosphorEnergyGl";
 
-function nodeGraphXyPadPeakRgbBytes(hex) {
-  if (
-    typeof nodeGraphScopeHexColorToRgb === "function"
-    && typeof nodeGraphScopeRgbFloatsToCanvasRgb === "function"
-  ) {
-    return nodeGraphScopeRgbFloatsToCanvasRgb(
-      nodeGraphScopeHexColorToRgb(hex || "#7fc7d9"),
-    );
-  }
-  const { r, g, b } = nodeGraphXyPadParseHexColor(hex, { r: 127, g: 199, b: 217 });
-  return [r, g, b];
-}
-
 function nodeGraphXyPadDestroyPhosphor(canvas) {
   if (!canvas) {
     return;
@@ -466,8 +453,8 @@ function nodeGraphXyPadDestroyPhosphor(canvas) {
 }
 
 /**
- * Step + present the pad phosphor via the shared energy drawer
- * (mono FBO + LUT beams — same path as 2D Phosphor / scope2d).
+ * Step pad beams, then present with the shared 2D Phosphor opaque path.
+ * (mono FBO + gradient LUT — not a pad-local phosphor).
  * liveDeposit: fade + deposit a continuous beam ribbon; false = hold FBO.
  */
 function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {}) {
@@ -489,45 +476,16 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
   // Alias so live-stop / clear paths that scan _phosphorEnergyGl also find us.
   canvas._phosphorEnergyGl = face;
 
-  const bgHex = options.background || "#000000";
-  // Multi-stop energy→color LUT from shared gradient editor (preferred).
-  const gradientStops = Array.isArray(options.gradientStops) && options.gradientStops.length >= 2
-    ? options.gradientStops
-    : (typeof nodeGraphPhosphorGradientStopsFromSettings === "function"
-      ? nodeGraphPhosphorGradientStopsFromSettings({
-        gradientStops: options.gradientStops,
-        background: bgHex,
-        dot1Color: options.phosphorColor || "#7fc7d9",
-      }, options.phosphorColor || "#7fc7d9")
-      : null);
-  // Rebuild LUT only when stops / peak color change (hot path while dragging).
-  const lutKey = gradientStops
-    ? `stops:${gradientStops.map((s) => `${s.t}|${s.color}`).join(";")}`
-    : `peak:${options.phosphorColor || "#7fc7d9"}|${bgHex}`;
-  if (face._xyPadLutKey !== lutKey) {
-    let lutOk = false;
-    if (gradientStops) {
-      if (drawer?.setLutStops) {
-        lutOk = drawer.setLutStops(face, gradientStops);
-      } else if (typeof nodeGraphPhosphorEnergyGlSetLutFromStops === "function") {
-        lutOk = Boolean(nodeGraphPhosphorEnergyGlSetLutFromStops(face, gradientStops));
-      } else if (typeof nodeGraphPhosphorApplyGradientLut === "function") {
-        lutOk = nodeGraphPhosphorApplyGradientLut(face, {
-          gradientStops,
-          background: bgHex,
-          dot1Color: options.phosphorColor,
-        }, options.phosphorColor || "#7fc7d9");
-      }
-    }
-    if (!lutOk) {
-      const peakRgb = nodeGraphXyPadPeakRgbBytes(options.phosphorColor || "#7fc7d9");
-      if (drawer?.setLut) {
-        drawer.setLut(face, peakRgb, bgHex);
-      } else if (typeof nodeGraphPhosphorEnergyGlSetLutFromPeak === "function") {
-        nodeGraphPhosphorEnergyGlSetLutFromPeak(face, peakRgb, bgHex);
-      }
-    }
-    face._xyPadLutKey = lutKey;
+  // Same LUT + opaque present as 2D Phosphor. No pad-local peak/bgHex LUT.
+  const plateRaw = Number(options.backgroundBrightness);
+  const plate01 = Number.isFinite(plateRaw) ? Math.max(0, Math.min(1, plateRaw)) : 0;
+  const lutSettings = options.displaySettings || {
+    gradientStops: options.gradientStops,
+    dot1Color: options.phosphorColor,
+    backgroundBrightness: plate01,
+  };
+  if (typeof nodeGraphPhosphorApplyGradientLut === "function") {
+    nodeGraphPhosphorApplyGradientLut(face, lutSettings, options.phosphorColor || "#75ebff");
   }
 
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
@@ -642,35 +600,22 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
       });
     }
   }
-  const exposure = drawer?.exposure
-    ? drawer.exposure()
-    : 2.9;
-  if (typeof nodeGraphPhosphorEnergyGlPresent === "function") {
-    if (!nodeGraphPhosphorEnergyGlPresent(face, 1, { exposure })) {
-      face._xyPadPresentedIdle = true;
-      return false;
-    }
-    face._xyPadPresentedIdle = !liveDeposit;
-    ctx.save();
-    // Energy is already additive mono; LUT paints color (incl. dark peaks).
-    ctx.globalCompositeOperation = "source-over";
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(face.canvas, 0, 0, width, height);
-    ctx.restore();
-    return true;
+  if (typeof nodeGraphPhosphorEnergyGlPresent !== "function") {
+    return false;
   }
-  if (drawer?.presentTo) {
-    const ok = drawer.presentTo(face, ctx, {
-      exposure,
-      width,
-      height,
-      smooth: true,
-      composite: "source-over",
-    });
-    face._xyPadPresentedIdle = !liveDeposit;
-    return ok;
+  // Shared 2D Phosphor present: brightness, then gradient LUT, alpha 1.
+  if (!nodeGraphPhosphorEnergyGlPresent(face, 1, { scope2dOpaque: true, plate: plate01 })) {
+    face._xyPadPresentedIdle = true;
+    return false;
   }
-  return false;
+  face._xyPadPresentedIdle = !liveDeposit;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(face.canvas, 0, 0, width, height);
+  ctx.restore();
+  return true;
 }
 
 function drawNodeGraphXyPad(pad, options = {}) {
@@ -735,10 +680,9 @@ function drawNodeGraphXyPad(pad, options = {}) {
     : (typeof nodeGraphPhosphorGradientStopsFromSettings === "function"
       ? nodeGraphPhosphorGradientStopsFromSettings(display, "#7fc7d9")
       : null);
-  const bgHex = gradientStops?.[0]?.color || display.background || "#000000";
   const phosphorHex = gradientStops?.[gradientStops.length - 1]?.color
     || display.dot1Color
-    || "#7fc7d9";
+    || "#75ebff";
   // Face = phosphor of Out X/Y (same idea as wiring Out → scope2d) + vector UI.
   const brightness = Math.max(0, Math.min(1, nodeGraphFiniteNumber(display.dot1Brightness, 0.78)));
   const ResidualUx = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
@@ -812,10 +756,7 @@ function drawNodeGraphXyPad(pad, options = {}) {
     pad._xyPadLastDrawFp = null;
   }
 
-  // ── Phosphor screen (energy residual of Out X/Y) ─────────────────────
-  ctx.fillStyle = bgHex;
-  ctx.fillRect(0, 0, width, height);
-
+  // ── Phosphor screen (shared 2D Phosphor present of Out X/Y) ──────────
   let pathPoints = null;
   let liveDeposit = false;
   if (outPath?.points?.length) {
@@ -846,8 +787,9 @@ function drawNodeGraphXyPad(pad, options = {}) {
     liveDeposit,
     pathPoints,
     phosphorColor: phosphorHex,
-    background: bgHex,
     gradientStops,
+    displaySettings: display,
+    backgroundBrightness: display.backgroundBrightness,
     // Prefer trail/ghost/burn (display settings UX); step helper migrates legacy.
     trail: trailUx,
     ghost: ghostUx,

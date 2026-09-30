@@ -158,7 +158,8 @@ extern "C" double soemdsp_softwave_sample(
   double morph,
   double phaseOffset,
   double level,
-  double antialias
+  double antialias,
+  double incrementIn
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   SoftwaveState& s = gPool[handle - 1];
@@ -169,7 +170,9 @@ extern "C" double soemdsp_softwave_sample(
   double gain = (level * 0.0 == 0.0) ? level : 1.0;
   if (gain < 0.0) gain = 0.0;
   if (gain > 1.0) gain = 1.0;
-  const double increment = f / rate;
+  // incrementIn is cycles/sample, same unit as f/rate.
+  const double incIn = (incrementIn == incrementIn) ? incrementIn : 0.0;
+  const double increment = f / rate + incIn;
   s.phase = wrap01(s.phase + increment);
   const double po = wrap01(phaseOffset);
   const double aa = antialias > 0.0 ? antialias : 0.0;

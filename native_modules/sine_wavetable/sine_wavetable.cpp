@@ -104,7 +104,8 @@ extern "C" void soemdsp_sine_wavetable_sample(
   double phaseOffsetRadians,
   double frequency,
   double amplitude,
-  double sampleRate
+  double sampleRate,
+  double increment
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   SineWavetableState& s = gPool[handle - 1];
@@ -134,7 +135,9 @@ extern "C" void soemdsp_sine_wavetable_sample(
   s.outSin = sn * level;
   s.outCos = cn * level;
 
-  const double phaseIncrement = safeFrequency / rate;
+  // increment is cycles/sample, same unit as frequency/rate.
+  double incIn = (increment == increment) ? increment : 0.0;
+  const double phaseIncrement = safeFrequency / rate + incIn;
   double nextPhase = s.phase + kTwoPi * phaseIncrement;
   nextPhase = nextPhase - kTwoPi * dsp_floor(nextPhase / kTwoPi);
   if (nextPhase < 0.0) nextPhase += kTwoPi;

@@ -44,6 +44,32 @@ NodeLiveAudioProcessor.prototype.createSpectrogramState = function createSpectro
   };
 };
 
+// Display analysis only. setPlan must not call create*State (DSP door).
+// Without this map, postModuleScopeSnapshot never emits Spectrum.
+NodeLiveAudioProcessor.prototype.syncSpectrogramDisplayAnalysis = function syncSpectrogramDisplayAnalysis(liveIds, reset) {
+  if (!(this.spectrogramStates instanceof Map)) {
+    this.spectrogramStates = new Map();
+  }
+  if (reset) {
+    this.spectrogramStates.clear();
+  }
+  const ids = liveIds instanceof Set ? liveIds : null;
+  for (const [id, node] of this.nodes || []) {
+    if (String(node?.type || "") !== "spectrogram") continue;
+    if (ids && !ids.has(id)) continue;
+    if (!this.spectrogramStates.has(id)) {
+      this.spectrogramStates.set(id, this.createSpectrogramState());
+    }
+  }
+  for (const id of [...this.spectrogramStates.keys()]) {
+    const node = this.nodes?.get?.(id);
+    if (!node || String(node.type || "") !== "spectrogram" || (ids && !ids.has(id))) {
+      this.spectrogramStates.delete(id);
+    }
+  }
+};
+
+
 // Radix-2 Cooley-Tukey FFT (in-place on real/imag arrays).
 NodeLiveAudioProcessor.prototype.spectrogramFft = function spectrogramFft(real, imag) {
   const n = real.length;

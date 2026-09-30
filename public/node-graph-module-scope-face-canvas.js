@@ -52,6 +52,12 @@ function nodeGraphScopeFaceCanvasIsUsable(canvas) {
   if (!(canvas instanceof HTMLCanvasElement)) {
     return false;
   }
+  if (canvas._wfUseWebGL || canvas._wfGl) {
+    if (canvas._wfGl && typeof canvas._wfGl.isContextLost === "function" && canvas._wfGl.isContextLost()) {
+      return false;
+    }
+    return true;
+  }
   try {
     return Boolean(canvas.getContext("2d"));
   } catch (_error) {
@@ -333,8 +339,9 @@ function syncNodeGraphModuleScopeFaceCanvasTape(canvas, screenElement, pixelRati
     resized = true;
     const previousWidth = canvas.width;
     const previousHeight = canvas.height;
+    const webglFace = canvas._wfUseWebGL === true || Boolean(canvas._wfGl);
     let previousCanvas = null;
-    if (previousWidth > 0 && previousHeight > 0) {
+    if (!webglFace && previousWidth > 0 && previousHeight > 0) {
       previousCanvas = document.createElement("canvas");
       previousCanvas.width = previousWidth;
       previousCanvas.height = previousHeight;
@@ -346,7 +353,7 @@ function syncNodeGraphModuleScopeFaceCanvasTape(canvas, screenElement, pixelRati
     canvas.width = width;
     canvas.height = height;
     canvas._nodeGraphScope2dLastDrawnPoint = null;
-    const context = previousCanvas ? canvas.getContext("2d") : null;
+    const context = (!webglFace && previousCanvas) ? canvas.getContext("2d") : null;
     if (context) {
       context.imageSmoothingEnabled = density >= 0.999;
       context.drawImage(previousCanvas, 0, 0, previousWidth, previousHeight, 0, 0, width, height);

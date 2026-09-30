@@ -627,6 +627,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
     : nodeGraphTraceDisplayClampHistorySeconds(value)),
   lineLength: nodeGraphTraceDisplayClampUnit,
   lineThickness: nodeGraphTraceDisplayClampNonNegative,
+  faceBlur: nodeGraphTraceDisplayClampUnit,
   lineBlur: (value) => clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 8),
   stampDensity: nodeGraphTraceDisplayClampUnit,
   shapeParam: nodeGraphTraceDisplayClampUnit,
@@ -888,6 +889,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     dot1Size: nodeGraphTraceDisplayClampInkPx,
     secondarySize: nodeGraphTraceDisplayClampInkPx,
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
+    faceBlur: nodeGraphTraceDisplayClampUnit,
     secondaryLineThickness: nodeGraphTraceDisplayClampStampBlur,
     brightness: nodeGraphTraceDisplayClampBrightness,
     dot1Brightness: nodeGraphTraceDisplayClampBrightness,
@@ -897,6 +899,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   waterfallRgb: Object.freeze({
     dot1Size: nodeGraphTraceDisplayClampInkPx,
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
+    faceBlur: nodeGraphTraceDisplayClampUnit,
     brightness: nodeGraphTraceDisplayClampBrightness,
     dot1Brightness: nodeGraphTraceDisplayClampBrightness,
     barThickness: nodeGraphTraceDisplayClampUnit,
@@ -904,6 +907,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   waterfallXyz: Object.freeze({
     dot1Size: nodeGraphTraceDisplayClampInkPx,
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
+    faceBlur: nodeGraphTraceDisplayClampUnit,
     brightness: nodeGraphTraceDisplayClampBrightness,
     dot1Brightness: nodeGraphTraceDisplayClampBrightness,
     barThickness: nodeGraphTraceDisplayClampUnit,

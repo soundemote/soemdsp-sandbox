@@ -617,6 +617,14 @@ First consumers: Music Player, fbmField, Instant Waterfall compositor, RoundShap
 
 **Edits and additions under `library/include/soemdsp/` require prior approval from the Architect (Argi).** Agents and contributors must not add helpers, change signatures, or refactor topic headers without that sign-off. Propose the change (what, why, which callers) and wait for yes before touching the library.
 
+## 20. Do not hardcode quantization the step already owns
+
+**Do not hardcode quantization of a parameter in DSP or in the native param push when leaving it continuous has no consequence.**
+
+That ban applies only when all three are true: there is no consequence for leaving the value continuous, the DSP does not need an integer or a stepped value, and the parameter can already quantize through its own step. A hardcoded round or discrete snap in that case fights the parameter step. Do not do it.
+
+**Pitch Manager** octave and semitones were forced to integers even after step was set to 0. **Frequency Manager** octave and semitones are the same case as Pitch Manager: do not hardcode them discrete when the parameter step can already quantize them.
+
 ## Amendments
 
 Add new rules here when the same class of mistake happens twice. Keep this file short and enforceable.

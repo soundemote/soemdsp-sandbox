@@ -1581,6 +1581,7 @@ inline void sum_sample(
   float frequencyHz,
   float masterAmp,
   float sampleRate,
+  double incrementCycles,
   float* mono,
   float* left,
   float* right,
@@ -1650,7 +1651,9 @@ inline void sum_sample(
     }
     const float hz = baseRatio * f0;
 
-    const double inc = (double)hz / (double)sr;
+    // incrementCycles is cycles/sample on the fundamental (same unit as hz/sr).
+    const double incIn = (incrementCycles == incrementCycles) ? incrementCycles : 0.0;
+    const double inc = (double)baseRatio * ((double)f0 / (double)sr + incIn);
     phaseAcc[i] = soemdsp_maths::wrap01(phaseAcc[i] + inc);
 
     float partialPhase = g.hasPhaseLerp

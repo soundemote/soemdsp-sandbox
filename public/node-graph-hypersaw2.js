@@ -89,6 +89,7 @@ function nodeGraphHypersaw2Sample(state, options = {}) {
     Number.isFinite(morph) ? morph : 0.5,
     level,
     Number.isFinite(seed) ? seed : 1,
+    0,
   );
   const n = wasm.soemdsp_hypersaw2_voice_count
     ? Math.max(0, Math.min(64, wasm.soemdsp_hypersaw2_voice_count(state.nativeHandle) | 0))

@@ -280,6 +280,7 @@ function nodeGraphModuleTypeHasCustomDisplayArea(type) {
     || layout === "filterCurve"
     || layout === "roundShape"
     || layout === "basicShape"
+    || layout === "sinCos"
     || layout === "envelopeCurve"
     || layout === "softClipperCurve"
     || layout === "pulseCurve"

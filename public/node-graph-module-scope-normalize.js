@@ -294,6 +294,7 @@ function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
     "dot",
     "lineBurn",
     "scope1dTrace",
+    "scope2dTrace",
     "numberReadout",
     "videoscopeBurn",
     "oscilloscopeBankBurn",
@@ -910,6 +911,12 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
         0,
         1,
       ),
+    faceBlur: normalizeNodeGraphTraceDisplayNumber(
+      source.faceBlur,
+      defaults.faceBlur ?? 0,
+      0,
+      1,
+    ),
     xyzLayout: String(source.xyzLayout || defaults.xyzLayout || "stack").toLowerCase() === "separate"
       ? "separate"
       : "stack",
@@ -1670,6 +1677,17 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
       defaults.dot1Brightness,
     )
     : mappedInk.brightness;
+  const rawSec = source.secondaryColor ?? defaults.secondaryColor ?? "#0000ff";
+  const secHex = typeof normalizeNodeGraphTraceDisplayColor === "function"
+    ? normalizeNodeGraphTraceDisplayColor(rawSec, defaults.secondaryColor ?? "#0000ff")
+    : String(rawSec || "#0000ff");
+  const mappedSec = typeof nodeGraphHueBrightnessFromHex === "function"
+    ? nodeGraphHueBrightnessFromHex(secHex, 240, 1)
+    : { hue: 240 };
+  const secHue = Number.isFinite(mappedSec.hue) ? mappedSec.hue : 240;
+  const secHueHex = typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(secHue)
+    : secHex;
   return {
     ...nodeGraphDisplaySettingsNormalizePlateLook(source, {
       ...defaults,
@@ -1678,6 +1696,7 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
     }),
     dot1Brightness: inkBright,
     dot1Color: inkHueHex,
+    secondaryColor: secHueHex,
     dot1Enabled: true,
     dot1Size: nodeGraphTraceDisplayNormalizeInkPx(source.dot1Size, defaults.dot1Size),
     ghost: typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
@@ -1696,6 +1715,14 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
     skipDiscontinuities: nodeGraphDisplaySettingsToggleIsOn(
       source.skipDiscontinuities ?? defaults.skipDiscontinuities,
     ),
+    gradientStops: ((Array.isArray(source.gradientStops) && source.gradientStops.length >= 2)
+      || (Array.isArray(source.gradient) && source.gradient.length >= 2))
+      ? (typeof nodeGraphPhosphorGradientStopsFromSettings === "function"
+        ? nodeGraphPhosphorGradientStopsFromSettings(source, inkHueHex)
+        : (source.gradientStops || source.gradient))
+      : (Array.isArray(defaults.gradientStops) && defaults.gradientStops.length >= 2
+        ? defaults.gradientStops.map((s) => ({ t: s.t, color: s.color }))
+        : undefined),
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
       : Math.max(8, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 2048)))),

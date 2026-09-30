@@ -485,6 +485,8 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     if (k === "delay") return P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR;
     if (k === "attack") return P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR;
     if (k === "release") return P.NATIVE_GRAPH_PARAM_OFFSET_MS;
+    if (k === "attackShape") return P.NATIVE_GRAPH_PARAM_LFO_STYLE;
+    if (k === "isIdleRelease") return P.NATIVE_GRAPH_PARAM_LFO_RATE;
   }
   if (t === "transport") {
     if (k === "beats") return P.NATIVE_GRAPH_PARAM_STAGES;
@@ -2182,8 +2184,12 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
           const dstId = keyStr.slice(0, dot);
           const paramKey = keyStr.slice(dot + 1);
           if (!idSet.has(dstId)) return;
-          if (discrete[paramKey]) return;
           const dstType = String(typeById.get(dstId) || "");
+          const continuousPitchManagerOverride = dstType === "pitchManager"
+            && (paramKey === "octave" || paramKey === "semitones");
+          const continuousFreqManagerOverride = dstType === "fm"
+            && (paramKey === "octave" || paramKey === "semitones");
+          if (discrete[paramKey] && !continuousPitchManagerOverride && !continuousFreqManagerOverride) return;
           if (zohOnlyTypes.has(dstType)) return;
           const paramId = typeof this.mapNativeGraphParamId === "function"
             ? this.mapNativeGraphParamId(dstType, paramKey)
@@ -3081,8 +3087,12 @@ NodeLiveAudioProcessor.prototype.compileNativeMetaVoiceCircuits = function compi
       const dstId = keyStr.slice(0, dot);
       const paramKey = keyStr.slice(dot + 1);
       const dstLane = byBase.get(dstId);
-      if (!dstLane || discrete[paramKey]) return;
-      const dstType = String(typeById?.get?.(dstId) || dstLane.type || "");
+      const dstType = String(typeById?.get?.(dstId) || dstLane?.type || "");
+      const continuousPitchManagerOverride = dstType === "pitchManager"
+        && (paramKey === "octave" || paramKey === "semitones");
+      const continuousFreqManagerOverride = dstType === "fm"
+        && (paramKey === "octave" || paramKey === "semitones");
+      if (!dstLane || (discrete[paramKey] && !continuousPitchManagerOverride && !continuousFreqManagerOverride)) return;
       const paramId = typeof this.mapNativeGraphParamId === "function"
         ? this.mapNativeGraphParamId(dstType, paramKey)
         : keyIds[paramKey];
@@ -3858,7 +3868,15 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     // Hypersaw Oscillators is continuous (Decimal ceil + trailing frac amp).
     const continuousVoicesOverride = key === "voices"
       && nodeType === "hypersaw2";
-    if (discreteKey && !continuousCurveOverride && !continuousVoicesOverride) {
+    const continuousPitchManagerOverride = nodeType === "pitchManager"
+      && (key === "octave" || key === "semitones");
+    const continuousFreqManagerOverride = nodeType === "fm"
+      && (key === "octave" || key === "semitones");
+    if (discreteKey
+      && !continuousCurveOverride
+      && !continuousVoicesOverride
+      && !continuousPitchManagerOverride
+      && !continuousFreqManagerOverride) {
       // Mark warm so next quantum can early-out (no smooth cells for discrete).
       if (cache[domainKey] == null) cache[domainKey] = "";
       if (cache[modeKey] == null) cache[modeKey] = -1;
@@ -4218,9 +4236,11 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "vibratoGenerator") {
       // frequency=speed, phase=offset, shape=morph, width=randomFreq, center=randomAmp.
-      // timeNumerator=delay, timeDenominator=attack, offsetMs=release (exp depth env).
-      // Gate→Mono. No cable: module skips to sustain. Reset→kPortReset.
-      // Fallbacks match the module parameter defaults (not one-off times).
+      // timeNumerator=delay, timeDenominator=attack, offsetMs=release,
+      // timingMode=releaseShape, lfoStyle=attackShape (stable ids: 0 log, 1 lin, 2 exp).
+      // lfoRate=isIdleRelease seconds. Gate→Mono. isIdle in/out → kPortIsIdle.
+      // No Gate cable: module skips to sustain. No isIdle cable: input is false.
+      // Reset→kPortReset. Fallbacks match the module parameter defaults.
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 3.5));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0));
@@ -4233,6 +4253,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("delay", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("delay", 0));
       push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.01));
       push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.1));
+      push("isIdleRelease", P.NATIVE_GRAPH_PARAM_LFO_RATE, cont("isIdleRelease", 0.1));
+      push("attackShape", P.NATIVE_GRAPH_PARAM_LFO_STYLE, disc("attackShape", 2));
+      push("releaseShape", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("releaseShape", 2));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -5535,8 +5558,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "pitchManager") {
       push("tuning", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("tuning", 440));
-      push("octave", P.NATIVE_GRAPH_PARAM_STAGES, disc("octave", 0));
-      push("semitones", P.NATIVE_GRAPH_PARAM_CENTER, disc("semitones", 0));
+      push("octave", P.NATIVE_GRAPH_PARAM_STAGES, cont("octave", 0));
+      push("semitones", P.NATIVE_GRAPH_PARAM_CENTER, cont("semitones", 0));
       push("cents", P.NATIVE_GRAPH_PARAM_WIDTH, cont("cents", 0));
       push("multiply", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("multiply", 1));
       push("add", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("add", 0));
@@ -5552,8 +5575,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "fm") {
-      push("octave", P.NATIVE_GRAPH_PARAM_MODE, disc("octave", 0));
-      push("semitones", P.NATIVE_GRAPH_PARAM_STAGES, disc("semitones", 0));
+      push("octave", P.NATIVE_GRAPH_PARAM_MODE, cont("octave", 0));
+      push("semitones", P.NATIVE_GRAPH_PARAM_STAGES, cont("semitones", 0));
       push("cents", P.NATIVE_GRAPH_PARAM_CENTER, cont("cents", 0));
       push("multiply", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("multiply", 1));
       push("add", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("add", 0));
@@ -7488,8 +7511,12 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         const dstId = keyStr.slice(0, dot);
         const paramKey = keyStr.slice(dot + 1);
         if (!idSet.has(dstId)) return;
-        if (discrete[paramKey]) return;
         const dstType = String(typeById.get(dstId) || "");
+        const continuousPitchManagerOverride = dstType === "pitchManager"
+          && (paramKey === "octave" || paramKey === "semitones");
+        const continuousFreqManagerOverride = dstType === "fm"
+          && (paramKey === "octave" || paramKey === "semitones");
+        if (discrete[paramKey] && !continuousPitchManagerOverride && !continuousFreqManagerOverride) return;
         if (zohOnlyTypes.has(dstType)) return;
         const paramId = typeof this.mapNativeGraphParamId === "function"
           ? this.mapNativeGraphParamId(dstType, paramKey)

@@ -3,10 +3,11 @@
 // soemdsp-native-target: robinOscillator
 // soemdsp-native-kind: oscillator
 //
-// Robin Schmidt / RS-MET cycle-length dither AA (same idea as Robin Supersaw
-// voices) plus Architect-approved mid-cycle frequency warp: when Hz changes
-// inside a cycle, retarget the remaining samples so phase stays continuous
-// and there is still exactly one wrap. Dither re-roll only at wrap.
+// Robin Schmidt / RS-MET cycle-length dither AA plus mid-cycle increment warp.
+// The algorithm takes one phase increment in cycles/sample. Frequency Hz is
+// converted at the graph boundary (Hz / sampleRate) and added to the inc port
+// before this module sees it. Dither cycle length and phase advance both come
+// from that increment. Dither re-rolls only at wrap.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -27,7 +28,7 @@ constexpr int kWavePulse = 5;
 constexpr int kWaveAnalogSquare = 6; // UI: Analog Square; same-direction peaks (naive_analog_square)
 constexpr int kWaveCount = 7;
 
-// Frequency-update style (choice param freqUpdate / Update).
+// Increment-update style (choice param freqUpdate / Update).
 constexpr int kFreqUpdateOnCycle = 0;       // bake next wrap only; no mid-cycle warp
 constexpr int kFreqUpdateWarpRemaining = 1; // option 1: warp + preserve ditherOffset
 constexpr int kFreqUpdateSnapRemaining = 2; // option 2: snap remaining via dithered fragment
@@ -49,25 +50,12 @@ static const char kMetadataJson[] =
     "]"
   "}";
 
-unsigned int xorshift32(unsigned int& state) {
-  unsigned int x = state;
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-  state = x;
-  return x;
-}
-
 double randomUnit(unsigned int& state) {
   return static_cast<double>(xorshift32(state) >> 8) * (1.0 / 16777216.0);
 }
 
-double floorD(double value) {
-  return __builtin_floor(value);
-}
-
 void calcCycleDistribution(double c, double* lenMid, double* probShort, double* probMid) {
-  const double ci = floorD(c);
+  const double ci = dsp_floor(c);
   const double cf = c - ci;
   double c2 = ci;
   if (cf >= 0.5) c2 += 1.0;
@@ -100,12 +88,11 @@ struct RobinOscState {
   double probShort;
   double probMid;
   double phaseSlope;
-  double phase; // absolute [0,1) — kept continuous across mid-cycle warp
-  double currentHz;
-  double sampleRateHz;
-  double hzCeiling;
+  double phase; // absolute [0,1) - kept continuous across mid-cycle warp
+  // Signed cycles/sample. Cycle length uses the magnitude. 0 freezes phase.
+  double currentInc;
   // Cycle-dither residual from last wrap: lenNow - meanCycleLength (same mean
-  // bakeDistribution used). Preserved across mid-cycle Hz warp so ±1-sample AA
+  // bakeDistribution used). Preserved across mid-cycle warp so +/-1-sample AA
   // does not vanish during sweeps. Re-rolled only at wrap (updateCycleLength).
   double ditherOffset;
   // Last applied freqUpdate style (-1 = unset). Mode changes force re-apply.
@@ -120,12 +107,15 @@ bool finiteValue(double value) {
   return value == value && value > -1.0e12 && value < 1.0e12;
 }
 
-double clampHz(double hz, double hzCeiling) {
-  double f = finiteValue(hz) ? hz : 0.0;
-  if (f < 0.0) f = -f;
-  const double ceil = (hzCeiling > 1.0) ? hzCeiling : 20000.0;
-  if (f > ceil) f = ceil;
-  return f;
+// Samples per cycle from a cycles/sample increment. |inc|==0 -> the 1e9 cap
+// (frozen / sub-audible). Same cap the old sr/Hz path used.
+double meanCycleSamples(double inc) {
+  const double a = dsp_fabs(inc);
+  if (!(a > 1.0e-15)) return 1.0e9;
+  double mean = 1.0 / a;
+  if (!(mean == mean) || mean > 1.0e9) return 1.0e9;
+  if (mean < 2.0) return 2.0;
+  return mean;
 }
 
 void updateCycleLength(RobinOscState& v) {
@@ -138,48 +128,70 @@ void updateCycleLength(RobinOscState& v) {
     v.lenNow = v.lenMid + 1.0;
   }
   if (!(v.lenNow > 1.0)) v.lenNow = 2.0;
-  // Mean matches bakeDistribution (sr / currentHz, same clamps).
-  const double sr = v.sampleRateHz > 1.0 ? v.sampleRateHz : 48000.0;
-  const double voiceFreq = clampHz(v.currentHz, v.hzCeiling);
-  double meanCycleLength = sr / (voiceFreq > 1.0e-9 ? voiceFreq : 1.0e-9);
-  if (!(meanCycleLength == meanCycleLength) || meanCycleLength > 1.0e9) {
-    meanCycleLength = 1.0e9;
-  }
-  if (meanCycleLength < 2.0) meanCycleLength = 2.0;
+  const double meanCycleLength = meanCycleSamples(v.currentInc);
   v.ditherOffset = v.lenNow - meanCycleLength;
-  v.phaseSlope = 1.0 / (v.lenNow - 1.0);
-}
-
-void bakeDistribution(RobinOscState& voice, double hz, double safeSampleRate) {
-  const double voiceFreq = clampHz(hz, voice.hzCeiling);
-  double meanCycleLength = safeSampleRate / (voiceFreq > 1.0e-9 ? voiceFreq : 1.0e-9);
-  if (!(meanCycleLength == meanCycleLength) || meanCycleLength > 1.0e9) {
-    meanCycleLength = 1.0e9;
+  // Exact 0 (and sub-threshold) freezes. A live increment, even with the
+  // Frequency knob at 0, keeps a real cycle length via meanCycleSamples.
+  if (!(dsp_fabs(v.currentInc) > 1.0e-15)) {
+    v.phaseSlope = 0.0;
+    return;
   }
-  if (meanCycleLength < 2.0) meanCycleLength = 2.0;
-  calcCycleDistribution(meanCycleLength, &voice.lenMid, &voice.probShort, &voice.probMid);
+  double slope = 1.0 / (v.lenNow - 1.0);
+  if (v.currentInc < 0.0) slope = -slope;
+  v.phaseSlope = slope;
 }
 
-void beginCycleFromPitch(RobinOscState& voice) {
-  const double sr = voice.sampleRateHz > 1.0 ? voice.sampleRateHz : 48000.0;
-  bakeDistribution(voice, voice.currentHz, sr);
+void bakeDistribution(RobinOscState& voice, double inc) {
+  calcCycleDistribution(meanCycleSamples(inc), &voice.lenMid, &voice.probShort, &voice.probMid);
+}
+
+// Cycles still to travel before the next wrap, in the direction of inc.
+double cyclesUntilWrap(double phi, double inc) {
+  if (inc < 0.0) {
+    if (!(phi > 0.0)) return 1.0;
+    return phi;
+  }
+  const double left = 1.0 - phi;
+  if (!(left > 0.0)) return 1.0;
+  return left;
+}
+
+void placePhaseInCycle(RobinOscState& voice, double phaseInto) {
+  voice.phase = wrap01(phaseInto);
+  const double slope = voice.phaseSlope;
+  if (slope > 1.0e-15) {
+    voice.sampleCount = voice.phase / slope;
+  } else if (slope < -1.0e-15) {
+    voice.sampleCount = (1.0 - voice.phase) / (-slope);
+  } else {
+    voice.sampleCount = 0.0;
+  }
+  if (!(voice.sampleCount >= 0.0) || !(voice.sampleCount < voice.lenNow)) {
+    voice.sampleCount = 0.0;
+  }
+}
+
+// Re-roll dither at a wrap. phaseInto keeps the fractional overshoot so the
+// edge is not snapped back to phase 0 (that drop aliases).
+void beginCycle(RobinOscState& voice, double phaseInto) {
+  bakeDistribution(voice, voice.currentInc);
   updateCycleLength(voice);
-  voice.sampleCount = 0.0;
-  voice.phase = 0.0;
+  placePhaseInCycle(voice, phaseInto);
 }
 
-// Mid-cycle Hz change: warp remaining period; preserve wrap ditherOffset.
+// Mid-cycle increment change: warp remaining period; preserve wrap ditherOffset.
 // Do not re-roll RNG mid-cycle (bakeDistribution updates next-wrap probs only).
-void warpRemainingCycle(RobinOscState& voice, double newHz, double safeSampleRate) {
+void warpRemainingCycle(RobinOscState& voice, double newInc) {
   double phi = voice.phase;
   if (!(phi == phi) || phi < 0.0) phi = 0.0;
   if (phi >= 1.0) phi = 0.0;
 
-  const double hz = clampHz(newHz, voice.hzCeiling);
-  voice.currentHz = hz;
-  bakeDistribution(voice, hz, safeSampleRate); // next wrap only
+  voice.currentInc = newInc;
+  bakeDistribution(voice, newInc); // next wrap only
 
-  double idealRemaining = (1.0 - phi) * safeSampleRate / (hz > 1.0e-9 ? hz : 1.0e-9);
+  const double cyclesLeft = cyclesUntilWrap(phi, newInc);
+  const double a = dsp_fabs(newInc);
+  double idealRemaining = (a > 1.0e-15) ? (cyclesLeft / a) : 1.0e9;
   double remaining = idealRemaining + voice.ditherOffset;
   if (remaining < 1.0) remaining = 1.0;
 
@@ -188,24 +200,24 @@ void warpRemainingCycle(RobinOscState& voice, double newHz, double safeSampleRat
     voice.lenNow = voice.sampleCount + 1.0;
     remaining = 1.0;
   }
-  // Advance remaining (1-phi) over remaining so phase stays continuous.
-  voice.phaseSlope = (1.0 - phi) / remaining;
+  const double mag = cyclesLeft / remaining;
+  voice.phaseSlope = (newInc < 0.0) ? -mag : mag;
 }
 
-// Mid-cycle Hz change: snap remaining to short/mid/long around the *new*
+// Mid-cycle increment change: snap remaining to short/mid/long around the *new*
 // ideal remaining (calcCycleDistribution on idealRemaining, then roll like
 // updateCycleLength). bakeDistribution still updates next-wrap probs.
-void snapRemainingCycle(RobinOscState& voice, double newHz, double safeSampleRate) {
+void snapRemainingCycle(RobinOscState& voice, double newInc) {
   double phi = voice.phase;
   if (!(phi == phi) || phi < 0.0) phi = 0.0;
   if (phi >= 1.0) phi = 0.0;
 
-  const double hz = clampHz(newHz, voice.hzCeiling);
-  voice.currentHz = hz;
-  bakeDistribution(voice, hz, safeSampleRate); // next wrap
+  voice.currentInc = newInc;
+  bakeDistribution(voice, newInc); // next wrap
 
-  double idealRemaining = (1.0 - phi) * safeSampleRate / (hz > 1.0e-9 ? hz : 1.0e-9);
-  double mean = idealRemaining;
+  const double cyclesLeft = cyclesUntilWrap(phi, newInc);
+  const double a = dsp_fabs(newInc);
+  double mean = (a > 1.0e-15) ? (cyclesLeft / a) : 1.0e9;
   if (!(mean == mean) || mean > 1.0e9) mean = 1.0e9;
   if (mean < 2.0) mean = 2.0;
 
@@ -230,43 +242,42 @@ void snapRemainingCycle(RobinOscState& voice, double newHz, double safeSampleRat
     voice.lenNow = voice.sampleCount + 1.0;
     picked = 1.0;
   }
-  voice.phaseSlope = (1.0 - phi) / picked;
+  const double mag = cyclesLeft / picked;
+  voice.phaseSlope = (newInc < 0.0) ? -mag : mag;
 }
 
-// Apply current Hz under the chosen Update style (also used on mode change).
-// Never zeros phase: 0 Hz freezes DC at the current phasor; leaving 0 retargets
-// remaining from phi (warp spirit + ditherOffset) without beginCycleFromPitch.
-void applyFrequencyForStyle(
+// Apply the combined cycles/sample increment under the chosen Update style.
+// Never zeros phase: a 0 increment freezes DC at the current phasor; leaving
+// 0 retargets remaining from phi (warp spirit + ditherOffset).
+void applyIncrementForStyle(
   RobinOscState& state,
-  double freq,
-  double rate,
+  double inc,
   int style,
   bool retargetOnCycle
 ) {
-  // Hold DC at current phase — do not advance or wrap-restart.
-  if (!(freq > 1.0e-9)) {
-    state.currentHz = 0.0;
-    bakeDistribution(state, 0.0, rate);
+  if (!(dsp_fabs(inc) > 1.0e-15)) {
+    state.currentInc = 0.0;
+    bakeDistribution(state, 0.0);
     state.phaseSlope = 0.0;
     return;
   }
 
   if (style == kFreqUpdateWarpRemaining) {
-    warpRemainingCycle(state, freq, rate);
+    warpRemainingCycle(state, inc);
     return;
   }
   if (style == kFreqUpdateSnapRemaining) {
-    snapRemainingCycle(state, freq, rate);
+    snapRemainingCycle(state, inc);
     return;
   }
 
   // On cycle: bake for next wrap. If frozen / re-apply asked, retarget remaining
-  // from current phase (same as warp math) — keep phase continuous.
-  const bool wasFrozen = !(state.phaseSlope > 1.0e-15);
-  state.currentHz = freq;
-  bakeDistribution(state, freq, rate);
+  // from current phase (same as warp math) - keep phase continuous.
+  const bool wasFrozen = !(dsp_fabs(state.phaseSlope) > 1.0e-15);
+  state.currentInc = inc;
+  bakeDistribution(state, inc);
   if (retargetOnCycle || wasFrozen) {
-    warpRemainingCycle(state, freq, rate);
+    warpRemainingCycle(state, inc);
   }
 }
 
@@ -308,20 +319,15 @@ double waveFromPhasor(double p, int waveform, double morph) {
 
 double robinOscSample(
   RobinOscState& state,
-  double frequencyHz,
+  double incrementCycles,
   double amplitude,
-  double sampleRate,
   double startPhaseCycles,
   int waveform,
   double morph,
   int freqUpdate,
   int reset
 ) {
-  const double rate = sampleRate > 1.0 ? sampleRate : 44100.0;
-  state.sampleRateHz = rate;
-  state.hzCeiling = 0.5 * rate;
-
-  const double freq = clampHz(frequencyHz, state.hzCeiling);
+  double inc = (incrementCycles == incrementCycles) ? incrementCycles : 0.0;
   const double amp = finiteValue(amplitude) ? amplitude : 0.0;
   int wave = waveform;
   if (wave < 0) wave = 0;
@@ -332,39 +338,36 @@ double robinOscSample(
   if (style > kFreqUpdateSnapRemaining) style = kFreqUpdateSnapRemaining;
 
   if (reset || !state.primed) {
-    state.currentHz = freq;
+    state.currentInc = inc;
     state.rngState ^= 0xA5A5u + static_cast<unsigned int>(state.sampleCount);
     if (state.rngState == 0) state.rngState = 0x1234567u;
     state.ditherOffset = 0.0;
-    bakeDistribution(state, freq, rate);
+    bakeDistribution(state, inc);
     updateCycleLength(state);
-    state.sampleCount = 0.0;
     double sp = finiteValue(startPhaseCycles) ? startPhaseCycles : 0.0;
-    state.phase = wrap01(sp);
-    if (state.phaseSlope > 1.0e-12) {
-      state.sampleCount = state.phase / state.phaseSlope;
-      if (state.sampleCount >= state.lenNow) state.sampleCount = 0.0;
-    }
+    placePhaseInCycle(state, sp);
     state.lastFreqUpdate = style;
     state.primed = true;
   } else {
     const bool modeChanged = (style != state.lastFreqUpdate);
-    const double prev = state.currentHz;
-    const double rel = (prev > 1.0e-12)
-      ? ((freq > prev ? freq - prev : prev - freq) / prev)
-      : (freq > 1.0e-12 ? 1.0 : 0.0);
+    const double prev = state.currentInc;
+    const double delta = dsp_fabs(inc - prev);
+    const double scale = dsp_fabs(prev);
+    const double rel = (scale > 1.0e-15)
+      ? (delta / scale)
+      : (dsp_fabs(inc) > 1.0e-15 ? 1.0 : 0.0);
 
     if (modeChanged) {
-      // Re-check frequency under the new Update method; never reset phase.
-      applyFrequencyForStyle(state, freq, rate, style, /*retargetOnCycle=*/true);
+      // Re-check increment under the new Update method; never reset phase.
+      applyIncrementForStyle(state, inc, style, /*retargetOnCycle=*/true);
       state.lastFreqUpdate = style;
     } else if (rel > 1.0e-9) {
-      // On cycle 0→Hz: retarget remaining from phi (unstick without phase=0).
-      const bool leavingZero = (prev <= 1.0e-9) && (freq > 1.0e-9);
-      applyFrequencyForStyle(state, freq, rate, style, /*retargetOnCycle=*/leavingZero);
+      // On cycle 0->inc: retarget remaining from phi (unstick without phase=0).
+      const bool leavingZero = !(scale > 1.0e-15) && (dsp_fabs(inc) > 1.0e-15);
+      applyIncrementForStyle(state, inc, style, /*retargetOnCycle=*/leavingZero);
     } else {
-      state.currentHz = freq;
-      if (!(freq > 1.0e-9)) {
+      state.currentInc = inc;
+      if (!(dsp_fabs(inc) > 1.0e-15)) {
         state.phaseSlope = 0.0;
       }
     }
@@ -373,12 +376,15 @@ double robinOscSample(
   const double p = state.phase;
   const double y = waveFromPhasor(p, wave, morph) * amp;
 
-  // 0 Hz: freeze advance/wrap so output holds as DC at current phase.
-  if (state.currentHz > 1.0e-9) {
+  // phaseSlope is the dithered cycles/sample step of currentInc. Do not add
+  // a second raw increment. That was the path that wrapped early and dropped
+  // the fractional overshoot.
+  if (dsp_fabs(state.phaseSlope) > 1.0e-15) {
     state.sampleCount += 1.0;
     state.phase += state.phaseSlope;
-    if (state.sampleCount >= state.lenNow || state.phase >= 1.0) {
-      beginCycleFromPitch(state);
+    if (state.sampleCount >= state.lenNow || state.phase >= 1.0 || state.phase < 0.0) {
+      const double into = state.phase;
+      beginCycle(state, into);
     }
   }
 
@@ -406,9 +412,7 @@ extern "C" int soemdsp_robin_oscillator_create() {
       s.probMid = 1.0;
       s.phaseSlope = 1.0;
       s.phase = 0.0;
-      s.currentHz = 100.0;
-      s.sampleRateHz = 48000.0;
-      s.hzCeiling = 24000.0;
+      s.currentInc = 0.0;
       s.ditherOffset = 0.0;
       s.lastFreqUpdate = -1;
       s.rngState = 0xC0FFEEu + static_cast<unsigned int>(index) * 97u;
@@ -437,9 +441,8 @@ extern "C" void soemdsp_robin_oscillator_reset(int handle) {
 
 extern "C" double soemdsp_robin_oscillator_sample(
   int handle,
-  double frequencyHz,
+  double incrementCycles,
   double amplitude,
-  double sampleRate,
   double startPhaseCycles,
   double waveform,
   double morph,
@@ -452,9 +455,8 @@ extern "C" double soemdsp_robin_oscillator_sample(
   int style = (int)(freqUpdate + (freqUpdate >= 0.0 ? 0.5 : -0.5));
   return robinOscSample(
     *state,
-    frequencyHz,
+    incrementCycles,
     amplitude,
-    sampleRate,
     startPhaseCycles,
     wave,
     morph,
@@ -465,9 +467,8 @@ extern "C" double soemdsp_robin_oscillator_sample(
 
 extern "C" void soemdsp_robin_oscillator_process_block(
   int handle,
-  double frequencyHz,
+  double incrementCycles,
   double amplitude,
-  double sampleRate,
   double startPhaseCycles,
   double waveform,
   double morph,
@@ -483,9 +484,8 @@ extern "C" void soemdsp_robin_oscillator_process_block(
   for (int frame = 0; frame < safeFrameCount; frame += 1) {
     state->blockOut[frame] = robinOscSample(
       *state,
-      frequencyHz,
+      incrementCycles,
       amplitude,
-      sampleRate,
       startPhaseCycles,
       wave,
       morph,

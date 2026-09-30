@@ -153,8 +153,11 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
     for (const [nodeId, state] of this.videoscopeStates) {
       this.videoscopeCollectDisplayData(nodeId, state, dataPorts);
     }
-    for (const [nodeId, state] of this.spectrogramStates) {
-      this.spectrogramCollectDisplayData(nodeId, state, dataPorts);
+    for (const [nodeId, state] of this.spectrogramStates || []) {
+      // Analysis throw must not kill process() — that mutes Output for good.
+      try {
+        this.spectrogramCollectDisplayData(nodeId, state, dataPorts);
+      } catch (_e) { /* keep audio; face keeps last hop */ }
     }
     // Pull Yellow Graph planes from native WASM for face relay.
     if (typeof this.syncNativeYellowGraphPublish === "function") {

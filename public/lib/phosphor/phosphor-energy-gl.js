@@ -178,6 +178,40 @@
     }
   `;
 
+  // 2D Phosphor only. Drawable brightness, then one LUT sample. Opaque.
+  // Empty texels are uPlate (backgroundBrightness), not a separate plate fill.
+  const PRESENT_SCOPE2D_FRAG = `
+    precision highp float;
+    varying vec2 vUv;
+    uniform sampler2D uEnergy;
+    uniform sampler2D uLut;
+    uniform float uPlate;
+    void main() {
+      float b = clamp(texture2D(uEnergy, vUv).r, 0.0, 1.0);
+      b = max(b, clamp(uPlate, 0.0, 1.0));
+      b = clamp(b, 0.0, 0.999);
+      vec3 c = texture2D(uLut, vec2(b, 0.5)).rgb;
+      gl_FragColor = vec4(c, 1.0);
+    }
+  `;
+
+  // 1D Phosphor / line burn only. Brightness 0-1, then one LUT sample. Opaque.
+  // Empty texels are uPlate (backgroundBrightness). No hue plate, no c * a.
+  const PRESENT_LINEBURN_FRAG = `
+    precision highp float;
+    varying vec2 vUv;
+    uniform sampler2D uEnergy;
+    uniform sampler2D uLut;
+    uniform float uPlate;
+    void main() {
+      float b = clamp(texture2D(uEnergy, vUv).r, 0.0, 1.0);
+      b = max(b, clamp(uPlate, 0.0, 1.0));
+      b = clamp(b, 0.0, 0.999);
+      vec3 c = texture2D(uLut, vec2(b, 0.5)).rgb;
+      gl_FragColor = vec4(c, 1.0);
+    }
+  `;
+
   // Full-screen blit used on resize (same idea as scope2d burn copy-on-resize).
   const COPY_FRAG = `
     precision mediump float;
@@ -610,6 +644,8 @@
 
     const stepProgram = linkProgram(gl, VERT, STEP_FRAG);
     const presentProgram = linkProgram(gl, VERT, PRESENT_FRAG);
+    const presentScope2dProgram = linkProgram(gl, VERT, PRESENT_SCOPE2D_FRAG);
+    const presentLineBurnProgram = linkProgram(gl, VERT, PRESENT_LINEBURN_FRAG);
     const copyProgram = linkProgram(gl, VERT, COPY_FRAG);
     const beamProgram = linkProgram(gl, BEAM_VERT, BEAM_FRAG);
     const dotProgram = linkProgram(gl, DOT_VERT, DOT_FRAG);
@@ -651,6 +687,26 @@
       uExposure: gl.getUniformLocation(presentProgram, "uExposure"),
       uFrame: gl.getUniformLocation(presentProgram, "uFrame"),
     };
+    let presentScope2d = null;
+    if (presentScope2dProgram) {
+      presentScope2d = {
+        program: presentScope2dProgram,
+        aPos: gl.getAttribLocation(presentScope2dProgram, "aPos"),
+        uEnergy: gl.getUniformLocation(presentScope2dProgram, "uEnergy"),
+        uLut: gl.getUniformLocation(presentScope2dProgram, "uLut"),
+        uPlate: gl.getUniformLocation(presentScope2dProgram, "uPlate"),
+      };
+    }
+    let presentLineBurn = null;
+    if (presentLineBurnProgram) {
+      presentLineBurn = {
+        program: presentLineBurnProgram,
+        aPos: gl.getAttribLocation(presentLineBurnProgram, "aPos"),
+        uEnergy: gl.getUniformLocation(presentLineBurnProgram, "uEnergy"),
+        uLut: gl.getUniformLocation(presentLineBurnProgram, "uLut"),
+        uPlate: gl.getUniformLocation(presentLineBurnProgram, "uPlate"),
+      };
+    }
     const copy = {
       program: copyProgram,
       aPos: gl.getAttribLocation(copyProgram, "aPos"),
@@ -699,6 +755,8 @@
       segmentScratch: new Float32Array(0),
       step,
       present,
+      presentScope2d,
+      presentLineBurn,
       copy,
       beam,
       dot,
@@ -775,6 +833,8 @@
       maskTexture,
       step: device.step,
       present: device.present,
+      presentScope2d: device.presentScope2d,
+      presentLineBurn: device.presentLineBurn,
       copy: device.copy,
       beam: device.beam,
       dot: device.dot,
@@ -1630,14 +1690,25 @@
 
   /**
    * Present energy×LUT into shared canvas (premultiplied RGBA), sized to this scope.
-   * options.exposure: optional soft film curve before LUT (scope2d / Lorenz beauty).
+   * options.exposure: optional soft film curve before LUT (shared present).
+   * options.scope2dOpaque: 2D Phosphor only — brightness, then LUT, alpha 1.
+   * options.lineBurnOpaque: 1D Phosphor / line burn only — same opaque plate, separate program.
    */
   function present(renderer, trailGain = 0.85, options = {}) {
     if (!isRendererLive(renderer)) {
       return false;
     }
+    const scope2dOpaque = options?.scope2dOpaque === true;
+    const lineBurnOpaque = options?.lineBurnOpaque === true;
     // Idle dark: skip present GPU pass (caller still draws solid background).
-    if (renderer.energyActive === false) {
+    // 2D Phosphor and 1D line burn still present so empty area is LUT(uPlate).
+    if (renderer.energyActive === false && !scope2dOpaque && !lineBurnOpaque) {
+      return false;
+    }
+    if (scope2dOpaque && !renderer.presentScope2d) {
+      return false;
+    }
+    if (lineBurnOpaque && !renderer.presentLineBurn) {
       return false;
     }
     const { gl, canvas } = renderer;
@@ -1655,26 +1726,37 @@
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.disable(gl.BLEND);
-    gl.useProgram(renderer.present.program);
+    const presentProg = lineBurnOpaque
+      ? renderer.presentLineBurn
+      : (scope2dOpaque ? renderer.presentScope2d : renderer.present);
+    gl.useProgram(presentProg.program);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, renderer.read.texture);
-    gl.uniform1i(renderer.present.uEnergy, 0);
+    gl.uniform1i(presentProg.uEnergy, 0);
 
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, renderer.lutTexture);
-    gl.uniform1i(renderer.present.uLut, 1);
+    gl.uniform1i(presentProg.uLut, 1);
 
-    gl.uniform1f(renderer.present.uTrailGain, Math.max(0, Math.min(2, nodeGraphFiniteNumber(trailGain, 0.85))));
-    const exposure = Number(options?.exposure);
-    gl.uniform1f(
-      renderer.present.uExposure,
-      Number.isFinite(exposure) && exposure > 0 ? exposure : 0,
-    );
-    if (renderer.present.uFrame) {
-      gl.uniform1f(renderer.present.uFrame, renderer.frameIndex || 0);
+    if (scope2dOpaque || lineBurnOpaque) {
+      const plate = Number(options?.plate);
+      gl.uniform1f(
+        presentProg.uPlate,
+        Number.isFinite(plate) ? Math.max(0, Math.min(1, plate)) : 0,
+      );
+    } else {
+      gl.uniform1f(renderer.present.uTrailGain, Math.max(0, Math.min(2, nodeGraphFiniteNumber(trailGain, 0.85))));
+      const exposure = Number(options?.exposure);
+      gl.uniform1f(
+        renderer.present.uExposure,
+        Number.isFinite(exposure) && exposure > 0 ? exposure : 0,
+      );
+      if (renderer.present.uFrame) {
+        gl.uniform1f(renderer.present.uFrame, renderer.frameIndex || 0);
+      }
     }
-    drawFullScreen(renderer, renderer.present);
+    drawFullScreen(renderer, presentProg);
     gl.bindTexture(gl.TEXTURE_2D, null);
     return true;
   }

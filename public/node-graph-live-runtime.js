@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=output-fade-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=robin-inc-fm-cont-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3241,13 +3241,13 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=sample-hold-uni-display-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=output-fade-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=freq-manager-cont-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=acid-sequencer-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=spectro-fft-state-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=no-macro-1",
   "./public/node-live-audio-worklet-handle-message.js?v=arp-override-1",
-  "./public/node-live-audio-worklet-scope-snapshot.js?v=ensemble-cloud-1",
-  "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=restore-fft-1",
+  "./public/node-live-audio-worklet-scope-snapshot.js?v=spectro-fft-state-1",
+  "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=spectro-fft-state-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111â€“124).
   "./public/modules/additiveGraph/additive-param-smooth.js?v=main-guard-1",

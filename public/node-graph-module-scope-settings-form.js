@@ -41,6 +41,13 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   if (key === "lineThickness" && formType === "hypersawBurn") {
     label = "Line thickness";
     title = "Phase-stem width as a fraction of face width: 0 = none, 1 = full screen. Sensitive near 0.";
+  } else if (key === "faceBlur" && (
+    formType === "waterfall"
+    || formType === "waterfallRgb"
+    || formType === "waterfallXyz"
+  )) {
+    label = "Blur";
+    title = "Gaussian blur of the waterfall face, 0 to 1. 0 = sharp bars. 1 = full blur.";
   } else if (key === "lineThickness" && (
     formType === "waterfall"
     || formType === "waterfallRgb"
@@ -97,10 +104,8 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "xyPad"
   )) {
     label = "\uD83D\uDCA1 Bright";
-    title = formType === "scope1dTrace"
-      ? "Beam brightness 0…1 (1 = full TraceWoscope intensity). Gradient owns color; Bright is deposit energy."
-      : formType === "scope2dTrace"
-      ? "Beam brightness 0…1 (black → full hue at 0.5 → white). Drag the Trace title to change hue."
+    title = (formType === "scope1dTrace" || formType === "scope2dTrace")
+      ? "Brightness 0-1 scales the trace channel. The gradient is looked up at that brightness, including the empty area. Not an opacity fade."
       : formType === "waterfall" || formType === "waterfallRgb" || formType === "waterfallXyz" || formType === "gradientVectorscopeFace" || formType === "value"
       ? "Ink light 0…1 (1 = full)."
       : "Stamp brightness 0…1 (single source of truth). 1 = full ink. Preview matches the face.";
@@ -593,6 +598,9 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}
     base = { ...base, defaultValue: "#ff0000" };
   } else if (formType === "waterfall" && options.stereo && key === "secondaryColor") {
     aria = "Right";
+    base = { ...base, defaultValue: "#0000ff" };
+  } else if (formType === "scope2dTrace" && key === "secondaryColor") {
+    aria = "Low-brightness end of the beam gradient";
     base = { ...base, defaultValue: "#0000ff" };
   } else if (formType === "waterfall" && (options.stereo || options.xyz) && key === "backgroundColor") {
     aria = "Background";
@@ -1334,21 +1342,24 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     ? ["dot1Color", "secondaryColor", "tertiaryColor"]
     : (isStereoWaterfallNode && type === "waterfall"
       ? ["dot1Color", "secondaryColor"]
-      : ["dot1Color"])
+      : (type === "scope2dTrace"
+        ? ["dot1Color", "secondaryColor"]
+        : ["dot1Color"]))
   ).filter((key) => activeColors.has(key) && allow("colors", key));
   const parts = [];
   const rows = [];
   const xyzInk = isXyzWaterfallNode && type === "waterfall";
   const rgbInk = type === "waterfallRgb";
   const stereoInk = isStereoWaterfallNode && type === "waterfall" && !xyzInk;
-  const inkHueTitle = type === "scope2dTrace";
+  const inkHueTitle = false;
   // Preview sits after Bright when present (RGB); otherwise after Size.
   const previewAfter = orderedPrimary.includes("dot1Brightness")
     ? "dot1Brightness"
     : "dot1Size";
   let previewPlaced = false;
   const pushPreview = () => {
-    if (previewPlaced) {
+    if (previewPlaced || isInstantWaterfall) {
+      previewPlaced = true;
       return;
     }
     rows.push(nodeGraphStampPreviewHtml(stereoInk, type, xyzInk, rgbInk));

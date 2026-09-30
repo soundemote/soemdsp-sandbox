@@ -63,7 +63,7 @@ const nodeGraphInstantWaterfallDisplayFieldOrder = Object.freeze([
   "backgroundBrightness",
   "backgroundHue",
   "dot1Brightness",
-  "lineThickness",
+  "faceBlur",
 ]);
 
 /** Instant Waterfall Right / secondary: Size → Blur → Bright. */
@@ -288,7 +288,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "backgroundBrightness",
       "backgroundHue",
       "dot1Brightness",
-      "lineThickness",
+      "faceBlur",
       "secondaryBrightness",
     ]),
     colors: Object.freeze(["dot1Color", "secondaryColor", "tertiaryColor", "backgroundColor"]),
@@ -404,17 +404,16 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   // 1D Trace: woscope beam + heart-monitor Sweep/Sync/Reset (not Waterfall scroll).
   // Color via shared Gradient editor → TraceWoscope LUT (not hue swatches).
-  // 2D Trace keeps solid hue+Bright additive blend — do not mirror this there.
+  // 2D Trace uses the same brightness->LUT path; its two hues are the stops.
   scope1dTrace: Object.freeze({
     fields: Object.freeze([
+      "scale",
       "sweepHz",
       "backgroundBrightness",
       "backgroundHue",
       "dot1Size",
-      "secondarySize",
       "pixelDensity",
       "dot1Brightness",
-      "secondaryBrightness",
       "ghost",
       "trail",
       "dotBudget",
@@ -423,8 +422,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["skipDiscontinuities", "sourceSync"]),
     choices: Object.freeze(["drawMode"]),
   }),
-  // 2D Trace = woscope XY beam. Ink is hue + plausible brightness.
-  // No History (live samples only). Ghost/Trail dest fade is internal.
+  // 2D Trace = woscope XY beam. Same gradient editor as 1D Trace.
+  // No History (live samples only). Ghost/Trail live in the brightness buffer.
   scope2dTrace: Object.freeze({
     fields: Object.freeze([
       "scale",
@@ -435,7 +434,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "dotBudget",
     ]),
-    colors: Object.freeze(["dot1Color"]),
+    colors: Object.freeze([]),
     toggles: Object.freeze(["skipDiscontinuities"]),
     choices: Object.freeze(["drawMode"]),
   }),
@@ -481,7 +480,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "backgroundBrightness",
       "backgroundHue",
       "dot1Brightness",
-      "lineThickness",
+      "faceBlur",
     ]),
     colors: Object.freeze(["backgroundColor"]),
     toggles: Object.freeze(["pauseOnSilence"]),
@@ -496,7 +495,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "backgroundBrightness",
       "backgroundHue",
       "dot1Brightness",
-      "lineThickness",
+      "faceBlur",
     ]),
     colors: Object.freeze(["backgroundColor"]),
     toggles: Object.freeze(["cmyMode", "skipDiscontinuities", "pauseOnSilence"]),
@@ -1601,6 +1600,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "decimal",
     id: "nodeTraceDisplayBrightness",
     title: "Peak deposit / present light 0–1 (1 = full). Number Readout LED: live light black→hue→white; Ghost/Trail stay on the gradient.",
+  }),
+  faceBlur: Object.freeze({
+    label: "Blur",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayWaterfallBlur",
+    title: "Gaussian blur of the waterfall face, 0 to 1. 0 = sharp bars. 1 = full blur.",
   }),
   lineThickness: Object.freeze({
     label: "Blur",

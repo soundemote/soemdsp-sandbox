@@ -78,11 +78,14 @@ double robinSample(
   double amplitude,
   double sampleRate,
   double startPhaseRadians,
-  int reset
+  int reset,
+  double incrementCycles
 ) {
   const double rate = sampleRate > 1.0 ? sampleRate : 44100.0;
   const double freq = finiteValue(frequencyHz) ? frequencyHz : 0.0;
-  double omega = wrapOmega((kTwoPi * freq) / rate);
+  // incrementCycles is cycles/sample, the same unit as freq/rate before * 2pi.
+  const double incIn = finiteValue(incrementCycles) ? incrementCycles : 0.0;
+  double omega = wrapOmega(kTwoPi * (freq / rate + incIn));
   const double amp = finiteValue(amplitude) ? amplitude : 0.0;
   const double phase = finiteValue(startPhaseRadians) ? startPhaseRadians : 0.0;
 
@@ -178,13 +181,14 @@ extern "C" double soemdsp_robin_sinusoid_sample(
   double amplitude,
   double sampleRate,
   double startPhaseRadians,
-  double reset
+  double reset,
+  double incrementCycles
 ) {
   RobinSinusoidState* state = stateForHandle(handle);
   if (!state) {
     return 0.0;
   }
-  return robinSample(*state, frequencyHz, amplitude, sampleRate, startPhaseRadians, reset > 0.5 ? 1 : 0);
+  return robinSample(*state, frequencyHz, amplitude, sampleRate, startPhaseRadians, reset > 0.5 ? 1 : 0, incrementCycles);
 }
 
 extern "C" void soemdsp_robin_sinusoid_process_block(
@@ -208,7 +212,8 @@ extern "C" void soemdsp_robin_sinusoid_process_block(
       amplitude,
       sampleRate,
       startPhaseRadians,
-      (reset > 0.5 && frame == 0) ? 1 : 0
+      (reset > 0.5 && frame == 0) ? 1 : 0,
+      0.0
     );
   }
 }

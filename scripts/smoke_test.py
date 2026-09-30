@@ -18801,6 +18801,7 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_vibrato_generator_reset",
             "soemdsp_vibrato_generator_sample",
             "soemdsp_vibrato_generator_out",
+            "soemdsp_vibrato_generator_is_idle",
             "soemdsp_vibrato_generator_version",
         ],
         "wow_and_flutter": [

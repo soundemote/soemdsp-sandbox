@@ -141,6 +141,8 @@ const nodeGraphWaterfallSettingsDefaults = Object.freeze({
   // Blur 0–1: hard column → soft skirt on filled bars (also aliased as blur).
   lineThickness: 0.15,
   blur: 0.15,
+  // Face gaussian. 0 = sharp bars. Legacy lineThickness does not turn this on.
+  faceBlur: 0,
   // Legacy stroke packing / lo-fi buffer knobs (kept for older patches; UI hidden).
   stampDensity: 0.5,
   dotBudget: 1024,
@@ -593,6 +595,7 @@ const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
   background: nodeGraphScopePhosphorLookDefaults.background,
   backgroundHue: nodeGraphScopePhosphorLookDefaults.backgroundHue,
   backgroundBrightness: 0,
+  gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
   // Beam ink: unit hue hex + plausible brightness (black → hue @ 0.5 → white).
   dot1Brightness: 0.5,
   dot1Color: typeof nodeGraphHueUnitHex === "function"
@@ -604,6 +607,9 @@ const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
     : nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
+  secondaryColor: typeof nodeGraphHueUnitHex === "function"
+    ? nodeGraphHueUnitHex(240)
+    : "#0000ff",
   ghost: typeof PhosphorResidual !== "undefined"
     ? PhosphorResidual.DEFAULT_GHOST
     : nodeGraphScopePhosphorLookDefaults.ghost,

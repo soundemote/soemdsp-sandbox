@@ -692,9 +692,25 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   const dotSpace = nodeGraphScope2dStrokeSpace(canvas);
   const layers = nodeGraphScope2dBurnLayers(settings, dotSpace);
   const layer = layers[0] || null;
-  // Multi-stop energy→color LUT from shared gradient editor.
-  const bgHex = nodeGraphFacePlateBackground(settings);
-  nodeGraphFacePlateApplyCss(screenElement, bgHex);
+  // Empty area is gradient(backgroundBrightness), not a hue plate.
+  const plateRaw = Number(settings?.backgroundBrightness);
+  const plate01 = Number.isFinite(plateRaw) ? Math.max(0, Math.min(1, plateRaw)) : 0;
+  const plateStops = typeof nodeGraphPhosphorGradientStopsFromSettings === "function"
+    ? nodeGraphPhosphorGradientStopsFromSettings(settings, "#75ebff")
+    : settings?.gradientStops;
+  let plateCss = "#000000";
+  if (typeof nodeGraphSampleGradientStopsRgb === "function") {
+    const rgb = nodeGraphSampleGradientStopsRgb(plateStops, plate01, "#000000");
+    const r = Number(rgb?.[0]);
+    const g = Number(rgb?.[1]);
+    const b = Number(rgb?.[2]);
+    if ([r, g, b].every((n) => Number.isFinite(n))) {
+      plateCss = "rgb(" + (r & 255) + "," + (g & 255) + "," + (b & 255) + ")";
+    }
+  }
+  if (typeof nodeGraphFacePlateApplyCss === "function") {
+    nodeGraphFacePlateApplyCss(screenElement, plateCss);
+  }
   nodeGraphPhosphorApplyGradientLut(energyGl, settings, "#75ebff");
 
   // Engine speed 0 (and other pause paths): never step energy — hold FBO as-is.
@@ -770,13 +786,16 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     }
   }
 
-  // Fixed film exposure (not a second brightness).
-  const exposure = nodeGraphScope2dEnergyBurnExposure();
+  // Opaque brightness then LUT. No hue fill, no lighter, no alpha fade.
+  // 2D Phosphor keeps scope2dOpaque. 1D line burn uses its own program.
   context.setTransform(1, 0, 0, 1, 0, 0);
-  nodeGraphFacePlateFillCanvas(context, canvas, bgHex);
-  if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
+  const presented = options.lineBurnOpaque === true
+    ? nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { lineBurnOpaque: true, plate: plate01 })
+    : nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { scope2dOpaque: true, plate: plate01 });
+  if (presented) {
     context.save();
-    context.globalCompositeOperation = "lighter";
+    context.globalCompositeOperation = "source-over";
+    context.globalAlpha = 1;
     // Always bilinear when compositing energy → face. Nearest upscale of a
     // sub-1 density FBO made continuous beams look stair-stepped / jagged.
     // (Pixel-density 0 1×1 “chunky” still soft-fills the plate.)
@@ -958,7 +977,7 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
   const endFrame = Number(buffer.nodeGraphScopeAbsoluteFrame);
   if (nodeGraphModuleScopePhosphorFrozen()) {
     // Freeze held phosphor; absorb cursor so resume does not flood the face.
-    drawNodeGraphRetainedBurnPath(item, pixelRatio, [], settings, { endFrame });
+    drawNodeGraphRetainedBurnPath(item, pixelRatio, [], settings, { endFrame, lineBurnOpaque: true });
     return;
   }
   const nodeId = String(item?.slot?.nodeId || "");
@@ -1003,6 +1022,7 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
   }
   drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, {
     endFrame: cursorEnd,
+    lineBurnOpaque: true,
     // Continuity from chord packing between samples (c1091b4 / 8bc05d90).
     // Do not force samplesOnly — that left sparse beads / stacked discs.
   });
@@ -1130,6 +1150,82 @@ function nodeGraphScope2dBurnCanvasSquare(canvas) {
 }
 
 
+function nodeGraphScope2dTraceSeverFarJoins(points) {
+  // A 2D stroke is one open run of neighbors. The chord is the extra
+  // segment that ties this chunk's first sample to its last: a prepended
+  // chunk end, a duplicated start, or a phase reset between blocks.
+  // That join is many sample-steps long. A 30 degree arc at one frame
+  // (20 Hz @ 240 fps) is still that close — not a half-circle threshold.
+  // Consecutive steps along the arc stay connected. 1D is not this path.
+  const src = Array.isArray(points) ? points : [];
+  const out = [];
+  let run = [];
+  const pushRun = (pts) => {
+    for (let i = 0; i < pts.length; i += 1) {
+      out.push(pts[i]);
+    }
+  };
+  const flush = () => {
+    const n = run.length;
+    if (!n) {
+      return;
+    }
+    if (n < 3) {
+      pushRun(run);
+      run = [];
+      return;
+    }
+    const dist = [];
+    const steps = [];
+    for (let i = 1; i < n; i += 1) {
+      const d = Math.hypot(run[i].x - run[i - 1].x, run[i].y - run[i - 1].y);
+      dist.push(d);
+      if (d > 0.02) {
+        steps.push(d);
+      }
+    }
+    if (steps.length < 2) {
+      pushRun(run);
+      run = [];
+      return;
+    }
+    steps.sort((a, b) => a - b);
+    const step = steps[Math.floor((steps.length - 1) * 0.5)];
+    const limit = Math.max(step * 4, step + 1.25);
+    out.push(run[0]);
+    for (let i = 1; i < n; i += 1) {
+      const d = dist[i - 1];
+      let neighbor = Infinity;
+      if (i >= 2) {
+        neighbor = Math.min(neighbor, dist[i - 2]);
+      }
+      if (i < n - 1) {
+        neighbor = Math.min(neighbor, dist[i]);
+      }
+      // Outlier vs the local step: closing chord or phase jump.
+      if (d > limit && neighbor < Infinity && d > neighbor * 4) {
+        out.push(null);
+      }
+      out.push(run[i]);
+    }
+    run = [];
+  };
+  for (let i = 0; i < src.length; i += 1) {
+    const p = src[i];
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+      flush();
+      if (out.length && out[out.length - 1] !== null) {
+        out.push(null);
+      }
+      continue;
+    }
+    run.push(p);
+  }
+  flush();
+  return out;
+}
+
+
 function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   if (!context || !Array.isArray(points) || !points.length) {
     return;
@@ -1137,16 +1233,34 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   if (settings.dot1Enabled === false) {
     return;
   }
-  // XY beam: m1el/woscope Gaussian-integral quads (additive). Not 1D Trace
-  // polylines and not phosphor energy stamps.
+  points = nodeGraphScope2dTraceSeverFarJoins(points);
+  if (!points.length) {
+    return;
+  }
+  // XY beam: same woscope quads as 1D Trace. Gaussian coverage indexes the
+  // Coverage is brightness. Present shader samples the shared gradient.
   const inkRgb = typeof nodeGraphScope2dTraceInkRgb01 === "function"
     ? nodeGraphScope2dTraceInkRgb01(settings)
     : null;
   if (typeof TraceWoscope !== "undefined" && typeof TraceWoscope.draw === "function") {
+    const brightRaw = Number(settings.dot1Brightness ?? settings.brightness);
+    const intensity = Number.isFinite(brightRaw) ? Math.max(0, brightRaw) : 1;
+    const plateN = Number(settings.backgroundBrightness);
+    const stops = typeof nodeGraphPhosphorGradientStopsFromSettings === "function"
+      ? nodeGraphPhosphorGradientStopsFromSettings(settings, "#ffffff")
+      : settings.gradientStops;
     const count = TraceWoscope.draw(context, points, {
       size: settings.dot1Size,
-      color: inkRgb || settings.dot1Color,
+      color: [1, 1, 1],
       faceMinSide: Math.max(1, nodeGraphFiniteNumber(dotSpace, 1)),
+      brightness: intensity,
+      intensity,
+      brightAlong: true,
+      gradientStops: stops,
+      plateBrightness: Number.isFinite(plateN) ? Math.max(0, Math.min(1, plateN)) : 0,
+      trail: settings.trail,
+      ghost: settings.ghost,
+      tracePresent: true,
     });
     if (count > 0) {
       recordNodeGraphModuleScopeRenderMetrics(count, count);
@@ -1298,12 +1412,6 @@ function blitNodeGraphScope2dTraceHold(slot) {
     const settings = typeof nodeGraphScope2dTraceSettingsForNode === "function"
       ? nodeGraphScope2dTraceSettingsForNode(nodeGraphModuleScopeNodeForSlot(slot))
       : {};
-    const bg = typeof nodeGraphFacePlateBackground === "function"
-      ? nodeGraphFacePlateBackground(settings, nodeGraphScope2dTraceSettingsDefaults?.background)
-      : "#000000";
-    if (typeof nodeGraphFacePlateFillCanvas === "function") {
-      nodeGraphFacePlateFillCanvas(context, canvas, bg);
-    }
     drawNodeGraphScope2dTraceLayer(context, last, Math.min(canvas.width, canvas.height), settings);
   }
   canvas.classList.add("node-module-scope-vector-trace");
@@ -1334,6 +1442,43 @@ function holdNodeGraphScope2dTraceFaces() {
     }
   }
   return any;
+}
+
+function nodeGraphScope2dTraceBridgeContinues(prev, points) {
+  // Prepend only a neighbor of this chunk's first sample. The previous
+  // chunk end often still IS this window's last sample; prepending it
+  // draws the chord from that end back to the start. Compare to the
+  // sample step, not to which end is closer — a short arc's chord is
+  // not a half-circle, but it is many steps long.
+  if (!prev || !Number.isFinite(prev.x) || !Number.isFinite(prev.y)) {
+    return false;
+  }
+  let first = null;
+  let second = null;
+  for (let i = 0; i < points.length; i += 1) {
+    const p = points[i];
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+      if (first) {
+        break;
+      }
+      continue;
+    }
+    if (!first) {
+      first = p;
+      continue;
+    }
+    second = p;
+    break;
+  }
+  if (!first) {
+    return false;
+  }
+  const toFirst = Math.hypot(first.x - prev.x, first.y - prev.y);
+  if (!second) {
+    return toFirst <= 1.5;
+  }
+  const step = Math.hypot(second.x - first.x, second.y - first.y);
+  return toFirst <= Math.max(step * 4, 1.5);
 }
 
 function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
@@ -1404,13 +1549,7 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
     canvas._s2dAbs = 0;
     canvas._s2dLastPoint = null;
   }
-  if (!canvas._s2dPrimed) {
-    nodeGraphFacePlateFillCanvas(context, canvas, bg);
-    canvas._s2dPrimed = true;
-  }
-  if (typeof nodeGraphScopeDestFadeTowardPlate === "function") {
-    nodeGraphScopeDestFadeTowardPlate(context, canvas, bg, settings.trail, settings.ghost);
-  }
+  canvas._s2dPrimed = true;
   try {
     const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
     const sampleRate = typeof nodeGraphScopeSampleRate === "function"
@@ -1429,7 +1568,8 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
       canvas._s2dAbs = abs;
     }
     const points = buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings, startIndex);
-    if (canvas._s2dLastPoint && points.length) {
+    if (canvas._s2dLastPoint && points.length
+      && nodeGraphScope2dTraceBridgeContinues(canvas._s2dLastPoint, points)) {
       points.unshift(canvas._s2dLastPoint);
     }
     let lastPoint = canvas._s2dLastPoint || null;
@@ -1481,9 +1621,6 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
     }
     snapshotNodeGraphScope2dTraceHold(canvas, item?.slot?.nodeId);
   } finally {
-    if (typeof nodeGraphScopeDestFadeGhostAfterStamps === "function") {
-      nodeGraphScopeDestFadeGhostAfterStamps(context, canvas);
-    }
   }
 }
 

@@ -160,3 +160,15 @@ docs/ACID_SEQUENCER_PLAN.md
 **Status:** under-construction module in Space. No DSP. Not Varispeed.
 
 **Direction:** A parked card so the name exists. Moving delay-time pitch only. Do not implement the varispeed read head here.
+
+## Unipolar switch on 1D displays
+
+**Status:** not implemented. Plan only. Dated 2026-09-29. Do not implement until Architect expands this.
+
+**Request (Argi, 2026-09-29):** a unipolar switch on every 1D display.
+
+**Proposed meaning (not locked):** the repo already uses bipolar as -1...+1 and unipolar as 0...+1 (U2B / B2U; Sample Hold Polarity). 1D paint currently centers a bipolar span: 1D Phosphor clamps the sample to -1...1 around mid-height, and Instant Waterfall uses midY - bipolar * halfHeight (comment: bipolar +/-1 reaches the face edges). Reading the switch as "draw 0...+1 instead of -1...+1" is a proposal only. Argi did not specify the exact range or where the control sits.
+
+**1D kinds found:** catalog labels in `public/node-graph-module-store.js` — 1D Waterfall (`waterfall`), 1D Waterfall Stereo (`waterfallStereo`), 1D Waterfall RGB (`waterfallRgb`), 1D Waterfall XYZ (`waterfallXyz`), 1D Phosphor (`lineBurnOscilloscope`), 1D Trace (`scope1dTrace`), 1D Trace Stereo (`scope1dTraceStereo`). Display Settings clipboard families in `public/node-graph-module-scope-trace-controls.js` also name 1D Phosphor (`lineBurn`, `oscilloscopeBankBurn`), 1D Waterfall (`waterfall`, `waterfallRgb`, and `value`), and 1D Trace (`scope1dTrace`). `waterfallXyz` is catalog-labeled 1D Waterfall XYZ but that clipboard family returns 2D Instant Waterfall, so its membership is not locked. 2D Phosphor and 2D Trace are separate. No display-settings unipolar switch exists. Sample Hold Polarity remaps audio outs; its tooltip says the face/waterfall stays bipolar full height and ignores Polarity. `nodeGraphModuleScopeUnipolarTypes` is a module-id set and is not used by face paint.
+
+**Still open:** exact range, which of the named 1D faces (including the waterfall-labeled ones and the XYZ mismatch), and control placement. Do not fold 1D Trace into the Instant Waterfall settings schema (`docs/APP_POLICY.md` section 15a). This seed does not prescribe DSP, worklet, or audio-thread changes.

@@ -199,6 +199,7 @@ function nodeGraphScreenSoloFaceScore(face) {
   if (face.classList.contains("node-filter-curve-display")) score += 30;
   if (face.classList.contains("node-round-shape-display")) score += 35;
   if (face.classList.contains("node-basic-shape-display")) score += 35;
+  if (face.classList.contains("node-sincos-display")) score += 35;
   if (face.classList.contains("node-module-scope-window")) score += 25;
   if (face.classList.contains("node-midi-keyboard-module")) score += 40;
   if (face.classList.contains("node-grid-keyboard-module")) score += 40;
@@ -309,6 +310,14 @@ function nodeGraphScreenSoloWakeFace(face) {
     if (typeof drawNodeGraphBasicShapeDisplay === "function") {
       drawNodeGraphBasicShapeDisplay(face);
     }
+  }
+  if (face.classList.contains("node-sincos-display")) {
+    face._sinCosForceDraw = true;
+    face._sinCosLaidOut = false;
+    if (typeof drawNodeGraphSinCosDisplay === "function") {
+      drawNodeGraphSinCosDisplay(face);
+    }
+    face._startFaceLoop?.();
   }
   if (face.classList.contains("node-sincos4-display")) {
     face._sinCos4ForceDraw = true;
@@ -744,6 +753,8 @@ function nodeGraphScreenSoloInvalidateFaceMeasure(face) {
   face._roundShapeForceDraw = true;
   face._basicShapeLaidOut = false;
   face._basicShapeForceDraw = true;
+  face._sinCosLaidOut = false;
+  face._sinCosForceDraw = true;
   face._sinCos4LaidOut = false;
   face._sinCos4ForceDraw = true;
 }

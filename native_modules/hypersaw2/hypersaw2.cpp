@@ -339,7 +339,8 @@ extern "C" void soemdsp_hypersaw2_sample(
   double waveform,
   double morph,
   double level,
-  double seedParam
+  double seedParam,
+  double incrementIn
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   Hypersaw2State& s = gPool[handle - 1];
@@ -420,7 +421,9 @@ extern "C" void soemdsp_hypersaw2_sample(
     ampSides = 0.0;
   }
 
-  const double phaseIncrement = freq / sr;
+  // incrementIn is cycles/sample, same unit as freq/sr.
+  const double incIn = (incrementIn == incrementIn) ? incrementIn : 0.0;
+  const double phaseIncrement = freq / sr + incIn;
   const double blepDt = phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement;
 
   double oscAbs = freq < 0.0 ? -freq : freq;

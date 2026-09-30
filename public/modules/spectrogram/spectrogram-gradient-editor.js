@@ -1344,6 +1344,11 @@
       defaultStops: "phosphor",
       hint: "Select a stop · presets · live audition on the 1D Trace beam",
     }),
+    scope2dTrace: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Select a stop · presets · live audition on the 2D Trace beam",
+    }),
     // Videoscope / bank / hypersaw: mono energy phosphor (same LUT as scope2d).
     // Required so usesDisplayGradient(formType) is true and the host mounts.
     videoscopeBurn: Object.freeze({
