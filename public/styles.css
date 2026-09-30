@@ -16285,9 +16285,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
 .node-header-timing-widgets {
   box-sizing: border-box;
   display: grid;
-  /* BPM (label taps tempo; column absorbs former Tap + FPS) | Beats | Unit | Speed | Patch title | Smooth Time */
+  /* BPM (label taps tempo) | Beats | Unit | Speed | Patch title | Smooth Time */
   /* Patch title takes the former Speed Limit column and a bit more for readable names. */
-  grid-template-columns: minmax(0, 2.74fr) repeat(3, minmax(0, 1fr)) minmax(10rem, 2fr) minmax(0, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(10rem, 2fr) minmax(0, 1fr);
   min-width: 0;
   width: 100%;
   height: 100%;
@@ -16309,7 +16309,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
   background: rgba(2, 4, 7, 0.92);
   color: rgba(243, 251, 251, 0.94);
   font-family: var(--node-header-title-font-family, "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace);
-  font-size: clamp(0.72rem, calc(var(--node-toolbar-row-height) * 0.3), 1.02rem);
+  font-size: clamp(0.82rem, calc(var(--node-toolbar-row-height) * 0.34), 1.15rem);
   font-weight: 700;
   letter-spacing: 0.01em;
   line-height: 1.15;
@@ -16423,11 +16423,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
 
 .node-header-timing-widgets > .node-header-timing-field {
   min-inline-size: 3.4rem;
-}
-
-.node-header-timing-field.node-header-bpm-field {
-  /* Top-bar BPM label is the tap target, so the caption row grows. */
-  grid-template-rows: minmax(0, 1.35fr) minmax(0, 0.65fr);
 }
 
 .node-header-timing-field {
