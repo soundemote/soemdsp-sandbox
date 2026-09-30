@@ -16287,7 +16287,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
   display: grid;
   /* BPM (label taps tempo) | Beats | Unit | Speed | Patch title | Smooth Time */
   /* Keep the five timing cells compact so the patch title gets the freed width. */
-  grid-template-columns: repeat(5, minmax(0, 0.75fr)) minmax(10rem, 3fr);
+  grid-template-columns: repeat(4, minmax(0, 0.75fr)) minmax(10rem, 3fr) minmax(0, 0.75fr);
   min-width: 0;
   width: 100%;
   height: 100%;
