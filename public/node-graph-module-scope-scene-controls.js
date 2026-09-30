@@ -309,6 +309,9 @@ function beginNodeGraphScopeNumberDrag(event) {
   if (event.button > 0 || event.detail > 1) {
     return;
   }
+  if (event.target?.closest?.(".node-header-bpm-tap")) {
+    return;
+  }
   if (typeof nodeGraphNumericModifierReserved === "function" && nodeGraphNumericModifierReserved(event)) {
     event.preventDefault();
     event.stopPropagation();
@@ -387,6 +390,9 @@ function endNodeGraphScopeNumberDrag(event) {
 }
 
 function beginNodeGraphScopeNumberEdit(event) {
+  if (event.target?.closest?.(".node-header-bpm-tap")) {
+    return;
+  }
   const input = nodeGraphScopeNumberDragInputFromTarget(event.currentTarget);
   if (!input) {
     return;

@@ -166,7 +166,7 @@
     "moduleOscilloscopesVisible": true,
     "moduleSlidersVisible": true,
     "moduleScopeBackgroundColor": "#000000",
-    "globalSmoothingSeconds": 0.03,
+    "globalSmoothingSeconds": 0.0333,
     "globalSmoothingManual": true,
     "snakeMouseSmooth": 0,
     "moduleScopeDotCore1Enabled": false,

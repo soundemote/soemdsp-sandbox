@@ -8401,11 +8401,11 @@ def require_node_graph_mvp_contract() -> None:
         "nodePatchNameHeader",
         "nodePatchTagsHeader",
         "const nodeGraphTapTempoState",
-        "function createNodeGraphTapTempoButton()",
+        "function bindNodeGraphBpmTapCaption(caption)",
         "function handleNodeGraphTapTempo()",
-        "node-header-tap-tempo-button",
-        "button.addEventListener(\"click\", (event) =>",
-        "createNodeGraphTapTempoButton(),",
+        "node-header-bpm-tap",
+        "caption.addEventListener(\"click\", (event) =>",
+        "bindNodeGraphBpmTapCaption(caption);",
         "Tap tempo for patch BPM",
         "status: \"tap tempo synced\"",
         "function handleNodeGraphHeaderInfoInput(event)",
@@ -14969,12 +14969,14 @@ def require_node_graph_mvp_contract() -> None:
     )
     header_scope_source = script_sources["./public/node-graph-module-header-rendering.js"]
     fps_header_start = header_scope_source.index('"nodeMasterScopeFps"')
-    fps_header_end = header_scope_source.index("createNodeGraphHeaderSpeedPlaceholder()", fps_header_start)
+    fps_marker = 'scopeInput: "framesPerSecond"'
+    fps_header_end = header_scope_source.index(fps_marker, fps_header_start) + len(fps_marker)
     fps_header_source = header_scope_source[fps_header_start:fps_header_end]
     require(
         "min: 0" in fps_header_source
-        and 'scopeInput: "framesPerSecond"' in fps_header_source,
-        "header FPS drag number should allow 0 to freeze displays",
+        and fps_marker in fps_header_source
+        and '"nodeMasterScopeFps"' not in header_scope_source[header_scope_source.index("function createNodeGraphHeaderTimingWidgets"):header_scope_source.index("function createNodeGraphCommandCenterTimingWidgets")],
+        "command center FPS should allow 0 to freeze displays and should not stay on the top timing bar",
     )
     require(
         "nodeMasterScopePointBudget" not in header_scope_source
@@ -15003,7 +15005,7 @@ def require_node_graph_mvp_contract() -> None:
         "header number fields should relock after text edit",
     )
     timing_input_start = header_scope_source.index("function createNodeGraphHeaderTimingInput")
-    timing_input_end = header_scope_source.index("function createNodeGraphTapTempoButton", timing_input_start)
+    timing_input_end = header_scope_source.index("function createNodeGraphHeaderAudioInput", timing_input_start)
     timing_input_source = header_scope_source[timing_input_start:timing_input_end]
     require(
         'field.dataset.headerNumberDrag = "true";' in timing_input_source
@@ -15701,11 +15703,12 @@ def require_node_graph_mvp_contract() -> None:
         and "patch.audio = next;" in header_scope_source
         and "function createNodeGraphHeaderAudioInput(key, label, options = {})" in header_scope_source
         and "input.dataset.audioField = key;" in header_scope_source
-        and 'createNodeGraphHeaderAudioInput("pitchReferenceHz", "Freq Ref", {' in header_scope_source
+        and 'createNodeGraphHeaderAudioInput("pitchReferenceHz", "Freq Ref", {' not in header_scope_source
+        and 'createNodeGraphHeaderAudioInput("pitchOffsetOctaves", "Pitch", {' in header_scope_source
         and "input.dataset.audioField" in node_graph_source
         and "updateNodeGraphPatchAudioFromHeader(input);" in node_graph_source
-        and '"pitchReferenceHz": "Pitch Reference Frequency in Hz' in tooltip_source,
-        "Command Center should show and let you edit the patch's Pitch Reference Frequency, wired the same way as BPM/Beats/Unit",
+        and '"pitchReferenceHz": "Pitch Reference Frequency in Hz' not in tooltip_source,
+        "Command Center should no longer show Freq Ref; global Pitch offset stays editable",
     )
     require(
         "if (options.tooltipKey) {\n    input.dataset.tooltipKey = options.tooltipKey;\n  }" in header_scope_source,
@@ -16570,9 +16573,9 @@ def require_node_graph_mvp_contract() -> None:
         "--node-bypass-icon-size-ratio: 0.36",
         "flex-wrap: wrap",
         "overflow: visible",
-        ".node-header-tap-tempo-button",
+        ".node-header-bpm-tap",
         "background: rgba(127, 199, 217, 0.08)",
-        ".node-header-tap-tempo-button:focus-visible",
+        ".node-header-bpm-tap:focus-visible",
         ".node-ui-dev-color-section",
         ".node-ui-dev-bypass-icon-control .node-ui-dev-control-row",
         ".node-ui-dev-bypass-icon-preview",
