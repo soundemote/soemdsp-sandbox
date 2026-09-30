@@ -15704,11 +15704,11 @@ def require_node_graph_mvp_contract() -> None:
         and "function createNodeGraphHeaderAudioInput(key, label, options = {})" in header_scope_source
         and "input.dataset.audioField = key;" in header_scope_source
         and 'createNodeGraphHeaderAudioInput("pitchReferenceHz", "Freq Ref", {' not in header_scope_source
-        and 'createNodeGraphHeaderAudioInput("pitchOffsetOctaves", "Pitch", {' in header_scope_source
+        and 'createNodeGraphHeaderAudioInput("pitchOffsetOctaves", "Pitch", {' not in header_scope_source
         and "input.dataset.audioField" in node_graph_source
         and "updateNodeGraphPatchAudioFromHeader(input);" in node_graph_source
         and '"pitchReferenceHz": "Pitch Reference Frequency in Hz' not in tooltip_source,
-        "Command Center should no longer show Freq Ref; global Pitch offset stays editable",
+        "Command Center should no longer show Freq Ref or the global Pitch offset",
     )
     require(
         "if (options.tooltipKey) {\n    input.dataset.tooltipKey = options.tooltipKey;\n  }" in header_scope_source,

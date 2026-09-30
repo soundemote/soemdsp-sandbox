@@ -2206,8 +2206,6 @@ struct Circuit {
   double masterSamples;
   // Host project tempo (plugin). Metronome BPM is per-node; this is unused.
   double hostTempoBpm;
-  // Patch-wide pitch transpose (octaves). Multiplies pitched Hz by 2^oct.
-  double pitchOffsetOctaves;
   // MIDI note that is the 0-octave point for leftover pitch
   // pitch-CV consumers. Default 69 (A4). Saved patches may still send 48.
   double pitchReferenceMidiNote;
@@ -4511,7 +4509,6 @@ static void release_node_papoulis_controls(Node& n) {
 
 static void clear_graph_contents(Circuit& g) {
   g.compiled = false;
-  g.pitchOffsetOctaves = 0.0;
   g.pitchReferenceMidiNote = 69.0;
   g.speedLimitHz = 20000.0;
   const int oldCount = g.nodeCount;
@@ -4719,15 +4716,6 @@ static double circuit_pitch_ref_v(const Circuit& g) {
   return n;
 }
 
-// Patch Pitch (−10…+10 oct): one header control sweeps oscs / Chaosfly / filters.
-static double apply_global_pitch(const Circuit& g, double freq) {
-  const double oct = g.pitchOffsetOctaves;
-  if (!(oct == oct) || oct == 0.0) return freq;
-  const double out = freq * dsp_exp(oct * 0.6931471805599453);
-  if (!(out == out)) return 0.0;
-  return out;
-}
-
 // Dual Ladder / Passive Sweep: same JS law hz * 2^(st/12). +12 = one octave.
 static double apply_sweep_hz(double hz, double sweepSemis) {
   if (!(hz > 0.0)) return 0.0;
@@ -4746,8 +4734,9 @@ static double resolve_cutoff_hz(
   (void)liveF;
   (void)livePitch;
   (void)referenceVoltage;
+  (void)g;
+  (void)frame;
   double freq = control_effective(frequency);
-  freq = apply_global_pitch(g, freq);
   freq = clamp_hz_nyquist(freq, sr);
   if (freq < 0.0) freq = 0.0;
   return freq;
@@ -4762,7 +4751,6 @@ static double resolve_osc_hz(
   (void)livePitch;
   (void)referenceVoltage;
   double freq = control_audio(g, frequency, frame);
-  freq = apply_global_pitch(g, freq);
   return clamp_hz_nyquist(freq, sr);
 }
 
@@ -8125,7 +8113,6 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
         haveCenter = true;
       }
     }
-    if (haveCenter) center = apply_global_pitch(g, center);
     if (haveCenter && center > 0.0) {
       if (lo > 0.0 && hi > 0.0) {
         // Move geometric mean to center while keeping the interval ratio.
@@ -8143,12 +8130,8 @@ static void process_active_filter(Circuit& g, Node& node, int frames) {
         lo = center * 0.5;
         hi = center * 2.0;
       }
-    } else {
-      // No ƒ / 0.1V: still transpose Low/High Cut by patch Pitch.
-      lo = apply_global_pitch(g, lo);
-      hi = apply_global_pitch(g, hi);
     }
-    // Sweep after ƒ / 0.1V / patch Pitch (same order as JS resolve + Passive).
+    // Sweep after ƒ / 0.1V (same order as JS resolve + Passive).
     const double sweep = control_audio(g, node.center, f);
     lo = apply_sweep_hz(lo, sweep);
     hi = apply_sweep_hz(hi, sweep);
@@ -8225,7 +8208,6 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
         haveCenter = true;
       }
     }
-    if (haveCenter) center = apply_global_pitch(g, center);
     if (haveCenter && center > 0.0 && mode != 0) {
       if (mode == 1) {
         hi = center;
@@ -8242,9 +8224,6 @@ static void process_passive_filter(Circuit& g, Node& node, int frames) {
         lo = center * 0.5;
         hi = center * 2.0;
       }
-    } else {
-      lo = apply_global_pitch(g, lo);
-      hi = apply_global_pitch(g, hi);
     }
     lo = clamp_hz_nyquist(lo, sr);
     hi = clamp_hz_nyquist(hi, sr);
@@ -12076,15 +12055,6 @@ extern "C" int soemdsp_graph_clear_connections(int handle) {
   for (int i = 0; i < kMaxParamModEdges; i++) g->paramModEdges[i].used = false;
   g->orderCount = 0;
   return 0;
-}
-
-extern "C" void soemdsp_graph_set_pitch_offset(int handle, double octaves) {
-  Circuit* g = get(handle);
-  if (!g) return;
-  if (!(octaves == octaves)) octaves = 0.0;
-  if (octaves > 10.0) octaves = 10.0;
-  if (octaves < -10.0) octaves = -10.0;
-  g->pitchOffsetOctaves = octaves;
 }
 
 extern "C" void soemdsp_graph_set_pitch_reference(int handle, double midiNote) {

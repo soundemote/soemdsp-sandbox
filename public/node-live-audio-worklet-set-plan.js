@@ -100,9 +100,6 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
     } else if (!Number.isFinite(Number(this.pitchReferenceHz))) {
       this.pitchReferenceHz = 440;
     }
-    if (Number.isFinite(Number(message.pitchOffsetOctaves))) {
-      this.pitchOffsetOctaves = Number(message.pitchOffsetOctaves);
-    }
     this.hostSampleRate = Math.max(1, nodeGraphFiniteNumber(message.sampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
     if (Number.isFinite(Number(message.displayFps))) {
       this.displayFps = Math.max(0, Math.min(240, Math.round(Number(message.displayFps))));

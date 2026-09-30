@@ -1543,18 +1543,6 @@ NodeLiveAudioProcessor.prototype.applyNativeGraphSampleRate = function applyNati
   native.soemdsp_graph_set_sample_rate(handle, rate);
 };
 
-/** Push patch Pitch (−10…+10 oct) into the native graph (no recompile needed). */
-NodeLiveAudioProcessor.prototype.applyNativeGraphPitchOffset = function applyNativeGraphPitchOffset() {
-  const native = this.nativeGraph;
-  const handle = this.nativeGraphHandle;
-  if (!native?.soemdsp_graph_set_pitch_offset || !handle) return;
-  const oct = Number(this.pitchOffsetOctaves);
-  native.soemdsp_graph_set_pitch_offset(
-    handle,
-    Number.isFinite(oct) ? oct : 0,
-  );
-};
-
 /** Push 0.1V/Oct reference MIDI note (default A4 / 69) into the native graph. */
 NodeLiveAudioProcessor.prototype.applyNativeGraphPitchReference = function applyNativeGraphPitchReference() {
   const native = this.nativeGraph;
@@ -4694,7 +4682,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     if (type === "activeFilter") {
       // Dual Ladder: waveform=hpSlope, shape=lpSlope (0 Bypass … 4=24),
       // stages=feedbackCircuit, timingMode=gainCompensation,
-      // center=sweep st; hpf/lpf = cuts. Sweep after ƒ / 0.1V / patch Pitch.
+      // center=sweep st; hpf/lpf = cuts. Sweep after ƒ / 0.1V.
       push("hpSlope", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("hpSlope", 0));
       push("lpSlope", P.NATIVE_GRAPH_PARAM_SHAPE, disc("lpSlope", 4));
       push("highFrequency", P.NATIVE_GRAPH_PARAM_LPF_FREQUENCY, cont("highFrequency", 1000));
@@ -7020,9 +7008,6 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       this.nativeGraphHandle,
       nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(nodeGraphFiniteNumber(this.hostSampleRate, sampleRate), 44100)),
     );
-    if (typeof this.applyNativeGraphPitchOffset === "function") {
-      this.applyNativeGraphPitchOffset();
-    }
     if (typeof this.applyNativeGraphPitchReference === "function") {
       this.applyNativeGraphPitchReference();
     }

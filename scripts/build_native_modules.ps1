@@ -42,7 +42,6 @@ $modules = @(
     "soemdsp_graph_remove_node", "soemdsp_graph_clear_connections",
     "soemdsp_graph_set_sample_rate",
     "soemdsp_graph_rewind_master",
-    "soemdsp_graph_set_pitch_offset",
     "soemdsp_graph_set_pitch_reference",
     "soemdsp_graph_set_named_portal",
     "soemdsp_graph_set_speed_limit",

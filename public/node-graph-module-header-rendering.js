@@ -100,7 +100,7 @@ function updateNodeGraphPatchAudioFromHeader(input) {
     markPending: false,
     status: key === "oversamplingFactor"
       ? `oversampling x${next.oversamplingFactor}`
-      : (key === "pitchOffsetOctaves" ? "pitch synced" : "pitch reference synced"),
+      : "pitch reference synced",
   });
   if (key === "oversamplingFactor") {
     syncNodeGraphOversamplingReadouts();
@@ -910,15 +910,6 @@ function createNodeGraphCommandCenterTimingWidgets() {
     createNodeGraphOversamplingFactorField(),
     createNodeGraphSampleRateReadout("sample-rate", "Sample Rate"),
     createNodeGraphSampleRateReadout("simulated-rate", "Simulated"),
-    // Global pitch transpose in octaves (default 0). Kept after the timing rows.
-    createNodeGraphHeaderAudioInput("pitchOffsetOctaves", "Pitch", {
-      ...nv,
-      ariaLabel: "Global pitch offset in octaves (−10…+10). Sweeps oscillators, Chaosfly, and filter cutoffs together.",
-      tooltipKey: "timing.pitchOffsetOctaves",
-      min: -10,
-      max: 10,
-      step: "any",
-    }),
   );
   return group;
 }
@@ -938,7 +929,6 @@ function renderNodeGraphCommandCenterTimingControls() {
     || (osCaption && osCaption.textContent !== "Oversample")
     || (osSelect && osSelect.dataset.timingBound === "true")
     || !host.querySelector(".node-header-sample-rate-value")
-    || !host.querySelector('.node-header-timing-input[data-audio-field="pitchOffsetOctaves"]')
     || host.querySelector('[data-audio-field="pitchReferenceHz"]')
     || !host.querySelector("#nodeMasterScopeFps")
     || !host.querySelector(".node-header-bpm-tap")

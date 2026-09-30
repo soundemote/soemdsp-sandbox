@@ -659,22 +659,10 @@ function nodeGraphResolveAbsHzJack(/* hasInput, mixInput, nodeId */) {
   return null;
 }
 
-/** Patch-wide pitch transpose ratio (2^octaves). 1 when unset / 0. */
-function nodeGraphPatchPitchOffsetRatio() {
-  const audio = typeof normalizeNodeGraphPatchAudio === "function"
-    ? normalizeNodeGraphPatchAudio(nodeGraphMvp?.patch?.audio)
-    : null;
-  const oct = nodeGraphFiniteNumber(audio?.pitchOffsetOctaves, 0);
-  if (oct === 0) return 1;
-  const ratio = 2 ** oct;
-  return Number.isFinite(ratio) ? ratio : 1;
-}
-
 /**
  * Wired ƒ / Freq = absolute Hz (cancels Frequency knob + pitch).
  * Else wired pitch (♯/♭ MIDI note) pitches the Frequency knob vs patch
  * pitchReferenceMidiNote (default 69). Else knobHz.
- * Then × patch Pitch (−10…+10 oct). Same as WASM.
  */
 function nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId) {
   let hz;
@@ -700,7 +688,6 @@ function nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId) {
           hasPitchCv: true,
           pitchCv,
           referenceVoltage: referenceMidi,
-          skipPatchPitchOffset: true,
         });
       } else if (typeof nodeGraphPitchedFrequency === "function") {
         hz = nodeGraphPitchedFrequency(knobHz, pitchCv, referenceMidi);
@@ -713,7 +700,7 @@ function nodeGraphFrequencyHzFromKnobOrF(knobHz, hasInput, mixInput, nodeId) {
       hz = Number.isFinite(k) ? k : 0;
     }
   }
-  const out = hz * nodeGraphPatchPitchOffsetRatio();
+  const out = hz;
   return Number.isFinite(out) ? out : 0;
 }
 
@@ -752,11 +739,7 @@ function nodeGraphParamResolveOscPitchHz(options = {}) {
       }
     }
   }
-  if (options.skipPatchPitchOffset === true) {
-    return Number.isFinite(hz) ? hz : 0;
-  }
-  const out = (Number.isFinite(hz) ? hz : 0) * nodeGraphPatchPitchOffsetRatio();
-  return Number.isFinite(out) ? out : 0;
+  return Number.isFinite(hz) ? hz : 0;
 }
 
 // Aliases matching older live/worklet names (thin adapters call these).
