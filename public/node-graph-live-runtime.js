@@ -3256,7 +3256,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Keypad slot math (host CV controller — used by sidecar publish + setKeypadInteraction).
   "./public/modules/keypad/keypad-math.js?v=keypad-hostcv-1",
   "./public/modules/_shared/controller-efficient-sidecar.js?v=keyboard-inc-1",
-  "./public/node-live-audio-worklet-process.js?v=host-rate-display-2",
+  "./public/node-live-audio-worklet-process.js?v=fps-means-fps-1",
 ];
 
 // Legacy JS DSP evaluators + evaluateFrame â€” RETIRED. Never load on any product.

@@ -568,6 +568,73 @@ function clearNodeGraphTraceDisplaySettingsDirty() {
   nodeGraphMvp.traceDisplaySettingsDirtyKeys = new Set();
 }
 
+function nodeGraphDisplaySettingsValueEqual(a, b) {
+  if (Object.is(a, b)) {
+    return true;
+  }
+  if (typeof a === "number" && typeof b === "number") {
+    return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) < 1e-6;
+  }
+  if (typeof a === "string" && typeof b === "string") {
+    if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(a)
+      && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(b)) {
+      return a.toLowerCase() === b.toLowerCase();
+    }
+    return a === b;
+  }
+  if (a == null || b == null || typeof a !== "object" || typeof b !== "object") {
+    return false;
+  }
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+function nodeGraphDisplaySettingsKeysChangedFromBaseline(form) {
+  const base = nodeGraphMvp.traceDisplaySettingsBaseline;
+  if (!base || typeof base !== "object") {
+    return null;
+  }
+  const formObj = form && typeof form === "object" ? form : {};
+  const keys = new Set();
+  const names = new Set([...Object.keys(base), ...Object.keys(formObj)]);
+  for (const key of names) {
+    if (!nodeGraphDisplaySettingsValueEqual(base[key], formObj[key])) {
+      keys.add(key);
+    }
+  }
+  return keys;
+}
+
+function nodeGraphCaptureTraceDisplaySettingsBaseline() {
+  if (typeof readNodeGraphTraceDisplaySettingsForm !== "function") {
+    nodeGraphMvp.traceDisplaySettingsBaseline = null;
+    return;
+  }
+  if (typeof nodeGraphTraceDisplaySettingsFormIsSeeded === "function"
+    && !nodeGraphTraceDisplaySettingsFormIsSeeded()) {
+    nodeGraphMvp.traceDisplaySettingsBaseline = null;
+    return;
+  }
+  let form = null;
+  try {
+    form = readNodeGraphTraceDisplaySettingsForm();
+  } catch {
+    form = null;
+  }
+  if (!form || typeof form !== "object") {
+    nodeGraphMvp.traceDisplaySettingsBaseline = null;
+    return;
+  }
+  try {
+    nodeGraphMvp.traceDisplaySettingsBaseline = JSON.parse(JSON.stringify(form));
+  } catch {
+    nodeGraphMvp.traceDisplaySettingsBaseline = { ...form };
+  }
+}
+
 function nodeGraphTraceDisplaySettingsIsDirty() {
   return (nodeGraphMvp.traceDisplaySettingsDirtyKeys?.size || 0) > 0;
 }
@@ -733,9 +800,26 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
       }
       const settingsSchema = nodeGraphModuleDisplaySettingsSchemaForNode(node);
       let toApply = settings;
-      if (multi && !forceAll && dirtyKeys && !dirtyKeys.has("*")) {
+      // Multi-select writes only keys that differ from the seeded form.
+      // "*" (untagged control, including Show in canvas) must not copy the
+      // primary module's other settings onto the rest of the selection.
+      if (multi && !forceAll) {
+        let changed = nodeGraphDisplaySettingsKeysChangedFromBaseline(settings);
+        if (!changed) {
+          changed = new Set();
+          if (dirtyKeys) {
+            for (const key of dirtyKeys) {
+              if (key && key !== "*" && key !== "__userEdit") {
+                changed.add(key);
+              }
+            }
+          }
+        }
+        if (!changed.size) {
+          continue;
+        }
         const existing = nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema);
-        toApply = nodeGraphMergeDisplaySettingsDirty(existing, settings, dirtyKeys);
+        toApply = nodeGraphMergeDisplaySettingsDirty(existing, settings, changed);
         if (!toApply) {
           continue;
         }
@@ -1158,11 +1242,79 @@ function nodeGraphTraceDisplaySettingsDirtyKeysFromEvent(event) {
   if (latch) {
     return [latch.getAttribute("data-trace-display-toggle") || latch.dataset?.waterfallToggle].filter(Boolean);
   }
-  // Gradient editor / hue title / unknown control — treat as full form dirty.
+  // Gradient editor / hue title name their own keys.
   if (t.closest?.("[data-shared-gradient-editor], [data-hue-title-stepper], .node-shared-gradient-editor")) {
     return ["gradientStops", "background", "backgroundColor"];
   }
-  return ["*"];
+  // Show in canvas is a layout pin, not a display-settings bag field.
+  if (t.id === "nodeLayoutCanvasShowInCanvas" || t.closest?.("#nodeLayoutCanvasShowInCanvas")) {
+    return [];
+  }
+  const named = nodeGraphTraceDisplaySettingsNamedKeyFromTarget(t);
+  if (named) {
+    return [named];
+  }
+  // One untagged control must not force-copy the whole form (B-085).
+  return [];
+}
+
+function nodeGraphTraceDisplaySettingsNamedKeyFromTarget(target) {
+  const t = target && target.closest ? target : null;
+  if (!t) {
+    return "";
+  }
+  const attr = (name) => {
+    const el = t.closest?.("[" + name + "]") || (t.getAttribute?.(name) != null ? t : null);
+    const value = el?.getAttribute?.(name);
+    return value ? String(value) : "";
+  };
+  const direct = [
+    "data-trace-display-field",
+    "data-trace-display-color",
+    "data-trace-display-toggle",
+    "data-trace-display-choice",
+    "data-trace-display-step-target",
+    "data-keypad-field",
+    "data-keypad-check",
+    "data-textbox-field",
+    "data-plugin-btn-field",
+    "data-plugin-btn-text",
+    "data-transport-field",
+    "data-limiter-gain-field",
+    "data-portal-field",
+    "data-matrix-face-field",
+    "data-matrix-face-range",
+  ];
+  for (const name of direct) {
+    const value = attr(name);
+    if (value) {
+      return value;
+    }
+  }
+  if (t.closest?.("[data-keypad-labels]")) return "labels";
+  if (t.closest?.("[data-keypad-corner]")) return "cornerShape";
+  if (t.closest?.("[data-plugin-btn-corner]")) return "cornerShape";
+  if (t.closest?.("[data-textbox-mode]")) return "textMode";
+  if (t.closest?.("[data-textbox-align]")) return "horizontalAlign";
+  if (t.closest?.("[data-textbox-font]")) return "font";
+  if (t.closest?.("[data-corner-shape]")) return "sliderCornerShape";
+  const id = t.id || t.closest?.("input, select, button")?.id || "";
+  const byId = {
+    nodeKnobSliderCornerRadiusInput: "sliderRounding",
+    nodeArpKeysCornerRadiusInput: "cornerRadius",
+    nodeArpKeysEdgeSpacingInput: "edgeSpacing",
+    nodeArpKeysStrokeThicknessInput: "strokeThickness",
+    nodeArpKeysCornerSquareButton: "cornerShape",
+    nodeArpKeysCornerSquircleButton: "cornerShape",
+    nodeSampleWaveformCornerRadiusInput: "cornerRadius",
+  };
+  return byId[id] || "";
+}
+
+function nodeGraphTraceDisplaySettingsEventIsShowInCanvas(event) {
+  const t = event?.target;
+  if (!t) return false;
+  return t.id === "nodeLayoutCanvasShowInCanvas" || Boolean(t.closest?.("#nodeLayoutCanvasShowInCanvas"));
 }
 
 function updateNodeGraphTraceDisplaySettingsLive(event) {
@@ -1185,7 +1337,11 @@ function updateNodeGraphTraceDisplaySettingsLive(event) {
     }
     return;
   }
-  markNodeGraphTraceDisplaySettingsDirty(nodeGraphTraceDisplaySettingsDirtyKeysFromEvent(event));
+  if (nodeGraphTraceDisplaySettingsEventIsShowInCanvas(event)) {
+    return;
+  }
+  const liveKeys = nodeGraphTraceDisplaySettingsDirtyKeysFromEvent(event);
+  markNodeGraphTraceDisplaySettingsDirty(liveKeys.length ? liveKeys : "__userEdit");
   applyNodeGraphTraceDisplaySettingsForm({ persist: "none", record: false });
 }
 
@@ -1204,6 +1360,10 @@ function commitNodeGraphTraceDisplaySettingsChange(event) {
   if (event?.target?.closest?.("[data-latch-button][data-trace-display-toggle]")) {
     return;
   }
-  markNodeGraphTraceDisplaySettingsDirty(nodeGraphTraceDisplaySettingsDirtyKeysFromEvent(event));
+  if (nodeGraphTraceDisplaySettingsEventIsShowInCanvas(event)) {
+    return;
+  }
+  const commitKeys = nodeGraphTraceDisplaySettingsDirtyKeysFromEvent(event);
+  markNodeGraphTraceDisplaySettingsDirty(commitKeys.length ? commitKeys : "__userEdit");
   applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true, commit: true });
 }

@@ -1,5 +1,5 @@
 // BasicShape face — cheap 1D one-cycle of the selected wave + phase dot.
-// Same family as RoundShape (frame-rate paint, no engine-rate ring).
+// WebGL via cycle-line-gl. Frame-rate paint, no engine-rate ring.
 
 function createNodeGraphBasicShapeDisplay(nodeId, type = "basicShape") {
   const id = nodeId && typeof nodeId === "object"
@@ -216,53 +216,18 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
     return;
   }
 
-  let context;
-  let width;
-  let height;
-  let pixelRatio = 1;
-  if (typeof nodeGraphSizeDisplayCanvas === "function") {
-    const metrics = nodeGraphSizeDisplayCanvas(section, canvas, { pixelDensity });
-    if (!metrics) {
-      return;
-    }
-    context = metrics.context;
-    width = metrics.cssWidth;
-    height = metrics.cssHeight;
-    pixelRatio = metrics.pixelRatio || 1;
-  } else {
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    pixelRatio = dpr * Math.max(nodeGraphFiniteNumber(pixelDensity, 1), 1e-6);
-    width = Math.max(1, Math.floor(rawW));
-    height = Math.max(1, Math.floor(rawH));
-    canvas.width = Math.max(1, Math.round(width * pixelRatio));
-    canvas.height = Math.max(1, Math.round(height * pixelRatio));
-    context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
-  }
-  if (!(width >= 8) || !(height >= 8) || !context) {
+  const metrics = typeof nodeGraphCycleLineGlMetrics === "function"
+    ? nodeGraphCycleLineGlMetrics(section, canvas, pixelDensity)
+    : null;
+  if (!metrics) {
     return;
   }
-
-  // ForceDraw = "paint this frame" (blit cache + playhead). Do NOT tie it to
-  // waveDirty — that clearRect'd the plate on every slider tick and flashed UI.
-  const waveDirty = section._basicShapeWaveSig !== signature
-    || !section._basicShapeWaveCanvas;
+  const pixelRatio = metrics.pixelRatio || 1;
+  const drawW = metrics.cssWidth;
+  const drawH = metrics.cssHeight;
   section._basicShapeSignature = signature;
   section._basicShapeForceDraw = false;
   section._basicShapeLaidOut = true;
-
-  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  const drawW = Math.max(1, canvas.width / pixelRatio);
-  const drawH = Math.max(1, canvas.height / pixelRatio);
-  if (!waveDirty) {
-    context.drawImage(section._basicShapeWaveCanvas, 0, 0, drawW, drawH);
-  } else {
-    context.clearRect(0, 0, drawW, drawH);
-    context.fillStyle = look.backgroundPaint || look.background || "#020609";
-    context.fillRect(0, 0, drawW, drawH);
-  }
 
   const strokeInset = strokeW * 0.5 + 1 / Math.max(pixelRatio, 1);
   const padX = Math.max(6, drawW * 0.06) + strokeInset;
@@ -274,7 +239,6 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
   const mapX = (phase) => padX + phase * innerW;
   const mapY = (value) => midY - value * halfH;
   const samples = Math.max(32, Math.min(256, Math.ceil(innerW)));
-
   const wrap01 = (p) => {
     const n = nodeGraphFiniteNumber(p);
     return n - Math.floor(n);
@@ -290,62 +254,21 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
     return y;
   };
 
-  if (waveDirty) {
-    context.beginPath();
-    const discThreshold = typeof nodeGraphModuleScopeDiscontinuityThreshold === "number"
-      ? nodeGraphModuleScopeDiscontinuityThreshold
-      : 0.85;
-    let prevY = null;
-    for (let i = 0; i <= samples; i += 1) {
-      // Phase knob slides the drawn shape (same offset as DSP samplePhase).
-      const xNorm = i / samples;
-      const x = mapX(xNorm);
-      const sample = sampleAt(wrap01(xNorm + phaseOff));
-      const y = mapY(sample);
-      // Do not draw discontinuity edges (square/saw jumps) — break the stroke.
-      if (i === 0 || prevY == null) {
-        context.moveTo(x, y);
-      } else if (Math.abs(sample - prevY) > discThreshold) {
-        context.moveTo(x, y);
-      } else {
-        context.lineTo(x, y);
-      }
-      prevY = sample;
+  const points = [];
+  const discThreshold = typeof nodeGraphModuleScopeDiscontinuityThreshold === "number"
+    ? nodeGraphModuleScopeDiscontinuityThreshold
+    : 0.85;
+  let prevY = null;
+  for (let i = 0; i <= samples; i += 1) {
+    const xNorm = i / samples;
+    const sample = sampleAt(wrap01(xNorm + phaseOff));
+    if (i > 0 && prevY != null && Math.abs(sample - prevY) > discThreshold) {
+      points.push(null);
     }
-    if (typeof nodeGraphStrokePathWithLineBlur === "function") {
-      nodeGraphStrokePathWithLineBlur(context, {
-        strokeStyle: look.strokePaint || look.strokeColor,
-        lineWidth: strokeW,
-        lineBlur,
-        lineJoin: "round",
-        lineCap: "round",
-      });
-    } else {
-      context.strokeStyle = look.strokePaint || look.strokeColor || "#78dcc8";
-      context.lineWidth = strokeW;
-      context.lineJoin = "round";
-      context.lineCap = "round";
-      context.stroke();
-    }
-    if (!section._basicShapeWaveCanvas) {
-      section._basicShapeWaveCanvas = document.createElement("canvas");
-    }
-    const hold = section._basicShapeWaveCanvas;
-    if (hold.width !== canvas.width || hold.height !== canvas.height) {
-      hold.width = canvas.width;
-      hold.height = canvas.height;
-    }
-    const holdCtx = hold.getContext("2d");
-    if (holdCtx) {
-      holdCtx.setTransform(1, 0, 0, 1, 0, 0);
-      holdCtx.clearRect(0, 0, hold.width, hold.height);
-      holdCtx.drawImage(canvas, 0, 0);
-      section._basicShapeWaveSig = signature;
-    }
+    points.push({ x: mapX(xNorm), y: mapY(sample) });
+    prevY = sample;
   }
 
-  // Playhead: readPhase is samplePhase (running + phase knob). X is running
-  // phase on the slid shape; Y matches the audio sample.
   let play = nodeGraphBasicShapeReadPhase(nodeId, node, section);
   if (!Number.isFinite(play)) {
     play = phaseOff;
@@ -354,13 +277,30 @@ function drawNodeGraphBasicShapeDisplayInner(section) {
   const playX = wrap01(play - phaseOff);
   const px = mapX(playX);
   const py = mapY(sampleAt(play));
+  const dots = [];
   if (Number.isFinite(px) && Number.isFinite(py)) {
-    context.beginPath();
-    context.fillStyle = look.dotPaint || look.dotColor || "#ffffff";
-    context.arc(px, py, Math.max(0.5, dotW * 0.5), 0, Math.PI * 2);
-    context.fill();
+    dots.push({
+      x: px,
+      y: py,
+      color: look.dotPaint || look.dotColor || "#ffffff",
+      radius: Math.max(0.5, dotW * 0.5),
+    });
   }
+  nodeGraphCycleLineGlPresent(canvas, {
+    cssWidth: drawW,
+    cssHeight: drawH,
+    background: look.backgroundPaint || look.background || "#020609",
+    waveKey: signature,
+    lines: [{
+      points,
+      color: look.strokePaint || look.strokeColor || "#78dcc8",
+      width: strokeW,
+      blur: lineBlur,
+    }],
+    dots,
+  });
 }
+
 
 function applyNodeGraphBasicShapeDisplaySettingsToFace(node) {
   if (!node?.id) {

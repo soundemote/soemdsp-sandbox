@@ -854,15 +854,33 @@ function bindNodeGraphLayoutCanvasSettingsControl() {
     return;
   }
   input.dataset.bound = "true";
-  input.addEventListener("change", () => {
-    const id = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+  input.addEventListener("change", (event) => {
+    // Not a display-settings field. Do not let the popover change listener
+    // treat this as a full-form edit (B-085).
+    event.stopPropagation();
+    const fromSelection = typeof nodeGraphTraceDisplaySettingsActiveTargetIds === "function"
+      ? nodeGraphTraceDisplaySettingsActiveTargetIds()
+      : [];
+    const fallback = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
       ? String(nodeGraphTraceDisplaySettingsTargetNodeId() || "").trim()
       : String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
-    if (!id) {
+    const ids = (Array.isArray(fromSelection) && fromSelection.length ? fromSelection : [fallback])
+      .map((id) => String(id || "").trim())
+      .filter(Boolean);
+    if (!ids.length) {
       input.checked = false;
       return;
     }
-    nodeGraphLayoutCanvasSetPinned(id, input.checked);
+    const pinned = input.checked;
+    ids.forEach((id, index) => {
+      nodeGraphLayoutCanvasSetPinned(id, pinned, {
+        persist: false,
+        refresh: index === ids.length - 1,
+      });
+    });
+    if (typeof markNodeGraphPatchDirty === "function") {
+      markNodeGraphPatchDirty();
+    }
     if (typeof setNodeInteractionHelp === "function") {
       setNodeInteractionHelp(
         input.checked

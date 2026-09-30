@@ -4,12 +4,18 @@
 // soemdsp-native-kind: filter
 // soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
 
-// Based on Robin Schmidt's TeeBeeFilter (RS-MET / Open303).
-// Key differences from a plain Moog ladder:
-//   - 1-pole highpass in the feedback path (150 Hz), reduces resonance at low cutoff
-//   - Blended a1 coefficient: lerp between resonance-tuned and no-resonance based on r
-//   - 0.125 input scale / 8.0 output scale (303 gain staging)
-//   - 15 output taps: LP/HP/BP at 6/12/18/24 dB per octave
+// Open303 TeeBeeFilter mode TB_303 (mystran/kunn), the circuit Open303 runs.
+// RS-MET AcidDevil on branch work calls a TeeBee that only has the multimode
+// one-pole ladder (k = r/|H(wc)|^4, about 4). That ladder, with the 150 Hz
+// feedback highpass, does not keep ringing. Open303's TeeBee constructor sets
+// mode TB_303 and setCutoff uses calculateCoefficientsApprox4: integrators
+//   y1 += 2*b0*(y0-y1+y2) ... y4 += b0*(y3-2*y4)
+//   k ~= 17*r .. higher with cutoff, out = 2*g*y4.
+// This module always runs that core. Mode still selects a tap mix; LP 24 is
+// exactly Open303's return (c4 = 1 -> 2*g*y4).
+// Refused instrument limits: TeeBeeFilter::setCutoff 200 Hz floor and 20 kHz
+// ceiling, accent/envelope/note-range clamps. No soft-clip on the feedback
+// sum and no cap on k (the previous port used min(k, 3.5) and x/(1+x*x)).
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -60,7 +66,7 @@ static const char kMetadataJson[] =
         "\"max\":100,"
         "\"step\":\"any\","
         "\"unit\":\"%\","
-        "\"tooltip\":\"Feedback amount. 100% reaches self-oscillation. Uses an exponential skewing curve for musical response.\""
+        "\"tooltip\":\"Feedback amount in percent. 100% is Open303 TB_303 full resonance (chirp / self-oscillation). Same exponential skew as TeeBeeFilter::setResonance.\""
       "},"
       "{"
         "\"key\":\"drive\","
@@ -72,7 +78,7 @@ static const char kMetadataJson[] =
         "\"max\":24,"
         "\"step\":\"any\","
         "\"unit\":\"dB\","
-        "\"tooltip\":\"Input gain before the filter. The filter internally scales by 0.125 so drive compensates and adds character.\""
+        "\"tooltip\":\"Input gain before the TB_303 core, in dB. 0 dB is unity. No extra 0.125 pad.\""
       "}"
     "]"
   "}";
@@ -104,8 +110,6 @@ static void update_hp(TeeBeeState& s, double rate) {
   s.lastRate = rate;
 }
 
-// Ladder soft-clip (same family as JS ladder / tb303 live path). Prevents
-// high resonance + drive from exploding the state and then staying silent.
 static void reset_state(TeeBeeState& s) {
   s.y1 = s.y2 = s.y3 = s.y4 = 0.0;
   s.hpX = s.hpY = 0.0;
@@ -180,69 +184,70 @@ extern "C" double soemdsp_tb303_filter_sample(
   const double maxFreq    = rate * 0.49;
   const double rawCutoff  = safe(cutoff);
   const double safeCutoff = rawCutoff < 0.0 ? 0.0 : (rawCutoff > maxFreq ? maxFreq : rawCutoff);
-  const double r_raw      = clamp(resonance * 0.01, 0.0, 1.0);
+  // TeeBeeFilter::setResonance skew. 100% -> r = 1 (full TB_303 k).
+  // No clamp at 1: setResonance does not clamp, so modulation past 100%
+  // stays hotter. Negatives map to 0. exp_squaring is the accurate path on
+  // 0..100%; above that, exp_narrow (the squaring series is only good to |x|~4).
+  const double r_raw = resonance > 0.0 ? resonance * 0.01 : 0.0;
+  const double exp_neg = r_raw <= 1.0
+      ? dsp_exp_squaring(-3.0 * r_raw)
+      : dsp_exp_narrow(-3.0 * r_raw);
+  const double r = (1.0 - exp_neg) / (1.0 - kExpNeg3);
   const double driveFactor = dsp_exp_squaring(clamp(drive, -24.0, 24.0) * 0.11512925465);
 
-  // resonance skewing: (1 - exp(-3*r)) / (1 - exp(-3))
-  const double r = (1.0 - dsp_exp_squaring(-3.0 * r_raw)) / (1.0 - kExpNeg3);
+  // Open303 TeeBeeFilter::calculateCoefficientsApprox4, branch mode == TB_303.
+  // fx = wc * (1/sqrt(2)) / (2*pi) = cutoff / (sr * sqrt(2)).
+  // The polynomial is the one setCutoff/setResonance actually install.
+  // Above ~0.45*sr it runs away (the fit assumes Open303's 4x oversampling).
+  // That bound is numerical, not a 200 Hz musical floor or a 20 kHz ceiling.
+  const double coefHz = safeCutoff > rate * 0.45 ? rate * 0.45 : safeCutoff;
+  const double fx = coefHz / (rate * 1.4142135623730951);
+  const double b0 =
+      (0.00045522346 + 6.1922189 * fx) /
+      (1.0 + 12.358354 * fx + 4.4156345 * fx * fx);
+  // kPoly = fx*(fx*(fx*(fx*(fx*(fx+7198.6997)-5837.7917)-476.47308)+614.95611)+213.87126)+16.998792
+  double k_poly = fx + 7198.6997;
+  k_poly = fx * k_poly - 5837.7917;
+  k_poly = fx * k_poly - 476.47308;
+  k_poly = fx * k_poly + 614.95611;
+  k_poly = fx * k_poly + 213.87126;
+  k_poly = fx * k_poly + 16.998792;
+  double g = k_poly * (1.0 / 17.0);
+  g = (g - 1.0) * r + 1.0;
+  g = g * (1.0 + r);
+  const double k = k_poly * r;
 
-  // filter coefficients (exact method from TeeBeeFilter::calculateCoefficientsExact)
-  const double wc    = kTwoPi * safeCutoff / rate;
-  const double wc_c  = clamp(wc, 1e-9, kPi * 0.98);
-  const double sinWc = dsp_sin_0_pi(wc_c);
-  const double cosWc = dsp_cos_0_pi(wc_c);
-  const double tanWc = dsp_tan_neg_halfquarter(0.25 * (wc_c - kPi));
+  // Feedback highpass is inside the TB_303 loop (150 Hz, HIGHPASS matched-Z).
+  const double fb_in = k * s.y4;
+  const double fb_hp = s.hpB0 * (fb_in - s.hpX) + s.hpP * s.hpY;
+  s.hpX = fb_in;
+  s.hpY = fb_hp;
 
-  // a1 = lerp(a1_noRes, a1_fullRes, r)
-  const double denom_a    = sinWc - cosWc * tanWc;
-  const double a1_fullRes = (denom_a > 1e-15 || denom_a < -1e-15) ? tanWc / denom_a : -1.0;
-  const double a1_noRes   = -dsp_exp_squaring(-wc_c);
-  const double a1         = r * a1_fullRes + (1.0 - r) * a1_noRes;
-  const double b0         = 1.0 + a1;
+  // No soft-clip. Open303: y0 = in - hp(k*y4), then the four integrators.
+  const double y0 = driveFactor * safe(input) - fb_hp;
+  const double ny1 = s.y1 + 2.0 * b0 * (y0 - s.y1 + s.y2);
+  const double ny2 = s.y2 + b0 * (ny1 - 2.0 * s.y2 + s.y3);
+  const double ny3 = s.y3 + b0 * (ny2 - 2.0 * s.y3 + s.y4);
+  const double ny4 = s.y4 + b0 * (ny3 - 2.0 * s.y4);
 
-  // feedback gain k — capped so soft-clip can hold self-osc without blow-up
-  const double gsq_d = clamp(1.0 + a1*a1 + 2.0*a1*cosWc, 1e-12, 1e30);
-  const double gsq   = (b0 * b0) / gsq_d;
-  const double k     = mind(3.5, r / clamp(gsq * gsq, 1e-24, 1e30));
-
-  // feedback highpass on k*y4
-  const double fbIn = k * s.y4;
-  const double fbHp = safe(s.hpB0 * (fbIn - s.hpX) + s.hpP * s.hpY);
-  s.hpX = fbIn;
-  s.hpY = fbHp;
-
-  // Soft-clip at ladder entry (high res + drive stability).
-  const double y0  = soft_clip_rational(0.125 * driveFactor * safe(input) - fbHp);
-  const double ny1 = safe(y0  + a1 * (y0  - s.y1));
-  const double ny2 = safe(ny1 + a1 * (ny1 - s.y2));
-  const double ny3 = safe(ny2 + a1 * (ny2 - s.y3));
-  const double ny4 = safe(ny3 + a1 * (ny3 - s.y4));
-
-  // If stages still blew up, hard-reset so the filter does not stay silent
-  // after a resonance/drive explosion (NaN/Inf or absurd finite magnitudes).
-  const bool stageBad =
-    (ny1 != ny1) || (ny2 != ny2) || (ny3 != ny3) || (ny4 != ny4) || (y0 != y0)
-    || (s.hpY != s.hpY)
-    || dsp_fabs(ny1) > 1.0e8 || dsp_fabs(ny2) > 1.0e8
-    || dsp_fabs(ny3) > 1.0e8 || dsp_fabs(ny4) > 1.0e8
-    || dsp_fabs(y0) > 1.0e8 || dsp_fabs(s.hpY) > 1.0e8;
-  if (stageBad) {
+  const double mixed = s.c0 * y0 + s.c1 * ny1 + s.c2 * ny2 + s.c3 * ny3 + s.c4 * ny4;
+  const double out = 2.0 * g * mixed;
+  const bool bad =
+      !(y0 == y0) || !(ny1 == ny1) || !(ny2 == ny2) || !(ny3 == ny3) ||
+      !(ny4 == ny4) || !(fb_hp == fb_hp) || !(out == out);
+  if (bad) {
     reset_state(s);
     return 0.0;
   }
-
-  s.y1 = ny1; s.y2 = ny2; s.y3 = ny3; s.y4 = ny4;
-
-  const double out = 8.0 * (s.c0*y0 + s.c1*ny1 + s.c2*ny2 + s.c3*ny3 + s.c4*ny4);
-  if ((out != out) || dsp_fabs(out) > 1.0e8) {
-    reset_state(s);
-    return 0.0;
-  }
-  return clamp(out, -32.0, 32.0);
+  s.y1 = ny1;
+  s.y2 = ny2;
+  s.y3 = ny3;
+  s.y4 = ny4;
+  return out;
 }
 
 extern "C" int soemdsp_tb303_filter_version() {
-  return 1;
+  return 2;
 }
 
 extern "C" const char* soemdsp_tb303_filter_metadata_json() {

@@ -2732,6 +2732,9 @@ function readNodeMetadataEditorValues(slider) {
 }
 
 function applyNodeMetadataEditor(options = {}) {
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    return;
+  }
   const slider = document.getElementById(nodeGraphMvp.metadataEditorTarget);
   if (!slider) {
     return;
@@ -3052,6 +3055,10 @@ function nodeGraphMakeControllerForOpenParameter(kind) {
 }
 
 function applyNodeMetadataScriptEditor() {
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    metadataScriptStatus("patch locked", true);
+    return false;
+  }
   const slider = document.getElementById(nodeGraphMvp.metadataEditorTarget);
   if (!slider) {
     metadataScriptStatus("no parameter", true);

@@ -154,6 +154,9 @@ function nodeGraphParseCodeGraphDocument(textOrValue) {
 }
 
 function commitNodeGraphCodeBoxLocalText(nodeId, localText, status = "Code local text") {
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    return { ok: false, message: "Patch is locked." };
+  }
   if (typeof nodeGraphScriptReadyForGraphAction === "function"
     && !nodeGraphScriptReadyForGraphAction("codeBox")) {
     return { ok: false, message: "Scripts not ready." };
@@ -209,10 +212,11 @@ function syncNodeGraphCodeBoxFace(face, nodeId) {
     return;
   }
   const driven = nodeGraphCodeBoxIsCodeInConnected(nodeId);
+  const patchLocked = typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked();
   const effective = nodeGraphCodeBoxEffectiveText(patchNode);
-  area.readOnly = driven;
+  area.readOnly = driven || patchLocked;
   if (applyBtn) {
-    applyBtn.disabled = driven;
+    applyBtn.disabled = driven || patchLocked;
   }
   if (hint && !hint.dataset.stickyError) {
     hint.textContent = driven

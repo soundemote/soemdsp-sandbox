@@ -836,7 +836,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
     "#ffffff",
   );
   const moduleScopeFramesPerSecond = normalizeNodeGraphModuleScopeFramesPerSecond(
-    view.moduleScopeFramesPerSecond ?? nodeGraphMvp.moduleScopeFramesPerSecond ?? (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 120),
+    view.moduleScopeFramesPerSecond ?? nodeGraphMvp.moduleScopeFramesPerSecond ?? (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 60),
   );
   const moduleScopePointBudget = normalizeNodeGraphModuleScopePointBudget(
     view.moduleScopePointBudget ?? nodeGraphMvp.moduleScopePointBudget ?? 4096,
@@ -1043,7 +1043,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       moduleScopeDotCore1Size: normalizeNodeGraphModuleScopeDotCoreSize(nodeGraphMvp.moduleScopeDotCore1Size ?? 2, 2),
       moduleScopeDotCore1Brightness: normalizeNodeGraphModuleScopeDotCoreBrightness(nodeGraphMvp.moduleScopeDotCore1Brightness ?? 0.23, 0.23),
       moduleScopeDotCore1Color: normalizeNodeGraphModuleScopeDotCoreColor(nodeGraphMvp.moduleScopeDotCore1Color ?? "#ffffff", "#ffffff"),
-      moduleScopeFramesPerSecond: normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 120)),
+      moduleScopeFramesPerSecond: normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 60)),
       moduleScopePointBudget: normalizeNodeGraphModuleScopePointBudget(nodeGraphMvp.moduleScopePointBudget ?? 4096),
       moduleScopeLineThickness: normalizeNodeGraphModuleScopeLineThickness(nodeGraphMvp.moduleScopeLineThickness ?? 1),
       moduleScopeDiscontinuitySkipSamples: normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
@@ -1453,8 +1453,8 @@ function readNodeGraphUserSessionFromState() {
       }
       : null,
     moduleScopeFramesPerSecond: typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
-      ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 120))
-      : Math.max(0, Math.min(240, Math.round(Number(nodeGraphMvp.moduleScopeFramesPerSecond) || (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 120)))),
+      ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 60))
+      : Math.max(0, Math.min(240, Math.round(Number(nodeGraphMvp.moduleScopeFramesPerSecond) || (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 60)))),
     traceSettings: typeof normalizeNodeGraphWaterfallSettings === "function"
       ? normalizeNodeGraphWaterfallSettings(nodeGraphMvp.traceSettings)
       : nodeGraphMvp.traceSettings,
@@ -1568,7 +1568,7 @@ function applyNodeGraphUserSession(session, options = {}) {
   if (normalized.moduleScopeFramesPerSecond != null) {
     nodeGraphMvp.moduleScopeFramesPerSecond = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
       ? normalizeNodeGraphModuleScopeFramesPerSecond(normalized.moduleScopeFramesPerSecond)
-      : Math.max(0, Math.min(240, Math.round(Number(normalized.moduleScopeFramesPerSecond) || (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 120))));
+      : Math.max(0, Math.min(240, Math.round(Number(normalized.moduleScopeFramesPerSecond) || (typeof nodeGraphDefaultSimulationFps === "number" ? nodeGraphDefaultSimulationFps : 60))));
     if (typeof renderNodeGraphModuleScopeBrightnessControl === "function") {
       renderNodeGraphModuleScopeBrightnessControl();
     }

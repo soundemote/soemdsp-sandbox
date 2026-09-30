@@ -215,6 +215,9 @@ function beginNodeGraphKnobFaceLabelEdit(label, nodeId) {
   if (!label || label.dataset.editing === "true") {
     return;
   }
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    return;
+  }
   label.dataset.editing = "true";
   label.contentEditable = "true";
   label.spellcheck = false;
@@ -232,7 +235,8 @@ function beginNodeGraphKnobFaceLabelEdit(label, nodeId) {
     }
     label.dataset.editing = "false";
     label.contentEditable = "false";
-    const next = commit ? label.textContent : nodeGraphKnobFaceLabelTextForNode(
+    const allowCommit = commit && !(typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked());
+    const next = allowCommit ? label.textContent : nodeGraphKnobFaceLabelTextForNode(
       typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null,
     );
     nodeGraphKnobFaceWriteLabelText(nodeId, next, { record: true });
@@ -1052,6 +1056,9 @@ function beginNodeGraphKnobFaceValueEdit(face, event = null) {
   if (!face || face.dataset.knobFaceEditing === "true") {
     return false;
   }
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    return false;
+  }
   const nodeId = String(face.dataset.node || "").trim();
   if (!nodeId) {
     return false;
@@ -1108,7 +1115,8 @@ function beginNodeGraphKnobFaceValueEdit(face, event = null) {
     finished = true;
     face.dataset.knobFaceEditing = "false";
     document.removeEventListener("pointerdown", closeOutside, true);
-    if (commit) {
+    const allowCommit = commit && !(typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked());
+    if (allowCommit) {
       if (typeof updateNodeSliderCurrentValue === "function") {
         updateNodeSliderCurrentValue(slider, input.value);
       }

@@ -945,6 +945,9 @@ function beginNodeSliderSurfaceEdit(surface) {
   if (!surface) {
     return;
   }
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    return;
+  }
   // Knob: face-local type-in (canvas-safe). Never the Bias body row readout.
   if (surface.classList.contains("node-knob-face")) {
     if (typeof beginNodeGraphKnobFaceValueEdit === "function") {

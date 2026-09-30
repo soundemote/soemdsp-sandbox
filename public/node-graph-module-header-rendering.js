@@ -119,6 +119,17 @@ function commitNodeGraphHeaderNumberInput(input) {
   ) {
     return;
   }
+  if (
+    input.tagName !== "SELECT"
+    && typeof nodeGraphPatchIsLocked === "function"
+    && nodeGraphPatchIsLocked()
+  ) {
+    input.readOnly = true;
+    if (typeof syncNodeGraphHeaderTimingWidgets === "function") {
+      syncNodeGraphHeaderTimingWidgets();
+    }
+    return;
+  }
   if (input.tagName === "SELECT") {
     if (input.dataset.audioField) {
       updateNodeGraphPatchAudioFromHeader(input);

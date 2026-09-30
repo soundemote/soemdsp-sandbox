@@ -1,5 +1,5 @@
 // SinCos face — cheap 1D one-cycle sine (red) and cosine (blue).
-// Same family as BasicShape: frame-rate paint, no engine-rate ring.
+// WebGL line + white phase dots (cycle-line-gl). Frame-rate paint, no engine-rate ring.
 // A line is drawn only when a patch wire leaves that output jack.
 // Each drawn line gets its own phase dot. Both dots are white.
 
@@ -230,51 +230,18 @@ function drawNodeGraphSinCosDisplayInner(section) {
     return;
   }
 
-  let context;
-  let width;
-  let height;
-  let pixelRatio = 1;
-  if (typeof nodeGraphSizeDisplayCanvas === "function") {
-    const metrics = nodeGraphSizeDisplayCanvas(section, canvas, { pixelDensity });
-    if (!metrics) {
-      return;
-    }
-    context = metrics.context;
-    width = metrics.cssWidth;
-    height = metrics.cssHeight;
-    pixelRatio = metrics.pixelRatio || 1;
-  } else {
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    pixelRatio = dpr * Math.max(nodeGraphFiniteNumber(pixelDensity, 1), 1e-6);
-    width = Math.max(1, Math.floor(rawW));
-    height = Math.max(1, Math.floor(rawH));
-    canvas.width = Math.max(1, Math.round(width * pixelRatio));
-    canvas.height = Math.max(1, Math.round(height * pixelRatio));
-    context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
-  }
-  if (!(width >= 8) || !(height >= 8) || !context) {
+  const metrics = typeof nodeGraphCycleLineGlMetrics === "function"
+    ? nodeGraphCycleLineGlMetrics(section, canvas, pixelDensity)
+    : null;
+  if (!metrics) {
     return;
   }
-
-  const waveDirty = section._sinCosWaveSig !== signature
-    || !section._sinCosWaveCanvas;
+  const pixelRatio = metrics.pixelRatio || 1;
+  const drawW = metrics.cssWidth;
+  const drawH = metrics.cssHeight;
   section._sinCosSignature = signature;
   section._sinCosForceDraw = false;
   section._sinCosLaidOut = true;
-
-  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  const drawW = Math.max(1, canvas.width / pixelRatio);
-  const drawH = Math.max(1, canvas.height / pixelRatio);
-  if (!waveDirty) {
-    context.drawImage(section._sinCosWaveCanvas, 0, 0, drawW, drawH);
-  } else {
-    context.clearRect(0, 0, drawW, drawH);
-    context.fillStyle = "#020609";
-    context.fillRect(0, 0, drawW, drawH);
-  }
 
   const strokeInset = strokeW * 0.5 + 1 / Math.max(pixelRatio, 1);
   const padX = Math.max(6, drawW * 0.06) + strokeInset;
@@ -292,41 +259,18 @@ function drawNodeGraphSinCosDisplayInner(section) {
   };
   const phaseOff = wrap01(phaseParam);
   const sampleKind = (cycle01, kind) => nodeGraphSinCosSample(wrap01(cycle01 + phaseOff), kind, amplitude);
-
-  if (waveDirty) {
-    // Red sine only if a wire leaves the sin jack. Blue cosine only for cos.
-    if (drawSin) {
-      nodeGraphSinCosStrokeCycle(
-        context, mapX, mapY, samples,
-        (xNorm) => sampleKind(xNorm, "sin"),
-        NODE_GRAPH_SINCOS_SINE_STROKE,
-        strokeW,
-      );
+  const lines = [];
+  const pushLine = (kind, color) => {
+    const points = [];
+    for (let i = 0; i <= samples; i += 1) {
+      const xNorm = i / samples;
+      points.push({ x: mapX(xNorm), y: mapY(sampleKind(xNorm, kind)) });
     }
-    if (drawCos) {
-      nodeGraphSinCosStrokeCycle(
-        context, mapX, mapY, samples,
-        (xNorm) => sampleKind(xNorm, "cos"),
-        NODE_GRAPH_SINCOS_COS_STROKE,
-        strokeW,
-      );
-    }
-    if (!section._sinCosWaveCanvas) {
-      section._sinCosWaveCanvas = document.createElement("canvas");
-    }
-    const hold = section._sinCosWaveCanvas;
-    if (hold.width !== canvas.width || hold.height !== canvas.height) {
-      hold.width = canvas.width;
-      hold.height = canvas.height;
-    }
-    const holdCtx = hold.getContext("2d");
-    if (holdCtx) {
-      holdCtx.setTransform(1, 0, 0, 1, 0, 0);
-      holdCtx.clearRect(0, 0, hold.width, hold.height);
-      holdCtx.drawImage(canvas, 0, 0);
-      section._sinCosWaveSig = signature;
-    }
-  }
+    lines.push({ points, color, width: strokeW, blur: 0 });
+  };
+  // Red sine only if a wire leaves the sin jack. Blue cosine only for cos.
+  if (drawSin) pushLine("sin", NODE_GRAPH_SINCOS_SINE_STROKE);
+  if (drawCos) pushLine("cos", NODE_GRAPH_SINCOS_COS_STROKE);
 
   let play = nodeGraphSinCosReadPhase(nodeId, node, section);
   if (!Number.isFinite(play)) {
@@ -335,20 +279,26 @@ function drawNodeGraphSinCosDisplayInner(section) {
   play = wrap01(play);
   const playX = wrap01(play - phaseOff);
   const px = mapX(playX);
+  const dotR = Math.max(0.5, dotW * 0.5);
+  const dots = [];
   // One white phase marker per drawn line. Lines stay red/blue; dots do not.
-  const paintPhaseDot = (kind) => {
+  const pushDot = (kind) => {
     const py = mapY(nodeGraphSinCosSample(play, kind, amplitude));
-    if (!Number.isFinite(px) || !Number.isFinite(py)) {
-      return;
-    }
-    context.beginPath();
-    context.fillStyle = NODE_GRAPH_SINCOS_DOT;
-    context.arc(px, py, Math.max(0.5, dotW * 0.5), 0, Math.PI * 2);
-    context.fill();
+    if (!Number.isFinite(px) || !Number.isFinite(py)) return;
+    dots.push({ x: px, y: py, color: NODE_GRAPH_SINCOS_DOT, radius: dotR });
   };
-  if (drawSin) paintPhaseDot("sin");
-  if (drawCos) paintPhaseDot("cos");
+  if (drawSin) pushDot("sin");
+  if (drawCos) pushDot("cos");
+  nodeGraphCycleLineGlPresent(canvas, {
+    cssWidth: drawW,
+    cssHeight: drawH,
+    background: "#020609",
+    waveKey: signature,
+    lines,
+    dots,
+  });
 }
+
 
 if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {
   nodeGraphModuleScopeCustomRenderers.sinCosFace = () => {};

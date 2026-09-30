@@ -219,10 +219,19 @@ function createTextBoxWidget(body, options = {}) {
   field.spellcheck = false;
   textBoxWidgetWriteText(field, layout.text);
 
+  function patchTextLocked() {
+    return typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked();
+  }
+
+  function canEditText() {
+    return editable && !patchTextLocked();
+  }
+
   function applyEditable() {
-    field.contentEditable = editable ? "true" : "false";
-    field.setAttribute("aria-readonly", editable ? "false" : "true");
-    field.tabIndex = editable ? 0 : -1;
+    const on = canEditText();
+    field.contentEditable = on ? "true" : "false";
+    field.setAttribute("aria-readonly", on ? "false" : "true");
+    field.tabIndex = on ? 0 : -1;
   }
 
   if (typeof nodeGraphTextBoxBindFieldKeySteal === "function") {
@@ -232,7 +241,7 @@ function createTextBoxWidget(body, options = {}) {
   let pointerStart = null;
   field.addEventListener("pointerdown", (event) => {
     event.stopPropagation();
-    if (!editable || event.button !== 0) {
+    if (!canEditText() || event.button !== 0) {
       return;
     }
     pointerStart = { x: event.clientX, y: event.clientY };
@@ -245,7 +254,7 @@ function createTextBoxWidget(body, options = {}) {
     }
   });
   field.addEventListener("pointerup", (event) => {
-    if (!editable || event.button !== 0 || !pointerStart) {
+    if (!canEditText() || event.button !== 0 || !pointerStart) {
       return;
     }
     const dx = event.clientX - pointerStart.x;
@@ -266,7 +275,7 @@ function createTextBoxWidget(body, options = {}) {
   field.addEventListener("dblclick", (event) => {
     // Keep the gesture on the face (no module settings / drag).
     event.stopPropagation();
-    if (!editable) {
+    if (!canEditText()) {
       return;
     }
     // Already focused: native word/line select. preventDefault + PlaceCaret
@@ -295,7 +304,7 @@ function createTextBoxWidget(body, options = {}) {
     }
   });
   field.addEventListener("paste", (event) => {
-    if (!editable) return;
+    if (!canEditText()) return;
     event.preventDefault();
     const pasted = String(event.clipboardData?.getData("text/plain") ?? "");
     const text = layout.textMode === "singleLine"
@@ -379,11 +388,14 @@ function createTextBoxWidget(body, options = {}) {
       window.clearTimeout(commitTimer);
       commitTimer = 0;
     }
+    if (!canEditText()) {
+      return;
+    }
     commitFn?.(textBoxWidgetReadText(field));
   }
 
   field.addEventListener("input", () => {
-    if (applying || !editable) return;
+    if (applying || !canEditText()) return;
     layout.text = textBoxWidgetReadText(field);
     scheduleVisual();
     changeFn?.(layout.text);
@@ -391,7 +403,7 @@ function createTextBoxWidget(body, options = {}) {
     commitTimer = window.setTimeout(flushCommit, 400);
   });
   field.addEventListener("blur", () => {
-    if (applying || !editable) return;
+    if (applying || !canEditText()) return;
     flushCommit();
   });
 
@@ -464,7 +476,14 @@ function createTextBoxWidget(body, options = {}) {
       applyEditable();
     },
     focus() {
-      if (editable) field.focus();
+      if (canEditText()) field.focus();
+    },
+    applyPatchLock() {
+      if (commitTimer) {
+        window.clearTimeout(commitTimer);
+        commitTimer = 0;
+      }
+      applyEditable();
     },
     onChange(fn) {
       changeFn = typeof fn === "function" ? fn : null;

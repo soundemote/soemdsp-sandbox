@@ -134,7 +134,8 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-082 | hear | fixed | Unit-band param MOD must clamp to paramMeta [min,max] (Gate+Toggle > Amp max) |
 | B-083 | see | fixed | Tube Sat TraceWoscope face blank (demo Bright=0) |
 | B-084 | see | fixed | scope1dTrace Display Settings gradient not feeding TraceWoscope LUT |
-| B-085 | see | open | Multi-select Display Settings copies unedited settings |
+| B-085 | see | fixed | Multi-select Display Settings copies unedited settings |
+| B-086 | see | open | 1D Trace sync glitches more than phosphor sync |
 
 ---
 
@@ -163,6 +164,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - 2026-09-28: User - Choices parameter (Tube Saturation context): choice divide/segment text ellipsizes too early / does not use full slider width. Promoted → **B-080** (`docs/B-080_CHOICE_SEGMENT_TEXT_FULLWIDTH.md`).
 - 2026-09-28: User - Parameter modulation must clamp to param max/min (Keyboard Gate + Toggle into PolyBLEP Amplitude). Promoted -> **B-082** (`docs/B-082_PARAM_MOD_CLAMP_MIN_MAX.md`).
 - 2026-09-29: User - selecting multiple displays and changing one setting (example: Show in canvas) also copies the edited module's other, unchanged settings onto the rest of the selection. Promoted -> **B-085** (`docs/B-085_MULTISELECT_DISPLAY_SETTINGS_COPY.md`).
+- 2026-09-29: User - 1D Trace / woscope sync mode glitches a lot more than phosphor sync. Maybe zero crossings per quantum. Logged only, do not fix yet. Promoted -> **B-086** (`docs/B-086_SCOPE1DTRACE_SYNC_GLITCH.md`).
 
 ---
 
@@ -972,20 +974,34 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 
 
 ### B-085 — Multi-select Display Settings copies unedited settings
-- Status: open
+- Status: fixed
 - Severity: see
 - Source: user 2026-09-29
 - Related: B-066 (multi-select Portal Title/Display hidden or locked; different symptom)
 - Doc: `docs/B-085_MULTISELECT_DISPLAY_SETTINGS_COPY.md`
-- Files: `public/node-graph-module-scope-settings-apply.js` (`nodeGraphTraceDisplaySettingsDirtyKeysFromEvent`, `nodeGraphMergeDisplaySettingsDirty`, `applyNodeGraphTraceDisplaySettingsForm`); `public/node-graph-module-scope-settings-window.js` (Show in canvas, `#nodeLayoutCanvasShowInCanvas`)
+- Files: `public/node-graph-module-scope-settings-apply.js` (baseline diff; no star full-form copy); `public/node-graph-module-scope-settings-form-io.js` (seed snapshot); `public/node-graph-layout-canvas.js` (Show in canvas pins every selected display); `public/index.html` (b085-multiselect-1)
 - What: Selecting multiple displays and changing one setting (example: Show in canvas) also writes the edited module's other display settings onto every selected module. Modules that were not edited pick up unchanged settings from the edited module, so multi-select loses per-module settings.
 - Repro: Select two or more display modules whose display settings differ. Open Display Settings for the selection and change only Show in canvas (or one other control). The other selected modules take on settings from the edited module that were not touched.
 - Expected: Only the setting the user edited is applied to all selected modules. Every other setting stays as it was on each module.
-- Fix shape: The code that decides which settings to apply to all selected modules is wrong. `nodeGraphTraceDisplaySettingsDirtyKeysFromEvent` returns `["*"]` for controls that are not tagged `data-trace-display-*` — Show in canvas is one of those — and `applyNodeGraphTraceDisplaySettingsForm` then skips `nodeGraphMergeDisplaySettingsDirty` and writes the whole primary form. Record and apply only the edited setting. Docs only; no code fix in this report.
+- Fix: Multi-apply merges only keys that differ from the seeded form snapshot. Star no longer copies the primary form. Show in canvas sets the pin on the whole selection and does not write display settings. Paste and Defaults still force the whole form. Not committed.
+
+### B-086 — 1D Trace sync glitches more than phosphor sync
+- Status: open
+- Severity: see
+- Source: user 2026-09-29
+- Related: B-081, B-084
+- Doc: `docs/B-086_SCOPE1DTRACE_SYNC_GLITCH.md`
+- Files: 1D Trace / woscope sync path (not pinned). Phosphor sync is the comparison that holds.
+- What: 1D Trace in sync mode glitches a lot more than phosphor scope in sync mode.
+- Repro: Not pinned. Same signal, sync on, 1D Trace vs phosphor. 1D jumps or tears; phosphor holds.
+- Expected: 1D sync should hold as steadily as phosphor sync.
+- Notes: User guess, not confirmed: zero-crossing issue, maybe zero crossings are sent per quantum.
+- Fix shape: Not started. Compare the two sync triggers before changing anything. Docs only; no code fix in this report.
 
 ## Fixed
 
 - **B-084** — scope1dTrace Display Settings gradientStops feed TraceWoscope energy LUT; 2D Trace stays solid (b084-1dtrace-grad-1).
+- **B-085** - Multi-select Display Settings applies only the edited setting (baseline diff; Show in canvas pins the selection). b085-multiselect-1. Not committed.
 - **B-082** — Unit-band param MOD clamps to paramMeta [min,max] (`control_effective` SSOT; Gate+Toggle <= Amp max).
 
 <!-- move B-xxx here with a one-line note -->

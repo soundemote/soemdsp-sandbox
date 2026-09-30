@@ -2360,7 +2360,6 @@
     "tooltipEmbedded": false,
     "locked": false,
     "hideUnusedPorts": false,
-    "moduleScopeFramesPerSecond": 120,
     "canvases": {
       "root": {
         "elements": [

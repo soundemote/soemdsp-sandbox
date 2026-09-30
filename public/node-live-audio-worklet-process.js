@@ -139,24 +139,21 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
     if (usedNativeGraph) {
       this.scopeCounter = (nodeGraphFiniteNumber(this.scopeCounter)) + frames;
       const displayFps = Number(this.displayFps);
-      // Counters below advance by host frames each quantum. Pace them against
-      // the host AudioContext rate (wall clock), not effectiveRate (engine =
-      // host*oversampling, optionally /speed). Using effectiveRate under-posted
-      // by exactly the OS factor — with OS*4 and audioStressed*4 that felt like
-      // ~4fps at Simulation FPS 60 and ~15fps at 240.
+      // Counters advance by host frames each quantum. Pace against the host
+      // AudioContext rate (wall clock), not effectiveRate (engine =
+      // host*oversampling). Do not also divide by the stress factor — that
+      // quartered the display setting on top of any oversampling mistake.
       const hostRateForDisplay = Math.max(
         1,
         nodeGraphFiniteNumber(this.hostSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)),
       );
       if (displayFps > 0) {
         this.scopeSnapshotCounter = (nodeGraphFiniteNumber(this.scopeSnapshotCounter)) + frames;
-        // Never fully starve scope posts when stressed — that freezes every face
-        // until the budget recovers (often never, with stereo supersaw + sinks).
-        // Stressed: post at ~1/4 display rate instead of skipping entirely.
-        const snapshotEvery = Math.max(
-          1,
-          Math.floor(hostRateForDisplay / displayFps) * (audioStressed ? 4 : 1),
-        );
+        // Stressed quanta used to multiply this interval by 4, so a hot audio
+        // thread (often stuck) displayed Simulation FPS / 4: 60 looked like
+        // ~15 and 240 like ~60. The setting is the post rate. Host rate, not
+        // engine rate, is already what the counter is paced against.
+        const snapshotEvery = Math.max(1, Math.floor(hostRateForDisplay / displayFps));
         if (this.scopeSnapshotCounter >= snapshotEvery) {
           this.scopeSnapshotCounter = 0;
           this.postModuleScopeSnapshot?.();

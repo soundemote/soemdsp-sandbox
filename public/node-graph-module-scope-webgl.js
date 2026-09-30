@@ -36,12 +36,12 @@ function createNodeGraphModuleScopeProgram(gl, vertexSource, fragmentSource) {
 function createNodeGraphModuleScopeWebGlRenderer(canvas) {
   const gl = canvas.getContext("webgl", {
     alpha: true,
-    antialias: false,
+    antialias: true,
     premultipliedAlpha: true,
     preserveDrawingBuffer: false,
   }) || canvas.getContext("experimental-webgl", {
     alpha: true,
-    antialias: false,
+    antialias: true,
     premultipliedAlpha: true,
     preserveDrawingBuffer: false,
   });

@@ -21,6 +21,10 @@ function commitNodeSliderReadoutEdit(input) {
   if (input.dataset.editCanceled === "true" || input.dataset.editCommitted === "true") {
     return;
   }
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    cancelNodeSliderReadoutEdit(input);
+    return;
+  }
   input.dataset.editCommitted = "true";
   const slider = document.getElementById(input.dataset.sliderTarget);
   updateNodeSliderCurrentValue(slider, input.value);
@@ -59,6 +63,9 @@ function cancelNodeSliderReadoutEdit(input) {
 }
 
 function beginNodeSliderReadoutEdit(readout) {
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    return;
+  }
   const slider = document.getElementById(readout.dataset.sliderTarget);
   if (!slider) {
     return;

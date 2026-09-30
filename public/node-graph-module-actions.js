@@ -134,6 +134,140 @@ function syncNodeGraphReadyPanelChrome() {
     }
   }
   syncNodeGraphReadyWiresButton();
+  applyNodeGraphPatchLockedTextFields();
+}
+
+function nodeGraphPatchLockedTextInput(id) {
+  const input = document.getElementById(id);
+  if (!input || (input.tagName !== "INPUT" && input.tagName !== "TEXTAREA")) {
+    return null;
+  }
+  const type = String(input.type || "").toLowerCase();
+  if (type === "checkbox" || type === "radio" || type === "color" || type === "range" || type === "button" || type === "hidden" || type === "file") {
+    return null;
+  }
+  return input;
+}
+
+/** While view.locked, patch text editors are readonly and open sessions revert. */
+function applyNodeGraphPatchLockedTextFields() {
+  const locked = nodeGraphPatchIsLocked();
+  if (locked) {
+    endAllNodeGraphModuleTitleEdits({ commit: false, revert: true });
+    document.querySelectorAll(".node-slider-readout-input").forEach((input) => {
+      if (typeof cancelNodeSliderReadoutEdit === "function") {
+        cancelNodeSliderReadoutEdit(input);
+      }
+    });
+    document.querySelectorAll(".node-knob-face-label[data-editing='true']").forEach((label) => {
+      label.blur();
+    });
+    document.querySelectorAll(".node-knob-face-value-input").forEach((input) => {
+      input.blur();
+    });
+    document.querySelectorAll(".node-header-timing-input").forEach((input) => {
+      if (!(input instanceof HTMLInputElement) || input.readOnly) {
+        return;
+      }
+      if (
+        input.classList.contains("node-header-render-start-input")
+        || input.classList.contains("node-header-render-end-input")
+        || input.closest(".node-header-render-range-field")
+      ) {
+        return;
+      }
+      input.readOnly = true;
+      if (document.activeElement === input) {
+        input.blur();
+      }
+    });
+    if (typeof syncNodeGraphHeaderTimingWidgets === "function") {
+      syncNodeGraphHeaderTimingWidgets();
+    }
+  }
+  for (const id of [
+    "nodeSceneAliasInput",
+    "nodeSceneKnobTextInput",
+    "nodeSceneKnobPluginFolder",
+    "nodeSceneKnobPluginName",
+    "nodeSceneKnobPluginId",
+    "nodeSceneTextBoxTextInput",
+    "nodeSceneBugButtonGlyph",
+    "nodeSceneScopeTime",
+  ]) {
+    const input = nodeGraphPatchLockedTextInput(id);
+    if (!input) {
+      continue;
+    }
+    input.readOnly = locked;
+    if (locked && document.activeElement === input) {
+      input.blur();
+    }
+  }
+  document.querySelectorAll("[data-trace-display-field]").forEach((input) => {
+    if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement)) {
+      return;
+    }
+    const type = String(input.type || "").toLowerCase();
+    if (type === "checkbox" || type === "radio" || type === "color" || type === "range") {
+      return;
+    }
+    if (locked) {
+      const wasEditing = input.classList.contains("trace-display-field-editing");
+      if (wasEditing) {
+        input.classList.remove("trace-display-field-editing");
+        if (input.dataset.traceDisplayField === "zoomSeconds" && typeof setNodeGraphTraceDisplayZoomEditActive === "function") {
+          setNodeGraphTraceDisplayZoomEditActive(false);
+        }
+        input.readOnly = true;
+        delete input.dataset.patchLockReadonly;
+      } else if (!input.readOnly) {
+        input.readOnly = true;
+        input.dataset.patchLockReadonly = "1";
+      }
+      if (document.activeElement === input) {
+        input.blur();
+      }
+    } else if (input.dataset.patchLockReadonly === "1") {
+      input.readOnly = false;
+      delete input.dataset.patchLockReadonly;
+    }
+  });
+  document.querySelectorAll(".node-code-box-face").forEach((face) => {
+    if (typeof syncNodeGraphCodeBoxFace === "function") {
+      syncNodeGraphCodeBoxFace(face, face.dataset.node);
+    }
+  });
+  document.querySelectorAll(".node-text-box-body").forEach((body) => {
+    const widget = typeof nodeGraphTextBoxWidgets !== "undefined"
+      ? nodeGraphTextBoxWidgets.get(body)
+      : null;
+    widget?.applyPatchLock?.();
+    if (locked && widget?.field && document.activeElement === widget.field) {
+      widget.field.blur();
+    }
+  });
+  const meta = document.getElementById("nodeParameterMetadataPopover");
+  if (meta) {
+    meta.querySelectorAll("input, textarea").forEach((input) => {
+      const type = String(input.type || "").toLowerCase();
+      if (type === "checkbox" || type === "radio" || type === "color" || type === "range" || type === "button" || type === "hidden" || type === "file") {
+        return;
+      }
+      if (locked) {
+        if (!input.readOnly) {
+          input.readOnly = true;
+          input.dataset.patchLockReadonly = "1";
+        }
+        if (document.activeElement === input) {
+          input.blur();
+        }
+      } else if (input.dataset.patchLockReadonly === "1") {
+        input.readOnly = false;
+        delete input.dataset.patchLockReadonly;
+      }
+    });
+  }
 }
 
 function syncNodeGraphReadyWiresButton() {
@@ -1643,6 +1777,9 @@ function nodeGraphModuleTitleFieldBeginEdit(el) {
   if (!(el instanceof HTMLElement)) {
     return;
   }
+  if (nodeGraphPatchIsLocked()) {
+    return;
+  }
   el.contentEditable = "true";
   el.tabIndex = 0;
   el.dataset.titleEditing = "1";
@@ -1694,6 +1831,9 @@ function startNodeGraphModuleTitleEdit(primaryInput, pointerEvent = null) {
     return;
   }
   if (primaryInput.dataset.titleLocked === "1") {
+    return;
+  }
+  if (nodeGraphPatchIsLocked()) {
     return;
   }
   // Already in edit on this field — do not PlaceCaretAtPoint (kills word select).
@@ -1896,6 +2036,9 @@ function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = n
 }
 
 function setNodeGraphModuleDisplayFromContext({ record = true } = {}) {
+  if (nodeGraphPatchIsLocked()) {
+    return;
+  }
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
   if (!sourceNode) {
     return;
@@ -1973,12 +2116,18 @@ function setNodeGraphKnobTextFromContext({ record = true } = {}) {
 }
 
 function setNodeGraphKnobPluginIdentityFromContext() {
+  if (nodeGraphPatchIsLocked()) {
+    return;
+  }
   if (typeof commitNodeGraphKnobPluginIdentity === "function") {
     commitNodeGraphKnobPluginIdentity();
   }
 }
 
 function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
+  if (nodeGraphPatchIsLocked()) {
+    return;
+  }
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
   if (!sourceNode) {
     return;
@@ -2270,6 +2419,9 @@ function setNodeGraphTextBoxModeFromContext(textMode) {
 }
 
 function setNodeGraphTextBoxTextFromContext({ record = true } = {}) {
+  if (nodeGraphPatchIsLocked()) {
+    return;
+  }
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
   if (!sourceNode || !nodeGraphNodeTypeHasTextBoxLayout(sourceNode.type)) {
     return;
@@ -2435,6 +2587,9 @@ function setNodeGraphLedColorFromContext({ record = true } = {}) {
 }
 
 function setNodeGraphBugButtonGlyphFromContext({ record = true } = {}) {
+  if (nodeGraphPatchIsLocked()) {
+    return;
+  }
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
   if (!sourceNode || sourceNode.type !== "bugButton") {
     return;

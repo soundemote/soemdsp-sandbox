@@ -1,7 +1,9 @@
 // Instant Waterfall face. WebGL end to end: history texture, scroll left,
 // stamp filled bars on the right. Not a Canvas2D plate with a blur composite.
-// Sub-texel time is uniform uSub on the present shader. Optional blur is
-// uniform float uBlur (0 = skip the passes, 1 = full separable gaussian).
+// Sub-texel time is uniform uSub on the present shader. No blur pass.
+// Each bar edge is a 1px box coverage (the pixel the edge actually crosses),
+// so fractional Y is not a hard stair. Context antialias does not apply:
+// bars are drawn into a texture, not the multisampled default framebuffer.
 
 function nodeGraphWaterfallGlParsePlate(css) {
   const s = String(css || "#000000").trim();
@@ -95,29 +97,6 @@ void main() {
 }
 `;
 
-const NODE_GRAPH_WF_GL_BLUR = `
-precision mediump float;
-uniform sampler2D uTex;
-uniform vec2 uSize;
-uniform vec2 uDir;
-uniform float uBlur;
-uniform float uSub;
-void main() {
-  float sigma = max(uBlur * 7.0, 0.001);
-  vec4 acc = vec4(0.0);
-  float wsum = 0.0;
-  for (int i = -8; i <= 8; i++) {
-    float fi = float(i);
-    float w = exp(-0.5 * (fi * fi) / (sigma * sigma));
-    float x = gl_FragCoord.x + uSub + uDir.x * fi;
-    float y = gl_FragCoord.y + uDir.y * fi;
-    acc += texture2D(uTex, vec2(x / uSize.x, y / uSize.y)) * w;
-    wsum += w;
-  }
-  gl_FragColor = acc / wsum;
-}
-`;
-
 const NODE_GRAPH_WF_GL_PRESENT = `
 precision mediump float;
 uniform sampler2D uTex;
@@ -132,8 +111,31 @@ void main() {
 const NODE_GRAPH_WF_GL_BAR = `
 precision mediump float;
 uniform vec3 uColor;
+uniform vec2 uSize;
+uniform vec2 uSpan;
+uniform vec4 uEdge;
+uniform float uBlendKind;
 void main() {
-  gl_FragColor = vec4(uColor, 1.0);
+  // Canvas Y, top-down. Coverage is the 1px box overlap with the filled
+  // span at this x, so a fractional edge is a partial pixel, not a stair.
+  float y = uSize.y - gl_FragCoord.y;
+  float span = max(uSpan.y - uSpan.x, 1e-4);
+  float t = clamp((gl_FragCoord.x - uSpan.x) / span, 0.0, 1.0);
+  float yTop = mix(uEdge.x, uEdge.y, t);
+  float yBot = mix(uEdge.z, uEdge.w, t);
+  float lo = min(yTop, yBot);
+  float hi = max(yTop, yBot);
+  float a = max(y - 0.5, lo);
+  float b = min(y + 0.5, hi);
+  float cover = clamp(b - a, 0.0, 1.0);
+  if (cover <= 0.0) discard;
+  if (uBlendKind > 1.5) {
+    gl_FragColor = vec4(mix(vec3(1.0), uColor, cover), 1.0);
+  } else if (uBlendKind > 0.5) {
+    gl_FragColor = vec4(uColor * cover, 0.0);
+  } else {
+    gl_FragColor = vec4(uColor * cover, cover);
+  }
 }
 `;
 
@@ -151,14 +153,14 @@ function nodeGraphWaterfallGlEnsure(canvas, plateCss) {
   if (!gl || gl.isContextLost()) {
     gl = canvas.getContext("webgl", {
       alpha: false,
-      antialias: false,
+      antialias: true,
       depth: false,
       stencil: false,
       preserveDrawingBuffer: true,
       premultipliedAlpha: false,
     }) || canvas.getContext("experimental-webgl", {
       alpha: false,
-      antialias: false,
+      antialias: true,
       depth: false,
       stencil: false,
       preserveDrawingBuffer: true,
@@ -168,10 +170,9 @@ function nodeGraphWaterfallGlEnsure(canvas, plateCss) {
   }
   if (!gl) return null;
   const scrollProg = nodeGraphWaterfallGlProgram(gl, NODE_GRAPH_WF_GL_VERT, NODE_GRAPH_WF_GL_SCROLL);
-  const blurProg = nodeGraphWaterfallGlProgram(gl, NODE_GRAPH_WF_GL_VERT, NODE_GRAPH_WF_GL_BLUR);
   const presentProg = nodeGraphWaterfallGlProgram(gl, NODE_GRAPH_WF_GL_VERT, NODE_GRAPH_WF_GL_PRESENT);
   const barProg = nodeGraphWaterfallGlProgram(gl, NODE_GRAPH_WF_GL_VERT, NODE_GRAPH_WF_GL_BAR);
-  if (!scrollProg || !blurProg || !presentProg || !barProg) return null;
+  if (!scrollProg || !presentProg || !barProg) return null;
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -186,10 +187,7 @@ function nodeGraphWaterfallGlEnsure(canvas, plateCss) {
     plate: nodeGraphWaterfallGlParsePlate(plateCss),
     read: nodeGraphWaterfallGlMakeTarget(gl, w, h),
     write: nodeGraphWaterfallGlMakeTarget(gl, w, h),
-    blurA: nodeGraphWaterfallGlMakeTarget(gl, w, h),
-    blurB: nodeGraphWaterfallGlMakeTarget(gl, w, h),
     scrollProg,
-    blurProg,
     presentProg,
     barProg,
     quad,
@@ -294,11 +292,19 @@ function nodeGraphWaterfallGlApplyBlend(gl, mode) {
   } else if (m === "multiply") {
     gl.blendFunc(gl.DST_COLOR, gl.ZERO);
   } else {
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    // Bar shader writes premultiplied coverage.
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
 }
 
-function nodeGraphWaterfallGlDrawBar(s, verts, rgb, blend) {
+function nodeGraphWaterfallGlBlendKind(mode) {
+  const m = String(mode || "source-over");
+  if (m === "lighter" || m === "screen" || m === "combine" || m === "meet") return 1;
+  if (m === "multiply") return 2;
+  return 0;
+}
+
+function nodeGraphWaterfallGlDrawBar(s, verts, rgb, blend, edge) {
   const gl = s.gl;
   gl.bindFramebuffer(gl.FRAMEBUFFER, s.read.fbo);
   gl.viewport(0, 0, s.w, s.h);
@@ -318,6 +324,13 @@ function nodeGraphWaterfallGlDrawBar(s, verts, rgb, blend) {
     Math.max(0, Math.min(255, Number(rgb?.[2]) || 0)) / 255,
   ];
   gl.uniform3f(gl.getUniformLocation(s.barProg, "uColor"), c[0], c[1], c[2]);
+  gl.uniform2f(gl.getUniformLocation(s.barProg, "uSize"), s.w, s.h);
+  gl.uniform2f(gl.getUniformLocation(s.barProg, "uSpan"), edge.x0, edge.x1);
+  gl.uniform4f(
+    gl.getUniformLocation(s.barProg, "uEdge"),
+    edge.top0, edge.top1, edge.bot0, edge.bot1,
+  );
+  gl.uniform1f(gl.getUniformLocation(s.barProg, "uBlendKind"), nodeGraphWaterfallGlBlendKind(blend));
   gl.drawArrays(gl.TRIANGLES, 0, verts.length / 2);
 }
 
@@ -340,71 +353,55 @@ function nodeGraphWaterfallGlStampBar(canvas, x, spanW, ys, prevEdge, connect, r
   if (!(wid > 0)) return true;
   const yTop = Math.min(ys.y0, ys.y1);
   const yBot = Math.max(ys.y0, ys.y1);
-  const hSpan = Math.max(1, yBot - yTop);
-  const clip = (px, py) => nodeGraphWaterfallGlClip(px, py, s.w, s.h);
-  let verts;
+  let top0 = yTop;
+  let bot0 = yBot;
+  let top1 = yTop;
+  let bot1 = yBot;
   if (connect && prevEdge && Number.isFinite(prevEdge.y0) && Number.isFinite(prevEdge.y1)) {
-    const pTop = Math.min(prevEdge.y0, prevEdge.y1);
-    const pBot = Math.max(prevEdge.y0, prevEdge.y1);
-    const a = clip(x0, pTop);
-    const b = clip(x0 + wid, yTop);
-    const c = clip(x0, pBot);
-    const d = clip(x0 + wid, yBot);
-    verts = [a[0], a[1], b[0], b[1], c[0], c[1], c[0], c[1], b[0], b[1], d[0], d[1]];
-  } else {
-    const a = clip(x0, yTop);
-    const b = clip(x0 + wid, yTop);
-    const c = clip(x0, yTop + hSpan);
-    const d = clip(x0 + wid, yTop + hSpan);
-    verts = [a[0], a[1], b[0], b[1], c[0], c[1], c[0], c[1], b[0], b[1], d[0], d[1]];
+    top0 = Math.min(prevEdge.y0, prevEdge.y1);
+    bot0 = Math.max(prevEdge.y0, prevEdge.y1);
+    top1 = yTop;
+    bot1 = yBot;
   }
-  nodeGraphWaterfallGlDrawBar(s, verts, rgb, blend);
+  // Pad so the 1px coverage fringe is inside the triangle. The shader
+  // keeps the true edge; this does not widen the ink.
+  const fringe = 1;
+  const clip = (px, py) => nodeGraphWaterfallGlClip(px, py, s.w, s.h);
+  const a = clip(x0, top0 - fringe);
+  const b = clip(x0 + wid, top1 - fringe);
+  const c = clip(x0, bot0 + fringe);
+  const d = clip(x0 + wid, bot1 + fringe);
+  const verts = [a[0], a[1], b[0], b[1], c[0], c[1], c[0], c[1], b[0], b[1], d[0], d[1]];
+  nodeGraphWaterfallGlDrawBar(s, verts, rgb, blend, {
+    x0,
+    x1: x0 + wid,
+    top0,
+    top1,
+    bot0,
+    bot1,
+  });
   return true;
-}
-
-function nodeGraphWaterfallGlBlurPass(s, srcTex, dst, dirX, dirY, blur, sub) {
-  const gl = s.gl;
-  gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fbo);
-  gl.viewport(0, 0, s.w, s.h);
-  gl.disable(gl.BLEND);
-  gl.disable(gl.SCISSOR_TEST);
-  nodeGraphWaterfallGlFilter(gl, srcTex, true);
-  nodeGraphWaterfallGlBindQuad(gl, s, s.blurProg);
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, srcTex);
-  gl.uniform1i(gl.getUniformLocation(s.blurProg, "uTex"), 0);
-  gl.uniform2f(gl.getUniformLocation(s.blurProg, "uSize"), s.w, s.h);
-  gl.uniform2f(gl.getUniformLocation(s.blurProg, "uDir"), dirX, dirY);
-  gl.uniform1f(gl.getUniformLocation(s.blurProg, "uBlur"), blur);
-  gl.uniform1f(gl.getUniformLocation(s.blurProg, "uSub"), sub);
-  nodeGraphWaterfallGlDrawQuad(s);
 }
 
 function nodeGraphWaterfallGlPresent(canvas, plateCss) {
   const s = nodeGraphWaterfallGlEnsure(canvas, plateCss || "#000000");
   if (!s) return false;
   const gl = s.gl;
-  const blur = Math.max(0, Math.min(1, Number(canvas._wfBlur) || 0));
   const sub = Number(canvas._wfSubPx) || 0;
-  let tex = s.read.tex;
-  if (blur > 0.001) {
-    nodeGraphWaterfallGlBlurPass(s, s.read.tex, s.blurA, 1, 0, blur, sub);
-    nodeGraphWaterfallGlBlurPass(s, s.blurA.tex, s.blurB, 0, 1, blur, 0);
-    tex = s.blurB.tex;
-  }
+  const tex = s.read.tex;
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, s.w, s.h);
   gl.disable(gl.BLEND);
   gl.disable(gl.SCISSOR_TEST);
-  nodeGraphWaterfallGlFilter(gl, tex, blur > 0.001 || Math.abs(sub) > 0.001);
+  nodeGraphWaterfallGlFilter(gl, tex, Math.abs(sub) > 0.001);
   nodeGraphWaterfallGlBindQuad(gl, s, s.presentProg);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.uniform1i(gl.getUniformLocation(s.presentProg, "uTex"), 0);
   gl.uniform2f(gl.getUniformLocation(s.presentProg, "uSize"), s.w, s.h);
-  gl.uniform1f(gl.getUniformLocation(s.presentProg, "uSub"), blur > 0.001 ? 0 : sub);
+  gl.uniform1f(gl.getUniformLocation(s.presentProg, "uSub"), sub);
   nodeGraphWaterfallGlDrawQuad(s);
-  canvas.style.imageRendering = blur > 0.001 ? "auto" : "pixelated";
+  canvas.style.imageRendering = "pixelated";
   return true;
 }
 

@@ -609,6 +609,9 @@ function restoreNodeGraphTraceDisplaySettingsWindowFromState(state = {}) {
   if (typeof syncNodeGraphTraceDisplayColorWidgets === "function") {
     syncNodeGraphTraceDisplayColorWidgets(popover);
   }
+  if (typeof nodeGraphCaptureTraceDisplaySettingsBaseline === "function") {
+    nodeGraphCaptureTraceDisplaySettingsBaseline();
+  }
 }
 
 /**
@@ -745,6 +748,9 @@ function openNodeGraphGlobalTraceSettings(event = {}) {
   popover.hidden = false;
   // Widgets skip mount while popover is hidden — refresh after unhide.
   syncNodeGraphTraceDisplayColorWidgets(popover);
+  if (typeof nodeGraphCaptureTraceDisplaySettingsBaseline === "function") {
+    nodeGraphCaptureTraceDisplaySettingsBaseline();
+  }
   const position = nodeGraphTraceDisplaySettingsOpenPosition(popover, sharedInspectorState, replacementRect, event);
   popover.style.position = "fixed";
   if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
@@ -989,6 +995,9 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   popover.hidden = false;
   // Widgets skip mount while popover is hidden — refresh after unhide.
   syncNodeGraphTraceDisplayColorWidgets(popover);
+  if (typeof nodeGraphCaptureTraceDisplaySettingsBaseline === "function") {
+    nodeGraphCaptureTraceDisplaySettingsBaseline();
+  }
   const unifiedDriving = Boolean(nodeGraphMvp._unifiedWindowSwitching);
   if (unifiedDriving) {
     if (typeof markNodeGraphFloatingWindowSurface === "function") {

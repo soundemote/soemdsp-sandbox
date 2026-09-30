@@ -251,6 +251,23 @@ function nodeGraphWaterfallAccPush(acc, buffer, start, end, settings = null, slo
   const from = Math.max(0, Math.floor(start));
   const to = Math.min(buffer.length, Math.max(from, Math.floor(end)));
   if (to <= from) {
+    // Narrower than one sample: floor(start)..floor(end) is empty, so the
+    // column used to be skipped and a slow sine at detail 1 drew nothing.
+    // The column value is the sample at this window's right edge.
+    const right = Number(end);
+    if (right > Number(start) && Number.isFinite(right)) {
+      const v = nodeGraphWaterfallLerpSample(buffer, right);
+      if (Number.isFinite(v)) {
+        if (!acc.has) {
+          acc.min = v;
+          acc.max = v;
+          acc.has = true;
+        } else {
+          if (v < acc.min) acc.min = v;
+          if (v > acc.max) acc.max = v;
+        }
+      }
+    }
     return acc;
   }
   // Fixed peak-tip inspect budget (Detail control removed).
@@ -1612,7 +1629,10 @@ function nodeGraphWaterfallPaint(spec) {
   const canvas = spec?.canvas;
   const context = spec?.context;
   const settings = spec?.settings;
-  if (!canvas || !context || !settings) return false;
+  // WebGL faces pass context=null (drawNodeGraphTraceDisplayCanvasItem).
+  // Requiring a 2D context made paint return false, and the caller then
+  // cold-reset the plate every frame, so a running signal stayed blank.
+  if (!canvas || !settings) return false;
   const width = Math.max(1, canvas.width);
   const height = Math.max(1, canvas.height);
   const live = spec.rgbBuffers

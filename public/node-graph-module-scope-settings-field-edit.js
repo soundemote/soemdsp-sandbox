@@ -24,6 +24,9 @@ function setNodeGraphTraceDisplayFieldEditing(input, editing) {
   if (!input) {
     return;
   }
+  if (editing && typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    return;
+  }
   input.readOnly = !editing;
   input.classList.toggle("trace-display-field-editing", Boolean(editing));
   if (editing) {
@@ -52,6 +55,11 @@ function beginNodeGraphTraceDisplayFieldEdit(event) {
   if (!input) {
     return;
   }
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   // Commit any other field still in edit mode.
   const prev = nodeGraphTraceDisplayEditingField();
   if (prev && prev !== input && !prev.readOnly) {
@@ -68,6 +76,14 @@ function beginNodeGraphTraceDisplayFieldEdit(event) {
 /** Commit typed value and leave edit mode (Enter / focus leave / click outside). */
 function commitNodeGraphTraceDisplayFieldEdit(input) {
   if (!input || input.readOnly) {
+    return;
+  }
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    input.readOnly = true;
+    input.classList.remove("trace-display-field-editing");
+    if (input.dataset.traceDisplayField === "zoomSeconds") {
+      setNodeGraphTraceDisplayZoomEditActive(false);
+    }
     return;
   }
   setNodeGraphTraceDisplayFieldEditing(input, false);

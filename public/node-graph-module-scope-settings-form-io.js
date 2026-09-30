@@ -1555,6 +1555,17 @@ function nodeGraphDisplaySettingsFormValue(settings, key) {
 }
 
 function writeNodeGraphTraceDisplaySettingsForm(settings) {
+  try {
+    nodeGraphWriteTraceDisplaySettingsFormInner(settings);
+  } finally {
+    // Baseline is the seeded form. Multi-apply diffs later edits against it.
+    if (typeof nodeGraphCaptureTraceDisplaySettingsBaseline === "function") {
+      nodeGraphCaptureTraceDisplaySettingsBaseline();
+    }
+  }
+}
+
+function nodeGraphWriteTraceDisplaySettingsFormInner(settings) {
   // Seeding the form from a node (or multi primary) is not a user edit.
   if (typeof clearNodeGraphTraceDisplaySettingsDirty === "function") {
     clearNodeGraphTraceDisplaySettingsDirty();

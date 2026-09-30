@@ -137,12 +137,12 @@ function deleteNodeGraphScope2dBurnSurface(gl, surface) {
 function createNodeGraphScope2dBurnRenderer(canvas) {
   const gl = canvas.getContext("webgl", {
     alpha: true,
-    antialias: false,
+    antialias: true,
     premultipliedAlpha: false,
     preserveDrawingBuffer: false,
   }) || canvas.getContext("experimental-webgl", {
     alpha: true,
-    antialias: false,
+    antialias: true,
     premultipliedAlpha: false,
     preserveDrawingBuffer: false,
   });
