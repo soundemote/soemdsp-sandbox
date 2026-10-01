@@ -7909,11 +7909,9 @@ const nodeGraphModuleDefinitions = (
       },
       {
         ...nodeGraphOutputAmplitudeParam,
-        // Filters often feed ƒ as CV — allow domain raise past 1 without modClamp fights.
+        // Spawn domain 0…1 (def 1). modClamp off so MOD can still push past 1 for CV→ƒ.
         modClamp: false,
-        max: "100",
-        mid: "1",
-        tooltip: "Output scale. Raise domain for large CV into ƒ (e.g. filter → frequency)." },
+        tooltip: "Output scale (0…1 at spawn)." },
     ]
   },
   // First-order spectral tilt (not a 1-pole HP). Credit: Robin Schmidt / RS-MET shelf BLT.
@@ -13741,9 +13739,6 @@ const nodeGraphModuleDefinitions = (
   // Mix Play Keys / Arp Keys / Chord Memory into Meta Voices.
   keyboard: {
     planRole: "source",
-    digitalInputs: ["Play Keys", "Arp Keys", "Chord Memory"],
-    digitalOutputs: ["Play Keys", "Arp Keys", "Chord Memory"],
-    inputs: ["Play Keys", "Arp Keys", "Chord Memory"],
     inputChannels: {
       "Play Keys": "blue",
       "Arp Keys": "gold",
@@ -13752,6 +13747,9 @@ const nodeGraphModuleDefinitions = (
       "Play Keys": "blue",
       "Arp Keys": "gold",
       "Chord Memory": "green" },
+    digitalInputs: ["Play Keys", "Arp Keys", "Chord Memory", "Gate", "Trigger"],
+    digitalOutputs: ["Play Keys", "Arp Keys", "Chord Memory", "Gate", "Trigger"],
+    inputs: ["Play Keys", "Arp Keys", "Chord Memory", "Gate", "Trigger"],
     layout: "keyboard",
     displayType: "keyboardControllerFace",
     displayModes: [
@@ -13792,9 +13790,6 @@ const nodeGraphModuleDefinitions = (
   },
   gridKeyboard: {
     planRole: "source",
-    digitalInputs: ["Play Keys", "Arp Keys", "Chord Memory"],
-    digitalOutputs: ["Play Keys", "Arp Keys", "Chord Memory"],
-    inputs: ["Play Keys", "Arp Keys", "Chord Memory"],
     inputChannels: {
       "Play Keys": "blue",
       "Arp Keys": "gold",
@@ -13803,6 +13798,9 @@ const nodeGraphModuleDefinitions = (
       "Play Keys": "blue",
       "Arp Keys": "gold",
       "Chord Memory": "green" },
+    digitalInputs: ["Play Keys", "Arp Keys", "Chord Memory", "Gate", "Trigger"],
+    digitalOutputs: ["Play Keys", "Arp Keys", "Chord Memory", "Gate", "Trigger"],
+    inputs: ["Play Keys", "Arp Keys", "Chord Memory", "Gate", "Trigger"],
     layout: "gridKeyboard",
     defaultWidthGu: 40,
     displayHeightGu: 24,
