@@ -180,7 +180,7 @@ var sandbox = {
       outputs: ["Out"],
     },
     polyBlep: {
-      inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+      inputs: ["Reset", "f"],
       outputs: ["Wave", "Saw", "Ramp", "Square", "Tri", "Sine"],
       outputChannels: { Wave: "green" },
       outputAliases: { Out: "Wave", "Wave Out": "Wave", Noise: "Wave" },

@@ -4291,10 +4291,6 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   --keyboard-readout-width: 8ch;
 }
 
-.node-midi-keyboard-signal-bar [data-keyboard-signal="increment"] {
-  --keyboard-readout-width: 9ch;
-}
-
 .node-midi-keyboard-vm-debug {
   grid-column: 1 / -1;
   margin: 4px 8px 6px;

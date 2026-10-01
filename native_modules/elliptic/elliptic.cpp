@@ -2,7 +2,7 @@
 // soemdsp-native-label: Elliptic Filter
 // soemdsp-native-target: elliptic
 // soemdsp-native-kind: filter
-// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/PrototypeDesigner.h
 //
 // Elliptic (Cauer) multipole — sharpest transition for a given order.
 // Freestanding SOS approximation of RS-MET PrototypeDesigner elliptic.

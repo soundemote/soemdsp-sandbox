@@ -60,6 +60,7 @@ function nodeGraphKeyboardSignalFromMvp(preferLocal) {
 }
 
 function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null) {
+  void sampleRate;
   const prev = previous && typeof previous === "object" ? previous : null;
   const sourceMidi = Number(signal?.midi);
   const prevMidi = Number(prev?.midi);
@@ -97,8 +98,6 @@ function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null)
         ? prevFreq
         : (440 * (2 ** ((midi - 69) / 12)))),
   );
-  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
-  const increment = Math.max(0, frequency / rate);
   const x = Math.max(0, Math.min(1,
     Number.isFinite(Number(signal?.x)) ? Number(signal.x) : (nodeGraphFiniteNumber(prev?.x, q)),
   ));
@@ -113,7 +112,6 @@ function nodeGraphKeyboardBuildCvFromSignal(signal, sampleRate, previous = null)
     gateAmp,
     triggerAmp,
     frequency,
-    increment,
     x,
     y,
   };
@@ -243,7 +241,7 @@ nodeGraphLiveModuleEvaluators.keyboard = ({
     "pitch": cv.midi,
     X: cv.x,
     Y: cv.y,
-    inc: cv.increment,
+    f: cv.frequency,
   };
 };
 

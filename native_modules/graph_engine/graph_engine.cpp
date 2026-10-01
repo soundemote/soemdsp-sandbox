@@ -4785,9 +4785,13 @@ static double resolve_osc_hz(
   Circuit& g, int frame, bool liveF, bool livePitch,
   Control& frequency, double referenceVoltage, double sr
 ) {
-  (void)liveF;
   (void)livePitch;
   (void)referenceVoltage;
+  if (liveF) {
+    double freq = g.mixF[frame];
+    if (!(freq == freq)) freq = 0.0;
+    return clamp_hz_nyquist(freq, sr);
+  }
   double freq = control_audio(g, frequency, frame);
   return clamp_hz_nyquist(freq, sr);
 }
@@ -4806,11 +4810,10 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool livePhase = mix_live_port(g, node, kPortPhaseCv, frames, g.mixPhaseCv);
   const bool audioRatePitch = node_needs_sample_accurate_controls(
-    g, node, liveF || livePitch || liveInc || liveReset || livePhase
+    g, node, liveF || livePitch || liveReset || livePhase
   );
   const int mask = polyblep_tap_mask(g, node);
 
@@ -4886,7 +4889,6 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
       g, f, liveF, livePitch, node.frequency, referenceVoltage, srD
     );
     double phaseInc = freq / srD;
-    if (liveInc) phaseInc += g.mixIncrement[f];
     if (phaseInc > 0.5) phaseInc = 0.5;
     if (phaseInc < -0.5) phaseInc = -0.5;
     const double renderPhase = wrap_phase_pi(freePhase + phaseParamNow * kTwoPi);
@@ -5553,8 +5555,7 @@ static inline double pitch_manager_to_hz(double pitch, double tuning) {
 }
 
 static void process_pitch_manager(Circuit& g, Node& node, int frames) {
-  // One Pitch -> Hz, then Inc = Hz/sr. Pitch jack is the zero-based pitch value.
-  // Ports: Mono=inc, Left=f, Right=pitch.
+  // Pitch -> Hz. Ports: Mono=f, Left=f, Right=pitch.
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveMono = mix_live_port(g, node, kPortMono, frames, g.mixMono);
   const double sr = (g.sampleRate > 1.0) ? g.sampleRate : 44100.0;
@@ -5563,7 +5564,7 @@ static void process_pitch_manager(Circuit& g, Node& node, int frames) {
   );
 
   auto write_outs = [&](int f, double pitch, double hz) {
-    node.buf[kPortMono][f] = hz / sr;
+    node.buf[kPortMono][f] = hz;
     node.buf[kPortLeft][f] = hz;
     node.buf[kPortRight][f] = pitch;
   };
@@ -5629,22 +5630,20 @@ static void process_amp_db(Circuit& g, Node& node, int frames) {
 
 static void process_fm(Circuit& g, Node& node, int frames) {
   // Freq Manager (type fm): ƒ × Multiply × 2^(oct+st/12+cents/1200) + Add.
-  // Outs: Mono=ƒ (Hz), Left=inc (cycles/sample = Hz/sr + raw Inc). Right mirrors ƒ.
-  // Inc is not converted to Hz.
+  // Outs: Mono/Left/Right = ƒ (Hz).
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const double sr = (g.sampleRate > 1.0) ? (double)g.sampleRate : 44100.0;
-  const bool takeSamplePath = node_needs_sample_accurate_controls(g, node, liveF || liveInc);
+  const bool takeSamplePath = node_needs_sample_accurate_controls(g, node, liveF);
 
   auto write_outs = [&](int f, double hz, double incAdd) {
+    (void)incAdd;
     if (!(hz == hz)) hz = 0.0;
-    if (!(incAdd == incAdd)) incAdd = 0.0;
     node.buf[kPortMono][f] = hz;
-    node.buf[kPortLeft][f] = hz / sr + incAdd;
+    node.buf[kPortLeft][f] = hz;
     node.buf[kPortRight][f] = hz;
   };
 
-  if (!liveF && !liveInc && !takeSamplePath) {
+  if (!liveF && !takeSamplePath) {
     const double oct = control_effective(node.mode);
     const double st = control_effective(node.stages);
     const double cents = control_effective(node.center);
@@ -5670,12 +5669,7 @@ static void process_fm(Circuit& g, Node& node, int frames) {
     const double m = (mul == mul) ? mul : 1.0;
     const double a = (add == add) ? add : 0.0;
     double hz = base * m * ratio + a;
-    // Inc stays cycles/sample on the inc output. Do not add it as Hz.
     double incAdd = 0.0;
-    if (liveInc) {
-      const double inc = g.mixIncrement[f];
-      if (inc == inc) incAdd = inc;
-    }
     write_outs(f, hz, incAdd);
   }
 }
@@ -5911,7 +5905,6 @@ static void process_blit(Circuit& g, Node& node, int frames) {
   const int mask = polyblep_tap_mask(g, node);
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = circuit_pitch_ref_v(g);
@@ -5942,7 +5935,6 @@ static void process_blit(Circuit& g, Node& node, int frames) {
       g, f, liveF, livePitch, node.frequency, referenceVoltage, srD
     );
     double phaseInc = freq / srD;
-    if (liveInc) phaseInc += g.mixIncrement[f];
     if (phaseInc > 0.5) phaseInc = 0.5;
     if (phaseInc < -0.5) phaseInc = -0.5;
 
@@ -6001,7 +5993,6 @@ static void sin_cos_pair_advance(
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = circuit_pitch_ref_v(g);
@@ -6036,10 +6027,6 @@ static void sin_cos_pair_advance(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
     double inc = 0.0;
-    if (liveInc) {
-      inc = g.mixIncrement[f];
-      if (!(inc == inc)) inc = 0.0;
-    }
     soemdsp_sine_wavetable_sample(node.nativeHandle, phaseOff, freq, amp, sr, inc);
     const double sn = soemdsp_sine_wavetable_sin(node.nativeHandle);
     const double cn = soemdsp_sine_wavetable_cos(node.nativeHandle);
@@ -6148,7 +6135,6 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool liveMorph = mix_live_port(g, node, kPortMorph, frames, g.mixMorph);
   const bool takeSamplePath = node_has_active_chase(node);
@@ -6181,7 +6167,6 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
       g, f, liveF, livePitch, node.frequency, referenceVoltage, srD
     );
     double phaseInc = freq / srD;
-    if (liveInc) phaseInc += g.mixIncrement[f];
     if (phaseInc > 0.5) phaseInc = 0.5;
     if (phaseInc < -0.5) phaseInc = -0.5;
 
@@ -6746,7 +6731,6 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = circuit_pitch_ref_v(g);
@@ -6767,10 +6751,6 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
       g, f, liveF, livePitch, node.frequency, referenceVoltage, srD
     );
     double inc = 0.0;
-    if (liveInc) {
-      inc = g.mixIncrement[f];
-      if (!(inc == inc)) inc = 0.0;
-    }
     float mono = 0.0f;
     float left = 0.0f;
     float right = 0.0f;
@@ -6856,7 +6836,6 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
   const double referenceVoltage = circuit_pitch_ref_v(g);
@@ -6875,10 +6854,6 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
     double inc = 0.0;
-    if (liveInc) {
-      inc = g.mixIncrement[f];
-      if (!(inc == inc)) inc = 0.0;
-    }
     double morph = control_audio(g, node.shape, f);
     if (!(morph == morph)) morph = 0.5;
     if (morph < 0.0) morph = 0.0;
@@ -6907,7 +6882,6 @@ static void process_sine_warp(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double referenceVoltage = circuit_pitch_ref_v(g);
   if (!liveReset) node.lastReset = 0.0;
@@ -6924,7 +6898,7 @@ static void process_sine_warp(Circuit& g, Node& node, int frames) {
     if (!(level == level)) level = 1.0;
     const double reset = liveReset ? g.mixReset[f] : 0.0;
     if (liveReset) node.lastReset = reset;
-    const double inc = liveInc ? g.mixIncrement[f] : 0.0;
+    const double inc = 0.0;
     const double y = soemdsp_sine_warp_sample(
       node.nativeHandle, freq, sr, phaseOff, warp, mode, level, reset, inc
     );
@@ -6981,12 +6955,11 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double referenceVoltage = circuit_pitch_ref_v(g);
   if (!liveReset) node.lastReset = 0.0;
 
-  const bool takeSample = liveF || livePitch || liveInc || liveReset
+  const bool takeSample = liveF || livePitch || liveReset
     || node.hasParamMods
     || node_has_active_chase(node);
   if (!takeSample) {
@@ -7066,10 +7039,6 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
     double inc = 0.0;
-    if (liveInc) {
-      inc = g.mixIncrement[f];
-      if (!(inc == inc)) inc = 0.0;
-    }
     const double phaseOff = control_audio(g, node.phaseParam, f);
     const double waveform = control_audio(g, node.waveform, f);
     const double distribute = control_audio(g, node.shape, f);
@@ -7211,7 +7180,6 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double referenceVoltage = circuit_pitch_ref_v(g);
   int motion = (int)(control_effective(node.mode) + (control_effective(node.mode) >= 0.0 ? 0.5 : -0.5));
@@ -7246,7 +7214,6 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
     );
     // RoundShape allows negative Hz (reverse); resolve_osc_hz clamps Â±Nyquist.
     double phaseInc = dir * (freq / sr);
-    if (liveInc) phaseInc += g.mixIncrement[f];
 
     double samplePhase;
     if (useSimTime) {
@@ -7286,7 +7253,6 @@ static void process_ellipsoid_osc(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double referenceVoltage = circuit_pitch_ref_v(g);
   double aaRaw = control_effective(node.center);
@@ -7314,7 +7280,6 @@ static void process_ellipsoid_osc(Circuit& g, Node& node, int frames) {
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
     double phaseInc = freq / sr;
-    if (liveInc) phaseInc += g.mixIncrement[f];
 
     double samplePhase = phase + phaseOff;
     samplePhase -= dsp_floor(samplePhase);
@@ -8916,7 +8881,6 @@ static void process_basic_shape(Circuit& g, Node& node, int frames) {
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double referenceVoltage = circuit_pitch_ref_v(g);
   const double phaseOff = control_effective(node.phaseParam);
@@ -8932,7 +8896,7 @@ static void process_basic_shape(Circuit& g, Node& node, int frames) {
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
-    const double inc = liveInc ? g.mixIncrement[f] : 0.0;
+    const double inc = 0.0;
     const double reset = liveReset ? g.mixReset[f] : 0.0;
     const double y = soemdsp_basic_shape_sample(
       node.nativeHandle, freq, sr, waveV, motion, phaseOff, morph, amp, polarity, inc, reset
@@ -9302,7 +9266,7 @@ static void process_helmholtz_pitch(Circuit& g, Node& node, int frames) {
     const double hz = soemdsp_helmholtz_frequency(node.nativeHandle);
     const double fid = soemdsp_helmholtz_fidelity(node.nativeHandle);
     const double safeHz = (hz == hz && hz > 0.0) ? hz : 0.0;
-    node.buf[kPortMono][f] = safeHz / sr; // Inc
+    node.buf[kPortMono][f] = safeHz; // Frequency
     node.buf[kPortLeft][f] = safeHz; // Frequency
     node.buf[kPortRight][f] = (fid == fid) ? fid : 0.0; // Fidelity
     node.buf[kPortSaw][f] = safeHz > 0.0 ? 1.0 : 0.0; // Gate
@@ -9658,7 +9622,6 @@ static void process_turing_machine(Circuit& g, Node& node, int frames) {
 static void process_theremin(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   if (!liveReset) node.lastReset = 0.0;
 
@@ -9720,10 +9683,6 @@ static void process_theremin(Circuit& g, Node& node, int frames) {
     const double waveV = control_effective(node.waveform);
 
     double inc = 0.0;
-    if (liveInc) {
-      inc = g.mixIncrement[f];
-      if (!(inc == inc)) inc = 0.0;
-    }
     const double y = soemdsp_softwave_sample(
       node.nativeHandle, hz, sr, waveV, morph, phaseOff, level, 0.0, inc
     );
@@ -10058,10 +10017,10 @@ static void process_arp(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = soemdsp_arp_gate(node.nativeHandle);
     node.buf[kPortRight][f] = soemdsp_arp_trigger(node.nativeHandle);
     node.buf[kPortSaw][f] = soemdsp_arp_step(node.nativeHandle);
-    // Square = f (Hz). Ramp = inc (cycles/sample). Kernel stores Hz.
+    // Square = f (Hz). Ramp mirrors ƒ.
     const double hz = soemdsp_arp_frequency(node.nativeHandle);
     node.buf[kPortSquare][f] = hz;
-    node.buf[kPortRamp][f] = hz / sr;
+    node.buf[kPortRamp][f] = hz;
   }
 }
 
@@ -10903,13 +10862,13 @@ static void process_pump_limiter(Circuit& g, Node& node, int frames) {
 
 // Wavetable 2D. Params: morph(shape), frequency, phaseParam, amplitude, warp(resonance).
 // Warp is a baked Morph×Warp axis (13 knots). Playback is mipmapped table lookup
-// (Hmax picks the mip). Reset → kPortReset. Increment → kPortIncrement.
+// (Hmax picks the mip). Reset → kPortReset. ƒ → kPortF (Hz, replaces Frequency).
 static void process_wavetable_2d(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
-  const bool takeSamplePath = node.frequency.active || node.phaseParam.active
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool takeSamplePath = liveF || node.frequency.active || node.phaseParam.active
     || node.amplitude.active || node.shape.active || node.resonance.active;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
@@ -10932,11 +10891,12 @@ static void process_wavetable_2d(Circuit& g, Node& node, int frames) {
       }
       node.lastReset = reset;
     }
-    const double inc = liveInc ? g.mixIncrement[f] : 0.0;
+    const double inc = 0.0;
+    const double hz = resolve_osc_hz(g, f, liveF, false, node.frequency, 0.0, sr);
     const double y = soemdsp_wavetable_2d_sample(
       node.nativeHandle,
       reset,
-      control_audio(g, node.frequency, f),
+      hz,
       control_audio(g, node.phaseParam, f),
       control_audio(g, node.amplitude, f),
       control_audio(g, node.shape, f),
@@ -11593,10 +11553,9 @@ static void process_robin_oscillator(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath =
-    node_needs_sample_accurate_controls(g, node, liveF || liveInc || liveReset);
+    node_needs_sample_accurate_controls(g, node, liveF || liveReset);
   if (!takeSamplePath) {
     const double phase0 = control_effective(node.phaseParam);
     const double freq = clamp_hz_nyquist(control_effective(node.frequency), srD);
@@ -11626,13 +11585,8 @@ static void process_robin_oscillator(Circuit& g, Node& node, int frames) {
       node.lastReset = rv;
     }
     const double phase0 = control_audio(g, node.phaseParam, f);
-    double freq = clamp_hz_nyquist(control_audio(g, node.frequency, f), srD);
-    double portInc = 0.0;
-    if (liveInc) {
-      portInc = g.mixIncrement[f];
-      if (!(portInc == portInc)) portInc = 0.0;
-    }
-    const double inc = robin_combined_increment(freq, srD, portInc);
+    double freq = resolve_osc_hz(g, f, liveF, false, node.frequency, 0.0, srD);
+    const double inc = robin_combined_increment(freq, srD, 0.0);
     double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 0.0;
     const double waveV = control_effective(node.waveform);
@@ -11652,10 +11606,9 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath =
-    node_needs_sample_accurate_controls(g, node, liveF || liveInc || liveReset);
+    node_needs_sample_accurate_controls(g, node, liveF || liveReset);
   // Unit-amplitude sine, then:
   //   kPortSaw  = pre-level probe for the face (display ignores Amplitude)
   //   Mono/L/R  = unit * Amplitude (audio / wired Out)
@@ -11688,12 +11641,8 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
       node.lastReset = rv;
     }
     const double phase0 = control_audio(g, node.phaseParam, f) * kTwoPi;
-    double freq = clamp_hz_nyquist(control_audio(g, node.frequency, f), srD);
+    double freq = resolve_osc_hz(g, f, liveF, false, node.frequency, 0.0, srD);
     double inc = 0.0;
-    if (liveInc) {
-      inc = g.mixIncrement[f];
-      if (!(inc == inc)) inc = 0.0;
-    }
     double amp = control_audio(g, node.amplitude, f);
     if (!(amp == amp)) amp = 0.0;
     const double yUnit = soemdsp_robin_sinusoid_sample(
@@ -11714,10 +11663,9 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const double referenceVoltage = circuit_pitch_ref_v(g);
   const bool takeSamplePath =
-    node_needs_sample_accurate_controls(g, node, liveF || livePitch || hasReset || liveInc);
+    node_needs_sample_accurate_controls(g, node, liveF || livePitch || hasReset);
 
   auto run_block = [&](int nFrames, int frameIndexForHz, double resetGate, double incrementCycles) {
     const double amp = control_effective(node.amplitude);
@@ -11773,10 +11721,6 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
       node.lastReset = rv;
     }
     double inc = 0.0;
-    if (liveInc) {
-      inc = g.mixIncrement[f];
-      if (!(inc == inc)) inc = 0.0;
-    }
     run_block(1, f, resetGate, inc);
     double* outL = ptr_from_export(soemdsp_robin_supersaw_block_output_left_ptr(node.nativeHandle));
     double* outR = ptr_from_export(soemdsp_robin_supersaw_block_output_right_ptr(node.nativeHandle));
@@ -11795,10 +11739,9 @@ static void process_hyperpluck(Circuit& g, Node& node, int frames) {
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
-  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
   const double referenceVoltage = circuit_pitch_ref_v(g);
   const bool takeSamplePath =
-    node_needs_sample_accurate_controls(g, node, liveF || livePitch || hasReset || liveInc);
+    node_needs_sample_accurate_controls(g, node, liveF || livePitch || hasReset);
 
   auto run_block = [&](int nFrames, int frameIndexForHz, double resetGate, double incrementCycles) {
     const double amp = control_effective(node.amplitude);
@@ -11843,10 +11786,6 @@ static void process_hyperpluck(Circuit& g, Node& node, int frames) {
       node.lastReset = rv;
     }
     double inc = 0.0;
-    if (liveInc) {
-      inc = g.mixIncrement[f];
-      if (!(inc == inc)) inc = 0.0;
-    }
     run_block(1, f, resetGate, inc);
     double* outL = ptr_from_export(soemdsp_hyperpluck_block_output_left_ptr(node.nativeHandle));
     double* outR = ptr_from_export(soemdsp_hyperpluck_block_output_right_ptr(node.nativeHandle));
@@ -12376,12 +12315,11 @@ static void process_acid_sequencer(Circuit& g, Node& node, int frames) {
     }
     const double midi = node.acidPitch + (double)semi;
     const double hz = soemdsp::math::midi_to_hz(midi);
-    const double inc = (sr > 0.0) ? (hz / sr) : 0.0;
     node.buf[kPortMono][f] = gate;
     node.buf[kPortLeft][f] = trig;
     node.buf[kPortRight][f] = midi;
     node.buf[kPortSaw][f] = hz;
-    node.buf[kPortRamp][f] = inc;
+    node.buf[kPortRamp][f] = hz;
     node.buf[kPortPhase01][f] = (double)idx;
   }
   node.acidLastStep = prev;

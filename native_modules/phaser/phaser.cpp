@@ -2,7 +2,7 @@
 // soemdsp-native-label: Phaser
 // soemdsp-native-target: phaser
 // soemdsp-native-kind: filter
-// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Musical/StateVariableFilter.h
 //
 // Up to 8 ZDF SVF stages (Bandpass Peak parallel, or Allpass series),
 // each 1–4 identical 12 dB copies (slope 12/24/36/48). Mix + feedback + LFO.

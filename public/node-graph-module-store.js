@@ -1184,7 +1184,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "musical",
     description: "MIDI offsets → Hz (Tuning) → Multiply/Add. Simultaneous inc (Hz/sr), ƒ (Hz), and ♯/♭ thru.",
     label: "Pitch Manager",
-    notes: ["pitch", "midi", "hz", "frequency", "increment", "tuning", "transpose", "musical", "♯/♭", "pitch manager"],
+    notes: ["pitch", "midi", "hz", "frequency", "tuning", "transpose", "musical", "♯/♭", "pitch manager"],
   },
   pitchHz: {
     category: "musical",
@@ -1203,7 +1203,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "musical",
     description: "Mix ƒ cables + optional inc (cycles/sample→Hz), then × Multiply × 2^(Octave+Semitones/12+Cents/1200) + Add. Outs: ƒ (Hz) and inc (Hz/sr).",
     label: "Freq Manager",
-    notes: ["freq manager", "pitch", "fm", "frequency", "ƒ", "inc", "increment", "multiply", "octave", "semitone", "cents", "musical", "utility"],
+    notes: ["freq manager", "pitch", "fm", "frequency", "ƒ", "multiply", "octave", "semitone", "cents", "musical", "utility"],
   },
   u2b: {
     category: "dynamics",
@@ -1388,7 +1388,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "controller",
     description: "Local piano. Holds Play Keys / Arp Keys / Chord Memory on this module. Mix those buses into Meta Voices. Not MIDI — wire a MIDI module into Play Keys for a device.",
     label: "Keyboard",
-    notes: ["keyboard", "piano", "play keys", "arp keys", "chord memory", "controller", "performance", "gate", "trigger", "velocity", "note", "inc", "increment"],
+    notes: ["keyboard", "piano", "play keys", "arp keys", "chord memory", "controller", "performance", "gate", "trigger", "velocity", "note"],
   },
   gridKeyboard: {
     category: "controller",
@@ -2818,7 +2818,11 @@ function normalizeNodeGraphNativeModuleEntry(entry = {}) {
   });
 }
 
-const nodeGraphNativeModuleTargetAliases = Object.freeze({});
+// Extra shop/face types that share one native catalog entry (Code + LIB).
+const nodeGraphNativeModuleTargetAliases = Object.freeze({
+  eqFilter: Object.freeze(["bandpass", "allpass", "lowpass", "highpass"]),
+  crossover2: Object.freeze(["crossover3", "crossover4", "crossover5", "crossover6"]),
+});
 
 const nodeGraphModuleStoreNativeLabelTypes = Object.freeze(new Set([
   "kickEnvelope",

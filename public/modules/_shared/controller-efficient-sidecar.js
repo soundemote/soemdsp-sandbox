@@ -465,8 +465,6 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         ? sourceFreq
         : num(prev.frequency, 440 * (2 ** ((midi - 69) / 12))),
     );
-    const safeRate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
-    const increment = Math.max(0, frequency / safeRate);
     const cv = {
       midi,
       key,
@@ -475,7 +473,6 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       gateAmp,
       triggerAmp,
       frequency,
-      increment,
       x: Math.max(0, Math.min(1, Number.isFinite(Number(signal.x)) ? Number(signal.x) : num(prev.x, q))),
       y: Math.max(0, Math.min(1, Number.isFinite(Number(signal.y)) ? Number(signal.y) : num(prev.y, 0))),
       tenth: Math.max(0, Math.min(1, midi / 120)),
@@ -671,8 +668,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         outs.KeyIndex = cv.key;
         outs.KeyNorm = cv.q;
         outs["pitch"] = cv.midi;
-        // Pitch-family: Hz/sr for osc Increment (same as retired keyboard live evaluator).
-        outs.inc = cv.increment;
+        outs.f = cv.frequency;
       }
       this.nodeOutputs.set(nid, outs);
     } else {
@@ -727,12 +723,11 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       Gate: gateOut,
       Trigger: triggerOut,
     };
-    // Keep pitch-family outs current after IN remix (grid has no inc jack).
     if (String(node?.type || "") === "keyboard") {
       outs2.KeyIndex = cv.key;
       outs2.KeyNorm = cv.q;
       outs2["pitch"] = cv.midi;
-      outs2.inc = cv.increment;
+      outs2.f = cv.frequency;
     }
     this.nodeOutputs.set(nid, outs2);
   }

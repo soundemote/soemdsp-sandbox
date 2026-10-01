@@ -630,7 +630,6 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "trigger") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     if (p === "pitch" || p === "\u266f/\u266d") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
     if (p === "f" || p === "\u0192") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SAW;
-    if (p === "inc") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
     if (p === "__acidstep") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PHASE01;
   }
   // XY Pad outs: X/Y bipolar, Gate hold, Spike pulse.
@@ -747,20 +746,16 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   }
 
   if (t === "fm") {
-    // Freq Manager: Mono=ƒ (Hz), Left=inc (Hz/sr); dst Inc bus = kPortIncrement
     if (p === "f" || p === "ƒ" || p === "freq" || p === "frequency" || p === "out") {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     }
-    if (p === "inc" || p === "increment") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
   if (t === "pitchManager") {
-    if (p === "inc") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     if (p === "f" || p === "ƒ") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     if (p === "pitch") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
   }
   if (t === "helmholtzPitch") {
-    // Mono=Inc, Left=Frequency, Right=Fidelity, Saw=Gate, Ramp=Detune
-    if (p === "inc" || p === "increment") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    // Mono/Left=Frequency, Right=Fidelity, Saw=Gate, Ramp=Detune
     if (p === "frequency" || p === "f" || p === "ƒ" || p === "freq") {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     }
@@ -1006,12 +1001,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "0.1v/oct" || p === "0.1v" || p === "v/oct" || p === "pitch") {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     }
-    // Square = f (Hz). Ramp = inc (cycles/sample). Match pitchManager / helmholtz.
+    // Square = f (Hz).
     if (p === "f" || p === "ƒ" || p === "freq" || p === "frequency") {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_SQUARE;
-    }
-    if (p === "inc" || p === "increment") {
-      return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RAMP;
     }
     if (p === "gate") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     if (p === "trigger" || p === "t" || p === "trig") {
@@ -1110,9 +1102,6 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   }
   if (p === "0.1v/oct" || p === "0.1v" || p === "v/oct" || p === "pitch") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PITCH_CV;
-  }
-  if (p === "increment" || p === "inc." || p === "inc") {
-    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_INCREMENT;
   }
   if (p === "reset" || (p === "clear" && type === "chordMemory")) {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RESET;
@@ -3623,14 +3612,7 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
               : (midi >= 0 ? voiceHz(midi, metaNode) : 0);
             if (hz > 0) lastHz.set(hzKey, hz);
           }
-          const dst = String(feed.dstPort || "").toLowerCase();
-          const asInc = dst === "increment" || dst === "inc" || dst === "inc.";
-          if (asInc) {
-            const sr = Number(this.sampleRate) > 1 ? Number(this.sampleRate) : 44100;
-            value = hz / sr;
-          } else {
-            value = hz;
-          }
+          value = hz;
         } else if (wantsGate || wantsTrig) {
           // Same dest (Ping Trigger) must not get Gate=1 then Trigger=0.
           value = (gateOn || (wantsTrig && slotTriggerPulse(v))) ? 1 : 0;
@@ -7168,9 +7150,8 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     ]);
     const isOscPitchPort = (port) => {
       const p = String(port || "");
-      return p === "f" || p === "Frequency" || p === "Freq"
-        || p === "0.1V/Oct" || p === "0.1v/Oct" || p === "Pitch"
-        || p === "Increment" || p === "Inc" || p === "Inc.";
+      return p === "f" || p === "ƒ" || p === "Frequency" || p === "Freq"
+        || p === "0.1V/Oct" || p === "0.1v/Oct" || p === "Pitch";
     };
     for (const [metaId, metaNode] of this.nodes) {
       if (String(metaNode?.type || "") !== "metamodule") continue;
@@ -7818,8 +7799,8 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "harmonicSeries") return ["f", "Out", "Mono", "ƒ"];
     if (type === "fm") return ["f", "Out", "Mono", "ƒ"];
     if (type === "pitchHz") return ["Out", "Mono", "In"];
-    if (type === "pitchManager") return ["inc", "Inc"];
-    if (type === "helmholtzPitch") return ["inc", "Inc"];
+    if (type === "pitchManager") return ["f", "ƒ", "Out", "Mono"];
+    if (type === "helmholtzPitch") return ["Frequency", "f", "ƒ", "Out", "Mono"];
     if (type === "ampDb") return ["Out", "Mono", "In"];
     if (type === "lutCell") return ["Out"];
 
@@ -7876,7 +7857,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "ellipsoid") return ["Bi X", "X"];
     if (type === "ellipsoidOsc") return ["Left"];
     if (type === "snowflake") return ["X"];
-    if (type === "fm") return ["Inc", "inc", "Increment"];
+    if (type === "fm") return ["f", "ƒ", "Left"];
     if (type === "pitchManager") return ["f", "ƒ"];
     if (type === "helmholtzPitch") return ["Frequency", "f", "ƒ", "freq"];
     if (type === "clock") return ["Analog Out", "Analog"];
@@ -7998,7 +7979,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     return ["Saw"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_RAMP) {
-    if (type === "acidSequencer") return ["inc"];
+    if (type === "acidSequencer") return ["f", "ƒ"];
     if (type === "helmholtzPitch") return ["Detune"];
     // Pre-level Right hold for face rings (distinct from audio Right).
     if (type === "sampleHold") return ["Right Raw"];
@@ -8013,7 +7994,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "transport") return ["beat f", "beatf", "beat ƒ"];
     if (type === "audioPlayer") return ["Trigger"];
     if (type === "binaryClock") return ["Bit3", "Ramp"];
-    if (type === "arp") return ["inc", "Inc", "Increment", "Ramp"];
+    if (type === "arp") return ["f", "ƒ", "Ramp"];
     if (type === "gravityWalker") return ["f", "Frequency", "Freq", "Ramp"];
     if (type === "reverbEffect" || type === "soemReverb") {
       return ["Dry R", "Dry Right"];

@@ -2,7 +2,7 @@
 // soemdsp-native-label: Butterworth Filter
 // soemdsp-native-target: butterworth
 // soemdsp-native-kind: filter
-// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/EngineersFilter.h
 //
 // Classical Butterworth multipole (maximally flat passband). Shared cascade
 // in soemdsp/filter/scientific_iir.h (RBJ SOS, freestanding).

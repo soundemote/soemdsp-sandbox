@@ -25,43 +25,34 @@
           label: "Face",
           renderer: "rgbShapeFace",
           settingsSchema: "rgbShapeFace",
-          source: { x: "X", y: "Y" },
-        },
+          source: { x: "X", y: "Y" } },
       ],
       defaultDisplayMode: "face",
-      inputs: ["Reset", "pitch", "Increment", "f"],
+      inputs: ["Reset", "pitch", "f"],
       inputLabels: {
         Reset: "Reset",
         "pitch": "♯/♭",
-        Increment: "inc",
-        f: "ƒ",
-      },
+        f: "ƒ" },
       // Legacy In/Out patches: Out → X.
       inputAliases: {
         "0.1V/Oct": "pitch",
         "0.1v/Oct": "pitch",
-        In: "f",
-      },
+        In: "f" },
       outputAliases: {
-        Out: "X",
-      },
+        Out: "X" },
       outputs: ["X", "Y", "rgba"],
       outputLabels: {
         X: "X",
         Y: "Y",
-        rgba: "📺",
-      },
+        rgba: "📺" },
       inputTooltips: {
         Reset: "Rising edge resets the outline phase.",
         "pitch": "Pitch (♯/♭) as MIDI note.",
-        Increment: "Phase increment per sample (audio-rate FM / phase).",
-        f: "Frequency CV (Hz) when wired; else Clock slider.",
-      },
+        f: "Frequency CV (Hz) when wired; else Clock slider." },
       outputTooltips: {
         X: "Audio from the shape outline’s X as Clock phase walks the perimeter (red).",
         Y: "Audio from the shape outline’s Y as Clock phase walks the perimeter (blue).",
-        rgba: "TV tap — unimplemented. Reserved for full-pixel RGB video between modules.",
-      },
+        rgba: "TV tap — unimplemented. Reserved for full-pixel RGB video between modules." },
       parameters: [
         {
           defaultValue: "0.5",
@@ -72,8 +63,7 @@
           min: "0",
           nonlinearSlider: false,
           step: "any",
-          tooltip: "Sample position along the face gradient (0…1). Was Position.",
-        },
+          tooltip: "Sample position along the face gradient (0…1). Was Position." },
         {
           defaultValue: "1",
           key: "size",
@@ -83,8 +73,7 @@
           min: "0",
           nonlinearSlider: false,
           step: "any",
-          tooltip: "Overall scale. 1 ≈ half the face min side; 2 ≈ full. Width/Height multiply this.",
-        },
+          tooltip: "Overall scale. 1 ≈ half the face min side; 2 ≈ full. Width/Height multiply this." },
         {
           defaultValue: "1",
           key: "width",
@@ -94,8 +83,7 @@
           min: "0",
           nonlinearSlider: false,
           step: "any",
-          tooltip: "Horizontal scale vs Size (1 = equal to Size).",
-        },
+          tooltip: "Horizontal scale vs Size (1 = equal to Size)." },
         {
           defaultValue: "1",
           key: "height",
@@ -105,8 +93,7 @@
           min: "0",
           nonlinearSlider: false,
           step: "any",
-          tooltip: "Vertical scale vs Size (1 = equal to Size).",
-        },
+          tooltip: "Vertical scale vs Size (1 = equal to Size)." },
         {
           bipolar: true,
           defaultValue: "0",
@@ -117,8 +104,7 @@
           min: "-1",
           nonlinearSlider: false,
           step: "any",
-          tooltip: "Face placement X (−1…+1, 0 = center). Does not offset audio X/Y.",
-        },
+          tooltip: "Face placement X (−1…+1, 0 = center). Does not offset audio X/Y." },
         {
           bipolar: true,
           defaultValue: "0",
@@ -129,8 +115,7 @@
           min: "-1",
           nonlinearSlider: false,
           step: "any",
-          tooltip: "Face placement Y (−1…+1, 0 = center, +up). Does not offset audio X/Y.",
-        },
+          tooltip: "Face placement Y (−1…+1, 0 = center, +up). Does not offset audio X/Y." },
         {
           choices: shapeChoices,
           defaultValue: "0",
@@ -144,8 +129,7 @@
           min: "0",
           nonlinearSlider: false,
           step: "1",
-          tooltip: "Silhouette (same vocabulary as Dot stamp shapes).",
-        },
+          tooltip: "Silhouette (same vocabulary as Dot stamp shapes)." },
         {
           defaultValue: "0.5",
           key: "shapeParam",
@@ -155,8 +139,7 @@
           min: "0",
           nonlinearSlider: false,
           step: "any",
-          tooltip: "Shape parameter 0…1 (Rounding / Sides / Points / … — same as Dot Density Shape param).",
-        },
+          tooltip: "Shape parameter 0…1 (Rounding / Sides / Points / … — same as Dot Density Shape param)." },
         {
           defaultValue: "0.35",
           key: "blur",
@@ -166,8 +149,7 @@
           min: "0",
           nonlinearSlider: false,
           step: "any",
-          tooltip: "Edge soft 0…1 (same smoothstep skirt as LED Dot / LCD Dot). 0 = hard edge; 1 = soft.",
-        },
+          tooltip: "Edge soft 0…1 (same smoothstep skirt as LED Dot / LCD Dot). 0 = hard edge; 1 = soft." },
         {
           defaultValue: "1",
           key: "frequency",
@@ -178,8 +160,7 @@
           min: "0",
           step: "any",
           unit: "Hz",
-          tooltip: "Outline walk rate in Hz. Slider 0…5000 Hz. Negative reverses.",
-        },
+          tooltip: "Outline walk rate in Hz. Slider 0…5000 Hz. Negative reverses." },
         {
           defaultValue: "0",
           key: "phase",
@@ -190,8 +171,7 @@
           min: "0",
           step: "0.01",
           unit: "cycle",
-          wraparound: true,
-        },
+          wraparound: true },
         {
           choices: ["Clock(Ph)", "CounterClock(Ph)", "Clock(T)", "CounterClock(T)"],
           defaultValue: "1",
@@ -204,8 +184,7 @@
           mid: "1",
           min: "0",
           step: "1",
-          tooltip: "Ph = running phasor. T = simulation time. Clock vs CounterClock flips direction.",
-        },
+          tooltip: "Ph = running phasor. T = simulation time. Clock vs CounterClock flips direction." },
         {
           defaultValue: "1",
           key: "amplitude",
@@ -215,18 +194,14 @@
           min: "0",
           nonlinearSlider: true,
           step: "any",
-          tooltip: "X/Y audio scale.",
-        },
+          tooltip: "X/Y audio scale." },
       ],
       visualInputs: [
         { key: "rgbShape", label: "X/Y", port: "X" },
       ],
-      visualSink: true,
-    },
+      visualSink: true },
     catalog: {
       category: "rgb",
       description: "Gradient shape on the face (Size/Width/Height/X/Y + stamp Shape menu). Clock walks the outline → X/Y audio (red/blue). LayoutA labeled I/O. 📺 reserved for video.",
-      notes: ["rgb", "shape", "outline", "LayoutA", "X", "Y", "TV"],
-    },
-  });
+      notes: ["rgb", "shape", "outline", "LayoutA", "X", "Y", "TV"] } });
 })();

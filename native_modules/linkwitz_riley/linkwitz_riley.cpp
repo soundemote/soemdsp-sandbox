@@ -2,7 +2,7 @@
 // soemdsp-native-label: Linkwitz-Riley Filter
 // soemdsp-native-target: linkwitzRiley
 // soemdsp-native-kind: filter
-// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/EngineersFilter.h
 //
 // Linkwitz-Riley: two cascaded Butterworth of half-order (classic LR crossovers).
 

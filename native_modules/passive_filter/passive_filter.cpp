@@ -2,6 +2,7 @@
 // soemdsp-native-label: Passive Filter
 // soemdsp-native-target: passiveFilter
 // soemdsp-native-kind: filter
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/General/OnePoleFilter.h
 //
 // Cascaded real 1-poles (no Q). Slope 0..3 → 1..4 poles. Stagger spreads poles.
 // Sweep shifts cutoffs in semitones. Gain Comp scales stack to −3 dB at label fc.

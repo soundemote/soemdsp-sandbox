@@ -478,12 +478,6 @@ NodeLiveAudioProcessor.prototype._normalizeKeyboardSignalPayload = function _nor
       tenthVoltPerOctave: Number.isFinite(Number(source.tenthVoltPerOctave))
         ? Number(source.tenthVoltPerOctave)
         : midi / 120,
-      increment: Math.max(
-        0,
-        Number.isFinite(Number(source.increment)) && Number(source.increment) > 0
-          ? Number(source.increment)
-          : frequency / Math.max(1, this.engineSampleRate || sampleRate),
-      ),
       frequency,
     };
 };

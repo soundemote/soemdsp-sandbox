@@ -2,7 +2,7 @@
 // soemdsp-native-label: Ladder Filter
 // soemdsp-native-target: ladderFilter
 // soemdsp-native-kind: filter
-// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Musical/LadderFilter.h
 
 #include <soemdsp/soemdsp.hpp>
 

@@ -311,8 +311,7 @@ const nodeGraphNodeLabels = Object.freeze({
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
   // their own label instead of it being hardcoded here -- see
   // node-graph-chromeless-module-registry.js.
-  ...nodeGraphChromelessModuleLabelEntries(),
-});
+  ...nodeGraphChromelessModuleLabelEntries() });
 
 const nodeGraphLadderFilterModes = Object.freeze(["Flat", "LP", "HP", "BP"]);
 
@@ -339,7 +338,7 @@ const nodeGraphTb303FilterModes = Object.freeze([
 //
 // Trap: "add a phase input" often means a left-side CV jack → must list it in
 // `inputs`. Putting it only under `parameters` creates a knob, not a left
-// jack. PolyBLEP: Reset/Increment are inputs; Phase/Amplitude are parameters only.
+// jack. PolyBLEP: Reset/ƒ are inputs; Phase/Amplitude are parameters only.
 // DSF: Phase/Amplitude/Morph are parameters (+ MOD) only — no twin CV jacks. Full write-up:
 // docs/MODULE_PATTERN_REFERENCE.md § "Three control surfaces".
 
@@ -357,8 +356,7 @@ const nodeGraphZdfSlopeParam = Object.freeze({
   nonlinearSlider: false,
   setup: true,
   step: "1",
-  tooltip: "Stacked identical ZDF SVFs. 12 dB each. Default 12.",
-});
+  tooltip: "Stacked identical ZDF SVFs. 12 dB each. Default 12." });
 
 const nodeGraphOutputAmplitudeParam = Object.freeze({
   defaultValue: "1",
@@ -371,8 +369,7 @@ const nodeGraphOutputAmplitudeParam = Object.freeze({
   step: "any",
   // Post-MOD stays in 0…1 (Amp=1 + Knob cannot boost past full scale).
   modClamp: true,
-  tooltip: "Output scale.",
-});
+  tooltip: "Output scale." });
 
 const nodeGraphActiveFilterDefinition = {
   planRole: "processor",
@@ -397,8 +394,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       nonlinearSlider: false,
       step: "1",
-      tooltip: "Highpass ladder. Bypass / 6 / 12 / 18 / 24 dB/oct. With LP also on → bandpass (HP then LP).",
-    },
+      tooltip: "Highpass ladder. Bypass / 6 / 12 / 18 / 24 dB/oct. With LP also on → bandpass (HP then LP)." },
     {
       choices: ["Bypass", "6", "12", "18", "24"],
       defaultValue: "4",
@@ -412,8 +408,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       nonlinearSlider: false,
       step: "1",
-      tooltip: "Lowpass ladder. Bypass / 6 / 12 / 18 / 24 dB/oct. Both Bypass = thru.",
-    },
+      tooltip: "Lowpass ladder. Bypass / 6 / 12 / 18 / 24 dB/oct. Both Bypass = thru." },
     {
       defaultValue: "200",
       key: "lowFrequency",
@@ -425,8 +420,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       step: "any",
       unit: "Hz",
-      tooltip: "Highpass cutoff (when HP Slope ≠ Bypass). Sweep / ƒ move cuts together.",
-    },
+      tooltip: "Highpass cutoff (when HP Slope ≠ Bypass). Sweep / ƒ move cuts together." },
     {
       defaultValue: "1000",
       key: "highFrequency",
@@ -438,8 +432,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       step: "any",
       unit: "Hz",
-      tooltip: "Lowpass cutoff (when LP Slope ≠ Bypass). Sweep / ƒ move cuts together.",
-    },
+      tooltip: "Lowpass cutoff (when LP Slope ≠ Bypass). Sweep / ƒ move cuts together." },
     {
       defaultValue: "0",
       key: "sweep",
@@ -451,8 +444,7 @@ const nodeGraphActiveFilterDefinition = {
       showSign: true,
       step: "any",
       unit: "st",
-      tooltip: "Shift HPF and/or LPF in semitones. Dual path keeps the interval.",
-    },
+      tooltip: "Shift HPF and/or LPF in semitones. Dual path keeps the interval." },
     {
       defaultValue: "0.2",
       key: "resonance",
@@ -462,8 +454,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       nonlinearSlider: false,
       step: "any",
-      tooltip: "Feedback 0…1 when Feedback Circuit includes resonance. Applies to each active ladder.",
-    },
+      tooltip: "Feedback 0…1 when Feedback Circuit includes resonance. Applies to each active ladder." },
     {
       choices: ["Off", "Resonance only", "Clipping only", "Res + Clip"],
       defaultValue: "3",
@@ -477,8 +468,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       nonlinearSlider: false,
       step: "1",
-      tooltip: "Off = clean multipole. Resonance only = feedback. Clipping only = input tanh. Res + Clip = both.",
-    },
+      tooltip: "Off = clean multipole. Resonance only = feedback. Clipping only = input tanh. Res + Clip = both." },
     {
       choices: ["Off", "On"],
       defaultValue: "1",
@@ -491,8 +481,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       nonlinearSlider: false,
       step: "1",
-      tooltip: "On = classic gain-compensated ladder (g scales with res). Off = g = 1.",
-    },
+      tooltip: "On = classic gain-compensated ladder (g scales with res). Off = g = 1." },
       nodeGraphOutputAmplitudeParam,
   ]
 };
@@ -505,8 +494,7 @@ function nodeGraphTSeriesValueDisplayModes() {
       renderer: "value",
       settingsSchema: "value",
       // Combined Digital/Analog openness (not In × gate on out "0").
-      source: { value: "Open" },
-    },
+      source: { value: "Open" } },
   ];
 }
 
@@ -528,9 +516,7 @@ function nodeGraphTSeriesModuleDefinition(lastIndex) {
     defaultHeightGu: last >= 8 ? 7 : last >= 6 ? 6 : last >= 4 ? 5 : last >= 2 ? 4 : 3,
     defaultUi: {
       buttonsHidden: true,
-      titleHidden: false,
-    },
-  };
+      titleHidden: false } };
 }
 
 /** Nt mux: inputs 0…(N-1) + A/D → Out. Mirror of tN demux. Name digit = path count. */
@@ -558,9 +544,7 @@ function nodeGraphTSeriesMuxModuleDefinition(lastIndex) {
     defaultHeightGu: last >= 8 ? 8 : last >= 5 ? 7 : last >= 3 ? 6 : 5,
     defaultUi: {
       buttonsHidden: true,
-      titleHidden: false,
-    },
-  };
+      titleHidden: false } };
 }
 
 /** Lone `t` — LayoutB with arrow In/Out so the side bands stay one glyph wide. */
@@ -583,9 +567,7 @@ function nodeGraphTSeriesSingleModuleDefinition() {
     defaultWidthGu: 3,
     defaultUi: {
       buttonsHidden: true,
-      titleHidden: false,
-    },
-  };
+      titleHidden: false } };
 }
 
 /** Shared params for RMS Mono / RMS Stereo (definitions load before rms-math.js). */
@@ -601,8 +583,7 @@ const nodeGraphRmsModuleParameterDefs = Object.freeze([
     min: "0.001",
     step: "any",
     unit: "s",
-    tooltip: "RMS averaging time. ~0.05s = snappy. ~0.3s ≈ classic VU feel. ~1–3s = slow level match.",
-  },
+    tooltip: "RMS averaging time. ~0.05s = snappy. ~0.3s ≈ classic VU feel. ~1–3s = slow level match." },
   {
     defaultValue: "0",
     key: "attack",
@@ -614,8 +595,7 @@ const nodeGraphRmsModuleParameterDefs = Object.freeze([
     min: "0",
     step: "any",
     unit: "s",
-    tooltip: "Extra delay before the meter rises. Leave at 0 for normal metering. Raise (~0.01–0.05s) only if spikes look too twitchy and you want a softer climb.",
-  },
+    tooltip: "Extra delay before the meter rises. Leave at 0 for normal metering. Raise (~0.01–0.05s) only if spikes look too twitchy and you want a softer climb." },
   {
     defaultValue: "0.15",
     key: "release",
@@ -627,8 +607,7 @@ const nodeGraphRmsModuleParameterDefs = Object.freeze([
     min: "0",
     step: "any",
     unit: "s",
-    tooltip: "How slowly the meter falls after loudness drops. ~0.1–0.3s feels like a needle. 0 = drop instantly (harsh). Leave ~0.15 unless the fall is too fast or too sticky.",
-  },
+    tooltip: "How slowly the meter falls after loudness drops. ~0.1–0.3s feels like a needle. 0 = drop instantly (harsh). Leave ~0.15 unless the fall is too fast or too sticky." },
   {
     defaultValue: "0",
     key: "peakHold",
@@ -640,8 +619,7 @@ const nodeGraphRmsModuleParameterDefs = Object.freeze([
     min: "0",
     step: "any",
     unit: "s",
-    tooltip: "How long digital RMS D freezes at a loud peak. Off (0): live reading. ~1–2s: glance at transient peaks. ~3–5s: catch max during a phrase. Longer: park the peak while you tweak.",
-  },
+    tooltip: "How long digital RMS D freezes at a loud peak. Off (0): live reading. ~1–2s: glance at transient peaks. ~3–5s: catch max during a phrase. Longer: park the peak while you tweak." },
   {
     choices: ["Exact log", "Fast LUT"],
     defaultValue: "1",
@@ -655,8 +633,7 @@ const nodeGraphRmsModuleParameterDefs = Object.freeze([
     mid: "1",
     min: "0",
     step: "1",
-    tooltip: "Waterfall dB math only (hidden). Fast LUT is default; digital outs always use exact log.",
-  },
+    tooltip: "Waterfall dB math only (hidden). Fast LUT is default; digital outs always use exact log." },
   {
     defaultValue: "-48",
     key: "minDb",
@@ -667,8 +644,7 @@ const nodeGraphRmsModuleParameterDefs = Object.freeze([
     maxDigits: 4,
     step: "any",
     unit: "dB",
-    tooltip: "Bottom of the waterfall zoom (quiet end). Floor is −48 dB.",
-  },
+    tooltip: "Bottom of the waterfall zoom (quiet end). Floor is −48 dB." },
   {
     defaultValue: "0",
     key: "maxDb",
@@ -679,8 +655,7 @@ const nodeGraphRmsModuleParameterDefs = Object.freeze([
     maxDigits: 4,
     step: "any",
     unit: "dB",
-    tooltip: "Top of the waterfall zoom. Range −48…0 dB FS (0 = full scale / clip).",
-  },
+    tooltip: "Top of the waterfall zoom. Range −48…0 dB FS (0 = full scale / clip)." },
   {
     defaultValue: "-12",
     key: "thresholdDb",
@@ -691,8 +666,7 @@ const nodeGraphRmsModuleParameterDefs = Object.freeze([
     maxDigits: 4,
     step: "any",
     unit: "dB",
-    tooltip: "Gate goes high when measured RMS (absolute dBFS) crosses this level.",
-  },
+    tooltip: "Gate goes high when measured RMS (absolute dBFS) crosses this level." },
 ]);
 
 function nodeGraphControllerBiasParameter() {
@@ -711,8 +685,7 @@ function nodeGraphControllerBiasParameter() {
     smoothingMode: "internal",
     smoothingSeconds: 0.0333,
     smoothingType: "linear",
-    tooltip: "Bias. The face edits this. Min, max, reverse, curve, and smooth time are Parameter Settings.",
-  };
+    tooltip: "Bias. The face edits this. Min, max, reverse, curve, and smooth time are Parameter Settings." };
 }
 
 function nodeGraphControllerDisplayParameter() {
@@ -729,8 +702,7 @@ function nodeGraphControllerDisplayParameter() {
       mid: "0",
       min: "0",
       step: "1",
-      tooltip: "Mouse = pointer target. Smoothed = Bias after Parameter Settings smooth.",
-    },
+      tooltip: "Mouse = pointer target. Smoothed = Bias after Parameter Settings smooth." },
   ];
 }
 
@@ -748,8 +720,7 @@ function nodeGraphControllerButtonBiasParameter() {
     displayChoices: true,
     divideChoicesVisibly: true,
     choices: ["Off", "On"],
-    tooltip: "Bias. Off/On choices by default. Min, max, reverse, curve, and smooth time are Parameter Settings.",
-  };
+    tooltip: "Bias. Off/On choices by default. Min, max, reverse, curve, and smooth time are Parameter Settings." };
 }
 
 function nodeGraphControllerButtonModuleParameters() {
@@ -913,7 +884,7 @@ const nodeGraphModuleDefinitions = (
     ]
   },
   // Reference oscillator for port layout:
-  //   inputs[]     = left jacks only (Reset / Increment)
+  //   inputs[]     = left jacks only (Reset / ƒ)
   //   parameters[] = sliders (Waveform / Frequency / Phase / Amplitude)
   // Phase and Amplitude are NOT left-side jacks here — only knobs (+ auto mod
   // ports on each slider row). If a consumer needs full left-column Phase/Amp
@@ -922,8 +893,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     displayType: "lineBurn",
     defaultDisplaySettings: {
-      sourceSync: true,
-    },
+      sourceSync: true },
     displayModes: [
       { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave" } },
     ],
@@ -931,16 +901,15 @@ const nodeGraphModuleDefinitions = (
       { key: "Wave", kind: "scalar" },
     ],
     // ƒ absolute-Hz last among signal inlets. Morph is the parameter (+ MOD), not a jack.
-    inputs: ["Reset", "Increment"],
+    inputs: ["Reset", "f"],
     inputLabels: {
-      Increment: "inc"},
+      f: "ƒ"},
     // Legacy Wave Out / Out → Wave (outlet list already implies "out").
     outputAliases: {Out: "Wave",
-      "Wave Out": "Wave",},
+      "Wave Out": "Wave" },
     // Main Wave jack first + green (not RGB/XYZ — those keep natural axis order).
     outputChannels: {
-      Wave: "green",
-    },
+      Wave: "green" },
     outputs: ["Wave", "Saw", "Ramp", "Square", "Tri", "Sine"],
     parameters: [
       {
@@ -1025,14 +994,13 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Wave", kind: "scalar" },
     ],
-    inputs: ["Reset", "Increment"],
+    inputs: ["Reset", "f"],
     inputLabels: {
-      Increment: "inc"},
+      f: "ƒ"},
     outputAliases: {Out: "Wave",
-      "Wave Out": "Wave",},
+      "Wave Out": "Wave" },
     outputChannels: {
-      Wave: "green",
-    },
+      Wave: "green" },
     outputs: ["Wave", "Saw", "Ramp", "Square", "Tri", "Sine"],
     parameters: [
       {
@@ -1101,21 +1069,19 @@ const nodeGraphModuleDefinitions = (
         label: "Phases",
         renderer: "sinCos4Face",
         settingsSchema: "sinCos4Face",
-        source: { value: "A" },
-      },
+        source: { value: "A" } },
       {
         key: "aWaterfall",
         label: "A Waterfall",
         renderer: "waterfall",
         settingsSchema: "waterfall",
-        source: { value: "A" },
-      },
+        source: { value: "A" } },
     ],
     defaultDisplayMode: "face",
     // Phase is the parameter (+ MOD) only — no Phase CV jack twin.
-    inputs: ["Reset", "Increment"],
+    inputs: ["Reset", "f"],
     inputLabels: {
-      Increment: "inc",},
+      f: "ƒ" },
     outputs: ["A", "B", "C", "D"],
     parameters: [
       {
@@ -1131,8 +1097,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "1",
         tooltip:
-          "How many phase taps. sine / cosine: A only. sincos: A=sin B=cos. antiphase: A and −A. 3-phase: 0°/120°/240°. 4-phase: 0°/90°/180°/270°. Unused A–D sit at 0.",
-      },
+          "How many phase taps. sine / cosine: A only. sincos: A=sin B=cos. antiphase: A and −A. 3-phase: 0°/120°/240°. 4-phase: 0°/90°/180°/270°. Unused A–D sit at 0." },
       {
         // Indices keep old 0=Polynomial / 1=Wavetable for saved patches; default Wavetable (SSOT).
         choices: ["Polynomial", "Wavetable", "std::sin", "Taylor"],
@@ -1148,8 +1113,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "1",
         tooltip:
-          "Sine SSOT default = Wavetable (additive half-sine LUT 2¹⁵). Polynomial = joint quadrant poly. std::sin = full-range sandbox poly (freestanding; no libm). Taylor = short quadrant-folded Taylor (continuous at wrap).",
-      },
+          "Sine SSOT default = Wavetable (additive half-sine LUT 2¹⁵). Polynomial = joint quadrant poly. std::sin = full-range sandbox poly (freestanding; no libm). Taylor = short quadrant-folded Taylor (continuous at wrap)." },
       {
         defaultValue: "0",
         key: "phase",
@@ -1162,8 +1126,7 @@ const nodeGraphModuleDefinitions = (
         unit: "cycle",
         wraparound: true,
         tooltip:
-          "Phase offset (cycles). Knob + Phase MOD from audio-rate sources add sample-accurately.",
-      },
+          "Phase offset (cycles). Knob + Phase MOD from audio-rate sources add sample-accurately." },
       {
         bipolar: false,
         defaultValue: "100",
@@ -1176,8 +1139,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         tooltip:
           "Hz. Parameter MOD is domain-add (base + CV). Set base 0 and wire Pitch Detector / Knob Bias for absolute Hz. Enable Bipolar in param settings for thru-zero FM (negative Hz = reverse phase).",
-        unit: "Hz",
-      },
+        unit: "Hz" },
       {
         defaultValue: "1",
         key: "amp",
@@ -1205,16 +1167,15 @@ const nodeGraphModuleDefinitions = (
         key: "face",
         label: "Face",
         renderer: "sinCosFace",
-        settingsSchema: "",
-      },
+        settingsSchema: "" },
     ],
     defaultDisplayMode: "face",
-    inputs: ["Reset", "Increment"],
+    inputs: ["Reset", "f"],
     inputLabels: {
-      Increment: "inc",},
+      f: "ƒ" },
     outputs: ["sin", "cos"],
     outputLabels: {sin: "Sin",
-      cos: "Cos",},
+      cos: "Cos" },
     parameters: [
       {
         choices: ["Polynomial", "Wavetable", "std::sin", "Taylor"],
@@ -1230,8 +1191,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "1",
         tooltip:
-          "Sine SSOT default = Wavetable (additive half-sine LUT 2¹⁵). Polynomial = joint quadrant poly. std::sin = full-range sandbox poly (freestanding; no libm). Taylor = short quadrant-folded Taylor (continuous at wrap).",
-      },
+          "Sine SSOT default = Wavetable (additive half-sine LUT 2¹⁵). Polynomial = joint quadrant poly. std::sin = full-range sandbox poly (freestanding; no libm). Taylor = short quadrant-folded Taylor (continuous at wrap)." },
       {
         defaultValue: "0",
         key: "phase",
@@ -1244,8 +1204,7 @@ const nodeGraphModuleDefinitions = (
         unit: "cycle",
         wraparound: true,
         tooltip:
-          "Phase offset (cycles). Knob + Phase MOD from audio-rate sources add sample-accurately.",
-      },
+          "Phase offset (cycles). Knob + Phase MOD from audio-rate sources add sample-accurately." },
       {
         bipolar: false,
         defaultValue: "100",
@@ -1258,8 +1217,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         tooltip:
           "Hz. Parameter MOD is domain-add (base + CV). Set base 0 and wire Pitch Detector / Knob Bias for absolute Hz. Enable Bipolar in param settings for thru-zero FM (negative Hz = reverse phase).",
-        unit: "Hz",
-      },
+        unit: "Hz" },
       {
         defaultValue: "1",
         key: "amp",
@@ -1275,8 +1233,9 @@ const nodeGraphModuleDefinitions = (
   archimedes: {
     planRole: "source",
     displayType: "waterfall",
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: ["Sine", "Cosine", "Pi", "Noise Below", "Noise Above"],
     parameters: [
       {
@@ -1325,8 +1284,9 @@ const nodeGraphModuleDefinitions = (
   },
   aliasSine: {
     planRole: "source",
-    inputs: ["Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
@@ -1347,16 +1307,16 @@ const nodeGraphModuleDefinitions = (
         { t: 0, color: "#000000" },
         { t: 0.5, color: "#ff0000" },
         { t: 1, color: "#ffffff" },
-      ],
-    },
+      ] },
     displayModes: [
       { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave" } },
     ],
     displaySignals: [
       { key: "Wave", kind: "scalar" },
     ],
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputAliases: { Out: "Wave", "Wave Out": "Wave" },
     outputChannels: { Wave: "green" },
     outputs: ["Wave"],
@@ -1374,7 +1334,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "When ƒ combined increment (Frequency/sampleRate + inc) changes mid-cycle: On cycle waits for wrap; Warp remaining keeps dither offset; Snap remaining re-dithers the remaining length."
+        tooltip: "When ƒ changes mid-cycle: On cycle waits for wrap; Warp remaining keeps dither offset; Snap remaining re-dithers the remaining length."
       },
       {
         choices: ["Saw", "Ramp", "Square", "Trisaw Center", "Sine", "Pulse", "Analog Square"],
@@ -1404,7 +1364,7 @@ const nodeGraphModuleDefinitions = (
         smoothingType: "onePole",
         step: "any",
         unit: "Hz",
-        tooltip: "Absolute Hz. Converted to cycles/sample and added to inc before cycle-dither. Update chooses how a mid-cycle increment change warps the remaining period (phase-continuous)."
+        tooltip: "Absolute Hz. Converted to cycles/sample for cycle-dither. Update chooses how a mid-cycle ƒ change warps the remaining period (phase-continuous)."
       },
       {
         defaultValue: "0",
@@ -1457,8 +1417,9 @@ const nodeGraphModuleDefinitions = (
     displayModes: [
       { key: "waterfall", renderer: "waterfall", source: { value: "Out Raw" } },
     ],
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
@@ -1518,8 +1479,7 @@ const nodeGraphModuleDefinitions = (
         key: "phoneToneFace",
         label: "ƒ",
         renderer: "phoneToneFace",
-        source: { value: "Tone" },
-      },
+        source: { value: "Tone" } },
     ],
     displaySignals: [
       { key: "Tone", kind: "scalar" },
@@ -1544,10 +1504,9 @@ const nodeGraphModuleDefinitions = (
       f1: "ƒ1",
       Df1: "ƒ1",
       f2: "ƒ2",
-      Df2: "ƒ2",},
+      Df2: "ƒ2" },
     outputChannels: {
-      Tone: "green",
-    },
+      Tone: "green" },
     inputs: ["Analog", "Digital", "Gate"],
     outputs: ["Tone", "ToneL", "ToneR", "ƒ1", "ƒ2", "Analog Thru", "Digital Thru"],
     outputLabels: {Tone: "Tone",
@@ -1556,7 +1515,7 @@ const nodeGraphModuleDefinitions = (
       "ƒ1": "ƒ1",
       "ƒ2": "ƒ2",
       "Analog Thru": "Analog Thru",
-      "Digital Thru": "Digital Thru",},
+      "Digital Thru": "Digital Thru" },
     parameters: [
       {
         defaultValue: "0.5",
@@ -1571,8 +1530,7 @@ const nodeGraphModuleDefinitions = (
         smoothingSeconds: 0.1,
         smoothingType: "linear",
         step: "any",
-        tooltip: "Peak of the summed DTMF sines (Tone). Two keys stay inside ±Amplitude.",
-      },
+        tooltip: "Peak of the summed DTMF sines (Tone). Two keys stay inside ±Amplitude." },
       {
         bipolar: true,
         defaultValue: "0",
@@ -1589,8 +1547,7 @@ const nodeGraphModuleDefinitions = (
         smoothingType: "linear",
         step: "any",
         unit: "Hz",
-        tooltip: "Added to both DTMF frequencies (low X / high Z) before the Robin sinusoids.",
-      },
+        tooltip: "Added to both DTMF frequencies (low X / high Z) before the Robin sinusoids." },
       {
         bipolar: true,
         defaultValue: "0",
@@ -1607,10 +1564,8 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "oct",
         tooltip:
-          "Transpose both DTMF tones in octaves (1 = +1 octave). ♯/♭ pitch tracks the same pair from the project pitch reference.",
-      },
-    ],
-  },
+          "Transpose both DTMF tones in octaves (1 = +1 octave). ♯/♭ pitch tracks the same pair from the project pitch reference." },
+    ] },
   // Yellow Graph chain: Generator → Effect(s) → Out. Harmonics count lives on Generator only.
   // (additiveOsc / gpuAdditiveOsc retired — dropped on patch load.)
   additiveGenerator: {
@@ -1625,8 +1580,9 @@ const nodeGraphModuleDefinitions = (
       { key: "additiveWaveform", renderer: "additiveWaveform" },
       { key: "harmonicCount", renderer: "harmonicCount" },
     ],
-    inputs: ["Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: [],
     dataOutputs: ["Graph"],
     parameters: [
@@ -1642,8 +1598,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         linearSmoothing: false,
         smoothingType: "none",
-        tooltip: "Partial count (1…1024). Instant/Smoothed round to integer slots. Decimal keeps a trailing fractional amp (32.4 → 32 full + slot 33×0.4). Bubble Cutoff can still apply its own skirt.",
-      },
+        tooltip: "Partial count (1…1024). Instant/Smoothed round to integer slots. Decimal keeps a trailing fractional amp (32.4 → 32 full + slot 33×0.4). Bubble Cutoff can still apply its own skirt." },
       {
         choices: ["Instant", "Smoothed", "Decimal"],
         defaultValue: "1",
@@ -1657,8 +1612,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Instant = hard H snap (no amp crossfade). Smoothed = 1-quantum amp lerp on slot-count change (default). Decimal = live trailing partial amp from fractional Harmonics (no quantum lerp).",
-      },
+        tooltip: "Instant = hard H snap (no amp crossfade). Smoothed = 1-quantum amp lerp on slot-count change (default). Decimal = live trailing partial amp from fractional Harmonics (no quantum lerp)." },
       {
         choices: [
           "Saw",
@@ -1680,8 +1634,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Saw / Square / PulseCenter / PulseLeft / PulseRight / Tri / RectSine. PWM only affects Pulse*.",
-      },
+        tooltip: "Saw / Square / PulseCenter / PulseLeft / PulseRight / Tri / RectSine. PWM only affects Pulse*." },
       {
         defaultValue: "0",
         key: "pwm",
@@ -1691,8 +1644,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         step: "any",
         outputDomain: true,
-        tooltip: "Pulse* only. Bipolar (−1…+1): 0 = 50% duty, −1…+1 → ~2%…~98% width. Ignored by Saw / Square / Tri / RectSine.",
-      },
+        tooltip: "Pulse* only. Bipolar (−1…+1): 0 = 50% duty, −1…+1 → ~2%…~98% width. Ignored by Saw / Square / Tri / RectSine." },
       {
         defaultValue: "0",
         key: "phaseRotation",
@@ -1705,10 +1657,8 @@ const nodeGraphModuleDefinitions = (
         unit: "cycle",
         wraparound: true,
         outputDomain: true,
-        tooltip: "Adds the same phase offset (cycles) to every harmonic in the Graph.",
-      },
-    ],
-  },
+        tooltip: "Adds the same phase offset (cycles) to every harmonic in the Graph." },
+    ] },
   // Rational-curve spectral filter (brickwall↔gradual Slope + Skew).
   additiveLinearFilter: {
     planRole: "processor",
@@ -1722,6 +1672,7 @@ const nodeGraphModuleDefinitions = (
     ],
     inputs: [],
     inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: [],
     dataInputs: ["Graph"],
     dataOutputs: ["Graph"],
@@ -1738,8 +1689,7 @@ const nodeGraphModuleDefinitions = (
         max: "2",
         mid: "0",
         min: "0",
-        step: "1",
-      },
+        step: "1" },
       {
         defaultValue: "2000",
         key: "cutoff",
@@ -1752,8 +1702,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         outputDomain: true,
-        tooltip: "Corner frequency in Hz. LP at 0 Hz = silence. Partial Hz = ratio × Out Frequency.",
-      },
+        tooltip: "Corner frequency in Hz. LP at 0 Hz = silence. Partial Hz = ratio × Out Frequency." },
       {
         defaultValue: "0.25",
         key: "slope",
@@ -1763,8 +1712,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         showSign: true,
         step: "any",
-        tooltip: "−1…+1. |Slope| = skirt width (0 = brickwall). Sign reverses the pass/stop (reverse slope). Skew 0 is a linear ramp.",
-      },
+        tooltip: "−1…+1. |Slope| = skirt width (0 = brickwall). Sign reverses the pass/stop (reverse slope). Skew 0 is a linear ramp." },
       {
         defaultValue: "0",
         key: "skew",
@@ -1774,8 +1722,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         step: "any",
         outputDomain: true,
-        tooltip: "Curve amount (−1…+1). 0 = linear ramp in the Slope transition. Ignored as a separate 'Linear' mode — that is just Skew 0.",
-      },
+        tooltip: "Curve amount (−1…+1). 0 = linear ramp in the Slope transition. Ignored as a separate 'Linear' mode — that is just Skew 0." },
       {
         choices: ["Rational", "Bipolar Rational"],
         defaultValue: "0",
@@ -1789,10 +1736,8 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Rational = one-sided skirt bend. Bipolar Rational = S-curve around the cutoff (odd at the midpoint). Skew 0 is linear for both.",
-      },
-    ],
-  },
+        tooltip: "Rational = one-sided skirt bend. Bipolar Rational = S-curve around the cutoff (odd at the midpoint). Skew 0 is linear for both." },
+    ] },
   // Butterworth spectral filter (Slope in dB/oct). Type id kept for patches.
   additiveAnalogFilter: {
     planRole: "processor",
@@ -1806,6 +1751,7 @@ const nodeGraphModuleDefinitions = (
     ],
     inputs: [],
     inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: [],
     dataInputs: ["Graph"],
     dataOutputs: ["Graph"],
@@ -1822,8 +1768,7 @@ const nodeGraphModuleDefinitions = (
         max: "2",
         mid: "0",
         min: "0",
-        step: "1",
-      },
+        step: "1" },
       {
         defaultValue: "2000",
         key: "cutoff",
@@ -1836,8 +1781,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         outputDomain: true,
-        tooltip: "Corner frequency in Hz. LP at 0 Hz = silence. ƒ jack reserved for nonrealtime Cutoff mod.",
-      },
+        tooltip: "Corner frequency in Hz. LP at 0 Hz = silence. ƒ jack reserved for nonrealtime Cutoff mod." },
       {
         defaultValue: "12",
         key: "slope",
@@ -1849,8 +1793,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "dB/oct",
         outputDomain: true,
-        tooltip: "Asymptotic skirt in dB/octave (6 ≈ 1-pole, 12 ≈ 2-pole, 24 ≈ 4-pole). 0 = flat. Large ≈ brickwall.",
-      },
+        tooltip: "Asymptotic skirt in dB/octave (6 ≈ 1-pole, 12 ≈ 2-pole, 24 ≈ 4-pole). 0 = flat. Large ≈ brickwall." },
       {
         defaultValue: "0",
         key: "skew",
@@ -1860,10 +1803,8 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         step: "any",
         outputDomain: true,
-        tooltip: "Asymmetric skirt via log(f/fc) warp (−1…+1). 0 = plain Butterworth.",
-      },
-    ],
-  },
+        tooltip: "Asymmetric skirt via log(f/fc) warp (−1…+1). 0 = plain Butterworth." },
+    ] },
   additiveLadderFilter: {
     planRole: "processor",
     chrome: "LayoutA",
@@ -1876,6 +1817,7 @@ const nodeGraphModuleDefinitions = (
     ],
     inputs: [],
     inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: [],
     dataInputs: ["Graph"],
     dataOutputs: ["Graph"],
@@ -1892,8 +1834,7 @@ const nodeGraphModuleDefinitions = (
         max: "2",
         mid: "0",
         min: "0",
-        step: "1",
-      },
+        step: "1" },
       {
         defaultValue: "2000",
         key: "cutoff",
@@ -1906,8 +1847,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         outputDomain: true,
-        tooltip: "Corner frequency in Hz. ƒ jack reserved for nonrealtime Cutoff mod.",
-      },
+        tooltip: "Corner frequency in Hz. ƒ jack reserved for nonrealtime Cutoff mod." },
       {
         defaultValue: "12",
         key: "slope",
@@ -1919,8 +1859,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "dB/oct",
         outputDomain: true,
-        tooltip: "Skirt steepness in dB/octave (and how tight the warm resonance sits).",
-      },
+        tooltip: "Skirt steepness in dB/octave (and how tight the warm resonance sits)." },
       {
         defaultValue: "0",
         key: "resonance",
@@ -1930,10 +1869,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         outputDomain: true,
-        tooltip: "Warm ladder-style peak near Cutoff (0 = off, 10 = hot). Peak stays ≈1 (passband drops as Resonance rises). Spectral mimic — not IIR feedback.",
-      },
-    ],
-  },
+        tooltip: "Warm ladder-style peak near Cutoff (0 = off, 10 = hot). Peak stays ≈1 (passband drops as Resonance rises). Spectral mimic — not IIR feedback." },
+    ] },
   additiveBubble: {
     planRole: "processor",
     chrome: "LayoutA",
@@ -1960,8 +1897,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "cycle",
         outputDomain: true,
-        tooltip: "Phase cascade depth in cycles (0…10000). Bubbly progressive harmonic phase offset.",
-      },
+        tooltip: "Phase cascade depth in cycles (0…10000). Bubbly progressive harmonic phase offset." },
       {
         defaultValue: "481.53",
         key: "unskew",
@@ -1973,8 +1909,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "cycle",
         outputDomain: true,
-        tooltip: "0 = off (Phase Skew ignores Cutoff). >0 = as Cutoff→1, effective Phase Skew lerps toward this value.",
-      },
+        tooltip: "0 = off (Phase Skew ignores Cutoff). >0 = as Cutoff→1, effective Phase Skew lerps toward this value." },
       {
         defaultValue: "0",
         key: "bubble",
@@ -1984,8 +1919,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         outputDomain: true,
-        tooltip: "0 = sharp (linear cascade). 1 = fully dispersed bubbly log bend. Use Invert Bubble for the opposite bend direction.",
-      },
+        tooltip: "0 = sharp (linear cascade). 1 = fully dispersed bubbly log bend. Use Invert Bubble for the opposite bend direction." },
       {
         choices: ["Off", "On"],
         defaultValue: "0",
@@ -1999,8 +1933,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Off: Bubble 0→1 maps curve 0→+1 (edges bubbly). On: Bubble 0→1 maps curve 0→−1 (middle sharp, edges bubbly the other way).",
-      },
+        tooltip: "Off: Bubble 0→1 maps curve 0→+1 (edges bubbly). On: Bubble 0→1 maps curve 0→−1 (middle sharp, edges bubbly the other way)." },
       {
         defaultValue: "1",
         key: "cutoff",
@@ -2010,10 +1943,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         outputDomain: true,
-        tooltip: "0 = silence, 1 = full set. Fractional harmonic count + remaps Phase Skew over the audible edge.",
-      },
-    ],
-  },
+        tooltip: "0 = silence, 1 = full set. Fractional harmonic count + remaps Phase Skew over the audible edge." },
+    ] },
   additiveFrequencySkew: {
     planRole: "processor",
     chrome: "LayoutA",
@@ -2042,8 +1973,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Shapes middle-harmonic Skew. Exp (tight) / Rational / Log. Endpoints stay fixed. |Skew|=1 hard-converges middles.",
-      },
+        tooltip: "Shapes middle-harmonic Skew. Exp (tight) / Rational / Log. Endpoints stay fixed. |Skew|=1 hard-converges middles." },
       {
         defaultValue: "1",
         key: "lowStretch",
@@ -2054,8 +1984,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "multiply",
         outputDomain: true,
-        tooltip: "1 = unchanged. >1 lowers the fundamental (÷) and remaps all ratios across the new span up to the last harmonic.",
-      },
+        tooltip: "1 = unchanged. >1 lowers the fundamental (÷) and remaps all ratios across the new span up to the last harmonic." },
       {
         defaultValue: "1",
         key: "highStretch",
@@ -2066,8 +1995,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "multiply",
         outputDomain: true,
-        tooltip: "1 = unchanged. >1 raises the last harmonic (×) and remaps all ratios across the new span from the fundamental.",
-      },
+        tooltip: "1 = unchanged. >1 raises the last harmonic (×) and remaps all ratios across the new span from the fundamental." },
       {
         defaultValue: "0",
         key: "skew",
@@ -2077,10 +2005,8 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         step: "any",
         outputDomain: true,
-        tooltip: "Compress middles toward fund or last. + → last, − → fund (Rational). Exponential uses the same knob sense. |±1| = full converge. Endpoints fixed.",
-      },
-    ],
-  },
+        tooltip: "Compress middles toward fund or last. + → last, − → fund (Rational). Exponential uses the same knob sense. |±1| = full converge. Endpoints fixed." },
+    ] },
   additiveQuantizeFreq: {
     planRole: "processor",
     chrome: "LayoutA",
@@ -2109,8 +2035,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "On: hard harmonic grid. Random is applied first, then each overtone snaps to the nearest fund multiple (1×,2×,3×,…) or dyadic (½×,¼×,…). No glide between slots. Fund slot is never snapped.",
-      },
+        tooltip: "On: hard harmonic grid. Random is applied first, then each overtone snaps to the nearest fund multiple (1×,2×,3×,…) or dyadic (½×,¼×,…). No glide between slots. Fund slot is never snapped." },
       {
         defaultValue: "0",
         key: "randomFreqAmount",
@@ -2120,8 +2045,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         outputDomain: true,
-        tooltip: "Bipolar per-partial random × amount (±) before snap. With Quantize On, moving this jumps between harmonic slots (not a continuous slide). Off: free detune.",
-      },
+        tooltip: "Bipolar per-partial random × amount (±) before snap. With Quantize On, moving this jumps between harmonic slots (not a continuous slide). Off: free detune." },
       {
         choices: ["Off", "On"],
         defaultValue: "0",
@@ -2135,8 +2059,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Off: fundamental ratio stays put. On: random may move the fund partial, but quantize still uses the original fund as the snap reference.",
-      },
+        tooltip: "Off: fundamental ratio stays put. On: random may move the fund partial, but quantize still uses the original fund as the snap reference." },
       {
         defaultValue: "1",
         key: "seed",
@@ -2149,10 +2072,8 @@ const nodeGraphModuleDefinitions = (
         kind: "seed",
         linearSmoothing: false,
         smoothingType: "none",
-        tooltip: "Seed for per-harmonic random frequency offsets.",
-      },
-    ],
-  },
+        tooltip: "Seed for per-harmonic random frequency offsets." },
+    ] },
   additiveQuantizePhase: {
     planRole: "processor",
     chrome: "LayoutA",
@@ -2181,8 +2102,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "On: set every partial’s Graph phase to the fundamental’s phase (locks relative phases). Audible on Saw/Square.",
-      },
+        tooltip: "On: set every partial’s Graph phase to the fundamental’s phase (locks relative phases). Audible on Saw/Square." },
       {
         defaultValue: "0",
         key: "randomPhaseAmount",
@@ -2192,8 +2112,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         outputDomain: true,
-        tooltip: "After quantize: 0 = keep phase; 0…1 morphs toward independent random; 1 = replace with random [0,1) cycles; 2 = random×2. Use ~1 for a diffuse bank.",
-      },
+        tooltip: "After quantize: 0 = keep phase; 0…1 morphs toward independent random; 1 = replace with random [0,1) cycles; 2 = random×2. Use ~1 for a diffuse bank." },
       {
         defaultValue: "1",
         key: "seed",
@@ -2206,10 +2125,8 @@ const nodeGraphModuleDefinitions = (
         kind: "seed",
         linearSmoothing: false,
         smoothingType: "none",
-        tooltip: "Seed for per-harmonic random phases (well-mixed per index).",
-      },
-    ],
-  },
+        tooltip: "Seed for per-harmonic random phases (well-mixed per index)." },
+    ] },
   additiveNoisyFreq: {
     planRole: "processor",
     chrome: "LayoutA",
@@ -2238,8 +2155,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "CheapWalk / CheapFilteredNoise = quantum targets, linear-ramped across the block at Out. WhiteNoise = audio-rate jitter at Out (diffuse; Speed ignored).",
-      },
+        tooltip: "CheapWalk / CheapFilteredNoise = quantum targets, linear-ramped across the block at Out. WhiteNoise = audio-rate jitter at Out (diffuse; Speed ignored)." },
       {
         defaultValue: "0.5",
         key: "add",
@@ -2250,8 +2166,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         outputDomain: true,
-        tooltip: "Additive ratio jitter: ratio' = max(0, ratio + noise×Add). ΔHz = Add×f0×noise. Not 0…1 normalized.",
-      },
+        tooltip: "Additive ratio jitter: ratio' = max(0, ratio + noise×Add). ΔHz = Add×f0×noise. Not 0…1 normalized." },
       {
         defaultValue: "35",
         key: "speed",
@@ -2263,8 +2178,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Quantum rate for CheapWalk / CheapFilteredNoise. Ignored for WhiteNoise.",
-      },
+        tooltip: "Quantum rate for CheapWalk / CheapFilteredNoise. Ignored for WhiteNoise." },
       {
         defaultValue: "1",
         key: "seed",
@@ -2277,10 +2191,8 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Deterministic noise streams (Seed + harmonic index). Same Seed → same pattern.",
-      },
-    ],
-  },
+        tooltip: "Deterministic noise streams (Seed + harmonic index). Same Seed → same pattern." },
+    ] },
   additiveNoisyPhase: {
     planRole: "processor",
     chrome: "LayoutA",
@@ -2309,8 +2221,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "CheapWalk / CheapFilteredNoise = quantum targets, linear-ramped at Out. WhiteNoise = audio-rate (Speed ignored).",
-      },
+        tooltip: "CheapWalk / CheapFilteredNoise = quantum targets, linear-ramped at Out. WhiteNoise = audio-rate (Speed ignored)." },
       {
         defaultValue: "0.25",
         key: "add",
@@ -2320,8 +2231,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "any",
-        tooltip: "Additive phase jitter: phase' = wrap(phase + noise×Add) cycles. Param owns the range; no hidden scale.",
-      },
+        tooltip: "Additive phase jitter: phase' = wrap(phase + noise×Add) cycles. Param owns the range; no hidden scale." },
       {
         defaultValue: "35",
         key: "speed",
@@ -2333,8 +2243,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Quantum rate for CheapWalk / CheapFilteredNoise. Ignored for WhiteNoise.",
-      },
+        tooltip: "Quantum rate for CheapWalk / CheapFilteredNoise. Ignored for WhiteNoise." },
       {
         defaultValue: "1",
         key: "seed",
@@ -2347,10 +2256,8 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Deterministic noise streams (Seed + harmonic index). Same Seed → same pattern.",
-      },
-    ],
-  },
+        tooltip: "Deterministic noise streams (Seed + harmonic index). Same Seed → same pattern." },
+    ] },
   additivePan: {
     planRole: "processor",
     chrome: "LayoutA",
@@ -2375,8 +2282,7 @@ const nodeGraphModuleDefinitions = (
         min: "-2",
         step: "any",
         outputDomain: true,
-        tooltip: "Odd/even hard L↔R fan (first in the chain). + = even→L / odd→R; − flips. Past ±1 wraps onto the other speaker.",
-      },
+        tooltip: "Odd/even hard L↔R fan (first in the chain). + = even→L / odd→R; − flips. Past ±1 wraps onto the other speaker." },
       {
         defaultValue: "0.25",
         key: "rate",
@@ -2389,8 +2295,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         outputDomain: true,
-        tooltip: "How fast the harmonic pans rotate around the stereo field. 0 = freeze the swirl in place.",
-      },
+        tooltip: "How fast the harmonic pans rotate around the stereo field. 0 = freeze the swirl in place." },
       {
         defaultValue: "0.85",
         key: "depth",
@@ -2400,8 +2305,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         outputDomain: true,
-        tooltip: "Rotator swing around the Width fan. Past 1 wraps through the opposite speaker.",
-      },
+        tooltip: "Rotator swing around the Width fan. Past 1 wraps through the opposite speaker." },
       {
         defaultValue: "1",
         key: "spread",
@@ -2411,8 +2315,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         outputDomain: true,
-        tooltip: "Phase offset across harmonics (turns of the rotator). 0 = all move together; 1 = one full spiral across the bank.",
-      },
+        tooltip: "Phase offset across harmonics (turns of the rotator). 0 = all move together; 1 = one full spiral across the bank." },
       {
         defaultValue: "0",
         key: "bias",
@@ -2422,8 +2325,7 @@ const nodeGraphModuleDefinitions = (
         min: "-2",
         step: "any",
         outputDomain: true,
-        tooltip: "Static stereo center offset (−2…+2, wraps past hard L/R).",
-      },
+        tooltip: "Static stereo center offset (−2…+2, wraps past hard L/R)." },
       {
         defaultValue: "0.35",
         key: "shimmer",
@@ -2433,8 +2335,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         outputDomain: true,
-        tooltip: "High-partial L↔R jump amount. Strongest on upper harmonics; hard square flips.",
-      },
+        tooltip: "High-partial L↔R jump amount. Strongest on upper harmonics; hard square flips." },
       {
         defaultValue: "18",
         key: "shimmerRate",
@@ -2447,8 +2348,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         outputDomain: true,
-        tooltip: "How fast the high-harmonic shimmer jumps between speakers.",
-      },
+        tooltip: "How fast the high-harmonic shimmer jumps between speakers." },
       {
         defaultValue: "1",
         key: "orbit",
@@ -2458,10 +2358,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         outputDomain: true,
-        tooltip: "Higher harmonics orbit faster than the fundamental (rate × (1 + Orbit × index)).",
-      },
-    ],
-  },
+        tooltip: "Higher harmonics orbit faster than the fundamental (rate × (1 + Orbit × index))." },
+    ] },
   additiveNoisyPan: {
     planRole: "processor",
     chrome: "LayoutA",
@@ -2490,8 +2388,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "CheapWalk / CheapFilteredNoise = quantum targets, linear-ramped at Out. WhiteNoise = audio-rate (Speed ignored).",
-      },
+        tooltip: "CheapWalk / CheapFilteredNoise = quantum targets, linear-ramped at Out. WhiteNoise = audio-rate (Speed ignored)." },
       {
         defaultValue: "0.25",
         key: "add",
@@ -2501,8 +2398,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "any",
-        tooltip: "Additive pan jitter: pan' = pan + noise×Add. Simple add — no stagger/slope. Additive Out clamps to full L…R (−1…+1).",
-      },
+        tooltip: "Additive pan jitter: pan' = pan + noise×Add. Simple add — no stagger/slope. Additive Out clamps to full L…R (−1…+1)." },
       {
         defaultValue: "35",
         key: "speed",
@@ -2514,8 +2410,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Quantum rate for CheapWalk / CheapFilteredNoise. Ignored for WhiteNoise.",
-      },
+        tooltip: "Quantum rate for CheapWalk / CheapFilteredNoise. Ignored for WhiteNoise." },
       {
         defaultValue: "1",
         key: "seed",
@@ -2528,10 +2423,8 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Deterministic noise streams (Seed + harmonic index). Same Seed → same pattern.",
-      },
-    ],
-  },
+        tooltip: "Deterministic noise streams (Seed + harmonic index). Same Seed → same pattern." },
+    ] },
   additiveNoisyAmp: {
     planRole: "processor",
     chrome: "LayoutA",
@@ -2560,8 +2453,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "CheapWalk / CheapFilteredNoise = quantum targets, linear-ramped at Out. WhiteNoise = audio-rate (Speed ignored).",
-      },
+        tooltip: "CheapWalk / CheapFilteredNoise = quantum targets, linear-ramped at Out. WhiteNoise = audio-rate (Speed ignored)." },
       {
         defaultValue: "0.25",
         key: "add",
@@ -2571,8 +2463,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "any",
-        tooltip: "Additive amp jitter: amp' = amp + noise×Add. Param owns the range; Additive Out clamps to 0…1.",
-      },
+        tooltip: "Additive amp jitter: amp' = amp + noise×Add. Param owns the range; Additive Out clamps to 0…1." },
       {
         defaultValue: "35",
         key: "speed",
@@ -2584,8 +2475,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Quantum rate for CheapWalk / CheapFilteredNoise. Ignored for WhiteNoise.",
-      },
+        tooltip: "Quantum rate for CheapWalk / CheapFilteredNoise. Ignored for WhiteNoise." },
       {
         defaultValue: "1",
         key: "seed",
@@ -2598,10 +2488,8 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Deterministic noise streams (Seed + harmonic index). Same Seed → same pattern.",
-      },
-    ],
-  },
+        tooltip: "Deterministic noise streams (Seed + harmonic index). Same Seed → same pattern." },
+    ] },
   additiveDiffusor: {
     planRole: "processor",
     chrome: "LayoutA",
@@ -2630,8 +2518,7 @@ const nodeGraphModuleDefinitions = (
         sliderCurve: "custom",
         step: "any",
         outputDomain: true,
-        tooltip: "0 = all phases match harmonic 0. Higher = harder scramble + stronger CheapWalk.",
-      },
+        tooltip: "0 = all phases match harmonic 0. Higher = harder scramble + stronger CheapWalk." },
       {
         defaultValue: "35",
         key: "speed",
@@ -2644,8 +2531,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         outputDomain: true,
-        tooltip: "CheapWalk rate. 0 freezes the walk offset in place (same as a tiny Speed — no special zeroing).",
-      },
+        tooltip: "CheapWalk rate. 0 freezes the walk offset in place (same as a tiny Speed — no special zeroing)." },
       {
         defaultValue: "1",
         key: "seed",
@@ -2658,10 +2544,8 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Deterministic scramble + CheapWalk streams.",
-      },
-    ],
-  },
+        tooltip: "Deterministic scramble + CheapWalk streams." },
+    ] },
   additiveBlaster: {
     planRole: "processor",
     chrome: "LayoutA",
@@ -2690,8 +2574,7 @@ const nodeGraphModuleDefinitions = (
         linearSmoothing: false,
         smoothingType: "none",
         outputDomain: true,
-        tooltip: "How many index bins. 0 = off. 2 = halves, 4 = quarters. Audio bins by index (stable under fund sweep).",
-      },
+        tooltip: "How many index bins. 0 = off. 2 = halves, 4 = quarters. Audio bins by index (stable under fund sweep)." },
       {
         choices: ["Stagger", "Random"],
         defaultValue: "0",
@@ -2705,8 +2588,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Stagger = Bubble-like curve staircase (series of phase jumps). Random = old seeded random per bin.",
-      },
+        tooltip: "Stagger = Bubble-like curve staircase (series of phase jumps). Random = old seeded random per bin." },
       {
         defaultValue: "145.84",
         key: "depth",
@@ -2718,8 +2600,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "cycle",
         outputDomain: true,
-        tooltip: "Stagger: cascade depth in cycles (like Bubble Phase Skew). Scales the curve staircase.",
-      },
+        tooltip: "Stagger: cascade depth in cycles (like Bubble Phase Skew). Scales the curve staircase." },
       {
         defaultValue: "-0.2",
         key: "curve",
@@ -2729,8 +2610,7 @@ const nodeGraphModuleDefinitions = (
         min: "-0.9999",
         step: "any",
         outputDomain: true,
-        tooltip: "Bend the stagger map (−1…+1). With Curve Kind = Log, this is the log-freq-style cascade bend (Bubble Skew Amount).",
-      },
+        tooltip: "Bend the stagger map (−1…+1). With Curve Kind = Log, this is the log-freq-style cascade bend (Bubble Skew Amount)." },
       {
         choices: ["Rational", "Exponential", "Logarithmic", "Linear"],
         defaultValue: "1",
@@ -2744,8 +2624,7 @@ const nodeGraphModuleDefinitions = (
         mid: "2",
         min: "0",
         step: "1",
-        tooltip: "Shape of the stagger staircase. Logarithmic matches Bubble’s log cascade.",
-      },
+        tooltip: "Shape of the stagger staircase. Logarithmic matches Bubble’s log cascade." },
       {
         defaultValue: "0.58",
         key: "offset",
@@ -2756,8 +2635,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "cycle",
         outputDomain: true,
-        tooltip: "Add a constant phase to every bin after the staircase.",
-      },
+        tooltip: "Add a constant phase to every bin after the staircase." },
       {
         defaultValue: "1.0757",
         key: "jump",
@@ -2769,8 +2647,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "cycle",
         outputDomain: true,
-        tooltip: "Extra phase step added per bin index (bin × Jump). Pure staircase on top of the curve.",
-      },
+        tooltip: "Extra phase step added per bin index (bin × Jump). Pure staircase on top of the curve." },
       {
         defaultValue: "0.44",
         key: "bias",
@@ -2780,8 +2657,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         step: "any",
         outputDomain: true,
-        tooltip: "Shift the curve input t before mapping (−1…+1). Slides which bins sit on the steep part of the log curve.",
-      },
+        tooltip: "Shift the curve input t before mapping (−1…+1). Slides which bins sit on the steep part of the log curve." },
       {
         choices: ["Off", "On"],
         defaultValue: "0",
@@ -2795,10 +2671,8 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Flip the cascade (high bins get the low end of the curve).",
-      },
-    ],
-  },
+        tooltip: "Flip the cascade (high bins get the low end of the curve)." },
+    ] },
   // How Additive Out seeds newly added harmonics' free-running phase.
   // Default without this module: Lock (stay in phase with the fund).
   additivePhaseEntry: {
@@ -2829,10 +2703,8 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "When Harmonics grows: Lock = new partials sync to the fund (default without this module). Free = start at phase 0 (unlocked “entry shimmer”). Random = random entry phase per new slot.",
-      },
-    ],
-  },
+        tooltip: "When Harmonics grows: Lock = new partials sync to the fund (default without this module). Free = start at phase 0 (unlocked “entry shimmer”). Random = random entry phase per new slot." },
+    ] },
   // Under construction — image→harmonic Yellow Graph source/processor (parked).
   additiveImage: {
     planRole: "processor",
@@ -2844,8 +2716,7 @@ const nodeGraphModuleDefinitions = (
     outputs: [],
     dataInputs: ["Graph"],
     dataOutputs: ["Graph"],
-    parameters: [],
-  },
+    parameters: [] },
   // Block-rate Curve Envelope for Additive CV (cyan Out). Not audio-rate.
   curveEnvelopeMod: {
     planRole: "processor",
@@ -2868,8 +2739,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "On: envelope knobs latch on Gate rise (same as Curve Envelope). Off: live.",
-      },
+        tooltip: "On: envelope knobs latch on Gate rise (same as Curve Envelope). Off: live." },
       {
         choices: ["Delay Start", "Delay All"],
         defaultValue: "0",
@@ -2883,8 +2753,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Delay Start: wait Delay only when not already releasing (a gate during release goes straight to Attack). Delay All: wait Delay on every gate rise, including during release.",
-      },
+        tooltip: "Delay Start: wait Delay only when not already releasing (a gate during release goes straight to Attack). Delay All: wait Delay on every gate rise, including during release." },
       {
         defaultValue: "0",
         key: "delay",
@@ -2895,8 +2764,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.25",
         min: "0",
         step: "any",
-        unit: "s",
-      },
+        unit: "s" },
       {
         defaultValue: "0.08",
         key: "attack",
@@ -2907,8 +2775,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        unit: "s",
-      },
+        unit: "s" },
       {
         defaultValue: "0.22",
         key: "decay",
@@ -2919,8 +2786,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        unit: "s",
-      },
+        unit: "s" },
       {
         defaultValue: "0.55",
         key: "sustain",
@@ -2929,8 +2795,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
-      },
+        step: "any" },
       {
         defaultValue: "0.45",
         key: "release",
@@ -2941,8 +2806,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        unit: "s",
-      },
+        unit: "s" },
       {
         defaultValue: "0",
         key: "attackShape",
@@ -2953,8 +2817,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Bipolar segment shape. 0 = linear, + = exp, − = log.",
-      },
+        tooltip: "Bipolar segment shape. 0 = linear, + = exp, − = log." },
       {
         defaultValue: "0",
         key: "releaseShape",
@@ -2965,8 +2828,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Bipolar shape for decay/release. 0 = linear, + = exp, − = log.",
-      },
+        tooltip: "Bipolar shape for decay/release. 0 = linear, + = exp, − = log." },
       {
         choices: ["Off", "On"],
         defaultValue: "0",
@@ -2979,8 +2841,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
-      },
+        step: "1" },
       {
         defaultValue: "1",
         key: "level",
@@ -2991,10 +2852,8 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         outputDomain: true,
-        tooltip: "Peak level of cyan Out (0…1). Wire Out → Additive param mod inlets (Bubble Cutoff, Butterworth Cutoff, …).",
-      },
-    ],
-  },
+        tooltip: "Peak level of cyan Out (0…1). Wire Out → Additive param mod inlets (Bubble Cutoff, Butterworth Cutoff, …)." },
+    ] },
   // Additive twin of Pluck Envelope — publishes sample-accurate mod packets for Bubble Cutoff.
   pluckEnvelopeMod: {
     planRole: "processor",
@@ -3026,10 +2885,8 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         outputDomain: true,
-        tooltip: "Peak of cyan Out (0…1). Wire Out → Bubble Cutoff for sample-accurate pluck timbre.",
-      },
-    ],
-  },
+        tooltip: "Peak of cyan Out (0…1). Wire Out → Bubble Cutoff for sample-accurate pluck timbre." },
+    ] },
   additiveOut: {
     planRole: "source",
     chrome: "LayoutA",
@@ -3041,8 +2898,9 @@ const nodeGraphModuleDefinitions = (
       { key: "harmonicLines", renderer: "harmonicLines" },
     ],
     // Signal CV; Graph data inlet stacks above these (see nodeGraphPatchNodeInputPorts).
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc"},
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     // Mono = unpanned sum; Left/Right use Graph pan[] (−1…+1).
     outputs: ["Mono", "Left", "Right"],
     outputAliases: {Out: "Mono", L: "Left", R: "Right"},
@@ -3062,8 +2920,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "None = full quality. Inaudible Harmonics = skip sin/pan for amp≤0, below −80 dBFS after master, or hz≥Nyquist (CPU). Keeps quiet air/sparkle; phase accumulators still advance so partials stay coherent when they return.",
-      },
+        tooltip: "None = full quality. Inaudible Harmonics = skip sin/pan for amp≤0, below −80 dBFS after master, or hz≥Nyquist (CPU). Keeps quiet air/sparkle; phase accumulators still advance so partials stay coherent when they return." },
       {
         defaultValue: "100",
         key: "frequency",
@@ -3073,11 +2930,9 @@ const nodeGraphModuleDefinitions = (
         mid: "440",
         min: "0",
         step: "any",
-        unit: "Hz",
-      },
+        unit: "Hz" },
       { defaultValue: "0.35", key: "amplitude", label: "Amplitude", max: "1", mid: "1", min: "0", step: "any", modClamp: false },
-    ],
-  },
+    ] },
   // RoundShape — sine→square modulator (getSineToSquare). Separate from full Ellipsoid osc.
   // Face: cheap static orbit outline (filter-curve family), not phosphor trace.
   ellipsoid: {
@@ -3089,9 +2944,9 @@ const nodeGraphModuleDefinitions = (
     displayHeightGu: 4,
     spectrumCompanion: false,
     // ƒ absolute-Hz last among signal inlets. Morph is the parameter (+ MOD), not a jack.
-    inputs: ["Reset", "Increment"],
+    inputs: ["Reset", "f"],
     inputLabels: {
-      Increment: "inc"},
+      f: "ƒ"},
     // Morph is the parameter (+ MOD) only — no Morph CV jack twin.
     // Legacy Mono/X/Y/Out → bipolar outs.
     outputAliases: {Mono: "Bi X",
@@ -3119,8 +2974,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Off = full morph (may alias). Limit = floor edge steepness by ω=2πf/sr so harmonics stay under Nyquist.",
-      },
+        tooltip: "Off = full morph (may alias). Limit = floor edge steepness by ω=2πf/sr so harmonics stay under Nyquist." },
       {
         choices: ["Clock(Ph)", "CounterClock(Ph)", "Clock(T)", "CounterClock(T)"],
         defaultValue: "1",
@@ -3133,8 +2987,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Ph = running phasor (CounterClock(Ph) is the original orbit). T = simulation time (sample count / sample rate), no stored phasor. Clock vs CounterClock flips direction.",
-      },
+        tooltip: "Ph = running phasor (CounterClock(Ph) is the original orbit). T = simulation time (sample count / sample rate), no stored phasor. Clock vs CounterClock flips direction." },
       {
         defaultValue: "1",
         key: "frequency",
@@ -3145,8 +2998,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Orbit rate in Hz. Slider 0…5000 Hz. Negative values reverse the orbit.",
-      },
+        tooltip: "Orbit rate in Hz. Slider 0…5000 Hz. Negative values reverse the orbit." },
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", step: "0.01", unit: "cycle", wraparound: true },
       {
         defaultValue: "0",
@@ -3186,8 +3038,7 @@ const nodeGraphModuleDefinitions = (
         key: "face",
         label: "Face",
         renderer: "roundShapeFace",
-        settingsSchema: "roundShapeFace",
-      },
+        settingsSchema: "roundShapeFace" },
     ],
     defaultDisplayMode: "face",
     stereoWaterfallPorts: { left: "Left", right: "Right" },
@@ -3195,9 +3046,9 @@ const nodeGraphModuleDefinitions = (
       { key: "Left", kind: "scalar" },
       { key: "Right", kind: "scalar" },
     ],
-    inputs: ["Reset", "Increment"],
+    inputs: ["Reset", "f"],
     inputLabels: {
-      Increment: "inc"},
+      f: "ƒ"},
     outputs: ["Left", "Right"],
     parameters: [
       {
@@ -3212,8 +3063,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Off = full scale (may alias). Limit = floor C by \u03c9=2\u03c0f/sr so edge steepness stays under Nyquist.",
-      },
+        tooltip: "Off = full scale (may alias). Limit = floor C by \u03c9=2\u03c0f/sr so edge steepness stays under Nyquist." },
       { defaultValue: "100", key: "frequency", kind: "frequency", label: "Frequency", max: "20000", mid: "220", min: "0", step: "any", unit: "Hz" },
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", step: "0.01", unit: "cycle", wraparound: true },
       {
@@ -3224,8 +3074,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1",
         step: "0.01",
-        tooltip: "A (\u22121\u2026+1). Shifts the ellipse along cosine; \u00b11 pinches to a point.",
-      },
+        tooltip: "A (\u22121\u2026+1). Shifts the ellipse along cosine; \u00b11 pinches to a point." },
       {
         defaultValue: "0",
         key: "shape",
@@ -3235,8 +3084,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         step: "0.01",
         wraparound: true,
-        tooltip: "B (\u22121\u2026+1). Rotates the unit vector via sincos(B\u00b7\u03c0). 0 = unrotated ellipse. Wraparound: \u00b11 are the same angle.",
-      },
+        tooltip: "B (\u22121\u2026+1). Rotates the unit vector via sincos(B\u00b7\u03c0). 0 = unrotated ellipse. Wraparound: \u00b11 are the same angle." },
       {
         defaultValue: "1",
         key: "scale",
@@ -3245,8 +3093,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "0.01",
-        tooltip: "C (0\u202610+). Sine-axis scale. 1 = circle when Offset is 0. When AA is Limit, C is floored by \u03c9=2\u03c0f/sr.",
-      },
+        tooltip: "C (0\u202610+). Sine-axis scale. 1 = circle when Offset is 0. When AA is Limit, C is floored by \u03c9=2\u03c0f/sr." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -3275,19 +3122,17 @@ const nodeGraphModuleDefinitions = (
         key: "face",
         label: "Face",
         renderer: "basicShapeFace",
-        settingsSchema: "basicShapeFace",
-      },
+        settingsSchema: "basicShapeFace" },
     ],
     defaultDisplayMode: "face",
-    inputs: ["Reset", "Increment"],
+    inputs: ["Reset", "f"],
     inputLabels: {
-      Increment: "inc",},
+      f: "ƒ" },
     outputAliases: {Out: "Wave",
       "Wave Out": "Wave",
-      CenterSquare: "Center Square",},
+      CenterSquare: "Center Square" },
     outputChannels: {
-      Wave: "green",
-    },
+      Wave: "green" },
     outputs: ["Wave", "Sine", "Tri", "Saw", "Ramp", "Trisaw", "Square", "Center Square"],
     parameters: [
       {
@@ -3302,8 +3147,7 @@ const nodeGraphModuleDefinitions = (
         max: "6",
         mid: "0",
         min: "0",
-        step: "1",
-      },
+        step: "1" },
       {
         choices: ["Clock(Ph)", "CounterClock(Ph)", "Clock(T)", "CounterClock(T)"],
         defaultValue: "1",
@@ -3316,8 +3160,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Ph = running phasor. T = simulation time. Clock vs CounterClock flips direction.",
-      },
+        tooltip: "Ph = running phasor. T = simulation time. Clock vs CounterClock flips direction." },
       {
         defaultValue: "1",
         key: "frequency",
@@ -3328,8 +3171,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Rate in Hz. Slider 0…5000 Hz. Negative values reverse.",
-      },
+        tooltip: "Rate in Hz. Slider 0…5000 Hz. Negative values reverse." },
       {
         defaultValue: "0",
         key: "phase",
@@ -3340,8 +3182,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
-      },
+        wraparound: true },
       {
         curveAmount: "-0.9",
         defaultValue: "0.5",
@@ -3354,8 +3195,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "bipolarRational",
         step: "0",
-        tooltip: "0…1 width/duty. Square = leading-edge PWM. Trisaw = triangle warp. Center Square = pulse width growing left/right from mid-cycle.",
-      },
+        tooltip: "0…1 width/duty. Square = leading-edge PWM. Trisaw = triangle warp. Center Square = pulse width growing left/right from mid-cycle." },
       {
         choices: ["Bipolar", "Unipolar"],
         defaultValue: "0",
@@ -3368,8 +3208,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Bipolar = −1…+1. Unipolar = 0…1 ((x+1)/2).",
-      },
+        tooltip: "Bipolar = −1…+1. Unipolar = 0…1 ((x+1)/2)." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -3379,10 +3218,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: true,
         step: "any",
-        tooltip: "Output scale.",
-      },
-    ],
-  },
+        tooltip: "Output scale." },
+    ] },
   spiral: {
     planRole: "source",
     displayType: "scope2d",
@@ -3516,8 +3353,9 @@ const nodeGraphModuleDefinitions = (
   },
   antisaw: {
     planRole: "source",
-    inputs: ["Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
@@ -3909,8 +3747,7 @@ const nodeGraphModuleDefinitions = (
       MIDI: "pitch",
       "Note#": "pitch",
       Pitch: "pitch",
-      "Arp Keys": "Scale",
-    },
+      "Arp Keys": "Scale" },
     inputLabels: { "pitch": "♯/♭" },
     layout: "pitchQuantizer",
     outputs: ["pitch", "Scale"],
@@ -3918,8 +3755,7 @@ const nodeGraphModuleDefinitions = (
       "0.1V/Oct": "pitch",
       "0.1v/Oct": "pitch",
       Pitch: "pitch",
-      "Arp Keys": "Scale",
-    },
+      "Arp Keys": "Scale" },
     outputLabels: { "pitch": "♯/♭" },
     parameters: [
       {
@@ -3943,8 +3779,7 @@ const nodeGraphModuleDefinitions = (
         max: "8",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "How many octaves Scale out sends, from C3 + Octave Offset.",
-      },
+        tooltip: "How many octaves Scale out sends, from C3 + Octave Offset." },
       {
         key: "octaveOffset",
         label: "Octave Offset",
@@ -3955,8 +3790,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         unit: "oct",
-        tooltip: "0 = C3 (MIDI 60). Lowest C of the Scale out mask.",
-      },
+        tooltip: "0 = C3 (MIDI 60). Lowest C of the Scale out mask." },
     ]
   },
   // Degree Turing / Gravity Walker / Degree Phrase: musical shelf (pitch CV generators).
@@ -4009,8 +3843,7 @@ const nodeGraphModuleDefinitions = (
         label: "Arp Keys",
         renderer: "arpKeysFace",
         settingsSchema: "arpKeysFace",
-        source: { value: "pitch" },
-      },
+        source: { value: "pitch" } },
     ],
     defaultDisplayMode: "face",
     displayHeightGu: 2,
@@ -4121,8 +3954,7 @@ const nodeGraphModuleDefinitions = (
       pitch: "Root",
       Pitch: "Root",
       "0.1V/Oct": "Root",
-      "0.1v/Oct": "Root",
-    },
+      "0.1v/Oct": "Root" },
     parameters: [
       {
         choices: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
@@ -4175,8 +4007,7 @@ const nodeGraphModuleDefinitions = (
         max: "8",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "How many octaves of the chord Scale sends, starting at Root. 1 = one triad; 2 = Root and +12.",
-      },
+        tooltip: "How many octaves of the chord Scale sends, starting at Root. 1 = one triad; 2 = Root and +12." },
       {
         key: "octaveOffset",
         label: "Octave Offset",
@@ -4187,21 +4018,20 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         unit: "oct",
-        tooltip: "0 = C3 (MIDI 60). Chord Pad C major root is C3 at offset 0.",
-      },
+        tooltip: "0 = C3 (MIDI 60). Chord Pad C major root is C3 at offset 0." },
       { key: "level", label: "Level", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
     ]
   },
   surgeOscillator: {
     planRole: "source",
-    inputs: ["Increment", "Sync"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["f", "Sync"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     // Multi-wave taps → selected bus is Wave (not bare Out).
     outputAliases: {Out: "Wave",
-      "Wave Out": "Wave",},
+      "Wave Out": "Wave" },
     outputChannels: {
-      Wave: "green",
-    },
+      Wave: "green" },
     outputs: ["Wave", "Saw", "Square", "Tri", "Sine", "Synced", "Internal Sync"],
     parameters: [
       {
@@ -4237,18 +4067,17 @@ const nodeGraphModuleDefinitions = (
         key: "face",
         label: "Face",
         renderer: "softwaveOscFace",
-        settingsSchema: "softwaveOscFace",
-      },
+        settingsSchema: "softwaveOscFace" },
     ],
     defaultDisplayMode: "face",
     // Static one-cycle face — not a live scope (see softwave-osc-display.js).
     defaultDisplaySettings: {
       lineThickness: 3,
-      showDot: true,
-    },
+      showDot: true },
     // Morph / Phase are parameters (+ MOD), not SIGNAL IN jacks.
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
@@ -4312,8 +4141,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         modClamp: false,
         tooltip:
-          "Output level. Slider 0…1 = full-scale bipolar wave. Min/max are guides only.",
-      },
+          "Output level. Slider 0…1 = full-scale bipolar wave. Min/max are guides only." },
     ]
   },
   // Live antialiased cousin of Wavetable2D rectified-sine + rational phasewarp.
@@ -4321,8 +4149,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     displayType: "lineBurn",
     defaultDisplaySettings: {
-      sourceSync: true,
-    },
+      sourceSync: true },
     displayModes: [
       { key: "lineBurn", renderer: "lineBurn", source: { value: "Out" } },
     ],
@@ -4330,12 +4157,12 @@ const nodeGraphModuleDefinitions = (
       { key: "Out", kind: "scalar" },
     ],
     // Warp / Phase / Amplitude are parameters (+ MOD) only — no twin CV jacks.
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     inputTooltips: {
       Reset: "Rising edge zeros the phasor; PolyBLEP smooths the output value jump.",
-      Increment: "Phase increment add (cycles per sample).",
-    },
+      f: "Absolute Hz. Replaces Frequency when wired." },
     outputAliases: { Wave: "Out", "Wave Out": "Out" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
@@ -4352,8 +4179,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Sine = clean LUT sine. Rect = Hypersaw2 rectified/clipping sine arch with warp-aware PolyBLAMP.",
-      },
+        tooltip: "Sine = clean LUT sine. Rect = Hypersaw2 rectified/clipping sine arch with warp-aware PolyBLAMP." },
       {
         defaultValue: "100",
         key: "frequency",
@@ -4365,8 +4191,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD).",
-      },
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD)." },
       {
         defaultValue: "0",
         key: "phase",
@@ -4377,8 +4202,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
-      },
+        wraparound: true },
       {
         defaultValue: "0",
         key: "warp",
@@ -4388,8 +4212,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         showSign: true,
         step: "any",
-        tooltip: "Bipolar rational phasewarp (−1…+1), same curve as Wavetable2D. 0 = linear. Asymmetry bunches one side of the cycle.",
-      },
+        tooltip: "Bipolar rational phasewarp (−1…+1), same curve as Wavetable2D. 0 = linear. Asymmetry bunches one side of the cycle." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -4400,10 +4223,8 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Output level. Slider 0…1 = full-scale bipolar wave. Min/max are guides only.",
-      },
-    ],
-  },
+        tooltip: "Output level. Slider 0…1 = full-scale bipolar wave. Min/max are guides only." },
+    ] },
   // Parametric 2D math curves → mono Out via Project; X/Y always available for scopes.
   curveOsc: {
     planRole: "source",
@@ -4420,8 +4241,9 @@ const nodeGraphModuleDefinitions = (
       { key: "waterfall", label: "Out Waterfall", renderer: "waterfall", settingsSchema: "waterfall", source: { value: "Out" } },
     ],
     defaultDisplayMode: "xyBurn",
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: ["Out", "X", "Y"],
     parameters: [
       {
@@ -4538,8 +4360,9 @@ const nodeGraphModuleDefinitions = (
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: ["X", "Y"],
     parameters: [
       {
@@ -4612,8 +4435,7 @@ const nodeGraphModuleDefinitions = (
         unit: "cycle",
         wraparound: true,
         tooltip:
-          "Path-walk phase offset in cycles (0…1). Added to the free-running Frequency phasor each sample before Direction morph.",
-      },
+          "Path-walk phase offset in cycles (0…1). Added to the free-running Frequency phasor each sample before Direction morph." },
       {
         key: "spin",
         label: "Spin",
@@ -4633,8 +4455,9 @@ const nodeGraphModuleDefinitions = (
     // Morph / Phase / Amplitude are parameters (+ MOD) only — no twin CV jacks.
     // Frequency is Hz (ƒ jack = absolute Hz). See MODULE_PATTERN_REFERENCE
     // "Three control surfaces".
-    inputs: ["Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
@@ -4702,14 +4525,14 @@ const nodeGraphModuleDefinitions = (
         label: "Hypersaw",
         renderer: "hypersawBurn",
         settingsSchema: "hypersawBurn",
-        source: { value: "Left" },
-      },
+        source: { value: "Left" } },
     ],
     displaySignals: [
       { key: "Left", kind: "scalar" },
     ],
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: ["Mono", "Left", "Right"],
     parameters: [
       {
@@ -4725,8 +4548,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Dual Channel: independent N-voice banks on L and R sharing the same detune map (1 = one per channel at unison). Alternating: one bank, pans L R L R… across the detune stack (not low-half Left / high-half Right).",
-      },
+        tooltip: "Dual Channel: independent N-voice banks on L and R sharing the same detune map (1 = one per channel at unison). Alternating: one bank, pans L R L R… across the detune stack (not low-half Left / high-half Right)." },
       // Frequency-modulated detune (each voice at a detuned Hz), not phase mod.
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Center pitch. Wired ƒ cancels Frequency. Detune is frequency-domain (each voice runs at a different Hz)." },
       {
@@ -4742,8 +4564,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Linear/Chordal/Classic/Exponential = RatioGenerator layouts mapped into ±Detune/2. Emotional & Realistic = same, then median cluster → unison and extremes re-stretched to ±Detune/2. Uniform = even spacing in cents.",
-      },
+        tooltip: "Linear/Chordal/Classic/Exponential = RatioGenerator layouts mapped into ±Detune/2. Emotional & Realistic = same, then median cluster → unison and extremes re-stretched to ±Detune/2. Uniform = even spacing in cents." },
       {
         key: "detuneCents",
         label: "Detune",
@@ -4756,8 +4577,7 @@ const nodeGraphModuleDefinitions = (
         modClamp: false,
         nonlinearSlider: true,
         sliderCurve: "skew",
-        tooltip: "Total detune spread in cents across the voice stack (± half of this). Face 0…1 = −0.5…+0.5 octave and wraps (voices beyond ±0.5 oct stay visible). Domain max is a guide — raise it for wider spreads.",
-      },
+        tooltip: "Total detune spread in cents across the voice stack (± half of this). Face 0…1 = −0.5…+0.5 octave and wraps (voices beyond ±0.5 oct stay visible). Domain max is a guide — raise it for wider spreads." },
       {
         constraint: "cpu",
         key: "voices",
@@ -4767,8 +4587,7 @@ const nodeGraphModuleDefinitions = (
         mid: "8",
         max: "32",
         step: "any",
-        tooltip: "Voice count (UI max 32, hard-cap 128). Dual Channel: N per Left and N per Right (same detune map). Alternating: N voices panned L R L R…. Decimal like Hypersaw (7.5 → last half amp).",
-      },
+        tooltip: "Voice count (UI max 32, hard-cap 128). Dual Channel: N per Left and N per Right (same detune map). Alternating: N voices panned L R L R…. Decimal like Hypersaw (7.5 → last half amp)." },
       {
         key: "phaseSpread",
         label: "Random Phase",
@@ -4778,8 +4597,7 @@ const nodeGraphModuleDefinitions = (
         max: "2",
         step: "any",
         modClamp: false,
-        tooltip: "Live phase-offset depth. Each voice has a fixed random unit (re-rolled on Reset); this scales that offset every sample (wrapped). 0 = aligned. Domain min/max are guides — raise them for deeper offsets.",
-      },
+        tooltip: "Live phase-offset depth. Each voice has a fixed random unit (re-rolled on Reset); this scales that offset every sample (wrapped). 0 = aligned. Domain min/max are guides — raise them for deeper offsets." },
       {
         key: "portaTimeMin",
         label: "Portamento Min",
@@ -4793,8 +4611,7 @@ const nodeGraphModuleDefinitions = (
         modClamp: false,
         linearSmoothing: false,
         smoothingType: "none",
-        tooltip: "Shortest per-voice glide time when pitch/detune targets move. Min and Max both 0 (or ≤0.1 ms) bypasses portamento (instant). Each voice picks a random time between Min and Max (re-rolled on Reset).",
-      },
+        tooltip: "Shortest per-voice glide time when pitch/detune targets move. Min and Max both 0 (or ≤0.1 ms) bypasses portamento (instant). Each voice picks a random time between Min and Max (re-rolled on Reset)." },
       {
         key: "portaTimeMax",
         label: "Portamento Max",
@@ -4808,8 +4625,7 @@ const nodeGraphModuleDefinitions = (
         modClamp: false,
         linearSmoothing: false,
         smoothingType: "none",
-        tooltip: "Longest per-voice glide time. Min and Max both 0 bypasses the glide circuit. Raise Max above 0 to enable portamento.",
-      },
+        tooltip: "Longest per-voice glide time. Min and Max both 0 bypasses the glide circuit. Raise Max above 0 to enable portamento." },
       {
         key: "portamentoStyle",
         label: "Portamento Style",
@@ -4820,8 +4636,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         linearSmoothing: false,
         smoothingType: "none",
-        tooltip: "SoEm Supersaw Style: below 0.5 = linear glide, above = exponential. Within each half, warps how each voice’s random time sits between Min and Max (Rational curve — bunch toward Min or Max). Default 0.126 ≈ mild Min bias. Min and Max both 0 bypasses portamento entirely.",
-      },
+        tooltip: "SoEm Supersaw Style: below 0.5 = linear glide, above = exponential. Within each half, warps how each voice’s random time sits between Min and Max (Rational curve — bunch toward Min or Max). Default 0.126 ≈ mild Min bias. Min and Max both 0 bypasses portamento entirely." },
       {
         key: "detuneTilt",
         label: "Detune Tilt",
@@ -4832,8 +4647,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         bipolar: true,
         modClamp: false,
-        tooltip: "Pitch-dependent detune spread vs 440 Hz. Positive: less detune on low notes, more on high. Negative reverses. Unclamped in DSP — domain is a guide.",
-      },
+        tooltip: "Pitch-dependent detune spread vs 440 Hz. Positive: less detune on low notes, more on high. Negative reverses. Unclamped in DSP — domain is a guide." },
       {
         key: "jitterSpeed",
         label: "Jitter Speed",
@@ -4845,8 +4659,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         modClamp: false,
-        tooltip: "How fast each voice’s pitch walk steps (drunken rate). Domain is a guide — metaparameter may raise Max. DSP only saturates step size at 1 sample/tick (≈ sample-rate Hz).",
-      },
+        tooltip: "How fast each voice’s pitch walk steps (drunken rate). Domain is a guide — metaparameter may raise Max. DSP only saturates step size at 1 sample/tick (≈ sample-rate Hz)." },
       {
         key: "jitterDepth",
         label: "Jitter Depth",
@@ -4857,8 +4670,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "cents",
         modClamp: false,
-        tooltip: "How far the walk may wander (±cents clamp). Not a gain/offset — Depth 0 freezes in place until Reset. Face: detune seats the line; jitter walks from that seat (1200¢ span). Metaparameter may raise Max.",
-      },
+        tooltip: "How far the walk may wander (±cents clamp). Not a gain/offset — Depth 0 freezes in place until Reset. Face: detune seats the line; jitter walks from that seat (1200¢ span). Metaparameter may raise Max." },
       {
         key: "jitterFilter",
         label: "Jitter Filter",
@@ -4870,8 +4682,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         modClamp: false,
-        tooltip: "One shared one-pole LPF on every voice’s walk (same cutoff at every pitch). 0 = hold (no filter update).",
-      },
+        tooltip: "One shared one-pole LPF on every voice’s walk (same cutoff at every pitch). 0 = hold (no filter update)." },
       {
         choices: ["Fixed", "Random"],
         defaultValue: "1",
@@ -4884,8 +4695,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Fixed = ±step each tick. Random = bipolar random step (Hypersaw Random Steps). Same mode for every saw.",
-      },
+        tooltip: "Fixed = ±step each tick. Random = bipolar random step (Hypersaw Random Steps). Same mode for every saw." },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ]
   },
@@ -4898,14 +4708,14 @@ const nodeGraphModuleDefinitions = (
         label: "Hypersaw",
         renderer: "hypersawBurn",
         settingsSchema: "hypersawBurn",
-        source: { value: "Left" },
-      },
+        source: { value: "Left" } },
     ],
     displaySignals: [
       { key: "Left", kind: "scalar" },
     ],
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: ["Mono", "Left", "Right"],
     parameters: [
       {
@@ -4921,8 +4731,7 @@ const nodeGraphModuleDefinitions = (
         mid: "2",
         min: "0",
         step: "1",
-        tooltip: "PolyBLEP waves. Pulse / Center Pulse / Trisaw use 50% width. All voices start in phase.",
-      },
+        tooltip: "PolyBLEP waves. Pulse / Center Pulse / Trisaw use 50% width. All voices start in phase." },
       {
         choices: ["Dual Channel", "Alternating"],
         defaultValue: "0",
@@ -4936,8 +4745,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Dual Channel: the detuned bank is copied to Left and Right (same map, same start phase; 1 = one per channel at unison). Alternating: one bank, pans L R L R… across the detune stack (not low-half Left / high-half Right).",
-      },
+        tooltip: "Dual Channel: the detuned bank is copied to Left and Right (same map, same start phase; 1 = one per channel at unison). Alternating: one bank, pans L R L R… across the detune stack (not low-half Left / high-half Right)." },
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Center pitch. Wired ƒ cancels Frequency. Detune is frequency-domain (each voice runs at a different Hz)." },
       {
         choices: ["Linear", "Chordal", "Emotional", "Realistic", "Classic", "Uniform", "Exponential"],
@@ -4952,8 +4760,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Linear/Chordal/Classic/Exponential = RatioGenerator layouts mapped into ±Detune/2. Emotional & Realistic = same, then median cluster → unison and extremes re-stretched to ±Detune/2. Uniform = even spacing in cents.",
-      },
+        tooltip: "Linear/Chordal/Classic/Exponential = RatioGenerator layouts mapped into ±Detune/2. Emotional & Realistic = same, then median cluster → unison and extremes re-stretched to ±Detune/2. Uniform = even spacing in cents." },
       {
         key: "detuneCents",
         label: "Detune",
@@ -4966,8 +4773,7 @@ const nodeGraphModuleDefinitions = (
         modClamp: false,
         nonlinearSlider: true,
         sliderCurve: "skew",
-        tooltip: "Total detune spread in cents across the voice stack (± half of this). Face 0…1 = −0.5…+0.5 octave and wraps (voices beyond ±0.5 oct stay visible). Domain max is a guide — raise it for wider spreads.",
-      },
+        tooltip: "Total detune spread in cents across the voice stack (± half of this). Face 0…1 = −0.5…+0.5 octave and wraps (voices beyond ±0.5 oct stay visible). Domain max is a guide — raise it for wider spreads." },
       {
         constraint: "cpu",
         key: "voices",
@@ -4977,8 +4783,7 @@ const nodeGraphModuleDefinitions = (
         mid: "8",
         max: "32",
         step: "any",
-        tooltip: "Voice count (UI max 32, hard-cap 128). Dual Channel: N per Left and N per Right (same detune map). Alternating: N voices panned L R L R…. Decimal like Hypersaw (7.5 → last half amp).",
-      },
+        tooltip: "Voice count (UI max 32, hard-cap 128). Dual Channel: N per Left and N per Right (same detune map). Alternating: N voices panned L R L R…. Decimal like Hypersaw (7.5 → last half amp)." },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ]
   },
@@ -4991,14 +4796,14 @@ const nodeGraphModuleDefinitions = (
         label: "Hypersaw",
         renderer: "hypersawBurn",
         settingsSchema: "hypersawBurn",
-        source: { value: "Left" },
-      },
+        source: { value: "Left" } },
     ],
     displaySignals: [
       { key: "Left", kind: "scalar" },
     ],
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: ["Left", "Right"],
         parameters: [
       {
@@ -5012,8 +4817,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         nonlinearSlider: true,
         sliderCurve: "skew",
-        tooltip: "Number of PolyBLEP oscillators (max 64). Decimal like Additive: 12.5 → 13 oscillators with the last at half amplitude.",
-      },
+        tooltip: "Number of PolyBLEP oscillators (max 64). Decimal like Additive: 12.5 → 13 oscillators with the last at half amplitude." },
       {
         key: "centerSide",
         label: "Center/Side",
@@ -5024,8 +4828,7 @@ const nodeGraphModuleDefinitions = (
         step: "0.01",
         nonlinearSlider: false,
         sliderCurve: "linear",
-        tooltip: "0 = center voices only, 1 = side voices only. Face: additive off-red=left, off-blue=right, center=both→white.",
-      },
+        tooltip: "0 = center voices only, 1 = side voices only. Face: additive off-red=left, off-blue=right, center=both→white." },
       {
         key: "waveform",
         label: "Waveform",
@@ -5038,8 +4841,7 @@ const nodeGraphModuleDefinitions = (
         displayChoices: true,
         linearSmoothing: false,
         smoothingType: "none",
-        tooltip: "soemdsp PolyBLEP shape for every oscillator. Pulse / Pulse Center / Trisaw use Morph as PWM.",
-      },
+        tooltip: "soemdsp PolyBLEP shape for every oscillator. Pulse / Pulse Center / Trisaw use Morph as PWM." },
       {
         key: "morph",
         label: "Morph",
@@ -5054,8 +4856,7 @@ const nodeGraphModuleDefinitions = (
         step: "0",
         tooltip:
           "PWM / width (0…1). 0.5 = center / 50%. Affects Trisaw, Pulse, and Pulse Center. "
-          + "Same bipolar rational −0.9 skew as PolyBLEP Morph (finer near center).",
-      },
+          + "Same bipolar rational −0.9 skew as PolyBLEP Morph (finer near center)." },
       {
         key: "frequency",
         label: "Frequency",
@@ -5070,8 +4871,7 @@ const nodeGraphModuleDefinitions = (
         sliderCurve: "linear",
         tooltip:
           "Shared fundamental for every oscillator. 0 Hz is valid (frozen phase). "
-          + "Thru-zero: enable Bipolar on Frequency. Domain is param-owned — DSP does not floor Hz.",
-      },
+          + "Thru-zero: enable Bipolar on Frequency. Domain is param-owned — DSP does not floor Hz." },
       {
         key: "phase",
         label: "Phase",
@@ -5085,8 +4885,7 @@ const nodeGraphModuleDefinitions = (
         wraparound: true,
         nonlinearSlider: false,
         sliderCurve: "linear",
-        tooltip: "Global phase add on every voice (cycles). Also slides the face phase lines.",
-      },
+        tooltip: "Global phase add on every voice (cycles). Also slides the face phase lines." },
       {
         key: "phaseCollapse",
         label: "Phase Collapse",
@@ -5102,8 +4901,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         tooltip:
           "Where Distance 0 settles. Merge (0): all phases stack together. "
-          + "Distribute (1): walk collapses onto even centers (i/N).",
-      },
+          + "Distribute (1): walk collapses onto even centers (i/N)." },
       {
         key: "randomizePhase",
         label: "Random Phase",
@@ -5117,8 +4915,7 @@ const nodeGraphModuleDefinitions = (
         sliderCurve: "linear",
         tooltip:
           "Permanent random starting phase offset per saw (after Distance). "
-          + "0 = no extra random offset.",
-      },
+          + "0 = no extra random offset." },
       {
         key: "jitterDistance",
         label: "Jitter Distance",
@@ -5133,8 +4930,7 @@ const nodeGraphModuleDefinitions = (
         sliderCurve: "custom",
         tooltip:
           "Walk room around phase centers. 0 = collapse onto centers (Merge or Distribute). "
-          + "Uses normal parameter smoothing (param menu).",
-      },
+          + "Uses normal parameter smoothing (param menu)." },
       {
         key: "vibratoDistance",
         label: "Vibrato Distance",
@@ -5150,8 +4946,7 @@ const nodeGraphModuleDefinitions = (
         tooltip:
           "Scales each saw's phase spread by the shared vibrato LFO "
           + "(phaseOffset = spread × (LFO×Distance + 1) + walk). Not pitch FM. "
-          + "Center saw is unmodulated. 0 = rest.",
-      },
+          + "Center saw is unmodulated. 0 = rest." },
       {
         key: "jitterSpeed",
         label: "Jitter Speed",
@@ -5164,8 +4959,7 @@ const nodeGraphModuleDefinitions = (
         unit: "Hz",
         nonlinearSlider: true,
         sliderCurve: "skew",
-        tooltip: "Walk step rate in Hz when Distance > 0. Same at every pitch.",
-      },
+        tooltip: "Walk step rate in Hz when Distance > 0. Same at every pitch." },
       {
         key: "vibratoSpeed",
         label: "Vibrato Speed",
@@ -5178,8 +4972,7 @@ const nodeGraphModuleDefinitions = (
         unit: "Hz",
         nonlinearSlider: true,
         sliderCurve: "skew",
-        tooltip: "Shared vibrato LFO rate in Hz. Same at every pitch.",
-      },
+        tooltip: "Shared vibrato LFO rate in Hz. Same at every pitch." },
       {
         key: "jitterSteps",
         label: "Jitter Steps",
@@ -5194,8 +4987,7 @@ const nodeGraphModuleDefinitions = (
         linearSmoothing: false,
         nonlinearSlider: false,
         tooltip:
-          "Fixed: drunk ±step (original Hypersaw). Random: noise×step (noisier grain).",
-      },
+          "Fixed: drunk ±step (original Hypersaw). Random: noise×step (noisier grain)." },
       {
         key: "jitterFilter",
         label: "Jitter Filter",
@@ -5209,8 +5001,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "skew",
         tooltip:
-          "Walk LPF cutoff in Hz. Same at every pitch. Low = smooth. High = rawer steps.",
-      },
+          "Walk LPF cutoff in Hz. Same at every pitch. Low = smooth. High = rawer steps." },
       {
         key: "jitterDistanceTiltSource",
         label: "Jitter Distance Source",
@@ -5226,8 +5017,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         tooltip:
           "Wavelength: higher pitches move more so phase travel matches. "
-          + "Division: allotted 1/N slot space (legacy).",
-      },
+          + "Division: allotted 1/N slot space (legacy)." },
       {
         key: "vibratoDistanceTiltSource",
         label: "Vibrato Distance Source",
@@ -5243,8 +5033,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         tooltip:
           "Wavelength: higher pitches move more so phase travel matches. "
-          + "Division: allotted 1/N slot space.",
-      },
+          + "Division: allotted 1/N slot space." },
       {
         key: "vibratoPhaseVary",
         label: "Vibrato Phase Vary",
@@ -5257,8 +5046,7 @@ const nodeGraphModuleDefinitions = (
         sliderCurve: "linear",
         tooltip:
           "Per-voice sine start phase (Master Seed). "
-          + "0 = all in phase; 1 = full random 0…1 offset.",
-      },
+          + "0 = all in phase; 1 = full random 0…1 offset." },
       {
         key: "seed",
         label: "Seed",
@@ -5273,8 +5061,7 @@ const nodeGraphModuleDefinitions = (
         sliderCurve: "skew",
         linearSmoothing: false,
         smoothingType: "none",
-        tooltip: "Master seed for Random Phase and per-voice Random Steps jitter.",
-      },
+        tooltip: "Master seed for Random Phase and per-voice Random Steps jitter." },
       {
         key: "amplitude",
         label: "Amplitude",
@@ -5286,8 +5073,7 @@ const nodeGraphModuleDefinitions = (
         modClamp: false,
         nonlinearSlider: false,
         sliderCurve: "linear",
-        tooltip: "Output level.",
-      },
+        tooltip: "Output level." },
     ]
   },
   vibratoGenerator: {
@@ -5319,8 +5105,7 @@ const nodeGraphModuleDefinitions = (
         max: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "AM Index Bias (carrier Hz). f = Speed × (1 + sine × Top Morph).",
-      },
+        tooltip: "AM Index Bias (carrier Hz). f = Speed × (1 + sine × Top Morph)." },
       {
         curveAmount: "-0.7",
         key: "morph",
@@ -5333,8 +5118,7 @@ const nodeGraphModuleDefinitions = (
         showSign: false,
         sliderCurve: "bipolarRational",
         step: "any",
-        tooltip: "AM Index (normalized). Scales the PolyBLEP sine into Speed. 0 = constant Speed. 1 = Speed × (1 + sine). Spawn 0…1.",
-      },
+        tooltip: "AM Index (normalized). Scales the PolyBLEP sine into Speed. 0 = constant Speed. 1 = Speed × (1 + sine). Spawn 0…1." },
       {
         curveAmount: "0.9",
         key: "sideMorph",
@@ -5347,8 +5131,7 @@ const nodeGraphModuleDefinitions = (
         showSign: false,
         sliderCurve: "edges",
         step: "any",
-        tooltip: "Adds sine × Side Morph to phase (cycles). 0 = no phase wobble. Breadboard: Sine → attenuverter → Phase.",
-      },
+        tooltip: "Adds sine × Side Morph to phase (cycles). 0 = no phase wobble. Breadboard: Sine → attenuverter → Phase." },
       {
         key: "phase",
         label: "Phase",
@@ -5360,8 +5143,7 @@ const nodeGraphModuleDefinitions = (
         step: "0.01",
         unit: "cycle",
         wraparound: true,
-        tooltip: "LFO phase (turns).",
-      },
+        tooltip: "LFO phase (turns)." },
       {
         key: "randomFreq",
         label: "Random Freq",
@@ -5370,8 +5152,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         max: "1",
         step: "any",
-        tooltip: "S&H random multiplier on LFO increment (VibratoGenerator randomFreqMult).",
-      },
+        tooltip: "S&H random multiplier on LFO increment (VibratoGenerator randomFreqMult)." },
       {
         key: "randomAmp",
         label: "Random Amp",
@@ -5380,8 +5161,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         max: "1",
         step: "any",
-        tooltip: "S&H random multiplier on LFO amplitude (VibratoGenerator randomAmpMult).",
-      },
+        tooltip: "S&H random multiplier on LFO amplitude (VibratoGenerator randomAmpMult)." },
       {
         key: "seed",
         label: "Seed",
@@ -5394,8 +5174,7 @@ const nodeGraphModuleDefinitions = (
         maxDigits: 0,
         linearSmoothing: false,
         smoothingType: "none",
-        tooltip: "Seed for vibrato S&H randomizers.",
-      },
+        tooltip: "Seed for vibrato S&H randomizers." },
       {
         choices: ["Start", "StartEnd", "Gate"],
         choiceKeys: ["start", "startEnd", "gate"],
@@ -5411,8 +5190,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Start: delay Attack unless depth is already releasing (a gate during release goes straight to Attack). Gate close starts Release immediately. StartEnd: same attack rule, and also delay Release when the gate closes. Gate: delay the entire gate, including gate-off; Attack and Release follow that delayed gate.",
-      },
+        tooltip: "Start: delay Attack unless depth is already releasing (a gate during release goes straight to Attack). Gate close starts Release immediately. StartEnd: same attack rule, and also delay Release when the gate closes. Gate: delay the entire gate, including gate-off; Attack and Release follow that delayed gate." },
       {
         defaultValue: "0",
         key: "delay",
@@ -5424,8 +5202,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Hold before Attack after Gate rises. 0 = no delay. No Gate cable skips straight to sustain (Attack does not run).",
-      },
+        tooltip: "Hold before Attack after Gate rises. 0 = no delay. No Gate cable skips straight to sustain (Attack does not run)." },
       {
         defaultValue: "0.01",
         key: "attack",
@@ -5437,8 +5214,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Exponential depth fade-in after Delay when Gate is high. 0 = instant snap. No Gate cable skips Attack and stays at full depth.",
-      },
+        tooltip: "Exponential depth fade-in after Delay when Gate is high. 0 = instant snap. No Gate cable skips Attack and stays at full depth." },
       {
         defaultValue: "0.1",
         key: "release",
@@ -5450,8 +5226,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Depth release time when Gate goes low and the isIdle input is not true. 0 = instant snap.",
-      },
+        tooltip: "Depth release time when Gate goes low and the isIdle input is not true. 0 = instant snap." },
       {
         defaultValue: "0.1",
         key: "isIdleRelease",
@@ -5463,8 +5238,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Release time used instead of Release while the isIdle input is true (a cable is plugged and that signal's amplitude is at or below Planck). No cable: this param does nothing. 0 = instant snap.",
-      },
+        tooltip: "Release time used instead of Release while the isIdle input is true (a cable is plugged and that signal's amplitude is at or below Planck). No cable: this param does nothing. 0 = instant snap." },
       {
         choices: ["Log", "Lin", "Exp"],
         choiceKeys: ["log", "lin", "exp"],
@@ -5481,8 +5255,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Attack curve: Log starts slow and finishes fast; Lin rises linearly; Exp keeps the existing exponential rise. Hidden — enable from the parameter visibility menu.",
-      },
+        tooltip: "Attack curve: Log starts slow and finishes fast; Lin rises linearly; Exp keeps the existing exponential rise. Hidden — enable from the parameter visibility menu." },
       {
         choices: ["Log", "Lin", "Exp"],
         choiceKeys: ["log", "lin", "exp"],
@@ -5498,8 +5271,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Release curve: Log starts slow and finishes fast; Lin falls linearly; Exp keeps the existing exponential fall.",
-      },
+        tooltip: "Release curve: Log starts slow and finishes fast; Lin falls linearly; Exp keeps the existing exponential fall." },
       {
         key: "amplitude",
         label: "Amplitude",
@@ -5509,10 +5281,8 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         modClamp: false,
-        tooltip: "Output depth (−1…+1 × Amplitude × depthEnv).",
-      },
-    ],
-  },
+        tooltip: "Output depth (−1…+1 × Amplitude × depthEnv)." },
+    ] },
   wowAndFlutter: {
     planRole: "source",
     planFreeRun: true,
@@ -5536,8 +5306,7 @@ const nodeGraphModuleDefinitions = (
         max: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Slow sine wow LFO rate (tape-style wow).",
-      },
+        tooltip: "Slow sine wow LFO rate (tape-style wow)." },
       {
         key: "phase",
         label: "Wow Phase",
@@ -5549,8 +5318,7 @@ const nodeGraphModuleDefinitions = (
         step: "0.01",
         unit: "cycle",
         wraparound: true,
-        tooltip: "Wow LFO phase offset (turns).",
-      },
+        tooltip: "Wow LFO phase offset (turns)." },
       {
         key: "wowAmp",
         label: "Wow Amp",
@@ -5559,8 +5327,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         max: "1",
         step: "any",
-        tooltip: "Wow sine depth (WowAndFlutter wowAmp_).",
-      },
+        tooltip: "Wow sine depth (WowAndFlutter wowAmp_)." },
       {
         key: "flutterFrequency",
         label: "Flutter Frequency",
@@ -5571,8 +5338,7 @@ const nodeGraphModuleDefinitions = (
         max: "100",
         step: "any",
         unit: "Hz",
-        tooltip: "Flutter random-walk rate (FlexibleRandomWalk frequency).",
-      },
+        tooltip: "Flutter random-walk rate (FlexibleRandomWalk frequency)." },
       {
         key: "flutterJitter",
         label: "Flutter Jitter",
@@ -5581,8 +5347,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.25",
         max: "1",
         step: "any",
-        tooltip: "Flutter walk jitter (header default 0.01).",
-      },
+        tooltip: "Flutter walk jitter (header default 0.01)." },
       {
         key: "flutterAmp",
         label: "Flutter Amp",
@@ -5591,8 +5356,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         max: "1",
         step: "any",
-        tooltip: "Flutter noise depth (WowAndFlutter flutterAmp_).",
-      },
+        tooltip: "Flutter noise depth (WowAndFlutter flutterAmp_)." },
       {
         key: "seed",
         label: "Seed",
@@ -5605,8 +5369,7 @@ const nodeGraphModuleDefinitions = (
         maxDigits: 0,
         linearSmoothing: false,
         smoothingType: "none",
-        tooltip: "Seed for flutter random walk.",
-      },
+        tooltip: "Seed for flutter random walk." },
       {
         key: "amplitude",
         label: "Amplitude",
@@ -5616,10 +5379,8 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         modClamp: false,
-        tooltip: "Master output level: (wow×wowAmp + flutter×flutterAmp) × Amplitude.",
-      },
-    ],
-  },
+        tooltip: "Master output level: (wow×wowAmp + flutter×flutterAmp) × Amplitude." },
+    ] },
   lutCell: {
     planRole: "source",
     inputs: ["A", "B", "C", "D", "Clock"],
@@ -5648,8 +5409,7 @@ const nodeGraphModuleDefinitions = (
         key: "harmonicSeriesFace",
         label: "Harmonic",
         renderer: "harmonicSeriesFace",
-        source: { value: "f" },
-      },
+        source: { value: "f" } },
     ],
     defaultDisplayMode: "harmonicSeriesFace",
     displaySignals: [
@@ -5657,7 +5417,7 @@ const nodeGraphModuleDefinitions = (
       { key: "f0", kind: "scalar" },
     ],
     inputs: ["f"],
-    inputAliases: { Freq: "f" },
+    inputAliases: { Freq: "f", "ƒ": "f" },
     inputLabels: { f: "ƒ" },
     outputs: ["f", "f0"],
     outputAliases: { Out: "f", Mono: "f" },
@@ -5673,8 +5433,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         showSign: true,
         step: "any",
-        tooltip: "0 = first harmonic (×1). Each step multiplies to the next harmonic; negatives divide.",
-      },
+        tooltip: "0 = first harmonic (×1). Each step multiplies to the next harmonic; negatives divide." },
       {
         defaultValue: "0",
         key: "offset",
@@ -5685,8 +5444,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         showSign: true,
         step: "any",
-        tooltip: "−1 = next harmonic down, +1 = next harmonic up from Harmonic.",
-      },
+        tooltip: "−1 = next harmonic down, +1 = next harmonic up from Harmonic." },
       {
         defaultValue: "100",
         key: "frequency",
@@ -5697,10 +5455,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Base Hz when ƒ is unwired. Wired ƒ cancels this knob. Also available unchanged on ƒ0.",
-      },
-    ],
-  },
+        tooltip: "Base Hz when ƒ is unwired. Wired ƒ cancels this knob. Also available unchanged on ƒ0." },
+    ] },
   noiseGenerator: {
     planRole: "source",
     displayType: "waterfall",
@@ -5817,8 +5573,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "How fast the reflecting walk steps (Hz). Higher = jumpy.",
-      },
+        tooltip: "How fast the reflecting walk steps (Hz). Higher = jumpy." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -5827,8 +5582,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "any",
-        modClamp: false,
-      },
+        modClamp: false },
       {
         defaultValue: "1",
         key: "seed",
@@ -5838,10 +5592,8 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "1",
         step: "1",
-        linearSmoothing: false,
-      },
-    ],
-  },
+        linearSmoothing: false },
+    ] },
   randomWalk: {
     planRole: "source",
     displayType: "waterfall",
@@ -5942,8 +5694,7 @@ const nodeGraphModuleDefinitions = (
     outputAliases: { "Left Out": "Left", "Right Out": "Right" },
     outputLabels: {
       Left: "Sum",
-      Right: "Term",
-    },
+      Right: "Term" },
     outputTooltips: {
       Left: "Running BBP fractional sum {S} as bipolar audio.",
       Right: "This sample’s BBP term (one of the four series).",
@@ -5953,8 +5704,7 @@ const nodeGraphModuleDefinitions = (
       B3: "Latched hex bit 8 (first 16th of the beat).",
       B2: "Latched hex bit 4.",
       B1: "Latched hex bit 2.",
-      B0: "Latched hex bit 1.",
-    },
+      B0: "Latched hex bit 1." },
     digitalOutputs: ["T", "B3", "B2", "B1", "B0"],
     parameters: [
       {
@@ -6118,16 +5868,15 @@ const nodeGraphModuleDefinitions = (
     ],
     inputs: ["Reset"],
     inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputAliases: {
       Out: "Digital Out",
       Pulse: "T",
-      Trigger: "T",
-    },
+      Trigger: "T" },
     outputLabels: {
       "Analog Out": "\u223F",
       "Digital Out": "\u25AE",
-      T: "\u238D",
-    },
+      T: "\u238D" },
     outputs: ["Digital Out", "Analog Out", "T"],
     parameters: [
       {
@@ -6141,8 +5890,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Clock rate in Hz. Wired ƒ cancels Rate (absolute Hz), same as oscillators.",
-      },
+        tooltip: "Clock rate in Hz. Wired ƒ cancels Rate (absolute Hz), same as oscillators." },
       {
         defaultValue: "0",
         key: "phase",
@@ -6167,8 +5915,7 @@ const nodeGraphModuleDefinitions = (
         sliderCurve: "edges",
         curveAmount: "0.3",
         step: "any",
-        tooltip: "Gate high time as a fraction of the period. Quantized to whole samples at the current rate.",
-      },
+        tooltip: "Gate high time as a fraction of the period. Quantized to whole samples at the current rate." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -6190,12 +5937,10 @@ const nodeGraphModuleDefinitions = (
     defaultWidthGu: 4,
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     outputs: ["Out"],
     outputLabels: { Out: "BPM" },
-    parameters: [],
-  },
+    parameters: [] },
 
   // Metronome: per-clock t0, playhead-locked phase. BPM is this node only.
   transport: {
@@ -6244,16 +5989,14 @@ const nodeGraphModuleDefinitions = (
       beatf: "beat f",
       "Beat f": "beat f",
       "beat ƒ": "beat f",
-      "Beat ƒ": "beat f",
-    },
+      "Beat ƒ": "beat f" },
     outputLabels: {
       "Gate 0-1": "Gate 0-1",
       Trigger: "Trigger",
       f: "f",
       "beat f": "beat f",
       Click: "Click",
-      "Click R": "Click R",
-    },
+      "Click R": "Click R" },
     parameters: [
       {
         defaultValue: "120",
@@ -6265,8 +6008,7 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "This metronome's tempo (beats per minute). Modulatable. Independent of other metronomes.",
-      },
+        tooltip: "This metronome's tempo (beats per minute). Modulatable. Independent of other metronomes." },
       {
         defaultValue: "0.5",
         key: "pulseWidth",
@@ -6276,8 +6018,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.01",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Gate high duty of each cycle (0..1). 0.5 = square. Affects Gate 0-1.",
-      },
+        tooltip: "Gate high duty of each cycle (0..1). 0.5 = square. Affects Gate 0-1." },
       {
         defaultValue: "4",
         key: "beats",
@@ -6287,8 +6028,7 @@ const nodeGraphModuleDefinitions = (
         mid: "4",
         min: "1",
         step: "1",
-        tooltip: "Beats per bar for the click. Beat 1 = hi click (downbeat); other beats = lo click.",
-      },
+        tooltip: "Beats per bar for the click. Beat 1 = hi click (downbeat); other beats = lo click." },
       {
         control: "number",
         defaultValue: "1",
@@ -6302,8 +6042,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Numerator of Numer/Denom × whole note, locked to master playhead. Numer=0 → no clock. 1/4 = one beat at BPM.",
-      },
+          "Numerator of Numer/Denom × whole note, locked to master playhead. Numer=0 → no clock. 1/4 = one beat at BPM." },
       {
         control: "number",
         defaultValue: "4",
@@ -6317,8 +6056,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Denominator of Numer/Denom × whole note. At Numer=1: Denom 4=¼, 8=⅛, 16=1/16, 32=1/32.",
-      },
+          "Denominator of Numer/Denom × whole note. At Numer=1: Denom 4=¼, 8=⅛, 16=1/16, 32=1/32." },
       {
         choices: ["Normal", "Dotted", "Triplet"],
         defaultValue: "0",
@@ -6333,8 +6071,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Normal = Numer/Denom as written. Dotted = 1.5×. Triplet = 2/3×. Always re-grids onto master time — never free-runs.",
-      },
+          "Normal = Numer/Denom as written. Dotted = 1.5×. Triplet = 2/3×. Always re-grids onto master time — never free-runs." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -6346,8 +6083,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Output level for gate and trigger outs.",
-      },
+        tooltip: "Output level for gate and trigger outs." },
     ]
   },
   randomClock: {
@@ -6483,14 +6219,12 @@ const nodeGraphModuleDefinitions = (
     layout: "acidSequencer",
     defaultWidthGu: 24,
     displayHeightGu: 14,
-    digitalOutputs: ["Gate", "Trigger", "pitch", "f", "inc"],
+    digitalOutputs: ["Gate", "Trigger", "pitch", "f"],
     inputs: [],
-    outputs: ["Gate", "Trigger", "pitch", "f", "inc"],
+    outputs: ["Gate", "Trigger", "pitch", "f"],
     outputLabels: {
       pitch: "\u266f/\u266d",
-      f: "\u0192",
-      inc: "inc",
-    },
+      f: "\u0192" },
     parameters: [
       { defaultValue: "120", key: "bpm", label: "BPM", max: "320", maxDigits: 3, mid: "120", min: "1", nonlinearSlider: false, step: "1", tooltip: "Local tempo. Each step is a 16th note. Clocked to transport start/stop." },
       { defaultValue: "16", key: "stepLength", label: "Steps", linearSmoothing: false, max: "32", mid: "16", min: "1", nonlinearSlider: false, step: "1", tooltip: "Active step count (1-32). Stored steps outside this length are kept." },
@@ -6498,8 +6232,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1", key: "accentHeight", label: "Accent Height", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any", tooltip: "Trigger level for a 1 ms accent pulse." },
       { defaultValue: "0.06", key: "slideTime", kind: "time", label: "Slide Time", max: "2", maxDigits: 4, mid: "0.06", min: "0", step: "any", unit: "s", tooltip: "Linear glide toward the next step pitch when that step's Slide is on. 0 = instant." },
       { defaultValue: "0", key: "semitoneOffset", label: "Semitone Offset", linearSmoothing: false, max: "48", mid: "0", min: "-48", nonlinearSlider: false, showSign: true, step: "1", unit: "st", tooltip: "Integer semitone shift of every pitch out. Use this to pick another root or jump octaves." },
-    ],
-  },
+    ] },
   sequencer: {
     planRole: "source",
     digitalOutputs: ["Play Keys"],
@@ -6509,12 +6242,10 @@ const nodeGraphModuleDefinitions = (
     defaultWidthGu: 36,
     displayHeightGu: 14,
     outputChannels: {
-      "Play Keys": "blue",
-    },
+      "Play Keys": "blue" },
     outputLabels: {
       "Play Keys": "Play Keys",
-      "pitch": "♯/♭",
-    },
+      "pitch": "♯/♭" },
     outputAliases: { Polyphony: "Play Keys", "0.1V/Oct": "pitch", "0.1v/Oct": "pitch", Pitch: "pitch" },
     outputs: [
       "Play Keys",
@@ -6523,8 +6254,7 @@ const nodeGraphModuleDefinitions = (
       "pitch",
       "f",
     ],
-    parameters: [],
-  },
+    parameters: [] },
   // stepGrid registers its own definition from public/modules/stepGrid/
   // step-grid-register.js -- see node-graph-chromeless-module-registry.js.
   triggerDivider: {
@@ -6856,8 +6586,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["L1", "R1", "L2", "R2", "L3", "R3", "L4", "R4"],
     inputLabels: {
       L1: "L1", R1: "R1", L2: "L2", R2: "R2",
-      L3: "L3", R3: "R3", L4: "L4", R4: "R4",
-    },
+      L3: "L3", R3: "R3", L4: "L4", R4: "R4" },
     outputs: ["Left", "Right"],
     outputLabels: { Left: "Left", Right: "Right" },
     parameters: [
@@ -6877,8 +6606,7 @@ const nodeGraphModuleDefinitions = (
         smoothingSeconds: 0.0333,
         step: "any",
         unit: "dB",
-        tooltip: "Pair 1 level (−∞…+12 dB). 0 dB is unity.",
-      },
+        tooltip: "Pair 1 level (−∞…+12 dB). 0 dB is unity." },
       {
         defaultValue: "0",
         key: "volume2",
@@ -6895,8 +6623,7 @@ const nodeGraphModuleDefinitions = (
         smoothingSeconds: 0.0333,
         step: "any",
         unit: "dB",
-        tooltip: "Pair 2 level (−∞…+12 dB). 0 dB is unity.",
-      },
+        tooltip: "Pair 2 level (−∞…+12 dB). 0 dB is unity." },
       {
         defaultValue: "0",
         key: "volume3",
@@ -6913,8 +6640,7 @@ const nodeGraphModuleDefinitions = (
         smoothingSeconds: 0.0333,
         step: "any",
         unit: "dB",
-        tooltip: "Pair 3 level (−∞…+12 dB). 0 dB is unity.",
-      },
+        tooltip: "Pair 3 level (−∞…+12 dB). 0 dB is unity." },
       {
         defaultValue: "0",
         key: "volume4",
@@ -6931,8 +6657,7 @@ const nodeGraphModuleDefinitions = (
         smoothingSeconds: 0.0333,
         step: "any",
         unit: "dB",
-        tooltip: "Pair 4 level (−∞…+12 dB). 0 dB is unity.",
-      },
+        tooltip: "Pair 4 level (−∞…+12 dB). 0 dB is unity." },
       {
         defaultValue: "0",
         key: "pan1",
@@ -6942,8 +6667,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Pair 1 stereo balance. 0 = unchanged. −1 = left only. +1 = right only.",
-      },
+        tooltip: "Pair 1 stereo balance. 0 = unchanged. −1 = left only. +1 = right only." },
       {
         defaultValue: "0",
         key: "pan2",
@@ -6953,8 +6677,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Pair 2 stereo balance. 0 = unchanged. −1 = left only. +1 = right only.",
-      },
+        tooltip: "Pair 2 stereo balance. 0 = unchanged. −1 = left only. +1 = right only." },
       {
         defaultValue: "0",
         key: "pan3",
@@ -6964,8 +6687,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Pair 3 stereo balance. 0 = unchanged. −1 = left only. +1 = right only.",
-      },
+        tooltip: "Pair 3 stereo balance. 0 = unchanged. −1 = left only. +1 = right only." },
       {
         defaultValue: "0",
         key: "pan4",
@@ -6975,8 +6697,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Pair 4 stereo balance. 0 = unchanged. −1 = left only. +1 = right only.",
-      },
+        tooltip: "Pair 4 stereo balance. 0 = unchanged. −1 = left only. +1 = right only." },
       {
         defaultValue: "0",
         key: "amplitude",
@@ -6993,10 +6714,8 @@ const nodeGraphModuleDefinitions = (
         smoothingSeconds: 0.0333,
         step: "any",
         unit: "dB",
-        tooltip: "Master gain after all four pairs (−∞…+12 dB). 0 dB is unity.",
-      },
-    ],
-  },
+        tooltip: "Master gain after all four pairs (−∞…+12 dB). 0 dB is unity." },
+    ] },
   mixStereo2: {
     planRole: "processor",
     displayType: "waterfall",
@@ -7022,8 +6741,7 @@ const nodeGraphModuleDefinitions = (
         smoothingSeconds: 0.0333,
         step: "any",
         unit: "dB",
-        tooltip: "Pair 1 level (−∞…+12 dB). 0 dB is unity.",
-      },
+        tooltip: "Pair 1 level (−∞…+12 dB). 0 dB is unity." },
       {
         defaultValue: "0",
         key: "volume2",
@@ -7040,8 +6758,7 @@ const nodeGraphModuleDefinitions = (
         smoothingSeconds: 0.0333,
         step: "any",
         unit: "dB",
-        tooltip: "Pair 2 level (−∞…+12 dB). 0 dB is unity.",
-      },
+        tooltip: "Pair 2 level (−∞…+12 dB). 0 dB is unity." },
       {
         defaultValue: "0",
         key: "pan1",
@@ -7051,8 +6768,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Pair 1 stereo balance. 0 = unchanged. −1 = left only. +1 = right only.",
-      },
+        tooltip: "Pair 1 stereo balance. 0 = unchanged. −1 = left only. +1 = right only." },
       {
         defaultValue: "0",
         key: "pan2",
@@ -7062,8 +6778,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Pair 2 stereo balance. 0 = unchanged. −1 = left only. +1 = right only.",
-      },
+        tooltip: "Pair 2 stereo balance. 0 = unchanged. −1 = left only. +1 = right only." },
       {
         defaultValue: "0",
         key: "amplitude",
@@ -7080,10 +6795,8 @@ const nodeGraphModuleDefinitions = (
         smoothingSeconds: 0.0333,
         step: "any",
         unit: "dB",
-        tooltip: "Master gain after both pairs (−∞…+12 dB). 0 dB is unity.",
-      },
-    ],
-  },
+        tooltip: "Master gain after both pairs (−∞…+12 dB). 0 dB is unity." },
+    ] },
   // Legacy type id → MixStereo4 (load alias until patches re-save).
   mixStereo: {
     planRole: "processor",
@@ -7092,8 +6805,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["L1", "R1", "L2", "R2", "L3", "R3", "L4", "R4"],
     inputLabels: {
       L1: "L1", R1: "R1", L2: "L2", R2: "R2",
-      L3: "L3", R3: "R3", L4: "L4", R4: "R4",
-    },
+      L3: "L3", R3: "R3", L4: "L4", R4: "R4" },
     outputs: ["Left", "Right"],
     outputLabels: { Left: "Left", Right: "Right" },
     parameters: [
@@ -7101,50 +6813,40 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "0", key: "volume1", kind: "decibels", label: "Volume1",
         max: "12", mid: "0", min: "-140", minusInf: true, nonlinearSlider: true,
         linearSmoothing: true, smoothingType: "linear", smoothingMode: "internal",
-        smoothingSeconds: 0.0333, step: "any", unit: "dB",
-      },
+        smoothingSeconds: 0.0333, step: "any", unit: "dB" },
       {
         defaultValue: "0", key: "volume2", kind: "decibels", label: "Volume2",
         max: "12", mid: "0", min: "-140", minusInf: true, nonlinearSlider: true,
         linearSmoothing: true, smoothingType: "linear", smoothingMode: "internal",
-        smoothingSeconds: 0.0333, step: "any", unit: "dB",
-      },
+        smoothingSeconds: 0.0333, step: "any", unit: "dB" },
       {
         defaultValue: "0", key: "volume3", kind: "decibels", label: "Volume3",
         max: "12", mid: "0", min: "-140", minusInf: true, nonlinearSlider: true,
         linearSmoothing: true, smoothingType: "linear", smoothingMode: "internal",
-        smoothingSeconds: 0.0333, step: "any", unit: "dB",
-      },
+        smoothingSeconds: 0.0333, step: "any", unit: "dB" },
       {
         defaultValue: "0", key: "volume4", kind: "decibels", label: "Volume4",
         max: "12", mid: "0", min: "-140", minusInf: true, nonlinearSlider: true,
         linearSmoothing: true, smoothingType: "linear", smoothingMode: "internal",
-        smoothingSeconds: 0.0333, step: "any", unit: "dB",
-      },
+        smoothingSeconds: 0.0333, step: "any", unit: "dB" },
       {
         defaultValue: "0", key: "pan1", label: "Pan1",
-        max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any",
-      },
+        max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       {
         defaultValue: "0", key: "pan2", label: "Pan2",
-        max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any",
-      },
+        max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       {
         defaultValue: "0", key: "pan3", label: "Pan3",
-        max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any",
-      },
+        max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       {
         defaultValue: "0", key: "pan4", label: "Pan4",
-        max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any",
-      },
+        max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       {
         defaultValue: "0", key: "amplitude", kind: "decibels", label: "Amplitude (All)",
         max: "12", mid: "0", min: "-140", minusInf: true, nonlinearSlider: true,
         linearSmoothing: true, smoothingType: "linear", smoothingMode: "internal",
-        smoothingSeconds: 0.0333, step: "any", unit: "dB",
-      },
-    ],
-  },
+        smoothingSeconds: 0.0333, step: "any", unit: "dB" },
+    ] },
   // Legacy type id → Mix4 (load alias until patches re-save).
   gainBiasMix: {
     planRole: "processor",
@@ -7186,14 +6888,13 @@ const nodeGraphModuleDefinitions = (
     defaultHeightGu: 4,
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
-    inputs: ["f", "inc"],
-    inputAliases: { In: "f", Mono: "f", Increment: "inc", Inc: "inc" },
-    inputLabels: { f: "ƒ", inc: "inc" },
-    outputs: ["f", "inc"],
-    outputAliases: { Out: "f", Mono: "f", Inc: "inc", Increment: "inc" },
-    outputLabels: { f: "ƒ", inc: "inc" },
+      oscilloscopeHidden: true },
+    inputs: ["f"],
+    inputAliases: { In: "f", Mono: "f", "ƒ": "f" },
+    inputLabels: { f: "ƒ" },
+    outputs: ["f"],
+    outputAliases: { Out: "f", Mono: "f" },
+    outputLabels: { f: "ƒ" },
     parameters: [
       {
         defaultValue: "0",
@@ -7204,8 +6905,7 @@ const nodeGraphModuleDefinitions = (
         min: "-4",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Pitch transpose in octaves (× 2^oct). Applied after Multiply.",
-      },
+        tooltip: "Pitch transpose in octaves (× 2^oct). Applied after Multiply." },
       {
         defaultValue: "0",
         key: "semitones",
@@ -7215,8 +6915,7 @@ const nodeGraphModuleDefinitions = (
         min: "-12",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Pitch transpose in semitones (× 2^(st/12)).",
-      },
+        tooltip: "Pitch transpose in semitones (× 2^(st/12))." },
       {
         defaultValue: "0",
         key: "cents",
@@ -7226,8 +6925,7 @@ const nodeGraphModuleDefinitions = (
         min: "-100",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Fine pitch transpose in cents (× 2^(cents/1200)).",
-      },
+        tooltip: "Fine pitch transpose in cents (× 2^(cents/1200))." },
       {
         defaultValue: "1",
         key: "multiply",
@@ -7238,8 +6936,7 @@ const nodeGraphModuleDefinitions = (
         modClamp: false,
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Scale mixed ƒ before pitch transpose (FM depth / ratio). 1 = unity.",
-      },
+        tooltip: "Scale mixed ƒ before pitch transpose (FM depth / ratio). 1 = unity." },
       {
         defaultValue: "0",
         key: "add",
@@ -7252,23 +6949,19 @@ const nodeGraphModuleDefinitions = (
         showSign: true,
         step: "any",
         unit: "Hz",
-        tooltip: "Bipolar Hz offset after Multiply and pitch transpose.",
-      },
-    ],
-  },
+        tooltip: "Bipolar Hz offset after Multiply and pitch transpose." },
+    ] },
   u2b: {
     planRole: "processor",
     defaultWidthGu: 3,
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     inputLabels: { In: "→" },
     outputLabels: { Out: "←" },
     inputs: ["In"],
     outputs: ["Out"],
-    parameters: [],
-  },
+    parameters: [] },
 
   pitchHz: {
     planRole: "processor",
@@ -7276,8 +6969,7 @@ const nodeGraphModuleDefinitions = (
     defaultWidthGu: 4,
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     inputLabels: { In: "→" },
     outputLabels: { Out: "←" },
     inputs: ["In"],
@@ -7295,8 +6987,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Pitch→Hz: MIDI-ish pitch to frequency. Hz→Pitch: frequency to pitch (69 = tuning Hz).",
-      },
+        tooltip: "Pitch→Hz: MIDI-ish pitch to frequency. Hz→Pitch: frequency to pitch (69 = tuning Hz)." },
       {
         defaultValue: "440",
         key: "tuning",
@@ -7307,18 +6998,15 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "Hz",
-        tooltip: "A4 reference Hz. MIDI pitch 69 maps to this frequency.",
-      },
-    ],
-  },
+        tooltip: "A4 reference Hz. MIDI pitch 69 maps to this frequency." },
+    ] },
   pitchManager: {
     planRole: "processor",
     planFreeRun: true,
     defaultWidthGu: 6,
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     inputs: ["pitch"],
     inputAliases: {
       In: "pitch",
@@ -7327,12 +7015,10 @@ const nodeGraphModuleDefinitions = (
       "0.1v/Oct": "pitch",
       "Note#": "pitch",
       Pitch: "pitch",
-      MIDI: "pitch",
-    },
+      MIDI: "pitch" },
     inputLabels: { "pitch": "♯/♭" },
-    outputs: ["pitch", "f", "inc"],
-    outputAliases: { Inc: "inc", Increment: "inc" },
-    outputLabels: { pitch: "♯/♭", f: "ƒ", inc: "inc" },
+    outputs: ["pitch", "f"],
+    outputLabels: { pitch: "♯/♭", f: "ƒ" },
     parameters: [
       {
         defaultValue: "440",
@@ -7344,8 +7030,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "Hz",
-        tooltip: "A4 reference Hz. MIDI 69 maps to this frequency when converting Pitch→Hz.",
-      },
+        tooltip: "A4 reference Hz. MIDI 69 maps to this frequency when converting Pitch→Hz." },
       {
         defaultValue: "0",
         key: "octave",
@@ -7355,8 +7040,7 @@ const nodeGraphModuleDefinitions = (
         min: "-4",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Add octaves to the zero-based pitch before Hz conversion.",
-      },
+        tooltip: "Add octaves to the zero-based pitch before Hz conversion." },
       {
         defaultValue: "0",
         key: "semitones",
@@ -7366,8 +7050,7 @@ const nodeGraphModuleDefinitions = (
         min: "-12",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Add semitones to the zero-based pitch before Hz conversion.",
-      },
+        tooltip: "Add semitones to the zero-based pitch before Hz conversion." },
       {
         defaultValue: "0",
         key: "cents",
@@ -7377,8 +7060,7 @@ const nodeGraphModuleDefinitions = (
         min: "-100",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Add cents / 100 to the zero-based pitch before Hz conversion.",
-      },
+        tooltip: "Add cents / 100 to the zero-based pitch before Hz conversion." },
       {
         defaultValue: "1",
         key: "multiply",
@@ -7389,8 +7071,7 @@ const nodeGraphModuleDefinitions = (
         modClamp: false,
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Hz-domain multiply after Pitch→Hz. Applies to ƒ and inc, not the ♯/♭ thru.",
-      },
+        tooltip: "Hz-domain multiply after Pitch→Hz. Applies to ƒ and inc, not the ♯/♭ thru." },
       {
         defaultValue: "0",
         key: "add",
@@ -7403,10 +7084,8 @@ const nodeGraphModuleDefinitions = (
         showSign: true,
         step: "any",
         unit: "Hz",
-        tooltip: "Hz-domain offset after Multiply. Applies to ƒ and inc, not the ♯/♭ thru.",
-      },
-    ],
-  },
+        tooltip: "Hz-domain offset after Multiply. Applies to ƒ and inc, not the ♯/♭ thru." },
+    ] },
 
   ampDb: {
     planRole: "processor",
@@ -7414,8 +7093,7 @@ const nodeGraphModuleDefinitions = (
     defaultWidthGu: 4,
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     inputLabels: { In: "→" },
     outputLabels: { Out: "←" },
     inputs: ["In"],
@@ -7433,38 +7111,32 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "dB→Amp: 10^(dB/20), 0 dB = 1. Amp→dB: 20·log10(amp). Mute floor −140 dB / −120 dB.",
-      },
-    ],
-  },
+        tooltip: "dB→Amp: 10^(dB/20), 0 dB = 1. Amp→dB: 20·log10(amp). Mute floor −140 dB / −120 dB." },
+    ] },
 
   b2u: {
     planRole: "processor",
     defaultWidthGu: 3,
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     inputLabels: { In: "→" },
     outputLabels: { Out: "←" },
     inputs: ["In"],
     outputs: ["Out"],
-    parameters: [],
-  },
+    parameters: [] },
   inv: {
     planRole: "processor",
     defaultWidthGu: 4,
     defaultHeightGu: 3,
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     inputLabels: { In: "→" },
     outputLabels: { Out: "←" },
     inputs: ["In"],
     outputs: ["Out"],
-    parameters: [],
-  },
+    parameters: [] },
   crossfade2: {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutA,
@@ -7478,8 +7150,7 @@ const nodeGraphModuleDefinitions = (
     defaultHeightGu: 5,
     defaultUi: {
       buttonsHidden: true,
-      titleHidden: false,
-    },
+      titleHidden: false },
     parameters: [
       {
         defaultValue: "0",
@@ -7490,10 +7161,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Blend address across 2 stereo pairs (0 selects pair 1, 1 selects pair 2). Fractional values crossfade adjacent pairs.",
-      },
-    ],
-  },
+        tooltip: "Blend address across 2 stereo pairs (0 selects pair 1, 1 selects pair 2). Fractional values crossfade adjacent pairs." },
+    ] },
   crossfade3: {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutA,
@@ -7507,8 +7176,7 @@ const nodeGraphModuleDefinitions = (
     defaultHeightGu: 6,
     defaultUi: {
       buttonsHidden: true,
-      titleHidden: false,
-    },
+      titleHidden: false },
     parameters: [
       {
         defaultValue: "0",
@@ -7519,10 +7187,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Blend address across 3 stereo pairs (0 selects pair 1, 2 selects pair 3). Fractional values crossfade adjacent pairs.",
-      },
-    ],
-  },
+        tooltip: "Blend address across 3 stereo pairs (0 selects pair 1, 2 selects pair 3). Fractional values crossfade adjacent pairs." },
+    ] },
   crossfade4: {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutA,
@@ -7536,8 +7202,7 @@ const nodeGraphModuleDefinitions = (
     defaultHeightGu: 7,
     defaultUi: {
       buttonsHidden: true,
-      titleHidden: false,
-    },
+      titleHidden: false },
     parameters: [
       {
         defaultValue: "0",
@@ -7548,24 +7213,20 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Blend address across 4 stereo pairs (0 selects pair 1, 3 selects pair 4). Fractional values crossfade adjacent pairs.",
-      },
-    ],
-  },
+        tooltip: "Blend address across 4 stereo pairs (0 selects pair 1, 3 selects pair 4). Fractional values crossfade adjacent pairs." },
+    ] },
   ringMod: {
     planRole: "processor",
     defaultWidthGu: 4,
     defaultHeightGu: 3,
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     inputLabels: { Carrier: "Carrier", Mod: "Mod" },
     outputLabels: { Out: "←" },
     inputs: ["Carrier", "Mod"],
     outputs: ["Out"],
-    parameters: [],
-  },
+    parameters: [] },
   ampCurve: {
     planRole: "processor",
     // Gold analog CV (uncolored). Do not alias Left/Right — those paint red/blue
@@ -7577,8 +7238,7 @@ const nodeGraphModuleDefinitions = (
     defaultWidthGu: 4,
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     parameters: [
       {
         choices: ["Lin", "Exp"],
@@ -7593,10 +7253,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Lin = clamp Env to 0…1. Exp = classic VCA CV law (quiet lows, unity at 1) for Amplitude params.",
-      },
-    ],
-  },
+        tooltip: "Lin = clamp Env to 0…1. Exp = classic VCA CV law (quiet lows, unity at 1) for Amplitude params." },
+    ] },
   attenuverter: {
     planRole: "processor",
     inputAliases: { Mono: "In", Left: "In", Right: "In" },
@@ -7605,8 +7263,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out"],
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     parameters: [
       {
         curveAmount: "0.55",
@@ -7621,8 +7278,7 @@ const nodeGraphModuleDefinitions = (
         showSign: true,
         sliderCurve: "bipolarRational",
         step: "any",
-        tooltip: "Scale and invert. 0 = mute, +1 = unity, −1 = invert. Bipolar rational is finer around 0.",
-      },
+        tooltip: "Scale and invert. 0 = mute, +1 = unity, −1 = invert. Bipolar rational is finer around 0." },
       {
         defaultValue: "0",
         key: "offset",
@@ -7633,8 +7289,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         showSign: true,
         step: "any",
-        tooltip: "DC offset after scale.",
-      },
+        tooltip: "DC offset after scale." },
     ]
   },
   attenumax: {
@@ -7642,8 +7297,7 @@ const nodeGraphModuleDefinitions = (
     defaultWidthGu: 5,
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     inputLabels: { In: "→" },
     outputLabels: { Out: "←" },
     inputs: ["In"],
@@ -7661,8 +7315,7 @@ const nodeGraphModuleDefinitions = (
         showSign: true,
         sliderCurve: "bipolarRational",
         step: "any",
-        tooltip: "Normalized index. Scales In only. 0 → Out is Bias. 1 → Out = Bias + In×Bias. DSP does not clamp; raise min/max for |index| > 1.",
-      },
+        tooltip: "Normalized index. Scales In only. 0 → Out is Bias. 1 → Out = Bias + In×Bias. DSP does not clamp; raise min/max for |index| > 1." },
       {
         defaultValue: "1",
         key: "bias",
@@ -7673,8 +7326,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         showSign: true,
         step: "any",
-        tooltip: "Carrier. Always added. Out = Bias + In × Bias × Amplitude. Amp 0 still outputs Bias.",
-      },
+        tooltip: "Carrier. Always added. Out = Bias + In × Bias × Amplitude. Amp 0 still outputs Bias." },
     ]
   },
   range: {
@@ -7693,8 +7345,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out"],
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     parameters: [
       {
         // Browser spawn (bipolar): In −1…+1. Slider domain ±10. Wire unipolar spawn uses 0…1.
@@ -7707,8 +7358,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         showSign: true,
         step: "any",
-        tooltip: "Input value that maps to Out Low. Default −1 (bipolar). Slider domain −10…+10.",
-      },
+        tooltip: "Input value that maps to Out Low. Default −1 (bipolar). Slider domain −10…+10." },
       {
         defaultValue: "1",
         key: "inHigh",
@@ -7719,8 +7369,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         showSign: true,
         step: "any",
-        tooltip: "Input value that maps to Out High. Default +1 (bipolar). Slider domain −10…+10.",
-      },
+        tooltip: "Input value that maps to Out High. Default +1 (bipolar). Slider domain −10…+10." },
       {
         defaultValue: "0",
         key: "outLow",
@@ -7731,8 +7380,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         showSign: true,
         step: "any",
-        tooltip: "Output at In Low. Default 0. Slider domain −10…+10.",
-      },
+        tooltip: "Output at In Low. Default 0. Slider domain −10…+10." },
       {
         defaultValue: "1",
         key: "outHigh",
@@ -7743,8 +7391,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         showSign: true,
         step: "any",
-        tooltip: "Output at In High. Default +1. Slider domain −10…+10.",
-      },
+        tooltip: "Output at In High. Default +1. Slider domain −10…+10." },
     ]
   },
   tubeSaturation: {
@@ -7760,8 +7407,7 @@ const nodeGraphModuleDefinitions = (
         label: "1D Trace",
         renderer: "scope1dTrace",
         settingsSchema: "scope1dTrace",
-        source: { value: "Out" },
-      },
+        source: { value: "Out" } },
     ],
     defaultDisplayMode: "scope1dTrace",
     // Shared colormap id crt-amber → photorealistic P3 CRT amber LUT on the beam.
@@ -7782,8 +7428,7 @@ const nodeGraphModuleDefinitions = (
         { t: 0.78, color: "#ffb020" },
         { t: 0.9, color: "#ffe08a" },
         { t: 1, color: "#fff6d8" },
-      ],
-    },
+      ] },
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -7793,8 +7438,7 @@ const nodeGraphModuleDefinitions = (
     defaultWidthGu: 6,
     defaultHeightGu: 5,
     defaultUi: {
-      buttonsHidden: true,
-    },
+      buttonsHidden: true },
     parameters: [
       {
         defaultValue: "0.5",
@@ -7939,16 +7583,14 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "°",
-        tooltip: "Extra rotation after the classic 45° vectorscope (mono vertical). 0 = unchanged. Positive is counterclockwise.",
-      },
+        tooltip: "Extra rotation after the classic 45° vectorscope (mono vertical). 0 = unchanged. Positive is counterclockwise." },
     ],
     defaultWidthGu: 4,
     defaultHeightGu: 4,
     defaultAlias: "Rotate",
     defaultUi: {
       buttonsHidden: true,
-      titleHidden: false,
-    }
+      titleHidden: false }
   },
   // |Δsample| speed → desaturation target + attack/release inertia (multimeter).
   // Sine → high Inertia (rich color); saw edges → Speed spike → Inertia drops (white).
@@ -8064,8 +7706,7 @@ const nodeGraphModuleDefinitions = (
     outputLabels: {
       Bias: "Bias"
     },
-    parameters: nodeGraphControllerModuleParameters(),
-  },
+    parameters: nodeGraphControllerModuleParameters() },
   pluginSlider: {
     planRole: "source",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
@@ -8087,8 +7728,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { In: "In" },
     outputs: ["Bias"],
     outputLabels: { Bias: "Bias" },
-    parameters: nodeGraphControllerModuleParameters(),
-  },
+    parameters: nodeGraphControllerModuleParameters() },
   toggleButton: {
     planRole: "source",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
@@ -8110,8 +7750,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { In: "In" },
     outputs: ["Bias"],
     outputLabels: { Bias: "Bias" },
-    parameters: nodeGraphControllerButtonModuleParameters(),
-  },
+    parameters: nodeGraphControllerButtonModuleParameters() },
   momentaryButton: {
     planRole: "source",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
@@ -8134,8 +7773,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { In: "In" },
     outputs: ["Bias"],
     outputLabels: { Bias: "Bias" },
-    parameters: nodeGraphControllerButtonModuleParameters(),
-  },
+    parameters: nodeGraphControllerButtonModuleParameters() },
   passiveFilter: {
     planRole: "processor",
     inputAliases: {Mono: "In"},
@@ -8247,8 +7885,7 @@ const nodeGraphModuleDefinitions = (
         modClamp: false,
         max: "100",
         mid: "1",
-        tooltip: "Output scale. Raise domain for large CV into ƒ (e.g. filter → frequency).",
-      },
+        tooltip: "Output scale. Raise domain for large CV into ƒ (e.g. filter → frequency)." },
     ]
   },
   // First-order spectral tilt (not a 1-pole HP). Credit: Robin Schmidt / RS-MET shelf BLT.
@@ -8310,8 +7947,7 @@ const nodeGraphModuleDefinitions = (
         mid: "4.32",
         min: "0.5",
         step: "any",
-        tooltip: "Bandwidth of every band. 4.32 is one-third octave, so a fader is about the level at that frequency. Lower Q is wider and neighboring cuts stack.",
-      },
+        tooltip: "Bandwidth of every band. 4.32 is one-third octave, so a fader is about the level at that frequency. Lower Q is wider and neighboring cuts stack." },
       {
         defaultValue: "1",
         key: "mix",
@@ -8320,8 +7956,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Dry/wet. 0 = bypass, 1 = fully equalized.",
-      },
+        tooltip: "Dry/wet. 0 = bypass, 1 = fully equalized." },
       ...(() => {
         const hz = [
           25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200,
@@ -8345,12 +7980,10 @@ const nodeGraphModuleDefinitions = (
           showSign: true,
           step: "any",
           tooltip: `${f} Hz peaking band (dB).`,
-          unit: "dB",
-        }));
+          unit: "dB" }));
       })(),
       nodeGraphOutputAmplitudeParam,
-    ],
-  },
+    ] },
   // ZDF SVF multi-mode EQ. Credit: Robin Schmidt / RS-MET rsStateVariableFilter.
   eqFilter: {
     planRole: "processor",
@@ -9605,8 +9238,9 @@ const nodeGraphModuleDefinitions = (
   },
   softpopOscillator: {
     planRole: "source",
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: ["Out", "Left", "Right"],
     outputLabels: {Out: "Mono"},
     parameters: [
@@ -9703,20 +9337,17 @@ const nodeGraphModuleDefinitions = (
     spectrumCompanion: false,
     inputs: ["T"],
     inputLabels: {
-      T: "T",
-    },
+      T: "T" },
     inputAliases: {Trigger: "T",
       Reset: "T",
       Gate: "T"},
     outputs: ["A"],
     outputLabels: {
-      A: "A",
-    },
+      A: "A" },
     outputAliases: {
       Amp: "A",
       Out: "A",
-      Env: "A",
-    },
+      Env: "A" },
     parameters: [
       {
         defaultValue: "1",
@@ -9726,8 +9357,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "any",
-        tooltip: "Gain on A. 1 = full Low/High span. 0 = silence.",
-      },
+        tooltip: "Gain on A. 1 = full Low/High span. 0 = silence." },
       {
         defaultValue: "0",
         key: "low",
@@ -9736,8 +9366,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Rest / floor of A (0–1). After the hit, A sits here.",
-      },
+        tooltip: "Rest / floor of A (0–1). After the hit, A sits here." },
       {
         defaultValue: "1",
         key: "high",
@@ -9746,8 +9375,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Peak of A at trigger (0–1). The hit runs High → Low.",
-      },
+        tooltip: "Peak of A at trigger (0–1). The hit runs High → Low." },
       {
         defaultValue: "0.2",
         key: "speed",
@@ -9759,8 +9387,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.001",
         step: "any",
         unit: "s",
-        tooltip: "How long the envelope takes from High to Low (seconds).",
-      },
+        tooltip: "How long the envelope takes from High to Low (seconds)." },
       {
         defaultValue: "0",
         key: "sharpness",
@@ -9769,8 +9396,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "0 = sine (round decay). 1 = square (hold, then snap). Face uses the same sine→square. Legacy key: roundness.",
-      },
+        tooltip: "0 = sine (round decay). 1 = square (hold, then snap). Face uses the same sine→square. Legacy key: roundness." },
       {
         choices: ["Linear", "Exponential"],
         defaultValue: "1",
@@ -9785,10 +9411,8 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "How A travels High → Low. Linear = even mix. Exponential = pitch / octave (log2).",
-      },
-    ],
-  },
+          "How A travels High → Low. Linear = even mix. Exponential = pitch / octave (log2)." },
+    ] },
   // Analog sine kick voice (T → Out audio, A envelope).
   sineKick: {
     planRole: "source",
@@ -9807,11 +9431,11 @@ const nodeGraphModuleDefinitions = (
       Gate: "T"},
     outputs: ["Out", "A"],
     outputLabels: {Out: "Out",
-      A: "A",},
+      A: "A" },
     outputAliases: {Amp: "A",
       Env: "A",
       Audio: "Out",
-      Kick: "Out",},
+      Kick: "Out" },
     parameters: [
       {
         defaultValue: "1",
@@ -9821,8 +9445,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "any",
-        tooltip: "Peak level of Out and A.",
-      },
+        tooltip: "Peak level of Out and A." },
       {
         defaultValue: "52",
         key: "pitch",
@@ -9834,8 +9457,7 @@ const nodeGraphModuleDefinitions = (
         min: "8",
         step: "any",
         unit: "Hz",
-        tooltip: "Rest frequency in Hz. The hit starts Punch octaves above this, then falls back.",
-      },
+        tooltip: "Rest frequency in Hz. The hit starts Punch octaves above this, then falls back." },
       {
         defaultValue: "1.7",
         key: "punch",
@@ -9845,8 +9467,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "oct",
-        tooltip: "Beater tension in octaves above Pitch. 0 = sine tom. ~1.7 = analog kick thump.",
-      },
+        tooltip: "Beater tension in octaves above Pitch. 0 = sine tom. ~1.7 = analog kick thump." },
       {
         defaultValue: "0.28",
         key: "decay",
@@ -9858,8 +9479,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.01",
         step: "any",
         unit: "s",
-        tooltip: "How long the boom lasts (seconds to about 1% amplitude). Pitch drop is faster than this.",
-      },
+        tooltip: "How long the boom lasts (seconds to about 1% amplitude). Pitch drop is faster than this." },
       {
         defaultValue: "0",
         key: "sharpness",
@@ -9868,10 +9488,8 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Sine→square on the oscillator (same ellipsoid curve as RoundShape). 0 = sine. 1 = square.",
-      },
-    ],
-  },
+        tooltip: "Sine→square on the oscillator (same ellipsoid curve as RoundShape). 0 = sine. 1 = square." },
+    ] },
   // Period-reset sine chirp: Frequency = rate; High/Low + Together; FreqCurve/AmpCurve bipolar.
   sinepulse: {
     planRole: "source",
@@ -9882,9 +9500,9 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Out", kind: "scalar" },
     ],
-    inputs: ["Reset", "Increment"],
+    inputs: ["Reset", "f"],
     inputLabels: {
-      Increment: "inc"},
+      f: "ƒ"},
     // Out = audio; f = instant Hz; Amp/Freq = 0..1 curves for driving other modules.
     outputs: ["Out", "f", "Amp", "Freq"],
     outputLabels: {Out: "Out",
@@ -10288,8 +9906,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction — Bessel–Thomson cutoff / delay frequency.",
-      },
+        tooltip: "Under construction — Bessel–Thomson cutoff / delay frequency." },
       {
         constraint: "cpu",
         defaultValue: "4",
@@ -10300,8 +9917,7 @@ const nodeGraphModuleDefinitions = (
         min: "2",
         nonlinearSlider: false,
         step: "2",
-        tooltip: "Under construction — Bessel–Thomson order.",
-      },
+        tooltip: "Under construction — Bessel–Thomson order." },
         nodeGraphOutputAmplitudeParam,
     ]
   },
@@ -10326,8 +9942,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction — natural frequency √(k/m).",
-      },
+        tooltip: "Under construction — natural frequency √(k/m)." },
       {
         defaultValue: "0.5",
         key: "damping",
@@ -10337,8 +9952,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction — damper / zeta.",
-      },
+        tooltip: "Under construction — damper / zeta." },
         nodeGraphOutputAmplitudeParam,
     ]
   },
@@ -10360,8 +9974,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Free-run rate when Clock is unconnected. Ignored while Clock is wired (external rising edges advance).",
-      },
+          "Free-run rate when Clock is unconnected. Ignored while Clock is wired (external rising edges advance)." },
       {
         defaultValue: "4",
         key: "bits",
@@ -10371,8 +9984,7 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Active bit width (1–4). Count wraps at 2^bits.",
-      },
+        tooltip: "Active bit width (1–4). Count wraps at 2^bits." },
     ]
   },
   // Under construction: Open Sound Control bridge (Controller shelf).
@@ -10432,8 +10044,9 @@ const nodeGraphModuleDefinitions = (
     planRole: "source",
     planFreeRun: true,
     displayType: "waterfall",
-    inputs: ["Increment", "X", "Y"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["f", "X", "Y"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: ["Out"],
     parameters: [
       {
@@ -10562,8 +10175,9 @@ const nodeGraphModuleDefinitions = (
     defaultDisplayMode: "xyBurn",
     // Reset / ƒ — sample-accurate. Phase is the parameter (+ MOD) only.
     // Reset rising edge clears osc + filter state.
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: ["Out", "X", "Y", "Z", "Left", "Right"],
     parameters: [
       {
@@ -10587,8 +10201,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Which chaos taps feed the stereo outs (pre-filter = before the LP cascade).",
-      },
+        tooltip: "Which chaos taps feed the stereo outs (pre-filter = before the LP cascade)." },
       {
         defaultValue: "0",
         key: "phase",
@@ -10601,8 +10214,7 @@ const nodeGraphModuleDefinitions = (
         unit: "cycle",
         wraparound: true,
         tooltip:
-          "Phase offset (cycles) for both oscillators. Knob + Phase MOD — useful at 0 Hz.",
-      },
+          "Phase offset (cycles) for both oscillators. Knob + Phase MOD — useful at 0 Hz." },
       {
         defaultValue: "55",
         key: "frequency",
@@ -10614,8 +10226,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Base frequency (signed; negative reverses phase). ƒ = absolute Hz. Pitch then transposes everything; Lowpass/Highpass are octave offsets from the pitched master.",
-      },
+          "Base frequency (signed; negative reverses phase). ƒ = absolute Hz. Pitch then transposes everything; Lowpass/Highpass are octave offsets from the pitched master." },
       {
         bipolar: true,
         defaultValue: "0",
@@ -10628,8 +10239,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "oct",
         tooltip:
-          "Overall octave transpose: masterHz = Frequency × 2^Pitch. Oscillators, FM, detune, Lowpass, and Highpass all move together.",
-      },
+          "Overall octave transpose: masterHz = Frequency × 2^Pitch. Oscillators, FM, detune, Lowpass, and Highpass all move together." },
       {
         defaultValue: "0",
         key: "masterFm",
@@ -10638,8 +10248,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-20000",
         step: "any",
-        tooltip: "Added to both FM depths.",
-      },
+        tooltip: "Added to both FM depths." },
       {
         bipolar: true,
         defaultValue: "6",
@@ -10652,8 +10261,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "oct",
         tooltip:
-          "LP cutoff = masterHz × 2^offset, where masterHz = Frequency × 2^Pitch. 0 = at pitched master, +1 = one octave higher (more open).",
-      },
+          "LP cutoff = masterHz × 2^offset, where masterHz = Frequency × 2^Pitch. 0 = at pitched master, +1 = one octave higher (more open)." },
       {
         defaultValue: "4",
         key: "taps",
@@ -10664,8 +10272,7 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Number of cascaded passive lowpass poles (1…64).",
-      },
+        tooltip: "Number of cascaded passive lowpass poles (1…64)." },
       {
         bipolar: true,
         defaultValue: "-2",
@@ -10678,8 +10285,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "oct",
         tooltip:
-          "HP cutoff = masterHz × 2^offset, where masterHz = Frequency × 2^Pitch. 0 = at pitched master. Range is metaparam min/max.",
-      },
+          "HP cutoff = masterHz × 2^offset, where masterHz = Frequency × 2^Pitch. 0 = at pitched master. Range is metaparam min/max." },
       {
         choices: ["Before Osc2", "After Osc2", "Before & After"],
         defaultValue: "0",
@@ -10693,8 +10299,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Where Highpass sits in the chaos chain that feeds Osc2. Before = HP→LP→Osc2. After = LP→HP→Osc2. Both = HP→LP→HP→Osc2.",
-      },
+          "Where Highpass sits in the chaos chain that feeds Osc2. Before = HP→LP→Osc2. After = LP→HP→Osc2. Both = HP→LP→HP→Osc2." },
       {
         defaultValue: "0",
         key: "osc1Detune",
@@ -10703,8 +10308,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1000",
         step: "any",
-        unit: "Hz",
-      },
+        unit: "Hz" },
       {
         defaultValue: "0",
         key: "osc2Detune",
@@ -10713,8 +10317,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1000",
         step: "any",
-        unit: "Hz",
-      },
+        unit: "Hz" },
       {
         defaultValue: "0",
         key: "fm1",
@@ -10723,8 +10326,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-20000",
         step: "any",
-        tooltip: "Osc1 FM depth from Osc2.",
-      },
+        tooltip: "Osc1 FM depth from Osc2." },
       {
         defaultValue: "0",
         key: "fm2",
@@ -10733,8 +10335,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-20000",
         step: "any",
-        tooltip: "Osc2 FM depth from filtered Osc1.",
-      },
+        tooltip: "Osc2 FM depth from filtered Osc1." },
       {
         defaultValue: "0",
         key: "pan",
@@ -10743,8 +10344,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1",
         nonlinearSlider: false,
-        step: "any",
-      },
+        step: "any" },
       {
         defaultValue: "0.5",
         key: "amplitude",
@@ -10756,10 +10356,8 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         modClamp: false,
         tooltip:
-          "Master gain on Out / Left / Right and the X/Y face (0 = silence). Same role as Gain in the original Chaosfly.",
-      },
-    ],
-  },
+          "Master gain on Out / Left / Right and the X/Y face (0 = silence). Same role as Gain in the original Chaosfly." },
+    ] },
   // Under construction: few-body gravity (Chaos shelf). First Doppler piece.
   gravity: {
     planRole: "source",
@@ -10777,8 +10375,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Reset"],
     outputs: ["Out", "X", "Y", "Radial"],
     outputTooltips: {
-      Radial: "Planned signed radial velocity toward the listener — first Doppler puzzle piece.",
-    },
+      Radial: "Planned signed radial velocity toward the listener — first Doppler puzzle piece." },
     parameters: [
       {
         defaultValue: "8",
@@ -10892,15 +10489,13 @@ const nodeGraphModuleDefinitions = (
         label: "Arp Keys",
         renderer: "arpKeysFace",
         settingsSchema: "arpKeysFace",
-        source: { value: "pitch" },
-      },
+        source: { value: "pitch" } },
     ],
     displayHeightGu: 2,
     defaultWidthGu: 6,
     displaySignals: [
       { key: "pitch", kind: "scalar" },
       { key: "f", kind: "scalar" },
-      { key: "inc", kind: "scalar" },
     ],
     digitalInputs: ["Arp Keys"],
     digitalOutputs: ["Play Keys", "Step"],
@@ -10909,17 +10504,15 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { "Arp Keys": "Arp Keys", Trigger: "Trig" },
     inputAliases: { Clock: "Trigger", Trig: "Trigger" },
     outputChannels: { "Play Keys": "blue" },
-    // Pitch-family order: ♯/♭, then ƒ (Hz), then inc (Hz/sr) — APP_POLICY.
-    outputs: ["Play Keys", "pitch", "f", "inc", "Gate", "Trigger", "Step"],
-    outputLabels: { "Play Keys": "Play Keys", "pitch": "♯/♭", f: "ƒ", inc: "inc", Trigger: "Trig" },
+    // Pitch-family order: ♯/♭, then ƒ (Hz).
+    outputs: ["Play Keys", "pitch", "f", "Gate", "Trigger", "Step"],
+    outputLabels: { "Play Keys": "Play Keys", "pitch": "♯/♭", f: "ƒ", Trigger: "Trig" },
     outputTooltips: {
       pitch: "MIDI note of the current arp step (♯/♭).",
       f: "Current step frequency in Hz. Wire to osc ƒ / Frequency.",
-      inc: "Phase increment (cycles/sample) = f / sampleRate. Wire to osc Increment.",
       Gate: "1 while any Arp Keys are held / playing.",
       Trigger: "1-sample pulse on each arp step.",
-      Step: "Step index (or clocks-since-restart when Steps > 0).",
-    },
+      Step: "Step index (or clocks-since-restart when Steps > 0)." },
     outputAliases: {
       Pitch: "pitch",
       "0.1V/Oct": "pitch",
@@ -10927,12 +10520,9 @@ const nodeGraphModuleDefinitions = (
       "ƒ": "f",
       Frequency: "f",
       Freq: "f",
-      Inc: "inc",
-      Increment: "inc",
       Trig: "Trigger",
       Polyphony: "Play Keys",
-      Monophony: "Play Keys",
-    },
+      Monophony: "Play Keys" },
     parameters: [
       {
         choices: ["up", "dn", "up/dn", "dn/up", "random"],
@@ -11222,8 +10812,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "0…1 pitch-norm (maps to MIDI −12…+135 → Hz). Knob/Bias → Cutoff MOD sets this directly (not unit-add).",
-      },
+          "0…1 pitch-norm (maps to MIDI −12…+135 → Hz). Knob/Bias → Cutoff MOD sets this directly (not unit-add)." },
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.5", key: "chaos", label: "Chaos", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
         nodeGraphOutputAmplitudeParam,
@@ -11263,8 +10852,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "0…1 pitch-norm (maps to MIDI −12…+135 → Hz). Knob/Bias → Cutoff MOD sets this directly (not unit-add).",
-      },
+          "0…1 pitch-norm (maps to MIDI −12…+135 → Hz). Knob/Bias → Cutoff MOD sets this directly (not unit-add)." },
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
       {
         defaultValue: "1",
@@ -11276,8 +10864,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "0…1. LP18/LP24: Softwave Tri morph. HP6/BP6: trisaw morph (full range, not remapped).",
-      },
+          "0…1. LP18/LP24: Softwave Tri morph. HP6/BP6: trisaw morph (full range, not remapped)." },
       {
         defaultValue: "0",
         key: "phase",
@@ -11289,8 +10876,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         wraparound: true,
         tooltip:
-          "Phase into the waveshaper (wraps). 0 is the zero-crossing on LP (Softwave Tri) and on HP/BP (trisaw has a built-in +0.75 so its falling-edge zero lines up).",
-      },
+          "Phase into the waveshaper (wraps). 0 is the zero-crossing on LP (Softwave Tri) and on HP/BP (trisaw has a built-in +0.75 so its falling-edge zero lines up)." },
       {
         defaultValue: "0",
         key: "noise",
@@ -11301,8 +10887,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Bipolar white 0…1 (true amplitude). LP: added into Softwave Phase. HP/BP: added into the feedback summer.",
-      },
+          "Bipolar white 0…1 (true amplitude). LP: added into Softwave Phase. HP/BP: added into the feedback summer." },
         nodeGraphOutputAmplitudeParam,
     ]
   },
@@ -11336,8 +10921,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1.5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
-      },
+        step: "1" },
       {
         defaultValue: "0.5",
         key: "frequency",
@@ -11347,8 +10931,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "0…1 pitch-norm (MIDI −12…+135 → Hz).",
-      },
+        tooltip: "0…1 pitch-norm (MIDI −12…+135 → Hz)." },
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
       {
         defaultValue: "0.5",
@@ -11359,8 +10942,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Input gain 0…4. Default 0.5. Noon 1.0 on the VCV panel is a 4t² curve; this slider is linear gain.",
-      },
+        tooltip: "Input gain 0…4. Default 0.5. Noon 1.0 on the VCV panel is a 4t² curve; this slider is linear gain." },
       { defaultValue: "0", key: "noise", label: "Noise", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       {
         defaultValue: "0",
@@ -11371,8 +10953,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Stereo cutoff offset. Only when Left and Right are both wired.",
-      },
+        tooltip: "Stereo cutoff offset. Only when Left and Right are both wired." },
       nodeGraphOutputAmplitudeParam,
     ]
   },
@@ -11399,8 +10980,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         wraparound: true,
-        tooltip: "Added into the ellipse waveshaper (original setPhase). 0 = original.",
-      },
+        tooltip: "Added into the ellipse waveshaper (original setPhase). 0 = original." },
       nodeGraphOutputAmplitudeParam,
     ]
   },
@@ -11732,8 +11312,7 @@ const nodeGraphModuleDefinitions = (
         mid: "8",
         min: "2",
         step: "1",
-        tooltip: "Under construction. Planned: analysis/synthesis band count (same 2-pole family as Phaser taps).",
-      },
+        tooltip: "Under construction. Planned: analysis/synthesis band count (same 2-pole family as Phaser taps)." },
       {
         defaultValue: "0.5",
         key: "resonance",
@@ -11742,8 +11321,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: Q of each bandpass (steepness / talkiness).",
-      },
+        tooltip: "Under construction. Planned: Q of each bandpass (steepness / talkiness)." },
       {
         defaultValue: "0.01",
         key: "attack",
@@ -11754,8 +11332,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.001",
         step: "any",
         unit: "s",
-        tooltip: "Under construction. Planned: envelope-follower attack on each analysis band.",
-      },
+        tooltip: "Under construction. Planned: envelope-follower attack on each analysis band." },
       {
         defaultValue: "0.05",
         key: "release",
@@ -11766,8 +11343,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.001",
         step: "any",
         unit: "s",
-        tooltip: "Under construction. Planned: envelope-follower release on each analysis band.",
-      },
+        tooltip: "Under construction. Planned: envelope-follower release on each analysis band." },
         nodeGraphOutputAmplitudeParam,
     ]
   },
@@ -11872,8 +11448,7 @@ const nodeGraphModuleDefinitions = (
         mid: "7",
         min: "1",
         step: "1",
-        tooltip: "Parallel delay lines. Each has its own vibrato (shared knobs, seed + voice index).",
-      },
+        tooltip: "Parallel delay lines. Each has its own vibrato (shared knobs, seed + voice index)." },
       {
         defaultValue: "18",
         key: "delay",
@@ -11883,8 +11458,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "ms",
-        tooltip: "Base delay. time = Delay + vibrato × Depth.",
-      },
+        tooltip: "Base delay. time = Delay + vibrato × Depth." },
       {
         defaultValue: "3",
         key: "depth",
@@ -11894,8 +11468,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "ms",
-        tooltip: "Vibrato throw in milliseconds. LFO is ±1 × Depth.",
-      },
+        tooltip: "Vibrato throw in milliseconds. LFO is ±1 × Depth." },
       {
         defaultValue: "0.5",
         key: "mix",
@@ -11904,8 +11477,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Dry/wet.",
-      },
+        tooltip: "Dry/wet." },
       {
         defaultValue: "0.5",
         key: "spread",
@@ -11914,8 +11486,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Per-voice phase offset (i/N turns). 0 = all LFOs lock. Needed when Vib Random ƒ is 0.",
-      },
+        tooltip: "Per-voice phase offset (i/N turns). 0 = all LFOs lock. Needed when Vib Random ƒ is 0." },
       {
         defaultValue: "0",
         key: "phase",
@@ -11927,8 +11498,7 @@ const nodeGraphModuleDefinitions = (
         step: "0.01",
         unit: "cycle",
         wraparound: true,
-        tooltip: "Shared LFO phase (turns).",
-      },
+        tooltip: "Shared LFO phase (turns)." },
       {
         defaultValue: "3.5",
         key: "frequency",
@@ -11939,8 +11509,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Shared vibrato Speed. f = Speed × (1 + sine × Vib Top Morph).",
-      },
+        tooltip: "Shared vibrato Speed. f = Speed × (1 + sine × Vib Top Morph)." },
       {
         curveAmount: "-0.7",
         defaultValue: "0",
@@ -11952,8 +11521,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "bipolarRational",
         step: "any",
-        tooltip: "Shared AM Index into Vibrato Speed.",
-      },
+        tooltip: "Shared AM Index into Vibrato Speed." },
       {
         curveAmount: "0.9",
         defaultValue: "0",
@@ -11965,8 +11533,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "edges",
         step: "any",
-        tooltip: "Shared sine × Vib Side Morph added to LFO phase (cycles).",
-      },
+        tooltip: "Shared sine × Vib Side Morph added to LFO phase (cycles)." },
       {
         defaultValue: "0",
         key: "randomFreq",
@@ -11975,8 +11542,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Per-voice S&H on LFO increment. Different seeds decorrelate.",
-      },
+        tooltip: "Per-voice S&H on LFO increment. Different seeds decorrelate." },
       {
         defaultValue: "0",
         key: "randomAmp",
@@ -11985,8 +11551,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Evenly spread each voice's modulation depth. 0 = all at Depth. 1 = depths from 0 to Depth across voices.",
-      },
+        tooltip: "Evenly spread each voice's modulation depth. 0 = all at Depth. 1 = depths from 0 to Depth across voices." },
       {
         defaultValue: "1",
         key: "seed",
@@ -11999,8 +11564,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         smoothingType: "none",
         step: "1",
-        tooltip: "Base seed. Voice i uses Seed + i.",
-      },
+        tooltip: "Base seed. Voice i uses Seed + i." },
       {
         defaultValue: "200",
         key: "hpfFrequency",
@@ -12012,8 +11576,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "6 dB/oct highpass on the chorus wet, before Mix.",
-      },
+        tooltip: "6 dB/oct highpass on the chorus wet, before Mix." },
       {
         defaultValue: "8000",
         key: "lpfFrequency",
@@ -12025,8 +11588,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "6 dB/oct lowpass on the chorus wet after HP, before Mix.",
-      },
+        tooltip: "6 dB/oct lowpass on the chorus wet after HP, before Mix." },
       nodeGraphOutputAmplitudeParam,
     ]
   },
@@ -12049,8 +11611,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Dry/wet.",
-      },
+        tooltip: "Dry/wet." },
       {
         defaultValue: "0.5",
         key: "spread",
@@ -12059,8 +11620,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Stereo width only. 0 = all voices centered. 1 = voices panned L…R. Face color: red = L, blue = R. Does not change delay times.",
-      },
+        tooltip: "Stereo width only. 0 = all voices centered. 1 = voices panned L…R. Face color: red = L, blue = R. Does not change delay times." },
       {
         constraint: "cpu",
         defaultValue: "7",
@@ -12071,8 +11631,7 @@ const nodeGraphModuleDefinitions = (
         mid: "7",
         min: "1",
         step: "1",
-        tooltip: "Parallel delay lines. Each has its own Random Walk / FBM (Seed + voice index).",
-      },
+        tooltip: "Parallel delay lines. Each has its own Random Walk / FBM (Seed + voice index)." },
       {
         choices: ["Random Walk", "FBM"],
         defaultValue: "0",
@@ -12085,8 +11644,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Delay-time modulator from SoEm Reverb. Random Walk = filtered stepped drift. FBM = fractal Brownian flutter.",
-      },
+        tooltip: "Delay-time modulator from SoEm Reverb. Random Walk = filtered stepped drift. FBM = fractal Brownian flutter." },
       {
         defaultValue: "18",
         key: "delay",
@@ -12096,8 +11654,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "ms",
-        tooltip: "Base delay. time = Pre-delay + modulator × Depth.",
-      },
+        tooltip: "Base delay. time = Pre-delay + modulator × Depth." },
       {
         defaultValue: "3",
         key: "depth",
@@ -12107,8 +11664,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "ms",
-        tooltip: "Modulator throw in milliseconds. Walk/FBM is ±1 × Depth. Face shows the full ±1 swing about center (Pre-delay not plotted).",
-      },
+        tooltip: "Modulator throw in milliseconds. Walk/FBM is ±1 × Depth. Face shows the full ±1 swing about center (Pre-delay not plotted)." },
       {
         defaultValue: "0.4",
         key: "frequency",
@@ -12121,8 +11677,7 @@ const nodeGraphModuleDefinitions = (
         unit: "Hz",
         nonlinearSlider: true,
         sliderCurve: "skew",
-        tooltip: "Random Walk step rate, or FBM time rate.",
-      },
+        tooltip: "Random Walk step rate, or FBM time rate." },
       {
         defaultValue: "200",
         key: "hpfFrequency",
@@ -12134,8 +11689,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "6 dB/oct highpass on the ensemble wet, before Mix.",
-      },
+        tooltip: "6 dB/oct highpass on the ensemble wet, before Mix." },
       {
         defaultValue: "8000",
         key: "lpfFrequency",
@@ -12147,8 +11701,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "6 dB/oct lowpass on the ensemble wet after HP, before Mix.",
-      },
+        tooltip: "6 dB/oct lowpass on the ensemble wet after HP, before Mix." },
       {
         defaultValue: "1",
         key: "seed",
@@ -12161,8 +11714,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         smoothingType: "none",
         step: "1",
-        tooltip: "Base seed. Voice i uses Seed + i.",
-      },
+        tooltip: "Base seed. Voice i uses Seed + i." },
       nodeGraphOutputAmplitudeParam,
     ]
   },
@@ -12465,8 +12017,7 @@ const nodeGraphModuleDefinitions = (
     defaultDisplayMode: "waterfall",
     defaultDisplaySettings: {
       sourceSync: true,
-      syncChannel: "mono",
-    },
+      syncChannel: "mono" },
     // Face draws Out/Left/Right; Sync locks to the dry input (In, or L+R sum).
     syncTraceFromInputs: { mono: "In", left: "Left", right: "Right" },
     stereoWaterfallPorts: { left: "Left", right: "Right" },
@@ -12684,8 +12235,7 @@ const nodeGraphModuleDefinitions = (
       Right: "Mix R",
       "Mix Left": "Mix L",
       "Mix Right": "Mix R",
-      "Mix M": "Mix L",
-    },
+      "Mix M": "Mix L" },
     outputLabels: { "Mix L": "Mix L", "Mix R": "Mix R" },
     outputs: ["Mix L", "Mix R"],
     parameters: [
@@ -12771,14 +12321,12 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Mix L", "Mix R", "LFO L", "LFO R"],
     outputAliases: {
       Left: "Mix L",
-      Right: "Mix R",
-    },
+      Right: "Mix R" },
     outputLabels: {
       "Mix L": "Mix L",
       "Mix R": "Mix R",
       "LFO L": "LFO L",
-      "LFO R": "LFO R",
-    },
+      "LFO R": "LFO R" },
     parameters: [
       {
         choices: ["Linear"],
@@ -12793,8 +12341,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Delay-line fractional read. Linear (default). Hidden — enable from the parameter visibility menu.",
-      },
+        tooltip: "Delay-line fractional read. Linear (default). Hidden — enable from the parameter visibility menu." },
       {
         control: "number",
         defaultValue: "1",
@@ -12808,8 +12355,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Numerator of Numer/Denom × whole note. Numer=0 → no delay. Examples: 1/4, 1/8, 1/16, 1/32.",
-      },
+          "Numerator of Numer/Denom × whole note. Numer=0 → no delay. Examples: 1/4, 1/8, 1/16, 1/32." },
       {
         control: "number",
         defaultValue: "4",
@@ -12823,8 +12369,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Denominator of Numer/Denom × whole note. At Numer=1: Denom 4=¼, 8=⅛, 16=1/16, 32=1/32.",
-      },
+          "Denominator of Numer/Denom × whole note. At Numer=1: Denom 4=¼, 8=⅛, 16=1/16, 32=1/32." },
       {
         choices: ["Normal", "Dotted", "Triplet"],
         defaultValue: "0",
@@ -12839,8 +12384,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Normal = Numer/Denom as written. Dotted = 1.5×. Triplet = 2/3×.",
-      },
+          "Normal = Numer/Denom as written. Dotted = 1.5×. Triplet = 2/3×." },
       {
         bipolar: true,
         defaultValue: "0",
@@ -12857,8 +12401,7 @@ const nodeGraphModuleDefinitions = (
         tooltip:
           "Static trim (ms) of the tempo-base delay on both taps: "
           + "delay = tempoBase + Offset + LFO_Amp×lfo. Not LFO depth — that is LFO Amp. "
-          + "Negative shortens, positive lengthens. Sample-accurate — pitches when swept or MOD’d.",
-      },
+          + "Negative shortens, positive lengthens. Sample-accurate — pitches when swept or MOD’d." },
       {
         choices: ["Parabol", "Random Walk", "FBM"],
         defaultValue: "0",
@@ -12873,8 +12416,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Shape of the built-in delay-time modulator. Parabol / Random Walk / FBM.",
-      },
+          "Shape of the built-in delay-time modulator. Parabol / Random Walk / FBM." },
       {
         defaultValue: "0.35",
         key: "lfoRate",
@@ -12887,8 +12429,7 @@ const nodeGraphModuleDefinitions = (
         unit: "Hz",
         tooltip:
           "LFO speed in Hz (0…20). Speed only — depth is LFO Amp (ms). "
-          + "Gold LFO L/R outs move whenever Rate > 0, even if Amp is 0.",
-      },
+          + "Gold LFO L/R outs move whenever Rate > 0, even if Amp is 0." },
       {
         defaultValue: "25",
         key: "lfoAmp",
@@ -12904,8 +12445,7 @@ const nodeGraphModuleDefinitions = (
         tooltip:
           "How far the LFO moves delay time (ms) around (tempoBase + Offset). "
           + "Default 25 ms is audible wow; 0 = tempoBase+Offset only (Rate still drives gold LFO outs). "
-          + "Unlike Delay Mod (fraction of delay time), this depth is absolute milliseconds.",
-      },
+          + "Unlike Delay Mod (fraction of delay time), this depth is absolute milliseconds." },
       {
         defaultValue: "0.25",
         key: "lfoVariation",
@@ -12914,8 +12454,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.25",
         min: "0",
         step: "any",
-        tooltip: "Detunes L vs R LFO rates so the two delays don’t lock together.",
-      },
+        tooltip: "Detunes L vs R LFO rates so the two delays don’t lock together." },
       {
         defaultValue: "8000",
         key: "lpfFrequency",
@@ -12927,8 +12466,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         step: "any",
         unit: "Hz",
-        tooltip: "Passive one-pole lowpass in the feedback loop (darkens repeats). 0 Hz holds (closed); DSP caps at Nyquist. Slider min/max are guides only.",
-      },
+        tooltip: "Passive one-pole lowpass in the feedback loop (darkens repeats). 0 Hz holds (closed); DSP caps at Nyquist. Slider min/max are guides only." },
       {
         defaultValue: "20",
         key: "hpfFrequency",
@@ -12940,8 +12478,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         step: "any",
         unit: "Hz",
-        tooltip: "Passive one-pole highpass in the feedback loop (thins mud / DC). Slider min/max are guides only; DSP caps at Nyquist.",
-      },
+        tooltip: "Passive one-pole highpass in the feedback loop (thins mud / DC). Slider min/max are guides only; DSP caps at Nyquist." },
       {
         defaultValue: "0.35",
         key: "feedback",
@@ -12952,8 +12489,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Feedback into the saturated tape loop. Saturate soft-clips. >1 can self-oscillate.",
-      },
+          "Feedback into the saturated tape loop. Saturate soft-clips. >1 can self-oscillate." },
       {
         defaultValue: "1",
         key: "saturate",
@@ -12963,8 +12499,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.01",
         step: "any",
         tooltip:
-          "Soft clip in the feedback path (tape grunge). Lower = harder saturation; higher = cleaner.",
-      },
+          "Soft clip in the feedback path (tape grunge). Lower = harder saturation; higher = cleaner." },
       {
         defaultValue: "0.35",
         key: "mix",
@@ -12974,8 +12509,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Dry/wet mix on Mix L / Mix R.",
-      },
+        tooltip: "Dry/wet mix on Mix L / Mix R." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -12985,8 +12519,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Output amplitude after dry/wet mix.",
-      },
+        tooltip: "Output amplitude after dry/wet mix." },
     ]
   },
   // Under construction: Doppler card only (Space shelf). No DSP or runtime implementation.
@@ -12994,8 +12527,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     inputs: [],
     outputs: [],
-    parameters: [],
-  },
+    parameters: [] },
   wallDelay: {
     planRole: "processor",
     layout: "wallRoomDisplay",
@@ -13055,16 +12587,14 @@ const nodeGraphModuleDefinitions = (
       "Right Dry": "Dry R",
       "Mono Dry": "Dry L",
       Left: "Mix L",
-      Right: "Mix R",
-    },
+      Right: "Mix R" },
     // Dry before Mix (space FX outlet order).
     outputs: ["Dry L", "Dry R", "Mix L", "Mix R"],
     outputLabels: {
       "Dry L": "Dry L",
       "Dry R": "Dry R",
       "Mix L": "Mix L",
-      "Mix R": "Mix R",
-    },
+      "Mix R": "Mix R" },
     parameters: [
       { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", nonlinearSlider: false, step: "any", tooltip: "Dry/wet balance on the Mix outputs (not a wet-only path)." },
       { defaultValue: "0.35", key: "diffusionSize", label: "Size", max: "1", mid: "0.35", min: "0", nonlinearSlider: false, smoothingSeconds: 0.05, step: "any", tooltip: "Size of the diffusion network." },
@@ -13112,8 +12642,7 @@ const nodeGraphModuleDefinitions = (
       "Mono Dry": "Dry L",
       Left: "Mix L",
       Right: "Mix R",
-      Idle: "isIdle",
-    },
+      Idle: "isIdle" },
     digitalOutputs: ["isIdle"],
     outputs: ["Dry L", "Dry R", "Mix L", "Mix R", "isIdle"],
     outputChannels: { isIdle: "black" },
@@ -13122,8 +12651,7 @@ const nodeGraphModuleDefinitions = (
       "Dry L": "Dry L",
       "Dry R": "Dry R",
       "Mix L": "Mix L",
-      "Mix R": "Mix R",
-    },
+      "Mix R": "Mix R" },
     parameters: [
       { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", step: "any", tooltip: "Dry/wet balance on the Mix outputs." },
       {
@@ -13282,8 +12810,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         step: "any",
         tooltip: "VCO center (Hz) when the loop is at rest. 0 Hz is frozen phase. DSP caps at Nyquist.",
-        unit: "Hz",
-      },
+        unit: "Hz" },
       {
         defaultValue: "4",
         key: "range",
@@ -13293,8 +12820,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Octaves the loop may pull around Frequency. Small = soft lock; large = hunt / scream.",
-      },
+        tooltip: "Octaves the loop may pull around Frequency. Small = soft lock; large = hunt / scream." },
       { choices: ["XOR", "RS Flip", "PFD"], defaultValue: "1", displayChoices: true, divideChoicesVisibly: true, key: "type", label: "PC Type", linearSmoothing: false, max: "2", mid: "1", min: "0", nonlinearSlider: false, step: "1" },
       {
         defaultValue: "10",
@@ -13306,8 +12832,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.01",
         step: "any",
         tooltip: "Loop-filter cutoff. Lower = slower grab / more glide.",
-        unit: "Hz",
-      },
+        unit: "Hz" },
     ]
   },
   helmholtzPitch: {
@@ -13330,7 +12855,6 @@ const nodeGraphModuleDefinitions = (
     ],
     displaySignals: [
       { key: "Frequency", kind: "scalar" },
-      { key: "inc", kind: "scalar" },
       { key: "Fidelity", kind: "scalar" },
       { key: "Gate", kind: "scalar" },
       { key: "Detune", kind: "scalar" },
@@ -13342,16 +12866,14 @@ const nodeGraphModuleDefinitions = (
     // of a meter you read directly off the node.
     monitorSink: true,
     // Pitch-family order: f (Frequency) then inc.
-    outputs: ["Frequency", "inc", "Fidelity", "Gate", "Detune"],
-    outputAliases: { f: "Frequency", freq: "Frequency", g: "Gate", fid: "Fidelity", Inc: "inc", Increment: "inc" },
-    outputLabels: { Frequency: "f", inc: "inc", Fidelity: "Fid", Gate: "Gate", Detune: "Detune" },
+    outputs: ["Frequency", "Fidelity", "Gate", "Detune"],
+    outputAliases: { f: "Frequency", freq: "Frequency", g: "Gate", fid: "Fidelity" },
+    outputLabels: { Frequency: "f", Fidelity: "Fid", Gate: "Gate", Detune: "Detune" },
     outputTooltips: {
       Frequency: "Detected fundamental in Hz (0 when unlocked).",
       Fidelity: "NSDF peak clarity 0…1.",
       Gate: "1 while locked (Frequency > 0), else 0.",
-      Detune: "Cents vs nearest ET pitch, mapped −1…+1 (±50¢).",
-      inc: "Phase increment (cycles per sample) = Frequency / sampleRate. Wire to osc Increment.",
-    },
+      Detune: "Cents vs nearest ET pitch, mapped −1…+1 (±50¢)." },
     parameters: [
       {
         constraint: "cpu",
@@ -13407,10 +12929,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: true,
         step: "any",
-        tooltip: "Gate goes high when fidelity ≥ threshold. Mid of the slider sits at 0.9 (Helmholtz lock is ~0.93).",
-      },
-    ],
-  },
+        tooltip: "Gate goes high when fidelity ≥ threshold. Mid of the slider sits at 0.9 (Helmholtz lock is ~0.93)." },
+    ] },
   // RMS Mono — Window/Attack/Release meter. Face = waterfall of RMS A.
   rms: {
     planRole: "processor",
@@ -13424,8 +12944,7 @@ const nodeGraphModuleDefinitions = (
         label: "Waterfall",
         renderer: "waterfall",
         settingsSchema: "waterfall",
-        source: { value: "RMS A" },
-      },
+        source: { value: "RMS A" } },
     ],
     defaultDisplayMode: "waterfall",
     displaySignals: [
@@ -13438,8 +12957,7 @@ const nodeGraphModuleDefinitions = (
     inputAliases: { Mono: "In", L: "In", R: "In", M: "In", Left: "In", Right: "In" },
     inputLabels: { In: "In" },
     inputTooltips: {
-      In: "Audio to measure. Mono input for the RMS meter and waterfall.",
-    },
+      In: "Audio to measure. Mono input for the RMS meter and waterfall." },
     inputs: ["In"],
     outputAliases: {
       Out: "RMS A",
@@ -13449,21 +12967,17 @@ const nodeGraphModuleDefinitions = (
       D: "RMS D",
       Dig: "RMS D",
       rms: "RMS A",
-      g: "Gate",
-    },
+      g: "Gate" },
     outputLabels: {
       "RMS A": "RMS A",
       "RMS D": "RMS D",
-      Gate: "Gate",
-    },
+      Gate: "Gate" },
     outputTooltips: {
       "RMS A": "Analog RMS amplitude (gold). 0 = silence, 1 = 0 dB FS, >1 = above full scale.",
       "RMS D": "Digital RMS level in absolute dBFS (white). Use for readouts / automation.",
-      Gate: "1 while measured RMS (absolute dBFS) is at or above Threshold.",
-    },
+      Gate: "1 while measured RMS (absolute dBFS) is at or above Threshold." },
     outputs: ["RMS A", "RMS D", "Gate"],
-    parameters: nodeGraphRmsModuleParameterDefs,
-  },
+    parameters: nodeGraphRmsModuleParameterDefs },
   // RMS Stereo — Left/Right in, music RMS = (L+R)/2 (or the lone side). Face = RMS A.
   // Per-channel outs still computed in DSP; listed in hiddenOutputs until port show/hide ships.
   rmsStereo: {
@@ -13478,8 +12992,7 @@ const nodeGraphModuleDefinitions = (
         label: "Waterfall",
         renderer: "waterfall",
         settingsSchema: "waterfall",
-        source: { value: "RMS A" },
-      },
+        source: { value: "RMS A" } },
     ],
     defaultDisplayMode: "waterfall",
     displaySignals: [
@@ -13493,8 +13006,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { Left: "Left", Right: "Right" },
     inputTooltips: {
       Left: "Left channel audio (red). With Right, meter uses (L+R)/2. Alone = that side only.",
-      Right: "Right channel audio (blue). With Left, meter uses (L+R)/2. Alone = that side only.",
-    },
+      Right: "Right channel audio (blue). With Left, meter uses (L+R)/2. Alone = that side only." },
     inputs: ["Left", "Right"],
     outputAliases: {
       Out: "RMS A",
@@ -13506,18 +13018,15 @@ const nodeGraphModuleDefinitions = (
       "RMS Avg D": "RMS D",
       A: "RMS A",
       D: "RMS D",
-      g: "Gate",
-    },
+      g: "Gate" },
     outputLabels: {
       "RMS A": "RMS A",
       "RMS D": "RMS D",
-      Gate: "Gate",
-    },
+      Gate: "Gate" },
     outputTooltips: {
       "RMS A": "Analog stereo music RMS amplitude (gold) — (L+R)/2 when both sides are wired. Drives the waterfall.",
       "RMS D": "Digital stereo music RMS in absolute dBFS (white).",
-      Gate: "1 while measured music RMS (absolute dBFS) is at or above Threshold.",
-    },
+      Gate: "1 while measured music RMS (absolute dBFS) is at or above Threshold." },
     outputs: ["RMS A", "RMS D", "Gate"],
     // Parked jacks (engine still writes these keys). Future: per-port show/hide.
     hiddenOutputs: [
@@ -13528,8 +13037,7 @@ const nodeGraphModuleDefinitions = (
       "Gate Left",
       "Gate Right",
     ],
-    parameters: nodeGraphRmsModuleParameterDefs,
-  },
+    parameters: nodeGraphRmsModuleParameterDefs },
   // Under construction — Multimeter loudness meter placeholder.
   lufs: {
     planRole: "processor",
@@ -13551,14 +13059,12 @@ const nodeGraphModuleDefinitions = (
       M: "Momentary",
       S: "Short Term",
       I: "Integrated",
-      g: "Gate",
-    },
+      g: "Gate" },
     outputLabels: {
       Momentary: "M",
       "Short Term": "S",
       Integrated: "I",
-      Gate: "Gate",
-    },
+      Gate: "Gate" },
     outputs: ["Momentary", "Short Term", "Integrated", "Gate"],
     parameters: [
       {
@@ -13571,10 +13077,8 @@ const nodeGraphModuleDefinitions = (
         maxDigits: 4,
         step: "any",
         unit: "LUFS",
-        tooltip: "Under construction — gate threshold in LUFS (placeholder).",
-      },
-    ],
-  },
+        tooltip: "Under construction — gate threshold in LUFS (placeholder)." },
+    ] },
   // Hard rate limit: max |Δ| per sample from up/down slews in seconds.
   // Separate Up/Down Shape: Lin / Log / Exp / Smooth.
   // Mono gold CV utility (In → Out) — not a stereo audio processor.
@@ -13586,8 +13090,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out"],
     defaultUi: {
       buttonsHidden: true,
-      oscilloscopeHidden: true,
-    },
+      oscilloscopeHidden: true },
     parameters: [
       {
         choices: ["Lin", "Log", "Exp", "Smooth"],
@@ -13657,8 +13160,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Offset added before slew (0…1). Hidden by default — show it to step the target by hand.",
-      },
+        tooltip: "Offset added before slew (0…1). Hidden by default — show it to step the target by hand." },
     ]
   },
   // Mid/Side matrix (0.5 convention): M=(L+R)/2, S=(L−R)/2.
@@ -13704,16 +13206,14 @@ const nodeGraphModuleDefinitions = (
     inputTooltips: {
       In: "Mixed with Side, then into I+S Allpass and I+S Hilbert.",
       Side: "Mixed with In, then into I+S Allpass and I+S Hilbert.",
-      Mid: "Into MidI only (allpass + 1 sample). Not mixed with In or Side.",
-    },
+      Mid: "Into MidI only (allpass + 1 sample). Not mixed with In or Side." },
     inputs: ["In", "Mid", "Side"],
     outputLabels: { I: "I+S Allpass", Q: "I+S Hilbert", MidI: "M Allpass", SideQ: "I+S Hilbert (copy)" },
     outputTooltips: {
       I: "In+Side through the reference allpass. 1 sample delay so it lines up with I+S Hilbert.",
       Q: "In+Side through the Hilbert allpass. ~90° shift relative to I+S Allpass.",
       SideQ: "Copy of I+S Hilbert (same In+Side +90°). Extra jack for Mid/Side wiring.",
-      MidI: "Mid only through the reference allpass. 1 sample delay. Not mixed with In or Side.",
-    },
+      MidI: "Mid only through the reference allpass. 1 sample delay. Not mixed with In or Side." },
     outputs: ["I", "Q", "MidI", "SideQ"],
     parameters: [
       nodeGraphOutputAmplitudeParam,
@@ -13743,8 +13243,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "+90° = Hilbert Q. −90° = inverted Q. 0° = I (same delay as Q, not a raw dry bypass). Use on Mid/Side Out Side, then add to Out Mid.",
-      },
+          "+90° = Hilbert Q. −90° = inverted Q. 0° = I (same delay as Q, not a raw dry bypass). Use on Mid/Side Out Side, then add to Out Mid." },
       nodeGraphOutputAmplitudeParam,
     ]
   },
@@ -13761,8 +13260,7 @@ const nodeGraphModuleDefinitions = (
         label: "Gain",
         renderer: "waterfall",
         settingsSchema: "waterfall",
-        source: { value: "Gain" },
-      },
+        source: { value: "Gain" } },
     ],
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
@@ -13785,8 +13283,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "On = apply makeup of −Ceiling after the brickwall so limited peaks sit at 0 dBFS. Off = output stays at the Ceiling. Gain jack still reports the reduction.",
-      },
+          "On = apply makeup of −Ceiling after the brickwall so limited peaks sit at 0 dBFS. Off = output stays at the Ceiling. Gain jack still reports the reduction." },
       {
         defaultValue: "-1",
         key: "ceiling",
@@ -13879,8 +13376,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "x",
         tooltip:
-          "Over-reduction after the exact brickwall cut. 1× = just enough for the Ceiling. 2× = twice the dB of dip. Slider min/max are yours in Parameter Settings — DSP does not clamp this. Hidden by default.",
-      },
+          "Over-reduction after the exact brickwall cut. 1× = just enough for the Ceiling. 2× = twice the dB of dip. Slider min/max are yours in Parameter Settings — DSP does not clamp this. Hidden by default." },
     ]
   },
   // Pump Limiter — input gain / threshold / ratio GR, sidechain detect, Env out.
@@ -13898,21 +13394,18 @@ const nodeGraphModuleDefinitions = (
         label: "Gain",
         renderer: "waterfall",
         settingsSchema: "waterfall",
-        source: { value: "Gain" },
-      },
+        source: { value: "Gain" } },
     ],
     inputAliases: { Mono: "In", SC: "Sidechain", Key: "Sidechain" },
     inputLabels: { In: "Mono", Sidechain: "SC" },
     inputTooltips: {
-      Sidechain: "Optional detect key. When wired, GR follows Sidechain instead of the audio path.",
-    },
+      Sidechain: "Optional detect key. When wired, GR follows Sidechain instead of the audio path." },
     inputs: ["In", "Left", "Right", "Sidechain"],
     outputAliases: { Mono: "Out", Envelope: "Env" },
     outputLabels: { Out: "Mono", Env: "Env" },
     outputTooltips: {
       Env: "Detector envelope 0…1 (smoothed level used for gain reduction).",
-      Gain: "Instant gain reduction multiplier (1 = no GR).",
-    },
+      Gain: "Instant gain reduction multiplier (1 = no GR)." },
     outputs: ["Out", "Left", "Right", "Gain", "Env"],
     parameters: [
       {
@@ -13925,8 +13418,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "dB",
-        tooltip: "Drive into the limiter before detect/GR. Raise to hit Threshold harder (more pump).",
-      },
+        tooltip: "Drive into the limiter before detect/GR. Raise to hit Threshold harder (more pump)." },
       {
         defaultValue: "-18",
         key: "threshold",
@@ -13937,8 +13429,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "dB",
-        tooltip: "Level where gain reduction starts. Lower = more compression/pump on typical program.",
-      },
+        tooltip: "Level where gain reduction starts. Lower = more compression/pump on typical program." },
       {
         defaultValue: "8",
         key: "ratio",
@@ -13949,8 +13440,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: ":1",
-        tooltip: "How hard GR climbs above Threshold. ~4–8 = firm. ~12–20 = heavy pump.",
-      },
+        tooltip: "How hard GR climbs above Threshold. ~4–8 = firm. ~12–20 = heavy pump." },
       {
         choices: ["Off", "On"],
         defaultValue: "1",
@@ -13964,8 +13454,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "On = delay audio so GR can fall before hits (helps pump without zero-attack chatter).",
-      },
+        tooltip: "On = delay audio so GR can fall before hits (helps pump without zero-attack chatter)." },
       {
         defaultValue: "5",
         key: "lookaheadMs",
@@ -13977,8 +13466,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "ms",
-        tooltip: "Look-ahead delay in ms when Look-ahead is On. Part of the sound (not host-compensated).",
-      },
+        tooltip: "Look-ahead delay in ms when Look-ahead is On. Part of the sound (not host-compensated)." },
       {
         defaultValue: "0",
         hidden: true,
@@ -13989,8 +13477,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Extra look-ahead in samples (added to LA Time). Hidden by default.",
-      },
+        tooltip: "Extra look-ahead in samples (added to LA Time). Hidden by default." },
       {
         defaultValue: "5",
         key: "attack",
@@ -14002,8 +13489,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "ms",
-        tooltip: "How fast GR engages on a hit. A few ms keeps punch while still pumping.",
-      },
+        tooltip: "How fast GR engages on a hit. A few ms keeps punch while still pumping." },
       {
         defaultValue: "250",
         key: "release",
@@ -14015,8 +13501,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "ms",
-        tooltip: "How fast gain recovers after a hit — the main pump/breathe timing. Longer = slower swell back.",
-      },
+        tooltip: "How fast gain recovers after a hit — the main pump/breathe timing. Longer = slower swell back." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -14026,8 +13511,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Final output trim after GR. 0…1. Lower if the bus is too hot; no autogain.",
-      },
+        tooltip: "Final output trim after GR. 0…1. Lower if the bus is too hot; no autogain." },
     ]
   },
   // Exponential approach: out += (in − out) * k with separate rise/fall k (0…1).
@@ -14055,8 +13539,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "On = rise uses Attack Hz. Off = rising edges snap instantly (Attack ignored); Release still applies on the way down.",
-      },
+        tooltip: "On = rise uses Attack Hz. Off = rising edges snap instantly (Attack ignored); Release still applies on the way down." },
       {
         defaultValue: "20000",
         key: "attack",
@@ -14099,8 +13582,7 @@ const nodeGraphModuleDefinitions = (
     defaultDisplayMode: "waterfall",
     defaultDisplaySettings: {
       filledBars: false,
-      drawStroke: true,
-    },
+      drawStroke: true },
     stereoWaterfallPorts: { left: "Left Raw", right: "Right Raw" },
     displaySignals: [
       { key: "Left Raw", kind: "scalar" },
@@ -14114,8 +13596,7 @@ const nodeGraphModuleDefinitions = (
       Left: "Ext In",
       Right: "Ext In",
       Trigger: "Clock",
-      Trig: "Clock",
-    },
+      Trig: "Clock" },
     inputLabels: { "Ext In": "Ext In", Clock: "Clock" },
     inputs: ["Ext In", "Clock"],
     outputAliases: { Out: "Ext Out", Mono: "Ext Out" },
@@ -14135,8 +13616,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Off = classic hold. Linear / Smoothstep glide from previous hold to the new sample over the clock period (Sample Freq) or last Clock interval. Applies to Ext and internal Left/Right.",
-      },
+        tooltip: "Off = classic hold. Linear / Smoothstep glide from previous hold to the new sample over the clock period (Sample Freq) or last Clock interval. Applies to Ext and internal Left/Right." },
       {
         choices: ["Bipolar", "Unipolar"],
         defaultValue: "0",
@@ -14151,8 +13631,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "1",
         tooltip:
-          "Bipolar = −1…1 (raw hold / noise). Unipolar = 0…1 on audio outs for MOD into unipolar params (Sweep, Frequency, etc.) without a B2U. Face/waterfall reads Left Raw / Right Raw (bipolar full height; ignores Polarity), same spirit as Amplitude.",
-      },
+          "Bipolar = −1…1 (raw hold / noise). Unipolar = 0…1 on audio outs for MOD into unipolar params (Sweep, Frequency, etc.) without a B2U. Face/waterfall reads Left Raw / Right Raw (bipolar full height; ignores Polarity), same spirit as Amplitude." },
       {
         defaultValue: "0",
         key: "sampleFrequency",
@@ -14163,8 +13642,7 @@ const nodeGraphModuleDefinitions = (
         mid: "10",
         min: "0",
         step: "any",
-        unit: "Hz",
-      },
+        unit: "Hz" },
       {
         defaultValue: "0",
         key: "threshold",
@@ -14173,8 +13651,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1",
         nonlinearSlider: false,
-        step: "any",
-      },
+        step: "any" },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -14183,10 +13660,8 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Scale Ext Out (and L/R audio). Face Left Raw / Right Raw always show full hold. 0 = mute, 1 = full. Use instead of an external attenuverter for MOD depth.",
-      },
-    ],
-  },
+        tooltip: "Scale Ext Out (and L/R audio). Face Left Raw / Right Raw always show full hold. 0 = mute, 1 = full. Use instead of an external attenuverter for MOD depth." },
+    ] },
   // Portal MIDI — hardware device listen only. Does not drive Keyboard face/outs.
   // Play Keys = live MIDI note bitmask (blue). Wire to Meta Voices to mix into voices.
   // Unique in patch like Output — one hardware MIDI inlet.
@@ -14198,8 +13673,7 @@ const nodeGraphModuleDefinitions = (
     layout: "keyboardController",
     outputChannels: {
       "Play Keys": "blue",
-      Velocity: "gold",
-    },
+      Velocity: "gold" },
     outputAliases: {
       Polyphony: "Play Keys",
       NoteNumber: "pitch",
@@ -14214,14 +13688,12 @@ const nodeGraphModuleDefinitions = (
       "Velo#/127": "Velocity",
       "ƒ": "Frequency",
       Freq: "Frequency",
-      f: "Frequency",
-    },
+      f: "Frequency" },
     outputLabels: {
       "Play Keys": "Play Keys",
       "pitch": "♯/♭",
       Velocity: "Velocity",
-      Frequency: "ƒ",
-    },
+      Frequency: "ƒ" },
     // Pitch-family: sharp/flat then f (Frequency). No inc on MIDI controller.
     outputs: [
       "Play Keys",
@@ -14248,21 +13720,18 @@ const nodeGraphModuleDefinitions = (
     inputChannels: {
       "Play Keys": "blue",
       "Arp Keys": "gold",
-      "Chord Memory": "green",
-    },
+      "Chord Memory": "green" },
     outputChannels: {
       "Play Keys": "blue",
       "Arp Keys": "gold",
-      "Chord Memory": "green",
-    },
+      "Chord Memory": "green" },
     layout: "keyboard",
     displayType: "keyboardControllerFace",
     displayModes: [
       {
         key: "keyboardControllerFace",
         renderer: "keyboardControllerFace",
-        settingsSchema: "keyboardControllerFace",
-      },
+        settingsSchema: "keyboardControllerFace" },
     ],
     defaultWidthGu: 36,
     displayHeightGu: 7,
@@ -14277,10 +13746,7 @@ const nodeGraphModuleDefinitions = (
       "0.1v/Oct": "pitch",
       // Legacy renames (patch cables remap via nodeGraphCanonicalOutputPort)
       KeyboardKey: "KeyIndex",
-      KeyboardNorm: "KeyNorm",
-      Inc: "inc",
-      Increment: "inc",
-    },
+      KeyboardNorm: "KeyNorm" },
     outputLabels: {
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
@@ -14288,27 +13754,13 @@ const nodeGraphModuleDefinitions = (
       KeyIndex: "KeyIndex",
       KeyNorm: "KeyNorm",
       "pitch": "♯/♭",
-      inc: "inc"
-    },
+      f: "ƒ" },
     inputLabels: {
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
-      "Chord Memory": "Chord Memory",
-    },
+      "Chord Memory": "Chord Memory" },
     // Order: masks, then pitch-family (sharp/flat then inc), then Gate/Trig, key CVs, XY
-    outputs: [
-      "Play Keys",
-      "Arp Keys",
-      "Chord Memory",
-      "pitch",
-      "inc",
-      "Gate",
-      "Trigger",
-      "KeyIndex",
-      "KeyNorm",
-      "X",
-      "Y",
-    ],
+    outputs: ["Play Keys", "Arp Keys", "Chord Memory", "pitch", "f", "Gate", "Trigger", "KeyIndex", "KeyNorm", "X", "Y"],
     parameters: []
   },
   gridKeyboard: {
@@ -14319,13 +13771,11 @@ const nodeGraphModuleDefinitions = (
     inputChannels: {
       "Play Keys": "blue",
       "Arp Keys": "gold",
-      "Chord Memory": "green",
-    },
+      "Chord Memory": "green" },
     outputChannels: {
       "Play Keys": "blue",
       "Arp Keys": "gold",
-      "Chord Memory": "green",
-    },
+      "Chord Memory": "green" },
     layout: "gridKeyboard",
     defaultWidthGu: 40,
     displayHeightGu: 24,
@@ -14333,13 +13783,11 @@ const nodeGraphModuleDefinitions = (
     outputLabels: {
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
-      "Chord Memory": "Chord Memory",
-    },
+      "Chord Memory": "Chord Memory" },
     inputLabels: {
       "Play Keys": "Play Keys",
       "Arp Keys": "Arp Keys",
-      "Chord Memory": "Chord Memory",
-    },
+      "Chord Memory": "Chord Memory" },
     outputs: [
       "Play Keys",
       "Arp Keys",
@@ -14350,8 +13798,7 @@ const nodeGraphModuleDefinitions = (
       "X",
       "Y",
     ],
-    parameters: [],
-  },
+    parameters: [] },
   wavetable2d: {
     planRole: "source",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
@@ -14365,16 +13812,15 @@ const nodeGraphModuleDefinitions = (
         key: "waveform",
         label: "Waveform",
         renderer: "sampleWaveform",
-        settingsSchema: "sampleWaveform",
-      },
+        settingsSchema: "sampleWaveform" },
     ],
     defaultDisplayMode: "waveform",
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     inputTooltips: {
       Reset: "Rising edge zeros the phasor.",
-      Increment: "Phase increment add (cycles per sample).",
-    },
+      f: "Absolute Hz. Replaces Frequency when wired." },
     outputLabels: { Out: "←" },
     outputs: ["Out"],
     parameters: [
@@ -14389,8 +13835,7 @@ const nodeGraphModuleDefinitions = (
         step: "0.001",
         wraparound: true,
         smoothingType: "papoulis",
-        tooltip: "Wraparound morph: Rectified sine → Sine → inverted Rectified sine (180°) → Sine → …",
-      },
+        tooltip: "Wraparound morph: Rectified sine → Sine → inverted Rectified sine (180°) → Sine → …" },
       {
         defaultValue: "100",
         key: "frequency",
@@ -14400,8 +13845,7 @@ const nodeGraphModuleDefinitions = (
         mid: "220",
         min: "0",
         step: "any",
-        unit: "Hz",
-      },
+        unit: "Hz" },
       {
         defaultValue: "0",
         key: "phase",
@@ -14412,8 +13856,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
-      },
+        wraparound: true },
       {
         defaultValue: "0",
         key: "warp",
@@ -14423,8 +13866,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         showSign: true,
         step: "any",
-        tooltip: "Baked warp (−1…+1). 0 = linear. Negatives bunch the other side of the cycle. Maps across 13 Fourier frames (no live phase distortion).",
-      },
+        tooltip: "Baked warp (−1…+1). 0 = linear. Negatives bunch the other side of the cycle. Maps across 13 Fourier frames (no live phase distortion)." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -14434,10 +13876,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: true,
-      },
-    ],
-  },
+        modClamp: true },
+    ] },
   samplePlayer: {
     planRole: "source",
     layout: "sampleWaveform",
@@ -14449,14 +13889,12 @@ const nodeGraphModuleDefinitions = (
         key: "waveform",
         label: "Waveform",
         renderer: "sampleWaveform",
-        settingsSchema: "sampleWaveform",
-      },
+        settingsSchema: "sampleWaveform" },
     ],
     defaultDisplayMode: "waveform",
     inputs: ["Gate"],
     inputTooltips: {
-      Gate: "Rising edge starts playback. Level at the edge is velocity (0…1 amplitude).",
-    },
+      Gate: "Rising edge starts playback. Level at the edge is velocity (0…1 amplitude)." },
     outputs: ["Mono", "Left", "Right"],
     parameters: [
       {
@@ -14472,8 +13910,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "One-shot: Gate edge plays start→end once. Hold: play while Gate high, stop at end or release. Loop: loop start↔end while Gate high.",
-      },
+        tooltip: "One-shot: Gate edge plays start→end once. Hold: play while Gate high, stop at end or release. Loop: loop start↔end while Gate high." },
       {
         defaultValue: "0",
         key: "start",
@@ -14484,8 +13921,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Region start as 0…1 of the loaded sample. Drag the left handle on the waveform.",
-      },
+        tooltip: "Region start as 0…1 of the loaded sample. Drag the left handle on the waveform." },
       {
         defaultValue: "1",
         key: "end",
@@ -14496,8 +13932,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Region end as 0…1 of the loaded sample. Drag the right handle on the waveform.",
-      },
+        tooltip: "Region end as 0…1 of the loaded sample. Drag the right handle on the waveform." },
       {
         defaultValue: "1",
         key: "speed",
@@ -14510,10 +13945,8 @@ const nodeGraphModuleDefinitions = (
         showSign: true,
         step: "any",
         unit: "x",
-        tooltip: "Playback rate. 1 = original, negative = reverse.",
-      },
-    ],
-  },
+        tooltip: "Playback rate. 1 = original, negative = reverse." },
+    ] },
   sampleLooper: {
     planRole: "processor",
     displayType: "waterfall",
@@ -14542,8 +13975,9 @@ const nodeGraphModuleDefinitions = (
   phosphillator: {
     planRole: "source",
     layout: "phosphillatorDraw",
-    inputs: ["Reset", "Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["Reset", "f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputs: ["X", "Y"],
     parameters: [
       { defaultValue: "2", key: "frequency", kind: "frequency", label: "Frequency", max: "2000", maxDigits: 5, mid: "2", min: "0", step: "any", unit: "Hz" },
@@ -14574,16 +14008,14 @@ const nodeGraphModuleDefinitions = (
         key: "waveform",
         label: "Waveform",
         renderer: "sampleWaveform",
-        settingsSchema: "sampleWaveform",
-      },
+        settingsSchema: "sampleWaveform" },
     ],
     defaultDisplayMode: "waveform",
     digitalInputs: ["Reset", "Start Time", "End Time"],
     digitalOutputs: ["Trigger"],
     inputTooltips: {
       "Start Time": "File time in seconds. Converted to 0…1 phase from the loaded sample length. Unconnected uses the [⇐ slider.",
-      "End Time": "File time in seconds. Converted to 0…1 phase from the loaded sample length. Unconnected uses the ⇒] slider.",
-    },
+      "End Time": "File time in seconds. Converted to 0…1 phase from the loaded sample length. Unconnected uses the ⇒] slider." },
     inputs: ["Reset", "Start Time", "End Time", "Speed", "Phase"],
     outputs: ["Mono", "Left", "Right", "Phase", "Trigger"],
     parameters: [
@@ -14601,8 +14033,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Fractional sample read. Off = linear. Hermite = 4-point cubic (smoother varispeed, more CPU).",
-      },
+        tooltip: "Fractional sample read. Off = linear. Hermite = 4-point cubic (smoother varispeed, more CPU)." },
       { choices: ["Off (reset)", "Stop", "Pause", "Loop", "Play", "Loop All"], defaultValue: "4", displayChoices: true, divideChoicesVisibly: true, key: "transport", label: "Playmode", linearSmoothing: false, max: "5", mid: "2", min: "0", nonlinearSlider: false, step: "1" },
       { defaultValue: "1", key: "speed", label: "Speed", linearSmoothing: false, max: "8", maxDigits: 4, mid: "1", min: "0", step: "any", unit: "x" },
       // Slow reverse/forward nudge. No wrap. Internal 5 s linear (220500 samples @ 44.1 kHz).
@@ -14663,8 +14094,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        wraparound: true,
-      },
+        wraparound: true },
     ]
   },
   pitchModWheel: {
@@ -14674,8 +14104,7 @@ const nodeGraphModuleDefinitions = (
     layout: "pitchModWheel",
     outputAliases: {
       "Pitch Wheel": "Pitch",
-      "Mod Wheel": "Mod",
-    },
+      "Mod Wheel": "Mod" },
     outputs: ["Pitch", "Mod"],
     parameters: []
   },
@@ -14706,8 +14135,7 @@ const nodeGraphModuleDefinitions = (
         step: "1",
         tooltip:
           "Analog = one-pole (classic). Linear / Smoothstep = stretch a 0…1 segment "
-          + "with that warp. No extra curve knobs.",
-      },
+          + "with that warp. No extra curve knobs." },
       {
         defaultValue: "0.01",
         key: "attack",
@@ -14718,8 +14146,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Attack time. Modulatable. Gate↑ attacks from current level (no hard restart).",
-      },
+        tooltip: "Attack time. Modulatable. Gate↑ attacks from current level (no hard restart)." },
       {
         defaultValue: "0.2",
         key: "decay",
@@ -14730,8 +14157,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Decay time to Sustain × velocity. Modulatable.",
-      },
+        tooltip: "Decay time to Sustain × velocity. Modulatable." },
       {
         defaultValue: "0.7",
         key: "sustain",
@@ -14740,8 +14166,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Sustain level (0…1), scaled by Gate velocity. Modulatable.",
-      },
+        tooltip: "Sustain level (0…1), scaled by Gate velocity. Modulatable." },
       {
         defaultValue: "0.3",
         key: "release",
@@ -14752,8 +14177,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Release time after Gate falls. Modulatable.",
-      },
+        tooltip: "Release time after Gate falls. Modulatable." },
       {
         defaultValue: "1",
         key: "level",
@@ -14762,10 +14186,8 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Output scale. Modulatable.",
-      },
-    ],
-  },
+        tooltip: "Output scale. Modulatable." },
+    ] },
   // Full shapeable DADSR with bipolar Attack/Fall curves (0=linear, +=exp, −=log).
   expAdsr: {
     planRole: "processor",
@@ -14789,8 +14211,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "On: Delay/Attack/Decay/Sustain/Release/curves/Loop/Level latch on Gate rise — knob/mod changes wait until the next trigger. Off: params apply live.",
-      },
+        tooltip: "On: Delay/Attack/Decay/Sustain/Release/curves/Loop/Level latch on Gate rise — knob/mod changes wait until the next trigger. Off: params apply live." },
       {
         defaultValue: "0",
         key: "delay",
@@ -15026,8 +14447,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Gate = follow high/low (hold at peak while gated). Trigger = rising edge fires one Attack→Release.",
-      },
+        tooltip: "Gate = follow high/low (hold at peak while gated). Trigger = rising edge fires one Attack→Release." },
       {
         defaultValue: "0.01",
         key: "attack",
@@ -15039,8 +14459,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Linear rise time 0→1. 0 = instant snap.",
-      },
+        tooltip: "Linear rise time 0→1. 0 = instant snap." },
       {
         defaultValue: "0.25",
         key: "release",
@@ -15052,8 +14471,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Linear fall time from current level → 0. 0 = instant snap.",
-      },
+        tooltip: "Linear fall time from current level → 0. 0 = instant snap." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -15064,10 +14482,8 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Output scale after the envelope.",
-      },
-    ],
-  },
+        tooltip: "Output scale after the envelope." },
+    ] },
   curveAttackRelease: {
     planRole: "processor",
     planFreeRun: true,
@@ -15088,8 +14504,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "On: Attack/Release/curves/Amplitude latch on Gate rise. Off: params apply live.",
-      },
+        tooltip: "On: Attack/Release/curves/Amplitude latch on Gate rise. Off: params apply live." },
       {
         choices: ["Gate", "Trigger"],
         defaultValue: "0",
@@ -15103,8 +14518,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Gate = follow high/low (hold at peak while gated). Trigger = rising edge fires one Attack→Release.",
-      },
+        tooltip: "Gate = follow high/low (hold at peak while gated). Trigger = rising edge fires one Attack→Release." },
       {
         defaultValue: "0.01",
         key: "attack",
@@ -15116,8 +14530,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Rise time 0→1. 0 = instant snap.",
-      },
+        tooltip: "Rise time 0→1. 0 = instant snap." },
       {
         defaultValue: "0",
         key: "attackShape",
@@ -15128,8 +14541,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Bipolar segment shape. 0 = linear, + = exponential (fast→slow), − = logarithmic (slow→fast).",
-      },
+        tooltip: "Bipolar segment shape. 0 = linear, + = exponential (fast→slow), − = logarithmic (slow→fast)." },
       {
         defaultValue: "0.25",
         key: "release",
@@ -15141,8 +14553,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Fall time from current level → 0. 0 = instant snap.",
-      },
+        tooltip: "Fall time from current level → 0. 0 = instant snap." },
       {
         defaultValue: "0",
         key: "releaseShape",
@@ -15153,8 +14564,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Bipolar shape for release. 0 = linear, + = exp, − = log.",
-      },
+        tooltip: "Bipolar shape for release. 0 = linear, + = exp, − = log." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -15164,10 +14574,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
-      },
-    ],
-  },
+        modClamp: false },
+    ] },
   thumpEnvelope: {
     planRole: "processor",
     planFreeRun: true,
@@ -15191,8 +14599,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "On (default): latch Attack/Release/Fall/Snap/Body depths/Amplitude on Gate rise. Feedback into Decay/Sustain stays live. Gate height at rise is velocity (env level + feedback) — soft Gate = less-high pluck.",
-      },
+        tooltip: "On (default): latch Attack/Release/Fall/Snap/Body depths/Amplitude on Gate rise. Feedback into Decay/Sustain stays live. Gate height at rise is velocity (env level + feedback) — soft Gate = less-high pluck." },
       {
         defaultValue: "0",
         key: "attack",
@@ -15204,8 +14611,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Linear rise time. 0 = skip straight to decay (instant peak).",
-      },
+        tooltip: "Linear rise time. 0 = skip straight to decay (instant peak)." },
       {
         // patches/pluck envelope 2.json — expAdsr-1.releaseShape
         defaultValue: "0.8062943900342834",
@@ -15216,8 +14622,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Shape for Decay and Release. 0 ≈ linear; patch default ≈ +0.81.",
-      },
+        tooltip: "Shape for Decay and Release. 0 ≈ linear; patch default ≈ +0.81." },
       {
         // Invert of patch atten-4 (amp 1): UI 0 = full feedback, 1 = none.
         defaultValue: "0",
@@ -15228,8 +14633,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Patch feedback into Decay (atten ×0…1, inverted). 0 = short like the patch. 1 = long.",
-      },
+        tooltip: "Patch feedback into Decay (atten ×0…1, inverted). 0 = short like the patch. 1 = long." },
       {
         // Invert of patch atten-5 (amp 10) as 0…1: UI 0 = ×10, 1 = ×0.
         defaultValue: "0",
@@ -15240,8 +14644,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Feedback into Sustain (base forever 1.0). 0 = short like the patch. 1 = long hang.",
-      },
+        tooltip: "Feedback into Sustain (base forever 1.0). 0 = short like the patch. 1 = long hang." },
       {
         // patches/pluck envelope 2.json — expAdsr-1.release
         // With short triggers + Body fb, Release is the long body after Snap.
@@ -15255,8 +14658,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Extends the Decay Body after Snap (patch Release). Short Gate/Trigger: this is most of the tail. Longer = longer body.",
-      },
+        tooltip: "Extends the Decay Body after Snap (patch Release). Short Gate/Trigger: this is most of the tail. Longer = longer body." },
       {
         choices: ["Off", "On"],
         defaultValue: "0",
@@ -15270,8 +14672,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "On = retrigger from Sustain while gated (can sound like attack resets).",
-      },
+        tooltip: "On = retrigger from Sustain while gated (can sound like attack resets)." },
       {
         // Final output trim. Gate height = velocity (env level + fb into Range).
         defaultValue: "0.980691228326368",
@@ -15283,10 +14684,8 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Final output trim. Gate height at rise sets env level (velocity) into Snap/Body feedback (× hardcoded 0.980691 → Range). Soft Gate = less-high pluck.",
-      },
-    ],
-  },
+        tooltip: "Final output trim. Gate height at rise sets env level (velocity) into Snap/Body feedback (× hardcoded 0.980691 → Range). Soft Gate = less-high pluck." },
+    ] },
   // Roll-your-own optical-lag envelope (formerly vactrolEnvelopeCustom).
   vactrol: {
     planRole: "processor",
@@ -15307,8 +14706,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "s",
         displayTransform: (value) => ({ maxDigits: 1, unit: "ms", value: value * 1000 }),
-        tooltip: "Rise time constant toward a brighter Light target. 0 = instant.",
-      },
+        tooltip: "Rise time constant toward a brighter Light target. 0 = instant." },
       {
         defaultValue: "0.1",
         key: "release",
@@ -15321,8 +14719,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "s",
         displayTransform: (value) => ({ maxDigits: 1, unit: "ms", value: value * 1000 }),
-        tooltip: "Fall time constant toward a dimmer Light target (photoconductive lag).",
-      },
+        tooltip: "Fall time constant toward a dimmer Light target (photoconductive lag)." },
       {
         defaultValue: "1",
         key: "curve",
@@ -15332,8 +14729,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0.001",
         step: "any",
-        tooltip: "Gamma after the one-pole. 1 = linear; >1 digs in; <1 lifts the tail.",
-      },
+        tooltip: "Gamma after the one-pole. 1 = linear; >1 digs in; <1 lifts the tail." },
       {
         defaultValue: "1",
         key: "sensitivity",
@@ -15344,11 +14740,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Gain on Light before the detector (unipolar clip).",
-      },
+        tooltip: "Gain on Light before the detector (unipolar clip)." },
       nodeGraphOutputAmplitudeParam,
-    ],
-  },
+    ] },
   acousticPluck: {
     planRole: "processor",
     planFreeRun: true,
@@ -15374,8 +14768,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "On: latch Attack/Release/curves/Feedback/Bias/Amplitude on Gate rise. Off (default): params apply live. Feedback into Release stays live either way.",
-      },
+        tooltip: "On: latch Attack/Release/curves/Feedback/Bias/Amplitude on Gate rise. Off (default): params apply live. Feedback into Release stays live either way." },
       {
         choices: ["Gate", "Trigger"],
         defaultValue: "1",
@@ -15389,8 +14782,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Gate = follow high/low. Trigger (default) = rising edge fires one Attack then Release (breadboard).",
-      },
+        tooltip: "Gate = follow high/low. Trigger (default) = rising edge fires one Attack then Release (breadboard)." },
       {
         defaultValue: "0",
         key: "attack",
@@ -15402,8 +14794,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Rise time 0 to 1. Breadboard spawn 0. KT applies the baked -KT*0.31250587099718496-0.1 unit MOD path.",
-      },
+        tooltip: "Rise time 0 to 1. Breadboard spawn 0. KT applies the baked -KT*0.31250587099718496-0.1 unit MOD path." },
       {
         defaultValue: "-0.07",
         key: "attackShape",
@@ -15414,8 +14805,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Bipolar segment shape. Breadboard spawn -0.07.",
-      },
+        tooltip: "Bipolar segment shape. Breadboard spawn -0.07." },
       {
         defaultValue: "0.11715292599242004",
         key: "release",
@@ -15427,8 +14817,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Base fall time before feedback MOD. Breadboard spawn ~0.117 s.",
-      },
+        tooltip: "Base fall time before feedback MOD. Breadboard spawn ~0.117 s." },
       {
         defaultValue: "1",
         key: "releaseShape",
@@ -15439,8 +14828,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Bipolar fall shape. Breadboard spawn +1 (expo).",
-      },
+        tooltip: "Bipolar fall shape. Breadboard spawn +1 (expo)." },
       {
         defaultValue: "0.6804373070396221",
         key: "feedback",
@@ -15450,8 +14838,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Attenuverter amplitude on inverted env into Amp Curve Exp (breadboard knob-2).",
-      },
+        tooltip: "Attenuverter amplitude on inverted env into Amp Curve Exp (breadboard knob-2)." },
       {
         defaultValue: "0.9435542410230598",
         key: "bias",
@@ -15461,8 +14848,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Attenuverter offset after invert (breadboard knob-3).",
-      },
+        tooltip: "Attenuverter offset after invert (breadboard knob-3)." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -15473,10 +14859,8 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Output scale 0 to 1.",
-      },
-    ],
-  },
+        tooltip: "Output scale 0 to 1." },
+    ] },
   pluckEnvelope: {
     planRole: "processor",
     planFreeRun: true,
@@ -15492,8 +14876,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "SoEm VelocitySensitivity. 0 = ignore Velocity (peak 1); 1 = peak tracks Velocity.",
-      },
+        tooltip: "SoEm VelocitySensitivity. 0 = ignore Velocity (peak 1); 1 = peak tracks Velocity." },
       {
         defaultValue: "0",
         key: "attack",
@@ -15502,8 +14885,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.1",
         min: "0",
         step: "any",
-        tooltip: "SoEm Attack → attackFeedback time. 0 = skip attack into decay.",
-      },
+        tooltip: "SoEm Attack → attackFeedback time. 0 = skip attack into decay." },
       {
         defaultValue: "0.9",
         key: "decaySlopeTop",
@@ -15512,8 +14894,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.9",
         min: "0.001",
         step: "any",
-        tooltip: "SoEm DecaySlopeTop → decayModStart (early decay feedback).",
-      },
+        tooltip: "SoEm DecaySlopeTop → decayModStart (early decay feedback)." },
       {
         defaultValue: "0.7",
         key: "decaySlopeMid",
@@ -15523,8 +14904,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "SoEm DecaySlopeMid → decay_ base added into decay feedback.",
-      },
+        tooltip: "SoEm DecaySlopeMid → decay_ base added into decay feedback." },
       {
         defaultValue: "4.8",
         key: "decaySlopeBottom",
@@ -15533,8 +14913,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0.01",
         step: "any",
-        tooltip: "SoEm DecaySlopeBottom → decayModEnd (late decay feedback).",
-      },
+        tooltip: "SoEm DecaySlopeBottom → decayModEnd (late decay feedback)." },
       {
         defaultValue: "1.2",
         key: "sustain",
@@ -15544,8 +14923,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "SoEm Sustain → endingDecay after the decay phasor finishes.",
-      },
+        tooltip: "SoEm Sustain → endingDecay after the decay phasor finishes." },
       {
         defaultValue: "0.86",
         key: "release",
@@ -15555,8 +14933,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "SoEm Release → fbRelease (release feedback amount).",
-      },
+        tooltip: "SoEm Release → fbRelease (release feedback amount)." },
       {
         defaultValue: "0",
         key: "autoReleaseTime",
@@ -15567,8 +14944,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "ms",
-        tooltip: "SoEm AutoReleaseTime (displayed as ms; 0 = disabled). Same as original: Enabled {n} ms.",
-      },
+        tooltip: "SoEm AutoReleaseTime (displayed as ms; 0 = disabled). Same as original: Enabled {n} ms." },
       {
         defaultValue: "-0.5",
         key: "envelopeCurve",
@@ -15578,8 +14954,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "SoEm EnvelopeCurve → decayModCurve (− flatter, + steeper).",
-      },
+        tooltip: "SoEm EnvelopeCurve → decayModCurve (− flatter, + steeper)." },
       {
         defaultValue: "15",
         key: "envelopeDamping",
@@ -15591,8 +14966,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "SoEm EnvelopeDamping → decayModFrequency (decay phasor rate).",
-      },
+        tooltip: "SoEm EnvelopeDamping → decayModFrequency (decay phasor rate)." },
       {
         defaultValue: "1",
         key: "velocity",
@@ -15602,8 +14976,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Note velocity 0…1 (peak = map(velocity, 1−sens, 1)).",
-      },
+        tooltip: "Note velocity 0…1 (peak = map(velocity, 1−sens, 1))." },
       {
         defaultValue: "1",
         key: "level",
@@ -15612,8 +14985,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
-      },
+        step: "any" },
     ]
   },
   expoPluckEnvelope: {
@@ -15623,17 +14995,14 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Trigger", "Gate"],
     inputLabels: {
       Trigger: "Trig",
-      Gate: "Gate",
-    },
+      Gate: "Gate" },
     outputs: ["Env"],
     outputLabels: {
-      Env: "Env",
-    },
+      Env: "Env" },
     outputAliases: {
       Out: "Env",
       A: "Env",
-      Amp: "Env",
-    },
+      Amp: "Env" },
     parameters: [
       {
         defaultValue: "0.002",
@@ -15645,8 +15014,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "1-pole LPF slew toward peak from the current level (no hard restart from 0).",
-      },
+        tooltip: "1-pole LPF slew toward peak from the current level (no hard restart from 0)." },
       {
         defaultValue: "5",
         key: "decay",
@@ -15657,8 +15025,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.01",
         step: "any",
         unit: "s",
-        tooltip: "Leave long (Comb-style). Material comes from Frequency + Damping.",
-      },
+        tooltip: "Leave long (Comb-style). Material comes from Frequency + Damping." },
       {
         defaultValue: "110",
         key: "frequency",
@@ -15669,8 +15036,7 @@ const nodeGraphModuleDefinitions = (
         min: "10",
         step: "any",
         unit: "Hz",
-        tooltip: "Material: high ≈ glass (fast die-out), low ≈ acoustic string (long ring).",
-      },
+        tooltip: "Material: high ≈ glass (fast die-out), low ≈ acoustic string (long ring)." },
       {
         defaultValue: "0",
         key: "damping",
@@ -15680,15 +15046,13 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         tooltip:
-          "Comb-style loop loss extremes: 0 = fully open ring (Decay+Frequency alone), 1 = feedback dead → tiny impulse. Same span as Comb Resonator damping.",
-      },
+          "Comb-style loop loss extremes: 0 = fully open ring (Decay+Frequency alone), 1 = feedback dead → tiny impulse. Same span as Comb Resonator damping." },
       {
         choices: ["Off", "On"],
         defaultValue: "On",
         key: "recalculateOnTrigger",
         label: "Recalc On Trig",
-        tooltip: "On (default): latch Attack/Decay/Frequency/Damping at Trigger/Gate so mid-flight tweaks do not warp the current shot.",
-      },
+        tooltip: "On (default): latch Attack/Decay/Frequency/Damping at Trigger/Gate so mid-flight tweaks do not warp the current shot." },
       {
         defaultValue: "1",
         key: "level",
@@ -15698,10 +15062,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Output scale on Env.",
-      },
-    ],
-  },
+        tooltip: "Output scale on Env." },
+    ] },
   expoPluckEnvelope2: {
     planRole: "processor",
     planFreeRun: true,
@@ -15709,17 +15071,14 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Trigger", "Release"],
     inputLabels: {
       Trigger: "Trig",
-      Release: "Rel",
-    },
+      Release: "Rel" },
     outputs: ["Env"],
     outputLabels: {
-      Env: "Env",
-    },
+      Env: "Env" },
     outputAliases: {
       Out: "Env",
       A: "Env",
-      Amp: "Env",
-    },
+      Amp: "Env" },
     parameters: [
       {
         defaultValue: "0.5",
@@ -15729,8 +15088,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "SoEmPluck VelocitySensitivity. Peak = (1−sens) + velocity×sens.",
-      },
+        tooltip: "SoEmPluck VelocitySensitivity. Peak = (1−sens) + velocity×sens." },
       {
         defaultValue: "0",
         key: "attack",
@@ -15739,8 +15097,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.1",
         min: "0",
         step: "any",
-        tooltip: "SoEmPluck Attack → feedback climb (timeToIncrement). 0 = skip to decay at peak.",
-      },
+        tooltip: "SoEmPluck Attack → feedback climb (timeToIncrement). 0 = skip to decay at peak." },
       {
         defaultValue: "0.9",
         key: "decaySlopeTop",
@@ -15749,8 +15106,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.9",
         min: "0.001",
         step: "any",
-        tooltip: "SoEmPluck DecaySlopeTop / Attack Energy (decayModStart). Start of Top→Bottom morph.",
-      },
+        tooltip: "SoEmPluck DecaySlopeTop / Attack Energy (decayModStart). Start of Top→Bottom morph." },
       {
         defaultValue: "0.7",
         key: "decaySlopeMid",
@@ -15759,8 +15115,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.7",
         min: "0.1",
         step: "any",
-        tooltip: "SoEmPluck DecaySlopeMid / Decay base added to the morph.",
-      },
+        tooltip: "SoEmPluck DecaySlopeMid / Decay base added to the morph." },
       {
         defaultValue: "4.8",
         key: "decaySlopeBottom",
@@ -15769,8 +15124,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0.01",
         step: "any",
-        tooltip: "SoEmPluck DecaySlopeBottom / Decay Energy (decayModEnd). End of Top→Bottom morph.",
-      },
+        tooltip: "SoEmPluck DecaySlopeBottom / Decay Energy (decayModEnd). End of Top→Bottom morph." },
       {
         defaultValue: "1.2",
         key: "sustain",
@@ -15779,8 +15133,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.7",
         min: "0",
         step: "any",
-        tooltip: "SoEmPluck Sustain / endingDecay — linger feedback after EnvelopeDamping phasor finishes.",
-      },
+        tooltip: "SoEmPluck Sustain / endingDecay — linger feedback after EnvelopeDamping phasor finishes." },
       {
         defaultValue: "0.86",
         key: "release",
@@ -15789,8 +15142,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "SoEmPluck Release feedback (exp(−R×10)). Triggered by Release jack rise.",
-      },
+        tooltip: "SoEmPluck Release feedback (exp(−R×10)). Triggered by Release jack rise." },
       {
         defaultValue: "0",
         key: "autoReleaseTime",
@@ -15800,8 +15152,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "ms",
-        tooltip: "SoEmPluck AutoReleaseTime in ms. 0 = off. Fires release after this many ms in decay.",
-      },
+        tooltip: "SoEmPluck AutoReleaseTime in ms. 0 = off. Fires release after this many ms in decay." },
       {
         defaultValue: "-0.5",
         key: "envelopeCurve",
@@ -15810,8 +15161,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1",
         step: "any",
-        tooltip: "SoEmPluck EnvelopeCurve — shapes the Top→Bottom morph (− flatter, + steeper).",
-      },
+        tooltip: "SoEmPluck EnvelopeCurve — shapes the Top→Bottom morph (− flatter, + steeper)." },
       {
         defaultValue: "15",
         key: "envelopeDamping",
@@ -15822,8 +15172,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "SoEmPluck EnvelopeDamping — Hz phasor for how fast Top→Bottom morph runs (then Sustain).",
-      },
+        tooltip: "SoEmPluck EnvelopeDamping — Hz phasor for how fast Top→Bottom morph runs (then Sustain)." },
       {
         defaultValue: "1",
         key: "velocity",
@@ -15831,8 +15180,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         mid: "0.5",
         min: "0",
-        step: "any",
-      },
+        step: "any" },
       {
         defaultValue: "1",
         key: "level",
@@ -15841,10 +15189,8 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Output scale on Env.",
-      },
-    ],
-  },
+        tooltip: "Output scale on Env." },
+    ] },
   pluckEnvelope3: {
     planRole: "processor",
     planFreeRun: true,
@@ -15873,8 +15219,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "On = latch Attack/Decay/Amplitude on rising Trigger. Off = knobs always live. Rising Trigger never resets the envelope level.",
-      },
+        tooltip: "On = latch Attack/Decay/Amplitude on rising Trigger. Off = knobs always live. Rising Trigger never resets the envelope level." },
       {
         defaultValue: "0",
         key: "attack",
@@ -15886,8 +15231,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "One-pole rise toward Trigger/Gate from the current level (no snap-reset). 0 = instant.",
-      },
+        tooltip: "One-pole rise toward Trigger/Gate from the current level (no snap-reset). 0 = instant." },
       {
         defaultValue: "0.5",
         key: "decay",
@@ -15897,8 +15241,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Fall length (Thump-style). 0 = short, 0.5 = default, 1 = long. Exp feedback into fall rate (pluck envelope 1).",
-      },
+        tooltip: "Fall length (Thump-style). 0 = short, 0.5 = default, 1 = long. Exp feedback into fall rate (pluck envelope 1)." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -15908,10 +15251,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
-      },
-    ],
-  },
+        modClamp: false },
+    ] },
   flowerChildEnvelopeFollower: {
     planRole: "processor",
     planFreeRun: true,
@@ -16188,8 +15529,7 @@ const nodeGraphModuleDefinitions = (
     visualInputs: [
       { key: "vectorDot", label: "In", port: "In" },
     ],
-    visualSink: true,
-  },
+    visualSink: true },
   dotOscilloscope: {
     planRole: "monitor",
     bufferedInputs: ["In"],
@@ -16308,8 +15648,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Thru", "rgba"],
     outputLabels: { Thru: "←", rgba: "📺" },
     outputTooltips: {
-      rgba: "TV tap — unimplemented. Reserved for a later video/raster send.",
-    },
+      rgba: "TV tap — unimplemented. Reserved for a later video/raster send." },
     // Face knobs: Pixel Grid grade + view band + scroll window.
     // Analysis look (FFT / window / overlap / freq scale / gradient) stays in Display Settings.
     parameters: [
@@ -16323,8 +15662,7 @@ const nodeGraphModuleDefinitions = (
         min: "-4",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Same S-curve as Pixel Grid. 1 = unity. Below 1 compresses highs so bins don’t clip as fast. 0 = mid grey. Negative inverts the curve.",
-      },
+        tooltip: "Same S-curve as Pixel Grid. 1 = unity. Below 1 compresses highs so bins don’t clip as fast. 0 = mid grey. Negative inverts the curve." },
       {
         bipolar: true,
         defaultValue: "0.2",
@@ -16335,8 +15673,7 @@ const nodeGraphModuleDefinitions = (
         min: "-4",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Same gain as Pixel Grid, after contrast. 1 = unity. 0 = black. Default 0.2 stays dim. Negative is the same gain, then invert.",
-      },
+        tooltip: "Same gain as Pixel Grid, after contrast. 1 = unity. 0 = black. Default 0.2 stays dim. Negative is the same gain, then invert." },
       {
         key: "minFreq",
         kind: "frequency",
@@ -16661,8 +15998,7 @@ const nodeGraphModuleDefinitions = (
     codeInputs: ["Code"],
     codeOutputs: ["Code"],
     portTypes: { Code: "code" },
-    parameters: [],
-  },
+    parameters: [] },
   textStream: {
     planRole: "monitor",
     customDisplayArea: true,
@@ -16828,8 +16164,7 @@ const nodeGraphModuleDefinitions = (
     displayType: "lineBurn",
     // Spawn 1D Phosphor with source-triggered sweep synchronization enabled.
     defaultDisplaySettings: {
-      sourceSync: true,
-    },
+      sourceSync: true },
     inputs: ["In", "Reset"],
     layout: "scopeFace",
     // Dry passthrough so the face can sit in-line (In → face + Thru).
@@ -16942,8 +16277,7 @@ const nodeGraphModuleDefinitions = (
         label: "RGB",
         renderer: "vectorRgbFace",
         settingsSchema: "vectorRgbFace",
-        source: { x: "X", y: "Y" },
-      },
+        source: { x: "X", y: "Y" } },
     ],
     inputs: ["X", "Y", "R", "G", "B", "Blank"],
     inputLabels: { X: "X", Y: "Y", R: "R", G: "G", B: "B", Blank: "Blk" },
@@ -16960,8 +16294,7 @@ const nodeGraphModuleDefinitions = (
       { key: "vectorRgbG", label: "G", port: "G" },
       { key: "vectorRgbB", label: "B", port: "B" },
     ],
-    visualSink: true,
-  },
+    visualSink: true },
   rasterRgb: {
     planRole: "processor",
     bufferedInputs: ["R", "G", "B"],
@@ -16973,8 +16306,7 @@ const nodeGraphModuleDefinitions = (
         label: "RGB",
         renderer: "rasterRgbFace",
         settingsSchema: "rasterRgbFace",
-        source: { value: "R" },
-      },
+        source: { value: "R" } },
     ],
     inputs: ["R", "G", "B"],
     inputLabels: { R: "R", G: "G", B: "B" },
@@ -16995,8 +16327,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "custom",
         step: "any",
-        tooltip: "Samples per line (fractional OK). With Scan Speed 1, full-frame rate ≈ sampleRate / (Width×Height). Tune Width to lock RGB to the raster. Storage uses ceil(Width).",
-      },
+        tooltip: "Samples per line (fractional OK). With Scan Speed 1, full-frame rate ≈ sampleRate / (Width×Height). Tune Width to lock RGB to the raster. Storage uses ceil(Width)." },
       {
         curveAmount: "0.55",
         defaultValue: "54",
@@ -17010,8 +16341,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "custom",
         step: "any",
-        tooltip: "Lines per frame (fractional OK). Pairs with Width for the raster period. Storage uses ceil(Height).",
-      },
+        tooltip: "Lines per frame (fractional OK). Pairs with Width for the raster period. Storage uses ceil(Height)." },
       {
         curveAmount: "0.55",
         defaultValue: "8",
@@ -17025,8 +16355,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "custom",
         step: "any",
-        tooltip: "Pixels advanced per audio sample (fractional OK). 1 = sample clock. 0.5 = one pixel every two samples (slower). 1.5 / 8 / … stamp each sample across more pixels (faster). Default 8 ≈ sampleRate×8/(Width×Height) full frames/sec.",
-      },
+        tooltip: "Pixels advanced per audio sample (fractional OK). 1 = sample clock. 0.5 = one pixel every two samples (slower). 1.5 / 8 / … stamp each sample across more pixels (faster). Default 8 ≈ sampleRate×8/(Width×Height) full frames/sec." },
       {
         bipolar: true,
         defaultValue: "1",
@@ -17037,8 +16366,7 @@ const nodeGraphModuleDefinitions = (
         min: "-4",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Bipolar S-curve on face and R/G/B/📺 outs. 1 = unity. 0 = mid grey. Above 1 opens midtones. Negative photographically inverts (−1 = invert).",
-      },
+        tooltip: "Bipolar S-curve on face and R/G/B/📺 outs. 1 = unity. 0 = mid grey. Above 1 opens midtones. Negative photographically inverts (−1 = invert)." },
       {
         bipolar: true,
         defaultValue: "1",
@@ -17049,8 +16377,7 @@ const nodeGraphModuleDefinitions = (
         min: "-4",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Bipolar gain after contrast on face and R/G/B/📺 outs. 1 = unity. 0 = black. Negative photographically inverts (−1 = invert).",
-      },
+        tooltip: "Bipolar gain after contrast on face and R/G/B/📺 outs. 1 = unity. 0 = black. Negative photographically inverts (−1 = invert)." },
       {
         defaultValue: "0",
         key: "hue",
@@ -17063,8 +16390,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "cycle",
         wraparound: true,
-        tooltip: "Rotate graded RGB hue on the face and on R/G/B/📺 outs. 0 = unchanged. ±1 = full cycle. After contrast/brightness/invert.",
-      },
+        tooltip: "Rotate graded RGB hue on the face and on R/G/B/📺 outs. 0 = unchanged. ±1 = full cycle. After contrast/brightness/invert." },
       {
         defaultValue: "0",
         key: "blur",
@@ -17074,8 +16400,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Screen-only Gaussian soft of the presented raster (not in the R/G/B outs). 0 = hard pixels.",
-      },
+        tooltip: "Screen-only Gaussian soft of the presented raster (not in the R/G/B outs). 0 = hard pixels." },
       {
         defaultValue: "0",
         key: "glow",
@@ -17085,8 +16410,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Screen-only additive bloom of the presented raster (not in the R/G/B outs).",
-      },
+        tooltip: "Screen-only additive bloom of the presented raster (not in the R/G/B outs)." },
       {
         defaultValue: "0",
         key: "invert",
@@ -17096,16 +16420,14 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "0…1 photographic invert on the face and on R/G/B/📺 outs (flips the graded signal). Contrast −1 / Brightness −1 also invert.",
-      },
+        tooltip: "0…1 photographic invert on the face and on R/G/B/📺 outs (flips the graded signal). Contrast −1 / Brightness −1 also invert." },
     ],
     visualInputs: [
       { key: "rasterRgbR", label: "R", port: "R" },
       { key: "rasterRgbG", label: "G", port: "G" },
       { key: "rasterRgbB", label: "B", port: "B" },
     ],
-    visualSink: true,
-  },
+    visualSink: true },
   waterfallXyz: {
     planRole: "monitor",
     bufferedInputs: ["X", "Y", "Z"],
@@ -17127,8 +16449,7 @@ const nodeGraphModuleDefinitions = (
       { key: "waterfallXyzY", label: "Y", port: "Y" },
       { key: "waterfallXyzZ", label: "Z", port: "Z" },
     ],
-    visualSink: true,
-  },
+    visualSink: true },
   // 1D Waterfall RGB — fixed R/G/B guns, blur 0…1 + Bright. RGB category.
   waterfallRgb: {
     planRole: "monitor",
@@ -17151,8 +16472,7 @@ const nodeGraphModuleDefinitions = (
       { key: "waterfallRgbG", label: "G", port: "G" },
       { key: "waterfallRgbB", label: "B", port: "B" },
     ],
-    visualSink: true,
-  },
+    visualSink: true },
   gradientVectorscope: {
     planRole: "monitor",
     bufferedInputs: ["X", "Y"],
@@ -17164,8 +16484,7 @@ const nodeGraphModuleDefinitions = (
         label: "Trace",
         renderer: "gradientVectorscopeFace",
         settingsSchema: "gradientVectorscopeFace",
-        source: { x: "X", y: "Y" },
-      },
+        source: { x: "X", y: "Y" } },
     ],
     inputs: ["X", "Y"],
     inputLabels: { X: "X", Y: "Y" },
@@ -17177,8 +16496,7 @@ const nodeGraphModuleDefinitions = (
       { key: "gradientVectorscopeX", label: "X", port: "X" },
       { key: "gradientVectorscopeY", label: "Y", port: "Y" },
     ],
-    visualSink: true,
-  },
+    visualSink: true },
   badvalMonitor: {
     planRole: "monitor",
     // LayoutA + custom display face (resizable warning panel, ports under).
@@ -17262,8 +16580,7 @@ const nodeGraphModuleDefinitions = (
         key: "face",
         label: "Text Box",
         renderer: "textBoxFace",
-        settingsSchema: "textBoxFace",
-      },
+        settingsSchema: "textBoxFace" },
     ],
     parameters: []
   },
@@ -17278,8 +16595,7 @@ const nodeGraphModuleDefinitions = (
         key: "face",
         label: "Text Box",
         renderer: "textBoxFace",
-        settingsSchema: "textBoxFace",
-      },
+        settingsSchema: "textBoxFace" },
     ],
     dataInputs: ["Title", "Text"],
     dataOutputs: ["Text Out"],
@@ -17347,8 +16663,9 @@ const nodeGraphModuleDefinitions = (
   sinc: {
     planRole: "processor",
     displayType: "waterfall",
-    inputs: ["Increment"],
-    inputLabels: { Increment: "inc" },
+    inputs: ["f"],
+    inputLabels: { f: "ƒ" },
+    inputAliases: { "ƒ": "f" },
     outputChannels: { Out: "green" },
     outputs: ["Out"],
     parameters: [
@@ -17405,8 +16722,7 @@ const nodeGraphModuleDefinitions = (
   // their own definition instead of it being hardcoded here -- see
   // node-graph-chromeless-module-registry.js. Each entry is sealed with
   // explicit chrome (LayoutB if solidModule, else LayoutA).
-  ...nodeGraphChromelessModuleDefinitionEntries(),
-});
+  ...nodeGraphChromelessModuleDefinitionEntries() });
 
 // Text Box and Animated Text Box share the isolated widget (modules/textBox)
 // and layout/sizing rules. Animated Text Box only adds Title/Text/Text Out.

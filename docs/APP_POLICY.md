@@ -389,8 +389,8 @@ This app is a **C++ DSP engine with a JS interface** (Â§0). JS authors and obs
 
 ## 11. Naming
 
-- **I/O jack label `inc`:** user-facing phase-increment ports (cycles/sample) display as lowercase **`inc`** â€” do not capitalize as `Inc`. Prefer port id `inc` (legacy cables: alias `Inc` / `Increment` â†’ `inc`). Oscillator inputs may keep machine id `Increment` with display label `inc`.
-- **Pitch-family jack order:** when a module exposes any of **â™¯/â™­** (`pitch` / `#/b`), **Æ’** (`f` / `Frequency`), and/or **`inc`**, list them in that order â€” **â™¯/â™­, then Æ’, then `inc`** â€” and keep them adjacent. Applies to Keyboard, Arp, Pitch Detector, Pitch Manager, Freq Manager, etc.
+- **No `inc` jacks.** Phase increment (cycles/sample) is internal (`ƒ / sr`). User-facing pitch rate is **ƒ** (Hz). Patches store `f`.
+- **Pitch-family jack order:** when a module exposes **♯/♭** (`pitch`) and **ƒ** (`f` / `Frequency`), list **♯/♭ then ƒ** and keep them adjacent. Applies to Keyboard, Arp, Pitch Detector, Pitch Manager, Freq Manager, etc.
 - Prefer full, consistent product names where modules are siblings (e.g. **Fractal Brownian Field** next to **Fractal Brownian Motion**).
 - Internal type ids (`fbmField`) may stay short; **user-facing labels** should not be cryptic abbreviations unless established brand.
 
@@ -587,7 +587,7 @@ First consumers: Music Player, fbmField, Instant Waterfall compositor, RoundShap
 
 - If a value is already a **parameter** (knob + normal param MOD), do **not** also expose an input jack that adds/multiplies the same value â€” including **PM** as a twin of **Phase**, **Morph** CV, **Amplitude** CV, etc.
 - **Morph / Phase / Amplitude / PM (phase-mod) CV twins of params are disallowed** (standing approval to remove). Keep the parameter; drop the jack and any dedicated add/mul twin path so the param alone drives the value (normal param modulation still applies).
-- **Reset** and **Increment** are not twins of Frequency/Phase: they are different operations (edge reset, cycles/sample add). Those stay as inputs.
+- **Reset** is not a twin of Phase. **ƒ** on oscillators replaces Frequency when wired (cancel law); it is not a second addend beside the knob. Increment jacks are retired.
 - **Other** twin removals (e.g. Size/Opacity, Speed, Spawn) need **human approval** first â€” do not remove without asking.
 - Gravity Walker **Leap** input was an approved twin of the Leap param: removed; `leapProb` = clamp(leap param only).
 

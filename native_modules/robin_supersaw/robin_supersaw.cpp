@@ -2,6 +2,7 @@
 // soemdsp-native-label: RobinSupersaw
 // soemdsp-native-target: robinSupersaw
 // soemdsp-native-kind: oscillator
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/Supersaw.hpp
 //
 // Pitch-dithered supersaw (Robin Schmidt / RS-MET). Frequency-domain detune
 // (each voice runs at a detuned Hz), not phase-modulation. Fractional voices

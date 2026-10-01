@@ -2,7 +2,7 @@
 // soemdsp-native-label: Dual Ladder Filter
 // soemdsp-native-target: activeFilter
 // soemdsp-native-kind: filter
-// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Musical/LadderFilter.h
 //
 // Dual RS-MET multipole ladder (Robin Schmidt):
 //   - HP slope + LP slope each: Bypass | 6 | 12 | 18 | 24 dB/oct

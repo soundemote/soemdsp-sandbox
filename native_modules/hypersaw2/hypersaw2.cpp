@@ -2,6 +2,7 @@
 // soemdsp-native-label: Hypersaw2
 // soemdsp-native-target: hypersaw2
 // soemdsp-native-kind: oscillator
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/Hypersaw.hpp
 //
 // Hypersaw2: PolyBLEP + Random Steps jitter. Shared locked master phase only.
 //

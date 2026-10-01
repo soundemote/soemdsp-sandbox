@@ -116,12 +116,12 @@
       "destinationNode": "namedPortalIn-6",
       "destinationPort": "In",
       "sourceNode": "keyboard-1",
-      "sourcePort": "inc",
+      "sourcePort": "f",
       "tracePoints": []
     },
     {
       "destinationNode": "polyBlep-1",
-      "destinationPort": "Increment",
+      "destinationPort": "f",
       "sourceNode": "namedPortalOut-7",
       "sourcePort": "Out",
       "tracePoints": []
@@ -2287,7 +2287,7 @@
       "paramMeta": {},
       "params": {},
       "type": "namedPortalIn",
-      "alias": "inc",
+      "alias": "f",
       "widthGu": 3,
       "heightGu": 1,
       "ui": {
@@ -2314,7 +2314,7 @@
       "paramMeta": {},
       "params": {},
       "type": "namedPortalOut",
-      "alias": "inc",
+      "alias": "f",
       "widthGu": 3,
       "heightGu": 1,
       "ui": {

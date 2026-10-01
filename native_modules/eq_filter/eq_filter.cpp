@@ -2,6 +2,7 @@
 // soemdsp-native-label: EQ Filter ZDF
 // soemdsp-native-target: eqFilter
 // soemdsp-native-kind: dynamics
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Musical/StateVariableFilter.h
 //
 // Matches public/modules/eqFilter/eq-filter-math.js (Robin ZDF SVF).
 

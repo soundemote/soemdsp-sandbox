@@ -21,25 +21,21 @@ registerNodeGraphChromelessModule("theremin", {
         label: "Theremin",
         renderer: "xyPad",
         settingsSchema: "xyPad",
-        source: { value: "Wave" },
-      },
+        source: { value: "Wave" } },
     ],
-    // Oscillator convention (polyBlep / Softwave): Reset + Inc left; Wave green out.
-    inputs: ["Reset", "Increment"],
+    // Oscillator convention (polyBlep / Softwave): Reset + ƒ left; Wave green out.
+    inputs: ["Reset", "f"],
     inputLabels: {
-      Increment: "inc",
-    },
+      f: "ƒ" },
     inputTooltips: {
       Reset: "Rising edge zeros the theremin phasor.",
-      Increment: "Phase increment add (cycles per sample).",
-    },
+      f: "Absolute Hz. Replaces Frequency when wired." },
+    inputAliases: { "ƒ": "f" },
     outputAliases: {
       Out: "Wave",
-      "Wave Out": "Wave",
-    },
+      "Wave Out": "Wave" },
     outputChannels: {
-      Wave: "green",
-    },
+      Wave: "green" },
     outputs: ["Wave"],
     parameters: [
       // Hidden pad axes — same surface as XY Pad (Phase mirrors stay in lockstep).
@@ -53,8 +49,7 @@ registerNodeGraphChromelessModule("theremin", {
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
-      },
+        step: "any" },
       {
         defaultValue: "0.8",
         hidden: true,
@@ -65,8 +60,7 @@ registerNodeGraphChromelessModule("theremin", {
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
-      },
+        step: "any" },
       {
         defaultValue: "0",
         hidden: true,
@@ -77,8 +71,7 @@ registerNodeGraphChromelessModule("theremin", {
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
-      },
+        step: "any" },
       {
         defaultValue: "0.5",
         key: "xPhase",
@@ -89,8 +82,7 @@ registerNodeGraphChromelessModule("theremin", {
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Pad X / pitch position (0…1). Center = Frequency; left/right span Range octaves.",
-      },
+        tooltip: "Pad X / pitch position (0…1). Center = Frequency; left/right span Range octaves." },
       {
         defaultValue: "0.8",
         key: "yPhase",
@@ -101,8 +93,7 @@ registerNodeGraphChromelessModule("theremin", {
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Pad Y / volume position (0…1). Scaled by Volume.",
-      },
+        tooltip: "Pad Y / volume position (0…1). Scaled by Volume." },
       {
         defaultValue: "440",
         key: "frequency",
@@ -114,8 +105,7 @@ registerNodeGraphChromelessModule("theremin", {
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Center pitch at pad X = 0.5. Pad X sweeps +/- Range octaves around this.",
-      },
+        tooltip: "Center pitch at pad X = 0.5. Pad X sweeps +/- Range octaves around this." },
       {
         defaultValue: "1",
         key: "range",
@@ -125,8 +115,7 @@ registerNodeGraphChromelessModule("theremin", {
         min: "0.1",
         step: "any",
         unit: "oct",
-        tooltip: "Playable pitch span in octaves (full X sweep = +/- Range/2 from center).",
-      },
+        tooltip: "Playable pitch span in octaves (full X sweep = +/- Range/2 from center)." },
       {
         defaultValue: "0.8",
         key: "volume",
@@ -136,8 +125,7 @@ registerNodeGraphChromelessModule("theremin", {
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Output level scale. Final amplitude = pad Y x Volume.",
-      },
+        tooltip: "Output level scale. Final amplitude = pad Y x Volume." },
       {
         choices: [
           "Analog Saw Sine",
@@ -162,8 +150,7 @@ registerNodeGraphChromelessModule("theremin", {
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Softwave / DistortionOscillator timbre (production waveshapes). Parabol Sine is the clean theremin default.",
-      },
+        tooltip: "Softwave / DistortionOscillator timbre (production waveshapes). Parabol Sine is the clean theremin default." },
       {
         key: "morph",
         label: "Morph",
@@ -173,8 +160,7 @@ registerNodeGraphChromelessModule("theremin", {
         max: "1",
         step: "0.001",
         smoothingType: "papoulis",
-        tooltip: "Softwave morph / distortion amount (production DistortionOscillator morph).",
-      },
+        tooltip: "Softwave morph / distortion amount (production DistortionOscillator morph)." },
       {
         defaultValue: "0",
         key: "phase",
@@ -185,8 +171,7 @@ registerNodeGraphChromelessModule("theremin", {
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
-      },
+        wraparound: true },
       {
         choices: ["Off", "On"],
         defaultValue: "0",
@@ -200,8 +185,7 @@ registerNodeGraphChromelessModule("theremin", {
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "On: mouse lift freezes pad X/Y. Off: keeps last aim (classic continuous theremin).",
-      },
+        tooltip: "On: mouse lift freezes pad X/Y. Off: keeps last aim (classic continuous theremin)." },
       {
         choices: ["Off", "On"],
         defaultValue: "0",
@@ -215,10 +199,8 @@ registerNodeGraphChromelessModule("theremin", {
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "On: mouse lift aims at center pitch / mid volume. Off: holds last pad position.",
-      },
-    ],
-  },
+        tooltip: "On: mouse lift aims at center pitch / mid volume. Off: holds last pad position." },
+    ] },
   catalog: {
     category: "controller",
     description: "Theremin: XY pad (X pitch / Y volume) driving Softwave timbre. Reset/inc in, Wave green out. Frequency + Range + Volume + Morph/Waveform from production Softwave/DistortionOscillator.",
@@ -232,6 +214,4 @@ registerNodeGraphChromelessModule("theremin", {
       "controller",
       "theremin",
       "performance",
-    ],
-  },
-});
+    ] } });

@@ -2,7 +2,7 @@
 // soemdsp-native-label: TB-303 Filter
 // soemdsp-native-target: tb303Filter
 // soemdsp-native-kind: filter
-// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/filters/rosic_TeeBeeFilter.h
 
 // Open303 TeeBeeFilter mode TB_303 (mystran/kunn), the circuit Open303 runs.
 // RS-MET AcidDevil on branch work calls a TeeBee that only has the multimode

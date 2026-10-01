@@ -2,7 +2,7 @@
 // soemdsp-native-label: Crossover
 // soemdsp-native-target: crossover2
 // soemdsp-native-kind: filter
-// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/CrossOver4Way.h
 //
 // Linkwitz–Riley multiway crossover (stereo), 2…6 bands.
 // Tree topology matches public/modules/crossover/crossover-math.js:

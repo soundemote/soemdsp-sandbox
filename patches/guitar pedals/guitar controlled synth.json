@@ -49,9 +49,9 @@
     },
     {
       "destinationNode": "polyBlep-1",
-      "destinationPort": "Increment",
+      "destinationPort": "f",
       "sourceNode": "pitchManager-1",
-      "sourcePort": "Inc",
+      "sourcePort": "f",
       "tracePoints": []
     },
     {
@@ -1127,7 +1127,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Hz-domain multiply after Pitch→Hz. Applies to ƒ and Inc, not the ♯/♭ thru.",
+          "tooltip": "Hz-domain multiply after Pitch→Hz. Applies to ƒ, not the ♯/♭ thru.",
           "modClamp": false,
           "hardClamp": false,
           "modMultiply": false,
@@ -1162,7 +1162,7 @@
           "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
-          "tooltip": "Hz-domain offset after Multiply. Applies to ƒ and Inc, not the ♯/♭ thru.",
+          "tooltip": "Hz-domain offset after Multiply. Applies to ƒ, not the ♯/♭ thru.",
           "modClamp": false,
           "hardClamp": false,
           "modMultiply": false,

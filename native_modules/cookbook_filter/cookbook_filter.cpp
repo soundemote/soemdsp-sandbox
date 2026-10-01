@@ -2,7 +2,7 @@
 // soemdsp-native-label: Cookbook Filter
 // soemdsp-native-target: cookbookFilter
 // soemdsp-native-kind: filter
-// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/filters/rosic_CookbookFilter.h
 //
 // Port of rosic::CookbookFilter (RS-MET): cascade of identical RBJ biquads
 // (Robert Bristow-Johnson Audio EQ Cookbook), Direct Form 1.

@@ -2,7 +2,7 @@
 // soemdsp-native-label: Bessel Filter
 // soemdsp-native-target: bessel
 // soemdsp-native-kind: filter
-// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/EngineersFilter.h
 //
 // Bessel (Thomson) multipole — maximally flat group delay / linear phase-ish.
 

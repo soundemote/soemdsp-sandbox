@@ -91,9 +91,9 @@
     },
     {
       "destinationNode": "polyBlep-1",
-      "destinationPort": "Increment",
+      "destinationPort": "f",
       "sourceNode": "pitchManager-1",
-      "sourcePort": "inc",
+      "sourcePort": "f",
       "tracePoints": []
     },
     {

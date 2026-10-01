@@ -22,7 +22,7 @@
       "source": "native_modules/active_filter/active_filter.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/active_filter/active_filter.cpp",
       "localSourceUrl": "/native_modules/active_filter/active_filter.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Musical/LadderFilter.h",
       "wasm": "native_modules/active_filter/active_filter.wasm",
       "wasmUrl": "native_modules/active_filter/active_filter.wasm",
       "wasmAvailable": true
@@ -217,7 +217,7 @@
       "source": "native_modules/bessel/bessel.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/bessel/bessel.cpp",
       "localSourceUrl": "/native_modules/bessel/bessel.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/EngineersFilter.h",
       "wasm": "native_modules/bessel/bessel.wasm",
       "wasmUrl": "native_modules/bessel/bessel.wasm",
       "wasmAvailable": true
@@ -282,7 +282,7 @@
       "source": "native_modules/butterworth/butterworth.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/butterworth/butterworth.cpp",
       "localSourceUrl": "/native_modules/butterworth/butterworth.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/EngineersFilter.h",
       "wasm": "native_modules/butterworth/butterworth.wasm",
       "wasmUrl": "native_modules/butterworth/butterworth.wasm",
       "wasmAvailable": true
@@ -334,7 +334,7 @@
       "source": "native_modules/chebyshev/chebyshev.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/chebyshev/chebyshev.cpp",
       "localSourceUrl": "/native_modules/chebyshev/chebyshev.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/EngineersFilter.h",
       "wasm": "native_modules/chebyshev/chebyshev.wasm",
       "wasmUrl": "native_modules/chebyshev/chebyshev.wasm",
       "wasmAvailable": true
@@ -451,7 +451,7 @@
       "source": "native_modules/cookbook_filter/cookbook_filter.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/cookbook_filter/cookbook_filter.cpp",
       "localSourceUrl": "/native_modules/cookbook_filter/cookbook_filter.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/filters/rosic_CookbookFilter.h",
       "wasm": "native_modules/cookbook_filter/cookbook_filter.wasm",
       "wasmUrl": "native_modules/cookbook_filter/cookbook_filter.wasm",
       "wasmAvailable": true
@@ -477,7 +477,7 @@
       "source": "native_modules/crossover/crossover.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossover/crossover.cpp",
       "localSourceUrl": "/native_modules/crossover/crossover.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/CrossOver4Way.h",
       "wasm": "native_modules/crossover/crossover.wasm",
       "wasmUrl": "native_modules/crossover/crossover.wasm",
       "wasmAvailable": true
@@ -581,7 +581,7 @@
       "source": "native_modules/elliptic/elliptic.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/elliptic/elliptic.cpp",
       "localSourceUrl": "/native_modules/elliptic/elliptic.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/PrototypeDesigner.h",
       "wasm": "native_modules/elliptic/elliptic.wasm",
       "wasmUrl": "native_modules/elliptic/elliptic.wasm",
       "wasmAvailable": true
@@ -607,7 +607,7 @@
       "source": "native_modules/eq_filter/eq_filter.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/eq_filter/eq_filter.cpp",
       "localSourceUrl": "/native_modules/eq_filter/eq_filter.cpp",
-      "libUrl": "",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Musical/StateVariableFilter.h",
       "wasm": "native_modules/eq_filter/eq_filter.wasm",
       "wasmUrl": "native_modules/eq_filter/eq_filter.wasm",
       "wasmAvailable": true
@@ -854,7 +854,7 @@
       "source": "native_modules/hypersaw2/hypersaw2.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/hypersaw2/hypersaw2.cpp",
       "localSourceUrl": "/native_modules/hypersaw2/hypersaw2.cpp",
-      "libUrl": "",
+      "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/Hypersaw.hpp",
       "wasm": "native_modules/hypersaw2/hypersaw2.wasm",
       "wasmUrl": "native_modules/hypersaw2/hypersaw2.wasm",
       "wasmAvailable": true
@@ -1010,7 +1010,7 @@
       "source": "native_modules/ladder_filter/ladder_filter.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/ladder_filter/ladder_filter.cpp",
       "localSourceUrl": "/native_modules/ladder_filter/ladder_filter.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Musical/LadderFilter.h",
       "wasm": "native_modules/ladder_filter/ladder_filter.wasm",
       "wasmUrl": "native_modules/ladder_filter/ladder_filter.wasm",
       "wasmAvailable": true
@@ -1049,7 +1049,7 @@
       "source": "native_modules/linkwitz_riley/linkwitz_riley.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/linkwitz_riley/linkwitz_riley.cpp",
       "localSourceUrl": "/native_modules/linkwitz_riley/linkwitz_riley.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/EngineersFilter.h",
       "wasm": "native_modules/linkwitz_riley/linkwitz_riley.wasm",
       "wasmUrl": "native_modules/linkwitz_riley/linkwitz_riley.wasm",
       "wasmAvailable": true
@@ -1257,7 +1257,7 @@
       "source": "native_modules/passive_filter/passive_filter.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/passive_filter/passive_filter.cpp",
       "localSourceUrl": "/native_modules/passive_filter/passive_filter.cpp",
-      "libUrl": "",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/General/OnePoleFilter.h",
       "wasm": "native_modules/passive_filter/passive_filter.wasm",
       "wasmUrl": "native_modules/passive_filter/passive_filter.wasm",
       "wasmAvailable": true
@@ -1283,7 +1283,7 @@
       "source": "native_modules/phaser/phaser.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/phaser/phaser.cpp",
       "localSourceUrl": "/native_modules/phaser/phaser.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Musical/StateVariableFilter.h",
       "wasm": "native_modules/phaser/phaser.wasm",
       "wasmUrl": "native_modules/phaser/phaser.wasm",
       "wasmAvailable": true
@@ -1569,7 +1569,7 @@
       "source": "native_modules/robin_supersaw/robin_supersaw.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/robin_supersaw/robin_supersaw.cpp",
       "localSourceUrl": "/native_modules/robin_supersaw/robin_supersaw.cpp",
-      "libUrl": "",
+      "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/Supersaw.hpp",
       "wasm": "native_modules/robin_supersaw/robin_supersaw.wasm",
       "wasmUrl": "native_modules/robin_supersaw/robin_supersaw.wasm",
       "wasmAvailable": true
@@ -1855,7 +1855,7 @@
       "source": "native_modules/tb303_filter/tb303_filter.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/tb303_filter/tb303_filter.cpp",
       "localSourceUrl": "/native_modules/tb303_filter/tb303_filter.cpp",
-      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/filters/rosic_TeeBeeFilter.h",
       "wasm": "native_modules/tb303_filter/tb303_filter.wasm",
       "wasmUrl": "native_modules/tb303_filter/tb303_filter.wasm",
       "wasmAvailable": true

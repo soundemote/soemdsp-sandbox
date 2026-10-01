@@ -2490,7 +2490,6 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
   // Never multiply an existing Hz by 2^((midi-69)/12): render/save runs this
   // every pointer event, so that compound made f jump again on key-up.
   const frequency = 440 * (2 ** ((midi - 69) / 12));
-  const increment = frequency / nodeGraphMidiKeyboardSampleRate;
   const gate = options.preserveGate ? (Number(signal.gate) > 0 ? 1 : 0) : 0;
   return {
     source: signal.source || "remembered",
@@ -2511,7 +2510,6 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
     tenthVoltPerOctave: Number.isFinite(Number(signal.tenthVoltPerOctave))
       ? Number(signal.tenthVoltPerOctave)
       : midi / 120,
-    increment,
     frequency,
   };
 }
@@ -3079,7 +3077,6 @@ function nodeGraphMidiKeyboardSignalFromRaw(rawMidi, options = {}) {
     pitchValue: midi,
     midiNormalized: midi / 127,
     tenthVoltPerOctave: nodeGraphMidiKeyboardTenthVoltPerOctave(midi),
-    increment: frequency / nodeGraphMidiKeyboardSampleRate,
     frequency,
     pitch: nodeGraphMidiKeyboardPitchLabel(midi),
   };
@@ -3443,9 +3440,6 @@ function renderNodeGraphMidiKeyboardSignal(signal = null) {
     tenthVoltPerOctave: nextSignal
       ? nodeGraphMidiKeyboardFixedDecimal(nextSignal.tenthVoltPerOctave, { decimalPlaces: 6, maxDigits: 7, width: 8 })
       : nodeGraphMidiKeyboardFixedText("-", 8),
-    increment: nextSignal
-      ? nodeGraphMidiKeyboardFixedDecimal(nextSignal.increment, { decimalPlaces: 7, maxDigits: 8, width: 9 })
-      : nodeGraphMidiKeyboardFixedText("-", 9),
     frequency: nextSignal
       ? nodeGraphMidiKeyboardFixedDecimal(nextSignal.frequency, { decimalPlaces: 2, maxDigits: 7, width: 8 })
       : nodeGraphMidiKeyboardFixedText("-", 8),

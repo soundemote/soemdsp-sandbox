@@ -155,9 +155,9 @@
     },
     {
       "destinationNode": "hypersaw2-1",
-      "destinationPort": "Increment",
+      "destinationPort": "f",
       "sourceNode": "metamodule-1__voiceFrequency",
-      "sourcePort": "Increment",
+      "sourcePort": "f",
       "tracePoints": []
     },
     {
@@ -169,9 +169,9 @@
     },
     {
       "destinationNode": "softwaveOsc-1",
-      "destinationPort": "Increment",
+      "destinationPort": "f",
       "sourceNode": "arp-1",
-      "sourcePort": "inc",
+      "sourcePort": "f",
       "tracePoints": []
     },
     {
@@ -1015,7 +1015,7 @@
       "paramMeta": {},
       "params": {},
       "type": "voiceFrequency",
-      "alias": "Voice Inc",
+      "alias": "Voice ƒ",
       "widthGu": 4,
       "heightGu": 3,
       "ui": {
@@ -2961,7 +2961,7 @@
       },
       "params": {
         "waveform": 4,
-        "frequency": 3.477592057602134e-9,
+        "frequency": 3.477592057602134e-09,
         "morph": 1,
         "phase": 0,
         "antialias": 0,

@@ -15,7 +15,7 @@ nodeGraphLiveModuleEvaluators.pitchManager = ({
   const tuningRaw = read("tuning", 440);
   const planck = typeof nodeGraphPlanck === "function" ? nodeGraphPlanck() : 1e-7;
   if (!(tuningRaw > planck)) {
-    return { pitch: 0, f: 0, inc: 0 };
+    return { pitch: 0, f: 0 };
   }
   const tuning = tuningRaw;
   const octave = read("octave", 0);
@@ -40,6 +40,5 @@ nodeGraphLiveModuleEvaluators.pitchManager = ({
   let hz = tuning * (2 ** ((pitch - 69) / 12));
   hz = hz * (Number.isFinite(multiply) ? multiply : 1) + (Number.isFinite(add) ? add : 0);
   if (!(hz === hz)) hz = 0;
-  const sr = Number(sampleRate) > 1 ? Number(sampleRate) : 44100;
-  return { pitch, f: hz, inc: hz / sr };
+  return { pitch, f: hz };
 };

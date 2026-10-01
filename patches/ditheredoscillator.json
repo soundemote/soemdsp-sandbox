@@ -35,9 +35,9 @@
   "connections": [
     {
       "destinationNode": "robinOscillator-1",
-      "destinationPort": "Increment",
+      "destinationPort": "f",
       "sourceNode": "pitchManager-1",
-      "sourcePort": "inc",
+      "sourcePort": "f",
       "wireType": "trace",
       "tracePoints": []
     },

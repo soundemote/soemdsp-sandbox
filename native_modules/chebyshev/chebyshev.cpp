@@ -2,7 +2,7 @@
 // soemdsp-native-label: Chebyshev Filter
 // soemdsp-native-target: chebyshev
 // soemdsp-native-kind: filter
-// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/EngineersFilter.h
 //
 // Chebyshev Type I multipole — equiripple passband, steeper transition.
 
