@@ -133,7 +133,7 @@ extern "C" double soemdsp_basic_shape_sample(
   if (motionI < 0) motionI = 0;
   if (motionI > 3) motionI = 3;
 
-  const bool resetEdge = s.lastReset <= 0.0 && rv > 0.0;
+  const bool resetEdge = gate_hit(rv, &s.lastReset);
   s.lastReset = rv;
   if (resetEdge) s.phase = 0.0;
 

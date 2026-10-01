@@ -944,7 +944,7 @@ extern "C" void soemdsp_robin_supersaw_process_block(
   resolveVoices(voicesExact, &voiceCount, &lastFrac);
 
   const double reset = safe(resetGate);
-  const bool didReset = (s.lastReset <= 0.0 && reset > 0.0);
+  const bool didReset = gate_hit(reset, &s.lastReset);
   if (didReset) {
     resetBanks(s); // zeros walk → origin (unlike Depth→0 freeze)
   }

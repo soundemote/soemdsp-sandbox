@@ -16,6 +16,8 @@
 #include <soemdsp/math/analog_filter_trig.h>
 #include <soemdsp/math/scalar_helpers.h>
 
+using soemdsp::math::gate_hit;
+
 // Combined wasm resolves these; standalone graph_engine.wasm links with
 // --allow-undefined (stubs unused — product loads soemdsp_combined.wasm).
 extern "C" int soemdsp_polyblep_create();
@@ -4882,7 +4884,7 @@ static void process_polyblep(Circuit& g, Node& node, int frames) {
 
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         // Match JS: hard phase jump + clear native integrator / noise state.
         soemdsp_polyblep_reset(node.nativeHandle);
         freePhase = 0.0;
@@ -5928,7 +5930,7 @@ static void process_blit(Circuit& g, Node& node, int frames) {
 
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         soemdsp_blit_reset(node.nativeHandle);
         freePhase = 0.0;
       }
@@ -6022,7 +6024,7 @@ static void sin_cos_pair_advance(
     if (!(amp == amp)) amp = 0.0;
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         soemdsp_sine_wavetable_reset(node.nativeHandle);
       }
       node.lastReset = rv;
@@ -6106,7 +6108,7 @@ static void process_archimedes(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         soemdsp_archimedes_reset(node.nativeHandle);
         soemdsp_archimedes_reset_counters(node.nativeHandle);
       }
@@ -6162,7 +6164,7 @@ static void process_additive_osc(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         freePhase = 0.0;
       }
       node.lastReset = rv;
@@ -6746,7 +6748,7 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         for (int i = 0; i < H; i += 1) node.yellowPhaseAcc[i] = 0.0;
       }
       node.lastReset = rv;
@@ -6849,7 +6851,7 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         soemdsp_softwave_reset(node.nativeHandle);
       }
       node.lastReset = rv;
@@ -7034,7 +7036,7 @@ static void process_hypersaw2(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         soemdsp_hypersaw2_reset(node.nativeHandle);
       }
       node.lastReset = rv;
@@ -7207,7 +7209,7 @@ static void process_ellipsoid(Circuit& g, Node& node, int frames) {
     const double level = control_audio(g, node.amplitude, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         phase = 0.0;
         node.phase = 0.0;
       }
@@ -7274,7 +7276,7 @@ static void process_ellipsoid_osc(Circuit& g, Node& node, int frames) {
     const double scale = control_audio(g, node.width, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         phase = 0.0;
         node.phase = 0.0;
       }
@@ -7334,7 +7336,7 @@ static void process_snowflake(Circuit& g, Node& node, int frames) {
     double resetGate = 0.0;
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
+      if (gate_hit(rv, &node.lastReset)) resetGate = 1.0;
       node.lastReset = rv;
     }
     double freq = resolve_osc_hz(
@@ -7799,7 +7801,7 @@ static void process_chorus(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         soemdsp_chorus_reset(node.nativeHandle);
       }
       node.lastReset = rv;
@@ -7864,7 +7866,7 @@ static void process_ensemble(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         soemdsp_ensemble_reset(node.nativeHandle);
       }
       node.lastReset = rv;
@@ -9442,7 +9444,7 @@ static void process_chaosfly(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         soemdsp_chaosfly_reset(node.nativeHandle);
       }
       node.lastReset = rv;
@@ -9634,7 +9636,7 @@ static void process_theremin(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         soemdsp_softwave_reset(node.nativeHandle);
       }
       node.lastReset = rv;
@@ -10313,7 +10315,7 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         soemdsp_vibrato_generator_reset(node.nativeHandle, control_audio(g, node.phaseParam, f));
       }
       node.lastReset = rv;
@@ -10365,7 +10367,7 @@ static void process_wow_and_flutter(Circuit& g, Node& node, int frames) {
     control_frame(g, node, f);
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         soemdsp_wow_and_flutter_reset(node.nativeHandle, control_audio(g, node.phaseParam, f));
       }
       node.lastReset = rv;
@@ -10781,7 +10783,7 @@ static void process_transport(Circuit& g, Node& node, int frames) {
     const double now = g.masterSamples + (double)f;
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) {
+      if (gate_hit(rv, &node.lastReset)) {
         soemdsp_transport_reset(node.nativeHandle, now);
       }
       node.lastReset = rv;
@@ -10891,7 +10893,7 @@ static void process_wavetable_2d(Circuit& g, Node& node, int frames) {
     double reset = 0.0;
     if (liveReset) {
       reset = g.mixReset[f];
-      if (node.lastReset <= 0.0 && reset > 0.0) {
+      if (gate_hit(reset, &node.lastReset)) {
         soemdsp_wavetable_2d_reset(node.nativeHandle);
       }
       node.lastReset = reset;
@@ -11586,7 +11588,7 @@ static void process_robin_oscillator(Circuit& g, Node& node, int frames) {
     double resetGate = 0.0;
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
+      if (gate_hit(rv, &node.lastReset)) resetGate = 1.0;
       node.lastReset = rv;
     }
     const double phase0 = control_audio(g, node.phaseParam, f);
@@ -11642,7 +11644,7 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
     double resetGate = 0.0;
     if (liveReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
+      if (gate_hit(rv, &node.lastReset)) resetGate = 1.0;
       node.lastReset = rv;
     }
     const double phase0 = control_audio(g, node.phaseParam, f) * kTwoPi;
@@ -11722,7 +11724,7 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
     double resetGate = 0.0;
     if (hasReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
+      if (gate_hit(rv, &node.lastReset)) resetGate = 1.0;
       node.lastReset = rv;
     }
     double inc = 0.0;
@@ -11790,7 +11792,7 @@ static void process_hyperpluck(Circuit& g, Node& node, int frames) {
     double resetGate = 0.0;
     if (hasReset) {
       const double rv = g.mixReset[f];
-      if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
+      if (gate_hit(rv, &node.lastReset)) resetGate = 1.0;
       node.lastReset = rv;
     }
     run_block(1, f, resetGate);

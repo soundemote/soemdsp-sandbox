@@ -182,11 +182,11 @@ extern "C" double soemdsp_curve_attack_release_sample(
   if (mode < 0) mode = 0;
   if (mode > 1) mode = 1;
 
-  const bool gateOn = safe(gate) > 0.5;
-  const double gateVal = gateOn ? 1.0 : 0.0;
-  const double prevGate = s.lastGate;
-  const bool rising = rising_edge(gateVal, &s.lastGate, 0.5);
-  const bool falling = prevGate > 0.5 && gateVal <= 0.5;
+  const double g = safe(gate);
+  const bool wasOn = gate_on(s.lastGate);
+  const bool rising = gate_hit(g, &s.lastGate);
+  const bool gateOn = gate_on(g);
+  const bool falling = wasOn && !gateOn;
 
   if (!latch || rising || !s.hasShot) {
     s.shot.attack = maxd(0.0, safe(attack));

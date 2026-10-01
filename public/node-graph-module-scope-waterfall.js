@@ -1635,7 +1635,8 @@ function nodeGraphWaterfallSmoothAdvance(destCtx, destCanvas, spec, options) {
     nodeGraphWaterfallFillPlate(destCtx, destCanvas, spec.bg);
     return colPx;
   }
-  if (advancePx > 1e-4) {
+  const scroll = options?.scroll !== false;
+  if (scroll && advancePx > 1e-4) {
     if (typeof nodeGraphWaterfallGlScroll === "function") {
       nodeGraphWaterfallGlScroll(destCanvas, advancePx, plateBg);
     } else {
@@ -1663,7 +1664,11 @@ function nodeGraphWaterfallSmoothAdvance(destCtx, destCanvas, spec, options) {
   const leadPx = Math.max(0, nodeGraphFiniteNumber(options?.leadPx));
   const samplePx = Math.max(advancePx - leadPx, 1e-9);
   let pxLeft = advancePx;
-  let columnLeft = width - colPx - advancePx;
+  // Waterfall stamps the new column on the right after a left scroll.
+  // Onset does not scroll: the write head walks from the left edge.
+  let columnLeft = scroll
+    ? width - colPx - advancePx
+    : Math.max(0, nodeGraphFiniteNumber(options?.originX));
   while (pxLeft > 1e-4) {
     const room = Math.max(1e-6, barPx - colPx);
     const take = Math.min(pxLeft, room);
@@ -1827,7 +1832,7 @@ function nodeGraphWaterfallPaint(spec) {
     return true;
   }
   const onset = onsetPark
-    ? (canvas._onset || (canvas._onset = { filled: 0, parked: false, started: false, below: true, resetHi: false }))
+    ? (canvas._onset || (canvas._onset = { filled: 0, parked: false, live: false, below: true, resetHi: false }))
     : null;
   if (onset) {
     const planck = nodeGraphWaterfallPlanck();
@@ -1843,20 +1848,27 @@ function nodeGraphWaterfallPaint(spec) {
       const rightLatch = onset.right || (onset.right = { below: true });
       if (nodeGraphOnsetBufferRose(right, count, planck, rightLatch)) signalRose = true;
     }
-    const retrig = resetRose || (signalRose && (onset.parked || !onset.started));
-    if (retrig) {
+    // A signal already above Planck starts the pass. A rise, or Reset, starts
+    // another. Do not swallow the scope ring as one pass — that parks on a
+    // blank plate before any column is stamped.
+    const arm = resetRose || (signalRose && (onset.parked || !onset.live));
+    if (arm) {
       if (typeof nodeGraphWaterfallGlReset === "function") {
         nodeGraphWaterfallGlReset(canvas, spec.bg);
       }
       onset.filled = 0;
       onset.parked = false;
-      onset.started = true;
+      onset.live = true;
       st.colPx = 0;
       st.pxCarry = 0;
       st.barAcc = Object.create(null);
       st.edge = Object.create(null);
+      const keep = Math.max(1, Math.min(window.count || 1, 2048));
+      window.count = keep;
+      window.start = Math.max(0, (window.end || live.length) - keep);
+      if (Number.isFinite(window.absEnd)) st.lastAbs = Math.max(0, window.absEnd - keep);
     }
-    if (!onset.started || onset.parked) {
+    if (!onset.live || onset.parked) {
       if (Number.isFinite(window.absEnd) && window.count > 0) st.lastAbs = window.absEnd;
       nodeGraphWaterfallPresentHold(context, canvas, spec.bg);
       nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
@@ -1889,7 +1901,7 @@ function nodeGraphWaterfallPaint(spec) {
   let advancePx = (shown / faceSamples) * width;
   if (advancePx > width) advancePx = width;
   const maxPx = Math.max(1, width);
-  if (advancePx >= width - 1e-3) {
+  if (!onset && advancePx >= width - 1e-3) {
     st.colPx = 0;
     st.pxCarry = 0;
     st.barAcc = Object.create(null);
@@ -1902,9 +1914,11 @@ function nodeGraphWaterfallPaint(spec) {
   let movePx = Math.floor(st.pxCarry + 1e-6);
   if (movePx < 0) movePx = 0;
   if (movePx > maxPx) movePx = maxPx;
+  let onsetOrigin = 0;
   if (onset) {
     const room = Math.max(0, width - onset.filled);
     if (movePx > room) movePx = room;
+    onsetOrigin = onset.filled;
     onset.filled += movePx;
     if (onset.filled >= width - 0.5) {
       onset.filled = width;
@@ -1953,6 +1967,8 @@ function nodeGraphWaterfallPaint(spec) {
     colPx: st.colPx,
     barAcc: st.barAcc,
     leadPx,
+    scroll: !onset,
+    originX: onsetOrigin,
   });
   nodeGraphWaterfallFinishOutputInk(spec, context, canvas, movePx);
   remember();

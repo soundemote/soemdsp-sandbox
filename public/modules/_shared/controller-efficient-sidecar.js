@@ -711,6 +711,21 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const chordPlayMask2 = typeof nodeGraphChordMemoryLiveMaskForNode === "function"
       ? nodeGraphChordMemoryLiveMaskForNode(nid)
       : null;
+    const mixThru = (port) => {
+      const key = typeof this.inputKey === "function" ? this.inputKey(nid, port) : `${nid}.${port}`;
+      const list = this.inputConnections?.get?.(key);
+      if (!Array.isArray(list) || !list.length) return 0;
+      let sum = 0;
+      for (let i = 0; i < list.length; i += 1) {
+        const c = list[i];
+        const src = this.nodeOutputs?.get?.(String(c?.sourceNode || ""));
+        if (!src || typeof src !== "object") continue;
+        const v = Number(src[String(c?.sourcePort || "")]);
+        if (Number.isFinite(v)) sum += v;
+      }
+      return sum;
+    };
+    const clamp11 = (x) => (x > 1 ? 1 : x < -1 ? -1 : x);
     const outs2 = {
       ...prev,
       "Play Keys": maskBusy(playMask2),
@@ -720,8 +735,8 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       chordMask: chordMask2 instanceof Uint8Array ? chordMask2 : prev.chordMask,
       chordPlayMask: chordPlayMask2 instanceof Uint8Array ? chordPlayMask2 : prev.chordPlayMask,
       arpMask: arpMask2,
-      Gate: gateOut,
-      Trigger: triggerOut,
+      Gate: clamp11(gateOut + mixThru("Gate")),
+      Trigger: clamp11(triggerOut + mixThru("Trigger")),
     };
     if (String(node?.type || "") === "keyboard") {
       outs2.KeyIndex = cv.key;

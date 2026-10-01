@@ -45,6 +45,22 @@ static inline bool rising_edge_bool(bool high, bool* wasHigh) {
   return edge;
 }
 
+// App-wide Gate/Trigger: rest is |x| < kPlanck (open ball). Leave silence
+// in either sign is a hit. Height is `now` (signed). Updates *prev to now.
+// See docs/GATES_TRIGGERS.md.
+static inline bool gate_on(double x) {
+  return !silent_planck(soemdsp::debug::safe(x));
+}
+
+static inline bool gate_hit(double now, double* prev) {
+  if (!prev) return false;
+  const double x = soemdsp::debug::safe(now);
+  const double p = soemdsp::debug::safe(*prev);
+  const bool hit = silent_planck(p) && !silent_planck(x);
+  *prev = x;
+  return hit;
+}
+
 }  // namespace soemdsp::math
 
 namespace soemdsp_maths {
@@ -59,4 +75,6 @@ static inline bool change_edge(double now, double* prev, double threshold = 0.0)
   return soemdsp::math::change_edge(now, prev, threshold);
 }
 using soemdsp::math::rising_edge_bool;
+using soemdsp::math::gate_on;
+using soemdsp::math::gate_hit;
 }  // namespace soemdsp_maths

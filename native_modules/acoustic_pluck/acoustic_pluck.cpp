@@ -152,7 +152,7 @@ extern "C" double soemdsp_acoustic_pluck_sample(
 
   const double safeGate = safe(gate);
   const bool latchMode = safe(updateOnTrigger) >= 0.5;
-  const bool rising = rising_edge(safeGate, &s.lastGate, 0.0);
+  const bool rising = gate_hit(safeGate, &s.lastGate);
 
   double atk = maxd(0.0, safe(attack));
   if (safe(keyTrackConnected) >= 0.5) {

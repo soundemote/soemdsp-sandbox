@@ -322,7 +322,7 @@ extern "C" double soemdsp_audio_player_sample(
   const bool transportPlayOnce = mode >= 4;
 
   const double resetV = safe(reset);
-  const bool resetEdge = st.lastReset <= 0.0 && resetV > 0.0;
+  const bool resetEdge = gate_hit(resetV, &st.lastReset);
   if (resetEdge || transportReset || transportStopped) {
     st.phase = startPhase;
     st.completed = false;

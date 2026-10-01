@@ -153,7 +153,7 @@ extern "C" double soemdsp_sine_warp_sample(
   if (waveMode > 1) waveMode = 1;
 
   const double rv = (reset == reset) ? reset : 0.0;
-  const bool rising = (s.lastReset <= 0.0 && rv > 0.0);
+  const bool rising = gate_hit(rv, &s.lastReset);
   s.lastReset = rv;
 
   if (rising) {

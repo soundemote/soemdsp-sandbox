@@ -387,7 +387,7 @@ extern "C" double soemdsp_wavetable_2d_sample(
   if (!gBankReady) bake_bank();
 
   const double rv = safe(reset);
-  if (st.lastReset <= 0.0 && rv > 0.0) {
+  if (gate_hit(rv, &st.lastReset)) {
     st.phase = 0.0;
   }
   st.lastReset = rv;

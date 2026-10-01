@@ -504,7 +504,7 @@ extern "C" void soemdsp_hyperpluck_process_block(
   resolveVoices(voicesExact, &voiceCount, &lastFrac);
 
   const double reset = safe(resetGate);
-  const bool didReset = (s.lastReset <= 0.0 && reset > 0.0);
+  const bool didReset = gate_hit(reset, &s.lastReset);
   if (didReset) resetPhases(s);
   s.lastReset = reset;
 

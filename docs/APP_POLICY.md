@@ -18,7 +18,7 @@ When in doubt: prefer **honesty, one path, and delete over compatibility**.
 
 ### Gates & Triggers
 
-Binding spec: [GATES_TRIGGERS.md](./GATES_TRIGGERS.md). White round jacks, glyphs ▮ / ⎍, `> 0` after `≤ 0` is a hit, height is velocity, Trigger is one sample, Gate follows live height until `≤ 0`. Thru outs `clamp(internal + in, -1, +1)`.
+Binding spec: [GATES_TRIGGERS.md](./GATES_TRIGGERS.md). White round jacks, glyphs ▮ / ⎍ / ↺. Detector: `gate_hit` / `silent_planck` (`|x| < 1e-7` is rest; leave silence either sign is a hit). Height is velocity. Trigger is one sample. Gate follows live height until silence. Reset is the same hit, height ignored. Thru outs `clamp(internal + in, -1, +1)`.
 
 ---
 

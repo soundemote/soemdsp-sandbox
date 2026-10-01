@@ -374,7 +374,7 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       return nodeGraphModuleScopeState.buffers.get(`${nodeId}:Open`) || null;
     }
   }
-  if (["waterfall", "dotOscilloscope", "valueOscilloscope", "numberReadout", "valueLcd", "lineBurnOscilloscope", "scope1dTrace", "led", "vectorDot", "lcdDot"].includes(slot?.type)) {
+  if (["waterfall", "onset", "dotOscilloscope", "valueOscilloscope", "numberReadout", "valueLcd", "lineBurnOscilloscope", "scope1dTrace", "led", "vectorDot", "lcdDot"].includes(slot?.type)) {
     const source = typeof nodeGraphModuleDisplaySourceForSlot === "function"
       ? nodeGraphModuleDisplaySourceForSlot(slot)
       : null;
@@ -416,7 +416,12 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       return selectedBuffer;
     }
   }
-  return nodeGraphModuleScopeState.buffers.get(nodeId) || null;
+  return nodeGraphModuleScopeState.buffers.get(nodeId)
+    || nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`)
+    || (typeof nodeGraphModuleScopeConnectedSourceBuffer === "function"
+      ? nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In")
+      : null)
+    || null;
 }
 
 

@@ -16,6 +16,16 @@ function nodeGraphIsNear(a, b, epsilon) {
   return Math.abs(Number(a) - Number(b)) < eps;
 }
 
+function nodeGraphSilentPlanck(x) {
+  const n = Number(x);
+  if (!Number.isFinite(n)) return true;
+  return n < nodeGraphPlanck() && n > -nodeGraphPlanck();
+}
+
+function nodeGraphGateOn(x) {
+  return !nodeGraphSilentPlanck(x);
+}
+
 function nodeGraphAboveUnity(peak) {
   return Number(peak) >= 1 + nodeGraphPlanck();
 }
