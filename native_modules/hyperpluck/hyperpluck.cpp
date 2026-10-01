@@ -4,11 +4,10 @@
 // soemdsp-native-kind: oscillator
 // soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/PolyBLEP.hpp
 //
-// PolyBLEP unison bank with Supersaw detune layouts. Frequency-domain detune
-// plus circular phase layout (Linear / Exponential / Random) scaled by
-// Phase Multiply. Reset zeros every phasor and re-rolls Random. Fractional
-// voices like Hypersaw (last voice scaled by fractional part). Hard voice
-// cap 128; UI typically exposes ≤32.
+// PolyBLEP unison bank. Detune is Hz offset (ƒ + Δf), not cents. Algorithm
+// layouts map into ±Detune/2 Hz. Circular phase layout (Linear / Exponential /
+// Random) scaled by Phase Multiply. Reset zeros every phasor and re-rolls
+// Random. Fractional voices like Hypersaw. Hard voice cap 128; UI ≤32.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -358,7 +357,7 @@ void resolveVoices(double voicesExact, int* voiceCount, double* lastFrac) {
 
 struct VoiceState {
   double phase;
-  double centsOffset;
+  double hzOffset;
   double phaseLayout;
 };
 
@@ -466,7 +465,7 @@ extern "C" void soemdsp_hyperpluck_process_block(
   int handle,
   double frequencyHz,
   double sampleRate,
-  double detuneCents,
+  double detuneHz,
   double voicesExact,
   double level,
   double stereoMode,
@@ -483,7 +482,7 @@ extern "C" void soemdsp_hyperpluck_process_block(
 
   const double safeSampleRate = sampleRate > 1.0 ? sampleRate : 48000.0;
   const double safeFrequency = (frequencyHz == frequencyHz) ? frequencyHz : 0.0;
-  const double spreadCents = maxd(0.0, safe(detuneCents));
+  const double spreadHz = maxd(0.0, safe(detuneHz));
   const double safeLevel = safe(level);
   int wave = static_cast<int>(floorD(safe(waveform) + 0.5));
   if (wave < 0) wave = 0;
@@ -509,10 +508,10 @@ extern "C" void soemdsp_hyperpluck_process_block(
   if (didReset) resetPhases(s);
   s.lastReset = reset;
 
-  double cents[kMaxVoices];
-  fillVoiceCents(cents, voiceCount, algo, spreadCents);
+  double hzOff[kMaxVoices];
+  fillVoiceCents(hzOff, voiceCount, algo, spreadHz);
   for (int i = 0; i < voiceCount; i++) {
-    s.voices[i].centsOffset = cents[i];
+    s.voices[i].hzOffset = hzOff[i];
   }
 
   const bool randomAlgo = (phaseAlgo == kPhaseAlgoRandom);
@@ -546,7 +545,7 @@ extern "C" void soemdsp_hyperpluck_process_block(
     double normR = 0.0;
     for (int i = 0; i < voiceCount; i++) {
       VoiceState& v = s.voices[i];
-      double hz = safeFrequency * centsToRatio(v.centsOffset);
+      double hz = safeFrequency + v.hzOffset;
       if (!(hz == hz)) hz = 0.0;
       if (hz > hzCeil) hz = hzCeil;
       if (hz < -hzCeil) hz = -hzCeil;
@@ -601,7 +600,7 @@ extern "C" void soemdsp_hyperpluck_sample(
   int handle,
   double frequencyHz,
   double sampleRate,
-  double detuneCents,
+  double detuneHz,
   double voicesExact,
   double level,
   double stereoMode,
@@ -611,7 +610,7 @@ extern "C" void soemdsp_hyperpluck_sample(
   double resetGate
 ) {
   soemdsp_hyperpluck_process_block(
-    handle, frequencyHz, sampleRate, detuneCents, voicesExact, level,
+    handle, frequencyHz, sampleRate, detuneHz, voicesExact, level,
     stereoMode, detuneAlgorithm, waveform, maxVoiceHz, resetGate, 0.0, 0.0, 1
   );
 }

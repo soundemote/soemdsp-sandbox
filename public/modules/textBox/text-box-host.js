@@ -236,7 +236,7 @@ function nodeGraphTextBoxEnsureSettingsOpen(nodeId, event = null) {
   }
   if (alreadyOpen) {
     if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
-      ensureNodeGraphModuleSelectedForContext(nodeId);
+      ensureNodeGraphModuleSelectedForContext(nodeId, event);
     }
     if (nodeGraphMvp) {
       nodeGraphMvp.sceneContextTargetNode = nodeId;

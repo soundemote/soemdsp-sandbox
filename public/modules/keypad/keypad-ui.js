@@ -28,7 +28,7 @@ function openNodeKeypadDisplaySettings(event, nodeElement = null) {
   event?.preventDefault?.();
   event?.stopPropagation?.();
   if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
-    ensureNodeGraphModuleSelectedForContext(nodeId);
+    ensureNodeGraphModuleSelectedForContext(nodeId, event);
   }
   return openNodeGraphTraceDisplaySettings(nodeId, event);
 }

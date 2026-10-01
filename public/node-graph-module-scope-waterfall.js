@@ -51,6 +51,34 @@ function nodeGraphWaterfallHistoryIsFrozen(settings) {
   return !(nodeGraphWaterfallHistorySeconds(settings) > NODE_GRAPH_WATERFALL_HISTORY_SEC_EPS);
 }
 
+function nodeGraphOnsetBufferRose(buffer, count, planck, latch) {
+  const n = buffer?.length || 0;
+  if (!n) return false;
+  const take = Math.max(1, Math.min(n, Math.floor(count) || 1));
+  const start = n - take;
+  let rose = false;
+  for (let i = start; i < n; i += 1) {
+    const loud = Math.abs(Number(buffer[i])) > planck;
+    if (loud && latch.below) rose = true;
+    latch.below = !loud;
+  }
+  return rose;
+}
+
+function nodeGraphOnsetResetRose(buffer, count, planck, latch) {
+  const n = buffer?.length || 0;
+  if (!n) return false;
+  const take = Math.max(1, Math.min(n, Math.floor(count) || 1));
+  const start = n - take;
+  let rose = false;
+  for (let i = start; i < n; i += 1) {
+    const hi = Math.abs(Number(buffer[i])) > planck;
+    if (hi && !latch.hi) rose = true;
+    latch.hi = hi;
+  }
+  return rose;
+}
+
 /** Planck amplitude. Same constant as nodeGraphPlanck / NODE_GRAPH_PLANCK. */
 function nodeGraphWaterfallPlanck() {
   if (typeof nodeGraphPlanck === "function") {
@@ -135,7 +163,11 @@ function nodeGraphWaterfallHalfHeight(height, _slot, _settings, _amp) {
   return nodeGraphFiniteNumber(height, 0) * 0.5;
 }
 
-function nodeGraphWaterfallY(raw, gain, offset, midY, halfHeight, amp = null) {
+function nodeGraphWaterfallIsUnipolar(settings) {
+  return String(settings?.polarity || "").toLowerCase() === "unipolar";
+}
+
+function nodeGraphWaterfallY(raw, gain, offset, midY, halfHeight, amp = null, settings = null) {
   let bipolar;
   if (amp && typeof amp === "object" && amp.mode === "rmsDb") {
     const useLut = amp.useLogLut !== false;
@@ -147,6 +179,11 @@ function nodeGraphWaterfallY(raw, gain, offset, midY, halfHeight, amp = null) {
       : 0;
   } else {
     bipolar = (Number.isFinite(Number(raw)) ? Number(raw) : 0) * (nodeGraphFiniteNumber(gain, 1)) + (nodeGraphFiniteNumber(offset));
+  }
+  if (nodeGraphWaterfallIsUnipolar(settings) && !(amp && amp.mode === "rmsDb")) {
+    const u = Math.max(0, Math.min(1, bipolar));
+    const h = Math.max(1, midY * 2);
+    return h - u * h;
   }
   return midY - bipolar * halfHeight;
 }
@@ -235,6 +272,7 @@ function nodeGraphWaterfallLatestY(buffer, slot, settings, height) {
     height * 0.5,
     halfHeight,
     amp,
+    settings,
   );
 }
 
@@ -332,8 +370,8 @@ function nodeGraphWaterfallAccToYs(acc, buffer, slot, settings, height) {
   const amp = nodeGraphWaterfallAmp(live, slot);
   const midY = height * 0.5;
   const halfHeight = nodeGraphWaterfallHalfHeight(height, slot, settings, amp);
-  const yMin = nodeGraphWaterfallY(acc.min, amp.gain, amp.offset, midY, halfHeight, amp);
-  const yMax = nodeGraphWaterfallY(acc.max, amp.gain, amp.offset, midY, halfHeight, amp);
+  const yMin = nodeGraphWaterfallY(acc.min, amp.gain, amp.offset, midY, halfHeight, amp, settings);
+  const yMax = nodeGraphWaterfallY(acc.max, amp.gain, amp.offset, midY, halfHeight, amp, settings);
   if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) {
     return null;
   }
@@ -486,8 +524,8 @@ function nodeGraphWaterfallColumnBars(buffer, slot, columns, height, settings, s
     const excursion = nodeGraphWaterfallExcursionBar(minV, maxV, amp);
     minV = excursion.min;
     maxV = excursion.max;
-    const yMin = nodeGraphWaterfallY(minV, amp.gain, amp.offset, midY, halfHeight, amp);
-    const yMax = nodeGraphWaterfallY(maxV, amp.gain, amp.offset, midY, halfHeight, amp);
+    const yMin = nodeGraphWaterfallY(minV, amp.gain, amp.offset, midY, halfHeight, amp, settings);
+    const yMax = nodeGraphWaterfallY(maxV, amp.gain, amp.offset, midY, halfHeight, amp, settings);
     if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) {
       continue;
     }
@@ -1027,15 +1065,20 @@ function nodeGraphWaterfallBarInkRect(span, thickness01) {
  * column's edge to this column's edge, so a slow sine is a continuous fill.
  * Below detail 1, or when bar thickness opens a gutter, columns stay flat rects.
  */
+function nodeGraphWaterfallBarInk(settings) {
+  const raw = String(settings?.barInk || settings?.ink || "").toLowerCase();
+  if (raw === "stroke" || raw === "both" || raw === "fill") return raw;
+  return "fill";
+}
+
 function nodeGraphWaterfallBarsFilled(settings) {
-  const raw = settings?.filledBars;
-  if (raw === false || raw === 0 || raw === "0" || raw === "false") return false;
-  return true;
+  const ink = nodeGraphWaterfallBarInk(settings);
+  return ink === "fill" || ink === "both";
 }
 
 function nodeGraphWaterfallDrawStroke(settings) {
-  const raw = settings?.drawStroke;
-  return raw === true || raw === 1 || raw === "1" || raw === "true";
+  const ink = nodeGraphWaterfallBarInk(settings);
+  return ink === "stroke" || ink === "both";
 }
 
 function nodeGraphWaterfallStrokePx(settings) {
@@ -1534,8 +1577,8 @@ function nodeGraphWaterfallAccBarYs(acc, buffer, slot, settings, height) {
   const excursion = nodeGraphWaterfallExcursionBar(acc.min, acc.max, amp);
   const midY = height * 0.5;
   const halfHeight = nodeGraphWaterfallHalfHeight(height, slot, settings, amp);
-  const yMin = nodeGraphWaterfallY(excursion.min, amp.gain, amp.offset, midY, halfHeight, amp);
-  const yMax = nodeGraphWaterfallY(excursion.max, amp.gain, amp.offset, midY, halfHeight, amp);
+  const yMin = nodeGraphWaterfallY(excursion.min, amp.gain, amp.offset, midY, halfHeight, amp, settings);
+  const yMax = nodeGraphWaterfallY(excursion.max, amp.gain, amp.offset, midY, halfHeight, amp, settings);
   if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) {
     return null;
   }
@@ -1548,8 +1591,8 @@ function nodeGraphWaterfallAccBarYs(acc, buffer, slot, settings, height) {
   }
   // Stroke follows the signal's own min/max. Fill may extend a one-sided
   // column to 0, and that rest edge is the face center — not a bar edge.
-  const rawMin = nodeGraphWaterfallY(acc.min, amp.gain, amp.offset, midY, halfHeight, amp);
-  const rawMax = nodeGraphWaterfallY(acc.max, amp.gain, amp.offset, midY, halfHeight, amp);
+  const rawMin = nodeGraphWaterfallY(acc.min, amp.gain, amp.offset, midY, halfHeight, amp, settings);
+  const rawMax = nodeGraphWaterfallY(acc.max, amp.gain, amp.offset, midY, halfHeight, amp, settings);
   let strokeY0 = y0;
   let strokeY1 = y1;
   if (Number.isFinite(rawMin) && Number.isFinite(rawMax)) {
@@ -1766,10 +1809,14 @@ function nodeGraphWaterfallPaint(spec) {
     return true;
   }
 
+  const onsetDef = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[spec?.slot?.type]
+    : null;
+  const onsetPark = onsetDef?.onsetPark === true;
   const history = nodeGraphWaterfallHistorySeconds(settings);
   // Pause on silence: keep the hold. No scroll, no new columns.
   // Eat the silent window so it does not burst-scroll when sound returns.
-  if (nodeGraphWaterfallPauseOnSilence(settings)
+  if (!onsetPark && nodeGraphWaterfallPauseOnSilence(settings)
     && nodeGraphWaterfallIncomingIsSilent(writeSpec, settings, window, live)) {
     if (Number.isFinite(window.absEnd) && window.count > 0) {
       st.lastAbs = window.absEnd;
@@ -1778,6 +1825,44 @@ function nodeGraphWaterfallPaint(spec) {
     nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
     remember();
     return true;
+  }
+  const onset = onsetPark
+    ? (canvas._onset || (canvas._onset = { filled: 0, parked: false, started: false, below: true, resetHi: false }))
+    : null;
+  if (onset) {
+    const planck = nodeGraphWaterfallPlanck();
+    const count = Math.max(1, window.count || 1);
+    const id = String(spec?.slot?.nodeId || "");
+    const resetBuf = id && nodeGraphModuleScopeState?.buffers
+      ? nodeGraphModuleScopeState.buffers.get(`${id}:Reset`)
+      : null;
+    const resetRose = nodeGraphOnsetResetRose(resetBuf, count, planck, onset);
+    let signalRose = nodeGraphOnsetBufferRose(live, count, planck, onset);
+    const right = spec.stereoBuffers?.right;
+    if (right && right !== live) {
+      const rightLatch = onset.right || (onset.right = { below: true });
+      if (nodeGraphOnsetBufferRose(right, count, planck, rightLatch)) signalRose = true;
+    }
+    const retrig = resetRose || (signalRose && (onset.parked || !onset.started));
+    if (retrig) {
+      if (typeof nodeGraphWaterfallGlReset === "function") {
+        nodeGraphWaterfallGlReset(canvas, spec.bg);
+      }
+      onset.filled = 0;
+      onset.parked = false;
+      onset.started = true;
+      st.colPx = 0;
+      st.pxCarry = 0;
+      st.barAcc = Object.create(null);
+      st.edge = Object.create(null);
+    }
+    if (!onset.started || onset.parked) {
+      if (Number.isFinite(window.absEnd) && window.count > 0) st.lastAbs = window.absEnd;
+      nodeGraphWaterfallPresentHold(context, canvas, spec.bg);
+      nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
+      remember();
+      return true;
+    }
   }
   const hz = nodeGraphWaterfallVisualHz(live);
 
@@ -1817,6 +1902,15 @@ function nodeGraphWaterfallPaint(spec) {
   let movePx = Math.floor(st.pxCarry + 1e-6);
   if (movePx < 0) movePx = 0;
   if (movePx > maxPx) movePx = maxPx;
+  if (onset) {
+    const room = Math.max(0, width - onset.filled);
+    if (movePx > room) movePx = room;
+    onset.filled += movePx;
+    if (onset.filled >= width - 0.5) {
+      onset.filled = width;
+      onset.parked = true;
+    }
+  }
   const leadPx = Math.max(0, movePx - framePx);
   st.pxCarry = Math.max(0, st.pxCarry - movePx);
   canvas._wfSubPx = st.pxCarry;

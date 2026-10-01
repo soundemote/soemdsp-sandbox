@@ -1,5 +1,5 @@
 // soemdsp-native-module: acoustic_pluck
-// soemdsp-native-label: Acoustic Pluck
+// soemdsp-native-label: Pluck Envelope
 // soemdsp-native-target: acousticPluck
 // soemdsp-native-kind: envelope
 //
@@ -59,6 +59,7 @@ struct State {
   double latchReleaseShape;
   double latchAmplitude;
   double latchInputMode;
+  double velocity;
   bool hasLatch;
   bool active;
 };
@@ -68,7 +69,7 @@ static State gPool[kMaxInstances];
 static const char kMetadataJson[] =
   "{"
     "\"module\":\"acoustic_pluck\","
-    "\"label\":\"Acoustic Pluck\","
+    "\"label\":\"Pluck Envelope\","
     "\"targetType\":\"acousticPluck\","
     "\"kind\":\"envelope\""
   "}";
@@ -113,6 +114,7 @@ extern "C" int soemdsp_acoustic_pluck_create() {
       s.latchAmplitude = 1.0;
       s.latchInputMode = 1.0;
       s.hasLatch = false;
+      s.velocity = 1.0;
       s.active = true;
       return i + 1;
     }
@@ -161,8 +163,11 @@ extern "C" double soemdsp_acoustic_pluck_sample(
   double atkShape = safe(attackShape);
   double rel = maxd(0.0, safe(release));
   double relShape = safe(releaseShape);
-  double amp = (amplitude * 0.0 == 0.0) ? amplitude : 1.0;
+  (void)amplitude;
   double mode = safe(inputMode);
+  if (rising) {
+    s.velocity = maxd(0.0, safeGate);
+  }
   // Feedback / Bias always live (breadboard knobs into the release MOD path).
   const double fbAmt = safe(feedback);
   const double fbBias = safe(bias);
@@ -173,7 +178,6 @@ extern "C" double soemdsp_acoustic_pluck_sample(
       s.latchAttackShape = atkShape;
       s.latchRelease = rel;
       s.latchReleaseShape = relShape;
-      s.latchAmplitude = amp;
       s.latchInputMode = mode;
       s.hasLatch = true;
     }
@@ -181,7 +185,6 @@ extern "C" double soemdsp_acoustic_pluck_sample(
     atkShape = s.latchAttackShape;
     rel = s.latchRelease;
     relShape = s.latchReleaseShape;
-    amp = s.latchAmplitude;
     mode = s.latchInputMode;
   } else {
     s.hasLatch = false;
@@ -201,18 +204,20 @@ extern "C" double soemdsp_acoustic_pluck_sample(
     atkShape,
     effRelease,
     relShape,
-    amp,
+    1.0,
     mode,
     0.0,
     sampleRate
   );
-  const double envSafe = (env * 0.0 == 0.0) ? env : 0.0;
+  const double shape = (env * 0.0 == 0.0) ? env : 0.0;
 
-  s.fbDelay[s.fbIdx] = clamp(envSafe, 0.0, 1.0);
+  s.fbDelay[s.fbIdx] = clamp(shape, 0.0, 1.0);
   s.fbIdx++;
   if (s.fbIdx >= kFbDelaySamples) s.fbIdx = 0;
 
-  return envSafe;
+  const double vel = (s.velocity * 0.0 == 0.0) ? s.velocity : 1.0;
+  const double out = clamp(shape, 0.0, 1.0) * vel;
+  return (out * 0.0 == 0.0) ? out : 0.0;
 }
 
 extern "C" int soemdsp_acoustic_pluck_version() { return 3; }

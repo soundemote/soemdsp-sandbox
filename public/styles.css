@@ -17710,9 +17710,14 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
   grid-template-rows: var(--node-slider-readout-height);
   align-items: center;
   column-gap: 0;
-  height: var(--node-slider-readout-height);
-  min-height: var(--node-slider-readout-height);
+  /* Cover the body-row gap so the sliver between parameters is this row. */
+  box-sizing: border-box;
+  height: calc(var(--node-body-row-height) + var(--node-body-row-gap));
+  min-height: calc(var(--node-body-row-height) + var(--node-body-row-gap));
+  margin-block: calc(var(--node-body-row-gap) * -0.5);
   padding: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .node-parameter-control {
@@ -19348,6 +19353,19 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   grid-template-columns: var(--ds-label-col) minmax(0, 1fr);
   padding: var(--metadata-row-pad-y, 0px) 0;
   box-sizing: border-box;
+}
+
+.node-trace-display-settings-popover[data-display-settings-type="waterfall"] .node-trace-display-line-burn-row,
+.node-trace-display-settings-popover[data-display-settings-type="waterfallRgb"] .node-trace-display-line-burn-row,
+.node-trace-display-settings-popover[data-display-settings-type="waterfallXyz"] .node-trace-display-line-burn-row {
+  grid-template-columns: 9.5em minmax(0, 1fr);
+}
+
+.node-trace-display-settings-popover[data-display-settings-type="waterfall"] .node-trace-display-line-burn-row > span:first-child,
+.node-trace-display-settings-popover[data-display-settings-type="waterfallRgb"] .node-trace-display-line-burn-row > span:first-child,
+.node-trace-display-settings-popover[data-display-settings-type="waterfallXyz"] .node-trace-display-line-burn-row > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .node-trace-display-settings-popover .metadata-popover-grid label.node-trace-display-line-burn-row,

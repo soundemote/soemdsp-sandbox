@@ -286,7 +286,7 @@ function createTextBoxWidget(body, options = {}) {
     event.preventDefault();
     event.stopPropagation();
     if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
-      ensureNodeGraphModuleSelectedForContext(nodeId);
+      ensureNodeGraphModuleSelectedForContext(nodeId, event);
     }
     openNodeGraphTraceDisplaySettings(nodeId, event);
   });

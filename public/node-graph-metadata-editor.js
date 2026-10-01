@@ -1884,9 +1884,51 @@ function openNodeGraphMetaparametersPage(options = {}) {
 }
 
 /**
- * Parameter Settings stays pinned to the slider it opened on while the page
- * is already open. Selection changes do not wipe or retarget that form.
+ * Parameter Settings follows the selection. No selection shows the module list.
+ * A selected module keeps its open slider when that slider belongs to it,
+ * otherwise the page moves to that module's first parameter.
  */
+function syncOpenNodeMetadataPopoverToSelection() {
+  const popover = document.getElementById("nodeParameterMetadataPopover");
+  if (!popover || popover.hidden || nodeGraphMvp.sharedInspectorActive !== "metaparameters") {
+    return false;
+  }
+  const primary = typeof nodeGraphModuleActionTargetNodeId === "function"
+    ? String(nodeGraphModuleActionTargetNodeId() || "").trim()
+    : "";
+  if (!primary) {
+    showBlankNodeMetadataPopoverContent();
+    return true;
+  }
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(primary) : null;
+  if (patchNode && !nodeGraphNodeCanOpenParameterSettings(patchNode)) {
+    showNodeMetadataNoParametersContent(patchNode);
+    return true;
+  }
+  const slider = document.getElementById(String(nodeGraphMvp.metadataEditorTarget || ""));
+  const owner = String(slider?.closest?.(".dsp-node")?.dataset?.node || "").trim();
+  if (owner === primary) {
+    return true;
+  }
+  const element = typeof nodeGraphNodeElement === "function"
+    ? nodeGraphNodeElement(primary)
+    : document.querySelector(`.dsp-node[data-node="${CSS.escape(primary)}"]`);
+  const readout = typeof firstNodeModuleSliderReadout === "function"
+    ? firstNodeModuleSliderReadout(element)
+    : element?.querySelector?.(".node-slider-readout");
+  if (!readout || typeof openNodeMetadataPopover !== "function") {
+    showBlankNodeMetadataPopoverContent();
+    return true;
+  }
+  openNodeMetadataPopover({
+    preventDefault() {},
+    stopPropagation() {},
+    clientX: 0,
+    clientY: 0,
+  }, readout);
+  return true;
+}
+
 function syncOpenNodeMetadataPopoverToModule(nodeId) {
   const popover = document.getElementById("nodeParameterMetadataPopover");
   if (!popover || popover.hidden || nodeGraphMvp.sharedInspectorActive !== "metaparameters") {

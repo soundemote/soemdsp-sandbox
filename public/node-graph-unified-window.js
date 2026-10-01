@@ -1649,12 +1649,21 @@ function openNodeGraphParameterSettingsFromContextEvent(event, nodeElement = nul
     event.stopImmediatePropagation?.();
     const node = nodeElement || readout.closest?.(".dsp-node");
     const nodeId = String(node?.dataset?.node || "").trim();
-    if (nodeId) {
-      if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
-        ensureNodeGraphModuleSelectedForContext(nodeId);
+    if (nodeId && typeof nodeGraphFinishContextSelection === "function") {
+      const primary = nodeGraphFinishContextSelection(nodeId, event);
+      const still = typeof nodeGraphSelectedNodeIds === "function" && nodeGraphSelectedNodeIds().has(nodeId);
+      if (still) {
+        openNodeMetadataPopover(event, readout);
+        return true;
       }
-      nodeGraphMvp.sceneContextTargetNode = nodeId;
-      nodeGraphMvp.lastModuleActionTargetNode = nodeId;
+      if (primary && typeof openNodeGraphMetaparametersPage === "function") {
+        openNodeGraphMetaparametersPage({ event, nodeId: primary });
+        return true;
+      }
+      if (typeof openBlankNodeMetadataPopover === "function") {
+        openBlankNodeMetadataPopover(event);
+      }
+      return true;
     }
     openNodeMetadataPopover(event, readout);
     return true;
@@ -1672,12 +1681,21 @@ function openNodeGraphParameterSettingsFromContextEvent(event, nodeElement = nul
   event.stopImmediatePropagation?.();
   const node = nodeElement || slider.closest?.(".dsp-node");
   const nodeId = String(node?.dataset?.node || "").trim();
-  if (nodeId) {
-    if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
-      ensureNodeGraphModuleSelectedForContext(nodeId);
+  if (nodeId && typeof nodeGraphFinishContextSelection === "function") {
+    const primary = nodeGraphFinishContextSelection(nodeId, event);
+    const still = typeof nodeGraphSelectedNodeIds === "function" && nodeGraphSelectedNodeIds().has(nodeId);
+    if (!still) {
+      if (primary && typeof openNodeGraphMetaparametersPage === "function") {
+        openNodeGraphMetaparametersPage({ event, nodeId: primary });
+        return true;
+      }
+      if (typeof openBlankNodeMetadataPopover === "function") {
+        openBlankNodeMetadataPopover(event);
+      }
+      return true;
     }
-    nodeGraphMvp.sceneContextTargetNode = nodeId;
-    nodeGraphMvp.lastModuleActionTargetNode = nodeId;
+  } else if (nodeId && typeof ensureNodeGraphModuleSelectedForContext === "function") {
+    ensureNodeGraphModuleSelectedForContext(nodeId, event);
   }
   let linkedReadout = null;
   if (slider.id) {

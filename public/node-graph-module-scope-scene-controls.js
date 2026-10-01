@@ -274,7 +274,16 @@ function beginNodeGraphModuleScopeWindowNumberEdit(event) {
   if (!nodeId || !nodeGraphPatchNode(nodeId) || !menu) {
     return;
   }
-  if (typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
+  const scopePrimary = typeof nodeGraphFinishContextSelection === "function"
+    ? nodeGraphFinishContextSelection(nodeId, event)
+    : nodeId;
+  if (!scopePrimary && typeof openBlankNodeGraphTraceDisplaySettings === "function") {
+    openBlankNodeGraphTraceDisplaySettings(event || {});
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  if (typeof openNodeGraphTraceDisplaySettings === "function" && scopePrimary && openNodeGraphTraceDisplaySettings(scopePrimary, event)) {
     event.preventDefault();
     event.stopPropagation();
     return;

@@ -2,7 +2,7 @@
 
 **Audience:** humans and agents working on soemdsp-sandbox.  
 **Status:** binding while the app is **not feature-complete**.  
-**Related:** [SANDBOX_DESIGN.md](./SANDBOX_DESIGN.md) (UI aesthetics), [WASM_SLIM_LOAD.md](./WASM_SLIM_LOAD.md), [MODULE_PATTERN_REFERENCE.md](./MODULE_PATTERN_REFERENCE.md).
+**Related:** [SANDBOX_DESIGN.md](./SANDBOX_DESIGN.md) (UI aesthetics), [GATES_TRIGGERS.md](./GATES_TRIGGERS.md), [WASM_SLIM_LOAD.md](./WASM_SLIM_LOAD.md), [MODULE_PATTERN_REFERENCE.md](./MODULE_PATTERN_REFERENCE.md).
 
 When in doubt: prefer **honesty, one path, and delete over compatibility**.
 
@@ -15,6 +15,10 @@ When in doubt: prefer **honesty, one path, and delete over compatibility**.
 - **Keyboard `Æ’`** is concert A440 (`440 Ã— 2^((midiâˆ’69)/12)`). Independent of Freq Ref. Wire Keyboard `Æ’` â†’ osc `Æ’` for Hz; wire `â™¯/â™­` into pitch utilities (quantizer, glide, transpose, Phone Tone, Pitch Manager).
 - **Keyboard `Velocity`:** gold outlet, 0â€¦1 (`velocity01`). Legacy `Velo#/127` / `Velocity#/127` alias to `Velocity`.
 - Hz modules (oscs / most filters): Frequency knob and `Æ’` jack are **absolute Hz**. They do not track `pitch` unless a leftover consumer explicitly does.
+
+### Gates & Triggers
+
+Binding spec: [GATES_TRIGGERS.md](./GATES_TRIGGERS.md). White round jacks, glyphs ▮ / ⎍, `> 0` after `≤ 0` is a hit, height is velocity, Trigger is one sample, Gate follows live height until `≤ 0`. Thru outs `clamp(internal + in, -1, +1)`.
 
 ---
 
@@ -145,8 +149,8 @@ Only these live-audio types exist in the efficient build:
 | `inertialFilter` | Attack/release inertial smoother |
 | `expAdsr` | Curve ADSR envelope |
 | `linearEnvelope` | Linear ADSR envelope |
-| `pluckEnvelope` | Pluck / decay-mod envelope |
-| `acousticPluck` | Acoustic pluck (Curve AR + release feedback) |
+| `pluckEnvelope` | Pluck / decay-mod envelope (legacy, hidden) |
+| `acousticPluck` | Pluck Envelope (breadboard AR + release feedback) |
 | `flowerChildEnvelopeFollower` | Attack/hold/decay envelope follower |
 | `delayEffect` | Modulated mono delay |
 | `soemReverb` | SoEm multi-tap reverb (â‰  sabrina `reverbEffect`) |

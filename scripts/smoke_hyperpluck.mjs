@@ -30,7 +30,7 @@ const f64 = () => new Float64Array(mem.buffer);
 function run(h, opts = {}) {
   const {
     freq = 220,
-    detune = 30,
+    detune = 5,
     voices = 7,
     stereo = 1, // Alternating
     algo = 2,

@@ -866,6 +866,9 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
     // Instant Waterfall has no sync. A rising-edge lock is incompatible with
     // the History (seconds) scroll+stamp strip. Ignore saved sourceSync.
     sourceSync: false,
+    polarity: String(source.facePolarity || source.polarity || defaults.polarity || "bipolar").toLowerCase() === "unipolar"
+      ? "unipolar"
+      : "bipolar",
     stereoBlend: (function () {
       const raw = String(source.stereoBlend || defaults.stereoBlend || "combine").toLowerCase().trim();
       const ok = typeof TraceStroke !== "undefined" && Array.isArray(TraceStroke.STEREO_BLEND_MODES)
@@ -891,17 +894,21 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
       0,
       1,
     ),
-    filledBars: (() => {
-      const raw = source.filledBars;
-      if (raw === true || raw === 1 || raw === "1" || raw === "true") return true;
-      if (raw === false || raw === 0 || raw === "0" || raw === "false") return false;
-      return defaults.filledBars !== false;
-    })(),
-    drawStroke: (() => {
-      const raw = source.drawStroke;
-      if (raw === true || raw === 1 || raw === "1" || raw === "true") return true;
-      if (raw === false || raw === 0 || raw === "0" || raw === "false") return false;
-      return defaults.drawStroke === true;
+    barInk: (() => {
+      const raw = String(source.barInk || "").toLowerCase().trim();
+      if (raw === "stroke" || raw === "stroke-only" || raw === "stroke only") return "stroke";
+      if (raw === "both" || raw === "fill & stroke" || raw === "fill and stroke" || raw === "stroke & fill") return "both";
+      if (raw === "fill" || raw === "fill-only" || raw === "fill only") return "fill";
+      const named = String(source.ink || "").toLowerCase().trim();
+      if (named === "stroke") return "stroke";
+      if (named === "both") return "both";
+      if (named === "fill") return "fill";
+      const filledOff = source.filledBars === false || source.filledBars === 0 || source.filledBars === "0" || source.filledBars === "false";
+      const stroke = source.drawStroke === true || source.drawStroke === 1 || source.drawStroke === "1" || source.drawStroke === "true";
+      if (stroke && !filledOff) return "both";
+      if (stroke && filledOff) return "stroke";
+      const fallback = String(defaults.barInk || "fill").toLowerCase();
+      return fallback === "stroke" || fallback === "both" ? fallback : "fill";
     })(),
     strokeColor: normalizeNodeGraphTraceDisplayColor(
       source.strokeColor,

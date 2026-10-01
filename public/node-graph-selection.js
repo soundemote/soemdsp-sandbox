@@ -260,12 +260,26 @@ function nodeGraphModuleActionTargetNodeId() {
   return null;
 }
 
+function nodeGraphCommitContextSelection(ids) {
+  const next = (ids || []).map((item) => String(item || "")).filter((item) => item && nodeGraphMvp.activeNodes.has(item));
+  nodeGraphMvp.selectionOrder = next;
+  if (!next.length) {
+    setNodeGraphSelection(null);
+    return;
+  }
+  if (next.length === 1) {
+    setNodeGraphSelection({ type: "node", id: next[0] });
+    return;
+  }
+  setNodeGraphSelection({ type: "nodes", ids: next });
+}
+
 /**
- * Right-click / context open: ensure the hit module is selected before
- * Command Center / Module Settings / Display Settings bind to it.
- * Already-selected modules keep the current multi-select; otherwise sole-select.
+ * Right-click selects the hit module and makes it the one Command Center reads.
+ * Ctrl+right-click toggles it in the selection (add or remove) and still counts
+ * as the right-click that opens the page. The page then reads the selection.
  */
-function ensureNodeGraphModuleSelectedForContext(nodeId) {
+function ensureNodeGraphModuleSelectedForContext(nodeId, event = null) {
   const id = String(nodeId || "").trim();
   if (!id || !nodeGraphMvp.activeNodes.has(id)) {
     return false;
@@ -273,15 +287,35 @@ function ensureNodeGraphModuleSelectedForContext(nodeId) {
   const ordered = typeof nodeGraphSelectedNodeIdsInOrder === "function"
     ? nodeGraphSelectedNodeIdsInOrder()
     : [...nodeGraphSelectedNodeIds()];
-  if (ordered.includes(id)) {
+  const toggle = event?.ctrlKey === true || event?.metaKey === true;
+  if (toggle) {
+    if (ordered.includes(id)) {
+      nodeGraphCommitContextSelection(ordered.filter((existing) => existing !== id));
+    } else {
+      nodeGraphCommitContextSelection([id, ...ordered]);
+    }
     return true;
   }
-  if (typeof setNodeGraphNodeSelection === "function") {
-    setNodeGraphNodeSelection([id]);
-  } else {
-    setNodeGraphSelection({ type: "node", id });
-  }
+  nodeGraphCommitContextSelection([id, ...ordered.filter((existing) => existing !== id)]);
   return true;
+}
+
+/** Selection Command Center should read after a right-click, including Ctrl toggle. */
+function nodeGraphFinishContextSelection(nodeId, event = null) {
+  if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
+    ensureNodeGraphModuleSelectedForContext(nodeId, event);
+  }
+  const ordered = typeof nodeGraphSelectedNodeIdsInOrder === "function"
+    ? nodeGraphSelectedNodeIdsInOrder()
+    : [];
+  const primary = ordered.length ? String(ordered[0] || "").trim() : "";
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.sceneContextTargetNode = primary || null;
+    nodeGraphMvp.lastModuleActionTargetNode = primary || null;
+    nodeGraphMvp.scopeContextTargetNode = primary || null;
+    nodeGraphMvp.sceneContextTargetWire = null;
+  }
+  return primary;
 }
 
 function nodeGraphSelectionDisplaySyncKey() {
@@ -366,10 +400,12 @@ function syncNodeGraphSharedInspectorTargetFromSelection() {
     }
   }
 
-  // Parameter Settings: opening the page uses the selected module. While
-  // the form is already open it stays pinned to that slider.
+  // Parameter Settings follows the selection, same as Module and Display.
   if (nodeGraphMvp.sharedInspectorActive === "metaparameters") {
-    // no-op on selection change (pinned slider target is independent)
+    const popover = document.getElementById("nodeParameterMetadataPopover");
+    if (popover && !popover.hidden && typeof syncOpenNodeMetadataPopoverToSelection === "function") {
+      syncOpenNodeMetadataPopoverToSelection();
+    }
   }
 }
 

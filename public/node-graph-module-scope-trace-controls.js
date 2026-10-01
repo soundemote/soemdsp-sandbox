@@ -60,6 +60,7 @@ const nodeGraphInstantWaterfallDisplayFieldOrder = Object.freeze([
   "historySeconds",
   "detail",
   "barThickness",
+  "strokeThickness",
   "backgroundBrightness",
   "backgroundHue",
   "dot1Brightness",
@@ -293,8 +294,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "secondaryBrightness",
     ]),
     colors: Object.freeze(["dot1Color", "secondaryColor", "tertiaryColor", "backgroundColor", "strokeColor"]),
-    toggles: Object.freeze(["filledBars", "drawStroke", "skipDiscontinuities", "pauseOnSilence"]),
-    choices: Object.freeze(["stereoBlend"]),
+    toggles: Object.freeze(["skipDiscontinuities", "pauseOnSilence"]),
+    choices: Object.freeze(["barInk", "facePolarity", "stereoBlend"]),
   }),
   // Phosphor energy faces: color via shared Gradient editor (not single swatches).
   // Field order = nodeGraphPhosphorDisplayFieldOrder (Bright…residual…Burn ⨉…Dot Budget).
@@ -485,8 +486,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "faceBlur",
     ]),
     colors: Object.freeze(["backgroundColor", "strokeColor"]),
-    toggles: Object.freeze(["filledBars", "drawStroke", "pauseOnSilence"]),
-    choices: Object.freeze(["stereoBlend", "xyzLayout"]),
+    toggles: Object.freeze(["pauseOnSilence"]),
+    choices: Object.freeze(["barInk", "facePolarity", "stereoBlend", "xyzLayout"]),
   }),
   // 1D Waterfall RGB — Size / Blur / Dot density / Bright; RGB Add or CMY Multiply.
   waterfallRgb: Object.freeze({
@@ -501,8 +502,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "faceBlur",
     ]),
     colors: Object.freeze(["backgroundColor", "strokeColor"]),
-    toggles: Object.freeze(["filledBars", "drawStroke", "cmyMode", "skipDiscontinuities", "pauseOnSilence"]),
-    choices: Object.freeze([]),
+    toggles: Object.freeze(["cmyMode", "skipDiscontinuities", "pauseOnSilence"]),
+    choices: Object.freeze(["barInk", "facePolarity"]),
   }),
   numberReadout: Object.freeze({
     // Value LED: Digits → Decimals → Padding → Bright → Ghost → Trail → Burn.
@@ -529,7 +530,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     // GROW: live resize vs fixed Digits+Decimals bins (stored as !decimalBudget).
     toggles: Object.freeze(["digitBins", "decimalBudget", "removeTrailingZeros"]),
-    choices: Object.freeze(["polarity"]),
+    choices: Object.freeze([]),
   }),
   // LED lamp: same shared display inspector as other faces (not a separate window).
   vectorDot: Object.freeze({
@@ -2216,6 +2217,27 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
       Object.freeze({ value: "left", label: "Left" }),
       Object.freeze({ value: "right", label: "Right" }),
       Object.freeze({ value: "mono", label: "Mono" }),
+    ]),
+  }),
+  facePolarity: Object.freeze({
+    label: "Polarity",
+    aria: "Unipolar or bipolar",
+    id: "nodeTraceDisplayFacePolarity",
+    title: "Bipolar: −1 at the bottom, 0 in the center, +1 at the top. Unipolar: 0 at the bottom, +1 at the top.",
+    options: Object.freeze([
+      Object.freeze({ value: "bipolar", label: "Bipolar" }),
+      Object.freeze({ value: "unipolar", label: "Unipolar" }),
+    ]),
+  }),
+  barInk: Object.freeze({
+    label: "Ink",
+    aria: "Fill, stroke, or both",
+    id: "nodeTraceDisplayBarInk",
+    title: "Fill only, Stroke only, or Fill & stroke. One of them is always drawn.",
+    options: Object.freeze([
+      Object.freeze({ value: "fill", label: "Fill only" }),
+      Object.freeze({ value: "stroke", label: "Stroke only" }),
+      Object.freeze({ value: "both", label: "Fill & stroke" }),
     ]),
   }),
   stereoBlend: Object.freeze({

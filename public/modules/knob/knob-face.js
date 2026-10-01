@@ -1989,7 +1989,7 @@ function openNodeKnobFaceContextMenu(event) {
   event.stopPropagation();
   event.stopImmediatePropagation?.();
   if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
-    ensureNodeGraphModuleSelectedForContext(nodeId);
+    ensureNodeGraphModuleSelectedForContext(nodeId, event);
   }
   if (nodeGraphMvp) {
     nodeGraphMvp.sceneContextTargetNode = nodeId;

@@ -269,6 +269,8 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_OBSERVER_TYPES = Object.freeze([
   "textStream",
   "waterfall",
   "waterfallStereo",
+  "onset",
+  "onset2d",
   "waterfallXyz",
   "waterfallRgb",
   "valueLcd",

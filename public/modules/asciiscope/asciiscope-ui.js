@@ -42,7 +42,7 @@ function matrixCreateFaceShell(node, options = {}) {
     event.preventDefault();
     event.stopPropagation();
     if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
-      ensureNodeGraphModuleSelectedForContext(node);
+      ensureNodeGraphModuleSelectedForContext(node, event);
     }
     if (typeof nodeGraphMvp !== "undefined") {
       nodeGraphMvp.sceneContextTargetNode = node;

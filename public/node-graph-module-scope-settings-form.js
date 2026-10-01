@@ -1432,6 +1432,10 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type, { syncOn: syncOnForStack }));
   };
   pushStackField("scale");
+  if (isInstantWaterfall && choiceKeys.includes("facePolarity")) {
+    rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml("facePolarity"));
+    usedChoices.add("facePolarity");
+  }
   if (choiceKeys.includes("stereoBlend")) {
     rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml("stereoBlend"));
     usedChoices.add("stereoBlend");
@@ -1453,13 +1457,9 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   }
   pushStackField("detail");
   pushStackField("barThickness");
-  if (isInstantWaterfall && toggleKeys.includes("filledBars")) {
-    rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("filledBars"));
-    usedToggles.add("filledBars");
-  }
-  if (isInstantWaterfall && toggleKeys.includes("drawStroke")) {
-    rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("drawStroke"));
-    usedToggles.add("drawStroke");
+  if (isInstantWaterfall && choiceKeys.includes("barInk")) {
+    rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml("barInk"));
+    usedChoices.add("barInk");
   }
   if (isInstantWaterfall && orderedPrimary.includes("strokeThickness")) {
     rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml("strokeThickness", type));

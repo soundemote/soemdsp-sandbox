@@ -2453,16 +2453,15 @@ function openNodeGraphModuleSettingsFromContextEvent(event, nodeElement = null) 
   event?.stopPropagation?.();
   event?.stopImmediatePropagation?.();
   // Right-click selects first so Command Center / Settings only bind selected modules.
-  if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
-    ensureNodeGraphModuleSelectedForContext(nodeId);
+  if (typeof nodeGraphFinishContextSelection === "function") {
+    nodeGraphFinishContextSelection(nodeId, event);
+  } else if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
+    ensureNodeGraphModuleSelectedForContext(nodeId, event);
   }
   nodeGraphMvp.sceneContextPoint = null;
   if (typeof closeNodeScopeContextMenu === "function") {
     closeNodeScopeContextMenu();
   }
-  nodeGraphMvp.sceneContextTargetNode = nodeId;
-  nodeGraphMvp.lastModuleActionTargetNode = nodeId;
-  nodeGraphMvp.sceneContextTargetWire = null;
   configureNodeSceneContextMenu("module");
   nodeGraphMvp.sharedInspectorActive = "moduleActions";
   const menu = document.getElementById("nodeModuleActionsWindow");
@@ -2571,14 +2570,15 @@ function openNodeXyPadContextMenu(event) {
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
-  if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
-    ensureNodeGraphModuleSelectedForContext(nodeId);
-  }
-  // Prefer phosphor Display Settings (color / background / reset canvas).
+  const xyPrimary = typeof nodeGraphFinishContextSelection === "function"
+    ? nodeGraphFinishContextSelection(nodeId, event)
+    : nodeId;
   if (typeof openNodeGraphTraceDisplaySettings === "function") {
-    nodeGraphMvp.sceneContextTargetNode = nodeId;
-    nodeGraphMvp.lastModuleActionTargetNode = nodeId;
-    if (openNodeGraphTraceDisplaySettings(nodeId, event)) {
+    if (!xyPrimary && typeof openBlankNodeGraphTraceDisplaySettings === "function") {
+      openBlankNodeGraphTraceDisplaySettings(event || {});
+      return true;
+    }
+    if (xyPrimary && openNodeGraphTraceDisplaySettings(xyPrimary, event)) {
       return true;
     }
   }
@@ -2615,18 +2615,20 @@ function openNodeRoundShapeContextMenu(event) {
   event.preventDefault?.();
   event.stopPropagation?.();
   event.stopImmediatePropagation?.();
-  if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
-    ensureNodeGraphModuleSelectedForContext(nodeId);
-  }
+  const shapePrimary = typeof nodeGraphFinishContextSelection === "function"
+    ? nodeGraphFinishContextSelection(nodeId, event)
+    : nodeId;
   if (typeof closeNodeSceneContextMenu === "function") {
     closeNodeSceneContextMenu();
   }
   nodeGraphMvp.sceneContextPoint = null;
-  nodeGraphMvp.sceneContextTargetNode = nodeId;
-  nodeGraphMvp.lastModuleActionTargetNode = nodeId;
-  nodeGraphMvp.scopeContextTargetNode = nodeId;
+  if (!shapePrimary && typeof openBlankNodeGraphTraceDisplaySettings === "function") {
+    openBlankNodeGraphTraceDisplaySettings(event || {});
+    return true;
+  }
   if (typeof openNodeGraphTraceDisplaySettings === "function"
-    && openNodeGraphTraceDisplaySettings(nodeId, event)) {
+    && shapePrimary
+    && openNodeGraphTraceDisplaySettings(shapePrimary, event)) {
     return true;
   }
   return false;
@@ -2695,20 +2697,19 @@ function openNodeScopeContextMenu(event) {
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
-  if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
-    ensureNodeGraphModuleSelectedForContext(nodeId);
-  }
+  const scopePrimary = typeof nodeGraphFinishContextSelection === "function"
+    ? nodeGraphFinishContextSelection(nodeId, event)
+    : nodeId;
   if (typeof closeNodeSceneContextMenu === "function") {
     closeNodeSceneContextMenu();
   }
   nodeGraphMvp.sceneContextPoint = null;
-  nodeGraphMvp.sceneContextTargetNode = nodeId;
-  nodeGraphMvp.sceneContextTargetWire = null;
-  nodeGraphMvp.scopeContextTargetNode = nodeId;
-  nodeGraphMvp.lastModuleActionTargetNode = nodeId;
 
-  // Display Settings for every module (blank + Show in canvas if no face schema).
-  if (typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
+  if (!scopePrimary && typeof openBlankNodeGraphTraceDisplaySettings === "function") {
+    openBlankNodeGraphTraceDisplaySettings(event || {});
+    return true;
+  }
+  if (typeof openNodeGraphTraceDisplaySettings === "function" && scopePrimary && openNodeGraphTraceDisplaySettings(scopePrimary, event)) {
     return true;
   }
   if (typeof openNodeGraphScopeShaderScript === "function" && openNodeGraphScopeShaderScript(nodeId)) {
@@ -2727,10 +2728,14 @@ function openNodeSampleWaveformContextMenu(event) {
   }
   event.preventDefault();
   event.stopPropagation();
-  if (typeof ensureNodeGraphModuleSelectedForContext === "function") {
-    ensureNodeGraphModuleSelectedForContext(nodeId);
+  const wavePrimary = typeof nodeGraphFinishContextSelection === "function"
+    ? nodeGraphFinishContextSelection(nodeId, event)
+    : nodeId;
+  if (!wavePrimary && typeof openBlankNodeGraphTraceDisplaySettings === "function") {
+    openBlankNodeGraphTraceDisplaySettings(event || {});
+    return true;
   }
-  if (typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
+  if (typeof openNodeGraphTraceDisplaySettings === "function" && wavePrimary && openNodeGraphTraceDisplaySettings(wavePrimary, event)) {
     return true;
   }
   if (typeof openNodeGraphSampleWaveformSettings === "function") {

@@ -104,7 +104,9 @@ function attachNodeGraphNodeEvents(node) {
   node.querySelectorAll(".dsp-node-io-section")
     .forEach((section) => section.addEventListener("pointerdown", beginNodeGraphNodeDrag));
   node.querySelectorAll(".node-parameter-row")
-    .forEach((row) => row.addEventListener("pointerdown", beginNodeGraphNodeDrag));
+    .forEach((row) => row.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    }));
   node.querySelector(".node-module-lip")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   node.querySelector(".node-module-lip")?.addEventListener("contextmenu", openNodeModuleActionMenu);
   node.querySelector(".node-bypass-button")?.addEventListener("click", (event) => {
@@ -218,6 +220,9 @@ function openNodeModuleDisplaySettings(event) {
   event.preventDefault();
   event.stopPropagation();
   const nodeId = event.currentTarget?.dataset?.node;
+  if (nodeId && typeof ensureNodeGraphModuleSelectedForContext === "function") {
+    ensureNodeGraphModuleSelectedForContext(nodeId, event);
+  }
   if (nodeId && typeof openNodeKeypadDisplaySettings === "function") {
     const nodeEl = event.currentTarget?.closest?.(".dsp-node");
     if (openNodeKeypadDisplaySettings(event, nodeEl)) {

@@ -230,7 +230,7 @@ extern "C" int soemdsp_hyperpluck_create();
 extern "C" void soemdsp_hyperpluck_destroy(int handle);
 extern "C" void soemdsp_hyperpluck_reset(int handle);
 extern "C" void soemdsp_hyperpluck_process_block(
-  int handle, double frequencyHz, double sampleRate, double detuneCents,
+  int handle, double frequencyHz, double sampleRate, double detuneHz,
   double voicesExact, double level, double stereoMode, double detuneAlgorithm,
   double waveform, double maxVoiceHz, double resetGate, double phaseAlgorithm,
   double phaseMultiply, int frameCount
@@ -3253,10 +3253,11 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpoPluckEnvelope) ? 0.0 // damping
       : (typeId == kTypeExpoPluckEnvelope2) ? 1.0 // velocity
       : (typeId == kTypeThumpEnvelope) ? 0.0 // decaySnap 0…1 (0=patch short)
-      : (typeId == kTypeAcousticPluck) ? 0.6804373070396221 // feedback (width)
+      : (typeId == kTypeAcousticPluck) ? 0.0 // dampen
       : (typeId == kTypePluckEnvelope3) ? 0.5 // decay (0=short … 1=long)
       : (typeId == kTypeTransport) ? 0.5 // pulseWidth gate duty
-      : (typeId == kTypeRobinSupersaw || typeId == kTypeHyperpluck) ? 30.0 // detuneCents (no hard 100Â¢ cap)
+      : (typeId == kTypeRobinSupersaw) ? 30.0 // detuneCents
+      : (typeId == kTypeHyperpluck) ? 5.0 // detuneHz
       : (typeId == kTypeTriggerCounter) ? 1.0
       : (typeId == kTypePumpLimiter) ? 8.0 // ratio
       : (typeId == kTypeMetallicRatio) ? 1.0 // index n
@@ -3428,7 +3429,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpoPluckEnvelope) ? 5.0 // Decay s (Comb-style: leave long)
       : (typeId == kTypeExpoPluckEnvelope2) ? 0.7 // decaySlopeMid
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // decay
-      : (typeId == kTypeAcousticPluck) ? 0.9435542410230598 // bias (feedback slot)
+      : (typeId == kTypeAcousticPluck) ? 0.0 // synth vs acoustic
       : (typeId == kTypeDelayEffect) ? 0.25
       : (typeId == kTypeSoemReverb) ? 1.0 // duckLimit
       : (typeId == kTypeHypersaw2) ? 0.5 // morph/PWM center
@@ -8810,7 +8811,7 @@ static void process_thump_envelope(Circuit& g, Node& node, int frames) {
 
 // Ping Envelope (pluckEnvelope3): timeDenominator=attack s, width=decay,
 // amplitude, mode=recalculateOnTrigger. Trigger→kPortTrigger; Gate/In→Mono+L/R.
-// Acoustic Pluck: timeDen=attack, shape=attackShape, offsetMs=release,
+// Pluck Envelope (acousticPluck): timeDen=softenAttack, width=dampen,
 // center=releaseShape, width=feedback, feedback=bias, mode=inputMode,
 // timingMode=updateOnTrigger, amplitude. KT->Left (note-mask key track);
 // Gate->Mono(+Right); Trigger on kPortTrigger.
@@ -8825,7 +8826,7 @@ static void process_acoustic_pluck(Circuit& g, Node& node, int frames) {
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
     const double mono = g.mixMono[f] + g.mixRight[f];
     const double gate = trig + mono;
-    const double out = soemdsp_acoustic_pluck_sample(
+    const double env = soemdsp_acoustic_pluck_sample(
       node.nativeHandle,
       gate,
       hasKt ? g.mixLeft[f] : 0.0,
@@ -8836,14 +8837,15 @@ static void process_acoustic_pluck(Circuit& g, Node& node, int frames) {
       control_audio(g, node.center, f),
       control_audio(g, node.width, f),
       control_audio(g, node.feedback, f),
-      control_audio(g, node.amplitude, f),
+      1.0,
       control_effective(node.mode),
       control_effective(node.timingMode),
       sr
     );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
+    const double amp = env * control_audio(g, node.amplitude, f);
+    node.buf[kPortMono][f] = env;
+    node.buf[kPortLeft][f] = amp;
+    node.buf[kPortRight][f] = amp;
   }
 }
 

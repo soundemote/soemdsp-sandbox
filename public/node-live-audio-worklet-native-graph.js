@@ -346,6 +346,9 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   amp: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE,
   level: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LEVEL,
   shape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
+  softenAttack: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR,
+  dampen: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
+  synthVsAcoustic: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FEEDBACK,
   phaseAlgorithm: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   phaseMultiply: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET,
   upShape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
@@ -421,6 +424,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   cutoff: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FREQUENCY,
   // RobinSupersaw (shared names that do not collide with Hypersaw KEY_IDS).
   detuneCents: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
+  detuneHz: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   detuneAlgorithm: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
   stereoMode: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
   phaseSpread: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
@@ -898,6 +902,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
   if (p === "env") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+  if ((p === "amp" || p === "amplitude") && t === "acousticPluck") {
+    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
+  }
   if (p === "count") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   if (p === "pulse") {
     return t === "triggerCounter"
@@ -2191,30 +2198,41 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
           for (let i = 0; i < mods.length; i += 1) {
             const m = mods[i];
             if (!m) continue;
-            const srcId = String(m.sourceNode || "");
-            const srcPort = String(m.sourcePort || "");
-            if (!srcId) continue;
-            if (this.shouldSkipPitchHzNormFreqParamModEdge?.(typeById.get(srcId), dstType, paramKey)) continue;
-            const srcHash = idSet.has(srcId)
-              ? (hashById.get(srcId) || this.fnv1aHash32(srcId))
-              : this.nativeHostCvFeederHash(srcId, srcPort);
-            const srcPortId = idSet.has(srcId)
-              ? this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId))
-              : NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
-            if (!srcHash || !Number.isFinite(srcPortId) || srcPortId < 0) continue;
-            try {
-              const rc = native.soemdsp_graph_add_param_mod_edge(
-                this.nativeGraphHandle,
-                srcHash,
-                srcPortId | 0,
-                hashById.get(dstId),
-                paramId | 0,
-              ) | 0;
-              if (rc !== 0) continue;
-            } catch (_e) {
-              continue;
+            const rawSrcId = String(m.sourceNode || "");
+            const rawSrcPort = String(m.sourcePort || "");
+            if (!rawSrcId) continue;
+            const resolved = idSet.has(rawSrcId)
+              ? [{ sourceNode: rawSrcId, sourcePort: rawSrcPort }]
+              : this.resolveNativeGraphThruSources(rawSrcId, rawSrcPort, idSet, 0);
+            const hops = resolved.length
+              ? resolved
+              : [{ sourceNode: rawSrcId, sourcePort: rawSrcPort, hostCv: true }];
+            for (let hi = 0; hi < hops.length; hi += 1) {
+              const srcId = String(hops[hi]?.sourceNode || "");
+              const srcPort = String(hops[hi]?.sourcePort || rawSrcPort);
+              if (!srcId) continue;
+              if (this.shouldSkipPitchHzNormFreqParamModEdge?.(typeById.get(srcId), dstType, paramKey)) continue;
+              const srcHash = idSet.has(srcId)
+                ? (hashById.get(srcId) || this.fnv1aHash32(srcId))
+                : this.nativeHostCvFeederHash(srcId, srcPort);
+              const srcPortId = idSet.has(srcId)
+                ? this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId))
+                : NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+              if (!srcHash || !Number.isFinite(srcPortId) || srcPortId < 0) continue;
+              try {
+                const rc = native.soemdsp_graph_add_param_mod_edge(
+                  this.nativeGraphHandle,
+                  srcHash,
+                  srcPortId | 0,
+                  hashById.get(dstId),
+                  paramId | 0,
+                ) | 0;
+                if (rc !== 0) continue;
+              } catch (_e) {
+                continue;
+              }
+              liveParamModKeys.add(`${dstId}\0${paramKey}\0${srcId}\0${srcPort}`);
             }
-            liveParamModKeys.add(`${dstId}\0${paramKey}\0${srcId}\0${srcPort}`);
             // Domain Hz MOD ADDS to Frequency Control (shared fold / ParamModEdge).
             // No dual-wire to kPortF — that path wiped the knob offset.
           }
@@ -4941,16 +4959,11 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "acousticPluck") {
-      // timeDen=attack, shape=attackShape, offsetMs=release, center=releaseShape,
-      // width=feedback, feedback=bias, mode=inputMode, timingMode=updateOnTrigger, amplitude.
-      push("updateOnTrigger", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("updateOnTrigger", 0));
-      push("inputMode", P.NATIVE_GRAPH_PARAM_MODE, disc("inputMode", 1));
-      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0));
-      push("attackShape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("attackShape", -0.07));
-      push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.11715292599242004));
-      push("releaseShape", P.NATIVE_GRAPH_PARAM_CENTER, cont("releaseShape", 1));
-      push("feedback", P.NATIVE_GRAPH_PARAM_WIDTH, cont("feedback", 0.6804373070396221));
-      push("bias", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("bias", 0.9435542410230598));
+      // Breadboard knobs: softenAttack→timeDen, dampen→width, synthVsAcoustic→feedback.
+      // Attack curve / base release / fall curve / trigger mode stay baked in init_control.
+      push("softenAttack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("softenAttack", 0));
+      push("dampen", P.NATIVE_GRAPH_PARAM_WIDTH, cont("dampen", 0));
+      push("synthVsAcoustic", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("synthVsAcoustic", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -5360,7 +5373,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("stereoMode", P.NATIVE_GRAPH_PARAM_MODE, disc("stereoMode", 0));
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("detuneAlgorithm", P.NATIVE_GRAPH_PARAM_CENTER, disc("detuneAlgorithm", 2));
-      push("detuneCents", P.NATIVE_GRAPH_PARAM_WIDTH, cont("detuneCents", 30));
+      push("detuneHz", P.NATIVE_GRAPH_PARAM_WIDTH, cont("detuneHz", 5));
       push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 7));
       push("phaseAlgorithm", P.NATIVE_GRAPH_PARAM_SHAPE, disc("phaseAlgorithm", 0));
       push("phaseMultiply", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("phaseMultiply", 0));
@@ -7590,40 +7603,47 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
         for (let i = 0; i < mods.length; i += 1) {
           const m = mods[i];
           if (!m) continue;
-          const srcId = String(m.sourceNode || "");
-          const srcPort = String(m.sourcePort || "");
-          if (!srcId) continue;
-          if (this.shouldSkipPitchHzNormFreqParamModEdge?.(typeById.get(srcId), dstType, paramKey)) continue;
-          const hostSrc = !idSet.has(srcId);
-          const srcPortId = hostSrc
-            ? NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO
-            : this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId));
-          if (hostSrc) this.nativeHostCvFeederHash(srcId, srcPort);
-          if (!Number.isFinite(srcPortId) || srcPortId < 0) continue;
-          const srcLane = voiceLaneByBase.get(srcId);
-          const dstLane = voiceLaneByBase.get(dstId);
-          const addMod = (sId, dId) => {
-            const srcHash = idSet.has(sId)
-              ? (hashById.get(sId) || this.fnv1aHash32(sId))
-              : this.nativeHostCvFeederHash(sId, srcPort);
-            if (!srcHash) return;
+          const rawSrcId = String(m.sourceNode || "");
+          const rawSrcPort = String(m.sourcePort || "");
+          if (!rawSrcId) continue;
+          const resolved = idSet.has(rawSrcId)
+            ? [{ sourceNode: rawSrcId, sourcePort: rawSrcPort }]
+            : this.resolveNativeGraphThruSources(rawSrcId, rawSrcPort, idSet, 0);
+          const hops = resolved.length
+            ? resolved
+            : [{ sourceNode: rawSrcId, sourcePort: rawSrcPort }];
+          for (let hi = 0; hi < hops.length; hi += 1) {
+            const srcId = String(hops[hi]?.sourceNode || "");
+            const srcPort = String(hops[hi]?.sourcePort || rawSrcPort);
+            if (!srcId) continue;
+            if (this.shouldSkipPitchHzNormFreqParamModEdge?.(typeById.get(srcId), dstType, paramKey)) continue;
+            const hostSrc = !idSet.has(srcId);
+            const srcPortId = hostSrc
+              ? NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO
+              : this.mapNativeGraphSrcPortId(srcPort, typeById.get(srcId));
+            if (hostSrc) this.nativeHostCvFeederHash(srcId, srcPort);
+            if (!Number.isFinite(srcPortId) || srcPortId < 0) continue;
+            const srcLane = voiceLaneByBase.get(srcId);
+            const dstLane = voiceLaneByBase.get(dstId);
+            if (srcLane && dstLane && srcLane.metaId === dstLane.metaId) continue;
+            const srcHash = idSet.has(srcId)
+              ? (hashById.get(srcId) || this.fnv1aHash32(srcId))
+              : this.nativeHostCvFeederHash(srcId, srcPort);
+            if (!srcHash) continue;
             try {
               const rc = native.soemdsp_graph_add_param_mod_edge(
                 this.nativeGraphHandle,
                 srcHash,
                 srcPortId | 0,
-                this.fnv1aHash32(dId),
+                this.fnv1aHash32(dstId),
                 paramId | 0,
               ) | 0;
-              if (rc !== 0) return;
+              if (rc !== 0) continue;
             } catch (_e) {
-              return;
+              continue;
             }
-            liveParamModKeys.add(`${dId}\0${paramKey}\0${sId}\0${srcPort}`);
-            // Domain Hz MOD ADDS to Frequency Control — no kPortF dual-wire.
-          };
-          if (srcLane && dstLane && srcLane.metaId === dstLane.metaId) continue;
-          addMod(srcId, dstId);
+            liveParamModKeys.add(`${dstId}\0${paramKey}\0${srcId}\0${srcPort}`);
+          }
         }
       });
     }

@@ -937,7 +937,16 @@ function nodeSliderDragSurfaceFromEvent(event) {
   if (nodeSliderIsDragSurface(event?.currentTarget)) {
     return event.currentTarget;
   }
-  return event?.target?.closest?.(".node-slider-readout, .node-knob-face, .node-plugin-slider-face") || null;
+  const direct = event?.target?.closest?.(".node-slider-readout, .node-knob-face, .node-plugin-slider-face");
+  if (direct) {
+    return direct;
+  }
+  // Padding and the gap between parameter rows belong to the parameter, not module drag.
+  if (event?.target?.closest?.(".node-port, .node-param-port")) {
+    return null;
+  }
+  const row = event?.target?.closest?.(".node-parameter-row");
+  return row?.querySelector?.(".node-slider-readout") || null;
 }
 
 /** Type-in edit for a surface (knob face → face overlay; plugin face → body readout). */
