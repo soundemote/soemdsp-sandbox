@@ -226,6 +226,23 @@ extern "C" double soemdsp_robin_supersaw_voice_x(int handle, int index);
 extern "C" double soemdsp_robin_supersaw_voice_pan(int handle, int index);
 extern "C" double soemdsp_robin_supersaw_voice_amp(int handle, int index);
 
+extern "C" int soemdsp_hyperpluck_create();
+extern "C" void soemdsp_hyperpluck_destroy(int handle);
+extern "C" void soemdsp_hyperpluck_reset(int handle);
+extern "C" void soemdsp_hyperpluck_process_block(
+  int handle, double frequencyHz, double sampleRate, double detuneCents,
+  double voicesExact, double level, double stereoMode, double detuneAlgorithm,
+  double waveform, double maxVoiceHz, double resetGate, double incrementCycles,
+  int frameCount
+);
+extern "C" int soemdsp_hyperpluck_block_output_left_ptr(int handle);
+extern "C" int soemdsp_hyperpluck_block_output_right_ptr(int handle);
+extern "C" int soemdsp_hyperpluck_block_output_mono_ptr(int handle);
+extern "C" int soemdsp_hyperpluck_voice_count(int handle);
+extern "C" double soemdsp_hyperpluck_voice_x(int handle, int index);
+extern "C" double soemdsp_hyperpluck_voice_pan(int handle, int index);
+extern "C" double soemdsp_hyperpluck_voice_amp(int handle, int index);
+
 extern "C" int soemdsp_slew_limiter_create();
 extern "C" void soemdsp_slew_limiter_destroy(int handle);
 extern "C" void soemdsp_slew_limiter_process_block(
@@ -1874,6 +1891,7 @@ static const int kTypeCurveAttackRelease = 166;
 static const int kTypeThumpEnvelope = 167;
 static const int kTypeAcousticPluck = 198;
 static const int kTypeAcidSequencer = 199; // TB-303-style step sequencer
+static const int kTypeHyperpluck = 200; // PolyBLEP unison pluck (Supersaw detune)
 static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smoothstep)
 static const int kTypeFm = 169; // Freq Manager: ƒ(+inc) mix × pitch scale + Add; outs ƒ + inc
 static const int kTypePitchHz = 170; // Pitch â†” Hz (MIDI-ish pitch law, A4 = tuning)
@@ -2354,6 +2372,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_robin_oscillator_destroy(handle);
   } else if (kind == kTypeRobinSupersaw) {
     soemdsp_robin_supersaw_destroy(handle);
+  } else if (kind == kTypeHyperpluck) {
+    soemdsp_hyperpluck_destroy(handle);
   } else if (kind == kTypeSlewLimiter) {
     soemdsp_slew_limiter_destroy(handle);
   } else if (kind == kTypeComparator) {
@@ -2879,7 +2899,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCombResonator) ? 110.0
       : (typeId == kTypeExpoPluckEnvelope) ? 110.0 // KS pitch Hz
       : (typeId == kTypeInertialFilter) ? 20000.0 // attack Hz
-      : (typeId == kTypeRobinSupersaw) ? 100.0
+      : (typeId == kTypeRobinSupersaw || typeId == kTypeHyperpluck) ? 100.0
       : (typeId == kTypeRobinSinusoid) ? 440.0
       : (typeId == kTypeRobinOscillator) ? 100.0
       : (typeId == kTypeSampleHold) ? 0.0
@@ -2945,6 +2965,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.waveform,
     (typeId == kTypeAdditiveOsc || typeId == kTypeDsfOscillator) ? 1.0
       : (typeId == kTypeHypersaw2) ? 1.0 // Saw (Trisaw=0 … Trapezoid=6)
+      : (typeId == kTypeHyperpluck) ? 1.0 // Saw (Trisaw=0 … Square=5)
       : (typeId == kTypeActiveFilter) ? 0.0 // Dual Ladder HP slope Bypass
       : (typeId == kTypeCookbookFilter) ? 0.0 // Direct Form 1
       : (typeId == kTypePhaser) ? 0.0 // slope 12 dB
@@ -3096,6 +3117,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeTb303Filter) ? 4.0 // LP_24
       : (typeId == kTypeLookaheadLimiter || typeId == kTypePumpLimiter) ? 1.0 // look-ahead On
       : (typeId == kTypeSineWavetable) ? 2.0 // sincos
+      : (typeId == kTypeHyperpluck) ? 0.0 // Dual Channel
       : (typeId == kTypeSinc) ? 1.0 // band-limit kernel
       : (typeId == kTypeEllipsoid || typeId == kTypeBasicShape) ? 1.0 // CounterClock(Ph)
       : (typeId == kTypeSnowflake) ? 1.0 // Koch Snowflake pattern
@@ -3131,7 +3153,7 @@ static void init_node_defaults(Node& n, int typeId) {
   // snowflake = iterations.
   init_control(
     n.stages,
-    (typeId == kTypeRobinSupersaw) ? 7.0
+    (typeId == kTypeRobinSupersaw || typeId == kTypeHyperpluck) ? 7.0
       : (typeId == kTypeTriggerDivider) ? 2.0
       : (typeId == kTypeTriggerCounter || typeId == kTypeStepSequencer
           || typeId == kTypeTuringMachine || typeId == kTypeDegreeTuring
@@ -3173,7 +3195,8 @@ static void init_node_defaults(Node& n, int typeId) {
     // Generator Harmonics + Hypersaw2/RobinSupersaw voices stay continuous for Decimal trailing amp.
     // Freq Manager semitones live on stages and stay continuous, same as Pitch Manager octave.
     (typeId != kTypeAdditiveGenerator && typeId != kTypeHypersaw2
-      && typeId != kTypeRobinSupersaw && typeId != kTypePitchManager
+      && typeId != kTypeRobinSupersaw && typeId != kTypeHyperpluck
+      && typeId != kTypePitchManager
       && typeId != kTypeFm)
   );
   init_control(
@@ -3201,7 +3224,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAdditiveBlaster) ? 0.44 // bias (PoC)
       : (typeId == kTypeStepGraph) ? 0.0 // curveOffset
       : (typeId == kTypeAdditivePan) ? 0.35 // AutoPan shimmer amount
-      : (typeId == kTypeRobinSupersaw) ? 2.0 // detuneAlgorithm Emotional
+      : (typeId == kTypeRobinSupersaw || typeId == kTypeHyperpluck) ? 2.0 // detuneAlgorithm Emotional
       : (typeId == kTypeCrossover3) ? 3000.0
       : (typeId == kTypeCrossover4) ? 1000.0
       : (typeId == kTypeCrossover5) ? 500.0
@@ -3212,7 +3235,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSoftClipper) ? 1.0 // threshold
       : 0.0,
     // Robin detuneAlgorithm is discrete 0…5; RoundShape / Ellipsoid AA is discrete Off/Limit
-    typeId == kTypeRobinSupersaw || typeId == kTypeEllipsoid || typeId == kTypeEllipsoidOsc
+    typeId == kTypeRobinSupersaw || typeId == kTypeHyperpluck
+    || typeId == kTypeEllipsoid || typeId == kTypeEllipsoidOsc
     || typeId == kTypeAcidSequencer // semitone offset
   );
   // Soft-clipper knee default 0.5; noise = deviation; supersaw = detune;
@@ -3230,7 +3254,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAcousticPluck) ? 0.6804373070396221 // feedback (width)
       : (typeId == kTypePluckEnvelope3) ? 0.5 // decay (0=short … 1=long)
       : (typeId == kTypeTransport) ? 0.5 // pulseWidth gate duty
-      : (typeId == kTypeRobinSupersaw) ? 30.0 // detuneCents (no hard 100Â¢ cap)
+      : (typeId == kTypeRobinSupersaw || typeId == kTypeHyperpluck) ? 30.0 // detuneCents (no hard 100Â¢ cap)
       : (typeId == kTypeTriggerCounter) ? 1.0
       : (typeId == kTypePumpLimiter) ? 8.0 // ratio
       : (typeId == kTypeMetallicRatio) ? 1.0 // index n
@@ -4334,6 +4358,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeRobinSinusoid) return soemdsp_robin_sinusoid_create();
   if (typeId == kTypeRobinOscillator) return soemdsp_robin_oscillator_create();
   if (typeId == kTypeRobinSupersaw) return soemdsp_robin_supersaw_create();
+  if (typeId == kTypeHyperpluck) return soemdsp_hyperpluck_create();
   if (typeId == kTypeSlewLimiter) return soemdsp_slew_limiter_create();
   if (typeId == kTypeComparator) return soemdsp_comparator_create();
   if (typeId == kTypeSampleDelay) return soemdsp_sample_delay_create();
@@ -11763,6 +11788,76 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
   }
 }
 
+static void process_hyperpluck(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
+  const double srD = (double)sr;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool liveInc = mix_live_port(g, node, kPortIncrement, frames, g.mixIncrement);
+  const double referenceVoltage = circuit_pitch_ref_v(g);
+  const bool takeSamplePath =
+    node_needs_sample_accurate_controls(g, node, liveF || livePitch || hasReset || liveInc);
+
+  auto run_block = [&](int nFrames, int frameIndexForHz, double resetGate, double incrementCycles) {
+    const double amp = control_effective(node.amplitude);
+    const double detune = control_effective(node.width);
+    const double voicesExact = control_effective(node.stages);
+    const double stereoMode = control_effective(node.mode);
+    const double detuneAlgorithm = control_effective(node.center);
+    const double waveform = control_effective(node.waveform);
+    double freq = resolve_osc_hz(
+      g, frameIndexForHz, liveF, livePitch, node.frequency, referenceVoltage, srD
+    );
+    double maxHz = g.speedLimitHz;
+    if (!(maxHz > 0.0)) maxHz = 20000.0;
+    const double nyq = 0.5 * srD;
+    if (maxHz > nyq) maxHz = nyq;
+    soemdsp_hyperpluck_process_block(
+      node.nativeHandle, freq, srD, detune, voicesExact, amp, stereoMode,
+      detuneAlgorithm, waveform, maxHz, resetGate, incrementCycles, nFrames
+    );
+  };
+
+  if (!takeSamplePath) {
+    const double resetGate = hasReset ? g.mixReset[0] : 0.0;
+    run_block(frames, 0, resetGate, 0.0);
+    double* outL = ptr_from_export(soemdsp_hyperpluck_block_output_left_ptr(node.nativeHandle));
+    double* outR = ptr_from_export(soemdsp_hyperpluck_block_output_right_ptr(node.nativeHandle));
+    double* outM = ptr_from_export(soemdsp_hyperpluck_block_output_mono_ptr(node.nativeHandle));
+    if (!outL || !outR) return;
+    copy_tap_to_buf(node.buf[kPortLeft], outL, frames);
+    copy_tap_to_buf(node.buf[kPortRight], outR, frames);
+    if (outM) copy_tap_to_buf(node.buf[kPortMono], outM, frames);
+    return;
+  }
+
+  if (!hasReset) node.lastReset = 0.0;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    double resetGate = 0.0;
+    if (hasReset) {
+      const double rv = g.mixReset[f];
+      if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
+      node.lastReset = rv;
+    }
+    double inc = 0.0;
+    if (liveInc) {
+      inc = g.mixIncrement[f];
+      if (!(inc == inc)) inc = 0.0;
+    }
+    run_block(1, f, resetGate, inc);
+    double* outL = ptr_from_export(soemdsp_hyperpluck_block_output_left_ptr(node.nativeHandle));
+    double* outR = ptr_from_export(soemdsp_hyperpluck_block_output_right_ptr(node.nativeHandle));
+    double* outM = ptr_from_export(soemdsp_hyperpluck_block_output_mono_ptr(node.nativeHandle));
+    if (!outL || !outR) return;
+    node.buf[kPortLeft][f] = outL[0];
+    node.buf[kPortRight][f] = outR[0];
+    node.buf[kPortMono][f] = outM ? outM[0] : 0.5 * (outL[0] + outR[0]);
+  }
+}
+
 // Noise generator source — stereo block outs; no audio inputs.
 static void process_noise_generator(Circuit& g, Node& node, int frames) {
   (void)g;
@@ -11962,6 +12057,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeRobinSinusoid
     || node.typeId == kTypeRobinOscillator
     || node.typeId == kTypeRobinSupersaw
+    || node.typeId == kTypeHyperpluck
     || node.typeId == kTypeClock
     || node.typeId == kTypeBinaryClock
     || node.typeId == kTypeRandomClock
@@ -12367,6 +12463,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeRobinSinusoid
     || typeId == kTypeRobinOscillator
     || typeId == kTypeRobinSupersaw
+    || typeId == kTypeHyperpluck
     || typeId == kTypeSlewLimiter
     || typeId == kTypeComparator
     || typeId == kTypeSampleDelay
@@ -12550,6 +12647,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
       soemdsp_robin_oscillator_reset(n.nativeHandle);
     } else if (typeId == kTypeRobinSupersaw) {
       soemdsp_robin_supersaw_reset(n.nativeHandle);
+    } else if (typeId == kTypeHyperpluck) {
+      soemdsp_hyperpluck_reset(n.nativeHandle);
     } else if (typeId == kTypeBlit) {
       soemdsp_blit_reset(n.nativeHandle);
     } else if (typeId == kTypeArchimedes) {
@@ -13412,6 +13511,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
     }
     if (node.typeId == kTypeRobinSupersaw) {
       process_robin_supersaw(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeHyperpluck) {
+      process_hyperpluck(g, node, frames);
       return;
     }
     if (node.typeId == kTypeSlewLimiter) {

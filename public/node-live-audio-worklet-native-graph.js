@@ -23,6 +23,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   robinSinusoid: 15,
   robinOscillator: 74,
   robinSupersaw: 16,
+  hyperpluck: 200,
   slewLimiter: 17,
   comparator: 18,
   sampleDelay: 19,
@@ -5370,6 +5371,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
+    if (type === "hyperpluck") {
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
+      push("stereoMode", P.NATIVE_GRAPH_PARAM_MODE, disc("stereoMode", 0));
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("detuneAlgorithm", P.NATIVE_GRAPH_PARAM_CENTER, disc("detuneAlgorithm", 2));
+      push("detuneCents", P.NATIVE_GRAPH_PARAM_WIDTH, cont("detuneCents", 30));
+      push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 7));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
     if (type === "robinSupersaw") {
       // width=detuneCents, stages=voices, shape=Random Phase, mode=stereoMode,
       // center=detuneAlgorithm; timeNum/Den=porta min/max; offset=portamentoStyle
@@ -6056,6 +6067,74 @@ NodeLiveAudioProcessor.prototype.syncNativeRobinSupersawPublish =
         try {
           const x = Number(xFn(handle, i));
           // 0 is a valid face X (wrap edge). Do not coalesce with || 0.5.
+          voicePhases[i] = Number.isFinite(x) ? x : 0.5;
+        } catch (_e) {
+          voicePhases[i] = 0.5;
+        }
+        try {
+          const pan = panFn ? Number(panFn(handle, i)) : 0;
+          voicePans[i] = Number.isFinite(pan) ? pan : 0;
+        } catch (_e) {
+          voicePans[i] = 0;
+        }
+        try {
+          const amp = ampFn ? Number(ampFn(handle, i)) : 1;
+          voiceAmplitudes[i] = Number.isFinite(amp) ? amp : 1;
+        } catch (_e) {
+          voiceAmplitudes[i] = 1;
+        }
+      }
+      state.lastVoicePhases = voicePhases;
+      state.lastVoiceAmplitudes = voiceAmplitudes;
+      state.lastVoicePans = voicePans;
+    }
+  };
+
+NodeLiveAudioProcessor.prototype.syncNativeHyperpluckPublish =
+  function syncNativeHyperpluckPublish() {
+    if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+      return;
+    }
+    const native = this.nativeGraph;
+    const countFn = native?.soemdsp_hyperpluck_voice_count;
+    const xFn = native?.soemdsp_hyperpluck_voice_x;
+    const panFn = native?.soemdsp_hyperpluck_voice_pan;
+    const ampFn = native?.soemdsp_hyperpluck_voice_amp;
+    const handleFn = native?.soemdsp_graph_node_native_handle;
+    if (!countFn || !xFn || !handleFn) return;
+    if (!this.hyperpluckStates) this.hyperpluckStates = new Map();
+
+    for (const [id, node] of this.nodes || []) {
+      if (String(node?.type || "") !== "hyperpluck") continue;
+      const state = this.hyperpluckStates.get(id) || { nativeHandle: 0 };
+      this.hyperpluckStates.set(id, state);
+      const hash = this.fnv1aHash32(id);
+      let handle = 0;
+      try {
+        handle = handleFn(this.nativeGraphHandle, hash) | 0;
+      } catch (_e) {
+        handle = 0;
+      }
+      if (!(handle > 0)) continue;
+      let n = 0;
+      try {
+        n = countFn(handle) | 0;
+      } catch (_e) {
+        n = 0;
+      }
+      if (n < 1) {
+        state.lastVoicePhases = [];
+        state.lastVoiceAmplitudes = [];
+        state.lastVoicePans = [];
+        continue;
+      }
+      if (n > 256) n = 256;
+      const voicePhases = new Array(n);
+      const voiceAmplitudes = new Array(n);
+      const voicePans = new Array(n);
+      for (let i = 0; i < n; i++) {
+        try {
+          const x = Number(xFn(handle, i));
           voicePhases[i] = Number.isFinite(x) ? x : 0.5;
         } catch (_e) {
           voicePhases[i] = 0.5;
@@ -8399,16 +8478,19 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
     const sink = sinks[s];
     const inputs = sink?.inputs;
     if (!Array.isArray(inputs) || !inputs.length) continue;
-    const rateMeta = {
-      sampleStride: stride,
-      sourceSampleRate: engineRate,
-      writeSampleRate: engineRate / stride,
-    };
     const sinkType = String(sink.type || this.nodes.get(sink.nodeId)?.type || "");
+    // Spectrogram FFT needs every engine sample (Nyquist = engine/2). Stress-hop
+    // folded a 20 kHz sweep at ~engine/(2*stride).
+    const sinkStride = sinkType === "spectrogram" ? 1 : stride;
+    const rateMeta = {
+      sampleStride: sinkStride,
+      sourceSampleRate: engineRate,
+      writeSampleRate: engineRate / sinkStride,
+    };
     // Output Instant Waterfall: post-Volume/Pan ear-protected speakers — not the
     // pre-gain wires into Mono/Left/Right (Volume would otherwise be invisible).
     if (sinkType === "output" && protectedLeft) {
-      for (let frame = 0; frame < frames; frame += stride) {
+      for (let frame = 0; frame < frames; frame += sinkStride) {
         const idx = frameOffset + frame;
         const l = nodeGraphFiniteNumber(protectedLeft[idx]);
         const r = nodeGraphFiniteNumber(protectedRight?.[idx] ?? l);
@@ -8429,7 +8511,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       }
     }
     if (sinkFrozen) continue;
-    for (let frame = 0; frame < frames; frame += stride) {
+    for (let frame = 0; frame < frames; frame += sinkStride) {
       let aggregate = 0;
       for (let i = 0; i < inputs.length; i += 1) {
         const input = inputs[i];

@@ -108,6 +108,9 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
     if (typeof this.syncNativeRobinSupersawPublish === "function") {
       try { this.syncNativeRobinSupersawPublish(); } catch (_e) { /* keep prior publish */ }
     }
+    if (typeof this.syncNativeHyperpluckPublish === "function") {
+      try { this.syncNativeHyperpluckPublish(); } catch (_e) { /* keep prior publish */ }
+    }
     if (typeof this.syncNativeEnsemblePublish === "function") {
       try { this.syncNativeEnsemblePublish(); } catch (_e) { /* keep prior publish */ }
     }
@@ -129,6 +132,19 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
     }
     if (this.robinSupersawStates) {
       for (const [nodeId, state] of this.robinSupersawStates) {
+        if (Array.isArray(state?.lastVoicePhases) && state.lastVoicePhases.length) {
+          dataPorts.push([nodeId, "Phases", state.lastVoicePhases]);
+        }
+        if (Array.isArray(state?.lastVoiceAmplitudes) && state.lastVoiceAmplitudes.length) {
+          dataPorts.push([nodeId, "Amplitudes", state.lastVoiceAmplitudes]);
+        }
+        if (Array.isArray(state?.lastVoicePans) && state.lastVoicePans.length) {
+          dataPorts.push([nodeId, "Pans", state.lastVoicePans]);
+        }
+      }
+    }
+    if (this.hyperpluckStates) {
+      for (const [nodeId, state] of this.hyperpluckStates) {
         if (Array.isArray(state?.lastVoicePhases) && state.lastVoicePhases.length) {
           dataPorts.push([nodeId, "Phases", state.lastVoicePhases]);
         }

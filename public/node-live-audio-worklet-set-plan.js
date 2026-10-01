@@ -483,6 +483,11 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
         this.robinSupersawStates.delete(id);
       }
     }
+    if (this.hyperpluckStates) {
+      for (const id of [...this.hyperpluckStates.keys()]) {
+        if (!ids.has(id)) this.hyperpluckStates.delete(id);
+      }
+    }
     if (this.hypersaw2States) {
       for (const id of [...this.hypersaw2States.keys()]) {
         if (!ids.has(id)) {

@@ -1199,6 +1199,19 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+      if (name === "hyperpluck" || targetType === "hyperpluck") {
+        this.nativeHyperpluck = exports;
+        this.nativeHyperpluckReady = Boolean(
+          this.nativeHyperpluck?.soemdsp_hyperpluck_create &&
+          this.nativeHyperpluck?.soemdsp_hyperpluck_process_block,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "hyperpluck",
+          status: this.nativeHyperpluckReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "robin_supersaw" || targetType === "robinSupersaw") {
         for (const state of this.robinSupersawStates.values()) {
           this.destroyRobinSupersawNativeState(state);

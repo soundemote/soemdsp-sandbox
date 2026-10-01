@@ -18585,6 +18585,15 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_robin_supersaw_block_output_right_ptr",
             "soemdsp_robin_supersaw_block_output_mono_ptr",
         ],
+        "hyperpluck": [
+            "soemdsp_hyperpluck_create",
+            "soemdsp_hyperpluck_destroy",
+            "soemdsp_hyperpluck_sample",
+            "soemdsp_hyperpluck_process_block",
+            "soemdsp_hyperpluck_block_output_left_ptr",
+            "soemdsp_hyperpluck_block_output_right_ptr",
+            "soemdsp_hyperpluck_block_output_mono_ptr",
+        ],
         "videoscope": ["soemdsp_videoscope_create", "soemdsp_videoscope_destroy", "soemdsp_videoscope_push", "soemdsp_videoscope_window_size", "soemdsp_videoscope_column_min", "soemdsp_videoscope_column_max", "soemdsp_videoscope_xy_a", "soemdsp_videoscope_xy_b", "soemdsp_videoscope_version"],
         "pll": ["soemdsp_pll_create", "soemdsp_pll_destroy", "soemdsp_pll_process"],
         "polyblep": [

@@ -51,6 +51,7 @@ Only these live-audio types exist in the efficient build:
 | `robinSinusoid` | Recursive sine osc |
 | `robinOscillator` | Cycle-dither AA multi-wave osc (mid-cycle Hz warp) |
 | `robinSupersaw` | Detuned saw bank |
+| `hyperpluck` | PolyBLEP unison pluck (Supersaw detune) |
 | `noiseGenerator` | Noise source |
 | `ladderFilter` | Filter |
 | `softClipper` | Soft-knee saturator (Drive/Threshold/Knee/Amplitude) |

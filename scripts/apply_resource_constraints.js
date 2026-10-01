@@ -19,6 +19,7 @@ const TAGS = [
   ["additiveOsc", "harmonics", "cpu"],
   ["gpuAdditiveOsc", "harmonics", "gpu"],
   ["robinSupersaw", "voices", "cpu"],
+  ["hyperpluck", "voices", "cpu"],
   ["hypersaw2", "voices", "cpu"],
   ["snowflake", "iterations", "cpu"],
   ["mushroom", "numMushrooms", "cpu"],

@@ -27,6 +27,11 @@ IO section / outer height used the full definition port count. CSS `.unused-hidd
 - Wire edits refresh hide-unused modules so connect/disconnect resizes the strip.
 - Smoke: `scripts/test_b057_hide_unused_io_height.js`.
 
-## Verification
+## Follow-up — empty strip must leave the grid (2026-10-01)
 
-Repeat the Keyboard repro with different counts of visible controls and I/O. Confirm that the bottom lip follows the visible content, does not retain the old oversized height, and does not cause slider/jack overlap.
+Zero-row hide-unused omitted the IO **band** but CSS still forced `.dsp-node-io-section[hidden]` to `display: grid`, so the orphan strip shared a row with face/params and opened an implicit second column (content left, blank right).
+
+- `nodeGraphModuleStripIoBandVisible` is the strip-IO gate (LayoutA / Metamodule / InletOutlet only; LayoutB always false).
+- `applyNodeGraphModuleLayout` toggles `io-strip-collapsed`, sets the section `hidden`, and clears stale `grid-row`.
+- CSS paints the strip only when not collapsed / not `[hidden]`; collapsed strips are `display: none`.
+- LayoutB shell columns are unchanged.

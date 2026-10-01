@@ -5,6 +5,31 @@ const root = path.join(__dirname, "..", "public");
 
 const sandbox = {
   console,
+  window: {
+    requestAnimationFrame(cb) { return 0; },
+  },
+  document: {
+    createElement(tag) {
+      // Minimal lip node for applyNodeGraphModuleLayout.
+      const classSet = new Set();
+      return {
+        nodeType: 1,
+        tagName: String(tag).toUpperCase(),
+        className: "",
+        children: [],
+        dataset: {},
+        hidden: false,
+        classList: {
+          add(...names) { names.forEach((n) => classSet.add(n)); },
+          contains(name) { return classSet.has(name); },
+        },
+        setAttribute() {},
+        addEventListener() {},
+        style: { setProperty() {}, removeProperty() {} },
+      };
+    },
+    getElementById() { return null; },
+  },
   nodeGraphGrid: { heightPx: 28, sizePx: 28, widthPx: 28 },
   nodeGraphMvp: {
     patch: {
@@ -117,5 +142,122 @@ assert(
 const outerFull = sandbox.nodeGraphModuleOuterHeightGu("keyboard", {}, { id: "kb2", type: "keyboard", ui: {} });
 const outerHide = sandbox.nodeGraphModuleOuterHeightGu("keyboard", { hideUnused: true }, { id: "kb1", type: "keyboard", ui: { hideUnused: true } });
 assert(outerHide < outerFull, `outer hideUnused ${outerHide} should be < full ${outerFull}`);
+
+assert(
+  sandbox.nodeGraphModuleStripIoBandVisible("keyboard", { hideUnused: true }, { id: "kb1", type: "keyboard", ui: { hideUnused: true } }) === true,
+  "strip IO visible when hide-unused still has connected jacks",
+);
+assert(
+  sandbox.nodeGraphModuleStripIoBandVisible("keyboard", { hideUnused: true }, { id: "kb3", type: "keyboard", ui: { hideUnused: true } }) === false,
+  "strip IO collapsed when hide-unused has zero connected jacks",
+);
+assert(
+  sandbox.nodeGraphModuleStripIoBandVisible("keyboard", {}, { id: "kb2", type: "keyboard", ui: {} }) === true,
+  "strip IO visible when hide-unused is off",
+);
+
+sandbox.nodeGraphModuleUsesLayoutB = function () { return true; };
+assert(
+  sandbox.nodeGraphModuleStripIoBandVisible("knob", {}, { id: "k1", type: "knob", ui: { hideUnused: true } }) === false,
+  "LayoutB never exposes a strip IO band",
+);
+sandbox.nodeGraphModuleUsesLayoutB = function () { return false; };
+
+const emptyBands = sandbox.nodeGraphModuleLayoutBands(
+  "keyboard",
+  { hideUnused: true },
+  { id: "kb3", type: "keyboard", ui: { hideUnused: true } },
+);
+assert(!emptyBands.some((band) => band.id === "io" && band.visible), "empty hide-unused omits io band");
+
+function mockEl(tag, className) {
+  const classSet = new Set(String(className || "").split(/\s+/).filter(Boolean));
+  const styleProps = new Map();
+  const kids = [];
+  const node = {
+    nodeType: 1,
+    tagName: String(tag).toUpperCase(),
+    children: kids,
+    dataset: {},
+    hidden: false,
+    isConnected: false,
+    classList: {
+      add(...names) { names.forEach((n) => classSet.add(n)); },
+      remove(...names) { names.forEach((n) => classSet.delete(n)); },
+      contains(name) { return classSet.has(name); },
+      toggle(name, force) {
+        if (force === true) classSet.add(name);
+        else if (force === false) classSet.delete(name);
+        else if (classSet.has(name)) classSet.delete(name);
+        else classSet.add(name);
+        return classSet.has(name);
+      },
+    },
+    style: {
+      setProperty(k, v) { styleProps.set(k, String(v)); },
+      getPropertyValue(k) { return styleProps.get(k) || ""; },
+      removeProperty(k) {
+        styleProps.delete(k);
+        if (k === "grid-row") this._gridRow = "";
+        if (k === "grid-column") this._gridColumn = "";
+      },
+      set gridRow(v) { this._gridRow = v; styleProps.set("grid-row", String(v)); },
+      get gridRow() { return this._gridRow || ""; },
+      set gridColumn(v) { this._gridColumn = v; styleProps.set("grid-column", String(v)); },
+      get gridColumn() { return this._gridColumn || ""; },
+      set gridTemplateColumns(v) { this._gtc = v; },
+      get gridTemplateColumns() { return this._gtc || ""; },
+      set gridTemplateRows(v) { this._gtr = v; },
+      get gridTemplateRows() { return this._gtr || ""; },
+    },
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    append(child) { kids.push(child); return child; },
+  };
+  return node;
+}
+
+sandbox.applyNodeGraphModulePlateClip = function () {};
+sandbox.nodeGraphModuleGeometryPublishAfterLayout = function () {};
+sandbox.scheduleNodeGraphSliderReadoutRelayout = function () {};
+
+const article = mockEl("article", "dsp-node chrome-layout-a");
+article.dataset.nodeType = "keyboard";
+const header = mockEl("div", "dsp-node-header");
+const io = mockEl("div", "dsp-node-io-section");
+io.style.gridRow = "2";
+const face = mockEl("div", "node-module-face node-midi-keyboard-module");
+article.append(header);
+article.append(io);
+article.append(face);
+
+sandbox.applyNodeGraphModuleLayout(article, { id: "kb3", type: "keyboard", ui: { hideUnused: true } });
+assert(article.classList.contains("io-strip-collapsed"), "article gets io-strip-collapsed when strip empty");
+assert(io.hidden === true, "IO section hidden when strip collapsed");
+assert(!io.style.gridRow, "collapsed IO clears stale grid-row");
+assert(article.style.gridTemplateColumns === "minmax(0, 1fr)", "article stays single column");
+
+sandbox.applyNodeGraphModuleLayout(article, { id: "kb1", type: "keyboard", ui: { hideUnused: true } });
+assert(!article.classList.contains("io-strip-collapsed"), "io-strip-collapsed clears when jacks remain");
+assert(io.hidden === false, "IO section shown when strip has connected jacks");
+
+const layoutB = mockEl("article", "dsp-node chrome-layout-b");
+layoutB.dataset.nodeType = "knob";
+const shell = mockEl("div", "node-solid-module-shell node-module-chrome-layout-b-shell");
+layoutB.append(mockEl("div", "dsp-node-header"));
+layoutB.append(shell);
+sandbox.nodeGraphModuleUsesLayoutB = function () { return true; };
+sandbox.nodeGraphModuleDefinitions.knob = {
+  chrome: "LayoutB",
+  layout: "knob",
+  inputs: ["In"],
+  outputs: ["Out"],
+  parameters: [],
+};
+sandbox.nodeGraphLayoutBShellHeightGu = function () { return 2; };
+sandbox.nodeGraphModuleIsLayoutBDisplayOnly = function () { return false; };
+sandbox.applyNodeGraphModuleLayout(layoutB, { id: "k1", type: "knob", ui: { hideUnused: true } });
+assert(!layoutB.classList.contains("io-strip-collapsed"), "LayoutB never gets io-strip-collapsed");
+sandbox.nodeGraphModuleUsesLayoutB = function () { return false; };
 
 console.log("B-057 hide-unused IO lip OK", { full, hidden, hFull, hHide, none, outerFull, outerHide });

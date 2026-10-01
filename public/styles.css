@@ -16938,12 +16938,31 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
   align-items: stretch;
 }
 
-/* I/O strip stays painted unless Hide In/Out. The hidden attribute must not
-   win — apply-layout used to set it when the io band was omitted. */
-.dsp-node:not(.io-hidden):not(.chrome-layout-b) > .dsp-node-io-section,
-.dsp-node:not(.io-hidden):not(.chrome-layout-b) > .dsp-node-io-section[hidden] {
+/* Strip IO paints when its band is in the stack. Do not force [hidden] /
+   io-strip-collapsed sections back into the grid (that opened an implicit
+   column beside face/params). LayoutB article IO stays none via chrome-layout-b. */
+.dsp-node:not(.io-hidden):not(.chrome-layout-b):not(.io-strip-collapsed) > .dsp-node-io-section:not([hidden]) {
   display: grid !important;
   visibility: visible !important;
+}
+
+/* Empty hide-unused (and other strip-band omissions): leave the article grid.
+   LayoutB shell columns are out of scope — chrome-layout-b rules own those. */
+.dsp-node.io-strip-collapsed:not(.chrome-layout-b) > .dsp-node-io-section,
+.dsp-node:not(.chrome-layout-b) > .dsp-node-io-section[hidden] {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 
 .dsp-node-io-section.io-outputs-only {

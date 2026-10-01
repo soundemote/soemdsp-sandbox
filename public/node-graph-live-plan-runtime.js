@@ -534,6 +534,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const noteGlideStates = new Map();
   const dsfOscillatorStates = new Map();
   const robinSupersawStates = new Map();
+  const hyperpluckStates = new Map();
   const hypersaw2States = new Map();
   const chordSequencerStates = new Map();
   const lutCellStates = new Map();
@@ -671,6 +672,9 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     }
     if (node.type === "robinSupersaw") {
       robinSupersawStates.set(node.id, createNodeGraphRobinSupersawState());
+    }
+    if (node.type === "hyperpluck") {
+      hyperpluckStates.set(node.id, { lastVoicePhases: [], lastVoiceAmplitudes: [], lastVoicePans: [] });
     }
     if (node.type === "hypersaw2") {
       hypersaw2States.set(node.id, createNodeGraphHypersaw2State());
@@ -1090,6 +1094,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     noteGlideStates,
     dsfOscillatorStates,
     robinSupersawStates,
+    hyperpluckStates,
     hypersaw2States,
     chordSequencerStates,
     lutCellStates,
@@ -1403,6 +1408,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.robinSupersawStates) {
     runtime.robinSupersawStates = new Map();
   }
+  if (!runtime.hyperpluckStates) {
+    runtime.hyperpluckStates = new Map();
+  }
   if (!runtime.hypersaw2States) {
     runtime.hypersaw2States = new Map();
   }
@@ -1630,6 +1638,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "robinSupersaw" && !runtime.robinSupersawStates.has(node.id)) {
       runtime.robinSupersawStates.set(node.id, createNodeGraphRobinSupersawState());
+    }
+    if (node.type === "hyperpluck" && !runtime.hyperpluckStates.has(node.id)) {
+      runtime.hyperpluckStates.set(node.id, { lastVoicePhases: [], lastVoiceAmplitudes: [], lastVoicePans: [] });
     }
     if (node.type === "hypersaw2" && !runtime.hypersaw2States.has(node.id)) {
       runtime.hypersaw2States.set(node.id, createNodeGraphHypersaw2State());
@@ -2180,6 +2191,11 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.robinSupersawStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.robinSupersawStates.delete(id);
+    }
+  }
+  for (const id of [...(runtime.hyperpluckStates || new Map()).keys()]) {
+    if (!nodeIds.has(id)) {
+      runtime.hyperpluckStates.delete(id);
     }
   }
   for (const id of [...runtime.hypersaw2States.keys()]) {

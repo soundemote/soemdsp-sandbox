@@ -191,6 +191,12 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   // Ensure power of two (winSize and padFactor already are).
   const halfN = fftLen >> 1;
   const engineRate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
+  const sampleStride = Math.max(1, Math.round(nodeGraphFiniteNumber(buf.sampleStride, 1)));
+  const sourceRate = Math.max(1, nodeGraphFiniteNumber(buf.sourceSampleRate, engineRate));
+  const writeRate = Math.max(
+    1,
+    nodeGraphFiniteNumber(buf.writeSampleRate, sourceRate / sampleStride),
+  );
 
   // Allocate/reallocate when window, pad, or window kind changes.
   if (
@@ -225,7 +231,7 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   const capacity = buf.capacity || buf.buffer.length;
   let freshCount = lastFrame > 0
     ? Math.max(0, absFrame - lastFrame)
-    : Math.min(capacity, Math.ceil(engineRate / 30));
+    : Math.min(capacity, Math.ceil(writeRate / 30));
   freshCount = Math.min(capacity, freshCount);
 
   if (freshCount <= 0) return;
@@ -315,7 +321,7 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
       halfN,
       halfN,
       hopSize,
-      engineRate,
+      writeRate,
       state.hopSerial,
       batchCols,
       0,

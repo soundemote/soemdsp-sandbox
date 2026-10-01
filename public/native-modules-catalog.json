@@ -834,6 +834,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "hyperpluck",
+      "label": "Hyperpluck",
+      "targetType": "hyperpluck",
+      "kind": "oscillator",
+      "source": "native_modules/hyperpluck/hyperpluck.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/hyperpluck/hyperpluck.cpp",
+      "localSourceUrl": "/native_modules/hyperpluck/hyperpluck.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/hyperpluck/hyperpluck.wasm",
+      "wasmUrl": "native_modules/hyperpluck/hyperpluck.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "hypersaw2",
       "label": "Hypersaw2",
       "targetType": "hypersaw2",

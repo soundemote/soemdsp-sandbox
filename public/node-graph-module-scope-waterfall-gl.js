@@ -115,9 +115,13 @@ uniform vec2 uSize;
 uniform vec2 uSpan;
 uniform vec4 uEdge;
 uniform float uBlendKind;
+uniform float uMode;
+uniform float uStrokePx;
 void main() {
-  // Canvas Y, top-down. Coverage is the 1px box overlap with the filled
-  // span at this x, so a fractional edge is a partial pixel, not a stair.
+  // Canvas Y, top-down. Coverage is the 1px box overlap with the span at
+  // this x, so a fractional edge is a partial pixel, not a stair.
+  // uMode 0 = solid fill. uMode 1 = stroke along the top and bottom only.
+  // Stroke does not draw the vertical ends or a line to the next bar.
   float y = uSize.y - gl_FragCoord.y;
   float span = max(uSpan.y - uSpan.x, 1e-4);
   float t = clamp((gl_FragCoord.x - uSpan.x) / span, 0.0, 1.0);
@@ -127,7 +131,14 @@ void main() {
   float hi = max(yTop, yBot);
   float a = max(y - 0.5, lo);
   float b = min(y + 0.5, hi);
-  float cover = clamp(b - a, 0.0, 1.0);
+  float body = clamp(b - a, 0.0, 1.0);
+  float cover = body;
+  if (uMode > 0.5) {
+    float halfS = max(uStrokePx * 0.5, 0.5);
+    float topC = clamp(min(y + 0.5, yTop + halfS) - max(y - 0.5, yTop - halfS), 0.0, 1.0);
+    float botC = clamp(min(y + 0.5, yBot + halfS) - max(y - 0.5, yBot - halfS), 0.0, 1.0);
+    cover = max(topC, botC);
+  }
   if (cover <= 0.0) discard;
   if (uBlendKind > 1.5) {
     gl_FragColor = vec4(mix(vec3(1.0), uColor, cover), 1.0);
@@ -304,7 +315,7 @@ function nodeGraphWaterfallGlBlendKind(mode) {
   return 0;
 }
 
-function nodeGraphWaterfallGlDrawBar(s, verts, rgb, blend, edge) {
+function nodeGraphWaterfallGlDrawBar(s, verts, rgb, blend, edge, mode, strokePx) {
   const gl = s.gl;
   gl.bindFramebuffer(gl.FRAMEBUFFER, s.read.fbo);
   gl.viewport(0, 0, s.w, s.h);
@@ -331,6 +342,8 @@ function nodeGraphWaterfallGlDrawBar(s, verts, rgb, blend, edge) {
     edge.top0, edge.top1, edge.bot0, edge.bot1,
   );
   gl.uniform1f(gl.getUniformLocation(s.barProg, "uBlendKind"), nodeGraphWaterfallGlBlendKind(blend));
+  gl.uniform1f(gl.getUniformLocation(s.barProg, "uMode"), mode > 0 ? 1 : 0);
+  gl.uniform1f(gl.getUniformLocation(s.barProg, "uStrokePx"), Math.max(0.5, Number(strokePx) || 1));
   gl.drawArrays(gl.TRIANGLES, 0, verts.length / 2);
 }
 
@@ -338,7 +351,24 @@ function nodeGraphWaterfallGlClip(x, y, w, h) {
   return [(x / w) * 2 - 1, 1 - (y / h) * 2];
 }
 
-function nodeGraphWaterfallGlStampBar(canvas, x, spanW, ys, prevEdge, connect, rgb, blend, thickness) {
+function nodeGraphWaterfallGlStampQuad(s, x0, wid, top0, top1, bot0, bot1, fringe, rgb, blend, mode, strokePx) {
+  const clip = (px, py) => nodeGraphWaterfallGlClip(px, py, s.w, s.h);
+  const a = clip(x0, top0 - fringe);
+  const b = clip(x0 + wid, top1 - fringe);
+  const c = clip(x0, bot0 + fringe);
+  const d = clip(x0 + wid, bot1 + fringe);
+  const verts = [a[0], a[1], b[0], b[1], c[0], c[1], c[0], c[1], b[0], b[1], d[0], d[1]];
+  nodeGraphWaterfallGlDrawBar(s, verts, rgb, blend, {
+    x0,
+    x1: x0 + wid,
+    top0,
+    top1,
+    bot0,
+    bot1,
+  }, mode, strokePx);
+}
+
+function nodeGraphWaterfallGlStampBar(canvas, x, spanW, ys, prevEdge, connect, rgb, blend, thickness, filled, stroke) {
   const s = canvas && canvas._wfGlSession;
   if (!s || !ys) return false;
   const thick = Math.max(0, Math.min(1, Number(thickness)));
@@ -353,33 +383,35 @@ function nodeGraphWaterfallGlStampBar(canvas, x, spanW, ys, prevEdge, connect, r
   if (!(wid > 0)) return true;
   const yTop = Math.min(ys.y0, ys.y1);
   const yBot = Math.max(ys.y0, ys.y1);
-  let top0 = yTop;
-  let bot0 = yBot;
-  let top1 = yTop;
-  let bot1 = yBot;
-  if (connect && prevEdge && Number.isFinite(prevEdge.y0) && Number.isFinite(prevEdge.y1)) {
-    top0 = Math.min(prevEdge.y0, prevEdge.y1);
-    bot0 = Math.max(prevEdge.y0, prevEdge.y1);
-    top1 = yTop;
-    bot1 = yBot;
+  const strokeTop = Math.min(
+    Number.isFinite(ys.strokeY0) ? ys.strokeY0 : yTop,
+    Number.isFinite(ys.strokeY1) ? ys.strokeY1 : yBot,
+  );
+  const strokeBot = Math.max(
+    Number.isFinite(ys.strokeY0) ? ys.strokeY0 : yTop,
+    Number.isFinite(ys.strokeY1) ? ys.strokeY1 : yBot,
+  );
+  const strokeOn = !!(stroke && stroke.on);
+  const strokePx = Math.max(0.5, Number(stroke?.px) || 1);
+  if (filled !== false) {
+    let top0 = yTop;
+    let bot0 = yBot;
+    let top1 = yTop;
+    let bot1 = yBot;
+    if (connect && prevEdge && Number.isFinite(prevEdge.y0) && Number.isFinite(prevEdge.y1)) {
+      top0 = Math.min(prevEdge.y0, prevEdge.y1);
+      bot0 = Math.max(prevEdge.y0, prevEdge.y1);
+      top1 = yTop;
+      bot1 = yBot;
+    }
+    nodeGraphWaterfallGlStampQuad(s, x0, wid, top0, top1, bot0, bot1, 1, rgb, blend, 0, 1);
   }
-  // Pad so the 1px coverage fringe is inside the triangle. The shader
-  // keeps the true edge; this does not widen the ink.
-  const fringe = 1;
-  const clip = (px, py) => nodeGraphWaterfallGlClip(px, py, s.w, s.h);
-  const a = clip(x0, top0 - fringe);
-  const b = clip(x0 + wid, top1 - fringe);
-  const c = clip(x0, bot0 + fringe);
-  const d = clip(x0 + wid, bot1 + fringe);
-  const verts = [a[0], a[1], b[0], b[1], c[0], c[1], c[0], c[1], b[0], b[1], d[0], d[1]];
-  nodeGraphWaterfallGlDrawBar(s, verts, rgb, blend, {
-    x0,
-    x1: x0 + wid,
-    top0,
-    top1,
-    bot0,
-    bot1,
-  });
+  if (strokeOn) {
+    // This column only. Flat top and bottom. No join to the previous bar.
+    nodeGraphWaterfallGlStampQuad(
+      s, x0, wid, strokeTop, strokeTop, strokeBot, strokeBot, strokePx, stroke.rgb || rgb, blend, 1, strokePx,
+    );
+  }
   return true;
 }
 

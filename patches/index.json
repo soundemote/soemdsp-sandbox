@@ -64,14 +64,13 @@
       "folder": "demo patches"
     },
     {
-      "slug": "demo patches/tubesaturation",
+      "slug": "tubesaturation",
       "label": "tubesaturation",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/demo%20patches/tubesaturation.json",
+      "url": "/soemdsp-sandbox/patches/tubesaturation.json",
       "author": "",
       "tags": "circle",
-      "emoji": "",
-      "folder": "demo patches"
+      "emoji": ""
     },
     {
       "slug": "foley/CALLNOW",
@@ -222,6 +221,15 @@
       "label": "deathwhistle",
       "name": "",
       "url": "/soemdsp-sandbox/patches/deathwhistle.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "ditheredoscillator",
+      "label": "ditheredoscillator",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/ditheredoscillator.json",
       "author": "",
       "tags": "circle",
       "emoji": ""

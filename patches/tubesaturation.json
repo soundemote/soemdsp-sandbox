@@ -55,6 +55,13 @@
       "tracePoints": []
     },
     {
+      "destinationNode": "lineBurnOscilloscope-1",
+      "destinationPort": "In",
+      "sourceNode": "2t-1",
+      "sourcePort": "Out",
+      "tracePoints": []
+    },
+    {
       "destinationNode": "output",
       "destinationPort": "Mono",
       "sourceNode": "lineBurnOscilloscope-1",
@@ -116,27 +123,6 @@
       "sourceNode": "vibratoGenerator-1",
       "sourcePort": "Wave",
       "tracePoints": []
-    },
-    {
-      "destinationNode": "attenuverter-1",
-      "destinationPort": "In",
-      "sourceNode": "2t-1",
-      "sourcePort": "Out",
-      "tracePoints": []
-    },
-    {
-      "destinationNode": "lineBurnOscilloscope-1",
-      "destinationPort": "In",
-      "sourceNode": "attenuverter-1",
-      "sourcePort": "Out",
-      "tracePoints": []
-    },
-    {
-      "destinationNode": "ampCurve-1",
-      "destinationPort": "Env",
-      "sourceNode": "slewLimiter-1",
-      "sourcePort": "Out",
-      "tracePoints": []
     }
   ],
   "format": {
@@ -163,24 +149,17 @@
   "modularOnlyControlsVisible": false,
   "modulations": [
     {
-      "destinationNode": "attenuverter-1",
+      "destinationNode": "polyBlep-1",
       "destinationParam": "amplitude",
       "sourceNode": "toggleButton-1",
       "sourcePort": "Bias",
       "tracePoints": []
     },
     {
-      "destinationNode": "attenuverter-1",
+      "destinationNode": "polyBlep-1",
       "destinationParam": "amplitude",
-      "sourceNode": "ampCurve-1",
-      "sourcePort": "Curve",
-      "tracePoints": []
-    },
-    {
-      "destinationNode": "vibratoGenerator-1",
-      "destinationParam": "releaseShape",
       "sourceNode": "slewLimiter-1",
-      "sourcePort": "downShape",
+      "sourcePort": "Out",
       "tracePoints": []
     }
   ],
@@ -262,7 +241,7 @@
         }
       },
       "params": {
-        "volume": -3,
+        "volume": 0,
         "pan": 0
       },
       "type": "output",
@@ -790,7 +769,7 @@
         "frequency": 0,
         "phase": 0,
         "morph": 0.5,
-        "amplitude": 1
+        "amplitude": 0
       },
       "type": "polyBlep",
       "alias": "Oscillator",
@@ -1439,7 +1418,7 @@
         "velMin": 127,
         "velMax": 127,
         "hideKeyboardInfo": false,
-        "blackKeyWidth": 10.607711,
+        "blackKeyWidth": 4,
         "blackKeyHeight": 57,
         "keyLabels": "name"
       },
@@ -2167,14 +2146,14 @@
           "alias": "",
           "choices": [],
           "curveAmount": 0,
-          "def": 0,
+          "def": 0.05,
           "displayChoices": false,
           "divideChoicesVisibly": false,
-          "kind": "decimal",
+          "kind": "time",
           "bipolar": false,
-          "max": 1,
+          "max": 5,
           "maxDigits": 5,
-          "mid": 0.5,
+          "mid": 0.05,
           "min": 0,
           "reverse": false,
           "nonlinearSlider": true,
@@ -2182,7 +2161,7 @@
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "internal",
-          "smoothingSeconds": 1469,
+          "smoothingSeconds": 0.0333,
           "smoothingType": "linear",
           "step": 0,
           "tooltip": "Seconds to reach a lower target from the current value (any amplitude). 0 = instant.",
@@ -2236,9 +2215,9 @@
       },
       "params": {
         "upShape": 2,
-        "downShape": 1,
-        "upTime": 0.001792630965753108,
-        "downTime": 1,
+        "downShape": 3,
+        "upTime": 0.0069081015449955945,
+        "downTime": 2.207499991735231,
         "bias": 0
       },
       "type": "slewLimiter",
@@ -2816,13 +2795,13 @@
         "randomAmp": 0.1156425583920909,
         "seed": 145,
         "delayMode": "startEnd",
-        "delay": 1.3220256046976189,
-        "attack": 0.23353676674801616,
-        "release": 0,
-        "isIdleRelease": 0,
+        "delay": 1,
+        "attack": 1.0802164856243681,
+        "release": 0.5064567166073665,
+        "isIdleRelease": 0.1,
         "attackShape": "exp",
         "releaseShape": "log",
-        "amplitude": 0.15924798532253392
+        "amplitude": 0.13370676358458317
       },
       "type": "vibratoGenerator",
       "widthGu": 7,
@@ -2924,174 +2903,6 @@
         "slidersForceShow": false,
         "titleHidden": false
       }
-    },
-    {
-      "gx": 5,
-      "gy": -13,
-      "id": "attenuverter-1",
-      "paramMeta": {
-        "amplitude": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0.55,
-          "def": 0.5,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "decimal",
-          "bipolar": false,
-          "max": 1,
-          "maxDigits": 3,
-          "mid": 0.5,
-          "min": 0,
-          "reverse": false,
-          "nonlinearSlider": false,
-          "sliderCurve": "linear",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "Scale and invert. 0 = mute, +1 = unity, −1 = invert. Bipolar rational is finer around 0.",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": true,
-          "outputDomain": false,
-          "domainOffset": 0
-        },
-        "offset": {
-          "alias": "",
-          "choices": [],
-          "curveAmount": 0,
-          "def": 0,
-          "displayChoices": false,
-          "divideChoicesVisibly": false,
-          "kind": "decimal",
-          "bipolar": true,
-          "max": 1,
-          "maxDigits": 3,
-          "mid": 0,
-          "min": -1,
-          "reverse": false,
-          "nonlinearSlider": false,
-          "sliderCurve": "linear",
-          "showSign": true,
-          "removeTrailingZeros": false,
-          "smoothingMode": "internal",
-          "smoothingSeconds": 0.0333,
-          "smoothingType": "linear",
-          "step": 0,
-          "tooltip": "DC offset after scale.",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": false,
-          "linearSmoothing": true,
-          "outputDomain": false,
-          "domainOffset": 0
-        }
-      },
-      "params": {
-        "amplitude": 0,
-        "offset": 0
-      },
-      "type": "attenuverter",
-      "alias": "Out → In",
-      "widthGu": 5,
-      "ui": {
-        "buttonsHidden": true,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": true,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": false
-      }
-    },
-    {
-      "gx": 10,
-      "gy": -10,
-      "id": "ampCurve-1",
-      "paramMeta": {
-        "mode": {
-          "alias": "",
-          "choices": [
-            "Lin",
-            "Exp"
-          ],
-          "choiceOriginMin": 0,
-          "curveAmount": 0,
-          "def": 1,
-          "displayChoices": true,
-          "divideChoicesVisibly": true,
-          "kind": "decimal",
-          "bipolar": false,
-          "max": 1,
-          "maxDigits": 3,
-          "mid": 1,
-          "min": 0,
-          "reverse": false,
-          "nonlinearSlider": false,
-          "sliderCurve": "linear",
-          "showSign": false,
-          "removeTrailingZeros": false,
-          "smoothingMode": "global",
-          "smoothingSeconds": null,
-          "smoothingType": "none",
-          "step": 1,
-          "tooltip": "Lin = clamp Env to 0…1. Exp = classic VCA CV law (quiet lows, unity at 1) for Amplitude params.",
-          "modClamp": true,
-          "hardClamp": false,
-          "modMultiply": false,
-          "vca": false,
-          "constraint": "",
-          "unit": "",
-          "wraparound": false,
-          "visible": true,
-          "linearSmoothing": false,
-          "outputDomain": false,
-          "domainOffset": 0
-        }
-      },
-      "params": {
-        "mode": 1
-      },
-      "type": "ampCurve",
-      "alias": "← → amplitude",
-      "widthGu": 4,
-      "ui": {
-        "buttonsHidden": true,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": true,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": false
-      }
     }
   ],
   "requiredAssets": [],
@@ -3129,7 +2940,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 47,
-    "zoom": 1.1110081989247313,
+    "zoom": 0.796040392076099,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,

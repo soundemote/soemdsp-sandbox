@@ -900,6 +900,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Robin Supersaw",
     notes: ["oscillator", "supersaw", "pitch dithering", "frequency detune", "portamento", "native", "phosphor display"],
   },
+  hyperpluck: {
+    category: "oscillator",
+    description: "PolyBLEP unison bank with Supersaw detune layouts. All voices start in phase. Dual Channel / Alternating stereo, Reset, Increment.",
+    label: "Hyperpluck",
+    notes: ["oscillator", "pluck", "supersaw", "polyblep", "unison", "native", "phosphor display"],
+  },
   hypersaw2: {
     category: "oscillator",
     description: "PolyBLEP hypersaw — distribute/randomize, vibrato + Fixed/Random Steps jitter. Distance source wavelength/division. Speeds and walk filter in Hz. Decimal oscillators, phase-column face.",
@@ -3599,6 +3605,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   robinSupersaw: {
     source: "public/modules/robinSupersaw/robin-supersaw-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/robinSupersaw/robin-supersaw-worklet-evaluator.js",
+  },
+  hyperpluck: {
+    source: "native_modules/hyperpluck/hyperpluck.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/hyperpluck/hyperpluck.cpp",
   },
   rotate3dTo2d: {
     source: "public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js",

@@ -166,6 +166,12 @@ const nodeGraphWaterfallSettingsDefaults = Object.freeze({
   detail: 1,
   // Filled-bar width inside the column. 1 = full column. 0 = gone.
   barThickness: 1,
+  // Solid peak-to-peak body. Independent of the stroke.
+  filledBars: true,
+  // Top and bottom edge of each bar. Off until turned on. No vertical joins.
+  drawStroke: false,
+  strokeColor: "#ffffff",
+  strokeThickness: 1,
   // Off: keep scrolling. On: silence (linear amp at or below Planck) holds the plate.
   pauseOnSilence: false,
   // XYZ: stack all three on one plot, or split the face into three bands.

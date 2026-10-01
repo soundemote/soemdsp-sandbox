@@ -285,14 +285,15 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "historySeconds",
       "detail",
       "barThickness",
+      "strokeThickness",
       "backgroundBrightness",
       "backgroundHue",
       "dot1Brightness",
       "faceBlur",
       "secondaryBrightness",
     ]),
-    colors: Object.freeze(["dot1Color", "secondaryColor", "tertiaryColor", "backgroundColor"]),
-    toggles: Object.freeze(["skipDiscontinuities", "pauseOnSilence"]),
+    colors: Object.freeze(["dot1Color", "secondaryColor", "tertiaryColor", "backgroundColor", "strokeColor"]),
+    toggles: Object.freeze(["filledBars", "drawStroke", "skipDiscontinuities", "pauseOnSilence"]),
     choices: Object.freeze(["stereoBlend"]),
   }),
   // Phosphor energy faces: color via shared Gradient editor (not single swatches).
@@ -477,13 +478,14 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "historySeconds",
       "detail",
       "barThickness",
+      "strokeThickness",
       "backgroundBrightness",
       "backgroundHue",
       "dot1Brightness",
       "faceBlur",
     ]),
-    colors: Object.freeze(["backgroundColor"]),
-    toggles: Object.freeze(["pauseOnSilence"]),
+    colors: Object.freeze(["backgroundColor", "strokeColor"]),
+    toggles: Object.freeze(["filledBars", "drawStroke", "pauseOnSilence"]),
     choices: Object.freeze(["stereoBlend", "xyzLayout"]),
   }),
   // 1D Waterfall RGB — Size / Blur / Dot density / Bright; RGB Add or CMY Multiply.
@@ -492,13 +494,14 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "historySeconds",
       "detail",
       "barThickness",
+      "strokeThickness",
       "backgroundBrightness",
       "backgroundHue",
       "dot1Brightness",
       "faceBlur",
     ]),
-    colors: Object.freeze(["backgroundColor"]),
-    toggles: Object.freeze(["cmyMode", "skipDiscontinuities", "pauseOnSilence"]),
+    colors: Object.freeze(["backgroundColor", "strokeColor"]),
+    toggles: Object.freeze(["filledBars", "drawStroke", "cmyMode", "skipDiscontinuities", "pauseOnSilence"]),
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
@@ -1135,6 +1138,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayImageSize",
     title: "Zoom 0…4 (exp). Fine near 0; 1 = fit face; >1 = zoom past edges.",
   }),
+  strokeThickness: Object.freeze({
+    label: "Stroke thickness",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayStrokeThickness",
+    title: "Stroke width in CSS pixels (0.25–16). Top and bottom of each bar. No vertical line.",
+  }),
   barThickness: Object.freeze({
     label: "Bar thickness",
     inputmode: "decimal",
@@ -1284,11 +1293,11 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "decimal",
     id: "nodeTraceDisplayHistorySeconds",
     // Parameter custom skew. curveAmount -1 => exponent 4 (finest toward min).
-    // Live drag: seconds = max * t^4. Most travel stays near 0; max is the slow end. 0 pauses.
+    // Live drag: seconds = max * t^4. Most travel stays near 0; max is the slow end. 0 is one bar.
     nonlinearSlider: true,
     sliderCurve: "custom",
     curveAmount: -1,
-    title: "Seconds of history across the Instant Waterfall face. Longer = slower scroll. Drag is skewed so short windows have more travel and the top of the range approaches slowly. 0 = pause.",
+    title: "Seconds of history across the Instant Waterfall face. Longer = slower scroll. Drag is skewed so short windows have more travel and the top of the range approaches slowly. At 0 the face is the current bar.",
   }),
   detail: Object.freeze({
     label: "Detail",
@@ -1742,11 +1751,21 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     title:
       "Off = RGB additive guns (overlaps → white). On = CMY multiply guns on white (overlaps → black). R→Cyan, G→Magenta, B→Yellow.",
   }),
+  filledBars: Object.freeze({
+    label: "Fill bars",
+    id: "nodeTraceDisplayFilledBars",
+    title: "Solid peak-to-peak columns. On by default. Independent of Draw stroke.",
+  }),
+  drawStroke: Object.freeze({
+    label: "Draw stroke",
+    id: "nodeTraceDisplayDrawStroke",
+    title: "Stroke the top and bottom of each bar. Off by default. Does not draw a vertical line between them.",
+  }),
   pauseOnSilence: Object.freeze({
     label: "Pause on silence",
     id: "nodeTraceDisplayPauseOnSilence",
     title:
-      "While on, Instant Waterfall stops scrolling when every enabled channel is at or below Planck amplitude. Off (default) keeps scrolling. History at 0 still pauses either way.",
+      "While on, Instant Waterfall stops scrolling when every enabled channel is at or below Planck amplitude. Off (default) keeps scrolling. History at 0 is the current bar either way.",
   }),
   skipDiscontinuities: Object.freeze({
     label: "Skip Discontinuity",
@@ -1888,6 +1907,12 @@ const nodeGraphDisplaySettingsColorMeta = Object.freeze({
     aria: "Residual digit color (previous reading fade ink)",
     defaultValue: "#8c2981",
     id: "nodeTraceDisplayGhostColor",
+  }),
+  strokeColor: Object.freeze({
+    label: "Stroke",
+    aria: "Stroke color",
+    defaultValue: "#ffffff",
+    id: "nodeTraceDisplayStrokeColor",
   }),
   dot1Color: Object.freeze({
     label: "",

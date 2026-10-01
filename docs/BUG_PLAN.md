@@ -136,6 +136,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-084 | see | fixed | scope1dTrace Display Settings gradient not feeding TraceWoscope LUT |
 | B-085 | see | fixed | Multi-select Display Settings copies unedited settings |
 | B-086 | see | open | 1D Trace sync glitches more than phosphor sync |
+| B-087 | see | open | Longer sequencer clips cut short with multiple sequencers |
 
 ---
 
@@ -165,6 +166,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - 2026-09-28: User - Parameter modulation must clamp to param max/min (Keyboard Gate + Toggle into PolyBLEP Amplitude). Promoted -> **B-082** (`docs/B-082_PARAM_MOD_CLAMP_MIN_MAX.md`).
 - 2026-09-29: User - selecting multiple displays and changing one setting (example: Show in canvas) also copies the edited module's other, unchanged settings onto the rest of the selection. Promoted -> **B-085** (`docs/B-085_MULTISELECT_DISPLAY_SETTINGS_COPY.md`).
 - 2026-09-29: User - 1D Trace / woscope sync mode glitches a lot more than phosphor sync. Maybe zero crossings per quantum. Logged only, do not fix yet. Promoted -> **B-086** (`docs/B-086_SCOPE1DTRACE_SYNC_GLITCH.md`).
+- 2026-09-30: User - Longer sequencer clips get cut short when a patch has two or more sequencers. Promoted -> **B-087** (`docs/B-087_LONG_SEQUENCER_CLIPS_CUT_SHORT.md`).
 
 ---
 
@@ -997,6 +999,17 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Expected: 1D sync should hold as steadily as phosphor sync.
 - Notes: User guess, not confirmed: zero-crossing issue, maybe zero crossings are sent per quantum.
 - Fix shape: Not started. Compare the two sync triggers before changing anything. Docs only; no code fix in this report.
+
+### B-087 — Longer sequencer clips cut short with multiple sequencers
+- Status: open
+- Severity: see
+- Source: user 2026-09-30
+- Doc: `docs/B-087_LONG_SEQUENCER_CLIPS_CUT_SHORT.md`
+- Files: Sequencer clip scheduling/playback path (not pinned).
+- What: Longer sequencer clips get cut short when a patch has two or more sequencers.
+- Repro: Use a patch with two or more sequencers and a longer clip. Play the patch and observe that the clip ends before its intended length.
+- Expected: Longer clips should play for their authored length regardless of whether the patch contains one sequencer or multiple sequencers.
+- Fix shape: Not started. Do not treat a cause as confirmed; this report is docs-only and includes no code fix.
 
 ## Fixed
 

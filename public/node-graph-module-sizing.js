@@ -803,6 +803,27 @@ function nodeGraphModuleTypeHasIoPorts(type) {
   );
 }
 
+/**
+ * Strip-IO band present (LayoutA / Metamodule / InletOutlet).
+ * LayoutB always false — ports live in the shell; leave shell column policy alone.
+ * Hide-unused with 0 connected jacks ⇒ false (collapse the strip row).
+ */
+function nodeGraphModuleStripIoBandVisible(type, ui = {}, node = null) {
+  if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
+    return false;
+  }
+  if (!nodeGraphModuleTypeHasIoPorts(type)) {
+    return false;
+  }
+  const effectiveUi = typeof nodeGraphEffectivePatchNodeUi === "function"
+    ? nodeGraphEffectivePatchNodeUi(ui, type)
+    : (ui || {});
+  if (Boolean(effectiveUi.ioHidden)) {
+    return false;
+  }
+  return nodeGraphModuleIoRowCount(type, node) > 0;
+}
+
 function nodeGraphModuleIoSectionHeightGu(type, node = null) {
   // LayoutB modules keep ports in the shell — no under-face IO strip height.
   if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
@@ -902,17 +923,10 @@ function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
     ? nodeGraphLayoutBShellHeightGu(type, ui)
     : faceGu;
   element.style.setProperty("--node-module-shell-height-units", String(shellGu));
-  // LayoutA + MetamoduleLayout: shared IO section height. LayoutB ports are in the shell — 0.
-  const effectiveUi = typeof nodeGraphEffectivePatchNodeUi === "function"
-    ? nodeGraphEffectivePatchNodeUi(ui, type)
-    : (ui || {});
-  const ioHidden = Boolean(effectiveUi.ioHidden)
-    || !nodeGraphModuleTypeHasIoPorts(type)
-    || isLayoutB;
-  let ioGu = 0;
-  if (!ioHidden && typeof nodeGraphModuleIoSectionHeightGu === "function") {
-    ioGu = nodeGraphModuleIoSectionHeightGu(type, patchNode);
-  }
+  // LayoutA + MetamoduleLayout strip height. LayoutB ports are in the shell — 0.
+  const ioGu = (!isLayoutB && nodeGraphModuleStripIoBandVisible(type, ui, patchNode))
+    ? nodeGraphModuleIoSectionHeightGu(type, patchNode)
+    : 0;
   element.style.setProperty("--node-module-io-height-units", String(ioGu));
   // Tracks + child placement are owned by applyNodeGraphModuleLayout.
   // Hidden face ⇒ no face track (do not leave a 0px hole for auto-placement).
@@ -983,13 +997,10 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
   if (typeof nodeGraphModuleUsesMetamoduleLayout === "function"
     && nodeGraphModuleUsesMetamoduleLayout(type)) {
     const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
-    const effectiveUi = typeof nodeGraphEffectivePatchNodeUi === "function"
-      ? nodeGraphEffectivePatchNodeUi(ui, type)
-      : (ui || {});
-    const ioHidden = Boolean(effectiveUi.ioHidden)
-      || !nodeGraphModuleTypeHasIoPorts(type);
     // Shared LayoutA IO chrome above the face — height SSOT drives face start.
-    const ioGu = ioHidden ? 0 : nodeGraphModuleIoSectionHeightGu(type, node);
+    const ioGu = nodeGraphModuleStripIoBandVisible(type, ui, node)
+      ? nodeGraphModuleIoSectionHeightGu(type, node)
+      : 0;
     const displayVisible = typeof nodeGraphModuleDisplayVisibleForUi === "function"
       ? nodeGraphModuleDisplayVisibleForUi(type, ui)
       : true;
@@ -1295,8 +1306,24 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
   const stack = visible.map(nodeGraphModuleBandTrackCss).join(" ") || "minmax(0, 1fr)";
   article.classList.add("module-stack");
   article.style.setProperty("--node-module-stack-rows", stack);
+  // Keep a single definite column so an orphan strip cannot open an implicit
+  // second track (face left / blank right).
   article.style.gridTemplateColumns = "minmax(0, 1fr)";
   article.style.gridTemplateRows = stack;
+  const isLayoutBArticle = article.classList.contains("chrome-layout-b")
+    || article.classList.contains("solid-module-layout");
+  const ioBandPresent = visible.some((band) => {
+    const bandId = typeof nodeGraphModuleCanonicalBandId === "function"
+      ? nodeGraphModuleCanonicalBandId(band.id)
+      : band.id;
+    return bandId === "io";
+  });
+  // Strip-IO chrome only. LayoutB shell columns stay untouched.
+  if (isLayoutBArticle) {
+    article.classList.remove("io-strip-collapsed");
+  } else {
+    article.classList.toggle("io-strip-collapsed", !ioBandPresent);
+  }
   if (
     visible.some((band) => band.id === "lip")
     && !article.querySelector(":scope > .node-module-lip")
@@ -1347,11 +1374,16 @@ function applyNodeGraphModuleLayout(article, patchNodeOrBands) {
       child.hidden = false;
     } else if (id === "io" && child.classList.contains("dsp-node-io-section")) {
       const ioHidden = article.classList.contains("io-hidden");
-      // B-057: hide-unused can omit the IO band (0 connected rows) — do not
-      // park the strip on the face/lip track.
-      const ioBandOmitted = !visible.some((band) => band.id === "io");
-      child.hidden = ioHidden || ioBandOmitted;
-      if (!child.hidden) {
+      // B-057 / strip collapse: omit the IO band (0 connected rows under
+      // hide-unused, or Hide In/Out). Do not park the strip on face/params —
+      // that opens an implicit second column (content left, blank right).
+      const ioBandOmitted = !ioBandPresent;
+      const collapseStrip = ioHidden || ioBandOmitted;
+      child.hidden = collapseStrip;
+      if (collapseStrip) {
+        child.style.removeProperty("grid-row");
+        child.style.removeProperty("grid-column");
+      } else {
         child.style.gridRow = String(Math.max(2, lastContentIndex + 1));
       }
     } else if (child.classList.contains("node-text-box-body")) {
@@ -1536,16 +1568,15 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
   const slidersVisible = nodeGraphModuleTypeHasHideableSliders(type) && !normalizedUi.slidersHidden;
   const displayVisible = nodeGraphModuleDisplayVisibleForUi(type, ui);
   const interfaceControlsVisible = nodeGraphModuleInterfaceControlsVisibleForUi(type, ui);
-  const ioVisible = !normalizedUi.ioHidden && nodeGraphModuleTypeHasIoPorts(type);
+  // Strip IO only (LayoutB always false). Hide-unused with 0 jacks collapses the band.
+  const ioVisible = nodeGraphModuleStripIoBandVisible(type, ui, node);
   const rawIoHeightGu = normalizedUi.ioHidden
     ? nodeGraphModuleHiddenIoSectionHeightGu(type)
     : (nodeGraphModuleIoSectionHeightGu(type, node) || 0);
   // Hide-unused may collapse to 0 rows — do not re-floor to ioSectionMin (B-057).
-  const ioHeightGu = normalizedUi.ioHidden
-    ? rawIoHeightGu
-    : (rawIoHeightGu > 0
-      ? Math.max(nodeGraphModuleLayout.ioSectionMinHeightGu || 0.5, rawIoHeightGu)
-      : 0);
+  const ioHeightGu = ioVisible
+    ? Math.max(nodeGraphModuleLayout.ioSectionMinHeightGu || 0.5, rawIoHeightGu)
+    : 0;
   // InletOutletLayout: title + I/O only (no face, no params).
   if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
     return [
@@ -1773,12 +1804,9 @@ function nodeGraphModuleGridHeightUnits(type) {
  */
 function nodeGraphMetamoduleLayoutContentHeightGu(type, ui = {}, node = null) {
   const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
-  const effectiveUi = typeof nodeGraphEffectivePatchNodeUi === "function"
-    ? nodeGraphEffectivePatchNodeUi(ui, type)
-    : (ui || {});
-  const ioHidden = Boolean(effectiveUi.ioHidden)
-    || !nodeGraphModuleTypeHasIoPorts(type);
-  const ioGu = ioHidden ? 0 : nodeGraphModuleIoSectionHeightGu(type, node);
+  const ioGu = nodeGraphModuleStripIoBandVisible(type, ui, node)
+    ? nodeGraphModuleIoSectionHeightGu(type, node)
+    : 0;
   const displayVisible = typeof nodeGraphModuleDisplayVisibleForUi === "function"
     ? nodeGraphModuleDisplayVisibleForUi(type, ui)
     : true;

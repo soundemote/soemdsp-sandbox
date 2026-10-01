@@ -20,7 +20,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "waterfallXyz"
   )) {
     label = "History (seconds)";
-    title = "History window duration in seconds across the face. Longer = slower scroll. 0 = pause (freeze plate).";
+    title = "History window duration in seconds across the face. Longer = slower scroll. At 0 the face is the current bar.";
   } else if ((key === "historyHz" || key === "historyCycles" || key === "zoomSeconds" || key === "historySeconds") && (
     formType === "gradientVectorscopeFace"
   )) {
@@ -131,6 +131,14 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
   )) {
     label = "Bar thickness";
     title = "Width of each filled column. 1 = full column. 0 = the bar disappears. In between, that fraction of the column, centered.";
+  }
+  if (key === "strokeThickness" && (
+    formType === "waterfall"
+    || formType === "waterfallRgb"
+    || formType === "waterfallXyz"
+  )) {
+    label = "Stroke thickness";
+    title = "Stroke width in CSS pixels (0.25–16). Top and bottom of each bar only.";
   }
   if (key === "scale" && (
     formType === "waterfall"
@@ -604,6 +612,9 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}
     base = { ...base, defaultValue: "#0000ff" };
   } else if (formType === "waterfall" && (options.stereo || options.xyz) && key === "backgroundColor") {
     aria = "Background";
+  } else if (key === "strokeColor") {
+    aria = "Stroke color";
+    base = { ...base, caption: "Stroke", defaultValue: "#ffffff" };
   } else if (formType === "textBoxFace" && key === "textColor") {
     aria = "Text Box text color";
     base = { ...base, defaultValue: "#f3f1ec" };
@@ -1176,7 +1187,7 @@ function syncNodeGraphWaterfallHistoryLabel(root, settings = {}) {
   }
   const key = "historySeconds";
   const label = "History (seconds)";
-  const title = "History window duration in seconds across the face. Longer = slower scroll. 0 = pause.";
+  const title = "History window duration in seconds across the face. Longer = slower scroll. At 0 the face is the current bar.";
   if (titleSpan) {
     titleSpan.textContent = label;
   }
@@ -1387,6 +1398,7 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     "zoomSeconds",
     "detail",
     "barThickness",
+    "strokeThickness",
     "sweepHz",
     "sweepCycles",
     "backgroundBrightness",
@@ -1441,6 +1453,20 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   }
   pushStackField("detail");
   pushStackField("barThickness");
+  if (isInstantWaterfall && toggleKeys.includes("filledBars")) {
+    rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("filledBars"));
+    usedToggles.add("filledBars");
+  }
+  if (isInstantWaterfall && toggleKeys.includes("drawStroke")) {
+    rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("drawStroke"));
+    usedToggles.add("drawStroke");
+  }
+  if (isInstantWaterfall && orderedPrimary.includes("strokeThickness")) {
+    rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml("strokeThickness", type));
+  }
+  if (isInstantWaterfall && activeColors.has("strokeColor") && allow("colors", "strokeColor")) {
+    rows.push(nodeGraphDisplaySettingsBuildColorRowHtml("strokeColor", type));
+  }
   if (isInstantWaterfall && toggleKeys.includes("pauseOnSilence")) {
     rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("pauseOnSilence"));
     usedToggles.add("pauseOnSilence");

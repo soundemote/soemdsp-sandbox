@@ -891,6 +891,28 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
       0,
       1,
     ),
+    filledBars: (() => {
+      const raw = source.filledBars;
+      if (raw === true || raw === 1 || raw === "1" || raw === "true") return true;
+      if (raw === false || raw === 0 || raw === "0" || raw === "false") return false;
+      return defaults.filledBars !== false;
+    })(),
+    drawStroke: (() => {
+      const raw = source.drawStroke;
+      if (raw === true || raw === 1 || raw === "1" || raw === "true") return true;
+      if (raw === false || raw === 0 || raw === "0" || raw === "false") return false;
+      return defaults.drawStroke === true;
+    })(),
+    strokeColor: normalizeNodeGraphTraceDisplayColor(
+      source.strokeColor,
+      defaults.strokeColor || "#ffffff",
+    ),
+    strokeThickness: normalizeNodeGraphTraceDisplayNumber(
+      source.strokeThickness,
+      defaults.strokeThickness ?? 1,
+      0.25,
+      16,
+    ),
     pauseOnSilence: (() => {
       const raw = source.pauseOnSilence;
       if (raw === true || raw === 1 || raw === "1" || raw === "true") return true;
@@ -2116,10 +2138,10 @@ function nodeGraphTraceDisplaySettingsForNode(node) {
       ? nodeGraphMigrateLimiterGainFaceToTraceSettings(node.traceDisplaySettings)
       : node.traceDisplaySettings;
     const hasLocal = Boolean(local && typeof local === "object" && Object.keys(local).length);
+    const defDisp = typeof nodeGraphModuleDefinitions === "object"
+      && nodeGraphModuleDefinitions?.[node.type]?.defaultDisplaySettings;
     if (!hasLocal) {
       const seeded = nodeGraphGlobalTraceSettings();
-      const defDisp = typeof nodeGraphModuleDefinitions === "object"
-        && nodeGraphModuleDefinitions?.[node.type]?.defaultDisplaySettings;
       const withDef = defDisp && typeof defDisp === "object"
         ? { ...seeded, ...defDisp }
         : seeded;
@@ -2138,7 +2160,12 @@ function nodeGraphTraceDisplaySettingsForNode(node) {
         ? normalizeNodeGraphWaterfallSettings(withDef)
         : withDef;
     }
-    return normalizeNodeGraphWaterfallSettings(local);
+    // Edited faces keep their bag. Keys they never stored (filledBars) still
+    // pick up the module default, then the global waterfall default.
+    const withModuleDefault = defDisp && typeof defDisp === "object"
+      ? { ...defDisp, ...local }
+      : local;
+    return normalizeNodeGraphWaterfallSettings(withModuleDefault);
   }
   if (settingsSchema === "waterfallXyz") {
     return normalizeNodeGraphWaterfallSettings(node.traceDisplaySettings);
