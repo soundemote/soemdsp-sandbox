@@ -518,7 +518,7 @@ function nodeGraphStaticPagePatchFileName() {
   try {
     if (window.parent && window.parent !== window) {
       const path = String(window.parent.location.pathname || "").replace(/^\/+|\/+$/g, "");
-      if (!path || path === "sandbox") {
+      if (!path) {
         return "init.json";
       }
       if (/^[a-z0-9][a-z0-9-]*$/i.test(path)) {

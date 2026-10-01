@@ -41,6 +41,8 @@ async function nodeGraphResolvePagePatchUrls(slug) {
     // Catalog optional; direct path is tried below.
   }
   nodeGraphPagePatchFileUrls(want).forEach(push);
+  // /sandbox with no sandbox patch still opens, on the init patch.
+  if (want === "sandbox") nodeGraphPagePatchFileUrls("init").forEach(push);
   return urls;
 }
 

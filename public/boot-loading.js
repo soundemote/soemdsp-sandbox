@@ -66,7 +66,6 @@ function nodeBootHeroPatchSlug() {
     "",
     "index.html",
     "perform.html",
-    "sandbox",
     "public",
     "soemdsp-sandbox",
   ]);
