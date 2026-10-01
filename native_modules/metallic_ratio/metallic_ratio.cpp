@@ -2,6 +2,7 @@
 // soemdsp-native-label: Metallic Ratio
 // soemdsp-native-target: metallicRatio
 // soemdsp-native-kind: math
+// soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Math/Misc/RatioGenerator.h
 //
 // A tribute module: this is Robin Schmidt's RAPT::rsRatioGenerator::metallic()
 // formula from RS-MET (https://github.com/RobinSchmidt/RS-MET), ported

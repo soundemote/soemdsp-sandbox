@@ -1,7 +1,8 @@
 // soemdsp-native-module: jerobeam_mushroom
 // soemdsp-native-label: Jerobeam Mushroom
 // soemdsp-native-target: mushroom
-// soemdsp-native-kind: jerobeam
+// soemdsp-native-kind: jerobeam
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamMushroom.h
 //
 // Ported from soemdsp/include/soemdsp/oscillator/JerobeamMushroom.{h,cpp}
 // (Jerobeam Fenderson's "Mushroom" Gen~ patch). Three independent phasors

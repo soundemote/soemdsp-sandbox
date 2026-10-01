@@ -1,7 +1,8 @@
 // soemdsp-native-module: jerobeam_boing
 // soemdsp-native-label: Jerobeam Boing
 // soemdsp-native-target: boing
-// soemdsp-native-kind: jerobeam
+// soemdsp-native-kind: jerobeam
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamBoing.h
 //
 // Ported from soemdsp/include/soemdsp/oscillator/JerobeamBoing.{h,cpp}
 // (Jerobeam Fenderson's "Boing" Gen~ patch). A phasor-driven sphere shape

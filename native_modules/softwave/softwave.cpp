@@ -2,6 +2,7 @@
 // soemdsp-native-label: Softwave Oscillator
 // soemdsp-native-target: softwaveOsc
 // soemdsp-native-kind: oscillator
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/DistortionOscillator.hpp
 //
 // Port of DistortionOscillator / Softwave multi-shape morphing oscillator
 // previously pure-JS in softwave-osc-worklet-evaluator.js.

@@ -2,6 +2,7 @@
 // soemdsp-native-label: VoiceManager
 // soemdsp-native-target: voice_manager
 // soemdsp-native-kind: pitch
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/plugin/VoiceManager.hpp
 //
 // Freestanding port of soemdsp VoiceManager polyphony/monophony core
 // (include/soemdsp/plugin/VoiceManager.hpp). No STL — fixed pools for wasm.

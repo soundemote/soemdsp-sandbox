@@ -2,6 +2,7 @@
 // soemdsp-native-label: Jerobeam Nyquist-Shannon
 // soemdsp-native-target: nyquistShannon
 // soemdsp-native-kind: jerobeam
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamNyquistShannon.h
 //
 // Ported from soemdsp/include/soemdsp/oscillator/JerobeamNyquistShannon.{h,cpp}
 // (Jerobeam Fenderson's "Nyquist-Shannon" Gen~ patch): a sample/rate

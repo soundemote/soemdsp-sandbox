@@ -2,6 +2,7 @@
 // soemdsp-native-label: Linear ADSR
 // soemdsp-native-target: linearEnvelope
 // soemdsp-native-kind: envelope
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/envelope/LinearEnvelope.hpp
 
 #include <soemdsp/soemdsp.hpp>
 

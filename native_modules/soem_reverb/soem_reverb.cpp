@@ -1,7 +1,8 @@
 // soemdsp-native-module: soem_reverb
 // soemdsp-native-label: SoEmReverb
 // soemdsp-native-target: soemReverb
-// soemdsp-native-kind: effect
+// soemdsp-native-kind: effect
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/delay/Reverb.hpp
 //
 // Faithful freestanding port of soemdsp::delay::Reverb::runWithIdleDetection
 // and ModulatedDelay::{runLfo,runDelay,runDiffuse} from SoEmReverb /

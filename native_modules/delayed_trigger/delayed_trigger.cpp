@@ -2,6 +2,7 @@
 // soemdsp-native-label: Delayed Trigger
 // soemdsp-native-target: delayedTrigger
 // soemdsp-native-kind: utility
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/timer/DelayedTrigger.hpp
 //
 // On a trigger rising edge, waits `delay` seconds, then fires a
 // pulseTime-length pulse. A new trigger while already waiting/pulsing

@@ -2,6 +2,7 @@
 // soemdsp-native-label: Expo Pluck Envelope 2
 // soemdsp-native-target: expoPluckEnvelope2
 // soemdsp-native-kind: envelope
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/envelope/PluckEnvelope.hpp
 //
 // Faithful port of soemdsp::modulator::PluckEnvelope (PluckEnvelope.hpp)
 // with SoEmPluck.cpp parameter map:

@@ -2,6 +2,7 @@
 // soemdsp-native-label: Random Walk
 // soemdsp-native-target: randomWalk
 // soemdsp-native-kind: noise
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/random/FlexibleRandomWalk.hpp
 
 // Seed-key derivation (hashing the "{nodeId}.{salt}.{seed}" string into an
 // initial RNG state) stays on the JS side -- see randomWalkSample in

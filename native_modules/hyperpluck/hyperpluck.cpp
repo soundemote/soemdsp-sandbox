@@ -2,6 +2,7 @@
 // soemdsp-native-label: Hyperpluck
 // soemdsp-native-target: hyperpluck
 // soemdsp-native-kind: oscillator
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/PolyBLEP.hpp
 //
 // PolyBLEP unison bank with Supersaw detune layouts. All voices start at
 // phase 0 (Reset zeros every phasor). Frequency-domain detune, not phase mod.

@@ -1,7 +1,8 @@
 // soemdsp-native-module: fractal_brownian_noise
 // soemdsp-native-label: Fractal Brownian Motion
 // soemdsp-native-target: fractalBrownianNoise
-// soemdsp-native-kind: noise
+// soemdsp-native-kind: noise
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/random/FractalBrownianMotion.hpp
 
 #include <wasm_simd128.h>
 

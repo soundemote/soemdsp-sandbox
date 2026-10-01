@@ -2,6 +2,7 @@
 // soemdsp-native-label: PolyBLEP
 // soemdsp-native-target: polyBlep
 // soemdsp-native-kind: oscillator
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/PolyBLEP.hpp
 
 #include <stdint.h>
 

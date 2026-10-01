@@ -2,6 +2,7 @@
 // soemdsp-native-label: Wow And Flutter
 // soemdsp-native-target: wowAndFlutter
 // soemdsp-native-kind: modulator
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/modulator/WowAndFlutter.hpp
 //
 // Port of soemdsp::modulator::WowAndFlutter:
 //   out = wowOsc * wowAmp + flutterNoise * flutterAmp

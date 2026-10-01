@@ -2,6 +2,7 @@
 // soemdsp-native-label: SinCos
 // soemdsp-native-target: sineWavetable
 // soemdsp-native-kind: oscillator
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/SineWavetable.hpp
 //
 // Shared by SinCos4 (sineWavetable) and SinCos (sinCos). Method indices match UI:
 //   0 = Polynomial — joint quadrant poly (dsp_sin_cos) — kept for old patches

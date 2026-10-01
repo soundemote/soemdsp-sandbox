@@ -2,7 +2,9 @@
 // soemdsp-native-label: Chaosfly
 // soemdsp-native-target: chaosfly
 // soemdsp-native-kind: chaos
-// Dual sine FM chaos (JSFX Elan's Chaos Generator). Wavetable sine + passive 1-poles.
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/chaosfly/originalcode/Butterfly
+// Dual sine FM chaos (JSFX Elan's Chaos Generator / Butterfly). Wavetable sine + passive 1-poles.
+// Reference JSFX: native_modules/chaosfly/originalcode/Butterfly
 
 #include <soemdsp/soemdsp.hpp>
 

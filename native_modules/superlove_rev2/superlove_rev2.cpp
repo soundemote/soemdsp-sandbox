@@ -2,6 +2,7 @@
 // soemdsp-native-label: Superlove Rev2
 // soemdsp-native-target: superloveRev2
 // soemdsp-native-kind: filter
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/filter/Superlove.hpp
 //
 // Superlove Rev2 — LP18/LP24 from the Softwave-triangle breadboards
 // (patches/superlove lp18|lp24 breadboard.json). HP6/BP6 are identical

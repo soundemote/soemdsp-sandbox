@@ -1,0 +1,268 @@
+desc:Elan's Chaos Generator v1.4
+
+/* 
+by Elan Hickler 
+www.elanhickler.com 
+www.soundemote.com
+*/
+
+import midi_queue.jsfx-inc
+import ixmouse.jsfx-inc
+
+slider1:0<0,6,1{stereo chaos (pre-filter),stereo chaos,chaos A (pre-filter),chaos A,chaos B,mono mix(pre-filter),mono mix}>output
+slider2:0<-10000,10000,.001>(midi offset) Master Frequency
+slider3:0<-20000,20000,.001>Master FM 
+
+slider5:.5<0,1,.0001>Lowpass Chaos
+slider6:4<0,6,1{1,2,4,8,16,32,64}>^ filter taps
+slider7:.5<0,1,.00001>Highpass Chaos
+slider8:0<0,2,1{before ocs2,after osc2,before & after osc2}>^ position
+
+slider13:0<-1000,10000,.0001>osc1 detune
+slider14:0<-1000,10000,.0001>osc2 detune
+slider15:0<-20000,20000,.001>fm1 offset
+slider16:0<-20000,20000,.001>fm2 offset
+
+slider21:0<-1,1,.001>Pan
+slider22:0.5<0,10,.01>Volume
+
+slider30:0<0,1,1{off,on}>Midi input mode
+slider31:0<0,1,1{no,yes}>Frequency returns to 0?
+ 
+@init
+lag_disp=.1;
+mouse.init();
+mouse.DRAG_THRESHOLD = 0;
+q.midiq_init(0, 256);
+
+/*FUNCTIONS*/
+function clamp(value,lo,hi) local(lo hi)(
+  value > max(lo,hi) ? hi : value < min(lo,hi) ? lo : value;
+);
+function in_range(value,a,b)(
+  value >= min(a,b) && value <= max(a,b) ? 1 : 0;
+);
+
+function in_area(value,x1,x2,y1,y2)(
+  value > min(x1,x2) && value < max(x1,x2) && value > min(y1,y2) && value < max(y1,y2) ? 1 : 0;
+);
+
+//a is taper, set a to be between -1 and +1. x is the value to be tapered, x must be between 0 and 1.
+function taper(a,x)local(a x)(
+  (a*x-x)/(2*a*x-a-1);
+);
+
+/*CONSTANTS*/
+pi=$pi;
+tau = 2*$pi;
+
+@slider
+mix  = slider1;
+taps = slider6;
+//coeff = exp(-tau * 10/srate);
+
+@block
+q.midiq_collect();
+
+@sample
+/*MIDI*/
+while(q.midiq_remove() ? ( // Remove one MIDI message from the head of the queue
+  status = q.msg1 & 0xF0;
+  velocity = q.msg23 >> 8;
+
+  // Note On
+  status == 0x90 && velocity ? (
+    note = q.msg23 & 0x7F;
+    dt = 440 * 2^((note - 69) / 12) ;
+    ) :
+    // Note Off
+    status == 0x80 || (status == 0x90 && !velocity) ? (
+    q.msg23 & 0x7F == note ? dt = slider31 ? 0 : dt;
+    );
+  1; //while( midiq_remove() ? ( dt = slider2;););
+  );
+);
+
+
+  
+/*PARAMETER SMOOTHING AND TAPER*/  
+slider30 ? (
+  !slider31 ? (
+    frequency = ((slider2 * 2^((note - 69) / 12))+dt)*tau/srate;
+  ):(
+    frequency = dt*tau/srate;
+  );
+):(
+  frequency =  slider2*tau/srate;
+);
+fm1       = slider15+slider3;
+fm2       = slider16+slider3;
+lpcut     = 1-taper(.5,slider5);
+hpcut     = -taper(-.1,slider7)+1;
+osc1f     = slider13*tau/srate;
+osc2f     = slider14*tau/srate;
+fmoff     = slider3;
+speed     = slider16;
+pan       = (slider21+1)/2;
+dt == 0 ? volume = 0 : volume = slider22;
+
+i=256; // array memory offset
+/*Parameter Smoothing*/
+i+=1; fm1       = buf[i] = (fm1 * (1-coeff)) + (buf[i] * coeff);
+i+=1; fm2       = buf[i] = (fm2 * (1-coeff)) + (buf[i] * coeff);
+i+=1; lpcut     = buf[i] = (lpcut * (1-coeff)) + (buf[i] * coeff);
+i+=1; hpcut     = buf[i] = (hpcut * (1-coeff)) + (buf[i] * coeff);
+i+=1; frequency = buf[i] = (frequency * (1-coeff)) + (buf[i] * coeff);
+i+=1; osc1f     = buf[i] = (osc1f  * (1-coeff)) + (buf[i] * coeff);
+i+=1; osc2f     = buf[i] = (osc2f  * (1-coeff)) + (buf[i] * coeff);
+i+=1; fmoff     = buf[i] = (fmoff  * (1-coeff)) + (buf[i] * coeff);
+i+=1; speed     = buf[i] = (speed  * (1-coeff)) + (buf[i] * coeff);
+i+=1; pan       = buf[i] = (pan  * (1-coeff)) + (buf[i] * coeff);
+i+=1; volume    = buf[i] = (volume  * (1-coeff)) + (buf[i] * coeff);
+
+/*HP FILTER 1*/
+slider8 == 2? (
+  otm1 = hpcut*otm1 + out1 - itm1; 
+  itm1 = out1;  
+);
+
+/*OSCILLATOR 1*/
+adj1  = (tau/srate*out2*fm1)+frequency+osc1f;
+pos1 += adj1;
+pos1 >= tau ? pos1 -= tau;
+out1  = sin(pos1);
+
+/*HP FILTER 1*/
+slider8 == 0 || slider8 == 2 ? (
+  otm1 = hpcut*otm1 + out1 - itm1; 
+  itm1 = out1;  
+  out1 = otm1;
+);
+
+prefilter = out1; /*OUTPUT TAP*/
+
+/*LP FILTER*/
+i+=1; buf[i]  = out1 * (1-lpcut) + (buf[i] * lpcut);
+loop(2^taps-1,
+  i+=1;
+  buf[i] = buf[i-1] * (1-lpcut) + (buf[i] * lpcut);
+);
+out1=buf[i];
+ 
+/*OSCILLATOR 2*/
+adj2  = (tau/srate*out1*fm2)+frequency+osc2f;
+pos2 += adj2;
+pos2 >= tau ? pos2 -= tau;
+out2  = sin(pos2+pi/2);
+
+/*HP FILTER 1*/
+slider8 == 1 || slider8 == 2 ? (
+  otm1 = hpcut*otm1 + out1 - itm1; 
+  itm1 = out1;  
+  out1 = otm1;
+);
+
+/*OSCILLATOR 3*//*
+adj3  = (tau/srate)+frequency;
+pos3 += adj3;
+pos3 >= tau ? pos3 -= tau;
+out3  = sin(pos3);
+out2 = out2-out3;*/
+
+/*HP FILTER 2*//*
+otm3 = hpcut*otm3 + out2 - itm3;
+itm3 = out2; 
+out2 = otm3;*/
+
+/*OSCILLATOR 3*//*
+adj3  = (tau/srate)+frequency*2;
+pos3 += adj3;
+pos3 >= tau ? pos3 -= tau;
+out3  = (pos3-pi)/(pi*.5);*/
+
+/*LP FILTER*//*
+prefilter = out3;
+i+=1; buf[i]  = out3 * (1-lpcut) + (buf[i] * lpcut);
+loop(16,
+  i+=1;
+  buf[i] = buf[i-1] * (1-lpcut) + (buf[i] * lpcut);
+);
+out3=buf[i]*.5;*/
+
+
+/*MIX CONFIGURATIONS*/
+mix == 0 ? (finalout1 = prefilter; finalout2 = out2):
+mix == 1 ? (finalout1 = out1; finalout2 = out2):
+mix == 2 ? finalout1 = finalout2 = prefilter:
+mix == 3 ? finalout1 = finalout2 = out1:
+mix == 4 ? finalout1 = finalout2 = out2:
+mix == 5 ? finalout1 = finalout2 = (prefilter+out2)/2:
+mix == 6 ? finalout1 = finalout2 = (out1+out2)/2;
+/*finalout1+=out3;
+finalout2+=out3;*/
+
+/*VOLUME & PAN*/
+finalout1 = finalout1*volume*(1-pan);
+finalout2 = finalout2*volume*pan;
+
+/*DC FILTERS*/
+otm5      = .9999*otm5 + finalout1 - itm5; 
+itm5      = finalout1; 
+finalout1 = otm5;
+
+otm6      = .9999*otm6 + finalout2 - itm6;
+itm6      = finalout2;
+finalout2 = otm6;
+
+/*SPEAKER PROTECTION*//*
+abs(finalout1) > 1 || abs(finalout2) > 1 ? ( 
+  slider22*=.8;
+  speakerProtection=1;
+);
+sp+=1; sp > 5*srate ? ( speakerProtection=0; sp=0; );
+finalout1 = abs(finalout2) > 1 ? 0 : finalout1;
+finalout2 = abs(finalout2) > 1 ? 0 : finalout2;*/
+
+/*OUTPUT*/
+spl0 = finalout1;
+spl1 = finalout2;
+
+@gfx 100 200
+mouse.CheckState();
+
+gfx_setfont(1,"Perfect DOS VGA 437",17);
+function set_color(r,g,b,a)
+(
+  gfx_r=r;gfx_g=g;gfx_b=b;gfx_a=a;
+);
+
+set_color(.2,1,1,1);
+gfx_x=gfx_y=5;
+gfx_drawstr("LP = ");
+slider5 == 0 ? gfx_drawstr("inf");
+slider5 > 0 && slider5 < 1 ? ( gfx_drawnumber(log(lpcut)/(-tau)*srate,0); gfx_drawstr(" hz"); );
+slider5 == 1 ? gfx_drawstr("off");
+
+gfx_y+=15; gfx_x=5;
+gfx_drawstr("HP = ");
+slider7 == 0 ? gfx_drawstr("off");
+slider7 > 0 && slider7 < 1 ? ( gfx_drawnumber(log(hpcut)/(-tau)*srate,0); gfx_drawstr(" hz"); );
+slider7 == 1 ? gfx_drawstr("inf");
+
+/*LAG CONTROL*/
+in_range(mouse.lbtn.click_y,30,42) ? (
+  modifier = mouse_cap == 1 ? 100 : mouse_cap == 5 ? 10000;
+  lag_disp += mouse.lbtn.dragging ? -mouse.lbtn.delta_y/modifier;
+  lag_disp = clamp(lag_disp,0,1);
+);
+coeff = taper(-.9995,lag_disp);
+gfx_y+=15; gfx_x=5;
+gfx_drawstr("Lag = ");
+lag_disp == 0 ? gfx_drawstr("off");
+lag_disp > 0 && lag_disp < 1 ? ( gfx_drawnumber(lag_disp*100,2); gfx_drawstr("%"); );
+lag_disp >= 1 ? (set_color(.5,.5,1,1); gfx_drawstr("All parameters are FROZEN! (let it go)"); );
+
+set_color(.5,.3,.3,.7);
+gfx_y += 15; gfx_x=5;
+speakerProtection == 1 ? set_color(1,0,0,1);
+gfx_drawstr("WARNING: !!!SPEAKER PROTECTED!!!"); 

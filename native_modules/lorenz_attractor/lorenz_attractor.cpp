@@ -2,6 +2,7 @@
 // soemdsp-native-label: Lorenz Attractor
 // soemdsp-native-target: lorenzAttractor
 // soemdsp-native-kind: chaos
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/modulator/Attractor.hpp
 
 #include <soemdsp/soemdsp.hpp>
 

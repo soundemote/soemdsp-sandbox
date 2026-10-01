@@ -1,7 +1,8 @@
 // soemdsp-native-module: jerobeam_blubb
 // soemdsp-native-label: Jerobeam Blubb
 // soemdsp-native-target: blubb
-// soemdsp-native-kind: jerobeam
+// soemdsp-native-kind: jerobeam
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamBlubb.h
 //
 // Ported from soemdsp/include/soemdsp/oscillator/JerobeamBlubb.{h,cpp}
 // (Jerobeam Fenderson's "Blubb" Gen~ patch). The reference getSampleFrame()

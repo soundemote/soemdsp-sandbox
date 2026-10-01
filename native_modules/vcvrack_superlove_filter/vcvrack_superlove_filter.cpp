@@ -2,6 +2,7 @@
 // soemdsp-native-label: VCVRack Superlove Filter
 // soemdsp-native-target: vcvrackSuperloveFilter
 // soemdsp-native-kind: filter
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/filter/Superlove.hpp
 //
 // DSP copied from VCV Rack Super Love (soemdsp-vcvrack SuperLoveFilter.hpp).
 // Sandbox ±1 in/out: input is multiplied by Drive (0…4). No Rack 5V conversion.

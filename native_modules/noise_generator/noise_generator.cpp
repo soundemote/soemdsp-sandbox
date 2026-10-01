@@ -1,7 +1,8 @@
 // soemdsp-native-module: noise_generator
 // soemdsp-native-label: Noise Generator
 // soemdsp-native-target: noiseGenerator
-// soemdsp-native-kind: noise
+// soemdsp-native-kind: noise
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/random/NoiseGenerator.hpp
 
 #include <wasm_simd128.h>
 

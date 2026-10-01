@@ -2,6 +2,7 @@
 // soemdsp-native-label: Curve ADSR
 // soemdsp-native-target: expAdsr
 // soemdsp-native-kind: envelope
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/envelope/ExponentialEnvelope.hpp
 //
 // UpdateOnTrigger On: latch knobs on Gate rise.
 // Off: knobs/mods apply live, including mid-stage time/target retarget.

@@ -2,6 +2,7 @@
 // soemdsp-native-label: Pluck Envelope
 // soemdsp-native-target: pluckEnvelope
 // soemdsp-native-kind: envelope
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/envelope/PluckEnvelope.hpp
 //
 // soemdsp::modulator::PluckEnvelope + SoEmPluck parameter map:
 //   VelocitySensitivity, Attack, DecaySlopeTop/Mid/Bottom,
