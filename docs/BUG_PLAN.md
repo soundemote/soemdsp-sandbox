@@ -98,7 +98,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-045 | hear | fixed | Self-mod (outlet→own param) silent — buf zeroed before stamp |
 | B-046 | see | fixed | Shell doctype missing leading < → literal !doctype html> after start menu |
 | B-047 | hear | fixed | Arp Inc Out broken after f→inc remap (Hz/sr on ƒ cables; face Ramp unpublished) |
-| B-048 | see | fixed | Module settings enable/disable control does not mirror module button |
+| B-048 | see | fixed | Module settings enable/disable control does not mirror module button (2026-10-01 Module Actions host) |
 | B-049 | hear | fixed | Softwave ignored Increment (Arp.inc OK on polyBlep only) |
 | B-050 | see | open | Workspace zoom past ~10× stutters badly |
 | B-051 | see | open | Softwave oscillator display needs unrelated EQ Frequency refresh |

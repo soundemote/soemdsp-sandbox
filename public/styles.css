@@ -20809,6 +20809,8 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
  * Floating-window content buttons (not title chrome / nav / resize).
  * Chrome is classed (.scene-context-drag-handle, .panel-close-button,
  * .scene-context-resize-handle, .node-unified-window-nav-button) and left alone.
+ * Bypass (.node-bypass-button) keeps face/UIDEV black-off / red-on paint — do not
+ * wash it with the generic panel-grey floating button fill (B-048 regression).
  */
 :is(
   .node-scene-context-menu,
@@ -20817,7 +20819,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   .node-parameter-metadata-popover,
   .node-user-ui-settings-panel
 ) :is(
-  button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button),
+  button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button):not(.node-bypass-button),
   .scene-context-window-button,
   .scene-context-module-browser-button,
   .scene-context-home-module-button
@@ -20832,7 +20834,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   .node-parameter-metadata-popover,
   .node-user-ui-settings-panel
 ) :is(
-  button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button),
+  button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button):not(.node-bypass-button),
   .scene-context-window-button,
   .scene-context-module-browser-button,
   .scene-context-home-module-button
@@ -22301,11 +22303,14 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   }
 }
 
-/* B-048: Module Settings disable — same .node-bypass-button SSOT as module face.
-   Vars inherit from .node-wiring-panel (not workspace-only). Explicit bg so menu
-   button rules cannot wipe black / red chrome. */
-#nodeSceneContextMenu .scene-context-module-bypass-button,
-.node-scene-context-menu .scene-context-module-bypass-button {
+/* B-048: Module Settings / Command Center bypass = same .node-bypass-button as
+   the module face (UIDEV tokens). Control now lives in #nodeModuleActionsWindow
+   (moved out of #nodeSceneContextMenu); keep both hosts covered. */
+#nodeSceneContextMenu .node-bypass-button,
+#nodeModuleActionsWindow .node-bypass-button,
+.node-scene-context-menu .node-bypass-button,
+.node-module-actions-window .node-bypass-button,
+.scene-context-module-bypass-button {
   display: flex;
   width: 100%;
   box-sizing: border-box;
@@ -22313,25 +22318,91 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   justify-content: center;
   min-height: calc(var(--node-floating-window-button-height, 1.85rem) + 0.15rem);
   height: calc(var(--node-floating-window-button-height, 1.85rem) + 0.15rem);
+  max-height: calc(var(--node-floating-window-button-height, 1.85rem) + 0.15rem);
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
-  /* Match module header bypass cell sizing for the joystick glyph. */
+  /* Match module header bypass cell sizing for the electric glyph. */
   --node-header-height: calc(var(--node-floating-window-button-height, 1.85rem) + 0.15rem);
   container-type: size;
-  background: var(--node-bypass-off-bg, #000000);
-  color: transparent;
+  overflow: hidden;
+  /* Off: black plate, dim glyph, no glow (face SSOT / UIDEV). */
+  background: var(--node-bypass-off-bg, #000000) !important;
+  color: transparent !important;
+  box-shadow: none;
+  filter: none;
 }
 
-#nodeSceneContextMenu .scene-context-module-bypass-button[aria-pressed="true"],
-.node-scene-context-menu .scene-context-module-bypass-button[aria-pressed="true"] {
-  background: var(--node-bypass-on-bg, #5c1818);
-  color: transparent;
+#nodeSceneContextMenu .node-bypass-button::before,
+#nodeModuleActionsWindow .node-bypass-button::before,
+.node-scene-context-menu .node-bypass-button::before,
+.node-module-actions-window .node-bypass-button::before,
+.scene-context-module-bypass-button::before {
+  content: "\1F5F2";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(160, 167, 176, 0.48);
+  font-size: calc(var(--node-bypass-icon-size-ratio, 0.36) * 100cqh);
+  line-height: 1;
+  text-shadow: none;
 }
 
-#nodeSceneContextMenu .scene-context-module-bypass-button:disabled,
-.node-scene-context-menu .scene-context-module-bypass-button:disabled {
+/* On / bypassed: red plate, yellow glyph, glow (face SSOT / UIDEV). */
+#nodeSceneContextMenu .node-bypass-button[aria-pressed="true"],
+#nodeModuleActionsWindow .node-bypass-button[aria-pressed="true"],
+.node-scene-context-menu .node-bypass-button[aria-pressed="true"],
+.node-module-actions-window .node-bypass-button[aria-pressed="true"],
+.scene-context-module-bypass-button[aria-pressed="true"] {
+  background: var(--node-bypass-on-bg, #5c1818) !important;
+  color: transparent !important;
+}
+
+#nodeSceneContextMenu .node-bypass-button[aria-pressed="true"]::before,
+#nodeModuleActionsWindow .node-bypass-button[aria-pressed="true"]::before,
+.node-scene-context-menu .node-bypass-button[aria-pressed="true"]::before,
+.node-module-actions-window .node-bypass-button[aria-pressed="true"]::before,
+.scene-context-module-bypass-button[aria-pressed="true"]::before {
+  content: "\1F5F2";
+  color: var(--node-bypass-icon-on-color, #f7b758);
+  font-size: calc(var(--node-bypass-icon-size-ratio, 0.36) * 100cqh);
+  text-shadow:
+    0 0 calc(100cqh * var(--node-bypass-icon-glow-spread-ratio, 0.4) * 0.18) color-mix(in srgb, var(--node-bypass-icon-glow-color, #f25d5d) 72%, transparent),
+    0 0 calc(100cqh * var(--node-bypass-icon-glow-spread-ratio, 0.4) * 0.42) color-mix(in srgb, var(--node-bypass-icon-glow-color, #f25d5d) 46%, transparent);
+}
+
+#nodeSceneContextMenu .node-bypass-button:is(:hover, :focus-visible),
+#nodeModuleActionsWindow .node-bypass-button:is(:hover, :focus-visible),
+.node-scene-context-menu .node-bypass-button:is(:hover, :focus-visible),
+.node-module-actions-window .node-bypass-button:is(:hover, :focus-visible),
+.scene-context-module-bypass-button:is(:hover, :focus-visible),
+#nodeSceneContextMenu .node-bypass-button[aria-pressed="true"]:is(:hover, :focus-visible),
+#nodeModuleActionsWindow .node-bypass-button[aria-pressed="true"]:is(:hover, :focus-visible),
+.node-scene-context-menu .node-bypass-button[aria-pressed="true"]:is(:hover, :focus-visible),
+.node-module-actions-window .node-bypass-button[aria-pressed="true"]:is(:hover, :focus-visible),
+.scene-context-module-bypass-button[aria-pressed="true"]:is(:hover, :focus-visible) {
+  border-color: transparent;
+  box-shadow: none;
+  filter: none;
+  background: var(--node-bypass-off-bg, #000000) !important;
+}
+
+#nodeSceneContextMenu .node-bypass-button[aria-pressed="true"]:is(:hover, :focus-visible),
+#nodeModuleActionsWindow .node-bypass-button[aria-pressed="true"]:is(:hover, :focus-visible),
+.node-scene-context-menu .node-bypass-button[aria-pressed="true"]:is(:hover, :focus-visible),
+.node-module-actions-window .node-bypass-button[aria-pressed="true"]:is(:hover, :focus-visible),
+.scene-context-module-bypass-button[aria-pressed="true"]:is(:hover, :focus-visible) {
+  background: var(--node-bypass-on-bg, #5c1818) !important;
+}
+
+#nodeSceneContextMenu .node-bypass-button:disabled,
+#nodeModuleActionsWindow .node-bypass-button:disabled,
+.node-scene-context-menu .node-bypass-button:disabled,
+.node-module-actions-window .node-bypass-button:disabled,
+.scene-context-module-bypass-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }

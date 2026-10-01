@@ -48,3 +48,9 @@ Hard-reload Live UI after cache bump `b048-bypass-ssot-1`.
 ## Smoke
 
 `node scripts/smoke_display_follows_title.mjs` asserts wiring-panel SSOT defaults + sync host.
+
+## Regression (2026-10-01)
+
+Disable control moved into `#nodeModuleActionsWindow`. Floating-window content-button fill (`rgb(16,22,26)`, high `:is()` specificity) overrode B-048 black/red paint, so pressed never went red.
+
+Fix: exclude `.node-bypass-button` from floating-window button fills; retarget Module Settings / Command Center bypass selectors at `#nodeModuleActionsWindow` with the same UIDEV off/on/::before glow as the face.
