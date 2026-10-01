@@ -326,7 +326,14 @@ function createTextBoxWidget(body, options = {}) {
     field.style.setProperty("--node-text-box-line-height", String(layout.lineHeight || 1.2));
     const backgroundAlpha = textBoxWidgetNormalizeBackgroundAlpha(layout.backgroundAlpha);
     const backgroundAlphaCss = textBoxWidgetBackgroundAlphaCss(backgroundAlpha);
-    const backgroundColor = String(layout.backgroundColor || "transparent");
+    // Empty / "transparent" must not write blank CSS vars — `var(--x, fallback)`
+    // uses the empty defined value and the face goes clear. Editor still looked
+    // painted because plate ::before used module-fill; perform/canvas only has
+    // the face, so the background disappeared there.
+    const rawBackgroundColor = String(layout.backgroundColor || "").trim();
+    const hasCustomBackground = Boolean(rawBackgroundColor)
+      && rawBackgroundColor.toLowerCase() !== "transparent";
+    const backgroundColor = hasCustomBackground ? rawBackgroundColor : "#020407";
     const paintedBackground = textBoxWidgetBackgroundPaint(backgroundColor, backgroundAlpha);
     body.style.setProperty("--node-text-box-bg", paintedBackground);
     field.style.setProperty("--node-text-box-bg", paintedBackground);
@@ -334,10 +341,9 @@ function createTextBoxWidget(body, options = {}) {
     field.style.setProperty("--node-text-box-bg-color", backgroundColor);
     body.style.setProperty("--node-text-box-bg-alpha", backgroundAlphaCss);
     field.style.setProperty("--node-text-box-bg-alpha", backgroundAlphaCss);
-    // The module plate is a sibling/ancestor paint layer behind the face. Keep
-    // its inherited alpha in sync too, otherwise a near-zero face reveals the
-    // opaque grey plate (the exact-zero CSS escape is not enough).
+    // Plate + face share color/alpha (B-064 / perform canvas).
     const plate = body.closest?.(".dsp-node");
+    plate?.style.setProperty("--node-text-box-bg-color", backgroundColor);
     plate?.style.setProperty("--node-text-box-bg-alpha", backgroundAlphaCss);
     body.dataset.textBoxBackgroundAlpha = backgroundAlphaCss;
     if (layout.textColor) {

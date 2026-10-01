@@ -16150,22 +16150,45 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   );
 }
 
+/* Title + buttons off: face fills the plate. Match plate radius/stroke so the
+   square face fill cannot poke past the rounded outline (B-064). */
+.dsp-node.buttons-hidden.title-hidden > .node-text-box-body,
+.dsp-node.title-hidden.buttons-hidden > .node-text-box-body,
+.node-graph-workspace.module-buttons-hidden .dsp-node.title-hidden > .node-text-box-body {
+  border-radius: inherit;
+  corner-shape: inherit;
+}
+
 .node-text-box-body[hidden] {
   display: grid !important;
 }
 
-/* Alpha zero must reveal the workspace, not the module plate underneath. */
-/* The plate is a separate paint layer behind the face. Use the same continuous
-   alpha there so values close to zero cannot expose an opaque grey plate. */
+/* Alpha zero must reveal the workspace, not the module plate underneath.
+   Plate + face share the same bg color SSOT (--node-text-box-bg-color) so
+   editor stroke/fill and perform/canvas tiles (face only) stay in agreement. */
 .dsp-node:has(> .node-text-box-body)::before {
-  /* Fallback uses the stock plate color; color-mix below preserves themed fills. */
-  background: rgba(23, 26, 31, var(--node-text-box-bg-alpha, 0.78));
+  background: rgba(2, 4, 7, var(--node-text-box-bg-alpha, 0.78));
   background: color-mix(
     in srgb,
-    var(--node-module-fill, #171a1f)
+    var(--node-text-box-bg-color, #020407)
       calc(var(--node-text-box-bg-alpha, 0.78) * 100%),
     transparent
   );
+}
+
+/* Layout canvas / perform / screen-solo: only the face moves to the tile.
+   Keep the same painted background (no plate ::before on the canvas). */
+.node-layout-canvas-tile > .node-text-box-body,
+.node-metamodule-canvas-stage .node-layout-canvas-tile > .node-text-box-body,
+body.node-screen-solo-active .node-screen-solo-face.node-text-box-body {
+  background: var(--node-text-box-bg, rgba(2, 4, 7, 0.78));
+  background-color: color-mix(
+    in srgb,
+    var(--node-text-box-bg-color, #020407)
+      calc(var(--node-text-box-bg-alpha, 0.78) * 100%),
+    transparent
+  );
+  border-radius: inherit;
 }
 
 .node-text-box-body[data-text-box-background-alpha="0"] {

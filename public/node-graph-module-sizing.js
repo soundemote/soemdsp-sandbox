@@ -904,14 +904,21 @@ function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
     ? nodeGraphPatchNodeDisplayHeightUnits(patchNode)
     : nodeGraphModuleDisplayHeightUnits(type, ui);
   // Text Box is not a scope face, but the body still sits in the face track.
-  // Remaining outer − header is the text plate so 1fr grow cannot under/overflow
-  // the title bar (B-032).
+  // Article CSS height is already (outerGu × grid) − plate inset-y. Face gu must
+  // fit that content box (outer − header − inset), or minmax(scope, 1fr) grows
+  // past the rounded stroke when the title is hidden (B-064).
   if (nodeGraphModuleDefinitions[type]?.layout === "textBox") {
     const outerGu = typeof nodeGraphPatchNodeGridHeightUnits === "function"
       ? nodeGraphPatchNodeGridHeightUnits(patchNode)
       : nodeGraphModuleGridHeightUnitsForUi(type, ui);
     const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
-    faceGu = Math.max(1, Math.round(nodeGraphFiniteNumber(outerGu)) - Math.ceil(nodeGraphFiniteNumber(headerGu)));
+    const insetGu = nodeGraphModuleLayout.moduleGridInsetGu * 1.5;
+    faceGu = Math.max(
+      1,
+      Math.round(nodeGraphFiniteNumber(outerGu))
+        - Math.ceil(nodeGraphFiniteNumber(headerGu))
+        - Math.ceil(nodeGraphFiniteNumber(insetGu)),
+    );
   }
   // Face units drive LayoutA --node-module-scope-height / Metamodule face track.
   element.style.setProperty("--node-module-display-height-units", String(faceGu));
@@ -1124,6 +1131,11 @@ function nodeGraphModuleLayoutBands(type, ui = {}, node = null) {
   if (type === "audioPlayer" || layout === "textBox" || displayOwnsPlate) {
     if (face?.visible) {
       face.grow = true;
+      // Text Box owns the leftover plate. A gu-floor equal to outer−header
+      // overflows the inset-shrunk article (B-064); fill available space only.
+      if (layout === "textBox") {
+        face.fillsPlate = true;
+      }
     }
   }
   // InletOutletLayout (LayoutC): IO hugs jack rows like LayoutA (B-074).
@@ -1163,9 +1175,14 @@ function nodeGraphModuleBandTrackCss(band) {
     return "var(--node-header-height)";
   }
   if (band.id === "face") {
-    return band.grow
-      ? "minmax(var(--node-module-scope-height), 1fr)"
-      : "var(--node-module-scope-height)";
+    if (band.grow) {
+      // fillsPlate: hug the article content box (Text Box). Do not floor on
+      // --node-module-scope-height — that gu ignores plate inset-y.
+      return band.fillsPlate
+        ? "minmax(0, 1fr)"
+        : "minmax(var(--node-module-scope-height), 1fr)";
+    }
+    return "var(--node-module-scope-height)";
   }
   if (band.id === "controls") {
     // Hug the chrome. A reserved 4gu track left an empty see-through band
@@ -1612,8 +1629,9 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}, node = null) {
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "textBox") {
+    const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
     return [
-      { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
+      { id: "header", heightGu: headerGu, visible: headerGu > 0 },
       { id: "text", heightGu: nodeGraphModuleLayout.textBoxBodyMinGu, visible: true },
     ];
   }

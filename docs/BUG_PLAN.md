@@ -114,7 +114,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-061 | see | fixed | Small slider values show mantissa (8.0357) — scientific exponent stripped |
 | B-062 | hear | open | Non-audio UI changes restart audio engine |
 | B-063 | hear | fixed | Robin Oscillator Morph MOD silent (ParamModEdge → WIDTH, not SHAPE) |
-| B-064 | see | open | Text Box background overflows outline when title is hidden |
+| B-064 | see | fixed | Text Box background overflows outline when title is hidden |
 | B-065 | see | open | Multi-wire portal action creates duplicate portals instead of one Portal In / multiple Portal Outs |
 | B-066 | see | open | Multi-select Portal settings hides Title and locks Display |
 | B-067 | see | open | Bottom lip can leave less than 2 px clearance |
@@ -734,15 +734,15 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Fixed (2026-09-27): as above. Smoke OK.
 
 ### B-064 - Text Box background overflows outline when title is hidden
-- Status: open
+- Status: fixed (2026-10-01)
 - Severity: see
-- Source: user 2026-09-28
+- Source: user 2026-09-28; reopen 2026-10-01 (face vs stroke + perform bg)
 - Related: B-032 (Text Box resize/text clipping; verify shared title/content-height geometry); B-055 (Text Box wire z-order, fixed; separate layering symptom unless the same host/layout path is implicated)
 - Doc: `docs/B-064_TEXT_BOX_HIDDEN_TITLE_BACKGROUND_OVERFLOW.md`
-- Files: Text Box title visibility, background/face clipping, and module outline/border geometry (to investigate)
-- What: Hiding the Text Box title causes its background to extend beyond the module outline/border.
-- Repro: Add or open a Text Box, hide its title, and observe the background at the module edges. Compare the same Text Box with the title visible.
-- Fix shape: Keep the Text Box background clipped to the module outer bounds in both title states; recompute the content/face geometry when the title track is removed. Verify against B-032 resize/text clipping and B-055 wire layering. Docs only; no code fix in this report.
+- Files: `public/node-graph-module-sizing.js`; `public/styles.css`; `public/modules/textBox/text-box-widget.js`
+- What: Hiding the Text Box title causes its background to extend beyond the module outline/border. Perform/canvas dropped the background color.
+- Repro: Add or open a Text Box, hide its title, and observe the background at the module edges. Compare the same Text Box with the title visible. Check layout-canvas / Perform for the same fill.
+- Fix: Text Box face `fillsPlate` → `minmax(0, 1fr)`; face gu subtracts plate inset; title+buttons-hidden inherits plate radius; face+plate share `--node-text-box-bg-color`; empty bg no longer writes blank CSS vars.
 
 ### B-065 - Multi-wire portal action creates duplicate portals instead of one Portal In / multiple Portal Outs
 - Status: open
