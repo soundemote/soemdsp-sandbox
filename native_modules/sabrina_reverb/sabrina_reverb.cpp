@@ -1,7 +1,9 @@
 // soemdsp-native-module: sabrina_reverb
 // soemdsp-native-label: Sabrina Reverb
 // soemdsp-native-target: reverbEffect
-// soemdsp-native-kind: effect
+// soemdsp-native-kind: effect
+// soemdsp-native-lib: https://github.com/soundemote/soemdsp-sandbox/tree/master/native_modules/sabrina_reverb/originalcode
+// Reference VST sources: native_modules/sabrina_reverb/originalcode/{Sabrina.cpp,Sabrina.h}
 
 #include <stdint.h>
 #include <wasm_simd128.h>

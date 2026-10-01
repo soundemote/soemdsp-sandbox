@@ -41,9 +41,9 @@ target_include_directories(sandbox_native_maths INTERFACE
 # Header-only INTERFACE libs do not always get a .vcxproj in the VS generator.
 # Add an explicit browse target so maths headers appear in Solution Explorer.
 set(_maths_browse_sources ${SOEMDSP_MATHS_HEADERS})
-if(EXISTS "${SOEMDSP_NATIVE_ROOT}/fmd_original/FlowerChildFilterCore.h")
+if(EXISTS "${SOEMDSP_NATIVE_ROOT}/flower_child_filter/originalcode/FlowerChildFilterCore.h")
   list(APPEND _maths_browse_sources
-    "${SOEMDSP_NATIVE_ROOT}/fmd_original/FlowerChildFilterCore.h"
+    "${SOEMDSP_NATIVE_ROOT}/flower_child_filter/originalcode/FlowerChildFilterCore.h"
   )
 endif()
 add_custom_target(sandbox_native_maths_headers
@@ -75,7 +75,7 @@ endif()
 # ---------------------------------------------------------------------------
 # One STATIC lib per native module (Name/Name.cpp)
 # Skips: combined (link artifacts), dirs
-# without a matching .cpp (e.g. fmd_original).
+# without a matching .cpp.
 # ---------------------------------------------------------------------------
 set(SOEMDSP_MODULE_TARGETS "")
 file(GLOB SOEMDSP_MODULE_DIRS LIST_DIRECTORIES true
@@ -88,8 +88,7 @@ foreach(_dir IN LISTS SOEMDSP_MODULE_DIRS)
   endif()
   get_filename_component(_name "${_dir}" NAME)
 
-  if(_name STREQUAL "combined"
-      OR _name STREQUAL "fmd_original")
+  if(_name STREQUAL "combined")
     continue()
   endif()
 

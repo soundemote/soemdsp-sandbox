@@ -698,7 +698,7 @@
       "source": "native_modules/flower_child_filter/flower_child_filter.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/flower_child_filter/flower_child_filter.cpp",
       "localSourceUrl": "/native_modules/flower_child_filter/flower_child_filter.cpp",
-      "libUrl": "",
+      "libUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/flower_child_filter/originalcode/FlowerChildFilterCore.h",
       "wasm": "native_modules/flower_child_filter/flower_child_filter.wasm",
       "wasmUrl": "native_modules/flower_child_filter/flower_child_filter.wasm",
       "wasmAvailable": true
@@ -1595,7 +1595,7 @@
       "source": "native_modules/sabrina_reverb/sabrina_reverb.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/sabrina_reverb/sabrina_reverb.cpp",
       "localSourceUrl": "/native_modules/sabrina_reverb/sabrina_reverb.cpp",
-      "libUrl": "",
+      "libUrl": "https://github.com/soundemote/soemdsp-sandbox/tree/master/native_modules/sabrina_reverb/originalcode",
       "wasm": "native_modules/sabrina_reverb/sabrina_reverb.wasm",
       "wasmUrl": "native_modules/sabrina_reverb/sabrina_reverb.wasm",
       "wasmAvailable": true
