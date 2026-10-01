@@ -34,6 +34,16 @@
       "folder": "Alarm"
     },
     {
+      "slug": "Alarm/callnow",
+      "label": "callnow",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/Alarm/callnow.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "Alarm"
+    },
+    {
       "slug": "demo patches/analogdream",
       "label": "analogdream",
       "name": "",
@@ -64,13 +74,14 @@
       "folder": "demo patches"
     },
     {
-      "slug": "tubesaturation",
+      "slug": "demo patches/tubesaturation",
       "label": "tubesaturation",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/tubesaturation.json",
+      "url": "/soemdsp-sandbox/patches/demo%20patches/tubesaturation.json",
       "author": "",
       "tags": "circle",
-      "emoji": ""
+      "emoji": "",
+      "folder": "demo patches"
     },
     {
       "slug": "foley/CALLNOW",
@@ -163,6 +174,16 @@
       "folder": "modulator breadboards"
     },
     {
+      "slug": "voice breadboards/hyperpluck breadboard",
+      "label": "hyperpluck breadboard",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/voice%20breadboards/hyperpluck%20breadboard.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "voice breadboards"
+    },
+    {
       "slug": "analogdream",
       "label": "analogdream",
       "name": "",
@@ -176,15 +197,6 @@
       "label": "analoghorror",
       "name": "",
       "url": "/soemdsp-sandbox/patches/analoghorror.json",
-      "author": "",
-      "tags": "circle",
-      "emoji": ""
-    },
-    {
-      "slug": "callnow",
-      "label": "callnow",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/callnow.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
@@ -275,6 +287,15 @@
       "label": "flowerchildfilter",
       "name": "",
       "url": "/soemdsp-sandbox/patches/flowerchildfilter.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "frequencysweep",
+      "label": "frequencysweep",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/frequencysweep.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
@@ -772,6 +793,15 @@
       "url": "/soemdsp-sandbox/patches/synthlead2%20make%20filters%20track%20better.json",
       "author": "",
       "tags": "init,default",
+      "emoji": ""
+    },
+    {
+      "slug": "tubesaturation",
+      "label": "tubesaturation",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/tubesaturation.json",
+      "author": "",
+      "tags": "circle",
       "emoji": ""
     },
     {

@@ -73,8 +73,8 @@ function buildNodeGraphTextBoxDisplaySettingsBodyHtml() {
       <div class="node-led-settings-row textbox-display-settings-row" role="group" aria-label="Text mode">
         <span>Mode</span>
         <div class="textbox-display-controls">
-          <button type="button" data-textbox-mode="singleLine" aria-pressed="true">Single</button>
-          <button type="button" data-textbox-mode="multiline" aria-pressed="false">Multi</button>
+          <button type="button" data-textbox-mode="singleLine" aria-pressed="false">Single</button>
+          <button type="button" data-textbox-mode="multiline" aria-pressed="true">Multi</button>
         </div>
       </div>
       <div class="node-led-settings-row textbox-display-settings-row" role="group" aria-label="Horizontal align">

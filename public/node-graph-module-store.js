@@ -902,7 +902,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   hyperpluck: {
     category: "oscillator",
-    description: "PolyBLEP unison bank with Supersaw detune layouts. All voices start in phase. Dual Channel / Alternating stereo, Reset, Increment.",
+    description: "PolyBLEP unison bank with Supersaw detune and circular phase layouts (Linear / Exponential / Random × Phase Multiply). Dual Channel / Alternating stereo, Reset, ƒ.",
     label: "Hyperpluck",
     notes: ["oscillator", "pluck", "supersaw", "polyblep", "unison", "native", "phosphor display"],
   },

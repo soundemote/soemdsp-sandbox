@@ -3,19 +3,11 @@
 // Host may call setText / setLayout and listen for onChange / onCommit.
 
 function textBoxWidgetNormalizeMode(value) {
-  const mode = String(value || "").trim().toLowerCase();
-  if (mode === "multiline" || mode === "multi" || mode === "multi-line") {
-    return "multiline";
+  const mode = String(value ?? "").trim().toLowerCase();
+  if (mode === "single" || mode === "singleline" || mode === "single-line") {
+    return "singleLine";
   }
-  if (
-    mode === "fill"
-    || mode === "multilinefill"
-    || mode === "multiline-fill"
-    || mode === "fit"
-  ) {
-    return "multiline";
-  }
-  return "singleLine";
+  return "multiline";
 }
 
 function textBoxWidgetNormalizeAlign(value) {

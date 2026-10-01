@@ -346,6 +346,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   amp: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE,
   level: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LEVEL,
   shape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
+  phaseAlgorithm: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
+  phaseMultiply: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET,
   upShape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   downShape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_MODE,
   phase: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_PHASE,
@@ -5360,6 +5362,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("detuneAlgorithm", P.NATIVE_GRAPH_PARAM_CENTER, disc("detuneAlgorithm", 2));
       push("detuneCents", P.NATIVE_GRAPH_PARAM_WIDTH, cont("detuneCents", 30));
       push("voices", P.NATIVE_GRAPH_PARAM_STAGES, cont("voices", 7));
+      push("phaseAlgorithm", P.NATIVE_GRAPH_PARAM_SHAPE, disc("phaseAlgorithm", 0));
+      push("phaseMultiply", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("phaseMultiply", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }

@@ -232,8 +232,8 @@ extern "C" void soemdsp_hyperpluck_reset(int handle);
 extern "C" void soemdsp_hyperpluck_process_block(
   int handle, double frequencyHz, double sampleRate, double detuneCents,
   double voicesExact, double level, double stereoMode, double detuneAlgorithm,
-  double waveform, double maxVoiceHz, double resetGate, double incrementCycles,
-  int frameCount
+  double waveform, double maxVoiceHz, double resetGate, double phaseAlgorithm,
+  double phaseMultiply, int frameCount
 );
 extern "C" int soemdsp_hyperpluck_block_output_left_ptr(int handle);
 extern "C" int soemdsp_hyperpluck_block_output_right_ptr(int handle);
@@ -3004,6 +3004,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpoPluckEnvelope) ? 0.0 // Attack Shape Log
       : (typeId == kTypeThumpEnvelope) ? 0.8062943900342834 // fallCurve (pluck envelope 2)
       : (typeId == kTypeRobinSupersaw) ? 1.0 // Random Phase (live offset scale)
+      : (typeId == kTypeHyperpluck) ? 0.0 // phaseAlgorithm Linear
       : (typeId == kTypeSineWavetable || typeId == kTypeSinCos) ? 1.0 // method=Wavetable SSOT
       : (typeId == kTypeNoiseGenerator || typeId == kTypeSlewLimiter || typeId == kTypeAntisaw
       || typeId == kTypeBradley2a || typeId == kTypeEllipsoid || typeId == kTypeEllipsoidOsc || typeId == kTypeSnowflake
@@ -3053,7 +3054,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeStepGraph) ? 0.0 // curveOffset (CENTER used; shape unused)
       : (typeId == kTypeSampleHold) ? 0.0 // interpolate Linear
       : 0.5,
-    (typeId == kTypeSlewLimiter || typeId == kTypeSineWavetable || typeId == kTypeSinCos)
+    (typeId == kTypeSlewLimiter || typeId == kTypeSineWavetable || typeId == kTypeSinCos
+      || typeId == kTypeHyperpluck)
   );
   init_control(
     n.phaseParam,
@@ -3584,6 +3586,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHypersaw2) ? 20.0 // jitterFilter Hz at middle C
       : (typeId == kTypePll) ? 0.0
       : (typeId == kTypeRobinSupersaw) ? 0.126 // portamentoStyle (SoEm default)
+      : (typeId == kTypeHyperpluck) ? 0.0 // phaseMultiply (0 = unison phase)
       : (typeId == kTypeArp) ? 0.0 // octaveOffset
       : (typeId == kTypeChaosfly) ? 0.0 // Pitch oct transpose
       : (typeId == kTypeChordPad) ? 0.0
@@ -11741,15 +11744,18 @@ static void process_hyperpluck(Circuit& g, Node& node, int frames) {
   const bool hasReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const double referenceVoltage = circuit_pitch_ref_v(g);
   const bool takeSamplePath =
-    node_needs_sample_accurate_controls(g, node, liveF || livePitch || hasReset);
+    node_needs_sample_accurate_controls(g, node, liveF || livePitch || hasReset)
+    || node.offset.active;
 
-  auto run_block = [&](int nFrames, int frameIndexForHz, double resetGate, double incrementCycles) {
+  auto run_block = [&](int nFrames, int frameIndexForHz, double resetGate) {
     const double amp = control_effective(node.amplitude);
     const double detune = control_effective(node.width);
     const double voicesExact = control_effective(node.stages);
     const double stereoMode = control_effective(node.mode);
     const double detuneAlgorithm = control_effective(node.center);
     const double waveform = control_effective(node.waveform);
+    const double phaseAlgorithm = control_effective(node.shape);
+    const double phaseMultiply = control_audio(g, node.offset, frameIndexForHz);
     double freq = resolve_osc_hz(
       g, frameIndexForHz, liveF, livePitch, node.frequency, referenceVoltage, srD
     );
@@ -11759,13 +11765,13 @@ static void process_hyperpluck(Circuit& g, Node& node, int frames) {
     if (maxHz > nyq) maxHz = nyq;
     soemdsp_hyperpluck_process_block(
       node.nativeHandle, freq, srD, detune, voicesExact, amp, stereoMode,
-      detuneAlgorithm, waveform, maxHz, resetGate, incrementCycles, nFrames
+      detuneAlgorithm, waveform, maxHz, resetGate, phaseAlgorithm, phaseMultiply, nFrames
     );
   };
 
   if (!takeSamplePath) {
     const double resetGate = hasReset ? g.mixReset[0] : 0.0;
-    run_block(frames, 0, resetGate, 0.0);
+    run_block(frames, 0, resetGate);
     double* outL = ptr_from_export(soemdsp_hyperpluck_block_output_left_ptr(node.nativeHandle));
     double* outR = ptr_from_export(soemdsp_hyperpluck_block_output_right_ptr(node.nativeHandle));
     double* outM = ptr_from_export(soemdsp_hyperpluck_block_output_mono_ptr(node.nativeHandle));
@@ -11785,8 +11791,7 @@ static void process_hyperpluck(Circuit& g, Node& node, int frames) {
       if (node.lastReset <= 0.0 && rv > 0.0) resetGate = 1.0;
       node.lastReset = rv;
     }
-    double inc = 0.0;
-    run_block(1, f, resetGate, inc);
+    run_block(1, f, resetGate);
     double* outL = ptr_from_export(soemdsp_hyperpluck_block_output_left_ptr(node.nativeHandle));
     double* outR = ptr_from_export(soemdsp_hyperpluck_block_output_right_ptr(node.nativeHandle));
     double* outM = ptr_from_export(soemdsp_hyperpluck_block_output_mono_ptr(node.nativeHandle));

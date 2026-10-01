@@ -36,10 +36,11 @@ function run(h, opts = {}) {
     algo = 2,
     wave = 1, // Saw
     reset = 0,
-    inc = 0,
+    phaseAlgo = 0,
+    phaseMul = 0,
     frames = 128,
   } = opts;
-  process(h, freq, 44100, detune, voices, 1, stereo, algo, wave, 20000, reset, inc, frames);
+  process(h, freq, 44100, detune, voices, 1, stereo, algo, wave, 20000, reset, phaseAlgo, phaseMul, frames);
 }
 
 const h = create() | 0;
@@ -50,7 +51,7 @@ if (n !== 7) throw new Error(`alternating voice count ${n} !== 7`);
 const xs = [];
 for (let i = 0; i < n; i++) xs.push(voiceX(h, i));
 const span = Math.max(...xs) - Math.min(...xs);
-if (!(span > 0.01)) throw new Error(`detune face span ${span} too small`);
+if (!(span > 0.005)) throw new Error(`relative-phase face span ${span} too small`);
 
 const ptr = leftPtr(h) | 0;
 if (!ptr) throw new Error("left ptr");
@@ -67,7 +68,15 @@ const dualN = voiceCount(h) | 0;
 if (dualN !== 14) throw new Error(`dual face count ${dualN} !== 14`);
 
 run(h, { reset: 1, frames: 1 });
-run(h, { reset: 0, freq: 0, inc: 0, frames: 64 });
+run(h, { reset: 0, freq: 0, frames: 64 });
+
+run(h, { reset: 1, phaseAlgo: 0, phaseMul: 1, detune: 0, freq: 0, frames: 1 });
+run(h, { reset: 0, phaseAlgo: 0, phaseMul: 1, detune: 0, freq: 0, frames: 1 });
+const linear0 = f64()[(leftPtr(h) >> 3)];
+run(h, { reset: 1, phaseAlgo: 0, phaseMul: 0, detune: 0, freq: 0, frames: 1 });
+const collapsed = f64()[(leftPtr(h) >> 3)];
+if (!(collapsed > 1.2)) throw new Error(`multiply 0 unison saw should peak hard, got ${collapsed}`);
+if (!(Math.abs(linear0 - collapsed) > 1e-4)) throw new Error("linear ×1 should not match unison ×0 at freeze");
 const quietPtr = leftPtr(h) | 0;
 const quiet = f64().subarray(quietPtr >> 3, (quietPtr >> 3) + 64);
 let maxDelta = 0;

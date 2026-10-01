@@ -4,10 +4,11 @@
 // soemdsp-native-kind: oscillator
 // soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/PolyBLEP.hpp
 //
-// PolyBLEP unison bank with Supersaw detune layouts. All voices start at
-// phase 0 (Reset zeros every phasor). Frequency-domain detune, not phase mod.
-// Fractional voices like Hypersaw (last voice scaled by fractional part).
-// Hard voice cap 128; UI typically exposes ≤32.
+// PolyBLEP unison bank with Supersaw detune layouts. Frequency-domain detune
+// plus circular phase layout (Linear / Exponential / Random) scaled by
+// Phase Multiply. Reset zeros every phasor and re-rolls Random. Fractional
+// voices like Hypersaw (last voice scaled by fractional part). Hard voice
+// cap 128; UI typically exposes ≤32.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -18,7 +19,6 @@ using namespace soemdsp_maths;
 constexpr int kMaxInstances = 8;
 constexpr int kMaxVoices = 128;
 constexpr int kMaxBlockFrames = 2048;
-constexpr double kFaceHalfOctaveCents = 600.0;
 constexpr int kWaveformTrisaw = 0;
 constexpr int kWaveformSaw = 1;
 constexpr int kWaveformRamp = 2;
@@ -27,6 +27,11 @@ constexpr int kWaveformPulse = 4;
 constexpr int kWaveformSquare = 5;
 constexpr int kWaveformMax = 5;
 constexpr double kMorphCenter = 0.5;
+constexpr int kPhaseAlgoLinear = 0;
+constexpr int kPhaseAlgoExponential = 1;
+constexpr int kPhaseAlgoRandom = 2;
+constexpr int kPhaseAlgoCount = 3;
+constexpr double kPhaseExpK = 3.0;
 
 double floorD(double value) {
   return __builtin_floor(value);
@@ -305,6 +310,32 @@ void fillVoiceCents(
   }
 }
 
+void fillPhaseLayout(double* out, int n, int algo, unsigned int& rng) {
+  if (n <= 1) {
+    out[0] = 0.0;
+    return;
+  }
+  if (algo == kPhaseAlgoRandom) {
+    const double scale = 1.0 / 4294967296.0;
+    for (int i = 0; i < n; i++) {
+      out[i] = static_cast<double>(xorshift32(rng)) * scale;
+    }
+    return;
+  }
+  if (algo == kPhaseAlgoExponential) {
+    const double denom = dsp_exp(kPhaseExpK) - 1.0;
+    const double cap = static_cast<double>(n - 1) / static_cast<double>(n);
+    for (int i = 0; i < n; i++) {
+      const double u = static_cast<double>(i) / static_cast<double>(n);
+      out[i] = ((dsp_exp(kPhaseExpK * u) - 1.0) / denom) * cap;
+    }
+    return;
+  }
+  for (int i = 0; i < n; i++) {
+    out[i] = static_cast<double>(i) / static_cast<double>(n);
+  }
+}
+
 void resolveVoices(double voicesExact, int* voiceCount, double* lastFrac) {
   double exact = voicesExact;
   if (!(exact == exact) || exact < 1.0) exact = 1.0;
@@ -325,24 +356,25 @@ void resolveVoices(double voicesExact, int* voiceCount, double* lastFrac) {
   }
 }
 
-double centsToFaceX(double centsOffset) {
-  const double span = 2.0 * kFaceHalfOctaveCents;
-  double x = 0.5 + (centsOffset / span);
-  x -= floorD(x);
-  if (x < 0.0) x += 1.0;
-  if (x >= 1.0) x = 0.0;
-  return x;
+struct VoiceState {
+  double phase;
+  double centsOffset;
+  double phaseLayout;
+};
+
+double playbackPhase(const VoiceState& v, double multiply) {
+  return wrap01(v.phase + v.phaseLayout * multiply);
+}
+
+// Face X: phase vs voice 0, unison at 0.5 so detune walks left/right.
+double relativePhaseFaceX(const VoiceState& v, double refPhase, double multiply) {
+  return wrap01(playbackPhase(v, multiply) - refPhase + 0.5);
 }
 
 double alternatingPan(int index, int voiceCount) {
   if (voiceCount <= 1) return 0.0;
   return ((index & 1) == 0) ? -1.0 : 1.0;
 }
-
-struct VoiceState {
-  double phase;
-  double centsOffset;
-};
 
 struct HyperpluckState {
   bool active;
@@ -358,6 +390,9 @@ struct HyperpluckState {
   double publishPan[kMaxVoices * 2];
   double publishAmp[kMaxVoices * 2];
   double lastReset;
+  int layoutAlgo;
+  int layoutCount;
+  unsigned int rng;
 };
 
 static HyperpluckState gPool[kMaxInstances];
@@ -368,11 +403,12 @@ void resetPhases(HyperpluckState& s) {
   }
 }
 
-void publishVoicesDual(HyperpluckState& s, int voiceCount, double lastFrac) {
+void publishVoicesDual(HyperpluckState& s, int voiceCount, double lastFrac, double multiply) {
+  const double ref = playbackPhase(s.voices[0], multiply);
   int n = 0;
   for (int i = 0; i < voiceCount && n + 1 < kMaxVoices * 2; i++) {
     const double amp = (lastFrac > 0.0 && i == voiceCount - 1) ? lastFrac : 1.0;
-    const double x = centsToFaceX(s.voices[i].centsOffset);
+    const double x = relativePhaseFaceX(s.voices[i], ref, multiply);
     s.publishX[n] = x;
     s.publishPan[n] = -1.0;
     s.publishAmp[n] = amp;
@@ -385,10 +421,11 @@ void publishVoicesDual(HyperpluckState& s, int voiceCount, double lastFrac) {
   s.publishCount = n;
 }
 
-void publishVoicesAlternating(HyperpluckState& s, int voiceCount, double lastFrac) {
+void publishVoicesAlternating(HyperpluckState& s, int voiceCount, double lastFrac, double multiply) {
+  const double ref = playbackPhase(s.voices[0], multiply);
   int n = 0;
   for (int i = 0; i < voiceCount && n < kMaxVoices * 2; i++) {
-    s.publishX[n] = centsToFaceX(s.voices[i].centsOffset);
+    s.publishX[n] = relativePhaseFaceX(s.voices[i], ref, multiply);
     s.publishPan[n] = alternatingPan(i, voiceCount);
     s.publishAmp[n] = (lastFrac > 0.0 && i == voiceCount - 1) ? lastFrac : 1.0;
     n += 1;
@@ -406,6 +443,9 @@ extern "C" int soemdsp_hyperpluck_create() {
       resetPhases(gPool[i]);
       gPool[i].publishCount = 0;
       gPool[i].lastReset = 0.0;
+      gPool[i].layoutAlgo = -1;
+      gPool[i].layoutCount = 0;
+      gPool[i].rng = 0xC0FFEE00u ^ (static_cast<unsigned int>(i + 1) * 0x9E3779B9u);
       return i + 1;
     }
   }
@@ -434,7 +474,8 @@ extern "C" void soemdsp_hyperpluck_process_block(
   double waveform,
   double maxVoiceHz,
   double resetGate,
-  double incrementCycles,
+  double phaseAlgorithm,
+  double phaseMultiply,
   int frameCount
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
@@ -455,6 +496,10 @@ extern "C" void soemdsp_hyperpluck_process_block(
   int algo = static_cast<int>(floorD(safe(detuneAlgorithm) + 0.5));
   if (algo < 0) algo = 0;
   if (algo >= kDetuneAlgoCount) algo = kDetuneAlgoCount - 1;
+  int phaseAlgo = static_cast<int>(floorD(safe(phaseAlgorithm) + 0.5));
+  if (phaseAlgo < 0) phaseAlgo = 0;
+  if (phaseAlgo >= kPhaseAlgoCount) phaseAlgo = kPhaseAlgoCount - 1;
+  double multiply = (phaseMultiply == phaseMultiply) ? phaseMultiply : 0.0;
   int voiceCount = 1;
   double lastFrac = 0.0;
   resolveVoices(voicesExact, &voiceCount, &lastFrac);
@@ -470,7 +515,29 @@ extern "C" void soemdsp_hyperpluck_process_block(
     s.voices[i].centsOffset = cents[i];
   }
 
-  const double incJack = (incrementCycles == incrementCycles) ? incrementCycles : 0.0;
+  const bool randomAlgo = (phaseAlgo == kPhaseAlgoRandom);
+  const bool needLayout = !randomAlgo
+    || didReset
+    || s.layoutAlgo != phaseAlgo
+    || s.layoutCount != voiceCount;
+  if (needLayout) {
+    double layout[kMaxVoices];
+    if (randomAlgo && s.layoutAlgo == phaseAlgo && s.layoutCount > 0 && !didReset) {
+      const int keep = s.layoutCount < voiceCount ? s.layoutCount : voiceCount;
+      for (int i = 0; i < keep; i++) layout[i] = s.voices[i].phaseLayout;
+      const double scale = 1.0 / 4294967296.0;
+      for (int i = keep; i < voiceCount; i++) {
+        layout[i] = static_cast<double>(xorshift32(s.rng)) * scale;
+      }
+    } else {
+      fillPhaseLayout(layout, voiceCount, phaseAlgo, s.rng);
+    }
+    for (int i = 0; i < voiceCount; i++) {
+      s.voices[i].phaseLayout = layout[i];
+    }
+    s.layoutAlgo = phaseAlgo;
+    s.layoutCount = voiceCount;
+  }
   const int safeFrameCount = frameCount < 1 ? 1 : (frameCount > kMaxBlockFrames ? kMaxBlockFrames : frameCount);
   for (int frame = 0; frame < safeFrameCount; frame += 1) {
     double left = 0.0;
@@ -483,11 +550,11 @@ extern "C" void soemdsp_hyperpluck_process_block(
       if (!(hz == hz)) hz = 0.0;
       if (hz > hzCeil) hz = hzCeil;
       if (hz < -hzCeil) hz = -hzCeil;
-      double inc = hz / safeSampleRate + incJack;
+      double inc = hz / safeSampleRate;
       if (!(inc == inc)) inc = 0.0;
       if (inc > 0.5) inc = 0.5;
       if (inc < -0.5) inc = -0.5;
-      const double y = hyperpluckWaveSample(wave, v.phase, inc);
+      const double y = hyperpluckWaveSample(wave, v.phase + v.phaseLayout * multiply, inc);
       v.phase = wrap01(v.phase + inc);
       double amp = 1.0;
       if (lastFrac > 0.0 && i == voiceCount - 1) amp = lastFrac;
@@ -526,8 +593,8 @@ extern "C" void soemdsp_hyperpluck_process_block(
     s.outRight = outRight;
     s.outMono = outMono;
   }
-  if (mode == 0) publishVoicesDual(s, voiceCount, lastFrac);
-  else publishVoicesAlternating(s, voiceCount, lastFrac);
+  if (mode == 0) publishVoicesDual(s, voiceCount, lastFrac, multiply);
+  else publishVoicesAlternating(s, voiceCount, lastFrac, multiply);
 }
 
 extern "C" void soemdsp_hyperpluck_sample(
@@ -545,7 +612,7 @@ extern "C" void soemdsp_hyperpluck_sample(
 ) {
   soemdsp_hyperpluck_process_block(
     handle, frequencyHz, sampleRate, detuneCents, voicesExact, level,
-    stereoMode, detuneAlgorithm, waveform, maxVoiceHz, resetGate, 0.0, 1
+    stereoMode, detuneAlgorithm, waveform, maxVoiceHz, resetGate, 0.0, 0.0, 1
   );
 }
 
@@ -610,5 +677,5 @@ extern "C" double soemdsp_hyperpluck_voice_amp(int handle, int index) {
 }
 
 extern "C" int soemdsp_hyperpluck_version() {
-  return 1;
+  return 2;
 }

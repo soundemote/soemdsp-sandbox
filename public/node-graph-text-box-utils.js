@@ -13,19 +13,11 @@ function nodeGraphTextBoxOneLineText(value) {
  * Legacy "fill" stores as multiline.
  */
 function normalizeNodeGraphTextBoxMode(value) {
-  const mode = String(value || "").trim().toLowerCase();
-  if (
-    mode === "multiline"
-    || mode === "multi"
-    || mode === "multi-line"
-    || mode === "fill"
-    || mode === "multilinefill"
-    || mode === "multiline-fill"
-    || mode === "fit"
-  ) {
-    return "multiline";
+  const mode = String(value ?? "").trim().toLowerCase();
+  if (mode === "single" || mode === "singleline" || mode === "single-line") {
+    return "singleLine";
   }
-  return "singleLine";
+  return "multiline";
 }
 
 function nodeGraphTextBoxModeIsMultiline(mode) {

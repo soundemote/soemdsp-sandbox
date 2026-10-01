@@ -519,7 +519,7 @@ if (type === "portalFace") {
         kind: "textBox",
         text: "",
         textColor: "#f3f1ec",
-        textMode: "singleLine",
+        textMode: "multiline",
         textSizePercent: 100,
         verticalAlignPercent: 50,
       };
