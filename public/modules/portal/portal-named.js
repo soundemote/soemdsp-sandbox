@@ -174,6 +174,42 @@ function nodeGraphNamedPortalColorSource(nodeId, patch = null) {
 }
 
 /**
+ * Copy Display override onto every named portal on the same bus (universe + Title).
+ * Empty clears the override on all peers (jack labels fall back to Title).
+ * Returns changed node ids.
+ */
+function nodeGraphNamedPortalSyncBusDisplay(patch, fromNodeId, nextDisplay) {
+  if (!patch || !Array.isArray(patch.nodes)) return [];
+  const from = nodeGraphNamedPortalNodeFromPatch(fromNodeId, patch);
+  if (!from || !nodeGraphIsNamedPortalType(from.type)) return [];
+  const key = nodeGraphNamedPortalBusKey(from);
+  const universe = nodeGraphNamedPortalUniverse(from);
+  if (!key) return [];
+  const display = typeof normalizeNodeGraphPatchNodeDisplay === "function"
+    ? normalizeNodeGraphPatchNodeDisplay(nextDisplay)
+    : String(nextDisplay ?? "").replace(/\s+/g, " ").trim().slice(0, 48);
+  const changed = [];
+  for (let i = 0; i < patch.nodes.length; i += 1) {
+    const node = patch.nodes[i];
+    if (!node || !nodeGraphIsNamedPortalType(node.type)) continue;
+    if (nodeGraphNamedPortalUniverse(node) !== universe) continue;
+    if (nodeGraphNamedPortalBusKey(node) !== key) continue;
+    const prev = typeof normalizeNodeGraphPatchNodeDisplay === "function"
+      ? normalizeNodeGraphPatchNodeDisplay(node.display)
+      : String(node.display ?? "").trim();
+    if (display) {
+      if (prev === display) continue;
+      node.display = display;
+    } else {
+      if (!Object.hasOwn(node, "display") && !prev) continue;
+      delete node.display;
+    }
+    changed.push(String(node.id));
+  }
+  return changed;
+}
+
+/**
  * Rename every named portal on the same bus (universe + prior key) to nextAlias.
  * Returns changed node ids.
  */

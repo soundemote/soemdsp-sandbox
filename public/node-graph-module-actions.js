@@ -2062,9 +2062,28 @@ function setNodeGraphModuleDisplayFromContext({ record = true } = {}) {
   const hadFocus = Boolean(input && document.activeElement === input);
   const selectionStart = input?.selectionStart ?? null;
   const selectionEnd = input?.selectionEnd ?? selectionStart;
+  const isPortal = typeof nodeGraphIsNamedPortalType === "function"
+    && nodeGraphIsNamedPortalType(sourceNode.type);
+
+  const refreshPortalJackLabels = (nodeIds) => {
+    if (typeof syncNodeGraphModulePortLabels !== "function") {
+      return;
+    }
+    const ids = [...new Set((nodeIds || []).map((id) => String(id || "")).filter(Boolean))];
+    for (const id of ids) {
+      const live = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+      if (!live) continue;
+      const moduleEl = document.querySelector(`.dsp-node[data-node="${CSS.escape(id)}"]`);
+      if (moduleEl) {
+        syncNodeGraphModulePortLabels(moduleEl, live);
+      }
+    }
+  };
 
   if (!record) {
-    if (display) {
+    if (isPortal && typeof nodeGraphNamedPortalSyncBusDisplay === "function" && nodeGraphMvp?.patch) {
+      nodeGraphNamedPortalSyncBusDisplay(nodeGraphMvp.patch, sourceNode.id, display);
+    } else if (display) {
       sourceNode.display = display;
     } else {
       delete sourceNode.display;
@@ -2072,15 +2091,35 @@ function setNodeGraphModuleDisplayFromContext({ record = true } = {}) {
     if (nodeGraphMvp) {
       nodeGraphMvp.patchDirtyState = "edited";
     }
-    const moduleEl = document.querySelector(`.dsp-node[data-node="${CSS.escape(sourceNode.id)}"]`);
     // Title bar stays on Title; portal jack labels follow effective Display.
-    if (
-      moduleEl
-      && typeof nodeGraphIsNamedPortalType === "function"
-      && nodeGraphIsNamedPortalType(sourceNode.type)
-      && typeof syncNodeGraphModulePortLabels === "function"
-    ) {
-      syncNodeGraphModulePortLabels(moduleEl, sourceNode);
+    if (isPortal) {
+      const key = typeof nodeGraphNamedPortalBusKey === "function"
+        ? nodeGraphNamedPortalBusKey(sourceNode)
+        : String(sourceNode.alias || "").trim().toLowerCase();
+      const universe = typeof nodeGraphNamedPortalUniverse === "function"
+        ? nodeGraphNamedPortalUniverse(sourceNode)
+        : String(sourceNode.ownerMetamoduleId || "").trim();
+      const peerIds = [sourceNode.id];
+      for (const node of (nodeGraphMvp?.patch?.nodes || [])) {
+        if (!node || !nodeGraphIsNamedPortalType(node.type)) continue;
+        if ((typeof nodeGraphNamedPortalUniverse === "function"
+          ? nodeGraphNamedPortalUniverse(node)
+          : String(node.ownerMetamoduleId || "").trim()) !== universe) {
+          continue;
+        }
+        if ((typeof nodeGraphNamedPortalBusKey === "function"
+          ? nodeGraphNamedPortalBusKey(node)
+          : String(node.alias || "").trim().toLowerCase()) !== key) {
+          continue;
+        }
+        peerIds.push(String(node.id));
+      }
+      refreshPortalJackLabels(peerIds);
+    } else {
+      const moduleEl = document.querySelector(`.dsp-node[data-node="${CSS.escape(sourceNode.id)}"]`);
+      if (moduleEl && typeof syncNodeGraphModulePortLabels === "function") {
+        syncNodeGraphModulePortLabels(moduleEl, sourceNode);
+      }
     }
     return;
   }
@@ -2090,7 +2129,13 @@ function setNodeGraphModuleDisplayFromContext({ record = true } = {}) {
   if (!targetNode) {
     return;
   }
-  if (display) {
+  let changedIds = [String(targetNode.id)];
+  if (isPortal && typeof nodeGraphNamedPortalSyncBusDisplay === "function") {
+    changedIds = nodeGraphNamedPortalSyncBusDisplay(patch, targetNode.id, display);
+    if (!changedIds.length) {
+      changedIds = [String(targetNode.id)];
+    }
+  } else if (display) {
     targetNode.display = display;
   } else {
     delete targetNode.display;
@@ -2099,6 +2144,10 @@ function setNodeGraphModuleDisplayFromContext({ record = true } = {}) {
     record,
     status: display ? "module display changed" : "module display cleared",
   });
+  if (isPortal && typeof nodeGraphNamedPortalRefreshModules === "function") {
+    nodeGraphNamedPortalRefreshModules(changedIds);
+  }
+  refreshPortalJackLabels(changedIds);
   if (hadFocus && input?.isConnected) {
     input.focus({ preventScroll: true });
     if (selectionStart !== null && typeof input.setSelectionRange === "function") {

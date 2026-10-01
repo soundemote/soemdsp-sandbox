@@ -577,6 +577,25 @@ function validateNodeGraphPatch(patch) {
       ...(normalizeNodeGraphPatchNodeAlias(node.alias)
         ? { alias: normalizeNodeGraphPatchNodeAlias(node.alias) }
         : {}),
+      // Policy B Display override (portal jack labels, chrome). Must survive
+      // validate/commit — omitting it cleared Module Settings Display on every save.
+      ...(typeof normalizeNodeGraphPatchNodeDisplay === "function"
+        && normalizeNodeGraphPatchNodeDisplay(node.display)
+        ? { display: normalizeNodeGraphPatchNodeDisplay(node.display) }
+        : {}),
+      // Named portal bus lock (audio / noteMask / …) — keep with Title peers.
+      ...((typeof nodeGraphIsNamedPortalType === "function"
+        ? nodeGraphIsNamedPortalType(type)
+        : (type === "namedPortalIn" || type === "namedPortalOut"))
+        && (typeof nodeGraphNamedPortalWirelessRole === "function"
+          ? nodeGraphNamedPortalWirelessRole(node)
+          : String(node.wirelessRole || "").trim())
+        ? {
+          wirelessRole: typeof nodeGraphNamedPortalWirelessRole === "function"
+            ? nodeGraphNamedPortalWirelessRole(node)
+            : String(node.wirelessRole).trim(),
+        }
+        : {}),
       ...((type === "knob" || type === "pluginSlider" || type === "toggleButton" || type === "momentaryButton")
         && String(node.pluginFolder || "").trim()
         ? { pluginFolder: String(node.pluginFolder).trim() }
