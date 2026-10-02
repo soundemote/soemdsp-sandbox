@@ -15301,7 +15301,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 }
 
 /*
- * Workspace zoom > 1 → nearest-neighbor upscale of face bitmaps.
+ * Workspace zoom > 2.5 → nearest-neighbor upscale of face bitmaps.
+ * At 2.5 and below the browser scales smoothly (bilinear). Closer than that,
+ * nearest-neighbor doubles stray columns and looks torn.
  * Faces paint at layout × dpr (resource-agnostic zoom): app zoom shows defined
  * pixels instead of re-rendering denser detail. Soft Fractal is included —
  * fixed GPU buffer, CSS pixelate on zoom. Asciiscope Sharp keeps auto inline.
@@ -15322,14 +15324,6 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 .node-graph-workspace.pixelated-canvas-zoom .node-module-scope-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-matrix-display-canvas {
   image-rendering: pixelated;
-  image-rendering: crisp-edges;
-}
-
-/* crisp-edges above overrides pixelated. Scope faces need nearest-neighbor
-   when zoomed in, or the fixed bitmap is bilinear-blurred by the world scale. */
-.node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas,
-.node-graph-workspace.pixelated-canvas-zoom .node-module-scope-canvas {
-  image-rendering: pixelated;
 }
 
 /*
@@ -15342,14 +15336,13 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 
 /*
  * Spectrogram: default CSS smooth scale at zoom 1 (permanent buffer is
- * layout×dpr). Pixelate whenever workspace zoom > 1, like other faces.
+ * layout×dpr). Pixelate when workspace zoom > 2.5, like other faces.
  */
 .node-module-scope-local-fallback-canvas.node-spectrogram-canvas {
   image-rendering: auto;
 }
 .node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas.node-spectrogram-canvas {
   image-rendering: pixelated;
-  image-rendering: crisp-edges;
 }
 
 

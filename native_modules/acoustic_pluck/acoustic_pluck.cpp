@@ -9,7 +9,7 @@
 //     -> unit-MOD into Release (same fold as graph control_effective)
 // KT is a note-mask input. The host reduces its 128-key mask to a normalized
 // highest-active MIDI key; the baked Inv/Attenuverter path below applies it to Attack.
-// Feedback uses a 128-sample delay (about one quantum), same class as Thump.
+// Feedback is a 1-sample delay so Dampen/offset act on the live Env, not a quantum late.
 // UpdateOnTrigger latches knob times/curves/amplitude/inputMode on rise;
 // Feedback/Bias (and the computed release MOD) stay live. Inner Curve AR
 // always runs with UpdateOnTrigger Off so release feedback is never frozen.
@@ -36,7 +36,7 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 64;
-static const int kFbDelaySamples = 128;
+static const int kFbDelaySamples = 1;
 static const double kExpDbSpan = 5.0;
 static const double kLn10 = 2.302585092994046;
 static const double kReleaseMin = 0.0;
@@ -163,7 +163,7 @@ extern "C" double soemdsp_acoustic_pluck_sample(
   double atkShape = safe(attackShape);
   double rel = maxd(0.0, safe(release));
   double relShape = safe(releaseShape);
-  (void)amplitude;
+  double amp = (amplitude * 0.0 == 0.0) ? amplitude : 1.0;
   double mode = safe(inputMode);
   if (rising) {
     s.velocity = maxd(0.0, safeGate);
@@ -216,7 +216,7 @@ extern "C" double soemdsp_acoustic_pluck_sample(
   if (s.fbIdx >= kFbDelaySamples) s.fbIdx = 0;
 
   const double vel = (s.velocity * 0.0 == 0.0) ? s.velocity : 1.0;
-  const double out = clamp(shape, 0.0, 1.0) * vel;
+  const double out = clamp(shape, 0.0, 1.0) * vel * amp;
   return (out * 0.0 == 0.0) ? out : 0.0;
 }
 

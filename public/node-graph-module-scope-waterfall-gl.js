@@ -466,7 +466,7 @@ function nodeGraphWaterfallGlPresent(canvas, plateCss) {
   gl.uniform2f(gl.getUniformLocation(s.presentProg, "uSize"), s.w, s.h);
   gl.uniform1f(gl.getUniformLocation(s.presentProg, "uSub"), sub);
   nodeGraphWaterfallGlDrawQuad(s);
-  if (canvas.style.imageRendering === "pixelated") {
+  if (canvas.style.imageRendering === "pixelated" || canvas.style.imageRendering === "auto") {
     canvas.style.imageRendering = "";
   }
   return true;

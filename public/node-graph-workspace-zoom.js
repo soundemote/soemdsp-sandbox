@@ -17,7 +17,7 @@ function applyNodeGraphZoom(options = {}) {
     workspace.dataset.zoom = nodeGraphZoom().toFixed(2);
     // Any zoom-in must stay nearest-neighbor — the old 2.5 cliff left
     // density-reduced faces bilinear-smoothed (soft) below that threshold.
-    workspace.classList.toggle("pixelated-canvas-zoom", nodeGraphZoom() > 1);
+    workspace.classList.toggle("pixelated-canvas-zoom", nodeGraphZoom() > 2.5);
   }
   if (
     typeof renderNodeGraphMarqueeSelection === "function"
@@ -143,7 +143,7 @@ function setNodeGraphZoom(nextZoom, anchor = null) {
       const z = nodeGraphZoom();
       workspace.style.setProperty("--node-graph-zoom", String(z));
       workspace.dataset.zoom = z.toFixed(2);
-      workspace.classList.toggle("pixelated-canvas-zoom", z > 1);
+      workspace.classList.toggle("pixelated-canvas-zoom", z > 2.5);
       const pan = nodeGraphMvp.pan || { x: 0, y: 0 };
       const originOffset = typeof nodeGraphRenderedOriginOffset === "function"
         ? nodeGraphRenderedOriginOffset(pan, workspace)

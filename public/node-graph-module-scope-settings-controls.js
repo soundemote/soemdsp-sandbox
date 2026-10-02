@@ -72,6 +72,14 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, directi
   if (key === "dotBudget") {
     return 1;
   }
+  if (key === "lineThickness") {
+    const formType = typeof nodeGraphTraceDisplaySettingsFormType === "function"
+      ? nodeGraphTraceDisplaySettingsFormType()
+      : "";
+    if (formType === "hypersawBurn") {
+      return 1;
+    }
+  }
   if (key === "bins") {
     return 8;
   }
@@ -847,10 +855,10 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     },
   }),
   hypersawBurn: Object.freeze({
-    // Stem width as 0…1 of face width (1 = full screen). Allow true 0.
+    // Stem width in screen pixels. 0 = gone.
     lineThickness: (value) => {
       const n = Number(value);
-      return clampNodeSliderValue(Number.isFinite(n) ? n : 0.01, 0, 1);
+      return clampNodeSliderValue(Number.isFinite(n) ? n : 2, 0, 64);
     },
   }),
   xyPad: Object.freeze({

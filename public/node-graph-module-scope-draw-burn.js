@@ -1029,6 +1029,38 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
 }
 
 
+function nodeGraphModuleFaceLayoutCssWidth(canvas) {
+  const id = String(
+    canvas?.dataset?.node
+    || canvas?.closest?.("[data-node]")?.dataset?.node
+    || "",
+  ).trim();
+  const escaped = id && typeof CSS !== "undefined" && CSS.escape ? CSS.escape(id) : id;
+  const moduleEl = escaped
+    ? document.querySelector(`.dsp-node[data-node="${escaped}"]`)
+    : null;
+  const node = id && typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+  let widthGu = Number(node?.widthGu);
+  let cell = 28;
+  try {
+    const style = getComputedStyle(moduleEl || document.documentElement);
+    if (!(widthGu > 0)) {
+      const fromCss = Number.parseFloat(style.getPropertyValue("--node-grid-width-units") || "");
+      if (fromCss > 0) widthGu = fromCss;
+    }
+    const grid = Number.parseFloat(
+      style.getPropertyValue("--node-grid-width")
+      || style.getPropertyValue("--node-grid-size")
+      || "",
+    );
+    if (grid > 0) cell = grid;
+  } catch (_error) {
+    // Layout width falls back to the canvas itself.
+  }
+  if (widthGu > 0) return Math.max(1, widthGu * cell);
+  return Math.max(1, canvas?.clientWidth || canvas?.width || 1);
+}
+
 function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
   // Vertical stems: free (non-pixel-quantized) x = phase∈[0,1] × width.
   // Width = lineThickness∈[0,1] × face width. Additive: left=red, right=blue,
@@ -1087,7 +1119,7 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
     context.globalAlpha = 1;
   }
 
-  context.imageSmoothingEnabled = true;
+  context.imageSmoothingEnabled = false;
   context.globalCompositeOperation = "lighter";
 
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
@@ -1096,41 +1128,65 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
     : (typeof normalizeNodeGraphHypersawBurnSettings === "function"
       ? normalizeNodeGraphHypersawBurnSettings(patchNode?.traceDisplaySettings)
       : { lineThickness: 0.01 });
-  // 0…1 of face width — continuous, not snapped to whole pixels.
-  const thickness01 = clampNodeSliderValue(nodeGraphFiniteNumber(faceSettings?.lineThickness), 0, 1);
+  // Screen pixels of the module face. Canvas mode and zoom enlarge the
+  // bitmap; thickness grows by the same factor so the stem stays the same
+  // fraction of the face. Do not divide by workspace zoom, and do not use
+  // the stretched clientWidth — that cancels the enlargement.
+  const screenPx = clampNodeSliderValue(nodeGraphFiniteNumber(faceSettings?.lineThickness, 2), 0, 64);
   const widthPx = canvas.width;
   const heightPx = canvas.height;
-  const thicknessPx = thickness01 * widthPx;
+  const layoutCssW = nodeGraphModuleFaceLayoutCssWidth(canvas);
+  const thicknessPx = screenPx * (widthPx / layoutCssW);
 
   const count = phases.length;
   for (let i = 0; i < count; i += 1) {
     const p = Number(phases[i]);
     if (!Number.isFinite(p)) continue;
     const phase01 = clampNodeSliderValue(p, 0, 1);
-    const w = thicknessPx;
-    if (!(w > 0)) continue;
-    // Free position: phase maps across the face; stem centered on that x.
+    if (!(screenPx > 0)) continue;
+    // Core never thinner than one canvas pixel. A one-pixel ramp on each
+    // side holds the fractional position. The brighter edge is scaled up
+    // to full so a half-pixel phase does not dim the stem.
+    const coreW = Math.max(thicknessPx, 1);
     const xCenter = phase01 * widthPx;
-    const x0 = xCenter - w * 0.5;
+    const left = xCenter - coreW * 0.5;
+    const right = left + coreW;
     const pan = Array.isArray(pans) && i < pans.length ? Number(pans[i]) : 0;
     const ampRaw = Array.isArray(amps) && i < amps.length ? Number(amps[i]) : 1;
     const alpha = clampNodeSliderValue(Math.abs(Number.isFinite(ampRaw) ? ampRaw : 0), 0, 1);
     if (!(alpha > 0)) continue;
-    // Additive off-red / off-blue (whitening in the other channels) so
-    // left+right / center combine toward white instead of pure magenta.
-    const leftRgba = `rgba(255,130,110,${alpha})`;
-    const rightRgba = `rgba(110,130,255,${alpha})`;
+    // The pixel under the center stays full. Spill on either side keeps its
+    // coverage, so a half-pixel phase shows a dim neighbor instead of two
+    // full pixels or a fading core.
+    const coreIx = Math.max(0, Math.min(widthPx - 1, Math.floor(xCenter)));
+    const i0 = Math.floor(left);
+    const i1 = Math.ceil(right) - 1;
+    const cols = [];
+    for (let ix = i0; ix <= i1; ix += 1) {
+      const coverage = Math.min(right, ix + 1) - Math.max(left, ix);
+      if (!(coverage > 0)) continue;
+      cols.push({ ix, gain: ix === coreIx ? 1 : Math.min(1, coverage) });
+    }
+    if (!cols.some((col) => col.ix === coreIx)) {
+      cols.push({ ix: coreIx, gain: 1 });
+    }
+    const paint = (rgbaPrefix) => {
+      for (let c = 0; c < cols.length; c += 1) {
+        const col = cols[c];
+        if (col.ix < 0 || col.ix >= widthPx) continue;
+        const a = Math.max(0, Math.min(1, alpha * col.gain));
+        context.fillStyle = `${rgbaPrefix}${a})`;
+        context.fillRect(col.ix, 0, 1, heightPx);
+      }
+    };
+    // Additive off-red / off-blue so left+right combine toward white.
     if (pan < -0.25) {
-      context.fillStyle = leftRgba;
-      context.fillRect(x0, 0, w, heightPx);
+      paint("rgba(255,130,110,");
     } else if (pan > 0.25) {
-      context.fillStyle = rightRgba;
-      context.fillRect(x0, 0, w, heightPx);
+      paint("rgba(110,130,255,");
     } else {
-      context.fillStyle = leftRgba;
-      context.fillRect(x0, 0, w, heightPx);
-      context.fillStyle = rightRgba;
-      context.fillRect(x0, 0, w, heightPx);
+      paint("rgba(255,130,110,");
+      paint("rgba(110,130,255,");
     }
   }
   context.restore();

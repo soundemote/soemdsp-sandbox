@@ -197,22 +197,22 @@ function nodeGraphOnsetPaint(spec, live) {
       );
       if (!ys) continue;
       const prev = !seam && onset.edge ? onset.edge[ch.lastYKey] : null;
-      const rgb = useFill
-        ? nodeGraphWaterfallParseInkRgb(ch.color)
-        : nodeGraphWaterfallStrokeRgb(settings);
       nodeGraphWaterfallGlStampBar(
         canvas,
         screenX,
         1,
         ys,
         prev,
-        Boolean(prev),
-        nodeGraphWaterfallScaleRgb(rgb, nodeGraphWaterfallClamp01(useFill ? (ch.bright ?? 1) : 1, 1)),
+        Boolean(prev) && useFill,
+        nodeGraphWaterfallScaleRgb(
+          nodeGraphWaterfallParseInkRgb(ch.color),
+          nodeGraphWaterfallClamp01(ch.bright ?? 1, 1),
+        ),
         i === 0 && stampComposite !== "multiply" ? "source-over" : stampComposite,
         1,
-        true,
-        useFill && useStroke
-          ? { on: true, px: nodeGraphWaterfallStrokePx(settings), rgb: nodeGraphWaterfallStrokeRgb(settings) }
+        useFill,
+        useStroke
+          ? { on: true, px: nodeGraphOnsetStrokeCanvasPx(canvas, settings), rgb: nodeGraphWaterfallStrokeRgb(settings) }
           : null,
       );
       if (!onset.edge) onset.edge = Object.create(null);
@@ -1233,6 +1233,17 @@ function nodeGraphWaterfallStrokePx(settings) {
   const n = Number(settings?.strokeThickness);
   if (!Number.isFinite(n)) return 1;
   return Math.max(0.25, Math.min(16, n));
+}
+
+// Stroke thickness is in screen pixels. Canvas backing and workspace zoom
+// change how many texture pixels that is.
+function nodeGraphOnsetStrokeCanvasPx(canvas, settings) {
+  const screenPx = nodeGraphWaterfallStrokePx(settings);
+  const layoutCssW = typeof nodeGraphModuleFaceLayoutCssWidth === "function"
+    ? nodeGraphModuleFaceLayoutCssWidth(canvas)
+    : Math.max(1, canvas?.clientWidth || canvas?.width || 1);
+  const widthPx = Math.max(1, canvas?.width || layoutCssW);
+  return Math.max(0.5, screenPx * (widthPx / layoutCssW));
 }
 
 function nodeGraphWaterfallStrokeRgb(settings) {

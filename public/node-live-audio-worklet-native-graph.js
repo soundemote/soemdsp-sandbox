@@ -903,9 +903,6 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
   if (p === "env") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
-  if ((p === "amp" || p === "amplitude") && t === "acousticPluck") {
-    return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
-  }
   if (p === "count") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   if (p === "pulse") {
     return t === "triggerCounter"
@@ -5004,8 +5001,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       // Breadboard knobs: softenAttack→timeDen, dampen→width, synthVsAcoustic→feedback.
       // Attack curve / base release / fall curve / trigger mode stay baked in init_control.
       push("softenAttack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("softenAttack", 0));
-      push("dampen", P.NATIVE_GRAPH_PARAM_WIDTH, cont("dampen", 0));
-      push("synthVsAcoustic", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("synthVsAcoustic", 0));
+      push("dampen", P.NATIVE_GRAPH_PARAM_WIDTH, cont("dampen", 1.1));
+      push("synthVsAcoustic", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("synthVsAcoustic", 1.64));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -5412,6 +5409,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     if (type === "hyperpluck") {
       push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 1));
+      push("morph", P.NATIVE_GRAPH_PARAM_PHASE, cont("morph", 0.5));
       push("stereoMode", P.NATIVE_GRAPH_PARAM_MODE, disc("stereoMode", 0));
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("detuneAlgorithm", P.NATIVE_GRAPH_PARAM_CENTER, disc("detuneAlgorithm", 2));

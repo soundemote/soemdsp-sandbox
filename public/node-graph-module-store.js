@@ -2271,7 +2271,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   acousticPluck: {
     category: "envelope",
-    description: "Pluck Envelope: Trigger AR with inverted-env expo feedback into Release. Velocity is trigger height. Env and Amp outs.",
+    description: "Pluck Envelope: Trigger AR with inverted-env expo feedback into Release. Env = shape × trigger height × Amplitude.",
     label: "Pluck Envelope",
     notes: [
       "Trigger",

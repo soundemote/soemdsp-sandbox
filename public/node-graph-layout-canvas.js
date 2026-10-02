@@ -129,6 +129,14 @@ function nodeGraphLayoutCanvasPruneMissingPins(patch = nodeGraphMvp?.patch) {
 function nodeGraphLayoutCanvasPinnedNodeIds(patch = nodeGraphMvp?.patch) {
   nodeGraphLayoutCanvasPruneMissingPins(patch);
   const live = nodeGraphLayoutCanvasLiveNodeIds(patch);
+  const nodes = Array.isArray(patch?.nodes) ? patch.nodes : [];
+  for (let i = 0; i < nodes.length; i += 1) {
+    const id = String(nodes[i]?.id || "").trim();
+    if (!id || !nodes[i]?.ui?.showInCanvas || !live.has(id)) continue;
+    if (!nodeGraphLayoutCanvasIsPinnedInScope(id, nodeGraphLayoutCanvasScopeIdForNode(id, patch), patch)) {
+      nodeGraphLayoutCanvasSetPinned(id, true, { persist: false, refresh: false, patch });
+    }
+  }
   return nodeGraphLayoutCanvasElements(patch)
     .filter((el) => el && el.enabled !== false && live.has(String(el.nodeId || "").trim()))
     .map((el) => String(el.nodeId || "").trim())
@@ -144,16 +152,32 @@ function nodeGraphLayoutCanvasIsPinnedInScope(nodeId, scopeId, patch = nodeGraph
     .some((el) => el && el.enabled !== false && String(el.nodeId || "") === id);
 }
 
+function nodeGraphLayoutCanvasNodeWantsCanvas(nodeId, patch = nodeGraphMvp?.patch) {
+  const id = String(nodeId || "").trim();
+  const node = Array.isArray(patch?.nodes)
+    ? patch.nodes.find((entry) => String(entry?.id || "") === id)
+    : null;
+  return Boolean(node?.ui?.showInCanvas);
+}
+
 function nodeGraphLayoutCanvasIsPinned(nodeId, patch = nodeGraphMvp?.patch) {
   const id = String(nodeId || "").trim();
   if (!id) {
     return false;
   }
-  return nodeGraphLayoutCanvasIsPinnedInScope(
+  if (nodeGraphLayoutCanvasIsPinnedInScope(
     id,
     nodeGraphLayoutCanvasScopeIdForNode(id, patch),
     patch,
-  );
+  )) {
+    return true;
+  }
+  // The module flag survives a canvas-bucket rebuild. Heal the pin from it.
+  if (nodeGraphLayoutCanvasNodeWantsCanvas(id, patch)) {
+    nodeGraphLayoutCanvasSetPinned(id, true, { persist: false, refresh: false, patch });
+    return true;
+  }
+  return false;
 }
 
 function nodeGraphLayoutCanvasNormalizeRect(raw, index = 0) {
@@ -178,6 +202,14 @@ function nodeGraphLayoutCanvasSetPinned(nodeId, pinned, options = {}) {
   const els = bucket.elements;
   const idx = els.findIndex((el) => String(el?.nodeId || "") === id);
   const on = Boolean(pinned);
+  const nodes = Array.isArray(patch.nodes) ? patch.nodes : [];
+  const node = nodes.find((entry) => String(entry?.id || "") === id);
+  if (node) {
+    if (!node.ui || typeof node.ui !== "object") {
+      node.ui = {};
+    }
+    node.ui.showInCanvas = on;
+  }
   if (on) {
     if (idx >= 0) {
       els[idx].enabled = true;
@@ -861,14 +893,17 @@ function bindNodeGraphLayoutCanvasSettingsControl() {
     const fromSelection = typeof nodeGraphTraceDisplaySettingsActiveTargetIds === "function"
       ? nodeGraphTraceDisplaySettingsActiveTargetIds()
       : [];
+    const popoverId = String(
+      document.getElementById("nodeTraceDisplaySettingsPopover")?.dataset?.displaySettingsTargetNode || "",
+    ).trim();
     const fallback = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
       ? String(nodeGraphTraceDisplaySettingsTargetNodeId() || "").trim()
       : String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
-    const ids = (Array.isArray(fromSelection) && fromSelection.length ? fromSelection : [fallback])
+    const ids = (Array.isArray(fromSelection) && fromSelection.length ? fromSelection : [fallback || popoverId])
       .map((id) => String(id || "").trim())
       .filter(Boolean);
     if (!ids.length) {
-      input.checked = false;
+      input.checked = !input.checked;
       return;
     }
     const pinned = input.checked;
@@ -878,6 +913,7 @@ function bindNodeGraphLayoutCanvasSettingsControl() {
         refresh: index === ids.length - 1,
       });
     });
+    input.checked = ids.every((id) => nodeGraphLayoutCanvasIsPinned(id));
     if (typeof markNodeGraphPatchDirty === "function") {
       markNodeGraphPatchDirty();
     }

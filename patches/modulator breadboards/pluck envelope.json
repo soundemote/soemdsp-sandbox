@@ -126,10 +126,10 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "polyBlep-1",
-      "destinationPort": "Reset",
-      "sourceNode": "namedPortalOut-8",
-      "sourcePort": "Out",
+      "destinationNode": "scope1dTrace-1",
+      "destinationPort": "In",
+      "sourceNode": "polyBlep-1",
+      "sourcePort": "Wave",
       "tracePoints": []
     }
   ],
@@ -551,9 +551,9 @@
         "stereoBlend": "lighter",
         "meetColor": "auto",
         "syncChannel": "off",
-        "historySeconds": 0.25,
+        "historySeconds": 0.1002,
         "historyCycles": 4,
-        "zoomSeconds": 0.25,
+        "zoomSeconds": 0.1002,
         "detail": 1,
         "barThickness": 1,
         "barInk": "fill",
@@ -779,7 +779,7 @@
         "frequency": 100,
         "phase": 0,
         "morph": 0.20487353336745695,
-        "amplitude": 0.5581304006284369
+        "amplitude": 0.3753197940202426
       },
       "type": "polyBlep",
       "widthGu": 7,
@@ -1814,7 +1814,7 @@
         }
       },
       "params": {
-        "offset": 0,
+        "offset": 0.3386447760157483,
         "displaySource": 0
       },
       "type": "knob",
@@ -1936,7 +1936,7 @@
         }
       },
       "params": {
-        "offset": 0.6804373070396221,
+        "offset": 0.5921960366220437,
         "displaySource": 0
       },
       "type": "knob",
@@ -2058,7 +2058,7 @@
         }
       },
       "params": {
-        "offset": 0.9435542410230598,
+        "offset": 1,
         "displaySource": 0
       },
       "type": "knob",
@@ -2335,17 +2335,63 @@
       }
     },
     {
-      "gx": 11,
-      "gy": 28,
-      "id": "namedPortalOut-8",
+      "gx": 40,
+      "gy": 1,
+      "id": "scope1dTrace-1",
       "paramMeta": {},
       "params": {},
-      "type": "namedPortalOut",
-      "alias": "Trigger",
-      "display": "⎍",
-      "wirelessRole": "digital",
-      "widthGu": 2,
-      "heightGu": 1,
+      "type": "scope1dTrace",
+      "widthGu": 15,
+      "traceDisplaySettings": {
+        "backgroundHue": 240,
+        "backgroundBrightness": 0,
+        "background": "#0000ff",
+        "backgroundColor": "#0000ff",
+        "dot1Brightness": 1,
+        "dot1Color": "#ff0000",
+        "dot1Enabled": true,
+        "dot1Size": 2,
+        "secondaryBrightness": 1,
+        "secondaryColor": "#0000ff",
+        "secondaryEnabled": true,
+        "secondarySize": 2,
+        "ghost": 0.25,
+        "trail": 0.3,
+        "pixelDensity": 1,
+        "scale": 1,
+        "skipDiscontinuities": true,
+        "gradientStops": [
+          {
+            "t": 0,
+            "color": "#000004"
+          },
+          {
+            "t": 0.2,
+            "color": "#3b0f70"
+          },
+          {
+            "t": 0.4,
+            "color": "#8c2981"
+          },
+          {
+            "t": 0.6,
+            "color": "#de4968"
+          },
+          {
+            "t": 0.8,
+            "color": "#fe9f6d"
+          },
+          {
+            "t": 1,
+            "color": "#fcfdbf"
+          }
+        ],
+        "sourceSync": true,
+        "sweepHz": 4,
+        "sweepCycles": 4,
+        "dotBudget": 2048,
+        "drawMode": "budget"
+      },
       "ui": {
         "buttonsHidden": true,
         "buttonsForceShow": false,
@@ -2360,7 +2406,8 @@
         "oscilloscopeForceShow": false,
         "slidersHidden": false,
         "slidersForceShow": false,
-        "titleHidden": true
+        "titleHidden": false,
+        "displayHeightGu": 8
       }
     }
   ],
@@ -2375,7 +2422,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 48,
-    "zoom": 0.6240368999153623,
+    "zoom": 0.6130393650367904,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,
@@ -2388,6 +2435,7 @@
     "sliderPositionVisible": true,
     "tooltipEmbedded": false,
     "locked": false,
+    "moduleScopeFramesPerSecond": 60,
     "canvases": {
       "root": {
         "elements": [

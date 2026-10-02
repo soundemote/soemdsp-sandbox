@@ -115,16 +115,22 @@ double polyBlepSquare(double t, double dt) {
   return y;
 }
 
-double hyperpluckWaveSample(int waveform, double phase, double inc) {
+double hyperpluckWaveSample(int waveform, double phase, double inc, double morph) {
   const double dt = incrementAbs(inc);
   const double t = wrap01(phase);
+  double m = morph;
+  if (!(m == m)) m = kMorphCenter;
+  if (m < 0.0) m = 0.0;
+  if (m > 1.0) m = 1.0;
   switch (waveform) {
-    case kWaveformTrisaw: return polyBlepTrisaw(t, dt, kMorphCenter);
+    case kWaveformTrisaw: return polyBlepTrisaw(t, dt, m);
     case kWaveformSaw: return polyBlepSaw(t, dt);
     case kWaveformRamp: return polyBlepRamp(t, dt);
-    case kWaveformCenterPulse: return polyBlepCenterPulse(t, dt, kMorphCenter);
-    case kWaveformPulse: return polyBlepPulse(t, dt, kMorphCenter);
-    case kWaveformSquare: return polyBlepSquare(t, dt);
+    case kWaveformCenterPulse: return polyBlepCenterPulse(t, dt, m);
+    case kWaveformPulse: return polyBlepPulse(t, dt, m);
+    // 0.5 stays the dedicated square. Away from center it becomes a pulse.
+    case kWaveformSquare:
+      return (m > 0.499 && m < 0.501) ? polyBlepSquare(t, dt) : polyBlepPulse(t, dt, m);
     default: return polyBlepSaw(t, dt);
   }
 }
@@ -487,6 +493,7 @@ extern "C" void soemdsp_hyperpluck_process_block(
   double resetGate,
   double phaseAlgorithm,
   double phaseMultiply,
+  double morph,
   int frameCount
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
@@ -569,7 +576,7 @@ extern "C" void soemdsp_hyperpluck_process_block(
       if (!(inc == inc)) inc = 0.0;
       if (inc > 0.5) inc = 0.5;
       if (inc < -0.5) inc = -0.5;
-      const double y = hyperpluckWaveSample(wave, v.phase + v.phaseLayout * multiply, inc);
+      const double y = hyperpluckWaveSample(wave, v.phase + v.phaseLayout * multiply, inc, morph);
       v.phase = wrap01(v.phase + inc);
       double amp = 1.0;
       if (lastFrac > 0.0 && i == voiceCount - 1) amp = lastFrac;
@@ -632,7 +639,7 @@ extern "C" void soemdsp_hyperpluck_sample(
 ) {
   soemdsp_hyperpluck_process_block(
     handle, frequencyHz, sampleRate, detuneHz, voicesExact, level,
-    stereoMode, detuneAlgorithm, waveform, maxVoiceHz, resetGate, 0.0, 0.0, 1
+    stereoMode, detuneAlgorithm, waveform, maxVoiceHz, resetGate, 0.0, 0.0, 0.5, 1
   );
 }
 

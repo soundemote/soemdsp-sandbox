@@ -185,7 +185,7 @@ function applyNodeGraphViewportCssLight(options = {}) {
     const zoom = typeof nodeGraphZoom === "function" ? nodeGraphZoom() : (nodeGraphMvp?.zoom || 1);
     workspace.style.setProperty("--node-graph-zoom", String(zoom));
     workspace.dataset.zoom = Number(zoom).toFixed(2);
-    workspace.classList.toggle("pixelated-canvas-zoom", zoom > 1);
+    workspace.classList.toggle("pixelated-canvas-zoom", zoom > 2.5);
   }
   if (options.pan !== false) {
     const pan = nodeGraphMvp.pan || { x: 0, y: 0 };

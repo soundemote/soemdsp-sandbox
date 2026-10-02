@@ -235,7 +235,7 @@ extern "C" void soemdsp_hyperpluck_process_block(
   int handle, double frequencyHz, double sampleRate, double detuneHz,
   double voicesExact, double level, double stereoMode, double detuneAlgorithm,
   double waveform, double maxVoiceHz, double resetGate, double phaseAlgorithm,
-  double phaseMultiply, int frameCount
+  double phaseMultiply, double morph, int frameCount
 );
 extern "C" int soemdsp_hyperpluck_block_output_left_ptr(int handle);
 extern "C" int soemdsp_hyperpluck_block_output_right_ptr(int handle);
@@ -3056,11 +3056,11 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeStepGraph) ? 0.0 // curveOffset (CENTER used; shape unused)
       : (typeId == kTypeSampleHold) ? 0.0 // interpolate Linear
       : 0.5,
-    (typeId == kTypeSlewLimiter || typeId == kTypeSineWavetable || typeId == kTypeSinCos
-      || typeId == kTypeHyperpluck)
+    (typeId == kTypeSlewLimiter || typeId == kTypeSineWavetable || typeId == kTypeSinCos)
   );
   init_control(
     n.phaseParam,
+    (typeId == kTypeHyperpluck) ? 0.5 : // morph width
     (typeId == kTypeRayBouncer) ? 30.0 // launchAngle deg
       : (typeId == kTypeAdditiveBlaster) ? 145.84 // depth cycles (PoC)
       : (typeId == kTypeAdditivePan) ? 18.0 // AutoPan shimmer Hz
@@ -3255,7 +3255,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpoPluckEnvelope) ? 0.0 // damping
       : (typeId == kTypeExpoPluckEnvelope2) ? 1.0 // velocity
       : (typeId == kTypeThumpEnvelope) ? 0.0 // decaySnap 0…1 (0=patch short)
-      : (typeId == kTypeAcousticPluck) ? 0.0 // dampen
+      : (typeId == kTypeAcousticPluck) ? 1.1 // dampen (attenuverter Amplitude def)
       : (typeId == kTypePluckEnvelope3) ? 0.5 // decay (0=short … 1=long)
       : (typeId == kTypeTransport) ? 0.5 // pulseWidth gate duty
       : (typeId == kTypeRobinSupersaw) ? 30.0 // detuneCents
@@ -3431,7 +3431,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpoPluckEnvelope) ? 5.0 // Decay s (Comb-style: leave long)
       : (typeId == kTypeExpoPluckEnvelope2) ? 0.7 // decaySlopeMid
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // decay
-      : (typeId == kTypeAcousticPluck) ? 0.0 // synth vs acoustic
+      : (typeId == kTypeAcousticPluck) ? 1.64 // synth vs acoustic (attenuverter Offset def)
       : (typeId == kTypeDelayEffect) ? 0.25
       : (typeId == kTypeSoemReverb) ? 1.0 // duckLimit
       : (typeId == kTypeHypersaw2) ? 0.5 // morph/PWM center
@@ -8839,15 +8839,14 @@ static void process_acoustic_pluck(Circuit& g, Node& node, int frames) {
       control_audio(g, node.center, f),
       control_audio(g, node.width, f),
       control_audio(g, node.feedback, f),
-      1.0,
+      control_audio(g, node.amplitude, f),
       control_effective(node.mode),
       control_effective(node.timingMode),
       sr
     );
-    const double amp = env * control_audio(g, node.amplitude, f);
     node.buf[kPortMono][f] = env;
-    node.buf[kPortLeft][f] = amp;
-    node.buf[kPortRight][f] = amp;
+    node.buf[kPortLeft][f] = env;
+    node.buf[kPortRight][f] = env;
   }
 }
 
@@ -11760,6 +11759,7 @@ static void process_hyperpluck(Circuit& g, Node& node, int frames) {
     const double waveform = control_effective(node.waveform);
     const double phaseAlgorithm = control_effective(node.shape);
     const double phaseMultiply = control_audio(g, node.offset, frameIndexForHz);
+    const double morph = control_audio(g, node.phaseParam, frameIndexForHz);
     double freq = resolve_osc_hz(
       g, frameIndexForHz, liveF, livePitch, node.frequency, referenceVoltage, srD
     );
@@ -11769,7 +11769,7 @@ static void process_hyperpluck(Circuit& g, Node& node, int frames) {
     if (maxHz > nyq) maxHz = nyq;
     soemdsp_hyperpluck_process_block(
       node.nativeHandle, freq, srD, detune, voicesExact, amp, stereoMode,
-      detuneAlgorithm, waveform, maxHz, resetGate, phaseAlgorithm, phaseMultiply, nFrames
+      detuneAlgorithm, waveform, maxHz, resetGate, phaseAlgorithm, phaseMultiply, morph, nFrames
     );
   };
 

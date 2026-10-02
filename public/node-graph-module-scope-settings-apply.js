@@ -335,10 +335,13 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.traceDisplaySettings = normalizeNodeGraphScope2dSettings(settings);
     return node.traceDisplaySettings;
   }
+  if (displayType === "hypersawBurn") {
+    node.traceDisplaySettings = normalizeNodeGraphHypersawBurnSettings(settings);
+    return node.traceDisplaySettings;
+  }
   if (
     displayType === "videoscopeBurn"
     || displayType === "oscilloscopeBankBurn"
-    || displayType === "hypersawBurn"
   ) {
     node.traceDisplaySettings = normalizeNodeGraphScope2dSettings(settings);
     return node.traceDisplaySettings;

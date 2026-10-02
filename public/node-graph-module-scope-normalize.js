@@ -2266,12 +2266,11 @@ function nodeGraphScope2dSettingsForNode(node) {
 }
 
 /**
- * Hypersaw face: stem width as 0…1 of face width (1 = full screen).
- * Sensitive near 0 (hairlines). Not a phosphor / scope2d page.
+ * Hypersaw-style faces: stem width in screen pixels.
+ * Old saves stored a fraction of face width (lineThicknessFace01).
  */
 const nodeGraphHypersawBurnSettingsDefaults = Object.freeze({
-  lineThickness: 0.01,
-  lineThicknessFace01: true,
+  lineThickness: 2,
 });
 
 function normalizeNodeGraphHypersawBurnSettings(settings = {}, defaultsOverride = null) {
@@ -2283,16 +2282,12 @@ function normalizeNodeGraphHypersawBurnSettings(settings = {}, defaultsOverride 
   if (!Number.isFinite(thickness)) {
     thickness = defaults.lineThickness;
   } else if (source.lineThicknessFace01) {
-    // Already face-fraction 0…1.
-    thickness = clampNodeSliderValue(thickness, 0, 1);
-  } else {
-    // Legacy CSS px (prior normalize clamped ~0.25…16) → face fraction.
-    // Map through /16 so old default 1px ≈ 0.06, old max 16 → 1 (full width).
-    thickness = clampNodeSliderValue(thickness / 16, 0, 1);
+    // 0…1 of a typical ~200px face → screen pixels.
+    thickness = thickness * 200;
   }
+  thickness = clampNodeSliderValue(thickness, 0, 64);
   return {
     lineThickness: thickness,
-    lineThicknessFace01: true,
   };
 }
 

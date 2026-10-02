@@ -4733,7 +4733,17 @@ const nodeGraphModuleDefinitions = (
         mid: "2",
         min: "0",
         step: "1",
-        tooltip: "PolyBLEP waves. Pulse / Center Pulse / Trisaw use 50% width. All voices start in phase." },
+        tooltip: "PolyBLEP waves. Morph sets the width of Trisaw, Pulse, Center Pulse, and Square. Saw and Ramp ignore Morph. All voices start in phase." },
+      {
+        key: "morph",
+        label: "Morph",
+        defaultValue: "0.5",
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "any",
+        tooltip: "Width. 0.5 is the centered shape. Trisaw, Pulse, Center Pulse, and Square follow it. Saw and Ramp stay fixed.",
+      },
       {
         choices: ["Mono", "Dual Channel", "Alternating"],
         defaultValue: "0",
@@ -14777,9 +14787,9 @@ const nodeGraphModuleDefinitions = (
     inputs: ["KT", "Trigger"],
     inputAliases: { Gate: "Trigger", Trig: "Trigger", In: "Trigger" },
     inputLabels: { KT: "KT", Trigger: "Trig" },
-    outputs: ["Env", "Amp"],
+    outputs: ["Env"],
     outputAliases: { Out: "Env" },
-    outputLabels: { Env: "Env", Amp: "Amp" },
+    outputLabels: { Env: "Env" },
     parameters: [
       {
         defaultValue: "0",
@@ -14794,7 +14804,7 @@ const nodeGraphModuleDefinitions = (
         unit: "s",
         tooltip: "Attack time. 0 = instant. KT (inverted ƒ) shortens this up the keyboard." },
       {
-        defaultValue: "0",
+        defaultValue: "1.1",
         key: "dampen",
         label: "Dampen",
         max: "2.2",
@@ -14802,9 +14812,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "How hard the inverted envelope pulls on Release. 0 = no self-feedback." },
+        tooltip: "Attenuverter scale on inverted Env (breadboard def 1.1, 0…2.2). With Synth vs Acoustic this feeds Amp Curve Exp into Release." },
       {
-        defaultValue: "0",
+        defaultValue: "1.64",
         key: "synthVsAcoustic",
         label: "Synth vs Acoustic",
         max: "1.64",

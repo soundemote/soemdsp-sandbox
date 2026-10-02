@@ -39,8 +39,8 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     title = "Waterfall scroll. 0 = freeze. 1 = default. Higher = faster.";
   }
   if (key === "lineThickness" && formType === "hypersawBurn") {
-    label = "Line thickness";
-    title = "Phase-stem width as a fraction of face width: 0 = none, 1 = full screen. Sensitive near 0.";
+    label = "Line thickness (px)";
+    title = "Phase-stem width in screen pixels (0–64). Scaled for canvas backing and zoom.";
   } else if (key === "faceBlur" && (
     formType === "waterfall"
     || formType === "waterfallRgb"
