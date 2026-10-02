@@ -122,6 +122,7 @@ function nodeGraphOnsetPaint(spec, live) {
     onset.live = true;
     onset.lastPixel = -1;
     onset.edge = Object.create(null);
+    onset.strokePts = Object.create(null);
   }
   const node = typeof nodeGraphModuleScopeNodeForSlot === "function"
     ? nodeGraphModuleScopeNodeForSlot(spec.slot)
@@ -211,12 +212,28 @@ function nodeGraphOnsetPaint(spec, live) {
         i === 0 && stampComposite !== "multiply" ? "source-over" : stampComposite,
         1,
         useFill,
-        useStroke
-          ? { on: true, px: nodeGraphOnsetStrokeCanvasPx(canvas, settings), rgb: nodeGraphWaterfallStrokeRgb(settings) }
-          : null,
+        null,
       );
       if (!onset.edge) onset.edge = Object.create(null);
       onset.edge[ch.lastYKey] = { y0: ys.y0, y1: ys.y1 };
+      if (useStroke && typeof nodeGraphOnsetGlStrokePolyline === "function") {
+        const yLine = ((Number.isFinite(ys.strokeY0) ? ys.strokeY0 : ys.y0) + (Number.isFinite(ys.strokeY1) ? ys.strokeY1 : ys.y1)) * 0.5;
+        const pt = { x: screenX + 0.5, y: yLine };
+        if (!onset.strokePts) onset.strokePts = Object.create(null);
+        const key = ch.lastYKey || String(i);
+        let strip = onset.strokePts[key];
+        if (seam || !strip) strip = [];
+        strip.push(pt);
+        if (strip.length >= 2) {
+          nodeGraphOnsetGlStrokePolyline(
+            canvas,
+            strip.slice(-2),
+            nodeGraphOnsetStrokeCanvasPx(canvas, settings),
+            nodeGraphWaterfallStrokeRgb(settings),
+          );
+        }
+        onset.strokePts[key] = strip;
+      }
     }
     p += 1;
   }
@@ -1239,11 +1256,10 @@ function nodeGraphWaterfallStrokePx(settings) {
 // change how many texture pixels that is.
 function nodeGraphOnsetStrokeCanvasPx(canvas, settings) {
   const screenPx = nodeGraphWaterfallStrokePx(settings);
-  const layoutCssW = typeof nodeGraphModuleFaceLayoutCssWidth === "function"
-    ? nodeGraphModuleFaceLayoutCssWidth(canvas)
-    : Math.max(1, canvas?.clientWidth || canvas?.width || 1);
-  const widthPx = Math.max(1, canvas?.width || layoutCssW);
-  return Math.max(0.5, screenPx * (widthPx / layoutCssW));
+  const scale = typeof nodeGraphModuleFacePixelScale === "function"
+    ? nodeGraphModuleFacePixelScale(canvas)
+    : 1;
+  return Math.max(0.5, screenPx * scale);
 }
 
 function nodeGraphWaterfallStrokeRgb(settings) {

@@ -16259,9 +16259,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body {
   border-color: color-mix(in srgb, var(--node-input-stroke) 56%, transparent);
 }
 
-/* B-071: layout-canvas / screen-solo / metamodule — type follows face min-edge.
-   Plate keeps --node-grid-size * 0.36; canvas publishes source-min + source-font-px
-   at reparent so glyphs scale with the tile (same cqmin family as knobs). */
+/* Canvas tile is the text box. Type scales with the short side so glyphs
+   stay square. The field fills the tile, so multiline wraps to that width. */
 .node-layout-canvas-tile > .node-text-box-body,
 .node-metamodule-canvas-stage .node-layout-canvas-tile > .node-text-box-body,
 body.node-screen-solo-active .node-screen-solo-face.node-text-box-body {
@@ -16272,6 +16271,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body {
 .node-layout-canvas-tile > .node-text-box-body > .node-text-box-input,
 .node-metamodule-canvas-stage .node-layout-canvas-tile > .node-text-box-body > .node-text-box-input,
 body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-text-box-input {
+  height: 100%;
+  overflow: auto;
   font-size: calc(
     var(--node-text-box-source-font-px, 10.08px)
     * var(--node-text-box-font-scale, 1)

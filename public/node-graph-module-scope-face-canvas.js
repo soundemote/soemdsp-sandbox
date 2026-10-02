@@ -335,29 +335,18 @@ function syncNodeGraphModuleScopeFaceCanvasTape(canvas, screenElement, pixelRati
     }
   }
   let resized = false;
+  // A live plate keeps its bitmap. Assigning canvas.width clears it.
+  // Canvas-mode and zoom change the CSS box; that box scales this bitmap.
+  // Do not copy the old picture into a new size to "fix" the stretch.
+  if (canvas.width >= 2 && canvas.height >= 2) {
+    width = canvas.width;
+    height = canvas.height;
+  }
   if (canvas.width !== width || canvas.height !== height) {
     resized = true;
-    const previousWidth = canvas.width;
-    const previousHeight = canvas.height;
-    const webglFace = canvas._wfUseWebGL === true || Boolean(canvas._wfGl);
-    let previousCanvas = null;
-    if (!webglFace && previousWidth > 0 && previousHeight > 0) {
-      previousCanvas = document.createElement("canvas");
-      previousCanvas.width = previousWidth;
-      previousCanvas.height = previousHeight;
-      const previousContext = previousCanvas.getContext("2d");
-      if (previousContext) {
-        previousContext.drawImage(canvas, 0, 0);
-      }
-    }
     canvas.width = width;
     canvas.height = height;
     canvas._nodeGraphScope2dLastDrawnPoint = null;
-    const context = (!webglFace && previousCanvas) ? canvas.getContext("2d") : null;
-    if (context) {
-      context.imageSmoothingEnabled = density >= 0.999;
-      context.drawImage(previousCanvas, 0, 0, previousWidth, previousHeight, 0, 0, width, height);
-    }
   }
   if (density < 0.999) {
     canvas.style.imageRendering = "pixelated";
@@ -399,6 +388,10 @@ function syncNodeGraphModuleScopeFaceCanvasBurn(canvas, screenElement, pixelRati
       width = Math.max(256, width);
       height = Math.max(72, height);
     }
+  }
+  if (canvas.width >= 2 && canvas.height >= 2) {
+    width = canvas.width;
+    height = canvas.height;
   }
   const resized = canvas.width !== width || canvas.height !== height;
   if (resized) {

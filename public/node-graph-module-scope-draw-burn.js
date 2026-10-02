@@ -1029,6 +1029,52 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
 }
 
 
+function nodeGraphModuleFaceLayoutCssSize(canvas) {
+  const id = String(
+    canvas?.dataset?.node
+    || canvas?.closest?.("[data-node]")?.dataset?.node
+    || "",
+  ).trim();
+  const escaped = id && typeof CSS !== "undefined" && CSS.escape ? CSS.escape(id) : id;
+  const moduleEl = escaped
+    ? document.querySelector(`.dsp-node[data-node="${escaped}"]`)
+    : null;
+  const node = id && typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+  let widthGu = Number(node?.widthGu);
+  let heightGu = Number(node?.displayHeightGu);
+  let cell = 28;
+  try {
+    const style = getComputedStyle(moduleEl || document.documentElement);
+    if (!(widthGu > 0)) {
+      const fromCss = Number.parseFloat(style.getPropertyValue("--node-grid-width-units") || "");
+      if (fromCss > 0) widthGu = fromCss;
+    }
+    if (!(heightGu > 0)) {
+      const fromCss = Number.parseFloat(style.getPropertyValue("--node-module-display-height-units") || "");
+      if (fromCss > 0) heightGu = fromCss;
+    }
+    const grid = Number.parseFloat(
+      style.getPropertyValue("--node-grid-width")
+      || style.getPropertyValue("--node-grid-size")
+      || "",
+    );
+    if (grid > 0) cell = grid;
+  } catch (_error) {
+    // Layout size falls back to the canvas itself.
+  }
+  return {
+    w: widthGu > 0 ? Math.max(1, widthGu * cell) : Math.max(1, canvas?.clientWidth || canvas?.width || 1),
+    h: heightGu > 0 ? Math.max(1, heightGu * cell) : Math.max(1, canvas?.clientHeight || canvas?.height || 1),
+  };
+}
+
+function nodeGraphModuleFacePixelScale(canvas) {
+  const layout = nodeGraphModuleFaceLayoutCssSize(canvas);
+  const sx = Math.max(1, canvas?.width || layout.w) / layout.w;
+  const sy = Math.max(1, canvas?.height || layout.h) / layout.h;
+  return Math.max(0.25, Math.min(sx, sy));
+}
+
 function nodeGraphModuleFaceLayoutCssWidth(canvas) {
   const id = String(
     canvas?.dataset?.node
@@ -1135,8 +1181,7 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
   const screenPx = clampNodeSliderValue(nodeGraphFiniteNumber(faceSettings?.lineThickness, 2), 0, 64);
   const widthPx = canvas.width;
   const heightPx = canvas.height;
-  const layoutCssW = nodeGraphModuleFaceLayoutCssWidth(canvas);
-  const thicknessPx = screenPx * (widthPx / layoutCssW);
+  const thicknessPx = screenPx * nodeGraphModuleFacePixelScale(canvas);
 
   const count = phases.length;
   for (let i = 0; i < count; i += 1) {

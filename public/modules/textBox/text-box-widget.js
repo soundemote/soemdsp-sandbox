@@ -536,10 +536,29 @@ function nodeGraphTextBoxCaptureCanvasScaleSource(face, box = null) {
   return true;
 }
 
+function nodeGraphTextBoxApplyCanvasScale(face) {
+  if (!(face instanceof Element) || !face.classList.contains("node-text-box-body")) {
+    return false;
+  }
+  const input = face.querySelector(":scope > .node-text-box-input");
+  if (!input) return false;
+  const sourceMin = Number(face.style.getPropertyValue("--node-text-box-source-min")) || 0;
+  const sourceFont = Number.parseFloat(face.style.getPropertyValue("--node-text-box-source-font-px") || "");
+  if (!(sourceMin > 0) || !(sourceFont > 0)) return false;
+  const w = face.clientWidth || face.offsetWidth || 0;
+  const h = face.clientHeight || face.offsetHeight || 0;
+  if (!(w > 0) || !(h > 0)) return false;
+  const fontScale = Number.parseFloat(input.style.getPropertyValue("--node-text-box-font-scale") || "") || 1;
+  const px = sourceFont * fontScale * (Math.min(w, h) / sourceMin);
+  input.style.fontSize = `${px}px`;
+  return true;
+}
+
 function nodeGraphTextBoxClearCanvasScaleSource(face) {
   if (!(face instanceof Element)) {
     return;
   }
   face.style.removeProperty("--node-text-box-source-min");
   face.style.removeProperty("--node-text-box-source-font-px");
+  face.querySelector(":scope > .node-text-box-input")?.style.removeProperty("font-size");
 }

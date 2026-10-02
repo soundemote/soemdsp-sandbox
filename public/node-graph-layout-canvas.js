@@ -381,6 +381,10 @@ function nodeGraphLayoutCanvasApplyTileRect(tile, rect, stage) {
   tile.style.width = `${r.w * sw}px`;
   tile.style.height = `${r.h * sh}px`;
   tile.style.zIndex = String(100 + (r.z || 0));
+  const textFace = tile.querySelector(".node-text-box-body");
+  if (textFace && typeof nodeGraphTextBoxApplyCanvasScale === "function") {
+    nodeGraphTextBoxApplyCanvasScale(textFace);
+  }
   tile.dataset.canvasX = String(r.x);
   tile.dataset.canvasY = String(r.y);
   tile.dataset.canvasW = String(r.w);

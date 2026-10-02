@@ -239,6 +239,133 @@ function nodeGraphWaterfallGlClearRead(s) {
   gl.clear(gl.COLOR_BUFFER_BIT);
 }
 
+const NODE_GRAPH_ONSET_LINE_VS = `
+attribute vec2 aPos;
+attribute float aSide;
+attribute float aCore;
+attribute vec4 aColor;
+uniform vec2 uCss;
+varying float vSide;
+varying float vCore;
+varying vec4 vColor;
+void main() {
+  vec2 clip = (aPos / uCss) * 2.0 - 1.0;
+  clip.y = -clip.y;
+  gl_Position = vec4(clip, 0.0, 1.0);
+  vSide = aSide;
+  vCore = aCore;
+  vColor = aColor;
+}
+`;
+
+const NODE_GRAPH_ONSET_LINE_FS = `
+precision mediump float;
+varying float vSide;
+varying float vCore;
+varying vec4 vColor;
+void main() {
+  float alpha = 1.0 - smoothstep(vCore, 1.0, abs(vSide));
+  gl_FragColor = vec4(vColor.rgb, vColor.a * alpha);
+}
+`;
+
+function nodeGraphOnsetGlLineProgram(gl) {
+  const vs = nodeGraphWaterfallGlCompile(gl, gl.VERTEX_SHADER, NODE_GRAPH_ONSET_LINE_VS);
+  const fs = nodeGraphWaterfallGlCompile(gl, gl.FRAGMENT_SHADER, NODE_GRAPH_ONSET_LINE_FS);
+  if (!vs || !fs) return null;
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+  return prog;
+}
+
+function nodeGraphOnsetGlEnsureLine(s) {
+  if (s.lineProg) return s;
+  const gl = s.gl;
+  const prog = nodeGraphOnsetGlLineProgram(gl);
+  if (!prog) return s;
+  s.lineProg = prog;
+  s.lineBuf = gl.createBuffer();
+  s.lineLoc = {
+    pos: gl.getAttribLocation(prog, "aPos"),
+    side: gl.getAttribLocation(prog, "aSide"),
+    core: gl.getAttribLocation(prog, "aCore"),
+    color: gl.getAttribLocation(prog, "aColor"),
+    css: gl.getUniformLocation(prog, "uCss"),
+  };
+  return s;
+}
+
+function nodeGraphOnsetGlStrokePolyline(canvas, points, widthPx, rgb) {
+  const s = canvas && canvas._wfGlSession;
+  if (!s || !points || points.length < 2) return false;
+  nodeGraphOnsetGlEnsureLine(s);
+  if (!s.lineProg) return false;
+  const gl = s.gl;
+  const width = Math.max(0.75, Number(widthPx) || 1);
+  const half = width * 0.5;
+  const expand = half + 0.75;
+  const core = half / expand;
+  const color = [
+    Math.max(0, Math.min(1, Number(rgb?.[0]) || 0)),
+    Math.max(0, Math.min(1, Number(rgb?.[1]) || 0)),
+    Math.max(0, Math.min(1, Number(rgb?.[2]) || 0)),
+    1,
+  ];
+  const chunks = [];
+  for (let p = 1; p < points.length; p += 1) {
+    const p0 = points[p - 1];
+    const p1 = points[p];
+    const dx = p1.x - p0.x;
+    const dy = p1.y - p0.y;
+    const len = Math.hypot(dx, dy);
+    if (!(len > 1e-4)) continue;
+    const inv = 1 / len;
+    const dirX = dx * inv;
+    const dirY = dy * inv;
+    const nx = -dirY;
+    const ny = dirX;
+    const ax = p0.x - dirX * half;
+    const ay = p0.y - dirY * half;
+    const bx = p1.x + dirX * half;
+    const by = p1.y + dirY * half;
+    const corners = [
+      [ax + nx * expand, ay + ny * expand, 1],
+      [ax - nx * expand, ay - ny * expand, -1],
+      [bx + nx * expand, by + ny * expand, 1],
+      [ax - nx * expand, ay - ny * expand, -1],
+      [bx - nx * expand, by - ny * expand, -1],
+      [bx + nx * expand, by + ny * expand, 1],
+    ];
+    for (let c = 0; c < corners.length; c += 1) {
+      const corner = corners[c];
+      chunks.push(corner[0], corner[1], corner[2], core, color[0], color[1], color[2], color[3]);
+    }
+  }
+  if (!chunks.length) return false;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, s.read.fbo);
+  gl.viewport(0, 0, s.w, s.h);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.useProgram(s.lineProg);
+  gl.uniform2f(s.lineLoc.css, s.w, s.h);
+  gl.bindBuffer(gl.ARRAY_BUFFER, s.lineBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(chunks), gl.DYNAMIC_DRAW);
+  const stride = 32;
+  gl.enableVertexAttribArray(s.lineLoc.pos);
+  gl.vertexAttribPointer(s.lineLoc.pos, 2, gl.FLOAT, false, stride, 0);
+  gl.enableVertexAttribArray(s.lineLoc.side);
+  gl.vertexAttribPointer(s.lineLoc.side, 1, gl.FLOAT, false, stride, 8);
+  gl.enableVertexAttribArray(s.lineLoc.core);
+  gl.vertexAttribPointer(s.lineLoc.core, 1, gl.FLOAT, false, stride, 12);
+  gl.enableVertexAttribArray(s.lineLoc.color);
+  gl.vertexAttribPointer(s.lineLoc.color, 4, gl.FLOAT, false, stride, 16);
+  gl.drawArrays(gl.TRIANGLES, 0, chunks.length / 8);
+  return true;
+}
+
 function nodeGraphWaterfallGlReset(canvas, plateCss) {
   const s = nodeGraphWaterfallGlEnsure(canvas, plateCss);
   if (!s) return false;
