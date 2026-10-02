@@ -1455,8 +1455,11 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     pushStackField("historySeconds");
     pushStackField("zoomSeconds");
   }
-  pushStackField("detail");
-  pushStackField("barThickness");
+  const isOnsetFace = node?.type === "onset" || node?.type === "onset2d";
+  if (!isOnsetFace) {
+    pushStackField("detail");
+    pushStackField("barThickness");
+  }
   if (isInstantWaterfall && choiceKeys.includes("barInk")) {
     rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml("barInk"));
     usedChoices.add("barInk");

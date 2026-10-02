@@ -260,43 +260,25 @@ function nodeGraphModuleActionTargetNodeId() {
   return null;
 }
 
-function nodeGraphCommitContextSelection(ids) {
-  const next = (ids || []).map((item) => String(item || "")).filter((item) => item && nodeGraphMvp.activeNodes.has(item));
-  nodeGraphMvp.selectionOrder = next;
-  if (!next.length) {
-    setNodeGraphSelection(null);
-    return;
-  }
-  if (next.length === 1) {
-    setNodeGraphSelection({ type: "node", id: next[0] });
-    return;
-  }
-  setNodeGraphSelection({ type: "nodes", ids: next });
-}
-
 /**
- * Right-click selects the hit module and makes it the one Command Center reads.
- * Ctrl+right-click toggles it in the selection (add or remove) and still counts
- * as the right-click that opens the page. The page then reads the selection.
+ * Plain right-click selects only the hit module. It never toggles that module off.
+ * Ctrl/Cmd+right-click still adds or removes, same as Ctrl+left-click.
  */
 function ensureNodeGraphModuleSelectedForContext(nodeId, event = null) {
   const id = String(nodeId || "").trim();
   if (!id || !nodeGraphMvp.activeNodes.has(id)) {
     return false;
   }
-  const ordered = typeof nodeGraphSelectedNodeIdsInOrder === "function"
-    ? nodeGraphSelectedNodeIdsInOrder()
-    : [...nodeGraphSelectedNodeIds()];
-  const toggle = event?.ctrlKey === true || event?.metaKey === true;
-  if (toggle) {
-    if (ordered.includes(id)) {
-      nodeGraphCommitContextSelection(ordered.filter((existing) => existing !== id));
-    } else {
-      nodeGraphCommitContextSelection([id, ...ordered]);
-    }
+  const additive = event?.ctrlKey === true || event?.metaKey === true;
+  if (additive && typeof toggleNodeGraphNodeSelection === "function") {
+    toggleNodeGraphNodeSelection(id, true);
     return true;
   }
-  nodeGraphCommitContextSelection([id, ...ordered.filter((existing) => existing !== id)]);
+  if (typeof setNodeGraphNodeSelection === "function") {
+    setNodeGraphNodeSelection([id]);
+  } else {
+    setNodeGraphSelection({ type: "node", id });
+  }
   return true;
 }
 

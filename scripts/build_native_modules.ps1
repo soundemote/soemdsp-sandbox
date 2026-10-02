@@ -581,6 +581,10 @@ if ($LASTEXITCODE -ne 0) {
 
 $node = Get-Command node -ErrorAction SilentlyContinue
 if ($node) {
+  & $node.Source "$root\scripts\smoke_native_param_ids.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: native param id smoke FAILED"
+  }
   & $node.Source "$root\scripts\smoke_test_combined.js" "$combinedDir\soemdsp_combined.wasm" $responseFile
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: smoke test FAILED (see output above)"

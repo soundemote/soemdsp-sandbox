@@ -415,6 +415,39 @@ function nodeGraphWaterfallGlStampBar(canvas, x, spanW, ys, prevEdge, connect, r
   return true;
 }
 
+function nodeGraphOnsetGlPositionLine(canvas, x) {
+  const s = canvas && canvas._wfGlSession;
+  if (!s || !s.gl) return;
+  const gl = s.gl;
+  const px = Math.max(0, Math.min(s.w - 1, Math.floor(Number(x) || 0)));
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, s.w, s.h);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE);
+  const clip = (ax, ay) => nodeGraphWaterfallGlClip(ax, ay, s.w, s.h);
+  const a = clip(px, -1);
+  const b = clip(px + 1, -1);
+  const c = clip(px, s.h + 1);
+  const d = clip(px + 1, s.h + 1);
+  const verts = [a[0], a[1], b[0], b[1], c[0], c[1], c[0], c[1], b[0], b[1], d[0], d[1]];
+  gl.useProgram(s.barProg);
+  const uvLoc = gl.getAttribLocation(s.barProg, "aUv");
+  if (uvLoc >= 0) gl.disableVertexAttribArray(uvLoc);
+  gl.bindBuffer(gl.ARRAY_BUFFER, s.barBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.DYNAMIC_DRAW);
+  const pLoc = gl.getAttribLocation(s.barProg, "aPos");
+  gl.enableVertexAttribArray(pLoc);
+  gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 8, 0);
+  gl.uniform3f(gl.getUniformLocation(s.barProg, "uColor"), 0.55, 0.55, 0.55);
+  gl.uniform2f(gl.getUniformLocation(s.barProg, "uSize"), s.w, s.h);
+  gl.uniform2f(gl.getUniformLocation(s.barProg, "uSpan"), px, px + 1);
+  gl.uniform4f(gl.getUniformLocation(s.barProg, "uEdge"), 0, 0, s.h, s.h);
+  gl.uniform1f(gl.getUniformLocation(s.barProg, "uBlendKind"), 1);
+  gl.uniform1f(gl.getUniformLocation(s.barProg, "uMode"), 0);
+  gl.uniform1f(gl.getUniformLocation(s.barProg, "uStrokePx"), 1);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
 function nodeGraphWaterfallGlPresent(canvas, plateCss) {
   const s = nodeGraphWaterfallGlEnsure(canvas, plateCss || "#000000");
   if (!s) return false;
@@ -433,7 +466,9 @@ function nodeGraphWaterfallGlPresent(canvas, plateCss) {
   gl.uniform2f(gl.getUniformLocation(s.presentProg, "uSize"), s.w, s.h);
   gl.uniform1f(gl.getUniformLocation(s.presentProg, "uSub"), sub);
   nodeGraphWaterfallGlDrawQuad(s);
-  canvas.style.imageRendering = "pixelated";
+  if (canvas.style.imageRendering === "pixelated") {
+    canvas.style.imageRendering = "";
+  }
   return true;
 }
 

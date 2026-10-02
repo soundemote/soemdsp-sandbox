@@ -32,7 +32,7 @@ function run(h, opts = {}) {
     freq = 220,
     detune = 5,
     voices = 7,
-    stereo = 1, // Alternating
+    stereo = 2, // Alternating
     algo = 2,
     wave = 1, // Saw
     reset = 0,
@@ -64,6 +64,9 @@ for (let i = 0; i < samples.length; i++) {
 if (!(peak > 0.05)) throw new Error(`silent output peak=${peak}`);
 
 run(h, { stereo: 0, frames: 8 });
+const monoN = voiceCount(h) | 0;
+if (monoN !== 7) throw new Error(`mono face count ${monoN} !== 7`);
+run(h, { stereo: 1, frames: 8 });
 const dualN = voiceCount(h) | 0;
 if (dualN !== 14) throw new Error(`dual face count ${dualN} !== 14`);
 

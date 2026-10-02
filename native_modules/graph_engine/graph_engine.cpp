@@ -3121,7 +3121,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeTb303Filter) ? 4.0 // LP_24
       : (typeId == kTypeLookaheadLimiter || typeId == kTypePumpLimiter) ? 1.0 // look-ahead On
       : (typeId == kTypeSineWavetable) ? 2.0 // sincos
-      : (typeId == kTypeHyperpluck) ? 0.0 // Dual Channel
+      : (typeId == kTypeHyperpluck) ? 0.0 // Mono
       : (typeId == kTypeSinc) ? 1.0 // band-limit kernel
       : (typeId == kTypeEllipsoid || typeId == kTypeBasicShape) ? 1.0 // CounterClock(Ph)
       : (typeId == kTypeSnowflake) ? 1.0 // Koch Snowflake pattern

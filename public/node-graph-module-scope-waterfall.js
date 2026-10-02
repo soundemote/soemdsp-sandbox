@@ -51,32 +51,180 @@ function nodeGraphWaterfallHistoryIsFrozen(settings) {
   return !(nodeGraphWaterfallHistorySeconds(settings) > NODE_GRAPH_WATERFALL_HISTORY_SEC_EPS);
 }
 
-function nodeGraphOnsetBufferRose(buffer, count, planck, latch) {
-  const n = buffer?.length || 0;
-  if (!n) return false;
-  const take = Math.max(1, Math.min(n, Math.floor(count) || 1));
-  const start = n - take;
-  let rose = false;
-  for (let i = start; i < n; i += 1) {
-    const loud = Math.abs(Number(buffer[i])) > planck;
-    if (loud && latch.below) rose = true;
-    latch.below = !loud;
+function nodeGraphOnsetScanEdges(buffer, fromAbs, toAbs, planck, latch, kind) {
+  let hit = -1;
+  if (!buffer || typeof nodeGraphScopeBufferSampleAtAbsoluteFrame !== "function") return hit;
+  const from = Math.floor(fromAbs);
+  const to = Math.floor(toAbs);
+  for (let frame = from; frame < to; frame += 1) {
+    const sample = nodeGraphScopeBufferSampleAtAbsoluteFrame(buffer, frame);
+    if (sample == null || !Number.isFinite(sample)) continue;
+    const hot = Math.abs(sample) > planck;
+    if (kind === "reset") {
+      if (hot && !latch.hi) hit = frame;
+      latch.hi = hot;
+    } else if (hot && latch.below) {
+      hit = frame;
+      latch.below = false;
+    } else if (!hot) {
+      latch.below = true;
+    }
   }
-  return rose;
+  return hit;
 }
 
-function nodeGraphOnsetResetRose(buffer, count, planck, latch) {
-  const n = buffer?.length || 0;
-  if (!n) return false;
-  const take = Math.max(1, Math.min(n, Math.floor(count) || 1));
-  const start = n - take;
-  let rose = false;
-  for (let i = start; i < n; i += 1) {
-    const hi = Math.abs(Number(buffer[i])) > planck;
-    if (hi && !latch.hi) rose = true;
-    latch.hi = hi;
+function nodeGraphOnsetPaint(spec, live) {
+  const canvas = spec.canvas;
+  const settings = spec.settings;
+  const width = Math.max(1, canvas.width);
+  const height = Math.max(1, canvas.height);
+  const onset = canvas._onset || (canvas._onset = {
+    origin: NaN,
+    drawn: NaN,
+    parked: false,
+    live: false,
+    below: true,
+    resetHi: false,
+    scanned: NaN,
+    right: { below: true },
+  });
+  const absEnd = typeof nodeGraphScopeBufferAbsoluteFrame === "function"
+    ? nodeGraphScopeBufferAbsoluteFrame(live)
+    : 0;
+  const retained = typeof nodeGraphScopeAvailableSampleCount === "function"
+    ? nodeGraphScopeAvailableSampleCount(live)
+    : (live.length || 0);
+  const absStart = Math.max(0, absEnd - retained);
+  const planck = nodeGraphWaterfallPlanck();
+  const scanFrom = Number.isFinite(onset.scanned) ? Math.max(absStart, onset.scanned) : absStart;
+  const id = String(spec?.slot?.nodeId || "");
+  const resetBuf = id && nodeGraphModuleScopeState?.buffers
+    ? nodeGraphModuleScopeState.buffers.get(`${id}:Reset`)
+    : null;
+  const resetHit = nodeGraphOnsetScanEdges(resetBuf, scanFrom, absEnd, planck, onset, "reset");
+  let signalHit = nodeGraphOnsetScanEdges(live, scanFrom, absEnd, planck, onset, "signal");
+  const right = spec.stereoBuffers?.right;
+  if (right && right !== live) {
+    const rightHit = nodeGraphOnsetScanEdges(right, scanFrom, absEnd, planck, onset.right, "signal");
+    if (rightHit >= 0 && (signalHit < 0 || rightHit > signalHit)) signalHit = rightHit;
   }
-  return rose;
+  onset.scanned = absEnd;
+  const armAt = resetHit >= 0
+    ? resetHit
+    : (signalHit >= 0 && (onset.parked || !onset.live) ? signalHit : -1);
+  if (armAt >= 0) {
+    if (typeof nodeGraphWaterfallGlReset === "function") {
+      nodeGraphWaterfallGlReset(canvas, spec.bg);
+    }
+    onset.origin = armAt;
+    onset.drawn = armAt;
+    onset.parked = false;
+    onset.live = true;
+    onset.lastPixel = -1;
+    onset.edge = Object.create(null);
+  }
+  const node = typeof nodeGraphModuleScopeNodeForSlot === "function"
+    ? nodeGraphModuleScopeNodeForSlot(spec.slot)
+    : null;
+  let position = typeof nodeGraphModuleScopeNodeParam === "function"
+    ? nodeGraphModuleScopeNodeParam(node, "position", 0)
+    : 0;
+  if (!Number.isFinite(position)) position = 0;
+  position = Math.max(0, Math.min(1, position));
+  const positionX = position >= 1 ? width - 1 : position * width;
+  const present = () => {
+    nodeGraphWaterfallPresentHold(spec.context, canvas, spec.bg);
+    if (typeof nodeGraphOnsetGlPositionLine === "function") {
+      nodeGraphOnsetGlPositionLine(canvas, positionX);
+    }
+    nodeGraphWaterfallFinishOutputInk(spec, spec.context, canvas, 0);
+    if (typeof rememberNodeGraphTraceDisplaySignature === "function") {
+      rememberNodeGraphTraceDisplaySignature(spec.slot, spec.item, live, settings);
+    }
+  };
+  if (!onset.live || !Number.isFinite(onset.origin)) {
+    present();
+    return true;
+  }
+  const hz = nodeGraphWaterfallVisualHz(live);
+  const history = nodeGraphWaterfallHistorySeconds(settings);
+  const faceSamples = Math.max(1, Math.round(hz * Math.max(history, 0)));
+  const endDraw = Math.min(absEnd, onset.origin + faceSamples);
+  if (!(endDraw > onset.drawn)) {
+    if (endDraw >= onset.origin + faceSamples) onset.parked = true;
+    present();
+    return true;
+  }
+  const blendMode = nodeGraphWaterfallBlendMode(settings, { rgbGuns: Boolean(spec?.rgbBuffers) });
+  const plateBg = blendMode === "multiply" ? "#ffffff" : (spec.bg || "#000000");
+  if (typeof nodeGraphWaterfallGlEnsure === "function") {
+    nodeGraphWaterfallGlEnsure(canvas, plateBg);
+  }
+  const channels = nodeGraphWaterfallChannelList({
+    slot: spec.slot,
+    settings,
+    buffer: live,
+    stereoBuffers: spec.stereoBuffers,
+  }, settings).filter((ch) => ch.enabled !== false);
+  let stampComposite = "source-over";
+  if (blendMode === "lighter" || blendMode === "screen" || blendMode === "multiply") stampComposite = blendMode;
+  else if (blendMode === "combine" || blendMode === "meet") stampComposite = "lighter";
+  const startPx = Math.floor(position * width) % width;
+  const p1 = Math.max(0, Math.min(width, Math.floor(((endDraw - onset.origin) / faceSamples) * width)));
+  let p = Number.isFinite(onset.lastPixel) ? onset.lastPixel + 1 : 0;
+  const useFill = nodeGraphWaterfallBarsFilled(settings);
+  const useStroke = nodeGraphWaterfallDrawStroke(settings);
+  while (p < p1) {
+    const s0 = Math.floor(onset.origin + (p / width) * faceSamples);
+    const s1 = Math.max(s0 + 1, Math.ceil(onset.origin + ((p + 1) / width) * faceSamples));
+    const screenX = (startPx + p) % width;
+    const seam = p > 0 && screenX === 0;
+    for (let i = 0; i < channels.length; i += 1) {
+      const ch = channels[i];
+      const buf = ch.buffer;
+      let minV = Infinity;
+      let maxV = -Infinity;
+      for (let s = s0; s < s1; s += 1) {
+        const v = nodeGraphScopeBufferSampleAtAbsoluteFrame(buf, s);
+        if (v == null || !Number.isFinite(v)) continue;
+        if (v < minV) minV = v;
+        if (v > maxV) maxV = v;
+      }
+      if (!(minV <= maxV) || typeof nodeGraphWaterfallGlStampBar !== "function") continue;
+      const ys = nodeGraphWaterfallAccBarYs(
+        { has: true, min: minV, max: maxV },
+        buf, spec.slot, settings, height,
+      );
+      if (!ys) continue;
+      const prev = !seam && onset.edge ? onset.edge[ch.lastYKey] : null;
+      const rgb = useFill
+        ? nodeGraphWaterfallParseInkRgb(ch.color)
+        : nodeGraphWaterfallStrokeRgb(settings);
+      nodeGraphWaterfallGlStampBar(
+        canvas,
+        screenX,
+        1,
+        ys,
+        prev,
+        Boolean(prev),
+        nodeGraphWaterfallScaleRgb(rgb, nodeGraphWaterfallClamp01(useFill ? (ch.bright ?? 1) : 1, 1)),
+        i === 0 && stampComposite !== "multiply" ? "source-over" : stampComposite,
+        1,
+        true,
+        useFill && useStroke
+          ? { on: true, px: nodeGraphWaterfallStrokePx(settings), rgb: nodeGraphWaterfallStrokeRgb(settings) }
+          : null,
+      );
+      if (!onset.edge) onset.edge = Object.create(null);
+      onset.edge[ch.lastYKey] = { y0: ys.y0, y1: ys.y1 };
+    }
+    p += 1;
+  }
+  onset.lastPixel = p1 - 1;
+  onset.drawn = endDraw;
+  if (endDraw >= onset.origin + faceSamples) onset.parked = true;
+  present();
+  return true;
 }
 
 /** Planck amplitude. Same constant as nodeGraphPlanck / NODE_GRAPH_PLANCK. */
@@ -1769,6 +1917,12 @@ function nodeGraphWaterfallPaint(spec) {
         ? (nodeGraphWaterfallPrepare(spec.stereoBuffers.left, settings) || spec.buffer)
         : (nodeGraphWaterfallPrepare(spec.buffer, settings) || spec.buffer);
   if (!live?.length) return false;
+  const onsetDef = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[spec?.slot?.type]
+    : null;
+  if (onsetDef?.onsetPark === true) {
+    return nodeGraphOnsetPaint(spec, live);
+  }
 
   const blendMode = nodeGraphWaterfallBlendMode(settings, { rgbGuns: Boolean(spec?.rgbBuffers) });
   const st = nodeGraphWaterfallState(
@@ -1814,14 +1968,10 @@ function nodeGraphWaterfallPaint(spec) {
     return true;
   }
 
-  const onsetDef = typeof nodeGraphModuleDefinitions === "object"
-    ? nodeGraphModuleDefinitions[spec?.slot?.type]
-    : null;
-  const onsetPark = onsetDef?.onsetPark === true;
   const history = nodeGraphWaterfallHistorySeconds(settings);
   // Pause on silence: keep the hold. No scroll, no new columns.
   // Eat the silent window so it does not burst-scroll when sound returns.
-  if (!onsetPark && nodeGraphWaterfallPauseOnSilence(settings)
+  if (nodeGraphWaterfallPauseOnSilence(settings)
     && nodeGraphWaterfallIncomingIsSilent(writeSpec, settings, window, live)) {
     if (Number.isFinite(window.absEnd) && window.count > 0) {
       st.lastAbs = window.absEnd;
@@ -1830,51 +1980,6 @@ function nodeGraphWaterfallPaint(spec) {
     nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
     remember();
     return true;
-  }
-  const onset = onsetPark
-    ? (canvas._onset || (canvas._onset = { filled: 0, parked: false, live: false, below: true, resetHi: false }))
-    : null;
-  if (onset) {
-    const planck = nodeGraphWaterfallPlanck();
-    const count = Math.max(1, window.count || 1);
-    const id = String(spec?.slot?.nodeId || "");
-    const resetBuf = id && nodeGraphModuleScopeState?.buffers
-      ? nodeGraphModuleScopeState.buffers.get(`${id}:Reset`)
-      : null;
-    const resetRose = nodeGraphOnsetResetRose(resetBuf, count, planck, onset);
-    let signalRose = nodeGraphOnsetBufferRose(live, count, planck, onset);
-    const right = spec.stereoBuffers?.right;
-    if (right && right !== live) {
-      const rightLatch = onset.right || (onset.right = { below: true });
-      if (nodeGraphOnsetBufferRose(right, count, planck, rightLatch)) signalRose = true;
-    }
-    // A signal already above Planck starts the pass. A rise, or Reset, starts
-    // another. Do not swallow the scope ring as one pass — that parks on a
-    // blank plate before any column is stamped.
-    const arm = resetRose || (signalRose && (onset.parked || !onset.live));
-    if (arm) {
-      if (typeof nodeGraphWaterfallGlReset === "function") {
-        nodeGraphWaterfallGlReset(canvas, spec.bg);
-      }
-      onset.filled = 0;
-      onset.parked = false;
-      onset.live = true;
-      st.colPx = 0;
-      st.pxCarry = 0;
-      st.barAcc = Object.create(null);
-      st.edge = Object.create(null);
-      const keep = Math.max(1, Math.min(window.count || 1, 2048));
-      window.count = keep;
-      window.start = Math.max(0, (window.end || live.length) - keep);
-      if (Number.isFinite(window.absEnd)) st.lastAbs = Math.max(0, window.absEnd - keep);
-    }
-    if (!onset.live || onset.parked) {
-      if (Number.isFinite(window.absEnd) && window.count > 0) st.lastAbs = window.absEnd;
-      nodeGraphWaterfallPresentHold(context, canvas, spec.bg);
-      nodeGraphWaterfallFinishOutputInk(spec, context, canvas, 0);
-      remember();
-      return true;
-    }
   }
   const hz = nodeGraphWaterfallVisualHz(live);
 
@@ -1901,7 +2006,7 @@ function nodeGraphWaterfallPaint(spec) {
   let advancePx = (shown / faceSamples) * width;
   if (advancePx > width) advancePx = width;
   const maxPx = Math.max(1, width);
-  if (!onset && advancePx >= width - 1e-3) {
+  if (advancePx >= width - 1e-3) {
     st.colPx = 0;
     st.pxCarry = 0;
     st.barAcc = Object.create(null);
@@ -1914,17 +2019,6 @@ function nodeGraphWaterfallPaint(spec) {
   let movePx = Math.floor(st.pxCarry + 1e-6);
   if (movePx < 0) movePx = 0;
   if (movePx > maxPx) movePx = maxPx;
-  let onsetOrigin = 0;
-  if (onset) {
-    const room = Math.max(0, width - onset.filled);
-    if (movePx > room) movePx = room;
-    onsetOrigin = onset.filled;
-    onset.filled += movePx;
-    if (onset.filled >= width - 0.5) {
-      onset.filled = width;
-      onset.parked = true;
-    }
-  }
   const leadPx = Math.max(0, movePx - framePx);
   st.pxCarry = Math.max(0, st.pxCarry - movePx);
   canvas._wfSubPx = st.pxCarry;
@@ -1967,8 +2061,6 @@ function nodeGraphWaterfallPaint(spec) {
     colPx: st.colPx,
     barAcc: st.barAcc,
     leadPx,
-    scroll: !onset,
-    originX: onsetOrigin,
   });
   nodeGraphWaterfallFinishOutputInk(spec, context, canvas, movePx);
   remember();

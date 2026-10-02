@@ -402,6 +402,18 @@ void resetPhases(HyperpluckState& s) {
   }
 }
 
+void publishVoicesMono(HyperpluckState& s, int voiceCount, double lastFrac, double multiply) {
+  const double ref = playbackPhase(s.voices[0], multiply);
+  int n = 0;
+  for (int i = 0; i < voiceCount && n < kMaxVoices * 2; i++) {
+    s.publishX[n] = relativePhaseFaceX(s.voices[i], ref, multiply);
+    s.publishPan[n] = 0.0;
+    s.publishAmp[n] = (lastFrac > 0.0 && i == voiceCount - 1) ? lastFrac : 1.0;
+    n += 1;
+  }
+  s.publishCount = n;
+}
+
 void publishVoicesDual(HyperpluckState& s, int voiceCount, double lastFrac, double multiply) {
   const double ref = playbackPhase(s.voices[0], multiply);
   int n = 0;
@@ -491,7 +503,9 @@ extern "C" void soemdsp_hyperpluck_process_block(
   const double nyquist = 0.5 * safeSampleRate;
   if (hzCeil > nyquist) hzCeil = nyquist;
   if (!(hzCeil > 0.0)) hzCeil = nyquist > 0.0 ? nyquist : 20000.0;
-  const int mode = (safe(stereoMode) >= 0.5) ? 1 : 0;
+  int mode = static_cast<int>(floorD(safe(stereoMode) + 0.5));
+  if (mode < 0) mode = 0;
+  if (mode > 2) mode = 2;
   int algo = static_cast<int>(floorD(safe(detuneAlgorithm) + 0.5));
   if (algo < 0) algo = 0;
   if (algo >= kDetuneAlgoCount) algo = kDetuneAlgoCount - 1;
@@ -543,6 +557,8 @@ extern "C" void soemdsp_hyperpluck_process_block(
     double right = 0.0;
     double normL = 0.0;
     double normR = 0.0;
+    double mix = 0.0;
+    double normM = 0.0;
     for (int i = 0; i < voiceCount; i++) {
       VoiceState& v = s.voices[i];
       double hz = safeFrequency + v.hzOffset;
@@ -557,12 +573,7 @@ extern "C" void soemdsp_hyperpluck_process_block(
       v.phase = wrap01(v.phase + inc);
       double amp = 1.0;
       if (lastFrac > 0.0 && i == voiceCount - 1) amp = lastFrac;
-      if (mode == 0) {
-        left += y * amp;
-        right += y * amp;
-        normL += amp;
-        normR += amp;
-      } else {
+      if (mode == 2) {
         const double pan = alternatingPan(i, voiceCount);
         if (pan < -0.25) {
           left += y * amp;
@@ -576,10 +587,19 @@ extern "C" void soemdsp_hyperpluck_process_block(
           normL += amp * 0.5;
           normR += amp * 0.5;
         }
+      } else {
+        mix += y * amp;
+        normM += amp;
       }
     }
-    left *= bankMixScale(normL);
-    right *= bankMixScale(normR);
+    if (mode != 2) {
+      const double scaled = mix * bankMixScale(normM);
+      left = scaled;
+      right = scaled;
+    } else {
+      left *= bankMixScale(normL);
+      right *= bankMixScale(normR);
+    }
     if (!(left * 0.0 == 0.0)) left = 0.0;
     if (!(right * 0.0 == 0.0)) right = 0.0;
     const double outLeft = clamp(left, -1.5, 1.5) * safeLevel;
@@ -592,7 +612,8 @@ extern "C" void soemdsp_hyperpluck_process_block(
     s.outRight = outRight;
     s.outMono = outMono;
   }
-  if (mode == 0) publishVoicesDual(s, voiceCount, lastFrac, multiply);
+  if (mode == 0) publishVoicesMono(s, voiceCount, lastFrac, multiply);
+  else if (mode == 1) publishVoicesDual(s, voiceCount, lastFrac, multiply);
   else publishVoicesAlternating(s, voiceCount, lastFrac, multiply);
 }
 

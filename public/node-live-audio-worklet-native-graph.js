@@ -366,6 +366,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   load: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   stages: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES,
   center: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
+  sweep: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
   threshold: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
   knee: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   width: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
@@ -2152,6 +2153,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
 
       // Audio→param MOD = ParamModEdge (orders src before dst; stamps each sample).
       // Controllers stay on quantum set_param_mod. clear_connections already wiped edges.
+      if (typeof this.syncNativeGraphParams === "function") {
+        this.syncNativeGraphParams(128, true);
+      }
       if (typeof native.soemdsp_graph_clear_param_mod_edges === "function") {
         try {
           native.soemdsp_graph_clear_param_mod_edges(this.nativeGraphHandle);
@@ -2190,9 +2194,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
             && (paramKey === "octave" || paramKey === "semitones");
           if (discrete[paramKey] && !continuousPitchManagerOverride && !continuousFreqManagerOverride) return;
           if (zohOnlyTypes.has(dstType)) return;
-          const paramId = typeof this.mapNativeGraphParamId === "function"
-            ? this.mapNativeGraphParamId(dstType, paramKey)
-            : (NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS || {})[paramKey];
+          const paramId = this.requireNativeParamIdForMod(dstType, paramKey);
           if (!Number.isFinite(paramId)) return;
           if (!Array.isArray(mods)) return;
           for (let i = 0; i < mods.length; i += 1) {
@@ -3103,9 +3105,7 @@ NodeLiveAudioProcessor.prototype.compileNativeMetaVoiceCircuits = function compi
       const continuousFreqManagerOverride = dstType === "fm"
         && (paramKey === "octave" || paramKey === "semitones");
       if (!dstLane || (discrete[paramKey] && !continuousPitchManagerOverride && !continuousFreqManagerOverride)) return;
-      const paramId = typeof this.mapNativeGraphParamId === "function"
-        ? this.mapNativeGraphParamId(dstType, paramKey)
-        : keyIds[paramKey];
+      const paramId = this.requireNativeParamIdForMod(dstType, paramKey);
       if (!Number.isFinite(paramId)) return;
       const arr = Array.isArray(list) ? list : [];
       for (let i = 0; i < arr.length; i += 1) {
@@ -3719,12 +3719,51 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
  * Efficient path must not sample JS smoothers — native SmootherManager chases.
  * Only pushes when the domain target / time changed (dirty cache).
  */
-NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGraphParams(_frames = 128) {
-  if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
+NodeLiveAudioProcessor.prototype.noteNativeParamId = function noteNativeParamId(type, key, paramId) {
+  if (!this._nativeParamIdsByType) this._nativeParamIdsByType = new Map();
+  const t = String(type || "");
+  const k = String(key || "");
+  if (!t || !k || !Number.isFinite(Number(paramId))) return;
+  let table = this._nativeParamIdsByType.get(t);
+  if (!table) {
+    table = Object.create(null);
+    this._nativeParamIdsByType.set(t, table);
+  }
+  table[k] = paramId | 0;
+};
+
+NodeLiveAudioProcessor.prototype.lookupNativeParamId = function lookupNativeParamId(type, key) {
+  const t = String(type || "");
+  const k = String(key || "");
+  const table = this._nativeParamIdsByType?.get?.(t);
+  const fromPush = table ? table[k] : undefined;
+  if (Number.isFinite(fromPush)) return fromPush | 0;
+  if (typeof this.mapNativeGraphParamId === "function") {
+    const fallback = this.mapNativeGraphParamId(t, k);
+    if (Number.isFinite(fallback)) return fallback | 0;
+  }
+  return undefined;
+};
+
+NodeLiveAudioProcessor.prototype.requireNativeParamIdForMod = function requireNativeParamIdForMod(type, key) {
+  const id = this.lookupNativeParamId(type, key);
+  if (Number.isFinite(id)) return id | 0;
+  const msg = `ParamModEdge: no native Control id for ${type}.${key}`;
+  try {
+    this.postNativeGraphStatus?.("error", msg);
+  } catch (_e) { /* ignore */ }
+  try {
+    this.port?.postMessage?.({ type: "nativeGraphError", message: msg });
+  } catch (_e2) { /* ignore */ }
+  return undefined;
+};
+
+NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGraphParams(_frames = 128, collectOnly = false) {
+  if (!collectOnly && (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle)) {
     return;
   }
   const native = this.nativeGraph;
-  if (!native?.soemdsp_graph_set_param) {
+  if (!collectOnly && !native?.soemdsp_graph_set_param) {
     return;
   }
   const P = NodeLiveAudioProcessor;
@@ -3737,7 +3776,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
   this._nativeGraphParamCacheCold = false;
 
   // Optional global time cell from worklet autoSmoothingSeconds.
-  if (native.soemdsp_graph_set_global_smooth_time) {
+  if (!collectOnly && native.soemdsp_graph_set_global_smooth_time) {
     const rate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate || sampleRate, 44100));
     const seconds = Math.max(0, nodeGraphFiniteNumber(this.autoSmoothingSeconds));
     const globalSamples = seconds > 0 ? Math.max(1, Math.round(seconds * rate)) : 0;
@@ -3941,7 +3980,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     }
     const cont = (key, fallback) => readContinuous(node, key, fallback);
     const disc = (key, fallback) => readDiscrete(node, key, fallback);
-    const push = (key, paramId, value) => pushChanged(hash, cache, key, paramId, value, node);
+    const push = (key, paramId, value) => {
+      this.noteNativeParamId(type, key, paramId);
+      if (!collectOnly) pushChanged(hash, cache, key, paramId, value, node);
+    };
 
     if (type === "namedPortalIn" || type === "namedPortalOut") {
       const title = String(node.alias || "").trim().toLowerCase();
@@ -7546,6 +7588,9 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
 
     // Audio→param MOD = ParamModEdge (topo-orders S&H→…→atten→param before stamp).
     // Knob / keyboard stay on quantum set_param_mod when src is not in the native graph.
+    if (typeof this.syncNativeGraphParams === "function") {
+      this.syncNativeGraphParams(128, true);
+    }
     if (typeof native.soemdsp_graph_clear_param_mod_edges === "function") {
       try {
         native.soemdsp_graph_clear_param_mod_edges(this.nativeGraphHandle);
@@ -7595,9 +7640,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
           && (paramKey === "octave" || paramKey === "semitones");
         if (discrete[paramKey] && !continuousPitchManagerOverride && !continuousFreqManagerOverride) return;
         if (zohOnlyTypes.has(dstType)) return;
-        const paramId = typeof this.mapNativeGraphParamId === "function"
-          ? this.mapNativeGraphParamId(dstType, paramKey)
-          : keyIds[paramKey];
+        const paramId = this.requireNativeParamIdForMod(dstType, paramKey);
         if (!Number.isFinite(paramId)) return;
         if (!Array.isArray(mods)) return;
         for (let i = 0; i < mods.length; i += 1) {
@@ -8486,7 +8529,11 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
     const sinkType = String(sink.type || this.nodes.get(sink.nodeId)?.type || "");
     // Spectrogram FFT needs every engine sample (Nyquist = engine/2). Stress-hop
     // folded a 20 kHz sweep at ~engine/(2*stride).
-    const sinkStride = sinkType === "spectrogram" ? 1 : stride;
+    // Spectrogram and Onset need every engine sample. A stress hop of 8
+    // deletes the transient Onset exists to show.
+    const sinkStride = (sinkType === "spectrogram" || sinkType === "onset" || sinkType === "onset2d")
+      ? 1
+      : stride;
     const rateMeta = {
       sampleStride: sinkStride,
       sourceSampleRate: engineRate,

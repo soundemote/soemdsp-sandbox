@@ -15318,9 +15318,17 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 .node-graph-workspace.pixelated-canvas-zoom .node-fbm-field-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-evolve-field-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-wall-room-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-module-scope-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-matrix-display-canvas {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+}
+
+/* crisp-edges above overrides pixelated. Scope faces need nearest-neighbor
+   when zoomed in, or the fixed bitmap is bilinear-blurred by the world scale. */
+.node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-module-scope-canvas {
+  image-rendering: pixelated;
 }
 
 /*
