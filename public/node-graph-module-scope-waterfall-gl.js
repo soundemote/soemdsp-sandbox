@@ -156,8 +156,13 @@ function nodeGraphWaterfallGlEnsure(canvas, plateCss) {
   const h = Math.max(1, canvas.height | 0);
   let s = canvas._wfGlSession;
   if (s && s.gl && s.gl.isContextLost()) s = null;
-  if (s && s.w === w && s.h === h && s.gl) {
+  if (s && s.w === w && s.h === h && s.gl && s.read) {
     s.plate = nodeGraphWaterfallGlParsePlate(plateCss);
+    return s;
+  }
+  if (s && s.gl && s.read && s.presentProg) {
+    s.plate = nodeGraphWaterfallGlParsePlate(plateCss);
+    nodeGraphWaterfallGlResizeHistory(s, w, h);
     return s;
   }
   let gl = canvas._wfGl;
@@ -191,9 +196,6 @@ function nodeGraphWaterfallGlEnsure(canvas, plateCss) {
     -1, 1, 0, 1, 1, -1, 1, 0, 1, 1, 1, 1,
   ]), gl.STATIC_DRAW);
   const barBuf = gl.createBuffer();
-  const prev = (canvas._wfGlSession && canvas._wfGlSession !== s && canvas._wfGlSession.read)
-    ? canvas._wfGlSession
-    : null;
   s = {
     gl,
     w,
@@ -208,25 +210,67 @@ function nodeGraphWaterfallGlEnsure(canvas, plateCss) {
     barBuf,
   };
   canvas._wfGlSession = s;
-  if (prev && prev.read.tex && prev.w >= 2 && prev.h >= 2) {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, s.read.fbo);
-    gl.viewport(0, 0, w, h);
-    gl.disable(gl.BLEND);
-    nodeGraphWaterfallGlBindQuad(gl, s, s.presentProg);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, prev.read.tex);
-    gl.uniform1i(gl.getUniformLocation(s.presentProg, "uTex"), 0);
-    nodeGraphWaterfallGlDrawQuad(s);
-    gl.deleteTexture(prev.read.tex);
-    gl.deleteFramebuffer(prev.read.fbo);
-    if (prev.write) {
-      gl.deleteTexture(prev.write.tex);
-      gl.deleteFramebuffer(prev.write.fbo);
-    }
-  } else {
-    nodeGraphWaterfallGlClearRead(s);
-  }
+  nodeGraphWaterfallGlClearRead(s);
   return s;
+}
+
+function nodeGraphWaterfallGlDropTarget(gl, target) {
+  if (!gl || !target) return;
+  if (target.tex) gl.deleteTexture(target.tex);
+  if (target.fbo) gl.deleteFramebuffer(target.fbo);
+}
+
+// Stretch the existing history into a new texture size. A failed copy keeps
+// the old texture. An empty plate is only for a session that has no history yet.
+function nodeGraphWaterfallGlResizeHistory(s, w, h) {
+  if (!s?.gl || !s.read?.tex || !s.presentProg) return false;
+  if (s.w === w && s.h === h) return true;
+  const gl = s.gl;
+  const nextRead = nodeGraphWaterfallGlMakeTarget(gl, w, h);
+  const nextWrite = nodeGraphWaterfallGlMakeTarget(gl, w, h);
+  const oldRead = s.read;
+  const oldWrite = s.write;
+  const oldW = s.w;
+  const oldH = s.h;
+  s.read = nextRead;
+  s.write = nextWrite;
+  s.w = w;
+  s.h = h;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, nextRead.fbo);
+  const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+  if (!complete || !nodeGraphWaterfallGlCopyHistory(s, oldRead.tex)) {
+    nodeGraphWaterfallGlDropTarget(gl, nextRead);
+    nodeGraphWaterfallGlDropTarget(gl, nextWrite);
+    s.read = oldRead;
+    s.write = oldWrite;
+    s.w = oldW;
+    s.h = oldH;
+    return false;
+  }
+  nodeGraphWaterfallGlDropTarget(gl, oldRead);
+  nodeGraphWaterfallGlDropTarget(gl, oldWrite);
+  return true;
+}
+
+function nodeGraphWaterfallGlCopyHistory(s, srcTex) {
+  const gl = s.gl;
+  if (!srcTex) return false;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, s.read.fbo);
+  gl.viewport(0, 0, s.w, s.h);
+  gl.disable(gl.BLEND);
+  gl.disable(gl.SCISSOR_TEST);
+  nodeGraphWaterfallGlFilter(gl, srcTex, true);
+  nodeGraphWaterfallGlBindQuad(gl, s, s.presentProg);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, srcTex);
+  gl.uniform1i(gl.getUniformLocation(s.presentProg, "uTex"), 0);
+  const sizeLoc = gl.getUniformLocation(s.presentProg, "uSize");
+  if (sizeLoc) gl.uniform2f(sizeLoc, s.w, s.h);
+  const subLoc = gl.getUniformLocation(s.presentProg, "uSub");
+  if (subLoc) gl.uniform1f(subLoc, 0);
+  nodeGraphWaterfallGlDrawQuad(s);
+  nodeGraphWaterfallGlFilter(gl, srcTex, false);
+  return true;
 }
 
 function nodeGraphWaterfallGlBindQuad(gl, s, prog) {
@@ -401,10 +445,6 @@ function nodeGraphWaterfallGlScroll(canvas, px, plateCss) {
   const shift = Math.round(Number(px) || 0);
   if (shift < 1) return true;
   const gl = s.gl;
-  if (shift >= s.w) {
-    nodeGraphWaterfallGlClearRead(s);
-    return true;
-  }
   gl.bindFramebuffer(gl.FRAMEBUFFER, s.write.fbo);
   gl.viewport(0, 0, s.w, s.h);
   gl.disable(gl.BLEND);

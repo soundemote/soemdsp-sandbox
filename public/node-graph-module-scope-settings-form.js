@@ -1371,6 +1371,9 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   const xyzInk = isXyzWaterfallNode && type === "waterfall";
   const rgbInk = type === "waterfallRgb";
   const stereoInk = isStereoWaterfallNode && type === "waterfall" && !xyzInk;
+  // Output, stereo waterfall, mono waterfall, and onset share this form.
+  // XYZ and RGB stay on their own rows.
+  const quadInk = type === "waterfall" && !xyzInk;
   const inkHueTitle = false;
   // Preview sits after Bright when present (RGB); otherwise after Size.
   const previewAfter = orderedPrimary.includes("dot1Brightness")
@@ -1479,7 +1482,7 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   if (isInstantWaterfall && orderedPrimary.includes("strokeThickness")) {
     rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml("strokeThickness", type));
   }
-  if (isInstantWaterfall && activeColors.has("strokeColor") && allow("colors", "strokeColor")) {
+  if (isInstantWaterfall && !quadInk && activeColors.has("strokeColor") && allow("colors", "strokeColor")) {
     rows.push(nodeGraphDisplaySettingsBuildColorRowHtml("strokeColor", type));
   }
   if (isInstantWaterfall && toggleKeys.includes("pauseOnSilence")) {
@@ -1580,7 +1583,17 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     && inkColors.includes("dot1Color")
     && inkColors.includes("secondaryColor")
     && inkColors.includes("tertiaryColor");
-  if (xyzColorTriple) {
+  if (quadInk) {
+    rows.push(`
+      <div class="node-trace-display-lr-row node-trace-display-lr-color-row" data-trace-display-lr-row>
+        <div class="node-trace-display-lr-pair is-quad">
+          ${nodeGraphDisplaySettingsBuildColorRowHtml("backgroundColor", type)}
+          ${nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type)}
+          ${nodeGraphDisplaySettingsBuildColorRowHtml("secondaryColor", type)}
+          ${nodeGraphDisplaySettingsBuildColorRowHtml("strokeColor", type)}
+        </div>
+      </div>`);
+  } else if (xyzColorTriple) {
     rows.push(`
       <div class="node-trace-display-lr-row node-trace-display-lr-color-row" data-trace-display-lr-row>
         <div class="node-trace-display-lr-pair is-xyz">
@@ -1599,6 +1612,9 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
       </div>`);
   }
   for (const key of inkColors) {
+    if (quadInk && (key === "backgroundColor" || key === "dot1Color" || key === "secondaryColor" || key === "strokeColor")) {
+      continue;
+    }
     if (xyzColorTriple && (key === "dot1Color" || key === "secondaryColor" || key === "tertiaryColor")) {
       continue;
     }

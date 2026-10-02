@@ -20187,6 +20187,11 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   gap: 0;
 }
 
+.node-trace-display-lr-pair.is-quad {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0;
+}
+
 /* Cap plate size; shrink with the column so 3-up RGB/XYZ never clip the right edge. */
 .node-trace-display-preview-shell.is-stereo .node-trace-display-dot-preview,
 .node-trace-display-preview-shell.is-xyz .node-trace-display-dot-preview,
