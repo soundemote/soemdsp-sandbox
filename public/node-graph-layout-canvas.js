@@ -714,21 +714,25 @@ function toggleNodeGraphLayoutCanvasView(options = {}) {
   return nodeGraphLayoutCanvasClose(options);
 }
 
+function nodeGraphLayoutCanvasSelectionIds() {
+  const ordered = typeof nodeGraphSelectedNodeIdsInOrder === "function"
+    ? nodeGraphSelectedNodeIdsInOrder()
+    : [];
+  return ordered.map((id) => String(id || "").trim()).filter(Boolean);
+}
+
 function syncNodeGraphLayoutCanvasSettingsControl() {
   const input = document.getElementById("nodeLayoutCanvasShowInCanvas");
   if (!(input instanceof HTMLInputElement)) {
     return;
   }
-  const id = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
-    ? String(nodeGraphTraceDisplaySettingsTargetNodeId() || "").trim()
-    : String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
-  const hasTarget = Boolean(id && typeof nodeGraphPatchNode === "function" && nodeGraphPatchNode(id));
-  input.disabled = !hasTarget;
-  input.checked = hasTarget && nodeGraphLayoutCanvasIsPinned(id);
+  const ids = nodeGraphLayoutCanvasSelectionIds();
+  input.disabled = !ids.length;
+  input.checked = ids.length > 0 && ids.every((id) => nodeGraphLayoutCanvasIsPinned(id));
   const row = input.closest("label") || input.parentElement;
   if (row) {
     row.hidden = false;
-    row.classList.toggle("is-disabled", !hasTarget);
+    row.classList.toggle("is-disabled", !ids.length);
   }
 }
 
@@ -894,20 +898,9 @@ function bindNodeGraphLayoutCanvasSettingsControl() {
     // Not a display-settings field. Do not let the popover change listener
     // treat this as a full-form edit (B-085).
     event.stopPropagation();
-    const fromSelection = typeof nodeGraphTraceDisplaySettingsActiveTargetIds === "function"
-      ? nodeGraphTraceDisplaySettingsActiveTargetIds()
-      : [];
-    const popoverId = String(
-      document.getElementById("nodeTraceDisplaySettingsPopover")?.dataset?.displaySettingsTargetNode || "",
-    ).trim();
-    const fallback = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
-      ? String(nodeGraphTraceDisplaySettingsTargetNodeId() || "").trim()
-      : String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
-    const ids = (Array.isArray(fromSelection) && fromSelection.length ? fromSelection : [fallback || popoverId])
-      .map((id) => String(id || "").trim())
-      .filter(Boolean);
+    const ids = nodeGraphLayoutCanvasSelectionIds();
     if (!ids.length) {
-      input.checked = !input.checked;
+      input.checked = false;
       return;
     }
     const pinned = input.checked;

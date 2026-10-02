@@ -323,6 +323,9 @@ function openNodeGraphKeyboardControllerDisplaySettings(event = {}) {
       nodeId = String(placed.id);
     }
   }
+  if (nodeId && typeof ensureNodeGraphModuleSelectedForContext === "function") {
+    ensureNodeGraphModuleSelectedForContext(nodeId, event);
+  }
   const existingPopover = document.getElementById("nodeTraceDisplaySettingsPopover");
   if (
     existingPopover
@@ -381,6 +384,9 @@ function openNodeGraphKeyboardControllerDisplaySettings(event = {}) {
     applyNodeGraphTraceDisplaySettingsWindowSize(sharedInspectorState.size);
   }
   popover.hidden = false;
+  if (typeof syncNodeGraphLayoutCanvasSettingsControl === "function") {
+    syncNodeGraphLayoutCanvasSettingsControl();
+  }
   if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
     noteNodeGraphUnifiedWindowOpened("traceDisplaySettings", popover);
   }
