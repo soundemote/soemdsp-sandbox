@@ -191,6 +191,9 @@ function nodeGraphWaterfallGlEnsure(canvas, plateCss) {
     -1, 1, 0, 1, 1, -1, 1, 0, 1, 1, 1, 1,
   ]), gl.STATIC_DRAW);
   const barBuf = gl.createBuffer();
+  const prev = (canvas._wfGlSession && canvas._wfGlSession !== s && canvas._wfGlSession.read)
+    ? canvas._wfGlSession
+    : null;
   s = {
     gl,
     w,
@@ -205,7 +208,24 @@ function nodeGraphWaterfallGlEnsure(canvas, plateCss) {
     barBuf,
   };
   canvas._wfGlSession = s;
-  nodeGraphWaterfallGlClearRead(s);
+  if (prev && prev.read.tex && prev.w >= 2 && prev.h >= 2) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, s.read.fbo);
+    gl.viewport(0, 0, w, h);
+    gl.disable(gl.BLEND);
+    nodeGraphWaterfallGlBindQuad(gl, s, s.presentProg);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, prev.read.tex);
+    gl.uniform1i(gl.getUniformLocation(s.presentProg, "uTex"), 0);
+    nodeGraphWaterfallGlDrawQuad(s);
+    gl.deleteTexture(prev.read.tex);
+    gl.deleteFramebuffer(prev.read.fbo);
+    if (prev.write) {
+      gl.deleteTexture(prev.write.tex);
+      gl.deleteFramebuffer(prev.write.fbo);
+    }
+  } else {
+    nodeGraphWaterfallGlClearRead(s);
+  }
   return s;
 }
 

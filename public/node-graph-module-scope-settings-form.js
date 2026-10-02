@@ -1440,6 +1440,9 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml("stereoBlend"));
     usedChoices.add("stereoBlend");
   }
+  if (isInstantWaterfall && (orderedPrimary.includes("scale") || activeFields.has("scale"))) {
+    rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml("scale", type));
+  }
   // Instant Waterfall: History (seconds) only. Other faces may still swap to Cycles.
   if (orderedPrimary.includes("historySeconds") || orderedPrimary.includes("historyCycles")
     || orderedPrimary.includes("historyHz")) {

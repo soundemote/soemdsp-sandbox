@@ -289,6 +289,27 @@ function syncNodeGraphModuleScopeFaceCanvas(canvas, screenElement, pixelRatio, p
   return syncNodeGraphModuleScopeFaceCanvasTape(canvas, screenElement, pixelRatio, pixelDensity);
 }
 
+function nodeGraphFaceCanvasResizeKeep(canvas, width, height) {
+  const previousWidth = canvas.width;
+  const previousHeight = canvas.height;
+  const webglFace = canvas._wfUseWebGL === true || Boolean(canvas._wfGl);
+  let previousCanvas = null;
+  if (!webglFace && previousWidth >= 2 && previousHeight >= 2) {
+    previousCanvas = document.createElement("canvas");
+    previousCanvas.width = previousWidth;
+    previousCanvas.height = previousHeight;
+    const previousContext = previousCanvas.getContext("2d");
+    if (previousContext) previousContext.drawImage(canvas, 0, 0);
+  }
+  canvas.width = width;
+  canvas.height = height;
+  if (!previousCanvas) return;
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  context.imageSmoothingEnabled = true;
+  context.drawImage(previousCanvas, 0, 0, previousWidth, previousHeight, 0, 0, width, height);
+}
+
 function syncNodeGraphModuleScopeFaceCanvasTape(canvas, screenElement, pixelRatio, pixelDensity = 1) {
   const size = typeof nodeGraphModuleScopeFaceBackingSize === "function"
     ? nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio)
@@ -335,17 +356,9 @@ function syncNodeGraphModuleScopeFaceCanvasTape(canvas, screenElement, pixelRati
     }
   }
   let resized = false;
-  // A live plate keeps its bitmap. Assigning canvas.width clears it.
-  // Canvas-mode and zoom change the CSS box; that box scales this bitmap.
-  // Do not copy the old picture into a new size to "fix" the stretch.
-  if (canvas.width >= 2 && canvas.height >= 2) {
-    width = canvas.width;
-    height = canvas.height;
-  }
   if (canvas.width !== width || canvas.height !== height) {
     resized = true;
-    canvas.width = width;
-    canvas.height = height;
+    nodeGraphFaceCanvasResizeKeep(canvas, width, height);
     canvas._nodeGraphScope2dLastDrawnPoint = null;
   }
   if (density < 0.999) {
@@ -389,14 +402,9 @@ function syncNodeGraphModuleScopeFaceCanvasBurn(canvas, screenElement, pixelRati
       height = Math.max(72, height);
     }
   }
-  if (canvas.width >= 2 && canvas.height >= 2) {
-    width = canvas.width;
-    height = canvas.height;
-  }
   const resized = canvas.width !== width || canvas.height !== height;
   if (resized) {
-    canvas.width = width;
-    canvas.height = height;
+    nodeGraphFaceCanvasResizeKeep(canvas, width, height);
     canvas._nodeGraphScope2dLastDrawnPoint = null;
     canvas._phosphorLiveOverlayPoints = null;
     canvas._phosphorLiveScratchInk = false;

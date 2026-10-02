@@ -283,6 +283,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // Instant Waterfall waterfalls: shared stamp path (Size + Blur + Dot density).
   waterfall: Object.freeze({
     fields: Object.freeze([
+      "scale",
       "historySeconds",
       "detail",
       "barThickness",
@@ -476,6 +477,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   waterfallXyz: Object.freeze({
     fields: Object.freeze([
+      "scale",
       "historySeconds",
       "detail",
       "barThickness",
@@ -492,6 +494,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // 1D Waterfall RGB — Size / Blur / Dot density / Bright; RGB Add or CMY Multiply.
   waterfallRgb: Object.freeze({
     fields: Object.freeze([
+      "scale",
       "historySeconds",
       "detail",
       "barThickness",

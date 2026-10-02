@@ -914,6 +914,7 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
       source.strokeColor,
       defaults.strokeColor || "#ffffff",
     ),
+    scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale ?? 1, 0.01, 100),
     strokeThickness: normalizeNodeGraphTraceDisplayNumber(
       source.strokeThickness,
       defaults.strokeThickness ?? 1,

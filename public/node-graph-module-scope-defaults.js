@@ -157,6 +157,8 @@ const nodeGraphWaterfallSettingsDefaults = Object.freeze({
   // Sync off: History window duration in seconds (0 = pause). Sync on: cycles in view.
   // Stored separately so toggling Sync keeps both dials. Instant Waterfall only — no Hz.
   historySeconds: 0.25,
+  // 1 = ±1 fills the face. Higher enlarges the signal.
+  scale: 1,
   historyCycles: 4,
   // Alias of historySeconds for older capture paths.
   zoomSeconds: 0.25,
