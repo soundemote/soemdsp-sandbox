@@ -51,7 +51,7 @@
       "destinationNode": "acousticPluck-1",
       "destinationPort": "KT",
       "sourceNode": "keyboard-1",
-      "sourcePort": "Play Keys",
+      "sourcePort": "pitch",
       "tracePoints": []
     },
     {
@@ -65,7 +65,7 @@
       "destinationNode": "acousticPluck-2",
       "destinationPort": "KT",
       "sourceNode": "keyboard-1",
-      "sourcePort": "Play Keys",
+      "sourcePort": "pitch",
       "tracePoints": []
     },
     {

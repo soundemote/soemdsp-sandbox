@@ -1804,46 +1804,38 @@ function nodeGraphOutputDrawProtect(context, canvas, alpha, density) {
   });
 }
 
-/** Solid = dest only. Fade = dest + hold so it scrolls with Instant Waterfall. */
-function nodeGraphOutputDrawMark(destCtx, canvas, kind, alpha, density, bake) {
+function nodeGraphOutputDrawMark(destCtx, canvas, kind, alpha, density) {
   const a = Math.max(0, Math.min(1, Number(alpha)));
   if (!(a > 0.001) || !destCtx || !canvas) {
     return false;
   }
-  const paint = (ctx, target) => {
-    if (kind === "pause") {
-      paintNodeGraphOutputPauseBars(ctx, target, { alpha: a, density });
-    } else {
-      nodeGraphOutputDrawProtect(ctx, target, a, density);
-    }
-  };
-  paint(destCtx, canvas);
-  if (bake) {
-    const hold = canvas._waterfallHold;
-    const holdCtx = nodeGraphOutputHoldContext(canvas);
-    if (hold && holdCtx) {
-      paint(holdCtx, hold);
-    }
+  if (kind === "pause") {
+    paintNodeGraphOutputPauseBars(destCtx, canvas, { alpha: a, density });
+  } else {
+    nodeGraphOutputDrawProtect(destCtx, canvas, a, density);
   }
   return true;
 }
 
-function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, _options = {}) {
+function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, options = {}) {
   if (!nodeGraphOutputProtectFaceSlot(slot) || !canvas || !destCtx) {
     return false;
   }
   void settings;
+  void options;
   const now = nodeGraphOutputInkNowMs();
   const paused = nodeGraphOutputTransportIsPaused();
+  let bake = false;
   if (paused) {
     nodeGraphOutputPauseHeld = true;
     nodeGraphOutputPauseFadeUntil = 0;
-    nodeGraphOutputDrawMark(destCtx, canvas, "pause", 1, density, false);
+    nodeGraphOutputDrawMark(destCtx, canvas, "pause", 1, density);
   } else {
     nodeGraphOutputBeginPauseFade();
     if (nodeGraphOutputPauseFadeUntil > now) {
       const fade = Math.max(0, Math.min(1, (nodeGraphOutputPauseFadeUntil - now) / NODE_GRAPH_OUTPUT_PAUSE_FADE_MS));
-      nodeGraphOutputDrawMark(destCtx, canvas, "pause", fade, density, true);
+      nodeGraphOutputDrawMark(destCtx, canvas, "pause", fade, density);
+      bake = true;
     } else {
       nodeGraphOutputPauseFadeUntil = 0;
     }
@@ -1852,13 +1844,15 @@ function paintNodeGraphOutputInkFrame(destCtx, canvas, slot, settings, density, 
   const mute = Math.max(0, Math.min(1, nodeGraphFiniteNumber(globalThis.nodeGraphOutputProtectMute)));
   if (mute >= NODE_GRAPH_OUTPUT_PROTECT_SOLID_MUTE) {
     canvas._outputProtectWasSolid = true;
-    nodeGraphOutputDrawMark(destCtx, canvas, "protect", 1, density, false);
+    nodeGraphOutputDrawMark(destCtx, canvas, "protect", 1, density);
   } else if (mute > 0.001 && canvas._outputProtectWasSolid) {
-    nodeGraphOutputDrawMark(destCtx, canvas, "protect", mute, density, true);
+    nodeGraphOutputDrawMark(destCtx, canvas, "protect", mute, density);
+    bake = true;
   } else {
     canvas._outputProtectWasSolid = false;
   }
   canvas._outputProtectLastMute = mute;
+  canvas._outputInkBake = bake;
   return true;
 }
 

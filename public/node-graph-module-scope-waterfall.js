@@ -1638,6 +1638,12 @@ function nodeGraphWaterfallFinishOutputInk(spec, context, canvas, scrollPx) {
       destCtx, dest, spec?.slot, spec?.settings, spec?.density,
       { scrollPx: px, scrolled: px > 0 },
     );
+    if (dest._outputInkBake && overlay && typeof nodeGraphWaterfallGlStampCanvas === "function") {
+      nodeGraphWaterfallGlStampCanvas(face, overlay);
+      if (typeof nodeGraphWaterfallGlPresent === "function") {
+        nodeGraphWaterfallGlPresent(face, spec?.bg || "#000000");
+      }
+    }
     return;
   }
   if (typeof paintNodeGraphOutputProtectBannerIfNeeded === "function") {

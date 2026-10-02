@@ -516,7 +516,7 @@ function nodeGraphPortIsReset(port) {
 function nodeGraphPortIsPitch(port) {
   const raw = String(port || "").trim();
   if (!raw) return false;
-  if (raw === "pitch" || raw === "♯/♭") return true;
+  if (raw === "pitch" || raw === "♯/♭" || raw === "KT") return true;
   if (typeof normalizeNodeGraphPitchPortName === "function") {
     if (normalizeNodeGraphPitchPortName(raw) === "pitch") return true;
   }

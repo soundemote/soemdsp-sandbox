@@ -2034,38 +2034,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
           }
           return true;
         }
-        // Note-mask KT is a 128-key bus, not an analog packed-chunk sample.
-        // Feed one normalized highest-active-MIDI key value into native Left;
-        // the native module applies the breadboard Inv+Attenuverter path.
-        if (dstPort === "KT" && dstType === "acousticPluck") {
-          const ktKey = `__keyTrack:${dstId}`;
-          let ktHash = hostFeederHashByKey.get(ktKey);
-          if (ktHash) return true; // one native cable; JS mask gather ORs all KT sources
-          if (!biasTypeId) return true;
-          {
-            ktHash = this.fnv1aHash32(ktKey);
-            const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, ktHash, biasTypeId) | 0;
-            if (arc !== 0) return false;
-            hostFeederHashByKey.set(ktKey, ktHash);
-            hostFeeders.push({
-              hash: ktHash,
-              destinationNode: dstId,
-              destinationPort: "KT",
-              keyTrackMaskFeeder: true,
-            });
-            this.pushNativeGraphSmoothType(native, ktHash, attOffsetParam, 3);
-            this.pushNativeGraphSmoothMode(native, ktHash, attOffsetParam, 3);
-            this.pushNativeGraphSmoothTime(native, ktHash, attOffsetParam, 0);
-          }
-          const rc = native.soemdsp_graph_connect(
-            this.nativeGraphHandle,
-            ktHash,
-            monoPort,
-            hashById.get(dstId),
-            this.mapNativeGraphDstPortId(dstPort, dstType),
-          ) | 0;
-          return rc === 0;
-        }
+
         if (idSet.has(srcId)) {
           const rc = native.soemdsp_graph_connect(
             this.nativeGraphHandle,

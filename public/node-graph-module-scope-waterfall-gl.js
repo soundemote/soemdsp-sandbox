@@ -672,6 +672,39 @@ function nodeGraphWaterfallGlCold(canvas, plateCss) {
   return nodeGraphWaterfallGlPresent(canvas, plateCss);
 }
 
+function nodeGraphWaterfallGlStampCanvas(face, sourceCanvas) {
+  const s = face && face._wfGlSession;
+  if (!s?.gl || !s.read?.fbo || !sourceCanvas) return false;
+  const gl = s.gl;
+  if (!s.inkTex) {
+    s.inkTex = gl.createTexture();
+  }
+  gl.bindTexture(gl.TEXTURE_2D, s.inkTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, s.read.fbo);
+  gl.viewport(0, 0, s.w, s.h);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  nodeGraphWaterfallGlBindQuad(gl, s, s.presentProg);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, s.inkTex);
+  const texLoc = gl.getUniformLocation(s.presentProg, "uTex");
+  if (texLoc) gl.uniform1i(texLoc, 0);
+  const sizeLoc = gl.getUniformLocation(s.presentProg, "uSize");
+  if (sizeLoc) gl.uniform2f(sizeLoc, s.w, s.h);
+  const subLoc = gl.getUniformLocation(s.presentProg, "uSub");
+  if (subLoc) gl.uniform1f(subLoc, 0);
+  nodeGraphWaterfallGlDrawQuad(s);
+  gl.disable(gl.BLEND);
+  return true;
+}
+
 function nodeGraphWaterfallInkOverlay(face) {
   if (!face || !face.parentElement) return null;
   let ink = face._wfInkOverlay;

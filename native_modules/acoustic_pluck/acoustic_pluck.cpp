@@ -41,12 +41,13 @@ static const double kExpDbSpan = 5.0;
 static const double kLn10 = 2.302585092994046;
 static const double kReleaseMin = 0.0;
 static const double kReleaseMax = 10.0;
-// Breadboard KT path: Inv (-in) -> Attenuverter (x0.31250587099718496 - 0.1)
-// -> unit MOD on Curve AR Attack (0..5 s).
+// Breadboard KT: MIDI 0..127 → /127 → invert → attenuverter (×0.3125 − 0.1)
+// → unit MOD on Attack 0..0.02 s. MIDI 0 ⇒ U=-0.1; MIDI 127 ⇒ U=-0.4125.
 static const double kKtAmplitude = 0.31250587099718496;
 static const double kKtOffset = -0.1;
+static const double kMidiOne = 1.0 / 127.0;
 static const double kAttackMin = 0.0;
-static const double kAttackMax = 5.0;
+static const double kAttackMax = 0.02;
 
 struct State {
   int ar;
@@ -154,9 +155,13 @@ extern "C" double soemdsp_acoustic_pluck_sample(
   const bool latchMode = safe(updateOnTrigger) >= 0.5;
   const bool rising = gate_hit(safeGate, &s.lastGate);
 
-  double atk = maxd(0.0, safe(attack));
+  double soften = safe(attack);
+  if (soften < 0.0) soften = 0.0;
+  if (soften > 1.0) soften = 1.0;
+  double atk = soften * kAttackMax;
   if (safe(keyTrackConnected) >= 0.5) {
-    const double kt = clamp01(safe(keyTrack));
+    const double midi = safe(keyTrack);
+    const double kt = midi * kMidiOne;
     const double attackMod = (-kt) * kKtAmplitude + kKtOffset;
     atk = fold_unit_mod(atk, attackMod, kAttackMin, kAttackMax);
   }
