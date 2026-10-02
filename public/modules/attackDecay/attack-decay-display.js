@@ -40,6 +40,13 @@ function createNodeGraphEnvelopeCurveDisplay(nodeId, type) {
     }
   }
   requestAnimationFrame(() => drawNodeGraphEnvelopeCurveDisplay(section));
+  const tick = () => {
+    if (!section.isConnected) return;
+    section._envelopeCurveForceDraw = true;
+    drawNodeGraphEnvelopeCurveDisplay(section);
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
   return section;
 }
 
@@ -222,6 +229,49 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
     };
   }
 
+  if (type === "wavetableAdsr") {
+    const attack = Math.max(1e-4, nodeGraphEnvelopeCurveLiveParam(node, "attack", 0.01));
+    const decay = Math.max(1e-4, nodeGraphEnvelopeCurveLiveParam(node, "decay", 0.2));
+    const sustain = Math.max(0, Math.min(1, nodeGraphEnvelopeCurveLiveParam(node, "sustain", 0.7)));
+    const release = Math.max(1e-4, nodeGraphEnvelopeCurveLiveParam(node, "release", 0.3));
+    const level = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "level", 1));
+    const shape = Math.round(nodeGraphEnvelopeCurveLiveParam(node, "shape", 0));
+    const total = attack + decay + release;
+    const warp = (t, falling) => {
+      const u = Math.max(0, Math.min(1, t));
+      if (shape === 2) return u * u * (3 - 2 * u);
+      if (shape === 3) {
+        if (falling) return (Math.exp(9 * u) - 1) / (Math.exp(9) - 1);
+        return Math.log(1 + 9 * u) / Math.log(10);
+      }
+      if (shape === 0) return 1 - Math.exp(-3 * u);
+      return u;
+    };
+    const points = [];
+    const n = Math.max(64, pts);
+    for (let i = 0; i < n; i += 1) {
+      const t = (i / Math.max(1, n - 1)) * total;
+      let y = 0;
+      if (t <= attack) {
+        y = warp(t / attack, false);
+      } else if (t <= attack + decay) {
+        y = 1 - (1 - sustain) * warp((t - attack) / decay, true);
+      } else {
+        y = sustain * (1 - warp((t - attack - decay) / release, true));
+      }
+      points.push({ t: t / total, y: Math.max(0, Math.min(1, y)) });
+    }
+    return {
+      points,
+      total,
+      guideT: (attack + decay) / total,
+      ampView: Math.min(1, level),
+      leftLabel: "A",
+      rightLabel: "R",
+      signature: { type, attack, decay, sustain, release, level, shape },
+    };
+  }
+
   if (type === "pluckEnvelope3" && typeof nodeGraphPluckEnvelope3PreviewCurve === "function") {
     const attack = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "attack", 0));
     let decay = Number(nodeGraphEnvelopeCurveLiveParam(node, "decay", NaN));
@@ -339,6 +389,81 @@ function drawNodeGraphEnvelopeCurveDisplayInner(section) {
     context.lineWidth = 1.5;
     context.lineJoin = "round";
     context.stroke();
+  }
+
+  const joinT = Number(built.guideT);
+  const nodeId = String(section.dataset.node || "");
+  const liveOut = typeof nodeGraphGhostSliderScopeSample === "function"
+    ? (nodeGraphGhostSliderScopeSample(nodeId, "Out")
+      ?? nodeGraphGhostSliderScopeSample(nodeId, "Env"))
+    : null;
+  const liveGate = typeof nodeGraphGhostSliderScopeSample === "function"
+    ? (nodeGraphGhostSliderScopeSample(nodeId, "Gate")
+      ?? nodeGraphGhostSliderScopeSample(nodeId, "Trigger"))
+    : null;
+  // Position comes from the live Out level and the Gate/Trigger.
+  // While the gate is high and the level has reached sustain, the dot stays
+  // on the sustain point. It does not keep walking the release.
+  let playT = joinT;
+  if (Number.isFinite(liveOut) && pts.length) {
+    const amp = Math.max(1e-9, Number(ampView) || 1);
+    const y = Math.max(0, Math.min(1, Number(liveOut) / amp));
+    const gateKnown = Number.isFinite(Number(liveGate));
+    const gateOn = gateKnown && Number(liveGate) > 0.5;
+    const sustainT = Number.isFinite(joinT) ? Math.max(0, Math.min(1, joinT)) : 1;
+    let sustainY = pts[0].y;
+    let sustainD = 1e9;
+    for (let i = 0; i < pts.length; i += 1) {
+      const d = Math.abs(pts[i].t - sustainT);
+      if (d < sustainD) {
+        sustainD = d;
+        sustainY = pts[i].y;
+      }
+    }
+    const nearest = (tMin, tMax) => {
+      let bestT = tMin;
+      let bestD = 1e9;
+      for (let i = 0; i < pts.length; i += 1) {
+        const p = pts[i];
+        if (p.t < tMin - 1e-4 || p.t > tMax + 1e-4) continue;
+        const d = Math.abs(p.y - y);
+        if (d < bestD) {
+          bestD = d;
+          bestT = p.t;
+        }
+      }
+      return bestT;
+    };
+    if (gateOn && !section._envGateWas) section._envPlayT = 0;
+    const prevT = Number.isFinite(section._envPlayT) ? section._envPlayT : 0;
+    if (gateOn) {
+      playT = Math.abs(y - sustainY) < 0.035
+        ? sustainT
+        : nearest(Math.min(prevT, sustainT), sustainT);
+    } else if (gateKnown) {
+      playT = nearest(Math.max(sustainT, prevT), 1);
+    } else {
+      playT = Math.abs(y - sustainY) < 0.035 ? sustainT : nearest(prevT, 1);
+    }
+    section._envPlayT = playT;
+    section._envGateWas = gateOn;
+  }
+  if (Number.isFinite(playT) && pts.length) {
+    let dot = pts[0];
+    let bestD = 1e9;
+    for (let i = 0; i < pts.length; i += 1) {
+      const d = Math.abs(pts[i].t - playT);
+      if (d < bestD) {
+        bestD = d;
+        dot = pts[i];
+      }
+    }
+    const dx = dot.t * width;
+    const dy = (1 - dot.y * ampView) * height;
+    context.fillStyle = "#ffffff";
+    context.beginPath();
+    context.arc(dx, dy, 3.5, 0, Math.PI * 2);
+    context.fill();
   }
 
   context.fillStyle = "rgba(180, 210, 220, 0.55)";

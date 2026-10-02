@@ -117,8 +117,8 @@ function nodeGraphLinearEnvelopeSample(state, gate, params, sampleRate, runtime 
 }
 
 /**
- * Face preview: basic linear DADSR polyline (pre-level knob).
- * Delay → Attack → Decay → Sustain hold → Release.
+ * Face preview: Delay → Attack → Decay → Release (pre-level knob).
+ * Sustain is the decay/release join height; no horizontal sustain segment.
  */
 function nodeGraphLinearEnvelopePreviewCurve(params = {}, points = 160) {
   const delay = Math.max(0, nodeGraphFiniteNumber(params.delay));
@@ -126,15 +126,13 @@ function nodeGraphLinearEnvelopePreviewCurve(params = {}, points = 160) {
   const decay = Math.max(0, nodeGraphFiniteNumber(params.decay));
   const sustain = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.sustain)));
   const release = Math.max(0, nodeGraphFiniteNumber(params.release));
-  const sustainHold = Math.max(0.05, Math.min(0.4, (attack + decay + release) * 0.15 || 0.08));
-  const gateHigh = delay + Math.max(attack + decay + sustainHold, 0.02);
-  const total = Math.max(gateHigh + Math.max(release, 0.02), 0.08);
+  const gateHigh = delay + attack + decay;
+  const total = Math.max(gateHigh + release, 1e-9);
   const corners = [
     { t: 0, y: 0 },
     { t: delay / total, y: 0 },
     { t: (delay + attack) / total, y: 1 },
     { t: (delay + attack + decay) / total, y: sustain },
-    { t: gateHigh / total, y: sustain },
     { t: Math.min(1, (gateHigh + release) / total), y: 0 },
     { t: 1, y: 0 },
   ];
@@ -160,6 +158,22 @@ function nodeGraphLinearEnvelopePreviewCurve(params = {}, points = 160) {
     const span = Math.max(1e-12, b.t - a.t);
     const u = Math.max(0, Math.min(1, (t - a.t) / span));
     out.push({ t, y: a.y + (b.y - a.y) * u });
+  }
+  for (const corner of keyframes) {
+    let placed = false;
+    for (let i = 0; i < out.length; i += 1) {
+      if (Math.abs(out[i].t - corner.t) < 1e-9) {
+        out[i].y = corner.y;
+        placed = true;
+        break;
+      }
+      if (out[i].t > corner.t) {
+        out.splice(i, 0, { t: corner.t, y: corner.y });
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) out.push({ t: corner.t, y: corner.y });
   }
   return {
     points: out,

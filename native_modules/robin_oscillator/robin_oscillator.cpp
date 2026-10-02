@@ -26,7 +26,8 @@ constexpr int kWaveTrisaw = 3; // UI: Trisaw Center; Morph = opposing-peak saw m
 constexpr int kWaveSine = 4;
 constexpr int kWavePulse = 5;
 constexpr int kWaveAnalogSquare = 6; // UI: Analog Square; same-direction peaks (naive_analog_square)
-constexpr int kWaveCount = 7;
+constexpr int kWaveFullAsymSine = 7; // UI: Full Asym Sine; half-sine LUT twice, 2y−1 → −1…+1
+constexpr int kWaveCount = 8;
 
 // Increment-update style (choice param freqUpdate / Update).
 constexpr int kFreqUpdateOnCycle = 0;       // bake next wrap only; no mid-cycle warp
@@ -41,7 +42,7 @@ static const char kMetadataJson[] =
     "\"kind\":\"oscillator\","
     "\"outputs\":[\"Wave\"],"
     "\"parameters\":["
-      "{\"key\":\"waveform\",\"label\":\"Waveform\",\"defaultValue\":0,\"min\":0,\"max\":6,\"step\":1},"
+      "{\"key\":\"waveform\",\"label\":\"Waveform\",\"defaultValue\":0,\"min\":0,\"max\":7,\"step\":1},"
       "{\"key\":\"frequency\",\"label\":\"Frequency\",\"defaultValue\":100,\"min\":0,\"mid\":440,\"max\":20000,\"step\":\"any\",\"unit\":\"Hz\"},"
       "{\"key\":\"amplitude\",\"label\":\"Amplitude\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
       "{\"key\":\"phase\",\"label\":\"Start Phase\",\"defaultValue\":0,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":0.01,\"unit\":\"cycle\"},"
@@ -193,12 +194,21 @@ void warpRemainingCycle(RobinOscState& voice, double newInc) {
   const double a = dsp_fabs(newInc);
   double idealRemaining = (a > 1.0e-15) ? (cyclesLeft / a) : 1.0e9;
   double remaining = idealRemaining + voice.ditherOffset;
-  if (remaining < 1.0) remaining = 1.0;
+  // Do not clamp remaining up to 1 sample. That shrinks slope below the
+  // advance epsilon while phase sits on 1, and a live ƒ sweep never wraps.
+  if (!(remaining > 1.0e-9) || remaining > 1.0e9) {
+    if (!(remaining > 1.0e-9)) {
+      const double into = (newInc < 0.0) ? (phi - cyclesLeft) : (phi + cyclesLeft);
+      beginCycle(voice, into);
+      return;
+    }
+    remaining = 1.0e9;
+  }
 
   voice.lenNow = voice.sampleCount + remaining;
   if (!(voice.lenNow > voice.sampleCount)) {
-    voice.lenNow = voice.sampleCount + 1.0;
-    remaining = 1.0;
+    beginCycle(voice, (newInc < 0.0) ? (phi - cyclesLeft) : (phi + cyclesLeft));
+    return;
   }
   const double mag = cyclesLeft / remaining;
   voice.phaseSlope = (newInc < 0.0) ? -mag : mag;
@@ -284,7 +294,8 @@ void applyIncrementForStyle(
 // morph: universal 0..1 knob (UI label Morph). Pulse = duty/width; Trisaw Center =
 // opposing-peak saw morph via soemdsp::math::naive_trisaw_center; Analog Square =
 // same-direction peaks via soemdsp::math::naive_analog_square (zeros stay at 0 / 0.5).
-// Others ignore.
+// Full Asym Sine = positive half-sine LUT once per cycle (half the table rate
+// of a full sine), 2y−1 so it fills −1…+1. Fundamental matches the other waves.
 // Saw = edge then down slope (1-2*ph). Ramp = up slope then edge (2*ph-1). Matches PolyBLEP.
 double waveFromPhasor(double p, int waveform, double morph) {
   double ph = p;
@@ -309,6 +320,10 @@ double waveFromPhasor(double p, int waveform, double morph) {
       return naive_analog_square(ph, morph);
     case kWaveSine:
       return dsp_sin_turns(ph);
+    case kWaveFullAsymSine: {
+      // Half-sine LUT (0…π) once per oscillator cycle, then bipolar −1…+1.
+      return 2.0 * dsp_sin_turns_lut(0.5 * ph) - 1.0;
+    }
     case kWavePulse:
       return ph < m ? 1.0 : -1.0;
     case kWaveSaw:
@@ -378,8 +393,9 @@ double robinOscSample(
 
   // phaseSlope is the dithered cycles/sample step of currentInc. Do not add
   // a second raw increment. That was the path that wrapped early and dropped
-  // the fractional overshoot.
-  if (dsp_fabs(state.phaseSlope) > 1.0e-15) {
+  // the fractional overshoot. Advance whenever increment is live so a tiny
+  // warp slope cannot freeze the phasor on the wrap.
+  if (dsp_fabs(state.currentInc) > 1.0e-15) {
     state.sampleCount += 1.0;
     state.phase += state.phaseSlope;
     if (state.sampleCount >= state.lenNow || state.phase >= 1.0 || state.phase < 0.0) {

@@ -141,6 +141,72 @@ function nodeGraphGhostSliderModSample(sourceNode, sourcePort, depth = 0) {
     const inScoped = nodeGraphGhostSliderScopeSample(nodeId, inPort);
     if (inScoped != null) return inScoped;
   }
+  // Named Portal Out: chromeless / spliced — no Out scope. Walk the Title bus
+  // like nodeGraphEvaluateNamedPortalOut and sample each Portal In upstream.
+  if (depth < 6 && (port === "Out" || port === "←" || port === "Mono")) {
+    const portalNode = typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(nodeId)
+      : null;
+    const isPortalOut = typeof nodeGraphIsNamedPortalOutType === "function"
+      ? nodeGraphIsNamedPortalOutType(portalNode?.type)
+      : String(portalNode?.type || "") === "namedPortalOut";
+    if (isPortalOut) {
+      const key = typeof nodeGraphNamedPortalBusKey === "function"
+        ? nodeGraphNamedPortalBusKey(portalNode)
+        : String(portalNode?.alias || "").trim().toLowerCase();
+      const universe = typeof nodeGraphNamedPortalUniverse === "function"
+        ? nodeGraphNamedPortalUniverse(portalNode)
+        : String(portalNode?.ownerMetamoduleId || "").trim();
+      if (key) {
+        const nodes = nodeGraphMvp?.patch?.nodes || [];
+        const conns = nodeGraphMvp?.patch?.connections || [];
+        let sum = 0;
+        let any = false;
+        for (let i = 0; i < nodes.length; i += 1) {
+          const other = nodes[i];
+          if (
+            !other
+            || other.bypassed
+            || !(typeof nodeGraphIsNamedPortalInType === "function"
+              ? nodeGraphIsNamedPortalInType(other.type)
+              : String(other.type) === "namedPortalIn")
+          ) {
+            continue;
+          }
+          const otherKey = typeof nodeGraphNamedPortalBusKey === "function"
+            ? nodeGraphNamedPortalBusKey(other)
+            : String(other?.alias || "").trim().toLowerCase();
+          const otherUni = typeof nodeGraphNamedPortalUniverse === "function"
+            ? nodeGraphNamedPortalUniverse(other)
+            : String(other?.ownerMetamoduleId || "").trim();
+          if (otherKey !== key || otherUni !== universe) continue;
+          const inScoped = nodeGraphGhostSliderScopeSample(other.id, "In");
+          if (inScoped != null && Number.isFinite(Number(inScoped))) {
+            sum += Number(inScoped);
+            any = true;
+            continue;
+          }
+          for (let j = 0; j < conns.length; j += 1) {
+            const c = conns[j];
+            if (String(c?.destinationNode || "") !== String(other.id)) continue;
+            if (String(c?.destinationPort || "") !== "In") continue;
+            const up = nodeGraphGhostSliderModSample(
+              c.sourceNode,
+              c.sourcePort,
+              depth + 1,
+            );
+            if (up != null && Number.isFinite(Number(up))) {
+              sum += Number(up);
+              any = true;
+            }
+          }
+        }
+        if (any) {
+          return sum;
+        }
+      }
+    }
+  }
   const fromController = nodeGraphGhostSliderControllerOutSample(nodeId, port);
   if (fromController != null && Number.isFinite(fromController)) {
     return fromController;

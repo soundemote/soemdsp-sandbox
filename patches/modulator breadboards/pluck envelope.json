@@ -783,7 +783,7 @@
       },
       "params": {
         "waveform": 2,
-        "frequency": 100,
+        "frequency": 15435.02926399408,
         "phase": 0,
         "morph": 0.20487353336745695,
         "amplitude": 0.3753197940202426
@@ -1115,7 +1115,7 @@
         "inputMode": 1,
         "attack": 0,
         "attackShape": -0.07,
-        "release": 0.11715292599242004,
+        "release": 0.1609,
         "releaseShape": 1,
         "amplitude": 1
       },

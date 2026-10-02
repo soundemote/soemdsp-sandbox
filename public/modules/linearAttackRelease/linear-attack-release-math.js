@@ -108,18 +108,16 @@ function nodeGraphLinearAttackReleaseSample(state, gate, params, sampleRate) {
 }
 
 /**
- * Face preview: gate-high attack then release (Gate mode silhouette).
+ * Face preview: attack then release. No hold plateau — peak join is the park height.
  */
 function nodeGraphLinearAttackReleasePreviewCurve(params = {}, points = 160) {
   const attack = Math.max(0, nodeGraphFiniteNumber(params.attack));
   const release = Math.max(0, nodeGraphFiniteNumber(params.release));
-  const hold = Math.max(0.04, Math.min(0.35, (attack + release) * 0.2 || 0.08));
-  const gateHigh = Math.max(attack + hold, 0.02);
-  const total = Math.max(gateHigh + Math.max(release, 0.02), 0.06);
+  const gateHigh = attack;
+  const total = Math.max(gateHigh + release, 1e-9);
   const corners = [
     { t: 0, y: 0 },
     { t: attack / total, y: 1 },
-    { t: gateHigh / total, y: 1 },
     { t: Math.min(1, (gateHigh + release) / total), y: 0 },
     { t: 1, y: 0 },
   ];
@@ -144,6 +142,22 @@ function nodeGraphLinearAttackReleasePreviewCurve(params = {}, points = 160) {
     const span = Math.max(1e-12, b.t - a.t);
     const u = Math.max(0, Math.min(1, (t - a.t) / span));
     out.push({ t, y: a.y + (b.y - a.y) * u });
+  }
+  for (const corner of keyframes) {
+    let placed = false;
+    for (let i = 0; i < out.length; i += 1) {
+      if (Math.abs(out[i].t - corner.t) < 1e-9) {
+        out[i].y = corner.y;
+        placed = true;
+        break;
+      }
+      if (out[i].t > corner.t) {
+        out.splice(i, 0, { t: corner.t, y: corner.y });
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) out.push({ t: corner.t, y: corner.y });
   }
   return {
     points: out,

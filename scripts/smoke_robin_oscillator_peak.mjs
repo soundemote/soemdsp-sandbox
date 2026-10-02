@@ -72,10 +72,94 @@ function run(waveform) {
 const saw = run(0);
 const sine = run(4);
 const pulse = run(5);
-console.log({ saw, sine, pulse });
+const fullAsym = run(7);
+console.log({ saw, sine, pulse, fullAsym });
 if (!(saw.peak > 0.2 && saw.rms > 0.05)) throw new Error(`saw weak ${JSON.stringify(saw)}`);
 if (!(sine.peak > 0.2 && sine.rms > 0.05)) throw new Error(`sine weak ${JSON.stringify(sine)}`);
 if (!(pulse.peak > 0.2 && pulse.rms > 0.05)) throw new Error(`pulse weak ${JSON.stringify(pulse)}`);
+if (!(fullAsym.peak > 0.9 && fullAsym.rms > 0.05)) throw new Error(`full asym sine weak ${JSON.stringify(fullAsym)}`);
+
+function directAsym(morph) {
+  const handle = e.soemdsp_robin_oscillator_create();
+  let lo = Infinity;
+  let hi = -Infinity;
+  const n = 4096;
+  const inc = 1 / 64;
+  for (let i = 0; i < n; i++) {
+    const y = e.soemdsp_robin_oscillator_sample(handle, inc, 1, 0, 7, morph, 1, i === 0 ? 1 : 0);
+    if (!(y === y)) throw new Error(`NaN full asym sine morph=${morph}`);
+    if (y < lo) lo = y;
+    if (y > hi) hi = y;
+  }
+  e.soemdsp_robin_oscillator_destroy(handle);
+  return { lo, hi };
+}
+const asymHalf = directAsym(0.5);
+const asymLean = directAsym(0.2);
+console.log({ asymHalf, asymLean });
+if (!(asymHalf.hi > 0.97 && asymHalf.hi <= 1.0001)) {
+  throw new Error(`full asym sine crest not +1 ${JSON.stringify(asymHalf)}`);
+}
+if (!(asymHalf.lo < -0.97 && asymHalf.lo >= -1.0001)) {
+  throw new Error(`full asym sine fold not −1 ${JSON.stringify(asymHalf)}`);
+}
+if (!(Math.abs(asymLean.hi - asymHalf.hi) < 0.02 && Math.abs(asymLean.lo - asymHalf.lo) < 0.02)) {
+  throw new Error(`full asym sine must ignore Morph ${JSON.stringify({ asymHalf, asymLean })}`);
+}
+
+function crestPeriod(waveform) {
+  const handle = e.soemdsp_robin_oscillator_create();
+  const inc = 1 / 64;
+  const n = 4096;
+  const ys = [];
+  for (let i = 0; i < n; i++) {
+    ys.push(e.soemdsp_robin_oscillator_sample(handle, inc, 1, 0, waveform, 0.5, 1, i === 0 ? 1 : 0));
+  }
+  e.soemdsp_robin_oscillator_destroy(handle);
+  const gaps = [];
+  let last = -1;
+  for (let i = 1; i < ys.length - 1; i++) {
+    if (ys[i] >= ys[i - 1] && ys[i] > ys[i + 1] && ys[i] > 0.9) {
+      if (last >= 0) gaps.push(i - last);
+      last = i;
+    }
+  }
+  const mean = gaps.reduce((a, b) => a + b, 0) / Math.max(1, gaps.length);
+  return { mean, n: gaps.length };
+}
+const sinePeriod = crestPeriod(4);
+const asymPeriod = crestPeriod(7);
+console.log({ sinePeriod, asymPeriod });
+if (!(asymPeriod.n >= 4 && Math.abs(asymPeriod.mean - sinePeriod.mean) < 2)) {
+  throw new Error(`full asym sine fundamental != sine ${JSON.stringify({ sinePeriod, asymPeriod })}`);
+}
+
+function warpSweepTail() {
+  const handle = e.soemdsp_robin_oscillator_create();
+  const style = 1;
+  const ys = [];
+  for (let i = 0; i < 2000; i++) {
+    e.soemdsp_robin_oscillator_sample(handle, 100 / SR, 1, 0, 0, 0.5, style, i === 0 ? 1 : 0);
+  }
+  for (let i = 0; i < 8000; i++) {
+    const hz = 100 + (i / 8000) * 1900;
+    ys.push(e.soemdsp_robin_oscillator_sample(handle, hz / SR, 1, 0, 0, 0.5, style, 0));
+  }
+  e.soemdsp_robin_oscillator_destroy(handle);
+  let energy = 0;
+  let stuck = 0;
+  for (let i = 0; i < ys.length; i++) {
+    energy += ys[i] * ys[i];
+    if (i && Math.abs(ys[i] - ys[i - 1]) < 1e-12) stuck += 1;
+  }
+  const tail = ys.slice(-8);
+  const tailSpan = Math.max(...tail) - Math.min(...tail);
+  return { rms: Math.sqrt(energy / ys.length), stuck, tailSpan };
+}
+const warp = warpSweepTail();
+console.log({ warp });
+if (!(warp.rms > 0.2)) throw new Error(`warp remaining sweep died ${JSON.stringify(warp)}`);
+if (!(warp.tailSpan > 0.01)) throw new Error(`warp remaining frozen at wrap ${JSON.stringify(warp)}`);
 
 // Direct export: increment is cycles/sample (Hz / sampleRate). Mid-cycle jump stays finite.
 const h = must("soemdsp_robin_oscillator_create")();

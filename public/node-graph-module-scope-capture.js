@@ -750,6 +750,19 @@ function captureNodeGraphLiveModuleScopeFrame(runtime, sampleRate) {
     }
     captureNodeGraphLiveModuleScopeOutput(runtime, nodeId, runtime.nodeOutputs.get(nodeId));
     captureNodeGraphLiveModuleScopeInputSync(runtime, nodeId);
+    const nodeType = String(runtime.nodes?.get?.(nodeId)?.type || "");
+    const inputPorts = nodeGraphModuleDefinitions?.[nodeType]?.inputs;
+    if (Array.isArray(inputPorts)) {
+      for (const port of inputPorts) {
+        if (port !== "Gate" && port !== "Trigger") continue;
+        const sample = captureNodeGraphLiveModuleScopeInputMix(runtime, nodeId, port);
+        if (sample == null || !Number.isFinite(sample)) continue;
+        const portId = `${nodeId}:${port}`;
+        const portSamples = runtime.scopeBuffers.get(portId) || [];
+        portSamples.push(nodeGraphModuleScopeScalarValue(sample));
+        runtime.scopeBuffers.set(portId, portSamples);
+      }
+    }
   }
   for (const sink of runtime.visualSinks || []) {
     const nodeId = String(sink?.nodeId || "");

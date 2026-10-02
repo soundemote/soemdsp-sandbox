@@ -16,7 +16,6 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         if (missed > 0) {
           this.meterOverrunCount = (nodeGraphFiniteNumber(this.meterOverrunCount)) + missed;
           this.meterMissedQuantumCount = (nodeGraphFiniteNumber(this.meterMissedQuantumCount)) + missed;
-          this.audioThreadStressed = true;
         }
       }
     }
@@ -33,7 +32,6 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         const lateUnits = Math.max(1, Math.round(gap / Math.max(1e-6, blockBudgetMsEarly)) - 1);
         this.meterOverrunCount = (nodeGraphFiniteNumber(this.meterOverrunCount)) + lateUnits;
         this.meterMissedQuantumCount = (nodeGraphFiniteNumber(this.meterMissedQuantumCount)) + lateUnits;
-        this.audioThreadStressed = true;
       }
     }
     if (callbackWall > 0) {
@@ -131,9 +129,6 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
     }
     // Music Player is native (PCM upload + audio_player opcode). JS peel retired.
 
-    // Previous quantum was late → shed non-audio work this quantum (scopes/UI posts).
-    const audioStressed = Boolean(this.audioThreadStressed);
-
     // Efficient path: rings already filled from native taps in processNativeGraphQuantum.
     // Throttled snapshot/visual posts only (never evaluateFrame).
     if (usedNativeGraph) {
@@ -149,10 +144,6 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
       );
       if (displayFps > 0) {
         this.scopeSnapshotCounter = (nodeGraphFiniteNumber(this.scopeSnapshotCounter)) + frames;
-        // Stressed quanta used to multiply this interval by 4, so a hot audio
-        // thread (often stuck) displayed Simulation FPS / 4: 60 looked like
-        // ~15 and 240 like ~60. The setting is the post rate. Host rate, not
-        // engine rate, is already what the counter is paced against.
         const snapshotEvery = Math.max(1, Math.floor(hostRateForDisplay / displayFps));
         if (this.scopeSnapshotCounter >= snapshotEvery) {
           this.scopeSnapshotCounter = 0;
@@ -160,7 +151,7 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         }
       }
       this.visualControlCounter = (nodeGraphFiniteNumber(this.visualControlCounter)) + frames;
-      const visualEvery = Math.max(1, Math.floor(hostRateForDisplay / 30) * (audioStressed ? 4 : 1));
+      const visualEvery = Math.max(1, Math.floor(hostRateForDisplay / 30));
       if (this.visualControlCounter >= visualEvery) {
         this.visualControlCounter = 0;
         this.postVisualControls?.();
@@ -193,10 +184,6 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
           this.zeroElapsedQuanta = (nodeGraphFiniteNumber(this.zeroElapsedQuanta)) + 1;
         }
         this.meterBlockBudgetMs = blockBudgetMs;
-        this.audioThreadStressed = budgetRatio >= 0.85;
-        if (budgetRatio >= 0.85) {
-          this.meterOverrunCount += 1;
-        }
       }
       this.meterCounter += frames;
       if (this.meterCounter >= sampleRate / 60) {

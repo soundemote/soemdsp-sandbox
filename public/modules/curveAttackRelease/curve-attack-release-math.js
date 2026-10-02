@@ -169,9 +169,9 @@ function nodeGraphCurveAttackReleasePreviewCurve(params = {}, points = 160) {
   const attackShape = nodeGraphCurveArNormalizeShape(params.attackShape);
   const releaseShape = nodeGraphCurveArNormalizeShape(params.releaseShape);
   const amplitude = Math.max(0, Number(params.amplitude) ?? 1);
-  const hold = Math.max(0.04, Math.min(0.3, (attack + release) * 0.15 || 0.08));
-  const gateHigh = Math.max(attack + hold, 0.02);
-  const total = Math.max(gateHigh + Math.max(release, 0.02), 0.06);
+  // No hold plateau — peak join of attack and release is the park height.
+  const gateHigh = attack;
+  const total = Math.max(gateHigh + release, 1e-9);
   const n = Math.max(48, Math.round(nodeGraphFiniteNumber(points, 160)));
   const out = [];
   const pushSeg = (t0, t1, y0, y1, shape, segs) => {
@@ -192,13 +192,12 @@ function nodeGraphCurveAttackReleasePreviewCurve(params = {}, points = 160) {
   };
   if (attack > 1e-9) pushSeg(0, attack, 0, 1, attackShape, Math.max(8, Math.floor(n * 0.35)));
   else out.push({ t: 0, y: 1 });
-  pushSeg(attack, gateHigh, 1, 1, 0, 2);
   if (release > 1e-9) {
     pushSeg(gateHigh, gateHigh + release, 1, 0, releaseShape, Math.max(8, Math.floor(n * 0.35)));
   } else {
     out.push({ t: gateHigh / total, y: 0 });
   }
-  out.push({ t: 1, y: 0 });
+  if (out[out.length - 1]?.t < 1) out.push({ t: 1, y: 0 });
   return {
     points: out,
     total,

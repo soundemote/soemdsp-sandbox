@@ -305,7 +305,6 @@ function syncNodeGraphCpuConstraintMetrics() {
     "[data-scope-cpu-metric='overruns']",
     audioPct === null ? "--" : String(overruns),
   );
-  root.dataset.audioStressed = audioPct !== null && (audioPct >= 85 || overruns > 0) ? "1" : "0";
   root.dataset.audioTimedOut = belowTimerFloor ? "1" : "0";
 }
 

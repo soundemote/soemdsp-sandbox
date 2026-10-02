@@ -283,7 +283,7 @@ const nodeGraphNodeLabels = Object.freeze({
   canvas: "Canvas",
   visualOscilloscope: "Display",
   waterfall: "1D Waterfall",
-  waterfallStereo: "1D Waterfall Stereo",
+  waterfallStereo: "2D Waterfall",
   onset: "1D Onset",
   onset2d: "2D Onset",
   waterfallXyz: "1D Waterfall XYZ",
@@ -1341,7 +1341,7 @@ const nodeGraphModuleDefinitions = (
         tooltip: "When ƒ changes mid-cycle: On cycle waits for wrap; Warp remaining keeps dither offset; Snap remaining re-dithers the remaining length."
       },
       {
-        choices: ["Saw", "Ramp", "Square", "Trisaw Center", "Sine", "Pulse", "Analog Square"],
+        choices: ["Saw", "Ramp", "Square", "Trisaw Center", "Sine", "Pulse", "Analog Square", "Full Asym Sine"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -1349,11 +1349,11 @@ const nodeGraphModuleDefinitions = (
         kind: "waveform",
         label: "Waveform",
         linearSmoothing: false,
-        max: "6",
+        max: "7",
         mid: "2",
         min: "0",
         step: "1",
-        tooltip: "Cycle-dither AA oscillator (RS-MET). Saw = edge then down; Ramp = up then edge. Morph: Pulse = duty; Trisaw Center = opposing peaks toward saw; Analog Square = same-direction peaks (zeros at 0 / 0.5)."
+        tooltip: "Cycle-dither AA oscillator (RS-MET). Saw = edge then down; Ramp = up then edge. Morph: Pulse = duty; Trisaw Center = opposing peaks toward saw; Analog Square = same-direction peaks (zeros at 0 / 0.5). Full Asym Sine = half-sine wavetable once per cycle (same fundamental as Sine), filled −1…+1 (Morph ignored)."
       },
       {
         defaultValue: "100",
@@ -1392,7 +1392,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "0.01",
-        tooltip: "Universal morph 0...1 (always Morph). Pulse = duty/width; Trisaw Center = opposing peaks lean triangle into a saw (zeros at 0 / 0.5; Morph 0/1 bright mirrors, 0.5 dullest); Analog Square = same-direction peaks (dual-edge / square-ish at extremes); other shapes ignore for now."
+        tooltip: "Universal morph 0...1 (always Morph). Pulse = duty/width; Trisaw Center = opposing peaks lean triangle into a saw (zeros at 0 / 0.5; Morph 0/1 bright mirrors, 0.5 dullest); Analog Square = same-direction peaks (dual-edge / square-ish at extremes); Full Asym Sine ignores Morph (half-sine LUT once per cycle, −1…+1)."
       },
       {
         defaultValue: "1",
@@ -14261,7 +14261,7 @@ const nodeGraphModuleDefinitions = (
     outputLabels: { isIdle: "isIdle" },
     parameters: [
       {
-        choices: ["Analog", "Linear", "Smoothstep"],
+        choices: ["Analog", "Linear", "Smoothstep", "Log"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -14269,13 +14269,13 @@ const nodeGraphModuleDefinitions = (
         label: "Shape",
         linearSmoothing: false,
         smoothingType: "none",
-        max: "2",
+        max: "3",
         mid: "0",
         min: "0",
         step: "1",
         tooltip:
-          "Analog = one-pole (classic). Linear / Smoothstep = stretch a 0…1 segment "
-          + "with that warp. No extra curve knobs." },
+          "Analog = one-pole (exp decay tail). Linear / Smoothstep / Log = finite time. "
+          + "Log = log attack (fast then ease) and log decay/release (finishes the drop, no floor taper)." },
       {
         defaultValue: "0.01",
         key: "attack",
@@ -14886,7 +14886,19 @@ const nodeGraphModuleDefinitions = (
   acousticPluck: {
     planRole: "processor",
     planFreeRun: true,
-    layout: "envelopeCurve",
+    layout: "scopeFace",
+    displayType: "waterfall",
+    defaultDisplaySettings: { historySeconds: 8, polarity: "unipolar" },
+    displayModes: [
+      {
+        key: "waterfall",
+        label: "Waterfall",
+        renderer: "waterfall",
+        settingsSchema: "waterfall",
+        source: { value: "Env" },
+      },
+    ],
+    displaySignals: [{ key: "Env", kind: "scalar" }],
     digitalInputs: ["KT"],
     inputs: ["KT", "Trigger"],
     inputAliases: { Gate: "Trigger", Trig: "Trigger", In: "Trigger", pitch: "KT", "♯/♭": "KT" },
@@ -15134,6 +15146,18 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     planFreeRun: true,
     layout: "envelopeCurve",
+    displayType: "waterfall",
+    defaultDisplaySettings: { historySeconds: 8 },
+    displayModes: [
+      {
+        key: "waterfall",
+        label: "Waterfall",
+        renderer: "waterfall",
+        settingsSchema: "waterfall",
+        source: { value: "Env" },
+      },
+    ],
+    displaySignals: [{ key: "Env", kind: "scalar" }],
     inputs: ["Trigger", "Release"],
     inputLabels: {
       Trigger: "Trig",
@@ -15261,7 +15285,18 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     planFreeRun: true,
     layout: "envelopeCurve",
-    // No Instant Waterfall displayType — custom envelope curve face (blank Display Settings).
+    displayType: "waterfall",
+    defaultDisplaySettings: { historySeconds: 8 },
+    displayModes: [
+      {
+        key: "waterfall",
+        label: "Waterfall",
+        renderer: "waterfall",
+        settingsSchema: "waterfall",
+        source: { value: "Out" },
+      },
+    ],
+    displaySignals: [{ key: "Out", kind: "scalar" }],
     digitalOutputs: ["isIdle"],
     inputs: ["Trigger"],
     inputAliases: { Gate: "Trigger", In: "Trigger", Trig: "Trigger" },

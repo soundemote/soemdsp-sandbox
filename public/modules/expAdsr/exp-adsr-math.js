@@ -316,7 +316,8 @@ function nodeGraphExpAdsrSample(state, gate, params, sampleRate, runtime = null,
 }
 
 /**
- * Face preview: one gated note (gate high through A+D+sustain hold, then release).
+ * Face preview: Delay → Attack → Decay → Release.
+ * Sustain is the decay/release join height; no horizontal sustain segment.
  * Points are 0..1 time and 0..1 level (pre-level knob).
  * Zero/near-zero attack: contour starts at the peak (top), then Decay — no missing A stage.
  */
@@ -332,11 +333,9 @@ function nodeGraphExpAdsrPreviewCurve(params = {}, sampleRate = 2000, points = 1
       : params.attackShape,
   );
   const releaseShape = nodeGraphExpAdsrNormalizeShape(params.releaseShape);
-  const sustainHold = Math.max(0.05, Math.min(0.4, (attack + decay + release) * 0.15 || 0.08));
-  // Visual attack floor so A=0 still shows a peak vertex, then Decay.
   const attackDraw = attack;
-  const gateHigh = delay + Math.max(attackDraw + decay + sustainHold, 0.02);
-  const total = Math.max(gateHigh + Math.max(release * 1.2, release + 0.02, 0.05), 0.08);
+  const gateHigh = delay + attackDraw + decay;
+  const total = Math.max(gateHigh + release, 1e-9);
   const n = Math.max(48, Math.round(nodeGraphFiniteNumber(points, 160)));
 
   const pushSeg = (out, t0, t1, y0, y1, shape, segs) => {
@@ -378,10 +377,6 @@ function nodeGraphExpAdsrPreviewCurve(params = {}, sampleRate = 2000, points = 1
   } else {
     out.push({ t: tCursor / total, y: sustain });
   }
-
-  const sustainEnd = Math.max(tCursor + sustainHold, gateHigh);
-  pushSeg(out, tCursor, sustainEnd, sustain, sustain, 0, 2);
-  tCursor = sustainEnd;
 
   if (release > 1e-12) {
     pushSeg(out, tCursor, tCursor + release, sustain, 0, releaseShape, Math.max(8, Math.floor(n * 0.25)));

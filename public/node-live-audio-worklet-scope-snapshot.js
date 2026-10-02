@@ -61,9 +61,8 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
       }
       const absoluteFrame = Math.max(0, Math.floor(nodeGraphFiniteNumber(state.absoluteFrame)));
       const postedFrame = Math.max(0, Math.floor(nodeGraphFiniteNumber(state.postedFrame)));
-      // Visual rings are hop-written (~12 kHz). absoluteFrame counts written
-      // samples — sampleRate MUST be the effective write rate or Sweep(s) /
-      // history windows run engineRate/writeRate too slow (e.g. 1 s → ~8 s @ 96k).
+      // Visual rings write every engine sample (same as oscillator faces).
+      // absoluteFrame counts written samples — sampleRate is the write rate.
       const sampleStride = Math.max(1, Math.round(nodeGraphFiniteNumber(state.sampleStride, 1)));
       const sourceSampleRate = Math.max(
         1,

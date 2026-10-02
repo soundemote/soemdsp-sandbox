@@ -129,6 +129,8 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "additiveImage",
   "animatedTextBox",
   "acidSequencer",
+  "waterfallRgb",
+  "waterfallXyz",
   // Efficient-shop gaps: defined modules that are not on the live-audio /
   // observer allowlist. Park them as UC cards so search does not silently omit them.
   // audioInput: intentionally not shop-listed in efficient mode (APP_POLICY §0b).
@@ -454,9 +456,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   robinOscillator: {
     category: "oscillator",
-    description: "Cycle-dither AA multi-wave oscillator (RS-MET). Update chooses On cycle / Warp remaining / Snap remaining. Morph is universal (Pulse width / Trisaw Center opposing peaks / Analog Square same-direction peaks).",
+    description: "Cycle-dither AA multi-wave oscillator (RS-MET). Update chooses On cycle / Warp remaining / Snap remaining. Morph is universal (Pulse width / Trisaw Center opposing peaks / Analog Square same-direction peaks). Full Asym Sine is the half-sine wavetable once per cycle, −1…+1.",
     label: "Robin Oscillator",
-    notes: ["RS-MET", "cycle dither", "AA", "saw", "trisaw center", "analog square", "pulse", "morph", "freqUpdate", "mid-cycle warp"],
+    notes: ["RS-MET", "cycle dither", "AA", "saw", "trisaw center", "analog square", "pulse", "full asym sine", "morph", "freqUpdate", "mid-cycle warp"],
   },
   // additiveOsc / gpuAdditiveOsc retired — Yellow Graph chain replaces them.
   additiveGenerator: {
@@ -2419,8 +2421,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   waterfallStereo: {
     category: "oscilloscope",
-    description: "Stereo 1D waterfall—Left/Right colors, same dest tape as Mono.",
-    label: "1D Waterfall Stereo",
+    description: "Stereo waterfall. Left and Right each have a color.",
+    label: "2D Waterfall",
     notes: [
       "1D Waterfall",
       "stereo",

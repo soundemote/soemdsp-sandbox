@@ -4,7 +4,7 @@
 // soemdsp-native-kind: envelope
 //
 // Cheap per-voice ADSR for Meta Voices:
-// - Shape: Analog (one-pole), Linear, Smoothstep (phase 0…1 stretch)
+// - Shape: Analog (one-pole), Linear, Smoothstep, Log (finite fast-then-ease)
 // - Velocity from Gate amplitude (latched on rising edge)
 // - Analog-style: Gate↑ does NOT restart from 0 — attacks from current level
 // - Reset: rising edge → idle
@@ -40,7 +40,7 @@ static const double kIdleEps = 1.0e-5;
 static const double kArriveEps = 1.0e-4;
 
 enum Stage { STAGE_OFF = 0, STAGE_ATTACK = 1, STAGE_DECAY = 2, STAGE_SUSTAIN = 3, STAGE_RELEASE = 4 };
-enum Shape { SHAPE_ANALOG = 0, SHAPE_LINEAR = 1, SHAPE_SMOOTHSTEP = 2 };
+enum Shape { SHAPE_ANALOG = 0, SHAPE_LINEAR = 1, SHAPE_SMOOTHSTEP = 2, SHAPE_LOG = 3 };
 
 struct WavetableAdsrState {
   double out;          // 0…1 before Level
@@ -63,9 +63,25 @@ static double smoothstep01(double t) {
   return t * t * (3.0 - 2.0 * t);
 }
 
-static double shapeWarp(int shape, double t) {
+static double logRise01(double t) {
+  if (t <= 0.0) return 0.0;
+  if (t >= 1.0) return 1.0;
+  const double k = 9.0;
+  return dsp_ln(1.0 + k * t) / dsp_ln(1.0 + k);
+}
+
+// Inverse of log rise: finishes the drop (no analog-style floor taper).
+static double logFall01(double t) {
+  if (t <= 0.0) return 0.0;
+  if (t >= 1.0) return 1.0;
+  const double k = 9.0;
+  return (dsp_exp(k * t) - 1.0) / (dsp_exp(k) - 1.0);
+}
+
+static double shapeWarp(int shape, double t, bool falling) {
   if (shape == SHAPE_SMOOTHSTEP) return smoothstep01(t);
-  return clamp(t, 0.0, 1.0); // linear
+  if (shape == SHAPE_LOG) return falling ? logFall01(t) : logRise01(t);
+  return clamp(t, 0.0, 1.0);
 }
 
 /** ~95% settle in `seconds` at sample period `period`. */
@@ -139,7 +155,7 @@ extern "C" double soemdsp_wavetable_adsr_sample(
   const double lev = clamp(safe(level), 0.0, 1.0);
   int shape = (int)(safe(shapeParam) + 0.5);
   if (shape < 0) shape = 0;
-  if (shape > 2) shape = 2;
+  if (shape > 3) shape = 3;
   s.shape = shape;
 
   // Reset rising edge → idle (hard).
@@ -205,7 +221,7 @@ extern "C" double soemdsp_wavetable_adsr_sample(
           s.segStart = peak;
           s.segTarget = susLevel;
         } else {
-          const double w = shapeWarp(shape, s.segPos);
+          const double w = shapeWarp(shape, s.segPos, false);
           s.out = s.segStart + (s.segTarget - s.segStart) * w;
         }
       }
@@ -227,7 +243,7 @@ extern "C" double soemdsp_wavetable_adsr_sample(
           s.out = susLevel;
           s.stage = STAGE_SUSTAIN;
         } else {
-          const double w = shapeWarp(shape, s.segPos);
+          const double w = shapeWarp(shape, s.segPos, true);
           s.out = s.segStart + (s.segTarget - s.segStart) * w;
         }
       }
@@ -249,7 +265,7 @@ extern "C" double soemdsp_wavetable_adsr_sample(
         if (s.segPos >= 1.0 || rel <= period) {
           forceIdle(s);
         } else {
-          const double w = shapeWarp(shape, s.segPos);
+          const double w = shapeWarp(shape, s.segPos, true);
           s.out = s.segStart + (s.segTarget - s.segStart) * w;
           if (s.out < 0.0) s.out = 0.0;
         }

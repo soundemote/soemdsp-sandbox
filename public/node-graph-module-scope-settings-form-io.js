@@ -2312,6 +2312,13 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     if (isXyzDot) {
       return "X";
     }
+    if (nodeGraphTraceDisplaySettingsFormType() === "waterfall") {
+      const stereoHere = typeof nodeGraphModuleUsesStereoWaterfall === "function"
+        && nodeGraphModuleUsesStereoWaterfall(nodeTypeInner);
+      if (!stereoHere) {
+        return "In";
+      }
+    }
     const isStereo = typeof nodeGraphModuleUsesStereoWaterfall === "function"
       ? nodeGraphModuleUsesStereoWaterfall(nodeTypeInner)
       : nodeTypeInner === "output";

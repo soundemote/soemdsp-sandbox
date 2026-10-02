@@ -8289,7 +8289,6 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
 ) {
   if (!this.nativeGraphCompiled || !this.nativeGraphHandle || frames < 1) return;
   const fillRings = options.fillRings !== false;
-  const stressed = Boolean(options.stressed);
   const needModStrips = typeof this.processAdditiveYellowGraphSidecar === "function"
     && !this.nativeYellowGraphFullyNative?.();
   const protectedLeft = options.protectedLeft || null;
@@ -8476,13 +8475,9 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       const hash = this.fnv1aHash32(tapId);
       const writeHz = Number(entry.writeHz);
       // writeHz 0 / unset = every engine sample (waveform / phosphor faces).
-      // Never stress-hop those — hop-2/8 was the high-speed Lorenz downsample.
       let hop = 1;
       if (Number.isFinite(writeHz) && writeHz > 0 && writeHz < engineRateForFaces) {
         hop = Math.max(1, Math.floor(engineRateForFaces / writeHz));
-        if (stressed) {
-          hop = Math.max(hop, 2);
-        }
       }
       // Limiter faces need Gain (Saw) / Env (Ramp) — Mono alone looks like
       // biased program audio, not the detector envelope.
@@ -8652,23 +8647,18 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
     return sum;
   };
 
-  // Visual sinks (scope/monitor): append block samples from native / protected buffers.
+  // Visual sinks (scope/monitor): append every engine sample, same as oscillator
+  // faces. A stress hop of 8 made 1D Phosphor/Trace triangles while module
+  // faces stayed full-rate — the hop did not drop the expensive face rings.
   const sinks = this.compiledVisualSinks;
   if (!Array.isArray(sinks) || !sinks.length) return;
-  const stride = stressed ? 8 : 1;
   const engineRate = Math.max(1, nodeGraphFiniteNumber(this.engineSampleRate, nodeGraphFiniteNumber(sampleRate, 44100)));
   for (let s = 0; s < sinks.length; s += 1) {
     const sink = sinks[s];
     const inputs = sink?.inputs;
     if (!Array.isArray(inputs) || !inputs.length) continue;
     const sinkType = String(sink.type || this.nodes.get(sink.nodeId)?.type || "");
-    // Spectrogram FFT needs every engine sample (Nyquist = engine/2). Stress-hop
-    // folded a 20 kHz sweep at ~engine/(2*stride).
-    // Spectrogram and Onset need every engine sample. A stress hop of 8
-    // deletes the transient Onset exists to show.
-    const sinkStride = (sinkType === "spectrogram" || sinkType === "onset" || sinkType === "onset2d")
-      ? 1
-      : stride;
+    const sinkStride = 1;
     const rateMeta = {
       sampleStride: sinkStride,
       sourceSampleRate: engineRate,
@@ -8827,7 +8817,6 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
   const native = this.nativeGraph;
   const maxBlock = Math.max(1, nodeGraphFiniteNumber(native.soemdsp_graph_max_block_frames(), 128));
   let written = 0;
-  const stressed = Boolean(this.audioThreadStressed);
   const addL = this._additiveScratchL;
   const addR = this._additiveScratchR;
 
@@ -8891,7 +8880,6 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
     // Scope taps: DSP from native bufs; output sinks from ear-protected speakers.
     this.publishNativeGraphScopeTaps(chunk, {
       fillRings: true,
-      stressed,
       protectedLeft: output[0],
       protectedRight: output[1] || output[0],
       frameOffset: written,
