@@ -651,6 +651,11 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       const chordPlayMask = typeof nodeGraphChordMemoryLiveMaskForNode === "function"
         ? nodeGraphChordMemoryLiveMaskForNode(nid)
         : null;
+      // Gate/Trigger are key-only here. Thru (Clock→Keyboard.Gate, …) is either
+      // compile-time native expansion into destinations, or applied after native
+      // publish via refreshControllerDigitalThruOuts (GateKey/TriggerKey + Σ ins).
+      // Do not mixThru here — that ran before Clock published and double-counted
+      // once expansion wired Src→Dst.
       const outs = {
         "Play Keys": maskBusy(playMask),
         "Arp Keys": maskBusy(arpMask),
@@ -661,6 +666,8 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         arpMask,
         Gate: gateOut,
         Trigger: triggerOut,
+        GateKey: gateOut,
+        TriggerKey: triggerOut,
         X: cv.x,
         Y: cv.y,
       };
@@ -711,21 +718,9 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const chordPlayMask2 = typeof nodeGraphChordMemoryLiveMaskForNode === "function"
       ? nodeGraphChordMemoryLiveMaskForNode(nid)
       : null;
-    const mixThru = (port) => {
-      const key = typeof this.inputKey === "function" ? this.inputKey(nid, port) : `${nid}.${port}`;
-      const list = this.inputConnections?.get?.(key);
-      if (!Array.isArray(list) || !list.length) return 0;
-      let sum = 0;
-      for (let i = 0; i < list.length; i += 1) {
-        const c = list[i];
-        const src = this.nodeOutputs?.get?.(String(c?.sourceNode || ""));
-        if (!src || typeof src !== "object") continue;
-        const v = Number(src[String(c?.sourcePort || "")]);
-        if (Number.isFinite(v)) sum += v;
-      }
-      return sum;
-    };
-    const clamp11 = (x) => (x > 1 ? 1 : x < -1 ? -1 : x);
+    // Key-only Gate/Trigger for host CV feeders. Thru mix runs after native
+    // publish (refreshControllerDigitalThruOuts) so Clock→Keyboard.Gate is not
+    // double-counted with compile-time thru expansion into destinations.
     const outs2 = {
       ...prev,
       "Play Keys": maskBusy(playMask2),
@@ -735,8 +730,10 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       chordMask: chordMask2 instanceof Uint8Array ? chordMask2 : prev.chordMask,
       chordPlayMask: chordPlayMask2 instanceof Uint8Array ? chordPlayMask2 : prev.chordPlayMask,
       arpMask: arpMask2,
-      Gate: clamp11(gateOut + mixThru("Gate")),
-      Trigger: clamp11(triggerOut + mixThru("Trigger")),
+      Gate: gateOut,
+      Trigger: triggerOut,
+      GateKey: gateOut,
+      TriggerKey: triggerOut,
     };
     if (String(node?.type || "") === "keyboard") {
       outs2.KeyIndex = cv.key;

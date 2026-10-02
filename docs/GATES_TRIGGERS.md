@@ -94,6 +94,11 @@ Then the detector / publication above applies to what you **emit**, and to what 
 - Two +1s stay +1. 0.5 + 0.5 = 1. +1 and −1 cancel.
 - **Clamp −1…+1 only on thru outputs.** A Trigger inlet with no thru (Pluck Envelope) reads analog height as velocity and does not have to emit a clamped copy.
 - Trigger thru can pulse while Gate is still high. That is a new strike on the Trigger bus. Gate thru while high only changes height.
+- **Keyboard / Grid Keyboard** are not native DSP. Live compile expands
+  `Src → Keyboard.Gate` + `Keyboard.Gate → Dst` into a native `Src → Dst`
+  leg (`expandControllerDigitalThruConnections`). Key Gate stays on the
+  host CV feeder (key-only). Same for Trigger. Keyboard Gate/Trigger **out**
+  for scopes is refreshed after native publish (`refreshControllerDigitalThruOuts`).
 
 ---
 

@@ -2108,7 +2108,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
         return rc === 0;
       };
 
-      const connections = Array.isArray(this._planConnections) ? this._planConnections : [];
+      const planConnections = Array.isArray(this._planConnections) ? this._planConnections : [];
+      const connections = typeof this.expandControllerDigitalThruConnections === "function"
+        ? this.expandControllerDigitalThruConnections(planConnections)
+        : planConnections;
       for (const c of connections) {
         const src = String(c?.sourceNode || "");
         const dst = String(c?.destinationNode || "");
@@ -2595,6 +2598,149 @@ NodeLiveAudioProcessor.prototype.mixNativeShellPortCv = function mixNativeShellP
     }
   }
   return sum;
+};
+
+/**
+ * Controllers that are not native DSP (Keyboard / Grid Keyboard) still expose
+ * Gate/Trigger as mixers: out = key + Σ ins. Native graph cannot host those
+ * modules, so at compile we expand:
+ *   Src → Keyboard.Gate, Keyboard.Gate → Dst  ⇒  also Src → Dst
+ * Key presses stay on the host CV feeder Keyboard.Gate → Dst (key-only).
+ * One named transform — grep expandControllerDigitalThruConnections.
+ */
+NodeLiveAudioProcessor.CONTROLLER_DIGITAL_THRU_TYPES = Object.freeze({
+  keyboard: Object.freeze(["Gate", "Trigger"]),
+  gridKeyboard: Object.freeze(["Gate", "Trigger"]),
+});
+
+NodeLiveAudioProcessor.prototype.expandControllerDigitalThruConnections = function expandControllerDigitalThruConnections(
+  connections,
+) {
+  const list = Array.isArray(connections) ? connections.slice() : [];
+  const nodes = this.nodes;
+  const thruTypes = NodeLiveAudioProcessor.CONTROLLER_DIGITAL_THRU_TYPES;
+  if (!nodes || typeof nodes.get !== "function" || !list.length) {
+    return list;
+  }
+
+  const byCtrl = new Map();
+  const ensure = (id, port) => {
+    const key = `${id}\0${port}`;
+    let entry = byCtrl.get(key);
+    if (!entry) {
+      entry = { id: String(id), port: String(port), ins: [], outs: [] };
+      byCtrl.set(key, entry);
+    }
+    return entry;
+  };
+
+  for (let i = 0; i < list.length; i += 1) {
+    const c = list[i];
+    const src = String(c?.sourceNode || "");
+    const dst = String(c?.destinationNode || "");
+    const sp = String(c?.sourcePort || "");
+    const dp = String(c?.destinationPort || "");
+    if (!src || !dst || !sp || !dp) continue;
+    const srcType = String(nodes.get(src)?.type || "");
+    const dstType = String(nodes.get(dst)?.type || "");
+    const dstPorts = thruTypes[dstType];
+    if (dstPorts && dstPorts.indexOf(dp) >= 0) {
+      ensure(dst, dp).ins.push({ sourceNode: src, sourcePort: sp });
+    }
+    const srcPorts = thruTypes[srcType];
+    if (srcPorts && srcPorts.indexOf(sp) >= 0) {
+      ensure(src, sp).outs.push({ destinationNode: dst, destinationPort: dp });
+    }
+  }
+
+  const seen = new Set();
+  const mark = (a, b, c, d) => `${a}\0${b}\0${c}\0${d}`;
+  for (let i = 0; i < list.length; i += 1) {
+    const c = list[i];
+    seen.add(mark(
+      String(c?.sourceNode || ""),
+      String(c?.sourcePort || ""),
+      String(c?.destinationNode || ""),
+      String(c?.destinationPort || ""),
+    ));
+  }
+
+  const extra = [];
+  byCtrl.forEach((entry) => {
+    for (let ii = 0; ii < entry.ins.length; ii += 1) {
+      const inn = entry.ins[ii];
+      for (let oi = 0; oi < entry.outs.length; oi += 1) {
+        const out = entry.outs[oi];
+        if (String(out.destinationNode) === entry.id) continue;
+        const k = mark(
+          inn.sourceNode,
+          inn.sourcePort,
+          out.destinationNode,
+          out.destinationPort,
+        );
+        if (seen.has(k)) continue;
+        seen.add(k);
+        extra.push({
+          sourceNode: inn.sourceNode,
+          sourcePort: inn.sourcePort,
+          destinationNode: out.destinationNode,
+          destinationPort: out.destinationPort,
+          _controllerDigitalThru: true,
+          _viaNode: entry.id,
+          _viaPort: entry.port,
+        });
+      }
+    }
+  });
+
+  return extra.length ? list.concat(extra) : list;
+};
+
+/**
+ * After native outs are published, Keyboard Gate/Trigger out = key + Σ ins.
+ * Early sidecar publishes key-only so host CV feeders do not double-count thru
+ * legs that expandControllerDigitalThruConnections already wired natively.
+ */
+NodeLiveAudioProcessor.prototype.refreshControllerDigitalThruOuts = function refreshControllerDigitalThruOuts() {
+  const thruTypes = NodeLiveAudioProcessor.CONTROLLER_DIGITAL_THRU_TYPES;
+  if (!this.nodes || typeof this.nodes.entries !== "function") return;
+  const clamp11 = (x) => (x > 1 ? 1 : x < -1 ? -1 : x);
+
+  for (const [id, node] of this.nodes) {
+    const type = String(node?.type || "");
+    const ports = thruTypes[type];
+    if (!ports) continue;
+    const nid = String(id);
+    const prev = this.nodeOutputs?.get?.(nid);
+    if (!prev || typeof prev !== "object") continue;
+    const next = { ...prev };
+    let changed = false;
+    for (let pi = 0; pi < ports.length; pi += 1) {
+      const port = ports[pi];
+      const keyOnly = Number(prev[`${port}Key`]);
+      const base = Number.isFinite(keyOnly) ? keyOnly : Number(prev[port]) || 0;
+      const keyName = typeof this.inputKey === "function"
+        ? this.inputKey(nid, port)
+        : `${nid}.${port}`;
+      const list = this.inputConnections?.get?.(keyName);
+      let thru = 0;
+      if (Array.isArray(list) && list.length) {
+        for (let i = 0; i < list.length; i += 1) {
+          const c = list[i];
+          const src = this.nodeOutputs?.get?.(String(c?.sourceNode || ""));
+          if (!src || typeof src !== "object") continue;
+          const v = Number(src[String(c?.sourcePort || "")]);
+          if (Number.isFinite(v)) thru += v;
+        }
+      }
+      const mixed = clamp11(base + thru);
+      if (next[port] !== mixed) {
+        next[port] = mixed;
+        changed = true;
+      }
+    }
+    if (changed) this.nodeOutputs.set(nid, next);
+  }
 };
 
 NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHostCvFeeders() {
@@ -7330,7 +7476,12 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
     const idSet = new Set(nodes.map((n) => n.id));
     const hashById = new Map(nodes.map((n) => [n.id, n.hash]));
     const typeById = new Map(nodes.map((n) => [n.id, n.type]));
-    const connections = Array.isArray(this._planConnections) ? this._planConnections : [];
+    const planConnections = Array.isArray(this._planConnections) ? this._planConnections : [];
+    // Keyboard/GridKeyboard Gate|Trigger mixer → expand Src→KB.Gate + KB.Gate→Dst
+    // into Src→Dst native edges (key presses stay on host CV feeder).
+    const connections = typeof this.expandControllerDigitalThruConnections === "function"
+      ? this.expandControllerDigitalThruConnections(planConnections)
+      : planConnections;
     this._planConnectionsByDst = null;
     this.ensurePlanConnectionsByDst();
     // Non-native sources (MIDI Keyboard, macros, …) cannot sit in the native
@@ -8759,6 +8910,10 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
       protectedRight: output[1] || output[0],
       frameOffset: written,
     });
+    // Keyboard Gate/Trigger out = key + Σ ins (after Clock etc. publish).
+    try {
+      this.refreshControllerDigitalThruOuts?.();
+    } catch (_e) { /* keep audio */ }
     try {
       this.syncNativeVoiceIdleCleanup?.(chunk);
     } catch (_e) { /* keep audio */ }
