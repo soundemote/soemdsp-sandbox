@@ -13661,12 +13661,23 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   corner-shape: inherit;
 }
 
-/* Face paint stays inside the plate. Side jack columns stay overflow:visible.
-   Default clip offsets are huge so a mid-stack face is unclipped until JS
-   writes the real plate insets (avoid rounding the screen's own box). */
+/* Faces are square by default. Do not inherit the plate squircle / frame
+   radius — only displays with explicit cornerRadius / cornerShape settings
+   may round (Raster RGB, Matrix/Asciiscope, sample waveform panel, …). */
 .dsp-node .node-module-scope-window,
 .dsp-node .node-module-face:not(.node-text-box-body):not(.node-filter-curve-display),
 .dsp-node .node-sample-waveform-display,
+.dsp-node .node-module-graph-display,
+.dsp-node .node-solid-module-custom-ui {
+  --node-plate-clip-top: 999px;
+  --node-plate-clip-right: 999px;
+  --node-plate-clip-bottom: 999px;
+  --node-plate-clip-left: 999px;
+  overflow: hidden;
+  border-radius: 0;
+  corner-shape: unset;
+  clip-path: none;
+}
 
 /* Graph face wrapper: SVG plot + compact numeric strip underneath. */
 .node-module-graph-face {
@@ -13678,6 +13689,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  border-radius: 0;
 }
 
 .node-module-graph-face > .node-module-graph-display {
@@ -13739,26 +13751,13 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   opacity: 0.55;
 }
 
-.dsp-node .node-module-graph-display {
-  --node-plate-clip-top: 999px;
-  --node-plate-clip-right: 999px;
-  --node-plate-clip-bottom: 999px;
-  --node-plate-clip-left: 999px;
-  overflow: hidden;
-  clip-path: inset(
-    calc(-1 * var(--node-plate-clip-top, 999px))
-    calc(-1 * var(--node-plate-clip-right, 999px))
-    calc(-1 * var(--node-plate-clip-bottom, 999px))
-    calc(-1 * var(--node-plate-clip-left, 999px))
-    round var(--node-module-frame-radius)
-  );
-}
-
-/* EQ / filter-curve plots: clip-path + size containment ate the canvas. */
+/* EQ / filter-curve plots: keep square clip (never plate-squircle). */
 .dsp-node .node-filter-curve-display,
 .dsp-node .node-module-face.node-filter-curve-display {
   clip-path: none;
   overflow: hidden;
+  border-radius: 0;
+  corner-shape: unset;
 }
 
 .dsp-node.layout-b-no-params
@@ -13771,11 +13770,13 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   clip-path: none;
   height: 100%;
   max-height: 100%;
-  border-radius: var(--node-module-frame-radius);
-  corner-shape: inherit;
+  /* Square face — plate squircle is article chrome only. */
+  border-radius: 0;
+  corner-shape: unset;
 }
 
-/* LED / LCD / Value LED / LCD Dot / Clock screens: matching top+bottom radius inside the face cell. */
+/* LED / LCD / Value LED / LCD Dot / Clock: square unless the face schema
+   applies its own cornerRadius / cornerShape (Raster RGB path, etc.). */
 .dsp-node.led-layout .node-led-face,
 .dsp-node.value-lcd-layout .node-module-scope-window,
 .dsp-node.value-lcd-layout .node-value-lcd-face,
@@ -13787,8 +13788,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 .dsp-node[data-node-type="clock"] .node-module-scope-window {
   clip-path: none;
   overflow: hidden;
-  border-radius: var(--node-module-frame-radius);
-  corner-shape: inherit;
+  border-radius: 0;
+  corner-shape: unset;
 }
 
 /* LayoutB ports live in the shell — never a separate under-face IO strip.

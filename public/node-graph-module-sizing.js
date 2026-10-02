@@ -1448,78 +1448,34 @@ const NODE_GRAPH_PLATE_CLIP_SEL = [
 ].join(", ");
 
 /**
- * Clip a face to the module plate's rounded stroke. Faces are rectangular;
- * the plate uses border-radius + corner-shape, and .dsp-node stays
- * overflow:visible so half-jacks can hang off the sides.
- * clip-path inset with negative offsets is the plate rounded-rect in the
- * face's local box — so a mid-stack Instant Waterfall only loses the pizza
- * slices that poke through the corners, not its length/height.
+ * Faces stay square unless a display schema applies its own cornerRadius /
+ * cornerShape. Do not plate-squircle Instant Waterfall / Hyperpluck / Output
+ * faces to match the article outline (that looked like an unsolicited rim).
+ * Clear any leftover plate-clip vars from older sessions.
  */
 function applyNodeGraphModulePlateClip(article) {
   if (!article?.classList?.contains("dsp-node") || !article.isConnected) {
     return;
   }
-  const plateW = article.offsetWidth || 0;
-  const plateH = article.offsetHeight || 0;
-  if (plateW < 1 || plateH < 1) {
-    return;
-  }
   const faces = article.querySelectorAll(NODE_GRAPH_PLATE_CLIP_SEL);
-  const parts = [`${plateW}|${plateH}`];
-  const writes = [];
+  let cleared = false;
   for (const face of faces) {
     if (!(face instanceof HTMLElement)) {
       continue;
     }
-    if (face.classList.contains("node-text-box-body")) {
-      continue;
+    if (face.style.getPropertyValue("--node-plate-clip-top")
+      || face.style.getPropertyValue("--node-plate-clip-right")
+      || face.style.getPropertyValue("--node-plate-clip-bottom")
+      || face.style.getPropertyValue("--node-plate-clip-left")) {
+      face.style.removeProperty("--node-plate-clip-top");
+      face.style.removeProperty("--node-plate-clip-right");
+      face.style.removeProperty("--node-plate-clip-bottom");
+      face.style.removeProperty("--node-plate-clip-left");
+      cleared = true;
     }
-    if (face.classList.contains("node-filter-curve-display")) {
-      continue;
-    }
-    if (article.classList.contains("layout-b-no-params")
-      || article.classList.contains("led-layout")
-      || article.classList.contains("value-lcd-layout")
-      || article.classList.contains("number-readout-layout")
-      || article.classList.contains("clock-layout")
-      || article.dataset?.nodeType === "clock") {
-      continue;
-    }
-    if (face.closest(".node-io-column, .dsp-node-io-section, .dsp-node-header")) {
-      continue;
-    }
-    const box = typeof nodeGraphModuleFrameLayoutBoxInNode === "function"
-      ? nodeGraphModuleFrameLayoutBoxInNode(face, article)
-      : null;
-    const left = box ? box.x : face.offsetLeft || 0;
-    const top = box ? box.y : face.offsetTop || 0;
-    const width = box ? box.w : face.offsetWidth || 0;
-    const height = box ? box.h : face.offsetHeight || 0;
-    if (width < 0.5 || height < 0.5) {
-      continue;
-    }
-    const right = Math.max(0, plateW - left - width);
-    const bottom = Math.max(0, plateH - top - height);
-    if (top + bottom >= height - 1 || left + right >= width - 1) {
-      continue;
-    }
-    const topPx = Math.max(0, top).toFixed(2);
-    const rightPx = right.toFixed(2);
-    const bottomPx = bottom.toFixed(2);
-    const leftPx = Math.max(0, left).toFixed(2);
-    parts.push(`${topPx},${rightPx},${bottomPx},${leftPx}`);
-    writes.push({ face, topPx, rightPx, bottomPx, leftPx });
   }
-  const fp = parts.join(";");
-  if (article.dataset.plateClipFp === fp) {
-    return;
-  }
-  article.dataset.plateClipFp = fp;
-  for (const write of writes) {
-    write.face.style.setProperty("--node-plate-clip-top", `${write.topPx}px`);
-    write.face.style.setProperty("--node-plate-clip-right", `${write.rightPx}px`);
-    write.face.style.setProperty("--node-plate-clip-bottom", `${write.bottomPx}px`);
-    write.face.style.setProperty("--node-plate-clip-left", `${write.leftPx}px`);
+  if (cleared || article.dataset.plateClipFp) {
+    delete article.dataset.plateClipFp;
   }
 }
 
