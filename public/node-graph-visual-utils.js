@@ -148,8 +148,8 @@ function nodeGraphHueBrightnessRgb01(hueDeg, brightness01, saturation01 = 1) {
   return [r, g, b];
 }
 
-function nodeGraphHueBrightnessCss(hueDeg, brightness01, alpha01 = 1) {
-  const [r, g, b] = nodeGraphHueBrightnessRgb01(hueDeg, brightness01);
+function nodeGraphHueBrightnessCss(hueDeg, brightness01, alpha01 = 1, saturation01 = 1) {
+  const [r, g, b] = nodeGraphHueBrightnessRgb01(hueDeg, brightness01, saturation01);
   const R = Math.round(r * 255);
   const G = Math.round(g * 255);
   const B = Math.round(b * 255);

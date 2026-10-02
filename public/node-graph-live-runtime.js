@@ -3222,7 +3222,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-graph-parameter-smoother-filters.js?v=smooth-gpu-3p-1",
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=hyperpluck-1",
-  "./public/node-graph-efficient-product.js?v=hyperpluck-1",
+  "./public/node-graph-efficient-product.js?v=divide-shop-1",
   "./public/node-live-audio-worklet-core.js?v=hyperpluck-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",

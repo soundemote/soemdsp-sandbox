@@ -181,6 +181,7 @@ $modules = @(
   @{ Name = "sinc"; Simd = $false; Exports = @("soemdsp_sinc_create", "soemdsp_sinc_destroy", "soemdsp_sinc_sample", "soemdsp_sinc_version", "soemdsp_sinc_metadata_json", "soemdsp_sinc_metadata_json_size") }
   @{ Name = "softwave"; Simd = $false; Exports = @("soemdsp_softwave_create", "soemdsp_softwave_destroy", "soemdsp_softwave_reset", "soemdsp_softwave_sample", "soemdsp_softwave_version", "soemdsp_softwave_metadata_json", "soemdsp_softwave_metadata_json_size") }
   @{ Name = "sine_warp"; Simd = $false; Exports = @("soemdsp_sine_warp_create", "soemdsp_sine_warp_destroy", "soemdsp_sine_warp_reset", "soemdsp_sine_warp_sample", "soemdsp_sine_warp_out", "soemdsp_sine_warp_version", "soemdsp_sine_warp_metadata_json", "soemdsp_sine_warp_metadata_json_size") }
+  @{ Name = "filter_morph_oscillator"; Simd = $false; Exports = @("soemdsp_filter_morph_oscillator_create", "soemdsp_filter_morph_oscillator_destroy", "soemdsp_filter_morph_oscillator_reset", "soemdsp_filter_morph_oscillator_sample", "soemdsp_filter_morph_oscillator_version") }
   @{ Name = "soem_reverb"; Simd = $false; Exports = @(
     "soemdsp_soem_reverb_create", "soemdsp_soem_reverb_destroy", "soemdsp_soem_reverb_reset",
     "soemdsp_soem_reverb_set_params", "soemdsp_soem_reverb_process",

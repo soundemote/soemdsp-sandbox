@@ -41,6 +41,7 @@ static const double kExpDbSpan = 5.0;
 static const double kLn10 = 2.302585092994046;
 static const double kReleaseMin = 0.0;
 static const double kReleaseMax = 10.0;
+static const double kTailMax = 2.2;
 // Breadboard KT: MIDI 0..127 → /127 → invert → attenuverter (×0.3125 − 0.1)
 // → unit MOD on Attack 0..0.02 s. MIDI 0 ⇒ U=-0.1; MIDI 127 ⇒ U=-0.4125.
 static const double kKtAmplitude = 0.31250587099718496;
@@ -174,7 +175,8 @@ extern "C" double soemdsp_acoustic_pluck_sample(
     s.velocity = maxd(0.0, safeGate);
   }
   // Feedback / Bias always live (breadboard knobs into the release MOD path).
-  const double fbAmt = safe(feedback);
+  const double tail = safe(feedback);
+  const double fbAmt = kTailMax - tail;
   const double fbBias = safe(bias);
 
   if (latchMode) {

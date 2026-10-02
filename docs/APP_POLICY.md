@@ -16,6 +16,8 @@ When in doubt: prefer **honesty, one path, and delete over compatibility**.
 - **Keyboard `Velocity`:** gold outlet, 0â€¦1 (`velocity01`). Legacy `Velo#/127` / `Velocity#/127` alias to `Velocity`.
 - Hz modules (oscs / most filters): Frequency knob and `Æ’` jack are **absolute Hz**. They do not track `pitch` unless a leftover consumer explicitly does.
 
+- **Planck range:** `kPlanck` = 1e-7 (silence / floor). `kInvPlanck` = 1/`kPlanck` = 10,000,000. Use `planck_divisor` / `clamp_planck_range` on modules that can explode (Divide). Do not clamp ordinary osc/filter outs to 10M.
+
 ### Gates & Triggers
 
 Binding spec: [GATES_TRIGGERS.md](./GATES_TRIGGERS.md). White round jacks, glyphs ▮ / ⎍ / ↺. Detector: `gate_hit` / `silent_planck` (`|x| < 1e-7` is rest; leave silence either sign is a hit). Height is velocity. Trigger is one sample. Gate follows live height until silence. Reset is the same hit, height ignored. Thru outs `clamp(internal + in, -1, +1)`.

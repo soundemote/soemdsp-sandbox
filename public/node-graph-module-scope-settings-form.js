@@ -1943,11 +1943,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     if ((type === "roundShapeFace" || type === "basicShapeFace") && section === "waterfall") {
       fieldKeys = [
         "lineThickness",
-        "lineBrightness",
         "dotThickness",
-        "dotBrightness",
-        "backgroundBrightness",
-        "lineBlur",
         "pixelDensity",
       ].filter((key) => activeFields.has(key) && allowKey("fields", key));
     }
@@ -1965,7 +1961,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     let colorKeys = (sectionControls.colors || []).filter(
       (key) => activeColors.has(key) && allowKey("colors", key),
     );
-    if ((type === "roundShapeFace" || type === "basicShapeFace" || type === "softwaveOscFace") || type === "vectorDot" || type === "pulseDot" || type === "lcdDot") {
+    if ((type === "roundShapeFace" || type === "basicShapeFace" || type === "softwaveOscFace") || type === "vectorDot" || type === "pulseDot" || type === "lcdDot" || type === "value") {
       colorKeys = [];
     }
     if (type === "waterfall" && isStereoWaterfallNode) {
@@ -2228,40 +2224,31 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         rows.push(nodeGraphStampPreviewHtml(false, type));
         continue;
       }
-      if ((type === "roundShapeFace" || type === "basicShapeFace" || type === "softwaveOscFace") && key === "lineBrightness") {
-        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
-          title: "Line",
-          stepField: "lineBrightness",
-          colorField: "strokeColor",
-          formType: type,
-          defaultHueHex: "#00ffd0",
-          titleAttr: "Line brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
-        }));
-        continue;
-      }
-      if ((type === "roundShapeFace" || type === "basicShapeFace") && key === "dotBrightness") {
-        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
-          title: "Dot",
-          stepField: "dotBrightness",
-          colorField: "dotColor",
-          formType: type,
-          defaultHueHex: "#00ffd0",
-          titleAttr: "Dot brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
-        }));
-        continue;
-      }
-      if ((type === "roundShapeFace" || type === "basicShapeFace" || type === "softwaveOscFace") && key === "backgroundBrightness") {
-        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
-          title: "Background",
-          stepField: "backgroundBrightness",
-          colorField: "backgroundColor",
-          formType: type,
-          defaultHueHex: "#00aaff",
-          titleAttr: "Background brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
-        }));
+      if ((type === "roundShapeFace" || type === "basicShapeFace" || type === "softwaveOscFace")
+        && (key === "lineBrightness" || key === "dotBrightness" || key === "backgroundBrightness")) {
         continue;
       }
       rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
+    }
+    if ((type === "roundShapeFace" || type === "basicShapeFace" || type === "softwaveOscFace") && section === "waterfall") {
+      const lamps = [
+        ["line", "Line", "lineHue", "lineBrightness", "lineSaturation"],
+      ];
+      if (type !== "softwaveOscFace") {
+        lamps.push(["dot", "Dot", "dotHue", "dotBrightness", "dotSaturation"]);
+      }
+      lamps.push(["background", "Background", "backgroundHue", "backgroundBrightness", "backgroundSaturation"]);
+      const cells = lamps.map(([id, label, hue, bright, sat]) => `
+          <div class="node-trace-display-hsl-lamp node-trace-display-color-widget-host" data-hsl-lamp="${id}" data-hsl-label="${label}">
+            <input type="hidden" data-trace-display-field="${hue}" value="">
+            <input type="hidden" data-trace-display-field="${bright}" value="">
+            <input type="hidden" data-trace-display-field="${sat}" value="">
+          </div>`).join("");
+      const cols = lamps.length === 3 ? " is-xyz" : "";
+      rows.push(`
+          <div class="node-trace-display-lr-row node-trace-display-lr-color-row" data-hsl-lamp-row>
+            <div class="node-trace-display-lr-pair${cols}">${cells}</div>
+          </div>`);
     }
     // Sync | Clear — one row under Dot Budget (1D + 2D phosphor).
     if (packingKeys.length || type === "lineBurn" || type === "scope2d" || type === "xyPad") {
@@ -2303,6 +2290,14 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         }</div>`,
       );
     }
+  }
+
+  if (type === "value") {
+    parts.push(`<div class="metadata-field-section node-trace-display-value-colors-section"><div class="node-trace-display-lr-pair">${
+      nodeGraphDisplaySettingsBuildColorRowHtml("backgroundColor", type)
+    }${
+      nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type)
+    }</div></div>`);
   }
 
   if (type === "knobFace" && typeof buildNodeGraphKnobFaceLayersDisplaySettingsHtml === "function") {

@@ -1304,6 +1304,10 @@ function readNodeGraphTraceDisplaySettingsForm() {
       fieldKeysToRead.add(liveKey);
     }
   }
+  root?.querySelectorAll?.("[data-hsl-lamp] [data-trace-display-field]")?.forEach((input) => {
+    const key = input.getAttribute("data-trace-display-field");
+    if (key) fieldKeysToRead.add(key);
+  });
   for (const key of fieldKeysToRead) {
     const input = root?.querySelector?.(`[data-trace-display-field="${key}"]`);
     if (input) {
@@ -1709,6 +1713,10 @@ function nodeGraphWriteTraceDisplaySettingsFormInner(settings) {
     fieldKeysToWrite.add("sweepHz");
     fieldKeysToWrite.add("sweepCycles");
   }
+  root?.querySelectorAll?.("[data-hsl-lamp] [data-trace-display-field]")?.forEach((input) => {
+    const key = input.getAttribute("data-trace-display-field");
+    if (key) fieldKeysToWrite.add(key);
+  });
   for (const key of fieldKeysToWrite) {
     const input = root?.querySelector?.(`[data-trace-display-field="${key}"]`);
     if (input) {
@@ -1990,13 +1998,13 @@ function nodeGraphTraceDisplayColorWidgetModuleUrl() {
   }
   const script = document.querySelector('script[src*="node-graph-module-scopes.js"]');
   if (script?.src) {
-    return new URL("color-widget.js?v=wf-no-stretch-1", script.src).href;
+    return new URL("color-widget.js?v=hsl-lamp-1", script.src).href;
   }
   // Fallbacks: site root /public/, then document-relative public/
   try {
-    return new URL("/public/color-widget.js?v=wf-no-stretch-1", window.location.origin).href;
+    return new URL("/public/color-widget.js?v=hsl-lamp-1", window.location.origin).href;
   } catch {
-    return new URL("public/color-widget.js?v=wf-no-stretch-1", window.location.href).href;
+    return new URL("public/color-widget.js?v=hsl-lamp-1", window.location.href).href;
   }
 }
 
@@ -2128,6 +2136,98 @@ function destroyNodeGraphTraceDisplayColorWidgets() {
     }
   }
   nodeGraphTraceDisplayColorWidgetState.widgets.clear();
+  for (const widget of nodeGraphHslLampWidgetState.widgets.values()) {
+    try {
+      widget?.destroy?.();
+    } catch {
+      // ignore
+    }
+  }
+  nodeGraphHslLampWidgetState.widgets.clear();
+}
+
+const nodeGraphHslLampWidgetState = { widgets: new Map() };
+
+const NODE_GRAPH_HSL_LAMPS = Object.freeze({
+  line: ["lineHue", "lineBrightness", "lineSaturation"],
+  dot: ["dotHue", "dotBrightness", "dotSaturation"],
+  background: ["backgroundHue", "backgroundBrightness", "backgroundSaturation"],
+});
+
+function syncNodeGraphHslLampWidgets(popover = document.getElementById("nodeTraceDisplaySettingsPopover")) {
+  const formType = typeof nodeGraphTraceDisplaySettingsFormType === "function"
+    ? nodeGraphTraceDisplaySettingsFormType()
+    : "";
+  const shape = formType === "roundShapeFace" || formType === "basicShapeFace" || formType === "softwaveOscFace";
+  if (!popover || !shape) {
+    return;
+  }
+  loadNodeGraphTraceDisplayColorWidgetModule().then((module) => {
+    const live = document.getElementById("nodeTraceDisplaySettingsPopover");
+    if (!live || live.hidden) return;
+    const mount = module?.mountColorWidget || window.mountColorWidget;
+    if (typeof mount !== "function") return;
+    const current = typeof nodeGraphTraceDisplayCurrentSettingsForFormType === "function"
+      ? nodeGraphTraceDisplayCurrentSettingsForFormType(formType)
+      : {};
+    const look = typeof normalizeNodeGraphRoundShapeFaceSettings === "function"
+      ? normalizeNodeGraphRoundShapeFaceSettings(current)
+      : current;
+    for (const host of live.querySelectorAll("[data-hsl-lamp]")) {
+      const id = host.getAttribute("data-hsl-lamp");
+      const keys = NODE_GRAPH_HSL_LAMPS[id];
+      if (!keys) continue;
+      const [hueKey, brightKey, satKey] = keys;
+      const hue = Number(look[hueKey]);
+      const bright = Number(look[brightKey]);
+      const sat = Number(look[satKey]);
+      const label = host.getAttribute("data-hsl-label") || "";
+      const hueInput = host.querySelector(`[data-trace-display-field="${hueKey}"]`);
+      const brightInput = host.querySelector(`[data-trace-display-field="${brightKey}"]`);
+      const satInput = host.querySelector(`[data-trace-display-field="${satKey}"]`);
+      let face = host.querySelector("[data-hsl-lamp-face]");
+      let widget = nodeGraphHslLampWidgetState.widgets.get(host);
+      if (!widget || widget.channels !== "hsl") {
+        if (!face) {
+          face = document.createElement("div");
+          face.setAttribute("data-hsl-lamp-face", "");
+          face.className = "node-trace-display-color-widget-host";
+          host.appendChild(face);
+        }
+        nodeGraphTraceDisplayColorWidgetState.syncing = true;
+        try {
+          widget = mount(face, {
+            label,
+            channels: "hsl",
+            h: Number.isFinite(hue) ? hue : 0,
+            s: (Number.isFinite(sat) ? sat : 1) * 100,
+            l: (Number.isFinite(bright) ? bright : 0.5) * 100,
+            a: 1,
+            defaultHue: Number.isFinite(hue) ? hue : 0,
+            onChange: (color) => {
+              if (nodeGraphTraceDisplayColorWidgetState.syncing) return;
+              hueInput.value = String(color.h);
+              brightInput.value = String(Math.max(0, Math.min(1, Number(color.l) / 100)));
+              satInput.value = String(Math.max(0, Math.min(1, Number(color.s) / 100)));
+              if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+                markNodeGraphTraceDisplaySettingsDirty(hueKey);
+              }
+              applyNodeGraphTraceDisplaySettingsForm({ persist: "none", record: false });
+            },
+          });
+        } finally {
+          nodeGraphTraceDisplayColorWidgetState.syncing = false;
+        }
+        nodeGraphHslLampWidgetState.widgets.set(host, widget);
+      } else if (!widget.drag) {
+        widget.setColor({
+          h: Number.isFinite(hue) ? hue : widget.color.h,
+          s: (Number.isFinite(sat) ? sat : 1) * 100,
+          l: (Number.isFinite(bright) ? bright : 0.5) * 100,
+        }, false, { preserveHueSample: true });
+      }
+    }
+  }).catch(() => {});
 }
 
 function nodeGraphTraceDisplayColorWidgetLabel(field) {
@@ -2159,7 +2259,8 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     return isXyz ? "Y" : "Right";
   }
   if (field === "backgroundColor") {
-    if (nodeGraphTraceDisplaySettingsFormType() === "numberReadout") {
+    const backgroundForm = nodeGraphTraceDisplaySettingsFormType();
+    if (backgroundForm === "numberReadout" || backgroundForm === "value") {
       return "Background";
     }
     return "Bg";
@@ -2189,6 +2290,9 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     return "Ghost ink";
   }
   if (field === "dot1Color") {
+    if (nodeGraphTraceDisplaySettingsFormType() === "value") {
+      return "Line";
+    }
     if (nodeGraphTraceDisplaySettingsFormType() === "patchFace") {
       return "Ink";
     }
@@ -2271,6 +2375,7 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
     if (!livePopover || livePopover.hidden) {
       return;
     }
+    syncNodeGraphHslLampWidgets(livePopover);
     const mount = module?.mountColorWidget || window.mountColorWidget;
     if (typeof mount !== "function") {
       console.warn("[trace-display] color-widget module missing mountColorWidget");

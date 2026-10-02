@@ -3,7 +3,7 @@
   "modules": [
     {
       "name": "acoustic_pluck",
-      "label": "Acoustic Pluck",
+      "label": "Pluck Envelope",
       "targetType": "acousticPluck",
       "kind": "envelope",
       "source": "native_modules/acoustic_pluck/acoustic_pluck.cpp",
@@ -662,6 +662,19 @@
       "libUrl": "",
       "wasm": "native_modules/fbm_field/fbm_field.wasm",
       "wasmUrl": "native_modules/fbm_field/fbm_field.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "filter_morph_oscillator",
+      "label": "FilterMorph Oscillator",
+      "targetType": "filterMorphOscillator",
+      "kind": "oscillator",
+      "source": "native_modules/filter_morph_oscillator/filter_morph_oscillator.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/filter_morph_oscillator/filter_morph_oscillator.cpp",
+      "localSourceUrl": "/native_modules/filter_morph_oscillator/filter_morph_oscillator.cpp",
+      "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/PolyBLEP.hpp",
+      "wasm": "native_modules/filter_morph_oscillator/filter_morph_oscillator.wasm",
+      "wasmUrl": "native_modules/filter_morph_oscillator/filter_morph_oscillator.wasm",
       "wasmAvailable": true
     },
     {

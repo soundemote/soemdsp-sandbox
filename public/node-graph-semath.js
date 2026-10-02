@@ -4,6 +4,7 @@
 // 1.0 is home. First real step is 1 + NODE_GRAPH_PLANCK (1.0000001).
 
 var NODE_GRAPH_PLANCK = 1e-7;
+var NODE_GRAPH_INV_PLANCK = 1 / NODE_GRAPH_PLANCK; // 10,000,000
 var NODE_GRAPH_NUMERIC_PRECISION = NODE_GRAPH_PLANCK;
 
 function nodeGraphPlanck() {

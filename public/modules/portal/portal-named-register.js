@@ -26,7 +26,7 @@ registerNodeGraphChromelessModule("namedPortalIn", {
   catalog: {
     category: "portal",
     hidden: true,
-    description: "Wireless send (\u2192). Matching Portal \u2190 titles in the same patch (root or this Metamodule) receive the sum. Jack label is effective Display (follows Title); jack color follows the incoming cable. First cable locks wireless role (Keys/Scale/Play/Chord/Arp noteMask family, audio, \u2026); Matched Portal \u2190 mirrors title, color, and role. Does not cross a Metamodule shell.",
+    description: "Wireless send (\u2192). Matching Portal \u2190 titles in the same patch (root or this Metamodule) receive the sum. Jack type/color follow the cable plugged in. Does not cross a Metamodule shell.",
     notes: [
       "portal",
       "portal in",
@@ -94,7 +94,7 @@ registerNodeGraphChromelessModule("portalIo", {
   },
   catalog: {
     category: "portal",
-    description: "Place a linked Portal \u2192 + Portal \u2190 pair (same Title bus). Rename either half syncs the other; well-known Titles (PlayKeys, ArpKeys, ChordKeys, Scale, \u2026) adopt that outlet\u2019s color and square shape. Does not cross a Metamodule shell.",
+    description: "Place a linked Portal \u2192 + Portal \u2190 pair (same Title bus). Rename either half syncs the other. Jack type/color follow the cable plugged in. Does not cross a Metamodule shell.",
     notes: [
       "portal",
       "portal io",

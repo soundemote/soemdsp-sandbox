@@ -1,13 +1,7 @@
-// Named wireless Portal In / Portal Out. Title (alias) is the bus name.
-// Optional wirelessRole (port kind: noteMask / audio / …) locks on first cable;
-// Portal Out re-publishes that kind. Jack I/O labels use effective Display
-// (follows Title until overridden). Jack/wire color follows the cable into
-// Portal In; Out mirrors matched In for title/bus, color, and role.
-// Well-known bus Titles (PlayKeys / ArpKeys / ChordKeys / Scale / …) also
-// paint from the same name→color/shape tables as those outlets — rename
-// adopts look even with no cable yet. Catalog entry **Portal IO** drops a
-// linked In+Out pair (same Title); separate In/Out types stay loadable.
-// Each owner is its own universe (root vs each Metamodule).
+// Named wireless Portal In / Portal Out. Title (alias) is the bus name only.
+// Jack type/color/shape come from the cable plugged in (wirelessRole locks on
+// first cable). Titles never pick a port kind. Portal Out re-publishes that
+// kind. Jack I/O labels use effective Display (follows Title until overridden).
 
 function nodeGraphIsNamedPortalInType(type) {
   return String(type || "") === "namedPortalIn";
@@ -24,57 +18,6 @@ function nodeGraphIsNamedPortalType(type) {
 function nodeGraphIsPortalIoCatalogType(type) {
   return String(type || "") === "portalIo";
 }
-
-/**
- * Well-known note-bus Titles → canonical outlet port name (jack-chrome tables).
- * Keys are lowercase identifier forms with underscores stripped (ChordKeys,
- * Chord_Keys, "Chord Keys" all → chordkeys).
- */
-const NODE_GRAPH_NAMED_PORTAL_BUS_PAINT = Object.freeze([
-  { keys: Object.freeze(["playkeys"]), port: "Play Keys", role: "noteMask" },
-  { keys: Object.freeze(["arpkeys", "keys"]), port: "Arp Keys", role: "noteMask" },
-  { keys: Object.freeze(["chordkeys", "chordmemory"]), port: "Chord Memory", role: "noteMask" },
-  { keys: Object.freeze(["scale"]), port: "Scale", role: "noteMask" },
-  { keys: Object.freeze(["kt", "keytrack"]), port: "KT", role: "noteMask" },
-  { keys: Object.freeze(["polyphony"]), port: "Polyphony", role: "noteMask" },
-  { keys: Object.freeze(["monophony"]), port: "Monophony", role: "noteMask" },
-  { keys: Object.freeze(["voices"]), port: "Voices", role: "noteMask" },
-]);
-
-function nodeGraphNamedPortalBusPaintKey(alias) {
-  const normalized = typeof normalizeNodeGraphNamedPortalAlias === "function"
-    ? normalizeNodeGraphNamedPortalAlias(alias, "")
-    : String(alias || "").trim();
-  return String(normalized || "").trim().toLowerCase().replace(/_/g, "");
-}
-
-/**
- * Resolve name→color/shape paint for a portal Title. Returns
- * { port, role } using the same port names as nodeGraphJackChannel /
- * nodeGraphPortIsNoteBus, or null when the Title is not a known bus.
- */
-function nodeGraphNamedPortalBusPaintFromAlias(alias) {
-  const key = nodeGraphNamedPortalBusPaintKey(alias);
-  if (!key) return null;
-  for (let i = 0; i < NODE_GRAPH_NAMED_PORTAL_BUS_PAINT.length; i += 1) {
-    const entry = NODE_GRAPH_NAMED_PORTAL_BUS_PAINT[i];
-    if (entry.keys.includes(key)) {
-      return { port: entry.port, role: entry.role };
-    }
-  }
-  return null;
-}
-
-/** Apply well-known Title paint (wirelessRole) onto the bus of nodeId. */
-function nodeGraphNamedPortalApplyAliasPaint(patch, nodeId) {
-  if (!patch || !Array.isArray(patch.nodes)) return [];
-  const node = nodeGraphNamedPortalNodeFromPatch(nodeId, patch);
-  if (!node || !nodeGraphIsNamedPortalType(node.type)) return [];
-  const paint = nodeGraphNamedPortalBusPaintFromAlias(node.alias);
-  if (!paint?.role) return [];
-  return nodeGraphNamedPortalSyncBusWirelessRole(patch, nodeId, paint.role);
-}
-
 
 /**
  * Portal Title / bus name: C++ identifier [A-Za-z_][A-Za-z0-9_]*.
@@ -236,23 +179,8 @@ function nodeGraphNamedPortalSyncBusAlias(patch, fromNodeId, nextAlias) {
     node.alias = next;
     changed.push(String(node.id));
   }
-  // Prefer well-known Title → noteMask (ChordKeys, PlayKeys, …). Else keep
-  // prior bus role. Do not clear on rename to an unknown Title.
-  const paint = typeof nodeGraphNamedPortalBusPaintFromAlias === "function"
-    ? nodeGraphNamedPortalBusPaintFromAlias(next)
-    : null;
-  const roleToApply = (paint && paint.role) ? paint.role : seedRole;
-  if (roleToApply != null && roleToApply !== "" && typeof nodeGraphNamedPortalSyncBusWirelessRole === "function") {
-    nodeGraphNamedPortalSyncBusWirelessRole(patch, fromNodeId, roleToApply);
-  } else if (roleToApply != null && roleToApply !== "") {
-    const nextKey = String(next).trim().toLowerCase();
-    for (let i = 0; i < patch.nodes.length; i += 1) {
-      const node = patch.nodes[i];
-      if (!node || !nodeGraphIsNamedPortalType(node.type)) continue;
-      if (nodeGraphNamedPortalUniverse(node) !== universe) continue;
-      if (nodeGraphNamedPortalBusKey(node) !== nextKey) continue;
-      node.wirelessRole = roleToApply;
-    }
+  if (seedRole != null && seedRole !== "" && typeof nodeGraphNamedPortalSyncBusWirelessRole === "function") {
+    nodeGraphNamedPortalSyncBusWirelessRole(patch, fromNodeId, seedRole);
   }
   return changed;
 }

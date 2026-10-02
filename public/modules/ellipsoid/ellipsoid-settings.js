@@ -5,13 +5,16 @@
 const nodeGraphRoundShapeFaceDisplaySettingsDefaults = Object.freeze({
   lineHue: 165,
   lineBrightness: 0.5,
+  lineSaturation: 1,
   lineThickness: 2,
   lineBlur: 0,
   dotHue: 165,
   dotBrightness: 1,
+  dotSaturation: 1,
   dotThickness: 5,
   backgroundHue: 200,
   backgroundBrightness: 0.03,
+  backgroundSaturation: 1,
   pixelDensity: 1,
 });
 
@@ -59,13 +62,14 @@ function nodeGraphRoundShapePureHueHex(hueDeg, fallbackHue) {
   return `hsl(${hue} 100% 50%)`;
 }
 
-function nodeGraphRoundShapePaintCss(hueDeg, brightness01, fallbackHue, fallbackBright) {
+function nodeGraphRoundShapePaintCss(hueDeg, brightness01, fallbackHue, fallbackBright, saturation01 = 1) {
   const hue = nodeGraphRoundShapeWrapHue(hueDeg, fallbackHue);
   const bright = nodeGraphRoundShapeClamp01(brightness01, fallbackBright);
+  const sat = nodeGraphRoundShapeClamp01(saturation01, 1);
   if (typeof nodeGraphHueBrightnessCss === "function") {
-    return nodeGraphHueBrightnessCss(hue, bright);
+    return nodeGraphHueBrightnessCss(hue, bright, 1, sat);
   }
-  return `hsl(${hue} 90% ${Math.round(bright * 100)}%)`;
+  return `hsl(${hue} ${Math.round(sat * 100)}% ${Math.round(bright * 100)}%)`;
 }
 
 function normalizeNodeGraphRoundShapeFaceSettings(settings = {}) {
@@ -89,6 +93,12 @@ function normalizeNodeGraphRoundShapeFaceSettings(settings = {}) {
     source.backgroundBrightness,
     d.backgroundBrightness,
   );
+  const lineSaturation = nodeGraphRoundShapeClamp01(source.lineSaturation, d.lineSaturation);
+  const dotSaturation = nodeGraphRoundShapeClamp01(source.dotSaturation, d.dotSaturation);
+  const backgroundSaturation = nodeGraphRoundShapeClamp01(
+    source.backgroundSaturation,
+    d.backgroundSaturation,
+  );
   const thicknessRaw = Number(source.lineThickness);
   const dotThickRaw = Number(source.dotThickness);
   const blurRaw = Number(source.lineBlur ?? source.blur);
@@ -96,28 +106,32 @@ function normalizeNodeGraphRoundShapeFaceSettings(settings = {}) {
   const strokeColor = nodeGraphRoundShapePureHueHex(lineHue, d.lineHue);
   const dotColor = nodeGraphRoundShapePureHueHex(dotHue, d.dotHue);
   const backgroundColor = nodeGraphRoundShapePureHueHex(backgroundHue, d.backgroundHue);
-  const strokePaint = nodeGraphRoundShapePaintCss(lineHue, lineBrightness, d.lineHue, d.lineBrightness);
-  const dotPaint = nodeGraphRoundShapePaintCss(dotHue, dotBrightness, d.dotHue, d.dotBrightness);
+  const strokePaint = nodeGraphRoundShapePaintCss(lineHue, lineBrightness, d.lineHue, d.lineBrightness, lineSaturation);
+  const dotPaint = nodeGraphRoundShapePaintCss(dotHue, dotBrightness, d.dotHue, d.dotBrightness, dotSaturation);
   const backgroundPaint = nodeGraphRoundShapePaintCss(
     backgroundHue,
     backgroundBrightness,
     d.backgroundHue,
     d.backgroundBrightness,
+    backgroundSaturation,
   );
   return {
     lineHue,
     lineBrightness,
+    lineSaturation,
     lineThickness: Number.isFinite(thicknessRaw)
       ? Math.max(0.25, Math.min(16, thicknessRaw))
       : d.lineThickness,
     lineBlur: Number.isFinite(blurRaw) ? Math.max(0, Math.min(8, blurRaw)) : d.lineBlur,
     dotHue,
     dotBrightness,
+    dotSaturation,
     dotThickness: Number.isFinite(dotThickRaw)
       ? Math.max(0.25, Math.min(32, dotThickRaw))
       : d.dotThickness,
     backgroundHue,
     backgroundBrightness,
+    backgroundSaturation,
     pixelDensity: Number.isFinite(densityRaw)
       ? Math.max(0, Math.min(1, densityRaw))
       : d.pixelDensity,

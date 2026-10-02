@@ -98,13 +98,6 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "inv-2",
-      "destinationPort": "In",
-      "sourceNode": "namedPortalOut-4",
-      "sourcePort": "Out",
-      "tracePoints": []
-    },
-    {
       "destinationNode": "namedPortalIn-5",
       "destinationPort": "In",
       "sourceNode": "curveAttackRelease-1",
@@ -126,10 +119,24 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "scope1dTrace-1",
+      "destinationNode": "inv-2",
       "destinationPort": "In",
-      "sourceNode": "polyBlep-1",
-      "sourcePort": "Wave",
+      "sourceNode": "namedPortalOut-8",
+      "sourcePort": "Out",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "divide-1",
+      "destinationPort": "In",
+      "sourceNode": "keyboard-1",
+      "sourcePort": "pitch",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "namedPortalIn-7",
+      "destinationPort": "In",
+      "sourceNode": "divide-1",
+      "sourcePort": "Out",
       "tracePoints": []
     }
   ],
@@ -285,8 +292,8 @@
       "traceDisplaySettings": {
         "backgroundHue": 0,
         "backgroundBrightness": 0,
-        "background": "#ff0000",
-        "backgroundColor": "#ff0000",
+        "background": "#000000",
+        "backgroundColor": "#000000",
         "brightness": 0.95,
         "color": "#ff0000",
         "dot1Enabled": true,
@@ -303,7 +310,6 @@
         "dotBudget": 1024,
         "pixelDensity": 1,
         "padding": 0,
-        "scale": 1,
         "skipDiscontinuities": false,
         "cmyMode": false,
         "sourceSync": false,
@@ -318,6 +324,7 @@
         "barThickness": 1,
         "barInk": "fill",
         "strokeColor": "#ffffff",
+        "scale": 1,
         "strokeThickness": 1,
         "pauseOnSilence": false,
         "dot1Brightness": 0.95,
@@ -525,8 +532,8 @@
       "traceDisplaySettings": {
         "backgroundHue": 0,
         "backgroundBrightness": 0,
-        "background": "#ff0000",
-        "backgroundColor": "#ff0000",
+        "background": "#000000",
+        "backgroundColor": "#000000",
         "brightness": 0.95,
         "color": "#f00f0f",
         "dot1Enabled": true,
@@ -543,7 +550,6 @@
         "dotBudget": 1024,
         "pixelDensity": 1,
         "padding": 0,
-        "scale": 1,
         "skipDiscontinuities": false,
         "cmyMode": false,
         "sourceSync": false,
@@ -558,6 +564,7 @@
         "barThickness": 1,
         "barInk": "fill",
         "strokeColor": "#ffffff",
+        "scale": 1,
         "strokeThickness": 1,
         "pauseOnSilence": false,
         "dot1Brightness": 0.95,
@@ -1466,7 +1473,7 @@
     },
     {
       "gx": 9,
-      "gy": -3,
+      "gy": -4,
       "id": "keyboard-1",
       "paramMeta": {},
       "params": {},
@@ -1633,7 +1640,7 @@
         }
       },
       "params": {
-        "amplitude": 0.31250587099718496,
+        "amplitude": 0.31,
         "offset": -0.1
       },
       "type": "attenuverter",
@@ -1814,7 +1821,7 @@
         }
       },
       "params": {
-        "offset": 0.3386447760157483,
+        "offset": 0.36283375286970254,
         "displaySource": 0
       },
       "type": "knob",
@@ -1936,7 +1943,7 @@
         }
       },
       "params": {
-        "offset": 0.5921960366220437,
+        "offset": 0.558212373007214,
         "displaySource": 0
       },
       "type": "knob",
@@ -2101,7 +2108,7 @@
     },
     {
       "gx": 39,
-      "gy": -1,
+      "gy": 0,
       "id": "namedPortalIn-1",
       "paramMeta": {},
       "params": {},
@@ -2138,33 +2145,6 @@
       "alias": "Trigger",
       "display": "⎍",
       "wirelessRole": "digital",
-      "widthGu": 2,
-      "heightGu": 1,
-      "ui": {
-        "buttonsHidden": true,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": false,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": true
-      }
-    },
-    {
-      "gx": 17,
-      "gy": 14,
-      "id": "namedPortalOut-4",
-      "paramMeta": {},
-      "params": {},
-      "type": "namedPortalOut",
-      "alias": "KT",
       "widthGu": 2,
       "heightGu": 1,
       "ui": {
@@ -2282,7 +2262,7 @@
     },
     {
       "gx": 39,
-      "gy": -2,
+      "gy": -1,
       "id": "namedPortalIn-6",
       "paramMeta": {},
       "params": {},
@@ -2335,63 +2315,16 @@
       }
     },
     {
-      "gx": 40,
-      "gy": 1,
-      "id": "scope1dTrace-1",
+      "gx": 43,
+      "gy": -3,
+      "id": "namedPortalIn-7",
       "paramMeta": {},
       "params": {},
-      "type": "scope1dTrace",
-      "widthGu": 15,
-      "traceDisplaySettings": {
-        "backgroundHue": 240,
-        "backgroundBrightness": 0,
-        "background": "#0000ff",
-        "backgroundColor": "#0000ff",
-        "dot1Brightness": 1,
-        "dot1Color": "#ff0000",
-        "dot1Enabled": true,
-        "dot1Size": 2,
-        "secondaryBrightness": 1,
-        "secondaryColor": "#0000ff",
-        "secondaryEnabled": true,
-        "secondarySize": 2,
-        "ghost": 0.25,
-        "trail": 0.3,
-        "pixelDensity": 1,
-        "scale": 1,
-        "skipDiscontinuities": true,
-        "gradientStops": [
-          {
-            "t": 0,
-            "color": "#000004"
-          },
-          {
-            "t": 0.2,
-            "color": "#3b0f70"
-          },
-          {
-            "t": 0.4,
-            "color": "#8c2981"
-          },
-          {
-            "t": 0.6,
-            "color": "#de4968"
-          },
-          {
-            "t": 0.8,
-            "color": "#fe9f6d"
-          },
-          {
-            "t": 1,
-            "color": "#fcfdbf"
-          }
-        ],
-        "sourceSync": true,
-        "sweepHz": 4,
-        "sweepCycles": 4,
-        "dotBudget": 2048,
-        "drawMode": "budget"
-      },
+      "type": "namedPortalIn",
+      "alias": "kt",
+      "wirelessRole": "audio",
+      "widthGu": 2,
+      "heightGu": 1,
       "ui": {
         "buttonsHidden": true,
         "buttonsForceShow": false,
@@ -2406,8 +2339,98 @@
         "oscilloscopeForceShow": false,
         "slidersHidden": false,
         "slidersForceShow": false,
-        "titleHidden": false,
-        "displayHeightGu": 8
+        "titleHidden": true
+      }
+    },
+    {
+      "gx": 17,
+      "gy": 14,
+      "id": "namedPortalOut-8",
+      "paramMeta": {},
+      "params": {},
+      "type": "namedPortalOut",
+      "alias": "kt",
+      "wirelessRole": "audio",
+      "widthGu": 2,
+      "heightGu": 1,
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": true
+      }
+    },
+    {
+      "gx": 39,
+      "gy": -3,
+      "id": "divide-1",
+      "paramMeta": {
+        "divide": {
+          "alias": "",
+          "choices": [],
+          "curveAmount": 0,
+          "def": 127,
+          "displayChoices": false,
+          "divideChoicesVisibly": false,
+          "kind": "decimal",
+          "bipolar": false,
+          "max": 128,
+          "maxDigits": 3,
+          "mid": 127,
+          "min": 127,
+          "reverse": false,
+          "nonlinearSlider": true,
+          "sliderCurve": "skew",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "global",
+          "smoothingSeconds": 1469,
+          "smoothingType": "linear",
+          "step": 0,
+          "tooltip": "Out = In / Divide. |Divide| is floored to Planck (1e-7); |Out| is clamped to Planck…1/Planck (1e7).",
+          "modClamp": true,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": true,
+          "outputDomain": false,
+          "domainOffset": 0
+        }
+      },
+      "params": {
+        "divide": 127
+      },
+      "type": "divide",
+      "widthGu": 4,
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": true,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": true
       }
     }
   ],
@@ -2422,7 +2445,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 48,
-    "zoom": 0.6130393650367904,
+    "zoom": 0.6130393650367902,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,

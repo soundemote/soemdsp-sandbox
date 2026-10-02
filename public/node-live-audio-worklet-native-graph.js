@@ -15,6 +15,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   attenumax: 187,
   range: 8,
   inv: 9,
+  divide: 202,
   u2b: 10,
   b2u: 11,
   bias: 12,
@@ -24,6 +25,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   robinOscillator: 74,
   robinSupersaw: 16,
   hyperpluck: 200,
+  filterMorphOscillator: 201,
   slewLimiter: 17,
   comparator: 18,
   sampleDelay: 19,
@@ -348,6 +350,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   shape: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   softenAttack: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR,
   dampen: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
+  tail: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
+  divide: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   synthVsAcoustic: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FEEDBACK,
   phaseAlgorithm: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
   phaseMultiply: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET,
@@ -4233,6 +4237,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("offset", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("offset", 0));
       continue;
     }
+    if (type === "divide") {
+      push("divide", P.NATIVE_GRAPH_PARAM_WIDTH, cont("divide", 127));
+      continue;
+    }
     if (type === "noiseGenerator") {
       // Reuse existing Control slots: mode, shape, offset=mean, width=deviation,
       // seed, amplitude=level.
@@ -4350,6 +4358,15 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("warp", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("warp", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "filterMorphOscillator") {
+      // shape=Morph, stages=Poles. Morph/Poles/Phase/Amp via param MOD (no twin CV jacks).
+      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 1));
+      push("poles", P.NATIVE_GRAPH_PARAM_STAGES, disc("poles", 1));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -5113,10 +5130,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "acousticPluck") {
-      // Breadboard knobs: softenAttack→timeDen, dampen→width, synthVsAcoustic→feedback.
-      // Attack curve / base release / fall curve / trigger mode stay baked in init_control.
+      // Breadboard knobs: softenAttack→timeDen, tail→width (inverted Dampen), synthVsAcoustic→feedback.
       push("softenAttack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("softenAttack", 0));
-      push("dampen", P.NATIVE_GRAPH_PARAM_WIDTH, cont("dampen", 1.1));
+      push("tail", P.NATIVE_GRAPH_PARAM_WIDTH, cont("tail", 1.1));
       push("synthVsAcoustic", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("synthVsAcoustic", 1.64));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
@@ -7944,6 +7960,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "sampleHold") return ["Ext Out", "Out", "Mono"];
     if (/^([2-9]|1[01])t$/.test(type)) return ["Out", "Mono"];
     if (type === "wavetable2d" || type === "sineWarp") return ["Out", "Mono"];
+    if (type === "filterMorphOscillator") return ["Wave", "Out", "Mono"];
     if (type === "minMax") return ["Max"];
     if (type === "mix4" || type === "mix" || type === "gainBiasMix") return ["Out1"];
     if (type === "mix2") return ["Mix"];

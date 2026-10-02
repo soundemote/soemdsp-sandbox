@@ -108,8 +108,7 @@ function nodeGraphPortIsNoteBus(port) {
     || key === "Polyphony"
     || key === "Monophony"
     || key === "Voices"
-    || key === "Scale"
-    || key === "KT";
+    || key === "Scale";
 }
 
 function nodeGraphJackSignalKind(type, port, io = null) {
@@ -517,29 +516,7 @@ function nodeGraphApplyJackChrome(element, type, port, io = "output") {
     } else if (portalNode) {
       portalWirelessRole = String(portalNode.wirelessRole || "").trim() || null;
     }
-    // Well-known Title (ChordKeys / PlayKeys / …) reuses outlet name→color/shape
-    // tables — same look as choosing that named portal / splicing from that jack.
-    let portalAliasPaintPort = null;
-    if (
-      portalNode
-      && typeof nodeGraphNamedPortalBusPaintFromAlias === "function"
-    ) {
-      const paint = nodeGraphNamedPortalBusPaintFromAlias(portalNode.alias);
-      if (paint?.port) {
-        portalAliasPaintPort = paint.port;
-        const fromAlias = nodeGraphJackChannel(type, paint.port, "output");
-        if (fromAlias) {
-          channel = fromAlias;
-        }
-        if (paint.role === "noteMask" || paint.role === "digital" || paint.role === "code") {
-          digital = true;
-          if (!portalWirelessRole && paint.role) {
-            portalWirelessRole = paint.role;
-          }
-        }
-      }
-    }
-    if (!portalAliasPaintPort && typeof nodeGraphNamedPortalColorSource === "function") {
+    if (typeof nodeGraphNamedPortalColorSource === "function") {
       const colorSrc = nodeGraphNamedPortalColorSource(nodeId);
       if (colorSrc) {
         portalColorSrcPort = colorSrc.port;
@@ -564,9 +541,6 @@ function nodeGraphApplyJackChrome(element, type, port, io = "output") {
       || portalWirelessRole === "code"
     )) {
       digital = true;
-    }
-    if (portalAliasPaintPort) {
-      portalColorSrcPort = portalAliasPaintPort;
     }
   }
   element.classList.remove("node-outlet-mono", "node-outlet-left", "node-outlet-right");

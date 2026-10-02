@@ -870,6 +870,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Softwave Oscillator",
     notes: ["softwave", "tube", "tanh", "morph", "analog waves", "walter", "face"],
   },
+  filterMorphOscillator: {
+    category: "oscillator",
+    description: "PolyBLEP saw with pitch-tracking one-pole Morph (1…4 poles) toward sine-ish, constant-fundamental makeup.",
+    label: "FilterMorph Oscillator",
+    notes: ["polyblep", "saw", "filter morph", "one-pole", "poles", "native", "oscillator"],
+  },
   sineWarp: {
     category: "oscillator",
     description: "Live antialiased warped sine — rational phasewarp + rectified/clipping sine (PolyBLAMP) or clean sine. Hard Reset uses PolyBLEP on the value jump.",
@@ -1222,6 +1228,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Invert a signal (out = −in).",
     label: "Inv",
     notes: ["invert", "negate", "flip", "phase invert", "utility"],
+  },
+  divide: {
+    category: "dynamics",
+    description: "Out = In / Divide. |Divide| ≥ Planck; |Out| in [Planck, 1/Planck].",
+    label: "Divide",
+    notes: ["divide", "reciprocal", "dynamics", "utility", "planck"],
   },
   ringMod: {
     category: "dynamics",
@@ -3072,6 +3084,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   inv: {
     source: "native_modules/inv/inv.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/inv/inv.cpp",
+  },
+  divide: {
+    source: "native_modules/graph_engine/graph_engine.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/graph_engine/graph_engine.cpp",
   },
   ringMod: {
     source: "native_modules/ring_mod/ring_mod.cpp",

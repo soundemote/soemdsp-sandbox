@@ -44,6 +44,24 @@ static inline bool silent_planck(double x) {
   return dsp_fabs(x) < soemdsp::constant::kPlanck;
 }
 
+// |d| floored to kPlanck, sign preserved. Exact 0 → +kPlanck.
+static inline double planck_divisor(double d) {
+  const double p = soemdsp::constant::kPlanck;
+  if (d > p || d < -p) return d;
+  return (d < 0.0) ? -p : p;
+}
+
+// Clamp to ±kInvPlanck. Non-zero results also floored to ±kPlanck.
+static inline double clamp_planck_range(double x) {
+  const double hi = soemdsp::constant::kInvPlanck;
+  const double lo = soemdsp::constant::kPlanck;
+  if (x > hi) return hi;
+  if (x < -hi) return -hi;
+  if (x > 0.0 && x < lo) return lo;
+  if (x < 0.0 && x > -lo) return -lo;
+  return x;
+}
+
 // x - floor(x), wrapped into [0, 1).
 // Canonical unit-interval wrap; matches soemdsp::math::wrap(phase) style.
 static inline double wrap01(double value) {

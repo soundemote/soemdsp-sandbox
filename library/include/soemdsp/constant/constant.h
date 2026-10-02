@@ -51,6 +51,9 @@ constexpr double k2z3      = 2.0 / 3.0;
 // Silence, idle, dirty-near, envelope rest. Not a divide-by-zero guard for
 // frequency/scale/period (those keep their own positive floors).
 constexpr double kPlanck = 1.0e-7;
+// Reciprocal of the universe floor. Ceiling for modules that can explode
+// (Divide, 1/x). 1 / 1e-7 = 10,000,000.
+constexpr double kInvPlanck = 1.0 / kPlanck;
 
 // One-pole angular-freq clamp: tau / 44100 (caps w at ~44.1 kHz Nyquist-ish).
 constexpr double kTauOver44100 = kTAU / 44100.0; // 0.000142475857...
@@ -103,6 +106,7 @@ using soemdsp::constant::k1z16384;
 using soemdsp::constant::k2z3;
 
 using soemdsp::constant::kPlanck;
+using soemdsp::constant::kInvPlanck;
 using soemdsp::constant::kTauOver44100;
 
 using soemdsp::constant::kPi;

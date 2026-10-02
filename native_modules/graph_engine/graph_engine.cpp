@@ -17,6 +17,8 @@
 #include <soemdsp/math/scalar_helpers.h>
 
 using soemdsp::math::gate_hit;
+using soemdsp::math::planck_divisor;
+using soemdsp::math::clamp_planck_range;
 
 // Combined wasm resolves these; standalone graph_engine.wasm links with
 // --allow-undefined (stubs unused — product loads soemdsp_combined.wasm).
@@ -588,6 +590,20 @@ extern "C" double soemdsp_sine_warp_sample(
   double amplitude,
   double reset,
   double increment
+);
+
+extern "C" int soemdsp_filter_morph_oscillator_create();
+extern "C" void soemdsp_filter_morph_oscillator_destroy(int handle);
+extern "C" void soemdsp_filter_morph_oscillator_reset(int handle, double phaseOffset);
+extern "C" double soemdsp_filter_morph_oscillator_sample(
+  int handle,
+  double frequencyHz,
+  double sampleRate,
+  double morph,
+  double poles,
+  double phaseOffset,
+  double amplitude,
+  double reset
 );
 
 extern "C" int soemdsp_dsf_oscillator_create();
@@ -1717,6 +1733,7 @@ static const int kTypeAttenuverter = 7;
 static const int kTypeAttenuMax = 187; // AM Index: Out = Bias + In * Bias * Amplitude
 static const int kTypeRange = 8;
 static const int kTypeInv = 9;
+static const int kTypeDivide = 202; // In / Divide; |div|>=kPlanck, |out| in [kPlanck, kInvPlanck]
 static const int kTypeU2b = 10;
 static const int kTypeB2u = 11;
 static const int kTypeBias = 12;
@@ -1894,6 +1911,7 @@ static const int kTypeThumpEnvelope = 167;
 static const int kTypeAcousticPluck = 198;
 static const int kTypeAcidSequencer = 199; // TB-303-style step sequencer
 static const int kTypeHyperpluck = 200; // PolyBLEP unison pluck (Supersaw detune)
+static const int kTypeFilterMorphOscillator = 201; // FilterMorph: PolyBLEP saw + pitch-tracking one-pole cascade
 static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smoothstep)
 static const int kTypeFm = 169; // Freq Manager: ƒ(+inc) mix × pitch scale + Add; outs ƒ + inc
 static const int kTypePitchHz = 170; // Pitch â†” Hz (MIDI-ish pitch law, A4 = tuning)
@@ -2430,6 +2448,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_softwave_destroy(handle);
   } else if (kind == kTypeSineWarp) {
     soemdsp_sine_warp_destroy(handle);
+  } else if (kind == kTypeFilterMorphOscillator) {
+    soemdsp_filter_morph_oscillator_destroy(handle);
   } else if (kind == kTypeDsfOscillator) {
     soemdsp_dsf_oscillator_destroy(handle);
   } else if (kind == kTypeHypersaw2) {
@@ -2913,7 +2933,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeBlit || typeId == kTypeSineWavetable || typeId == kTypeSinCos
           || typeId == kTypeArchimedes
           || typeId == kTypeAdditiveOsc || typeId == kTypeSurgeOscillator
-          || typeId == kTypeSoftwaveOsc || typeId == kTypeSineWarp || typeId == kTypeDsfOscillator
+          || typeId == kTypeSoftwaveOsc || typeId == kTypeSineWarp || typeId == kTypeFilterMorphOscillator
+          || typeId == kTypeDsfOscillator
           || typeId == kTypeHypersaw2 || typeId == kTypeSinc
           || typeId == kTypeAdditiveOut || typeId == kTypeWavetable2d) ? 100.0
       : (typeId == kTypeAdditiveBubble) ? 1.0 // cutoff 0..1 (settled default)
@@ -3028,6 +3049,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeVibratoGenerator) ? 0.0 // Top Morph
       : (typeId == kTypeWowAndFlutter) ? 1.0 // wowAmp
       : (typeId == kTypeVactrol) ? 1.0 // curve gamma
+      : (typeId == kTypeFilterMorphOscillator) ? 1.0 // Morph (open filter)
       : (typeId == kTypeSoftwaveOsc || typeId == kTypeSuperloveFilter || typeId == kTypeSuperloveRev2
           || typeId == kTypeBasicShape) ? 0.5 // morph/chaos
       : (typeId == kTypeSmoothGraph) ? 1.0 // tension
@@ -3195,6 +3217,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAdditiveDiffusor) ? 0.0 // quantize off
       : (typeId == kTypeFm) ? 0.0 // semitones
       : (typeId == kTypeAcidSequencer) ? 16.0 // step length
+      : (typeId == kTypeFilterMorphOscillator) ? 1.0 // Poles
       : 4.0,
     // Generator Harmonics + Hypersaw2/RobinSupersaw voices stay continuous for Decimal trailing amp.
     // Freq Manager semitones live on stages and stay continuous, same as Pitch Manager octave.
@@ -3237,6 +3260,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeEllipsoid || typeId == kTypeEllipsoidOsc) ? 1.0 // AA Limit (0 Off / 1 Limit)
       : (typeId == kTypeHelmholtzPitch) ? 0.93 // fidelity threshold
       : (typeId == kTypeSoftClipper) ? 1.0 // threshold
+      : (typeId == kTypeDivide) ? 127.0 // Divide
       : 0.0,
     // Robin detuneAlgorithm is discrete 0…5; RoundShape / Ellipsoid AA is discrete Off/Limit
     typeId == kTypeRobinSupersaw || typeId == kTypeHyperpluck
@@ -3255,7 +3279,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpoPluckEnvelope) ? 0.0 // damping
       : (typeId == kTypeExpoPluckEnvelope2) ? 1.0 // velocity
       : (typeId == kTypeThumpEnvelope) ? 0.0 // decaySnap 0…1 (0=patch short)
-      : (typeId == kTypeAcousticPluck) ? 1.1 // dampen (attenuverter Amplitude def)
+      : (typeId == kTypeAcousticPluck) ? 1.1 // tail (inverted Dampen; 1.1 = breadboard rest)
       : (typeId == kTypePluckEnvelope3) ? 0.5 // decay (0=short … 1=long)
       : (typeId == kTypeTransport) ? 0.5 // pulseWidth gate duty
       : (typeId == kTypeRobinSupersaw) ? 30.0 // detuneCents
@@ -4395,6 +4419,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeSoftwaveOsc) return soemdsp_softwave_create();
   if (typeId == kTypeTheremin) return soemdsp_softwave_create();
   if (typeId == kTypeSineWarp) return soemdsp_sine_warp_create();
+  if (typeId == kTypeFilterMorphOscillator) return soemdsp_filter_morph_oscillator_create();
   if (typeId == kTypeDsfOscillator) return soemdsp_dsf_oscillator_create();
   if (typeId == kTypeHypersaw2) return soemdsp_hypersaw2_create();
   if (typeId == kTypeSinc) return soemdsp_sinc_create();
@@ -5336,6 +5361,19 @@ static void process_inv(Circuit& g, Node& node, int frames) {
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
     const double out = -(g.mixMono[f] + g.mixLeft[f] + g.mixRight[f]);
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+  }
+}
+
+static void process_divide(Circuit& g, Node& node, int frames) {
+  mix_node_inputs(g, node, frames);
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double d = planck_divisor(control_audio(g, node.width, f));
+    const double out = clamp_planck_range(in / d);
     node.buf[kPortMono][f] = out;
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
@@ -6873,6 +6911,49 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
     const double waveV = control_effective(node.waveform);
     const double y = soemdsp_softwave_sample(
       node.nativeHandle, freq, sr, waveV, morph, phaseOff, level, antialias, inc
+    );
+    node.buf[kPortMono][f] = y;
+    node.buf[kPortLeft][f] = y;
+    node.buf[kPortRight][f] = y;
+  }
+}
+
+// FilterMorph Oscillator: PolyBLEP saw + Morph one-pole cascade (shape=morph, stages=poles).
+// Morph/Phase/Amplitude are params (+ MOD) only — no twin CV jacks.
+// Reset → Wave at Phase offset (phasor 0 + offset; LP cleared).
+static void process_filter_morph_oscillator(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
+  const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
+  const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const double referenceVoltage = circuit_pitch_ref_v(g);
+  if (!liveReset) node.lastReset = 0.0;
+
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    double freq = resolve_osc_hz(
+      g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
+    );
+    double morph = control_audio(g, node.shape, f);
+    if (!(morph == morph)) morph = 1.0;
+    if (morph < 0.0) morph = 0.0;
+    if (morph > 1.0) morph = 1.0;
+    double poles = control_audio(g, node.stages, f);
+    if (!(poles == poles)) poles = 1.0;
+    const double phaseOff = control_audio(g, node.phaseParam, f);
+    double level = control_audio(g, node.amplitude, f);
+    if (!(level == level)) level = 1.0;
+    if (level < 0.0) level = 0.0;
+    const double reset = liveReset ? g.mixReset[f] : 0.0;
+    if (liveReset) {
+      if (gate_hit(reset, &node.lastReset)) {
+        soemdsp_filter_morph_oscillator_reset(node.nativeHandle, phaseOff);
+      }
+      node.lastReset = reset;
+    }
+    const double y = soemdsp_filter_morph_oscillator_sample(
+      node.nativeHandle, freq, sr, morph, poles, phaseOff, level, 0.0
     );
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
@@ -8813,7 +8894,7 @@ static void process_thump_envelope(Circuit& g, Node& node, int frames) {
 
 // Ping Envelope (pluckEnvelope3): timeDenominator=attack s, width=decay,
 // amplitude, mode=recalculateOnTrigger. Trigger→kPortTrigger; Gate/In→Mono+L/R.
-// Pluck Envelope (acousticPluck): timeDen=softenAttack, width=dampen,
+// Pluck Envelope (acousticPluck): timeDen=softenAttack, width=tail (inverted Dampen),
 // center=releaseShape, width=feedback, feedback=bias, mode=inputMode,
 // timingMode=updateOnTrigger, amplitude. KT->Left (note-mask key track);
 // Gate->Mono(+Right); Trigger on kPortTrigger.
@@ -12027,6 +12108,7 @@ static void process_bypass(Circuit& g, Node& node, int frames) {
     || node.typeId == kTypeSurgeOscillator
     || node.typeId == kTypeSoftwaveOsc
     || node.typeId == kTypeSineWarp
+    || node.typeId == kTypeFilterMorphOscillator
     || node.typeId == kTypeTheremin
     || node.typeId == kTypeDsfOscillator
     || node.typeId == kTypeHypersaw2
@@ -12438,6 +12520,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeSurgeOscillator
     || typeId == kTypeSoftwaveOsc
     || typeId == kTypeSineWarp
+    || typeId == kTypeFilterMorphOscillator
     || typeId == kTypeTheremin
     || typeId == kTypeDsfOscillator
     || typeId == kTypeHypersaw2
@@ -12609,6 +12692,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
       soemdsp_hypersaw2_reset(n.nativeHandle);
     } else if (typeId == kTypeSineWarp) {
       soemdsp_sine_warp_reset(n.nativeHandle);
+    } else if (typeId == kTypeFilterMorphOscillator) {
+      soemdsp_filter_morph_oscillator_reset(n.nativeHandle, 0.0);
     } else if (typeId == kTypeTheremin || typeId == kTypeSoftwaveOsc) {
       soemdsp_softwave_reset(n.nativeHandle);
     } else if (typeId == kTypePhosphillator) {
@@ -13633,6 +13718,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_sine_warp(g, node, frames);
       return;
     }
+    if (node.typeId == kTypeFilterMorphOscillator) {
+      process_filter_morph_oscillator(g, node, frames);
+      return;
+    }
     if (node.typeId == kTypeDsfOscillator) {
       process_dsf_oscillator(g, node, frames);
       return;
@@ -14091,6 +14180,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
     }
     if (node.typeId == kTypeInv) {
       process_inv(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeDivide) {
+      process_divide(g, node, frames);
       return;
     }
     if (node.typeId == kTypeTransistor) {
