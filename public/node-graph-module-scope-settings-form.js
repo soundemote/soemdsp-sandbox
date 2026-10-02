@@ -603,15 +603,22 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}
     base = { ...base, defaultValue: "#00ff00" };
   } else if (formType === "waterfall" && options.stereo && key === "dot1Color") {
     aria = "Left";
-    base = { ...base, defaultValue: "#ff0000" };
+    base = { ...base, caption: "Left", defaultValue: "#ff0000" };
   } else if (formType === "waterfall" && options.stereo && key === "secondaryColor") {
     aria = "Right";
-    base = { ...base, defaultValue: "#0000ff" };
+    base = { ...base, caption: "Right", defaultValue: "#0000ff" };
   } else if (formType === "scope2dTrace" && key === "secondaryColor") {
     aria = "Low-brightness end of the beam gradient";
     base = { ...base, defaultValue: "#0000ff" };
-  } else if (formType === "waterfall" && (options.stereo || options.xyz) && key === "backgroundColor") {
+  } else if ((formType === "waterfall" || formType === "waterfallRgb" || formType === "waterfallXyz") && key === "backgroundColor") {
     aria = "Background";
+    base = { ...base, caption: "Background", defaultValue: "#000000" };
+  } else if ((formType === "waterfall" || formType === "waterfallRgb" || formType === "waterfallXyz") && key === "dot1Color") {
+    aria = "Left";
+    base = { ...base, caption: "Left", defaultValue: "#ff0000" };
+  } else if ((formType === "waterfall" || formType === "waterfallRgb" || formType === "waterfallXyz") && key === "secondaryColor") {
+    aria = "Right";
+    base = { ...base, caption: "Right", defaultValue: "#0000ff" };
   } else if (key === "strokeColor") {
     aria = "Stroke color";
     base = { ...base, caption: "Stroke", defaultValue: "#ffffff" };
@@ -1350,12 +1357,14 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   const choiceKeys = [...activeChoices].filter((key) => allow("choices", key));
   const toggleKeys = [...activeToggles].filter((key) => allow("toggles", key));
   const inkColors = (isXyzWaterfallNode && type === "waterfall"
-    ? ["dot1Color", "secondaryColor", "tertiaryColor"]
+    ? ["dot1Color", "secondaryColor", "tertiaryColor", "backgroundColor"]
     : (isStereoWaterfallNode && type === "waterfall"
-      ? ["dot1Color", "secondaryColor"]
-      : (type === "scope2dTrace"
-        ? ["dot1Color", "secondaryColor"]
-        : ["dot1Color"]))
+      ? ["dot1Color", "secondaryColor", "backgroundColor"]
+      : ((type === "waterfall" || type === "waterfallRgb" || type === "waterfallXyz")
+        ? ["dot1Color", "secondaryColor", "backgroundColor"]
+        : (type === "scope2dTrace"
+          ? ["dot1Color", "secondaryColor"]
+          : ["dot1Color"])))
   ).filter((key) => activeColors.has(key) && allow("colors", key));
   const parts = [];
   const rows = [];

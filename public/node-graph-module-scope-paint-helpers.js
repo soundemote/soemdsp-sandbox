@@ -685,6 +685,13 @@ function nodeGraphScope2dTraceInkHex(settings = {}) {
 
 /** Resolve face plate color from any display settings object. */
 function nodeGraphFacePlateBackground(settings, fallback = nodeGraphFacePlateDefaultBackground) {
+  const stored = normalizeNodeGraphTraceDisplayColor(
+    settings?.backgroundColor ?? settings?.background,
+    "",
+  );
+  if (/^#[0-9a-f]{6}$/i.test(stored)) {
+    return stored;
+  }
   const faceStyle = String(settings?.faceStyle || "").toLowerCase();
   // LED / explicit hex plates: use the stored color (full widget), not hue-only rebuild.
   const bright = settings?.backgroundBrightness;
@@ -728,14 +735,11 @@ function nodeGraphFacePlateDensity(settings, fallback = 1) {
 
 function nodeGraphFacePlateApplyCss(screenElement, bg) {
   if (screenElement?.style) {
-    screenElement.style.setProperty(
-      "--node-scope-background",
-      bg || nodeGraphFacePlateDefaultBackground,
-    );
-    // Plate under the face canvas is solid CSS; keep it true to settings.
+    const plate = bg || nodeGraphFacePlateDefaultBackground;
+    screenElement.style.setProperty("--node-scope-background", plate);
     if (screenElement.classList?.contains("node-module-scope-window")
       || screenElement.classList?.contains("node-module-scope-window-surface")) {
-      screenElement.style.background = bg || nodeGraphFacePlateDefaultBackground;
+      screenElement.style.background = plate;
     }
   }
 }

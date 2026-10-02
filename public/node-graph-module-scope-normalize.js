@@ -782,8 +782,15 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
   const defaults = nodeGraphWaterfallSettingsDefaults;
   const legacyWindowMs = source.windowMs === undefined ? undefined : Number(source.windowMs) / 1000;
   const zoomSeconds = source.zoomSeconds ?? source.windowSeconds ?? legacyWindowMs;
+  const plate = nodeGraphDisplaySettingsNormalizePlateLook(source, defaults);
+  const backgroundColor = normalizeNodeGraphTraceDisplayColor(
+    source.backgroundColor ?? source.background,
+    "#000000",
+  );
   return {
-    ...nodeGraphDisplaySettingsNormalizePlateLook(source, defaults),
+    ...plate,
+    background: backgroundColor,
+    backgroundColor,
     brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,

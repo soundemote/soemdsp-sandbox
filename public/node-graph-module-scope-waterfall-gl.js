@@ -14,7 +14,7 @@ function nodeGraphWaterfallGlParsePlate(css) {
   }
   const rgb = /rgba?\(([^)]+)\)/i.exec(s);
   if (rgb) {
-    const p = rgb[1].split(",").map((v) => Number(v));
+    const p = rgb[1].trim().split(/[\s,]+/).map((v) => Number(v));
     return [(p[0] || 0) / 255, (p[1] || 0) / 255, (p[2] || 0) / 255];
   }
   return [0, 0, 0];
@@ -621,7 +621,11 @@ function nodeGraphWaterfallGlPresent(canvas, plateCss) {
 
 function nodeGraphWaterfallGlCold(canvas, plateCss) {
   if (!canvas) return false;
-  if (canvas._waterfall && canvas._waterfall.started) {
+  // A live tape already has history. Present it. The next column or sweep
+  // paints the new plate color. Do not clear the face because a setting changed.
+  const started = Boolean(canvas._waterfall && canvas._waterfall.started);
+  const hasHistory = Boolean(canvas._wfGlSession && canvas._wfGlSession.read);
+  if (started || hasHistory || canvas._onset) {
     return nodeGraphWaterfallGlPresent(canvas, plateCss);
   }
   if (!nodeGraphWaterfallGlReset(canvas, plateCss)) return false;

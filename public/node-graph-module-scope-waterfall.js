@@ -113,9 +113,6 @@ function nodeGraphOnsetPaint(spec, live) {
     ? resetHit
     : (signalHit >= 0 && (onset.parked || !onset.live) ? signalHit : -1);
   if (armAt >= 0) {
-    if (typeof nodeGraphWaterfallGlReset === "function") {
-      nodeGraphWaterfallGlReset(canvas, spec.bg);
-    }
     onset.origin = armAt;
     onset.drawn = armAt;
     onset.parked = false;
@@ -180,6 +177,9 @@ function nodeGraphOnsetPaint(spec, live) {
     const s1 = Math.max(s0 + 1, Math.ceil(onset.origin + ((p + 1) / width) * faceSamples));
     const screenX = (startPx + p) % width;
     const seam = p > 0 && screenX === 0;
+    if (typeof nodeGraphWaterfallGlClearColumn === "function") {
+      nodeGraphWaterfallGlClearColumn(canvas, screenX, 1, plateBg);
+    }
     for (let i = 0; i < channels.length; i += 1) {
       const ch = channels[i];
       const buf = ch.buffer;
@@ -1939,6 +1939,8 @@ function nodeGraphWaterfallPaint(spec) {
         ? (nodeGraphWaterfallPrepare(spec.stereoBuffers.left, settings) || spec.buffer)
         : (nodeGraphWaterfallPrepare(spec.buffer, settings) || spec.buffer);
   if (!live?.length) return false;
+  const plateCss = spec.settings?.backgroundColor || spec.settings?.background || spec.bg || "#000000";
+  spec.bg = plateCss;
   const onsetDef = typeof nodeGraphModuleDefinitions === "object"
     ? nodeGraphModuleDefinitions[spec?.slot?.type]
     : null;
@@ -1954,6 +1956,7 @@ function nodeGraphWaterfallPaint(spec) {
     slot: spec.slot,
     settings,
     buffer: live,
+    bg: spec.bg,
     stereoBuffers: spec.stereoBuffers,
     xyzBuffers: spec.xyzBuffers,
     rgbBuffers: spec.rgbBuffers,
