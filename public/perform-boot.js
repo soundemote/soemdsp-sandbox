@@ -219,6 +219,10 @@
   var forcedPerformView = !pluginPerform && isForcedPerformView();
   var mobileCanvas = !pluginPerform && !forcedPerformView && isMobilePhoneClient();
 
+  if (pluginPerform || forcedPerformView) {
+    global.soemdspPerformPage = true;
+  }
+
   if (!pluginPerform && !mobileCanvas && !forcedPerformView) {
     global.soemdspPerformMode = false;
     global.soemdspMobileCanvasMode = false;

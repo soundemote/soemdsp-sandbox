@@ -1768,6 +1768,9 @@ function nodeGraphMetaparametersTargetNodeId(options = {}) {
       return primary;
     }
   }
+  if (typeof nodeGraphLastSelectedModuleId === "function") {
+    return nodeGraphLastSelectedModuleId();
+  }
   return "";
 }
 
@@ -1893,9 +1896,12 @@ function syncOpenNodeMetadataPopoverToSelection() {
   if (!popover || popover.hidden || nodeGraphMvp.sharedInspectorActive !== "metaparameters") {
     return false;
   }
-  const primary = typeof nodeGraphModuleActionTargetNodeId === "function"
+  const selectedPrimary = typeof nodeGraphModuleActionTargetNodeId === "function"
     ? String(nodeGraphModuleActionTargetNodeId() || "").trim()
     : "";
+  const primary = selectedPrimary || (
+    typeof nodeGraphLastSelectedModuleId === "function" ? nodeGraphLastSelectedModuleId() : ""
+  );
   if (!primary) {
     showBlankNodeMetadataPopoverContent();
     return true;

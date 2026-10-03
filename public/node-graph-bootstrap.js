@@ -80,8 +80,16 @@ async function initNodeGraphMvp() {
   const pagePatchSlug = String(
     new URLSearchParams(window.location.search).get("pagePatch") || "",
   ).trim().toLowerCase();
+  const sessionSlug = String(nodeGraphMvp.loadedPatchSlug || "").trim().toLowerCase();
+  const restoreEditedPagePatch = Boolean(
+    !window.soemdspPerformPage
+    && pagePatchSlug
+    && workingUsable
+    && sessionSlug === pagePatchSlug
+    && startupPatchDirtyState === "edited",
+  );
   let pagePatchLoaded = false;
-  if (pagePatchSlug) {
+  if (pagePatchSlug && !restoreEditedPagePatch) {
     try {
       const pagePatchUrls = await nodeGraphResolvePagePatchUrls(pagePatchSlug);
       let loaded = null;
@@ -110,6 +118,10 @@ async function initNodeGraphMvp() {
         startupPatchDirtyState = "untouched";
         pagePatchLoaded = true;
         nodeGraphMvp.externalStartupPatchApplied = true;
+        nodeGraphMvp.loadedPatchSlug = pagePatchSlug;
+        nodeGraphMvp.currentSavedPatchFilename = pagePatchSlug.endsWith(".json")
+          ? pagePatchSlug
+          : `${pagePatchSlug}.json`;
         nodeGraphMvp.workingPatch = null;
       } else if (typeof setNodeGraphScriptStatus === "function") {
         setNodeGraphScriptStatus(`page patch missing: ${pagePatchSlug}`, false);
@@ -138,6 +150,9 @@ async function initNodeGraphMvp() {
   // An embedding page can push a patch (e.g. "soundemote:sandbox-project-data")
   // before this async boot sequence reaches here -- don't clobber it with the
   // internal default/working patch in that case.
+  if (restoreEditedPagePatch) {
+    nodeGraphMvp.loadedPatchSlug = pagePatchSlug;
+  }
   if (pagePatchLoaded) {
     commitNodeGraphPatch(cloneNodeGraphPatch(startupPatch), {
       autosaveWorkingPatch: false,

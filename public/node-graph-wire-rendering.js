@@ -657,6 +657,12 @@ function nodeGraphResetConnectedWireClasses(workspace) {
   for (const port of workspace.querySelectorAll(".node-port, .node-param-port")) {
     port.classList.remove("connected-port");
   }
+  for (const row of workspace.querySelectorAll(".node-parameter-row.f-jack-owns-frequency")) {
+    row.classList.remove("f-jack-owns-frequency");
+  }
+  for (const row of workspace.querySelectorAll(".node-parameter-row.bpm-jack-owns-bpm")) {
+    row.classList.remove("bpm-jack-owns-bpm");
+  }
 }
 
 function drawNodeGraphWires(options = {}) {

@@ -683,35 +683,49 @@ function nodeGraphScope2dTraceInkHex(settings = {}) {
   return `#${to(rgb[0])}${to(rgb[1])}${to(rgb[2])}`;
 }
 
+/** Instant Waterfall plate = stored RGB hex (Display Settings color). Brightness unused. */
+function nodeGraphWaterfallPlateCss(settings, fallback = "#000000") {
+  return typeof normalizeNodeGraphTraceDisplayColor === "function"
+    ? normalizeNodeGraphTraceDisplayColor(
+      settings?.backgroundColor ?? settings?.background,
+      fallback,
+    )
+    : String(settings?.backgroundColor || settings?.background || fallback);
+}
+
 /** Resolve face plate color from any display settings object. */
 function nodeGraphFacePlateBackground(settings, fallback = nodeGraphFacePlateDefaultBackground) {
   const stored = normalizeNodeGraphTraceDisplayColor(
     settings?.backgroundColor ?? settings?.background,
     "",
   );
-  if (/^#[0-9a-f]{6}$/i.test(stored)) {
-    return stored;
-  }
   const faceStyle = String(settings?.faceStyle || "").toLowerCase();
-  // LED / explicit hex plates: use the stored color (full widget), not hue-only rebuild.
+  // Hue hex is storage; amount is backgroundBrightness. Brightness 0 is black,
+  // even when the stored hex is #ff0000 (hue 0). LED faces keep the full hex.
   const bright = settings?.backgroundBrightness;
   if (faceStyle !== "led" && faceStyle !== "led-value"
     && bright != null && Number.isFinite(Number(bright))
     && typeof nodeGraphHueBrightnessCss === "function") {
-    const hue = typeof nodeGraphHueDegFromHex === "function"
-      ? nodeGraphHueDegFromHex(settings.background ?? settings.backgroundColor)
-      : 0;
+    const hueFromField = Number(settings.backgroundHue);
+    const hue = Number.isFinite(hueFromField)
+      ? hueFromField
+      : (typeof nodeGraphHueDegFromHex === "function"
+        ? nodeGraphHueDegFromHex(settings.background ?? settings.backgroundColor)
+        : 0);
     const satN = Number(settings.backgroundSaturation);
     const rgb = typeof nodeGraphHueBrightnessRgb01 === "function"
       ? nodeGraphHueBrightnessRgb01(hue, Number(bright), Number.isFinite(satN) ? satN : 1)
       : null;
     if (rgb) {
-      const R = Math.round(rgb[0] * 255);
-      const G = Math.round(rgb[1] * 255);
-      const B = Math.round(rgb[2] * 255);
-      return `rgb(${R} ${G} ${B})`;
+      const to = (c) => Math.round(Math.max(0, Math.min(1, Number(c))) * 255)
+        .toString(16)
+        .padStart(2, "0");
+      return `#${to(rgb[0])}${to(rgb[1])}${to(rgb[2])}`;
     }
     return nodeGraphHueBrightnessCss(hue, Number(bright));
+  }
+  if (/^#[0-9a-f]{6}$/i.test(stored)) {
+    return stored;
   }
   return normalizeNodeGraphTraceDisplayColor(
     settings?.background ?? settings?.backgroundColor,
@@ -865,9 +879,11 @@ function nodeGraphScope2dPointFromSamples(square, x, y, settings = {}) {
     return null;
   }
   const scale = Math.max(0, nodeGraphFiniteNumber(settings?.scale, 1));
+  const fit = Number.isFinite(Number(square?.fit)) ? Number(square.fit) : 1;
+  const gain = scale * fit;
   return {
-    x: square.left + square.width * 0.5 + sampleX * scale * square.width * 0.5,
-    y: square.top + square.height * 0.5 - sampleY * scale * square.height * 0.5,
+    x: square.left + square.width * 0.5 + sampleX * gain * square.width * 0.5,
+    y: square.top + square.height * 0.5 - sampleY * gain * square.height * 0.5,
   };
 }
 
@@ -878,9 +894,11 @@ function nodeGraphScope2dTracePointFromSamples(square, x, y, settings) {
     return null;
   }
   const scale = Math.max(0, nodeGraphFiniteNumber(settings?.scale, 1));
+  const fit = Number.isFinite(Number(square?.fit)) ? Number(square.fit) : 1;
+  const gain = scale * fit;
   return {
-    x: square.left + square.width * 0.5 + sampleX * scale * square.width * 0.5,
-    y: square.top + square.height * 0.5 - sampleY * scale * square.height * 0.5,
+    x: square.left + square.width * 0.5 + sampleX * gain * square.width * 0.5,
+    y: square.top + square.height * 0.5 - sampleY * gain * square.height * 0.5,
   };
 }
 
@@ -1998,9 +2016,11 @@ function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePix
     ? nodeGraphModuleDisplayRendererForSlot(slot)
     : "";
   if (wfRenderer === "waterfall" && typeof nodeGraphWaterfallGlCold === "function") {
-    const wfBg = typeof nodeGraphFacePlateBackground === "function"
-      ? nodeGraphFacePlateBackground(settings)
-      : "#000000";
+    const wfBg = typeof nodeGraphWaterfallPlateCss === "function"
+      ? nodeGraphWaterfallPlateCss(settings)
+      : (typeof nodeGraphFacePlateBackground === "function"
+        ? nodeGraphFacePlateBackground(settings)
+        : "#000000");
     if (typeof nodeGraphFacePlateApplyCss === "function") {
       nodeGraphFacePlateApplyCss(screenElement, wfBg);
     }
@@ -2021,9 +2041,11 @@ function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePix
   }
   // Waterfall dest is history. Never fillRect a started tape.
   if ((canvas._waterfall?.started || canvas._traceScroll?.started) && canvas.width > 1 && canvas.height > 1) {
-    const holdBg = typeof nodeGraphFacePlateBackground === "function"
-      ? nodeGraphFacePlateBackground(settings)
-      : "#000000";
+    const holdBg = wfRenderer === "waterfall" && typeof nodeGraphWaterfallPlateCss === "function"
+      ? nodeGraphWaterfallPlateCss(settings)
+      : (typeof nodeGraphFacePlateBackground === "function"
+        ? nodeGraphFacePlateBackground(settings)
+        : "#000000");
     if (typeof nodeGraphFacePlateApplyCss === "function") {
       nodeGraphFacePlateApplyCss(screenElement, holdBg);
     }
@@ -2375,11 +2397,9 @@ function nodeGraphScope2dSkipDiscontinuitiesEnabled(_settings) {
 }
 
 function nodeGraphScope2dAdjacentSampleIsDiscontinuity(buffer, indexA, indexB, threshold) {
-  const t = Number.isFinite(Number(threshold))
-    ? Number(threshold)
-    : (typeof nodeGraphModuleScopeDiscontinuityThreshold === "number"
-      ? nodeGraphModuleScopeDiscontinuityThreshold
-      : 0.85);
+  // Line length in the same units as the samples. 1D skips when |Δsample| > 0.85.
+  // 2D skips when the XY step is longer than 0.5, half a bipolar span.
+  const t = Number.isFinite(Number(threshold)) ? Number(threshold) : 0.5;
   const ax = Number(buffer?.x?.[indexA]);
   const ay = Number(buffer?.y?.[indexA]);
   const bx = Number(buffer?.x?.[indexB]);
@@ -2387,7 +2407,9 @@ function nodeGraphScope2dAdjacentSampleIsDiscontinuity(buffer, indexA, indexB, t
   if (![ax, ay, bx, by].every(Number.isFinite)) {
     return true;
   }
-  return Math.abs(bx - ax) > t || Math.abs(by - ay) > t;
+  const dx = bx - ax;
+  const dy = by - ay;
+  return Math.hypot(dx, dy) > t;
 }
 
 function nodeGraphScope2dRangeHasDiscontinuity(buffer, fromIndex, toIndex, threshold) {

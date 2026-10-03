@@ -691,8 +691,27 @@ function syncOpenNodeGraphTraceDisplaySettingsToSelection() {
   }
   const primaryId = nodeGraphTraceDisplaySettingsPrimaryFromSelection();
   if (!primaryId) {
-    // Nothing selected (or no display-capable selection): do not keep editing
-    // an unselected module — show the blank picker instead.
+    const lastId = typeof nodeGraphLastSelectedModuleId === "function"
+      ? nodeGraphLastSelectedModuleId()
+      : "";
+    const lastNode = lastId && typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(lastId)
+      : null;
+    const lastCanOpen = Boolean(
+      lastNode
+      && typeof nodeGraphNodeCanOpenDisplaySettings === "function"
+      && nodeGraphNodeCanOpenDisplaySettings(lastNode),
+    );
+    if (lastCanOpen) {
+      const changed = syncOpenNodeGraphTraceDisplaySettingsToNode(lastId);
+      nodeGraphMvp.traceDisplaySettingsFollowedSelectionKey = followKey;
+      return changed;
+    }
+    if (lastId) {
+      nodeGraphMvp.traceDisplaySettingsFollowedSelectionKey = followKey;
+      return false;
+    }
+    // Nothing selected and no last module: show the choose-a-module menu.
     const pinned = String(nodeGraphMvp.traceDisplaySettingsTargetNode || "").trim();
     if (!pinned || pinned === "__globalTraceSettings") {
       nodeGraphMvp.traceDisplaySettingsFollowedSelectionKey = followKey;

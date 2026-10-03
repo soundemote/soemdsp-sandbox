@@ -144,8 +144,32 @@ function nodeGraphPortElementIsLayoutVisible(element) {
   return rect.width > 0.5 && rect.height > 0.5;
 }
 
+function nodeGraphFrequencyRowOwnedByFJack(nodeId) {
+  const node = typeof nodeGraphNodeElement === "function" ? nodeGraphNodeElement(nodeId) : null;
+  if (!node) return;
+  for (const row of node.querySelectorAll('.node-parameter-row[data-param="frequency"]')) {
+    row.classList.add("f-jack-owns-frequency");
+  }
+}
+
+function nodeGraphBpmRowOwnedByBpmJack(nodeId) {
+  const node = typeof nodeGraphNodeElement === "function" ? nodeGraphNodeElement(nodeId) : null;
+  if (!node) return;
+  for (const row of node.querySelectorAll('.node-parameter-row[data-param="bpm"]')) {
+    row.classList.add("bpm-jack-owns-bpm");
+  }
+}
+
 function markNodeGraphPortConnected(node, port, io) {
   nodeGraphPortElementForWireEndpoint(node, port, io)?.classList.add("connected-port");
+  if (io !== "input") return;
+  const key = String(port || "").trim().toLowerCase();
+  if (key === "f" || key === "ƒ") {
+    nodeGraphFrequencyRowOwnedByFJack(node);
+  }
+  if (key === "bpm") {
+    nodeGraphBpmRowOwnedByBpmJack(node);
+  }
 }
 
 function markNodeGraphModulationPortConnected(node, parameter) {

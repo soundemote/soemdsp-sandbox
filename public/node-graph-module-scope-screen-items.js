@@ -443,17 +443,33 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
         }
         return null;
       }
-      const layout = nodeGraphModuleScopeFaceLayoutInSurface(slot);
-      if (!layout) {
-        entry.skip = "no-layout";
-        slotDebug.push(entry);
-        return null;
+      const presentedOnStage = Boolean(slot?.scopeElement?.closest?.(
+        ".node-layout-canvas-tile, .node-screen-solo-stage, .node-metamodule-canvas-stage",
+      ));
+      let screenRect = null;
+      let itemViewport = viewportRect;
+      if (presentedOnStage) {
+        // The face left the workspace. Workspace coordinates are the hidden
+        // grid, so the usual intersection cull marks the scope offscreen
+        // and never paints the tile.
+        const face = slot.scopeElement;
+        const w = Math.max(1, face.clientWidth || face.offsetWidth || 1);
+        const h = Math.max(1, face.clientHeight || face.offsetHeight || 1);
+        screenRect = { left: 0, top: 0, width: w, height: h };
+        itemViewport = screenRect;
+      } else {
+        const layout = nodeGraphModuleScopeFaceLayoutInSurface(slot);
+        if (!layout) {
+          entry.skip = "no-layout";
+          slotDebug.push(entry);
+          return null;
+        }
+        screenRect = nodeGraphModuleScopeLayoutToScreenRect(layout, origin, zoomScale);
       }
-      const screenRect = nodeGraphModuleScopeLayoutToScreenRect(layout, origin, zoomScale);
       entry.rectHeight = screenRect.height;
       entry.rectWidth = screenRect.width;
       const drawRect = nodeGraphModuleScopeDrawingRect(screenRect, buffer, slot);
-      const visibleGeometry = nodeGraphModuleScopeVisibleDrawGeometry(screenRect, drawRect, viewportRect, zoomScale);
+      const visibleGeometry = nodeGraphModuleScopeVisibleDrawGeometry(screenRect, drawRect, itemViewport, zoomScale);
       if (!visibleGeometry) {
         entry.skip = "offscreen";
         slotDebug.push(entry);

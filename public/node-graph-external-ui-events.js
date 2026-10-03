@@ -45,25 +45,46 @@ function nodeGraphExternalAutoFrameRequested() {
 // When embedded with ?autostart=1, turn Live Audio output on as soon as the
 // sandbox interface is ready -- skips needing to press the output power
 // button by hand for embeds that want sound playing immediately on load.
+function nodeGraphPerformViewRequested() {
+  try {
+    const q = new URLSearchParams(window.location.search || "");
+    const mode = String(q.get("mode") || "").trim().toLowerCase();
+    const view = String(q.get("view") || "").trim().toLowerCase();
+    return mode === "perform" || view === "perform";
+  } catch (_error) {
+    return false;
+  }
+}
+
 function nodeGraphExternalAutostartRequested() {
   try {
     const raw = String(new URLSearchParams(window.location.search).get("autostart") || "")
       .trim()
       .toLowerCase();
-    return raw === "1" || raw === "true" || raw === "yes";
-  } catch (error) {
-    return false;
+    if (raw === "1" || raw === "true" || raw === "yes") return true;
+  } catch (_error) {
+    /* fall through */
   }
+  return nodeGraphPerformViewRequested();
 }
 
 function nodeGraphExternalStartLiveOutput() {
+  if (typeof nodeGraphTransportHandleAction === "function") {
+    nodeGraphTransportHandleAction("play");
+    return;
+  }
   if (typeof setNodeGraphLiveOutputEnabled !== "function") {
     return;
   }
-  if (nodeGraphMvp?.live?.outputEnabled) {
-    return;
+  if (!nodeGraphMvp?.live?.outputEnabled) {
+    setNodeGraphLiveOutputEnabled(true);
   }
-  setNodeGraphLiveOutputEnabled(true);
+  if (typeof setNodeGraphLiveSpeed === "function") {
+    const resume = typeof nodeGraphLiveResumePlaySpeed === "function"
+      ? nodeGraphLiveResumePlaySpeed()
+      : 1;
+    setNodeGraphLiveSpeed(resume, { force: true });
+  }
 }
 
 // Autostart Live Audio once the sandbox interface has finished booting (patch

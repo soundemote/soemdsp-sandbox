@@ -2163,20 +2163,23 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     label: "Draw",
     aria: "How Dot Budget is spent",
     id: "nodeTraceDisplayDrawMode",
-    title: "Budget spends the dots on a solid line and stops. Length skips samples and draws dots across the full path.",
+    title: "Budget spends the dots on a solid line and stops. Length skips samples and draws dots across the full path. Dots stamps each sample. Lines connects each sample to the next.",
     options: Object.freeze([
       Object.freeze({ value: "budget", label: "Budget" }),
       Object.freeze({ value: "length", label: "Length" }),
+      Object.freeze({ value: "dots", label: "Dots" }),
+      Object.freeze({ value: "lines", label: "Lines" }),
     ]),
   }),
   polarity: Object.freeze({
     label: "Polarity",
-    aria: "Unipolar or bipolar number sign",
+    aria: "Bipolar, unipolar, or absolute polarity",
     id: "nodeTraceDisplayPolarity",
-    title: "Bipolar shows − and reserves sign space. Unipolar hides the minus and centers the digits.",
+    title: "Bipolar keeps the sign. Unipolar clips below zero. Absolute folds both peaks upward.",
     options: Object.freeze([
       Object.freeze({ value: "bipolar", label: "Bipolar" }),
       Object.freeze({ value: "unipolar", label: "Unipolar" }),
+      Object.freeze({ value: "absolute", label: "Absolute" }),
     ]),
   }),
   // Number Readout: how live Light composites over residual / ghost gradient.
@@ -2217,12 +2220,13 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
   }),
   facePolarity: Object.freeze({
     label: "Polarity",
-    aria: "Unipolar or bipolar",
+    aria: "Bipolar, unipolar, or absolute",
     id: "nodeTraceDisplayFacePolarity",
-    title: "Bipolar: −1 at the bottom, 0 in the center, +1 at the top. Unipolar: 0 at the bottom, +1 at the top.",
+    title: "Bipolar: −1 at the bottom, 0 in the center, +1 at the top. Unipolar: 0 at the bottom, +1 at the top, negatives clipped. Absolute: both peaks fold upward.",
     options: Object.freeze([
       Object.freeze({ value: "bipolar", label: "Bipolar" }),
       Object.freeze({ value: "unipolar", label: "Unipolar" }),
+      Object.freeze({ value: "absolute", label: "Absolute" }),
     ]),
   }),
   barInk: Object.freeze({

@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=robin-warp-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=vib-gate-delay-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -1870,13 +1870,15 @@ function queueNodeGraphLivePatchCommand(command, nodeId = "") {
   }, 0);
 }
 
-function sendNodeGraphArpOverride(nodeId, midi) {
+function sendNodeGraphArpOverride(nodeId, midi, bang, gate) {
   if (!nodeGraphMvp?.live?.node?.port) return;
   try {
     nodeGraphMvp.live.node.port.postMessage({
       type: "arpOverride",
       nodeId: String(nodeId || ""),
       midi: Number.isFinite(Number(midi)) ? (Number(midi) | 0) : -1,
+      bang: bang === true,
+      gate: gate === true,
     });
   } catch (_e) { /* worklet disconnected */ }
 }
@@ -3241,11 +3243,11 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hyperpluck-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=no-audio-stress-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=vib-gate-delay-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=hyperpluck-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hyperpluck-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=arp-override-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=arp-right-drag-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=scope-hop-off-1",
   "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=spectro-stride-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",

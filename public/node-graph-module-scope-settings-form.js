@@ -603,22 +603,25 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}
     base = { ...base, defaultValue: "#00ff00" };
   } else if (formType === "waterfall" && options.stereo && key === "dot1Color") {
     aria = "Left";
-    base = { ...base, caption: "Left", defaultValue: "#ff0000" };
+    base = { ...base, defaultValue: "#ff0000" };
   } else if (formType === "waterfall" && options.stereo && key === "secondaryColor") {
     aria = "Right";
-    base = { ...base, caption: "Right", defaultValue: "#0000ff" };
+    base = { ...base, defaultValue: "#0000ff" };
   } else if (formType === "scope2dTrace" && key === "secondaryColor") {
     aria = "Low-brightness end of the beam gradient";
     base = { ...base, defaultValue: "#0000ff" };
   } else if ((formType === "waterfall" || formType === "waterfallRgb" || formType === "waterfallXyz") && key === "backgroundColor") {
     aria = "Background";
-    base = { ...base, caption: "Background", defaultValue: "#000000" };
+    base = { ...base, defaultValue: "#000000" };
   } else if ((formType === "waterfall" || formType === "waterfallRgb" || formType === "waterfallXyz") && key === "dot1Color") {
     aria = "Left";
-    base = { ...base, caption: "Left", defaultValue: "#ff0000" };
+    base = { ...base, defaultValue: "#ff0000" };
   } else if ((formType === "waterfall" || formType === "waterfallRgb" || formType === "waterfallXyz") && key === "secondaryColor") {
     aria = "Right";
-    base = { ...base, caption: "Right", defaultValue: "#0000ff" };
+    base = { ...base, defaultValue: "#0000ff" };
+  } else if (key === "strokeColor" && (formType === "waterfall" || formType === "waterfallRgb" || formType === "waterfallXyz")) {
+    aria = "Stroke color";
+    base = { ...base, defaultValue: "#ffffff" };
   } else if (key === "strokeColor") {
     aria = "Stroke color";
     base = { ...base, caption: "Stroke", defaultValue: "#ffffff" };

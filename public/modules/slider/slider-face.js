@@ -55,29 +55,29 @@ function nodeGraphSliderFaceApplyPin(el, align, pad, scale, fallbackAlign) {
   set("height", "auto");
   set("line-height", "1");
   set("white-space", "nowrap");
-  set("overflow", "visible");
+  set("overflow", "hidden");
+  set("max-width", "100%");
+  set("max-height", "100%");
+  set("text-overflow", "clip");
   set("z-index", "3");
-  set("font-size", "1px");
-  set("text-fit", "grow");
+  set("text-fit", "none");
   set("--fit-scale", String(sc));
+  set("font-size", `calc(${sc} * 100cqmin)`);
   const inset = `${(p * 100).toFixed(4)}%`;
-  const origin = {
-    topleft: "left top",
-    top: "center top",
-    topright: "right top",
-    midleft: "left center",
-    mid: "center center",
-    midright: "right center",
-    bottomleft: "left bottom",
-    bottom: "center bottom",
-  }[a] || "right bottom";
   set("left", "0");
   set("right", "0");
-  if (a.startsWith("top")) set("top", inset);
-  else if (a.startsWith("bottom")) set("bottom", inset);
-  else set("top", "50%");
-  set("transform-origin", origin);
-  set("transform", `scale(${sc})`);
+  const alignX = a.endsWith("left") ? "left" : a.endsWith("right") ? "right" : "center";
+  set("text-align", alignX);
+  if (a.startsWith("top")) {
+    set("top", inset);
+    set("transform", "none");
+  } else if (a.startsWith("bottom")) {
+    set("bottom", inset);
+    set("transform", "none");
+  } else {
+    set("top", "50%");
+    set("transform", "translateY(-50%)");
+  }
 }
 
 function nodeGraphSliderFaceApplyStyle(face, settings) {

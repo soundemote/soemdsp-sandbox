@@ -330,14 +330,16 @@ function scheduleNodeGraphSliderReadoutRelayout() {
 // (syncNodeGraphKnobFaceFromSlider).
 
 function syncNodeSliderReadout(slider) {
+  // The Bias slider can sit in an asleep module while its face is on the
+  // perform canvas. Paint the face before bailing on the hidden slider.
+  if (typeof syncNodeGraphKnobFaceFromSlider === "function") {
+    syncNodeGraphKnobFaceFromSlider(slider);
+  }
   if (
     typeof nodeGraphElementInSkippedContentVisibility === "function"
     && nodeGraphElementInSkippedContentVisibility(slider)
   ) {
     return;
-  }
-  if (typeof syncNodeGraphKnobFaceFromSlider === "function") {
-    syncNodeGraphKnobFaceFromSlider(slider);
   }
   const readout = slider.closest("label")?.querySelector(".node-slider-readout");
   if (!readout) {

@@ -1626,6 +1626,65 @@ function nodeGraphAutoPairVideoscopeAbConnections(
   );
 }
 
+/**
+ * Chaosfly X/Y is the stereo pair. X → Left (or L) also wires Y → Right.
+ * Y → Right does not pull X. X → any other jack does not pull Y.
+ */
+function nodeGraphAutoPairChaosflyXyConnections(
+  patch,
+  sourceNode,
+  sourcePort,
+  destinationNode,
+  destinationPort,
+  wireData = {},
+) {
+  if (!patch) {
+    return 0;
+  }
+  const srcNode = typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(sourceNode)
+    : null;
+  if (srcNode?.type !== "chaosfly") {
+    return 0;
+  }
+  const srcKey = String(sourcePort || "").trim().toLowerCase();
+  const destKey = String(destinationPort || "").trim().toLowerCase();
+  if (srcKey !== "x" || (destKey !== "left" && destKey !== "l")) {
+    return 0;
+  }
+  const sourcePorts = nodeGraphAutoPairAvailablePorts(sourceNode, "output");
+  const destPorts = nodeGraphAutoPairAvailablePorts(destinationNode, "input");
+  const findPort = (want, ports) => {
+    const lower = new Map();
+    for (const p of ports || []) {
+      const name = String(p || "").trim();
+      if (name && !lower.has(name.toLowerCase())) {
+        lower.set(name.toLowerCase(), name);
+      }
+    }
+    for (const name of want) {
+      const hit = lower.get(String(name).toLowerCase());
+      if (hit) {
+        return hit;
+      }
+    }
+    return "";
+  };
+  const nextSourcePort = findPort(["Y"], sourcePorts);
+  const nextDestinationPort = findPort(["Right", "R"], destPorts);
+  if (!nextSourcePort || !nextDestinationPort) {
+    return 0;
+  }
+  return nodeGraphAutoPairPushConnection(
+    patch,
+    sourceNode,
+    nextSourcePort,
+    destinationNode,
+    nextDestinationPort,
+    wireData,
+  );
+}
+
 function nodeGraphAutoPairPortConnections(patch, sourceNode, sourcePort, destinationNode, destinationPort, wireData = {}) {
   if (!patch) {
     return 0;
@@ -1706,6 +1765,14 @@ function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinat
       {},
     );
     nodeGraphAutoPairPortConnections(
+      probe,
+      shellSourceNode,
+      shellSourcePort,
+      shellDestinationNode,
+      shellDestinationPort,
+      {},
+    );
+    nodeGraphAutoPairChaosflyXyConnections(
       probe,
       shellSourceNode,
       shellSourcePort,

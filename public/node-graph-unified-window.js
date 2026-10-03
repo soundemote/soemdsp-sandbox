@@ -864,7 +864,10 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
             : (typeof nodeGraphSingleSelectedNodeId === "function"
               ? nodeGraphSingleSelectedNodeId()
               : ""));
-        const nodeId = String(options.nodeId || fromSelection || "").trim();
+        const lastSelected = !fromSelection && typeof nodeGraphLastSelectedModuleId === "function"
+          ? nodeGraphLastSelectedModuleId()
+          : "";
+        const nodeId = String(options.nodeId || fromSelection || lastSelected || "").trim();
         const node = nodeId && typeof nodeGraphPatchNode === "function"
           ? nodeGraphPatchNode(nodeId)
           : null;

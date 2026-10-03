@@ -619,9 +619,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   transport: {
     category: "clock",
-    description: "Metronome: per-clock BPM, playhead-locked phase, Reset, hi/lo clicks. Two metronomes stay in sync only if reset together at the same BPM.",
+    description: "Metronome: per-clock BPM, playhead-locked phase, BPM In (cancels slider when wired), Reset, hi/lo clicks. Two metronomes stay in sync only if reset together at the same BPM.",
     label: "Metronome",
-    notes: ["metronome", "clock", "BPM", "reset", "click", "Numer/Denom", "gate", "trigger"],
+    notes: ["metronome", "clock", "BPM", "BPM In", "reset", "click", "Numer/Denom", "gate", "trigger"],
   },
   hostBpm: {
     category: "clock",
@@ -922,7 +922,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   vibratoGenerator: {
     category: "modulator",
-    description: "Wavetable sine + AM Index (Top Morph) and sine→phase (Side Morph). f = Speed × (1 + sine × Top Morph).",
+    description: "Wavetable sine + AM Index (Top Morph) and sine→phase (Side Morph). Gate depth with Start Delay / End Delay.",
     label: "Vibrato Generator",
     notes: ["modulator", "vibrato", "lfo", "sine wavetable", "native", "soemdsp"],
   },
@@ -1025,7 +1025,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   chaosfly: {
     category: "chaos",
-    description: "Dual sine FM chaos (Elan's Chaos Generator)—coupled oscillators, passive LP/HP cascade, stereo taps.",
+    description: "Dual sine FM chaos (Elan's Chaos Generator). X and Y are the stereo pair.",
     label: "Chaosfly",
     notes: ["chaos", "fm", "dual oscillator", "passive filter", "phosphor", "X/Y"],
     source: "public/modules/chaosfly/chaosfly-math.js",

@@ -5,7 +5,8 @@
 //
 // Sticky/random walk over Keys noteMask128 (Arp Keys cousin).
 // Wire: 3 self-describing chunks (2^49 / 2^50 flags), same as Arp.
-// Pool: held MIDI -> expand by Octaves -> Scale Offset rotate -> walk.
+// Pool: held MIDI -> expand by Octaves -> Scale Offset rotate -> palindrome
+// bounce (C D E F G F E D) so wrap at the high end hits G, not C.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -43,6 +44,9 @@ struct State {
   // Face click override (shared arpKeysFace). -1 = off.
   int overrideMidi;
   int overridePrevMidi;
+  bool holdClickedPitch;
+  bool faceBang;
+  bool faceGate;
 };
 
 static State gPool[kMaxInstances];
@@ -192,6 +196,19 @@ static void expand_octaves(const int* held, int heldCount, int octaves, int* out
   *outCount = n;
 }
 
+// Forward then reverse interior: C3 G3 C4 → C3 G3 C4 G3. Walk still wraps
+// the pool, but the high neighbor of C4 is G3 (cdefgfed, then loop to c).
+static void fold_palindrome(int* notes, int* countInOut) {
+  const int n = *countInOut;
+  if (n <= 2) return;
+  const int extra = n - 2;
+  if (n + extra > kMaxPool) return;
+  for (int i = 0; i < extra; i++) {
+    notes[n + i] = notes[n - 2 - i];
+  }
+  *countInOut = n + extra;
+}
+
 // Scale Offset voicing rotate (do NOT re-sort — order is the voicing).
 // +1: remove lowest, append (lowest+12) clamped  [C1 D1 E1 -> D1 E1 C2]
 // -1: remove highest, prepend (highest-12) clamped
@@ -236,6 +253,7 @@ static void rebuild_pool(State& s, int octaves, int scaleOffset) {
   collect_held(s, held, &heldCount);
   expand_octaves(held, heldCount, octaves, s.pool, &s.poolCount);
   apply_scale_offset(s.pool, s.poolCount, scaleOffset);
+  fold_palindrome(s.pool, &s.poolCount);
   if (s.poolCount <= 0) {
     s.degree = 0;
     return;
@@ -302,6 +320,9 @@ extern "C" int soemdsp_gravity_walker_create(unsigned int entropySeed) {
       s.scaleBaseMidi = 60;
       s.overrideMidi = -1;
       s.overridePrevMidi = -1;
+      s.holdClickedPitch = false;
+      s.faceBang = false;
+      s.faceGate = false;
       s.active = true;
       return i + 1;
     }
@@ -391,31 +412,44 @@ extern "C" double soemdsp_gravity_walker_sample(
 
   if (s.poolCount > 0) {
     const int idx = wrapped_play_index(s, patternOffset);
-    s.lastMidi = (double)s.pool[idx];
-    s.lastGate = 1.0;
     s.lastDegreeNorm = s.poolCount > 1
       ? (double)idx / (double)(s.poolCount - 1)
       : 0.0;
   } else {
-    s.lastGate = 0.0;
     s.lastDegreeNorm = 0.0;
+  }
+
+  // Face: left press = gate+trig once; left drag = legato.
+  // Right press/drag = trigger on each note, no gate. Clock otherwise fires.
+  if (s.overrideMidi >= 0) {
+    s.lastMidi = (double)s.overrideMidi;
+    s.overridePrevMidi = s.overrideMidi;
+    s.holdClickedPitch = true;
+    const bool trig = s.faceBang;
+    const bool gate = s.faceGate;
+    s.faceBang = false;
+    s.faceGate = false;
+    s.lastGate = gate ? 1.0 : 0.0;
+    s.lastTrigger = trig ? 1.0 : 0.0;
+    if (didClock) walk_step(s, gravity, leapAmount);
+    return musical_pitch_from_midi(s.lastMidi);
+  }
+  if (s.overridePrevMidi >= 0) s.overridePrevMidi = -1;
+  if (didClock) s.holdClickedPitch = false;
+
+  if (s.poolCount > 0) {
+    if (!s.holdClickedPitch) {
+      const int idx = wrapped_play_index(s, patternOffset);
+      s.lastMidi = (double)s.pool[idx];
+    }
+    s.lastGate = 1.0;
+  } else {
+    s.lastGate = 0.0;
   }
   s.lastTrigger = trig;
 
   if (didClock) {
     walk_step(s, gravity, leapAmount);
-  }
-
-  // Face click force-note (same contract as Arp override).
-  if (s.overrideMidi >= 0) {
-    const bool changed = s.overridePrevMidi != s.overrideMidi;
-    s.lastMidi = (double)s.overrideMidi;
-    s.lastGate = 1.0;
-    s.lastTrigger = changed ? 1.0 : 0.0;
-    s.overridePrevMidi = s.overrideMidi;
-  } else if (s.overridePrevMidi >= 0) {
-    s.overridePrevMidi = -1;
-    s.lastTrigger = 1.0;
   }
   return musical_pitch_from_midi(s.lastMidi);
 }
@@ -429,6 +463,12 @@ extern "C" void soemdsp_gravity_walker_set_override_midi(int handle, int midi) {
   }
   if (midi > 127) midi = 127;
   s.overrideMidi = midi;
+}
+
+extern "C" void soemdsp_gravity_walker_face_bang(int handle, int withGate) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  gPool[handle - 1].faceBang = true;
+  if (withGate) gPool[handle - 1].faceGate = true;
 }
 
 extern "C" double soemdsp_gravity_walker_gate(int handle) {
@@ -447,5 +487,5 @@ extern "C" double soemdsp_gravity_walker_degree(int handle) {
 }
 
 extern "C" int soemdsp_gravity_walker_version() {
-  return 4; // face override midi (shared arpKeysFace)
+  return 10; // left-click bang; hold silent; right-click pitch only
 }

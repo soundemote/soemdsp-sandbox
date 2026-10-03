@@ -263,6 +263,7 @@ $modules = @(
     "soemdsp_gravity_walker_sample", "soemdsp_gravity_walker_gate",
     "soemdsp_gravity_walker_trigger", "soemdsp_gravity_walker_degree",
     "soemdsp_gravity_walker_set_override_midi",
+    "soemdsp_gravity_walker_face_bang",
     "soemdsp_gravity_walker_version"
   ) },
   @{ Name = "smooth_graph"; Simd = $false; Exports = @(
@@ -294,6 +295,7 @@ $modules = @(
     "soemdsp_arp_set_chunks",
     "soemdsp_arp_gate", "soemdsp_arp_trigger", "soemdsp_arp_step",
     "soemdsp_arp_frequency", "soemdsp_arp_play_midi", "soemdsp_arp_set_override_midi",
+    "soemdsp_arp_face_bang",
     "soemdsp_arp_version"
   ) },
   @{ Name = "voice_manager"; Simd = $false; Exports = @(

@@ -2,6 +2,9 @@
 // (Phase D). Load BEFORE node-graph-module-scopes.js. No functions.
 
 const nodeGraphTraceDisplayMaxZoomSeconds = 10;
+// Instant Waterfall History (s): face width = this many seconds (longer = slower scroll).
+// Not a sample-buffer size — do not reuse this for phosphor ring capacity.
+const nodeGraphWaterfallMaxHistorySeconds = 3600;
 
 const nodeGraphModuleScopeDefaultSettings = Object.freeze({
   blinkLightShape: "circle",
@@ -117,7 +120,7 @@ const nodeGraphScopeCyanGradientStops = Object.freeze([
 const nodeGraphWaterfallSettingsDefaults = Object.freeze({
   // Instant Waterfall = filled peak-to-peak strip chart (not phosphor / Trace stroke).
   // Bright / Blur are display-only; no audio DSP.
-  background: "#ff0000",
+  background: "#000000",
   backgroundHue: 0,
   backgroundBrightness: 0,
   // Full-ish ink so Left/Right colors read as chosen (Brightness still 0–1).
@@ -549,7 +552,8 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
   // budget = solid line until the dots run out. length = dots across the full path.
-  drawMode: "budget",
+  // dots = one stamp per sample, no chord between samples.
+  drawMode: "dots",
   fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
   dotsOnly: false,
   sourceSync: false,

@@ -135,7 +135,10 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
   let layoutCache = null;
   let hitLayout = null;
   let freezePlay = -1;
+  let stickyPlay = -1;
   let pointerId = null;
+  let pressArmed = true;
+  let heldButton = -1;
 
   function faceState() {
     const bag = typeof nodeGraphMvp === "object" ? nodeGraphMvp._arpFaceByNode : null;
@@ -152,7 +155,12 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
       : (typeof nodeGraphModuleScopeEnginePaused === "function"
         ? !nodeGraphModuleScopeEnginePaused()
         : true);
-    const play = freezePlay >= 0 ? freezePlay : (projectOn ? seqPlay : -1);
+    if (freezePlay < 0 && stickyPlay >= 0 && seqPlay >= 0 && seqPlay !== stickyPlay) {
+      stickyPlay = -1;
+    }
+    const play = freezePlay >= 0
+      ? freezePlay
+      : (stickyPlay >= 0 ? stickyPlay : (projectOn ? seqPlay : -1));
     return { notes: uniq, play, projectOn };
   }
 
@@ -174,26 +182,31 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     return -1;
   }
 
-  function sendOverride(midi) {
+  function sendOverride(midi, bang, gate) {
     const send = (typeof sendNodeGraphArpOverride === "function")
       ? sendNodeGraphArpOverride
       : (typeof globalThis !== "undefined" && typeof globalThis.sendNodeGraphArpOverride === "function"
         ? globalThis.sendNodeGraphArpOverride
         : null);
     if (typeof send === "function") {
-      send(nodeId, midi);
+      send(nodeId, midi, bang === true, gate === true);
     }
   }
 
   function onPointerDown(event) {
-    if (event.button !== 0) return;
+    if (event.button !== 0 && event.button !== 2) return;
     const midi = midiAtClientXY(event.clientX, event.clientY);
     if (midi < 0) return;
     pointerId = event.pointerId;
+    heldButton = event.button;
     freezePlay = midi;
+    stickyPlay = midi;
     lastSig = "";
     try { canvas.setPointerCapture?.(event.pointerId); } catch (_e) { /* ignore */ }
-    sendOverride(midi);
+    const leftBang = event.button === 0 && pressArmed;
+    const rightBang = event.button === 2;
+    pressArmed = false;
+    sendOverride(midi, leftBang || rightBang, leftBang);
     event.preventDefault();
     event.stopPropagation();
   }
@@ -203,8 +216,10 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     const midi = midiAtClientXY(event.clientX, event.clientY);
     if (midi < 0 || midi === freezePlay) return;
     freezePlay = midi;
+    stickyPlay = midi;
     lastSig = "";
-    sendOverride(midi);
+    const rightDrag = heldButton === 2 || (event.buttons & 2) !== 0;
+    sendOverride(midi, rightDrag, false);
     event.preventDefault();
     event.stopPropagation();
   }
@@ -213,6 +228,8 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     if (pointerId == null || event.pointerId !== pointerId) return;
     pointerId = null;
     freezePlay = -1;
+    pressArmed = true;
+    heldButton = -1;
     lastSig = "";
     try { canvas.releasePointerCapture?.(event.pointerId); } catch (_e) { /* ignore */ }
     sendOverride(-1);
@@ -224,6 +241,10 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerup", onPointerUp);
   canvas.addEventListener("pointercancel", onPointerUp);
+  canvas.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
 
   function paint() {
     const { notes, play, projectOn } = faceState();

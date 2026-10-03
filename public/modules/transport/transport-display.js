@@ -108,8 +108,67 @@ function nodeGraphTransportBeatLampLevel01(tempoBpm) {
   return wrapped < 0.5 ? 1 : 0;
 }
 
+function nodeGraphTransportBpmJackConnected(nodeId) {
+  const id = String(nodeId || "");
+  if (!id) return false;
+  const conns = (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.patch?.connections) || [];
+  for (let i = 0; i < conns.length; i += 1) {
+    const c = conns[i];
+    if (String(c?.destinationNode || "") !== id) continue;
+    const p = String(c?.destinationPort || "").trim();
+    if (p === "BPM" || p.toLowerCase() === "bpm") return true;
+  }
+  return false;
+}
+
+function nodeGraphTransportJackBpm(nodeId) {
+  const id = String(nodeId || "");
+  if (!id) return null;
+  const conns = (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.patch?.connections) || [];
+  for (let i = 0; i < conns.length; i += 1) {
+    const c = conns[i];
+    if (String(c?.destinationNode || "") !== id) continue;
+    const p = String(c?.destinationPort || "").trim();
+    if (p !== "BPM" && p.toLowerCase() !== "bpm") continue;
+    const fromGhost = typeof nodeGraphGhostSliderModSample === "function"
+      ? nodeGraphGhostSliderModSample(c.sourceNode, c.sourcePort)
+      : null;
+    const n = Number(fromGhost);
+    if (Number.isFinite(n)) return n;
+    const local = typeof nodeGraphGhostSliderScopeSample === "function"
+      ? nodeGraphGhostSliderScopeSample(id, "BPM")
+      : null;
+    const ln = Number(local);
+    if (Number.isFinite(ln)) return ln;
+  }
+  return null;
+}
+
+function nodeGraphTransportBindBpmDrag(host, nodeId) {
+  if (!host || host.dataset.transportBpmDragBound === "true") return;
+  host.dataset.transportBpmDragBound = "true";
+  host.classList.add("node-transport-bpm-face");
+  host.dataset.sliderTarget = `node-${nodeId}-bpm`;
+  host.style.touchAction = "none";
+  const onDown = (event) => {
+    if (nodeGraphTransportBpmJackConnected(nodeId)) return;
+    if (typeof beginNodeSliderDrag === "function") beginNodeSliderDrag(event);
+  };
+  host.addEventListener("pointerdown", onDown);
+  host.addEventListener("mousedown", onDown);
+  if (typeof endNodeSliderDrag === "function") {
+    host.addEventListener("lostpointercapture", endNodeSliderDrag);
+  }
+}
+
 function nodeGraphTransportFaceBpm(node) {
   const nodeId = node?.id;
+  if (nodeId && nodeGraphTransportBpmJackConnected(nodeId)) {
+    const jack = nodeGraphTransportJackBpm(nodeId);
+    if (Number.isFinite(Number(jack))) {
+      return Math.max(1, Math.round(Number(jack)));
+    }
+  }
   const meta = (typeof nodeGraphReadPatchParameterMetadata === "function" && nodeId
     ? nodeGraphReadPatchParameterMetadata(nodeId, "bpm")
     : node?.paramMeta?.bpm) || {};
@@ -138,6 +197,21 @@ function nodeGraphTransportFaceBpm(node) {
   return Math.max(1, Math.round(base > 0 ? base : 120));
 }
 
+function paintNodeGraphTransportBpmFacesForNode(nodeId) {
+  const id = String(nodeId || "");
+  if (!id) return;
+  const faces = document.querySelectorAll(".node-transport-bpm-face");
+  if (!faces.length) return;
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  for (const face of faces) {
+    if (String(face.dataset.sliderTarget || "") !== `node-${id}-bpm`) continue;
+    drawNodeGraphTransportBpmItem(null, {
+      slot: { nodeId: id, scopeElement: face },
+      screenElement: face,
+    }, dpr);
+  }
+}
+
 function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
   const nodeId = item?.slot?.nodeId;
   if (!nodeId) {
@@ -158,6 +232,8 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
     : (typeof nodeGraphMvp !== "undefined"
       ? nodeGraphMvp?.patch?.nodes?.find?.((n) => n?.id === nodeId)
       : null);
+  const dragHost = item?.screenElement || item?.slot?.scopeElement || canvas;
+  nodeGraphTransportBindBpmDrag(dragHost, nodeId);
   const bpm = nodeGraphTransportFaceBpm(node);
   const digits = String(bpm);
   const gateBlinkOn = nodeGraphTransportSettingsForNode(node).gateBlink === true;

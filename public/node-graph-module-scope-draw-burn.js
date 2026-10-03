@@ -733,7 +733,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
       blur: nodeGraphTraceDisplayClampStampBlur(layer.blur),
-      mode: "dots",
+      mode: String(settings?.drawMode || "") === "lines" ? "segments" : "dots",
       maxDots: Math.max(
         64,
         Math.min(
@@ -748,7 +748,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       fullEconomy: false,
       fullDotEconomy: false,
       dotsOnly: false,
-      samplesOnly: false,
+      samplesOnly: String(settings?.drawMode || "") === "dots",
       verticesOnly: false,
       coverLength: String(settings?.drawMode || "budget") === "length",
     });
@@ -870,16 +870,14 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
   pathPoints = bridgeNodeGraphScope2dAdjacentFramePath(
     canvas,
     pathPoints,
-    nodeGraphScope2dTraceMaxSegmentPixels(canvasSquare),
-    nodeGraphScope2dInterpolationSpacingPx(
-      settings,
-      Math.min(canvasSquare.width, canvasSquare.height),
-    ),
+    12,
+    0,
   );
   drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, {
     startFrame: frameAt(rawStart),
     endFrame: frameAt(rawStart + buildCount),
     parkedBeamHold: true,
+    samplesOnly: true,
   });
 }
 
@@ -1241,8 +1239,11 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
 function nodeGraphScope2dBurnCanvasSquare(canvas) {
   const width = Math.max(1, nodeGraphFiniteNumber(canvas?.width, 1));
   const height = Math.max(1, nodeGraphFiniteNumber(canvas?.height, 1));
-  const size = Math.max(1, Math.min(width, height));
+  // Square large enough to cover the rectangle. `fit` zooms ±1 back inside
+  // the visible cell. Both axes share that zoom, so the plot stays square.
+  const size = Math.max(width, height);
   return {
+    fit: Math.min(width, height) / size,
     height: size,
     left: (width - size) * 0.5,
     top: (height - size) * 0.5,

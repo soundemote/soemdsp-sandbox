@@ -762,15 +762,15 @@
       "params": {
         "outputMode": 1,
         "phase": 0,
-        "frequency": 1045.2206730470552,
+        "frequency": 734.3717255144802,
         "pitch": -7.251783609090179,
         "masterFm": -20000,
-        "lowpass": 8.72625402982866,
+        "lowpass": 8.897298487645877,
         "taps": 8,
         "highpass": -5.716175642961693,
         "hpPosition": 2,
-        "osc1Detune": -1000,
-        "osc2Detune": 1473.767058861814,
+        "osc1Detune": 1000,
+        "osc2Detune": -1000,
         "fm1": -28461.097142364844,
         "fm2": -36538.32914270945,
         "pan": 0,
@@ -789,9 +789,9 @@
         "ghost": 0.25,
         "trail": 0.3,
         "dot1Brightness": 1,
-        "dot1Color": "#75ebff",
+        "dot1Color": "#ffffff",
         "dot1Enabled": true,
-        "dot1Size": 1.2505,
+        "dot1Size": 1.6478,
         "dotBudget": 2048,
         "drawMode": "dots",
         "fullDotEconomy": false,
@@ -812,8 +812,12 @@
             "color": "#52a5b3"
           },
           {
+            "t": 0.999,
+            "color": "#adc9ff"
+          },
+          {
             "t": 1,
-            "color": "#75ebff"
+            "color": "#ffffff"
           }
         ],
         "lineThickness": 0.35,
@@ -1053,7 +1057,7 @@
   "view": {
     "heightGu": 13,
     "widthGu": 16,
-    "zoom": 1.0531717004189949,
+    "zoom": 1.1795523044692744,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,
@@ -1065,13 +1069,7 @@
     "sliderAmountVisible": false,
     "sliderPositionVisible": true,
     "tooltipEmbedded": false,
-    "locked": false,
-    "canvases": {
-      "root": {
-        "elements": []
-      },
-      "byMetamodule": {}
-    }
+    "locked": false
   },
   "visual": {
     "background": {

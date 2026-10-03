@@ -601,6 +601,7 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
     : Math.min(
       validLength,
       Math.max(minWindowFrames, newSinceLastDraw, 1),
+      Math.max(minWindowFrames * 2, 2048),
     );
   const start = Math.max(0, length - frames);
   const startFrame = Math.max(0, absoluteFrame - frames);

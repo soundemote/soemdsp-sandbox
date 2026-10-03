@@ -676,12 +676,9 @@ extern "C" double soemdsp_vibrato_generator_sample(
   double releaseSec,
   double releaseShape,
   double attackShape,
-  double isIdleReleaseSec,
+  double endDelaySec,
   double gate,
-  double gatePresent,
-  double delayMode,
-  double isIdleSample,
-  double isIdlePresent
+  double gatePresent
 );
 extern "C" double soemdsp_vibrato_generator_out(int handle);
 extern "C" double soemdsp_vibrato_generator_shape(int handle);
@@ -3570,7 +3567,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeDelayEffect) ? 0.1 // modRate
       : (typeId == kTypeHypersaw2) ? 3.6 // jitterSpeed Hz
       : (typeId == kTypeRobinSupersaw) ? 3.6 // jitterSpeed Hz
-      : (typeId == kTypeVibratoGenerator) ? 0.1 // isIdleRelease seconds
+      : (typeId == kTypeVibratoGenerator) ? 0.0 // endDelay seconds
       : (typeId == kTypeWowAndFlutter) ? 1.0 // flutterFrequency (header default)
       : 0.35,
     false
@@ -9507,14 +9504,13 @@ static void process_chua_attractor(Circuit& g, Node& node, int frames) {
 
 // Chaosfly: dual sine FM chaos.
 // Reset: rising edge clears osc phases + LP/HP/DC state.
-// Frequency: ƒ absolute Hz, 0.1V/Oct pitches Frequency knob.
+// Frequency: knob only. Pitch jack adds octaves to the Pitch knob.
 // Phase: knob + kPortPhaseCv (cycles) offset both osc lookups (works at 0 Hz).
 // Out/Mono = mono mix, Left/Right = stereo audio, Saw/Ramp = X/Y scope
 // (always a stereo image — Pre vs post per Output mode), Square = Z.
 static void process_chaosfly(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool takeSamplePath = node_has_active_chase(node);
@@ -9529,13 +9525,16 @@ static void process_chaosfly(Circuit& g, Node& node, int frames) {
       }
       node.lastReset = rv;
     }
-    // Frequency base (ƒ / 0.1V); Pitch = overall oct transpose; LP/HP = offsets.
+    // Frequency is the knob only. The Pitch jack adds octaves to the Pitch knob.
     const double freq = resolve_osc_hz(
-      g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
+      g, f, false, false, node.frequency, referenceVoltage, sr
     );
-    // Pitch octaves: NaN → 0 only; range is metaparam-owned (same as LP/HP).
     double pitchOct = control_audio(g, node.offset, f);
     if (!(pitchOct == pitchOct)) pitchOct = 0.0;
+    if (livePitch) {
+      const double add = g.mixPitch[f];
+      if (add == add) pitchOct += add;
+    }
     const double phaseOff = phase_offset_cycles(node.phaseParam, 0.0);
     soemdsp_chaosfly_sample(
       node.nativeHandle,
@@ -10373,23 +10372,19 @@ static void process_cheap_walk(Circuit& g, Node& node, int frames) {
 // frequency=speed, phaseParam=offset, amplitude=depth, shape=morph,
 // width=randomFreqMult, center=randomAmpMult, seed=seed.
 // Vibrato Generator: Reset on kPortReset; Gate on Mono (depth Delay/A/R).
-// timeNumerator=delay s, timeDenominator=attack s, offsetMs=release s,
+// timeNumerator=startDelay s, timeDenominator=attack s, offsetMs=release s,
 // timingMode=releaseShape stable id (0 log, 1 lin, 2 exp; else exp),
-// lfoStyle=attackShape (same ids; default exp), lfoRate=isIdleRelease seconds.
-// mode=delayMode stable id (0 start, 1 startEnd, 2 gate; else start).
-// (exp one-pole depthEnv by default; Delay arms on Gate rise).
+// lfoStyle=attackShape (same ids; default exp), lfoRate=endDelay seconds.
 // Unpatched Gate (no cable) -> gatePresent=0, module skips to sustain (no Attack).
-// isIdle in is kPortIsIdle: no cable -> present=0 (never idle). Output isIdle is the envelope flag.
+// Output isIdle is the envelope flag.
 static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
   const bool hasGate = mix_live_port(g, node, kPortMono, frames, g.mixMono);
-  // isIdle inlet shares the digital port index with the isIdle outlet.
-  // Mix reads cables into scratch; the outlet is written after the sample.
-  const bool hasIdleIn = mix_live_port(g, node, kPortIsIdle, frames, g.mixLeft);
   const bool takeSamplePath = node_has_active_chase(node) || node.amplitude.active
-    || node.timeNumerator.active || node.timeDenominator.active || node.offsetMs.active;
+    || node.timeNumerator.active || node.timeDenominator.active || node.offsetMs.active
+    || node.lfoRate.active;
   if (!liveReset) node.lastReset = 0.0;
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
@@ -10420,10 +10415,7 @@ static void process_vibrato_generator(Circuit& g, Node& node, int frames) {
       control_effective(node.lfoStyle),
       control_audio(g, node.lfoRate, f),
       gate,
-      hasGate ? 1.0 : 0.0,
-      control_effective(node.mode),
-      hasIdleIn ? g.mixLeft[f] : 0.0,
-      hasIdleIn ? 1.0 : 0.0
+      hasGate ? 1.0 : 0.0
     );
     // Wave/audio is y * amp * depthEnv. Face tap is y * depthEnv (no amp).
     // isIdle out is 1 only when the depth envelope has finished. Not the input.
@@ -10837,7 +10829,7 @@ static void process_phosphillator(Circuit& g, Node& node, int frames) {
 }
 
 // Metronome: per-clock t0. phase = ((master − t0)/sr) × f(BPM, Numer, Denom).
-// Gate -1+1→Mono, Gate 0-1→Left, Trigger→Right, f→Saw, beat f→Ramp.
+// Gate -1+1→Mono, Gate 0-1→Left, Trigger→Right, f→Saw, f adj→Ramp.
 
 // Host/project BPM dump. Cable units = raw BPM (120.0 = 120 beats/min), not Hz.
 // Live value is Circuit::hostTempoBpm (soemdsp_graph_set_host_transport).
@@ -10851,10 +10843,12 @@ static void process_host_bpm(Circuit& g, Node& node, int frames) {
 }
 
 // Click L/R → Square/Tri. Reset → kPortReset.
+// BPM In → kPortF (absolute BPM, same cancel pattern as ƒ vs Frequency).
 static void process_transport(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
+  const bool hasBpmIn = mix_live_port(g, node, kPortF, frames, g.mixF);
   if (!liveReset) node.lastReset = 0.0;
   bool wasHigh = node.phase > 0.5; // reuse phase as wasHigh latch (0/1)
   // lastReset is Reset-jack latch; keep wasHigh in node.phase for trigger edge.
@@ -10869,7 +10863,7 @@ static void process_transport(Circuit& g, Node& node, int frames) {
       node.lastReset = rv;
     }
     const double amplitude = control_audio(g, node.amplitude, f);
-    const double bpm = control_audio(g, node.tempoBpm, f);
+    const double bpm = hasBpmIn ? g.mixF[f] : control_audio(g, node.tempoBpm, f);
     (void)soemdsp_transport_sample(
       node.nativeHandle,
       amplitude,

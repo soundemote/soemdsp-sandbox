@@ -1308,6 +1308,7 @@ function normalizeNodeGraphUserSession(payload = {}) {
     format: nodeGraphUserSessionFormat(),
     workingPatch,
     currentSavedPatchFilename,
+    loadedPatchSlug: String(payload.loadedPatchSlug ?? view.loadedPatchSlug ?? "").trim().toLowerCase(),
     patchDirtyState,
     sceneContextWindowSize,
     moduleActionWindowSize,
@@ -1399,6 +1400,7 @@ function readNodeGraphUserSessionFromState() {
     format: nodeGraphUserSessionFormat(),
     workingPatch: workingPatchForSession,
     currentSavedPatchFilename: nodeGraphMvp.currentSavedPatchFilename || "",
+    loadedPatchSlug: String(nodeGraphMvp.loadedPatchSlug || "").trim().toLowerCase(),
     patchDirtyState: ["saved", "edited", "untouched"].includes(nodeGraphMvp.patchDirtyState)
       ? nodeGraphMvp.patchDirtyState
       : nodeGraphMvp.workingPatch
@@ -1550,6 +1552,7 @@ function applyNodeGraphUserSession(session, options = {}) {
     ? normalizeNodeGraphFilePickerState(normalized.filePicker)
     : (normalized.filePicker || { startIn: "documents" });
   nodeGraphMvp.currentSavedPatchFilename = String(normalized.currentSavedPatchFilename || "");
+  nodeGraphMvp.loadedPatchSlug = String(normalized.loadedPatchSlug || "").trim().toLowerCase();
   nodeGraphMvp.patchDirtyState = ["saved", "edited", "untouched"].includes(normalized.patchDirtyState)
     ? normalized.patchDirtyState
     : nodeGraphMvp.workingPatch
@@ -1643,6 +1646,9 @@ function persistNodeGraphUserSession() {
  *   uiSettings — chrome look only (not global traceSettings)
  */
 function persistSession(options = {}) {
+  if (window.soemdspPerformPage && String(options.reason || "session") !== "uiSettings") {
+    return false;
+  }
   const reason = String(options.reason || "session");
   if (reason === "uiSettings") {
     if (typeof scheduleNodeUiDevSettingsAutosave === "function") {

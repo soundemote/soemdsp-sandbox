@@ -5161,6 +5161,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   line-height: 1;
 }
 
+#nodeSettingsSaveScriptButton.is-unsaved {
+  background: rgba(90, 140, 200, 0.38);
+}
+
 #nodeDownloadAppButton {
   flex: 0.55 1 0;
   flex-direction: column;
@@ -7129,6 +7133,20 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   text-align: right;
+}
+
+.node-transport-bpm-face {
+  cursor: var(--node-dot-cursor);
+}
+
+.node-parameter-row.f-jack-owns-frequency,
+.node-parameter-row.bpm-jack-owns-bpm {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(226, 168, 109, 0.16) 0 7px,
+      transparent 7px 14px
+    );
 }
 
 .node-parameter-row[data-node-constraint],
@@ -13160,6 +13178,15 @@ body.node-screen-solo-active .node-screen-solo-face * {
   pointer-events: auto !important;
 }
 
+/* Toggle/momentary paint a dummy scope canvas. Solo stretches it to fill the
+   face and the * rule above turns pointer-events back on, so it eats clicks. */
+body.node-screen-solo-active .node-plugin-toggle-face canvas,
+body.node-screen-solo-active .node-plugin-momentary-face canvas,
+.node-plugin-toggle-face canvas,
+.node-plugin-momentary-face canvas {
+  pointer-events: none !important;
+}
+
 body.node-screen-solo-active .node-screen-solo-face canvas,
 body.node-screen-solo-active .node-screen-solo-face .node-module-scope-window-surface,
 body.node-screen-solo-active .node-screen-solo-face .node-raster-rgb-canvas,
@@ -14120,7 +14147,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   display: block !important;
   position: relative;
   container-type: size;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 .node-knob-face.is-slider-look .node-macro-knob-dial {
@@ -14130,7 +14157,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   height: calc(var(--knob-slider-height, 0.22) * 100%) !important;
   transform: translateX(-50%) !important;
   container-type: size;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .node-knob-face.is-slider-look[data-slider-align="top"] .node-macro-knob-dial {
@@ -14185,11 +14212,12 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   position: absolute !important;
   z-index: 3;
   box-sizing: border-box;
-  max-width: none;
-  overflow: visible !important;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden !important;
   line-height: 1;
   white-space: nowrap;
-  transform: none !important;
+  text-overflow: clip;
 }
 
 .node-knob-face.is-slider-look .node-macro-knob-label {
@@ -16459,6 +16487,40 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
   color: inherit;
   font: inherit;
   cursor: pointer;
+}
+
+.node-patch-save-menu {
+  position: fixed;
+  z-index: 90;
+  display: grid;
+  min-width: 12.5rem;
+  padding: 0.25rem;
+  border: 1px solid rgba(127, 199, 217, 0.28);
+  border-radius: 6px;
+  background: #14181c;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.node-patch-save-menu button {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.7rem;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(243, 251, 251, 0.94);
+  font: 0.9rem/1.3 system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.node-patch-save-menu button:hover:not(:disabled) {
+  background: rgba(127, 199, 217, 0.16);
+}
+.node-patch-save-menu button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.node-patch-save-menu button.confirming-default {
+  background: rgba(226, 168, 109, 0.22);
 }
 
 .node-header-timing-row {
@@ -25754,17 +25816,33 @@ code {
   user-select: none;
   touch-action: none;
   transition: none;
+  isolation: isolate;
   background: color-mix(
     in srgb,
     var(--plugin-btn-active, #2f8f86) calc(var(--plugin-btn-value, 0) * 100%),
     var(--plugin-btn-inactive, #1a2228)
   );
 }
-.node-plugin-toggle-button:hover:not(.is-on),
-.node-plugin-momentary-button:hover:not(.is-held) {
-  border-color: var(--plugin-btn-stroke, #5c5071);
-  transition: none;
+.node-plugin-toggle-button::after,
+.node-plugin-momentary-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  corner-shape: inherit;
   background: var(--plugin-btn-hover, #89bfc2);
+  opacity: 0;
+}
+.node-plugin-toggle-button:hover::after,
+.node-plugin-momentary-button:hover:not(.is-held)::after {
+  opacity: 1;
+}
+.node-plugin-toggle-button > .btn-fit,
+.node-plugin-momentary-button > .btn-fit {
+  position: relative;
+  z-index: 1;
 }
 .node-plugin-slider-face {
   pointer-events: auto;

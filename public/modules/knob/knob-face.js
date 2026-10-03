@@ -1479,11 +1479,17 @@ function syncNodeGraphKnobFaceFromSlider(slider) {
   if (!module || (type !== "knob" && type !== "pluginSlider")) {
     return;
   }
-  const face = module.querySelector(".node-knob-face");
+  const nodeId = module.dataset.node;
+  let face = module.querySelector(".node-knob-face");
+  if (!face && nodeId) {
+    const esc = typeof CSS !== "undefined" && CSS.escape
+      ? CSS.escape(nodeId)
+      : String(nodeId).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    face = document.querySelector(`.node-knob-face[data-node="${esc}"]`);
+  }
   if (!face) {
     return;
   }
-  const nodeId = module.dataset.node;
   if (type === "pluginSlider" || face.classList.contains("is-slider-look")) {
     if (typeof paintNodeGraphSliderFaceLive === "function" && nodeId) {
       paintNodeGraphSliderFaceLive(face, nodeId, null);

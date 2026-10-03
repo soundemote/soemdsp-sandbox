@@ -2260,7 +2260,13 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
   }
   if (field === "backgroundColor") {
     const backgroundForm = nodeGraphTraceDisplaySettingsFormType();
-    if (backgroundForm === "numberReadout" || backgroundForm === "value") {
+    if (
+      backgroundForm === "numberReadout"
+      || backgroundForm === "value"
+      || backgroundForm === "waterfall"
+      || backgroundForm === "waterfallRgb"
+      || backgroundForm === "waterfallXyz"
+    ) {
       return "Background";
     }
     return "Bg";

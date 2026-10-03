@@ -328,8 +328,15 @@ function nodeGraphWaterfallHalfHeight(height, _slot, _settings, _amp) {
   return nodeGraphFiniteNumber(height, 0) * 0.5;
 }
 
+function nodeGraphWaterfallPolarity(settings) {
+  const raw = String(settings?.polarity || "").trim().toLowerCase();
+  if (raw === "unipolar" || raw === "uni" || raw === "unsigned") return "unipolar";
+  if (raw === "absolute" || raw === "abs") return "absolute";
+  return "bipolar";
+}
+
 function nodeGraphWaterfallIsUnipolar(settings) {
-  return String(settings?.polarity || "").toLowerCase() === "unipolar";
+  return nodeGraphWaterfallPolarity(settings) === "unipolar";
 }
 
 function nodeGraphWaterfallY(raw, gain, offset, midY, halfHeight, amp = null, settings = null) {
@@ -348,7 +355,11 @@ function nodeGraphWaterfallY(raw, gain, offset, midY, halfHeight, amp = null, se
       * (nodeGraphFiniteNumber(settings?.scale, 1))
       + (nodeGraphFiniteNumber(offset));
   }
-  if (nodeGraphWaterfallIsUnipolar(settings) && !(amp && amp.mode === "rmsDb")) {
+  const polarity = nodeGraphWaterfallPolarity(settings);
+  if (polarity === "absolute" && !(amp && amp.mode === "rmsDb")) {
+    bipolar = Math.abs(bipolar);
+  }
+  if ((polarity === "unipolar" || polarity === "absolute") && !(amp && amp.mode === "rmsDb")) {
     const u = Math.max(0, Math.min(1, bipolar));
     const h = Math.max(1, midY * 2);
     return h - u * h;
@@ -1894,8 +1905,16 @@ function nodeGraphWaterfallSmoothAdvance(destCtx, destCanvas, spec, options) {
       );
       if (edgeMap) edgeMap[ch.lastYKey] = { y0: ys.y0, y1: ys.y1 };
       if (useStroke && typeof nodeGraphOnsetGlStrokePolyline === "function") {
-        const yTop = Math.min(ys.y0, ys.y1);
-        const pt = { x: x + 0.5, y: yTop };
+        const mid = height * 0.5;
+        const hi = Number.isFinite(ys.strokeY0) ? ys.strokeY0 : ys.y0;
+        const lo = Number.isFinite(ys.strokeY1) ? ys.strokeY1 : ys.y1;
+        const polarity = nodeGraphWaterfallPolarity(settings);
+        // Absolute and unipolar grow upward from the bottom. The stroke is
+        // that top edge. Bipolar follows whichever peak is farther from center.
+        const yLine = (polarity === "absolute" || polarity === "unipolar")
+          ? Math.min(hi, lo)
+          : (Math.abs(hi - mid) >= Math.abs(lo - mid) ? hi : lo);
+        const pt = { x: x + 0.5, y: yLine };
         const bag = destCanvas._waterfall || (destCanvas._waterfall = {});
         if (!bag.strokePts) bag.strokePts = Object.create(null);
         const key = ch.lastYKey || String(i);
@@ -1945,7 +1964,9 @@ function nodeGraphWaterfallPaint(spec) {
         ? (nodeGraphWaterfallPrepare(spec.stereoBuffers.left, settings) || spec.buffer)
         : (nodeGraphWaterfallPrepare(spec.buffer, settings) || spec.buffer);
   if (!live?.length) return false;
-  const plateCss = spec.settings?.backgroundColor || spec.settings?.background || spec.bg || "#000000";
+  const plateCss = typeof nodeGraphWaterfallPlateCss === "function"
+    ? nodeGraphWaterfallPlateCss(settings, "#000000")
+    : (spec.settings?.backgroundColor || spec.settings?.background || spec.bg || "#000000");
   spec.bg = plateCss;
   const onsetDef = typeof nodeGraphModuleDefinitions === "object"
     ? nodeGraphModuleDefinitions[spec?.slot?.type]

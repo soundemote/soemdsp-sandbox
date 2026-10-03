@@ -36,14 +36,14 @@
       "destinationNode": "output",
       "destinationPort": "Left",
       "sourceNode": "chaosfly-1",
-      "sourcePort": "Left",
+      "sourcePort": "X",
       "tracePoints": []
     },
     {
       "destinationNode": "output",
       "destinationPort": "Right",
       "sourceNode": "chaosfly-1",
-      "sourcePort": "Right",
+      "sourcePort": "Y",
       "tracePoints": []
     }
   ],

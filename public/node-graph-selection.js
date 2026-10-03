@@ -1,3 +1,42 @@
+function nodeGraphRememberLastSelectedModule(selection) {
+  if (!selection || (selection.type !== "node" && selection.type !== "nodes")) {
+    return;
+  }
+  const ordered = typeof nodeGraphSelectedNodeIdsInOrder === "function"
+    ? nodeGraphSelectedNodeIdsInOrder(selection)
+    : [];
+  const primary = ordered.length ? String(ordered[0] || "").trim() : "";
+  if (primary && typeof nodeGraphPatchNode === "function" && nodeGraphPatchNode(primary)) {
+    nodeGraphMvp.lastSelectedModuleId = primary;
+  }
+}
+
+/** Last module that was in the selection. Not a selection and not an edit target. */
+function nodeGraphLastSelectedModuleId() {
+  const id = String(nodeGraphMvp?.lastSelectedModuleId || "").trim();
+  if (!id || typeof nodeGraphPatchNode !== "function" || !nodeGraphPatchNode(id)) {
+    return "";
+  }
+  if (nodeGraphMvp.activeNodes && !nodeGraphMvp.activeNodes.has(id)) {
+    return "";
+  }
+  return id;
+}
+
+/**
+ * Command Center focus: the selected list, then the last selected module.
+ * Empty only when both are empty. Does not change the selection.
+ */
+function nodeGraphCommandCenterFocusNodeId() {
+  const fromSelection = typeof nodeGraphModuleActionTargetNodeId === "function"
+    ? String(nodeGraphModuleActionTargetNodeId() || "").trim()
+    : "";
+  if (fromSelection && typeof nodeGraphPatchNode === "function" && nodeGraphPatchNode(fromSelection)) {
+    return fromSelection;
+  }
+  return nodeGraphLastSelectedModuleId();
+}
+
 function setNodeGraphSelection(selection) {
   // Finish any in-progress title/alias edit against the *current* target before
   // retargeting selection. Otherwise a focused Command Center alias (or header
@@ -29,6 +68,9 @@ function setNodeGraphSelection(selection) {
         // ignore
       }
     }
+  }
+  if (selection && (selection.type === "node" || selection.type === "nodes")) {
+    nodeGraphRememberLastSelectedModule(selection);
   }
   nodeGraphMvp.selected = selection;
   if (!selection || (selection.type !== "node" && selection.type !== "nodes")) {
@@ -350,7 +392,10 @@ function syncNodeGraphModuleActionTargetFromSelection() {
     nodeGraphMvp.lastModuleActionTargetNode = primary;
     nodeGraphMvp.sceneContextTargetWire = null;
   } else {
-    nodeGraphMvp.sceneContextTargetNode = null;
+    const focus = typeof nodeGraphCommandCenterFocusNodeId === "function"
+      ? nodeGraphCommandCenterFocusNodeId()
+      : "";
+    nodeGraphMvp.sceneContextTargetNode = focus || null;
     nodeGraphMvp.sceneContextTargetWire = null;
   }
   if (!actionWindowOpen) {

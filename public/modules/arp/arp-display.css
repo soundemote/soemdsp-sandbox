@@ -4,6 +4,7 @@
   min-height: 0;
   background: #000;
   overflow: hidden;
+  cursor: var(--node-dot-cursor);
 }
 
 .node-arp-keys-canvas {
@@ -14,5 +15,5 @@
   display: block;
   image-rendering: pixelated;
   touch-action: none;
-  cursor: pointer;
+  cursor: var(--node-dot-cursor);
 }

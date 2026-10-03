@@ -160,6 +160,12 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       }
       if (handle > 0) {
         setOverride(handle, over);
+        if (message.bang === true && over >= 0) {
+          const bang = nodeType === "gravityWalker"
+            ? native.soemdsp_gravity_walker_face_bang
+            : native.soemdsp_arp_face_bang;
+          if (typeof bang === "function") bang(handle, message.gate === true ? 1 : 0);
+        }
       }
       return;
     }

@@ -631,11 +631,14 @@ function syncNodeGraphHeaderPatchTitle() {
     return;
   }
   const source = nodeGraphHeaderPatchTitleSource();
-  if (el.textContent !== source.text) {
-    el.textContent = source.text;
+  const dirty = nodeGraphMvp?.patchDirtyState === "edited";
+  const text = dirty ? `${source.text} ★` : source.text;
+  if (el.textContent !== text) {
+    el.textContent = text;
   }
   el.title = source.filled ? source.text : `${source.text} — double-click to name`;
   el.classList.toggle("is-fallback", !source.filled);
+  el.classList.toggle("is-edited", dirty);
 }
 
 function nodeGraphSetStoredPatchName(name) {

@@ -623,6 +623,13 @@ function nodeGraphLayoutCanvasOpen(mode = "perform", options = {}) {
   }
   nodeGraphMvp.layoutCanvasMode = next;
   nodeGraphMvp.layoutCanvasActive = true;
+  if (next === "perform") {
+    if (typeof nodeGraphTransportHandleAction === "function") {
+      nodeGraphTransportHandleAction("play");
+    } else if (typeof nodeGraphExternalStartLiveOutput === "function") {
+      nodeGraphExternalStartLiveOutput();
+    }
+  }
   const stage = document.getElementById("nodeScreenSoloStage");
   if (stage) {
     stage.setAttribute(

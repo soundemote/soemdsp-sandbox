@@ -172,7 +172,7 @@ function nodeGraphDegreeTuringSample(state, options = {}) {
 
 // ─── Gravity Walker ─────────────────────────────────────────────────────────
 // Sticky/random walk over Keys noteMask128 (Arp Keys cousin).
-// Pool: held MIDI → expand Octaves → Scale Offset rotate → walk.
+// Pool: held MIDI → expand Octaves → Scale Offset rotate → palindrome bounce → walk.
 
 function createNodeGraphGravityWalkerState() {
   return {
@@ -261,6 +261,13 @@ function nodeGraphGravityWalkerBuildPool(options = {}) {
     } else {
       const highest = pool.pop();
       pool.unshift(Math.max(0, Math.min(127, highest - 12)));
+    }
+  }
+  // C3 G3 C4 → C3 G3 C4 G3 so a wrap at C4 plays G3, not C3.
+  if (pool.length > 2) {
+    const n = pool.length;
+    for (let i = n - 2; i >= 1; i -= 1) {
+      pool.push(pool[i]);
     }
   }
   return pool;

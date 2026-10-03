@@ -96,6 +96,9 @@ function setNodeGraphCurrentSavedPatch(filename = "") {
     }
   }
   syncNodeGraphCurrentSavedPatchHeader();
+  if (typeof syncNodeGraphHeaderPatchTitle === "function") {
+    syncNodeGraphHeaderPatchTitle();
+  }
   if (nodeGraphMvp.workingPatch && typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
     saveNodeGraphWorkingPatchToUserSettings();
   }
@@ -114,6 +117,9 @@ function selectNodeGraphSavedPatch(filename = "", program = null) {
 function setNodeGraphPatchDirtyState(state = "edited") {
   nodeGraphMvp.patchDirtyState = ["saved", "edited", "untouched"].includes(state) ? state : "edited";
   syncNodeGraphCurrentSavedPatchHeader();
+  if (typeof syncNodeGraphHeaderPatchTitle === "function") {
+    syncNodeGraphHeaderPatchTitle();
+  }
   if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
     saveNodeGraphWorkingPatchToUserSettings();
   }
@@ -130,6 +136,9 @@ function scheduleNodeGraphWorkingPatchFileAutosave(text, options = {}) {
 }
 
 function saveNodeGraphWorkingPatchToUserSettings(options = {}) {
+  if (window.soemdspPerformPage) {
+    return false;
+  }
   // Name is historical: writes the session blob, not useruisettings.json.
   // Prefer live graph; fall back to last known working patch if patch is empty
   // mid-transition (should not happen, but never serialize "no modules" over a
@@ -163,6 +172,9 @@ function saveNodeGraphWorkingPatchToUserSettings(options = {}) {
 
 /** Flush working-patch autosave on tab close / refresh (sync localStorage). */
 function flushNodeGraphWorkingPatchToUserSettingsOnUnload() {
+  if (window.soemdspPerformPage) {
+    return;
+  }
   try {
     if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
       saveNodeGraphWorkingPatchToUserSettings({ immediateFile: false });
@@ -176,6 +188,19 @@ if (typeof window !== "undefined" && !window.__nodeGraphWorkingPatchUnloadBound)
   window.__nodeGraphWorkingPatchUnloadBound = true;
   window.addEventListener("pagehide", flushNodeGraphWorkingPatchToUserSettingsOnUnload);
   window.addEventListener("beforeunload", flushNodeGraphWorkingPatchToUserSettingsOnUnload);
+}
+
+if (typeof window !== "undefined" && !window.__nodeGraphSessionAutosaveClock) {
+  window.__nodeGraphSessionAutosaveClock = window.setInterval(() => {
+    if (window.soemdspPerformPage) return;
+    if (nodeGraphMvp?.patchDirtyState !== "edited") return;
+    if (typeof setNodeGraphScriptStatus === "function") {
+      setNodeGraphScriptStatus("Autosaving", true);
+    }
+    if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+      saveNodeGraphWorkingPatchToUserSettings();
+    }
+  }, 5 * 60 * 1000);
 }
 
 function clearNodeGraphWorkingPatchFromUserSettings() {
@@ -238,6 +263,10 @@ function syncNodeGraphCurrentSavedPatchHeader() {
       : "Init patch";
   button.classList.toggle("unsaved", dirtyState !== "saved");
   button.dataset.patchDirtyState = dirtyState;
+  const saveBtn = document.getElementById("nodeSettingsSaveScriptButton");
+  if (saveBtn) {
+    saveBtn.classList.toggle("is-unsaved", dirtyState === "edited");
+  }
 }
 
 function normalizeNodeGraphSavedPatchTag(tag) {
@@ -659,12 +688,12 @@ function nodeGraphFilePickerOpenDb() {
   });
 }
 
-async function nodeGraphFilePickerGetHandle() {
+async function nodeGraphFilePickerGetHandle(key = "last") {
   try {
     const db = await nodeGraphFilePickerOpenDb();
     return await new Promise((resolve, reject) => {
       const tx = db.transaction("handles", "readonly");
-      const req = tx.objectStore("handles").get("last");
+      const req = tx.objectStore("handles").get(String(key || "last"));
       req.onsuccess = () => resolve(req.result || null);
       req.onerror = () => reject(req.error);
     });
@@ -673,7 +702,7 @@ async function nodeGraphFilePickerGetHandle() {
   }
 }
 
-async function nodeGraphFilePickerPutHandle(handle) {
+async function nodeGraphFilePickerPutHandle(handle, key = "last") {
   if (!handle) {
     return;
   }
@@ -681,12 +710,18 @@ async function nodeGraphFilePickerPutHandle(handle) {
     const db = await nodeGraphFilePickerOpenDb();
     await new Promise((resolve, reject) => {
       const tx = db.transaction("handles", "readwrite");
-      tx.objectStore("handles").put(handle, "last");
+      tx.objectStore("handles").put(handle, String(key || "last"));
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
   } catch {
     // Handle persistence is best-effort (private mode / quota).
+  }
+}
+
+async function nodeGraphFilePickerRememberCurrentPatchFile(handle) {
+  if (handle?.kind === "file") {
+    await nodeGraphFilePickerPutHandle(handle, "currentPatch");
   }
 }
 
@@ -773,7 +808,7 @@ async function nodeGraphSaveTextFileWithNativeDialog({
       await writable.write(text);
       await writable.close();
       await nodeGraphFilePickerRememberLocation(handle);
-      return { ok: true, name: handle.name || name, cancelled: false };
+      return { ok: true, name: handle.name || name, cancelled: false, handle };
     } catch (error) {
       if (error && (error.name === "AbortError" || error.name === "NotAllowedError")) {
         return { ok: false, cancelled: true };
@@ -802,7 +837,7 @@ async function nodeGraphOpenTextFileWithNativeDialog({
       const file = await handle.getFile();
       const text = await file.text();
       await nodeGraphFilePickerRememberLocation(handle);
-      return { ok: true, name: handle.name || file.name, text, cancelled: false };
+      return { ok: true, name: handle.name || file.name, text, cancelled: false, handle };
     } catch (error) {
       if (error && (error.name === "AbortError" || error.name === "NotAllowedError")) {
         return { ok: false, cancelled: true };
@@ -857,6 +892,9 @@ function nodeGraphDownloadPatchTextFile(text, filename) {
  * next save opens in that folder. Fallback download cannot remember a path.
  */
 async function saveNodeGraphPatchWithNativeDialog() {
+  if (window.soemdspPerformPage) {
+    return false;
+  }
   const payload = nodeGraphPatchExportPayload();
   if (!payload) {
     return false;
@@ -876,8 +914,17 @@ async function saveNodeGraphPatchWithNativeDialog() {
         }
         return false;
       }
-      const savedName = result.name || filename;
+      const savedName = nodeGraphApplySavedPatchIdentity(patch, result.name || filename);
+      const namedText = typeof serializeNodeGraphPatch === "function"
+        ? serializeNodeGraphPatch(patch)
+        : JSON.stringify(patch, null, 2);
       rememberNodeGraphFilePickerMeta({ lastPatchName: savedName });
+      if (result.handle && typeof result.handle.createWritable === "function") {
+        const writable = await result.handle.createWritable();
+        await writable.write(namedText);
+        await writable.close();
+        await nodeGraphFilePickerRememberCurrentPatchFile(result.handle);
+      }
       if (typeof commitNodeGraphPatch === "function") {
         commitNodeGraphPatch(patch, {
           markPending: false,
@@ -896,7 +943,11 @@ async function saveNodeGraphPatchWithNativeDialog() {
     }
 
     // No File System Access API — download (browser chooses location).
-    nodeGraphDownloadPatchTextFile(text, filename);
+    const savedName = nodeGraphApplySavedPatchIdentity(patch, filename);
+    const namedText = typeof serializeNodeGraphPatch === "function"
+      ? serializeNodeGraphPatch(patch)
+      : JSON.stringify(patch, null, 2);
+    nodeGraphDownloadPatchTextFile(namedText, savedName || filename);
     if (typeof commitNodeGraphPatch === "function") {
       commitNodeGraphPatch(patch, {
         markPending: false,
@@ -906,10 +957,10 @@ async function saveNodeGraphPatchWithNativeDialog() {
       });
     }
     if (typeof setNodeGraphCurrentSavedPatch === "function") {
-      setNodeGraphCurrentSavedPatch(filename);
+      setNodeGraphCurrentSavedPatch(savedName || filename);
     }
     if (typeof setNodeGraphScriptStatus === "function") {
-      setNodeGraphScriptStatus(`patch downloaded: ${filename}`, true);
+      setNodeGraphScriptStatus(`patch downloaded: ${savedName || filename}`, true);
     }
     return true;
   } catch (error) {
@@ -919,6 +970,192 @@ async function saveNodeGraphPatchWithNativeDialog() {
     }
     return false;
   }
+}
+
+function nodeGraphApplySavedPatchIdentity(patch, filename) {
+  const savedName = String(filename || "").trim();
+  const stem = typeof nodeGraphPatchFileStem === "function"
+    ? nodeGraphPatchFileStem(savedName)
+    : savedName.replace(/\.json$/i, "");
+  if (patch && typeof patch === "object" && stem) {
+    const info = patch.info && typeof patch.info === "object" ? { ...patch.info } : {};
+    info.name = stem;
+    patch.info = info;
+    nodeGraphMvp.loadedPatchSlug = stem.toLowerCase();
+  }
+  return savedName;
+}
+
+function nodeGraphHasOriginalPatchFile() {
+  return Boolean(String(nodeGraphMvp?.currentSavedPatchFilename || "").trim());
+}
+
+function closeNodeGraphPatchSaveMenu() {
+  document.getElementById("nodePatchSaveMenu")?.remove();
+  document.removeEventListener("pointerdown", nodeGraphPatchSaveMenuOutsidePointer, true);
+  document.removeEventListener("keydown", nodeGraphPatchSaveMenuKeydown, true);
+}
+
+function nodeGraphPatchSaveMenuOutsidePointer(event) {
+  const menu = document.getElementById("nodePatchSaveMenu");
+  const saveBtn = document.getElementById("nodeSettingsSaveScriptButton");
+  if (!menu) return;
+  if (menu.contains(event.target) || saveBtn?.contains(event.target)) return;
+  closeNodeGraphPatchSaveMenu();
+}
+
+function nodeGraphPatchSaveMenuKeydown(event) {
+  if (event.key === "Escape") {
+    closeNodeGraphPatchSaveMenu();
+  }
+}
+
+async function overwriteNodeGraphOriginalPatch() {
+  if (window.soemdspPerformPage) return false;
+  let filename = String(nodeGraphMvp?.currentSavedPatchFilename || "").trim();
+  if (!filename && nodeGraphMvp?.loadedPatchSlug) {
+    filename = `${String(nodeGraphMvp.loadedPatchSlug).replace(/\.json$/i, "")}.json`;
+  }
+  if (filename && !filename.toLowerCase().endsWith(".json")) {
+    filename = `${filename}.json`;
+  }
+  if (!filename) {
+    if (typeof setNodeGraphScriptStatus === "function") {
+      setNodeGraphScriptStatus("no original patch to overwrite", false);
+    }
+    return false;
+  }
+  const payload = typeof nodeGraphPatchExportPayload === "function"
+    ? nodeGraphPatchExportPayload()
+    : null;
+  if (!payload) return false;
+  const { text } = payload;
+  try {
+    const handle = typeof nodeGraphFilePickerGetHandle === "function"
+      ? await nodeGraphFilePickerGetHandle("currentPatch")
+      : null;
+    if (handle?.kind === "file" && typeof handle.createWritable === "function") {
+      let allowed = true;
+      if (typeof handle.queryPermission === "function") {
+        let perm = await handle.queryPermission({ mode: "readwrite" });
+        if (perm !== "granted" && typeof handle.requestPermission === "function") {
+          perm = await handle.requestPermission({ mode: "readwrite" });
+        }
+        allowed = perm === "granted";
+      }
+      if (allowed) {
+        const writable = await handle.createWritable();
+        await writable.write(text);
+        await writable.close();
+        if (typeof setNodeGraphCurrentSavedPatch === "function") {
+          setNodeGraphCurrentSavedPatch(handle.name || filename);
+        }
+        if (typeof setNodeGraphPatchDirtyState === "function") {
+          setNodeGraphPatchDirtyState("saved");
+        }
+        if (typeof setNodeGraphScriptStatus === "function") {
+          setNodeGraphScriptStatus(`patch overwritten: ${handle.name || filename}`, true);
+        }
+        return true;
+      }
+    }
+    const response = await fetch(
+      `/api/patches/overwrite?filename=${encodeURIComponent(filename)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: text,
+      },
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.ok === false) {
+      throw new Error(result.error || `HTTP ${response.status}`);
+    }
+    const savedName = result.filename || filename;
+    if (typeof setNodeGraphCurrentSavedPatch === "function") {
+      setNodeGraphCurrentSavedPatch(savedName);
+    }
+    if (typeof setNodeGraphPatchDirtyState === "function") {
+      setNodeGraphPatchDirtyState("saved");
+    }
+    if (typeof setNodeGraphScriptStatus === "function") {
+      setNodeGraphScriptStatus(`patch overwritten: ${savedName}`, true);
+    }
+    return true;
+  } catch (error) {
+    const message = String(error?.message || error || "overwrite failed");
+    if (typeof setNodeGraphScriptStatus === "function") {
+      setNodeGraphScriptStatus(`patch overwrite failed: ${message}`, false);
+    }
+    return false;
+  }
+}
+
+function openNodeGraphPatchSaveMenu() {
+  if (window.soemdspPerformPage) return;
+  if (!nodeGraphHasOriginalPatchFile()) {
+    if (typeof saveNodeGraphPatchWithNativeDialog === "function") {
+      saveNodeGraphPatchWithNativeDialog();
+    }
+    return;
+  }
+  closeNodeGraphPatchSaveMenu();
+  const anchor = document.getElementById("nodeSettingsSaveScriptButton");
+  const menu = document.createElement("div");
+  menu.id = "nodePatchSaveMenu";
+  menu.className = "node-patch-save-menu";
+  menu.setAttribute("role", "menu");
+  const hasOriginal = nodeGraphHasOriginalPatchFile();
+  menu.innerHTML = `
+    <button type="button" role="menuitem" data-save-overwrite ${hasOriginal ? "" : "disabled"}>
+      Overwrite original
+    </button>
+    <button type="button" role="menuitem" data-save-as-new>Save as new</button>`;
+  const overwriteBtn = menu.querySelector("[data-save-overwrite]");
+  if (overwriteBtn && !hasOriginal) {
+    overwriteBtn.title = "Load or save a file first";
+  }
+  overwriteBtn?.addEventListener("click", async (event) => {
+    if (!hasOriginal) return;
+    if (typeof confirmNodeGraphDefaultButtonClick === "function") {
+      if (!confirmNodeGraphDefaultButtonClick(
+        event.currentTarget,
+        () => {
+          if (typeof setNodeGraphScriptStatus === "function") {
+            setNodeGraphScriptStatus("click Confirm overwrite to replace the original file", true);
+          }
+        },
+        { confirmText: "Confirm overwrite" },
+      )) {
+        return;
+      }
+    }
+    closeNodeGraphPatchSaveMenu();
+    const ok = await overwriteNodeGraphOriginalPatch();
+    if (!ok) return;
+    if (typeof setNodeGraphPatchDirtyState === "function") {
+      setNodeGraphPatchDirtyState("saved");
+    }
+    if (typeof syncNodeGraphHeaderPatchTitle === "function") {
+      syncNodeGraphHeaderPatchTitle();
+    }
+  });
+  menu.querySelector("[data-save-as-new]")?.addEventListener("click", async () => {
+    closeNodeGraphPatchSaveMenu();
+    if (typeof saveNodeGraphPatchWithNativeDialog === "function") {
+      await saveNodeGraphPatchWithNativeDialog();
+    }
+  });
+  document.body.append(menu);
+  const rect = anchor?.getBoundingClientRect?.();
+  if (rect) {
+    menu.style.left = `${Math.max(8, rect.left)}px`;
+    menu.style.top = `${rect.bottom + 6}px`;
+  }
+  window.setTimeout(() => {
+    document.addEventListener("pointerdown", nodeGraphPatchSaveMenuOutsidePointer, true);
+    document.addEventListener("keydown", nodeGraphPatchSaveMenuKeydown, true);
+  }, 0);
 }
 
 async function saveNodeGraphScript() {
@@ -1007,6 +1244,9 @@ async function loadNodeGraphScript() {
       return;
     }
     rememberNodeGraphFilePickerMeta({ lastPatchName: result.name });
+    if (result.handle) {
+      await nodeGraphFilePickerRememberCurrentPatchFile(result.handle);
+    }
     commitNodeGraphPatch(loadNodeGraphPatchFromScript(result.text), {
       patchDirtyState: "saved",
       status: "script loaded",

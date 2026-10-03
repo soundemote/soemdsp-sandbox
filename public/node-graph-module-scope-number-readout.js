@@ -2150,7 +2150,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const formatOptions = {
     digits,
     removeTrailingZeros: Boolean(settings.removeTrailingZeros),
-    reserveSignSpace: String(settings.polarity || "bipolar") !== "unipolar",
+    reserveSignSpace: String(settings.polarity || "bipolar") === "bipolar",
     // Value LCD: settle on decimals+1 before visible budget (sign stability).
     ...(isLcd ? { guardExtraPlace: true } : null),
   };
@@ -2198,7 +2198,10 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       ? nodeGraphNumberReadoutFormatValue(
         (() => {
           const raw = nodeGraphOscilloscopeLatestSample(item.buffer, 0);
-          return String(settings.polarity || "bipolar") === "unipolar" ? Math.abs(nodeGraphFiniteNumber(raw)) : raw;
+          const polarity = String(settings.polarity || "bipolar");
+          return polarity === "unipolar" || polarity === "absolute"
+            ? Math.abs(nodeGraphFiniteNumber(raw))
+            : raw;
         })(),
         decimals,
         formatOptions,

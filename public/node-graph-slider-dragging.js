@@ -344,6 +344,10 @@ function syncNodeGraphParameterVisualsForNodeElement(nodeElement) {
 let nodeSliderDragAutosaveTimer = 0;
 
 function scheduleNodeGraphModuleScopeDrawIfNeeded() {
+  // Shared Instant Waterfall / phosphor compositor. Do not call this from a
+  // generic parameter drag — one cutoff or BPM write is not a reason to paint
+  // every waterfall. Live audio already runs this loop; paused traces skip.
+  // Callers: mouse-up commit, graph-curve live face, raster/self-paint pumps.
   if (typeof paintNodeGraphRasterRgbFacesNow === "function") {
     try {
       paintNodeGraphRasterRgbFacesNow(window.devicePixelRatio || 1);
@@ -373,6 +377,9 @@ function clearNodeSliderDragAutosaveTimer() {
 }
 
 function scheduleNodeSliderDragAutosave() {
+  if (window.soemdspPerformPage) {
+    return;
+  }
   if (nodeSliderDragAutosaveTimer) {
     return;
   }
@@ -395,7 +402,6 @@ function commitNodeSliderDragValue(slider, status = "parameter changed") {
   });
   markNodeGraphRenderPending();
   scheduleNodeGraphLiveParameterSync();
-  scheduleNodeGraphModuleScopeDrawIfNeeded();
 }
 
 function nodeSliderCtrlClickDefaultValue(slider) {
@@ -464,9 +470,15 @@ function setNodeSliderValue(slider, value, options = {}) {
     skipGraphFace: alreadyPending && !graphCurveLiveParam,
     bypassSmoothing: Boolean(options.bypassSmoothing),
   });
-  if (!alreadyPending || graphCurveLiveParam) {
-    scheduleNodeGraphModuleScopeDrawIfNeeded();
+  if (isDrag && slider?.dataset?.param === "bpm") {
+    if (typeof paintNodeGraphTransportBpmFacesForNode === "function") {
+      paintNodeGraphTransportBpmFacesForNode(slider.dataset.node);
+    }
   }
+  // Do not kick the shared scope compositor on drag. Waterfalls already paint
+  // from the live loop; a single param is not a full-trace invalidate.
+  // Graph curve faces update via skipGraphFace=false above. Knob/slider/LCD
+  // faces update in flushNodeSliderReadoutUpdates (parameter-visual).
   if (isDrag) {
     scheduleNodeSliderDragAutosave();
   } else {
@@ -925,7 +937,8 @@ function nodeSliderIsDragSurface(el) {
   return Boolean(
     el?.classList?.contains("node-slider-readout")
     || el?.classList?.contains("node-knob-face")
-    || el?.classList?.contains("node-plugin-slider-face"),
+    || el?.classList?.contains("node-plugin-slider-face")
+    || el?.classList?.contains("node-transport-bpm-face"),
   );
 }
 
@@ -937,7 +950,9 @@ function nodeSliderDragSurfaceFromEvent(event) {
   if (nodeSliderIsDragSurface(event?.currentTarget)) {
     return event.currentTarget;
   }
-  const direct = event?.target?.closest?.(".node-slider-readout, .node-knob-face, .node-plugin-slider-face");
+  const direct = event?.target?.closest?.(
+    ".node-slider-readout, .node-knob-face, .node-plugin-slider-face, .node-transport-bpm-face",
+  );
   if (direct) {
     return direct;
   }
@@ -967,7 +982,10 @@ function beginNodeSliderSurfaceEdit(surface) {
   if (typeof beginNodeSliderReadoutEdit !== "function") {
     return;
   }
-  if (surface.classList.contains("node-plugin-slider-face")) {
+  if (
+    surface.classList.contains("node-plugin-slider-face")
+    || surface.classList.contains("node-transport-bpm-face")
+  ) {
     const sliderId = String(surface.dataset.sliderTarget || "").trim();
     if (!sliderId) {
       return;
@@ -1344,22 +1362,25 @@ function flushNodeSliderReadoutUpdates() {
     }
   }
   pending.clear();
+  const onlyBpmDrag = nodeGraphMvp?.sliderDragging?.slider?.dataset?.param === "bpm";
   // Keep parameter-driven visuals (bug button glyph, XY pad grid/puck, filter
   // curves, etc.) tracking the slider live during a drag. Slider drags don't
   // dispatch "input" events and the deferred-UI path skips visual sync, so
   // without this the visual only catches up on mouse-up / re-render.
-  for (const nodeElement of touchedNodes) {
-    syncNodeGraphParameterVisualsForNodeElement(nodeElement);
+  if (!onlyBpmDrag) {
+    for (const nodeElement of touchedNodes) {
+      syncNodeGraphParameterVisualsForNodeElement(nodeElement);
+    }
   }
   // Metaparameter→metaparameter ghosts: source/dest values are live on the
   // inputs, but drag uses deferUi and skips the full sync path — refresh
   // ghosts once per frame here so the ghost handle tracks while dragging.
-  if (typeof syncNodeGraphGhostSliders === "function") {
+  if (!onlyBpmDrag && typeof syncNodeGraphGhostSliders === "function") {
     syncNodeGraphGhostSliders();
   }
   // Any param change can feed a filter curve (own cutoff or a modulator source
   // that ghosts into another node's cutoff) — coalesce one redraw for all faces.
-  if (typeof scheduleNodeGraphFilterCurveDraw === "function") {
+  if (!onlyBpmDrag && typeof scheduleNodeGraphFilterCurveDraw === "function") {
     scheduleNodeGraphFilterCurveDraw();
   }
   if (nodeGraphMvp._needsHeaderSync && typeof syncNodeGraphCurrentSavedPatchHeader === "function") {

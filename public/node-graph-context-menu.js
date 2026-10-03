@@ -1242,7 +1242,13 @@ function configureNodeSceneContextMenu(mode) {
   const selectedNodes = [...selectedNodeIds]
     .map((id) => nodeGraphPatchNode(id))
     .filter(Boolean);
-  const targetNodeId = moduleMode && !multiModuleMode ? nodeGraphModuleActionTargetNodeId() : null;
+  let targetNodeId = null;
+  if (moduleMode && !multiModuleMode) {
+    targetNodeId = nodeGraphModuleActionTargetNodeId();
+    if (!targetNodeId && typeof nodeGraphCommandCenterFocusNodeId === "function") {
+      targetNodeId = nodeGraphCommandCenterFocusNodeId() || null;
+    }
+  }
   if (targetNodeId) {
     nodeGraphMvp.sceneContextTargetNode = targetNodeId;
     nodeGraphMvp.lastModuleActionTargetNode = targetNodeId;

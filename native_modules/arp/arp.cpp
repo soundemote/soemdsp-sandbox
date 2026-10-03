@@ -48,6 +48,9 @@ struct State {
   bool hostMask;
   int overrideMidi;
   int overridePrevMidi;
+  bool holdClickedPitch;
+  bool faceBang;
+  bool faceGate;
 };
 
 static State gPool[kMaxInstances];
@@ -192,6 +195,9 @@ extern "C" int soemdsp_arp_create() {
       s.hostMask = false;
       s.overrideMidi = -1;
       s.overridePrevMidi = -1;
+      s.holdClickedPitch = false;
+      s.faceBang = false;
+      s.faceGate = false;
       s.active = true;
       return i + 1;
     }
@@ -336,24 +342,27 @@ extern "C" double soemdsp_arp_sample(
     s.clockWasHigh = trigConnected ? (safe(trigger) > 0.0) : false;
   }
 
-  // Face override wins even if the held pool is briefly empty (chunk race).
+  // Face: left press = gate+trig once; left drag = legato.
+  // Right press/drag = trigger on each note, no gate. Clock otherwise fires.
   if (s.overrideMidi >= 0) {
-    const bool changed = s.overridePrevMidi != s.overrideMidi;
     capture_midi(s, s.overrideMidi);
     s.overridePrevMidi = s.overrideMidi;
-    s.lastGate = 1.0;
-    s.lastTrigger = changed ? 1.0 : 0.0;
+    s.holdClickedPitch = true;
+    const bool trig = s.faceBang;
+    const bool gate = s.faceGate;
+    s.faceBang = false;
+    s.faceGate = false;
+    s.lastGate = gate ? 1.0 : 0.0;
+    s.lastTrigger = trig ? 1.0 : 0.0;
     return s.lastPitch;
   }
-  if (s.overridePrevMidi >= 0) {
-    s.overridePrevMidi = -1;
-    // Fall through: resume sequenced note / empty handling below.
-  }
+  if (s.overridePrevMidi >= 0) s.overridePrevMidi = -1;
+  if (trigOut > 0.0) s.holdClickedPitch = false;
 
   if (s.noteCount <= 0) {
     s.lastGate = 0.0;
     s.lastTrigger = 0.0;
-    s.lastMidi = -1;
+    if (!s.holdClickedPitch) s.lastMidi = -1;
     return s.lastPitch;
   }
 
@@ -371,6 +380,12 @@ extern "C" void soemdsp_arp_set_override_midi(int handle, int midi) {
   }
   if (midi > 127) midi = 127;
   s.overrideMidi = midi;
+}
+
+extern "C" void soemdsp_arp_face_bang(int handle, int withGate) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  gPool[handle - 1].faceBang = true;
+  if (withGate) gPool[handle - 1].faceGate = true;
 }
 
 extern "C" double soemdsp_arp_gate(int handle) {
@@ -399,5 +414,5 @@ extern "C" int soemdsp_arp_play_midi(int handle) {
 }
 
 extern "C" int soemdsp_arp_version() {
-  return 11; // face override applies even when noteCount==0
+  return 16; // left-click bang; hold silent; right-click pitch only
 }

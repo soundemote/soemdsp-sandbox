@@ -414,9 +414,8 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  // Ctrl/Cmd+S → native save dialog for the current patch (remembers last
-  // File System Access folder when available). Code Screen owns Ctrl+S when
-  // focus is inside it (draft apply / metadata).
+  // Ctrl/Cmd+S → Save menu (overwrite original / save as new).
+  // Code Screen owns Ctrl+S when focus is inside it (draft apply / metadata).
   if (
     (event.ctrlKey || event.metaKey)
     && !event.shiftKey
@@ -428,7 +427,9 @@ function handleNodeGraphKeydown(event) {
     }
     event.preventDefault();
     event.stopPropagation();
-    if (typeof saveNodeGraphPatchWithNativeDialog === "function") {
+    if (typeof openNodeGraphPatchSaveMenu === "function") {
+      openNodeGraphPatchSaveMenu();
+    } else if (typeof saveNodeGraphPatchWithNativeDialog === "function") {
       void saveNodeGraphPatchWithNativeDialog();
     }
     return;

@@ -406,6 +406,15 @@ function nodeGraphTraceDisplayHistoryControlRange(key) {
   if (key === "historySeconds" && formType === "spectrogramBurn") {
     return { min: 0.1, max: 30 };
   }
+  if (
+    key === "historySeconds"
+    && (formType === "waterfall" || formType === "waterfallRgb" || formType === "waterfallXyz")
+  ) {
+    const maxW = Number(typeof nodeGraphWaterfallMaxHistorySeconds !== "undefined"
+      ? nodeGraphWaterfallMaxHistorySeconds
+      : 3600);
+    return { min: 0, max: Number.isFinite(maxW) ? maxW : 3600 };
+  }
   const maxZ = Number(typeof nodeGraphTraceDisplayMaxZoomSeconds !== "undefined"
     ? nodeGraphTraceDisplayMaxZoomSeconds
     : 10);

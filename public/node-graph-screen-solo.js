@@ -329,7 +329,9 @@ function nodeGraphScreenSoloWakeFace(face) {
     face._startFaceLoop?.();
   }
   if (face.classList.contains("node-image-burn-face")
-    || face.querySelector?.(".node-image-burn-canvas")) {
+    || face.querySelector?.(".node-image-burn-canvas")
+    || (face.classList.contains("node-module-scope-window")
+      && !face.classList.contains("node-knob-face"))) {
     if (typeof requestNodeGraphModuleScopeRepaint === "function") {
       const nodeId = face.dataset?.node;
       if (nodeId) requestNodeGraphModuleScopeRepaint(nodeId);
@@ -382,6 +384,9 @@ function nodeGraphScreenSoloRefreshPaint() {
     drawNodeGraphFilterCurveDisplays();
   }
   for (const item of nodeGraphScreenSoloItems()) {
+    if (item.face && typeof ensureFaceMetrics === "function") {
+      ensureFaceMetrics(item.face, { force: true });
+    }
     nodeGraphScreenSoloWakeFace(item.face);
     if (item.face?.classList?.contains("node-fbm-field-face") && item.nodeId
       && typeof nodeGraphFbmFieldStartLoop === "function") {

@@ -439,6 +439,10 @@ function bindNodeGraphHeaderControlEvents() {
   document.getElementById("loadNodeGraphScriptButton").addEventListener("click", loadNodeGraphScript);
   // Native save dialog (File System Access API) — same as Ctrl+S.
   document.getElementById("nodeSettingsSaveScriptButton").addEventListener("click", () => {
+    if (typeof openNodeGraphPatchSaveMenu === "function") {
+      openNodeGraphPatchSaveMenu();
+      return;
+    }
     if (typeof saveNodeGraphPatchWithNativeDialog === "function") {
       void saveNodeGraphPatchWithNativeDialog();
       return;

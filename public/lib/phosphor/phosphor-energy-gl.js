@@ -1088,11 +1088,12 @@
         consumedPoints = realSeen;
       }
     }
-    // Both modes finish this window. Budget drops the unstamped tail.
-    // Length already placed dots across the whole path.
+    // Budget mode may stop before the last sample. The caller must keep
+    // that tail for the next frame. Reporting the whole path as consumed
+    // dropped it and left a sparse chord.
     buildDotVertices.lastStats = {
-      truncated: false,
-      consumedPoints: totalReal,
+      truncated: truncated || consumedPoints < totalReal,
+      consumedPoints,
       totalPoints: totalReal,
     };
     void truncated;
@@ -1645,6 +1646,14 @@
       }
     } else if (!Array.isArray(depositVertices) || depositVertices.length < 5) {
       depositVertices = buildBeamVertices(pathPoints);
+      const total = Array.isArray(pathPoints)
+        ? pathPoints.filter((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y)).length
+        : 0;
+      renderer.lastPathStats = {
+        truncated: false,
+        consumedPoints: total,
+        totalPoints: total,
+      };
     }
     const hasPath = Array.isArray(depositVertices)
       && depositVertices.length >= (dotsMode ? 3 : 5);

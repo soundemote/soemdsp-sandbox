@@ -427,6 +427,9 @@ class SandboxServer(BaseHTTPRequestHandler):
         if parsed.path == "/api/patches/save":
             self.save_demo_patch()
             return
+        if parsed.path == "/api/patches/overwrite":
+            self.overwrite_patch_file()
+            return
         if parsed.path == "/api/presets/useruisettings":
             self.save_default_ui_settings()
             return
@@ -811,6 +814,47 @@ class SandboxServer(BaseHTTPRequestHandler):
                 "path": str(path),
                 "program": program,
                 "bytes": path.stat().st_size,
+            },
+        )
+
+    def overwrite_patch_file(self) -> None:
+        parsed = urlparse(self.path)
+        params = parse_qs(parsed.query)
+        raw_name = str(params.get("filename", [""])[0] or "").strip()
+        filename = Path(unquote(raw_name)).name
+        if not filename.lower().endswith(".json") or filename in {".", ".."}:
+            self.send_json({"ok": False, "error": "filename must be a .json basename"}, status=400)
+            return
+        payload = self.read_json_preset_payload("patch")
+        if payload is None:
+            return
+        if not self.validate_node_patch_payload(payload, "patch"):
+            return
+        target = None
+        for root in (PAGE_PATCHES, SAVED_PATCHES):
+            if not root.exists():
+                continue
+            path = (root / filename).resolve()
+            if path.is_file() and path.is_relative_to(root.resolve()):
+                target = path
+                break
+        if target is None:
+            self.send_json({"ok": False, "error": "original patch file not found"}, status=404)
+            return
+        try:
+            target.write_text(
+                f"{json.dumps(payload, indent=2, sort_keys=False)}\n",
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            self.send_json({"ok": False, "error": f"patch overwrite failed: {exc}"}, status=500)
+            return
+        self.send_json(
+            {
+                "ok": True,
+                "filename": filename,
+                "path": str(target),
+                "bytes": target.stat().st_size,
             },
         )
 

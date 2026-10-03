@@ -1929,6 +1929,9 @@ function commitNodeGraphPatch(patch, options = {}) {
   } else if (options.autosaveWorkingPatch !== false) {
     nodeGraphMvp.patchDirtyState = "edited";
   }
+  if (typeof syncNodeGraphHeaderPatchTitle === "function") {
+    syncNodeGraphHeaderPatchTitle();
+  }
   // Audio graph topology/params are unchanged by gx/gy, size, or chrome.
   // Show/hide display is face chrome only. Do not setPlan — that recompiled
   // the native graph and restarted Music Player from the top.

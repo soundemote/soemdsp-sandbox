@@ -628,9 +628,9 @@ const NODE_GRAPH_WATERFALL_DETAIL_MIN = 0;
 const NODE_GRAPH_WATERFALL_DETAIL_MAX = 1;
 function nodeGraphWaterfallClampHistorySeconds(value, fallback = 0.25) {
   const n = Number(value);
-  const maxSec = typeof nodeGraphTraceDisplayMaxZoomSeconds === "number"
-    ? nodeGraphTraceDisplayMaxZoomSeconds
-    : 10;
+  const maxSec = typeof nodeGraphWaterfallMaxHistorySeconds === "number"
+    ? nodeGraphWaterfallMaxHistorySeconds
+    : 3600;
   if (!Number.isFinite(n)) {
     const fb = Number(fallback);
     return Number.isFinite(fb) ? Math.max(0, Math.min(maxSec, fb)) : 0.25;
@@ -706,7 +706,11 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
       : Math.max(1, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 1024)))),
-    drawMode: String(source.drawMode || defaults.drawMode || "budget") === "length" ? "length" : "budget",
+    drawMode: (function () {
+      const mode = String(source.drawMode || defaults.drawMode || "budget");
+      if (mode === "length" || mode === "dots" || mode === "lines") return mode;
+      return "budget";
+    }()),
     // Shared packing toggles. Fall back to lineBurn defaults (Full Dot Economy ON
     // for c1091b42 fused CRT look). Explicit false stays off.
     // Packing toggles retired — always chord-pack continuous trails.
@@ -785,7 +789,7 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
   const plate = nodeGraphDisplaySettingsNormalizePlateLook(source, defaults);
   const backgroundColor = normalizeNodeGraphTraceDisplayColor(
     source.backgroundColor ?? source.background,
-    "#000000",
+    defaults.background || "#000000",
   );
   return {
     ...plate,
@@ -873,9 +877,14 @@ function normalizeNodeGraphWaterfallSettings(settings = {}) {
     // Instant Waterfall has no sync. A rising-edge lock is incompatible with
     // the History (seconds) scroll+stamp strip. Ignore saved sourceSync.
     sourceSync: false,
-    polarity: String(source.facePolarity || source.polarity || defaults.polarity || "bipolar").toLowerCase() === "unipolar"
-      ? "unipolar"
-      : "bipolar",
+    polarity: (function () {
+      const raw = String(source.facePolarity || source.polarity || defaults.polarity || "bipolar")
+        .trim()
+        .toLowerCase();
+      if (raw === "unipolar" || raw === "uni" || raw === "unsigned") return "unipolar";
+      if (raw === "absolute" || raw === "abs") return "absolute";
+      return "bipolar";
+    })(),
     stereoBlend: (function () {
       const raw = String(source.stereoBlend || defaults.stereoBlend || "combine").toLowerCase().trim();
       const ok = typeof TraceStroke !== "undefined" && Array.isArray(TraceStroke.STEREO_BLEND_MODES)
@@ -1242,7 +1251,9 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
       const raw = String(source.polarity ?? source.signMode ?? defaults.polarity ?? "bipolar")
         .trim()
         .toLowerCase();
-      return raw === "unipolar" || raw === "uni" || raw === "unsigned" ? "unipolar" : "bipolar";
+      if (raw === "unipolar" || raw === "uni" || raw === "unsigned") return "unipolar";
+      if (raw === "absolute" || raw === "abs") return "absolute";
+      return "bipolar";
     })(),
     removeTrailingZeros: (() => {
       const raw = source.removeTrailingZeros ?? source.stripTrailingZeros ?? defaults.removeTrailingZeros;
@@ -1661,7 +1672,11 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
       : Math.max(1, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 1024)))),
-    drawMode: String(source.drawMode || defaults.drawMode || "budget") === "length" ? "length" : "budget",
+    drawMode: (function () {
+      const mode = String(source.drawMode || defaults.drawMode || "budget");
+      if (mode === "length" || mode === "dots" || mode === "lines") return mode;
+      return "budget";
+    }()),
     // Full Dots / Dots only — shared phosphor packing (scope2d SSOT).
     // Accept bool true and common form/patch coercions (1 / "1" / "true" / "on").
     // Packing toggles retired — always chord-pack continuous trails.
@@ -1763,7 +1778,11 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
       : Math.max(8, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 2048)))),
-    drawMode: String(source.drawMode || defaults.drawMode || "budget") === "length" ? "length" : "budget",
+    drawMode: (function () {
+      const mode = String(source.drawMode || defaults.drawMode || "budget");
+      if (mode === "length" || mode === "dots" || mode === "lines") return mode;
+      return "budget";
+    }()),
   };
 }
 
@@ -1869,7 +1888,11 @@ function normalizeNodeGraphScope1dTraceSettings(settings = {}) {
     dotBudget: typeof nodeGraphTraceDisplayClampDotBudget === "function"
       ? nodeGraphTraceDisplayClampDotBudget(source.dotBudget ?? defaults.dotBudget)
       : Math.max(8, Math.min(8192, Math.round(nodeGraphFiniteNumber(source.dotBudget ?? defaults.dotBudget, 2048)))),
-    drawMode: String(source.drawMode || defaults.drawMode || "budget") === "length" ? "length" : "budget",
+    drawMode: (function () {
+      const mode = String(source.drawMode || defaults.drawMode || "budget");
+      if (mode === "length" || mode === "dots" || mode === "lines") return mode;
+      return "budget";
+    }()),
   };
 }
 

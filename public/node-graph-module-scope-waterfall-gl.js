@@ -690,7 +690,8 @@ function nodeGraphWaterfallGlStampCanvas(face, sourceCanvas) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, s.read.fbo);
   gl.viewport(0, 0, s.w, s.h);
   gl.enable(gl.BLEND);
-  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  // Canvas2D ink (pause/protect) is straight RGBA + globalAlpha — not premultiplied bars.
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   nodeGraphWaterfallGlBindQuad(gl, s, s.presentProg);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, s.inkTex);
