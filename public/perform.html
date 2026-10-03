@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=JetBrains+Mono:wght@400;500;600;700&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=circuit-patches-1">
+  <link rel="stylesheet" href="./public/styles.css?v=circuit-patches-5">
   <link rel="stylesheet" href="./public/perform.css?v=perform-2">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=portal-thru-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
@@ -2449,7 +2449,6 @@
               aria-label="Hide unused inlets and outlets on every module">
               <span class="scene-context-window-button-label">Hide Unused</span>
             </button>
-            <div id="nodeCircuitPatchList" class="node-circuit-patch-list" aria-label="Circuit patches"></div>
             <button
               id="nodePatchWiresButton"
               class="scene-context-window-button"
@@ -2561,6 +2560,14 @@
               aria-label="Patch tags">
           </label>
           <output id="nodePatchDefaultsStatus" class="node-patch-defaults-status" aria-live="polite"></output>
+          <div class="node-circuit-patch-tools" role="group" aria-label="Circuit patch tools">
+            <button id="nodeCircuitPatchSet" type="button">Set</button>
+            <button id="nodeCircuitPatchUpdate" type="button">Update</button>
+            <button id="nodeCircuitPatchCopy" type="button">Copy</button>
+            <button id="nodeCircuitPatchPaste" type="button">Paste</button>
+            <button id="nodeCircuitPatchDefault" type="button">Default Patch</button>
+          </div>
+          <div id="nodeCircuitPatchList" class="node-circuit-patch-list" aria-label="Circuit patches"></div>
         </div>
         <button
           id="nodePatchDefaultsResizeHandle"
@@ -3809,13 +3816,13 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-code-screen-model.js?v=code-screen-1"></script>
   <!-- Code Screen UI is a satellite (CORE_REDUCTION_PLAN.md); loaded on demand. -->
   <script data-boot-defer type="text/plain" src="./public/node-graph-code-screen-loader.js?v=picture-io-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-serialization.js?v=keys-abs-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-serialization.js?v=circuit-patches-5"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-settings-fields.js?v=slider-unit-color-1780307400000"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-settings-view.js?v=topbar-title-7"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-settings-text-fit.js?v=css-type-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-default-preset.js?v=restore-session-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-script-status.js?v=book-ui-script-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-view-controls.js?v=retire-inc-2"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-view-controls.js?v=trigger-patch-2"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-workspace-geometry.js?v=glow-on-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-viewport-perf.js?v=zoom-2-5-all-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-workspace-zoom.js?v=zoom-2-5-all-1"></script>
@@ -3902,7 +3909,7 @@
 
   <script data-boot-defer type="text/plain" src="./public/node-graph-room-dimmer.js?v=light-up-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-canvas-script.js?v=floating-chrome-unify-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-module-factories.js?v=kb-canvas-face-2"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-module-factories.js?v=trigger-patch-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/led/led-ui.js?v=led-lcd-update-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/lcdDot/lcd-dot-display.js?v=lcd-dot-2"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/rgbShape/rgb-shape-math.js?v=heart-ssot-1"></script>
@@ -3943,7 +3950,7 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-header-rendering.js?v=save-menu-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-rendering.js?v=param-row-hit-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-frame.js?v=paint-layout-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-history.js?v=book-ui-script-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-history.js?v=circuit-patches-3"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-visual-utils.js?v=hsl-lamp-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-patch-clone.js?v=tubesat-crt-face-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-slider-metadata.js?v=vibrato-idle-release-1"></script>
@@ -4010,8 +4017,8 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-state.js?v=speed-22050-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-external-ui-events.js?v=perform-play-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-patch-migrations.js?v=voices-mix-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-circuit-patches.js?v=circuit-patches-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-core.js?v=circuit-patches-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-circuit-patches.js?v=circuit-patches-6"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-core.js?v=circuit-patches-5"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-plan-runtime.js?v=hyperpluck-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-parameter-runtime.js?v=knob-norm-freq-2"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-oscillator-runtime.js?v=ellipsoid-osc-3"></script>
@@ -4145,7 +4152,7 @@
   <script data-boot-defer type="text/plain" src="./public/modules/arp/arp-display.js?v=arp-drag-hold-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/keyboardController/keyboard-layout-settings.js?v=canvas-selection-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/keyboardController/keyboard-controller-live-evaluator.js?v=retire-inc-2"></script>
-  <script data-boot-defer type="text/plain" src="./public/modules/gridKeyboard/grid-keyboard.js?v=kb-hide-info-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/modules/gridKeyboard/grid-keyboard.js?v=trigger-patch-2"></script>
 
   <script data-boot-defer type="text/plain" src="./public/modules/gain/gain-math.js?v=output-db-1"></script>
   <script data-boot-defer type="text/plain" src="./public/modules/mixStereo/mix-stereo-math.js?v=mixstereo-no-mono-1"></script>

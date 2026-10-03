@@ -628,7 +628,7 @@ function createNodeGraphMidiModeControl() {
   const modes = typeof nodeGraphMidiKeyboardModes !== "undefined"
     && Array.isArray(nodeGraphMidiKeyboardModes)
     ? nodeGraphMidiKeyboardModes
-    : ["slide", "press", "hold", "toggle", "chordMemory"];
+    : ["slide", "press", "hold", "toggle", "chordMemory", "triggerPatch"];
   for (const value of modes) {
     const option = document.createElement("option");
     option.value = value;

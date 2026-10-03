@@ -2286,9 +2286,12 @@ function renderNodeGraphMidiKeyboardHeldKeys() {
       && ((momMask instanceof Uint8Array && noteMaskGet(momMask, midi))
         || (midiPlay instanceof Uint8Array && noteMaskGet(midiPlay, midi)));
     const arpGhost = typeof noteMaskGet === "function" && noteMaskGet(localMask, midi);
+    const triggerPatch = nodeGraphMidiKeyboardMode() === "triggerPatch";
+    const setPatch = triggerPatch && Boolean(nodeGraphMvp.patch?.circuitPatches?.[midi]?.values);
     key.classList.toggle("held", local);
     key.classList.toggle("ghost-play", Boolean(playGhost) && !local);
     key.classList.toggle("ghost-arp", Boolean(arpGhost) && !local);
+    key.classList.toggle("patch-set", setPatch);
   });
   if (typeof nodeGraphChordMemoryPaintKeys === "function") {
     nodeGraphChordMemoryPaintKeys();
@@ -3019,6 +3022,7 @@ const nodeGraphMidiKeyboardModes = Object.freeze([
   "hold",
   "toggle",
   "chordMemory",
+  "triggerPatch",
 ]);
 
 function nodeGraphMidiKeyboardMode(value = nodeGraphMvp.midiKeyboardMode) {
@@ -3032,6 +3036,7 @@ function nodeGraphMidiKeyboardModeLabel(value = nodeGraphMidiKeyboardMode()) {
     hold: "Hold",
     toggle: "Toggle",
     chordMemory: "Chord Memory",
+    triggerPatch: "Trigger Patch",
   }[nodeGraphMidiKeyboardMode(value)] || "Slide";
 }
 
@@ -3798,6 +3803,19 @@ function updateNodeGraphMidiKeyboardSignal(event) {
       return;
     }
     // Any other event during arp latch: ignore play path.
+    event.preventDefault();
+    return;
+  }
+
+  // Trigger Patch: one click loads that note's circuit patch. Dragging does not.
+  if (mode === "triggerPatch") {
+    if (event.type === "pointerdown" && !event.ctrlKey && !event.shiftKey && !altDown) {
+      const target = event.target?.closest?.("[data-midi]");
+      if (target && surface.contains(target) && typeof nodeGraphApplyCircuitPatchSlot === "function") {
+        const midi = Math.max(0, Math.min(127, Math.round(Number(target.dataset.midi))));
+        nodeGraphApplyCircuitPatchSlot(midi);
+      }
+    }
     event.preventDefault();
     return;
   }

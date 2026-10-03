@@ -1090,6 +1090,7 @@ function validateNodeGraphPatch(patch) {
   };
   normalized.circuitPatches = patch.circuitPatches;
   normalized.activeCircuitPatch = patch.activeCircuitPatch;
+  normalized.defaultCircuitPatch = patch.defaultCircuitPatch;
   if (typeof nodeGraphEnsureCircuitPatches === "function") {
     nodeGraphEnsureCircuitPatches(normalized);
   }

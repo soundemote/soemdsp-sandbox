@@ -3432,6 +3432,11 @@ body.node-screen-solo-active .node-layout-canvas-tile .node-midi-keyboard-surfac
   color: rgba(243, 241, 236, 0.82);
 }
 
+.node-grid-keyboard-pad.patch-set:not(.active):not(.held) {
+  background: rgba(255, 120, 120, 0.38);
+  border-color: rgba(255, 160, 160, 0.7);
+}
+
 .node-grid-keyboard-pad.held {
   border-color: #c9a227;
   box-shadow: inset 0 0 0 1px #c9a227;
@@ -3885,6 +3890,12 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
     linear-gradient(180deg, #f7f2e8 0%, #cfc7b8 72%, #a79f93 100%);
 }
 
+.node-midi-keyboard-white-row span.patch-set:not(.active):not(.held) {
+  background:
+    linear-gradient(180deg, rgba(255, 170, 170, 0.72), rgba(220, 90, 90, 0.34)),
+    linear-gradient(180deg, #f7f2e8 0%, #cfc7b8 72%, #a79f93 100%);
+}
+
 .node-midi-keyboard-white-row span.active {
   color: #eaf8ff;
   background:
@@ -4173,6 +4184,12 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   color: transparent;
   font-size: 0;
   text-shadow: none;
+}
+
+.node-midi-keyboard-black-row span.patch-set:not(.active):not(.held) {
+  background:
+    linear-gradient(180deg, rgba(255, 140, 140, 0.55), rgba(90, 18, 18, 0.92));
+  border-color: rgba(255, 160, 160, 0.7);
 }
 
 .node-midi-keyboard-black-row span.active {
@@ -5864,18 +5881,16 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-.node-circuit-patch-list {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+.node-circuit-patch-tools {
+  display: flex;
+  flex-direction: row;
   gap: 4px;
-  max-height: 280px;
-  overflow: auto;
-  margin: 4px 0;
+  margin: 8px 6px 0;
 }
 
-.node-circuit-patch-slot {
-  min-height: 28px;
+.node-circuit-patch-tools button {
+  min-height: 24px;
+  padding: 0 10px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: transparent;
   color: inherit;
@@ -5884,12 +5899,45 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   cursor: pointer;
 }
 
+#nodeCircuitPatchDefault {
+  flex: 1 1 auto;
+}
+
+.node-circuit-patch-tools button.is-filled {
+  background: rgba(255, 120, 120, 0.38);
+}
+
+.node-circuit-patch-tools button.is-active {
+  outline: 1px solid rgb(255, 170, 170);
+}
+
+.node-circuit-patch-list {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 3px;
+  margin: 8px 6px 6px;
+  overflow: visible;
+}
+
+.node-circuit-patch-slot {
+  min-height: 26px;
+  padding: 0 1px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 9px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .node-circuit-patch-slot.is-filled {
-  background: rgba(127, 199, 217, 0.18);
+  background: rgba(255, 120, 120, 0.38);
 }
 
 .node-circuit-patch-slot.is-active {
-  outline: 1px solid rgb(127, 199, 217);
+  outline: 1px solid rgb(255, 170, 170);
 }
 
 .node-patch-defaults-actions #nodePatchWiresButton {

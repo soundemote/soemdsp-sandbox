@@ -243,8 +243,12 @@ function renderNodeGraphGridKeyboardPads() {
       const midi = Number(pad.dataset.gridMidi);
       if (!(midi >= 0 && midi <= 127)) return;
       const goldOn = nodeGraphMidiKeyboardGoldMidiIsOn(midi);
+      const triggerPatch = typeof nodeGraphMidiKeyboardMode === "function"
+        && nodeGraphMidiKeyboardMode() === "triggerPatch";
+      const setPatch = triggerPatch && Boolean(nodeGraphMvp.patch?.circuitPatches?.[midi]?.values);
       pad.classList.toggle("held", goldOn);
       pad.classList.toggle("active", Number.isFinite(playing) && playing === midi);
+      pad.classList.toggle("patch-set", setPatch);
       const momMask = typeof nodeGraphChordMemoryHost === "function"
         ? nodeGraphChordMemoryHost()?.chordMemoryMomentaryPlayMask
         : null;
@@ -321,6 +325,17 @@ function updateNodeGraphGridKeyboardSignal(event) {
     if (event.type === "pointerup" || event.type === "pointercancel") {
       try { surface.releasePointerCapture?.(pointerId); } catch (_e) { /* ignore */ }
       nodeGraphMvp.midiKeyboardArpLatchPointerId = null;
+    }
+    event.preventDefault();
+    return;
+  }
+
+  if (mode === "triggerPatch") {
+    if (event.type === "pointerdown" && !event.ctrlKey && !event.shiftKey && !altDown && pad) {
+      const midi = Math.max(0, Math.min(127, Math.round(Number(pad.dataset.gridMidi))));
+      if (typeof nodeGraphApplyCircuitPatchSlot === "function") {
+        nodeGraphApplyCircuitPatchSlot(midi);
+      }
     }
     event.preventDefault();
     return;

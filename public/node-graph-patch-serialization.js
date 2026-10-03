@@ -101,6 +101,9 @@ function serializeNodeGraphPatch(patch = nodeGraphMvp.patch, options = {}) {
     windows: typeof normalizeNodeGraphPatchWindows === "function"
       ? normalizeNodeGraphPatchWindows(patch.windows)
       : patch.windows,
+    circuitPatches: patch.circuitPatches,
+    activeCircuitPatch: patch.activeCircuitPatch,
+    defaultCircuitPatch: patch.defaultCircuitPatch,
     // Gold Arp latch (ctrl+click) — patch-owned, not localStorage-only.
     keyboardLatch: (typeof nodeGraphMvp !== "undefined" && patch === nodeGraphMvp?.patch)
       ? {
