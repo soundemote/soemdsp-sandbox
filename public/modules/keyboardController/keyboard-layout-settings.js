@@ -104,6 +104,7 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
   const totalWhite = generated.totalWhite || 0;
   const blackByIndex = new Map((generated.blackKeys || []).map((key) => [key.index, key]));
   let needsSecondPass = false;
+  let layoutChanged = false;
   document.querySelectorAll(".node-midi-keyboard-module .node-midi-keyboard-surface").forEach((surface) => {
     const available = nodeGraphMidiKeyboardLayoutHostWidth(surface);
     const desired = totalWhite * s.whiteKeyWidth;
@@ -118,6 +119,33 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
     const pianoW = inModuleFace && available > 0
       ? available
       : Math.max(0, totalWhite * whiteW);
+    const surfaceH = Math.max(0, surface.clientHeight || 0);
+    const layoutSig = [
+      s.whiteKeyWidth,
+      s.blackKeyWidth,
+      s.blackKeyHeight,
+      s.keyboardHeight,
+      s.keyLabels,
+      s.hideKeyboardInfo ? 1 : 0,
+      inModuleFace ? 1 : 0,
+      Math.round(available),
+      Math.round(surfaceH),
+      totalWhite,
+    ].join(":");
+    if (surface.dataset.midiLayoutSig === layoutSig) {
+      return;
+    }
+    if (surfaceH < 8) {
+      const tries = Number(surface.dataset.midiLayoutTries || 0);
+      if (tries < 2) {
+        surface.dataset.midiLayoutTries = String(tries + 1);
+        needsSecondPass = true;
+      }
+    } else {
+      delete surface.dataset.midiLayoutTries;
+    }
+    surface.dataset.midiLayoutSig = layoutSig;
+    layoutChanged = true;
     if (inModuleFace) {
       surface.style.width = "100%";
       surface.style.maxWidth = "100%";
@@ -134,7 +162,6 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
       surface.style.minHeight = "0";
       surface.style.maxHeight = "100%";
     } else {
-      // Other hosts: honor layout keyboardHeight setting.
       const host = surface.closest(".dsp-node, .node-midi-keyboard-module");
       const hostH = Math.max(0, host?.clientHeight || 0);
       const fittedH = hostH > 0 ? Math.min(s.keyboardHeight, hostH) : s.keyboardHeight;
@@ -148,13 +175,6 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
       whiteRow.style.gridTemplateColumns = totalWhite > 0
         ? (inModuleFace ? `repeat(${totalWhite}, minmax(0, 1fr))` : `repeat(${totalWhite}, ${whiteW}px)`)
         : "";
-    }
-    installNodeGraphMidiKeyboardLayoutResizeObserver();
-    // Measure after width/height assignment so %→px black keys track the
-    // live surface. A 0-height first pass (grid not settled) schedules retry.
-    const surfaceH = Math.max(0, surface.clientHeight || 0);
-    if (surfaceH < 8) {
-      needsSecondPass = true;
     }
     // Black keys: geometry from key count only (not DOM measure, not octave).
     // N whites fill 100% width. Black sits on the joint after white[leftWhiteIndex],
@@ -206,8 +226,11 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
   document.querySelectorAll(".node-grid-keyboard-module").forEach((module) => {
     module.classList.toggle("show-keyboard-info", s.hideKeyboardInfo === false);
   });
-  if (typeof renderNodeGraphMidiKeyboardKeyLabels === "function") {
-    renderNodeGraphMidiKeyboardKeyLabels();
+  if (layoutChanged) {
+    installNodeGraphMidiKeyboardLayoutResizeObserver();
+    if (typeof renderNodeGraphMidiKeyboardKeyLabels === "function") {
+      renderNodeGraphMidiKeyboardKeyLabels();
+    }
   }
   if (needsSecondPass && typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
     window.requestAnimationFrame(() => {

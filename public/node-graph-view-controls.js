@@ -3053,8 +3053,14 @@ function nodeGraphMidiKeyboardRawMidiFromSignal(signal) {
 function renderNodeGraphMidiKeyboardKeyLabels() {
   document.querySelectorAll(".node-midi-keyboard-module [data-midi]").forEach((key) => {
     const midi = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(key.dataset.midi))));
-    key.textContent = nodeGraphMidiKeyboardKeyCapText(midi);
-    key.setAttribute("aria-label", `${nodeGraphMidiKeyboardPitchLabel(midi)} / MIDI ${midi}`);
+    const text = nodeGraphMidiKeyboardKeyCapText(midi);
+    const aria = `${nodeGraphMidiKeyboardPitchLabel(midi)} / MIDI ${midi}`;
+    if (key.textContent !== text) {
+      key.textContent = text;
+    }
+    if (key.getAttribute("aria-label") !== aria) {
+      key.setAttribute("aria-label", aria);
+    }
   });
 }
 

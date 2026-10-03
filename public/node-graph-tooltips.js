@@ -15,12 +15,15 @@ function sandboxStoreAndRemoveNativeTitle(element) {
 }
 
 function sandboxStripNativeTitleAttributes(root = document) {
-  if (root instanceof Element) {
-    sandboxStoreAndRemoveNativeTitle(root);
-  }
   const scope = root instanceof Document || root instanceof DocumentFragment || root instanceof Element
     ? root
-    : document;
+    : null;
+  if (!scope) {
+    return;
+  }
+  if (scope instanceof Element) {
+    sandboxStoreAndRemoveNativeTitle(scope);
+  }
   for (const element of scope.querySelectorAll?.("[title]") || []) {
     sandboxStoreAndRemoveNativeTitle(element);
   }
@@ -81,7 +84,9 @@ function installSandboxNativeTooltipBan() {
         sandboxStoreAndRemoveNativeTitle(mutation.target);
       }
       for (const node of mutation.addedNodes || []) {
-        sandboxStripNativeTitleAttributes(node);
+        if (node instanceof Element || node instanceof DocumentFragment) {
+          sandboxStripNativeTitleAttributes(node);
+        }
       }
     }
   });

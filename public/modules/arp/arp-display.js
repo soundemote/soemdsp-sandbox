@@ -406,17 +406,39 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     }
   }
 
+  let rafId = 0;
+  let onScreen = false;
+  function armTick() {
+    if (rafId || !onScreen || !section.isConnected) {
+      return;
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+  function tick() {
+    rafId = 0;
+    if (!section.isConnected || !onScreen) {
+      return;
+    }
+    paint();
+    armTick();
+  }
   const ro = new ResizeObserver(() => {
     lastSig = "";
     layoutCache = null;
-    paint();
+    if (onScreen) {
+      paint();
+    }
   });
   ro.observe(section);
-  requestAnimationFrame(function tick() {
-    if (!section.isConnected) return;
-    paint();
-    requestAnimationFrame(tick);
+  const io = new IntersectionObserver((entries) => {
+    onScreen = entries.some((entry) => entry.isIntersecting);
+    if (!onScreen) {
+      return;
+    }
+    lastSig = "";
+    armTick();
   });
+  io.observe(section);
   return section;
 }
 
