@@ -175,6 +175,9 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
       patchNode.paramMeta[key],
     ),
   };
+  if (typeof nodeGraphWriteActiveCircuitPatchParam === "function") {
+    nodeGraphWriteActiveCircuitPatchParam(node, key, patchNode.params[key]);
+  }
   // Metamodule "Show metaparameter": shell slider writes through to the child.
   if (
     typeof nodeGraphIsContainerShellType === "function"

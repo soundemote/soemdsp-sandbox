@@ -1088,6 +1088,11 @@ function validateNodeGraphPatch(patch) {
     visual: normalizeNodeGraphPatchVisual(patch.visual),
     windows: normalizeNodeGraphPatchWindows(patch.windows),
   };
+  normalized.circuitPatches = patch.circuitPatches;
+  normalized.activeCircuitPatch = patch.activeCircuitPatch;
+  if (typeof nodeGraphEnsureCircuitPatches === "function") {
+    nodeGraphEnsureCircuitPatches(normalized);
+  }
   if (loadWarnings.length) {
     // Ephemeral — stripped before serialize / commit persistence.
     normalized.loadWarnings = loadWarnings;

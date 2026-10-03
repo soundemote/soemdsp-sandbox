@@ -5864,6 +5864,34 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
+.node-circuit-patch-list {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+  max-height: 280px;
+  overflow: auto;
+  margin: 4px 0;
+}
+
+.node-circuit-patch-slot {
+  min-height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.node-circuit-patch-slot.is-filled {
+  background: rgba(127, 199, 217, 0.18);
+}
+
+.node-circuit-patch-slot.is-active {
+  outline: 1px solid rgb(127, 199, 217);
+}
+
 .node-patch-defaults-actions #nodePatchWiresButton {
   grid-column: 1 / -1;
 }

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@100..900&family=JetBrains+Mono:wght@400;500;600;700&family=Poiret+One&family=Tenor+Sans&family=Thasadith:ital,wght@0,400;0,700;1,400;1,700&family=Zen+Loop&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./public/styles.css?v=save-unsaved-2">
+  <link rel="stylesheet" href="./public/styles.css?v=circuit-patches-1">
   <link rel="stylesheet" href="./public/modules/portal/portal-ui.css?v=inlet-outlet-layout-1">
   <link rel="stylesheet" href="./public/modules/keypad/keypad-ui.css?v=keypad-press-once-1">
   <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
@@ -2451,6 +2451,7 @@
               aria-label="Hide unused inlets and outlets on every module">
               <span class="scene-context-window-button-label">Hide Unused</span>
             </button>
+            <div id="nodeCircuitPatchList" class="node-circuit-patch-list" aria-label="Circuit patches"></div>
             <button
               id="nodePatchWiresButton"
               class="scene-context-window-button"
@@ -3828,7 +3829,7 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-node-dragging.js?v=param-row-hit-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-context-menu.js?v=ctrl-rclick-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-magnifier.js?v=mag-trace-2"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-module-actions.js?v=portal-display-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-module-actions.js?v=circuit-patches-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
     <script data-boot-defer type="text/plain" src="./public/lib/phosphor/phosphor-residual.js?v=trail-ssot-1"></script>
   <script data-boot-defer type="text/plain" src="./public/lib/phosphor/phosphor-energy-gl.js?v=draw-lines-1"></script>
@@ -3952,7 +3953,7 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-patch-clone.js?v=acid-sequencer-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-slider-metadata.js?v=vibrato-idle-release-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-slider-values.js?v=b079-choice-range-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-slider-dragging.js?v=bpm-face-edit-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-slider-dragging.js?v=circuit-patches-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-node-accessors.js?v=b055-annotation-mount-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-selection.js?v=rclick-sole-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-module-geometry.js?v=meta-chrome-ssot-1"></script>
@@ -4014,7 +4015,8 @@
   <script data-boot-defer type="text/plain" src="./public/node-graph-state.js?v=speed-22050-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-external-ui-events.js?v=perform-play-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-patch-migrations.js?v=voices-mix-1"></script>
-  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-core.js?v=save-star-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-circuit-patches.js?v=circuit-patches-1"></script>
+  <script data-boot-defer type="text/plain" src="./public/node-graph-patch-core.js?v=circuit-patches-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-plan-runtime.js?v=hyperpluck-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-live-parameter-runtime.js?v=b082-mod-clamp-1"></script>
   <script data-boot-defer type="text/plain" src="./public/node-graph-oscillator-runtime.js?v=ellipsoid-osc-3"></script>
