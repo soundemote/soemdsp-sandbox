@@ -986,6 +986,9 @@ function beginNodeSliderSurfaceEdit(surface) {
     surface.classList.contains("node-plugin-slider-face")
     || surface.classList.contains("node-transport-bpm-face")
   ) {
+    if (typeof beginNodeSliderFaceValueEdit === "function" && beginNodeSliderFaceValueEdit(surface)) {
+      return;
+    }
     const sliderId = String(surface.dataset.sliderTarget || "").trim();
     if (!sliderId) {
       return;
@@ -1063,6 +1066,18 @@ function reanchorNodeSliderDragAtPointer(drag, event) {
   drag.startTravel = nodeSliderTravelFromValue(drag.slider, nodeSliderDomainForTravel(drag.slider));
   drag.startX = event.clientX;
   drag.startY = event.clientY;
+  if (drag.integerPixelStep) {
+    drag.startDomain = nodeSliderDomainForTravel(drag.slider);
+  }
+}
+
+function nodeGraphMetronomeFaceUnit(surface, event) {
+  const rect = surface.getBoundingClientRect();
+  const w = Math.max(1, rect.width || 1);
+  const h = Math.max(1, rect.height || 1);
+  const u = (event.clientX - rect.left) / w;
+  const v = (rect.bottom - event.clientY) / h;
+  return Math.max(0, Math.min(1, (u + v) * 0.5));
 }
 
 const NODE_SLIDER_WRAP_MARGIN = 30;
@@ -1183,7 +1198,16 @@ function beginNodeSliderDrag(event) {
   // Start relative drag from domainValue so a stale/clamped HTML thumb cannot
   // jump the parameter when the pointer first moves.
   let startTravel = nodeSliderTravelFromValue(slider, nodeSliderDomainForTravel(slider));
-  if (jumpToPointerOnClick) {
+  const metronomePixels = surface.classList.contains("node-transport-bpm-face");
+  if (jumpToPointerOnClick && metronomePixels) {
+    const t = nodeGraphMetronomeFaceUnit(surface, event);
+    const min = Number(slider.min);
+    const max = Number(slider.max);
+    const lo = Number.isFinite(min) ? min : 0;
+    const hi = Number.isFinite(max) && max > lo ? max : lo + 1;
+    setNodeSliderValue(slider, lo + t * (hi - lo), { interaction: "drag" });
+    startTravel = nodeSliderTravelFromValue(slider, nodeSliderDomainForTravel(slider));
+  } else if (jumpToPointerOnClick) {
     if (setNodeSliderValueAtPointer(slider, surface, event, { interaction: "drag" })) {
       startTravel = nodeSliderTravelFromValue(slider, nodeSliderDomainForTravel(slider));
     }
@@ -1202,6 +1226,8 @@ function beginNodeSliderDrag(event) {
     startX: event.clientX,
     startY: event.clientY,
     fineScale: nodeSliderFineTuneScale(event),
+    integerPixelStep: metronomePixels,
+    startDomain: nodeSliderDomainForTravel(slider),
     visualScale: knobMetrics ? 1 : nodeSliderElementVisualScale(surface),
     width: knobMetrics ? knobMetrics.travelWidth : lane.travelWidth,
   };
@@ -1270,6 +1296,23 @@ function dragNodeSlider(event) {
 
   // Wrap pointer at screen edges to approximate infinite drag.
   wrapNodeSliderDragAtScreenEdge(drag, event);
+
+  if (drag.integerPixelStep) {
+    wrapNodeSliderDragAtScreenEdge(drag, event);
+    const delta = typeof nodeGraphPointerDragScreenDelta === "function"
+      ? nodeGraphPointerDragScreenDelta(drag.startX, drag.startY, event.clientX, event.clientY)
+      : null;
+    const pixels = delta
+      ? delta.combined
+      : ((event.clientX - drag.startX) + (drag.startY - event.clientY));
+    const next = Number(drag.startDomain) + pixels * Number(drag.fineScale || 1);
+    setNodeSliderValue(drag.slider, next, {
+      interaction: "drag",
+      status: "slider adjusted",
+    });
+    event.preventDefault();
+    return;
+  }
 
   const visualTravelWidth = Math.max(1, drag.width * (nodeGraphFiniteNumber(drag.visualScale, 1)));
   // App-wide diagonal policy: right + up increase (see nodeGraphPointerDragTravelDelta).

@@ -28,6 +28,11 @@ function commitNodeSliderReadoutEdit(input) {
   input.dataset.editCommitted = "true";
   const slider = document.getElementById(input.dataset.sliderTarget);
   updateNodeSliderCurrentValue(slider, input.value);
+  if (input.dataset.faceOverlay === "true") {
+    input.remove();
+    if (typeof syncNodeSliderReadout === "function") syncNodeSliderReadout(slider);
+    return;
+  }
   const readout = document.createElement("button");
   readout.type = "button";
   readout.className = "node-slider-readout";
@@ -48,6 +53,11 @@ function cancelNodeSliderReadoutEdit(input) {
   }
   input.dataset.editCanceled = "true";
   const slider = document.getElementById(input.dataset.sliderTarget);
+  if (input.dataset.faceOverlay === "true") {
+    input.remove();
+    if (typeof syncNodeSliderReadout === "function") syncNodeSliderReadout(slider);
+    return;
+  }
   const readout = document.createElement("button");
   readout.type = "button";
   readout.className = "node-slider-readout";
@@ -60,6 +70,101 @@ function cancelNodeSliderReadoutEdit(input) {
   input.replaceWith(readout);
   attachNodeSliderReadoutEvents(readout);
   syncNodeSliderReadout(slider);
+}
+
+function beginNodeSliderFaceValueEdit(surface) {
+  if (!surface || surface.dataset.sliderFaceEditing === "true") {
+    return false;
+  }
+  if (typeof nodeGraphPatchIsLocked === "function" && nodeGraphPatchIsLocked()) {
+    return false;
+  }
+  const sliderId = String(surface.dataset.sliderTarget || "").trim();
+  const slider = document.getElementById(sliderId);
+  if (!slider) {
+    return false;
+  }
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "node-slider-readout-input node-knob-face-value-input";
+  input.inputMode = "decimal";
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  const domainRaw = Number(slider.dataset?.domainValue);
+  const editValue = Number.isFinite(domainRaw) ? domainRaw : Number(slider.value);
+  input.value = nodeSliderChoiceLabel(slider) ?? formatNodeSliderNumber(editValue, {
+    kind: slider.dataset.kind,
+    maxDigits: slider.dataset.maxDigits,
+    reserveSignSpace: true,
+    showSign: nodeSliderShouldShowSign(slider),
+  });
+  input.dataset.sliderTarget = slider.id;
+  input.dataset.faceOverlay = "true";
+  input.setAttribute("aria-label", slider.dataset.paramLabel || "Value");
+  const stop = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  for (const name of ["pointerdown", "mousedown", "click", "dblclick", "pointerup", "mouseup"]) {
+    input.addEventListener(name, stop);
+  }
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      commitNodeSliderReadoutEdit(input);
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelNodeSliderReadoutEdit(input);
+    }
+  });
+  input.addEventListener("blur", () => {
+    if (input.dataset.editCanceled !== "true") {
+      commitNodeSliderReadoutEdit(input);
+    }
+  });
+  const closeOnOutsidePointerDown = (event) => {
+    if (
+      !document.contains(input)
+      || input.dataset.editCommitted === "true"
+      || input.dataset.editCanceled === "true"
+    ) {
+      document.removeEventListener("pointerdown", closeOnOutsidePointerDown, true);
+      return;
+    }
+    if (event.target === input || input.contains?.(event.target)) {
+      return;
+    }
+    document.removeEventListener("pointerdown", closeOnOutsidePointerDown, true);
+    commitNodeSliderReadoutEdit(input);
+  };
+  document.addEventListener("pointerdown", closeOnOutsidePointerDown, true);
+  const position = window.getComputedStyle(surface).position;
+  if (position === "static") {
+    surface.style.position = "relative";
+  }
+  input.style.position = "absolute";
+  input.style.left = "50%";
+  input.style.top = "50%";
+  input.style.transform = "translate(-50%, -50%)";
+  input.style.zIndex = "20";
+  input.style.width = "70%";
+  surface.dataset.sliderFaceEditing = "true";
+  const finishFlag = () => {
+    surface.dataset.sliderFaceEditing = "false";
+  };
+  input.addEventListener("remove", finishFlag);
+  const observer = new MutationObserver(() => {
+    if (!input.isConnected) {
+      finishFlag();
+      observer.disconnect();
+    }
+  });
+  observer.observe(surface, { childList: true });
+  surface.append(input);
+  input.focus();
+  input.select();
+  return true;
 }
 
 function beginNodeSliderReadoutEdit(readout) {

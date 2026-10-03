@@ -197,13 +197,17 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     if (event.button !== 0 && event.button !== 2) return;
     const midi = midiAtClientXY(event.clientX, event.clientY);
     if (midi < 0) return;
+    const { play } = faceState();
     pointerId = event.pointerId;
     heldButton = event.button;
     freezePlay = midi;
     stickyPlay = midi;
     lastSig = "";
     try { canvas.setPointerCapture?.(event.pointerId); } catch (_e) { /* ignore */ }
-    const leftBang = event.button === 0 && pressArmed;
+    // Left-click on the note already playing starts a portamento drag
+    // and does not bang or gate. Right-click still triggers.
+    const alreadyOn = event.button === 0 && midi === play;
+    const leftBang = event.button === 0 && pressArmed && !alreadyOn;
     const rightBang = event.button === 2;
     pressArmed = false;
     sendOverride(midi, leftBang || rightBang, leftBang);
@@ -250,7 +254,10 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     const { notes, play, projectOn } = faceState();
     const look = nodeGraphArpKeysLookForNodeId(nodeId);
     const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const screenScale = nodeGraphArpCanvasScreenScale(canvas);
+    const zoom = Math.max(0.0001, typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1);
+    // Zoom-in is a CSS scale of this bitmap (nearest above 2.5). Do not redraw
+    // for it. Zoom-out quantizes the stroke so a 1px line does not vanish.
+    const zoomOut = zoom < 1 ? zoom : 1;
     const bw = Math.max(1, Math.round((canvas.clientWidth || 1) * dpr));
     const bh = Math.max(1, Math.round((canvas.clientHeight || 1) * dpr));
     const lookSig = [
@@ -263,7 +270,8 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
       look.edgeSpacing,
       look.strokeThickness,
     ].join(":");
-    const sig = `${bw}x${bh}:${screenScale.toFixed(4)}:${play}:${projectOn ? 1 : 0}:${notes.join(",")}:${lookSig}`;
+    const zoomQuant = zoom < 1 ? Math.ceil(dpr / zoomOut) : 1;
+    const sig = `${bw}x${bh}:z${zoomQuant}:${play}:${projectOn ? 1 : 0}:${notes.join(",")}:${lookSig}`;
     if (sig === lastSig && canvas.width === bw && canvas.height === bh) return;
     lastSig = sig;
     if (canvas.width !== bw || canvas.height !== bh) {
@@ -293,11 +301,12 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     const innerW = Math.max(0, x1 - x0);
     const innerH = Math.max(0, y1 - y0);
     const squircle = look.cornerShape === "squircle";
-    // Fraction of the short side, in backing pixels. clientWidth already tracks
-    // the module and the canvas tile. Zoom is a CSS scale of that bitmap, so
-    // the stroke grows with the face instead of being a fixed screen pixel.
+    // 0–1 thickness is a screen-pixel count (1 at the 0.01 default), not a
+    // fraction of the face. Canvas tiles do not thicken it. Zoom-out rounds
+    // the backing width up so the CSS scale still covers whole screen pixels.
     const thickness = Math.max(0, Math.min(1, Number(look.strokeThickness) || 0));
-    const strokeDev = Math.max(1, Math.round(thickness * Math.min(bw, bh)));
+    const screenPx = Math.max(1, Math.min(64, Math.round(thickness * 64)));
+    const strokeDev = Math.max(1, Math.ceil((screenPx * dpr) / zoomOut));
     const half = strokeDev * 0.5;
     const maxRadius = Math.max(0, Math.min(innerW, innerH) / 2);
     const radius = Math.round(look.cornerRadius * maxRadius);

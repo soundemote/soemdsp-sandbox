@@ -6056,6 +6056,7 @@ const nodeGraphModuleDefinitions = (
     ],
     displaySignals: [
       { key: "bpm", kind: "scalar" },
+      { key: "Gate 0-1", label: "Gate", kind: "scalar" },
     ],
     digitalOutputs: [
       "Gate 0-1",

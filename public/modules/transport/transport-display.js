@@ -85,7 +85,14 @@ function readNodeGraphTransportDisplaySettingsForm(root, current) {
   return normalizeNodeGraphTransportSettings(next);
 }
 
-function nodeGraphTransportBeatLampLevel01(tempoBpm) {
+function nodeGraphTransportBeatLampLevel01(node, tempoBpm) {
+  const nodeId = node?.id;
+  if (nodeId && typeof nodeGraphGhostSliderScopeSample === "function") {
+    const live = nodeGraphGhostSliderScopeSample(nodeId, "Gate 0-1")
+      ?? nodeGraphGhostSliderScopeSample(nodeId, "Gate Uni");
+    const n = Number(live);
+    if (Number.isFinite(n)) return n > 0 ? 1 : 0;
+  }
   const bpm = Math.max(1, Number.isFinite(tempoBpm) && tempoBpm > 0 ? tempoBpm : 120);
   const sampleRate = Math.max(
     1,
@@ -101,11 +108,18 @@ function nodeGraphTransportBeatLampLevel01(tempoBpm) {
   const absoluteFrame = Number.isFinite(currentTime) && currentTime >= 0
     ? Math.floor(currentTime * sampleRate)
     : 0;
-  const phase = typeof nodeGraphTransportBeatPhase01 === "function"
-    ? nodeGraphTransportBeatPhase01(absoluteFrame, sampleRate, bpm)
-    : ((absoluteFrame / sampleRate) * (bpm / 60)) % 1;
+  const periodSec = typeof nodeGraphTransportPeriodSeconds === "function"
+    ? nodeGraphTransportPeriodSeconds(node?.params, bpm)
+    : 0;
+  const frequency = periodSec > 0 ? 1 / periodSec : bpm / 60;
+  const phase = frequency > 0
+    ? ((absoluteFrame / sampleRate) * frequency)
+    : 0;
   const wrapped = phase - Math.floor(phase);
-  return wrapped < 0.5 ? 1 : 0;
+  const pw = typeof nodeGraphTransportPulseWidth === "function"
+    ? nodeGraphTransportPulseWidth(node?.params?.pulseWidth)
+    : 0.5;
+  return wrapped < pw ? 1 : 0;
 }
 
 function nodeGraphTransportBpmJackConnected(nodeId) {
@@ -237,7 +251,7 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
   const bpm = nodeGraphTransportFaceBpm(node);
   const digits = String(bpm);
   const gateBlinkOn = nodeGraphTransportSettingsForNode(node).gateBlink === true;
-  const gate01 = gateBlinkOn ? nodeGraphTransportBeatLampLevel01(bpm) : 0;
+  const gate01 = gateBlinkOn ? nodeGraphTransportBeatLampLevel01(node, bpm) : 0;
   const gateLit = gate01 > 0.001 ? 1 : 0;
   const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen();
