@@ -85,15 +85,21 @@ function readNodeGraphTransportDisplaySettingsForm(root, current) {
   return normalizeNodeGraphTransportSettings(next);
 }
 
-function nodeGraphTransportBeatLampLevel01(node, tempoBpm) {
-  const nodeId = node?.id;
-  if (nodeId && typeof nodeGraphGhostSliderScopeSample === "function") {
-    const live = nodeGraphGhostSliderScopeSample(nodeId, "Gate 0-1")
-      ?? nodeGraphGhostSliderScopeSample(nodeId, "Gate Uni");
-    const n = Number(live);
-    if (Number.isFinite(n)) return n > 0 ? 1 : 0;
-  }
+function nodeGraphTransportBeatLampLevel01(node, tempoBpm, frameDtSec) {
   const bpm = Math.max(1, Number.isFinite(tempoBpm) && tempoBpm > 0 ? tempoBpm : 120);
+  const periodSec = typeof nodeGraphTransportPeriodSeconds === "function"
+    ? nodeGraphTransportPeriodSeconds(node?.params, bpm)
+    : 0;
+  const frequency = periodSec > 0 ? 1 / periodSec : bpm / 60;
+  if (!(frequency > 0)) {
+    return 0;
+  }
+  const halfSec = 0.5 / frequency;
+  const dt = Number.isFinite(frameDtSec) && frameDtSec > 0 ? frameDtSec : 1 / 60;
+  // Half a beat shorter than the gap between paints cannot turn off on screen.
+  if (halfSec <= dt) {
+    return 1;
+  }
   const sampleRate = Math.max(
     1,
     nodeGraphFiniteNumber(
@@ -103,23 +109,14 @@ function nodeGraphTransportBeatLampLevel01(node, tempoBpm) {
       nodeGraphFiniteNumber(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.sampleRate : 0, 44100),
     ),
   );
-  const ctx = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.context : null;
-  const currentTime = Number(ctx?.currentTime);
+  const audio = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.context : null;
+  const currentTime = Number(audio?.currentTime);
   const absoluteFrame = Number.isFinite(currentTime) && currentTime >= 0
     ? Math.floor(currentTime * sampleRate)
     : 0;
-  const periodSec = typeof nodeGraphTransportPeriodSeconds === "function"
-    ? nodeGraphTransportPeriodSeconds(node?.params, bpm)
-    : 0;
-  const frequency = periodSec > 0 ? 1 / periodSec : bpm / 60;
-  const phase = frequency > 0
-    ? ((absoluteFrame / sampleRate) * frequency)
-    : 0;
-  const wrapped = phase - Math.floor(phase);
-  const pw = typeof nodeGraphTransportPulseWidth === "function"
-    ? nodeGraphTransportPulseWidth(node?.params?.pulseWidth)
-    : 0.5;
-  return wrapped < pw ? 1 : 0;
+  const wrapped = ((absoluteFrame / sampleRate) * frequency);
+  const phase = wrapped - Math.floor(wrapped);
+  return phase < 0.5 ? 1 : 0;
 }
 
 function nodeGraphTransportBpmJackConnected(nodeId) {
@@ -251,7 +248,11 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
   const bpm = nodeGraphTransportFaceBpm(node);
   const digits = String(bpm);
   const gateBlinkOn = nodeGraphTransportSettingsForNode(node).gateBlink === true;
-  const gate01 = gateBlinkOn ? nodeGraphTransportBeatLampLevel01(node, bpm) : 0;
+  const lampNowSec = performance.now() * 0.001;
+  const lampPrevSec = canvas._nodeGraphTransportLampSec;
+  canvas._nodeGraphTransportLampSec = lampNowSec;
+  const lampDtSec = Number.isFinite(lampPrevSec) ? Math.max(0, lampNowSec - lampPrevSec) : 1 / 60;
+  const gate01 = gateBlinkOn ? nodeGraphTransportBeatLampLevel01(node, bpm, lampDtSec) : 0;
   const gateLit = gate01 > 0.001 ? 1 : 0;
   const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen();
