@@ -57,6 +57,7 @@ $modules = @(
     "soemdsp_graph_set_preview_voice_slot",
     "soemdsp_graph_set_node_voice_slot",
     "soemdsp_graph_poke_input",
+    "soemdsp_graph_request_reset",
     "soemdsp_graph_snap_controls",
     "soemdsp_graph_compile", "soemdsp_graph_process_block",
     "soemdsp_graph_block_output_left_ptr", "soemdsp_graph_block_output_right_ptr",

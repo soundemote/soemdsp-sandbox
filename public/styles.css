@@ -1064,17 +1064,17 @@ body.node-sample-load-lock-open .node-sample-load-lock {
 
 @keyframes nodeTextCaretBlink {
   0%,
-  49.999% {
+  89.999% {
     caret-color: var(--node-editor-caret-color, rgba(255, 255, 255, 0.98));
   }
 
-  50%,
+  90%,
   100% {
     caret-color: transparent;
   }
 }
 
-/* 1s on / 1s off. Keyframes lived on after the rule that played them was dropped. */
+/* 1.8s on / 0.2s off, one blink per 2 whole seconds. */
 :is(
   input[type="text"],
   input[type="search"],

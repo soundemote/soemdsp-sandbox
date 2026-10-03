@@ -173,6 +173,13 @@
       "sourceNode": "limiter-1",
       "sourcePort": "Right",
       "tracePoints": []
+    },
+    {
+      "destinationNode": "lineBurnOscilloscope-1",
+      "destinationPort": "In",
+      "sourceNode": "passiveFilter-1",
+      "sourcePort": "Out",
+      "tracePoints": []
     }
   ],
   "format": {
@@ -1767,8 +1774,8 @@
       }
     },
     {
-      "gx": -7,
-      "gy": 11,
+      "gx": -17,
+      "gy": 4,
       "id": "pluckEnvelope3-1",
       "paramMeta": {
         "recalculateOnTrigger": {
@@ -1986,22 +1993,22 @@
       }
     },
     {
-      "gx": -13,
-      "gy": 18,
+      "gx": -23,
+      "gy": 11,
       "id": "knob-1",
       "paramMeta": {
         "offset": {
           "alias": "",
           "choices": [],
           "curveAmount": 0.9,
-          "def": 0.5,
+          "def": 0.91,
           "displayChoices": false,
           "divideChoicesVisibly": false,
           "kind": "decimal",
           "bipolar": false,
           "max": 1,
           "maxDigits": 3,
-          "mid": 0.9,
+          "mid": 0.91,
           "min": 0,
           "reverse": false,
           "nonlinearSlider": true,
@@ -2066,7 +2073,7 @@
         }
       },
       "params": {
-        "offset": 1,
+        "offset": 0.91,
         "displaySource": 0
       },
       "type": "knob",
@@ -2673,7 +2680,7 @@
           "alias": "",
           "choices": [],
           "curveAmount": 0.99,
-          "def": 0.36,
+          "def": 0.24,
           "displayChoices": false,
           "divideChoicesVisibly": false,
           "kind": "decimal",
@@ -2745,7 +2752,7 @@
         }
       },
       "params": {
-        "offset": 0.3063128588821336,
+        "offset": 0.24,
         "displaySource": 0
       },
       "type": "knob",
@@ -2809,7 +2816,7 @@
           "sliderCurve": "linear",
           "showSign": false,
           "removeTrailingZeros": false,
-          "smoothingMode": "internal",
+          "smoothingMode": "off",
           "smoothingSeconds": 1469,
           "smoothingType": "linear",
           "step": 1,
@@ -2824,7 +2831,7 @@
           "visible": true,
           "linearSmoothing": true,
           "outputDomain": true,
-          "domainOffset": 8
+          "domainOffset": 0
         },
         "displaySource": {
           "alias": "",
@@ -2849,7 +2856,7 @@
           "showSign": false,
           "removeTrailingZeros": false,
           "smoothingMode": "global",
-          "smoothingSeconds": null,
+          "smoothingSeconds": 1469,
           "smoothingType": "none",
           "step": 1,
           "tooltip": "Mouse = pointer target. Smoothed = Bias after Parameter Settings smooth.",
@@ -2860,7 +2867,7 @@
           "constraint": "",
           "unit": "",
           "wraparound": false,
-          "visible": true,
+          "visible": false,
           "linearSmoothing": false,
           "outputDomain": false,
           "domainOffset": 0
@@ -2924,8 +2931,8 @@
       }
     },
     {
-      "gx": 0,
-      "gy": 12,
+      "gx": -10,
+      "gy": 5,
       "id": "namedPortalIn-5",
       "paramMeta": {},
       "params": {},
@@ -3287,7 +3294,7 @@
         "interfaceControlsHidden": false,
         "interfaceControlsForceShow": false,
         "movementLocked": false,
-        "oscilloscopeHidden": false,
+        "oscilloscopeHidden": true,
         "oscilloscopeForceShow": false,
         "slidersHidden": false,
         "slidersForceShow": false,
@@ -4417,8 +4424,8 @@
       }
     },
     {
-      "gx": -13,
-      "gy": 13,
+      "gx": -23,
+      "gy": 6,
       "id": "knob-5",
       "paramMeta": {
         "offset": {
@@ -4596,8 +4603,8 @@
       }
     },
     {
-      "gx": -12,
-      "gy": 12,
+      "gx": -22,
+      "gy": 5,
       "id": "namedPortalOut-12",
       "paramMeta": {},
       "params": {},
@@ -4621,46 +4628,6 @@
         "slidersHidden": false,
         "slidersForceShow": false,
         "titleHidden": true
-      }
-    },
-    {
-      "gx": -51,
-      "gy": 15,
-      "id": "keyboard-1",
-      "paramMeta": {},
-      "params": {},
-      "type": "keyboard",
-      "widthGu": 36,
-      "traceDisplaySettings": {
-        "keyCount": 62,
-        "octave": 1,
-        "mode": "triggerPatch",
-        "velMin": 127,
-        "velMax": 127,
-        "hideKeyboardInfo": false,
-        "blackKeyWidth": 4.250926,
-        "blackKeyHeight": 57,
-        "keyLabels": "name"
-      },
-      "ui": {
-        "buttonsHidden": true,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": false,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": false,
-        "displayHeightGu": 7
-      },
-      "chordMemory": {
-        "slots": {}
       }
     },
     {
@@ -4744,7 +4711,7 @@
         }
       },
       "params": {
-        "offset": -4,
+        "offset": -1,
         "displaySource": 0
       },
       "type": "knob",
@@ -4924,18 +4891,18 @@
           "kind": "decimal",
           "bipolar": true,
           "max": 100,
-          "maxDigits": 3,
+          "maxDigits": 4,
           "mid": 0,
           "min": -100,
           "reverse": false,
           "nonlinearSlider": false,
           "sliderCurve": "linear",
-          "showSign": false,
+          "showSign": true,
           "removeTrailingZeros": false,
           "smoothingMode": "off",
           "smoothingSeconds": 1469,
           "smoothingType": "linear",
-          "step": 0,
+          "step": 1,
           "tooltip": "Bias. The face edits this. Min, max, reverse, curve, and smooth time are Parameter Settings.",
           "modClamp": true,
           "hardClamp": false,
@@ -4947,7 +4914,7 @@
           "visible": true,
           "linearSmoothing": true,
           "outputDomain": false,
-          "domainOffset": 0
+          "domainOffset": 28
         },
         "displaySource": {
           "alias": "",
@@ -5358,8 +5325,8 @@
         }
       },
       "params": {
-        "inputGain": 0,
-        "threshold": -3,
+        "inputGain": -2,
+        "threshold": -1,
         "ratio": 8,
         "lookaheadEnabled": 0,
         "lookaheadMs": 0,
@@ -5403,7 +5370,7 @@
         "zoomSeconds": 0.25,
         "detail": 1,
         "barThickness": 1,
-        "barInk": "fill",
+        "barInk": "stroke",
         "strokeColor": "#ffffff",
         "scale": 1,
         "strokeThickness": 1,
@@ -5429,6 +5396,117 @@
         "slidersForceShow": false,
         "titleHidden": false,
         "displayHeightGu": 3
+      }
+    },
+    {
+      "gx": 25,
+      "gy": -13,
+      "id": "lineBurnOscilloscope-1",
+      "paramMeta": {},
+      "params": {},
+      "type": "lineBurnOscilloscope",
+      "widthGu": 7,
+      "traceDisplaySettings": {
+        "backgroundHue": 0,
+        "backgroundBrightness": 0,
+        "background": "#ff0000",
+        "backgroundColor": "#ff0000",
+        "burn": 0,
+        "burnAmount": 1,
+        "residualSchema": 3,
+        "ghost": 0.25,
+        "trail": 0.3,
+        "dot1Brightness": 1,
+        "dot1Color": "#75ebff",
+        "dot1Enabled": true,
+        "dot1Size": 2,
+        "dotBudget": 2048,
+        "drawMode": "budget",
+        "fullDotEconomy": false,
+        "dotsOnly": false,
+        "sourceSync": true,
+        "skipDiscontinuities": true,
+        "gradientStops": [
+          {
+            "t": 0,
+            "color": "#000000"
+          },
+          {
+            "t": 0.18,
+            "color": "#214247"
+          },
+          {
+            "t": 0.55,
+            "color": "#52a5b3"
+          },
+          {
+            "t": 1,
+            "color": "#75ebff"
+          }
+        ],
+        "lineThickness": 0.35,
+        "pixelDensity": 1,
+        "scale": 1,
+        "sweepHz": 4,
+        "sweepCycles": 4
+      },
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": false,
+        "displayHeightGu": 2
+      }
+    },
+    {
+      "gx": -5,
+      "gy": -15,
+      "id": "textBox-2",
+      "paramMeta": {},
+      "params": {},
+      "type": "textBox",
+      "alias": "How To",
+      "widthGu": 30,
+      "layout": {
+        "backgroundAlpha": 0.78,
+        "backgroundColor": "#020407",
+        "font": "cascadia-mono",
+        "horizontalAlign": "left",
+        "kind": "textBox",
+        "text": "* press 'f' multiple times and get familiar with what it does.\n* left-drag for legato (🖱️ on the arp display 📺)\n* right-click for staccato\n* press 'v' for cycling view. spacebar for play pause",
+        "textColor": "#f3f1ec",
+        "textSizePercent": 221,
+        "textWeight": 400,
+        "lineHeight": 1.2,
+        "textMode": "multiline",
+        "verticalAlignSchema": 2,
+        "verticalAlignPercent": 50
+      },
+      "ui": {
+        "buttonsHidden": true,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": false
       }
     }
   ],
@@ -5467,13 +5545,13 @@
   "view": {
     "heightGu": 24,
     "widthGu": 47,
-    "zoom": 0.4887112285050934,
+    "zoom": 0.6130393650367896,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,
     "wiresAboveModules": false,
     "moduleButtonsVisible": false,
-    "moduleOscilloscopesVisible": false,
+    "moduleOscilloscopesVisible": true,
     "moduleInterfaceControlsVisible": true,
     "moduleSlidersVisible": true,
     "sliderAmountVisible": false,
@@ -5498,9 +5576,9 @@
             "enabled": true,
             "x": 0.3311458333333335,
             "y": 0.41448058761804824,
-            "w": 0.2870833333333333,
-            "h": 0.11538300104931792,
-            "z": 3802
+            "w": 0.28031249999999996,
+            "h": 0.11748163693599158,
+            "z": 4002
           },
           {
             "nodeId": "knob-4",
@@ -5514,11 +5592,11 @@
           {
             "nodeId": "reverbEffect-1",
             "enabled": true,
-            "x": 0.32593750000000005,
-            "y": 0.2290661070304302,
-            "w": 0.34906249999999994,
-            "h": 0.18568730325288565,
-            "z": 1406
+            "x": 0.32854166666666673,
+            "y": 0.22591815320041972,
+            "w": 0.34645833333333326,
+            "h": 0.18463798530954884,
+            "z": 1606
           },
           {
             "nodeId": "pluginSlider-1",
@@ -5539,22 +5617,13 @@
             "z": 3006
           },
           {
-            "nodeId": "polyBlep-2",
-            "enabled": true,
-            "x": 0.3795833333333334,
-            "y": 0,
-            "w": 0.24072916666666663,
-            "h": 0.2255613850996852,
-            "z": 1106
-          },
-          {
             "nodeId": "transport-1",
             "enabled": true,
-            "x": 0.6124999999999999,
-            "y": 0.41387198321091295,
-            "w": 0.06468750000000001,
-            "h": 0.11748163693599158,
-            "z": 1308
+            "x": 0.5921874999999999,
+            "y": 0.41282266526757616,
+            "w": 0.08552083333333332,
+            "h": 0.11538300104931792,
+            "z": 2108
           },
           {
             "nodeId": "knob-5",
@@ -5591,6 +5660,15 @@
             "w": 0.03604166666666666,
             "h": 0.0692130115424974,
             "z": 1011
+          },
+          {
+            "nodeId": "lineBurnOscilloscope-1",
+            "enabled": true,
+            "x": 0.32885416666666667,
+            "y": 0,
+            "w": 0.344375,
+            "h": 0.226610703043022,
+            "z": 612
           }
         ]
       },

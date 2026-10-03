@@ -41,6 +41,26 @@ function nodeGraphMidiKeyboardLayoutSettings() {
   );
 }
 
+function nodeGraphMidiKeyboardLayoutForSurface(surface) {
+  const nodeEl = surface?.closest?.("[data-node]");
+  const nodeId = String(nodeEl?.dataset?.node || "").trim();
+  const inModuleFace = Boolean(surface?.closest?.(
+    ".dsp-node.keyboard-layout, .node-layout-canvas-tile, .node-screen-solo-stage, .node-metamodule-canvas-stage",
+  ));
+  if (inModuleFace && nodeId && typeof nodeGraphPatchNode === "function") {
+    const node = nodeGraphPatchNode(nodeId);
+    if (node && (node.type === "keyboard" || node.type === "gridKeyboard")) {
+      return normalizeNodeGraphMidiKeyboardLayout({
+        ...nodeGraphMidiKeyboardLayoutDefaults,
+        ...(node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+          ? node.traceDisplaySettings
+          : {}),
+      });
+    }
+  }
+  return nodeGraphMidiKeyboardLayoutSettings();
+}
+
 function setNodeGraphMidiKeyboardLayout(next, options = {}) {
   if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp) {
     return;
@@ -49,9 +69,6 @@ function setNodeGraphMidiKeyboardLayout(next, options = {}) {
   applyNodeGraphMidiKeyboardLayout();
   if (options.persist !== false && typeof saveNodeGraphMidiKeyboardMemory === "function") {
     saveNodeGraphMidiKeyboardMemory();
-  }
-  if (options.skipPatch !== true && typeof persistNodeGraphKeyboardModuleSettingsToPatch === "function") {
-    persistNodeGraphKeyboardModuleSettingsToPatch();
   }
 }
 
@@ -65,6 +82,55 @@ function nodeGraphMidiKeyboardLayoutHostWidth(surface) {
     return whiteRow.clientWidth;
   }
   return Math.max(0, surface?.parentElement?.clientWidth || 0);
+}
+
+function nodeGraphPositionMidiKeyboardBlackKeys(surface, blackByIndex, totalWhite, blackW, whiteW, blackH, blackKeyHeightPercent, inModuleFace) {
+  const nW = Math.max(1, totalWhite);
+  const widthPct = Math.min(90 / nW, (blackW / Math.max(1, whiteW)) * (100 / nW));
+  const halfPct = widthPct * 0.5;
+  const widthText = `${widthPct}%`;
+  surface.querySelectorAll(".node-midi-keyboard-black-row [data-key-index]").forEach((span) => {
+    const key = blackByIndex.get(Number(span.dataset.keyIndex));
+    if (!key) {
+      return;
+    }
+    const leftIdx = Number(key.leftWhiteIndex);
+    if (!(leftIdx >= 0)) {
+      if (span.style.display !== "none") {
+        span.style.display = "none";
+      }
+      return;
+    }
+    let centerPct = ((leftIdx + 1) / nW) * 100;
+    centerPct = Math.max(halfPct, Math.min(100 - halfPct, centerPct));
+    const leftText = `${centerPct}%`;
+    if (span.style.display === "none") {
+      span.style.display = "";
+    }
+    if (span.style.left !== leftText) {
+      span.style.left = leftText;
+    }
+    if (span.style.transform !== "translateX(-50%)") {
+      span.style.transform = "translateX(-50%)";
+    }
+    if (span.style.width !== widthText) {
+      span.style.width = widthText;
+    }
+    if (span.style.marginLeft) {
+      span.style.removeProperty("margin-left");
+    }
+    const heightText = (inModuleFace || !(blackH > 0)) ? `${blackKeyHeightPercent}%` : `${blackH}px`;
+    if (span.style.height !== heightText) {
+      span.style.height = heightText;
+    }
+    if (inModuleFace || !(blackH > 0)) {
+      if (span.style.maxHeight) {
+        span.style.removeProperty("max-height");
+      }
+    } else if (span.style.maxHeight !== heightText) {
+      span.style.maxHeight = heightText;
+    }
+  });
 }
 
 let nodeGraphMidiKeyboardLayoutApplying = false;
@@ -94,9 +160,9 @@ function nodeGraphMidiKeyboardBlackKeyHeightPx(surfaceHeight, blackHeightPercent
 }
 
 function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
-  const s = settings || nodeGraphMidiKeyboardLayoutSettings();
-  if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
-    nodeGraphMvp.midiKeyboardLayout = s;
+  const fallback = settings || nodeGraphMidiKeyboardLayoutSettings();
+  if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp && settings) {
+    nodeGraphMvp.midiKeyboardLayout = fallback;
   }
   const generated = typeof nodeGraphMidiKeyboardGenerateKeys === "function"
     ? nodeGraphMidiKeyboardGenerateKeys()
@@ -106,6 +172,7 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
   let needsSecondPass = false;
   let layoutChanged = false;
   document.querySelectorAll(".node-midi-keyboard-module .node-midi-keyboard-surface").forEach((surface) => {
+    const s = nodeGraphMidiKeyboardLayoutForSurface(surface);
     const available = nodeGraphMidiKeyboardLayoutHostWidth(surface);
     const desired = totalWhite * s.whiteKeyWidth;
     const inModuleFace = Boolean(surface.closest(
@@ -133,6 +200,17 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
       totalWhite,
     ].join(":");
     if (surface.dataset.midiLayoutSig === layoutSig) {
+      const blackH = nodeGraphMidiKeyboardBlackKeyHeightPx(surfaceH, s.blackKeyHeight);
+      nodeGraphPositionMidiKeyboardBlackKeys(
+        surface,
+        blackByIndex,
+        totalWhite,
+        blackW,
+        whiteW,
+        blackH,
+        s.blackKeyHeight,
+        inModuleFace,
+      );
       return;
     }
     if (surfaceH < 8) {
@@ -184,33 +262,16 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
       "--midi-black-key-height",
       blackH > 0 ? `${blackH}px` : `${s.blackKeyHeight}%`,
     );
-    const nW = Math.max(1, totalWhite);
-    const widthPct = Math.min(90 / nW, (blackW / Math.max(1, whiteW)) * (100 / nW));
-    const halfPct = widthPct * 0.5;
-    surface.querySelectorAll(".node-midi-keyboard-black-row [data-key-index]").forEach((span) => {
-      const key = blackByIndex.get(Number(span.dataset.keyIndex));
-      if (!key) return;
-      const leftIdx = Number(key.leftWhiteIndex);
-      if (!(leftIdx >= 0)) {
-        span.style.display = "none";
-        return;
-      }
-      span.style.display = "";
-      // Joint after that white key, as % of full keyboard width.
-      let centerPct = ((leftIdx + 1) / nW) * 100;
-      centerPct = Math.max(halfPct, Math.min(100 - halfPct, centerPct));
-      span.style.left = `${centerPct}%`;
-      span.style.transform = "translateX(-50%)";
-      span.style.width = `${widthPct}%`;
-      span.style.removeProperty("margin-left");
-      if (inModuleFace || !(blackH > 0)) {
-        span.style.height = `${s.blackKeyHeight}%`;
-        span.style.removeProperty("max-height");
-      } else {
-        span.style.height = `${blackH}px`;
-        span.style.maxHeight = `${blackH}px`;
-      }
-    });
+    nodeGraphPositionMidiKeyboardBlackKeys(
+      surface,
+      blackByIndex,
+      totalWhite,
+      blackW,
+      whiteW,
+      blackH,
+      s.blackKeyHeight,
+      inModuleFace,
+    );
     const module = surface.closest(".node-midi-keyboard-module");
     if (module) {
       module.classList.toggle("show-keyboard-info", s.hideKeyboardInfo === false);
@@ -262,7 +323,18 @@ function installNodeGraphMidiKeyboardLayoutResizeObserver() {
 }
 
 function buildNodeGraphKeyboardControllerFaceDisplaySettingsBodyHtml() {
-  const s = nodeGraphMidiKeyboardLayoutSettings();
+  const nodeId = typeof nodeGraphMvp !== "undefined"
+    ? String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim()
+    : "";
+  const node = nodeId && typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(nodeId)
+    : null;
+  const s = normalizeNodeGraphMidiKeyboardLayout({
+    ...nodeGraphMidiKeyboardLayoutDefaults,
+    ...(node?.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+      ? node.traceDisplaySettings
+      : {}),
+  });
   // Module size is Width/Height in Module Settings (and Shift+arrows).
   // White width / keyboard height layout sliders removed — they no longer drive the face.
   return `
@@ -297,7 +369,20 @@ function bindNodeGraphKeyboardControllerFaceDisplaySettingsBody(host) {
   }
   host.dataset.midiKeyboardLayoutBound = "true";
   const readForm = () => {
-    const next = { ...nodeGraphMidiKeyboardLayoutSettings() };
+    const nodeId = String(
+      host.closest?.("[data-display-settings-target-node]")?.dataset?.displaySettingsTargetNode
+      || (typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.traceDisplaySettingsTargetNode : "")
+      || "",
+    ).trim();
+    const node = nodeId && typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(nodeId)
+      : null;
+    const next = normalizeNodeGraphMidiKeyboardLayout({
+      ...nodeGraphMidiKeyboardLayoutDefaults,
+      ...(node?.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+        ? node.traceDisplaySettings
+        : {}),
+    });
     for (const input of host.querySelectorAll("[data-midi-key-layout]")) {
       const key = input.getAttribute("data-midi-key-layout");
       if (key) {
@@ -308,7 +393,27 @@ function bindNodeGraphKeyboardControllerFaceDisplaySettingsBody(host) {
     return next;
   };
   const commit = (persist) => {
-    setNodeGraphMidiKeyboardLayout(readForm(), { persist });
+    const next = readForm();
+    const nodeId = String(
+      host.closest?.("[data-display-settings-target-node]")?.dataset?.displaySettingsTargetNode
+      || (typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.traceDisplaySettingsTargetNode : "")
+      || "",
+    ).trim();
+    const node = nodeId && typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(nodeId)
+      : null;
+    if (node && typeof assignNodeGraphTypedDisplaySettingsEverywhere === "function") {
+      assignNodeGraphTypedDisplaySettingsEverywhere(node, "keyboardControllerFace", {
+        ...(node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+          ? node.traceDisplaySettings
+          : {}),
+        ...next,
+      });
+    }
+    applyNodeGraphMidiKeyboardLayout();
+    if (persist && typeof setNodeGraphPatchDirtyState === "function") {
+      setNodeGraphPatchDirtyState("edited");
+    }
   };
   host.addEventListener("input", (event) => {
     if (event.target?.matches?.("[data-midi-key-layout]")) {

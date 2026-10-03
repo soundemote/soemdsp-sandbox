@@ -452,7 +452,10 @@ function nodeGraphControllerFaceReadoutSettings(patchNode) {
  * maxDigits, kind, sign policy, trailing-zero policy, and choice labels all
  * come directly from Bias instead of Display Settings.
  */
-function nodeGraphKnobFaceFormatReadout(value, patchNode) {
+function nodeGraphKnobFaceFormatReadout(value, patchNode, slider) {
+  if (slider && typeof nodeSliderReadoutValueText === "function") {
+    return nodeSliderReadoutValueText(slider);
+  }
   const number = Number(value);
   if (!Number.isFinite(number)) {
     return "";

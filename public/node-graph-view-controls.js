@@ -2581,37 +2581,7 @@ function nodeGraphKeyboardModuleSettingsNodes(patch) {
 
 /** Write the live keyboard face settings onto each keyboard node's display-settings bag. */
 function persistNodeGraphKeyboardModuleSettingsToPatch() {
-  if (nodeGraphKeyboardModuleSettingsPersisting) {
-    return false;
-  }
-  if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp?.patch) {
-    return false;
-  }
-  const settings = nodeGraphKeyboardModuleSettingsSnapshot();
-  nodeGraphKeyboardModuleSettingsPersisting = true;
-  try {
-    const seen = new Set();
-    let wrote = 0;
-    for (const patch of [nodeGraphMvp.patch, nodeGraphMvp.workingPatch]) {
-      for (const node of nodeGraphKeyboardModuleSettingsNodes(patch)) {
-        if (seen.has(node)) continue;
-        seen.add(node);
-        if (typeof assignNodeGraphTypedDisplaySettingsToNode === "function") {
-          assignNodeGraphTypedDisplaySettingsToNode(node, "keyboardControllerFace", settings);
-        } else {
-          node.traceDisplaySettings = normalizeNodeGraphKeyboardControllerFaceSettings(settings);
-        }
-        wrote += 1;
-      }
-    }
-    if (!wrote) {
-      return false;
-    }
-    nodeGraphMvp.patchDirtyState = "edited";
-    return true;
-  } finally {
-    nodeGraphKeyboardModuleSettingsPersisting = false;
-  }
+  return false;
 }
 
 function applyNodeGraphKeyboardModuleSettingsBag(settings) {
@@ -2678,12 +2648,10 @@ function applyNodeGraphKeyboardModuleSettingsBag(settings) {
 }
 
 function applyNodeGraphKeyboardModuleSettingsFromPatch(patch = nodeGraphMvp?.patch) {
-  for (const node of nodeGraphKeyboardModuleSettingsNodes(patch)) {
-    const bag = node.traceDisplaySettings;
-    if (!bag || typeof bag !== "object") continue;
-    const normalized = normalizeNodeGraphKeyboardControllerFaceSettings(bag);
-    if (!Object.keys(normalized).length) continue;
-    return applyNodeGraphKeyboardModuleSettingsBag(normalized);
+  void patch;
+  if (typeof applyNodeGraphMidiKeyboardLayout === "function") {
+    applyNodeGraphMidiKeyboardLayout();
+    return true;
   }
   return false;
 }

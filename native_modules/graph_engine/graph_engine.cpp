@@ -2249,6 +2249,8 @@ struct Circuit {
   double masterSamples;
   // Host project tempo (plugin). Metronome BPM is per-node; this is unused.
   double hostTempoBpm;
+  // One-sample Reset hit on every Reset inlet, consumed by the next block.
+  int hostResetImpulse;
   // MIDI note that is the 0-octave point for leftover pitch
   // pitch-CV consumers. Default 69 (A4). Saved patches may still send 48.
   double pitchReferenceMidiNote;
@@ -4718,6 +4720,10 @@ static bool mix_live_port(Circuit& g, const Node& node, int livePort, int frames
       const int dstF = g.fbSampleMajor ? 0 : f;
       dest[dstF] += edge_read_sample(g, c.srcHash, sp, srcF, node.idHash);
     }
+    any = true;
+  }
+  if (g.hostResetImpulse && livePort == kPortReset && frames > 0) {
+    dest[0] += 1.0;
     any = true;
   }
   // Consume matching one-shot pokes (first sample only = unit impulse).
@@ -14404,7 +14410,14 @@ extern "C" int soemdsp_graph_process_block(int handle, int n) {
   }
 
   g->masterSamples += (double)frames;
+  g->hostResetImpulse = 0;
   return frames;
+}
+
+extern "C" void soemdsp_graph_request_reset(int handle) {
+  Circuit* g = get(handle);
+  if (!g) return;
+  g->hostResetImpulse = 1;
 }
 
 extern "C" double soemdsp_graph_ear_protect_gain(int handle) {

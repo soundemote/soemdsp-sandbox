@@ -135,8 +135,12 @@ function scheduleNodeGraphWorkingPatchFileAutosave(text, options = {}) {
   return Promise.resolve(false);
 }
 
+function nodeGraphAutosaveSuppressed() {
+  return window.soemdspPerformPage === true || nodeGraphMvp?.layoutCanvasActive === true;
+}
+
 function saveNodeGraphWorkingPatchToUserSettings(options = {}) {
-  if (window.soemdspPerformPage) {
+  if (nodeGraphAutosaveSuppressed()) {
     return false;
   }
   // Name is historical: writes the session blob, not useruisettings.json.
@@ -172,7 +176,7 @@ function saveNodeGraphWorkingPatchToUserSettings(options = {}) {
 
 /** Flush working-patch autosave on tab close / refresh (sync localStorage). */
 function flushNodeGraphWorkingPatchToUserSettingsOnUnload() {
-  if (window.soemdspPerformPage) {
+  if (nodeGraphAutosaveSuppressed()) {
     return;
   }
   try {
@@ -192,7 +196,7 @@ if (typeof window !== "undefined" && !window.__nodeGraphWorkingPatchUnloadBound)
 
 if (typeof window !== "undefined" && !window.__nodeGraphSessionAutosaveClock) {
   window.__nodeGraphSessionAutosaveClock = window.setInterval(() => {
-    if (window.soemdspPerformPage) return;
+    if (nodeGraphAutosaveSuppressed()) return;
     if (nodeGraphMvp?.patchDirtyState !== "edited") return;
     if (typeof setNodeGraphScriptStatus === "function") {
       setNodeGraphScriptStatus("Autosaving", true);

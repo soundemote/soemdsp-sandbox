@@ -689,6 +689,7 @@ function nodeSliderMetadata(slider) {
     nonlinearSlider: nodeSliderShouldUseNonlinearSlider(slider),
     sliderCurve: nodeSliderCurve(slider),
     showSign: nodeSliderShouldShowSign(slider),
+    removeTrailingZeros: slider.dataset.removeTrailingZeros === "true",
     smoothingMode: nodeSliderSmoothingMode(slider),
     smoothingSeconds: nodeSliderSmoothingSeconds(slider),
     smoothingType: typeof normalizeNodeGraphMetadataSmoothingType === "function"

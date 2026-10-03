@@ -369,12 +369,8 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.traceDisplaySettings = typeof normalizeNodeGraphKeyboardControllerFaceSettings === "function"
       ? normalizeNodeGraphKeyboardControllerFaceSettings(settings)
       : (settings && typeof settings === "object" ? { ...settings } : {});
-    if (
-      typeof nodeGraphKeyboardModuleSettingsPersisting !== "undefined"
-      && !nodeGraphKeyboardModuleSettingsPersisting
-      && typeof applyNodeGraphKeyboardModuleSettingsBag === "function"
-    ) {
-      applyNodeGraphKeyboardModuleSettingsBag(node.traceDisplaySettings);
+    if (typeof applyNodeGraphMidiKeyboardLayout === "function") {
+      applyNodeGraphMidiKeyboardLayout();
     }
     return node.traceDisplaySettings;
   }

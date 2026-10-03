@@ -380,7 +380,7 @@ function clearNodeSliderDragAutosaveTimer() {
 }
 
 function scheduleNodeSliderDragAutosave() {
-  if (window.soemdspPerformPage) {
+  if (window.soemdspPerformPage || nodeGraphMvp?.layoutCanvasActive === true) {
     return;
   }
   if (nodeSliderDragAutosaveTimer) {

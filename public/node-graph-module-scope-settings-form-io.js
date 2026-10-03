@@ -610,9 +610,9 @@ if (type === "portalFace") {
     return normalizeNodeGraphWaterfallSettings(nodeGraphWaterfallSettingsDefaults);
   }
   if (type === "keyboardControllerFace") {
-    return typeof nodeGraphKeyboardModuleSettingsSnapshot === "function"
-      ? nodeGraphKeyboardModuleSettingsSnapshot()
-      : {};
+    return typeof normalizeNodeGraphKeyboardControllerFaceSettings === "function"
+      ? normalizeNodeGraphKeyboardControllerFaceSettings(nodeGraphMidiKeyboardLayoutDefaults || {})
+      : { blackKeyWidth: 10, blackKeyHeight: 62, hideKeyboardInfo: true, keyLabels: "name" };
   }
   return {};
 }
@@ -949,6 +949,14 @@ if (settingsSchema === "portalFace") {
         ? normalizeNodeGraphArpKeysSettings(node?.arpKeysSettings)
         : (node?.arpKeysSettings || {}));
   }
+  if (settingsSchema === "keyboardControllerFace") {
+    return typeof normalizeNodeGraphKeyboardControllerFaceSettings === "function"
+      ? normalizeNodeGraphKeyboardControllerFaceSettings({
+        ...(typeof nodeGraphMidiKeyboardLayoutDefaults === "object" ? nodeGraphMidiKeyboardLayoutDefaults : {}),
+        ...(node?.traceDisplaySettings || {}),
+      })
+      : (node?.traceDisplaySettings || {});
+  }
   if (settingsSchema === "transportBpm") {
     return typeof nodeGraphTransportSettingsForNode === "function"
       ? nodeGraphTransportSettingsForNode(node)
@@ -1278,9 +1286,7 @@ function readNodeGraphTraceDisplaySettingsForm() {
     return normalizeNodeGraphDisplaySettingsForFormType(current, formType);
   }
   if (formType === "keyboardControllerFace") {
-    const next = typeof nodeGraphKeyboardModuleSettingsSnapshot === "function"
-      ? { ...nodeGraphKeyboardModuleSettingsSnapshot() }
-      : { ...(current && typeof current === "object" ? current : {}) };
+    const next = { ...(current && typeof current === "object" ? current : {}) };
     const host = root?.querySelector?.("[data-midi-keyboard-layout-settings]") || root;
     host?.querySelectorAll?.("[data-midi-key-layout]")?.forEach((input) => {
       const key = input.getAttribute("data-midi-key-layout");

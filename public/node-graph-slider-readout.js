@@ -329,6 +329,50 @@ function scheduleNodeGraphSliderReadoutRelayout() {
 // Knob face live sync: modules/knob/knob-face.js
 // (syncNodeGraphKnobFaceFromSlider).
 
+function nodeSliderReadoutValueText(slider) {
+  if (!slider) {
+    return "";
+  }
+  const domainRaw = Number(slider.dataset?.domainValue);
+  const baseValue = Number.isFinite(domainRaw) ? domainRaw : Number(slider.value);
+  const sentRaw = Number(slider.dataset?.sentDomainValue);
+  const displayValue = Number.isFinite(sentRaw) ? sentRaw : baseValue;
+  let formattedValue = displayValue;
+  let formattedKind = slider.dataset.kind;
+  let formattedMaxDigits = slider.dataset.maxDigits;
+  const choiceLabel = typeof nodeSliderChoiceLabel === "function" ? nodeSliderChoiceLabel(slider) : null;
+  if (!choiceLabel && typeof slider.displayTransform === "function") {
+    let transformed = null;
+    try {
+      transformed = slider.displayTransform(displayValue, slider);
+    } catch (_error) {
+      transformed = null;
+    }
+    if (transformed && typeof transformed === "object") {
+      if (Number.isFinite(Number(transformed.value))) {
+        formattedValue = Number(transformed.value);
+        formattedKind = "";
+      }
+      if (transformed.maxDigits != null) {
+        formattedMaxDigits = transformed.maxDigits;
+      }
+    } else if (Number.isFinite(Number(transformed))) {
+      formattedValue = Number(transformed);
+      formattedKind = "";
+    }
+  }
+  if (choiceLabel) {
+    return ` ${choiceLabel}`;
+  }
+  return formatNodeSliderNumber(formattedValue, {
+    kind: formattedKind,
+    maxDigits: formattedMaxDigits,
+    reserveSignSpace: true,
+    showSign: typeof nodeSliderShouldShowSign === "function" ? nodeSliderShouldShowSign(slider) : false,
+    removeTrailingZeros: slider.dataset.removeTrailingZeros === "true",
+  });
+}
+
 function syncNodeSliderReadout(slider) {
   // The Bias slider can sit in an asleep module while its face is on the
   // perform canvas. Paint the face before bailing on the hidden slider.
@@ -414,13 +458,7 @@ function syncNodeSliderReadout(slider) {
     }
     labelText.textContent = displayLabel || readout.dataset.paramLabel || "";
   }
-  valueText.textContent = choiceLabel ? ` ${choiceLabel}` : formatNodeSliderNumber(formattedValue, {
-    kind: formattedKind,
-    maxDigits: formattedMaxDigits,
-    reserveSignSpace: true,
-    showSign: nodeSliderShouldShowSign(slider),
-    removeTrailingZeros: slider.dataset.removeTrailingZeros === "true",
-  });
+  valueText.textContent = nodeSliderReadoutValueText(slider);
   unitText.textContent = unit;
   unitText.classList.toggle("is-empty", !unit);
   unitText.setAttribute("aria-hidden", unit ? "false" : "true");

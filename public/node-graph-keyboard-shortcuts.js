@@ -291,6 +291,14 @@ function resizeSelectedNodeGraphModulesOnGrid(axis, delta) {
   return true;
 }
 
+function nodeGraphQuickRestartProject() {
+  const port = nodeGraphMvp?.live?.node?.port;
+  if (!port) {
+    return;
+  }
+  port.postMessage({ type: "projectRestart" });
+}
+
 function handleNodeGraphKeydown(event) {
   if (event.key === "Escape" && typeof nodeGraphScreenSoloIsActive === "function" && nodeGraphScreenSoloIsActive()) {
     event.preventDefault();
@@ -349,6 +357,12 @@ function handleNodeGraphKeydown(event) {
   // code editor), bare-key shortcuts must not fire — Space, F, etc.
   // Range/checkbox focus does not block shortcuts. Modifier combos still work.
   if (nodeGraphEventTargetIsTextEditable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    return;
+  }
+  // Comma and period: one Reset hit on every Reset inlet. Playback stays up.
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && (event.key === "," || event.key === ".")) {
+    event.preventDefault();
+    nodeGraphQuickRestartProject();
     return;
   }
   // F = layout canvas cycle (phone button). Same typing gate as Space.
