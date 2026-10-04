@@ -267,6 +267,6 @@ function additiveModControlIsPacketSourceType(type) {
     || t === "additiveSinMod"
     || t === "additiveKnob"
     // Gold pluck on efficient allowlist can also publish Additive packets.
-    || t === "pluckEnvelope"
+    || t === "soemPluckEnvelope"
   );
 }

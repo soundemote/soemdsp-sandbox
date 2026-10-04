@@ -514,12 +514,12 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/linearAttackRelease/linear-attack-release-math.js",
     "./public/modules/curveAttackRelease/curve-attack-release-math.js",
     "./public/modules/thumpEnvelope/thump-envelope-math.js",
-    "./public/modules/acousticPluck/acoustic-pluck-math.js",
+    "./public/modules/pluckEnvelope/pluck-envelope-circuit-math.js",
     "./public/modules/pluckEnvelope/pluck-envelope-math.js",
     "./public/modules/expoPluckEnvelope/expo-pluck-envelope-math.js",
     "./public/modules/expoPluckEnvelope/expo-pluck-envelope-display.js",
     "./public/modules/expoPluckEnvelope2/expo-pluck-envelope-2-math.js",
-    "./public/modules/pluckEnvelope3/pluck-envelope-3-math.js",
+    "./public/modules/pingEnvelope/ping-envelope-math.js",
     "./public/modules/expoPluckEnvelope2/expo-pluck-envelope-2-display.js",
     "./public/modules/lorenzAttractor/lorenz-attractor-math.js",
     "./public/modules/noiseGenerator/noise-generator-math.js",
@@ -17969,7 +17969,7 @@ def require_native_module_contract(base_url: str) -> None:
     require(
         "const paramTargets = []" in native_graph_source
         and "Mirror face params onto Meta Voices-mode lane clones" not in native_graph_source
-        and 'if (type === "pluckEnvelope3")' in native_graph_source,
+        and 'if (type === "pingEnvelope")' in native_graph_source,
         "Meta Voices clones must share the main param loop (no ADSR/Hypersaw whitelist) so Ping Envelope patches polyphonize",
     )
     require(
@@ -18075,13 +18075,13 @@ def require_native_module_contract(base_url: str) -> None:
     )
 
     expected_native_exports = {
-        "acoustic_pluck": [
-            "soemdsp_acoustic_pluck_create",
-            "soemdsp_acoustic_pluck_destroy",
-            "soemdsp_acoustic_pluck_sample",
-            "soemdsp_acoustic_pluck_version",
-            "soemdsp_acoustic_pluck_metadata_json",
-            "soemdsp_acoustic_pluck_metadata_json_size",
+        "pluck_envelope_fb": [
+            "soemdsp_pluck_envelope_fb_create",
+            "soemdsp_pluck_envelope_fb_destroy",
+            "soemdsp_pluck_envelope_fb_sample",
+            "soemdsp_pluck_envelope_fb_version",
+            "soemdsp_pluck_envelope_fb_metadata_json",
+            "soemdsp_pluck_envelope_fb_metadata_json_size",
         ],
         "attenumax": [
             "soemdsp_attenumax_sample",
@@ -18303,11 +18303,14 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_curve_attack_release_version",
         ],
         "pluck_envelope": ["soemdsp_pluck_envelope_create", "soemdsp_pluck_envelope_destroy", "soemdsp_pluck_envelope_sample"],
-        "pluck_envelope_3": [
-            "soemdsp_pluck_envelope_3_create",
-            "soemdsp_pluck_envelope_3_destroy",
-            "soemdsp_pluck_envelope_3_sample",
-            "soemdsp_pluck_envelope_3_version",
+        "ping_envelope": [
+            "soemdsp_ping_envelope_create",
+            "soemdsp_ping_envelope_destroy",
+            "soemdsp_ping_envelope_sample",
+            "soemdsp_ping_envelope_is_idle",
+            "soemdsp_ping_envelope_version",
+            "soemdsp_ping_envelope_metadata_json",
+            "soemdsp_ping_envelope_metadata_json_size",
         ],
         "thump_envelope": [
             "soemdsp_thump_envelope_create",

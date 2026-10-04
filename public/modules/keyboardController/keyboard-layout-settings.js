@@ -160,9 +160,9 @@ function nodeGraphMidiKeyboardBlackKeyHeightPx(surfaceHeight, blackHeightPercent
 }
 
 function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
-  const fallback = settings || nodeGraphMidiKeyboardLayoutSettings();
+  const layout = settings || nodeGraphMidiKeyboardLayoutSettings();
   if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp && settings) {
-    nodeGraphMvp.midiKeyboardLayout = fallback;
+    nodeGraphMvp.midiKeyboardLayout = layout;
   }
   const generated = typeof nodeGraphMidiKeyboardGenerateKeys === "function"
     ? nodeGraphMidiKeyboardGenerateKeys()
@@ -285,7 +285,7 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
     }
   });
   document.querySelectorAll(".node-grid-keyboard-module").forEach((module) => {
-    module.classList.toggle("show-keyboard-info", s.hideKeyboardInfo === false);
+    module.classList.toggle("show-keyboard-info", layout.hideKeyboardInfo === false);
   });
   if (layoutChanged) {
     installNodeGraphMidiKeyboardLayoutResizeObserver();

@@ -72,14 +72,14 @@
     {
       "destinationNode": "metamodule-1__voiceIdle",
       "destinationPort": "Idle",
-      "sourceNode": "pluckEnvelope3-2",
+      "sourceNode": "pingEnvelope-2",
       "sourcePort": "isIdle",
       "tracePoints": []
     },
     {
       "destinationNode": "ampCurve-2",
       "destinationPort": "Env",
-      "sourceNode": "pluckEnvelope3-2",
+      "sourceNode": "pingEnvelope-2",
       "sourcePort": "Out",
       "tracePoints": []
     },
@@ -105,7 +105,7 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "pluckEnvelope3-2",
+      "destinationNode": "pingEnvelope-2",
       "destinationPort": "Trigger",
       "sourceNode": "metamodule-1__voiceGate",
       "sourcePort": "Gate",
@@ -147,7 +147,7 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "pluckEnvelope3-2",
+      "destinationNode": "pingEnvelope-2",
       "destinationPort": "Trigger",
       "sourceNode": "metamodule-1__voiceTrigger",
       "sourcePort": "Trigger",
@@ -243,7 +243,7 @@
     {
       "destinationNode": "hypersaw2-1",
       "destinationParam": "amplitude",
-      "sourceNode": "pluckEnvelope3-2",
+      "sourceNode": "pingEnvelope-2",
       "sourcePort": "Out",
       "tracePoints": []
     },
@@ -1865,7 +1865,7 @@
     {
       "gx": -11,
       "gy": 8,
-      "id": "pluckEnvelope3-2",
+      "id": "pingEnvelope-2",
       "paramMeta": {
         "recalculateOnTrigger": {
           "alias": "",
@@ -2017,7 +2017,7 @@
         "decay": 0.7258881334386729,
         "amplitude": 1
       },
-      "type": "pluckEnvelope3",
+      "type": "pingEnvelope",
       "alias": "Ping Envelope",
       "widthGu": 7,
       "ui": {

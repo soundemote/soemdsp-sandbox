@@ -1,20 +1,20 @@
-﻿docs\ADDING_HARDCODED_SANDBOX_MODULE.md:149:const workletNode = await createNodeGraphLiveWorkletNode(offlineCtx);
+docs\ADDING_HARDCODED_SANDBOX_MODULE.md:149:const workletNode = await createNodeGraphLiveWorkletNode(offlineCtx);
 scripts\build_native_modules.ps1:77:  @{ Name = "fbm_field"; Simd = $false; Exports = @("soemdsp_fbm_field_create", "soemdsp_fbm_field_destroy", "soemdsp_fbm_field_reset", "soemdsp_fbm_field_sample", "soemdsp_fbm_field_eval_at", "soemdsp_fbm_field_fill_grid", "soemdsp_fbm_field_grid_ptr", "soemdsp_fbm_field_grid_width", "soemdsp_fbm_field_grid_height", "soemdsp_fbm_field_grid_max_width", "soemdsp_fbm_field_grid_max_height", "soemdsp_fbm_field_x", "soemdsp_fbm_field_y", "soemdsp_fbm_field_z", "soemdsp_fbm_field_x_raw", "soemdsp_fbm_field_y_raw", "soemdsp_fbm_field_z_raw", "soemdsp_fbm_field_domain_time", "soemdsp_fbm_field_version") }
 docs\CODE_CLEANUP_PASS_PLAN.md:66:| 3.1 | `createNodeGraphSliderWidgetBody` is a thin deprecated alias; leave definition for compat, ensure primary call sites use `createNodeGraphKnobFace` (already do) | None |
 docs\BUG_PLAN.md:435:- Files: `public/index.html` Visibility menu; `public/node-graph-view-controls.js`; `public/node-graph-ui-settings-persistence.js`; `public/node-graph-patch-normalizers.js` `normalizeNodeGraphPatchView` (only `widthGu` / `heightGu` / `zoom`)
-docs\DISPLAY_SCALE_REWRITE.md:16:Module **displays** (faces, canvases, layout-canvas tiles, screen solo) currently mix three length stories: (1) CSS camera zoom, (2) layout CSS box of the face, (3) sticky inline `font-size` / radius px measured from `clientWidth`. Agents keep ΓÇ£fixingΓÇ¥ the wrong layer ΓÇö resizing WebGL buffers on zoom, freezing `lineWidth` at 1.5 CSS px, or retrying FitCaption after F-cycle reparent. Policy ┬º15 recently oscillated between ΓÇ£ink is CSS px, do not ├ù min(face)ΓÇ¥ and `displayInkToPx(minSide/96)` at paint.
-docs\DISPLAY_SCALE_REWRITE.md:87:3. **Authored ink is representation B: CSS px at reference min-edge 96.** Defended: existing Display Settings already store `1.5`, `2`, `11`; defaults in ┬º15; filter/EQ already look right when `displayInkToPx(..., faceMin)` is used. Representation A (0ΓÇª1 of min-edge) is **only** for compositional box fractions (pad left/right as % of width). **No third system.** No `if (x < 1) treat as fraction`. Phosphor `size01` is renamed in API comments to ink-at-96 (value stays numeric; name stops lying).
-docs\OSC_MODULE_NON_UI_REFERENCE.md:29:- `public/node-graph-default-patch.js` ΓÇö `createNodeGraphPatchNode(...)`
+docs\DISPLAY_SCALE_REWRITE.md:16:Module **displays** (faces, canvases, layout-canvas tiles, screen solo) currently mix three length stories: (1) CSS camera zoom, (2) layout CSS box of the face, (3) sticky inline `font-size` / radius px measured from `clientWidth`. Agents keep GǣfixingGǥ the wrong layer G�� resizing WebGL buffers on zoom, freezing `lineWidth` at 1.5 CSS px, or retrying FitCaption after F-cycle reparent. Policy -�15 recently oscillated between Gǣink is CSS px, do not +� min(face)Gǥ and `displayInkToPx(minSide/96)` at paint.
+docs\DISPLAY_SCALE_REWRITE.md:87:3. **Authored ink is representation B: CSS px at reference min-edge 96.** Defended: existing Display Settings already store `1.5`, `2`, `11`; defaults in -�15; filter/EQ already look right when `displayInkToPx(..., faceMin)` is used. Representation A (0GǪ1 of min-edge) is **only** for compositional box fractions (pad left/right as % of width). **No third system.** No `if (x < 1) treat as fraction`. Phosphor `size01` is renamed in API comments to ink-at-96 (value stays numeric; name stops lying).
+docs\OSC_MODULE_NON_UI_REFERENCE.md:29:- `public/node-graph-default-patch.js` G�� `createNodeGraphPatchNode(...)`
 docs\OSC_MODULE_NON_UI_REFERENCE.md:153:function createNodeGraphPatchNode(type, options = {}) {
-docs\MODULE_PATTERN_REFERENCE.md:235:// In the moduleΓÇÖs *-display.js (after createNodeGraphΓÇªDisplay is defined)
+docs\MODULE_PATTERN_REFERENCE.md:235:// In the moduleG��s *-display.js (after createNodeGraphGǪDisplay is defined)
 docs\MODULE_PATTERN_REFERENCE.md:236:registerNodeGraphModuleFaceCreator("harmonicSeriesFace", createNodeGraphHarmonicSeriesDisplay);
-docs\MODULE_LAYOUT_PLAN.md:24:fixed outer box (`--node-grid-width-units` ├ù `--node-grid-height-units`).
+docs\MODULE_LAYOUT_PLAN.md:24:fixed outer box (`--node-grid-width-units` +� `--node-grid-height-units`).
 docs\MODULE_LAYOUT_PLAN.md:123:`public/node-graph-module-rendering.js` `createNodeGraphModuleElement`
 docs\MODULE_LAYOUT_PLAN.md:274:  (`createNodeGraphModuleElement` / IO append / face factories).
 docs\UC_EFFICIENT_CONVERSION_BATCH_DESIGN.md:207:- Work: add `kTypePapoulisFilter`, create/destroy on node lifecycle, `process_*` with MLR if stereo face requires it, host ID + param sync (cutoff), allowlist, UC retire, smoke.
 docs\UC_EFFICIENT_CONVERSION_BATCH_DESIGN.md:257:- **`quadrature` then `hilbert`:** shared `native_modules/quadrature/` kernel (published I/Q pole radii + 1-sample I delay). Two independent nets per Hilbert Pair instance (`side` + `mid`), matching `createNodeGraphQuadratureState()`.
-docs\UC_EFFICIENT_CONVERSION_BATCH_DESIGN.md:518:- **Description:** Wire create/destroy/process for Papoulis as an audio node (separate from Control smoother handles); allowlist + retire from UC; smoke cutoffΓåÆaudible lowpass behavior.
-docs\SMOOTH_STEP_GRAPH_AND_KNOB_OVERHAUL_PLAN.md:37:- Side list editor: `renderNodeGraphGraphNodeList` in `public/node-graph-module-actions.js` builds rows with **`createNodeGraphGraphRowNumberInput` ΓåÆ bare `<input type="number">`**. No Sound Color steppers, no shared drag-number widget, no metadata-style controls.
+docs\UC_EFFICIENT_CONVERSION_BATCH_DESIGN.md:518:- **Description:** Wire create/destroy/process for Papoulis as an audio node (separate from Control smoother handles); allowlist + retire from UC; smoke cutoffG��audible lowpass behavior.
+docs\SMOOTH_STEP_GRAPH_AND_KNOB_OVERHAUL_PLAN.md:37:- Side list editor: `renderNodeGraphGraphNodeList` in `public/node-graph-module-actions.js` builds rows with **`createNodeGraphGraphRowNumberInput` G�� bare `<input type="number">`**. No Sound Color steppers, no shared drag-number widget, no metadata-style controls.
 docs\SMOOTH_STEP_GRAPH_AND_KNOB_OVERHAUL_PLAN.md:198:| Graph list UI | `public/node-graph-module-actions.js` (`createNodeGraphGraphRowNumberInput`, `renderNodeGraphGraphNodeList`) |
 native_modules\graph_engine\graph_engine.cpp:13951:// created at add_node time (0 if missing / free-fn type).
 native_modules\fbm_field\fbm_field.cpp:381:  int w = width < 1 ? 1 : (width > kMaxGridW ? kMaxGridW : width);
@@ -256,7 +256,7 @@ public\index.html:1284:                id="nodeUiDevPatchGridWidthPx"
 public\index.html:1291:              <output id="nodeUiDevPatchGridWidthPxValue" for="nodeUiDevPatchGridWidthPx">28px</output>
 public\index.html:2179:          <button id="nodeSceneWidthDecrease" type="button" aria-label="Decrease module width">-</button>
 public\index.html:2180:          <button id="nodeSceneWidthIncrease" type="button" aria-label="Increase module width">+</button>
-public\index.html:2879:          <button id="nodeDownloadSampleButton" type="button" draggable="true" title="Download rendered sample. Drag onto the modular area to spawn a stereo Sample Player." aria-label="Download rendered sample"><span class="node-modular-view-icon" aria-hidden="true">Γ¼ç∩╕Å</span></button>
+public\index.html:2879:          <button id="nodeDownloadSampleButton" type="button" draggable="true" title="Download rendered sample. Drag onto the modular area to spawn a stereo Sample Player." aria-label="Download rendered sample"><span class="node-modular-view-icon" aria-hidden="true">G��n+�</span></button>
 public\node-graph-floating-windows.js:56: * pixel ceiling. Optional defaults.maxWidth/maxHeight only apply when smaller
 public\node-graph-floating-windows.js:61:  const minWidth = Math.max(1, nodeGraphFiniteNumber(defaults.minWidth, 160));
 public\node-graph-floating-windows.js:63:  const configuredMaxWidth = Number(defaults.maxWidth);
@@ -520,8 +520,6 @@ public\node-graph-live-plan-runtime.js:857:        typeof createNodeGraphCurveAt
 public\node-graph-live-plan-runtime.js:858:          ? createNodeGraphCurveAttackReleaseState()
 public\node-graph-live-plan-runtime.js:865:        typeof createNodeGraphThumpEnvelopeState === "function"
 public\node-graph-live-plan-runtime.js:866:          ? createNodeGraphThumpEnvelopeState()
-public\node-graph-live-plan-runtime.js:873:        typeof createNodeGraphPluckEnvelope3State === "function"
-public\node-graph-live-plan-runtime.js:874:          ? createNodeGraphPluckEnvelope3State()
 public\node-graph-live-plan-runtime.js:888:      noiseGeneratorStates.set(node.id, createNodeGraphNoiseGeneratorState());
 public\node-graph-live-plan-runtime.js:891:      randomWalkStates.set(node.id, createNodeGraphRandomWalkState());
 public\node-graph-live-plan-runtime.js:894:      piSpigotNoiseStates.set(node.id, createNodeGraphPiSpigotNoiseState());
@@ -651,8 +649,6 @@ public\node-graph-live-plan-runtime.js:1846:        typeof createNodeGraphCurveA
 public\node-graph-live-plan-runtime.js:1847:          ? createNodeGraphCurveAttackReleaseState()
 public\node-graph-live-plan-runtime.js:1854:        typeof createNodeGraphThumpEnvelopeState === "function"
 public\node-graph-live-plan-runtime.js:1855:          ? createNodeGraphThumpEnvelopeState()
-public\node-graph-live-plan-runtime.js:1862:        typeof createNodeGraphPluckEnvelope3State === "function"
-public\node-graph-live-plan-runtime.js:1863:          ? createNodeGraphPluckEnvelope3State()
 public\node-graph-live-plan-runtime.js:1877:      runtime.noiseGeneratorStates.set(node.id, createNodeGraphNoiseGeneratorState());
 public\node-graph-live-plan-runtime.js:1880:      runtime.randomWalkStates.set(node.id, createNodeGraphRandomWalkState());
 public\node-graph-live-plan-runtime.js:1883:      runtime.piSpigotNoiseStates.set(node.id, createNodeGraphPiSpigotNoiseState());
@@ -871,7 +867,7 @@ public\node-graph-module-definitions.js:16082:    defaultWidthGu: 12,
 public\node-graph-module-definitions.js:16199:    defaultWidthGu: 14,
 public\node-graph-module-definitions.js:16214:    defaultWidthGu: 12,
 public\node-graph-module-definitions.js:16257:    defaultWidthGu: 14,
-public\node-graph-module-definitions.js:16569:        tooltip: "Pixels advanced per audio sample (fractional OK). 1 = sample clock. 0.5 = one pixel every two samples (slower). 1.5 / 8 / ΓÇª stamp each sample across more pixels (faster). Default 8 Γëê sampleRate├ù8/(Width├ùHeight) full frames/sec.",
+public\node-graph-module-definitions.js:16569:        tooltip: "Pixels advanced per audio sample (fractional OK). 1 = sample clock. 0.5 = one pixel every two samples (slower). 1.5 / 8 / GǪ stamp each sample across more pixels (faster). Default 8 G�� sampleRate+�8/(Width+�Height) full frames/sec.",
 public\modules\led\led-ui.js:3:function createNodeGraphLedFace(node, type) {
 public\modules\led\led-ui.js:14:  createBody: createNodeGraphLedFace,
 public\modules\noiseDetector\noise-detector-live-evaluator.js:15:  const state = runtime.noiseDetectorStates.get(nodeId) || createNodeGraphNoiseDetectorState();
@@ -901,9 +897,9 @@ public\modules\metamodule\metamodule-register.js:173:    defaultWidthGu: 4,
 public\modules\metamodule\metamodule-register.js:196:    defaultWidthGu: 4,
 public\modules\metamodule\metamodule-register.js:220:    defaultWidthGu: 4,
 public\modules\metamodule\metamodule-register.js:248:    defaultWidthGu: 4,
-public\node-graph-module-chrome.js:5://   MetamoduleLayout    ΓÇö ports in a top strip; dedicated full-width face below
+public\node-graph-module-chrome.js:5://   MetamoduleLayout    G�� ports in a top strip; dedicated full-width face below
 public\modules\modeResonator\mode-resonator-math.js:10:function createNodeGraphModeResonatorState() {
-public\video-synth-poc.html:102:    statusEl.textContent = `ready ΓÇö module version ${exports.soemdsp_video_synth_raster_version()}, handle ${handle}, ${width}x${height}`;
+public\video-synth-poc.html:102:    statusEl.textContent = `ready G�� module version ${exports.soemdsp_video_synth_raster_version()}, handle ${handle}, ${width}x${height}`;
 public\modules\hilbert\hilbert-math.js:4:function createNodeGraphHilbertState() {
 public\node-graph-module-scope-buffer-view.js:335:function nodeGraphModuleScopeRenderedSampleWidth(rect, zoomScale = nodeGraphModuleScopeZoomScale()) {
 public\modules\harmonicLines\harmonic-count-display.js:3:function createNodeGraphHarmonicCountDisplay(nodeId, type = "additiveGenerator") {
@@ -976,14 +972,14 @@ public\modules\lcdDot\lcd-dot-register.js:9:    defaultWidthGu: 2,
 public\tooltips.json:140:    "textBoxEdit": "display-only text | edit content from this module's actions menu | text clips to box height, scales down to fit width | mouse wheel zooms the modular view",
 public\tooltips.json:274:    "widthDecrease": "decrease this module width by one grid unit",
 public\tooltips.json:275:    "widthIncrease": "increase this module width by one grid unit",
-public\node-graph-module-rendering.js:1:/** displayType ΓåÆ createFace(nodeId, type) for LayoutA custom faces (Phone Tone, Harmonic Series, ΓÇª). */
+public\node-graph-module-rendering.js:1:/** displayType G�� createFace(nodeId, type) for LayoutA custom faces (Phone Tone, Harmonic Series, GǪ). */
 public\node-graph-module-rendering.js:16:  const create = key ? nodeGraphModuleFaceCreatorsByDisplayType[key] : null;
 public\node-graph-module-rendering.js:22:    article.append(create(node, type));
 public\node-graph-module-rendering.js:162:    createNodeSliderReadout(slider);
 public\node-graph-module-rendering.js:290:  if (slider && typeof createNodeSliderReadout === "function") {
 public\node-graph-module-rendering.js:291:    createNodeSliderReadout(slider);
 public\node-graph-module-rendering.js:482:  const proxy = createNodeGraphIoProxySection(node, inputPorts, outputPorts);
-public\node-graph-module-rendering.js:489:/** Empty LayoutB IO column ΓÇö zero width (display expands). Kept for grid structure. */
+public\node-graph-module-rendering.js:489:/** Empty LayoutB IO column G�� zero width (display expands). Kept for grid structure. */
 public\node-graph-module-rendering.js:490:function createNodeGraphLayoutBIoColumnPlaceholder(io) {
 public\node-graph-module-rendering.js:498:function createNodeGraphLayoutBShell(node, type, customBody, registration, inputPorts, outputPorts) {
 public\node-graph-module-rendering.js:507:  const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input")
@@ -1332,7 +1328,7 @@ public\node-graph-module-store.js:4181:      panel.style.setProperty("--node-mod
 public\node-graph-module-store.js:4194:      panel.style.setProperty("--node-module-shop-max-width", `${normalized._maxWidth}px`);
 public\node-graph-module-store.js:4311:    if (typeof createNodeGraphModuleStoreButton === "function") {
 public\node-graph-module-store.js:4312:      results.append(createNodeGraphModuleStoreButton(entry));
-public\node-graph-module-store.js:4330:  // Prefer definition outputs ΓÇö createNodeGraphPatchNode loads later in boot.
+public\node-graph-module-store.js:4330:  // Prefer definition outputs G�� createNodeGraphPatchNode loads later in boot.
 public\node-graph-module-store.js:4331:  if (typeof createNodeGraphPatchNode === "function") {
 public\node-graph-module-store.js:4332:    return nodeGraphPatchNodeOutputPorts(createNodeGraphPatchNode(type, { id: "demo" })).length > 0;
 public\node-graph-module-store.js:4343:  const outputPorts = nodeGraphPatchNodeOutputPorts(createNodeGraphPatchNode(type, { id: "demo" }));
@@ -1397,8 +1393,6 @@ public\modules\plugin\plugin-controls-ui.js:215:function createNodeGraphToggleBu
 public\modules\plugin\plugin-controls-ui.js:294:function createNodeGraphMomentaryButtonFace(node, type) {
 public\modules\rgbPicture\rgb-picture-register.js:9:    defaultWidthGu: 4,
 public\modules\patch\patch-register.js:10:    defaultWidthGu: 10,
-public\modules\pluckEnvelope3\pluck-envelope-3-math.js:7:function createNodeGraphPluckEnvelope3State() {
-public\modules\pluckEnvelope3\pluck-envelope-3-math.js:105:  const state = createNodeGraphPluckEnvelope3State();
 public\node-graph-ray-bouncer.js:26:function createNodeGraphRayBouncerState() {
 public\node-graph-ray-bouncer.js:46:  const state = options.state || createNodeGraphRayBouncerState();
 public\modules\portal\portal-ui.js:2:// no custom face / createBody path (jacks live in .dsp-node-io-section).
@@ -1486,10 +1480,10 @@ public\modules\stepGrid\step-grid-ui.js:91:  inputColumn.append(createNodeGraphP
 public\modules\stepGrid\step-grid-ui.js:145:  outputColumn.append(createNodeGraphPort(node, type, "Gate", "output"));
 public\modules\stepGrid\step-grid-ui.js:146:  outputColumn.append(createNodeGraphPort(node, type, "Step", "output"));
 public\modules\stepGrid\step-grid-ui.js:153:  createBody: createNodeGraphStepGridBody,
-public\node-graph-module-scope-paint-helpers.js:785:// createNodeGraphScope2dBurnTexture ΓåÆ node-graph-module-scope-draw-burn.js
-public\node-graph-module-scope-paint-helpers.js:786:// createNodeGraphScope2dBurnFramebuffer ΓåÆ node-graph-module-scope-draw-burn.js
-public\node-graph-module-scope-paint-helpers.js:787:// createNodeGraphScope2dBurnSurface ΓåÆ node-graph-module-scope-draw-burn.js
-public\node-graph-module-scope-paint-helpers.js:789:// createNodeGraphScope2dBurnRenderer ΓåÆ node-graph-module-scope-draw-burn.js
+public\node-graph-module-scope-paint-helpers.js:785:// createNodeGraphScope2dBurnTexture G�� node-graph-module-scope-draw-burn.js
+public\node-graph-module-scope-paint-helpers.js:786:// createNodeGraphScope2dBurnFramebuffer G�� node-graph-module-scope-draw-burn.js
+public\node-graph-module-scope-paint-helpers.js:787:// createNodeGraphScope2dBurnSurface G�� node-graph-module-scope-draw-burn.js
+public\node-graph-module-scope-paint-helpers.js:789:// createNodeGraphScope2dBurnRenderer G�� node-graph-module-scope-draw-burn.js
 public\node-graph-phosphillator.js:21:function createNodeGraphPhosphillatorCaptureState() {
 public\node-graph-phosphillator.js:23:    mouseSmooth: typeof createNodeGraphMouseSmoothState === "function"
 public\node-graph-phosphillator.js:24:      ? createNodeGraphMouseSmoothState(0, 0)
@@ -1499,7 +1493,7 @@ public\node-graph-phosphillator.js:390:function createNodeGraphPhosphillatorPlay
 public\node-graph-module-scope-trace-controls.js:1772:    title: "Keep raster cells square. When Width and Height match, a non-square face letterboxes instead of stretching. Off: stretch the grid to fill the face.",
 public\node-graph-module-scope-screen-items.js:480:          sampleWidth: nodeGraphModuleScopeUnzoomedLength(drawRect.width, zoomScale),
 public\modules\softClipper\soft-clipper-display.js:4:function createNodeGraphSoftClipperCurveDisplay(nodeId, type) {
-public\node-graph-module-scope-normalize.js:2188:    // Map through /16 so old default 1px Γëê 0.06, old max 16 ΓåÆ 1 (full width).
+public\node-graph-module-scope-normalize.js:2188:    // Map through /16 so old default 1px G�� 0.06, old max 16 G�� 1 (full width).
 public\modules\softwaveOsc\softwave-osc-display.js:4:function createNodeGraphSoftwaveOscDisplay(nodeId, type = "softwaveOsc") {
 public\node-graph-module-scope-spectrum.js:195:    ? nodeGraphUnifiedWindowDefaultSize.maxWidth
 public\node-graph-module-scope-spectrum.js:203:    ? nodeGraphUnifiedWindowDefaultSize.minWidth
@@ -1642,7 +1636,7 @@ public\node-graph-wire-actions.js:631:    const slewNode = createNodeGraphPatchN
 public\node-graph-wire-actions.js:725:    const ampCurveNode = createNodeGraphPatchNode("ampCurve", {
 public\node-graph-wire-actions.js:833:    const inNode = createNodeGraphPatchNode("namedPortalIn", {
 public\node-graph-wire-actions.js:840:    const outNode = createNodeGraphPatchNode("namedPortalOut", {
-public\node-graph-unified-window.js:145:// resized ΓåÆ this width. Per-page *DefaultSize objects must copy width/max
+public\node-graph-unified-window.js:145:// resized G�� this width. Per-page *DefaultSize objects must copy width/max
 public\node-graph-unified-window.js:193:    width: nodeGraphFiniteNumber(size.width, nodeGraphFiniteNumber(nodeGraphMvp?.unifiedWindowSize?.width, nodeGraphFiniteNumber(rect?.width, defaults.width)))
 public\node-graph-unified-window.js:236:    "--node-unified-window-default-width",
 public\node-graph-unified-window.js:237:    `${nodeGraphUnifiedWindowDefaultSize.width}px`,
@@ -1655,7 +1649,7 @@ public\node-graph-wire-rendering.js:77:  const grid = Math.max(1, Number(typeof 
 public\node-graph-workspace-view.js:109:  const worldX = -((nodeGraphFiniteNumber(pan.x)) / zoom) / nodeGraphGridWidth();
 public\node-graph-workspace-view.js:112:    Object.assign(document.createElement("span"), { textContent: `X ${nodeGraphWorldPositionLabel(worldX)}` }),
 public\node-graph-workspace-view.js:113:    Object.assign(document.createElement("span"), { textContent: `Y ${nodeGraphWorldPositionLabel(worldY)}` }),
-public\node-graph-workspace-view.js:136:  // widthGu/heightGu of 0 means ΓÇ£auto / fill viewportΓÇ¥ ΓÇö not a real readout
+public\node-graph-workspace-view.js:136:  // widthGu/heightGu of 0 means Gǣauto / fill viewportGǥ G�� not a real readout
 public\node-graph-workspace-view.js:147:  let widthGu = pickGu(
 public\node-graph-workspace-view.js:148:    size?.widthGu,
 public\node-graph-workspace-view.js:149:    view?.widthGu,
@@ -1716,5 +1710,5 @@ public\perform.html:1285:                id="nodeUiDevPatchGridWidthPx"
 public\perform.html:1292:              <output id="nodeUiDevPatchGridWidthPxValue" for="nodeUiDevPatchGridWidthPx">28px</output>
 public\perform.html:2178:          <button id="nodeSceneWidthDecrease" type="button" aria-label="Decrease module width">-</button>
 public\perform.html:2179:          <button id="nodeSceneWidthIncrease" type="button" aria-label="Increase module width">+</button>
-public\perform.html:2878:          <button id="nodeDownloadSampleButton" type="button" draggable="true" title="Download rendered sample. Drag onto the modular area to spawn a stereo Sample Player." aria-label="Download rendered sample"><span class="node-modular-view-icon" aria-hidden="true">Γ¼ç∩╕Å</span></button>
+public\perform.html:2878:          <button id="nodeDownloadSampleButton" type="button" draggable="true" title="Download rendered sample. Drag onto the modular area to spawn a stereo Sample Player." aria-label="Download rendered sample"><span class="node-modular-view-icon" aria-hidden="true">G��n+�</span></button>
 public\presets\default.json:411:    "widthGu": 48,

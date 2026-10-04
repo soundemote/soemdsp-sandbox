@@ -92,9 +92,10 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   curveAttackRelease: "silence",
   thumpEnvelope: "silence",
   pluckEnvelope: "silence",
+  soemPluckEnvelope: "silence",
   expoPluckEnvelope: "silence",
   expoPluckEnvelope2: "silence",
-  pluckEnvelope3: "silence",
+  pingEnvelope: "silence",
   flowerChildEnvelopeFollower: "silence",
   vactrol: "silence",
   // Generators / sequencers → mute

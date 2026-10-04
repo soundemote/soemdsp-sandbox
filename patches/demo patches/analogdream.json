@@ -57,7 +57,7 @@
     {
       "destinationNode": "namedPortalIn-5",
       "destinationPort": "In",
-      "sourceNode": "pluckEnvelope3-1",
+      "sourceNode": "pingEnvelope-1",
       "sourcePort": "Out",
       "tracePoints": []
     },
@@ -140,7 +140,7 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "pluckEnvelope3-1",
+      "destinationNode": "pingEnvelope-1",
       "destinationPort": "Trigger",
       "sourceNode": "namedPortalOut-12",
       "sourcePort": "Out",
@@ -228,14 +228,14 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "pluckEnvelope3-1",
+      "destinationNode": "pingEnvelope-1",
       "destinationParam": "decay",
       "sourceNode": "knob-5",
       "sourcePort": "Bias",
       "tracePoints": []
     },
     {
-      "destinationNode": "pluckEnvelope3-1",
+      "destinationNode": "pingEnvelope-1",
       "destinationParam": "amplitude",
       "sourceNode": "knob-1",
       "sourcePort": "Bias",
@@ -1776,7 +1776,7 @@
     {
       "gx": -17,
       "gy": 4,
-      "id": "pluckEnvelope3-1",
+      "id": "pingEnvelope-1",
       "paramMeta": {
         "recalculateOnTrigger": {
           "alias": "",
@@ -1929,7 +1929,7 @@
         "decay": 0.735781368943726,
         "amplitude": 0
       },
-      "type": "pluckEnvelope3",
+      "type": "pingEnvelope",
       "widthGu": 7,
       "traceDisplaySettings": {
         "backgroundHue": 0,

@@ -365,6 +365,16 @@ NodeLiveAudioProcessor.prototype.setParams = function setParams(nodes, message =
     if (this.efficientProduct && typeof this.syncNativeGraphParams === "function") {
       this.syncNativeGraphParams();
     }
+    if (this.efficientProduct && typeof this.publishEfficientControllerBiasTargets === "function") {
+      try {
+        this.publishEfficientControllerBiasTargets();
+      } catch (_e) { /* keep params */ }
+    }
+    if (this.efficientProduct && typeof this.syncNativeHostCvFeeders === "function") {
+      try {
+        this.syncNativeHostCvFeeders();
+      } catch (_e) { /* keep params */ }
+    }
     if (typeof this.clearPendingParamSnaps === "function") {
       this.clearPendingParamSnaps();
     }

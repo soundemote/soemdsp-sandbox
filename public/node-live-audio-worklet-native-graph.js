@@ -152,10 +152,10 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   expoPluckEnvelope: 162,
   expoPluckEnvelope2: 163,
   linearAttackRelease: 164,
-  pluckEnvelope3: 165,
+  pingEnvelope: 165,
   curveAttackRelease: 166,
   thumpEnvelope: 167,
-  acousticPluck: 198,
+  pluckEnvelope: 198,
   acidSequencer: 199,
   t: 159,
   t2: 159,
@@ -209,7 +209,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   // Mod twin aliases → same native opcodes; strips harvested from Mono.
   curveEnvelopeMod: 70,
   linearEnvelope: 71,
-  pluckEnvelope: 72,
+  soemPluckEnvelope: 72,
   pluckEnvelopeMod: 72,
   flowerChildEnvelopeFollower: 73,
   // 74 tombstoned (old vactrol)
@@ -607,33 +607,6 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphTypeId = function mapNativeGraphT
 /** Audio tap ports only (0–7). Never maps Live aliases — those are destination-only.
  *  Optional `type` disambiguates module-local names that reuse tap slots (Thru, etc.).
  */
-
-/**
- * PitchHz (Hz) → Superlove/Yellowjacket/… Frequency (0…1 pitch-norm) cannot use
- * raw ParamModEdge: process_norm_chaos_filter clamps frequency to 0…1, so any
- * audible Hz becomes 1.0 (max cutoff). Host converts Hz→norm via set_param_mod.
- */
-NodeLiveAudioProcessor.prototype.shouldSkipPitchHzNormFreqParamModEdge = function shouldSkipPitchHzNormFreqParamModEdge(
-  srcType,
-  dstType,
-  paramKey,
-) {
-  if (String(srcType || "") !== "pitchHz") return false;
-  if (typeof nodeGraphIsNormPitchFrequencyParam === "function") {
-    return nodeGraphIsNormPitchFrequencyParam(dstType, paramKey);
-  }
-  const normTypes = {
-    superloveFilter: 1,
-    superloveRev2: 1,
-    vcvrackSuperloveFilter: 1,
-    yellowjacketFilter: 1,
-    flowerChildFilter: 1,
-    humanFilter: 1,
-    resonatorFilter: 1,
-    chaoticPhaseLockingFilter: 1,
-  };
-  return !!normTypes[String(dstType || "")] && String(paramKey || "") === "frequency";
-};
 
 NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGraphSrcPortId(
   port,
@@ -1150,7 +1123,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_PHASE_CV;
     }
   }
-  if (p === "kt" && type === "acousticPluck") {
+  if (p === "kt" && type === "pluckEnvelope") {
     return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
   // Gate-primary envelopes + Sample Player: Trigger/Trig/Gate → Mono bus.
@@ -1167,8 +1140,8 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
         || tGateEnv === "linearAttackRelease"
         || tGateEnv === "curveAttackRelease"
         || tGateEnv === "attackDecay"
-        || tGateEnv === "pluckEnvelope3"
-        || tGateEnv === "acousticPluck"
+        || tGateEnv === "pingEnvelope"
+        || tGateEnv === "pluckEnvelope"
         || tGateEnv === "samplePlayer"
         || tGateEnv === "vibratoGenerator"
       )
@@ -2201,7 +2174,6 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
               const srcId = String(hops[hi]?.sourceNode || "");
               const srcPort = String(hops[hi]?.sourcePort || rawSrcPort);
               if (!srcId) continue;
-              if (this.shouldSkipPitchHzNormFreqParamModEdge?.(typeById.get(srcId), dstType, paramKey)) continue;
               const srcHash = idSet.has(srcId)
                 ? (hashById.get(srcId) || this.fnv1aHash32(srcId))
                 : this.nativeHostCvFeederHash(srcId, srcPort);
@@ -2731,6 +2703,99 @@ NodeLiveAudioProcessor.prototype.refreshControllerDigitalThruOuts = function ref
   }
 };
 
+NodeLiveAudioProcessor.prototype.hostCvControllerBiasKey = function hostCvControllerBiasKey(node, port) {
+  const type = String(node?.type || "");
+  const sp = String(port || "");
+  if (
+    type === "knob"
+    || type === "pluginSlider"
+    || type === "toggleButton"
+    || type === "momentaryButton"
+  ) {
+    if (sp === "Bias" || sp === "Out" || sp === "Ext Out" || sp === "offset" || sp === "value") {
+      return "offset";
+    }
+    return "";
+  }
+  if (type === "pitchModWheel") {
+    if (sp === "Pitch" || sp === "Pitch Wheel") return "pitch";
+    if (sp === "Mod" || sp === "Mod Wheel") return "mod";
+    return "";
+  }
+  return "";
+};
+
+/** Chase only knob/slider/buttons/wheels. Off, type none, or internal time 0 snaps. */
+NodeLiveAudioProcessor.prototype.hostCvFeederSmoothSpec = function hostCvFeederSmoothSpec(feed) {
+  const snap = { mode: 3, type: 3, samples: 0, key: "" };
+  if (!feed || feed.keyTrackMaskFeeder || feed.scaleMaskFeeder) return snap;
+  const node = this.nodes?.get?.(String(feed.sourceNode || ""));
+  const key = this.hostCvControllerBiasKey(node, feed.sourcePort);
+  if (!key) return snap;
+  const defaults = {
+    smoothingMode: "internal",
+    smoothingSeconds: 0.0333,
+    smoothingType: "linear",
+  };
+  let defParam = null;
+  const defs = typeof nodeGraphModuleDefinitions !== "undefined"
+    ? nodeGraphModuleDefinitions
+    : null;
+  const list = defs?.[String(node?.type || "")]?.parameters;
+  if (Array.isArray(list)) {
+    defParam = list.find((item) => item && item.key === key) || null;
+  }
+  const meta = {
+    ...defaults,
+    ...(defParam || {}),
+    ...(node?.paramMeta?.[key] || {}),
+  };
+  let mode = this.nativeGraphSmoothModeFromMeta?.(meta) ?? 0;
+  let type = this.nativeGraphSmoothTypeFromMeta?.(meta) ?? 1;
+  let samples = this.nativeGraphSmoothTimeSamplesFromMeta?.(meta) || 0;
+  if (mode === 3) samples = 0;
+  if (mode === 3 || type === 3 || (mode === 0 && !(samples > 0))) {
+    return { mode: 3, type: 3, samples: 0, key };
+  }
+  return { mode, type, samples, key };
+};
+
+NodeLiveAudioProcessor.prototype.applyNativeHostCvFeederSmoothing = function applyNativeHostCvFeederSmoothing(
+  native,
+  feed,
+  spec,
+  paramId,
+  value,
+) {
+  const hash = feed?.hash || feed?.feedHash;
+  if (!hash || !spec) return false;
+  const token = `${spec.mode}\0${spec.type}\0${spec.samples}`;
+  const node = this.nodes?.get?.(String(feed.sourceNode || ""));
+  const snapList = node?._pendingSnapParams;
+  const shouldSnap = Boolean(spec.key)
+    && Array.isArray(snapList)
+    && snapList.indexOf(spec.key) >= 0;
+  const pushSpec = (mode, type, samples) => {
+    this.pushNativeGraphSmoothType(native, hash, paramId, type);
+    this.pushNativeGraphSmoothMode(native, hash, paramId, mode);
+    this.pushNativeGraphSmoothTime(native, hash, paramId, samples);
+  };
+  if (shouldSnap) {
+    pushSpec(3, 3, 0);
+    this.pushNativeGraphParam(native, hash, paramId, value);
+    feed._hostCvValue = value;
+    feed._hostCvValueSeen = true;
+    pushSpec(spec.mode, spec.type, spec.samples);
+    feed._hostCvSmoothToken = token;
+    return true;
+  }
+  if (feed._hostCvSmoothToken !== token) {
+    pushSpec(spec.mode, spec.type, spec.samples);
+    feed._hostCvSmoothToken = token;
+  }
+  return false;
+};
+
 NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHostCvFeeders() {
   if (!this.efficientProduct || !this.nativeGraphCompiled || !this.nativeGraphHandle) {
     return;
@@ -2765,6 +2830,16 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
           v = Number.isFinite(raw) ? raw : 0;
         }
       }
+      const smoothSpec = typeof this.hostCvFeederSmoothSpec === "function"
+        ? this.hostCvFeederSmoothSpec(feed)
+        : null;
+      const snappedNow = smoothSpec && typeof this.applyNativeHostCvFeederSmoothing === "function"
+        ? this.applyNativeHostCvFeederSmoothing(native, feed, smoothSpec, paramId, v)
+        : false;
+      if (snappedNow) continue;
+      if (feed._hostCvValueSeen && feed._hostCvValue === v) continue;
+      feed._hostCvValueSeen = true;
+      feed._hostCvValue = v;
       this.pushNativeGraphParam(native, feedHash, paramId, v);
     }
   }
@@ -3326,13 +3401,13 @@ NodeLiveAudioProcessor.prototype.syncNativeVoiceIdleCleanup = function syncNativ
   const idle = new Array(poly).fill(false);
   const P = NodeLiveAudioProcessor;
   const envTypes = {
-    pluckEnvelope3: 1,
+    pingEnvelope: 1,
     expAdsr: 1,
     linearEnvelope: 1,
     wavetableAdsr: 1,
     pluckEnvelope: 1,
     thumpEnvelope: 1,
-    acousticPluck: 1,
+    soemPluckEnvelope: 1,
     curveAttackRelease: 1,
     linearAttackRelease: 1,
   };
@@ -4377,10 +4452,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "filterMorphOscillator") {
-      // shape=Morph, stages=Poles. Morph/Poles/Phase/Amp via param MOD (no twin CV jacks).
+      // shape=Morph. Morph/Phase/Amp via param MOD (no twin CV jacks).
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 1));
-      push("poles", P.NATIVE_GRAPH_PARAM_STAGES, disc("poles", 1));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
@@ -4493,6 +4567,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 0));
       push("antialias", P.NATIVE_GRAPH_PARAM_CENTER, disc("antialias", 1));
+      push("dither", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, disc("dither", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -5055,7 +5130,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
       continue;
     }
-    if (type === "pluckEnvelope" || type === "pluckEnvelopeMod") {
+    if (type === "soemPluckEnvelope" || type === "pluckEnvelopeMod") {
       // SoEmPluck names → Control slots (see process_pluck_envelope).
       push("velocitySensitivity", P.NATIVE_GRAPH_PARAM_CENTER, cont("velocitySensitivity", 0.5));
       push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0));
@@ -5141,7 +5216,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0.980691228326368));
       continue;
     }
-    if (type === "acousticPluck") {
+    if (type === "pluckEnvelope") {
       // Breadboard knobs: softenAttack→timeDen, tail→width (inverted Dampen), synthVsAcoustic→feedback.
       push("softenAttack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("softenAttack", 0));
       push("tail", P.NATIVE_GRAPH_PARAM_WIDTH, cont("tail", 1.1));
@@ -5149,7 +5224,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
-    if (type === "pluckEnvelope3") {
+    if (type === "pingEnvelope") {
       // timeDenominator=attack s, width=decay, amplitude, mode=recalculateOnTrigger.
       push("recalculateOnTrigger", P.NATIVE_GRAPH_PARAM_MODE, disc("recalculateOnTrigger", 1));
       push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0));
@@ -5569,6 +5644,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       // Pitch jitter: lfoRate=speed, lfoAmp=depth¢, lpf=filter, feedback=detuneTilt.
       push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
       push("morph", P.NATIVE_GRAPH_PARAM_PHASE, cont("morph", 0));
+      push("squareAa", P.NATIVE_GRAPH_PARAM_OVERSAMPLE, disc("squareAa", 0));
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("detuneCents", P.NATIVE_GRAPH_PARAM_WIDTH, cont("detuneCents", 30));
       push("detuneTilt", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("detuneTilt", 0));
@@ -6019,10 +6095,10 @@ NodeLiveAudioProcessor.prototype.resolveAdditiveBubbleCutoffStrip =
         : (
           srcType === "curveEnvelopeMod"
           || srcType === "pluckEnvelopeMod"
-          || srcType === "pluckEnvelope"
+          || srcType === "soemPluckEnvelope"
           || srcType === "expAdsr"
           || srcType === "thumpEnvelope"
-          || srcType === "pluckEnvelope3"
+          || srcType === "pingEnvelope"
           || srcType === "curveAttackRelease"
           || srcType === "linearAttackRelease"
           || srcType === "additiveCurveEnvelope"
@@ -7095,7 +7171,7 @@ NodeLiveAudioProcessor.prototype.syncNativeAudioPlayerPcm = function syncNativeA
 /** JS declares Portal →/← + title; C++ groups matching bus keys at compile. */
 /** Bias stand-in for a keyboard/knob port, shared by signal cables and param mods. */
 
-/** Force every host CV Bias Offset to Off / 0 samples / type none. */
+/** Knob/slider/buttons/wheels chase their Bias settings. Everyone else stays snapped. */
 NodeLiveAudioProcessor.prototype.snapNativeHostCvFeederSmoothing = function snapNativeHostCvFeederSmoothing(
   native = this.nativeGraph,
   feeders = this._nativeHostCvFeeders,
@@ -7103,11 +7179,16 @@ NodeLiveAudioProcessor.prototype.snapNativeHostCvFeederSmoothing = function snap
   if (!native || !this.nativeGraphHandle || !Array.isArray(feeders) || !feeders.length) return;
   const attOffsetParam = NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_ATT_OFFSET;
   for (let i = 0; i < feeders.length; i += 1) {
-    const feedHash = feeders[i]?.hash || feeders[i]?.feedHash;
+    const feed = feeders[i];
+    const feedHash = feed?.hash || feed?.feedHash;
     if (!feedHash) continue;
-    this.pushNativeGraphSmoothType(native, feedHash, attOffsetParam, 3);
-    this.pushNativeGraphSmoothMode(native, feedHash, attOffsetParam, 3);
-    this.pushNativeGraphSmoothTime(native, feedHash, attOffsetParam, 0);
+    const spec = typeof this.hostCvFeederSmoothSpec === "function"
+      ? this.hostCvFeederSmoothSpec(feed)
+      : { mode: 3, type: 3, samples: 0 };
+    this.pushNativeGraphSmoothType(native, feedHash, attOffsetParam, spec.type);
+    this.pushNativeGraphSmoothMode(native, feedHash, attOffsetParam, spec.mode);
+    this.pushNativeGraphSmoothTime(native, feedHash, attOffsetParam, spec.samples);
+    feed._hostCvSmoothToken = `${spec.mode}\0${spec.type}\0${spec.samples}`;
   }
 };
 
@@ -7818,7 +7899,6 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
             const srcId = String(hops[hi]?.sourceNode || "");
             const srcPort = String(hops[hi]?.sourcePort || rawSrcPort);
             if (!srcId) continue;
-            if (this.shouldSkipPitchHzNormFreqParamModEdge?.(typeById.get(srcId), dstType, paramKey)) continue;
             const hostSrc = !idSet.has(srcId);
             const srcPortId = hostSrc
               ? NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO
@@ -8401,12 +8481,12 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       && (
         type === "curveEnvelopeMod"
         || type === "pluckEnvelopeMod"
-        || type === "pluckEnvelope"
+        || type === "soemPluckEnvelope"
         || type === "expAdsr"
         || type === "linearEnvelope"
         || type === "wavetableAdsr"
         || type === "thumpEnvelope"
-        || type === "pluckEnvelope3"
+        || type === "pingEnvelope"
         || type === "curveAttackRelease"
         || type === "linearAttackRelease"
       )

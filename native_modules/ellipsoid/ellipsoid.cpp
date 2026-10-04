@@ -197,6 +197,51 @@ extern "C" void soemdsp_ellipsoid_sample_pair(
   }
 }
 
+// Robin ?1-sample cycle dither (same short/mid/long pick as Supersaw Square AA).
+// Returns a phase offset in cycles. Does not change the sine-to-square formula.
+extern "C" double soemdsp_ellipsoid_robin_dither_cycles(unsigned int* rng, double cycleSamples) {
+  if (!rng) return 0.0;
+  double c = cycleSamples;
+  if (!(c == c) || c < 2.0) c = 2.0;
+  if (c > 1.0e9) c = 1.0e9;
+  const double ci = dsp_floor(c);
+  const double cf = c - ci;
+  double c2 = ci;
+  if (cf >= 0.5) c2 += 1.0;
+  const double c1 = c2 - 1.0;
+  const double c3 = c2 + 1.0;
+  const double e1 = c1 - c;
+  const double e2 = c2 - c;
+  const double e3 = c3 - c;
+  const double v1 = e1 * e1;
+  const double v2 = e2 * e2;
+  const double v3 = e3 * e3;
+  const double v = 0.25;
+  const double d1 = v - v1;
+  const double d2 = v - v2;
+  const double d3 = v - v3;
+  const double denom = e3 * (v1 - v2) - e2 * (v1 - v3) + e1 * (v2 - v3);
+  if (!(denom == denom) || denom == 0.0) return 0.0;
+  const double s = 1.0 / denom;
+  const double probShort = (d2 * e3 - d3 * e2) * s;
+  const double probMid = (d3 * e1 - d1 * e3) * s;
+
+  unsigned int state = *rng;
+  if (state == 0u) state = 1u;
+  state = xorshift32(state);
+  *rng = state;
+  const double r = static_cast<double>(state >> 8) * (1.0 / 16777216.0);
+  double lenNow = c2;
+  if (r < probShort) lenNow = c2 - 1.0;
+  else if (r >= probShort + probMid) lenNow = c2 + 1.0;
+  double maxCount = lenNow - 1.0;
+  if (!(maxCount >= 1.0)) maxCount = 1.0;
+  const double phaseSlope = 1.0 / maxCount;
+  if (lenNow < c2) return -phaseSlope;
+  if (lenNow > c2) return phaseSlope;
+  return 0.0;
+}
+
 extern "C" int soemdsp_ellipsoid_version() {
-  return 12; // quadrature pair (Left/Right)
+  return 13; // optional Robin cycle dither (phase offset only)
 }

@@ -588,7 +588,7 @@
       "gx": -10,
       "gy": -10,
       "id": "pluckEnvelope-1",
-      "type": "pluckEnvelope",
+      "type": "soemPluckEnvelope",
       "params": {
         "decay": 0.6786987093126203,
         "level": 1,

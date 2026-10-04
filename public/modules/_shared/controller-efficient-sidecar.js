@@ -287,6 +287,89 @@ NodeLiveAudioProcessor.prototype.controllerEfficientSmoothedValue = function con
   return state.value;
 };
 
+NodeLiveAudioProcessor.prototype.publishEfficientControllerBiasTargets = function publishEfficientControllerBiasTargets() {
+  if (!this.nodes?.size) return;
+  if (!this.nodeOutputs) this.nodeOutputs = new Map();
+  const num = (v, fb) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fb;
+  };
+  const mixIn = (nodeId, port) => {
+    const key = typeof this.inputKey === "function"
+      ? this.inputKey(nodeId, port)
+      : `${nodeId}.${port}`;
+    const conns = this.inputConnections?.get?.(key);
+    if (!conns || !conns.length) return 0;
+    let sum = 0;
+    for (let i = 0; i < conns.length; i += 1) {
+      const c = conns[i];
+      if (!c) continue;
+      const out = this.nodeOutputs.get(String(c.sourceNode));
+      if (!out) continue;
+      const sp = String(c.sourcePort || "");
+      const v = out[sp] ?? out.Bias ?? out.Out ?? out.value;
+      sum += num(v, 0);
+    }
+    return sum;
+  };
+  const biasTarget = (node, key, fallback) => {
+    const raw = typeof nodeGraphDspControllerBiasTarget === "function"
+      ? Number(nodeGraphDspControllerBiasTarget(node, key, fallback))
+      : Number(node?.params?.[key]);
+    return Number.isFinite(raw) ? raw : fallback;
+  };
+  for (let pass = 0; pass < 2; pass += 1) {
+    for (const [id, node] of this.nodes) {
+      const type = String(node?.type || "");
+      const nid = String(id);
+      if (type === "knob" || type === "pluginSlider") {
+        const offset = biasTarget(node, "offset", 0);
+        const out = typeof nodeGraphDspBiasFromIn === "function"
+          ? nodeGraphDspBiasFromIn(offset, mixIn(nid, "In"))
+          : { Bias: offset, Out: offset, offset, value: offset };
+        this.nodeOutputs.set(nid, out);
+        if (typeof this.captureModuleScopeOutput === "function") {
+          this.captureModuleScopeOutput(nid, out);
+        }
+        continue;
+      }
+      if (type === "toggleButton" || type === "momentaryButton") {
+        const mapped = biasTarget(node, "offset", 0);
+        const btnOut = { Bias: mapped };
+        this.nodeOutputs.set(nid, btnOut);
+        if (typeof this.captureModuleScopeOutput === "function") {
+          this.captureModuleScopeOutput(nid, btnOut);
+        }
+        continue;
+      }
+      if (type === "pitchModWheel") {
+        const pitchTarget = biasTarget(node, "pitch", 0);
+        const modTarget = biasTarget(node, "mod", 0);
+        const pitchMix = typeof nodeGraphDspBiasFromIn === "function"
+          ? nodeGraphDspBiasFromIn(pitchTarget, mixIn(nid, "Pitch"))
+          : null;
+        const modMix = typeof nodeGraphDspBiasFromIn === "function"
+          ? nodeGraphDspBiasFromIn(modTarget, mixIn(nid, "Mod"))
+          : null;
+        const pitchOut = Number(pitchMix?.Bias);
+        const modOut = Number(modMix?.Bias);
+        const pitch = Number.isFinite(pitchOut) ? pitchOut : pitchTarget;
+        const mod = Number.isFinite(modOut) ? modOut : modTarget;
+        const wheelOut = {
+          Pitch: pitch,
+          Mod: mod,
+          "Pitch Wheel": pitch,
+          "Mod Wheel": mod,
+        };
+        this.nodeOutputs.set(nid, wheelOut);
+        if (typeof this.captureModuleScopeOutput === "function") {
+          this.captureModuleScopeOutput(nid, wheelOut);
+        }
+      }
+    }
+  }
+};
+
 NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function processControllerEfficientSidecar(
   _frames,
 ) {
@@ -748,7 +831,12 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     this.midiKeyboardGatePulseSamples = Math.max(0, (this.midiKeyboardGatePulseSamples || 0) - 1);
   }
 
-  // Two passes so controller→controller In chains resolve.
+  // Knob / slider / buttons / wheels: raw Bias target. Native Control ramps.
+  if (typeof this.publishEfficientControllerBiasTargets === "function") {
+    this.publishEfficientControllerBiasTargets();
+  }
+
+  // Two passes so keypad can read controller outs published above.
   for (let pass = 0; pass < 2; pass += 1) {
     for (const [id, node] of this.nodes) {
       const type = String(node?.type || "");
@@ -759,28 +847,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
         continue;
       }
 
-      if (type === "knob" || type === "pluginSlider") {
-        // Bias jack = smoothed Bias parameter + In. Smoothing is Parameter
-        // Settings on `offset` (same Control smoother as any other param).
-        // Do not remap or clamp here — min/max already bound the target.
-        const offset = num(this.controllerEfficientSmoothedValue(node, "offset", 0, _frames), 0);
-        const out = typeof nodeGraphDspBiasFromIn === "function"
-          ? nodeGraphDspBiasFromIn(offset, mixIn(nid, "In"))
-          : { Bias: offset, Out: offset, offset, value: offset };
-        this.nodeOutputs.set(nid, out);
-        if (typeof this.captureModuleScopeOutput === "function") {
-          this.captureModuleScopeOutput(nid, out);
-        }
-        continue;
-      }
-
-      if (type === "toggleButton" || type === "momentaryButton") {
-        const mapped = num(this.controllerEfficientSmoothedValue(node, "offset", 0, _frames), 0);
-        const btnOut = { Bias: mapped };
-        this.nodeOutputs.set(nid, btnOut);
-        if (typeof this.captureModuleScopeOutput === "function") {
-          this.captureModuleScopeOutput(nid, btnOut);
-        }
+      if (type === "knob" || type === "pluginSlider" || type === "toggleButton" || type === "momentaryButton" || type === "pitchModWheel") {
         continue;
       }
 
@@ -843,8 +910,10 @@ NodeLiveAudioProcessor.prototype.readEfficientModSourceSample = function readEff
   const controllerType = String(node?.type || "");
   if (
     controllerType === "knob"
+    || controllerType === "pluginSlider"
     || controllerType === "toggleButton"
     || controllerType === "momentaryButton"
+    || controllerType === "pitchModWheel"
   ) {
     const cout = this.nodeOutputs?.get?.(id);
     if (cout && typeof cout === "object") {

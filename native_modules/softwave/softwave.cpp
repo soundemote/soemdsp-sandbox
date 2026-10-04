@@ -76,7 +76,9 @@ static double morph_factor(double morph) {
   return m4 * 0.999 + 0.001;
 }
 
-static double run_shape(double finalPhase, int shape, double sa, double mf, double frequencyHz) {
+static double run_shape(
+  double finalPhase, int shape, double sa, double mf, double morph, double frequencyHz
+) {
   const double p = wrap01(finalPhase);
   switch (shape) {
     case 0: {
@@ -98,11 +100,14 @@ static double run_shape(double finalPhase, int shape, double sa, double mf, doub
     case 4:
       return soft_tanh(parabol_sine(p) * sa * mf);
     case 5: {
-      const double t = clamp(mf, 0.0, 1.0);
-      const double adjusted = 0.15 + (1.0 - 0.15) * t;
-      const double scaling = soft_tanh((1.0 - (hz_to_midi(frequencyHz) / 127.0)) * 9.0);
-      return soft_acos(clamp11(dsp_sin(p * kPi * 2.0) * adjusted * scaling))
-        / kPi * 2.0 - 1.0;
+      // Tri only: Morph 0 = sine, 1 = acos-triangle. Same-phasor mix, no
+      // sine_amp / MIDI scaling, so the shape holds up the keyboard.
+      double m = morph;
+      if (!(m == m) || m < 0.0) m = 0.0;
+      if (m > 1.0) m = 1.0;
+      const double sine = dsp_sin(p * kPi * 2.0);
+      const double tri = soft_acos(clamp11(sine)) / kPi * 2.0 - 1.0;
+      return sine * (1.0 - m) + tri * m;
     }
     case 6: {
       const double bow = parabol_sine(p);
@@ -191,6 +196,7 @@ extern "C" double soemdsp_softwave_sample(
     shape,
     sine_amp(fAbs, rate),
     morph_factor(morph),
+    morph,
     fAbs
   );
   if (!(sample * 0.0 == 0.0)) return 0.0;
@@ -198,7 +204,7 @@ extern "C" double soemdsp_softwave_sample(
 }
 
 extern "C" int soemdsp_softwave_version() {
-  return 4; // level clamped 0…1 after MOD (Amp=1 + Knob cannot exceed 1)
+  return 5; // Tri Morph: sine↔triangle, pitch-invariant
 }
 
 extern "C" const char* soemdsp_softwave_metadata_json() {

@@ -1,6 +1,6 @@
-// soemdsp-native-module: pluck_envelope_3
+// soemdsp-native-module: ping_envelope
 // soemdsp-native-label: Ping Envelope
-// soemdsp-native-target: pluckEnvelope3
+// soemdsp-native-target: pingEnvelope
 // soemdsp-native-kind: envelope
 //
 // Inertial one-pole toward Trigger/Gate level. Attack from current env (never
@@ -33,9 +33,9 @@ static State gPool[kMaxInstances];
 
 static const char kMetadataJson[] =
   "{"
-    "\"module\":\"pluck_envelope_3\","
+    "\"module\":\"ping_envelope\","
     "\"label\":\"Ping Envelope\","
-    "\"targetType\":\"pluckEnvelope3\","
+    "\"targetType\":\"pingEnvelope\","
     "\"kind\":\"envelope\""
   "}";
 
@@ -63,7 +63,7 @@ static double exp_curve(double x) {
 
 }  // namespace
 
-extern "C" int soemdsp_pluck_envelope_3_create() {
+extern "C" int soemdsp_ping_envelope_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       State& s = gPool[i];
@@ -81,12 +81,12 @@ extern "C" int soemdsp_pluck_envelope_3_create() {
   return 0;
 }
 
-extern "C" void soemdsp_pluck_envelope_3_destroy(int handle) {
+extern "C" void soemdsp_ping_envelope_destroy(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   gPool[handle - 1].active = false;
 }
 
-extern "C" double soemdsp_pluck_envelope_3_sample(
+extern "C" double soemdsp_ping_envelope_sample(
   int handle,
   double input,
   double attackSec,
@@ -142,7 +142,7 @@ extern "C" double soemdsp_pluck_envelope_3_sample(
 }
 
 /** Explicit boolean isIdle — Voice Idle collects this, it does not measure level. */
-extern "C" int soemdsp_pluck_envelope_3_is_idle(int handle) {
+extern "C" int soemdsp_ping_envelope_is_idle(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 1;
   State& s = gPool[handle - 1];
   if (!s.active) return 1;
@@ -151,6 +151,6 @@ extern "C" int soemdsp_pluck_envelope_3_is_idle(int handle) {
   return (a < 1.0e-5) ? 1 : 0;
 }
 
-extern "C" int soemdsp_pluck_envelope_3_version() { return 11; }
-extern "C" const char* soemdsp_pluck_envelope_3_metadata_json() { return kMetadataJson; }
-extern "C" int soemdsp_pluck_envelope_3_metadata_json_size() { return sizeof(kMetadataJson) - 1; }
+extern "C" int soemdsp_ping_envelope_version() { return 11; }
+extern "C" const char* soemdsp_ping_envelope_metadata_json() { return kMetadataJson; }
+extern "C" int soemdsp_ping_envelope_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

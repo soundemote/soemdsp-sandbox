@@ -474,10 +474,8 @@ NodeLiveAudioProcessor.prototype.readEffectiveParameter = function readEffective
       const srcNode = this.nodes?.get?.(modulation.sourceNode);
       const srcPort = String(modulation.sourcePort || "");
       const srcParamMeta = srcNode?.paramMeta?.[srcPort] || {};
-      const srcType = String(srcNode?.type || "");
+      // Module type does not retag the cable. outputDomain means real units.
       const taggedDomain = srcParamMeta.outputDomain === true
-        || srcType === "range"
-        || srcType === "Range"
         || metadata.outputDomain === true;
       return taggedDomain ? { value: Number(sample), domain: true } : sample;
     });

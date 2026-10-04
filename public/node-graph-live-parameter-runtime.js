@@ -237,22 +237,9 @@ function readNodeGraphLiveEffectiveParam(
     const srcNode = runtime.nodes?.get(modulation.sourceNode);
     const srcPort = modulation.sourcePort;
     const srcParamMeta = srcNode?.paramMeta?.[srcPort] || {};
-    const srcType = String(srcNode?.type || "");
-    if (typeof nodeGraphNormPitchFrequencyModFromSource === "function") {
-      const converted = nodeGraphNormPitchFrequencyModFromSource(
-        String(node?.type || ""),
-        key,
-        srcType,
-        srcNode,
-        sample,
-      );
-      if (converted) {
-        return converted;
-      }
-    }
+    // Same rule as ghost: module type does not retag the cable.
+    // outputDomain on the source param or the destination means real units.
     const taggedDomain = srcParamMeta.outputDomain === true
-      || srcType === "range"
-      || srcType === "Range"
       || metadata.outputDomain === true;
     return taggedDomain ? { value: Number(sample), domain: true } : sample;
   });

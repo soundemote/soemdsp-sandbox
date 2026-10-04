@@ -130,6 +130,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "additiveImage",
   "animatedTextBox",
   "acidSequencer",
+  "theremin",
   "waterfallRgb",
   "waterfallXyz",
   // Efficient-shop gaps: defined modules that are not on the live-audio /
@@ -240,6 +241,7 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
   metallicRatio: "Metallic-mean Ratio CV (golden/silver/…). Useful for detune, delay ratios, and spacing — parked until the modulator shelf polish pass.",
   additiveImage: "Image → Yellow Graph harmonics. Parked until the Additive image analysis pass.",
   acidSequencer: "Implemented locally, but under construction and untested. Parked until Argi tests the native face and transport behavior.",
+  theremin: "Parked. Pad X/Y snap into pitch and volume with no per-sample glide.",
 });
 
 // Unified module department definitions — single source of truth for
@@ -881,9 +883,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   filterMorphOscillator: {
     category: "oscillator",
-    description: "PolyBLEP saw with pitch-tracking one-pole Morph (1…4 poles) toward sine-ish, constant-fundamental makeup.",
+    description: "Same-phasor Morph: sine to PolyBLEP saw. Sharpness is the mix of two period functions, the same at every pitch.",
     label: "FilterMorph Oscillator",
-    notes: ["polyblep", "saw", "filter morph", "one-pole", "poles", "native", "oscillator"],
+    notes: ["polyblep", "saw", "sine", "morph", "native", "oscillator"],
   },
   sineWarp: {
     category: "oscillator",
@@ -2290,21 +2292,21 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "pluck",
     ],
   },
-  acousticPluck: {
+  pluckEnvelope: {
     category: "envelope",
     description: "Pluck Envelope: Trigger AR with inverted-env expo feedback into Release. Env = shape × trigger height × Amplitude.",
     label: "Pluck Envelope",
     notes: [
       "Trigger",
       "Soften Attack",
-      "Dampen",
+      "Tail",
       "Synth vs Acoustic",
       "native",
       "pluck",
     ],
   },
-  // Retired — use Ping Envelope (pluckEnvelope3). Kept so old patches still load.
-  pluckEnvelope: {
+  // Retired — use Ping Envelope (pingEnvelope). Kept so old patches still load.
+  soemPluckEnvelope: {
     category: "envelope",
     description: "Retired — use Ping Envelope. Kept only so old patches still load.",
     hidden: true,
@@ -2325,9 +2327,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Expo Pluck Envelope 2",
     notes: ["legacy", "hidden", "SoEmPluck", "native"],
   },
-  pluckEnvelope3: {
+  pingEnvelope: {
     category: "envelope",
-    description: "Ping env (pluck envelope 1): asymmetric one-pole toward Trigger, Exp→fall 0…10 Hz. Decay 0=short…1=long. Recalc On Trig latches knobs on rise.",
+    description: "Ping Envelope: asymmetric one-pole toward Trigger, Exp fall 0…10 Hz. Decay 0=short…1=long. Recalc On Trig latches knobs on rise.",
     label: "Ping Envelope",
     notes: [
       "Trigger",
@@ -2337,13 +2339,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "Ping",
       "native",
     ],
-  },
-  pingEnvelope: {
-    category: "envelope",
-    description: "Alias of Ping Envelope (pluckEnvelope3).",
-    hidden: true,
-    label: "Ping Envelope",
-    notes: ["alias", "hidden"],
   },
   vactrol: {
     category: "envelope",
@@ -3427,9 +3422,9 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/thumpEnvelope/thump-envelope-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/thumpEnvelope/thump-envelope-math.js",
   },
-  acousticPluck: {
-    source: "public/modules/acousticPluck/acoustic-pluck-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/acousticPluck/acoustic-pluck-math.js",
+  pluckEnvelope: {
+    source: "public/modules/pluckEnvelope/pluck-envelope-circuit-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pluckEnvelope/pluck-envelope-circuit-math.js",
   },
   linkwitzRiley: {
     source: "public/modules/scientificIir/scientific-iir-math.js",
@@ -3575,7 +3570,7 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/pll/pll-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pll/pll-worklet-evaluator.js",
   },
-  pluckEnvelope: {
+  soemPluckEnvelope: {
     source: "public/modules/pluckEnvelope/pluck-envelope-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pluckEnvelope/pluck-envelope-math.js",
   },
@@ -3587,9 +3582,9 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/expoPluckEnvelope2/expo-pluck-envelope-2-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/expoPluckEnvelope2/expo-pluck-envelope-2-math.js",
   },
-  pluckEnvelope3: {
-    source: "public/modules/pluckEnvelope3/pluck-envelope-3-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pluckEnvelope3/pluck-envelope-3-math.js",
+  pingEnvelope: {
+    source: "public/modules/pingEnvelope/ping-envelope-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pingEnvelope/ping-envelope-math.js",
   },
   vactrol: {
     source: "native_modules/vactrol_envelope/vactrol_envelope.cpp",

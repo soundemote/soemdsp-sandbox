@@ -574,7 +574,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       if (!gateCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} gate`);
       }
-    } else if (type === "pluckEnvelope" || type === "pluckEnvelope3") {
+    } else if (type === "pluckEnvelope" || type === "soemPluckEnvelope" || type === "pingEnvelope") {
       const triggerCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Trigger")) || []).length;
       if (!triggerCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} trigger`);

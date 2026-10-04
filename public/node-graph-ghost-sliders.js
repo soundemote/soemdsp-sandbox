@@ -300,27 +300,15 @@ function nodeGraphParameterGhostSignal(node, key) {
       normalized = Number.isFinite(n) ? n : 0;
     }
     const srcNode = nodeGraphPatchNode(modulation.sourceNode);
-    const srcType = String(srcNode?.type || "");
     const srcPort = String(modulation.sourcePort || "");
     const srcParamMeta = (typeof nodeGraphReadPatchParameterMetadata === "function"
       ? nodeGraphReadPatchParameterMetadata(srcNode, srcPort)
       : null) || {};
-    if (typeof nodeGraphNormPitchFrequencyModFromSource === "function") {
-      const converted = nodeGraphNormPitchFrequencyModFromSource(
-        String(patchNode?.type || ""),
-        key,
-        srcType,
-        srcNode,
-        normalized,
-      );
-      if (converted) {
-        sources.push(converted);
-        continue;
-      }
-    }
+    // Range Out is unit CV. Native ParamModEdge maps it across the
+    // destination param min/max. Tagging every Range as domain made a
+    // 1-to-0 map read as 1 Hz to 0 Hz on Attack (0 to 20000 Hz).
+    // outputDomain on the source param or the destination still means real units.
     const taggedDomain = srcParamMeta.outputDomain === true
-      || srcType === "range"
-      || srcType === "Range"
       || metadata.outputDomain === true;
     sources.push(taggedDomain ? { value: Number(normalized), domain: true } : normalized);
   }

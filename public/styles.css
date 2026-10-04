@@ -25913,26 +25913,19 @@ code {
     var(--plugin-btn-inactive, #1a2228)
   );
 }
-.node-plugin-toggle-button::after,
-.node-plugin-momentary-button::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  border-radius: inherit;
-  corner-shape: inherit;
-  background: var(--plugin-btn-hover, #89bfc2);
-  opacity: 0;
-}
-.node-plugin-toggle-button:hover::after,
-.node-plugin-momentary-button:hover:not(.is-held)::after {
-  opacity: 1;
-}
-.node-plugin-toggle-button > .btn-fit,
-.node-plugin-momentary-button > .btn-fit {
-  position: relative;
-  z-index: 1;
+/* Hover keeps the button face (active/inactive mix). No separate fill.
+   The old overlay painted hover color, default teal #89bfc2, at full opacity.
+   Global button:hover accent must not recolor the stroke. */
+.node-plugin-toggle-button:hover,
+.node-plugin-momentary-button:hover,
+.node-plugin-toggle-button:focus-visible,
+.node-plugin-momentary-button:focus-visible {
+  border-color: var(--plugin-btn-stroke, #5c5071);
+  background: color-mix(
+    in srgb,
+    var(--plugin-btn-active, #2f8f86) calc(var(--plugin-btn-value, 0) * 100%),
+    var(--plugin-btn-inactive, #1a2228)
+  );
 }
 .node-plugin-slider-face {
   pointer-events: auto;

@@ -1,15 +1,14 @@
-// soemdsp-native-module: acoustic_pluck
+// soemdsp-native-module: pluck_envelope_fb
 // soemdsp-native-label: Pluck Envelope
-// soemdsp-native-target: acousticPluck
+// soemdsp-native-target: pluckEnvelope
 // soemdsp-native-kind: envelope
 //
 // Bake of patches/modulator breadboards/pluck envelope.json feedback circuit:
 //   Curve AR (Gate/Trigger) with Attack/Release/curves
 //   Env -> invert -> attenuverter(feedback, bias) -> Amp Curve Exp
 //     -> unit-MOD into Release (same fold as graph control_effective)
-// KT is a note-mask input. The host reduces its 128-key mask to a normalized
-// highest-active MIDI key; the baked Inv/Attenuverter path below applies it to Attack.
-// Feedback is a 1-sample delay so Dampen/offset act on the live Env, not a quantum late.
+// KT is MIDI pitch 0..127. The baked Inv/Attenuverter path applies it to Attack.
+// Env feedback is a 1-sample delay so Tail and Synth vs Acoustic act on the live Env.
 // UpdateOnTrigger latches knob times/curves/amplitude/inputMode on rise;
 // Feedback/Bias (and the computed release MOD) stay live. Inner Curve AR
 // always runs with UpdateOnTrigger Off so release feedback is never frozen.
@@ -70,9 +69,9 @@ static State gPool[kMaxInstances];
 
 static const char kMetadataJson[] =
   "{"
-    "\"module\":\"acoustic_pluck\","
+    "\"module\":\"pluck_envelope_fb\","
     "\"label\":\"Pluck Envelope\","
-    "\"targetType\":\"acousticPluck\","
+    "\"targetType\":\"pluckEnvelope\","
     "\"kind\":\"envelope\""
   "}";
 
@@ -100,7 +99,7 @@ static double fold_unit_mod(double base, double mod, double minV, double maxV) {
 
 }  // namespace
 
-extern "C" int soemdsp_acoustic_pluck_create() {
+extern "C" int soemdsp_pluck_envelope_fb_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       State& s = gPool[i];
@@ -124,7 +123,7 @@ extern "C" int soemdsp_acoustic_pluck_create() {
   return 0;
 }
 
-extern "C" void soemdsp_acoustic_pluck_destroy(int handle) {
+extern "C" void soemdsp_pluck_envelope_fb_destroy(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   State& s = gPool[handle - 1];
   if (!s.active) return;
@@ -133,7 +132,7 @@ extern "C" void soemdsp_acoustic_pluck_destroy(int handle) {
   s.active = false;
 }
 
-extern "C" double soemdsp_acoustic_pluck_sample(
+extern "C" double soemdsp_pluck_envelope_fb_sample(
   int handle,
   double gate,
   double keyTrack,
@@ -227,6 +226,6 @@ extern "C" double soemdsp_acoustic_pluck_sample(
   return (out * 0.0 == 0.0) ? out : 0.0;
 }
 
-extern "C" int soemdsp_acoustic_pluck_version() { return 3; }
-extern "C" const char* soemdsp_acoustic_pluck_metadata_json() { return kMetadataJson; }
-extern "C" int soemdsp_acoustic_pluck_metadata_json_size() { return sizeof(kMetadataJson) - 1; }
+extern "C" int soemdsp_pluck_envelope_fb_version() { return 3; }
+extern "C" const char* soemdsp_pluck_envelope_fb_metadata_json() { return kMetadataJson; }
+extern "C" int soemdsp_pluck_envelope_fb_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

@@ -44,6 +44,40 @@ function normalizeNodeGraphNamedPortalAlias(value, fallback = "A") {
   return s.slice(0, 64) || fb;
 }
 
+function nodeGraphNamedPortalAliasIsTaken(patch, alias, universe = "") {
+  const key = String(alias || "").trim().toLowerCase();
+  if (!key || !Array.isArray(patch?.nodes)) {
+    return false;
+  }
+  const uni = String(universe || "");
+  for (const node of patch.nodes) {
+    if (!node || !nodeGraphIsNamedPortalType(node.type)) {
+      continue;
+    }
+    if (nodeGraphNamedPortalUniverse(node) !== uni) {
+      continue;
+    }
+    if (nodeGraphNamedPortalBusKey(node) === key) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function nodeGraphNamedPortalUniqueAlias(patch, alias, universe = "") {
+  const base = String(alias || "A").trim() || "A";
+  if (!nodeGraphNamedPortalAliasIsTaken(patch, base, universe)) {
+    return base;
+  }
+  for (let n = 2; n < 1000; n += 1) {
+    const next = `${base}_${n}`.slice(0, 64);
+    if (!nodeGraphNamedPortalAliasIsTaken(patch, next, universe)) {
+      return next;
+    }
+  }
+  return base;
+}
+
 function nodeGraphNamedPortalBusKey(node) {
   const raw = typeof normalizeNodeGraphNamedPortalAlias === "function"
     ? normalizeNodeGraphNamedPortalAlias(node?.alias)

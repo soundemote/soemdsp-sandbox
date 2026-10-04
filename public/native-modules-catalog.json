@@ -2,16 +2,16 @@
   "ok": true,
   "modules": [
     {
-      "name": "acoustic_pluck",
+      "name": "pluck_envelope_fb",
       "label": "Pluck Envelope",
-      "targetType": "acousticPluck",
+      "targetType": "pluckEnvelope",
       "kind": "envelope",
-      "source": "native_modules/acoustic_pluck/acoustic_pluck.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/acoustic_pluck/acoustic_pluck.cpp",
-      "localSourceUrl": "/native_modules/acoustic_pluck/acoustic_pluck.cpp",
+      "source": "native_modules/pluck_envelope_fb/pluck_envelope_fb.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/pluck_envelope_fb/pluck_envelope_fb.cpp",
+      "localSourceUrl": "/native_modules/pluck_envelope_fb/pluck_envelope_fb.cpp",
       "libUrl": "",
-      "wasm": "native_modules/acoustic_pluck/acoustic_pluck.wasm",
-      "wasmUrl": "native_modules/acoustic_pluck/acoustic_pluck.wasm",
+      "wasm": "native_modules/pluck_envelope_fb/pluck_envelope_fb.wasm",
+      "wasmUrl": "native_modules/pluck_envelope_fb/pluck_envelope_fb.wasm",
       "wasmAvailable": true
     },
     {
@@ -1406,16 +1406,16 @@
       "wasmAvailable": true
     },
     {
-      "name": "pluck_envelope_3",
+      "name": "ping_envelope",
       "label": "Ping Envelope",
-      "targetType": "pluckEnvelope3",
+      "targetType": "pingEnvelope",
       "kind": "envelope",
-      "source": "native_modules/pluck_envelope_3/pluck_envelope_3.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/pluck_envelope_3/pluck_envelope_3.cpp",
-      "localSourceUrl": "/native_modules/pluck_envelope_3/pluck_envelope_3.cpp",
+      "source": "native_modules/ping_envelope/ping_envelope.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/ping_envelope/ping_envelope.cpp",
+      "localSourceUrl": "/native_modules/ping_envelope/ping_envelope.cpp",
       "libUrl": "",
-      "wasm": "native_modules/pluck_envelope_3/pluck_envelope_3.wasm",
-      "wasmUrl": "native_modules/pluck_envelope_3/pluck_envelope_3.wasm",
+      "wasm": "native_modules/ping_envelope/ping_envelope.wasm",
+      "wasmUrl": "native_modules/ping_envelope/ping_envelope.wasm",
       "wasmAvailable": true
     },
     {

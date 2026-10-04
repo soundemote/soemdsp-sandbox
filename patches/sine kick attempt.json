@@ -1507,7 +1507,7 @@
         "velocity": 1,
         "level": 1
       },
-      "type": "pluckEnvelope",
+      "type": "soemPluckEnvelope",
       "traceDisplaySettings": {
         "backgroundHue": 0,
         "backgroundBrightness": 0,

@@ -2861,41 +2861,88 @@ function nodeGraphPerformanceModWheelValue(value = nodeGraphMvp.modWheelSignal) 
   return clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
 }
 
-function renderNodeGraphPerformanceWheels() {
-  const pitchWheel = nodeGraphPerformancePitchWheelValue();
-  const modWheel = nodeGraphPerformanceModWheelValue();
-  nodeGraphMvp.pitchWheelSignal = pitchWheel;
-  nodeGraphMvp.modWheelSignal = modWheel;
-  const controls = [
-    {
-      kind: "pitchWheel",
-      position: (pitchWheel + 1) * 0.5,
-      value: pitchWheel,
-      valueKey: "pitchWheel",
-    },
-    {
-      kind: "modWheel",
-      position: modWheel,
-      value: modWheel,
-      valueKey: "modWheel",
-    },
-  ];
-  for (const control of controls) {
-    document.querySelectorAll(`[data-performance-wheel="${control.kind}"]`).forEach((element) => {
-      element.style.setProperty("--wheel-value", String(control.position));
-      element.setAttribute("aria-valuenow", control.value.toFixed(3));
-    });
-    document.querySelectorAll(`[data-performance-wheel-value="${control.valueKey}"]`).forEach((valueElement) => {
-      valueElement.textContent = control.value.toFixed(3);
-    });
+function nodeGraphPerformanceWheelNodeId(element) {
+  const host = element?.closest?.("[data-node]");
+  return String(host?.dataset?.node || "").trim();
+}
+
+function nodeGraphPerformanceWheelParamKey(kind) {
+  return kind === "modWheel" ? "mod" : "pitch";
+}
+
+function nodeGraphPerformanceWheelNodes() {
+  const nodes = Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes : [];
+  return nodes.filter((node) => String(node?.type || "") === "pitchModWheel" && node?.id != null);
+}
+
+function readNodeGraphPerformanceWheelParam(nodeId, kind) {
+  const key = nodeGraphPerformanceWheelParamKey(kind);
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const raw = Number(node?.params?.[key]);
+  const fallback = Number.isFinite(raw) ? raw : 0;
+  return kind === "modWheel"
+    ? nodeGraphPerformanceModWheelValue(fallback)
+    : nodeGraphPerformancePitchWheelValue(fallback);
+}
+
+function paintNodeGraphPerformanceWheelElement(element, value) {
+  const kind = element?.dataset?.performanceWheel;
+  const n = Number(value);
+  if (!kind || !Number.isFinite(n)) {
+    return;
+  }
+  const position = kind === "pitchWheel" ? (n + 1) * 0.5 : n;
+  element.style.setProperty("--wheel-value", String(position));
+  element.setAttribute("aria-valuenow", n.toFixed(3));
+  const valueElement = element.querySelector(`[data-performance-wheel-value="${kind}"]`);
+  if (valueElement) {
+    valueElement.textContent = n.toFixed(3);
   }
 }
 
-function setNodeGraphPerformanceWheel(kind, value, status = "") {
-  if (kind === "pitchWheel") {
-    nodeGraphMvp.pitchWheelSignal = nodeGraphPerformancePitchWheelValue(value);
-  } else if (kind === "modWheel") {
-    nodeGraphMvp.modWheelSignal = nodeGraphPerformanceModWheelValue(value);
+function writeNodeGraphPerformanceWheelParam(nodeId, kind, value, options = {}) {
+  const key = nodeGraphPerformanceWheelParamKey(kind);
+  const slider = document.getElementById(`node-${nodeId}-${key}`);
+  if (!slider || typeof setNodeSliderValue !== "function") {
+    return false;
+  }
+  setNodeSliderValue(slider, value, options);
+  return true;
+}
+
+function renderNodeGraphPerformanceWheels() {
+  document.querySelectorAll("[data-performance-wheel]").forEach((element) => {
+    const kind = element.dataset.performanceWheel;
+    const nodeId = nodeGraphPerformanceWheelNodeId(element);
+    const value = nodeId
+      ? readNodeGraphPerformanceWheelParam(nodeId, kind)
+      : (kind === "modWheel"
+        ? nodeGraphPerformanceModWheelValue()
+        : nodeGraphPerformancePitchWheelValue());
+    paintNodeGraphPerformanceWheelElement(element, value);
+  });
+}
+
+function setNodeGraphPerformanceWheel(kind, value, status = "", nodeId = "", options = null) {
+  const clamped = kind === "modWheel"
+    ? nodeGraphPerformanceModWheelValue(value)
+    : (kind === "pitchWheel" ? nodeGraphPerformancePitchWheelValue(value) : NaN);
+  if (!Number.isFinite(clamped)) {
+    return;
+  }
+  if (kind === "modWheel") {
+    nodeGraphMvp.modWheelSignal = clamped;
+  } else {
+    nodeGraphMvp.pitchWheelSignal = clamped;
+  }
+  const targets = nodeId
+    ? [{ id: nodeId }]
+    : nodeGraphPerformanceWheelNodes();
+  const writeOptions = options == null ? { interaction: "drag" } : options;
+  for (let i = 0; i < targets.length; i += 1) {
+    const id = String(targets[i]?.id || "");
+    if (!id) continue;
+    writeNodeGraphPerformanceWheelParam(id, kind, clamped, writeOptions);
   }
   if (status) {
     nodeGraphMvp.midiKeyboardStatus = status;
@@ -2913,9 +2960,10 @@ function setNodeGraphPerformanceWheelFromPointer(element, event) {
   const y = nodeGraphMidiKeyboardClamp01((event.clientY - rect.top) / Math.max(1, rect.height));
   const kind = element.dataset.performanceWheel;
   const value = kind === "pitchWheel" ? 1 - y * 2 : 1 - y;
+  const nodeId = nodeGraphPerformanceWheelNodeId(element);
   setNodeGraphPerformanceWheel(kind, value, kind === "pitchWheel"
     ? `pitch wheel ${nodeGraphPerformancePitchWheelValue(value).toFixed(3)}`
-    : `mod wheel ${nodeGraphPerformanceModWheelValue(value).toFixed(3)}`);
+    : `mod wheel ${nodeGraphPerformanceModWheelValue(value).toFixed(3)}`, nodeId);
 }
 
 function beginNodeGraphPerformanceWheelDrag(event) {
@@ -2938,9 +2986,11 @@ function endNodeGraphPerformanceWheelDrag(event) {
   if (element.hasPointerCapture?.(event.pointerId)) {
     element.releasePointerCapture?.(event.pointerId);
   }
-  if (element.dataset.performanceWheel === "pitchWheel") {
-    setNodeGraphPerformanceWheel("pitchWheel", 0, "pitch wheel centered");
+  if (element.dataset.performanceWheel !== "pitchWheel") {
+    return;
   }
+  const nodeId = nodeGraphPerformanceWheelNodeId(element);
+  setNodeGraphPerformanceWheel("pitchWheel", 0, "pitch wheel centered", nodeId, {});
 }
 
 // Octave numbering follows the Roland convention: MIDI 0 = C-2, so middle C

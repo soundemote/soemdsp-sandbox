@@ -373,18 +373,6 @@ function validateNodeGraphPatch(patch) {
               && Object.hasOwn(rawParams, "shape")
               ? rawParams.shape
               : parameter.defaultValue)));
-      // Pluck Envelope: Dampen (0=long…1=short) → Decay (0=short…1=long), inverted.
-      if (
-        type === "pluckEnvelope3"
-        && parameter.key === "decay"
-        && !Object.hasOwn(rawParams, "decay")
-        && Object.hasOwn(rawParams, "dampen")
-      ) {
-        const n = Number(rawParams.dampen);
-        if (Number.isFinite(n)) {
-          value = Math.max(0, Math.min(1, 1 - n));
-        }
-      }
       // Old Active Filter had a single Frequency knob. Missing Low/High inherit it.
       if (
         type === "activeFilter"

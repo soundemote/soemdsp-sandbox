@@ -20,7 +20,7 @@ const nodeGraphEmojiCatalog = Object.freeze([
       // Scope square / pulse (no dedicated square-wave emoji)
       "⎍", "▁", "▂", "▃", "▅", "▆", "▇", "┌", "┐", "└", "┘", "│",
       // Trigger (impulse)
-      "⚡", "▲", "△", "↑", "↥", "⌃", "⌅", "※",
+      "⚡", "▲", "◀", "▶", "△", "◁", "▷", "↑", "↥", "⌃", "⌅", "※",
       // Wave / analog
       "∿", "∼", "≈", "〜", "⌇", "﹋", "﹏", "⎺", "⎻", "─", "⎼", "⎽",
       "ƒ", "τ",
@@ -35,7 +35,7 @@ const nodeGraphEmojiCatalog = Object.freeze([
     label: "Musical",
     glyphs: [
       "🎵", "🎶", "🎼", "🎤", "🎧", "🎷", "🎸", "🎹", "🎺", "🎻",
-      "🪕", "🥁", "🪘", "🪗", "🔔", "🎛️", "🎚️", "📻", "🔊", "🔉",
+      "🪕", "🥁", "🪘", "🪗", "🔔", "🛎️", "🎛️", "🎚️", "📻", "🔊", "🔉",
       "🔈", "🔇", "📢", "📣",
       "♩", "♪", "♫", "♬",
       "♯", "♭", "♮",
@@ -244,7 +244,11 @@ const nodeGraphEmojiGlyphNames = Object.freeze({
   "│": "box vertical (edge)",
   "⚡": "lightning (trigger)",
   "▲": "black up-pointing triangle (trigger)",
+  "◀": "black left-pointing triangle",
+  "▶": "black right-pointing triangle",
   "△": "white up-pointing triangle (trigger)",
+  "◁": "white left-pointing triangle",
+  "▷": "white right-pointing triangle",
   "↑": "up arrow (trigger)",
   "↥": "upwards arrow from bar (trigger)",
   "⌃": "up arrowhead",
@@ -292,6 +296,7 @@ const nodeGraphEmojiGlyphNames = Object.freeze({
   "🪘": "long drum",
   "🪗": "accordion",
   "🔔": "bell",
+  "🛎️": "bellhop bell",
   "🎛️": "control knobs",
   "🎚️": "level slider",
   "📻": "radio",

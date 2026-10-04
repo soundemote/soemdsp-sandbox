@@ -186,7 +186,7 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
     };
   }
 
-  if (type === "acousticPluck" && typeof nodeGraphAcousticPluckPreviewCurve === "function") {
+  if (type === "pluckEnvelope" && typeof nodeGraphPluckEnvelopeCircuitPreviewCurve === "function") {
     const attack = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "attack", 0));
     const release = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "release", 0.11715292599242004));
     const attackShape = nodeGraphEnvelopeCurveLiveParam(node, "attackShape", -0.07);
@@ -194,7 +194,7 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
     const feedback = nodeGraphEnvelopeCurveLiveParam(node, "feedback", 0.6804373070396221);
     const bias = nodeGraphEnvelopeCurveLiveParam(node, "bias", 0.9435542410230598);
     const amplitude = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "amplitude", 1));
-    const preview = nodeGraphAcousticPluckPreviewCurve({
+    const preview = nodeGraphPluckEnvelopeCircuitPreviewCurve({
       attack, release, attackShape, releaseShape, feedback, bias, amplitude,
     }, pts);
     return {
@@ -272,7 +272,7 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
     };
   }
 
-  if (type === "pluckEnvelope3" && typeof nodeGraphPluckEnvelope3PreviewCurve === "function") {
+  if (type === "pingEnvelope" && typeof nodeGraphPingEnvelopePreviewCurve === "function") {
     const attack = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "attack", 0));
     let decay = Number(nodeGraphEnvelopeCurveLiveParam(node, "decay", NaN));
     if (!Number.isFinite(decay)) {
@@ -283,7 +283,7 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
     }
     const amplitude = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "amplitude", 1));
     const recalculateOnTrigger = nodeGraphEnvelopeCurveLiveParam(node, "recalculateOnTrigger", 1);
-    const preview = nodeGraphPluckEnvelope3PreviewCurve({ attack, decay, amplitude }, pts);
+    const preview = nodeGraphPingEnvelopePreviewCurve({ attack, decay, amplitude }, pts);
     return {
       points: preview.points,
       total: preview.total,

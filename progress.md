@@ -75,9 +75,9 @@
 
 ## 2026-09-28 Ã¢Â€Â” Acoustic Pluck native module (local, uncommitted)
 
-- Baked `patches/modulator breadboards/pluck envelope.json` feedback AR into native **Acoustic Pluck** (`acousticPluck` / opcode 198).
+- Baked `patches/modulator breadboards/pluck envelope.json` feedback AR into native **Pluck Envelope** (`pluckEnvelope` / opcode 198).
 - Algorithm: Curve AR + envÃ¢Â†Â’invertÃ¢Â†Â’atten(Feedback,Bias)Ã¢Â†Â’Amp Curve ExpÃ¢Â†Â’unit-MOD Release (128-sample fb delay). Demo keyboard/PolyBLEP/filter/portals/orphan KT attack path discarded.
-- Files: `native_modules/acoustic_pluck/`, defs/store/efficient allowlist, graph_engine + combined wasm, face PreviewCurve, smoke `scripts/smoke_graph_acoustic_pluck.mjs`.
+- Files: `native_modules/pluck_envelope_fb/`, defs/store/efficient allowlist, graph_engine + combined wasm, face PreviewCurve.
 - Breadboard patch left intact (portal-splice smoke still green). No commit/push.
 
 

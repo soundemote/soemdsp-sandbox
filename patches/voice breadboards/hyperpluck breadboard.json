@@ -48,7 +48,7 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "acousticPluck-1",
+      "destinationNode": "pluckEnvelope-1",
       "destinationPort": "KT",
       "sourceNode": "keyboard-1",
       "sourcePort": "pitch",
@@ -62,14 +62,14 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "acousticPluck-2",
+      "destinationNode": "pluckEnvelope-2",
       "destinationPort": "KT",
       "sourceNode": "keyboard-1",
       "sourcePort": "pitch",
       "tracePoints": []
     },
     {
-      "destinationNode": "acousticPluck-2",
+      "destinationNode": "pluckEnvelope-2",
       "destinationPort": "Trigger",
       "sourceNode": "keyboard-1",
       "sourcePort": "Gate",
@@ -78,19 +78,19 @@
     {
       "destinationNode": "waterfall-1",
       "destinationPort": "In",
-      "sourceNode": "acousticPluck-1",
+      "sourceNode": "pluckEnvelope-1",
       "sourcePort": "Env",
       "tracePoints": []
     },
     {
       "destinationNode": "waterfall-2",
       "destinationPort": "In",
-      "sourceNode": "acousticPluck-2",
+      "sourceNode": "pluckEnvelope-2",
       "sourcePort": "Env",
       "tracePoints": []
     },
     {
-      "destinationNode": "acousticPluck-1",
+      "destinationNode": "pluckEnvelope-1",
       "destinationPort": "Trigger",
       "sourceNode": "keyboard-1",
       "sourcePort": "Gate",
@@ -1126,7 +1126,7 @@
     {
       "gx": 6,
       "gy": -4,
-      "id": "acousticPluck-1",
+      "id": "pluckEnvelope-1",
       "paramMeta": {
         "softenAttack": {
           "alias": "",
@@ -1275,7 +1275,7 @@
         "synthVsAcoustic": 1.4474926854085712,
         "amplitude": 1
       },
-      "type": "acousticPluck",
+      "type": "pluckEnvelope",
       "alias": "Pluck Envelope",
       "widthGu": 8,
       "ui": {
@@ -1299,7 +1299,7 @@
     {
       "gx": 6,
       "gy": -14,
-      "id": "acousticPluck-2",
+      "id": "pluckEnvelope-2",
       "paramMeta": {
         "softenAttack": {
           "alias": "",
@@ -1448,7 +1448,7 @@
         "synthVsAcoustic": 1.1893225929736373,
         "amplitude": 1
       },
-      "type": "acousticPluck",
+      "type": "pluckEnvelope",
       "alias": "Pluck Envelope",
       "widthGu": 8,
       "ui": {

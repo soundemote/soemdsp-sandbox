@@ -2323,7 +2323,7 @@ function configureNodeSceneContextMenu(mode) {
     const portalButton = document.getElementById("nodeSceneWirePortal");
     if (portalButton) {
       portalButton.disabled = !canAttenuateWires;
-      portalButton.title = "Portal: replace each selected wire with Named Portal In + Out named from the source module title and outlet.";
+      portalButton.title = "Portal: one Portal In per source outlet, one Portal Out per destination inlet. Shared jacks share one alias.";
     }
     deleteButton.disabled = !canDelete;
     deleteButton.title = canDelete

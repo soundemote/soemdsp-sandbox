@@ -152,7 +152,7 @@ Only these live-audio types exist in the efficient build:
 | `expAdsr` | Curve ADSR envelope |
 | `linearEnvelope` | Linear ADSR envelope |
 | `pluckEnvelope` | Pluck / decay-mod envelope (legacy, hidden) |
-| `acousticPluck` | Pluck Envelope (breadboard AR + release feedback) |
+| `pluckEnvelope` | Pluck Envelope (breadboard AR + release feedback) |
 | `flowerChildEnvelopeFollower` | Attack/hold/decay envelope follower |
 | `delayEffect` | Modulated mono delay |
 | `soemReverb` | SoEm multi-tap reverb (â‰  sabrina `reverbEffect`) |
@@ -215,7 +215,7 @@ polyBlep â†’ ladderFilter â†’ softClipper â†’ reverbEffect â†�
    flowerChildFilter / yellowjacketFilter / superloveFilter / humanFilter /
    resonatorFilter / combResonator / modeResonator /
    chaoticPhaseLockingFilter / inertialFilter /
-   expAdsr / linearEnvelope / pluckEnvelope / acousticPluck /
+   expAdsr / linearEnvelope / soemPluckEnvelope / pluckEnvelope /
    flowerChildEnvelopeFollower /
    delayEffect / soemReverb / pll /
    lorenzAttractor / logisticMap / henonMap / chuaAttractor / rayBouncer /

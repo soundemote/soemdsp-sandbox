@@ -507,7 +507,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const linearAttackReleaseStates = new Map();
   const curveAttackReleaseStates = new Map();
   const thumpEnvelopeStates = new Map();
-  const pluckEnvelope3States = new Map();
+  const pingEnvelopeStates = new Map();
   const logisticMapStates = new Map();
   const henonMapStates = new Map();
   const rayBouncerStates = new Map();
@@ -901,11 +901,11 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
           : { out: 0, lastGate: 0, lastFb: 0, stage: "off" },
       );
     }
-    if (node.type === "pluckEnvelope3") {
-      pluckEnvelope3States.set(
+    if (node.type === "pingEnvelope") {
+      pingEnvelopeStates.set(
         node.id,
-        typeof createNodeGraphPluckEnvelope3State === "function"
-          ? createNodeGraphPluckEnvelope3State()
+        typeof createNodeGraphPingEnvelopeState === "function"
+          ? createNodeGraphPingEnvelopeState()
           : {
               env: 0,
               fb: 0,
@@ -950,7 +950,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     if (node.type === "flowerChildEnvelopeFollower") {
       flowerChildEnvelopeFollowerStates.set(node.id, createNodeGraphFlowerChildEnvelopeFollowerState());
     }
-    if (node.type === "pluckEnvelope") {
+    if (node.type === "soemPluckEnvelope") {
       pluckEnvelopeStates.set(
         node.id,
         typeof createNodeGraphPluckEnvelopeState === "function"
@@ -1067,7 +1067,7 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     linearAttackReleaseStates,
     curveAttackReleaseStates,
     thumpEnvelopeStates,
-    pluckEnvelope3States,
+    pingEnvelopeStates,
     logisticMapStates,
     henonMapStates,
     rayBouncerStates,
@@ -1334,8 +1334,8 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.thumpEnvelopeStates) {
     runtime.thumpEnvelopeStates = new Map();
   }
-  if (!runtime.pluckEnvelope3States) {
-    runtime.pluckEnvelope3States = new Map();
+  if (!runtime.pingEnvelopeStates) {
+    runtime.pingEnvelopeStates = new Map();
   }
   if (!runtime.lorenzAttractorStates) {
     runtime.lorenzAttractorStates = new Map();
@@ -1897,11 +1897,11 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
           : { out: 0, lastGate: 0, lastFb: 0, stage: "off" },
       );
     }
-    if (node.type === "pluckEnvelope3" && !runtime.pluckEnvelope3States.has(node.id)) {
-      runtime.pluckEnvelope3States.set(
+    if (node.type === "pingEnvelope" && !runtime.pingEnvelopeStates.has(node.id)) {
+      runtime.pingEnvelopeStates.set(
         node.id,
-        typeof createNodeGraphPluckEnvelope3State === "function"
-          ? createNodeGraphPluckEnvelope3State()
+        typeof createNodeGraphPingEnvelopeState === "function"
+          ? createNodeGraphPingEnvelopeState()
           : {
               env: 0,
               fb: 0,
@@ -1949,7 +1949,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     ) {
       runtime.flowerChildEnvelopeFollowerStates.set(node.id, createNodeGraphFlowerChildEnvelopeFollowerState());
     }
-    if (node.type === "pluckEnvelope" && !runtime.pluckEnvelopeStates.has(node.id)) {
+    if (node.type === "soemPluckEnvelope" && !runtime.pluckEnvelopeStates.has(node.id)) {
       runtime.pluckEnvelopeStates.set(
         node.id,
         typeof createNodeGraphPluckEnvelopeState === "function"
@@ -2262,10 +2262,10 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       }
     }
   }
-  if (runtime.pluckEnvelope3States) {
-    for (const id of [...runtime.pluckEnvelope3States.keys()]) {
+  if (runtime.pingEnvelopeStates) {
+    for (const id of [...runtime.pingEnvelopeStates.keys()]) {
       if (!nodeIds.has(id)) {
-        runtime.pluckEnvelope3States.delete(id);
+        runtime.pingEnvelopeStates.delete(id);
       }
     }
   }

@@ -207,7 +207,7 @@ assert(
 var nativeGraph = fs.readFileSync(path.join(root, "node-live-audio-worklet-native-graph.js"), "utf8");
 assert(nativeGraph.indexOf("const paramTargets = []") >= 0, "clone params share the main loop");
 assert(nativeGraph.indexOf("Mirror face params onto Meta Voices-mode lane clones") < 0, "no type-whitelist clone param block");
-assert(nativeGraph.indexOf('if (type === "pluckEnvelope3")') >= 0, "ping envelope stays in the shared param loop");
+assert(nativeGraph.indexOf('if (type === "pingEnvelope")') >= 0, "ping envelope stays in the shared param loop");
 assert(nativeGraph.indexOf("chordPlayMask") >= 0, "Voices mixes live Chord Memory keys");
 assert(nativeGraph.indexOf("state !== 2") >= 0, "isIdle only frees releasing voices");
 assert(nativeGraph.indexOf("_vmBitOnOrder") >= 0, "bitmask history ranks newest notes for the voice pool");

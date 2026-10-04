@@ -268,11 +268,11 @@ const nodeGraphNodeLabels = Object.freeze({
   linearAttackRelease: "Linear AR",
   curveAttackRelease: "Curve AR",
   thumpEnvelope: "Thump Envelope",
-  acousticPluck: "Pluck Envelope",
   pluckEnvelope: "Pluck Envelope",
+  soemPluckEnvelope: "Pluck Envelope (legacy)",
   expoPluckEnvelope: "Expo Pluck Envelope",
   expoPluckEnvelope2: "Expo Pluck Envelope 2",
-  pluckEnvelope3: "Ping Envelope",
+  pingEnvelope: "Ping Envelope",
   pingEnvelope: "Ping Envelope",
   vactrol: "Vactrol",
   sandboxVisuals: "Screen Visuals",
@@ -2987,6 +2987,23 @@ const nodeGraphModuleDefinitions = (
         step: "1",
         tooltip: "Off = full morph (may alias). Limit = floor edge steepness by ω=2πf/sr so harmonics stay under Nyquist." },
       {
+        choices: ["Off", "On"],
+        choiceKeys: ["off", "on"],
+        choiceIds: [0, 1],
+        defaultValue: "off",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "dither",
+        kind: "choice",
+        label: "Dither",
+        linearSmoothing: false,
+        max: "1",
+        mid: "0",
+        min: "0",
+        step: "1",
+        tooltip: "Off leaves the sine-to-square phase unchanged. On adds Robin's +/-1-sample short/mid/long cycle dither to that phase. Not oversampling. Does not change the shape. AA Limit is separate."
+      },
+      {
         choices: ["Clock(Ph)", "CounterClock(Ph)", "Clock(T)", "CounterClock(T)"],
         defaultValue: "1",
         displayChoices: true,
@@ -4099,7 +4116,7 @@ const nodeGraphModuleDefinitions = (
           "Perfect Saw",
           "Analog Square",
           "Square",
-          "Tri",
+          "Triangle",
           "Bow Tri",
           "Soft Bow Tri",
           "Walter Wave",
@@ -4126,7 +4143,8 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         max: "1",
         step: "0.001",
-        smoothingType: "papoulis"
+        smoothingType: "papoulis",
+        tooltip: "Tri: 0 = sine, 1 = triangle. Same shape at every pitch. Other waveforms still use Softwave drive (Morph⁴ × sine_amp)."
       },
       {
         defaultValue: "0",
@@ -4155,7 +4173,7 @@ const nodeGraphModuleDefinitions = (
           "Output level. Slider 0…1 = full-scale bipolar wave. Min/max are guides only." },
     ]
   },
-  // PolyBLEP saw + pitch-tracking one-pole Morph (Poles 1…4, constant-fundamental makeup).
+  // Same-phasor Morph: sine (0) ↔ PolyBLEP saw (1). No filter.
   filterMorphOscillator: {
     planRole: "source",
     displayType: "lineBurn",
@@ -4171,7 +4189,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { f: "ƒ" },
     inputAliases: { "ƒ": "f" },
     inputTooltips: {
-      Reset: "Rising edge snaps the phasor so Wave sits at the Phase offset; clears the Morph filter state.",
+      Reset: "Rising edge snaps the phasor so Wave sits at the Phase offset.",
       f: "Absolute Hz. Replaces Frequency when wired." },
     outputAliases: { Out: "Wave", "Wave Out": "Wave", Mono: "Wave" },
     outputChannels: { Wave: "green" },
@@ -4185,19 +4203,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "0 = dark (~0.5×ƒ one-pole cascade). 1 = open (~100×ƒ, clamped to Nyquist). Always filtered; constant-fundamental makeup." },
-      {
-        choices: ["1", "2", "3", "4"],
-        defaultValue: "1",
-        displayChoices: true,
-        key: "poles",
-        label: "Poles",
-        linearSmoothing: false,
-        max: "4",
-        mid: "2",
-        min: "1",
-        step: "1",
-        tooltip: "One-pole cascade depth for Morph. 1 = 6 dB/oct, 4 = 24 dB/oct toward sine-ish." },
+        tooltip: "0 = sine, 1 = PolyBLEP saw. Mix of the two period functions. Same Morph is the same shape at every pitch." },
       {
         defaultValue: "100",
         key: "frequency",
@@ -4653,6 +4659,23 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         tooltip: "Continuous 0 to 1. Squircle: 0 is a sine, 1 is a square (RoundShape sine-to-square, shifted onto the first-half square). Trisaw: peak slide of trisaw-center. Center / Left / Right Pulse: pulse width (0 = no high region, 1 = full high). Saw and Ramp ignore Morph." },
+      {
+        choices: ["Off", "On"],
+        choiceKeys: ["off", "on"],
+        choiceIds: [0, 1],
+        defaultValue: "off",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "squareAa",
+        kind: "choice",
+        label: "Square AA",
+        linearSmoothing: false,
+        max: "1",
+        mid: "0",
+        min: "0",
+        step: "1",
+        tooltip: "Squircle only. Off leaves the ellipsoid sine-to-square formula unchanged. On adds Robin's ?1-sample cycle dither to that shape's phase (same short/mid/long pick as the voice pitch dither). Not oversampling. Saw, Ramp, Trisaw, and pulses ignore it."
+      },
       {
         choices: ["Dual Channel", "Alternating"],
         defaultValue: "0",
@@ -14368,7 +14391,34 @@ const nodeGraphModuleDefinitions = (
       "Pitch Wheel": "Pitch",
       "Mod Wheel": "Mod" },
     outputs: ["Pitch", "Mod"],
-    parameters: []
+    parameters: [
+      {
+        ...nodeGraphControllerBiasParameter(),
+        key: "pitch",
+        label: "Pitch",
+        bipolar: true,
+        defaultValue: "0",
+        min: "-1",
+        max: "1",
+        mid: "0",
+        showSign: true,
+        hidden: true,
+        parameterOutput: false,
+        modulation: false,
+        tooltip: "Pitch wheel Bias. Mouse-up sets the target to center; audio ramps with this smooth time." },
+      {
+        ...nodeGraphControllerBiasParameter(),
+        key: "mod",
+        label: "Mod",
+        defaultValue: "0",
+        min: "0",
+        max: "1",
+        mid: "0.5",
+        hidden: true,
+        parameterOutput: false,
+        modulation: false,
+        tooltip: "Mod wheel Bias. Holds on mouse-up. Smooth time is Parameter Settings." },
+    ]
   },
   // Cheap poly ADSR: Analog (one-pole) / Linear / Smoothstep. Velocity from Gate
   // amplitude. Gate↑ does not restart from 0. Reset → idle. A/D/S/R/Level MOD live.
@@ -15005,7 +15055,7 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Gain on Light before the detector (unipolar clip)." },
       nodeGraphOutputAmplitudeParam,
     ] },
-  acousticPluck: {
+  pluckEnvelope: {
     planRole: "processor",
     planFreeRun: true,
     layout: "scopeFace",
@@ -15061,7 +15111,7 @@ const nodeGraphModuleDefinitions = (
         tooltip: "DC offset on the inverted-env → expo → Release path. Higher = more acoustic linger." },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ] },
-  pluckEnvelope: {
+  soemPluckEnvelope: {
     planRole: "processor",
     planFreeRun: true,
     inputs: ["Trigger", "Release"],
@@ -15403,7 +15453,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         tooltip: "Output scale on Env." },
     ] },
-  pluckEnvelope3: {
+  pingEnvelope: {
     planRole: "processor",
     planFreeRun: true,
     layout: "envelopeCurve",

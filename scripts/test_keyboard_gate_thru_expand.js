@@ -47,7 +47,7 @@ const proto = P.prototype;
 const nodes = new Map([
   ["clock-1", { type: "clock" }],
   ["keyboard-1", { type: "keyboard" }],
-  ["env-1", { type: "pluckEnvelope3" }],
+  ["env-1", { type: "pingEnvelope" }],
   ["grid-1", { type: "gridKeyboard" }],
   ["other-1", { type: "gain" }],
 ]);
