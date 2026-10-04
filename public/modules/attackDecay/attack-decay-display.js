@@ -208,7 +208,7 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
     };
   }
 
-  if (type === "thumpEnvelope" && typeof nodeGraphThumpEnvelopePreviewCurve === "function") {
+  if (typeof nodeGraphThumpEnvelopePreviewCurve === "function") {
     const attack = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "attack", 0));
     const release = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "release", 12.824772066678985));
     const decaySnap = Math.max(0, Math.min(1, nodeGraphEnvelopeCurveLiveParam(node, "decaySnap", 0)));

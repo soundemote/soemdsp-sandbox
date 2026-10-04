@@ -89,28 +89,7 @@ const ENVELOPES = [
     },
     peakMax: 1.2,
   },
-  {
-    name: "pluckEnvelope",
-    typeId: 72,
-    drive: "pluck",
-    setup(g, h) {
-      setParam(g, h, PARAM_TIME_NUM, 0);
-      setParam(g, h, PARAM_TIME_DEN, 0.002);
-      setParam(g, h, PARAM_FEEDBACK, 0.35);
-      setParam(g, h, PARAM_DIFFUSION_SIZE, 0.08);
-      setParam(g, h, PARAM_DIFFUSION_AMOUNT, 0.55);
-      setParam(g, h, PARAM_DELAY_SIZE, 0.8);
-      setParam(g, h, PARAM_SHAPE, 0);
-      setParam(g, h, PARAM_FREQUENCY, 1.5);
-      setParam(g, h, PARAM_OFFSET_MS, 0.08);
-      setParam(g, h, PARAM_RECYCLE, 0.35);
-      setParam(g, h, PARAM_WIDTH, 1);
-      setParam(g, h, PARAM_CENTER, 0);
-      setParam(g, h, PARAM_LEVEL, 1);
-    },
-    peakMax: 1.5,
-  },
-  {
+    {
     name: "flowerChildEnvelopeFollower",
     typeId: 73,
     drive: "noise",

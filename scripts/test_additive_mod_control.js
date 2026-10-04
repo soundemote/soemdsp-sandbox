@@ -28,10 +28,6 @@ vm.runInContext(
   sandbox,
 );
 vm.runInContext(
-  fs.readFileSync(path.join(root, "public/modules/pluckEnvelope/pluck-envelope-math.js"), "utf8"),
-  sandbox,
-);
-vm.runInContext(
   fs.readFileSync(path.join(root, "public/modules/additiveGraph/additive-mod-control.js"), "utf8"),
   sandbox,
 );
@@ -88,33 +84,9 @@ const N = 128;
   assert(Math.abs(strip2[0] - strip[N - 1]) < 0.15, "adsr continuity across blocks");
 }
 
-// Pluck: zero attack → peak then decay (sample-accurate strip)
-{
-  const c = sandbox.additiveModControlCreate("pluck", {
-    sampleRate: sr,
-    trigger: 1,
-    release: 0,
-    delayTime: 0,
-    attackFeedback: 0,
-    decay: 0.35,
-    level: 1,
-    velocity: 1,
-    autoReleaseTime: 0.2,
-  });
-  const strip = sandbox.additiveModControlBakeStrip(c, N);
-  const peak = Math.max(...strip);
-  assert(peak > 0.5, "pluck peak after trigger got " + peak);
-  const strip2 = sandbox.additiveModControlBakeStrip(
-    Object.assign(c, { trigger: 0 }),
-    N,
-  );
-  assert(strip2.length === N, "pluck second block length");
-  assert(strip2[N - 1] < peak, "pluck decays across blocks");
-}
 
 // Packet source type helper
 assert(sandbox.additiveModControlIsPacketSourceType("curveEnvelopeMod"));
-assert(sandbox.additiveModControlIsPacketSourceType("pluckEnvelopeMod"));
 assert(sandbox.additiveModControlIsPacketSourceType("additiveKnob"));
 assert(!sandbox.additiveModControlIsPacketSourceType("expAdsr"));
 

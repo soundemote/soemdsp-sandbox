@@ -1041,14 +1041,6 @@ extern "C" double soemdsp_curve_attack_release_sample(
 );
 extern "C" int soemdsp_curve_attack_release_version();
 
-extern "C" int soemdsp_thump_envelope_create();
-extern "C" void soemdsp_thump_envelope_destroy(int handle);
-extern "C" double soemdsp_thump_envelope_sample(
-  int handle, double gate, double attack, double release,
-  double decaySnap, double decayBody, double fallCurve, double loop,
-  double amplitude, double updateOnTrigger, double sampleRate
-);
-extern "C" int soemdsp_thump_envelope_version();
 
 extern "C" int soemdsp_pluck_envelope_fb_create();
 extern "C" void soemdsp_pluck_envelope_fb_destroy(int handle);
@@ -1105,53 +1097,7 @@ extern "C" double soemdsp_wavetable_adsr_sample(
 );
 extern "C" int soemdsp_wavetable_adsr_is_idle(int handle);
 
-extern "C" int soemdsp_pluck_envelope_create();
-extern "C" void soemdsp_pluck_envelope_destroy(int handle);
-extern "C" double soemdsp_pluck_envelope_sample(
-  int handle, double trigger, double releaseGate,
-  double velocitySensitivity, double attack,
-  double decaySlopeTop, double decaySlopeMid, double decaySlopeBottom,
-  double sustain, double releaseAmt, double autoReleaseTime,
-  double envelopeCurve, double envelopeDamping,
-  double velocity, double level, double sampleRate
-);
 
-extern "C" int soemdsp_expo_pluck_envelope_create();
-extern "C" void soemdsp_expo_pluck_envelope_destroy(int handle);
-extern "C" void soemdsp_expo_pluck_envelope_reset(int handle);
-extern "C" double soemdsp_expo_pluck_envelope_sample(
-  int handle,
-  double trigger,
-  double gate,
-  double attack,
-  double decay,
-  double frequency,
-  double damping,
-  double recalculateOnTrigger,
-  double level,
-  double sampleRate
-);
-extern "C" int soemdsp_expo_pluck_envelope_2_create();
-extern "C" void soemdsp_expo_pluck_envelope_2_destroy(int handle);
-extern "C" void soemdsp_expo_pluck_envelope_2_reset(int handle);
-extern "C" double soemdsp_expo_pluck_envelope_2_sample(
-  int handle,
-  double trigger,
-  double releaseGate,
-  double velocitySensitivity,
-  double attack,
-  double decaySlopeTop,
-  double decaySlopeMid,
-  double decaySlopeBottom,
-  double sustain,
-  double releaseAmt,
-  double autoReleaseTimeMs,
-  double envelopeCurve,
-  double envelopeDamping,
-  double velocity,
-  double level,
-  double sampleRate
-);
 
 extern "C" int soemdsp_flower_child_envelope_follower_create();
 extern "C" void soemdsp_flower_child_envelope_follower_destroy(int handle);
@@ -1805,7 +1751,7 @@ static const int kTypeChaoticPhaseLockingFilter = 68;
 static const int kTypeInertialFilter = 69;
 static const int kTypeExpAdsr = 70;
 static const int kTypeLinearEnvelope = 71;
-static const int kTypePluckEnvelope = 72;
+// 72 retired (soemPluckEnvelope / pluckEnvelopeMod).
 static const int kTypeFlowerChildEnvelopeFollower = 73;
 // 74 tombstoned (old vactrol)
 static const int kTypeDelayEffect = 75;
@@ -1909,12 +1855,12 @@ static const int kTypeTransistor = 159; // t / t1…t10 demux — stages = last 
 static const int kTypeTransistorMux = 175; // 1t…10t mux — stages = last path index
 static const int kTypeRasterRgb = 160; // Pixel Grid — graded R/G/B (+ rgba luma)
 static const int kTypeChaosfly = 161;
-static const int kTypeExpoPluckEnvelope = 162;
-static const int kTypeExpoPluckEnvelope2 = 163;
+// 162 retired (expoPluckEnvelope).
+// 163 retired (expoPluckEnvelope2).
 static const int kTypeLinearAttackRelease = 164;
 static const int kTypePingEnvelope = 165;
 static const int kTypeCurveAttackRelease = 166;
-static const int kTypeThumpEnvelope = 167;
+// 167 retired (thumpEnvelope).
 static const int kTypePluckEnvelopeFb = 198;
 static const int kTypeAcidSequencer = 199; // TB-303-style step sequencer
 static const int kTypeHyperpluck = 200; // PolyBLEP unison pluck (Supersaw detune)
@@ -2570,18 +2516,10 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_linear_envelope_destroy(handle);
   } else if (kind == kTypeWavetableAdsr) {
     soemdsp_wavetable_adsr_destroy(handle);
-  } else if (kind == kTypePluckEnvelope) {
-    soemdsp_pluck_envelope_destroy(handle);
-  } else if (kind == kTypeExpoPluckEnvelope) {
-    soemdsp_expo_pluck_envelope_destroy(handle);
-  } else if (kind == kTypeExpoPluckEnvelope2) {
-    soemdsp_expo_pluck_envelope_2_destroy(handle);
   } else if (kind == kTypeLinearAttackRelease) {
     soemdsp_linear_attack_release_destroy(handle);
   } else if (kind == kTypeCurveAttackRelease) {
     soemdsp_curve_attack_release_destroy(handle);
-  } else if (kind == kTypeThumpEnvelope) {
-    soemdsp_thump_envelope_destroy(handle);
   } else if (kind == kTypePluckEnvelopeFb) {
     soemdsp_pluck_envelope_fb_destroy(handle);
   } else if (kind == kTypePingEnvelope) {
@@ -2934,7 +2872,6 @@ static void init_node_defaults(Node& n, int typeId) {
         ? 0.5
       : (typeId == kTypeModeResonator) ? 440.0
       : (typeId == kTypeCombResonator) ? 110.0
-      : (typeId == kTypeExpoPluckEnvelope) ? 110.0 // KS pitch Hz
       : (typeId == kTypeInertialFilter) ? 20000.0 // attack Hz
       : (typeId == kTypeRobinSupersaw || typeId == kTypeHyperpluck) ? 100.0
       : (typeId == kTypeRobinSinusoid) ? 440.0
@@ -2968,7 +2905,6 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSnowflake) ? 55.0
       : (typeId == kTypeAntisaw) ? 110.0
       : (typeId == kTypeHarmonicSeries) ? 100.0
-      : (typeId == kTypePluckEnvelope || typeId == kTypeExpoPluckEnvelope2) ? 15.0 // EnvelopeDamping Hz
       : (typeId == kTypePll) ? 110.0 // VCO center Hz
       : (typeId == kTypeSoemReverb) ? 1000.0 // bandFrequency
       : (typeId == kTypeLorenzAttractor || typeId == kTypeChuaAttractor) ? 1.0 // speed
@@ -3039,9 +2975,6 @@ static void init_node_defaults(Node& n, int typeId) {
     n.shape,
     (typeId == kTypeXyPad) ? 0.35 // Smoothing (Papoulis amount)
       : (typeId == kTypeAdditivePan) ? 1.0 // AutoPan spread (turns across bank)
-      : (typeId == kTypePluckEnvelope || typeId == kTypeExpoPluckEnvelope2) ? -0.5 // EnvelopeCurve
-      : (typeId == kTypeExpoPluckEnvelope) ? 0.0 // Attack Shape Log
-      : (typeId == kTypeThumpEnvelope) ? 0.8062943900342834 // fallCurve (pluck envelope 2)
       : (typeId == kTypeRobinSupersaw) ? 1.0 // Random Phase (live offset scale)
       : (typeId == kTypeHyperpluck) ? 0.0 // phaseAlgorithm Linear
       : (typeId == kTypeSineWavetable || typeId == kTypeSinCos) ? 1.0 // method=Wavetable SSOT
@@ -3149,7 +3082,6 @@ static void init_node_defaults(Node& n, int typeId) {
       || typeId == kTypeSlewLimiter) // downShape Lin
       ? 0.0 // LP / Clean / BP6 / Feedback / filter / curve / noise / Gate / Lin
       : (typeId == kTypePluckEnvelopeFb) ? 1.0 // inputMode Trigger (breadboard)
-      : (typeId == kTypeThumpEnvelope) ? 0.0 // loop Off (On retriggers attack from sustain)
       : (typeId == kTypeInertialFilter) ? 1.0 // smoothAttack On
       : (typeId == kTypePingEnvelope) ? 1.0 // recalculateOnTrigger On
       : (typeId == kTypePhaser) ? 0.0 // Bandpass kernel
@@ -3247,14 +3179,10 @@ static void init_node_defaults(Node& n, int typeId) {
     n.center,
     (typeId == kTypeFm) ? 0.0 // cents
       : (typeId == kTypeHypersaw2) ? 2.0 // jitterDistance
-      : (typeId == kTypePluckEnvelope) ? 0.5 // VelocitySensitivity
-      : (typeId == kTypeExpoPluckEnvelope) ? 0.25 // bottomHeight
-      : (typeId == kTypeExpoPluckEnvelope2) ? 0.5 // velocitySensitivity
       : (typeId == kTypeVactrol) ? 0.0 // lightOffset
       : (typeId == kTypeWowAndFlutter) ? 1.0 // flutterAmp
       : (typeId == kTypeExpAdsr || typeId == kTypeCurveAttackRelease) ? 0.0 // releaseShape (bipolar; 0=linear)
       : (typeId == kTypePluckEnvelopeFb) ? 1.0 // releaseShape (breadboard)
-      : (typeId == kTypeThumpEnvelope) ? 0.0 // decayBody 0…1 (0=patch short)
       : (typeId == kTypeSoemReverb) ? 2.0 // bandStages
       : (typeId == kTypeLorenzAttractor) ? 1.0 // scale
       : (typeId == kTypeLogisticMap) ? 0.5 // seed
@@ -3294,9 +3222,6 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExponentialDelay) ? 0.0 // random offset seconds
       : (typeId == kTypePhaser) ? 0.5 // spread octaves
       : (typeId == kTypeNoiseGenerator) ? 0.5
-      : (typeId == kTypeExpoPluckEnvelope) ? 0.0 // damping
-      : (typeId == kTypeExpoPluckEnvelope2) ? 1.0 // velocity
-      : (typeId == kTypeThumpEnvelope) ? 0.0 // decaySnap 0…1 (0=patch short)
       : (typeId == kTypePluckEnvelopeFb) ? 1.1 // tail (inverted Dampen; 1.1 = breadboard rest)
       : (typeId == kTypePingEnvelope) ? 0.5 // decay (0=short … 1=long)
       : (typeId == kTypeTransport) ? 0.5 // pulseWidth gate duty
@@ -3324,7 +3249,6 @@ static void init_node_defaults(Node& n, int typeId) {
           || typeId == kTypeBessel || typeId == kTypeChebyshev || typeId == kTypeElliptic)
         ? 1.0 // bandwidth octaves
       : (typeId == kTypeCombResonator) ? 1.0 // depth
-      : (typeId == kTypePluckEnvelope) ? 1.0 // velocity
       : (typeId == kTypeVactrol) ? 1.0 // sensitivity
       : (typeId == kTypeSoemReverb) ? 2.0 // lpfStages
       : (typeId == kTypeLorenzAttractor) ? 2.6666666666666665 // beta
@@ -3383,30 +3307,24 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.diffusionSize,
     (typeId == kTypeBradley2a) ? 0.0 // harm2
-      : (typeId == kTypePluckEnvelope) ? 0.9 // DecaySlopeTop
-      : (typeId == kTypeExpoPluckEnvelope) ? 1.0 // topHeight
-      : (typeId == kTypeExpoPluckEnvelope2) ? 0.9 // decaySlopeTop
       : 0.35,
     false
   );
   init_control(
     n.diffusionAmount,
     (typeId == kTypeBradley2a) ? 0.0 // harm3
-      : (typeId == kTypePluckEnvelope || typeId == kTypeExpoPluckEnvelope2) ? 4.8 // DecaySlopeBottom
       : 0.70,
     false
   );
   init_control(
     n.delaySize,
-    (typeId == kTypePluckEnvelope || typeId == kTypeExpoPluckEnvelope2) ? 1.2 // Sustain
-      : (typeId == kTypeSoemReverb) ? 0.35 // echoTime
+      (typeId == kTypeSoemReverb) ? 0.35 // echoTime
       : 0.02,
     false
   );
   init_control(
     n.recycle,
     (typeId == kTypeBradley2a) ? 0.0 // impulseLevel
-      : (typeId == kTypePluckEnvelope || typeId == kTypeExpoPluckEnvelope2) ? 0.86 // Release
       : (typeId == kTypeSoemReverb) ? 0.5
       : 0.70,
     false
@@ -3474,9 +3392,6 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeRobinSupersaw) ? 0.0 // detuneTilt (unclamped)
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope || typeId == kTypeWavetableAdsr) ? 0.22 // decay
       : (typeId == kTypeAttackDecay) ? 0.25 // decay
-      : (typeId == kTypePluckEnvelope) ? 0.7 // DecaySlopeMid
-      : (typeId == kTypeExpoPluckEnvelope) ? 5.0 // Decay s (Comb-style: leave long)
-      : (typeId == kTypeExpoPluckEnvelope2) ? 0.7 // decaySlopeMid
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // decay
       : (typeId == kTypePluckEnvelopeFb) ? 1.64 // synth vs acoustic (attenuverter Offset def)
       : (typeId == kTypeDelayEffect) ? 0.25
@@ -3508,9 +3423,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLookaheadLimiter || typeId == kTypePumpLimiter) ? 5.0 // look-ahead ms
       : (typeId == kTypeBradley2a) ? 0.005 // hitDuration
       : (typeId == kTypeModeResonator || typeId == kTypeCombResonator) ? 1.0 // decay s
-      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope
-          || typeId == kTypePluckEnvelope) ? 0.0 // delay
-      : (typeId == kTypeExpoPluckEnvelope) ? 0.02 // topLength s
+      : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope) ? 0.0 // delay
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // attack
       : (typeId == kTypeVactrol) ? 0.0 // attack
       : (typeId == kTypeLinearAttackRelease || typeId == kTypeVibratoGenerator) ? 0.01 // attack
@@ -3534,11 +3447,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLookaheadLimiter || typeId == kTypePumpLimiter) ? 0.0 // look-ahead samples
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope || typeId == kTypeWavetableAdsr) ? 0.08 // attack
       : (typeId == kTypeAttackDecay || typeId == kTypeCurveAttackRelease) ? 0.01 // attack
-      : (typeId == kTypeThumpEnvelope) ? 0.0 // attack
       : (typeId == kTypePluckEnvelopeFb) ? 0.0 // attack
-      : (typeId == kTypePluckEnvelope) ? 0.0 // Attack
-      : (typeId == kTypeExpoPluckEnvelope) ? 0.002 // Attack slew s
-      : (typeId == kTypeExpoPluckEnvelope2) ? 0.0 // Attack (SoEm default)
       : (typeId == kTypePingEnvelope) ? 0.0 // attack s
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // hold
       : (typeId == kTypeVactrol) ? 0.1 // release
@@ -3556,8 +3465,6 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHypersaw2) ? 0.0 // vibratoSpeedTiltSource Freq
       : (typeId == kTypeActiveFilter) ? 1.0 // gainCompensation On
       : (typeId == kTypeAttackDecay) ? 0.0 // cycle Off
-      : (typeId == kTypeExpoPluckEnvelope) ? 1.0 // recalculateOnTrigger default ON
-      : (typeId == kTypeThumpEnvelope) ? 1.0 // updateOnTrigger On (default)
       : (typeId == kTypePluckEnvelopeFb) ? 0.0 // updateOnTrigger Off (live)
       : (typeId == kTypeExpAdsr || typeId == kTypeCurveAttackRelease) ? 0.0 // updateOnTrigger Off (live)
       : 0.0, // also mode/comb resonator hold Off
@@ -3570,9 +3477,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePumpLimiter) ? 5.0 // attack ms
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope || typeId == kTypeWavetableAdsr) ? 0.45 // release s
       : (typeId == kTypeCurveAttackRelease) ? 0.25 // release s
-      : (typeId == kTypeThumpEnvelope) ? 12.824772066678985 // release s (pluck envelope 2)
       : (typeId == kTypePluckEnvelopeFb) ? 0.11715292599242004 // release s (breadboard)
-      : (typeId == kTypePluckEnvelope || typeId == kTypeExpoPluckEnvelope2) ? 0.0 // AutoReleaseTime
       : (typeId == kTypeSoemReverb) ? 0.04 // duckRelease
       : (typeId == kTypeSpeakerProtector2) ? 0.375 // riseSeconds
       : 0.0,
@@ -4520,12 +4425,8 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeExpAdsr) return soemdsp_exp_adsr_create();
   if (typeId == kTypeLinearEnvelope) return soemdsp_linear_envelope_create();
   if (typeId == kTypeWavetableAdsr) return soemdsp_wavetable_adsr_create();
-  if (typeId == kTypePluckEnvelope) return soemdsp_pluck_envelope_create();
-  if (typeId == kTypeExpoPluckEnvelope) return soemdsp_expo_pluck_envelope_create();
-  if (typeId == kTypeExpoPluckEnvelope2) return soemdsp_expo_pluck_envelope_2_create();
   if (typeId == kTypeLinearAttackRelease) return soemdsp_linear_attack_release_create();
   if (typeId == kTypeCurveAttackRelease) return soemdsp_curve_attack_release_create();
-  if (typeId == kTypeThumpEnvelope) return soemdsp_thump_envelope_create();
   if (typeId == kTypePluckEnvelopeFb) return soemdsp_pluck_envelope_fb_create();
   if (typeId == kTypePingEnvelope) return soemdsp_ping_envelope_create();
   if (typeId == kTypeFlowerChildEnvelopeFollower) {
@@ -8958,39 +8859,6 @@ static void process_curve_attack_release(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Thump Envelope: timeDenominator=attack, offsetMs=release, width=decaySnap,
-// center=decayBody, shape=fallCurve, mode=loop, timingMode=updateOnTrigger,
-// amplitude. Gate→Mono(+L/R); Trigger alias may land on kPortTrigger.
-static void process_thump_envelope(Circuit& g, Node& node, int frames) {
-  if (node.nativeHandle <= 0) return;
-  mix_node_inputs(g, node, frames);
-  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
-  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool takeSamplePath = node_has_active_chase(node);
-  for (int f = 0; f < frames; f++) {
-    control_frame(g, node, f);
-    const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
-    const double mono = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
-    const double gate = trig + mono;
-    const double out = soemdsp_thump_envelope_sample(
-      node.nativeHandle,
-      gate,
-      control_audio(g, node.timeDenominator, f),
-      control_audio(g, node.offsetMs, f),
-      control_audio(g, node.width, f),
-      control_audio(g, node.center, f),
-      control_audio(g, node.shape, f),
-      control_effective(node.mode),
-      control_audio(g, node.amplitude, f),
-      control_effective(node.timingMode),
-      sr
-    );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
-  }
-}
-
 // Pluck Envelope (pluckEnvelope), baked from patches/modulator breadboards/pluck envelope.json.
 // timeDenominator=softenAttack, width=tail, center=releaseShape,
 // feedback=synthVsAcoustic, mode=inputMode, timingMode=updateOnTrigger.
@@ -9156,122 +9024,6 @@ static void process_linear_envelope(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = out;
     node.buf[kPortRight][f] = out;
     node.buf[kPortIsIdle][f] = soemdsp_linear_envelope_is_idle(node.nativeHandle) ? 1.0 : 0.0;
-  }
-}
-
-// Pluck: Trigger→kPortTrigger, Release→Mono(+L/R).
-// timeNumerator=delayTime, timeDenominator=attackFeedback, feedback=decay,
-// SoEmPluck map:
-// center=velocitySensitivity, timeDenominator=attack,
-// diffusionSize=decaySlopeTop, feedback=decaySlopeMid,
-// diffusionAmount=decaySlopeBottom, delaySize=sustain,
-// recycle=release, offsetMs=autoReleaseTime, shape=envelopeCurve,
-// frequency=envelopeDamping, width=velocity, level=amplitude.
-static void process_pluck_envelope(Circuit& g, Node& node, int frames) {
-  if (node.nativeHandle <= 0) return;
-  mix_node_inputs(g, node, frames);
-  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
-  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool takeSamplePath = node_has_active_chase(node);
-  for (int f = 0; f < frames; f++) {
-    control_frame(g, node, f);
-    const double trigger = hasTrig ? g.mixTrigger[f] : 0.0;
-    const double releaseGate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
-    const double out = soemdsp_pluck_envelope_sample(
-      node.nativeHandle,
-      trigger,
-      releaseGate,
-      control_audio(g, node.center, f),
-      control_audio(g, node.timeDenominator, f),
-      control_audio(g, node.diffusionSize, f),
-      control_audio(g, node.feedback, f),
-      control_audio(g, node.diffusionAmount, f),
-      control_audio(g, node.delaySize, f),
-      control_audio(g, node.recycle, f),
-      control_audio(g, node.offsetMs, f),
-      control_audio(g, node.shape, f),
-      control_audio(g, node.frequency, f),
-      control_audio(g, node.width, f),
-      control_audio(g, node.level, f),
-      sr
-    );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
-  }
-}
-
-// Expo Pluck (Comb-style KS Env): 1-pole attack, then
-// A *= exp(-f0/(decay*(1-D)^2*sr)) — D=0 open, D=1 tiny impulse.
-// Latch params on trig by default.
-// timeDenominator=attack, feedback=decay, frequency=Hz, width=damping,
-// timingMode=recalculateOnTrigger, level=level.
-static void process_expo_pluck_envelope(Circuit& g, Node& node, int frames) {
-  if (node.nativeHandle <= 0) return;
-  mix_node_inputs(g, node, frames);
-  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
-  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool takeSamplePath = node_has_active_chase(node);
-  for (int f = 0; f < frames; f++) {
-    control_frame(g, node, f);
-    const double trigger = hasTrig ? g.mixTrigger[f] : 0.0;
-    const double gate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
-    const double out = soemdsp_expo_pluck_envelope_sample(
-      node.nativeHandle,
-      trigger,
-      gate,
-      control_audio(g, node.timeDenominator, f),
-      control_audio(g, node.feedback, f),
-      control_audio(g, node.frequency, f),
-      control_audio(g, node.width, f),
-      control_effective(node.timingMode),
-      control_audio(g, node.level, f),
-      sr
-    );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
-  }
-}
-
-// Expo Pluck 2 = SoEmPluck / PluckEnvelope.hpp (same Control map as pluckEnvelope).
-// center=velocitySensitivity, timeDenominator=attack,
-// diffusionSize=decaySlopeTop, feedback=decaySlopeMid,
-// diffusionAmount=decaySlopeBottom, delaySize=sustain,
-// recycle=release, offsetMs=autoReleaseTime, shape=envelopeCurve,
-// frequency=envelopeDamping, width=velocity, level=amplitude.
-static void process_expo_pluck_envelope_2(Circuit& g, Node& node, int frames) {
-  if (node.nativeHandle <= 0) return;
-  mix_node_inputs(g, node, frames);
-  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
-  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool takeSamplePath = node_has_active_chase(node);
-  for (int f = 0; f < frames; f++) {
-    control_frame(g, node, f);
-    const double trigger = hasTrig ? g.mixTrigger[f] : 0.0;
-    // Release jack folds via Mono+L+R (same as pluckEnvelope).
-    const double releaseGate = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
-    const double out = soemdsp_expo_pluck_envelope_2_sample(
-      node.nativeHandle,
-      trigger,
-      releaseGate,
-      control_audio(g, node.center, f),
-      control_audio(g, node.timeDenominator, f),
-      control_audio(g, node.diffusionSize, f),
-      control_audio(g, node.feedback, f),
-      control_audio(g, node.diffusionAmount, f),
-      control_audio(g, node.delaySize, f),
-      control_audio(g, node.recycle, f),
-      control_audio(g, node.offsetMs, f),
-      control_audio(g, node.shape, f),
-      control_audio(g, node.frequency, f),
-      control_audio(g, node.width, f),
-      control_audio(g, node.level, f),
-      sr
-    );
-    node.buf[kPortMono][f] = out;
-    node.buf[kPortLeft][f] = out;
-    node.buf[kPortRight][f] = out;
   }
 }
 
@@ -12705,12 +12457,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeExpAdsr
     || typeId == kTypeLinearEnvelope
     || typeId == kTypeWavetableAdsr
-    || typeId == kTypePluckEnvelope
-    || typeId == kTypeExpoPluckEnvelope
-    || typeId == kTypeExpoPluckEnvelope2
     || typeId == kTypeLinearAttackRelease
     || typeId == kTypeCurveAttackRelease
-    || typeId == kTypeThumpEnvelope
     || typeId == kTypePluckEnvelopeFb
     || typeId == kTypePingEnvelope
     || typeId == kTypeFlowerChildEnvelopeFollower
@@ -14088,28 +13836,12 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_wavetable_adsr(g, node, frames);
       return;
     }
-    if (node.typeId == kTypePluckEnvelope) {
-      process_pluck_envelope(g, node, frames);
-      return;
-    }
-    if (node.typeId == kTypeExpoPluckEnvelope) {
-      process_expo_pluck_envelope(g, node, frames);
-      return;
-    }
-    if (node.typeId == kTypeExpoPluckEnvelope2) {
-      process_expo_pluck_envelope_2(g, node, frames);
-      return;
-    }
     if (node.typeId == kTypeLinearAttackRelease) {
       process_linear_attack_release(g, node, frames);
       return;
     }
     if (node.typeId == kTypeCurveAttackRelease) {
       process_curve_attack_release(g, node, frames);
-      return;
-    }
-    if (node.typeId == kTypeThumpEnvelope) {
-      process_thump_envelope(g, node, frames);
       return;
     }
     if (node.typeId == kTypePluckEnvelopeFb) {

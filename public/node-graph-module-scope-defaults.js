@@ -51,9 +51,7 @@ const nodeGraphModuleScopeUnipolarTypes = new Set([
   "linearEnvelope",
   "linearAttackRelease",
   "curveAttackRelease",
-  "thumpEnvelope",
 
-  "soemPluckEnvelope",
   "bloomGlow",
   "chromaColor",
   "rgbaHsla",

@@ -229,7 +229,6 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
     this.noiseGeneratorStates = new Map();
     this.oscResetStates = new Map();
     this.graphLfoStates = new Map();
-    this.pluckEnvelopeStates = new Map();
     for (const state of this.randomClockStates.values()) {
       this.destroyRandomClockNativeState(state);
     }

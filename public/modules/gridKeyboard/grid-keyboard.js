@@ -331,10 +331,27 @@ function updateNodeGraphGridKeyboardSignal(event) {
   }
 
   if (mode === "triggerPatch") {
+    const pointerId = event.pointerId;
     if (event.type === "pointerdown" && !event.ctrlKey && !event.shiftKey && !altDown && pad) {
       const midi = Math.max(0, Math.min(127, Math.round(Number(pad.dataset.gridMidi))));
       if (typeof nodeGraphApplyCircuitPatchSlot === "function") {
         nodeGraphApplyCircuitPatchSlot(midi);
+      }
+      if (typeof nodeGraphTriggerPatchGhostKey === "function") {
+        nodeGraphTriggerPatchGhostKey(pad, pointerId);
+      } else {
+        pad.classList.add("ghost-patch");
+      }
+      try { surface.setPointerCapture?.(pointerId); } catch (_e) { /* ignore */ }
+    } else if (
+      nodeGraphMvp?.midiKeyboardTriggerPatchPointerId === pointerId
+      && (event.type === "pointerup" || event.type === "pointercancel" || event.type === "lostpointercapture")
+    ) {
+      try { surface.releasePointerCapture?.(pointerId); } catch (_e) { /* ignore */ }
+      if (typeof nodeGraphTriggerPatchClearGhost === "function") {
+        nodeGraphTriggerPatchClearGhost();
+      } else {
+        pad?.classList.remove("ghost-patch");
       }
     }
     event.preventDefault();

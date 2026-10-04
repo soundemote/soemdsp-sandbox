@@ -506,7 +506,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const linearEnvelopeStates = new Map();
   const linearAttackReleaseStates = new Map();
   const curveAttackReleaseStates = new Map();
-  const thumpEnvelopeStates = new Map();
   const pingEnvelopeStates = new Map();
   const logisticMapStates = new Map();
   const henonMapStates = new Map();
@@ -543,9 +542,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const oscillatorLastPhaseIncrements = new Map();
   const oscillatorStoppedSamples = new Map();
   const patchCommandStates = new Map();
-  const pluckEnvelopeStates = new Map();
-  const expoPluckEnvelopeStates = new Map();
-  const expoPluckEnvelope2States = new Map();
   const vactrolEnvelopeStates = new Map();
   const randomClockStates = new Map();
   const randomWalkStates = new Map();
@@ -893,14 +889,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
           : { out: 0, lastGate: 0, phase: "idle", hasShot: false, shot: null },
       );
     }
-    if (node.type === "thumpEnvelope") {
-      thumpEnvelopeStates.set(
-        node.id,
-        typeof createNodeGraphThumpEnvelopeState === "function"
-          ? createNodeGraphThumpEnvelopeState()
-          : { out: 0, lastGate: 0, lastFb: 0, stage: "off" },
-      );
-    }
     if (node.type === "pingEnvelope") {
       pingEnvelopeStates.set(
         node.id,
@@ -949,30 +937,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     }
     if (node.type === "flowerChildEnvelopeFollower") {
       flowerChildEnvelopeFollowerStates.set(node.id, createNodeGraphFlowerChildEnvelopeFollowerState());
-    }
-    if (node.type === "soemPluckEnvelope") {
-      pluckEnvelopeStates.set(
-        node.id,
-        typeof createNodeGraphPluckEnvelopeState === "function"
-          ? createNodeGraphPluckEnvelopeState()
-          : { env: 0, lastTrig: 0 },
-      );
-    }
-    if (node.type === "expoPluckEnvelope") {
-      expoPluckEnvelopeStates.set(
-        node.id,
-        typeof createExpoPluckEnvelopeState === "function"
-          ? createExpoPluckEnvelopeState()
-          : { env: 0, stage: "idle" },
-      );
-    }
-    if (node.type === "expoPluckEnvelope2") {
-      expoPluckEnvelope2States.set(
-        node.id,
-        typeof createExpoPluckEnvelope2State === "function"
-          ? createExpoPluckEnvelope2State()
-          : { env: 0, stage: "idle" },
-      );
     }
     if (node.type === "vactrol") {
       vactrolEnvelopeStates.set(
@@ -1066,7 +1030,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     linearEnvelopeStates,
     linearAttackReleaseStates,
     curveAttackReleaseStates,
-    thumpEnvelopeStates,
     pingEnvelopeStates,
     logisticMapStates,
     henonMapStates,
@@ -1129,9 +1092,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     noiseSeedKeys,
     noiseSeeds,
     noiseGeneratorStates,
-    pluckEnvelopeStates,
-    expoPluckEnvelopeStates,
-    expoPluckEnvelope2States,
     vactrolEnvelopeStates,
     randomClockStates,
     reverbEffectStates,
@@ -1331,9 +1291,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.curveAttackReleaseStates) {
     runtime.curveAttackReleaseStates = new Map();
   }
-  if (!runtime.thumpEnvelopeStates) {
-    runtime.thumpEnvelopeStates = new Map();
-  }
   if (!runtime.pingEnvelopeStates) {
     runtime.pingEnvelopeStates = new Map();
   }
@@ -1497,15 +1454,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.flowerChildEnvelopeFollowerStates) {
     runtime.flowerChildEnvelopeFollowerStates = new Map();
-  }
-  if (!runtime.pluckEnvelopeStates) {
-    runtime.pluckEnvelopeStates = new Map();
-  }
-  if (!runtime.expoPluckEnvelopeStates) {
-    runtime.expoPluckEnvelopeStates = new Map();
-  }
-  if (!runtime.expoPluckEnvelope2States) {
-    runtime.expoPluckEnvelope2States = new Map();
   }
   if (!runtime.vactrolEnvelopeStates) {
     runtime.vactrolEnvelopeStates = new Map();
@@ -1889,14 +1837,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
           : { out: 0, lastGate: 0, phase: "idle", hasShot: false, shot: null },
       );
     }
-    if (node.type === "thumpEnvelope" && !runtime.thumpEnvelopeStates.has(node.id)) {
-      runtime.thumpEnvelopeStates.set(
-        node.id,
-        typeof createNodeGraphThumpEnvelopeState === "function"
-          ? createNodeGraphThumpEnvelopeState()
-          : { out: 0, lastGate: 0, lastFb: 0, stage: "off" },
-      );
-    }
     if (node.type === "pingEnvelope" && !runtime.pingEnvelopeStates.has(node.id)) {
       runtime.pingEnvelopeStates.set(
         node.id,
@@ -1948,30 +1888,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       !runtime.flowerChildEnvelopeFollowerStates.has(node.id)
     ) {
       runtime.flowerChildEnvelopeFollowerStates.set(node.id, createNodeGraphFlowerChildEnvelopeFollowerState());
-    }
-    if (node.type === "soemPluckEnvelope" && !runtime.pluckEnvelopeStates.has(node.id)) {
-      runtime.pluckEnvelopeStates.set(
-        node.id,
-        typeof createNodeGraphPluckEnvelopeState === "function"
-          ? createNodeGraphPluckEnvelopeState()
-          : { env: 0, lastTrig: 0 },
-      );
-    }
-    if (node.type === "expoPluckEnvelope" && !runtime.expoPluckEnvelopeStates.has(node.id)) {
-      runtime.expoPluckEnvelopeStates.set(
-        node.id,
-        typeof createExpoPluckEnvelopeState === "function"
-          ? createExpoPluckEnvelopeState()
-          : { env: 0, stage: "idle" },
-      );
-    }
-    if (node.type === "expoPluckEnvelope2" && !runtime.expoPluckEnvelope2States.has(node.id)) {
-      runtime.expoPluckEnvelope2States.set(
-        node.id,
-        typeof createExpoPluckEnvelope2State === "function"
-          ? createExpoPluckEnvelope2State()
-          : { env: 0, stage: "idle" },
-      );
     }
     if (node.type === "vactrol" && !runtime.vactrolEnvelopeStates.has(node.id)) {
       runtime.vactrolEnvelopeStates.set(
@@ -2252,13 +2168,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     for (const id of [...runtime.curveAttackReleaseStates.keys()]) {
       if (!nodeIds.has(id)) {
         runtime.curveAttackReleaseStates.delete(id);
-      }
-    }
-  }
-  if (runtime.thumpEnvelopeStates) {
-    for (const id of [...runtime.thumpEnvelopeStates.keys()]) {
-      if (!nodeIds.has(id)) {
-        runtime.thumpEnvelopeStates.delete(id);
       }
     }
   }
@@ -2552,25 +2461,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.flowerChildEnvelopeFollowerStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.flowerChildEnvelopeFollowerStates.delete(id);
-    }
-  }
-  for (const id of [...runtime.pluckEnvelopeStates.keys()]) {
-    if (!nodeIds.has(id)) {
-      runtime.pluckEnvelopeStates.delete(id);
-    }
-  }
-  if (runtime.expoPluckEnvelopeStates) {
-    for (const id of [...runtime.expoPluckEnvelopeStates.keys()]) {
-      if (!nodeIds.has(id)) {
-        runtime.expoPluckEnvelopeStates.delete(id);
-      }
-    }
-  }
-  if (runtime.expoPluckEnvelope2States) {
-    for (const id of [...runtime.expoPluckEnvelope2States.keys()]) {
-      if (!nodeIds.has(id)) {
-        runtime.expoPluckEnvelope2States.delete(id);
-      }
     }
   }
   if (runtime.vactrolEnvelopeStates) {

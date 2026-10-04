@@ -538,7 +538,72 @@
         && clientY >= rect.top && clientY <= rect.bottom;
     }
 
+    /**
+     * Parameter cable drop: the widget between the jacks, not empty space
+     * outside the module. Left half of that widget is the modulation inlet;
+     * right half is the parameter outlet. Stacked rows: the row whose vertical
+     * center is closest to the pointer wins, then that row's widget is split.
+     * A missing jack on the chosen half is a miss — it does not become the
+     * other jack, and it does not fall through to a neighboring port.
+     * Returns { claimed, port }.
+     */
+    function parameterWidgetHalfDrop(clientX, clientY) {
+      let best = null;
+      let bestDistance = Infinity;
+      const rows = document.querySelectorAll('.node-parameter-row');
+      for (const row of rows) {
+        if (row.hidden || row.classList.contains('node-parameter-row-hidden')) {
+          continue;
+        }
+        if (
+          typeof nodeGraphElementInSkippedContentVisibility === 'function'
+          && nodeGraphElementInSkippedContentVisibility(row)
+        ) {
+          continue;
+        }
+        const widget = row.querySelector(':scope > .node-parameter-control')
+          || row.querySelector('.node-parameter-control');
+        if (!widget) {
+          continue;
+        }
+        const rowRect = row.getBoundingClientRect();
+        const widgetRect = widget.getBoundingClientRect();
+        if (rowRect.width <= 0 || rowRect.height <= 0 || widgetRect.width <= 0 || widgetRect.height <= 0) {
+          continue;
+        }
+        // Widget box, clamped to the row so the hit cannot leave the module.
+        const left = Math.max(widgetRect.left, rowRect.left);
+        const right = Math.min(widgetRect.right, rowRect.right);
+        if (right - left <= 0 || clientX < left || clientX > right) {
+          continue;
+        }
+        // Row band plus the widget's own box (optical slider nudge stays hittable).
+        const top = Math.min(rowRect.top, widgetRect.top);
+        const bottom = Math.max(rowRect.bottom, widgetRect.bottom);
+        if (clientY < top || clientY > bottom) {
+          continue;
+        }
+        const distance = Math.abs(clientY - (rowRect.top + rowRect.height * 0.5));
+        if (distance < bestDistance) {
+          best = { left, right, row };
+          bestDistance = distance;
+        }
+      }
+      if (!best) {
+        return { claimed: false, port: null };
+      }
+      const mid = best.left + (best.right - best.left) * 0.5;
+      const port = clientX < mid
+        ? best.row.querySelector(':scope > .node-param-port.modulation-input')
+        : best.row.querySelector(':scope > .node-param-port.parameter-output');
+      return { claimed: true, port: port || null };
+    }
+
     function patchPointTargetFromPoint(clientX, clientY) {
+      const parameterDrop = parameterWidgetHalfDrop(clientX, clientY);
+      if (parameterDrop.claimed) {
+        return parameterDrop.port;
+      }
       let best = null;
       let bestDistance = Infinity;
       const targets = document.querySelectorAll(

@@ -625,33 +625,7 @@
       "wasmUrl": "native_modules/exp_adsr/exp_adsr.wasm",
       "wasmAvailable": true
     },
-    {
-      "name": "expo_pluck_envelope",
-      "label": "Expo Pluck Envelope",
-      "targetType": "expoPluckEnvelope",
-      "kind": "envelope",
-      "source": "native_modules/expo_pluck_envelope/expo_pluck_envelope.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/expo_pluck_envelope/expo_pluck_envelope.cpp",
-      "localSourceUrl": "/native_modules/expo_pluck_envelope/expo_pluck_envelope.cpp",
-      "libUrl": "",
-      "wasm": "native_modules/expo_pluck_envelope/expo_pluck_envelope.wasm",
-      "wasmUrl": "native_modules/expo_pluck_envelope/expo_pluck_envelope.wasm",
-      "wasmAvailable": true
-    },
-    {
-      "name": "expo_pluck_envelope_2",
-      "label": "Expo Pluck Envelope 2",
-      "targetType": "expoPluckEnvelope2",
-      "kind": "envelope",
-      "source": "native_modules/expo_pluck_envelope_2/expo_pluck_envelope_2.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/expo_pluck_envelope_2/expo_pluck_envelope_2.cpp",
-      "localSourceUrl": "/native_modules/expo_pluck_envelope_2/expo_pluck_envelope_2.cpp",
-      "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/envelope/PluckEnvelope.hpp",
-      "wasm": "native_modules/expo_pluck_envelope_2/expo_pluck_envelope_2.wasm",
-      "wasmUrl": "native_modules/expo_pluck_envelope_2/expo_pluck_envelope_2.wasm",
-      "wasmAvailable": true
-    },
-    {
+            {
       "name": "exponential_delay",
       "label": "Early Reflections",
       "targetType": "earlyReflections",
@@ -1392,20 +1366,7 @@
       "wasmUrl": "native_modules/pll/pll.wasm",
       "wasmAvailable": true
     },
-    {
-      "name": "pluck_envelope",
-      "label": "Pluck Envelope",
-      "targetType": "pluckEnvelope",
-      "kind": "envelope",
-      "source": "native_modules/pluck_envelope/pluck_envelope.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/pluck_envelope/pluck_envelope.cpp",
-      "localSourceUrl": "/native_modules/pluck_envelope/pluck_envelope.cpp",
-      "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/envelope/PluckEnvelope.hpp",
-      "wasm": "native_modules/pluck_envelope/pluck_envelope.wasm",
-      "wasmUrl": "native_modules/pluck_envelope/pluck_envelope.wasm",
-      "wasmAvailable": true
-    },
-    {
+        {
       "name": "ping_envelope",
       "label": "Ping Envelope",
       "targetType": "pingEnvelope",
@@ -1886,20 +1847,7 @@
       "wasmUrl": "native_modules/tb303_filter/tb303_filter.wasm",
       "wasmAvailable": true
     },
-    {
-      "name": "thump_envelope",
-      "label": "Thump Envelope",
-      "targetType": "thumpEnvelope",
-      "kind": "envelope",
-      "source": "native_modules/thump_envelope/thump_envelope.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/thump_envelope/thump_envelope.cpp",
-      "localSourceUrl": "/native_modules/thump_envelope/thump_envelope.cpp",
-      "libUrl": "",
-      "wasm": "native_modules/thump_envelope/thump_envelope.wasm",
-      "wasmUrl": "native_modules/thump_envelope/thump_envelope.wasm",
-      "wasmAvailable": true
-    },
-    {
+        {
       "name": "transport",
       "label": "Metronome",
       "targetType": "transport",

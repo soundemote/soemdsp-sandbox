@@ -450,12 +450,7 @@ NodeLiveAudioProcessor.prototype.destroyDelayEffectNativeState = function destro
     }
 };
 
-NodeLiveAudioProcessor.prototype.destroyPluckEnvelopeNativeState = function destroyPluckEnvelopeNativeState(state) {
-    if (state?.nativeHandle && this.nativePluckEnvelope?.soemdsp_pluck_envelope_destroy) {
-      this.nativePluckEnvelope.soemdsp_pluck_envelope_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-};
+;
 
 NodeLiveAudioProcessor.prototype.destroyExpAdsrNativeState = function destroyExpAdsrNativeState(state) {
     if (state?.nativeHandle && this.nativeExpAdsr?.soemdsp_exp_adsr_destroy) {

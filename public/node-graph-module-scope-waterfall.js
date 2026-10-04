@@ -492,7 +492,15 @@ function nodeGraphWaterfallMapSampleWindow(live, buffer, start, end) {
   const hi = Math.max(i0, i1);
   const clipLo = Math.max(0, lo);
   const clipHi = Math.min(buffer.length, hi);
-  if (!(clipHi > clipLo)) return null;
+  // Rings that started at different times do not share absolute frames.
+  // A miss used to drop the whole channel (Right stayed blank on Add too).
+  // Fall back to this ring's own newest samples of the same count.
+  if (!(clipHi > clipLo)) {
+    const count = Math.max(0, Number(end) - Number(start));
+    const bufEnd = buffer.length;
+    if (!(count > 0) || !(bufEnd > 0)) return null;
+    return { start: Math.max(0, bufEnd - count), end: bufEnd };
+  }
   return { start: clipLo, end: clipHi };
 }
 

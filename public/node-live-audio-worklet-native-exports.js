@@ -1317,14 +1317,9 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
-      if (name === "pluck_envelope" || targetType === "soemPluckEnvelope") {
+      if (name === "pluck_envelope") {
         for (const state of this.pluckEnvelopeStates.values()) {
           this.destroyPluckEnvelopeNativeState(state);
-        }
-        if (this.pluckEnvelopeModStates) {
-          for (const state of this.pluckEnvelopeModStates.values()) {
-            this.destroyPluckEnvelopeNativeState(state);
-          }
         }
         this.nativePluckEnvelope = exports;
         this.nativePluckEnvelopeReady = Boolean(

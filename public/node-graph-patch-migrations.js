@@ -701,14 +701,13 @@ function nodeGraphPatchMigrateBubbleSlimParams(patch) {
 }
 
 /**
- * additiveCurveEnvelope → curveEnvelopeMod; additivePluckEnvelope → pluckEnvelopeMod.
+ * additiveCurveEnvelope → curveEnvelopeMod.
  * Display rename only at the type-id layer; params unchanged.
  */
 function nodeGraphPatchMigrateAdditiveEnvelopeMods(patch) {
   if (!patch || !Array.isArray(patch.nodes)) return patch;
   const map = Object.freeze({
     additiveCurveEnvelope: "curveEnvelopeMod",
-    additivePluckEnvelope: "pluckEnvelopeMod",
   });
   let changed = false;
   const nodes = patch.nodes.map((node) => {

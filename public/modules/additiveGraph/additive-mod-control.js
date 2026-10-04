@@ -55,77 +55,6 @@ function additiveModControlCreate(kind, fields = {}) {
           : { lastGate: 0, out: 0, secondsPassed: 0, state: "off", latchedParams: null }),
     };
   }
-  if (k === "pluck") {
-    // Param keys match gold pluckEnvelope / nodeGraphPluckEnvelopeSample.
-    return {
-      ...base,
-      trigger: nodeGraphFiniteNumber(fields.trigger),
-      release: nodeGraphFiniteNumber(fields.release),
-      params: {
-        delayTime: Math.max(0, nodeGraphFiniteNumber(fields.delayTime)),
-        // Allow 0 attack (instant peak) — do not coalesce 0 → default.
-        attackFeedback: Math.max(
-          0,
-          Number.isFinite(Number(fields.attackFeedback))
-            ? Number(fields.attackFeedback)
-            : 0.002,
-        ),
-        decay: Math.max(
-          0.1,
-          Math.min(
-            1,
-            Number.isFinite(Number(fields.decay)) ? Number(fields.decay) : 0.35,
-          ),
-        ),
-        decayModStart: Number.isFinite(Number(fields.decayModStart))
-          ? Number(fields.decayModStart)
-          : 0.08,
-        decayModEnd: Number.isFinite(Number(fields.decayModEnd))
-          ? Number(fields.decayModEnd)
-          : 0.55,
-        endingDecay: Number.isFinite(Number(fields.endingDecay))
-          ? Number(fields.endingDecay)
-          : 0.8,
-        decayModCurve: Number.isFinite(Number(fields.decayModCurve))
-          ? Number(fields.decayModCurve)
-          : 0,
-        decayModFrequency: Number.isFinite(Number(fields.decayModFrequency))
-          ? Number(fields.decayModFrequency)
-          : 1.5,
-        releaseFeedback: Number.isFinite(Number(fields.releaseFeedback))
-          ? Number(fields.releaseFeedback)
-          : 0.35,
-        autoReleaseTime: Math.max(
-          0,
-          Number.isFinite(Number(fields.autoReleaseTime))
-            ? Number(fields.autoReleaseTime)
-            : 0, // ms (SoEm display units)
-        ),
-        velocity: Number.isFinite(Number(fields.velocity))
-          ? Number(fields.velocity)
-          : 1,
-        velocitySensitivity: Number.isFinite(Number(fields.velocitySensitivity))
-          ? Number(fields.velocitySensitivity)
-          : 0,
-        level: Number.isFinite(Number(fields.level)) ? Number(fields.level) : 1,
-      },
-      state: fields.state && typeof fields.state === "object"
-        ? fields.state
-        : (typeof createNodeGraphPluckEnvelopeState === "function"
-          ? createNodeGraphPluckEnvelopeState()
-          : {
-            autoReleasePhasor: 0,
-            currentValue: 0,
-            decayIncrement: 0,
-            lastRelease: 0,
-            lastTrigger: 0,
-            phasor: 0,
-            releaseIncrement: 0,
-            secondsPassed: 0,
-            state: "off",
-          }),
-    };
-  }
   if (k === "robin") {
     return {
       ...base,
@@ -155,16 +84,6 @@ function additiveModControlStepAdsr(control) {
   return nodeGraphExpAdsrCore(state, gate, params, control.sampleRate);
 }
 
-function additiveModControlStepPluck(control) {
-  const state = control.state;
-  const trigger = nodeGraphFiniteNumber(control.trigger);
-  const release = nodeGraphFiniteNumber(control.release);
-  const params = control.params || {};
-  if (typeof nodeGraphPluckEnvelopeSample === "function") {
-    return nodeGraphPluckEnvelopeSample(state, trigger, release, params, control.sampleRate);
-  }
-  return 0;
-}
 
 function additiveModControlRobinAt(control, sampleIndex) {
   const sr = Math.max(1, nodeGraphFiniteNumber(control.sampleRate, 44100));
@@ -179,7 +98,7 @@ function additiveModControlRobinAt(control, sampleIndex) {
 
 /**
  * Evaluate control at sample index within the block (0 … blockFrames-1).
- * For adsr/pluck: clones block-start state and advances 0..index (O(index)).
+ * For adsr: clones block-start state and advances 0..index (O(index)).
  * Prefer additiveModControlBakeStrip for full-block consumers.
  */
 function additiveModControlValueAt(control, sampleIndex, blockFrames = 128) {
@@ -202,20 +121,11 @@ function additiveModControlValueAt(control, sampleIndex, blockFrames = 128) {
     for (let s = 0; s <= i; s += 1) out = additiveModControlStepAdsr(work);
     return additiveModControlClamp01(out);
   }
-  if (kind === "pluck") {
-    const work = {
-      ...control,
-      state: additiveModControlCloneState(control.state),
-    };
-    let out = 0;
-    for (let s = 0; s <= i; s += 1) out = additiveModControlStepPluck(work);
-    return additiveModControlClamp01(out);
-  }
   return 0;
 }
 
 /**
- * Bake N samples and advance publisher state to end-of-block (adsr/pluck).
+ * Bake N samples and advance publisher state to end-of-block (adsr).
  * Returns Float32Array length N in ~0…1. Mutates control.state for continuity.
  */
 function additiveModControlBakeStrip(control, blockFrames = 128) {
@@ -245,12 +155,6 @@ function additiveModControlBakeStrip(control, blockFrames = 128) {
     }
     return strip;
   }
-  if (kind === "pluck") {
-    for (let i = 0; i < N; i += 1) {
-      strip[i] = additiveModControlClamp01(additiveModControlStepPluck(control));
-    }
-    return strip;
-  }
   return strip;
 }
 
@@ -261,12 +165,8 @@ function additiveModControlIsPacketSourceType(type) {
   const t = String(type || "");
   return (
     t === "curveEnvelopeMod"
-    || t === "pluckEnvelopeMod"
     || t === "additiveCurveEnvelope"
-    || t === "additivePluckEnvelope"
     || t === "additiveSinMod"
     || t === "additiveKnob"
-    // Gold pluck on efficient allowlist can also publish Additive packets.
-    || t === "soemPluckEnvelope"
   );
 }

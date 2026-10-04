@@ -387,7 +387,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.patchFingerprint = "";
     this.patchCommandStates = new Map();
     this.phases = new Map();
-    this.pluckEnvelopeStates = new Map();
     this.vactrolEnvelopeStates = new Map();
     this.nativeVactrolEnvelope = null;
     this.nativeVactrolEnvelopeReady = false;

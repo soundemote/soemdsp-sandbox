@@ -494,12 +494,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "CurveEnvelopeMod",
     notes: ["additive", "envelope", "adsr", "block-rate", "cyan", "cv"],
   },
-  pluckEnvelopeMod: {
-    category: "additive",
-    description: "Pluck envelope mod publisher: Trigger → sample-accurate mod strip for Bubble Cutoff (no quantum staircase).",
-    label: "PluckEnvelopeMod",
-    notes: ["additive", "pluck", "envelope", "sample-accurate", "cyan", "cv", "bubble"],
-  },
   additiveBubble: {
     category: "additive",
     description: "Phase cascade bubble: Skew depth + Exp/Log curve bend (no amp cutoff / rotation).",
@@ -2276,22 +2270,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "native",
     ],
   },
-  thumpEnvelope: {
-    category: "envelope",
-    description: "Thump pluck: linear Attack, fixed fall curve, Decay Snap/Body feedback into decay/sustain. No Delay.",
-    label: "Thump Envelope",
-    notes: [
-      "Trigger",
-      "Gate",
-      "Attack",
-      "Release",
-      "Decay Snap",
-      "Decay Body",
-      "loop",
-      "native",
-      "pluck",
-    ],
-  },
   pluckEnvelope: {
     category: "envelope",
     description: "Pluck Envelope: Trigger AR with inverted-env expo feedback into Release. Env = shape × trigger height × Amplitude.",
@@ -2304,28 +2282,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "native",
       "pluck",
     ],
-  },
-  // Retired — use Ping Envelope (pingEnvelope). Kept so old patches still load.
-  soemPluckEnvelope: {
-    category: "envelope",
-    description: "Retired — use Ping Envelope. Kept only so old patches still load.",
-    hidden: true,
-    label: "Pluck Envelope (legacy)",
-    notes: ["legacy", "hidden", "SoEm", "native"],
-  },
-  expoPluckEnvelope: {
-    category: "envelope",
-    description: "Retired — use Ping Envelope. Kept only so old patches still load.",
-    hidden: true,
-    label: "Expo Pluck Envelope",
-    notes: ["legacy", "hidden", "native"],
-  },
-  expoPluckEnvelope2: {
-    category: "envelope",
-    description: "Retired — use Ping Envelope. Kept only so old patches still load.",
-    hidden: true,
-    label: "Expo Pluck Envelope 2",
-    notes: ["legacy", "hidden", "SoEmPluck", "native"],
   },
   pingEnvelope: {
     category: "envelope",
@@ -2424,7 +2380,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   waterfallStereo: {
     category: "oscilloscope",
     description: "Stereo waterfall. Left and Right each have a color.",
-    label: "2D Waterfall",
+    label: "1D Waterfall Stereo",
     notes: [
       "1D Waterfall",
       "stereo",
@@ -3418,10 +3374,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/curveAttackRelease/curve-attack-release-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/curveAttackRelease/curve-attack-release-math.js",
   },
-  thumpEnvelope: {
-    source: "public/modules/thumpEnvelope/thump-envelope-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/thumpEnvelope/thump-envelope-math.js",
-  },
   pluckEnvelope: {
     source: "public/modules/pluckEnvelope/pluck-envelope-circuit-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pluckEnvelope/pluck-envelope-circuit-math.js",
@@ -3569,18 +3521,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   pll: {
     source: "public/modules/pll/pll-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pll/pll-worklet-evaluator.js",
-  },
-  soemPluckEnvelope: {
-    source: "public/modules/pluckEnvelope/pluck-envelope-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pluckEnvelope/pluck-envelope-math.js",
-  },
-  expoPluckEnvelope: {
-    source: "public/modules/expoPluckEnvelope/expo-pluck-envelope-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/expoPluckEnvelope/expo-pluck-envelope-math.js",
-  },
-  expoPluckEnvelope2: {
-    source: "public/modules/expoPluckEnvelope2/expo-pluck-envelope-2-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/expoPluckEnvelope2/expo-pluck-envelope-2-math.js",
   },
   pingEnvelope: {
     source: "public/modules/pingEnvelope/ping-envelope-math.js",

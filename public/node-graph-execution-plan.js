@@ -564,17 +564,14 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       if (!gateCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} gate`);
       }
-    } else if (
-      type === "linearEnvelope"
+    } else if (type === "linearEnvelope"
       || type === "linearAttackRelease"
-      || type === "curveAttackRelease"
-      || type === "thumpEnvelope"
-    ) {
+      || type === "curveAttackRelease") {
       const gateCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Gate")) || []).length;
       if (!gateCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} gate`);
       }
-    } else if (type === "pluckEnvelope" || type === "soemPluckEnvelope" || type === "pingEnvelope") {
+    } else if (type === "pluckEnvelope" || type === "pingEnvelope") {
       const triggerCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Trigger")) || []).length;
       if (!triggerCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} trigger`);

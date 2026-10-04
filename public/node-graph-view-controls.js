@@ -2271,6 +2271,20 @@ function renderNodeGraphVoiceManagerDebug() {
   });
 }
 
+function nodeGraphTriggerPatchClearGhost() {
+  if (typeof document === "undefined") return;
+  document.querySelectorAll(".ghost-patch").forEach((el) => {
+    el.classList.remove("ghost-patch");
+  });
+  if (nodeGraphMvp) nodeGraphMvp.midiKeyboardTriggerPatchPointerId = null;
+}
+
+function nodeGraphTriggerPatchGhostKey(el, pointerId) {
+  nodeGraphTriggerPatchClearGhost();
+  if (el && el.classList) el.classList.add("ghost-patch");
+  if (nodeGraphMvp) nodeGraphMvp.midiKeyboardTriggerPatchPointerId = pointerId;
+}
+
 function renderNodeGraphMidiKeyboardHeldKeys() {
   const localMask = nodeGraphMidiKeyboardEnsureArpMask();
   const momMask = typeof nodeGraphChordMemoryHost === "function"
@@ -3832,13 +3846,25 @@ function updateNodeGraphMidiKeyboardSignal(event) {
   }
 
   // Trigger Patch: one click loads that note's circuit patch. Dragging does not.
+  // Ghost red while the pointer is down so empty slots still show a press.
   if (mode === "triggerPatch") {
+    const pointerId = event.pointerId;
     if (event.type === "pointerdown" && !event.ctrlKey && !event.shiftKey && !altDown) {
       const target = event.target?.closest?.("[data-midi]");
-      if (target && surface.contains(target) && typeof nodeGraphApplyCircuitPatchSlot === "function") {
-        const midi = Math.max(0, Math.min(127, Math.round(Number(target.dataset.midi))));
-        nodeGraphApplyCircuitPatchSlot(midi);
+      if (target && surface.contains(target)) {
+        if (typeof nodeGraphApplyCircuitPatchSlot === "function") {
+          const midi = Math.max(0, Math.min(127, Math.round(Number(target.dataset.midi))));
+          nodeGraphApplyCircuitPatchSlot(midi);
+        }
+        nodeGraphTriggerPatchGhostKey(target, pointerId);
+        try { surface.setPointerCapture?.(pointerId); } catch (_e) { /* ignore */ }
       }
+    } else if (
+      nodeGraphMvp.midiKeyboardTriggerPatchPointerId === pointerId
+      && (event.type === "pointerup" || event.type === "pointercancel" || event.type === "lostpointercapture")
+    ) {
+      try { surface.releasePointerCapture?.(pointerId); } catch (_e) { /* ignore */ }
+      nodeGraphTriggerPatchClearGhost();
     }
     event.preventDefault();
     return;

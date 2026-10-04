@@ -149,12 +149,9 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   wavetableAdsr: 168,
   rasterRgb: 160,
   chaosfly: 161,
-  expoPluckEnvelope: 162,
-  expoPluckEnvelope2: 163,
   linearAttackRelease: 164,
   pingEnvelope: 165,
   curveAttackRelease: 166,
-  thumpEnvelope: 167,
   pluckEnvelope: 198,
   acidSequencer: 199,
   t: 159,
@@ -209,8 +206,6 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   // Mod twin aliases → same native opcodes; strips harvested from Mono.
   curveEnvelopeMod: 70,
   linearEnvelope: 71,
-  soemPluckEnvelope: 72,
-  pluckEnvelopeMod: 72,
   flowerChildEnvelopeFollower: 73,
   // 74 tombstoned (old vactrol)
   delayEffect: 75,
@@ -1130,11 +1125,9 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
   // Do not route them to the sampleHold Trigger bus (silent on Mono-only mix).
   {
     const tGateEnv = String(type || "").trim();
-    if (
-      (p === "trigger" || p === "trig" || p === "gate")
+    if ((p === "trigger" || p === "trig" || p === "gate")
       && (
-        tGateEnv === "thumpEnvelope"
-        || tGateEnv === "expAdsr"
+        tGateEnv === "expAdsr"
         || tGateEnv === "linearEnvelope"
         || tGateEnv === "wavetableAdsr"
         || tGateEnv === "linearAttackRelease"
@@ -1144,8 +1137,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
         || tGateEnv === "pluckEnvelope"
         || tGateEnv === "samplePlayer"
         || tGateEnv === "vibratoGenerator"
-      )
-    ) {
+      )) {
       return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     }
   }
@@ -3406,8 +3398,6 @@ NodeLiveAudioProcessor.prototype.syncNativeVoiceIdleCleanup = function syncNativ
     linearEnvelope: 1,
     wavetableAdsr: 1,
     pluckEnvelope: 1,
-    thumpEnvelope: 1,
-    soemPluckEnvelope: 1,
     curveAttackRelease: 1,
     linearAttackRelease: 1,
   };
@@ -5130,50 +5120,6 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
       continue;
     }
-    if (type === "soemPluckEnvelope" || type === "pluckEnvelopeMod") {
-      // SoEmPluck names → Control slots (see process_pluck_envelope).
-      push("velocitySensitivity", P.NATIVE_GRAPH_PARAM_CENTER, cont("velocitySensitivity", 0.5));
-      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0));
-      push("decaySlopeTop", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("decaySlopeTop", 0.9));
-      push("decaySlopeMid", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decaySlopeMid", 0.7));
-      push("decaySlopeBottom", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("decaySlopeBottom", 4.8));
-      push("sustain", P.NATIVE_GRAPH_PARAM_DELAY_SIZE, cont("sustain", 1.2));
-      push("release", P.NATIVE_GRAPH_PARAM_RECYCLE, cont("release", 0.86));
-      push("autoReleaseTime", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("autoReleaseTime", 0));
-      push("envelopeCurve", P.NATIVE_GRAPH_PARAM_SHAPE, cont("envelopeCurve", -0.5));
-      push("envelopeDamping", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("envelopeDamping", 15));
-      push("velocity", P.NATIVE_GRAPH_PARAM_WIDTH, cont("velocity", 1));
-      push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
-      continue;
-    }
-    if (type === "expoPluckEnvelope") {
-      // Comb-style: attack, decay, frequency, damping 0…1; recalc default On.
-      // Use disc()/node.params — bare `params` is not in scope here (threw and
-      // cleared nativeGraphCompiled after a successful compile → whole Live silent).
-      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0.002));
-      push("decay", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay", 5));
-      push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 110));
-      push("damping", P.NATIVE_GRAPH_PARAM_WIDTH, cont("damping", 0));
-      push("recalculateOnTrigger", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("recalculateOnTrigger", 1));
-      push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
-      continue;
-    }
-    if (type === "expoPluckEnvelope2") {
-      // SoEmPluck / PluckEnvelope.hpp — same Control map as pluckEnvelope.
-      push("velocitySensitivity", P.NATIVE_GRAPH_PARAM_CENTER, cont("velocitySensitivity", 0.5));
-      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0));
-      push("decaySlopeTop", P.NATIVE_GRAPH_PARAM_DIFFUSION_SIZE, cont("decaySlopeTop", 0.9));
-      push("decaySlopeMid", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decaySlopeMid", 0.7));
-      push("decaySlopeBottom", P.NATIVE_GRAPH_PARAM_DIFFUSION_AMOUNT, cont("decaySlopeBottom", 4.8));
-      push("sustain", P.NATIVE_GRAPH_PARAM_DELAY_SIZE, cont("sustain", 1.2));
-      push("release", P.NATIVE_GRAPH_PARAM_RECYCLE, cont("release", 0.86));
-      push("autoReleaseTime", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("autoReleaseTime", 0));
-      push("envelopeCurve", P.NATIVE_GRAPH_PARAM_SHAPE, cont("envelopeCurve", -0.5));
-      push("envelopeDamping", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("envelopeDamping", 15));
-      push("velocity", P.NATIVE_GRAPH_PARAM_WIDTH, cont("velocity", 1));
-      push("level", P.NATIVE_GRAPH_PARAM_LEVEL, cont("level", 1));
-      continue;
-    }
     if (type === "vactrol") {
       // timeNumerator=attack, timeDenominator=release, shape=curve, width=sensitivity.
       push("attack", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("attack", 0));
@@ -5201,19 +5147,6 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 0.25));
       push("releaseShape", P.NATIVE_GRAPH_PARAM_CENTER, cont("releaseShape", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
-      continue;
-    }
-    if (type === "thumpEnvelope") {
-      // timeDen=attack, offsetMs=release, width=decaySnap, center=decayBody,
-      // shape=fallCurve, mode=loop, timingMode=updateOnTrigger, amplitude.
-      push("updateOnTrigger", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("updateOnTrigger", 1));
-      push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0));
-      push("fallCurve", P.NATIVE_GRAPH_PARAM_SHAPE, cont("fallCurve", 0.8062943900342834));
-      push("decaySnap", P.NATIVE_GRAPH_PARAM_WIDTH, cont("decaySnap", 0));
-      push("decayBody", P.NATIVE_GRAPH_PARAM_CENTER, cont("decayBody", 0));
-      push("release", P.NATIVE_GRAPH_PARAM_OFFSET_MS, cont("release", 12.824772066678985));
-      push("loop", P.NATIVE_GRAPH_PARAM_MODE, disc("loop", 0));
-      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0.980691228326368));
       continue;
     }
     if (type === "pluckEnvelope") {
@@ -6094,15 +6027,11 @@ NodeLiveAudioProcessor.prototype.resolveAdditiveBubbleCutoffStrip =
         ? additiveModControlIsPacketSourceType(srcType)
         : (
           srcType === "curveEnvelopeMod"
-          || srcType === "pluckEnvelopeMod"
-          || srcType === "soemPluckEnvelope"
           || srcType === "expAdsr"
-          || srcType === "thumpEnvelope"
           || srcType === "pingEnvelope"
           || srcType === "curveAttackRelease"
           || srcType === "linearAttackRelease"
           || srcType === "additiveCurveEnvelope"
-          || srcType === "additivePluckEnvelope"
           || srcType === "additiveSinMod"
           || srcType === "additiveKnob"
         );
@@ -6712,12 +6641,9 @@ NodeLiveAudioProcessor.prototype.nativeYellowGraphFullyNative =
     let sawYellow = false;
     for (const [, node] of this.nodes) {
       const type = String(node?.type || "");
-      if (
-        !type.startsWith("additive")
+      if (!type.startsWith("additive")
         || type === "curveEnvelopeMod"
-        || type === "pluckEnvelopeMod"
-        || type === "additiveOsc"
-      ) {
+        || type === "additiveOsc") {
         continue;
       }
       // additiveImage and any unknown additive* still need JS.
@@ -8474,23 +8400,17 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       const out = this.nodeOutputs.get(tapId);
       if (out) this.nodeOutputs.set(id, out);
     }
-    // Envelope *Mod twins: publish full-quantum Mono as Additive mod strip
-    // (native DSP only — no JS BakeStrip).
-    if (
-      needModStrips
+    // Publish full-quantum Mono as an Additive mod strip (native DSP only).
+    if (needModStrips
       && (
         type === "curveEnvelopeMod"
-        || type === "pluckEnvelopeMod"
-        || type === "soemPluckEnvelope"
         || type === "expAdsr"
         || type === "linearEnvelope"
         || type === "wavetableAdsr"
-        || type === "thumpEnvelope"
         || type === "pingEnvelope"
         || type === "curveAttackRelease"
         || type === "linearAttackRelease"
-      )
-    ) {
+      )) {
       const envHash = this.fnv1aHash32(tapId);
       const monoView = this.bindNativeGraphNodePortView(
         envHash,

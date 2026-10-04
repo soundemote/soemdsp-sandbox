@@ -1374,7 +1374,7 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   const xyzInk = isXyzWaterfallNode && type === "waterfall";
   const rgbInk = type === "waterfallRgb";
   const stereoInk = isStereoWaterfallNode && type === "waterfall" && !xyzInk;
-  // Stereo (Output, 2D Waterfall, 2D Onset): Background, Left, Right, Stroke.
+  // Stereo (Output, 1D Waterfall Stereo, 2D Onset): Background, Left, Right, Stroke.
   // Mono waterfall: Background, one In color, Stroke.
   const quadInk = stereoInk;
   const monoInk = type === "waterfall" && !xyzInk && !stereoInk;

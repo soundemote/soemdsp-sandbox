@@ -1,4 +1,4 @@
-﻿# App-wide policy (standing orders)
+# App-wide policy (standing orders)
 
 **Audience:** humans and agents working on soemdsp-sandbox.  
 **Status:** binding while the app is **not feature-complete**.  
@@ -151,7 +151,6 @@ Only these live-audio types exist in the efficient build:
 | `inertialFilter` | Attack/release inertial smoother |
 | `expAdsr` | Curve ADSR envelope |
 | `linearEnvelope` | Linear ADSR envelope |
-| `pluckEnvelope` | Pluck / decay-mod envelope (legacy, hidden) |
 | `pluckEnvelope` | Pluck Envelope (breadboard AR + release feedback) |
 | `flowerChildEnvelopeFollower` | Attack/hold/decay envelope follower |
 | `delayEffect` | Modulated mono delay |
@@ -215,7 +214,7 @@ polyBlep â†’ ladderFilter â†’ softClipper â†’ reverbEffect â†�
    flowerChildFilter / yellowjacketFilter / superloveFilter / humanFilter /
    resonatorFilter / combResonator / modeResonator /
    chaoticPhaseLockingFilter / inertialFilter /
-   expAdsr / linearEnvelope / soemPluckEnvelope / pluckEnvelope /
+   expAdsr / linearEnvelope / pluckEnvelope /
    flowerChildEnvelopeFollower /
    delayEffect / soemReverb / pll /
    lorenzAttractor / logisticMap / henonMap / chuaAttractor / rayBouncer /

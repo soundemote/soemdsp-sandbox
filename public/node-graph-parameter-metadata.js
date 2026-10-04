@@ -737,13 +737,10 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
     forceChaosflyTaps = true;
   }
   // Thump Envelope Decay Body: was 0…10 (patch atten); now 0…1 inverted UI.
-  if (
-    type === "thumpEnvelope"
-    && key === "decayBody"
+  if (key === "decayBody"
     && Number.isFinite(fallback.max)
     && fallback.max <= 1
-    && max > 1
-  ) {
+    && max > 1) {
     min = 0;
     max = 1;
     mid = Number.isFinite(fallback.mid) ? fallback.mid : 0.5;

@@ -134,11 +134,7 @@ $modules = @(
   @{ Name = "linear_envelope"; Simd = $false; Exports = @("soemdsp_linear_envelope_create", "soemdsp_linear_envelope_destroy", "soemdsp_linear_envelope_sample", "soemdsp_linear_envelope_is_idle", "soemdsp_linear_envelope_version", "soemdsp_linear_envelope_metadata_json", "soemdsp_linear_envelope_metadata_json_size") }
   @{ Name = "linear_attack_release"; Simd = $false; Exports = @("soemdsp_linear_attack_release_create", "soemdsp_linear_attack_release_destroy", "soemdsp_linear_attack_release_sample", "soemdsp_linear_attack_release_version", "soemdsp_linear_attack_release_metadata_json", "soemdsp_linear_attack_release_metadata_json_size") }
   @{ Name = "curve_attack_release"; Simd = $false; Exports = @("soemdsp_curve_attack_release_create", "soemdsp_curve_attack_release_destroy", "soemdsp_curve_attack_release_sample", "soemdsp_curve_attack_release_version", "soemdsp_curve_attack_release_metadata_json", "soemdsp_curve_attack_release_metadata_json_size") }
-  @{ Name = "thump_envelope"; Simd = $false; Exports = @("soemdsp_thump_envelope_create", "soemdsp_thump_envelope_destroy", "soemdsp_thump_envelope_sample", "soemdsp_thump_envelope_version", "soemdsp_thump_envelope_metadata_json", "soemdsp_thump_envelope_metadata_json_size") }
   @{ Name = "pluck_envelope_fb"; Simd = $false; Exports = @("soemdsp_pluck_envelope_fb_create", "soemdsp_pluck_envelope_fb_destroy", "soemdsp_pluck_envelope_fb_sample", "soemdsp_pluck_envelope_fb_version", "soemdsp_pluck_envelope_fb_metadata_json", "soemdsp_pluck_envelope_fb_metadata_json_size") }
-  @{ Name = "pluck_envelope"; Simd = $false; Exports = @("soemdsp_pluck_envelope_create", "soemdsp_pluck_envelope_destroy", "soemdsp_pluck_envelope_sample", "soemdsp_pluck_envelope_version", "soemdsp_pluck_envelope_metadata_json", "soemdsp_pluck_envelope_metadata_json_size") }
-  @{ Name = "expo_pluck_envelope"; Simd = $false; Exports = @("soemdsp_expo_pluck_envelope_create", "soemdsp_expo_pluck_envelope_destroy", "soemdsp_expo_pluck_envelope_reset", "soemdsp_expo_pluck_envelope_sample", "soemdsp_expo_pluck_envelope_out", "soemdsp_expo_pluck_envelope_version", "soemdsp_expo_pluck_envelope_metadata_json", "soemdsp_expo_pluck_envelope_metadata_json_size") }
-  @{ Name = "expo_pluck_envelope_2"; Simd = $false; Exports = @("soemdsp_expo_pluck_envelope_2_create", "soemdsp_expo_pluck_envelope_2_destroy", "soemdsp_expo_pluck_envelope_2_reset", "soemdsp_expo_pluck_envelope_2_sample", "soemdsp_expo_pluck_envelope_2_out", "soemdsp_expo_pluck_envelope_2_version", "soemdsp_expo_pluck_envelope_2_metadata_json", "soemdsp_expo_pluck_envelope_2_metadata_json_size") }
   @{ Name = "ping_envelope"; Simd = $false; Exports = @("soemdsp_ping_envelope_create", "soemdsp_ping_envelope_destroy", "soemdsp_ping_envelope_sample", "soemdsp_ping_envelope_is_idle", "soemdsp_ping_envelope_version", "soemdsp_ping_envelope_metadata_json", "soemdsp_ping_envelope_metadata_json_size") }
   @{ Name = "vactrol_envelope"; Simd = $false; Exports = @("soemdsp_vactrol_envelope_create", "soemdsp_vactrol_envelope_destroy", "soemdsp_vactrol_envelope_sample", "soemdsp_vactrol_envelope_version", "soemdsp_vactrol_envelope_metadata_json", "soemdsp_vactrol_envelope_metadata_json_size") }
   @{ Name = "exp_adsr"; Simd = $false; Exports = @("soemdsp_exp_adsr_create", "soemdsp_exp_adsr_destroy", "soemdsp_exp_adsr_sample", "soemdsp_exp_adsr_is_idle", "soemdsp_exp_adsr_version", "soemdsp_exp_adsr_metadata_json", "soemdsp_exp_adsr_metadata_json_size") }
@@ -485,8 +481,8 @@ foreach ($module in $modules) {
   } else {
     $clangArgs += "-Wl,--max-memory=50331648"
   }
-  # graph_engine / thump_envelope call other natives (resolved in combined link).
-  if ($module.Name -eq "graph_engine" -or $module.Name -eq "thump_envelope" -or $module.Name -eq "pluck_envelope_fb") {
+  # graph_engine / pluck_envelope_fb call other natives (resolved in combined link).
+  if ($module.Name -eq "graph_engine" -or $module.Name -eq "pluck_envelope_fb") {
     $clangArgs += "-Wl,--allow-undefined"
   }
   $clangArgs += "-o"

@@ -1269,17 +1269,7 @@ function createNodeGraphModuleElement(type, node) {
     if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
       ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
       : !patchNodeUi.oscilloscopeHidden)) {
-      if (
-        type === "expoPluckEnvelope"
-        && typeof createNodeGraphExpoPluckEnvelopeDisplay === "function"
-      ) {
-        article.append(createNodeGraphExpoPluckEnvelopeDisplay(node, type));
-      } else if (
-        type === "expoPluckEnvelope2"
-        && typeof createNodeGraphExpoPluckEnvelope2Display === "function"
-      ) {
-        article.append(createNodeGraphExpoPluckEnvelope2Display(node, type));
-      } else if (typeof createNodeGraphEnvelopeCurveDisplay === "function") {
+      if (typeof createNodeGraphEnvelopeCurveDisplay === "function") {
         article.append(createNodeGraphEnvelopeCurveDisplay(node, type));
       }
     }

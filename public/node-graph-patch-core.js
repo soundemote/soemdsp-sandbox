@@ -541,7 +541,7 @@ function validateNodeGraphPatch(patch) {
         }
       }
       // Thump Decay Body: old 0…10 atten → new 0…1 inverted UI (10→0, 0→1).
-      if (type === "thumpEnvelope" && parameter.key === "decayBody") {
+      if (parameter.key === "decayBody") {
         const n = Number(value);
         const sourceMax = Number(node.paramMeta?.[parameter.key]?.max);
         if (Number.isFinite(n) && n > 1 && (!Number.isFinite(sourceMax) || sourceMax > 1)) {
