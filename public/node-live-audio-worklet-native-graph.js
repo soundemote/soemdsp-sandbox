@@ -29,6 +29,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   slewLimiter: 17,
   comparator: 18,
   sampleDelay: 19,
+  earlyReflections: 203,
   sampleHold: 20,
   minMax: 21,
   mix4: 22,
@@ -369,6 +370,9 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   drive: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_GAIN_DB,
   load: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   stages: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES,
+  delays: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_STAGES,
+  drift: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE,
+  randomOffset: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   center: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
   sweep: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
   threshold: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_CENTER,
@@ -807,7 +811,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
   if (p === "delayed") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   if (p === "thru") {
     // comparator Thru → Mono; sampleDelay Thru → Dry L.
-    return t === "sampleDelay"
+    return t === "sampleDelay" || t === "earlyReflections"
       ? NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_DRY_L
       : NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
   }
@@ -5598,6 +5602,17 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("samples", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("samples", 0));
       continue;
     }
+    if (type === "earlyReflections") {
+      push("time", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("time", 0.1));
+      push("delays", P.NATIVE_GRAPH_PARAM_STAGES, disc("delays", 7));
+      push("randomOffset", P.NATIVE_GRAPH_PARAM_WIDTH, cont("randomOffset", 0));
+      push("seed", P.NATIVE_GRAPH_PARAM_SEED, disc("seed", 1));
+      push("feedback", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("feedback", 0));
+      push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 1));
+      push("drift", P.NATIVE_GRAPH_PARAM_LFO_AMPLITUDE, cont("drift", 0));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
     if (type === "sampleHold") {
       // center=threshold, frequency=sampleFrequency, amplitude=Amplitude,
       // mode=polarity (0 bipolar / 1 unipolar) — audio outs only; face Left Raw/Right Raw stay bipolar.
@@ -7962,6 +7977,7 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "archimedes") return ["Sine", "Out"];
     if (type === "comparator") return ["Thru"];
     if (type === "sampleDelay") return ["Delayed", "Out", "Mono"];
+    if (type === "earlyReflections") return ["Out", "Mono"];
     // Face jack is Ext Out (Out/Mono are aliases). MOD/scope must publish that name.
     if (type === "sampleHold") return ["Ext Out", "Out", "Mono"];
     if (/^([2-9]|1[01])t$/.test(type)) return ["Out", "Mono"];

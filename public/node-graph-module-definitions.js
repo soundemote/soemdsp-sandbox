@@ -56,6 +56,7 @@ const nodeGraphNodeLabels = Object.freeze({
   triggerDivider: "Trigger Divider",
   comparator: "Comparator",
   sampleDelay: "Sample Delay",
+  earlyReflections: "Early Reflections",
   bitConverter: "Bit Converter",
   t: "t",
   t2: "t2",
@@ -6399,6 +6400,103 @@ const nodeGraphModuleDefinitions = (
     inputs: ["In"],
     outputs: ["Up", "Down", "Change", "Steady", "Sign", "Thru"],
     parameters: []
+  },
+  earlyReflections: {
+    planRole: "processor",
+    // N parallel taps on one ring. Times use supersaw Exponential k=3
+    // on (1…N)/N so the last tap is Time and the first tap is not 0 ms.
+    // Random Offset: seeded [0,1] per tap × Offset seconds added (static).
+    // Wet mix 1/N. Write = In + Feedback×wet. Out = dry×(1−Mix)+wet×Mix.
+    // Drift: per-tap FBM ±Amount on tap time (0.25 Hz). Thru = dry In.
+    inputs: ["In"],
+    outputs: ["Thru", "Out"],
+    outputAliases: { Mono: "Out" },
+    parameters: [
+      {
+        defaultValue: "7",
+        key: "delays",
+        label: "Delays",
+        max: "16",
+        mid: "7",
+        min: "1",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Number of parallel delay taps. 1 = a single delay of Time."
+      },
+      {
+        defaultValue: "0.1",
+        key: "time",
+        kind: "time",
+        label: "Time",
+        max: "4",
+        maxDigits: 5,
+        mid: "0.1",
+        min: "0",
+        step: "any",
+        unit: "s",
+        tooltip: "Farthest tap of the exponential layout. Shorter taps pack toward 0 (k=3)."
+      },
+      {
+        defaultValue: "0",
+        key: "randomOffset",
+        kind: "time",
+        label: "Random Offset",
+        max: "4",
+        maxDigits: 5,
+        mid: "0.05",
+        min: "0",
+        step: "any",
+        unit: "s",
+        tooltip: "Multiplies each tap's seeded random [0,1] extra delay. 0 = exponential times only. 0.05 s = each tap adds 0…50 ms from Seed."
+      },
+      {
+        defaultValue: "1",
+        key: "seed",
+        label: "Seed",
+        linearSmoothing: false,
+        max: "99999",
+        maxDigits: 0,
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Chooses the random extra delay for each tap. Random Offset scales those values."
+      },
+      {
+        defaultValue: "0",
+        key: "feedback",
+        label: "Feedback",
+        max: "2",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Regen of the mixed taps into the delay write. 0 = one-shot. 1 = sustain. Above 1 grows."
+      },
+      {
+        defaultValue: "1",
+        key: "mix",
+        label: "Mix",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Dry/wet on Out. 0 = dry In, 1 = mixed taps. Thru stays dry."
+      },
+      {
+        defaultValue: "0",
+        key: "drift",
+        label: "Drift",
+        max: "1",
+        mid: "0.1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Subtle per-tap FBM wander as a fraction of that tap's delay (±). 0.1 = ±10% time. Walks at 0.25 Hz."
+      },
+      nodeGraphOutputAmplitudeParam,
+    ]
   },
   sampleDelay: {
     planRole: "processor",

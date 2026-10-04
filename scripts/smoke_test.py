@@ -18469,6 +18469,19 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_sample_delay_destroy",
             "soemdsp_sample_delay_sample",
         ],
+        "exponential_delay": [
+            "soemdsp_exponential_delay_create",
+            "soemdsp_exponential_delay_destroy",
+            "soemdsp_exponential_delay_sample",
+            "soemdsp_exponential_delay_version",
+        ],
+        "filter_morph_oscillator": [
+            "soemdsp_filter_morph_oscillator_create",
+            "soemdsp_filter_morph_oscillator_destroy",
+            "soemdsp_filter_morph_oscillator_reset",
+            "soemdsp_filter_morph_oscillator_sample",
+            "soemdsp_filter_morph_oscillator_version",
+        ],
         "snowflake": [
             "soemdsp_snowflake_create",
             "soemdsp_snowflake_destroy",

@@ -43,6 +43,7 @@ const NODE_GRAPH_EFFICIENT_PRODUCT_AUDIO_TYPES = Object.freeze([
   "slewLimiter",
   "comparator",
   "sampleDelay",
+  "earlyReflections",
   "sampleHold",
   "minMax",
   "mix2",

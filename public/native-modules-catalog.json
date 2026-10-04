@@ -652,6 +652,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "exponential_delay",
+      "label": "Early Reflections",
+      "targetType": "earlyReflections",
+      "kind": "delay",
+      "source": "native_modules/exponential_delay/exponential_delay.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/exponential_delay/exponential_delay.cpp",
+      "localSourceUrl": "/native_modules/exponential_delay/exponential_delay.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/exponential_delay/exponential_delay.wasm",
+      "wasmUrl": "native_modules/exponential_delay/exponential_delay.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "fbm_field",
       "label": "Fractal Brownian Field",
       "targetType": "fbmField",

@@ -15,6 +15,7 @@ $modules = @(
   @{ Name = "wall_delay"; Simd = $false; Exports = @("soemdsp_wall_delay_version") }
   @{ Name = "comparator"; Simd = $false; Exports = @("soemdsp_comparator_create", "soemdsp_comparator_destroy", "soemdsp_comparator_sample", "soemdsp_comparator_up", "soemdsp_comparator_down", "soemdsp_comparator_change", "soemdsp_comparator_steady", "soemdsp_comparator_sign", "soemdsp_comparator_thru", "soemdsp_comparator_version") },
   @{ Name = "sample_delay"; Simd = $false; Exports = @("soemdsp_sample_delay_create", "soemdsp_sample_delay_destroy", "soemdsp_sample_delay_sample", "soemdsp_sample_delay_max_samples", "soemdsp_sample_delay_max_seconds", "soemdsp_sample_delay_version") },
+  @{ Name = "exponential_delay"; Simd = $false; Exports = @("soemdsp_exponential_delay_create", "soemdsp_exponential_delay_destroy", "soemdsp_exponential_delay_sample", "soemdsp_exponential_delay_max_samples", "soemdsp_exponential_delay_max_seconds", "soemdsp_exponential_delay_version") },
   @{ Name = "min_max"; Simd = $false; Exports = @("soemdsp_min_max_create", "soemdsp_min_max_destroy", "soemdsp_min_max_sample", "soemdsp_min_max_min", "soemdsp_min_max_version") }
   @{ Name = "alias_sine"; Simd = $false; Exports = @("soemdsp_alias_sine_create", "soemdsp_alias_sine_destroy", "soemdsp_alias_sine_sample", "soemdsp_alias_sine_version", "soemdsp_alias_sine_metadata_json", "soemdsp_alias_sine_metadata_json_size") }
   @{ Name = "phone_tone"; Simd = $false; Exports = @("soemdsp_phone_tone_create", "soemdsp_phone_tone_destroy", "soemdsp_phone_tone_sample", "soemdsp_phone_tone_tone", "soemdsp_phone_tone_tone_l", "soemdsp_phone_tone_tone_r", "soemdsp_phone_tone_f1", "soemdsp_phone_tone_f2", "soemdsp_phone_tone_analog_thru", "soemdsp_phone_tone_digital_thru", "soemdsp_phone_tone_version", "soemdsp_phone_tone_metadata_json", "soemdsp_phone_tone_metadata_json_size") }
@@ -479,7 +480,7 @@ foreach ($module in $modules) {
   # the 48MB default; live audio still loads only the combined binary (512MB).
   if ($module.Name -eq "graph_engine") {
     $clangArgs += "-Wl,--max-memory=134217728"
-  } elseif ($module.Name -in @("soem_reverb", "delay_effect", "sabrina_reverb", "sample_delay", "ping_pong_delay", "lookahead_limiter", "wall_delay")) {
+  } elseif ($module.Name -in @("soem_reverb", "delay_effect", "sabrina_reverb", "sample_delay", "exponential_delay", "ping_pong_delay", "lookahead_limiter", "wall_delay")) {
     $clangArgs += "-Wl,--max-memory=268435456"
   } else {
     $clangArgs += "-Wl,--max-memory=50331648"

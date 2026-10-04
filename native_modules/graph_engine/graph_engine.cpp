@@ -272,6 +272,14 @@ extern "C" double soemdsp_sample_delay_sample(
   int handle, double input, double timeSeconds, double samplesParam, double sampleRate
 );
 
+extern "C" int soemdsp_exponential_delay_create();
+extern "C" void soemdsp_exponential_delay_destroy(int handle);
+extern "C" double soemdsp_exponential_delay_sample(
+  int handle, double input, double timeSeconds, double delayCount,
+  double feedback, double mix, double drift, double seed, double randomOffset,
+  double sampleRate
+);
+
 extern "C" int soemdsp_sample_hold_create();
 extern "C" void soemdsp_sample_hold_destroy(int handle);
 extern "C" double soemdsp_sample_hold_sample(
@@ -1742,6 +1750,7 @@ static const int kTypeRobinOscillator = 74; // Robin Oscillator; id 24 left unus
 static const int kTypeSlewLimiter = 17;
 static const int kTypeComparator = 18;
 static const int kTypeSampleDelay = 19;
+static const int kTypeExponentialDelay = 203; // Early Reflections (N taps, random offset, FBM drift)
 static const int kTypeSampleHold = 20;
 static const int kTypeMinMax = 21;
 static const int kTypeMix = 22;
@@ -2399,6 +2408,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_comparator_destroy(handle);
   } else if (kind == kTypeSampleDelay) {
     soemdsp_sample_delay_destroy(handle);
+  } else if (kind == kTypeExponentialDelay) {
+    soemdsp_exponential_delay_destroy(handle);
   } else if (kind == kTypeSampleHold) {
     soemdsp_sample_hold_destroy(handle);
   } else if (kind == kTypeMinMax) {
@@ -3217,6 +3228,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeFm) ? 0.0 // semitones
       : (typeId == kTypeAcidSequencer) ? 16.0 // step length
       : (typeId == kTypeFilterMorphOscillator) ? 1.0 // Poles
+      : (typeId == kTypeExponentialDelay) ? 7.0 // delay count
       : 4.0,
     // Generator Harmonics + Hypersaw2/RobinSupersaw voices stay continuous for Decimal trailing amp.
     // Freq Manager semitones live on stages and stay continuous, same as Pitch Manager octave.
@@ -3273,6 +3285,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.width,
     (typeId == kTypeVcvrackSuperloveFilter) ? 0.0 // spread
+      : (typeId == kTypeExponentialDelay) ? 0.0 // random offset seconds
       : (typeId == kTypePhaser) ? 0.5 // spread octaves
       : (typeId == kTypeNoiseGenerator) ? 0.5
       : (typeId == kTypeExpoPluckEnvelope) ? 0.0 // damping
@@ -3343,6 +3356,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePhaser || typeId == kTypeFlanger || typeId == kTypeChorus || typeId == kTypeEnsemble) ? 0.5
       : (typeId == kTypeGraphicEq) ? 1.0
       :     (typeId == kTypeHypersaw2) ? 0.0 // jitterSpeedTiltSource Freq
+      : (typeId == kTypeExponentialDelay) ? 1.0 // Mix wet
       : (typeId == kTypePingPongDelay || typeId == kTypeDelayEffect) ? 0.35
       : (typeId == kTypeDsfOscillator) ? 0.5 // SquSaw blend
       : (typeId == kTypeBradley2a) ? 0.0 // interfLevel
@@ -3398,6 +3412,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeRobinSupersaw) ? 0.0 // jitterDepth cents
       : (typeId == kTypeBradley2a) ? 0.0 // ampDepth
       : (typeId == kTypeDelayEffect) ? 0.02 // modAmount
+      : (typeId == kTypeExponentialDelay) ? 0.0 // FBM drift amount
       : (typeId == kTypeSoemReverb) ? 0.002 // lfoAmp
       : (typeId == kTypePingPongDelay) ? 25.0 // lfoAmp ms (audible like Delay modAmount)
       : 0.07,
@@ -3433,7 +3448,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeFractalBrownianNoise || typeId == kTypeRandomWalk || typeId == kTypeCheapWalk) ? 1.0
       : (typeId == kTypeHypersaw2
           || typeId == kTypeVibratoGenerator || typeId == kTypeWowAndFlutter
-          || typeId == kTypeChorus || typeId == kTypeEnsemble) ? 1.0
+          || typeId == kTypeChorus || typeId == kTypeEnsemble
+          || typeId == kTypeExponentialDelay) ? 1.0
       : (typeId == kTypeAdditiveQuantizeFreq || typeId == kTypeAdditiveQuantizePhase
           || typeId == kTypeAdditiveNoisyFreq || typeId == kTypeAdditiveNoisyPhase
           || typeId == kTypeAdditiveNoisyPan || typeId == kTypeAdditiveNoisyAmp) ? 1.0
@@ -3456,6 +3472,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // decay
       : (typeId == kTypeAcousticPluck) ? 1.64 // synth vs acoustic (attenuverter Offset def)
       : (typeId == kTypeDelayEffect) ? 0.25
+      : (typeId == kTypeExponentialDelay) ? 0.0
       : (typeId == kTypeSoemReverb) ? 1.0 // duckLimit
       : (typeId == kTypeHypersaw2) ? 0.5 // morph/PWM center
       : 0.35,
@@ -3476,6 +3493,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSlewLimiter) ? 0.05
       : (typeId == kTypeNoteGlide) ? 0.05
       : (typeId == kTypeSampleDelay) ? 0.0
+      : (typeId == kTypeExponentialDelay) ? 0.1
       : (typeId == kTypeTriggerDivider || typeId == kTypeTriggerCounter) ? 0.01
       : (typeId == kTypeDelayedTrigger) ? 0.1
       : (typeId == kTypeRandomClock) ? 0.25
@@ -4391,6 +4409,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeSlewLimiter) return soemdsp_slew_limiter_create();
   if (typeId == kTypeComparator) return soemdsp_comparator_create();
   if (typeId == kTypeSampleDelay) return soemdsp_sample_delay_create();
+  if (typeId == kTypeExponentialDelay) return soemdsp_exponential_delay_create();
   if (typeId == kTypeSampleHold) return soemdsp_sample_hold_create();
   if (typeId == kTypeMinMax) return soemdsp_min_max_create();
   if (typeId == kTypeClock) return soemdsp_clock_create();
@@ -11592,6 +11611,33 @@ static void process_sample_delay(Circuit& g, Node& node, int frames) {
   }
 }
 
+static void process_exponential_delay(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double timeSec = control_audio(g, node.timeNumerator, f);
+    const double delayCount = control_audio(g, node.stages, f);
+    double amp = control_audio(g, node.amplitude, f);
+    if (!(amp == amp)) amp = 1.0;
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double delayed = soemdsp_exponential_delay_sample(
+      node.nativeHandle, in, timeSec, delayCount,
+      control_audio(g, node.feedback, f),
+      control_audio(g, node.mix, f),
+      control_audio(g, node.lfoAmplitude, f),
+      control_audio(g, node.seed, f),
+      control_audio(g, node.width, f),
+      sr
+    ) * amp;
+    node.buf[kPortDelayDelayed][f] = delayed;
+    node.buf[kPortLeft][f] = delayed;
+    node.buf[kPortRight][f] = delayed;
+    node.buf[kPortDelayThru][f] = in;
+  }
+}
+
 // Mono edge detector: fold Mono+L+R → sample → named outs on tap slots.
 // Native is mono-per-handle; Thru on Mono, Up/Down/Change/Steady/Sign on 3–7.
 static void process_comparator(Circuit& g, Node& node, int frames) {
@@ -12530,6 +12576,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeSlewLimiter
     || typeId == kTypeComparator
     || typeId == kTypeSampleDelay
+    || typeId == kTypeExponentialDelay
     || typeId == kTypeSampleHold
     || typeId == kTypeMinMax
     || typeId == kTypeClock
@@ -13593,6 +13640,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
     }
     if (node.typeId == kTypeSampleDelay) {
       process_sample_delay(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeExponentialDelay) {
+      process_exponential_delay(g, node, frames);
       return;
     }
     if (node.typeId == kTypeSampleHold) {

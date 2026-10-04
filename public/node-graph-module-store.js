@@ -673,6 +673,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Sample Delay",
     notes: ["delay", "samples", "time", "thru", "delayed", "native"],
   },
+  earlyReflections: {
+    category: "space",
+    description: "Exponential early-reflection taps with seeded random offset, feedback, mix, and FBM drift.",
+    label: "Early Reflections",
+    notes: ["delay", "early reflections", "exponential", "taps", "seed", "random offset", "feedback", "mix", "fbm", "drift", "native", "experimental"],
+  },
   bitConverter: {
     category: "digital",
     description: "Bridge integer bitmasks ↔ CV so digital key masks can modulate audio-rate paths.",
@@ -3213,6 +3219,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   curveOsc: {
     source: "public/modules/curveOsc/curve-osc-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/curveOsc/curve-osc-math.js",
+  },
+  earlyReflections: {
+    source: "native_modules/exponential_delay/exponential_delay.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/exponential_delay/exponential_delay.cpp",
   },
   delayEffect: {
     source: "public/modules/delayEffect/delay-effect-worklet-evaluator.js",
