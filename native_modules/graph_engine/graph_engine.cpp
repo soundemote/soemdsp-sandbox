@@ -925,7 +925,6 @@ extern "C" double soemdsp_tb303_filter_sample(
 
 extern "C" int soemdsp_flower_child_filter_create();
 extern "C" void soemdsp_flower_child_filter_destroy(int handle);
-extern "C" void soemdsp_flower_child_filter_set_self_mod_skew(int handle, double skew);
 extern "C" double soemdsp_flower_child_filter_sample(
   int handle, double input, double frequency, double resonance,
   double chaosAmount, int mode, double sampleRate
@@ -8499,7 +8498,7 @@ static void process_norm_chaos_filter(
 
 // Cable-based: one core unless Left and Right ins are both wired.
 // Stereo: independent L/R handles; Mono In still sums into both.
-// Same cutoff Hz; self-mod skew is set on the handles when stereo.
+// Same cutoff Hz on both cores; no L/R constant mismatch.
 static void process_flower_child_filter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -8508,15 +8507,6 @@ static void process_flower_child_filter(Circuit& g, Node& node, int frames) {
   int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
   bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
   probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
-  const bool stereo = hasLeftIn && hasRightIn
-    && node.nativeHandleL > 0 && node.nativeHandleR > 0;
-  if (stereo) {
-    // Stereo analog-lock mismatch: L/R feedback scale ±0.2% (dirty 0.465,
-    // Clean/Rev3 selfModAmp). Independent cores + independent RNG already.
-    // Undo: set both skews to 1.0 (or delete these two calls).
-    soemdsp_flower_child_filter_set_self_mod_skew(node.nativeHandleL, 0.998);
-    soemdsp_flower_child_filter_set_self_mod_skew(node.nativeHandleR, 1.002);
-  }
   const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
