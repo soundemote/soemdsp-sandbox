@@ -1011,6 +1011,18 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Expected: Longer clips should play for their authored length regardless of whether the patch contains one sequencer or multiple sequencers.
 - Fix shape: Not started. Do not treat a cause as confirmed; this report is docs-only and includes no code fix.
 
+### B-088 — 1D Phosphor / 1D Trace regular gap at low frequency
+
+- Status: open
+- Severity: see
+- Source: user 2026-10-04 (ArchIV)
+- Related: B-081, B-084, B-086
+- Doc: `docs/B-088_1D_PHOSPHOR_TRACE_LOW_FREQUENCY_GAP.md`
+- What: Source-synced 1D Phosphor and 1D Trace faces show a regular gap at low frequency on the pinned repro patch.
+- Repro: `trace and phosphor 1d broken lines.json`; both 1D faces source-synced, Skip Discontinuities on, Sweep 4 Hz / 4 cycles, filtered approximately 50.8 Hz saw.
+- Expected: Both faces draw continuously without the regular gap.
+- Tried: Sweep-pen / overlap-sample adjustment (`sweep-face-join-1`) and widening `nodeGraphOneDimensionalBurnUndrawnWindow` by one sample (`paint-helpers.js?v=trace-join-1`, `endFrame` unchanged); neither visibly improved the gap.
+- Notes: No cause confirmed. Next look remains open; docs-only, leave code as-is.
 ## Fixed
 
 - **B-084** — scope1dTrace Display Settings gradientStops feed TraceWoscope energy LUT; 2D Trace stays solid (b084-1dtrace-grad-1).

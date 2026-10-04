@@ -27,7 +27,9 @@ constexpr int kWaveSine = 4;
 constexpr int kWavePulse = 5;
 constexpr int kWaveAnalogSquare = 6; // UI: Analog Square; same-direction peaks (naive_analog_square)
 constexpr int kWaveFullAsymSine = 7; // UI: Full Asym Sine; half-sine LUT twice, 2y−1 → −1…+1
-constexpr int kWaveCount = 8;
+constexpr int kWaveSquircle = 8; // UI: Squircle; sine to square (not Analog Square)
+constexpr int kWaveCenterPulse = 9; // UI: Center Pulse; width = Morph, high centered
+constexpr int kWaveCount = 10;
 
 // Increment-update style (choice param freqUpdate / Update).
 constexpr int kFreqUpdateOnCycle = 0;       // bake next wrap only; no mid-cycle warp
@@ -42,12 +44,12 @@ static const char kMetadataJson[] =
     "\"kind\":\"oscillator\","
     "\"outputs\":[\"Wave\"],"
     "\"parameters\":["
-      "{\"key\":\"waveform\",\"label\":\"Waveform\",\"defaultValue\":0,\"min\":0,\"max\":7,\"step\":1},"
-      "{\"key\":\"frequency\",\"label\":\"Frequency\",\"defaultValue\":100,\"min\":0,\"mid\":440,\"max\":20000,\"step\":\"any\",\"unit\":\"Hz\"},"
+      "{\"key\":\"waveform\",\"label\":\"Waveform\",\"defaultValue\":0,\"min\":0,\"max\":9,\"step\":1},"
+      "{\"key\":\"frequency\",\"label\":\"Frequency\",\"defaultValue\":100,\"min\":10,\"mid\":440,\"max\":20000,\"step\":\"any\",\"unit\":\"Hz\"},"
       "{\"key\":\"amplitude\",\"label\":\"Amplitude\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
       "{\"key\":\"phase\",\"label\":\"Start Phase\",\"defaultValue\":0,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":0.01,\"unit\":\"cycle\"},"
       "{\"key\":\"morph\",\"label\":\"Morph\",\"defaultValue\":0.5,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":0.01},"
-      "{\"key\":\"freqUpdate\",\"label\":\"Update\",\"defaultValue\":1,\"min\":0,\"max\":2,\"step\":1}"
+      "{\"key\":\"freqUpdate\",\"label\":\"Update\",\"defaultValue\":0,\"min\":0,\"max\":2,\"step\":1}"
     "]"
   "}";
 
@@ -297,6 +299,31 @@ void applyIncrementForStyle(
 // Full Asym Sine = positive half-sine LUT once per cycle (half the table rate
 // of a full sine), 2y−1 so it fills −1…+1. Fundamental matches the other waves.
 // Saw = edge then down slope (1-2*ph). Ramp = up slope then edge (2*ph-1). Matches PolyBLEP.
+
+// RoundShape / Ellipsoid sine to square, quadrature-shifted onto a first-half square.
+// Morph 0 = LUT sine (zero at phase 0). Morph 1 = sign(sin) = high on [0, 0.5).
+// Not Analog Square (naive_analog_square is a same-direction peak slide).
+double sineToSquircle(double phase01, double morph) {
+  double m = morph;
+  if (!(m == m)) m = 0.5;
+  if (m < 0.0) m = 0.0;
+  if (m > 1.0) m = 1.0;
+  const double s = dsp_sin_turns_lut(phase01);
+  const double co = dsp_sin_turns_lut(phase01 + 0.25);
+  const double c = 1.0 - m;
+  const double sc = co * c;
+  const double xx = (s * s) + (sc * sc);
+  if (xx <= 1.0e-24) {
+    if (s > 0.0) return 1.0;
+    if (s < 0.0) return -1.0;
+    return 0.0;
+  }
+  const double den = __builtin_sqrt(xx);
+  const double out = s / den;
+  if (!(out * 0.0 == 0.0)) return 0.0;
+  return out;
+}
+
 double waveFromPhasor(double p, int waveform, double morph) {
   double ph = p;
   if (!(ph == ph)) ph = 0.0;
@@ -326,6 +353,16 @@ double waveFromPhasor(double p, int waveform, double morph) {
     }
     case kWavePulse:
       return ph < m ? 1.0 : -1.0;
+    case kWaveSquircle:
+      return sineToSquircle(ph, m);
+    case kWaveCenterPulse: {
+      // Same geometry as Robin Supersaw Center Pulse. Morph is width.
+      // 0 = constant -1, 1 = constant +1. High region is centered on mid-cycle.
+      if (m <= 0.0) return -1.0;
+      if (m >= 1.0) return 1.0;
+      const double half = m * 0.5;
+      return (ph >= (0.5 - half) && ph < (0.5 + half)) ? 1.0 : -1.0;
+    }
     case kWaveSaw:
     default:
       return 1.0 - 2.0 * ph;
@@ -521,7 +558,7 @@ extern "C" int soemdsp_robin_oscillator_max_block_frames() {
 }
 
 extern "C" int soemdsp_robin_oscillator_version() {
-  return 1;
+  return 3;
 }
 
 extern "C" const char* soemdsp_robin_oscillator_metadata_json() {

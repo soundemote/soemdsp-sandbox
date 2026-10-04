@@ -65,6 +65,19 @@ function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
     return null;
   }
   // Choice keys persist by name. A numeric index is not a key and is not remapped.
+  // Robin Oscillator waveform now persists by choice key. Old patches stored the index.
+  if (type === "robinOscillator" && key === "waveform") {
+    const rawWave = String(value ?? "").trim();
+    const legacy = ["saw", "ramp", "square", "trisawCenter", "sine", "pulse", "analogSquare", "fullAsymSine", "squircle", "centerPulse"];
+    if (/^\d+$/.test(rawWave)) {
+      const index = Number(rawWave);
+      if (index >= 0 && index < legacy.length) value = legacy[index];
+    }
+  }
+  // Robin Supersaw renamed Square -> Squircle. Old patches stored the key square.
+  if (type === "robinSupersaw" && key === "waveform" && String(value ?? "").trim() === "square") {
+    value = "squircle";
+  }
   const choiceKeys = Array.isArray(parameter.choiceKeys)
     ? parameter.choiceKeys.map((choiceKey) => String(choiceKey).trim()).filter(Boolean)
     : [];

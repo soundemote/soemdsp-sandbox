@@ -505,8 +505,10 @@ function nodeGraphTSeriesValueDisplayModes() {
   ];
 }
 
-function nodeGraphTSeriesModuleDefinition(lastIndex) {
+function nodeGraphTSeriesModuleDefinition(lastIndex, options = {}) {
   const last = Math.max(0, Math.min(10, Math.round(nodeGraphFiniteNumber(lastIndex))));
+  const adFirst = options.adFirst === true;
+  const inLabel = options.inLabel || "In";
   return {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutA,
@@ -515,8 +517,8 @@ function nodeGraphTSeriesModuleDefinition(lastIndex) {
     displayModes: nodeGraphTSeriesValueDisplayModes(),
     digitalInputs: ["Digital"],
     inputAliases: { A: "Analog", D: "Digital", Mono: "In" },
-    inputLabels: { Analog: "A", Digital: "D", In: "In" },
-    inputs: ["In", "Analog", "Digital"],
+    inputLabels: { Analog: "A", Digital: "D", In: inLabel },
+    inputs: adFirst ? ["Analog", "Digital", "In"] : ["In", "Analog", "Digital"],
     outputs: Array.from({ length: last + 1 }, (_, index) => String(index)),
     parameters: [],
     defaultWidthGu: last >= 10 ? 5 : last >= 1 ? 4 : 3,
@@ -527,8 +529,11 @@ function nodeGraphTSeriesModuleDefinition(lastIndex) {
 }
 
 /** Nt mux: inputs 0…(N-1) + A/D → Out. Mirror of tN demux. Name digit = path count. */
-function nodeGraphTSeriesMuxModuleDefinition(lastIndex) {
+function nodeGraphTSeriesMuxModuleDefinition(lastIndex, options = {}) {
   const last = Math.max(1, Math.min(10, Math.round(nodeGraphFiniteNumber(lastIndex))));
+  const numbered = Array.from({ length: last + 1 }, (_, index) => String(index));
+  const adFirst = options.adFirst === true;
+  const outLabel = options.outLabel || "Out";
   return {
     planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutA,
@@ -538,13 +543,9 @@ function nodeGraphTSeriesMuxModuleDefinition(lastIndex) {
     digitalInputs: ["Digital"],
     inputAliases: { A: "Analog", D: "Digital" },
     inputLabels: { Analog: "A", Digital: "D" },
-    inputs: [
-      ...Array.from({ length: last + 1 }, (_, index) => String(index)),
-      "Analog",
-      "Digital",
-    ],
+    inputs: adFirst ? ["Analog", "Digital", ...numbered] : [...numbered, "Analog", "Digital"],
     outputAliases: { Mono: "Out" },
-    outputLabels: { Out: "Out" },
+    outputLabels: { Out: outLabel },
     outputs: ["Out"],
     parameters: [],
     defaultWidthGu: last >= 10 ? 5 : last >= 6 ? 4 : 3,
@@ -1331,7 +1332,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [
       {
         choices: ["On cycle", "Warp remaining", "Snap remaining"],
-        defaultValue: "1",
+        defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
         key: "freqUpdate",
@@ -1345,19 +1346,21 @@ const nodeGraphModuleDefinitions = (
         tooltip: "When ƒ changes mid-cycle: On cycle waits for wrap; Warp remaining keeps dither offset; Snap remaining re-dithers the remaining length."
       },
       {
-        choices: ["Saw", "Ramp", "Square", "Trisaw Center", "Sine", "Pulse", "Analog Square", "Full Asym Sine"],
-        defaultValue: "0",
+        choices: ["Saw", "Ramp", "Square", "Trisaw Center", "Sine", "Pulse", "Analog Square", "Full Asym Sine", "Squircle", "Center Pulse"],
+        choiceKeys: ["saw", "ramp", "square", "trisawCenter", "sine", "pulse", "analogSquare", "fullAsymSine", "squircle", "centerPulse"],
+        choiceIds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        defaultValue: "saw",
         displayChoices: true,
         divideChoicesVisibly: true,
         key: "waveform",
         kind: "waveform",
         label: "Waveform",
         linearSmoothing: false,
-        max: "7",
+        max: "9",
         mid: "2",
         min: "0",
         step: "1",
-        tooltip: "Cycle-dither AA oscillator (RS-MET). Saw = edge then down; Ramp = up then edge. Morph: Pulse = duty; Trisaw Center = opposing peaks toward saw; Analog Square = same-direction peaks (zeros at 0 / 0.5). Full Asym Sine = half-sine wavetable once per cycle (same fundamental as Sine), filled −1…+1 (Morph ignored)."
+        tooltip: "Cycle-dither AA oscillator (RS-MET). Saw = edge then down; Ramp = up then edge. Morph: Pulse = duty; Trisaw Center = opposing peaks toward saw; Analog Square = same-direction peaks (zeros at 0 / 0.5). Full Asym Sine = half-sine wavetable once per cycle (same fundamental as Sine), filled −1…+1 (Morph ignored). Squircle = sine to square (Morph 0 sine, Morph 1 square; not Analog Square). Center Pulse: high in the middle, width = Morph (0 constant -1, 1 constant +1)."
       },
       {
         defaultValue: "100",
@@ -1366,7 +1369,7 @@ const nodeGraphModuleDefinitions = (
         label: "Frequency",
         max: "20000",
         mid: "440",
-        min: "0",
+        min: "10",
         smoothingMode: "internal",
         smoothingSeconds: 0.0333,
         smoothingType: "onePole",
@@ -1396,7 +1399,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "0.01",
-        tooltip: "Universal morph 0...1 (always Morph). Pulse = duty/width; Trisaw Center = opposing peaks lean triangle into a saw (zeros at 0 / 0.5; Morph 0/1 bright mirrors, 0.5 dullest); Analog Square = same-direction peaks (dual-edge / square-ish at extremes); Full Asym Sine ignores Morph (half-sine LUT once per cycle, −1…+1)."
+        tooltip: "Universal morph 0...1 (always Morph). Pulse = duty/width; Trisaw Center = opposing peaks lean triangle into a saw (zeros at 0 / 0.5; Morph 0/1 bright mirrors, 0.5 dullest); Analog Square = same-direction peaks (dual-edge / square-ish at extremes); Full Asym Sine ignores Morph (half-sine LUT once per cycle, −1…+1). Squircle = sine to square (0 sine, 1 square). Center Pulse = width centered on mid-cycle (0 constant -1, 1 constant +1)."
       },
       {
         defaultValue: "1",
@@ -4625,6 +4628,32 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Mono", "Left", "Right"],
     parameters: [
       {
+        choices: ["Saw", "Squircle", "Trisaw", "Center Pulse", "Left Edge Pulse", "Right Edge Pulse", "Ramp"],
+        choiceKeys: ["saw", "squircle", "trisaw", "centerPulse", "leftEdgePulse", "rightEdgePulse", "ramp"],
+        choiceIds: [0, 1, 2, 3, 4, 5, 6],
+        defaultValue: "saw",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "waveform",
+        kind: "waveform",
+        label: "Waveform",
+        linearSmoothing: false,
+        max: "6",
+        mid: "3",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Same wave on every voice. Saw: rising saw (Morph ignored). Squircle: Morph 0 is a sine, Morph 1 is a square. Trisaw: naive trisaw-center; Morph slides the opposing peaks (0 and 1 are saw extremes, 0.5 is the triangle). Center Pulse: high in the middle, width = Morph. Left Edge Pulse: high from the start, width = Morph. Right Edge Pulse: high at the end, width = Morph. Pulse Morph 0 is no high region (constant -1), Morph 1 is full high. Ramp: falling saw (Morph ignored)." },
+      {
+        key: "morph",
+        label: "Morph",
+        defaultValue: "0",
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "any",
+        tooltip: "Continuous 0 to 1. Squircle: 0 is a sine, 1 is a square (RoundShape sine-to-square, shifted onto the first-half square). Trisaw: peak slide of trisaw-center. Center / Left / Right Pulse: pulse width (0 = no high region, 1 = full high). Saw and Ramp ignore Morph." },
+      {
         choices: ["Dual Channel", "Alternating"],
         defaultValue: "0",
         displayChoices: true,
@@ -4639,7 +4668,7 @@ const nodeGraphModuleDefinitions = (
         step: "1",
         tooltip: "Dual Channel: independent N-voice banks on L and R sharing the same detune map (1 = one per channel at unison). Alternating: one bank, pans L R L R… across the detune stack (not low-half Left / high-half Right)." },
       // Frequency-modulated detune (each voice at a detuned Hz), not phase mod.
-      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Center pitch. Wired ƒ cancels Frequency. Detune is frequency-domain (each voice runs at a different Hz)." },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "10", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Center pitch. Wired ƒ cancels Frequency. Detune is frequency-domain (each voice runs at a different Hz)." },
       {
         choices: ["Linear", "Chordal", "Emotional", "Realistic", "Classic", "Uniform", "Exponential"],
         defaultValue: "2",
@@ -6556,7 +6585,7 @@ const nodeGraphModuleDefinitions = (
     ]
   },
   t: nodeGraphTSeriesSingleModuleDefinition(),
-  t2: nodeGraphTSeriesModuleDefinition(1),
+  t2: nodeGraphTSeriesModuleDefinition(1, { adFirst: true, inLabel: "->" }),
   t3: nodeGraphTSeriesModuleDefinition(2),
   t4: nodeGraphTSeriesModuleDefinition(3),
   t5: nodeGraphTSeriesModuleDefinition(4),
@@ -6566,7 +6595,7 @@ const nodeGraphModuleDefinitions = (
   t9: nodeGraphTSeriesModuleDefinition(8),
   t10: nodeGraphTSeriesModuleDefinition(9),
   t11: nodeGraphTSeriesModuleDefinition(10),
-  "2t": nodeGraphTSeriesMuxModuleDefinition(1),
+  "2t": nodeGraphTSeriesMuxModuleDefinition(1, { adFirst: true, outLabel: "<-" }),
   "3t": nodeGraphTSeriesMuxModuleDefinition(2),
   "4t": nodeGraphTSeriesMuxModuleDefinition(3),
   "5t": nodeGraphTSeriesMuxModuleDefinition(4),

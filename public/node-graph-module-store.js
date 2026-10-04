@@ -457,7 +457,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   robinOscillator: {
     category: "oscillator",
-    description: "Cycle-dither AA multi-wave oscillator (RS-MET). Update chooses On cycle / Warp remaining / Snap remaining. Morph is universal (Pulse width / Trisaw Center opposing peaks / Analog Square same-direction peaks). Full Asym Sine is the half-sine wavetable once per cycle, −1…+1.",
+    description: "Cycle-dither AA multi-wave oscillator (RS-MET). Update chooses On cycle / Warp remaining / Snap remaining. Morph is universal (Pulse width / Center Pulse width / Trisaw Center opposing peaks / Analog Square same-direction peaks). Full Asym Sine is the half-sine wavetable once per cycle, Squircle is sine to square. −1…+1.",
     label: "Robin Oscillator",
     notes: ["RS-MET", "cycle dither", "AA", "saw", "trisaw center", "analog square", "pulse", "full asym sine", "morph", "freqUpdate", "mid-cycle warp"],
   },
@@ -911,7 +911,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   robinSupersaw: {
     category: "oscillator",
-    description: "Pitch-dithered supersaw (frequency detune, not phase mod). Fractional voices, Reset, Random Phase, Portamento Min/Max/Style, detune-face lines (±0.5 oct).",
+    description: "Pitch-dithered supersaw (frequency detune, not phase mod). Waveform Saw / Squircle (sine to square Morph) / Trisaw / Center, Left, and Right pulses / Ramp. Fractional voices, Reset, Random Phase, Portamento, detune-face lines (±0.5 oct).",
     label: "Robin Supersaw",
     notes: ["oscillator", "supersaw", "pitch dithering", "frequency detune", "portamento", "native", "phosphor display"],
   },

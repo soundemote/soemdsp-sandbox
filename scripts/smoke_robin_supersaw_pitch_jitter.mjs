@@ -39,7 +39,7 @@ function runBlock(h, opts) {
   process(
     h, freq, 44100, detune, voices, 1, 0, 0, 2,
     0, 0, 0, // porta min/max/style = hard bypass
-    jitSpeed, jitDepth, jitFilter, jitSteps, 0, maxHz, 0, 0, frames,
+    jitSpeed, jitDepth, jitFilter, jitSteps, 0, maxHz, 0, 0, 0, 0, frames,
   );
 }
 

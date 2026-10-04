@@ -220,6 +220,7 @@ extern "C" void soemdsp_robin_supersaw_process_block(
   double portamentoStyle,
   double jitterSpeed, double jitterDepth, double jitterFilter, double jitterSteps,
   double detuneTilt, double maxVoiceHz, double resetGate, double incrementCycles,
+  double waveform, double morph,
   int frameCount
 );
 extern "C" int soemdsp_robin_supersaw_block_output_left_ptr(int handle);
@@ -2999,6 +3000,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeAdditiveOsc || typeId == kTypeDsfOscillator) ? 1.0
       : (typeId == kTypeHypersaw2) ? 1.0 // Saw (Trisaw=0 … Trapezoid=6)
       : (typeId == kTypeHyperpluck) ? 1.0 // Saw (Trisaw=0 … Square=5)
+      : (typeId == kTypeRobinSupersaw) ? 0.0 // Saw
       : (typeId == kTypeActiveFilter) ? 0.0 // Dual Ladder HP slope Bypass
       : (typeId == kTypeCookbookFilter) ? 0.0 // Direct Form 1
       : (typeId == kTypePhaser) ? 0.0 // slope 12 dB
@@ -3093,6 +3095,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.phaseParam,
     (typeId == kTypeHyperpluck) ? 0.5 : // morph width
+    (typeId == kTypeRobinSupersaw) ? 0.0 : // morph (0 = sine on Square)
     (typeId == kTypeRayBouncer) ? 30.0 // launchAngle deg
       : (typeId == kTypeAdditiveBlaster) ? 145.84 // depth cycles (PoC)
       : (typeId == kTypeAdditivePan) ? 18.0 // AutoPan shimmer Hz
@@ -3120,7 +3123,7 @@ static void init_node_defaults(Node& n, int typeId) {
   );
   init_control(
     n.mode,
-    (typeId == kTypeRobinOscillator) ? 1.0 // freqUpdate: Warp remaining
+    (typeId == kTypeRobinOscillator) ? 0.0 // freqUpdate: On cycle
       : (typeId == kTypeSineWarp) ? 1.0 // Mode Rect (clip)
       : (typeId == kTypeNoiseGenerator
       || typeId == kTypeButterworth || typeId == kTypeLinkwitzRiley
@@ -11850,6 +11853,9 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
     const double jitterFilter = control_effective(node.lpfFrequency);
     const double jitterSteps = control_effective(node.lfoStyle); // 0 Fixed / 1 Random
     const double detuneTilt = control_effective(node.feedback);
+    // waveform is a snapped choice. morph is continuous (phaseParam, not shape).
+    const double waveform = control_effective(node.waveform);
+    const double morph = control_audio(g, node.phaseParam, frameIndexForHz);
     double freq = resolve_osc_hz(
       g, frameIndexForHz, liveF, livePitch, node.frequency, referenceVoltage, srD
     );
@@ -11861,7 +11867,7 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
       node.nativeHandle, freq, srD, detune, voicesExact, amp, phaseSpread, stereoMode,
       detuneAlgorithm, portaTimeMin, portaTimeMax, portamentoStyle,
       jitterSpeed, jitterDepth, jitterFilter, jitterSteps, detuneTilt, maxHz,
-      resetGate, incrementCycles, nFrames
+      resetGate, incrementCycles, waveform, morph, nFrames
     );
   };
 

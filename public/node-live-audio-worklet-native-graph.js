@@ -462,6 +462,8 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphParamId = function mapNativeGraph
     // Robin Oscillator: morph Control is WIDTH (see pushControls + process_robin_oscillator).
     // Default SHAPE was Softwave-correct but left ParamModEdge morph silent on Robin (B-063).
     if (t === "robinOscillator") return P.NATIVE_GRAPH_PARAM_WIDTH;
+    // Supersaw Random Phase already owns SHAPE. Morph is PHASE (continuous).
+    if (t === "robinSupersaw") return P.NATIVE_GRAPH_PARAM_PHASE;
     return P.NATIVE_GRAPH_PARAM_SHAPE;
   }
   // Robin vs Hypersaw share jitter* names on different Control slots.
@@ -4271,7 +4273,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("morph", P.NATIVE_GRAPH_PARAM_WIDTH, cont("morph", 0.5));
-      push("freqUpdate", P.NATIVE_GRAPH_PARAM_MODE, disc("freqUpdate", 1));
+      push("freqUpdate", P.NATIVE_GRAPH_PARAM_MODE, disc("freqUpdate", 0));
       continue;
     }
     if (type === "robinSinusoid") {
@@ -5565,6 +5567,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       // width=detuneCents, stages=voices, shape=Random Phase, mode=stereoMode,
       // center=detuneAlgorithm; timeNum/Den=porta min/max; offset=portamentoStyle
       // Pitch jitter: lfoRate=speed, lfoAmp=depth¢, lpf=filter, feedback=detuneTilt.
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
+      push("morph", P.NATIVE_GRAPH_PARAM_PHASE, cont("morph", 0));
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("detuneCents", P.NATIVE_GRAPH_PARAM_WIDTH, cont("detuneCents", 30));
       push("detuneTilt", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("detuneTilt", 0));

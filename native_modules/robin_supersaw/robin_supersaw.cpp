@@ -152,6 +152,113 @@ double sawFromPhasor(double phasor) {
   return 2.0 * phasor - 1.0;
 }
 
+// Falling opposite of the rising saw. Morph is ignored, same as Saw.
+double rampFromPhasor(double phasor) {
+  return 1.0 - 2.0 * phasor;
+}
+
+// Shop order: Saw, Squircle, Trisaw, Center Pulse, Left Edge Pulse, Right Edge Pulse, Ramp.
+constexpr int kWaveSaw = 0;
+constexpr int kWaveSquircle = 1; // sine to square
+constexpr int kWaveTrisaw = 2;
+constexpr int kWaveCenterPulse = 3;
+constexpr int kWaveLeftEdgePulse = 4;
+constexpr int kWaveRightEdgePulse = 5;
+constexpr int kWaveRamp = 6;
+constexpr int kWaveCount = 7;
+
+// Pulse width = Morph, same as Robin Oscillator Pulse and Basic Shape Center Square.
+// 0 = no high region (constant -1). 1 = full high. NaN follows the knob default 0,
+// not a hidden 50%.
+double pulseWidth01(double morph) {
+  double w = morph;
+  if (!(w == w)) w = 0.0;
+  if (w < 0.0) w = 0.0;
+  if (w > 1.0) w = 1.0;
+  return w;
+}
+
+// RoundShape / Ellipsoid sine to square, quadrature-shifted onto Robin's square.
+// Morph 0 = LUT sine (zero at phase 0). Morph 1 = sign(sin) = high on [0, 0.5).
+// Robin Analog Square (naive_analog_square) is a different control (same-direction
+// peak slide, not sine to square), so it is not used. AA off: pitch dither is the AA.
+double sineToRobinSquare(double phase01, double morph) {
+  double m = morph;
+  if (!(m == m)) m = 0.0;
+  if (m < 0.0) m = 0.0;
+  if (m > 1.0) m = 1.0;
+  const double s = dsp_sin_turns_lut(phase01);
+  const double co = dsp_sin_turns_lut(phase01 + 0.25);
+  const double c = 1.0 - m;
+  const double sc = co * c;
+  const double xx = (s * s) + (sc * sc);
+  if (xx <= 1.0e-24) {
+    if (s > 0.0) return 1.0;
+    if (s < 0.0) return -1.0;
+    return 0.0;
+  }
+  const double out = s / sqrtD(xx);
+  if (!(out * 0.0 == 0.0)) return 0.0;
+  return out;
+}
+
+// Center pulse. No naive helper in soemdsp::math. Same geometry as Basic Shape
+// center_square_exact: high region centered on mid-cycle, width = Morph.
+// Morph 0 = -1, Morph 1 = +1.
+double naiveCenterPulse(double phase01, double morph) {
+  const double w = pulseWidth01(morph);
+  if (w <= 0.0) return -1.0;
+  if (w >= 1.0) return 1.0;
+  const double t = wrap01(phase01);
+  const double half = w * 0.5;
+  return (t >= (0.5 - half) && t < (0.5 + half)) ? 1.0 : -1.0;
+}
+
+// Left edge pulse. Robin Oscillator Pulse is `ph < morph` (high from cycle start).
+// Not in soemdsp::math. Morph 0 = -1, Morph 1 = +1.
+double naiveLeftEdgePulse(double phase01, double morph) {
+  const double t = wrap01(phase01);
+  return (t < pulseWidth01(morph)) ? 1.0 : -1.0;
+}
+
+// Right edge pulse. Mirror of Robin Pulse: high at the end of the cycle.
+// Not in the library and not in Robin Oscillator. Morph 0 = -1, Morph 1 = +1.
+double naiveRightEdgePulse(double phase01, double morph) {
+  const double t = wrap01(phase01);
+  return (t >= (1.0 - pulseWidth01(morph))) ? 1.0 : -1.0;
+}
+
+// Every voice uses this. Squircle morph is sine to square.
+// Trisaw passes Morph into naive_trisaw_center (0 and 1 are saw extremes).
+// Pulses use Morph as width. Saw and Ramp ignore Morph.
+double waveFromPhasor(double phasor, int waveform, double morph) {
+  switch (waveform) {
+    case kWaveSquircle:
+      return sineToRobinSquare(phasor, morph);
+    case kWaveTrisaw:
+      return naive_trisaw_center(phasor, morph);
+    case kWaveCenterPulse:
+      return naiveCenterPulse(phasor, morph);
+    case kWaveLeftEdgePulse:
+      return naiveLeftEdgePulse(phasor, morph);
+    case kWaveRightEdgePulse:
+      return naiveRightEdgePulse(phasor, morph);
+    case kWaveRamp:
+      return rampFromPhasor(phasor);
+    case kWaveSaw:
+    default:
+      return sawFromPhasor(phasor);
+  }
+}
+
+int waveformIndex(double waveform) {
+  if (!(waveform == waveform)) return kWaveSaw;
+  int wave = static_cast<int>(floorD(waveform + (waveform >= 0.0 ? 0.5 : -0.5)));
+  if (wave < 0) wave = 0;
+  if (wave >= kWaveCount) wave = kWaveCount - 1;
+  return wave;
+}
+
 void rerollPhaseRandom(DitherVoiceState& v) {
   v.phaseRandom = randomUnit(v.rngState);
 }
@@ -649,7 +756,9 @@ double sumPreparedVoiceBank(
   double jitterDepthCents,
   double jitterFilterHz,
   int jitterFixedSteps,
-  double incrementCycles
+  double incrementCycles,
+  int waveform,
+  double morph
 ) {
   double sum = 0.0;
   double norm = 0.0;
@@ -658,10 +767,12 @@ double sumPreparedVoiceBank(
       bank[i], safeSampleRate, portaOn, jitterSpeedHz, jitterDepthCents, jitterFilterHz,
       jitterFixedSteps
     );
-    double saw = sawFromPhasor(getSamplePhasor(bank[i], randomPhaseAmount, incrementCycles));
+    double y = waveFromPhasor(
+      getSamplePhasor(bank[i], randomPhaseAmount, incrementCycles), waveform, morph
+    );
     double amp = 1.0;
     if (lastFrac > 0.0 && i == voiceCount - 1) amp = lastFrac;
-    sum += saw * amp;
+    sum += y * amp;
     norm += amp;
   }
   return sum * bankMixScale(norm);
@@ -799,6 +910,8 @@ void mixAlternatingBank(
   double jitterFilterHz,
   int jitterFixedSteps,
   double incrementCycles,
+  int waveform,
+  double morph,
   double* outL,
   double* outR
 ) {
@@ -811,19 +924,21 @@ void mixAlternatingBank(
       bank[i], safeSampleRate, portaOn, jitterSpeedHz, jitterDepthCents, jitterFilterHz,
       jitterFixedSteps
     );
-    double saw = sawFromPhasor(getSamplePhasor(bank[i], randomPhaseAmount, incrementCycles));
+    double y = waveFromPhasor(
+      getSamplePhasor(bank[i], randomPhaseAmount, incrementCycles), waveform, morph
+    );
     double amp = 1.0;
     if (lastFrac > 0.0 && i == voiceCount - 1) amp = lastFrac;
     const double pan = alternatingPan(i, voiceCount);
     if (pan < -0.25) {
-      left += saw * amp;
+      left += y * amp;
       normL += amp;
     } else if (pan > 0.25) {
-      right += saw * amp;
+      right += y * amp;
       normR += amp;
     } else {
-      left += saw * amp * 0.5;
-      right += saw * amp * 0.5;
+      left += y * amp * 0.5;
+      right += y * amp * 0.5;
       normL += amp * 0.5;
       normR += amp * 0.5;
     }
@@ -909,6 +1024,8 @@ extern "C" void soemdsp_robin_supersaw_process_block(
   double maxVoiceHz,
   double resetGate,
   double incrementCycles,
+  double waveform,
+  double morph,
   int frameCount
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
@@ -936,6 +1053,8 @@ extern "C" void soemdsp_robin_supersaw_process_block(
   if (!(hzCeil > 1.0)) hzCeil = nyquist > 1.0 ? nyquist : 20000.0;
   // 0 = Dual Channel (N per L + N per R), 1 = Alternating (one bank, LRLR pans)
   const int mode = (safe(stereoMode) >= 0.5) ? 1 : 0;
+  const int wave = waveformIndex(waveform);
+  const double safeMorph = safe(morph);
   int algo = static_cast<int>(floorD(safe(detuneAlgorithm) + 0.5));
   if (algo < 0) algo = 0;
   if (algo >= kDetuneAlgoCount) algo = kDetuneAlgoCount - 1;
@@ -978,16 +1097,16 @@ extern "C" void soemdsp_robin_supersaw_process_block(
       // Dual channel: N voices per side, independent dither.
       left = sumPreparedVoiceBank(
         s.left, voiceCount, lastFrac, safeRandomPhase, safeSampleRate, portaOn,
-        jitSpeed, jitDepth, jitFilter, jitFixed, incrementCycles
+        jitSpeed, jitDepth, jitFilter, jitFixed, incrementCycles, wave, safeMorph
       );
       right = sumPreparedVoiceBank(
         s.right, voiceCount, lastFrac, safeRandomPhase, safeSampleRate, portaOn,
-        jitSpeed, jitDepth, jitFilter, jitFixed, incrementCycles
+        jitSpeed, jitDepth, jitFilter, jitFixed, incrementCycles, wave, safeMorph
       );
     } else {
       mixAlternatingBank(
         s.left, voiceCount, lastFrac, safeRandomPhase, safeSampleRate, portaOn,
-        jitSpeed, jitDepth, jitFilter, jitFixed, incrementCycles, &left, &right
+        jitSpeed, jitDepth, jitFilter, jitFixed, incrementCycles, wave, safeMorph, &left, &right
       );
     }
     if (!(left * 0.0 == 0.0)) left = 0.0;
@@ -1031,7 +1150,7 @@ extern "C" void soemdsp_robin_supersaw_sample(
     handle, frequencyHz, sampleRate, detuneCents, voicesExact, level, phaseSpread,
     stereoMode, detuneAlgorithm, portaTimeMin, portaTimeMax, portamentoStyle,
     jitterSpeed, jitterDepth, jitterFilter, jitterSteps, detuneTilt, maxVoiceHz,
-    resetGate, 0.0, 1
+    resetGate, 0.0, 0.0, 0.0, 1
   );
 }
 
@@ -1096,5 +1215,5 @@ extern "C" double soemdsp_robin_supersaw_voice_amp(int handle, int index) {
 }
 
 extern "C" int soemdsp_robin_supersaw_version() {
-  return 25; // Reset snaps jitter walk + cycle Hz back to origin
+  return 29; // Squircle name; pulse width and trisaw still follow Morph
 }
