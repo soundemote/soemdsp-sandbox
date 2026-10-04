@@ -625,7 +625,7 @@ function bindNodeGraphLiveVolumeControls() {
   }
 }
 
-function nodeGraphTransportHandleAction(action) {
+function nodeGraphTransportHandleAction(action, button) {
   const key = String(action || "").trim();
   if (key === "play") {
     // Play only starts or resumes. Never pauses.
@@ -725,6 +725,9 @@ function nodeGraphTransportHandleAction(action) {
     return;
   }
   if (key === "stop") {
+    if (typeof nodeGraphStopLiveRecording === "function") {
+      nodeGraphStopLiveRecording();
+    }
     if (typeof nodeGraphLiveSetKeepPlayingWhenUnfocused === "function") {
       nodeGraphLiveSetKeepPlayingWhenUnfocused(false);
     }
@@ -763,8 +766,8 @@ function nodeGraphTransportHandleAction(action) {
     return;
   }
   if (key === "record") {
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp("Record is under construction.");
+    if (typeof nodeGraphRecordAndPlay === "function") {
+      nodeGraphRecordAndPlay(button);
     }
     return;
   }
@@ -781,9 +784,13 @@ function bindNodeGraphTransportButtons() {
   // binding still works when this file loads after window "load" (boot-defer).
   for (const button of document.querySelectorAll("[data-transport-action]")) {
     const action = button.getAttribute("data-transport-action");
-    if (action === "record" || action === "forward") {
+    if (action === "forward") {
       button.disabled = true;
       button.classList.add("under-construction");
+    }
+    if (action === "record") {
+      button.disabled = false;
+      button.classList.remove("under-construction");
     }
   }
   if (document.documentElement.dataset.transportDelegateBound !== "true") {
@@ -802,7 +809,7 @@ function bindNodeGraphTransportButtons() {
       if (!action) {
         return;
       }
-      if (button.disabled || action === "record" || action === "forward") {
+      if (button.disabled || action === "forward") {
         event.preventDefault();
         return;
       }
@@ -813,7 +820,7 @@ function bindNodeGraphTransportButtons() {
         }
         return;
       }
-      nodeGraphTransportHandleAction(action);
+      nodeGraphTransportHandleAction(action, button);
     });
   }
   // Cold boot: engine is off — force red stop / grey play immediately so we

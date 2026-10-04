@@ -767,7 +767,7 @@ void main() {
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.globalAlpha = 1;
       context.imageSmoothingEnabled = false;
-      context.globalCompositeOperation = "copy";
+      context.globalCompositeOperation = options.presentComposite || "copy";
       context.drawImage(canvas, 0, 0, width, height);
       context.restore();
     } else {

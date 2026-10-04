@@ -1,6 +1,49 @@
 // Extracted from node-live-audio-worklet-core.js (Phase D mechanical split).
 // Method: process — load after core class, before registerProcessor.
 
+NodeLiveAudioProcessor.prototype.captureRecordingQuantum = function captureRecordingQuantum(left, right) {
+  const count = left?.length || 0;
+  if (!count) {
+    return;
+  }
+  const fill = this._recFill || 0;
+  if (!this._recL || fill + count > this._recL.length) {
+    const cap = Math.max(4096, (fill + count) * 2);
+    const nextL = new Float32Array(cap);
+    const nextR = new Float32Array(cap);
+    if (this._recL && fill) {
+      nextL.set(this._recL.subarray(0, fill));
+      nextR.set(this._recR.subarray(0, fill));
+    }
+    this._recL = nextL;
+    this._recR = nextR;
+  }
+  this._recL.set(left, fill);
+  this._recR.set(right || left, fill);
+  this._recFill = fill + count;
+  const posted = this._recPosted || 0;
+  if (this._recFill - posted < 2048) {
+    return;
+  }
+  const takeL = this._recL.slice(posted, this._recFill);
+  const takeR = this._recR.slice(posted, this._recFill);
+  this._recPosted = this._recFill;
+  this.port.postMessage({ type: "recordChunk", left: takeL, right: takeR }, [takeL.buffer, takeR.buffer]);
+};
+
+NodeLiveAudioProcessor.prototype.flushRecordingQuantum = function flushRecordingQuantum() {
+  const fill = this._recFill || 0;
+  const posted = this._recPosted || 0;
+  if (fill > posted && this._recL) {
+    const takeL = this._recL.slice(posted, fill);
+    const takeR = this._recR.slice(posted, fill);
+    this.port.postMessage({ type: "recordChunk", left: takeL, right: takeR }, [takeL.buffer, takeR.buffer]);
+  }
+  this._recFill = 0;
+  this._recPosted = 0;
+  this.port.postMessage({ type: "recordEnded" });
+};
+
 NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
     const blockStartedAt = globalThis.performance?.now?.() || 0;
     const output = outputs[0] || [];
@@ -132,6 +175,9 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
     // Efficient path: rings already filled from native taps in processNativeGraphQuantum.
     // Throttled snapshot/visual posts only (never evaluateFrame).
     if (usedNativeGraph) {
+      if (this.recordingTake && output[0]) {
+        this.captureRecordingQuantum(output[0], output[1] || output[0]);
+      }
       this.scopeCounter = (nodeGraphFiniteNumber(this.scopeCounter)) + frames;
       const displayFps = Number(this.displayFps);
       // Counters advance by host frames each quantum. Pace against the host

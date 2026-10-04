@@ -925,6 +925,7 @@ extern "C" double soemdsp_tb303_filter_sample(
 
 extern "C" int soemdsp_flower_child_filter_create();
 extern "C" void soemdsp_flower_child_filter_destroy(int handle);
+extern "C" void soemdsp_flower_child_filter_set_self_mod_skew(int handle, double skew);
 extern "C" double soemdsp_flower_child_filter_sample(
   int handle, double input, double frequency, double resonance,
   double chaosAmount, int mode, double sampleRate
@@ -8496,12 +8497,55 @@ static void process_norm_chaos_filter(
   }
 }
 
-// Same MLR routing as yellowjacket / human / resonator: mono uses one
-// nativeHandle (no dual-sum chorus); L/R handles only when those inputs wire.
+// Cable-based: one core unless Left and Right ins are both wired.
+// Stereo: independent L/R handles; Mono In still sums into both.
+// Same cutoff Hz; self-mod skew is set on the handles when stereo.
 static void process_flower_child_filter(Circuit& g, Node& node, int frames) {
-  process_norm_chaos_filter(
-    g, node, frames, true, nullptr, soemdsp_flower_child_filter_sample
-  );
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const double modeV = control_effective(node.mode);
+  int mode = (int)(modeV + (modeV >= 0.0 ? 0.5 : -0.5));
+  bool hasLeftIn = false, hasRightIn = false, hasMonoIn = false, monoOutWired = false;
+  probe_mlr_cables(g, node, &hasMonoIn, &hasLeftIn, &hasRightIn, &monoOutWired);
+  const bool stereo = hasLeftIn && hasRightIn
+    && node.nativeHandleL > 0 && node.nativeHandleR > 0;
+  if (stereo) {
+    // Stereo analog-lock mismatch: L/R feedback scale ±0.2% (dirty 0.465,
+    // Clean/Rev3 selfModAmp). Independent cores + independent RNG already.
+    // Undo: set both skews to 1.0 (or delete these two calls).
+    soemdsp_flower_child_filter_set_self_mod_skew(node.nativeHandleL, 0.998);
+    soemdsp_flower_child_filter_set_self_mod_skew(node.nativeHandleR, 1.002);
+  }
+  const bool needMono = hasMonoIn || monoOutWired || (!hasLeftIn && !hasRightIn);
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double freq = norm_pitch_freq_from_control(control_audio(g, node.frequency, f));
+    const double reso = control_audio(g, node.resonance, f);
+    const double chaos = control_audio(g, node.shape, f);
+    double amp = control_audio(g, node.amplitude, f);
+    if (!(amp == amp)) amp = 1.0;
+    if (needMono) {
+      double in = g.mixMono[f];
+      if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
+      const double out = soemdsp_flower_child_filter_sample(
+        node.nativeHandle, in, freq, reso, chaos, mode, sr
+      ) * amp;
+      node.buf[kPortMono][f] = out;
+      if (!hasLeftIn) node.buf[kPortLeft][f] = out;
+      if (!hasRightIn) node.buf[kPortRight][f] = out;
+    }
+    if (hasLeftIn && node.nativeHandleL > 0) {
+      node.buf[kPortLeft][f] = soemdsp_flower_child_filter_sample(
+        node.nativeHandleL, g.mixLeft[f] + g.mixMono[f], freq, reso, chaos, mode, sr
+      ) * amp;
+    }
+    if (hasRightIn && node.nativeHandleR > 0) {
+      node.buf[kPortRight][f] = soemdsp_flower_child_filter_sample(
+        node.nativeHandleR, g.mixRight[f] + g.mixMono[f], freq, reso, chaos, mode, sr
+      ) * amp;
+    }
+  }
 }
 
 static void process_yellowjacket_filter(Circuit& g, Node& node, int frames) {

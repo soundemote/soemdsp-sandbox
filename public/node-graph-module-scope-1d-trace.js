@@ -74,7 +74,7 @@ function nodeGraphScope1dTraceSizePx(settings = {}, role = "primary") {
  * Returns { channels: points[][], endFrame }
  * Phasor / Reset / Sync state lives on the face canvas (same keys as 1D Phosphor).
  */
-function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuffer = null) {
+function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuffer = null, drawOptions = null) {
   const list = Array.isArray(channels) ? channels.filter((ch) => ch?.buffer?.length) : [];
   if (!list.length || !canvas?.width || !canvas?.height) {
     return { channels: list.map(() => []), endFrame: null };
@@ -82,6 +82,7 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
   let driver = list[0].buffer;
   let maxCount = 0;
   let endFrame = null;
+  let windowOverlap = 0;
   for (const ch of list) {
     const info = typeof nodeGraphOneDimensionalBurnUndrawnWindow === "function"
       ? nodeGraphOneDimensionalBurnUndrawnWindow(canvas, ch.buffer)
@@ -98,6 +99,7 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
       maxCount = count;
       driver = ch.buffer;
       endFrame = info.endFrame;
+      windowOverlap = info.overlap ? 1 : 0;
     }
   }
   if (maxCount <= 0) {
@@ -123,6 +125,13 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
   let phasor = Number(canvas._lineBurnPhasor);
   if (!Number.isFinite(phasor) || phasor < 0 || phasor >= 1) {
     phasor = 0;
+  }
+  if (windowOverlap && width > 0 && Array.isArray(canvas._lineBurnJoinPoints)) {
+    const prev = canvas._lineBurnJoinPoints.find((point) => point && Number.isFinite(point.x));
+    const joined = prev ? prev.x / width : NaN;
+    if (joined >= 0 && joined < 1 && phasor + 1e-9 >= joined) {
+      phasor = joined;
+    }
   }
   let resetWasHigh = canvas._lineBurnResetWasHigh === true;
   const autoSync = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
@@ -188,9 +197,15 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
   const out = list.map(() => []);
   const hadPoint = list.map(() => false);
   const prevSample = list.map(() => NaN);
+  const carriedJoins = Array.isArray(canvas._lineBurnJoinPoints) ? canvas._lineBurnJoinPoints : [];
+  const joinUsed = list.map(() => false);
+  const nextJoins = list.map(() => null);
   const starts = list.map((ch) => Math.max(0, ch.buffer.length - maxCount));
-  const syncBuf = list[0].buffer;
-  const syncStart = starts[0];
+  const externalSync = drawOptions?.syncBuffer;
+  const syncBuf = externalSync?.length ? externalSync : list[0].buffer;
+  const syncStart = Math.max(0, syncBuf.length - maxCount);
+  const ampDiv = Number(drawOptions?.amplitudeDivisor);
+  const sampleDiv = Number.isFinite(ampDiv) && Math.abs(ampDiv) > 1e-4 ? ampDiv : 1;
 
   for (let index = 0; index < maxCount; index += 1) {
     const syncSample = syncBuf[syncStart + index];
@@ -248,7 +263,22 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
       if (list[c].enabled === false) {
         continue;
       }
-      const sample = list[c].buffer[starts[c] + index];
+      const sample = list[c].buffer[starts[c] + index] / sampleDiv;
+      if (!horizontalBurn && !hadPoint[c] && !joinUsed[c]) {
+        joinUsed[c] = true;
+        if (typeof nodeGraphOneDimensionalBurnPrependJoin === "function"
+          && nodeGraphOneDimensionalBurnPrependJoin(
+            out[c],
+            carriedJoins[c],
+            sample,
+            x,
+            skipDisc,
+            discThreshold,
+          )) {
+          hadPoint[c] = true;
+          prevSample[c] = Number(carriedJoins[c].sample);
+        }
+      }
       // Same as nodeGraphOneDimensionalBurnFramePoints: break stroke on large jumps.
       if (
         skipDisc
@@ -258,6 +288,7 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
       ) {
         nodeGraphOneDimensionalBurnBreakPath(out[c]);
         hadPoint[c] = false;
+        nextJoins[c] = null;
       }
       const y = nodeGraphOneDimensionalBurnSampleToY(sample, height, settings);
       const amp = typeof nodeGraphDisplaySettingsAmplitudeScale === "function"
@@ -277,6 +308,7 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
         out[c].push({ x, y, t: energyT });
         hadPoint[c] = true;
         prevSample[c] = Number(sample);
+        nextJoins[c] = { x, y, sample: Number(sample), t: energyT };
       }
     }
 
@@ -289,6 +321,7 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
           }
           hadPoint[c] = false;
           prevSample[c] = NaN;
+          nextJoins[c] = null;
         }
         if (autoSync && syncPeriodSamples >= 2) {
           phasor = 1;
@@ -303,6 +336,7 @@ function nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuf
     }
   }
 
+  canvas._lineBurnJoinPoints = horizontalBurn ? null : nextJoins;
   canvas._lineBurnPhasor = phasor;
   canvas._lineBurnResetWasHigh = resetWasHigh;
   canvas._lineBurnSignalWasHigh = signalWasHigh;
@@ -344,6 +378,7 @@ function nodeGraphScope1dTraceDrawLayer(context, points, settings, role = "prima
       ghost: settings?.ghost,
       traceContinue: phase.traceContinue === true,
       tracePresent: phase.tracePresent !== false,
+      presentComposite: phase.presentComposite || "copy",
     };
     const count = TraceWoscope.draw(context, points, woscopeOpts);
     if (count > 0) {
@@ -417,14 +452,18 @@ function drawNodeGraphScope1dTraceItem(renderer, item, pixelRatio) {
   }
   context.imageSmoothingEnabled = density >= 0.999;
 
-  const bg = typeof nodeGraphFacePlateBackground === "function"
-    ? nodeGraphFacePlateBackground(
-      settings,
-      (typeof nodeGraphScope1dTraceSettingsDefaults !== "undefined"
-        ? nodeGraphScope1dTraceSettingsDefaults.background
-        : "#000000"),
-    )
-    : "#000000";
+  const gradientFloor = Array.isArray(settings?.gradientStops) && settings.gradientStops.length
+    ? settings.gradientStops[0]?.color
+    : "";
+  const bg = gradientFloor
+    || (typeof nodeGraphFacePlateBackground === "function"
+      ? nodeGraphFacePlateBackground(
+        settings,
+        (typeof nodeGraphScope1dTraceSettingsDefaults !== "undefined"
+          ? nodeGraphScope1dTraceSettingsDefaults.background
+          : "#000000"),
+      )
+      : "#000000");
   if (typeof nodeGraphFacePlateApplyCss === "function") {
     nodeGraphFacePlateApplyCss(screenElement, bg);
   }
@@ -486,7 +525,22 @@ function drawNodeGraphScope1dTraceItem(renderer, item, pixelRatio) {
     renderNodeGraphModuleScopeAnalyzer(slot, channels[0].buffer);
   }
 
-  const framed = nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuffer);
+  const syncBuffer = settings
+    && nodeGraphDisplaySettingsToggleIsOn?.(settings.sourceSync) !== false
+    && typeof nodeGraphModuleTraceInputSyncBuffer === "function"
+    ? nodeGraphModuleTraceInputSyncBuffer(nodeId, type)
+    : null;
+  let amplitudeDivisor = 1;
+  if (nodeGraphModuleDefinitions?.[type]?.displayIgnoresAmplitude === true) {
+    const amp = Number(node?.params?.amplitude);
+    if (Number.isFinite(amp) && Math.abs(amp) > 1e-4) {
+      amplitudeDivisor = amp;
+    }
+  }
+  const framed = nodeGraphScope1dTraceFrameChannels(canvas, channels, settings, resetBuffer, {
+    syncBuffer,
+    amplitudeDivisor,
+  });
   let drawn = 0;
   const jobs = [];
   for (let i = 0; i < framed.channels.length; i += 1) {

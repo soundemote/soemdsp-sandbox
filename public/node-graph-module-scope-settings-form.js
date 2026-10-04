@@ -1405,6 +1405,10 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
   } else if (toggleKeys.includes("sourceSync")) {
     rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml("sourceSync"));
     usedToggles.add("sourceSync");
+    if (type === "scope1dTrace" && choiceKeys.includes("drawMode")) {
+      rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml("drawMode"));
+      usedChoices.add("drawMode");
+    }
   }
   const stackHead = new Set([
     "scale",

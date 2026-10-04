@@ -298,6 +298,7 @@ const nodeGraphNodeLabels = Object.freeze({
   lineBurnOscilloscope: "1D Phosphor",
   scope2d: "2D Phosphor",
   scope2dTrace: "2D Trace",
+  scope2dTraceStereo: "2D Trace Stereo",
   scope1dTrace: "1D Trace",
   scope1dTraceStereo: "1D Trace Stereo",
   vectorDot: "LED Dot",
@@ -315,7 +316,8 @@ const nodeGraphNodeLabels = Object.freeze({
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
   // their own label instead of it being hardcoded here -- see
   // node-graph-chromeless-module-registry.js.
-  ...nodeGraphChromelessModuleLabelEntries() });
+  ...nodeGraphChromelessModuleLabelEntries(),
+});
 
 const nodeGraphLadderFilterModes = Object.freeze(["Flat", "LP", "HP", "BP"]);
 
@@ -12134,18 +12136,27 @@ const nodeGraphModuleDefinitions = (
   },
   flowerChildFilter: {
     planRole: "processor",
-    displayType: "waterfall",
+    displayHeightGu: 2,
+    displayType: "scope1dTrace",
     spectrumCompanion: false,
     displayModes: [
-      { key: "waterfall", label: "Waterfall", renderer: "waterfall", settingsSchema: "waterfall" },
+      {
+        key: "scope1dTrace",
+        label: "1D Trace",
+        renderer: "scope1dTrace",
+        settingsSchema: "scope1dTrace",
+      },
     ],
-    defaultDisplayMode: "waterfall",
+    defaultDisplayMode: "scope1dTrace",
+    // Output amplitude is a level control. The trace stays the filter shape.
+    displayIgnoresAmplitude: true,
+    // One beam: Mono, else Left, else Right, whichever is actually moving.
+    displaySignalPorts: ["Out", "Left", "Right"],
     defaultDisplaySettings: {
       sourceSync: true,
-      syncChannel: "mono" },
-    // Face draws Out/Left/Right; Sync locks to the dry input (In, or L+R sum).
+    },
+    // Sync locks to the dry input (In, or L+R sum).
     syncTraceFromInputs: { mono: "In", left: "Left", right: "Right" },
-    stereoWaterfallPorts: { left: "Left", right: "Right" },
     displaySignals: [
       { key: "Out", kind: "scalar" },
       { key: "Left", kind: "scalar" },
@@ -16369,6 +16380,22 @@ const nodeGraphModuleDefinitions = (
     ],
     visualSink: true
   },
+  // Parked. Shop shows the card; it does not spawn.
+  scope2dTraceStereo: {
+    planRole: "monitor",
+    bufferedInputs: ["Left", "Right"],
+    displayHeightGu: 5,
+    displayType: "scope2dTrace",
+    inputs: ["Left", "Right"],
+    layout: "scopeFace",
+    outputs: ["Left", "Right"],
+    parameters: [],
+    visualInputs: [
+      { key: "scope2dTraceStereoLeft", label: "Left", port: "Left" },
+      { key: "scope2dTraceStereoRight", label: "Right", port: "Right" },
+    ],
+    visualSink: true
+  },
   // 1D Trace — woscope beam, sweep phase on X, amplitude on Y, edge hard-reset.
   scope1dTrace: {
     planRole: "monitor",
@@ -16864,7 +16891,8 @@ const nodeGraphModuleDefinitions = (
   // their own definition instead of it being hardcoded here -- see
   // node-graph-chromeless-module-registry.js. Each entry is sealed with
   // explicit chrome (LayoutB if solidModule, else LayoutA).
-  ...nodeGraphChromelessModuleDefinitionEntries() });
+  ...nodeGraphChromelessModuleDefinitionEntries(),
+});
 
 // Text Box and Animated Text Box share the isolated widget (modules/textBox)
 // and layout/sizing rules. Animated Text Box only adds Title/Text/Text Out.

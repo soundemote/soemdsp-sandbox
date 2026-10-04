@@ -23965,6 +23965,20 @@ body.node-slider-dragging .node-param-port {
   color: var(--muted);
 }
 
+button[data-transport-action="record"] {
+  font-variant-emoji: text;
+  font-feature-settings: "emoji" 0;
+}
+
+button[data-transport-action="record"].is-recording,
+button[data-transport-action="record"].is-recording:hover,
+button[data-transport-action="record"].is-recording:focus-visible {
+  z-index: 4;
+  border-color: var(--transport-stop-border);
+  background: var(--transport-stop-bg);
+  color: var(--transport-stop-fg);
+}
+
 /* ── Shared transport palette (app-wide play / pause / stop) ────────────────
    Sample-player phosphor green when playing, idle grey when stopped,
    yellow when paused, red for stop. Used by toolbar transport, Command

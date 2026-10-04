@@ -2,6 +2,13 @@
 // Method: handleMessage — load after core class, before registerProcessor.
 
 NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message) {
+    if (message.type === "setRecording") {
+      this.recordingTake = Boolean(message.on);
+      if (!message.on && typeof this.flushRecordingQuantum === "function") {
+        this.flushRecordingQuantum();
+      }
+      return;
+    }
     if (message.type === "projectRestart") {
       const native = this.nativeGraph;
       if (native?.soemdsp_graph_request_reset && this.nativeGraphHandle) {

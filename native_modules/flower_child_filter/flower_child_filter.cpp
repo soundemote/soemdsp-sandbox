@@ -196,6 +196,9 @@ struct FlowerChildState {
   double rev3Lpf1Y1, rev3Lpf2Y1;  // one-pole IIT stages
   // Downsampled (mode 3) only:
   double dsPhase, dsHeld;
+  // Stereo analog-lock test: 1.0 = matched. Graph engine sets L=0.998 R=1.002
+  // when both ins are wired. Undo: pass 1.0 from process_flower_child_filter.
+  double selfModSkew;
 };
 
 static FlowerChildState gPool[kMaxInstances];
@@ -217,6 +220,7 @@ extern "C" int soemdsp_flower_child_filter_create() {
       s.rev3Lpf2Y1 = 0.0;
       s.dsPhase = 0.0;
       s.dsHeld = 0.0;
+      s.selfModSkew = 1.0;
       s.active = true;
       return i + 1;
     }
@@ -227,6 +231,13 @@ extern "C" int soemdsp_flower_child_filter_create() {
 extern "C" void soemdsp_flower_child_filter_destroy(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   gPool[handle - 1].active = false;
+}
+
+extern "C" void soemdsp_flower_child_filter_set_self_mod_skew(int handle, double skew) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  if (!(skew == skew) || skew < 0.5) skew = 1.0;
+  if (skew > 1.5) skew = 1.5;
+  gPool[handle - 1].selfModSkew = skew;
 }
 
 extern "C" double soemdsp_flower_child_filter_sample(
@@ -290,7 +301,8 @@ extern "C" double soemdsp_flower_child_filter_sample(
 
     double feedback = onePoleIitStep(&s.rev3Lpf1Y1, ellipseOut, lpf1A);
     feedback = onePoleIitStep(&s.rev3Lpf2Y1, feedback, lpf2A);
-    s.rev3Feedback = feedback;
+    const double selfModSkew = (s.selfModSkew > 0.0) ? s.selfModSkew : 1.0;
+    s.rev3Feedback = feedback * selfModSkew;
 
     return feedback * 0.15;
   }
@@ -312,7 +324,8 @@ extern "C" double soemdsp_flower_child_filter_sample(
     else { breakpoint = 0.879599; cap = 0.807018; }
     const double cappedTarget = reso < cap ? reso : cap;
     const double graphValue = evalResonanceGraph(reso, reso, breakpoint, cappedTarget, -0.38);
-    const double selfModAmp = map01(curveShape(graphValue, 0.4), 0.0368, 0.6333);
+    const double selfModSkew = (s.selfModSkew > 0.0) ? s.selfModSkew : 1.0;
+    const double selfModAmp = map01(curveShape(graphValue, 0.4), 0.0368, 0.6333) * selfModSkew;
 
     double inputSignal = clamp11(-input) * 0.036;
     inputSignal += s.selfMod;
@@ -369,11 +382,12 @@ extern "C" double soemdsp_flower_child_filter_sample(
   }
   const double cappedTarget = reso < cap ? reso : cap;
 
+  const double selfModSkew = (s.selfModSkew > 0.0) ? s.selfModSkew : 1.0;
   double selfModAmp = 1.0;
   double ellipseC = -1.0;
   if (!dirty) {
     const double graphValue = evalResonanceGraph(reso, reso, breakpoint, cappedTarget, -0.38);
-    selfModAmp = map01(curveShape(graphValue, 0.4), 0.0368, 0.6333);
+    selfModAmp = map01(curveShape(graphValue, 0.4), 0.0368, 0.6333) * selfModSkew;
   } else {
     const double graphValue = evalResonanceGraph(freqNorm, reso, breakpoint, cappedTarget, -0.38);
     ellipseC = map01(curveShape(graphValue, -0.6), -1.0, 0.00001);
@@ -405,7 +419,7 @@ extern "C" double soemdsp_flower_child_filter_sample(
   double out = onePoleStep(&s.stage1, oscValue, a1);
   out = onePoleStep(&s.stage2, out, a2);
 
-  s.selfMod = dirty ? out * 0.465 : out * selfModAmp;
+  s.selfMod = dirty ? out * (0.465 * selfModSkew) : out * selfModAmp;
 
   return dirty ? out * 5.22 : out * 1.31;
 }

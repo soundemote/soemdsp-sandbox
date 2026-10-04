@@ -207,6 +207,34 @@ function nodeGraphOneDimensionalBurnResetSample(resetBuffer, inIndex, inCount) {
   return nodeGraphFiniteNumber(resetBuffer[rIndex]);
 }
 
+/**
+ * New strokes start one phasor step past the ink already on the face, so the
+ * segment between paints is never drawn. Prepend that point when the sweep
+ * is still moving forward and the sample did not jump. A retrace (x moves
+ * backward) or a real discontinuity stays broken.
+ */
+function nodeGraphOneDimensionalBurnPrependJoin(points, join, sample, x, skipDisc, discThreshold) {
+  if (!join || !Number.isFinite(join.x) || !Number.isFinite(join.y) || !Number.isFinite(Number(sample))) {
+    return false;
+  }
+  if (!(x + 0.25 >= join.x)) {
+    return false;
+  }
+  if (Math.abs(x - join.x) <= 0.25) {
+    return false;
+  }
+  const delta = Math.abs(Number(sample) - Number(join.sample));
+  if (skipDisc && !(delta <= discThreshold)) {
+    return false;
+  }
+  const point = { x: join.x, y: join.y };
+  if (Number.isFinite(join.t)) {
+    point.t = join.t;
+  }
+  points.push(point);
+  return true;
+}
+
 function nodeGraphOneDimensionalBurnBreakPath(points) {
   if (typeof breakNodeGraphScope2dPath === "function") {
     breakNodeGraphScope2dPath(points);
@@ -249,8 +277,16 @@ function nodeGraphOneDimensionalBurnUndrawnWindow(canvas, buffer) {
     const undrawn = Number.isFinite(lastDrawn) && lastDrawn > 0
       ? Math.max(0, Math.floor(absEnd - lastDrawn))
       : Math.max(recent, 0);
-    const count = Math.min(retained || buffer.length, undrawn > 0 ? undrawn : Math.max(recent, 1));
-    return { count, drawStartIndex: 0, endFrame: absEnd };
+    let count = Math.min(retained || buffer.length, undrawn > 0 ? undrawn : Math.max(recent, 1));
+    // One sample of overlap so the new stroke starts on the previous endpoint.
+    // Without it the segment between paints is never drawn — a regular gap at low frequency.
+    const cap = retained || buffer.length;
+    let overlap = 0;
+    if (Number.isFinite(lastDrawn) && lastDrawn > 0 && undrawn > 0 && count < cap) {
+      count += 1;
+      overlap = 1;
+    }
+    return { count, drawStartIndex: 0, endFrame: absEnd, overlap };
   }
 
   // Legacy: no absoluteFrame — use totalSampleCount cursor when available.
@@ -259,8 +295,14 @@ function nodeGraphOneDimensionalBurnUndrawnWindow(canvas, buffer) {
       return { count: 0, drawStartIndex: 0, endFrame: totalSamples };
     }
     const undrawn = Math.max(0, Math.floor(totalSamples - lastDrawn));
-    const count = Math.min(retained || buffer.length, undrawn > 0 ? undrawn : Math.max(recent, 1));
-    return { count, drawStartIndex: 0, endFrame: totalSamples };
+    let count = Math.min(retained || buffer.length, undrawn > 0 ? undrawn : Math.max(recent, 1));
+    const cap = retained || buffer.length;
+    let overlap = 0;
+    if (undrawn > 0 && count < cap) {
+      count += 1;
+      overlap = 1;
+    }
+    return { count, drawStartIndex: 0, endFrame: totalSamples, overlap };
   }
 
   // Cold start / incomplete metadata: draw the latest post only.
@@ -309,6 +351,16 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
   let phasor = Number(canvas._lineBurnPhasor);
   if (!Number.isFinite(phasor) || phasor < 0 || phasor >= 1) {
     phasor = 0;
+  }
+  // The undrawn window repeats the sample already stamped. Put the pen back
+  // on that stamp so the repeated sample is not drawn one step to the right.
+  if (windowInfo.overlap && canvas._lineBurnJoinPoint && width > 0) {
+    const joined = Number(canvas._lineBurnJoinPoint.x) / width;
+    // Only step backward onto the stamp. A wiped phasor (0) must not jump
+  // forward to a join left on the face.
+    if (joined >= 0 && joined < 1 && phasor + 1e-9 >= joined) {
+      phasor = joined;
+    }
   }
   let resetWasHigh = canvas._lineBurnResetWasHigh === true;
   // Auto-sync: measure period from In rising edges; Sweep budgets N cycles.
@@ -431,6 +483,9 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
   const points = [];
   let hadPoint = false;
   let prevSample = NaN;
+  const carriedJoin = canvas._lineBurnJoinPoint || null;
+  let carriedJoinUsed = false;
+  let joinPoint = null;
   // Sweep 0: one solid full-width segment per sample (2 endpoints; energy GL
   // packs stamps at thrifty fuse spacing). Cap line count so total ideal stamps
   // stay ≤ Dot Budget — otherwise the budget spreads thin and lines look dotted.
@@ -506,6 +561,22 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
       samplesSinceSync += 1;
     }
 
+    const y = nodeGraphOneDimensionalBurnSampleToY(sample, height, settings);
+    const penX = horizontalBurn ? 0 : Math.min(width, phasor * width);
+    if (!horizontalBurn && !hadPoint && !carriedJoinUsed) {
+      carriedJoinUsed = true;
+      if (nodeGraphOneDimensionalBurnPrependJoin(
+        points,
+        carriedJoin,
+        sample,
+        penX,
+        skipDisc,
+        discThreshold,
+      )) {
+        hadPoint = true;
+        prevSample = Number(carriedJoin.sample);
+      }
+    }
     if (
       skipDisc
       && hadPoint
@@ -514,9 +585,9 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     ) {
       nodeGraphOneDimensionalBurnBreakPath(points);
       hadPoint = false;
+      joinPoint = null;
     }
 
-    const y = nodeGraphOneDimensionalBurnSampleToY(sample, height, settings);
     if (horizontalBurn) {
       // Collapsed sweep: solid full-width burn at this sample's Y.
       if ((horizEmitIndex % horizStride) === 0) {
@@ -542,11 +613,12 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
 
     // Sweeping: stamp at current pen X, then advance.
     points.push({
-      x: Math.min(width, phasor * width),
+      x: penX,
       y,
     });
     hadPoint = true;
     prevSample = Number(sample);
+    joinPoint = { x: penX, y, sample: Number(sample) };
 
     phasor += phaseInc;
     if (phasor >= 1) {
@@ -554,6 +626,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
         nodeGraphOneDimensionalBurnBreakPath(points);
       }
       hadPoint = false;
+      joinPoint = null;
       if (autoSync && syncPeriodSamples >= 2) {
         // End of Sweep budget — wait for rising ZC to start the next pass.
         phasor = 1;
@@ -568,6 +641,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     }
   }
 
+  canvas._lineBurnJoinPoint = horizontalBurn ? null : joinPoint;
   canvas._lineBurnPhasor = phasor;
   canvas._lineBurnResetWasHigh = resetWasHigh;
   canvas._lineBurnSignalWasHigh = signalWasHigh;
@@ -1224,8 +1298,10 @@ function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings, 
   let prevPoint = null;
   let skippedOrigin = startIndex > 0;
   const visit = (index) => {
-    const sx = Number(buffer.x[index]);
-    const sy = Number(buffer.y[index]);
+    const ampDiv = Number(settings?.amplitudeDivisor);
+    const sampleDiv = Number.isFinite(ampDiv) && Math.abs(ampDiv) > 1e-4 ? ampDiv : 1;
+    const sx = Number(buffer.x[index]) / sampleDiv;
+    const sy = Number(buffer.y[index]) / sampleDiv;
     if (!Number.isFinite(sx) || !Number.isFinite(sy)) {
       breakNodeGraphScope2dPath(points);
       prevIndex = -1;

@@ -1344,6 +1344,37 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   const inkRgb = typeof nodeGraphScope2dTraceInkRgb01 === "function"
     ? nodeGraphScope2dTraceInkRgb01(settings)
     : null;
+  if (settings.channelInk === "flat" && typeof TraceWoscope !== "undefined" && typeof TraceWoscope.draw === "function") {
+    const parse = (hex, fallback) => {
+      const text = String(hex || fallback).replace("#", "");
+      const n = Number.parseInt(text.length === 3
+        ? text.split("").map((c) => c + c).join("")
+        : text, 16);
+      return [
+        ((n >> 16) & 255) / 255,
+        ((n >> 8) & 255) / 255,
+        (n & 255) / 255,
+        1,
+      ];
+    };
+    const inks = [settings.dot1Color || "#ff8080", settings.secondaryColor || "#8080ff"];
+    let count = 0;
+    for (let i = 0; i < inks.length; i += 1) {
+      count += TraceWoscope.draw(context, points, {
+        size: settings.dot1Size,
+        color: parse(inks[i], inks[i]),
+        faceMinSide: Math.max(1, nodeGraphFiniteNumber(dotSpace, 1)),
+        brightness: 1,
+        intensity: 1,
+        brightAlong: false,
+        presentComposite: i === 0 ? "copy" : (settings.stereoBlend || "lighter"),
+      }) || 0;
+    }
+    if (count > 0) {
+      recordNodeGraphModuleScopeRenderMetrics(count, count);
+      return;
+    }
+  }
   if (typeof TraceWoscope !== "undefined" && typeof TraceWoscope.draw === "function") {
     const brightRaw = Number(settings.dot1Brightness ?? settings.brightness);
     const intensity = Number.isFinite(brightRaw) ? Math.max(0, brightRaw) : 1;
@@ -1606,7 +1637,14 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
     nodeGraphWaterfallAbandonTape(canvas);
   }
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  const settings = nodeGraphScope2dTraceSettingsForNode(nodeGraphModuleScopeNodeForSlot(item.slot));
+  const traceNode = nodeGraphModuleScopeNodeForSlot(item.slot);
+  let settings = nodeGraphScope2dTraceSettingsForNode(traceNode);
+  if (nodeGraphModuleDefinitions?.[traceNode?.type]?.displayIgnoresAmplitude === true) {
+    const amp = Number(traceNode?.params?.amplitude);
+    if (Number.isFinite(amp) && Math.abs(amp) > 1e-4) {
+      settings = { ...settings, amplitudeDivisor: amp };
+    }
+  }
   // VECTOR polyline; density scales face buffer for lo-fi (default 1).
   const density = nodeGraphFacePlateDensity(settings, 1);
   const syncOk = typeof syncNodeGraphModuleScopeFaceCanvas === "function"

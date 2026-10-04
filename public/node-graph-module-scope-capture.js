@@ -401,6 +401,38 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
       null;
   }
+  const signalPorts = nodeGraphModuleDefinitions?.[slot?.type]?.displaySignalPorts;
+  if (Array.isArray(signalPorts) && signalPorts.length) {
+    const recentHasSignal = (buf) => {
+      if (!buf?.length) {
+        return false;
+      }
+      const start = Math.max(0, buf.length - 64);
+      for (let i = start; i < buf.length; i += 1) {
+        const value = Number(buf[i]);
+        if (Number.isFinite(value) && Math.abs(value) > 1e-5) {
+          return true;
+        }
+      }
+      return false;
+    };
+    let fallback = null;
+    for (const port of signalPorts) {
+      const buf = nodeGraphModuleScopeState.buffers.get(`${nodeId}:${port}`);
+      if (!buf?.length) {
+        continue;
+      }
+      if (!fallback) {
+        fallback = buf;
+      }
+      if (recentHasSignal(buf)) {
+        return buf;
+      }
+    }
+    if (fallback) {
+      return fallback;
+    }
+  }
   const source = nodeGraphModuleDisplaySourceForSlot(slot);
   const sourcePort = String(source?.value || "").trim();
   if (sourcePort) {

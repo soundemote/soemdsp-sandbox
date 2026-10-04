@@ -404,6 +404,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-state.js",
     "./public/node-graph-external-ui-events.js",
     "./public/node-graph-patch-migrations.js",
+    "./public/node-graph-circuit-patches.js",
     "./public/node-graph-patch-core.js",
     "./public/node-graph-live-plan-runtime.js",
     "./public/node-graph-live-parameter-runtime.js",
@@ -4426,12 +4427,12 @@ def require_render_sample_native_only() -> None:
         "controller sidecar must publish keypad Analog/Digital/Gate",
     )
     require(
-        "outs.inc = cv.increment" in sidecar_src,
-        "controller sidecar must publish Keyboard Inc (Hz/sr) host CV",
+        "outs.f = cv.frequency" in sidecar_src,
+        "controller sidecar must publish Keyboard ƒ (Hz) host CV",
     )
     require(
-        "outs2.inc = cv.increment" in sidecar_src,
-        "controller sidecar pass2 must keep Keyboard Inc publish",
+        "outs2.f = cv.frequency" in sidecar_src,
+        "controller sidecar pass2 must keep Keyboard ƒ publish",
     )
 
 
@@ -18060,35 +18061,17 @@ def require_native_module_contract(base_url: str) -> None:
     )
 
     flower_child_host = (ROOT / "native_modules" / "graph_engine" / "graph_engine.cpp").read_text(encoding="utf-8")
-    fc_host_at = flower_child_host.find("process_flower_child_filter(Circuit")
-    require(fc_host_at >= 0, "Flower Child Filter process_flower_child_filter missing from graph_engine")
-    fc_host_chunk = flower_child_host[fc_host_at:fc_host_at + 400]
-    chaos_at = flower_child_host.find("static void process_norm_chaos_filter")
-    require(chaos_at >= 0, "shared process_norm_chaos_filter missing from graph_engine")
-    chaos_chunk = flower_child_host[chaos_at:chaos_at + 2500]
-    require(
-        "process_norm_chaos_filter(" in fc_host_chunk
-        and "soemdsp_flower_child_filter_sample" in fc_host_chunk
-        and "nativeHandleL" in chaos_chunk
-        and "nativeHandleR" in chaos_chunk
-        and "hasLeftIn && node.nativeHandleL > 0" in chaos_chunk
-        and "hasRightIn && node.nativeHandleR > 0" in chaos_chunk,
-        "Flower Child Filter must always run dual L/R native instances so chaos noise is stereo",
-    )
-    # Stereo dual-engine dispatch lives in graph_engine (JS processors retired).
     flower_child_at = flower_child_host.find("static void process_flower_child_filter(Circuit")
-    flower_child_chunk = (
-        flower_child_host[max(0, flower_child_at - 200):flower_child_at + 2500]
-        if flower_child_at >= 0
-        else ""
-    )
+    require(flower_child_at >= 0, "Flower Child Filter process_flower_child_filter missing from graph_engine")
+    flower_child_chunk = flower_child_host[flower_child_at:flower_child_at + 3500]
     require(
-        flower_child_at >= 0
-        and "process_norm_chaos_filter(" in flower_child_chunk
-        and "soemdsp_flower_child_filter_sample" in flower_child_chunk
-        and "nativeHandleL" in chaos_chunk
-        and "nativeHandleR" in chaos_chunk,
-        "Flower Child graph_engine path must always run independent L/R engines",
+        "soemdsp_flower_child_filter_sample" in flower_child_chunk
+        and "nativeHandleL" in flower_child_chunk
+        and "nativeHandleR" in flower_child_chunk
+        and "hasLeftIn && node.nativeHandleL > 0" in flower_child_chunk
+        and "hasRightIn && node.nativeHandleR > 0" in flower_child_chunk
+        and "mixMono" in flower_child_chunk,
+        "Flower Child Filter must run independent L/R cores when Left and Right ins are wired, with Mono summed into both",
     )
 
     expected_native_exports = {

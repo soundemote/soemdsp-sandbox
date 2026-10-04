@@ -150,7 +150,25 @@ function bindNodeGraphRenderedSampleDownloadDrag() {
 }
 
 function bindNodeGraphRenderLiveControlEvents() {
-  document.getElementById("nodeRenderButton")?.addEventListener("click", renderNodeGraphAudio);
+  document.getElementById("nodeRenderButton")?.addEventListener("click", (event) => {
+    const button = event.currentTarget;
+    const hasSample = typeof nodeGraphHasRecordedSample === "function"
+      ? nodeGraphHasRecordedSample()
+      : (nodeGraphMvp?.rendered?.frames || 0) > 0;
+    if (hasSample && typeof confirmNodeGraphDefaultButtonClick === "function") {
+      if (!confirmNodeGraphDefaultButtonClick(button, null, { confirmText: "Confirm" })) {
+        return;
+      }
+    }
+    if (nodeGraphMvp?.liveRecording?.active || nodeGraphMvp?.liveRecordingPending) {
+      nodeGraphMvp.discardLiveRecording = true;
+      nodeGraphMvp.liveRecordingPending = false;
+      if (typeof nodeGraphStopLiveRecording === "function") {
+        nodeGraphStopLiveRecording();
+      }
+    }
+    renderNodeGraphAudio();
+  });
   // Transport clicks (boot-defer may miss window "load").
   if (typeof bindNodeGraphTransportButtons === "function") {
     bindNodeGraphTransportButtons();

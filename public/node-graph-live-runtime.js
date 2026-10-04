@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=vib-gate-delay-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=fc-selfmod-skew-2";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -1888,6 +1888,18 @@ if (typeof globalThis !== "undefined") {
 
 function handleNodeGraphLiveWorkletMessage(event) {
   const message = event.data || {};
+  if (message.type === "recordChunk") {
+    if (typeof nodeGraphAppendLiveRecordingChunk === "function") {
+      nodeGraphAppendLiveRecordingChunk(message.left, message.right);
+    }
+    return;
+  }
+  if (message.type === "recordEnded") {
+    if (typeof nodeGraphFinishLiveRecording === "function") {
+      nodeGraphFinishLiveRecording();
+    }
+    return;
+  }
   if (message.type === "arpFace") {
     if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
       if (!nodeGraphMvp._arpFaceByNode) nodeGraphMvp._arpFaceByNode = {};
@@ -3247,7 +3259,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=hyperpluck-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hyperpluck-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=project-restart-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=live-record-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=scope-hop-off-1",
   "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=spectro-stride-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
@@ -3258,7 +3270,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Keypad slot math (host CV controller — used by sidecar publish + setKeypadInteraction).
   "./public/modules/keypad/keypad-math.js?v=keypad-hostcv-1",
   "./public/modules/_shared/controller-efficient-sidecar.js?v=kb-gate-thru-1",
-  "./public/node-live-audio-worklet-process.js?v=no-audio-stress-1",
+  "./public/node-live-audio-worklet-process.js?v=live-record-1",
 ];
 
 // Legacy JS DSP evaluators + evaluateFrame â€” RETIRED. Never load on any product.

@@ -1837,12 +1837,24 @@ function normalizeNodeGraphScope1dTraceSettings(settings = {}) {
   const sweepDefaults = typeof nodeGraphLineBurnSettingsDefaults !== "undefined"
     ? nodeGraphLineBurnSettingsDefaults
     : { sweepHz: 4, sweepCycles: 4 };
+  const traceGradient = ((Array.isArray(source.gradientStops) && source.gradientStops.length >= 2)
+    || (Array.isArray(source.gradient) && source.gradient.length >= 2))
+    ? (typeof nodeGraphPhosphorGradientStopsFromSettings === "function"
+      ? nodeGraphPhosphorGradientStopsFromSettings(source, inkHueHex)
+      : (source.gradientStops || source.gradient))
+    : (Array.isArray(defaults.gradientStops) && defaults.gradientStops.length >= 2
+      ? defaults.gradientStops.map((s) => ({ t: s.t, color: s.color }))
+      : undefined);
+  const gradientFloor = traceGradient?.[0]?.color || defaults.background || "#000004";
   return {
     ...nodeGraphDisplaySettingsNormalizePlateLook(source, {
       ...defaults,
+      background: gradientFloor,
       backgroundBrightness: defaults.backgroundBrightness ?? 0,
-      backgroundHue: defaults.backgroundHue ?? 0,
+      backgroundHue: defaults.backgroundHue ?? 240,
     }),
+    background: gradientFloor,
+    backgroundColor: gradientFloor,
     dot1Brightness: inkBright,
     dot1Color: inkHueHex,
     dot1Enabled: true,
@@ -1870,14 +1882,7 @@ function normalizeNodeGraphScope1dTraceSettings(settings = {}) {
     skipDiscontinuities: nodeGraphDisplaySettingsToggleIsOn(
       source.skipDiscontinuities ?? defaults.skipDiscontinuities,
     ),
-    gradientStops: ((Array.isArray(source.gradientStops) && source.gradientStops.length >= 2)
-      || (Array.isArray(source.gradient) && source.gradient.length >= 2))
-      ? (typeof nodeGraphPhosphorGradientStopsFromSettings === "function"
-        ? nodeGraphPhosphorGradientStopsFromSettings(source, inkHueHex)
-        : (source.gradientStops || source.gradient))
-      : (Array.isArray(defaults.gradientStops) && defaults.gradientStops.length >= 2
-        ? defaults.gradientStops.map((s) => ({ t: s.t, color: s.color }))
-        : undefined),
+    gradientStops: traceGradient,
     sourceSync: nodeGraphDisplaySettingsToggleIsOn(
       source.sourceSync ?? source.sync ?? defaults.sourceSync,
     ),

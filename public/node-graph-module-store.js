@@ -124,6 +124,7 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "phosphillator",
   "bloomGlow",
   "gradientVectorscope",
+  "scope2dTraceStereo",
   "lufs",
   "osc",
   "additiveImage",
@@ -2579,6 +2580,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Instant X/Y vector history without phosphor—crisp 2D traces.",
     label: "2D Trace",
     notes: ["xy trace", "sample history", "2D oscilloscope"],
+  },
+  scope2dTraceStereo: {
+    category: "oscilloscope",
+    description: "Stereo 2D trace. Under construction.",
+    label: "2D Trace Stereo",
+    notes: ["xy trace", "stereo", "under construction"],
   },
   vectorRgb: {
     category: "rgb",

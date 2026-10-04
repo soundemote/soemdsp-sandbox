@@ -823,7 +823,7 @@
     const mono = options.mono === true || options.channels === "bw";
     host.dataset.channels = mono ? "bw" : "full";
     let stops = mono ? forceStopsGrayscale(options.stops) : normalizeStops(options.stops);
-    let activeIndex = 0;
+    let activeIndex = Math.max(0, stops.length - 1);
     let activePresetId = "";
     let colorWidget = null;
     const presetList = mono ? PRESETS_BW : PRESETS;
@@ -1008,7 +1008,7 @@
             next = colorsToStops(preset.colors);
           }
           stops = mono ? forceStopsGrayscale(next) : next;
-          activeIndex = 0;
+          activeIndex = Math.max(0, stops.length - 1);
           activePresetId = preset.id;
           renderBar();
           renderControls();
@@ -1215,7 +1215,7 @@
       const parsed = parseHexList(listArea.value);
       if (!parsed) return;
       stops = mono ? forceStopsGrayscale(parsed) : parsed;
-      activeIndex = 0;
+      activeIndex = Math.max(0, stops.length - 1);
       activePresetId = "";
       renderBar();
       renderControls();
@@ -1239,7 +1239,7 @@
       },
       setStops(next) {
         stops = mono ? forceStopsGrayscale(next) : normalizeStops(next);
-        activeIndex = 0;
+        activeIndex = Math.max(0, stops.length - 1);
         activePresetId = "";
         renderBar();
         renderControls();
