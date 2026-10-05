@@ -39,7 +39,9 @@ static const int kFbDelaySamples = 1;
 static const double kExpDbSpan = 5.0;
 static const double kLn10 = 2.302585092994046;
 static const double kReleaseMin = 0.0;
-static const double kReleaseMax = 10.0;
+// Breadboard Curve AR Release max on the knob-driven unit-MOD destination
+// (patches/modulator breadboards/pluck envelope.json). Shop Curve AR stays 10 s.
+static const double kReleaseMax = 100.0;
 static const double kTailMax = 2.2;
 // Breadboard KT: MIDI 0..127 → /127 → invert → attenuverter (×0.3125 − 0.1)
 // → unit MOD on Attack 0..0.02 s. MIDI 0 ⇒ U=-0.1; MIDI 127 ⇒ U=-0.4125.
@@ -226,6 +228,6 @@ extern "C" double soemdsp_pluck_envelope_fb_sample(
   return (out * 0.0 == 0.0) ? out : 0.0;
 }
 
-extern "C" int soemdsp_pluck_envelope_fb_version() { return 3; }
+extern "C" int soemdsp_pluck_envelope_fb_version() { return 4; }
 extern "C" const char* soemdsp_pluck_envelope_fb_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_pluck_envelope_fb_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

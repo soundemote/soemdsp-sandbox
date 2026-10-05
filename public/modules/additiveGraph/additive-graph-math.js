@@ -1077,6 +1077,19 @@ function additiveGraphResolveFundamentalHz({
  * Cutoff Hz (LP @ 0 → silence). Slope −1…+1: |s| = width, sign reverses pass/stop.
  * Skew = rationalCurve bend (−1…+1). 0 = linear ramp.
  */
+/** Additive Out: the full-amplitude end of the slope is the first harmonic. */
+function additiveGraphTrackedFilterCutoffHz(fundHz, harmonic, slope01) {
+  const f0 = Math.max(0, nodeGraphFiniteNumber(fundHz));
+  const fc0 = Math.max(0, nodeGraphFiniteNumber(harmonic)) * f0;
+  if (!(fc0 > 0) || !(f0 > 0)) return fc0;
+  const mag = Math.abs(nodeGraphFiniteNumber(slope01));
+  const halfOct = mag <= 1e-6 ? 0 : 0.05 + mag * 5;
+  if (!(halfOct > 0)) return Math.max(fc0, f0);
+  const unity = fc0 * (2 ** -halfOct);
+  if (unity > 0 && unity < f0) return fc0 * (f0 / unity);
+  return fc0;
+}
+
 function additiveGraphFilterResponseGainRational(freqHz, mode, cutoffHz, slope01, skew, curveMode = 0) {
   const m = additiveGraphNormalizeFilterMode(mode);
   const fc = Math.max(0, nodeGraphFiniteNumber(cutoffHz));

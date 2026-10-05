@@ -2,19 +2,6 @@
   "ok": true,
   "modules": [
     {
-      "name": "pluck_envelope_fb",
-      "label": "Pluck Envelope",
-      "targetType": "pluckEnvelope",
-      "kind": "envelope",
-      "source": "native_modules/pluck_envelope_fb/pluck_envelope_fb.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/pluck_envelope_fb/pluck_envelope_fb.cpp",
-      "localSourceUrl": "/native_modules/pluck_envelope_fb/pluck_envelope_fb.cpp",
-      "libUrl": "",
-      "wasm": "native_modules/pluck_envelope_fb/pluck_envelope_fb.wasm",
-      "wasmUrl": "native_modules/pluck_envelope_fb/pluck_envelope_fb.wasm",
-      "wasmAvailable": true
-    },
-    {
       "name": "active_filter",
       "label": "Dual Ladder Filter",
       "targetType": "activeFilter",
@@ -625,7 +612,7 @@
       "wasmUrl": "native_modules/exp_adsr/exp_adsr.wasm",
       "wasmAvailable": true
     },
-            {
+    {
       "name": "exponential_delay",
       "label": "Early Reflections",
       "targetType": "earlyReflections",
@@ -1328,6 +1315,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "ping_envelope",
+      "label": "Ping Envelope",
+      "targetType": "pingEnvelope",
+      "kind": "envelope",
+      "source": "native_modules/ping_envelope/ping_envelope.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/ping_envelope/ping_envelope.cpp",
+      "localSourceUrl": "/native_modules/ping_envelope/ping_envelope.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/ping_envelope/ping_envelope.wasm",
+      "wasmUrl": "native_modules/ping_envelope/ping_envelope.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "ping_pong_delay",
       "label": "Ping Pong Delay",
       "targetType": "pingPongDelay",
@@ -1366,17 +1366,17 @@
       "wasmUrl": "native_modules/pll/pll.wasm",
       "wasmAvailable": true
     },
-        {
-      "name": "ping_envelope",
-      "label": "Ping Envelope",
-      "targetType": "pingEnvelope",
+    {
+      "name": "pluck_envelope_fb",
+      "label": "Pluck Envelope",
+      "targetType": "pluckEnvelope",
       "kind": "envelope",
-      "source": "native_modules/ping_envelope/ping_envelope.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/ping_envelope/ping_envelope.cpp",
-      "localSourceUrl": "/native_modules/ping_envelope/ping_envelope.cpp",
+      "source": "native_modules/pluck_envelope_fb/pluck_envelope_fb.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/pluck_envelope_fb/pluck_envelope_fb.cpp",
+      "localSourceUrl": "/native_modules/pluck_envelope_fb/pluck_envelope_fb.cpp",
       "libUrl": "",
-      "wasm": "native_modules/ping_envelope/ping_envelope.wasm",
-      "wasmUrl": "native_modules/ping_envelope/ping_envelope.wasm",
+      "wasm": "native_modules/pluck_envelope_fb/pluck_envelope_fb.wasm",
+      "wasmUrl": "native_modules/pluck_envelope_fb/pluck_envelope_fb.wasm",
       "wasmAvailable": true
     },
     {
@@ -1469,6 +1469,19 @@
       "wasm": "native_modules/range/range.wasm",
       "wasmUrl": "native_modules/range/range.wasm",
       "wasmAvailable": true
+    },
+    {
+      "name": "rapt_elliptic_decimator",
+      "label": "Rapt Elliptic Decimator",
+      "targetType": "raptEllipticDecimator",
+      "kind": "utility",
+      "source": "native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.cpp",
+      "localSourceUrl": "/native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.wasm",
+      "wasmUrl": "native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.wasm",
+      "wasmAvailable": false
     },
     {
       "name": "raster_rgb",
@@ -1847,7 +1860,7 @@
       "wasmUrl": "native_modules/tb303_filter/tb303_filter.wasm",
       "wasmAvailable": true
     },
-        {
+    {
       "name": "transport",
       "label": "Metronome",
       "targetType": "transport",

@@ -466,7 +466,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   // additiveOsc / gpuAdditiveOsc retired — Yellow Graph chain replaces them.
   additiveGenerator: {
     category: "additive",
-    description: "Saw / Square / Pulse* / Tri / RectSine + PWM + Phase Rotation + Harmonics (Instant/Smoothed/Decimal fade) → Yellow Graph.",
+    description: "Saw / Square / Pulse* / Triangle / RectSine + PWM + Phase Rotation + Harmonics (Instant/Smoothed/Decimal fade) → Yellow Graph.",
     label: "Additive Generator",
     notes: ["additive", "yellow graph", "harmonics", "morph", "decimal"],
   },
@@ -877,9 +877,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   filterMorphOscillator: {
     category: "oscillator",
-    description: "Same-phasor Morph: sine to PolyBLEP saw. Sharpness is the mix of two period functions, the same at every pitch.",
+    description: "PolyBLEP shapes through a pitch-tracking one-pole Morph (1…4 poles) toward sine-ish, with constant-fundamental makeup.",
     label: "FilterMorph Oscillator",
-    notes: ["polyblep", "saw", "sine", "morph", "native", "oscillator"],
+    notes: ["polyblep", "filter morph", "one-pole", "poles", "native", "oscillator"],
   },
   sineWarp: {
     category: "oscillator",
@@ -1031,8 +1031,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Dual sine FM chaos (Elan's Chaos Generator). X and Y are the stereo pair.",
     label: "Chaosfly",
     notes: ["chaos", "fm", "dual oscillator", "passive filter", "phosphor", "X/Y"],
-    source: "public/modules/chaosfly/chaosfly-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chaosfly/chaosfly-math.js",
+    source: "native_modules/chaosfly/chaosfly.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/chaosfly/chaosfly.cpp",
   },
   gravity: {
     category: "chaos",
@@ -2055,7 +2055,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   pingPongDelay: {
     category: "space",
-    description: "Stereo bouncing delay with tempo tools and independent L/R motion.",
+    description: "Stereo delay: PingPong Off, Left Right bounce, or Left Middle Right taps. Tempo sync and L/R LFO.",
     label: "Ping Pong Delay",
     notes: [
       "ping pong",
@@ -2285,7 +2285,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   pingEnvelope: {
     category: "envelope",
-    description: "Ping Envelope: asymmetric one-pole toward Trigger, Exp fall 0…10 Hz. Decay 0=short…1=long. Recalc On Trig latches knobs on rise.",
+    description: "Ping Envelope: inertial rise toward Trigger. Decay 1 scales Env into Release, Decay 2 offsets it. Recalc On Trig latches knobs on rise.",
     label: "Ping Envelope",
     notes: [
       "Trigger",
@@ -3006,16 +3006,16 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
   },
   bias: {
-    source: "public/modules/bias/bias-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/bias/bias-math.js",
+    source: "native_modules/bias/bias.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/bias/bias.cpp",
   },
   attenuverter: {
-    source: "public/modules/attenuverter/attenuverter-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/attenuverter/attenuverter-math.js",
+    source: "native_modules/attenuverter/attenuverter.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/attenuverter/attenuverter.cpp",
   },
   attenumax: {
-    source: "public/modules/attenumax/attenumax-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/attenumax/attenumax-math.js",
+    source: "native_modules/attenumax/attenumax.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/attenumax/attenumax.cpp",
   },
   ampCurve: {
     source: "native_modules/amp_curve/amp_curve.cpp",
@@ -3059,10 +3059,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "native_modules/ring_mod/ring_mod.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/ring_mod/ring_mod.cpp",
   },
-  bitConverter: {
-    source: "public/modules/bitConverter/bit-converter-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/bitConverter/bit-converter-math.js",
-  },
   bloomGlow: {
     source: "public/modules/bloomGlow/bloom-glow-live-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/bloomGlow/bloom-glow-live-evaluator.js",
@@ -3070,10 +3066,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   blubb: {
     source: "public/modules/blubb/blubb-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/blubb/blubb-worklet-evaluator.js",
-  },
-  bode: {
-    source: "public/modules/bode/bode-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/bode/bode-math.js",
   },
   boing: {
     source: "public/modules/boing/boing-worklet-evaluator.js",
@@ -3112,20 +3104,16 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chromaColor/chroma-color-live-evaluator.js",
   },
   chuaAttractor: {
-    source: "public/modules/chuaAttractor/chua-attractor-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chuaAttractor/chua-attractor-math.js",
+    source: "native_modules/chua_attractor/chua_attractor.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/chua_attractor/chua_attractor.cpp",
   },
   classicFxStubs: {
     source: "public/modules/classicFxStubs/classic-fx-stubs-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/classicFxStubs/classic-fx-stubs-worklet-evaluator.js",
   },
   clock: {
-    source: "public/modules/clock/clock-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/clock/clock-math.js",
-  },
-  simulationTime: {
-    source: "public/modules/simulationTime/simulation-time-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/simulationTime/simulation-time-math.js",
+    source: "native_modules/clock/clock.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/clock/clock.cpp",
   },
   clockDivider: {
     source: "public/modules/clockDivider/clock-divider-live-evaluator.js",
@@ -3136,8 +3124,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/comb_resonator/comb_resonator.cpp",
   },
   comparator: {
-    source: "public/modules/comparator/comparator-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/comparator/comparator-math.js",
+    source: "native_modules/comparator/comparator.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/comparator/comparator.cpp",
   },
   cookbookFilter: {
     source: "native_modules/cookbook_filter/cookbook_filter.cpp",
@@ -3167,10 +3155,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "native_modules/crossover/crossover.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossover/crossover.cpp",
   },
-  curveOsc: {
-    source: "public/modules/curveOsc/curve-osc-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/curveOsc/curve-osc-math.js",
-  },
   earlyReflections: {
     source: "native_modules/exponential_delay/exponential_delay.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/exponential_delay/exponential_delay.cpp",
@@ -3180,8 +3164,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/delayEffect/delay-effect-worklet-evaluator.js",
   },
   delayedTrigger: {
-    source: "public/modules/delayedTrigger/delayed-trigger-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/delayedTrigger/delayed-trigger-math.js",
+    source: "native_modules/delayed_trigger/delayed_trigger.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/delayed_trigger/delayed_trigger.cpp",
   },
   dsfOscillator: {
     source: "public/modules/dsfOscillator/dsf-oscillator-worklet-evaluator.js",
@@ -3239,10 +3223,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/gain/gain-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/gain/gain-math.js",
   },
-  gainBias: {
-    source: "public/modules/gainBias/gain-bias-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/gainBias/gain-bias-math.js",
-  },
   mix4: {
     source: "public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
@@ -3256,12 +3236,12 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
   },
   mixStereo4: {
-    source: "public/modules/mixStereo/mix-stereo-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/mixStereo/mix-stereo-math.js",
+    source: "native_modules/mix_stereo/mix_stereo.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/mix_stereo/mix_stereo.cpp",
   },
   mixStereo2: {
-    source: "public/modules/mixStereo/mix-stereo-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/mixStereo/mix-stereo-math.js",
+    source: "native_modules/mix_stereo/mix_stereo.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/mix_stereo/mix_stereo.cpp",
   },
   crossfade2: {
     source: "native_modules/crossfade/crossfade.cpp",
@@ -3276,8 +3256,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossfade/crossfade.cpp",
   },
   mixStereo: {
-    source: "public/modules/mixStereo/mix-stereo-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/mixStereo/mix-stereo-math.js",
+    source: "native_modules/mix_stereo/mix_stereo.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/mix_stereo/mix_stereo.cpp",
   },
   graph: {
     source: "public/modules/graph/graph-live-evaluator.js",
@@ -3311,8 +3291,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js",
   },
   henonMap: {
-    source: "public/modules/henonMap/henon-map-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/henonMap/henon-map-math.js",
+    source: "native_modules/henon_map/henon_map.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/henon_map/henon_map.cpp",
   },
   humanFilter: {
     source: "public/modules/humanFilter/human-filter-worklet-evaluator.js",
@@ -3331,8 +3311,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/wowAndFlutter/wow-and-flutter-worklet-evaluator.js",
   },
   inertialFilter: {
-    source: "public/modules/inertialFilter/inertial-filter-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/inertialFilter/inertial-filter-math.js",
+    source: "native_modules/inertial_filter/inertial_filter.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/inertial_filter/inertial_filter.cpp",
   },
   keplerBouwkamp: {
     source: "public/modules/keplerBouwkamp/kepler-bouwkamp-worklet-evaluator.js",
@@ -3383,8 +3363,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
   },
   lookaheadLimiter: {
-    source: "public/modules/lookaheadLimiter/lookahead-limiter-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/lookaheadLimiter/lookahead-limiter-math.js",
+    source: "native_modules/lookahead_limiter/lookahead_limiter.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/lookahead_limiter/lookahead_limiter.cpp",
   },
   limiter: {
     source: "native_modules/pumping_limiter/pumping_limiter.cpp",
@@ -3395,12 +3375,12 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/logSpiral/log-spiral-worklet-evaluator.js",
   },
   logisticMap: {
-    source: "public/modules/logisticMap/logistic-map-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/logisticMap/logistic-map-math.js",
+    source: "native_modules/logistic_map/logistic_map.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/logistic_map/logistic_map.cpp",
   },
   lorenzAttractor: {
-    source: "public/modules/lorenzAttractor/lorenz-attractor-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/lorenzAttractor/lorenz-attractor-math.js",
+    source: "native_modules/lorenz_attractor/lorenz_attractor.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/lorenz_attractor/lorenz_attractor.cpp",
   },
   lutCell: {
     source: "public/modules/lutCell/lut-cell-worklet-evaluator.js",
@@ -3411,16 +3391,16 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/matrixDisplay/matrix-display-live-evaluator.js",
   },
   metallicRatio: {
-    source: "public/modules/metallicRatio/metallic-ratio-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/metallicRatio/metallic-ratio-math.js",
+    source: "native_modules/metallic_ratio/metallic_ratio.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/metallic_ratio/metallic_ratio.cpp",
   },
   harmonicSeries: {
     source: "public/modules/harmonicSeries/harmonic-series-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/harmonicSeries/harmonic-series-math.js",
   },
   minMax: {
-    source: "public/modules/minMax/min-max-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/minMax/min-max-math.js",
+    source: "native_modules/min_max/min_max.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/min_max/min_max.cpp",
   },
   modeResonator: {
     source: "native_modules/mode_resonator/mode_resonator.cpp",
@@ -3438,10 +3418,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/nextPatch/next-patch-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/nextPatch/next-patch-worklet-evaluator.js",
   },
-  noiseDetector: {
-    source: "public/modules/noiseDetector/noise-detector-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/noiseDetector/noise-detector-math.js",
-  },
   rms: {
     source: "public/modules/rms/rms-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/rms/rms-math.js",
@@ -3451,8 +3427,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/rms/rms-math.js",
   },
   noiseGenerator: {
-    source: "public/modules/noiseGenerator/noise-generator-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/noiseGenerator/noise-generator-math.js",
+    source: "native_modules/noise_generator/noise_generator.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/noise_generator/noise_generator.cpp",
   },
   numberReadout: {
     source: "public/modules/numberReadout/number-readout-register.js",
@@ -3547,16 +3523,16 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/radar/radar-worklet-evaluator.js",
   },
   randomClock: {
-    source: "public/modules/randomClock/random-clock-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/randomClock/random-clock-math.js",
+    source: "native_modules/random_clock/random_clock.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/random_clock/random_clock.cpp",
   },
   randomWalk: {
-    source: "public/modules/randomWalk/random-walk-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/randomWalk/random-walk-math.js",
+    source: "native_modules/random_walk/random_walk.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/random_walk/random_walk.cpp",
   },
   cheapWalk: {
-    source: "public/modules/cheapWalk/cheap-walk-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/cheapWalk/cheap-walk-math.js",
+    source: "native_modules/cheap_walk/cheap_walk.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/cheap_walk/cheap_walk.cpp",
   },
   rayBouncer: {
     source: "public/modules/rayBouncer/ray-bouncer-worklet-evaluator.js",
@@ -3595,16 +3571,16 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/hyperpluck/hyperpluck.cpp",
   },
   rotate3dTo2d: {
-    source: "public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js",
+    source: "native_modules/rotate_3d_to_2d/rotate_3d_to_2d.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/rotate_3d_to_2d/rotate_3d_to_2d.cpp",
   },
   sampleDelay: {
-    source: "public/modules/sampleDelay/sample-delay-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sampleDelay/sample-delay-math.js",
+    source: "native_modules/sample_delay/sample_delay.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/sample_delay/sample_delay.cpp",
   },
   sampleHold: {
-    source: "public/modules/sampleHold/sample-hold-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sampleHold/sample-hold-math.js",
+    source: "native_modules/sample_hold/sample_hold.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/sample_hold/sample_hold.cpp",
   },
   sandboxVisuals: {
     source: "public/modules/sandboxVisuals/sandbox-visuals-live-evaluator.js",
@@ -3638,37 +3614,25 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/kickEnvelope/kick-envelope-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/kickEnvelope/kick-envelope-math.js",
   },
-  sineKick: {
-    source: "public/modules/sineKick/sine-kick-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sineKick/sine-kick-math.js",
-  },
-  sinepulse: {
-    source: "public/modules/sinepulse/sinepulse-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sinepulse/sinepulse-math.js",
-  },
   slewLimiter: {
     source: "native_modules/slew_limiter/slew_limiter.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/slew_limiter/slew_limiter.cpp",
   },
   snowflake: {
-    source: "public/modules/snowflake/snowflake-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/snowflake/snowflake-math.js",
+    source: "native_modules/snowflake/snowflake.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/snowflake/snowflake.cpp",
   },
   soemReverb: {
     source: "public/modules/soemReverb/soem-reverb-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/soemReverb/soem-reverb-worklet-evaluator.js",
   },
   tubeSaturation: {
-    source: "public/modules/tubeSaturation/tube-saturation-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/tubeSaturation/tube-saturation-math.js",
+    source: "native_modules/tube_saturation/tube_saturation.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/tube_saturation/tube_saturation.cpp",
   },
   softClipper: {
     source: "native_modules/soft_clipper/soft_clipper.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/soft_clipper/soft_clipper.cpp",
-  },
-  softpopOscillator: {
-    source: "public/modules/softpopOscillator/softpop-oscillator-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/softpopOscillator/softpop-oscillator-math.js",
   },
   softwaveOsc: {
     source: "public/modules/softwaveOsc/softwave-osc-math.js",
@@ -3683,8 +3647,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/speakerProtection/speaker-protection-worklet-evaluator.js",
   },
   speakerProtector2: {
-    source: "public/modules/speakerProtector2/speaker-protector-2-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/speakerProtector2/speaker-protector-2-math.js",
+    source: "native_modules/speaker_protector2/speaker_protector2.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/speaker_protector2/speaker_protector2.cpp",
   },
   spectrogram: {
     source: "public/modules/spectrogram/spectrogram-worklet-evaluator.js",
@@ -3706,10 +3670,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/sequencer/sequencer-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sequencer/sequencer-math.js",
   },
-  stftBlur: {
-    source: "public/modules/stftBlur/stft-blur-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/stftBlur/stft-blur-math.js",
-  },
   superloveFilter: {
     source: "public/modules/superloveFilter/superlove-filter-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/superloveFilter/superlove-filter-worklet-evaluator.js",
@@ -3730,10 +3690,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/textStream/text-stream-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/textStream/text-stream-worklet-evaluator.js",
   },
-  tiltFilter: {
-    source: "public/modules/tiltFilter/tilt-filter-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/tiltFilter/tilt-filter-math.js",
-  },
   torus: {
     source: "public/modules/torus/torus-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/torus/torus-worklet-evaluator.js",
@@ -3747,12 +3703,12 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/transport/transport-math.js",
   },
   triggerCounter: {
-    source: "public/modules/triggerCounter/trigger-counter-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/triggerCounter/trigger-counter-math.js",
+    source: "native_modules/trigger_counter/trigger_counter.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/trigger_counter/trigger_counter.cpp",
   },
   triggerDivider: {
-    source: "public/modules/triggerDivider/trigger-divider-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/triggerDivider/trigger-divider-math.js",
+    source: "native_modules/trigger_divider/trigger_divider.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/trigger_divider/trigger_divider.cpp",
   },
   turingMachine: {
     source: "public/modules/turingMachine/turing-machine-worklet-evaluator.js",
@@ -3769,10 +3725,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   wallDelay: {
     source: "public/modules/wallDelay/wall-delay-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/wallDelay/wall-delay-worklet-evaluator.js",
-  },
-  waveguide: {
-    source: "public/modules/waveguide/waveguide-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/waveguide/waveguide-math.js",
   },
   wirdoSpiral: {
     source: "public/modules/wirdoSpiral/wirdo-spiral-worklet-evaluator.js",

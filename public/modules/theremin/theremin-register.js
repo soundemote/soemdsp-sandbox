@@ -133,7 +133,7 @@ registerNodeGraphChromelessModule("theremin", {
           "Perfect Saw",
           "Analog Square",
           "Square",
-          "Tri",
+          "Triangle",
           "Bow Tri",
           "Soft Bow Tri",
           "Walter Wave",

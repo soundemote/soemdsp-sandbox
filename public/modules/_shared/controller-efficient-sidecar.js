@@ -287,6 +287,101 @@ NodeLiveAudioProcessor.prototype.controllerEfficientSmoothedValue = function con
   return state.value;
 };
 
+/**
+ * Toggle / Momentary Gate: 1 while on / held, else 0. Reads the face target
+ * (params.offset, unsmoothed) with the same >= 0.5 throw test the face uses
+ * (nodeGraphControllerBiasAtHighThrow), so Bias min/max/reverse agree with
+ * what the button shows.
+ */
+NodeLiveAudioProcessor.prototype.controllerButtonGate = function controllerButtonGate(node) {
+  const raw = Number(node?.params?.offset);
+  if (!Number.isFinite(raw)) return 0;
+  const stored = node?.paramMeta?.offset && typeof node.paramMeta.offset === "object"
+    ? node.paramMeta.offset
+    : {};
+  const meta = { ...stored };
+  if (!Number.isFinite(Number(meta.min))) meta.min = 0;
+  if (!Number.isFinite(Number(meta.max))) meta.max = 1;
+  if (Number(meta.max) > Number(meta.min) && typeof nodeGraphParamControlPosition === "function") {
+    return nodeGraphParamControlPosition(raw, meta) >= 0.5 ? 1 : 0;
+  }
+  if (typeof nodeGraphDspControllerBiasIsOn === "function") {
+    return nodeGraphDspControllerBiasIsOn(raw, { min: Number(meta.min), max: Number(meta.max) }) ? 1 : 0;
+  }
+  return raw > 0.5 ? 1 : 0;
+};
+
+/**
+ * Toggle / Momentary Trigger: Gate rising edge (off->on / press) -> scalar 1
+ * in nodeOutputs for one host quantum, then 0. Native feeders get the
+ * one-sample block instead (readEfficientModSourceBlock: 1 at sample 0).
+ * First sighting seeds the edge without firing, so loading a patch with a
+ * toggle already on does not trigger.
+ */
+NodeLiveAudioProcessor.prototype.controllerButtonTrigger = function controllerButtonTrigger(nodeId, gate) {
+  if (!(this._controllerButtonEdges instanceof Map)) this._controllerButtonEdges = new Map();
+  const id = String(nodeId);
+  const on = gate ? 1 : 0;
+  let state = this._controllerButtonEdges.get(id);
+  if (!state) {
+    state = { gate: on, pulse: 0 };
+    this._controllerButtonEdges.set(id, state);
+    return 0;
+  }
+  if (on && !state.gate) state.pulse = 1;
+  state.gate = on;
+  return state.pulse > 0 ? 1 : 0;
+};
+
+/** Once per quantum after publish: spend Trigger pulses, forget removed nodes. */
+NodeLiveAudioProcessor.prototype.advanceControllerButtonTriggers = function advanceControllerButtonTriggers() {
+  const edges = this._controllerButtonEdges;
+  if (!(edges instanceof Map) || !edges.size) return;
+  for (const [id, state] of edges) {
+    if (!this.nodes?.has?.(id)) {
+      edges.delete(id);
+      continue;
+    }
+    if (state.pulse > 0) state.pulse -= 1;
+  }
+};
+
+/**
+ * Host CV ports carried to native as a per-sample block instead of one scalar
+ * per quantum. Only Toggle / Momentary Trigger (one-sample pulse,
+ * docs/GATES_TRIGGERS.md). Gate and Bias stay per-block scalars: mouse
+ * down/up only changes at block rate anyway.
+ */
+NodeLiveAudioProcessor.prototype.efficientModSourceIsSampleBlock = function efficientModSourceIsSampleBlock(
+  sourceNode,
+  sourcePort,
+) {
+  if (String(sourcePort || "") !== "Trigger") return false;
+  const type = String(this.nodes?.get?.(String(sourceNode))?.type || "");
+  return type === "toggleButton" || type === "momentaryButton";
+};
+
+/**
+ * Fill `out` (Float32Array / Float64Array, block length) for a sample-block
+ * port. Trigger: 1 at sample 0 of the quantum whose publish saw the Gate
+ * rising edge, 0 for the rest of that block and for every sample of all other
+ * blocks. nodeOutputs keeps the scalar (1 for that quantum) for scopes, the
+ * LCD and JS-side mixes. Returns false (out untouched) for any other port.
+ */
+NodeLiveAudioProcessor.prototype.readEfficientModSourceBlock = function readEfficientModSourceBlock(
+  sourceNode,
+  sourcePort,
+  out,
+) {
+  if (!out || !out.length || !this.efficientModSourceIsSampleBlock(sourceNode, sourcePort)) {
+    return false;
+  }
+  const raw = Number(this.nodeOutputs?.get?.(String(sourceNode))?.[String(sourcePort)]);
+  out.fill(0);
+  if (Number.isFinite(raw) && raw > 0) out[0] = 1;
+  return true;
+};
+
 NodeLiveAudioProcessor.prototype.publishEfficientControllerBiasTargets = function publishEfficientControllerBiasTargets() {
   if (!this.nodes?.size) return;
   if (!this.nodeOutputs) this.nodeOutputs = new Map();
@@ -335,7 +430,12 @@ NodeLiveAudioProcessor.prototype.publishEfficientControllerBiasTargets = functio
       }
       if (type === "toggleButton" || type === "momentaryButton") {
         const mapped = biasTarget(node, "offset", 0);
-        const btnOut = { Bias: mapped };
+        const gate = this.controllerButtonGate(node);
+        const btnOut = {
+          Bias: mapped,
+          Gate: gate,
+          Trigger: this.controllerButtonTrigger(nid, gate),
+        };
         this.nodeOutputs.set(nid, btnOut);
         if (typeof this.captureModuleScopeOutput === "function") {
           this.captureModuleScopeOutput(nid, btnOut);
@@ -834,6 +934,10 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
   // Knob / slider / buttons / wheels: raw Bias target. Native Control ramps.
   if (typeof this.publishEfficientControllerBiasTargets === "function") {
     this.publishEfficientControllerBiasTargets();
+  }
+  // Toggle / Momentary Trigger lasts this quantum only.
+  if (typeof this.advanceControllerButtonTriggers === "function") {
+    this.advanceControllerButtonTriggers();
   }
 
   // Two passes so keypad can read controller outs published above.

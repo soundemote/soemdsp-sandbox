@@ -1,18 +1,19 @@
-// Speaker Protector 2.0 state-machine checks. Run: node scripts/test_speaker_protector_2.js
+// Speaker Protector 2.0 state-machine checks against the native module
+// (native_modules/speaker_protector2/speaker_protector2.wasm).
+// Run: node scripts/test_speaker_protector_2.js
 const fs = require("fs");
 const path = require("path");
-const vm = require("vm");
 
-const semathPath = path.join(__dirname, "..", "public", "node-graph-semath.js");
-const mathPath = path.join(__dirname, "..", "public", "modules", "speakerProtector2", "speaker-protector-2-math.js");
-const ctx = { Math, Number, console };
-vm.runInNewContext(fs.readFileSync(semathPath, "utf8"), ctx);
-vm.runInNewContext(fs.readFileSync(mathPath, "utf8"), ctx);
+const wasmPath = path.join(__dirname, "..", "native_modules", "speaker_protector2", "speaker_protector2.wasm");
+const sp2 = new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(wasmPath)), {}).exports;
 
 const RATE = 48000;
-const DROP = ctx.NODE_GRAPH_SPEAKER_PROTECTOR2_DROP_SECONDS;
-const HOLD = ctx.NODE_GRAPH_SPEAKER_PROTECTOR2_HOLD_SECONDS;
-const RISE = ctx.NODE_GRAPH_SPEAKER_PROTECTOR2_RISE_SECONDS;
+const DROP = 0.008;
+const HOLD = 0.333;
+const RISE = 0.375;
+const PLANCK = 1e-7;
+const OUT = sp2.soemdsp_speaker_protector2_block_left_ptr();
+const outView = () => new Float64Array(sp2.memory.buffer, OUT, 3);
 
 function fail(message) {
   console.error("FAIL", message);
@@ -23,189 +24,178 @@ function ok(name) {
   console.log("ok", name);
 }
 
-function blast(state, n) {
-  let last = null;
-  // HF square — DC would die in the 1 kHz high-pass detector.
-  for (let i = 0; i < n; i += 1) {
-    const x = i & 1 ? 8 : -8;
-    last = ctx.nodeGraphSpeakerProtector2Protect(state, x, x, RATE);
+function create() {
+  const handle = sp2.soemdsp_speaker_protector2_create();
+  if (!(handle > 0)) throw new Error("soemdsp_speaker_protector2_create failed");
+  return handle;
+}
+
+// One frame through the module path (default drop/hold/rise).
+function frame(handle, left, right = left) {
+  sp2.soemdsp_speaker_protector2_sample(handle, left, right, RATE, DROP, HOLD, RISE, OUT, OUT + 8, OUT + 16);
+  const out = outView();
+  return { left: out[0], right: out[1], mono: out[2], gain: sp2.soemdsp_speaker_protector2_gain(handle) };
+}
+
+// Render Sample path: in-place block, returns protection count.
+function block(handle, lefts, rights = lefts) {
+  const cap = sp2.soemdsp_speaker_protector2_max_block_frames();
+  const l = new Float64Array(sp2.memory.buffer, sp2.soemdsp_speaker_protector2_block_left_ptr(), cap);
+  const r = new Float64Array(sp2.memory.buffer, sp2.soemdsp_speaker_protector2_block_right_ptr(), cap);
+  for (let i = 0; i < lefts.length; i += 1) {
+    l[i] = lefts[i];
+    r[i] = rights[i];
   }
+  const count = sp2.soemdsp_speaker_protector2_process_block(handle, lefts.length, RATE);
+  return { count, left: Array.from(l.subarray(0, lefts.length)), right: Array.from(r.subarray(0, lefts.length)) };
+}
+
+function blast(handle, n) {
+  let last = null;
+  // HF square: DC would die in the 1 kHz high-pass detector.
+  for (let i = 0; i < n; i += 1) last = frame(handle, i & 1 ? 8 : -8);
   return last;
 }
 
-function silence(state, n) {
+function silence(handle, n) {
   let last = null;
-  for (let i = 0; i < n; i += 1) {
-    last = ctx.nodeGraphSpeakerProtector2Protect(state, 0, 0, RATE);
-  }
+  for (let i = 0; i < n; i += 1) last = frame(handle, 0);
   return last;
 }
 
-function sineQuiet(state, n) {
+// 1. Quiet signal stays at gain 1 and passes untouched
+{
+  const h = create();
+  let worst = 0;
   let last = null;
-  for (let i = 0; i < n; i += 1) {
+  for (let i = 0; i < RATE; i += 1) {
     const x = 0.2 * Math.sin((2 * Math.PI * 220 * i) / RATE);
-    last = ctx.nodeGraphSpeakerProtector2Protect(state, x, x, RATE);
+    last = frame(h, x);
+    worst = Math.max(worst, Math.abs(last.left - x));
   }
-  return last;
+  if (last.gain !== 1 || worst !== 0) fail(`quiet should stay gain=1 untouched, gain=${last.gain} diff=${worst}`);
+  else ok("quiet stays gain 1");
+  sp2.soemdsp_speaker_protector2_destroy(h);
 }
 
-// 1. Silence stays idle / gain 1
+// 2. Danger drops gain to 0 in about dropTime
 {
-  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
-  const last = sineQuiet(state, RATE);
-  if (last.mode !== "idle" || last.gain !== 1 || last.engaged) {
-    fail(`silence should stay idle gain=1, got mode=${last.mode} gain=${last.gain}`);
-  } else {
-    ok("silence stays idle");
-  }
+  const h = create();
+  const last = blast(h, Math.ceil(DROP * RATE) + 4);
+  if (last.gain > 1e-4) fail(`drop should reach 0, gain=${last.gain}`);
+  else ok("drop reaches 0");
+  sp2.soemdsp_speaker_protector2_destroy(h);
 }
 
-// 2. Danger enters drop and reaches 0 in about dropTime
+// 3. Hold stays at 0 for 0.333 s after danger stops, then rises
 {
-  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
-  const dropSamples = Math.ceil(DROP * RATE) + 4;
-  const last = blast(state, dropSamples);
-  if (last.gain > 1e-4) {
-    fail(`drop should reach 0 in ~${dropSamples} samples, gain=${last.gain}`);
-  } else if (last.mode !== "hold" && last.mode !== "drop") {
-    fail(`after drop expected hold/drop, got ${last.mode}`);
-  } else {
-    ok("drop reaches 0");
-  }
-}
-
-// 3. Hold stays at 0 for 0.333s after danger stops
-{
-  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
-  blast(state, Math.ceil(DROP * RATE) + 8);
+  const h = create();
+  blast(h, Math.ceil(DROP * RATE) + 8);
   const holdSamples = Math.round(HOLD * RATE);
-  const mid = silence(state, holdSamples - 8);
-  if (mid.gain > 1e-4 || mid.mode !== "hold") {
-    fail(`mid-hold should be gain=0 hold, got gain=${mid.gain} mode=${mid.mode}`);
-  } else {
-    ok("hold stays muted");
-  }
-  const after = silence(state, 16);
-  if (after.mode !== "rise" && after.mode !== "idle") {
-    fail(`after hold should rise, got ${after.mode}`);
-  } else {
-    ok("hold lasts ~0.333s then rises");
-  }
+  const mid = silence(h, holdSamples - 8);
+  if (mid.gain !== 0) fail(`mid-hold should be gain=0, got ${mid.gain}`);
+  else ok("hold stays muted");
+  const after = silence(h, 16);
+  if (!(after.gain > 0)) fail(`after hold gain should rise, got ${after.gain}`);
+  else ok("hold lasts ~0.333s then rises");
+  sp2.soemdsp_speaker_protector2_destroy(h);
 }
 
 // 4. Rise reaches 1 in about riseTime
 {
-  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
-  blast(state, Math.ceil(DROP * RATE) + 8);
-  silence(state, Math.round(HOLD * RATE) + 4);
-  const last = silence(state, Math.ceil(RISE * RATE) + 8);
-  if (last.gain < 1 - 1e-4 || last.mode !== "idle") {
-    fail(`rise should reach idle/1, got gain=${last.gain} mode=${last.mode}`);
-  } else {
-    ok("rise reaches 1");
-  }
+  const h = create();
+  blast(h, Math.ceil(DROP * RATE) + 8);
+  silence(h, Math.round(HOLD * RATE) + 4);
+  const last = silence(h, Math.ceil(RISE * RATE) + 8);
+  if (last.gain !== 1) fail(`rise should reach 1, got ${last.gain}`);
+  else ok("rise reaches 1");
+  sp2.soemdsp_speaker_protector2_destroy(h);
 }
 
 // 5. Pulse during rise restarts drop
 {
-  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
-  blast(state, Math.ceil(DROP * RATE) + 8);
-  silence(state, Math.round(HOLD * RATE) + 4);
-  silence(state, Math.floor(RISE * RATE * 0.3));
-  const midRise = ctx.nodeGraphSpeakerProtector2Protect(state, 0, 0, RATE);
-  if (midRise.mode !== "rise" || midRise.gain <= 0.05) {
-    fail(`expected mid-rise, got mode=${midRise.mode} gain=${midRise.gain}`);
-  }
-  const retrig = blast(state, Math.ceil(DROP * RATE) + 8);
-  if (retrig.gain > 1e-4) {
-    fail(`retrigger during rise should drop to 0, gain=${retrig.gain}`);
-  } else {
-    ok("retrigger during rise drops");
-  }
+  const h = create();
+  blast(h, Math.ceil(DROP * RATE) + 8);
+  silence(h, Math.round(HOLD * RATE) + 4);
+  silence(h, Math.floor(RISE * RATE * 0.3));
+  const midRise = frame(h, 0);
+  if (!(midRise.gain > 0.05 && midRise.gain < 1)) fail(`expected mid-rise, gain=${midRise.gain}`);
+  const retrig = blast(h, Math.ceil(DROP * RATE) + 8);
+  if (retrig.gain > 1e-4) fail(`retrigger during rise should drop to 0, gain=${retrig.gain}`);
+  else ok("retrigger during rise drops");
+  sp2.soemdsp_speaker_protector2_destroy(h);
 }
 
-// 6. Pulse during hold resets hold clock; stays muted
+// 6. Pulse during hold resets the hold clock; stays muted
 {
-  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
-  blast(state, Math.ceil(DROP * RATE) + 8);
-  silence(state, Math.round(HOLD * RATE * 0.8));
-  blast(state, 4);
-  const still = silence(state, Math.round(HOLD * RATE * 0.5));
-  if (still.gain > 1e-4) {
-    fail(`hold retrigger should stay muted, gain=${still.gain} mode=${still.mode}`);
-  } else {
-    ok("hold retrigger stays muted");
-  }
+  const h = create();
+  blast(h, Math.ceil(DROP * RATE) + 8);
+  silence(h, Math.round(HOLD * RATE * 0.8));
+  blast(h, 4);
+  const still = silence(h, Math.round(HOLD * RATE * 0.5));
+  if (still.gain > 1e-4) fail(`hold retrigger should stay muted, gain=${still.gain}`);
+  else ok("hold retrigger stays muted");
+  sp2.soemdsp_speaker_protector2_destroy(h);
 }
 
-// 7. Output is input * gain (stereo linked)
+// 7. Output is input * gain, stereo linked (mid-rise)
 {
-  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
-  state.gain = 0.5;
-  state.mode = "rise";
-  const out = ctx.nodeGraphSpeakerProtector2Protect(state, 0.4, -0.2, RATE);
-  const g = out.gain;
-  if (Math.abs(out.left - 0.4 * g) > 1e-9 || Math.abs(out.right + 0.2 * g) > 1e-9) {
-    fail(`VCA mismatch L=${out.left} R=${out.right} g=${g}`);
+  const h = create();
+  blast(h, Math.ceil(DROP * RATE) + 8);
+  silence(h, Math.round(HOLD * RATE) + 4);
+  silence(h, Math.floor(RISE * RATE * 0.5));
+  const out = frame(h, 0.4, -0.2);
+  if (Math.abs(out.left - 0.4 * out.gain) > 1e-12 || Math.abs(out.right + 0.2 * out.gain) > 1e-12 || !(out.gain > 0 && out.gain < 1)) {
+    fail(`VCA mismatch L=${out.left} R=${out.right} g=${out.gain}`);
   } else {
     ok("output is input * gain");
   }
+  sp2.soemdsp_speaker_protector2_destroy(h);
 }
 
 // 8. Over-unity is scaled, never flattened
 {
-  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
-  const out = ctx.nodeGraphSpeakerProtector2Protect(state, 3, -1.5, RATE);
-  const peak = Math.max(Math.abs(out.left), Math.abs(out.right));
-  const ratioIn = -1.5 / 3;
-  const ratioOut = out.right / out.left;
-  if (peak > 1 + 1e-9) {
-    fail(`over-unity should stay |y|<=1, peak=${peak}`);
-  } else if (Math.abs(ratioOut - ratioIn) > 1e-9) {
-    fail(`shape not preserved, in=${ratioIn} out=${ratioOut}`);
-  } else if (Math.abs(out.left - 1) > 1e-9 || Math.abs(out.right + 0.5) > 1e-9) {
-    fail(`expected 1 / -0.5, got ${out.left} / ${out.right}`);
-  } else {
-    ok("over-unity is scaled not clipped");
-  }
+  const h = create();
+  const out = frame(h, 3, -1.5);
+  if (Math.abs(out.left - 1) > 1e-9 || Math.abs(out.right + 0.5) > 1e-9) fail(`expected 1 / -0.5, got ${out.left} / ${out.right}`);
+  else ok("over-unity is scaled not clipped");
+  sp2.soemdsp_speaker_protector2_destroy(h);
 }
 
-// 9. Unity must not trip. 1 + NODE_GRAPH_NUMERIC_PRECISION must trip.
+// 9. Unity must not trip; 1 + planck must trip (Render Sample block count)
 {
-  const eps = ctx.NODE_GRAPH_PLANCK;
-  if (!(eps > 0) || eps !== 1e-7 || ctx.NODE_GRAPH_NUMERIC_PRECISION !== eps) {
-    fail(`expected NODE_GRAPH_PLANCK === 1e-7, got ${eps} / ${ctx.NODE_GRAPH_NUMERIC_PRECISION}`);
-  } else {
-    ok("planck is 1e-7");
+  const h = create();
+  const unity = block(h, new Array(64).fill(1), new Array(64).fill(1));
+  if (unity.count !== 0 || unity.left.some((x) => x !== 1)) fail(`0 dB peak should not trip, count=${unity.count}`);
+  else ok("0 dB does not trip");
+  const edge = block(h, [1 + PLANCK], [-(1 + PLANCK)]);
+  if (edge.count < 1) fail(`1 + ${PLANCK} should trip`);
+  else ok("1e-7 over unity trips");
+  const hb = create();
+  const bad = block(hb, [NaN, Infinity], [0, 0]);
+  if (bad.count < 2 || bad.left.some((x) => x !== 0)) fail(`non-finite should trip and output 0, count=${bad.count}`);
+  else ok("non-finite trips and outputs 0");
+  sp2.soemdsp_speaker_protector2_destroy(hb);
+  sp2.soemdsp_speaker_protector2_destroy(h);
+}
+
+// 10. Render block path equals the per-frame module path
+{
+  const a = create();
+  const b = create();
+  const n = 4000;
+  const xs = [];
+  for (let i = 0; i < n; i += 1) xs.push(i > 1000 && i < 1010 ? 1.4 : 0.6 * Math.sin(i / 9));
+  const blk = block(b, xs, xs.map((x) => -x * 0.5));
+  let worst = 0;
+  for (let i = 0; i < n; i += 1) {
+    const f = frame(a, xs[i], -xs[i] * 0.5);
+    worst = Math.max(worst, Math.abs(f.left - blk.left[i]), Math.abs(f.right - blk.right[i]));
   }
-  if (!ctx.nodeGraphAboveUnity || ctx.nodeGraphAboveUnity(1) || !ctx.nodeGraphAboveUnity(1 + eps)) {
-    fail("nodeGraphAboveUnity should be false at 1 and true at 1+planck");
-  } else {
-    ok("aboveUnity matches planck");
-  }
-  const state = ctx.createNodeGraphSpeakerProtector2State(RATE);
-  let last = null;
-  for (let i = 0; i < 64; i += 1) {
-    last = ctx.nodeGraphSpeakerProtector2Protect(state, 1, 1, RATE);
-  }
-  if (last.danger || last.engaged || last.mode !== "idle") {
-    fail(`0 dB peak should not trip, got danger=${last.danger} mode=${last.mode}`);
-  } else {
-    ok("0 dB does not trip");
-  }
-  last = ctx.nodeGraphSpeakerProtector2Protect(state, 1 + eps, -(1 + eps), RATE);
-  if (!last.danger) {
-    fail(`1 + ${eps} should trip`);
-  } else {
-    ok("1e-7 over unity trips");
-  }
-  last = ctx.nodeGraphSpeakerProtector2Protect(state, 1.001, -1.001, RATE);
-  if (!last.danger) {
-    fail("1.001 should trip");
-  } else {
-    ok("well over unity trips");
-  }
+  if (worst !== 0) fail(`process_block should equal per-frame sample, max diff=${worst}`);
+  else ok("process_block equals per-frame sample");
+  sp2.soemdsp_speaker_protector2_destroy(a);
+  sp2.soemdsp_speaker_protector2_destroy(b);
 }
 
 if (process.exitCode) {

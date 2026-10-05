@@ -85,10 +85,12 @@ function nodeGraphSoftwaveShapeAt(phase01, waveform, morph, frequencyHz = 100, s
     case 4:
       return nodeGraphSoftwaveTanh(nodeGraphSoftwaveParabolSine(p) * sa * mf);
     case 5: {
-      const m = Math.max(0, Math.min(1, nodeGraphFiniteNumber(morph)));
-      const sine = Math.sin(p * SOFTWAVE_PI * 2);
-      const tri = nodeGraphSoftwaveAcos(sine) / SOFTWAVE_PI * 2 - 1;
-      return sine * (1 - m) + tri * m;
+      const t = Math.max(0, Math.min(1, mf));
+      const adjusted = 0.15 + (1 - 0.15) * t;
+      const scaling = nodeGraphSoftwaveTanh((1 - (nodeGraphSoftwaveFreqToPitch(frequencyHz) / 127)) * 9);
+      return nodeGraphSoftwaveAcos(
+        Math.sin(p * SOFTWAVE_PI * 2) * adjusted * scaling,
+      ) / SOFTWAVE_PI * 2 - 1;
     }
     case 6: {
       const bow = nodeGraphSoftwaveParabolSine(p);

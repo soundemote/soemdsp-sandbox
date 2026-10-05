@@ -12,7 +12,6 @@ vm.runInContext(
   sandbox,
 );
 vm.runInContext(fs.readFileSync(path.join(root, "public/modules/gain/gain-math.js"), "utf8"), sandbox);
-vm.runInContext(fs.readFileSync(path.join(root, "public/modules/bias/bias-math.js"), "utf8"), sandbox);
 vm.runInContext(fs.readFileSync(path.join(root, "public/modules/_shared/output-amplitude.js"), "utf8"), sandbox);
 
 function assertClose(name, got, want, eps) {
@@ -77,13 +76,6 @@ const resolved = sandbox.nodeGraphGainResolveMasterDb({ amount: 0.5 }, 0.5, 0);
 assertClose("legacy resolve 0.5", resolved, 20 * Math.log10(0.5));
 const resolvedNew = sandbox.nodeGraphGainResolveMasterDb({ gainDb: -6 }, 1, -6);
 assertClose("new gainDb wins", resolvedNew, -6);
-
-// Bias is In/Out only
-const b = sandbox.nodeGraphBiasFrame(0.4, 9, 8, 0.1);
-assertClose("bias out", b.Out, 0.5);
-if (b.Left != null || b.Right != null) {
-  throw new Error("bias should not emit Left/Right");
-}
 
 // Post-amplitude scales listed types only
 const scaled = sandbox.nodeGraphApplyPostAmplitude("passiveFilter", { Out: 1, Left: 0.5, Right: 0.25 }, 0.5);

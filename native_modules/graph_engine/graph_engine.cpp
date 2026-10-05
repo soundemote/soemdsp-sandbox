@@ -609,6 +609,8 @@ extern "C" double soemdsp_filter_morph_oscillator_sample(
   double frequencyHz,
   double sampleRate,
   double morph,
+  double poles,
+  double waveform,
   double phaseOffset,
   double amplitude,
   double reset
@@ -1056,7 +1058,7 @@ extern "C" int soemdsp_ping_envelope_create();
 extern "C" void soemdsp_ping_envelope_destroy(int handle);
 extern "C" int soemdsp_ping_envelope_is_idle(int handle);
 extern "C" double soemdsp_ping_envelope_sample(
-  int handle, double input, double attackSec, double decay,
+  int handle, double input, double attackSec, double decay1, double decay2,
   double amplitude, double recalculateOnTrigger, double sampleRate
 );
 extern "C" int soemdsp_ping_envelope_version();
@@ -1864,7 +1866,7 @@ static const int kTypeCurveAttackRelease = 166;
 static const int kTypePluckEnvelopeFb = 198;
 static const int kTypeAcidSequencer = 199; // TB-303-style step sequencer
 static const int kTypeHyperpluck = 200; // PolyBLEP unison pluck (Supersaw detune)
-static const int kTypeFilterMorphOscillator = 201; // FilterMorph: same-phasor sine ↔ PolyBLEP saw
+static const int kTypeFilterMorphOscillator = 201; // FilterMorph: PolyBLEP shapes + pitch-tracking one-pole
 static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smoothstep)
 static const int kTypeFm = 169; // Freq Manager: ƒ(+inc) mix × pitch scale + Add; outs ƒ + inc
 static const int kTypePitchHz = 170; // Pitch â†” Hz (MIDI-ish pitch law, A4 = tuning)
@@ -3084,6 +3086,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePluckEnvelopeFb) ? 1.0 // inputMode Trigger (breadboard)
       : (typeId == kTypeInertialFilter) ? 1.0 // smoothAttack On
       : (typeId == kTypePingEnvelope) ? 1.0 // recalculateOnTrigger On
+      : (typeId == kTypePingPongDelay) ? 1.0 // Left Right
       : (typeId == kTypePhaser) ? 0.0 // Bandpass kernel
       : (typeId == kTypeEqFilter) ? 1.0 // HP12
       : (typeId == kTypeGraphicEq) ? 0.0 // unused (bands are absolute dB)
@@ -3167,6 +3170,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeFm) ? 0.0 // semitones
       : (typeId == kTypeAcidSequencer) ? 16.0 // step length
       : (typeId == kTypeExponentialDelay) ? 7.0 // delay count
+      : (typeId == kTypeFilterMorphOscillator) ? 1.0 // Poles
       : 4.0,
     // Generator Harmonics + Hypersaw2/RobinSupersaw voices stay continuous for Decimal trailing amp.
     // Freq Manager semitones live on stages and stay continuous, same as Pitch Manager octave.
@@ -3223,7 +3227,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePhaser) ? 0.5 // spread octaves
       : (typeId == kTypeNoiseGenerator) ? 0.5
       : (typeId == kTypePluckEnvelopeFb) ? 1.1 // tail (inverted Dampen; 1.1 = breadboard rest)
-      : (typeId == kTypePingEnvelope) ? 0.5 // decay (0=short … 1=long)
+      : (typeId == kTypePingEnvelope) ? 0.5 // Decay 1 (0=amp 1 … 1=amp 0)
       : (typeId == kTypeTransport) ? 0.5 // pulseWidth gate duty
       : (typeId == kTypeRobinSupersaw) ? 30.0 // detuneCents
       : (typeId == kTypeHyperpluck) ? 5.0 // detuneHz
@@ -3393,6 +3397,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope || typeId == kTypeWavetableAdsr) ? 0.22 // decay
       : (typeId == kTypeAttackDecay) ? 0.25 // decay
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // decay
+      : (typeId == kTypePingEnvelope) ? 0.5 // Decay 2 (0=offset +0.5 … 1=offset −0.5)
       : (typeId == kTypePluckEnvelopeFb) ? 1.64 // synth vs acoustic (attenuverter Offset def)
       : (typeId == kTypeDelayEffect) ? 0.25
       : (typeId == kTypeExponentialDelay) ? 0.0
@@ -6716,6 +6721,13 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
   const int optimize = (int)(control_effective(node.mode) + (control_effective(node.mode) >= 0.0 ? 0.5 : -0.5));
   if (!liveReset) node.lastReset = 0.0;
 
+  // Tracked linear filter: knee at harmonic × Frequency. 0 = off.
+  // Same gain as Linear Filter; that module stays absolute Hz.
+  const int Hs = H < soemdsp_yellow_graph::kMaxHarmonics
+    ? H
+    : soemdsp_yellow_graph::kMaxHarmonics;
+  float ampSnap[soemdsp_yellow_graph::kMaxHarmonics];
+  for (int i = 0; i < Hs; i += 1) ampSnap[i] = local.amplitude[i];
 
   for (int f = 0; f < frames; f += 1) {
     control_frame(g, node, f);
@@ -6729,6 +6741,35 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
     double freq = resolve_osc_hz(
       g, f, liveF, livePitch, node.frequency, referenceVoltage, srD
     );
+    for (int i = 0; i < Hs; i += 1) local.amplitude[i] = ampSnap[i];
+    const double harm = control_effective(node.width);
+    if (harm > 0.0 && freq > 0.0) {
+      const float slope = (float)control_effective(node.shape);
+      const float mag = slope < 0.0f ? -slope : slope;
+      const float halfOct = mag <= 1.0e-6f ? 0.0f : (0.05f + mag * 5.0f);
+      float fc = (float)(harm * freq);
+      if (halfOct > 0.0f && fc > 0.0f) {
+        const float unity = fc * (float)soemdsp_maths::dsp_exp((double)(-halfOct) * 0.6931471805599453);
+        if (unity > 0.0f && unity < (float)freq) fc *= (float)freq / unity;
+      } else if (fc < (float)freq) {
+        fc = (float)freq;
+      }
+      soemdsp_yellow_graph::apply_linear_filter(
+        local,
+        (float)control_effective(node.waveform),
+        fc,
+        slope,
+        (float)control_effective(node.phaseParam),
+        (float)freq,
+        sr,
+        (float)control_effective(node.timingMode)
+      );
+      const float first = (float)freq * 1.001f;
+      for (int i = 0; i < Hs; i += 1) {
+        const float hz = local.ratio[i] * (float)freq;
+        if (!(hz > first)) local.amplitude[i] = ampSnap[i];
+      }
+    }
     double inc = 0.0;
     float mono = 0.0f;
     float left = 0.0f;
@@ -6751,6 +6792,8 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
     node.buf[kPortLeft][f] = (double)left;
     node.buf[kPortRight][f] = (double)right;
   }
+  // Face reads the unfiltered partials and draws the slope itself.
+  for (int i = 0; i < Hs; i += 1) local.amplitude[i] = ampSnap[i];
 
   if (
     local.ratioNoise.active
@@ -6840,8 +6883,6 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
     const double phaseOff = control_audio(g, node.phaseParam, f);
     double level = control_audio(g, node.amplitude, f);
     if (!(level == level)) level = 1.0;
-    if (level < 0.0) level = 0.0;
-    if (level > 1.0) level = 1.0;
     const double antialias = control_audio(g, node.center, f);
     const double waveV = control_effective(node.waveform);
     const double y = soemdsp_softwave_sample(
@@ -6853,9 +6894,9 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
   }
 }
 
-// FilterMorph Oscillator: same-phasor sine (Morph 0) ↔ PolyBLEP saw (Morph 1).
-// Morph/Phase/Amplitude are params (+ MOD) only — no twin CV jacks.
-// Reset → Wave at Phase offset (phasor 0 + offset).
+// FilterMorph: PolyBLEP shapes → pitch-tracking one-pole cascade + makeup.
+// Morph/Poles/Waveform/Phase/Amplitude are params (+ MOD) only.
+// Reset → Wave at Phase offset (phasor 0 + offset; LP cleared).
 static void process_filter_morph_oscillator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
@@ -6874,6 +6915,9 @@ static void process_filter_morph_oscillator(Circuit& g, Node& node, int frames) 
     if (!(morph == morph)) morph = 1.0;
     if (morph < 0.0) morph = 0.0;
     if (morph > 1.0) morph = 1.0;
+    double poles = control_audio(g, node.stages, f);
+    if (!(poles == poles)) poles = 1.0;
+    const double wave = control_effective(node.waveform);
     const double phaseOff = control_audio(g, node.phaseParam, f);
     double level = control_audio(g, node.amplitude, f);
     if (!(level == level)) level = 1.0;
@@ -6886,7 +6930,7 @@ static void process_filter_morph_oscillator(Circuit& g, Node& node, int frames) 
       node.lastReset = reset;
     }
     const double y = soemdsp_filter_morph_oscillator_sample(
-      node.nativeHandle, freq, sr, morph, phaseOff, level, 0.0
+      node.nativeHandle, freq, sr, morph, poles, wave, phaseOff, level, 0.0
     );
     node.buf[kPortMono][f] = y;
     node.buf[kPortLeft][f] = y;
@@ -8897,13 +8941,12 @@ static void process_pluck_envelope_fb(Circuit& g, Node& node, int frames) {
 }
 
 
-// Ping Envelope (pingEnvelope). Not the pluck breadboard.
+// Ping Envelope (pingEnvelope). Breadboard: Env×Decay1 + Decay2 offset → expo → Release Hz.
 static void process_ping_envelope(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
     const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
@@ -8914,6 +8957,7 @@ static void process_ping_envelope(Circuit& g, Node& node, int frames) {
       input,
       control_audio(g, node.timeDenominator, f),
       control_audio(g, node.width, f),
+      control_audio(g, node.feedback, f),
       control_audio(g, node.amplitude, f),
       control_effective(node.mode),
       sr
@@ -12683,6 +12727,18 @@ extern "C" int soemdsp_graph_snap_controls(int handle) {
   Circuit* g = get(handle);
   if (!g) return -1;
   smoother_snap_all(*g);
+  return 0;
+}
+
+// Jump one Control to its target and clear that smoother. Smooth time stays.
+extern "C" int soemdsp_graph_snap_param(int handle, unsigned int nodeHash, int paramId) {
+  Circuit* g = get(handle);
+  if (!g) return -1;
+  const int idx = find_node(*g, nodeHash);
+  if (idx < 0) return -2;
+  Control* c = control_for_param(g->nodes[idx], paramId);
+  if (!c) return 0;
+  control_snap_to_target(*c);
   return 0;
 }
 

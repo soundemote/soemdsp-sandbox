@@ -1,27 +1,49 @@
-// Speaker protection host. Mute envelope is Speaker Protector 2.0 math
-// (public/modules/speakerProtector2/speaker-protector-2-math.js). This file only
-// wraps that circuit for the Output bus and flags the Output face banner.
+// Speaker protection host. The ear-protect circuit is Speaker Protector 2.0 in
+// native C++ (native_modules/speaker_protector2/speaker_protector2.cpp). Live:
+// graph_engine runs it on the Output bus. Render Sample: the bounce goes through
+// soemdsp_speaker_protector2_process_block on a main-thread instance of the
+// combined wasm. This file holds no DSP: it hands buffers to that native pass
+// and flags the Output face banner.
 
-function createNodeGraphEarProtector(sampleRate = nodeGraphMvp?.sampleRate, options = {}) {
-  const rate = Math.max(1, nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100)));
-  const state = typeof createNodeGraphSpeakerProtector2State === "function"
-    ? createNodeGraphSpeakerProtector2State(rate)
-    : { mode: "idle", gain: 1 };
-  return {
-    state,
-    protect(left = 0, right = left) {
-      if (typeof nodeGraphSpeakerProtector2Protect === "function") {
-        return nodeGraphSpeakerProtector2Protect(state, left, right, rate, options);
+let nodeGraphEarProtectNativePromise = null;
+
+function nodeGraphLoadEarProtectNative() {
+  if (!nodeGraphEarProtectNativePromise) {
+    nodeGraphEarProtectNativePromise = (async () => {
+      const bytes = await fetchNodeGraphLiveNativeModuleBytes({ wasmUrl: nodeGraphLiveCombinedNativeModuleUrl });
+      if (!(bytes instanceof ArrayBuffer)) {
+        throw new Error("native Speaker Protector 2: combined wasm unavailable");
       }
-      return {
-        left: nodeGraphFiniteNumber(left),
-        right: nodeGraphFiniteNumber(right),
-        gain: 1,
-        muted: false,
-        engaged: false,
-        mode: "idle",
-      };
-    },
+      const { instance } = await WebAssembly.instantiate(bytes, {});
+      const native = instance?.exports;
+      if (!native?.memory || typeof native.soemdsp_speaker_protector2_process_block !== "function") {
+        throw new Error("native Speaker Protector 2: process_block export missing");
+      }
+      return native;
+    })();
+    nodeGraphEarProtectNativePromise.catch(() => {
+      nodeGraphEarProtectNativePromise = null;
+    });
+  }
+  return nodeGraphEarProtectNativePromise;
+}
+
+/** Native Output ear protector for Render Sample. Throws when native is unavailable. */
+async function createNodeGraphNativeEarProtector(sampleRate = nodeGraphMvp?.sampleRate) {
+  const native = await nodeGraphLoadEarProtectNative();
+  const rate = nodeGraphFiniteNumber(sampleRate, nodeGraphFiniteNumber(nodeGraphMvp?.sampleRate, 44100));
+  const handle = native.soemdsp_speaker_protector2_create() | 0;
+  if (handle <= 0) {
+    throw new Error("native Speaker Protector 2: no free instance");
+  }
+  const capacity = native.soemdsp_speaker_protector2_max_block_frames() | 0;
+  return {
+    capacity,
+    blockLeft: () => new Float64Array(native.memory.buffer, native.soemdsp_speaker_protector2_block_left_ptr(), capacity),
+    blockRight: () => new Float64Array(native.memory.buffer, native.soemdsp_speaker_protector2_block_right_ptr(), capacity),
+    /** Protects the first `frames` block samples in place; returns the protection mute count. */
+    processBlock: (frames) => native.soemdsp_speaker_protector2_process_block(handle, frames, rate) | 0,
+    destroy: () => native.soemdsp_speaker_protector2_destroy(handle),
   };
 }
 

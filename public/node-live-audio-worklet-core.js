@@ -4,15 +4,6 @@ function nodeSmoothingModeNormalize(value) {
   return nodeSmoothingModes.includes(value) ? value : "global";
 }
 
-const nodeLiveRaptEllipticQuarterbandSos = Object.freeze([
-  Object.freeze([1.3515101236634053e-04, 1.8481719657676747e-04, 1.3515101236634053e-04, 1, -1.5863119326809123, 0.6428204816292211]),
-  Object.freeze([1, -0.3714014551732318, 0.9999999999999998, 1, -1.5620959364626055, 0.7161571320953768]),
-  Object.freeze([1, -1.0298229723362611, 1, 1, -1.5310702081483014, 0.8130950789236201]),
-  Object.freeze([1, -1.2676395426322578, 1.0000000000000002, 1, -1.50809401930334, 0.8931580864862605]),
-  Object.freeze([1, -1.3628788519102755, 1.0000000000000002, 1, -1.4983265140498274, 0.9475287279522546]),
-  Object.freeze([1, -1.3980241837651683, 1, 1, -1.5032624176850438, 0.9843747059042128]),
-]);
-
 function nodeLiveIsPolyBlepOscillatorType(type) {
   // `osc` is Open Sound Control (controller), not a wave oscillator.
   return type === "polyBlep" || type === "sineWavetable" || type === "sinCos" || type === "blit";
@@ -119,9 +110,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     // pitch sounded randomly phased on every Stop→Play.
     this.speedMultiplier = 0;
     this.speedLimit = 22050;
-    this.raptEllipticDecimatorLeft = this.createRaptEllipticDecimatorState();
-    this.raptEllipticDecimatorRight = this.createRaptEllipticDecimatorState();
-    this.raptEllipticDecimatorRatio = 1;
+    this.nativeRaptDecimatorLeft = 0;
+    this.nativeRaptDecimatorRight = 0;
+    this.nativeRaptDecimatorRatio = 1;
     this.passiveFilterStates = new Map();
     this.papoulisFilterStates = new Map();
     this.xyPadFilterStates = new Map();
@@ -413,7 +404,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     // (Rate mode). Advanced once per evaluateFrame call.
     this.absoluteFrame = 0;
     this.slewLimiterStates = new Map();
-    this.speakerProtector2States = new Map();
     this.smoothers = new Map();
     // Dirty list (soemdsp SmootherManager::toSmooth_): only moving chases run.
     this.activeSmoothers = [];
@@ -433,7 +423,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.visualInputBuffers = new Map();
     this.visualSinks = [];
     this.resetVisualControls();
-    this.earProtector = this.createEarProtector(sampleRate);
     this.port.onmessage = (event) => this.handleMessage(event.data || {});
   }
 

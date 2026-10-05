@@ -216,6 +216,31 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
 
   const ampFloorDb = -60;
   let maxAmp = 1e-6;
+  let maxPreAmp = 1e-6;
+  const harmKnee = Number(node?.params?.harmonic);
+  const trackFilter = String(node?.type || "") === "additiveOut"
+    && harmKnee > 0
+    && typeof additiveGraphFilterResponseGainRational === "function";
+  const filterMode = Number(node?.params?.filter) || 0;
+  const filterSlope = Number(node?.params?.slope);
+  const filterSkew = Number(node?.params?.skew) || 0;
+  const filterCurve = Number(node?.params?.curve) || 0;
+  const filterFc = trackFilter && typeof additiveGraphTrackedFilterCutoffHz === "function"
+    ? additiveGraphTrackedFilterCutoffHz(freqHz, harmKnee, Number.isFinite(filterSlope) ? filterSlope : 0.25)
+    : (trackFilter ? harmKnee * freqHz : 0);
+  const filterGainAt = (hz) => {
+    if (!trackFilter || !(filterFc > 0)) return 1;
+    if (hz <= freqHz) return 1;
+    return additiveGraphFilterResponseGainRational(
+      hz,
+      filterMode,
+      filterFc,
+      Number.isFinite(filterSlope) ? filterSlope : 0.25,
+      filterSkew,
+      filterCurve,
+    );
+  };
+  const filterGain = trackFilter ? new Float32Array(H) : null;
   const effectiveAmp = new Float32Array(H);
   const leftAmp = new Float32Array(H);
   const rightAmp = new Float32Array(H);
@@ -243,7 +268,10 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
       ? additiveGraphNyquistAmpGain(hz, sr)
       : 1;
     const a = amp * nyqGain;
-    effectiveAmp[i] = a;
+    const g = filterGain ? filterGainAt(hz) : 1;
+    if (filterGain) filterGain[i] = g;
+    if (a > maxPreAmp) maxPreAmp = a;
+    effectiveAmp[i] = a * g;
 
     // Color = Graph phase offsets (+ NoisyPhase WhiteNoise preview), not free-running phaseAcc.
     let phase = typeof additiveGraphEffectivePhase === "function"
@@ -274,8 +302,8 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     const gains = typeof additiveGraphPanGains === "function"
       ? additiveGraphPanGains(pan)
       : { left: 0.5 * (1 - pan), right: 0.5 * (1 + pan) };
-    leftAmp[i] = a * gains.left * 2;
-    rightAmp[i] = a * gains.right * 2;
+    leftAmp[i] = a * g * gains.left * 2;
+    rightAmp[i] = a * g * gains.right * 2;
     if (leftAmp[i] > maxAmp) maxAmp = leftAmp[i];
     if (rightAmp[i] > maxAmp) maxAmp = rightAmp[i];
   }
@@ -300,9 +328,10 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
   ctx.lineTo(pad + span, midY);
   ctx.stroke();
 
+  const ampRef = trackFilter ? maxPreAmp : maxAmp;
   const ampToHeight = (amp) => {
-    if (!(amp > 0) || !(maxAmp > 0)) return 0;
-    const db = 20 * Math.log10(Math.max(1e-12, amp / maxAmp));
+    if (!(amp > 0) || !(ampRef > 0)) return 0;
+    const db = 20 * Math.log10(Math.max(1e-12, amp / ampRef));
     const ampT = Math.max(0, Math.min(1, (db - ampFloorDb) / -ampFloorDb));
     return ampT * maxH;
   };
@@ -335,6 +364,23 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
       ctx.lineTo(x, midY + rightH);
       ctx.stroke();
     }
+  }
+
+  if (trackFilter && filterFc > 0) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+    ctx.lineWidth = faceInkPx(1.5, faceMin);
+    ctx.beginPath();
+    const steps = Math.max(32, Math.min(160, Math.round(span / 3)));
+    for (let s = 0; s <= steps; s += 1) {
+      const t = s / steps;
+      const hz = Math.exp(logXMin + t * logXSpan);
+      const g = Math.max(0, Math.min(1, filterGainAt(hz)));
+      const y = midY - g * maxH;
+      const x = pad + t * span;
+      if (s === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
   }
   section._forceDraw = false;
 }

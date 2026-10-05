@@ -347,6 +347,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   softenAttack: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR,
   dampen: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   tail: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
+  decay2: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FEEDBACK,
   divide: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   synthVsAcoustic: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FEEDBACK,
   phaseAlgorithm: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
@@ -1354,6 +1355,13 @@ NodeLiveAudioProcessor.prototype.pushNativeGraphParamDomain = function pushNativ
  * Call after compile + initial param sync so the first audible sample is
  * on-patch. Do NOT call on pause→play — frozen mid-ramps must resume.
  */
+NodeLiveAudioProcessor.prototype.snapNativeGraphParam = function snapNativeGraphParam(native, hash, paramId) {
+  if (!native?.soemdsp_graph_snap_param || !this.nativeGraphHandle) return;
+  try {
+    native.soemdsp_graph_snap_param(this.nativeGraphHandle, hash, paramId);
+  } catch (_e) { /* ignore */ }
+};
+
 NodeLiveAudioProcessor.prototype.snapNativeGraphControls = function snapNativeGraphControls() {
   if (!this.efficientProduct || !this.nativeGraphHandle) return false;
   const native = this.nativeGraph;
@@ -1524,6 +1532,62 @@ NodeLiveAudioProcessor.prototype.applyNativeGraphSampleRate = function applyNati
     ),
   );
   native.soemdsp_graph_set_sample_rate(handle, rate);
+};
+
+NodeLiveAudioProcessor.prototype.ensureNativeRaptDecimators = function ensureNativeRaptDecimators() {
+  const native = this.nativeGraph;
+  if (!native?.soemdsp_rapt_elliptic_decimator_create) {
+    throw new Error("APP_POLICY: oversampling requires native rapt_elliptic_decimator (no JS DSP)");
+  }
+  if (!this.nativeRaptDecimatorLeft) {
+    this.nativeRaptDecimatorLeft = native.soemdsp_rapt_elliptic_decimator_create() | 0;
+  }
+  if (!this.nativeRaptDecimatorRight) {
+    this.nativeRaptDecimatorRight = native.soemdsp_rapt_elliptic_decimator_create() | 0;
+  }
+  if (!this.nativeRaptDecimatorLeft || !this.nativeRaptDecimatorRight) {
+    throw new Error("native rapt elliptic decimator create failed");
+  }
+};
+
+NodeLiveAudioProcessor.prototype.resetNativeRaptDecimators = function resetNativeRaptDecimators() {
+  const native = this.nativeGraph;
+  if (!native?.soemdsp_rapt_elliptic_decimator_reset) return;
+  if (this.nativeRaptDecimatorLeft) {
+    native.soemdsp_rapt_elliptic_decimator_reset(this.nativeRaptDecimatorLeft);
+  }
+  if (this.nativeRaptDecimatorRight) {
+    native.soemdsp_rapt_elliptic_decimator_reset(this.nativeRaptDecimatorRight);
+  }
+};
+
+NodeLiveAudioProcessor.prototype.decimateNativeRaptEllipticChannel = function decimateNativeRaptEllipticChannel(
+  handle,
+  source,
+  dest,
+  factor,
+) {
+  const native = this.nativeGraph;
+  const memory = native?.memory;
+  if (!native?.soemdsp_rapt_elliptic_decimator_process || !memory?.buffer || !handle || !source || !dest) {
+    throw new Error("APP_POLICY: oversampling requires native rapt_elliptic_decimator (no JS DSP)");
+  }
+  const srcCount = source.length | 0;
+  const destCount = dest.length | 0;
+  const maxSrc = native.soemdsp_rapt_elliptic_decimator_max_src() | 0;
+  const maxDest = native.soemdsp_rapt_elliptic_decimator_max_dest() | 0;
+  if (srcCount > maxSrc || destCount > maxDest) {
+    throw new Error("native rapt elliptic decimator buffer too small");
+  }
+  const srcPtr = native.soemdsp_rapt_elliptic_decimator_src_ptr(handle) | 0;
+  const destPtr = native.soemdsp_rapt_elliptic_decimator_dest_ptr(handle) | 0;
+  if (!srcPtr || !destPtr) {
+    throw new Error("native rapt elliptic decimator ptr missing");
+  }
+  const heap = new Float32Array(memory.buffer);
+  heap.set(source.subarray(0, srcCount), srcPtr >>> 2);
+  native.soemdsp_rapt_elliptic_decimator_process(handle, srcCount, destCount, factor | 0);
+  dest.set(new Float32Array(memory.buffer, destPtr, destCount));
 };
 
 /** Push 0.1V/Oct reference MIDI note (default A4 / 69) into the native graph. */
@@ -2035,7 +2099,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
         if (!feedHash) {
           const feedId = `__hostCv:${srcId}:${String(srcPort || "")}`;
           feedHash = this.fnv1aHash32(feedId);
-          const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, biasTypeId) | 0;
+          const feedKind = this.nativeHostCvFeederKind(srcId, srcPort, biasTypeId);
+          const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, feedKind.typeId) | 0;
           if (arc !== 0) return false;
           hostFeederHashByKey.set(feedKey, feedHash);
           // Same shape as compileNativeGraphFromPlan — syncNativeHostCvFeeders
@@ -2045,6 +2110,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphFromPlanSurgical =
             hash: feedHash,
             sourceNode: srcId,
             sourcePort: String(srcPort || ""),
+            sampleBlock: feedKind.sampleBlock,
           });
           // Snap — Gate / CV must not chase Bias smoother.
           this.pushNativeGraphSmoothType(native, feedHash, attOffsetParam, 3);
@@ -2773,11 +2839,10 @@ NodeLiveAudioProcessor.prototype.applyNativeHostCvFeederSmoothing = function app
     this.pushNativeGraphSmoothTime(native, hash, paramId, samples);
   };
   if (shouldSnap) {
-    pushSpec(3, 3, 0);
     this.pushNativeGraphParam(native, hash, paramId, value);
+    this.snapNativeGraphParam(native, hash, paramId);
     feed._hostCvValue = value;
     feed._hostCvValueSeen = true;
-    pushSpec(spec.mode, spec.type, spec.samples);
     feed._hostCvSmoothToken = token;
     return true;
   }
@@ -2786,6 +2851,92 @@ NodeLiveAudioProcessor.prototype.applyNativeHostCvFeederSmoothing = function app
     feed._hostCvSmoothToken = token;
   }
   return false;
+};
+
+/**
+ * Host feeder node type for one host CV port. Sample-block ports (Toggle /
+ * Momentary Trigger, efficientModSourceIsSampleBlock) use the host-filled
+ * AudioInput node (type 132: process_block never zeros or writes its buf), so
+ * a one-sample pulse reaches cables (mix_node_inputs) and ParamModEdges
+ * (stamp_live_param_mods) per sample. Every other port: snapped Bias offset.
+ */
+NodeLiveAudioProcessor.prototype.nativeHostCvFeederKind = function nativeHostCvFeederKind(
+  srcId,
+  srcPort,
+  biasTypeId,
+) {
+  const blockTypeId = NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS?.audioInput;
+  if (
+    blockTypeId
+    && typeof this.efficientModSourceIsSampleBlock === "function"
+    && this.efficientModSourceIsSampleBlock(srcId, srcPort)
+  ) {
+    return { typeId: blockTypeId, sampleBlock: true };
+  }
+  return { typeId: biasTypeId, sampleBlock: false };
+};
+
+/**
+ * Mono buf of a sample-block feeder (Float64Array, max block frames) or null.
+ * Cached on the feed record, not nativeGraphPortViewCache: surgical rewires
+ * remove + re-add feeders under the same hash in a new node slot, so a
+ * hash-keyed view would keep writing the dead slot. Feed records are rebuilt
+ * with every rewire, so this cache dies with them.
+ */
+NodeLiveAudioProcessor.prototype.nativeHostCvSampleBlockView = function nativeHostCvSampleBlockView(feed) {
+  const feedHash = feed?.hash || feed?.feedHash;
+  const native = this.nativeGraph;
+  const memory = native?.memory;
+  if (!feedHash || !memory?.buffer || !this.nativeGraphHandle || !native.soemdsp_graph_node_port_ptr) {
+    return null;
+  }
+  const hit = feed._sampleBlockView;
+  if (hit && hit.memory === memory.buffer && hit.handle === this.nativeGraphHandle) return hit.view;
+  const rawMax = Number(native.soemdsp_graph_max_block_frames?.());
+  const maxBlock = Number.isFinite(rawMax) && rawMax >= 1 ? Math.floor(rawMax) : 128;
+  let ptr = 0;
+  try {
+    ptr = native.soemdsp_graph_node_port_ptr(
+      this.nativeGraphHandle,
+      feedHash,
+      NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO,
+    ) | 0;
+  } catch (_e) {
+    return null;
+  }
+  if (!ptr) return null;
+  const view = new Float64Array(memory.buffer, ptr, maxBlock);
+  feed._sampleBlockView = { memory: memory.buffer, handle: this.nativeGraphHandle, view };
+  return view;
+};
+
+/** Write this quantum's per-sample block (Trigger: 1 at [0] on the edge, else 0). */
+NodeLiveAudioProcessor.prototype.writeNativeHostCvSampleBlock = function writeNativeHostCvSampleBlock(feed) {
+  const view = this.nativeHostCvSampleBlockView(feed);
+  if (!view) return;
+  if (
+    typeof this.readEfficientModSourceBlock === "function"
+    && this.readEfficientModSourceBlock(feed.sourceNode, feed.sourcePort, view)
+  ) {
+    return;
+  }
+  view.fill(0);
+};
+
+/**
+ * After every process_block chunk: zero sample-block feeders so a pulse never
+ * repeats (later chunks of a long host block, or quanta where the sync is
+ * skipped — process_block does not clear AudioInput bufs).
+ */
+NodeLiveAudioProcessor.prototype.clearNativeHostCvSampleBlocks = function clearNativeHostCvSampleBlocks() {
+  const feeders = this._nativeHostCvFeeders;
+  if (!Array.isArray(feeders) || !feeders.length) return;
+  for (let i = 0; i < feeders.length; i += 1) {
+    const feed = feeders[i];
+    if (!feed?.sampleBlock) continue;
+    const view = this.nativeHostCvSampleBlockView(feed);
+    if (view) view.fill(0);
+  }
 };
 
 NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHostCvFeeders() {
@@ -2808,6 +2959,11 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
           ? noteMaskKeyTrackUnit(mask)
           : 0;
         this.pushNativeGraphParam(native, feedHash, paramId, v);
+        continue;
+      }
+      // Toggle / Momentary Trigger: per-sample block (1 at [0] on the edge quantum).
+      if (feed?.sampleBlock) {
+        this.writeNativeHostCvSampleBlock(feed);
         continue;
       }
       const sp = String(feed.sourcePort || "");
@@ -4013,15 +4169,11 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
     const typeKey = `${key}__smoothType`;
     const snapList = node?._pendingSnapParams;
     const shouldSnap = Array.isArray(snapList) && snapList.indexOf(key) >= 0;
-    // Alt-click: time 0 so set_param snaps out=target, then restore chase time.
-    if (shouldSnap) {
-      this.pushNativeGraphSmoothTime(native, hash, paramId, 0);
-      cache[timeKey] = 0;
-    }
     const valueChanged = forceAll || cache[key] !== v;
     if (valueChanged || shouldSnap) {
       cache[key] = v;
       this.pushNativeGraphParam(native, hash, paramId, v);
+      if (shouldSnap) this.snapNativeGraphParam(native, hash, paramId);
     }
     // Polyphony hot path: once value/domain/smooth are warm, skip meta merges +
     // mod accumulators unless this param actually has MOD cables (or forceAll).
@@ -4139,7 +4291,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       cache[typeKey] = smoothType;
       this.pushNativeGraphSmoothType(native, hash, paramId, smoothType);
     }
-    if (forceAll || shouldSnap || cache[timeKey] !== timeSamples) {
+    if (forceAll || cache[timeKey] !== timeSamples) {
       cache[timeKey] = timeSamples;
       this.pushNativeGraphSmoothTime(native, hash, paramId, timeSamples);
     }
@@ -4442,9 +4594,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "filterMorphOscillator") {
-      // shape=Morph. Morph/Phase/Amp via param MOD (no twin CV jacks).
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
+      push("waveform", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("waveform", 0));
       push("morph", P.NATIVE_GRAPH_PARAM_SHAPE, cont("morph", 1));
+      push("poles", P.NATIVE_GRAPH_PARAM_STAGES, disc("poles", 1));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
@@ -5158,10 +5311,11 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "pingEnvelope") {
-      // timeDenominator=attack s, width=decay, amplitude, mode=recalculateOnTrigger.
+      // timeDenominator=attack s, width=Decay 1, feedback=Decay 2.
       push("recalculateOnTrigger", P.NATIVE_GRAPH_PARAM_MODE, disc("recalculateOnTrigger", 1));
       push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0));
       push("decay", P.NATIVE_GRAPH_PARAM_WIDTH, cont("decay", 0.5));
+      push("decay2", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay2", 0.5));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -5894,6 +6048,11 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("optimize", P.NATIVE_GRAPH_PARAM_MODE, disc("optimize", 0));
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 0.35));
+      push("filter", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("filter", 0));
+      push("harmonic", P.NATIVE_GRAPH_PARAM_WIDTH, cont("harmonic", 0));
+      push("slope", P.NATIVE_GRAPH_PARAM_SHAPE, cont("slope", 0.25));
+      push("skew", P.NATIVE_GRAPH_PARAM_PHASE, cont("skew", 0));
+      push("curve", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("curve", 0));
       continue;
     }
     if (type === "additiveLinearFilter" || type === "additiveAnalogFilter") {
@@ -7126,13 +7285,15 @@ NodeLiveAudioProcessor.prototype.nativeHostCvFeederHash = function nativeHostCvF
   if (existing) return existing;
   const feedId = `__hostCv:${srcId}:${String(srcPort || "")}`;
   const feedHash = this.fnv1aHash32(feedId);
-  const arc = build.native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, build.biasTypeId) | 0;
+  const feedKind = this.nativeHostCvFeederKind(srcId, srcPort, build.biasTypeId);
+  const arc = build.native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, feedKind.typeId) | 0;
   if (arc !== 0 && arc !== -3) return 0;
   build.hostFeederHashByKey.set(feedKey, feedHash);
   build.hostFeeders.push({
     hash: feedHash,
     sourceNode: String(srcId),
     sourcePort: String(srcPort || ""),
+    sampleBlock: feedKind.sampleBlock,
   });
   // ParamModEdge-only cables (Momentary Bias -> PolyBLEP amplitude) create the
   // host Bias here — not via connectOne. Default Control is Internal with the
@@ -7583,7 +7744,8 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
       if (!feedHash) {
         const feedId = `__hostCv:${srcId}:${String(srcPort || "")}`;
         feedHash = this.fnv1aHash32(feedId);
-        const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, biasTypeId) | 0;
+        const feedKind = this.nativeHostCvFeederKind(srcId, srcPort, biasTypeId);
+        const arc = native.soemdsp_graph_add_node(this.nativeGraphHandle, feedHash, feedKind.typeId) | 0;
         if (arc !== 0) {
           this.postNativeGraphStatus("error", `host feeder add_node failed (${arc}) ${feedId}`);
           return false;
@@ -7593,6 +7755,7 @@ NodeLiveAudioProcessor.prototype.compileNativeGraphFromPlan = function compileNa
           hash: feedHash,
           sourceNode: srcId,
           sourcePort: String(srcPort || ""),
+          sampleBlock: feedKind.sampleBlock,
         });
         // Snap — Frequency / CV must not chase Bias smoother.
         this.pushNativeGraphSmoothType(native, feedHash, attOffsetParam, 3);
@@ -8610,27 +8773,6 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       const r = nodeGraphFiniteNumber(protectedRight?.[idx] ?? l);
       return (l + r) * 0.5;
     }
-    // Yellow Graph Additive Out is JS-sidecar only — tap Mono / Left / Right rings.
-    // Sidecar buffers are this quantum only (0…frames-1), not the speaker ring offset.
-    if (srcType === "additiveOut") {
-      const port = String(sourcePort || "").toLowerCase();
-      let map = this._additiveOutMono;
-      let lastKey = "Mono";
-      if (port === "left" || port === "l") {
-        map = this._additiveOutLeft;
-        lastKey = "Left";
-      } else if (port === "right" || port === "r") {
-        map = this._additiveOutRight;
-        lastKey = "Right";
-      }
-      const buf = map?.get(String(sourceNode));
-      if (buf && frame >= 0 && frame < buf.length) {
-        const v = Number(buf[frame]);
-        return Number.isFinite(v) ? v : 0;
-      }
-      const last = this.nodeOutputs?.get?.(String(sourceNode));
-      return nodeGraphFiniteNumber(last?.[lastKey] ?? last?.Mono);
-    }
     const portId = this.mapNativeGraphSrcPortId(sourcePort, srcType);
     const tapSrc = this.nativeVoicePreviewSourceId?.(sourceNode) || sourceNode;
     const hash = this.fnv1aHash32(tapSrc);
@@ -8688,15 +8830,22 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
       sourceSampleRate: engineRate,
       writeSampleRate: engineRate / sinkStride,
     };
-    // Output Instant Waterfall: post-Volume/Pan ear-protected speakers — not the
-    // pre-gain wires into Mono/Left/Right (Volume would otherwise be invisible).
-    if (sinkType === "output" && protectedLeft) {
+    // Output face: cables as they arrive (mono folded in, pan applied).
+    // Volume stays on the speaker bus only — do not scale the waterfall by it.
+    if (sinkType === "output") {
       for (let frame = 0; frame < frames; frame += sinkStride) {
-        const idx = frameOffset + frame;
-        const l = nodeGraphFiniteNumber(protectedLeft[idx]);
-        const r = nodeGraphFiniteNumber(protectedRight?.[idx] ?? l);
-        const m = (l + r) * 0.5;
-        this.writeOutputVisualSinkSample?.(sink, m, l, r, rateMeta);
+        const mixed = this.mixOutputDisplayArrival?.(sink, (connection) => readSrcSample(
+          connection.sourceNode,
+          connection.sourcePort,
+          frame,
+        ));
+        this.writeOutputVisualSinkSample?.(
+          sink,
+          mixed?.mono,
+          mixed?.left,
+          mixed?.right,
+          rateMeta,
+        );
       }
       continue;
     }
@@ -8854,6 +9003,8 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
     }
     // Invalidate view cache size when chunk length changes across iterations.
     if (this.nativeGraphBlockViews) this.nativeGraphBlockViews.frames = -1;
+    // Trigger sample-block feeders carry their pulse in this chunk only.
+    this.clearNativeHostCvSampleBlocks?.();
     if (processed < 1 || !this.bindNativeGraphBlockViews(chunk)) {
       for (let frame = written; frame < frames; frame += 1) {
         for (let channelIndex = 0; channelIndex < output.length; channelIndex += 1) {
@@ -8901,7 +9052,7 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
       }
     }
 
-    // Scope taps: DSP from native bufs; output sinks from ear-protected speakers.
+    // Scope taps: DSP from native bufs. Output face is pre-Volume arrival; speakers stay post-Volume.
     this.publishNativeGraphScopeTaps(chunk, {
       fillRings: true,
       protectedLeft: output[0],

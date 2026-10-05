@@ -268,7 +268,6 @@ const nodeGraphNodeLabels = Object.freeze({
   curveAttackRelease: "Curve AR",
   pluckEnvelope: "Pluck Envelope",
   pingEnvelope: "Ping Envelope",
-  pingEnvelope: "Ping Envelope",
   vactrol: "Vactrol",
   sandboxVisuals: "Screen Visuals",
   screenSpaceShader: "Screen Space Shader",
@@ -1626,7 +1625,7 @@ const nodeGraphModuleDefinitions = (
           "PulseCenter",
           "PulseLeft",
           "PulseRight",
-          "Tri",
+          "Triangle",
           "RectSine",
         ],
         defaultValue: "0",
@@ -1640,7 +1639,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Saw / Square / PulseCenter / PulseLeft / PulseRight / Tri / RectSine. PWM only affects Pulse*." },
+        tooltip: "Saw / Square / PulseCenter / PulseLeft / PulseRight / Triangle / RectSine. PWM only affects Pulse*." },
       {
         defaultValue: "0",
         key: "pwm",
@@ -1650,7 +1649,7 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         step: "any",
         outputDomain: true,
-        tooltip: "Pulse* only. Bipolar (−1…+1): 0 = 50% duty, −1…+1 → ~2%…~98% width. Ignored by Saw / Square / Tri / RectSine." },
+        tooltip: "Pulse* only. Bipolar (−1…+1): 0 = 50% duty, −1…+1 → ~2%…~98% width. Ignored by Saw / Square / Triangle / RectSine." },
       {
         defaultValue: "0",
         key: "phaseRotation",
@@ -2905,6 +2904,67 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz" },
       { defaultValue: "0.35", key: "amplitude", label: "Amplitude", max: "1", mid: "1", min: "0", step: "any", modClamp: false },
+      {
+        choices: ["LP", "BP", "HP"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "filter",
+        label: "Filter",
+        linearSmoothing: false,
+        smoothingType: "none",
+        max: "2",
+        mid: "0",
+        min: "0",
+        step: "1",
+      },
+      {
+        defaultValue: "0",
+        key: "harmonic",
+        label: "Harmonic",
+        max: "256",
+        mid: "16",
+        min: "0",
+        step: "any",
+        tooltip: "0 = off. The slope always ends at the first harmonic, which keeps its level. This sets how far above that the skirt reaches.",
+      },
+      {
+        defaultValue: "0.25",
+        key: "slope",
+        label: "Slope",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        showSign: true,
+        step: "any",
+        tooltip: "−1…+1. |Slope| = skirt width (0 = brickwall). Sign reverses the pass/stop. Same slope as Linear Filter.",
+      },
+      {
+        defaultValue: "0",
+        key: "skew",
+        label: "Skew",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        step: "any",
+        outputDomain: true,
+        tooltip: "Curve amount (−1…+1). 0 = linear ramp in the Slope transition.",
+      },
+      {
+        choices: ["Rational", "Bipolar Rational"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "curve",
+        label: "Curve",
+        linearSmoothing: false,
+        smoothingType: "none",
+        max: "1",
+        mid: "0",
+        min: "0",
+        step: "1",
+        tooltip: "Rational = one-sided skirt bend. Bipolar Rational = S-curve around the cutoff.",
+      },
     ] },
   // RoundShape — sine→square modulator (getSineToSquare). Separate from full Ellipsoid osc.
   // Face: cheap static orbit outline (filter-curve family), not phosphor trace.
@@ -3126,7 +3186,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Wave", "Sine", "Tri", "Saw", "Ramp", "Trisaw", "Square", "Center Square"],
     parameters: [
       {
-        choices: ["Sine", "Tri", "Saw", "Ramp", "Trisaw", "Square", "CenterSquare"],
+        choices: ["Sine", "Triangle", "Saw", "Ramp", "Trisaw", "Square", "CenterSquare"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -3586,7 +3646,7 @@ const nodeGraphModuleDefinitions = (
       { key: "circles", label: "Circles", defaultValue: "0.5", min: "0.0001", mid: "0.5", max: "0.9999", step: "0.0001" },
       { key: "zoom", label: "Zoom", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "rotation", label: "Rotation", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
-      { key: "tri", label: "Tri", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
+      { key: "tri", label: "Triangle", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ]
   },
@@ -4025,7 +4085,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Wave", "Saw", "Square", "Tri", "Sine", "Synced", "Internal Sync"],
     parameters: [
       {
-        choices: ["Saw", "Square", "Tri", "Sine"],
+        choices: ["Saw", "Square", "Triangle", "Sine"],
         defaultValue: "0",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -4046,24 +4106,24 @@ const nodeGraphModuleDefinitions = (
   // Port of soemdsp DistortionOscillator — soft-shaped multi-wave (Softwave).
   softwaveOsc: {
     planRole: "source",
-    layout: "softwaveOsc",
     chrome: "LayoutA",
-    customDisplayArea: true,
-    displayType: "softwaveOscFace",
+    displayType: "scope1dTrace",
     displayHeightGu: 4,
     spectrumCompanion: false,
     displayModes: [
       {
-        key: "face",
-        label: "Face",
-        renderer: "softwaveOscFace",
-        settingsSchema: "softwaveOscFace" },
+        key: "scope1dTrace",
+        label: "1D Trace",
+        renderer: "scope1dTrace",
+        settingsSchema: "scope1dTrace",
+        source: { value: "Out" },
+      },
     ],
-    defaultDisplayMode: "face",
-    // Static one-cycle face — not a live scope (see softwave-osc-display.js).
+    defaultDisplayMode: "scope1dTrace",
+    displaySignals: [{ key: "Out", kind: "scalar" }],
     defaultDisplaySettings: {
-      lineThickness: 3,
-      showDot: true },
+      sourceSync: true,
+    },
     // Morph / Phase are parameters (+ MOD), not SIGNAL IN jacks.
     inputs: ["Reset", "f"],
     inputLabels: { f: "ƒ" },
@@ -4106,7 +4166,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "0.001",
         smoothingType: "papoulis",
-        tooltip: "Tri: 0 = sine, 1 = triangle. Same shape at every pitch. Other waveforms still use Softwave drive (Morph⁴ × sine_amp)."
+        tooltip: "Triangle: 0 = sine, 1 = triangle. Same shape at every pitch. Other waveforms still use Softwave drive (Morph⁴ × sine_amp)."
       },
       {
         defaultValue: "0",
@@ -4135,7 +4195,7 @@ const nodeGraphModuleDefinitions = (
           "Output level. Slider 0…1 = full-scale bipolar wave. Min/max are guides only." },
     ]
   },
-  // Same-phasor Morph: sine (0) ↔ PolyBLEP saw (1). No filter.
+  // PolyBLEP shapes + pitch-tracking one-pole Morph (Poles 1…4, fundamental makeup).
   filterMorphOscillator: {
     planRole: "source",
     displayType: "lineBurn",
@@ -4151,12 +4211,27 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { f: "ƒ" },
     inputAliases: { "ƒ": "f" },
     inputTooltips: {
-      Reset: "Rising edge snaps the phasor so Wave sits at the Phase offset.",
+      Reset: "Rising edge snaps the phasor so Wave sits at the Phase offset; clears the Morph filter state.",
       f: "Absolute Hz. Replaces Frequency when wired." },
     outputAliases: { Out: "Wave", "Wave Out": "Wave", Mono: "Wave" },
     outputChannels: { Wave: "green" },
     outputs: ["Wave"],
     parameters: [
+      {
+        choices: ["Saw", "Ramp", "Trisaw", "Triangle", "Center Square", "Pulse", "Asym Sine"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "waveform",
+        label: "Waveform",
+        linearSmoothing: false,
+        max: "6",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "PolyBLEP source into Morph. Asym Sine is 2× per wrap; phasor runs at ƒ/2."
+      },
       {
         defaultValue: "1",
         key: "morph",
@@ -4165,7 +4240,19 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "0 = sine, 1 = PolyBLEP saw. Mix of the two period functions. Same Morph is the same shape at every pitch." },
+        tooltip: "0 = dark (~0.5×ƒ one-pole cascade). 1 = open (~100×ƒ, clamped to Nyquist). Makeup holds the fundamental." },
+      {
+        choices: ["1", "2", "3", "4"],
+        defaultValue: "1",
+        displayChoices: true,
+        key: "poles",
+        label: "Poles",
+        linearSmoothing: false,
+        max: "4",
+        mid: "2",
+        min: "1",
+        step: "1",
+        tooltip: "One-pole cascade depth for Morph. 1 = 6 dB/oct, 4 = 24 dB/oct toward sine-ish." },
       {
         defaultValue: "100",
         key: "frequency",
@@ -7992,10 +8079,19 @@ const nodeGraphModuleDefinitions = (
     ],
     defaultDisplayMode: "face",
     layout: "sliderWidget",
+    // Visible jack labels: → in, ← Bias out (port id stays Bias);
+    // Gate/Trigger show the app-wide ▮ / ⎍ glyphs automatically.
+    layoutBPortLabels: true,
     inputs: ["In"],
-    inputLabels: { In: "In" },
-    outputs: ["Bias"],
-    outputLabels: { Bias: "Bias" },
+    inputLabels: { In: "→" },
+    // Gate/Trigger are appended after Bias so saved cables keep their ports.
+    digitalOutputs: ["Gate", "Trigger"],
+    outputs: ["Bias", "Gate", "Trigger"],
+    outputLabels: { Bias: "←", Gate: "Gate", Trigger: "Trigger" },
+    outputTooltips: {
+      Bias: "Bias: the Off/On value set by Parameter Settings min/max.",
+      Gate: "1 while the toggle is on, 0 otherwise.",
+      Trigger: "Short 0→1 pulse (one audio block) when the toggle turns on." },
     parameters: nodeGraphControllerButtonModuleParameters() },
   momentaryButton: {
     planRole: "source",
@@ -8015,10 +8111,19 @@ const nodeGraphModuleDefinitions = (
     ],
     defaultDisplayMode: "face",
     layout: "sliderWidget",
+    // Visible jack labels: → in, ← Bias out (port id stays Bias);
+    // Gate/Trigger show the app-wide ▮ / ⎍ glyphs automatically.
+    layoutBPortLabels: true,
     inputs: ["In"],
-    inputLabels: { In: "In" },
-    outputs: ["Bias"],
-    outputLabels: { Bias: "Bias" },
+    inputLabels: { In: "→" },
+    // Gate/Trigger are appended after Bias so saved cables keep their ports.
+    digitalOutputs: ["Gate", "Trigger"],
+    outputs: ["Bias", "Gate", "Trigger"],
+    outputLabels: { Bias: "←", Gate: "Gate", Trigger: "Trigger" },
+    outputTooltips: {
+      Bias: "Bias: the Off/On value set by Parameter Settings min/max.",
+      Gate: "1 while the button is held, 0 otherwise.",
+      Trigger: "Short 0→1 pulse (one audio block) when the button is pressed." },
     parameters: nodeGraphControllerButtonModuleParameters() },
   passiveFilter: {
     planRole: "processor",
@@ -12591,6 +12696,21 @@ const nodeGraphModuleDefinitions = (
         step: "1",
         tooltip: "Delay-line fractional read. Linear (default). Hidden — enable from the parameter visibility menu." },
       {
+        choices: ["PingPong Off", "Left Right", "Left Middle Right"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "pingPong",
+        label: "Mode",
+        linearSmoothing: false,
+        max: "2",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "PingPong Off = parallel stereo delay. Left Right = L→R bounce. Left Middle Right = taps at T / 2T / 3T panned L, center, R."
+      },
+      {
         control: "number",
         defaultValue: "1",
         key: "timeNumerator",
@@ -15017,13 +15137,23 @@ const nodeGraphModuleDefinitions = (
       {
         defaultValue: "0.5",
         key: "decay",
-        label: "Decay",
+        label: "Decay 1",
         max: "1",
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Fall length (Thump-style). 0 = short, 0.5 = default, 1 = long. Exp feedback into fall rate (pluck envelope 1)." },
+        tooltip: "Attenuverter Amount into Release (reversed). 0 = amplitude 1, 1 = amplitude 0." },
+      {
+        defaultValue: "0.5",
+        key: "decay2",
+        label: "Decay 2",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Attenuverter Offset into Release. 0 = offset +0.5, 1 = offset −0.5. Default 0.5 is offset 0." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -15033,7 +15163,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false },
+        modClamp: false,
+        tooltip: "Scales Trigger into Inertial In. Lower than current env falls with Release." },
     ] },
   flowerChildEnvelopeFollower: {
     planRole: "processor",
@@ -16466,9 +16597,9 @@ const nodeGraphModuleDefinitions = (
       backgroundBrightness: 0,
     },
     uniqueInPatch: true,
-    // Capture Mono/Left/Right for stereo Trace (scope rings). Instant Waterfall is
-    // fed from the post-Volume/Pan bus so the face shows Volume's effect (not
-    // the pre-gain wires). Without visualSink the face stayed blank.
+    // Capture Mono/Left/Right for stereo Trace (scope rings). Instant Waterfall
+    // shows the arrival mix (mono folded into L/R, pan applied) and ignores
+    // Volume. Speaker audio still uses Volume. Without visualSink the face stayed blank.
     visualSink: true,
     visualInputs: [
       { key: "outputMono", label: "Mono", port: "Mono" },

@@ -142,6 +142,7 @@ NodeLiveAudioProcessor.prototype.destroyVactrolEnvelopeNativeState = function de
     }
 };
 
+
 NodeLiveAudioProcessor.prototype.destroySampleHoldNativeState = function destroySampleHoldNativeState(state) {
     if (state.nativeHandle && this.nativeSampleHold?.soemdsp_sample_hold_destroy) {
       this.nativeSampleHold.soemdsp_sample_hold_destroy(state.nativeHandle);

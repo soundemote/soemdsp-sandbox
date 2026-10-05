@@ -847,13 +847,6 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
         this.slewLimiterStates.delete(id);
       }
     }
-    if (this.speakerProtector2States) {
-      for (const id of [...this.speakerProtector2States.keys()]) {
-        if (!ids.has(id)) {
-          this.speakerProtector2States.delete(id);
-        }
-      }
-    }
     for (const id of [...this.expAdsrStates.keys()]) {
       if (!ids.has(id)) {
         this.destroyExpAdsrNativeState(this.expAdsrStates.get(id));

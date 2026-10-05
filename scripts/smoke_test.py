@@ -152,7 +152,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/numberReadout/number-readout-register.js",
     "./public/modules/theremin/theremin-register.js",
     "./public/modules/theremin/theremin-ui.js",
-    "./public/modules/crossfade/crossfade-math.js",
     "./public/modules/valueLcd/value-lcd-register.js",
     "./public/modules/rayBouncer/ray-bouncer-register.js",
     "./public/modules/stepGrid/step-grid-register.js",
@@ -330,7 +329,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/metamodule/metamodule-display-mirror.js",
     "./public/modules/metamodule/metamodule-ui.js",
     "./public/modules/patch/patch-ui.js",
-    "./public/modules/portal/portal-math.js",
     "./public/modules/portal/portal-live-evaluator.js",
     "./public/modules/portal/portal-settings.js",
     "./public/modules/portal/portal-ui.js",
@@ -360,7 +358,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-metadata-editor.js",
     "./public/node-graph-render-settings.js",
     "./public/node-graph-semath.js",
-    "./public/modules/speakerProtector2/speaker-protector-2-math.js",
     "./public/node-graph-ear-protection.js",
     "./public/node-graph-patch-load-fault.js",
     "./public/node-graph-debug-console.js",
@@ -439,8 +436,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/softwaveOsc/softwave-osc-math.js",
     "./public/lib/visual/cycle-line-gl.js",
     "./public/modules/softwaveOsc/softwave-osc-display.js",
-    "./public/modules/curveOsc/curve-osc-math.js",
-    "./public/modules/snowflake/snowflake-math.js",
     "./public/modules/asciiscope/asciiscope-core.js",
     "./public/modules/asciiscope/asciiscope-gl.js",
     "./public/modules/asciiscope/asciiscope-display.js",
@@ -459,7 +454,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/metamodule/metamodule-live-evaluator.js",
     "./public/node-graph-chord-sequencer.js",
     "./public/node-graph-lut-cell.js",
-    "./public/modules/metallicRatio/metallic-ratio-math.js",
     "./public/node-graph-metallic-ratio.js",
     "./public/modules/harmonicSeries/harmonic-series-math.js",
     "./public/node-graph-stdlib/node-graph-analog-filter-helpers.js",
@@ -472,40 +466,18 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/_shared/output-amplitude.js",
     "./public/modules/_shared/display-thru-live-evaluators.js",
     "./public/modules/imageBurn/image-burn-live-evaluator.js",
-    "./public/modules/logisticMap/logistic-map-math.js",
-    "./public/modules/henonMap/henon-map-math.js",
-    "./public/modules/chuaAttractor/chua-attractor-math.js",
     "./public/modules/harmonicSeries/harmonic-series-display.js",
     "./public/modules/passiveFilter/passive-filter-math.js",
     "./public/modules/activeFilter/active-filter-math.js",
-    "./public/modules/comparator/comparator-math.js",
-    "./public/modules/sampleDelay/sample-delay-math.js",
-    "./public/modules/minMax/min-max-math.js",
-    "./public/modules/bitConverter/bit-converter-math.js",
-    "./public/modules/robinSinusoid/robin-sinusoid-math.js",
     "./public/modules/phoneTone/phone-tone-math.js",
     "./public/modules/pitchManager/pitch-manager-live-evaluator.js",
     "./public/modules/phoneTone/phone-tone-display.js",
-    "./public/modules/tSeries/t-series-math.js",
     "./public/modules/wallDelay/wall-delay-room-display.js",
-    "./public/modules/noiseDetector/noise-detector-math.js",
     "./public/modules/rms/rms-math.js",
-    "./public/modules/midSideEncode/mid-side-encode-math.js",
-    "./public/modules/quadrature/quadrature-math.js",
-    "./public/modules/hilbert/hilbert-math.js",
-    "./public/modules/lookaheadLimiter/lookahead-limiter-math.js",
-    "./public/modules/inertialFilter/inertial-filter-math.js",
-    "./public/modules/tiltFilter/tilt-filter-math.js",
     "./public/modules/eqFilter/eq-filter-math.js",
     "./public/modules/scientificIir/scientific-iir-math.js",
     "./public/modules/crossover/crossover-math.js",
-    "./public/modules/modeResonator/mode-resonator-math.js",
-    "./public/modules/combResonator/comb-resonator-math.js",
-    "./public/modules/waveguide/waveguide-math.js",
     "./public/modules/phaseDisperse/phase-disperse-math.js",
-    "./public/modules/bode/bode-math.js",
-    "./public/modules/stftBlur/stft-blur-math.js",
-    "./public/modules/sampleHold/sample-hold-math.js",
     "./public/modules/expAdsr/exp-adsr-math.js",
     "./public/modules/additiveGraph/additive-mod-control.js",
     "./public/modules/attackDecay/attack-decay-math.js",
@@ -515,21 +487,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/curveAttackRelease/curve-attack-release-math.js",
     "./public/modules/pluckEnvelope/pluck-envelope-circuit-math.js",
     "./public/modules/pingEnvelope/ping-envelope-math.js",
-    "./public/modules/lorenzAttractor/lorenz-attractor-math.js",
-    "./public/modules/noiseGenerator/noise-generator-math.js",
-    "./public/modules/softpopOscillator/softpop-oscillator-math.js",
-    "./public/modules/sinepulse/sinepulse-math.js",
     "./public/modules/kickEnvelope/kick-envelope-math.js",
-    "./public/modules/sineKick/sine-kick-math.js",
-    "./public/modules/randomWalk/random-walk-math.js",
-    "./public/modules/cheapWalk/cheap-walk-math.js",
-    "./public/modules/clock/clock-math.js",
-    "./public/modules/simulationTime/simulation-time-math.js",
     "./public/modules/transport/transport-math.js",
-    "./public/modules/randomClock/random-clock-math.js",
-    "./public/modules/delayedTrigger/delayed-trigger-math.js",
-    "./public/modules/triggerCounter/trigger-counter-math.js",
-    "./public/modules/triggerDivider/trigger-divider-math.js",
     "./public/modules/sequencer/sequencer-math.js",
     "./public/modules/sequencer/sequencer-ui.js",
     "./public/modules/arp/arp-settings.js",
@@ -538,21 +497,13 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/keyboardController/keyboard-controller-live-evaluator.js",
     "./public/modules/gridKeyboard/grid-keyboard.js",
     "./public/modules/gain/gain-math.js",
-    "./public/modules/mixStereo/mix-stereo-math.js",
     "./public/modules/rgbFractal/rgb-fractal-math.js",
-    "./public/modules/bias/bias-math.js",
-    "./public/modules/attenuverter/attenuverter-math.js",
-    "./public/modules/attenumax/attenumax-math.js",
-    "./public/modules/range/range-math.js",
     "./public/modules/softClipper/soft-clipper-display.js",
-    "./public/modules/tubeSaturation/tube-saturation-math.js",
-    "./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js",
     "./public/modules/vectorscopeTransform/vectorscope-transform-math.js",
     "./public/modules/speedColorInertia/speed-color-inertia-math.js",
     "./public/modules/badvalMonitor/badval-monitor-ui.js",
     "./public/modules/helmholtzPitch/helmholtz-pitch-ui.js",
     "./public/lib/sample-interpolate.js",
-    "./public/modules/audioPlayer/audio-player-math.js",
     "./public/modules/basicShape/basic-shape-display.js",
     "./public/modules/sinCos/sin-cos-display.js",
     "./public/modules/sineWavetable/sine-wavetable-display.js",
@@ -4428,6 +4379,17 @@ def require_render_sample_native_only() -> None:
         "outs2.f = cv.frequency" in sidecar_src,
         "controller sidecar pass2 must keep Keyboard ƒ publish",
     )
+    # Speaker Protector 2 runs only in native C++ (C-001): no JS twin, Render
+    # Sample ear protect goes through speaker_protector2 process_block.
+    ear_protection_source = (PUBLIC / "node-graph-ear-protection.js").read_text(encoding="utf-8")
+    require(
+        not (PUBLIC / "modules" / "speakerProtector2").exists()
+        and "speakerProtector2/" not in eff_block
+        and "createNodeGraphNativeEarProtector(engineSampleRate)" in render_source
+        and "soemdsp_speaker_protector2_process_block" in ear_protection_source
+        and "nodeGraphSpeakerProtector2" not in render_source + ear_protection_source + dsp_state,
+        "Speaker Protector 2 must run only in native C++ (no JS math file; Render Sample via process_block)",
+    )
 
 
 def require_xy_pad_interaction_contract() -> None:
@@ -4642,7 +4604,6 @@ def require_node_graph_mvp_contract() -> None:
     noise_detector_definition_source = node_graph_module_definitions_source[
         noise_detector_definition_start:noise_detector_definition_end
     ]
-    noise_detector_math_source = (PUBLIC / "modules" / "noiseDetector" / "noise-detector-math.js").read_text(encoding="utf-8")
     require(
         "noiseDetector: \"Noise Detector\"" in node_graph_module_definitions_source
         and 'inputs: ["Mono", "Left", "Right"]' in noise_detector_definition_source
@@ -4650,7 +4611,6 @@ def require_node_graph_mvp_contract() -> None:
         and '"Gate"' in noise_detector_definition_source
         and 'defaultValue: "0.9"' in noise_detector_definition_source
         and 'mid: "0.9"' in noise_detector_definition_source
-        and "function nodeGraphNoiseDetectorNsdfPeak" in noise_detector_math_source
         and "nodeGraphLiveModuleEvaluators.noiseDetector" in script_sources["./public/modules/noiseDetector/noise-detector-live-evaluator.js"],
         "Noise Detector should be a stereo thru analyzer with NSDF fidelity + threshold gate",
     )
@@ -4865,10 +4825,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'category: "digital"' in script_sources["./public/node-graph-module-store.js"]
         and 'inputs: ["In", "Analog", "Digital"]' in script_sources["./public/node-graph-module-definitions.js"]
         and "digitalInputs: [\"Digital\"]" in script_sources["./public/node-graph-module-definitions.js"]
-        and "function nodeGraphTSeriesSample" in script_sources["./public/modules/tSeries/t-series-math.js"]
-        and "function nodeGraphTSeriesMuxSample" in script_sources["./public/modules/tSeries/t-series-math.js"]
         and "NODE_GRAPH_T_SERIES_TYPES" in script_sources["./public/modules/tSeries/t-series-live-evaluator.js"]
-        and "NODE_GRAPH_T_SERIES_MUX_TYPES" in script_sources["./public/modules/tSeries/t-series-math.js"]
         and "gate2" not in script_sources["./public/node-graph-module-definitions.js"]
         and "numberGate" not in script_sources["./public/node-graph-module-definitions.js"]
         and "gate12" not in script_sources["./public/node-graph-default-patch.js"],
@@ -9545,14 +9502,13 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphOutputClipCountText(count = 0)",
         "function nodeGraphClampOutputSample(value)",
         "function nodeGraphOutputSampleClipped(value)",
-        "function nodeGraphOutputSampleTripsEarProtection(value)",
         "Math.abs(number) > 1",
         "!Number.isFinite(Number(value))",
         "function nodeGraphOnePoleHighPassCoefficients(frequency, sampleRate)",
         "0.000142475857",
         "const b0 = 0.5 * (1 + a1)",
         "return { a1, b0, b1: -b0 }",
-        "function createNodeGraphEarProtector(sampleRate = nodeGraphMvp.sampleRate",
+        "async function createNodeGraphNativeEarProtector(sampleRate = nodeGraphMvp?.sampleRate)",
         "function nodeGraphEarProtectionIsTripped()",
         "function nodeGraphTripEarProtection(details = {})",
         "globalThis.nodeGraphEarProtectionDetails = { ...details }",
@@ -10247,20 +10203,13 @@ def require_node_graph_mvp_contract() -> None:
         "function spiralNextPhasor(state, key, frequency, offset, sampleRate, bipolar = false)",
         "spiralStates",
         "lorenzAttractorStates",
-        "function createNodeGraphLowpassState()",
         "function createNodeGraphOscResetState()",
         "function createNodeGraphThumpEnvelopeState()",
-        "function createNodeGraphClockState()",
-        "function createNodeGraphDelayedTriggerState()",
-        "function createNodeGraphSampleHoldState()",
         "function createNodeGraphStepSequencerState()",
-        "function createNodeGraphTriggerCounterState()",
         "function createNodeGraphTriggerDividerState()",
         "function createNodeGraphExpAdsrState()",
         "function createNodeGraphLinearEnvelopeState()",
         "function createNodeGraphFlowerChildEnvelopeFollowerState()",
-        "function createNodeGraphNoiseGeneratorState()",
-        "function createNodeGraphRandomWalkState()",
         "function createNodeGraphFractalBrownianNoiseState()",
         "const nodeGraphBadValueExplosionLimit = 999999999",
         "const nodeGraphBadValueDenormalLimit = 1.1754943508222875e-38",
@@ -10289,13 +10238,10 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphLadderFilterCoefficients(frequency, resonance, mode, stages, sampleRate, runtime = null, nodeId = \"\", state = null)",
         "nodeGraphLadderFilterComputeFeedbackFactor",
         "y[0] = coeff.g * safeInput - coeff.k * y[4]",
-        "function nodeGraphClockAnalogWhipSample(phase, level)",
         "function nodeGraphClockSample(state, reset, phaseOffset, rate, duty, level, sampleRate, runtime = null, nodeId = \"\")",
         "const safePhaseOffset = wrapNodeSliderValue(",
-        "const analog = nodeGraphClockAnalogWhipSample(phase, safeLevel)",
         "const pulse = safeRate > 0 && !resetActive && (!state.hasStarted || nextRawPhase < rawPhase) ? safeLevel : 0",
         "Pulse: pulse",
-        "function createNodeGraphRandomClockState()",
         "function nodeGraphRandomClockSample(state, reset, params, sampleRate, runtime = null, nodeId = \"\")",
         "function nodeGraphDelayedTriggerSample(state, trigger, reset, params, sampleRate, runtime = null, nodeId = \"\")",
         "function nodeGraphSampleHoldSample(state, input, trigger, threshold, sampleFrequency, sampleRate, hasInConnected, runtime = null, nodeId = \"\")",
@@ -10423,8 +10369,8 @@ def require_node_graph_mvp_contract() -> None:
         "function setNodeGraphAudioStats(peak = 0, rms = 0, details = {})",
         "audioStats.dataset.renderFrames = String(frames)",
         "audioStats.dataset.renderStateReads = String(stateReadCount)",
-        "const earProtector = createNodeGraphEarProtector(engineSampleRate)",
-        "const protectedFrame = earProtector.protect(frameOutput.left, frameOutput.right)",
+        "const earProtector = await createNodeGraphNativeEarProtector(engineSampleRate)",
+        "protectionMuteCount += earProtector.processBlock(blockFrames)",
         "protectionMuteCount += Number(runtime.speakerProtectionMuteCount) || 0",
         "nodeGraphTripEarProtection({",
         "source: \"render\"",
@@ -10693,10 +10639,8 @@ def require_node_graph_mvp_contract() -> None:
         "state.targetChunks = Math.min(",
         "protected ${protectionMuteCount}",
         "nodeGraphOutputSampleClipped(frameOutput.left)",
-        "nodeGraphOutputSampleTripsEarProtection(frameOutput.left)",
         "source: \"live output > 1.0\"",
         "nodeGraphClampOutputSample(protectedFrame.left)",
-        "runtime.earProtector?.protect(frameOutput.left, frameOutput.right)",
         "nodeGraphTripEarProtection({",
         "runtime.meterClipCount",
         "runtime.meterProtectionMuteCount",
@@ -12964,7 +12908,6 @@ def require_node_graph_mvp_contract() -> None:
             module_definitions_source.index("softClipper: {")
         ]
         and "Object.hasOwn(parameter, \"spawnValue\")" in script_sources["./public/node-graph-parameter-metadata.js"]
-        and "nodeGraphAttenuverterSample" in "\n".join(script_sources.values())
         and 'nodeGraphLiveModuleEvaluators.attenuverter' in "\n".join(script_sources.values()),
         "Attenuverter should be In/Out * amplitude + offset with bipolar rational amplitude",
     )
@@ -17292,12 +17235,9 @@ def require_node_graph_mvp_contract() -> None:
         "this.lastBadValueReason = \"\"",
         "this.lastBadValueNodeId = \"\"",
         "this.lastBadValueSource = \"\"",
-        "this.earProtector = this.createEarProtector(sampleRate)",
-        "createEarProtector(rate = sampleRate)",
         "const b0 = 0.5 * (1 + a1)",
         "const b1 = -b0",
         "outputSampleClipped(value)",
-        "outputSampleTripsEarProtection(value)",
         "badValueReason(value)",
         "scopeScalarValue(value)",
         "captureModuleScopeFrame(frameValues = null, frame = 0, frames = 1)",
@@ -17564,8 +17504,8 @@ def require_node_graph_mvp_contract() -> None:
         "b0 * safeInput + a1 * state.outputBuffer",
         "evaluateFrame(frame, frames, inputs = [], rate = this.engineSampleRate || sampleRate, inputFrame = frame)",
         "const engineFrames = frames * oversamplingRatio",
-        "left: useRaptEllipticDecimator ? decimatedLeft : leftSum / oversamplingRatio",
-        "right: useRaptEllipticDecimator ? decimatedRight : rightSum / oversamplingRatio",
+        "this.decimateNativeRaptEllipticChannel(",
+        "soemdsp_rapt_elliptic_decimator_process",
         "readRuntimeOutput(frameValues, nodeId, port = \"Out\")",
         "output[port] ?? output.Out",
         "readRuntimePortOutput(frameValues, nodeId, port = \"Out\"",
@@ -17693,7 +17633,6 @@ def require_node_graph_mvp_contract() -> None:
         'left: (outputMono + mixInput(this.outputNode || "output", "Left")) * outputVolume',
         'right: (outputMono + mixInput(this.outputNode || "output", "Right")) * outputVolume',
         "modulation.sourcePort",
-        "const protectedFrame = this.earProtector.protect(frameOutput.left, frameOutput.right)",
         "this.clampValue(protectedFrame.left, -0.95, 0.95)",
         "for (const channel of output)",
     ]:
@@ -18064,6 +18003,13 @@ def require_native_module_contract(base_url: str) -> None:
     )
 
     expected_native_exports = {
+        "rapt_elliptic_decimator": [
+            "soemdsp_rapt_elliptic_decimator_create",
+            "soemdsp_rapt_elliptic_decimator_destroy",
+            "soemdsp_rapt_elliptic_decimator_reset",
+            "soemdsp_rapt_elliptic_decimator_process",
+            "soemdsp_rapt_elliptic_decimator_version",
+        ],
         "pluck_envelope_fb": [
             "soemdsp_pluck_envelope_fb_create",
             "soemdsp_pluck_envelope_fb_destroy",
@@ -18739,6 +18685,10 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_speaker_protector2_destroy",
             "soemdsp_speaker_protector2_sample",
             "soemdsp_speaker_protector2_gain",
+            "soemdsp_speaker_protector2_block_left_ptr",
+            "soemdsp_speaker_protector2_block_right_ptr",
+            "soemdsp_speaker_protector2_max_block_frames",
+            "soemdsp_speaker_protector2_process_block",
             "soemdsp_speaker_protector2_version",
         ],
         "amp_curve": [
@@ -18998,7 +18948,6 @@ def require_native_module_contract(base_url: str) -> None:
         and "this.nativeGain?.soemdsp_gain_sample" in worklet_source
         and 'name === "lookahead_limiter" || targetType === "lookaheadLimiter"' in worklet_source
         and "this.nativeLookaheadLimiter?.soemdsp_lookahead_limiter_sample" in worklet_source
-        and "function nodeGraphPumpingLimiterFrame" in (PUBLIC / "modules" / "lookaheadLimiter" / "lookahead-limiter-math.js").read_text(encoding="utf-8")
         and 'limiter: "Pump Limiter"' in (PUBLIC / "node-graph-module-definitions.js").read_text(encoding="utf-8")
         and 'lookaheadLimiter: "Brickwall Limiter"' in (PUBLIC / "node-graph-module-definitions.js").read_text(encoding="utf-8")
         and 'label: "Brickwall Limiter"' in (PUBLIC / "node-graph-module-store.js").read_text(encoding="utf-8"),

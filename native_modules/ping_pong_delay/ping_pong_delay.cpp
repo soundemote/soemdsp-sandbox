@@ -593,12 +593,48 @@ static void process_one(PingPongDelayState& s, double inputL, double inputR) {
   const double readL = interpolate_linear(s.bufferL, s.bufferSize, readLRaw);
   const double readR = interpolate_linear(s.bufferR, s.bufferSize, readRRaw);
 
-  // Off: parallel (same-side feedback). On: L gets dry + bounced R; R is
-  // bounce-only so identical L/R dry (Mono) still L→R→L instead of staying
-  // locked in stereo unison.
-  const bool pong = s.livePingPong >= 0.5;
-  const double fbInL = pong ? (effectL + readR * safeFeedback) : (effectL + readL * safeFeedback);
-  const double fbInR = pong ? (readL * safeFeedback) : (effectR + readR * safeFeedback);
+  int mode = (int)(safe(s.livePingPong) + (s.livePingPong >= 0.0 ? 0.5 : -0.5));
+  if (mode < 0) mode = 0;
+  if (mode > 2) mode = 2;
+
+  double fbInL = effectL + readL * safeFeedback;
+  double fbInR = effectR + readR * safeFeedback;
+  double wetL = readL;
+  double wetR = readR;
+  if (mode == 1) {
+    // Left Right: L gets dry + bounced R; R is bounce-only so Mono still L→R→L.
+    fbInL = effectL + readR * safeFeedback;
+    fbInR = readL * safeFeedback;
+  } else if (mode == 2) {
+    // Left Middle Right: taps at T (L), 2T (center), 3T (R); feedback from 3T.
+    const double cap = (double)(s.bufferSize - 2);
+    double d2L = delaySamplesL * 2.0;
+    double d3L = delaySamplesL * 3.0;
+    double d2R = delaySamplesR * 2.0;
+    double d3R = delaySamplesR * 3.0;
+    if (d2L > cap) d2L = cap;
+    if (d3L > cap) d3L = cap;
+    if (d2R > cap) d2R = cap;
+    if (d3R > cap) d3R = cap;
+    double raw2L = (double)s.position + (double)s.bufferSize - d2L;
+    double raw3L = (double)s.position + (double)s.bufferSize - d3L;
+    double raw2R = (double)s.position + (double)s.bufferSize - d2R;
+    double raw3R = (double)s.position + (double)s.bufferSize - d3R;
+    raw2L = raw2L - (double)s.bufferSize * dsp_floor(raw2L / (double)s.bufferSize);
+    raw3L = raw3L - (double)s.bufferSize * dsp_floor(raw3L / (double)s.bufferSize);
+    raw2R = raw2R - (double)s.bufferSize * dsp_floor(raw2R / (double)s.bufferSize);
+    raw3R = raw3R - (double)s.bufferSize * dsp_floor(raw3R / (double)s.bufferSize);
+    const double tap2L = interpolate_linear(s.bufferL, s.bufferSize, raw2L);
+    const double tap3L = interpolate_linear(s.bufferL, s.bufferSize, raw3L);
+    const double tap2R = interpolate_linear(s.bufferR, s.bufferSize, raw2R);
+    const double tap3R = interpolate_linear(s.bufferR, s.bufferSize, raw3R);
+    const double mid = 0.5 * (tap2L + tap2R);
+    fbInL = effectL + tap3L * safeFeedback;
+    fbInR = effectR + tap3R * safeFeedback;
+    wetL = readL + 0.5 * mid;
+    wetR = tap3R + 0.5 * mid;
+  }
+
   const double clippedL = soft_clip_run(
     fbInL, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
   const double clippedR = soft_clip_run(
@@ -612,8 +648,8 @@ static void process_one(PingPongDelayState& s, double inputL, double inputR) {
 
   s.bufferL[s.position] = (float)clamp(writeL, -8.0, 8.0);
   s.bufferR[s.position] = (float)clamp(writeR, -8.0, 8.0);
-  s.wetL = readL;
-  s.wetR = readR;
+  s.wetL = wetL;
+  s.wetR = wetR;
 
   s.outLeft = (dryL * (1.0 - safeMix) + s.wetL * safeMix) * safeAmp;
   s.outRight = (dryR * (1.0 - safeMix) + s.wetR * safeMix) * safeAmp;
@@ -780,5 +816,5 @@ extern "C" int soemdsp_ping_pong_delay_memory_generation() {
 }
 
 extern "C" int soemdsp_ping_pong_delay_version() {
-  return 17; // Send removed; effect path takes full input
+  return 18; // Mode: Off / Left Right / Left Middle Right
 }

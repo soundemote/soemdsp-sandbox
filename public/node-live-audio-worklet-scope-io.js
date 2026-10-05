@@ -66,8 +66,8 @@ NodeLiveAudioProcessor.prototype.compileScopeCapture = function compileScopeCapt
     for (let i = 0; i < captureNodeIds.length; i += 1) {
       const nodeId = captureNodeIds[i];
       const captureType = String(this.nodes.get(nodeId)?.type || "");
-      // Output Instant Waterfall uses visual-sink L/R rings (post-Volume bus), not
-      // aggregate nodeOutputs — see writeOutputVisualSinkSample.
+      // Output Instant Waterfall uses visual-sink L/R rings fed from the
+      // pre-Volume arrival mix — see mixOutputDisplayArrival.
       if (captureType === "output") {
         continue;
       }
@@ -161,18 +161,23 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
         sourceSampleRate: engineRate,
         writeSampleRate: engineRate / visualStride,
       };
-      // Output Instant Waterfall must show post-Volume/Pan bus (what Volume does),
-      // not the pre-gain wires into Mono/Left/Right.
+      // Output face: arrival mix (mono folded in, pan applied). Volume is audio-only.
       const sinkType = String(sink.type || this.nodes.get(sink.nodeId)?.type || "");
       if (sinkType === "output") {
-        const bus = this.nodeOutputs?.get?.(sink.nodeId) || null;
-        const left = Number(bus?.Left);
-        const right = Number(bus?.Right);
-        const mono = Number(bus?.Mono);
-        const l = Number.isFinite(left) ? left : 0;
-        const r = Number.isFinite(right) ? right : l;
-        const m = Number.isFinite(mono) ? mono : (l + r) * 0.5;
-        this.writeOutputVisualSinkSample?.(sink, m, l, r, rateMeta);
+        const mixed = this.mixOutputDisplayArrival?.(sink, (connection) => this.readRuntimePortOutput(
+          frameValues,
+          connection.sourceNode,
+          connection.sourcePort,
+          frame,
+          frames,
+        ));
+        this.writeOutputVisualSinkSample?.(
+          sink,
+          mixed?.mono,
+          mixed?.left,
+          mixed?.right,
+          rateMeta,
+        );
         continue;
       }
       let value = 0;
@@ -211,7 +216,51 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
     }
 };
 
-/** Write Output Instant Waterfall rings from post-Volume L/R (and Mono). */
+
+/** Equal-power pan, same law as graph_engine pan_gains. Display only. */
+NodeLiveAudioProcessor.prototype.outputDisplayPanGains = function outputDisplayPanGains(pan) {
+    const raw = Number(pan);
+    const p = Number.isFinite(raw) ? Math.max(-1, Math.min(1, raw)) : 0;
+    if (p <= 0) {
+      return { left: 1, right: Math.cos(-p * Math.PI * 0.5) };
+    }
+    return { left: Math.cos(p * Math.PI * 0.5), right: 1 };
+};
+
+/**
+ * Output face mix: cables as they arrive, mono summed into both sides, pan
+ * applied, Volume NOT applied. Speaker audio stays in native process_output.
+ */
+NodeLiveAudioProcessor.prototype.mixOutputDisplayArrival = function mixOutputDisplayArrival(sink, readConnection) {
+    const inputs = sink?.inputs || [];
+    let monoIn = 0;
+    let leftIn = 0;
+    let rightIn = 0;
+    for (let i = 0; i < inputs.length; i += 1) {
+      const input = inputs[i];
+      const connections = input?.connections || [];
+      let inputValue = 0;
+      for (let c = 0; c < connections.length; c += 1) {
+        const sample = Number(readConnection?.(connections[c]));
+        if (Number.isFinite(sample)) inputValue += sample;
+      }
+      const port = String(input?.port || "").trim().toLowerCase();
+      if (port === "left" || port === "l") leftIn += inputValue;
+      else if (port === "right" || port === "r") rightIn += inputValue;
+      else monoIn += inputValue;
+    }
+    const node = this.nodes?.get?.(sink?.nodeId);
+    const gains = this.outputDisplayPanGains(node?.params?.pan);
+    const left = (monoIn + leftIn) * gains.left;
+    const right = (monoIn + rightIn) * gains.right;
+    return {
+      mono: (left + right) * 0.5,
+      left,
+      right,
+    };
+};
+
+/** Write Output Instant Waterfall rings (pre-Volume L/R and Mono). */
 NodeLiveAudioProcessor.prototype.writeOutputVisualSinkSample = function writeOutputVisualSinkSample(
   sink,
   mono,

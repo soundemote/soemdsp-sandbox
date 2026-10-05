@@ -76,9 +76,12 @@ static double morph_factor(double morph) {
   return m4 * 0.999 + 0.001;
 }
 
-static double run_shape(
-  double finalPhase, int shape, double sa, double mf, double morph, double frequencyHz
-) {
+// Two same-polarity lobes per wrap (octave up). Parabol Sine is + then − = one cycle.
+static bool shape_double_period(int shape) {
+  return shape == 0 || shape == 1 || shape == 2 || shape == 6 || shape == 7;
+}
+
+static double run_shape(double finalPhase, int shape, double sa, double mf, double frequencyHz) {
   const double p = wrap01(finalPhase);
   switch (shape) {
     case 0: {
@@ -100,14 +103,11 @@ static double run_shape(
     case 4:
       return soft_tanh(parabol_sine(p) * sa * mf);
     case 5: {
-      // Tri only: Morph 0 = sine, 1 = acos-triangle. Same-phasor mix, no
-      // sine_amp / MIDI scaling, so the shape holds up the keyboard.
-      double m = morph;
-      if (!(m == m) || m < 0.0) m = 0.0;
-      if (m > 1.0) m = 1.0;
-      const double sine = dsp_sin(p * kPi * 2.0);
-      const double tri = soft_acos(clamp11(sine)) / kPi * 2.0 - 1.0;
-      return sine * (1.0 - m) + tri * m;
+      const double t = clamp(mf, 0.0, 1.0);
+      const double adjusted = 0.15 + (1.0 - 0.15) * t;
+      const double scaling = soft_tanh((1.0 - (hz_to_midi(frequencyHz) / 127.0)) * 9.0);
+      return soft_acos(clamp11(dsp_sin(p * kPi * 2.0) * adjusted * scaling))
+        / kPi * 2.0 - 1.0;
     }
     case 6: {
       const double bow = parabol_sine(p);
@@ -172,13 +172,16 @@ extern "C" double soemdsp_softwave_sample(
   // Finite Hz only; allow 0 and negative (thru-zero direction). No silence special case.
   const double f = (frequencyHz * 0.0 == 0.0) ? frequencyHz : 0.0;
   const double rate = sampleRate > 1.0 ? sampleRate : 44100.0;
-  // Amplitude domain is 0…1 — clamp after MOD so Amp=1 + Knob cannot go above 1.
+  // Amplitude is a linear gain. Non-finite falls back to 1; no 0..1 cap.
   double gain = (level * 0.0 == 0.0) ? level : 1.0;
-  if (gain < 0.0) gain = 0.0;
-  if (gain > 1.0) gain = 1.0;
   // incrementIn is cycles/sample, same unit as f/rate.
   const double incIn = (incrementIn == incrementIn) ? incrementIn : 0.0;
-  const double increment = f / rate + incIn;
+  int shape = (int)dsp_floor(waveform + 0.5);
+  if (shape < 0) shape = 0;
+  if (shape > 9) shape = 9;
+  // Halve phasor increment only. Morph / sine_amp / MIDI maps keep user ƒ.
+  double increment = f / rate + incIn;
+  if (shape_double_period(shape)) increment *= 0.5;
   s.phase = wrap01(s.phase + increment);
   const double po = wrap01(phaseOffset);
   const double aa = antialias > 0.0 ? antialias : 0.0;
@@ -186,9 +189,6 @@ extern "C" double soemdsp_softwave_sample(
   if (aa > 0.0) {
     finalPhase = wrap01(finalPhase + aa * 0.0005 * dsp_sin(s.phase * 97.13));
   }
-  int shape = (int)dsp_floor(waveform + 0.5);
-  if (shape < 0) shape = 0;
-  if (shape > 9) shape = 9;
   // Softness helpers use |f| (floor at 1 Hz inside sine_amp / pitch maps).
   const double fAbs = f < 0.0 ? -f : f;
   const double sample = run_shape(
@@ -196,7 +196,6 @@ extern "C" double soemdsp_softwave_sample(
     shape,
     sine_amp(fAbs, rate),
     morph_factor(morph),
-    morph,
     fAbs
   );
   if (!(sample * 0.0 == 0.0)) return 0.0;
@@ -204,7 +203,7 @@ extern "C" double soemdsp_softwave_sample(
 }
 
 extern "C" int soemdsp_softwave_version() {
-  return 5; // Tri Morph: sine↔triangle, pitch-invariant
+  return 7; // Parabol Sine stays 1×; other double-period shapes ƒ/2
 }
 
 extern "C" const char* soemdsp_softwave_metadata_json() {

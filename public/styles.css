@@ -15314,7 +15314,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   pointer-events: none;
 }
 
-.node-filter-curve-canvas {
+.node-filter-curve-canvas,
+.node-softwave-osc-canvas {
   display: block;
   position: static;
   width: 100%;
@@ -15452,7 +15453,9 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 .node-graph-workspace.pixelated-canvas-zoom .node-evolve-field-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-wall-room-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-module-scope-canvas,
-.node-graph-workspace.pixelated-canvas-zoom .node-matrix-display-canvas {
+.node-graph-workspace.pixelated-canvas-zoom .node-matrix-display-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-additive-waveform-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-harmonic-lines-canvas {
   image-rendering: pixelated;
 }
 

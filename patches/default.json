@@ -1,0 +1,239 @@
+{
+  "activeCameraId": "camera-1",
+  "audio": {
+    "oversamplingFactor": 1,
+    "targetSampleRate": 44100,
+    "pitchReferenceMidiNote": 48,
+    "pitchReferenceHz": 100,
+    "speedLimitHz": 22050
+  },
+  "bypassedNodes": [],
+  "cameras": [
+    {
+      "color": "#ff3333",
+      "enabled": true,
+      "height": 488,
+      "id": "camera-1",
+      "midiTrigger": null,
+      "name": "Camera 1",
+      "resolutionHeight": 1080,
+      "resolutionWidth": 1920,
+      "width": 868,
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "codeScreen": {
+    "helpers": [],
+    "patchTools": [],
+    "samples": [],
+    "script": "",
+    "scriptLanguage": "javascript",
+    "slots": [],
+    "ui": []
+  },
+  "connections": [],
+  "format": {
+    "kind": "soemdsp-sandbox-node-patch",
+    "version": 2
+  },
+  "graphConnections": [],
+  "grid": {
+    "heightPx": 28,
+    "sizePx": 28,
+    "widthPx": 28
+  },
+  "info": {
+    "author": "",
+    "bank": 0,
+    "bankName": "",
+    "category": "",
+    "description": "Init — PolyBLEP into Output (same as patches/init.json)",
+    "emoji": "",
+    "name": "default",
+    "program": 0,
+    "tags": "init,default"
+  },
+  "modularOnlyControlsVisible": false,
+  "modulations": [],
+  "nodes": [
+    {
+      "gx": -32,
+      "gy": -19,
+      "id": "output",
+      "paramMeta": {
+        "volume": {
+          "alias": "",
+          "choices": [],
+          "curveAmount": 0,
+          "def": -3,
+          "displayChoices": false,
+          "divideChoicesVisibly": false,
+          "kind": "decibels",
+          "bipolar": false,
+          "max": 0,
+          "maxDigits": 3,
+          "mid": -3,
+          "min": -140,
+          "reverse": false,
+          "nonlinearSlider": true,
+          "sliderCurve": "skew",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "internal",
+          "smoothingSeconds": 0.0333,
+          "smoothingType": "linear",
+          "step": 0,
+          "tooltip": "Speaker level (−∞…0 dB). 0 dB is unity. Default −3 dB. Old patches that stored 0…1 linear Volume are converted on load. Type a dB value (or −inf).",
+          "modClamp": false,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "dB",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": true,
+          "outputDomain": false,
+          "domainOffset": 0
+        },
+        "pan": {
+          "alias": "",
+          "choices": [],
+          "curveAmount": 0,
+          "def": 0,
+          "displayChoices": false,
+          "divideChoicesVisibly": false,
+          "kind": "decimal",
+          "bipolar": true,
+          "max": 1,
+          "maxDigits": 3,
+          "mid": 0,
+          "min": -1,
+          "reverse": false,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "global",
+          "smoothingSeconds": 0.0333,
+          "smoothingType": "linear",
+          "step": 0,
+          "tooltip": "Stereo balance after Mono is summed in. 0 = unchanged (Mono to both). −1 = left only. +1 = right only.",
+          "modClamp": false,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": true,
+          "outputDomain": false,
+          "domainOffset": 0
+        }
+      },
+      "params": {
+        "volume": -7.336546176955295,
+        "pan": 0
+      },
+      "type": "output",
+      "traceDisplaySettings": {
+        "backgroundHue": 0,
+        "backgroundBrightness": 0,
+        "background": "#ff0000",
+        "backgroundColor": "#ff0000",
+        "brightness": 0.95,
+        "color": "#ff0000",
+        "dot1Enabled": true,
+        "dot1Size": 0.035,
+        "secondaryBrightness": 0.95,
+        "secondaryColor": "#0000ff",
+        "secondaryEnabled": true,
+        "secondarySize": 0.035,
+        "secondaryLineThickness": 0,
+        "tertiaryColor": "#00ff00",
+        "cycles": 2,
+        "lineThickness": 0.15,
+        "stampDensity": 0.5,
+        "dotBudget": 1024,
+        "pixelDensity": 1,
+        "padding": 0,
+        "skipDiscontinuities": false,
+        "cmyMode": false,
+        "sourceSync": false,
+        "polarity": "bipolar",
+        "stereoBlend": "combine",
+        "meetColor": "auto",
+        "syncChannel": "off",
+        "historySeconds": 0.25,
+        "historyCycles": 4,
+        "zoomSeconds": 0.25,
+        "detail": 1,
+        "barThickness": 1,
+        "barInk": "fill",
+        "strokeColor": "#ffffff",
+        "scale": 1,
+        "strokeThickness": 1,
+        "pauseOnSilence": false,
+        "dot1Brightness": 0.95,
+        "blur": 0.15,
+        "faceBlur": 0,
+        "xyzLayout": "stack"
+      }
+    }
+  ],
+  "requiredAssets": [],
+  "samples": [],
+  "timing": {
+    "tempoBpm": 117,
+    "timeSignatureDenominator": 4,
+    "timeSignatureNumerator": 4
+  },
+  "uiItems": [],
+  "view": {
+    "heightGu": 24,
+    "widthGu": 48,
+    "zoom": 0.8914401609365337,
+    "gridVisible": true,
+    "gridLightVisible": true,
+    "wireLengthsVisible": true,
+    "wiresAboveModules": false,
+    "moduleButtonsVisible": false,
+    "moduleOscilloscopesVisible": true,
+    "moduleInterfaceControlsVisible": true,
+    "moduleSlidersVisible": true,
+    "sliderAmountVisible": false,
+    "sliderPositionVisible": true,
+    "tooltipEmbedded": false,
+    "locked": false,
+    "canvases": {
+      "root": {
+        "elements": []
+      },
+      "byMetamodule": {}
+    }
+  },
+  "visual": {
+    "background": {
+      "h": 210,
+      "l": 5,
+      "s": 0
+    },
+    "mode": "auto",
+    "scale": 1,
+    "style": "glow",
+    "theme": "cyan-violet",
+    "trail": 0.35
+  },
+  "windows": {
+    "metadata": {
+      "left": null,
+      "top": null
+    },
+    "moduleActions": {
+      "left": null,
+      "top": null
+    }
+  }
+}

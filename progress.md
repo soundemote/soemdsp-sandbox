@@ -208,6 +208,7 @@ graphify update . --force   # no LLM; AST re-extract
 - True metamodule parameter mirror: outer `mx_*` edits/menus target inner child (one conceptual param); nested parent-unexpose vs grandparent-expose stays explicit (seed in `docs/FUTURE_PLANNING.md`). Website limited checkbox mirror ships first.
 - Remove Sync from waterfall scopes (incompatible; decision in `docs/FUTURE_PLANNING.md`, not done in code).
 - Waterfall redesign (P2P bars): **implemented** on ArchIV Ã¢Â€Â” visual glance after reload (`docs/FUTURE_PLANNING.md`).
+- [ ] JS DSP removal (audio native WASM/C++ only) — planned 2026-10-04, not started. Top-priority blockers (Argi 2026-10-04): move the Speaker Protector 2 Render Sample ear-protection pass and the worklet oversampling decimator to native C++/WASM (no JS for either). Plan + per-file table: `docs/BUG_PLAN.md` → **Cleanup** → **C-001**. Do not commit/push without Argi's ok.
 
 - [ ] Inlets/outlets above displays, app-wide (`docs/FUTURE_PLANNING.md`)
 - [ ] **Sabrina instance handles** ÃƒÂƒÃ‚Â¢ÃƒÂ¢Ã¢Â€ÂšÃ‚Â¬ÃƒÂ¢Ã¢Â‚Â¬Ã‚Â multi-instance (`docs/INSTANCE_HANDLE_PATTERN.md`)

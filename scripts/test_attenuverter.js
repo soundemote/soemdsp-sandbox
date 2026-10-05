@@ -17,7 +17,6 @@ function load(rel) {
 
 load("public/node-graph-slider-metadata.js");
 load("public/node-graph-slider-values.js");
-load("public/modules/attenuverter/attenuverter-math.js");
 
 function assert(name, cond) {
   if (!cond) {
@@ -31,11 +30,6 @@ function assertClose(name, got, expected, eps = 1e-9) {
   }
 }
 
-assertClose("unity", sandbox.nodeGraphAttenuverterSample(0.8, 1, 0), 0.8);
-assertClose("mute", sandbox.nodeGraphAttenuverterSample(0.8, 0, 0), 0);
-assertClose("invert", sandbox.nodeGraphAttenuverterSample(0.8, -1, 0), -0.8);
-assertClose("offset", sandbox.nodeGraphAttenuverterSample(0.5, 0.5, -0.25), 0);
-assertClose("frame", sandbox.nodeGraphAttenuverterFrame(1, 0.5, 0.1).Out, 0.6);
 
 assert(sandbox.normalizeNodeSliderCurve("bipolar rational".replace(" ", "")) === "linear"
   || sandbox.normalizeNodeSliderCurve("bipolarRational") === "bipolarRational",

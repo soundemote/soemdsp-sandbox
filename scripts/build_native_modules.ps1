@@ -13,6 +13,17 @@ if (!(Test-Path -LiteralPath $clang)) {
 # adding one entry here (Name, Exports, and Simd only if it uses <wasm_simd128.h>).
 $modules = @(
   @{ Name = "wall_delay"; Simd = $false; Exports = @("soemdsp_wall_delay_version") }
+  @{ Name = "rapt_elliptic_decimator"; Simd = $false; Exports = @(
+    "soemdsp_rapt_elliptic_decimator_create",
+    "soemdsp_rapt_elliptic_decimator_destroy",
+    "soemdsp_rapt_elliptic_decimator_reset",
+    "soemdsp_rapt_elliptic_decimator_src_ptr",
+    "soemdsp_rapt_elliptic_decimator_dest_ptr",
+    "soemdsp_rapt_elliptic_decimator_max_src",
+    "soemdsp_rapt_elliptic_decimator_max_dest",
+    "soemdsp_rapt_elliptic_decimator_process",
+    "soemdsp_rapt_elliptic_decimator_version"
+  ) }
   @{ Name = "comparator"; Simd = $false; Exports = @("soemdsp_comparator_create", "soemdsp_comparator_destroy", "soemdsp_comparator_sample", "soemdsp_comparator_up", "soemdsp_comparator_down", "soemdsp_comparator_change", "soemdsp_comparator_steady", "soemdsp_comparator_sign", "soemdsp_comparator_thru", "soemdsp_comparator_version") },
   @{ Name = "sample_delay"; Simd = $false; Exports = @("soemdsp_sample_delay_create", "soemdsp_sample_delay_destroy", "soemdsp_sample_delay_sample", "soemdsp_sample_delay_max_samples", "soemdsp_sample_delay_max_seconds", "soemdsp_sample_delay_version") },
   @{ Name = "exponential_delay"; Simd = $false; Exports = @("soemdsp_exponential_delay_create", "soemdsp_exponential_delay_destroy", "soemdsp_exponential_delay_sample", "soemdsp_exponential_delay_max_samples", "soemdsp_exponential_delay_max_seconds", "soemdsp_exponential_delay_version") },
@@ -60,6 +71,7 @@ $modules = @(
     "soemdsp_graph_poke_input",
     "soemdsp_graph_request_reset",
     "soemdsp_graph_snap_controls",
+    "soemdsp_graph_snap_param",
     "soemdsp_graph_compile", "soemdsp_graph_process_block",
     "soemdsp_graph_block_output_left_ptr", "soemdsp_graph_block_output_right_ptr",
     "soemdsp_graph_ear_protect_gain",
@@ -221,7 +233,7 @@ $modules = @(
   ) },
   @{ Name = "papoulis_filter"; Simd = $false; Exports = @("soemdsp_papoulis_filter_create", "soemdsp_papoulis_filter_destroy", "soemdsp_papoulis_filter_sample", "soemdsp_papoulis_filter_snap", "soemdsp_papoulis_filter_version") },
   @{ Name = "speaker_protection"; Simd = $false; Exports = @("soemdsp_speaker_protection_create", "soemdsp_speaker_protection_destroy", "soemdsp_speaker_protection_sample", "soemdsp_speaker_protection_version") },
-  @{ Name = "speaker_protector2"; Simd = $false; Exports = @("soemdsp_speaker_protector2_create", "soemdsp_speaker_protector2_destroy", "soemdsp_speaker_protector2_sample", "soemdsp_speaker_protector2_gain", "soemdsp_speaker_protector2_version") },
+  @{ Name = "speaker_protector2"; Simd = $false; Exports = @("soemdsp_speaker_protector2_create", "soemdsp_speaker_protector2_destroy", "soemdsp_speaker_protector2_sample", "soemdsp_speaker_protector2_gain", "soemdsp_speaker_protector2_block_left_ptr", "soemdsp_speaker_protector2_block_right_ptr", "soemdsp_speaker_protector2_max_block_frames", "soemdsp_speaker_protector2_process_block", "soemdsp_speaker_protector2_version") },
   @{ Name = "attack_decay"; Simd = $false; Exports = @("soemdsp_attack_decay_create", "soemdsp_attack_decay_destroy", "soemdsp_attack_decay_sample", "soemdsp_attack_decay_version") },
   @{ Name = "basic_shape"; Simd = $false; Exports = @(
     "soemdsp_basic_shape_create", "soemdsp_basic_shape_destroy", "soemdsp_basic_shape_sample",

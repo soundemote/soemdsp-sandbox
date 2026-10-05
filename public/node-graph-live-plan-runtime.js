@@ -495,7 +495,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const speedColorInertiaStates = new Map();
   const inertialFilterStates = new Map();
   const softClipperStates = new Map();
-  const speakerProtector2States = new Map();
   const tiltFilterStates = new Map();
   const eqFilterStates = new Map();
   const aliasSineStates = new Map();
@@ -782,9 +781,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     if (node.type === "softClipper" && typeof createNodeGraphSoftClipperState === "function") {
       softClipperStates.set(node.id, createNodeGraphSoftClipperState());
     }
-    if (node.type === "speakerProtector2" && typeof createNodeGraphSpeakerProtector2State === "function") {
-      speakerProtector2States.set(node.id, createNodeGraphSpeakerProtector2State());
-    }
     if (node.type === "tiltFilter") {
       tiltFilterStates.set(node.id, createNodeGraphStereoTiltFilterState());
     }
@@ -946,7 +942,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
           : { out: 0, raw: 0 },
       );
     }
-
     if (node.type === "triggerCounter") {
       triggerCounterStates.set(node.id, createNodeGraphTriggerCounterState());
     }
@@ -1017,7 +1012,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     speedColorInertiaStates,
     inertialFilterStates,
     softClipperStates,
-    speakerProtector2States,
     tiltFilterStates,
     eqFilterStates,
     aliasSineStates,
@@ -1257,9 +1251,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.softClipperStates) {
     runtime.softClipperStates = new Map();
-  }
-  if (!runtime.speakerProtector2States) {
-    runtime.speakerProtector2States = new Map();
   }
   if (!runtime.tiltFilterStates) {
     runtime.tiltFilterStates = new Map();
@@ -1718,13 +1709,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       && !runtime.softClipperStates.has(node.id)
     ) {
       runtime.softClipperStates.set(node.id, createNodeGraphSoftClipperState());
-    }
-    if (
-      node.type === "speakerProtector2"
-      && typeof createNodeGraphSpeakerProtector2State === "function"
-      && !runtime.speakerProtector2States.has(node.id)
-    ) {
-      runtime.speakerProtector2States.set(node.id, createNodeGraphSpeakerProtector2State());
     }
     if (node.type === "tiltFilter" && !runtime.tiltFilterStates.has(node.id)) {
       runtime.tiltFilterStates.set(node.id, createNodeGraphStereoTiltFilterState());
@@ -2284,13 +2268,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     for (const id of [...runtime.softClipperStates.keys()]) {
       if (!nodeIds.has(id)) {
         runtime.softClipperStates.delete(id);
-      }
-    }
-  }
-  if (runtime.speakerProtector2States) {
-    for (const id of [...runtime.speakerProtector2States.keys()]) {
-      if (!nodeIds.has(id)) {
-        runtime.speakerProtector2States.delete(id);
       }
     }
   }

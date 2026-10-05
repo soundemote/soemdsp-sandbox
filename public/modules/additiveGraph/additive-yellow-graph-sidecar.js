@@ -1,6 +1,6 @@
 // Yellow Graph sidecar for efficient Live (native graph has no Yellow Graph types yet).
 // Runs Generator → Effect → Out in JS once per quantum, publishes Graph for faces,
-// keeps per-Out Mono for scope taps, and mixes into speakers when wired to Output.
+// and mixes into speakers when wired to Output.
 
 NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function processAdditiveYellowGraphSidecar(
   output,
@@ -21,9 +21,6 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
   if (!this.additiveQuantizeFreqStates) this.additiveQuantizeFreqStates = new Map();
   if (!this.additiveQuantizePhaseStates) this.additiveQuantizePhaseStates = new Map();
   if (!this.additiveOutStates) this.additiveOutStates = new Map();
-  if (!this._additiveOutMono) this._additiveOutMono = new Map();
-  if (!this._additiveOutLeft) this._additiveOutLeft = new Map();
-  if (!this._additiveOutRight) this._additiveOutRight = new Map();
   this.ensureAdditiveParamSmoothers?.();
 
   const nodes = this.nodes;
@@ -52,9 +49,6 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
   pruneMap(this.additiveGraphBus);
   pruneMap(this.additiveGraphPublish);
   pruneMap(this.additiveOutStates);
-  pruneMap(this._additiveOutMono);
-  pruneMap(this._additiveOutLeft);
-  pruneMap(this._additiveOutRight);
   pruneMap(this._additiveBusQuantum);
 
   const ADDITIVE_EFFECT_TYPES = new Set([
@@ -449,8 +443,6 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
   }
   const leftBus = this._additiveScratchL;
   const rightBus = this._additiveScratchR;
-  const liveOutIds = new Set();
-
   for (const [id, node] of nodes) {
     if (String(node?.type) !== "additiveOut") continue;
     const outId = String(id);
@@ -462,9 +454,6 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
       : null;
     if (!graph || !graph.ratio || !graph.harmonics) {
       this.additiveGraphPublish.set(outId, null);
-      this._additiveOutMono.delete(outId);
-      this._additiveOutLeft.delete(outId);
-      this._additiveOutRight.delete(outId);
       if (this.nodeOutputs) this.nodeOutputs.delete(outId);
       continue;
     }
@@ -505,22 +494,6 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     // Generator Harmonics slot-count change → wipe free-running phases.
     if (graph.phaseReset) state.phaseAcc = null;
 
-    let monoBuf = this._additiveOutMono.get(outId);
-    if (!monoBuf || monoBuf.length < nFrames) {
-      monoBuf = new Float32Array(nFrames);
-      this._additiveOutMono.set(outId, monoBuf);
-    }
-    let leftBuf = this._additiveOutLeft.get(outId);
-    if (!leftBuf || leftBuf.length < nFrames) {
-      leftBuf = new Float32Array(nFrames);
-      this._additiveOutLeft.set(outId, leftBuf);
-    }
-    let rightBuf = this._additiveOutRight.get(outId);
-    if (!rightBuf || rightBuf.length < nFrames) {
-      rightBuf = new Float32Array(nFrames);
-      this._additiveOutRight.set(outId, rightBuf);
-    }
-
     let lastMono = 0;
     let lastLeft = 0;
     let lastRight = 0;
@@ -560,10 +533,6 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
       lastMono = mono;
       lastLeft = left;
       lastRight = right;
-      // Efficient-mode scopes: keep Mono / Left / Right rings (native has no Yellow Graph ports).
-      monoBuf[f] = mono;
-      leftBuf[f] = left;
-      rightBuf[f] = right;
       if (!mixToSpeakers) continue;
       for (let r = 0; r < speakerRoutes.length; r += 1) {
         const route = speakerRoutes[r];
@@ -579,7 +548,6 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
       }
     }
 
-    liveOutIds.add(outId);
     if (this.nodeOutputs) {
       this.nodeOutputs.set(outId, {
         Mono: lastMono,
@@ -590,12 +558,4 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     }
   }
 
-  // Drop stale Mono/L/R rings for removed / silent Outs.
-  for (const key of [...this._additiveOutMono.keys()]) {
-    if (!liveOutIds.has(key)) {
-      this._additiveOutMono.delete(key);
-      this._additiveOutLeft.delete(key);
-      this._additiveOutRight.delete(key);
-    }
-  }
 };

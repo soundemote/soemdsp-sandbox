@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=ellipsoid-dither-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=fm-shapes-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3224,12 +3224,9 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Pure stdlib first so per-module worklet chunks can call nodeGraphWrap01 /
   // nodeGraphTrisaw / nodeGraphPitchedFrequency / nodeGraphAdvancePhase01.
   "./public/node-graph-semath.js?v=gate-hit-1",
-  // Output-bus ear protector (must be in the worklet blob â€” main-thread only = passthrough clip).
-  "./public/modules/speakerProtector2/speaker-protector-2-math.js?v=output-hot-fade-1",
   "./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1",
   "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=make-controller-5",
   "./public/modules/portal/portal-lanes.js?v=portal-rename-4x2-1",
-  "./public/modules/portal/portal-math.js?v=portal-lanes-1",
   "./public/modules/portal/portal-named.js?v=portal-rewrite-1",
   "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=slope-range-1",
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
@@ -3237,7 +3234,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=early-refl-1",
   "./public/node-graph-efficient-product.js?v=early-refl-1",
-  "./public/node-live-audio-worklet-core.js?v=no-audio-stress-1",
+  "./public/node-live-audio-worklet-core.js?v=rapt-native-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
   "./public/node-live-audio-worklet-smoother.js?v=hostcv-parammod-off-2",
@@ -3245,19 +3242,19 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-destroy.js?v=block-scope-1",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
   "./public/lib/sample-interpolate.js?v=mp-aa-1",
-  "./public/node-live-audio-worklet-dsp-state.js?v=pd-inc-1",
+  "./public/node-live-audio-worklet-dsp-state.js?v=rapt-native-1",
   "./public/lib/polyphony-voices.js?v=gold-oct-1",
   "./public/lib/note-mask-128.js?v=key-track-1",
   "./public/node-graph-keyboard-chord-memory.js?v=mask128-2",
   "./public/modules/sequencer/sequencer-math.js?v=seq-23",
   "./public/node-live-audio-worklet-events.js?v=wheel-bias-smooth-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
-  "./public/node-live-audio-worklet-scope-io.js?v=scope-gc-1",
+  "./public/node-live-audio-worklet-scope-io.js?v=output-face-prevol-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hyperpluck-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=wheel-bias-smooth-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=fm-shapes-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=hyperpluck-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=sp2-native-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hyperpluck-1",
   "./public/node-live-audio-worklet-handle-message.js?v=live-record-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=scope-hop-off-1",
@@ -3269,8 +3266,8 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
   // Keypad slot math (host CV controller — used by sidecar publish + setKeypadInteraction).
   "./public/modules/keypad/keypad-math.js?v=keypad-hostcv-1",
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=wheel-bias-smooth-1",
-  "./public/node-live-audio-worklet-process.js?v=live-record-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=toggle-trig-1samp-1",
+  "./public/node-live-audio-worklet-process.js?v=rapt-native-1",
 ];
 
 // Legacy JS DSP evaluators + evaluateFrame â€” RETIRED. Never load on any product.

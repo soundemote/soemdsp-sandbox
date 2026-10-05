@@ -135,30 +135,31 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         }
         const osOut = [this._oversampleScratchL, this._oversampleScratchR];
         usedNativeGraph = this.processNativeGraphQuantum(osOut, engineFrames);
-        if (usedNativeGraph && typeof this.decimateRaptEllipticChannel === "function") {
-          this.decimateRaptEllipticChannel(
-            this._oversampleScratchL,
+        if (usedNativeGraph) {
+          this.ensureNativeRaptDecimators();
+          this.decimateNativeRaptEllipticChannel(
+            this.nativeRaptDecimatorLeft,
+            this._oversampleScratchL.subarray(0, engineFrames),
             output[0],
             oversamplingRatio,
-            this.raptEllipticDecimatorLeft,
           );
           const destR = output[1] || output[0];
           if (destR && destR !== output[0]) {
-            this.decimateRaptEllipticChannel(
-              this._oversampleScratchR,
+            this.decimateNativeRaptEllipticChannel(
+              this.nativeRaptDecimatorRight,
+              this._oversampleScratchR.subarray(0, engineFrames),
               destR,
               oversamplingRatio,
-              this.raptEllipticDecimatorRight,
             );
-          } else if (output[0]) {
-            this.decimateRaptEllipticChannel(
-              this._oversampleScratchR,
-              this._oversampleScratchL,
+          } else {
+            this.decimateNativeRaptEllipticChannel(
+              this.nativeRaptDecimatorRight,
+              this._oversampleScratchR.subarray(0, engineFrames),
+              this._oversampleScratchL.subarray(0, frames),
               oversamplingRatio,
-              this.raptEllipticDecimatorRight,
             );
           }
-        } else if (!usedNativeGraph) {
+        } else {
           for (const channel of output) {
             if (channel) channel.fill(0);
           }

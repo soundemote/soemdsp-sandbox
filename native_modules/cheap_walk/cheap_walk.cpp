@@ -89,7 +89,7 @@ extern "C" void soemdsp_cheap_walk_sample_stereo(
   CheapWalkState& st = gPool[handle - 1];
   const double sr = sampleRate < 1.0 ? 44100.0 : sampleRate;
   const double rate = rateHz < 0.0 ? 0.0 : rateHz;
-  const double amp = clamp01(amplitude);
+  const double amp = amplitude;
 
   if (!(seedParam == st.lastSeedParam)) {
     const unsigned int s = seed_from_param(seedParam);

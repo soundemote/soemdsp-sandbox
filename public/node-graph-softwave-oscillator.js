@@ -20,7 +20,7 @@ const nodeGraphSoftwaveWaveformChoices = Object.freeze([
   "Perfect Saw",
   "Analog Square",
   "Square",
-  "Tri",
+  "Triangle",
   "Bow Tri",
   "Soft Bow Tri",
   "Walter Wave",
@@ -33,7 +33,7 @@ function nodeGraphSoftwaveLoadWasm() {
   if (nodeGraphSoftwaveWasm.promise || typeof fetch !== "function" || typeof WebAssembly === "undefined") {
     return;
   }
-  nodeGraphSoftwaveWasm.promise = fetch("/native_modules/softwave/softwave.wasm?v=softwave-tri-morph-1")
+  nodeGraphSoftwaveWasm.promise = fetch("/native_modules/softwave/softwave.wasm?v=softwave-half-2")
     .then((response) => {
       if (!response.ok) throw new Error(`softwave wasm HTTP ${response.status}`);
       return response.arrayBuffer();

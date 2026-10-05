@@ -1,41 +1,8 @@
 // Extracted from node-live-audio-worklet-core.js (Phase D — dsp state + samples).
 // Load after core class, before registerProcessor.
 
-NodeLiveAudioProcessor.prototype.createEarProtector = function createEarProtector(rate = sampleRate) {
-    const safeRate = Math.max(1, nodeGraphFiniteNumber(rate, nodeGraphFiniteNumber(sampleRate, 44100)));
-    const state = typeof createNodeGraphSpeakerProtector2State === "function"
-      ? createNodeGraphSpeakerProtector2State(safeRate)
-      : this.createSpeakerProtector2State?.(safeRate);
-    return {
-      state,
-      protect: (left = 0, right = left) => {
-        if (typeof nodeGraphSpeakerProtector2Protect === "function" && state) {
-          return nodeGraphSpeakerProtector2Protect(state, left, right, safeRate);
-        }
-        return {
-          left: nodeGraphFiniteNumber(left),
-          right: nodeGraphFiniteNumber(right),
-          gain: 1,
-          muted: false,
-          engaged: false,
-          mode: "idle",
-        };
-      },
-    };
-};
-
-NodeLiveAudioProcessor.prototype.createRaptEllipticDecimatorState = function createRaptEllipticDecimatorState() {
-    return nodeLiveRaptEllipticQuarterbandSos.map(() => [0, 0]);
-};
-
-NodeLiveAudioProcessor.prototype.resetRaptEllipticDecimator = function resetRaptEllipticDecimator() {
-    this.raptEllipticDecimatorLeft = this.createRaptEllipticDecimatorState();
-    this.raptEllipticDecimatorRight = this.createRaptEllipticDecimatorState();
-    this.raptEllipticDecimatorRatio = this.oversamplingRatio;
-};
-
 /** Apply oversamplingFactor / engineSampleRate from a plan or connection message.
- *  Updates JS process() ratio, resets Rapt-elliptic decimator on ratio change, and
+ *  Updates process() ratio, resets native Rapt-elliptic decimator on ratio change, and
  *  pushes engine rate into the live native graph without clearing topology.
  *  @returns {boolean} true when ratio or engine rate changed
  */
@@ -56,8 +23,9 @@ NodeLiveAudioProcessor.prototype.applyOversamplingFromMessage = function applyOv
     this.engineSampleRate = Number.isFinite(engineFromMsg) && engineFromMsg > 0
       ? engineFromMsg
       : host * factor;
-    if (this.raptEllipticDecimatorRatio !== this.oversamplingRatio) {
-      this.resetRaptEllipticDecimator();
+    if (this.nativeRaptDecimatorRatio !== this.oversamplingRatio) {
+      this.resetNativeRaptDecimators?.();
+      this.nativeRaptDecimatorRatio = this.oversamplingRatio;
     }
     const changed = prevRatio !== this.oversamplingRatio || prevEngine !== this.engineSampleRate;
     if (changed && typeof this.applyNativeGraphSampleRate === "function") {
@@ -66,66 +34,8 @@ NodeLiveAudioProcessor.prototype.applyOversamplingFromMessage = function applyOv
     return changed;
 };
 
-
-NodeLiveAudioProcessor.prototype.processRaptEllipticDecimatorSample = function processRaptEllipticDecimatorSample(input, states) {
-    let y = nodeGraphFiniteNumber(input);
-    for (let section = 0; section < nodeLiveRaptEllipticQuarterbandSos.length; section += 1) {
-      const [b0, b1, b2, , a1, a2] = nodeLiveRaptEllipticQuarterbandSos[section];
-      const z1 = states[section][0];
-      const z2 = states[section][1];
-      const sectionOut = b0 * y + z1;
-      states[section][0] = b1 * y - a1 * sectionOut + z2;
-      states[section][1] = b2 * y - a2 * sectionOut;
-      y = sectionOut;
-    }
-    return y;
-};
-
-NodeLiveAudioProcessor.prototype.decimateRaptEllipticChannel = function decimateRaptEllipticChannel(
-  source,
-  dest,
-  factor,
-  states,
-) {
-    const ratio = (factor === 2 || factor === 4) ? factor : 1;
-    const outFrames = dest?.length || 0;
-    if (!source || !dest || ratio <= 1) {
-      if (source && dest) {
-        const n = Math.min(source.length, dest.length);
-        for (let i = 0; i < n; i += 1) dest[i] = source[i];
-      }
-      return;
-    }
-    let last = 0;
-    for (let frame = 0; frame < outFrames; frame += 1) {
-      for (let sub = 0; sub < ratio; sub += 1) {
-        const idx = frame * ratio + sub;
-        const input = idx < source.length ? source[idx] : 0;
-        last = this.processRaptEllipticDecimatorSample(input, states);
-      }
-      dest[frame] = last;
-    }
-};
-
 NodeLiveAudioProcessor.prototype.outputSampleClipped = function outputSampleClipped(value) {
     return this.badValueReason(value) || value < -0.95 || value > 0.95;
-};
-
-NodeLiveAudioProcessor.prototype.outputSampleTripsEarProtection = function outputSampleTripsEarProtection(value) {
-    if (typeof nodeGraphSpeakerProtector2SampleTrips === "function") {
-      return nodeGraphSpeakerProtector2SampleTrips(value);
-    }
-    const number = Number(value);
-    if (!Number.isFinite(number)) {
-      return true;
-    }
-    if (typeof nodeGraphOutsideUnity === "function") {
-      return nodeGraphOutsideUnity(number);
-    }
-    const eps = typeof nodeGraphPlanck === "function"
-      ? nodeGraphPlanck()
-      : (typeof NODE_GRAPH_PLANCK === "number" ? NODE_GRAPH_PLANCK : 1e-7);
-    return Math.abs(number) >= 1 + eps;
 };
 
 NodeLiveAudioProcessor.prototype.badValueReason = function badValueReason(value) {

@@ -5,7 +5,9 @@
 // soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/dynamics/EarProtector.hpp
 //
 // Stereo-linked slew VCA + 1 kHz HP trip. Never clips or knees.
-// Matches public/modules/speakerProtector2/speaker-protector-2-math.js.
+// The only Speaker Protector 2.0 implementation: the patch module (opcode 135),
+// the graph_engine Output bus ear protect, and the Render Sample Output pass
+// (soemdsp_speaker_protector2_process_block) all run this code.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -80,35 +82,16 @@ static double slew_toward(double gain, double target, double seconds, double sam
   return gain + (delta < 0.0 ? -maxStep : maxStep);
 }
 
-}  // namespace
-
-extern "C" int soemdsp_speaker_protector2_create() {
-  for (int i = 0; i < kMaxInstances; i++) {
-    if (!gPool[i].active) {
-      State& s = gPool[i];
-      s.mode = kModeIdle;
-      s.gain = 1.0;
-      s.holdSamples = 0;
-      s.hpIn = 0.0;
-      s.hpOut = 0.0;
-      s.sampleRate = 0.0;
-      prepare(s, 44100.0);
-      s.active = true;
-      return i + 1;
-    }
-  }
-  return 0;
+// Output-sample trip test: non-finite, or |x| >= 1 + planck.
+static bool sample_trips(double x) {
+  if (!is_finite(x)) return true;
+  return peak_danger(dsp_fabs(x));
 }
 
-extern "C" void soemdsp_speaker_protector2_destroy(int handle) {
-  if (handle < 1 || handle > kMaxInstances) return;
-  gPool[handle - 1].active = false;
-}
-
-// Processes one stereo sample. Writes Out as (L+R)/2 into outMono.
-// drop/hold/rise times in seconds (face params).
-extern "C" void soemdsp_speaker_protector2_sample(
-  int handle,
+// One stereo frame through the slew VCA. Returns the applied gain
+// (state gain, capped at 1/peak while the peak is over unity).
+static double protect_frame(
+  State& st,
   double leftIn,
   double rightIn,
   double sampleRate,
@@ -116,16 +99,8 @@ extern "C" void soemdsp_speaker_protector2_sample(
   double holdSeconds,
   double riseSeconds,
   double* outLeft,
-  double* outRight,
-  double* outMono
+  double* outRight
 ) {
-  if (handle < 1 || handle > kMaxInstances || !gPool[handle - 1].active) {
-    if (outLeft) *outLeft = 0.0;
-    if (outRight) *outRight = 0.0;
-    if (outMono) *outMono = 0.0;
-    return;
-  }
-  State& st = gPool[handle - 1];
   prepare(st, sampleRate);
   const double rate = st.sampleRate;
   const double drop = (dropSeconds == dropSeconds && dropSeconds >= 0.0) ? dropSeconds : kDropDefault;
@@ -180,11 +155,117 @@ extern "C" void soemdsp_speaker_protector2_sample(
     const double ceiling = 1.0 / peak;
     if (ceiling < g) g = ceiling;
   }
-  const double outL = l * g;
-  const double outR = r * g;
+  *outLeft = l * g;
+  *outRight = r * g;
+  return g;
+}
+
+// Render Sample Output pass: host writes the bounce into these, runs
+// process_block, reads the protected frames back.
+static const int kMaxBlockFrames = 4096;
+static double gBlockLeft[kMaxBlockFrames];
+static double gBlockRight[kMaxBlockFrames];
+
+}  // namespace
+
+extern "C" int soemdsp_speaker_protector2_create() {
+  for (int i = 0; i < kMaxInstances; i++) {
+    if (!gPool[i].active) {
+      State& s = gPool[i];
+      s.mode = kModeIdle;
+      s.gain = 1.0;
+      s.holdSamples = 0;
+      s.hpIn = 0.0;
+      s.hpOut = 0.0;
+      s.sampleRate = 0.0;
+      prepare(s, 44100.0);
+      s.active = true;
+      return i + 1;
+    }
+  }
+  return 0;
+}
+
+extern "C" void soemdsp_speaker_protector2_destroy(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  gPool[handle - 1].active = false;
+}
+
+// Processes one stereo sample. Writes Out as (L+R)/2 into outMono.
+// drop/hold/rise times in seconds (face params).
+extern "C" void soemdsp_speaker_protector2_sample(
+  int handle,
+  double leftIn,
+  double rightIn,
+  double sampleRate,
+  double dropSeconds,
+  double holdSeconds,
+  double riseSeconds,
+  double* outLeft,
+  double* outRight,
+  double* outMono
+) {
+  if (handle < 1 || handle > kMaxInstances || !gPool[handle - 1].active) {
+    if (outLeft) *outLeft = 0.0;
+    if (outRight) *outRight = 0.0;
+    if (outMono) *outMono = 0.0;
+    return;
+  }
+  double outL = 0.0;
+  double outR = 0.0;
+  protect_frame(
+    gPool[handle - 1], leftIn, rightIn, sampleRate,
+    dropSeconds, holdSeconds, riseSeconds, &outL, &outR
+  );
   if (outLeft) *outLeft = outL;
   if (outRight) *outRight = outR;
   if (outMono) *outMono = (outL + outR) * 0.5;
+}
+
+extern "C" double* soemdsp_speaker_protector2_block_left_ptr() {
+  return gBlockLeft;
+}
+
+extern "C" double* soemdsp_speaker_protector2_block_right_ptr() {
+  return gBlockRight;
+}
+
+extern "C" int soemdsp_speaker_protector2_max_block_frames() {
+  return kMaxBlockFrames;
+}
+
+// Render Sample Output ear protect, in place over block_left/right_ptr.
+// Default drop/hold/rise. sampleRate: non-finite -> 44100, below 1 -> 1.
+// Returns the protection count for the block: +1 per frame where Left or
+// Right trips (non-finite or |x| >= 1 + planck), +1 per frame whose applied
+// gain is <= 1e-4 (muted). Bad handle: block is zeroed, returns 0.
+extern "C" int soemdsp_speaker_protector2_process_block(int handle, int frames, double sampleRate) {
+  int n = frames < 0 ? 0 : frames;
+  if (n > kMaxBlockFrames) n = kMaxBlockFrames;
+  if (handle < 1 || handle > kMaxInstances || !gPool[handle - 1].active) {
+    for (int i = 0; i < n; i++) {
+      gBlockLeft[i] = 0.0;
+      gBlockRight[i] = 0.0;
+    }
+    return 0;
+  }
+  State& st = gPool[handle - 1];
+  const double rate = is_finite(sampleRate) ? (sampleRate < 1.0 ? 1.0 : sampleRate) : 44100.0;
+  int count = 0;
+  for (int i = 0; i < n; i++) {
+    const double l = gBlockLeft[i];
+    const double r = gBlockRight[i];
+    if (sample_trips(l) || sample_trips(r)) count += 1;
+    double outL = 0.0;
+    double outR = 0.0;
+    const double g = protect_frame(
+      st, l, r, rate, kDropDefault, kHoldDefault, kRiseDefault, &outL, &outR
+    );
+    if (g <= 1.0e-4) count += 1;
+    gBlockLeft[i] = outL;
+    gBlockRight[i] = outR;
+  }
+  return count;
 }
 
 extern "C" double soemdsp_speaker_protector2_gain(int handle) {

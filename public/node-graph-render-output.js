@@ -42,23 +42,6 @@ function nodeGraphOutputSampleClipped(value) {
   );
 }
 
-function nodeGraphOutputSampleTripsEarProtection(value) {
-  if (typeof nodeGraphSpeakerProtector2SampleTrips === "function") {
-    return nodeGraphSpeakerProtector2SampleTrips(value);
-  }
-  const number = Number(value);
-  if (!Number.isFinite(number)) {
-    return true;
-  }
-  if (typeof nodeGraphOutsideUnity === "function") {
-    return nodeGraphOutsideUnity(number);
-  }
-  const eps = typeof nodeGraphPlanck === "function"
-    ? nodeGraphPlanck()
-    : (typeof NODE_GRAPH_PLANCK === "number" ? NODE_GRAPH_PLANCK : 1e-7);
-  return Math.abs(number) >= 1 + eps;
-}
-
 function nodeGraphTemporaryPrefilterForResample(samples, sourceRate, outputRate) {
   if (!samples?.length || !Number.isFinite(sourceRate) || !Number.isFinite(outputRate) || sourceRate <= outputRate) {
     return samples;
@@ -335,24 +318,32 @@ async function renderNodeGraphAudio() {
     const ch1 = renderedBuf.numberOfChannels > 1
       ? renderedBuf.getChannelData(1)
       : ch0;
-    const earProtector = createNodeGraphEarProtector(engineSampleRate);
+    // Output ear protect (trip count, mute count, slew VCA) runs in native
+    // Speaker Protector 2.0 (speaker_protector2.cpp process_block).
+    const earProtector = await createNodeGraphNativeEarProtector(engineSampleRate);
     const available = Math.min(ch0.length, ch1.length);
-    for (let i = 0; i < outputFrames; i += 1) {
-      const src = startOutputFrame + i;
-      const rawL = src < available ? (nodeGraphFiniteNumber(ch0[src])) : 0;
-      const rawR = src < available ? (nodeGraphFiniteNumber(ch1[src])) : 0;
-      if (nodeGraphOutputSampleClipped(rawL)) clipCount += 1;
-      if (nodeGraphOutputSampleClipped(rawR)) clipCount += 1;
-      if (
-        nodeGraphOutputSampleTripsEarProtection(rawL)
-        || nodeGraphOutputSampleTripsEarProtection(rawR)
-      ) {
-        protectionMuteCount += 1;
+    try {
+      for (let base = 0; base < outputFrames; base += earProtector.capacity) {
+        const blockFrames = Math.min(earProtector.capacity, outputFrames - base);
+        const blockLeft = earProtector.blockLeft();
+        const blockRight = earProtector.blockRight();
+        for (let i = 0; i < blockFrames; i += 1) {
+          const src = startOutputFrame + base + i;
+          const rawL = src < available ? (nodeGraphFiniteNumber(ch0[src])) : 0;
+          const rawR = src < available ? (nodeGraphFiniteNumber(ch1[src])) : 0;
+          if (nodeGraphOutputSampleClipped(rawL)) clipCount += 1;
+          if (nodeGraphOutputSampleClipped(rawR)) clipCount += 1;
+          blockLeft[i] = rawL;
+          blockRight[i] = rawR;
+        }
+        protectionMuteCount += earProtector.processBlock(blockFrames);
+        for (let i = 0; i < blockFrames; i += 1) {
+          engineLeftSamples[base + i] = nodeGraphClampOutputSample(blockLeft[i]);
+          engineRightSamples[base + i] = nodeGraphClampOutputSample(blockRight[i]);
+        }
       }
-      const protectedFrame = earProtector.protect(rawL, rawR);
-      if (protectedFrame.muted) protectionMuteCount += 1;
-      engineLeftSamples[i] = nodeGraphClampOutputSample(protectedFrame.left);
-      engineRightSamples[i] = nodeGraphClampOutputSample(protectedFrame.right);
+    } finally {
+      earProtector.destroy();
     }
     try { workletNode.disconnect(); } catch (_e) { /* */ }
   } catch (error) {
