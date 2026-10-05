@@ -12,32 +12,14 @@ function nodeGraphSanitizeSuggestedPatchFileName(name = "") {
 }
 
 /**
- * Suggested save filename = patch name + .json (unsafe chars sanitized).
- * Prefers live header / supplied patch; falls back to lastPatchName, then default.
+ * Suggested save filename = current file stem + .json (unsafe chars sanitized).
  */
-function nodeGraphPatchFileName(patch = null) {
-  let rawName = "";
-  if (patch && typeof patch === "object") {
-    const info = typeof normalizeNodeGraphPatchInfo === "function"
-      ? normalizeNodeGraphPatchInfo(patch.info || patch)
-      : (patch.info || patch);
-    rawName = String(info?.name || "").trim();
-  }
-  if (!rawName && typeof nodeGraphPatchInfoFieldValue === "function") {
-    rawName = String(
-      nodeGraphPatchInfoFieldValue("name", "nodePatchDefaultsName", "patchNameValue") || "",
-    ).trim();
-  }
-  if (!rawName && nodeGraphMvp?.patch?.info) {
-    const info = typeof normalizeNodeGraphPatchInfo === "function"
-      ? normalizeNodeGraphPatchInfo(nodeGraphMvp.patch.info)
-      : nodeGraphMvp.patch.info;
-    rawName = String(info?.name || "").trim();
-  }
-  if (!rawName && typeof nodeGraphFilePickerState === "function") {
-    rawName = String(nodeGraphFilePickerState().lastPatchName || "").trim();
-  }
-  return nodeGraphSanitizeSuggestedPatchFileName(rawName || "soemdsp-patch");
+function nodeGraphPatchFileName() {
+  const current = String(nodeGraphMvp?.currentSavedPatchFilename || nodeGraphMvp?.loadedPatchSlug || "").trim();
+  const stem = typeof nodeGraphPatchFileStem === "function"
+    ? nodeGraphPatchFileStem(current)
+    : current.replace(/\.json$/i, "");
+  return nodeGraphSanitizeSuggestedPatchFileName(stem || "soemdsp-patch");
 }
 
 function nodeGraphPatchWithLiveHeaderInfo(patch = nodeGraphMvp.patch) {
@@ -65,7 +47,6 @@ function nodeGraphPatchWithLiveHeaderInfo(patch = nodeGraphMvp.patch) {
       || nextPatch.info?.bankName,
     description: field("description", "nodePatchDefaultsDescription", "patchDescriptionValue")
       || nextPatch.info?.description,
-    name: field("name", "nodePatchDefaultsName", "patchNameValue") || nextPatch.info?.name,
     program,
     tags: field("tags", "nodePatchDefaultsTags", "patchTagsValue") || nextPatch.info?.tags,
     author: field("author", "nodePatchDefaultsAuthor", "patchAuthorValue") || nextPatch.info?.author,
@@ -387,7 +368,10 @@ function handleNodeGraphSavedPatchBankNameInput(event) {
 
 function nodeGraphPatchPresetDefaultName() {
   const info = normalizeNodeGraphPatchInfo(nodeGraphMvp.patch.info);
-  return info.name && info.name !== "Untitled Patch" ? info.name : "Preset";
+  const stem = typeof nodeGraphPatchFileStem === "function"
+    ? nodeGraphPatchFileStem(nodeGraphMvp?.currentSavedPatchFilename || nodeGraphMvp?.loadedPatchSlug || "")
+    : "";
+  return stem || "Preset";
 }
 
 function normalizeNodeGraphPatchPresetName(name) {
@@ -982,9 +966,6 @@ function nodeGraphApplySavedPatchIdentity(patch, filename) {
     ? nodeGraphPatchFileStem(savedName)
     : savedName.replace(/\.json$/i, "");
   if (patch && typeof patch === "object" && stem) {
-    const info = patch.info && typeof patch.info === "object" ? { ...patch.info } : {};
-    info.name = stem;
-    patch.info = info;
     nodeGraphMvp.loadedPatchSlug = stem.toLowerCase();
   }
   return savedName;

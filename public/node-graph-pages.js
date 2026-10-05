@@ -251,17 +251,10 @@ async function renderNodeGraphPagesList() {
     const title = document.createElement("span");
     title.className = "node-pages-entry-title";
     const emoji = String(entry.emoji || "").trim();
-    const customName = String(entry.name || "").trim();
-    const named = typeof nodeGraphPatchNameIsFilled === "function"
-      ? nodeGraphPatchNameIsFilled(customName)
-      : Boolean(customName);
-    const label = named
-      ? customName
-      : (typeof nodeGraphPatchFileStem === "function"
-        ? nodeGraphPatchFileStem(entry.slug || entry.label || "")
-        : (entry.label || entry.slug || ""));
+    const label = typeof nodeGraphPatchFileStem === "function"
+      ? nodeGraphPatchFileStem(entry.slug || entry.label || "")
+      : (entry.label || entry.slug || "");
     title.textContent = (emoji ? `${emoji} ` : "") + label;
-    title.classList.toggle("is-custom-name", named);
     main.append(title);
     const author = String(entry.author || "").trim();
     const tags = String(entry.tags || "").trim();

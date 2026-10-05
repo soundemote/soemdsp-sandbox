@@ -275,10 +275,9 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
   if (type === "pingEnvelope" && typeof nodeGraphPingEnvelopePreviewCurve === "function") {
     const attack = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "attack", 0));
     const decay = Math.max(0, Math.min(1, nodeGraphEnvelopeCurveLiveParam(node, "decay", 0.5)));
-    const decay2 = Math.max(0, Math.min(1, nodeGraphEnvelopeCurveLiveParam(node, "decay2", 0.5)));
     const amplitude = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "amplitude", 1));
     const recalculateOnTrigger = nodeGraphEnvelopeCurveLiveParam(node, "recalculateOnTrigger", 1);
-    const preview = nodeGraphPingEnvelopePreviewCurve({ attack, decay, decay2, amplitude }, pts);
+    const preview = nodeGraphPingEnvelopePreviewCurve({ attack, decay, amplitude }, pts);
     return {
       points: preview.points,
       total: preview.total,
@@ -286,7 +285,7 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
       ampView: preview.ampView,
       leftLabel: "A",
       rightLabel: "D",
-      signature: { type, attack, decay, decay2, amplitude, recalculateOnTrigger },
+      signature: { type, attack, decay, amplitude, recalculateOnTrigger },
     };
   }
 

@@ -1,8 +1,8 @@
 // Ping Envelope face preview. Audio is native_modules/ping_envelope/ping_envelope.cpp.
-// Decay 1: 0 → atten amp 1, 1 → amp 0. Decay 2: 0 → offset 0, 1 → offset −0.5.
+// Feedback is env × 0.7718 + (1 − Decay). Exp drives Release 0…1000 Hz.
 
-const PING_RELEASE_HZ = 20000;
-const PING_RELEASE_HZ_MIN = 0.001;
+const PING_FEEDBACK_AMP = 0.7718;
+const PING_RELEASE_HZ = 1000;
 const PING_EXP_SPAN = 5;
 
 function createNodeGraphPingEnvelopeState() {
@@ -10,8 +10,7 @@ function createNodeGraphPingEnvelopeState() {
     env: 0,
     lastTrig: 0,
     shotAttack: 0,
-    shotDecay1: 0.5,
-    shotDecay2: 0.5,
+    shotDecay: 0.5,
     shotAmp: 1,
     hasShot: false,
     primed: false,
@@ -23,10 +22,8 @@ function nodeGraphPingEnvelopeSample(state, input, params, sampleRate) {
   const inn = nodeGraphFiniteNumber(input);
   const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const liveAtk = Math.max(0, nodeGraphFiniteNumber(params?.attack));
-  const d1Raw = Number(params?.decay);
-  const d2Raw = Number(params?.decay2);
-  const liveDecay1 = Number.isFinite(d1Raw) ? Math.max(0, Math.min(1, d1Raw)) : 0.5;
-  const liveDecay2 = Number.isFinite(d2Raw) ? Math.max(0, Math.min(1, d2Raw)) : 0.5;
+  const dRaw = Number(params?.decay);
+  const liveDecay = Number.isFinite(dRaw) ? Math.max(0, Math.min(1, dRaw)) : 0.5;
   const liveAmpN = Number(params?.amplitude);
   const liveAmp = Number.isFinite(liveAmpN) ? liveAmpN : 1;
   const recalcRaw = params?.recalculateOnTrigger;
@@ -38,8 +35,7 @@ function nodeGraphPingEnvelopeSample(state, input, params, sampleRate) {
 
   if (!latch || trigRise || !state.hasShot) {
     state.shotAttack = liveAtk;
-    state.shotDecay1 = liveDecay1;
-    state.shotDecay2 = liveDecay2;
+    state.shotDecay = liveDecay;
     state.shotAmp = liveAmp;
     state.hasShot = true;
   }
@@ -58,9 +54,8 @@ function nodeGraphPingEnvelopeSample(state, input, params, sampleRate) {
       if (ka > 1) ka = 1;
     }
 
-    const attenAmp = 1 - state.shotDecay1;
-    const attenOff = 0.5 - state.shotDecay2;
-    let x = state.env * attenAmp + attenOff;
+    const offset = 1 - state.shotDecay;
+    let x = state.env * PING_FEEDBACK_AMP + offset;
     let fb = 0;
     if (x > 0) {
       if (x >= 1) fb = 1;
@@ -69,7 +64,7 @@ function nodeGraphPingEnvelopeSample(state, input, params, sampleRate) {
         fb = !Number.isFinite(y) || y < 0 ? 0 : y > 1 ? 1 : y;
       }
     }
-    const relHz = Math.max(PING_RELEASE_HZ_MIN, fb * PING_RELEASE_HZ);
+    const relHz = Math.max(0, Math.min(PING_RELEASE_HZ, fb * PING_RELEASE_HZ));
     let kr = 0;
     if (relHz > 0) {
       if (relHz >= sr * 0.5) kr = 1;
@@ -92,18 +87,15 @@ function nodeGraphPingEnvelopeSample(state, input, params, sampleRate) {
 
 function nodeGraphPingEnvelopePreviewCurve(params = {}, points = 160) {
   const attack = Math.max(0, nodeGraphFiniteNumber(params.attack));
-  const d1Raw = Number(params.decay);
-  const d2Raw = Number(params.decay2);
-  const decay1 = Number.isFinite(d1Raw) ? Math.max(0, Math.min(1, d1Raw)) : 0.5;
-  const decay2 = Number.isFinite(d2Raw) ? Math.max(0, Math.min(1, d2Raw)) : 0.5;
+  const dRaw = Number(params.decay);
+  const decay = Number.isFinite(dRaw) ? Math.max(0, Math.min(1, dRaw)) : 0.5;
   const amplitude = Math.max(0, Number(params.amplitude) ?? 1);
   const n = Math.max(48, Math.round(nodeGraphFiniteNumber(points, 160)));
   const gateHoldSec = attack > 0 ? Math.max(0.05, attack * 5) : 0.02;
-  const attenAmp = 1 - decay1;
-  const attenOff = -0.5 * decay2;
-  const floor = attenAmp > 1e-9 ? Math.max(0, Math.min(1, -attenOff / attenAmp)) : 1;
+  const offset = 1 - decay;
+  const floor = PING_FEEDBACK_AMP > 1e-9 ? Math.max(0, Math.min(1, -offset / PING_FEEDBACK_AMP)) : 1;
   const settleEps = 0.008;
-  const previewKey = attack + "\0" + decay1 + "\0" + decay2 + "\0" + n;
+  const previewKey = attack + "\0" + decay + "\0" + n;
   const previewCache = nodeGraphPingEnvelopePreviewCurve._cache;
   if (previewCache && previewCache.key === previewKey) {
     return {
@@ -114,7 +106,7 @@ function nodeGraphPingEnvelopePreviewCurve(params = {}, points = 160) {
       labels: previewCache.labels,
     };
   }
-  const live = { attack, decay: decay1, decay2, amplitude, recalculateOnTrigger: 1 };
+  const live = { attack, decay, amplitude, recalculateOnTrigger: 1 };
   const state = createNodeGraphPingEnvelopeState();
   state.primed = true;
   state.env = 0;
@@ -137,7 +129,7 @@ function nodeGraphPingEnvelopePreviewCurve(params = {}, points = 160) {
     } else if (env <= floor + settleEps) {
       break;
     } else {
-      const x = env * attenAmp + attenOff;
+      const x = env * PING_FEEDBACK_AMP + offset;
       let fb = 0;
       if (x > 0) {
         if (x >= 1) fb = 1;
@@ -146,7 +138,7 @@ function nodeGraphPingEnvelopePreviewCurve(params = {}, points = 160) {
           fb = !Number.isFinite(y) || y < 0 ? 0 : y > 1 ? 1 : y;
         }
       }
-      const f = Math.max(PING_RELEASE_HZ_MIN, Math.max(0, fb) * PING_RELEASE_HZ);
+      const f = Math.max(0, Math.min(PING_RELEASE_HZ, Math.max(0, fb) * PING_RELEASE_HZ));
       const tau = f > 1e-8 ? 1 / (2 * Math.PI * f) : 0.25;
       let dtMax = tau / 10;
       const above = env - floor;

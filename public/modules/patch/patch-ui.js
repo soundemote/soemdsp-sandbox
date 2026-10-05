@@ -1,5 +1,4 @@
 const nodeGraphPatchFaceFieldKeys = Object.freeze([
-  "name",
   "bank",
   "program",
   "bankName",
@@ -10,7 +9,6 @@ const nodeGraphPatchFaceFieldKeys = Object.freeze([
 ]);
 
 const nodeGraphPatchFaceDisplaySettingsDefaults = Object.freeze({
-  showName: true,
   showBank: true,
   showProgram: true,
   showBankName: true,
@@ -48,7 +46,6 @@ function normalizeNodeGraphPatchFaceDisplaySettings(settings = {}) {
     nodeGraphPatchFaceDisplaySettingsDefaults.color,
   );
   return {
-    showName: flag("showName"),
     showBank: flag("showBank"),
     showProgram: flag("showProgram"),
     showBankName: flag("showBankName"),
@@ -70,7 +67,6 @@ function nodeGraphPatchFaceDisplaySettingsForNode(node) {
 function nodeGraphPatchInfoFieldVisibility(settings) {
   const s = normalizeNodeGraphPatchFaceDisplaySettings(settings);
   return {
-    name: s.showName,
     bank: s.showBank,
     program: s.showProgram,
     bankName: s.showBankName,
@@ -126,10 +122,6 @@ function createNodeGraphPatchFace(node, type) {
   face.innerHTML = `
     <div class="node-patch-module-info">
       <div class="node-patch-card-grid">
-        <label class="node-patch-field node-patch-field-span-2">
-          <span>Name</span>
-          <input id="patchNameValue" type="text" autocomplete="off" spellcheck="false" data-patch-info-field="name" placeholder="Untitled patch">
-        </label>
         <label class="node-patch-field">
           <span>Bank #</span>
           <input id="patchBankValue" type="number" min="0" max="127" step="1" data-patch-info-field="bank" inputmode="numeric">

@@ -5311,11 +5311,10 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "pingEnvelope") {
-      // timeDenominator=attack s, width=Decay 1, feedback=Decay 2.
+      // timeDenominator=attack s, width=Decay (0=offset 1, 1=offset 0).
       push("recalculateOnTrigger", P.NATIVE_GRAPH_PARAM_MODE, disc("recalculateOnTrigger", 1));
       push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0));
       push("decay", P.NATIVE_GRAPH_PARAM_WIDTH, cont("decay", 0.5));
-      push("decay2", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("decay2", 0.5));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }

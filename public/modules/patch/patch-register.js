@@ -1,4 +1,4 @@
-// Patch plate: single in-world editor for patch.info (name / bank / program / …).
+// Patch plate: single in-world editor for patch.info (bank / program / …).
 registerNodeGraphChromelessModule("patch", {
   label: "Patch",
   uniqueInPatch: true,
@@ -21,10 +21,9 @@ registerNodeGraphChromelessModule("patch", {
   },
   catalog: {
     category: "object",
-    description: "Patch identity plate. Name, bank, program, tags, author, and description live here — one per patch.",
+    description: "Patch identity plate. Bank, program, tags, author, and description live here — one per patch. The filename is the patch name.",
     notes: [
       "patch info",
-      "name",
       "bank",
       "program",
       "description",

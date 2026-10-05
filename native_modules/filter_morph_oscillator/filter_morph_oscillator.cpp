@@ -2,13 +2,12 @@
 // soemdsp-native-label: FilterMorph Oscillator
 // soemdsp-native-target: filterMorphOscillator
 // soemdsp-native-kind: oscillator
-// soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/PolyBLEP.hpp
 //
-// PolyBLEP source (Saw / Ramp / Trisaw / Triangle / Center Square / Pulse /
-// Asym Sine) into a pitch-tracking Passive-style one-pole cascade (Poles 1…4).
+// Naive source waves + Robin Schmidt ±1-sample cycle dither (same short/mid/long
+// pick as Ellipsoid / Supersaw Square AA). Then pitch-tracking Passive-style
+// one-pole cascade (Poles 1…4) + fundamental makeup.
 // Morph 0 = dark (fc ≈ 0.5×f0). Morph 1 = open (fc ≈ 100×f0, Nyquist clamp).
-// Makeup keeps fundamental magnitude constant. Asym Sine is 2× per wrap so
-// the phasor runs at ƒ/2; filter/makeup still use user ƒ.
+// Asym Sine is 2× per wrap so the phasor runs at ƒ/2; filter/makeup use user ƒ.
 
 #include <stdint.h>
 
@@ -27,8 +26,10 @@ struct FilterMorphState {
   bool active;
   double phase;
   double lpY[kMaxPoles];
-  double triangleIntegrator;
   double lastReset;
+  double ditherOffset;
+  int ditherWasOn;
+  unsigned int rng;
 };
 
 static FilterMorphState gPool[kMaxInstances];
@@ -37,43 +38,70 @@ static double wrap01_phase(double x) {
   return wrap01(x);
 }
 
-static double polyblep_saw(double phaseCycle, double increment) {
-  const double ph = wrap01_phase(phaseCycle);
-  double dt = increment < 0.0 ? -increment : increment;
-  if (dt < 1.0e-12) {
-    return 1.0 - ph * 2.0;
-  }
-  if (dt > 0.5) dt = 0.5;
-  return 1.0 - ph * 2.0 + poly_blep(ph, increment);
+// Same short/mid/long ±1-sample pick as soemdsp_ellipsoid_robin_dither_cycles.
+static double robin_dither_cycles(unsigned int* rng, double cycleSamples) {
+  if (!rng) return 0.0;
+  double c = cycleSamples;
+  if (!(c == c) || c < 2.0) c = 2.0;
+  if (c > 1.0e9) c = 1.0e9;
+  const double ci = dsp_floor(c);
+  const double cf = c - ci;
+  double c2 = ci;
+  if (cf >= 0.5) c2 += 1.0;
+  const double c1 = c2 - 1.0;
+  const double c3 = c2 + 1.0;
+  const double e1 = c1 - c;
+  const double e2 = c2 - c;
+  const double e3 = c3 - c;
+  const double v1 = e1 * e1;
+  const double v2 = e2 * e2;
+  const double v3 = e3 * e3;
+  const double v = 0.25;
+  const double d1 = v - v1;
+  const double d2 = v - v2;
+  const double d3 = v - v3;
+  const double denom = e3 * (v1 - v2) - e2 * (v1 - v3) + e1 * (v2 - v3);
+  if (!(denom == denom) || denom == 0.0) return 0.0;
+  const double s = 1.0 / denom;
+  const double probShort = (d2 * e3 - d3 * e2) * s;
+  const double probMid = (d3 * e1 - d1 * e3) * s;
+
+  unsigned int state = *rng;
+  if (state == 0u) state = 1u;
+  state = xorshift32(state);
+  *rng = state;
+  const double r = (double)(state >> 8) * (1.0 / 16777216.0);
+  double lenNow = c2;
+  if (r < probShort) lenNow = c2 - 1.0;
+  else if (r >= probShort + probMid) lenNow = c2 + 1.0;
+  double maxCount = lenNow - 1.0;
+  if (!(maxCount >= 1.0)) maxCount = 1.0;
+  const double phaseSlope = 1.0 / maxCount;
+  if (lenNow < c2) return -phaseSlope;
+  if (lenNow > c2) return phaseSlope;
+  return 0.0;
 }
 
-static double polyblep_ramp(double phaseCycle, double increment) {
-  const double ph = wrap01_phase(phaseCycle);
-  double dt = increment < 0.0 ? -increment : increment;
-  if (dt < 1.0e-12) {
-    return -1.0 + ph * 2.0;
-  }
-  if (dt > 0.5) dt = 0.5;
-  return -1.0 + ph * 2.0 - poly_blep(ph, increment);
+static double naive_saw(double t) {
+  return 1.0 - wrap01_phase(t) * 2.0;
 }
 
-static double polyblep_square(double phaseCycle, double increment) {
-  double value = phaseCycle < 0.5 ? 1.0 : -1.0;
-  value += poly_blep(phaseCycle, increment);
-  value -= poly_blep(wrap01_phase(phaseCycle + 0.5), increment);
-  return value;
+static double naive_ramp(double t) {
+  return -1.0 + wrap01_phase(t) * 2.0;
 }
 
-static double polyblep_pulse(double t, double incrementAbs, double morph) {
+static double naive_triangle(double t) {
+  const double p = wrap01_phase(t);
+  const double d = p < 0.5 ? (0.5 - p) : (p - 0.5);
+  return 1.0 - 4.0 * d;
+}
+
+static double naive_pulse(double t, double morph) {
   const double pw = morph_width01(morph);
-  const double t1 = wrap01_phase(t + 1.0 - pw);
-  double y = -2.0 * pw;
-  if (t < pw) y += 2.0;
-  y += poly_blep(t, incrementAbs) - poly_blep(t1, incrementAbs);
-  return y;
+  return (wrap01_phase(t) < pw) ? (2.0 - 2.0 * pw) : (-2.0 * pw);
 }
 
-static double polyblep_center_square(double t, double incrementAbs, double morph) {
+static double naive_center_square(double t, double morph) {
   double w = morph;
   if (!(w == w)) w = 0.5;
   if (w < 0.0) w = 0.0;
@@ -82,26 +110,13 @@ static double polyblep_center_square(double t, double incrementAbs, double morph
   if (w >= 1.0) return 1.0;
   const double shift = 0.5 * (1.0 - w);
   const double t0 = wrap01_phase(t - shift);
-  const double t1 = wrap01_phase(t0 + 1.0 - w);
-  double y = (t0 < w) ? 1.0 : -1.0;
-  y += poly_blep(t0, incrementAbs) - poly_blep(t1, incrementAbs);
-  return y;
+  return (t0 < w) ? 1.0 : -1.0;
 }
 
-static double polyblep_trisaw(double t, double incrementAbs, double morph) {
-  const double pw = morph_width01(morph);
-  const double t1 = wrap01_phase(t + 0.5 * pw);
-  const double t2 = wrap01_phase(t + 1.0 - 0.5 * pw);
-  double y = t * 2.0;
-  if (y >= 2.0 - pw) {
-    y = (y - 2.0) / pw;
-  } else if (y >= pw) {
-    y = 1.0 - (y - pw) / (1.0 - pw);
-  } else {
-    y /= pw;
-  }
-  y += incrementAbs / (pw - pw * pw) * (poly_blamp(t1, incrementAbs) - poly_blamp(t2, incrementAbs));
-  return y;
+static double naive_asym_sine(double t) {
+  double sabs = dsp_sin_turns_lut(wrap01_phase(t));
+  if (sabs < 0.0) sabs = -sabs;
+  return sabs * 2.0 - 1.0;
 }
 
 static double one_pole_lp(double& y, double x, double freqHz, double rate) {
@@ -164,43 +179,15 @@ static void clear_lp(FilterMorphState& s) {
   for (int i = 0; i < kMaxPoles; i++) s.lpY[i] = 0.0;
 }
 
-static double source_wave(
-  FilterMorphState& s,
-  double ph,
-  double increment,
-  int wave
-) {
-  const double absInc = increment < 0.0 ? -increment : increment;
-  const double dt = absInc < 1.0e-12 ? 1.0e-6 : absInc;
+static double source_wave(double ph, int wave) {
   switch (wave) {
-    case 1:
-      return polyblep_ramp(ph, increment);
-    case 2:
-      return polyblep_trisaw(ph, dt, 0.5);
-    case 3: {
-      if (absInc <= 1.0e-12) {
-        const double t = ph < 0.5 ? (0.5 - ph) : (ph - 0.5);
-        const double y = 1.0 - 4.0 * t;
-        s.triangleIntegrator = y;
-        return y;
-      }
-      double next = (s.triangleIntegrator + polyblep_square(ph, increment) * increment * 4.0) * 0.995;
-      if (next > 1.0) next = 1.0;
-      if (next < -1.0) next = -1.0;
-      s.triangleIntegrator = next;
-      return next;
-    }
-    case 4:
-      return polyblep_center_square(ph, dt, 0.5);
-    case 5:
-      return polyblep_pulse(ph, dt, 0.5);
-    case 6: {
-      double sabs = dsp_sin_turns_lut(ph);
-      if (sabs < 0.0) sabs = -sabs;
-      return sabs * 2.0 - 1.0;
-    }
-    default:
-      return polyblep_saw(ph, increment);
+    case 1: return naive_ramp(ph);
+    case 2: return naive_trisaw(ph, 0.5);
+    case 3: return naive_triangle(ph);
+    case 4: return naive_center_square(ph, 0.5);
+    case 5: return naive_pulse(ph, 0.5);
+    case 6: return naive_asym_sine(ph);
+    default: return naive_saw(ph);
   }
 }
 
@@ -225,13 +212,27 @@ static double process_one(
 
   if (doReset) {
     s.phase = 0.0;
-    s.triangleIntegrator = 0.0;
+    s.ditherOffset = 0.0;
+    s.ditherWasOn = 0;
     clear_lp(s);
   }
 
-  s.phase = wrap01_phase(s.phase + increment);
-  const double ph = wrap01_phase(s.phase + po);
-  double y = source_wave(s, ph, increment, wave);
+  const double old = s.phase;
+  const double next = old + increment;
+  const bool wrap = dsp_floor(next) != dsp_floor(old);
+  s.phase = wrap01_phase(next);
+
+  const double absInc = increment < 0.0 ? -increment : increment;
+  if (!(absInc > 1.0e-15)) {
+    s.ditherOffset = 0.0;
+    s.ditherWasOn = 0;
+  } else if (doReset || s.ditherWasOn == 0 || wrap) {
+    s.ditherOffset = robin_dither_cycles(&s.rng, 1.0 / absInc);
+    s.ditherWasOn = 1;
+  }
+
+  const double ph = wrap01_phase(s.phase + po + s.ditherOffset);
+  double y = source_wave(ph, wave);
 
   double m = morph;
   if (!(m == m) || m < 0.0) m = 0.0;
@@ -270,9 +271,12 @@ extern "C" int soemdsp_filter_morph_oscillator_create() {
     if (!gPool[i].active) {
       FilterMorphState& s = gPool[i];
       s.phase = 0.0;
-      s.triangleIntegrator = 0.0;
       clear_lp(s);
       s.lastReset = 0.0;
+      s.ditherOffset = 0.0;
+      s.ditherWasOn = 0;
+      s.rng = 0xA341316Cu + (unsigned int)(i + 1) * 2654435761u;
+      if (!s.rng) s.rng = 1u;
       s.active = true;
       return i + 1;
     }
@@ -291,7 +295,8 @@ extern "C" void soemdsp_filter_morph_oscillator_reset(int handle, double phaseOf
   if (!s.active) return;
   (void)phaseOffset;
   s.phase = 0.0;
-  s.triangleIntegrator = 0.0;
+  s.ditherOffset = 0.0;
+  s.ditherWasOn = 0;
   clear_lp(s);
 }
 
@@ -318,5 +323,5 @@ extern "C" double soemdsp_filter_morph_oscillator_sample(
 }
 
 extern "C" int soemdsp_filter_morph_oscillator_version() {
-  return 3;
+  return 4;
 }

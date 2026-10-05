@@ -189,7 +189,6 @@
     "bankName": "",
     "category": "",
     "description": "Init — PolyBLEP into Output (same as patches/init.json)",
-    "name": "",
     "program": 0,
     "tags": "init,default"
   },

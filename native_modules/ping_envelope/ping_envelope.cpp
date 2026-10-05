@@ -4,11 +4,9 @@
 // soemdsp-native-kind: envelope
 //
 // Breadboard: patches/modulator breadboards/ping envelope.json
-//   Inertial Filter (Attack time, Release 0…20000 Hz) with Env → attenuverter
-//   → Amp Curve Exp → unit-MOD Release (Inertial Release is 0…20000 Hz).
-// Decay 1 (reversed Amount): 0 → amplitude 1, 1 → amplitude 0.
-// Decay 2: 0 → offset +0.5, 1 → offset −0.5. Default 0.5 is offset 0.
-// Attack is one-pole rise time in seconds (unchanged).
+//   Env × 0.7718 + offset → Amp Curve Exp → Release 0…1000 Hz.
+// Decay 0 = offset 1 (no decay). Decay 1 = offset 0 (long decay).
+// Attack is one-pole rise time in seconds.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -17,8 +15,8 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 64;
-static const double kReleaseHzMax = 20000.0;
-static const double kReleaseHzMin = 0.001;
+static const double kFeedbackAmp = 0.7718;
+static const double kReleaseHzMax = 1000.0;
 static const double kExpDbSpan = 5.0;
 static const double kLn10 = 2.302585092994046;
 
@@ -26,8 +24,7 @@ struct State {
   double env;
   double lastTrig;
   double shotAttack;
-  double shotDecay1;
-  double shotDecay2;
+  double shotDecay;
   double shotAmp;
   bool hasShot;
   bool active;
@@ -81,8 +78,7 @@ extern "C" int soemdsp_ping_envelope_create() {
       s.env = 0.0;
       s.lastTrig = 0.0;
       s.shotAttack = 0.0;
-      s.shotDecay1 = 0.5;
-      s.shotDecay2 = 0.5;
+      s.shotDecay = 0.5;
       s.shotAmp = 1.0;
       s.hasShot = false;
       s.active = true;
@@ -101,8 +97,7 @@ extern "C" double soemdsp_ping_envelope_sample(
   int handle,
   double input,
   double attackSec,
-  double decay1,
-  double decay2,
+  double decay,
   double amplitude,
   double recalculateOnTrigger,
   double sampleRate
@@ -112,8 +107,7 @@ extern "C" double soemdsp_ping_envelope_sample(
 
   const double sr = sampleRate < 1.0 ? 44100.0 : sampleRate;
   const double liveAtk = maxd(0.0, safe(attackSec));
-  const double liveDecay1 = clamp01_param(decay1, 0.5);
-  const double liveDecay2 = clamp01_param(decay2, 0.5);
+  const double liveDecay = clamp01_param(decay, 0.5);
   const double liveAmp = (amplitude * 0.0 == 0.0) ? amplitude : 1.0;
   const bool latch = safe(recalculateOnTrigger) >= 0.5;
 
@@ -124,24 +118,22 @@ extern "C" double soemdsp_ping_envelope_sample(
 
   if (!latch) {
     s.shotAttack = liveAtk;
-    s.shotDecay1 = liveDecay1;
-    s.shotDecay2 = liveDecay2;
+    s.shotDecay = liveDecay;
     s.shotAmp = liveAmp;
     s.hasShot = true;
   } else if (trigRise) {
     s.shotAttack = liveAtk;
-    s.shotDecay1 = liveDecay1;
-    s.shotDecay2 = liveDecay2;
+    s.shotDecay = liveDecay;
     s.shotAmp = liveAmp;
     s.hasShot = true;
   }
 
   const double target = in * s.shotAmp;
-  const double attenAmp = 1.0 - s.shotDecay1;
-  const double attenOff = 0.5 - s.shotDecay2;
-  const double x = s.env * attenAmp + attenOff;
+  const double offset = 1.0 - s.shotDecay;
+  const double x = s.env * kFeedbackAmp + offset;
   double relHz = exp_curve(x) * kReleaseHzMax;
-  if (relHz < kReleaseHzMin) relHz = kReleaseHzMin;
+  if (!(relHz * 0.0 == 0.0) || relHz < 0.0) relHz = 0.0;
+  if (relHz > kReleaseHzMax) relHz = kReleaseHzMax;
 
   const double ka = k_attack(s.shotAttack, sr);
   const double kr = k_hz(relHz, sr);
@@ -161,6 +153,6 @@ extern "C" int soemdsp_ping_envelope_is_idle(int handle) {
   return (a < 1.0e-5) ? 1 : 0;
 }
 
-extern "C" int soemdsp_ping_envelope_version() { return 16; }
+extern "C" int soemdsp_ping_envelope_version() { return 18; }
 extern "C" const char* soemdsp_ping_envelope_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_ping_envelope_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

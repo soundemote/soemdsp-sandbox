@@ -155,7 +155,9 @@ function nodeGraphShareProjectData(patch = nodeGraphMvp.patch) {
   return {
     kind: "sandbox_patch",
     version: 1,
-    title: info.name || "Untitled Project",
+    title: (typeof nodeGraphPatchFileStem === "function"
+      ? nodeGraphPatchFileStem(nodeGraphMvp?.currentSavedPatchFilename || nodeGraphMvp?.loadedPatchSlug || "")
+      : "") || "Untitled Project",
     bank_name: info.bankName || "",
     patch_data: JSON.parse(serializeNodeGraphPatch(patchToShare)),
     assets: typeof nodeGraphRequiredAssetsForPatch === "function"

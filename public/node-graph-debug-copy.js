@@ -80,7 +80,10 @@ function downloadNodeGraphLivePlanJson() {
   const json = JSON.stringify(plan, null, 2);
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
-  const patchName = String(nodeGraphMvp?.patch?.info?.name || "patch")
+  const rawStem = (typeof nodeGraphPatchFileStem === "function"
+    ? nodeGraphPatchFileStem(nodeGraphMvp?.currentSavedPatchFilename || nodeGraphMvp?.loadedPatchSlug || "")
+    : "") || "patch";
+  const patchName = String(rawStem)
     .trim()
     .replace(/[^a-z0-9_-]+/gi, "-")
     .replace(/^-+|-+$/g, "") || "patch";

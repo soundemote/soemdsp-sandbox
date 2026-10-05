@@ -601,23 +601,20 @@ function createNodeGraphHeaderRenderRangeInput(className, label, defaultValue, o
 }
 
 function nodeGraphHeaderPatchTitleSource() {
-  const name = typeof normalizeNodeGraphPatchInfo === "function"
-    ? normalizeNodeGraphPatchInfo(nodeGraphMvp?.patch?.info).name
-    : String(nodeGraphMvp?.patch?.info?.name || "").trim();
   const pathOrSlug = nodeGraphMvp?.currentSavedPatchFilename
+    || nodeGraphMvp?.loadedPatchSlug
     || nodeGraphMvp?.selectedSavedPatchFilename
     || "";
-  const filled = typeof nodeGraphPatchNameIsFilled === "function"
-    ? nodeGraphPatchNameIsFilled(name)
-    : Boolean(String(name || "").trim());
   const text = typeof nodeGraphPatchDisplayTitle === "function"
-    ? nodeGraphPatchDisplayTitle(name, pathOrSlug)
-    : (String(name || "").trim() || "Untitled");
+    ? nodeGraphPatchDisplayTitle("", pathOrSlug)
+    : (typeof nodeGraphPatchFileStem === "function"
+      ? (nodeGraphPatchFileStem(pathOrSlug) || "Untitled")
+      : "Untitled");
   return {
-    name: String(name || "").trim(),
+    name: text,
     text,
-    filled,
-    hasFile: Boolean(String(nodeGraphMvp?.currentSavedPatchFilename || "").trim()),
+    filled: text !== "Untitled",
+    hasFile: Boolean(String(nodeGraphMvp?.currentSavedPatchFilename || nodeGraphMvp?.loadedPatchSlug || "").trim()),
   };
 }
 
@@ -636,130 +633,21 @@ function syncNodeGraphHeaderPatchTitle() {
   if (el.textContent !== text) {
     el.textContent = text;
   }
-  el.title = source.filled ? source.text : `${source.text} — double-click to name`;
-  el.classList.toggle("is-fallback", !source.filled);
+  el.title = source.text;
+  el.classList.toggle("is-fallback", !source.hasFile);
   el.classList.toggle("is-edited", dirty);
 }
 
-function nodeGraphSetStoredPatchName(name) {
-  if (!nodeGraphMvp?.patch) return;
-  const trimmed = String(name || "").replace(/\s+/g, " ").trim();
-  const info = typeof normalizeNodeGraphPatchInfo === "function"
-    ? normalizeNodeGraphPatchInfo(nodeGraphMvp.patch.info)
-    : { ...(nodeGraphMvp.patch.info || {}) };
-  info.name = trimmed;
-  nodeGraphMvp.patch.info = info;
-  const field = document.getElementById("nodePatchDefaultsName")
-    || document.getElementById("patchNameValue");
-  if (field) field.value = trimmed;
-  if (typeof setNodeGraphPatchDirtyState === "function") {
-    setNodeGraphPatchDirtyState("edited");
-  }
+function nodeGraphSetStoredPatchName(_name) {
   syncNodeGraphHeaderPatchTitle();
-}
-
-function nodeGraphFinishPatchTitleEdit(input, commit) {
-  const host = input?.closest?.("#nodeHeaderPatchTitle");
-  if (!host) return;
-  host.dataset.editing = "false";
-  if (commit) {
-    nodeGraphSetStoredPatchName(input.value);
-  }
-  host.replaceChildren();
-  syncNodeGraphHeaderPatchTitle();
-}
-
-function nodeGraphBeginInlinePatchTitleEdit(host) {
-  if (!host || host.dataset.editing === "true") return;
-  const source = nodeGraphHeaderPatchTitleSource();
-  host.dataset.editing = "true";
-  host.classList.remove("is-fallback");
-  const input = document.createElement("input");
-  input.type = "text";
-  input.className = "node-header-patch-title-input";
-  input.value = source.filled ? source.name : "";
-  input.placeholder = source.hasFile ? source.text : "Untitled";
-  input.setAttribute("aria-label", "Patch title");
-  input.addEventListener("keydown", (event) => {
-    event.stopPropagation();
-    if (event.key === "Enter") {
-      event.preventDefault();
-      nodeGraphFinishPatchTitleEdit(input, true);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      nodeGraphFinishPatchTitleEdit(input, false);
-    }
-  });
-  input.addEventListener("blur", () => nodeGraphFinishPatchTitleEdit(input, true));
-  input.addEventListener("pointerdown", (event) => event.stopPropagation());
-  host.replaceChildren(input);
-  input.focus();
-  input.select();
-}
-
-function nodeGraphCloseSaveBeforeNamingDialog(dialog) {
-  dialog?.remove();
-}
-
-function nodeGraphOpenSaveBeforeNamingDialog() {
-  if (document.querySelector(".node-patch-name-dialog")) return;
-  const dialog = document.createElement("div");
-  dialog.className = "node-patch-name-dialog";
-  dialog.innerHTML = `
-    <form class="node-patch-name-dialog-card">
-      <p>Save the patch before naming it.</p>
-      <label>Title
-        <input type="text" name="title" maxlength="180" autocomplete="off" spellcheck="false">
-      </label>
-      <div class="node-patch-name-dialog-actions">
-        <button type="submit">Save</button>
-        <button type="button" data-close>Close</button>
-      </div>
-    </form>`;
-  const form = dialog.querySelector("form");
-  const input = dialog.querySelector("input");
-  const previousName = nodeGraphHeaderPatchTitleSource().name;
-  const previousDirty = nodeGraphMvp?.patchDirtyState || "untouched";
-  dialog.querySelector("[data-close]")?.addEventListener("click", () => {
-    nodeGraphCloseSaveBeforeNamingDialog(dialog);
-  });
-  dialog.addEventListener("pointerdown", (event) => {
-    if (event.target === dialog) nodeGraphCloseSaveBeforeNamingDialog(dialog);
-  });
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const typed = String(input?.value || "");
-    nodeGraphSetStoredPatchName(typed);
-    nodeGraphCloseSaveBeforeNamingDialog(dialog);
-    const saved = typeof saveNodeGraphPatchWithNativeDialog === "function"
-      ? await saveNodeGraphPatchWithNativeDialog()
-      : false;
-    if (!saved) {
-      nodeGraphSetStoredPatchName(previousName);
-      if (typeof setNodeGraphPatchDirtyState === "function") {
-        setNodeGraphPatchDirtyState(previousDirty);
-      }
-    }
-  });
-  document.body.append(dialog);
-  input?.focus();
 }
 
 function createNodeGraphHeaderPatchTitle() {
   const el = document.createElement("div");
   el.id = "nodeHeaderPatchTitle";
   el.className = "node-header-patch-title";
-  el.setAttribute("aria-label", "Patch name");
-  el.title = "Double-click to name this patch";
-  el.addEventListener("dblclick", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (nodeGraphHeaderPatchTitleSource().hasFile) {
-      nodeGraphBeginInlinePatchTitleEdit(el);
-    } else {
-      nodeGraphOpenSaveBeforeNamingDialog();
-    }
-  });
+  el.setAttribute("aria-label", "Patch file");
+  el.title = nodeGraphHeaderPatchTitleText();
   el.addEventListener("pointerdown", (event) => {
     if (el.dataset.editing === "true") event.stopPropagation();
   });

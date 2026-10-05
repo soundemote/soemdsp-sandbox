@@ -4230,7 +4230,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "PolyBLEP source into Morph. Asym Sine is 2× per wrap; phasor runs at ƒ/2."
+        tooltip: "Naive source into Morph with Robin ±1-sample cycle dither. Asym Sine is 2× per wrap; phasor runs at ƒ/2."
       },
       {
         defaultValue: "1",
@@ -15032,7 +15032,7 @@ const nodeGraphModuleDefinitions = (
     planFreeRun: true,
     layout: "scopeFace",
     displayType: "waterfall",
-    defaultDisplaySettings: { historySeconds: 8, polarity: "unipolar" },
+    defaultDisplaySettings: { historySeconds: 8, polarity: "unipolar", facePolarity: "unipolar" },
     displayModes: [
       {
         key: "waterfall",
@@ -15087,7 +15087,7 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     planFreeRun: true,
     displayType: "waterfall",
-    defaultDisplaySettings: { historySeconds: 8 },
+    defaultDisplaySettings: { historySeconds: 8, polarity: "unipolar", facePolarity: "unipolar" },
     displayModes: [
       {
         key: "waterfall",
@@ -15137,23 +15137,13 @@ const nodeGraphModuleDefinitions = (
       {
         defaultValue: "0.5",
         key: "decay",
-        label: "Decay 1",
+        label: "Decay",
         max: "1",
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Attenuverter Amount into Release (reversed). 0 = amplitude 1, 1 = amplitude 0." },
-      {
-        defaultValue: "0.5",
-        key: "decay2",
-        label: "Decay 2",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        tooltip: "Attenuverter Offset into Release. 0 = offset +0.5, 1 = offset −0.5. Default 0.5 is offset 0." },
+        tooltip: "0 = no decay (offset 1). 1 = long decay (offset 0). Feedback gain stays 0.7718. Exp curve drives Release 0…1000 Hz. 0 Hz freezes the fall." },
       {
         defaultValue: "1",
         key: "amplitude",

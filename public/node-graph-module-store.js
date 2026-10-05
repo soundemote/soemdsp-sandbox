@@ -877,9 +877,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   filterMorphOscillator: {
     category: "oscillator",
-    description: "PolyBLEP shapes through a pitch-tracking one-pole Morph (1…4 poles) toward sine-ish, with constant-fundamental makeup.",
+    description: "Robin-dithered naive shapes through a pitch-tracking one-pole Morph (1…4 poles) toward sine-ish, with constant-fundamental makeup.",
     label: "FilterMorph Oscillator",
-    notes: ["polyblep", "filter morph", "one-pole", "poles", "native", "oscillator"],
+    notes: ["robin dither", "filter morph", "one-pole", "poles", "native", "oscillator"],
   },
   sineWarp: {
     category: "oscillator",

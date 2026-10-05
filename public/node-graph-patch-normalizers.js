@@ -49,7 +49,6 @@ function normalizeNodeGraphPatchInfo(info = {}) {
     category: nodeGraphOneLineText(info.category),
     description: String(info.description ?? "").trim(),
     emoji: nodeGraphOneLineText(info.emoji),
-    name: nodeGraphOneLineText(info.name),
     program: Number.isFinite(program) ? Math.max(0, Math.min(127, program)) : 0,
     tags: nodeGraphOneLineText(info.tags),
   };
@@ -66,19 +65,8 @@ function nodeGraphPatchFileStem(pathOrSlug = "") {
     .pop() || "";
 }
 
-/** True when info.name is filled in (non-empty after trim). */
-function nodeGraphPatchNameIsFilled(name = "") {
-  return Boolean(String(name || "").trim());
-}
-
-/**
- * Single source of truth for patch title display:
- * filled info.name -> that name; otherwise file stem; else "Untitled".
- */
-function nodeGraphPatchDisplayTitle(name = "", pathOrSlug = "") {
-  if (nodeGraphPatchNameIsFilled(name)) {
-    return String(name).trim();
-  }
+/** Title is the patch filename stem. */
+function nodeGraphPatchDisplayTitle(_name = "", pathOrSlug = "") {
   return nodeGraphPatchFileStem(pathOrSlug) || "Untitled";
 }
 

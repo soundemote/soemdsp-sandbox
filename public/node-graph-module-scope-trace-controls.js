@@ -905,7 +905,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     fields: Object.freeze([]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([
-      "showName",
       "showBank",
       "showProgram",
       "showBankName",
@@ -1829,11 +1828,6 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     id: "nodeTraceDisplayDotsOnly",
     title:
       "Stamp only real sample hits — no extra packing between samples. Avoids connective lines / chord fill. Dense samples can still fuse; sparse samples stay discrete dots.",
-  }),
-  showName: Object.freeze({
-    label: "Name",
-    id: "nodeTraceDisplayShowPatchName",
-    title: "Show the patch name field on the Patch plate.",
   }),
   showBank: Object.freeze({
     label: "Bank #",

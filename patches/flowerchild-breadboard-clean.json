@@ -149,7 +149,6 @@
     "bankName": "",
     "category": "filter",
     "description": "Graph-driven Clean Flower Child using pitch-domain Ranges + pitchHz converters. masterPitch −120…105 → clock Hz; LPF1 pitch 90…180; LPF2 pitch 80…130 (FCF pitch law).",
-    "name": "",
     "program": 0,
     "tags": "flowerchild,breadboard,graph"
   },

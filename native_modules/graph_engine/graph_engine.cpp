@@ -1058,7 +1058,7 @@ extern "C" int soemdsp_ping_envelope_create();
 extern "C" void soemdsp_ping_envelope_destroy(int handle);
 extern "C" int soemdsp_ping_envelope_is_idle(int handle);
 extern "C" double soemdsp_ping_envelope_sample(
-  int handle, double input, double attackSec, double decay1, double decay2,
+  int handle, double input, double attackSec, double decay,
   double amplitude, double recalculateOnTrigger, double sampleRate
 );
 extern "C" int soemdsp_ping_envelope_version();
@@ -1866,7 +1866,7 @@ static const int kTypeCurveAttackRelease = 166;
 static const int kTypePluckEnvelopeFb = 198;
 static const int kTypeAcidSequencer = 199; // TB-303-style step sequencer
 static const int kTypeHyperpluck = 200; // PolyBLEP unison pluck (Supersaw detune)
-static const int kTypeFilterMorphOscillator = 201; // FilterMorph: PolyBLEP shapes + pitch-tracking one-pole
+static const int kTypeFilterMorphOscillator = 201; // FilterMorph: Robin-dithered naive shapes + pitch-tracking one-pole
 static const int kTypeWavetableAdsr = 168; // cheap poly ADSR (Analog/Linear/Smoothstep)
 static const int kTypeFm = 169; // Freq Manager: ƒ(+inc) mix × pitch scale + Add; outs ƒ + inc
 static const int kTypePitchHz = 170; // Pitch â†” Hz (MIDI-ish pitch law, A4 = tuning)
@@ -6894,7 +6894,7 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
   }
 }
 
-// FilterMorph: PolyBLEP shapes → pitch-tracking one-pole cascade + makeup.
+// FilterMorph: Robin-dithered naive shapes → pitch-tracking one-pole cascade + makeup.
 // Morph/Poles/Waveform/Phase/Amplitude are params (+ MOD) only.
 // Reset → Wave at Phase offset (phasor 0 + offset; LP cleared).
 static void process_filter_morph_oscillator(Circuit& g, Node& node, int frames) {
@@ -8941,7 +8941,7 @@ static void process_pluck_envelope_fb(Circuit& g, Node& node, int frames) {
 }
 
 
-// Ping Envelope (pingEnvelope). Breadboard: Env×Decay1 + Decay2 offset → expo → Release Hz.
+// Ping Envelope (pingEnvelope). Env×0.7718 + (1−Decay) → expo → Release 0…1000 Hz.
 static void process_ping_envelope(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -8957,7 +8957,6 @@ static void process_ping_envelope(Circuit& g, Node& node, int frames) {
       input,
       control_audio(g, node.timeDenominator, f),
       control_audio(g, node.width, f),
-      control_audio(g, node.feedback, f),
       control_audio(g, node.amplitude, f),
       control_effective(node.mode),
       sr
