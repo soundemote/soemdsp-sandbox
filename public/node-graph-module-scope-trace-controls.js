@@ -30,7 +30,6 @@ const nodeGraphDisplaySettingsSharedStackOrder = Object.freeze([
   "dot1Brightness",
   "ghost",
   "trail",
-  "burn",
   "burnAmount",
   "dotBudget",
   "pixelDensity",
@@ -294,8 +293,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze(["barInk", "facePolarity", "stereoBlend"]),
   }),
   // Phosphor energy faces: color via shared Gradient editor (not single swatches).
-  // Field order = nodeGraphPhosphorDisplayFieldOrder (Bright…residual…Burn ⨉…Dot Budget).
-  // Ghost/Trail/Burn/Burn ⨉ — same residual stack as 2D Phosphor / Matrix.
+  // Field order = nodeGraphPhosphorDisplayFieldOrder (Bright…Ghost/Trail…Dot Budget).
+  // Ghost/Trail — same residual stack as 2D Phosphor / Matrix.
   dot: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
       "backgroundBrightness",
@@ -305,7 +304,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
-      "burn",
       "burnAmount",
       "pixelDensity",
     ])),
@@ -350,7 +348,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
         "dot1Brightness",
         "ghost",
         "trail",
-        "burn",
         "burnAmount",
         "pixelDensity",
         "dotBudget",
@@ -379,7 +376,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["capEnabled"]),
     choices: Object.freeze([]),
   }),
-  // 2D Phosphor (Lorenz + friends): Bright → Size → Blur → Ghost → Trail → Burn → Burn ⨉
+  // 2D Phosphor (Lorenz + friends): Bright → Size → Blur → Ghost → Trail → Dot Budget.
   scope2d: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
       "dot1Brightness",
@@ -387,7 +384,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "lineThickness",
       "ghost",
       "trail",
-      "burn",
       "burnAmount",
       "scale",
       "backgroundBrightness",
@@ -414,6 +410,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
+      "burnAmount",
       "dotBudget",
     ]),
     colors: Object.freeze([]),
@@ -464,6 +461,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Size",
       "ghost",
       "trail",
+      "burnAmount",
       "pixelDensity",
     ]),
     colors: Object.freeze(["backgroundColor"]),
@@ -504,7 +502,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze(["barInk", "facePolarity"]),
   }),
   numberReadout: Object.freeze({
-    // Value LED: Digits → Decimals → Padding → Bright → Ghost → Trail → Burn.
+    // Value LED: Digits -> Decimals -> Padding -> Bright -> Ghost -> Trail -> Burn x.
     // Value LCD (vector): digits, decimals, padding, Ghost plate, glass shadow.
     fields: Object.freeze([
       "digits",
@@ -516,7 +514,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Saturation",
       "ghost",
       "trail",
-      "burn",
       "burnAmount",
       "unlitSegments",
       "centsBand",
@@ -650,7 +647,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
         "dot1Brightness",
         "ghost",
         "trail",
-        "burn",
         "burnAmount",
         "pixelDensity",
         "dotBudget",
@@ -669,7 +665,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
-      "burn",
       "burnAmount",
       "scale",
       "backgroundBrightness",
@@ -700,7 +695,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "lineThickness",
       "ghost",
       "trail",
-      "burn",
       "burnAmount",
       "scale",
       "pixelDensity",
@@ -719,7 +713,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
-      "burn",
       "burnAmount",
       "pixelDensity",
       "dotBudget",
@@ -1013,7 +1006,6 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "sweepHz",
       "ghost",
       "trail",
-      "burn",
       "burnAmount",
       "facePadding",
       "unlitSegments",
@@ -1126,7 +1118,7 @@ function nodeGraphTraceDisplaySettingsRoot() {
 }
 
 // Field labels / input modes for schema-exclusive body builders.
-// Phosphor labels: Bright, Size, Blur, Ghost, Trail, Burn, Scale, Pixel density, Dot Budget.
+// Phosphor labels: Bright, Size, Blur, Ghost, Trail, Burn x, Scale, Pixel density, Dot Budget.
 const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
   imageSize: Object.freeze({
     label: "Image Size",
@@ -1206,30 +1198,24 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayTrail",
     title: "Hot stamp wipe rate only. 0 = die fast. ~0.88 = classic hang. 1 \u2248 freeze bright path. Ghost is separate. Not Bright.",
   }),
+  burnAmount: Object.freeze({
+    label: "Burn ⨯",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayBurnAmount",
+    title: "Residual ink vs Bright. Live stamp stays on Bright. 1 = residual at Bright; 0.5 = residual at half; 0 = no ghost/trail (nothing hung).",
+  }),
   bleed: Object.freeze({
     label: "Bleed",
     inputmode: "decimal",
     id: "nodeTraceDisplayBleed",
     title: "Soft neighborhood seep on energy phosphor faces.",
   }),
-  burn: Object.freeze({
-    label: "Burn",
-    inputmode: "decimal",
-    id: "nodeTraceDisplayBurn",
-    title: "Image Ghost: how drastically bright pixels linger vs dark (0 = even fade, 1 = highlights stick / darks die). Other faces: sticky residual floor.",
-  }),
-  burnAmount: Object.freeze({
-    label: "Burn \u2A2F",
-    inputmode: "decimal",
-    id: "nodeTraceDisplayBurnAmount",
-    title: "Residual ink vs Bright. Live stamp stays on Bright. 1 = residual at Bright; 0.5 = residual at half; 0 = no ghost/trail (nothing hung).",
-  }),
   residual: Object.freeze({
     // Legacy key — Value LED/LCD forms use trail (same axis).
     label: "Trail",
     inputmode: "decimal",
     id: "nodeTraceDisplayResidual",
-    title: "Linear residual hang 0…1 (app-wide Trail). Not brightness. Ghost is the analog hang; Burn is the sticky floor.",
+    title: "Linear residual hang 0…1 (app-wide Trail). Not brightness. Ghost is the analog hang.",
   }),
   ghostBrightness: Object.freeze({
     // Legacy key — Value LED/LCD forms use ghost (same axis).

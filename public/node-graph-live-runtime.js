@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=fm-robin-aa-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=ping-model-2";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2152,8 +2152,13 @@ function handleNodeGraphLiveWorkletMessage(event) {
       return;
     }
     const scopeValues = message.values || [];
+    // Never serialize the whole patch on the scope callback. An empty
+    // fingerprint used to hash analogdream.json on every display frame.
+    const scopeFingerprint = message.patchFingerprint
+      || nodeGraphModuleScopeState?.patchFingerprint
+      || "";
     pushNodeGraphLiveModuleScopeSnapshot(scopeValues, {
-      patchFingerprint: message.patchFingerprint || nodeGraphPatchFingerprint(),
+      patchFingerprint: scopeFingerprint,
       sampleRate: message.sampleRate || nodeGraphMvp.live.context?.sampleRate || nodeGraphMvp.sampleRate,
     });
     // After pauseâ†’stopâ†’play, force-paint Value LCD/LED until rings + RAF catch up.
@@ -2189,6 +2194,12 @@ function handleNodeGraphLiveWorkletMessage(event) {
         writeNodeGraphDataOutput(String(nodeId), port, value);
       }
     }
+    try {
+      nodeGraphMvp.live.node?.port?.postMessage({
+        type: "scopeAck",
+        sessionId: nodeGraphMvp.live.sessionId,
+      });
+    } catch (_error) { /* worklet gone */ }
   } else if (message.type === "visualControls") {
     if (message.sessionId !== nodeGraphMvp.live.sessionId || !nodeGraphMvp.live.node) {
       return;
@@ -3252,12 +3263,12 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=output-face-prevol-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hyperpluck-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=ping-simple-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=ping-model-2",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
-  "./public/node-live-audio-worklet-set-plan.js?v=sp2-native-1",
+  "./public/node-live-audio-worklet-set-plan.js?v=scope-ack-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hyperpluck-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=live-record-1",
-  "./public/node-live-audio-worklet-scope-snapshot.js?v=scope-hop-off-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=scope-ack-1",
+  "./public/node-live-audio-worklet-scope-snapshot.js?v=scope-ack-1",
   "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=spectro-stride-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
   // Yellow Graph: DOMAIN param chase for MOD (DSP is native opcodes 111â€“124).
@@ -3267,7 +3278,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Keypad slot math (host CV controller — used by sidecar publish + setKeypadInteraction).
   "./public/modules/keypad/keypad-math.js?v=keypad-hostcv-1",
   "./public/modules/_shared/controller-efficient-sidecar.js?v=toggle-trig-1samp-1",
-  "./public/node-live-audio-worklet-process.js?v=rapt-native-1",
+  "./public/node-live-audio-worklet-process.js?v=scope-ack-1",
 ];
 
 // Legacy JS DSP evaluators + evaluateFrame â€” RETIRED. Never load on any product.

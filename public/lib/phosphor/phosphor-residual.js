@@ -1,20 +1,22 @@
 // Shared phosphor residual model (app-wide).
 //
 // Display Settings order (shared faces, including Lorenz):
-//   Size → Blur → Bright → Ghost → Trail → Scale → Antialiasing → Dot Budget
+//   Size -> Blur -> Bright -> Ghost -> Trail -> Scale -> Antialiasing -> Dot Budget
 //
 // Axes (SSOT; high = more of the named quality):
-//   Bright      → peak deposit / present light
-//   Trail       → main residual length (1 ≈ freeze-ish hot path)
-//   Ghost       → dim scorched floor hang (screen burn-in, still dies)
-//   Burn        → sticky residual floor (residualSchema ≥ 2; default 0)
-//   Burn Amount → deposit gain multiplier for residual (default 1)
+//   Bright      -> peak deposit / present light
+//   Trail       -> main residual length (1 ~ freeze-ish hot path)
+//   Ghost       -> dim scorched floor hang (screen burn-in, still dies)
+//   Burn Amount -> deposit gain multiplier vs Bright for residual (default 1)
+//   (sticky Burn / frozen-pixel floor stays removed)
 //
 // Used by energy-GL, drawer, matrix, asciiscope.
 
 (function initPhosphorResidual(global) {
   const DEFAULT_TRAIL = 0.3;
   const DEFAULT_GHOST = 0.25;
+  const DEFAULT_BURN_AMOUNT = 1;
+  const BURN_AMOUNT_MAX = 4;
 
   function clamp01(value, fallback = 0) {
     // Prefer shared SoemMath policy when the UI math lib is loaded.
@@ -47,7 +49,7 @@
 
   /**
    * keepSlow for Ghost floor (energy-GL dual path). Mid ghost already
-   * multi-second hang @60fps — correct for energy residual, too sticky when
+   * multi-second hang @60fps -- correct for energy residual, too sticky when
    * reused as a DestFade plate wipe (see destFadeAmount).
    */
   function ghostKeep(ghost, baseKeep) {
@@ -63,20 +65,20 @@
 
   /**
    * Trail-only plate wipe for DestFade hot path. Ghost is a separate dim
-   * scorch layer (destGhostEraseAmount / deposit / present) — mixing Ghost
+   * scorch layer (destGhostEraseAmount / deposit / present) -- mixing Ghost
    * into this erase made Ghost feel identical to Trail.
    */
   function destFadeAmount(trail, _ghost = 0) {
     const trailErase = trailFadeAmount(trail);
     if (!(trailErase > 0)) {
-      return 0; // Trail ≈ freeze
+      return 0; // Trail ~ freeze
     }
     return Math.max(0.002, Math.min(0.55, trailErase));
   }
 
   /**
    * Ghost-layer erase/frame (independent of Trail). Continuous from 0.
-   * Faster than the old feedback-inflated fog — mid ≈ 0.02 erase @60fps.
+   * Faster than the old feedback-inflated fog -- mid ~ 0.02 erase @60fps.
    */
   function destGhostEraseAmount(ghost) {
     const g = clamp01(ghost, 0);
@@ -86,7 +88,7 @@
   /** How much of the hot image scorches into the Ghost layer each frame. */
   function destGhostDeposit(ghost) {
     const g = clamp01(ghost, 0);
-    // Modest pickup — full-frame re-deposit of hot trails; keep below fog.
+    // Modest pickup -- full-frame re-deposit of hot trails; keep below fog.
     return g * 0.05 + g * g * 0.08;
   }
 
@@ -118,7 +120,7 @@
   }
 
   /**
-   * Patch fields → trail 0..1 (high = long). SSOT: source.trail only.
+   * Patch fields -> trail 0..1 (high = long). SSOT: source.trail only.
    */
   function migrateTrail(source = {}, fallback = DEFAULT_TRAIL) {
     if (source && source.trail != null && Number.isFinite(Number(source.trail))) {
@@ -128,26 +130,13 @@
   }
 
   /**
-   * Patch fields → ghost 0..1 (high = more scorch hang). SSOT: source.ghost only.
+   * Patch fields -> ghost 0..1 (high = more scorch hang). SSOT: source.ghost only.
    */
   function migrateGhost(source = {}, fallback = DEFAULT_GHOST) {
     if (source && source.ghost != null && Number.isFinite(Number(source.ghost))) {
       return clamp01(Number(source.ghost), fallback);
     }
     return clamp01(fallback, DEFAULT_GHOST);
-  }
-
-  /**
-   * Sticky burn floor 0..1 (residualSchema ≥ 2). SSOT: source.burn.
-   */
-  function migrateBurn(source = {}, fallback = 0) {
-    if (!(Number(source?.residualSchema) >= 2)) {
-      return 0;
-    }
-    if (source && source.burn != null && Number.isFinite(Number(source.burn))) {
-      return clamp01(Number(source.burn), fallback);
-    }
-    return clamp01(fallback, 0);
   }
 
   /** Sleep frame budget so ghost hang is not killed early. */
@@ -171,27 +160,41 @@
       keep: keepFast,
       trail: clamp01(trail, DEFAULT_TRAIL),
       ghost: clamp01(ghost, 0),
-      burn: 0,
       burnAmount: Number.isFinite(Number(burnAmount)) ? Number(burnAmount) : 1,
     };
+  }
+
+  function clampBurnAmount(v, fb = 1) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) {
+      return Math.max(0, Math.min(BURN_AMOUNT_MAX, nodeGraphFiniteNumber(fb, 1)));
+    }
+    return Math.max(0, Math.min(BURN_AMOUNT_MAX, n));
+  }
+
+  function migrateBurnAmount(source = {}, fallback = 1) {
+    const n = Number(source?.burnAmount);
+    if (Number.isFinite(n)) {
+      return Math.max(0, Math.min(BURN_AMOUNT_MAX, n));
+    }
+    return Math.max(0, Math.min(BURN_AMOUNT_MAX, nodeGraphFiniteNumber(fallback, 1)));
+  }
+
+  /** Residual deposit peak = Bright x Burn Amount (live tip stays Bright). */
+  function depositBrightness(bright, burnAmount = 1) {
+    const b = Math.max(0, nodeGraphFiniteNumber(bright));
+    const a = clampBurnAmount(burnAmount, 1);
+    return Math.max(0, b * a);
   }
 
   const api = {
     DEFAULT_TRAIL,
     DEFAULT_GHOST,
-    DEFAULT_BURN: 0,
-    DEFAULT_BURN_AMOUNT: 1,
-    BURN_AMOUNT_MAX: 4,
-    RESIDUAL_SCHEMA: 3,
+    DEFAULT_BURN_AMOUNT,
+    BURN_AMOUNT_MAX,
+    RESIDUAL_SCHEMA: 4,
     clamp01,
-    clampBurn: (v, fb = 0) => clamp01(v, fb),
-    clampBurnAmount: (v, fb = 1) => {
-      const n = Number(v);
-      if (!Number.isFinite(n)) {
-        return Math.max(0, Math.min(4, nodeGraphFiniteNumber(fb, 1)));
-      }
-      return Math.max(0, Math.min(4, n));
-    },
+    clampBurnAmount,
     trailFadeAmount,
     trailKeep,
     ghostKeep,
@@ -204,15 +207,8 @@
     residualKeeps,
     migrateTrail,
     migrateGhost,
-    migrateBurn,
-    migrateBurnAmount: (source = {}, fallback = 1) => {
-      const n = Number(source?.burnAmount);
-      if (Number.isFinite(n)) {
-        return Math.max(0, Math.min(4, n));
-      }
-      return Math.max(0, Math.min(4, nodeGraphFiniteNumber(fallback, 1)));
-    },
-    applyBurnFloor: (before, after) => Math.max(0, nodeGraphFiniteNumber(after)),
+    migrateBurnAmount,
+    depositBrightness,
     residualSleepFrames,
   };
 

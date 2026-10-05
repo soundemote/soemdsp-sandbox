@@ -5,7 +5,7 @@
 //   Alphabet = density ramp + half-width katakana (classic digital rain).
 //
 // Residual policy (PhosphorResidual SSOT — same drawer as 1D/2D phosphor / LED):
-//   Each cell is one energy pixel. Live glyph is the stamp; Ghost/Trail/Burn
+//   Each cell is one energy pixel. Live glyph is the stamp; Ghost/Trail
 //   hang that energy. Matrix does not invent a second fade model.
 //
 // Shared matrix cell helpers.
@@ -178,16 +178,16 @@ function matrixPhosphorBaseKeep(trail, _dtSec = 1 / 60) {
   return 0.94;
 }
 
-function matrixPhosphorApplyGhostHang(energy01, _baseKeep, ghost = 0, burn = 0, trail = null) {
+function matrixPhosphorApplyGhostHang(energy01, _baseKeep, ghost = 0, trail = null) {
   const Residual = matrixPhosphorResidualApi();
   const t = trail == null ? (Residual?.DEFAULT_TRAIL ?? 0.5) : trail;
   if (Residual?.applyResidual) {
-    return Residual.applyResidual(energy01, t, ghost, burn);
+    return Residual.applyResidual(energy01, t, ghost);
   }
   return Math.max(0, nodeGraphFiniteNumber(energy01));
 }
 
-/** Residual deposit peak = Bright × Burn Amount (same as phosphor drawers). */
+/** Residual deposit peak = Bright x Burn Amount (same as phosphor drawers). */
 function matrixPhosphorDepositPeak(params = {}) {
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const brightRaw = Number(params.brightness);
@@ -204,7 +204,6 @@ function matrixPhosphorResidualFromParams(p = {}, num) {
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const trailFb = Residual?.DEFAULT_TRAIL ?? 0.5;
   const ghostFb = Residual?.DEFAULT_GHOST ?? 0.45;
-  const burnFb = Residual?.DEFAULT_BURN ?? 0;
   const amountFb = Residual?.DEFAULT_BURN_AMOUNT ?? 1;
   const read = typeof num === "function"
     ? num
@@ -215,7 +214,6 @@ function matrixPhosphorResidualFromParams(p = {}, num) {
   return {
     trail: Math.max(0, Math.min(1, read("trail", trailFb))),
     ghost: Math.max(0, Math.min(1, read("ghost", ghostFb))),
-    burn: Math.max(0, Math.min(1, read("burn", burnFb))),
     burnAmount: Residual?.clampBurnAmount
       ? Residual.clampBurnAmount(read("burnAmount", amountFb), amountFb)
       : Math.max(0, Math.min(4, read("burnAmount", amountFb))),
@@ -225,15 +223,15 @@ function matrixPhosphorResidualFromParams(p = {}, num) {
 /**
  * Per-cell keep factor (compat). Prefer matrixPhosphorApplyGhostHang for accuracy.
  */
-function matrixPhosphorCellKeep(baseKeep, energy01, ghost = 0, burn = 0, trail = null) {
+function matrixPhosphorCellKeep(baseKeep, energy01, ghost = 0, trail = null) {
   const e = Math.max(1e-6, nodeGraphFiniteNumber(energy01));
-  const next = matrixPhosphorApplyGhostHang(e, baseKeep, ghost, burn, trail);
+  const next = matrixPhosphorApplyGhostHang(e, baseKeep, ghost, trail);
   return Math.max(0, Math.min(1, next / e));
 }
 
 /**
  * Film present curve for mono energy → display mono before brightness/gradient.
- * Soft lift keeps faint trails visible without treating burn as brightness.
+ * Soft lift keeps faint trails visible without treating hang as brightness.
  */
 function matrixPhosphorFilm(energy01) {
   const Residual = matrixPhosphorResidualApi();

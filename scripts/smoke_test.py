@@ -4805,8 +4805,9 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         "t: nodeGraphTSeriesSingleModuleDefinition()" in script_sources["./public/node-graph-module-definitions.js"]
-        and "t2: nodeGraphTSeriesModuleDefinition(1)" in script_sources["./public/node-graph-module-definitions.js"]
+        and 't2: nodeGraphTSeriesModuleDefinition(1, { adFirst: true, inLabel: "->" })' in script_sources["./public/node-graph-module-definitions.js"]
         and "t11: nodeGraphTSeriesModuleDefinition(10)" in script_sources["./public/node-graph-module-definitions.js"]
+        and '"2t": nodeGraphTSeriesMuxModuleDefinition(1, { adFirst: true, outLabel: "<-" })' in script_sources["./public/node-graph-module-definitions.js"]
         and '"4t": nodeGraphTSeriesMuxModuleDefinition(3)' in script_sources["./public/node-graph-module-definitions.js"]
         and '"11t": nodeGraphTSeriesMuxModuleDefinition(10)' in script_sources["./public/node-graph-module-definitions.js"]
         and 't: "t"' in script_sources["./public/node-graph-module-definitions.js"]

@@ -646,7 +646,7 @@
       "source": "native_modules/filter_morph_oscillator/filter_morph_oscillator.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/filter_morph_oscillator/filter_morph_oscillator.cpp",
       "localSourceUrl": "/native_modules/filter_morph_oscillator/filter_morph_oscillator.cpp",
-      "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/PolyBLEP.hpp",
+      "libUrl": "",
       "wasm": "native_modules/filter_morph_oscillator/filter_morph_oscillator.wasm",
       "wasmUrl": "native_modules/filter_morph_oscillator/filter_morph_oscillator.wasm",
       "wasmAvailable": true
@@ -1481,7 +1481,7 @@
       "libUrl": "",
       "wasm": "native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.wasm",
       "wasmUrl": "native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.wasm",
-      "wasmAvailable": false
+      "wasmAvailable": true
     },
     {
       "name": "raster_rgb",

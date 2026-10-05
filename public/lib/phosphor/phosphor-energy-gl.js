@@ -1486,7 +1486,7 @@
    *
    * options.bleed: 0–1 per-frame energy diffusion (default soft phosphor seep).
    * Even with trail≈1 (no erase), bleed still runs so long dwell expands outward.
-   * options.trail / options.ghost only (SSOT). options.burn is sticky floor elsewhere — not a ghost alias.
+   * options.trail / options.ghost only (SSOT).
    */
   function stepEnergy(renderer, options = {}) {
     if (!isRendererLive(renderer)) {
@@ -1513,7 +1513,7 @@
       : 0.12;
 
     // Skip only when truly idle: no fade, no bleed, no mask, nothing active.
-    // Burn hang still counts as work when residual may be decaying slowly.
+    // Ghost hang still counts as work when residual may be decaying slowly.
     if (keepSlow >= 0.9999 && bleed < 0.0001 && !useMask) {
       return true;
     }
@@ -1770,9 +1770,9 @@
     return true;
   }
 
-  function softnessPx(sizePx, burn = 0.5) {
+  function softnessPx(sizePx, soft = 0.5) {
     const size = Math.max(1, nodeGraphFiniteNumber(sizePx, 1));
-    const b = Math.max(0, Math.min(1, nodeGraphFiniteNumber(burn)));
+    const b = Math.max(0, Math.min(1, nodeGraphFiniteNumber(soft)));
     return Math.max(1.25, size * (0.1 + b * 0.22));
   }
 

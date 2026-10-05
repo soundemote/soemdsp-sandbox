@@ -340,6 +340,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   frequency: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FREQUENCY,
   freq: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FREQUENCY,
   waveform: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WAVEFORM,
+  model: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WAVEFORM,
   amplitude: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE,
   amp: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_AMPLITUDE,
   level: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_LEVEL,
@@ -347,7 +348,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_KEY_IDS = Object.freeze({
   softenAttack: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR,
   dampen: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   tail: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
-  decay2: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FEEDBACK,
+
   divide: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_WIDTH,
   synthVsAcoustic: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_FEEDBACK,
   phaseAlgorithm: NodeLiveAudioProcessor.NATIVE_GRAPH_PARAM_SHAPE,
@@ -5311,7 +5312,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "pingEnvelope") {
-      // timeDenominator=attack s, width=Decay (0=offset 1, 1=offset 0).
+      // waveform=Model (0 Short / 1 Long), timeDenominator=attack s, width=Decay, mode=Recalc.
+      // Persist by choiceKeys name; map Short/Long -> choiceIds here when still a string.
+      let modelId = disc("model", 0);
+      const rawModel = node?.params?.model;
+      if (typeof rawModel === "string") {
+        const s = rawModel.trim();
+        if (s === "Short") modelId = 0;
+        else if (s === "Long") modelId = 1;
+      }
+      push("model", P.NATIVE_GRAPH_PARAM_WAVEFORM, modelId);
       push("recalculateOnTrigger", P.NATIVE_GRAPH_PARAM_MODE, disc("recalculateOnTrigger", 1));
       push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0));
       push("decay", P.NATIVE_GRAPH_PARAM_WIDTH, cont("decay", 0.5));

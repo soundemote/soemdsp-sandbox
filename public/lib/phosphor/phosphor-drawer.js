@@ -281,7 +281,6 @@
     DEPOSIT_SCALE,
     // Legacy aliases
     DEFAULT_DECAY: 1 - DEFAULT_TRAIL,
-    DEFAULT_BURN: DEFAULT_GHOST,
     clamp01,
     normalizeBlur,
     depositGain,

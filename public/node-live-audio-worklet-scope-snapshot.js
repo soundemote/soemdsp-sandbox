@@ -217,7 +217,7 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
       }
     }
     if (!values.length && !dataPorts.length) {
-      return;
+      return false;
     }
     const message = {
       ...(dataPorts.length ? { dataPorts } : {}),
@@ -234,4 +234,5 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
     } else {
       this.port.postMessage(message);
     }
+    return true;
 };

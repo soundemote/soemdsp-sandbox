@@ -66,6 +66,7 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
           this.clearPlan();
         }
         this.patchFingerprint = patchFingerprint;
+        this.scopePostInFlight = false;
         this.sessionId = nextSessionId;
         this.port.postMessage({
           foreignTypes: foreign,
@@ -81,6 +82,7 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
       }
     }
     this.patchFingerprint = patchFingerprint;
+    this.scopePostInFlight = false;
     // Engine Stop/Play bumps sessionId. Force oscillator phases to 0 so PolyBLEP
     // (and siblings) do not resume mid-cycle and sound randomly phased.
     const sessionRestarted = nextSessionId !== this.sessionId;

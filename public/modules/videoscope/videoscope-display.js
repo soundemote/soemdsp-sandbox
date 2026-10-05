@@ -24,7 +24,7 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
 
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const mode = Math.round(nodeGraphFiniteNumber(node?.params?.mode));
-  // Module brightness param scales deposit; Display Settings owns burn/decay/pen.
+  // Module brightness param scales deposit; Display Settings owns Trail/Ghost/pen.
   const paramBrightness = Math.max(0, Math.min(1, nodeGraphFiniteNumber(node?.params?.brightness, 1)));
   const face = typeof normalizeNodeGraphScope2dSettings === "function"
     ? normalizeNodeGraphScope2dSettings(node?.traceDisplaySettings)
@@ -96,15 +96,8 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
       : (Number.isFinite(Number(face.trail))
         ? Number(face.trail)
         : (look?.trail ?? 0.5175)),
-    burn: Residual && typeof Residual.migrateBurn === "function"
-      ? Residual.migrateBurn(face, 0)
-      : (
-        Number(face.residualSchema) >= 2
-          ? Math.max(0, Math.min(1, nodeGraphFiniteNumber(face.burn)))
-          : 0
-      ),
     residualSchema: Residual?.RESIDUAL_SCHEMA || 2,
-    // Brightness only for deposit (no burn gain coupling).
+    // Brightness only for deposit.
     dot1Brightness: Number.isFinite(Number(face.dot1Brightness))
       ? Number(face.dot1Brightness) * (paramBrightness / 1)
       : (look?.brightness ?? 1) * (paramBrightness / 1),

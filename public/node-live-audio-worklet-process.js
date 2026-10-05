@@ -193,8 +193,15 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
         this.scopeSnapshotCounter = (nodeGraphFiniteNumber(this.scopeSnapshotCounter)) + frames;
         const snapshotEvery = Math.max(1, Math.floor(hostRateForDisplay / displayFps));
         if (this.scopeSnapshotCounter >= snapshotEvery) {
-          this.scopeSnapshotCounter = 0;
-          this.postModuleScopeSnapshot?.();
+          // One scope post at a time. If the page has not acked, skip.
+          // postMessage onto a wedged main thread is what drops audio.
+          if (this.scopePostInFlight) {
+            this.scopeSnapshotCounter = snapshotEvery;
+          } else {
+            const posted = this.postModuleScopeSnapshot?.();
+            this.scopeSnapshotCounter = 0;
+            this.scopePostInFlight = posted === true;
+          }
         }
       }
       this.visualControlCounter = (nodeGraphFiniteNumber(this.visualControlCounter)) + frames;

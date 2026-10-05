@@ -4,7 +4,6 @@
 
 const nodeGraphVectorRgbSettingsDefaults = Object.freeze({
   background: "#000000",
-  burn: 0,
   dot1Brightness: 1,
   dot1Size: 0.08,
   // Mid Ghost ≈ DestFade erase 0.008 (sweet hang); see PhosphorResidual.destFadeAmount.
@@ -39,7 +38,6 @@ function normalizeNodeGraphVectorRgbSettings(settings = {}) {
     : Math.max(0, Math.min(1, num("ghost", d.ghost)));
   return {
     background,
-    burn: Math.max(0, Math.min(1, num("burn", d.burn))),
     dot1Brightness: Math.max(0, Math.min(1, num("dot1Brightness", d.dot1Brightness))),
     dot1Size: Math.max(0, Math.min(1, num("dot1Size", d.dot1Size))),
     ghost,

@@ -211,7 +211,6 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "residual",
     "ghost",
     "trail",
-    "burn",
     "burnAmount",
     "unlitSegments",
     "centsBand",
@@ -265,7 +264,7 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "onBrightness",
     "stampDensity",
     "pixelDensity",
-    // Image Burn residual (standalone — not phosphor Ghost/Trail).
+    // Image Burn residual (standalone -- not phosphor Ghost/Trail).
     "image",
     "send",
     "ink",
@@ -289,12 +288,12 @@ function nodeGraphTraceDisplayUnitDragRange(key) {
   if (key === "facePadding") {
     return { min: -0.5, max: 1 };
   }
-  if (key === "buttonWidth" || key === "buttonHeight" || key === "textSize") {
-    return { min: 0, max: 1 };
-  }
   if (key === "burnAmount") {
     const max = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.BURN_AMOUNT_MAX) || 4;
     return { min: 0, max };
+  }
+  if (key === "buttonWidth" || key === "buttonHeight" || key === "textSize") {
+    return { min: 0, max: 1 };
   }
   return { min: 0, max: 1 };
 }
@@ -588,11 +587,9 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   capSize: nodeGraphTraceDisplayClampUnit,
   cycles: (value) => Math.max(1, Math.min(64, Math.round(nodeGraphFiniteNumber(value)))),
   trail: nodeGraphTraceDisplayClampUnit,
-  // Sticky residual floor 0…1.
-  burn: nodeGraphTraceDisplayClampUnit,
-  // Deposit gain vs Bright (0…4, default 1).
+  // Deposit gain vs Bright (0...4, default 1).
   burnAmount: (value) => {
-    const max = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.BURN_AMOUNT_MAX, 4);
+    const max = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.BURN_AMOUNT_MAX) || 4;
     const n = Number(value);
     if (!Number.isFinite(n)) {
       return 1;

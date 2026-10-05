@@ -22,7 +22,8 @@ function nodeGraphOfflineInitFallbackPatch() {
 }
 
 /**
- * Factory / Clear Startup / no-working-patch boot: load patches/init.json.
+ * Factory / no-working-patch boot: load patches/init.json.
+ * Clear Startup uses nodeGraphBlankStartupPatch() (Output only), not this.
  * Never prefers presets/default.json or a localStorage "defaultPatch.live.*" blob.
  */
 async function loadNodeGraphDefaultPresetPatch() {

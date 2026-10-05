@@ -1389,20 +1389,15 @@ function readNodeGraphTraceDisplaySettingsForm() {
       if (key === "ghostBrightness") {
         next.ghost = sanitizedValue;
       }
-      // Sticky Burn + Burn Amount (residualSchema ≥ 3). Stamp schema so migrate accepts fields.
-      if (key === "burn" || key === "burnAmount") {
-        next.residualSchema = 3;
-      }
     }
   }
-  // Any residual-axis edit writes residualSchema ≥ 3 (sticky Burn + Burn Amount).
+  // Any residual-axis edit stamps residualSchema (Burn Amount included; sticky Burn stays removed).
   if (
-    activeFields.has("burn")
-    || activeFields.has("burnAmount")
+    activeFields.has("burnAmount")
     || activeFields.has("ghost")
     || activeFields.has("trail")
   ) {
-    next.residualSchema = 3;
+    next.residualSchema = 4;
   }
   for (const key of activeColors) {
     const input = root?.querySelector?.(`[data-trace-display-color="${key}"]`);

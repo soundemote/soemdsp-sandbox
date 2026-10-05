@@ -138,7 +138,8 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-085 | see | fixed | Multi-select Display Settings copies unedited settings |
 | B-086 | see | open | 1D Trace sync glitches more than phosphor sync |
 | B-087 | see | open | Longer sequencer clips cut short with multiple sequencers |
-
+| B-088 | see | open | 1D Phosphor / 1D Trace regular gap at low frequency |
+| B-089 | see | open | Intermittent module slider positions all show at 0 (render race) |
 ---
 
 ## Inbox (unnumbered user reports)
@@ -168,7 +169,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - 2026-09-29: User - selecting multiple displays and changing one setting (example: Show in canvas) also copies the edited module's other, unchanged settings onto the rest of the selection. Promoted -> **B-085** (`docs/B-085_MULTISELECT_DISPLAY_SETTINGS_COPY.md`).
 - 2026-09-29: User - 1D Trace / woscope sync mode glitches a lot more than phosphor sync. Maybe zero crossings per quantum. Logged only, do not fix yet. Promoted -> **B-086** (`docs/B-086_SCOPE1DTRACE_SYNC_GLITCH.md`).
 - 2026-09-30: User - Longer sequencer clips get cut short when a patch has two or more sequencers. Promoted -> **B-087** (`docs/B-087_LONG_SEQUENCER_CLIPS_CUT_SHORT.md`).
-
+- 2026-10-05: User (ArchIV) - Intermittently all slider positions on a module show at 0 (visual/render); suspected race; repositioning the module forces an update and corrects. Logged only, do not tackle. Promoted -> **B-089** (`docs/B-089_MODULE_SLIDERS_ALL_ZERO_RENDER.md`).
 ---
 
 ## Open bugs
@@ -1024,6 +1025,18 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Expected: Both faces draw continuously without the regular gap.
 - Tried: Sweep-pen / overlap-sample adjustment (`sweep-face-join-1`) and widening `nodeGraphOneDimensionalBurnUndrawnWindow` by one sample (`paint-helpers.js?v=trace-join-1`, `endFrame` unchanged); neither visibly improved the gap.
 - Notes: No cause confirmed. Next look remains open; docs-only, leave code as-is.
+
+### B-089 — Intermittent module slider positions all show at 0 (render race)
+- Status: open
+- Severity: see
+- Source: user 2026-10-05 (ArchIV)
+- Doc: `docs/B-089_MODULE_SLIDERS_ALL_ZERO_RENDER.md`
+- Files: Module slider render / face update path (not pinned).
+- What: Intermittently all slider positions on a module show at 0. Visual/render only; not reliable to reproduce. Suspected race condition in rendering.
+- Repro: Not pinned. Intermittent; cannot recreate reliably.
+- Workaround: Repositioning the module forces an update and corrects the display.
+- Expected: Slider faces should keep showing the real parameter positions without needing a module move to refresh.
+- Fix shape: Not started. Logged only; do not tackle. Docs-only; no code fix in this report.
 
 ---
 

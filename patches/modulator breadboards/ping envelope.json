@@ -63,8 +63,15 @@
       "tracePoints": []
     },
     {
-      "destinationNode": "namedPortalIn-2",
+      "destinationNode": "inertialFilter-1",
       "destinationPort": "In",
+      "sourceNode": "transport-1",
+      "sourcePort": "Trigger",
+      "tracePoints": []
+    },
+    {
+      "destinationNode": "output",
+      "destinationPort": "Mono",
       "sourceNode": "inertialFilter-1",
       "sourcePort": "Out",
       "tracePoints": []
@@ -102,8 +109,8 @@
   ],
   "nodes": [
     {
-      "gx": -32,
-      "gy": -19,
+      "gx": -31,
+      "gy": -18,
       "id": "output",
       "paramMeta": {
         "volume": {
@@ -182,11 +189,12 @@
         "pan": 0
       },
       "type": "output",
+      "widthGu": 17,
       "traceDisplaySettings": {
         "backgroundHue": 0,
         "backgroundBrightness": 0,
-        "background": "#ff0000",
-        "backgroundColor": "#ff0000",
+        "background": "#000000",
+        "backgroundColor": "#000000",
         "brightness": 0.95,
         "color": "#ff0000",
         "dot1Enabled": true,
@@ -206,13 +214,13 @@
         "skipDiscontinuities": false,
         "cmyMode": false,
         "sourceSync": false,
-        "polarity": "bipolar",
+        "polarity": "unipolar",
         "stereoBlend": "combine",
         "meetColor": "auto",
         "syncChannel": "off",
-        "historySeconds": 0.25,
+        "historySeconds": 5,
         "historyCycles": 4,
-        "zoomSeconds": 0.25,
+        "zoomSeconds": 5,
         "detail": 1,
         "barThickness": 1,
         "barInk": "fill",
@@ -224,6 +232,23 @@
         "blur": 0.15,
         "faceBlur": 0,
         "xyzLayout": "stack"
+      },
+      "ui": {
+        "buttonsHidden": false,
+        "buttonsForceShow": false,
+        "displayHeightOffsetGu": 0,
+        "displayModeKey": "",
+        "ioHidden": false,
+        "hideUnused": false,
+        "interfaceControlsHidden": false,
+        "interfaceControlsForceShow": false,
+        "movementLocked": false,
+        "oscilloscopeHidden": false,
+        "oscilloscopeForceShow": false,
+        "slidersHidden": false,
+        "slidersForceShow": false,
+        "titleHidden": false,
+        "displayHeightGu": 5
       }
     },
     {
@@ -249,12 +274,12 @@
           "sliderCurve": "linear",
           "showSign": false,
           "removeTrailingZeros": false,
-          "smoothingMode": "global",
-          "smoothingSeconds": 0.0333,
+          "smoothingMode": "off",
+          "smoothingSeconds": 1469,
           "smoothingType": "linear",
           "step": 1,
           "tooltip": "Tempo in beats per minute. Also writes the patch Master Clock BPM.",
-          "modClamp": false,
+          "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
           "vca": false,
@@ -483,13 +508,13 @@
         }
       },
       "params": {
-        "bpm": 67,
+        "bpm": 10,
         "pulseWidth": 0.01,
         "beats": 4,
         "timeNumerator": 1,
         "timeDenominator": 4,
         "timingMode": 0,
-        "amplitude": 0
+        "amplitude": 1
       },
       "type": "transport",
       "transportSettings": {
@@ -513,8 +538,8 @@
       }
     },
     {
-      "gx": -45,
-      "gy": -4,
+      "gx": -50,
+      "gy": -16,
       "id": "attenuverter-6",
       "paramMeta": {
         "amplitude": {
@@ -561,10 +586,10 @@
           "divideChoicesVisibly": false,
           "kind": "decimal",
           "bipolar": true,
-          "max": 0.5,
+          "max": 1,
           "maxDigits": 6,
           "mid": 0,
-          "min": -0.5,
+          "min": 0,
           "reverse": false,
           "nonlinearSlider": true,
           "sliderCurve": "custom",
@@ -575,7 +600,7 @@
           "smoothingType": "linear",
           "step": 0,
           "tooltip": "DC offset after scale.",
-          "modClamp": false,
+          "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
           "vca": false,
@@ -589,7 +614,7 @@
         }
       },
       "params": {
-        "amplitude": 1,
+        "amplitude": 0.7718,
         "offset": 0
       },
       "type": "attenuverter",
@@ -647,8 +672,8 @@
       }
     },
     {
-      "gx": -34,
-      "gy": -5,
+      "gx": -39,
+      "gy": -17,
       "id": "inertialFilter-1",
       "paramMeta": {
         "smoothAttack": {
@@ -734,7 +759,7 @@
           "divideChoicesVisibly": false,
           "kind": "frequency",
           "bipolar": false,
-          "max": 10,
+          "max": 1000,
           "maxDigits": 5,
           "mid": 0,
           "min": 0,
@@ -748,7 +773,7 @@
           "smoothingType": "linear",
           "step": 0,
           "tooltip": "Fall cutoff in Hz. 0 = freeze going down. Lower = more inertia.",
-          "modClamp": false,
+          "modClamp": true,
           "hardClamp": false,
           "modMultiply": false,
           "vca": false,
@@ -820,8 +845,8 @@
       }
     },
     {
-      "gx": -38,
-      "gy": -4,
+      "gx": -43,
+      "gy": -16,
       "id": "ampCurve-4",
       "paramMeta": {
         "mode": {
@@ -951,8 +976,8 @@
       }
     },
     {
-      "gx": -38,
-      "gy": -5,
+      "gx": -43,
+      "gy": -17,
       "id": "namedPortalOut-2",
       "paramMeta": {},
       "params": {},
@@ -960,34 +985,6 @@
       "alias": "Trigger",
       "wirelessRole": "audio",
       "widthGu": 4,
-      "heightGu": 1,
-      "ui": {
-        "buttonsHidden": true,
-        "buttonsForceShow": false,
-        "displayHeightOffsetGu": 0,
-        "displayModeKey": "",
-        "ioHidden": false,
-        "hideUnused": false,
-        "interfaceControlsHidden": false,
-        "interfaceControlsForceShow": false,
-        "movementLocked": false,
-        "oscilloscopeHidden": false,
-        "oscilloscopeForceShow": false,
-        "slidersHidden": false,
-        "slidersForceShow": false,
-        "titleHidden": true
-      }
-    },
-    {
-      "gx": -27,
-      "gy": -5,
-      "id": "namedPortalIn-2",
-      "paramMeta": {},
-      "params": {},
-      "type": "namedPortalIn",
-      "alias": "Env",
-      "wirelessRole": "audio",
-      "widthGu": 3,
       "heightGu": 1,
       "ui": {
         "buttonsHidden": true,
@@ -1018,7 +1015,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 48,
-    "zoom": 0.9984129802489178,
+    "zoom": 0.7765387771707326,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,

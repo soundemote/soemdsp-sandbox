@@ -267,13 +267,9 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Trail";
     title = "Mix from Ghost-only toward linear, then freeze. 0 = Ghost only; 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.";
   }
-  if (formType === "numberReadout" && key === "burn") {
-    label = "Burn";
-    title = "Extra persist 0…1 on leftover energy. 0 = Trail/Ghost only; mid = dim afterglow that still fades; 1 = freeze residual.";
-  }
   if (formType === "numberReadout" && key === "burnAmount") {
-    label = "Burn \u2A2F";
-    title = "Residual deposit gain vs LED Bright (default 1). Deposit peak = Bright \u00d7 this control. 0.5 = half deposit; 2 = double. Live LED light is unchanged.";
+    label = "Burn ⨯";
+    title = "Residual deposit gain vs LED Bright (default 1). Deposit peak = Bright × this control. 0.5 = half deposit; 2 = double. Live LED light is unchanged.";
   }
   if (formType === "numberReadout" && key === "unlitSegments") {
     label = "Ghost";
@@ -1055,7 +1051,6 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
         dotsOnly: true,
         trail: 0,
         ghost: 0,
-        burnAmount: 1,
         decay: 0,
         bleed: 0,
       });
@@ -2054,7 +2049,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         choiceKeys = ["polarity"].filter((key) => activeChoices.has(key));
         colorKeys = [];
       } else {
-        // Value LED: Digits → Decimals → Padding → Bright → Ghost → Trail → Burn → Burn ⨉.
+        // Value LED: Digits -> Decimals -> Padding -> Bright -> Ghost -> Trail -> Burn x.
         fieldKeys = [
           "digits",
           "decimals",
@@ -2063,7 +2058,6 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           "dot1Saturation",
           "ghost",
           "trail",
-          "burn",
           "burnAmount",
         ].filter((key) => activeFields.has(key));
         colorKeys = ["backgroundColor"]
@@ -2107,7 +2101,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
             : section === "caps"
               ? "Caps"
               : section;
-    // Skip redundant section titles: NR chrome, phosphor "2D"/"Stamp"/"Burn" headers.
+    // Skip redundant section titles: NR chrome, phosphor "2D"/"Stamp" headers.
     const isPhosphorForm = typeof nodeGraphDisplaySettingsIsPhosphorFormType === "function"
       && nodeGraphDisplaySettingsIsPhosphorFormType(type);
     const skipSectionTitle =

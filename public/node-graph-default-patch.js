@@ -231,8 +231,8 @@ function createNodeGraphPatchNode(type, options = {}) {
   return node;
 }
 
-// Offline last-resort only (file:// / fetch failure). Live boot and Clear
-// Startup always load patches/init.json — do not treat this as Init SSOT.
+// Offline last-resort only (file:// / fetch failure). Live boot still prefers
+// patches/init.json. Clear Startup uses nodeGraphBlankStartupPatch() instead.
 const nodeGraphDefaultNodeConfigs = Object.freeze([
   {
     ...createNodeGraphPatchNode("output", { id: "output", gx: 5, gy: -9 }),
@@ -249,6 +249,71 @@ const nodeGraphDefaultNodeConfigs = Object.freeze([
     },
   },
 ]);
+
+/** Blank project for Clear Startup: Output only, no file identity. */
+function nodeGraphBlankStartupPatch() {
+  const output = createNodeGraphPatchNode("output", { id: "output", gx: 5, gy: -9 });
+  return {
+    activeCameraId: "camera-1",
+    audio: {
+      oversamplingFactor: 1,
+      targetSampleRate: 44100,
+      pitchReferenceMidiNote: 69,
+      pitchReferenceHz: 440,
+      speedLimitHz: 22050,
+    },
+    bypassedNodes: [],
+    cameras: [
+      {
+        color: "#ff3333",
+        enabled: true,
+        height: 489,
+        id: "camera-1",
+        midiTrigger: null,
+        name: "Camera 1",
+        resolutionHeight: 1080,
+        resolutionWidth: 1920,
+        width: 868,
+        x: 0,
+        y: 0,
+      },
+    ],
+    info: {
+      author: "",
+      description: "",
+      emoji: "",
+      name: "",
+      tags: "",
+    },
+    visual: {
+      background: { h: 210, l: 5, s: 0 },
+      mode: "auto",
+      scale: 1,
+      style: "glow",
+      theme: "cyan-violet",
+      trail: 0.35,
+    },
+    timing: {
+      tempoBpm: 120,
+      timeSignatureDenominator: 4,
+      timeSignatureNumerator: 4,
+    },
+    windows: {
+      metadata: { left: null, top: null },
+      moduleActions: { left: null, top: null },
+    },
+    grid: { ...nodeGraphGrid },
+    view: { widthGu: 48, heightGu: 24, zoom: 1 },
+    nodes: [{ ...output }],
+    connections: [],
+    graphConnections: [],
+    modulations: [],
+    monitors: [],
+    requiredAssets: [],
+    samples: [],
+    uiItems: [],
+  };
+}
 
 const nodeGraphDefaultConnections = Object.freeze([
   { sourceNode: "polyBlep-1", sourcePort: "Wave", destinationNode: "output", destinationPort: "Mono" },

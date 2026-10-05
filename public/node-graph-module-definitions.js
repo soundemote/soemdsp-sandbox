@@ -15108,6 +15108,24 @@ const nodeGraphModuleDefinitions = (
     outputAliases: { Env: "Out", Idle: "isIdle" },
     parameters: [
       {
+        choices: ["Short", "Long"],
+        choiceKeys: ["Short", "Long"],
+        choiceIds: [0, 1],
+        defaultValue: "Short",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "model",
+        kind: "choice",
+        label: "Model",
+        linearSmoothing: false,
+        smoothingType: "none",
+        max: "1",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "Short = soundemote.io / old pluck3 (fb→0…10 Hz, amp on output). Long = current sandbox ping (fb×0.7718→0…1000 Hz, amp on inertial target). Default Short (choiceId 0)." },
+      {
         choices: ["Off", "On"],
         defaultValue: "1",
         displayChoices: true,
@@ -15143,7 +15161,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "0 = no decay (offset 1). 1 = long decay (offset 0). Feedback gain stays 0.7718. Exp curve drives Release 0…1000 Hz. 0 Hz freezes the fall." },
+        tooltip: "Short model: 0 = short fall, 1 = long (x=clamp(env+(0.5−Decay))→0…10 Hz). Long model: 0 = offset 1, 1 = offset 0 (env×0.7718+(1−Decay)→0…1000 Hz)." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -15154,7 +15172,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Scales Trigger into Inertial In. Lower than current env falls with Release." },
+        tooltip: "Short model: scales output (env×amp). Long model: scales Trigger into inertial target." },
     ] },
   flowerChildEnvelopeFollower: {
     planRole: "processor",
@@ -15763,7 +15781,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Live tip / present gain 0–1 (1 = full). Residual deposit peak is Bright × Burn ⨉. Hang is Ghost/Trail."
+        tooltip: "Live tip / present gain 0–1 (1 = full). Hang is Ghost/Trail."
       },
       {
         key: "ghost",
@@ -15788,26 +15806,15 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Mix from Ghost-only toward linear, then freeze. 0 = Ghost only; 0.5 = half linear / half Ghost; 0.75 = full linear fade; 1 = freeze. Ghost is ignored above 0.75."
       },
       {
-        key: "burn",
-        label: "Burn",
-        defaultValue: "0",
-        min: "0",
-        mid: "0.5",
-        max: "1",
-        step: "any",
-        maxDigits: 4,
-        tooltip: "Sticky residual floor 0…1. 0 = no stick; 0.5 = once energy ≥ 0.5 the pixel freezes at that floor; 1 = freeze all residual. Off by default."
-      },
-      {
         key: "burnAmount",
-        label: "Burn ⨉",
+        label: "Burn ⨯",
         defaultValue: "1",
         min: "0",
         mid: "1",
         max: "4",
         step: "any",
         maxDigits: 4,
-        tooltip: "Residual deposit gain vs Bright (default 1). Deposit peak = Bright × this. 0.3 = dim long hang (with Ghost); 1 = deposit at Bright. Live tip stays Bright."
+        tooltip: "Residual deposit gain vs Bright (default 1). Deposit peak = Bright × this. Live tip stays Bright."
       },
       {
         choices: ["Off", "On"],
@@ -15877,7 +15884,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Live / present gain 0–1 (1 = full). Residual deposit peak is Bright × Burn ⨉."
+        tooltip: "Live / present gain 0–1 (1 = full). Hang is Ghost/Trail."
       },
       {
         key: "ghost",
@@ -15902,26 +15909,15 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Mix from Ghost-only toward linear, then freeze. 0 = Ghost only; 0.5 = half linear / half Ghost; 0.75 = full linear fade; 1 = freeze. Ghost is ignored above 0.75."
       },
       {
-        key: "burn",
-        label: "Burn",
-        defaultValue: "0",
-        min: "0",
-        mid: "0.5",
-        max: "1",
-        step: "any",
-        maxDigits: 4,
-        tooltip: "Sticky residual floor 0…1. 0 = no stick; 0.5 = once energy ≥ 0.5 freezes at that floor; 1 = freeze all residual. Off by default."
-      },
-      {
         key: "burnAmount",
-        label: "Burn ⨉",
+        label: "Burn ⨯",
         defaultValue: "1",
         min: "0",
         mid: "1",
         max: "4",
         step: "any",
         maxDigits: 4,
-        tooltip: "Residual deposit gain vs Bright (default 1). Deposit peak = Bright × this. Live plate light is unchanged."
+        tooltip: "Residual deposit gain vs Bright (default 1). Deposit peak = Bright × this. Live tip stays Bright."
       },
       {
         choices: ["Off", "On"],
@@ -16034,7 +16030,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "How long residual hangs. 0 = no trail (wipe); 1 ≈ freeze. Sticky floor is Burn."
+        tooltip: "How long residual hangs. 0 = no trail (wipe); 1 ≈ freeze. Hang is Ghost/Trail only."
       },
       {
         key: "ghost",
@@ -16045,18 +16041,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Extreme analog (super-exp) residual hang. Not brightness. Sticky floor is Burn."
-      },
-      {
-        key: "burn",
-        label: "Burn",
-        defaultValue: "0",
-        min: "0",
-        mid: "0.5",
-        max: "1",
-        step: "any",
-        maxDigits: 4,
-        tooltip: "Sticky residual floor 0…1. 0 = none stick; 0.5 = once energy ≥ 0.5 freezes at that floor; 1 = all residual freezes. Off by default."
+        tooltip: "Extreme analog (super-exp) residual hang. Not brightness. Hang is Ghost/Trail only."
       },
       {
         key: "brightness",
@@ -16067,7 +16052,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Deposit + present gain 0–1 (1 = full). Residual hang is Ghost/Trail; sticky floor is Burn."
+        tooltip: "Deposit + present gain 0–1 (1 = full). Residual hang is Ghost/Trail."
       },
       {
         key: "blackFloor",

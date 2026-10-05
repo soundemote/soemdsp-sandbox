@@ -30,7 +30,7 @@ const TYPE_ROBIN_OSC = 74;
 const TYPE_BIAS = 12;
 const TYPE_OUT = 6;
 const PORT_MONO = 0;
-const PORT_INCREMENT = 18;
+const PORT_F = 16; // absolute Hz (f)
 const PARAM_FREQ = 10;
 const PARAM_WAVE = 11;
 const PARAM_AMP = 12;
@@ -196,7 +196,7 @@ function directSaw(inc, n) {
   return out;
 }
 
-function graphSaw(freqHz, portInc, n) {
+function graphSaw(freqHz, portFHz, n) {
   const g = create() | 0;
   setSr(g, SR);
   const hOsc = 0xf011 >>> 0;
@@ -205,10 +205,11 @@ function graphSaw(freqHz, portInc, n) {
   if (add(g, hOsc, TYPE_ROBIN_OSC)) throw new Error("add robin");
   if (add(g, hOut, TYPE_OUT)) throw new Error("add out");
   connect(g, hOsc, PORT_MONO, hOut, PORT_MONO);
-  if (portInc !== 0) {
+  // Robin signal pitch is absolute-Hz f (not cycles/sample Increment).
+  if (portFHz !== 0) {
     if (add(g, hBias, TYPE_BIAS)) throw new Error("add bias");
-    setParam(g, hBias, PARAM_BIAS_OFFSET, portInc);
-    connect(g, hBias, PORT_MONO, hOsc, PORT_INCREMENT);
+    setParam(g, hBias, PARAM_BIAS_OFFSET, portFHz);
+    connect(g, hBias, PORT_MONO, hOsc, PORT_F);
   }
   setParam(g, hOsc, PARAM_FREQ, freqHz);
   setParam(g, hOsc, PARAM_AMP, 1);
@@ -228,18 +229,20 @@ function graphSaw(freqHz, portInc, n) {
 
 const targetSamples = 100.5;
 const inc = 1 / targetSamples;
+const targetHz = SR / targetSamples;
 const N = 8000;
 const direct = sawPeriods(directSaw(inc, N));
 const frozen = sawPeriods(directSaw(0, 512));
-const knobOnly = sawPeriods(graphSaw(SR / targetSamples, 0, N));
-const incOnly = sawPeriods(graphSaw(0, inc, N));
-const summed = sawPeriods(graphSaw(SR / (targetSamples * 2), inc / 2, N));
-console.log({ direct, frozen, knobOnly, incOnly, summed });
+const knobOnly = sawPeriods(graphSaw(targetHz, 0, N));
+const fOnly = sawPeriods(graphSaw(0, targetHz, N));
+// Connected f replaces the Frequency knob (resolve_osc_hz liveF path).
+const fWins = sawPeriods(graphSaw(targetHz * 0.5, targetHz, N));
+console.log({ direct, frozen, knobOnly, fOnly, fWins });
 
 if (frozen.n !== 0) throw new Error(`zero increment still wrapped ${JSON.stringify(frozen)}`);
 if (!(direct.mean > 90 && direct.mean < 110)) throw new Error(`direct period off ${JSON.stringify(direct)}`);
 if (!(direct.max - direct.min >= 1)) throw new Error(`dither did not spread cycle length ${JSON.stringify(direct)}`);
-for (const [name, stat] of [["knob", knobOnly], ["inc", incOnly], ["sum", summed]]) {
+for (const [name, stat] of [["knob", knobOnly], ["f", fOnly], ["fWins", fWins]]) {
   if (!(Math.abs(stat.mean - direct.mean) < 1.5)) {
     throw new Error(`${name} period ${stat.mean} != direct ${direct.mean}`);
   }

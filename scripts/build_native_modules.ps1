@@ -651,10 +651,10 @@ if ($node) {
   & $node.Source "$root\scripts\smoke_robin_sinusoid_param_mod.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: robin sinusoid ParamModEdge smoke FAILED"
-& $node.Source "$root\scripts\smoke_robin_oscillator_peak.mjs"
-if ($LASTEXITCODE -ne 0) {
-  throw "Combined build: robin_oscillator peak smoke FAILED"
-}
+  }
+  & $node.Source "$root\scripts\smoke_robin_oscillator_peak.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: robin_oscillator peak smoke FAILED"
   }
   & $node.Source "$root\scripts\smoke_polyblep_self_mod.mjs"
   if ($LASTEXITCODE -ne 0) {

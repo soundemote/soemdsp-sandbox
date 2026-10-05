@@ -17,8 +17,8 @@ function nodeGraphPagePatchFileUrls(slug) {
 
 /**
  * Page route /{slug} -> patches/index.json url.
- * Exact catalog slug wins. A single filename stem (demo patches/tubesaturation
- * for /tubesaturation) is the file itself, not a second name.
+ * Folders are organization only. analogdream and demo patches/analogdream
+ * are the same stem; try every catalog hit whose filename is that stem.
  */
 async function nodeGraphResolvePagePatchUrls(slug) {
   const want = String(slug || "").trim().toLowerCase().replace(/\.json$/i, "").replace(/^\/+|\/+$/g, "");
@@ -32,10 +32,13 @@ async function nodeGraphResolvePagePatchUrls(slug) {
     if (res.ok && nodeGraphResponseIsJson(res)) {
       const data = await res.json();
       const patches = Array.isArray(data?.patches) ? data.patches : [];
-      const exact = patches.find((entry) => String(entry?.slug || "").trim().toLowerCase() === want);
-      const stemHits = patches.filter((entry) => String(entry?.slug || "").split("/").pop().trim().toLowerCase() === want);
-      const hit = exact || (stemHits.length === 1 ? stemHits[0] : null);
-      if (hit?.url) push(hit.url);
+      const stemHits = patches.filter((entry) => {
+        const slug = String(entry?.slug || "").trim().toLowerCase().replace(/\.json$/i, "");
+        return slug === want || slug.split("/").pop() === want;
+      });
+      for (const entry of stemHits) {
+        if (entry?.url) push(entry.url);
+      }
     }
   } catch (_error) {
     // Catalog optional; direct path is tried below.

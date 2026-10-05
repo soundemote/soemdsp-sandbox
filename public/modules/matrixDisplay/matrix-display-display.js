@@ -79,17 +79,16 @@ function matrixDisplayEnsureSim(nodeId, paramsOrCols, maybeRows) {
 
 /**
  * Phosphor fade for age grid. Trail 0 = pure Ghost path weight; 1 ≈ freeze.
- * Ghost = extreme analog hang. Burn = sticky residual floor (0 = off).
+ * Ghost = extreme analog hang.
  * Frame-rate independent.
  */
-function matrixDisplayFade(ages, trail, _dtSec = 1 / 60, maxAge = 32, ghost = 0, burn = 0) {
+function matrixDisplayFade(ages, trail, _dtSec = 1 / 60, maxAge = 32, ghost = 0) {
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const t = Math.max(0, Math.min(1, nodeGraphFiniteNumber(trail)));
   const ghostAmt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(ghost)));
-  const burnAmt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(burn)));
   const ma = Math.max(1, maxAge);
   const step = Residual?.applyResidual
-    ? (e) => Residual.applyResidual(e, t, ghostAmt, burnAmt)
+    ? (e) => Residual.applyResidual(e, t, ghostAmt)
     : (e) => e;
   for (let i = 0; i < ages.length; i += 1) {
     const a = ages[i];
@@ -301,7 +300,7 @@ function matrixDisplayTickFace(face) {
 
   if (!params.freeze) {
     // One exponential step per frame (dt-aware) — not N discrete age chops.
-    matrixDisplayFade(state.ages, params.trail, dt, MATRIX_DISPLAY_MAX_AGE, params.ghost, params.burn);
+    matrixDisplayFade(state.ages, params.trail, dt, MATRIX_DISPLAY_MAX_AGE, params.ghost);
     // Deposit from brightness; ghost only affects residual hang in fade.
     matrixDisplayIngestBuffers(state, MATRIX_DISPLAY_MAX_AGE, params.brightness);
   }

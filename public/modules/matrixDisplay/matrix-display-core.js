@@ -82,8 +82,6 @@ function matrixDisplayParamsFromNode(node) {
     trail: matrixDisplayClamp01(p.trail, 0.78),
     // ghost: extreme analog (super-exp) hang
     ghost: matrixDisplayClamp01(p.ghost ?? 0.35, 0.35),
-    // burn: sticky residual floor (0 = off). New face param (not legacy ghost alias).
-    burn: matrixDisplayClamp01(p.burn ?? 0, 0),
     // brightness: deposit + present
     brightness: (() => {
       const b = Number(p.brightness);

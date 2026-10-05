@@ -74,6 +74,16 @@
       "folder": "demo patches"
     },
     {
+      "slug": "demo patches/ping vs pluck",
+      "label": "ping vs pluck",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/demo%20patches/ping%20vs%20pluck.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "demo patches"
+    },
+    {
       "slug": "demo patches/tubesaturation",
       "label": "tubesaturation",
       "name": "",
@@ -96,7 +106,7 @@
     {
       "slug": "guitar pedals/chorus vs ensemble",
       "label": "chorus vs ensemble",
-      "name": "ellipsoid",
+      "name": "",
       "url": "/soemdsp-sandbox/patches/guitar%20pedals/chorus%20vs%20ensemble.json",
       "author": "",
       "tags": "circle",
@@ -106,7 +116,7 @@
     {
       "slug": "guitar pedals/clean",
       "label": "clean",
-      "name": "ellipsoid",
+      "name": "",
       "url": "/soemdsp-sandbox/patches/guitar%20pedals/clean.json",
       "author": "",
       "tags": "circle",
@@ -116,7 +126,7 @@
     {
       "slug": "guitar pedals/clean chorus",
       "label": "clean chorus",
-      "name": "ellipsoid",
+      "name": "",
       "url": "/soemdsp-sandbox/patches/guitar%20pedals/clean%20chorus.json",
       "author": "",
       "tags": "circle",
@@ -126,7 +136,7 @@
     {
       "slug": "guitar pedals/damaged chorus",
       "label": "damaged chorus",
-      "name": "ellipsoid",
+      "name": "",
       "url": "/soemdsp-sandbox/patches/guitar%20pedals/damaged%20chorus.json",
       "author": "",
       "tags": "circle",
@@ -136,7 +146,7 @@
     {
       "slug": "guitar pedals/dreamy delay",
       "label": "dreamy delay",
-      "name": "ellipsoid",
+      "name": "",
       "url": "/soemdsp-sandbox/patches/guitar%20pedals/dreamy%20delay.json",
       "author": "",
       "tags": "circle",
@@ -146,12 +156,32 @@
     {
       "slug": "guitar pedals/guitar controlled synth",
       "label": "guitar controlled synth",
-      "name": "ellipsoid",
+      "name": "",
       "url": "/soemdsp-sandbox/patches/guitar%20pedals/guitar%20controlled%20synth.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
       "folder": "guitar pedals"
+    },
+    {
+      "slug": "hyperpluck/acoustic dispersion",
+      "label": "acoustic dispersion",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/hyperpluck/acoustic%20dispersion.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "hyperpluck"
+    },
+    {
+      "slug": "modulator breadboards/ping envelope",
+      "label": "ping envelope",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/modulator%20breadboards/ping%20envelope.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": "",
+      "folder": "modulator breadboards"
     },
     {
       "slug": "modulator breadboards/pluck envelope",
@@ -174,6 +204,36 @@
       "folder": "modulator breadboards"
     },
     {
+      "slug": "Soundemote Softwave prototypes/Soft Asymmetrical Sine",
+      "label": "Soft Asymmetrical Sine",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/Soundemote%20Softwave%20prototypes/Soft%20Asymmetrical%20Sine.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": "",
+      "folder": "Soundemote Softwave prototypes"
+    },
+    {
+      "slug": "Soundemote Softwave prototypes/Soft Triangle",
+      "label": "Soft Triangle",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/Soundemote%20Softwave%20prototypes/Soft%20Triangle.json",
+      "author": "",
+      "tags": "init,default",
+      "emoji": "",
+      "folder": "Soundemote Softwave prototypes"
+    },
+    {
+      "slug": "voice breadboards/hyperpluck acoustic diffusion",
+      "label": "hyperpluck acoustic diffusion",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/voice%20breadboards/hyperpluck%20acoustic%20diffusion.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": "",
+      "folder": "voice breadboards"
+    },
+    {
       "slug": "voice breadboards/hyperpluck breadboard",
       "label": "hyperpluck breadboard",
       "name": "",
@@ -184,28 +244,10 @@
       "folder": "voice breadboards"
     },
     {
-      "slug": "analogdream",
-      "label": "analogdream",
+      "slug": "chaosfly high freq",
+      "label": "chaosfly high freq",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/analogdream.json",
-      "author": "",
-      "tags": "circle",
-      "emoji": ""
-    },
-    {
-      "slug": "analoghorror",
-      "label": "analoghorror",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/analoghorror.json",
-      "author": "",
-      "tags": "circle",
-      "emoji": ""
-    },
-    {
-      "slug": "chaosfly",
-      "label": "chaosfly",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/chaosfly.json",
+      "url": "/soemdsp-sandbox/patches/chaosfly%20high%20freq.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
@@ -215,6 +257,15 @@
       "label": "chaosfly lowfreq",
       "name": "",
       "url": "/soemdsp-sandbox/patches/chaosfly%20lowfreq.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "chaosfly lowfreq2",
+      "label": "chaosfly lowfreq2",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/chaosfly%20lowfreq2.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
@@ -235,6 +286,15 @@
       "url": "/soemdsp-sandbox/patches/deathwhistle.json",
       "author": "",
       "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "default",
+      "label": "default",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/default.json",
+      "author": "",
+      "tags": "init,default",
       "emoji": ""
     },
     {
@@ -472,15 +532,6 @@
       "emoji": ""
     },
     {
-      "slug": "phone",
-      "label": "phone",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/phone.json",
-      "author": "",
-      "tags": "circle",
-      "emoji": ""
-    },
-    {
       "slug": "phonetone",
       "label": "phonetone",
       "name": "",
@@ -496,69 +547,6 @@
       "url": "/soemdsp-sandbox/patches/pixelgrid.json",
       "author": "",
       "tags": "circle",
-      "emoji": ""
-    },
-    {
-      "slug": "pluck envelope 1",
-      "label": "pluck envelope 1",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/pluck%20envelope%201.json",
-      "author": "",
-      "tags": "init,default",
-      "emoji": ""
-    },
-    {
-      "slug": "pluck envelope 2",
-      "label": "pluck envelope 2",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/pluck%20envelope%202.json",
-      "author": "",
-      "tags": "init,default",
-      "emoji": ""
-    },
-    {
-      "slug": "pluck envelope 2.0 circuit",
-      "label": "pluck envelope 2.0 circuit",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/pluck%20envelope%202.0%20circuit.json",
-      "author": "",
-      "tags": "init,default",
-      "emoji": ""
-    },
-    {
-      "slug": "pluck envelope 3",
-      "label": "pluck envelope 3",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/pluck%20envelope%203.json",
-      "author": "",
-      "tags": "init,default",
-      "emoji": ""
-    },
-    {
-      "slug": "pluck envelope 3 (with attack 2 just in case)",
-      "label": "pluck envelope 3 (with attack 2 just in case)",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/pluck%20envelope%203%20%28with%20attack%202%20just%20in%20case%29.json",
-      "author": "",
-      "tags": "init,default",
-      "emoji": ""
-    },
-    {
-      "slug": "pluck envelope 3 (with attack)",
-      "label": "pluck envelope 3 (with attack)",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/pluck%20envelope%203%20%28with%20attack%29.json",
-      "author": "",
-      "tags": "init,default",
-      "emoji": ""
-    },
-    {
-      "slug": "pluck envelope 4 (with min mute)",
-      "label": "pluck envelope 4 (with min mute)",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/pluck%20envelope%204%20%28with%20min%20mute%29.json",
-      "author": "",
-      "tags": "init,default",
       "emoji": ""
     },
     {
@@ -811,6 +799,15 @@
       "url": "/soemdsp-sandbox/patches/videoscope.json",
       "author": "",
       "tags": "",
+      "emoji": ""
+    },
+    {
+      "slug": "wip",
+      "label": "wip",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/wip.json",
+      "author": "",
+      "tags": "circle",
       "emoji": ""
     }
   ]

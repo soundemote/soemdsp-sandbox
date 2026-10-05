@@ -249,11 +249,10 @@ function matrixDecayEnergy(state, params, _dtSec = 1 / 60) {
   const trail = Number(params.trail);
   const t = Number.isFinite(trail) ? Math.max(0, Math.min(1, trail)) : (Residual.DEFAULT_TRAIL ?? 0.5);
   const ghostAmt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.ghost)));
-  const burnAmt = Math.max(0, Math.min(1, nodeGraphFiniteNumber(params.burn)));
   const e = state.energy;
   for (let i = 0; i < e.length; i += 1) {
     if (e[i] <= 0) continue;
-    e[i] = Residual.applyResidual(e[i], t, ghostAmt, burnAmt);
+    e[i] = Residual.applyResidual(e[i], t, ghostAmt);
   }
 }
 

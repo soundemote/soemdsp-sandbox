@@ -2285,10 +2285,11 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   pingEnvelope: {
     category: "envelope",
-    description: "Ping Envelope: inertial rise toward Trigger. Decay 1 scales Env into Release, Decay 2 offsets it. Recalc On Trig latches knobs on rise.",
+    description: "Ping Envelope: inertial rise toward Trigger. Model Short/Long feedback sets. Recalc On Trig latches knobs on rise.",
     label: "Ping Envelope",
     notes: [
       "Trigger",
+      "Model",
       "Attack",
       "Decay",
       "Recalc On Trig",
@@ -2475,8 +2476,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "energy phosphor",
       "ghost",
       "trail",
-      "burn",
-      "burnAmount",
       "multimeter",
     ],
   },
@@ -2504,13 +2503,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "oscilloscope",
     description: "Heart-monitor 1D phosphor sweep—persistence trail for mono signals.",
     label: "1D Phosphor",
-    notes: ["1D Phosphor", "heart monitor", "phosphor sweep", "reset", "brightness", "trail", "burn"],
+    notes: ["1D Phosphor", "heart monitor", "phosphor sweep", "reset", "brightness", "trail", "burnAmount"],
   },
   scope2d: {
     category: "oscilloscope",
     description: "X/Y phosphor energy trail—the standard attractor/laser-style path face.",
     label: "2D Phosphor",
-    notes: ["2D Phosphor", "xy phosphor", "energy drawer", "brightness", "trail", "burn"],
+    notes: ["2D Phosphor", "xy phosphor", "energy drawer", "brightness", "trail", "burnAmount"],
   },
   phosphorLight: {
     category: "oscilloscope",

@@ -33,10 +33,10 @@ const edge = (list, src, srcPort, dst, dstPort) => list.some((c) =>
   && (c.destinationPort === dstPort || c.destinationParam === dstPort));
 
 // Required = post-splice equivalents of the breadboard's real portal buses
-// (Trigger, Envelope, inc). No clock / Note# / Reset / pitchManager.
+// (Trigger, Envelope, f). No clock / Note# / Reset / pitchManager.
 const required = [
   ["keyboard-1", "Trigger", "curveAttackRelease-1", "Gate"],
-  ["keyboard-1", "inc", "polyBlep-1", "Increment"],
+  ["keyboard-1", "f", "polyBlep-1", "f"],
   ["curveAttackRelease-1", "Out", "flowerChildFilter-2", "frequency"],
 ];
 

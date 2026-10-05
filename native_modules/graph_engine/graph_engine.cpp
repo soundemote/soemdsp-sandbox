@@ -1059,7 +1059,7 @@ extern "C" void soemdsp_ping_envelope_destroy(int handle);
 extern "C" int soemdsp_ping_envelope_is_idle(int handle);
 extern "C" double soemdsp_ping_envelope_sample(
   int handle, double input, double attackSec, double decay,
-  double amplitude, double recalculateOnTrigger, double sampleRate
+  double amplitude, double recalculateOnTrigger, double model, double sampleRate
 );
 extern "C" int soemdsp_ping_envelope_version();
 extern "C" const char* soemdsp_ping_envelope_metadata_json();
@@ -2940,6 +2940,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.waveform,
     (typeId == kTypeAdditiveOsc || typeId == kTypeDsfOscillator) ? 1.0
+      : (typeId == kTypePingEnvelope) ? 0.0 // Model Short (default, choiceId 0)
       : (typeId == kTypeHypersaw2) ? 1.0 // Saw (Trisaw=0 … Trapezoid=6)
       : (typeId == kTypeHyperpluck) ? 1.0 // Saw (Trisaw=0 … Square=5)
       : (typeId == kTypeRobinSupersaw) ? 0.0 // Saw
@@ -3397,7 +3398,6 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope || typeId == kTypeWavetableAdsr) ? 0.22 // decay
       : (typeId == kTypeAttackDecay) ? 0.25 // decay
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // decay
-      : (typeId == kTypePingEnvelope) ? 0.5 // Decay 2 (0=offset +0.5 … 1=offset −0.5)
       : (typeId == kTypePluckEnvelopeFb) ? 1.64 // synth vs acoustic (attenuverter Offset def)
       : (typeId == kTypeDelayEffect) ? 0.25
       : (typeId == kTypeExponentialDelay) ? 0.0
@@ -8941,7 +8941,7 @@ static void process_pluck_envelope_fb(Circuit& g, Node& node, int frames) {
 }
 
 
-// Ping Envelope (pingEnvelope). Env×0.7718 + (1−Decay) → expo → Release 0…1000 Hz.
+// Ping Envelope (pingEnvelope). Model Short/Long; waveform Control = Model (0 Short / 1 Long).
 static void process_ping_envelope(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -8959,6 +8959,7 @@ static void process_ping_envelope(Circuit& g, Node& node, int frames) {
       control_audio(g, node.width, f),
       control_audio(g, node.amplitude, f),
       control_effective(node.mode),
+      control_effective(node.waveform),
       sr
     );
     node.buf[kPortMono][f] = out;

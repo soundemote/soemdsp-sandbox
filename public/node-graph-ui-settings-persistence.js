@@ -2047,24 +2047,41 @@ function resetNodeUiDevControlsToDeclaredDefaults() {
 
 async function clearNodeUserStartupRuntimeState() {
   resetNodeUiDevControlsToDeclaredDefaults();
-  // Load Init from disk (patches/init.json). Do not trust a stale in-memory defaultPatch.
-  let initPatch = null;
-  if (typeof loadNodeGraphDefaultPresetPatch === "function") {
-    try {
-      initPatch = await loadNodeGraphDefaultPresetPatch();
-    } catch (_error) {
-      initPatch = null;
-    }
+  // Blank project: Output module only. Do not load init.json or any named patch.
+  let blankPatch = null;
+  if (typeof nodeGraphBlankStartupPatch === "function") {
+    blankPatch = nodeGraphBlankStartupPatch();
+  } else if (typeof createNodeGraphPatchNode === "function") {
+    blankPatch = {
+      nodes: [createNodeGraphPatchNode("output", { id: "output", gx: 5, gy: -9 })],
+      connections: [],
+      graphConnections: [],
+      modulations: [],
+      format: { kind: "soemdsp-sandbox-node-patch", version: 2 },
+      info: { author: "", description: "", emoji: "", name: "", tags: "" },
+    };
   }
-  if (!initPatch && typeof cloneNodeGraphPatch === "function" && typeof nodeGraphDefaultPatch !== "undefined") {
-    initPatch = cloneNodeGraphPatch(nodeGraphDefaultPatch);
+  if (blankPatch && typeof cloneNodeGraphPatch === "function") {
+    const blank = cloneNodeGraphPatch(blankPatch);
+    nodeGraphMvp.defaultPatch = cloneNodeGraphPatch(blank);
+    nodeGraphMvp.patch = cloneNodeGraphPatch(blank);
+    // Persist as workingPatch so reload does not fall through to patches/init.json.
+    nodeGraphMvp.workingPatch = cloneNodeGraphPatch(blank);
+  } else {
+    nodeGraphMvp.workingPatch = null;
   }
-  if (initPatch && typeof cloneNodeGraphPatch === "function") {
-    nodeGraphMvp.defaultPatch = cloneNodeGraphPatch(initPatch);
-    nodeGraphMvp.patch = cloneNodeGraphPatch(initPatch);
-  }
-  nodeGraphMvp.workingPatch = null;
+  // Clear every header identity source (filename, page slug, library selection).
+  // Leaving loadedPatchSlug set is why Clear Startup could still show
+  // "soft asymmetrical sine" after wiping currentSavedPatchFilename.
   nodeGraphMvp.currentSavedPatchFilename = "";
+  nodeGraphMvp.loadedPatchSlug = "";
+  nodeGraphMvp.selectedSavedPatchFilename = "";
+  if (nodeGraphMvp.filePicker && typeof nodeGraphMvp.filePicker === "object") {
+    nodeGraphMvp.filePicker = {
+      ...nodeGraphMvp.filePicker,
+      lastPatchName: "",
+    };
+  }
   nodeGraphMvp.patchDirtyState = "untouched";
   nodeGraphMvp.viewMode = "modular";
   nodeGraphMvp.bookScriptPage = "patch";
@@ -2175,6 +2192,16 @@ async function clearNodeUserStartupState() {
   }
   if (text && typeof postNodeUiDevSettingsPreset === "function") {
     postNodeUiDevSettingsPreset(text).catch(() => {});
+  }
+  // Re-write session AFTER localStorage wipe so reload keeps the blank Output
+  // graph and empty file identity (no init / no leftover slug name).
+  if (typeof persistSession === "function") {
+    persistSession({ reason: "session" });
+  } else if (typeof persistNodeGraphUserSession === "function") {
+    persistNodeGraphUserSession();
+  }
+  if (typeof syncNodeGraphHeaderPatchTitle === "function") {
+    syncNodeGraphHeaderPatchTitle();
   }
   window.setTimeout(() => {
     window.location.reload();

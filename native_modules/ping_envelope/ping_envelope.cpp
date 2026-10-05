@@ -3,10 +3,14 @@
 // soemdsp-native-target: pingEnvelope
 // soemdsp-native-kind: envelope
 //
-// Breadboard: patches/modulator breadboards/ping envelope.json
-//   Env × 0.7718 + offset → Amp Curve Exp → Release 0…1000 Hz.
-// Decay 0 = offset 1 (no decay). Decay 1 = offset 0 (long decay).
-// Attack is one-pole rise time in seconds.
+// Model Short (soundemote.io / old pluckEnvelope3 / default):
+//   x = clamp01(env + (0.5 - Decay)) -> 5-decade exp -> relHz = fb * 10 (0..10 Hz).
+//   Decay 0 = short fall, 1 = long. Amplitude scales output (env * amp).
+// Model Long (current sandbox):
+//   x = env * 0.7718 + (1 - Decay) -> 5-decade exp -> Release 0..1000 Hz.
+//   Decay 0 = offset 1, 1 = offset 0. Amplitude scales inertial target.
+// Shared: asymmetric one-pole toward Trigger, Recalc On Trig, Attack,
+// no snap-reset on rising trig.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -15,8 +19,9 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 64;
-static const double kFeedbackAmp = 0.7718;
-static const double kReleaseHzMax = 1000.0;
+static const double kLongFeedbackAmp = 0.7718;
+static const double kLongReleaseHzMax = 1000.0;
+static const double kShortReleaseHzMax = 10.0;
 static const double kExpDbSpan = 5.0;
 static const double kLn10 = 2.302585092994046;
 
@@ -69,6 +74,13 @@ static double clamp01_param(double v, double fallback) {
   return x;
 }
 
+// choiceIds: Short=0, Long=1. Unknown / default → Short.
+static bool model_is_short(double model) {
+  const double m = safe(model);
+  if (!(m * 0.0 == 0.0)) return true;  // unknown → Short (default)
+  return m < 0.5;
+}
+
 }  // namespace
 
 extern "C" int soemdsp_ping_envelope_create() {
@@ -100,6 +112,7 @@ extern "C" double soemdsp_ping_envelope_sample(
   double decay,
   double amplitude,
   double recalculateOnTrigger,
+  double model,
   double sampleRate
 ) {
   if (handle < 1 || handle > kMaxInstances || !gPool[handle - 1].active) return 0.0;
@@ -110,6 +123,7 @@ extern "C" double soemdsp_ping_envelope_sample(
   const double liveDecay = clamp01_param(decay, 0.5);
   const double liveAmp = (amplitude * 0.0 == 0.0) ? amplitude : 1.0;
   const bool latch = safe(recalculateOnTrigger) >= 0.5;
+  const bool isShort = model_is_short(model);
 
   const double in = safe(input);
   const bool trigHigh = in > 0.0;
@@ -128,12 +142,22 @@ extern "C" double soemdsp_ping_envelope_sample(
     s.hasShot = true;
   }
 
-  const double target = in * s.shotAmp;
-  const double offset = 1.0 - s.shotDecay;
-  const double x = s.env * kFeedbackAmp + offset;
-  double relHz = exp_curve(x) * kReleaseHzMax;
-  if (!(relHz * 0.0 == 0.0) || relHz < 0.0) relHz = 0.0;
-  if (relHz > kReleaseHzMax) relHz = kReleaseHzMax;
+  // Long: amp scales inertial target. Short: amp scales output after the one-pole.
+  const double target = isShort ? in : (in * s.shotAmp);
+
+  double relHz = 0.0;
+  if (isShort) {
+    const double x = clamp01(s.env + (0.5 - s.shotDecay));
+    relHz = exp_curve(x) * kShortReleaseHzMax;
+    if (!(relHz * 0.0 == 0.0) || relHz < 0.0) relHz = 0.0;
+    if (relHz > kShortReleaseHzMax) relHz = kShortReleaseHzMax;
+  } else {
+    const double offset = 1.0 - s.shotDecay;
+    const double x = s.env * kLongFeedbackAmp + offset;
+    relHz = exp_curve(x) * kLongReleaseHzMax;
+    if (!(relHz * 0.0 == 0.0) || relHz < 0.0) relHz = 0.0;
+    if (relHz > kLongReleaseHzMax) relHz = kLongReleaseHzMax;
+  }
 
   const double ka = k_attack(s.shotAttack, sr);
   const double kr = k_hz(relHz, sr);
@@ -142,7 +166,12 @@ extern "C" double soemdsp_ping_envelope_sample(
   s.env = cur + delta * (delta >= 0.0 ? ka : kr);
   if (!(s.env * 0.0 == 0.0)) s.env = 0.0;
 
-  return (s.env * 0.0 == 0.0) ? s.env : 0.0;
+  const double envOut = (s.env * 0.0 == 0.0) ? s.env : 0.0;
+  if (isShort) {
+    const double out = envOut * s.shotAmp;
+    return (out * 0.0 == 0.0) ? out : 0.0;
+  }
+  return envOut;
 }
 
 extern "C" int soemdsp_ping_envelope_is_idle(int handle) {
@@ -153,6 +182,6 @@ extern "C" int soemdsp_ping_envelope_is_idle(int handle) {
   return (a < 1.0e-5) ? 1 : 0;
 }
 
-extern "C" int soemdsp_ping_envelope_version() { return 18; }
+extern "C" int soemdsp_ping_envelope_version() { return 19; }
 extern "C" const char* soemdsp_ping_envelope_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_ping_envelope_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

@@ -2,6 +2,10 @@
 // Method: handleMessage — load after core class, before registerProcessor.
 
 NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message) {
+    if (message.type === "scopeAck") {
+      this.scopePostInFlight = false;
+      return;
+    }
     if (message.type === "setRecording") {
       this.recordingTake = Boolean(message.on);
       if (!message.on && typeof this.flushRecordingQuantum === "function") {

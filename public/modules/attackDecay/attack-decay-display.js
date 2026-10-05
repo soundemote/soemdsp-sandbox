@@ -277,7 +277,9 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
     const decay = Math.max(0, Math.min(1, nodeGraphEnvelopeCurveLiveParam(node, "decay", 0.5)));
     const amplitude = Math.max(0, nodeGraphEnvelopeCurveLiveParam(node, "amplitude", 1));
     const recalculateOnTrigger = nodeGraphEnvelopeCurveLiveParam(node, "recalculateOnTrigger", 1);
-    const preview = nodeGraphPingEnvelopePreviewCurve({ attack, decay, amplitude }, pts);
+    const modelRaw = node?.params?.model ?? node?.parameters?.model ?? "Short";
+    const model = (modelRaw === 0 || modelRaw === "0" || modelRaw === "Short") ? "Short" : "Long";
+    const preview = nodeGraphPingEnvelopePreviewCurve({ attack, decay, amplitude, model }, pts);
     return {
       points: preview.points,
       total: preview.total,
@@ -285,7 +287,7 @@ function nodeGraphEnvelopeCurveBuildPreview(node, type, width) {
       ampView: preview.ampView,
       leftLabel: "A",
       rightLabel: "D",
-      signature: { type, attack, decay, amplitude, recalculateOnTrigger },
+      signature: { type, attack, decay, amplitude, recalculateOnTrigger, model },
     };
   }
 

@@ -72,14 +72,14 @@ function nodeGraphDisplaySettingsNormalizePlateLook(source = {}, defaults = {}) 
 }
 
 /**
- * App-wide phosphor residual axes (Ghost / Trail / Burn / Burn Amount).
- * residualSchema ≥ 2: burn is sticky floor (default 0).
- * residualSchema ≥ 3: burnAmount multiplies Bright for residual deposits (default 1).
- * SSOT keys only: trail, ghost, burn, burnAmount — no decay / burn-as-ghost aliases.
+ * App-wide phosphor residual axes (Ghost / Trail / Burn Amount).
+ * residualSchema >= 3/4: burnAmount multiplies Bright for residual deposits (default 1).
+ * SSOT keys: trail, ghost, burnAmount -- sticky burn / frozen-pixel floor stays removed.
+ * Unknown legacy key burn in patches is ignored.
  *
  * @param {object} source
  * @param {object} defaults
- * @returns {{ ghost: number, trail: number, burn: number, burnAmount: number, residualSchema: number }}
+ * @returns {{ ghost: number, trail: number, burnAmount: number, residualSchema: number }}
  */
 function normalizeNodeGraphPhosphorResidualAxes(source = {}, defaults = {}) {
   const src = source && typeof source === "object" ? source : {};
@@ -90,10 +90,6 @@ function normalizeNodeGraphPhosphorResidualAxes(source = {}, defaults = {}) {
   const defaultGhost = MathH && typeof MathH.finiteOr === "function"
     ? MathH.finiteOr(defaults.ghost, 0.45)
     : (Number.isFinite(Number(defaults.ghost)) ? Number(defaults.ghost) : 0.45);
-  const defaultBurn = Number.isFinite(Number(defaults.burn))
-    && Number(defaults.residualSchema) >= 2
-    ? Number(defaults.burn)
-    : 0;
   const defaultBurnAmount = Number.isFinite(Number(defaults.burnAmount))
     ? Number(defaults.burnAmount)
     : 1;
@@ -104,20 +100,14 @@ function normalizeNodeGraphPhosphorResidualAxes(source = {}, defaults = {}) {
   const ghost = Residual && typeof Residual.migrateGhost === "function"
     ? Residual.migrateGhost(src, defaultGhost)
     : normalizeNodeGraphTraceDisplayNumber(src.ghost, defaultGhost, 0, 1);
-  const burn = Residual && typeof Residual.migrateBurn === "function"
-    ? Residual.migrateBurn(src, defaultBurn)
-    : (
-      Number(src.residualSchema) >= 2
-        ? normalizeNodeGraphTraceDisplayNumber(src.burn, defaultBurn, 0, 1)
-        : 0
-    );
   const burnAmountMax = Residual?.BURN_AMOUNT_MAX || 4;
   const burnAmount = Residual && typeof Residual.migrateBurnAmount === "function"
     ? Residual.migrateBurnAmount(src, defaultBurnAmount)
     : normalizeNodeGraphTraceDisplayNumber(src.burnAmount, defaultBurnAmount, 0, burnAmountMax);
-  const residualSchema = Residual?.RESIDUAL_SCHEMA || 3;
-  return { ghost, trail, burn, burnAmount, residualSchema };
+  const residualSchema = Residual?.RESIDUAL_SCHEMA || 4;
+  return { ghost, trail, burnAmount, residualSchema };
 }
+
 
 function nodeGraphSpectrogramSnapFftSize(value) {
   const raw = Number(value);
@@ -445,9 +435,8 @@ function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
     }),
     ghost: residual.ghost,
     trail: residual.trail,
-    burn: residual.burn,
-    burnAmount: residual.burnAmount,
     residualSchema: residual.residualSchema,
+    burnAmount: residual.burnAmount,
     dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
@@ -678,7 +667,7 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
   const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.dot1Color);
   const floor = gradientStops[0]?.color || defaults.background;
   const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
-  // Ghost / Trail / Burn are UI truth (same as scope2d).
+  // Ghost / Trail are UI truth (same as scope2d).
   const residual = normalizeNodeGraphPhosphorResidualAxes(source, defaults);
   return {
     ...nodeGraphDisplaySettingsNormalizePlateLook(source, {
@@ -686,9 +675,8 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
       backgroundBrightness: defaults.backgroundBrightness ?? 0,
       backgroundHue: defaults.backgroundHue ?? 0,
     }),
-    burn: residual.burn,
-    burnAmount: residual.burnAmount,
     residualSchema: residual.residualSchema,
+    burnAmount: residual.burnAmount,
     ghost: residual.ghost,
     trail: residual.trail,
     // Bright 0…1 exact (legacy 0…2 values halved once on load).
@@ -755,9 +743,8 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
     bipolarBrightness: source.bipolarBrightness === true,
     ghost: residual.ghost,
     trail: residual.trail,
-    burn: residual.burn,
-    burnAmount: residual.burnAmount,
     residualSchema: residual.residualSchema,
+    burnAmount: residual.burnAmount,
     dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
@@ -989,9 +976,8 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
       source.dot1Brightness ?? source.brightness,
       defaults.brightness,
     ),
-    burn: residual.burn,
-    burnAmount: residual.burnAmount,
     residualSchema: residual.residualSchema,
+    burnAmount: residual.burnAmount,
     capEnabled: source.capEnabled !== false,
     capLength: normalizeNodeGraphTraceDisplayNumber(source.capLength, defaults.capLength, 0, 1),
     capPadding: normalizeNodeGraphTraceDisplayNumber(source.capPadding, defaults.capPadding ?? 0, 0, 1),
@@ -1181,19 +1167,8 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
   }
   const ghost = normalizeNodeGraphTraceDisplayNumber(ghostRaw, ghostDefault, 0, 1);
 
-  // Burn = sticky residual floor 0…1. residualSchema ≥ 2; legacy burn≡ghost → 0.
-  const burnDefault = Number.isFinite(Number(defaults.burn))
-    && Number(defaults.residualSchema) >= 2
-    ? Number(defaults.burn)
-    : 0;
-  const burn = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateBurn
-    ? PhosphorResidual.migrateBurn(source, burnDefault)
-    : (
-      Number(source.residualSchema) >= 2
-        ? normalizeNodeGraphTraceDisplayNumber(source.burn, burnDefault, 0, 1)
-        : 0
-    );
-  // Burn Amount = deposit gain vs Bright (default 1).
+  const residualSchema = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.RESIDUAL_SCHEMA)
+    || 4;
   const burnAmountDefault = Number.isFinite(Number(defaults.burnAmount))
     ? Number(defaults.burnAmount)
     : 1;
@@ -1201,13 +1176,11 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
   const burnAmount = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateBurnAmount
     ? PhosphorResidual.migrateBurnAmount(source, burnAmountDefault)
     : normalizeNodeGraphTraceDisplayNumber(
-      source.burnAmount ?? source.depositGain ?? source.burnGain,
+      source.burnAmount,
       burnAmountDefault,
       0,
       burnAmountMax,
     );
-  const residualSchema = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.RESIDUAL_SCHEMA)
-    || 3;
 
   return {
     faceStyle,
@@ -1217,7 +1190,7 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
     backgroundColor: source.backgroundColor ?? background,
     dot1Saturation,
     colorSaturation: dot1Saturation,
-    // Live digit light / ink strength 0…1.
+    // Live digit light / ink strength 0...1.
     brightness: normalizeNodeGraphTraceDisplayBrightness(
       faceStyle === "lcd"
         ? lcdInkBrightness
@@ -1232,7 +1205,6 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
     // App-wide residual axes (+ legacy trail/ghost aliases kept equal).
     trail,
     ghost,
-    burn,
     burnAmount,
     residualSchema,
     residual: trail,
@@ -1646,7 +1618,7 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
   const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.dot1Color);
   const floor = gradientStops[0]?.color || defaults.background;
   const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
-  // Display Settings truth is Ghost + Trail + Burn.
+  // Display Settings truth is Ghost + Trail.
   const residual = normalizeNodeGraphPhosphorResidualAxes(source, defaults);
   return {
     ...nodeGraphDisplaySettingsNormalizePlateLook(source, {
@@ -1654,9 +1626,8 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
       backgroundBrightness: defaults.backgroundBrightness ?? 0,
       backgroundHue: defaults.backgroundHue ?? 0,
     }),
-    burn: residual.burn,
-    burnAmount: residual.burnAmount,
     residualSchema: residual.residualSchema,
+    burnAmount: residual.burnAmount,
     ghost: residual.ghost,
     trail: residual.trail,
     // Bright 0…1 exact (legacy 0…2 halved once).
