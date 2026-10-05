@@ -1,5 +1,5 @@
 // Pluck Envelope -- face PreviewCurve helpers (native pluck_envelope_fb.cpp owns audio).
-// Bake of patches/modulator breadboards/pluck envelope.json:
+// Bake of patches/modulator_breadboards/pluck_envelope.json:
 //   Curve AR + Env->invert->atten(feedback,bias)->Amp Curve Exp->Release unit MOD.
 // Not an audio-path twin: PreviewCurve only for envelopeCurve face.
 

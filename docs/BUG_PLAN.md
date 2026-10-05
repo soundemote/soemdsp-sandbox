@@ -140,6 +140,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-087 | see | open | Longer sequencer clips cut short with multiple sequencers |
 | B-088 | see | open | 1D Phosphor / 1D Trace regular gap at low frequency |
 | B-089 | see | open | Intermittent module slider positions all show at 0 (render race) |
+| B-090 | hear | open | Keypad: turning latch off does not end an active latch |
 ---
 
 ## Inbox (unnumbered user reports)
@@ -170,6 +171,7 @@ Paste raw notes here. An agent will promote them to `B-xxx` on the next pass.
 - 2026-09-29: User - 1D Trace / woscope sync mode glitches a lot more than phosphor sync. Maybe zero crossings per quantum. Logged only, do not fix yet. Promoted -> **B-086** (`docs/B-086_SCOPE1DTRACE_SYNC_GLITCH.md`).
 - 2026-09-30: User - Longer sequencer clips get cut short when a patch has two or more sequencers. Promoted -> **B-087** (`docs/B-087_LONG_SEQUENCER_CLIPS_CUT_SHORT.md`).
 - 2026-10-05: User (ArchIV) - Intermittently all slider positions on a module show at 0 (visual/render); suspected race; repositioning the module forces an update and corrects. Logged only, do not tackle. Promoted -> **B-089** (`docs/B-089_MODULE_SLIDERS_ALL_ZERO_RENDER.md`).
+- 2026-10-05: User (ArchIV) - Keypad: latch on, press a key, turn latch off — latch does not end; key stays latched. Logged only, do not tackle. Promoted -> **B-090** (`docs/B-090_KEYPAD_LATCH_OFF_DOES_NOT_END.md`).
 ---
 
 ## Open bugs
@@ -730,7 +732,7 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Files: `public/node-live-audio-worklet-native-graph.js` (`mapNativeGraphParamId`); smoke `scripts/test_b063_robin_morph_param_mod.js`
 - What: Robin Morph MOD cable had no audible effect. ParamModEdge targeted SHAPE (Softwave default) while Robin DSP / knob push use WIDTH.
 - Related: B-051 is Softwave *display* refresh (see); not a duplicate of this hear wiring bug.
-- Repro: Load `patches/demo patches/analoghorror.json`; switch Robin to Trisaw Center/Pulse/Analog Square (saved Ramp ignores Morph); Morph from passiveFilter-2 should change timbre (was stuck at knob).
+- Repro: Load `patches/demo_patches/analoghorror.json`; switch Robin to Trisaw Center/Pulse/Analog Square (saved Ramp ignores Morph); Morph from passiveFilter-2 should change timbre (was stuck at knob).
 - Root cause: `mapNativeGraphParamId` morph → SHAPE for robinOscillator; process_robin_oscillator reads `node.width`.
 - Fix: `robinOscillator` + `morph` → `NATIVE_GRAPH_PARAM_WIDTH`.
 - Fixed (2026-09-27): as above. Smoke OK.
@@ -1036,6 +1038,17 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Repro: Not pinned. Intermittent; cannot recreate reliably.
 - Workaround: Repositioning the module forces an update and corrects the display.
 - Expected: Slider faces should keep showing the real parameter positions without needing a module move to refresh.
+- Fix shape: Not started. Logged only; do not tackle. Docs-only; no code fix in this report.
+
+### B-090 — Keypad: turning latch off does not end an active latch
+- Status: open
+- Severity: hear
+- Source: user 2026-10-05 (ArchIV)
+- Doc: `docs/B-090_KEYPAD_LATCH_OFF_DOES_NOT_END.md`
+- Files: Keypad latch / key-hold path (not pinned).
+- What: With latch on, press a key, then turn latch off — the latch does not end; the key stays latched.
+- Repro: Latch on → press a key → turn latch off. Latched key remains engaged.
+- Expected: Turning latch off should end any active latch so the previously latched key releases.
 - Fix shape: Not started. Logged only; do not tackle. Docs-only; no code fix in this report.
 
 ---

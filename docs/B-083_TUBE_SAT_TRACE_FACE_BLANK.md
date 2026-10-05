@@ -21,7 +21,7 @@ Tube Saturation appeared to lose its 1D Trace / TraceWoscope face (blank / no CR
 
 ## Root cause
 
-`patches/demo patches/tubesaturation.json` shipped (CRT polish commit) with:
+`patches/demo_patches/tubesaturation.json` shipped (CRT polish commit) with:
 
 - `traceDisplaySettings.dot1Brightness: 0`
 - mismatched plate (`background: #0000ff`) while still carrying crt-amber `gradientStops`
@@ -45,7 +45,7 @@ So the face chrome stayed mounted but the beam never painted — looked like a l
 
 ## Verify
 
-1. Load **demo patches/tubesaturation.json** — Tube Sat face shows amber TraceWoscope beam (not blank).
+1. Load **demo_patches/tubesaturation.json** — Tube Sat face shows amber TraceWoscope beam (not blank).
 2. Spawn fresh Tube Saturation — crt-amber defaults, Bright full.
 3. `node scripts/test_module_layout_bands.js` — tubeSat face band ok.
 4. Displays off / Display Height 0 still hides the face track.

@@ -17,7 +17,7 @@ function nodeGraphPagePatchFileUrls(slug) {
 
 /**
  * Page route /{slug} -> patches/index.json url.
- * Folders are organization only. analogdream and demo patches/analogdream
+ * Folders are organization only. analogdream and demo_patches/analogdream
  * are the same stem; try every catalog hit whose filename is that stem.
  */
 async function nodeGraphResolvePagePatchUrls(slug) {

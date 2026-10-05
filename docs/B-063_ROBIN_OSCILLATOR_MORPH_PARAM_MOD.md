@@ -2,7 +2,7 @@
 
 **Status:** fixed  
 **Severity:** hear  
-**Source:** user 2026-09-27 (`patches/demo patches/analoghorror.json`)  
+**Source:** user 2026-09-27 (`patches/demo_patches/analoghorror.json`)  
 **Related:** B-051 (Softwave *display* refresh when Morph is modulated via RobinSinusoid — see-only; not this audible wiring bug)
 
 ## User symptom
@@ -30,7 +30,7 @@ No native C++ / graph_engine change required — Control slot was already WIDTH.
 ## Verification
 
 - Smoke: `node scripts/test_b063_robin_morph_param_mod.js`
-- Manual: load `patches/demo patches/analoghorror.json`, run live.
+- Manual: load `patches/demo_patches/analoghorror.json`, run live.
   - Patch Morph cable: `passiveFilter-2` Out → `robinOscillator-1` Morph.
   - Saved waveform is **Ramp** (index 1), which **ignores** Morph in DSP — switch to **Trisaw Center**, **Pulse**, or **Analog Square** to hear Morph CV.
   - Softwave Morph MOD must still target SHAPE.

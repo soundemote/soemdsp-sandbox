@@ -30,7 +30,7 @@ ormalizeNodeGraphScope2dTraceSettings (still solid hue + Bright, no gradientStop
 
 ## Verify
 
-1. Load **demo patches/tubesaturation.json** — Tube Sat beam follows crt-amber LUT (quiet = floor, peaks = tip).
+1. Load **demo_patches/tubesaturation.json** — Tube Sat beam follows crt-amber LUT (quiet = floor, peaks = tip).
 2. Open Display Settings → change Gradient preset / stops — beam colors update live; no Color swatches on 1D Trace.
 3. Spawn **2D Trace** / XY Trace — still solid hue + Bright additive blend; no gradient forced.
 4. Bright still scales TraceWoscope intensity; Size still thickness (B-081).

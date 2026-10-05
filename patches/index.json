@@ -4,30 +4,30 @@
   "base": "/soemdsp-sandbox/patches",
   "patches": [
     {
-      "slug": "filter breadboards/superlove lp18 breadboard",
-      "label": "superlove lp18 breadboard",
+      "slug": "filter_breadboards/superlove_lp18_breadboard",
+      "label": "superlove_lp18_breadboard",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/filter%20breadboards/superlove%20lp18%20breadboard.json",
+      "url": "/soemdsp-sandbox/patches/filter_breadboards/superlove_lp18_breadboard.json",
       "author": "Sandbox",
       "tags": "filter,ladder,self-osc,breadboard",
       "emoji": "",
-      "folder": "filter breadboards"
+      "folder": "filter_breadboards"
     },
     {
-      "slug": "filter breadboards/superlove lp24 breadboard",
-      "label": "superlove lp24 breadboard",
+      "slug": "filter_breadboards/superlove_lp24_breadboard",
+      "label": "superlove_lp24_breadboard",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/filter%20breadboards/superlove%20lp24%20breadboard.json",
+      "url": "/soemdsp-sandbox/patches/filter_breadboards/superlove_lp24_breadboard.json",
       "author": "Sandbox",
       "tags": "filter,ladder,self-osc,breadboard",
       "emoji": "",
-      "folder": "filter breadboards"
+      "folder": "filter_breadboards"
     },
     {
-      "slug": "Alarm/Analog Computer",
-      "label": "Analog Computer",
+      "slug": "Alarm/Analog_Computer",
+      "label": "Analog_Computer",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/Alarm/Analog%20Computer.json",
+      "url": "/soemdsp-sandbox/patches/Alarm/Analog_Computer.json",
       "author": "Soundemote",
       "tags": "",
       "emoji": "📺",
@@ -44,54 +44,54 @@
       "folder": "Alarm"
     },
     {
-      "slug": "demo patches/analogdream",
+      "slug": "demo_patches/analogdream",
       "label": "analogdream",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/demo%20patches/analogdream.json",
+      "url": "/soemdsp-sandbox/patches/demo_patches/analogdream.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
-      "folder": "demo patches"
+      "folder": "demo_patches"
     },
     {
-      "slug": "demo patches/analoghorror",
+      "slug": "demo_patches/analoghorror",
       "label": "analoghorror",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/demo%20patches/analoghorror.json",
+      "url": "/soemdsp-sandbox/patches/demo_patches/analoghorror.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
-      "folder": "demo patches"
+      "folder": "demo_patches"
     },
     {
-      "slug": "demo patches/journey to the hypersaw",
-      "label": "journey to the hypersaw",
+      "slug": "demo_patches/journey_to_the_hypersaw",
+      "label": "journey_to_the_hypersaw",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/demo%20patches/journey%20to%20the%20hypersaw.json",
+      "url": "/soemdsp-sandbox/patches/demo_patches/journey_to_the_hypersaw.json",
       "author": "",
       "tags": "init,default",
       "emoji": "",
-      "folder": "demo patches"
+      "folder": "demo_patches"
     },
     {
-      "slug": "demo patches/ping vs pluck",
-      "label": "ping vs pluck",
+      "slug": "demo_patches/ping_vs_pluck",
+      "label": "ping_vs_pluck",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/demo%20patches/ping%20vs%20pluck.json",
+      "url": "/soemdsp-sandbox/patches/demo_patches/ping_vs_pluck.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
-      "folder": "demo patches"
+      "folder": "demo_patches"
     },
     {
-      "slug": "demo patches/tubesaturation",
+      "slug": "demo_patches/tubesaturation",
       "label": "tubesaturation",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/demo%20patches/tubesaturation.json",
+      "url": "/soemdsp-sandbox/patches/demo_patches/tubesaturation.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
-      "folder": "demo patches"
+      "folder": "demo_patches"
     },
     {
       "slug": "foley/CALLNOW",
@@ -104,168 +104,177 @@
       "folder": "foley"
     },
     {
-      "slug": "guitar pedals/chorus vs ensemble",
-      "label": "chorus vs ensemble",
+      "slug": "guitar_pedals/chorus_vs_ensemble",
+      "label": "chorus_vs_ensemble",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/guitar%20pedals/chorus%20vs%20ensemble.json",
+      "url": "/soemdsp-sandbox/patches/guitar_pedals/chorus_vs_ensemble.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
-      "folder": "guitar pedals"
+      "folder": "guitar_pedals"
     },
     {
-      "slug": "guitar pedals/clean",
+      "slug": "guitar_pedals/clean",
       "label": "clean",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/guitar%20pedals/clean.json",
+      "url": "/soemdsp-sandbox/patches/guitar_pedals/clean.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
-      "folder": "guitar pedals"
+      "folder": "guitar_pedals"
     },
     {
-      "slug": "guitar pedals/clean chorus",
-      "label": "clean chorus",
+      "slug": "guitar_pedals/clean_chorus",
+      "label": "clean_chorus",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/guitar%20pedals/clean%20chorus.json",
+      "url": "/soemdsp-sandbox/patches/guitar_pedals/clean_chorus.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
-      "folder": "guitar pedals"
+      "folder": "guitar_pedals"
     },
     {
-      "slug": "guitar pedals/damaged chorus",
-      "label": "damaged chorus",
+      "slug": "guitar_pedals/damaged_chorus",
+      "label": "damaged_chorus",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/guitar%20pedals/damaged%20chorus.json",
+      "url": "/soemdsp-sandbox/patches/guitar_pedals/damaged_chorus.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
-      "folder": "guitar pedals"
+      "folder": "guitar_pedals"
     },
     {
-      "slug": "guitar pedals/dreamy delay",
-      "label": "dreamy delay",
+      "slug": "guitar_pedals/dreamy_delay",
+      "label": "dreamy_delay",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/guitar%20pedals/dreamy%20delay.json",
+      "url": "/soemdsp-sandbox/patches/guitar_pedals/dreamy_delay.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
-      "folder": "guitar pedals"
+      "folder": "guitar_pedals"
     },
     {
-      "slug": "guitar pedals/guitar controlled synth",
-      "label": "guitar controlled synth",
+      "slug": "guitar_pedals/guitar_controlled_synth",
+      "label": "guitar_controlled_synth",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/guitar%20pedals/guitar%20controlled%20synth.json",
+      "url": "/soemdsp-sandbox/patches/guitar_pedals/guitar_controlled_synth.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
-      "folder": "guitar pedals"
+      "folder": "guitar_pedals"
     },
     {
-      "slug": "hyperpluck/acoustic dispersion",
-      "label": "acoustic dispersion",
+      "slug": "hyperpluck/acoustic_dispersion",
+      "label": "acoustic_dispersion",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/hyperpluck/acoustic%20dispersion.json",
+      "url": "/soemdsp-sandbox/patches/hyperpluck/acoustic_dispersion.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
       "folder": "hyperpluck"
     },
     {
-      "slug": "modulator breadboards/ping envelope",
-      "label": "ping envelope",
+      "slug": "modulator_breadboards/ping_envelope",
+      "label": "ping_envelope",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/modulator%20breadboards/ping%20envelope.json",
+      "url": "/soemdsp-sandbox/patches/modulator_breadboards/ping_envelope.json",
       "author": "",
       "tags": "init,default",
       "emoji": "",
-      "folder": "modulator breadboards"
+      "folder": "modulator_breadboards"
     },
     {
-      "slug": "modulator breadboards/pluck envelope",
-      "label": "pluck envelope",
+      "slug": "modulator_breadboards/pluck_envelope",
+      "label": "pluck_envelope",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/modulator%20breadboards/pluck%20envelope.json",
+      "url": "/soemdsp-sandbox/patches/modulator_breadboards/pluck_envelope.json",
       "author": "",
       "tags": "init,default",
       "emoji": "",
-      "folder": "modulator breadboards"
+      "folder": "modulator_breadboards"
     },
     {
-      "slug": "modulator breadboards/vibrato generator",
-      "label": "vibrato generator",
+      "slug": "modulator_breadboards/vibrato_generator",
+      "label": "vibrato_generator",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/modulator%20breadboards/vibrato%20generator.json",
+      "url": "/soemdsp-sandbox/patches/modulator_breadboards/vibrato_generator.json",
       "author": "Sandbox",
       "tags": "filter,ladder,self-osc,breadboard",
       "emoji": "",
-      "folder": "modulator breadboards"
+      "folder": "modulator_breadboards"
     },
     {
-      "slug": "Soundemote Softwave prototypes/Soft Asymmetrical Sine",
-      "label": "Soft Asymmetrical Sine",
+      "slug": "Soundemote_Softwave_prototypes/Soft_Asymmetrical_Sine",
+      "label": "Soft_Asymmetrical_Sine",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/Soundemote%20Softwave%20prototypes/Soft%20Asymmetrical%20Sine.json",
+      "url": "/soemdsp-sandbox/patches/Soundemote_Softwave_prototypes/Soft_Asymmetrical_Sine.json",
       "author": "",
       "tags": "init,default",
       "emoji": "",
-      "folder": "Soundemote Softwave prototypes"
+      "folder": "Soundemote_Softwave_prototypes"
     },
     {
-      "slug": "Soundemote Softwave prototypes/Soft Triangle",
-      "label": "Soft Triangle",
+      "slug": "Soundemote_Softwave_prototypes/Soft_Triangle",
+      "label": "Soft_Triangle",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/Soundemote%20Softwave%20prototypes/Soft%20Triangle.json",
+      "url": "/soemdsp-sandbox/patches/Soundemote_Softwave_prototypes/Soft_Triangle.json",
       "author": "",
       "tags": "init,default",
       "emoji": "",
-      "folder": "Soundemote Softwave prototypes"
+      "folder": "Soundemote_Softwave_prototypes"
     },
     {
-      "slug": "voice breadboards/hyperpluck acoustic diffusion",
-      "label": "hyperpluck acoustic diffusion",
+      "slug": "voice_breadboards/hyperpluck_acoustic_diffusion",
+      "label": "hyperpluck_acoustic_diffusion",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/voice%20breadboards/hyperpluck%20acoustic%20diffusion.json",
+      "url": "/soemdsp-sandbox/patches/voice_breadboards/hyperpluck_acoustic_diffusion.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
-      "folder": "voice breadboards"
+      "folder": "voice_breadboards"
     },
     {
-      "slug": "voice breadboards/hyperpluck breadboard",
-      "label": "hyperpluck breadboard",
+      "slug": "voice_breadboards/hyperpluck_breadboard",
+      "label": "hyperpluck_breadboard",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/voice%20breadboards/hyperpluck%20breadboard.json",
+      "url": "/soemdsp-sandbox/patches/voice_breadboards/hyperpluck_breadboard.json",
       "author": "",
       "tags": "circle",
       "emoji": "",
-      "folder": "voice breadboards"
+      "folder": "voice_breadboards"
     },
     {
-      "slug": "chaosfly high freq",
-      "label": "chaosfly high freq",
+      "slug": "callnow",
+      "label": "callnow",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/chaosfly%20high%20freq.json",
+      "url": "/soemdsp-sandbox/patches/Alarm/callnow.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
     },
     {
-      "slug": "chaosfly lowfreq",
-      "label": "chaosfly lowfreq",
+      "slug": "chaosfly_high_freq",
+      "label": "chaosfly_high_freq",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/chaosfly%20lowfreq.json",
+      "url": "/soemdsp-sandbox/patches/chaosfly_high_freq.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
     },
     {
-      "slug": "chaosfly lowfreq2",
-      "label": "chaosfly lowfreq2",
+      "slug": "chaosfly_lowfreq",
+      "label": "chaosfly_lowfreq",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/chaosfly%20lowfreq2.json",
+      "url": "/soemdsp-sandbox/patches/chaosfly_lowfreq.json",
+      "author": "",
+      "tags": "circle",
+      "emoji": ""
+    },
+    {
+      "slug": "chaosfly_lowfreq2",
+      "label": "chaosfly_lowfreq2",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/chaosfly_lowfreq2.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
@@ -388,19 +397,19 @@
       "emoji": ""
     },
     {
-      "slug": "kick drum attempt",
-      "label": "kick drum attempt",
+      "slug": "kick_drum_attempt",
+      "label": "kick_drum_attempt",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/kick%20drum%20attempt.json",
+      "url": "/soemdsp-sandbox/patches/kick_drum_attempt.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
     },
     {
-      "slug": "kick drum attempt 2",
-      "label": "kick drum attempt 2",
+      "slug": "kick_drum_attempt_2",
+      "label": "kick_drum_attempt_2",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/kick%20drum%20attempt%202.json",
+      "url": "/soemdsp-sandbox/patches/kick_drum_attempt_2.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
@@ -424,19 +433,19 @@
       "emoji": ""
     },
     {
-      "slug": "light kick variation",
-      "label": "light kick variation",
+      "slug": "light_kick_variation",
+      "label": "light_kick_variation",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/light%20kick%20variation.json",
+      "url": "/soemdsp-sandbox/patches/light_kick_variation.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
     },
     {
-      "slug": "linear env vactrol",
-      "label": "linear env vactrol",
+      "slug": "linear_env_vactrol",
+      "label": "linear_env_vactrol",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/linear%20env%20vactrol.json",
+      "url": "/soemdsp-sandbox/patches/linear_env_vactrol.json",
       "author": "",
       "tags": "init,default",
       "emoji": ""
@@ -550,10 +559,10 @@
       "emoji": ""
     },
     {
-      "slug": "plucky hypersupersaw",
-      "label": "plucky hypersupersaw",
+      "slug": "plucky_hypersupersaw",
+      "label": "plucky_hypersupersaw",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/plucky%20hypersupersaw.json",
+      "url": "/soemdsp-sandbox/patches/plucky_hypersupersaw.json",
       "author": "",
       "tags": "init,default",
       "emoji": ""
@@ -640,19 +649,19 @@
       "emoji": ""
     },
     {
-      "slug": "sabrina realistic reverb",
-      "label": "sabrina realistic reverb",
+      "slug": "sabrina_realistic_reverb",
+      "label": "sabrina_realistic_reverb",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/sabrina%20realistic%20reverb.json",
+      "url": "/soemdsp-sandbox/patches/sabrina_realistic_reverb.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
     },
     {
-      "slug": "sabrina witch rhythm",
-      "label": "sabrina witch rhythm",
+      "slug": "sabrina_witch_rhythm",
+      "label": "sabrina_witch_rhythm",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/sabrina%20witch%20rhythm.json",
+      "url": "/soemdsp-sandbox/patches/sabrina_witch_rhythm.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
@@ -694,19 +703,19 @@
       "emoji": ""
     },
     {
-      "slug": "sine kick attempt",
-      "label": "sine kick attempt",
+      "slug": "sine_kick_attempt",
+      "label": "sine_kick_attempt",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/sine%20kick%20attempt.json",
+      "url": "/soemdsp-sandbox/patches/sine_kick_attempt.json",
       "author": "",
       "tags": "circle",
       "emoji": ""
     },
     {
-      "slug": "sine kick attempt 2",
-      "label": "sine kick attempt 2",
+      "slug": "sine_kick_attempt_2",
+      "label": "sine_kick_attempt_2",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/sine%20kick%20attempt%202.json",
+      "url": "/soemdsp-sandbox/patches/sine_kick_attempt_2.json",
       "author": "",
       "tags": "init,default",
       "emoji": ""
@@ -748,19 +757,19 @@
       "emoji": ""
     },
     {
-      "slug": "superlove hp6 breadboard",
-      "label": "superlove hp6 breadboard",
+      "slug": "superlove_hp6_breadboard",
+      "label": "superlove_hp6_breadboard",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/superlove%20hp6%20breadboard.json",
+      "url": "/soemdsp-sandbox/patches/superlove_hp6_breadboard.json",
       "author": "Sandbox",
       "tags": "filter,ladder,self-osc,breadboard",
       "emoji": ""
     },
     {
-      "slug": "superlove lp18 breadboard",
-      "label": "superlove lp18 breadboard",
+      "slug": "superlove_lp18_breadboard",
+      "label": "superlove_lp18_breadboard",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/superlove%20lp18%20breadboard.json",
+      "url": "/soemdsp-sandbox/patches/superlove_lp18_breadboard.json",
       "author": "Sandbox",
       "tags": "filter,ladder,self-osc,breadboard",
       "emoji": ""
@@ -775,10 +784,10 @@
       "emoji": ""
     },
     {
-      "slug": "synthlead2 make filters track better",
-      "label": "synthlead2 make filters track better",
+      "slug": "synthlead2_make_filters_track_better",
+      "label": "synthlead2_make_filters_track_better",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/synthlead2%20make%20filters%20track%20better.json",
+      "url": "/soemdsp-sandbox/patches/synthlead2_make_filters_track_better.json",
       "author": "",
       "tags": "init,default",
       "emoji": ""

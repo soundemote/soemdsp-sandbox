@@ -10,7 +10,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const patchPath = path.join(
   root,
   "patches",
-  "modulator breadboards",
+  "modulator_breadboards",
   "pluck envelope.json",
 );
 const helperPath = path.join(root, "public", "modules", "portal", "portal-named.js");

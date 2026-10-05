@@ -49,7 +49,7 @@ for (const [type, key, expect, label] of cases) {
 // analoghorror.json: morph MOD destination must map to WIDTH
 const patchPath = path.join(
   __dirname,
-  "../patches/demo patches/analoghorror.json",
+  "../patches/demo_patches/analoghorror.json",
 );
 const patch = JSON.parse(fs.readFileSync(patchPath, "utf8"));
 const morphMods = (patch.modulations || []).filter(
