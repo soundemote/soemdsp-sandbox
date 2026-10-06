@@ -340,9 +340,9 @@ function buildNodeGraphKeyboardControllerFaceDisplaySettingsBodyHtml() {
   return `
     <div class="metadata-field-section" data-midi-keyboard-layout-settings>
       <div class="metadata-section-title">Keys</div>
-      <label class="node-trace-display-line-burn-row">
-        <span>Hide keyboard info</span>
+      <label class="metadata-checkbox-label">
         <input type="checkbox" data-midi-key-layout="hideKeyboardInfo"${s.hideKeyboardInfo ? " checked" : ""} aria-label="Hide keyboard info">
+        <span>Hide keyboard info</span>
       </label>
       <label class="node-trace-display-line-burn-row">
         <span>Black width</span>

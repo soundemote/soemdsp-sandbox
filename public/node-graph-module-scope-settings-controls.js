@@ -203,6 +203,9 @@ function nodeGraphTraceDisplayUnitDragField(key) {
   if (nodeGraphPluginButtonInkPxField(key)) {
     return false;
   }
+  if (String(key).endsWith("Saturation")) {
+    return true;
+  }
   return [
     "dot1Brightness",
     "secondaryBrightness",
@@ -952,7 +955,7 @@ function normalizeNodeGraphTraceDisplaySettingValueForKey(key, value) {
   if (clamp) {
     return clamp(value);
   }
-  if (/Brightness$/i.test(String(key || "")) || /Alpha$/i.test(String(key || ""))) {
+  if (/Brightness$/i.test(String(key || "")) || /Saturation$/i.test(String(key || "")) || /Alpha$/i.test(String(key || ""))) {
     return nodeGraphTraceDisplayClampUnit(value);
   }
   return value;

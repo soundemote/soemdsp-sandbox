@@ -123,6 +123,13 @@ function normalizeNodeGraphArpKeysSettings(settings, defaults = NODE_GRAPH_ARP_K
     ),
     previousBrightness: nodeGraphArpKeysClamp01(src.previousBrightness, d.previousBrightness),
     previousFadeSeconds: nodeGraphArpKeysClampFade(src.previousFadeSeconds, d.previousFadeSeconds),
+    strokeSaturation: nodeGraphArpKeysClamp01(src.strokeSaturation, 1),
+    fontSaturation: nodeGraphArpKeysClamp01(src.fontSaturation, 1),
+    inactiveFillSaturation: nodeGraphArpKeysClamp01(src.inactiveFillSaturation, 1),
+    activeFillSaturation: nodeGraphArpKeysClamp01(src.activeFillSaturation, 1),
+    inactiveTextSaturation: nodeGraphArpKeysClamp01(src.inactiveTextSaturation, 1),
+    activeTextSaturation: nodeGraphArpKeysClamp01(src.activeTextSaturation, 1),
+    previousSaturation: nodeGraphArpKeysClamp01(src.previousSaturation, 1),
     cornerShape: shape === "square" ? "square" : "squircle",
     cornerRadius: nodeGraphArpKeysClamp01(src.cornerRadius, d.cornerRadius),
     edgeSpacing: nodeGraphArpKeysClamp01(src.edgeSpacing, d.edgeSpacing),
@@ -136,12 +143,13 @@ function nodeGraphArpKeysSettingsForNode(node) {
   return normalizeNodeGraphArpKeysSettings(node?.arpKeysSettings, defaults);
 }
 
-function nodeGraphArpKeysHueCss(colorHex, brightness, alpha = 1, fallbackHue = 165) {
+function nodeGraphArpKeysHueCss(colorHex, brightness, alpha = 1, saturation = 1, fallbackHue = 165) {
   const hue = typeof nodeGraphHueDegFromHex === "function"
     ? nodeGraphHueDegFromHex(colorHex)
     : fallbackHue;
+  const sat = Number(saturation);
   if (typeof nodeGraphHueBrightnessCss === "function") {
-    return nodeGraphHueBrightnessCss(hue, brightness, alpha);
+    return nodeGraphHueBrightnessCss(hue, brightness, alpha, Number.isFinite(sat) ? sat : 1);
   }
   return colorHex || "#3dffd0";
 }
@@ -201,6 +209,13 @@ function syncNodeGraphArpKeysDisplaySettingsControls(root, settings) {
     const bright = root.querySelector?.(`[data-trace-display-field="${brightKey}"]`);
     if (bright && document.activeElement !== bright) {
       bright.value = String(s[brightKey]);
+    }
+    const satKey = typeof nodeGraphHueTitleSatFieldName === "function"
+      ? nodeGraphHueTitleSatFieldName(brightKey)
+      : `${brightKey}Saturation`;
+    const sat = root.querySelector?.(`[data-trace-display-field="${satKey}"]`);
+    if (sat && document.activeElement !== sat) {
+      sat.value = String(s[satKey] ?? 1);
     }
     const color = root.querySelector?.(`[data-trace-display-color="${colorKey}"]`);
     if (color) {
@@ -288,6 +303,13 @@ function readNodeGraphArpKeysDisplaySettingsForm(root, current) {
     const bright = panel?.querySelector?.(`[data-trace-display-field="${brightKey}"]`);
     if (bright) {
       next[brightKey] = Number(bright.value);
+    }
+    const satKey = typeof nodeGraphHueTitleSatFieldName === "function"
+      ? nodeGraphHueTitleSatFieldName(brightKey)
+      : `${brightKey}Saturation`;
+    const sat = panel?.querySelector?.(`[data-trace-display-field="${satKey}"]`);
+    if (sat) {
+      next[satKey] = Number(sat.value);
     }
     const color = panel?.querySelector?.(`[data-trace-display-color="${colorKey}"]`);
     if (color) {

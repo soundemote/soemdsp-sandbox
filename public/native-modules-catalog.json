@@ -1393,6 +1393,19 @@
       "wasmAvailable": true
     },
     {
+      "name": "power_decay",
+      "label": "PowerDecay",
+      "targetType": "powerDecay",
+      "kind": "envelope",
+      "source": "native_modules/power_decay/power_decay.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/power_decay/power_decay.cpp",
+      "localSourceUrl": "/native_modules/power_decay/power_decay.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/power_decay/power_decay.wasm",
+      "wasmUrl": "native_modules/power_decay/power_decay.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "pulse_explosion",
       "label": "Pulse Explosion",
       "targetType": "pulseExplosion",

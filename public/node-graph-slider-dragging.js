@@ -1208,7 +1208,10 @@ function beginNodeSliderDrag(event) {
     const max = Number(slider.max);
     const lo = Number.isFinite(min) ? min : 0;
     const hi = Number.isFinite(max) && max > lo ? max : lo + 1;
-    setNodeSliderValue(slider, lo + t * (hi - lo), { interaction: "drag" });
+    const jump = quantizeNodeSliderDragValue(slider, lo + t * (hi - lo));
+    if (jump !== nodeSliderDomainForTravel(slider)) {
+      setNodeSliderValue(slider, jump, { interaction: "drag" });
+    }
     startTravel = nodeSliderTravelFromValue(slider, nodeSliderDomainForTravel(slider));
   } else if (jumpToPointerOnClick) {
     if (setNodeSliderValueAtPointer(slider, surface, event, { interaction: "drag" })) {
@@ -1308,11 +1311,17 @@ function dragNodeSlider(event) {
     const pixels = delta
       ? delta.combined
       : ((event.clientX - drag.startX) + (drag.startY - event.clientY));
-    const next = Number(drag.startDomain) + pixels * Number(drag.fineScale || 1);
-    setNodeSliderValue(drag.slider, next, {
-      interaction: "drag",
-      status: "slider adjusted",
-    });
+    const next = quantizeNodeSliderDragValue(
+      drag.slider,
+      Number(drag.startDomain) + pixels * Number(drag.fineScale || 1),
+    );
+    // Same step as now: no patch write / live sync (a BPM re-send is not free).
+    if (next !== nodeSliderDomainForTravel(drag.slider)) {
+      setNodeSliderValue(drag.slider, next, {
+        interaction: "drag",
+        status: "slider adjusted",
+      });
+    }
     event.preventDefault();
     return;
   }

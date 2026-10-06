@@ -42,7 +42,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 6. **Layout / text box / hide-display** — B-031, B-032, B-036 (likely one height/grid bug)
 7. **Patch persistence** — B-038 Visibility window (includes B-034 wires), B-035 RobinSinusoid history
 8. **Policy / twins** — B-029 when it is time
-9. **JS DSP removal** — C-001 (see **Cleanup**; planned 2026-10-04, not started)
+9. **JS DSP removal** — C-001 (see **Cleanup**; in progress: Speaker Protector 2 + worklet decimator native and 50 dead `*-math.js` deleted in `9c3a4d7d`; top blocker is the Render Sample JS decimator)
 
 **2026-08-12 run:** all hunt items except **B-010** (standby). Native instance/buffer raises (B-012/B-013) reverted — combined WASM memory cap. B-028/B-029 not in this run.
 
@@ -143,6 +143,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-090 | hear | open | Keypad: turning latch off does not end an active latch |
 | B-091 | see | open | Perform page: Escape leads to a black page (app hotkeys not disabled) |
 | B-092 | see | open | Metronome: face indicator still does not blink with the gate |
+| B-093 | hear | fixed | Gravity Walker: Seed ignored until Reset / Steps wrap |
 ---
 
 ## Inbox (unnumbered user reports)
@@ -1075,6 +1076,19 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Expected: Indicator blinks on each gate pulse, in sync with the gate.
 - Fix shape: Not started. Logged only; do not tackle. Docs-only; no code fix in this report.
 
+### B-093 — Gravity Walker: Seed ignored until Reset / Steps wrap (RNG seeded from engine counter)
+- Status: fixed in code in `87b1b517` (2026-10-05, "Seeding rework"); not yet verified by Argi.
+- Severity: hear
+- Source: Argi via LibraryCode 2026-10-06 (ArchIV)
+- Files: `native_modules/gravity_walker/gravity_walker.cpp`, `native_modules/graph_engine/graph_engine.cpp`
+- What: The walk RNG was seeded at creation from an engine-wide counter (`graph_engine.cpp` `gravityWalkerEntropy`, starting `0xA11CEE`, passed to `soemdsp_gravity_walker_create(entropySeed)`; reported at `gravity_walker.cpp:292`) instead of from **Seed**. Seed did nothing until Reset or Steps wrapped (both call `restart_walk(s, seed)`).
+- Current code (checked 2026-10-06): the counter is gone (no `0xA11CEE` in `native_modules/` or `public/`). Create sets `s.seed = 0u` (`gravity_walker.cpp` ~295); process applies the host Seed on the first sample and re-seeds whenever Seed changes (~363–367, `walk_rng_state(seed)`).
+- Repro (to verify): two Gravity Walkers, same held notes and Seed, start transport: same walk from the first clock. Change Seed while running: the walk changes without Reset.
+- Notes (not bugs):
+  - **Pattern Offset is a pool rotation, not a sequence offset.** It rotates which pool step is heard (`wrapped_play_index`: `(degree + patternOffset) mod poolCount`, ~221–229, clamped 0–127). The walk cursor and the random stream do not move.
+  - **"Start Step" is an idea only, not approved.** Proposal: start N steps into the seeded sequence. Do not implement without Argi's ok.
+- Fix shape: done in code. Argi to verify by ear.
+
 ---
 
 ## Cleanup
@@ -1082,7 +1096,7 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 Planned removals that are not bugs. Same rules as bugs: one entry per cleanup, status line, files, fix shape. Docs-only until Argi says go.
 
 ### C-001 — Remove all leftover JavaScript DSP (audio is native WASM/C++ only)
-- Status: planned. Speaker Protector 2 native port done 2026-10-04 (uncommitted, see Decisions). Still blocked on the worklet oversampling decimator port.
+- Status: **in progress** (updated 2026-10-06). Speaker Protector 2, the live-worklet decimator, and the 50 dead `*-math.js` landed in `9c3a4d7d`. Top blocker: the Render Sample JS decimator copy. See **State (2026-10-06)** below.
 - Date: 2026-10-04
 - Severity: likely (policy debt; no audible change expected for dead files)
 - Source: Argi 2026-10-04 (ArchIV). Known example: `public/modules/cheapWalk/cheap-walk-math.js`.
@@ -1091,11 +1105,32 @@ Planned removals that are not bugs. Same rules as bugs: one entry per cleanup, s
 - Do not touch: `native_modules/cheap_walk/cheap_walk.cpp` (Bugs & Fix owns the Cheap Walk amplitude clamp, C++ only). This cleanup edits JS, HTML, smoke, and store links only.
 - **Do not commit or push without Argi's ok.**
 - **Decisions (Argi 2026-10-04):**
-  - **Speaker Protector 2 must not run in JavaScript at all.** The Render Sample ear-protection JS pass (`node-graph-render-output.js` → `node-graph-ear-protection.js` → `nodeGraphSpeakerProtector2Protect`) must move to native C++/WASM. **Top-priority blocker.** Until then `speaker-protector-2-math.js` cannot be deleted. "At all" also covers its worklet uses (init-time state in `node-live-audio-worklet-dsp-state.js`, `outputSampleTripsEarProtection` → `…SampleTrips`).
-  - **Done 2026-10-04 (uncommitted): Speaker Protector 2 is native only.** `speaker-protector-2-math.js` deleted (script tags, worklet blob entry, smoke `PUBLIC_SCRIPT_PATHS`). Render Sample runs the Output ear protect (trip count, mute count, slew VCA) through `soemdsp_speaker_protector2_process_block` (`speaker_protector2.cpp`) on a main-thread instance of the combined wasm (`node-graph-ear-protection.js` `createNodeGraphNativeEarProtector`). Worklet `createEarProtector` / `outputSampleTripsEarProtection` / `speakerProtector2States` and the vestigial `node-graph-live-plan-runtime.js` allocations are gone. `scripts/test_speaker_protector_2.js` now tests the native wasm. Parity vs the old JS: bit-exact.
-  - **Done: worklet oversampling decimator is native.** `native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.cpp` (same 6 SOS, DF2). JS SOS table / `processRaptEllipticDecimatorSample` / `decimateRaptEllipticChannel` deleted. Worklet calls `soemdsp_rapt_elliptic_decimator_process` when OS > 1.
+  - **Speaker Protector 2 must not run in JavaScript at all.** The Render Sample ear-protection JS pass (`node-graph-render-output.js` → `node-graph-ear-protection.js` → `nodeGraphSpeakerProtector2Protect`) must move to native C++/WASM. **Top-priority blocker.** Until then `speaker-protector-2-math.js` cannot be deleted. (Done, next bullet.) "At all" also covers its worklet uses (init-time state in `node-live-audio-worklet-dsp-state.js`, `outputSampleTripsEarProtection` → `…SampleTrips`).
+  - **Done 2026-10-04, committed in `9c3a4d7d`: Speaker Protector 2 is native only.** `speaker-protector-2-math.js` deleted (script tags, worklet blob entry, smoke `PUBLIC_SCRIPT_PATHS`). Render Sample runs the Output ear protect (trip count, mute count, slew VCA) through `soemdsp_speaker_protector2_process_block` (`speaker_protector2.cpp`) on a main-thread instance of the combined wasm (`node-graph-ear-protection.js` `createNodeGraphNativeEarProtector`). Worklet `createEarProtector` / `outputSampleTripsEarProtection` / `speakerProtector2States` and the vestigial `node-graph-live-plan-runtime.js` allocations are gone. `scripts/test_speaker_protector_2.js` now tests the native wasm. Parity vs the old JS: bit-exact.
+  - **Done (`9c3a4d7d`): live-worklet oversampling decimator is native.** `native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.cpp` (same 6 SOS, DF2). JS SOS table / `processRaptEllipticDecimatorSample` / `decimateRaptEllipticChannel` deleted. Worklet calls `soemdsp_rapt_elliptic_decimator_process` when OS > 1. **Render Sample still has its own JS copy** in `node-graph-render-output.js` (State, open item 1).
   - **The 25 FACE / PREVIEW / UI-helper files (table b) are KEPT.** They make displays and faces work. Their code does not change: no deletes, no kernel removal, no helper moves.
-  - **`additive-yellow-graph-sidecar.js`:** re-checked 2026-10-04. DEAD. It plays no part in the Yellow Graph signals, which come from native `graph_engine`. Evidence in the "other" table.
+  - **`additive-yellow-graph-sidecar.js`:** re-checked 2026-10-04. DEAD. It plays no part in the Yellow Graph signals, which come from native `graph_engine`. Evidence in the "other" table. Delete after the Additive Out scope work lands.
+
+#### State (2026-10-06)
+
+**Landed in `9c3a4d7d`** (2026-10-04, pushed to `master`):
+- Speaker Protector 2 ported to native: `soemdsp_speaker_protector2_process_block` in `native_modules/speaker_protector2/speaker_protector2.cpp`. JS math deleted. Render Sample uses `createNodeGraphNativeEarProtector`. No JS fallback.
+- Live-worklet oversampling decimator moved to native: `native_modules/rapt_elliptic_decimator/`.
+- All 50 DEAD `*-math.js` files deleted (table c), with their tags, smoke rows, and 4 dead tests. 29 store links repointed to C++. 12 store entries with no C++ now have an empty Code button: `bitConverter`, `bode`, `curveOsc`, `gainBias`, `simulationTime`, `noiseDetector`, `sineKick`, `sinepulse`, `softpopOscillator`, `stftBlur`, `tiltFilter`, `waveguide`.
+
+**Musical engines (LibraryCode):** `public/node-graph-musical-engines.js` deleted entirely (JS copies of native opcodes 141–145: Degree Turing, Gravity Walker, Degree Phrase, Note Glide, Note Transpose; none live), plus its script tags, smoke entry, and the dead state maps in `node-graph-live-plan-runtime.js`. Reported as local/uncommitted on 2026-10-06, but git shows the deletion in `87b1b517` (2026-10-05, tracked by `origin/master`).
+
+**Still open:**
+1. **Top blocker.** Render Sample still runs a JS copy of the rapt elliptic decimator in `public/node-graph-render-output.js` (~9–126: `nodeGraphRaptEllipticQuarterbandSos`, `nodeGraphRaptEllipticRenderSample`, `nodeGraphRaptEllipticDecimateRenderedChannel`; called through `nodeGraphResampleRenderedChannel` at ~367 / ~373). This is audio-path JS DSP and breaks Argi's never-in-JS rule. Same function, found 2026-10-06: ratios other than exactly 2× / 4× go through a JS triangle prefilter (`nodeGraphTemporaryPrefilterForResample`, ~45) and a linear resampler (`nodeGraphResampleLinear`, ~99).
+2. `public/node-graph-turing-machine.js` is a dead JS kernel that still loads. Lines 52–57 used the deleted musical helpers behind a `typeof` check.
+3. The retired WebGPU additive osc (`public/node-graph-gpu-additive-backend.js`) and its JS DSP fallback (`node-graph-oscillator-runtime.js` `nodeGraphAdditiveOscillatorSample`). Script still loads. Cross-reference `docs/DISPLAY_SHADER_PLAN.md` P0e-1.
+4. Sidecar `modules/additiveGraph/additive-yellow-graph-sidecar.js`: delete after the Additive Out scope work lands.
+5. CI guard not implemented (see **CI guard** below).
+6. Host-control smoothers decision (D2, still open).
+7. Leftovers: comment-only mentions of deleted files; dead main-thread runtime calls; 3 dead evaluators naming deleted functions in never-called handlers; the tracked scratch file `search-width.txt`; the store `musicalEngines` entry pointing at a non-existent worklet evaluator; the stale comment on `library/include/soemdsp/musical/musical_pitch.h` line 2 (library file, needs Argi's approval).
+8. Test debt (all pre-existing): `scripts/smoke_test.py` stops at the stale MVP t-series check (expects the text `nodeGraphTSeriesModuleDefinition(1)`); phone-tone / attenuverter / portal tests fail on a missing `nodeGraphFiniteNumber`; `smoke_graph_musical.mjs` fails on chordSequencer `rootPeak=69`.
+
+The inventory below is the 2026-10-04 snapshot, kept for the record. Rows that have since landed are marked.
 
 #### How the inventory was taken
 
@@ -1110,13 +1145,13 @@ Three facts drive most classifications:
 2. **`*-live-evaluator.js` registrations are write-only.** They write into `nodeGraphLiveModuleEvaluators`, but no file reads that registry.
 3. **Store "source" links are a fallback.** `nodeGraphCodeEntryForType` (`node-graph-module-store.js` ~3803) uses the native catalog (`public/native-modules-catalog.json`) first. The JS map `nodeGraphJsSourceEntriesByType` (~2883–3797) is only used when a type has no catalog entry. Where a catalog entry exists, the Code button already opens C++. Repointing is cleanup of the fallback map.
 
-#### Counts (80 `*-math.js` files)
+#### Counts (80 `*-math.js` files on 2026-10-04; 29 remain after `9c3a4d7d`)
 
 | Class | Count |
 |-------|-------|
-| **c. DEAD**: no live caller (only script tags, store link, smoke list, `scripts/test_*.js`, vestigial runtime allocs, dead evaluators, or other dead math files) | **50** |
+| **c. DEAD**: no live caller (only script tags, store link, smoke list, `scripts/test_*.js`, vestigial runtime allocs, dead evaluators, or other dead math files) | **50**, all deleted in `9c3a4d7d` |
 | **b. FACE / PREVIEW / UI-helper only**: deleting breaks a face, readout, or UI helper. **KEPT, code unchanged (Argi 2026-10-04)** | **25** |
-| **a. AUDIO PATH**: still runs on live or render audio. **Must move to native (Argi 2026-10-04)** | **1** |
+| **a. AUDIO PATH**: still runs on live or render audio. **Must move to native (Argi 2026-10-04)** | **0** (was 1: Speaker Protector 2, native and deleted in `9c3a4d7d`) |
 | Not DSP (UI / host-control helpers misnamed `*-math.js`): keep, allowlist | **4** |
 
 Face sub-tags for Argi's decision: **K** = the face runs the module's JS DSP kernel (steps `…Sample`) to draw. **C** = closed-form curve / magnitude / shape for a face (no kernel stepping). **U** = plain UI / host helper (labels, dB↔lin, param mapping). Argi 2026-10-04: all 25 table-b files are kept as they are, whatever the tag. Their code does not change.
@@ -1125,13 +1160,13 @@ Face sub-tags for Argi's decision: **K** = the face runs the module's JS DSP ker
 
 Paths are under `public/modules/` unless shown. Refs: `idx` = `public/index.html` line, `perf` = `public/perform.html` line, `store` = type key(s) in `nodeGraphJsSourceEntriesByType`, `smoke` = `scripts/smoke_test.py` line(s) (the first is the required-scripts row; later lines are content assertions). `lpr` = allocation in vestigial `node-graph-live-plan-runtime.js` (U = unguarded). C++ twin `x.cpp` = `native_modules/x/x.cpp`.
 
-##### a. AUDIO PATH (1)
+##### a. AUDIO PATH (0 left; Speaker Protector 2 done in `9c3a4d7d`)
 
 | File | Main exports | Refs | Live callers (evidence) | C++ twin |
 |------|--------------|------|-------------------------|----------|
-| `speakerProtector2/speaker-protector-2-math.js` | `createNodeGraphSpeakerProtector2State`, `nodeGraphSpeakerProtector2Protect`, `…SampleTrips`, `NODE_GRAPH_NUMERIC_PRECISION` | idx 3981 · perf 3976 · store `speakerProtector2` · smoke 363 · **worklet blob** (`?v=output-hot-fade-1`) · lpr guarded | **Render Sample:** `node-graph-render-output.js` 338–355 runs `createNodeGraphEarProtector(rate).protect(L, R)` per frame over the native bounce, using `node-graph-ear-protection.js` → `nodeGraphSpeakerProtector2Protect`, plus `…SampleTrips`. **Live worklet:** `node-live-audio-worklet-dsp-state.js` 4–24 builds the state at worklet init (`core.js:436`); `.protect` is not called on the live path; `outputSampleTripsEarProtection` → `…SampleTrips`. `node-graph-semath.js` reads `NODE_GRAPH_NUMERIC_PRECISION`. `scripts/test_speaker_protector_2.js` | `speaker_protector2.cpp` (opcode 135) |
+| `speakerProtector2/speaker-protector-2-math.js` **(deleted in `9c3a4d7d`; row is the 2026-10-04 record)** | `createNodeGraphSpeakerProtector2State`, `nodeGraphSpeakerProtector2Protect`, `…SampleTrips`, `NODE_GRAPH_NUMERIC_PRECISION` | idx 3981 · perf 3976 · store `speakerProtector2` · smoke 363 · **worklet blob** (`?v=output-hot-fade-1`) · lpr guarded | **Render Sample:** `node-graph-render-output.js` 338–355 runs `createNodeGraphEarProtector(rate).protect(L, R)` per frame over the native bounce, using `node-graph-ear-protection.js` → `nodeGraphSpeakerProtector2Protect`, plus `…SampleTrips`. **Live worklet:** `node-live-audio-worklet-dsp-state.js` 4–24 builds the state at worklet init (`core.js:436`); `.protect` is not called on the live path; `outputSampleTripsEarProtection` → `…SampleTrips`. `node-graph-semath.js` reads `NODE_GRAPH_NUMERIC_PRECISION`. `scripts/test_speaker_protector_2.js` | `speaker_protector2.cpp` (opcode 135) |
 
-**Decided 2026-10-04 (Argi): Speaker Protector 2 must not run in JavaScript at all. The Render Sample ear-protection pass must move to native C++/WASM. Top-priority blocker.** Cannot delete until that native pass ships, the worklet ear-protector uses (init state, `…SampleTrips`) are native or gone, and `NODE_GRAPH_NUMERIC_PRECISION` moves to `node-graph-semath.js`.
+**Decided 2026-10-04 (Argi): Speaker Protector 2 must not run in JavaScript at all. The Render Sample ear-protection pass must move to native C++/WASM. Top-priority blocker.** Cannot delete until that native pass ships, the worklet ear-protector uses (init state, `…SampleTrips`) are native or gone, and `NODE_GRAPH_NUMERIC_PRECISION` moves to `node-graph-semath.js`. **Done in `9c3a4d7d`:** Render Sample runs `soemdsp_speaker_protector2_process_block` through `createNodeGraphNativeEarProtector`, the JS file is deleted, no JS fallback.
 
 ##### b. FACE / PREVIEW / UI-helper only (25): KEPT
 
@@ -1140,7 +1175,7 @@ Argi 2026-10-04: keep all 25. They make displays and faces work. Their code does
 | File | Tag | Main exports | Refs | Live callers (evidence) | C++ twin |
 |------|-----|--------------|------|-------------------------|----------|
 | `activeFilter/active-filter-math.js` | C | `create…ActiveFilterState`, `nodeGraphActiveFilterSample/Process`, `…ResolveParams`, `nodeGraphSweepFrequencyHz` | idx 4097 · perf 4091 · store `activeFilter` · smoke 480, 18976–18978 · lpr U 707/1624 | `node-graph-cookbook-filter.js` (filter-curve face) 210, 492: `ResolveParams`, `SweepFrequencyHz` | `active_filter.cpp` |
-| `additiveGraph/additive-graph-math.js` | K+C | ~100 fns: `additiveGraphApply*` effects, `BuildFromWaveform`, `SumSample`, `FilterResponseCurve*`, `BakeWaveform`, `BlasterBins`, private `cheapWalk*` copy | idx 4181 · perf 4172 · store 10 additive types · smoke 561 | Faces: `additive-filter-curve-display.js`, `additive-waveform-display.js`, `additive-blaster-display.js`, `additive-bubble-display.js` (runs `additiveGraphApplyGrowl` on a payload), `harmonic-lines-display.js` (`cheapWhiteNoiseStep`, `EnsureWalks`). `node-graph-module-bypass.js:436` `ClonePayload` (guarded). Orphan `additive-yellow-graph-sidecar.js` (see "other" table). `scripts/test_harmonic_fade.js` | `graph_engine.cpp` opcodes 111–124 (no own dir) |
+| `additiveGraph/additive-graph-math.js` | K+C | ~100 fns: `additiveGraphApply*` effects, `BuildFromWaveform`, `SumSample`, `FilterResponseCurve*`, `BakeWaveform`, `BlasterBins`, private `cheapWalk*` copy | idx 4181 · perf 4172 · store 10 additive types · smoke 561 | Faces: `additive-filter-curve-display.js`, `additive-waveform-display.js`, `additive-blaster-display.js`, `additive-bubble-display.js` (runs `additiveGraphApplyGrowl` on a payload), `harmonic-lines-display.js` (`cheapWhiteNoiseStep`, `EnsureWalks`). `node-graph-module-bypass.js:436` `ClonePayload` (guarded). Orphan `additive-yellow-graph-sidecar.js` (see "other" table). `scripts/test_harmonic_fade.js` | `graph_engine.cpp` opcodes 111–127 (no own dir) |
 | `attackDecay/attack-decay-math.js` | **K** | `create…AttackDecayState`, `nodeGraphAttackDecaySample`, `…PreviewCurve` | idx 4128 · perf 4122 · store `attackDecay` · smoke 511 · lpr guarded | `attack-decay-display.js` → `PreviewCurve`, which steps `nodeGraphAttackDecaySample` | `attack_decay.cpp` |
 | `crossover/crossover-math.js` | U | LR split / biquad kernels, `nodeGraphCrossoverSample`, `BandNames`, `DefaultFreqs` | idx 4118 · perf 4112 · smoke 501 | `node-graph-cookbook-filter.js`: `BandNames`, `DefaultFreqs` only | `crossover.cpp` (`crossover2`–`6`) |
 | `curveAttackRelease/curve-attack-release-math.js` | C (+K via pluck) | `create…CurveAttackReleaseState`, `…Sample`, `…PreviewCurve` | idx 4132 · perf 4126 · store `curveAttackRelease` · smoke 515 · lpr guarded | `attack-decay-display.js` `PreviewCurve` (closed form). `pluck-envelope-circuit-math.js` steps its State/Sample inside the Pluck face preview | `curve_attack_release.cpp` |
@@ -1165,7 +1200,9 @@ Argi 2026-10-04: keep all 25. They make displays and faces work. Their code does
 | `transport/transport-math.js` | U | `nodeGraphTransportCore`, `BeatPhase01`, `PeriodSeconds`, `DivisionFactor` | idx 4145 · perf 4139 · store `transport` · smoke 528 | `transport-display.js`: `PeriodSeconds` | `transport.cpp` |
 | `vectorscopeTransform/vectorscope-transform-math.js` | C | `nodeGraphVectorscopeTransform` | idx 4170 · perf 4161 · store `vectorscopeTransform` · smoke 550 | `modules/gradientVectorscope/gradient-vectorscope-display.js`: places face points | `vectorscope_transform.cpp` |
 
-##### c. DEAD (50)
+##### c. DEAD (50): all deleted in `9c3a4d7d`
+
+Deleted with their script tags, smoke rows, and 4 dead tests. 29 store links repointed to C++; the 12 entries with no C++ now have an empty Code button (list in **State**).
 
 | File | Main exports | Refs | Callers outside own file | C++ twin |
 |------|--------------|------|--------------------------|----------|
@@ -1235,16 +1272,17 @@ Consider renaming these off the `*-math.js` suffix later so the CI name rule sta
 
 | File(s) | Class | What / evidence | C++ twin |
 |---------|-------|-----------------|----------|
-| `native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.cpp` | **AUDIO PATH (native)** | Worklet OS 2×/4× downsample. JS SOS/decimate deleted. | this file |
-| `public/node-graph-ear-protection.js` + `node-graph-render-output.js` 338–355 | **AUDIO PATH** (render) | Per-frame JS ear protector over the Render Sample bounce (see speaker-protector row). **Decided 2026-10-04 (Argi): must move to native C++/WASM. Top-priority blocker** | `speaker_protector2.cpp` |
+| `native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.cpp` | **AUDIO PATH (native)** | Worklet OS 2×/4× downsample. JS SOS/decimate deleted (`9c3a4d7d`). Render Sample's own JS copy is still open (next row). | this file |
+| `public/node-graph-render-output.js` ~9–126 (called ~367 / ~373) | **AUDIO PATH** (render) | JS copy of the rapt elliptic decimator over the Render Sample bounce, plus the JS triangle prefilter / linear resample for other ratios (~45, ~99). **Top blocker (2026-10-06)** | `rapt_elliptic_decimator.cpp` |
+| `public/node-graph-ear-protection.js` + `node-graph-render-output.js` | **Done** (native, `9c3a4d7d`) | Render Sample ear protect now runs `soemdsp_speaker_protector2_process_block` via `createNodeGraphNativeEarProtector` (`node-graph-render-output.js` ~323). JS protector deleted, no JS fallback. (2026-10-04: per-frame JS ear protector, top-priority blocker.) | `speaker_protector2.cpp` |
 | `public/node-graph-parameter-smoother-filters.js` via `node-live-audio-worklet-smoother.js:229` and `modules/_shared/controller-efficient-sidecar.js` 216/239 | AUDIO PATH (host control) | JS smoother filters stepped in the worklet for controller host CV. Control-rate host code, not a module kernel | Module Controls use `graph_engine` SmootherManager; controller host CV has no native path |
 | `modules/{phoneTone,noiseDetector,rms,tSeries,portal,keypad}/*-live-evaluator.js` | DEAD | Per-frame evaluators written into `nodeGraphLiveModuleEvaluators`; no reader. Script tags in index/perform + smoke list | see the matching `*-math.js` rows |
 | `modules/additiveGraph/additive-yellow-graph-sidecar.js` | DEAD (orphan; re-verified 2026-10-04) | Old Yellow Graph JS sidecar. It defines `NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar` (Generator → Effect → Out in JS; writes `additiveGraphBus`, `additiveGraphPublish`, `_additiveScratchL/R`). **It does not make the Yellow Graph signals.** Native `graph_engine` does: opcodes 111–127 (`kTypeAdditiveGenerator` … `kTypeAdditiveDiffusor`, `graph_engine.cpp` ~1799–1815; JS opcode map `node-live-audio-worklet-native-graph.js` ~103–119). Faces get Graph data from `syncNativeYellowGraphPublish` (`native-graph.js` ~6527, reads `soemdsp_graph_yellow_*`), called from `node-live-audio-worklet-scope-snapshot.js` ~178. Why it is unreachable: (1) it was dropped from `nodeGraphLiveWorkletSourceFilesEfficient` in `7af0c8bf` (2026-08-31, "ADDITIVE SYNTH BETA"), together with `additive-graph-math.js`; no HTML script tag, no `importScripts`, no dynamic import, no string-built path, no smoke or test reference. (2) Its only callers (`native-graph.js` ~8324 and ~8811–8824) are `typeof this.processAdditiveYellowGraphSidecar === "function"` guards, which are always false. (3) Even if it were loaded, it returns at line 9: `additiveGraphBuildFromWaveform` lives in `additive-graph-math.js`, which is not in the worklet blob. (4) It needs `NodeLiveAudioProcessor`, which only exists in the worklet. Nothing reads state it sets: `additiveGraphPublish` is filled by native `syncNativeYellowGraphPublish`, and the old `_additiveOutMono/Left/Right` scope-tap reader in `publishNativeGraphScopeTaps` is removed in the working tree. **Uncommitted edits (2026-10-04, someone else's in-progress work):** they strip those per-Out Mono/L/R scope rings. This pairs with the matching tap removal in `native-graph.js` (cache-bust `additive-out-track-1`), so Additive Out scopes read native ports. Leave the edits alone; delete the file after that work lands or with its owner's ok. | `graph_engine` 111–127 |
 | `modules/additiveGraph/additive-mod-control.js` | DEAD | Per-sample ADSR / Robin mod packet eval (`additiveModControlStepAdsr/ValueAt/BakeStrip`). Only `additiveModControlIsPacketSourceType` is referenced, from the worklet, where this file is not loaded. idx 4127 · perf 4121 · smoke 510 | native opcodes 70/72 |
 | `public/node-graph-metallic-ratio.js` | DEAD | Compat shim twin of `nodeGraphMetallicRatioSample` | `metallic_ratio.cpp` |
-| `public/node-graph-gpu-additive-backend.js` (`nodeGraphGpuAdditiveCpuRender`, WGSL) + `node-graph-oscillator-runtime.js` `nodeGraphAdditiveOscillatorSample` | DEAD | Only for `gpuAdditiveOsc`, retired (`node-graph-module-definitions.js:1575`) | `graph_engine` `additive_osc` |
+| `public/node-graph-gpu-additive-backend.js` (`nodeGraphGpuAdditiveCpuRender`, WGSL) + `node-graph-oscillator-runtime.js` `nodeGraphAdditiveOscillatorSample` | DEAD | Only for `gpuAdditiveOsc`, retired (`node-graph-module-definitions.js:1575`). Script still loads. Cross-reference `docs/DISPLAY_SHADER_PLAN.md` P0e-1 | `graph_engine` `additive_osc` |
 | `public/node-graph-module-scope-offline.js` (`nodeGraphModuleScopeOfflineSignalSample`, `…OfflineGainAnalyzerBuffer`) | DEAD in practice (face re-sim) | Re-simulates osc / clock / gain / bias per sample for a gain analyzer face (APP_POLICY §5 says never re-sim). Only reached from the fallback branch of `node-graph-module-scope-spectrum.js:184`; `gain`'s only renderer is `waterfall`, which takes an earlier branch | n/a (face) |
-| `node-graph-jerobeam-{spiral,blubb,boing,kepler-bouwkamp,mushroom,nyquist-shannon,radar,torus,wirdo-spiral}.js`, `node-graph-fractal-spiral.js`, `node-graph-log-spiral.js`, `node-graph-surge-oscillator.js`, `node-graph-robin-supersaw.js`, `node-graph-turing-machine.js`, `node-graph-lut-cell.js`, `node-graph-chord-memory.js`, `node-graph-chord-sequencer.js`, `node-graph-musical-engines.js` | DEAD | Full JS kernels (`…Sample`, `create…State`). Only the vestigial runtime allocates their state; nothing steps them | `graph_engine` has a processor for each (`jerobeam_spiral`, `blubb`, `boing`, `kepler_bouwkamp`, `mushroom`, `nyquist_shannon`, `radar`, `torus`, `wirdo_spiral`, `fractal_spiral`, `log_spiral`, `surge_oscillator`, `robin_supersaw`, `turing_machine`, `lut_cell`, `chord_memory`, `chord_sequencer`, `degree_turing`, `gravity_walker`, `degree_phrase`, `note_glide`) |
+| `node-graph-jerobeam-{spiral,blubb,boing,kepler-bouwkamp,mushroom,nyquist-shannon,radar,torus,wirdo-spiral}.js`, `node-graph-fractal-spiral.js`, `node-graph-log-spiral.js`, `node-graph-surge-oscillator.js`, `node-graph-robin-supersaw.js`, `node-graph-turing-machine.js`, `node-graph-lut-cell.js`, `node-graph-chord-memory.js`, `node-graph-chord-sequencer.js`, `node-graph-musical-engines.js` | DEAD | Full JS kernels (`…Sample`, `create…State`). Only the vestigial runtime allocates their state; nothing steps them. `node-graph-musical-engines.js` deleted in `87b1b517`; `node-graph-turing-machine.js` still loads | `graph_engine` has a processor for each (`jerobeam_spiral`, `blubb`, `boing`, `kepler_bouwkamp`, `mushroom`, `nyquist_shannon`, `radar`, `torus`, `wirdo_spiral`, `fractal_spiral`, `log_spiral`, `surge_oscillator`, `robin_supersaw`, `turing_machine`, `lut_cell`, `chord_memory`, `chord_sequencer`, `degree_turing`, `gravity_walker`, `degree_phrase`, `note_glide`) |
 | `node-graph-stdlib/node-graph-sinc-kernel.js`, `node-graph-stdlib/node-graph-analog-filter-helpers.js` | DEAD | No callers | `graph_engine` `sinc` |
 | `node-graph-stdlib/node-graph-shared-dsp-helpers.js` | mixed | DSP parts (`nodeGraphTriggerDividerSample` + duplicate state factory, `nodeGraphOnePoleLowpassSample`, delay interpolators) only reached from the vestigial runtime. `nodeGraphLadderFilterCoefficients` is used by the cookbook filter-curve face; `nodeGraphMarkRuntimeBadNumber` by the frame-evaluator stub | — |
 | `node-graph-cookbook-filter.js`, `node-graph-papoulis-filter.js`, `node-graph-oscillator-runtime.js`, `node-graph-pitch-quantizer.js`, `node-graph-chord-pad.js`, `modules/xyPad/xy-pad-dsp.js` | FACE / UI (mixed) | `…Sample` kernels dead. Live parts are filter-curve / magnitude faces, mouse-smooth helpers (phosphillator, marquee), the Ellipsoid face vector sample, `nodeGraphPhaseRadians`, and quantizer / chord-pad / xy-pad UI helpers | `cookbook_filter`, `papoulis_filter`, `polyblep`/`ellipsoid`, `pitch_quantizer`, `chord_pad`, `xy_pad` |
@@ -1254,7 +1292,7 @@ Consider renaming these off the `*-math.js` suffix later so the CI name rule sta
 #### Surprises
 
 - **Audio-path JS DSP with no C++ twin:** none for oversampling (native `rapt_elliptic_decimator`).
-- **Render Sample still runs JS DSP:** the Speaker Protector 2 ear-protector post-pass in `node-graph-render-output.js`.
+- **Render Sample still runs JS DSP:** the rapt elliptic decimator copy (and the non-2×/4× prefilter + linear resample) in `node-graph-render-output.js`. The Speaker Protector 2 pass is native since `9c3a4d7d`.
 - **Faces that run the JS kernel:** Ping Envelope, Pluck Envelope (which pulls in the curve-AR kernel), Attack/Decay, RGB Fractal, Softwave shape, Harmonic Series. Deleting these files breaks those faces. **Kept, code unchanged (Argi 2026-10-04).**
 - **No efficient-build audio module loses its DSP.** Every DEAD or FACE file whose type is in the efficient allowlist has a C++ twin (own `.cpp` or a `graph_engine` processor). The "no C++ twin" types are either outside the efficient build (already refused, so already silent: `bitConverter`, `bode`, `curveOsc`, `gainBias`, `kickEnvelope`, `sineKick`, `sinepulse`, `softpopOscillator`, `stftBlur`, `tiltFilter`, `waveguide`, `simulationTime`, `rgbFractal`) or observer / host types (`noiseDetector`, `rms`/`rmsStereo`, `speedColorInertia`, `keypad`, `sequencer`).
 - **Orphans:** `chaosfly-math.js` and `gain-bias-math.js` are never loaded (store link only). `additive-yellow-graph-sidecar.js` has no loader at all (re-verified 2026-10-04; out of the worklet blob since `7af0c8bf`, 2026-08-31).
@@ -1285,10 +1323,10 @@ Worked example (Cheap Walk, DEAD):
 
 Suggested order (each batch = one reviewable change, smoke green between):
 - **Batch 0:** retire the vestigial main-thread runtime allocations (or the whole runtime; see D4).
-- **Batch 1:** the 50 DEAD `*-math.js` files.
+- **Batch 1:** the 50 DEAD `*-math.js` files. **Done** (`9c3a4d7d`).
 - **Batch 2:** DEAD "other" files (the live-evaluators, `additive-mod-control.js`, the Yellow sidecar after checking with its editor, the metallic shim, sinc / analog helpers, the per-module JS kernels, the offline scope re-sim, the GPU-additive CPU render, the worklet-loaded uncalled files).
 - **Batch 3:** none. FACE / PREVIEW / UI-helper files are kept and their code does not change (D1 resolved 2026-10-04).
-- **Batch 4:** AUDIO PATH. Decided 2026-10-04: Speaker Protector 2 (Render Sample ear-protection pass, plus its worklet uses) and the worklet oversampling decimator move to native C++/WASM. These native ports are the **top-priority blockers** for C-001 and can start before Batches 0–2. Delete the JS only after each native path ships and is verified.
+- **Batch 4:** AUDIO PATH. Speaker Protector 2 (Render Sample pass plus its worklet uses) and the live-worklet oversampling decimator are native and their JS is deleted (`9c3a4d7d`). Remaining: the Render Sample JS decimator copy in `node-graph-render-output.js`, the **top blocker** for C-001. Delete that JS only after the native path ships and is verified.
 
 #### CI guard (proposal only, not implemented)
 
@@ -1309,10 +1347,10 @@ Add `require_no_js_dsp()` to `scripts/smoke_test.py` (or `scripts/check_no_js_ds
   - **C** (closed-form curves / magnitudes / shapes): exp-ADSR / linear / linear-AR / curve-AR previews, EQ / scientific IIR / active-filter magnitudes, additive response curves, vectorscope transform, raster-RGB grading, kick-envelope helpers for the Ellipsoid face.
   - **U** (UI helpers): kept where they are (not moved).
 - **D2. Audio-path files cannot be deleted until native replaces them.**
-  - Speaker Protector 2 JS ear-protector post-pass in Render Sample. **Decided 2026-10-04 (Argi): must go native (C++/WASM). Speaker Protector 2 must not run in JS at all. Top-priority blocker.**
-  - Oversampling decimator (no C++ twin). **Decided 2026-10-04 (Argi): must go native. Top-priority blocker.**
+  - Speaker Protector 2 JS ear-protector post-pass in Render Sample. **Decided 2026-10-04 (Argi): must go native (C++/WASM). Speaker Protector 2 must not run in JS at all. Top-priority blocker.** **Done (`9c3a4d7d`).**
+  - Oversampling decimator. **Decided 2026-10-04 (Argi): must go native. Top-priority blocker.** Live worklet: **done**, native `rapt_elliptic_decimator` (`9c3a4d7d`). Render Sample: still a JS copy in `node-graph-render-output.js` (**top blocker**).
   - Worklet host-control smoothers (`parameter-smoother-filters` + controller sidecar): do host-control paths count? (still open)
-- **D3. Store links:** repoint the JS map entries to C++ (as asked), or delete them since the native catalog already wins? For NONE-twin types: delete the entry, or leave the Code button empty?
+- **D3. Store links:** repoint the JS map entries to C++ (as asked), or delete them since the native catalog already wins? For NONE-twin types: delete the entry, or leave the Code button empty? **Applied in `9c3a4d7d`:** 29 links repointed to C++; the 12 entries with no C++ have an empty Code button.
 - **D4. Vestigial main-thread runtime:** delete `createNodeGraphLiveRuntime` / `updateNodeGraphLiveRuntimePlan` wholesale (worklet is mandatory), or only the lines for removed types?
 - **D5. Types with no native twin outside the efficient build** (`bitConverter`, `bode`, `curveOsc`, `gainBias`, `kickEnvelope`, `sineKick`, `sinepulse`, `softpopOscillator`, `stftBlur`, `tiltFilter`, `waveguide`, `simulationTime`, `rgbFractal`): once their JS goes, they have no DSP anywhere. Retire their definitions too, or keep them parked for a later C++ port?
 - **D6. Observer types with no native analysis** (`noiseDetector`, `rms`/`rmsStereo`, `speedColorInertia`): their analysis only ran in dead evaluators, so outlets are already inert. Port the analysis to C++, or keep them face-only?
@@ -1321,6 +1359,7 @@ Add `require_no_js_dsp()` to `scripts/smoke_test.py` (or `scripts/check_no_js_ds
 
 ## Fixed
 
+- **B-093** — Gravity Walker Seed applies from the first sample and re-seeds on change (engine counter removed) in `87b1b517`; Argi to verify.
 - **B-084** — scope1dTrace Display Settings gradientStops feed TraceWoscope energy LUT; 2D Trace stays solid (b084-1dtrace-grad-1).
 - **B-085** - Multi-select Display Settings applies only the edited setting (baseline diff; Show in canvas pins the selection). b085-multiselect-1. Not committed.
 - **B-082** — Unit-band param MOD clamps to paramMeta [min,max] (`control_effective` SSOT; Gate+Toggle <= Amp max).

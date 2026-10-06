@@ -388,6 +388,19 @@ function nodeGraphPatchNodesList(patch = nodeGraphMvp?.patch) {
   return [];
 }
 
+function nodeGraphCopyHueSaturationFields(stored, source) {
+  if (!stored || typeof stored !== "object" || !source || typeof source !== "object") {
+    return stored;
+  }
+  for (const key of Object.keys(source)) {
+    if (!String(key).endsWith("Saturation")) continue;
+    const n = Number(source[key]);
+    if (!Number.isFinite(n)) continue;
+    stored[key] = Math.max(0, Math.min(1, n));
+  }
+  return stored;
+}
+
 function assignNodeGraphTypedDisplaySettingsEverywhere(node, displayType, settings) {
   if (!node?.id) {
     return null;
@@ -397,7 +410,10 @@ function assignNodeGraphTypedDisplaySettingsEverywhere(node, displayType, settin
   const patchList = nodeGraphPatchNodesList(nodeGraphMvp?.patch);
   const patchNode = patchList.find((candidate) => candidate && String(candidate.id) === id) || null;
   const primary = patchNode || node;
-  const normalized = assignNodeGraphTypedDisplaySettingsToNode(primary, displayType, settings);
+  const normalized = nodeGraphCopyHueSaturationFields(
+    assignNodeGraphTypedDisplaySettingsToNode(primary, displayType, settings),
+    settings,
+  );
   if (node !== primary) {
     assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings);
   }

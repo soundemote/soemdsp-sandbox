@@ -305,9 +305,9 @@
     return entry;
   }
 
-  function coneColor(hueDeg, brightness01, alpha01) {
+  function coneColor(hueDeg, brightness01, alpha01, saturation01) {
     if (typeof global.nodeGraphHueBrightnessCss === "function") {
-      return global.nodeGraphHueBrightnessCss(hueDeg, brightness01, alpha01);
+      return global.nodeGraphHueBrightnessCss(hueDeg, brightness01, alpha01, saturation01 ?? 1);
     }
     return "#ffffff";
   }
@@ -318,7 +318,8 @@
     }
     const hue = Number(style?.hue);
     if (Number.isFinite(hue)) {
-      return (b) => coneColor(hue, b, b <= 0.002 ? 0 : 1);
+      const sat = Number(style?.saturation);
+      return (b) => coneColor(hue, b, b <= 0.002 ? 0 : 1, Number.isFinite(sat) ? sat : 1);
     }
     const flat = style?.color || (typeof style === "string" ? style : "#ffffff");
     return (b) => (b <= 0.002 ? "rgba(0,0,0,0)" : flat);

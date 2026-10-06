@@ -75,6 +75,6 @@ function syncNodeGraphRuntimeFromPatch() {
   }
   // Keyboard face settings live on the module node (same bag as other display settings).
   if (typeof applyNodeGraphKeyboardModuleSettingsFromPatch === "function") {
-    applyNodeGraphKeyboardModuleSettingsFromPatch(nodeGraphMvp.patch);
+    applyNodeGraphKeyboardModuleSettingsFromPatch();
   }
 }

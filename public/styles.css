@@ -15172,7 +15172,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  min-height: 0;
+  min-height: min-content;
   justify-self: stretch;
   align-self: start;
   display: grid;
@@ -19713,6 +19713,10 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .hue-title-stepper {
   display: grid;
   grid-template-columns: var(--ds-label-col, minmax(52px, 0.34fr)) minmax(0, 1fr);
+}
+
+.hue-title-stepper {
+  grid-template-columns: var(--ds-label-col, minmax(52px, 0.28fr)) minmax(0, 1fr) minmax(0, 1fr);
   align-items: stretch;
   gap: 0;
   min-width: 0;
@@ -19805,6 +19809,19 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .hue-title-stepper-title:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: -1px;
+}
+
+.hue-title-stepper-hue-edit {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  text-align: center;
 }
 
 .hue-title-stepper-label {

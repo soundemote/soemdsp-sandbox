@@ -3,8 +3,14 @@
 // soemdsp-native-target: transport
 // soemdsp-native-kind: utility
 //
-// Per-clock playhead lock: phase = ((master − t0) / sr) × f(BPM, Numer, Denom).
-// Reset sets t0 = now. BPM is this node only. Hardcoded hi/lo clicks.
+// Metronome. f = f(BPM, Numer, Denom, Sync). Hardcoded hi/lo clicks.
+// Mode Sync (1, default): cycles = anchorCycles + ((master − anchorSample)/sr) × f.
+//   A change of f re-anchors at the current sample, so the cycle count stays
+//   continuous and the new f only changes speed from there on. Metronomes with
+//   the same BPM history and Reset stay on the same beats.
+// Mode Free (0): per-instance phase accumulator, phase += f/sr each sample,
+//   whole beats carried. Independent of the master playhead.
+// Reset zeroes both (sync anchor = now, free phase = 0).
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -19,11 +25,19 @@ static const int kMaxInstances = 32;
 
 struct TransportState {
   bool active;
-  double t0;
+  bool anchored; // false until the first sample sets the master-origin grid
+  // Sync grid (tracked in both modes so Free → Sync snaps back onto it).
+  double anchorSample;
+  double anchorCycles;
+  double anchorFrequencyHz;
+  // Free accumulator.
+  double freePhase;
+  long long freeBeat;
+  int lastMode; // -1 = none yet
   double phase;
   double lastUnipolar;
   double lastFrequencyHz;
-  int lastWholeBeat;
+  long long lastWholeBeat;
   int clickKind; // 0 idle, 1 hi, 2 lo
   double clickPos;
 };
@@ -71,6 +85,12 @@ static double transport_frequency_hz(
   return 1.0 / periodSec;
 }
 
+// Sync cycle count at masterSample on the current anchor.
+static double transport_sync_cycles(const TransportState& s, double masterSample, double rate) {
+  const double t = masterSample - s.anchorSample;
+  return s.anchorCycles + (t / rate) * s.anchorFrequencyHz;
+}
+
 static void fire_click(TransportState& s, int kind) {
   s.clickKind = kind;
   s.clickPos = 0.0;
@@ -107,7 +127,13 @@ extern "C" int soemdsp_transport_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       TransportState& s = gPool[i];
-      s.t0 = 0.0;
+      s.anchored = false;
+      s.anchorSample = 0.0;
+      s.anchorCycles = 0.0;
+      s.anchorFrequencyHz = 0.0;
+      s.freePhase = 0.0;
+      s.freeBeat = 0;
+      s.lastMode = -1;
       s.phase = 0.0;
       s.lastUnipolar = 0.0;
       s.lastFrequencyHz = 0.0;
@@ -129,11 +155,16 @@ extern "C" void soemdsp_transport_destroy(int handle) {
 extern "C" void soemdsp_transport_reset(int handle, double masterSample) {
   if (handle < 1 || handle > kMaxInstances) return;
   TransportState& s = gPool[handle - 1];
-  s.t0 = masterSample > 0.0 ? masterSample : 0.0;
+  s.anchored = true;
+  s.anchorSample = masterSample > 0.0 ? masterSample : 0.0;
+  s.anchorCycles = 0.0;
+  s.freePhase = 0.0;
+  s.freeBeat = 0;
   s.phase = 0.0;
   s.lastWholeBeat = -1;
 }
 
+// mode: 0 = Free, 1 = Sync (rounded).
 extern "C" double soemdsp_transport_sample(
   int    handle,
   double amplitude,
@@ -143,6 +174,7 @@ extern "C" double soemdsp_transport_sample(
   double tempoBpm,
   double pulseWidth,
   double beats,
+  double mode,
   double sampleRate,
   double masterSample
 ) {
@@ -155,23 +187,70 @@ extern "C" double soemdsp_transport_sample(
   );
   const double safeAmplitude = clamp(safe(amplitude), 0.0, 1.0);
   const double pw = clamp(safe(pulseWidth), 0.01, 0.99);
+  const int freeRun = dsp_floor(safe(mode) + 0.5) == 0.0 ? 1 : 0;
   s.lastFrequencyHz = frequency;
 
   int barBeats = (int)(safe(beats) + 0.5);
   if (barBeats < 1) barBeats = 1;
 
-  if (frequency > 0.0 && rate > 0.0) {
-    const double t = (masterSample > s.t0) ? (masterSample - s.t0) : 0.0;
-    const double cycles = (t / rate) * frequency;
-    s.phase = cycles - dsp_floor(cycles);
-    const int whole = (int)dsp_floor(cycles);
+  // First sample: grid starts at the master origin (unreset metronomes with
+  // equal BPM share beats). Master moved back before the anchor (rewind /
+  // host relocate): re-grid onto the master origin instead of stalling.
+  if (!s.anchored || masterSample < s.anchorSample) {
+    s.anchored = true;
+    s.anchorSample = 0.0;
+    s.anchorCycles = 0.0;
+    s.anchorFrequencyHz = frequency;
+  }
+  // f changed: re-anchor so the sync cycle count stays continuous.
+  if (frequency != s.anchorFrequencyHz) {
+    s.anchorCycles = transport_sync_cycles(s, masterSample, rate);
+    s.anchorSample = masterSample;
+    s.anchorFrequencyHz = frequency;
+  }
+  const double syncCycles = transport_sync_cycles(s, masterSample, rate);
+
+  const int previousMode = s.lastMode;
+  s.lastMode = freeRun ? 0 : 1;
+  if (freeRun && previousMode != 0) {
+    // Enter Free from the current sync position (no jump).
+    const double whole = dsp_floor(syncCycles);
+    s.freeBeat = (long long)whole;
+    s.freePhase = syncCycles - whole;
+  }
+
+  long long whole = 0;
+  if (freeRun) {
+    whole = s.freeBeat;
+    s.phase = s.freePhase;
+  } else {
+    const double w = dsp_floor(syncCycles);
+    whole = (long long)w;
+    s.phase = syncCycles - w;
+    if (previousMode == 0) {
+      // Free → Sync snaps onto the sync grid; no click for the snap itself.
+      s.lastWholeBeat = whole;
+    }
+  }
+
+  if (frequency > 0.0) {
     if (whole != s.lastWholeBeat && whole >= 0) {
-      const int beatInBar = barBeats > 0 ? (whole % barBeats) : 0;
+      const long long beatInBar = whole % (long long)barBeats;
       fire_click(s, beatInBar == 0 ? 1 : 2);
       s.lastWholeBeat = whole;
     }
   } else {
     s.phase = 0.0;
+  }
+
+  if (freeRun) {
+    // Advance for the next sample; carry whole beats.
+    s.freePhase += frequency / rate;
+    if (s.freePhase >= 1.0) {
+      const double carry = dsp_floor(s.freePhase);
+      s.freePhase -= carry;
+      s.freeBeat += (long long)carry;
+    }
   }
 
   const bool high = s.phase < pw;
@@ -196,5 +275,5 @@ extern "C" double soemdsp_transport_click(int handle, double sampleRate) {
 }
 
 extern "C" int soemdsp_transport_version() {
-  return 9; // metronome: per-clock t0, reset, hi/lo clicks
+  return 10; // metronome: Sync (continuous re-anchor) / Free accumulator
 }

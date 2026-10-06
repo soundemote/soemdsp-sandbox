@@ -450,10 +450,6 @@ NodeLiveAudioProcessor.prototype._normalizeKeyboardSignalPayload = function _nor
       0,
       1,
     );
-    if (pulse && Number(source.gatePulse) > 0) {
-      this.midiKeyboardGatePulseSamples = 1;
-      this.midiKeyboardGatePulseVelocity = velocity;
-    }
     return {
       gate: Number(source.gate) > 0 ? 1 : 0,
       gatePulse: Number(source.gatePulse) > 0 ? 1 : 0,
@@ -500,12 +496,53 @@ NodeLiveAudioProcessor.prototype.setMidiKeyboardSignal = function setMidiKeyboar
     });
 };
 
+NodeLiveAudioProcessor.prototype.pokeKeyboardTriggerDestinations = function pokeKeyboardTriggerDestinations(amp) {
+  const native = this.nativeGraph;
+  if (!native?.soemdsp_graph_poke_input || !this.nativeGraphHandle) return;
+  const list = this._planConnections;
+  if (!Array.isArray(list)) return;
+  const level = Number.isFinite(Number(amp)) && Number(amp) > 0 ? Number(amp) : 1;
+  for (let i = 0; i < list.length; i += 1) {
+    const c = list[i];
+    const srcType = String(this.nodes?.get?.(String(c?.sourceNode || ""))?.type || "");
+    if (srcType !== "keyboard" && srcType !== "gridKeyboard") continue;
+    if (String(c?.sourcePort || "") !== "Trigger") continue;
+    const dst = String(c?.destinationNode || "");
+    const dp = String(c?.destinationPort || "");
+    if (!dst || !dp) continue;
+    const dstType = String(this.nodes?.get?.(dst)?.type || "");
+    const portId = typeof this.mapNativeGraphDstPortId === "function"
+      ? this.mapNativeGraphDstPortId(dp, dstType)
+      : null;
+    if (portId == null) continue;
+    try {
+      native.soemdsp_graph_poke_input(
+        this.nativeGraphHandle,
+        this.fnv1aHash32(dst),
+        portId | 0,
+        level,
+      );
+    } catch (_e) { /* next cable */ }
+  }
+};
+
+NodeLiveAudioProcessor.prototype.armKeyboardDownPulse = function armKeyboardDownPulse(previous, next) {
+  const wasDown = Number(previous?.gate) > 0;
+  const isDown = Number(next?.gate) > 0;
+  if (!wasDown && isDown) {
+    const vel = Number(next?.velocity);
+    this.pokeKeyboardTriggerDestinations(Number.isFinite(vel) && vel > 0 ? vel : 1);
+  }
+};
+
 NodeLiveAudioProcessor.prototype.setKeyboardModuleSignal = function setKeyboardModuleSignal(signal) {
-    // Local Keyboard face / dock pointer (Keyboard module only).
-    this.keyboardModuleSignal = this._normalizeKeyboardSignalPayload(signal, {
-      pulse: true,
-      previous: this.keyboardModuleSignal,
-    });
+  // Local Keyboard face / dock pointer (Keyboard module only).
+  const previous = this.keyboardModuleSignal;
+  this.keyboardModuleSignal = this._normalizeKeyboardSignalPayload(signal, {
+    pulse: false,
+    previous,
+  });
+  this.armKeyboardDownPulse(previous, this.keyboardModuleSignal);
 };
 
 NodeLiveAudioProcessor.prototype.setMidiKeyboardPlayKeysBitmask = function setMidiKeyboardPlayKeysBitmask(mask) {

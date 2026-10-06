@@ -18230,6 +18230,15 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_ping_envelope_metadata_json",
             "soemdsp_ping_envelope_metadata_json_size",
         ],
+        "power_decay": [
+            "soemdsp_power_decay_create",
+            "soemdsp_power_decay_destroy",
+            "soemdsp_power_decay_sample",
+            "soemdsp_power_decay_is_idle",
+            "soemdsp_power_decay_version",
+            "soemdsp_power_decay_metadata_json",
+            "soemdsp_power_decay_metadata_json_size",
+        ],
         "exp_adsr": ["soemdsp_exp_adsr_create", "soemdsp_exp_adsr_destroy", "soemdsp_exp_adsr_sample"],
         "random_walk": ["soemdsp_random_walk_create", "soemdsp_random_walk_destroy", "soemdsp_random_walk_reset_seed", "soemdsp_random_walk_sample"],
         "pi_spigot_noise": [

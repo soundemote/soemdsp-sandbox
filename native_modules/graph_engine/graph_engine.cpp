@@ -459,6 +459,7 @@ extern "C" double soemdsp_transport_sample(
   double tempoBpm,
   double pulseWidth,
   double beats,
+  double mode,
   double sampleRate,
   double masterSample
 );
@@ -1079,6 +1080,14 @@ extern "C" int soemdsp_ping_envelope_version();
 extern "C" const char* soemdsp_ping_envelope_metadata_json();
 extern "C" int soemdsp_ping_envelope_metadata_json_size();
 
+extern "C" int soemdsp_power_decay_create();
+extern "C" void soemdsp_power_decay_destroy(int handle);
+extern "C" int soemdsp_power_decay_is_idle(int handle);
+extern "C" double soemdsp_power_decay_sample(
+  int handle, double trigger, double decayTime, double power,
+  double amplitude, double sampleRate
+);
+
 extern "C" int soemdsp_basic_shape_create();
 extern "C" void soemdsp_basic_shape_destroy(int handle);
 extern "C" double soemdsp_basic_shape_sample(
@@ -1126,7 +1135,7 @@ extern "C" int soemdsp_vactrol_envelope_create();
 extern "C" void soemdsp_vactrol_envelope_destroy(int handle);
 extern "C" double soemdsp_vactrol_envelope_sample(
   int handle, double light, double attack, double release, double curve,
-  double sensitivity, double sampleRate
+  double sensitivity, double model, double sampleRate
 );
 
 extern "C" int soemdsp_delay_effect_create();
@@ -1877,6 +1886,7 @@ static const int kTypeChaosfly = 161;
 // 163 retired (expoPluckEnvelope2).
 static const int kTypeLinearAttackRelease = 164;
 static const int kTypePingEnvelope = 165;
+static const int kTypePowerDecay = 204; // PowerDecay: height * amp * pow(1 - t/decay, power)
 static const int kTypeCurveAttackRelease = 166;
 // 167 retired (thumpEnvelope).
 static const int kTypePluckEnvelopeFb = 198;
@@ -2546,6 +2556,8 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_pluck_envelope_fb_destroy(handle);
   } else if (kind == kTypePingEnvelope) {
     soemdsp_ping_envelope_destroy(handle);
+  } else if (kind == kTypePowerDecay) {
+    soemdsp_power_decay_destroy(handle);
   } else if (kind == kTypeFlowerChildEnvelopeFollower) {
     soemdsp_flower_child_envelope_follower_destroy(handle);
   } else if (kind == kTypeDelayEffect) {
@@ -2962,7 +2974,8 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.waveform,
     (typeId == kTypeAdditiveOsc || typeId == kTypeDsfOscillator) ? 1.0
-      : (typeId == kTypePingEnvelope) ? 0.0 // Model Short (default, choiceId 0)
+      : (typeId == kTypePingEnvelope) ? 1.0 // Model Long (default, choiceId 1, "for Lin Amp")
+      : (typeId == kTypeVactrol) ? 0.0 // Model ModelA (default, choiceId 0)
       : (typeId == kTypeHypersaw2) ? 1.0 // Saw (Trisaw=0 … Trapezoid=6)
       : (typeId == kTypeHyperpluck) ? 1.0 // Saw (Trisaw=0 … Square=5)
       : (typeId == kTypeRobinSupersaw) ? 0.0 // Saw
@@ -3029,6 +3042,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSmoothGraph) ? 1.0 // tension
       : (typeId == kTypeExpAdsr || typeId == kTypeCurveAttackRelease) ? 0.0 // attackShape (bipolar; 0=linear)
       : (typeId == kTypePluckEnvelopeFb) ? -0.07 // attackShape (breadboard)
+      : (typeId == kTypePowerDecay) ? 2.0 // power
       : (typeId == kTypeAttackDecay) ? 1.0 // curve Î³
       : (typeId == kTypeLorenzAttractor) ? 10.0 // sigma
       : (typeId == kTypeLogisticMap) ? 3.9 // r
@@ -3110,6 +3124,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeInertialFilter) ? 1.0 // smoothAttack On
       : (typeId == kTypePingEnvelope) ? 1.0 // recalculateOnTrigger On
       : (typeId == kTypePingPongDelay) ? 1.0 // Left Right
+      : (typeId == kTypeTransport) ? 1.0 // Mode Sync
       : (typeId == kTypePhaser) ? 0.0 // Bandpass kernel
       : (typeId == kTypeEqFilter) ? 1.0 // HP12
       : (typeId == kTypeGraphicEq) ? 0.0 // unused (bands are absolute dB)
@@ -3477,6 +3492,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeAttackDecay || typeId == kTypeCurveAttackRelease) ? 0.01 // attack
       : (typeId == kTypePluckEnvelopeFb) ? 0.0 // attack
       : (typeId == kTypePingEnvelope) ? 0.0 // attack s
+      : (typeId == kTypePowerDecay) ? 1.0 // decayTime s
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // hold
       : (typeId == kTypeVactrol) ? 0.1 // release
       : (typeId == kTypeLinearAttackRelease) ? 0.25 // release
@@ -4447,6 +4463,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeCurveAttackRelease) return soemdsp_curve_attack_release_create();
   if (typeId == kTypePluckEnvelopeFb) return soemdsp_pluck_envelope_fb_create();
   if (typeId == kTypePingEnvelope) return soemdsp_ping_envelope_create();
+  if (typeId == kTypePowerDecay) return soemdsp_power_decay_create();
   if (typeId == kTypeFlowerChildEnvelopeFollower) {
     return soemdsp_flower_child_envelope_follower_create();
   }
@@ -9032,7 +9049,7 @@ static void process_pluck_envelope_fb(Circuit& g, Node& node, int frames) {
 }
 
 
-// Ping Envelope (pingEnvelope). Model Short/Long; waveform Control = Model (0 Short / 1 Long).
+// Ping Envelope (pingEnvelope). Model Short/Long; waveform Control = Model (0 Short / 1 Long, default Long).
 static void process_ping_envelope(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -9058,6 +9075,33 @@ static void process_ping_envelope(Circuit& g, Node& node, int frames) {
     node.buf[kPortRight][f] = out;
     // Explicit boolean isIdle (env < 1e-5) — not the Out level itself.
     node.buf[kPortIsIdle][f] = soemdsp_ping_envelope_is_idle(node.nativeHandle) ? 1.0 : 0.0;
+  }
+}
+
+// PowerDecay (powerDecay): timeDenominator=decayTime s, shape=power, amplitude.
+// Trigger/Gate on Mono(+L/R) and the Trigger bus; each hit restarts t = 0.
+// Out = height * amplitude * pow(1 - t / decayTime, power), 0 once t >= decayTime.
+static void process_power_decay(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double trig = hasTrig ? g.mixTrigger[f] : 0.0;
+    const double input = trig + g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    const double out = soemdsp_power_decay_sample(
+      node.nativeHandle,
+      input,
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.amplitude, f),
+      sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = out;
+    node.buf[kPortRight][f] = out;
+    node.buf[kPortIsIdle][f] = soemdsp_power_decay_is_idle(node.nativeHandle) ? 1.0 : 0.0;
   }
 }
 
@@ -9188,7 +9232,8 @@ static void process_flower_child_envelope_follower(Circuit& g, Node& node, int f
 }
 
 // Vactrol (roll-your-own): timeNumerator=attack, timeDenominator=release,
-// shape=curve, width=sensitivity; amplitude scales Out. Light folds via Mono+L+R.
+// shape=curve, width=sensitivity, waveform=Model (0 ModelA / 1 ModelB);
+// amplitude scales Out. Light folds via Mono+L+R.
 static void process_vactrol(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
@@ -9204,6 +9249,7 @@ static void process_vactrol(Circuit& g, Node& node, int frames) {
       control_audio(g, node.timeDenominator, f),
       control_audio(g, node.shape, f),
       control_audio(g, node.width, f),
+      control_effective(node.waveform),
       sr
     );
     const double out = env * control_audio(g, node.amplitude, f);
@@ -10821,7 +10867,8 @@ static void process_phosphillator(Circuit& g, Node& node, int frames) {
   }
 }
 
-// Metronome: per-clock t0. phase = ((master − t0)/sr) × f(BPM, Numer, Denom).
+// Metronome: mode = Free (0) / Sync (1). Sync follows the master playhead and
+// re-anchors on f change (no phase jump); Free accumulates its own phase.
 // Gate -1+1→Mono, Gate 0-1→Left, Trigger→Right, f→Saw, f adj→Ramp.
 
 // Host/project BPM dump. Cable units = raw BPM (120.0 = 120 beats/min), not Hz.
@@ -10866,6 +10913,7 @@ static void process_transport(Circuit& g, Node& node, int frames) {
       bpm,
       control_audio(g, node.width, f),
       control_audio(g, node.stages, f),
+      control_audio(g, node.mode, f),
       sr,
       now
     );
@@ -12621,6 +12669,7 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypeCurveAttackRelease
     || typeId == kTypePluckEnvelopeFb
     || typeId == kTypePingEnvelope
+    || typeId == kTypePowerDecay
     || typeId == kTypeFlowerChildEnvelopeFollower
     || typeId == kTypeDelayEffect
     || typeId == kTypeSoemReverb
@@ -14024,6 +14073,10 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_ping_envelope(g, node, frames);
       return;
     }
+    if (node.typeId == kTypePowerDecay) {
+      process_power_decay(g, node, frames);
+      return;
+    }
     if (node.typeId == kTypeFlowerChildEnvelopeFollower) {
       process_flower_child_envelope_follower(g, node, frames);
       return;
@@ -14617,5 +14670,7 @@ extern "C" int soemdsp_graph_max_block_frames() {
 
 extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
-  return 156; // B-082 unit-band MOD always clamps to domain min/max
+  // 156: B-082 unit-band MOD always clamps to domain min/max
+  // 157: PowerDecay (type 204)
+  return 158; // Vactrol Model (ModelA / ModelB)
 }

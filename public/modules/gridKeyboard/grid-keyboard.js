@@ -74,7 +74,7 @@ function nodeGraphGridKeyboardSignalFromPad(pad, event, options = {}) {
   const signal = nodeGraphMidiKeyboardSignalFromRaw(rawMidi, {
     source: "pointer",
     gate,
-    gatePulse: options.gatePulse === true || (gate && event.type === "pointerdown") ? 1 : 0,
+    gatePulse: 0,
     x,
     y,
     velocity,
@@ -239,12 +239,12 @@ function renderNodeGraphGridKeyboardPads() {
     if (surface.dataset.gridOctave !== String(octave)) {
       nodeGraphGridKeyboardFillSurface(surface, octave);
     }
+    const triggerPatch = typeof nodeGraphMidiKeyboardModeForElement === "function"
+      && nodeGraphMidiKeyboardModeForElement(surface) === "triggerPatch";
     surface.querySelectorAll(".node-grid-keyboard-pad[data-grid-midi]").forEach((pad) => {
       const midi = Number(pad.dataset.gridMidi);
       if (!(midi >= 0 && midi <= 127)) return;
       const goldOn = nodeGraphMidiKeyboardGoldMidiIsOn(midi);
-      const triggerPatch = typeof nodeGraphMidiKeyboardMode === "function"
-        && nodeGraphMidiKeyboardMode() === "triggerPatch";
       const setPatch = triggerPatch && Boolean(nodeGraphMvp.patch?.circuitPatches?.[midi]?.values);
       pad.classList.toggle("held", goldOn);
       pad.classList.toggle("active", Number.isFinite(playing) && playing === midi);
@@ -269,8 +269,8 @@ function renderNodeGraphGridKeyboardPads() {
 function updateNodeGraphGridKeyboardSignal(event) {
   const surface = event.currentTarget;
   if (!surface) return;
-  const mode = typeof nodeGraphMidiKeyboardMode === "function"
-    ? nodeGraphMidiKeyboardMode()
+  const mode = typeof nodeGraphMidiKeyboardModeForElement === "function"
+    ? nodeGraphMidiKeyboardModeForElement(surface)
     : "press";
   const pointerId = event.pointerId;
   const pad = nodeGraphGridKeyboardPadFromPointer(event, surface);

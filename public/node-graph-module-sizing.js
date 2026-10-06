@@ -561,18 +561,22 @@ function normalizeNodeGraphModuleHeightUnits(type, heightGu, ui = {}) {
 }
 
 /**
- * Shared LayoutA + LayoutB bottom clearance (one mechanism):
- *   heightGu = ceil(contentGu)
- *   if leftover &lt; 2px → heightGu += 1
- * CSS places that leftover under the last content via a trailing
- * minmax(2px, 1fr) track (see --node-module-bottom-gap-track).
+ * Plate height is the last visible band, then +2px.
+ * The article box is already shorter than the grid cell by the plate inset,
+ * so the lip floor is 2px (not that inset again).
+ * heightGu = ceil(content). If the room under the last band is under 2px,
+ * add one grid unit.
  */
 function nodeGraphModuleHeightWithBottomClearance(contentGu) {
   const required = Math.max(0, nodeGraphFiniteNumber(contentGu));
-  let heightGu = Math.ceil(required);
   const gridPx = Math.max(1, nodeGraphFiniteNumber(nodeGraphGrid?.heightPx, 28));
-  const slackPx = (heightGu - required) * gridPx;
-  if (slackPx < 2) {
+  const insetPx = nodeGraphModuleLayout.moduleGridInsetGu * 1.5 * gridPx;
+  let heightGu = Math.ceil(required);
+  // Article bottom sits insetPx inside the grid cell. The lip under the last
+  // band needs 2px inside that article. If the 2px lands on the border, grow.
+  const articlePx = () => heightGu * gridPx - insetPx;
+  const lastBandPx = required * gridPx - insetPx;
+  if (articlePx() - lastBandPx < 2) {
     heightGu += 1;
   }
   return heightGu;
@@ -1205,9 +1209,11 @@ function nodeGraphModuleBandTrackCss(band) {
     return "auto";
   }
   if (band.id === "params") {
+    // min-content: the row ends at the last slider. It does not shrink
+    // into the lip when the title or the face changes height.
     return band.grow
-      ? "minmax(0, 1fr)"
-      : "auto";
+      ? "minmax(min-content, 1fr)"
+      : "minmax(min-content, auto)";
   }
   if (band.id === "shell") {
     return band.grow
@@ -1218,11 +1224,8 @@ function nodeGraphModuleBandTrackCss(band) {
     if (band.heightGu > 0 && !band.grow) {
       return "var(--node-grid-height)";
     }
-    // Honor inset floor when present so dense LayoutA IO/params cannot crush
-    // the bottom plate into a 2px hairline (seen on BasicShape vs RoundShape).
-    if (band.grow && band.heightGu > 0) {
-      return `minmax(calc(var(--node-grid-height) * ${band.heightGu}), 1fr)`;
-    }
+    // 2px under the last band. Leftover up to one grid unit stays here.
+    // A taller floor crushed the slider row into this lip.
     return "var(--node-module-bottom-gap-track, minmax(2px, 1fr))";
   }
   if (band.grow) {

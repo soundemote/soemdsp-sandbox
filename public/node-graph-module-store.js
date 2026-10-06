@@ -616,7 +616,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   transport: {
     category: "clock",
-    description: "Metronome: per-clock BPM, playhead-locked phase, BPM In (cancels slider when wired), Reset, hi/lo clicks. Two metronomes stay in sync only if reset together at the same BPM.",
+    description: "Metronome: per-clock BPM, BPM In (cancels slider when wired), Reset, hi/lo clicks. Mode Sync follows the master playhead (metronomes with the same BPM and Reset share beats); Free runs its own phase. A BPM change never jumps the phase.",
     label: "Metronome",
     notes: ["metronome", "clock", "BPM", "BPM In", "reset", "click", "Numer/Denom", "gate", "trigger"],
   },
@@ -2297,11 +2297,24 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "native",
     ],
   },
+  powerDecay: {
+    category: "envelope",
+    description: "PowerDecay: each Trigger restarts a power-curve fall. env = height * Amplitude * pow(1 - t / Decay Time, Power). Power 1 = linear, 0 = hold then cut.",
+    label: "PowerDecay",
+    notes: [
+      "Trigger",
+      "Decay Time",
+      "Power",
+      "power curve",
+      "decay",
+      "native",
+    ],
+  },
   vactrol: {
     category: "envelope",
     description: "Roll-your-own optical lag: Light → attack/release one-pole → gamma. Settles to 0 when dark.",
     label: "Vactrol",
-    notes: ["light input", "custom vactrol", "attack", "release", "curve", "sensitivity", "native"],
+    notes: ["light input", "custom vactrol", "Model", "ModelA", "ModelB", "attack", "release", "curve", "sensitivity", "native"],
   },
   sandboxVisuals: {
     category: "rgb",
@@ -3500,6 +3513,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   pingEnvelope: {
     source: "public/modules/pingEnvelope/ping-envelope-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pingEnvelope/ping-envelope-math.js",
+  },
+  powerDecay: {
+    source: "native_modules/power_decay/power_decay.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/power_decay/power_decay.cpp",
   },
   vactrol: {
     source: "native_modules/vactrol_envelope/vactrol_envelope.cpp",

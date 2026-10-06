@@ -898,10 +898,18 @@ function nodeGraphChordMemoryNodeIdFromElement(el) {
 
 function nodeGraphChordMemoryPaintKeys() {
   if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return;
-  const cmMode = typeof nodeGraphMidiKeyboardMode === "function"
-    && nodeGraphMidiKeyboardMode() === "chordMemory";
+  // Mode is per Keyboard / Grid Keyboard module.
+  const cmModeByNode = new Map();
+  const cmModeFor = (nodeId) => {
+    if (!cmModeByNode.has(nodeId)) {
+      cmModeByNode.set(nodeId, typeof nodeGraphMidiKeyboardModeForNode === "function"
+        && nodeGraphMidiKeyboardModeForNode(nodeId) === "chordMemory");
+    }
+    return cmModeByNode.get(nodeId);
+  };
   document.querySelectorAll(".node-midi-keyboard-module [data-midi]").forEach((key) => {
     const nodeId = nodeGraphChordMemoryNodeIdFromElement(key);
+    const cmMode = cmModeFor(nodeId);
     const midi = Number(key.dataset.midi);
     const editNote = cmMode && nodeGraphChordMemoryNoteIsEdit(nodeId, midi);
     key.classList.toggle("chord-memory", nodeGraphChordMemoryHasSlot(nodeId, midi));
@@ -912,6 +920,7 @@ function nodeGraphChordMemoryPaintKeys() {
   });
   document.querySelectorAll(".node-grid-keyboard-pad[data-grid-midi]").forEach((pad) => {
     const nodeId = nodeGraphChordMemoryNodeIdFromElement(pad);
+    const cmMode = cmModeFor(nodeId);
     const midi = Number(pad.dataset.gridMidi);
     const editNote = cmMode && nodeGraphChordMemoryNoteIsEdit(nodeId, midi);
     pad.classList.toggle("chord-memory", nodeGraphChordMemoryHasSlot(nodeId, midi));
@@ -959,8 +968,8 @@ function nodeGraphChordMemoryHandlePointer(event, surface, midi, options = {}) {
   }
 
   if (!nodeId || !Number.isFinite(Number(midi))) return false;
-  const mode = typeof nodeGraphMidiKeyboardMode === "function"
-    ? nodeGraphMidiKeyboardMode()
+  const mode = typeof nodeGraphMidiKeyboardModeForNode === "function"
+    ? nodeGraphMidiKeyboardModeForNode(nodeId)
     : "slide";
   const slotMidi = Math.round(Number(midi));
   const hasChord = nodeGraphChordMemoryHasSlot(nodeId, slotMidi);

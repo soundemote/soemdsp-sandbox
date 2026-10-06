@@ -197,6 +197,7 @@ graphify update . --force   # no LLM; AST re-extract
 
 ## Backlog Ideas
 - Varispeed Delay — plan only (`docs/VARISPEED_DELAY_PLAN.md`). Doppler is a separate parked Space card.
+- Display shaders — move per-pixel display math into GLSL fragment shaders on one shared WebGL context; audio stays native. Plan + progress tracker (all Not started): `docs/DISPLAY_SHADER_PLAN.md`.
 - Unipolar switch on every 1D display — plan only, not implemented (docs/FUTURE_PLANNING.md).
 - VU meter — seed only, behavior not specified yet (docs/FUTURE_PLANNING.md).
 - AcidSequencer — like Sequencer, per-step Gate / Accent / Slide / Octave on a 13-note C-to-C grid (seed in `docs/FUTURE_PLANNING.md`).
@@ -208,7 +209,7 @@ graphify update . --force   # no LLM; AST re-extract
 - True metamodule parameter mirror: outer `mx_*` edits/menus target inner child (one conceptual param); nested parent-unexpose vs grandparent-expose stays explicit (seed in `docs/FUTURE_PLANNING.md`). Website limited checkbox mirror ships first.
 - Remove Sync from waterfall scopes (incompatible; decision in `docs/FUTURE_PLANNING.md`, not done in code).
 - Waterfall redesign (P2P bars): **implemented** on ArchIV Ã¢Â€Â” visual glance after reload (`docs/FUTURE_PLANNING.md`).
-- [ ] JS DSP removal (audio native WASM/C++ only) — planned 2026-10-04, not started. Top-priority blockers (Argi 2026-10-04): move the Speaker Protector 2 Render Sample ear-protection pass and the worklet oversampling decimator to native C++/WASM (no JS for either). Plan + per-file table: `docs/BUG_PLAN.md` → **Cleanup** → **C-001**. Do not commit/push without Argi's ok.
+- [ ] JS DSP removal (audio native WASM/C++ only) — in progress (updated 2026-10-06). Landed in `9c3a4d7d` (pushed 2026-10-04): Speaker Protector 2 native (Render Sample uses `createNodeGraphNativeEarProtector`, no JS fallback), live-worklet decimator native (`native_modules/rapt_elliptic_decimator/`), all 50 dead `*-math.js` deleted. `node-graph-musical-engines.js` deleted in `87b1b517`. Top blocker now: Render Sample still runs a JS copy of the rapt elliptic decimator in `public/node-graph-render-output.js`. Open list: `docs/BUG_PLAN.md` → **Cleanup** → **C-001** → State (2026-10-06). Do not commit/push without Argi's ok.
 
 - [ ] Inlets/outlets above displays, app-wide (`docs/FUTURE_PLANNING.md`)
 - [ ] **Sabrina instance handles** ÃƒÂƒÃ‚Â¢ÃƒÂ¢Ã¢Â€ÂšÃ‚Â¬ÃƒÂ¢Ã¢Â‚Â¬Ã‚Â multi-instance (`docs/INSTANCE_HANDLE_PATTERN.md`)

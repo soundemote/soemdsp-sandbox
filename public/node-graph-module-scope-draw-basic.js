@@ -848,7 +848,7 @@ function nodeGraphDrawVectorDotDisc(context, cx, cy, radius, blur01, style) {
   const color = typeof style === "string"
     ? style
     : (typeof nodeGraphHueBrightnessCss === "function" && Number.isFinite(Number(style?.hue))
-      ? nodeGraphHueBrightnessCss(style.hue, style.amount)
+      ? nodeGraphHueBrightnessCss(style.hue, style.amount, 1, style.saturation ?? 1)
       : style?.color);
   context.save();
   context.globalCompositeOperation = "source-over";
@@ -912,8 +912,9 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
       ? nodeGraphHueDegFromHex(settings.backgroundColor || settings.background)
       : 220;
     const bgAmt = clampNodeSliderValue(nodeGraphFiniteNumber(settings.backgroundBrightness), 0, 1);
+    const bgSat = Number(settings.backgroundSaturation);
     bg = typeof nodeGraphHueBrightnessCss === "function"
-      ? nodeGraphHueBrightnessCss(bgHue, bgAmt)
+      ? nodeGraphHueBrightnessCss(bgHue, bgAmt, 1, Number.isFinite(bgSat) ? bgSat : 1)
       : "#000000";
   }
   if (typeof nodeGraphFacePlateApplyCss === "function" && screenElement) {
@@ -1009,10 +1010,12 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
   } else if (amount > 0 && radius > 0.05) {
     context.save();
     context.globalCompositeOperation = composite;
+    const inkSat = Number(settings.dot1Saturation ?? settings.colorSaturation);
     nodeGraphDrawVectorDotDisc(context, cx, cy, radius, blur, {
       ...shape,
       hue,
       amount,
+      saturation: Number.isFinite(inkSat) ? inkSat : 1,
     });
     context.restore();
   }

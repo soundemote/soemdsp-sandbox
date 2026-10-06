@@ -571,7 +571,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       if (!gateCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} gate`);
       }
-    } else if (type === "pluckEnvelope" || type === "pingEnvelope") {
+    } else if (type === "pluckEnvelope" || type === "pingEnvelope" || type === "powerDecay") {
       const triggerCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Trigger")) || []).length;
       if (!triggerCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} trigger`);

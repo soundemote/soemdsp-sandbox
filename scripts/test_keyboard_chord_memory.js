@@ -83,7 +83,7 @@ assert(!nodeGraphChordMemorySlotIsOn("keyboard-1", 60), "delete keyboard clears 
 assert(!nodeGraphChordMemoryNoteIsSounding("keyboard-1", 60), "delete keyboard clears ghosts");
 assert(host.chordMemoryPlayPointerId == null, "delete keyboard clears pointer capture");
 
-globalThis.nodeGraphMidiKeyboardMode = function () { return "chordMemory"; };
+globalThis.nodeGraphMidiKeyboardModeForNode = function () { return "chordMemory"; };
 globalThis.nodeGraphMidiKeyboardClearArpKeys = function () {
   if (nodeGraphMvp.midiKeyboardArpMask instanceof Uint8Array) nodeGraphMvp.midiKeyboardArpMask.fill(0);
 };
@@ -191,7 +191,7 @@ var slideEv = {
   metaKey: false,
   preventDefault: function () {},
 };
-globalThis.nodeGraphMidiKeyboardMode = function () { return "slide"; };
+globalThis.nodeGraphMidiKeyboardModeForNode = function () { return "slide"; };
 assert(
   nodeGraphChordMemoryHandlePointer(slideEv, { setPointerCapture: function () {} }, 60, {
     nodeId: "keyboard-1",
@@ -254,7 +254,7 @@ assert(noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 50), "latch does not steal 
 assert(noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 52), "latch does not steal gold");
 assert(!noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 64), "latch does not copy chord into gold");
 
-globalThis.nodeGraphMidiKeyboardMode = function () { return "chordMemory"; };
+globalThis.nodeGraphMidiKeyboardModeForNode = function () { return "chordMemory"; };
 var ctrlChordEv = {
   type: "pointerdown",
   pointerId: 20,
@@ -307,7 +307,7 @@ assert(nodeGraphChordMemoryEditIs("keyboard-1", 72), "alt+click save edits the d
 assert(nodeGraphChordMemorySlotIsOn("keyboard-1", 72), "saved slot becomes the active chord");
 assert(!nodeGraphChordMemorySlotIsOn("keyboard-1", 62), "previous edit chord unlatches");
 
-globalThis.nodeGraphMidiKeyboardMode = function () { return "slide"; };
+globalThis.nodeGraphMidiKeyboardModeForNode = function () { return "slide"; };
 var shiftEv = {
   type: "pointerdown",
   pointerId: 21,

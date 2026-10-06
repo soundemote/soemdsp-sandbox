@@ -522,32 +522,42 @@ function enrichedColor(color) {
 }
 
 /**
- * 4-corner plane (u right, v up from bottom):
- *   UL grey · UR full sat · LL black · LR white
+ * Square for one hue (u right, v up from bottom):
+ *   saturation left → right, value bottom → top.
+ *   Top-left white, top-right pure hue, bottom black.
+ *   Dark red is the lower right edge when the bar is red.
  */
 function planeRgb(h, u, v) {
-  const uu = clamp(u, 0, 1);
-  const vv = clamp(v, 0, 1);
-  const sat = hslToRgbBytes({ h, s: 100, l: 50 });
-  const black = { r: 0, g: 0, b: 0 };
-  const white = { r: 255, g: 255, b: 255 };
-  const grey = { r: 128, g: 128, b: 128 };
-  const mix = (a, b, t) => a + (b - a) * t;
-  const bottom = {
-    r: mix(black.r, white.r, uu),
-    g: mix(black.g, white.g, uu),
-    b: mix(black.b, white.b, uu),
-  };
-  const top = {
-    r: mix(grey.r, sat.r, uu),
-    g: mix(grey.g, sat.g, uu),
-    b: mix(grey.b, sat.b, uu),
-  };
+  const s = clamp(u, 0, 1);
+  const value = clamp(v, 0, 1);
+  const hue = ((Number(h) % 360) + 360) % 360;
+  const c = value * s;
+  const hp = hue / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hp < 1) { r = c; g = x; }
+  else if (hp < 2) { r = x; g = c; }
+  else if (hp < 3) { g = c; b = x; }
+  else if (hp < 4) { g = x; b = c; }
+  else if (hp < 5) { r = x; b = c; }
+  else { r = c; b = x; }
+  const m = value - c;
   return {
-    r: Math.round(mix(bottom.r, top.r, vv)),
-    g: Math.round(mix(bottom.g, top.g, vv)),
-    b: Math.round(mix(bottom.b, top.b, vv)),
+    r: Math.round((r + m) * 255),
+    g: Math.round((g + m) * 255),
+    b: Math.round((b + m) * 255),
   };
+}
+
+/** Plane position for a stored HSL color: u = HSV saturation, v = HSV value. */
+function planeUvFromHsl(color) {
+  const s = clamp(Number(color?.s) / 100, 0, 1);
+  const l = clamp(Number(color?.l) / 100, 0, 1);
+  const value = l + s * Math.min(l, 1 - l);
+  const sat = value <= 1e-8 ? 0 : 2 * (1 - l / value);
+  return { u: clamp(sat, 0, 1), v: clamp(value, 0, 1) };
 }
 
 /** Sample plane at (u,v) for bar hue h. Hue is always taken from the bar. */
@@ -558,22 +568,8 @@ function planeColorHsl(h, u, v, keepH = h) {
   return hsl;
 }
 
-function findPlaneUV(h, color) {
-  const target = hslToRgbBytes(color);
-  let best = { u: 0.5, v: 0.5, d: Infinity };
-  const steps = 24;
-  for (let i = 0; i <= steps; i += 1) {
-    for (let j = 0; j <= steps; j += 1) {
-      const u = i / steps;
-      const v = j / steps;
-      const c = planeRgb(h, u, v);
-      const d = (c.r - target.r) ** 2 + (c.g - target.g) ** 2 + (c.b - target.b) ** 2;
-      if (d < best.d) {
-        best = { u, v, d };
-      }
-    }
-  }
-  return best;
+function findPlaneUV(_h, color) {
+  return planeUvFromHsl(color);
 }
 
 function hslLampRgb(hue, u, v) {
@@ -812,7 +808,7 @@ export class SoundColorWidget {
     if (plane && this.channels !== "hue") {
       plane.setAttribute("aria-label", this.channels === "hsl"
         ? `${ariaName} saturation and brightness`
-        : `${ariaName} plane (grey / black / white / saturated)`);
+        : `${ariaName} saturation and value`);
       plane.style.setProperty("--scw-plane-u", `${(this.planeUV.u * 100).toFixed(2)}%`);
       // CSS top is from top; v is from bottom.
       plane.style.setProperty("--scw-plane-v", `${((1 - this.planeUV.v) * 100).toFixed(2)}%`);

@@ -172,3 +172,7 @@ docs/ACID_SEQUENCER_PLAN.md
 **1D kinds found:** catalog labels in `public/node-graph-module-store.js` — 1D Waterfall (`waterfall`), 1D Waterfall Stereo (`waterfallStereo`), 1D Waterfall RGB (`waterfallRgb`), 1D Waterfall XYZ (`waterfallXyz`), 1D Phosphor (`lineBurnOscilloscope`), 1D Trace (`scope1dTrace`), 1D Trace Stereo (`scope1dTraceStereo`). Display Settings clipboard families in `public/node-graph-module-scope-trace-controls.js` also name 1D Phosphor (`lineBurn`, `oscilloscopeBankBurn`), 1D Waterfall (`waterfall`, `waterfallRgb`, and `value`), and 1D Trace (`scope1dTrace`). `waterfallXyz` is catalog-labeled 1D Waterfall XYZ but that clipboard family returns 2D Instant Waterfall, so its membership is not locked. 2D Phosphor and 2D Trace are separate. No display-settings unipolar switch exists. Sample Hold Polarity remaps audio outs; its tooltip says the face/waterfall stays bipolar full height and ignores Polarity. `nodeGraphModuleScopeUnipolarTypes` is a module-id set and is not used by face paint.
 
 **Still open:** exact range, which of the named 1D faces (including the waterfall-labeled ones and the XYZ mismatch), and control placement. Do not fold 1D Trace into the Instant Waterfall settings schema (`docs/APP_POLICY.md` section 15a). This seed does not prescribe DSP, worklet, or audio-thread changes.
+
+## Display shaders
+
+**Status:** plan + progress tracker in `docs/DISPLAY_SHADER_PLAN.md` (2026-10-06): move per-pixel display math into GLSL on one shared WebGL context; audio stays native C++/WASM. Do not build until Argi says go.

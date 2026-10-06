@@ -6,6 +6,17 @@
 // Roll-your-own optical-lag envelope (soemdsp::modulator::Vactrol style):
 // Light in → attack/release one-pole → gamma curve → dark-current floor.
 
+// Model (waveform Control; choiceIds ModelA=0 default, ModelB=1):
+//   ModelA = original one-pole attack/release + fast dsp_pow gamma (unchanged).
+//   ModelB = vactrol-style: level-dependent release + light memory + exact pow.
+//     target      = clamp(light * sensitivity, 0, 1)
+//     rise:  raw += (target - raw) * (1 - exp(-1 / (attack * sr)))
+//     fall:  scale       = pow(10, kReleaseDecades * (raw - kReleaseRefLevel))
+//            release_eff = release * (1 + kMemoryDepth * m)
+//            raw += (target - raw) * (1 - exp(-scale / (release_eff * sr)))
+//     memory: m += (raw - m) * (1 - exp(-1 / (tau * sr)))   tau = kMemoryRise up / kMemoryFall down
+//     out = pow(raw, curve), raw snapped to 0 below kSnapFloor when dark.
+
 #include <soemdsp/soemdsp.hpp>
 
 namespace {
@@ -21,6 +32,15 @@ static const char kMetadataJson[] =
     "\"inputs\":[\"Light\"],"
     "\"outputs\":[\"Out\"],"
     "\"parameters\":["
+      "{"
+        "\"key\":\"model\","
+        "\"label\":\"Model\","
+        "\"kind\":\"choice\","
+        "\"choices\":[\"ModelA\",\"ModelB\"],"
+        "\"choiceIds\":[0,1],"
+        "\"defaultValue\":\"ModelA\","
+        "\"tooltip\":\"ModelA = original one-pole. ModelB = level-dependent release with light memory.\""
+      "},"
       "{"
         "\"key\":\"attack\","
         "\"label\":\"Attack\","
@@ -70,9 +90,18 @@ static const char kMetadataJson[] =
 
 static const int kMaxInstances = 64;
 
+// ModelB tuning.
+static const double kReleaseDecades = 2.0;    // release rate spans pow(10, 2) = 100x from bright to dark
+static const double kReleaseRefLevel = 0.25;  // raw level where the Release knob is the actual time constant
+static const double kMemoryDepth = 2.0;       // fully "charged" memory triples the release time
+static const double kMemoryRise = 1.0;        // s, memory charge time constant while lit
+static const double kMemoryFall = 3.0;        // s, memory discharge time constant while dark
+static const double kSnapFloor = 1.0e-6;      // raw below this with dark target snaps to exactly 0
+
 struct VactrolState {
   double raw;   // smoothed, unshaped light level
   double out;   // shaped output
+  double m;     // ModelB light memory (slow follower of raw)
   bool   active;
 };
 
@@ -100,6 +129,29 @@ static double vactrol_coefficient(double seconds, double sampleRate) {
   return 1.0 - dsp_exp_squaring(-1.0 / samples);
 }
 
+// ModelB step (see header comment for the equations). Returns shaped Out.
+static double vactrol_model_b(
+  VactrolState& s, double target, double attack, double release, double curve, double sampleRate
+) {
+  double k;
+  if (target > s.raw) {
+    k = vactrol_coefficient(attack, sampleRate);
+  } else {
+    // scale = pow(10, D * (raw - ref)); k = 1 - exp(-scale / (release_eff * sr))
+    const double scale = pow_pos(10.0, kReleaseDecades * (clamp(s.raw, 0.0, 1.0) - kReleaseRefLevel));
+    const double releaseEff = release * (1.0 + kMemoryDepth * s.m);
+    k = vactrol_coefficient(releaseEff / scale, sampleRate);
+  }
+  s.raw = safe(s.raw + (target - s.raw) * k);
+  if (target < kSnapFloor && s.raw < kSnapFloor) s.raw = 0.0;
+  // m += (raw - m) * (1 - exp(-1 / (tau * sr)))
+  const double km = vactrol_coefficient(s.raw > s.m ? kMemoryRise : kMemoryFall, sampleRate);
+  s.m = safe(s.m + (s.raw - s.m) * km);
+  // out = pow(raw, curve), exact pow (pow_pos(0, c) = 0).
+  s.out = clamp(pow_pos(clamp(s.raw, 0.0, 1.0), curve), 0.0, 1.0);
+  return safe(s.out);
+}
+
 }  // namespace
 
 extern "C" int soemdsp_vactrol_envelope_create() {
@@ -108,6 +160,7 @@ extern "C" int soemdsp_vactrol_envelope_create() {
       VactrolState& s = gPool[i];
       s.raw = 0.0;
       s.out = 0.0;
+      s.m = 0.0;
       s.active = true;
       return i + 1;
     }
@@ -127,6 +180,7 @@ extern "C" double soemdsp_vactrol_envelope_sample(
   double release,
   double curve,
   double sensitivity,
+  double model,
   double sampleRate
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
@@ -141,6 +195,10 @@ extern "C" double soemdsp_vactrol_envelope_sample(
 
   // target = Light × Sensitivity (no light-offset bias; settles to 0 when dark).
   const double target = clamp(safeLight * safeSensitivity, 0.0, 1.0);
+  // ModelB (choiceId 1). ModelA (0 / default) falls through to the original path.
+  if (safe(model) >= 0.5) {
+    return vactrol_model_b(s, target, safeAttack, safeRelease, safeCurve, rate);
+  }
   const double coefficient = target > s.raw
     ? vactrol_coefficient(safeAttack, rate)
     : vactrol_coefficient(safeRelease, rate);
@@ -151,7 +209,7 @@ extern "C" double soemdsp_vactrol_envelope_sample(
 }
 
 extern "C" int soemdsp_vactrol_envelope_version() {
-  return 2; // no lightOffset / darkCurrent (settles to 0)
+  return 3; // 2: no lightOffset / darkCurrent. 3: Model choice (ModelA / ModelB)
 }
 
 extern "C" const char* soemdsp_vactrol_envelope_metadata_json() {

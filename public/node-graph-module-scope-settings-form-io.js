@@ -1310,7 +1310,7 @@ function readNodeGraphTraceDisplaySettingsForm() {
       fieldKeysToRead.add(liveKey);
     }
   }
-  root?.querySelectorAll?.("[data-hsl-lamp] [data-trace-display-field]")?.forEach((input) => {
+  root?.querySelectorAll?.("[data-hsl-lamp] [data-trace-display-field], [data-hue-title-stepper] [data-trace-display-field]")?.forEach((input) => {
     const key = input.getAttribute("data-trace-display-field");
     if (key) fieldKeysToRead.add(key);
   });
@@ -1493,6 +1493,9 @@ function readNodeGraphTraceDisplaySettingsForm() {
 }
 
 function nodeGraphDisplaySettingsFormValue(settings, key) {
+  if (String(key).endsWith("Saturation") && (settings?.[key] == null || settings[key] === "")) {
+    return 1;
+  }
   if (key === "dot1Brightness") {
     return settings.dot1Brightness ?? settings.brightness;
   }
@@ -1714,7 +1717,7 @@ function nodeGraphWriteTraceDisplaySettingsFormInner(settings) {
     fieldKeysToWrite.add("sweepHz");
     fieldKeysToWrite.add("sweepCycles");
   }
-  root?.querySelectorAll?.("[data-hsl-lamp] [data-trace-display-field]")?.forEach((input) => {
+  root?.querySelectorAll?.("[data-hsl-lamp] [data-trace-display-field], [data-hue-title-stepper] [data-trace-display-field]")?.forEach((input) => {
     const key = input.getAttribute("data-trace-display-field");
     if (key) fieldKeysToWrite.add(key);
   });
@@ -1815,6 +1818,64 @@ function nodeGraphHueTitleInkForHex(hex) {
   return y > 0.55 ? "#000000" : "#ffffff";
 }
 
+function nodeGraphHueTitleBeginDegreeEdit(row, colorInput) {
+  const label = row?.querySelector?.(".hue-title-stepper-label");
+  const swatch = row?.querySelector?.("[data-hue-title-swatch]");
+  if (!label || !swatch || swatch.querySelector(".hue-title-stepper-hue-edit")) {
+    return;
+  }
+  const title = String(label.textContent || "");
+  const hsl = typeof nodeGraphTraceDisplayHexToHsl === "function"
+    ? nodeGraphTraceDisplayHexToHsl(colorInput.value)
+    : { h: 0 };
+  const editor = document.createElement("input");
+  editor.type = "number";
+  editor.min = "0";
+  editor.max = "360";
+  editor.step = "1";
+  editor.className = "hue-title-stepper-hue-edit";
+  editor.value = String(Math.round(nodeGraphFiniteNumber(hsl.h)));
+  editor.setAttribute("aria-label", "Hue degrees");
+  label.hidden = true;
+  swatch.append(editor);
+  editor.focus();
+  editor.select();
+  const finish = (save) => {
+    if (save) {
+      let deg = Number(editor.value);
+      if (!Number.isFinite(deg)) deg = 0;
+      deg = ((deg % 360) + 360) % 360;
+      const pure = typeof nodeGraphTraceDisplayPureHueHex === "function"
+        ? nodeGraphTraceDisplayPureHueHex({ h: deg }, "#ff0000")
+        : "#ff0000";
+      colorInput.value = pure;
+      nodeGraphHueTitleStepperApplySwatch(row, pure);
+      const field = row.getAttribute("data-hue-title-color-field") || "dot1Color";
+      if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+        markNodeGraphTraceDisplaySettingsDirty(field);
+      }
+      if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
+        applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
+      }
+    }
+    editor.remove();
+    label.hidden = false;
+    label.textContent = title;
+  };
+  editor.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Enter") {
+      event.preventDefault();
+      finish(true);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      finish(false);
+    }
+  });
+  editor.addEventListener("blur", () => finish(true));
+  editor.addEventListener("pointerdown", (event) => event.stopPropagation());
+}
+
 function nodeGraphHueTitleStepperApplySwatch(root, pureHex, hueLabel = null) {
   if (!root) {
     return;
@@ -1903,6 +1964,25 @@ function bindNodeGraphHueTitleSteppers(host) {
     const colorField = row.getAttribute("data-hue-title-color-field") || "dot1Color";
     const colorInput = row.querySelector(`[data-trace-display-color="${colorField}"]`);
     if (!colorInput) {
+      return;
+    }
+    if (event.ctrlKey || event.metaKey) {
+      colorInput.value = "#ff0000";
+      nodeGraphHueTitleStepperApplySwatch(row, "#ff0000");
+      if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+        markNodeGraphTraceDisplaySettingsDirty(colorField);
+      }
+      if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
+        applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (event.detail >= 2) {
+      nodeGraphHueTitleBeginDegreeEdit(row, colorInput);
+      event.preventDefault();
+      event.stopPropagation();
       return;
     }
     const hsl = typeof nodeGraphTraceDisplayHexToHsl === "function"

@@ -294,18 +294,25 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     const lookSig = [
       look.strokeColor,
       look.strokeBrightness,
+      look.strokeSaturation,
       look.fontColor,
       look.fontBrightness,
+      look.fontSaturation,
       look.inactiveFillColor,
       look.inactiveFillBrightness,
+      look.inactiveFillSaturation,
       look.activeFillColor,
       look.activeFillBrightness,
+      look.activeFillSaturation,
       look.inactiveTextColor,
       look.inactiveTextBrightness,
+      look.inactiveTextSaturation,
       look.activeTextColor,
       look.activeTextBrightness,
+      look.activeTextSaturation,
       look.previousColor,
       look.previousBrightness,
+      look.previousSaturation,
       look.previousFadeSeconds,
       look.cornerShape,
       look.cornerRadius,
@@ -339,17 +346,17 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     layoutCache = true;
     ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, bw, bh);
-    const tone = (color, bright) => (
+    const tone = (color, bright, sat) => (
       typeof nodeGraphArpKeysHueCss === "function"
-        ? nodeGraphArpKeysHueCss(color, bright, 1, 165)
+        ? nodeGraphArpKeysHueCss(color, bright, 1, sat, 165)
         : color
     );
-    const strokeCss = tone(look.strokeColor, look.strokeBrightness);
-    const inactiveFillCss = tone(look.inactiveFillColor, look.inactiveFillBrightness);
-    const activeFillCss = tone(look.activeFillColor, look.activeFillBrightness);
-    const inactiveTextCss = tone(look.inactiveTextColor, look.inactiveTextBrightness);
-    const activeTextCss = tone(look.activeTextColor, look.activeTextBrightness);
-    const previousCss = tone(look.previousColor, look.previousBrightness);
+    const strokeCss = tone(look.strokeColor, look.strokeBrightness, look.strokeSaturation);
+    const inactiveFillCss = tone(look.inactiveFillColor, look.inactiveFillBrightness, look.inactiveFillSaturation);
+    const activeFillCss = tone(look.activeFillColor, look.activeFillBrightness, look.activeFillSaturation);
+    const inactiveTextCss = tone(look.inactiveTextColor, look.inactiveTextBrightness, look.inactiveTextSaturation);
+    const activeTextCss = tone(look.activeTextColor, look.activeTextBrightness, look.activeTextSaturation);
+    const previousCss = tone(look.previousColor, look.previousBrightness, look.previousSaturation);
     const faceMin = Math.min(bw, bh);
     const maxInset = Math.max(0, Math.floor(faceMin / 2));
     const inset = Math.round(look.edgeSpacing * maxInset);

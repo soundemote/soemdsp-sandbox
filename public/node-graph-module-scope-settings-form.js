@@ -380,6 +380,14 @@ function nodeGraphDisplaySettingsBuildStereoPairRowHtml(leftKey, rightKey, formT
  *   defaultHueHex?: string,
  * }} options
  */
+function nodeGraphHueTitleSatFieldName(stepField) {
+  const key = String(stepField || "");
+  if (key.endsWith("Brightness")) {
+    return `${key.slice(0, -"Brightness".length)}Saturation`;
+  }
+  return `${key}Saturation`;
+}
+
 function nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml(options = {}) {
   const title = String(options.title || "Color");
   const stepField = String(options.stepField || "dot1Brightness");
@@ -401,25 +409,32 @@ function nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml(options = {}) {
   const defaultHex = nodeGraphDisplaySettingsEscapeHtml(
     options.defaultHueHex || colorMeta.defaultValue || "#ff0000",
   );
+  const satField = String(options.satField || nodeGraphHueTitleSatFieldName(stepField));
   return `
     <div
       class="hue-title-stepper"
       data-hue-title-stepper
       data-trace-display-control-row
       data-hue-title-step-field="${nodeGraphDisplaySettingsEscapeHtml(stepField)}"
+      data-hue-title-sat-field="${nodeGraphDisplaySettingsEscapeHtml(satField)}"
       data-hue-title-color-field="${nodeGraphDisplaySettingsEscapeHtml(colorField)}"${tipAttr}>
       <button
         type="button"
         class="hue-title-stepper-title"
         data-hue-title-swatch
-        aria-label="${nodeGraphDisplaySettingsEscapeHtml(`${title} hue — drag to change`)}"
-        title="Drag to change hue">
+        aria-label="${nodeGraphDisplaySettingsEscapeHtml(`${title} hue — drag to change, double-click to type`)}"
+        title="Drag to change hue. Double-click to type. Ctrl-click resets to red.">
         <span class="hue-title-stepper-label">${nodeGraphDisplaySettingsEscapeHtml(title)}</span>
       </button>
       <span class="metadata-stepper-control">
-        <button type="button" data-trace-display-step-target="${nodeGraphDisplaySettingsEscapeHtml(stepField)}" data-trace-display-step-direction="-1" aria-label="Decrease ${nodeGraphDisplaySettingsEscapeHtml(title)}">-</button>
-        <input type="text" inputmode="${meta.inputmode || "decimal"}" data-trace-display-field="${nodeGraphDisplaySettingsEscapeHtml(stepField)}"${idAttr} readonly value="0.5" aria-label="${nodeGraphDisplaySettingsEscapeHtml(title)} amount">
-        <button type="button" data-trace-display-step-target="${nodeGraphDisplaySettingsEscapeHtml(stepField)}" data-trace-display-step-direction="1" aria-label="Increase ${nodeGraphDisplaySettingsEscapeHtml(title)}">+</button>
+        <button type="button" data-trace-display-step-target="${nodeGraphDisplaySettingsEscapeHtml(stepField)}" data-trace-display-step-direction="-1" aria-label="Decrease ${nodeGraphDisplaySettingsEscapeHtml(title)} brightness">-</button>
+        <input type="text" inputmode="${meta.inputmode || "decimal"}" data-trace-display-field="${nodeGraphDisplaySettingsEscapeHtml(stepField)}"${idAttr} readonly value="0.5" aria-label="${nodeGraphDisplaySettingsEscapeHtml(title)} brightness" title="Brightness. Ctrl-click sets 0.5.">
+        <button type="button" data-trace-display-step-target="${nodeGraphDisplaySettingsEscapeHtml(stepField)}" data-trace-display-step-direction="1" aria-label="Increase ${nodeGraphDisplaySettingsEscapeHtml(title)} brightness">+</button>
+      </span>
+      <span class="metadata-stepper-control">
+        <button type="button" data-trace-display-step-target="${nodeGraphDisplaySettingsEscapeHtml(satField)}" data-trace-display-step-direction="-1" aria-label="Decrease ${nodeGraphDisplaySettingsEscapeHtml(title)} saturation">-</button>
+        <input type="text" inputmode="decimal" data-trace-display-field="${nodeGraphDisplaySettingsEscapeHtml(satField)}" readonly value="1" aria-label="${nodeGraphDisplaySettingsEscapeHtml(title)} saturation" title="Saturation. Ctrl-click sets 1.">
+        <button type="button" data-trace-display-step-target="${nodeGraphDisplaySettingsEscapeHtml(satField)}" data-trace-display-step-direction="1" aria-label="Increase ${nodeGraphDisplaySettingsEscapeHtml(title)} saturation">+</button>
       </span>
       <input type="hidden" data-trace-display-color="${nodeGraphDisplaySettingsEscapeHtml(colorField)}"${colorIdAttr} value="${defaultHex}">
     </div>`;

@@ -151,6 +151,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   chaosfly: 161,
   linearAttackRelease: 164,
   pingEnvelope: 165,
+  powerDecay: 204,
   curveAttackRelease: 166,
   pluckEnvelope: 198,
   acidSequencer: 199,
@@ -1136,6 +1137,7 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphDstPortId = function mapNativeGra
         || tGateEnv === "curveAttackRelease"
         || tGateEnv === "attackDecay"
         || tGateEnv === "pingEnvelope"
+        || tGateEnv === "powerDecay"
         || tGateEnv === "pluckEnvelope"
         || tGateEnv === "samplePlayer"
         || tGateEnv === "vibratoGenerator"
@@ -2620,12 +2622,11 @@ NodeLiveAudioProcessor.prototype.mixNativeShellPortCv = function mixNativeShellP
 };
 
 /**
- * Controllers that are not native DSP (Keyboard / Grid Keyboard) still expose
- * Gate/Trigger as mixers: out = key + Σ ins. Native graph cannot host those
- * modules, so at compile we expand:
- *   Src → Keyboard.Gate, Keyboard.Gate → Dst  ⇒  also Src → Dst
- * Key presses stay on the host CV feeder Keyboard.Gate → Dst (key-only).
- * One named transform — grep expandControllerDigitalThruConnections.
+ * Keyboard / Grid Keyboard Gate and Trigger inputs are summed at the
+ * destination inlet (mix_live_port, one sample at a time), not inside the
+ * keyboard. The key's own Gate/Trigger is a separate sample block on the
+ * same inlet: Src → Keyboard.Trigger, Keyboard.Trigger → Dst
+ * also becomes Src → Dst.
  */
 NodeLiveAudioProcessor.CONTROLLER_DIGITAL_THRU_TYPES = Object.freeze({
   keyboard: Object.freeze(["Gate", "Trigger"]),
@@ -2877,6 +2878,31 @@ NodeLiveAudioProcessor.prototype.nativeHostCvFeederKind = function nativeHostCvF
   return { typeId: biasTypeId, sampleBlock: false };
 };
 
+NodeLiveAudioProcessor.prototype.efficientModSourceIsSampleBlock = function efficientModSourceIsSampleBlock(srcId, srcPort) {
+  const type = String(this.nodes?.get?.(String(srcId))?.type || "");
+  const port = String(srcPort || "");
+  return (type === "keyboard" || type === "gridKeyboard")
+    && (port === "Gate" || port === "Trigger");
+};
+
+NodeLiveAudioProcessor.prototype.readEfficientModSourceBlock = function readEfficientModSourceBlock(srcId, srcPort, view) {
+  if (!this.efficientModSourceIsSampleBlock(srcId, srcPort) || !view?.length) return false;
+  const port = String(srcPort || "");
+  const signal = this.keyboardModuleSignal;
+  const vel = Math.max(0, Math.min(1, Number(signal?.velocity) || 0));
+  const gateOn = Number(signal?.gate) > 0;
+  const frames = view.length;
+  if (port === "Gate") {
+    const level = gateOn ? vel : 0;
+    for (let i = 0; i < frames; i += 1) view[i] = level;
+  } else {
+    // Key-down is a one-sample poke into each destination inlet, same as a
+    // jack click. This block stays zero so it cannot hold the peak.
+    for (let i = 0; i < frames; i += 1) view[i] = 0;
+  }
+  return true;
+};
+
 /**
  * Mono buf of a sample-block feeder (Float64Array, max block frames) or null.
  * Cached on the feed record, not nativeGraphPortViewCache: surgical rewires
@@ -2964,10 +2990,19 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
       }
       // Toggle / Momentary Trigger: per-sample block (1 at [0] on the edge quantum).
       if (feed?.sampleBlock) {
+        const srcType = String(this.nodes?.get?.(String(feed.sourceNode || ""))?.type || "");
+        if (srcType === "keyboard" || srcType === "gridKeyboard") {
+          feed._keyboardBlockLate = true;
+          continue;
+        }
         this.writeNativeHostCvSampleBlock(feed);
         continue;
       }
       const sp = String(feed.sourcePort || "");
+      const srcType = String(this.nodes?.get?.(String(feed.sourceNode || ""))?.type || "");
+      if ((srcType === "keyboard" || srcType === "gridKeyboard") && sp === "Trigger") {
+        v = 0;
+      } else
       // Knob Bias/Out and other host CV: prefer shared reader (Bias↔Out aliases).
       if (typeof this.readEfficientModSourceSample === "function") {
         const raw = Number(this.readEfficientModSourceSample(feed.sourceNode, sp));
@@ -2990,6 +3025,11 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
       feed._hostCvValueSeen = true;
       feed._hostCvValue = v;
       this.pushNativeGraphParam(native, feedHash, paramId, v);
+    }
+    for (let i = 0; i < feeders.length; i += 1) {
+      const feed = feeders[i];
+      if (!feed?._keyboardBlockLate) continue;
+      this.writeNativeHostCvSampleBlock(feed);
     }
   }
   // Metamodule Amplitude inlet → attenuverter VCAs on Meta Out exits.
@@ -3540,6 +3580,7 @@ NodeLiveAudioProcessor.prototype.syncNativeVoiceIdleCleanup = function syncNativ
   const P = NodeLiveAudioProcessor;
   const envTypes = {
     pingEnvelope: 1,
+    powerDecay: 1,
     expAdsr: 1,
     linearEnvelope: 1,
     wavetableAdsr: 1,
@@ -5274,7 +5315,16 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "vactrol") {
-      // timeNumerator=attack, timeDenominator=release, shape=curve, width=sensitivity.
+      // timeNumerator=attack, timeDenominator=release, shape=curve, width=sensitivity,
+      // waveform=Model (0 ModelA default / 1 ModelB). Persisted by choiceKeys name.
+      let vactrolModelId = disc("model", 0);
+      const rawVactrolModel = node?.params?.model;
+      if (typeof rawVactrolModel === "string") {
+        const s = rawVactrolModel.trim();
+        if (s === "ModelA") vactrolModelId = 0;
+        else if (s === "ModelB") vactrolModelId = 1;
+      }
+      push("model", P.NATIVE_GRAPH_PARAM_WAVEFORM, vactrolModelId);
       push("attack", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("attack", 0));
       push("release", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("release", 0.1));
       push("curve", P.NATIVE_GRAPH_PARAM_SHAPE, cont("curve", 1));
@@ -5311,9 +5361,9 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "pingEnvelope") {
-      // waveform=Model (0 Short / 1 Long), timeDenominator=attack s, width=Decay, mode=Recalc.
+      // waveform=Model (0 Short "for Exp Amp" / 1 Long "for Lin Amp", default Long), timeDenominator=attack s, width=Decay, mode=Recalc.
       // Persist by choiceKeys name; map Short/Long -> choiceIds here when still a string.
-      let modelId = disc("model", 0);
+      let modelId = disc("model", 1);
       const rawModel = node?.params?.model;
       if (typeof rawModel === "string") {
         const s = rawModel.trim();
@@ -5324,6 +5374,13 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("recalculateOnTrigger", P.NATIVE_GRAPH_PARAM_MODE, disc("recalculateOnTrigger", 1));
       push("attack", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("attack", 0));
       push("decay", P.NATIVE_GRAPH_PARAM_WIDTH, cont("decay", 0.5));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "powerDecay") {
+      // timeDenominator=decayTime s, shape=power, amplitude.
+      push("decayTime", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("decayTime", 1));
+      push("power", P.NATIVE_GRAPH_PARAM_SHAPE, cont("power", 2));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -6163,6 +6220,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("timeDenominator", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("timeDenominator", 4));
       push("timingMode", P.NATIVE_GRAPH_PARAM_TIMING_MODE, disc("timingMode", 0));
       push("beats", P.NATIVE_GRAPH_PARAM_STAGES, disc("beats", 4));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -8585,6 +8643,7 @@ NodeLiveAudioProcessor.prototype.publishNativeGraphScopeTaps = function publishN
         || type === "linearEnvelope"
         || type === "wavetableAdsr"
         || type === "pingEnvelope"
+        || type === "powerDecay"
         || type === "curveAttackRelease"
         || type === "linearAttackRelease"
       )) {
@@ -8961,9 +9020,11 @@ NodeLiveAudioProcessor.prototype.processNativeGraphQuantum = function processNat
     } catch (_e) { /* keep audio */ }
   }
   // MIDI Frequency → Slew In (host→native Bias feeders) before process_block.
+  this._keyboardPulseCommit = true;
   try {
     this.syncNativeHostCvFeeders?.();
   } catch (_e) { /* keep audio */ }
+  this._keyboardPulseCommit = false;
   try {
     this.syncNativeArpNoteMasks?.();
     this.syncNativeGravityWalkerNoteMasks?.();

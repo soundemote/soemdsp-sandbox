@@ -322,6 +322,21 @@ function beginNodeGraphTraceDisplayFieldDrag(event) {
     return;
   }
   const key = input.dataset.traceDisplayField;
+  const hueRow = input.closest?.("[data-hue-title-stepper]");
+  if (hueRow && (event.ctrlKey || event.metaKey)) {
+    const brightKey = hueRow.getAttribute("data-hue-title-step-field");
+    const satKey = hueRow.getAttribute("data-hue-title-sat-field");
+    if (key === brightKey) input.value = "0.5";
+    else if (key === satKey) input.value = "1";
+    else return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+      markNodeGraphTraceDisplaySettingsDirty(key);
+    }
+    applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
+    return;
+  }
   if (typeof nodeGraphNumericModifierReserved === "function" && nodeGraphNumericModifierReserved(event)) {
     event.preventDefault();
     event.stopPropagation();
