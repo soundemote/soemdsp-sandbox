@@ -518,7 +518,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 //   slim     â€” only wasm for types on the current plan. Prefer for player /
 //              embed / clapplayer (?wasmLoad=slim or embed-config).
 //
-// Site sync (scripts/sync_soundemote_site.ps1) ships ONLY the combined
+// Site sync (scripts/sync_soundemote_io.ps1) ships ONLY the combined
 // binary, not per-module .wasm files. Slim without those files must fall
 // back to combined or native-only modules (APP_POLICY Â§2/Â§5) stay silent â€”
 // that was the release crossover silence on /patch/* (autostart â†’ slim).
@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=ping-model-2";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=seed-zero-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -3263,7 +3263,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-scope-io.js?v=output-face-prevol-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hyperpluck-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=ping-model-2",
+  "./public/node-live-audio-worklet-native-graph.js?v=seed-rework-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=scope-ack-1",
   "./public/node-live-audio-worklet-clear-plan.js?v=hyperpluck-1",

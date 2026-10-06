@@ -8,6 +8,7 @@
     "bank": 1,
     "program": 0
   },
+  "masterSeed": 3500300179,
   "windows": {
     "debug": {
       "y": 100,

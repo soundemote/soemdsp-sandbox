@@ -8,6 +8,8 @@
 // converted at the graph boundary (Hz / sampleRate) and added to the inc port
 // before this module sees it. Dither cycle length and phase advance both come
 // from that increment. Dither re-rolls only at wrap.
+// Seeding: the dither stream starts from the module Seed only (seed_mix,
+// fixed component) at create, Reset and Seed change. No slot index or clock.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -101,10 +103,20 @@ struct RobinOscState {
   // Last applied freqUpdate style (-1 = unset). Mode changes force re-apply.
   int lastFreqUpdate;
   unsigned int rngState;
+  unsigned int seed;  // module Seed (seed_param_u32)
   double blockOut[kMaxBlockFrames];
 };
 
 RobinOscState gPool[kMaxInstances];
+
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedDither = 1u,  // cycle-length dither stream
+};
+
+unsigned int ditherRngFromSeed(unsigned int seed) {
+  return seed_to_rng_state(seed_mix(seed, kSeedDither));
+}
 
 bool finiteValue(double value) {
   return value == value && value > -1.0e12 && value < 1.0e12;
@@ -391,8 +403,8 @@ double robinOscSample(
 
   if (reset || !state.primed) {
     state.currentInc = inc;
-    state.rngState ^= 0xA5A5u + static_cast<unsigned int>(state.sampleCount);
-    if (state.rngState == 0) state.rngState = 0x1234567u;
+    // Create / Reset: dither restarts from Seed (same Seed -> same stream).
+    state.rngState = ditherRngFromSeed(state.seed);
     state.ditherOffset = 0.0;
     bakeDistribution(state, inc);
     updateCycleLength(state);
@@ -468,7 +480,9 @@ extern "C" int soemdsp_robin_oscillator_create() {
       s.currentInc = 0.0;
       s.ditherOffset = 0.0;
       s.lastFreqUpdate = -1;
-      s.rngState = 0xC0FFEEu + static_cast<unsigned int>(index) * 97u;
+      // Seed 0 until the host's Seed arrives via soemdsp_robin_oscillator_set_seed.
+      s.seed = 0u;
+      s.rngState = ditherRngFromSeed(0u);
       return index + 1;
     }
   }
@@ -490,6 +504,15 @@ extern "C" void soemdsp_robin_oscillator_reset(int handle) {
   state->phase = 0.0;
   state->ditherOffset = 0.0;
   state->lastFreqUpdate = -1;
+}
+
+// Seed change (or first Seed after create): restart the dither stream from it.
+// Phase is left alone; the next wrap draws from the new stream.
+extern "C" void soemdsp_robin_oscillator_set_seed(int handle, double seed) {
+  RobinOscState* state = stateForHandle(handle);
+  if (!state) return;
+  state->seed = seed_param_u32(seed);
+  state->rngState = ditherRngFromSeed(state->seed);
 }
 
 extern "C" double soemdsp_robin_oscillator_sample(

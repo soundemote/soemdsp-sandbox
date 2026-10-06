@@ -10,6 +10,13 @@ ROOT = Path(__file__).resolve().parents[1]
 PATCHES = ROOT / "patches"
 BASE = "/soemdsp-sandbox/patches"
 
+# Bare site routes (/callnow) that should resolve to a folder patch URL without
+# duplicating the JSON file. Survives sync_soundemote_io.ps1 regenerations.
+# slug -> path relative to patches/ (POSIX-style for URL building).
+PAGE_PATCH_ALIASES: list[tuple[str, str]] = [
+    ("callnow", "Alarm/callnow.json"),
+]
+
 
 def read_patch_info(path: Path) -> dict:
     try:
@@ -43,6 +50,24 @@ def catalog_entry(path: Path, *, slug: str, folder: str | None, url: str) -> dic
     return entry
 
 
+def alias_entry(slug: str, rel_path: str) -> dict:
+    path = PATCHES / Path(rel_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"PAGE_PATCH_ALIASES target missing: {rel_path}")
+    parts = Path(rel_path).parts
+    url = BASE + "/" + "/".join(quote(p, safe="") for p in parts)
+    info = read_patch_info(path)
+    return {
+        "slug": slug,
+        "label": slug,
+        "name": str(info.get("name") or "").strip(),
+        "url": url,
+        "author": str(info.get("author") or "").strip(),
+        "tags": str(info.get("tags") or "").strip(),
+        "emoji": str(info.get("emoji") or "").strip(),
+    }
+
+
 def main() -> None:
     entries: list[dict] = []
     for path in sorted(PATCHES.glob("*.json"), key=lambda p: p.name.lower()):
@@ -69,6 +94,11 @@ def main() -> None:
                     url=f"{BASE}/{quote(folder.name, safe='')}/{quote(path.name, safe='')}",
                 )
             )
+
+    for slug, rel in PAGE_PATCH_ALIASES:
+        if any(e.get("slug") == slug for e in entries):
+            continue
+        entries.append(alias_entry(slug, rel))
 
     def sort_key(e: dict) -> tuple:
         folder = e.get("folder") or ""

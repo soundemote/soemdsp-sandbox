@@ -13,6 +13,7 @@
     "category": "",
     "description": ""
   },
+  "masterSeed": 1643219127,
   "view": {
     "zoom": 1.1679587108731466,
     "locked": false,
@@ -364,6 +365,7 @@
         "mode": 1,
         "chaos": 0.036587457362273,
         "amplitude": 1,
+        "seed": 9147000,
         "frequency": 0.6463784134001562,
         "resonance": 0.6589320905288205
       },
@@ -566,7 +568,8 @@
         "level": 1,
         "scale": 4,
         "gravity": 0.17,
-        "octaves": 3
+        "octaves": 3,
+        "seed": 675814
       },
       "paramMeta": {
         "leap": {
@@ -882,6 +885,7 @@
       "type": "pingPongDelay",
       "params": {
         "mix": 0.35,
+        "seed": 11607620,
         "level": 1,
         "lfoRate": 0.35,
         "feedback": 0.48668954996186115,

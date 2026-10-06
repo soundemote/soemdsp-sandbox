@@ -29,10 +29,13 @@ struct WowAndFlutterState {
 
 static WowAndFlutterState gPool[kMaxInstances];
 
-static inline unsigned int seed_u(double seedParam) {
-  unsigned int s = (unsigned int)(seedParam < 1.0 ? 1.0 : seedParam);
-  if (s == 0u) s = 1u;
-  return s;
+// Fixed Seed part ids (append only; never renumber).
+static const unsigned int kSeedFlutter = 1u;  // flutter random-walk LCG
+
+// Seed param -> flutter LCG state. Seed 0 is a real, distinct seed.
+static inline unsigned int flutter_rng(double seedParam) {
+  return soemdsp::math::seed_to_rng_state(
+    soemdsp::math::seed_mix(soemdsp::math::seed_param_u32(seedParam), kSeedFlutter));
 }
 
 static inline double next_unipolar(unsigned int& seed) {
@@ -89,8 +92,8 @@ extern "C" int soemdsp_wow_and_flutter_create() {
       s.wowPhase = 0.0;
       s.flutterOut = 0.0;
       s.flutterLp = 0.0;
-      s.flutterSeed = 1u;
-      s.lastSeedParam = 1.0;
+      s.flutterSeed = flutter_rng(0.0);
+      s.lastSeedParam = -1.0;  // first sample applies the Seed param (0 included)
       s.out = 0.0;
       return i + 1;
     }
@@ -129,7 +132,7 @@ extern "C" double soemdsp_wow_and_flutter_sample(
   const double sr = sampleRate > 1.0 ? sampleRate : 48000.0;
 
   if (!(seedParam == s.lastSeedParam)) {
-    s.flutterSeed = seed_u(seedParam);
+    s.flutterSeed = flutter_rng(seedParam);
     s.flutterOut = 0.0;
     s.flutterLp = 0.0;
     s.lastSeedParam = seedParam;
@@ -155,5 +158,5 @@ extern "C" double soemdsp_wow_and_flutter_out(int handle) {
 }
 
 extern "C" int soemdsp_wow_and_flutter_version() {
-  return 1;
+  return 2;
 }

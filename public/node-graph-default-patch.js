@@ -26,6 +26,89 @@ function nodeGraphResolveModuleTypeAlias(type) {
   return t;
 }
 
+// --- Module seeds -----------------------------------------------------------
+// patch.masterSeed: hidden uint32 saved in the patch (not a user control). It
+// is consumed ONLY when the user creates a module (add / duplicate / paste):
+// each kind:"seed" param of the new module takes the next value and the master
+// advances. Loading, undo, engine rebuild and creation order never consume it.
+// Each RNG module then owns its saved Seed param (0..SEED_MAX, 0 is a real
+// seed) and native seeds from that alone (seed_mix / seed_to_rng_state).
+const NODE_GRAPH_SEED_COMPONENT_MODULE = 0x5eed;
+const NODE_GRAPH_SEED_COMPONENT_LEGACY = 0x1e6ac;
+
+function nodeGraphNormalizeMasterSeed(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 && n <= 0xffffffff ? n >>> 0 : null;
+}
+
+function nodeGraphRandomMasterSeed() {
+  const cryptoApi = globalThis.crypto;
+  if (cryptoApi && typeof cryptoApi.getRandomValues === "function") {
+    const words = new Uint32Array(1);
+    cryptoApi.getRandomValues(words);
+    return words[0] >>> 0;
+  }
+  // Entropy source only (headless smoke hosts without Web Crypto).
+  return Math.floor(Math.random() * 4294967296) >>> 0;
+}
+
+// Saved master seed, or a fresh random one (new patch / patch saved before
+// master seeds existed). Never advances anything.
+function nodeGraphPatchMasterSeedOrNew(value) {
+  const saved = nodeGraphNormalizeMasterSeed(value);
+  return saved === null ? nodeGraphRandomMasterSeed() : saved;
+}
+
+function nodeGraphSeedParamKeysForType(type) {
+  const parameters = nodeGraphModuleDefinitions?.[type]?.parameters || [];
+  return parameters
+    .filter((parameter) => String(parameter?.kind || "") === "seed")
+    .map((parameter) => parameter.key);
+}
+
+// Next module Seed from the patch master seed; advances patch.masterSeed.
+function nodeGraphTakeNextModuleSeed(patch) {
+  const master = nodeGraphPatchMasterSeedOrNew(patch.masterSeed);
+  const seed = SoemMath.seedMix(master, NODE_GRAPH_SEED_COMPONENT_MODULE, 0) & SoemMath.SEED_MAX;
+  patch.masterSeed = (master + 0x9e3779b9) >>> 0;
+  return seed;
+}
+
+// User-created module (add / duplicate / paste): roll every Seed param.
+function nodeGraphAssignFreshModuleSeeds(patch, node) {
+  const keys = nodeGraphSeedParamKeysForType(node?.type);
+  if (!keys.length) {
+    return node;
+  }
+  if (!node.params || typeof node.params !== "object") {
+    node.params = {};
+  }
+  for (const key of keys) {
+    node.params[key] = nodeGraphTakeNextModuleSeed(patch);
+  }
+  return node;
+}
+
+// FNV-1a (32-bit) over UTF-16 code units. Stable text -> uint32 for seeds.
+function nodeGraphSeedTextHash(text) {
+  const s = String(text);
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < s.length; i += 1) {
+    hash = Math.imul(hash ^ s.charCodeAt(i), 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+// Patch saved before this module had a Seed param: assign one at load from
+// (node id, param key) ONLY -- not the master seed -- so every load of the same
+// patch agrees, the master seed is not consumed, and the one-time file
+// migration (scripts/migrate_patch_seeds.mjs) writes the same value. Saved from
+// then on.
+function nodeGraphLegacyModuleSeed(nodeId, key) {
+  const hash = nodeGraphSeedTextHash(`${nodeId}\u0000${key}`);
+  return SoemMath.seedMix(hash, NODE_GRAPH_SEED_COMPONENT_LEGACY, 0) & SoemMath.SEED_MAX;
+}
+
 function createNodeGraphPatchNode(type, options = {}) {
   const resolvedType = nodeGraphResolveModuleTypeAlias(type);
   const override = nodeGraphModuleDefaultOverrideForType(resolvedType);

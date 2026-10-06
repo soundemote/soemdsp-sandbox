@@ -1,10 +1,10 @@
 param(
-  [string]$SiteRoot = (Join-Path (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)) "..\soundemote-site")
+  [string]$SiteRoot = (Join-Path (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)) "..\soundemote-io")
 )
 
 $ErrorActionPreference = "Stop"
 
-# soundemote-site embeds a vendored, hand-copied snapshot of this app under
+# soundemote-io embeds a vendored, hand-copied snapshot of this app under
 # public/soemdsp-sandbox/ (served via iframe, see src/pages/SandboxPage.tsx
 # -> sandboxIframeSrc -> "/soemdsp-sandbox/index.html"). There is no build
 # step wiring the two repos together, so that snapshot silently rots every
@@ -35,7 +35,7 @@ $srcNative = Join-Path $root "native_modules"
 
 $siteRootResolved = Resolve-Path -LiteralPath $SiteRoot -ErrorAction SilentlyContinue
 if (!$siteRootResolved) {
-  throw "soundemote-site not found at $SiteRoot -- pass -SiteRoot <path> if it lives somewhere else."
+  throw "soundemote-io not found at $SiteRoot -- pass -SiteRoot <path> if it lives somewhere else."
 }
 $dst = Join-Path $siteRootResolved.Path "public\soemdsp-sandbox"
 
@@ -63,7 +63,7 @@ Write-Host "Syncing $root -> $dst"
 # literal placeholder text -- and, for BUILD_MODE specifically, the debug
 # console's bug button would fall back to its "debug" (red) styling on a
 # public page (see seBuildMode() in node-graph-debug-console.js), which is
-# wrong for a copy that only ever ships to soundemote-site. Anything vendored
+# wrong for a copy that only ever ships to soundemote-io. Anything vendored
 # here IS the release copy by definition, so BUILD_MODE is always hardcoded
 # to "release", independent of what mode the local sandbox server.py happens
 # to be running in when this script is invoked.
@@ -302,4 +302,4 @@ $manifest = @{
 Write-Host "  RELEASE_MANIFEST.json (wasm sha256=$sha)"
 
 Write-Host "Release sync OK (BUILD_MODE=release, START gate present, personal prefs omitted)."
-Write-Host "Review with: git -C `"$($siteRootResolved.Path)`" status, then commit + push from soundemote-site."
+Write-Host "Review with: git -C `"$($siteRootResolved.Path)`" status, then commit + push from soundemote-io."

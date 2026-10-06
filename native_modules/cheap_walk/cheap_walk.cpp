@@ -4,7 +4,8 @@
 // soemdsp-native-kind: noise
 //
 // Reflecting bipolar random walk: LCG step + bounce at ±1.
-// Stereo: independent L/R walks from one Seed control (R seed = L seed ^ 0x9E3779B9).
+// Stereo: independent L/R walks from one Seed control
+// (lane state = seed_to_rng_state(seed_mix(Seed, LEFT / RIGHT)); Seed 0 is a real seed).
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -13,7 +14,9 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 256;
-static const unsigned int kRightSeedXor = 0x9E3779B9u;
+// Fixed Seed part ids (append only; never renumber).
+static const unsigned int kSeedLeft = 1u;
+static const unsigned int kSeedRight = 2u;
 
 struct CheapWalkLane {
   unsigned int seed;
@@ -44,10 +47,9 @@ static inline double step_lane(CheapWalkLane& lane, double step) {
   return x;
 }
 
-static inline unsigned int seed_from_param(double seedParam) {
-  unsigned int s = (unsigned int)(seedParam < 1.0 ? 1.0 : seedParam);
-  if (s == 0u) s = 1u;
-  return s;
+static inline unsigned int lane_seed(double seedParam, unsigned int part) {
+  return soemdsp::math::seed_to_rng_state(
+    soemdsp::math::seed_mix(soemdsp::math::seed_param_u32(seedParam), part));
 }
 
 }  // namespace
@@ -56,12 +58,11 @@ extern "C" int soemdsp_cheap_walk_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       CheapWalkState& s = gPool[i];
-      s.left.seed = 1u;
+      s.left.seed = lane_seed(0.0, kSeedLeft);
       s.left.x = 0.0;
-      s.right.seed = 1u ^ kRightSeedXor;
-      if (s.right.seed == 0u) s.right.seed = 1u;
+      s.right.seed = lane_seed(0.0, kSeedRight);
       s.right.x = 0.0;
-      s.lastSeedParam = 1.0;
+      s.lastSeedParam = -1.0;  // first sample applies the Seed param (0 included)
       s.active = true;
       return i + 1;
     }
@@ -92,11 +93,9 @@ extern "C" void soemdsp_cheap_walk_sample_stereo(
   const double amp = amplitude;
 
   if (!(seedParam == st.lastSeedParam)) {
-    const unsigned int s = seed_from_param(seedParam);
-    st.left.seed = s;
+    st.left.seed = lane_seed(seedParam, kSeedLeft);
     st.left.x = 0.0;
-    st.right.seed = s ^ kRightSeedXor;
-    if (st.right.seed == 0u) st.right.seed = 1u;
+    st.right.seed = lane_seed(seedParam, kSeedRight);
     st.right.x = 0.0;
     st.lastSeedParam = seedParam;
   }
@@ -126,5 +125,5 @@ extern "C" double soemdsp_cheap_walk_sample(
 }
 
 extern "C" int soemdsp_cheap_walk_version() {
-  return 2;
+  return 3;
 }

@@ -75,6 +75,7 @@
     "program": 0,
     "tags": "init,default"
   },
+  "masterSeed": 2869488426,
   "modularOnlyControlsVisible": false,
   "modulations": [],
   "nodes": [
@@ -752,7 +753,8 @@
         "harmonic": 4.652366411280191,
         "slope": 0.21598074927037136,
         "skew": 0.26600716480190467,
-        "curve": 0
+        "curve": 0,
+        "seed": 5734928
       },
       "type": "additiveOut",
       "widthGu": 10,

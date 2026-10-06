@@ -36,6 +36,7 @@ struct EnsembleState {
   double lpL;
   double lpR;
   double lastSeed;
+  unsigned int seedU;  // Seed param as uint32 (0 valid); Reset reseeds from this
   int lastN;
   double lastDelay01[kMaxVoices];
   double lastPan[kMaxVoices];
@@ -84,20 +85,24 @@ static double runRandomWalk(Voice& v, double freqHz, double jitterHz, double sr)
   return v.walkLpf;
 }
 
-static void seed_voice(Voice& v, unsigned int seed) {
-  unsigned int sd = seed ? seed : 1u;
-  v.walkRng = sd;
+// Fixed Seed part ids (append only; never renumber). Voice n uses index n.
+static const unsigned int kSeedWalk = 1u;  // Random Walk LCG
+static const unsigned int kSeedFbm = 2u;   // FBM noise seed
+
+// seedU: Seed param as uint32; 0 is a real, distinct seed.
+static void seed_voice(Voice& v, unsigned int seedU, int voice) {
+  v.walkRng = soemdsp::math::seed_to_rng_state(
+    soemdsp::math::seed_mix(seedU, kSeedWalk, (unsigned int)voice));
   v.walkOut = 0.0;
   v.walkLpf = 0.0;
-  v.fbmSeed = sd * 2654435761u;
-  if (!v.fbmSeed) v.fbmSeed = 1u;
+  v.fbmSeed = soemdsp::math::seed_mix(seedU, kSeedFbm, (unsigned int)voice);
   v.fbmTime = 0.0;
 }
 
-static void clear_voice(Voice& v, unsigned int seed) {
+static void clear_voice(Voice& v, unsigned int seedU, int voice) {
   for (int i = 0; i < kMaxDelaySamples; i += 1) v.buffer[i] = 0.0f;
   v.writeIndex = 0;
-  seed_voice(v, seed);
+  seed_voice(v, seedU, voice);
 }
 
 static double read_delay(const Voice& v, double delaySamples) {
@@ -123,9 +128,10 @@ extern "C" int soemdsp_ensemble_create() {
       s.lpL = 0.0;
       s.lpR = 0.0;
       s.lastSeed = -1.0;
+      s.seedU = 0u;
       s.lastN = 0;
       for (int v = 0; v < kMaxVoices; v += 1) {
-        clear_voice(s.voices[v], (unsigned int)(v + 1));
+        clear_voice(s.voices[v], 0u, v);
         s.lastDelay01[v] = 0.5;
         s.lastPan[v] = 0.5;
       }
@@ -145,12 +151,8 @@ extern "C" void soemdsp_ensemble_reset(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   EnsembleState& s = gPool[handle - 1];
   if (!s.active) return;
-  unsigned int base = (unsigned int)(s.lastSeed < 1.0 ? 1.0 : s.lastSeed);
-  if (base == 0u) base = 1u;
   for (int v = 0; v < kMaxVoices; v += 1) {
-    unsigned int sd = base + (unsigned int)v;
-    if (sd == 0u) sd = 1u;
-    seed_voice(s.voices[v], sd);
+    seed_voice(s.voices[v], s.seedU, v);
   }
 }
 
@@ -192,10 +194,9 @@ extern "C" void soemdsp_ensemble_sample(
 
   const double seed = safe(seedParam);
   if (!(seed == st.lastSeed)) {
+    st.seedU = soemdsp::math::seed_param_u32(seed);
     for (int v = 0; v < kMaxVoices; v += 1) {
-      unsigned int sd = (unsigned int)(seed < 1.0 ? 1.0 : seed) + (unsigned int)v;
-      if (sd == 0u) sd = 1u;
-      seed_voice(st.voices[v], sd);
+      seed_voice(st.voices[v], st.seedU, v);
     }
     st.lastSeed = seed;
   }
@@ -295,7 +296,7 @@ extern "C" double soemdsp_ensemble_voice_pan(int handle, int index) {
 }
 
 extern "C" int soemdsp_ensemble_version() {
-  return 11;
+  return 12;
 }
 
 extern "C" const char* soemdsp_ensemble_metadata_json() {

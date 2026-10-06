@@ -189,7 +189,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-sample-waveform.js",
     "./public/node-graph-stdlib/node-graph-phasor-helpers.js",
     "./public/node-graph-stdlib/node-graph-param-surface-helpers.js",
-    "./public/node-graph-musical-engines.js",
     "./public/node-graph-phosphillator.js",
     "./public/node-graph-embed-config.js",
     "./public/node-graph-resources.js",
@@ -17962,7 +17961,7 @@ def require_native_module_contract(base_url: str) -> None:
         and "nodeGraphExternalViewOptionsFromSearch" in external_ui_events_source
         and 'message.type === "soundemote:request-current-patch"' in external_ui_events_source
         and 'type: "soundemote:current-patch"' in external_ui_events_source,
-        "external UI events should support the soundemote-site postMessage bridge for resources, view framing, and patch loading/requesting",
+        "external UI events should support the soundemote-io postMessage bridge for resources, view framing, and patch loading/requesting",
     )
     styles_source = (PUBLIC / "styles.css").read_text(encoding="utf-8")
     require(

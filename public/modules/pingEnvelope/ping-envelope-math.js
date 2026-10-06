@@ -1,6 +1,6 @@
 // Ping Envelope face preview. Audio is native_modules/ping_envelope/ping_envelope.cpp.
-// Model Short (default): x = clamp(env+(0.5-Decay)) → exp → 0…10 Hz; amp on output.
-// Model Long: x = env×0.7718+(1-Decay) → exp → 0…1000 Hz; amp on target.
+// Model for Lin / Short (default): x = clamp(env+(0.5-Decay)) → exp → 0…10 Hz; amp on output.
+// Model for Exp / Long: x = env×0.7718+(1-Decay) → exp → 0…1000 Hz; amp on target.
 
 const PING_LONG_FEEDBACK_AMP = 0.7718;
 const PING_LONG_RELEASE_HZ = 1000;

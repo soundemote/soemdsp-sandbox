@@ -8,6 +8,9 @@
 // (each voice runs at a detuned Hz), not phase-modulation. Fractional voices
 // like Hypersaw (last voice scaled by fractional part). Hard voice cap 128;
 // UI typically exposes ≤32. voices=1 renders one bank copied to L/R (true mono).
+// Seeding: module Seed only (soemdsp_robin_supersaw_set_seed), per voice and
+// lane via seed_mix with the fixed components below. Create + Reset + Seed
+// change restart every stream from Seed.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -816,16 +819,33 @@ struct RobinSupersawState {
   double publishAmp[kMaxVoices * 2];
   double lastPhaseSpread;
   double lastReset;
+  unsigned int seed;  // module Seed (seed_param_u32)
 };
 
 static RobinSupersawState gPool[kMaxInstances];
 
-void seedBank(DitherVoiceState* bank, int instanceIndex, int channelSalt) {
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedLeftVoice = 1u,      // left bank: cycle dither, Random Phase, porta unit
+  kSeedRightVoice = 2u,     // right bank
+  kSeedLeftJitter = 3u,     // left bank pitch-jitter walk
+  kSeedRightJitter = 4u,    // right bank pitch-jitter walk
+  kSeedLeftSquareAa = 5u,   // left bank squircle AA dither
+  kSeedRightSquareAa = 6u,  // right bank squircle AA dither
+};
+
+// Restart one voice's RNG streams from Seed.
+void seedVoiceRngs(DitherVoiceState& voice, unsigned int seed, bool right, int v) {
+  const unsigned int idx = (unsigned int)v;
+  voice.rngState = seed_to_rng_state(seed_mix(seed, right ? kSeedRightVoice : kSeedLeftVoice, idx));
+  voice.jitter.rng = seed_to_rng_state(seed_mix(seed, right ? kSeedRightJitter : kSeedLeftJitter, idx));
+  voice.squareAaRng = seed_to_rng_state(seed_mix(seed, right ? kSeedRightSquareAa : kSeedLeftSquareAa, idx));
+}
+
+void seedBank(DitherVoiceState* bank, unsigned int seed, bool right) {
   for (int v = 0; v < kMaxVoices; v++) {
     DitherVoiceState& voice = bank[v];
-    voice.rngState = static_cast<unsigned int>(
-      1469598103u + (instanceIndex + 1) * 747796405u + (v + 1) * 2891336453u + channelSalt * 40503u
-    );
+    seedVoiceRngs(voice, seed, right, v);
     voice.lenMid = 100.0;
     voice.probShort = 0.0;
     voice.probMid = 1.0;
@@ -842,15 +862,11 @@ void seedBank(DitherVoiceState* bank, int instanceIndex, int channelSalt) {
     voice.portaCoeff = 1.0;
     voice.portaMode = 0;
     voice.portaArmed = false;
-    voice.jitter.rng = voice.rngState ^ 0x27D4EB2Du;
-    if (!voice.jitter.rng) voice.jitter.rng = 1u;
     jitter_reset(voice);
     voice.hzCeiling = 20000.0;
     voice.sampleRateHz = 48000.0;
     voice.squareAaOn = false;
     voice.squareAaOffset = 0.0;
-    voice.squareAaRng = voice.rngState ^ 0xA5A5u ^ 0x51AAu;
-    if (!voice.squareAaRng) voice.squareAaRng = 1u;
   }
 }
 
@@ -976,9 +992,12 @@ void mixAlternatingBank(
   *outR = right * bankMixScale(normR);
 }
 
-// Reset free-runs to phase 0 and re-rolls random phase + porta time units.
+// Reset free-runs to phase 0 and restarts every stream from Seed (random
+// phase, porta time units, jitter, squircle dither). Same Seed -> same result.
 void resetBanks(RobinSupersawState& s) {
   for (int v = 0; v < kMaxVoices; v++) {
+    seedVoiceRngs(s.left[v], s.seed, false, v);
+    seedVoiceRngs(s.right[v], s.seed, true, v);
     if (s.left[v].lenMid > 1.0) {
       s.left[v].lenNow = s.left[v].lenMid;
       updateCycleLength(s.left[v]);
@@ -995,10 +1014,6 @@ void resetBanks(RobinSupersawState& s) {
     rerollPhaseRandom(s.right[v]);
     s.left[v].portaUnit = randomUnit(s.left[v].rngState);
     s.right[v].portaUnit = randomUnit(s.right[v].rngState);
-    s.left[v].jitter.rng = s.left[v].rngState ^ 0x27D4EB2Du;
-    if (!s.left[v].jitter.rng) s.left[v].jitter.rng = 1u;
-    s.right[v].jitter.rng = s.right[v].rngState ^ 0x85EBCA6Bu;
-    if (!s.right[v].jitter.rng) s.right[v].jitter.rng = 1u;
     jitter_reset(s.left[v]);
     jitter_reset(s.right[v]);
   }
@@ -1011,8 +1026,10 @@ extern "C" int soemdsp_robin_supersaw_create() {
     if (!gPool[i].active) {
       gPool[i] = RobinSupersawState{};
       gPool[i].active = true;
-      seedBank(gPool[i].left, i, 1);
-      seedBank(gPool[i].right, i, 2);
+      // Seed 0 until the host's Seed arrives via soemdsp_robin_supersaw_set_seed.
+      gPool[i].seed = 0u;
+      seedBank(gPool[i].left, 0u, false);
+      seedBank(gPool[i].right, 0u, true);
       gPool[i].publishCount = 0;
       gPool[i].lastPhaseSpread = 0.0;
       gPool[i].lastReset = 0.0;
@@ -1030,6 +1047,14 @@ extern "C" void soemdsp_robin_supersaw_destroy(int handle) {
 extern "C" void soemdsp_robin_supersaw_reset(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   resetBanks(gPool[handle - 1]);
+}
+
+// Seed change (or first Seed after create): store and restart from it.
+extern "C" void soemdsp_robin_supersaw_set_seed(int handle, double seed) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  RobinSupersawState& s = gPool[handle - 1];
+  s.seed = seed_param_u32(seed);
+  resetBanks(s);
 }
 
 extern "C" void soemdsp_robin_supersaw_process_block(

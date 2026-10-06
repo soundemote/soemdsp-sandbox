@@ -282,7 +282,7 @@ extern "C" void soemdsp_fbm_sample(
   if (handle < 1 || handle > kMaxInstances) return;
   FbmState& s = gPool[handle - 1];
 
-  const int safeSeed      = seedInt < 0 ? 0 : (seedInt > 99999 ? 99999 : seedInt);
+  const int safeSeed      = seedInt < 0 ? 0 : (seedInt > 16777215 ? 16777215 : seedInt);
   const int safeOctaves   = octaves < 1 ? 1 : (octaves > 8 ? 8 : octaves);
   const double safePers   = persistence < 0.0 ? 0.0 : (persistence > 0.99 ? 0.99 : persistence);
   const double safeScale  = scale < 0.000001 ? 0.000001 : scale;
@@ -363,7 +363,7 @@ extern "C" void soemdsp_fbm_process_block(
   if (handle < 1 || handle > kMaxInstances) return;
   FbmState& s = gPool[handle - 1];
 
-  const int safeSeed = seedInt < 0 ? 0 : (seedInt > 99999 ? 99999 : seedInt);
+  const int safeSeed = seedInt < 0 ? 0 : (seedInt > 16777215 ? 16777215 : seedInt);
   const int safeOctaves = octaves < 1 ? 1 : (octaves > 8 ? 8 : octaves);
   const double safePers = persistence < 0.0 ? 0.0 : (persistence > 0.99 ? 0.99 : persistence);
   const double safeScale = scale < 0.000001 ? 0.000001 : scale;

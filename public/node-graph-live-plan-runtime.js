@@ -526,10 +526,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const curveOscStates = new Map();
   const snowflakeStates = new Map();
   const textStreamStates = new Map();
-  const degreeTuringStates = new Map();
-  const gravityWalkerStates = new Map();
-  const degreePhraseStates = new Map();
-  const noteGlideStates = new Map();
   const dsfOscillatorStates = new Map();
   const robinSupersawStates = new Map();
   const hyperpluckStates = new Map();
@@ -649,18 +645,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     }
     if (node.type === "textStream" && typeof createNodeGraphTextStreamState === "function") {
       textStreamStates.set(node.id, createNodeGraphTextStreamState());
-    }
-    if (node.type === "degreeTuring" && typeof createNodeGraphDegreeTuringState === "function") {
-      degreeTuringStates.set(node.id, createNodeGraphDegreeTuringState());
-    }
-    if (node.type === "gravityWalker" && typeof createNodeGraphGravityWalkerState === "function") {
-      gravityWalkerStates.set(node.id, createNodeGraphGravityWalkerState());
-    }
-    if (node.type === "degreePhrase" && typeof createNodeGraphDegreePhraseState === "function") {
-      degreePhraseStates.set(node.id, createNodeGraphDegreePhraseState());
-    }
-    if (node.type === "noteGlide" && typeof createNodeGraphNoteGlideState === "function") {
-      noteGlideStates.set(node.id, createNodeGraphNoteGlideState());
     }
     if (node.type === "dsfOscillator") {
       dsfOscillatorStates.set(node.id, createNodeGraphDsfOscillatorState());
@@ -1045,10 +1029,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     curveOscStates,
     snowflakeStates,
     textStreamStates,
-    degreeTuringStates,
-    gravityWalkerStates,
-    degreePhraseStates,
-    noteGlideStates,
     dsfOscillatorStates,
     robinSupersawStates,
     hyperpluckStates,
@@ -1346,10 +1326,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     runtime.snowflakeStates = new Map();
   }
   if (!runtime.textStreamStates) runtime.textStreamStates = new Map();
-  if (!runtime.degreeTuringStates) runtime.degreeTuringStates = new Map();
-  if (!runtime.gravityWalkerStates) runtime.gravityWalkerStates = new Map();
-  if (!runtime.degreePhraseStates) runtime.degreePhraseStates = new Map();
-  if (!runtime.noteGlideStates) runtime.noteGlideStates = new Map();
   if (!runtime.dsfOscillatorStates) {
     runtime.dsfOscillatorStates = new Map();
   }
@@ -1559,18 +1535,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "textStream" && !runtime.textStreamStates.has(node.id) && typeof createNodeGraphTextStreamState === "function") {
       runtime.textStreamStates.set(node.id, createNodeGraphTextStreamState());
-    }
-    if (node.type === "degreeTuring" && !runtime.degreeTuringStates.has(node.id) && typeof createNodeGraphDegreeTuringState === "function") {
-      runtime.degreeTuringStates.set(node.id, createNodeGraphDegreeTuringState());
-    }
-    if (node.type === "gravityWalker" && !runtime.gravityWalkerStates.has(node.id) && typeof createNodeGraphGravityWalkerState === "function") {
-      runtime.gravityWalkerStates.set(node.id, createNodeGraphGravityWalkerState());
-    }
-    if (node.type === "degreePhrase" && !runtime.degreePhraseStates.has(node.id) && typeof createNodeGraphDegreePhraseState === "function") {
-      runtime.degreePhraseStates.set(node.id, createNodeGraphDegreePhraseState());
-    }
-    if (node.type === "noteGlide" && !runtime.noteGlideStates.has(node.id) && typeof createNodeGraphNoteGlideState === "function") {
-      runtime.noteGlideStates.set(node.id, createNodeGraphNoteGlideState());
     }
     if (node.type === "dsfOscillator" && !runtime.dsfOscillatorStates.has(node.id)) {
       runtime.dsfOscillatorStates.set(node.id, createNodeGraphDsfOscillatorState());
@@ -2076,7 +2040,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       }
     }
   }
-  for (const mapName of ["textStreamStates", "degreeTuringStates", "gravityWalkerStates", "degreePhraseStates", "noteGlideStates"]) {
+  for (const mapName of ["textStreamStates"]) {
     const map = runtime[mapName];
     if (!map) continue;
     for (const id of [...map.keys()]) {

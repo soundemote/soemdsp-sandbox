@@ -341,7 +341,7 @@ extern "C" void soemdsp_noise_generator_sample(
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   NoiseGenState& s = gPool[handle - 1];
-  const int seed = seedValue < 0.0 ? 0 : (seedValue > 99999.0 ? 99999 : (int)seedValue);
+  const int seed = seedValue < 0.0 ? 0 : (seedValue > 16777215.0 ? 16777215 : (int)seedValue);
   if (seed != s.currentSeed) {
     s.currentSeed = seed;
     resetChan(s.left,  seedHash(seed, 0));
@@ -391,7 +391,7 @@ extern "C" void soemdsp_noise_generator_process_block(
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   NoiseGenState& s = gPool[handle - 1];
-  const int seed = seedValue < 0.0 ? 0 : (seedValue > 99999.0 ? 99999 : (int)seedValue);
+  const int seed = seedValue < 0.0 ? 0 : (seedValue > 16777215.0 ? 16777215 : (int)seedValue);
   if (seed != s.currentSeed) {
     s.currentSeed = seed;
     resetChan(s.left, seedHash(seed, 0));

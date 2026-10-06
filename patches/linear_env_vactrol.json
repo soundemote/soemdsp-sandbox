@@ -115,6 +115,7 @@
     "program": 0,
     "tags": "init,default"
   },
+  "masterSeed": 364520739,
   "modularOnlyControlsVisible": false,
   "modulations": [
     {
@@ -680,7 +681,8 @@
         "frequency": 0.10642798945260114,
         "resonance": 0.10425505183939919,
         "chaos": 0,
-        "amplitude": 1
+        "amplitude": 1,
+        "seed": 1041589
       },
       "type": "flowerChildFilter",
       "traceDisplaySettings": {

@@ -17,6 +17,17 @@ const NODE_GRAPH_ARP_KEYS_DISPLAY_DEFAULTS = Object.freeze({
   strokeThickness: 0.01,
   fontColor: nodeGraphArpKeysHueHex(165),
   fontBrightness: 0.5,
+  inactiveFillColor: "#000000",
+  inactiveFillBrightness: 0,
+  activeFillColor: nodeGraphArpKeysHueHex(165),
+  activeFillBrightness: 0.5,
+  inactiveTextColor: nodeGraphArpKeysHueHex(165),
+  inactiveTextBrightness: 0.5,
+  activeTextColor: "#000000",
+  activeTextBrightness: 0,
+  previousColor: nodeGraphArpKeysHueHex(165),
+  previousBrightness: 0.28,
+  previousFadeSeconds: 0.5,
   // Music Player: "square" button is labeled Pill (CSS corner-shape: round).
   cornerShape: "squircle",
   cornerRadius: 0,
@@ -27,12 +38,28 @@ const NODE_GRAPH_GRAVITY_WALKER_DISPLAY_DEFAULTS = Object.freeze({
   ...NODE_GRAPH_ARP_KEYS_DISPLAY_DEFAULTS,
   strokeColor: "#ff0000",
   fontColor: "#ff0000",
+  activeFillColor: "#ff0000",
+  inactiveTextColor: "#ff0000",
+  previousColor: "#ff0000",
 });
 
 const NODE_GRAPH_ARP_KEYS_HUE_PAIRS = Object.freeze([
   ["strokeBrightness", "strokeColor"],
   ["fontBrightness", "fontColor"],
+  ["inactiveFillBrightness", "inactiveFillColor"],
+  ["activeFillBrightness", "activeFillColor"],
+  ["inactiveTextBrightness", "inactiveTextColor"],
+  ["activeTextBrightness", "activeTextColor"],
+  ["previousBrightness", "previousColor"],
 ]);
+
+function nodeGraphArpKeysClampFade(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return fallback;
+  }
+  return Math.max(0, Math.min(8, n));
+}
 
 function nodeGraphArpKeysClamp01(value, fallback) {
   const n = Number(value);
@@ -60,6 +87,42 @@ function normalizeNodeGraphArpKeysSettings(settings, defaults = NODE_GRAPH_ARP_K
     strokeThickness: nodeGraphArpKeysClamp01(src.strokeThickness, d.strokeThickness),
     fontColor: nodeGraphArpKeysNormalizeColor(src.fontColor, d.fontColor),
     fontBrightness: nodeGraphArpKeysClamp01(src.fontBrightness, d.fontBrightness),
+    inactiveFillColor: nodeGraphArpKeysNormalizeColor(src.inactiveFillColor, d.inactiveFillColor),
+    inactiveFillBrightness: nodeGraphArpKeysClamp01(src.inactiveFillBrightness, d.inactiveFillBrightness),
+    activeFillColor: nodeGraphArpKeysNormalizeColor(
+      src.activeFillColor != null ? src.activeFillColor : src.strokeColor,
+      d.activeFillColor,
+    ),
+    activeFillBrightness: nodeGraphArpKeysClamp01(
+      src.activeFillBrightness != null ? src.activeFillBrightness : src.strokeBrightness,
+      d.activeFillBrightness,
+    ),
+    inactiveTextColor: nodeGraphArpKeysNormalizeColor(
+      src.inactiveTextColor != null ? src.inactiveTextColor : src.fontColor,
+      d.inactiveTextColor,
+    ),
+    inactiveTextBrightness: nodeGraphArpKeysClamp01(
+      src.inactiveTextBrightness != null ? src.inactiveTextBrightness : src.fontBrightness,
+      d.inactiveTextBrightness,
+    ),
+    activeTextColor: nodeGraphArpKeysNormalizeColor(
+      src.activeTextColor != null
+        ? src.activeTextColor
+        : (nodeGraphArpKeysClamp01(src.strokeBrightness, d.strokeBrightness) >= 0.4 ? "#000000" : "#ffffff"),
+      d.activeTextColor,
+    ),
+    activeTextBrightness: nodeGraphArpKeysClamp01(
+      src.activeTextBrightness != null
+        ? src.activeTextBrightness
+        : (nodeGraphArpKeysClamp01(src.strokeBrightness, d.strokeBrightness) >= 0.4 ? 0 : 1),
+      d.activeTextBrightness,
+    ),
+    previousColor: nodeGraphArpKeysNormalizeColor(
+      src.previousColor != null ? src.previousColor : src.strokeColor,
+      d.previousColor,
+    ),
+    previousBrightness: nodeGraphArpKeysClamp01(src.previousBrightness, d.previousBrightness),
+    previousFadeSeconds: nodeGraphArpKeysClampFade(src.previousFadeSeconds, d.previousFadeSeconds),
     cornerShape: shape === "square" ? "square" : "squircle",
     cornerRadius: nodeGraphArpKeysClamp01(src.cornerRadius, d.cornerRadius),
     edgeSpacing: nodeGraphArpKeysClamp01(src.edgeSpacing, d.edgeSpacing),
@@ -114,6 +177,17 @@ function buildNodeGraphArpKeysDisplaySettingsBodyHtml() {
         </span>
       </label>
       ${hueRow("Font", "fontBrightness", "fontColor", 165)}
+      ${hueRow("Inactive fill", "inactiveFillBrightness", "inactiveFillColor", 0)}
+      ${hueRow("Active fill", "activeFillBrightness", "activeFillColor", 165)}
+      ${hueRow("Inactive text", "inactiveTextBrightness", "inactiveTextColor", 165)}
+      ${hueRow("Active text", "activeTextBrightness", "activeTextColor", 0)}
+      ${hueRow("Previously activated", "previousBrightness", "previousColor", 165)}
+      <label class="node-led-settings-row node-sample-waveform-settings-row node-sample-waveform-tune-row">
+        <span>Fadeout</span>
+        <span class="node-sample-waveform-control-widgets">
+          <input id="nodeArpKeysFadeSecondsInput" type="range" min="0" max="8" step="0.01" title="Seconds the previously activated fill takes to fade to the inactive fill. 0 is instant.">
+        </span>
+      </label>
       ${corners}
     </div>`;
 }
@@ -158,6 +232,11 @@ function syncNodeGraphArpKeysDisplaySettingsControls(root, settings) {
   if (thickness && document.activeElement !== thickness) {
     thickness.value = String(s.strokeThickness);
   }
+  const fade = root.querySelector?.("#nodeArpKeysFadeSecondsInput")
+    || document.getElementById("nodeArpKeysFadeSecondsInput");
+  if (fade && document.activeElement !== fade) {
+    fade.value = String(s.previousFadeSeconds);
+  }
   if (typeof syncNodeGraphHueTitleSteppers === "function") {
     syncNodeGraphHueTitleSteppers(root);
   }
@@ -177,12 +256,12 @@ function bindNodeGraphArpKeysDisplaySettingsBody(host) {
     }
   };
   host.addEventListener("input", (event) => {
-    if (event.target?.closest?.("[data-trace-display-field], #nodeArpKeysCornerRadiusInput, #nodeArpKeysEdgeSpacingInput, #nodeArpKeysStrokeThicknessInput")) {
+    if (event.target?.closest?.("[data-trace-display-field], #nodeArpKeysCornerRadiusInput, #nodeArpKeysEdgeSpacingInput, #nodeArpKeysStrokeThicknessInput, #nodeArpKeysFadeSecondsInput")) {
       apply("none", false);
     }
   });
   host.addEventListener("change", (event) => {
-    if (event.target?.closest?.("[data-trace-display-field], [data-trace-display-color], #nodeArpKeysCornerRadiusInput, #nodeArpKeysEdgeSpacingInput, #nodeArpKeysStrokeThicknessInput")) {
+    if (event.target?.closest?.("[data-trace-display-field], [data-trace-display-color], #nodeArpKeysCornerRadiusInput, #nodeArpKeysEdgeSpacingInput, #nodeArpKeysStrokeThicknessInput, #nodeArpKeysFadeSecondsInput")) {
       apply("immediate", true);
     }
   });
@@ -229,6 +308,11 @@ function readNodeGraphArpKeysDisplaySettingsForm(root, current) {
     || document.getElementById("nodeArpKeysStrokeThicknessInput");
   if (thickness) {
     next.strokeThickness = Number(thickness.value);
+  }
+  const fade = panel?.querySelector?.("#nodeArpKeysFadeSecondsInput")
+    || document.getElementById("nodeArpKeysFadeSecondsInput");
+  if (fade) {
+    next.previousFadeSeconds = Number(fade.value);
   }
   const squareOn = panel?.querySelector?.("#nodeArpKeysCornerSquareButton")?.classList.contains("active")
     || document.getElementById("nodeArpKeysCornerSquareButton")?.classList.contains("active");

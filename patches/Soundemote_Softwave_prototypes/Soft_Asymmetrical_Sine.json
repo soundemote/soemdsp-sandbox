@@ -111,6 +111,7 @@
     "program": 0,
     "tags": "init,default"
   },
+  "masterSeed": 33681889,
   "modularOnlyControlsVisible": false,
   "modulations": [
     {

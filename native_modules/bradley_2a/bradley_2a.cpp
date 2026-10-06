@@ -67,6 +67,11 @@ struct Bradley2AState {
 
 static Bradley2AState gPool[kMaxInstances];
 
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedImpulseNoise = 1u,  // hit / impulse noise LCG
+};
+
 // deterministic LCG noise in [-1, 1] (swap for pi-noise later)
 static double next_noise(Bradley2AState& s) {
   s.noiseSeed = (unsigned int)(1664525u * s.noiseSeed + 1013904223u);
@@ -86,12 +91,18 @@ extern "C" int soemdsp_bradley_2a_create() {
       s.interfPhase = 0.0;
       s.hitClock = 0.0;
       s.hitSamplesLeft = 0;
-      s.noiseSeed = 0x2A2A2A2Au;
+      s.noiseSeed = seed_mix(0u, kSeedImpulseNoise);  // host Seed via _set_seed
       s.active = true;
       return i + 1;
     }
   }
   return 0;
+}
+
+// Impulse-noise LCG state from the module Seed only (any u32 is a valid LCG state).
+extern "C" void soemdsp_bradley_2a_set_seed(int handle, double seed) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  gPool[handle - 1].noiseSeed = seed_mix(seed_param_u32(seed), kSeedImpulseNoise);
 }
 
 extern "C" void soemdsp_bradley_2a_destroy(int handle) {

@@ -167,6 +167,7 @@
     "program": 0,
     "tags": "circle"
   },
+  "masterSeed": 1180289497,
   "modularOnlyControlsVisible": false,
   "modulations": [
     {
@@ -1265,7 +1266,8 @@
         "polarity": 1,
         "sampleFrequency": 3.3233394869845707,
         "threshold": 0,
-        "amplitude": 0.18167684161117623
+        "amplitude": 0.18167684161117623,
+        "seed": 12669155
       },
       "type": "sampleHold",
       "widthGu": 7,
@@ -2719,7 +2721,8 @@
         "frequency": 369.5208397589628,
         "phase": 0,
         "morph": 0,
-        "amplitude": 0
+        "amplitude": 0,
+        "seed": 1508679
       },
       "type": "robinOscillator",
       "widthGu": 7,

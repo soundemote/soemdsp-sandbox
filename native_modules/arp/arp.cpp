@@ -38,6 +38,7 @@ struct State {
   int direction; // +1 up, -1 down (bounce modes)
   int clocksSinceRestart;
   unsigned int rngState;
+  unsigned int seed; // module Seed currently applied to rngState
   double phase; // free-run Internal Clock phasor 0..1
   double lastPitch;
   double lastFreqHz;
@@ -70,13 +71,14 @@ static int clamp_steps(double steps) {
   return n;
 }
 
-static unsigned int seed_u32(double seed) {
-  double s = safe(seed);
-  if (!(s * 0.0 == 0.0)) s = 1.0;
-  if (s < 0.0) s = 0.0;
-  if (s > 2147483647.0) s = 2147483647.0;
-  unsigned int u = (unsigned int)(s + 0.5);
-  return u ? u : 1u;
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedPattern = 1u,  // Random-mode note order
+};
+
+// xorshift32 state for the Random pattern of the given Seed (Seed 0 is valid).
+static unsigned int pattern_rng_state(unsigned int seed) {
+  return seed_to_rng_state(seed_mix(seed, kSeedPattern));
 }
 
 // Exact integer bit test for masks that may exceed 32 bits (double / 2^i).
@@ -130,7 +132,8 @@ static void rebuild_notes(State& s) {
 static void restart_pattern(State& s, int mode, unsigned int seed) {
   s.index = 0;
   s.direction = (mode == MODE_DOWN_UP) ? -1 : 1;
-  s.rngState = seed;
+  s.seed = seed;
+  s.rngState = pattern_rng_state(seed);
   s.clocksSinceRestart = 0;
 }
 
@@ -184,7 +187,8 @@ extern "C" int soemdsp_arp_create() {
       s.index = 0;
       s.direction = 1;
       s.clocksSinceRestart = 0;
-      s.rngState = 1u;
+      s.seed = 0u;  // host Seed applied on first sample (re-seeds on change)
+      s.rngState = pattern_rng_state(0u);
       s.phase = 0.0;
       s.lastPitch = 0.0;
       s.lastFreqHz = 0.0;
@@ -290,7 +294,12 @@ extern "C" double soemdsp_arp_sample(
 
   const int mode = clamp_mode(modeIn);
   const int steps = clamp_steps(stepsIn);
-  const unsigned int seed = seed_u32(seedIn);
+  const unsigned int seed = seed_param_u32(seedIn);
+  if (seed != s.seed) {
+    // Seed changed (or first Seed after create): restart the random stream.
+    s.seed = seed;
+    s.rngState = pattern_rng_state(seed);
+  }
   const int octaveOffset = clamp_octave_offset(octaveOffsetIn);
   const int sequenceOffset = clamp_seq_offset(sequenceOffsetIn);
   const double sr = sampleRate < 1.0 ? 44100.0 : sampleRate;

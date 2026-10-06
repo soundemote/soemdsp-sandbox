@@ -6,10 +6,10 @@
 // Fires a Trigger + Gate pair at a randomized interval (uniform between
 // minSeconds and maxSeconds), redrawing a new interval every time the
 // current one elapses (or on Reset). Same LCG as native_modules/
-// noise_generator/sample_hold (1664525*seed + 1013904223 mod 2^32), seeded
-// once via a JS-precomputed stableSeed(nodeId:seed) integer, reseeded only
-// when that integer changes -- same "precomputed key, passed as a plain
-// int" split as sample_hold's noise fallback.
+// noise_generator/sample_hold (1664525*seed + 1013904223 mod 2^32). The
+// graph passes the module's own Seed param (rounded int, 0 valid); the LCG
+// state is seed_to_rng_state(seed_mix(Seed, kSeedInterval)), applied on the
+// first sample and again whenever Seed changes. Seed 0 is a real seed.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -30,13 +30,17 @@ struct RandomClockState {
   unsigned int rngState;
   double remainingTriggerSamples;
   int currentSeedKey;
+  bool seeded;          // false until the first sample applies seedKey
   double lastGate;
 };
+
+// Fixed Seed part ids (append only; never renumber).
+static const unsigned int kSeedInterval = 1u;  // interval draws
 
 static RandomClockState gPool[kMaxInstances];
 
 static unsigned int lcg_next(unsigned int& seed) {
-  seed = 1664525U * (seed ? seed : 1U) + 1013904223U;
+  seed = 1664525U * seed + 1013904223U;  // full-period LCG; 0 is a valid state
   return seed;
 }
 
@@ -68,9 +72,10 @@ extern "C" int soemdsp_random_clock_create() {
       s.lastMaxSeconds = -1.0;
       s.lastReset = 0.0;
       s.phaseSamples = 0.0;
-      s.rngState = 1U;
+      s.rngState = soemdsp::math::seed_to_rng_state(soemdsp::math::seed_mix(0u, kSeedInterval));
       s.remainingTriggerSamples = 0.0;
       s.currentSeedKey = 0;
+      s.seeded = false;
       s.lastGate = 0.0;
       s.active = true;
       return i + 1;
@@ -99,10 +104,11 @@ extern "C" double soemdsp_random_clock_sample(
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   RandomClockState& s = gPool[handle - 1];
 
-  if (seedKey != s.currentSeedKey) {
+  if (!s.seeded || seedKey != s.currentSeedKey) {
+    s.seeded = true;
     s.currentSeedKey = seedKey;
-    s.rngState = (unsigned int)seedKey;
-    if (s.rngState == 0U) s.rngState = 1U;
+    s.rngState = soemdsp::math::seed_to_rng_state(
+      soemdsp::math::seed_mix(soemdsp::math::seed_param_u32((double)seedKey), kSeedInterval));
     s.intervalSamples = 0.0;
     s.intervalUnit = 0.0;
     s.lastMinSeconds = -1.0;
@@ -160,5 +166,5 @@ extern "C" double soemdsp_random_clock_gate(int handle) {
 }
 
 extern "C" int soemdsp_random_clock_version() {
-  return 1;
+  return 2;
 }

@@ -152,6 +152,7 @@
     "program": 0,
     "tags": "circle"
   },
+  "masterSeed": 2668762642,
   "modularOnlyControlsVisible": false,
   "modulations": [
     {
@@ -721,7 +722,8 @@
         "voices": 32,
         "phaseAlgorithm": 1,
         "phaseMultiply": 0,
-        "amplitude": 1
+        "amplitude": 1,
+        "seed": 1145907
       },
       "type": "hyperpluck",
       "alias": "Hyperpluck",

@@ -1,4 +1,4 @@
-// Simulates sync_soundemote_site release omit list and checks required globals
+// Simulates sync_soundemote_io release omit list and checks required globals
 // are defined by kept scripts (including release-debug-stubs.js).
 import fs from "fs";
 import path from "path";

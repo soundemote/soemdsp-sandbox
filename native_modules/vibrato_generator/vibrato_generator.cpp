@@ -48,10 +48,12 @@ struct VibratoModuleState {
 
 static VibratoModuleState gPool[kMaxInstances];
 
-static inline unsigned int seed_u(double seedParam) {
-  unsigned int s = (unsigned int)(seedParam < 1.0 ? 1.0 : seedParam);
-  if (s == 0u) s = 1u;
-  return s;
+// Fixed Seed part ids (append only; never renumber).
+static const unsigned int kSeedRandomHold = 1u;  // S&H random Freq / Amp targets
+
+// Seed param -> hold stream seed. Seed 0 is a real, distinct seed.
+static inline unsigned int hold_seed(double seedParam) {
+  return soemdsp::math::seed_mix(soemdsp::math::seed_param_u32(seedParam), kSeedRandomHold);
 }
 
 static const int kReleaseShapeLog = 0;
@@ -88,11 +90,11 @@ extern "C" int soemdsp_vibrato_generator_create() {
       VibratoModuleState& s = gPool[i];
       s = VibratoModuleState{};
       s.active = true;
-      vibrato_gen_seed(s.gen, 1u);
+      vibrato_gen_seed(s.gen, hold_seed(0.0));
       vibrato_gen_reset(s.gen, 0.0);
       s.phaseTurns = 0.0;
       s.lastSine = 0.0;
-      s.lastSeed = 1.0;
+      s.lastSeed = -1.0;  // first sample applies the Seed param (0 included)
       s.out = 0.0;
       s.depthEnv = 0.0;   // sustain is applied only when Gate is unplugged
       s.lastGate = 0.0;
@@ -150,7 +152,7 @@ extern "C" double soemdsp_vibrato_generator_sample(
   VibratoModuleState& s = gPool[handle - 1];
   const double sr = sampleRate > 1.0 ? sampleRate : 48000.0;
   if (!(seedParam == s.lastSeed)) {
-    vibrato_gen_seed(s.gen, seed_u(seedParam));
+    vibrato_gen_seed(s.gen, hold_seed(seedParam));
     vibrato_gen_reset(s.gen, phaseOffset);
     s.lastSeed = seedParam;
   }
@@ -331,5 +333,5 @@ extern "C" int soemdsp_vibrato_generator_is_idle(int handle) {
 }
 
 extern "C" int soemdsp_vibrato_generator_version() {
-  return 13;
+  return 14;
 }

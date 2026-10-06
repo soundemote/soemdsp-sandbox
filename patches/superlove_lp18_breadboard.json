@@ -110,6 +110,7 @@
     "program": 0,
     "tags": "filter,ladder,self-osc,breadboard"
   },
+  "masterSeed": 2160171905,
   "modularOnlyControlsVisible": false,
   "modulations": [
     {

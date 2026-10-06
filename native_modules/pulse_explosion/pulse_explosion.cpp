@@ -29,13 +29,13 @@
 // and each gets an independently randomized amplitude in
 // [lowAmplitude, highAmplitude].
 //
-// seed: 0 means "free-running" (each trigger continues from wherever the
-// instance's RNG left off, matching the original unseeded behavior). Any
-// non-zero seed re-seeds the RNG at the start of every burst, so the same
-// seed + same other parameters always produces the same pulse schedule --
-// this lets the UI display precompute the exact schedule that will play.
+// seed: the module's saved Seed (0..16777215; 0 is an ordinary seed). The
+// RNG is re-seeded from seed_mix(Seed, kSeedBurst) at the start of every
+// burst, so the same Seed + same other parameters always produces the same
+// pulse schedule. Nothing depends on the engine slot or creation order.
 
 #include <soemdsp/math/scalar_helpers.h>
+#include <soemdsp/math/seed.h>
 #include <soemdsp/trigger/trigger.h>
 using soemdsp_maths::clamp;
 using soemdsp_maths::rational_curve01;
@@ -43,8 +43,16 @@ using soemdsp_maths::rising_edge_bool;
 using soemdsp_maths::kPi;
 using soemdsp_maths::kTwoPi;
 using soemdsp_maths::kHalfPi;
+using soemdsp_maths::seed_mix;
+using soemdsp_maths::seed_param_u32;
+using soemdsp_maths::seed_to_rng_state;
 
 namespace {
+
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedBurst = 1u,  // per-burst schedule RNG
+};
 
 static const int kMaxInstances = 16;
 static const int kMaxPulses = 128;
@@ -120,20 +128,9 @@ static double pulseDensity(double t, double startTime, double centerTime, double
   return clamp(rational_curve01(ease, skew), 0.0, 1.0);
 }
 
-// Deterministic 32-bit mix of a double seed value (murmur3-style finalizer
-// applied to the seed's raw bit pattern). Never returns 0 (0 is reserved to
-// mean "xorshift would get stuck"), so xorshift32 never stalls.
-static inline unsigned int seedHash(double seed) {
-  union { double d; unsigned long long u; } conv;
-  conv.d = seed;
-  unsigned long long bits = conv.u;
-  unsigned int x = (unsigned int)(bits ^ (bits >> 32));
-  x ^= x >> 16;
-  x *= 0x7feb352du;
-  x ^= x >> 15;
-  x *= 0x846ca68bu;
-  x ^= x >> 16;
-  return x == 0 ? 0x9E3779B9u : x;
+// xorshift32 state for one burst of the given Seed (never 0).
+static inline unsigned int burstRngState(double seed) {
+  return seed_to_rng_state(seed_mix(seed_param_u32(seed), kSeedBurst));
 }
 
 static void insertSorted(ScheduledPulse* pulses, int count, ScheduledPulse toInsert) {
@@ -156,7 +153,7 @@ extern "C" int soemdsp_pulse_explosion_create() {
       s.elapsed = 0.0;
       s.pulseCount = 0;
       s.nextPulseIndex = 0;
-      s.rngState = 0x9E3779B9u + (unsigned int)(i + 1) * 2654435761u;
+      s.rngState = burstRngState(0.0);  // re-seeded from the Seed on every burst
       s.lastCurve = 0.0;
       s.active = true;
       return i + 1;
@@ -180,7 +177,7 @@ extern "C" double soemdsp_pulse_explosion_sample(
   int numberOfPulses,
   double lowAmplitude,
   double highAmplitude,
-  double seed,          // 0 = free-running; non-zero = deterministic per-burst reseed
+  double seed,          // module Seed; every burst re-seeds from it (0 is a normal seed)
   double sampleRate
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
@@ -206,9 +203,7 @@ extern "C" double soemdsp_pulse_explosion_sample(
     s.nextPulseIndex = 0;
     s.elapsed = 0.0;
     s.exploding = true;
-    if (seed != 0.0) {
-      s.rngState = seedHash(seed);
-    }
+    s.rngState = burstRngState(seed);
 
     for (int i = 0; i < safeCount; i++) {
       double chosenTime = safeCenter;

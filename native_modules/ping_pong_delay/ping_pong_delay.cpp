@@ -269,6 +269,7 @@ struct PingPongDelayState {
   int lfoWalkTickR;
   unsigned int lfoSeedL;
   unsigned int lfoSeedR;
+  unsigned int seed;  // module Seed (lfoSeedL/R derive from it)
   double clipScaleX, clipScaleY, clipShiftX, clipShiftY;
   double lpL_z, lpL_a1, lpR_z, lpR_a1;
   double hpL_x0, hpL_y0, hpL_a1, hpL_b0, hpL_b1;
@@ -307,6 +308,12 @@ static double gBlockOutR[kMaxInstances][kMaxBlockFrames];
 static double gBlockOutModL[kMaxInstances][kMaxBlockFrames];
 static double gBlockOutModR[kMaxInstances][kMaxBlockFrames];
 
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedLfoLeft = 1u,   // Left LFO walk / FBM hash seed
+  kSeedLfoRight = 2u,  // Right LFO walk / FBM hash seed
+};
+
 static void reset_delay_ring(PingPongDelayState& s, int size) {
   if (!s.bufferL || !s.bufferR || size < 2 || size > s.bufferCap) {
     return;
@@ -332,8 +339,8 @@ static void reset_delay_dsp(PingPongDelayState& s) {
   s.lfoWalkLpfR = 0.0;
   s.lfoWalkTickL = 0;
   s.lfoWalkTickR = 0;
-  s.lfoSeedL = 0xA11CEu;
-  s.lfoSeedR = 0xB0B5u;
+  s.lfoSeedL = seed_mix(s.seed, kSeedLfoLeft);
+  s.lfoSeedR = seed_mix(s.seed, kSeedLfoRight);
   s.lpL_z = s.lpR_z = 0.0;
   s.hpL_x0 = s.hpL_y0 = s.hpR_x0 = s.hpR_y0 = 0.0;
   soft_clip_set(1.0, s.clipScaleX, s.clipScaleY, s.clipShiftX, s.clipShiftY);
@@ -449,6 +456,7 @@ extern "C" int soemdsp_ping_pong_delay_create() {
       s.liveAmplitude = 1.0;
       s.livePingPong = 1.0;
       s.liveSampleRate = 44100.0;
+      s.seed = 0u;  // host Seed applied via _set_seed
       reset_delay_dsp(s);
       s.active = true;
       return i + 1;
@@ -747,6 +755,18 @@ extern "C" void soemdsp_ping_pong_delay_process_block(int handle, int frameCount
     outModL[i] = s.lastModL;
     outModR[i] = s.lastModR;
   }
+}
+
+// LFO random streams from the module Seed only; restarts the LFO walks.
+extern "C" void soemdsp_ping_pong_delay_set_seed(int handle, double seed) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  PingPongDelayState& s = gPool[handle - 1];
+  if (!s.active) return;
+  s.seed = seed_param_u32(seed);
+  s.lfoSeedL = seed_mix(s.seed, kSeedLfoLeft);
+  s.lfoSeedR = seed_mix(s.seed, kSeedLfoRight);
+  s.lfoWalkTickL = 0;
+  s.lfoWalkTickR = 0;
 }
 
 extern "C" void soemdsp_ping_pong_delay_reset(int handle) {

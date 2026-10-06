@@ -304,10 +304,14 @@ void diffuseSamplePairSimd(SabrinaDelay& delayL, SabrinaDelay& delayR, double in
 // line keeps its own distinct sub-seed (index * 137 + 7) so they don't all
 // land on the same random values -- seed 0 reproduces the original hardcoded
 // pattern exactly, any other seed shifts the whole random sequence.
+// Unsigned math so Seeds up to 16777215 cannot overflow; identical to the old
+// signed sum (index*137 + 7 + seed*9973) whenever that sum fit in an int.
 void reseedDelays(SabrinaState& state, int seed) {
   state.seed = seed;
   for (int index = 0; index < kDelayCount; index += 1) {
-    initializeDelay(state.delays[index], index * 137 + 7 + seed * 9973, state.sampleRate);
+    const unsigned int sub =
+      (unsigned int)index * 137u + 7u + (unsigned int)seed * 9973u;
+    initializeDelay(state.delays[index], (int)(sub % 123094u), state.sampleRate);
   }
 }
 

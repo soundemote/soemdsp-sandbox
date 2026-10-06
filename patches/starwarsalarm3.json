@@ -12,6 +12,7 @@
     "bankName": "",
     "description": ""
   },
+  "masterSeed": 3231444227,
   "view": {
     "zoom": 1.7019269696969697,
     "widthGu": 47,
@@ -145,6 +146,7 @@
       "params": {
         "mode": 3,
         "chaos": 0.69,
+        "seed": 12379596,
         "frequency": 0.5886794920443897,
         "resonance": 0.8655923795252856
       },

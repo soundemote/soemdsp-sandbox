@@ -192,6 +192,9 @@ function validateNodeGraphPatch(patch) {
     ? migrateNodeGraphPatchToCurrent(patch)
     : patch;
   patch = migrated;
+  // Hidden per-patch master seed (see nodeGraphTakeNextModuleSeed). Validation
+  // only preserves it (or creates one for a new / pre-seed patch).
+  const masterSeed = nodeGraphPatchMasterSeedOrNew(patch.masterSeed);
 
   if (patch.format !== undefined) {
     if (
@@ -547,6 +550,11 @@ function validateNodeGraphPatch(patch) {
         if (Number.isFinite(n) && n > 1 && (!Number.isFinite(sourceMax) || sourceMax > 1)) {
           value = Math.max(0, Math.min(1, 1 - Math.min(10, n) / 10));
         }
+      }
+      // RNG Seed param missing (patch predates it): assign once from node id +
+      // key (never the master seed), then saved. An explicit saved 0 is kept.
+      if (String(parameter.kind || "") === "seed" && !Object.hasOwn(rawParams, parameter.key)) {
+        value = nodeGraphLegacyModuleSeed(id, parameter.key);
       }
       params[parameter.key] = normalizeNodeGraphPatchParameter(
         type,
@@ -1068,6 +1076,7 @@ function validateNodeGraphPatch(patch) {
     graphConnections: metaHygiene.graphConnections,
     grid,
     info: normalizeNodeGraphPatchInfo(patch.info),
+    masterSeed,
     modularOnlyControlsVisible: Boolean(patch.modularOnlyControlsVisible),
     modulations: metaHygiene.modulations,
     nodes: metaHygiene.nodes,

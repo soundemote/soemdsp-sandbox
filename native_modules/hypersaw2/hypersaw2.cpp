@@ -15,7 +15,8 @@
 //   osc.phaseOffset = phase * ((vibInput * Distance) + 1) + walkOut
 // Center saw (i=0) is not wired to the LFO. Not additive FM.
 // Randomize Phase = permanent offset after Distance.
-// Rising Reset re-zeros master + re-rolls seeds.
+// Rising Reset re-zeros master + re-seeds every voice from Seed.
+// Seeding: Seed only (seed_mix per voice / part). No handle or slot index.
 // Display: soemdsp_hypersaw2_voice_phase → wrap01(center + walk + vib + randomize).
 
 #include <soemdsp/soemdsp.hpp>
@@ -227,7 +228,7 @@ struct Hypersaw2State {
   Hypersaw2VoiceState voices[kMaxVoices];
   double masterPhase;      // shared locked carrier
   double vibOscPhase;      // shared PolyBLEP vibrato LFO (original vibOsc_)
-  unsigned int masterRng;
+  unsigned int seed;        // module Seed (seed_param_u32)
   int lastVoiceCount;
   double lastVoiceFrac;
   double lastSeed;
@@ -237,29 +238,31 @@ struct Hypersaw2State {
 
 static Hypersaw2State gPool[kMaxInstances];
 
-// Master Seed drives every per-voice RNG (randomize + vibrato phase + jitter).
-void seedVoice(Hypersaw2VoiceState& voice, int instanceIndex, int voiceIndex, unsigned int masterSeed) {
-  voice.rngState = masterSeed
-    ^ static_cast<unsigned int>((instanceIndex + 1) * 16777619u)
-    ^ static_cast<unsigned int>((voiceIndex + 1) * 2654435761u);
-  if (!voice.rngState) voice.rngState = 0x9E3779B9u;
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedVoice = 1u,   // per-voice Randomize Phase + Vibrato Phase Vary stream
+  kSeedJitter = 2u,  // per-voice Random Steps jitter walk
+};
+
+// Seed drives every per-voice RNG (randomize + vibrato phase + jitter).
+void seedVoice(Hypersaw2VoiceState& voice, unsigned int seed, int voiceIndex) {
+  voice.rngState = seed_to_rng_state(seed_mix(seed, kSeedVoice, (unsigned int)voiceIndex));
   voice.randomOffset = randomBipolar(voice.rngState);
   voice.vibPhaseRandom = randomUnipolar(voice.rngState);
   voice.vibPhase = 0.0;
-  voice.jitter.rng = voice.rngState ^ 0x27D4EB2Du;
-  if (!voice.jitter.rng) voice.jitter.rng = 1u;
+  voice.jitter.rng = seed_to_rng_state(seed_mix(seed, kSeedJitter, (unsigned int)voiceIndex));
   jitter_reset(voice.jitter);
   voice.lastOffset = 0.0;
 }
 
-void reseedAll(Hypersaw2State& s, int instanceIndex, unsigned int masterSeed) {
-  s.masterRng = masterSeed ? masterSeed : 0xC2B2AE3Du;
+void reseedAll(Hypersaw2State& s, unsigned int seed) {
+  s.seed = seed;
   s.masterPhase = 0.0;
   s.vibOscPhase = 0.0;
   s.lastVoiceCount = 0;
-  s.lastSeed = static_cast<double>(masterSeed);
+  s.lastSeed = static_cast<double>(seed);
   for (int v = 0; v < kMaxVoices; v++) {
-    seedVoice(s.voices[v], instanceIndex, v, s.masterRng);
+    seedVoice(s.voices[v], seed, v);
   }
 }
 
@@ -270,7 +273,8 @@ extern "C" int soemdsp_hypersaw2_create() {
     if (!gPool[i].active) {
       gPool[i] = Hypersaw2State{};
       gPool[i].active = true;
-      reseedAll(gPool[i], i, 0xC2B2AE3Du ^ static_cast<unsigned int>((i + 1) * 0x85EBCA6Bu));
+      // Seed 0 until the host's Seed arrives (process_block reseeds on change).
+      reseedAll(gPool[i], 0u);
       return i + 1;
     }
   }
@@ -287,9 +291,9 @@ extern "C" void soemdsp_hypersaw2_reset(int handle) {
   Hypersaw2State& s = gPool[handle - 1];
   s.masterPhase = 0.0;
   s.vibOscPhase = 0.0;
-  // Re-roll from each voice's seeded RNG (deterministic under Master Seed).
+  // Restart every voice stream from Seed (same Seed -> same result).
   for (int v = 0; v < kMaxVoices; v++) {
-    seedVoice(s.voices[v], handle - 1, v, s.masterRng);
+    seedVoice(s.voices[v], s.seed, v);
   }
 }
 
@@ -349,10 +353,9 @@ extern "C" void soemdsp_hypersaw2_sample(
   const double sr = sampleRate > 1.0 ? sampleRate : 48000.0;
   const double freq = (frequencyHz == frequencyHz) ? frequencyHz : 0.0;
 
+  // Seed change -> reseed (seed 0 is a real seed).
   if (!(seedParam == s.lastSeed)) {
-    unsigned int seedU = (unsigned int)(seedParam < 1.0 ? 1.0 : seedParam);
-    if (!seedU) seedU = 1u;
-    reseedAll(s, handle - 1, seedU);
+    reseedAll(s, seed_param_u32(seedParam));
     s.lastSeed = seedParam;
   }
 

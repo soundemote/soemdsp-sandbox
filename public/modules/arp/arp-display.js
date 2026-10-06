@@ -139,6 +139,8 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
   let pointerId = null;
   let pressArmed = true;
   let heldButton = -1;
+  let shownPlay = -1;
+  const fadeAt = new Map();
 
   function faceState() {
     const bag = typeof nodeGraphMvp === "object" ? nodeGraphMvp._arpFaceByNode : null;
@@ -197,17 +199,14 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     if (event.button !== 0 && event.button !== 2) return;
     const midi = midiAtClientXY(event.clientX, event.clientY);
     if (midi < 0) return;
-    const { play } = faceState();
     pointerId = event.pointerId;
     heldButton = event.button;
     freezePlay = midi;
     stickyPlay = midi;
     lastSig = "";
     try { canvas.setPointerCapture?.(event.pointerId); } catch (_e) { /* ignore */ }
-    // Left-click on the note already playing starts a portamento drag
-    // and does not bang or gate. Right-click still triggers.
-    const alreadyOn = event.button === 0 && midi === play;
-    const leftBang = event.button === 0 && pressArmed && !alreadyOn;
+    // A click on the step that is already lit still bangs. Drag stays legato.
+    const leftBang = event.button === 0 && pressArmed;
     const rightBang = event.button === 2;
     pressArmed = false;
     sendOverride(midi, leftBang || rightBang, leftBang);
@@ -250,6 +249,38 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     event.stopPropagation();
   });
 
+  function notePlayed(play) {
+    if (play === shownPlay) return;
+    if (shownPlay >= 0) fadeAt.set(shownPlay, performance.now());
+    if (play >= 0) fadeAt.delete(play);
+    shownPlay = play;
+  }
+
+  function cssRgb(color) {
+    const m = String(color || "").match(/(\d+)\s+(\d+)\s+(\d+)/);
+    if (!m) return [0, 0, 0];
+    return [Number(m[1]), Number(m[2]), Number(m[3])];
+  }
+
+  function mixCss(fromCss, toCss, t) {
+    const a = cssRgb(fromCss);
+    const b = cssRgb(toCss);
+    const u = Math.max(0, Math.min(1, t));
+    const ch = (i) => Math.round(a[i] + (b[i] - a[i]) * u);
+    return `rgb(${ch(0)} ${ch(1)} ${ch(2)})`;
+  }
+
+  function fillAfterPlay(midi, now, fadeMs, previousCss, inactiveCss) {
+    const started = fadeAt.get(midi);
+    if (started == null || fadeMs <= 0) return inactiveCss;
+    const t = (now - started) / fadeMs;
+    if (t >= 1) {
+      fadeAt.delete(midi);
+      return inactiveCss;
+    }
+    return mixCss(previousCss, inactiveCss, t);
+  }
+
   function paint() {
     const { notes, play, projectOn } = faceState();
     const look = nodeGraphArpKeysLookForNodeId(nodeId);
@@ -265,14 +296,37 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
       look.strokeBrightness,
       look.fontColor,
       look.fontBrightness,
+      look.inactiveFillColor,
+      look.inactiveFillBrightness,
+      look.activeFillColor,
+      look.activeFillBrightness,
+      look.inactiveTextColor,
+      look.inactiveTextBrightness,
+      look.activeTextColor,
+      look.activeTextBrightness,
+      look.previousColor,
+      look.previousBrightness,
+      look.previousFadeSeconds,
       look.cornerShape,
       look.cornerRadius,
       look.edgeSpacing,
       look.strokeThickness,
     ].join(":");
     const zoomQuant = zoom < 1 ? Math.ceil(dpr / zoomOut) : 1;
+    notePlayed(play);
+    const fadeMs = Math.max(0, Number(look.previousFadeSeconds) || 0) * 1000;
+    const now = performance.now();
+    let fading = false;
+    if (fadeMs > 0) {
+      for (const started of fadeAt.values()) {
+        if (now - started < fadeMs) {
+          fading = true;
+          break;
+        }
+      }
+    }
     const sig = `${bw}x${bh}:z${zoomQuant}:${play}:${projectOn ? 1 : 0}:${notes.join(",")}:${lookSig}`;
-    if (sig === lastSig && canvas.width === bw && canvas.height === bh) return;
+    if (!fading && sig === lastSig && canvas.width === bw && canvas.height === bh) return;
     lastSig = sig;
     if (canvas.width !== bw || canvas.height !== bh) {
       canvas.width = bw;
@@ -285,12 +339,17 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     layoutCache = true;
     ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, bw, bh);
-    const strokeCss = typeof nodeGraphArpKeysHueCss === "function"
-      ? nodeGraphArpKeysHueCss(look.strokeColor, look.strokeBrightness, 1, 165)
-      : look.strokeColor;
-    const fontCss = typeof nodeGraphArpKeysHueCss === "function"
-      ? nodeGraphArpKeysHueCss(look.fontColor, look.fontBrightness, 1, 165)
-      : look.fontColor;
+    const tone = (color, bright) => (
+      typeof nodeGraphArpKeysHueCss === "function"
+        ? nodeGraphArpKeysHueCss(color, bright, 1, 165)
+        : color
+    );
+    const strokeCss = tone(look.strokeColor, look.strokeBrightness);
+    const inactiveFillCss = tone(look.inactiveFillColor, look.inactiveFillBrightness);
+    const activeFillCss = tone(look.activeFillColor, look.activeFillBrightness);
+    const inactiveTextCss = tone(look.inactiveTextColor, look.inactiveTextBrightness);
+    const activeTextCss = tone(look.activeTextColor, look.activeTextBrightness);
+    const previousCss = tone(look.previousColor, look.previousBrightness);
     const faceMin = Math.min(bw, bh);
     const maxInset = Math.max(0, Math.floor(faceMin / 2));
     const inset = Math.round(look.edgeSpacing * maxInset);
@@ -348,8 +407,11 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     nodeGraphArpKeysAddCornerRectPath(ctx, x0, y0, innerW, innerH, radius, squircle);
     ctx.clip();
     for (let i = 0; i < n; i += 1) {
-      const on = play === notes[i];
-      ctx.fillStyle = on ? strokeCss : "#000000";
+      const midi = notes[i];
+      const on = play === midi;
+      ctx.fillStyle = on
+        ? activeFillCss
+        : fillAfterPlay(midi, now, fadeMs, previousCss, inactiveFillCss);
       ctx.fillRect(xs[i], y0, Math.max(0, xs[i + 1] - xs[i]), innerH);
     }
     const odd = (strokeDev & 1) === 1;
@@ -399,9 +461,7 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
         ? metrics.actualBoundingBoxDescent
         : fontPx * 0.16;
       const baseline = cellMidY + (ascent - descent) * 0.5;
-      ctx.fillStyle = on
-        ? (look.strokeBrightness >= 0.4 ? "#000000" : "#ffffff")
-        : fontCss;
+      ctx.fillStyle = on ? activeTextCss : inactiveTextCss;
       ctx.fillText(label, (xs[i] + xs[i + 1]) * 0.5, baseline, maxW);
     }
   }

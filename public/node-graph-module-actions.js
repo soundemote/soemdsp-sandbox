@@ -536,6 +536,8 @@ function showNodeGraphModule(node, point = null, options = {}) {
       newNode,
     ],
   };
+  // New module: Seed params come from (and advance) the patch master seed.
+  nodeGraphAssignFreshModuleSeeds(patch, newNode);
   // Fresh Metamodule shell on Root: seed Voice* + default Left/Right outs.
   if (
     typeof nodeGraphIsMetamoduleType === "function"
@@ -1314,6 +1316,8 @@ function copyNodeGraphModule(sourceNode) {
   if (typeof cloneNodeGraphTypedDisplaySettings === "function") {
     Object.assign(created, cloneNodeGraphTypedDisplaySettings(sourceNode));
   }
+  // Duplicate / paste rolls a new Seed (does not share the source's stream).
+  nodeGraphAssignFreshModuleSeeds(patch, created);
   patch.nodes.push(created);
   commitNodeGraphPatch(patch, { status: "module copied" });
   return id;
@@ -1371,6 +1375,12 @@ function applyNodeGraphModuleSettingsSnapshot(targetNode, snapshot) {
     gy: targetNode.gy,
     ...snapshot,
   });
+  // Pasted settings keep the target's own Seed (no master seed consumed).
+  for (const key of nodeGraphSeedParamKeysForType(targetNode.type)) {
+    if (merged.params && targetNode.params && Object.hasOwn(targetNode.params, key)) {
+      merged.params[key] = targetNode.params[key];
+    }
+  }
   for (const field of nodeGraphModuleSettingsFields) {
     if (Object.hasOwn(merged, field)) {
       targetNode[field] = merged[field];

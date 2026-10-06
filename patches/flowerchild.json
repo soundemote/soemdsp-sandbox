@@ -13,6 +13,7 @@
     "category": "",
     "description": ""
   },
+  "masterSeed": 3007551424,
   "view": {
     "zoom": 1.21885244205298,
     "locked": false,
@@ -156,6 +157,7 @@
         "mode": 1,
         "chaos": 0.2,
         "amplitude": 1,
+        "seed": 9147000,
         "frequency": 0.15,
         "resonance": 0.5
       },
@@ -747,6 +749,7 @@
       "alias": "Dual S&H",
       "params": {
         "threshold": 0,
+        "seed": 12669155,
         "interpolate": 0,
         "sampleFrequency": 0
       },

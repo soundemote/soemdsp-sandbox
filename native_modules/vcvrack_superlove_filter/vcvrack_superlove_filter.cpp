@@ -8,8 +8,20 @@
 // Sandbox ±1 in/out: input is multiplied by Drive (0…4). No Rack 5V conversion.
 
 #include "SuperLoveFilter.hpp"
+#include <soemdsp/math/seed.h>
 
 namespace {
+
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedNoise = 1u,  // noise stream (index = graph lane 0 Mono / 1 Left / 2 Right)
+};
+
+static unsigned int noise_rng_state(double seed, int lane) {
+  return soemdsp::math::seed_to_rng_state(soemdsp::math::seed_mix(
+    soemdsp::math::seed_param_u32(seed), kSeedNoise, (unsigned int)(lane < 0 ? 0 : lane)
+  ));
+}
 
 using fmd::super_love::Mode;
 using fmd::super_love::Voice;
@@ -37,7 +49,8 @@ static const char kMetadataJson[] =
 extern "C" int soemdsp_vcvrack_superlove_filter_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
-      gPool[i].voice.reset(0xA5F152F9u + (unsigned int)(i + 1) * 0x9E3779B9u);
+      // Seed 0 / lane 0 until the host's Seed arrives via _set_seed.
+      gPool[i].voice.reset(noise_rng_state(0.0, 0));
       gPool[i].active = true;
       return i + 1;
     }
@@ -48,6 +61,13 @@ extern "C" int soemdsp_vcvrack_superlove_filter_create() {
 extern "C" void soemdsp_vcvrack_superlove_filter_destroy(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   gPool[handle - 1].active = false;
+}
+
+// Noise stream from the module Seed only; `lane` (0 Mono / 1 Left / 2 Right)
+// keeps the graph's three cores independent. Filter state is untouched.
+extern "C" void soemdsp_vcvrack_superlove_filter_set_seed(int handle, double seed, int lane) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  gPool[handle - 1].voice.rngState = noise_rng_state(seed, lane);
 }
 
 extern "C" double soemdsp_vcvrack_superlove_filter_sample(

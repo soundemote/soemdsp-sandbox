@@ -34,6 +34,7 @@ struct State {
   int inertia;
   int clocksSinceRestart;
   unsigned int rngState;
+  unsigned int seed; // module Seed currently applied to rngState
   double lastMidi;
   double lastGate;
   double lastTrigger;
@@ -56,13 +57,14 @@ static double next_unit(unsigned int& state) {
   return (double)xorshift32(state) / 4294967295.0;
 }
 
-static unsigned int seed_u32(double seed) {
-  double s = safe(seed);
-  if (!(s * 0.0 == 0.0)) s = 1.0;
-  if (s < 0.0) s = 0.0;
-  if (s > 2147483647.0) s = 2147483647.0;
-  unsigned int u = (unsigned int)(s + 0.5);
-  return u ? u : 1u;
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedWalk = 1u,  // gravity / leap / inertia decisions
+};
+
+// xorshift32 state for the walk of the given Seed (Seed 0 is valid).
+static unsigned int walk_rng_state(unsigned int seed) {
+  return seed_to_rng_state(seed_mix(seed, kSeedWalk));
 }
 
 static int clamp_int(double v, int lo, int hi) {
@@ -209,27 +211,6 @@ static void fold_palindrome(int* notes, int* countInOut) {
   *countInOut = n + extra;
 }
 
-// Scale Offset voicing rotate (do NOT re-sort — order is the voicing).
-// +1: remove lowest, append (lowest+12) clamped  [C1 D1 E1 -> D1 E1 C2]
-// -1: remove highest, prepend (highest-12) clamped
-static void apply_scale_offset(int* notes, int count, int offset) {
-  if (count <= 0 || offset == 0) return;
-  int times = offset > 0 ? offset : -offset;
-  if (times > 64) times = 64;
-  for (int t = 0; t < times; t++) {
-    if (offset > 0) {
-      int lowest = notes[0];
-      for (int i = 0; i < count - 1; i++) notes[i] = notes[i + 1];
-      notes[count - 1] = clamp_midi(lowest + 12);
-    } else {
-      int highest = notes[count - 1];
-      for (int i = count - 1; i > 0; i--) notes[i] = notes[i - 1];
-      notes[0] = clamp_midi(highest - 12);
-    }
-  }
-}
-
-
 static int clamp_pattern_offset(double v) {
   int o = (int)(safe(v) + (safe(v) >= 0.0 ? 0.5 : -0.5));
   if (o < 0) o = 0;
@@ -247,12 +228,11 @@ static int wrapped_play_index(const State& s, int patternOffset) {
   return i;
 }
 
-static void rebuild_pool(State& s, int octaves, int scaleOffset) {
+static void rebuild_pool(State& s, int octaves) {
   int held[kKeyCount];
   int heldCount = 0;
   collect_held(s, held, &heldCount);
   expand_octaves(held, heldCount, octaves, s.pool, &s.poolCount);
-  apply_scale_offset(s.pool, s.poolCount, scaleOffset);
   fold_palindrome(s.pool, &s.poolCount);
   if (s.poolCount <= 0) {
     s.degree = 0;
@@ -265,7 +245,8 @@ static void rebuild_pool(State& s, int octaves, int scaleOffset) {
 static void restart_walk(State& s, unsigned int seed) {
   s.degree = 0;
   s.inertia = 1;
-  s.rngState = seed;
+  s.seed = seed;
+  s.rngState = walk_rng_state(seed);
   s.clocksSinceRestart = 0;
 }
 
@@ -297,7 +278,7 @@ static void walk_step(State& s, double gravity, double leapProb) {
 
 }  // namespace
 
-extern "C" int soemdsp_gravity_walker_create(unsigned int entropySeed) {
+extern "C" int soemdsp_gravity_walker_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       State& s = gPool[i];
@@ -311,7 +292,8 @@ extern "C" int soemdsp_gravity_walker_create(unsigned int entropySeed) {
       s.degree = 0;
       s.inertia = 1;
       s.clocksSinceRestart = 0;
-      s.rngState = entropySeed ? entropySeed : 1u;
+      s.seed = 0u;  // host Seed applied on first sample (re-seeds on change)
+      s.rngState = walk_rng_state(0u);
       s.lastMidi = 60.0;
       s.lastGate = 0.0;
       s.lastTrigger = 0.0;
@@ -367,7 +349,6 @@ extern "C" double soemdsp_gravity_walker_sample(
   double octavesIn,
   double stepsIn,
   double seedIn,
-  double scaleOffsetIn,
   double patternOffsetIn,
   double keysIn,
   double hasKeys
@@ -379,15 +360,19 @@ extern "C" double soemdsp_gravity_walker_sample(
   const double gravity = clamp(safe(gravityIn), 0.0, 1.0);
   const int oct = clamp_int(octavesIn, 0, 4);
   const int steps = clamp_int(stepsIn, 0, 128);
-  const unsigned int seed = seed_u32(seedIn);
-  const int scaleOffset = clamp_int(scaleOffsetIn, -24, 24);
+  const unsigned int seed = seed_param_u32(seedIn);
+  if (seed != s.seed) {
+    // Seed changed (or first Seed after create): restart the random stream.
+    s.seed = seed;
+    s.rngState = walk_rng_state(seed);
+  }
   const int patternOffset = clamp_pattern_offset(patternOffsetIn);
 
   const bool hostEmpty = s.heldC0 == 0.0 && s.heldC1 == 0.0 && s.heldC2 == 0.0;
   if (safe(hasKeys) > 0.5 && (!s.hostMask || hostEmpty)) {
     demux_held_keys(s, keysIn);
   }
-  rebuild_pool(s, oct, scaleOffset);
+  rebuild_pool(s, oct);
 
   const bool resetHigh = safe(reset) > 0.0;
   if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {

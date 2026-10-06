@@ -11,7 +11,7 @@ const patchPath = path.join(
   root,
   "patches",
   "modulator_breadboards",
-  "pluck envelope.json",
+  "pluck_envelope.json",
 );
 const helperPath = path.join(root, "public", "modules", "portal", "portal-named.js");
 

@@ -30,9 +30,20 @@ struct FilterMorphState {
   double ditherOffset;
   int ditherWasOn;
   unsigned int rng;
+  unsigned int seed;  // module Seed (seed_param_u32)
 };
 
 static FilterMorphState gPool[kMaxInstances];
+
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedDither = 1u,  // Robin cycle dither stream
+};
+
+// Dither stream from the module Seed only (create, Reset, Seed change).
+static unsigned int dither_rng_from_seed(unsigned int seed) {
+  return seed_to_rng_state(seed_mix(seed, kSeedDither));
+}
 
 static double wrap01_phase(double x) {
   return wrap01(x);
@@ -275,8 +286,9 @@ extern "C" int soemdsp_filter_morph_oscillator_create() {
       s.lastReset = 0.0;
       s.ditherOffset = 0.0;
       s.ditherWasOn = 0;
-      s.rng = 0xA341316Cu + (unsigned int)(i + 1) * 2654435761u;
-      if (!s.rng) s.rng = 1u;
+      // Seed 0 until the host's Seed arrives via soemdsp_filter_morph_oscillator_set_seed.
+      s.seed = 0u;
+      s.rng = dither_rng_from_seed(0u);
       s.active = true;
       return i + 1;
     }
@@ -297,7 +309,17 @@ extern "C" void soemdsp_filter_morph_oscillator_reset(int handle, double phaseOf
   s.phase = 0.0;
   s.ditherOffset = 0.0;
   s.ditherWasOn = 0;
+  s.rng = dither_rng_from_seed(s.seed);
   clear_lp(s);
+}
+
+// Seed change (or first Seed after create): restart the dither stream from it.
+extern "C" void soemdsp_filter_morph_oscillator_set_seed(int handle, double seed) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  FilterMorphState& s = gPool[handle - 1];
+  if (!s.active) return;
+  s.seed = seed_param_u32(seed);
+  s.rng = dither_rng_from_seed(s.seed);
 }
 
 extern "C" double soemdsp_filter_morph_oscillator_sample(

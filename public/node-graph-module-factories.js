@@ -859,6 +859,11 @@ function createNodeGraphParameter(node, type, parameter) {
     row.classList.add("node-parameter-row-hidden");
   }
   row.dataset.param = parameter.key;
+  if (String(parameter?.kind || "") === "seed") {
+    // Styling hook for RNG Seed controls (visual design TBD).
+    row.classList.add("node-parameter-row-seed");
+    row.dataset.paramKind = "seed";
+  }
   // Jacks follow explicit parameterOutput / modulation flags, not visibility.
   // Hidden rows keep their jacks in the DOM so showing a param remounts nothing.
   const showModPort = parameter?.modulation !== false;

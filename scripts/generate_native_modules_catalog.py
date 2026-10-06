@@ -1,6 +1,6 @@
 """Regenerate public/native-modules-catalog.json — a static fallback for the
 "/api/native-modules" endpoint, used when the sandbox runs without server.py
-behind it (e.g. embedded as a static export on soundemote-site). Mirrors the
+behind it (e.g. embedded as a static export on soundemote-io). Mirrors the
 scan logic in server.py's native_module_entry_from_source/serve_native_modules
 exactly; wasmUrl is a relative path so it resolves correctly regardless of
 what subdirectory the sandbox is mounted under.

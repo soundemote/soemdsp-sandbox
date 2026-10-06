@@ -35,6 +35,7 @@ struct ChorusState {
   double lpL;
   double lpR;
   double lastSeed;
+  unsigned int seedU;  // Seed param as uint32 (0 valid); Reset reseeds from this
   int lastN;
   double lastDelay01[kMaxVoices];
   double lastPan[kMaxVoices];
@@ -49,6 +50,13 @@ static const char kMetadataJson[] =
     "\"targetType\":\"chorus\","
     "\"kind\":\"effect\""
   "}";
+
+// Fixed Seed part ids (append only; never renumber).
+static const unsigned int kSeedVoiceLfo = 1u;  // voice n LFO = seed_mix(Seed, kSeedVoiceLfo, n)
+
+static inline unsigned int voice_seed(unsigned int seedU, int voice) {
+  return soemdsp::math::seed_mix(seedU, kSeedVoiceLfo, (unsigned int)voice);
+}
 
 static void clear_voice(Voice& v, unsigned int seed) {
   for (int i = 0; i < kMaxDelaySamples; i += 1) v.buffer[i] = 0.0f;
@@ -90,9 +98,10 @@ extern "C" int soemdsp_chorus_create() {
       s.lpL = 0.0;
       s.lpR = 0.0;
       s.lastSeed = -1.0;
+      s.seedU = 0u;
       s.lastN = 0;
       for (int v = 0; v < kMaxVoices; v += 1) {
-        clear_voice(s.voices[v], (unsigned int)(v + 1));
+        clear_voice(s.voices[v], voice_seed(0u, v));
         s.lastDelay01[v] = 0.5;
         s.lastPan[v] = 0.5;
       }
@@ -112,13 +121,9 @@ extern "C" void soemdsp_chorus_reset(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   ChorusState& s = gPool[handle - 1];
   if (!s.active) return;
-  unsigned int base = (unsigned int)(s.lastSeed < 1.0 ? 1.0 : s.lastSeed);
-  if (base == 0u) base = 1u;
   for (int v = 0; v < kMaxVoices; v += 1) {
     Voice& voice = s.voices[v];
-    unsigned int sd = base + (unsigned int)v;
-    if (sd == 0u) sd = 1u;
-    vibrato_gen_seed(voice.gen, sd);
+    vibrato_gen_seed(voice.gen, voice_seed(s.seedU, v));
     vibrato_gen_reset(voice.gen, 0.0);
     voice.phaseTurns = 0.0;
     voice.lastSine = 0.0;
@@ -169,10 +174,9 @@ extern "C" void soemdsp_chorus_sample(
 
   const double seed = safe(seedParam);
   if (!(seed == st.lastSeed)) {
+    st.seedU = soemdsp::math::seed_param_u32(seed);
     for (int v = 0; v < kMaxVoices; v += 1) {
-      unsigned int sd = (unsigned int)(seed < 1.0 ? 1.0 : seed) + (unsigned int)v;
-      if (sd == 0u) sd = 1u;
-      vibrato_gen_seed(st.voices[v].gen, sd);
+      vibrato_gen_seed(st.voices[v].gen, voice_seed(st.seedU, v));
     }
     st.lastSeed = seed;
   }
@@ -284,7 +288,7 @@ extern "C" double soemdsp_chorus_voice_pan(int handle, int index) {
 }
 
 extern "C" int soemdsp_chorus_version() {
-  return 8;
+  return 9;
 }
 
 extern "C" const char* soemdsp_chorus_metadata_json() {

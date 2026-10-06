@@ -9,7 +9,7 @@ setlocal enabledelayedexpansion
 :: fresh-restart flow) and start_sandbox.ps1.
 :: See start_sandbox_release.cmd for the release counterpart, which also
 :: rebuilds native modules, runs the smoke test, and refreshes the copy
-:: embedded in soundemote-site.
+:: embedded in soundemote-io.
 
 set "REPO=%~dp0"
 cd /d "%REPO%"

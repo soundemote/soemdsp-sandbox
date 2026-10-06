@@ -55,7 +55,7 @@ async function bindNodeGraphMvpEvents() {
     // Module drag / slider handlers call preventDefault on pointerdown, which
     // blocks the browser's normal "click outside blurs input" behavior — so
     // "Search modules" stayed focused and ate Shift+arrows / Delete / hotkeys.
-    // Also claim window focus for iframe embeds (soundemote-site sandbox).
+    // Also claim window focus for iframe embeds (soundemote-io sandbox).
     document.addEventListener(
       "pointerdown",
       (event) => {

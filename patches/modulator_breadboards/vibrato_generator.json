@@ -96,6 +96,7 @@
     "program": 0,
     "tags": "filter,ladder,self-osc,breadboard"
   },
+  "masterSeed": 3297079700,
   "modularOnlyControlsVisible": false,
   "modulations": [
     {

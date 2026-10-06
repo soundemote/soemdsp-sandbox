@@ -47,14 +47,14 @@ const CEG = 2 ** 24 + 2 ** 28 + 2 ** 31; // C0 E0 G0
   const h = create(1) | 0;
   if (h <= 0) throw new Error("gw create");
   setChunks(h, CEG, 0, 0);
-  // clock rise: sample(handle, clock, reset, gravity, leap, oct, steps, seed, scaleOff, patternOff, keys, hasKeys)
-  sample(h, 0, 0, 0.65, 0.15, 0, 0, 1, 0, 0, 0, 0);
-  sample(h, 1, 0, 0.65, 0.15, 0, 0, 1, 0, 0, 0, 0);
+  // clock rise: sample(handle, clock, reset, gravity, leap, oct, steps, seed, patternOff, keys, hasKeys)
+  sample(h, 0, 0, 0.65, 0.15, 0, 0, 1, 0, 0, 0);
+  sample(h, 1, 0, 0.65, 0.15, 0, 0, 1, 0, 0, 0);
   setOver(h, 28);
-  const pitch = sample(h, 0, 0, 0.65, 0.15, 0, 0, 1, 0, 0, 0, 0);
+  const pitch = sample(h, 0, 0, 0.65, 0.15, 0, 0, 1, 0, 0, 0);
   // musical_pitch_from_midi(28) — pitch CV; just assert it moved with override
   setOver(h, 31);
-  const pitch2 = sample(h, 0, 0, 0.65, 0.15, 0, 0, 1, 0, 0, 0, 0);
+  const pitch2 = sample(h, 0, 0, 0.65, 0.15, 0, 0, 1, 0, 0, 0);
   if (!(Math.abs(pitch2 - pitch) > 1e-6)) {
     throw new Error(`gw override pitch unchanged (${pitch} -> ${pitch2})`);
   }

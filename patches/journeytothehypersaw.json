@@ -192,6 +192,7 @@
     "program": 0,
     "tags": "init,default"
   },
+  "masterSeed": 3536123039,
   "modularOnlyControlsVisible": true,
   "modulations": [
     {
@@ -3736,7 +3737,8 @@
         "feedback": 0.6891493597670748,
         "saturate": 1.765211179219591,
         "mix": 0,
-        "amplitude": 0.582286388361217
+        "amplitude": 0.582286388361217,
+        "seed": 11607620
       },
       "type": "pingPongDelay",
       "alias": "Tape📼Delay",

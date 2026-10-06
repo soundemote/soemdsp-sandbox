@@ -6,6 +6,7 @@
 #include <soemdsp/math/analog_filter_trig.h>
 #include <soemdsp/math/phasor.h>
 #include <soemdsp/math/scalar_helpers.h>
+#include <soemdsp/math/seed.h>
 
 namespace soemdsp_vibrato {
 
@@ -29,8 +30,10 @@ static inline double vib_random_bipolar(unsigned int& state) {
   return (static_cast<double>(vib_xorshift(state) >> 8) * (1.0 / 16777216.0)) * 2.0 - 1.0;
 }
 
+// seed: any uint32, 0 included (callers pass seed_mix(Seed, part, voice)).
+// Hashed to a nonzero xorshift32 state, so 0 and 1 are distinct streams.
 static inline void vibrato_gen_seed(VibratoGenState& s, unsigned int seed) {
-  s.rng = seed ? seed : 1u;
+  s.rng = soemdsp::math::seed_to_rng_state(seed);
   s.heldFreq = 0.0;
   s.heldAmp = 0.0;
   s.targetFreq = 0.0;

@@ -124,6 +124,7 @@
     "program": 0,
     "tags": "circle"
   },
+  "masterSeed": 406245453,
   "modularOnlyControlsVisible": false,
   "modulations": [
     {
@@ -1887,7 +1888,8 @@
         "feedback": 0.4746092904560073,
         "saturate": 0.13807905932666004,
         "mix": 0.5785159974507008,
-        "amplitude": 1
+        "amplitude": 1,
+        "seed": 11607620
       },
       "type": "pingPongDelay",
       "widthGu": 7,

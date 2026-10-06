@@ -1,5 +1,7 @@
 // UI/host numeric helpers (app-wide). NOT a twin of C++ soemdsp::math.
 // NOT audio DSP kernels -- knobs, display settings, normalize/migrate only.
+// Exception: seedMix / seedToRngState are bit-identical twins of
+// library/include/soemdsp/math/seed.h (seed distribution only, no audio).
 //
 // Load style matches phosphor-residual: IIFE -> globalThis.SoemMath.
 //
@@ -110,7 +112,43 @@
     return 20 * Math.log10(x);
   }
 
+  // Seed params are integers 0..SEED_MAX. Float32 paths (param domains,
+  // yellow stages) are exact up to 2^24, so the Seed range stops there.
+  const SEED_MAX = 16777215;
+
+  /** MurmurHash3 fmix32. Twin of soemdsp::math::seed_avalanche. */
+  function seedAvalanche(value) {
+    let x = value >>> 0;
+    x = (x ^ (x >>> 16)) >>> 0;
+    x = Math.imul(x, 0x85EBCA6B) >>> 0;
+    x = (x ^ (x >>> 13)) >>> 0;
+    x = Math.imul(x, 0xC2B2AE35) >>> 0;
+    x = (x ^ (x >>> 16)) >>> 0;
+    return x;
+  }
+
+  /**
+   * Twin of soemdsp::math::seed_mix(seed, component, index = 0).
+   * uint32 in, uint32 out. Seed 0 is a real seed.
+   */
+  function seedMix(seed, component, index = 0) {
+    let h = seedAvalanche(((seed >>> 0) + 0x9E3779B9) >>> 0);
+    h = seedAvalanche((h ^ ((Math.imul(component >>> 0, 0x27D4EB2F) + 0x165667B1) >>> 0)) >>> 0);
+    h = seedAvalanche((h ^ ((Math.imul(index >>> 0, 0x85EBCA77) + 0xC2B2AE3D) >>> 0)) >>> 0);
+    return h >>> 0;
+  }
+
+  /** Twin of soemdsp::math::seed_to_rng_state: never 0 (xorshift32-safe). */
+  function seedToRngState(s) {
+    const h = seedAvalanche(((s >>> 0) ^ 0x5EED5EED) >>> 0);
+    return h !== 0 ? h : 0x6D2B79F5;
+  }
+
   global.SoemMath = {
+    SEED_MAX,
+    seedAvalanche,
+    seedMix,
+    seedToRngState,
     finiteOr,
     defaultIfZero,
     defaultIfNearZero,

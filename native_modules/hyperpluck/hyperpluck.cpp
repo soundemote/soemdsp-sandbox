@@ -6,8 +6,8 @@
 //
 // PolyBLEP unison bank. Detune is Hz offset (ƒ + Δf), not cents. Algorithm
 // layouts map into ±Detune/2 Hz. Circular phase layout (Linear / Exponential /
-// Random) scaled by Phase Multiply. Reset zeros every phasor and re-rolls
-// Random. Fractional voices like Hypersaw. Hard voice cap 128; UI ≤32.
+// Random) scaled by Phase Multiply. Reset zeros every phasor and restarts
+// Random from the module Seed (seed_mix; no slot index). Fractional voices like Hypersaw. Hard voice cap 128; UI ≤32.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -398,9 +398,23 @@ struct HyperpluckState {
   int layoutAlgo;
   int layoutCount;
   unsigned int rng;
+  unsigned int seed;  // module Seed (seed_param_u32)
 };
 
 static HyperpluckState gPool[kMaxInstances];
+
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedPhaseLayout = 1u,  // Random phase layout stream
+};
+
+// Restart the Random layout stream from Seed and force a fresh layout.
+// Create, Reset and Seed change all land here (same Seed -> same layout).
+void restartFromSeed(HyperpluckState& s) {
+  s.rng = seed_to_rng_state(seed_mix(s.seed, kSeedPhaseLayout));
+  s.layoutAlgo = -1;
+  s.layoutCount = 0;
+}
 
 void resetPhases(HyperpluckState& s) {
   for (int v = 0; v < kMaxVoices; v++) {
@@ -460,9 +474,9 @@ extern "C" int soemdsp_hyperpluck_create() {
       resetPhases(gPool[i]);
       gPool[i].publishCount = 0;
       gPool[i].lastReset = 0.0;
-      gPool[i].layoutAlgo = -1;
-      gPool[i].layoutCount = 0;
-      gPool[i].rng = 0xC0FFEE00u ^ (static_cast<unsigned int>(i + 1) * 0x9E3779B9u);
+      // Seed 0 until the host's Seed arrives via soemdsp_hyperpluck_set_seed.
+      gPool[i].seed = 0u;
+      restartFromSeed(gPool[i]);
       return i + 1;
     }
   }
@@ -477,6 +491,15 @@ extern "C" void soemdsp_hyperpluck_destroy(int handle) {
 extern "C" void soemdsp_hyperpluck_reset(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   resetPhases(gPool[handle - 1]);
+  restartFromSeed(gPool[handle - 1]);
+}
+
+// Seed change (or first Seed after create): store and restart from it.
+extern "C" void soemdsp_hyperpluck_set_seed(int handle, double seed) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  HyperpluckState& s = gPool[handle - 1];
+  s.seed = seed_param_u32(seed);
+  restartFromSeed(s);
 }
 
 extern "C" void soemdsp_hyperpluck_process_block(
@@ -526,7 +549,10 @@ extern "C" void soemdsp_hyperpluck_process_block(
 
   const double reset = safe(resetGate);
   const bool didReset = gate_hit(reset, &s.lastReset);
-  if (didReset) resetPhases(s);
+  if (didReset) {
+    resetPhases(s);
+    restartFromSeed(s);
+  }
   s.lastReset = reset;
 
   double hzOff[kMaxVoices];

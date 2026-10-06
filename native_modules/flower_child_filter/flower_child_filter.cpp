@@ -200,6 +200,11 @@ struct FlowerChildState {
 
 static FlowerChildState gPool[kMaxInstances];
 
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedNoise = 1u,  // chaos noise stream (index = graph lane 0 Mono / 1 Left / 2 Right)
+};
+
 }  // namespace
 
 extern "C" int soemdsp_flower_child_filter_create() {
@@ -211,7 +216,8 @@ extern "C" int soemdsp_flower_child_filter_create() {
       s.stage1.y1 = 0.0;
       s.stage2.y1 = 0.0;
       s.selfMod = 0.0;
-      s.rngState = 0x9E3779B9u + (unsigned int)(i + 1) * 2654435761u;
+      // Seed 0 / lane 0 until the host's Seed arrives via _set_seed.
+      s.rngState = seed_to_rng_state(seed_mix(0u, kSeedNoise, 0u));
       s.rev3Feedback = 0.0;
       s.rev3Lpf1Y1 = 0.0;
       s.rev3Lpf2Y1 = 0.0;
@@ -227,6 +233,16 @@ extern "C" int soemdsp_flower_child_filter_create() {
 extern "C" void soemdsp_flower_child_filter_destroy(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   gPool[handle - 1].active = false;
+}
+
+// Noise stream from the module Seed only. The graph runs up to three cores
+// per node (Mono / Left / Right); `lane` keeps their streams independent:
+// state = seed_to_rng_state(seed_mix(Seed, kSeedNoise, lane)).
+extern "C" void soemdsp_flower_child_filter_set_seed(int handle, double seed, int lane) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  gPool[handle - 1].rngState = seed_to_rng_state(
+    seed_mix(seed_param_u32(seed), kSeedNoise, (unsigned int)(lane < 0 ? 0 : lane))
+  );
 }
 
 extern "C" double soemdsp_flower_child_filter_sample(

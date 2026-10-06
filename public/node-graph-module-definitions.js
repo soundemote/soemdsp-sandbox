@@ -1283,6 +1283,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         modClamp: false
       },
+      { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Dither / noise seed. Same Seed = same noise outputs." },
     ]
   },
   aliasSine: {
@@ -1406,7 +1407,8 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         modClamp: false,
         tooltip: "Linear output level 0…1 (guides only; MOD may exceed)."
-      }
+      },
+      { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Dither noise seed. Same Seed = same output; new modules get their own." },
 
     ]
   },
@@ -2070,7 +2072,7 @@ const nodeGraphModuleDefinitions = (
         key: "seed",
         maxDigits: 0,
         label: "Seed",
-        max: "99999",
+        max: "16777215",
         mid: "1",
         min: "0",
         step: "1",
@@ -2123,7 +2125,7 @@ const nodeGraphModuleDefinitions = (
         key: "seed",
         maxDigits: 0,
         label: "Seed",
-        max: "99999",
+        max: "16777215",
         mid: "1",
         min: "0",
         step: "1",
@@ -2191,7 +2193,7 @@ const nodeGraphModuleDefinitions = (
         label: "Seed",
         linearSmoothing: false,
         smoothingType: "none",
-        max: "99999",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -2256,7 +2258,7 @@ const nodeGraphModuleDefinitions = (
         label: "Seed",
         linearSmoothing: false,
         smoothingType: "none",
-        max: "99999",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -2423,7 +2425,7 @@ const nodeGraphModuleDefinitions = (
         label: "Seed",
         linearSmoothing: false,
         smoothingType: "none",
-        max: "99999",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -2488,7 +2490,7 @@ const nodeGraphModuleDefinitions = (
         label: "Seed",
         linearSmoothing: false,
         smoothingType: "none",
-        max: "99999",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -2544,7 +2546,7 @@ const nodeGraphModuleDefinitions = (
         label: "Seed",
         linearSmoothing: false,
         smoothingType: "none",
-        max: "99999",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -2965,6 +2967,7 @@ const nodeGraphModuleDefinitions = (
         step: "1",
         tooltip: "Rational = one-sided skirt bend. Bipolar Rational = S-curve around the cutoff.",
       },
+      { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Random phase seed for newly added partials (Phase Entry = Random)." },
     ] },
   // RoundShape — sine→square modulator (getSineToSquare). Separate from full Ellipsoid osc.
   // Face: cheap static orbit outline (filter-curve family), not phosphor trace.
@@ -3435,6 +3438,7 @@ const nodeGraphModuleDefinitions = (
       { key: "hitPhase", label: "Phase Hit", defaultValue: "0", min: "-3.141592653589793", mid: "0", max: "3.141592653589793", step: "any" },
       { key: "impulseLevel", label: "Impulse", defaultValue: "0", min: "0", mid: "0.25", max: "1", step: "any" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "any" , modClamp: false },
+      { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Impulse noise seed. Same Seed = same hits." },
     ]
   },
   henonMap: {
@@ -3775,6 +3779,7 @@ const nodeGraphModuleDefinitions = (
       { key: "octaves", label: "Octaves", defaultValue: "3", min: "1", mid: "3", max: "8", nonlinearSlider: false, step: "1", tooltip: "How many octaves Scale out sends, from C3 + Octave Offset." },
       { key: "octaveOffset", label: "Octave Offset", defaultValue: "0", min: "-4", mid: "0", max: "4", nonlinearSlider: false, step: "1", unit: "oct", tooltip: "0 = C3 (MIDI 60) for Scale out." },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
+      { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Flip RNG seed. Reset restarts the sequence from this Seed." },
     ]
   },
   pitchQuantizer: {
@@ -3881,6 +3886,7 @@ const nodeGraphModuleDefinitions = (
         step: "1",
         tooltip: "Used when Scale jack is empty."
       },
+      { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Flip RNG seed. Reset restarts the sequence from this Seed." },
     ]
   },
   gravityWalker: {
@@ -3913,16 +3919,15 @@ const nodeGraphModuleDefinitions = (
     parameters: [
       { key: "gravity", label: "Gravity", defaultValue: "0.65", min: "0", mid: "0.5", max: "1", step: "0.01", tooltip: "Stickiness of step direction (higher = more inertia)." },
       { key: "leap", label: "Leap", defaultValue: "0.15", min: "0", mid: "0.25", max: "1", step: "0.01", tooltip: "Chance of a larger jump over the bounce pool (held notes forward then reverse, e.g. C3 G3 C4 G3)." },
-      { key: "octaves", label: "Octaves", defaultValue: "0", min: "0", mid: "1", max: "4", nonlinearSlider: false, step: "1", tooltip: "Expand held Keys across +N octaves before Scale Offset. Walk pool is then a palindrome (C D E F G F E D) so the high edge neighbors G, not C. 0 = held notes only." },
-      { key: "scaleOffset", label: "Scale Offset", defaultValue: "0", min: "-24", mid: "0", max: "24", nonlinearSlider: false, step: "1", tooltip: "Voicing rotate of the expanded note pool. +1 removes lowest and appends lowest+12." },
-      { key: "patternOffset", label: "Pattern Offset", defaultValue: "0", min: "0", mid: "0", max: "127", nonlinearSlider: false, step: "1", tooltip: "Arp-style sequence/phase offset: heard pool index = (walkIndex + Pattern Offset) % pool. Walk cursor and RNG unchanged. Distinct from Scale Offset (voicing rotate of the note set)." },
+      { key: "octaves", label: "Octaves", defaultValue: "0", min: "0", mid: "1", max: "4", nonlinearSlider: false, step: "1", tooltip: "Expand held Keys across +N octaves. Walk pool is then a palindrome (C D E F G F E D) so the high edge neighbors G, not C. 0 = held notes only." },
+      { key: "patternOffset", label: "Pattern Offset", defaultValue: "0", min: "0", mid: "0", max: "127", nonlinearSlider: false, step: "1", tooltip: "Heard pool index = (walkIndex + Pattern Offset) % pool. Walk cursor and RNG stay put." },
       { key: "steps", label: "Steps", defaultValue: "0", min: "0", mid: "8", max: "128", nonlinearSlider: false, step: "1", tooltip: "Clocks before pattern restart from Seed. 0 = never auto-restart (Reset only)." },
       {
         defaultValue: "1",
         key: "seed",
         kind: "seed",
         label: "Seed",
-        max: "2147483647",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -3984,6 +3989,7 @@ const nodeGraphModuleDefinitions = (
       { key: "rest6", label: "Rest 6", defaultValue: "0", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
       { key: "rest7", label: "Rest 7", defaultValue: "1", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
       { key: "rest8", label: "Rest 8", defaultValue: "0", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
+      { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Mutate RNG seed. Reset restarts the phrase from this Seed." },
     ]
   },
   // Manual diatonic chord picker. Scale → Pitch Quantizer; Root → bass/voice.
@@ -4290,6 +4296,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         modClamp: false,
         tooltip: "Output level. Slider 0…1 = full-scale bipolar wave." },
+        { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Dither noise seed. Same Seed = same output; new modules get their own." },
     ] },
   // Live antialiased cousin of Wavetable2D rectified-sine + rational phasewarp.
   sineWarp: {
@@ -4887,6 +4894,7 @@ const nodeGraphModuleDefinitions = (
         step: "1",
         tooltip: "Fixed = ±step each tick. Random = bipolar random step (Hypersaw Random Steps). Same mode for every saw." },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
+      { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Random phase / jitter seed. Same Seed = same voices." },
     ]
   },
   hyperpluck: {
@@ -5011,6 +5019,7 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Scales the phase layout. 0 = all voices aligned. 1 = algorithm as written. 2 = twice the offsets, wrapped. Envelope this to open dispersion after attack.",
       },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
+      { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Random phase layout seed. Same Seed = same layout." },
     ]
   },
   hypersaw2: {
@@ -5280,7 +5289,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         min: "0",
         mid: "1",
-        max: "99999",
+        max: "16777215",
         step: "1",
         maxDigits: 0,
         nonlinearSlider: true,
@@ -5394,7 +5403,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         min: "0",
         mid: "1",
-        max: "99999",
+        max: "16777215",
         step: "1",
         maxDigits: 0,
         linearSmoothing: false,
@@ -5573,7 +5582,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         min: "0",
         mid: "1",
-        max: "99999",
+        max: "16777215",
         step: "1",
         maxDigits: 0,
         linearSmoothing: false,
@@ -5731,10 +5740,10 @@ const nodeGraphModuleDefinitions = (
       },
       {
         defaultValue: "1",
-        key: "seed",
+        key: "seed", kind: "seed",
         label: "Seed",
         linearSmoothing: false,
-        max: "99999",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -5794,12 +5803,12 @@ const nodeGraphModuleDefinitions = (
         modClamp: false },
       {
         defaultValue: "1",
-        key: "seed",
+        key: "seed", kind: "seed",
         maxDigits: 0,
         label: "Seed",
-        max: "2147483647",
+        max: "16777215",
         mid: "1",
-        min: "1",
+        min: "0",
         step: "1",
         linearSmoothing: false },
     ] },
@@ -5860,10 +5869,10 @@ const nodeGraphModuleDefinitions = (
       },
       {
         defaultValue: "1",
-        key: "seed",
+        key: "seed", kind: "seed",
         label: "Seed",
         linearSmoothing: false,
-        max: "99999",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -6044,10 +6053,10 @@ const nodeGraphModuleDefinitions = (
       },
       {
         defaultValue: "1",
-        key: "seed",
+        key: "seed", kind: "seed",
         label: "Seed",
         linearSmoothing: false,
-        max: "99999",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -6314,7 +6323,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.5", key: "duty", label: "Duty", max: "1", mid: "0.5", min: "0", nonlinearSlider: true, sliderCurve: "edges", curveAmount: "0.3", step: "any" },
       { defaultValue: "0.01", key: "triggerTime", kind: "time", label: "Trigger", max: "1", maxDigits: 5, mid: "0.01", min: "0", step: "any", unit: "s", tooltip: "How long the Trigger output stays high. Gate length is Duty × this interval." },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "1", key: "seed", label: "Seed", linearSmoothing: false, max: "99999", maxDigits: 0, mid: "1", min: "0", nonlinearSlider: false, step: "1" },
+      { defaultValue: "1", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "1", min: "0", nonlinearSlider: false, step: "1" },
       { defaultValue: "0", key: "threshold", label: "Reset Threshold", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any", tooltip: "Reset input rising-edge trip. When Reset crosses above this, a new interval is drawn and Trigger fires." },
     ]
   },
@@ -6552,10 +6561,10 @@ const nodeGraphModuleDefinitions = (
       },
       {
         defaultValue: "1",
-        key: "seed",
+        key: "seed", kind: "seed",
         label: "Seed",
         linearSmoothing: false,
-        max: "99999",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -9653,7 +9662,7 @@ const nodeGraphModuleDefinitions = (
         kind: "seed",
         label: "Seed",
         linearSmoothing: false,
-        max: "99999",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -10918,7 +10927,7 @@ const nodeGraphModuleDefinitions = (
         label: "Seed",
         linearSmoothing: false,
         smoothingType: "none",
-        max: "2147483647",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -11160,6 +11169,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.5", key: "chaos", label: "Chaos", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
         nodeGraphOutputAmplitudeParam,
+        { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Chaos noise seed. Same Seed = same output; new modules get their own." },
     ]
   },
   // Superlove Filter Rev2: LP18/LP24 Softwave-Tri breadboard; HP6/BP6 = Rev1 HP/BP.
@@ -11233,6 +11243,7 @@ const nodeGraphModuleDefinitions = (
         tooltip:
           "Bipolar white 0…1 (true amplitude). LP: added into Softwave Phase. HP/BP: added into the feedback summer." },
         nodeGraphOutputAmplitudeParam,
+        { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Noise seed. Same Seed = same output; new modules get their own." },
     ]
   },
   vcvrackSuperloveFilter: {
@@ -11299,6 +11310,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         tooltip: "Stereo cutoff offset. Only when Left and Right are both wired." },
       nodeGraphOutputAmplitudeParam,
+      { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Noise seed. Same Seed = same output; new modules get their own." },
     ]
   },
   chaoticPhaseLockingFilter: {
@@ -11902,7 +11914,7 @@ const nodeGraphModuleDefinitions = (
         kind: "seed",
         label: "Seed",
         linearSmoothing: false,
-        max: "99999",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -12052,7 +12064,7 @@ const nodeGraphModuleDefinitions = (
         kind: "seed",
         label: "Seed",
         linearSmoothing: false,
-        max: "99999",
+        max: "16777215",
         maxDigits: 0,
         mid: "1",
         min: "0",
@@ -12347,8 +12359,8 @@ const nodeGraphModuleDefinitions = (
       { constraint: "cpu", defaultValue: "20", key: "numberOfPulses", label: "Number of Pulses", max: "128", mid: "20", min: "1", nonlinearSlider: false, step: "1" },
       { defaultValue: "0.3", key: "lowAmplitude", label: "Low Amplitude", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "highAmplitude", label: "High Amplitude", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0", key: "seed",
-        maxDigits: 0, label: "Seed", max: "999999", mid: "1", min: "0", nonlinearSlider: false, step: "1" },
+      { defaultValue: "0", key: "seed", kind: "seed",
+        maxDigits: 0, label: "Seed", max: "16777215", mid: "1", min: "0", nonlinearSlider: false, step: "1" },
     ]
   },
   flowerChildFilter: {
@@ -12431,6 +12443,7 @@ const nodeGraphModuleDefinitions = (
         step: "any"
       },
         nodeGraphOutputAmplitudeParam,
+        { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Chaos noise seed. Same Seed = same output; new modules get their own." },
     ]
   },
   ladderFilter: {
@@ -12651,6 +12664,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         tooltip: "Output gain after dry/wet mix (Mix L / Mix R). Legacy patches with Level map here."
       },
+      { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Mod variation seed. Same Seed = same modulation pattern." },
     ]
   },
   // Ping Pong: Mix L/R = audio; LFO L/R = gold CV (raw bipolar LFO before Amp).
@@ -12888,6 +12902,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip: "Output amplitude after dry/wet mix." },
+        { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "LFO random (walk / FBM) seed. Same Seed = same modulation." },
     ]
   },
   // Under construction: Doppler card only (Space shelf). No DSP or runtime implementation.
@@ -12972,7 +12987,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.07", key: "lfoAmplitude", label: "Mod()Amp", max: "1", mid: "0.07", min: "0", nonlinearSlider: false, step: "any", tooltip: "Amount of delay modulation." },
       { defaultValue: "0.83", key: "lfoBaseSpeed", label: "Mod()Speed", max: "1", mid: "0.83", min: "0", nonlinearSlider: false, step: "any", tooltip: "Base speed of delay modulation." },
       { defaultValue: "0.001", key: "lfoVariation", label: "Mod()Vary", max: "1", mid: "0.001", min: "0", nonlinearSlider: false, step: "any", tooltip: "Randomized variation in delay modulation." },
-      { control: "number", defaultValue: "0", key: "seed", label: "Seed", linearSmoothing: false, max: "99999", maxDigits: 0, mid: "1", min: "0", nonlinearSlider: false, step: "1", tooltip: "Randomizes the delay line pattern. Same seed always reproduces the same reverb character." },
+      { control: "number", defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "1", min: "0", nonlinearSlider: false, step: "1", tooltip: "Randomizes the delay line pattern. Same seed always reproduces the same reverb character." },
       nodeGraphOutputAmplitudeParam,
     ]
   },
@@ -13101,8 +13116,8 @@ const nodeGraphModuleDefinitions = (
       { constraint: "cpu", control: "number", defaultValue: "10", key: "numDelays", label: "Num Delays", max: "12", min: "0", step: "1" },
       { defaultValue: "0.35", key: "diffusionSize", label: "Diffuse Size", max: "1", mid: "0.35", min: "0.0001", step: "any" },
       { defaultValue: "0.7", key: "diffusionAmount", label: "Diffuse Amt", max: "0.98", mid: "0.7", min: "0", step: "any" },
-      { control: "number", defaultValue: "500", key: "seed",
-        maxDigits: 0, label: "Seed", max: "999", min: "0", step: "1" },
+      { control: "number", defaultValue: "500", key: "seed", kind: "seed",
+        maxDigits: 0, label: "Seed", max: "16777215", min: "0", step: "1" },
       { defaultValue: "0.002", key: "lfoAmp", label: "LFO Amp", max: "0.5", mid: "0.002", min: "0", step: "any" },
       { defaultValue: "0.5", key: "lfoFrequency", label: "LFO Speed", max: "90", mid: "0.5", min: "0.1", step: "any", unit: "Hz" },
       { defaultValue: "1", key: "lfoVariation", label: "LFO Vary", max: "10", mid: "1", min: "0", step: "any" },
@@ -14028,6 +14043,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         tooltip: "Scale Ext Out (and L/R audio). Face Left Raw / Right Raw always show full hold. 0 = mute, 1 = full. Use instead of an external attenuverter for MOD depth." },
+        { defaultValue: "0", key: "seed", kind: "seed", label: "Seed", linearSmoothing: false, max: "16777215", maxDigits: 0, mid: "0", min: "0", nonlinearSlider: false, smoothingType: "none", step: "1", tooltip: "Internal noise seed (Left/Right lanes). Same Seed = same held values." },
     ] },
   // Portal MIDI — hardware device listen only. Does not drive Keyboard face/outs.
   // Play Keys = live MIDI note bitmask (blue). Wire to Meta Voices to mix into voices.
@@ -15108,7 +15124,7 @@ const nodeGraphModuleDefinitions = (
     outputAliases: { Env: "Out", Idle: "isIdle" },
     parameters: [
       {
-        choices: ["Short", "Long"],
+        choices: ["for Lin", "for Exp"],
         choiceKeys: ["Short", "Long"],
         choiceIds: [0, 1],
         defaultValue: "Short",
@@ -15124,7 +15140,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Short = soundemote.io / old pluck3 (fb→0…10 Hz, amp on output). Long = current sandbox ping (fb×0.7718→0…1000 Hz, amp on inertial target). Default Short (choiceId 0)." },
+        tooltip: "for Lin = soundemote.io / old pluck3 (fb→0…10 Hz, amp on output). for Exp = current sandbox ping (fb×0.7718→0…1000 Hz, amp on inertial target). Default for Lin (choiceId 0)." },
       {
         choices: ["Off", "On"],
         defaultValue: "1",
@@ -15161,7 +15177,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Short model: 0 = short fall, 1 = long (x=clamp(env+(0.5−Decay))→0…10 Hz). Long model: 0 = offset 1, 1 = offset 0 (env×0.7718+(1−Decay)→0…1000 Hz)." },
+        tooltip: "for Lin model: 0 = short fall, 1 = long (x=clamp(env+(0.5−Decay))→0…10 Hz). for Exp model: 0 = offset 1, 1 = offset 0 (env×0.7718+(1−Decay)→0…1000 Hz)." },
       {
         defaultValue: "1",
         key: "amplitude",
@@ -15172,7 +15188,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Short model: scales output (env×amp). Long model: scales Trigger into inertial target." },
+        tooltip: "for Lin model: scales output (env×amp). for Exp model: scales Trigger into inertial target." },
     ] },
   flowerChildEnvelopeFollower: {
     planRole: "processor",

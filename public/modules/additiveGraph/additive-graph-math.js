@@ -1384,8 +1384,9 @@ function additiveGraphApplyDiffusor(
   let diff = Number(diffusion);
   if (!(diff === diff) || diff < 0) diff = 0;
   const phase0 = nodeGraphFiniteNumber(graph.phase[0]);
-  let rng = (Math.floor(Number(seed)) || 1) >>> 0;
-  if (!rng) rng = 1;
+  // Mirrors C++ noisy_seed_u32 (non-finite -> 1); Seed 0 stays 0 (valid LCG state).
+  const seedFloor = Math.floor(Number(seed));
+  let rng = (Number.isFinite(seedFloor) ? seedFloor : 1) >>> 0;
   const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
   const frames = Math.max(1, nodeGraphFiniteNumber(blockFrames, 128));
   const speed01 = Math.max(0, (nodeGraphFiniteNumber(speedHz)) / sr) * frames;
@@ -1471,8 +1472,8 @@ function additiveGraphApplyBlaster(
   const havePrev = lerpFrom && lerpFrom.length === H;
 
   if (mode === 1) {
-    let rng = (Math.floor(Number(seed)) || 1) >>> 0;
-    if (!rng) rng = 1;
+    // LCG (+ per-bin offset): 0 is a valid state, so Seed 0 != Seed 1 (matches C++).
+    let rng = (Math.floor(Number(seed)) || 0) >>> 0;
     for (let b = 0; b < bins; b += 1) {
       rng = (Math.imul(rng, 1664525) + 1013904223 + Math.imul(b, 747796405)) >>> 0;
       binPhase[b] = ((rng >>> 8) & 0xffffff) / 16777216;

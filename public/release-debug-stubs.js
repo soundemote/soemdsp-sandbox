@@ -1,5 +1,5 @@
 // Release-safe no-ops for APIs that live only in debug/evidence scripts.
-// sync_soundemote_site.ps1 omits those scripts from the live shell; debug builds
+// sync_soundemote_io.ps1 omits those scripts from the live shell; debug builds
 // load the real files after this one and overwrite these globals.
 // Keep this file in release (do not add its name to $releaseOmitScriptSubstrings).
 

@@ -708,6 +708,32 @@ function nodeGraphAcceptFileGridSelection(rows, options = {}) {
 }
 
 window.nodeGraphAcceptFileGridSelection = nodeGraphAcceptFileGridSelection;
+
+/**
+ * ?pagePatch=<slug> iframes load the page patch themselves at boot and keep
+ * an edited copy of that slug in the session blob. An embedder's
+ * "soundemote:sandbox-project-data" push of the stock patch for the same page
+ * must not overwrite an edited copy (restored after refresh, or edited since
+ * boot). Perform pages never autosave, so they keep accepting the push.
+ */
+function nodeGraphExternalProjectDataWouldClobberEditedPagePatch() {
+  if (window.soemdspPerformPage === true) {
+    return false;
+  }
+  let pageSlug = "";
+  try {
+    pageSlug = String(new URLSearchParams(window.location.search).get("pagePatch") || "")
+      .trim()
+      .toLowerCase();
+  } catch (_error) {
+    pageSlug = "";
+  }
+  if (!pageSlug) {
+    return false;
+  }
+  const sessionSlug = String(nodeGraphMvp?.loadedPatchSlug || "").trim().toLowerCase();
+  return sessionSlug === pageSlug && nodeGraphMvp?.patchDirtyState === "edited";
+}
 window.soemdspSandboxAcceptFileGridSelection = nodeGraphAcceptFileGridSelection;
 
 window.addEventListener("message", (event) => {
@@ -754,6 +780,12 @@ window.addEventListener("message", (event) => {
     }
     triggerNodeGraphGameEvent(eventName, message.payload || {});
   } else if (message.type === "soundemote:sandbox-project-data") {
+    if (nodeGraphExternalProjectDataWouldClobberEditedPagePatch()) {
+      if (typeof setNodeGraphScriptStatus === "function") {
+        setNodeGraphScriptStatus("kept edited page patch (ignored embed patch push)", true);
+      }
+      return;
+    }
     try {
       if (typeof nodeGraphPatchFromShareProjectData === "function") {
         const loadedPatch = nodeGraphPatchFromShareProjectData(message.projectData);

@@ -767,6 +767,13 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
     mid = Number.isFinite(fallback.mid) ? fallback.mid : 0;
     if (Number.isFinite(fallback.def)) def = fallback.def;
   }
+  // RNG Seed params: integer 0…16777215 (2^24-1, exact through float32
+  // domains). Stale saved paramMeta (old 0…99999 / 0…999 spans) must not
+  // clamp a module's saved Seed.
+  if (kind === "seed" || fallback.kind === "seed") {
+    min = 0;
+    max = 16777215;
+  }
   const choices = forceChaosflyTaps
     ? []
     : normalizeNodeGraphMetadataChoices(

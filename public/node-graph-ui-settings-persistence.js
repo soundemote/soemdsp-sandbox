@@ -1614,8 +1614,25 @@ function applyNodeGraphUserSession(session, options = {}) {
   }
 }
 
+/**
+ * Where the session blob (working patch, page slug, dirty state, view) lives.
+ * Local dev hosts keep localStorage so the dev workflow is unchanged. Any
+ * other host (soundemote.io / soundemote.dev) uses per-tab sessionStorage: a
+ * refresh restores the edited patch, closing the tab drops it. UI look
+ * settings and the default preset stay local-only via
+ * nodeGraphLocalDefaultPresetAllowed().
+ */
+function nodeGraphUserSessionStorageArea() {
+  try {
+    return nodeGraphLocalDefaultPresetAllowed() ? window.localStorage : window.sessionStorage;
+  } catch (_error) {
+    return null;
+  }
+}
+
 function saveNodeGraphUserSessionLocal(text) {
-  if (!nodeGraphLocalDefaultPresetAllowed()) {
+  const storage = nodeGraphUserSessionStorageArea();
+  if (!storage) {
     return false;
   }
   if (!nodeUiDevSettingsHydrated) {
@@ -1623,11 +1640,11 @@ function saveNodeGraphUserSessionLocal(text) {
     return false;
   }
   try {
-    window.localStorage.setItem(nodeGraphUserSessionStorageKey, text);
+    storage.setItem(nodeGraphUserSessionStorageKey, text);
     return true;
   } catch (error) {
     console.warn(
-      "[soemdsp] Failed to write session to localStorage; keeping previous save.",
+      "[soemdsp] Failed to write session to browser storage; keeping previous save.",
       error?.name || error,
       typeof text === "string" ? `(payload ~${Math.round(text.length / 1024)} KB)` : "",
     );
@@ -1670,9 +1687,13 @@ function persistSession(options = {}) {
 
 function loadNodeGraphUserSessionLocal() {
   try {
-    const sessionText = window.localStorage.getItem(nodeGraphUserSessionStorageKey);
+    const sessionText = nodeGraphUserSessionStorageArea()?.getItem(nodeGraphUserSessionStorageKey);
     if (sessionText) {
       return loadNodeGraphUserSessionFromScript(sessionText);
+    }
+    // Legacy UI-settings blob fallback is local-dev only (never written live).
+    if (!nodeGraphLocalDefaultPresetAllowed()) {
+      return null;
     }
     const settingsText = window.localStorage.getItem(nodeUiDevDefaultSettingsStorageKey);
     if (!settingsText) {
@@ -2234,7 +2255,7 @@ function reportNodeGraphSessionLoadFault(error) {
   let script = String(error?.patchScript || "");
   if (!script) {
     try {
-      script = window.localStorage?.getItem?.(nodeGraphUserSessionStorageKey)
+      script = nodeGraphUserSessionStorageArea()?.getItem?.(nodeGraphUserSessionStorageKey)
         || window.localStorage?.getItem?.(nodeUiDevDefaultSettingsStorageKey)
         || "";
     } catch (_error) {
@@ -2286,8 +2307,9 @@ async function loadNodeUiDevDefaultSettings() {
     storedSession = loadNodeGraphUserSessionLocal();
     if (storedSession) {
       try {
-        if (!window.localStorage.getItem(nodeGraphUserSessionStorageKey)) {
-          window.localStorage.setItem(
+        const sessionStorageArea = nodeGraphUserSessionStorageArea();
+        if (sessionStorageArea && !sessionStorageArea.getItem(nodeGraphUserSessionStorageKey)) {
+          sessionStorageArea.setItem(
             nodeGraphUserSessionStorageKey,
             JSON.stringify(storedSession),
           );

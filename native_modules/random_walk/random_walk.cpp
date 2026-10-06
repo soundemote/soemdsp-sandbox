@@ -4,12 +4,13 @@
 // soemdsp-native-kind: noise
 // soemdsp-native-lib: https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/random/FlexibleRandomWalk.hpp
 
-// Seed-key derivation (hashing the "{nodeId}.{salt}.{seed}" string into an
-// initial RNG state) stays on the JS side -- see randomWalkSample in
-// node-live-audio-worklet.js -- since it's a one-time string hash, not
-// per-sample DSP math. This module owns everything that runs every sample:
-// the LCG noise source, random-walk integration, rational-curve step
-// shaping, and the one-pole lowpass smoothing stage.
+// Seeding: the graph engine derives each lane's LCG state from the module's
+// Seed param only -- seed_mix(Seed, kSeedLeft / kSeedRight) -- and hands it
+// to soemdsp_random_walk_reset_seed whenever Seed changes (and once after
+// create). Any 32-bit state is valid for this LCG (0 included), so Seed 0
+// works like every other seed. This module owns everything that runs every
+// sample: the LCG noise source, random-walk integration, rational-curve
+// step shaping, and the one-pole lowpass smoothing stage.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -71,7 +72,7 @@ extern "C" int soemdsp_random_walk_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       RandomWalkState& s = gPool[i];
-      s.seed = 0x12345678u;
+      s.seed = seed_mix(0u, 1u);  // Seed 0 / Left until the host's Seed arrives
       s.out = 0.0;
       s.lowpassOutput = 0.0;
       s.active = true;
@@ -86,13 +87,14 @@ extern "C" void soemdsp_random_walk_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
-// Called by the JS wrapper only when the derived seed key actually changes,
-// mirroring resetSeededState's reset semantics for this module's fields.
+// Called by the graph when the lane's Seed changes. `seed` is the already
+// mixed 32-bit LCG state (0..4294967295, exact in a double); every value,
+// including 0, is a valid LCG state.
 extern "C" void soemdsp_random_walk_reset_seed(int handle, double seed) {
   if (handle < 1 || handle > kMaxInstances) return;
   RandomWalkState& s = gPool[handle - 1];
-  unsigned int seedValue = (unsigned int)seed;
-  s.seed = seedValue != 0u ? seedValue : 0x12345678u;
+  const double clamped = !(seed > 0.0) ? 0.0 : (seed > 4294967295.0 ? 4294967295.0 : seed);
+  s.seed = (unsigned int)clamped;
   s.out = 0.0;
   s.lowpassOutput = 0.0;
 }

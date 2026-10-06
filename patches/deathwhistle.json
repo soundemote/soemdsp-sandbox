@@ -13,6 +13,7 @@
     "category": "",
     "description": ""
   },
+  "masterSeed": 1906631235,
   "view": {
     "zoom": 2.3710733695652175,
     "locked": false,
@@ -181,6 +182,7 @@
         "mode": 2,
         "chaos": 0,
         "amplitude": 1,
+        "seed": 12379596,
         "frequency": 0.6496766932940731,
         "resonance": 0.8965707827144211
       },

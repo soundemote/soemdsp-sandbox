@@ -26,8 +26,14 @@ typedef long long int64_t;
 // helpers used by the phase-control API are implemented locally.
 
 #include <soemdsp/math/scalar_helpers.h>
+#include <soemdsp/math/seed.h>
 
 namespace {
+
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedDitherNoise = 1u,  // dither / Noise Low / Noise High xorshift
+};
 
 using soemdsp_maths::wrap_radians;
 using soemdsp_maths::kPi;
@@ -67,6 +73,7 @@ struct ArchimedesState {
   int32_t x;            // sine state  (16.16)
   int32_t y;            // cosine state (16.16)
   uint32_t rng;         // xorshift PRNG state
+  uint32_t seed;        // module Seed (restarts rng on create / Reset / change)
   int32_t lastSign;     // previous sign bit of x (branchless crossing tracker)
   int32_t dtShift;      // base sample-rate scalar (rate = 1 << dtShift)
   double dtFloat;       // 1 / rate
@@ -103,7 +110,8 @@ ArchimedesState makeState() {
   s.active = true;
   s.x = 0;
   s.y = 65536;   // 1.0
-  s.rng = 1337u;
+  s.seed = 0u;  // host Seed applied via _set_seed
+  s.rng = soemdsp::math::seed_to_rng_state(soemdsp::math::seed_mix(0u, kSeedDitherNoise));
   s.lastSign = 0;
   s.dtShift = 12;
   s.freqHz = 440;
@@ -141,6 +149,14 @@ extern "C" void soemdsp_archimedes_reset(int handle) {
   s.lastSign = 0;
   s.totalSteps = 0;
   s.zeroCrossings = 0;
+  s.rng = soemdsp::math::seed_to_rng_state(soemdsp::math::seed_mix(s.seed, kSeedDitherNoise));
+}
+
+extern "C" void soemdsp_archimedes_set_seed(int handle, double seed) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  ArchimedesState& s = gPool[handle - 1];
+  s.seed = soemdsp::math::seed_param_u32(seed);
+  s.rng = soemdsp::math::seed_to_rng_state(soemdsp::math::seed_mix(s.seed, kSeedDitherNoise));
 }
 
 // dtShift picks the base sample rate (rate = 1 << dtShift). Profiles:

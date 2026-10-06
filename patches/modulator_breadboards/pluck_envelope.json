@@ -160,6 +160,7 @@
     "program": 0,
     "tags": "init,default"
   },
+  "masterSeed": 1828976675,
   "modularOnlyControlsVisible": false,
   "modulations": [
     {
@@ -524,7 +525,8 @@
         "frequency": 0,
         "resonance": 0,
         "chaos": 0,
-        "amplitude": 1
+        "amplitude": 1,
+        "seed": 1041589
       },
       "type": "flowerChildFilter",
       "widthGu": 7,

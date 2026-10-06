@@ -101,6 +101,34 @@ function nodeBootRefreshHeroTitle() {
 
 nodeBootRefreshHeroTitle();
 
+/**
+ * Boot-menu links with data-site-route (analog dream -> /analogdream/perform).
+ * Inside the soundemote.io embed, point them at the clean site URL in the
+ * parent window so the address bar shows it. Standalone (local server.py) and
+ * cross-origin embeds keep the plain ./index.html?... href.
+ */
+function nodeBootApplySiteRouteLinks() {
+  let parentSameOrigin = false;
+  try {
+    parentSameOrigin = Boolean(
+      window.parent
+      && window.parent !== window
+      && window.parent.location.origin === window.location.origin,
+    );
+  } catch (_error) {
+    parentSameOrigin = false;
+  }
+  if (!parentSameOrigin) return;
+  for (const link of document.querySelectorAll("a[data-site-route]")) {
+    const route = String(link.getAttribute("data-site-route") || "").trim();
+    if (!route.startsWith("/") || route.startsWith("//")) continue;
+    link.setAttribute("href", route);
+    link.setAttribute("target", "_parent");
+  }
+}
+
+nodeBootApplySiteRouteLinks();
+
 
 function nodeGraphBootIsRelease() {
   return nodeGraphBootBuildMode() === "release";
@@ -437,6 +465,12 @@ function recoverNodeGraphAfterBoot() {
   if (nodeGraphBootWantsResetView()) {
     try {
       window.localStorage.removeItem("soemdsp-sandbox.userSession.startup.v1");
+    } catch (_error) {
+      /* ignore */
+    }
+    try {
+      // Live (non-local) hosts keep the session blob in per-tab sessionStorage.
+      window.sessionStorage.removeItem("soemdsp-sandbox.userSession.startup.v1");
     } catch (_error) {
       /* ignore */
     }

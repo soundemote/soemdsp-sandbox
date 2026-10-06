@@ -19,6 +19,9 @@
 using soemdsp::math::gate_hit;
 using soemdsp::math::planck_divisor;
 using soemdsp::math::clamp_planck_range;
+using soemdsp::math::seed_mix;
+using soemdsp::math::seed_param_u32;
+using soemdsp::math::seed_to_rng_state;
 
 // Combined wasm resolves these; standalone graph_engine.wasm links with
 // --allow-undefined (stubs unused — product loads soemdsp_combined.wasm).
@@ -84,6 +87,7 @@ extern "C" intptr_t soemdsp_sabrina_reverb_block_output_right_ptr(int handle);
 extern "C" int soemdsp_ping_pong_delay_create();
 extern "C" void soemdsp_ping_pong_delay_destroy(int handle);
 extern "C" void soemdsp_ping_pong_delay_reset(int handle);
+extern "C" void soemdsp_ping_pong_delay_set_seed(int handle, double seed);
 extern "C" void soemdsp_ping_pong_delay_set_params(
   int handle,
   double feedback, double mix, double amplitude,
@@ -187,6 +191,7 @@ extern "C" int soemdsp_robin_sinusoid_block_output_ptr(int handle);
 extern "C" int soemdsp_robin_oscillator_create();
 extern "C" void soemdsp_robin_oscillator_destroy(int handle);
 extern "C" void soemdsp_robin_oscillator_reset(int handle);
+extern "C" void soemdsp_robin_oscillator_set_seed(int handle, double seed);
 extern "C" double soemdsp_robin_oscillator_sample(
   int handle,
   double incrementCycles,
@@ -213,6 +218,7 @@ extern "C" int soemdsp_robin_oscillator_block_output_ptr(int handle);
 extern "C" int soemdsp_robin_supersaw_create();
 extern "C" void soemdsp_robin_supersaw_destroy(int handle);
 extern "C" void soemdsp_robin_supersaw_reset(int handle);
+extern "C" void soemdsp_robin_supersaw_set_seed(int handle, double seed);
 extern "C" void soemdsp_robin_supersaw_process_block(
   int handle, double frequencyHz, double sampleRate, double detuneCents,
   double voicesExact, double level, double phaseSpread, double stereoMode,
@@ -234,6 +240,7 @@ extern "C" double soemdsp_robin_supersaw_voice_amp(int handle, int index);
 extern "C" int soemdsp_hyperpluck_create();
 extern "C" void soemdsp_hyperpluck_destroy(int handle);
 extern "C" void soemdsp_hyperpluck_reset(int handle);
+extern "C" void soemdsp_hyperpluck_set_seed(int handle, double seed);
 extern "C" void soemdsp_hyperpluck_process_block(
   int handle, double frequencyHz, double sampleRate, double detuneHz,
   double voicesExact, double level, double stereoMode, double detuneAlgorithm,
@@ -526,6 +533,7 @@ extern "C" double soemdsp_antisaw_sample(
 extern "C" int soemdsp_archimedes_create();
 extern "C" void soemdsp_archimedes_destroy(int handle);
 extern "C" void soemdsp_archimedes_reset(int handle);
+extern "C" void soemdsp_archimedes_set_seed(int handle, double seed);
 extern "C" void soemdsp_archimedes_reset_counters(int handle);
 extern "C" void soemdsp_archimedes_set_profile(int handle, int dtShift);
 extern "C" void soemdsp_archimedes_set_frequency(int handle, int freqHz);
@@ -604,6 +612,7 @@ extern "C" double soemdsp_sine_warp_sample(
 extern "C" int soemdsp_filter_morph_oscillator_create();
 extern "C" void soemdsp_filter_morph_oscillator_destroy(int handle);
 extern "C" void soemdsp_filter_morph_oscillator_reset(int handle, double phaseOffset);
+extern "C" void soemdsp_filter_morph_oscillator_set_seed(int handle, double seed);
 extern "C" double soemdsp_filter_morph_oscillator_sample(
   int handle,
   double frequencyHz,
@@ -724,6 +733,7 @@ extern "C" double soemdsp_sinc_sample(
 
 extern "C" int soemdsp_bradley_2a_create();
 extern "C" void soemdsp_bradley_2a_destroy(int handle);
+extern "C" void soemdsp_bradley_2a_set_seed(int handle, double seed);
 extern "C" double soemdsp_bradley_2a_sample(
   int handle,
   double carrierFreq,
@@ -936,6 +946,7 @@ extern "C" double soemdsp_tb303_filter_sample(
 
 extern "C" int soemdsp_flower_child_filter_create();
 extern "C" void soemdsp_flower_child_filter_destroy(int handle);
+extern "C" void soemdsp_flower_child_filter_set_seed(int handle, double seed, int lane);
 extern "C" double soemdsp_flower_child_filter_sample(
   int handle, double input, double frequency, double resonance,
   double chaosAmount, int mode, double sampleRate
@@ -950,14 +961,17 @@ extern "C" double soemdsp_yellowjacket_filter_sample(
 
 extern "C" int soemdsp_superlove_filter_create();
 extern "C" void soemdsp_superlove_filter_destroy(int handle);
+extern "C" void soemdsp_superlove_filter_set_seed(int handle, double seed, int lane);
 extern "C" int soemdsp_superlove_rev2_create();
 extern "C" void soemdsp_superlove_rev2_destroy(int handle);
+extern "C" void soemdsp_superlove_rev2_set_seed(int handle, double seed, int lane);
 extern "C" double soemdsp_superlove_rev2_sample(
   int handle, double input, double frequency, double resonance,
   double morphAmount, double noiseAmount, double phaseBias, int mode, double sampleRate
 );
 extern "C" int soemdsp_vcvrack_superlove_filter_create();
 extern "C" void soemdsp_vcvrack_superlove_filter_destroy(int handle);
+extern "C" void soemdsp_vcvrack_superlove_filter_set_seed(int handle, double seed, int lane);
 extern "C" double soemdsp_vcvrack_superlove_filter_sample(
   int handle, double input, double frequency, double resonance,
   double noise01, double drive, int mode, double sampleRate
@@ -1272,10 +1286,11 @@ extern "C" int soemdsp_pitch_quantizer_create();
 extern "C" void soemdsp_pitch_quantizer_destroy(int handle);
 extern "C" double soemdsp_pitch_quantizer_sample(int handle, double pitch, int scaleMask);
 
-extern "C" int soemdsp_turing_machine_create(unsigned int entropySeed);
+extern "C" int soemdsp_turing_machine_create();
 extern "C" void soemdsp_turing_machine_destroy(int handle);
 extern "C" double soemdsp_turing_machine_sample(
-  int handle, double clock, double reset, double length, double probability, double level
+  int handle, double clock, double reset, double length, double probability, double level,
+  double seed
 );
 extern "C" double soemdsp_turing_machine_scale(int handle);
 extern "C" double soemdsp_turing_machine_gate(int handle);
@@ -1301,19 +1316,19 @@ extern "C" double soemdsp_note_transpose_sample(
   int handle, double pitch, double semitones, double octaves
 );
 
-extern "C" int soemdsp_degree_turing_create(unsigned int entropySeed);
+extern "C" int soemdsp_degree_turing_create();
 extern "C" void soemdsp_degree_turing_destroy(int handle);
 extern "C" double soemdsp_degree_turing_sample(
   int handle, double clock, double reset, double length, double probability,
   double octaves, double level, double scaleIn, double hasScale, double root,
-  double scaleChoice
+  double scaleChoice, double seed
 );
 extern "C" double soemdsp_degree_turing_gate(int handle);
 extern "C" double soemdsp_degree_turing_trigger(int handle);
 extern "C" double soemdsp_degree_turing_degree(int handle);
 extern "C" double soemdsp_degree_turing_cv(int handle);
 
-extern "C" int soemdsp_degree_phrase_create(unsigned int entropySeed);
+extern "C" int soemdsp_degree_phrase_create();
 extern "C" void soemdsp_degree_phrase_destroy(int handle);
 extern "C" double soemdsp_degree_phrase_sample(
   int handle, double clock, double reset, double stepsIn, double mutateIn,
@@ -1322,19 +1337,20 @@ extern "C" double soemdsp_degree_phrase_sample(
   double step1, double step2, double step3, double step4,
   double step5, double step6, double step7, double step8,
   double rest1, double rest2, double rest3, double rest4,
-  double rest5, double rest6, double rest7, double rest8
+  double rest5, double rest6, double rest7, double rest8,
+  double seed
 );
 extern "C" double soemdsp_degree_phrase_gate(int handle);
 extern "C" double soemdsp_degree_phrase_trigger(int handle);
 extern "C" double soemdsp_degree_phrase_phase(int handle);
 
-extern "C" int soemdsp_gravity_walker_create(unsigned int entropySeed);
+extern "C" int soemdsp_gravity_walker_create();
 extern "C" void soemdsp_gravity_walker_destroy(int handle);
 extern "C" void soemdsp_gravity_walker_set_chunks(int handle, double c0, double c1, double c2);
 extern "C" void soemdsp_gravity_walker_set_scale_span(int handle, int octaves, int baseMidi);
 extern "C" double soemdsp_gravity_walker_sample(
   int handle, double clock, double reset, double gravityIn, double leapIn,
-  double octaves, double steps, double seed, double scaleOffset,
+  double octaves, double steps, double seed,
   double patternOffset, double keysIn, double hasKeys
 );
 extern "C" double soemdsp_gravity_walker_gate(int handle);
@@ -2134,6 +2150,10 @@ struct Node {
   int yellowWalkCount;
   unsigned int yellowWalkSeed;
   unsigned int yellowWalkSalt;
+  // Seed param value last pushed into this node's RNGs (-1 = not yet). The
+  // native instance is created before params arrive, so the first process
+  // call applies the saved Seed; later changes re-seed (node_take_seed).
+  double appliedSeed;
   float yellowLerpFrom[soemdsp_yellow_graph::kMaxHarmonics];
   int yellowLerpFromLen;
   // Host-uploaded Bubble Cutoff strip (0…1). Frames>0 → sample-accurate amp gate at Out.
@@ -2725,6 +2745,8 @@ static inline void control_fold_wrap_state(Control& c) {
   c.stage2 = w;
 }
 
+static inline bool node_take_seed(Node& node, unsigned int* seedOut);
+
 // Match nodeGraphParamFoldModSources: slider is an offset. MOD always ADDs.
 // Unit 0…1: add across [min,max], then clamp. Real values (bit4): add, no clamp.
 // Never multiply. Never replace.
@@ -3211,9 +3233,11 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeHelmholtzPitch) ? 0.93 // fidelity threshold
       : (typeId == kTypeSoftClipper) ? 1.0 // threshold
       : (typeId == kTypeDivide) ? 127.0 // Divide
+      : (typeId == kTypeDegreeTuring || typeId == kTypeDegreePhrase) ? 1.0 // Major scale choice
       : 0.0,
     // Robin detuneAlgorithm is discrete 0…5; RoundShape / Ellipsoid AA is discrete Off/Limit
-    typeId == kTypeRobinSupersaw || typeId == kTypeHyperpluck
+    typeId == kTypeDegreeTuring || typeId == kTypeDegreePhrase // scale choice
+    || typeId == kTypeRobinSupersaw || typeId == kTypeHyperpluck
     || typeId == kTypeEllipsoid || typeId == kTypeEllipsoidOsc
     || typeId == kTypeAcidSequencer // semitone offset
   );
@@ -3373,8 +3397,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeLutCell) ? 27030.0 // default truth table
       : (typeId == kTypeSoemReverb) ? 500.0
       : (typeId == kTypePitchQuantizer) ? 2741.0 // major scale mask
-      : (typeId == kTypeDegreeTuring || typeId == kTypeDegreePhrase
-          || typeId == kTypeGravityWalker) ? 1.0 // Major scale choice
+      : (typeId == kTypeGravityWalker) ? 1.0 // RNG seed (host sends saved Seed)
       : (typeId == kTypeArp) ? 1.0 // RNG seed
       : (typeId == kTypeFractalBrownianNoise || typeId == kTypeRandomWalk || typeId == kTypeCheapWalk) ? 1.0
       : (typeId == kTypeHypersaw2
@@ -3642,6 +3665,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(n.bleed4, (typeId == kTypeDegreePhrase) ? 1.0 : 0.0, true); // rest7
   n.phase = 0.0;
   n.lastReset = 0.0;
+  n.appliedSeed = -1.0;
   n.robinDitherRng = 0xE11D51AAu ^ (unsigned int)(typeId * 747796405u + 1u);
   if (n.robinDitherRng == 0u) n.robinDitherRng = 1u;
   n.robinDitherOffset = 0.0;
@@ -4378,21 +4402,10 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeXyPad) return soemdsp_papoulis_filter_create();
   if (typeId == kTypeNoteGlide) return soemdsp_note_glide_create();
   if (typeId == kTypeNoteTranspose) return soemdsp_note_transpose_create();
-  if (typeId == kTypeDegreeTuring) {
-    static unsigned int degreeTuringEntropy = 0xD3A7EEu;
-    degreeTuringEntropy = degreeTuringEntropy * 1664525u + 1013904223u;
-    return soemdsp_degree_turing_create(degreeTuringEntropy ? degreeTuringEntropy : 1u);
-  }
-  if (typeId == kTypeDegreePhrase) {
-    static unsigned int degreePhraseEntropy = 0xBEEF01u;
-    degreePhraseEntropy = degreePhraseEntropy * 1664525u + 1013904223u;
-    return soemdsp_degree_phrase_create(degreePhraseEntropy ? degreePhraseEntropy : 1u);
-  }
-  if (typeId == kTypeGravityWalker) {
-    static unsigned int gravityWalkerEntropy = 0xA11CEEu;
-    gravityWalkerEntropy = gravityWalkerEntropy * 1664525u + 1013904223u;
-    return soemdsp_gravity_walker_create(gravityWalkerEntropy ? gravityWalkerEntropy : 1u);
-  }
+  // Sequencers seed only from their own Seed param (applied on first sample).
+  if (typeId == kTypeDegreeTuring) return soemdsp_degree_turing_create();
+  if (typeId == kTypeDegreePhrase) return soemdsp_degree_phrase_create();
+  if (typeId == kTypeGravityWalker) return soemdsp_gravity_walker_create();
   if (typeId == kTypeSmoothGraph) return soemdsp_smooth_graph_create();
   if (typeId == kTypeStepGraph) return soemdsp_step_graph_create();
   if (typeId == kTypePhaseDisperse) return soemdsp_phase_disperse_create();
@@ -4459,11 +4472,7 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypeChordMemory) return soemdsp_chord_memory_create();
   if (typeId == kTypeChordSequencer) return soemdsp_chord_sequencer_create();
   if (typeId == kTypePitchQuantizer) return soemdsp_pitch_quantizer_create();
-  if (typeId == kTypeTuringMachine) {
-    static unsigned int turingEntropy = 0xC0FFEEu;
-    turingEntropy = turingEntropy * 1664525u + 1013904223u;
-    return soemdsp_turing_machine_create(turingEntropy ? turingEntropy : 1u);
-  }
+  if (typeId == kTypeTuringMachine) return soemdsp_turing_machine_create();
   if (typeId == kTypeFractalBrownianNoise) return soemdsp_fbm_create();
   if (typeId == kTypePiSpigotNoise) return soemdsp_pi_spigot_noise_create();
   if (typeId == kTypeRandomWalk) return soemdsp_random_walk_create();
@@ -5174,6 +5183,12 @@ static void process_reverb(Circuit& g, Node& node, int frames) {
 
 static void process_ping_pong(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
+  {
+    unsigned int seedU = 0u;
+    if (node_take_seed(node, &seedU)) {
+      soemdsp_ping_pong_delay_set_seed(node.nativeHandle, (double)seedU);
+    }
+  }
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   // Control slots match Delay (Amp→lfoAmplitude, Rate→lfoRate); depth is ms
@@ -6063,6 +6078,12 @@ static void process_antisaw(Circuit& g, Node& node, int frames) {
 // Sine→Mono, Cosine→Left, Pi→Right, Noise Below→Saw, Noise Above→Ramp.
 static void process_archimedes(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
+  {
+    unsigned int seedU = 0u;
+    if (node_take_seed(node, &seedU)) {
+      soemdsp_archimedes_set_seed(node.nativeHandle, (double)seedU);
+    }
+  }
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
   const bool liveReset = mix_live_port(g, node, kPortReset, frames, g.mixReset);
@@ -6680,8 +6701,37 @@ static void sync_yellow_noise_seeds_upstream(
   }
 }
 
+// Saved Seed param → u32 (0..16777215; 0 is a real seed). Returns true once
+// after create and whenever Seed changes, so callers re-seed their RNGs from
+// the Seed only (never slot / node id / creation order).
+static inline bool node_take_seed(Node& node, unsigned int* seedOut) {
+  const double raw = control_effective(node.seed);
+  const unsigned int seed = seed_param_u32(raw);
+  *seedOut = seed;
+  if (node.appliedSeed == (double)seed) return false;
+  node.appliedSeed = (double)seed;
+  return true;
+}
+
+// Fixed seed components for graph-owned RNG lanes (never reorder).
+enum : unsigned int {
+  kSeedDelayVariation = 1u,   // Delay: LFO variation hash
+  kSeedSampleHoldExt = 1u,    // S&H: Ext lane noise
+  kSeedSampleHoldLeft = 2u,   // S&H: Left lane noise
+  kSeedSampleHoldRight = 3u,  // S&H: Right lane noise
+  kSeedRandomWalkLeft = 1u,   // Random Walk: Left (Mono) lane
+  kSeedRandomWalkRight = 2u,  // Random Walk: Right lane
+  kSeedAdditiveOutPhase = 1u, // Additive Out: Random phase entry for new partials
+};
+
 // A1 Additive Out: Graph in → sum_sample → Mono/Left/Right.
 static void process_additive_out(Circuit& g, Node& node, int frames) {
+  {
+    unsigned int seedU = 0u;
+    if (node_take_seed(node, &seedU)) {
+      node.yellowWalkSeed = seed_to_rng_state(seed_mix(seedU, kSeedAdditiveOutPhase));
+    }
+  }
   const int srcIdx = find_graph_src_index(g, node.idHash);
   if (srcIdx < 0 || node.bypassed) {
     soemdsp_yellow_graph::graph_clear(node.yellowGraph);
@@ -6698,8 +6748,7 @@ static void process_additive_out(Circuit& g, Node& node, int frames) {
     if (H > node.yellowPhaseAccLen) {
       const int oldLen = node.yellowPhaseAccLen;
       const double fundPhase = oldLen > 0 ? node.yellowPhaseAcc[0] : 0.0;
-      unsigned int rng = node.yellowWalkSeed;
-      if (rng == 0 || rng == 0xFFFFFFFFu) rng = node.idHash ? node.idHash : 0xA5A5A5A5u;
+      unsigned int rng = node.yellowWalkSeed; // from the Seed param (node_take_seed above)
       for (int i = oldLen; i < H; i += 1) {
         node.yellowPhaseAcc[i] = soemdsp_yellow_graph::seed_new_phase_acc(
           local, i, fundPhase, local.phaseEntryMode, rng
@@ -6899,6 +6948,12 @@ static void process_softwave_osc(Circuit& g, Node& node, int frames) {
 // Reset → Wave at Phase offset (phasor 0 + offset; LP cleared).
 static void process_filter_morph_oscillator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
+  {
+    unsigned int seedU = 0u;
+    if (node_take_seed(node, &seedU)) {
+      soemdsp_filter_morph_oscillator_set_seed(node.nativeHandle, (double)seedU);
+    }
+  }
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
@@ -7184,6 +7239,12 @@ static void process_sinc(Circuit& g, Node& node, int frames) {
 // Bradley 2A: many params remapped onto existing Controls (see JS push map).
 static void process_bradley2a(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
+  {
+    unsigned int seedU = 0u;
+    if (node_take_seed(node, &seedU)) {
+      soemdsp_bradley_2a_set_seed(node.nativeHandle, (double)seedU);
+    }
+  }
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
   const bool livePitch = mix_live_port(g, node, kPortPitchCv, frames, g.mixPitch);
@@ -8508,6 +8569,14 @@ static void process_norm_chaos_filter(
 // Same cutoff Hz on both cores; no L/R constant mismatch.
 static void process_flower_child_filter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
+  {
+    unsigned int seedU = 0u;
+    if (node_take_seed(node, &seedU)) {
+      soemdsp_flower_child_filter_set_seed(node.nativeHandle, (double)seedU, 0);
+      if (node.nativeHandleL > 0) soemdsp_flower_child_filter_set_seed(node.nativeHandleL, (double)seedU, 1);
+      if (node.nativeHandleR > 0) soemdsp_flower_child_filter_set_seed(node.nativeHandleR, (double)seedU, 2);
+    }
+  }
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const double modeV = control_effective(node.mode);
@@ -8552,6 +8621,12 @@ static void process_yellowjacket_filter(Circuit& g, Node& node, int frames) {
 }
 
 static void process_superlove_filter(Circuit& g, Node& node, int frames) {
+  unsigned int seedU = 0u;
+  if (node.nativeHandle > 0 && node_take_seed(node, &seedU)) {
+    soemdsp_superlove_filter_set_seed(node.nativeHandle, (double)seedU, 0);
+    if (node.nativeHandleL > 0) soemdsp_superlove_filter_set_seed(node.nativeHandleL, (double)seedU, 1);
+    if (node.nativeHandleR > 0) soemdsp_superlove_filter_set_seed(node.nativeHandleR, (double)seedU, 2);
+  }
   process_norm_chaos_filter(
     g, node, frames, true, nullptr, soemdsp_superlove_filter_sample
   );
@@ -8560,6 +8635,14 @@ static void process_superlove_filter(Circuit& g, Node& node, int frames) {
 // Superlove Rev2: mix Control = noise inject amount (host: noise×noiseAmount meta).
 static void process_vcvrack_superlove_filter(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
+  {
+    unsigned int seedU = 0u;
+    if (node_take_seed(node, &seedU)) {
+      soemdsp_vcvrack_superlove_filter_set_seed(node.nativeHandle, (double)seedU, 0);
+      if (node.nativeHandleL > 0) soemdsp_vcvrack_superlove_filter_set_seed(node.nativeHandleL, (double)seedU, 1);
+      if (node.nativeHandleR > 0) soemdsp_vcvrack_superlove_filter_set_seed(node.nativeHandleR, (double)seedU, 2);
+    }
+  }
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const double modeV = control_effective(node.mode);
@@ -8613,6 +8696,14 @@ static void process_vcvrack_superlove_filter(Circuit& g, Node& node, int frames)
 
 static void process_superlove_rev2(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
+  {
+    unsigned int seedU = 0u;
+    if (node_take_seed(node, &seedU)) {
+      soemdsp_superlove_rev2_set_seed(node.nativeHandle, (double)seedU, 0);
+      if (node.nativeHandleL > 0) soemdsp_superlove_rev2_set_seed(node.nativeHandleL, (double)seedU, 1);
+      if (node.nativeHandleR > 0) soemdsp_superlove_rev2_set_seed(node.nativeHandleR, (double)seedU, 2);
+    }
+  }
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const double modeV = control_effective(node.mode);
@@ -9129,7 +9220,8 @@ static void process_delay_effect(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   mix_node_inputs(g, node, frames);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const unsigned int seed = node.idHash;
+  const unsigned int seed =
+    seed_mix(seed_param_u32(control_effective(node.seed)), kSeedDelayVariation);
   const bool takeSamplePath = node_has_active_chase(node);
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
@@ -9589,7 +9681,8 @@ static void process_turing_machine(Circuit& g, Node& node, int frames) {
       hasReset ? g.mixReset[f] : 0.0,
       control_effective(node.stages),
       control_audio(g, node.shape, f),
-      control_audio(g, node.amplitude, f)
+      control_audio(g, node.amplitude, f),
+      control_effective(node.seed)
     );
     node.buf[kPortMono][f] = cv;
     node.buf[kPortLeft][f] = soemdsp_turing_machine_scale(node.nativeHandle);
@@ -9892,7 +9985,8 @@ static void process_note_transpose(Circuit& g, Node& node, int frames) {
 }
 
 // Degree Turing: Clock→Trigger, Reset→Reset, Scale→Mono, Root→PitchCV.
-// stages=length, shape=prob, mode=octaves, seed=scaleChoice, amplitude=level.
+// stages=length, shape=prob, mode=octaves, center=scaleChoice, seed=Seed,
+// amplitude=level.
 // Pitch→Mono, Gate→Left, Trigger→Right, Degree→Saw, CV→Ramp.
 static void process_degree_turing(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
@@ -9914,6 +10008,7 @@ static void process_degree_turing(Circuit& g, Node& node, int frames) {
       hasScale ? g.mixMono[f] : 0.0,
       hasScale ? 1.0 : 0.0,
       hasRoot ? g.mixPitch[f] : (60.0),
+      control_effective(node.center),
       control_effective(node.seed)
     );
     node.buf[kPortMono][f] = pitch;
@@ -9925,7 +10020,7 @@ static void process_degree_turing(Circuit& g, Node& node, int frames) {
 }
 
 // Degree Phrase: same Scale/Root/Clock/Reset wiring as degreeTuring.
-// stages=steps, shape=mutate, mode=octaves, seed=scaleChoice.
+// stages=steps, shape=mutate, mode=octaves, center=scaleChoice, seed=Seed.
 // laneVol/Bias=step1..8; inLow/High/outLow/High/bleed2/3/4/offset=rest1..8.
 // Pitch→Mono, Gate→Left, Trigger→Right, Phase→Saw.
 static void process_degree_phrase(Circuit& g, Node& node, int frames) {
@@ -9948,11 +10043,12 @@ static void process_degree_phrase(Circuit& g, Node& node, int frames) {
       hasScale ? g.mixMono[f] : 0.0,
       hasScale ? 1.0 : 0.0,
       hasRoot ? g.mixPitch[f] : (60.0),
-      control_effective(node.seed),
+      control_effective(node.center),
       control_audio(g, node.laneVol[0], f), control_audio(g, node.laneVol[1], f), control_audio(g, node.laneVol[2], f), control_audio(g, node.laneVol[3], f),
       control_audio(g, node.laneBias[0], f), control_audio(g, node.laneBias[1], f), control_audio(g, node.laneBias[2], f), control_audio(g, node.laneBias[3], f),
       control_audio(g, node.inLow, f), control_audio(g, node.inHigh, f), control_audio(g, node.outLow, f), control_audio(g, node.outHigh, f),
-      control_audio(g, node.bleed2, f), control_audio(g, node.bleed3, f), control_audio(g, node.bleed4, f), control_audio(g, node.offset, f)
+      control_audio(g, node.bleed2, f), control_audio(g, node.bleed3, f), control_audio(g, node.bleed4, f), control_audio(g, node.offset, f),
+      control_effective(node.seed)
     );
     node.buf[kPortMono][f] = pitch;
     node.buf[kPortLeft][f] = soemdsp_degree_phrase_gate(node.nativeHandle);
@@ -10008,7 +10104,7 @@ static void process_arp(Circuit& g, Node& node, int frames) {
 }
 
 // Gravity Walker: Keys noteMask128 (Mono), Clock->Trigger, Reset->Reset, Leap CV->PitchCv.
-// shape=gravity, width=leap, mode=octaves, stages=steps, seed=seed, offset=scaleOffset, inLow=patternOffset.
+// shape=gravity, width=leap, mode=octaves, stages=steps, seed=seed, inLow=patternOffset.
 // Pitch->Mono, Gate->Left, Trigger->Right, Degree->Saw, f Hz->Ramp.
 // Scale cable is a 12-bit mask. Span comes from the source (Pitch Quantizer
 // Octaves / Octave Offset), base C3. Default 3 octaves matches the sandbox.
@@ -10060,7 +10156,6 @@ static void process_gravity_walker(Circuit& g, Node& node, int frames) {
       control_effective(node.mode),
       control_effective(node.stages),
       control_effective(node.seed),
-      control_effective(node.offset),
       control_effective(node.inLow),
       hasKeys ? g.mixMono[f] : 0.0,
       hasKeys ? 1.0 : 0.0
@@ -10363,16 +10458,17 @@ static void process_random_walk(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
   const bool takeSamplePath = node_has_active_chase(node);
-  const double seed = control_effective(node.seed);
-  if (seed != node.lastReset) {
-    const unsigned int seedU = (unsigned int)(seed < 1.0 ? 1.0 : seed);
-    soemdsp_random_walk_reset_seed(node.nativeHandle, (double)seedU);
+  unsigned int seedU = 0u;
+  if (node_take_seed(node, &seedU)) {
+    // Independent LCG state per lane, from the Seed only (Seed 0 included).
+    soemdsp_random_walk_reset_seed(
+      node.nativeHandle, (double)seed_mix(seedU, kSeedRandomWalkLeft)
+    );
     if (node.nativeHandleR > 0) {
-      unsigned int rightSeed = seedU ^ 0x9E3779B9u;
-      if (rightSeed == 0u) rightSeed = 1u;
-      soemdsp_random_walk_reset_seed(node.nativeHandleR, (double)rightSeed);
+      soemdsp_random_walk_reset_seed(
+        node.nativeHandleR, (double)seed_mix(seedU, kSeedRandomWalkRight)
+      );
     }
-    node.lastReset = seed;
   }
   for (int f = 0; f < frames; f++) {
     control_frame(g, node, f);
@@ -11338,9 +11434,11 @@ static void process_sample_hold(Circuit& g, Node& node, int frames) {
   mix_node_inputs(g, node, frames);
   const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
   const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
-  const int seedExt = (int)node.idHash;
-  const int seedL = (int)(node.idHash ^ 0xA5A5A5A5u);
-  const int seedR = (int)(node.idHash ^ 0x5A5A5A5Au);
+  // Lane noise from the Seed param only; S&H re-seeds a lane when its value changes.
+  const unsigned int seedU = seed_param_u32(control_effective(node.seed));
+  const int seedExt = (int)seed_to_rng_state(seed_mix(seedU, kSeedSampleHoldExt));
+  const int seedL = (int)seed_to_rng_state(seed_mix(seedU, kSeedSampleHoldLeft));
+  const int seedR = (int)seed_to_rng_state(seed_mix(seedU, kSeedSampleHoldRight));
   const int hL = node.nativeHandleL > 0 ? node.nativeHandleL : node.nativeHandle;
   const int hR = node.nativeHandleR > 0 ? node.nativeHandleR : node.nativeHandle;
   // Ext In present on any audio bus (Trigger alone does not count).
@@ -11555,6 +11653,12 @@ static double robin_combined_increment(double freqHz, double sampleRate, double 
 
 static void process_robin_oscillator(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
+  {
+    unsigned int seedU = 0u;
+    if (node_take_seed(node, &seedU)) {
+      soemdsp_robin_oscillator_set_seed(node.nativeHandle, (double)seedU);
+    }
+  }
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
@@ -11663,6 +11767,12 @@ static void process_robin_sinusoid(Circuit& g, Node& node, int frames) {
 
 static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
+  {
+    unsigned int seedU = 0u;
+    if (node_take_seed(node, &seedU)) {
+      soemdsp_robin_supersaw_set_seed(node.nativeHandle, (double)seedU);
+    }
+  }
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);
@@ -11742,6 +11852,12 @@ static void process_robin_supersaw(Circuit& g, Node& node, int frames) {
 
 static void process_hyperpluck(Circuit& g, Node& node, int frames) {
   if (node.nativeHandle <= 0) return;
+  {
+    unsigned int seedU = 0u;
+    if (node_take_seed(node, &seedU)) {
+      soemdsp_hyperpluck_set_seed(node.nativeHandle, (double)seedU);
+    }
+  }
   const float sr = g.sampleRate < 1.0f ? 44100.0f : g.sampleRate;
   const double srD = (double)sr;
   const bool liveF = mix_live_port(g, node, kPortF, frames, g.mixF);

@@ -99,6 +99,7 @@
     "program": 0,
     "tags": "circle"
   },
+  "masterSeed": 1017435737,
   "modularOnlyControlsVisible": false,
   "modulations": [
     {
@@ -436,7 +437,8 @@
         "frequency": 0.5046461000751742,
         "resonance": 0.622016682011226,
         "chaos": 0,
-        "amplitude": 0
+        "amplitude": 0,
+        "seed": 9147000
       },
       "type": "flowerChildFilter",
       "alias": "☎",

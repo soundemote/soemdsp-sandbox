@@ -74,6 +74,7 @@
     "program": 0,
     "tags": "chaos, lorenz, attractor, strange"
   },
+  "masterSeed": 276397938,
   "modulations": [],
   "monitors": [],
   "nodes": [

@@ -13,6 +13,7 @@
     "category": "",
     "description": ""
   },
+  "masterSeed": 529100248,
   "view": {
     "zoom": 0.8928571428571433,
     "locked": false,
@@ -234,6 +235,7 @@
       "alias": "Digital Signal",
       "params": {
         "threshold": 0,
+        "seed": 12669155,
         "sampleFrequency": 0.5
       },
       "widthGu": 5,

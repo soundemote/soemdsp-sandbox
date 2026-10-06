@@ -87,6 +87,7 @@
     "program": 0,
     "tags": "init,default"
   },
+  "masterSeed": 151351826,
   "modularOnlyControlsVisible": true,
   "modulations": [
     {
@@ -778,7 +779,8 @@
         "jitterDepth": 19.534093805676754,
         "jitterFilter": 31.33416885682255,
         "jitterSteps": 0,
-        "amplitude": 1
+        "amplitude": 1,
+        "seed": 14076462
       },
       "type": "robinSupersaw",
       "widthGu": 7,

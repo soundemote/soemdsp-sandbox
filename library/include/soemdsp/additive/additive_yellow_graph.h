@@ -489,8 +489,8 @@ inline void apply_blaster(
 
   float binPhase[kMaxHarmonics];
   if (mode == 1) {
+    // LCG (+ per-bin offset): 0 is a valid state, so Seed 0 != Seed 1.
     unsigned int rng = (unsigned int)(seed >= 0.0f ? seed : -seed);
-    if (rng == 0) rng = 1u;
     for (int b = 0; b < bins; b += 1) {
       rng = rng * 1664525u + 1013904223u + (unsigned int)b * 747796405u;
       binPhase[b] = (float)((rng >> 8) & 0x00FFFFFFu) / 16777216.0f;
@@ -1396,7 +1396,7 @@ inline void apply_diffusor(
     ensure_walks(walks, walkCount, walkSeed, walkSalt, H, 71u, seedUse);
   }
 
-  unsigned int rng = seedUse ? seedUse : 1u;
+  unsigned int rng = seedUse;  // LCG: 0 is a valid state, so Seed 0 != Seed 1
   const float spd = noisy_speed01(speedHz, sampleRate, blockFrames);
   const bool havePrev = lerpFrom && lerpFromLen == H;
 

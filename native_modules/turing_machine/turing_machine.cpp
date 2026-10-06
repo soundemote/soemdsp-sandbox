@@ -6,19 +6,18 @@
 // A shift-register sequencer (Music Thing Modular's "Turn Machine" idea):
 // on every clock rising edge, the top bit of a length-bit register shifts
 // out, and either repeats (probability chance to flip it first) back in at
-// the bottom. Reset zeroes the register. CV/Scale/Gate are all read off
+// the bottom. Reset zeroes the register and restarts the flip RNG from the
+// Seed. CV/Scale/Gate are all read off
 // the same register, just interpreted differently (bipolar level-scaled
 // value, a 12-bit chunk for a scale/quantizer lookup elsewhere, and the
 // bottom bit as a gate).
 //
-// The JS reference draws its flip decision from Math.random() -- global,
-// unseeded, genuinely different every run. A native module can't share
-// that RNG (no cross-language random source is wired up), so this port
-// uses its own xorshift32, seeded once at create() from a JS-supplied
-// entropy value (Math.random()-derived, drawn once per instance) rather
-// than a fixed seed -- preserving the "different every time" feel instead
-// of making every instance's sequence deterministically reproducible.
-// Reset/clock/mask/CV/Scale/Gate logic is otherwise an exact port.
+// Randomness: the flip decisions come from a private xorshift32 seeded only
+// from the module's saved Seed param (0..16777215; 0 is a normal seed):
+// state = seed_to_rng_state(seed_mix(Seed, kSeedFlip)). The patch gives each
+// new module its own Seed (from the patch master seed), so instances differ
+// while every reload of the same patch reproduces the same sequence. The
+// stream restarts on Reset and whenever Seed changes.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -28,12 +27,18 @@ using namespace soemdsp_maths;
 
 static const int kMaxInstances = 32;
 
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedFlip = 1u,  // per-clock flip decisions
+};
+
 struct TuringMachineState {
   bool active;
   bool clockWasHigh;
   bool resetWasHigh;
   int registerValue;
   unsigned int rngState;
+  unsigned int seed;  // module Seed currently applied to rngState
   double lastScale;
   double lastGate;
 };
@@ -45,16 +50,21 @@ static double next_unit(unsigned int& state) {
   return (double)xorshift32(state) / 4294967295.0;
 }
 
+static unsigned int flip_rng_state(unsigned int seed) {
+  return seed_to_rng_state(seed_mix(seed, kSeedFlip));
+}
+
 }  // namespace
 
-extern "C" int soemdsp_turing_machine_create(unsigned int entropySeed) {
+extern "C" int soemdsp_turing_machine_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       TuringMachineState& s = gPool[i];
       s.clockWasHigh = false;
       s.resetWasHigh = false;
       s.registerValue = 0;
-      s.rngState = entropySeed ? entropySeed : 1U;
+      s.seed = 0u;  // host Seed applied on first sample (re-seeds on change)
+      s.rngState = flip_rng_state(0u);
       s.lastScale = 0.0;
       s.lastGate = 0.0;
       s.active = true;
@@ -75,10 +85,17 @@ extern "C" double soemdsp_turing_machine_sample(
   double reset,
   double length,
   double probability,
-  double level
+  double level,
+  double seedIn
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   TuringMachineState& s = gPool[handle - 1];
+
+  const unsigned int seed = seed_param_u32(seedIn);
+  if (seed != s.seed) {
+    s.seed = seed;
+    s.rngState = flip_rng_state(seed);
+  }
 
   const bool clockHigh = safe(clock) > 0.0;
   const bool resetHigh = safe(reset) > 0.0;
@@ -90,6 +107,7 @@ extern "C" double soemdsp_turing_machine_sample(
 
   if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {
     s.registerValue = 0;
+    s.rngState = flip_rng_state(s.seed);
   }
 
   if (rising_edge_bool(clockHigh, &s.clockWasHigh)) {
@@ -121,5 +139,5 @@ extern "C" double soemdsp_turing_machine_gate(int handle) {
 }
 
 extern "C" int soemdsp_turing_machine_version() {
-  return 1;
+  return 2;
 }

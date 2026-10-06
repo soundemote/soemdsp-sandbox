@@ -141,6 +141,8 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-088 | see | open | 1D Phosphor / 1D Trace regular gap at low frequency |
 | B-089 | see | open | Intermittent module slider positions all show at 0 (render race) |
 | B-090 | hear | open | Keypad: turning latch off does not end an active latch |
+| B-091 | see | open | Perform page: Escape leads to a black page (app hotkeys not disabled) |
+| B-092 | see | open | Metronome: face indicator still does not blink with the gate |
 ---
 
 ## Inbox (unnumbered user reports)
@@ -1049,6 +1051,28 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - What: With latch on, press a key, then turn latch off — the latch does not end; the key stays latched.
 - Repro: Latch on → press a key → turn latch off. Latched key remains engaged.
 - Expected: Turning latch off should end any active latch so the previously latched key releases.
+- Fix shape: Not started. Logged only; do not tackle. Docs-only; no code fix in this report.
+
+### B-091 — Perform page: Escape leads to a black page (app hotkeys not disabled)
+- Status: open
+- Severity: see
+- Source: user 2026-10-05 (ArchIV)
+- Doc: `docs/B-091_PERFORM_ESCAPE_BLACK_PAGE.md`
+- Files: `public/perform.html` / app hotkey handling (not pinned).
+- What: On the Perform page (`public/perform.html`, future audio plugin) pressing Escape leads to a black page. Not the circuit-builder canvas, not circuit build → canvas.
+- Repro: Open Perform page → press Escape → page goes black.
+- Expected: All app hotkeys disabled on the Perform page. Escape must not close the patch or leave a black page. The circuit builder must never appear on the Perform page.
+- Fix shape: Not started. Logged only; do not tackle. Docs-only; no code fix in this report.
+
+### B-092 — Metronome: face indicator still does not blink with the gate
+- Status: open
+- Severity: see
+- Source: user 2026-10-05 (ArchIV)
+- Doc: `docs/B-092_METRONOME_BLINK_NOT_SYNCED_TO_GATE.md`
+- Files: Metronome module face indicator (not pinned).
+- What: User: "the metronome still doesn't blink with the gate". The Metronome face indicator does not blink in sync with its gate output. "Still" implies a prior report/attempt, but no earlier metronome blink entry was found in `docs/`.
+- Repro: Add a Metronome, run it, watch the face indicator vs. the gate output.
+- Expected: Indicator blinks on each gate pulse, in sync with the gate.
 - Fix shape: Not started. Logged only; do not tackle. Docs-only; no code fix in this report.
 
 ---

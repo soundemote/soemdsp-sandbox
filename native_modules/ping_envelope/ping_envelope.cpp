@@ -3,10 +3,10 @@
 // soemdsp-native-target: pingEnvelope
 // soemdsp-native-kind: envelope
 //
-// Model Short (soundemote.io / old pluckEnvelope3 / default):
+// Model for Lin / Short (soundemote.io / old pluckEnvelope3 / default):
 //   x = clamp01(env + (0.5 - Decay)) -> 5-decade exp -> relHz = fb * 10 (0..10 Hz).
 //   Decay 0 = short fall, 1 = long. Amplitude scales output (env * amp).
-// Model Long (current sandbox):
+// Model for Exp / Long (current sandbox):
 //   x = env * 0.7718 + (1 - Decay) -> 5-decade exp -> Release 0..1000 Hz.
 //   Decay 0 = offset 1, 1 = offset 0. Amplitude scales inertial target.
 // Shared: asymmetric one-pole toward Trigger, Recalc On Trig, Attack,

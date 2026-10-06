@@ -152,6 +152,7 @@
     "program": 0,
     "tags": ""
   },
+  "masterSeed": 3075956405,
   "modularOnlyControlsVisible": true,
   "modulations": [
     {
@@ -823,7 +824,8 @@
         "frequency": 0,
         "resonance": 0.9688854934566272,
         "chaos": 0.4987832152127358,
-        "amplitude": 1
+        "amplitude": 1,
+        "seed": 12379596
       },
       "type": "superloveFilter",
       "widthGu": 6,

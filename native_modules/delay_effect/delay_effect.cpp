@@ -11,9 +11,8 @@
 // buffer length per instance, resetting state exactly when the JS
 // original would have reallocated (i.e. when sampleRate changes).
 //
-// The seed hash (`stableSeed("{nodeId}:delayVariation")`) is a one-time
-// string hash, not per-sample DSP -- same call as randomWalk's seed key,
-// computed once JS-side and passed in as a plain integer.
+// `seed` is the module's own Seed param mixed by the graph engine
+// (seed_mix(Seed, part)), passed in as a plain uint32. 0 is a valid seed.
 
 #include <soemdsp/soemdsp.hpp>
 

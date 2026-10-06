@@ -7,6 +7,7 @@
 //   soemdsp::constant -- kPI/kTAU/...
 //   soemdsp::debug    -- safe / is_bad / is_nan / default_if_*
 //   soemdsp::math     -- clamp/wrap/lerp/... poly_blep, midi_hz, pan, one_pole, edges, soft_clip, ...
+//                        seed_mix / seed_to_rng_state (math/seed.h, per-module Seed streams)
 // Flat soemdsp_maths:: remains a compatibility mirror for older modules.
 //
 // Domain layout under library/include/soemdsp/:
@@ -18,6 +19,7 @@
 #include <soemdsp/debug/debug.h>
 #include <soemdsp/math/scalar_helpers.h>
 #include <soemdsp/math/noise.h>
+#include <soemdsp/math/seed.h>
 #include <soemdsp/math/poly_blep.h>
 #include <soemdsp/math/midi_hz.h>
 #include <soemdsp/math/exp_log.h>

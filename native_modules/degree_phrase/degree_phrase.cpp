@@ -4,6 +4,9 @@
 // soemdsp-native-kind: pitch
 //
 // 8-step degree phrase + rest + mutate. RNG: per-instance xorshift32.
+// Seeded only from the module's Seed param (0..16777215; 0 is a normal seed):
+// state = seed_to_rng_state(seed_mix(Seed, kSeedMutate)). Re-seeds on
+// Reset and whenever Seed changes.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -12,6 +15,11 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 32;
+
+// Fixed seed components (never reorder; append new parts at the end).
+enum : unsigned int {
+  kSeedMutate = 1u,  // per-step mutate decisions
+};
 
 struct State {
   bool active;
@@ -22,6 +30,7 @@ struct State {
   int liveDegrees[8];
   int liveRests[8];
   unsigned int rngState;
+  unsigned int seed;  // module Seed currently applied to rngState
   double lastMidi;
   double lastGate;
   double lastTrigger;
@@ -35,9 +44,13 @@ static double next_unit(unsigned int& state) {
   return (double)xorshift32(state) / 4294967295.0;
 }
 
+static unsigned int seeded_rng_state(unsigned int seed) {
+  return seed_to_rng_state(seed_mix(seed, kSeedMutate));
+}
+
 }  // namespace
 
-extern "C" int soemdsp_degree_phrase_create(unsigned int entropySeed) {
+extern "C" int soemdsp_degree_phrase_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       State& s = gPool[i];
@@ -45,7 +58,8 @@ extern "C" int soemdsp_degree_phrase_create(unsigned int entropySeed) {
       s.resetWasHigh = false;
       s.hasLive = false;
       s.index = 0;
-      s.rngState = entropySeed ? entropySeed : 1u;
+      s.seed = 0u;  // host Seed applied on first sample (re-seeds on change)
+      s.rngState = seeded_rng_state(0u);
       s.lastMidi = 60.0;
       s.lastGate = 0.0;
       s.lastTrigger = 0.0;
@@ -81,10 +95,17 @@ extern "C" double soemdsp_degree_phrase_sample(
   double step1, double step2, double step3, double step4,
   double step5, double step6, double step7, double step8,
   double rest1, double rest2, double rest3, double rest4,
-  double rest5, double rest6, double rest7, double rest8
+  double rest5, double rest6, double rest7, double rest8,
+  double seedIn
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   State& s = gPool[handle - 1];
+
+  const unsigned int seed = seed_param_u32(seedIn);
+  if (seed != s.seed) {
+    s.seed = seed;
+    s.rngState = seeded_rng_state(seed);
+  }
 
   int steps = (int)(safe(stepsIn) + 0.5);
   if (steps < 1) steps = 1;
@@ -124,6 +145,7 @@ extern "C" double soemdsp_degree_phrase_sample(
   const bool resetHigh = safe(reset) > 0.0;
   if (rising_edge_bool(resetHigh, &s.resetWasHigh)) {
     s.index = 0;
+    s.rngState = seeded_rng_state(s.seed);
     for (int i = 0; i < 8; i++) {
       s.liveDegrees[i] = degrees[i];
       s.liveRests[i] = rests[i];
